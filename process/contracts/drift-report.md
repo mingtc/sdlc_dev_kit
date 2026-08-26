@@ -22,11 +22,29 @@ owes all six, in any presentation it likes.**
 - **3 — The running narrative log is within its size threshold.** Over it, a rotation is due and
   the report names it.
   *Why:* a log nobody can open is a log nobody reads, and the process's memory is in it.
-- **4 — Identifier integrity across EVERY state, not just the active ones.** Every item declares
-  an identifier; identifiers are unique across the whole lifecycle; each item's declared
-  identifier matches its own name.
-  *Why:* a duplicate identifier makes every reference ambiguous, and it is created by a rename or
-  a copy — both of which look innocent at the time.
+- **4 — Identifier integrity across EVERY state and EVERY identifier space the process
+  maintains — each space named separately, and each skipped one skipped with its own reason.**
+  Every item declares an identifier; identifiers are unique across the whole lifecycle; each
+  item's declared identifier matches its own name. **The board is one identifier space. A
+  REGISTER is another** — a decision register, a requirements register, any file whose entries
+  carry handles that later text resolves through. Where a space is ordered by anything other than
+  its identifiers, **the highest identifier is read order-independently**, and the check reports
+  it, so nobody has to derive the maximum by position.
+  *Why:* a duplicate identifier makes every reference ambiguous. On the board it is created by a
+  rename or a copy — both of which look innocent at the time. **In a register it is created by
+  concurrency, and it arrives with no witness at all:** two authors minting the same id under
+  *different section headings* of an append-only file produce **no textual conflict**, so the
+  merge is clean and the duplicate lands unremarked. Measured in a project running this process:
+  two sessions minted the same register id within an hour, and the only defence was an instruction
+  in the register's own header asking the author to re-read first — an instruction where the rest
+  of this process uses a fence. The order-independence half is measured too: a section-grouped
+  register put a later id *above* an earlier one, so reading the last heading in file order
+  returned a number that was not the maximum, and a checklist keyed on it would have proposed an
+  id that already existed — **and would have halted on a healthy register**, which is a guard
+  nobody re-arms.
+  *Deliberately not enumerated here:* which spaces a project has. The kit's own implementation
+  names the board and one register because it ships those two; a project that keeps a third owes
+  it a reading, and this sheet would be wrong rather than general if it fixed the number.
 - **5 — Recent history is attributed.** Every commit subject in a recent window carries a
   declared role, and the check understands collapsed commits so a landing is judged by its own
   subject.

@@ -117,6 +117,13 @@ git_report_ahead_behind() {
     echo "Warning: '$dir' local $branch is ${ahead} commit(s) AHEAD of $remote/$branch and NOT pushed (the looks-pushed check)." >&2
     echo "         Push it: git -C '$dir' push $remote $branch" >&2
   else
-    echo "Ahead/behind $remote/$branch: ahead=${ahead:-0} behind=${behind:-0} — nothing local left unpushed." >&2
+    # NAMES THE TREE IT READ, exactly as the warning branch above does. This
+    # branch used to print "nothing local left unpushed" with no subject, so a
+    # statement about ONE checkout read as a global clearance — and it was
+    # measured doing that beside a commit made in a DIFFERENT worktree that had
+    # not landed. The complaint was specific and the all-clear was vague, and an
+    # instrument specific in failure and vague in success errs only ever toward
+    # false confidence, because the vague half is where a reader stops.
+    echo "Ahead/behind $remote/$branch in '$dir': ahead=${ahead:-0} behind=${behind:-0} — nothing local left unpushed THERE." >&2
   fi
 }

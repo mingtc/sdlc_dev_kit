@@ -147,6 +147,15 @@ wider than it is.**
 - **The span, for a text guard, with its unscoped hit count.** A lexicon reported without its region
   is a measurement without units: **the ratio between what it matches over the whole corpus and what
   it matches inside its span IS the precision claim** (§ A.7).
+- **The subject, on the CLEARING branch as well as the complaining one.** *Every instrument that
+  names its operand when it complains must name it when it clears.* An instrument whose failure path
+  prints *"⟨this tree⟩ is 2 commits ahead"* and whose success path prints *"nothing left unpushed"*
+  has an asymmetry that errs **only ever toward false confidence** — the vague half is the one a
+  reader stops at, and a clearance with no subject is read as covering whatever the reader had in
+  mind. Measured: such a line reported all-clear beside a commit made in a different worktree that
+  had not landed, and the report was true of the tree it read and false of the question being asked.
+  The remedy is one token, and the test is cheap: **read the green line alone, out of context, and
+  see whether it still says what it measured.**
 
 ### A.5 — Assert the FACT, never the sentence that states it
 

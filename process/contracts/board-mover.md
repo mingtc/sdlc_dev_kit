@@ -17,9 +17,34 @@ to change and making every change self-recording.
   *Why:* a hand move skips the record and the publication below, so the board is right locally
   and wrong for everybody else.
 - **Every move APPENDS to the item's own activity log — date, actor, target, note.** Appends
-  only: an earlier entry is never rewritten or removed.
+  only: an earlier entry is never rewritten or removed. **The target is IN the entry**, not only in
+  the publication's own subject line.
   *Why:* the log is the review record; a log that can be edited proves nothing about what
-  happened.
+  happened. And an entry that omits its target is **un-judgeable**: a drift checker holding a
+  card's container against its own last entry has nothing to hold it to, so the check goes blind in
+  exactly the workflow that uses a custom note — which is the workflow the manual mandates.
+
+- **RECORDING WITHOUT MOVING IS A SECOND OPERATION, and it changes no container.** An append that
+  states something about an item — a declaration owed before an act, a ruling cited, an observation
+  the next reader needs — is **not a move**, is available on an item **already in its target
+  state**, and **carries no target, because there is none.** Every invariant above about *moves*
+  binds moves; this one binds the other operation, and the two are named separately by the tool
+  rather than distinguished by an omitted argument.
+  *Why, and this is the reason it is an invariant rather than a convenience:* **doctrine's most
+  safety-critical artefacts are the ones a card is required to carry BEFORE the act they
+  authorize** — a budget committed before the first spend, a consent id recorded before the run it
+  permits. The item is already in the right column, so a mover with only a move refuses. **A
+  process that names a tool for an act its tool cannot perform gets that act done by hand**, in
+  several steps, every one of them skippable and none of them reported — which is the failure this
+  invariant exists to close, not a gap in convenience.
+  **Two things it must not disturb, stated because they are what a careless version breaks:**
+  **(i)** *the container IS the status* survives intact — this operation writes no status anywhere,
+  so status still lives in exactly one place; and **(ii)** the entry **must not emit a structured
+  status token**, so a drift checker reading the last activity entry treats it as un-judgeable and
+  skips it, rather than reading a note as a declaration about a card that has not moved. A mover
+  that reuses its move formatter here writes a target that does not exist, and the checker believes
+  it. **The guarantee is the tool's to make**, so a note whose own text would introduce such a
+  token is refused rather than passed through.
 - **Every move names its actor, and the actor must be one of the project's declared roles.** An
   unrecognised actor refuses the move rather than being recorded as itself.
   *Why:* an unconstrained actor field silently becomes free text, and the audit trail stops
@@ -58,8 +83,18 @@ to change and making every change self-recording.
 - The named item does not exist, **or more than one item matches the name** ⇒ refuse, listing the
   matches. Guessing between two items is a data-loss move.
 - The target state is not in the declared lifecycle ⇒ refuse, listing the legal targets.
-- The item is already in the target state ⇒ refuse as a no-op rather than appending a second,
-  meaningless log entry.
+- **A MOVE** whose item is already in the target state ⇒ refuse as a no-op rather than appending a
+  second, meaningless log entry — **and name the record-without-moving operation in the refusal**,
+  because "already there, nothing to do" is false for the caller who wanted to record something.
+  This refusal is **scoped to a move** and must never reach a note-only append: applying it there is
+  precisely what makes a mandated declaration unperformable by its named tool.
+- A **note-only append with no note** ⇒ refuse. A move has a defensible default note, because the
+  move itself is the fact being recorded; here the note is the entire content.
+- A **note-only append whose note would read as a status declaration** — it carries a transition
+  arrow or a folder name in a structured position — ⇒ refuse, naming the offending shape. The
+  formatter emits none; this closes the only remaining way one arrives.
+- Both operations requested at once, or neither ⇒ refuse. A caller who has asked to move and not to
+  move does not know which they wanted, and this is the one guess the tool must never make.
 - No actor was given, or the actor is not a declared role ⇒ refuse, listing the legal roles.
 - The target container does not exist ⇒ refuse **before** moving anything.
 - The publication of the move fails ⇒ report loudly that the board changed locally and did **not**
@@ -78,11 +113,19 @@ The move printed, and a reader can check each line without trusting the tool:
 Green is those three facts. An exit status with no statement of what moved where is not a
 completed move; it is a completed process.
 
+**For a record-without-moving append, green is two facts and the first one is different: the item
+and the container it STAYED IN, then the exact entry, then the published commit.** It must not print
+a `from → to` line, because it performed no transition — a tool that prints one is asserting a
+transition it did not make, and the log's own transition shorthand then counts landings that never
+happened.
+
 ## 5. MINIMAL INTERFACE
 
-**In:** the item's identity, the target state, the acting role, a one-line note.
-**Out:** the from/to pair, the appended activity line, the published commit identifier, and a
-non-zero exit for every refusal above.
+**In:** the item's identity, the acting role, a one-line note, and **either** a target state (a
+move) **or** an explicit record-without-moving selector — never both, never neither.
+**Out:** for a move, the from/to pair; for a record, the container the item stayed in. Then in both
+cases the appended activity line, the published commit identifier, and a non-zero exit for every
+refusal above.
 **Not in:** anything about *how* the publication reaches the trunk — that is the auxiliary
 checkout contract's problem, and a reimplementation may solve it any way it likes.
 

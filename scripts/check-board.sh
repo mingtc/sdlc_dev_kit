@@ -116,6 +116,13 @@ ROLE_SCAN_N=20        # how many recent trunk commits section (e) scans
 # a scatter of literals here — and so a board mid-rename still parses).
 ISSUE_ID_KEY='id'
 ISSUE_ID_PATTERN='[A-Za-z]+-[0-9]+'
+# Check (d)'s SECOND identifier space. The board is one space; a REGISTER is another,
+# and `contracts/drift-report.md` invariant 4 covers "every identifier space the
+# process maintains", enumerated, each named — the same widening invariant 6 took.
+# One record per register:  <path>|<heading mark>|<id shape>
+# The path is repo-relative; an absent register SKIPS with its reason (never a silent
+# pass). Add a record per register you keep; the shipped one is the decision register.
+REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
 # How far into a file check (d) will look for the frontmatter's OPENING `---`.
 # It is not always line 1: the kit's own templates open with an HTML comment
 # explaining what the initializer stamps, and a card minted from one carries that
@@ -412,7 +419,70 @@ if [ -n "$d_out" ]; then
   d_hits=$((d_hits + $(printf '%s\n' "$d_out" | grep -c '⚠')))
   drift=1
 fi
-[ "$d_hits" -eq 0 ] && echo "    ✓ none (every ${ISSUE_ID_KEY}: unique across all six columns and matching its filename)"
+
+# --- (d) continued: THE OTHER IDENTIFIER SPACES — the declared registers -------
+#     Same invariant, second operand space. A register's ids are handles that
+#     every later reference resolves through, exactly like a board id — but the
+#     collision arrives differently and that is why it went unwatched: two legs
+#     minting the same id in DIFFERENT SECTIONS of an append-only register produce
+#     NO TEXTUAL CONFLICT, so a rebase merges both cleanly and the duplicate lands
+#     with no witness. Measured in a project running this process: two sessions
+#     minted the same id within an hour, and the only defence was an instruction in
+#     the register's own header telling the author to re-read before writing.
+#
+#     THE MAX IS READ ORDER-INDEPENDENTLY, and that is the second half of this arm.
+#     A register grouped by section puts a later id ABOVE an earlier one, so
+#     `grep '^### D-' | tail -1` returns whatever sits last in FILE order, not the
+#     highest id — read as "the max" it proposes an id that already exists. This
+#     arm therefore prints the true maximum, so nobody has to run the fragile
+#     positional grep at all: the tool is the authority, not a recipe copied into
+#     a header where it can be re-derived wrong.
+#
+#     Reports per register, names the file it read, and SKIPS an absent one with
+#     its reason. Read-only; a finding sets `drift` like the rest of check (d).
+reg_read=0; reg_skipped=0
+while IFS='|' read -r reg_path reg_mark reg_shape; do
+  [ -n "$reg_path" ] || continue
+  reg_file="$CB_TREE/$reg_path"
+  if [ ! -f "$reg_file" ]; then
+    echo "    $reg_path: not present  (skipped — this project keeps no register there)"
+    reg_skipped=$((reg_skipped+1)); continue
+  fi
+  # Every id in the file, in the order the file happens to hold them.
+  reg_ids="$(grep -oE "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | sed "s|^${reg_mark}||" || true)"
+  if [ -z "$reg_ids" ]; then
+    echo "    $reg_path: 0 '${reg_mark}${reg_shape}' entry headings  (nothing to check yet)"
+    continue
+  fi
+  reg_total="$(printf '%s\n' "$reg_ids" | grep -c .)"
+  reg_distinct="$(printf '%s\n' "$reg_ids" | sort -u | grep -c .)"
+  # ORDER-INDEPENDENT max: numeric sort on the digits, never the file's last line.
+  # `sed -E`, not a BSD-hostile `\+`: the first spelling of this line silently
+  # matched NOTHING, so `sort -n` was handed whole ids ("D-07"), compared them all
+  # as zero, fell back to a BYTE compare and returned the right answer for the
+  # wrong reason — correct on D-60/D-66, wrong the moment a register holds D-9 and
+  # D-10. Caught by reading the output against a planted case, not by trusting it.
+  reg_max="$(printf '%s\n' "$reg_ids" | sed -E 's/[^0-9]*([0-9]+)$/\1/' | sort -n | tail -1)"
+  reg_dupes="$(printf '%s\n' "$reg_ids" | sort | uniq -d | tr '\n' ' ' | sed 's/ $//')"
+  if [ -n "$reg_dupes" ]; then
+    echo "    ⚠ $reg_path: DUPLICATE id(s): $reg_dupes  — every reference to them is ambiguous; renumber the later one and its citations"
+    d_hits=$((d_hits+1)); drift=1
+  fi
+  reg_read=$((reg_read+1))
+  echo "    $reg_path: $reg_total entry heading(s), $reg_distinct distinct, highest id number $reg_max (max over ALL headings, not the file's last line)"
+done <<< "$(printf '%s\n' "$REGISTERS")"
+# THE CLEARANCE NAMES WHAT IT COVERED, and never more. The first spelling of this
+# line said "every declared register's ids distinct" even on a run where every
+# register was SKIPPED — a pass over unread operands, which is `instruments.md`
+# § A.4's own rule failing inside the arm that enforces it.
+if [ "$d_hits" -eq 0 ]; then
+  d_reg_note=""
+  if   [ "$reg_read" -gt 0 ] && [ "$reg_skipped" -gt 0 ]; then d_reg_note="; ids distinct in the $reg_read register(s) read, $reg_skipped skipped"
+  elif [ "$reg_read" -gt 0 ];                            then d_reg_note="; ids distinct in every declared register"
+  elif [ "$reg_skipped" -gt 0 ];                         then d_reg_note="; NO register was read ($reg_skipped skipped) — this pass says nothing about them"
+  fi
+  echo "    ✓ none (every ${ISSUE_ID_KEY}: unique across all six columns and matching its filename${d_reg_note})"
+fi
 # END check (d)
 
 # ---------------------------------------------------------------------------

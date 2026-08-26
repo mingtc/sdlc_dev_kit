@@ -17,14 +17,37 @@
 # irrelevant. Run this from anywhere (the trunk, a feature worktree, or .kanban-wt).
 #
 # Usage:
-#   ./scripts/move-issue.sh <ID> <target> --role PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect [--note "..."] [--discard-dirty] [--set-pr <val>]
+#   ./scripts/move-issue.sh <ID> <target> --role <R> [--note "..."] [--discard-dirty] [--set-pr <val>]
+#   ./scripts/move-issue.sh <ID> --note-only --role <R> --note "..."   # record WITHOUT moving
+#
+#   <R> = PM | Dev | QA | Refactorer | UIDesigner | Orchestrator | Architect
+#
+# TWO OPERATIONS, and they are not a flag apart — they are different acts:
+#   A MOVE changes the card's container, which IS its status, and records that it
+#   did. A NOTE-ONLY APPEND records something on the card and changes no status.
+#   Exactly one of them per invocation.
+#
+#   Why the second exists: doctrine repeatedly requires a card to carry a record
+#   BEFORE the act it authorizes — a budget declared before the first spend, a
+#   ruling cited before it is executed — on a card that is already in the right
+#   column. The move refuses that ("already in progress/…/. Nothing to move"), so
+#   the kit's own safety-critical declarations were being appended BY HAND, four
+#   steps, every one of them skippable and none of them reported.
 #
 # Target folders: todo | in_progress | dev_complete | qa_complete | blocked | done
 #   (done/ is the permanent home for completed stories — normally populated by
 #    archive.sh sweeping qa_complete/, but a valid manual target too.)
 #
 # Flags:
-#   --note "..."     Activity-log body. Defaults to "git mv to <target>/."
+#   --note-only      Append an Activity entry and publish it WITHOUT moving the
+#                    card. Takes no target; --note is REQUIRED (the note is the
+#                    entire content). The entry is written so the drift report
+#                    reads it as un-judgeable rather than as a status
+#                    declaration, and a note that would read as one is refused.
+#   --note "..."     Activity-log body. On a move it defaults to "git mv to
+#                    <target>/." — except for blocked/, which requires a real one:
+#                    a parked card whose blocker is not written down cannot be
+#                    unparked by anyone but whoever parked it.
 #   --discard-dirty  If the kanban worktree holds uncommitted tracked changes (a
 #                    half-applied move, a loose pr: edit), discard them instead of
 #                    aborting. Without it, such state ABORTS the op rather than
@@ -88,13 +111,23 @@ usage() {
 if [ $# -lt 2 ]; then usage >&2; exit 1; fi
 
 ISSUE_ID="$1"; shift
-TARGET="$1"; shift
-ROLE=""; NOTE=""; SET_PR=""
+
+# THE TARGET IS POSITIONAL AND OPTIONAL, because --note-only is a DIFFERENT
+# OPERATION rather than a move with a missing argument: it records without
+# moving, so there is no target to name (contracts/board-mover.md § 2). A leading
+# `--` therefore means "no positional target"; anything else is the target.
+TARGET=""
+case "${1:-}" in
+  --*) ;;
+  *)   TARGET="$1"; shift ;;
+esac
+ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --role) ROLE="${2:-}"; shift 2 ;;
     --note) NOTE="${2:-}"; shift 2 ;;
+    --note-only) NOTE_ONLY=1; shift ;;
     --set-pr) SET_PR="${2:-}"; shift 2 ;;
     --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -102,14 +135,70 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# EXACTLY ONE OF THE TWO OPERATIONS. Both, or neither, is a caller who does not
+# know which one they wanted — and guessing between "move it" and "do not move
+# it" is the one guess this tool must never make.
+if [ "$NOTE_ONLY" -eq 1 ] && [ -n "$TARGET" ]; then
+  echo "Error: --note-only records WITHOUT moving, so it takes no target (got '$TARGET')." >&2
+  echo "  To move and record in one act:  $0 $ISSUE_ID $TARGET --role <R> --note \"…\"" >&2
+  exit 1
+fi
+if [ "$NOTE_ONLY" -eq 0 ] && [ -z "$TARGET" ]; then
+  echo "Error: no target given. Name a target folder to MOVE, or pass --note-only to RECORD without moving." >&2
+  usage >&2; exit 1
+fi
+
+# A NOTE-ONLY APPEND WITHOUT A NOTE IS AN EMPTY RECORD. The move has a defensible
+# default note ("git mv to <target>/.") because the move itself is the fact being
+# recorded; a note-only append has no such fact — the note IS the whole content.
+if [ "$NOTE_ONLY" -eq 1 ] && [ -z "$NOTE" ]; then
+  echo "Error: --note-only requires --note \"…\" — the note is the entire content of the entry." >&2
+  exit 1
+fi
+
+# A NOTE-ONLY ENTRY MAY NOT EMIT A STATUS DECLARATION, and this refusal is what
+# makes that guarantee real rather than best-effort. check-board's folder-vs-
+# Activity arm reads the LAST structured status token on the last Activity bullet
+# — a transition arrow `→ <folder>` or a backticked `` `<folder>` `` — and treats
+# a bullet with no such token as un-judgeable, which is exactly the behaviour a
+# note-only entry needs. The formatter below emits no such token; this refuses
+# the remaining way one could arrive, which is inside the caller's own note text.
+# Without it the guarantee would hold for the tool and not for its output, and a
+# note reading "unblocked by → in_progress work" would be read as a declaration
+# that the card has moved when it has not.
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  if printf '%s' "$NOTE" | grep -qE "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done)/?\`)"; then
+    echo "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." >&2
+    echo "  It contains a transition arrow or a backticked status folder, which the drift report" >&2
+    echo "  reads as 'this card's declared status is X' — on a card that has not moved." >&2
+    echo "  Rephrase without '→ <folder>' and without \`<folder>\`, or make it a real move." >&2
+    exit 1
+  fi
+fi
+
 # The status folder set. It is a SEAM WITHOUT A VARIABLE across four scripts
 # (this one, check-board.sh, archive.sh, finish-pr.sh) — process/EXTRACTION.md
 # § "the status folder set" states the cost: adding or renaming a column means
 # editing all four by hand.
-case "$TARGET" in
-  todo|in_progress|dev_complete|qa_complete|blocked|done) ;;
-  *) echo "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done (got '$TARGET')" >&2; exit 1 ;;
-esac
+if [ "$NOTE_ONLY" -eq 0 ]; then
+  case "$TARGET" in
+    todo|in_progress|dev_complete|qa_complete|blocked|done) ;;
+    *) echo "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done (got '$TARGET')" >&2; exit 1 ;;
+  esac
+
+  # A PARK WITH NO BLOCKER RECORDED IS NOT A PARK. The board's own legend reads
+  # "parked, WITH THE BLOCKER WRITTEN DOWN", and the default note ("git mv to
+  # blocked/.") satisfies the mover while recording nothing about WHY — so the
+  # one column whose entire purpose is to carry a reason is the one that accepts
+  # a move without one. Reproduced. The other columns' default note is honest
+  # (the move IS the fact); blocked/'s is not.
+  if [ "$TARGET" = "blocked" ] && [ -z "$NOTE" ]; then
+    echo "Error: moving to blocked/ requires --note \"…\" naming the blocker." >&2
+    echo "  A parked card whose blocker is not written down cannot be unparked by anyone" >&2
+    echo "  but the person who parked it, and they will not remember either." >&2
+    exit 1
+  fi
+fi
 
 # THE ROLE SET LIVES IN FOUR PLACES — change one, change all four (the adapter's
 # role + prefix tables, scripts/githooks/commit-msg's ROLE_PREFIXES, this
@@ -161,37 +250,94 @@ fi
 
 SRC="${MATCHES[0]}"
 SRC_FOLDER=$(basename "$(dirname "$SRC")")
-DEST_DIR="$KWT/progress/$TARGET"
-DEST="$DEST_DIR/$(basename "$SRC")"
 
-if [ "$SRC_FOLDER" = "$TARGET" ]; then
-  echo "Error: ${ISSUE_ID} is already in progress/${TARGET}/. Nothing to move." >&2
-  exit 1
-fi
-
-# A missing target folder ABORTS rather than being created: git does not track an
-# empty directory, so a board whose columns exist only as .gitkeep-less dirs does
-# not survive a clone. kit-init.sh writes one .gitkeep per column for exactly this.
-[ -d "$DEST_DIR" ] || { echo "Error: progress/$TARGET/ does not exist in the worktree." >&2; exit 1; }
-
-# Move: prefer `git mv` (tracks rename); fall back to `mv` if untracked.
-if git -C "$KWT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1; then
-  git -C "$KWT" mv "$SRC" "$DEST"
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  # THE CARD DOES NOT MOVE, so the destination IS the source. Nothing below
+  # touches the container, which is what keeps "the container IS the status"
+  # true: this operation adds a record and changes no status, so status still
+  # lives in exactly one place (contracts/board-mover.md § 2).
+  DEST="$SRC"
 else
-  mv "$SRC" "$DEST"
+  DEST_DIR="$KWT/progress/$TARGET"
+  DEST="$DEST_DIR/$(basename "$SRC")"
+
+  # THE NO-OP REFUSAL IS SCOPED TO A MOVE, and must stay that way. It exists so a
+  # move that changes nothing does not append a second meaningless entry — but a
+  # note-only append is not a move that changed nothing, it is a record that was
+  # never going to move anything. Applying this refusal to it is what made the
+  # kit's own live-resource declaration unperformable by its named tool.
+  if [ "$SRC_FOLDER" = "$TARGET" ]; then
+    echo "Error: ${ISSUE_ID} is already in progress/${TARGET}/. Nothing to move." >&2
+    echo "  To record something on this card WITHOUT moving it:" >&2
+    echo "    $0 $ISSUE_ID --note-only --role $ROLE --note \"…\"" >&2
+    exit 1
+  fi
+
+  # A missing target folder ABORTS rather than being created: git does not track an
+  # empty directory, so a board whose columns exist only as .gitkeep-less dirs does
+  # not survive a clone. kit-init.sh writes one .gitkeep per column for exactly this.
+  [ -d "$DEST_DIR" ] || { echo "Error: progress/$TARGET/ does not exist in the worktree." >&2; exit 1; }
+
+  # PLACEHOLDER LINT AT THE DEV_COMPLETE BOUNDARY. Unfilled `<angle-bracket>`
+  # template text propagates silently from a minted card into squash subjects and
+  # the archive index, where nobody re-reads it. dev_complete is the last moment
+  # the card's author is still the person holding it. WARNS, never refuses: the
+  # angle bracket is also legal prose ("<1s", "a <slug> is fine"), so a refusal
+  # here would reject valid input for a reason unrelated to correctness — which
+  # trains the operator to ignore it (process/doctrine/instruments.md § A.8).
+  if [ "$TARGET" = "dev_complete" ]; then
+    ph="$(grep -nE '<[a-z][a-z0-9 _|/-]*>' "$SRC" 2>/dev/null | head -5 || true)"
+    if [ -n "$ph" ]; then
+      {
+        echo "Warning: ${ISSUE_ID} still carries unfilled <angle-bracket> template text:"
+        printf '%s\n' "$ph" | sed 's/^/    /'
+        echo "  These travel into the squash subject and the archive index. Fill them now if"
+        echo "  they are placeholders; ignore this if they are prose. (Not a refusal.)"
+      } >&2
+    fi
+  fi
+
+  # Move: prefer `git mv` (tracks rename); fall back to `mv` if untracked.
+  if git -C "$KWT" ls-files --error-unmatch "$SRC" >/dev/null 2>&1; then
+    git -C "$KWT" mv "$SRC" "$DEST"
+  else
+    mv "$SRC" "$DEST"
+  fi
 fi
 
 # Append Activity entry at EOF (Activity must be the last section in the file).
+#
+# TWO SHAPES, AND THE DIFFERENCE IS LOAD-BEARING, not cosmetic.
+#   move:      - <date> [<role>] → <target>: <note>
+#   note-only: - <date> [<role>] NOTE: <note>
+# A move CARRIES ITS TARGET in the entry, so the drift report can hold the card's
+# folder against what its own log says it should be — previously the target lived
+# only in the commit subject, so a custom-note move was un-judgeable and the
+# detector was blind in exactly the workflow the manual mandates.
+# A note-only entry DELIBERATELY CARRIES NO ARROW AND NO BACKTICKED FOLDER, so
+# the same detector reads it as un-judgeable and skips it, instead of reading a
+# note as a status declaration on a card that has not moved. The refusal above
+# keeps the caller's own note text from reintroducing one.
 TODAY=$(date +%Y-%m-%d)
-[ -z "$NOTE" ] && NOTE="git mv to ${TARGET}/."
-ENTRY="- ${TODAY} [${ROLE}] ${NOTE}"
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  ENTRY="- ${TODAY} [${ROLE}] NOTE: ${NOTE}"
+else
+  [ -z "$NOTE" ] && NOTE="git mv to ${TARGET}/."
+  ENTRY="- ${TODAY} [${ROLE}] → ${TARGET}: ${NOTE}"
+fi
 
 if [ -n "$(tail -c1 "$DEST" 2>/dev/null)" ]; then
   printf '\n' >> "$DEST"
 fi
 printf '%s\n' "$ENTRY" >> "$DEST"
 
-echo "Moved: progress/${SRC_FOLDER}/ → progress/${TARGET}/"
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  # NO from→to LINE, because nothing moved. Printing one would be the tool
+  # asserting a transition it did not perform (contracts/board-mover.md § 4).
+  echo "Recorded (no move): ${ISSUE_ID} stays in progress/${SRC_FOLDER}/"
+else
+  echo "Moved: progress/${SRC_FOLDER}/ → progress/${TARGET}/"
+fi
 echo "File:  ${DEST#"$KWT"/}"
 echo "Entry: ${ENTRY}"
 
@@ -222,7 +368,14 @@ fi
 # Stage the destination (git mv already staged the rename; this picks up the
 # Activity-entry append + any --set-pr rewrite) and commit in the worktree.
 git -C "$KWT" add "$DEST"
-MSG="[${ROLE}] ${ISSUE_ID} → ${TARGET}: ${NOTE}"
+# THE SUBJECT SAYS WHICH OPERATION THIS WAS. `→ <target>` is the log's shorthand
+# for a transition, and a note-only commit performed none — a subject claiming one
+# would make `git log --grep='→ qa_complete'` count landings that never happened.
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  MSG="[${ROLE}] ${ISSUE_ID} NOTE: ${NOTE}"
+else
+  MSG="[${ROLE}] ${ISSUE_ID} → ${TARGET}: ${NOTE}"
+fi
 git -C "$KWT" commit -m "$MSG" --quiet
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Commit: ${SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""

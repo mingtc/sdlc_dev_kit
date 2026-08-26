@@ -34,6 +34,16 @@ where a reader would otherwise pick something defensible and wrong.
 the evidence lives. An entry that needs a paragraph does not get one here: the paragraph belongs in
 the ruling's home document and the entry points at it.
 
+**A ruling sourced from a CONVERSATION may not be its own evidence.** Where the authority is
+something said rather than something written, Provenance carries a pointer to a **primary artifact**
+— a dated record quoting the words, with whatever locator that record supports — minted at ruling
+time, in the same change as the entry. *Why:* measured, and it stopped a run: an amendment cited a
+quotation and an authorization that existed **nowhere in the repository except the amendment
+itself**, in a file read as law at every session start. The reviewer could not tell a real ruling
+from an invented one, correctly refused to proceed, and demoted both claims to provisional. Circular
+provenance is indistinguishable from fabrication **by construction**, which is why the pointer is
+owed at mint time and not on request: afterwards, the conversation is gone and nobody can supply it.
+
 **A ruling about to be EXECUTED owes three more things — inside those same three fields, never as a
 fourth.** A ruling that only describes the world can be tidied later; one that a slate of work is
 about to be built on cannot.
@@ -62,7 +72,13 @@ never reused**, so a citation elsewhere can never silently come to mean somethin
      number at landing time — not the last heading above its own insertion point — or cite the
      work-item id alongside the D-NN in the same commit, so a same-day collision stays
      disambiguable. (Measured: two same-day landings both minted the same id, each reading the
-     file correctly as it stood. Contract: process/contracts/id-minting.md § 2.) -->
+     file correctly as it stood. Contract: process/contracts/id-minting.md § 2.)
+     AND DO NOT DERIVE THE MAXIMUM BY HAND. This register is grouped by SECTION, so a later id
+     sits ABOVE an earlier one and the last `### ` heading in file order is NOT the highest id —
+     read as one it proposes an id that already exists. The board's drift report prints the true
+     maximum for every declared register (drift-report.md invariant 4); take it from there. A
+     recipe copied into this header would be one more derivation to get wrong, and the two that
+     were got wrong in one landing set were both hand-written greps. -->
 
 **Anchor convention.** Prefer a **section anchor** (`<doc> § <section>`) over a bare `file:line`
 into anything that still evolves — a line anchor drifts silently on the next edit above it.

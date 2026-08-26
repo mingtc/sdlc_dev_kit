@@ -3,8 +3,17 @@
 
 ## 1. PURPOSE
 
-To guarantee that a work item's identifier means **one thing forever**, so that every reference
-to it — in a commit, a note, a decision record, another item — resolves to exactly one item.
+To guarantee that an identifier this process issues means **one thing forever**, so that every
+reference to it — in a commit, a note, a decision record, another item — resolves to exactly one
+thing.
+
+**Two identifier spaces, not one.** A **work item's** id is the obvious case and the one with a
+tool. A **register entry's** id — a decision record, a requirements register, anything whose
+entries carry handles that later text resolves through — is the second, and it is hand-minted, so
+the invariants below reach it while the tooling does not. This sheet used to say *"a work item's
+identifier"* while the concurrency invariant in § 2 was learned **from a register collision**: the
+evidence was already about the wider space. Widened rather than duplicated, because a second sheet
+would restate these invariants and the copy is the one that goes stale.
 
 ## 2. HARD INVARIANTS
 
@@ -15,6 +24,17 @@ to it — in a commit, a note, a decision record, another item — resolves to e
 - **Identifiers are monotonic within a prefix.** The next one is greater than every one issued so
   far; numbering never restarts.
   *Why:* monotonicity is what lets a reader order two references without a database.
+- **"Every one issued so far" is read ORDER-INDEPENDENTLY, never by position.** The maximum is a
+  numeric maximum over all identifiers in the space, not the last one in file order and not the
+  last one a byte comparison sorts to.
+  *Why:* measured, twice, in one landing set. A register grouped by section holds a later id
+  *above* an earlier one, so the last heading in file order is not the maximum — read as one, it
+  proposes an id that already exists. And a numeric sort that is silently not numeric (a
+  non-portable extraction, a string compare) is correct on two-digit ids and wrong the first time
+  the space holds both a one-digit and a two-digit id — which is the harder failure, because it
+  passes every test written against the ids that already exist. **Where a tool can report the
+  maximum, it reports it, so no reader has to derive it**: a recipe copied into a file header is a
+  derivation waiting to be got wrong.
 - **The search for "used" spans the LIVE board AND the ARCHIVE.** Retired items keep their
   numbers, so an identifier that no longer appears on the board is still taken.
   *Why:* a minting rule that only reads the live board reissues the number of the first item that
@@ -56,6 +76,11 @@ to it — in a commit, a note, a decision record, another item — resolves to e
 3. Nothing was written: running it twice yields the same answer.
 
 ## 5. MINIMAL INTERFACE
+
+**This interface is the WORK-ITEM minter's.** Register ids have **no minting tool by design** —
+the author re-reads the space at write time, and the fence is the drift report's identifier-integrity
+check (`drift-report.md` invariant 4), which reports the space's true maximum and any duplicate.
+Saying so here stops the next reader concluding a register minter is missing.
 
 **In:** the configured prefix; the live set of items; the retired index.
 **Out:** one proposed identifier, or a refusal that names the starting decision the operator must
