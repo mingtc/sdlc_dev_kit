@@ -296,6 +296,33 @@ ledgers) and [`lookup-tables.md`](lookup-tables.md) § A.4.
   moved between mint and implementation, and the reason nothing broke is that the mint had made the
   count re-derivable rather than load-bearing.*
 
+**And the operand has to be in the repository doing the citing. A citation into a document you do not
+control is not a citation, it is a hope.**
+
+A findings round is usually fed by documents from **somewhere else** — another project's feedback
+file, an attachment, a report pasted into a conversation. Those become the authority for dozens of
+work items, and the items cite them by id or by section for the whole life of the program. **Every one
+of those citations is unresolvable the moment the source moves, is edited, or belongs to a repository
+this one does not own.**
+
+- **Copy every supplied document into this repository, verbatim, before minting anything that cites
+  it.** Not a link, not a path into a sibling project, not a quotation in a change file — **the
+  document.** It is an operand, and an operand outside version control is not one.
+- **Date the copy by the day it was supplied, and never edit it.** Later feedback from the same source
+  is a **new dated file**, because the thing that makes the original citable is that it still says
+  what it said when it was cited.
+- **A supplied document that cannot be recovered is NAMED as missing**, beside the ones that were —
+  with what depends on it. *A missing input nobody names reads exactly like an input nobody needed.*
+
+**The failure is quiet and it compounds** (§ A.5b's second half), which is why this is a step rather
+than a caution: nothing breaks at mint time, every citation still looks fine in review, and the
+program only discovers the gap when an implementer opens a path that is not there — by which time the
+citing items number in the dozens. **Watch for the sharper version: fixing the instance without
+fixing the class.** *In the source program two attachments were transcribed after a leg reported them
+as a blocker — and the largest supplied document of all, carrying most of the ids the backlog was
+built on, was left sitting in another project's tree for the rest of the crunch. The instance was
+closed; the class was not, and nobody noticed until the supplier asked.*
+
 ### A.10 — A consent id authorizes a spend, and a full-suite run is its own spend
 
 **The pattern is [`live-resources.md`](live-resources.md) § A.4** — consent carries the authorizing

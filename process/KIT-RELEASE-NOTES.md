@@ -48,6 +48,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`process/doctrine/fix-execution.md` § A.9 now requires supplied documents to be COPIED IN before
+  anything cites them.** *A citation into a document you do not control is not a citation, it is a
+  hope.* If a findings round is fed by another team's feedback file, an attachment, or a report
+  pasted into a conversation, **that document is an operand** — copy it into your repository verbatim,
+  date it by the day it was supplied, and never edit it (later feedback is a **new dated file**). A
+  supplied document that cannot be recovered is **named as missing**, beside the ones that were,
+  because a missing input nobody names reads exactly like an input nobody needed. Filed under
+  § A.5b's second half: nothing breaks at mint time, every citation looks fine in review, and the gap
+  surfaces only when an implementer opens a path that is not there.
 - **`verify.sh` now has a FOURTH result state — UNRUNNABLE — and prints what it ran.** A gate whose
   command could not start (`127`/`126`) used to be reported as **FAIL**, which is red in the right
   direction and destroys the one distinction that matters: *"could not start"* versus *"your tree is
