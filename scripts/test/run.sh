@@ -1200,6 +1200,150 @@ case_verify_frame() {
 # the harness's would point the sandbox's copy at the REAL board.
 cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
+# =============================================================================
+# archive-progress.sh: the ordinal knife, the honest no-op, and the index
+# =============================================================================
+# WHY THESE EXIST (measured, not speculative). The rotation's only selector was a
+# DATE, while the trigger that says a rotation is due is a BYTE threshold — and
+# bytes cross it more than once in a working day. So the second rotation of a day
+# had no expressible cut: it reported "Nothing to archive" and exited 0 on an
+# over-threshold log. THE TOOL'S SUCCESS WAS WHAT MADE IT INERT, which is why the
+# exit-3 case below asserts the ABSENCE of the green phrase and not just the code.
+#
+# DERIVE, DO NOT RE-HARDCODE: the threshold is read out of the REAL check-board.sh,
+# so a retune there cannot silently make these cases vacuous. (cb_default is not
+# usable — it expects a single-quoted value and this constant is a bare integer.)
+ap_thresh() {
+  sed -n 's/^PROGRESS_LOG_BYTE_THRESHOLD=\([0-9]*\).*/\1/p' "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
+}
+
+# ap_seed <repo> <n_entries> <date> — a log of N same-day entries, padded so § Log
+# lands OVER the derived threshold. Same-day on purpose: that is the condition a
+# date knife cannot cut.
+ap_seed() {
+  local R="$1" n="$2" d="$3" thresh pad i
+  thresh="$(ap_thresh)"; [ -n "$thresh" ] || { cf "(fixture) could not derive PROGRESS_LOG_BYTE_THRESHOLD"; return 1; }
+  pad=$(( thresh / n + 200 ))          # per-entry padding that guarantees the crossing
+  mkdir -p "$R/progress/history"
+  { echo "# progress.md"; echo ""; echo "Preamble."; echo ""; echo "## Log"; echo ""
+    for i in $(seq 1 "$n"); do
+      echo "## $d [Dev] session $i"
+      head -c "$pad" /dev/zero | tr '\0' 'x'; echo
+      echo ""
+    done
+  } > "$R/progress.md"
+  local got; got="$(awk '/^## Log[[:space:]]*$/{f=1} f{n+=length($0)+1} END{print n+0}' "$R/progress.md")"
+  [ "$got" -gt "$thresh" ] || cf "(fixture) § Log is $got bytes, NOT over the $thresh threshold — the case would prove nothing"
+}
+
+case_archive_progress_ordinal_knife() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/apo" out rc
+  ap_seed "$R" 20 2026-08-26 || { finish "archive-progress.sh: --keep-last cuts a same-day log twice"; teardown; return; }
+
+  # FIRST rotation of the day.
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone d1 --keep-last 8 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "first --keep-last run exited $rc (expected 0): $out"
+  local left; left="$(grep -c '^## 2026-08-26' "$R/progress.md" || true)"
+  [ "$left" = "8" ] || cf "after --keep-last 8 the log holds $left entries, expected 8"
+
+  # SECOND rotation, SAME CALENDAR DAY. This is the whole finding: a date knife
+  # has nothing left to cut here, because everything before today already went.
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone d2 --keep-last 3 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "SECOND same-day --keep-last run exited $rc (expected 0) — the duty cycle is not closed: $out"
+  left="$(grep -c '^## 2026-08-26' "$R/progress.md" || true)"
+  [ "$left" = "3" ] || cf "after the second cut the log holds $left entries, expected 3"
+
+  # THE CONTROL: the date knife on the same fixture cuts NOTHING. Without this the
+  # case proves the new flag runs, not that it does something the old one could not.
+  ap_seed "$R" 20 2026-08-26 || true
+  rm -f "$R/progress/history"/*.md
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone dc --before 2026-08-26 --apply 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) --before on an all-today log exited 0 — it should not have found a cut"
+  [ -f "$R/progress/history/dc.md" ] && cf "(control) --before wrote a chunk on an all-today log"
+
+  finish "archive-progress.sh: --keep-last cuts a same-day log TWICE (the duty cycle), where --before cuts nothing"
+  teardown
+}
+
+case_archive_progress_honest_noop() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/apn" out rc thresh
+  thresh="$(ap_thresh)"
+  ap_seed "$R" 20 2026-08-26 || { finish "archive-progress.sh: nothing-matched over threshold is not a green"; teardown; return; }
+
+  # Nothing matches (all entries are today), and § Log is OVER the threshold.
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone n1 --before 2026-08-26 2>&1 )"; rc=$?
+  [ "$rc" -eq 3 ] || cf "nothing-matched-while-due exited $rc, expected 3 (a distinct code, not a failure and not a pass): $out"
+  printf '%s' "$out" | grep -q 'ROTATION IS STILL DUE' || cf "the over-threshold no-op did not say a rotation is still due: $out"
+  printf '%s' "$out" | grep -q "$thresh" || cf "the over-threshold no-op did not name the threshold it measured against: $out"
+  # THE REDDENING CONTROL, and the point of the whole case: the GREEN PHRASE must
+  # be ABSENT. Its presence is what made the old behaviour read as an all-clear,
+  # so a fix that added the warning and kept the phrase would still be broken.
+  printf '%s' "$out" | grep -q 'Nothing to archive' \
+    && cf "the over-threshold no-op still printed the green phrase 'Nothing to archive' — that is the false all-clear"
+
+  # AND THE OTHER DIRECTION: under threshold, nothing matched, that IS a green and
+  # keeps the phrase. Both states must exist and be distinct, or the change is a
+  # rename rather than a new state.
+  { echo "# progress.md"; echo ""; echo "## Log"; echo ""; echo "## 2026-08-26 [Dev] one small entry"; echo "body"; echo ""; } > "$R/progress.md"
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone n2 --before 2026-08-26 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "under-threshold nothing-matched exited $rc, expected 0: $out"
+  printf '%s' "$out" | grep -q 'Nothing to archive' \
+    || cf "under threshold the honest green phrase 'Nothing to archive' is missing: $out"
+  printf '%s' "$out" | grep -q 'under threshold' \
+    || cf "the under-threshold green did not state the measurement that makes it a green: $out"
+
+  finish "archive-progress.sh: nothing-matched OVER threshold exits 3 without the green phrase; UNDER threshold exits 0 with it"
+  teardown
+}
+
+case_archive_progress_index() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/api" out rc
+  ap_seed "$R" 12 2026-08-26 || { finish "archive-progress.sh: every chunk gains an index row"; teardown; return; }
+
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone c1 --keep-last 4 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "--apply exited $rc: $out"
+  local idx="$R/progress/history/INDEX.md"
+  [ -f "$idx" ] || { cf "no index was written or created"; finish "archive-progress.sh: every chunk gains an index row"; teardown; return; }
+  grep -qF 'c1.md' "$idx" || cf "the chunk has no index row — a rotated chunk is findable only by ls, which is the defect"
+  # THE SPAN IS THE LOAD-BEARING COLUMN: a row without it is a filename, and a
+  # filename is what `ls` already gave you.
+  grep -E '\| *\[`c1\.md`\].*2026-08-26 → 2026-08-26 *\| *8 *\|' "$idx" >/dev/null \
+    || cf "the index row is missing its date span and/or its entry count: $(grep 'c1.md' "$idx")"
+
+  # A SECOND chunk goes ABOVE the first (newest first) and rewrites no row.
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone c2 --keep-last 1 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the second --apply exited $rc: $out"
+  local first_row; first_row="$(grep -m1 '^| \[' "$idx")"
+  printf '%s' "$first_row" | grep -qF 'c2.md' \
+    || cf "the newest chunk is not the first row (newest-first is format law): $first_row"
+  grep -qF 'c1.md' "$idx" || cf "the earlier index row was lost — the index is append-only"
+
+  # THE EARNED REFUSAL: with chunks present and the index gone, it must REFUSE and
+  # must NOT write a fresh empty index — that index would deny the chunks beside it.
+  rm -f "$idx"
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone c3 --keep-last 1 --apply 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a missing index with chunks present did NOT refuse: $out"
+  [ -f "$idx" ] && cf "it fabricated an index while chunks existed — that row-less index denies them"
+  printf '%s' "$out" | grep -qF 'c1.md' || cf "the refusal did not name the chunks whose rows would be missing: $out"
+
+  # AND THE OTHER SIDE OF THAT DECISION: no chunks, no index -> CREATE, because
+  # "nothing was ever archived" is then simply true. This is the upgrade path.
+  rm -f "$R/progress/history"/*.md
+  ap_seed "$R" 12 2026-08-26 || true
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone c4 --keep-last 4 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "an absent index with NO chunks should be created, not refused (the upgrade path) — exited $rc: $out"
+  grep -qF 'c4.md' "$idx" || cf "the created index has no row for the chunk that created it"
+
+  finish "archive-progress.sh: chunks gain index rows with their spans, newest-first and append-only; a missing index REFUSES where chunks exist and is CREATED where none do"
+  teardown
+}
+
 cb_default() {  # <VAR_NAME>
   sed -n "s/^$1='\(.*\)'/\1/p" "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
 }
@@ -2952,6 +3096,9 @@ CASES=(
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections
+  case_archive_progress_ordinal_knife
+  case_archive_progress_honest_noop
+  case_archive_progress_index
   case_verify_frame
   case_verify_unrunnable_vs_fail
   case_check_board_id_clean

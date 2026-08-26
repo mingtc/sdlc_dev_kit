@@ -48,6 +48,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`archive-progress.sh` gains an ordinal knife, an index, and a new exit code 3.** Its trigger is
+  measured in **bytes** and its only selector cut in **days** — so under load the threshold is crossed
+  two or three times a day while the date knife can fire once, and the second run answers *"Nothing to
+  archive"* because the first already took everything before the boundary. **The tool's success was
+  what made it inert.** Now: `--keep-last <N>` cuts by count and can be re-run the same day; and when
+  nothing matches your selector **while a rotation is still due**, it says so, names the measurement
+  against the threshold, and **exits 3** instead of reporting success. *"Nothing to archive"* is now
+  reserved for when it is true — under threshold, exit 0, unchanged wording.
+- **Rotation now maintains `progress/history/INDEX.md`** — one row per chunk with the span it covers,
+  newest first, no row ever rewritten. This was already required (*"the same **preserve-and-index**
+  rules"*), and the script's own header had recorded the deviation as a design choice: *"chunks are
+  discoverable via `ls`."* They were not: `ls` gives filenames with no spans, so finding a date meant
+  opening chunks until one matched.
 - **`process/doctrine/fix-execution.md` § A.9 now requires supplied documents to be COPIED IN before
   anything cites them.** *A citation into a document you do not control is not a citation, it is a
   hope.* If a findings round is fed by another team's feedback file, an attachment, or a report
@@ -209,6 +222,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Only if `progress/history/` ALREADY holds rotated chunks: create `progress/history/INDEX.md`
+  before your next rotation.** The rotation will not write one for you while chunks exist, because a
+  row-less index would deny them — and the date spans are inside those chunks, so only you have them.
+  Create the file with the header row `| Chunk | Covers | Entries | Rotated | Cut |` and one row per
+  existing chunk. **If you have never rotated, there is nothing to do:** the file is created on first
+  use, because an empty index is then simply true.
 - **If you parse `verify.sh`'s output, update it for the fourth state and the count line.** Anything
   matching on exactly `PASS`/`FAIL`/`SKIP` will not recognise `UNRUNNABLE`, and a summary parser
   expecting the old shape will need the new one. **If you have been treating a red gate as "the tree

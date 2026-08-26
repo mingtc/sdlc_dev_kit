@@ -9,17 +9,40 @@
 # Milestones are user-discretionary: you pick a name + a date
 # whenever the file feels heavy. Nothing here detects "milestone close".
 #
-# Usage:
-#   ./scripts/archive-progress.sh --milestone <name> --before <YYYY-MM-DD>          # dry run
-#   ./scripts/archive-progress.sh --milestone <name> --before <YYYY-MM-DD> --apply  # rewrite the files
-#   ./scripts/archive-progress.sh --milestone <name> --before <YYYY-MM-DD> --apply --tag  # also git-tag for revert safety
+# Usage — TWO KNIVES, exactly one per run:
+#   ./scripts/archive-progress.sh --milestone <name> --keep-last <N>              # dry run
+#   ./scripts/archive-progress.sh --milestone <name> --before <YYYY-MM-DD>        # dry run
+#   …add --apply to rewrite the files, and --tag to git-tag first for revert safety.
 #
-# The pre-cutoff entries are removed from progress.md and written to
-# progress/history/<name>.md with a small YAML header (archived_at,
-# cutoff, source). The post-cutoff entries plus the preamble stay in
-# progress.md. The script does NOT manage a top-of-file pointer comment
-# in progress.md — that's a one-time manual addition; chunks
-# are discoverable via `ls progress/history/`.
+# WHICH KNIFE, AND WHY THERE ARE TWO. The signal that a rotation is due is a BYTE
+# threshold on § Log, reported by check-board.sh — and bytes can cross it more
+# than once in a day.
+#   --keep-last <N>        cuts at an ENTRY boundary: keep the newest N, rotate
+#                          the rest. Use this when the trigger is a SIZE. It can
+#                          be run again the same day and cuts further each time.
+#   --before <YYYY-MM-DD>  cuts on a DAY boundary. Right for a milestone close,
+#                          and structurally unable to express a same-day second
+#                          rotation — everything before today has already gone,
+#                          so it reports nothing matched while the file is still
+#                          over. That was measured three times before the ordinal
+#                          knife existed, and the third run's dry run said
+#                          "nothing to archive" on an over-threshold log.
+#
+# The rotated entries are removed from progress.md and written to
+# progress/history/<name>.md with a small YAML header (archived_at, cutoff,
+# source). The retained entries plus the preamble stay in progress.md.
+#
+# EVERY CHUNK GETS AN INDEX ROW in progress/history/INDEX.md — chunk, the span of
+# dates it covers, entry count, rotation date, and the cut used. That index is the
+# only thing that makes a chunk findable: `ls` gives filenames with no spans, so
+# without it locating a date means opening chunks until one matches. The index is
+# required and is never created here — a freshly-created empty index cannot be
+# told apart from a project that has never rotated.
+#
+# "Nothing matched" is NOT "nothing is due": if the cut you gave rotates nothing
+# while § Log is still over the board's threshold, this says so on stderr and
+# exits 3, because a clean exit 0 there reads as an all-clear that stops you
+# looking.
 #
 # Entry-boundary forms recognized inside "## Log":
 #   * a "## YYYY-MM-DD ..." session heading — the modern top-level form;
@@ -42,6 +65,7 @@ DRY_RUN=true
 DO_TAG=false
 MILESTONE=""
 BEFORE=""
+KEEP_LAST=""
 REPO_ROOT=""
 
 usage() {
@@ -55,6 +79,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --milestone) MILESTONE="$2"; shift 2 ;;
     --before)    BEFORE="$2"; shift 2 ;;
+    --keep-last) KEEP_LAST="$2"; shift 2 ;;
     --apply)     DRY_RUN=false; shift ;;
     --tag)       DO_TAG=true; shift ;;
     --repo-root) REPO_ROOT="$2"; shift 2 ;;
@@ -64,12 +89,41 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$MILESTONE" ] || { echo "Error: --milestone <name> is required." >&2; exit 1; }
-[ -n "$BEFORE" ]    || { echo "Error: --before <YYYY-MM-DD> is required." >&2; exit 1; }
 
-# Validate date format (strict regex, not full calendar validation)
-if ! echo "$BEFORE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
-  echo "Error: --before must be YYYY-MM-DD (got: $BEFORE)" >&2
+# EXACTLY ONE KNIFE PER RUN. Both is a caller who has named two different cuts
+# and cannot be given both; neither leaves nothing to cut by.
+if [ -n "$BEFORE" ] && [ -n "$KEEP_LAST" ]; then
+  echo "Error: --before and --keep-last are two different cuts; pass exactly one." >&2
   exit 1
+fi
+if [ -z "$BEFORE" ] && [ -z "$KEEP_LAST" ]; then
+  {
+    echo "Error: no cut given. Pass exactly one of:"
+    echo "  --keep-last <N>          keep the newest N entries, rotate everything older"
+    echo "  --before <YYYY-MM-DD>    rotate entries dated before that day"
+    echo ""
+    echo "PREFER --keep-last WHEN THE TRIGGER IS A SIZE. The board's log-size threshold is"
+    echo "measured in BYTES and can be crossed more than once in a day; a date can only cut"
+    echo "on a day boundary, so a second rotation on the same day has no expressible cut and"
+    echo "reports 'nothing to archive' while the file is still over. --keep-last cuts at an"
+    echo "ENTRY boundary, so it can be run again the same day and cuts further each time."
+  } >&2
+  exit 1
+fi
+
+if [ -n "$BEFORE" ]; then
+  # Validate date format (strict regex, not full calendar validation)
+  if ! echo "$BEFORE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+    echo "Error: --before must be YYYY-MM-DD (got: $BEFORE)" >&2
+    exit 1
+  fi
+fi
+
+if [ -n "$KEEP_LAST" ]; then
+  if ! echo "$KEEP_LAST" | grep -qE '^[0-9]+$'; then
+    echo "Error: --keep-last must be a non-negative integer (got: $KEEP_LAST)" >&2
+    exit 1
+  fi
 fi
 
 # Resolve repo root
@@ -81,8 +135,64 @@ PROGRESS="$REPO_ROOT/progress.md"
 HISTORY_DIR="$REPO_ROOT/progress/history"
 CHUNK="$HISTORY_DIR/$MILESTONE.md"
 
+INDEX="$HISTORY_DIR/INDEX.md"
+
 [ -f "$PROGRESS" ]    || { echo "Error: $PROGRESS does not exist." >&2; exit 1; }
 [ -d "$HISTORY_DIR" ] || { echo "Error: $HISTORY_DIR does not exist." >&2; exit 1; }
+# A MISSING INDEX: REFUSE ONLY WHERE THE REFUSAL IS EARNED.
+#
+# archive-sweep.md § 3 says do not create an index on the fly, and gives its
+# REASON: "a new empty index reads as 'nothing was ever archived'." That reason
+# bites exactly when the claim would be FALSE — when chunks already exist and an
+# empty index would deny them. It does not bite when the claim would be TRUE.
+# And which case you are in is CHECKABLE rather than assumable: look for chunks.
+#
+# This matters because of the upgrade path, which is a different moment from the
+# steady state. A fresh adopter gets the index in the zip. An adopter who UPGRADES
+# the script does not — so an unconditional refusal fires on their very first
+# rotation, and a tool that refuses on first run after an upgrade is the shape
+# that gets quietly replaced with a hand `mv`, which loses the log entirely. That
+# trade is worse than the one § 3 was protecting against.
+#
+#   chunks present, index absent  -> REFUSE. The rows carry spans only the adopter
+#                                    can supply; fabricating an index here would
+#                                    invent coverage, which is the actual § 3 harm.
+#   no chunks, index absent       -> CREATE, loudly. "Nothing was ever archived" is
+#                                    then simply true, so the empty index misleads
+#                                    nobody.
+if [ ! -f "$INDEX" ]; then
+  EXISTING_CHUNKS="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'INDEX.md' 2>/dev/null | sort)"
+  if [ -n "$EXISTING_CHUNKS" ]; then
+    {
+      echo "Error: ${INDEX#"$REPO_ROOT"/} is missing, and this directory already holds rotated chunks:"
+      printf '%s\n' "$EXISTING_CHUNKS" | sed "s|^$HISTORY_DIR/|    |"
+      echo "  An index created now would show ZERO rows, which reads as 'nothing was ever"
+      echo "  archived' — false, and the chunks above are the proof. This tool will not write"
+      echo "  that claim for you (archive-sweep.md § 3)."
+      echo "  Backfill it by hand: create the file with the header row"
+      echo "    | Chunk | Covers | Entries | Rotated | Cut |"
+      echo "    |---|---|---|---|---|"
+      echo "  and one row per chunk above — the date spans are inside each chunk. Then re-run."
+    } >&2
+    exit 1
+  fi
+  # No chunks: an empty index is the truth. Create it and SAY SO, because a file
+  # appearing without explanation is its own small mystery.
+  {
+    echo "<!-- Rotation index. Created by archive-progress.sh because it was absent and no"
+    echo "     rotated chunk existed yet, so an empty index was simply true. Rows are"
+    echo "     appended DIRECTLY BELOW the header row, newest first; no row is ever"
+    echo "     rewritten. Contract: process/contracts/archive-sweep.md § 2. -->"
+    echo "# \`progress/history/\` — the rotation index"
+    echo ""
+    echo "One row per rotated chunk. The \`Covers\` column is the hook that lets a reader pick a"
+    echo "chunk without opening it — read this file, never \`ls\`."
+    echo ""
+    echo '| Chunk | Covers | Entries | Rotated | Cut |'
+    echo '|---|---|---|---|---|'
+  } > "$INDEX"
+  echo "Note: created ${INDEX#"$REPO_ROOT"/} (it was absent and no chunk existed, so an empty index was true)." >&2
+fi
 
 # Split entries: write pre-cutoff to PRE_TMP, post-cutoff to POST_TMP,
 # preamble (everything before "## Log") to PREAMBLE_TMP.
@@ -91,11 +201,48 @@ PRE_TMP=$(mktemp)
 POST_TMP=$(mktemp)
 trap 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP"' EXIT
 
+# ORDINAL MODE: convert --keep-last <N> into "the first CUT_AFTER boundaries are
+# pre, the rest are post". The total is COUNTED FROM THE FILE, never assumed —
+# and it is counted with the SAME three boundary arms the awk uses, so the
+# ordinal the awk assigns and the total computed here cannot disagree about what
+# a boundary is. (A second, hand-written regex here would be one more derivation
+# to get wrong; this one is the same expression as PRE_COUNT's below.)
+CUT_AFTER=-1
+if [ -n "$KEEP_LAST" ]; then
+  TOTAL_ENTRIES=$(awk '
+    /^## Log[[:space:]]*$/ { in_log = 1; next }
+    in_log != 1 { next }
+    /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { n++; dh = 1; next }
+    /^### [0-9]{4}-[0-9]{2}-[0-9]{2}/ && !dh { n++; next }
+    /^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} / && !dh { n++; next }
+    END { print n + 0 }
+  ' "$PROGRESS")
+  CUT_AFTER=$(( TOTAL_ENTRIES - KEEP_LAST ))
+  [ "$CUT_AFTER" -lt 0 ] && CUT_AFTER=0
+  echo "Log holds $TOTAL_ENTRIES entr(ies); keeping the newest $KEEP_LAST, rotating the oldest $CUT_AFTER."
+fi
+
 awk -v before="$BEFORE" \
+    -v cut_after="$CUT_AFTER" \
     -v preamble_file="$PREAMBLE_TMP" \
     -v pre_file="$PRE_TMP" \
     -v post_file="$POST_TMP" '
-  BEGIN { in_log = 0; bucket = ""; dh_active = 0 }
+  BEGIN { in_log = 0; bucket = ""; dh_active = 0; ord = 0 }
+
+  # ONE DECISION POINT FOR BOTH KNIVES, called from all three boundary arms, so
+  # the two selectors cannot drift apart in how they bucket a line. cut_after < 0
+  # means date mode (--before); cut_after >= 0 means ordinal mode (--keep-last),
+  # where the first cut_after boundaries rotate and the rest are retained.
+  #
+  # WHY AN ORDINAL KNIFE EXISTS AT ALL: the trigger that says a rotation is due
+  # is a BYTE threshold, and bytes can cross it more than once in a day. A date
+  # can only cut on a day boundary, so the second rotation of the same day has no
+  # expressible cut — it reports nothing to archive while the file is still over.
+  # Measured, three times, in a project that then had to hand-edit the log.
+  function decide(d) {
+    if (cut_after >= 0) { ord++; return (ord <= cut_after) ? "pre" : "post" }
+    return (d < before) ? "pre" : "post"
+  }
 
   # Preamble: everything before the "## Log" heading (inclusive of "## Log" itself)
   in_log == 0 {
@@ -130,28 +277,16 @@ awk -v before="$BEFORE" \
   #      when not nested under an active "## " section.
   /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ {
     match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/); date = substr($0, RSTART, 10)
-    if (date < before) {
-      bucket = "pre"
-    } else {
-      bucket = "post"
-    }
+    bucket = decide(date)
     dh_active = 1
   }
   /^### [0-9]{4}-[0-9]{2}-[0-9]{2}/ && !dh_active {
     match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/); date = substr($0, RSTART, 10)
-    if (date < before) {
-      bucket = "pre"
-    } else {
-      bucket = "post"
-    }
+    bucket = decide(date)
   }
   /^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} / && !dh_active {
     match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/); date = substr($0, RSTART, 10)
-    if (date < before) {
-      bucket = "pre"
-    } else {
-      bucket = "post"
-    }
+    bucket = decide(date)
   }
 
   {
@@ -188,7 +323,66 @@ PRE_COUNT=$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9
 # (checked BEFORE the chunk-exists guard so re-running with the same args
 # after a complete rotation exits 0 instead of erroring on the existing file)
 if [ "$PRE_COUNT" = "0" ]; then
-  echo "Nothing to archive: no entries before $BEFORE."
+  # "NOTHING MATCHED MY SELECTOR" IS NOT "NOTHING IS DUE", and reporting the
+  # first as the second is the defect this block exists to prevent. A clean exit
+  # 0 saying "nothing to archive" reads as "the log is fine" — so when the log is
+  # STILL OVER THE BOARD'S THRESHOLD, that same sentence is a false all-clear,
+  # and the operator stops looking while the file keeps growing. Two instruments
+  # then disagree (the board says a rotation is due; this tool says there is
+  # nothing to do) and the one that ACTS is the one reporting success.
+  #
+  # The threshold is DERIVED from the board checker, never re-declared here:
+  # lookup-tables.md § A.1 — "do not mint a second threshold; a project that
+  # carries two numbers for one idea will drift them."
+  _cb="$(dirname "${BASH_SOURCE[0]}")/check-board.sh"
+  THRESH="$(sed -n 's/^PROGRESS_LOG_BYTE_THRESHOLD=\([0-9]*\).*/\1/p' "$_cb" 2>/dev/null | head -1)"
+  LOGBYTES="$(awk '/^## Log[[:space:]]*$/{f=1} f{n+=length($0)+1} END{print n+0}' "$PROGRESS")"
+
+  # THE PHRASE "NOTHING TO ARCHIVE" IS RESERVED FOR WHEN IT IS TRUE. Under the
+  # threshold, nothing matched AND nothing is due — so it is an honest green and
+  # keeps its wording. Over the threshold it would be the false all-clear this
+  # block exists to prevent, so that path never prints it at all: a reader
+  # grepping for the green phrase must not find it on a run that archived nothing
+  # while a rotation was due.
+  if [ -n "$THRESH" ] && [ "$LOGBYTES" -gt "$THRESH" ]; then
+    {
+      if [ -n "$BEFORE" ]; then
+        echo "Nothing matched: no entries dated before $BEFORE."
+      else
+        echo "Nothing matched: the log holds $KEEP_LAST or fewer entries, so keeping the newest $KEEP_LAST rotates none."
+      fi
+      echo ""
+      echo "AND A ROTATION IS STILL DUE, so this run did NOT do what you ran it for."
+      echo "  § Log measures $LOGBYTES bytes against the board's threshold of $THRESH."
+      echo "  Nothing matched the cut you gave — that is a statement about YOUR SELECTOR,"
+      echo "  not about the log. Do not read this exit as an all-clear."
+      if [ -n "$BEFORE" ]; then
+        echo "  A date can only cut on a day boundary. If today's entries alone put the log"
+        echo "  over, --before cannot express the cut. Use --keep-last <N> instead, which"
+        echo "  cuts at an ENTRY boundary and can be run again the same day."
+      else
+        echo "  Lower --keep-last until it cuts, or split by milestone."
+      fi
+    } >&2
+    exit 3
+  fi
+
+  # Genuinely nothing due: the log is under threshold and nothing matched, so the
+  # green phrase is earned. Contract archive-sweep.md § 3 — "nothing to do is not
+  # an error."
+  if [ -n "$BEFORE" ]; then
+    echo "Nothing to archive: no entries before $BEFORE."
+  else
+    echo "Nothing to archive: keeping the newest $KEEP_LAST rotates none of the log's $TOTAL_ENTRIES entr(ies)."
+  fi
+  if [ -n "$THRESH" ]; then
+    echo "  (§ Log is $LOGBYTES / $THRESH bytes — under threshold. Nothing is due.)"
+  else
+    # NAME THE BLIND SPOT IN THE OUTPUT (instruments.md § A.4): without the
+    # threshold this cannot distinguish "nothing due" from "cannot tell", so it
+    # says which one it is rather than printing the green half alone.
+    echo "  (could not read the board's log threshold from ${_cb##*/} — 'nothing is due' is UNVERIFIED)"
+  fi
   exit 0
 fi
 
@@ -199,7 +393,15 @@ if [ -s "$CHUNK" ]; then
   exit 1
 fi
 
-echo "Found $PRE_COUNT entries dated before $BEFORE."
+# NAME THE CUT THAT WAS ACTUALLY USED. This line said "dated before $BEFORE"
+# unconditionally, which in ordinal mode printed an empty date and described a
+# selector the run did not use — the output misreporting its own question, which
+# is the read-time defect this whole change is about.
+if [ -n "$BEFORE" ]; then
+  echo "Found $PRE_COUNT entries dated before $BEFORE."
+else
+  echo "Found $PRE_COUNT entries to rotate (keeping the newest $KEEP_LAST)."
+fi
 echo "Would write to: ${CHUNK#"$REPO_ROOT"/}"
 echo ""
 echo "First 3 archivable entries:"
@@ -239,6 +441,44 @@ fi
 
 # Rewrite progress.md: preamble + post entries
 cat "$PREAMBLE_TMP" "$POST_TMP" > "$PROGRESS"
+
+# INDEX THE CHUNK. Preserve-AND-index: the contract's running-log invariant says
+# the log rotates "on the same preserve-and-index rules" as the board sweep, and
+# rotating without indexing exports the problem instead of solving it
+# (lookup-tables.md § A.6). Until this existed the chunks were findable only by
+# `ls` — filenames with no spans, so locating a date meant opening them in turn.
+#
+# The span is DERIVED from the chunk's own content, not from the selector: with
+# --keep-last the cut is an ordinal and there is no date in the arguments to copy,
+# and with --before the boundary date is not the same as the newest entry the
+# chunk actually holds.
+SPAN_FIRST="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$PRE_TMP" | sort | head -1 || true)"
+SPAN_LAST="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$PRE_TMP" | sort | tail -1 || true)"
+[ -n "$SPAN_FIRST" ] || SPAN_FIRST="(undated)"
+[ -n "$SPAN_LAST" ]  || SPAN_LAST="(undated)"
+if [ -n "$KEEP_LAST" ]; then CUT_DESC="\`--keep-last $KEEP_LAST\`"; else CUT_DESC="\`--before $BEFORE\`"; fi
+IDX_ROW="| [\`$MILESTONE.md\`]($MILESTONE.md) | $SPAN_FIRST → $SPAN_LAST | $PRE_COUNT | $(date -u +%Y-%m-%d) | $CUT_DESC |"
+
+IDX_HEADER='| Chunk | Covers | Entries | Rotated | Cut |'
+if ! grep -qF "$IDX_HEADER" "$INDEX"; then
+  # REFUSE rather than append at a guess: the one document that must stay ordered
+  # is the one an append-at-a-guess corrupts (archive-sweep.md § 3).
+  {
+    echo ""
+    echo "Error: ${INDEX#"$REPO_ROOT"/} has no recognisable insertion point."
+    echo "  Expected a table whose header row is exactly:"
+    echo "    $IDX_HEADER"
+    echo "  The chunk and the rewritten log ARE ON DISK; only the index row is missing."
+    echo "  Add the header row back, then append this row by hand under it:"
+    echo "    $IDX_ROW"
+  } >&2
+  exit 1
+fi
+# Append DIRECTLY BELOW the header row, newest first, rewriting no existing row.
+awk -v hdr="$IDX_HEADER" -v row="$IDX_ROW" '
+  { print }
+  index($0, hdr) == 1 && !done { getline sep; print sep; print row; done = 1 }
+' "$INDEX" > "$INDEX.tmp" && mv "$INDEX.tmp" "$INDEX"
 
 echo ""
 echo "Done. Wrote:"
