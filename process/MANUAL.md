@@ -1,0 +1,454 @@
+<!-- KIT-CLASS: KIT — transferable process. Carries no project law; see EXTRACTION.md. -->
+# MANUAL.md — the operating manual
+
+**KIT-CLASS: KIT.** This file is the **transferable** half of the process: a
+**filesystem-as-kanban** board with **roles as hats**. It is written to be adopted by a
+different project **unedited**. Every project-specific value it needs is a **pointer**, never
+a value — see § The three documents and § Seams.
+
+> **Illustrations.** Wherever this file shows a concrete value it is an **illustration and
+> nothing more**. The issue prefix is written `<PREFIX>-`, the trunk is written `<trunk>` (the
+> stated default is `main`), and the gate is written as *the project's gate command* — those are
+> **configured values** (`scripts/config.sh`, the remote's published default branch, the project
+> doc), not rules of the process. A sentence in this file that treats one of them as a fact is a
+> defect; report it.
+>
+> This manual is **language-agnostic**. It names no runtime, no test framework and no packaging
+> tool. Where a step needs one, it says *"the project's <thing>"* and the project doc supplies it.
+
+---
+
+## The three documents
+
+| Document | Holds | Changes when |
+|---|---|---|
+| **MANUAL.md** (this file) | The process that travels: rituals, the board, the roles pattern, the Dev → QA boundary, branching, execution discipline. | The *process* changes. |
+| **The project doc** | What the project is, its stack and run commands, its quality bar, its **binding gates**, its credential doctrine. | The *project* changes. |
+| **The project adapter** | The project's own **law** — the rules that are true here and nowhere else — plus the concrete role set and commit-prefix table. It points at this file **first**. | The project's law changes. |
+
+The adapter is the file the agent harness reads at session start, so it is the **entry point**;
+this manual is what it points at. This kit's default names for those two are `PROJECT.md` (the
+project doc) and `CLAUDE.md` (the adapter) — both named as configuration seams in
+[`EXTRACTION.md`](EXTRACTION.md) § CONFIGURE, which is the only place a kit file is allowed to
+know an installation's filenames.
+
+**Read the project doc first, every session.** This manual tells you *how* work moves; only the
+project doc tells you what "green" means here.
+
+**The fourth thing, and it is not prose: [`contracts/`](contracts/).** This manual *describes* the
+gates and rituals; `process/contracts/` states, per gate, what **any** implementation must
+guarantee, when it must **refuse**, and what **green** means in countable terms — six sections, one
+page each, written for a reader who will never open the scripts. It is the **machine-facing
+complement** to these pages: where a sentence here says *what we do*, the matching sheet says
+*what must hold*, and its section 6 marks the shipped script as **one implementation, not the
+definition**. A project reimplementing this kit in another language owes the contracts, not the
+shell. **Both directions want guarding** — a gate with no sheet, or a sheet citing a gate that no
+longer exists — and that guard lives in the project's own test tree, not in the kit
+([`EXTRACTION.md`](EXTRACTION.md) § 4 states the debt honestly).
+
+One sheet there is not about a script at all:
+[`contracts/acceptance-tier.md`](contracts/acceptance-tier.md) — **the acceptance (conformance)
+tier**, the one artifact class that had no travelling spec until it was written. Its reference
+implementation is deliberately **non-travelling** (one test runner's marker), so its invariants and
+its three floor-guard assertions — non-empty selection, a count at or above a declared floor,
+selection-neutrality — are the whole of what an adopter owes.
+
+---
+
+## Session start
+
+1. **Read the project doc.** What the project is, the stack/run commands, the quality bar, and
+   the binding gates.
+2. **Check the board.** List the status folders (`ls progress/todo/ progress/in_progress/
+   progress/dev_complete/ progress/qa_complete/ progress/blocked/`) — each filename is
+   `<PREFIX>-NNN-<slug>.md` (the prefix comes from `scripts/config.sh`); **the folder is
+   the status**. Run **`./scripts/check-board.sh`** for a drift report.
+3. **Pick a hat.** Say which role you are wearing (see § Roles as hats). The role doc in
+   `.claude/roles/` is your workflow. If the `require-role` hook is active (see
+   `.claude/settings.json.example`), declare it by writing `.claude/session-role` first.
+
+> **What goes in `.claude/session-role`** (undocumented until a cold reader hit it — the gap was
+> found by a fresh adopter, not by a review). **One line:** `<Role> <scope>` — e.g.
+> `Dev <PREFIX>-001`; or, **only** when the operator has explicitly waived the hat,
+> `none — operator override: <reason>`. The gate is **existence, not content**: the
+> `require-role` hook allows any mutation once the file is present, and the line's job is to tell
+> the next reader (and you, an hour later) which hat is on. The `session-start` hook **deletes
+> the file at every session start**, so each session re-confirms its hat rather than inheriting
+> the last one's. The path is a named variable on its own line in both hooks (`ROLE_REL`) so a
+> guard can derive it instead of re-hardcoding it.
+
+> First-time setup on a fresh clone: run the project's **bootstrap command** — the project doc
+> names it (typically one script that creates the environment, installs the project, runs the
+> gate, and wires the version-control hooks path).
+
+## Roles as hats
+
+Each role is a **hat** with its own workflow doc in [`.claude/roles/`](../.claude/roles/). One
+person (or the Orchestrator) wears **one hat at a time**, and says which.
+
+The **pattern** is fixed; the **cast is the project's**. A project declares its active roles —
+one row per role, each linking its doc and naming what it owns — in the **adapter**, and the
+adapter's table is the source of truth for which hats exist. This kit ships six workable hats (a
+standing architect seat, an Orchestrator, PM, Dev, QA, Refactorer) plus an archive of parked ones;
+adding, parking or renaming a hat is a project decision, made in the adapter and in
+`.claude/roles/`.
+
+**Session topology — who owns a session, and how many hats it wears.** A **session belongs to
+whoever holds the seat**: one actor, one working context, one hat at a time. **Each dispatched
+worker leg wears exactly ONE hat for its task and commits under that hat's prefix** — a leg that
+implements does not also review its own work. **The seat (or the orchestrator) narrates under its
+own prefix and never wears its workers' hats for their work**: coordination commits carry the
+coordinating prefix, and the Dev/QA commits its workers make carry theirs. And **a hat declaration
+is SESSION STATE, never repository content** — whatever holds the declaration is excluded from
+version control by the initializer, not left for each actor to discover
+([`contracts/role-gate.md`](contracts/role-gate.md) § 2).
+
+## Execution discipline
+
+1. **Confirm the hat before changing anything.** Read-only work needs no hat; a repo mutation
+   does. (The `require-role` PreToolUse hook enforces this when activated.)
+2. **The Orchestrator does not write code itself.** It **spawns a Dev-hat subagent** to
+   implement (TDD, failing test first) and a **QA-hat subagent** to verify, then **checks their
+   work** against the AC and the gates before advancing the board. Orchestrator commits are
+   **narration only**; the actual Dev/QA commits carry the Dev/QA prefixes.
+3. **Prove work before claiming done** (`verification-before-completion`). "Looks right" is not
+   evidence; a passing test, a diff, or a real round-trip result is.
+
+   > **Where the named practices live** (this file cited them by name before it said what they
+   > were — a cold-read finding). `verification-before-completion`, `requesting-code-review`,
+   > `test-driven-development`, `systematic-debugging` and the rest are **skills**: one directory
+   > each under [`.claude/skills/`](../.claude/skills/), holding a `SKILL.md` that is the
+   > workflow, invoked by name. The role docs chain them (each role doc has a *"Skills used in
+   > this role"* table); `.claude/skills/README.md` is the index. A kit installation ships them;
+   > parked ones sit in `.claude/skills-archive/`. **Which skills exist is a project decision** —
+   > when this manual names one it is naming a *practice*, and a project without that skill
+   > directory still owes the practice.
+4. **Long-run liveness discipline.** Any background run expected to exceed ~30 minutes gets a
+   **watchdog armed at launch**, and liveness = **artifact freshness, never absence-of-news** —
+   a hang is silent, so only growth proves life. Key the watchdog on a signal that actually
+   moves mid-run: a workflow's transcript-file mtimes (**resolve symlinks first — `stat -L`**; a
+   symlink's own mtime never moves, so an unresolved probe false-alarms forever), or the worker
+   **process itself** (CPU-time deltas across ~10-minute samples, plus
+   exited-without-completion-marker). **Never key on a pipe-buffered output file** — `… | tail
+   -1` cannot grow mid-run, so it false-alarms by construction. An alert is a trigger to
+   **probe, not to conclude**: a zero-CPU sample a few seconds long can be a throttle/settle
+   sleep — distinguish sleep from hang (a longer CPU-delta window, open connections, a stack
+   sample) before reporting anything. Every status statement about an unfinished run rests on a
+   fresh probe: *"no news sometimes is not good news."*
+   (The contract sheet is [`contracts/liveness-watchdog.md`](contracts/liveness-watchdog.md).)
+5. **Preserve the reason, supersede only the conclusion.** When new evidence overturns a
+   recorded decision, amend it — do not erase it — per
+   [`doctrine/supersession.md`](doctrine/supersession.md), which is the **single statement** of
+   that rule (and of the `superseded_in_part` spec-annotation convention that follows from it).
+   This line is a pointer, not a second copy: a rationale-free strike is what causes the
+   settled argument to be re-litigated.
+6. **Record the ruling where it is looked up — in the same change.** A PM/seat ruling that changes
+   behavior, **and any measured integration-time discovery**, gets its entry in the project's
+   **decision register** — or in the corpus home it already has — **in the same change**, not only
+   an issue-file note. (This kit's default register is
+   [`../requirements/DECISIONS.md`](../requirements/DECISIONS.md), started from
+   [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md); an installation may name
+   its own.) An issue's Activity log records *that issue*; a reader asking *what is currently
+   true* reads the register, and a ruling promised to it "later" is a ruling that stays scattered.
+   The register is a **projection of current state** — current ruling, one line of why,
+   provenance — and the history stays in the ledger, which is what keeps it compatible with item 5
+   rather than a second archive.
+
+## Session close ritual
+
+- Every issue you touched is in the folder that matches its real status (folder is the source
+  of truth; the Activity log must agree).
+- `progress.md` has your session's entries (decisions, deviations, QA verdicts).
+- Each session's `progress.md` entries sit under one dated `### YYYY-MM-DD [Role] <title>`
+  heading, **forward-only** — history is not rewritten.
+- Run `./scripts/check-board.sh` — resolve any drift it reports.
+- If `progress/qa_complete/` is over the threshold, run `./scripts/archive.sh --apply` and
+  commit the sweep.
+
+## Kanban rules
+
+- **The folder is the status.** Move an issue with **`./scripts/move-issue.sh <ID> <target>
+  --role <Role> --note "…"`** — never by hand, and never duplicate status into frontmatter.
+  The target set is the **status folder set** (a configuration seam — see
+  [`EXTRACTION.md`](EXTRACTION.md) § CONFIGURE); a stock installation ships
+  `todo | in_progress | dev_complete | qa_complete | blocked | done`.
+- Every move **appends an Activity line** to the issue file and **commits + pushes to the
+  trunk** (via the kanban worktree — see § The kanban worktree), so the board is accurate on
+  the trunk without a checkout.
+- **Create** issues with `./scripts/new-issue.sh` / `new-bug.sh` / `new-refactor.sh` (id from
+  `./scripts/next-id.sh`), specs with `./scripts/new-prd.sh`. Subtasks (Orchestrator
+  decomposition) with `./scripts/subtask.sh`.
+- **A newly created issue is not published.** Creation is inert by contract
+  ([`contracts/issue-creation.md`](contracts/issue-creation.md) § 2) and the board mover reads
+  the **published** board — so commit and push a new issue before trying to move it. Three
+  independent adopters lost the same twenty minutes to this before it was written down.
+- Do **not** pre-write the product backlog; issues enter through a real PM session.
+
+## The default path is lite — full ceremony is for feature-area work
+
+**Default (lite) — small, well-understood work:** for **code**, `issue → branch → TDD →
+finish-pr`: create one issue (`new-issue.sh`), work it on a work branch, TDD, land via
+`finish-pr.sh`. For a **pure docs/process change** there is no branch to squash — it commits
+**direct to the trunk** (per § The code-vs-metadata rule) and lands via `move-issue.sh <ID>
+qa_complete` instead of `finish-pr.sh`. Either way: **no spec, no subtask tree** — a one-file fix
+should cost **one issue, not five artifacts.**
+
+**This rule does not repeal day one's `PRD-001`.** [`SEED.md`](SEED.md) step 6 mandates a real PM
+session minting `PRD-001` because that spec **scopes the PRODUCT** — the one thing no subsequent
+issue can establish. **The lite rule above governs SUBSEQUENT small work**, not the product's own
+scoping. A reader meeting both texts and concluding one is wrong has found a silence, not a
+contradiction: both stand, and neither weakens the other.
+
+**Full ceremony — feature-area-scale work only.** A spec in `requirements/` (PM → `write-spec`),
+story→issue decomposition, and subtask trees are reserved for a **feature area spanning multiple
+issues**. Reaching for that machinery on a small fix is **visible over-process**.
+
+**Opt-in — off unless you turn it on:** notifications (`notify.sh`; with the backend unset it is
+a silent no-op), the harness `require-role` / `session-start` hooks (shipped as
+`.claude/settings.json.example`), and specs / subtasks (above).
+
+**Never optional — the binding gates.** Every project has a small set of gates that are run on
+**every** change and are never traded away; **the project doc names them**, and the project's
+one-shot gate runner (`./scripts/verify.sh`) is how they are invoked so that no role re-derives
+a command from prose. Two rules about them are the kit's, not the project's:
+
+- **The gate set is the project doc's to define and nobody's to skip.** A role may add rigor,
+  never subtract it.
+- **A green unit suite is a floor, not a ceiling.** Where a project's behavior is only
+  observable against a live external system, the project doc declares an additional **binding
+  round-trip check** for changes that touch that surface, and a green offline suite alone is not
+  a PASS for them. The discipline for such a check — a disposable target, never a real one, and a
+  restore to baseline afterwards — is
+  [`doctrine/live-resources.md`](doctrine/live-resources.md).
+
+Calibrate rigor to the change via the **rigor-tier ladder** in
+[`doctrine/rigor-tiers.md`](doctrine/rigor-tiers.md) (promoted to doctrine 2026-08-21; the
+orchestrator role doc carries the run-plan duties that apply it).
+
+**Why:** the process serves the product, not the reverse. Run the full chain when the risk earns
+it; take the lite path otherwise.
+
+## The Dev → QA handoff (the boundary — 7 steps)
+
+The one hard boundary in the process. Dev hands a `dev_complete/` issue to QA; QA lands it or
+bounces it.
+
+1. **Dev reaches `dev_complete`.** Work branch pushed; the project's gates green; self-review
+   done (`requesting-code-review` / `verification-before-completion`). Dev moves the issue
+   `in_progress → dev_complete` with a note.
+2. **QA reads context.** The issue file, its AC, and the linked spec stories. **AC is the
+   contract** — anything not in AC is out of scope for this review.
+3. **QA checks out the branch** (`git switch <branch>` from the issue's `branch:` frontmatter)
+   and runs **`./scripts/verify.sh`** — the **full** run, not a narrowed one. Anything red that
+   isn't pre-existing → **FAIL outright**, Dev fixes first.
+4. **QA walks the AC line by line**, recording `PASS`/`FAIL` per bullet with **concrete
+   evidence** (a test name, a diff, a command's output, a payload shape). **An illustrative
+   example inside an AC must cite its source or be labelled approximate** — an uncited example
+   is read as the contract, and when it is wrong the review has no honest verdict left except the
+   third one below. Meeting one, check the example against its source before grading the bullet.
+5. **QA runs the binding cross-cut check.** For any change touching the surface the project doc
+   declares binding, run the project's **live round-trip check** and restore the fixture it used
+   to baseline. A green unit suite alone is not a PASS for that surface.
+6. **QA decides:**
+   - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
+     trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works. Action:
+     `./scripts/finish-pr.sh <ID>` (squash-merges the branch into the trunk locally, deletes the
+     branch, advances `dev_complete → qa_complete`). Append `progress.md`:
+     `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
+   - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
+     note listing the unmet AC; Dev resumes on the same branch.
+   - **FAIL on regression** — a previously-green test or shipped behavior broke. **File a bug**
+     (`./scripts/new-bug.sh`) with a severity, link it via `discovered_in`, and move the issue
+     back. A `Blocker`/`Critical` blocks the PASS; a `Major`/`Minor` may be filed as a follow-up
+     without blocking (PM's call at the boundary).
+   - **PASS-with-AC-correction — THE THIRD VERDICT.** The implementation is **right** and the
+     AC's own **illustration** is **wrong**: the code does the correct thing, and the example
+     baked into the acceptance criterion asserts something the source does not support. Three
+     parts, all three required: **(1) land it** — the work is correct, and bouncing it would use
+     the process to argue the product into the plausible-wrong answer the specification exists to
+     prevent; **(2) amend the AC** in the issue file, replacing the wrong illustration with the
+     corrected one **and its source**; **(3) leave a PM note** — the ruling is the PM's to keep,
+     and a silently-corrected AC teaches nobody.
+     **Verify before you invoke it.** This verdict is only available when the reviewer has
+     **checked the fact themselves** against a citable source; "the AC looks off to me" is a FAIL
+     or a question, never this. And it applies to an AC's *illustration*, never to its
+     *requirement*: if the AC asks for the wrong **behavior**, that is a PM decision, not a
+     reviewer's correction.
+     *Provenance:* invented independently by **two** reviewers in the first twelve hours of one
+     adoption (the seed acceptance test), and used by the donor project's own review before it
+     had a name. Two independent inventions and a precedent is the argument for writing it down
+     rather than letting each reviewer re-derive it.
+7. **Archive.** When `qa_complete/` accumulates, `./scripts/archive.sh --apply` sweeps issues
+   into `progress/done/` and indexes them in `ARCHIVE.md`; commit the sweep.
+
+### The direct-to-trunk lite variant (docs / process / metadata issues)
+
+The 7 steps above are the **code-work** boundary — they assume a pushed work branch and a `git
+switch` to it. An issue that touches **none of the project's code paths** (see § The
+code-vs-metadata rule) — a docs, process, role-doc, script, or other metadata change — is worked
+**direct on the trunk**: Dev commits the change straight to the trunk with a Dev prefix, then
+`move-issue.sh <ID> dev_complete`. **QA verifies on the trunk itself** — there is **no branch to
+check out** and **no `finish-pr.sh`** (nothing to squash-merge) — and lands the issue with
+`./scripts/move-issue.sh <ID> qa_complete --role QA --note "…"`. Steps 2 (read context), 4 (walk
+the AC) and 5 (the binding cross-cut check, where applicable — usually N/A for a metadata
+change) still apply; steps 1/3/6-PASS are the branch-only parts that collapse. Code work keeps
+the full 7-step branch-based boundary.
+
+### Bug-severity calibration
+
+The QA role doc carries the full scale.
+
+| Severity | Meaning | Blocks PASS? |
+|----------|---------|--------------|
+| **Blocker** | Halts all work / data loss / corrupts user data. | Yes |
+| **Critical** | Core behavior broken, no workaround. | Yes |
+| **Major** | A behavior broken but with a workaround, or an edge case. | No (file as follow-up) |
+| **Minor** | Cosmetic / rare edge / log noise. | No (file as follow-up) |
+
+---
+
+## Branching and role attribution
+
+**Trunk-based development with work branches.** A project's version-control policy is **its
+own**: a sibling repository's habits (everyone-on-one-branch, long-lived release branches, a
+forge-PR ceremony) are not inherited by proximity. What follows is the kit's policy; a project
+that departs from it says so in the adapter.
+
+**The invariant:**
+
+- **Code work lives on per-work-item branches** — `feature/<ID>-<slug>`, `fix/<ID>-<slug>`,
+  `refactor/<ID>-<slug>`. **Never per-role branches.** One branch per issue.
+- **Kanban state + metadata commit to the trunk.** The board moves, spec/issue edits, role-doc
+  updates, refactor/design pass docs, `progress.md`, the project doc and the adapter all commit
+  **directly to the trunk** with a role-prefixed message. Only **code** goes through a work
+  branch.
+- **The trunk is single** — one branch, no trunk/release split. The trunk name is **resolved and
+  confirmed from the remote's published default branch** by the kanban scripts (never guessed);
+  the project doc declares it in prose, and `<trunk>` defaults to `main` when a project has no
+  reason to prefer another name.
+
+> **A remote may be entirely local.** The kit needs *a* publication target, not a hosting
+> product: a bare repository on the same disk satisfies every contract here. Hosted forges are an
+> **optional extra** — [`GIT-HOSTING.md`](GIT-HOSTING.md) covers both.
+
+### The code-vs-metadata rule
+
+The split above needs exactly one project-supplied definition: **which paths are code.** The
+adapter states it (typically the source tree, the test tree and the build/packaging manifest).
+Everything else in the repository is **metadata** and commits direct to the trunk. The rule is
+mechanical on purpose — "is this file in the project's code paths?" is answerable by a `git
+diff --name-only`, and a boundary you can compute is a boundary that survives a busy session.
+
+**Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
+capability matrix row, a doc correction that the code change *makes true* belongs in the commit
+that makes it true — splitting it onto the trunk publishes a claim about code that has not landed
+yet, and leaves the branch's own reviewer reading a diff with its explanation missing. The
+direct-to-trunk rule governs metadata changed **on its own**; it was never a ban on a code change
+carrying its own documentation. *(Measured in the seed acceptance test: a worker with a register
+update inside a feature branch read the rule as a prohibition and split a coherent change in
+two.)*
+
+### The kanban worktree (load-bearing)
+
+`move-issue.sh` / `finish-pr.sh` / `subtask.sh` never hijack your checkout. All kanban version-
+control ops run inside a **standing detached worktree pinned to the trunk** (`.kanban-wt/`,
+gitignored, auto-bootstrapped, lock-serialized, and it fast-forwards your main checkout when that
+sits clean on the trunk). This is what lets a board move commit to the trunk **while your working
+checkout is on a work branch**. Never delete it mid-op; if an op dies between commit and push,
+`check-board.sh` surfaces the divergence. The contract is
+[`contracts/kanban-worktree.md`](contracts/kanban-worktree.md).
+
+### Role-attribution commit prefixes
+
+Every commit subject starts with a **role tag** in square brackets; the `scripts/githooks/
+commit-msg` hook **rejects a prefix-less subject** (wired via `git config core.hooksPath
+scripts/githooks`, which the initializer sets). The **set of legal prefixes is the project's** —
+it is declared in one table in the adapter and enforced from the hook, and the two must agree.
+
+Two attribution rules are the kit's:
+
+- **The Orchestrator prefix is narration only.** Coordination notes carry it; the work its
+  subagents do carries the Dev/QA prefixes.
+- **The hygiene conventions around a commit** — no generated co-author trailers, the
+  hand-commit-then-`git status -sb` ritual, never ending a landing on an unpushed
+  looks-pushed state — are **kit doctrine**, not each project's taste:
+  [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md). Subject *style* beyond the role tag
+  (tense, length, body format) remains the adapter's.
+
+### Landing code — `./scripts/finish-pr.sh <ID>`
+
+Forge-agnostic, pure version control; **no forge CLI**. It squash-merges the issue's work branch
+into the trunk locally, pushes, deletes the branch (local + remote), and advances the issue
+`dev_complete → qa_complete`. QA's review evidence lives in the **issue file's Activity log** —
+there is no PR/MR object to open, approve or comment on. (A forge-PR flavor can be added later if
+a team wants MR ceremony; see the `finish-pr.sh` header and
+[`GIT-HOSTING.md`](GIT-HOSTING.md).)
+
+### Log-filtering recipes
+
+Substitute the project's own prefixes and ID scheme:
+
+```bash
+git log --grep='^\[QA\]' --oneline          # every QA action
+git log --grep='^\[Dev\]' --oneline         # every Dev commit
+git log --grep='<ID>' --oneline             # one issue's whole trail
+git log --grep='→ qa_complete' --oneline    # every issue that landed
+```
+
+---
+
+## Notifications (optional)
+
+The kit ships a **transport-agnostic** outbound-notification helper (`scripts/notify.sh`, with one
+example channel adapter) and a harness `Notification` hook (`scripts/notify-hook.sh`). It is
+**off by default** — with `NOTIFY_BACKEND` unset (or `none`), `notify.sh` is a silent no-op, so
+the roles' "fire a ping" checklist items cost nothing. To enable, set `NOTIFY_BACKEND` (and the
+backend's credentials) in the environment file and add the `Notification` hook from
+`.claude/settings.json.example`. Roles fire an `attention`/`done` ping at session start/close
+only when a backend is configured; **nothing here is required for the process to work.**
+Contract: [`contracts/notification.md`](contracts/notification.md).
+
+## Seams — what this file deliberately does not know
+
+| Seam | Where it is configured |
+|---|---|
+| Issue / spec prefix, id validation | `scripts/config.sh` |
+| Trunk name | resolved and confirmed from the remote's published default branch; `<trunk>` defaults to `main` |
+| Status folder set | the `progress/` directory + the kanban scripts |
+| The gate commands | the project doc + `scripts/verify.sh` |
+| The role set + the commit-prefix table | the adapter + `.claude/roles/` |
+| Which paths count as **code** | the adapter (§ The code-vs-metadata rule) |
+| House rules, credentials, capability/documentation duties | the adapter — **project law, and none of this file's business** |
+
+## Doctrine — the files this manual points at
+
+Doctrine is the *reasoning* behind a rule, kept out of this manual so the manual stays short.
+Every one of them lives in [`doctrine/`](doctrine/) and travels with it — **the directory listing
+is the count**, and this table is the index. A new sheet joins this table **in the same change**
+that creates it; a table that lags is how a sheet becomes invisible.
+
+| File | The pattern it states | Where this manual points at it |
+|---|---|---|
+| [`supersession.md`](doctrine/supersession.md) | Preserve the reason, supersede only the conclusion — and the `superseded_in_part` annotation that follows from it. | § Execution discipline, item 5 |
+| [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried, and its scope may not exceed its evidence's scope. The authoring-time neighbour of `supersession.md`. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
+| [`commit-hygiene.md`](doctrine/commit-hygiene.md) | What a commit owes beyond its content: no generated co-author trailers, a role-prefixed subject enforced at write time, hand the commit then read `git status -sb`, and never end a landing on an unpushed looks-pushed state. | § Branching and role attribution |
+| [`model-provisioning.md`](doctrine/model-provisioning.md) | How a dispatched worker is provisioned (model + effort per work class), the leaf rule (a worker does not spawn workers), and the rule that a ladder is only real where a harness knob exists. | The role docs' own *"Model & effort contract"* sections |
+| [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite from the corpus, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. Its marking convention is stated in one test runner's mechanics; a different stack ports the **question and the two tiers**, not the mechanics. | Here — and `EXTRACTION.md` § 4, which lists the guards that do **not** travel |
+| [`calibration.md`](doctrine/calibration.md) | **The two AVAILABLE rituals that measure the kit's own claims** — a regeneration spike (hide a decision-dense module; rebuild it from the corpus with the acceptance tier as the criterion) and a seed acceptance test (bootstrap a fresh project from the seed document and count the steps guessed). Both must declare their honest-worker limits, and the **findings list is the deliverable**. **Available, never an obligation.** | Here — and `contracts/acceptance-tier.md`, the tier they exercise |
+| [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. The reason (deletion silences guards; evidence is not re-derivable; a negative claim dies with its enumeration) is preserved in full; only this one conclusion narrows. | The adapter's House rules; the project doc's retained-evidence policy |
+| [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers (a successor lands, a plan closes, a ruling overturns a conclusion, a number/universal stops being true), each owed in the same commit as its cause, never a sweep. Five stamp fields (the "kept because" surviving-value clause is the one authors drop); "derive, date, or do not state" for numbers in prose. | The implementer/reviewer role docs' *Definition of Done*; `dev/README.md`'s own preamble |
+| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | The adapter's House rules; the project doc's quality bar |
+| [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | The orchestrator role doc's § Token discretion (run-plan duties); every dispatching role |
+| [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
+| [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | § Execution discipline, item 2 |
+| [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | § The default path is lite (the gates a release adds) |
+
+Two neighbours of the doctrine directory, deliberately outside it:
+[`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and
+the instruments that look — advisory, never a gate) and [`GIT-HOSTING.md`](GIT-HOSTING.md) (the
+local-only-to-hosted spectrum). Neither is doctrine, so neither has a row above; both are pointed
+at from the sections that need them.
+
+The honest inventory of what is copyable, what must be configured, what is pinned in place and
+what is **still entangled** is [`EXTRACTION.md`](EXTRACTION.md). Read it before lifting this kit
+into another repository.

@@ -1,0 +1,258 @@
+<!-- KIT-CLASS: KIT — role workflow; project references are pointers. See process/EXTRACTION.md. -->
+# PM (Product Manager) role
+
+The hat to wear to turn ambiguous product intent into a `progress/todo/` issue Dev can pick up. Read [PROJECT.md](../../PROJECT.md) first for project-specific context (what the project is, its stage, the build order, the quality bar).
+
+Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<trunk>` is the project's single trunk branch (default `main`).
+
+## When to put on the PM hat
+
+Wear this hat when the work is about **what to build and why**, not how.
+
+- Stress-testing an idea before it becomes an issue
+- Writing the next PRD (a PRD typically covers a feature area and spawns 3–6 issues)
+- Grooming `progress/todo/` — creating, splitting, sequencing, killing issues
+- Prioritizing the next 1–3 issues against the build order in PROJECT.md
+- Answering an open question logged in PROJECT.md or in a PRD's Open Questions section
+- Resolving direction conflicts surfaced by Dev or QA — Dev hits a design fork, QA finds an AC ambiguity → PM decides
+- Reviewing `progress.md` to decide whether to pivot, add roadmap items, cut scope
+- Writing a stakeholder update
+- Triage of items in `progress/blocked/` — clarify the blocker and either unblock or kill
+
+Cadence depends on the project — see PROJECT.md. For a solo dev, sessions get a PM hat when the next step is unclear, ambiguous, or strategic.
+
+## Model & effort contract
+
+How a PM-hat **minting worker** is provisioned. The **pattern** is
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md); the
+table below is this project's **instance**, and the full ladder lives in
+[orchestrator.md § Model & effort contract](orchestrator.md#model--effort-contract).
+
+| Work class | Model | Effort |
+| --- | --- | --- |
+| **PM-hat mint** (PRD or issue authoring) | `<fill in>` | `<fill in — the higher tier>` |
+| **XS / mechanical** PM chore (a one-field edit, a board relabel) | `<fill in — the cheaper model>` | `<fill in>` |
+
+> The shipped `pm-mint` definition in [`.claude/agents/pm-mint.md`](../agents/pm-mint.md)
+> already pins a model and an effort in frontmatter. That pin is the seed default — fill this
+> table to match it, and change both in the same commit if you change either.
+
+**Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
+effort, anywhere**; **never spawn the seat's own model class** — the seat is the
+human-partnered architect instance, not a provisionable worker. `max_tokens` is harness-managed
+in Claude Code and is not a project knob.
+
+**The leaf clause: a worker spawned for the PM hat does not spawn subagents** — it mints
+directly, in its own context. Coordinator-level fan-out is the seat's and the runner's job.
+
+**Minting sits at the higher tier because a wrong AC is paid for downstream by every Dev and QA
+worker that reads it** — this is the one place in the ladder where effort is cheaper than its
+absence.
+
+## Session start phrase
+
+Paste at the top of a PM session:
+
+```
+You are acting as the Product Manager. Before doing anything:
+1. Read PROJECT.md (once-per-session context).
+2. Skim the repo-local worker memory index, if this project keeps one
+   (+ any entry it flags relevant), including the AFK-batching discipline
+   if an autonomous round is incoming. It resolves on a fresh clone; the
+   architect seat's own memory is a separate, harness-provided store and
+   is not a worker read.
+3. Read progress.md — last 50 lines or last session's entries.
+4. ls progress/todo/ progress/in_progress/ progress/dev_complete/ \
+      progress/qa_complete/ progress/blocked/  — see the board.
+5. ls requirements/ — see existing PRDs.
+6. Read any PRD or issue file relevant to today's task.
+
+Then use the PM skills in .claude/skills/ (write-spec, product-brainstorming).
+Invoke them via the Skill tool when my requests match — actually run the
+skill, do not just describe it.
+
+Today I need help with: <task>
+```
+
+## Skills used in this role
+
+| Skill | Auto-triggers when | Invoke manually when |
+| --- | --- | --- |
+| [write-spec](../skills/write-spec/) | User says "spec this", "write a PRD", "turn this into a spec", or describes a feature area with no PRD yet | You want a clean PRD before drafting issues, especially for a feature area spanning multiple issues |
+| [product-brainstorming](../skills/product-brainstorming/) | User says "brainstorm", "think out loud", "stress-test", "what are we missing", "sanity-check this idea" | Before writing a PRD where the shape is still vague; for open questions in PROJECT.md |
+
+> The live PM skill set is **write-spec + product-brainstorming**. Other PM reasoning — roadmap re-shuffle, research synthesis, stakeholder comms — happens inline as PM judgment, not as a packaged skill.
+
+## Workflow: idea → `progress/todo/` issue
+
+Start: a vague ask, an open question in PROJECT.md, or stakeholder feedback. End: one or more issue files in `progress/todo/` ready for Dev pickup.
+
+> **Not every issue needs a PRD.** The **default for small, well-understood work is the lite
+> path**: mint one `progress/todo/` issue directly — real AC, `prd: n/a`, `stories: []`, no
+> subtask tree — and hand it to Dev for `issue → branch → TDD → land` (see the adapter § "The
+> default path is lite"). The two heavier intake shapes below are for **feature-area-scale**
+> work only. **PRD-first** (the numbered steps) starts from a feature area and writes the spec.
+> **Feedback-round** (next subsection) starts from a raw batch of operator complaints. Pick the
+> matching path; all three end at vetted `progress/todo/` issues.
+
+### Feedback-round intake (the operator hands you a list of behaviour complaints)
+
+Sometimes the operator hands PM a raw batch of complaints about how the product **behaves** — a
+command that mangled its input, a confusing error message, a flag that didn't do what its help
+text said — rather than a PRD. **Never mint issues straight from the raw list.** Run the funnel:
+
+1. **Code-ground each item** — for every complaint, locate the responsible code so the issue is
+   grounded in the real implementation, not in a guess.
+2. **Operator verifies categorization** — confirm which items are bugs vs polish vs new scope vs
+   won't-do **before any issue is minted**.
+3. **Read-only expert vetting** — **QA** vets each surviving item against the product's actual
+   behaviour (run it, read the output). No code is written; the pass confirms the item is real
+   and scopes it.
+4. **Mint vetted issues + a rationale note** — create the `progress/todo/` issues for what
+   survived vetting, and (for a multi-issue round) capture the round's rationale in a
+   `docs/design/<date>-<slug>-pass.md` note.
+
+Under an autonomous (AFK) round, **batch** sign-off decisions rather than blocking on any single
+one — the operator answers batches between rounds, not during them
+([orchestrator.md § AFK decision-batching](orchestrator.md#afk-decision-batching-autonomous-runs)).
+
+### Workflow: PRD-first (feature-area work)
+
+> Use this heavier path only for a feature area spanning multiple issues. A one-off small fix takes the lite path above (no PRD).
+
+1. **Frame the ask.** One sentence. What problem? Whose? If you can't write it, you're not ready to spec — run [product-brainstorming](../skills/product-brainstorming/) first.
+2. **Brainstorm (if the shape is unclear).** [product-brainstorming](../skills/product-brainstorming/) for problem exploration, solution ideation, assumption testing. Capture options + the chosen direction. Log the strategic decision in `progress.md` if it forecloses alternatives.
+3. **Check the roadmap.** Is this in the current build layer (PROJECT.md)? If not, re-shuffle the build order inline — pulling something in means pushing something out.
+4. **Research if needed.** Gather prior art and synthesize piled-up stakeholder feedback into themes before writing the PRD — inline PM judgment, not a packaged skill.
+5. **Write or extend a PRD.** Run `./scripts/new-prd.sh <slug>` to create `requirements/PRD-NNN-<slug>.md` from the PRD template with a pre-filled id + dates. Then invoke [write-spec](../skills/write-spec/) to populate Context, Goals, Non-Goals, Features (`F1`, `F2`, …), Stories (`F1-S1`, …) with AC, Success Metrics, Open Questions. One PRD often spawns 3–6 issues.
+6. **Resolve open questions.** Any P0 open question that blocks Dev — answer it now, or move it out of P0 in the PRD.
+7. **Split into issues.** Each issue maps to one or more stories from the PRD. The size rule: `S` (≤1 session) or `M` (2–4 sessions). `L` means split.
+8. **Create issue file(s).** Run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories PRD-NNN-F1-S1,PRD-NNN-F1-S2` for each. `--id` is **required** (the script is stateless): `next-id.sh` suggests the next free number across the live board **and** the archive (so it never resets after a milestone close) — sanity-check it, flag it if it looks wrong, and re-run it before each issue so the number increments as files land. The script copies [.claude/templates/ISSUE.template.md](../templates/ISSUE.template.md) to `progress/todo/<PREFIX>-NNN-<slug>.md` and pre-fills `id`, `created_at`, `branch`, `prd`, `stories`. Fill in `title`, `size`, `created_by: PM`, and the body's Problem / AC (copied from PRD stories) / Out-of-scope / Dependencies, plus the first Activity entry: `YYYY-MM-DD [PM] Created in todo/. PRD-NNN § F1 § S1, S2.` **Name the notes deliverable**: if the issue is consumer-visible, its AC list must name its release-notes / changelog entries as an AC of its own; if it is not consumer-visible, add an AC stating it has none. **Named, or explicitly dismissed — never absent.**
+9. **Confirm Definition of Ready** (below). If anything is missing, the file stays out of `todo/` (leave fields as `TODO`, or move it to a scratch dir).
+10. **Take the PM hat off.** Switch to a Dev session, or hand off to a future Dev session.
+
+### Amending a PRD in part — `superseded_in_part`
+
+A PRD is written once and then partially overtaken by later rulings. When a ruling of yours
+overturns **part** of a PRD or story, annotate the PRD's frontmatter — it joins the existing
+`supersedes: []` / `references: []` fields:
+
+```
+superseded_in_part: [<PREFIX>-356 → F2 § S3]      # <issue-id> → <section>
+```
+
+- **The entry format is `[<issue-id> → <section>]`** — the issue whose ruling overturned it,
+  then the PRD section it overturned. One entry per overturned part.
+- **Annotate in the same change as the ruling.** The annotation lands with the ruling that
+  caused it, never in a later sweep — an annotation promised for later is an annotation that
+  does not happen.
+- **It is orthogonal to `status`.** A PRD superseded *in part* is **not** `status: superseded`
+  (that value is for a PRD replaced whole); a `draft`/`approved`/`completed` PRD keeps its
+  status.
+- **The ruling itself still follows the supersession ethic** — **preserve the reason, supersede
+  only the conclusion; transform the guard rather than delete it.** A rationale-free strike is
+  what gets a settled argument re-litigated. The rule statement is
+  [`process/doctrine/supersession.md`](../../process/doctrine/supersession.md).
+
+Applies **going forward**. Retro-annotating older PRDs is its own issue with its own
+verification burden — do not sweep.
+
+**The same discipline binds a ruling that overturns any recorded conclusion, not only a PRD.** A
+ruling is not done until the predecessor carries its stamp, in the same change
+([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
+
+### Moving an issue (occasional PM use)
+
+PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to a scratch location or to `blocked/`. In all cases:
+
+```
+./scripts/move-issue.sh <PREFIX>-NNN <target> --role PM --note "Unblocked: <answer>."
+```
+
+The script performs the move in the standing kanban worktree (your checkout is never switched), appends the Activity entry, auto-commits as `[PM] <PREFIX>-NNN → <target>: <note>`, and pushes. Available targets: `todo`, `in_progress`, `dev_complete`, `qa_complete`, `blocked`, `done`. (`done/` is the permanent home for completed stories — normally populated by `archive.sh` sweeping `qa_complete/`, not by a manual PM move.)
+
+## Definition of Ready
+
+A file is allowed in `progress/todo/` only when every box is checked. If anything is missing, leave the file in a scratch location. **Two boxes are path-conditional** — see the lite-path note below the list.
+
+- [ ] **PRD exists** at `requirements/PRD-NNN-<slug>.md`, produced by [write-spec](../skills/write-spec/), status `draft` or `approved` — **feature-area work only.** A small standalone fix on the lite path sets `prd: n/a`, `stories: []`, and authors its own AC; no PRD required.
+- [ ] **Frontmatter complete** — `id`, `type`, `title`, `size`, `prd`, `stories`, `branch`, `created_at`, `created_by`
+- [ ] **Problem statement** — one paragraph grounded in PROJECT.md context
+- [ ] **Acceptance Criteria** — each independently testable by QA (copied from the PRD's referenced stories for feature-area work; authored directly in the issue on the lite path)
+- [ ] **Out of scope** — explicit list of things this issue does NOT touch
+- [ ] **Dependencies identified** — code (`blocked_by: [<PREFIX>-NNN]`) and resource (infrastructure, fixtures, external services)
+- [ ] **Branch name** in frontmatter — `feature/<PREFIX>-NNN-<slug>` for features/spikes/chores, `fix/<PREFIX>-NNN-<slug>` for bugs
+- [ ] **Open questions at P0** — none remaining (P1/P2 stay in the PRD)
+- [ ] **Success metric** named when applicable — most are binary (works / doesn't); strategic ones get a metric
+- [ ] **Activity log seeded** — first entry: `YYYY-MM-DD [PM] Created in todo/. PRD-NNN § ...` (lite path: `... Created in todo/. Standalone fix, no PRD.`)
+- [ ] **Notes deliverable named** — a consumer-visible issue's AC list names its release-notes / changelog entries, or the issue states it has none. **The lesson behind this box:** a fully landed feature shipped **invisible** because the mint omitted the notes and three faithful QA legs never checked — QA grades the AC list, so a deliverable that is not an AC is a deliverable nobody grades.
+- [ ] **Every illustrative example inside an AC CITES ITS SOURCE or is labelled approximate.** An AC that says *"e.g. `0 9 * * 1-5` fires at 09:00 on weekdays"* is asserting a fact the implementer will be graded against — so it either names where that fact came from (a spec section, a manual page, a measured probe) or says plainly that it is illustrative and unverified. **Never a bare confident example.**
+
+> **Why the illustration rule exists.** An AC's example is read as the contract, not as
+> decoration. When the example is *wrong* and the implementation is *right*, the AC turns the
+> process into an argument for the plausible-wrong answer — the exact failure the specification
+> exists to prevent. Two independent reviewers hit this within twelve hours of one adoption and
+> both invented the same escape (the **third verdict** — see below); writing the source next to
+> the example is what stops it being needed. A PM who cannot cite the example should write
+> *"illustrative, unverified"* — that is a complete and honest AC.
+>
+> **The third verdict is yours to receive.** When a reviewer returns
+> **PASS-with-AC-correction**, the AC amendment lands with the issue and the note arrives on
+> your desk ([qa.md § The third verdict](qa.md#the-third-verdict--pass-with-ac-correction)).
+> Read it: an AC illustration that was wrong once is a signal about where this project's facts
+> are being guessed.
+
+> **Lite-path exception (the default for small work).** For a small, well-understood standalone
+> fix, the **PRD-exists** box is satisfied by `prd: n/a` + self-authored AC, and "copied from the
+> PRD's stories" reads as "authored in the issue". Every other box (frontmatter, problem,
+> independently-testable AC, out-of-scope, dependencies, branch, activity log, notes
+> deliverable, cited examples) still applies. Full ceremony is reserved for feature-area work.
+
+## Handoff to Dev
+
+What Dev sees picking up from `progress/todo/`:
+
+- **Issue file** at `progress/todo/<PREFIX>-NNN-<slug>.md` with complete frontmatter and AC
+- **Linked PRD** at `requirements/PRD-NNN-<slug>.md` — full context for the stories
+- **PROJECT.md** as global context (read once per session)
+- **progress.md** for recent strategic decisions
+- **Branch convention** baked into the issue's frontmatter
+
+The PM does not write code, does not write tests, does not pick libraries. Dev owns those calls. If Dev hits a fork that needs a product decision, Dev moves the issue file to `progress/blocked/` and pings PM back on; PM clarifies and moves it back to whichever folder it came from.
+
+## Project duties — the adapter fills this
+
+The intake funnels above are portable. What is **not** portable is what this project counts as
+a *deliverable* and a *decision record*. The adapter (`CLAUDE.md`) and `PROJECT.md` own this;
+fill it in:
+
+- **The notes deliverable.** Which documents a consumer-visible change must update (release
+  notes, a changelog, a consumer guide), and — if they are distinct documents — **what
+  distinguishes them.** The donor's hard-won rule, worth copying: a consumer-facing notes file
+  is **not** a paste of the changelog; it carries its own relevance filter (include: public
+  symbols and flags, observable behavior changes, new refusals, credential/privilege
+  requirements, every dependency add or pin move, known limitations; exclude: internal
+  refactors, test/CI/board/process work, issue and PRD ids, role names, batch labels). A paste
+  of the changelog is the exact failure mode that file exists to prevent. (`<fill in>`)
+- **The decision register.** Where a ruling is *looked up* — the file a reader consults for
+  "what is currently true", as opposed to the issue that changed it. Keep it a **projection**:
+  state the current ruling, one line of why, and its provenance; the history stays in the
+  ledger. (`<fill in>`)
+- **Which surfaces are consumer-visible at all**, so "is this consumer-visible?" is a lookup
+  and not a judgement call each time. (`<fill in>`)
+
+**Absent means absent.** If the project keeps no separate notes file or no register, say so
+explicitly rather than leaving the bullet blank.
+
+## Session end checklist
+
+Before closing a PM session:
+
+- [ ] Every new issue file lives in `progress/todo/` (or `progress/blocked/` if blocked at creation)
+- [ ] Every new/changed PRD file committed under `requirements/`
+- [ ] Issue file frontmatter and Activity logs are current
+- [ ] `progress.md` updated **only** if a strategic decision was made
+- [ ] PROJECT.md updated if the decision is foundational (architecture, scope, philosophy)
+- [ ] Open questions in any PRD are tagged with who needs to answer (PM, Dev, stakeholder)
+- [ ] If a stakeholder-facing artifact was produced (status update, competitive brief, demo notes), saved under `docs/` and linked from `progress.md`
+- [ ] If notifications are configured, fired a `done` ping summarizing the session — `./scripts/notify.sh done "PM: <what was scoped/created>" --session <slug>`. No-op if notifications are off.

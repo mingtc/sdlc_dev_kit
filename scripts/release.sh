@@ -1,0 +1,560 @@
+#!/usr/bin/env bash
+# KIT-CLASS: MIXED — kit SHAPE (preflight → bump seam → annotated tag → push → optional publish); PROJECT version files, build command and policy (the config block below, shipped EMPTY). See process/EXTRACTION.md.
+# scripts/release.sh — cut a release: preflight gates → version bump → annotated tag → push.
+#
+# A release is cut DELIBERATELY, LOCALLY, and with pure git — forge-agnostic, no
+# forge CLI, no CI auto-tagging. Each tag `vX.Y.Z` is what a consumer pins.
+#
+#   ./scripts/release.sh 1.1.0             # bump to 1.1.0, tag v1.1.0
+#   ./scripts/release.sh v1.1.0            # a leading "v" is accepted (same result)
+#   ./scripts/release.sh 1.1.0 --dry-run   # run every preflight gate, then STOP (mutate nothing)
+#   ./scripts/release.sh 1.1.0 --publish-only            # re-publish the dist branch for an ALREADY-CUT tag
+#   ./scripts/release.sh 1.1.0 --publish-only --dry-run  # report that republish, push NOTHING
+#
+# WHAT IT DOES, in order (it ABORTS NONZERO on the first failure, BEFORE mutating
+# anything — a red preflight leaves the repo byte-for-byte untouched):
+#
+#   PREFLIGHT (read-only)
+#     0. the target parses as X.Y.Z semver                     (else refuse)
+#     1. the tag vX.Y.Z does not already exist                 (idempotency guard)
+#     2. on the trunk with a CLEAN work tree                   (gate a)
+#     3. ./scripts/verify.sh is green                          (gate b)
+#     4. every gate declared in PREFLIGHT_GATES passes         (gate c; project-declared)
+#     5. ./scripts/check-board.sh reports a clean board        (gate d)
+#     6. EVERY document in RELEASE_DOCS has a "## [X.Y.Z]" section  (gate e)
+#        — one INDEPENDENT arm per document, each with its OWN refusal naming its
+#          own file and what to write. A shared message leaves the author guessing
+#          which file is missing a section; fail-fast, first-declared first.
+#     7. no declared document's section HEADER DATE is older than the newest date
+#        written inside that section                           (gate f)
+#
+#   THE SECTION DATE IS THE CUTTER'S — set it, here, at the cut. An un-cut section
+#   carries a PLACEHOLDER date with no authority, and no issue landing into one may
+#   edit it; the cutter writes the day the tag is actually taken. Gate f is what
+#   enforces that: it refuses a header date earlier than something the section says
+#   happened, naming both dates and the file. If it refuses, correct the HEADER —
+#   never the measurement inside the body. (This gate exists because a real release
+#   section sat, for a whole arc, dated a day BEFORE the work it contained: a header
+#   promise is only as good as whoever re-reads it.)
+#
+#   MUTATE (only once every gate above is green)
+#     8. bump the version in every file declared in VERSION_FILES
+#     9. one role-prefixed release commit, then an ANNOTATED tag vX.Y.Z
+#    10. push the commit + the tag to the remote
+#    11. optionally PUBLISH the distribution branch (RELEASE_PUBLISH=true) — only
+#        after BOTH pushes above succeed, so a publish failure can never make a
+#        completed release look failed. A failure there prints that the RELEASE
+#        SUCCEEDED, never rolls back the tag, and names `--publish-only` as the retry.
+#
+# TEST SEAMS (used by scripts/test/run.sh's sandbox cases; leave unset in real use):
+#   RELEASE_VERIFY_CMD   overrides gate b's command (default: scripts/verify.sh)
+#   RELEASE_BOARD_CMD    overrides gate d's command (default: scripts/check-board.sh)
+#   RELEASE_BUILD_CMD    overrides the publish build command (see BUILD_COMMAND)
+#   RELEASE_DIST_BRANCH  overrides the distribution branch name
+#   RELEASE_REMOTE       push remote                (default: origin)
+#   RELEASE_ROLE         commit role tag            (default: Architect)
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CONFIG BLOCK — everything a project declares lives between here and the END
+# marker. Nothing below the marker needs editing to adopt this script.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ── THE VERSION-BUMP SEAM ────────────────────────────────────────────────────
+# One record per file that carries the version: "<path>|<line-prefix>|<quote>".
+#   <path>        repo-relative.
+#   <line-prefix> the literal text that begins the line, up to the version itself.
+#                 It is used inside a sed `s|^…|` expression, so a prefix
+#                 containing `|` or regex metacharacters must be escaped by you.
+#   <quote>       the character the version is wrapped in — `"`, `'`, or EMPTY for
+#                 a bare value (a plain VERSION file).
+#
+# EVERY declared file is bumped, and EVERY bump is VERIFIED by reading the file
+# back before anything is committed. A format drift in one file would otherwise
+# ship a HALF-BUMPED release; on a failed read-back the script restores every file
+# it touched and aborts with no commit.
+#
+# SHIPPED EMPTY. With no records the script REFUSES: a release that tags a commit
+# whose declared version nobody moved is a silent lie, and this frame will not
+# pretend otherwise. If your project genuinely carries its version only in the tag,
+# say so explicitly with VERSION_IN_TAG_ONLY=true below.
+VERSION_FILES=(
+  # A WORKED EXAMPLE, from an anonymized donor project (a library whose build
+  # config and package entry point each state the version):
+  #   "<build-config-file>|version = |\""
+  #   "<src>/<package>/<entrypoint>|__version__ = |\""
+)
+# Set true ONLY if the tag is genuinely the single source of version truth.
+VERSION_IN_TAG_ONLY=false
+
+# ── EXTRA PREFLIGHT GATES (gate c) ───────────────────────────────────────────
+# One record per project-specific gate: "<name>|<command…>". They run after
+# verify.sh and before the board check, in declared order, read-only, and each
+# aborts the cut on a non-zero exit.
+#
+# A WORKED EXAMPLE, from an anonymized donor project: a LIVE read-canary against
+# a disposable scratch document, because that project's whole product was a client
+# for a remote API and a green offline suite could not prove the API still
+# answered. It carried one honest caveat worth copying: the canary SKIPS LOUDLY
+# when its credentials are unset, so the script printed a warning when it was
+# about to run a canary that could not actually reach anything — a gate that can
+# silently no-op must SAY when it is about to.
+PREFLIGHT_GATES=(
+  #   "live read-canary|<runner> -m live"
+)
+
+# ── THE RELEASE DOCUMENTS (gates e + f) ──────────────────────────────────────
+# One record per document that must carry a "## [X.Y.Z]" section for this cut:
+# "<path>|<what to write when it is missing>". The second field becomes part of
+# that document's OWN refusal message, so make it an instruction, not a label.
+#
+# A WORKED EXAMPLE, from an anonymized donor project — two documents, on purpose:
+#   "CHANGELOG.md|the internal engineering log: issue ids, refactor passes, test-count movements"
+#   "RELEASE_NOTES.md|the consumer-facing, filtered notes (four fixed subsections; the relevance filter is stated in that file's own header)"
+# Why two arms and not one: the consumer-facing file was added second, and without
+# a gate arm of its own it existed and silently stopped being maintained by the
+# second release.
+RELEASE_DOCS=(
+)
+
+# ── THE DISTRIBUTION BRANCH (step 11) — OFF by default. ──────────────────────
+# A consumer-only endpoint: the forge-agnostic equivalent of a releases page. It
+# carries ONLY the current release's artifact, whatever documents you list, and a
+# generated README, so getting the project is
+#
+#     git clone --branch <dist> --depth 1 <url>
+#
+# instead of cloning the dev repo and building it. No source, no tests, no process
+# docs, no scripts — the allowlist is the point.
+#
+# HISTORY POLICY: REPLACE. The orphan is rebuilt from nothing and force-pushed, so
+# the branch is always ONE commit. It is a distribution endpoint, not an archive —
+# the archive is the annotated tags plus your changelog on the trunk. Binaries
+# would grow the pack forever for a branch whose documented use is `--depth 1`
+# (which buys the consumer no history anyway), and a force-push is invisible to
+# that command. THE TRADEOFF, PLAINLY: anyone who made a FULL clone of the dist
+# branch needs --force on their next pull. The documented consumer command is a
+# fresh shallow clone.
+RELEASE_PUBLISH=false
+# The build command. It is handed an OUTPUT DIRECTORY as its LAST argument and is
+# run with the TAG's tree as its working directory — never the working copy, so
+# the distributed artifact is the one the tag reproduces. That is the entire basis
+# for "the tag is authoritative".
+BUILD_COMMAND="${RELEASE_BUILD_CMD:-}"
+# A glob, relative to the output directory, selecting the artifact to publish.
+DIST_ARTIFACT_GLOB=""
+# Documents copied out of the TAG's own tree, so they describe the artifact beside
+# them: "<path-in-tag>|<name-on-the-dist-branch>". A tag predating one simply
+# ships without it.
+DIST_DOCS=(
+)
+DIST_BRANCH="${RELEASE_DIST_BRANCH:-dist}"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# END CONFIG BLOCK — the frame follows. Take it as-is.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# --help renders the header's SYNOPSIS: the description plus every usage example.
+# The window is DERIVED, not a literal: a hard-coded `2,9p` once showed none of the
+# examples because they sat below it — and hard-coding a bigger number is the same
+# defect, silently dropping the next example somebody adds. So: find the header
+# block (everything above the first non-comment line), take the LAST usage example
+# inside it, and end the window there.
+#
+# THE SOURCE PATH IS RESOLVED ABSOLUTELY. This script `cd`s to the repo root
+# before anything else, so a relative `${BASH_SOURCE[0]}` (`./release.sh` when
+# invoked from scripts/) no longer resolves and --help printed a grep error
+# instead of the synopsis.
+RELEASE_SRC="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
+usage() {
+  local src="$RELEASE_SRC" header_end window_end
+  header_end=$(( $(grep -n -m1 -v '^#' "$src" | cut -d: -f1) - 1 ))
+  window_end="$(sed -n "1,${header_end}p" "$src" \
+    | grep -n '^#[[:space:]]\{1,\}\./scripts/release\.sh[[:space:]]' \
+    | tail -1 | cut -d: -f1)"
+  sed -n "3,${window_end:-9}p" "$src" | sed 's|^# \{0,1\}||'
+}
+
+# ── Arg parse ────────────────────────────────────────────────────────────────
+RAW_VERSION=""; DRY_RUN=false; PUBLISH_ONLY=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY_RUN=true; shift ;;
+    --publish-only) PUBLISH_ONLY=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    -*) echo "release.sh: unknown option '$1'" >&2; usage >&2; exit 2 ;;
+    *) if [ -z "$RAW_VERSION" ]; then RAW_VERSION="$1"; shift
+       else echo "release.sh: unexpected extra arg '$1'" >&2; exit 2; fi ;;
+  esac
+done
+
+if [ -z "$RAW_VERSION" ]; then
+  echo "release.sh: a target version is required (e.g. '1.1.0' or 'v1.1.0')." >&2
+  usage >&2; exit 2
+fi
+
+REMOTE="${RELEASE_REMOTE:-origin}"
+ROLE="${RELEASE_ROLE:-Architect}"
+
+# ── Preflight 0: the target parses as X.Y.Z semver ───────────────────────────
+NUM="${RAW_VERSION#v}"                     # strip an optional leading "v"
+TAG="v$NUM"
+if ! printf '%s' "$NUM" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "release.sh: '$RAW_VERSION' is not an X.Y.Z semver version — refusing." >&2
+  exit 1
+fi
+NUM_RE="${NUM//./\\.}"                      # dot-escaped for grep -E
+
+# ── Resolve the trunk. Same three-step chain as the kanban worktree, and the last
+#    link is READ FROM that library rather than re-typed here.
+DEFAULT_BRANCH="$(git symbolic-ref --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)"
+[ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH="$(git config --get init.defaultBranch 2>/dev/null || true)"
+if [ -z "$DEFAULT_BRANCH" ]; then
+  DEFAULT_BRANCH="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
+                      "$SCRIPT_DIR/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
+  {
+    echo "release.sh: the trunk is a GUESS ('$DEFAULT_BRANCH') — neither $REMOTE/HEAD nor"
+    echo "            init.defaultBranch is set. Cutting a release against a guessed trunk is"
+    echo "            not something this script will do quietly. Settle it first:"
+    echo "              git remote set-head $REMOTE <your-trunk>"
+  } >&2
+fi
+[ -n "$DEFAULT_BRANCH" ] || { echo "release.sh: could not resolve a trunk name at all — refusing." >&2; exit 1; }
+
+# Push by URL rather than by remote NAME: the throwaway repo the publish step
+# builds has no remotes of its own.
+DIST_REMOTE_URL="$(git -C "$REPO_ROOT" remote get-url "$REMOTE" 2>/dev/null || echo "$REMOTE")"
+
+# ── The publish step, as a function so both the normal path and --publish-only
+#    call exactly the same code.
+publish_dist() {
+  local work tagtree distdir artifact rec src dst
+  if [ "$RELEASE_PUBLISH" != "true" ]; then
+    echo "release.sh: publishing is not enabled for this project (RELEASE_PUBLISH=false in the config block)." >&2
+    return 1
+  fi
+  if [ -z "$BUILD_COMMAND" ] || [ -z "$DIST_ARTIFACT_GLOB" ]; then
+    echo "release.sh: RELEASE_PUBLISH is true but BUILD_COMMAND / DIST_ARTIFACT_GLOB are not declared." >&2
+    return 1
+  fi
+  work="$(mktemp -d)" || { echo "release.sh: could not create a temp dir for the publish step." >&2; return 1; }
+  # shellcheck disable=SC2064
+  trap "rm -rf '$work'; git -C '$REPO_ROOT' worktree prune >/dev/null 2>&1 || true" RETURN
+
+  # Build AT THE TAG, never from the working tree. A detached worktree gets the
+  # tag's tree without moving the operator's checkout.
+  tagtree="$work/tag"
+  git -C "$REPO_ROOT" worktree add --detach --quiet "$tagtree" "refs/tags/$TAG" \
+    || { echo "release.sh: could not check out $TAG to build the distribution artifact." >&2; return 1; }
+
+  # Braces are load-bearing: an unbraced `$TAG…` is read as a variable named
+  # `TAG…`, which under `set -u` aborts the script — it did once, and it took
+  # every release case down with it.
+  echo "── publish: building at ${TAG}…"
+  # shellcheck disable=SC2086  # deliberate word-split of the declared build command
+  ( cd "$tagtree" && $BUILD_COMMAND "$work/out" ) >&2 \
+    || { echo "release.sh: the build at $TAG failed." >&2; return 1; }
+  # shellcheck disable=SC2086,SC2012
+  artifact="$(ls "$work"/out/$DIST_ARTIFACT_GLOB 2>/dev/null | head -1 || true)"
+  [ -n "$artifact" ] || { echo "release.sh: the build at $TAG produced nothing matching '$DIST_ARTIFACT_GLOB'." >&2; return 1; }
+
+  distdir="$work/pub"
+  mkdir -p "$distdir"
+  cp "$artifact" "$distdir/"
+  for rec in ${DIST_DOCS[@]+"${DIST_DOCS[@]}"}; do
+    src="${rec%%|*}"; dst="${rec#*|}"
+    [ -f "$tagtree/$src" ] && cp "$tagtree/$src" "$distdir/$dst"
+  done
+
+  cat > "$distdir/README.md" <<EOF
+# $TAG — distribution branch
+
+The current release's artifact and its documents. Nothing else lives here.
+
+    $(basename "$artifact")
+
+This branch is REPLACED on every release (one commit, force-pushed) — clone it
+with \`--depth 1\`. Older artifacts come from the annotated tags, which are
+authoritative.
+EOF
+
+  # A FRESH repo rather than `git checkout --orphan` in this one: it starts with no
+  # history at all, which IS the orphan property, and it cannot touch the operator's
+  # branches or reflog if any step here fails.
+  git -C "$distdir" init --quiet
+  git -C "$distdir" symbolic-ref HEAD "refs/heads/$DIST_BRANCH"
+  git -C "$distdir" add -A
+  git -C "$distdir" \
+      -c user.name="$(git -C "$REPO_ROOT" config user.name 2>/dev/null || echo release)" \
+      -c user.email="$(git -C "$REPO_ROOT" config user.email 2>/dev/null || echo release@localhost)" \
+      -c core.hooksPath=/dev/null \
+      commit --quiet -m "[$ROLE] dist: $TAG"
+
+  echo "── publish: force-pushing $DIST_BRANCH (single commit, replaces the previous)…"
+  git -C "$distdir" push --quiet --force "$DIST_REMOTE_URL" "HEAD:refs/heads/$DIST_BRANCH" \
+    || return 1
+  return 0
+}
+
+# ── --publish-only: re-run JUST the publish for an ALREADY-CUT tag. ──────────
+# This is the recovery path the publish-failure message names, so it has to exist:
+# a message telling the operator to run a flag the script does not have would be
+# the dangling-pointer defect in its most expensive place. It runs no preflight and
+# mutates no version file — it only rebuilds the distribution copy — and it
+# REQUIRES the tag to already exist (the inverse of preflight 1 below).
+if [ "$PUBLISH_ONLY" = "true" ]; then
+  if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+    echo "release.sh: --publish-only needs tag $TAG to exist already; it does not. Cut the release first." >&2
+    exit 1
+  fi
+  # Sitting above the gates means sitting above the DRY-RUN STOP POINT too, so this
+  # path has to honour --dry-run ITSELF — it structurally cannot reach the one
+  # below. Without this, `<version> --publish-only --dry-run` force-pushed the dist
+  # branch; and since --publish-only takes a VERSION argument, that could silently
+  # roll the branch BACK to an older release's artifact while reporting a rehearsal.
+  # The tag check above still runs, so a rehearsal still tells the operator whether
+  # the retry would even be legal.
+  if [ "$DRY_RUN" = "true" ]; then
+    echo "(dry run) would: rebuild at $TAG and force-push $DIST_BRANCH to"
+    echo "          $DIST_REMOTE_URL (one commit, REPLACING the current one)."
+    echo "(dry run — nothing was pushed.)"
+    exit 0
+  fi
+  if publish_dist; then
+    echo "✓ Republished $DIST_BRANCH from $TAG."
+    exit 0
+  fi
+  echo "release.sh: re-publishing $DIST_BRANCH from $TAG FAILED. The release itself is unaffected." >&2
+  exit 1
+fi
+
+# ── Preflight 1: the tag must not already exist (idempotency guard). ─────────
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+  echo "release.sh: tag $TAG already exists — refusing (a version is cut once)." >&2
+  exit 1
+fi
+
+# ── The version-bump seam must be DECLARED before anything else runs. ────────
+if [ "${#VERSION_FILES[@]}" -eq 0 ] && [ "$VERSION_IN_TAG_ONLY" != "true" ]; then
+  {
+    echo "release.sh: REFUSING — VERSION_FILES is empty and VERSION_IN_TAG_ONLY is not true."
+    echo "  Declare the file(s) that carry your version in the config block at the top of"
+    echo "  this script, or set VERSION_IN_TAG_ONLY=true if the tag is genuinely the only"
+    echo "  place the version lives. Tagging a commit whose declared version nobody moved"
+    echo "  is a silent lie, and this frame will not pretend otherwise."
+  } >&2
+  exit 1
+fi
+
+# ── Preflight 2 (gate a): on the trunk with a clean working tree. ────────────
+CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+if [ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]; then
+  echo "release.sh: must run on the trunk ('$DEFAULT_BRANCH'); you are on '${CURRENT_BRANCH:-<detached>}'." >&2
+  exit 1
+fi
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  echo "release.sh: working tree is not clean — commit or stash first (a cut must be reproducible)." >&2
+  git status --short >&2
+  exit 1
+fi
+
+echo "── release.sh preflight for $TAG (trunk: $DEFAULT_BRANCH, remote: $REMOTE)"
+
+# ── Preflight 3 (gate b): verify.sh green. ───────────────────────────────────
+# NOTE the invocation form: ${VAR:-"quoted default"}, NOT a bare `$CMD` variable.
+# The quoted default keeps the default path a single word even when the repo path
+# contains a space; a bare unquoted expansion word-splits on it, runs the path's
+# first word, and produces a FALSE failure on every run. When the seam is SET, the
+# unquoted expansion still splits a multi-word stub, as intended.
+echo "[b] verify.sh (the project's gate runner)..."
+if ! ${RELEASE_VERIFY_CMD:-"$SCRIPT_DIR/verify.sh"}; then
+  echo "release.sh: verify.sh FAILED — refusing to cut $TAG on a red gate." >&2
+  exit 1
+fi
+
+# ── Preflight 4 (gate c): the project's own extra gates, in declared order. ──
+for rec in ${PREFLIGHT_GATES[@]+"${PREFLIGHT_GATES[@]}"}; do
+  g_name="${rec%%|*}"; g_cmd="${rec#*|}"
+  if [ "$g_name" = "$rec" ] || [ -z "$g_cmd" ]; then
+    echo "release.sh: malformed PREFLIGHT_GATES record: '$rec' (expected \"<name>|<command…>\")." >&2
+    exit 1
+  fi
+  echo "[c] $g_name..."
+  # shellcheck disable=SC2086  # deliberate word-split of the declared command
+  if ! $g_cmd; then
+    echo "release.sh: preflight gate '$g_name' FAILED — refusing to cut $TAG." >&2
+    exit 1
+  fi
+done
+
+# ── Preflight 5 (gate d): the board is clean. check-board.sh exits 0 always, so
+#    judge by its 'board-drift: clean' MARKER, not its exit code. Same quoted-
+#    default invocation form as gate b, for the same spaced-path reason.
+echo "[d] board-drift (check-board.sh)..."
+board_out="$(${RELEASE_BOARD_CMD:-"$SCRIPT_DIR/check-board.sh"} 2>&1)" || true
+if ! printf '%s\n' "$board_out" | grep -q 'board-drift: clean'; then
+  echo "release.sh: check-board.sh reports drift — resolve it before cutting $TAG." >&2
+  printf '%s\n' "$board_out" | grep -E 'board-drift|⚠' >&2 || true
+  exit 1
+fi
+
+# ── Preflight 6 (gate e): every declared release document covers this version. ─
+if [ "${#RELEASE_DOCS[@]}" -eq 0 ]; then
+  echo "[e] RELEASE_DOCS is empty — no release document is gated. (Declare them in the"
+  echo "    config block; a consumer-facing notes file that nothing enforces stops being"
+  echo "    maintained by the second release.)"
+fi
+for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
+  doc="${rec%%|*}"; what="${rec#*|}"
+  if [ "$doc" = "$rec" ]; then
+    echo "release.sh: malformed RELEASE_DOCS record: '$rec' (expected \"<path>|<what to write>\")." >&2
+    exit 1
+  fi
+  echo "[e] $doc has a ## [$NUM] section..."
+  if ! grep -qE "^## \[$NUM_RE\]" "$REPO_ROOT/$doc" 2>/dev/null; then
+    echo "release.sh: $doc has no '## [$NUM]' section — refusing to tag an undocumented version. Write it: ${what}. Then re-run." >&2
+    exit 1
+  fi
+done
+
+# ── Preflight 7 (gate f): the section HEADER DATE is not older than its own body.
+# One-directional on purpose: an OLDER date in the body is ordinary (a measurement
+# taken weeks ago, a superseded ruling), and only a date the header cannot yet have
+# known about is a defect. Only the TARGET section is read — history is not swept,
+# and a later section's dates are not this cut's business.
+for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
+  doc="${rec%%|*}"
+  echo "[f] ${doc}'s [$NUM] header date is not older than its own content..."
+  verdict="$(awk -v num_re="^## \\\\[$NUM_RE\\\\]" '
+    BEGIN { inside = 0; header = ""; newest = "" }
+    /^## \[/ {
+      if (inside) { exit }
+      if ($0 ~ num_re) {
+        inside = 1
+        if (match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
+          header = substr($0, RSTART, RLENGTH)
+        }
+        next
+      }
+    }
+    inside {
+      line = $0
+      while (match(line, /[0-9]{4}-[0-9]{2}-[0-9]{2}/)) {
+        found = substr(line, RSTART, RLENGTH)
+        if (found > newest) { newest = found }
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+    END { print header "\t" newest }
+  ' "$REPO_ROOT/$doc" 2>/dev/null)"
+  header_date="${verdict%%$'\t'*}"
+  newest_date="${verdict##*$'\t'}"
+  if [ -n "$header_date" ] && [ -n "$newest_date" ] && [ "$header_date" \< "$newest_date" ]; then
+    echo "release.sh: ${doc}'s '## [$NUM]' header date is $header_date, but the section itself carries $newest_date — a release dated before the changes it contains. The section DATE is the CUTTER'S: set the header to the day you cut (at least $newest_date), then re-run." >&2
+    exit 1
+  fi
+done
+
+echo "── preflight: all gates green ✓"
+
+# ── Dry run stops here — mutate NOTHING. ─────────────────────────────────────
+if [ "$DRY_RUN" = "true" ]; then
+  echo
+  echo "(dry run) would: bump ${#VERSION_FILES[@]} version file(s) → $NUM, commit as"
+  echo "          '[$ROLE] release: $TAG …', tag $TAG (annotated), push to $REMOTE."
+  [ "$RELEASE_PUBLISH" = "true" ] && echo "          …then publish the $DIST_BRANCH branch."
+  echo "(dry run — nothing was changed.)"
+  exit 0
+fi
+
+# ── MUTATE. Every gate is green; from here we bump, commit, tag, push. ───────
+BUMPED=()
+bump_one() {  # <path> <line-prefix> <quote>
+  local f="$REPO_ROOT/$1" prefix="$2" q="$3" tmp expr
+  [ -f "$f" ] || { echo "release.sh: VERSION_FILES names '$1', which does not exist." >&2; return 1; }
+  if [ -n "$q" ]; then
+    expr="s|^${prefix}${q}[^${q}]*${q}|${prefix}${q}${NUM}${q}|"
+  elif [ -n "$prefix" ]; then
+    expr="s|^${prefix}.*|${prefix}${NUM}|"
+  else
+    # No prefix AND no quote means "the line IS the version" (a plain VERSION
+    # file). The pattern is deliberately narrow — a bare `s|^.*|…|` would rewrite
+    # EVERY line of the file, which is a destructive way to bump a one-line file
+    # and a catastrophic one to bump anything else.
+    expr="s|^[0-9][^[:space:]]*[[:space:]]*$|${NUM}|"
+  fi
+  tmp="$(mktemp)"
+  sed "$expr" "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+  # READ IT BACK. A format drift in one file would otherwise ship a half-bumped
+  # release, and the read-back is the only thing that can tell the difference
+  # between "sed matched" and "sed silently matched nothing".
+  grep -qF "${prefix}${q}${NUM}${q}" "$f"
+}
+
+if [ "$VERSION_IN_TAG_ONLY" != "true" ]; then
+  echo "── bumping version → $NUM in ${#VERSION_FILES[@]} file(s)"
+  for rec in "${VERSION_FILES[@]}"; do
+    v_path="${rec%%|*}"; v_rest="${rec#*|}"; v_prefix="${v_rest%%|*}"; v_quote="${v_rest#*|}"
+    [ "$v_rest" = "$rec" ] && { echo "release.sh: malformed VERSION_FILES record: '$rec' (expected \"<path>|<line-prefix>|<quote>\")." >&2; exit 1; }
+    [ "$v_quote" = "$v_rest" ] && v_quote=""
+    if bump_one "$v_path" "$v_prefix" "$v_quote"; then
+      BUMPED+=("$v_path")
+      echo "   ✓ $v_path"
+    else
+      echo "release.sh: the bump did not apply cleanly to '$v_path' — restoring every file touched, no commit made." >&2
+      for done_path in ${BUMPED[@]+"${BUMPED[@]}"}; do
+        git checkout -- "$done_path" 2>/dev/null || true
+      done
+      git checkout -- "$v_path" 2>/dev/null || true
+      exit 1
+    fi
+  done
+  git add -- "${BUMPED[@]}"
+fi
+
+COMMIT_MSG="[$ROLE] release: $TAG — bump version to $NUM + annotated tag"
+if [ "$VERSION_IN_TAG_ONLY" = "true" ]; then
+  COMMIT_MSG="[$ROLE] release: $TAG — annotated tag (the version lives in the tag)"
+  git commit --allow-empty -m "$COMMIT_MSG" --quiet
+else
+  git commit -m "$COMMIT_MSG" --quiet
+fi
+echo "── release commit: $(git rev-parse --short HEAD) — \"$COMMIT_MSG\""
+
+git tag -a "$TAG" -m "$TAG"
+echo "── annotated tag $TAG created."
+
+echo "── pushing commit + tag to $REMOTE/$DEFAULT_BRANCH..."
+if ! git push "$REMOTE" "HEAD:$DEFAULT_BRANCH"; then
+  echo "release.sh: pushing the release commit FAILED. The commit + tag exist LOCALLY but are NOT on $REMOTE." >&2
+  echo "            Recover: git push $REMOTE HEAD:$DEFAULT_BRANCH && git push $REMOTE $TAG" >&2
+  exit 1
+fi
+if ! git push "$REMOTE" "refs/tags/$TAG"; then
+  echo "release.sh: pushing tag $TAG FAILED. The commit is on $REMOTE but the tag is only LOCAL." >&2
+  echo "            Recover: git push $REMOTE $TAG" >&2
+  exit 1
+fi
+
+# ── PUBLISH the distribution copy. Both pushes are on the remote, so the release
+#    is AUTHORITATIVE from here on and nothing below can un-cut it.
+if [ "$RELEASE_PUBLISH" = "true" ]; then
+  if publish_dist; then
+    echo "── published $DIST_BRANCH: consumers can now run"
+    echo "     git clone --branch $DIST_BRANCH --depth 1 $DIST_REMOTE_URL"
+  else
+    echo >&2
+    echo "release.sh: PUBLISHING THE $DIST_BRANCH BRANCH FAILED — but THE RELEASE ITSELF SUCCEEDED." >&2
+    echo "            Version $NUM is committed on $DEFAULT_BRANCH and tag $TAG is pushed to $REMOTE;" >&2
+    echo "            both are authoritative. Only the consumer distribution copy is missing." >&2
+    echo "            The tag is NOT rolled back. Recover: re-run just the publish with" >&2
+    echo "            ./scripts/release.sh $NUM --publish-only" >&2
+  fi
+fi
+
+echo
+echo "✓ Cut $TAG: version $NUM committed on $DEFAULT_BRANCH, annotated tag pushed to $REMOTE."

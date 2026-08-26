@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# KIT-CLASS: KIT — the same role-prefix guard on the applypatch path. See process/EXTRACTION.md.
+# `git am` runs THIS hook, not commit-msg — and its mailinfo strips bracketed subject
+# tags, so a `format-patch | am` relocation silently drops the `[Dev]` prefix. That is
+# exactly how one untagged commit reached the trunk. Delegate, so both paths judge a
+# subject the same way; the correct relocation is `git format-patch -k` + `git am -k`
+# (`am -k` ALONE keeps the `[PATCH] ` prefix and is rejected here on purpose).
+exec "$(dirname "$0")/commit-msg" "$@"

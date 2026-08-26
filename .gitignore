@@ -1,0 +1,56 @@
+# .gitignore
+# KIT-CLASS: MIXED — the kit's own entries are real and complete; the build-artifact
+# section is a marked fill-in. See process/EXTRACTION.md.
+
+# ── Secrets — never commit ──────────────────────────────────────────────────
+# Only .env.example is tracked. See PROJECT.md § Credential doctrine.
+.env
+.env.*
+!.env.example
+
+# ── Process kit: the auxiliary trunk checkout and its locks ─────────────────
+# The board scripts do all kanban git operations in a standing detached worktree
+# pinned to the trunk, so a feature-branch checkout never has to leave its branch
+# to move a card. It is machinery, never source.
+.kanban-wt/
+.kanban-wt.lock/
+.kanban-wt.lock.reap/
+
+# ── Process kit: the per-session declared role (the hat gate) ───────────────
+# Ephemeral: one line naming the hat this session is wearing. Never committed.
+.claude/session-role
+
+# ── Process kit: isolation worktrees ───────────────────────────────────────
+.worktrees/
+.claude/worktrees/
+
+# ── OS / editor cruft ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# ── Logs and scratch ───────────────────────────────────────────────────────
+*.log
+/tmp/
+/scratch/
+
+# ── <your build artifacts> ─────────────────────────────────────────────────
+# FILL ME. One line per generated tree or file your toolchain produces, with a
+# comment saying WHAT produces it — an unexplained ignore line is indistinguishable
+# from a mistake, and the next reader will not know whether deleting it is safe.
+#
+# Two rules that are not obvious:
+#   • Never add a blanket ignore for a data format your project TRACKS on purpose
+#     (a `*.json` catch-all is the classic way to lose a committed fixture or a
+#     package manifest).
+#   • If your build stages a copy of the source tree somewhere before packaging it,
+#     ignore that staging path by name — repo-walking guards honour this file, and
+#     a mid-build copy will otherwise be scanned as if it were source.
+#
+# <e.g. dist/            # produced by <your build command>>
+# <e.g. build/           # produced by <your build command>>
+# <e.g. <dep-dir>/       # installed by ./setup.sh from the committed lockfile>
+# <e.g. <cache-dir>/     # test-runner cache>

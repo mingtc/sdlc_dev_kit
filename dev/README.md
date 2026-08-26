@@ -1,0 +1,84 @@
+<!-- KIT-CLASS: KIT — the working-records index. The discipline travels; every row below is yours. -->
+# `dev/` — the working-records index
+
+Working notes, assessments, probe reports, spikes, and **handoffs** produced during this project's
+development.
+
+**No file in `dev/` is a living plan.** The plan-of-record is the **current handoff** — the newest
+file in [`handoffs/`](handoffs/) — **plus the board (`progress/`)**. Everything else here is a
+**dated snapshot**: accurate as of its date, kept as background, **not maintained**. That is the
+whole reason this directory can hold hundreds of files without any of them lying: a snapshot with a
+date in its name makes no claim about today.
+
+This directory's bucket in [`requirements/CORPUS.md`](../requirements/CORPUS.md) is `ledger` — read
+it to learn *how* something got here, **never** to learn *what is true now*. What is true now lives
+in `requirements/DECISIONS.md`, the capability documents your adapter names, and the board.
+
+## The index discipline — and it is bidirectional
+
+**Every file and subdirectory under `dev/` gets exactly one row in one of the tables below, in the
+same change that creates it.** The rule runs both ways, and a rule enforced in only one direction
+rots in the other:
+
+1. **Nothing exists here unindexed.** An unindexed file is reachable only by accident of
+   cross-citation — and the ones nothing happens to cite are reachable from nowhere at all. A
+   directory admitted to the corpus as a single *location* row makes this index the only thing that
+   makes its members individually findable.
+2. **Nothing is indexed that does not exist.** A row pointing at a deleted or renamed file is worse
+   than no row: it reads as a promise. When a file moves, its row moves in the same change.
+
+**Keep rows SHORT — one to three lines.** An index whose entries grow without limit stops being an
+index; the reader who came to find one file now has to read a report. When one entry genuinely needs
+more than a few lines (a directory with many members, a long-running arc), **split it out into its
+own `dev/<dir>/README.md` and leave a one-line row here pointing at it.** *(Measured lesson from the
+donor project this kit was cut from: its `dev/README.md` grew until most rows were over any
+defensible size cap and one single row was several thousand bytes — the index had become the thing
+it was supposed to make unnecessary to read.)*
+
+**Dated filenames, `YYYY-MM-DD-<slug>.md`.** The date is part of the claim. A file whose name has no
+date will be read as current no matter what its first paragraph says.
+
+## Standing queues — the one living list here
+
+- **[`downtime-queue.md`](downtime-queue.md)** — deferred-but-genuine improvements: things
+  deliberately **not** done now, kept as a table rather than lost to audit footnotes. Re-assessed at
+  downtime; anything picked up goes through the normal mint → Dev → QA path, and **nothing in it may
+  ride along with other work.**
+
+<!-- Add further standing queues here only if they are genuinely LIVING (maintained, not dated).
+     Everything else belongs in the snapshot tables below. -->
+
+## Handoffs (`handoffs/`)
+
+- **[`handoffs/`](handoffs/)** — seat-to-seat handoffs. **The newest file wins**; the convention and
+  the standing-handoff pattern are in [`handoffs/README.md`](handoffs/README.md).
+
+## Reports, assessments, and probe findings
+
+<!-- One row per dated document. `Read for` is what a reader would come here WANTING — not a
+     summary of the contents; a summary here is a second copy that will disagree with the file. -->
+
+| Document | Date | Read for |
+|---|---|---|
+| `<YYYY-MM-DD-<slug>.md>` | `<YYYY-MM-DD>` | `<the one question this document answers>` |
+
+## Spikes and captures (subdirectories)
+
+<!-- A spike directory gets ONE row here and its own README.md inside if it has more than a couple
+     of members. Captures — raw responses, fixtures, transcripts recorded from a real system — stay
+     with their spike, never loose at this level. -->
+
+| Directory | Date | Read for |
+|---|---|---|
+| `<slug>/` | `<YYYY-MM-DD>` | `<what was probed, and what the answer was>` |
+
+## Retired
+
+<!-- A document that is superseded is NOT deleted: it is moved here with one line saying what
+     replaced it. This preserves the reason while superseding the conclusion — see
+     process/doctrine/supersession.md. Delete a working record only when it contains nothing
+     nobody could want, and say so in progress.md when you do. -->
+
+| Document | Retired | Superseded by |
+|---|---|---|
+| `<path>` | `<YYYY-MM-DD>` | `<what to read instead>` |

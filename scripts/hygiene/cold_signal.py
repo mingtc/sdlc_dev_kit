@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+# KIT-CLASS: KIT — the git cold-signal query over this tree's own history; advisory, never a
+# gate. See process/EXTRACTION.md.
+# =============================================================================
+# scripts/hygiene/cold_signal.py — INSTRUMENT 3 of 4: THE GIT COLD-SIGNAL QUERY.
+#
+# MODALITY (the contract): the conjunction of three independent signals —
+#   SINGLE-COMMIT (added once, never amended)  AND  COLD (untouched beyond the horizon)  AND
+#   ZERO EXACT REFERRERS (nobody names the file itself).
+# It prints a suspicion set, with the EXACT and ANCESTOR referrer columns side by side and
+# never summed. Report only: it writes nothing, deletes nothing, moves nothing, makes no
+# network call, needs no dependency (standard library plus `git log` on THIS working copy — no
+# remote is contacted).
+#
+# THE CORPUS THIS WALKS, STATED BECAUSE A SILENT CORPUS IS HOW A COLD SCAN LIES. The walk is
+# `citation_index.iter_files()` — every file in this working copy except git's own store, build
+# output, dependency trees and caches (`citation_index.SKIP_DIRS`). On top of that this
+# instrument applies a DEFAULT PREFIX EXCLUSION SET, the same one `duplication_scan.py` uses:
+#   progress/    — the board. Closed-issue bodies are a FLOOR class, not decay: a done issue is
+#                  written once and never touched again BY DESIGN, so it is single-commit and
+#                  cold by construction and every one of them scores as a suspicion.
+#   <code>/      — source and tests. Coldness there is a code question, not a hygiene one; the
+#                  test suite already owns them.
+#   <build>/     — build output, not authored.
+# `--exclude PREFIX` (repeatable) REPLACES that set; `--no-excludes` walks the whole tree, so the
+# un-excluded view stays ONE FLAG AWAY and nothing is hidden.
+#
+# THE PARAMETER, AND ITS DEFAULT, STATED HERE: `--days` is the coldness horizon and defaults
+# to 14 ("cold beyond two weeks").
+#
+# CALIBRATION — AND WHY ANOTHER PROJECT'S FIGURE IS NOT A BASELINE FOR YOUR RUN. The donor
+# project's census recorded 185 files / 1,473,757 B over ITS OWN 1,799-candidate scope. THIS
+# INSTRUMENT DOES NOT WALK THAT SCOPE, so the two numbers are NOT COMPARABLE and a difference
+# between them is NOT evidence of decay — the same discipline duplication_scan.py applies to
+# itself. What travels is the METHOD, not the number:
+#   • run it BOTH ways (`--no-excludes` and default) and print both totals;
+#   • name the single biggest contributor to the gap, because in the donor's tree ONE directory
+#     (the archived board) was 78.3% of the un-excluded byte total, and without that sentence the
+#     whole-tree figure reads as decay when it is the floor class working as designed;
+#   • write your two numbers down WITH THE DATE, and re-measure before quoting either.
+#
+# WHY THE THIRD CONJUNCT IS "EXACT" AND NOT "ANY". Almost the whole suspicion set is saved by
+# ANCESTOR-directory citations — the exact-vs-ancestor distinction doing its job. Collapse the
+# two columns and this instrument reports either everything or nothing; that is why
+# citation_index.py refuses to collapse them.
+#
+# IT MUST NEVER BE INVOKED FROM A TEST. History is not a fixture, and a guard that reads live git
+# is nondeterministic by construction. This is a seat-run instrument, not a guard.
+#
+# THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Cold evidence" shape).
+# =============================================================================
+"""Instrument 3 — single-commit AND cold AND zero-exact-referrer files. Read-only, stdlib."""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+# NO BYTECODE CACHE, DELIBERATELY — see citation_index.py's header for the full statement and
+# the importer contract. Set BEFORE the sibling import below.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from citation_index import REPO_ROOT, Index  # noqa: E402
+
+DEFAULT_DAYS = 14
+# The default prefix exclusion set — stated in the header above, mirroring
+# duplication_scan.py's EXCLUDED_PREFIXES. Replaceable with --exclude, clearable with
+# --no-excludes; never silently applied. EDIT THESE for your tree.
+DEFAULT_EXCLUDED_PREFIXES = ("progress/", "src/", "tests/", "test/", "dist/", "build/")
+
+
+def git_history(root: Path):
+    """``path -> (commit_count, last_unix_ts)`` from ONE local history walk. No remote."""
+    proc = subprocess.run(
+        ["git", "-C", str(root), "log", "--no-merges", "--format=%x01%ct", "--name-only"],
+        capture_output=True, text=True, check=True,
+    )
+    stats: dict = {}
+    stamp = 0
+    for line in proc.stdout.splitlines():
+        if line.startswith("\x01"):
+            stamp = int(line[1:] or 0)
+        elif line.strip():
+            count, last = stats.get(line, (0, 0))
+            stats[line] = (count + 1, max(last, stamp))
+    return stats
+
+
+def survey(root: Path = REPO_ROOT, days: int = DEFAULT_DAYS,
+           excluded: tuple = DEFAULT_EXCLUDED_PREFIXES):
+    index = Index(root)
+    stats = git_history(root)
+    horizon = time.time() - days * 86400
+    rows = []
+    for rel in index.files:
+        if excluded and rel.startswith(tuple(excluded)):
+            continue
+        commits, last = stats.get(rel, (0, 0))
+        if commits != 1 or last == 0 or last >= horizon:
+            continue
+        exact, ancestor = index.referrers(rel)
+        if exact:
+            continue
+        try:
+            size = (root / rel).stat().st_size
+        except OSError:
+            continue
+        rows.append({"path": rel, "bytes": size, "age_days": int((time.time() - last) / 86400),
+                     "exact_n": 0, "anc_n": len(ancestor)})
+    rows.sort(key=lambda r: (r["anc_n"], -r["bytes"]))
+    return rows
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--days", type=int, default=DEFAULT_DAYS,
+                        help=f"coldness horizon in days (default {DEFAULT_DAYS})")
+    parser.add_argument("--exclude", action="append", metavar="PREFIX",
+                        help="repo-relative prefix to exclude; repeatable. REPLACES the default "
+                             f"set ({' '.join(DEFAULT_EXCLUDED_PREFIXES)}).")
+    parser.add_argument("--no-excludes", action="store_true",
+                        help="walk the whole tree — the un-excluded view, no default excludes")
+    parser.add_argument("--root", default=str(REPO_ROOT), help="tree to measure (default: this repo)")
+    parser.add_argument("--limit", type=int, default=40, help="rows printed (0 = all)")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+    if args.no_excludes:
+        excluded: tuple = ()
+    elif args.exclude:
+        excluded = tuple(args.exclude)
+    else:
+        excluded = DEFAULT_EXCLUDED_PREFIXES
+    rows = survey(root=Path(args.root), days=args.days, excluded=excluded)
+    total = sum(row["bytes"] for row in rows)
+    if args.json:
+        import json
+
+        print(json.dumps({"days": args.days, "excluded": list(excluded), "files": len(rows),
+                          "bytes": total, "rows": rows}, indent=2))
+        return 0
+    print(f"cold signal: single-commit AND cold (>{args.days}d) AND zero EXACT referrers")
+    print(f"corpus: the whole working copy minus {list(excluded) or '(nothing — --no-excludes)'}.")
+    print("Run it BOTH ways and write down both totals with today's date — a cold-file count")
+    print("without its corpus and its date is a claim, not a measurement.")
+    print(f"{len(rows)} file(s), {total} B. A row is a SUSPICION, not a verdict — most are "
+          "saved by an ANCESTOR citation.")
+    print("Sorted by ANCESTOR referrers ascending: the top rows are the least-cited.")
+    print(f"{'EXACT':>7} {'ANC':>7} {'BYTES':>9} {'AGE_D':>6}  PATH")
+    shown = rows if args.limit == 0 else rows[: args.limit]
+    for row in shown:
+        print(f"{row['exact_n']:>7} {row['anc_n']:>7} {row['bytes']:>9} "
+              f"{row['age_days']:>6}  {row['path']}")
+    if len(shown) < len(rows):
+        print(f"... {len(rows) - len(shown)} more (--limit 0 for all)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,57 @@
+{
+  "_README": "Kit template — copy to .claude/settings.json to ACTIVATE the Claude Code hooks (they execute shell commands on tool use / session start, so activation is a deliberate operator decision). The git-level commit-prefix guard (scripts/githooks/commit-msg) is wired separately via `git config core.hooksPath scripts/githooks` (setup.sh does this) and does NOT depend on this file.",
+
+  "_PLACEHOLDERS": {
+    "_note": "Replace every <angle-bracket> token below before copying this file to .claude/settings.json. The initializer stamps the first two; the rest are yours. Then DELETE this _PLACEHOLDERS block — Claude Code ignores unknown keys, but a stale placeholder map is a lie waiting to be read.",
+    "<trunk>": "The single trunk branch. Default: main.",
+    "<PREFIX>": "The issue-id prefix (scripts/config.sh ISSUE_PREFIX). Appears in branch names below.",
+    "<code-path-globs>": "The comma-separated globs that count as CODE in this project — the paths that MUST go through a work branch and land via ./scripts/finish-pr.sh, never direct to the trunk. The adapter's 'what counts as CODE here' section is the source of truth; keep the two in sync. Example shape: src/**, tests/**, <the build/dependency manifest>.",
+    "<metadata-path-globs>": "The globs that are metadata and MAY commit direct to the trunk with a role-prefixed subject. Everything the project treats as not-code. Example shape: progress/**, requirements/**, docs/**, dev/**, process/**, progress.md, <project-facts>, <adapter>, .claude/**, scripts/**, setup.sh, .gitignore.",
+    "<adapter>": "The project-adapter filename Claude auto-loads at session start. Default: CLAUDE.md.",
+    "<project-facts>": "The project-facts filename (stack, gates, credentials, build order). Default: PROJECT.md.",
+    "<role-prefix-list>": "The bracketed role prefixes the commit-msg hook accepts. Must match the adapter's role-attribution table exactly — the kit's shipped set is [PM], [QA], [Dev], [Refactorer], [Orchestrator], [Architect], plus [UIDesigner] only if that parked role is woken."
+  },
+
+  "plansDirectory": "./docs/plans",
+
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Direct git commit + push to the trunk (<trunk>) is authorized when BOTH conditions hold: (a) the commit subject is prefixed with one of <role-prefix-list> (mandated by <adapter> § 'Role-attribution commit prefixes'); AND (b) staged paths are limited to <metadata-path-globs>. Code paths (<code-path-globs>) MUST go through a feature/fix/refactor branch and land via ./scripts/finish-pr.sh.",
+      "Scripts under ./scripts/ (move-issue.sh, finish-pr.sh, new-*.sh, archive*.sh, verify.sh, check-board.sh) are the project's kanban automation and operate on the trunk (<trunk>) by design."
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Pushing code changes (<code-path-globs>) directly to the trunk WITHOUT a feature/fix/refactor branch + ./scripts/finish-pr.sh is forbidden by <adapter> § 'The trunk, the branches, and what counts as code here'."
+    ],
+    "environment": [
+      "$defaults",
+      "This project uses a filesystem-as-kanban workflow (<adapter>). Kanban state changes, PRD authoring, role-doc updates, refactor pass docs and design pass docs commit DIRECTLY to the trunk (<trunk>) with role-prefixed commits. Only code work uses feature/<PREFIX>-NNN, fix/<PREFIX>-NNN, refactor/<PREFIX>-NNN branches. ./scripts/finish-pr.sh lands code by squash-merging the branch into the trunk locally (forge-agnostic pure git — no forge CLI required); QA's review evidence lives in the issue file's Activity log, not in a forge review object."
+    ]
+  },
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/require-role.sh\"" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/session-start.sh\"" }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/notify-hook.sh\"" }
+        ]
+      }
+    ]
+  }
+}

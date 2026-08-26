@@ -1,0 +1,50 @@
+# KIT-CLASS: KIT — optional CI template (forge-generic shape).
+# See process/EXTRACTION.md.
+#
+# vendored-freshness-check.yml — OPTIONAL advisory CI job for a consumer repo.
+#
+# It surfaces "UPDATE AVAILABLE" in your pipeline WITHOUT ever failing it and
+# WITHOUT ever updating the vendored artifact. It only runs
+# `update_vendored.sh --check`, which is report-only. Updating stays a
+# deliberate, human-run `scripts/update_vendored.sh [tag]` — CI never
+# auto-updates. (Why that is a rule and not a preference:
+# process/doctrine/distribution.md § A.3.)
+#
+# ── The shape ────────────────────────────────────────────────────────────────
+# This is the include-a-local-YAML shape used by forges that read a pipeline
+# definition from the repo root and can `include:` further files from it
+# (GitLab-style). The GitHub Actions equivalent is the sibling file
+# `.github-actions-example.yml`. Any other forge: keep the three properties
+# below and translate the keys.
+#
+#   1. it runs `bash scripts/update_vendored.sh --check` and nothing else,
+#   2. the job is ALLOWED TO FAIL — an unreachable upstream remote must never
+#      turn a consumer's pipeline red,
+#   3. it never writes to ./vendor/ and never commits anything.
+#
+# ── Opt in ───────────────────────────────────────────────────────────────────
+# 1. Copy this file into the consumer repo, e.g. `ci/vendored-freshness-check.yml`.
+# 2. Include it from the repo-root pipeline definition:
+#
+#        include:
+#          - local: 'ci/vendored-freshness-check.yml'
+#
+# `allow_failure: true` is what makes the job ADVISORY: even if the check cannot
+# reach the upstream remote, the pipeline still passes. The job shows as
+# allowed-to-fail rather than failed.
+#
+# Requires on the runner: git, whatever the project's own build/runtime needs,
+# and network egress to the upstream remote (the URL configured inside
+# scripts/update_vendored.sh). A runner with no egress will simply report the
+# allowed failure — which is the intended behaviour, not an outage.
+# ─────────────────────────────────────────────────────────────────────────────
+
+vendored-freshness-check:
+  stage: .pre            # a pre-stage, so the reminder appears before real work
+  allow_failure: true    # ADVISORY: never blocks the pipeline
+  rules:
+    - when: always
+  script:
+    # --check writes nothing and prints exactly one verdict line on stdout:
+    # UP TO DATE / UPDATE AVAILABLE / AHEAD. Everything else is on stderr.
+    - bash scripts/update_vendored.sh --check

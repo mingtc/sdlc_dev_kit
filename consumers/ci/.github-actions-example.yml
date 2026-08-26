@@ -1,0 +1,70 @@
+# KIT-CLASS: KIT — optional CI template, GitHub Actions variant.
+# See process/EXTRACTION.md.
+#
+# GitHub Actions variant of the advisory vendored-freshness check.
+#
+# GitHub is an OPTIONAL extra for this kit, not an assumption (see
+# process/GIT-HOSTING.md — a local bare remote is a first-class setup). This
+# file exists because it is the most common forge a consumer will already be on.
+#
+# ── Opt in ───────────────────────────────────────────────────────────────────
+# Copy this file into the consumer repo as
+# `.github/workflows/vendored-freshness-check.yml`. It is stored here with a
+# leading dot in its name so it is inert until you deliberately move it.
+#
+# ── The three properties that make it ADVISORY ────────────────────────────────
+#   1. it runs `scripts/update_vendored.sh --check` and nothing else,
+#   2. every step is `continue-on-error: true`, so an unreachable upstream
+#      remote can never turn a consumer's checks red,
+#   3. it writes nothing to ./vendor/ and commits nothing. Updating stays a
+#      deliberate, human-run `scripts/update_vendored.sh [tag]`.
+#
+# ── If the upstream remote is private ────────────────────────────────────────
+# The check clones (or at minimum queries) the upstream repo, so a private
+# upstream needs a credential the runner can use — a deploy key or a token in
+# repository secrets, exported the way your remote URL expects. Without one the
+# job reports its allowed failure and the pipeline still passes, which is the
+# designed degradation: a nag that cannot run must never look like a defect in
+# the consumer's own code.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: vendored-freshness-check
+
+on:
+  schedule:
+    # A weekly reminder is usually the right cadence: the check is a nag, and a
+    # nag on every push is noise people learn to ignore.
+    - cron: '17 6 * * 1'
+  workflow_dispatch: {}
+  # Uncomment to also nag on pushes to the trunk:
+  # push:
+  #   branches: [ <trunk> ]        # default trunk: main
+
+permissions:
+  contents: read        # read-only: this workflow never writes to the repo
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4     # pin to a SHA if your policy requires it
+
+      - name: Check for a newer upstream release (advisory)
+        id: check
+        continue-on-error: true       # ADVISORY: never fails the workflow
+        run: |
+          set -uo pipefail
+          # --check prints exactly ONE verdict line on stdout
+          # (UP TO DATE / UPDATE AVAILABLE / AHEAD); all narration is on stderr.
+          verdict="$(bash scripts/update_vendored.sh --check | head -1)"
+          printf '%s\n' "$verdict"
+          printf '%s\n' "$verdict" >> "$GITHUB_STEP_SUMMARY"
+          case "$verdict" in
+            "UPDATE AVAILABLE"*)
+              printf '::notice title=Vendored artifact is behind::%s\n' "$verdict"
+              printf '\nUpdating is deliberate and manual: run `scripts/update_vendored.sh`, then re-pin.\n' \
+                >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+          # Always succeed: the verdict is information, not a gate.
+          exit 0

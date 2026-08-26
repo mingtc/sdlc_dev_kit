@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# KIT-CLASS: MIXED — kit mechanism, PROJECT prefix set (ROLE_PREFIXES below) — configure on adoption. See process/EXTRACTION.md.
+# Commit-message role-prefix guard.
+#
+# The adapter's § "Branching and role attribution": every commit begins with a role
+# tag ([PM] / [Dev] / [QA] / …). Role attribution for the one-operator-many-hats model
+# comes from these prefixes cross-checked against the issue-file Activity logs — so a
+# prefix-less commit erodes the audit trail. This hook rejects any commit whose SUBJECT
+# line does not start with a known role tag.
+#
+# Wired via `git config core.hooksPath scripts/githooks` (set by scripts/kit-init.sh);
+# hooksPath lives in the shared .git/config, so the guard is active from every worktree —
+# including the standing .kanban-wt/ where move-issue.sh commits its "[Role] <ID> → …"
+# messages (those pass by construction). finish-pr.sh is pure git (no forge CLI): its
+# squash-merge commits LOCALLY inside .kanban-wt/, so this hook DOES fire on them — and
+# passes, because the squash subject carries the leading "[QA]" prefix.
+#
+# Bypass:  MSG_OK=1 git commit …   (1 / true / yes are truthy; 0 or unset do NOT bypass).
+#          For a genuine one-off that legitimately can't carry a tag.
+#
+# Auto-exempt: git/host-generated subjects that are never authored by a role —
+# merge commits, revert commits, and rebase autosquash markers.
+set -uo pipefail
+
+# $1 is the path to the file holding the proposed commit message.
+MSG_FILE="${1:-}"
+[ -z "$MSG_FILE" ] && exit 0            # no message file → nothing to guard (defensive)
+
+# THE ACCEPTED ROLE TAGS — the kit's default set, matching the role docs under
+# .claude/roles/. Kept as a named var on its OWN LINE so every other consumer can
+# DERIVE the list with one sed rather than re-hardcoding it (hard-won: the day a
+# re-hardcoded copy drifted, the standing seat could not move a card because this
+# hook accepted a role that move-issue.sh's whitelist did not).
+# ERE alternation. Change it and you change FOUR files — see
+# process/EXTRACTION.md § "The role set and the commit prefixes".
+ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
+
+# Bypass — only the documented truthy values (`0` or unset reads as "off" and must NOT bypass).
+case "${MSG_OK:-}" in
+  1|true|yes) exit 0 ;;
+esac
+
+# First non-comment, non-blank line = the subject (git strips comment lines later,
+# but read the real subject now so a leading `# …` template line can't fool us).
+subject="$(grep -vE '^[[:space:]]*#' "$MSG_FILE" 2>/dev/null | grep -vE '^[[:space:]]*$' | head -1 || true)"
+
+# Empty subject → let git handle it (it aborts the commit on its own). Not our job.
+[ -z "$subject" ] && exit 0
+
+# Auto-exempt host/git-generated subjects (never authored under a role).
+case "$subject" in
+  "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) exit 0 ;;
+  "Revert \""*|"Revert '"*) exit 0 ;;
+  "Squash"*) exit 0 ;;            # a leading "Squash" subject (local squash-merge tooling)
+  "fixup! "*|"squash! "*|"amend! "*) exit 0 ;;   # rebase autosquash markers
+esac
+
+# Accept when the subject starts with a known role tag: [Role] …
+if printf '%s' "$subject" | grep -qE "^\[($ROLE_PREFIXES)\] "; then
+  exit 0
+fi
+
+# The rejection message lists the accepted tags DERIVED from ROLE_PREFIXES above,
+# so a set change cannot leave the help text lying about what is legal.
+{
+  echo "✗ Commit-message guard: subject must start with a role tag."
+  echo ""
+  echo "  Subject: $subject"
+  echo ""
+  echo "  Expected one of:  $(printf '%s' "$ROLE_PREFIXES" | tr '|' '\n' | sed 's/^/[/; s/$/]/' | tr '\n' ' ')"
+  echo "  (the adapter's § 'Branching and role attribution' — the prefix is the audit trail)."
+  echo ""
+  echo "  Examples:"
+  echo "    [Dev] <PREFIX>-001: add the download --help usage example"
+  echo "    [QA] <PREFIX>-001 → qa_complete: PASS. Squash-merged into the trunk."
+  echo ""
+  echo "  Genuine one-off that can't carry a tag?  MSG_OK=1 git commit …"
+} >&2
+exit 1
