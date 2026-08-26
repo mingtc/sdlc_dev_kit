@@ -51,9 +51,36 @@ set -uo pipefail
 REAL_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REAL_SCRIPTS="$REAL_REPO_ROOT/scripts"
 
+# ── THE NEUTRAL CONFIG — the kit's SHIPPED value for every seam the sandbox
+#    copies in. Declared here, once, greppably, and DERIVED FROM NOTHING IN THE
+#    ADOPTER'S TREE on purpose: that is the whole point. _kit_neutral_config()
+#    below resets the sandbox to these, so a case asserts THE KIT'S FRAME rather
+#    than whatever this repository happens to be configured to.
+#
+#    The measured defect these exist to close: make_sandbox `cp -R`s the real
+#    scripts/ in, CONFIG BLOCKS and all, so a configured adopter's sandbox
+#    inherited their gate table, their release seams and their prefix — and a
+#    third of the cases then asserted the adopter's configuration while reporting
+#    PASS. A harness that cannot run on a configured repository is not a witness.
+#
+#    THESE MUST EQUAL WHAT THE KIT SHIPS. Neutralizing costs the harness its only
+#    incidental witness to the shipped defaults, so case_ship_state() below asserts
+#    the real files still carry them. If that case reddens, correct the SHIPPED
+#    file or this constant — never only this constant, or the harness starts
+#    certifying its own assumption.
+KIT_NEUTRAL_PREFIX="KIT"
+KIT_NEUTRAL_PRD_PREFIX="PRD"
+KIT_NEUTRAL_PROJECT_NAME="<project-name>"
+
 # ── The seam values this harness runs against, all DERIVED. ──────────────────
-SB_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([A-Za-z0-9]*\)}"/\1/p' "$REAL_SCRIPTS/config.sh" 2>/dev/null | head -1)"
-[ -n "$SB_PREFIX" ] || SB_PREFIX="KIT"
+# ISSUE_PREFIX is NOT derived from the adopter's config.sh any more. It used to be,
+# and that was the same defect one level up: the neutralizer resets the SANDBOX's
+# prefix to KIT_NEUTRAL_PREFIX, so a harness that kept reading the adopter's value
+# here would seed `<their-prefix>-100` cards into a sandbox whose scripts resolve
+# `KIT` — next-id.sh, validate_issue_id and archive.sh would all disagree with the
+# fixture, and only in an adopter's tree, never here. The two values must be ONE
+# value, and the neutral one is the one that belongs to the kit.
+SB_PREFIX="$KIT_NEUTRAL_PREFIX"
 SB_TRUNK="$(git -C "$REAL_REPO_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
 if [ -z "$SB_TRUNK" ]; then
   SB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
@@ -141,6 +168,17 @@ make_sandbox() {
   # they resolve the sandbox as their root). Drop this test dir to avoid recursion.
   cp -R "$REAL_SCRIPTS" "$SB_WORK/scripts"
   rm -rf "$SB_WORK/scripts/test"
+  # ...and reset every CONFIG-BLOCK seam that `cp` just carried in. The copy above
+  # is what brings the adopter's configuration into the sandbox; this is the line
+  # that takes it back out. See _kit_neutral_config below.
+  #
+  # PLACEMENT IS LOAD-BEARING, DO NOT TIDY THIS TO THE END OF THE FUNCTION. It must
+  # run BEFORE _declare_sandbox_gate, because that call is what puts the sandbox's
+  # own always-green gate into the freshly-emptied GATES table — and
+  # case_kit_init_gate_and_remote_refusals(a) needs a DECLARED table to provoke
+  # kit-init's "already DECLARES a gate" refusal. Neutralize last and that case
+  # loses its premise while still reporting PASS.
+  _kit_neutral_config
 
   mkdir -p "$SB_WORK/progress/todo" "$SB_WORK/progress/in_progress" \
            "$SB_WORK/progress/dev_complete" "$SB_WORK/progress/qa_complete" \
@@ -167,10 +205,164 @@ EOF
   git -C "$SB_WORK" config core.hooksPath "$SB_WORK/scripts/githooks" >/dev/null 2>&1
 }
 
+# =============================================================================
+# FIXTURE MUTATION, AND THE ONE RULE ALL OF IT OBEYS
+#
+# EVERY MUTATION ASSERTS. Measured 2026-08-26: every fixture mutation in this
+# harness was a `perl -i -pe` with an anchor regex, and a `perl -i -pe` whose
+# anchor does not match EXITS 0 AND LEAVES THE FILE BYTE-IDENTICAL. So a renamed
+# array, a reflowed `GATES=(` line or a moved config key silently produced a
+# sandbox that was never set up — and the case built on it then reported PASS
+# about a premise that did not exist. That is the worst failure shape a harness
+# has, because it is indistinguishable from success.
+#
+# So: a mutation that cannot find its anchor is FATAL to the run, not a case
+# failure. `cf` is for "the subject under test misbehaved"; a fixture that did not
+# take is "this harness is not measuring what it says", and every later green is
+# then a claim about nothing. It aborts.
+#
+# TWO DIFFERENT ASSERTIONS, and the distinction matters:
+#   • A mutation that ADDS or CHANGES content asserts THE CONTENT ARRIVED
+#     (_declare_sandbox_gate, rel_insert, rel_set). Anchor missing → nothing
+#     added → fatal.
+#   • The NEUTRALIZER asserts ITS ANCHOR WAS FOUND and ITS POSTCONDITION HOLDS —
+#     deliberately NOT "the file changed". A neutralizer is idempotent by nature:
+#     on the kit's own tree the six config arrays already ship empty, so "it
+#     changed something" is FALSE here and TRUE in an adopter. Asserting the
+#     change would redden this repository and pass nowhere useful. Asserting the
+#     anchor plus the postcondition is strictly stronger: it fails when the anchor
+#     moves (the silent-no-op class) AND when the reset did not take, and it holds
+#     whether or not work was needed.
+# =============================================================================
+
+# A fixture that did not take aborts the run. Loudly, naming what it could not do.
+_fixture_die() {
+  {
+    echo
+    echo "════════ FIXTURE FAILURE — the sandbox was not set up ════════"
+    echo "  $1"
+    echo
+    echo "  This is NOT a case failure. Every case after this point would assert a"
+    echo "  premise that does not exist, and would report PASS while doing it."
+    echo "  Aborting rather than printing a green about the wrong subject."
+  } >&2
+  exit 1
+}
+
 # Insert one always-green `select` gate into the sandbox's copy of verify.sh.
 _declare_sandbox_gate() {
-  perl -i -pe '$_ .= "  \"sandbox gate|select|/bin/echo sandbox-gate-green\"\n" if /^GATES=\($/' \
-    "$SB_WORK/scripts/verify.sh"
+  local v="$SB_WORK/scripts/verify.sh" rec='  "sandbox gate|select|/bin/echo sandbox-gate-green"'
+  grep -qE '^GATES=\($' "$v" \
+    || _fixture_die "_declare_sandbox_gate: no '^GATES=(' line in the sandbox's verify.sh — the anchor moved, so no gate was declared and every landing case would run against an empty, REFUSING gate runner."
+  perl -i -pe '$_ .= "  \"sandbox gate|select|/bin/echo sandbox-gate-green\"\n" if /^GATES=\($/' "$v"
+  grep -qxF "$rec" "$v" \
+    || _fixture_die "_declare_sandbox_gate: the sandbox gate record is not in verify.sh after the insert."
+}
+
+# =============================================================================
+# THE NEUTRALIZER. Reset every CONFIG-BLOCK seam the sandbox inherited from this
+# repository back to the kit's shipped state, so a case measures the FRAME.
+#
+# RESET VALUES, NEVER DELETE LINES. kit-init.sh derives the current ISSUE_PREFIX
+# and PROJECT_NAME defaults out of config.sh and HARD-EXITS if it cannot read
+# either ("could not read the current … default out of scripts/config.sh"). A
+# neutralizer that stripped those lines would turn every kit-init case into exit 1
+# — a red that looks like a kit-init defect and is really a fixture defect. The
+# one thing it does delete is kit-init's own appended stamp receipt, which is not
+# a declaration but a marker, and which every kit-init case must not meet (its
+# presence is one of kit-init's four ALREADY-LIVED signals, so leaving it makes
+# kit-init refuse before it reaches anything the case is about).
+# =============================================================================
+
+# The stamp receipt kit-init appends to config.sh. DERIVED from kit-init.sh rather
+# than re-typed, per this harness's own contract for every other seam it reads.
+KIT_STAMP_MARK="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
+[ -n "$KIT_STAMP_MARK" ] || KIT_STAMP_MARK='# Stamped by scripts/kit-init.sh'
+
+# _neu_scalar <file> <VAR> <exact replacement line>
+_neu_scalar() {
+  local f="$1" var="$2" line="$3"
+  [ -f "$f" ] || _fixture_die "_neu_scalar: $f does not exist in the sandbox."
+  grep -qE "^${var}=" "$f" \
+    || _fixture_die "_neu_scalar: no '^${var}=' line in ${f##*/} — the key was renamed or moved out of the config block, so it was NOT neutralized and the case would assert this repository's value."
+  perl -i -pe 'BEGIN{$v=shift; $r=shift} s/^\Q$v\E=.*$/$r/' "$var" "$line" "$f"
+  grep -qxF "$line" "$f" \
+    || _fixture_die "_neu_scalar: ${var} in ${f##*/} does not read '${line}' after the reset."
+}
+
+# _neu_array_records <file> <ARRAY> → count of non-comment, non-blank lines inside
+# the array's ( … ) fence. This is the neutralizer's postcondition instrument, so
+# it is deliberately separate and readable.
+_neu_array_records() {
+  awk -v a="$2" '
+    $0 == a "=(" { inb = 1; next }
+    inb && /^\)/ { inb = 0 }
+    inb && !/^[[:space:]]*#/ && NF { n++ }
+    END { print n + 0 }
+  ' "$1"
+}
+
+# _neu_array <file> <ARRAY> — empty a config array's RECORDS, keeping its
+# `NAME=(` / `)` fence and every explanatory comment inside it. The fence must
+# survive: _declare_sandbox_gate, rel_insert and kit-init's --gate-command fill
+# all anchor on `^NAME=($`, and the comments are the config block's documentation.
+_neu_array() {
+  local f="$1" name="$2" before after
+  [ -f "$f" ] || _fixture_die "_neu_array: $f does not exist in the sandbox."
+  grep -qE "^${name}=\($" "$f" \
+    || _fixture_die "_neu_array: no '^${name}=(' line in ${f##*/} — the array was renamed or reshaped, so emptying it did NOTHING and every case downstream would run against this repository's declared ${name}."
+  before="$(_neu_array_records "$f" "$name")"
+  perl -i -ne 'BEGIN{$a=shift}
+    if (/^\Q$a\E=\($/) { $in = 1; print; next }
+    if ($in && /^\)/)  { $in = 0; print; next }
+    next if ($in && !/^\s*#/ && /\S/);
+    print' "$name" "$f"
+  after="$(_neu_array_records "$f" "$name")"
+  [ "$after" -eq 0 ] \
+    || _fixture_die "_neu_array: ${name} in ${f##*/} still holds ${after} record(s) after neutralizing (it held ${before} before)."
+  grep -qE "^${name}=\($" "$f" \
+    || _fixture_die "_neu_array: emptying ${name} in ${f##*/} destroyed its own '${name}=(' fence."
+}
+
+_kit_neutral_config() {
+  local c="$SB_WORK/scripts/config.sh"
+  local v="$SB_WORK/scripts/verify.sh"
+  local r="$SB_WORK/scripts/release.sh"
+
+  # ── config.sh: the three values kit-init.sh stamps on day one. The exact line
+  #    SHAPE matters, not just the value — kit-init parses these with anchored
+  #    seds (`^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([A-Za-z0-9]*\)}"`), so the
+  #    `${VAR:-default}` form has to survive verbatim.
+  _neu_scalar "$c" ISSUE_PREFIX "ISSUE_PREFIX=\"\${ISSUE_PREFIX:-${KIT_NEUTRAL_PREFIX}}\""
+  _neu_scalar "$c" PRD_PREFIX   "PRD_PREFIX=\"\${PRD_PREFIX:-${KIT_NEUTRAL_PRD_PREFIX}}\""
+  _neu_scalar "$c" PROJECT_NAME "PROJECT_NAME=\"\${PROJECT_NAME:-${KIT_NEUTRAL_PROJECT_NAME}}\""
+
+  # kit-init's appended stamp receipt: remove it, or every kit-init case meets the
+  # ALREADY-LIVED refusal on a sandbox that has not lived. No assertion that a line
+  # was removed — an unstamped config.sh (this repository's) has none to remove, and
+  # that is the healthy state. The POSTCONDITION is what is asserted: absent.
+  perl -i -ne 'BEGIN{$m=shift} print unless /^\Q$m\E/' "$KIT_STAMP_MARK" "$c"
+  grep -q "^$KIT_STAMP_MARK" "$c" \
+    && _fixture_die "_kit_neutral_config: config.sh still carries kit-init's stamp receipt ('$KIT_STAMP_MARK') — every kit-init case would hit the already-lived refusal."
+
+  # ── verify.sh: the gate table and the guard floor.
+  _neu_array "$v" GATES
+  _neu_array "$v" GUARD_SET
+
+  # ── release.sh: four declared arrays and the publish/version scalars. Optional —
+  #    release.sh is a capability this harness probes for (has_release), so a kit
+  #    without it neutralizes what is there and says nothing about what is not.
+  if [ -f "$r" ]; then
+    _neu_array "$r" VERSION_FILES
+    _neu_array "$r" PREFLIGHT_GATES
+    _neu_array "$r" RELEASE_DOCS
+    _neu_array "$r" DIST_DOCS
+    _neu_scalar "$r" RELEASE_PUBLISH     'RELEASE_PUBLISH=false'
+    _neu_scalar "$r" VERSION_IN_TAG_ONLY 'VERSION_IN_TAG_ONLY=false'
+    _neu_scalar "$r" DIST_ARTIFACT_GLOB  'DIST_ARTIFACT_GLOB=""'
+    _neu_scalar "$r" BUILD_COMMAND       'BUILD_COMMAND="${RELEASE_BUILD_CMD:-}"'
+    _neu_scalar "$r" DIST_BRANCH         'DIST_BRANCH="${RELEASE_DIST_BRANCH:-dist}"'
+  fi
 }
 
 # Publish the seeded board to the trunk + the remote. Call after seed_issue(s).
@@ -1317,6 +1509,19 @@ case_kit_init_refuses_lived_board() {
   [ "$rc" -ne 0 ] || cf "kit-init ran against a board carrying an issue file (it must refuse)"
   printf '%s\n' "$out" | grep -q 'already lived' || cf "the refusal did not name the class: $out"
   printf '%s\n' "$out" | grep -q 'NOTHING WAS WRITTEN' || cf "the refusal did not state that nothing was written"
+  # THE REFUSAL MUST BE FOR THE RIGHT REASON. kit-init has four ALREADY-LIVED
+  # signals (a board carrying issue files, a progress.md § Log with entries, an
+  # ARCHIVE.md with entries, and its own stamp receipt in config.sh) and `grep -q
+  # 'already lived'` is satisfied by ANY of them. This case plants exactly one — the
+  # issue file — so it must assert THAT bullet and the ABSENCE of the stamp bullet.
+  # Before the sandbox was neutralized, a configured adopter's copied-in config.sh
+  # carried kit-init's stamp, so this case passed on the WRONG signal in their tree
+  # and nothing said so. Neutralizing removes the stamp; without these two lines it
+  # would only convert a measured wrong-reason pass into an unmeasured one.
+  printf '%s\n' "$out" | grep -q 'progress/todo/ carries 1 issue file' \
+    || cf "the refusal did not name the planted issue file as the lived signal — it may have refused for a different reason: $out"
+  printf '%s\n' "$out" | grep -q "$KIT_STAMP_MARK" \
+    && cf "the refusal cited kit-init's own stamp receipt as a lived signal — the sandbox was not neutralized, so this case is measuring the wrong signal: $out"
   after="$(git -C "$SB_WORK" rev-parse HEAD)"
   [ "$before" = "$after" ] || cf "HEAD moved during a refusal"
   [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "the tree was modified during a refusal"
@@ -1341,10 +1546,13 @@ case_kit_init_gate_fill() {
     skp "kit-init --gate-command: fills the shipped frame's empty table" ".claude/templates/ISSUE.template.md absent"; return
   fi
   kit_init_sandbox
-  # Ship-state: empty the GATES table — every record, not just the one make_sandbox
-  # declared, so this case holds in a project whose real verify.sh declares gates.
-  perl -i -ne 'if (/^GATES=\($/) { $in=1; print; next } $in=0 if ($in && /^\)/); print unless ($in && /^\s+"[^"]+\|(core|select|full)\|/)' \
-    "$SB_WORK/scripts/verify.sh"
+  # Ship-state: empty the GATES table again — make_sandbox neutralized it and then
+  # _declare_sandbox_gate put the sandbox's own gate back, and THIS case is about
+  # kit-init filling an EMPTY frame. Through the shared, self-asserting helper: this
+  # step used to be a local `perl -i -ne` that silently did nothing if `^GATES=($`
+  # ever moved, which would have left the record make_sandbox declared in place and
+  # turned the "fills the empty table" assertion into a test of the refusal path.
+  _neu_array "$SB_WORK/scripts/verify.sh" GATES
   publish_sandbox
 
   local v="$SB_WORK/scripts/verify.sh" out rc
@@ -1561,12 +1769,26 @@ case_first_mile() {
 has_release() { [ -f "$REAL_SCRIPTS/release.sh" ]; }
 
 # Insert a record after a config-array's opening line in the sandbox's release.sh.
+# BOTH OF THESE ASSERT — see "EVERY MUTATION ASSERTS" above. They are two of the
+# three helpers measured exiting 0 over a byte-identical file when their anchor was
+# absent, which is how a release case could declare no VERSION_FILES at all and
+# still report PASS about the version rule.
 rel_insert() {  # <array-name> <record-line>
+  local rel="$SB_WORK/scripts/release.sh"
+  grep -qE "^$1=\($" "$rel" \
+    || _fixture_die "rel_insert: no '^$1=(' line in the sandbox's release.sh — the record '$2' was NOT inserted, so this case declares no $1."
   perl -i -pe 'BEGIN{$a=shift; $r=shift} $_ .= "  $r\n" if /^\Q$a\E=\($/' \
-    "$1" "$2" "$SB_WORK/scripts/release.sh"
+    "$1" "$2" "$rel"
+  grep -qxF "  $2" "$rel" \
+    || _fixture_die "rel_insert: '$2' is not in the sandbox's release.sh after the insert into $1."
 }
 rel_set() {     # <line-regex> <replacement-line>
-  perl -i -pe 'BEGIN{$m=shift; $r=shift} s/^\Q$m\E.*$/$r/' "$1" "$2" "$SB_WORK/scripts/release.sh"
+  local rel="$SB_WORK/scripts/release.sh"
+  grep -qE "^$(printf '%s' "$1" | sed 's/[][\.*^$(){}?+|/]/\\&/g')" "$rel" \
+    || _fixture_die "rel_set: no line beginning '$1' in the sandbox's release.sh — it was NOT set to '$2', so this case runs against the shipped value."
+  perl -i -pe 'BEGIN{$m=shift; $r=shift} s/^\Q$m\E.*$/$r/' "$1" "$2" "$rel"
+  grep -qxF "$2" "$rel" \
+    || _fixture_die "rel_set: the sandbox's release.sh does not carry '$2' after the set."
 }
 
 # Seed the version-bearing files + both release documents. <doc1_target|none> [doc2_target|none]
@@ -2065,6 +2287,92 @@ case_consumer_updater() {
 }
 
 # =============================================================================
+# CASE — SHIP STATE. The control the neutralizer costs us.
+#
+# Why this case has to exist. Before _kit_neutral_config, every sandbox inherited
+# the real scripts/ verbatim, so the whole suite was an incidental — and
+# unstated — witness to the SHIPPED defaults: if this repository had ever declared
+# a gate or set RELEASE_PUBLISH=true, cases would have started behaving
+# differently and someone would eventually have noticed. Neutralizing deliberately
+# destroys that coupling, which is the point; it also destroys the witness. After
+# it, every green rests on the harness's OWN assignment of the neutral values, and
+# a kit that shipped `RELEASE_PUBLISH=true` would sail through a fully green run.
+# A SHIPPED DEFAULT IS ITSELF A SHIPPABLE DEFECT, and this is the only case that
+# looks at it. Same argument as K-42 one level down: a fixture cannot certify the
+# thing it overwrites.
+#
+# It reads the REAL files and mutates nothing.
+#
+# WHY IT SKIPS RATHER THAN FAILS ON A CONFIGURED TREE. "The frame ships empty" is
+# a claim about the KIT, not about an adopter — a project that has filled its gate
+# table has done exactly what it was told to. So the case states its subject and
+# steps aside when the tree is not the shipped frame, naming the signal that told
+# it so. A SKIP here is a statement about the environment, never a hidden failure.
+# =============================================================================
+case_ship_state() {
+  cf_reset
+  local rv="$REAL_SCRIPTS/verify.sh" rr="$REAL_SCRIPTS/release.sh" rc_cfg="$REAL_SCRIPTS/config.sh"
+  local why=""
+
+  # Is this tree the shipped frame, or an adopted project? Two signals, either
+  # sufficient, and the one that fired is reported.
+  if [ -f "$rc_cfg" ] && grep -q "^$KIT_STAMP_MARK" "$rc_cfg" 2>/dev/null; then
+    why="scripts/config.sh carries kit-init's stamp receipt — this tree has been adopted"
+  elif [ -f "$rv" ] && [ "$(_neu_array_records "$rv" GATES)" -ne 0 ]; then
+    why="scripts/verify.sh declares $(_neu_array_records "$rv" GATES) gate(s) — this project has filled its own table"
+  fi
+  if [ -n "$why" ]; then
+    skp "ship state: the kit's own config blocks still ship neutral" "$why"
+    return
+  fi
+
+  # An array that is GONE reads as an array with zero records, so the fence is
+  # asserted before the count. Presence first, then the property — otherwise a
+  # renamed array is indistinguishable from a clean one.
+  _ship_array_empty() {  # <file> <ARRAY>
+    local f="$1" a="$2" n
+    grep -qE "^${a}=\($" "$f" || { cf "${f##*/}: no '${a}=(' declaration — it was renamed or removed, so 'empty' here would mean nothing"; return; }
+    n="$(_neu_array_records "$f" "$a")"
+    [ "$n" -eq 0 ] || cf "${f##*/}: ${a} ships with ${n} declared record(s) — the frame must ship empty"
+  }
+  _ship_line() {  # <file> <exact line>
+    grep -qxF "$2" "$1" || cf "${1##*/}: does not ship the line '$2'"
+  }
+
+  if [ -f "$rv" ]; then
+    _ship_array_empty "$rv" GATES
+    _ship_array_empty "$rv" GUARD_SET
+  else
+    cf "scripts/verify.sh is absent — the gate frame is part of the kit"
+  fi
+
+  if [ -f "$rr" ]; then
+    _ship_array_empty "$rr" VERSION_FILES
+    _ship_array_empty "$rr" PREFLIGHT_GATES
+    _ship_array_empty "$rr" RELEASE_DOCS
+    _ship_array_empty "$rr" DIST_DOCS
+    # Publishing OFF by default is the one that can do outward-facing damage if it
+    # ships wrong, so it is asserted by value and not merely by presence.
+    _ship_line "$rr" 'RELEASE_PUBLISH=false'
+    _ship_line "$rr" 'VERSION_IN_TAG_ONLY=false'
+    _ship_line "$rr" 'DIST_ARTIFACT_GLOB=""'
+  fi
+
+  # The three seam values, in the exact shape kit-init.sh's anchored seds parse.
+  # These are also the neutralizer's targets, so this is where the harness's own
+  # KIT_NEUTRAL_* constants are held against the tree instead of assumed.
+  if [ -f "$rc_cfg" ]; then
+    _ship_line "$rc_cfg" "ISSUE_PREFIX=\"\${ISSUE_PREFIX:-${KIT_NEUTRAL_PREFIX}}\""
+    _ship_line "$rc_cfg" "PRD_PREFIX=\"\${PRD_PREFIX:-${KIT_NEUTRAL_PRD_PREFIX}}\""
+    _ship_line "$rc_cfg" "PROJECT_NAME=\"\${PROJECT_NAME:-${KIT_NEUTRAL_PROJECT_NAME}}\""
+  else
+    cf "scripts/config.sh is absent — it is the configuration seam itself"
+  fi
+
+  finish "ship state: the kit ships an empty gate table and guard floor, empty release seams, RELEASE_PUBLISH=false, and the neutral config.sh seam values the neutralizer resets to"
+}
+
+# =============================================================================
 # CASE — isolation self-check: the real repo is untouched by a run.
 # (Belt-and-suspenders: every case above deliberately mutates its sandbox; we
 #  then assert the real repo's HEAD + board surfaces are unchanged.)
@@ -2140,6 +2448,7 @@ case_release_publish_recovery
 case_release_bash_n
 case_release_spaced_path
 case_consumer_updater
+case_ship_state
 case_isolation
 
 echo
