@@ -217,13 +217,17 @@ fi
 
 # ---------------------------------------------------------------------------
 # (a) Folder vs last-Activity drift across the ACTIVE columns (done/ is off-board
-#     and can be huge — skipped for the <2s budget). The "declared status" is the
-#     LAST folder token that appears in a STRUCTURED context on the last Activity
-#     bullet: a transition arrow `→ <folder>` or a backticked `` `<folder>` ``
-#     (optionally with a trailing slash). Free-form notes with no such token are
-#     un-judgeable → skipped (no false positives). A bare `<folder>/`
-#     path-substring alternative was DROPPED: it false-positived on an incidental
-#     path MENTION like `supersedes progress/done/<PREFIX>-379-old.md`.
+#     and can be huge — skipped for the <2s budget). The "declared status" is read
+#     from the last Activity bullet in TWO ORDERED PASSES, because the two spellings
+#     are not equals:
+#       1. a transition ARROW `→ <folder>` — a DECLARATION, and what the mover emits;
+#       2. only if there is no arrow, a backticked `` `<folder>` `` (optionally with
+#          a trailing slash) — a MENTION, which is how prose refers to a column.
+#     Where both appear, the arrow wins. Free-form notes with neither are
+#     un-judgeable → skipped (no false positives). A bare `<folder>/` path-substring
+#     alternative was DROPPED: it false-positived on an incidental path MENTION like
+#     `supersedes progress/done/<PREFIX>-379-old.md`. The precedence and its own
+#     measured false positive are recorded at the comparator below.
 # ---------------------------------------------------------------------------
 echo
 echo "[a] Folder vs last-Activity drift (active columns) — $(cb_src):"
@@ -246,9 +250,33 @@ for folder in todo in_progress dev_complete qa_complete blocked; do
     # begins (after optional space) with "- ".
     last="$(awk '/^##[[:space:]]+Activity/{a=1; next} a && /^[[:space:]]*-[[:space:]]/{l=$0} END{print l}' "$f")"
     [ -z "$last" ] && continue
+    # PRECEDENCE, NOT A WIDER PATTERN: AN ARROW IS A DECLARATION, A BACKTICK IS A
+    # MENTION, AND WHERE BOTH APPEAR THE ARROW WINS. One alternation over both forms
+    # plus `tail -1` resolved whichever came LAST IN THE LINE, so a perfectly normal
+    # entry —
+    #     - <date> [Dev] → dev_complete: unblocked; see `blocked` for the prior context.
+    # — was read as declaring `blocked` on a card correctly sitting in dev_complete/,
+    # i.e. a FALSE drift finding on the mandated workflow. The arrow form is what the
+    # mover emits and what a transition MEANS; a backticked folder is prose, and prose
+    # is how a human explains the transition they just made. Two ordered passes, so a
+    # mention can never outrank a declaration however the sentence is worded.
+    #
+    # THIS ARM IS THE LOAD-BEARING SIDE, deliberately, even though the mover now
+    # refuses a note whose own text would introduce a status token. The mover can only
+    # constrain entries IT writes; this arm reads every card on the board, including
+    # ones seeded from a template, hand-appended before the note-only mode existed, or
+    # edited by hand at 2am. Making the arm's correctness depend on provenance it
+    # cannot verify would be exactly the "green because the input happened to be
+    # well-formed" shape. The mover's refusal narrows the input space and is worth
+    # keeping; it is not the guarantee.
     declared="$(printf '%s' "$last" \
-      | grep -oE "(→[[:space:]]*(${STATUS_FOLDERS}))|(\`(${STATUS_FOLDERS})/?\`)" 2>/dev/null \
+      | grep -oE "→[[:space:]]*(${STATUS_FOLDERS})" 2>/dev/null \
       | grep -oE "(${STATUS_FOLDERS})" 2>/dev/null | tail -1 || true)"
+    if [ -z "$declared" ]; then
+      declared="$(printf '%s' "$last" \
+        | grep -oE "\`(${STATUS_FOLDERS})/?\`" 2>/dev/null \
+        | grep -oE "(${STATUS_FOLDERS})" 2>/dev/null | tail -1 || true)"
+    fi
     [ -z "$declared" ] && continue
     if [ "$declared" != "$folder" ]; then
       echo "    ⚠ $(basename "$f"): in $folder/ but last Activity declares → $declared"

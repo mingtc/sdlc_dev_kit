@@ -1603,6 +1603,193 @@ case_verify_unrunnable_vs_fail() {
   teardown
 }
 
+# =============================================================================
+# CASE — CHECK (d)'s REGISTER ARM: the identifier space with no textual conflict.
+#
+# The board's id space collides loudly enough that git notices; a REGISTER's does
+# not. Two legs minting the same `### D-NN` in DIFFERENT SECTIONS of an append-only
+# register produce NO textual conflict at all, so a rebase merges both cleanly and
+# the duplicate lands with no witness. That is the shape this arm exists for and the
+# second scenario below is it.
+#
+# The arm landed proven by hand only, which by instruments.md § B item 2 makes it
+# UNPROVEN rather than passing. This encodes what was proven.
+#
+# The register's path/mark/shape are DERIVED from the script's own REGISTERS record,
+# never re-typed — the same contract every other constant in these cases follows.
+# =============================================================================
+case_check_board_registers() {
+  cf_reset
+  make_sandbox
+
+  local registers reg_path reg_mark reg_shape out rc
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || { cf "could not derive REGISTERS from the defaults block"; finish "check (d): the register arm"; teardown; return; }
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  reg_shape="$(printf '%s' "$registers" | awk -F'|' '{print $3}')"
+  [ -n "$reg_path" ]  || cf "the derived register path is empty ($registers)"
+  [ -n "$reg_mark" ]  || cf "the derived heading mark is empty ($registers)"
+  [ -n "$reg_shape" ] || cf "the derived id shape is empty ($registers)"
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")"
+
+  # --- (1) CLEAN: distinct ids, reported distinct, with the file named ---------
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-01 — first
+## B. Second bucket
+${reg_mark}D-02 — second
+EOF
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(1) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q "$reg_path" \
+    || cf "(1) the arm does not name the register it read: $out"
+  printf '%s\n' "$out" | grep "$reg_path" | grep -q '2 distinct' \
+    || cf "(1) a clean register was not reported as 2 distinct: $(printf '%s\n' "$out" | grep "$reg_path")"
+  printf '%s\n' "$out" | grep -qi 'DUPLICATE id' \
+    && cf "(1) a duplicate was reported on a clean register: $out"
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' || cf "(1) a clean register did not read clean: $out"
+
+  # --- (2) THE CROSS-SECTION DUPLICATE: no textual conflict, must be caught ----
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-07 — minted by one leg
+${reg_mark}D-01 — unrelated
+## B. Second bucket
+${reg_mark}D-07 — minted by another leg, in a different section, no conflict
+EOF
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(2) check-board.sh exited $rc with a planted duplicate (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -qi 'DUPLICATE id' \
+    || cf "(2) a CROSS-SECTION duplicate was NOT reported — this is the collision the arm exists for and it produces no textual conflict: $out"
+  printf '%s\n' "$out" | grep -i 'DUPLICATE id' | grep -q 'D-07' \
+    || cf "(2) the duplicate finding does not name D-07: $(printf '%s\n' "$out" | grep -i 'DUPLICATE')"
+  printf '%s\n' "$out" | grep -q 'board-drift: findings above' \
+    || cf "(2) the duplicate did not reach the report footer: $out"
+
+  # --- (3) THE D-9 / D-10 MAXIMUM, asserted AGAINST the wrong answer ----------
+  # A section-grouped register with D-10 ABOVE D-9. Both plausible wrong readings
+  # give 9: positional `tail -1` takes the file's last line, and a byte compare
+  # sorts "D-10" before "D-9". Asserting only "says 10" would pass an
+  # implementation that got 10 by luck on other data; asserting NOT 9 is what makes
+  # this control sharp, because both wrong answers are the SAME wrong answer.
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-10 — later id, earlier in the file
+## B. Second bucket
+${reg_mark}D-9 — earlier id, later in the file
+EOF
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(3) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep "$reg_path" | grep -q 'highest id number 10' \
+    || cf "(3) the maximum was not reported as 10 over a section-grouped register: $(printf '%s\n' "$out" | grep "$reg_path")"
+  printf '%s\n' "$out" | grep "$reg_path" | grep -q 'highest id number 9' \
+    && cf "(3) the maximum was reported as 9 — that is BOTH wrong answers (positional tail and byte-compare sort agree on it), so the read is not order-independent: $(printf '%s\n' "$out" | grep "$reg_path")"
+  printf '%s\n' "$out" | grep -qi 'DUPLICATE id' \
+    && cf "(3) D-9 and D-10 were read as duplicates — the id shape is matching too little: $out"
+
+  finish "check (d) register arm: a clean register reads distinct and names its file, a CROSS-SECTION duplicate (no textual conflict) is caught by id, and the maximum over a section-grouped register is 10 and not 9 (asserted against both wrong answers)"
+  teardown
+}
+
+# =============================================================================
+# CASE — AN ABSENT REGISTER SKIPS, AND THE CLEARANCE SAYS NOTHING WAS READ.
+#
+# Separate from the case above because the assertion is about the CLEARANCE LINE,
+# not about a register. The arm's first version printed "every declared register's
+# ids distinct" on a run where every register was SKIPPED — a pass over operands
+# that were never read, which is instruments.md § A.4's own rule failing inside the
+# arm enforcing it. A tick that covers nothing is worse than no tick, because a
+# reader quoting it has been told the registers are clean.
+# =============================================================================
+case_check_board_register_absent() {
+  cf_reset
+  make_sandbox
+  local registers reg_path out rc
+  registers="$(cb_default REGISTERS)"
+  reg_path="${registers%%|*}"
+  [ -n "$reg_path" ] || { cf "could not derive the register path"; finish "check (d): an absent register"; teardown; return; }
+  [ ! -e "$SB_WORK/$reg_path" ] \
+    || cf "(control) the sandbox already has $reg_path — this case's premise is that it is absent"
+  seed_issue todo "$SB_PREFIX-230" noreg chore "No register here"
+  publish_sandbox
+
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q "$reg_path" \
+    || cf "the absent register is not mentioned at all — a silently omitted line is the defect drift-report.md § 3 names: $out"
+  printf '%s\n' "$out" | grep "$reg_path" | grep -qi 'skipped' \
+    || cf "the absent register was not reported as skipped: $(printf '%s\n' "$out" | grep "$reg_path")"
+  # THE CLEARANCE MUST NOT COVER IT.
+  printf '%s\n' "$out" | grep -qi 'NO register was read' \
+    || cf "the clearance line does not say NO register was read — a pass over unread operands: $out"
+  printf '%s\n' "$out" | grep -qi 'distinct in every declared register' \
+    && cf "the clearance claims every declared register's ids are distinct on a run where none was read: $out"
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    || cf "an absent register should not itself be a finding: $out"
+
+  finish "check (d): an absent register SKIPS with its reason and the clearance line says NO register was read — never a tick covering unread operands"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (a): AN ARROW IS A DECLARATION, A BACKTICK IS A MENTION.
+#
+# The comparator used to run ONE alternation over both spellings and take the last
+# match in the line, so a normal entry —
+#   - <date> [Dev] → dev_complete: unblocked; see `blocked` for the prior context.
+# — was read as declaring `blocked` on a card correctly sitting in dev_complete/: a
+# FALSE drift finding on the workflow the manual mandates. Not introduced by the
+# arrow convention, but made reachable by it, since before the arrow existed a move
+# entry carried no structured token at all.
+#
+# Three directions, because precedence needs all three to be pinned:
+#   (i)   arrow + trailing backtick mention, card matches the ARROW → no finding;
+#   (ii)  arrow disagreeing with the folder → still a finding (the fix must not
+#         have simply stopped judging arrows);
+#   (iii) a backtick with NO arrow → still judged, as the fallback it is.
+# =============================================================================
+case_check_board_arrow_beats_mention() {
+  cf_reset
+  make_sandbox
+  local out rc
+
+  # (i) the false positive that started this: arrow agrees with the folder, and a
+  #     backticked mention of another column trails it in the prose.
+  seed_issue dev_complete "$SB_PREFIX-240" arrowwins chore "Arrow beats mention"
+  printf -- '- 2026-01-04 [Dev] → dev_complete: unblocked; see `blocked` for the prior context.\n' \
+    >> "$SB_WORK/progress/dev_complete/$SB_PREFIX-240-arrowwins.md"
+  # (ii) an arrow that genuinely disagrees with the folder — must STILL be caught.
+  seed_issue todo "$SB_PREFIX-241" arrowwrong chore "Arrow disagrees"
+  printf -- '- 2026-01-04 [Dev] → qa_complete: handed off.\n' \
+    >> "$SB_WORK/progress/todo/$SB_PREFIX-241-arrowwrong.md"
+  # (iii) a backticked declaration with no arrow — the fallback must still judge it.
+  seed_issue todo "$SB_PREFIX-242" tickonly chore "Backtick only"
+  printf -- '- 2026-01-04 [QA] Reviewed and moved to `qa_complete`.\n' \
+    >> "$SB_WORK/progress/todo/$SB_PREFIX-242-tickonly.md"
+  publish_sandbox
+
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-240" \
+    && cf "(i) FALSE DRIFT — a card whose arrow matches its folder was reported because a backticked column was MENTIONED later in the same bullet: $(printf '%s\n' "$out" | grep "$SB_PREFIX-240")"
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-241" \
+    || cf "(ii) an arrow DISAGREEING with the folder was not reported — the precedence fix must not have stopped judging arrows: $out"
+  printf '%s\n' "$out" | grep "$SB_PREFIX-241" | grep -q 'qa_complete' \
+    || cf "(ii) the finding does not name what the arrow declared: $(printf '%s\n' "$out" | grep "$SB_PREFIX-241")"
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-242" \
+    || cf "(iii) a backticked declaration with NO arrow was not judged — the fallback pass is gone: $out"
+
+  finish "check (a): an arrow outranks a backticked mention in the same bullet (no false drift), an arrow that disagrees is still a finding, and a backtick with no arrow is still judged"
+  teardown
+}
+
 case_check_board_reads_the_ref() {
   cf_reset
   make_sandbox
@@ -2771,6 +2958,9 @@ CASES=(
   case_check_board_id_duplicate
   case_check_board_id_mismatch
   case_check_board_frontmatter_offset
+  case_check_board_registers
+  case_check_board_register_absent
+  case_check_board_arrow_beats_mention
   case_check_board_reads_the_ref
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
