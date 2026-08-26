@@ -220,6 +220,35 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 # Below this line: the logic. It travels unedited.
 # ═════════════════════════════════════════════════════════════════════════════
 
+# ---- -h/--help: usage, before anything can refuse --------------------------
+# This script shipped without a help handler, and `--help` therefore fell all
+# the way through to TAG RESOLUTION — including a network clone — and died with
+# "tag not found: --help" (measured by an adopter 2026-08-22, the day the
+# consumer seam was first filled; the self-test case that asserts "--help exits
+# 0" had been a declared SKIP at assembly, so nothing caught it). A help flag is
+# the FIRST thing a new consumer types, and it must answer on a repo where the
+# seams are still placeholders — so this arm sits above the seam preflight, above
+# the `git` probe, and touches neither the seams nor the network.
+#
+# The text is DERIVED from this file's own header, never retyped: the header IS
+# the documentation, and a second copy of it is the copy that goes stale. Same
+# block as move-issue.sh / archive.sh / finish-pr.sh / subtask.sh — line 3 to the
+# last comment line before the first non-comment line, computed rather than
+# hard-coded, so adding a paragraph to the header cannot leave a stale range
+# behind. `${BASH_SOURCE[0]:-$0}` because this file is a TEMPLATE that consumers
+# copy into their own repository and invoke in ways this kit does not control;
+# the bare form resolves to nothing in any shell that is not bash.
+usage() {
+    local src="${BASH_SOURCE[0]:-$0}" first end
+    first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
+    end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
+    sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
+}
+
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+esac
+
 # ---- --print-seams: the seam block, machine-readable -----------------------
 # So a sibling script (setup-consumer.sh) can learn the artifact glob and the
 # vendor directory from THIS FILE instead of keeping a second copy of them —
