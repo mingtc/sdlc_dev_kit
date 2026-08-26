@@ -145,6 +145,23 @@ Action on PASS:
 - Manual fallback if `finish-pr.sh` can't run: do the squash-merge into `<trunk>` by hand with plain git, then `./scripts/move-issue.sh <PREFIX>-NNN qa_complete --role QA --note "Review — PASS. Squash-merged into <trunk>."` — no `git switch`/`git pull` needed; the script syncs and commits inside the kanban worktree regardless of your checkout's state.
 - Append `progress.md`: `YYYY-MM-DD QA review of <PREFIX>-NNN: PASS — merged.`
 
+> **THE VERDICT VOCABULARY IS AUTHORED IN ONE PLACE, and this section is its operating detail.**
+> [`../../process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff, step 6 ratifies four
+> verdicts with stable tokens — **`PASS` · `PASS_AC_CORRECTED` · `FAIL_AC` · `FAIL_REGRESSION`** —
+> and a **separate** field for whether the change reached the trunk: **`landed` · `deferred` ·
+> `not_applicable`**. What follows is *how to act on each*, not a second enumeration. If this
+> section and that list ever disagree, **that list wins and this one is the defect.**
+>
+> **Report the two separately, and never trade one for the other.** A green review whose landing was
+> deliberately deferred — a blocked-push regime, a held trunk — is `PASS` + `deferred`, and it is a
+> **success**. Downgrading the verdict to make the outcome look consistent is the thing that once
+> halted a completed run. And a docs-path issue has nothing to land at all: that is
+> `not_applicable`, which is why the field is not a boolean.
+>
+> **If the gate runner reports a gate that could not RUN, you have no verdict to issue.** There is no
+> evidence about the implementation, so neither FAIL token is honest — both assert something false
+> about the code. Stop and report the precondition failure.
+
 **FAIL — any of:**
 - One or more AC bullets unmet.
 - Any `Blocker` or `Critical` bug found.

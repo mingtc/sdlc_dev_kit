@@ -59,7 +59,10 @@
 > - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked
 >   folder, no half-landed residue. A park nobody reviewed is not a close.
 > - `LAND-READY` — verified and reviewed but not landed (blocked-push regime; see
->   [`../GIT-HOSTING.md`](../GIT-HOSTING.md)). Record the branch and its head SHA.
+>   [`../GIT-HOSTING.md`](../GIT-HOSTING.md)). Record the branch and its head SHA. **In the ratified
+>   vocabulary this is verdict `PASS` with landing `deferred`** — a success, and the runners continue
+>   past it. *(This column had a way to say "green but not landed" before the machinery did, which
+>   is how the gap was visible in reports and invisible to the schema that halted on it.)*
 >
 > The gate column quotes the runner's **own summary line, verbatim** — never a hand-typed count.
 

@@ -92,29 +92,47 @@ const DEV_SCHEMA = {
   required: ['status', 'branch', 'summary', 'test_evidence'],
 }
 
+// ── THE VERDICT VOCABULARY IS PROJECTED, NEVER RE-ENUMERATED ─────────────────
+// Authoring site: `process/MANUAL.md` § The Dev → QA handoff, step 6. If these
+// constants disagree with that list, the list wins and these are the defect.
+//
+// WHY. These schemas used to read `verdict: PASS|FAIL` plus `landed: boolean` —
+// two members against the four MANUAL ratifies, and a boolean where the ratified
+// vocabulary has three states. A reviewer returning the ratified "pass, every gate
+// green, landing deferred" had nowhere to put it, and the halt below read the
+// flattened value as a failure and STOPPED A RUN THAT HAD SUCCEEDED. The check was
+// correct about what it was given; the vocabulary it was given was too small. That
+// is `process/doctrine/instruments.md` § A.9 — a read-time defect, not a misaimed
+// guard.
+const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
+const LANDING = ['landed', 'deferred', 'not_applicable']
+const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
+
 const QA_SCHEMA = {
   type: 'object',
   properties: {
-    verdict: { enum: ['PASS', 'FAIL'] },
-    landed: { type: 'boolean', description: 'true only if the landing script completed' },
+    verdict: { enum: VERDICTS },
+    landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land' },
     ac_walk: { type: 'string', description: 'per-AC PASS/FAIL with concrete evidence' },
     unmet_ac: { type: 'array', items: { type: 'string' } },
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },
     notes: { type: 'string' },
   },
-  required: ['verdict', 'landed', 'ac_walk', 'gate_evidence'],
+  required: ['verdict', 'landing', 'ac_walk', 'gate_evidence'],
 }
 
-// PARK_SCHEMA — the park-QA leg's contract. Deliberately NOT QA_SCHEMA: a park lands
-// nothing, so QA_SCHEMA's `landed` (documented "true only if the landing script completed")
-// would read as a failure signal for a perfectly good park. Here `landed` is explicitly and
-// always FALSE for a park, is documented as such, and the caller logic below never consults
-// it — a park's close is decided by `verdict` alone.
+// PARK_SCHEMA — the park-QA leg's contract. Still deliberately NOT QA_SCHEMA (the
+// evidence fields differ), but it no longer needs a hand-written exemption for the
+// landing field. The old note read "ALWAYS false for a park — false is the CORRECT
+// value here and is never a failure signal"; that reasoning was right and is now
+// carried by the VALUE rather than by a carve-out: a park lands nothing, so
+// `not_applicable` is simply true. An exemption retired by making the vocabulary
+// able to say the thing it was exempting.
 const PARK_SCHEMA = {
   type: 'object',
   properties: {
-    verdict: { enum: ['PASS', 'FAIL'] },
-    landed: { type: 'boolean', description: 'ALWAYS false for a park — nothing is merged and the issue stays in blocked/. false is the CORRECT value here and is never a failure signal.' },
+    verdict: { enum: VERDICTS },
+    landing: { enum: LANDING, description: 'ALWAYS not_applicable for a park — nothing is merged and the issue stays in blocked/' },
     park_walk: { type: 'string', description: 'per-check PASS/FAIL with concrete evidence: issue sits in blocked/; findings/verdict evidence-backed and honestly scoped; no half-landed residue (clean tree, no stray branch, board move committed); no claim contradicted by the tree' },
     unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable — the fix-round brief' },
     gate_evidence: { type: 'string', description: 'gate runner / check-board.sh / git state observed' },
@@ -167,7 +185,7 @@ Walk these, each with concrete evidence (file:line, a command + its result line)
 4. **Contradiction** — nothing the park claims is contradicted by the tree as it stands.
 5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${issue.gates}.
 Verdict:
-- **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landed=false — that is CORRECT for a park, not a failure.
+- **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
 - **FAIL** — the park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.
 ${issue.extraQA || ''}
 Return the structured result only.`
@@ -186,7 +204,9 @@ Procedure (the Dev → QA boundary, code-work flavor):
 4. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence (test name, diff, output).
 5. Binding cross-cut gates for this issue: ${issue.gates}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 7. Verdict:
-   - PASS (all AC pass w/ evidence, gates green, no Blocker/Critical): ${issue.docsPath ? 'land it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>" (docs path: nothing to squash-merge). Set landed=true meaning "closed via the board move".' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landed=true only if that script completed.'} Append the progress.md QA line.
+   - The four ratified verdicts, from process/MANUAL.md § The Dev → QA handoff step 6 — their one authoring site: PASS · PASS_AC_CORRECTED (implementation right, the AC's own illustration wrong; correct it with the issue) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY: they are two different facts.
+   - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
+   - If ${CFG.gateCmd} reports a gate that COULD NOT RUN, you have no evidence about the implementation and so no verdict to issue: stop and report the precondition failure. Neither FAIL token fits — both assert something false about the code.
    - FAIL: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC list>" and return verdict=FAIL with the unmet_ac list. Do NOT fix code yourself.
 ${issue.extraQA || ''}
 Return the structured result only.`
@@ -215,8 +235,8 @@ for (const issue of ARGS.issues) {
     // Call site 2 of 7 — park-QA, first review. Same provision() seam and the issue's own
     // qaModel/qaEffort/qaAgentType: a park review must not silently escalate or degrade.
     let park = await agent(parkPrompt(issue, null), provision(`park-qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-    if (!park || park.verdict !== 'PASS') {
-      log(`${issue.id}: park-QA FAIL — one bounded fix round`)
+    if (!park || !isPass(park.verdict)) {
+      log(`${issue.id}: park-QA ${(park && park.verdict) || 'no verdict'} — one bounded fix round`)
       const parkNotes = `${(((park && park.unmet) || []).join('\n'))}\n${(park && park.notes) || ''}`
       // Call site 3 of 7 — Dev, park fix round. Same provisioning as the fresh pickup.
       dev = await agent(devPrompt(issue, parkNotes), provision(`dev-park-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
@@ -230,9 +250,12 @@ for (const issue of ARGS.issues) {
       }
     }
     if (!dev || dev.status !== 'dev_complete') {
-      // `park.landed` is deliberately NOT consulted: a park lands nothing, so landed=false
-      // is correct for a PASSing park (see PARK_SCHEMA). The verdict alone decides.
-      if (park && park.verdict === 'PASS') {
+      // The verdict alone decides a park's close, as before — but that is now the
+      // GENERAL rule rather than a park-shaped exemption: no halt anywhere in this
+      // runner keys on the landing field. A park reports landing=not_applicable
+      // because it lands nothing, which is a true statement rather than a value the
+      // caller has to know to ignore.
+      if (park && isPass(park.verdict)) {
         results.push({ id: issue.id, outcome: 'PARKED_OK', dev, park })
         log(`${issue.id}: PARKED and VERIFIED by park-QA (tranche continues)`)
       } else {
@@ -248,8 +271,8 @@ for (const issue of ARGS.issues) {
   // Call site 5 of 7 — QA, first review.
   let qa = await agent(qaPrompt(issue), provision(`qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
 
-  if (qa && qa.verdict === 'FAIL') {
-    log(`${issue.id}: QA FAIL — one bounded fix round`)
+  if (qa && !isPass(qa.verdict)) {
+    log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
     // Call site 6 of 7 — Dev, fix round. Same provisioning as the fresh pickup:
     // a bounce must not silently escalate the model or the effort.
@@ -260,12 +283,24 @@ for (const issue of ARGS.issues) {
     }
   }
 
-  if (!qa || qa.verdict !== 'PASS' || !qa.landed) {
+  // THE HALT KEYS ON THE VERDICT, NEVER ON THE LANDING — this is the line that
+  // stopped a successful run. `!qa.landed` halted the tranche and skipped every
+  // remaining issue on a review that had passed with its landing correctly
+  // deferred. A deferred landing is continue-and-defer; only a failed REVIEW halts.
+  if (!qa || !isPass(qa.verdict)) {
     halted = issue.id
     results.push({ id: issue.id, outcome: 'PARKED_AFTER_FIX_ROUND', dev, qa })
     continue
   }
-  results.push({ id: issue.id, outcome: 'LANDED', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+  // A pass that did not land is still a pass, and the tranche continues — but the
+  // outcome NAMES it, or the report re-merges downstream the two axes the schema
+  // just separated.
+  if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
+    results.push({ id: issue.id, outcome: 'LANDED', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+  } else {
+    log(`${issue.id}: LAND-READY (verified; landing deferred) — tranche continues`)
+    results.push({ id: issue.id, outcome: 'LAND_READY', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+  }
   log(`${issue.id}: LANDED`)
 }
 

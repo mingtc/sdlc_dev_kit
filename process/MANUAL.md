@@ -260,7 +260,36 @@ bounces it.
 5. **QA runs the binding cross-cut check.** For any change touching the surface the project doc
    declares binding, run the project's **live round-trip check** and restore the fixture it used
    to baseline. A green unit suite alone is not a PASS for that surface.
-6. **QA decides:**
+6. **QA decides. THIS LIST IS THE AUTHORING SITE FOR THE VERDICT VOCABULARY** — four members, each
+   with a stable token, **plus a separate and orthogonal statement about whether the change
+   landed.** Every schema, runner and report that carries a verdict **projects this list**; none of
+   them re-enumerates it.
+
+   | Verdict | Token |
+   |---|---|
+   | PASS | `PASS` |
+   | FAIL on AC | `FAIL_AC` |
+   | FAIL on regression | `FAIL_REGRESSION` |
+   | PASS-with-AC-correction | `PASS_AC_CORRECTED` |
+
+   **And `landing` is its OWN field, not a fifth verdict and not a boolean:**
+   `landed` · `deferred` · `not_applicable`.
+
+   **Why the two are separate, stated because collapsing them has already cost a run.** *Did the
+   review pass* and *did the change reach the trunk* are two different facts, and a machinery schema
+   that carried `verdict: PASS|FAIL` plus `landed: boolean` **could not represent a green review
+   whose landing was correctly deferred** — so it read one as a failure and **halted a run that had
+   succeeded.** `not_applicable` is the third value because a docs-path issue has no landing script
+   to complete: a boolean forces that case to lie in one direction or the other.
+
+   **A gate that could not RUN produces no verdict at all.** If the gate runner reports that a gate
+   never executed, there is no evidence about the implementation, so there is nothing for any of the
+   four tokens to be true of — this is a **precondition failure that halts before a verdict is
+   formed**, reported as itself. Do not reach for `FAIL_AC` or `FAIL_REGRESSION`: both assert
+   something false about the code. *(This is why the gate runner names an unrunnable gate in its own
+   word rather than spelling it as a failure — `contracts/verify-gate.md` § 3.)*
+
+   The four, in full:
    - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
      trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works. Action:
      `./scripts/finish-pr.sh <ID>` (squash-merges the branch into the trunk locally, deletes the
