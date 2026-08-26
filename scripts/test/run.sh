@@ -1399,6 +1399,179 @@ case_check_board_id_mismatch() {
 # perfectly healthy first day, which is the fastest way to teach an adopter to
 # ignore the board report.
 # =============================================================================
+# =============================================================================
+# CASE — THE ARMS ANSWER ABOUT THE NAMED REF, NOT ABOUT THE CHECKOUT.
+#
+# This is the control the pre-P3 harness could not express, and its absence is why
+# the defect survived so long: the existing board cases publish the whole sandbox
+# and THEN run the checker, so the working tree and the trunk agree and every one of
+# them passes under both the broken and the fixed implementation. A control that
+# cannot fail is not a control.
+#
+# So this case makes the two DISAGREE and asserts which one the report answers
+# about. It uses check (d) — id uniqueness — because that is the arm where reading
+# the checkout is not merely stale but structurally incapable: duplicate ids can
+# only ARISE on the trunk (two concurrent mints both landing), and a branch contains
+# at most one of the pair.
+#
+# Both halves are asserted, in opposite directions:
+#   (i)  a duplicate that exists ONLY in the working tree is NOT reported, and the
+#        report names the ref it read instead;
+#   (ii) the same duplicate, once published, IS reported.
+# An implementation that reads the checkout fails (i). One that reads nothing at all,
+# or that skips whenever the trees differ, fails (ii).
+# =============================================================================
+# =============================================================================
+# CASE — ARM [f1]: THE MAIN CHECKOUT IS WATCHED TOO.
+#
+# The home the drift report did not watch. Everything the kit classifies as METADATA
+# commits direct to the trunk from the primary checkout — rulings, PRDs, issue edits,
+# role docs, process/**, progress.md, the adapter — and arm [f] watched only the board
+# mover's auxiliary worktree. So the one home carrying the process's own memory was
+# the one home nothing watched, and the report said `clean ✓` with unpublished rulings
+# sitting beside it. Measured on a real program at the cost of a successor's first
+# hour, hunting an authority its own launch instructions cited.
+#
+# Both directions, so neither half can be vacuous:
+#   (i)  a committed-but-unpushed trunk commit in the main checkout IS reported, and
+#        the finding names that home rather than the auxiliary one;
+#   (ii) once pushed, it is NOT reported — so the arm is measuring publication state
+#        and not merely "a commit exists".
+# =============================================================================
+case_check_board_main_checkout_unpushed() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-220" watched chore "Main-checkout watch"
+  publish_sandbox
+
+  local out rc
+  # A metadata commit made the way every ruling is made: in the main checkout, on the
+  # trunk, direct — and NOT pushed.
+  printf '\n### D-01 — a ruling nobody else can see yet\n' >> "$SB_WORK/progress.md"
+  git -C "$SB_WORK" add progress.md >/dev/null 2>&1
+  sbcommit -qm "[PM] record a ruling" >/dev/null 2>&1
+  [ "$(git -C "$SB_WORK" rev-list --count "origin/$SB_TRUNK..refs/heads/$SB_TRUNK" 2>/dev/null)" = "1" ] \
+    || cf "(control) the sandbox is not actually 1 commit ahead — the premise does not exist"
+
+  # --- (i) it must be reported, and named as the MAIN checkout -----------------
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q '\[f1\]' \
+    || cf "(i) no [f1] reading at all — the main checkout is still unwatched: $out"
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -qi 'ahead' \
+    || cf "(i) [f1] did not report the unpushed commit: $(printf '%s\n' "$out" | grep '\[f1\]')"
+  printf '%s\n' "$out" | grep -q 'board-drift: findings above' \
+    || cf "(i) unpushed metadata did not reach the report footer: $out"
+  # The finding must be attributed to the right home, or it is indistinguishable from
+  # the auxiliary worktree's own divergence.
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -qi 'main checkout' \
+    || cf "(i) the [f1] finding does not name the main checkout as the home: $(printf '%s\n' "$out" | grep '\[f1\]')"
+
+  # --- (ii) ABLATION: push it, and it must go quiet ----------------------------
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc after the push (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -qi 'ahead of' \
+    && cf "(ii) ABLATION FAILED — [f1] still reports the commit as unpublished after it was pushed, so half (i) proves nothing: $(printf '%s\n' "$out" | grep '\[f1\]')"
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -q '✓' \
+    || cf "(ii) [f1] did not report clean after the push: $(printf '%s\n' "$out" | grep '\[f1\]')"
+
+  # And the green states its span rather than implying total coverage.
+  printf '%s\n' "$out" | grep -qi 'orphaned sibling' \
+    || cf "the [f] green does not state its span — an unqualified pass implies it saw stranding it cannot see: $out"
+
+  finish "check-board [f1]: an unpushed metadata commit in the MAIN checkout is reported and named as that home, and goes quiet once pushed (ablation-proven); the green states its span"
+  teardown
+}
+
+case_check_board_reads_the_ref() {
+  cf_reset
+  make_sandbox
+  seed_issue todo        "$SB_PREFIX-200" alpha chore "Published alpha"
+  seed_issue in_progress "$SB_PREFIX-201" beta  chore "Published beta"
+  publish_sandbox
+
+  local out rc ref
+  ref="origin/$SB_TRUNK"
+
+  # --- (i) the divergence: a duplicate id in the WORKING TREE only ------------
+  seed_issue dev_complete "$SB_PREFIX-200" unpublished-twin chore "Unpublished twin"
+  [ -f "$SB_WORK/progress/dev_complete/$SB_PREFIX-200-unpublished-twin.md" ] \
+    || cf "(control) the working-tree twin was not written — the divergence does not exist"
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q "$ref" \
+    || cf "(i) the report does not name $ref anywhere — the operand is still invisible: $out"
+  printf '%s\n' "$out" | grep -qi 'duplicate' \
+    && cf "(i) an UNPUBLISHED duplicate was reported — the arm read the checkout, not $ref: $out"
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    || cf "(i) the trunk is clean but the report did not say so: $out"
+
+  # --- (ii) the ablation: publish it, and it must redden ----------------------
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc after publishing (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -qi 'duplicate' \
+    || cf "(ii) ABLATION FAILED — the duplicate is on $ref and was NOT reported, so half (i) proves nothing: $out"
+  printf '%s\n' "$out" | grep -i 'duplicate' | grep -q "$SB_PREFIX-200" \
+    || cf "(ii) the duplicate finding does not name $SB_PREFIX-200: $out"
+
+  finish "check-board: the arms answer about $ref, not the checkout — an unpublished duplicate is NOT reported, the same duplicate published IS (ablation-proven), and the ref is named in the output"
+  teardown
+}
+
+# =============================================================================
+# CASE — NO LOCATION IS THE ONLY CORRECT ONE.
+#
+# The trap in the obvious workaround, and the reason "run it from a trunk checkout"
+# was never a fix. Arm (f)'s subject is the publication path, which is registered
+# against the MAIN worktree — so a report run from a linked worktree used to print
+# "no registered worktree (skipped)" about a worktree that existed three directories
+# away. Fixing the stale arms by relocating the caller traded five stale arms for one
+# blind one, and there was no location from which the whole report was correct.
+#
+# This asserts the report is correct FROM A LINKED WORKTREE: the trunk-property arm
+# still names the ref, and the local arm still finds the publication path.
+# =============================================================================
+case_check_board_from_a_worktree() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-210" wt chore "Worktree control"
+  publish_sandbox
+
+  # A real board op, to bootstrap .kanban-wt the way an operator would. If the mover
+  # cannot run here the control has no subject, so this is a SKIP, not a pass.
+  if ! ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-210" in_progress \
+           --role "$SB_ROLE" --note "bootstrap the publication path" >/dev/null 2>&1 ); then
+    skp "check-board from a linked worktree" "the board mover would not run in this sandbox, so .kanban-wt was never created"
+    teardown; return
+  fi
+  [ -d "$SB_WORK/.kanban-wt" ] \
+    || { skp "check-board from a linked worktree" ".kanban-wt was not created by the move"; teardown; return; }
+
+  local wt="$SB_TMP/linked" out rc
+  if ! git -C "$SB_WORK" worktree add --detach "$wt" "origin/$SB_TRUNK" >/dev/null 2>&1; then
+    skp "check-board from a linked worktree" "git worktree add failed in this sandbox"
+    teardown; return
+  fi
+  [ -x "$wt/scripts/check-board.sh" ] \
+    || { cf "(control) the linked worktree has no scripts/check-board.sh — it cannot be run from there"; finish "check-board from a linked worktree"; teardown; return; }
+
+  # Run the worktree's OWN copy, so REPO_ROOT resolves to the worktree — which is
+  # exactly the situation the trap lived in.
+  out="$( cd "$wt" && env -u CLAUDE_PROJECT_DIR "$wt/scripts/check-board.sh" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc from a linked worktree (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q "origin/$SB_TRUNK" \
+    || cf "the trunk-property arms do not name origin/$SB_TRUNK when run from a worktree: $out"
+  printf '%s\n' "$out" | grep -q '\[f\].*no registered worktree' \
+    && cf "arm [f] reported NO REGISTERED WORKTREE from a linked worktree — the publication path was not located against the main checkout, so the trap survives: $out"
+  printf '%s\n' "$out" | grep -q '^\[f\]' \
+    || cf "arm [f] printed no line at all from a linked worktree — a missing line is itself a finding: $out"
+
+  finish "check-board is correct from a LINKED WORKTREE too: the trunk arms name origin/$SB_TRUNK and arm [f] still locates .kanban-wt against the main checkout"
+  teardown
+}
+
 case_check_board_frontmatter_offset() {
   cf_reset
   make_sandbox
@@ -1753,10 +1926,21 @@ case_first_mile() {
   rm -f "$SB_WORK/progress/todo/SBX-002-old-shape.md.bak"
   printf -- '- 2026-01-03 [QA] Review — PASS; moved to `qa_complete/`.\n' \
     >> "$SB_WORK/progress/todo/SBX-002-old-shape.md"
+  # THE PLANT MUST BE PUBLISHED, because arm [a]'s subject is the TRUNK's board and
+  # it reads a named ref. Planted in the working tree only, it is invisible by
+  # design and this control would fail for the right reason — which is how it was
+  # found: it reddened the moment the arms stopped reading the checkout.
+  git -C "$SB_WORK" add "progress/todo/SBX-002-old-shape.md" >/dev/null 2>&1
+  git -C "$SB_WORK" commit -qm "[PM] SBX-002: ablation plant" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(cb_a)"
   printf '%s\n' "$out" | grep -q 'SBX-002-old-shape.md' \
     || cf "(control) the [a] comparator did NOT fire on a bullet declaring qa_complete — the clean result above proves nothing: $out"
-  rm -f "$SB_WORK/progress/todo/SBX-002-old-shape.md"
+  # Withdraw the plant from the trunk too, so the move below runs against the board
+  # the rest of this case describes.
+  git -C "$SB_WORK" rm -q "progress/todo/SBX-002-old-shape.md" >/dev/null 2>&1
+  git -C "$SB_WORK" commit -qm "[PM] SBX-002: withdraw the ablation plant" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
 
   # And the move itself now composes.
   out="$(cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" SBX-001 in_progress --role PM --note "picked up" 2>&1)"; rc=$?
@@ -2429,44 +2613,95 @@ echo "derived seams: prefix=$SB_PREFIX  trunk=$SB_TRUNK  first role=$SB_ROLE"
 echo "consumer seam: ${CONSUMER_SCRIPT:-(unset — that family will SKIP)}"
 echo
 isolation_snapshot
-case_move_issue
-case_finish_pr_happy
-case_finish_pr_second_worktree
-case_finish_pr_remote_delete_refused
-case_finish_pr_remote_delete_resurrected
-case_finish_pr_premerge_red
-case_finish_pr_empty_merge
-case_finish_pr_gate_hardening
-case_archive_apply
-case_archive_feature_branch_clean
-case_config_seam_refusal
-case_next_id
-case_commit_msg
-case_push_failure
-case_trunk_fallback_warns
-case_archive_progress_sections
-case_verify_frame
-case_check_board_id_clean
-case_check_board_id_duplicate
-case_check_board_id_mismatch
-case_check_board_frontmatter_offset
-case_kit_init_happy
-case_kit_init_refuses_lived_board
-case_kit_init_gate_fill
-case_kit_init_gate_and_remote_refusals
-case_option_parsing_hygiene
-case_first_mile
-case_release_happy
-case_release_guards
-case_release_preflight_gates
-case_release_doc_arms
-case_release_publish
-case_release_publish_recovery
-case_release_bash_n
-case_release_spaced_path
-case_consumer_updater
-case_ship_state
-case_isolation
+
+# ── THE CASE LIST. Explicit for ORDER, derived for COMPLETENESS. ─────────────
+# The order is real and cannot be generated: case_isolation must run last (it
+# compares the real repo against the snapshot taken above), case_ship_state reads
+# the real tree, and the check-board and release families build on cheaper cases
+# having already proven their primitives. So the sequence stays hand-written.
+#
+# WHAT WAS HAND-WRITTEN AND SHOULD NOT HAVE BEEN IS THE MEMBERSHIP. This list used
+# to be 38 bare calls with nothing comparing it to the functions that exist, so a
+# new case_* function that nobody added here SILENTLY NEVER RAN — and the suite
+# reported a full green while carrying a case it had not executed. The assertion
+# below closes that. It is not hypothetical: the most recent case added to this
+# file was appended by hand, and the change file that named this very defect
+# recorded the count as 37 while the tree held 38, because the person adding the
+# 38th updated the list and not the prose. THE COUNT IS NOWHERE IN PROSE NOW; the
+# comparison below is the only statement of it, and it is derived on both sides.
+CASES=(
+  case_move_issue
+  case_finish_pr_happy
+  case_finish_pr_second_worktree
+  case_finish_pr_remote_delete_refused
+  case_finish_pr_remote_delete_resurrected
+  case_finish_pr_premerge_red
+  case_finish_pr_empty_merge
+  case_finish_pr_gate_hardening
+  case_archive_apply
+  case_archive_feature_branch_clean
+  case_config_seam_refusal
+  case_next_id
+  case_commit_msg
+  case_push_failure
+  case_trunk_fallback_warns
+  case_archive_progress_sections
+  case_verify_frame
+  case_check_board_id_clean
+  case_check_board_id_duplicate
+  case_check_board_id_mismatch
+  case_check_board_frontmatter_offset
+  case_check_board_reads_the_ref
+  case_check_board_main_checkout_unpushed
+  case_check_board_from_a_worktree
+  case_kit_init_happy
+  case_kit_init_refuses_lived_board
+  case_kit_init_gate_fill
+  case_kit_init_gate_and_remote_refusals
+  case_option_parsing_hygiene
+  case_first_mile
+  case_release_happy
+  case_release_guards
+  case_release_preflight_gates
+  case_release_doc_arms
+  case_release_publish
+  case_release_publish_recovery
+  case_release_bash_n
+  case_release_spaced_path
+  case_consumer_updater
+  case_ship_state
+  case_isolation
+)
+
+# Every case_* function that exists must be in CASES, and vice versa. A mismatch is
+# FATAL before any case runs: a suite that cannot enumerate its own subject has
+# nothing to say about anything else.
+_defined_cases="$(declare -F | sed 's/^declare -f //' | grep '^case_' | sort)"
+_listed_cases="$(printf '%s\n' "${CASES[@]}" | sort)"
+if [ -z "$_defined_cases" ]; then
+  echo "harness: REFUSING — no case_* function is defined. A zero-case run cannot be green." >&2
+  exit 2
+fi
+if [ "${#CASES[@]}" -eq 0 ]; then
+  echo "harness: REFUSING — CASES is empty, so nothing would run." >&2
+  exit 2
+fi
+if [ "$_defined_cases" != "$_listed_cases" ]; then
+  {
+    echo "harness: REFUSING — the case list and the defined cases disagree."
+    echo "  defined but NOT listed (these would never run):"
+    comm -23 <(printf '%s\n' "$_defined_cases") <(printf '%s\n' "$_listed_cases") | sed 's/^/    /'
+    echo "  listed but NOT defined (these would error):"
+    comm -13 <(printf '%s\n' "$_defined_cases") <(printf '%s\n' "$_listed_cases") | sed 's/^/    /'
+    echo "  Fix the CASES array above. Both sides of this comparison are derived, so"
+    echo "  the only way to satisfy it is to actually list the case."
+  } >&2
+  exit 2
+fi
+echo "case list: ${#CASES[@]} case(s), and every defined case_* is listed."
+echo
+
+for _c in "${CASES[@]}"; do "$_c"; done
 
 echo
 echo "════════════════════════════════════════════════════════"

@@ -48,6 +48,22 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`check-board.sh` now reads `<remote>/<trunk>` by name, and every verdict says what it read.**
+  Previously most arms read *whatever checkout was current*, so a colleague or an agent holding the
+  repository on a feature branch silently changed the board report's answer. Each arm now names its
+  source (`read from: origin/main @ <sha>`), and where no trunk ref exists — day one, a local-only
+  clone — it falls back to the working tree **loudly**, printing `⚠ NOT A TRUNK REPORT`. It does
+  **not** fetch: it reads the remote-tracking ref as it stands, labels it with its sha, and prints
+  the refresh command, because a hang at session start is worse than a dated answer.
+- **A check that cannot run now says SKIPPED and why, instead of printing green.** An absent column,
+  an unresolvable revision or an empty history previously fell through to a pass over zero inputs.
+  **Expect to see new SKIPPED lines where you used to see ticks** — the ticks were the bug.
+- **The divergence check now covers EVERY home your process publishes from, each named separately.**
+  It used to watch only the board mover's auxiliary worktree, so an unpushed commit in your **main
+  checkout** — which is where rulings, PRDs and board edits are written — was invisible. It now
+  reports each home with its own reading, and states its span: it measures commits reachable from a
+  ref, and says so, because a commit reachable from no ref at all is outside what it can see.
+
 - **`process/doctrine/lookup-tables.md` § A.1 states the real basis for the doctrine-sheet
   exemption.** It said a doctrine sheet crossing the byte threshold triggers nothing *because
   "condition 1 is unmet"* — but condition 1 names `process/MANUAL.md`, and **MANUAL's doctrine table
@@ -173,6 +189,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Run `check-board.sh` once and read what it now reports about your MAIN checkout.** The new
+  divergence reading covers the primary checkout as well as the board mover's worktree, and **if you
+  have been writing rulings, PRDs or board edits directly on the trunk, it may report unpublished
+  work that has been sitting there unnoticed** — that is the defect it was added to find, not a false
+  positive. Push what it names. After that it goes quiet.
+- **Expect new SKIPPED lines in the board report, and treat them as information rather than
+  breakage.** Checks that used to print green over absent input now say SKIPPED with a reason. If a
+  check you relied on now skips, its input is missing — the previous green was not evidence of
+  anything.
 - **The pause law's "never end a turn on a stated intention" is now an ORDERING, not a prohibition**
   ([`doctrine/orchestration.md`](doctrine/orchestration.md) § A.5). Reorder your coordinators' belt
   from belt → status → dispatch to **belt → dispatch → status**, so a turn ends on a tool call by

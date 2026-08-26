@@ -32,27 +32,77 @@ owes all six, in any presentation it likes.**
   subject.
   *Why:* attribution erodes one unnoticed commit at a time; a periodic count is what makes the
   erosion visible while it is still small.
-- **6 — The publication path is not holding unpublished work.** Whatever mechanism publishes
-  board changes to the trunk must not be sitting on commits the next operation would discard.
-  *Why:* the next operation resets that mechanism to the trunk, so an unpublished commit there is
-  work with a scheduled deletion date.
+- **6 — NO HOME the process writes to is holding unpublished work — EVERY such home, each named
+  separately — and the check states which kind of stranding it looked for.** A project has more
+  than one surface from which work reaches the trunk: whatever mechanism publishes board changes,
+  **and the primary checkout itself**, which is where anything the process classifies as metadata
+  is written and committed. The check enumerates them, reports each with its own reading, and skips
+  any one of them with its own reason.
+  Work can be stranded in a home two ways — **reachable from a ref there but not from the trunk**,
+  and **reachable from nothing at all** (a commit orphaned when a position moved). A check that
+  measures only the first says so, in its own output, rather than reporting an unqualified pass.
+  *Why:* **the enumeration is the invariant, because a check that watches one home reads as a
+  statement about all of them.** Measured: an implementation watched only the auxiliary publication
+  mechanism and never asked the primary checkout the same question — so the one home carrying the
+  process's own memory, its rulings and its requirements, was the one home nothing watched, and the
+  report said *clean* with a day of unpublished rulings beside it. The recovery cost a successor an
+  hour, looking for an authority its own instructions cited. The span matters for the same reason
+  one level down: the two kinds of stranding need different instruments — the first is a count
+  against a ref, the second needs the local history of positions — and a pass naming neither
+  invites the reader to conclude nothing is stranded anywhere. Measured there too: an orphaned
+  sibling reported as *in sync* by a check whose count was correct and whose subject was the other
+  kind. **This invariant does not require the second kind be checked; it requires that a pass not
+  imply it.**
+  *Deliberately not enumerated here:* which homes a project has. The kit's own implementation names
+  two because it ships two; a project that publishes from a third owes it a reading, and the sheet
+  would be wrong rather than general if it fixed the number.
 - **The report READS ONLY.** It never fixes, moves, rotates or publishes anything.
   *Why:* a reporter that repairs is a reporter nobody can trust to describe.
 - **A check that cannot run says SKIPPED, and says why.** It never reports a pass it did not
   establish.
   *Why:* "no findings" must mean "checked and clean", or the report's only sentence is worthless.
+- **EVERY check names the SOURCE it read, beside its own verdict — and a check whose subject is a
+  shared-state property reads a source it NAMED, never whichever working copy happens to be
+  current.** A check about the published state of the board, the log, or recent history answers
+  about the published trunk by name; a check whose subject is genuinely local — "is any home this
+  project publishes from holding work that never reached the trunk?" — inspects local refs and
+  working copies on purpose and names each one it read. Either way the operand appears in the
+  output, once per reading.
+  *Why:* measured, and it is the invariant the other two above are special cases of. Five of six
+  checks in one implementation resolved their paths through the current checkout. A dispatched leg
+  legitimately moves that checkout to its own branch, so each check returned a stale answer that
+  looked authoritative — **nobody chose the operand, and nothing in the output revealed it had
+  changed.** Costs measured: a board state certified two changes out of date; a log-size check
+  frozen at an identical byte count across four consecutive readings; and, worst,
+  **an identifier-uniqueness check reporting "N distinct, clean" while the trunk held N+1.** That
+  last one is not a degraded check: duplicate identifiers can only *arise* on the published trunk,
+  and a branch contains at most one of the colliding pair, so read from a branch the check is
+  **structurally incapable of the thing it exists for** — and says clean while being so. The
+  general form: *a tool reporting on shared state must name the source it measured, because
+  "clean" without a source is a claim nothing can falsify.*
 - **A threshold check states WHAT IT MEASURED, not only its verdict.** A check reporting a size or
   a depth names the span it read.
   *Why:* measured — one implementation's log-size check read only the running log's own section
   while the file around it grew to thirty times that span, and reported a comfortable pass the
   whole time. *The measuring device reported OK while blind*, and the verdict alone could not
-  reveal it.
+  reveal it. **The span and the source are the same lesson twice:** this invariant asks *how much
+  of the thing* was read, the one above asks *which copy of the thing* — and a verdict missing
+  either is unfalsifiable.
+- **No location may be the only correct one.** Where a check must inspect a working copy, it locates
+  that copy explicitly rather than assuming the report is being run from it.
+  *Why:* measured, and it is the trap in the obvious workaround. When the stale checks above were
+  worked around by "run the report from a clean checkout of the trunk", the one legitimately-local
+  check then reported *"no publication path (skipped)"* — because that path is registered against
+  the primary copy, not the one the report was run from. So there was **no location from which the
+  whole report was correct**: the primary copy gave one correct check and five stale ones, and a
+  trunk copy gave five correct and one blind. A fix that only relocates the caller trades one blind
+  check for another.
 
 ## 3. REFUSAL CONDITIONS
 
 - An item carries no identifier at all, or carries one that duplicates another's ⇒ report it by
   name, in both cases, as a finding that needs a human.
-- A check's input is unavailable (no history, no publication mechanism, offline) ⇒ report
+- A check's input is unavailable (no history, a publication home that does not exist, offline) ⇒ report
   **skipped with the reason**; never silently omit the line.
 - Findings exist ⇒ the report says so in its final line. Whether findings *fail* a build is the
   project's call; **hiding** them is not on the menu.
@@ -62,22 +112,30 @@ owes all six, in any presentation it likes.**
 1. **All six checks ran**, each printing its own line — a missing line is itself a finding.
 2. Each line states a **count against its bound** where it has one, not an adjective, and names
    the span the count covers.
-3. The last line is a **single verdict**: clean, or findings-above. One sentence a human can act
+3. Each line names **the source it read** — the published ref, or the working copy it inspected on
+   purpose. A line whose source is absent is a finding about the report, not a pass.
+4. The last line is a **single verdict**: clean, or findings-above. One sentence a human can act
    on without reading the rest.
 
 ## 5. MINIMAL INTERFACE
 
-**In:** the board; the running log; recent history; the publication mechanism's state; the
-declared thresholds.
-**Out:** one line per check with its count or its skip reason, then one overall verdict line.
-**Not in:** any repair. Every finding names the operation that fixes it and stops there.
+**In:** the board; the running log; recent history; **the state of every home the process publishes
+from**; the declared thresholds — **each read from a source the report names, not from an ambient one.**
+**Out:** one line per check with its count or its skip reason **and its source**, then one overall
+verdict line.
+**Not in:** any repair. Every finding names the operation that fixes it and stops there. **Not in
+either:** a fetch. Refreshing the published state is a network act with no bound; the report reads
+the published ref as it stands, **dates it**, and says how to refresh — a stale answer that says so
+beats a hang at session start.
 
 ## 6. REFERENCE IMPLEMENTATION
 
 > One implementation, not the definition.
 
 - `scripts/check-board.sh` — KIT-CLASS: KIT. The six checks are its sections **[a]** through
-  **[f]**, in the order above.
+  **[f]**, in the order above. Check 6 carries one reading per publication home — in the shipped
+  implementation **[f1]** the primary checkout's trunk ref and **[f2]** the board mover's auxiliary
+  worktree — because invariant 6 requires the enumeration, not a fixed count of them.
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
   Two exist: the depth at which the reviewed-and-done column is due for a sweep, and the byte size
   at which the running log is due for rotation. **Read them from the file** rather than from any

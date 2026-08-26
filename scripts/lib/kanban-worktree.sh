@@ -42,9 +42,10 @@
 #   kwt_unlock             → release the lock (also armed via trap on EXIT)
 #   kwt_bootstrap          → ensure $KWT is a registered detached worktree
 #   kwt_sync               → fetch the remote + reset --hard the worktree to the tip;
-#                            ABORTS first if the worktree has uncommitted tracked
-#                            changes (never silently destroy them) unless
-#                            KWT_DISCARD_DIRTY=true
+#                            ABORTS first if the worktree holds uncommitted tracked
+#                            changes (unless KWT_DISCARD_DIRTY=true) or any commit
+#                            not yet on <remote>/<trunk> (no opt-out — see below).
+#                            Reports what it did in KWT_SYNCED.
 #   kwt_finalize           → push HEAD:<trunk>, then conditionally advance the
 #                            operator's checkout / local branch ref
 #
@@ -228,6 +229,12 @@ kwt__mtime() {
 # aborts the sync rather than being silently wiped).
 KWT_DISCARD_DIRTY=false
 
+# Set by kwt_sync: true when it fetched and reset to the tip, false when the fetch
+# failed and it proceeded on LOCAL state. Declared here so a caller may read it
+# under `set -u` without knowing whether kwt_sync ran. It is a REPORT, not a knob:
+# setting it yourself changes nothing.
+KWT_SYNCED=false
+
 # Echoes "yes" if the CURRENT lock holder is provably abandoned and stealable:
 #   - same host + holder PID no longer EXISTS → dead holder; or
 #   - cross-host / unknown PID + lock older than the stale threshold.
@@ -316,9 +323,39 @@ kwt_lock() {
     fi
 
     if [ "$waited" -ge "$KWT_LOCK_WAIT" ]; then
-      echo "Error: another kanban op holds the lock at $KWT_LOCK" >&2
-      echo "       (waited ${KWT_LOCK_WAIT}s). It will clear when that op finishes; retry then." >&2
-      echo "       If you are sure no other op is running, remove it: rm -rf '$KWT_LOCK'" >&2
+      # NAME THE HOLDER. The lock's own info file already records pid/host/epoch —
+      # it is written at acquire time for exactly this purpose and was then not
+      # read back here, so the operator was told "something holds it" and had to
+      # go and cat the file to learn what. `contracts/kanban-worktree.md` § 3
+      # requires the holder named; this is that requirement, met from the data
+      # already on disk rather than from a new mechanism.
+      #
+      # An UNREADABLE or ABSENT info file is reported as that, not as blanks: a
+      # lock directory with no info is itself worth knowing about (it means a
+      # holder died between `mkdir` and the stamp), and printing "pid= host="
+      # would read as a holder with no identity.
+      local h_pid h_host h_epoch h_age
+      h_pid="$(sed -n 's/^pid=//p'   "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
+      h_host="$(sed -n 's/^host=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
+      h_epoch="$(sed -n 's/^epoch=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
+      {
+        echo "Error: another kanban op holds the lock at $KWT_LOCK (waited ${KWT_LOCK_WAIT}s)."
+        if [ -n "$h_pid" ] || [ -n "$h_host" ]; then
+          if [ -n "$h_epoch" ] && [ -z "${h_epoch//[0-9]/}" ]; then
+            h_age=$(( $(date +%s) - h_epoch ))
+            echo "       Holder: pid ${h_pid:-<unrecorded>} on host ${h_host:-<unrecorded>}, held for ${h_age}s."
+          else
+            echo "       Holder: pid ${h_pid:-<unrecorded>} on host ${h_host:-<unrecorded>}, age unknown (epoch '${h_epoch:-<empty>}' is not a number)."
+          fi
+          echo "       If that host is this one, check it:  ps -p ${h_pid:-<pid>}"
+        else
+          echo "       Holder: UNRECORDED — $KWT_LOCK/info is absent or unreadable, which usually means a"
+          echo "       holder died between creating the lock and stamping it. The staleness reaper clears"
+          echo "       such a lock only by AGE (${KWT_LOCK_STALE}s), because there is no pid to probe."
+        fi
+        echo "       It will clear when that op finishes; retry then."
+        echo "       If you are sure no other op is running, remove it: rm -rf '$KWT_LOCK'"
+      } >&2
       return 1
     fi
     sleep 1
@@ -417,12 +454,69 @@ kwt__ensure_detached() {
     return 1
   fi
 
+  # ── BEFORE DETACHING: does the attached branch carry commits the remote does
+  #    not have? Detaching lands HEAD on the same commit and moves nothing — the
+  #    old message said so and it was true — but it leaves those commits reachable
+  #    ONLY from a local branch ref that the next `reset --hard` does not update
+  #    and no board check consults. That is how a metadata commit becomes an
+  #    ORPHANED SIBLING: measured in a project running this process, two commits
+  #    ended up on one parent, one reached the ref, and the other was reachable
+  #    from nothing — `git branch -a --contains` returned empty — while the leg's
+  #    own board note truthfully said the records had been committed. "Nothing
+  #    else changed" was the narration on that repair, and it was the sentence
+  #    that made a benign reading of a lossy state.
+  #
+  #    So the claim is now CHECKED before it is made, and the repair refuses when
+  #    it cannot honestly make it.
+  #    Two distinct refusals, because "there are unpublished commits" and "I
+  #    cannot tell whether there are" are different claims and only one of them
+  #    may be asserted. A refusal that states a fact it did not measure is the
+  #    same disease as the reassurance it replaced.
+  if ! git -C "$KWT" rev-parse --verify --quiet "$KWT_REMOTE/$branch" >/dev/null 2>&1; then
+    {
+      echo "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and $KWT_REMOTE/$branch does"
+      echo "       not exist — so whether '$branch' holds anything unpublished CANNOT BE DETERMINED."
+      echo "       Detaching would land HEAD on the same commit, but this repair will not report"
+      echo "       'nothing else changed' on a state it could not read."
+      echo "       Worktree: $KWT"
+      echo ""
+      echo "  Its last commits, for you to judge:"
+      git -C "$KWT" log --oneline -n 5 "refs/heads/$branch" 2>/dev/null | sed 's/^/    /'
+      echo ""
+      echo "  Give the branch a remote counterpart, or detach deliberately by hand:"
+      echo "        git -C '$KWT' push -u $KWT_REMOTE '$branch'      # then re-run"
+      echo "        git -C '$KWT' switch --detach                    # abandon the attachment as-is"
+    } >&2
+    return 1
+  fi
+
+  local unpub
+  unpub="$(git -C "$KWT" log --oneline "$KWT_REMOTE/$branch..refs/heads/$branch" 2>/dev/null || true)"
+  if [ -n "$unpub" ]; then
+    {
+      echo "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and '$branch' carries commit(s)"
+      echo "       that $KWT_REMOTE does not have. Detaching would leave them reachable only from a"
+      echo "       local branch ref that no board check reads and the next sync does not update —"
+      echo "       the orphaned-sibling state, recoverable afterwards only from 'git reflog --all'."
+      echo "       Worktree: $KWT"
+      echo ""
+      echo "  Unpublished on '$branch':"
+      echo "$unpub" | sed 's/^/    /'
+      echo ""
+      echo "  Publish them first (this is almost always what you want):"
+      echo "        git -C '$KWT' push $KWT_REMOTE '$branch':$branch"
+      echo "  …then re-run. To abandon them instead, do it deliberately and by hand:"
+      echo "        git -C '$KWT' switch --detach && git -C '$KWT' branch -D '$branch'"
+    } >&2
+    return 1
+  fi
+
   # `git switch --detach` with no target ref detaches HEAD AT THE CURRENT
   # COMMIT — it moves no commits and touches no tracked file, so it is safe
   # even over a dirty tree (KWT_DISCARD_DIRTY only widens who is allowed past
   # the refusal above, not what this command itself does).
   if git -C "$KWT" switch --detach --quiet 2>/dev/null; then
-    echo "Repaired: the kanban worktree ($KWT) was attached to '$branch' — detached it (git switch --detach), landing back on the same commit (nothing else changed)." >&2
+    echo "Repaired: the kanban worktree ($KWT) was attached to '$branch' — detached it (git switch --detach), landing back on the same commit. Nothing was left unpublished: that was CHECKED above, not assumed." >&2
     return 0
   fi
 
@@ -444,10 +538,15 @@ kwt__ensure_detached() {
 # Opt back into the destructive behaviour with KWT_DISCARD_DIRTY=true (consumers'
 # --discard-dirty).
 #
-# Note: an unpushed local COMMIT is NOT caught here (the tree is clean after a
-# commit) — it is reset on the next sync by design; kwt_finalize's push-failure
-# message tells the operator to push it first, and check-board.sh's last check
-# reports the state before the next op destroys it.
+# An unpushed local COMMIT is not caught by the dirty guard either (the tree is
+# CLEAN after a commit). That was once documented as reset-on-the-next-sync BY
+# DESIGN, with two compensators: kwt_finalize's push-failure message, and
+# check-board.sh's [f] arm reporting the state before the next op destroys it.
+# THE REASON STANDS AND BOTH COMPENSATORS REMAIN — but both are procedures that
+# inform an operator who must then act BETWEEN two ops, and an orchestrated run
+# does not pause between ops. So the conclusion moved: kwt_sync now REFUSES on an
+# unpushed commit rather than resetting over it, and the compensators became the
+# second and third lines of defence instead of the only ones.
 # ---------------------------------------------------------------------------
 kwt_sync() {
   # Dirty guard FIRST — it is a purely LOCAL check, so it must run regardless of
@@ -483,8 +582,69 @@ kwt_sync() {
   kwt__ensure_detached || return 1
 
   if ! git -C "$KWT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null; then
-    echo "Warning: could not fetch $KWT_REMOTE/$DEFAULT_BRANCH (offline?); proceeding with local state." >&2
+    # OFFLINE. We proceed rather than refuse — a board move is a local file move
+    # and blocking it would make the process unusable on a plane — but the caller
+    # is told, in the line that reports it, WHAT it is now working on and WHAT
+    # happens next. KWT_SYNCED is the seam a caller may branch on; the return
+    # code stays 0 so no existing caller's `set -e` turns "offline" into "abort".
+    #
+    # This warning used to end at "proceeding with local state", which named the
+    # act and not its consequence. The consequence used to be a LOST COMMIT: this
+    # op would commit onto stale state, its push would fail, and the NEXT sync's
+    # `reset --hard` destroyed it. The guard below closes that, which is why this
+    # can remain a warning instead of becoming a refusal — the thing it warned
+    # about is no longer reachable, so the warning no longer has to carry it.
+    KWT_SYNCED=false
+    {
+      echo "Warning: could not fetch $KWT_REMOTE/$DEFAULT_BRANCH (offline?) — proceeding on LOCAL state."
+      echo "         This op is about to act on the board as of the last successful sync, not as of"
+      echo "         the trunk: a card another session has already moved may be moved again here."
+      echo "         Its push will also fail while the remote is unreachable. The commit will then"
+      echo "         be REFUSED by the next sync rather than reset over — push it when the remote"
+      echo "         returns:  git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
+    } >&2
     return 0
+  fi
+  KWT_SYNCED=true
+
+  # ── UNPUSHED-COMMIT GUARD, and it must run between the fetch and the reset.
+  #    `reset --hard` destroys a committed-but-unpushed commit as silently as it
+  #    destroys an uncommitted edit — more silently, in fact, because the tree is
+  #    CLEAN after a commit, so the dirty guard above cannot see it. This was
+  #    documented as "reset on the next sync by design", with two compensators
+  #    named: kwt_finalize's push-failure message, and check-board.sh's [f] arm
+  #    reporting the state before the next op destroys it. THE REASON STANDS AND
+  #    BOTH COMPENSATORS REMAIN TRUE — the conclusion is what moves. Both are
+  #    procedures: they inform an operator who must then act between two ops, and
+  #    a run that never pauses between ops never reads either. The act is silent
+  #    and its cost compounds (the record is gone from the trunk while the leg's
+  #    own note truthfully says it was committed), so it earns a mechanism.
+  #
+  #    NO OPT-OUT FLAG, deliberately. KWT_DISCARD_DIRTY covers uncommitted work,
+  #    where "I know, throw it away" is a routine intent; a COMMIT is a deliberate
+  #    act and discarding one should cost a deliberate hand command, not a flag
+  #    that rides along on every invocation of a wrapper script.
+  local unpushed
+  unpushed="$(git -C "$KWT" log --oneline "$KWT_REMOTE/$DEFAULT_BRANCH..HEAD" 2>/dev/null || true)"
+  if [ -n "$unpushed" ]; then
+    {
+      echo "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync."
+      echo "       Syncing would 'git reset --hard $KWT_REMOTE/$DEFAULT_BRANCH' and make them UNREACHABLE"
+      echo "       from any ref — recoverable only from 'git reflog --all', and invisible to"
+      echo "       check-board.sh once that has happened."
+      echo "       Worktree: $KWT"
+      echo ""
+      echo "  Unpushed:"
+      echo "$unpushed" | sed 's/^/    /'
+      echo ""
+      echo "  Resolve one of two ways:"
+      echo "    • Publish them (almost always right — an op made them and its push did not land):"
+      echo "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH"
+      echo "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
+      echo "    • Discard them — BY HAND, so the choice is on the record:"
+      echo "        git -C '$KWT' reset --hard $KWT_REMOTE/$DEFAULT_BRANCH"
+    } >&2
+    return 1
   fi
 
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet
@@ -503,6 +663,13 @@ kwt_sync() {
 # worktree's index — makes the operator's checkout look dirty).
 # ---------------------------------------------------------------------------
 kwt_finalize() {
+  # THE COMMIT WE ARE ABOUT TO PUBLISH, captured BEFORE the push, so the
+  # read-back below can name it. Two guards hang off this sha, and neither can
+  # be written after the fact: once a commit stops being referenced, the only
+  # record of its identity is the reflog.
+  local pre_head
+  pre_head="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
+
   # Push the commit just made in the worktree to the trunk — via the shared
   # pull-rebase-retry wrapper rather than a single bare push, so a diverged
   # remote (a parallel landing winning the race) is rebased onto and retried
@@ -510,11 +677,42 @@ kwt_finalize() {
   if ! git_push_with_retry "$KWT" "$KWT_REMOTE" "$DEFAULT_BRANCH"; then
     echo "Error: push of HEAD → $KWT_REMOTE/$DEFAULT_BRANCH failed (remote likely advanced concurrently, or offline)." >&2
     echo "       The commit was made LOCALLY in the kanban worktree but is NOT on $KWT_REMOTE." >&2
-    echo "       The NEXT kanban op's sync resets --hard to $KWT_REMOTE/$DEFAULT_BRANCH and will" >&2
-    echo "       DISCARD this commit unless you push it first:" >&2
+    echo "       The next kanban op's sync now REFUSES rather than resetting over it (see kwt_sync)," >&2
+    echo "       so it is not about to be destroyed — but nothing else will publish it either:" >&2
     echo "         git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" >&2
     echo "         git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" >&2
     return 1
+  fi
+
+  # ── READ THE REF BACK. "Pushed, accepted" is a reading at an instant, not a
+  #    property: a mirror or a replica can un-apply it, and a force-push has been
+  #    measured reporting success without landing. The push wrapper's exit code
+  #    says the command succeeded; only this says the COMMIT IS ON THE REF.
+  #
+  #    This is also the one guard that can catch an ORPHANED SIBLING — a commit
+  #    made in this worktree that ends up reachable from no ref at all. Such a
+  #    commit is invisible to `git status` (the tree is clean), invisible to
+  #    `<remote>/<trunk>..HEAD` (it is not an ancestor of HEAD either), and
+  #    therefore invisible to check-board.sh's divergence arm, which reports
+  #    "in sync ✓" while a committed record is missing from the trunk. Measured in
+  #    a project running this process: two commits became siblings on one parent,
+  #    one reached the ref, the other was recoverable only from `git reflog --all`
+  #    and cost a review window to find. A guard that fires at the moment of loss
+  #    beats a report that cannot describe the loss at all.
+  if [ -n "$pre_head" ]; then
+    git -C "$KWT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null || true
+    if ! git -C "$KWT" merge-base --is-ancestor "$pre_head" "$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null; then
+      {
+        echo "Error: the push reported success, but $(git -C "$KWT" rev-parse --short "$pre_head" 2>/dev/null || echo "$pre_head") is NOT an ancestor of $KWT_REMOTE/$DEFAULT_BRANCH."
+        echo "       The commit this op made is not on the trunk. It is not lost — it is"
+        echo "       UNREFERENCED, which is the state no board check can see:"
+        echo "         git -C '$KWT' log -1 $pre_head          # confirm what it carried"
+        echo "         git -C '$MAIN_ROOT' cherry-pick $pre_head   # replay it onto the trunk"
+        echo "       (cherry-pick preserves the original author and [Role]-prefixed subject.)"
+        echo "       Do this before the next kanban op; reflog expiry is the only clock on it."
+      } >&2
+      return 1
+    fi
   fi
 
   local main_head

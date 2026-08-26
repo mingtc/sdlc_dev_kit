@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — board drift report; reads the status folders only. See process/EXTRACTION.md.
+# KIT-CLASS: KIT — board drift report; reads the status folders, the log, recent history and the
+#   publication homes, each FROM A NAMED SOURCE it prints. See process/EXTRACTION.md.
 # Board-drift check.
 #
 # A read-only (<2s) reporter for the mechanical parts of the manual's § "Session
@@ -27,7 +28,51 @@
 #       the gap was that nothing verified the invariant AFTER allocation. This is that
 #       verifier. It REPORTS, it never repairs — auto-renumbering would have to fix the
 #       filename, the branch, the Activity trail and every cross-reference;
-#   (e) [Role]-prefix scan of recent trunk commits; (f) .kanban-wt trunk-divergence.
+#   (e) [Role]-prefix scan of recent trunk commits;
+#   (f) UNPUBLISHED WORK IN EITHER HOME THE PROCESS WRITES TO — the main checkout's
+#       trunk ref [f1] and the board mover's .kanban-wt [f2], each named separately.
+#       [f1] exists because everything the kit classifies as METADATA commits direct
+#       to the trunk from the main checkout — rulings, PRDs, issue edits, role docs,
+#       process/**, progress.md, the adapter — so the home carrying the process's own
+#       memory was the one home nothing watched, and the board could read `clean ✓`
+#       with a day of unpushed rulings beside it.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# EVERY CHECK NAMES THE SOURCE IT READ, AND SAYS SO WHEN IT COULD NOT READ ONE.
+#
+# The defect this closes, measured: arms (a)–(e) resolved their paths through the
+# CURRENT CHECKOUT. A dispatched leg legitimately switches that checkout to its own
+# branch, so every one of them returned a STALE answer that looked authoritative —
+# nothing in the output named the operand, so nobody chose it and nobody could see
+# it had changed. Measured instances: a board report certifying a column state two
+# commits old; a log-size arm frozen at an identical byte count across four
+# consecutive boundaries; and an id-uniqueness arm reporting "N distinct ids ✓"
+# while the trunk held N+1.
+#
+# ARM (d) IS THE WORST CASE AND THE REASON THIS IS S1, NOT COSMETIC. It is a
+# UNIQUENESS check. Two concurrent mints collide only when BOTH land on the trunk;
+# a branch, by construction, contains at most one of them. So read from a branch it
+# is not a degraded check — it is structurally incapable of seeing the collision it
+# exists for, and it says `✓` while being so.
+#
+# The rule, and it is one rule covering two failures that look different:
+#   A CHECK STATES THE OPERAND IT READ AND WHETHER THE READ SUCCEEDED.
+# A verdict with neither is not a verdict. Absent input then cannot read as a pass
+# (there is no operand to name), and a trunk property cannot be answered from a
+# branch (the named operand would be wrong). One obligation, both closed.
+#
+# So: every arm whose subject is a TRUNK property reads <remote>/<trunk> by name and
+# prints it. Arm (f)'s subject is genuinely LOCAL — "is either home this process
+# writes to holding work that never reached the trunk" — so it inspects local refs
+# and working trees ON PURPOSE and names each one it inspected. Naming the operand is
+# the invariant; reading the trunk is only what most of the arms happen to need.
+#
+# NO FETCH, DELIBERATELY. This is a <2s read-only reporter, `timeout(1)` is not
+# portable, and a hang at session start is worse than a dated answer. It reads
+# refs/remotes/<remote>/<trunk> as it stands and LABELS IT WITH ITS SHA — a dated
+# reading, in the sense of `doctrine/fix-execution.md` § A.7 — and prints how to
+# refresh. In normal use every board op's own sync has just fetched that ref.
+# ─────────────────────────────────────────────────────────────────────────────
 #
 # Two callers:
 #   • the SessionStart hook (scripts/hooks/session-start.sh) runs it so the NEXT
@@ -87,9 +132,81 @@ if [ -z "$REPO_ROOT" ]; then
   REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." 2>/dev/null && pwd || true)"
 fi
 
+# ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
+# The remote and the trunk are resolved the SAME WAY kwt_resolve does, and the last
+# link of the chain is READ FROM THAT LIBRARY rather than re-typed — a re-typed
+# branch name is the drift this file's greppable-defaults contract exists to
+# prevent. (Arm (f) already did it this way; this hoists it to the whole script.)
+CB_REMOTE="${KWT_REMOTE:-origin}"
+CB_TRUNK="$(git -C "$REPO_ROOT" symbolic-ref --short "refs/remotes/$CB_REMOTE/HEAD" 2>/dev/null | sed "s|^$CB_REMOTE/||" || true)"
+[ -n "$CB_TRUNK" ] || CB_TRUNK="$(git -C "$REPO_ROOT" config --get init.defaultBranch 2>/dev/null || true)"
+if [ -z "$CB_TRUNK" ]; then
+  CB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
+                "$REPO_ROOT/scripts/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
+fi
+
+# CB_SRC_KIND is `ref` or `worktree`; CB_SRC_LABEL is what every arm prints.
+#
+# THE WORKING-TREE FALLBACK IS LOUD, NOT SILENT, AND THAT DISTINCTION IS THE WHOLE
+# FIX. Reading the working tree was never the defect — reading it while presenting
+# the answer as authoritative was. A repository with no <remote>/<trunk> ref is a
+# real state (day one before the first push, a local-only clone), and a report that
+# skipped every arm there would be useless exactly when a new adopter first runs it.
+# So it falls back, says so in a line nobody can miss, and every arm repeats the
+# source beside its own verdict.
+CB_REF=""
+CB_SRC_KIND="worktree"
+CB_SRC_LABEL=""
+if [ -n "$CB_TRUNK" ] \
+   && git -C "$REPO_ROOT" rev-parse --verify --quiet "refs/remotes/$CB_REMOTE/$CB_TRUNK" >/dev/null 2>&1; then
+  CB_REF="$CB_REMOTE/$CB_TRUNK"
+  CB_SRC_KIND="ref"
+  CB_SRC_LABEL="$CB_REF @ $(git -C "$REPO_ROOT" rev-parse --short "$CB_REF" 2>/dev/null || echo '?')"
+else
+  cb_branch="$(git -C "$REPO_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')"
+  CB_SRC_LABEL="WORKING TREE on '$cb_branch' (no $CB_REMOTE/${CB_TRUNK:-<unresolved trunk>} ref)"
+fi
+
+# CB_TREE is the directory the board-reading arms walk. For a ref, the ref's own
+# copy of the board is materialized ONCE into a temp dir and the arms walk that —
+# so their hard-won parsers stay byte-identical and only their INPUT moved. One
+# `git archive` beats a `git show` per file on a board with a few hundred archived
+# cards, which is what keeps this inside its <2s budget.
+CB_TREE="$REPO_ROOT"
+CB_TMP=""
+cb_cleanup() { [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
+trap cb_cleanup EXIT
+if [ "$CB_SRC_KIND" = "ref" ]; then
+  CB_TMP="$(mktemp -d 2>/dev/null || true)"
+  if [ -n "$CB_TMP" ] \
+     && git -C "$REPO_ROOT" archive --format=tar "$CB_REF" 2>/dev/null \
+        | tar -x -C "$CB_TMP" 2>/dev/null; then
+    CB_TREE="$CB_TMP"
+  else
+    # The materialization is the one step that can fail without the ref being
+    # wrong. Degrade to the checkout and RELABEL, so no arm prints a ref it did
+    # not actually read. Silence here would re-create the exact defect above.
+    cb_branch="$(git -C "$REPO_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')"
+    CB_SRC_KIND="worktree"
+    CB_SRC_LABEL="WORKING TREE on '$cb_branch' (could not read $CB_REF — archive failed)"
+    CB_REF=""
+    CB_TREE="$REPO_ROOT"
+  fi
+fi
+
+# One helper so no arm can print a verdict without its operand beside it.
+cb_src() { printf 'read from: %s' "$CB_SRC_LABEL"; }
+
 drift=0
 echo "── check-board.sh — board-drift report @ $(date +%Y-%m-%dT%H:%M:%S)"
 echo "   repo: $REPO_ROOT"
+echo "   $(cb_src)"
+if [ "$CB_SRC_KIND" = "ref" ]; then
+  echo "   (not fetched — this is the last known state of $CB_REF; refresh with: git -C '$REPO_ROOT' fetch $CB_REMOTE $CB_TRUNK)"
+else
+  echo "   ⚠ NOT A TRUNK REPORT. The arms below describe this checkout, not $CB_REMOTE/${CB_TRUNK:-<trunk>}."
+  echo "     A board report from a feature branch is a report about the past."
+fi
 
 # ---------------------------------------------------------------------------
 # (a) Folder vs last-Activity drift across the ACTIVE columns (done/ is off-board
@@ -102,11 +219,20 @@ echo "   repo: $REPO_ROOT"
 #     path MENTION like `supersedes progress/done/<PREFIX>-379-old.md`.
 # ---------------------------------------------------------------------------
 echo
-echo "[a] Folder vs last-Activity drift (active columns):"
+echo "[a] Folder vs last-Activity drift (active columns) — $(cb_src):"
 a_hits=0
+a_cols=0
 for folder in todo in_progress dev_complete qa_complete blocked; do
-  dir="$REPO_ROOT/progress/$folder"
-  [ -d "$dir" ] || continue
+  dir="$CB_TREE/progress/$folder"
+  # A MISSING COLUMN IS A SKIP, NOT A PASS. It used to `continue` silently, so a
+  # board with no progress/ at all printed "✓ none" — a green establishing nothing,
+  # which drift-report.md § 2 forbids outright ("it never reports a pass it did not
+  # establish") and § 3 requires be reported as skipped with its reason.
+  if [ ! -d "$dir" ]; then
+    echo "    – progress/$folder/ absent in this source  (skipped)"
+    continue
+  fi
+  a_cols=$((a_cols+1))
   for f in "$dir"/*.md; do
     [ -e "$f" ] || continue
     # Last Activity bullet: within the "## Activity" section, the last line that
@@ -123,23 +249,31 @@ for folder in todo in_progress dev_complete qa_complete blocked; do
     fi
   done
 done
-[ "$a_hits" -eq 0 ] && echo "    ✓ none (every judgeable last-Activity entry matches its folder)"
+if [ "$a_cols" -eq 0 ]; then
+  echo "    – no active column exists in this source — nothing was checked  (skipped)"
+elif [ "$a_hits" -eq 0 ]; then
+  echo "    ✓ none across $a_cols column(s) (every judgeable last-Activity entry matches its folder)"
+fi
 
 # ---------------------------------------------------------------------------
 # (b) qa_complete/ column depth vs the archive threshold.
+#     An ABSENT column is skipped, not counted as 0-and-passing: "0 / 10 ✓" over a
+#     directory that does not exist is a statement about nothing.
 # ---------------------------------------------------------------------------
 echo
-qc_count=0
-if [ -d "$REPO_ROOT/progress/qa_complete" ]; then
-  for f in "$REPO_ROOT"/progress/qa_complete/*.md; do
+if [ ! -d "$CB_TREE/progress/qa_complete" ]; then
+  echo "[b] qa_complete/ depth: progress/qa_complete/ absent in this source  (skipped) — $(cb_src)"
+else
+  qc_count=0
+  for f in "$CB_TREE"/progress/qa_complete/*.md; do
     [ -e "$f" ] && qc_count=$((qc_count+1))
   done
-fi
-if [ "$qc_count" -gt "$QA_COMPLETE_THRESHOLD" ]; then
-  echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ⚠ over — run ./scripts/archive.sh --apply"
-  drift=1
-else
-  echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ✓"
+  if [ "$qc_count" -gt "$QA_COMPLETE_THRESHOLD" ]; then
+    echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ⚠ over — run ./scripts/archive.sh --apply — $(cb_src)"
+    drift=1
+  else
+    echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ✓ — $(cb_src)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -160,7 +294,7 @@ fi
 #     whether or not it ends in "\n").
 # ---------------------------------------------------------------------------
 echo
-pmd="$REPO_ROOT/progress.md"
+pmd="$CB_TREE/progress.md"
 if [ -f "$pmd" ]; then
   if grep -qE '^##[[:space:]]+Log' "$pmd"; then
     logbytes="$(awk '
@@ -168,22 +302,22 @@ if [ -f "$pmd" ]; then
       inlog { print }
     ' "$pmd" | wc -c | tr -d ' ')"
     if [ "$logbytes" -gt "$PROGRESS_LOG_BYTE_THRESHOLD" ]; then
-      echo "[c] progress.md § Log SLICE: $logbytes / $PROGRESS_LOG_BYTE_THRESHOLD bytes  ⚠ over — run ./scripts/archive-progress.sh"
+      echo "[c] progress.md § Log SLICE: $logbytes / $PROGRESS_LOG_BYTE_THRESHOLD bytes  ⚠ over — run ./scripts/archive-progress.sh — $(cb_src)"
       drift=1
     else
-      echo "[c] progress.md § Log SLICE: $logbytes / $PROGRESS_LOG_BYTE_THRESHOLD bytes  ✓"
+      echo "[c] progress.md § Log SLICE: $logbytes / $PROGRESS_LOG_BYTE_THRESHOLD bytes  ✓ — $(cb_src)"
     fi
   else
-    echo "[c] progress.md § Log SLICE: no '## Log' heading found  (skipped)"
+    echo "[c] progress.md § Log SLICE: no '## Log' heading found  (skipped) — $(cb_src)"
   fi
   wholebytes="$(wc -c < "$pmd" | tr -d ' ')"
   if [ "$wholebytes" -gt "$PROGRESS_WHOLE_FILE_BYTE_THRESHOLD" ]; then
-    echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ⚠ over (ADVISORY, does not fail the board) — a rotation is due, see ./scripts/archive-progress.sh"
+    echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ⚠ over (ADVISORY, does not fail the board) — a rotation is due, see ./scripts/archive-progress.sh — $(cb_src)"
   else
-    echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ✓"
+    echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ✓ — $(cb_src)"
   fi
 else
-  echo "[c] progress.md: not found  (skipped)"
+  echo "[c] progress.md: not found in this source  (skipped) — $(cb_src)"
 fi
 
 # BEGIN check (d)
@@ -206,11 +340,11 @@ fi
 #     with a couple of hundred archived issues on it. Read-only; exit 0 by convention.
 # ---------------------------------------------------------------------------
 echo
-echo "[d] Frontmatter id integrity (all six columns, from STATUS_FOLDERS):"
+echo "[d] Frontmatter id integrity (all six columns, from STATUS_FOLDERS) — $(cb_src):"
 d_files=(); d_hits=0
 IFS='|' read -r -a d_cols <<< "$STATUS_FOLDERS"
 for folder in "${d_cols[@]}"; do
-  d_dir="$REPO_ROOT/progress/$folder"
+  d_dir="$CB_TREE/progress/$folder"
   [ -d "$d_dir" ] || continue
   for f in "$d_dir"/*.md; do
     [ -e "$f" ] || continue
@@ -225,7 +359,7 @@ done
 d_out=""
 if [ "${#d_files[@]}" -gt 0 ]; then
   d_out="$(awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" \
-               -v root="$REPO_ROOT/" -v dq='"' -v sq="'" '
+               -v root="$CB_TREE/" -v dq='"' -v sq="'" '
     function short(p) { s = p; sub("^" root, "", s); return s }
     FNR == 1 { n++; path[n] = FILENAME; val[n] = ""; inf = 0; closed = 0; got = 0 }
     # The OPENING fence: the first bare `---` within the first `scan` lines. It is
@@ -290,17 +424,42 @@ fi
 #     subjects (Merge/Revert/Squash/autosquash) are exempt — mirror commit-msg's list.
 #     The accepted prefixes are DERIVED from the commit-msg hook so the two never
 #     drift, with the kit's known set as a fallback. Informational — exit 0.
+#
+#     THIS ARM SAID "trunk" AND READ HEAD. Its `git log` took no revision, so it
+#     walked whatever the current checkout pointed at — the one arm that named the
+#     wrong operand IN PROSE while reading it, which is why it is worth its own note.
+#     It now walks CB_REF when there is one.
+#
+#     AND ITS TWO OPERANDS USED TO STRADDLE THE COMMIT LANES: the vocabulary came
+#     from the hook file in the WORKING TREE while the subjects came from the trunk.
+#     A branch that adds a role would then have accepted its own new prefix on trunk
+#     commits made before it existed. Both operands now come from the same source, so
+#     the arm answers one question about one tree.
 # ---------------------------------------------------------------------------
 echo
-ROLE_PREFIXES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$REPO_ROOT/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
+ROLE_PREFIXES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$CB_TREE/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
 # THE DERIVATION ABOVE IS THE PATTERN TO PRESERVE; the literal below is only what
 # is used when the hook cannot be read — and it is the part that drifts (it once
 # fell a role behind the hook it mirrors), so correct IT, never replace the
 # derivation with it.
-[ -z "$ROLE_PREFIXES" ] && ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
-echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits, squash-aware):"
+role_src="derived from scripts/githooks/commit-msg"
+if [ -z "$ROLE_PREFIXES" ]; then
+  ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
+  # NAMED, NOT SILENT. The fallback is the drifting half by construction, so a run
+  # that used it says so — otherwise "✓ every scanned subject carries a [Role]
+  # prefix" can mean "…one of a set this project may not actually use".
+  role_src="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared role set"
+fi
+# The revision walked is stated, not implied.
+if [ -n "$CB_REF" ]; then
+  role_rev="$CB_REF"
+else
+  role_rev="HEAD"
+fi
+echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits of $role_rev, squash-aware) — prefixes $role_src:"
 role_hits=0
-if git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+role_scanned=0
+if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; then
   while IFS='|' read -r sha parents; do
     [ -z "$sha" ] && continue
     # shellcheck disable=SC2086
@@ -312,6 +471,7 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
     fi
     subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
     [ -z "$subj" ] && continue
+    role_scanned=$((role_scanned+1))
     case "$subj" in
       "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) continue ;;
       "Revert \""*|"Revert '"*) continue ;;
@@ -322,53 +482,160 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
       echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj"
       role_hits=$((role_hits+1)); drift=1
     fi
-  done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P' -n "$ROLE_SCAN_N" 2>/dev/null)
+  done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P' -n "$ROLE_SCAN_N" "$role_rev" 2>/dev/null)
+else
+  # NO HISTORY IS A SKIP. This used to fall through the `if` and print
+  # "✓ every scanned subject carries a [Role] prefix" over ZERO subjects — a green
+  # from an empty set, which is the shape drift-report.md § 2 forbids by name.
+  echo "    – $role_rev does not resolve — no history to scan  (skipped)"
+  role_scanned=-1
 fi
-[ "$role_hits" -eq 0 ] && echo "    ✓ every scanned subject carries a [Role] prefix"
+if [ "$role_scanned" -eq 0 ]; then
+  echo "    – $role_rev resolved but yielded no inspectable subject  (skipped)"
+elif [ "$role_scanned" -gt 0 ] && [ "$role_hits" -eq 0 ]; then
+  echo "    ✓ all $role_scanned scanned subject(s) carry a [Role] prefix"
+fi
 
 # ---------------------------------------------------------------------------
-# (f) .kanban-wt trunk-divergence. kwt_sync's `reset --hard <remote>/<trunk>`
-#     silently discards any commit that is in .kanban-wt's HEAD but not yet on the
-#     remote — the exact state a process death BETWEEN the commit and the push
-#     leaves behind (kanban-worktree.sh's own sync note: "an unpushed local COMMIT
-#     is NOT caught here … it is reset on the next sync by design"). Surface it
-#     before the next op destroys it. No-ops cleanly (skip) when .kanban-wt is
-#     absent or the remote is unreachable, so it can't blow the <2s budget.
-#     Informational — exit 0 by convention.
+# (f) UNPUBLISHED WORK, IN BOTH HOMES — not one. This arm used to watch only the
+#     board mover's .kanban-wt, which is the home a process death between commit and
+#     push strands work in; it never asked the same question of the MAIN CHECKOUT,
+#     which is where every ruling, PRD and role-doc edit is written. Two homes, two
+#     sub-readings, each naming its own operand and each able to skip with its own
+#     reason. Neither number is reported without the surface it came from.
+#
+#     ITS RATIONALE IS "THE OPERATOR IS TOLD EARLY", NOT "I AM THE LAST WARNING."
+#     This arm used to justify itself by QUOTING kanban-worktree.sh's sync note back
+#     — that an unpushed commit "is reset on the next sync by design" — so the arm
+#     was the only thing standing between that commit and its deletion. `kwt_sync`
+#     now REFUSES rather than resetting over such a commit, so that justification is
+#     gone and the arm is a **second line of defence**: it surfaces the state at
+#     session close, before the operator meets the refusal mid-op with a board move
+#     to finish. Useful, no longer load-bearing.
+#     DELIBERATELY DESCRIBED, NOT QUOTED. Restating a sibling script's behaviour in
+#     its own words is what made this comment go false the moment that script
+#     changed; naming the function and what it does survives a rewording of it.
+#
+#     IT SEES ONE OF THE TWO WAYS WORK GETS STRANDED HERE, AND SAYS WHICH.
+#       • REACHABLE FROM HEAD but not from the remote — committed, unpushed. This is
+#         what `rev-list --count <remote>/<trunk>..HEAD` counts, and it is reported.
+#       • REACHABLE FROM NO REF AT ALL — an orphaned sibling, e.g. a commit made
+#         while the worktree was attached, left behind when HEAD moved elsewhere. It
+#         is not an ancestor of HEAD, so the count above is 0, and `git status` is
+#         clean because nothing is uncommitted. **This arm cannot see it**, and an
+#         unqualified "in sync ✓" would invite the reader to conclude no work is
+#         stranded — a stronger claim than the measurement supports.
+#     So each green NAMES ITS SPAN (instruments.md § A.4), once for both homes at the
+#     arm's foot. Finding the second kind needs the reflog, which is per-worktree
+#     local state and would owe its own operand line; it is deliberately not folded
+#     in here.
+#
+#     No-ops cleanly (skip) when .kanban-wt is absent or the remote is unreachable,
+#     so it can't blow the <2s budget. Informational — exit 0 by convention.
 #
 #     THE TRUNK CHAIN IS RESOLVED THE SAME WAY kwt_resolve DOES, and the last link
 #     is READ FROM THAT LIBRARY rather than re-typed here — a re-typed branch name
 #     is the drift this file's greppable-defaults contract exists to prevent. This
 #     is read-only, so it degrades to a SKIP line rather than warning: the loud
 #     warning belongs to the ops that actually write (see kwt_resolve).
+#
+#     THIS ARM IS DELIBERATELY LOCAL-SCOPED, AND IT NAMES EVERY SURFACE IT READ. It
+#     is the one arm the "read <remote>/<trunk>" rule does NOT apply to, because its
+#     subject IS the local side: "does either home this repository publishes from hold
+#     work that never reached the trunk?" cannot be answered from the trunk — the
+#     trunk is precisely what the work is missing from. [f1] compares the LOCAL trunk
+#     ref against the remote-tracking one; [f2] compares the mover's worktree HEAD
+#     against it. The invariant the other arms satisfy by naming a ref, this one
+#     satisfies by naming both surfaces and reporting them separately.
+#
+#     IT LOCATES THE MAIN WORKTREE INSTEAD OF ASSUMING $REPO_ROOT IS IT, and that is
+#     what makes the tool correct from ANY location. `.kanban-wt` is registered
+#     against the main worktree, so `$REPO_ROOT/.kanban-wt` found nothing whenever
+#     the script ran from a linked worktree — and the arm then printed "no registered
+#     worktree (skipped)" about a worktree that existed. Measured consequence: the
+#     obvious workaround for the stale arms above was "run it from a trunk worktree",
+#     which fixed (a)–(e) and blinded THIS arm, so there was no location from which
+#     the whole report was correct. Reading a named ref above removes the reason to
+#     run it elsewhere; `--git-common-dir` removes the penalty for doing so anyway.
 # ---------------------------------------------------------------------------
 echo
-kwt_dir="$REPO_ROOT/.kanban-wt"
-if [ -d "$kwt_dir" ] && git -C "$kwt_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  remote="${KWT_REMOTE:-origin}"
-  def="$(git -C "$REPO_ROOT" symbolic-ref --short "refs/remotes/$remote/HEAD" 2>/dev/null | sed "s|^$remote/||" || true)"
-  [ -z "$def" ] && def="$(git -C "$REPO_ROOT" config --get init.defaultBranch 2>/dev/null || true)"
-  if [ -z "$def" ]; then
-    def="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
-             "$REPO_ROOT/scripts/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
-    echo "[f] .kanban-wt divergence: the trunk is UNCONFIRMED ($remote/HEAD and init.defaultBranch are both unset)"
-    echo "      — falling back to the kit's last-resort '${def:-<unknown>}'. Settle it: git remote set-head $remote <your-trunk>"
+# The main worktree's root: the parent of the COMMON git dir, which is identical from
+# every linked worktree. Falls back to $REPO_ROOT when git cannot say.
+cb_common="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+case "$cb_common" in
+  "") kwt_main="$REPO_ROOT" ;;
+  /*) kwt_main="$(cd "$cb_common/.." 2>/dev/null && pwd || echo "$REPO_ROOT")" ;;
+  *)  kwt_main="$(cd "$REPO_ROOT/$cb_common/.." 2>/dev/null && pwd || echo "$REPO_ROOT")" ;;
+esac
+kwt_dir="$kwt_main/.kanban-wt"
+remote="$CB_REMOTE"
+def="$CB_TRUNK"
+echo "[f] Unpublished work in the homes this process writes to — TWO homes, each named:"
+if [ "$kwt_main" != "$REPO_ROOT" ]; then
+  echo "      (this run is inside a linked worktree; both homes are resolved against the main checkout $kwt_main)"
+fi
+if [ -z "$def" ]; then
+  echo "      the trunk is UNCONFIRMED ($remote/HEAD and init.defaultBranch are both unset, and the kit's last-resort constant was unreadable)"
+  echo "      Settle it: git remote set-head $remote <your-trunk>"
+fi
+
+# ── [f1] THE MAIN CHECKOUT'S TRUNK REF. The home this arm did not watch. ──────
+# EVERYTHING THE KIT CLASSIFIES AS METADATA COMMITS DIRECT TO THE TRUNK FROM HERE:
+# rulings in requirements/DECISIONS.md, PRDs, issue edits, role docs, process/**,
+# dev/**, progress.md, the adapter. So the one home carrying the process's own
+# memory was the one home nothing watched, and a board could report `clean ✓` with a
+# day of unpushed rulings beside it. Measured on a real program: a ruling recorded
+# while the coordinator's main surface went unpushed left the successor unable to
+# find the authority its own launch prompt cited, and the recovery took an hour.
+# `doctrine/commit-hygiene.md` already forbids ending a landing on an unpushed
+# looks-pushed state; the rule was written and the instrument did not cover it.
+#
+# THE OPERAND IS THE LOCAL TRUNK REF, NOT `HEAD`, and that choice is load-bearing.
+# A leg legitimately holds the main checkout on a feature branch, so HEAD-vs-trunk
+# would be `ahead` by the whole branch and would redden on every normal run — a
+# false red on the common case, which is how an instrument gets ignored. The local
+# trunk BRANCH is where an unpushed metadata commit actually sits, whether or not it
+# is the thing checked out, so that is what is measured. What IS checked out is
+# reported beside it, because it tells the reader whether the trunk is live here.
+f_main_ref="refs/heads/${def:-}"
+if [ -z "$def" ]; then
+  echo "      [f1] main checkout: trunk unresolved, so there is no ref to compare  (skipped) — inspected: $kwt_main"
+elif ! git -C "$kwt_main" rev-parse --verify --quiet "$f_main_ref" >/dev/null 2>&1; then
+  echo "      [f1] main checkout: no local '$def' branch exists yet  (skipped) — inspected: $kwt_main"
+elif ! git -C "$kwt_main" rev-parse --verify --quiet "refs/remotes/$remote/$def" >/dev/null 2>&1; then
+  echo "      [f1] main checkout: $remote/$def unavailable (never pushed? offline?)  (skipped) — inspected: $kwt_main"
+else
+  f_head="$(git -C "$kwt_main" symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')"
+  f_ahead="$(git -C "$kwt_main" rev-list --count "$remote/$def..$f_main_ref" 2>/dev/null || echo 0)"
+  f_behind="$(git -C "$kwt_main" rev-list --count "$f_main_ref..$remote/$def" 2>/dev/null || echo 0)"
+  if [ "${f_ahead:-0}" -gt 0 ]; then
+    echo "      [f1] main checkout: '$def' is $f_ahead commit(s) AHEAD of $remote/$def  ⚠ UNPUBLISHED — everything the process records as metadata lands here, so this is rulings/PRDs/board edits nobody else can see"
+    echo "           Fix: git -C '$kwt_main' push $remote $def   (checked out here: $f_head)"
+    drift=1
+  else
+    echo "      [f1] main checkout: '$def' is 0 ahead / $f_behind behind $remote/$def  ✓ — read from: $f_main_ref in $kwt_main (checked out here: $f_head)"
+    [ "${f_behind:-0}" -gt 0 ] && echo "           ($f_behind behind is a STALE VIEW, not lost work — pull when convenient.)"
   fi
+fi
+
+# ── [f2] THE BOARD MOVER'S PUBLICATION PATH. ─────────────────────────────────
+if [ -d "$kwt_dir" ] && git -C "$kwt_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   if [ -n "$def" ] && git -C "$kwt_dir" rev-parse --verify --quiet "$remote/$def" >/dev/null 2>&1; then
     ahead="$(git -C "$kwt_dir" rev-list --count "$remote/$def..HEAD" 2>/dev/null || echo 0)"
     if [ "${ahead:-0}" -gt 0 ]; then
-      echo "[f] .kanban-wt divergence: HEAD is $ahead commit(s) ahead of $remote/$def  ⚠ the next op's 'reset --hard $remote/$def' would DISCARD them"
-      echo "      Fix: push them — git -C '$kwt_dir' push $remote HEAD:$def — or re-run the op that owns the commit."
+      echo "      [f2] .kanban-wt: HEAD is $ahead commit(s) AHEAD of $remote/$def  ⚠ a board move committed and not pushed — read from: WORKING TREE at $kwt_dir"
+      echo "           Fix: push them — git -C '$kwt_dir' push $remote HEAD:$def — or re-run the op that owns the commit."
       drift=1
     else
-      echo "[f] .kanban-wt divergence: in sync with $remote/$def  ✓"
+      echo "      [f2] .kanban-wt: 0 commit(s) ahead of $remote/$def  ✓ — read from: WORKING TREE at $kwt_dir"
     fi
   else
-    echo "[f] .kanban-wt divergence: $remote/${def:-<unresolved trunk>} unavailable (offline?)  (skipped)"
+    echo "      [f2] .kanban-wt: $remote/${def:-<unresolved trunk>} unavailable (offline?)  (skipped) — inspected: $kwt_dir"
   fi
 else
-  echo "[f] .kanban-wt divergence: no registered worktree  (skipped)"
+  echo "      [f2] .kanban-wt: no registered worktree at $kwt_dir  (skipped)"
 fi
+echo "      (span, both homes: commits REACHABLE FROM A REF. A commit reachable from no ref at all — an orphaned sibling — is outside this measurement and would need the reflog.)"
 
 echo
 if [ "$drift" -eq 0 ]; then
