@@ -1622,11 +1622,28 @@ case_kit_init_gate_and_remote_refusals() {
 # =============================================================================
 case_option_parsing_hygiene() {
   cf_reset
+  # THE CAPABILITY PROBE GUARDS THE CASE, NOT JUST THE COPY. It used to guard only
+  # the `cp` below, so when .claude/templates was absent the case ran anyway
+  # against a sandbox with no templates — and every creation script then exited 1
+  # at its own "template not found" check, which sits BEFORE its argument loop. The
+  # case reported `an unknown option refuses → rc=1 (want 2)` on scripts whose
+  # unknown-option path is a correct `exit 2`. A FALSE RED, and a durable one: it
+  # names the subject and the wrong verdict, so it reads exactly like a real defect
+  # in three scripts at once. Measured 2026-08-26.
+  #
+  # A SKIP is a statement about the environment; a FAIL is a statement about the
+  # subject. This case could not tell them apart, which is the same lesson the kit
+  # carries for its own gate runner (a runner reports on its subject and on itself
+  # in different vocabularies). Its three siblings — kit-init happy, gate-fill and
+  # first-mile — already probe this exact capability and skip loudly; this one is
+  # brought into line with them.
+  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
+    skp "option parsing: 18 checks" ".claude/templates absent — the creation scripts would exit 1 at their template check, before the argument loop this case is about"
+    return
+  fi
   make_sandbox
   mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
-  if [ -d "$REAL_REPO_ROOT/.claude/templates" ]; then
-    cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
-  fi
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
   publish_sandbox
 
   local out rc
