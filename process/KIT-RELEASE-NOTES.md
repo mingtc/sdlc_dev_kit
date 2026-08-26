@@ -61,9 +61,47 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   [`KIT-VERSION`](KIT-VERSION) and this file. A root `VERSION` file describing the *kit* is a trap
   in a project that has its own product version — `release.sh`'s `VERSION_FILES` seam would
   happily bump it.
+- **[`doctrine/live-resources.md`](doctrine/live-resources.md) § A.6 is stronger:** reclaim by
+  **enumerating the container**, never by replaying a registry of what was created — an enumeration
+  cannot miss what the creating leg forgot to register, and a registry always can. Two corollaries
+  come with it: anything created outside the enumerated container is invisible to the sweep and
+  handled by name, and anything you cannot delete is **named, not quietly left**. Sharpened from a
+  dogfooding round, where the creating party is a participant rather than the harness.
+- **[`doctrine/calibration.md`](doctrine/calibration.md) and
+  [`doctrine/negative-claims.md`](doctrine/negative-claims.md)** gained the cross-references that
+  place the two new sheets in the family: calibration names the round as its third ritual and says
+  what each of the three does *not* answer; negative-claims names instruments as its upstream
+  neighbour — that sheet asks whether a claim is grounded, this one whether the check behind it can
+  see anything at all.
 
 ### Added
 
+- **Dogfooding doctrine — a third measurement ritual.** [`doctrine/dogfooding.md`](doctrine/dogfooding.md)
+  covers running a **round**: putting agents or people in front of what you shipped, as consumers,
+  and grading what happens. It asks *does a competent stranger, holding only what ships, get where
+  they were going?* — a question no gate can answer, and whose findings are mostly about **words**
+  (documentation, error text, naming, defaults). It ships with its own document pair,
+  [`templates/round-pack.template.md`](templates/round-pack.template.md) (a **pre-registration**:
+  the question, the scenario matrix, the instruments and their blind spots, the budget — all
+  committed *before* the round runs, because a budget written afterwards cannot fail and so is not
+  a limit) and [`templates/round-report.template.md`](templates/round-report.template.md) (findings,
+  positives, and the round's own defects).
+  **A run delivers work; a round measures how the delivered thing is met** — keep the two words
+  apart. The round is staffed from the existing cast: PM owns the question and every remedy, the
+  Orchestrator delivers and dispatches in isolation, QA re-verifies and grades cold, and a second
+  leg attacks the consolidation. **No new role, no new prefix, no gate.**
+- **Instrument doctrine.** [`doctrine/instruments.md`](doctrine/instruments.md) — *an instrument is
+  believed only when it has been watched failing.* Measure it against the shape it will actually
+  meet rather than the fixture its author wrote; **every green owes an ablation**, because absence
+  of the wrong thing never establishes presence of the right one; sometimes a capability probe is
+  itself the defect (it turns a deleted check into a SKIP instead of a FAIL) and that choice is
+  recorded; and every instrument's blind spot is named **in its own output**. This one binds every
+  guard author, not only whoever runs a round — its § C worked example is the kit's own self-test
+  harness, including three places the kit was breaking its own new rule.
+- **[`MANUAL.md` § The measurement rituals](MANUAL.md)** now names all three — regeneration spike,
+  seed acceptance test, dogfooding round — as one family: **available, never obligations**, reached
+  for on a condition rather than a schedule, all producing findings rather than code, and all
+  handing those findings to a real PM session rather than minting work items themselves.
 - **`kit-init.sh` refuses a relative filesystem remote URL**, printing the one-line fix. The kanban
   worktree runs git from `.kanban-wt/`, one directory down, where a relative `origin` resolves
   somewhere else — previously that surfaced two steps later, mid-self-check, disguised as an
@@ -80,7 +118,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 ### Action required
 
 None. Every change above is either a new refusal that fires only on a setup that was already
-broken, or a correction to the seed's own files.
+broken, a correction to the seed's own files, or new material that binds nothing until you reach
+for it. **A project that never holds a dogfooding round pays nothing for the two new sheets** — they
+are one more file each in directories you already carry.
+
+Worth reading anyway if you maintain guards: `doctrine/instruments.md` § A.2 (*every green owes an
+ablation*) is the rule the kit itself was breaking in three places, and the same shape is easy to
+have shipped in your own drift checks.
 
 ---
 

@@ -133,6 +133,11 @@ A leg's self-report can be honestly wrong without being deceptive — a leg that
 slow run to having fired a ring reports "no live work" in good faith. Design for that: the cure
 for an honest wrong report is an instrument or a refusal, never a sterner instruction.
 
+**Where else this generalizes, now that somewhere else needed it:** the same asymmetry applied to a
+**participant** in front of your product — whose self-report is the *conclusion* under study — is
+[`dogfooding.md`](dogfooding.md) § A.3; and the question of whether your instrument can see anything
+at all is [`instruments.md`](instruments.md).
+
 ### A.6 — Reclaimable resources self-delete, and the teardown proof is part of the result
 
 A harness that creates reclaimable objects **deletes them in its own teardown** and records the
@@ -145,6 +150,16 @@ teardown outcome — the delete call's own response, plus a **read-back** provin
   and the enumeration must be **unable to lose** an orphan: order any pre-filtering so that a
   surviving object cannot be filtered out of the probe set by a flag that was set before it
   survived.
+- **Reclaim by ENUMERATING THE CONTAINER, never by replaying a registry of what was created.** An
+  enumeration cannot miss what the creating leg forgot to register; a registry always can. This is
+  not a preference between two equivalent mechanisms: a registry is a record of *intentions the
+  harness knew about*, and the objects that hurt are the ones nothing knew about. Two consequences
+  follow immediately — **anything created outside the enumerated container is invisible to the
+  sweep and must be handled by name**, and **anything you cannot delete is named, not quietly
+  left**, including residue an earlier run left you. *(Sharpened from a dogfooding round, where the
+  creating party is a **participant** rather than the harness — see
+  [`dogfooding.md`](dogfooding.md) § A.10. A participant forgets, improvises, names things its own
+  way and abandons work halfway, which is the same failure the general rule now assumes.)*
 - **Deleting someone else's orphan is itself a destructive act.** A run that finds an orphan it
   did not create **names it and stops** — it does not improvise a cleanup, because an improvised
   delete is exactly the unconsented destructive act this doctrine exists to prevent.

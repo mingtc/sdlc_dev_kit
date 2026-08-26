@@ -18,6 +18,12 @@ applied in the **negative** direction, which that skill does not cover. A claim 
 impossible is as much an assertion as a claim that it works, and it is far harder to falsify later:
 nobody re-tests a documented *cannot*.
 
+**Its other neighbour, one step upstream.** This sheet asks whether a *claim* is grounded;
+[`instruments.md`](instruments.md) asks whether the **check behind it can see anything at all** — an
+audit that returns no violations has not established that it *could* have found one. A.1b's rule
+that a registration without a falsifier "is not a weaker guard; it is a suppression file with better
+manners" is the same idea met at claim-time; instruments meets it at guard-building time.
+
 ---
 
 ## A. The pattern (this is the transferable part)

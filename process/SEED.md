@@ -141,6 +141,15 @@ multi-issue run) and [`run-report.template.md`](templates/run-report.template.md
 one). You do not need either on day one; reach for them the first time a run spans more issues
 than a single session can hold.
 
+**And a second pair, for a dogfooding round** —
+[`round-pack.template.md`](templates/round-pack.template.md) (the **pre-registration**: the
+question, the scenario matrix, the instruments with their blind spots, the budget) and
+[`round-report.template.md`](templates/round-report.template.md) (the findings, the positives, and
+the round's own defects). **A run delivers work; a round measures how the delivered thing is met** —
+[`MANUAL.md` § The measurement rituals](MANUAL.md) and
+[`doctrine/dogfooding.md`](doctrine/dogfooding.md). Not a day-one concern either: reach for them when
+you want to know how a stranger meets what you shipped.
+
 ---
 
 ## Day one is done when

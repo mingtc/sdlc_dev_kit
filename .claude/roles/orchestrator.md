@@ -555,6 +555,27 @@ worktree sync re-fetches the tip before committing, so a rejected push means re-
 multi-session discipline (`pull --rebase`, append-only `progress.md`) still applies to the
 **narration commits you make by hand**, which do not go through the kanban worktree.
 
+## Dogfooding rounds — delivery, not grading
+
+A round ([`../../process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md)) is driven
+from this seat, and the discipline is the mirror image of a run: **you deliver and you do not
+grade.**
+
+- **Participants receive only their task, extracted into isolation** — never a pointer into the
+  pack that also holds the other scenarios and the rubric, and the extracted text is audited for
+  vocabulary that reveals the round (§ A.6). Participants are **leaves**, like any dispatched
+  worker.
+- **Whatever delivers a provocation may never judge the response** (§ A.4). Give the delivering
+  instrument a contract it can satisfy physically — *delivered / not delivered / failed to deliver*
+  — and **no terminal state may mean "the participant handled it well."** That verdict belongs to
+  QA, holding the transcript and the artefact.
+- **Audit the observable surface outermost first** — parent path, path, container name,
+  configuration, titles, neighbours, then contents. The container you renamed may sit inside one you
+  did not, and an irreducible leak becomes a **recorded covariate**, never a hope (§ A.7).
+- **A run delivers work; a round measures how the delivered thing is met.** Do not reach for
+  [`launch-pack.template.md`](../../process/templates/launch-pack.template.md) for a round; its pair
+  is [`round-pack.template.md`](../../process/templates/round-pack.template.md).
+
 ## Relationship to existing skills
 
 - `subagent-driven-development` — the engine *inside* the Dev phase (controller dispatches

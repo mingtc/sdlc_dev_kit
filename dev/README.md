@@ -72,6 +72,21 @@ date will be read as current no matter what its first paragraph says.
 |---|---|---|
 | `<slug>/` | `<YYYY-MM-DD>` | `<what was probed, and what the answer was>` |
 
+## Dogfooding rounds (`rounds/`)
+
+<!-- One subdirectory per round: `rounds/<YYYY-MM-DD>-<name>/` holding `pack.md` (the
+     pre-registration), `report.md` (the findings) and the round's captures. One row here per
+     round, in the change that closes it.
+
+     These are NOT ordinary snapshots: a round's transcripts and captures are the EVIDENCE its
+     findings were re-verified against (process/doctrine/dogfooding.md § A.3), and a later reader
+     re-checks them. They are retained under process/doctrine/retention.md — park beats delete —
+     and raw measured truth uses process/templates/CAPTURE.template.md. -->
+
+| Round | Date | Read for |
+|---|---|---|
+| `rounds/<YYYY-MM-DD>-<name>/` | `<YYYY-MM-DD>` | `<the round's question, and what it found>` |
+
 ## Retired
 
 <!-- A document that is superseded is NOT deleted: it is moved here with one line saying what

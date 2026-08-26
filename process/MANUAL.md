@@ -112,7 +112,11 @@ version control by the initializer, not left for each actor to discover
    work** against the AC and the gates before advancing the board. Orchestrator commits are
    **narration only**; the actual Dev/QA commits carry the Dev/QA prefixes.
 3. **Prove work before claiming done** (`verification-before-completion`). "Looks right" is not
-   evidence; a passing test, a diff, or a real round-trip result is.
+   evidence; a passing test, a diff, or a real round-trip result is. **And the evidence is only as
+   good as the instrument that produced it** — a guard nobody has watched *fail* is not information,
+   and an audit that returns no violations has not shown it could find one. The rules for that are
+   [`doctrine/instruments.md`](doctrine/instruments.md): measure the instrument against the shape it
+   will meet, give every green an ablation, and name each instrument's blind spot in its own output.
 
    > **Where the named practices live** (this file cited them by name before it said what they
    > were — a cold-read finding). `verification-before-completion`, `requesting-code-review`,
@@ -408,6 +412,41 @@ backend's credentials) in the environment file and add the `Notification` hook f
 only when a backend is configured; **nothing here is required for the process to work.**
 Contract: [`contracts/notification.md`](contracts/notification.md).
 
+## The measurement rituals (optional) — three ways to find out whether this is working
+
+Everything above tells you how work moves. **None of it measures whether the result is any good to
+the people who meet it**, and no gate can: a gate checks the thing you thought to check. The kit
+carries three rituals for that, and all three are **available, never obligations** — no gate runs
+one, no release waits on one, and a project that never holds any is in good standing. Reach for one
+when you want the answer, on a **condition rather than a schedule**; a ritual held quarterly becomes
+ceremony, and ceremony measures nothing.
+
+| Ritual | The question it answers | Doctrine |
+|---|---|---|
+| **Regeneration spike** | Does the **corpus** rebuild the product — and does the acceptance tier notice where the rebuild got it *wrong*? | [`doctrine/calibration.md`](doctrine/calibration.md) § A.1 |
+| **Seed acceptance test** | Does the **process** transplant to a project it was not written for — and which steps had to be guessed? | [`doctrine/calibration.md`](doctrine/calibration.md) § A.2 |
+| **Dogfooding round** | Does a competent stranger, **holding only what ships**, get where they were going? | [`doctrine/dogfooding.md`](doctrine/dogfooding.md) |
+
+The first two grade your **artifacts**; the round grades the **encounter**, and its findings are
+mostly about *words* — documentation, error text, naming, defaults — which is the surface the other
+two cannot see and the gates never touch.
+
+**Three rules bind all of them**, and they are why these are worth running rather than reading:
+
+- **The deliverable is findings, never code and never a verdict on a person.** Nothing a ritual
+  produces lands as product.
+- **Findings go to a real PM session, which decides what is minted.** A ritual does not open work
+  items itself — that would be pre-writing a backlog nobody scoped (§ Kanban rules), and it is the
+  most common way a good round's output gets ignored.
+- **Declare the honest limits, or you have findings but not a measurement.** Blinding is
+  honour-system, leaks are recorded, and **what the ritual never exercised is named as unproven,
+  not passed** ([`doctrine/calibration.md`](doctrine/calibration.md) § A.3).
+
+A round has a document pair of its own, beside the launch pack and run report that authorize and
+close an orchestrated *run*: [`templates/round-pack.template.md`](templates/round-pack.template.md)
+and [`templates/round-report.template.md`](templates/round-report.template.md). **A run delivers
+work; a round measures how the delivered thing is met** — keep the two words apart.
+
 ## Seams — what this file deliberately does not know
 
 | Seam | Where it is configured |
@@ -442,6 +481,8 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
 | [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | § Execution discipline, item 2 |
 | [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | § The default path is lite (the gates a release adds) |
+| [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
+| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output**. | § Execution discipline, item 3 — and § The measurement rituals |
 
 Two neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and

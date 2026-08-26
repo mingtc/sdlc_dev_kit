@@ -171,6 +171,25 @@ PM rarely moves files — Dev and QA handle most transitions. The exception is t
 
 The script performs the move in the standing kanban worktree (your checkout is never switched), appends the Activity entry, auto-commits as `[PM] <PREFIX>-NNN → <target>: <note>`, and pushes. Available targets: `todo`, `in_progress`, `dev_complete`, `qa_complete`, `blocked`, `done`. (`done/` is the permanent home for completed stories — normally populated by `archive.sh` sweeping `qa_complete/`, not by a manual PM move.)
 
+## Dogfooding rounds — the PM's half
+
+The PM **owns the round**: its question, its scenario matrix, its resource ceiling — and **every
+remedy decision that comes out of it**. That last one is the load-bearing part: a round's findings
+are evidence, and most fixes to a consumer-facing surface (documentation, error text, naming, a
+default) are **product decisions rather than engineering ones**, so they are the PM's to make and
+not the grader's to assume
+([`../../process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md) § A.13).
+
+Two rules bind this seat specifically:
+
+- **The round mints nothing.** Consolidated problems arrive here and **this session decides what
+  becomes an issue** — a round that opened its own work items would have pre-written a backlog
+  nobody scoped (§ A.14, and § Workflow above). The round's findings document survives whether or
+  not anything is minted.
+- **The pack is a pre-registration, so the question and the ceiling are decided BEFORE the round
+  runs**, in a commit ([`round-pack.template.md`](../../process/templates/round-pack.template.md)).
+  A question written afterwards is a description of what was found.
+
 ## Definition of Ready
 
 A file is allowed in `progress/todo/` only when every box is checked. If anything is missing, leave the file in a scratch location. **Two boxes are path-conditional** — see the lite-path note below the list.

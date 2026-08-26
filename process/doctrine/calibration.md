@@ -13,6 +13,15 @@ They are the acceptance half of the same idea as
 a rebuild*, and these rituals are how you find out whether that is true. Run either one and the
 tier is the acceptance criterion; read the tier's doctrine first.
 
+**The third ritual is [`dogfooding.md`](dogfooding.md) — a round**, and it belongs to this family on
+the same terms: available, never an obligation, and its deliverable is findings rather than code.
+The three ask three different questions and are not substitutes. *Does the corpus rebuild the
+product?* (§ A.1 here.) *Does the process transplant to a project it was not written for?* (§ A.2
+here.) *Does a competent stranger, holding only what ships, get where they were going?* (the round.)
+The first two grade **your artifacts**; the round grades **the encounter** — and its findings are
+mostly about words, which is the surface neither ritual here can see. § A.3's honest-worker limits
+and § A.4's findings-not-fixes rule bind all three.
+
 ---
 
 ## A. The pattern

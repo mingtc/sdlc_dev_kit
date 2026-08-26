@@ -223,6 +223,28 @@ the diff alone which checks fire:
 declares none"* rather than leaving a blank — a blank bullet reads as an unfinished adapter and
 the next reviewer will guess.
 
+## Dogfooding rounds — the QA half
+
+When the project holds a dogfooding round
+([`../../process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md)), QA does the
+**grading**, and it is the same evidence-before-assertion discipline as a review with two
+additions:
+
+- **Re-verify every reported outcome independently, against the artefact itself** — read the
+  document, query the record, diff the output; never against the participant's account of it. Where
+  the participant's claim and your measurement disagree, **record both** and say which you believe
+  and why: that gap *is* the finding (§ A.3).
+- **Grade cold.** The raw material is graded with the findings register **unopened**, as its own
+  commit; the register is opened only after that commit exists, and the reconciliation appends
+  without removing. Primed rediscovery measures nothing, and the point of the commit ordering is
+  that anyone can audit the independence afterwards rather than take your word for it (§ A.5).
+
+**Two things QA does NOT do in a round:** judge whether a provocation was *handled well* from the
+delivering instrument's output — delivery and judgement are separate instruments on purpose (§ A.4);
+and attack its own consolidation — the grouping of findings into problems is challenged by someone
+who did not do it (§ A.14). And a **Blocker halts its scenario, not the round**: escalate it now,
+then take every unaffected scenario as far as it will go (§ A.17).
+
 ## Bug filing format
 
 Bugs are work items in the unified `progress/` system — same lifecycle as features, different body shape. Each bug is a file at `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug` and a RIDER body. Use `./scripts/new-bug.sh` to scaffold; it copies [.claude/templates/BUG.template.md](../templates/BUG.template.md) and pre-fills the frontmatter. **Do not invent variants.**
