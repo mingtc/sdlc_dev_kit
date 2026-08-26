@@ -72,10 +72,61 @@ KWT_TRUNK_LAST_RESORT="${KWT_TRUNK_LAST_RESORT:-main}"
 # The push-race wrapper — one shared definition, sourced rather than
 # re-implemented here. kwt_finalize below uses git_push_with_retry instead of a
 # single bare push, and git_report_ahead_behind for the looks-pushed check.
+#
+# `${BASH_SOURCE[0]:-$0}`, NEVER a bare `${BASH_SOURCE[0]}`. BASH_SOURCE is
+# bash's; in any other shell it is unset, `dirname ""` is `.`, and this line then
+# resolves SILENTLY to the CURRENT WORKING DIRECTORY instead of this file's
+# directory — so the source below looked for push-retry.sh in $PWD and failed on
+# every load while the helper sat next to this file the whole time. Measured on
+# an adopter 2026-08-26 and reported as a MISSING FILE; the file was never
+# missing. `process/contracts/config-seam.md` § 2 names the class: "a silent
+# fallback to somebody else's default is the failure mode with the longest delay
+# between cause and symptom". The `:-$0` form is the kit's own idiom for this —
+# derive the current sites with
+#   grep -rn 'BASH_SOURCE\[0\]:-\$0' scripts
+# rather than trusting a number written here — and it resolves correctly under
+# both shells, including when this file is sourced from inside a function.
+#
+# THE SOURCE IS CHECKED, AND ITS FAILURE REFUSES. It used to be an unguarded `.`
+# whose failure left the outer source exiting 0 with git_push_with_retry
+# undefined, so kwt_finalize's `if ! git_push_with_retry` branch fired on a
+# missing FUNCTION and reported "push failed (remote likely advanced
+# concurrently, or offline)" — a misdiagnosis, over a board move that had
+# silently lost the retry this helper exists to provide. A bare `[ -f ]` guard
+# reaches exactly that state more quietly, which is why this refuses instead:
+# `config-seam.md` § 2 — "a DEGRADED path may not carry its own second default …
+# it refuses and names the seam". Same shape as new-issue.sh's config.sh load.
 # ---------------------------------------------------------------------------
-KWT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KWT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=push-retry.sh
-. "$KWT_LIB_DIR/push-retry.sh"
+if [ ! -f "$KWT_LIB_DIR/push-retry.sh" ] || ! . "$KWT_LIB_DIR/push-retry.sh"; then
+  {
+    echo "Error: scripts/lib/kanban-worktree.sh could not load its push helper."
+    echo "       Looked for: $KWT_LIB_DIR/push-retry.sh"
+    echo "       That file is the ONE definition of the push-race retry"
+    echo "       (git_push_with_retry) every trunk-publishing op goes through."
+    echo "       Without it a board move pushes ONCE with no retry, and a lost"
+    echo "       race leaves the commit local — which cost one project a graft"
+    echo "       weeks later (see that file's header)."
+    echo "       This library REFUSES to load half-defined rather than let the"
+    echo "       next kwt_finalize report a missing function as a push failure."
+    echo "       Restore it:  git checkout -- scripts/lib/push-retry.sh"
+  } >&2
+  return 1 2>/dev/null || exit 1
+fi
+# ...and REACHABLE, not merely present: a file that sources without defining what
+# this library calls is the same outage wearing a more plausible cause. This is
+# the loud-absence assertion, not a presence check.
+if ! command -v git_push_with_retry >/dev/null 2>&1 \
+   || ! command -v git_report_ahead_behind >/dev/null 2>&1; then
+  {
+    echo "Error: $KWT_LIB_DIR/push-retry.sh sourced, but git_push_with_retry"
+    echo "       and/or git_report_ahead_behind is NOT DEFINED. The file is"
+    echo "       present and loadable; it no longer provides what this library"
+    echo "       calls, so kwt_finalize would publish without a retry."
+  } >&2
+  return 1 2>/dev/null || exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Root + trunk resolution. Works invoked from the main worktree, from a feature

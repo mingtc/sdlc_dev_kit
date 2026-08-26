@@ -213,6 +213,29 @@ if [ ${#MISSING[@]} -gt 0 ]; then
   pf "the copy-list is not in place — missing: ${MISSING[*]} (this script configures, it does not copy)."
 fi
 
+# --- the push helper: LOADED here, deliberately NOT enumerated in COPY_LIST ---
+# kit-init's own publishing pushes go through git_push_with_retry (four sites in
+# steps 5 and 6), so this file is a hard dependency of a successful run. It is
+# NOT added to COPY_LIST above: that list is a hand-typed presence check, and
+# growing it by one entry per dependency somebody trips over leaves it just as
+# silent about the next one. What is asserted here instead is the property this
+# script actually needs — the helper LOADS and the function it calls IS DEFINED.
+#
+# Refusing (rather than pushing once, unretried, when the helper is absent) is
+# what `process/contracts/config-seam.md` § 2 requires: "a DEGRADED path may not
+# carry its own second default … it refuses and names the seam". A bare push that
+# loses a race leaves the initialization commit local — one initializer run ended
+# one commit ahead of its remote with a fatal at its tail, which is the incident
+# this routing exists to close. It is a `pf` rather than an early exit so it is
+# reported alongside every other unmet precondition in one pass, and so it lands
+# inside the refusal that guarantees NOTHING WAS WRITTEN.
+# shellcheck source=lib/push-retry.sh
+if [ ! -f "$SCRIPT_DIR/lib/push-retry.sh" ] || ! . "$SCRIPT_DIR/lib/push-retry.sh"; then
+  pf "scripts/lib/push-retry.sh is missing or could not be sourced — kit-init publishes its initialization commits through that file's git_push_with_retry, and will not fall back to a single unretried push. Restore it:  git checkout -- scripts/lib/push-retry.sh"
+elif ! command -v git_push_with_retry >/dev/null 2>&1; then
+  pf "scripts/lib/push-retry.sh sourced, but git_push_with_retry is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
+fi
+
 # --- git repo, born HEAD, identity ---
 if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   pf "$ROOT is not a git repository — run 'git init' first."
@@ -709,7 +732,16 @@ if git -C "$ROOT" diff --cached --quiet; then
 else
   git -C "$ROOT" diff --cached --name-only | sed 's/^/    /'
   git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init: initialize the kit — prefix $PREFIX, trunk $TRUNK"
-  git -C "$ROOT" push -q "$REMOTE" "HEAD:$TRUNK"
+  # THROUGH THE RETRY HELPER, not a bare push — here and at the three self-check
+  # pushes below. A single `git push` that loses a race against a parallel
+  # landing dies with the commit surviving only locally; one initializer run
+  # ended exactly there, one commit ahead of its remote with a fatal at its tail,
+  # and a by-hand push completed it. The helper's semantics are IDENTICAL to what
+  # stood here (it pushes `HEAD:<branch>`), and its rebase-on-rejection step is
+  # safe in this script specifically because the preflight already refuses unless
+  # this checkout is ON the trunk — so the rebase can only ever be the trunk onto
+  # its own remote tip, which is the same act every board move performs.
+  git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
   say "  committed + pushed → $REMOTE/$TRUNK"
 fi
 
@@ -755,7 +787,7 @@ if "$ROOT/scripts/new-issue.sh" "$SCRATCH_SLUG" --id "$SCRATCH_ID" >/dev/null 2>
   fi
   git -C "$ROOT" add "progress/todo/$SCRATCH_FILE"
   git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init self-check: mint scratch card $SCRATCH_ID"
-  git -C "$ROOT" push -q "$REMOTE" "HEAD:$TRUNK"
+  git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
 else
   sc_bad "could not mint $SCRATCH_ID via scripts/new-issue.sh"
 fi
@@ -810,7 +842,7 @@ else
   sc_ok "commit-msg hook REJECTED a prefix-less subject (core.hooksPath is live)"
   if git -C "$ROOT" commit --allow-empty -q -m "[$SELF_ROLE] kit-init self-check: commit-msg hook accepts a role-tagged subject"; then
     sc_ok "…and ACCEPTED '[$SELF_ROLE] …'"
-    git -C "$ROOT" push -q "$REMOTE" "HEAD:$TRUNK"
+    git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
   else
     sc_bad "the hook rejected a correctly tagged subject '[$SELF_ROLE] …' — check ROLE_PREFIXES"
   fi
@@ -866,7 +898,7 @@ LEFTOVER="$(find "$ROOT/progress" -type f -name "${SCRATCH_ID}-*.md" 2>/dev/null
 if [ -n "$LEFTOVER" ]; then
   git -C "$ROOT" rm -q "$LEFTOVER"
   git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init self-check: remove the scratch card — the board is yours, empty"
-  git -C "$ROOT" push -q "$REMOTE" "HEAD:$TRUNK"
+  git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
   sc_ok "scratch card removed — the board is empty (its life stays in the trunk history)"
 fi
 
