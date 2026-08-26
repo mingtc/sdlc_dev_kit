@@ -142,6 +142,39 @@ document's.
 directory, so a negative claim's audit trail survives the session that produced it; a leg that ran
 no script says so rather than shipping an empty directory.
 
+### A.4 — A DETECTION RECIPE offered inside a ruling is a negative claim, and owes both halves
+
+A ruling that names a defect often offers a way to find the rest of it — *"the cheap check for this
+is `grep …`"*. That recipe is doing two jobs, and only the first is obvious. It finds instances; and
+it **asserts, silently, that nothing else in the tree is an instance.** The second is a negative
+claim about a whole corpus, made in one line, usually unmeasured.
+
+**Its characteristic failure is worse than being wrong: it is being PRESENT.** A recipe that catches
+most of a class reads as coverage, and **the ruling's having offered one is what stops anyone looking
+harder.** Measured instance: a ruling forbade a class of test, named its paid instances, and offered a
+grep for the literal string they shared. Two further instances of the same class were then written
+*after* the ruling and survived it, because they asserted an **absence** and therefore contained no
+such string. Run against the tree that still held them, the ruling's own recipe returned several
+hits — **and not one of them was either survivor.**
+
+So a recipe owes the same two halves this sheet asks of any *cannot*:
+
+- **Run it against the tree that still contains the known instances, and record the hit count.** A
+  recipe shipped unmeasured is a guess with authority. If it does not find the instances that
+  motivated the ruling, that is the finding.
+- **State its blind spot, or say it has none** — in the ruling, beside the recipe. The forms it
+  cannot match are `unmeasured`, not absent.
+
+**And prefer the property to the string.** *"Does the cut make this false?"* transfers; a literal to
+grep for does not, because the next instance of a class rarely spells itself the same way. Where a
+string is genuinely the cheapest handle, ship it **with** the property it is standing in for.
+
+*(The recipe is also an instrument, so everything in
+[`instruments.md`](instruments.md) binds it — in particular § A.7 on lexicons that imply a
+completeness they do not have. It is stated **here** because its failure mode is a negative claim
+about a corpus, which is this sheet's subject; that sheet points at this rule rather than carrying
+it.)*
+
 ---
 
 ## B. Your project's instance — **fill this in**

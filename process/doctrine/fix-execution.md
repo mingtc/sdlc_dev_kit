@@ -170,10 +170,9 @@ discipline, item 4. It has never said it about **gate budgets**, which is what t
   whose reason was overwritten is one nobody can re-tune safely.
 
 A gate that reddens for reasons unrelated to its property **trains everyone to ignore it** — the
-validator-mismatch problem, with host load as the concrete attacker. *(That rule's own home is
-[`subagent-control.md`](subagent-control.md) § A.7, which currently states it as a placeholder and
-defers to [`instruments.md`](instruments.md) § A.8; the pointer here follows it to wherever it
-lands.)*
+validator-mismatch rule of [`instruments.md`](instruments.md) § A.8, with **host load as the concrete
+attacker**. That is what makes a wall-clock budget worse than a merely inaccurate one: it does not
+just measure the wrong thing, it teaches the team that this gate's red means nothing.
 
 ### A.7 — Every claim about remote state is a dated reading, and landing steps must survive their caller
 

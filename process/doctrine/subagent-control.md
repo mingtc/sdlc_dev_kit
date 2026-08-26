@@ -151,23 +151,20 @@ belongs in the kit's own ruling record, not here.
 
 ### A.7 — Verification theatre: a check that cannot fail
 
-> **DEFERRED BY DESIGN — this rule's home is [`instruments.md`](instruments.md), not this sheet.**
-> Verification theatre is a property of an *instrument*, and that sheet owns instruments. Two shapes
-> and one rule are owed to it and are **not yet written there**:
->
-> - **the unconditional report** — a command whose result is discarded, followed by a message
->   asserting it passed. It will assert success after a failure, forever;
-> - **the restated premise** — a calculation fed the number it was supposed to derive. It confirms
->   the input, and if the input is wrong it confirms the error with full confidence;
-> - **the validator must match the thing being validated** — *a checker that rejects a valid input
->   for a reason unrelated to correctness is worse than no checker, because it trains you to ignore
->   it.*
->
-> They land in `instruments.md` alongside the other rules about a green that could not have gone red.
-> **This entry is a placeholder with a forward pointer, deliberately, rather than a duplicate** — the
-> alternative was stating them in two sheets, which is what the pointer convention above exists to
-> prevent. The defence in the meantime is mechanical and can be stated in one line: **make every
-> check able to fail, and then confirm that it can.**
+**The pattern is [`instruments.md`](instruments.md) § A.8** — *a green that could not have gone red*
+— which owns the two shapes (**the unconditional report**, a command whose result is discarded
+followed by a message asserting it passed; and **the restated premise**, a calculation fed the number
+it was supposed to derive) and the validator-mismatch rule beside them. The defence in one line:
+**make every check able to fail, and then confirm that it can.**
+
+**What this sheet adds is who it catches.** Verification theatre is described as a property of an
+instrument, and it is — but in a dispatched run the instrument is frequently **the report a worker
+hands back**, and both shapes arrive wearing a worker's confidence. A leg that ran a command, lost
+its status, and wrote *"the gate passed"* has produced an unconditional report about work nobody
+watched; a leg handed a figure in its brief and asked to confirm it has produced a restated premise.
+So the coordinator's version of § A.8's rule is § A.4's: **the report carries its own evidence — the
+raw summary and the unlaundered exit status — or it is re-measured.** The theatre is the same; what
+differs is that you cannot inspect the check, only its account of itself.
 
 ### A.8 — A resume is only safe for work without side effects
 

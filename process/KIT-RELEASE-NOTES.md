@@ -48,6 +48,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`process/doctrine/lookup-tables.md` § A.1 states the real basis for the doctrine-sheet
+  exemption.** It said a doctrine sheet crossing the byte threshold triggers nothing *because
+  "condition 1 is unmet"* — but condition 1 names `process/MANUAL.md`, and **MANUAL's doctrine table
+  names every sheet by path, so condition 1 is met.** The exemption is correct and its stated reason
+  was not: a doctrine sheet is exempt **by how it is read** — addressed on demand, never loaded at
+  session start — not by failing a condition. **The policy is unchanged**; only its reasoning is,
+  and the wrong reasoning was one edit away from someone removing the exemption instead of re-basing
+  it.
 - **`kit-init.sh --gate-command` now FILLS the shipped gate runner's empty table** instead of
   refusing because `scripts/verify.sh` already exists. The seed ships `verify.sh` as a frame whose
   `GATES` table is empty and which refuses to run until you declare a gate — so the day-one command
@@ -132,6 +140,24 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   `doctrine/live-resources.md` § A.4 (a consent id authorizes one item's spend, so a full-suite run
   is its own budgeted decision). **Nothing to do to adopt it:** no command, flag or file changed,
   and the template additions are guidance inside templates you already own.
+- **`process/doctrine/instruments.md` is now in two parts, with a visible seam.** The sheet used to
+  treat every guard failure as one thing. It is two, and the difference decides the fix: **Part One
+  (build time)** is *the instrument is misaimed, or cannot fail* — it binds whoever **builds** the
+  instrument, and the remedy is to change the instrument. **Part Two (read time)** is *the instrument
+  is right and the reading is wrong* — it binds whoever **consumes** the result, and the remedy is to
+  change the reading. **Applying Part One's remedy to a Part Two failure sends you to re-aim an
+  instrument that is already correct.** A ruled seam between the two says in terms that a guard author
+  who stops there was right to. New in Part One: assert the fact rather than the sentence that states
+  it; the operand set at four scales; building a prose guard (normalised text or an AST, never raw
+  lines — then the region, then honesty about the remainder); and **§ A.8, a green that could not have
+  gone red**, which now owns the two shapes of verification theatre and the rule that *a checker
+  rejecting a valid input for a reason unrelated to correctness is worse than no checker, because it
+  trains you to ignore it.*
+- **`process/doctrine/negative-claims.md` § A.4 — a detection recipe offered inside a ruling is a
+  negative claim, and owes both halves.** Run it against the tree that still holds the known
+  instances and record the count; state its blind spot or say it has none. Prefer the property to the
+  string. The worked instance is a ruling whose own grep returned several hits, **not one of them
+  either survivor.**
 - **[`MANUAL.md` § The fix-execution phase](MANUAL.md)** carries the two steps the lifecycle did not
   otherwise have — scrutiny before implementation, and the pre-cut sweep before the cut — marked
   **mandatory when the slate came from a round**, which is why its heading states its own obligation

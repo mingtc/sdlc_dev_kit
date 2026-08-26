@@ -39,8 +39,16 @@ A file owes an index when **both** hold:
 **Plus a role trigger, at any size:** a file a role doc names as a **mandatory read** owes an
 index whatever its size, because that cost is paid every session rather than per lookup.
 
-*(A doctrine sheet is addressed, never loaded at session start, so a sheet crossing the byte
-threshold triggers nothing — condition 1 is unmet, and both conditions are required.)*
+*(**A doctrine sheet is exempt by how it is READ, not by failing a condition.** It is **addressed on
+demand** — reached when a reader already has the question — never loaded at session start, so the
+per-lookup cost the byte trigger bounds is one a reader has already chosen to pay. A doctrine sheet
+therefore triggers nothing however large it grows.*
+
+*Stated this way deliberately, because the obvious shorter version is false: it is **not** that
+condition 1 is unmet. Condition 1 names `process/MANUAL.md`, and MANUAL's doctrine table names every
+doctrine sheet by path — **that table IS the naming**, so condition 1 is **met** for every sheet in
+the corpus. A reader who noticed that and "corrected" the rule from the text alone would remove the
+exemption rather than re-base it, and put an index obligation on sheets that do not need one.)*
 
 ### A.2 — The index budget, and why the entry cap and the split point derive from it
 
