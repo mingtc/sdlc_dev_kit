@@ -25,6 +25,25 @@ Three consequences, and they are the whole convention:
    ruling register, a contract sheet or an issue file is *cited*, not copied — a copy in a handoff
    goes stale the moment the original is amended, and it will win arguments it should lose.
 
+## When to write one — while sharp, not while failing
+
+**A coordinator's judgement degrades as its context fills, and it degrades *before* that becomes
+obvious.** So the moment to write the handoff is the point where you would still call your own
+judgement good — not the point where you need one. A handoff written from a spent context is a
+handoff that records the wrong things: it summarizes instead of pointing, it re-derives what was
+already settled, and it omits the one item the next reader needs first, because the writer can no
+longer tell which item that is.
+
+There is no clean signal for the moment, which is why this is a habit rather than a trigger: write it
+at a **natural boundary you chose in advance** — an arc closing, a phase landing, a decision batch
+answered — rather than when the session starts to feel long.
+
+*(The reasoning is [`../../process/doctrine/subagent-control.md`](../../process/doctrine/subagent-control.md)
+§ A.12, which also names what makes a handoff valuable: not being current, but **being explicit about
+what in it is already stale.** A handoff stamped with what it no longer answers is worth several that
+are merely current — and that is the one thing the newest-wins rule below cannot supply on its own,
+since it tells a reader which file to trust and nothing about which parts of it have expired.)*
+
 ## What a handoff must contain
 
 At minimum, and in this order:

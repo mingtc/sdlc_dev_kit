@@ -35,6 +35,16 @@ one project's calibration and is therefore a blank you fill.
    default. *(Raised after repeated runs found coordinators unable to set a subagent's effort at
    spawn time — the instruction existed, the knob did not.)*
 
+   **And the mirror image, which is worse because it looks like success: an unset knob is not a
+   default, it is an INHERITANCE.** Dispatch machinery commonly inherits the *caller's*
+   configuration for any value left unset — so the coordinator's expensive tier silently becomes
+   every worker's, or a combination the ladder has ruled out entirely becomes the one they all get.
+   Where the harness behaves that way, **naming the tier and the effort on every spawn is not
+   belt-and-braces, it is the only way the ladder binds.** State it per work item *before* the run,
+   so the report can grade against it: a tier decided at dispatch time is a tier decided under
+   pressure. *(Arrived with [`subagent-control.md`](subagent-control.md) § A.2, which is where the
+   briefing side of this rule lives.)*
+
 **How to adopt:** copy the seven points above, then write your own § B.2 — one table, work class by
 work class, ratified by whoever owns the budget. Do **not** copy a table from another project; a
 ladder is calibrated to one workload, one price sheet and one date.

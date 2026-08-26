@@ -161,6 +161,13 @@ never commit from it.
 > Order is a seat decision and deserves its reason in one clause: fixes to the machinery early so
 > later landings exercise them; the largest, most consumer-visible change last; a blocked issue
 > only after its unblocker.
+>
+> **The clause names the CONSEQUENCE, not just the sequence.** *"Do A before B"* is followed
+> inconsistently; *"A before B, because B first would leave the gate unable to redden for the defect
+> A fixes"* is followed, because the reader can see what breaks — and can therefore tell when the
+> constraint has stopped applying. A bare ordering gives a runner nothing to reason with the moment
+> reality diverges from the pack, which is the moment the ordering mattered.
+> *(`process/doctrine/subagent-control.md` § A.11.)*
 
 1. **<PREFIX>-<a>** — <identity> (<branch type>; <binding clauses / corrected premise>).
    **<Dev|Refactorer> <model> <effort> / QA <model> <effort>.**

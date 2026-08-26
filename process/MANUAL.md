@@ -107,7 +107,14 @@ version control by the initializer, not left for each actor to discover
 
 1. **Confirm the hat before changing anything.** Read-only work needs no hat; a repo mutation
    does. (The `require-role` PreToolUse hook enforces this when activated.)
-2. **The Orchestrator does not write code itself.** It **spawns a Dev-hat subagent** to
+2. **And the two hard parts of doing that have their own sheet.** Briefing a subagent that has none
+   of your context, and deciding what to believe from work nobody watched, are
+   [`doctrine/subagent-control.md`](doctrine/subagent-control.md): name the specific thing to attack
+   and hand over the failure history; read every brief for the pair of demands that cannot both be
+   satisfied; and **never relay a leg's self-report as a measurement** — it arrives with its own
+   evidence, or it is re-measured.
+
+   **The Orchestrator does not write code itself.** It **spawns a Dev-hat subagent** to
    implement (TDD, failing test first) and a **QA-hat subagent** to verify, then **checks their
    work** against the AC and the gates before advancing the board. Orchestrator commits are
    **narration only**; the actual Dev/QA commits carry the Dev/QA prefixes.
@@ -480,6 +487,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | The orchestrator role doc's § Token discretion (run-plan duties); every dispatching role |
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
 | [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | § Execution discipline, item 2 |
+| [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one and it is not close; contradictory demands return *nothing* rather than a compromise; a returned report is a claim that carries its own evidence or is re-measured; a resume is only safe for work without side effects; a deferred decision is named inside every item whose scope touches it; and hand off while sharp, not while failing. | § Execution discipline, item 2 |
 | [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | § The default path is lite (the gates a release adds) |
 | [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
 | [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output**. | § Execution discipline, item 3 — and § The measurement rituals |

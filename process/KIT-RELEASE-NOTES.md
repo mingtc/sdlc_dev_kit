@@ -76,6 +76,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Added
 
+- **New doctrine sheet — [`doctrine/subagent-control.md`](doctrine/subagent-control.md).**
+  Commissioning work you cannot watch, and believing the result: the adversarial brief, the
+  contradictory-demand pair that returns nothing rather than a compromise, a report that carries its
+  own evidence, resume-safety, deferred decisions named inside the item that touches them, and
+  handing off while sharp. Increments land in
+  [`doctrine/model-provisioning.md`](doctrine/model-provisioning.md) (an unset provisioning knob is
+  an *inheritance*, not a default), [`doctrine/live-resources.md`](doctrine/live-resources.md) § A.5
+  (the two shapes a self-report fails in), [`../dev/handoffs/README.md`](../dev/handoffs/README.md)
+  (when to write one) and
+  [`templates/launch-pack.template.md`](templates/launch-pack.template.md) (an ordering clause names
+  its consequence, not just its sequence).
 - **Dogfooding doctrine — a third measurement ritual.** [`doctrine/dogfooding.md`](doctrine/dogfooding.md)
   covers running a **round**: putting agents or people in front of what you shipped, as consumers,
   and grading what happens. It asks *does a competent stranger, holding only what ships, get where
@@ -117,10 +128,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
-None. Every change above is either a new refusal that fires only on a setup that was already
-broken, a correction to the seed's own files, or new material that binds nothing until you reach
-for it. **A project that never holds a dogfooding round pays nothing for the two new sheets** — they
-are one more file each in directories you already carry.
+- **The pause law's "never end a turn on a stated intention" is now an ORDERING, not a prohibition**
+  ([`doctrine/orchestration.md`](doctrine/orchestration.md) § A.5). Reorder your coordinators' belt
+  from belt → status → dispatch to **belt → dispatch → status**, so a turn ends on a tool call by
+  construction rather than by remembering to. The original wording and its reason are preserved above
+  the amendment; nothing you have written becomes wrong, but **a coordinator that follows only the
+  prohibition will keep paying the failure it names** — it asks the actor to notice at exactly the
+  moment the failure describes.
+
+Otherwise none. Every other change above is either a new refusal that fires only on a setup that was
+already broken, a correction to the seed's own files, or new material that binds nothing until you
+reach for it. **A project that never holds a dogfooding round pays nothing for the two new sheets** —
+they are one more file each in directories you already carry.
 
 Worth reading anyway if you maintain guards: `doctrine/instruments.md` § A.2 (*every green owes an
 ablation*) is the rule the kit itself was breaking in three places, and the same shape is easy to

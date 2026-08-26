@@ -135,8 +135,19 @@ for an honest wrong report is an instrument or a refusal, never a sterner instru
 
 **Where else this generalizes, now that somewhere else needed it:** the same asymmetry applied to a
 **participant** in front of your product — whose self-report is the *conclusion* under study — is
-[`dogfooding.md`](dogfooding.md) § A.3; and the question of whether your instrument can see anything
-at all is [`instruments.md`](instruments.md).
+[`dogfooding.md`](dogfooding.md) § A.3; the same asymmetry applied to a **dispatched worker**, whose
+report is the only account of work nobody watched, is
+[`subagent-control.md`](subagent-control.md) § A.4; and the question of whether your instrument can
+see anything at all is [`instruments.md`](instruments.md).
+
+**The two shapes a report fails in, which are worth knowing by name because the fix differs.** A
+report is honestly wrong in one of two ways: **a green whose scope is smaller than it appears** — the
+check passed because it could not see the case, not because the case is fine — or **a count, hash or
+figure quoted rather than derived**, accurate at some earlier moment. The first is answered by asking
+what the check *could* have caught; the second by re-deriving the number. Both are answered in advance
+by **requiring a report to carry its own evidence**: the runner's raw summary, **the exit status read
+without laundering it through a filter**, the transcript. A claim arriving without its evidence is
+unverified by definition, and saying so in the brief up front costs nothing.
 
 ### A.6 — Reclaimable resources self-delete, and the teardown proof is part of the result
 

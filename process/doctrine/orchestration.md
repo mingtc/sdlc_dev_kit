@@ -38,6 +38,19 @@ seat-plus-runner arrangement for work that genuinely needs **fan-out inside each
 or a run long enough that the seat's context would be spent on relay. The role docs carry the
 ladder; the failure mode here is using the heavy pattern by default.
 
+**What the seat's own time is for, which is a different question from the one above.** The seat runs
+on the most expensive configuration available and **its context is the scarcest resource in the
+system**. So where a task is **mechanical, repetitive, or large**, dispatch it — and there are no
+exceptions for *"it's faster if I just do it."*
+
+That does not contradict the paragraph above it, and the qualifier is what keeps the two apart: the
+paragraph above chooses **which delegation pattern to reach for** (and the light ones usually win);
+this one governs **what the seat's own context is spent on** once a pattern is chosen. Doing the work
+itself is a legitimate pattern; doing *bulk* work itself is how a seat runs out of the one thing it
+cannot refill. *(Stated with the qualifier deliberately: unqualified, it would be an absolute
+standing beside this section's own permission with nothing to resolve them —
+[`subagent-control.md`](subagent-control.md) § A.5's defect, in the sheet that warns about it.)*
+
 ### A.2 — The pack is a commissioning contract, and the report grades against it
 
 The pack ([`../templates/launch-pack.template.md`](../templates/launch-pack.template.md)) says
@@ -113,6 +126,13 @@ overwhelming majority of mid-run surprises do not need one. So the stop list is 
 **Park-and-pass, concretely:** park the item with evidence, add the question to the report's
 batched decision list, and **dispatch the next leg**. Parking well is success.
 
+**Corollary for an unattended run: do not ask a question nothing will answer.** The four events above
+stop a run *for a human*. Where no human is reading — an overnight run, a scheduled one, a leg
+dispatched without a watcher — an interactive question is not a pause, it is a **hang**, and the
+batched decision list is the only channel that still works. So in an unattended run the list is not a
+convenience for the human's morning; it is the sole exit, and a run that stops to ask has stopped for
+good.
+
 **A silent stop is a failure mode equal to improvising.** The old formula — *"parking well is
 success; improvising is the only failure mode"* — was found incomplete: stopping without a park
 note and a next dispatch is a third failure, and the most expensive, because the work is neither
@@ -125,6 +145,30 @@ the human**. If the words "resuming" appear, the same turn must contain the disp
 
 *The reason this is doctrine rather than advice:* it was written after a run paused twice on
 things that were not stop events, and once wrote "resuming" in a turn that then ended.
+
+**AMENDED — the rule above is right and its FORM was wrong: DISPATCH FIRST, NARRATE SECOND.**
+Everything above stands, including its reason. What is added is the mechanism, because the
+prohibition on its own does not hold: *"never end a turn on a stated intention"* asks the actor to
+notice at the exact moment described by the sentence that names the failure — **"describing the
+transition discharged the urge to make it."** The narration substitutes for the act, and the check
+that would catch it is due precisely when the substitution has already happened.
+
+So the rule is an **ordering**, not a prohibition: **when the next leg is determined, the dispatch
+call PRECEDES the status.** The turn then ends on a tool call *by construction* rather than by
+remembering to. The belt order becomes belt → **dispatch** → status, never belt → status → dispatch;
+the gap between status and dispatch is where every measured instance lived.
+
+*Why this is a mechanism rather than a firmer instruction* — the kit's own test is that a mechanism is
+owed where the act is irreversible **or the failure is silent and compounding**, and this failure is
+the definition of silent: an idle session is indistinguishable from a working one, so nothing surfaces
+it but a human's glance or a liveness probe. The instances that produced this amendment were not
+caused by carelessness — they were paid by coordinators who had the rule in front of them, more than
+once each, including by the party that wrote the brief forbidding it. **Care was demonstrably not the
+cure.**
+
+*And note what the original wording already knew:* it said *"if the words 'resuming' appear, the same
+turn must contain the dispatch."* That is this amendment, stated as a repair instead of as an order.
+The repair asks you to catch yourself; the order removes the opportunity.
 
 ### A.6 — Decisions are batched between runs, never negotiated during them
 
