@@ -95,7 +95,20 @@ validate_issue_id() {
 #   Usage:  print_push_before_move "<path/to/created/file.md>"
 print_push_before_move() {
   path="${1:-}"
-  rel="${path#"$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/"}"
+  # `${BASH_SOURCE[0]:-$0}`, never the bare form: THIS FILE IS SOURCED, and the
+  # bare form is empty in any shell that does not set BASH_SOURCE. Measured
+  # 2026-08-26: under `set -u` (which all three callers run) the expansion below
+  # then fails and THIS WARNING NEVER PRINTS — silently skipped, after the card
+  # has already been created, which is the exact created-but-unpushed trap this
+  # function exists to prevent. The message is the whole point, so the fallback
+  # only has to keep it ALIVE: where `$0` resolves to something other than this
+  # file's directory the path prints unshortened, which is a cosmetic loss and
+  # the correct trade against silence. Latent under the kit's own paths (the
+  # three callers are bash-executed, so BASH_SOURCE is always populated there) —
+  # fixed because it is reachable, one line, and the last member of its class.
+  # The guarded sites are derivable — `grep -rn 'BASH_SOURCE\[0\]:-\$0' scripts`
+  # — deliberately not written here as a number.
+  rel="${path#"$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)/"}"
   echo ""
   echo "  ⚠ PUSH IT BEFORE YOU MOVE IT. ./scripts/move-issue.sh reads the board from the"
   echo "    trunk (via the .kanban-wt worktree), so a file that exists only in this"

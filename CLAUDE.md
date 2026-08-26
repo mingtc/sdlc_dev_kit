@@ -96,6 +96,19 @@ attribution](process/MANUAL.md). This project's values:
        • Do NOT include generated or vendored trees; name them in `.gitignore` instead.
        • Keep it SHORT. A long list means the boundary is not really a boundary, and every worker
          will re-derive it differently. -->
+- **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
+  matrix row, a doc correction the code change *makes true* belongs in the commit that makes it
+  true — splitting it onto `<trunk>` publishes a claim about code that has not landed, and leaves
+  the branch's reviewer reading a diff with its explanation missing. The direct-to-trunk rule
+  above governs metadata changed **on its own**; it was never a ban on a code change carrying its
+  own documentation.
+  **And the carve-out is not limited to documentation** — an *executable* declaration the same
+  change makes true rides with it too. The case that keeps being missed: a new guard's enrolment
+  in `scripts/verify.sh`'s `GUARD_SET`, which the globs above classify as metadata while the file
+  it guards is code. Split those and the branch's gate cannot see the guard, `<trunk>`'s gate
+  cannot see what it guards, and **the guard floor shrinks with nothing red to show it**. Every
+  worked example of this carve-out in `process/MANUAL.md` is documentation-of-code, which reads as
+  an exhaustive list of what may ride; it is not one.
 
 ## Role-attribution commit prefixes
 

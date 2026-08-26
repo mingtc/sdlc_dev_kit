@@ -50,6 +50,18 @@
 #
 # Note: this helper does NOT `set -euo pipefail` itself — the sourcing script
 # owns shell options. It uses explicit return codes.
+#
+# CALLER CONTRACT — THE LOAD REFUSAL'S TEETH ARE YOURS, NOT OURS. The push-helper
+# load below REFUSES (returns non-zero, loudly) rather than continuing with
+# git_push_with_retry undefined. That refusal only STOPS a caller that runs
+# `set -e` or checks the source's status: every current caller
+# (move-issue.sh, finish-pr.sh, subtask.sh, archive.sh) runs `set -euo pipefail`
+# and source this file as a bare simple command, so they abort. A caller that
+# does neither gets the message and keeps going with the functions missing —
+# which is the original outage one level up. So: check the status of your
+# `. lib/kanban-worktree.sh`, or run `set -e`. (config.sh's own load sites are
+# the shape to copy — `grep -rn '! \. "$CONFIG"' scripts` — each checking at
+# the call site.)
 
 # ---------------------------------------------------------------------------
 # Remote name — configurable. Every fetch / push / ls-remote / tracking-ref op
