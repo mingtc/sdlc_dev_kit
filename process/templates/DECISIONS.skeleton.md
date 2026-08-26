@@ -34,6 +34,26 @@ where a reader would otherwise pick something defensible and wrong.
 the evidence lives. An entry that needs a paragraph does not get one here: the paragraph belongs in
 the ruling's home document and the entry points at it.
 
+**A ruling about to be EXECUTED owes three more things — inside those same three fields, never as a
+fourth.** A ruling that only describes the world can be tidied later; one that a slate of work is
+about to be built on cannot.
+
+- **Recorded before it is executed.** A decision living only in a prompt, a chat or a coordinator's
+  memory is invisible to the successor and **uncitable by the work items that depend on it**. Record
+  it first; the items then cite this entry as their authority rather than restating it.
+- **Verbatim, in the decider's own words** — in the **Ruling** field. A paraphrase is a second
+  authoring site, and the paraphrase is the copy that drifts. Where the decider hedged, the hedge is
+  part of the ruling: it is what tells a later leg the ruling may be reopened on evidence.
+- **What was explicitly NOT ruled, named in Provenance beside what was.** Otherwise a skipped
+  question is indistinguishable from a settled one, and whoever needs an answer first adopts the
+  default silently. *(The § Findings section below is where an unruled question lives if it needs
+  more than a clause.)*
+- **And where the ruling sets an ORDER, the Why states what breaks if the order is reversed** — not
+  the sequence alone. A reader who can see the consequence can also tell when the constraint has
+  stopped applying.
+
+*(Doctrine: [`process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.2.)*
+
 **Ids are stable.** `D-NN` is a permanent handle. When a ruling is removed the id is **retired,
 never reused**, so a citation elsewhere can never silently come to mean something else.
 <!-- ID WIDTH: zero-padded TWO digits (D-01 … D-99) until the register passes 99, then plain
@@ -48,6 +68,16 @@ never reused**, so a citation elsewhere can never silently come to mean somethin
 into anything that still evolves — a line anchor drifts silently on the next edit above it.
 Reserve line anchors for **append-only** ledgers. *(Doctrine:
 [`process/doctrine/lookup-tables.md`](../process/doctrine/lookup-tables.md) § A.4.)*
+
+**And STAMP THE TREE the anchors were read against.** A content anchor survives an edit above it; it
+does not survive the section being renamed, split or ruled obsolete. So an entry whose citations were
+gathered at one moment records **which tree state they were read from** — a commit id is enough. The
+stamp does not stop the rot; it makes it **detectable rather than discovered**, which is the whole
+difference between a citation a reader can re-check and one they have to trust.
+
+The same rule pointed at a *work item* rather than at a ruling — mint each phase's items after the
+prior phase lands, and re-derive any inherited count on the branch rather than carrying it forward —
+is [`process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.9.
 
 **When this register grows past a screenful, it owes an index.** It is a lookup table by
 construction — stable ids, a fixed three-field entry shape — which makes it the cheapest document

@@ -200,6 +200,17 @@ in a document claiming to be current** — is a defect.
 - **A re-measurement PREPENDS; it does not overwrite.** The old figure keeps its date
   ([`supersession.md`](supersession.md) § A.1), because two dated figures are how a reader sees the
   direction of travel.
+- **Finding the statement you just outran is a ONE-HOP search, and T4 owes it in the same change.**
+  The trigger is easy to accept and easy to skip, because the stale sentence is rarely in the file
+  you were editing. One hop reaches almost all of them, and the change already has the operands in
+  hand: the counts and universals **in the file you touched**; the documents that **cite what you
+  changed** — searched by its **name**, never by its path, since a path search misses every citation
+  that spells it differently; and, if the work is running as a phased program, whether this change
+  **falsifies a statement a later phase is scheduled to be written against.** That last one is the
+  expensive miss: a later phase treats the falsified statement as its specification, so a sweep at
+  the end finds it long after it has been built on. *(The corpus-wide half — the surfaces no diff
+  touched, which one hop structurally cannot reach — is a separate obligation:
+  [`fix-execution.md`](fix-execution.md) § A.4.)*
 
 ## § D — Who pays, stated as a rule (the pattern)
 

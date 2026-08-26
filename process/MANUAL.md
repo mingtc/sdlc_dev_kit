@@ -454,6 +454,35 @@ close an orchestrated *run*: [`templates/round-pack.template.md`](templates/roun
 and [`templates/round-report.template.md`](templates/round-report.template.md). **A run delivers
 work; a round measures how the delivered thing is met** — keep the two words apart.
 
+## The fix-execution phase — MANDATORY for a slate minted from findings
+
+The rituals above produce **findings**. This section is what happens between a set of findings and
+a release, and unlike them it is **not optional when the slate came from a round**: a program that
+lands a round's findings has a characteristic way of failing, and two of the steps below exist only
+because it did. (For an ordinary single-issue fix, none of this applies — the lite path is the path.
+The trigger is a *slate minted from findings*, not a fix.)
+
+findings → **scrutiny** → ruled decisions recorded → implementation → **pre-cut sweep** → cut
+
+Two of those five are steps the lifecycle above does not otherwise have:
+
+- **Scrutiny (before any implementation).** Every minted item is a hypothesis written at findings
+  altitude. One fresh-context reviewer per item, **read-only**, four questions: does the fix close
+  the finding it names; what else does it move; does it re-create a defect the round already found;
+  is any part secretly a decision nobody made. **Holding or rescoping an item is a success, and the
+  reviewer is told so** — otherwise they grade for implementability. The rescopes are then written
+  **into the item files** by whoever owns minting: an implementer must meet a corrected contract,
+  not a side-channel of caveats.
+- **The pre-cut sweep (after the last landing, before the cut).** Per-item review judges the item's
+  own grep list, and nobody's grep list is the corpus. One fresh-context checker per consumer-facing
+  surface, verifying its claims against the tree as it stands. This is the half a per-change check
+  cannot reach — the surfaces no diff touched.
+
+**Who holds the pen:** the scrutiny pass is a reviewer wearing fresh eyes (QA, or a dedicated leg —
+**never the minter**); the two-bucket sort and the ruling records are the PM's; the sweep is
+dispatched one leg per surface. The reasoning, and the rules behind these two steps, are
+[`doctrine/fix-execution.md`](doctrine/fix-execution.md).
+
 ## Seams — what this file deliberately does not know
 
 | Seam | Where it is configured |
@@ -491,6 +520,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | § The default path is lite (the gates a release adds) |
 | [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
 | [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output**. | § Execution discipline, item 3 — and § The measurement rituals |
+| [`fix-execution.md`](doctrine/fix-execution.md) | **Landing what a round found, without minting what it warned about** — the span between findings and implementation, and between the last landing and the cut. A minted item is a hypothesis, so the slate is scrutinized before a line moves and **holding an item is a success**; a ruling is recorded **before** it is executed, verbatim and with what was *not* ruled beside it; the round's traps travel as acceptance criteria; truth is corpus-wide in two obligations, one per change and one before the cut; a gate budgets a **property**, never a machine; and one authoring site per vocabulary, with a guard that bites when a projection parts from it. | § The fix-execution phase — and `doctrine/dogfooding.md` § A.13/§ A.14, which hand off to its § A.1 |
 
 Two neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and

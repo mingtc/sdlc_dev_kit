@@ -111,6 +111,25 @@ incidents that produced this fence involved a *typed flag* on a run whose author
 about something else entirely (§ C). The fence's teeth are that the flag now has to be a
 sentence about authority.
 
+**And the id authorizes ONE ITEM'S spend, so a FULL-SUITE run is its own spend.** The fence above
+makes every destructive run attributable; it does not bound how much a single attribution may buy.
+Running the **entire** live suite under one item's id charges the whole suite's resource budget to a
+single item's authority — the id is honest, the accounting is not, and the item's declared ceiling
+was never written for the suite.
+
+- **Default to the targeted selection the item actually needs.** An item that authorized one ring
+  gets one ring; the consent id is not a site licence.
+- **Run the full suite at phase boundaries as its own budgeted, recorded decision** — declared like
+  any other spend (§ A.1), with its own ceiling and its own authorizing record.
+- **And if a run overspends, state it rather than absorb it.** The donor project's one budget overrun
+  came precisely from full-suite runs under single-item ids; it was disclosed and fully reclaimed, and
+  **the disclosure is why it stayed a footnote instead of becoming an incident.** An overrun quietly
+  absorbed is a ceiling that has stopped meaning anything.
+
+*(This rule arrives from a fix program rather than from a round:
+[`fix-execution.md`](fix-execution.md) § A.10, which is where its phase-boundary half is stated in
+context.)*
+
 ### A.5 — The instrument beats the self-report
 
 **Self-reports are not measurements.** Between every leg of a run, a cheap instrument reads the

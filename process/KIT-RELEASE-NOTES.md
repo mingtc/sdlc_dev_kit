@@ -117,6 +117,25 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   worktree runs git from `.kanban-wt/`, one directory down, where a relative `origin` resolves
   somewhere else — previously that surfaced two steps later, mid-self-check, disguised as an
   access-rights error.
+- **New doctrine sheet — `process/doctrine/fix-execution.md`.** The phase between *"we have
+  findings"* and *"we cut a release"*, which the kit modelled at neither end: scrutinize the slate
+  before implementing it (one fresh-context reviewer per item, four questions, **read-only**, and
+  holding an item is a success); record a ruling **before** executing it, verbatim, with what was
+  explicitly *not* ruled beside what was; carry the round's own traps as **acceptance criteria**
+  rather than advice; sort candidate fixes by *"is there a decision here"*, never by size; budget a
+  gate on a **property** (CPU time, work units, counts) and never on wall-clock; treat every claim
+  about remote state as a **dated reading**; and give every vocabulary the process uses about itself
+  **one authoring site** with everything else derived from it. Increments land in
+  `process/templates/DECISIONS.skeleton.md` (a ruling about to be executed owes three more things
+  *inside* its existing three fields, plus a tree stamp on its citations), `doctrine/staleness.md`
+  (§ C — finding the statement you just outran is a one-hop search, owed in the same change) and
+  `doctrine/live-resources.md` § A.4 (a consent id authorizes one item's spend, so a full-suite run
+  is its own budgeted decision). **Nothing to do to adopt it:** no command, flag or file changed,
+  and the template additions are guidance inside templates you already own.
+- **[`MANUAL.md` § The fix-execution phase](MANUAL.md)** carries the two steps the lifecycle did not
+  otherwise have — scrutiny before implementation, and the pre-cut sweep before the cut — marked
+  **mandatory when the slate came from a round**, which is why its heading states its own obligation
+  status rather than sitting silently beside the optional rituals above it.
 
 ### Fixed
 
