@@ -50,7 +50,7 @@ PROJECT_NAME="${PROJECT_NAME:-<project-name>}"
 # ./scripts/next-id.sh — and passes it as --id. This just guards the input.
 #   Usage:  validate_issue_id "$ID" "$ROOT"   # uses ISSUE_PREFIX; returns non-0 on a hard error
 validate_issue_id() {
-  id="$1"; root="$2"
+  local id="$1" root="$2" existing
   if [ -z "$id" ]; then
     echo "Error: --id is required (e.g. --id ${ISSUE_PREFIX}-034)." >&2
     echo "       Get the next id with:  ./scripts/next-id.sh   (then sanity-check it)." >&2
@@ -94,7 +94,7 @@ validate_issue_id() {
 #
 #   Usage:  print_push_before_move "<path/to/created/file.md>"
 print_push_before_move() {
-  path="${1:-}"
+  local path="${1:-}" rel
   # `${BASH_SOURCE[0]:-$0}`, never the bare form: THIS FILE IS SOURCED, and the
   # bare form is empty in any shell that does not set BASH_SOURCE. Measured
   # 2026-08-26: under `set -u` (which all three callers run) the expansion below
