@@ -289,11 +289,9 @@ inherits it, and a rule enforced by a new subsystem costs more forever than a ru
 followed. **Prefer the sentence; reserve the mechanism for what genuinely cannot be carried by
 discipline.**
 
-> **This caution is in live tension with [`live-resources.md`](live-resources.md) § A.10 (*"the
-> structural cure beats the instruction"*), and the tension is real rather than a wording accident —
-> the two were written from different incidents.** The kit resolves it in its own ruling record, not
-> here, and the resolution is wider than either sheet proposed alone: **a mechanism where the act is
-> irreversible OR the failure is silent and compounding; a sentence everywhere else.** Both halves
-> were paid for. Neither sheet is wrong within its own scope, and the sentence-preferring side has
-> its own evidence — at least one measured case where the correct amendment was documentation and not
-> machinery.
+> **That caution states one side of a real boundary, and it is in live tension with
+> [`live-resources.md`](live-resources.md) § A.10 (*"the structural cure beats the instruction"*) —
+> the two were written from different incidents and neither is wrong inside its own scope.
+> **The boundary itself is [`fix-execution.md`](fix-execution.md) § A.5b**, which owns it and states
+> it wider than either sheet proposed alone. Read it before concluding from this paragraph alone that
+> a sentence will do: the caution above is the burden of proof on a mechanism, not a verdict.

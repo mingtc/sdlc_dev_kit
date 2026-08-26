@@ -240,6 +240,15 @@ donor's history is that the run which breached a fence also **landed the fence**
 instruction that every brief quotes and that fires anyway has already told you it is the wrong
 instrument.
 
+**This section states one side of a boundary, and the boundary is
+[`fix-execution.md`](fix-execution.md) § A.5b.** Everything here is about **irreversible** acts —
+external resources, real credentials, objects a project cannot delete — where a mechanism is owed
+without argument, which is why this sheet states it flatly. That is not a general licence to build
+machinery: § A.5b carries the other half (*silent and compounding*), the counterweight
+([`subagent-control.md`](subagent-control.md) § C's caution about accumulating process), and the two
+tests that decide it. Cite § A.5b when the act is **not** irreversible and you still think a
+mechanism is owed.
+
 **Verify a fence in the condition its own tests cannot reach.** A safety fence's test suite
 usually cannot arrange the dangerous state (real credentials present, authorization absent) — so
 the conductor arranges it by hand, once: plant an inert destructive-marked case in a brand-new

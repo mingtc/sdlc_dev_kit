@@ -48,6 +48,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`verify.sh` now has a FOURTH result state — UNRUNNABLE — and prints what it ran.** A gate whose
+  command could not start (`127`/`126`) used to be reported as **FAIL**, which is red in the right
+  direction and destroys the one distinction that matters: *"could not start"* versus *"your tree is
+  broken."* The two are now separate words, and the unrunnable branch prints the interpreter path and
+  the root it resolved against, so the diagnosis is where the confusion is. **The summary now carries
+  counts** — declared, ran, passed, failed, could not run, skipped — and `ran` deliberately **excludes**
+  the unrunnable, because a command that never executed did not run. *(That last point was caught by
+  the change's own reddening control, which first printed `ran: 3` when one of three never ran.)*
+- **A gate command with a relative interpreter path is no longer silently location-dependent.** It
+  used to resolve against whichever root the runner stood in — so it worked in the main checkout and
+  was unrunnable from a linked worktree, **which is exactly where a trunk gate has to run.** A runner
+  that cannot answer from there does not have one canonical entrypoint; it has one per location.
 - **`check-board.sh` now reads `<remote>/<trunk>` by name, and every verdict says what it read.**
   Previously most arms read *whatever checkout was current*, so a colleague or an agent holding the
   repository on a feature branch silently changed the board report's answer. Each arm now names its
@@ -63,7 +75,6 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   checkout** — which is where rulings, PRDs and board edits are written — was invisible. It now
   reports each home with its own reading, and states its span: it measures commits reachable from a
   ref, and says so, because a commit reachable from no ref at all is outside what it can see.
-
 - **`process/doctrine/lookup-tables.md` § A.1 states the real basis for the doctrine-sheet
   exemption.** It said a doctrine sheet crossing the byte threshold triggers nothing *because
   "condition 1 is unmet"* — but condition 1 names `process/MANUAL.md`, and **MANUAL's doctrine table
@@ -189,6 +200,10 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **If you parse `verify.sh`'s output, update it for the fourth state and the count line.** Anything
+  matching on exactly `PASS`/`FAIL`/`SKIP` will not recognise `UNRUNNABLE`, and a summary parser
+  expecting the old shape will need the new one. **If you have been treating a red gate as "the tree
+  is broken", check whether it was actually failing to start** — that is the distinction this buys.
 - **Run `check-board.sh` once and read what it now reports about your MAIN checkout.** The new
   divergence reading covers the primary checkout as well as the board mover's worktree, and **if you
   have been writing rulings, PRDs or board edits directly on the trunk, it may report unpublished

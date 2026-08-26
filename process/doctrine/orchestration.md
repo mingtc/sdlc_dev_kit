@@ -158,9 +158,11 @@ call PRECEDES the status.** The turn then ends on a tool call *by construction* 
 remembering to. The belt order becomes belt → **dispatch** → status, never belt → status → dispatch;
 the gap between status and dispatch is where every measured instance lived.
 
-*Why this is a mechanism rather than a firmer instruction* — the kit's own test is that a mechanism is
-owed where the act is irreversible **or the failure is silent and compounding**, and this failure is
-the definition of silent: an idle session is indistinguishable from a working one, so nothing surfaces
+*Why this is a mechanism rather than a firmer instruction* — the test is
+[`fix-execution.md`](fix-execution.md) § A.5b, and this failure is caught by its **second** half
+rather than its first. Nothing here is irreversible; a stalled turn is resumed at no cost. What earns
+the mechanism is that the failure is **silent**: an idle session is indistinguishable from a working
+one, so nothing surfaces
 it but a human's glance or a liveness probe. The instances that produced this amendment were not
 caused by carelessness — they were paid by coordinators who had the rule in front of them, more than
 once each, including by the party that wrote the brief forbidding it. **Care was demonstrably not the

@@ -233,6 +233,15 @@ fi
 #    "soft" — if you want a non-blocking check, it does not belong in this table.
 RESULTS=()
 FAILED=0
+# THE COUNTS ARE PART OF THE VERDICT, not decoration — `contracts/verify-gate.md`
+# § 2 ("the count of checks executed is part of the output, not an inference from
+# the absence of complaints") and § 4 ("'it passed' with no count is not green; it
+# is an assertion"). Counted here rather than derived from RESULTS at the end, so
+# the number cannot disagree with the lines it summarises.
+PASSED=0
+FAILEDN=0
+UNRUNNABLE=0
+SKIPPED=0
 run_gate() {
   local name="$1"; shift
   echo
@@ -242,8 +251,36 @@ run_gate() {
   "$@" || rc=$?
   if [ "$rc" -eq 0 ]; then
     RESULTS+=("PASS  $name")
+    PASSED=$(( PASSED + 1 ))
+  elif [ "$rc" -eq 127 ] || [ "$rc" -eq 126 ]; then
+    # UNRUNNABLE IS NOT FAIL, AND BOTH ARE RED. 127 is "command not found", 126
+    # is "found but not executable" — in both the gate NEVER EXECUTED, so nothing
+    # was measured. Spelling that `FAIL` is the runner reporting on ITSELF in the
+    # vocabulary it uses for its SUBJECT, and the reader cannot then tell "your
+    # tree is broken" from "this gate could not start" — so they debug the tree,
+    # which may be perfectly fine. (process/doctrine/instruments.md § A.9.)
+    #
+    # THE COMMONEST CAUSE, named because the message is where it will be read: a
+    # declared gate command carrying a RELATIVE interpreter path (a project-local
+    # virtualenv, a vendored binary) resolves against THIS checkout's root — and
+    # a linked worktree does not have one. That is exactly where a trunk gate has
+    # to run, so the one command everybody must run fails there and says "FAIL".
+    RESULTS+=("UNRUNNABLE  $name (rc=$rc — the command never executed; NOTHING was measured)")
+    UNRUNNABLE=$(( UNRUNNABLE + 1 ))
+    {
+      echo "verify.sh: gate '$name' could NOT RUN (rc=$rc). This is not a test failure —"
+      echo "  nothing was measured. Check the command's interpreter/binary path:"
+      echo "    \$ $*"
+      echo "  Resolved from: $REPO_ROOT"
+      echo "  A RELATIVE interpreter path resolves against THAT root. If you are in a"
+      echo "  linked worktree, a project-local interpreter living in the main checkout"
+      echo "  is not there — run the gate from the main checkout, or make the declared"
+      echo "  command's interpreter path absolute or resolvable from any checkout."
+    } >&2
+    FAILED=1
   else
     RESULTS+=("FAIL  $name (rc=$rc)")
+    FAILEDN=$(( FAILEDN + 1 ))
     FAILED=1
   fi
 }
@@ -262,6 +299,7 @@ for rec in "${GATES[@]}"; do
   if [ "$SCOPED" -eq 1 ]; then
     if [ "$g_class" != "select" ]; then
       RESULTS+=("SKIP  $g_name (class $g_class — a scoped run cannot select within it)")
+      SKIPPED=$(( SKIPPED + 1 ))
       continue
     fi
     # The requested items PLUS the whole guard floor, deduplicated so naming a
@@ -278,6 +316,7 @@ for rec in "${GATES[@]}"; do
 
   if [ "$QUICK" -eq 1 ] && [ "$g_class" = "full" ]; then
     RESULTS+=("SKIP  $g_name (class full — skipped by --quick)")
+    SKIPPED=$(( SKIPPED + 1 ))
     continue
   fi
 
@@ -285,8 +324,33 @@ for rec in "${GATES[@]}"; do
 done
 
 # ── ONE summary block. Roles read THIS, not the scrollback, so its shape is part
-#    of the contract: the marker line, then one line per gate, then the exit code.
+#    of the contract: the marker line, then one line per gate, THEN THE COUNTS,
+#    then the exit code.
+#
+#    THE COUNT LINE IS NOT OPTIONAL. `contracts/verify-gate.md` § 4: "'it passed'
+#    with no count is not green; it is an assertion." A reader quoting this block
+#    into a review must be able to say how much ran without re-running it, and a
+#    per-gate list alone cannot be checked against anything — it is exactly as
+#    long as whatever the frame happened to append. The counts are accumulated as
+#    the gates run, not derived from the lines above, so the summary cannot
+#    disagree with its own evidence.
+#
+#    UNRUNNABLE IS COUNTED SEPARATELY FROM FAILED, and both are red. Collapsing
+#    them is the defect this line exists to prevent: "1 failed" sends a reader to
+#    the tree, "1 could not run" sends them to the command.
 echo
 echo "═══ verify.sh summary ═══"
 printf '%s\n' "${RESULTS[@]}"
+echo "───"
+# `ran` EXCLUDES the unrunnable, deliberately: a gate whose command never executed
+# produced no measurement, so counting it as "ran" would re-merge the two states
+# this block exists to separate — the count line contradicting its own lines.
+echo "gates declared: ${#GATES[@]} · ran: $(( PASSED + FAILEDN )) · passed: $PASSED · failed: $FAILEDN · could not run: $UNRUNNABLE · skipped: $SKIPPED"
+if [ "$SCOPED" -eq 1 ]; then
+  # A NARROWED RUN IS A WEAKER CLAIM AND SAYS SO IN THE BLOCK ITSELF (§ 2, § 4),
+  # not only in the banner printed before the gates — the summary is the part
+  # that gets quoted into a review, so it is the part that must carry the caveat.
+  echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} always-on guard(s). NOT the full-gate claim."
+fi
+[ "$UNRUNNABLE" -gt 0 ] && echo "NOTE: $UNRUNNABLE gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."
 exit "$FAILED"

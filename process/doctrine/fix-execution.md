@@ -150,6 +150,68 @@ nobody consented to; in the **restrictive** direction it costs one batched quest
 the whole rule: when torn, park it and batch it
 ([`subagent-control.md`](subagent-control.md) § A.9).
 
+### A.5b — A MECHANISM where the act is irreversible OR the failure is silent and compounding; a SENTENCE everywhere else
+
+§ A.5 sorts a fix by *whether there is a decision in it*. This rule sorts the **remedy**: having
+decided to fix something, do you write a sentence, or do you build a thing that refuses?
+
+> **A mechanism is owed where the act is IRREVERSIBLE, or where the failure is SILENT AND
+> COMPOUNDING. Everywhere else, prefer the sentence.**
+
+**Why two halves rather than one, and the second is the one that gets left out.** The irreversible
+half is easy to accept: where an act cannot be undone, an instruction that is usually followed is not
+enough, and the structural cure lands in the same change as the rule
+([`live-resources.md`](live-resources.md) § A.10). The **silent-and-compounding** half was added
+later, on evidence, and it covers a class the first half misses entirely: failures that are perfectly
+recoverable and that **nothing reports**, so the recovery never starts. The cost is not the failure;
+it is the interval between the failure and anyone noticing, multiplied by everything built on the
+false belief in between.
+
+**The two tests, asked in order:**
+
+1. **Can this act be undone?** If no — mechanism.
+2. **If it goes wrong, what tells anyone?** If the honest answer is *nothing*, or *a later reader who
+   happens to look* — mechanism, however recoverable the damage is. If something reports it loudly
+   and soon, a sentence is enough, and the sentence is cheaper forever.
+
+**Why the second half is not merely permitted but necessary.** The argument against it is that care
+should cover a recoverable failure. Measured against that: a defect class was documented, and then
+**the two people best informed about it in the repository both walked into it within five minutes of
+writing it down** — one while annotating the entry, one while verifying the annotation. The finding
+recorded at the time is the rule's real basis: *the trap does not require inattention, and **care is
+demonstrably not the cure**.* Where a failure is silent, the person best placed to catch it is the
+person least able to, because they are looking at the thing they just did.
+
+**And the counterweight, which is why this is a boundary and not a licence.** When a process fails,
+the instinct is to add process, and machinery accumulated in reaction to failures becomes
+indistinguishable from scar tissue to whoever inherits it
+([`subagent-control.md`](subagent-control.md) § C). At least one member of **this sheet's own § C
+catalogue** was correctly answered by documentation rather than machinery — a guard that fired on an
+honest report, working as designed, whose amendment was to name the exemption where reports are
+written. **A rule enforced by a new subsystem costs more forever than a rule stated once and
+followed**, so the burden of proof sits on the mechanism, and these two tests are how it is
+discharged.
+
+**The worked instance, and it is the added half's first payment.** A board mover's sync could leave a
+metadata commit reachable from no ref at all. **Nothing about it is irreversible** — the commit is
+recoverable from the reflog, and the donor project recovered one that way. Under an
+*irreversible-only* boundary, every guard for it would have been a sentence. What earned the
+mechanism was the second test: the tree is clean after the commit, so the dirty check cannot see it;
+the commit is not an ancestor of the ref, so the divergence arm reports **in sync ✓**; and the leg's
+own board note **truthfully** says the record was committed. **Nothing reports it, and every later
+reader believes the missing record is present.** That is the shape, exactly.
+
+**State which half you invoked, and why, in the change that invokes it.** A mechanism built without
+naming its half is a mechanism nobody can argue with later — and the two halves have different
+expiry: an act can stop being irreversible, and a silent failure can acquire a report, at which point
+the mechanism should be re-litigated rather than inherited.
+
+*This rule is stated here and nowhere else.* [`subagent-control.md`](subagent-control.md) § C and
+[`live-resources.md`](live-resources.md) § A.10 each argue one side of it from their own evidence and
+point here for the boundary; [`orchestration.md`](orchestration.md) § A.5 applies it. It sits in this
+sheet because the moment it binds is **while deciding how to fix something**, which is this sheet's
+subject.
+
 ### A.6 — A gate budgets a PROPERTY, never a machine
 
 A gate that asserts a **wall-clock** budget measures the host's load, not the property it exists to
@@ -317,8 +379,7 @@ authoring site, everything else derived from it, and a guard that bites when the
 should hold itself to the rule it enforces on the product.**
 
 > Note the last row before adopting that as a universal: at least one member of this very catalogue
-> was correctly answered by **documentation rather than machinery**. The kit's own boundary — *a
-> mechanism where the act is irreversible **or** the failure is silent and compounding, a sentence
-> everywhere else* — is what reconciles this closing line with
-> [`subagent-control.md`](subagent-control.md) § C's caution against accumulating process. Both were
-> paid for; neither is wrong inside its own scope.
+> was correctly answered by **documentation rather than machinery**. What reconciles this closing
+> line with [`subagent-control.md`](subagent-control.md) § C's caution against accumulating process
+> is **§ A.5b**, which states the boundary and owns it. Both sides of it were paid for; neither is
+> wrong inside its own scope.

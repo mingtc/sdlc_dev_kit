@@ -34,16 +34,32 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   always-on set is the checks that redden because of a change made *somewhere else*.
   *Why:* those are precisely the failures a caller-chosen subset is guaranteed to miss, so making
   them optional makes the narrowed mode actively misleading rather than merely weaker.
-- **Green is a state of the tree, never of a session.** The gate reads the working tree it is
-  pointed at and holds no memory of a previous run.
-  *Why:* a cached pass survives the change that broke it.
+- **Green is a state of the tree, never of a session** — and *session* includes **where the caller
+  was standing.** The gate reads the working tree it is pointed at, holds no memory of a previous
+  run, and **its verdict does not depend on the caller's working directory**: the same tree answers
+  the same way from the repository root, from a subdirectory, and from a linked worktree.
+  *Why:* a cached pass survives the change that broke it — and a verdict that depends on the
+  caller's location is the same defect with a shorter memory. The measured form is a declared gate
+  command carrying a **relative interpreter path**, which resolves against whichever root the runner
+  is standing in: it works in the main checkout, and the identical tree is unrunnable from a linked
+  worktree, **which is exactly where a trunk gate has to run.** A runner that cannot answer from
+  there does not have one canonical entrypoint; it has one per location.
 
 ## 3. REFUSAL CONDITIONS
 
 - Any check in the set fails ⇒ the whole gate is **red**, with the failing check named.
 - A check in the declared set **cannot be run at all** (its runner is missing, its inputs are
   absent) ⇒ **red**, never skipped-and-passed. An unrunnable check is an unknown, and an unknown
-  is not a pass.
+  is not a pass — **and it is reported as UNRUNNABLE, in its own word, distinctly from a check that
+  ran and failed.** Both are red; they are not the same fact, and the summary's counts separate
+  them.
+  *Why:* the pass direction is only half of this. A runner that spells "could not start" with the
+  same word it uses for "your tree is broken" is reporting on **itself** in the vocabulary reserved
+  for its **subject** — so the reader goes to debug a tree that may be perfectly healthy, and the
+  real cause (a missing interpreter, an unresolvable path) is the one thing the output does not say.
+  Red-but-indistinguishable satisfies the letter of this refusal and destroys its value.
+  *(The general rule is `process/doctrine/instruments.md` § A.9 — read-time: the instrument is
+  correct and its reader cannot tell which question it answered.)*
 - The caller asks for a narrowed run **and** for the full claim ⇒ refuse; the two cannot be the
   same output.
 - A named subset resolves to nothing ⇒ refuse, naming what did not match. Silently running zero
