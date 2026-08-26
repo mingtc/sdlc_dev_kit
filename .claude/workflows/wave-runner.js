@@ -1,7 +1,7 @@
 // KIT-CLASS: KIT — the two-wave parallel runner. Everything project-specific is in CFG below.
 export const meta = {
   name: 'wave-runner',
-  description: 'Run two waves of zero-overlap issues in parallel (args: {repo, wave1:[...], wave2:[...]}, same per-issue fields as tranche-runner plus worktreeMode + phase, including docsPath for the direct-to-trunk lite variant). One leg of each pair runs in a self-created worktree so pairs never contend for the main checkout; the board mover and the landing script serialize via the kanban worktree lock. Prompts, schemas, provisioning and the park-QA discipline mirror tranche-runner.js. The price of the parallelism: merge-conflict bounces are possible — assign zero-overlap surfaces per pair and SAY them in extraDev.',
+  description: 'Run two waves of zero-overlap issues in parallel (args: {repo, wave1:[...], wave2:[...]}, same per-issue fields as tranche-runner plus worktreeMode + phase, including docsPath for the direct-to-trunk lite variant). One leg of each pair runs in a self-created worktree so pairs never contend for the main checkout; the board mover and the landing script serialize via the kanban worktree lock. Prompts, schemas and provisioning mirror tranche-runner.js; the park-QA discipline mirrors it EXCEPT that a park this runner cannot verify halts the wave immediately, where tranche-runner grants one bounded fix round first — stated because a claim of mirroring is read as total. The price of the parallelism: merge-conflict bounces are possible — assign zero-overlap surfaces per pair and SAY them in extraDev.',
   phases: [
     { title: 'Wave1', detail: 'first parallel pair' },
     { title: 'Wave2', detail: 'second parallel pair' },
@@ -139,17 +139,32 @@ const PARK_SCHEMA = {
     // "ALWAYS false for a park — never a failure signal": the reason it gave was
     // right, and with a three-valued field it no longer needs to be an exception.
     landing: { enum: LANDING, description: 'ALWAYS not_applicable for a park — a park lands nothing' },
-    ac_walk: { type: 'string', description: 'the park claims verified/refuted with evidence' },
-    unmet_ac: { type: 'array', items: { type: 'string' } },
+    // `park_walk` / `unmet`, matching tranche-runner.js. These used to be `ac_walk`
+    // and `unmet_ac` here — the QA field names, reused for a park — so the same
+    // outcome came back under two different shapes depending on which runner
+    // produced it, and any consumer had to know which. A park review is not an AC
+    // walk; the honest names are the ones that describe what it checked. One
+    // vocabulary, projected — change 026's rule applied one level down.
+    park_walk: { type: 'string', description: 'the park claims verified/refuted with evidence' },
+    unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable' },
     gate_evidence: { type: 'string' },
     notes: { type: 'string' },
   },
-  required: ['verdict', 'landing', 'ac_walk', 'gate_evidence'],
+  required: ['verdict', 'landing', 'park_walk', 'gate_evidence'],
+}
+
+// See tranche-runner.js: an interpolated absent field prints "undefined" into the
+// brief as though it were an instruction. Where there is no binding gate, say so.
+function gatesOf(issue) {
+  return issue.gates ? String(issue.gates) : 'none declared for this issue — the suite alone is the bar here'
 }
 
 function devPrompt(issue, fixNotes) {
-  const chain = issue.depends_on.length
-    ? `DEPENDENCY CHAIN — VERIFY FIRST: this issue depends on ${issue.depends_on.join(', ')} being LANDED on ${CFG.trunk}. Before any work: git log --oneline --grep to confirm each predecessor's "→ qa_complete" landing commit exists on ${CFG.trunk} AND its issue file sits in progress/qa_complete/ or progress/done/. If any link is missing, STOP immediately: return status=blocked with the evidence. Never work past a missing chain.`
+  // Optional fields are defaulted, never assumed — `.length` on an absent
+  // `depends_on` throws and takes the whole wave down at its first issue.
+  const deps = Array.isArray(issue.depends_on) ? issue.depends_on : []
+  const chain = deps.length
+    ? `DEPENDENCY CHAIN — VERIFY FIRST: this issue depends on ${deps.join(', ')} being LANDED on ${CFG.trunk}. Before any work: git log --oneline --grep to confirm each predecessor's "→ qa_complete" landing commit exists on ${CFG.trunk} AND its issue file sits in progress/qa_complete/ or progress/done/. If any link is missing, STOP immediately: return status=blocked with the evidence. Never work past a missing chain.`
     : `This issue has no dependencies inside this wave.`
   const restart = issue.restartNote || ''
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
@@ -176,7 +191,7 @@ Return the structured result only.`
 function qaPrompt(issue) {
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
   const driftStep = CFG.goldenPaths && !issue.docsPath
-    ? `\n5. ZERO-DRIFT check: git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes.`
+    ? `\n5. ZERO-DRIFT check: git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes. REPORT THE PATHS THIS ACTUALLY MATCHED in gate_evidence. If it matched NOTHING, say so loudly and treat the step as NOT RUN — an empty match means this project's pinned output does not live at '${CFG.goldenPaths}', and a diff over nothing reads exactly like a clean diff.`
     : ''
   return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). You are the fresh-eyes reviewer; judge only the AC and the gates.
 ${COMMON}${wt}
@@ -184,7 +199,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
 1. Read the issue file in progress/dev_complete/ (its AC is the contract) and the linked PRD story.
 2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the [Dev] commits cited in the issue Activity/handoff.` : `Check out the branch ${issue.branch}${issue.worktreeMode ? ' in YOUR OWN worktree (see WORKTREE MODE)' : ' (git fetch, then git switch)'} and run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright.`}
 3. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence.
-4. Binding cross-cut gates for this issue: ${issue.gates}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
+4. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 6. Verdict — the four ratified tokens, from process/MANUAL.md § The Dev → QA handoff step 6, which is their one authoring site: PASS · PASS_AC_CORRECTED (the implementation is right and the AC's own illustration was wrong; correct it with the issue) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY — they are two different facts and this schema keeps them apart.
    On a pass (all AC + gates) → ${issue.docsPath ? `close it — ./scripts/move-issue.sh ${issue.id} qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is a true statement rather than a workaround.` : `land via ./scripts/finish-pr.sh ${issue.id} FROM THE MAIN REPO DIR, then set landing=landed only if that script COMPLETED. If you verified the change but deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred, and it is a SUCCESS: report it and do not downgrade the verdict to make it look like one.`}
    Append the progress.md QA line. On a fail → ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC>" and return FAIL_AC (an AC bullet is unmet) or FAIL_REGRESSION (previously-green behaviour broke). Do NOT fix code yourself.
@@ -195,7 +210,7 @@ Return the structured result only.`
 
 function parkPrompt(issue) {
   return `Wear the **QA hat** per .claude/roles/qa.md. Issue ${issue.id} was PARKED by its Dev (status=blocked). Verify THE PARK, not the feature: the issue sits in blocked/ with findings; the findings are evidence-backed and honestly scoped; the tree shows no half-landed residue (clean status, no stray branch); nothing in the park's claims is contradicted by the repo. Do not re-litigate whether parking was right — that is the PM's call. ${COMMON}
-Return the structured result only: verdict PASS if the park is TRUE and clean, FAIL otherwise; landed is ALWAYS false for a park.`
+Return the structured result only: the ratified verdict for whether the PARK is true, and landing=not_applicable — a park lands nothing, so that is the true value rather than an exception you are being granted. (This line used to say "landed is ALWAYS false"; change 026 replaced that boolean with the three-valued `landing` field, updated the schema beside it, and did not follow the rename into this brief — so the instruction named a field the schema no longer defines. The schema moved and the prose did not, which is the same divergence 026 exists to prevent, one layer over.)`
 }
 
 const results = []

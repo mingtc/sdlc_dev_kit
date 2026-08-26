@@ -4,7 +4,7 @@ export const meta = {
   description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that cannot verify halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
   phases: [
     { title: 'Dev', detail: 'one Dev-hat agent per issue, TDD on a work branch (or direct-to-trunk on the docs path); per-issue devModel + devEffort override', model: 'opus' },
-    { title: 'QA', detail: 'separate fresh-eyes QA-hat agent per issue; lands via the landing script; a park takes the same seam as a park-QA leg (verdict PASS/FAIL, landed always false) instead of closing unreviewed; per-issue qaModel + qaEffort override', model: 'opus' },
+    { title: 'QA', detail: 'separate fresh-eyes QA-hat agent per issue; lands via the landing script; a park takes the same seam as a park-QA leg (the ratified verdict set, landing always not_applicable) instead of closing unreviewed; per-issue qaModel + qaEffort override', model: 'opus' },
   ],
 }
 
@@ -138,14 +138,29 @@ const PARK_SCHEMA = {
     gate_evidence: { type: 'string', description: 'gate runner / check-board.sh / git state observed' },
     notes: { type: 'string' },
   },
-  required: ['verdict', 'landed', 'park_walk', 'gate_evidence'],
+  // `landing`, not `landed`: change 026 renamed this field in the properties above
+  // and did not follow it into `required` here, so the schema demanded a property it
+  // no longer defines — the validator would have asked every park leg for a field the
+  // brief never mentions. Wave's two `required` arrays were updated; this one was missed.
+  required: ['verdict', 'landing', 'park_walk', 'gate_evidence'],
+}
+
+// A brief that interpolates an absent field prints the literal string "undefined" as
+// if it were an instruction. Where there is no binding gate, SAY there is none — an
+// agent reading "binding gates: undefined" cannot tell a missing field from a real one.
+function gatesOf(issue) {
+  return issue.gates ? String(issue.gates) : 'none declared for this issue — the suite alone is the bar here'
 }
 
 function devPrompt(issue, fixNotes) {
   const role = issue.role || 'Dev'
   const roleDoc = role === 'Refactorer' ? '.claude/roles/refactorer.md' : '.claude/roles/dev.md'
-  const chain = issue.depends_on.length
-    ? `DEPENDENCY CHAIN — VERIFY FIRST: this issue depends on ${issue.depends_on.join(', ')} being LANDED on ${CFG.trunk}. Before any work: git log --oneline --grep to confirm each predecessor's "→ qa_complete" landing commit exists on ${CFG.trunk} AND its issue file sits in progress/qa_complete/ or progress/done/. If any link is missing, STOP immediately: return status=blocked with the evidence. Never work past a missing chain.`
+  // OPTIONAL FIELDS ARE DEFAULTED, NEVER ASSUMED. `depends_on` is documented optional
+  // in the args comment above, and `.length` on an absent one throws — which kills the
+  // whole run at the first issue that omits it, before any work happens.
+  const deps = Array.isArray(issue.depends_on) ? issue.depends_on : []
+  const chain = deps.length
+    ? `DEPENDENCY CHAIN — VERIFY FIRST: this issue depends on ${deps.join(', ')} being LANDED on ${CFG.trunk}. Before any work: git log --oneline --grep to confirm each predecessor's "→ qa_complete" landing commit exists on ${CFG.trunk} AND its issue file sits in progress/qa_complete/ or progress/done/. If any link is missing, STOP immediately: return status=blocked with the evidence. Never work past a missing chain.`
     : `This issue has no dependencies inside the tranche.`
   const workMode = issue.docsPath
     ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
@@ -183,7 +198,7 @@ Walk these, each with concrete evidence (file:line, a command + its result line)
 2. **Findings** — the write-up's verdict is evidence-backed and honestly scoped: every load-bearing claim is reproducible (re-run the cheap ones yourself), and what is UNMET is stated as unmet rather than smoothed over. A park that overclaims is a FAIL.
 3. **Residue** — nothing half-landed: git status clean, no stray branch left behind${issue.docsPath ? '' : ` (${issue.branch} must not exist unmerged unless the write-up says why)`}, no partial edit to a code path that the park does not own.
 4. **Contradiction** — nothing the park claims is contradicted by the tree as it stands.
-5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${issue.gates}.
+5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${gatesOf(issue)}.
 Verdict:
 - **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
 - **FAIL** — the park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.
@@ -193,7 +208,7 @@ Return the structured result only.`
 
 function qaPrompt(issue) {
   const driftStep = CFG.goldenPaths && !issue.docsPath
-    ? `\n6. ZERO-DRIFT check: git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes; byte-drift in pinned output → FAIL.`
+    ? `\n6. ZERO-DRIFT check: git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes; byte-drift in pinned output → FAIL. REPORT THE PATHS THIS ACTUALLY MATCHED in gate_evidence. If it matched NOTHING, say so loudly and treat the zero-drift step as NOT RUN — an empty match means this project's pinned output does not live at '${CFG.goldenPaths}', and a diff over nothing reads exactly like a clean diff.`
     : ''
   return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). You are the fresh-eyes reviewer; judge only the AC and the gates.
 ${COMMON}
@@ -202,7 +217,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
 2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the role-prefixed commits cited in the issue Activity/handoff.` : `git fetch, then git switch ${issue.branch} (from the issue's branch frontmatter).`}
 3. Run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright.
 4. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence (test name, diff, output).
-5. Binding cross-cut gates for this issue: ${issue.gates}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
+5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 7. Verdict:
    - The four ratified verdicts, from process/MANUAL.md § The Dev → QA handoff step 6 — their one authoring site: PASS · PASS_AC_CORRECTED (implementation right, the AC's own illustration wrong; correct it with the issue) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY: they are two different facts.
    - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
@@ -218,7 +233,11 @@ let halted = null
 for (const issue of ARGS.issues) {
   if (halted) { results.push({ id: issue.id, skipped: true, reason: `tranche halted at ${halted}` }); continue }
 
-  phase(`${issue.id}`)
+  // NO per-issue phase() here. Every agent below is already assigned to a DECLARED
+  // group by provision()'s `phase` argument ('Dev' / 'QA'), which is what meta.phases
+  // names. The global phase() call that used to sit here created one undeclared group
+  // per issue on top of that, so meta.phases described a shape the run never had —
+  // and a global phase inside a loop is the state opts.phase exists to avoid touching.
   log(`${issue.id}: Dev round starting`)
   // Call site 1 of 7 — Dev, fresh pickup.
   let dev = await agent(devPrompt(issue, null), provision(`dev:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
@@ -289,7 +308,11 @@ for (const issue of ARGS.issues) {
   // deferred. A deferred landing is continue-and-defer; only a failed REVIEW halts.
   if (!qa || !isPass(qa.verdict)) {
     halted = issue.id
-    results.push({ id: issue.id, outcome: 'PARKED_AFTER_FIX_ROUND', dev, qa })
+    // FAILED, not PARKED. A QA failure after the bounded fix round leaves the issue in
+    // in_progress/ — it is not parked, and calling it PARKED made a run summary report a
+    // sanctioned close where there was an unfinished issue. wave-runner.js has always
+    // used the honest name; this is the two runners agreeing rather than a new word.
+    results.push({ id: issue.id, outcome: 'FAILED_AFTER_FIX_ROUND', dev, qa })
     continue
   }
   // A pass that did not land is still a pass, and the tranche continues — but the
