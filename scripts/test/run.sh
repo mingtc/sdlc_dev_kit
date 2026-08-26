@@ -249,14 +249,23 @@ _fixture_die() {
   exit 1
 }
 
+# Declare ONE gate record in the sandbox's copy of verify.sh. Self-asserting, and
+# the single place the GATES anchor is written — _declare_sandbox_gate and every case
+# that needs a bespoke gate go through here rather than repeating the perl.
+# <record> is the bare `name|class|command…` text; the quoting and indent are added.
+_declare_gate() {
+  local rec_body="$1" v="$SB_WORK/scripts/verify.sh" rec
+  rec="  \"$rec_body\""
+  grep -qE '^GATES=\($' "$v" \
+    || _fixture_die "_declare_gate: no '^GATES=(' line in the sandbox's verify.sh — the anchor moved, so gate '$rec_body' was NOT declared and anything downstream would run against an empty, REFUSING gate runner."
+  REC="$rec_body" perl -i -pe '$_ .= "  \"$ENV{REC}\"\n" if /^GATES=\($/' "$v"
+  grep -qxF "$rec" "$v" \
+    || _fixture_die "_declare_gate: '$rec_body' is not in verify.sh after the insert."
+}
+
 # Insert one always-green `select` gate into the sandbox's copy of verify.sh.
 _declare_sandbox_gate() {
-  local v="$SB_WORK/scripts/verify.sh" rec='  "sandbox gate|select|/bin/echo sandbox-gate-green"'
-  grep -qE '^GATES=\($' "$v" \
-    || _fixture_die "_declare_sandbox_gate: no '^GATES=(' line in the sandbox's verify.sh — the anchor moved, so no gate was declared and every landing case would run against an empty, REFUSING gate runner."
-  perl -i -pe '$_ .= "  \"sandbox gate|select|/bin/echo sandbox-gate-green\"\n" if /^GATES=\($/' "$v"
-  grep -qxF "$rec" "$v" \
-    || _fixture_die "_declare_sandbox_gate: the sandbox gate record is not in verify.sh after the insert."
+  _declare_gate 'sandbox gate|select|/bin/echo sandbox-gate-green'
 }
 
 # =============================================================================
@@ -1484,6 +1493,116 @@ case_check_board_main_checkout_unpushed() {
   teardown
 }
 
+# =============================================================================
+# CASE — UNRUNNABLE IS NOT FAIL, AND `ran` EXCLUDES IT.
+#
+# verify.sh has four result states: PASS, FAIL, SKIP and UNRUNNABLE. The fourth
+# exists because `127` (command not found) and `126` (found, not executable) are
+# statements about the RUNNER'S ENVIRONMENT, not verdicts about the subject — the
+# gate never executed, so nothing was measured. Spelling that FAIL sends a reader to
+# debug a tree that may be perfectly fine.
+#
+# WHY THIS CASE EXISTS AT ALL: the change that added the state was proven in a
+# scratch directory that no longer exists, and the implementing leg said so rather
+# than letting it ship quiet — by instruments.md § B that makes it unproven, not
+# passing. It could not write the case because this file is owned elsewhere. This
+# discharges that.
+#
+# TWO ASSERTIONS EARN THEIR KEEP, AND BOTH ARE THE SECOND DIRECTION:
+#   • `FAIL <gate>` must be ABSENT for an unrunnable gate. Asserting UNRUNNABLE is
+#     present cannot catch a regression that emits BOTH, or that re-merges the
+#     states — and re-merging is what happened once during the change itself.
+#   • `ran:` must EXCLUDE the unrunnable. The first implementation printed `ran: 3`
+#     when one of three never ran, so the count line contradicted its own per-gate
+#     lines. Review did not catch it; running it did.
+# Both are held here in the direction that fails when the states collapse.
+# =============================================================================
+case_verify_unrunnable_vs_fail() {
+  cf_reset
+  make_sandbox
+  # Ship-state first: make_sandbox declares its own always-green gate, and this case
+  # needs to control the whole table.
+  _neu_array "$SB_WORK/scripts/verify.sh" GATES
+  # THE FAILING GATE IS A SANDBOX-LOCAL SCRIPT, NOT `/bin/false`, and that is not
+  # fussiness. `/bin/false` does not exist on every platform this kit has to run on
+  # (measured: absent on darwin, where it is /usr/bin/false), and an absent command
+  # returns 127 — so a portability slip in THIS FIXTURE is indistinguishable from the
+  # defect the case exists to detect. A script the sandbox writes and chmod +x's has
+  # no PATH dependency at all. Same reasoning as the non-executable fixture below,
+  # one bit apart.
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/failing-gate"
+  chmod +x "$SB_WORK/failing-gate"
+  _declare_gate 'green|core|/bin/echo gate-ran-green'
+  _declare_gate 'broken|core|./failing-gate'
+  _declare_gate 'missing-interp|core|/nonexistent-dir-for-the-harness/interpreter'
+  publish_sandbox
+
+  local v="$SB_WORK/scripts/verify.sh" out rc counts
+  out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
+
+  # A red run, and red for a reason that includes an unknown.
+  [ "$rc" -ne 0 ] || cf "verify.sh exited 0 with a failing gate and an unrunnable one: $out"
+
+  # --- the three states, each present in its OWN vocabulary ------------------
+  printf '%s\n' "$out" | grep -q '^PASS  green$' \
+    || cf "no 'PASS  green' line — the runnable-and-green gate is not reported: $out"
+  printf '%s\n' "$out" | grep -q '^FAIL  broken (rc=1)$' \
+    || cf "no 'FAIL  broken (rc=1)' line — a genuinely failing gate must still say FAIL: $out"
+  printf '%s\n' "$out" | grep -q '^UNRUNNABLE  missing-interp ' \
+    || cf "no 'UNRUNNABLE  missing-interp' line — the fourth state is not being reported: $out"
+  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' | grep -q 'rc=127' \
+    || cf "the UNRUNNABLE line does not carry rc=127: $(printf '%s\n' "$out" | grep '^UNRUNNABLE')"
+  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' | grep -qi 'NOTHING was measured' \
+    || cf "the UNRUNNABLE line does not say nothing was measured — the label alone leaves the reader to guess: $(printf '%s\n' "$out" | grep '^UNRUNNABLE')"
+
+  # --- THE SECOND DIRECTION: the states must not have collapsed either way ---
+  printf '%s\n' "$out" | grep -q '^FAIL  missing-interp' \
+    && cf "the unrunnable gate ALSO produced a 'FAIL' line — the two states are merged, which is the whole defect this change closes: $out"
+  printf '%s\n' "$out" | grep -q '^UNRUNNABLE  broken' \
+    && cf "a genuinely FAILING gate was labelled UNRUNNABLE — the states are merged in the other direction, and a real red now reads as an environment problem: $out"
+
+  # --- the count line, and `ran` EXCLUDING the unrunnable --------------------
+  counts="$(printf '%s\n' "$out" | grep '^gates declared:' || true)"
+  [ -n "$counts" ] || cf "no 'gates declared:' count line — verify-gate.md § 4: a pass with no count is an assertion, not a measurement: $out"
+  printf '%s' "$counts" | grep -q 'gates declared: 3' || cf "the count line does not report 3 declared gates: $counts"
+  printf '%s' "$counts" | grep -q 'ran: 2' \
+    || cf "REGRESSION — 'ran' does not exclude the unrunnable gate (expected 'ran: 2' of 3 declared). The count line is re-merging the two states the per-gate lines separate: $counts"
+  printf '%s' "$counts" | grep -q 'passed: 1'        || cf "the count line does not report 1 passed: $counts"
+  printf '%s' "$counts" | grep -q 'failed: 1'        || cf "the count line does not report 1 failed: $counts"
+  printf '%s' "$counts" | grep -q 'could not run: 1' || cf "the count line does not report 1 could-not-run: $counts"
+  printf '%s' "$counts" | grep -q 'skipped: 0'       || cf "the count line does not report 0 skipped: $counts"
+  # And the block says what an unrunnable gate MEANS, since a reader quotes this block.
+  printf '%s\n' "$out" | grep -qi 'UNKNOWN, not a measured failure' \
+    || cf "the summary does not say the unrunnable gate is an UNKNOWN rather than a failure: $out"
+
+  # --- rc=126 is the same state: found, but not executable ------------------
+  # The implementation claims {126,127}, so both are held. A file that exists and is
+  # not executable is the other half, and it is the half a chmod regression breaks.
+  _neu_array "$v" GATES
+  printf '#!/usr/bin/env bash\necho should-never-run\n' > "$SB_WORK/not-executable-gate"
+  chmod 0644 "$SB_WORK/not-executable-gate"
+  _declare_gate 'green|core|/bin/echo gate-ran-green'
+  _declare_gate 'not-exec|core|./not-executable-gate'
+  publish_sandbox
+  out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
+  if printf '%s\n' "$out" | grep -q '^UNRUNNABLE  not-exec '; then
+    printf '%s\n' "$out" | grep '^UNRUNNABLE  not-exec ' | grep -q 'rc=126' \
+      || cf "the non-executable gate is UNRUNNABLE but not at rc=126: $(printf '%s\n' "$out" | grep '^UNRUNNABLE')"
+    printf '%s\n' "$out" | grep -q '^FAIL  not-exec' \
+      && cf "the non-executable gate produced BOTH UNRUNNABLE and FAIL: $out"
+    printf '%s\n' "$out" | grep '^gates declared:' | grep -q 'ran: 1' \
+      || cf "'ran' does not exclude the rc=126 gate: $(printf '%s\n' "$out" | grep '^gates declared:')"
+    [ "$rc" -ne 0 ] || cf "verify.sh exited 0 with an unrunnable gate — finish-pr treats a green --quick as a landing precondition: $out"
+  else
+    # Not every shell/platform returns 126 here. That is an environment fact, not a
+    # defect, and it is reported as one rather than quietly passing or failing.
+    skp "verify.sh: rc=126 (found, not executable) is UNRUNNABLE" "this platform did not produce rc=126 for a non-executable gate command; the rc=127 half is asserted in the case above"
+  fi
+
+  finish "verify.sh: UNRUNNABLE is reported for rc=127 and is NOT also FAIL, a real failure is still FAIL and NOT unrunnable, and the count line's 'ran' EXCLUDES the gate that never executed"
+  teardown
+}
+
 case_check_board_reads_the_ref() {
   cf_reset
   make_sandbox
@@ -2647,6 +2766,7 @@ CASES=(
   case_trunk_fallback_warns
   case_archive_progress_sections
   case_verify_frame
+  case_verify_unrunnable_vs_fail
   case_check_board_id_clean
   case_check_board_id_duplicate
   case_check_board_id_mismatch
