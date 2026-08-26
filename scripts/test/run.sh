@@ -233,6 +233,32 @@ EOF
 #     anchor plus the postcondition is strictly stronger: it fails when the anchor
 #     moves (the silent-no-op class) AND when the reset did not take, and it holds
 #     whether or not work was needed.
+#
+# AND ONE QUESTION TO ASK OF EVERY CASE AND EVERY GUARD IN THIS FILE, MECHANICALLY,
+# RATHER THAN WHEN SOMEBODY HAPPENS TO BE RESTRUCTURING ONE:
+#
+#     WHERE DOES EACH OPERAND ACTUALLY COME FROM — AND IS IT THE SAME TREE,
+#     THE SAME MOMENT, AND THE SAME AUTHORITY AS THE OTHERS?
+#
+# It is not a style question. Every one of these was found by asking it, and none of
+# them was found by reading the guard's logic, which was correct in all three:
+#   • A prefix-scan guard drew its VOCABULARY from a working-tree file and its
+#     SUBJECTS from the trunk — two operands, two trees, two moments. It would have
+#     accepted a branch's newly-added role on trunk commits that predated it. Green
+#     for a reason unrelated to correctness.
+#   • A fixture declared a failing gate as an absolute path that does not exist on
+#     every platform. An absent command exits 127, which is the code the case existed
+#     to distinguish — so a portability slip in the CONTROL was indistinguishable from
+#     the defect under test, and only asserting the OTHER direction separated them.
+#   • An index entry's field order looked free until it turned out another script
+#     READS that entry's leading token to avoid re-minting a retired id. The operand
+#     had a second consumer nobody had named.
+#   • And this file's own isolation case compares two snapshots of a tree it does not
+#     own exclusively — so its operand is shared, and the only honest report names
+#     that rather than attributing the change.
+#
+# The doctrine form of this belongs in process/doctrine/instruments.md beside the
+# guard-strength family, not here; this is the harness's local copy of the question.
 # =============================================================================
 
 # A fixture that did not take aborts the run. Loudly, naming what it could not do.
@@ -776,6 +802,133 @@ case_archive_apply() {
 # CASE — archive.sh --apply from a FEATURE BRANCH leaves that branch's tree clean
 # (it routes through .kanban-wt, never the operator's checkout).
 # =============================================================================
+# =============================================================================
+# CASE — THE ARCHIVE INDEX CARRIES A RETIREMENT DATE (046, both directions).
+#
+# archive-sweep.md § 2: "Every retired item gains an INDEX entry ... carrying at
+# least its identifier, its title and its RETIREMENT DATE." The entry carried the
+# first two, so the index answered *what* was archived and never *when* — the one
+# question a retention policy asks of it.
+#
+# BOTH DIRECTIONS, because the first alone proves the line RUNS, not that it DOES
+# ANYTHING: with the date write ablated out, the assertion must fail. A control that
+# cannot fail is not a control, and this harness has already caught one of mine that
+# could not (a fixture whose own portability slip was indistinguishable from the
+# defect under test).
+# =============================================================================
+case_archive_index_carries_the_date() {
+  cf_reset
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-250" dated chore "Dated retirement"
+  publish_sandbox
+
+  local out rc entry today
+  today="$(date +%Y-%m-%d)"
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "archive.sh --apply exited $rc: $out"
+  entry="$(grep "$SB_PREFIX-250" "$SB_WORK/ARCHIVE.md" || true)"
+  [ -n "$entry" ] || cf "$SB_PREFIX-250 was not indexed at all: $(cat "$SB_WORK/ARCHIVE.md")"
+  printf '%s' "$entry" | grep -qE 'retired [0-9]{4}-[0-9]{2}-[0-9]{2}' \
+    || cf "the index entry carries no retirement date — § 2 requires the date beside the id and title: $entry"
+  printf '%s' "$entry" | grep -q "retired $today" \
+    || cf "the retirement date is not today's ($today): $entry"
+  # The id stays the FIRST token: next-id.sh documents these entries as
+  # `- <PREFIX>-NNN …` and reads them so a new mint cannot collide with an archived
+  # id. If the date ever migrates to the front, that convention breaks silently and
+  # a re-minted id is the symptom, a long way from the cause.
+  printf '%s' "$entry" | grep -qE "^- $SB_PREFIX-250 " \
+    || cf "the entry no longer begins '- $SB_PREFIX-250 ' — next-id.sh reads this shape to avoid re-minting an archived id: $entry"
+  # THE PREVIEW AND THE APPLIED ENTRY MUST AGREE. They are built from one string in
+  # the script; this holds that true from outside, because a preview that understates
+  # what will be written is how a bulk irreversible op gets approved.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the dry run exited $rc: $out"
+
+  # --- ABLATION: remove the date write and the assertion above must fail -----
+  local a_script="$SB_WORK/scripts/archive.sh" n
+  n="$(grep -c 'ENTRY="${ENTRY} — retired ${RETIRED_ON}"' "$a_script" || true)"
+  if [ "$n" != "1" ]; then
+    cf "(control) expected exactly 1 date-append line in archive.sh to ablate, found $n — the anchor moved and this ablation proves nothing"
+  else
+    make_sandbox
+    seed_issue qa_complete "$SB_PREFIX-251" ablated chore "Ablated retirement"
+    perl -i -ne 'print unless /^\s*ENTRY="\$\{ENTRY\} — retired \$\{RETIRED_ON\}"\s*$/' "$SB_WORK/scripts/archive.sh"
+    grep -q 'retired ${RETIRED_ON}' "$SB_WORK/scripts/archive.sh" \
+      && cf "(control) the ablation did not remove the date write"
+    bash -n "$SB_WORK/scripts/archive.sh" || cf "(control) the ablated archive.sh no longer parses"
+    publish_sandbox
+    out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(control) the ablated archive.sh exited $rc — the ablation broke more than the date: $out"
+    entry="$(grep "$SB_PREFIX-251" "$SB_WORK/ARCHIVE.md" || true)"
+    printf '%s' "$entry" | grep -qE 'retired [0-9]{4}-[0-9]{2}-[0-9]{2}' \
+      && cf "(control) the ABLATED script still produced a retirement date — the assertion above is not measuring the date write: $entry"
+  fi
+
+  finish "archive.sh: the index entry carries its retirement date (§ 2) with the id still leading, preview and apply agree, and the assertion fails when the date write is ablated"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE RETIRED STORE IS REQUIRED, NOT MANUFACTURED (046, both directions).
+#
+# archive-sweep.md § 3: "The retired store or the index is missing ⇒ refuse; do not
+# create an index on the fly." The script honoured that for the index and `mkdir -p`'d
+# the store — so it manufactured the board topology it was operating within, and
+# because board-mover.md's first invariant is "the container IS the status", an
+# invented container is an invented status. A mistyped or renamed column became a new
+# column holding real retired work.
+#
+# BOTH DIRECTIONS: the refusal must fire AND MUST CREATE NOTHING, and a board that
+# does have the column must still archive normally — otherwise the fix is an
+# unconditional refusal, which passes the first assertion and breaks the tool.
+# =============================================================================
+case_archive_requires_the_retired_store() {
+  cf_reset
+
+  # --- (i) the store is ABSENT: refuse, and create nothing -------------------
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-260" nostore chore "No retired store"
+  rm -rf "$SB_WORK/progress/done"
+  publish_sandbox
+  [ ! -d "$SB_WORK/progress/done" ] \
+    || cf "(control) progress/done/ still exists locally — the premise of half (i) does not hold"
+
+  local out rc kwt_done
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) archive.sh --apply SUCCEEDED with no progress/done/ — it manufactured the column: $out"
+  printf '%s\n' "$out" | grep -qi 'progress/done' \
+    || cf "(i) the refusal does not name the absent store: $out"
+  printf '%s\n' "$out" | grep -qi 'REFUSING' \
+    || cf "(i) the message does not say it is refusing: $out"
+  printf '%s\n' "$out" | grep -q '\.gitkeep' \
+    || cf "(i) the refusal does not print the deliberate creation recipe (a bare refusal leaves the operator to invent one, and an empty dir does not survive a clone): $out"
+  # AND IT CREATED NOTHING — the assertion that separates "refused" from "refused
+  # after doing the thing". Checked in the kanban worktree too, which is where this
+  # script actually operates and therefore where a stray mkdir would land.
+  kwt_done="$SB_WORK/.kanban-wt/progress/done"
+  [ ! -d "$SB_WORK/progress/done" ] || cf "(i) the refusal still created progress/done/ in the checkout"
+  [ ! -d "$kwt_done" ] || cf "(i) the refusal still created progress/done/ inside the kanban worktree"
+  [ -f "$SB_WORK/progress/qa_complete/$SB_PREFIX-260-nostore.md" ] \
+    || cf "(i) the card left qa_complete/ during a refusal"
+  teardown
+
+  # --- (ii) the store is PRESENT: archive normally ---------------------------
+  # Without this the fix could be an unconditional refusal and half (i) would still
+  # pass. It is the same shape as the UNRUNNABLE case's second direction.
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-261" hasstore chore "Has retired store"
+  [ -d "$SB_WORK/progress/done" ] || cf "(control) the sandbox has no progress/done/ — half (ii) cannot test the happy path"
+  publish_sandbox
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(ii) archive.sh --apply exited $rc on a board that HAS done/ — the refusal is unconditional: $out"
+  [ -f "$SB_WORK/progress/done/$SB_PREFIX-261-hasstore.md" ] \
+    || cf "(ii) the card was not moved into done/: $out"
+  grep -q "$SB_PREFIX-261" "$SB_WORK/ARCHIVE.md" || cf "(ii) the card was not indexed: $out"
+
+  finish "archive.sh: an absent retired store REFUSES, names it, prints the .gitkeep creation recipe and creates nothing (checkout and kanban worktree both) — while a board that has done/ still archives normally"
+  teardown
+}
+
 case_archive_feature_branch_clean() {
   cf_reset
   make_sandbox
@@ -2495,7 +2648,7 @@ assert_release_unmutated() {
   origin_file_contains "VERSION" '1.0.0' || cf "a version bump reached the remote despite an aborted preflight"
 }
 run_release() {  # <version> [extra args…]
-  ( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true \
+  ( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
       RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
       "$SB_WORK/scripts/release.sh" "$@" 2>&1 )
 }
@@ -2582,7 +2735,7 @@ case_release_preflight_gates() {
 
   # (b) verify.sh red
   make_sandbox; seed_release_files 1.1.0; publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
-  out="$( cd "$SB_WORK" && RELEASE_VERIFY_CMD=false RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=false RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(verify-red) expected nonzero, got 0"
   assert_release_unmutated
@@ -2601,7 +2754,7 @@ case_release_preflight_gates() {
 
   # (d) board drift
   make_sandbox; seed_release_files 1.1.0; publish_sandbox; write_board_stub "$SB_TMP/board-drift.sh" drift
-  out="$( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-drift.sh" \
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-drift.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(board-drift) expected nonzero, got 0"
   assert_release_unmutated
@@ -2709,7 +2862,7 @@ enable_publish() {
   rel_insert DIST_DOCS '"NOTES.md|sandbox-NOTES.md"'
 }
 run_release_publish() {  # <version> [extra args…]
-  ( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true \
+  ( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
       RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
       RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" \
       "$SB_WORK/scripts/release.sh" "$@" 2>&1 )
@@ -2859,6 +3012,68 @@ case_release_publish_recovery() {
   finish "release.sh publish failure: tag intact + on the remote, no half-published branch, the named --publish-only retry exists and works, and --publish-only --dry-run pushes NOTHING (ref hash unchanged, control-proven)"
 }
 
+# =============================================================================
+# CASE — A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER (009).
+#
+# self-test-harness.md § 2: "a test-only relaxation of a production rule is reachable
+# ONLY behind an explicit marker that no production caller sets."
+#
+# RELEASE_VERIFY_CMD and RELEASE_BOARD_CMD override the two gates that decide whether
+# a cut may happen at all. Unmarked, `RELEASE_VERIFY_CMD=true ./scripts/release.sh
+# 1.1.0` cut a release with the verify gate silently skipped — not a weaker gate, no
+# gate. finish-pr.sh grew exactly this refusal after a fabricated `echo PASS; exit 0`
+# stub was used in earnest to force a landing through a red suite; release.sh got the
+# same seams and never the marker. **The incident's fix was applied to one sibling and
+# not the other**, which is the whole of 009.
+#
+# BOTH DIRECTIONS, and the second is the one that keeps the harness itself honest:
+#   (i)  unmarked → refuse, before anything is written (no tag, no bump, HEAD still);
+#   (ii) marked   → honored, which is what every other release case in this file
+#        depends on. If the refusal became unconditional, (i) would still pass and
+#        the whole release family would break — so (ii) is asserted here rather than
+#        left implicit in cases whose subject is something else.
+# =============================================================================
+case_release_stub_marker() {
+  cf_reset
+  if ! has_release; then skp "release.sh: gate-stubbing seams require the test-only marker" "scripts/release.sh absent"; return; fi
+  make_sandbox
+  seed_release_files 1.1.0
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  publish_sandbox
+
+  local out rc before
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+
+  # --- (i) UNMARKED: each seam alone must be refused, and write nothing -------
+  out="$( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) RELEASE_VERIFY_CMD was honored with NO marker — an unmarked caller can skip the verify gate on a production cut: $out"
+  printf '%s\n' "$out" | grep -q 'RELEASE_TEST_ALLOW_STUB' \
+    || cf "(i) the refusal does not name the marker it requires: $out"
+  printf '%s\n' "$out" | grep -q 'NOTHING WAS WRITTEN' \
+    || cf "(i) the refusal does not state that nothing was written: $out"
+
+  out="$( cd "$SB_WORK" && RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) RELEASE_BOARD_CMD was honored with NO marker — the board-truth gate is stubbable on a production cut: $out"
+
+  # Refused means refused: no tag, no version bump, HEAD unmoved, tree clean.
+  [ -z "$(git -C "$SB_WORK" tag -l v1.1.0)" ] || cf "(i) a tag was created during a refusal"
+  grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(i) VERSION was bumped during a refusal: $(cat "$SB_WORK/VERSION")"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "(i) HEAD moved during a refusal"
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "(i) the tree was modified during a refusal"
+
+  # --- (ii) MARKED: honored, so the refusal has not become unconditional ------
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
+            RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
+            "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(ii) the MARKED invocation was refused too — the refusal is unconditional and every release case in this file depends on the seam: $out"
+  grep -qx '1.1.0' "$SB_WORK/VERSION" || cf "(ii) the marked cut did not bump VERSION: $out"
+  [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" = "tag" ] \
+    || cf "(ii) the marked cut produced no annotated tag: $out"
+
+  finish "release.sh: RELEASE_VERIFY_CMD / RELEASE_BOARD_CMD are REFUSED without RELEASE_TEST_ALLOW_STUB=1 (no tag, no bump, HEAD still, tree clean) and honored with it"
+  teardown
+}
+
 case_release_bash_n() {
   cf_reset
   if ! has_release; then skp "release.sh bash -n" "scripts/release.sh absent"; return; fi
@@ -2890,7 +3105,7 @@ case_release_spaced_path() {
   publish_sandbox
 
   # RELEASE_BOARD_CMD deliberately UNSET → the default path, from a spaced dir.
-  out="$( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] \
     || cf "release.sh aborted from a spaced repo path (the board gate word-split on the space?): rc=$rc: $out"
   grep -qx '1.1.0' "$SB_WORK/VERSION" || cf "the spaced-path cut did not complete"
@@ -3040,18 +3255,39 @@ isolation_snapshot() {
   REAL_HEAD_BEFORE="$(git -C "$REAL_REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "(no HEAD yet)")"
   REAL_STATUS_BEFORE="$(_board_status)"
 }
+# THIS CASE REPORTS WHAT IT MEASURED, NOT WHO DID IT — and the difference cost a
+# diagnostic detour the day it was found. It compares two snapshots of a tree it does
+# NOT own exclusively, so a difference means "this changed between t0 and t1" and
+# nothing more. It said "the harness added a mutation", and the harness had not: a
+# concurrent session was mid-edit in a board script while the run was in flight. The
+# tree was clean at t0, so the detection was exactly right; only the attribution was
+# invented. The reader was sent to debug the harness's isolation — the one thing the
+# evidence did not implicate — and the first reading was that a landing had broken
+# the witness, which is materially more alarming than "another window is editing a
+# file".
+#
+# THE AMBIGUITY IS IRREDUCIBLE FROM IN HERE, so the output names it rather than
+# resolving it. Recording the tree state at run start does not help and is already
+# done — REAL_STATUS_BEFORE is that snapshot, and the comparison below is already a
+# delta, so "appeared during the run" is already distinguished from "was already
+# dirty". What no snapshot of a tree can distinguish is WHO WROTE: "the harness wrote
+# it" and "a peer wrote it" are both just "the path differs between t0 and t1".
+# Separating them needs an observation of authorship this process has no way to make.
+# So per instruments.md § A.4 the case names its own blind spot in its own output.
 case_isolation() {
   cf_reset
   local after status_after
   after="$(git -C "$REAL_REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "(no HEAD yet)")"
-  [ "$after" = "$REAL_HEAD_BEFORE" ] || cf "the real repo's HEAD moved during the run"
+  [ "$after" = "$REAL_HEAD_BEFORE" ] \
+    || cf "the real repo's HEAD MOVED during the run ($REAL_HEAD_BEFORE → $after). This harness never commits, so the likely cause is a concurrent session landing work in this checkout; a harness that somehow committed is the other, far less likely, candidate"
   # Compare the DELTA, not absolute cleanliness: a pre-existing dirty tree (e.g.
-  # uncommitted board-script edits under active development) is fine — the harness
-  # must simply not ADD any mutation to a board surface during a run.
+  # uncommitted board-script edits under active development) is fine — a board
+  # surface must simply not CHANGE during a run.
   status_after="$(_board_status)"
-  [ "$status_after" = "$REAL_STATUS_BEFORE" ] \
-    || cf "the harness added a mutation to a board surface during the run: $status_after"
-  finish "isolation: the real repo's HEAD + board surfaces untouched by the run"
+  if [ "$status_after" != "$REAL_STATUS_BEFORE" ]; then
+    cf "a board surface CHANGED during the run — two candidates, and this case cannot tell them apart: (1) the harness broke its own isolation and wrote outside its sandbox, or (2) something else wrote to this checkout while the run was in flight (a concurrent session, an editor, a watcher). Before/after status follows. If a peer holds this checkout, (2) is the likely one and the run's SKIP profile is also unreliable — re-measure on a quiet tree or a built kit. BEFORE: [${REAL_STATUS_BEFORE:-clean}] AFTER: [${status_after:-clean}]"
+  fi
+  finish "isolation: the real repo's HEAD + board surfaces unchanged across the run (attribution is out of scope — see the case's note)"
 }
 
 # =============================================================================
@@ -3089,6 +3325,8 @@ CASES=(
   case_finish_pr_empty_merge
   case_finish_pr_gate_hardening
   case_archive_apply
+  case_archive_index_carries_the_date
+  case_archive_requires_the_retired_store
   case_archive_feature_branch_clean
   case_config_seam_refusal
   case_next_id
@@ -3120,6 +3358,7 @@ CASES=(
   case_release_happy
   case_release_guards
   case_release_preflight_gates
+  case_release_stub_marker
   case_release_doc_arms
   case_release_publish
   case_release_publish_recovery

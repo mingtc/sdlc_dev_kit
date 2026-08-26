@@ -47,8 +47,13 @@
 #        SUCCEEDED, never rolls back the tag, and names `--publish-only` as the retry.
 #
 # TEST SEAMS (used by scripts/test/run.sh's sandbox cases; leave unset in real use):
+#   RELEASE_TEST_ALLOW_STUB=1  THE MARKER THE TWO GATE-STUBBING SEAMS BELOW REQUIRE.
+#                        Set by scripts/test/run.sh and by nothing else. Without it,
+#                        supplying either command below is REFUSED before any gate runs.
 #   RELEASE_VERIFY_CMD   overrides gate b's command (default: scripts/verify.sh)
+#                        — requires RELEASE_TEST_ALLOW_STUB=1
 #   RELEASE_BOARD_CMD    overrides gate d's command (default: scripts/check-board.sh)
+#                        — requires RELEASE_TEST_ALLOW_STUB=1
 #   RELEASE_BUILD_CMD    overrides the publish build command (see BUILD_COMMAND)
 #   RELEASE_DIST_BRANCH  overrides the distribution branch name
 #   RELEASE_REMOTE       push remote                (default: origin)
@@ -199,6 +204,41 @@ fi
 
 REMOTE="${RELEASE_REMOTE:-origin}"
 ROLE="${RELEASE_ROLE:-Architect}"
+
+# ── Preflight -1 (gate 0): A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER. ─
+# `self-test-harness.md` § 2: "a test-only relaxation of a production rule is
+# reachable ONLY behind an explicit marker that no production caller sets."
+#
+# The two seams below override the two gates that decide whether this cut is allowed
+# to happen at all — gate b (verify.sh green) and gate d (the board is truthful).
+# Unmarked, `RELEASE_VERIFY_CMD=true ./scripts/release.sh 1.1.0` cuts a release with
+# the verify gate silently skipped, which is not a weaker gate but NO gate.
+#
+# THE HOLE WAS LEARNED BY INCIDENT, ON THE SIBLING. `landing-gate.md` § 2 records a
+# fabricated `echo PASS; exit 0` stub being pointed at through the equivalent seam to
+# force a landing through a red suite — and finish-pr.sh grew this exact refusal in
+# response. release.sh received the same stub seams, because the harness needs them,
+# and never the marker: **the incident's fix was applied to one sibling and not the
+# other.** That is the whole defect, and it is why this is the FIRST thing checked
+# rather than a note beside the gates.
+#
+# Deliberately placed before Preflight 0, so an illegitimate invocation is refused
+# before this script reads anything, resolves anything, or runs a gate.
+if [ "${RELEASE_TEST_ALLOW_STUB:-}" != "1" ] \
+   && { [ -n "${RELEASE_VERIFY_CMD:-}" ] || [ -n "${RELEASE_BOARD_CMD:-}" ]; }; then
+  {
+    echo "release.sh: refusing a caller-supplied gate command on the production release path."
+    echo "       RELEASE_VERIFY_CMD / RELEASE_BOARD_CMD override the two gates that decide"
+    echo "       whether this cut may happen — the verify gate and the board-truth gate — so"
+    echo "       an unmarked override does not weaken a gate, it removes one."
+    echo "       They are honored ONLY behind the test-only marker RELEASE_TEST_ALLOW_STUB=1,"
+    echo "       which scripts/test/run.sh sets and no production caller ever sets."
+    echo "       If a gate is genuinely wrong for this project, change what it RUNS"
+    echo "       (verify.sh's GATES table, PREFLIGHT_GATES) rather than replacing the runner."
+    echo "       NOTHING WAS WRITTEN."
+  } >&2
+  exit 1
+fi
 
 # ── Preflight 0: the target parses as X.Y.Z semver ───────────────────────────
 NUM="${RAW_VERSION#v}"                     # strip an optional leading "v"

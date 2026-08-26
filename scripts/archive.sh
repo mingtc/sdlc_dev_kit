@@ -160,6 +160,28 @@ for f in "${FILES[@]}"; do
   PRD=$(awk '/^prd:/{print $2; exit}' "$f")
   STORIES=$(awk '/^stories:/{sub(/^stories: */, ""); print; exit}' "$f" | strip_comment)
 
+  # THE RETIREMENT DATE IS NOT OPTIONAL, and the sheet already said so:
+  # archive-sweep.md § 2 — "Every retired item gains an INDEX entry ... carrying at
+  # least its identifier, its title and its RETIREMENT DATE." The entry carried the
+  # first two. So the index answered *what* was archived and never *when*, which is
+  # the one question a retention policy asks of it.
+  #
+  # PLACEMENT: the id stays the FIRST token because next-id.sh documents this file's
+  # entries as `- <PREFIX>-NNN ...` and reads them to avoid re-minting an archived
+  # id; moving the id off the front would falsify that convention for a cosmetic
+  # gain. So the date is a trailing labelled field, always present and always last,
+  # after the optional PR and reference clauses.
+  #
+  # SPELLING: `retired`, NOT `Rotated`. archive-progress.sh's rotation index uses a
+  # `Rotated` column and it was worth checking whether to reuse it — but § 2 names
+  # these as two facts in two sentences ("its retirement date" for an item, "the
+  # rotation date" for a log chunk), they are different operations on different
+  # objects, and collapsing them into one word would make a grep for either return
+  # both. Deliberately not matched.
+  #
+  # Built ONCE, here, so the preview below and the applied entry cannot disagree
+  # about what was written — the preview prints this same string.
+  RETIRED_ON="$(date +%Y-%m-%d)"
   ENTRY="- ${ID} [${TYPE}] ${TITLE}"
   if [ -n "$PR" ] && [ "$PR" != "null" ]; then
     ENTRY="${ENTRY} (PR ${PR})"
@@ -174,6 +196,7 @@ for f in "${FILES[@]}"; do
       ENTRY="${ENTRY} — references ${PRD}"
     fi
   fi
+  ENTRY="${ENTRY} — retired ${RETIRED_ON}"
   ENTRIES+="${ENTRY}"$'\n'
 done
 
@@ -221,7 +244,34 @@ rm -f "$ENTRIES_FILE"
 
 # Move the full files into progress/done/ (preserve, don't remove). Prefer
 # `git mv` (tracks the rename); fall back to plain mv if untracked.
-mkdir -p "$DONE_DIR"
+#
+# THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED. This was `mkdir -p "$DONE_DIR"`,
+# and archive-sweep.md § 3 already forbade it: "The retired store or the index is
+# missing ⇒ refuse; do not create an index on the fly." The index half of that rule
+# was honoured at the top of this script; the store half was not.
+#
+# Creating the column on demand means the tool MANUFACTURES THE BOARD TOPOLOGY IT
+# WAS SUPPOSED TO BE OPERATING WITHIN — and because board-mover.md's first invariant
+# is "the container IS the status", an invented container is an invented status. The
+# concrete cost: a typo'd or renamed column silently becomes a new column holding
+# real retired work, instead of a refusal naming what it expected.
+if [ ! -d "$DONE_DIR" ]; then
+  {
+    echo "Error: the retired store progress/done/ does not exist on the trunk."
+    echo "       Looked for: ${DONE_DIR#"$KWT"/}   (inside the kanban worktree at $KWT)"
+    echo ""
+    echo "  REFUSING rather than creating it. This script would otherwise invent a"
+    echo "  status folder, and the folder IS the status — so a renamed or mistyped"
+    echo "  column would silently become a new column holding retired work."
+    echo ""
+    echo "  If the board genuinely has no done/ column yet, create it deliberately"
+    echo "  and publish it, the way kit-init does — one .gitkeep per column, so it"
+    echo "  survives a clone:"
+    echo "    mkdir -p progress/done && : > progress/done/.gitkeep"
+    echo "    git add progress/done/.gitkeep && git commit -m '[PM] board: add the done/ column' && git push"
+  } >&2
+  exit 1
+fi
 for f in "${FILES[@]}"; do
   dest="$DONE_DIR/$(basename "$f")"
   if git -C "$KWT" ls-files --error-unmatch "$f" >/dev/null 2>&1; then
@@ -233,6 +283,11 @@ done
 
 # Sweep completed subtask trees into progress/done/subtasks/<parent>/.
 if [ ${#SUBTASK_TREES[@]} -gt 0 ]; then
+  # THIS mkdir STAYS, and the distinction is the point. done/subtasks/ is a
+  # sub-store INSIDE the retired store, not a status column — creating it invents no
+  # status and makes no claim that could be false, whereas creating done/ above
+  # invents a container that IS a status. Create where the claim would be true;
+  # refuse where it would be false.
   mkdir -p "$DONE_DIR/subtasks"
   for p in "${SUBTASK_TREES[@]}"; do
     src="$SUBTASKS_DIR/$p"
