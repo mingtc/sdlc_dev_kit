@@ -120,11 +120,17 @@ Options:
                       it (githooks/commit-msg, move-issue.sh's --role whitelist,
                       check-board.sh's derivation fallback).
                       Default: left as copied.
-  --gate-command <C>  Write scripts/verify.sh around <C> as its single gate leg.
-                      Refuses if scripts/verify.sh already exists (yours to edit).
+  --gate-command <C>  Declare <C> as the gate. If scripts/verify.sh is the shipped
+                      frame with an EMPTY GATES table, <C> is written into that
+                      table as its first record (name "gate", class core). If no
+                      scripts/verify.sh exists at all, a minimal single-gate
+                      runner is written around <C>. Refuses if verify.sh already
+                      declares a gate, or is not the frame — that file is yours.
                       Omit it and an existing, executable scripts/verify.sh is a
                       REQUIRED precondition instead: finish-pr.sh REFUSES to land
-                      without one.
+                      without one — and the shipped frame REFUSES TO RUN while its
+                      table is empty, so omit the flag only once you have declared
+                      your gates in that table by hand.
   --skip-self-check   Stamp and create, but do not run the self-check. Discouraged
                       — the self-check is the only part that PROVES the result.
   -h, --help          This text.
@@ -221,6 +227,17 @@ REMOTE_HEAD=""
 if ! git -C "$ROOT" remote get-url "$REMOTE" >/dev/null 2>&1; then
   pf "no '$REMOTE' remote — the kanban worktree fetches, resets and pushes through it."
 else
+  # A filesystem remote must be ABSOLUTE. The kanban worktree runs git from
+  # .kanban-wt/, one directory down, and git resolves a relative URL against the
+  # working directory it is run from — so `../proj.git` reaches the remote from
+  # this checkout and misses it from the worktree. Unguarded, that surfaced two
+  # steps into the self-check as "does not appear to be a git repository", which
+  # reads as an access problem (measured 2026-08-26). Refuse it here, as a URL.
+  REMOTE_URL="$(git -C "$ROOT" remote get-url "$REMOTE" 2>/dev/null || true)"
+  case "$REMOTE_URL" in
+    ""|*://*|*@*:*|/*|'~'*) ;;   # a scheme, scp-style ssh, or an absolute path — fine
+    *) pf "the '$REMOTE' remote URL '$REMOTE_URL' is a RELATIVE path — the kanban worktree runs git from .kanban-wt/, where it resolves somewhere else. Make it absolute:  git remote set-url $REMOTE \"\$(cd '$REMOTE_URL' && pwd -P)\"" ;;
+  esac
   REMOTE_HEAD="$(git -C "$ROOT" symbolic-ref --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)"
   if [ -z "$REMOTE_HEAD" ]; then
     pf "$REMOTE/HEAD is not set — WITHOUT IT the trunk is resolved by fallback in kanban-worktree.sh and your first board move may push to a branch nobody chose."
@@ -287,13 +304,36 @@ if [ ${#LIVED[@]} -gt 0 ]; then
 fi
 
 # --- the gate command / verify.sh precondition (finish-pr.sh's landing rule) ---
-if [ -n "$GATE_CMD" ] && [ -e "$ROOT/scripts/verify.sh" ]; then
-  pf "--gate-command given but scripts/verify.sh already exists — it will not be overwritten (edit its GATES table instead)."
-fi
-if [ -z "$GATE_CMD" ]; then
-  if [ ! -f "$ROOT/scripts/verify.sh" ]; then
+# Three shapes of scripts/verify.sh, and what --gate-command does with each:
+#   • absent                        → WRITE a minimal single-gate runner around <C>
+#   • the shipped frame, GATES=()   → FILL the table with <C> as its first record
+#   • anything else (a declared table, a hand-written runner) → REFUSE; it is yours
+# The fill arm exists because the seed SHIPS the frame: without it the README's
+# own day-one command refused on every fresh seed, while the frame's header told
+# the reader to run the very flag that refused (measured 2026-08-26).
+VERIFY="$ROOT/scripts/verify.sh"
+verify_is_empty_frame() {  # true iff verify.sh is the frame and its GATES table holds no record
+  grep -q '^GATES=($' "$VERIFY" 2>/dev/null \
+    && ! grep -qE '^[[:space:]]+"[^"]+\|(core|select|full)\|' "$VERIFY" 2>/dev/null
+}
+GATE_MODE=""   # write | fill | "" (no --gate-command)
+if [ -n "$GATE_CMD" ]; then
+  case "$GATE_CMD" in
+    *'|'*|*'"'*) pf "--gate-command '$GATE_CMD' contains '|' or '\"' — the GATES table's record format cannot carry either; put the command in a script and name the script." ;;
+  esac
+  if [ ! -e "$VERIFY" ]; then
+    GATE_MODE=write
+  elif verify_is_empty_frame; then
+    GATE_MODE=fill
+  elif grep -q '^GATES=($' "$VERIFY" 2>/dev/null; then
+    pf "--gate-command given but scripts/verify.sh already DECLARES a gate — it will not be overwritten or appended to (edit its GATES table instead)."
+  else
+    pf "--gate-command given but scripts/verify.sh exists and is not the kit's frame — it will not be overwritten (it is yours to edit)."
+  fi
+else
+  if [ ! -f "$VERIFY" ]; then
     pf "no scripts/verify.sh and no --gate-command — finish-pr.sh REFUSES to land without an executable, committed gate runner."
-  elif [ ! -x "$ROOT/scripts/verify.sh" ]; then
+  elif [ ! -x "$VERIFY" ]; then
     pf "scripts/verify.sh is not executable — finish-pr.sh's preflight refuses on exactly that (chmod +x it)."
   fi
 fi
@@ -487,7 +527,21 @@ fi
 SELF_ROLE="${ROLES%%|*}"
 
 # --- the gate command ---
-if [ -n "$GATE_CMD" ]; then
+case "$GATE_MODE" in
+fill)
+  # Insert the record directly under `GATES=(`. The command travels through
+  # ENVIRON, not `awk -v`: -v interprets backslash escapes, and a gate command is
+  # not ours to rewrite. `cat >` rather than `mv` keeps the file's mode bits.
+  KIT_INIT_GATE_RECORD="  \"gate|core|${GATE_CMD}\"" \
+    awk '{ print } /^GATES=\($/ && !done { print ENVIRON["KIT_INIT_GATE_RECORD"]; done=1 }' \
+    "$VERIFY" > "$VERIFY.tmp"
+  cat "$VERIFY.tmp" > "$VERIFY"; rm -f "$VERIFY.tmp"
+  chmod +x "$VERIFY"
+  grep -qF "\"gate|core|${GATE_CMD}\"" "$VERIFY" \
+    || { echo "Error: the gate record did not land in scripts/verify.sh's GATES table." >&2; exit 1; }
+  say "  scripts/verify.sh: GATES table was empty — filled with \"gate|core|${GATE_CMD}\" (extend the table as you grow)"
+  ;;
+write)
   cat > "$ROOT/scripts/verify.sh" <<EOF
 #!/usr/bin/env bash
 # KIT-CLASS: MIXED — kit pattern (one gate runner, uniform invocation), PROJECT gates. See process/EXTRACTION.md.
@@ -524,15 +578,16 @@ if [ "\$GATE_RC" -eq 0 ]; then echo "PASS  ${GATE_CMD}"; else echo "FAIL  ${GATE
 exit "\$GATE_RC"
 EOF
   chmod +x "$ROOT/scripts/verify.sh"
-  say "  scripts/verify.sh: written around '${GATE_CMD}'"
-else
+  say "  scripts/verify.sh: written around '${GATE_CMD}' (no runner existed)"
+  ;;
+*)
   say "  scripts/verify.sh: left as copied (present + executable — finish-pr.sh's landing precondition)"
-  if grep -q '^GATES=($' "$ROOT/scripts/verify.sh" 2>/dev/null \
-     && ! grep -qE '^\s+"[^"]+\|(core|select|full)\|' "$ROOT/scripts/verify.sh" 2>/dev/null; then
-    say "     ⚠ its GATES table looks EMPTY — the frame refuses to run until you declare a gate."
-    say "       Declare them now, or re-run with --gate-command to generate a single-gate runner."
+  if verify_is_empty_frame; then
+    say "     ⚠ its GATES table is EMPTY — the frame refuses to run, so finish-pr.sh cannot land anything yet."
+    say "       Declare your gates in that table by hand (a re-run of kit-init refuses; --gate-command was for this run)."
   fi
-fi
+  ;;
+esac
 
 # =============================================================================
 # 3. BOARD — folders + .gitkeeps, progress.md, ARCHIVE.md, .gitignore.
@@ -820,7 +875,11 @@ if [ "$SC_FAIL" -eq 0 ]; then
   say "  ✓ kit-init COMPLETE and PROVEN — prefix $PREFIX, trunk $TRUNK, role tag [$SELF_ROLE] …"
   say ""
   say "  Next: write your project doc + adapter, state your code-vs-metadata globs,"
-  say "  declare your gates in scripts/verify.sh, and mint your first issue:"
+  if [ -n "$GATE_MODE" ]; then
+    say "  extend scripts/verify.sh's gate table as the project grows, and mint your first issue:"
+  else
+    say "  declare your gates in scripts/verify.sh, and mint your first issue:"
+  fi
   say ""
   # THE kit-init × next-id COMPOSITION BUG, replicated TWICE by live agents. The
   # recipe printed here used to embed $(./scripts/next-id.sh), which on the board

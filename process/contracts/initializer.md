@@ -51,6 +51,14 @@ precondition the process depends on and then demonstrating each one working.
 - Any file the manifest says must already be present is missing ⇒ refuse, naming each one.
 - No publication remote, or the remote publishes no default branch ⇒ refuse **with the recipe**,
   including the offline path.
+- The remote is a filesystem path that is not absolute ⇒ refuse, with the one-line fix. *Why:* the
+  auxiliary checkout runs version-control operations from a different working directory, where a
+  relative path resolves to nothing — and the failure otherwise surfaces mid-proof, disguised as an
+  access error (measured 2026-08-26).
+- A gate command is supplied but the gate definition already declares its gates, or is not the
+  shipped frame ⇒ refuse; a declared gate table is never overwritten or appended to. (A supplied
+  command **fills** the shipped frame's empty table, or writes a minimal runner where none exists —
+  see § 6.)
 - The supplied trunk disagrees with the remote's own default ⇒ refuse; do not pick a winner.
 - The repository shows signs of already being configured, or of already having lived ⇒ refuse,
   naming the evidence.
@@ -86,5 +94,9 @@ one completion statement — or a refusal that names every blocking fact at once
   guard, write the ignore entries, commit and publish, then the placeholder-free self-check.
 - [`../EXTRACTION.md`](../EXTRACTION.md) § 1.3 — the precondition table it performs, which doubles
   as the manual fallback for an adopter reimplementing it.
-- Note for a reimplementer: that script *writes* a gate runner, and therefore contains a second
-  class marker belonging to the file it emits rather than to itself.
+- Note for a reimplementer: given a gate command, that script **fills** the shipped gate runner's
+  empty table when that is what it finds, and *writes* a minimal runner only when none exists —
+  the write arm is why it contains a second class marker, belonging to the file it emits rather
+  than to itself. The fill arm exists because the kit ships the runner: an initializer that
+  refused on "the runner already exists" made the front door's own first command refuse on every
+  fresh copy (measured 2026-08-26).

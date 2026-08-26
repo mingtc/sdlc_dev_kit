@@ -1327,6 +1327,81 @@ case_kit_init_refuses_lived_board() {
 }
 
 # =============================================================================
+# CASE — kit-init.sh --gate-command against the SHIPPED FRAME.
+# The incident (measured 2026-08-26, from the seed's own zip): the seed ships
+# verify.sh as a frame with an EMPTY table that refuses to run; --gate-command
+# refused because verify.sh existed; the frame's header told the reader to run the
+# flag that refused; the README's day-one command was that flag. Three documents,
+# no working path. The flag now FILLS the empty table; this case keeps that true.
+# =============================================================================
+case_kit_init_gate_fill() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init --gate-command: fills the shipped frame's empty table" "scripts/kit-init.sh absent"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
+    skp "kit-init --gate-command: fills the shipped frame's empty table" ".claude/templates/ISSUE.template.md absent"; return
+  fi
+  kit_init_sandbox
+  # Ship-state: empty the GATES table — every record, not just the one make_sandbox
+  # declared, so this case holds in a project whose real verify.sh declares gates.
+  perl -i -ne 'if (/^GATES=\($/) { $in=1; print; next } $in=0 if ($in && /^\)/); print unless ($in && /^\s+"[^"]+\|(core|select|full)\|/)' \
+    "$SB_WORK/scripts/verify.sh"
+  publish_sandbox
+
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command '/bin/echo kit-init-gate-green' 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "kit-init exited $rc with --gate-command against the empty frame: $out"
+  printf '%s\n' "$out" | grep -q 'kit-init COMPLETE and PROVEN' || cf "no COMPLETE-and-PROVEN line: $out"
+  printf '%s\n' "$out" | grep -q 'GATES table was empty — filled' || cf "kit-init did not report filling the table: $out"
+  grep -qF '"gate|core|/bin/echo kit-init-gate-green"' "$v" || cf "the record did not land in verify.sh"
+  grep -q '^GATES=($' "$v" || cf "the frame's GATES=( line is gone — the fill rewrote more than one line"
+  [ -x "$v" ] || cf "verify.sh lost its executable bit"
+  # The filled runner RUNS, and is green — the first landing has a gate to pass.
+  out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the filled verify.sh exited $rc: $out"
+  printf '%s' "$out" | grep -q 'kit-init-gate-green' || cf "the filled verify.sh did not run the declared command: $out"
+  printf '%s' "$out" | grep -q 'PASS  gate' || cf "the summary does not name the filled gate: $out"
+  out="$( cd "$SB_WORK" && "$v" --list 2>&1 )"; rc=$?
+  printf '%s' "$out" | grep -q '1 declared gate' || cf "--list does not report one declared gate: $out"
+  # ...and the filled file reached the trunk with the initialization commit.
+  origin_file_contains "scripts/verify.sh" 'gate|core|/bin/echo kit-init-gate-green' \
+    || cf "the filled verify.sh was not pushed to the trunk"
+
+  finish "kit-init --gate-command: fills the shipped frame's empty GATES table, the runner runs green, --list counts it, and it reaches the trunk"
+  teardown
+}
+
+case_kit_init_gate_and_remote_refusals() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: refuses a declared table, a '|' in the gate command, and a relative remote URL" "scripts/kit-init.sh absent"; return; fi
+  kit_init_sandbox            # make_sandbox already DECLARED one gate in verify.sh
+  publish_sandbox
+  local before out rc
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  refused_clean() {  # <label> <rc> <out> <needle>
+    [ "$2" -ne 0 ] || cf "$1: did not refuse"
+    printf '%s\n' "$3" | grep -q 'NOTHING WAS WRITTEN' || cf "$1: the refusal did not state that nothing was written"
+    printf '%s\n' "$3" | grep -q "$4" || cf "$1: the refusal did not name the cause ($4): $3"
+    [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "$1: HEAD moved during a refusal"
+    [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "$1: the tree was modified during a refusal"
+  }
+  # (a) a DECLARED table is never overwritten or appended to.
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command '/bin/echo x' 2>&1)"; rc=$?
+  refused_clean "(a) declared table" "$rc" "$out" 'already DECLARES a gate'
+  grep -qF '/bin/echo x' "$SB_WORK/scripts/verify.sh" && cf "(a) the record was appended to a declared table"
+  # (b) a '|' cannot be carried by the record format.
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command 'a | b' 2>&1)"; rc=$?
+  refused_clean "(b) '|' in the command" "$rc" "$out" "contains '|'"
+  # (c) a RELATIVE remote URL resolves differently from .kanban-wt/ — refuse at preflight.
+  git -C "$SB_WORK" remote set-url origin "../$(basename "$SB_ORIGIN")" >/dev/null 2>&1
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  refused_clean "(c) relative remote URL" "$rc" "$out" 'RELATIVE path'
+  printf '%s\n' "$out" | grep -q 'remote set-url' || cf "(c) the refusal did not print the set-url fix: $out"
+
+  finish "kit-init: refuses --gate-command against a declared table (never appends), a '|' in the command, and a relative remote URL — writing nothing each time"
+  teardown
+}
+
+# =============================================================================
 # CASE — OPTION-PARSING HYGIENE across the argument-taking scripts.
 # The incident: a creation script consumed `--help` as the item's slug, minted an
 # item under a nonsense name, burned a real id, and printed "Created:" — an
@@ -2052,6 +2127,8 @@ case_check_board_id_mismatch
 case_check_board_frontmatter_offset
 case_kit_init_happy
 case_kit_init_refuses_lived_board
+case_kit_init_gate_fill
+case_kit_init_gate_and_remote_refusals
 case_option_parsing_hygiene
 case_first_mile
 case_release_happy

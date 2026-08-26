@@ -24,8 +24,9 @@
 # zero gates is worse than no runner: finish-pr.sh treats a green
 # `verify.sh --quick` as a landing precondition, so an empty-but-passing gate
 # runner would silently authorise every landing in the project. Declare your
-# gates below, or generate a starter with
-#   ./scripts/kit-init.sh --gate-command "<your test command>"
+# gates below, or let the initializer write the first record for you:
+#   ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command "<your test command>"
+# (it fills THIS table while it is empty; it never touches a declared one).
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 

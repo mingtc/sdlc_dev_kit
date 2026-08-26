@@ -1,11 +1,15 @@
 <!-- KIT-CLASS: KIT — the shipped skill inventory. Project-specific notes go in the adapter. -->
 # Project Skills
 
-This directory contains the **20 Claude Code skills the kit ships**, version-controlled with
-the repo and organized into four role-based skill sets — **PM**, **Dev**, **QA**,
-**Refactorer** — plus one standalone skill (`orchestrate`). Anyone who clones the repo gets
-them automatically: Claude Code discovers skills in `.claude/skills/` and exposes them to the
-session.
+This directory contains the **Claude Code skills the kit ships**, version-controlled with the
+repo and organized into four role-based skill sets — **PM**, **Dev**, **QA**, **Refactorer** —
+plus one standalone skill (`orchestrate`). Anyone who clones the repo gets them automatically:
+Claude Code discovers skills in `.claude/skills/` and exposes them to the session.
+
+How many? The directory listing is the count — `find .claude/skills -name SKILL.md | wc -l` —
+and no digit is typed here on purpose: a count written in prose is right until the next skill is
+added and silently wrong from then on (`process/doctrine/staleness.md` § C: *derive, date, or do
+not state*).
 
 The skill set is **stack-agnostic**. Nothing here assumes a language, a test runner, a build
 tool or a forge. Where a skill needs a concrete command it says
@@ -29,9 +33,9 @@ name as a slash command (e.g. `/test-driven-development`).
 Some skills carry sibling files — prompt templates, reference tables, helper scripts. Those
 are loaded on demand by the `SKILL.md` that owns them; they are not entry points.
 
-## Roles & skill inventory (20)
+## Roles & skill inventory
 
-### Dev — Engineering (13 skills)
+### Dev — Engineering
 
 | Skill | Purpose |
 | --- | --- |
@@ -49,14 +53,14 @@ are loaded on demand by the `SKILL.md` that owns them; they are not entry points
 | [using-git-worktrees](using-git-worktrees/) | Isolated workspaces for feature work and plan execution |
 | [using-superpowers](using-superpowers/) | Bootstrap: how to find and use skills; cross-harness tool mapping |
 
-### PM — Product Management (2 skills)
+### PM — Product Management
 
 | Skill | Purpose |
 | --- | --- |
 | [write-spec](write-spec/) | Draft a spec/PRD from a problem statement or feature idea |
 | [product-brainstorming](product-brainstorming/) | Explore problem spaces and stress-test product ideas |
 
-### QA — Quality Engineering (0 skills shipped, by design)
+### QA — Quality Engineering (none shipped, by design)
 
 QA's discipline in this kit is **not** packaged as a skill, and that is deliberate:
 
@@ -73,7 +77,7 @@ A project that grows a rendered surface will want web-QA skills (accessibility a
 regression). **The kit ships none** — source or author them, then add them to the table above
 and to the QA role doc's skill list in the same change.
 
-### Refactorer — Code Health (4 skills)
+### Refactorer — Code Health
 
 The Refactorer role uses these post-milestone (or on refactor-baseline drift) to identify,
 plan and safely schedule behavior-preserving improvements.
@@ -85,7 +89,7 @@ plan and safely schedule behavior-preserving improvements.
 | [safety-net-check](safety-net-check/) | Per target, verify coverage before any moves; add characterization tests; tag a baseline |
 | [migration-planning](migration-planning/) | When a refactor touches public surface — coexistence → deprecation → sunset |
 
-### Standalone (1 skill)
+### Standalone
 
 | Skill | Used by | Purpose |
 | --- | --- | --- |
@@ -125,10 +129,10 @@ nobody can safely update.
 
 | Set | Origin | License |
 | --- | --- | --- |
-| Dev (13) | `<fill in: upstream collection URL, or "authored here">` | `<fill in>` |
-| PM (2) | `<fill in>` | `<fill in>` |
-| Refactorer (4) | Authored for this kit | Same as this repo |
-| `orchestrate` (1) | Authored for this kit | Same as this repo |
+| Dev | `<fill in: upstream collection URL, or "authored here">` | `<fill in>` |
+| PM | `<fill in>` | `<fill in>` |
+| Refactorer | Authored for this kit | Same as this repo |
+| `orchestrate` | Authored for this kit | Same as this repo |
 
 When updating a skill from upstream, re-fetch the source and copy the folder over the
 existing skill, then **diff before committing** — local hardening lives in these files and a

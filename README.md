@@ -40,10 +40,11 @@ git remote set-head origin main                  # ← the step whose absence is
 `--prefix XYZ` makes your issue files `XYZ-001-<slug>.md`; until you stamp it, `scripts/config.sh`
 carries a neutral placeholder and the documents here say `<PREFIX>`. `--trunk` is **required and
 confirmed, never inferred** — if it disagrees with `origin/HEAD`, the initializer refuses rather
-than letting the scripts pick. `--gate-command` writes `scripts/verify.sh` around your one gate
-leg; drop the flag if the seed's `scripts/verify.sh` already runs what you want, but do not skip it
-entirely — **the landing gate refuses to land a branch without an executable, committed gate
-runner.**
+than letting the scripts pick. `--gate-command` declares your first gate: the seed ships
+`scripts/verify.sh` as a frame whose gate table is **empty and refuses to run**, and the flag
+writes your command into that table as its first record. Drop the flag only if you have already
+declared your gates in that table by hand — never skip both: **the landing gate refuses to land a
+branch without an executable, committed gate runner, and an empty frame refuses to run.**
 
 The initializer **refuses, and writes nothing, on any repository that has already lived** — a board
 carrying issue files, a `progress.md` § Log with entries, an `ARCHIVE.md` with an index, or a
