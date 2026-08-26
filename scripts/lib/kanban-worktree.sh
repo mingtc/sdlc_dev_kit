@@ -235,6 +235,15 @@ KWT_DISCARD_DIRTY=false
 # setting it yourself changes nothing.
 KWT_SYNCED=false
 
+# Set by kwt_finalize to the commit that ACTUALLY LANDED — read back after the
+# push, never computed before it. Callers print THIS, never a sha they captured
+# earlier: git_push_with_retry rebases onto the remote tip when a race rejects the
+# first attempt, and a rebase makes a NEW commit. A sha captured before the push is
+# then a claim about a commit that exists on no ref — true when computed, false when
+# printed, and indistinguishable from the landed one at a glance. Declared here so a
+# caller may read it under `set -u`. It is a REPORT, not a knob.
+KWT_LANDED_SHA=""
+
 # Echoes "yes" if the CURRENT lock holder is provably abandoned and stealable:
 #   - same host + holder PID no longer EXISTS → dead holder; or
 #   - cross-host / unknown PID + lock older than the stale threshold.
@@ -714,6 +723,11 @@ kwt_finalize() {
       return 1
     fi
   fi
+
+  # The landed sha, read AFTER the push and AFTER the ancestry check above — so by
+  # construction it names a commit that is on <remote>/<trunk>, which is exactly the
+  # claim a caller's "published commit: <sha>" line makes.
+  KWT_LANDED_SHA="$(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || true)"
 
   local main_head
   main_head="$(git -C "$MAIN_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo "")"

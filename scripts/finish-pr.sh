@@ -215,16 +215,76 @@ if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/n
   exit 1
 fi
 
+# ── THE GATE MUST BE THE COMMITTED ONE, AT THE REVISION BEING LANDED — on BOTH
+#    paths, and saying WHICH refusal fired. `contracts/landing-gate.md` states this
+#    twice over and the code implemented neither statement fully: § 2's landing
+#    re-check runs *"on the tree that is about to land"*, and *"the gate that runs
+#    is the COMMITTED one … tracked at the revision being landed and free of
+#    uncommitted modification, or landing refuses"*; § 3 requires the refusal to
+#    name which of the four it was. So this is CONFORMANCE, not new policy — the
+#    contract already forbade what the code allowed.
+#
+#    What the code did: the default path checked EXECUTABLE and nothing else, so
+#    `finish-pr.sh <ID>` run from a trunk checkout ran the TRUNK's verify.sh and
+#    landed a branch whose own gate was red — reproduced in a sandbox, exit 0, the
+#    red gate on the trunk, the branch deleted and the board advanced. The
+#    --worktree arm already carried three of the four, but against its OWN HEAD,
+#    which is the revision being landed only if that worktree is on the branch —
+#    and nothing checked that either.
+#
+#    THE REVISION, NOT THE REF NAME. A detached checkout sitting exactly on the
+#    branch tip IS the tree about to land and is accepted; what is refused is a
+#    checkout of some other revision, of which the trunk is the common case and the
+#    measured one. QA has two conforming postures — check the branch out, or point
+#    --worktree at a worktree that has it — and the refusal names both.
+#
+#    WHY HERE and not with the other preflight refusals: this check's operand is
+#    the issue's `branch:`, which is read out of the kanban worktree, so it cannot
+#    run before kwt_sync. That is safe because kwt_sync itself now refuses rather
+#    than resetting over anything it would destroy; .kanban-wt is a derived mirror
+#    and nothing the contract protects has been touched at this point.
+if [ "$ALLOW_STUB" != "true" ]; then
+  _gate_v="$GATE_WORKTREE/scripts/verify.sh"
+  _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "refs/heads/$BRANCH" 2>/dev/null || true)"
+  _gate_head="$(git -C "$GATE_WORKTREE" rev-parse HEAD 2>/dev/null || true)"
+  _gate_err=""
+  if   [ ! -e "$_gate_v" ]; then _gate_err="MISSING — $_gate_v does not exist"
+  elif [ ! -x "$_gate_v" ]; then _gate_err="NOT EXECUTABLE — $_gate_v exists but cannot be run"
+  elif [ -z "$_gate_head" ] || [ -z "$_branch_tip" ] || [ "$_gate_head" != "$_branch_tip" ]; then
+    _gate_err="NOT AT THE REVISION BEING LANDED — the gate checkout '$GATE_WORKTREE' is at ${_gate_head:0:9}, and '$BRANCH' is at ${_branch_tip:0:9}"
+  elif ! git -C "$GATE_WORKTREE" cat-file -e "HEAD:scripts/verify.sh" 2>/dev/null; then
+    _gate_err="NOT TRACKED at the revision being landed — scripts/verify.sh is untracked at ${_gate_head:0:9}"
+  elif ! git -C "$GATE_WORKTREE" diff --quiet HEAD -- scripts/verify.sh 2>/dev/null; then
+    _gate_err="LOCALLY MODIFIED — $_gate_v differs from the committed copy at ${_gate_head:0:9}"
+  fi
+  if [ -n "$_gate_err" ]; then
+    {
+      echo "Error: the landing gate is $_gate_err."
+      echo "       Refusing BEFORE any destructive step: no squash, no push, no branch"
+      echo "       deletion, no issue advance."
+      echo "       The gate that runs must be the COMMITTED scripts/verify.sh at the"
+      echo "       revision being landed (process/contracts/landing-gate.md § 2-3) —"
+      echo "       otherwise the run proves something about a tree that is not shipping."
+      echo ""
+      echo "  Two conforming ways to land ${ISSUE_ID}:"
+      echo "    • check the branch out here:   git -C '$MAIN_ROOT' checkout '$BRANCH'"
+      echo "    • or gate against a worktree that has it:"
+      echo "        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>"
+    } >&2
+    exit 1
+  fi
+fi
+
 SQUASH_MSG="[QA] ${ISSUE_ID}: ${TITLE} (squash-merge ${BRANCH})"
 
 echo "Plan:"
-echo "  - Squash-merge '${BRANCH}' → '${DEFAULT_BRANCH}' (in .kanban-wt), commit: \"${SQUASH_MSG}\""
-echo "  - Push HEAD → ${KWT_REMOTE}/${DEFAULT_BRANCH}"
-echo "  - Delete branch '${BRANCH}' (local + remote if present)"
+echo "  1. Squash-merge '${BRANCH}' → '${DEFAULT_BRANCH}' (in .kanban-wt), commit: \"${SQUASH_MSG}\""
+echo "  2. Push HEAD → ${KWT_REMOTE}/${DEFAULT_BRANCH}"
+echo "  3. Delete branch '${BRANCH}' (local + remote if present)"
 if [ "$NOTE_GIVEN" = "true" ]; then
-  echo "  - Move ${ISSUE_ID}: dev_complete/ → qa_complete/ (Activity: \"${NOTE}\")"
+  echo "  4. Move ${ISSUE_ID}: dev_complete/ → qa_complete/ (Activity: \"${NOTE}\")"
 else
-  echo "  - Move ${ISSUE_ID}: dev_complete/ → qa_complete/ (Activity note composed AFTER the delete step, from what it actually did)"
+  echo "  4. Move ${ISSUE_ID}: dev_complete/ → qa_complete/ (Activity note composed AFTER the delete step, from what it actually did)"
 fi
 
 if [ "$DRY_RUN" = "true" ]; then
@@ -302,14 +362,47 @@ if git -C "$KWT" diff --cached --quiet 2>/dev/null; then
 fi
 
 git -C "$KWT" commit -m "$SQUASH_MSG" --quiet
+# TWO LINES, NOT ONE, AND THE SECOND COMES AFTER THE PUSH. This used to print one
+# line naming the local sha as being "on <trunk>" BEFORE anything was pushed — and
+# the sha itself can change in flight, because the push wrapper rebases onto the
+# remote tip when a race rejects the first attempt and a rebase makes a NEW commit.
+# So the single line was two claims, one premature and one that could be false.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
-echo "Squash commit: ${SHA} on ${DEFAULT_BRANCH} — \"${SQUASH_MSG}\""
+echo "Squash commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
 # Push HEAD → trunk and keep the operator's checkout / local ref current.
 # A push failure AFTER the local commit is fatal — kwt_finalize prints the loud
 # recovery text; ABORT here rather than proceeding to branch deletion.
 if ! kwt_finalize; then
   echo "Error: push failed after the squash commit — aborting BEFORE branch deletion (${ISSUE_ID} NOT advanced)." >&2
   exit 1
+fi
+# The PUBLISHED sha, from the library that read it back off the ref. If the rebase
+# above remade the commit, this is the one on the trunk and ${SHA} is not.
+echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUASH_MSG}\""
+# ── THE RECOVERY IS PRINTED AS NORMAL OUTPUT, HERE, WHILE THE RUN IS HEALTHY.
+#    `doctrine/fix-execution.md` § A.7: a multi-step landing script gets killed
+#    mid-run — by a caller's timeout, a shell, the host — and a failure branch that
+#    would have printed the recovery does not run, because nothing failed. So the
+#    remaining steps are printed at the moment the run stops being undoable: the
+#    merge is now ON THE TRUNK, and steps 3 and 4 are not done. A successor with a
+#    fresh shell can finish from these lines without reconstructing the state.
+{
+  echo ""
+  echo "── LANDED. Steps 1-2 of 4 are DONE and are on ${KWT_REMOTE}/${DEFAULT_BRANCH}."
+  echo "   If this run stops here — killed, timed out, disconnected — the landing is"
+  echo "   COMPLETE but the cleanup is NOT. Finish it with exactly these two steps:"
+  echo "     3. git -C '$MAIN_ROOT' branch -d '${BRANCH}' && git -C '$MAIN_ROOT' push ${KWT_REMOTE} --delete '${BRANCH}'"
+  echo "     4. $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role QA --note '<what the review found>'"
+  echo "   Both are safe to re-run: step 3 reports an already-deleted branch and step"
+  echo "   4 refuses an issue that is no longer in dev_complete/."
+  echo ""
+} 
+# AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
+# match — the normal case — and under `set -e` that is an abort AFTER a successful
+# landing, which is the precise hazard change 008 item 3 is about. Caught by the
+# control, not by reading: a green landing exited 1.
+if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
+  echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
 fi
 
 # Release our lock so the move-issue.sh sub-invocation can acquire it (not reentrant).

@@ -150,8 +150,18 @@ case "$CMD" in
     MSG="[Orchestrator] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
     git -C "$KWT" commit -m "$MSG" --quiet
     echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
-    echo "Commit:  $(git -C "$KWT" rev-parse --short HEAD) on ${DEFAULT_BRANCH}"
+    LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
+    echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
     kwt_finalize
+    # CONDITIONAL on purpose: kwt_finalize's return is not checked here (that is
+    # change 017's item, not this one), so this line must not assert a landing
+    # nobody verified. KWT_LANDED_SHA is set only after the library has read the
+    # commit back off the ref, so an empty value means exactly "did not publish".
+    if [ -n "${KWT_LANDED_SHA:-}" ]; then
+      echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH}"
+    else
+      echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." >&2
+    fi
     ;;
 
   move)
@@ -205,8 +215,14 @@ case "$CMD" in
     git -C "$KWT" add "$DEST"
     MSG="[${ROLE}] ${ID} → ${TARGET}: ${NOTE}"
     git -C "$KWT" commit -m "$MSG" --quiet
-    echo "Commit: $(git -C "$KWT" rev-parse --short HEAD) on ${DEFAULT_BRANCH} — \"${MSG}\""
+    LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
+    echo "Commit: ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
     kwt_finalize
+    if [ -n "${KWT_LANDED_SHA:-}" ]; then
+      echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""
+    else
+      echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." >&2
+    fi
     ;;
 
   -h|--help) usage; exit 0 ;;

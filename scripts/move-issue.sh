@@ -377,11 +377,21 @@ else
   MSG="[${ROLE}] ${ISSUE_ID} → ${TARGET}: ${NOTE}"
 fi
 git -C "$KWT" commit -m "$MSG" --quiet
+# Local first, published after the push — the one-line form claimed "on <trunk>"
+# before anything was pushed, and named a sha the push's rebase can replace.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
-echo "Commit: ${SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""
+echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
 
 # Push HEAD → <trunk> and keep the operator's view / local ref current.
 # A push failure AFTER the local commit is FATAL — kwt_finalize prints the loud
 # recovery text and returns nonzero; propagate it as a nonzero exit rather than
 # reporting success on a commit that never reached the remote.
 kwt_finalize || exit 1
+echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
+# AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
+# match — the normal case — and under `set -e` that is an abort AFTER a successful
+# landing, which is the precise hazard change 008 item 3 is about. Caught by the
+# control, not by reading: a green landing exited 1.
+if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
+  echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
+fi
