@@ -309,13 +309,29 @@ SUBTASK_NOTE=""
 [ ${#SUBTASK_TREES[@]} -gt 0 ] && SUBTASK_NOTE=" + ${#SUBTASK_TREES[@]} subtask tree(s)"
 MSG="[Orchestrator] archive: sweep ${#FILES[@]} issue(s) qa_complete/ → done/${SUBTASK_NOTE} + index in ARCHIVE.md"
 git -C "$KWT" commit -m "$MSG" --quiet
+# THE PRINTED SHA IS A READING TAKEN BEFORE THE ACT IT DESCRIBES, unless it is
+# taken twice. This line said "Commit: <sha> on <trunk>" BEFORE the push — and the
+# push goes through the pull-rebase-retry wrapper, so a contested push rebases and
+# the sha printed here is then an ORPHAN that never reached the trunk. A reader
+# checking the line finds nothing, against board-mover.md § 4's "a reader can check
+# each line". Fifth and last site of this shape; the four siblings already carry it.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
-echo "Commit: ${SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""
+echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
 
 if ! kwt_finalize; then
   echo "Error: push failed after the archive commit — the sweep is committed LOCALLY in" >&2
   echo "       the kanban worktree but NOT on ${KWT_REMOTE}. See the recovery text above." >&2
   exit 1
+fi
+# KWT_LANDED_SHA is read back AFTER the push and after the ancestry check, so by
+# construction it names a commit that is on the trunk — which is what makes this
+# line checkable and the one above explicitly not a claim about the trunk.
+echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
+# AN `if`, NOT AN `&&` CHAIN — the chain form returns non-zero whenever the shas
+# match (the normal case), and under `set -e` that aborts AFTER a successful
+# landing. Caught on a sibling by its control, not by reading.
+if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
+  echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
 fi
 
 echo ""

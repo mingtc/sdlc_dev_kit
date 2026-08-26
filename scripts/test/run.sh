@@ -705,6 +705,109 @@ case_finish_pr_empty_merge() {
 #   (d) the sandbox stub injection STILL works, but ONLY behind the explicit
 #       test-only marker.
 # =============================================================================
+# =============================================================================
+# CASE — THE LANDING GATE MUST BE THE COMMITTED verify.sh AT THE REVISION BEING
+# LANDED (008 item 4) — AND THIS CASE RUNS WITHOUT THE STUB MARKER.
+#
+# THAT IS THE POINT OF IT. The seven existing finish-pr cases run with
+# FINISH_PR_TEST_ALLOW_STUB=1, and the revision check is wrapped in
+# `if [ "$ALLOW_STUB" != "true" ]` — so those cases are green partly BECAUSE they
+# bypass the thing this one exists to hold. A guard that every existing case skips
+# is a guard nothing measures; running unmarked is the whole design of this case,
+# not an incidental detail of it.
+#
+# The defect: the gate ran whatever scripts/verify.sh happened to be in the gate
+# checkout, which on the default path is the main checkout — and that is the TRUNK in
+# the common case, not the branch being landed. So the gate proved something about a
+# tree that is not shipping, and reported it as a landing precondition.
+#
+# THREE DIRECTIONS. The third is what stops the fix from being an unconditional
+# refusal, which would pass the first two and break every landing in the kit:
+#   (i)   checkout on the trunk, branch elsewhere → REFUSE, naming the mismatch, and
+#         leave the branch and the issue exactly where they were;
+#   (ii)  checkout ON the branch but verify.sh locally modified → REFUSE, naming the
+#         modification (the revisions match, so only the cleanliness arm can catch it);
+#   (iii) checkout on the branch, gate committed and unmodified → LANDS.
+# =============================================================================
+case_finish_pr_gate_revision() {
+  cf_reset
+  local out rc br
+
+  # --- (i) the default path from a trunk checkout: the revision mismatch ------
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-780" revmm chore "Revision mismatch" "feature/$SB_PREFIX-780-revmm"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-780" revmm CHANGE780.txt      # leaves the checkout on the trunk
+  br="feature/$SB_PREFIX-780-revmm"
+  [ "$(git -C "$SB_WORK" symbolic-ref --short HEAD)" = "$SB_TRUNK" ] \
+    || cf "(control) the checkout is not on the trunk, so (i) is not testing the mismatch"
+
+  # NO FPR_STUB. Deliberately.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-780" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) finish-pr LANDED from a trunk checkout with the branch elsewhere — the gate ran against a tree that is not shipping: $out"
+  printf '%s\n' "$out" | grep -qi 'NOT AT THE REVISION BEING LANDED' \
+    || cf "(i) the refusal does not name the revision mismatch as the cause: $out"
+  printf '%s\n' "$out" | grep -qi 'Refusing BEFORE any destructive step' \
+    || cf "(i) the refusal does not state that it refused before anything destructive: $out"
+  # REFUSED MEANS NOTHING HAPPENED — the assertions that separate "refused" from
+  # "refused after doing some of it". Exit code alone cannot tell those apart.
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1 \
+    || cf "(i) the local branch was deleted during a refusal"
+  [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "$br" 2>/dev/null)" ] \
+    || cf "(i) the remote branch was deleted during a refusal"
+  origin_has_path "progress/dev_complete/$SB_PREFIX-780-revmm.md" \
+    || cf "(i) the issue left dev_complete/ on the trunk during a refusal"
+  origin_has_path "CHANGE780.txt" \
+    && cf "(i) the branch's change reached the trunk during a refusal — it squash-merged"
+  teardown
+
+  # --- (ii) on the branch, but the gate is locally modified ------------------
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-781" dirtygate chore "Dirty gate" "feature/$SB_PREFIX-781-dirtygate"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-781" dirtygate CHANGE781.txt
+  br="feature/$SB_PREFIX-781-dirtygate"
+  git -C "$SB_WORK" checkout "$br" --quiet >/dev/null 2>&1 \
+    || cf "(control) could not check out $br for (ii)"
+  printf '\n# a local edit that was never committed\n' >> "$SB_WORK/scripts/verify.sh"
+  git -C "$SB_WORK" diff --quiet HEAD -- scripts/verify.sh \
+    && cf "(control) scripts/verify.sh is NOT locally modified, so (ii) tests nothing"
+
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-781" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(ii) finish-pr LANDED with a locally-modified gate — the gate that ran is not the one that ships: $out"
+  printf '%s\n' "$out" | grep -qi 'LOCALLY MODIFIED' \
+    || cf "(ii) the refusal does not name the modification as the cause (the revisions MATCH here, so only the cleanliness arm can catch it): $out"
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1 \
+    || cf "(ii) the local branch was deleted during a refusal"
+  origin_has_path "progress/dev_complete/$SB_PREFIX-781-dirtygate.md" \
+    || cf "(ii) the issue left dev_complete/ during a refusal"
+  teardown
+
+  # --- (iii) the conforming posture still lands, unmarked --------------------
+  # Without this, an unconditional refusal passes (i) and (ii) and breaks the kit.
+  # Note there is no stub here either: the REAL scripts/verify.sh --quick runs, and
+  # it is green because make_sandbox declared a green `select` gate in it.
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-782" conform chore "Conforming" "feature/$SB_PREFIX-782-conform"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-782" conform CHANGE782.txt
+  br="feature/$SB_PREFIX-782-conform"
+  git -C "$SB_WORK" checkout "$br" --quiet >/dev/null 2>&1 \
+    || cf "(control) could not check out $br for (iii)"
+  [ -z "$(git -C "$SB_WORK" status --porcelain -- scripts/verify.sh)" ] \
+    || cf "(control) scripts/verify.sh is dirty in (iii), which would make it test (ii) again"
+
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-782" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(iii) the CONFORMING posture was refused, unmarked — the revision check is unconditional and no landing can pass it: $out"
+  origin_has_path "progress/qa_complete/$SB_PREFIX-782-conform.md" \
+    || cf "(iii) the conforming landing did not advance the issue: $out"
+  origin_has_path "CHANGE782.txt" || cf "(iii) the conforming landing did not squash-merge the change: $out"
+
+  finish "finish-pr landing gate, run WITHOUT the stub marker: a trunk checkout with the branch elsewhere REFUSES on the revision mismatch, a locally-modified gate REFUSES on the modification, both leaving the branch and the issue untouched — and the conforming posture still lands"
+  teardown
+}
+
 case_finish_pr_gate_hardening() {
   cf_reset
   local out rc
@@ -1282,6 +1385,120 @@ EOF
 #   (e) --scope runs the `select` gate with the selection PLUS the whole guard
 #       floor, and a vanished guard is a hard stop rather than a silent shrink.
 # =============================================================================
+# =============================================================================
+# CASE — THE VERDICT VOCABULARY HAS ONE AUTHORING SITE AND TWO PROJECTIONS (026).
+#
+# MANUAL.md § Dev → QA step 6 ratifies the verdict tokens and says outright: "Every
+# schema, runner and report that carries a verdict PROJECTS this list; none of them
+# re-enumerates it." Two runners carry a `const VERDICTS` array. Nothing held them to
+# the ratified set, so the projection could drift from its source silently — and a
+# runner whose enum is missing a member REJECTS a legitimate verdict at schema
+# validation, which halts a run that had succeeded.
+#
+# **THIS IS ALSO THE FIRST CASE IN THIS HARNESS THAT TOUCHES THE RUNNERS AT ALL.**
+# Measured before writing it: `grep -c 'wave-runner\|tranche-runner'` over this file
+# returned 0. Every green until now said precisely nothing about them.
+#
+# BOTH SIDES ARE RE-DERIVED FROM THE FILES, never restated here — the same contract
+# check-board.sh's ROLE_PREFIXES derivation follows. A test that hardcodes the list
+# it is checking has two authoring sites and is the third one.
+#
+# AND THE EXTRACTORS ARE THEMSELVES GUARDED, because a loose one silently answers a
+# different question. Measured: a `'[A-Z_]{4,}'` scan of the MANUAL reported DIVERGES
+# — it had picked up `FAILED_AFTER_FIX_ROUND`, which is an `outcome` value on a
+# different field, and a bare `FAIL` out of prose. **The code was right and the
+# instrument was wrong.** So the MANUAL side is scoped to the rows of the
+# `| Verdict | Token |` table and the runner side to the `const VERDICTS` declaration,
+# and the assertions below hold both to that.
+# =============================================================================
+
+# One token per line, sorted. Scoped to the ratifying TABLE, not to the section.
+_verdict_tokens_manual() {  # <path to MANUAL.md>
+  awk '
+    /^[[:space:]]*\|[[:space:]]*Verdict[[:space:]]*\|[[:space:]]*Token[[:space:]]*\|/ { intab=1; next }
+    intab && /^[[:space:]]*\|[[:space:]]*-+/ { next }
+    intab && /^[[:space:]]*\|/ { if (match($0, /`[A-Z_]+`/)) print substr($0, RSTART+1, RLENGTH-2); next }
+    intab { intab=0 }
+  ' "$1" | sort
+}
+# One token per line, sorted. Scoped to the DECLARATION, not to the file.
+_verdict_tokens_runner() {  # <path to a runner .js>
+  sed -n "s/^const VERDICTS = \[\(.*\)\]/\1/p" "$1" | grep -oE "'[A-Z_]+'" | tr -d "'" | sort
+}
+
+case_verdict_enum_projection() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" manual="$REAL_REPO_ROOT/process/MANUAL.md"
+  if [ ! -d "$wf" ]; then
+    skp "the verdict vocabulary: one authoring site, two projections" ".claude/workflows/ absent (the kit stores it disarmed; run this from a built kit)"
+    return
+  fi
+  [ -f "$manual" ] || { skp "the verdict vocabulary: one authoring site, two projections" "process/MANUAL.md absent"; return; }
+
+  local ratified n_ratified
+  ratified="$(_verdict_tokens_manual "$manual")"
+  n_ratified="$(printf '%s\n' "$ratified" | grep -c . || true)"
+
+  # THE INSTRUMENT FIRST. An empty or over-broad extraction would make every
+  # comparison below meaningless — empty vs empty "matches", and a scan that swept in
+  # neighbouring vocabulary reports a divergence that is not there.
+  [ "$n_ratified" -gt 0 ] \
+    || cf "no ratified verdict tokens were extracted from MANUAL.md — the '| Verdict | Token |' table moved or was renamed, and every comparison below would be vacuous"
+  printf '%s\n' "$ratified" | grep -qx 'FAILED_AFTER_FIX_ROUND' \
+    && cf "the MANUAL extractor swept in FAILED_AFTER_FIX_ROUND — that is an 'outcome' value on a DIFFERENT field, so the extractor is reading past its table: [$ratified]"
+  printf '%s\n' "$ratified" | grep -qx 'FAIL' \
+    && cf "the MANUAL extractor swept in a bare FAIL — that is prose, not a ratified token: [$ratified]"
+  # The one member whose absence has a recorded cost: a runner missing it cannot
+  # represent a green review whose landing was correctly deferred.
+  printf '%s\n' "$ratified" | grep -qx 'PASS_AC_CORRECTED' \
+    || cf "the ratified set does not contain PASS_AC_CORRECTED — either the ruling changed or the extractor is wrong: [$ratified]"
+
+  local r name projected n_projected missing extra
+  for r in "$wf"/*runner*.js; do
+    [ -e "$r" ] || continue
+    name="$(basename "$r")"
+    projected="$(_verdict_tokens_runner "$r")"
+    n_projected="$(printf '%s\n' "$projected" | grep -c . || true)"
+    if [ "$n_projected" -eq 0 ]; then
+      # A runner with no `const VERDICTS` is not a silent pass. Either it does not
+      # carry a verdict (fine, and it should say so) or the declaration moved.
+      if grep -q 'verdict' "$r"; then
+        cf "$name mentions a verdict but no 'const VERDICTS = [...]' declaration was found — the projection cannot be checked and this is not a pass"
+      fi
+      continue
+    fi
+    if [ "$projected" != "$ratified" ]; then
+      missing="$(comm -23 <(printf '%s\n' "$ratified") <(printf '%s\n' "$projected") | tr '\n' ' ')"
+      extra="$(comm -13 <(printf '%s\n' "$ratified") <(printf '%s\n' "$projected") | tr '\n' ' ')"
+      cf "$name's VERDICTS does not project the ratified set — missing: [${missing:-none}] extra: [${extra:-none}]. MANUAL § Dev → QA step 6 is the authoring site; the runner projects it and never re-enumerates it"
+    fi
+  done
+
+  # --- REDDENING CONTROL: drop a member from a COPY and the comparison must fail --
+  # Without this the loop above passes whenever both sides are equal, including when
+  # the extractors are both broken in the same direction.
+  local ctl="$SB_TMP"
+  [ -n "$ctl" ] || ctl="$(mktemp -d)"
+  mkdir -p "$ctl/vctl"
+  local src="$wf/wave-runner.js"
+  if [ -f "$src" ]; then
+    sed "s/'PASS_AC_CORRECTED', //" "$src" > "$ctl/vctl/wave-runner.js"
+    local ablated
+    ablated="$(_verdict_tokens_runner "$ctl/vctl/wave-runner.js")"
+    [ "$ablated" != "$ratified" ] \
+      || cf "(control) dropping PASS_AC_CORRECTED from a copy of wave-runner.js did NOT change the extracted set — the extractor is not reading the declaration, so the comparison above proves nothing"
+    printf '%s\n' "$ablated" | grep -qx 'PASS_AC_CORRECTED' \
+      && cf "(control) the ablated copy still yields PASS_AC_CORRECTED — the ablation did not take"
+    comm -23 <(printf '%s\n' "$ratified") <(printf '%s\n' "$ablated") | grep -qx 'PASS_AC_CORRECTED' \
+      || cf "(control) the comparison does not name PASS_AC_CORRECTED as the missing member, so a real drift would be reported without saying what drifted"
+  else
+    cf "(control) wave-runner.js not found at $src — the reddening control could not run"
+  fi
+  rm -rf "$ctl/vctl"
+
+  finish "the verdict vocabulary: every *runner*.js VERDICTS array projects MANUAL § Dev → QA step 6's ratified tokens, both sides re-derived from the files, extractors held to their own scope, and a dropped member reddens naming itself"
+}
+
 case_verify_frame() {
   cf_reset
   make_sandbox                     # make_sandbox already declared one select gate
@@ -3324,6 +3541,7 @@ CASES=(
   case_finish_pr_premerge_red
   case_finish_pr_empty_merge
   case_finish_pr_gate_hardening
+  case_finish_pr_gate_revision
   case_archive_apply
   case_archive_index_carries_the_date
   case_archive_requires_the_retired_store
@@ -3338,6 +3556,7 @@ CASES=(
   case_archive_progress_honest_noop
   case_archive_progress_index
   case_verify_frame
+  case_verdict_enum_projection
   case_verify_unrunnable_vs_fail
   case_check_board_id_clean
   case_check_board_id_duplicate
