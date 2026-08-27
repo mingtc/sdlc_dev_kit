@@ -48,6 +48,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`doctrine/fix-execution.md` § A.9's never-edit rule gains its missing half.** A supplied document
+  that arrived corrupted in transit (mojibake, stripped bytes) may be repaired **mechanically**, with
+  the raw bytes preserved beside the repair so the transformation is a diff anyone can run rather
+  than a claim anyone must trust. Before this, the rule was an absolute that told you to preserve a
+  corrupted document forever — which nobody would do, so it would have been broken silently instead
+  of amended openly. Nothing to do unless you hold a corrupted supplied document; if you do, repair
+  it this way.
 - **`archive-progress.sh` gains an ordinal knife, an index, and a new exit code 3.** Its trigger is
   measured in **bytes** and its only selector cut in **days** — so under load the threshold is crossed
   two or three times a day while the date knife can fire once, and the second run answers *"Nothing to
@@ -130,6 +137,48 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   what each of the three does *not* answer; negative-claims names instruments as its upstream
   neighbour — that sheet asks whether a claim is grounded, this one whether the check behind it can
   see anything at all.
+- **[`contracts/retention-completeness.md`](contracts/retention-completeness.md) is now marked
+  deliberately non-travelling.** Its § 6 named `scripts/githooks/pre-commit` as its reference
+  implementation and the kit ships no such hook — `githooks/` carries `applypatch-msg` and
+  `commit-msg` only. **That sheet is a spec you implement, not a gate you inherit**;
+  `contracts/README.md`'s row and [`doctrine/retention.md`](doctrine/retention.md) § A.5 now say so,
+  and the adoption checklist that asks you to name your guards now states that **both are yours to
+  write and the kit ships neither** — an unnamed guard you never wrote is indistinguishable from one
+  you have. **If you went looking for that hook in your copy and could not find it, this is why** —
+  nothing is missing from your tree.
+- **The shipped Dev skills no longer reference a foreign plugin namespace.** Those references named
+  skills this kit does not ship, so they could never resolve — and `writing-plans` instructed every
+  plan to carry the namespaced header, so the bad references grew with every plan written. **One
+  skill's option set changed as a result: if you have anything reading its old option numbers, re-read
+  it.** A harness case now finds a planted namespace reference, so the class cannot come back quietly.
+- **[`templates/CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) gains the three
+  tables the rest of the kit binds on** — roles, role-attribution commit prefixes, and the
+  code-vs-metadata glob declaration with its carve-out. **Which shape is law is per disposition**: for
+  REPLACE-class files (`CLAUDE.md`, `README.md`) the template is law and the shipped root file is
+  scaffolding; for FILL and SEED files the in-place instance stays law. The defect this closes was not
+  really omission but a **broken citation**: `AGENTS.md` anchors into `CLAUDE.md` § "Role-attribution
+  commit prefixes" by section name while the `commit-msg` hook enforces that set, so an adapter written
+  without it carries a dangling anchor **plus** an enforced-but-unspecified seam — and that bites on
+  the first commit, not later. **See Action required if you wrote your adapter from the older
+  template.**
+- **The `autoMode` block and the `plansDirectory` value are gone from `.claude/settings.json.example`.**
+  Nothing in the kit read either, and `autoMode`'s `allow` / `soft_deny` / `environment` arrays held
+  **English sentences rather than tool patterns**, so no permission engine could have enforced them
+  under any key name. It enforced nothing and guided nobody while reading exactly like active
+  authorization policy, which is the worse of the two failures. **If you copied the example verbatim
+  and believed `autoMode` was authorizing direct-to-trunk work, it never was** — the trunk policy has
+  one home, your adapter's § The trunk, the branches, and what counts as code here. The file now
+  carries a short note recording that both keys were removed, so their absence is not read as an
+  omission.
+- **The rotation tool's header no longer calls `##` the modern log-entry form.** The **dated `###`
+  session heading is the form the kit documents.** `archive-progress.sh` still matches `##` so a
+  project that already wrote it is not stranded — accepting a form you no longer document is the
+  forgiving direction — but **do not migrate toward it**: `check-board.sh`'s § Log size arm and
+  `kit-init.sh`'s already-lived probe both scan to the next `##` and stop, so a `##` dated entry
+  **terminates the § Log section it is supposed to sit inside**. Measured: the size arm then reports
+  healthy forever, and the lived probe counts zero lines and reads a working repository as new,
+  defeating the initializer refusal that is supposed to be made by a rule rather than by the operator's
+  memory. The old wording is kept in the header beside the correction, with what it cost.
 
 ### Added
 
@@ -221,6 +270,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   the census.
 - `.claude/skills/README.md` no longer states skill counts as digits; the directory listing is the
   count, per the kit's own *derive, date, or do not state* rule.
+- **`kit-init.sh`'s prefix stamping no longer rewrites the `KIT-CLASS:` marker key.** With a
+  non-default `--prefix`, the substitution matched the marker's own **key**, so every shipped file it
+  touched came out reading `<!-- <PREFIX>-CLASS: KIT — … -->`: the key rewritten, the value left, a
+  line that refutes itself, and a `grep KIT-CLASS` over the initialized tree finding nothing. The
+  `KIT` in `KIT-CLASS:` is **the convention's own word**, not your issue prefix — it only looked like
+  the prefix because the shipped placeholder prefix is also `KIT`, and that collision was the whole
+  bug. The key is now a constant behind a substitution sentinel, the placeholder census excludes it,
+  and the initializer's self-check asserts the shipped markers survived stamping. **See Action
+  required: this stops future defacement and does not repair a tree already stamped.**
 
 ### Action required
 
@@ -235,9 +293,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   |---|---|---|---|---|
   ```
 
-  **The separator is not cosmetic.** The rotation inserts directly below the header and assumes the
-  next line is the separator; an index built without it has its first chunk row consumed in the
-  separator's place, so the new row lands *second* and your newest entry is no longer first.
+  **The separator is not cosmetic — and the rotation now refuses without it.** The insert goes directly
+  below the header row and reprints the line after it, so an index whose header is not followed by a
+  separator would have **your first chunk row consumed in the separator's place**: the new row lands
+  *second* and your newest entry is no longer first. That is why the separator is load-bearing.
+  Rather than mis-write the file, `archive-progress.sh` now validates that line and **exits 1**,
+  printing the two lines your index must open with; it will not insert the separator for you, because
+  that file is your record. So a malformed index costs you an **aborted rotation** rather than a
+  silently mis-ordered one — and note the posture: **the chunk and the rewritten log are already on
+  disk when it refuses.** Fix the two lines and append the printed row by hand; do not re-run.
+  *(An earlier version of this item said the rotation "assumes" the next line is the separator. It
+  did, and it mis-wrote. The reason above is unchanged; only the consequence is. Corrected
+  2026-08-28.)*
 
   **If you have never rotated, there is nothing to do:** the file is created on first use, because an
   empty index is then simply true.
@@ -300,11 +367,55 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 - **`release.sh` refuses an unmarked verify-skip override.** Setting the skip variable without the
   marker now exits non-zero having written nothing, and names the legitimate route instead — *an
   unmarked override does not weaken a gate, it removes one.*
+- **The rotation now REFUSES a malformed `progress/history/INDEX.md` instead of mis-writing it.** If the
+  header row is not followed by a markdown separator, `archive-progress.sh` **exits 1** and prints the
+  two lines your file must open with. It will not insert the separator for you: that file is your
+  record, and a tool that quietly rewrites it to suit itself is how an index comes to state things
+  nobody put there. **Note the posture — the chunk and the rewritten log are already on disk when it
+  refuses**, so fix the two lines and **append the printed row by hand rather than re-running.** The
+  separator is matched by GFM **shape**, not by exact bytes, so `| --- | --- |` is accepted as readily
+  as `|---|---|`. If your index is well-formed, nothing changes for you.
+- **The `ISSUE`, `BUG`, `REFACTOR` and `SUBTASK` templates carry a new `pr:` frontmatter key** (`PRD`
+  does not — a PRD has no PR), **and cards minted from them start at `pr: null`.**
+  `move-issue.sh --set-pr <val>` writes the resolved PR/MR reference into that line on a
+  card that has it, and **warns and skips the write-back on a card that does not** — so cards you
+  minted from an older template are silently not updated, which is the case to know about. Nothing
+  shipped calls the flag; it exists for a forge-aware wrapper of your own, and stays `null` on the
+  forge-agnostic path. **If your own tooling parses card frontmatter, expect the new key**; if you want
+  it on existing cards, add the line to them, as the templates now write it.
+- **If you initialized with a non-default `--prefix`, your classification markers are already defaced —
+  grep for them and repair them by hand.** The stamping bug in § Fixed above rewrote the marker's key
+  on every shipped file it touched, and **the fix stops future defacement; it cannot go back**, because
+  there is no updater (see *How to upgrade an adopted project*). Run
+  `grep -rn --exclude-dir=.git -- '-CLASS:' .` and repair any marker whose **key** is not
+  `KIT-CLASS:` — the value after the colon (`KIT` / `MIXED` /
+  `PROJECT`) was never touched, so the repair is the key alone. Start with `.claude/templates/` and
+  `.claude/roles/`, and then check your own cards: every card minted after day one inherited the
+  corrupted key from the template it was copied from.
+- **If you wrote your adapter from the older `CLAUDE-adapter.template.md`, add the three tables it was
+  missing.** The template now carries the roles table, the role-attribution commit-prefix table and the
+  code-vs-metadata glob declaration; adding them to the template does not add them to a file already
+  written from it, and the rest of the kit cites your adapter for exactly that content.
+  **The prefix table is the one that bites**: `AGENTS.md` anchors into your adapter's
+  § "Role-attribution commit prefixes" by section name and the `commit-msg` hook **enforces** that
+  set, so an adapter without it leaves a dangling anchor plus an enforced-but-unspecified seam, on your
+  first commit rather than eventually. Copy the three shapes across and fill them — the values are
+  yours, only the shapes come from the template.
 
-Otherwise none. Every other change above is either a new refusal that fires only on a setup that was
-already broken, a correction to the seed's own files, or new material that binds nothing until you
-reach for it. **A project that never holds a dogfooding round pays nothing for the two new sheets** —
-they are one more file each in directories you already carry.
+**Checked against the board and the tree on 2026-08-28**, at the kit repository's own revision
+`7da2264` plus the reconciliation that reading produced: every adopter-visible change listed above
+carries its entry, and every entry that needs something from you is in this section. Nothing else above requires an
+action — the rest are refusals that fire only on a setup that was already broken, corrections to the
+seed's own files, or new material that binds nothing until you reach for it. **A project that never
+holds a dogfooding round pays nothing for the two new sheets** — they are one more file each in
+directories you already carry.
+
+**Read that as a measurement, not a guarantee — and here is why it is dated.** This paragraph used to
+read *"Otherwise none."*: a standing all-clear that no later change re-derived. Adopter-visible work
+then landed with no entry at all, twice in the same release cycle, and the all-clear went quietly false
+both times while reading exactly as it always had. *Derive, date, or do not state* is the kit's own rule
+and it binds this file too. **If the date above is older than the newest entry you are reading, trust
+the entries and not the all-clear.**
 
 Worth reading anyway if you maintain guards: `doctrine/instruments.md` § A.2 (*every green owes an
 ablation*) is the rule the kit itself had been breaking, and the same shape is easy to
