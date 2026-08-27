@@ -48,6 +48,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **A second file axis: disposition.** Alongside `KIT-CLASS:` (does this travel?),
+  `process/EXTRACTION.md` now names what state each file must reach before day one is done — KEEP,
+  STAMP, FILL, REPLACE, SEED, DELETE-IF-UNUSED. The one that changes behaviour is **REPLACE**:
+  `CLAUDE.md` and `README.md` are scaffolding to be thrown away and rewritten, not edited into shape.
+  The marker-strip rule is stated with it: strip `KIT-CLASS:` where a file's class has become
+  `PROJECT`; keep and re-mark it where the file stays `KIT` or `MIXED`.
 - **`doctrine/fix-execution.md` § A.9's never-edit rule gains its missing half.** A supplied document
   that arrived corrupted in transit (mojibake, stripped bytes) may be repaired **mechanically**, with
   the raw bytes preserved beside the repair so the transformation is a diff anyone can run rather

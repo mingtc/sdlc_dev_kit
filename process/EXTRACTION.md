@@ -61,6 +61,82 @@ the only files in the tree that never travel anywhere. Mark them so, and re-mark
 own files accrete. A marker that says `KIT` over a file carrying your product's law is worse than
 no marker.
 
+## The second axis: DISPOSITION — what state must this file be in before day one is done?
+
+`KIT-CLASS:` answers *does this travel to the next project?* It does not answer *what has to happen
+to this file before this project is set up*, and the two have different readers: the classification
+is read by whoever extracts the kit **out** of a project, the disposition by whoever is standing in
+a fresh unpack with a day of work ahead of them.
+
+**This is a second axis, not a second classification.** The convention above is still the one
+classification convention; nothing here changes a `KIT-CLASS:` value, and a file has both a class
+and a disposition at the same time.
+
+| Disposition | Meaning | Members in this seed |
+|---|---|---|
+| **KEEP** | Travels unedited; stays visibly the kit's. | `process/**`, `.claude/skills/**` |
+| **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh` |
+| **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `setup.sh`'s runtime half |
+| **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
+| **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
+| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification adapters (`scripts/notify*`) |
+
+*(The members are a **derivation of this seed**, not a definition of the axis. Re-derive them by
+opening the tree; a project that adds a surface gives it a disposition then, and this table is
+wrong rather than general if a reader treats it as closed.)*
+
+**REPLACE is the row that exists because of a measured failure**, and it is the one worth reading
+twice. `README.md` has always carried a *replace me* notice; nothing named the class, nothing else
+was in it, and nothing checked it. The failure that follows is not that an adopter ignores the
+notice — it is that **scaffolding written well enough to be plausible gets edited instead of
+replaced.** A generically-filled adapter arrives with a filled roles table, a filled prefix table
+and real house rules, so the reader fills two angle brackets and moves on, and the project carries
+the kit's generic law forever. **A REPLACE file is therefore shipped deliberately unusable as-is** —
+it states that it is scaffolding in its own first lines — because a REPLACE file that could be
+mistaken for a finished one will be.
+
+**What discharges each row is different, and saying so is the point of having the axis:**
+
+- **KEEP** — nothing. Leaving it alone is the correct action, and an edit to a KEEP file is drift
+  the next extraction pays for.
+- **STAMP** — the initializer, once, at setup. A STAMP file nobody stamped still holds the kit's
+  placeholder values.
+- **FILL** — a human or an agent, by hand, reading the blank's own instruction. **A blank left in a
+  FILL file is not a cosmetic debt:** `verify.sh`'s `GATES` ships empty, so an unfilled one is a
+  gate runner with nothing to run, and the first landing sets the precedent that landings are
+  ungated.
+- **REPLACE** — deletion and rewriting, not editing.
+- **SEED** — the project, over time. **A SEED file is never "done"**, which is exactly why it must
+  not be judged by the same test as FILL: emptiness is its correct day-one state.
+- **DELETE-IF-UNUSED** — a decision, recorded either way. Removing it and *keeping it on purpose*
+  are both discharges; **leaving it undecided is not**, because the next reader cannot tell an
+  option that was weighed from one nobody opened.
+
+### The marker and graduation — strip where the class becomes `PROJECT`
+
+A file that becomes the project's own stops being classified for travel, and its marker goes with
+it. The rule is the one already stated above, applied at the moment it bites: **strip the
+`KIT-CLASS:` marker where the file's class has become `PROJECT`; keep it — and re-mark it honestly
+— where the file stays `KIT` or `MIXED`.**
+
+**Read the rule off the class, never off the disposition.** `scripts/verify.sh` is FILL and
+`setup.sh` is FILL, and both keep their markers, because both are `MIXED`: the frame travels and
+only the contents are yours. A strip rule phrased over the disposition instead — *"strip on REPLACE
+and FILL"* — contradicts itself on exactly those two files.
+
+And the constraint that follows from stripping, which is easy to violate months earlier than it is
+noticed: **an instruction must not live inside a marker on a file whose marker will be removed.** A
+*replace me* or *fill this in* notice belongs in the body, where removing the classification cannot
+remove the instruction. *(Stated above under the classification convention; repeated here because
+this is the section where somebody is deciding what to strip.)*
+
+### Day one is done when every row is discharged
+
+That is the same list [`SEED.md`](SEED.md) § Day one is done when already carries, said in terms of
+the axis rather than in terms of five filenames — and the axis is what makes it enumerable instead
+of remembered. **Until then the repository is a kit wearing a project's name**, which is the state
+this axis exists to make visible and finite.
+
 ## The one rule about counting
 
 **A census number written in prose is exactly the kind of claim that rots.** The donor project
@@ -280,7 +356,7 @@ The manual names no filenames except through these two roles:
 | Role | This kit's default | You supply |
 |---|---|---|
 | **The project doc** — what the project is, stack, quality bar, binding gates, credentials | `PROJECT.md` | Your equivalent. |
-| **The project adapter** — the project's own law, the role set, the prefix table, the code-path definition | `CLAUDE.md` (the harness reads this filename) | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. |
+| **The project adapter** — the project's own law, the role set, the prefix table, the code-path definition | `CLAUDE.md` (the harness reads this filename). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/CLAUDE-adapter.template.md` and **overwrite** the stub. |
 
 ### 2.6 What counts as CODE
 

@@ -1,4 +1,6 @@
-<!-- KIT-CLASS: KIT — the seed's front door. -->
+<!-- KIT-CLASS: KIT — the seed's front door. Scaffolding: REPLACE-class, like CLAUDE.md.
+     See process/EXTRACTION.md § The second axis: DISPOSITION. -->
+<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->
 # The development-process kit — a seed
 
 > **This file is a placeholder for yours.** Replace it with **your project's** README once you are
@@ -73,7 +75,7 @@ names the authority that actually holds the law.
 | 1 | **This file** | What the kit is, and how to stamp it. |
 | 2 | [`process/SEED.md`](process/SEED.md) **or** [`process/EXTRACTION.md`](process/EXTRACTION.md) | **SEED** is the *you-have-nothing* path: an empty directory and a sentence. **EXTRACTION** is the *donor-extraction* path: you have a working repository in front of you and want to know what to copy. Both end in the same place. |
 | 3 | [`process/MANUAL.md`](process/MANUAL.md) | **The operating manual** — roles, the board, the Dev → QA boundary, the rituals, the execution discipline. Read once, in full. Adopt unedited. |
-| 4 | [`CLAUDE.md`](CLAUDE.md) | **The adapter** — this project's own law, and the values the manual deliberately does not know. Read it every session, alongside [`PROJECT.md`](PROJECT.md). |
+| 4 | [`CLAUDE.md`](CLAUDE.md) | **On day one, the bootstrap stub** — it says the project is not set up yet and sends you to [`process/SEED.md`](process/SEED.md). **You replace it** at the end of day one with **the adapter** — this project's own law, and the values the manual deliberately does not know — built from [`process/templates/CLAUDE-adapter.template.md`](process/templates/CLAUDE-adapter.template.md). From then on, read it every session alongside [`PROJECT.md`](PROJECT.md). |
 
 Then, as needed: [`process/contracts/README.md`](process/contracts/README.md) (one sheet per gate —
 what must be TRUE, independent of how you implement it), [`process/doctrine/`](process/doctrine/)
@@ -150,7 +152,15 @@ gate is pure git: it does not call a forge CLI, so nothing in the core path brea
 - **`KIT-CLASS:` markers** at the top of a file say whether it travels to another project:
   **KIT** (travels as-is or as a blank shape), **PROJECT** (yours alone), **MIXED** (a kit
   mechanism with a project-shaped section inside it). Re-mark a file honestly when you change what
-  it is.
+  it is. When a file becomes wholly yours its class becomes `PROJECT` and the marker comes off with
+  it — that is graduation, and the rule for it is in
+  [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.
+- **Disposition — what state a file must be in before day one is done.** A second axis, answering
+  the question the class does not: **KEEP** · **STAMP** · **FILL** · **REPLACE** · **SEED** ·
+  **DELETE-IF-UNUSED**. It matters most for **REPLACE**: this `README.md` and the shipped
+  `CLAUDE.md` are **scaffolding to be thrown away and rewritten**, not files to be edited into
+  shape. The axis, its members and what discharges each one are in
+  [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.
 - **Pattern vs instance.** A doctrine sheet's *pattern* section is law and travels verbatim; its
   *instance* section is one project's evidence and travels only as an illustration. When you drop
   an instance, **keep the pattern and keep the why** — that is the supersession law
