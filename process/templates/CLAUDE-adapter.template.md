@@ -39,6 +39,82 @@ quality bar, the gates, credentials, the active-roles table) live in
    the next worker paying again for a question already answered — and when you resolve a new one,
    **you append to it in the same session**.
 
+## Roles
+
+The pattern is [`process/MANUAL.md` § Roles as hats](process/MANUAL.md). **This table is this
+project's cast** — it is the source of truth for which hats exist here, and it must match the
+contents of `.claude/roles/` and the role set your commit-attribution guard enforces
+*(authority: [`process/contracts/config-seam.md`](process/contracts/config-seam.md) and
+[`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md))*.
+
+| Role | Doc | Owns |
+|------|-----|------|
+| **<Role>** | [<role>.md](.claude/roles/<role>.md) | <what this hat owns, in one line> |
+| **<Role>** | [<role>.md](.claude/roles/<role>.md) | <…> |
+| **<Role>** | [<role>.md](.claude/roles/archive/<role>.md) | **PARKED** — <why it is parked, and what would un-park it> |
+
+**Parked is a decision, not an absence.** A role you do not run stays in the table with its reason,
+in `.claude/roles/archive/`, so the next reader can see the choice was made. Adding or parking a
+role means editing **three** places in the same change: this table, `.claude/roles/`, and the role
+set in `scripts/githooks/commit-msg`. *(More readers than three carry the set —
+[`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and that list is the count.)*
+
+## The trunk, the branches, and what counts as code here
+
+- **Trunk: `<trunk>`** (a single trunk, **resolved and confirmed, never inferred** — the same value
+  the initializer stamped, and it must equal `<remote>/HEAD`).
+- **Work lives on per-work-item branches:** `feature/<PREFIX>-NNN-<slug>`,
+  `fix/<PREFIX>-NNN-<slug>`, `refactor/<PREFIX>-NNN-<slug>`. **One branch per work item, never per
+  role.**
+- **What counts as CODE here — `<fill: the globs>`.** Only these go through a branch.
+  **Everything else is metadata and commits direct to `<trunk>`**: board moves, requirement and
+  issue edits, role-doc updates, `process/**`, `dev/**`, the running log, the project-facts sheet
+  and this file.
+  *(The rule: [`process/MANUAL.md` § The code-vs-metadata rule](process/MANUAL.md).)*
+
+  <!-- THE GLOBS CONVENTION, stated so the fill-in is unambiguous:
+       • Write real globs, one per entry, `**`-rooted at the repository root — e.g. `src/**`,
+         `tests/**`, and the ONE manifest/build file your language uses.
+       • The list is a WHITELIST of what needs a branch, not a description of the tree. If a path
+         is not named, a worker may commit it straight to the trunk — so an omission is a licence,
+         not a gap.
+       • Include the dependency manifest / lockfile: a dependency change is code even when no
+         source file moves.
+       • Do NOT include generated or vendored trees; name them in `.gitignore` instead.
+       • Keep it SHORT. A long list means the boundary is not really a boundary, and every worker
+         will re-derive it differently.
+       This block is GUIDANCE and goes when you delete the comments. The bullet below is LAW and
+       stays: it is the exception the rule needs in order to be followed. -->
+
+- **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
+  matrix row, a doc correction the code change *makes true* belongs in the commit that makes it
+  true — splitting it onto `<trunk>` publishes a claim about code that has not landed, and leaves
+  the branch's reviewer reading a diff with its explanation missing. The direct-to-trunk rule above
+  governs metadata changed **on its own**; it was never a ban on a code change carrying its own
+  documentation.
+  **And the carve-out is not limited to documentation** — an *executable* declaration the same
+  change makes true rides with it too. The case that keeps being missed: a new guard's enrolment in
+  your gate runner's guard set, which the globs above classify as metadata while the file it guards
+  is code. Split those and the branch's gate cannot see the guard, `<trunk>`'s gate cannot see what
+  it guards, and **the guard floor shrinks with nothing red to show it.**
+
+## Role-attribution commit prefixes
+
+Every commit subject starts with a role tag; the `scripts/githooks/commit-msg` hook rejects a
+prefix-less subject (wired via `git config core.hooksPath scripts/githooks`).
+**This table is this project's prefix set and must match the hook's `ROLE_PREFIXES` line
+verbatim** — the hook keeps that list on its own line precisely so a guard can *derive* it rather
+than re-hardcode it.
+
+| Prefix | Used by |
+|--------|---------|
+| `[<Role>]` | <who commits under this tag, and for what> |
+| `[<Role>]` | <…> |
+| `[<Role>]` | (parked here — <keep the prefix accepted so an un-park costs no hook change, or say why not>) |
+
+Examples: `[<Role>] <PREFIX>-001: <what changed>` ·
+`[<Role>] <PREFIX>-001 → qa_complete: <verdict>. Squash-merged into <trunk>.`
+
 ## What is ON and what is OFF here
 
 <!-- The adapter's real job. Everything the manual describes is optional to SOMEONE; say which

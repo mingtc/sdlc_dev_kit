@@ -30,6 +30,15 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
   (`grep -qE '^##[[:space:]]+Log'`) before it can report this section's size;
 - a dated `###` boundary per session: the log rotation splits this file on
   `### YYYY-MM-DD` when it rotates, so each session's entries sit under ONE heading.
+  **`###`, not `##`, and that is load-bearing rather than stylistic.** Two tools read the
+  `## Log` *section* by scanning from its heading to the **next `##`** — the drift report's
+  § Log size arm and the initializer's already-lived probe. An entry written as
+  `## YYYY-MM-DD` therefore *terminates the section it is supposed to be inside*: the size arm
+  measures only the preamble and reports healthy forever, and the lived probe counts zero log
+  lines, so a repository with a full history reads as new. Measured: 4 log lines seen under
+  `###`, **0 under `##`**. (The rotation tool accepts several older forms and calls the
+  top-level one "modern" in its own header — that comment is the outlier here, and the
+  disagreement is recorded rather than resolved in this file.)
 
 ```markdown
 ### YYYY-MM-DD [Role] <session title>
