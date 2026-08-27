@@ -48,6 +48,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`MANUAL.md`'s session-close ritual now names one more state, and § The kanban worktree stops
+  over-promising.** At session close, the **local trunk ref must not be ahead of
+  `<remote>/<trunk>`** — everything the process commits direct to the trunk (rulings, specs, board
+  edits) lands there, so an `ahead` is work nobody else can see. The ritual cites `check-board.sh`
+  arm `[f1]`, which already makes exactly that reading and prints the push command, so there is
+  nothing new to run: the bullet writes down what your drift report already enforces. It deliberately
+  asks nothing about `HEAD` — a dispatched leg legitimately holds the checkout on a work branch, so a
+  HEAD-vs-trunk comparison would redden on every orchestrated run — and `behind` is a stale view
+  rather than a finding. Separately, § The kanban worktree's claim that `check-board.sh` *"surfaces
+  the divergence"* now carries the span the arm itself prints: it counts commits reachable from a
+  ref, so a commit reachable from **no** ref at all — an orphaned sibling, left behind when `HEAD`
+  moved — is outside that measurement and would need the reflog. The check has not changed; the
+  manual has stopped implying it covers a case it never did.
 - **A second file axis: disposition.** Alongside `KIT-CLASS:` (does this travel?),
   `process/EXTRACTION.md` now names what state each file must reach before day one is done — KEEP,
   STAMP, FILL, REPLACE, SEED, DELETE-IF-UNUSED. The one that changes behaviour is **REPLACE**:

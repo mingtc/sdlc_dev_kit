@@ -173,6 +173,13 @@ version control by the initializer, not left for each actor to discover
 - Each session's `progress.md` entries sit under one dated `### YYYY-MM-DD [Role] <title>`
   heading, **forward-only** — history is not rewritten.
 - Run `./scripts/check-board.sh` — resolve any drift it reports.
+- **The local trunk ref is not ahead of `<remote>/<trunk>`** — `refs/heads/<trunk>` measured
+  against `refs/remotes/<remote>/<trunk>`. Everything the process records as metadata commits
+  direct to the trunk, so an `ahead` here is rulings, specs and board edits nobody else can see.
+  `check-board.sh` arm `[f1]` is that reading, and it prints the push command that clears it.
+  Note what is **not** asked: nothing about `HEAD` — a dispatched leg legitimately holds the
+  checkout on a work branch, so a HEAD-vs-trunk comparison would redden on every orchestrated
+  run — and `behind` is a stale view rather than a finding.
 - If `progress/qa_complete/` is over the threshold, run `./scripts/archive.sh --apply` and
   commit the sweep.
 
@@ -395,7 +402,10 @@ control ops run inside a **standing detached worktree pinned to the trunk** (`.k
 gitignored, auto-bootstrapped, lock-serialized, and it fast-forwards your main checkout when that
 sits clean on the trunk). This is what lets a board move commit to the trunk **while your working
 checkout is on a work branch**. Never delete it mid-op; if an op dies between commit and push,
-`check-board.sh` surfaces the divergence. The contract is
+`check-board.sh` surfaces the divergence — **within the span it prints**: commits reachable from a
+ref. A commit reachable from no ref at all — an orphaned sibling, e.g. one made while the worktree
+was attached and left behind when `HEAD` moved elsewhere — is outside that measurement and would
+need the reflog. The contract is
 [`contracts/kanban-worktree.md`](contracts/kanban-worktree.md).
 
 ### Role-attribution commit prefixes
