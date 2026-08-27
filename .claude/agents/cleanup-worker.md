@@ -26,7 +26,7 @@ Opus **medium** is the set default above, per the ladder's `Cleanup / classifier
 **medium** or the cheaper model at **high**). **The cheaper model at high effort is the
 sanctioned alternative** at the mechanical end and is the caller's choice to make — noting
 that the model half travels on the spawn call while the effort half needs
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1's
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 mechanisms (a bare model override against this file's pin yields that model at *medium*, not
 at high). The lowest effort tier is **never used**; **never `max` effort**; **never spawn the
 seat's own model class**.

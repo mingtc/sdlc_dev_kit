@@ -24,7 +24,7 @@ and let PM mint it.
 Opus **high** is the set default above, per the ladder's `Spike / probe` line: a probe is
 reasoning-dense and cheap to run once, expensive to run wrong. Effort escalations travel only
 through
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1's
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 two mechanisms, never on the spawn call. The lowest effort tier is **never used**; **never
 `max` effort**; **never spawn the seat's own model class**.
 

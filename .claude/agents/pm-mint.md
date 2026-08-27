@@ -25,7 +25,7 @@ minting is `high` because a wrong AC is paid for downstream by every Dev and QA 
 reads it. An **XS / mechanical** PM chore (a one-field edit, a board relabel) is the caller's
 call to run on the cheaper model at **high** effort — the model half travels on the spawn
 call, the effort half through
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1's
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 mechanisms (the spawn call has no effort parameter). The lowest effort tier is **never used**;
 **never `max` effort**; **never spawn the seat's own model class**.
 

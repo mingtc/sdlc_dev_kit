@@ -165,7 +165,9 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   itself the defect (it turns a deleted check into a SKIP instead of a FAIL) and that choice is
   recorded; and every instrument's blind spot is named **in its own output**. This one binds every
   guard author, not only whoever runs a round — its § C worked example is the kit's own self-test
-  harness, including three places the kit was breaking its own new rule.
+  harness. *(An earlier version of this note said § C cited three places the kit was breaking its own
+  new rule. It did — and all three were fixed within a phase, which is why § C now cites the
+  harness's DESIGN rather than its bugs. Corrected 2026-08-27.)*
 - **[`MANUAL.md` § The measurement rituals](MANUAL.md)** now names all three — regeneration spike,
   seed acceptance test, dogfooding round — as one family: **available, never obligations**, reached
   for on a condition rather than a schedule, all producing findings rather than code, and all
@@ -225,8 +227,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 - **Only if `progress/history/` ALREADY holds rotated chunks: create `progress/history/INDEX.md`
   before your next rotation.** The rotation will not write one for you while chunks exist, because a
   row-less index would deny them — and the date spans are inside those chunks, so only you have them.
-  Create the file with the header row `| Chunk | Covers | Entries | Rotated | Cut |` and one row per
-  existing chunk. **If you have never rotated, there is nothing to do:** the file is created on first
+  Create the file with the header row **and its markdown separator**, then one row per existing
+  chunk — **both lines, exactly:**
+
+  ```
+  | Chunk | Covers | Entries | Rotated | Cut |
+  |---|---|---|---|---|
+  ```
+
+  **The separator is not cosmetic.** The rotation inserts directly below the header and assumes the
+  next line is the separator; an index built without it has its first chunk row consumed in the
+  separator's place, so the new row lands *second* and your newest entry is no longer first. **If you have never rotated, there is nothing to do:** the file is created on first
   use, because an empty index is then simply true.
 - **If you parse `verify.sh`'s output, update it for the fourth state and the count line.** Anything
   matching on exactly `PASS`/`FAIL`/`SKIP` will not recognise `UNRUNNABLE`, and a summary parser
@@ -255,7 +266,7 @@ reach for it. **A project that never holds a dogfooding round pays nothing for t
 they are one more file each in directories you already carry.
 
 Worth reading anyway if you maintain guards: `doctrine/instruments.md` § A.2 (*every green owes an
-ablation*) is the rule the kit itself was breaking in three places, and the same shape is easy to
+ablation*) is the rule the kit itself had been breaking, and the same shape is easy to
 have shipped in your own drift checks.
 
 ---

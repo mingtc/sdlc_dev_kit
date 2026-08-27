@@ -23,7 +23,7 @@ Opus **medium** is the default set above, per the ladder in
 `.claude/roles/dev.md` § "Model & effort contract". Deviations are the **caller's** to make,
 never yours to assume — and the caller **cannot set effort on the spawn call** (the spawn tool
 carries `model` only): an escalation reaches you through one of the two mechanisms in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
 (the Workflow tool's per-call `effort`, or the serial frontmatter toggle on this file). **You
 never raise your own effort; there is no self-knob.**
 

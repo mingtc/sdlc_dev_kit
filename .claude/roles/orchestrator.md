@@ -71,7 +71,7 @@ in frontmatter, which outranks the session). The defaults are therefore already 
 plain spawn of `dev-worker`/`qa-worker`/etc. is correctly provisioned with no action.
 **An ESCALATION** (a rigor line above the type's pin, e.g. Dev at the higher tier) travels only
 through the two mechanisms in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1:
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1:
 **(a)** the Workflow tool's per-call `effort`
 (`agent(prompt, {agentType: 'dev-worker', effort: '<higher>'})` — parallel-safe, prefer it), or
 **(b)** the serial frontmatter toggle (edit the worker file's `effort:` line → spawn → revert;

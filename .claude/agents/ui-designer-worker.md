@@ -41,7 +41,7 @@ Files in the repo, reviewable like code — never a description in a chat transc
 
 Sonnet **high** is the default set above: design work is judgment-dense but pattern-rich —
 the community default for this work class, adopted as-is. Escalation to the larger model is
-the caller's, through the mechanisms in `process/doctrine/model-provisioning.md` § 5.1, and
+the caller's, through the mechanisms in `process/doctrine/model-provisioning.md` § B.1, and
 is justified by novel interaction design or accessibility-critical surfaces, not by volume.
 The lowest effort tier is never used; never the maximum; **never design and implement in the
 same dispatch** — implementation is the Dev worker's, from your handoff.

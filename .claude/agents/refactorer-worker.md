@@ -25,7 +25,7 @@ Opus **high** is the set default above, per `.claude/roles/refactorer.md` § "Mo
 contract": the audit reads widely and holds the whole codebase in view. A narrow **cleanup /
 classifier** pass is the cheaper class — the caller runs that as `cleanup-worker`. Effort
 escalations travel only through
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1's
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 two mechanisms, never on the spawn call. The lowest effort tier is **never used**; **never
 `max` effort**; **never spawn the seat's own model class**.
 

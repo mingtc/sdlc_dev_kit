@@ -24,7 +24,7 @@ unmet AC named.
 Opus **medium** is the default set above, per `.claude/roles/qa.md` § "Model & effort
 contract". **high** is the caller's setting for a `Major` review or a review on a declared
 risk surface — set through one of the two mechanisms in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § 5.1
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
 (the Workflow tool's per-call `effort`, or the serial frontmatter toggle on this file), never
 on the spawn call, which carries `model` only. The lowest effort tier is **never used**;
 **never `max` effort**; **never spawn the seat's own model class**.
