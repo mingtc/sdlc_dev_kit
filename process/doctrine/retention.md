@@ -181,8 +181,11 @@ the amendment — do not let a deletion pass as a move."* So:
   direction **changes venue** to a write-time hook, where reading live version-control state is
   legitimate and an offline-suite prohibition does not reach. This is the one place in the doctrine
   where the mechanism changes venue rather than moving, and it changes venue for a stated reason.
-  Its contract sheet is
-  [`../contracts/retention-completeness.md`](../contracts/retention-completeness.md).
+  Its invariants are [`../contracts/retention-completeness.md`](../contracts/retention-completeness.md)
+  — **a spec, not a shipped gate.** The kit deliberately ships no such hook: every operand it would
+  need (the retained directory's name, the ledger's path and field shape) is the project's own law,
+  so the travelling artifact would be a file of blanks. **The hook is yours to write**, and that
+  sheet's sections 1–5 are what it owes.
 
 ### A.6 — Retirement-QA (the process verifies parks; it verifies retirements too, and harder)
 
@@ -235,7 +238,10 @@ thing you MAY do, never a thing you OWE.**
   plainly that every `commit`/`blob` field must be **re-captured** if the history moves.
 - **The guards**, by name: the in-tree honesty guard (§ A.5's first bullet) and the write-time
   completeness hook (§ A.5's third bullet), plus the hook wiring that makes the latter live in
-  every checkout including the auxiliary trunk checkout.
+  every checkout including the auxiliary trunk checkout. **Both are yours to write — the kit ships
+  neither**, and the completeness hook's sheet says so in its own § 6. Naming them here is what
+  makes their absence visible if you decide not to write one; an unnamed guard you never wrote is
+  indistinguishable from one you have.
 - **Your own precedent**, if you have one, and the register entry that governs it.
 - **A dated baseline** — how many retirements have happened, measured on a stated date with the
   command. Per [`staleness.md`](staleness.md) § C, a baseline that says *"nothing has ever been

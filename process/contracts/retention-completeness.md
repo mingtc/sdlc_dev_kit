@@ -70,14 +70,22 @@ authorized — both are owed to a slower, human verification this gate cannot pe
 
 ## 6. REFERENCE IMPLEMENTATION
 
-> One implementation, not the definition.
+> **Deliberately non-travelling — this sheet has no shipped implementation to point at.**
 
-- `scripts/githooks/pre-commit` — KIT-CLASS **MIXED**: this sheet describes the **kit half**
-  (a staged deletion under a retained-evidence directory requires a same-change, path-naming
-  ledger row; renames are exempt at any detection strength; a documented one-off bypass
-  exists). The retained directory's name and the ledger file's path and seven-field shape are
-  the project's law and must be replaced on adoption — see
-  [`../doctrine/retention.md`](../doctrine/retention.md) § A.4.
+- **Sections 1–5 above are the whole spec, and they are what an adopter owes.** This direction is a
+  **write-time hook** (`retention.md` § A.5's third bullet says why it changes venue rather than
+  moving), and a hook is wired per project: the retained directory's name, the ledger's path and
+  its field shape are all the project's law, so what would travel is a file in which every operand
+  is a blank. An adopter writes the hook in their own `githooks/` and owes the invariants above:
+  a staged deletion under the retained area requires a same-change, path-naming ledger row; renames
+  are exempt at any detection strength; a documented one-off bypass exists.
+- **This section used to name `scripts/githooks/pre-commit` as the reference implementation, and no
+  such file has ever shipped** — `githooks/` carries `applypatch-msg` and `commit-msg` only. The
+  hook was evidently real in the donor project and was lost in extraction while **both of its
+  citations survived**, in two different files, so the sheet went on promising a gate that fired
+  nowhere. Recorded rather than quietly corrected, because "a sheet citing a gate that no longer
+  exists" is a drift class the manual names, and this was an instance of it inside the contract
+  corpus itself. *(Ruled 2026-08-26: re-mark the sheet, do not write the hook.)*
 - [`../doctrine/retention.md`](../doctrine/retention.md) § A.5 — the reason this direction could
   not be an offline test and moves venue to this gate instead.
 - The human verification this gate defers to — that a ledger row's fetch-back actually works —

@@ -47,7 +47,7 @@ census (see [`../EXTRACTION.md`](../EXTRACTION.md) § The one rule about countin
 | Outbound notification | [notification.md](notification.md) | silent when unconfigured, never a gate |
 | The process self-test harness | [self-test-harness.md](self-test-harness.md) | the tools tested in a sandbox (MIXED — kit half only) |
 | The acceptance tier | [acceptance-tier.md](acceptance-tier.md) | which tests pin the PRODUCT — **non-travelling reference** |
-| Retention completeness | [retention-completeness.md](retention-completeness.md) | a deletion under the retained area requires a same-change ledger row (MIXED — kit half only) |
+| Retention completeness | [retention-completeness.md](retention-completeness.md) | a deletion under the retained area requires a same-change ledger row — **non-travelling reference** |
 
 **The first eleven rows are the minimum set** — the set the completeness rule treats as a floor.
 The rows after them are **additions**, most justified by the rule that makes the set complete
