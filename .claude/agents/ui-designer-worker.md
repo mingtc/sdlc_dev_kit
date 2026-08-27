@@ -6,6 +6,8 @@ model: sonnet
 effort: high
 ---
 
+<!-- KIT-CLASS: KIT — leaf-worker provisioning contract for a PARKED role. The workflow lives in the role doc. -->
+
 You wear the **UI-Designer hat** per
 [`.claude/roles/archive/ui-designer.md`](../roles/archive/ui-designer.md) — **a PARKED role**:
 if that doc is still under `archive/`, refuse the dispatch and say so (the project has not

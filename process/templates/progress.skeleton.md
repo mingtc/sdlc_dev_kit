@@ -35,10 +35,11 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
   § Log size arm and the initializer's already-lived probe. An entry written as
   `## YYYY-MM-DD` therefore *terminates the section it is supposed to be inside*: the size arm
   measures only the preamble and reports healthy forever, and the lived probe counts zero log
-  lines, so a repository with a full history reads as new. Measured: 4 log lines seen under
-  `###`, **0 under `##`**. (The rotation tool accepts several older forms and calls the
-  top-level one "modern" in its own header — that comment is the outlier here, and the
-  disagreement is recorded rather than resolved in this file.)
+  lines, so a repository with a full history reads as new. Measured 2026-08-27, on this
+  skeleton's own shape: 4 log lines seen under `###`, **0 under `##`**. (The rotation tool also matches a `##` dated entry, so that a
+  project which already wrote one is not stranded; its own header documents `###` and says
+  `##` is not a form to migrate toward. Accepting more than you document is the forgiving
+  direction; writing `##` here is not.)
 
 ```markdown
 ### YYYY-MM-DD [Role] <session title>

@@ -44,24 +44,27 @@
 # exits 3, because a clean exit 0 there reads as an all-clear that stops you
 # looking.
 #
-# Entry-boundary forms recognized inside "## Log":
-#   * a "### YYYY-MM-DD ..." session heading — THE FORM THE KIT DOCUMENTS (ruled R14).
+# Entry-boundary forms recognized inside "## Log", the documented one first:
+#   * a "### YYYY-MM-DD ..." session heading — THE FORM THE KIT DOCUMENTS. Carries
+#     its whole section, undated sub-bullets included, but only when it is a
+#     boundary in its own right: nested inside a "## " section it inherits that
+#     section's bucket instead.
 #   * a "## YYYY-MM-DD ..." session heading — ALSO MATCHED, deliberately, but NOT
-#     documented and NOT to be migrated toward. An earlier version of this comment
-#     called it "the modern top-level form" and called "###" older. That was wrong in
-#     a way that mattered: check-board.sh's § Log size arm and kit-init.sh's
-#     already-lived probe BOTH scan to the next "##" and stop, so a "##" dated entry
-#     TERMINATES the § Log section it is supposed to sit inside. Measured: the size arm
-#     then reports healthy forever, and the lived probe counts 0 lines and reads a
-#     WORKING repository as new — defeating the refusal initializer.md § 3 requires be
-#     made "by a rule rather than by the operator's memory". This tool still accepts
-#     "##" so that a project which already wrote it is not stranded; accepting a form
-#     you no longer document is the forgiving direction. See changes/049.
-#     carries its whole section;
-#   * an older "### YYYY-MM-DD ..." section header — carries its whole section
-#     the same way, when it is not nested inside a "## " section;
+#     documented and NOT to be migrated toward. It is the senior form here, carrying
+#     every line up to the next "## " heading, which is why the other two forms stop
+#     being boundaries underneath it. An earlier version of this comment called it
+#     "the modern top-level form" and called "###" older. That was wrong in a way
+#     that mattered: check-board.sh's § Log size arm and kit-init.sh's already-lived
+#     probe BOTH scan to the next "##" and stop, so a "##" dated entry TERMINATES the
+#     § Log section it is supposed to sit inside. Measured: the size arm then reports
+#     healthy forever, and the lived probe counts 0 lines and reads a WORKING
+#     repository as new — defeating the refusal initializer.md § 3 requires be made
+#     "by a rule rather than by the operator's memory". This tool still accepts "##"
+#     so that a project which already wrote it is not stranded; accepting a form you
+#     no longer document is the forgiving direction.
 #   * a bare/bulleted "YYYY-MM-DD ..." or "- YYYY-MM-DD ..." line — the oldest,
-#     flattest form.
+#     flattest form. Same nesting rule as "###": a boundary only when not under a
+#     "## " section.
 #
 # Idempotency: after a clean rotation, re-running with the same --before
 # finds no entries to archive and exits 0.
@@ -266,21 +269,23 @@ awk -v before="$BEFORE" \
 
   # Inside the Log section. THREE entry-boundary forms, in NESTING-PRECEDENCE
   # order, most senior first:
-  #   1. "## YYYY-MM-DD ..." — the MODERN top-level session heading. It carries
-  #      its WHOLE section — every line up to (not including) the next "## "
-  #      heading, whatever THAT line looks like — because in real Markdown
-  #      nesting a "###" heading (or a bare bullet) appearing after a "##"
-  #      heading stays part of that "##" section until another "##" (or
-  #      shallower) heading ends it; nothing narrower can. Sets dh_active=1 so
-  #      forms 2/3 below know they are nested and must NOT re-bucket the tail of
-  #      the section.
-  #   2. "### YYYY-MM-DD ..." — the OLDER section-header form. Older entries
-  #      are grouped this way, with UNDATED sub-bullets beneath; the header
-  #      carries its whole section (the sub-bullets inherit that bucket) —
-  #      but ONLY when it is a boundary in its own right, i.e. NOT nested
-  #      inside an active "## " section (!dh_active). When nested (e.g. a
-  #      same-day QA review filed as "### DATE" under that days own "## DATE"
-  #      umbrella) it inherits the bucket of the enclosing section instead.
+  #   1. "## YYYY-MM-DD ..." — ACCEPTED but NOT documented, and not a form to
+  #      migrate toward (the header block says why: a "## " dated entry
+  #      terminates the Log section that check-board.sh and kit-init.sh scan).
+  #      Senior here nonetheless: it carries its WHOLE section — every line up
+  #      to (not including) the next "## " heading, whatever THAT line looks
+  #      like — because in real Markdown nesting a "###" heading (or a bare
+  #      bullet) appearing after a "##" heading stays part of that "##" section
+  #      until another "##" (or shallower) heading ends it; nothing narrower
+  #      can. Sets dh_active=1 so forms 2/3 below know they are nested and must
+  #      NOT re-bucket the tail of the section.
+  #   2. "### YYYY-MM-DD ..." — THE FORM THE KIT DOCUMENTS. Entries are grouped
+  #      this way, with UNDATED sub-bullets beneath; the header carries its whole
+  #      section (the sub-bullets inherit that bucket) — but ONLY when it is a
+  #      boundary in its own right, i.e. NOT nested inside an active "## "
+  #      section (!dh_active). When nested (e.g. a same-day QA review filed as
+  #      "### DATE" under that days own "## DATE" umbrella) it inherits the
+  #      bucket of the enclosing section instead.
   #      NOTE: no apostrophes anywhere inside this awk program — it is delimited
   #      by single quotes, so one comment apostrophe ends the program mid-flight.
   #   3. a bare/bulleted date-prefixed line ("YYYY-.." or "- YYYY-.."), the

@@ -129,7 +129,7 @@ rewrite — write your own prefix into the blanks as you fill them.
 | [`CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) | the adapter shape: point at `process/MANUAL.md` early, then hold your own project law |
 | [`CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) | the corpus manifest shape + its bucket classification |
 | [`DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) | the standing-rulings register: stable ids, three fields, a projection |
-| [`progress.skeleton.md`](templates/progress.skeleton.md) | the exact `## Log` + dated-`###` shapes **the drift report's § Log arm and the initializer's already-lived probe require** — both scan to the next `##` and stop, so a `##` dated entry terminates the section it should sit inside. *(The log rotation is the one tool that would accept `##`; it does, deliberately, and no longer recommends it — `changes/049`, ruled R14.)* |
+| [`progress.skeleton.md`](templates/progress.skeleton.md) | the exact `## Log` + dated-`###` shapes **the drift report's § Log arm and the initializer's already-lived probe require** — both scan to the next `##` and stop, so a `##` dated entry terminates the section it should sit inside. *(The log rotation is the one tool that would accept `##`; it does, deliberately, so that a project which already wrote it is not stranded — and it does not recommend it.)* |
 | [`CAPTURE.template.md`](templates/CAPTURE.template.md) | the measured-truth capture: verdict · endpoints · budget/pacing · verbatim codes & bodies · teardown proof · **what this does NOT establish**. Evidence-ledger class — copy it next to the capture files, not into `requirements/` |
 
 Each skeleton states its own **pattern vs instance** split at the top: what is **format law** (and

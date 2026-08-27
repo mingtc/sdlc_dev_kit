@@ -11,9 +11,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── THE PREFIXES HAVE ONE AUTHORITY: scripts/config.sh. ──────────────────────
-# Same rule and same reason as the four issue scripts (grep 'THE PREFIX HAS ONE
-# AUTHORITY' there for the full statement): no fallback literal, and a missing or
-# unsourceable seam is a refusal that names it. This script needs PRD_PREFIX.
+# Same rule and same reason as the scripts that carry the block (grep 'THE PREFIX HAS
+# ONE AUTHORITY' — that grep is the list, and one of the copies states it in full): no
+# fallback literal, and a missing or unsourceable seam is a refusal that names it. This
+# script needs PRD_PREFIX.
 CONFIG="$ROOT/scripts/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {

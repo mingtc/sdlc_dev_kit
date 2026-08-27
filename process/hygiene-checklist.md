@@ -1,13 +1,14 @@
-<!-- KIT-CLASS: KIT — the FORMAT travels (the five-field shape row, the two ratchet rules, the anti-pigeonhole reservation, the advisory cadence). Every row's evidence column is YOURS to fill. See process/EXTRACTION.md. -->
+<!-- KIT-CLASS: KIT — the FORMAT travels (the five-field shape row, the two ratchet rules, the anti-pigeonhole reservation, the advisory cadence, and the pre-cut sweep with its named owner). Every row's evidence column is YOURS to fill. See process/EXTRACTION.md. -->
 # The hygiene checklist — the SHAPES a pass looks for, and the instruments that look
 
 > **Pattern vs instance.** This file is two things at once. The **pattern** — a row carrying
 > five fields (shape · what it looks like in the tree · the instrument that finds it, by path,
 > or `HAND LANE — no instrument` · its evidence date and source · its retire condition), the
-> two ratchet rules, the anti-pigeonhole reservation and an advisory cadence — is **format law
-> and travels**. The **instance** — every date, every count, every path in an evidence column — is
-> **your project's** and travels to nobody. `requirements/CORPUS.md` carries the same split for
-> the requirements corpus; [`EXTRACTION.md`](EXTRACTION.md) § 1.2 states the rule.
+> two ratchet rules, the anti-pigeonhole reservation, an advisory cadence and the pre-cut sweep
+> with its named owner — is **format law and travels**. The **instance** — every date, every
+> count, every path in an evidence column — is **your project's** and travels to nobody.
+> `requirements/CORPUS.md` carries the same split for the requirements corpus;
+> [`EXTRACTION.md`](EXTRACTION.md) § 1.2 states the rule.
 >
 > **The shapes below travel as a STARTING LIST with their evidence columns blank.** They are not
 > your findings; they are the six shapes that have actually been found in a real repository, kept
@@ -76,6 +77,11 @@ one project, each anonymized, none of them yours:
 
 Run a pass at an **era boundary** (an arc closing, a doctrine round, a seat succession) **or
 roughly every fifth release**. **Seat-triggered, never automatic, and NEVER a release gate.**
+
+Neither the release ritual nor the gate runner calls any of the hygiene instruments in this file,
+and nothing about cutting a version depends on a hygiene pass having run. The instruments are
+**advisory, never a gate**.
+
 ## Before a cut — the pre-cut sweep (MANDATORY when the slate came from a round)
 
 **Owner: the PM.** `doctrine/fix-execution.md` § A.4b: **one fresh-context checker per consumer-facing
@@ -92,9 +98,6 @@ surface list is machine-readable; it is the worse answer before that.**
 **The honest counter-argument, recorded rather than hidden:** a checklist item is only as good as the
 person who runs it, and *the kit's own maintainer repository shipped two false statements in its notes
 documents that were both checklist items nobody ran.* **If you skip this twice, build the gate.**
-
-Neither the release ritual nor the gate runner calls any of this, and nothing about cutting a
-version depends on a pass having run. The instruments are **advisory, never a gate**.
 
 ## The instruments
 

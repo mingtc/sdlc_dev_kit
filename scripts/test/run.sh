@@ -127,9 +127,10 @@ sbcommit() { MSG_OK=1 git -C "$SB_WORK" commit "$@"; }
 # so the harness was testing a shape the templates never produce — and `--set-pr`, which
 # writes back only into an EXISTING `pr:` line, could never work on a kit-minted card
 # while passing here. The templates now declare it (change 015), so this line is a
-# projection of them rather than an invention. a case that mints from the real template (OWED — see change 015)
-# below is the assertion that keeps the two in step: it mints from the real template and
-# does not use this fixture at all.
+# projection of them rather than an invention. The assertion that would keep the two in
+# step is still OWED (change 015): no case yet mints a card from the REAL template and
+# checks that `--set-pr` persists into it. Until one exists the template fix is unproven —
+# a fixture written by hand to match cannot be evidence that the templates produce it.
 seed_issue() {
   local folder="$1" id="$2" slug="$3" type="$4" title="$5" branch="${6:-n/a}"
   local f="$SB_WORK/progress/$folder/${id}-${slug}.md"
@@ -994,32 +995,6 @@ _schema_audit() {
   done < <(cut -d'|' -f1 "$ex" | sort -u)
   rm -f "$ex"
   echo "$n $bad"
-}
-
-# =============================================================================
-# 012 — no shipped skill references a FOREIGN PLUGIN NAMESPACE
-# =============================================================================
-# WHY A MECHANISM AND NOT A SENTENCE (the raising leg's § A.5b argument, kept because
-# it is the whole reason this is a case): the population of bad references GROWS
-# MONOTONICALLY with every plan a project writes, and those documents OUTLIVE any later
-# kit fix — `writing-plans/SKILL.md` says "Every plan MUST start with this header", and
-# the header carried the namespace. A sentence fixes the kit; it does not fix the plans
-# already written from it, and it does not stop the next one.
-#
-# THE PATTERN IS `<ns>:<skill>` WITH NO SPACES, not the word. `using-superpowers/` is a
-# legitimate shipped skill directory, so a word match would fire on the fix itself.
-# Scoped to markdown and excluding URL schemes and inline CSS (`display:flex`,
-# `.card:hover` live in this tree and are not references) — measured, not assumed: the
-# unscoped form matched four CSS declarations in brainstorming/.
-#
-# AND IT FOUND ONE THE DE-NAMESPACING MISSED. 012 closed `superpowers:` and left
-# `elements-of-style:writing-clearly-and-concisely` in brainstorming/SKILL.md, hedged
-# with "if available" — which is exactly the softening that survives review. Fixed with
-# the intent preserved rather than the line deleted; the reference had no subject in this
-# kit, so by 012's own precedent for its one subject-less row it could not stay.
-_foreign_ns_hits() {  # <dir> — prints "file:line:reference" per hit
-  grep -rnE '\b[a-z][a-z0-9-]*:[a-z][a-z0-9-]+\b' --include='*.md' "$1" 2>/dev/null \
-    | grep -vE 'https?:|file:|mailto:|style="' || true
 }
 
 # =============================================================================

@@ -34,7 +34,7 @@ with your project's values and to prove it works.
 ```sh
 # 1. Prerequisites the initializer will not do for you (it guides, it never bootstraps):
 git init
-git add -A && MSG_OK=1 git commit -m 'init'      # the first commit, on your trunk
+git add -A && MSG_OK=1 git commit -m 'init'      # the first commit
 git switch -c main                               # if your trunk does not exist yet
 git remote add origin <url-or-path-to-a-bare-repo>
 git push -u origin main

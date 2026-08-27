@@ -34,10 +34,10 @@ quality bar, the gates, credentials, the active-roles table) live in
 3. Run the drift report: `<your check-board command>`.
 4. **Pick a hat** and say which one. The role doc in `.claude/roles/` is your workflow.
    *(Rule: [`process/contracts/role-gate.md`](process/contracts/role-gate.md).)*
-5. Read [`process/LOCAL-PROCEDURES.md`](process/LOCAL-PROCEDURES.md) — **this project's resolved
-   kit contradictions, as law.** Minted at SEED step 8; short by design. Reading it is what stops
-   the next worker paying again for a question already answered — and when you resolve a new one,
-   **you append to it in the same session**.
+5. Read `process/LOCAL-PROCEDURES.md` — **this project's resolved kit contradictions, as law.**
+   Minted at SEED step 8; short by design. Reading it is what stops the next worker paying again
+   for a question already answered — and when you resolve a new one, **you append to it in the
+   same session**.
 
 ## Roles
 
