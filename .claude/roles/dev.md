@@ -89,7 +89,7 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 | [verification-before-completion](../skills/verification-before-completion/) | auto before claiming done | Fresh gate-runner output | Reported in chat + issue Activity + progress.md |
 | [requesting-code-review](../skills/requesting-code-review/) | auto in subagent loops; manual before handoff | Reviewer report (Critical/Important/Minor) | Acted on in-session |
 | [receiving-code-review](../skills/receiving-code-review/) | auto when QA or reviewer responds | Verified fixes or reasoned pushback | New commits or review replies |
-| [finishing-a-development-branch](../skills/finishing-a-development-branch/) | auto when execution reports done | Merged commit, pushed branch, or preserved branch | Pushed work branch + issue file `git mv`d to `progress/dev_complete/` |
+| [finishing-a-development-branch](../skills/finishing-a-development-branch/) | auto when execution reports done | Pushed branch, preserved branch, or discarded work — **never a merged commit; landing is QA's act via `finish-pr.sh`** | Pushed work branch + issue file `git mv`d to `progress/dev_complete/` |
 
 **The canonical chain for a `progress/todo/` feature issue:**
 

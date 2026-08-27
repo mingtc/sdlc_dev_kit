@@ -1,6 +1,6 @@
 ---
 name: finishing-a-development-branch
-description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
+description: Use when implementation is complete, all tests pass, and you need to decide how to end the work - guides completion by presenting structured options for handing off, preserving, or discarding the branch
 ---
 
 # Finishing a Development Branch
@@ -10,6 +10,24 @@ description: Use when implementation is complete, all tests pass, and you need t
 Guide completion of development work by presenting clear options and handling chosen workflow.
 
 **Core principle:** Verify tests → Detect environment → Present options → Execute choice → Clean up.
+
+## What this skill does NOT do: land the work
+
+**Ending a branch and LANDING it are two different acts here, and only one of them is yours.**
+A code landing goes through the project's landing script (`./scripts/finish-pr.sh`), run by **QA**,
+which squash-merges, deletes the branch and advances the issue as one transaction. This skill takes
+the work to the point where QA can land it, and stops.
+
+**So there is no "merge it locally" option, and its absence is deliberate.** A local merge into the
+base branch has no correct form under that law: it bypasses the landing script, the board move and
+QA attribution, and it produces a trunk nobody reviewed. It would also now simply fail — the landing
+script refuses a gate checkout that is not at the revision being landed, so a self-merged branch
+strands the work *and* cannot be landed afterwards. Reworded, that option is still wrong; it is
+removed.
+
+**Forge PRs are not the handoff either.** The handoff is a **pushed branch** plus the issue moved to
+the reviewed-ready column — pure git, no forge CLI. If your project has added the optional forge
+flavor, its adapter says so and names the command; absent that, do not create a PR.
 
 **Announce at start:** "I'm using the finishing-a-development-branch skill to complete this work."
 
@@ -50,100 +68,79 @@ This determines which menu to show and how cleanup works:
 
 | State | Menu | Cleanup |
 |-------|------|---------|
-| `GIT_DIR == GIT_COMMON` (normal repo) | Standard 4 options | No worktree to clean up |
-| `GIT_DIR != GIT_COMMON`, named branch | Standard 4 options | Provenance-based (see Step 6) |
-| `GIT_DIR != GIT_COMMON`, detached HEAD | Reduced 3 options (no merge) | No cleanup (externally managed) |
+| `GIT_DIR == GIT_COMMON` (normal repo) | The 3 options | No worktree to clean up |
+| `GIT_DIR != GIT_COMMON`, named branch | The 3 options | Provenance-based (see Step 6) |
+| `GIT_DIR != GIT_COMMON`, detached HEAD | The 3 options, push names a new branch | No cleanup (externally managed) |
 
-### Step 3: Determine Base Branch
+### Step 3: Confirm the Trunk
+
+The branch is landed onto the project's trunk, which the adapter names. Confirm it rather than
+guessing between `main` and `master`:
 
 ```bash
-# Try common base branches
-git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
+# The same chain the board scripts use: the remote's HEAD, then the configured default.
+git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
+  || git config --get init.defaultBranch
 ```
 
-Or ask: "This branch split from main - is that correct?"
+You need it only to report what the work will land onto — this skill never merges into it.
 
 ### Step 4: Present Options
 
-**Normal repo and named-branch worktree — present exactly these 4 options:**
+**Present exactly these 3 options:**
 
 ```
 Implementation complete. What would you like to do?
 
-1. Merge back to <base-branch> locally
-2. Push and create a Pull Request
-3. Keep the branch as-is (I'll handle it later)
-4. Discard this work
-
-Which option?
-```
-
-**Detached HEAD — present exactly these 3 options:**
-
-```
-Implementation complete. You're on a detached HEAD (externally managed workspace).
-
-1. Push as new branch and create a Pull Request
-2. Keep as-is (I'll handle it later)
+1. Push the branch and hand off for review  (the normal ending)
+2. Keep the branch as-is (I'll handle it later)
 3. Discard this work
 
 Which option?
 ```
 
-**Don't add explanation** - keep options concise.
+**On a detached HEAD**, option 1 needs a branch name — ask for one, or offer the issue-derived
+`feature/<ID>-<slug>`.
+
+**Don't add explanation** — keep options concise. Option 1 is the normal ending and may be named as
+such, which is the one word of guidance worth spending: an agent choosing between three neutral
+options will otherwise pick the one that sounds tidiest, and "discard" often sounds tidy.
 
 ### Step 5: Execute Choice
 
-#### Option 1: Merge Locally
+#### Option 1: Push the Branch and Hand Off
 
 ```bash
-# Get main repo root for CWD safety
-MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
-cd "$MAIN_ROOT"
-
-# Merge first — verify success before removing anything
-git checkout <base-branch>
-git pull
-git merge <feature-branch>
-
-# Verify tests on merged result
-<test command>
-
-# Only after merge succeeds: cleanup worktree (Step 6), then delete branch
-```
-
-Then: Cleanup worktree (Step 6), then delete branch:
-
-```bash
-git branch -d <feature-branch>
-```
-
-#### Option 2: Push and Create PR
-
-```bash
-# Push branch
 git push -u origin <feature-branch>
-
-# Create PR
-gh pr create --title "<title>" --body "$(cat <<'EOF'
-## Summary
-<2-3 bullets of what changed>
-
-## Test Plan
-- [ ] <verification steps>
-EOF
-)"
 ```
 
-**Do NOT clean up worktree** — user needs it alive to iterate on PR feedback.
+Then **advance the work item to the reviewed-ready column using the board's own mover** — never by
+hand, and never by editing a status field inside the item.
 
-#### Option 3: Keep As-Is
+**The command lives in the role doc, not here** (`.claude/roles/dev.md`, the step that follows
+"finish the branch"). It is not reprinted in this skill on purpose: that step also carries the
+footgun that goes with it — the move must NOT be preceded by a branch switch, because the mover
+re-derives the move inside the standing kanban worktree and a loose edit to your own checkout is
+destroyed. A copy of the command here would be a second authoring site, and the copy that drifts is
+the one without the warning.
+
+**Do NOT clean up the worktree, and do NOT delete the branch.** Both are needed after this point:
+the reviewer lands from the branch, and the landing script's gate must run against a checkout that
+is **at the revision being landed** — a worktree still sitting on the branch is exactly that. Tear
+it down after the work has landed, not before (see the orphaned-worktree note under Common
+Mistakes).
+
+**No forge PR.** The handoff is the pushed branch plus the board move. If the project's adapter
+declares the optional forge flavor, it names the command; otherwise creating a PR splits the review
+record across two places, and the one the process reads is the item's own activity log.
+
+#### Option 2: Keep As-Is
 
 Report: "Keeping branch <name>. Worktree preserved at <path>."
 
 **Don't cleanup worktree.**
 
-#### Option 4: Discard
+#### Option 3: Discard
 
 **Confirm first:**
 ```
@@ -170,7 +167,9 @@ git branch -D <feature-branch>
 
 ### Step 6: Cleanup Workspace
 
-**Only runs for Options 1 and 4.** Options 2 and 3 always preserve the worktree.
+**Only runs for Option 3 (Discard).** Options 1 and 2 always preserve the worktree — option 1
+because the reviewer needs the branch checked out to land it, option 2 because the work is not
+finished.
 
 ```bash
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
@@ -193,12 +192,13 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 ## Quick Reference
 
-| Option | Merge | Push | Keep Worktree | Cleanup Branch |
-|--------|-------|------|---------------|----------------|
-| 1. Merge locally | yes | - | - | yes |
-| 2. Create PR | - | yes | yes | - |
-| 3. Keep as-is | - | - | yes | - |
-| 4. Discard | - | - | - | yes (force) |
+| Option | Push | Board move | Keep Worktree | Delete Branch |
+|--------|------|-----------|---------------|---------------|
+| 1. Push + hand off | yes | yes | yes | no — the reviewer lands from it |
+| 2. Keep as-is | - | - | yes | - |
+| 3. Discard | - | - | - | yes (force) |
+
+**No row merges.** Landing is the reviewer's act, through the project's landing script.
 
 ## Common Mistakes
 
@@ -208,15 +208,22 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 **Open-ended questions**
 - **Problem:** "What should I do next?" is ambiguous
-- **Fix:** Present exactly 4 structured options (or 3 for detached HEAD)
+- **Fix:** Present exactly the 3 structured options
 
-**Cleaning up worktree for Option 2**
-- **Problem:** Remove worktree user needs for PR iteration
-- **Fix:** Only cleanup for Options 1 and 4
+**Merging into the trunk yourself**
+- **Problem:** Bypasses the landing script, the board move and the reviewer's attribution — and the
+  landing script will then refuse, because the gate checkout is no longer at the revision being
+  landed. The work is stranded and unlandable in one move.
+- **Fix:** Option 1. Push, move the item, stop.
+
+**Cleaning up the worktree after handing off**
+- **Problem:** Removes the checkout the reviewer's gate needs to run at the landed revision
+- **Fix:** Only cleanup for Option 3, and tear a handed-off worktree down only once the work has
+  actually landed
 
 **Deleting branch before removing worktree**
 - **Problem:** `git branch -d` fails because worktree still references the branch
-- **Fix:** Merge first, remove worktree, then delete branch
+- **Fix:** Remove the worktree first, then delete the branch (Option 3's order)
 
 **Running git worktree remove from inside the worktree**
 - **Problem:** Command fails silently when CWD is inside the worktree being removed
@@ -226,9 +233,9 @@ git worktree prune  # Self-healing: clean up any stale registrations
 - **Problem:** Removing a worktree the harness created causes phantom state
 - **Fix:** Only clean up worktrees under `.worktrees/`, `worktrees/`, or `~/.config/superpowers/worktrees/`
 
-**Orphaned worktree after an external / PR merge**
-- **Problem:** Option 2 (Create PR) — and project merge scripts like `finish-pr.sh` — deliberately preserve the worktree for PR iteration, and Step 6 cleanup only runs for Options 1 & 4. Once that PR/MR actually **merges**, nothing tears the worktree down → an empty `.worktrees/<branch>` lingers indefinitely (the lingering-worktree class).
-- **Fix:** After a PR/MR you opened via Option 2 (or merged via a script) has **merged**, return and tear it down: `cd` to the main repo root, then `git worktree remove <path>` + `git worktree prune`. (Orchestrator/Refactorer runs: this is the "worktrees for merged work cleaned up" line in the session-end checklist.)
+**Orphaned worktree after the work lands**
+- **Problem:** Option 1 — and the project's landing script — deliberately preserve the worktree, and Step 6 cleanup only runs for Option 3. Once the work actually **lands**, nothing tears the worktree down → an empty `.worktrees/<branch>` lingers indefinitely (the lingering-worktree class).
+- **Fix:** After the work handed off via Option 1 has **landed**, return and tear it down: `cd` to the main repo root, then `git worktree remove <path>` + `git worktree prune`. (Orchestrator/Refactorer runs: this is the "worktrees for merged work cleaned up" line in the session-end checklist.)
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work
@@ -238,7 +245,8 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 **Never:**
 - Proceed with failing tests
-- Merge without verifying tests on result
+- Merge the branch into the trunk yourself — landing is the reviewer's act, via the project's landing script
+- Create a forge PR unless the project's adapter declares the forge flavor
 - Delete work without confirmation
 - Force-push without explicit request
 - Remove a worktree before confirming merge success
@@ -248,8 +256,9 @@ git worktree prune  # Self-healing: clean up any stale registrations
 **Always:**
 - Verify tests before offering options
 - Detect environment before presenting menu
-- Present exactly 4 options (or 3 for detached HEAD)
-- Get typed confirmation for Option 4
-- Clean up worktree for Options 1 & 4 only
+- Present exactly the 3 options
+- Move the work item through the board's mover when you hand off (Option 1)
+- Get typed confirmation for Option 3
+- Clean up worktree for Option 3 only
 - `cd` to main repo root before worktree removal
 - Run `git worktree prune` after removal

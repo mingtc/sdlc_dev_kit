@@ -49,7 +49,7 @@ are loaded on demand by the `SKILL.md` that owns them; they are not entry points
 | [verification-before-completion](verification-before-completion/) | Prove work is done before claiming it is |
 | [requesting-code-review](requesting-code-review/) | Request review at the right moment, with the right context |
 | [receiving-code-review](receiving-code-review/) | Process review feedback rigorously, not performatively |
-| [finishing-a-development-branch](finishing-a-development-branch/) | Decide how to integrate completed work (merge / branch / cleanup) |
+| [finishing-a-development-branch](finishing-a-development-branch/) | End completed work: push and hand off for review, preserve, or discard — it never lands the work itself |
 | [using-git-worktrees](using-git-worktrees/) | Isolated workspaces for feature work and plan execution |
 | [using-superpowers](using-superpowers/) | Bootstrap: how to find and use skills; cross-harness tool mapping |
 

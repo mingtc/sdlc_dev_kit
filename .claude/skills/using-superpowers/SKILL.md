@@ -37,7 +37,15 @@ If CLAUDE.md, GEMINI.md, or AGENTS.md says "don't use TDD" and a skill says "alw
 
 ## Platform Adaptation
 
-Skills use Claude Code tool names. Non-CC platforms: see `references/copilot-tools.md` (Copilot CLI), `references/codex-tools.md` (Codex) for tool equivalents. Gemini CLI users get the tool mapping loaded automatically via GEMINI.md.
+Skills use Claude Code tool names. Non-CC platforms: see `references/copilot-tools.md`
+(Copilot CLI), `references/codex-tools.md` (Codex) and `references/gemini-tools.md`
+(Gemini CLI) for tool equivalents.
+
+The Gemini line used to say the mapping was "loaded automatically via GEMINI.md" — a file
+that exists nowhere in this kit. So the one reference that would have made
+`references/gemini-tools.md` reachable pointed at a phantom instead, and the mapping shipped
+**cited by nothing** while its two siblings were cited here. All three are named the same way
+now: the kit ships the tables and does not claim any harness loads them for you.
 
 # Using Skills
 

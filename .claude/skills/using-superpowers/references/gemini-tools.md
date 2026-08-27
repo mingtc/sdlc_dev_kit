@@ -22,12 +22,15 @@ Gemini CLI supports subagents natively via the `@` syntax. Use the built-in `@ge
 
 When a skill says to dispatch a named agent type, use `@generalist` with the full prompt from the skill's prompt template:
 
+The left column is the instruction as the skills here actually write it —
+`subagent-driven-development` dispatches by naming a PROMPT TEMPLATE, never a named
+agent type, so there is no plugin-provided agent to map.
+
 | Skill instruction | Gemini CLI equivalent |
 |-------------------|----------------------|
-| `Task tool (superpowers:implementer)` | `@generalist` with the filled `implementer-prompt.md` template |
-| `Task tool (superpowers:spec-reviewer)` | `@generalist` with the filled `spec-reviewer-prompt.md` template |
-| `Task tool (superpowers:code-reviewer)` | `@code-reviewer` (bundled agent) or `@generalist` with the filled review prompt |
-| `Task tool (superpowers:code-quality-reviewer)` | `@generalist` with the filled `code-quality-reviewer-prompt.md` template |
+| Dispatch implementer subagent (`./implementer-prompt.md`) | `@generalist` with the filled `implementer-prompt.md` |
+| Dispatch spec reviewer subagent (`./spec-reviewer-prompt.md`) | `@generalist` with the filled `spec-reviewer-prompt.md` |
+| Dispatch code quality reviewer subagent (`./code-quality-reviewer-prompt.md`) | `@generalist` with the filled `code-quality-reviewer-prompt.md` |
 | `Task tool (general-purpose)` with inline prompt | `@generalist` with your inline prompt |
 
 ### Prompt filling
