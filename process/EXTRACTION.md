@@ -126,9 +126,24 @@ and FILL"* — contradicts itself on exactly those two files.
 
 And the constraint that follows from stripping, which is easy to violate months earlier than it is
 noticed: **an instruction must not live inside a marker on a file whose marker will be removed.** A
-*replace me* or *fill this in* notice belongs in the body, where removing the classification cannot
-remove the instruction. *(Stated above under the classification convention; repeated here because
-this is the section where somebody is deciding what to strip.)*
+*replace me* notice belongs in the body, where removing the classification cannot remove the
+instruction. *(Stated above under the classification convention; repeated here because this is the
+section where somebody is deciding what to strip.)*
+
+**The test is whether the instruction still has work to do at the moment the marker comes off**, and
+that admits one case people keep re-deriving, so it is written here once:
+
+- **A fill-in instruction MAY live inside a marker**, because it is **discharged before graduation**.
+  `PROJECT.md`'s marker says *fill every `<angle-bracket>`*; you fill them on day one, and only then
+  does the file become `PROJECT`-class and lose its marker. At the moment of stripping there is no
+  reader left who needs the instruction — it has already been obeyed.
+- **A replace-me instruction MAY NOT**, because it is **the very act graduation performs**. It is
+  still in force at the moment the marker would be removed, so a marker-borne copy is removed by the
+  operation it was there to prompt. That is why `README.md` and the `CLAUDE.md` stub carry their
+  notices in the body.
+
+*So the rule is about the instruction's lifetime, not about where instructions look tidy.* A marker
+may carry an instruction that dies before it does.
 
 ### Day one is done when every row is discharged
 

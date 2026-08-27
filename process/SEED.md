@@ -30,7 +30,7 @@ the kit's files on disk — SEED does not conjure them; it tells you what to do 
 | **2** | **Fork by stack — see below.** Copy the kit files first (`EXTRACTION.md` § 1), *then* fork. | [`EXTRACTION.md` § 1](EXTRACTION.md) · [`contracts/initializer.md`](contracts/initializer.md) · [`contracts/config-seam.md`](contracts/config-seam.md) |
 | **3** | **Fill in `PROJECT.md`** from the template. It is the first thing the process asks for and the one thing no project can copy. | [`templates/PROJECT.template.md`](templates/PROJECT.template.md) · [`MANUAL.md` § The three documents](MANUAL.md) |
 | **4** | **Start `requirements/CORPUS.md` + `requirements/DECISIONS.md`** from the skeletons — both nearly empty on day one, both existing from day one. | [`templates/CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) · [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) · [`EXTRACTION.md` § 1.2](EXTRACTION.md) (format travels, content never does) |
-| **5** | **Write the `CLAUDE.md` adapter** — point at `process/MANUAL.md` early, then hold **your** project law. | [`templates/CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) · [`MANUAL.md` § Seams](MANUAL.md) (what the manual deliberately does not know) |
+| **5** | **REPLACE the `CLAUDE.md` bootstrap stub with your adapter.** The shipped `CLAUDE.md` is scaffolding that says so in its own first lines; you **build the adapter from the template and overwrite the stub**, rather than editing the stub into shape. Point at `process/MANUAL.md` early, then hold **your** project law. | [`templates/CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) · [`MANUAL.md` § Seams](MANUAL.md) (what the manual deliberately does not know) · [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md) (why `REPLACE` is replaced and not edited) |
 | **6** | **Hold a REAL PM session and mint `PRD-001`** — **one** spec, not a backlog. A pre-written backlog is a backlog nobody scoped. **This mandate is not in tension with the lite default:** `PRD-001` **scopes the PRODUCT** on day one; [`MANUAL.md` § The default path is lite](MANUAL.md) governs **subsequent small work**, which takes one issue and no spec. Both stand. | `.claude/roles/pm.md` · [`contracts/issue-creation.md`](contracts/issue-creation.md) · [`contracts/id-minting.md`](contracts/id-minting.md) · `.claude/templates/PRD.template.md` |
 | **7** | **Drive the FIRST issue through the FULL Dev → QA boundary.** The boundary is the thing being installed; the first issue is where it is proven. Do not shortcut it because the change is small. | [`MANUAL.md` § The Dev → QA handoff (the boundary — 7 steps)](MANUAL.md) · [`contracts/verify-gate.md`](contracts/verify-gate.md) · [`contracts/board-mover.md`](contracts/board-mover.md) · [`contracts/landing-gate.md`](contracts/landing-gate.md) · [`contracts/commit-attribution.md`](contracts/commit-attribution.md) |
 | **8** | **Run the session close ritual** — board matches reality, `progress.md` written, drift report clean, archive when it accumulates. **Then mint `process/LOCAL-PROCEDURES.md`** — see below; it is the closing step, not an optional extra. | [`MANUAL.md` § Session close ritual](MANUAL.md) · [`contracts/drift-report.md`](contracts/drift-report.md) · [`contracts/archive-sweep.md`](contracts/archive-sweep.md) |
@@ -156,7 +156,14 @@ you want to know how a stranger meets what you shipped.
 
 - `./scripts/check-board.sh` (or your stack's drift report) is **clean**;
 - your gate runner is green and **committed**;
-- `PROJECT.md`, `CLAUDE.md`, `CORPUS.md`, `DECISIONS.md`, `progress.md` all exist and are yours;
+- `PROJECT.md`, `CLAUDE.md`, `CORPUS.md`, `DECISIONS.md`, `progress.md` all exist and are yours —
+  and **`CLAUDE.md` and `README.md` have been REPLACED, not edited**: neither still carries the
+  `BOOTSTRAP-SCAFFOLDING` line the shipped copies ship with;
+- **every file's disposition is discharged** — no `FILL` file still holds an `<angle bracket>`, and
+  every `DELETE-IF-UNUSED` directory has been either removed or kept **on purpose**, which is a
+  decision you record rather than a question you leave open. The axis and its members are
+  [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md); this bullet is that list, read as
+  a checklist;
 - `process/LOCAL-PROCEDURES.md` exists and holds **every kit contradiction day one resolved**
   (step 8's closing act — two lines is a pass; zero means they went into someone's head);
 - **one** issue has gone `todo → in_progress → dev_complete → qa_complete` with its evidence in its

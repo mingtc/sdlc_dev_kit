@@ -131,6 +131,25 @@ Examples: `[<Role>] <PREFIX>-001: <what changed>` ·
 | Retirement under a ledger (else: park only) | <on/off> | <why> |
 | <your own> | <…> | <…> |
 
+## The binding gates here
+
+<!-- The gate DEFINITIONS live in PROJECT.md § Quality gates, one row per contract sheet. This
+     section names which of them bind, so no role has to re-derive the commands. The two rules
+     below are the kit's, not yours: keep them. -->
+
+Never optional. The gate **definitions** are **[`PROJECT.md`](PROJECT.md) § Quality gates**, one
+row per sheet in [`process/contracts/`](process/contracts/README.md); the rule that they are never
+optional is [`process/MANUAL.md` § The default path is lite](process/MANUAL.md).
+
+- **`<your gate command — e.g. ./scripts/verify.sh>` green** on every change, so no role
+  re-derives the commands.
+- **For `<the risky class of change — e.g. anything touching an external system>`: `<the check
+  that is not blind>`.** A green offline suite is the floor, not a PASS —
+  see [`PROJECT.md`](PROJECT.md) § The binding gate.
+
+Calibrate rigor via the rigor-tier ladder in [`.claude/roles/orchestrator.md`](.claude/roles/orchestrator.md)
+§ Token discretion.
+
 ## House rules — THIS project's law
 
 <!-- Only rules that are genuinely yours. A rule already stated in process/MANUAL.md or in
@@ -187,3 +206,26 @@ multiple issues in one feature area>**, and the current example of it is **<name
 
 - **<Duty>** — owed by <implementer/reviewer/both>; caught by `<guard>` / *no guard, reviewer
   checks it*.
+
+## Where the rest of the process lives
+
+<!-- TRAVELS VERBATIM. Every row is a kit path and none of them is a project fact, so there is
+     nothing here to fill in. Keep the whole table: it is this file's only route into the process,
+     and after day one this file is the one a new session opens first. -->
+
+| Looking for | Read |
+|---|---|
+| Session start / close rituals | [`process/MANUAL.md`](process/MANUAL.md) § Session start, § Session close ritual |
+| Execution discipline + the long-run liveness doctrine | § Execution discipline |
+| Board moves, issue creation, the status folders | § Kanban rules |
+| Lite path vs full ceremony, opt-in machinery | § The default path is lite |
+| **The Dev → QA handoff (7 steps)** + the direct-to-trunk variant + bug severities | § The Dev → QA handoff |
+| The kanban worktree, landing a branch, log-filtering recipes | § Branching and role attribution |
+| Notifications | § Notifications (optional) |
+| Every gate's contract, one sheet each | [`process/contracts/README.md`](process/contracts/README.md) |
+| The doctrine sheets | [`process/doctrine/`](process/doctrine/) |
+| Which shapes a hygiene pass looks for, and the instruments | [`process/hygiene-checklist.md`](process/hygiene-checklist.md) |
+| Git hosting — local-only, a bare remote, or a forge | [`process/GIT-HOSTING.md`](process/GIT-HOSTING.md) |
+| Extracting this kit into another repo | [`process/EXTRACTION.md`](process/EXTRACTION.md) |
+| Starting a project from nothing | [`process/SEED.md`](process/SEED.md) |
+| Non-Claude agents | [`AGENTS.md`](AGENTS.md) |

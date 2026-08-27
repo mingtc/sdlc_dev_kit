@@ -48,6 +48,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`CLAUDE.md` now ships as a bootstrap stub, not as a pre-filled adapter.** A fresh unpack's
+  `CLAUDE.md` says the project is not set up yet and sends day one to `process/SEED.md`; you build
+  your adapter from `process/templates/CLAUDE-adapter.template.md` and **overwrite** the stub.
+  `README.md` and `CLAUDE.md` both carry a `BOOTSTRAP-SCAFFOLDING` line that goes when the file is
+  replaced. `AGENTS.md` now says which of the two states you are in. See § Action required if your
+  adapter predates this release.
 - **`MANUAL.md`'s session-close ritual now names one more state, and § The kanban worktree stops
   over-promising.** At session close, the **local trunk ref must not be ahead of
   `<remote>/<trunk>`** — everything the process commits direct to the trunk (rulings, specs, board
@@ -301,6 +307,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **If you built your adapter from a template older than this release, it is missing two sections:
+  § The binding gates here and § Where the rest of the process lives.** The latter is your adapter's
+  only route into `process/MANUAL.md`, `contracts/`, `doctrine/`, `hygiene-checklist.md`,
+  `GIT-HOSTING.md`, `EXTRACTION.md` and `SEED.md`. Adding them to the template does not add them to
+  your copy. **Diff your `CLAUDE.md` against `process/templates/CLAUDE-adapter.template.md` and port
+  anything missing.**
 - **Only if `progress/history/` ALREADY holds rotated chunks: create `progress/history/INDEX.md`
   before your next rotation.** The rotation will not write one for you while chunks exist, because a
   row-less index would deny them — and the date spans are inside those chunks, so only you have them.

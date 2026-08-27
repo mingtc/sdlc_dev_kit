@@ -3,11 +3,20 @@
 
 **You are in the right repository and this is not the operating manual.** Read, in this order:
 
-1. **[`CLAUDE.md`](CLAUDE.md)** — the **adapter**: this project's own law, its trunk, what counts
-   as code, the role set, the commit prefixes, the gates that are never optional. Read
-   [`PROJECT.md`](PROJECT.md) alongside it for the stack, the run commands and the quality bar.
+1. **[`CLAUDE.md`](CLAUDE.md)** — and **check which of its two states you are in**, because they
+   ask opposite things of you:
+   - **It says the project has not been set up yet.** Then it is the **bootstrap stub**, this
+     project is a fresh unpack, and your one job is day-one setup — follow the stub to
+     [`process/SEED.md`](process/SEED.md) and stop reading this list until day one is done.
+   - **It is the adapter** — this project's own law, its trunk, what counts as code, the role set,
+     the commit prefixes, the gates that are never optional. Read [`PROJECT.md`](PROJECT.md)
+     alongside it for the stack, the run commands and the quality bar.
+
+   *(The stub is `REPLACE`-class scaffolding and is replaced, never edited, at the end of day one:
+   [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.)*
 2. **[`process/MANUAL.md`](process/MANUAL.md)** — the **process itself**: the board, roles as hats,
    the Dev → QA boundary and its seven steps, the session rituals, the execution discipline.
+   **True in both states**, and it needs no configuring.
 
 The filename says `CLAUDE.md` for one reason only: it is the filename the Claude Code harness reads
 automatically. **Its contents are harness-neutral and bind you exactly as they bind Claude.** If
