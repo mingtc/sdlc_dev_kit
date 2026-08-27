@@ -39,6 +39,20 @@ Every script, role doc and process file carries a one-line marker in its own com
 `PROJECT` = does not travel. **Classify a file by opening it**; this manifest can drift, the
 marker in the file cannot be missed.
 
+**The `KIT` in `KIT-CLASS:` is this convention's own word — it is NOT the identifier prefix, and it
+does not change when a project stamps one.** It only looks like the prefix because the shipped
+placeholder prefix is also `KIT`. That collision is not academic: the initializer's prefix
+substitution matched the marker's **key**, so every stamped file came out reading
+`<!-- XYZ-CLASS: KIT — … -->` — the key rewritten and the value left, a line that refutes itself,
+across a dozen files, with every card minted afterwards inheriting it. A tool that rewrites the
+prefix therefore exempts this key by name, and any census of surviving placeholders exempts it in
+the same change, or protecting the marker simply moves the failure into the census.
+
+**And an instruction must not live inside a marker on a file whose marker will be removed.** The
+marker is the *travel classification*; on a file that becomes the project's, graduation strips it.
+Anything a reader still needs at that moment — a *replace me* notice, a *fill this in* notice —
+belongs in the body, where removing the classification cannot remove it.
+
 **In this seed almost everything is `KIT`, and that is a fact about the seed, not a boast.** The
 seed *is* the kit: it holds no product. `MIXED` here means *"the frame travels, the contents are
 yours"* — the gate runner, the attribution hook, the release script, the self-test harness. As soon

@@ -1,6 +1,14 @@
-<!-- KIT-CLASS: KIT — the seed's front door. Replace it with YOUR project's README once you are
-     running; move these instructions to process/SEED.md's companion notes if you want to keep them. -->
+<!-- KIT-CLASS: KIT — the seed's front door. -->
 # The development-process kit — a seed
+
+> **This file is a placeholder for yours.** Replace it with **your project's** README once you are
+> running; move these instructions to `process/SEED.md`'s companion notes if you want to keep them.
+>
+> *Why this sentence is here in the body and not in the comment above it:* the comment is the
+> **classification marker**, and the marker is removed from files that become the project's — which
+> is every REPLACE-class file, of which this is one. While the instruction lived inside the marker,
+> stripping the marker stripped the instruction, and the one file whose replace-me notice is not in
+> a fill-in stub would have lost it silently at exactly the moment it was meant to be read.
 
 **What this is.** A generic, language-agnostic **development-process kit**: a
 filesystem-as-kanban board (the folder a file sits in *is* its status), **roles as hats** (one

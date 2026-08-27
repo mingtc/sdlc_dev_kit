@@ -84,6 +84,19 @@ SCRATCH_SLUG='kit-init-self-check'
 # shipped templates say `<PREFIX>-NNN`, while config.sh's own default is a real
 # token so its derivation regex can read it.
 PREFIX_PLACEHOLDER='<PREFIX>'
+# THE CLASSIFICATION MARKER'S KEY, AND WHY IT IS A CONSTANT RATHER THAN A SEAM.
+# `KIT-CLASS:` is the travel classification every shipped file carries
+# (process/EXTRACTION.md). The `KIT` in it is THE CONVENTION'S OWN WORD — it is not
+# the issue prefix, and it does not change when a project stamps one. It only LOOKS
+# like the prefix because the shipped placeholder prefix is also `KIT`, and that
+# collision is exactly the bug this constant exists to prevent: the substitution
+# passes below match `<OLD_PREFIX>-`, which matched the marker's KEY, so every
+# stamped file came out reading `<!-- XYZ-CLASS: KIT — … -->` — the key rewritten,
+# the value left, a line that refutes itself and that nothing reads after day one.
+# Measured: 12 files in .claude/templates + .claude/roles, every card minted
+# afterwards inheriting it, and a grep for KIT-CLASS finding nothing.
+CLASS_MARKER_KEY='KIT-CLASS:'
+CLASS_MARKER_SENTINEL='@@KITCLASSKEY@@'
 
 PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true
 PROJECT_NAME_NEW=""
@@ -445,7 +458,13 @@ if [ -d "$ROOT/.claude/templates" ]; then
       sed -i.bak -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" "$t"; rm -f "$t.bak"; hit=1
     fi
     if [ "$PREFIX" != "$OLD_PREFIX" ] && grep -q "${OLD_PREFIX}-" "$t"; then
-      sed -i.bak -e "s|${OLD_PREFIX}-|${PREFIX}-|g" "$t"; rm -f "$t.bak"; hit=1
+      # Three expressions, one invocation, applied in order per line: hide the
+      # marker's key, rewrite the prefix, put the key back. Atomic per file — a
+      # protect/restore pair around SEPARATE commands would leave the sentinel in
+      # the tree if anything failed between them.
+      sed -i.bak -E -e "s|${CLASS_MARKER_KEY}|${CLASS_MARKER_SENTINEL}|g" \
+                    -e "s|${OLD_PREFIX}-|${PREFIX}-|g" \
+                    -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$t"; rm -f "$t.bak"; hit=1
     fi
     [ "$hit" -eq 1 ] && TPL_HITS=$((TPL_HITS+1))
   done
@@ -491,11 +510,24 @@ say "  .claude/templates/: <trunk> → ${TRUNK} in ${TRUNK_TPL_HITS} template(s)
 # RECURSIVE on purpose: a parked/archived role doc is a file the adopter will one
 # day wake, and a census that skips it measures the easy half.
 md_files() { [ -d "$1" ] && find "$1" -type f -name '*.md' | sort || true; }
-census_count() {  # <dir> <ere> → occurrences of <ere> across the dir's .md files
-  local dir="$1" re="$2" n=0 f
+census_count() {  # <dir> <ere> [exclude-line-ere] → occurrences across the dir's .md files
+  # THE OPTIONAL THIRD ARGUMENT EXISTS FOR ONE REASON, and it is the mirror of the
+  # substitution exemption above: `KIT-CLASS:` matches the placeholder-residue
+  # pattern `KIT-[^0-9]`, so protecting the marker from the rewrite would make this
+  # census REFUSE on it — the two have to move together or the fix trades a defaced
+  # marker for a failed self-check. Lines matching the exclusion are not counted.
+  # BLIND SPOT, STATED: the exclusion is per LINE, so a real surviving placeholder
+  # sharing a line with a classification marker would go uncounted. The marker is a
+  # one-line comment at the top of a file by convention, so that line carries nothing
+  # else — but the limit is real and it is here rather than in anyone's memory.
+  local dir="$1" re="$2" excl="${3:-}" n=0 f
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    n=$(( n + $(grep -oE "$re" "$f" 2>/dev/null | wc -l | tr -d ' ') ))
+    if [ -n "$excl" ]; then
+      n=$(( n + $(grep -vE "$excl" "$f" 2>/dev/null | grep -oE "$re" 2>/dev/null | wc -l | tr -d ' ') ))
+    else
+      n=$(( n + $(grep -oE "$re" "$f" 2>/dev/null | wc -l | tr -d ' ') ))
+    fi
   done < <(md_files "$dir")
   echo "$n"
 }
@@ -505,14 +537,17 @@ NAME_RE="${OLD_NAME}"
 
 ROLES_DIR="$ROOT/.claude/roles"
 if [ -d "$ROLES_DIR" ]; then
-  RD_BEFORE_P="$(census_count "$ROLES_DIR" "$PLACEHOLDER_RE")"
+  RD_BEFORE_P="$(census_count "$ROLES_DIR" "$PLACEHOLDER_RE" "$CLASS_MARKER_KEY")"
   RD_BEFORE_T="$(census_count "$ROLES_DIR" "$TRUNK_RE")"
   RD_BEFORE_N="$(census_count "$ROLES_DIR" "$NAME_RE")"
   for d in "$ROLES_DIR" "$ROOT/.claude/templates"; do
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       sed -i.bak -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" "$f"
-      [ "$PREFIX" = "$OLD_PREFIX" ] || sed -i.bak -E "s|${OLD_PREFIX}-([^0-9])|${PREFIX}-\1|g" "$f"
+      [ "$PREFIX" = "$OLD_PREFIX" ] || sed -i.bak -E \
+          -e "s|${CLASS_MARKER_KEY}|${CLASS_MARKER_SENTINEL}|g" \
+          -e "s|${OLD_PREFIX}-([^0-9])|${PREFIX}-\1|g" \
+          -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$f"
       if [ "$TRUNK" != "$OLD_TRUNK" ]; then
         sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK}\2@g" "$f"
         sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK}\2@g" "$f"
@@ -521,7 +556,7 @@ if [ -d "$ROLES_DIR" ]; then
       rm -f "$f.bak"
     done < <(md_files "$d")
   done
-  say "  .claude/roles/: prefix placeholders ${RD_BEFORE_P} → $(census_count "$ROLES_DIR" "$PLACEHOLDER_RE"), trunk '${OLD_TRUNK}' ${RD_BEFORE_T} → $(census_count "$ROLES_DIR" "$TRUNK_RE"), name '${OLD_NAME}' ${RD_BEFORE_N} → $(census_count "$ROLES_DIR" "$NAME_RE")"
+  say "  .claude/roles/: prefix placeholders ${RD_BEFORE_P} → $(census_count "$ROLES_DIR" "$PLACEHOLDER_RE" "$CLASS_MARKER_KEY"), trunk '${OLD_TRUNK}' ${RD_BEFORE_T} → $(census_count "$ROLES_DIR" "$TRUNK_RE"), name '${OLD_NAME}' ${RD_BEFORE_N} → $(census_count "$ROLES_DIR" "$NAME_RE")"
 else
   say "  .claude/roles/: absent — nothing to substitute (copy the role docs if you want them stamped)"
 fi
@@ -869,22 +904,51 @@ fi
 # shipped one is skipped: there is nothing to remove, and counting it would fail
 # the adopter for agreeing with the kit.
 CENSUS_TOTAL=0
-census_report() {  # <label> <ere> <changed?>
-  local label="$1" re="$2" changed="$3" n=0 d
+census_report() {  # <label> <ere> <changed?> [exclude-line-ere]
+  local label="$1" re="$2" changed="$3" excl="${4:-}" n=0 d
   if [ "$changed" != "true" ]; then
     sc_ok "census — ${label}: not counted (your value is the shipped one)"
     return
   fi
   for d in "$ROOT/.claude/roles" "$ROOT/.claude/templates"; do
-    n=$(( n + $(census_count "$d" "$re") ))
+    n=$(( n + $(census_count "$d" "$re" "$excl") ))
   done
   CENSUS_TOTAL=$(( CENSUS_TOTAL + n ))
   if [ "$n" -eq 0 ]; then sc_ok "census — ${label}: 0 in .claude/roles + .claude/templates"
   else sc_bad "census — ${label}: ${n} occurrence(s) survive in .claude/roles + .claude/templates"; fi
 }
-census_report "prefix placeholders (${PREFIX_PLACEHOLDER} / ${OLD_PREFIX}-)" "$PLACEHOLDER_RE" "true"
+# NO COLON IN THIS LABEL. The harness asserts on `census — prefix placeholders[^:]*: 0 in`,
+# so a colon anywhere in the label makes that pattern unmatchable — which is what the
+# first spelling of this line did, by interpolating the key WITH its trailing colon.
+# `${CLASS_MARKER_KEY%:}` keeps the name derived from the constant and drops the colon.
+census_report "prefix placeholders (${PREFIX_PLACEHOLDER} / ${OLD_PREFIX}-, excluding the ${CLASS_MARKER_KEY%:} key)" "$PLACEHOLDER_RE" "true" "$CLASS_MARKER_KEY"
 census_report "trunk '${OLD_TRUNK}'"       "$TRUNK_RE" "$( [ "$TRUNK" != "$OLD_TRUNK" ] && echo true || echo false )"
 census_report "project name '${OLD_NAME}'" "$NAME_RE"  "$( [ "$NEW_NAME" != "$OLD_NAME" ] && echo true || echo false )"
+
+# THE MARKER SURVIVED — asserted, not assumed. The substitutions above are exempted
+# from the classification key and the census is exempted in step with them; this is
+# the assertion that the pair actually held. Two directions, because either alone
+# passes on a tree where the markers were deleted rather than rewritten: the key must
+# still be PRESENT, and the defaced spelling must be ABSENT. `contracts/initializer.md`
+# § 2 — every precondition performed is asserted afterwards, with a count where one
+# exists — and this is the count.
+MK_OK=0; MK_BAD=0
+for d in "$ROOT/.claude/roles" "$ROOT/.claude/templates"; do
+  # `|| true` INSIDE the substitution, and it is load-bearing: this script runs
+  # `set -o pipefail`, a no-match grep exits 1, and the pipeline then carries that 1
+  # out through the command substitution into the assignment — which `set -e` treats
+  # as a failure and aborts on. The first spelling of these two lines killed the run
+  # at this exact point, on a HEALTHY tree, because "no defaced markers" is a no-match.
+  MK_OK=$((  MK_OK  + $( { grep -rl "$CLASS_MARKER_KEY" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
+  MK_BAD=$(( MK_BAD + $( { grep -rl "${PREFIX}-CLASS:" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
+done
+if [ "$MK_BAD" -gt 0 ]; then
+  sc_bad "classification markers: ${MK_BAD} file(s) now read '${PREFIX}-CLASS:' — the stamper rewrote the convention's KEY, not a value"
+elif [ "$MK_OK" -eq 0 ]; then
+  sc_bad "classification markers: NONE found carrying '${CLASS_MARKER_KEY}' in .claude/roles + .claude/templates — expected the shipped markers to be intact"
+else
+  sc_ok "classification markers intact — ${MK_OK} file(s) carry '${CLASS_MARKER_KEY}', 0 read '${PREFIX}-CLASS:'"
+fi
 # Reported, never asserted: <TOKEN>-<digits> is a provenance citation, and
 # rewriting it would manufacture a reference the adopter's history never had.
 PROV=0
