@@ -310,7 +310,12 @@ this one does not own.**
   document.** It is an operand, and an operand outside version control is not one.
 - **Date the copy by the day it was supplied, and never edit it.** Later feedback from the same source
   is a **new dated file**, because the thing that makes the original citable is that it still says
-  what it said when it was cited.
+  what it said when it was cited. *One carve-out, serving that same reason rather than weakening it:
+  a document that arrived corrupted in transit (mojibake, stripped bytes) may be repaired
+  **mechanically** — and the raw bytes are preserved beside the repair, so the transformation is a
+  diff anyone can run rather than a claim anyone must trust. Corruption moves the text away from the
+  referent its citations mean; the repair moves it back. An un-preserved repair is an edit; a
+  preserved one is a restoration with its own witness.*
 - **A supplied document that cannot be recovered is NAMED as missing**, beside the ones that were —
   with what depends on it. *A missing input nobody names reads exactly like an input nobody needed.*
 
