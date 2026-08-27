@@ -50,6 +50,24 @@ state — so that every tool and every reader downstream can rely on the shape w
   parent, or an absent one, is an orphan the board cannot roll up.
   *Why:* decomposition whose links do not resolve is a tree only in the author's head.
 
+- **THE ONE CARVE-OUT TO INERTNESS: a creator that writes INSIDE the mover's own publication area
+  must publish, and says so.** The invariants above hold for every creator that writes into the
+  operator's workspace, and their reason is untouched — creating a description of work is not
+  starting it, and a script that published drafts nobody had read would break § 4.3. **But a
+  creator whose file lands in the shared, trunk-pinned publication area is in a different
+  situation: that area is `reset --hard` by the next operation that touches it, so an unpublished
+  file there is not a draft being protected — it is a file about to be destroyed.** Inertness
+  there does not withhold publication; it loses the work.
+  So such a creator **publishes as part of creation**, and the carve-out is **contracted rather
+  than tacit**: it names itself as the exception, states this reason, and the exception is scoped
+  to *writing into the publication area* — not to a script, and not to a kind of item. A creator
+  that could write elsewhere gets no carve-out for choosing not to.
+  *Why the carve-out is written down instead of the behaviour being changed:* the alternative is a
+  creator that appears inert and silently drops what it wrote, which is worse than either honest
+  option — and **an implementation that deviates from its own contract sheet without the sheet
+  saying so is a contradiction a reader must resolve by guessing.** Preserve the reason, narrow the
+  conclusion ([`../doctrine/supersession.md`](../doctrine/supersession.md)).
+
 ## 3. REFUSAL CONDITIONS
 
 - No identifier supplied ⇒ refuse; do not mint one silently.

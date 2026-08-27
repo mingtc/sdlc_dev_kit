@@ -200,12 +200,14 @@ if [ "$NOTE_ONLY" -eq 0 ]; then
   fi
 fi
 
-# THE ROLE SET LIVES IN FOUR PLACES — change one, change all four (the adapter's
-# role + prefix tables, scripts/githooks/commit-msg's ROLE_PREFIXES, this
-# whitelist, and check-board.sh's derivation fallback). The reason is a measured
-# incident: the commit-msg hook accepted a role this whitelist did not, so the
-# standing seat COULD NOT MOVE A CARD and had to borrow another hat to do it.
-# process/EXTRACTION.md § "The role set and the commit prefixes" names every file.
+# THE ROLE SET IS CARRIED IN SEVERAL FILES — change one, change them all. The
+# authoritative list is the TABLE in process/EXTRACTION.md § 2.4 "The role set";
+# read it there rather than trusting a count written here, which is the sentence
+# that rots (doctrine/staleness.md § C — this comment said "FOUR PLACES" and went
+# false the first time a fifth reader was added).
+# The reason is a measured incident: the commit-msg hook accepted a role this
+# whitelist did not, so the standing seat COULD NOT MOVE A CARD and had to borrow
+# another hat to do it.
 case "$ROLE" in
   PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect) ;;
   "") echo "Error: --role is required (PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect)." >&2; usage >&2; exit 1 ;;

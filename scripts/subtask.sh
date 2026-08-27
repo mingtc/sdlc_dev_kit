@@ -95,6 +95,27 @@ case "$CMD" in
     TEMPLATE="$KWT/.claude/templates/SUBTASK.template.md"
     [ -f "$TEMPLATE" ] || { echo "Error: template not found at ${TEMPLATE#"$KWT"/}." >&2; exit 1; }
 
+    # THE PARENT MUST EXIST. `issue-creation.md` § 3: "a decomposition names a parent
+    # that does not exist ⇒ refuse", and § 2: a child naming an absent parent "is an
+    # orphan the board cannot roll up". Without this, `subtask.sh new BOGUS-999 …`
+    # created AND PUBLISHED a whole subtask tree under an id nothing owns — and
+    # because creation here publishes, the orphan reached the trunk before anyone
+    # could read it.
+    #
+    # SEARCHED ON THE PUBLISHED BOARD, not the operator's checkout: $KWT is pinned to
+    # the trunk, which is the same surface the mover computes against, so "exists"
+    # means the same thing to both tools. An issue that exists only in someone's
+    # workspace is not yet a parent anything can be hung on.
+    if ! find "$KWT/progress" -type f -name "${PARENT}-*.md" 2>/dev/null | grep -q .; then
+      {
+        echo "Error: parent '${PARENT}' does not exist on the published board — refusing to create an orphan."
+        echo "  Looked for progress/**/${PARENT}-*.md in the trunk-pinned kanban worktree."
+        echo "  If you have just created ${PARENT}, PUBLISH IT FIRST: the board mover and this"
+        echo "  script both read the published board, so an unpushed card is invisible to both."
+      } >&2
+      exit 1
+    fi
+
     ID="${PARENT}-${SUFFIX}"
     SLUGFILE="${ID}-${SLUG}.md"
     DEST_DIR="$KWT/progress/subtasks/${PARENT}/todo"
@@ -152,16 +173,26 @@ case "$CMD" in
     echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
-    kwt_finalize
-    # CONDITIONAL on purpose: kwt_finalize's return is not checked here (that is
-    # change 017's item, not this one), so this line must not assert a landing
-    # nobody verified. KWT_LANDED_SHA is set only after the library has read the
-    # commit back off the ref, so an empty value means exactly "did not publish".
+    # THE RETURN IS CHECKED. It used to be called bare, so a failed push printed its
+    # own recovery text and the script then exited 0 — a creation reported as done
+    # whose file exists only in a worktree the next operation will `reset --hard`.
+    # The conditional Published: line below was added first and was necessary but not
+    # sufficient: it stopped the script ASSERTING a landing, and left it EXITING as
+    # though one had happened. A caller reading $? still saw success.
+    FINALIZE_RC=0
+    kwt_finalize || FINALIZE_RC=$?
     if [ -n "${KWT_LANDED_SHA:-}" ]; then
       echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH}"
     else
-      echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." >&2
+      {
+        echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above."
+        echo "  This subtask lives in the kanban worktree, which the NEXT board operation"
+        echo "  resets --hard. An unpublished commit there is not a draft; it is about to"
+        echo "  be destroyed. Re-run the push before running any other board command."
+      } >&2
+      exit 1
     fi
+    [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"
     ;;
 
   move)
@@ -178,6 +209,25 @@ case "$CMD" in
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
     case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked) ;; *) echo "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." >&2; exit 1 ;; esac
+    # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION — the same whitelist
+    # move-issue.sh carries, and for a sharper reason. An unvalidated role reaches
+    # the commit subject, where the commit-msg hook rejects it MID-OPERATION: the
+    # file has already been git-mv'd and the Activity entry appended inside the
+    # shared kanban worktree, and the commit that would have carried them fails. The
+    # result is uncommitted state in an area the next board operation `reset --hard`s
+    # — so a typo'd role does not produce an error, it produces silent data loss in
+    # somebody else's lane. Refusing here costs a re-run; refusing at the hook costs
+    # the move.
+    #
+    # THE ROLE SET IS CARRIED IN SEVERAL FILES; the authoritative list is the TABLE
+    # in process/EXTRACTION.md § 2.4 "The role set". This whitelist is one of its
+    # rows — added there in the same change, so the index and its members move
+    # together. Do not restate the count here: read the table.
+    case "$ROLE" in
+      PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect) ;;
+      "") echo "Error: --role cannot be empty (PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect)." >&2; exit 1 ;;
+      *)  echo "Error: --role must be PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect (got '$ROLE')." >&2; exit 1 ;;
+    esac
     PARENT="${ID%-s*}"
 
     kwt_resolve
@@ -217,12 +267,17 @@ case "$CMD" in
     git -C "$KWT" commit -m "$MSG" --quiet
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit: ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
-    kwt_finalize
+    # THE RETURN IS CHECKED — same reason as the `new` arm above: a move that did not
+    # publish is a board change nobody else can see, sitting where the next op wipes it.
+    FINALIZE_RC=0
+    kwt_finalize || FINALIZE_RC=$?
     if [ -n "${KWT_LANDED_SHA:-}" ]; then
       echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""
     else
       echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." >&2
+      exit 1
     fi
+    [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"
     ;;
 
   -h|--help) usage; exit 0 ;;

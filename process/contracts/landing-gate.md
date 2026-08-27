@@ -74,11 +74,33 @@ proof was produced by the gate itself rather than by whoever wanted the change l
 
 All four, printed. Three of four is a defect, not a partial success.
 
+**And a caller must be able to tell WHICH defect it is, because the two demand opposite actions.**
+A landing can fail with **nothing landed** — safe to fix the cause and re-run — or it can fail
+**after the trunk commit is published**, with a follow-up step incomplete, where re-running is the
+one thing that must not happen. **Those are different failures and they may not share a report.** The
+distinguishing question is not *did it land* but **is it safe to run this again**, and the answer is
+owed to a machine, not only to a reader: name it in the exit status, and print the remaining steps
+([`../doctrine/fix-execution.md`](../doctrine/fix-execution.md) § A.7).
+*Why:* an automation that reads any failure as "did not land" **retries a merge that already
+happened.** The transcript says LANDED, loudly and correctly; the exit status says failure; the two
+never meet, and nothing reports the divergence.
+
+**A red gate run AFTER the landing is not a landing failure.** All four facts above can be true while
+the trunk it landed into has a problem — that is a fact about the **trunk**, not about this
+operation, and reporting it in this operation's own status is the instrument describing its subject
+and itself in one vocabulary ([`../doctrine/instruments.md`](../doctrine/instruments.md) § A.9).
+Report it on its own line, in a form a machine can key on.
+
 ## 5. MINIMAL INTERFACE
 
 **In:** the work item's identity; optionally the branch, when the item does not name one.
 **Out:** the gate verdict, the landed commit identifier, the retired branch, the item's new
-state, and a plan-then-apply mode that prints all of the above and changes nothing.
+state, and a plan-then-apply mode that prints all of the above and changes nothing — **plus a
+process exit status that distinguishes at least three outcomes: green, failed-with-nothing-landed,
+and landed-but-not-finished**, so a human and a machine read the same result.
+*(The sibling requirement on the gate runner is [verify-gate.md](verify-gate.md) § 5. It asks for
+non-zero on red; this one asks for more, because a landing has a state the gate runner does not: it
+can fail at a point where the damage is already done and re-running would compound it.)*
 **Not in:** the gate's own check list (see [verify-gate.md](verify-gate.md)) and any notion of a
 code-review object — the item's activity log **is** the review record.
 

@@ -238,11 +238,12 @@ gate. **It is a seam; check whether your copy makes it a variable** (§ 4.5).
 prose"*). Its *shape* is the kit's; its *content* is yours. Replace the **declared gate table** and
 keep the frame, including the always-on floor that a narrowed run cannot switch off.
 
-### 2.4 The role set — FOUR places, not two
+### 2.4 The role set — more places than the adapter's two tables
 
 Two tables live in the **adapter** and must agree with reality: the role set (one row per role doc)
-and the commit prefixes (one row per legal tag). But **four files carry the role set**, and naming
-only two is how a set drifts: one project had the attribution hook accept a role the board mover
+and the commit prefixes (one row per legal tag). But **several files carry the role set** — the
+table below is the list, and the table is the count — and naming only the adapter's two is how a set
+drifts: one project had the attribution hook accept a role the board mover
 did not, so the seat that held it **could not move a card** and had to borrow another hat.
 
 | File | What it holds | Note |
@@ -251,8 +252,12 @@ did not, so the seat that held it **could not move a card** and had to borrow an
 | `scripts/githooks/commit-msg` | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded |
 | `scripts/move-issue.sh` | The acting-role whitelist, plus the same list in its usage text and its error messages | A role missing here cannot move the board **at all** |
 | `scripts/check-board.sh` | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
+| `scripts/subtask.sh` | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s |
 
-Change one, change all four. Contract: [`contracts/config-seam.md`](contracts/config-seam.md).
+Change one, change them all — **and the row count is this table, never a number in the prose above
+it.** An earlier version of this heading said "FOUR places", which was true when it was written and
+false the first time a fifth reader was added; the sentence that names a count is the one that rots
+(`doctrine/staleness.md` § C). Contract: [`contracts/config-seam.md`](contracts/config-seam.md).
 
 ### 2.5 The two project files the kit points at
 
@@ -355,7 +360,7 @@ receives the rules without the guards.**
 **Cost:** you rewrite them in your own runner, or you accept unguarded process docs.
 **The honest ranking, cheapest and highest-value first:** (1) the contracts-both-ways guard — a new
 gate with no sheet, or a sheet whose implementation is gone; (2) the role-set agreement across
-§ 2.4's four places; (3) the retained-index reverse leg (every index link resolves on disk).
+§ 2.4's readers (the table there is the count); (3) the retained-index reverse leg (every index link resolves on disk).
 **Partial mitigation that DOES travel:** `scripts/test/run.sh` self-tests the *scripts*, and the
 acceptance tier's three floor-guard assertions are specified in
 [`contracts/acceptance-tier.md`](contracts/acceptance-tier.md) even though its implementation

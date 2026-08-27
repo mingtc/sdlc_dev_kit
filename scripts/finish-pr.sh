@@ -18,6 +18,36 @@
 # branch that survives is reported loudly and NON-fatally: the merge has already
 # landed, so a surviving branch is residue, not a failed landing.
 #
+# ── EXIT CODES, AND THE QUESTION THEY ANSWER ─────────────────────────────────
+#   0  Everything the landing gate calls green: re-check passed, one squash commit,
+#      published, branch retired, board advanced. See contracts/landing-gate.md § 4.
+#   1  Refused or failed WITH NOTHING LANDED. Safe to fix the cause and re-run.
+#   2  Usage error (bad or unknown argument). Nothing was read or touched.
+#   3  LANDED BUT NOT FINISHED. The squash IS on the trunk; a follow-up step did
+#      not complete. **Do NOT re-run this script** — run the recovery it printed.
+#
+# THE CODE ANSWERS "IS IT SAFE TO RUN ME AGAIN?", NOT "DID IT LAND?" — and those
+# are different questions, which is why 3 exists. `1` and `3` are both failures and
+# they demand OPPOSITE actions: 1 says retry, 3 says never retry. Collapsing them,
+# as this script did when the board advance was a bare call under `set -e`, hands an
+# automation the value it reads as "did not land" on a landing that DID — so it
+# retries a merge that already happened. Measured cost, from the change that
+# produced this table: an `&&` chain returned non-zero on the normal path and a
+# GREEN landing exited 1.
+#
+# It also does NOT project the QA verdict's `landing` field. That field says whether
+# the change reached the trunk, and it reads `landed` both when everything finished
+# and when the board advance failed — so an exit code projecting it would give the
+# same value to "done" and "half-done", which is the exact collapse
+# process/MANUAL.md § The Dev → QA handoff step 6 separates the two axes to prevent.
+#
+# A RED POST-MERGE GATE IS NOT A NON-ZERO EXIT, deliberately. It is a fact about the
+# TRUNK, not about this landing: all four of the contract's green facts happened. A
+# script that exited non-zero for it would be reporting on its subject and on itself
+# in one code (process/doctrine/instruments.md § A.9). It is reported instead on a
+# machine-greppable line — `POST_MERGE_GATE: PASS|FAIL` — so an automation that
+# cares can key on that without confusing it for a failed landing.
+#
 # All trunk git ops happen inside the standing detached `.kanban-wt/` worktree
 # (see scripts/lib/kanban-worktree.sh), which is pinned to the trunk, so the
 # operator's main checkout is never hijacked; if it is sitting clean on the trunk
@@ -569,10 +599,30 @@ echo ""
 echo "Advancing ${ISSUE_ID} → qa_complete/..."
 MOVE_ARGS=("$ISSUE_ID" qa_complete --role QA --note "$NOTE")
 [ "$DISCARD_DIRTY" = "true" ] && MOVE_ARGS+=(--discard-dirty)
-"$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"
+# AN `if`, NOT A BARE CALL. A bare call under `set -e` aborts with move-issue's own
+# exit code — after the squash is on the trunk — so an automation reading $? sees
+# `1`, the same value this script uses for "refused, nothing landed", and cannot
+# tell the two apart. It then does the one thing that must never happen here:
+# RETRIES THE LANDING. This is where EXIT_LANDED_INCOMPLETE exists to be returned.
+if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
+  LANDED_INCOMPLETE=1
+  {
+    echo ""
+    echo "WARNING: the board advance FAILED — but ${ISSUE_ID} IS LANDED."
+    echo "         The squash is on ${KWT_REMOTE}/${DEFAULT_BRANCH}; what did not happen is the"
+    echo "         dev_complete/ → qa_complete/ move, so the board still shows it in review."
+    echo "         DO NOT re-run this script: the branch is merged and the squash would have"
+    echo "         nothing to do. Finish with just the move:"
+    echo "           $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role QA --note '<what the review found>'"
+  } >&2
+fi
 
 echo ""
-echo "Done. ${ISSUE_ID} landed on '${DEFAULT_BRANCH}' and is now in progress/qa_complete/ (pushed)."
+if [ "${LANDED_INCOMPLETE:-0}" -eq 0 ]; then
+  echo "Done. ${ISSUE_ID} landed on '${DEFAULT_BRANCH}' and is now in progress/qa_complete/ (pushed)."
+else
+  echo "LANDED, NOT FINISHED. ${ISSUE_ID} is on '${DEFAULT_BRANCH}'; one or more follow-up steps did not complete (see above)."
+fi
 
 # Post-merge mechanical check. Runs the TRACKED verify.sh --quick and SURFACES
 # the result, but must NOT gate: the `if` wrapper is load-bearing so `set -e` can't
@@ -590,6 +640,22 @@ else
 fi
 if "${POSTMERGE_CMD[@]}"; then
   echo "  post-merge verify --quick: PASS"
+  # THE MACHINE-GREPPABLE LINE. A human reads the sentence above; an automation
+  # needs a token it can key on without parsing prose, because this outcome
+  # deliberately does NOT move the exit code (see the header's exit table). One
+  # fixed prefix, one of two words, on stdout, always printed.
+  echo "POST_MERGE_GATE: PASS"
 else
   echo "  post-merge verify --quick: FAIL — ${DEFAULT_BRANCH} may be red; fix it ON ${DEFAULT_BRANCH}, do not park it." >&2
+  echo "POST_MERGE_GATE: FAIL"
 fi
+
+# ── THE EXIT. Last statement in the file, so nothing can run after it and quietly
+#    change the code. `set -e` cannot reach here: every post-landing step that can
+#    fail is wrapped, precisely so this line — not an aborted mid-script command —
+#    is what an automation reads.
+if [ "${LANDED_INCOMPLETE:-0}" -ne 0 ]; then
+  echo "EXIT: 3 (landed, not finished — do NOT re-run this script; run the recovery above)" >&2
+  exit 3
+fi
+exit 0
