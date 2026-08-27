@@ -237,8 +237,10 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
   **The separator is not cosmetic.** The rotation inserts directly below the header and assumes the
   next line is the separator; an index built without it has its first chunk row consumed in the
-  separator's place, so the new row lands *second* and your newest entry is no longer first. **If you have never rotated, there is nothing to do:** the file is created on first
-  use, because an empty index is then simply true.
+  separator's place, so the new row lands *second* and your newest entry is no longer first.
+
+  **If you have never rotated, there is nothing to do:** the file is created on first use, because an
+  empty index is then simply true.
 - **If you parse `verify.sh`'s output, update it for the fourth state and the count line.** Anything
   matching on exactly `PASS`/`FAIL`/`SKIP` will not recognise `UNRUNNABLE`, and a summary parser
   expecting the old shape will need the new one. **If you have been treating a red gate as "the tree
@@ -259,6 +261,45 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   the amendment; nothing you have written becomes wrong, but **a coordinator that follows only the
   prohibition will keep paying the failure it names** — it asks the actor to notice at exactly the
   moment the failure describes.
+
+- **`finish-pr.sh` REFUSES a posture that used to land, and has a new exit code.** It now requires the
+  gate it runs to be the **committed** one, **at the revision being landed**, and unmodified — naming
+  which of five it was (missing / not executable / not at that revision / not tracked there / locally
+  modified). **If you have been landing from a trunk checkout, that now refuses**: check the branch out,
+  or pass `--worktree` a worktree that has it. This was already what `contracts/landing-gate.md` § 2
+  required; the script did not enforce it, so a **red** branch could land green.
+  **And `exit 3` is new**: it means **LANDED BUT NOT FINISHED — do not re-run**, run the printed
+  recovery. Previously a failed board-advance after a successful merge exited `1`, the same code as
+  *nothing landed*, so an automation reading `$?` would retry a merge that had already happened. **Any
+  wrapper treating every non-zero as "did not land" must learn 3.**
+- **If you copied `QA_SCHEMA` or `PARK_SCHEMA` into your own runner, the field shape changed.**
+  `landed: boolean` → **`landing: enum { landed, deferred, not_applicable }`**, because a boolean
+  could not represent a green review whose landing was correctly deferred — it read one as a failure
+  and halted a run that had succeeded. `not_applicable` exists because a docs-path issue has no
+  landing script, and a boolean forces that case to lie.
+- **The board mover's Activity entry format changed — update anything that parses it.** A move now
+  writes `- <date> [<role>] → <target>: <note>`; the **arrow is the status declaration**. There is also
+  a new **note-only** form, `- <date> [<role>] NOTE: <note>`, which deliberately emits **no** arrow and
+  changes no container. If your own tooling reads those bullets, it needs the arrow — and must not read
+  a `NOTE:` line as a status.
+- **`check-board.sh` gains an id-register check, and it needs one declaration from you.** It reports
+  duplicate ids in a declared register — the case with **no textual conflict**, where two legs mint the
+  same id in different sections and a rebase merges both cleanly. Declare yours in the `REGISTERS`
+  table beside `ISSUE_ID_PATTERN` (`'<path>|<heading mark>|<id shape>'`); **an undeclared register is
+  skipped with its reason, so the check is silent until you declare it.**
+- **The board worktree now REFUSES where it used to reset.** `kwt_sync` refuses when the worktree
+  carries a commit that is not on the trunk, instead of `reset --hard`ing over it, and the detach
+  repair refuses rather than reporting *"nothing else changed"* about a state it could not read.
+  **There is no opt-out flag** — discarding a commit is a deliberate act and costs a deliberate hand
+  command. If a script of yours relied on sync always succeeding, it will now stop.
+- **`subtask.sh` refuses two things it used to accept**, both before mutating: an **absent parent**,
+  and an **unvalidated `--role`**. The second mattered more than it sounds — a typo'd role reached the
+  commit subject, the hook rejected it *mid-operation*, and the `git mv` plus Activity append were left
+  uncommitted in the shared worktree the next board op wipes. It also **checks `kwt_finalize`'s return
+  at both sites**, so a failed push is no longer reported as success.
+- **`release.sh` refuses an unmarked verify-skip override.** Setting the skip variable without the
+  marker now exits non-zero having written nothing, and names the legitimate route instead — *an
+  unmarked override does not weaken a gate, it removes one.*
 
 Otherwise none. Every other change above is either a new refusal that fires only on a setup that was
 already broken, a correction to the seed's own files, or new material that binds nothing until you
