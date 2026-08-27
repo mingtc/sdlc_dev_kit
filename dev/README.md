@@ -53,6 +53,12 @@ date will be read as current no matter what its first paragraph says.
 - **[`handoffs/`](handoffs/)** — seat-to-seat handoffs. **The newest file wins**; the convention and
   the standing-handoff pattern are in [`handoffs/README.md`](handoffs/README.md).
 
+## Orchestrated runs (`launch/`)
+
+- **[`launch/`](launch/)** — one **launch pack** per orchestrated run and, at close, the **run
+  report** the pack is stamped SPENT against. Neither is ever deleted; the convention is in
+  [`launch/README.md`](launch/README.md).
+
 ## Reports, assessments, and probe findings
 
 <!-- One row per dated document. `Read for` is what a reader would come here WANTING — not a

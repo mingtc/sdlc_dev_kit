@@ -200,9 +200,13 @@ You understand 1,2,3,6. Unclear on 4,5.
 ✅ "Understand 1,2,3,6. Need clarification on 4 and 5 before implementing."
 ```
 
-## GitHub Thread Replies
+## Replying in a Review Thread
 
-When replying to inline review comments on GitHub, reply in the comment thread (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`), not as a top-level PR comment.
+Reply **in the thread you are answering**, never as a new top-level comment on the change — a reply that leaves its thread loses the code, the line and the question it answers.
+
+**The mechanism is your forge's, not this skill's.** Use the thread's own reply control in the review UI, or the command your project's adapter names if it has added the optional forge flavor. GitHub's CLI is one example, illustrative and not the requirement: `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies` posts into the thread, where a plain PR comment would not.
+
+**Where the review record is a file in the repository** rather than a forge object, the rule is unchanged: answer at the finding, not in a new section at the bottom.
 
 ## The Bottom Line
 

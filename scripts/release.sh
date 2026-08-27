@@ -39,7 +39,11 @@
 #
 #   MUTATE (only once every gate above is green)
 #     8. bump the version in every file declared in VERSION_FILES
-#     9. one role-prefixed release commit, then an ANNOTATED tag vX.Y.Z
+#     9. one role-prefixed release commit, then an ANNOTATED tag vX.Y.Z — and then,
+#        as NORMAL output while the run is healthy, the LOCAL-ONLY state and the
+#        exact commands that finish the job. A run killed between step 9 and step
+#        10 otherwise leaves a transcript asserting a commit and a tag with nothing
+#        saying neither was ever pushed (`doctrine/fix-execution.md` § A.7).
 #    10. push the commit + the tag to the remote
 #    11. optionally PUBLISH the distribution branch (RELEASE_PUBLISH=true) — only
 #        after BOTH pushes above succeed, so a publish failure can never make a
@@ -563,10 +567,47 @@ if [ "$VERSION_IN_TAG_ONLY" = "true" ]; then
 else
   git commit -m "$COMMIT_MSG" --quiet
 fi
-echo "── release commit: $(git rev-parse --short HEAD) — \"$COMMIT_MSG\""
+RELEASE_SHA="$(git rev-parse --short HEAD)"
+echo "── release commit: $RELEASE_SHA — \"$COMMIT_MSG\""
 
 git tag -a "$TAG" -m "$TAG"
 echo "── annotated tag $TAG created."
+
+# ── THE RECOVERY IS PRINTED AS NORMAL OUTPUT, HERE, WHILE THE RUN IS HEALTHY.
+#    `doctrine/fix-execution.md` § A.7: a multi-step landing script gets killed
+#    mid-run — a caller's timeout, a closed window, the host — and the failure
+#    branches below, which carry this same recovery text, DO NOT RUN, because
+#    nothing failed. The two lines above assert a release commit and an annotated
+#    tag, and neither of them says LOCAL, so a transcript that ends here reads as
+#    a cut release. The pushes are what makes that true, so the state is stated
+#    BEFORE them, at the point where this cut stops being undoable.
+#
+#    The mirror of finish-pr.sh's `── LANDED.` block, at the mirror-image moment:
+#    there the act HAS published and the cleanup has not; here NOTHING has
+#    published. Every command named below is safe to re-run — an already-pushed
+#    ref answers "Everything up-to-date", and --publish-only rebuilds — which is
+#    what lets ONE block be the whole remaining-steps recovery for a death
+#    anywhere after it, rather than one block per seam.
+#
+#    RE-RUNNING THIS SCRIPT IS NOT one of those safe commands, and that is why the
+#    block says so: the tag now exists, so preflight 1 refuses with "a version is
+#    cut once" — correct, and baffling to an operator whose tag was never pushed.
+{
+  echo
+  echo "── LOCAL ONLY. NOTHING IS PUSHED YET, so $TAG IS NOT RELEASED."
+  echo "   The bump, release commit $RELEASE_SHA and annotated tag $TAG exist in THIS"
+  echo "   clone and nowhere else; $REMOTE has none of them. If this run stops here —"
+  echo "   killed, timed out, disconnected — finish it with exactly these commands:"
+  echo "     git push $REMOTE HEAD:$DEFAULT_BRANCH"
+  echo "     git push $REMOTE $TAG"
+  if [ "$RELEASE_PUBLISH" = "true" ]; then
+    echo "     ./scripts/release.sh $NUM --publish-only     (step 11, the $DIST_BRANCH copy)"
+  fi
+  echo "   Each is safe to re-run. RE-RUNNING THIS SCRIPT IS NOT — it refuses now that"
+  echo "   $TAG exists. To abandon the cut instead, undo the two local acts:"
+  echo "     git tag -d $TAG && git reset --hard HEAD~1"
+  echo
+}
 
 echo "── pushing commit + tag to $REMOTE/$DEFAULT_BRANCH..."
 if ! git push "$REMOTE" "HEAD:$DEFAULT_BRANCH"; then

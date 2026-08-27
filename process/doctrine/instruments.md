@@ -35,6 +35,12 @@ It is also the general form of two rules that arrived in
 [`dogfooding.md`](dogfooding.md) (§ A.2, § A.16) and were promoted here because they bind every
 guard author, not only whoever runs a round.
 
+**Size note, owed by [`lookup-tables.md`](lookup-tables.md) § A.1.** This sheet is above that
+section's byte trigger and still owes no index, by the read-time exemption stated there: a doctrine
+sheet is addressed on demand, never loaded at session start. § A.1 asks whichever sheet is over the
+trigger to carry that line in its own header, so neither end of the dependency can be edited blind —
+re-derive the sizes with the command § A.1 names before narrowing either end.
+
 ---
 
 ## § A — PART ONE: BUILD TIME

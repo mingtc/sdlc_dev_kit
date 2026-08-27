@@ -137,3 +137,11 @@ nobody can safely update.
 When updating a skill from upstream, re-fetch the source and copy the folder over the
 existing skill, then **diff before committing** — local hardening lives in these files and a
 blind overwrite silently discards it.
+
+**One class of hardening the diff will show, and it is not drift.** Where an upstream skill states
+an instruction in one tool's or one forge's command, this kit keeps the instruction and demotes the
+command to a named example — the setup commands in `using-git-worktrees`, the review-thread reply
+in `receiving-code-review`. A re-copy that restores the single-command form has not updated the
+skill, it has re-narrowed it, and it breaks the claim this file opens with: *nothing here assumes a
+language, a test runner, a build tool or a forge.* Carry the upstream's substance into the local
+wording, never the reverse.

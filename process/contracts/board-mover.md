@@ -74,6 +74,24 @@ to change and making every change self-recording.
   cause** — and it was hit **three times independently**, in three unrelated runs, before anyone
   wrote it down. The counterpart obligation is on creation: see
   [issue-creation.md](issue-creation.md) § 2.
+- **A REFUSAL LEAVES NOTHING BEHIND — and where it cannot promise that outright, it tries.**
+  Every refusal decided from the invocation alone — argument shape, which of the two operations,
+  target legality, actor legality — is decided before the tool creates, locks or synchronises
+  anything. A refusal that depends on the board's CONTENTS cannot make that promise
+  unconditionally, because reading the published board may mean materializing it; it is held to
+  the weaker, still-testable form instead: **the cheap read is attempted first, it may only
+  REFUSE, and a read that cannot answer falls through rather than refusing.** Inspecting a
+  published ref is not building a checkout, and that is where the line sits: the first leaves
+  nothing an operator must clean up, the second does.
+  *Why:* measured. A syntactically valid invocation naming an item that did not exist created the
+  auxiliary checkout ([kanban-worktree.md](kanban-worktree.md)) before it could look, and left a
+  registered, untracked directory in a repository other lanes were working in — one blanket
+  `git add` from being committed, and it had to be proven safe before it could be removed. The
+  refusal itself was correct; the state it left was the cost, and excluding the directory from
+  version control is a mitigation each project applies separately and the next operator does not
+  inherit. **The fall-through half is the load-bearing half, not a caveat:** a probe that answers
+  from a stale or unreadable ref and refuses anyway says "no such item" about an item that
+  exists — a worse failure than the checkout it saved, and one the operator cannot diagnose.
 - **The legal target set is closed and validated up front.** A target outside the declared
   lifecycle is refused before anything is touched.
   *Why:* an invented state is invisible to every other tool that walks the lifecycle.
@@ -81,7 +99,10 @@ to change and making every change self-recording.
 ## 3. REFUSAL CONDITIONS
 
 - The named item does not exist, **or more than one item matches the name** ⇒ refuse, listing the
-  matches. Guessing between two items is a data-loss move.
+  matches. Guessing between two items is a data-loss move. The non-existence half is the one
+  refusal that must be **attempted against the published board before any auxiliary state
+  exists** (§ 2); the multiple-match half is decided by the authoritative read, which is also the
+  read that can list.
 - The target state is not in the declared lifecycle ⇒ refuse, listing the legal targets.
 - **A MOVE** whose item is already in the target state ⇒ refuse as a no-op rather than appending a
   second, meaningless log entry — **and name the record-without-moving operation in the refusal**,
@@ -135,6 +156,13 @@ checkout contract's problem, and a reimplementation may solve it any way it like
 
 - `scripts/move-issue.sh` — KIT-CLASS: KIT. The move, the activity append, the commit and the
   push.
+- **The § 2 pre-flight probe is a TREE READ, not a checkout** — `git ls-tree` against the
+  publication remote's trunk ref, and a miss re-read after one single-branch fetch before it may
+  refuse, because that tracking ref is a CACHE: an item another operator pushed a minute ago is
+  absent from it and present on the trunk. It refuses only. The lookup inside the auxiliary
+  checkout still decides every acceptance, the multiple-match refusal and the already-in-target
+  refusal — so anything the probe cannot match (an unreadable ref, a trunk carrying no board, a
+  pattern passed where an identity belongs) costs the old behaviour and nothing else.
 - `scripts/lib/kanban-worktree.sh` — KIT-CLASS: KIT. How this kit publishes to the trunk
   without touching the operator's workspace; contracted separately in
   [kanban-worktree.md](kanban-worktree.md).

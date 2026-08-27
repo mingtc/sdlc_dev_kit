@@ -42,13 +42,25 @@ index whatever its size, because that cost is paid every session rather than per
 *(**A doctrine sheet is exempt by how it is READ, not by failing a condition.** It is **addressed on
 demand** — reached when a reader already has the question — never loaded at session start, so the
 per-lookup cost the byte trigger bounds is one a reader has already chosen to pay. A doctrine sheet
-therefore triggers nothing however large it grows.*
+therefore triggers nothing **on the size axis**, however large it grows — **unless a role doc makes
+it a mandatory read**, which does not beat the exemption so much as remove its premise: a sheet read
+at every session start is no longer addressed on demand, so the role trigger above applies to it
+like any other file.*
 
 *Stated this way deliberately, because the obvious shorter version is false: it is **not** that
 condition 1 is unmet. Condition 1 names `process/MANUAL.md`, and MANUAL's doctrine table names every
 doctrine sheet by path — **that table IS the naming**, so condition 1 is **met** for every sheet in
 the corpus. A reader who noticed that and "corrected" the rule from the text alone would remove the
 exemption rather than re-base it, and put an index obligation on sheets that do not need one.)*
+
+**That exemption has a shipped dependent, and nothing in this section shows it to you.** At least one
+sheet in the doctrine corpus already sits above the byte trigger and owes no index solely because of
+it. *Which* sheet is a measurement, not a fact to keep here —
+`wc -c process/doctrine/*.md | sort -n`, read against the trigger, answers it in one command, and
+§ A.5's first rank is the reason the answer is derived rather than written down. **Run it before
+narrowing or removing the exemption**, because the narrowing that looks harmless in the abstract
+lands an index obligation on a real sheet. **A sheet that crosses the trigger owes one line in its
+own header naming this exemption**, so whichever end an editor is holding, the other one is visible.
 
 ### A.2 — The index budget, and why the entry cap and the split point derive from it
 

@@ -1,3 +1,4 @@
+<!-- KIT-CLASS: KIT — the pack-and-report convention. Travels unedited; it names no project. -->
 # dev/launch/ — launch packs and run reports
 
 The home for orchestrated-run records: each run gets a **launch pack** (authored from

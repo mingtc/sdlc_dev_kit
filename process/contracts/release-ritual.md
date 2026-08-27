@@ -30,6 +30,16 @@ rather than deleting the row, so the decision is visible.
 - **Naming happens on a clean trunk.** The point being named is the published trunk with no local
   modification.
   *Why:* otherwise the named point contains something that exists only on one machine.
+- **Between the local acts and the push, the ritual PRINTS what exists only locally and the exact
+  commands that finish the job** — as ordinary output, while the run is healthy, never only on a
+  failure branch.
+  *Why:* the commit and the name are asserted in the transcript before either is published, and a
+  run killed in that window — a caller's timeout, a closed window, the host — never reaches the
+  failure branch that would have said so. The transcript then reads as a released version no
+  consumer can fetch, nothing else reports it, and the obvious recovery is the wrong one: the name
+  now exists, so the uniqueness invariant above refuses a re-run. The recovery has to be printed
+  because the operator cannot reconstruct it from an instinct
+  ([`../doctrine/fix-execution.md`](../doctrine/fix-execution.md) § A.7).
 - **Publication of any built artifact happens ONLY AFTER the push of the commit and the name has
   succeeded.** The artifact is built from the named point, not from the working tree.
   *Why:* building before the push has shipped a stale artifact that matched no released point, and
@@ -55,7 +65,8 @@ rather than deleting the row, so the decision is visible.
 1. Every preflight gate **ran and passed**, each named with its verdict.
 2. The version literal was written to **every declared place** and the new value is printed —
    e.g. a project whose next point is `42.x` shows that value in each place it was written.
-3. **One** attributed commit and **one** annotated name exist at the trunk's tip, both printed.
+3. **One** attributed commit and **one** annotated name exist at the trunk's tip, both printed —
+   and printed as **local only**, with the commands that finish the job, before item 4 is attempted.
 4. Both were **pushed**, and only then was the artifact built at the named point and published.
 5. A dry mode exists that performs item 1 and reports 2–4 while changing **nothing**.
 

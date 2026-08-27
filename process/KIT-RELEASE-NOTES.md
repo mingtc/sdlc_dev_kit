@@ -48,6 +48,47 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`release.sh` prints where the release actually is, before it pushes.** Between the annotated tag
+  and the two pushes it now states — as ordinary output, on a healthy run — that the bump, the
+  release commit and the tag exist in your clone and **nowhere else**, the two `git push` commands
+  that finish the cut, that each of those is safe to re-run while **re-running `release.sh` is not**
+  (the tag exists now, so preflight 1 refuses), and the two commands that abandon the cut instead. A
+  completed run is unchanged apart from the extra block; a run **killed** in that window used to
+  leave a transcript asserting a release commit and an annotated tag with nothing saying neither had
+  been pushed. `process/contracts/release-ritual.md` § 2 now carries this as an invariant, so a
+  project with its own release implementation is held to it too. No action required.
+- **`move-issue.sh` no longer creates the kanban worktree just to tell you a card id is wrong.** The
+  existence check now runs first, against the trunk ref itself, so a mistyped id refuses and leaves
+  nothing behind — and the refusal says which tree it read. It can only refuse: an unreadable
+  tracking ref, a trunk carrying no `progress/` board, or a glob passed where an id belongs all fall
+  through to the old path unchanged, and a miss is re-read after a fetch, so a card another operator
+  has just pushed is never reported as missing. `contracts/board-mover.md` § 2 states the rule behind
+  it: a refusal decided from the invocation alone leaves nothing behind, and one that depends on
+  board contents must at least try to. Nothing to do.
+- **`receiving-code-review`'s thread-reply section is no longer GitHub-only.** It was headed *GitHub
+  Thread Replies* and stated the rule as a `gh api …/replies` invocation — the one place the kit's
+  own skill set told you to run a forge CLI, in a kit whose landing path is deliberately pure git. It
+  is now headed **Replying in a Review Thread** and states the rule that travels: reply **in the
+  thread you are answering**, never as a new top-level comment; the mechanism is your forge's, and
+  GitHub's CLI is named as one example. It also covers the path this kit gives you out of the box,
+  where the review record is a file in the repository and there is **no forge object at all** —
+  answer at the finding, not in a new section at the bottom. **Nothing to do**, unless something of
+  yours cites the old heading. If you re-copy this skill from upstream, `skills/README.md` now says
+  why the local wording differs and which way the merge goes.
+- **`process/doctrine/lookup-tables.md` § A.1 now names the read-time exemption's shipped dependent,
+  and scopes "triggers nothing however large it grows" to the size axis.** Two things a reader of
+  that paragraph could not see. First: at least one shipped doctrine sheet already sits above the
+  byte trigger and owes no index **solely** through the exemption, and nothing in § A.1 said so — an
+  editor narrowing the rule was one edit away from landing an index obligation on a real sheet.
+  § A.1 now says it, names `wc -c process/doctrine/*.md | sort -n` read against the trigger as the
+  way to find *which* sheet (derived, not stored), and requires **a sheet that crosses the trigger
+  to carry one line in its own header naming the exemption**; `process/doctrine/instruments.md`
+  carries that line. Second: *"a doctrine sheet triggers nothing however large it grows"* was
+  grammatically absolute while its qualifier scoped it to size, so a hurried reader could take it as
+  beating the role trigger above it. It does not: **a role doc that makes a sheet a mandatory read
+  removes the exemption's premise**, so the role trigger applies to it like any other file. **The
+  policy is unchanged in both cases.** No Action required — unless one of your own doctrine sheets is
+  over the trigger, in which case it owes that one header line.
 - **`CLAUDE.md` now ships as a bootstrap stub, not as a pre-filled adapter.** A fresh unpack's
   `CLAUDE.md` says the project is not set up yet and sends day one to `process/SEED.md`; you build
   your adapter from `process/templates/CLAUDE-adapter.template.md` and **overwrite** the stub.
@@ -307,6 +348,24 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **The commit-message hook now refuses generated co-author trailers — if your tooling adds one, your
+  next commit is rejected.** `scripts/githooks/commit-msg` used to judge only the subject's role tag;
+  it now also reads the **whole message** and refuses a `Co-Authored-By:` line naming a **tool**, or
+  a *"Generated with …"* line (`doctrine/commit-hygiene.md` § A.1 — a rule the kit has always stated
+  and never enforced, which is why the sheet predicted that "the default the tool ships with" would
+  win). `scripts/githooks/applypatch-msg` delegates to it, so `git am` and `git cherry-pick` are
+  covered by the same rule. **What to do: turn the trailer off where it is generated** — your
+  agent's or editor's setting — rather than working around the hook; that is the point of the rule.
+  **A trailer naming a human is still accepted**: only tool markers are refused, and the markers are
+  one named line in the hook (`TOOL_TRAILER_MARKERS`) that you extend in one place when you meet a
+  new tool. **If you must import a third party's commit verbatim** — a cherry-pick or `git am` whose
+  message already carries a tool trailer — the documented escape is `MSG_OK=1 git commit …` /
+  `MSG_OK=1 git am …`; it exists for somebody else's message, not for your own. Two things
+  deliberately unchanged: a **merge or revert subject** is exempt from the *prefix* rule and is
+  **not** exempt from this one, because the body is where the trailer lives; and **`git commit -v`
+  still works** — the diff below the scissors line is cut before the scan. If you initialized with
+  `kit-init.sh`, `core.hooksPath` is already set and the refusal is live as soon as you take the new
+  hook; if you copied the hook by hand, copy it again.
 - **If you built your adapter from a template older than this release, it is missing two sections:
   § The binding gates here and § Where the rest of the process lives.** The latter is your adapter's
   only route into `process/MANUAL.md`, `contracts/`, `doctrine/`, `hygiene-checklist.md`,

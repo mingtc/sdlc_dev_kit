@@ -37,6 +37,14 @@ rule standing:
 resolves in favour of the default the tool ships with — and the default is to add the trailer.
 An absolute is a rule a hook can enforce and a reviewer can check by looking.
 
+**And a hook does enforce it — the same one that enforces § A.2.** The reference implementation's
+commit-message guard (`scripts/githooks/commit-msg`, delegated to from `applypatch-msg` so the
+patch-application entrance judges the same way) reads the whole message rather than only the
+subject and refuses a `Co-Authored-By:` naming a **tool** — the markers are one named line in the
+hook, extended in one place — or a *"Generated with …"* line; a trailer naming a **human** is
+legitimate practice and is accepted, and the documented bypass exists for carrying somebody
+else's commit verbatim, not for your own.
+
 ### A.2 — **The subject declares the acting role, and the guard runs at write time**
 
 > Every commit subject opens with the acting role in a fixed, machine-greppable shape. The rule
@@ -105,8 +113,9 @@ commit, and it has three parts:
 - **A conflicted rebase stops.** It restores the pre-attempt state and says what a human must do.
   Silent conflict resolution on the trunk is worse than the race it was trying to win.
 
-**How to adopt:** A.1 and A.2 go in the adapter's house rules as one line each (A.2 pointing at
-your enforcing hook). A.3 goes in the implementer's and reviewer's Definition of Done — it is a
+**How to adopt:** A.1 and A.2 go in the adapter's house rules as one line each (each pointing at
+your enforcing hook — in the reference implementation both rules live in one hook). A.3 goes in
+the implementer's and reviewer's Definition of Done — it is a
 *read*, not a ritual, and it takes one command. A.4 goes wherever your landing outcome vocabulary
 is defined, so that "verified but not landed" is a **verdict the process can express**; a process
 whose only outcomes are PASS and FAIL will report a stranded landing as one of the two, and both

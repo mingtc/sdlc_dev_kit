@@ -6,6 +6,10 @@
 # All kanban git ops happen inside a STANDING worktree pinned to the trunk
 # (`.kanban-wt/`, gitignored, bootstrapped on first use). The operator's
 # current checkout is NEVER switched. The script:
+#   0. Probes the TRUNK REF for the named card BEFORE building anything — a
+#      `git ls-tree` on <remote>/<trunk>, which needs no checkout — so a mistyped
+#      id refuses without leaving a worktree behind. The probe may only REFUSE;
+#      it never accepts, and it falls through whenever it cannot answer.
 #   1. Takes a lock, bootstraps + syncs the kanban worktree to <remote>/<trunk>.
 #   2. Moves the file (git mv) inside the worktree.
 #   3. Appends `- DATE [ROLE] NOTE` to the end of the file.
@@ -221,8 +225,93 @@ case "$ROLE" in
   *) echo "Error: --role must be PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect (got '$ROLE')" >&2; exit 1 ;;
 esac
 
+# ONE not-found refusal TEXT, TWO reads that can reach it: the pre-bootstrap probe
+# below and the authoritative lookup after the sync. Factored so the two cannot
+# drift — what an operator is told about a mistyped id must not depend on which
+# read caught it, and the only honest difference is WHICH TREE was read, which is
+# this function's argument.
+#
+# THE PUSH-BEFORE-YOU-MOVE TRAP, replicated three times independently: the message
+# was TRUE and its cause was unfindable. Every board this tool reads is the TRUNK's
+# — the tree object at <remote>/<trunk> for the probe, the reset-to-<remote>/<trunk>
+# worktree for the lookup — so a freshly minted card that has not been committed AND
+# PUSHED does not exist to it, however plainly it sits in the operator's own checkout.
+issue_not_found() {   # <provenance — which tree was read>
+  {
+    echo "Error: no file matching ${ISSUE_ID}-*.md found under progress/."
+    echo "       ($1)"
+    echo "       Minted but not yet pushed? A new card is invisible here until it reaches the trunk:"
+    echo "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[<Role>] ${ISSUE_ID}: mint\" && git push"
+    echo "       Otherwise check the id — ls progress/*/ | grep ${ISSUE_ID}"
+  } >&2
+}
+
 # Resolve repo root + trunk (works from any worktree).
 kwt_resolve
+
+# ── THE PRE-BOOTSTRAP EXISTENCE PROBE, AND WHY IT MAY ONLY EVER REFUSE ────────
+# Every refusal above this line is decided from the invocation alone, so it costs
+# nothing. The card lookup is not: the board this tool moves cards on is the
+# TRUNK's, and reading it used to mean MATERIALIZING it — so a syntactically valid
+# invocation naming a card that does not exist was GUARANTEED to bootstrap a
+# registered .kanban-wt/ before it could refuse. Measured: a mistyped id left one
+# behind in a checkout shared with other lanes, untracked and one blanket `git add`
+# from being committed, and it had to be proven safe before it could be removed.
+#
+# So the existence question is asked FIRST, against the trunk's own TREE OBJECT —
+# `git ls-tree` on <remote>/<trunk> — which needs no checkout, no worktree, not
+# even the lock. THREE RULES MAKE THAT HONEST, and each closes a way such a probe
+# lies:
+#   1. IT READS THE TRUNK REF, NEVER THE OPERATOR'S WORKING TREE. The checkout is
+#      a DIFFERENT BOARD — that is the entire push-before-you-move trap above — so
+#      a probe answering from it would refuse cards that exist and pass cards that
+#      do not, which is worse than the state it saves.
+#   2. IT MAY ONLY REFUSE, NEVER ACCEPT. A hit here proves nothing and is not
+#      relied on: the lookup after the sync is untouched and still decides every
+#      acceptance, the multiple-match refusal and the already-in-target refusal.
+#   3. A PROBE THAT CANNOT ANSWER FALLS THROUGH SILENTLY. An unreadable ref, a
+#      trunk with no progress/ tree, an id carrying glob metacharacters (which the
+#      `find` below expands and this literal prefix test does not) — each of those
+#      is "I do not know", and "I do not know" is not a refusal.
+# And a miss is CONFIRMED BY A FETCH before it is allowed to refuse.
+# <remote>/<trunk> is a CACHED ref: a card another operator pushed a minute ago is
+# absent from it and present on the trunk, and kwt_sync's own fetch is what would
+# have found it. So a miss costs one single-branch fetch and re-reads; only a miss
+# that survives a successful fetch refuses, and a failed fetch is rule 3 again.
+PROBE_REF="refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH"
+PROBE_SEEN=0   # tracked paths seen under progress/ — 0 means "no board here", which is
+PROBE_HIT=0    #   not the same fact as "the card is not on the board"
+probe_board() {   # <tree-ish> → sets PROBE_SEEN/PROBE_HIT; non-zero if the ref is unreadable
+  local listing p b
+  listing="$(git -C "$MAIN_ROOT" ls-tree -r --name-only "$1" -- progress 2>/dev/null)" || return 1
+  PROBE_SEEN=0; PROBE_HIT=0
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    PROBE_SEEN=$(( PROBE_SEEN + 1 ))
+    b="${p##*/}"
+    case "$b" in *.md) ;; *) continue ;; esac
+    # LITERAL prefix test, deliberately: the id is data, not a pattern, here.
+    [ "${b#"${ISSUE_ID}"-}" != "$b" ] && PROBE_HIT=$(( PROBE_HIT + 1 ))
+  done <<PROBE_LISTING
+$listing
+PROBE_LISTING
+  return 0
+}
+
+PROBE_ID_IS_GLOB=0
+case "$ISSUE_ID" in *'*'*|*'?'*|*'['*) PROBE_ID_IS_GLOB=1 ;; esac
+
+# ONE CHAIN, NOT NESTED ifs, so the refusal is unreachable unless every link held
+# in order — including the fetch, which is deliberately INSIDE the condition: it
+# runs only on a miss (the happy path pays nothing) and its failure is a
+# fall-through, not a refusal. Do not hoist it out.
+if [ "$PROBE_ID_IS_GLOB" -eq 0 ] \
+   && probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ] \
+   && git -C "$MAIN_ROOT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null \
+   && probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ]; then
+  issue_not_found "read the TRUNK's board straight out of $KWT_REMOTE/$DEFAULT_BRANCH, freshly fetched — not your checkout; no kanban worktree was created"
+  exit 1
+fi
 
 # Acquire the lock BEFORE touching the worktree (never a half-applied move).
 # trap-release is armed inside kwt_lock.
@@ -239,16 +328,11 @@ while IFS= read -r f; do
 done < <(find "$KWT/progress" -name "${ISSUE_ID}-*.md" -type f 2>/dev/null | sort)
 
 if [ ${#MATCHES[@]} -eq 0 ]; then
-  # THE PUSH-BEFORE-YOU-MOVE TRAP, replicated three times independently: the
-  # message was TRUE and its cause was unfindable. The board this searches is the
-  # trunk's copy inside .kanban-wt/, which is reset --hard to <remote>/<trunk> on
-  # every op — so a freshly minted card that has not been committed AND PUSHED
-  # does not exist here, however plainly it sits in the operator's own checkout.
-  echo "Error: no file matching ${ISSUE_ID}-*.md found under progress/." >&2
-  echo "       (searched the TRUNK's board inside the kanban worktree, not your checkout.)" >&2
-  echo "       Minted but not yet pushed? A new card is invisible here until it reaches the trunk:" >&2
-  echo "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[<Role>] ${ISSUE_ID}: mint\" && git push" >&2
-  echo "       Otherwise check the id — ls progress/*/ | grep ${ISSUE_ID}" >&2
+  # THE AUTHORITATIVE READ, and the one the probe above never substitutes for: it
+  # searches the trunk's copy inside .kanban-wt/, reset --hard to <remote>/<trunk>
+  # on every op. Reaching here means the probe fell through (rule 3) or the board
+  # changed under us between the two reads — either way this decides, not it.
+  issue_not_found "searched the TRUNK's board inside the kanban worktree, not your checkout"
   exit 1
 fi
 if [ ${#MATCHES[@]} -gt 1 ]; then
