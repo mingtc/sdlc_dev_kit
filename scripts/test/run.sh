@@ -919,6 +919,185 @@ case_archive_apply() {
 # could not (a fixture whose own portability slip was indistinguishable from the
 # defect under test).
 # =============================================================================
+# =============================================================================
+# 047 — a schema's `required` must name properties the schema DEFINES
+# =============================================================================
+# WHY THIS EXISTS (measured, and it shipped): change 026 renamed a schema property
+# from `landed` to `landing` in both runners, and in tranche-runner's PARK_SCHEMA the
+# `properties` block was updated while `required` was not. The schema then DEMANDED A
+# PROPERTY IT DID NOT DEFINE — it could not validate, and a validator would have asked
+# every park leg for a field no brief mentions.
+#
+# THREE THINGS THAT SHOULD HAVE STOPPED IT DID NOT: `node --check` cannot see it (it is
+# valid JavaScript and the defect is semantic); the harness did not exercise the runners
+# at all, which the implementing leg reported explicitly rather than letting a green
+# imply coverage; and the review comparison — one line — was not run.
+#
+# AND THE ENUM GUARD DOES NOT CATCH THIS. That case compares each runner's VERDICTS
+# array against the ratified token set: a different assertion entirely. A guard for the
+# adjacent defect is not a guard for this one, and the presence of *a* schema guard is
+# exactly what stops the next person looking harder (negative-claims.md § A.4).
+#
+# ALL SIX SCHEMAS, NOT FOUR. A hand-run of this check during 010 covered four, because
+# its source slice began at `const VERDICTS` and both DEV_SCHEMAs fell outside it. That
+# limit was stated by the leg that ran it; the extractor below keys on
+# `^const <NAME>_SCHEMA` so a seventh schema is covered the day it appears.
+#
+# ONE DIRECTION ONLY, and the other was measured and declined: "a property no consumer
+# reads" would fire on six legitimate keys (DEV_SCHEMA.summary/.test_evidence/.deviations
+# in each runner, all filled for the QA leg and the run report to read), and a narrower
+# "referenced nowhere else" rescue fires on five. A `required` naming an undefined
+# property is asymmetric — it is ALWAYS a defect, because the schema cannot validate —
+# which is why it is the one that survives. See change 047 for both measurements.
+_schema_extract_awk() {
+  cat <<'AWKEOF'
+/^const [A-Za-z_]+_SCHEMA[[:space:]]*=/ { s=$2; inprops=0; next }
+s == "" { next }
+/^[[:space:]]*properties:[[:space:]]*\{/ { inprops=1; next }
+inprops && /^[[:space:]]{2}\},?[[:space:]]*$/ { inprops=0; next }
+inprops && /^[[:space:]]{4}[A-Za-z_]+:/ {
+  k=$1; sub(/:.*/,"",k); gsub(/[[:space:]]/,"",k); print s "|prop|" k; next
+}
+/^[[:space:]]*required:[[:space:]]*\[/ {
+  line=$0; sub(/^[^[]*\[/,"",line); sub(/\].*/,"",line)
+  n=split(line, a, ",")
+  for (i=1;i<=n;i++) { v=a[i]; gsub(/[[:space:]'\''"]/,"",v); if (v!="") print s "|req|" v }
+  next
+}
+/^\}/ { s="" }
+AWKEOF
+}
+
+# _schema_audit <file> <label> -> prints findings; echoes "<n_schemas> <n_bad>"
+_schema_audit() {
+  local f="$1" lab="$2" ex n=0 bad=0 sch r
+  ex="$(mktemp)"
+  awk -f <(_schema_extract_awk) "$f" > "$ex"
+  while IFS= read -r sch; do
+    [ -z "$sch" ] && continue
+    n=$(( n + 1 ))
+    while IFS= read -r r; do
+      [ -z "$r" ] && continue
+      if ! awk -F'|' -v s="$sch" '$1==s && $2=="prop"{print $3}' "$ex" | grep -qxF "$r"; then
+        echo "    ✗ ${lab} ${sch}: required names '${r}' which properties does not define"
+        bad=$(( bad + 1 ))
+      fi
+    done < <(awk -F'|' -v s="$sch" '$1==s && $2=="req"{print $3}' "$ex")
+  done < <(cut -d'|' -f1 "$ex" | sort -u)
+  rm -f "$ex"
+  echo "$n $bad"
+}
+
+case_runner_schema_required_defines() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
+
+  local total_schemas=0 total_bad=0 f lab res n bad
+  for f in "$REAL_REPO_ROOT"/_claude/workflows/*runner*.js "$REAL_REPO_ROOT"/.claude/workflows/*runner*.js; do
+    [ -e "$f" ] || continue
+    lab="$(basename "$f")"
+    res="$(_schema_audit "$f" "$lab" | tail -1)"
+    _schema_audit "$f" "$lab" | grep '✗' || true
+    n="${res%% *}"; bad="${res##* }"
+    total_schemas=$(( total_schemas + n )); total_bad=$(( total_bad + bad ))
+  done
+
+  # ASSERT THE EXTRACTOR, NOT ONLY THE COMPARISON. Zero schemas found compares zero
+  # against zero and "passes" — the vacuous green this whole sheet is about. Six is
+  # the shipped count (DEV/QA/PARK in each of two runners); fewer means the extractor
+  # stopped matching, which is a defect in the CASE and must not read as a clean tree.
+  [ "$total_schemas" -ge 6 ] \
+    || cf "the extractor found only $total_schemas schema(s) — expected at least 6 (DEV/QA/PARK × 2 runners). A count this low means the extractor stopped matching, NOT that the tree is clean."
+  [ "$total_bad" -eq 0 ] \
+    || cf "$total_bad schema(s) have a required name their properties do not define (listed above)"
+
+  finish "runner schemas: every 'required' name is defined in 'properties' ($total_schemas schemas checked, $total_bad bad)"
+  teardown
+}
+
+# =============================================================================
+# 048 — the index insert must REFUSE a malformed index, not mis-write it
+# =============================================================================
+# WHY (reproduced from an adopter following a recipe that omitted the separator): the
+# insert prints the header, then READS THE NEXT LINE and reprints it as the separator.
+# If that line is not a separator, the file's FIRST DATA ROW is consumed into the
+# separator's position and the new row lands SECOND — silently breaking the newest-first
+# ordering the index exists to provide. And `grep -qF` on the header ACCEPTED that file:
+# a presence check standing in for a well-formedness check, which is the guard looking
+# slightly to the left of the defect (instruments.md § A.6).
+#
+# BOTH FIXTURES ARE HAND-WRITTEN, DELIBERATELY. The sibling index case builds its index
+# by RUNNING THE SCRIPT, so it only ever meets the well-formed shape — a guard measured
+# against its author's own output is measuring the author. The malformed shape cannot be
+# produced by the code under test, so it has to be typed here.
+#
+# AND THE FAILURE UNDER TEST IS A WRITE THAT HAPPENED, so a non-zero exit is not enough:
+# the control asserts the file is BYTE-UNCHANGED. The well-formed control is the other
+# half — without it, an unconditional refusal would pass the first assertion.
+_ap_seed_small_log() {  # <repo>
+  { echo "# progress.md"; echo ""; echo "## Log"; echo ""
+    echo "## 2026-08-20 [Dev] one"; echo "body"; echo ""
+    echo "## 2026-08-21 [Dev] two"; echo "body"; echo ""
+  } > "$1/progress.md"
+}
+
+case_archive_index_refuses_malformed() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/apm" out rc before
+  mkdir -p "$R/progress/history"
+
+  # ── A. MALFORMED: header present, NO separator, a real data row underneath.
+  _ap_seed_small_log "$R"
+  cat > "$R/progress/history/INDEX.md" <<'IDXEOF'
+# rotation index
+
+| Chunk | Covers | Entries | Rotated | Cut |
+| [`old.md`](old.md) | 2026-01-01 → 2026-01-02 | 5 | 2026-01-03 | `--before 2026-01-03` |
+IDXEOF
+  before="$(mktemp)"; cp "$R/progress/history/INDEX.md" "$before"
+
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
+            --milestone mal --keep-last 1 --apply 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(A) a malformed index did NOT refuse — exit 0: $out"
+  printf '%s' "$out" | grep -q 'MALFORMED' \
+    || cf "(A) the refusal does not name the file as malformed: $out"
+  printf '%s' "$out" | grep -qF 'old.md' \
+    || cf "(A) the refusal does not quote the offending line it found — a drift reported without saying what drifted sends the reader to diff by eye: $out"
+  # THE LOAD-BEARING ASSERTION: the failure under test is a WRITE, so proving it
+  # refused is not proving it did not write.
+  diff -q "$before" "$R/progress/history/INDEX.md" >/dev/null 2>&1 \
+    || cf "(A) the index was MODIFIED on a run that refused — the malformed file was mis-written anyway"
+  # And it must not have helpfully repaired the file by inserting a separator.
+  grep -qF '|---|' "$R/progress/history/INDEX.md" \
+    && cf "(A) it inserted the separator itself — the index is the adopter's record, not the tool's to repair"
+  rm -f "$before"
+
+  # ── B. WELL-FORMED: must still insert, and FIRST. Without this half, a script that
+  #      refused unconditionally would pass (A) and look correct.
+  rm -rf "$R"; mkdir -p "$R/progress/history"
+  _ap_seed_small_log "$R"
+  cat > "$R/progress/history/INDEX.md" <<'IDXEOF'
+# rotation index
+
+| Chunk | Covers | Entries | Rotated | Cut |
+|---|---|---|---|---|
+| [`old.md`](old.md) | 2026-01-01 → 2026-01-02 | 5 | 2026-01-03 | `--before 2026-01-03` |
+IDXEOF
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
+            --milestone good --keep-last 1 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(B) a WELL-FORMED index was refused — exit $rc: $out"
+  local first_row
+  first_row="$(grep -m1 '^| \[' "$R/progress/history/INDEX.md")"
+  printf '%s' "$first_row" | grep -qF 'good.md' \
+    || cf "(B) the new row is not first (newest-first is format law): $first_row"
+  grep -qF 'old.md' "$R/progress/history/INDEX.md" \
+    || cf "(B) the pre-existing row was lost — the index is append-only"
+
+  finish "archive-progress.sh: a MALFORMED index refuses with the file byte-unchanged and un-repaired; a well-formed one still inserts newest-first"
+  teardown
+}
+
 case_archive_index_carries_the_date() {
   cf_reset
   make_sandbox
@@ -3544,6 +3723,8 @@ CASES=(
   case_finish_pr_gate_revision
   case_archive_apply
   case_archive_index_carries_the_date
+  case_archive_index_refuses_malformed
+  case_runner_schema_required_defines
   case_archive_requires_the_retired_store
   case_archive_feature_branch_clean
   case_config_seam_refusal

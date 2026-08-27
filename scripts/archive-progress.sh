@@ -460,7 +460,27 @@ if [ -n "$KEEP_LAST" ]; then CUT_DESC="\`--keep-last $KEEP_LAST\`"; else CUT_DES
 IDX_ROW="| [\`$MILESTONE.md\`]($MILESTONE.md) | $SPAN_FIRST → $SPAN_LAST | $PRE_COUNT | $(date -u +%Y-%m-%d) | $CUT_DESC |"
 
 IDX_HEADER='| Chunk | Covers | Entries | Rotated | Cut |'
-if ! grep -qF "$IDX_HEADER" "$INDEX"; then
+IDX_SEP='|---|---|---|---|---|'
+
+# THE INSERTION POINT IS TWO LINES, NOT ONE — and checking only the first is what
+# the presence-vs-well-formedness defect looks like here. The insert below prints
+# the header, then reads THE NEXT LINE and reprints it as the separator. If that
+# line is not a separator, the file's FIRST DATA ROW is consumed and reprinted in
+# the separator's position and the new row lands SECOND — silently breaking the
+# newest-first ordering this index exists to provide. Reproduced from an adopter
+# following a recipe that omitted the separator.
+#
+# `grep -qF` on the header alone ACCEPTED that file. A presence check standing in
+# for a well-formedness check is the guard looking slightly to the left of the
+# defect (`doctrine/instruments.md` § A.6): the header really was present, and
+# present was never the property the insert needed.
+#
+# THE SEPARATOR IS MATCHED BY SHAPE, NOT BY BYTES. Any GFM separator row — pipes,
+# dashes, optional alignment colons, whitespace — is legitimate, and refusing an
+# adopter's `| --- | --- |` because it is not our exact spelling would be the
+# validator-mismatch rule (§ A.8) in the change that adds a validator.
+_idx_hdr_line="$(grep -nF -m1 "$IDX_HEADER" "$INDEX" | cut -d: -f1)"
+if [ -z "$_idx_hdr_line" ]; then
   # REFUSE rather than append at a guess: the one document that must stay ordered
   # is the one an append-at-a-guess corrupts (archive-sweep.md § 3).
   {
@@ -469,7 +489,38 @@ if ! grep -qF "$IDX_HEADER" "$INDEX"; then
     echo "  Expected a table whose header row is exactly:"
     echo "    $IDX_HEADER"
     echo "  The chunk and the rewritten log ARE ON DISK; only the index row is missing."
-    echo "  Add the header row back, then append this row by hand under it:"
+    echo "  Add these two lines, then append this row by hand under them:"
+    echo "    $IDX_HEADER"
+    echo "    $IDX_SEP"
+    echo "    $IDX_ROW"
+  } >&2
+  exit 1
+fi
+_idx_next="$(sed -n "$((_idx_hdr_line + 1))p" "$INDEX")"
+if ! printf '%s' "$_idx_next" | grep -qE '^[[:space:]]*\|[-:| [:space:]]*-[-:| [:space:]]*\|[[:space:]]*$'; then
+  # REFUSE, AND DO NOT REPAIR. The absent-index case refuses rather than writing an
+  # index it would have to invent (§ 3); this is that call one level down — an index
+  # the tool cannot write correctly is one it must not write at all. Inserting the
+  # missing separator "helpfully" would be the tool editing the adopter's own record
+  # to suit itself, which is the same defect as fabricating the index: a claim
+  # nobody made, in the one file whose value is that its rows are the adopter's.
+  {
+    echo ""
+    echo "Error: ${INDEX#"$REPO_ROOT"/} is MALFORMED — the header row is not followed by a separator."
+    echo "  Line $((_idx_hdr_line + 1)) is:"
+    echo "    ${_idx_next:-(empty)}"
+    echo "  A markdown table's header owes a separator on the very next line, and this"
+    echo "  insert reads that line and reprints it. Without one, YOUR FIRST DATA ROW"
+    echo "  would be consumed into the separator's place and the new row would land"
+    echo "  second — breaking the newest-first order this index exists to give you."
+    echo "  The file must open its table with exactly these two lines:"
+    echo "    $IDX_HEADER"
+    echo "    $IDX_SEP"
+    echo "  Nothing was written. This tool will not insert the separator for you: this"
+    echo "  file is your record, and a tool that quietly rewrites it to suit itself is"
+    echo "  how an index comes to state things nobody put there."
+    echo "  The chunk and the rewritten log ARE ON DISK; only the index row is missing."
+    echo "  Fix the two lines, then append this row by hand under them:"
     echo "    $IDX_ROW"
   } >&2
   exit 1
