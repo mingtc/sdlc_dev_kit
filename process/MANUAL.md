@@ -131,7 +131,7 @@ version control by the initializer, not left for each actor to discover
    > each under [`.claude/skills/`](../.claude/skills/), holding a `SKILL.md` that is the
    > workflow, invoked by name. The role docs chain them (each role doc has a *"Skills used in
    > this role"* table); `.claude/skills/README.md` is the index. A kit installation ships them;
-   > parked ones sit in `.claude/skills-archive/`. **Which skills exist is a project decision** —
+   > **Which skills exist is a project decision** —
    > when this manual names one it is naming a *practice*, and a project without that skill
    > directory still owes the practice.
 4. **Long-run liveness discipline.** Any background run expected to exceed ~30 minutes gets a

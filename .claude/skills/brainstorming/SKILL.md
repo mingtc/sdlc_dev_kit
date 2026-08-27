@@ -110,7 +110,7 @@ digraph brainstorming {
 
 - Write the validated design (spec) to `docs/specs/YYYY-MM-DD-<topic>-design.md`
   - (User preferences for spec location override this default)
-- Use elements-of-style:writing-clearly-and-concisely skill if available
+- Write it clearly and concisely — short sentences, no throat-clearing, every claim checkable
 - Commit the design document to git
 
 **Spec Self-Review:**

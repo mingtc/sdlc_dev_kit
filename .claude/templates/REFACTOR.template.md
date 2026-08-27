@@ -14,6 +14,7 @@ size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it)
 prd: n/a                 # usually n/a for refactor; set if scope ties to a specific PRD
 stories: []              # usually empty; populate if scope ties to specific stories
 branch: refactor/<PREFIX>-NNN-<slug>
+pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: Refactorer
 blocks: []               # other <PREFIX>-NNN this issue blocks

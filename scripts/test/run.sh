@@ -122,6 +122,14 @@ trap teardown EXIT
 sbcommit() { MSG_OK=1 git -C "$SB_WORK" commit "$@"; }
 
 # seed_issue <folder> <id> <slug> <type> <title> [branch]
+# THIS FIXTURE'S FRONTMATTER MUST MATCH THE SHIPPED TEMPLATES' KEY SET, and `pr:` is the
+# one that went wrong: the harness seeded `pr: null` while NO template carried the key,
+# so the harness was testing a shape the templates never produce — and `--set-pr`, which
+# writes back only into an EXISTING `pr:` line, could never work on a kit-minted card
+# while passing here. The templates now declare it (change 015), so this line is a
+# projection of them rather than an invention. a case that mints from the real template (OWED — see change 015)
+# below is the assertion that keeps the two in step: it mints from the real template and
+# does not use this fixture at all.
 seed_issue() {
   local folder="$1" id="$2" slug="$3" type="$4" title="$5" branch="${6:-n/a}"
   local f="$SB_WORK/progress/$folder/${id}-${slug}.md"
@@ -986,6 +994,167 @@ _schema_audit() {
   done < <(cut -d'|' -f1 "$ex" | sort -u)
   rm -f "$ex"
   echo "$n $bad"
+}
+
+# =============================================================================
+# 012 — no shipped skill references a FOREIGN PLUGIN NAMESPACE
+# =============================================================================
+# WHY A MECHANISM AND NOT A SENTENCE (the raising leg's § A.5b argument, kept because
+# it is the whole reason this is a case): the population of bad references GROWS
+# MONOTONICALLY with every plan a project writes, and those documents OUTLIVE any later
+# kit fix — `writing-plans/SKILL.md` says "Every plan MUST start with this header", and
+# the header carried the namespace. A sentence fixes the kit; it does not fix the plans
+# already written from it, and it does not stop the next one.
+#
+# THE PATTERN IS `<ns>:<skill>` WITH NO SPACES, not the word. `using-superpowers/` is a
+# legitimate shipped skill directory, so a word match would fire on the fix itself.
+# Scoped to markdown and excluding URL schemes and inline CSS (`display:flex`,
+# `.card:hover` live in this tree and are not references) — measured, not assumed: the
+# unscoped form matched four CSS declarations in brainstorming/.
+#
+# AND IT FOUND ONE THE DE-NAMESPACING MISSED. 012 closed `superpowers:` and left
+# `elements-of-style:writing-clearly-and-concisely` in brainstorming/SKILL.md, hedged
+# with "if available" — which is exactly the softening that survives review. Fixed with
+# the intent preserved rather than the line deleted; the reference had no subject in this
+# kit, so by 012's own precedent for its one subject-less row it could not stay.
+_foreign_ns_hits() {  # <dir> — prints "file:line:reference" per hit
+  grep -rnE '\b[a-z][a-z0-9-]*:[a-z][a-z0-9-]+\b' --include='*.md' "$1" 2>/dev/null \
+    | grep -vE 'https?:|file:|mailto:|style="' || true
+}
+
+# =============================================================================
+# 012 — no shipped skill references a FOREIGN PLUGIN NAMESPACE
+# =============================================================================
+# WHY A MECHANISM AND NOT A SENTENCE (the raising leg's § A.5b argument, kept because
+# it is the whole reason this is a case): the population of bad references GROWS
+# MONOTONICALLY with every plan a project writes, and those documents OUTLIVE any later
+# kit fix — `writing-plans/SKILL.md` says "Every plan MUST start with this header", and
+# the header carried the namespace. A sentence fixes the kit; it does not fix the plans
+# already written from it, and it does not stop the next one.
+#
+# THE PATTERN IS `<ns>:<skill>` WITH NO SPACES, not the word. `using-superpowers/` is a
+# legitimate shipped skill directory, so a word match would fire on the fix itself.
+# Scoped to markdown and excluding URL schemes and inline CSS (`display:flex`,
+# `.card:hover` live in this tree and are not references) — measured, not assumed: the
+# unscoped form matched four CSS declarations in brainstorming/.
+#
+# AND IT FOUND ONE THE DE-NAMESPACING MISSED. 012 closed `superpowers:` and left
+# `elements-of-style:writing-clearly-and-concisely` in brainstorming/SKILL.md, hedged
+# with "if available" — which is exactly the softening that survives review. Fixed with
+# the intent preserved rather than the line deleted; the reference had no subject in this
+# kit, so by 012's own precedent for its one subject-less row it could not stay.
+_foreign_ns_hits() {  # <dir> — prints "file:line:reference" per hit
+  grep -rnE '\b[a-z][a-z0-9-]*:[a-z][a-z0-9-]+\b' --include='*.md' "$1" 2>/dev/null \
+    | grep -vE 'https?:|file:|mailto:|style="' || true
+}
+
+case_skills_carry_no_foreign_namespace() {
+  cf_reset
+  make_sandbox
+
+  local skills="" d
+  for d in "$REAL_REPO_ROOT/_claude/skills" "$REAL_REPO_ROOT/.claude/skills"; do
+    [ -d "$d" ] && skills="$d"
+  done
+  if [ -z "$skills" ]; then
+    cf "no shipped skills directory found under either _claude/ or .claude/ — the check has no operand"
+    finish "shipped skills: no foreign plugin namespace"; teardown; return
+  fi
+
+  # ASSERT THE OPERAND, not only the comparison: zero files scanned finds zero hits and
+  # "passes". A skills tree with no markdown in it means the extractor lost its subject.
+  local nfiles; nfiles="$(find "$skills" -name '*.md' -type f | wc -l | tr -d ' ')"
+  [ "$nfiles" -ge 5 ] \
+    || cf "only $nfiles markdown file(s) under $skills — too few to be the shipped skill set; the scan lost its operand rather than finding a clean tree"
+
+  local hits; hits="$(_foreign_ns_hits "$skills")"
+  [ -z "$hits" ] || cf "a shipped skill references a foreign plugin namespace (the kit ships no such namespace, so it cannot resolve):
+$(printf '%s' "$hits" | sed 's/^/      /')"
+
+  # ── THE REDDENING CONTROL, on a COPY — never the live tree (instruments.md § A.2).
+  local probe="$SB_TMP/nsprobe"; mkdir -p "$probe"
+  cp "$skills"/*/SKILL.md "$probe/" 2>/dev/null || true
+  local victim; victim="$(find "$probe" -name '*.md' -type f | head -1)"
+  if [ -z "$victim" ]; then
+    cf "(control) could not copy a SKILL.md to plant into — the control did not run, so the green above is unproven"
+  else
+    printf '\n- Use superpowers:executing-plans skill if available\n' >> "$victim"
+    local planted; planted="$(_foreign_ns_hits "$probe")"
+    printf '%s' "$planted" | grep -q 'superpowers:executing-plans' \
+      || cf "(control) the check did NOT find a planted foreign reference — it cannot see the defect it is named after"
+    printf '%s' "$planted" | grep -q "$(basename "$victim")" \
+      || cf "(control) the finding does not name the file it is in: $planted"
+  fi
+
+  finish "shipped skills: no foreign plugin namespace ($nfiles md files scanned), and a planted one is found and named"
+  teardown
+}
+
+# =============================================================================
+# 014 — post-init, the KIT-CLASS markers are INTACT, not rewritten and not deleted
+# =============================================================================
+# WHY BOTH DIRECTIONS, and this is the raising leg's point: EITHER CHECK ALONE PASSES ON
+# A TREE WHERE THE MARKERS WERE DELETED. "No <PREFIX>-CLASS survives" is satisfied by a
+# file with no marker at all; "KIT-CLASS is present" is satisfied by a tree where one
+# file kept its marker and the rest were rewritten. The pair is the assertion.
+#
+# The defect: the initializer's prefix substitution rewrote the marker's KEY, so a
+# stamped file came out `<!-- SBX-CLASS: KIT — … -->` and every later grep for KIT-CLASS
+# found nothing — the classification silently leaving the tree it classifies.
+case_kit_init_markers_intact() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: KIT-CLASS markers survive the stamp" "scripts/kit-init.sh absent"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
+    skp "kit-init: KIT-CLASS markers survive the stamp" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
+  fi
+  # THE SAME SETUP THE SIBLING kit-init CASE USES, derived from it rather than
+  # re-invented: kit-init needs a prepared .claude/ and a published trunk, and a bare
+  # make_sandbox gives neither — it exits 1 with no output, which reads as a defect in
+  # the subject rather than in the fixture.
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $out"; finish "kit-init: KIT-CLASS markers survive the stamp"; teardown; return; }
+
+  local dirs=() d
+  for d in "$SB_WORK/.claude/templates" "$SB_WORK/.claude/roles"; do [ -d "$d" ] && dirs+=("$d"); done
+  [ "${#dirs[@]}" -gt 0 ] || cf "neither .claude/templates nor .claude/roles exists post-init — the assertion has no operand"
+
+  if [ "${#dirs[@]}" -gt 0 ]; then
+    # DIRECTION 1 — the marker is still THERE. Catches deletion, and catches a rewrite.
+    local kept; kept="$(grep -rl 'KIT-CLASS' "${dirs[@]}" 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$kept" -gt 0 ] \
+      || cf "post-init, NO file under .claude/{templates,roles} carries a KIT-CLASS marker — the stamp removed or rewrote the classification off every one"
+
+    # DIRECTION 2 — no PREFIXED variant exists. Names the rewrite specifically; without
+    # it, direction 1 alone reports "markers gone" and not "the key was substituted".
+    local rewritten; rewritten="$(grep -rn 'SBX-CLASS' "${dirs[@]}" 2>/dev/null || true)"
+    [ -z "$rewritten" ] \
+      || cf "the prefix substitution rewrote the marker's KEY — a grep for KIT-CLASS will find nothing:
+$(printf '%s' "$rewritten" | sed 's/^/      /')"
+
+    # ── REDDENING CONTROL, on a COPY: reproduce the substitution and confirm BOTH arms
+    #    fire. Without this the two greens above are compatible with a check that cannot
+    #    see the defect at all.
+    local probe="$SB_TMP/mkprobe"; rm -rf "$probe"; mkdir -p "$probe"
+    cp -R "${dirs[0]}" "$probe/" 2>/dev/null || true
+    local pd; pd="$(find "$probe" -mindepth 1 -maxdepth 1 -type d | head -1)"
+    if [ -z "$pd" ]; then
+      cf "(control) could not copy a marker directory to plant into — the control did not run"
+    else
+      find "$pd" -type f -name '*.md' -exec sed -i.bak 's/KIT-CLASS/SBX-CLASS/g' {} \; 2>/dev/null
+      find "$pd" -name '*.bak' -delete 2>/dev/null
+      [ -z "$(grep -rl 'KIT-CLASS' "$pd" 2>/dev/null)" ] \
+        || cf "(control) the planted substitution left KIT-CLASS behind — the control did not reproduce the defect"
+      [ -n "$(grep -rn 'SBX-CLASS' "$pd" 2>/dev/null)" ] \
+        || cf "(control) the planted substitution produced no SBX-CLASS — direction 2 would never fire"
+    fi
+  fi
+
+  finish "kit-init: KIT-CLASS markers survive the stamp — present under .claude/{templates,roles} AND no <PREFIX>-CLASS variant (both directions, deletion and rewrite)"
+  teardown
 }
 
 case_runner_schema_required_defines() {
@@ -3725,6 +3894,8 @@ CASES=(
   case_archive_index_carries_the_date
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines
+  case_skills_carry_no_foreign_namespace
+  case_kit_init_markers_intact
   case_archive_requires_the_retired_store
   case_archive_feature_branch_clean
   case_config_seam_refusal

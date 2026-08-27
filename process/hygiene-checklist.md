@@ -76,6 +76,23 @@ one project, each anonymized, none of them yours:
 
 Run a pass at an **era boundary** (an arc closing, a doctrine round, a seat succession) **or
 roughly every fifth release**. **Seat-triggered, never automatic, and NEVER a release gate.**
+## Before a cut — the pre-cut sweep (MANDATORY when the slate came from a round)
+
+**Owner: the PM.** `doctrine/fix-execution.md` § A.4b: **one fresh-context checker per consumer-facing
+surface**, verifying that surface's claims against the tree as it stands. **Your surface list lives in
+the project doc** (`PROJECT.md` § The pre-cut sweep's surface list) — if it is still blank, the sweep
+cannot be dispatched, because *"one checker per surface"* has no leg count until the list exists.
+
+**This is a checklist item and not a gate, deliberately, and the reason is worth knowing:** a gate here
+would have to check an **artifact** the sweep produces rather than the sweep itself, and an artifact
+that is trivially satisfiable makes the gate self-certifying — which is the defect
+`doctrine/instruments.md` is about, wired into the release path. **A gate is the better answer once the
+surface list is machine-readable; it is the worse answer before that.**
+
+**The honest counter-argument, recorded rather than hidden:** a checklist item is only as good as the
+person who runs it, and *the kit's own maintainer repository shipped two false statements in its notes
+documents that were both checklist items nobody ran.* **If you skip this twice, build the gate.**
+
 Neither the release ritual nor the gate runner calls any of this, and nothing about cutting a
 version depends on a pass having run. The instruments are **advisory, never a gate**.
 

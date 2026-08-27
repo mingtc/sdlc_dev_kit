@@ -12,6 +12,7 @@ size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it)
 prd: PRD-NNN             # or n/a on the lite path
 stories: [PRD-NNN-F1-S1] # one or more story IDs from the PRD; [] on the lite path
 branch: feature/<PREFIX>-NNN-<slug>
+pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: PM
 blocks: []               # other <PREFIX>-NNN this issue blocks

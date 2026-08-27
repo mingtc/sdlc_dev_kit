@@ -13,6 +13,7 @@ size: S                  # subtasks should be S (≤1 session); if M+, re-slice
 prd: PRD-NNN             # inherited from parent
 stories: [PRD-NNN-F1-S1] # the subset of the parent's stories this slice covers
 branch: feature/<PREFIX>-NNN-sM-<slug>
+pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: Orchestrator
 ---

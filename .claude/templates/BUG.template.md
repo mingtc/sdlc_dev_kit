@@ -14,6 +14,7 @@ prd: PRD-NNN                    # PRD whose behavior is regressed; n/a if none
 stories: [PRD-NNN-F1-S1]        # specific story whose AC is broken; [] if none
 discovered_in: <PREFIX>-NNN     # the issue whose QA review surfaced this bug
 branch: fix/<PREFIX>-NNN-<slug>
+pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: QA
 ---

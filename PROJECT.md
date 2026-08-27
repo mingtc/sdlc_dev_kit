@@ -106,6 +106,31 @@ done
   [`process/doctrine/live-resources.md`](process/doctrine/live-resources.md).
 - **Never:** <the thing that must never be the test target — e.g. a real customer record>.
 
+## The pre-cut sweep's surface list
+
+**`process/doctrine/fix-execution.md` § A.4b requires a pre-cut sweep** before a release: one
+fresh-context checker per **consumer-facing surface**, verifying that surface's claims against the tree
+as it stands. **The sheet deliberately does not supply the list — it is yours, and this is its home**,
+because a list kept in a crunch document dies when that document is struck.
+
+**Derive it from what a CONSUMER lands on, not from what you happen to edit.** That distinction is the
+whole rule: scoping a sweep to *"the surfaces no diff touched"* sounds precise and inverts the risk,
+because the edited set fills up with your highest-traffic documents and only ever grows.
+
+| # | Surface | What a checker reads |
+|---|---|---|
+| 1 | `<your front door>` | `<fill: the files a newcomer opens first>` |
+| 2 | `<your auto-loaded files>` | `<fill: whatever the harness reads at session start>` |
+| 3 | `<add one row per surface>` | `<fill>` |
+
+**Say, per row, whether it is one surface or one-per-file.** A directory of many small documents may be
+one checker's job or many; the count changes the leg count, so **record which you chose rather than
+leaving it to whoever dispatches.**
+
+**§ A.4a is the other half and this list is not its job.** A.4a is per-change and one hop, searched by
+**name** never by path — and it includes **any program whose input format your prose specifies**, which
+is a citer of that prose. This list is only what the pre-cut sweep reads.
+
 ## Credential doctrine
 
 <!-- Delete only if this project genuinely touches no secret. -->

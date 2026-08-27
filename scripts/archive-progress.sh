@@ -45,7 +45,18 @@
 # looking.
 #
 # Entry-boundary forms recognized inside "## Log":
-#   * a "## YYYY-MM-DD ..." session heading — the modern top-level form;
+#   * a "### YYYY-MM-DD ..." session heading — THE FORM THE KIT DOCUMENTS (ruled R14).
+#   * a "## YYYY-MM-DD ..." session heading — ALSO MATCHED, deliberately, but NOT
+#     documented and NOT to be migrated toward. An earlier version of this comment
+#     called it "the modern top-level form" and called "###" older. That was wrong in
+#     a way that mattered: check-board.sh's § Log size arm and kit-init.sh's
+#     already-lived probe BOTH scan to the next "##" and stop, so a "##" dated entry
+#     TERMINATES the § Log section it is supposed to sit inside. Measured: the size arm
+#     then reports healthy forever, and the lived probe counts 0 lines and reads a
+#     WORKING repository as new — defeating the refusal initializer.md § 3 requires be
+#     made "by a rule rather than by the operator's memory". This tool still accepts
+#     "##" so that a project which already wrote it is not stranded; accepting a form
+#     you no longer document is the forgiving direction. See changes/049.
 #     carries its whole section;
 #   * an older "### YYYY-MM-DD ..." section header — carries its whole section
 #     the same way, when it is not nested inside a "## " section;

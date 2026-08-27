@@ -73,9 +73,16 @@
 #                    Because the rewrite happens AFTER kwt_sync (in $KWT), it survives
 #                    the sync's reset --hard. Idempotent: an already-correct `pr:` line
 #                    is left byte-unchanged (no spurious diff). Any trailing comment on
-#                    the line is dropped. finish-pr.sh passes the merged PR/MR
-#                    reference through this flag when a forge is in play, so the
-#                    number is written back to the card.
+#                    the line is dropped.
+#
+#                    WHO CALLS IT: nothing shipped does. The forge-agnostic
+#                    finish-pr.sh this kit ships uses no forge API and has no PR/MR
+#                    reference to pass — a FORGE FLAVOUR would call it, and that is
+#                    an optional extension (process/GIT-HOSTING.md), not the shipped
+#                    path. This comment previously said finish-pr.sh "passes the
+#                    merged PR/MR reference through this flag", in the present tense,
+#                    about a call that does not exist: a claim a reader would have
+#                    gone looking for and not found.
 #
 # (There is deliberately no --no-commit: batching was broken by construction —
 #  the next op's reset --hard wiped the uncommitted batch. Each move commits + pushes.)
