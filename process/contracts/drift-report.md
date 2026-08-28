@@ -6,10 +6,21 @@
 To answer *"is the board telling the truth?"* on demand, by checking the small set of
 disagreements this process can actually produce — before a human plans a day around one of them.
 
+**And one question that is not about the board**, carried here because it must be asked at the same
+cadence and then never again: *has day one finished — has the scaffolding been replaced?* It rides
+in this instrument rather than in its own, and **it is kept out of the report's verdict**, for the
+reasons invariant 7 gives.
+
 ## 2. HARD INVARIANTS
 
-**Six checks. Each is an invariant of the process, not a feature of a report; a reimplementation
-owes all six, in any presentation it likes.**
+**One check per invariant below. Each is an invariant of the process, not a feature of a report; a
+reimplementation owes every one of them, in any presentation it likes.**
+
+*(This paragraph used to open "Six checks", and § 4 used to repeat the numeral. A seventh invariant
+was added and the count went false in two places at once — the exact shape
+[`../doctrine/staleness.md`](../doctrine/staleness.md) § C forbids. **The list below is the count**;
+the reason a number was there at all is preserved in § 4.1, which needs an expectation to detect a
+missing line against, and now derives it from this list instead of restating it.)*
 
 - **1 — Location agrees with the record.** For every live item, the state declared by its last
   activity entry is the state it is actually in.
@@ -74,6 +85,26 @@ owes all six, in any presentation it likes.**
   *Deliberately not enumerated here:* which homes a project has. The kit's own implementation names
   two because it ships two; a project that publishes from a third owes it a reading, and the sheet
   would be wrong rather than general if it fixed the number.
+- **7 — Day-one completeness is reported, and it does NOT decide the report's verdict.** While the
+  project still carries the kit's scaffolding — a `REPLACE`-class file that has not been replaced, a
+  `FILL`-class file that still holds a blank — the report says so and names the files. **The verdict
+  line stays a statement about the board.**
+  *Why the separation is an invariant and not a preference:* the verdict is what other tools consume.
+  Measured in this kit: the release ritual's board gate matches the verdict line's text, and the
+  initializer's own post-install self-check fails on a drifting board. **A repository one minute
+  after initialization has not graduated — by definition — and its board is nonetheless perfectly
+  truthful.** Wire the two together and the initializer fails its own self-check on every fresh
+  install, and no project can cut a release until day one is finished. Both were reproduced before
+  this invariant was written. Whether graduation should ever *block* a release is a decision a
+  project may take, in the release ritual's own gate list where a reader can see it — never as a
+  side effect of a counter inside a report.
+  *And the arm does not fall silent once satisfied.* It goes on printing one line naming what it
+  read, because an arm that vanishes when clean is indistinguishable from an arm that broke — the
+  false-confidence asymmetry [`../doctrine/instruments.md`](../doctrine/instruments.md) § A.4
+  forbids. *Self-retiring* means it stops asking for action, not that it stops reporting.
+  *Deliberately not enumerated here:* which files carry which disposition. That is the project's
+  axis, in [`../EXTRACTION.md`](../EXTRACTION.md) § The second axis: DISPOSITION; this sheet would be
+  wrong rather than general if it fixed the membership.
 - **The report READS ONLY.** It never fixes, moves, rotates or publishes anything.
   *Why:* a reporter that repairs is a reporter nobody can trust to describe.
 - **A check that cannot run says SKIPPED, and says why.** It never reports a pass it did not
@@ -86,8 +117,9 @@ owes all six, in any presentation it likes.**
   project publishes from holding work that never reached the trunk?" — inspects local refs and
   working copies on purpose and names each one it read. Either way the operand appears in the
   output, once per reading.
-  *Why:* measured, and it is the invariant the other two above are special cases of. Five of six
-  checks in one implementation resolved their paths through the current checkout. A dispatched leg
+  *Why:* measured, and it is the invariant the other two above are special cases of. In one
+  implementation **every check but the local-state one** resolved its paths through the current
+  checkout. A dispatched leg
   legitimately moves that checkout to its own branch, so each check returned a stale answer that
   looked authoritative — **nobody chose the operand, and nothing in the output revealed it had
   changed.** Costs measured: a board state certified two changes out of date; a log-size check
@@ -127,7 +159,9 @@ owes all six, in any presentation it likes.**
 
 ## 4. WHAT GREEN MEANS
 
-1. **All six checks ran**, each printing its own line — a missing line is itself a finding.
+1. **Every check in § 2 ran**, each printing its own line — a missing line is itself a finding.
+   Count the invariants in § 2 and expect that many; the expectation is derived so that adding an
+   invariant cannot leave a stale number here contradicting it.
 2. Each line states a **count against its bound** where it has one, not an adjective, and names
    the span the count covers.
 3. Each line names **the source it read** — the published ref, or the working copy it inspected on
@@ -150,10 +184,11 @@ beats a hang at session start.
 
 > One implementation, not the definition.
 
-- `scripts/check-board.sh` — KIT-CLASS: KIT. The six checks are its sections **[a]** through
-  **[f]**, in the order above. Check 6 carries one reading per publication home — in the shipped
-  implementation **[f1]** the primary checkout's trunk ref and **[f2]** the board mover's auxiliary
-  worktree — because invariant 6 requires the enumeration, not a fixed count of them.
+- `scripts/check-board.sh` — KIT-CLASS: KIT. The checks are its lettered sections, **[a]** onward,
+  in the order above — invariant 7 is its **[g]**. Check 6 carries one reading per publication
+  home — in the shipped implementation **[f1]** the primary checkout's trunk ref and **[f2]** the
+  board mover's auxiliary worktree — because invariant 6 requires the enumeration, not a fixed
+  count of them.
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
   Two exist: the depth at which the reviewed-and-done column is due for a sweep, and the byte size
   at which the running log is due for rotation. **Read them from the file** rather than from any

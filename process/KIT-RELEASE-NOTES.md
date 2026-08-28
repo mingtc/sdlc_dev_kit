@@ -353,6 +353,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **The drift report gains a day-one completeness check.** `check-board.sh` now reports, at every
+  session close, while `CLAUDE.md` or `README.md` still carry the shipped `BOOTSTRAP-SCAFFOLDING` line
+  or `PROJECT.md` still holds `<angle-bracket>` blanks. It reads your published trunk, names what it
+  read on both the reporting and the clearing branch, and **does not affect the `board-drift:`
+  verdict line** — so it cannot block a release or fail `kit-init`'s self-check. **Action required:** a
+  project already past day one will see the new `[g]` line report findings if it kept the kit's
+  shipped `README.md`, or left `<angle-bracket>` blanks in `PROJECT.md`. That is the check working.
+  Replace the files, or fill the blanks, and the arm goes quiet on its own. A reimplementation of the
+  drift report in another stack now owes invariant 7. One known limit, stated because it is measured:
+  the arm is gated on the initializer's stamp receipt, so a project that implemented the contracts in
+  its own toolchain and never ran `kit-init.sh` does not see the prompt — an open question, recorded.
 - **The commit-message hook now refuses generated co-author trailers — if your tooling adds one, your
   next commit is rejected.** `scripts/githooks/commit-msg` used to judge only the subject's role tag;
   it now also reads the **whole message** and refuses a `Co-Authored-By:` line naming a **tool**, or

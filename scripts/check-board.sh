@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — board drift report; reads the status folders, the log, recent history and the
-#   publication homes, each FROM A NAMED SOURCE it prints. See process/EXTRACTION.md.
+# KIT-CLASS: KIT — board drift report, plus one day-one completeness arm; reads the status folders,
+#   the log, recent history, the publication homes and the root scaffolding, each FROM A NAMED
+#   SOURCE it prints. See process/EXTRACTION.md.
 # Board-drift check.
 #
 # A read-only (<2s) reporter for the mechanical parts of the manual's § "Session
@@ -35,7 +36,13 @@
 #       to the trunk from the main checkout — rulings, PRDs, issue edits, role docs,
 #       process/**, progress.md, the adapter — so the home carrying the process's own
 #       memory was the one home nothing watched, and the board could read `clean ✓`
-#       with a day of unpushed rulings beside it.
+#       with a day of unpushed rulings beside it;
+#   (g) GRADUATION — has day one finished: the REPLACE-class root documents still
+#       carrying their scaffolding sentinel, and PROJECT.md still holding <angle-bracket>
+#       blanks. NOT board drift, and deliberately NOT wired into the verdict line — a
+#       repository one minute after kit-init has not graduated and its board is
+#       nonetheless truthful. It reports, it never sets `drift`, and it never goes
+#       silent once satisfied; the arm's own header gives all three reasons.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # EVERY CHECK NAMES THE SOURCE IT READ, AND SAYS SO WHEN IT COULD NOT READ ONE.
@@ -734,6 +741,108 @@ else
   echo "      [f2] .kanban-wt: no registered worktree at $kwt_dir  (skipped)"
 fi
 echo "      (span, both homes: commits REACHABLE FROM A REF. A commit reachable from no ref at all — an orphaned sibling — is outside this measurement and would need the reflog.)"
+
+# ---------------------------------------------------------------------------
+# (g) GRADUATION — has day one finished, and has the scaffolding been replaced?
+#
+# WHY IT IS HERE AND NOT IN ITS OWN SCRIPT: this reporter already runs at every
+# session close, and graduation is a question that must be asked repeatedly and
+# then never again. A kit-graduate.sh would be a subsystem that exists to be run
+# once and forgotten; an arm here is one more line in an instrument already in
+# the ritual, and it goes quiet on its own.
+#
+# IT READS THE TRUNK, LIKE EVERY OTHER TRUNK-PROPERTY ARM, AND THAT IS THE WHOLE
+# CORRECTNESS ARGUMENT. Every class it inspects — the root documents, PROJECT.md,
+# the optional directories — is METADATA-lane and commits direct to the trunk. A
+# working-tree read would declare graduation on an unpushed edit and then, because
+# a satisfied graduation stops reporting, NEVER RE-ASK. That is change 025's defect
+# (a checker and the home it did not watch) in a one-way arm, where it is
+# unrecoverable rather than merely stale. So it walks $CB_TREE like arms (a)-(e).
+#
+# IT DOES NOT SET `drift`, DELIBERATELY, AND THIS IS THE PART TO READ BEFORE
+# CHANGING IT. The final verdict line answers "is the BOARD telling the truth?",
+# and release.sh gate (d) greps that line's literal `board-drift: clean` text to
+# decide whether a cut may proceed. Wiring day-one completeness into it would mean
+# a project that has not finished setup can never cut a release — a policy nobody
+# has ruled — and would redden a correct state: a repository one minute after
+# kit-init has NOT graduated, by definition, and its board is nonetheless perfectly
+# truthful. Two different subjects, one instrument, one verdict line that keeps its
+# own meaning. If graduation should ever block a release, that is a ruling and it
+# belongs in release.sh's own gate list, not smuggled in through this counter.
+#
+# IT NEVER GOES SILENT, INCLUDING WHEN IT IS SATISFIED. `doctrine/instruments.md`
+# § A.4: *every instrument that names its operand when it complains must name it
+# when it clears.* An arm that printed nothing once graduated would be
+# indistinguishable from an arm that had broken, which is the false-confidence
+# asymmetry that rule exists to forbid. "Self-retiring" here means it stops asking
+# for ACTION, not that it stops reporting: one line, forever, naming what it read.
+# ---------------------------------------------------------------------------
+echo
+
+# The enabling condition is kit-init's own stamp receipt, DERIVED from kit-init.sh
+# rather than re-typed, for the reason the greppable-defaults contract gives: a
+# re-typed constant is drift waiting to happen. Two questions are deliberately kept
+# apart here — the receipt answers "did the initializer run", this arm answers "is
+# the scaffolding still in place". Before the receipt exists there is nothing to
+# graduate FROM, so the arm has no subject and says so rather than reporting a pass.
+g_stamp="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$CB_TREE/scripts/kit-init.sh" 2>/dev/null | head -1)"
+[ -n "$g_stamp" ] || g_stamp='# Stamped by scripts/kit-init.sh'
+
+echo "[g] Graduation — has day one finished?  (reports only; it never changes the verdict below —"
+echo "      a repository one minute after kit-init has not graduated, and its board is truthful)"
+if [ ! -f "$CB_TREE/scripts/config.sh" ]; then
+  echo "      no scripts/config.sh to read  (skipped) — $(cb_src)"
+elif ! grep -qF "$g_stamp" "$CB_TREE/scripts/config.sh" 2>/dev/null; then
+  echo "      the initializer has not run here (no stamp receipt in scripts/config.sh), so there is nothing to graduate from  (skipped) — $(cb_src)"
+else
+  g_find=0
+
+  # (g1) REPLACE class — the scaffolding sentinel. An exact literal, so there is no
+  # pattern to be wrong about. The two members are the root documents that ship as
+  # scaffolding; both carry the line, and replacing the file removes it with them.
+  g_repl=""
+  for f in CLAUDE.md README.md; do
+    [ -f "$CB_TREE/$f" ] || continue
+    grep -qF 'BOOTSTRAP-SCAFFOLDING' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
+  done
+  if [ -n "$g_repl" ]; then
+    echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"
+    g_find=1
+  else
+    echo "      REPLACE: CLAUDE.md, README.md carry no scaffolding sentinel  ✓ — $(cb_src)"
+  fi
+
+  # (g2) FILL class — unfilled <angle-bracket> blanks. SCOPED TO PROJECT.md AND THE
+  # SCOPE IS PRINTED: the angle-bracket convention is a markdown-document convention,
+  # and the other FILL members (.gitignore's build section, .env.example, verify.sh's
+  # GATES, setup.sh's runtime half) do not express a blank that way. Guessing at them
+  # would manufacture false reds in shell files, which is worse than a narrow arm that
+  # says how narrow it is.
+  if [ -f "$CB_TREE/PROJECT.md" ]; then
+    g_blanks="$(grep -oE '<[a-z][^<>]*>' "$CB_TREE/PROJECT.md" 2>/dev/null | grep -v '://' | wc -l | tr -d ' ')"
+    if [ "${g_blanks:-0}" -gt 0 ]; then
+      echo "      FILL: PROJECT.md still holds ${g_blanks} <angle-bracket> blank(s)  ⚠ a FILL file is not done until no blank remains — $(cb_src)"
+      g_find=1
+    else
+      echo "      FILL: PROJECT.md holds 0 <angle-bracket> blanks  ✓ — $(cb_src)"
+    fi
+  else
+    echo "      FILL: no PROJECT.md to read  (skipped) — $(cb_src)"
+  fi
+  echo "      (FILL span: PROJECT.md only. The non-markdown FILL members are NOT measured here.)"
+
+  # (g3) DELETE-IF-UNUSED — NOT IMPLEMENTED, and said out loud rather than omitted.
+  # Deciding it needs a tracked way to record "kept on purpose", which does not exist
+  # yet; inventing one inside this arm would be a format nobody ratified. An omitted
+  # line would read as a clean result for a class nothing looked at.
+  echo "      DELETE-IF-UNUSED: not measured — no tracked way to record \"kept on purpose\" exists yet, so absence of a finding here means nothing was checked  (skipped)"
+
+  if [ "$g_find" -eq 0 ]; then
+    echo "      → graduation COMPLETE over the classes measured above; this arm has nothing further to ask."
+  else
+    echo "      → day one is not finished. The checklist is process/SEED.md § Day one is done when."
+  fi
+fi
 
 echo
 if [ "$drift" -eq 0 ]; then

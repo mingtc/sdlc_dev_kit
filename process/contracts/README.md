@@ -37,7 +37,7 @@ census (see [`../EXTRACTION.md`](../EXTRACTION.md) § The one rule about countin
 | Id minting | [id-minting.md](id-minting.md) | monotonic, collision-free identifiers |
 | Issue / requirement creation | [issue-creation.md](issue-creation.md) | template + header contract |
 | The archive sweep | [archive-sweep.md](archive-sweep.md) | retire, index, preserve |
-| The drift report | [drift-report.md](drift-report.md) | the six checks as invariants |
+| The drift report | [drift-report.md](drift-report.md) | one check per invariant, including day-one completeness |
 | The auxiliary trunk checkout | [kanban-worktree.md](kanban-worktree.md) | publish to the trunk from anywhere |
 | The release ritual | [release-ritual.md](release-ritual.md) | gates before the bump, publish after the push (MIXED — kit half only) |
 | The liveness / watchdog ritual | [liveness-watchdog.md](liveness-watchdog.md) | a discipline, not a program |
