@@ -152,7 +152,7 @@ by name. Following that literally starts running build commands — **recommenda
 The discipline:
 
 - Run the evaluate/plan commands to GENERATE thinking; optionally seed with the detector.
-- **Copy the decisions into `docs/design/<YYYY-MM-DD>-<scope>-pass.md`** — the engine's own
+- **Copy the decisions into `dev/design/<YYYY-MM-DD>-<scope>-pass.md`** — the engine's own
   output directory is never the deliverable. **If a finding lives only in the tool's scratch
   output, Dev never sees it.**
 - **Re-map every "suggested fix command" into a story's acceptance criteria** — the polish
@@ -168,7 +168,7 @@ The discipline:
 surface. To use them at full power without risking commits to the trunk: create a disposable git
 worktree ([using-git-worktrees](../../skills/using-git-worktrees/)), boot the app there, let the
 engine inspect/score/snapshot in that sandbox, **harvest** the report text + resolved decisions
-back into `docs/design/`, then discard the worktree — nothing the engine wrote survives into the
+back into `dev/design/`, then discard the worktree — nothing the engine wrote survives into the
 branch, only your harvested decisions and the resulting stories.
 
 ## Two cadences, two paths
@@ -192,7 +192,7 @@ When PM is drafting a PRD and the UX direction section is critical, the human ca
 - Sanity-check the `interaction-design` and `microcopy-review` work PM did inline
 - Flag UX risks before they get baked into AC
 
-This is **not** a polish pass — there's no built UI to audit yet. No `docs/design/<date>-pass.md` is created, no kanban issues result unless PM decides to add stories from the discussion. The output is comments / suggestions on the PRD draft, which PM incorporates (or pushes back on).
+This is **not** a polish pass — there's no built UI to audit yet. No `dev/design/<date>-pass.md` is created, no kanban issues result unless PM decides to add stories from the discussion. The output is comments / suggestions on the PRD draft, which PM incorporates (or pushes back on).
 
 Use sparingly. Most PRDs don't need a separate UI Designer pass — PM using the shared skills is enough. Reserve PRD audit for features with high UX risk (novel interaction patterns, accessibility-sensitive flows, multi-surface coordination).
 
@@ -210,7 +210,7 @@ You are acting as the UI Designer. Before doing anything:
 3. ls progress/qa_complete/ progress/done/ progress/dev_complete/ progress/todo/  —
    what UI work has shipped (qa_complete/ recently, done/ earlier), what's
    in flight, what's queued.
-4. ls docs/design/ — see if a design pass already exists for this
+4. ls dev/design/ — see if a design pass already exists for this
    milestone.
 5. Determine the SIGHT MODE (see § The three sight modes): check
    PROJECT.md for a live harness + run commands and verify the
@@ -218,7 +218,7 @@ You are acting as the UI Designer. Before doing anything:
    app and drive it yourself (real routes, real states, live-DOM
    measurements, your own screenshots). No live mode for this stack →
    ask the user for screenshots of the surfaces in scope (or saved
-   ones under docs/design/assets/<scope>/). Neither → code-only
+   ones under dev/design/assets/<scope>/). Neither → code-only
    degraded mode; flag findings "needs visual verification".
 
 Then use the UI Designer skills in .claude/skills/ — ui-audit,
@@ -250,10 +250,10 @@ Cross-reference (not a UI Designer skill, but coordinated with):
 
 ## Workflow: feature/milestone done → design pass doc + feature stories
 
-End state: one design pass doc at `docs/design/<YYYY-MM-DD>-<scope>-pass.md`, and N `type: feature` issue files in `progress/todo/` ready for Dev pickup.
+End state: one design pass doc at `dev/design/<YYYY-MM-DD>-<scope>-pass.md`, and N `type: feature` issue files in `progress/todo/` ready for Dev pickup.
 
 1. **Read context.** Per the session-start phrase. Establish the sight mode (live-app > screenshots > code-only; § The three sight modes) and acquire the eyes accordingly — drive the live app yourself when the project supports it, otherwise collect screenshots from the user, otherwise note the degraded mode (findings will need a follow-up visual review). Build a mental model of what's shipped and what's rough.
-2. **Create the design pass doc.** Path: `docs/design/<YYYY-MM-DD>-<scope>-pass.md`. Skeleton sections:
+2. **Create the design pass doc.** Path: `dev/design/<YYYY-MM-DD>-<scope>-pass.md`. Skeleton sections:
    - Trigger (which feature / milestone closed, what scope, who invoked)
    - Holistic Context (one paragraph: what shipped, what the demo path is)
    - Audit Findings (filled by `ui-audit`)
@@ -274,18 +274,18 @@ End state: one design pass doc at `docs/design/<YYYY-MM-DD>-<scope>-pass.md`, an
    ```
    (`--id` is **required**; `next-id.sh` suggests the next free number across the board + the archive — sanity-check it, re-run before each.) These are regular `type: feature` issues. The acceptance criteria are the polish behaviors: "Empty state shows X copy with Y primary action," "Buttons match the spacing scale: padding 12/16," "Error message reads: Z." Fill in:
    - Title, Problem (the UI smell from the audit), Acceptance Criteria (the polish behaviors)
-   - **References section links the design pass doc** (`docs/design/<file>.md § Target T<n>`)
+   - **References section links the design pass doc** (`dev/design/<file>.md § Target T<n>`)
    - **Out of Scope:** "Functional behavior of <feature> — already shipped via <PREFIX>-NNN. This issue covers polish only."
    - Activity entry: `YYYY-MM-DD [UIDesigner] Created in todo/. Design pass: <link> § Target T<n>.`
 7. **Map issues to targets.** Fill the doc's Issue Map: one-line entry per issue tying `<PREFIX>-NNN` to its target.
-8. **Commit the doc + issues.** On the trunk, commit message: `[UIDesigner] Design pass <YYYY-MM-DD> — <scope>. Targets: N HIGH, M MED.` Append a single line to `progress.md`: `YYYY-MM-DD [UIDesigner] Design pass authored — docs/design/<file>.md. N issues created: <PREFIX>-NNN through <PREFIX>-NNN.`
+8. **Commit the doc + issues.** On the trunk, commit message: `[UIDesigner] Design pass <YYYY-MM-DD> — <scope>. Targets: N HIGH, M MED.` Append a single line to `progress.md`: `YYYY-MM-DD [UIDesigner] Design pass authored — dev/design/<file>.md. N issues created: <PREFIX>-NNN through <PREFIX>-NNN.`
 9. **Take the UI Designer hat off.** The handoff to Dev is now a normal `progress/todo/` pickup.
 
 ## Definition of Ready
 
 A design pass is ready to commit when all of:
 
-- [ ] **Doc exists** at `docs/design/<YYYY-MM-DD>-<scope>-pass.md`
+- [ ] **Doc exists** at `dev/design/<YYYY-MM-DD>-<scope>-pass.md`
 - [ ] **All HIGH and MED targets have per-target Detail blocks** with applicable interaction / polish / microcopy specs
 - [ ] **All Risk Calls have a recommendation** even if the status is `pending`
 - [ ] **Each kanban issue is created** as `type: feature` with complete frontmatter, Problem, AC (the polish behaviors), Out of Scope (clarifies polish-only), Dependencies (if any), and the initial Activity entry
@@ -302,7 +302,7 @@ If a target was deferred (e.g. needs a PM call before polishing), no issue is cr
 What Dev sees picking up a polish issue from `progress/todo/`:
 
 - **Issue file** at `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: feature`, complete frontmatter, AC describing the polish behaviors
-- **Design pass doc** at `docs/design/<YYYY-MM-DD>-<scope>-pass.md` — full context for the audit + per-target specs (interaction map, visual polish spec, microcopy table)
+- **Design pass doc** at `dev/design/<YYYY-MM-DD>-<scope>-pass.md` — full context for the audit + per-target specs (interaction map, visual polish spec, microcopy table)
 - **Original PRD story** the polish derives from (in `stories:` frontmatter)
 - **PROJECT.md** as global context (read once per session)
 
@@ -354,13 +354,13 @@ If this role is woken, these are project law and must be written down:
 
 ## Session end checklist
 
-- [ ] **Design pass doc committed** under `docs/design/`
+- [ ] **Design pass doc committed** under `dev/design/`
 - [ ] **Every HIGH/MED non-deferred target has a kanban issue** in `progress/todo/` with `type: feature`
 - [ ] **Each issue's Activity log seeded** with the initial UIDesigner entry
 - [ ] **Issue Map in the doc is complete** (every created issue tied to a target)
 - [ ] **Risk Calls section lists every `pending` item** with a recommendation
 - [ ] **`progress.md` has one UIDesigner entry** for this pass
-- [ ] **No screenshots or annotated images left in scratch directories** — commit them under `docs/design/assets/` or link out
+- [ ] **No screenshots or annotated images left in scratch directories** — commit them under `dev/design/assets/` or link out
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "UI Designer: <pass scope, N stories>" --session <slug>`. No-op if notifications are off.
 
 > **2026-08-21:** the leaf-worker definition now exists at `.claude/agents/ui-designer-worker.md` (shipped parked-with-refusal; waking the role is a file move, not authoring work).

@@ -434,6 +434,22 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Your process artifacts move out of `docs/`.** The kit used to send engineering design specs
+  to `docs/specs/`, plans to `docs/plans/`, refactor passes to `docs/refactor/`, design passes to
+  `docs/design/` and run records to `docs/runs/`. **They now go to `dev/` under the same names**,
+  inheriting `dev/`'s dated-snapshot convention and its index. **`git mv` those five directories
+  into `dev/`** and update the citations that point at them — a plan or spec cited from an issue
+  file carries the old path. The kit ships the five directories, so they will exist in your tree
+  whether or not you have anything to put in them yet.
+- **`docs/` does not go away, and it is not empty.** It is now a stated home for **material your
+  project did not write** — a vendor's API guide, a third-party spec, an artifact produced to
+  leave the project — with `docs/README.md` carrying the test that tells it apart from `dev/`.
+  **Anything left in your `docs/` after the move is either that, or it is a working record that
+  belongs in `dev/`.** Sorting it is a one-time read.
+- **If you carry your own copy of `reachability_walk.py`**, add `specs`, `design` and `runs` to
+  its `DEV_PROSE_TREES`. Without them the walker still runs and still reports — it just collapses
+  those three directories to one node each, so their members stop being individually visible.
+  Nothing goes red; the report just gets quieter about the newest part of your tree.
 - **If you implement the drift report yourself, an advisory arm must carry the `reports only`
   token in its header** (`contracts/drift-report.md` § 4 item 5). A consumer that re-reads your
   rendered findings has no other way to tell an advisory line from a deciding one, and an advisory

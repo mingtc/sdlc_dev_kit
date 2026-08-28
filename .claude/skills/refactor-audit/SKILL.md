@@ -96,7 +96,7 @@ Rough scoring: `(Impact × Likelihood) ÷ (Cost × Risk)`. Top ~30% by score →
 
 ## Output
 
-Write the audit output into the refactor pass doc at `docs/refactor/<YYYY-MM-DD>-<scope>-pass.md` under two sections:
+Write the audit output into the refactor pass doc at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md` under two sections:
 
 ### Audit Findings
 

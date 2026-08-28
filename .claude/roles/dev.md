@@ -79,8 +79,8 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 | Skill | Trigger | Produces | Where output goes |
 | --- | --- | --- | --- |
 | [using-superpowers](../skills/using-superpowers/) | auto, every session | Bootstrap — reminds to check skills before acting | n/a |
-| [brainstorming](../skills/brainstorming/) | auto when HOW is unclear; manual | Short engineering design spec | `docs/specs/YYYY-MM-DD-<topic>-design.md` (committed) |
-| [writing-plans](../skills/writing-plans/) | auto after brainstorming; manual | Bite-sized, TDD-shaped task list | `docs/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` (committed) |
+| [brainstorming](../skills/brainstorming/) | auto when HOW is unclear; manual | Short engineering design spec | `dev/specs/YYYY-MM-DD-<topic>-design.md` (committed) |
+| [writing-plans](../skills/writing-plans/) | auto after brainstorming; manual | Bite-sized, TDD-shaped task list | `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` (committed) |
 | [using-git-worktrees](../skills/using-git-worktrees/) | auto before execution | Isolated workspace + clean baseline | `.worktrees/<branch>/` (gitignored) |
 | [subagent-driven-development](../skills/subagent-driven-development/) | manual; preferred when tasks are independent | Commits per task, two-stage reviewed | Worktree branch |
 | [executing-plans](../skills/executing-plans/) | manual; fallback when subagents not a fit | Commits per task, inline checkpoints | Worktree branch |
@@ -112,10 +112,10 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 2. **Move the file.** `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role Dev --note "Picked up. Branch: <branch>."` — the script performs the move in the standing kanban worktree, auto-commits as `[Dev] <PREFIX>-NNN → in_progress: ...`, and pushes; your current checkout and branch are never touched.
 3. **Design check.** Two artifacts can settle the design:
    - **PM PRD** at `requirements/PRD-NNN-<slug>.md` (referenced by the issue's frontmatter) — defines WHAT.
-   - **Engineering design** at `docs/specs/...` (output of [brainstorming](../skills/brainstorming/)) — defines HOW.
+   - **Engineering design** at `dev/specs/...` (output of [brainstorming](../skills/brainstorming/)) — defines HOW.
 
    Skip [brainstorming] only when HOW is unambiguous — true for issues where the PRD + existing patterns fully constrain the implementation. For anything with architectural forks, cross-cutting changes, or genuine design space, [brainstorming]'s HARD-GATE applies — run it and commit the design spec before planning.
-4. **Plan.** Invoke [writing-plans](../skills/writing-plans/). Output to `docs/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`. Bite-sized TDD-shaped tasks. Update the issue file's "Spec / Plan" section with both links.
+4. **Plan.** Invoke [writing-plans](../skills/writing-plans/). Output to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`. Bite-sized TDD-shaped tasks. Update the issue file's "Spec / Plan" section with both links.
 5. **Isolate.** Invoke [using-git-worktrees](../skills/using-git-worktrees/). The skill creates `.worktrees/<branch>/` on the branch from the issue's frontmatter. Baseline tests must be green before proceeding.
 6. **Execute.** Invoke [subagent-driven-development](../skills/subagent-driven-development/) (preferred) or [executing-plans](../skills/executing-plans/). Both require [using-git-worktrees] to have run.
 7. **TDD loop inside every task.** Red → verify red → green → verify green → refactor → commit. The Iron Law: no production code without a failing test first. Where TDD genuinely doesn't fit (manual/live verification, hard-to-test integrations), fall back to characterization tests + manual verification — and document the deviation in `progress.md` so QA knows what was and wasn't automated.
@@ -253,8 +253,8 @@ below; that section + the Activity log ARE the review record QA reads:
 ## Handoff to QA
 
 ### Spec / Plan
-- Engineering design (if produced): `docs/specs/<file>.md`
-- Plan: `docs/plans/<file>.md`
+- Engineering design (if produced): `dev/specs/<file>.md`
+- Plan: `dev/plans/<file>.md`
 
 ### Acceptance Criteria
 - [ ] AC1 ... (verified via `<test file>::<test name>`)

@@ -43,7 +43,7 @@ parent's AC set is the **union** of all its subtasks' AC; no AC is dropped or in
 
 ## Spec / Plan
 
-- Plan: `docs/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` § <slice>
+- Plan: `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` § <slice>
 
 ## Activity
 

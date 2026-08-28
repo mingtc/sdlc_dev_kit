@@ -89,6 +89,7 @@ CONVENTION_EXEMPTIONS = [
 NODE_DIRS = ("process/", "docs/", "requirements/", ".claude/", "consumers/")
 DEV_PROSE_TREES = (
     "handoffs", "incidents", "launch", "drafts", "sweeps", "spikes", "refactor", "plans",
+    "specs", "design", "runs",
 )
 INDEX_NAMES = ("README.md", "SKILL.md", "MANUAL.md")
 

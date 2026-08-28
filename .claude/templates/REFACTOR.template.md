@@ -9,7 +9,7 @@ id: <PREFIX>-NNN
 type: refactor
 title: <one-line summary>
 target_module: <short identifier for the area being refactored>
-refactor_pass: docs/refactor/<YYYY-MM-DD>-<scope>-pass.md
+refactor_pass: dev/refactor/<YYYY-MM-DD>-<scope>-pass.md
 size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it)
 prd: n/a                 # usually n/a for refactor; set if scope ties to a specific PRD
 stories: []              # usually empty; populate if scope ties to specific stories
@@ -27,7 +27,7 @@ blocked_by: []           # other <PREFIX>-NNN blocking this issue
 
 ## References
 
-- **Refactor pass:** [docs/refactor/<file>.md](../../docs/refactor/<file>.md) § Target T<n>
+- **Refactor pass:** [dev/refactor/<file>.md](../../dev/refactor/<file>.md) § Target T<n>
 - **PROJECT.md:** § <section that gives stack / quality-bar context>
 
 ## Target & Goal
@@ -105,4 +105,4 @@ freshly minted issue report false drift.
     YYYY-MM-DD [Dev] Ready for review — moved to dev_complete. Branch pushed; gates green.
     YYYY-MM-DD [QA] Review — PASS. Squash-merged into `<trunk>` (finish-pr.sh); moved to qa_complete.
 
-- YYYY-MM-DD [Refactorer] Created in `todo/`. Refactor pass: `docs/refactor/<file>.md` § Target T<n>.
+- YYYY-MM-DD [Refactorer] Created in `todo/`. Refactor pass: `dev/refactor/<file>.md` § Target T<n>.

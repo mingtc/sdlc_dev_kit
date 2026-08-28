@@ -67,6 +67,7 @@ the only reliable way to notice is a guard that fails.
 | `ARCHIVE.md` | `ledger` |
 | `progress/` | `<bucket — the live board is not history and not corpus; decide and say why>` |
 | `dev/` | `ledger` |
+| `docs/` | `<bucket — reference material this project did not write. A vendor's API guide may genuinely be an input to rebuilding and belong in `corpus`; a stakeholder artifact produced to leave the project is neither. Decide per what you actually keep there, and say why>` |
 | `process/` | `<bucket>` |
 | `<your file or dir>` | `<bucket>` |
 

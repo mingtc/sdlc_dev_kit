@@ -623,7 +623,7 @@ the bullet blank.
       line per issue reviewed.
 - [ ] The run report lists: merged, parked-for-your-call, bugs filed, todos/new-scope
       surfaced for PM, and the conductor's-belt readings. Long-form report →
-      `docs/runs/<date>-<run-slug>.md`; the `progress.md` entries stay SHORT pointers
+      `dev/runs/<date>-<run-slug>.md`; the `progress.md` entries stay SHORT pointers
       (≤ ~4 lines each), never the narration.
 - [ ] `progress.md` resume pointer cleared or updated.
 - [ ] Worktrees for merged work cleaned up; worktrees for parked `dev_complete/` work

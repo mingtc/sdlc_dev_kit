@@ -110,7 +110,7 @@ text said — rather than a PRD. **Never mint issues straight from the raw list.
    and scopes it.
 4. **Mint vetted issues + a rationale note** — create the `progress/todo/` issues for what
    survived vetting, and (for a multi-issue round) capture the round's rationale in a
-   `docs/design/<date>-<slug>-pass.md` note.
+   `dev/design/<date>-<slug>-pass.md` note.
 
 Under an autonomous (AFK) round, **batch** sign-off decisions rather than blocking on any single
 one — the operator answers batches between rounds, not during them

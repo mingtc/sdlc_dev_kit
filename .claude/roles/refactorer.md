@@ -78,7 +78,7 @@ You are acting as the Refactorer. Before doing anything:
 4. ls progress/qa_complete/ progress/done/ progress/dev_complete/ progress/todo/  —
    what shipped recently (qa_complete/) and earlier (done/), what's in
    flight, what's queued.
-5. ls docs/refactor/ — see if a refactor pass for this milestone
+5. ls dev/refactor/ — see if a refactor pass for this milestone
    already exists or has prior context.
 6. Skim the repo-local worker memory index, if this project keeps one — and
    the ONLY memory store this pass may edit (the architect seat's own memory
@@ -104,10 +104,10 @@ Today's refactor scope: <which milestone closed / which area of the codebase>
 
 ## Workflow: milestone closed → refactor pass doc + kanban issues
 
-End state: one refactor pass doc at `docs/refactor/<YYYY-MM-DD>-<scope>-pass.md`, and N `type: refactor` issue files in `progress/todo/` ready for Dev pickup.
+End state: one refactor pass doc at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md`, and N `type: refactor` issue files in `progress/todo/` ready for Dev pickup.
 
 1. **Read context.** Per the session-start phrase above. Build a mental model of what shipped, what's pending, what's been deferred.
-2. **Create the refactor pass doc.** Path: `docs/refactor/<YYYY-MM-DD>-<scope>-pass.md`. Skeleton sections:
+2. **Create the refactor pass doc.** Path: `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md`. Skeleton sections:
    - Trigger (which milestone closed, what scope, who invoked)
    - Holistic Context (one paragraph summary of recent work + a few git-log highlights)
    - Audit Findings (filled by `refactor-audit`)
@@ -123,19 +123,19 @@ End state: one refactor pass doc at `docs/refactor/<YYYY-MM-DD>-<scope>-pass.md`
 5. **Surface Risk Calls.** Aggregate all `pending` items from the per-target Migration Plans (and any performance-grey-area calls — see below) into the doc's top-level Risk Calls section. Status: `pending` until the human / PM / Dev decides. **Refactorer does not advance `pending` items without a decision.**
 6. **Create kanban issues.** For each HIGH/MED target with verdict SAFE TO PROCEED or PROCEED WITH CARVEOUT:
    ```
-   ./scripts/new-refactor.sh <slug> --id "$(./scripts/next-id.sh)" --pass docs/refactor/<file>.md \
+   ./scripts/new-refactor.sh <slug> --id "$(./scripts/next-id.sh)" --pass dev/refactor/<file>.md \
      --target "<short target name>" [--prd PRD-NNN] [--stories ...]
    ```
    `--id` is **required** (`next-id.sh` suggests the next free number across the board + the archive — sanity-check it; re-run before each issue so it increments). The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: refactor`, branch `refactor/<PREFIX>-NNN-<slug>`, and frontmatter linking back to the refactor pass doc. Then fill in: title, Target & Goal, Behaviors Preserved (from safety-net-check), Move Sequence (from refactor-planning), Safety-Net Assessment (link to the doc's per-target block), Migration Plan (if applicable), Out of Scope, and the initial Activity entry: `YYYY-MM-DD [Refactorer] Created in todo/. Refactor pass: <link>.`
 7. **Map issues to targets.** Fill the doc's Issue Map section: a one-line entry per issue tying `<PREFIX>-NNN` to the target it covers.
-8. **Commit the doc + issues.** On the trunk, commit message: `[Refactorer] Refactor pass <YYYY-MM-DD> — <scope>. Targets: N HIGH, M MED.` Append a single line to `progress.md`: `YYYY-MM-DD [Refactorer] Refactor pass authored — docs/refactor/<file>.md. N issues created: <PREFIX>-NNN through <PREFIX>-NNN.`
+8. **Commit the doc + issues.** On the trunk, commit message: `[Refactorer] Refactor pass <YYYY-MM-DD> — <scope>. Targets: N HIGH, M MED.` Append a single line to `progress.md`: `YYYY-MM-DD [Refactorer] Refactor pass authored — dev/refactor/<file>.md. N issues created: <PREFIX>-NNN through <PREFIX>-NNN.`
 9. **Take the Refactorer hat off.** The handoff to Dev is now a normal `progress/todo/` pickup.
 
 ## Definition of Ready
 
 A refactor pass is ready to commit when all of:
 
-- [ ] **Doc exists** at `docs/refactor/<YYYY-MM-DD>-<scope>-pass.md`
+- [ ] **Doc exists** at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md`
 - [ ] **All HIGH and MED targets have per-target Detail blocks** containing desired shape, move sequence, safety-net assessment (with verdict), and migration plan if applicable
 - [ ] **All Risk Calls have a recommendation** even if the status is `pending`
 - [ ] **Each kanban issue is created** with `type: refactor`, complete frontmatter, Target & Goal, Behaviors Preserved, Move Sequence, Safety-Net Assessment (link), Out of Scope, Dependencies (if any), and the initial Activity entry
@@ -154,7 +154,7 @@ If a target's safety-net verdict was DEFER, no issue is created for it — but t
 What Dev sees picking up a `type: refactor` issue from `progress/todo/`:
 
 - **Issue file** at `progress/todo/<PREFIX>-NNN-<slug>.md` with complete frontmatter and the four content sections (Target & Goal, Behaviors Preserved, Move Sequence, Safety-Net Assessment + Migration Plan if applicable)
-- **Refactor pass doc** at `docs/refactor/<YYYY-MM-DD>-<scope>-pass.md` — full context for the per-target detail, the audit that surfaced this target, the prioritization rationale
+- **Refactor pass doc** at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md` — full context for the per-target detail, the audit that surfaced this target, the prioritization rationale
 - **Baseline tag** at `refactor-baseline-<YYYY-MM-DD>` — one command to revert if a move goes wrong
 - **PROJECT.md** as global context (read once per session)
 - **`progress.md`** for recent strategic decisions
@@ -214,7 +214,7 @@ blank.
 
 ## Session end checklist
 
-- [ ] **Refactor pass doc committed** under `docs/refactor/`
+- [ ] **Refactor pass doc committed** under `dev/refactor/`
 - [ ] **Every HIGH/MED non-deferred target has a kanban issue** in `progress/todo/` with `type: refactor`
 - [ ] **Each issue's Activity log seeded** with the initial Refactorer entry
 - [ ] **Issue Map in the doc is complete** (every created issue tied to a target)
@@ -223,5 +223,5 @@ blank.
 - [ ] **Characterization tests committed and pushed** (per safety-net-check Phase 4)
 - [ ] **`progress.md` has one Refactorer entry** for this pass
 - [ ] **Memory hygiene done** — stale/superseded repo-local memory entries updated or pruned (file + index line). Scope is the repo-local store only; the seat's harness-provided memory is out of reach and out of scope.
-- [ ] **No files left in scratch directories** — everything is either in `docs/refactor/`, `progress/todo/`, or the project's test tree
+- [ ] **No files left in scratch directories** — everything is either in `dev/refactor/`, `progress/todo/`, or the project's test tree
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "Refactorer: <pass scope, N issues>" --session <slug>`. No-op if notifications are off.
