@@ -894,8 +894,18 @@ else
   # header line, and everything under it is skipped until the next "[x]" section. Keying
   # on the arm's self-description is what stops this filter going stale the next time an
   # arm is added — which is the failure being repaired.
+  #
+  # "reports only" IS A MACHINE CONTRACT, NOT A TURN OF PHRASE. It is specified in
+  # process/contracts/drift-report.md § 4 and produced by check-board.sh's advisory arm
+  # headers. THIS IS THE CONSUMER. Change the token in one place and you must change it in
+  # all three, or an advisory arm silently starts failing installs again.
+  # THE HEADER LINE IS NOT SKIPPED, and that is load-bearing: arms [b] and [c] print their
+  # finding ON their header line ("[b] qa_complete/ depth: 11 / 10 threshold ⚠ over"), so an
+  # earlier version of this filter — which `next`ed on every header — discarded them and exited 0
+  # on a real over-threshold board. A header line is only dropped when the arm DECLARED itself
+  # advisory; otherwise it falls through and is read like any other line.
   KI_FINDINGS="$(printf '%s\n' "$BOARD_OUT" | awk '
-      /^\[[a-z]\]/ { adv = (index($0, "reports only") > 0); next }
+      /^\[[a-z]\]/ { adv = (index($0, "reports only") > 0) }
       adv          { next }
                    { print }
     ' | grep '⚠' | grep -v '^──' || true)"
@@ -927,8 +937,11 @@ KI_EOF
     # The verdict is dirty and NOTHING this script can attribute explains it. Say exactly
     # that, rather than borrowing the pre-kit sentence above — a success message that
     # names a cause it did not observe is the defect this whole arm was repaired for.
-    # STATED LIMIT: an arm that sets the verdict without printing an attributable finding
-    # is invisible here, because the report exposes no machine-readable owner per finding.
+    # STATED LIMIT, named precisely: an arm that sets the verdict while printing NO ⚠ line
+    # at all is invisible here. (An earlier wording blamed "no machine-readable owner per
+    # finding", which mis-names it: arms [b] and [c] DO carry their owner on the line — the
+    # filter was discarding it. That was a filter defect and is fixed above; this branch is
+    # for the genuinely silent case, which no reading of the rendered report can reach.)
     sc_ok "check-board.sh: no finding this run can attribute to itself (the report's verdict is not clean; its lines are below)"
   else
     sc_bad "check-board.sh reported drift:"

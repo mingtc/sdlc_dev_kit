@@ -788,6 +788,11 @@ echo
 g_stamp="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$CB_TREE/scripts/kit-init.sh" 2>/dev/null | head -1)"
 [ -n "$g_stamp" ] || g_stamp='# Stamped by scripts/kit-init.sh'
 
+# THE TOKEN "reports only" IN THE LINE BELOW IS A MACHINE CONTRACT, NOT PHRASING.
+# Specified: process/contracts/drift-report.md § 4 item 5. Consumed: scripts/kit-init.sh's
+# self-check, which drops advisory sections by it. Reword it here and that consumer silently
+# starts treating these advisories as findings and failing fresh installs — which is the
+# regression this token was introduced to end. Change it in all three places or none.
 echo "[g] Graduation — has day one finished?  (reports only; it never changes the verdict below —"
 echo "      a repository one minute after kit-init has not graduated, and its board is truthful)"
 if [ ! -f "$CB_TREE/scripts/config.sh" ]; then

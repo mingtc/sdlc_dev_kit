@@ -168,6 +168,19 @@ missing line against, and now derives it from this list instead of restating it.
    purpose. A line whose source is absent is a finding about the report, not a pass.
 4. The last line is a **single verdict**: clean, or findings-above. One sentence a human can act
    on without reading the rest.
+5. **An ADVISORY arm — one that reports without deciding the verdict (invariant 7) — carries the
+   literal token `reports only` in its own header line, and consumers MAY key on it.** This is a
+   machine contract, not a turn of phrase: reword it and every consumer keying on it changes
+   behaviour silently.
+   *Why:* measured. A consumer that keyed on the verdict line and then re-scanned the rendered
+   findings had no way to tell an advisory line from a deciding one, so an arm whose advisories
+   appear on **every** run failed that consumer the moment any unrelated finding flipped the
+   verdict — and the failure named the advisory arm. The alternative to a declared token is each
+   consumer memorising which section letters are advisory, which goes stale the next time an arm is
+   added. **A consumer reading rendered output is second-best either way** (the verdict line is the
+   contract-backed key, item 4); this token bounds the damage where a second read is unavoidable.
+   *And it binds the arm too:* an advisory arm that omits the token is a defect in the arm, because
+   its advisories will be read as decisions.
 
 ## 5. MINIMAL INTERFACE
 

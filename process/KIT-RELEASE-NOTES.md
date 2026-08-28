@@ -48,6 +48,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The drift report's advisory arms now carry a machine-readable token.** An arm that reports
+  without deciding the verdict writes the literal `reports only` in its own header line, and
+  consumers may key on it — `contracts/drift-report.md` § 4 item 5. `kit-init`'s self-check also
+  stopped discarding findings an arm prints on its own header line, so an over-threshold column
+  fails the self-check again as it did before the advisory arms existed.
 - **`kit-init`'s self-check no longer fails on the first-commit subject the kit's own git-hosting
   recipe prints.** It decides on the drift report's verdict line, tolerates only role-prefix
   findings on commits that predate the run, and shows the rest of the report as context. Before
@@ -429,6 +434,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **If you implement the drift report yourself, an advisory arm must carry the `reports only`
+  token in its header** (`contracts/drift-report.md` § 4 item 5). A consumer that re-reads your
+  rendered findings has no other way to tell an advisory line from a deciding one, and an advisory
+  arm that appears on every run will otherwise fail that consumer the first time any unrelated
+  finding flips the verdict.
 - **The scoped run stops overstating its floor.** `scripts/verify.sh`'s guard-floor header said
   a rename that forgot the list *"fails loudly instead of quietly shrinking the floor"* — true
   of a **listed** path that vanishes, and false of the direction that actually costs you: a
