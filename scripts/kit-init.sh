@@ -343,6 +343,18 @@ if [ ${#LIVED[@]} -gt 0 ]; then
   exit 1
 fi
 
+# --- THE PRE-KIT BOUNDARY ------------------------------------------------------
+# The last commit that existed BEFORE this script wrote anything. It is captured here,
+# after the already-lived refusal and before the first mutation, because it answers one
+# question the self-check needs: which commits predate the kit's own rules?
+#
+# The attribution rule arrives WITH this script — it is the commit-msg hook this run
+# wires. A commit made before that cannot have violated it, so the drift report's
+# role-prefix finding over pre-kit history is not a defect in the repository; it is the
+# report correctly describing a past the rule never governed. Empty in a repository with
+# no commits yet, which is a real day-one state and is handled by every consumer below.
+KI_BASE_SHA="$(git -C "$ROOT" rev-parse --verify --quiet HEAD 2>/dev/null || true)"
+
 # --- the gate command / verify.sh precondition (finish-pr.sh's landing rule) ---
 # Three shapes of scripts/verify.sh, and what --gate-command does with each:
 #   • absent                        → WRITE a minimal single-gate runner around <C>
@@ -852,24 +864,83 @@ fi
 # location, so an inherited value from another repo's session would have it report
 # on THAT board instead of this one.
 BOARD_OUT="$(CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/scripts/check-board.sh" 2>&1 || true)"
+# THE VERDICT LINE DECIDES. Nothing else does.
+#
+# THIS WAS A MEASURED REGRESSION, and the shape is worth more than the fix. An earlier
+# version took the clean branch on the verdict and otherwise RE-SCANNED THE RENDERED ⚠
+# LINES, subtracting the summary and the role-prefix finding and failing on whatever was
+# left. That made this script a second parser of a human-readable format nobody versioned
+# — so the day a report arm was added that prints ADVISORY ⚠ lines (day-one graduation,
+# present on every fresh install by construction), any unrelated finding that flipped the
+# verdict left those advisories as "whatever was left", and kit-init failed the install
+# blaming an arm whose own header says it never changes the verdict.
+#
+# The trigger was this kit's OWN documented recipe: process/GIT-HOSTING.md § 3 step 2
+# prints `git commit --allow-empty -m '<init>'` and notes that wiring the hooks after the
+# first commit "avoids the question entirely" — an unprefixed subject with hooks unwired,
+# which is exactly what makes the attribution arm fire.
+#
+# scripts/release.sh gate (d) already had this right: it keys on the verdict line and
+# prints ⚠ lines only as context after deciding. This now does the same.
 if printf '%s' "$BOARD_OUT" | grep -q 'board-drift: clean'; then
   sc_ok "check-board.sh: clean"
 else
-  # Two lines carry ⚠ without being findings-of-ours, and both must be excluded
-  # or this check can never pass:
-  #   • check-board.sh's own trailing SUMMARY ("── board-drift: findings above ⚠")
-  #     — it is emitted whenever there is at least one finding, so matching it as
-  #     a finding makes the check self-fulfilling. Every real finding is indented
-  #     or starts with its "[x]" section tag; only the summary starts with "──".
-  #   • the role-prefix scan over PRE-EXISTING history this script did not author —
-  #     an adopter's pre-kit commits legitimately have no [Role] prefix.
-  # Anything else is a real finding.
-  OTHER="$(printf '%s\n' "$BOARD_OUT" | grep '⚠' | grep -v '^──' | grep -v 'lacks a \[Role\] prefix' || true)"
-  if [ -z "$OTHER" ]; then
-    sc_ok "check-board.sh: clean apart from pre-existing commits with no [Role] prefix (history predating the kit)"
+  # The verdict is not clean. EXACTLY ONE cause is tolerable here, and it is tolerable
+  # for a reason rather than by convenience: a commit that predates this run predates the
+  # attribution rule this run installs, and a rule cannot be violated before it exists.
+  #
+  # Advisory sections are dropped by their OWN DECLARATION, not by a memorised letter or
+  # a matched phrase: an arm that reports without deciding says "reports only" in its
+  # header line, and everything under it is skipped until the next "[x]" section. Keying
+  # on the arm's self-description is what stops this filter going stale the next time an
+  # arm is added — which is the failure being repaired.
+  KI_FINDINGS="$(printf '%s\n' "$BOARD_OUT" | awk '
+      /^\[[a-z]\]/ { adv = (index($0, "reports only") > 0); next }
+      adv          { next }
+                   { print }
+    ' | grep '⚠' | grep -v '^──' || true)"
+
+  KI_PREKIT=""; KI_REAL=""
+  while IFS= read -r ki_line; do
+    [ -n "$ki_line" ] || continue
+    case "$ki_line" in
+      *"lacks a [Role] prefix"*)
+        ki_sha="$(printf '%s' "$ki_line" | sed -n 's/.*⚠[[:space:]]*\([0-9a-f]\{7,\}\)[[:space:]]*subject lacks.*/\1/p')"
+        if [ -n "$ki_sha" ] && [ -n "$KI_BASE_SHA" ] \
+           && git -C "$ROOT" merge-base --is-ancestor "$ki_sha" "$KI_BASE_SHA" >/dev/null 2>&1; then
+          KI_PREKIT="${KI_PREKIT}${ki_line}
+"
+        else
+          KI_REAL="${KI_REAL}${ki_line}
+"
+        fi ;;
+      *) KI_REAL="${KI_REAL}${ki_line}
+" ;;
+    esac
+  done <<KI_EOF
+$KI_FINDINGS
+KI_EOF
+
+  if [ -z "$KI_REAL" ] && [ -n "$KI_PREKIT" ]; then
+    sc_ok "check-board.sh: the only findings are commits predating this run, which the attribution rule did not yet bind"
+  elif [ -z "$KI_REAL" ]; then
+    # The verdict is dirty and NOTHING this script can attribute explains it. Say exactly
+    # that, rather than borrowing the pre-kit sentence above — a success message that
+    # names a cause it did not observe is the defect this whole arm was repaired for.
+    # STATED LIMIT: an arm that sets the verdict without printing an attributable finding
+    # is invisible here, because the report exposes no machine-readable owner per finding.
+    sc_ok "check-board.sh: no finding this run can attribute to itself (the report's verdict is not clean; its lines are below)"
   else
     sc_bad "check-board.sh reported drift:"
-    printf '%s\n' "$OTHER" >&2
+    printf '%s\n' "$KI_REAL" | sed '/^$/d' >&2
+  fi
+
+  # CONTEXT, AFTER THE DECISION AND NEVER PART OF IT. Printed so the operator sees the
+  # whole report, and separated so nobody mistakes it for the reason.
+  KI_CONTEXT="$(printf '%s\n' "$BOARD_OUT" | grep '⚠' | grep -v '^──' || true)"
+  if [ -n "$KI_CONTEXT" ]; then
+    echo "    (the full report's advisory and informational lines, for context — not the basis of the result above:)" >&2
+    printf '%s\n' "$KI_CONTEXT" | sed 's/^/      /' >&2
   fi
 fi
 

@@ -48,6 +48,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`kit-init`'s self-check no longer fails on the first-commit subject the kit's own git-hosting
+  recipe prints.** It decides on the drift report's verdict line, tolerates only role-prefix
+  findings on commits that predate the run, and shows the rest of the report as context. Before
+  this, following `GIT-HOSTING.md` § 3 to the letter — an unprefixed `init` commit, hooks wired
+  after — made the initializer refuse a correctly initialized tree, naming the graduation arm as
+  the cause. Nothing to do: the fix only makes an install succeed that previously refused, and
+  `kit-init` refuses a second run on an initialized tree anyway.
 - **The self-test suite gains nine cases, and three of them read your tree rather than a sandbox.**
   Most of the suite builds a throwaway repository and tests the kit's machinery inside it. Three of
   the new cases instead read what you actually ship: that no skill states a forge command as an
