@@ -126,6 +126,11 @@ gate is pure git: it does not call a forge CLI, so nothing in the core path brea
 
 - [`dev/`](dev/) — dated working notes, assessments, and **handoffs**; every file indexed in
   [`dev/README.md`](dev/README.md). No file in `dev/` is a living plan except the newest handoff.
+  It also holds the directories the process writes into by name — `specs/`, `plans/`, `refactor/`,
+  `design/`, `runs/` — so a role doc's stated output path lands somewhere that exists.
+- [`docs/`](docs/) — reference material **this project did not write**: a vendor's API guide, a spec
+  somebody else owns, an artifact produced to leave the project. Not the working records of building
+  — those are `dev/`'s, and [`docs/README.md`](docs/README.md) states the test that tells them apart.
 - [`requirements/`](requirements/) — PRDs plus the two registers: the corpus manifest and the
   standing-rulings register.
 - [`.claude/`](.claude/) — the Claude Code harness: role docs, issue/PRD templates, agent
