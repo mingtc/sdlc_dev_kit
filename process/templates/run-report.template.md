@@ -320,4 +320,7 @@ matched at open: <list>.
 - [ ] The orchestrator's own misses section is non-empty or explicitly says why.
 - [ ] The commissioning pack is stamped **SPENT against this file by name, in this commit**; any
       mid-run consult document is stamped **SUPERSEDED by this file**.
-- [ ] This report is indexed wherever `dev/` documents are indexed — in this same commit.
+- [ ] `dev/launch/` has its row in `dev/README.md` (the **directory's** row, added when the
+      directory was created — not a row per report), and this report is named to that directory's
+      dated convention so its own README and an `ls` place it. *Per-file rows are not owed for a
+      split-out directory; `dev/README.md` § The index discipline states the exception.*

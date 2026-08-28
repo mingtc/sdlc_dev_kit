@@ -48,6 +48,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The `dev/` index discipline names its granularity.** Every file and subdirectory under `dev/` is
+  reachable from exactly one row — the file's own for a loose file, **the directory's** for a split-out
+  directory, whose README then indexes its members. `dev/handoffs/` no longer asks for a row per
+  handoff: its dated filenames are its member index. **Action required: none** — if you already had
+  per-handoff rows they remain correct as an index of your own; the rule no longer requires them.
 - **The drift report's advisory arms now carry a machine-readable token.** An arm that reports
   without deciding the verdict writes the literal `reports only` in its own header line, and
   consumers may key on it — `contracts/drift-report.md` § 4 item 5. `kit-init`'s self-check also

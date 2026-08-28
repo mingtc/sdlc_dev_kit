@@ -85,5 +85,18 @@ Its terms:
 
 ## Index
 
-Every file here also gets a row in [`../README.md`](../README.md) § Handoffs, in the same change
-that creates it — the index discipline is bidirectional and this directory is not exempt.
+**This directory gets one row in [`../README.md`](../README.md), in the change that creates the
+directory — and the row points here. Its members are indexed by this README and by their dated
+filenames, not by rows up there.**
+
+*This paragraph used to say "every file here also gets a row" — per file. **The granularity was
+wrong; the reason was not**, so the reason is kept: the index discipline is bidirectional, nothing
+under `dev/` exists unindexed, and a directory admitted as a single **location** row is exactly what
+makes that true here. What changed is that the row is the directory's, not the file's — because this
+directory **already has** a member index. `YYYY-MM-DD-<kind>.md` makes `ls` sort chronologically and
+the newest the last line, which is this README's own opening convention; a table restating what `ls`
+prints is a second copy, and the copy is the one that disagrees after either is amended.*
+
+**Where this argument does NOT transfer:** a directory whose member names carry no ordering has no
+index of its own, and per-file rows are then the right answer **for that directory**. The rule is
+*a directory needs one member index*, not *directories never get per-file rows*.

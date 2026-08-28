@@ -16,9 +16,17 @@ in `requirements/DECISIONS.md`, the capability documents your adapter names, and
 
 ## The index discipline — and it is bidirectional
 
-**Every file and subdirectory under `dev/` gets exactly one row in one of the tables below, in the
-same change that creates it.** The rule runs both ways, and a rule enforced in only one direction
-rots in the other:
+**Every file and subdirectory under `dev/` is reachable from exactly one row in one of the tables
+below, added in the same change that creates it.** For a loose file that row is the file's; **for a
+split-out directory it is the directory's**, and that directory's own README indexes its members —
+see the split-out rule below, which is an **exception to the granularity, never to the discipline**.
+The rule runs both ways, and a rule enforced in only one direction rots in the other:
+
+*(This sentence used to read "gets exactly one row" — per file, with no exception named — while the
+split-out rule four paragraphs down said the opposite for anything that outgrows a row. Both read as
+binding, and **the more specific one was the one nobody applied**: a directory README ordered
+per-file rows into a section that has no table. Superseded on granularity only; the bidirectional
+argument below is untouched and is the reason either way.)*
 
 1. **Nothing exists here unindexed.** An unindexed file is reachable only by accident of
    cross-citation — and the ones nothing happens to cite are reachable from nowhere at all. A
@@ -30,7 +38,11 @@ rots in the other:
 **Keep rows SHORT — one to three lines.** An index whose entries grow without limit stops being an
 index; the reader who came to find one file now has to read a report. When one entry genuinely needs
 more than a few lines (a directory with many members, a long-running arc), **split it out into its
-own `dev/<dir>/README.md` and leave a one-line row here pointing at it.** *(Measured lesson from the
+own `dev/<dir>/README.md` and leave a one-line row here pointing at it.** **That row REPLACES
+per-file rows for its members — the split-out directory's README is their index, and this is the
+exception the opening sentence names.** *A split-out directory owes its members an index of its own;
+where their filenames already carry one (a dated convention that `ls` sorts), that is it, and a table
+restating it would be a second copy.* *(Measured lesson from the
 donor project this kit was cut from: its `dev/README.md` grew until most rows were over any
 defensible size cap and one single row was several thousand bytes — the index had become the thing
 it was supposed to make unnecessary to read.)*
