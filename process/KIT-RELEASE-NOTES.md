@@ -48,6 +48,22 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The self-test suite no longer fails on a project that declared its own role set.** If you ran
+  `kit-init.sh --roles` to name your project's roles, the suite's sandboxes inherited that set and
+  then judged the suite's own fixtures against it — so `move-issue.sh`, `archive.sh` and
+  `release.sh` cases failed for reasons that had nothing to do with those tools, in the one
+  instrument whose job is to be believed. The sandbox now resets the role set to the one the kit
+  ships, across the same three files `--roles` stamps, so the suite tests the kit's frame and your
+  declared set is left entirely alone outside it. **Nothing to do** — re-run the harness. If you
+  have edited the suite's own cases and used a role name your project does not declare, that name
+  is now judged against the kit's shipped set rather than yours.
+- **The self-test harness no longer reports a false failure on a project whose trunk has grown.**
+  Its helpers for reading the trunk piped `git log` into `grep -q`; under `pipefail` the
+  early-exiting reader made the producer die of SIGPIPE and that became the answer, so an
+  assertion could report a commit subject missing when it was present. The effect scaled with
+  history — invisible on a young board, near-certain past about twenty-five commits — and it could
+  only ever produce a false red, never a false pass, so nothing was wrongly certified. **No action
+  required.**
 - **`scripts/hygiene/cold_signal.py` tells you why it cannot run, instead of raising.** It reads
   your working copy's own git history, so on a tree that is not a repository — an unpacked
   release, an export, a clone you have not `git init`-ed — it used to end in a Python traceback.

@@ -45,6 +45,28 @@
 #   Anything absent SKIPs loudly. A SKIP is a statement about the environment; it
 #   is never used to hide a missing behaviour (see the notes on the two cases that
 #   deliberately have NO capability probe).
+#
+# THE PIPEFAIL RULE, and it has already cost this harness one FALSE RED: under
+# `set -o pipefail`, a pipeline ending in a reader that exits before its input is
+# drained — `head`, `grep -q`, `grep -m`, `sed …q`, `read` are the family — returns
+# the PRODUCER's death, not the reader's answer. The early exit closes the pipe, the
+# producer still writing behind it takes SIGPIPE and dies 141, and `pipefail`
+# promotes that to the status of the whole pipeline. Here that inverts an assertion:
+# `origin_log_has_subject` returned "not found" for a subject that WAS present, and
+# it did so *because* the match was early. Measured on its own pipeline: 0/1 failures
+# on a 1-commit trunk, 58/60 at ten commits, 60/60 at twenty-five — so it is not a
+# flake, it is a threshold nobody had crossed while the sandboxes stayed small.
+#
+# THE SIZE THAT MATTERS IS THE PRODUCER'S OUTPUT, NOT ITS KIND. A builtin is not
+# safe by being a builtin: `printf '%s\n' "$big" | grep -q` on a match in the first
+# line dies 141 too, once "$big" exceeds the pipe buffer. What makes the many
+# `printf "$out" | grep -q` pipelines below sound is that `$out` is one command's
+# captured output, orders below that buffer — and that is the exemption, stated so
+# the next reader can check it rather than assume it.
+#
+# So: a pipeline whose producer can GROW WITH THE PROJECT — `git log`, `find`,
+# `grep -r` over the corpus — must capture the stream and test the capture, never
+# pipe it into an early-exiting reader.
 # =============================================================================
 set -uo pipefail
 
@@ -72,6 +94,16 @@ KIT_NEUTRAL_PREFIX="KIT"
 KIT_NEUTRAL_PRD_PREFIX="PRD"
 KIT_NEUTRAL_PROJECT_NAME="<project-name>"
 
+# THE ROLE SET THE KIT SHIPS. DECLARED, not derived — and the asymmetry with
+# KIT_STAMP_MARK / KIT_PREFIX_PLACEHOLDER above is forced rather than chosen: those two
+# have an unstamped source to read (kit-init.sh's own constants, which no stamp rewrites).
+# THIS ONE HAS NONE. kit-init's --roles performs a GLOBAL substitution of the old
+# alternation across githooks/commit-msg, move-issue.sh and check-board.sh, so on an
+# adopted tree every occurrence already reads that project's set — including
+# check-board.sh's own fallback copy. There is nowhere left to derive the shipped value
+# from, so the harness must carry it, and case_ship_state is what keeps it honest.
+KIT_NEUTRAL_ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
+
 # ── The seam values this harness runs against, all DERIVED. ──────────────────
 # ISSUE_PREFIX is NOT derived from the adopter's config.sh any more. It used to be,
 # and that was the same defect one level up: the neutralizer resets the SANDBOX's
@@ -87,10 +119,13 @@ if [ -z "$SB_TRUNK" ]; then
                 "$REAL_SCRIPTS/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
 fi
 [ -n "$SB_TRUNK" ] || SB_TRUNK="main"
-# The first role in the commit-msg hook's set — derived, so the harness never
-# asserts a role name this project may not have.
-SB_ROLE="$(sed -n "s/^ROLE_PREFIXES='\([^|']*\).*/\1/p" "$REAL_SCRIPTS/githooks/commit-msg" 2>/dev/null | head -1)"
-[ -n "$SB_ROLE" ] || SB_ROLE="Dev"
+# The first role of the set the SANDBOX runs, which is the kit's shipped set because
+# _neu_roles resets it there. This used to read the adopter's commit-msg, and the comment
+# said "derived, so the harness never asserts a role name this project may not have" —
+# correct while the sandbox inherited the project's set, and wrong once it stops. The
+# hazard it guarded against is now closed at the source instead: the sandbox's vocabulary
+# is the kit's, so every role literal in this file is a name the sandbox certainly has.
+SB_ROLE="${KIT_NEUTRAL_ROLE_PREFIXES%%|*}"
 
 # ── The CONSUMER_SCRIPT seam. Point it at this project's vendoring/updater script
 #    to activate the consumer-updater family; leave it empty and that family SKIPs.
@@ -438,8 +473,8 @@ _kit_neutral_claude() {
 
   # Reverse kit-init's prefix stamp — and ONLY on a tree that carries one. On the
   # shipped frame KIT_TREE_PREFIX reads the neutral prefix and this whole block is
-  # skipped, so this repository's own tree is provably untouched: the shape KIT-3's
-  # Phase-1 verdict required of every fixture mutation (assert the anchor and the
+  # skipped, so this repository's own tree is provably untouched: the shape every
+  # fixture mutation here is held to (assert the anchor and the
   # postcondition, never "something changed", because on the kit's own tree nothing
   # SHOULD change). Skipping is CORRECT and not merely safe: a project that stamped
   # the shipped prefix leaves `KIT-NNN` behind, and kit-init's own OLD_PREFIX branch
@@ -482,6 +517,38 @@ _kit_neutral_claude() {
   fi
 }
 
+# _neu_roles — reset the sandbox's ROLE SET to the kit's shipped alternation, across the
+# same three seams kit-init stamps and by the same substitution run backwards.
+#
+# WHY THE SANDBOX MUST OWN ITS ROLE VOCABULARY. Every --role argument and every "[Role]"
+# commit subject in this file is a literal. On a project that ran `kit-init --roles`, the
+# sandbox inherited THAT set, and those literals were judged against it: measured, an
+# adopter with 'PM|Eng|QA' got 13 FAILs across move-issue.sh, archive.sh and release.sh —
+# tools that were working correctly. Deriving each literal instead cannot work: three
+# cases model a HAND-OFF between two distinct roles, and an adopter's set may legally have
+# one member, so a derivation cannot express a distinction its source may not contain.
+_neu_roles() {
+  local cm="$SB_WORK/scripts/githooks/commit-msg" cur f
+  [ -f "$cm" ] || return 0
+  cur="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$cm" | head -1)"
+  [ -n "$cur" ] \
+    || _fixture_die "_neu_roles: no ROLE_PREFIXES line in the sandbox's commit-msg — the seam was renamed or moved, so the role vocabulary was NOT neutralized and every --role literal in this file would be judged against whatever the adopter declared."
+  if [ "$cur" != "$KIT_NEUTRAL_ROLE_PREFIXES" ]; then
+    for f in "$cm" "$SB_WORK/scripts/move-issue.sh" "$SB_WORK/scripts/check-board.sh"; do
+      [ -f "$f" ] || continue
+      # The '@' delimiter is kit-init's, for kit-init's reason: the value is a
+      # '|'-separated ERE alternation and would cut an s|…|…| in half with its own data.
+      NEU_CUR="$cur" NEU_NEW="$KIT_NEUTRAL_ROLE_PREFIXES" \
+        perl -i -pe 's@\Q$ENV{NEU_CUR}\E@$ENV{NEU_NEW}@g' "$f"
+    done
+  fi
+  # POSTCONDITION, asserted whether or not anything was rewritten — the anchor-and-property
+  # shape, not "something changed": on the kit's own tree the set already IS the shipped
+  # one and the correct behaviour is to change nothing.
+  grep -qF "ROLE_PREFIXES='$KIT_NEUTRAL_ROLE_PREFIXES'" "$cm" \
+    || _fixture_die "_neu_roles: the sandbox's commit-msg does not carry the shipped role set after the reset (it reads '$cur')."
+}
+
 _kit_neutral_config() {
   local c="$SB_WORK/scripts/config.sh"
   local v="$SB_WORK/scripts/verify.sh"
@@ -502,6 +569,9 @@ _kit_neutral_config() {
   perl -i -ne 'BEGIN{$m=shift} print unless /^\Q$m\E/' "$KIT_STAMP_MARK" "$c"
   grep -q "^$KIT_STAMP_MARK" "$c" \
     && _fixture_die "_kit_neutral_config: config.sh still carries kit-init's stamp receipt ('$KIT_STAMP_MARK') — every kit-init case would hit the already-lived refusal."
+
+  # ── the role set, across the three seams kit-init stamps.
+  _neu_roles
 
   # ── verify.sh: the gate table and the guard floor.
   _neu_array "$v" GATES
@@ -535,15 +605,26 @@ publish_sandbox() {
 # On the remote's trunk: does path exist in the tree?
 origin_has_path() {
   git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
-  git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null | grep -qxF "$1"
+  local paths  # capture, then test — ls-tree grows with the board (header: THE PIPEFAIL RULE)
+  paths="$(git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null)"
+  printf '%s\n' "$paths" | grep -qxF "$1"
 }
 origin_file_contains() {  # <path> <pattern>
   git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
-  git -C "$SB_WORK" show "origin/$SB_TRUNK:$1" 2>/dev/null | grep -q "$2"
+  local body  # capture, then test — the file may be a log that grows (header: THE PIPEFAIL RULE)
+  body="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:$1" 2>/dev/null)"
+  printf '%s\n' "$body" | grep -q "$2"
 }
 origin_log_has_subject() {  # <pattern>
+  # CAPTURE, THEN TEST — never `git log … | grep -q`. See the PIPEFAIL RULE in this
+  # file's header: `git log` grows with the trunk, `grep -q` exits on the first match,
+  # and the producer's SIGPIPE became this function's answer. It returned "not found"
+  # for subjects that were present, and only ever in the direction of a FALSE RED,
+  # which is why it survived: every caller reads it as `… || cf …`.
+  local subjects
   git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
-  git -C "$SB_WORK" log "origin/$SB_TRUNK" --format='%s' 2>/dev/null | grep -q "$1"
+  subjects="$(git -C "$SB_WORK" log "origin/$SB_TRUNK" --format='%s' 2>/dev/null)"
+  printf '%s\n' "$subjects" | grep -q "$1"
 }
 # A real branch with a real net change, pushed. <id> <slug> <marker-file>
 seed_branch() {
@@ -582,6 +663,64 @@ case_move_issue() {
     || cf "commit subject not found on the trunk (not pushed?)"
 
   finish "move-issue.sh: move + Activity append + commit pushed to the trunk"
+  teardown
+}
+
+# =============================================================================
+# CASE — --set-pr WRITES BACK INTO A CARD MINTED FROM THE REAL TEMPLATE
+#
+# WHY THIS CASE AND NOT A FIXTURE ASSERTION: `--set-pr` writes only into an EXISTING
+# `pr:` frontmatter line and otherwise warns "skipping write-back". The harness used
+# to seed `pr: null` in its own fixtures while NO shipped template carried the key —
+# so the suite tested a shape the templates never produced, and the flag could not
+# work on a kit-minted card while passing here. The templates now declare it; this is
+# the case that proves the two ends meet, and it mints through new-issue.sh rather
+# than seeding, because the seam is precisely between the template and the tool.
+#
+# THE PREMISE IS ASSERTED IN TWO PLACES, and both were paid for. An earlier attempt at
+# this case died on `move-issue.sh` refusing "no file matching …" — a not-found
+# refusal that reads like a mover defect and is really the card never reaching the
+# trunk. So: the minted card must carry a `pr:` line at all (or the template half is
+# undone and this case proves nothing), and it must be ON the trunk before the mover
+# is asked to move it (or the refusal is about the fixture).
+# =============================================================================
+case_move_issue_set_pr_on_a_minted_card() {
+  cf_reset
+  if ! has_kit_init; then
+    skp "move-issue --set-pr writes back into a minted card" "scripts/kit-init.sh absent"; return
+  fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
+    skp "move-issue --set-pr writes back into a minted card" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
+  fi
+  kit_init_sandbox
+
+  local id="$SB_PREFIX-777" card="progress/todo/$SB_PREFIX-777-setpr-probe.md" out rc
+  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh setpr-probe --id "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "new-issue.sh exited $rc minting $id: $out"
+  [ -f "$SB_WORK/$card" ] || cf "new-issue.sh did not create $card: $out"
+
+  # PREMISE 1 — the template half. Without a `pr:` line there is nothing to write back
+  # into, and --set-pr would warn rather than fail, so this case would pass vacuously.
+  if [ -f "$SB_WORK/$card" ]; then
+    grep -q '^pr:' "$SB_WORK/$card"       || _fixture_die "case_move_issue_set_pr_on_a_minted_card: the minted card carries no 'pr:' frontmatter line, so --set-pr has nothing to write into and this case cannot distinguish the fix from its absence."
+  fi
+
+  publish_sandbox
+
+  # PREMISE 2 — the mover reads the TRUNK's board, not the checkout. If the mint did
+  # not reach the trunk the mover refuses "no file matching …", which reads exactly
+  # like a mover defect and is a fixture gap.
+  origin_has_path "$card"     || _fixture_die "case_move_issue_set_pr_on_a_minted_card: $card is not on the trunk after publish_sandbox, so the mover would refuse with a not-found that is about the fixture."
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress \
+            --role "$SB_ROLE" --note "set-pr probe" --set-pr 'https://example.invalid/pr/1' 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the move with --set-pr exited $rc: $out"
+  printf '%s\n' "$out" | grep -q 'skipping write-back' \
+    && cf "--set-pr reported 'skipping write-back' on a card minted from the shipped template — the template and the flag still do not meet: $out"
+  origin_file_contains "progress/in_progress/$SB_PREFIX-777-setpr-probe.md" 'example.invalid/pr/1' \
+    || cf "the --set-pr value did not reach the moved card on the trunk"
+
+  finish "move-issue --set-pr writes back into a card minted from the SHIPPED template, and the value reaches the trunk"
   teardown
 }
 
@@ -632,6 +771,13 @@ case_move_issue_probe() {
   #     worktree check, which must now FIRE. Self-asserting: an anchor that moved is a
   #     fixture failure, not a case failure (this file's own rule).
   kwt_clear
+  # Keep a copy of the NEUTRALIZED sandbox script to restore from. Restoring from
+  # $REAL_SCRIPTS instead — which is what this did — re-imports the adopter's tree
+  # after the neutralizer removed it, so on a project that ran `kit-init --roles`
+  # arms (c) and (d) ran against that project's role whitelist and (c) failed with
+  # "--role must be …". Measured. The sandbox owns its scripts; nothing may reach
+  # back past _kit_neutral_config for a copy.
+  cp "$mi" "$SB_TMP/move-issue.neutral"
   grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
     || _fixture_die "case_move_issue_probe(b): no probe condition to ablate in move-issue.sh — the anchor moved, so arm (a) above is unfalsifiable and this case proves nothing."
   perl -i -pe 's/^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$/if false \&\& [ "\$PROBE_ID_IS_GLOB" -eq 0 ] \\/' "$mi"
@@ -641,7 +787,9 @@ case_move_issue_probe() {
   [ "$rc" -ne 0 ] || cf "(b) the ablated mover accepted a nonexistent card"
   kwt_registered \
     || cf "(control) with the probe disabled the refusal STILL left no worktree — arm (a) is not measuring the probe: $out"
-  cp "$REAL_SCRIPTS/move-issue.sh" "$mi"   # restore the real script for (c) and (d)
+  cp "$SB_TMP/move-issue.neutral" "$mi"   # restore the NEUTRALIZED script for (c) and (d)
+  grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
+    || _fixture_die "case_move_issue_probe: the restore did not put the un-ablated script back, so arms (c) and (d) would run against the disabled probe."
 
   # (c) FALSE-REFUSAL CONTROL. Put a card on the trunk WITHOUT it passing through this
   #     repo's tracking ref: commit and push it from a second clone. Both halves of the
@@ -659,11 +807,11 @@ case_move_issue_probe() {
   git -C "$other" add -A >/dev/null 2>&1
   MSG_OK=1 git -C "$other" commit -qm "[PM] $SB_PREFIX-101: minted in another clone" >/dev/null 2>&1
   git -C "$other" push -q origin "$SB_TRUNK" >/dev/null 2>&1
-  git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" 2>/dev/null \
-    | grep -q "$SB_PREFIX-101-elsewhere.md" \
+  ORIGIN_PATHS="$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" 2>/dev/null)"
+  printf '%s\n' "$ORIGIN_PATHS" | grep -q "$SB_PREFIX-101-elsewhere.md" \
     || _fixture_die "case_move_issue_probe(c): the second clone's push did not reach the bare trunk — the control has no premise."
-  git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null \
-    | grep -q "$SB_PREFIX-101-elsewhere.md" \
+  CACHED_PATHS="$(git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null)"
+  printf '%s\n' "$CACHED_PATHS" | grep -q "$SB_PREFIX-101-elsewhere.md" \
     && _fixture_die "case_move_issue_probe(c): origin/$SB_TRUNK is already current here, so nothing in this arm exercises the stale-cache path."
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-101" in_progress \
             --role Dev --note "moved from a stale cache" 2>&1 )"; rc=$?
@@ -727,6 +875,53 @@ case_finish_pr_happy() {
     || cf "run output does not show the remote delete being confirmed by re-measurement"
 
   finish "finish-pr.sh happy path: squash-merge + delete branch + advance, and the board note reports BOTH deletes truthfully"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE POST-MERGE PASS LINE NAMES THE REF IT READ, AND THE MACHINE LINE
+#        DOES NOT.
+#
+# An instrument that names its operand when it complains must name it when it
+# clears: the FAIL branch already says which branch may be red, and the PASS branch
+# used to say only that something passed. On the clearing branch that asymmetry is
+# the expensive direction, because it is the one that errs toward false confidence.
+#
+# THE SECOND ASSERTION IS THE CANARY, and without it the first is not a control.
+# `POST_MERGE_GATE: PASS` is a MACHINE CONTRACT — an automation greps that exact
+# token — so the fix must land on the human line and nowhere else. A ref appended
+# there would break every consumer while making assertion 1 pass.
+#
+# AND THE FIRST ASSERTION IS SCOPED TO THE PASS LINE ITSELF, not to the run output.
+# The "Done. … landed on '<trunk>'" line above already carries the ref, so a bare
+# grep for the trunk name over `$out` passes before the fix and proves nothing.
+# =============================================================================
+case_finish_pr_post_merge_names_its_ref() {
+  cf_reset
+  make_sandbox
+  # The 6th argument is the card's `branch:` frontmatter, and finish-pr.sh reads it to
+  # find what to merge. Omitting it leaves the card saying `n/a`, and the run dies with
+  # "local branch 'n/a' not found" — a fixture gap that reads like a tool defect.
+  seed_issue dev_complete "$SB_PREFIX-140" postmerge chore "Post-merge ref naming" "feature/$SB_PREFIX-140-postmerge"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-140" postmerge "postmerge.txt"
+
+  local out rc pass_line
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-140" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "finish-pr exited $rc on the happy path: $out"
+
+  # (1) The HUMAN line names the ref — read that line alone, not the whole run.
+  pass_line="$(printf '%s\n' "$out" | grep 'post-merge verify --quick: PASS' | head -1)"
+  [ -n "$pass_line" ] \
+    || cf "no 'post-merge verify --quick: PASS' line in the run output — the gate did not reach its clearing branch: $out"
+  printf '%s\n' "$pass_line" | grep -q "$SB_TRUNK" \
+    || cf "the post-merge PASS line does not name the ref it read (the FAIL line does; the clearing branch is the direction that errs toward false confidence): $pass_line"
+
+  # (2) THE CANARY: the machine line is still exactly its token, with no ref appended.
+  printf '%s\n' "$out" | grep -qx 'POST_MERGE_GATE: PASS' \
+    || cf "the machine line is no longer exactly 'POST_MERGE_GATE: PASS' — an automation greps that token, so a ref appended HERE breaks every consumer: $out"
+
+  finish "finish-pr.sh: the post-merge PASS line names the ref it read, and the machine line POST_MERGE_GATE: PASS stays exactly that token"
   teardown
 }
 
@@ -932,7 +1127,7 @@ case_finish_pr_empty_merge() {
 # =============================================================================
 # =============================================================================
 # CASE — THE LANDING GATE MUST BE THE COMMITTED verify.sh AT THE REVISION BEING
-# LANDED (008 item 4) — AND THIS CASE RUNS WITHOUT THE STUB MARKER.
+# LANDED — AND THIS CASE RUNS WITHOUT THE STUB MARKER.
 #
 # THAT IS THE POINT OF IT. The seven existing finish-pr cases run with
 # FINISH_PR_TEST_ALLOW_STUB=1, and the revision check is wrapped in
@@ -1131,7 +1326,7 @@ case_archive_apply() {
 # (it routes through .kanban-wt, never the operator's checkout).
 # =============================================================================
 # =============================================================================
-# CASE — THE ARCHIVE INDEX CARRIES A RETIREMENT DATE (046, both directions).
+# CASE — THE ARCHIVE INDEX CARRIES A RETIREMENT DATE (both directions).
 #
 # archive-sweep.md § 2: "Every retired item gains an INDEX entry ... carrying at
 # least its identifier, its title and its RETIREMENT DATE." The entry carried the
@@ -1163,7 +1358,7 @@ case_archive_apply() {
 # adjacent defect is not a guard for this one, and the presence of *a* schema guard is
 # exactly what stops the next person looking harder (negative-claims.md § A.4).
 #
-# ALL SIX SCHEMAS, NOT FOUR. A hand-run of this check during 010 covered four, because
+# ALL SIX SCHEMAS, NOT FOUR. A hand-run of this check once covered four, because
 # its source slice began at `const VERDICTS` and both DEV_SCHEMAs fell outside it. That
 # limit was stated by the leg that ran it; the extractor below keys on
 # `^const <NAME>_SCHEMA` so a seventh schema is covered the day it appears.
@@ -1229,11 +1424,12 @@ _schema_audit() {
 # `.card:hover` live in this tree and are not references) — measured, not assumed: the
 # unscoped form matched four CSS declarations in brainstorming/.
 #
-# AND IT FOUND ONE THE DE-NAMESPACING MISSED. 012 closed `superpowers:` and left
+# AND IT FOUND ONE THE DE-NAMESPACING MISSED. The de-namespacing change closed the
+# foreign `<ns>:<skill>` form and left
 # `elements-of-style:writing-clearly-and-concisely` in brainstorming/SKILL.md, hedged
 # with "if available" — which is exactly the softening that survives review. Fixed with
 # the intent preserved rather than the line deleted; the reference had no subject in this
-# kit, so by 012's own precedent for its one subject-less row it could not stay.
+# kit, so by that change's own precedent for its one subject-less row it could not stay.
 _foreign_ns_hits() {  # <dir> — prints "file:line:reference" per hit
   grep -rnE '\b[a-z][a-z0-9-]*:[a-z][a-z0-9-]+\b' --include='*.md' "$1" 2>/dev/null \
     | grep -vE 'https?:|file:|mailto:|style="' || true
@@ -1783,7 +1979,7 @@ case_archive_index_carries_the_date() {
 }
 
 # =============================================================================
-# CASE — THE RETIRED STORE IS REQUIRED, NOT MANUFACTURED (046, both directions).
+# CASE — THE RETIRED STORE IS REQUIRED, NOT MANUFACTURED (both directions).
 #
 # archive-sweep.md § 3: "The retired store or the index is missing ⇒ refuse; do not
 # create an index on the fly." The script honoured that for the index and `mkdir -p`'d
@@ -2263,7 +2459,7 @@ EOF
 #       floor, and a vanished guard is a hard stop rather than a silent shrink.
 # =============================================================================
 # =============================================================================
-# CASE — THE VERDICT VOCABULARY HAS ONE AUTHORING SITE AND TWO PROJECTIONS (026).
+# CASE — THE VERDICT VOCABULARY HAS ONE AUTHORING SITE AND TWO PROJECTIONS.
 #
 # MANUAL.md § Dev → QA step 6 ratifies the verdict tokens and says outright: "Every
 # schema, runner and report that carries a verdict PROJECTS this list; none of them
@@ -3324,7 +3520,7 @@ case_check_board_graduation() {
   # because the board is clean. If this ever fails, the release ritual's board gate
   # and kit-init's own self-check both start failing on every fresh install.
   printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
-    || cf "(c) graduation findings changed the board verdict — release.sh gate (d) and kit-init's self-check both key on this line: $out"
+    || cf "(c) graduation findings changed the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is what sends kit-init's self-check looking for a cause: $out"
 
   # ── (d) GRADUATED: it clears, and it NAMES ITS SOURCE while clearing. ────────
   printf '# my project\n'                 > "$SB_WORK/CLAUDE.md"
@@ -3388,7 +3584,7 @@ case_check_board_graduation_reads_the_trunk() {
   printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
     || cf "the arm did not clear once the graduation was published: $out"
 
-  finish "check (g) is a TRUNK read: an unpublished graduation does NOT clear it (025's defect in a one-way arm), and publishing does"
+  finish "check (g) is a TRUNK read: an unpublished graduation does NOT clear it (a one-way arm that clears early never re-opens), and publishing does"
   teardown
 }
 
@@ -3537,7 +3733,8 @@ case_kit_init_survives_the_documented_first_commit() {
   #     the initializer chooses to echo context. Without this, a sandbox that produced no
   #     advisories would pass (a) and (b) while exercising nothing, which is measured: it
   #     is exactly what this case did before the root documents above were seeded.
-  cb_run | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+  CB_OUT="$(cb_run)"   # capture, then test — cb_run grows with the board
+  printf '%s\n' "$CB_OUT" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
     || cf "arm [g] reports no advisory on the post-init tree, so the failure mode this case exists for was never reachable and its green means nothing"
 
   finish "kit-init: the first-commit subject GIT-HOSTING § 3 step 2 prints does not fail the install, the board arm is not what fails, and arm [g] WAS reporting while it ran"
@@ -3556,15 +3753,21 @@ case_kit_init_survives_the_documented_first_commit() {
 # ALREADY-LIVED probe `find`s progress/*/*-[0-9]*.md in the WORKING TREE, so seeding
 # two ordinary cards makes kit-init refuse before its self-check ever runs — the case
 # would then pass its non-zero assertion for entirely the wrong reason and fail the
-# one that names the cause. Measured 2026-08-29. So the duplicate is planted under
+# one that names the cause. Measured 2026-08-28. So the duplicate is planted under
 # filenames the lived-probe glob does not match, which leaves the id collision real,
 # on the trunk, and reachable by the self-check.
 #
-# AND THE FINDING IS DELIBERATELY ONE PRINTED BELOW ITS SECTION HEADER. kit-init's
-# filter skips the header line of every section while deciding whether the section is
-# advisory, so a finding rendered ON its header is currently invisible to it — a
-# coverage narrowing owned elsewhere. Keying this control on a below-header finding
-# keeps it valid across that fix instead of encoding today's gap as correct.
+# AND THE FINDING IS DELIBERATELY ONE PRINTED BELOW ITS SECTION HEADER — a choice that
+# has since been vindicated, and the superseded reason is kept because it is the lesson.
+# THIS PARAGRAPH USED TO READ, in the present tense: "kit-init's filter skips the header
+# line of every section while deciding whether the section is advisory, so a finding
+# rendered ON its header is currently invisible to it." That was true when written and is
+# no longer: the `; next` that discarded every header was removed, and only headers that
+# DECLARE themselves advisory are dropped now. The claim was a statement about another
+# file's current behaviour, made in the present tense, in a file that ships — the shape
+# that goes stale without anything noticing. What survives is the choice, and its reason
+# is now the durable one: a below-header finding is what the arm's own contract promises
+# to report, so this control rests on the contract rather than on a rendering detail.
 # =============================================================================
 case_kit_init_still_fails_on_a_real_finding() {
   cf_reset
@@ -3949,7 +4152,7 @@ case_first_mile() {
   printf '%s\n' "$out" | grep -qi 'not yet pushed' \
     || cf "the not-found error does not name 'minted but not yet pushed?': $out"
   # THE COSTS-NOTHING ASSERTION DOES NOT BELONG HERE, and the reason is measured
-  # rather than argued (2026-08-29). It was authored for this spot as
+  # rather than argued (2026-08-28). It was authored for this spot as
   # "it must not have bootstrapped a worktree … in a repo that had none". This repo
   # HAS one by the time this line runs: kit-init's own self-check moves a scratch card
   # through two columns a few lines above, and each move legitimately bootstraps
@@ -4566,7 +4769,7 @@ case_release_local_only_recovery() {
 }
 
 # =============================================================================
-# CASE — A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER (009).
+# CASE — A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER.
 #
 # self-test-harness.md § 2: "a test-only relaxation of a production rule is reachable
 # ONLY behind an explicit marker that no production caller sets."
@@ -4577,7 +4780,7 @@ case_release_local_only_recovery() {
 # gate. finish-pr.sh grew exactly this refusal after a fabricated `echo PASS; exit 0`
 # stub was used in earnest to force a landing through a red suite; release.sh got the
 # same seams and never the marker. **The incident's fix was applied to one sibling and
-# not the other**, which is the whole of 009.
+# not the other**, which is the whole of the finding.
 #
 # BOTH DIRECTIONS, and the second is the one that keeps the harness itself honest:
 #   (i)  unmarked → refuse, before anything is written (no tag, no bump, HEAD still);
@@ -4717,7 +4920,7 @@ case_consumer_updater() {
 # it, every green rests on the harness's OWN assignment of the neutral values, and
 # a kit that shipped `RELEASE_PUBLISH=true` would sail through a fully green run.
 # A SHIPPED DEFAULT IS ITSELF A SHIPPABLE DEFECT, and this is the only case that
-# looks at it. Same argument as K-42 one level down: a fixture cannot certify the
+# looks at it. Same argument as the belt-tooling rule one level down: a fixture cannot certify the
 # thing it overwrites.
 #
 # It reads the REAL files and mutates nothing.
@@ -4788,6 +4991,20 @@ case_ship_state() {
     cf "scripts/config.sh is absent — it is the configuration seam itself"
   fi
 
+  # THE ROLE SET, and it is the newest member of the KIT_NEUTRAL_* block above, so this
+  # block's own rule reaches it: neutralizing a seam costs the suite its only incidental
+  # witness to the shipped value, and this case is where that debt is paid. It is owed
+  # here MORE than the others, not less — the other neutral constants have an unstamped
+  # source in kit-init.sh to be checked against, and this one has none, because
+  # `kit-init --roles` rewrites every occurrence in every seam that carries it. A drifted
+  # literal here would silently neutralize sandboxes to a role set the kit no longer ships.
+  local rh="$REAL_SCRIPTS/githooks/commit-msg"
+  if [ -f "$rh" ]; then
+    _ship_line "$rh" "ROLE_PREFIXES='${KIT_NEUTRAL_ROLE_PREFIXES}'"
+  else
+    cf "scripts/githooks/commit-msg is absent — it is the role set's authoring site"
+  fi
+
   # The FOURTH seam _kit_neutral_claude now resets, and therefore the fourth the
   # suite stopped being an incidental witness to: the shipped templates carry the
   # prefix as a PLACEHOLDER, not as a token. A kit that shipped a real prefix here
@@ -4807,7 +5024,7 @@ case_ship_state() {
       || cf ".claude/templates/ISSUE.template.md does not ship the prefix placeholder '$KIT_PREFIX_PLACEHOLDER' — the templates ship a stamped token, and every sandbox would then inherit it"
   fi
 
-  finish "ship state: the kit ships an empty gate table and guard floor, empty release seams, RELEASE_PUBLISH=false, the neutral config.sh seam values the neutralizer resets to, and the prefix PLACEHOLDER in the shipped ISSUE template"
+  finish "ship state: the kit ships an empty gate table and guard floor, empty release seams, RELEASE_PUBLISH=false, the neutral config.sh seam values the neutralizer resets to, the prefix PLACEHOLDER in the shipped ISSUE template, and the shipped ROLE_PREFIXES the neutralizer declares"
 }
 
 # =============================================================================
@@ -4890,7 +5107,9 @@ isolation_snapshot
 CASES=(
   case_move_issue
   case_move_issue_probe
+  case_move_issue_set_pr_on_a_minted_card
   case_finish_pr_happy
+  case_finish_pr_post_merge_names_its_ref
   case_finish_pr_second_worktree
   case_finish_pr_remote_delete_refused
   case_finish_pr_remote_delete_resurrected
