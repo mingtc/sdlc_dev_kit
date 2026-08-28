@@ -666,6 +666,95 @@ case_move_issue() {
   teardown
 }
 
+# _role_literals_used <file> — every role NAME this harness writes, extracted BY
+# POSITION rather than by neighbouring words. Position is what makes it precise: the
+# same tokens appear inside diagnostic strings ("the release commit carries no [Role]
+# prefix", "every --role literal in this file") and those are prose ABOUT roles, not
+# roles being used. A word-proximity scan picks them up; an argument-position scan
+# does not. Measured on this file: by position the answer is exactly the four roles
+# the cases use, with no exemption list to maintain.
+_role_literals_used() {  # <path to a harness source>
+  local f="$1"
+  {
+    # (1) `--role <Name>` argument positions.
+    grep -vE '^[[:space:]]*#' "$f" | grep -oE '\-\-role +[A-Z][A-Za-z0-9]*' | sed 's/--role *//'
+    # (2) a role tag OPENING a commit-subject argument: -m "[Name] …"
+    grep -vE '^[[:space:]]*#' "$f" | grep -oE -- "-q?m +[\"']\[[A-Z][A-Za-z]+\]" \
+      | grep -oE '\[[A-Z][A-Za-z]+\]' | tr -d '[]'
+    # (3) a role tag OPENING a seeded Activity / progress.md line.
+    grep -vE '^[[:space:]]*#' "$f" | grep -oE -- "(printf|echo)[^\"']*[\"'][^\"']*\[[A-Z][A-Za-z]+\] " \
+      | grep -oE '\[[A-Z][A-Za-z]+\]' | tr -d '[]'
+  } | sort -u
+}
+
+# =============================================================================
+# CASE — EVERY ROLE LITERAL THIS HARNESS WRITES IS ONE THE SANDBOX DECLARES
+#
+# WHAT THIS GUARDS, AND WHAT ALREADY GUARDS THE REST. case_ship_state asserts the
+# SHIPPED commit-msg still carries the role set this file declares — that is the
+# constant-vs-file direction. Nothing asserted the other direction: that the names the
+# CASES TYPE are members of that set. The neutralizer corrects the sandbox's hook and
+# move-issue.sh whitelist; it cannot correct a case that types a role the hook does not
+# carry, and such a case fails with "--role must be …" or a rejected commit — a red
+# about the fixture wearing the costume of a tool defect.
+#
+# THE FORM IS NARROWER THAN THE ONE FIRST PROPOSED, and the reason is kept because the
+# first form would now be wrong. The original proposal was to FORBID role literals
+# outright, which was right while the sandbox inherited the adopter's set: a literal was
+# then one rename away from a false red. Once the sandbox DECLARES the set, the literals
+# are correct — and three cases model a hand-off, so they need two distinct ones. What
+# survives is membership, not abstinence.
+# =============================================================================
+case_role_literals_are_declared() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; this case reads this file, not the sandbox
+
+  local self="${BASH_SOURCE[0]}" used n t
+  if [ ! -f "$self" ]; then
+    skp "every role literal this harness writes is one the sandbox declares" "cannot locate this harness's own source"
+    teardown; return
+  fi
+
+  used="$(_role_literals_used "$self")"
+  n="$(printf '%s\n' "$used" | grep -c . || true)"
+  # ASSERT THE OPERAND: zero literals found means the scan lost its subject, not that
+  # the file is clean — every one of the shapes above would have to vanish at once.
+  [ "$n" -ge 1 ] \
+    || cf "no role literal was found in this file at all — the scan lost its operand rather than finding a clean file"
+
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    printf '%s\n' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -qx "$t" \
+      || cf "this harness writes the role '$t', which the sandbox's declared set does not contain (${KIT_NEUTRAL_ROLE_PREFIXES}) — the neutralized commit-msg hook and move-issue.sh whitelist would both reject it, and the case would redden about the fixture while naming a tool"
+  done <<ROLE_EOF
+$used
+ROLE_EOF
+
+  # ── THE REDDENING CONTROL, on a COPY — never this file (instruments.md § A.2).
+  local probe="$SB_TMP/roleprobe.sh"
+  cp "$self" "$probe" 2>/dev/null || true
+  if [ ! -f "$probe" ]; then
+    cf "(control) could not copy this harness to plant into — the control did not run, so the green above is unproven"
+  else
+    # THE OUTSIDER'S NAME IS BUILT, NEVER WRITTEN — and that is not fastidiousness, it
+    # is required. This case scans THE FILE IT LIVES IN, so a literal `--role Eng`
+    # written here would be found by the scan above and redden the case on its own
+    # control text. Measured: it did, on the first draft. `%s` carries the name into
+    # the PROBE while this source holds only the format string.
+    local outsider='Eng'
+    printf '\n  ( cd x && ./scripts/move-issue.sh ID in_progress --role %s --note x )\n' \
+      "$outsider" >> "$probe"
+    _role_literals_used "$probe" | grep -qx "$outsider" \
+      || cf "(control) a planted '--role $outsider' was NOT found by the scan — it cannot see the defect it is named after"
+    # ...and the membership test must reject it, or finding it buys nothing.
+    printf '%s\n' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -qx "$outsider" \
+      && cf "(control) '$outsider' IS in the declared set, so the plant cannot demonstrate a rejection — pick a name the set does not contain"
+  fi
+
+  finish "every role literal this harness writes ($n found, by argument position) is a member of the set the sandbox declares, and a planted outsider is found and rejected"
+  teardown
+}
+
 # =============================================================================
 # CASE — --set-pr WRITES BACK INTO A CARD MINTED FROM THE REAL TEMPLATE
 #
@@ -2477,12 +2566,25 @@ EOF
 # it is checking has two authoring sites and is the third one.
 #
 # AND THE EXTRACTORS ARE THEMSELVES GUARDED, because a loose one silently answers a
-# different question. Measured: a `'[A-Z_]{4,}'` scan of the MANUAL reported DIVERGES
-# — it had picked up `FAILED_AFTER_FIX_ROUND`, which is an `outcome` value on a
-# different field, and a bare `FAIL` out of prose. **The code was right and the
-# instrument was wrong.** So the MANUAL side is scoped to the rows of the
-# `| Verdict | Token |` table and the runner side to the `const VERDICTS` declaration,
-# and the assertions below hold both to that.
+# different question. **The code was right and the instrument was wrong** — that
+# conclusion stands and is the lesson; only its attribution is corrected here.
+#
+# WHAT WAS ACTUALLY MEASURED, each token against the side it really came from:
+#   • `FAILED_AFTER_FIX_ROUND` is swept in by an unscoped scan OF THE RUNNERS, where
+#     it is an `outcome:` value on a different field. It has NEVER appeared in
+#     MANUAL.md, in any commit — so a MANUAL-side pin against it could not fire under
+#     any extractor, however loose.
+#   • a bare `FAIL` is swept out of THE MANUAL's prose, where the word is used as
+#     narration and as a row label.
+# This comment previously said the first token came from the MANUAL. It did not, and
+# the definiteness was the problem: a pin was aimed at an operand that could never
+# hold the token, and read as coverage. Superseded rather than deleted, because the
+# shape — an instrument error attributed to the wrong side of the comparison it
+# guards — is the reason both pins below now sit on the side that can actually fail.
+#
+# So the MANUAL side is scoped to the rows of the `| Verdict | Token |` table and the
+# runner side to the `const VERDICTS` declaration, and the assertions below hold both
+# to that.
 # =============================================================================
 
 # One token per line, sorted. Scoped to the ratifying TABLE, not to the section.
@@ -2517,8 +2619,6 @@ case_verdict_enum_projection() {
   # neighbouring vocabulary reports a divergence that is not there.
   [ "$n_ratified" -gt 0 ] \
     || cf "no ratified verdict tokens were extracted from MANUAL.md — the '| Verdict | Token |' table moved or was renamed, and every comparison below would be vacuous"
-  printf '%s\n' "$ratified" | grep -qx 'FAILED_AFTER_FIX_ROUND' \
-    && cf "the MANUAL extractor swept in FAILED_AFTER_FIX_ROUND — that is an 'outcome' value on a DIFFERENT field, so the extractor is reading past its table: [$ratified]"
   printf '%s\n' "$ratified" | grep -qx 'FAIL' \
     && cf "the MANUAL extractor swept in a bare FAIL — that is prose, not a ratified token: [$ratified]"
   # The one member whose absence has a recorded cost: a runner missing it cannot
@@ -2540,6 +2640,14 @@ case_verdict_enum_projection() {
       fi
       continue
     fi
+    # THE PIN THAT USED TO SIT ON THE MANUAL SIDE, moved to the operand that can
+    # actually hold the token. `FAILED_AFTER_FIX_ROUND` is an `outcome:` value in these
+    # runners, on a different field from `const VERDICTS`, so a runner extractor that
+    # read past its declaration would sweep it in — which is the instrument error that
+    # was historically measured, on this side. On the MANUAL side the same pin was
+    # unfalsifiable: the token has never been in that file.
+    printf '%s\n' "$projected" | grep -qx 'FAILED_AFTER_FIX_ROUND' \
+      && cf "$name's extractor swept in FAILED_AFTER_FIX_ROUND — that is an 'outcome' value on a DIFFERENT field, so the extractor is reading past 'const VERDICTS': [$projected]"
     if [ "$projected" != "$ratified" ]; then
       missing="$(comm -23 <(printf '%s\n' "$ratified") <(printf '%s\n' "$projected") | tr '\n' ' ')"
       extra="$(comm -13 <(printf '%s\n' "$ratified") <(printf '%s\n' "$projected") | tr '\n' ' ')"
@@ -2569,7 +2677,33 @@ case_verdict_enum_projection() {
   fi
   rm -rf "$ctl/vctl"
 
-  finish "the verdict vocabulary: every *runner*.js VERDICTS array projects MANUAL § Dev → QA step 6's ratified tokens, both sides re-derived from the files, extractors held to their own scope, and a dropped member reddens naming itself"
+  # --- REDDENING CONTROL, MANUAL SIDE: the extraction must depend on THAT TABLE ------
+  # WHY THIS IS NOT THE `n_ratified > 0` GUARD ABOVE, and why a second emptiness check
+  # would not do either. That guard defends the table being deleted outright, and it
+  # names the table in its message, so it reads exactly like this control and is the
+  # first thing a fixer finds. It is SILENT under the failure this closes: an extractor
+  # that reads past the `| Verdict | Token |` table but stays inside § Dev → QA step 6
+  # picks the same four tokens out of the surrounding prose, so `n_ratified` is 4, the
+  # per-runner comparison is equal, and the case is green **while nothing in the run has
+  # read the ratifying table**. An emptiness guard proves the extractor found something;
+  # this proves it found THAT TABLE.
+  #
+  # It is also TOKEN-NAME-INDEPENDENT — it pins no literal, so renaming a verdict cannot
+  # make it vacuous, which is the failure mode two of this case's three pins had.
+  mkdir -p "$ctl/mctl"
+  sed 's/|[[:space:]]*Verdict[[:space:]]*|[[:space:]]*Token[[:space:]]*|/| Xerdict | Xoken |/' \
+    "$manual" > "$ctl/mctl/MANUAL.md"
+  if ! grep -q '| Xerdict | Xoken |' "$ctl/mctl/MANUAL.md"; then
+    cf "(control) could not corrupt the '| Verdict | Token |' header on a COPY of MANUAL.md — the ablation did not take, so the green above does not establish that the extractor reads that table"
+  else
+    local m_ablated
+    m_ablated="$(_verdict_tokens_manual "$ctl/mctl/MANUAL.md")"
+    [ "$m_ablated" != "$ratified" ] \
+      || cf "(control) corrupting the ratifying table's header did NOT change the MANUAL extraction — the extractor is not anchored on that table, so it is reading the same tokens out of neighbouring prose and every comparison above is about the wrong operand: [$ratified]"
+  fi
+  rm -rf "$ctl/mctl"
+
+  finish "the verdict vocabulary: every *runner*.js VERDICTS array projects MANUAL § Dev → QA step 6's ratified tokens, both sides re-derived from the files, each extractor ablation-proven against its own authority (a dropped member reddens naming itself; a corrupted table header changes the extraction)"
 }
 
 case_verify_frame() {
@@ -5108,6 +5242,7 @@ CASES=(
   case_move_issue
   case_move_issue_probe
   case_move_issue_set_pr_on_a_minted_card
+  case_role_literals_are_declared
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_second_worktree
