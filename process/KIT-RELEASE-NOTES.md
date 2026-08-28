@@ -48,6 +48,9 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`doctrine/staleness.md` § C now covers enumerations, not only digits.** *"Three outcomes: A, B
+  and C"* is a census in prose and rots the same way *"18 contracts"* does. State the axes the
+  members vary along, or point at the instrument whose output is the list. **No action required.**
 - **`verify.sh`'s guard floor is now reconciled in both directions.** A new `GUARD_ENUM` seam
   beside `GUARD_SET` names how your project enumerates its guards **as that command sees them**;
   the scoped run reports declared-but-vanished (as before) **and guards that exist and were never

@@ -200,6 +200,22 @@ in a document claiming to be current** — is a defect.
 - **A re-measurement PREPENDS; it does not overwrite.** The old figure keeps its date
   ([`supersession.md`](supersession.md) § A.1), because two dated figures are how a reader sees the
   direction of travel.
+- **An ENUMERATION of a growing set's members is a census in prose, even with no digit in it.**
+  *"Three outcomes: A, B and C"*, *"one of two"*, *"change all five"* — each is a count written as a
+  list, and it rots the same way a digit does, on the day somebody adds the fourth outcome or the
+  sixth file. **The digit is not what makes a census; the closure is.** So the compliance is the same
+  three: **state the axes the members vary along** rather than the members ("every arm that reports
+  without deciding", not "arms [b], [c] and [g]"); or **point at the instrument whose output IS the
+  list** — the run's own message, the directory listing, the command that derives it; or do not state
+  it. *(The reason is the ladder's first rank in
+  [`lookup-tables.md`](lookup-tables.md) § A.5 — **a list is a second copy and a second copy rots** —
+  which binds prose exactly as it binds a stored index.)*
+  **And where a list keeps outrunning itself, the fix is a rule against the SHAPE, not another
+  list.** *Measured: four consecutive repairs to one comment block, each closing the enumeration the
+  last repair had left open and each outrun by the next member somebody measured — and **two
+  different authors wrote them**, the second holding the first's findings. A form that defeats a
+  fresh reader who has been told about it is not an author's carelessness; replacing the list is
+  re-arming the trap.*
 - **Finding the statement you just outran is a ONE-HOP search, and T4 owes it in the same change.**
   The trigger is easy to accept and easy to skip, because the stale sentence is rarely in the file
   you were editing. One hop reaches almost all of them, and the change already has the operands in
