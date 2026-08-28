@@ -126,7 +126,7 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
    > `dev_complete` handoff, at QA, and at release. Coverage is never cut and the drift guards
    > are never skipped.**
 
-   If you add or rename a cross-cutting guard, add it to the runner's always-on set **in the same change** — the same rule the guarded documents themselves live under.
+   If you add or rename a cross-cutting guard, **the guard and its enrolment in the runner's always-on set are one coupled set and ride the same change.** Your code globs put the runner on the metadata side while the file it guards is code, so this is the **executable-declaration** case of the adapter's metadata carve-out — not the documentation-of-code case its worked examples show. Split them and the branch's gate cannot see the guard while the trunk's cannot see what it guards. *(Doctrine: [`process/doctrine/commit-hygiene.md`](../../process/doctrine/commit-hygiene.md) § A.5 — the gate's unit is the SET. The rule it carves out of is [`process/MANUAL.md`](../../process/MANUAL.md) § The code-vs-metadata rule.)*
 8. **Debug systematically.** Invoke [systematic-debugging](../skills/systematic-debugging/) on any test failure or unexpected behavior. Phase 1 (root cause) before any fix. Three failed fixes in a row → stop, question architecture, escalate by moving the issue to `progress/blocked/` (see below).
 9. **Review per task.** [subagent-driven-development] already calls [requesting-code-review] after every task. If running [executing-plans], invoke [requesting-code-review] manually at task boundaries.
 10. **Update progress.md.** During or after each meaningful task: decisions, surprises, deviations, skipped tests with reasons.

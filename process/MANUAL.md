@@ -260,6 +260,13 @@ bounces it.
 3. **QA checks out the branch** (`git switch <branch>` from the issue's `branch:` frontmatter)
    and runs **`./scripts/verify.sh`** — the **full** run, not a narrowed one. Anything red that
    isn't pre-existing → **FAIL outright**, Dev fixes first.
+
+   **Name the lane the run was in — and where the change's operands straddle the lanes, quote the
+   SET.** A gate run is a reading of **one** commit lane, and an exit code does not say which one.
+   Where the operands are only jointly satisfiable, the branch run is the proof of ALL-NEW and the
+   trunk is **expected** to be ALL-OLD until the merge; both are quoted, separately, and neither
+   alone closes the handoff. *(The rule:
+   [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) § A.5.)*
 4. **QA walks the AC line by line**, recording `PASS`/`FAIL` per bullet with **concrete
    evidence** (a test name, a diff, a command's output, a payload shape). **An illustrative
    example inside an AC must cite its source or be labelled approximate** — an uncited example
@@ -396,6 +403,14 @@ carrying its own documentation. *(Measured in the seed acceptance test: a worker
 update inside a feature branch read the rule as a prohibition and split a coherent change in
 two.)*
 
+**And the carve-out is not limited to documentation.** An **executable declaration** the same change
+makes true rides with it too — a guard's enrolment in the gate runner's always-on set, a new check's
+row in a declared table, a threshold the change is what makes correct. The examples above are all
+documentation-of-code, which reads as an exhaustive list of what may ride; it is not one. Where the
+two operands are only **jointly** satisfiable, the unit is the **set** and neither lane alone can be
+read as the answer — [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) § A.5, which also
+states what no mechanism can do about it once the two have been split.
+
 ### The kanban worktree (load-bearing)
 
 `move-issue.sh` / `finish-pr.sh` / `subtask.sh` never hijack your checkout. All kanban version-
@@ -422,9 +437,10 @@ Two attribution rules are the kit's:
   subagents do carries the Dev/QA prefixes.
 - **The hygiene conventions around a commit** — no generated co-author trailers, the
   hand-commit-then-`git status -sb` ritual, never ending a landing on an unpushed
-  looks-pushed state — are **kit doctrine**, not each project's taste:
-  [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md). Subject *style* beyond the role tag
-  (tense, length, body format) remains the adapter's.
+  looks-pushed state, and the coupled-operand rule for a change whose operands straddle the two
+  commit lanes — are **kit doctrine**, not each project's taste:
+  [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md), whose § A headings are the list.
+  Subject *style* beyond the role tag (tense, length, body format) remains the adapter's.
 
 ### Landing code — `./scripts/finish-pr.sh <ID>`
 
@@ -546,7 +562,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 |---|---|---|
 | [`supersession.md`](doctrine/supersession.md) | Preserve the reason, supersede only the conclusion — and the `superseded_in_part` annotation that follows from it. | § Execution discipline, item 5 |
 | [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried, and its scope may not exceed its evidence's scope. The authoring-time neighbour of `supersession.md`. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
-| [`commit-hygiene.md`](doctrine/commit-hygiene.md) | What a commit owes beyond its content: no generated co-author trailers, a role-prefixed subject enforced at write time, hand the commit then read `git status -sb`, and never end a landing on an unpushed looks-pushed state. | § Branching and role attribution |
+| [`commit-hygiene.md`](doctrine/commit-hygiene.md) | What a commit owes beyond its content: no generated co-author trailers, a role-prefixed subject enforced at write time, hand the commit then read `git status -sb`, never end a landing on an unpushed looks-pushed state, and — where a change's operands straddle the two commit lanes — the gate's unit is the **set**, not the file. | § Branching and role attribution |
 | [`model-provisioning.md`](doctrine/model-provisioning.md) | How a dispatched worker is provisioned (model + effort per work class), the leaf rule (a worker does not spawn workers), and the rule that a ladder is only real where a harness knob exists. | The role docs' own *"Model & effort contract"* sections |
 | [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite from the corpus, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. Its marking convention is stated in one test runner's mechanics; a different stack ports the **question and the two tiers**, not the mechanics. | Here — and `EXTRACTION.md` § 4, which lists the guards that do **not** travel |
 | [`calibration.md`](doctrine/calibration.md) | **The two AVAILABLE rituals that measure the kit's own claims** — a regeneration spike (hide a decision-dense module; rebuild it from the corpus with the acceptance tier as the criterion) and a seed acceptance test (bootstrap a fresh project from the seed document and count the steps guessed). Both must declare their honest-worker limits, and the **findings list is the deliverable**. **Available, never an obligation.** | Here — and `contracts/acceptance-tier.md`, the tier they exercise |

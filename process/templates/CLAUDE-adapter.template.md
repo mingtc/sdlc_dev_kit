@@ -172,7 +172,7 @@ Calibrate rigor via the rigor-tier ladder in [`.claude/roles/orchestrator.md`](.
   matrix / the consumer docs, in the SAME change*.
 - **Commit hygiene is doctrine, not taste** —
   [`process/doctrine/commit-hygiene.md`](process/doctrine/commit-hygiene.md). Your own additions
-  here are **subject style only** (tense, length, body format); the four rules in that sheet are
+  here are **subject style only** (tense, length, body format); the rules in that sheet are
   not yours to soften.
 - **Worker provisioning follows the ladder, not habit** —
   [`process/doctrine/model-provisioning.md`](process/doctrine/model-provisioning.md), whose § B.2

@@ -91,6 +91,21 @@ operation, and reporting it in this operation's own status is the instrument des
 and itself in one vocabulary ([`../doctrine/instruments.md`](../doctrine/instruments.md) § A.9).
 Report it on its own line, in a form a machine can key on.
 
+**That run is a DETECTOR, never a gate — and for a coupled change it is the only reading that can
+finish the proof.** It cannot abort a merge that has already happened, so a tool that *reads* as a
+gate while being advisory is the false-assurance shape; that is why its result gets its own line and
+does not move this operation's status. Two obligations follow, and the second is why the run is worth
+having at all:
+
+- **It names the ref it read** — on the clearing branch as much as on the complaining one. A
+  post-landing *green* that does not say which trunk it read is read as covering whichever trunk the
+  reader had in mind ([`../doctrine/instruments.md`](../doctrine/instruments.md) § A.4).
+- **Where the landed change's operands straddled the two commit lanes, this run IS the proof.** The
+  branch could only ever demonstrate ALL-NEW on one lane, and the trunk was **expected** to be
+  ALL-OLD until the merge — so nothing before this moment could show that all of it landed together.
+  A MIXED trunk here is **escalated**, not quietly re-run.
+  *(The rule: [`../doctrine/commit-hygiene.md`](../doctrine/commit-hygiene.md) § A.5.)*
+
 ## 5. MINIMAL INTERFACE
 
 **In:** the work item's identity; optionally the branch, when the item does not name one.

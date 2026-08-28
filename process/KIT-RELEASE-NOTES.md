@@ -48,6 +48,30 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **A change whose operands straddle the two commit lanes is now a named case with a rule.**
+  `process/doctrine/commit-hygiene.md` gains **§ A.5**: where a guard and the record it reads — or
+  a declaration and the ceiling it is held against, or a procedure naming two artifacts — sit in
+  different commit lanes and are only jointly satisfiable, **the unit the gate is being asked
+  about is the SET, not the file**, and the invariant is **ALL-OLD or ALL-NEW, never MIXED**. The
+  branch run is the only proof of ALL-NEW; the trunk is *expected* to be ALL-OLD until the merge,
+  and a report calling that window a breach teaches its readers to ignore the report; the
+  post-merge run is a **detector, never a gate**. It also states the thing a project would
+  otherwise go hunting for: **a straddling guard cannot be made true on the trunk, and no
+  mechanism removes that** — what is law is the compensator set, and two of those already ship
+  here (the landing script's post-merge check, a detector by construction; the drift report's
+  rule that every check names the source it read), so they are cited rather than restated.
+  Nothing you already do becomes wrong, and no command, flag, path or refusal changes. What
+  changes is that a straddling set now has a name and a rule where the kit previously gave you no
+  way to say what was wrong. **No action required.**
+- **`process/doctrine/fix-execution.md` § A.2 now asks whether a ruling has ever been executed.**
+  A rule nothing has yet had to obey is **untested**, and its record says so — because the
+  instances that accumulate under an unexecuted rule are retrospective, and retrospective
+  instances look exactly like compliance. One bullet. **No action required.**
+- **`lookup-tables.md` § A.5 and `instruments.md` § A.6 now point at each other.** Two readers
+  took them for a contradiction — one tolerates a hand-kept index guarded in a single direction,
+  the other says a reconciliation must print the difference **both** ways. They are two axes, not
+  a disagreement: § A.5 decides **whether you owe** the reconciliation, § A.6 decides **what it
+  must print** once you build one. Each now says so where the other reader lands.
 - **`EXTRACTION.md` § 2.2 and § 2.4 are now tables, and the tables are the counts.** The status-folder
   carriers and the role-set carriers are each listed with what they hold; § 2.2 distinguishes the
   files that carry the lifecycle as a set from the ones that hold only the fixed endpoints of their
@@ -385,6 +409,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **If you carry a hand-kept index or list guarded in only ONE direction, check what its in-file
+  note actually says.** `lookup-tables.md` § A.5 rank 4 has always tolerated that shape *"only
+  with a named reason in-file"*; it now requires the reason to **name the direction left
+  unguarded** — not merely to explain why the list is hand-kept. A note saying *"this list is
+  maintained by hand because the members are decided by a human"* does not meet it; *"nothing
+  detects a member that exists in the tree and is missing from this list"* does. **One sentence
+  per such list**, and the point of it is that the next reader learns the blind spot from the
+  file rather than from an incident.
 - **Two checks, if either applies to you.** If you derive your `MIXED` file set with
   `grep -rl 'KIT-CLASS: MIXED'`, it over-counts — a script that generates a classified file carries
   that file's marker; use the first-marker-per-file form now shown in `EXTRACTION.md` § 1.1. And if

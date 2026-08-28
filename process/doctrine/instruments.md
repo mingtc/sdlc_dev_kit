@@ -207,7 +207,11 @@ wrong at four different sizes, which is why fixing one instance rarely fixes the
   over-collects (it counts things that are not members), and a declaration-derived census misses what
   the tree has grown. **The difference is the only place this bug lives**, and it lives in both
   directions — something added to the tree and never declared, and something declared and absent from
-  the tree.
+  the tree. *This is the specification, not the trigger:
+  [`lookup-tables.md`](lookup-tables.md) § A.5 ranks the alternatives and says when a single guarded
+  direction is survivable — with a reason in-file that **names the direction left unguarded.** The
+  two sheets are not in tension: that one decides whether you owe the reconciliation, this one
+  decides what it must print once you build it.*
 - **The BASIS — and a space can be wrong without being SMALL.** The widest possible membership does
   not save an instrument that compared the wrong *projection* of its subject. **Derive the basis from
   the ACT you are guarding, not from the value that was convenient to compute:** which projection

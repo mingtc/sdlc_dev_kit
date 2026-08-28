@@ -79,6 +79,13 @@ same-commit rule.
 - **The ruled ORDER, and why the order is load-bearing** — not the sequence alone
   ([`subagent-control.md`](subagent-control.md) § A.11). A reader who can see what breaks can also
   tell when the constraint has stopped applying.
+- **Whether the ruling has ever been EXECUTED, said in the record itself.** A rule nothing has yet
+  had to obey is **untested**, and its record should say so. The audit question is cheap and it is
+  the only thing separating a rule that works from one that has merely never been tried: *has this
+  ever actually been executed, or only described afterwards?* Until a prospective case meets it, the
+  instances that accumulate under it are **retrospective** — read backwards onto work that was going
+  to happen anyway — and those look exactly like compliance. The mark comes off the first time a
+  real case obeys the rule and the ruling survives the meeting.
 
 *The failure this prevents is not hypothetical: a ruling recorded on one writable surface while the
 coordinator's main surface went unpushed left the successor unable to find the authority its own

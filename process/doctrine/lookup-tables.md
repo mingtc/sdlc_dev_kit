@@ -142,7 +142,11 @@ Strongest first:
    ways.
 4. **Hand-kept, one direction guarded** — tolerated only with a named reason in-file, because it
    is blind to exactly the shape a retirement sweep produces
-   ([`staleness.md`](staleness.md) § A.3).
+   ([`staleness.md`](staleness.md) § A.3). **The reason must name the unguarded direction**, not
+   merely justify the table's existence; a note explaining why the list is hand-kept is not the
+   toleration this rank asks for. *What "both directions" means, and how to build it, is
+   [`instruments.md`](instruments.md) § A.6 — this rank says when one is survivable, that sheet
+   says what the other one costs you.*
 5. **Hand-kept, unguarded** — permitted only for a table under 10 rows that a single seat rewrites
    in one sitting, carrying a dated `LAST-VERIFIED` line. It will rot; the line is what makes the
    rot visible.
