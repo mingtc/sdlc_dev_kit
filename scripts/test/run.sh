@@ -46,6 +46,26 @@
 #   is never used to hide a missing behaviour (see the notes on the two cases that
 #   deliberately have NO capability probe).
 #
+# WHERE THIS HARNESS IS A WITNESS, AND WHERE IT IS NOT. It is a witness when run from
+# a BUILT KIT — an unzipped tree given day-one git topology. It is NOT a witness run
+# in place inside the repository that maintains the kit, and that is a property of
+# that repository's storage rather than a defect in anything here: the kit is kept
+# there DISARMED, under `_claude/` rather than `.claude/`, so a harness auto-loader
+# does not pick up the kit's own skills and roles as the maintainer's.
+#
+# WHAT IN-PLACE RUNNING ACTUALLY COSTS, measured rather than described: the day-one
+# cases SKIP on a `.claude/` path that is present two directories over under the other
+# spelling, and at least one case has reported a FALSE RED with no defect behind it.
+# Both are the same cause. So an in-place run's output is not admissible as evidence
+# about the kit, and no number taken from one belongs in a change file.
+#
+# THE CASES THAT TOLERATE BOTH SPELLINGS DO NOT MAKE IN-PLACE RUNNING SUPPORTED. Four
+# read whichever of `_claude/` or `.claude/` exists, so that they still read the real
+# shipped tree when someone runs them in place; each says so at its own site. That is a
+# convenience for those cases, not a mode this file offers, and it must not be widened
+# into one — running in place should be honestly unsupported rather than quietly made
+# to work, which is a larger decision than any of those cases took.
+#
 # THE PIPEFAIL RULE, and it has already cost this harness one FALSE RED: under
 # `set -o pipefail`, a pipeline ending in a reader that exits before its input is
 # drained — `head`, `grep -q`, `grep -m`, `sed …q`, `read` are the family — returns
@@ -751,7 +771,7 @@ ROLE_EOF
       && cf "(control) '$outsider' IS in the declared set, so the plant cannot demonstrate a rejection — pick a name the set does not contain"
   fi
 
-  finish "every role literal this harness writes ($n found, by argument position) is a member of the set the sandbox declares, and a planted outsider is found and rejected"
+  finish "every role literal this harness writes is a member of the set the sandbox declares — $n found by argument position ($(printf '%s' "$used" | tr '\n' ' ')), and a planted outsider is found and rejected"
   teardown
 }
 
@@ -1528,6 +1548,10 @@ case_skills_carry_no_foreign_namespace() {
   cf_reset
   make_sandbox
 
+  # DUAL-SPELLING, and the reason belongs here rather than in the reader's memory: the
+  # maintainer repository stores the kit disarmed (`_claude/`), a built kit ships it
+  # armed (`.claude/`). Reading whichever exists lets this case still find the real
+  # shipped tree in place. It does NOT make an in-place run a witness — see the header.
   local skills="" d
   for d in "$REAL_REPO_ROOT/_claude/skills" "$REAL_REPO_ROOT/.claude/skills"; do
     [ -d "$d" ] && skills="$d"
@@ -1633,6 +1657,10 @@ case_skills_name_no_forge_unconditionally() {
   cf_reset
   make_sandbox
 
+  # DUAL-SPELLING, and the reason belongs here rather than in the reader's memory: the
+  # maintainer repository stores the kit disarmed (`_claude/`), a built kit ships it
+  # armed (`.claude/`). Reading whichever exists lets this case still find the real
+  # shipped tree in place. It does NOT make an in-place run a witness — see the header.
   local skills="" d
   for d in "$REAL_REPO_ROOT/_claude/skills" "$REAL_REPO_ROOT/.claude/skills"; do
     [ -d "$d" ] && skills="$d"
@@ -1730,6 +1758,10 @@ case_upstream_name_only_where_kept() {
   cf_reset
   make_sandbox
 
+  # DUAL-SPELLING, and the reason belongs here rather than in the reader's memory: the
+  # maintainer repository stores the kit disarmed (`_claude/`), a built kit ships it
+  # armed (`.claude/`). Reading whichever exists lets this case still find the real
+  # shipped tree in place. It does NOT make an in-place run a witness — see the header.
   local agent="" d
   for d in "$REAL_REPO_ROOT/_claude" "$REAL_REPO_ROOT/.claude"; do
     [ -d "$d" ] && agent="$d"
@@ -1910,6 +1942,10 @@ case_runner_schema_required_defines() {
   make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
 
   local total_schemas=0 total_bad=0 f lab res n bad
+  # DUAL-SPELLING, and the reason belongs here rather than in the reader's memory: the
+  # maintainer repository stores the kit disarmed (`_claude/`), a built kit ships it
+  # armed (`.claude/`). Reading whichever exists lets this case still find the real
+  # shipped tree in place. It does NOT make an in-place run a witness — see the header.
   for f in "$REAL_REPO_ROOT"/_claude/workflows/*runner*.js "$REAL_REPO_ROOT"/.claude/workflows/*runner*.js; do
     [ -e "$f" ] || continue
     lab="$(basename "$f")"
@@ -2580,7 +2616,12 @@ EOF
 # the definiteness was the problem: a pin was aimed at an operand that could never
 # hold the token, and read as coverage. Superseded rather than deleted, because the
 # shape — an instrument error attributed to the wrong side of the comparison it
-# guards — is the reason both pins below now sit on the side that can actually fail.
+# guards — is the reason the two NEGATIVE pins below now sit on the side that can
+# actually fail. THE CASE HAS THREE PINS, NOT TWO, and the third is deliberately left
+# where it is: the positive `PASS_AC_CORRECTED` assertion has the opposite polarity, so
+# a rename cannot make it vacuous — it reddens loudly on the next run instead. It is
+# untouched on purpose, and named here so a later reader can tell "excluded" from
+# "overlooked".
 #
 # So the MANUAL side is scoped to the rows of the `| Verdict | Token |` table and the
 # runner side to the `const VERDICTS` declaration, and the assertions below hold both
