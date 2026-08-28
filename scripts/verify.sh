@@ -101,13 +101,25 @@ GATES=(
 # selection already covers them.
 #
 # WHO UPDATES IT: whoever adds or renames a cross-cutting guard, IN THE SAME
-# CHANGE. The runner refuses to start a scoped run if a listed path has vanished
-# (see the existence check below), so a rename that forgets this list fails
-# loudly instead of quietly shrinking the floor.
+# CHANGE — the guard and its enrolment here are one coupled set. Your code globs
+# classify this file as metadata while the file it guards is code, so this is the
+# EXECUTABLE-DECLARATION case of the adapter's metadata carve-out, not the
+# documentation-of-code case its worked examples show.
+# (process/doctrine/commit-hygiene.md § A.5.)
+#
+# WHAT THE CHECK BELOW ENFORCES, AND WHAT IT CANNOT — both, because only one of
+# them is obvious. It refuses a scoped run when a LISTED path has vanished, so a
+# rename or a deletion that forgets this list fails loudly. It CANNOT see the
+# other direction: a guard that lands and is never enrolled is invisible here,
+# because this list is the only thing the check reads, and a list is its own
+# horizon. THAT direction is the silent one, and nothing in this file reports it.
 #
 # The membership is READABLE HERE, without running anything — that is the point of
 # a list rather than a marker scattered across the modules or a glob over names
-# containing "guard".
+# containing "guard". The price of that choice is exactly the unguarded direction
+# named above: hand-kept, one direction checked — which is tolerated only because
+# the blind direction is stated here rather than discovered later
+# (process/doctrine/lookup-tables.md § A.5, rank 4).
 GUARD_SET=(
   # e.g. tests/test_docs_matrix_drift.<ext>
 )
@@ -157,7 +169,7 @@ if [ "$LIST" -eq 1 ]; then
     g_name="${rec%%|*}"; rest="${rec#*|}"; g_class="${rest%%|*}"; g_cmd="${rest#*|}"
     printf '  %-8s %-24s %s\n' "$g_class" "$g_name" "$g_cmd"
   done
-  echo "guard floor: ${#GUARD_SET[@]} item(s) ${GUARD_SET[*]:-}"
+  echo "guard floor: ${#GUARD_SET[@]} DECLARED item(s) ${GUARD_SET[*]:-}"
   [ "${#GATES[@]}" -eq 0 ] && echo "(the table is empty — this runner REFUSES to run until you declare a gate)"
   exit 0
 fi
@@ -287,7 +299,9 @@ run_gate() {
 
 if [ "$SCOPED" -eq 1 ]; then
   echo
-  echo "── SCOPED RUN (TDD inner loop only): ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} always-on guard(s)."
+  echo "── SCOPED RUN (TDD inner loop only): ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s)."
+  echo "   The floor is this file's GUARD_SET list, not every guard in the tree: a guard that"
+  echo "   exists and was never listed is not run here, and nothing reports that."
   echo "   The FULL run stays mandatory at the dev_complete handoff, at QA and at release."
 fi
 
@@ -350,7 +364,7 @@ if [ "$SCOPED" -eq 1 ]; then
   # A NARROWED RUN IS A WEAKER CLAIM AND SAYS SO IN THE BLOCK ITSELF (§ 2, § 4),
   # not only in the banner printed before the gates — the summary is the part
   # that gets quoted into a review, so it is the part that must carry the caveat.
-  echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} always-on guard(s). NOT the full-gate claim."
+  echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s). NOT the full-gate claim, and the floor is only as complete as that declaration."
 fi
 [ "$UNRUNNABLE" -gt 0 ] && echo "NOTE: $UNRUNNABLE gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."
 exit "$FAILED"

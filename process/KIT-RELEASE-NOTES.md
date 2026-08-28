@@ -429,6 +429,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **The scoped run stops overstating its floor.** `scripts/verify.sh`'s guard-floor header said
+  a rename that forgot the list *"fails loudly instead of quietly shrinking the floor"* — true
+  of a **listed** path that vanishes, and false of the direction that actually costs you: a
+  guard that lands and is never enrolled is invisible to that check, because the list is the
+  only thing it reads. The header now says both, and names the unguarded direction as the price
+  of keeping membership readable without running anything. The run's own output says
+  `DECLARED guard(s)` instead of `always-on guard(s)` and states that the floor is only as
+  complete as the declaration, and the Dev role doc no longer calls a scoped run *safe* without
+  saying what it is not. **Nothing about what runs has changed** — this is the same floor,
+  described honestly. **If you have filled `GUARD_SET`, take the corrected header block into
+  your own copy and keep your contents**; the sentence you are replacing is the one that would
+  have told you the omission could not happen quietly.
 - **If you carry a hand-kept index or list guarded in only ONE direction, check what its in-file
   note actually says.** `lookup-tables.md` § A.5 rank 4 has always tolerated that shape *"only
   with a named reason in-file"*; it now requires the reason to **name the direction left
