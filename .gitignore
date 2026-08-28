@@ -24,6 +24,19 @@
 .worktrees/
 .claude/worktrees/
 
+# ── Process kit: bytecode from the hygiene instruments ─────────────────────
+# scripts/hygiene/ ships advisory Python instruments (standard library only,
+# never a gate). Their supported entry points set sys.dont_write_bytecode before
+# importing each other, so the normal path writes nothing — but a bare
+# `python -c "import ..."` or a REPL session writes scripts/hygiene/__pycache__/
+# anyway, and CPython writes a module's own .pyc before its body can stop it.
+# Ignored because that residue is not yours and has one nasty property: a guard
+# that walks scripts/ and fails on a file with no KIT-CLASS marker REDDENS on the
+# .pyc while git status stays clean. See scripts/hygiene/citation_index.py's
+# header, which also prescribes `rm -rf scripts/hygiene/__pycache__`.
+__pycache__/
+*.pyc
+
 # ── OS / editor cruft ──────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

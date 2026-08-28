@@ -48,6 +48,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`.gitignore` now ignores the hygiene instruments' Python bytecode.** `scripts/hygiene/` is
+  Python, and a bare `python -c` import or a REPL session writes `scripts/hygiene/__pycache__/`
+  beside it — residue that reddens a guard walking `scripts/` for `KIT-CLASS` markers while
+  `git status` stays clean (`citation_index.py`'s own header). `__pycache__/` and `*.pyc` are in the
+  kit's own section of `.gitignore`, not the FILL ME build-artifact section, because a cache written
+  by a file the kit ships is not your build artifact. Nothing to do; if you have already edited your
+  copy, add the two lines whenever you next touch it.
 - **The self-test suite covers the day-one path the documentation prints.** `GIT-HOSTING.md` § 3
   step 2's first commit has no role prefix and runs with the hooks unwired — the state that made a
   correct install fail its own self-check. The suite now runs `kit-init` that way and asserts it
