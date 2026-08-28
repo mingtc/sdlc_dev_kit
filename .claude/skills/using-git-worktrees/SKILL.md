@@ -82,6 +82,16 @@ Follow this priority order. Explicit user preference always beats observed files
 
 4. **If there is no other guidance available**, default to `.worktrees/` at the project root.
 
+> One spelling worth knowing about: **`~/.config/superpowers/worktrees/` is an external tool's
+> directory, not one these skills chose.** Directory Selection's third option *adopts* that
+> directory only where it already exists — the external tool or the user created it, never these
+> skills. Adopting it means the new worktree is created *inside* it, exactly as one is created
+> inside `.worktrees/`; what these skills never create is the external directory itself, and their
+> own default stays `.worktrees/` at the project root. The path is written exactly as whatever
+> created the directory writes it, because renaming it here would send that third option looking
+> for a directory nothing makes. Where no such directory exists, the third option finds nothing and
+> the default applies.
+
 #### Safety Verification (project-local directories only)
 
 **MUST verify directory is ignored before creating worktree:**

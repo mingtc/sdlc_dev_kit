@@ -20,11 +20,10 @@ Skills use Claude Code tool names. When you encounter these in a skill, use your
 
 Gemini CLI supports subagents natively via the `@` syntax. Use the built-in `@generalist` agent to dispatch any task — it has access to all tools and follows the prompt you provide.
 
-When a skill says to dispatch a named agent type, use `@generalist` with the full prompt from the skill's prompt template:
-
 The left column is the instruction as the skills here actually write it —
 `subagent-driven-development` dispatches by naming a PROMPT TEMPLATE, never a named
-agent type, so there is no plugin-provided agent to map.
+agent type, so there is no plugin-provided agent to map. Dispatch each one as
+`@generalist` carrying the filled template:
 
 | Skill instruction | Gemini CLI equivalent |
 |-------------------|----------------------|
@@ -39,7 +38,7 @@ Skills provide prompt templates with placeholders like `{WHAT_WAS_IMPLEMENTED}` 
 
 ### Parallel dispatch
 
-Gemini CLI supports parallel subagent dispatch. When a skill asks you to dispatch multiple independent subagent tasks in parallel, request all of those `@generalist` or named subagent tasks together in the same prompt. Keep dependent tasks sequential, but do not serialize independent subagent tasks just to preserve a simpler history.
+Gemini CLI supports parallel subagent dispatch. When a skill asks you to dispatch multiple independent subagent tasks in parallel, request all of those `@generalist` tasks together in the same prompt. Keep dependent tasks sequential, but do not serialize independent subagent tasks just to preserve a simpler history.
 
 ## Additional Gemini CLI tools
 

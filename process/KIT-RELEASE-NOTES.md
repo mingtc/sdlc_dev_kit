@@ -48,6 +48,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The shipped skills stop naming the upstream product where nothing depends on the name** —
+  `executing-plans`, `using-superpowers` § Instruction Priority and `finishing-a-development-branch`
+  § Step 6 now read in the kit's own terms, and a worked example's `~/.config/…/hooks/` path is a
+  blank instead of that tool's real one. **Two dependencies are kept on purpose, and each says so
+  where you will read it:** `~/.config/superpowers/worktrees/` stays exactly as written, with a
+  sentence in `using-git-worktrees` § Directory Selection explaining that it is an external tool's
+  directory these skills *adopt* where it already exists rather than create (a worktree is made
+  inside it; the directory itself never is) — renaming it would send the check looking for a
+  directory nothing creates; and the upstream repository link in the companion's page header stays
+  as provenance, because a skill whose origin nobody can name is a skill nobody can safely update.
+  The `using-superpowers` skill directory keeps its name for now — renaming it breaks every path that
+  cites it. Also: `references/gemini-tools.md` drops two sentences that contradicted the file's own
+  corrected statement, keeping the live instruction inside them.
 - **`contracts/initializer.md` § 2 gains a hard invariant** — a substitution names the space it
   rewrites, and a convention's key is not in it; any census of surviving placeholder residue exempts
   those keys in the same change. **`contracts/config-seam.md` § 4 item 3** names the same exemption
@@ -353,6 +366,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **If you use the `brainstorming` skill's visual companion with `--project-dir`: its persistence
+  directory is now `.brainstorm/`, not `.superpowers/brainstorm/`.** Add `.brainstorm/` to your
+  `.gitignore`. If you had ignored only `.superpowers/`, the next session's mockups would be
+  **tracked** — that is the single failure this rename can cause. Mockups already saved under
+  `.superpowers/brainstorm/` are **not** moved and nothing reads them: keep the directory if you still
+  want them, delete it when you do not. An old session still stops cleanly, because `stop-server.sh`
+  takes the session directory as its argument.
 - **The drift report gains a day-one completeness check.** `check-board.sh` now reports, at every
   session close, while `CLAUDE.md` or `README.md` still carry the shipped `BOOTSTRAP-SCAFFOLDING` line
   or `PROJECT.md` still holds `<angle-bracket>` blanks. It reads your published trunk, names what it
