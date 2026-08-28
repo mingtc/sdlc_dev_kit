@@ -2,7 +2,7 @@
 # KIT-CLASS: KIT — the git cold-signal query over this tree's own history; advisory, never a
 # gate. See process/EXTRACTION.md.
 # =============================================================================
-# scripts/hygiene/cold_signal.py — INSTRUMENT 3 of 4: THE GIT COLD-SIGNAL QUERY.
+# scripts/hygiene/cold_signal.py — THE GIT COLD-SIGNAL QUERY.
 #
 # MODALITY (the contract): the conjunction of three independent signals —
 #   SINGLE-COMMIT (added once, never amended)  AND  COLD (untouched beyond the horizon)  AND
@@ -72,12 +72,46 @@ DEFAULT_DAYS = 14
 DEFAULT_EXCLUDED_PREFIXES = ("progress/", "src/", "tests/", "test/", "dist/", "build/")
 
 
+class HistoryUnavailable(RuntimeError):
+    """`git log` could not run on this tree — so NOTHING was measured.
+
+    Deliberately NOT raised for an empty history: a repository with no commits is a measured
+    answer, and this exception means the measurement never happened. That distinction is
+    `contracts/verify-gate.md` § 3's, and the vocabulary below is `verify.sh`'s: UNRUNNABLE is
+    not FAIL, and a report that spells them the same way sends the reader to debug a tree that
+    may be perfectly healthy.
+    """
+
+    # The remedy is passed IN, never inferred here: the two ways this fires need opposite
+    # advice, and telling a reader whose git is missing to run `git init` is the same defect
+    # one layer up — a true sentence aimed at the wrong reader.
+    def __init__(self, root, rc, said, remedy):
+        self.root, self.rc, self.said, self.remedy = root, rc, said, remedy
+        self.asked = f"git -C {root} log --no-merges --format=%x01%ct --name-only"
+        super().__init__(f"git log could not run in {root}")
+
+
 def git_history(root: Path):
     """``path -> (commit_count, last_unix_ts)`` from ONE local history walk. No remote."""
-    proc = subprocess.run(
-        ["git", "-C", str(root), "log", "--no-merges", "--format=%x01%ct", "--name-only"],
-        capture_output=True, text=True, check=True,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "log", "--no-merges", "--format=%x01%ct", "--name-only"],
+            capture_output=True, text=True, check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise HistoryUnavailable(
+            root, exc.returncode, (exc.stderr or "").strip(),
+            "this instrument reads THIS working copy's own history (see the header). An unpacked "
+            "release or an export is not a repository — run it inside a clone, or `git init` first.",
+        ) from None
+    except FileNotFoundError:
+        # git absent entirely. The kit's floor assumes it, so this is unusual — and a traceback
+        # about a missing binary is exactly as unhelpful as one about a missing repository.
+        raise HistoryUnavailable(
+            root, None, "git is not on PATH",
+            "install git, or put it on PATH. The kit's floor assumes git; nothing here can "
+            "substitute for it, and no other instrument in this directory needs it.",
+        ) from None
     stats: dict = {}
     stamp = 0
     for line in proc.stdout.splitlines():
@@ -133,7 +167,31 @@ def main(argv=None) -> int:
         excluded = tuple(args.exclude)
     else:
         excluded = DEFAULT_EXCLUDED_PREFIXES
-    rows = survey(root=Path(args.root), days=args.days, excluded=excluded)
+    try:
+        rows = survey(root=Path(args.root), days=args.days, excluded=excluded)
+    except HistoryUnavailable as exc:
+        # THE REFUSAL, in verify.sh's vocabulary. Human text on stderr either way, so a caller
+        # redirecting stdout still sees why.
+        print(f"cold_signal.py: could NOT RUN — {exc}. NOTHING was measured.", file=sys.stderr)
+        print("  this is not 'no cold files': the instrument never ran.", file=sys.stderr)
+        print(f"  asked:     {exc.asked}", file=sys.stderr)
+        print(f"  git said:  {exc.said or '(no message)'}"
+              + (f"  (rc={exc.rc})" if exc.rc is not None else ""), file=sys.stderr)
+        print(f"  remedy:    {exc.remedy}", file=sys.stderr)
+        if args.json:
+            import json
+
+            # A VALID OBJECT THAT SAYS IT DID NOT RUN, and it carries NO data keys — no `rows`,
+            # no `files`, no `bytes`. Both alternatives are worse for the one reader who cannot
+            # infer anything: empty stdout is indistinguishable from a successful empty result
+            # (instruments.md § A.9 — read the STATUS, never the output shape), and `"rows": []`
+            # asserts there are no cold files, which is a measurement nobody made. Omitting the
+            # keys makes a consumer that skipped the exit code fail loudly on the lookup instead.
+            print(json.dumps({"unrunnable": {
+                "instrument": "cold_signal", "reason": str(exc), "asked": exc.asked,
+                "git_rc": exc.rc, "git_said": exc.said, "remedy": exc.remedy,
+            }}, indent=2))
+        return 2
     total = sum(row["bytes"] for row in rows)
     if args.json:
         import json

@@ -2,7 +2,7 @@
 # KIT-CLASS: KIT — the cross-file prose duplication scan; advisory, never a gate.
 # See process/EXTRACTION.md.
 # =============================================================================
-# scripts/hygiene/duplication_scan.py — INSTRUMENT 1 of 4: CROSS-FILE DUPLICATION.
+# scripts/hygiene/duplication_scan.py — CROSS-FILE DUPLICATION.
 #
 # MODALITY (the contract): a shingle scan over normalized windows, reporting cross-file PAIRS
 # with an overlap fraction. Report only — it writes nothing, deletes nothing, moves nothing,

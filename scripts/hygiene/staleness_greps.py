@@ -2,7 +2,7 @@
 # KIT-CLASS: KIT — the staleness-signal greps over the live reading path; advisory, never a
 # gate. See process/EXTRACTION.md.
 # =============================================================================
-# scripts/hygiene/staleness_greps.py — INSTRUMENT 4 of 4: THE STALENESS SIGNALS.
+# scripts/hygiene/staleness_greps.py — THE STALENESS SIGNALS.
 #
 # MODALITY (the contract): two greps, and their output is SUSPICIONS, not findings. Report
 # only — it writes nothing, deletes nothing, moves nothing, makes no network call, and needs no

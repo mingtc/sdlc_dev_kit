@@ -2,7 +2,7 @@
 # KIT-CLASS: KIT — the orphan walk over the doc graph; advisory, never a gate.
 # See process/EXTRACTION.md.
 # =============================================================================
-# scripts/hygiene/reachability_walk.py — INSTRUMENT 2 of 4: THE REACHABILITY WALK.
+# scripts/hygiene/reachability_walk.py — THE REACHABILITY WALK.
 #
 # MODALITY (the contract): build the reference graph over this repo's doc nodes, walk it from the
 # starter files a fresh agent actually opens, print everything NOT reached. Report only — it

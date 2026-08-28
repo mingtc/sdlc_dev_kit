@@ -2,9 +2,14 @@
 # KIT-CLASS: KIT — the shared citation index behind the hygiene instruments; advisory, never a
 # gate. See process/EXTRACTION.md.
 # =============================================================================
-# scripts/hygiene/citation_index.py — THE SHARED HALF of the hygiene instruments.
+# scripts/hygiene/citation_index.py — the citation index, and the shared half the others import.
 #
-# WHY THIS FILE IS PYTHON, IN A KIT THAT IS OTHERWISE BASH + GIT. The five files in this
+# THE SET, STATED ONCE SO THAT NOTHING COUNTS IT BY HAND: **every `.py` file in this directory is
+# an instrument, and this one is also the library the others import.** `ls scripts/hygiene/` is
+# the list. No file carries an ordinal — adding an instrument would renumber the others, and a set
+# maintained by hand, one header at a time, goes false the first time it changes.
+#
+# WHY THIS FILE IS PYTHON, IN A KIT THAT IS OTHERWISE BASH + GIT. The files in this
 # directory are INSTRUMENTS, not project runtime: nothing ships them, no gate calls them, and no
 # consumer inherits them. They are the seat's measuring tools, and they are Python because a
 # shingle scan and a graph walk in bash would be slower to run and far slower to read. They use
@@ -72,8 +77,9 @@ from pathlib import Path
 # is still written.
 #
 # THEREFORE THE IMPORTER CONTRACT, AND IT IS ON THE IMPORTER: **set
-# `sys.dont_write_bytecode = True` BEFORE importing this module.** All four instruments here do,
-# each with the comment saying why; anything else that imports this file must do the same, and a
+# `sys.dont_write_bytecode = True` BEFORE importing this module.** Every instrument that imports
+# this file does, each with the comment saying why — the obligation is on the importer, so how many
+# importers there are is a fact about the directory and not part of the rule. A
 # bare REPL / `python -c` import will redden such a guard until it is cleaned up
 # (`rm -rf scripts/hygiene/__pycache__`).
 sys.dont_write_bytecode = True

@@ -48,6 +48,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`scripts/hygiene/cold_signal.py` tells you why it cannot run, instead of raising.** It reads
+  your working copy's own git history, so on a tree that is not a repository — an unpacked
+  release, an export, a clone you have not `git init`-ed — it used to end in a Python traceback.
+  It now says **could NOT RUN**, names the command it tried, quotes git's own message, gives the
+  remedy, and exits 2. **The distinction it is protecting: this is not "no cold files"** — the
+  instrument never ran, and an unrunnable check is an unknown rather than a clean result. With
+  `--json` it prints an object saying it did not run, with **no** rows/files/bytes keys, so a
+  consumer that ignores the exit status fails loudly rather than reading a zero. **Nothing to
+  do**: on a normal repository the report is byte-for-byte what it was.
 - **The kit's tooling floor is stated more precisely, and two extras are named deletable.** The
   floor read *"git and a POSIX shell, and nothing else"* — an absolute the tree already
   contradicted, because `scripts/hygiene/` is Python and `brainstorming` has an optional Node
