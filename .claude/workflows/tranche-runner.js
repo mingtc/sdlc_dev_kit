@@ -138,7 +138,7 @@ const PARK_SCHEMA = {
     gate_evidence: { type: 'string', description: 'gate runner / check-board.sh / git state observed' },
     notes: { type: 'string' },
   },
-  // `landing`, not `landed`: change 026 renamed this field in the properties above
+  // `landing`, not `landed`: an earlier rename changed this field in the properties above
   // and did not follow it into `required` here, so the schema demanded a property it
   // no longer defines — the validator would have asked every park leg for a field the
   // brief never mentions. Wave's two `required` arrays were updated; this one was missed.

@@ -494,7 +494,7 @@ kwt_finalize || exit 1
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
 # AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
 # match — the normal case — and under `set -e` that is an abort AFTER a successful
-# landing, which is the precise hazard change 008 item 3 is about. Caught by the
+# landing, which is the precise hazard the ungated-landing review found. Caught by the
 # control, not by reading: a green landing exited 1.
 if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
   echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"

@@ -429,7 +429,7 @@ echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUAS
 } 
 # AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
 # match — the normal case — and under `set -e` that is an abort AFTER a successful
-# landing, which is the precise hazard change 008 item 3 is about. Caught by the
+# landing, which is the precise hazard the ungated-landing review found. Caught by the
 # control, not by reading: a green landing exited 1.
 if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
   echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
@@ -639,7 +639,16 @@ else
   POSTMERGE_CMD=("$GATE_WORKTREE/scripts/verify.sh" --quick)
 fi
 if "${POSTMERGE_CMD[@]}"; then
-  echo "  post-merge verify --quick: PASS"
+  # NAMES THE REF ON THE CLEARING BRANCH TOO. The FAIL sibling below names
+  # ${DEFAULT_BRANCH} twice; this line named nothing, so the two halves of one gate
+  # were specific in failure and vague in success — the asymmetry that errs only ever
+  # toward false confidence, because the vague half is the one a reader stops at.
+  # contracts/landing-gate.md § 4 states it: "it names the ref it read — on the
+  # clearing branch as much as on the complaining one."
+  # The POST_MERGE_GATE: lines below are a MACHINE CONTRACT and are symmetric BY
+  # DESIGN — one fixed prefix, one of two words. They are deliberately NOT changed:
+  # an automation keys on the token, and a ref belongs in the human sentence.
+  echo "  post-merge verify --quick: PASS on ${DEFAULT_BRANCH} (post-merge, in ${GATE_WORKTREE})"
   # THE MACHINE-GREPPABLE LINE. A human reads the sentence above; an automation
   # needs a token it can key on without parsing prose, because this outcome
   # deliberately does NOT move the exit code (see the header's exit table). One

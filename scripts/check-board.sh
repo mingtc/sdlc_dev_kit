@@ -755,9 +755,10 @@ echo "      (span, both homes: commits REACHABLE FROM A REF. A commit reachable 
 # CORRECTNESS ARGUMENT. Every class it inspects — the root documents, PROJECT.md,
 # the optional directories — is METADATA-lane and commits direct to the trunk. A
 # working-tree read would declare graduation on an unpushed edit and then, because
-# a satisfied graduation stops reporting, NEVER RE-ASK. That is change 025's defect
-# (a checker and the home it did not watch) in a one-way arm, where it is
-# unrecoverable rather than merely stale. So it walks $CB_TREE like arms (a)-(e).
+# a satisfied graduation stops reporting, NEVER RE-ASK. That is the measured defect
+# of a checker that never watched the home its subject lived in — here in a one-way
+# arm, where it is unrecoverable rather than merely stale. So it walks $CB_TREE like
+# arms (a)-(e).
 #
 # IT DOES NOT SET `drift`, DELIBERATELY, AND THIS IS THE PART TO READ BEFORE
 # CHANGING IT. The final verdict line answers "is the BOARD telling the truth?",

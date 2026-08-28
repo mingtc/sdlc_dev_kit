@@ -144,7 +144,7 @@ const PARK_SCHEMA = {
     // outcome came back under two different shapes depending on which runner
     // produced it, and any consumer had to know which. A park review is not an AC
     // walk; the honest names are the ones that describe what it checked. One
-    // vocabulary, projected — change 026's rule applied one level down.
+    // vocabulary, projected — the same one-vocabulary rule, one level down.
     park_walk: { type: 'string', description: 'the park claims verified/refuted with evidence' },
     unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable' },
     gate_evidence: { type: 'string' },
@@ -210,7 +210,7 @@ Return the structured result only.`
 
 function parkPrompt(issue) {
   return `Wear the **QA hat** per .claude/roles/qa.md. Issue ${issue.id} was PARKED by its Dev (status=blocked). Verify THE PARK, not the feature: the issue sits in blocked/ with findings; the findings are evidence-backed and honestly scoped; the tree shows no half-landed residue (clean status, no stray branch); nothing in the park's claims is contradicted by the repo. Do not re-litigate whether parking was right — that is the PM's call. ${COMMON}
-Return the structured result only: the ratified verdict for whether the PARK is true, and landing=not_applicable — a park lands nothing, so that is the true value rather than an exception you are being granted. (This line used to say "landed is ALWAYS false"; change 026 replaced that boolean with the three-valued `landing` field, updated the schema beside it, and did not follow the rename into this brief — so the instruction named a field the schema no longer defines. The schema moved and the prose did not, which is the same divergence 026 exists to prevent, one layer over.)`
+Return the structured result only: the ratified verdict for whether the PARK is true, and landing=not_applicable — a park lands nothing, so that is the true value rather than an exception you are being granted. (This line used to say "landed is ALWAYS false"; a later change replaced that boolean with the three-valued `landing` field, updated the schema beside it, and did not follow the rename into this brief — so the instruction named a field the schema no longer defines. The schema moved and the prose did not, which is the very divergence that change existed to prevent, one layer over.)`
 }
 
 const results = []
