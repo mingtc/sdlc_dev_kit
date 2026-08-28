@@ -59,8 +59,12 @@ cd "$ROOT"
 # The remote name the kanban worktree uses (kanban-worktree.sh's KWT_REMOTE knob).
 REMOTE="${KWT_REMOTE:-origin}"
 
-# The lifecycle. The status set is a seam WITHOUT a variable across four scripts —
-# this one uses it as it is (it does not parameterise it).
+# The lifecycle. The status set is a seam WITHOUT a variable: several files carry the
+# column names as literals and they do NOT all carry the same ones — process/EXTRACTION.md
+# § 2.2's table is the list, and THIS FILE IS ONE OF ITS ROWS. It uses the set as it is
+# (it does not parameterise it). Read the table rather than a count written here; this
+# line used to say "across four scripts", which was wrong about the number, wrong about
+# the membership, and excluded the file stating it.
 STATUS_FOLDERS=(todo in_progress dev_complete qa_complete blocked done)
 # + history/ for rotated progress.md sections (archive-progress.sh's destination).
 BOARD_FOLDERS=("${STATUS_FOLDERS[@]}" history)

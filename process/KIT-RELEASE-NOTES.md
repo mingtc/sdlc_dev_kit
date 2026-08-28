@@ -48,6 +48,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`EXTRACTION.md` § 2.2 and § 2.4 are now tables, and the tables are the counts.** The status-folder
+  carriers and the role-set carriers are each listed with what they hold; § 2.2 distinguishes the
+  files that carry the lifecycle as a set from the ones that hold only the fixed endpoints of their
+  own transition, and carries a divergence column because `subtask.sh` omits `done` and `setup.sh`
+  adds `history/`. § 1.1's day-one table gains `.env.example` and `.gitignore`. The adapter template's
+  parked-role paragraph now says what adding a role actually touches — every carrier § 2.4 lists —
+  and that parking touches none of the scripts by design.
 - **The self-test harness now runs green in an initialized project.** It previously reported one FAIL
   and exited 1 for every adopter who completed § Day one and then ran `./scripts/test/run.sh` as the
   kit instructs: the sandbox inherited your stamped issue prefix in `.claude/templates/` while its
@@ -378,6 +385,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Two checks, if either applies to you.** If you derive your `MIXED` file set with
+  `grep -rl 'KIT-CLASS: MIXED'`, it over-counts — a script that generates a classified file carries
+  that file's marker; use the first-marker-per-file form now shown in `EXTRACTION.md` § 1.1. And if
+  you added a role by following the adapter's old "editing three places" sentence, check
+  `scripts/move-issue.sh` and `scripts/subtask.sh`: a role registered only in the hook and the adapter
+  commits fine and cannot move a card — § 2.4's table is every carrier.
 - **If you use the `brainstorming` skill's visual companion with `--project-dir`: its persistence
   directory is now `.brainstorm/`, not `.superpowers/brainstorm/`.** Add `.brainstorm/` to your
   `.gitignore`. If you had ignored only `.superpowers/`, the next session's mockups would be

@@ -43,9 +43,12 @@ quality bar, the gates, credentials, the active-roles table) live in
 
 The pattern is [`process/MANUAL.md` § Roles as hats](process/MANUAL.md). **This table is this
 project's cast** — it is the source of truth for which hats exist here, and it must match the
-contents of `.claude/roles/` and the role set your commit-attribution guard enforces
-*(authority: [`process/contracts/config-seam.md`](process/contracts/config-seam.md) and
-[`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md))*.
+contents of `.claude/roles/` and **every file that carries the role set** —
+[`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and that list is the count.
+*(Not "the guard": there is more than one, and a role registered in only some of them commits fine
+and cannot move a card. Authority:
+[`process/contracts/config-seam.md`](process/contracts/config-seam.md) and
+[`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md).)*
 
 | Role | Doc | Owns |
 |------|-----|------|
@@ -54,10 +57,16 @@ contents of `.claude/roles/` and the role set your commit-attribution guard enfo
 | **<Role>** | [<role>.md](.claude/roles/archive/<role>.md) | **PARKED** — <why it is parked, and what would un-park it> |
 
 **Parked is a decision, not an absence.** A role you do not run stays in the table with its reason,
-in `.claude/roles/archive/`, so the next reader can see the choice was made. Adding or parking a
-role means editing **three** places in the same change: this table, `.claude/roles/`, and the role
-set in `scripts/githooks/commit-msg`. *(More readers than three carry the set —
-[`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and that list is the count.)*
+in `.claude/roles/archive/`, so the next reader can see the choice was made.
+
+**Adding a role means editing this table, `.claude/roles/`, and every file that carries the role
+set** — [`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and **that table is the
+count**. Register it in only some of them and the role commits fine and **cannot move a card**: that
+is a measured incident, not a hypothetical, and it is why § 2.4 exists.
+
+**Parking one costs no script edit, and that is deliberate** — the prefix stays accepted, so an
+un-park costs no hook change. *The asymmetry is worth knowing in both directions: adding touches
+every carrier, parking touches none of the scripts.*
 
 ## The trunk, the branches, and what counts as code here
 

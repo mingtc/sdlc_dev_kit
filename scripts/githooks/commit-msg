@@ -56,8 +56,10 @@ MSG_FILE="${1:-}"
 # DERIVE the list with one sed rather than re-hardcoding it (hard-won: the day a
 # re-hardcoded copy drifted, the standing seat could not move a card because this
 # hook accepted a role that move-issue.sh's whitelist did not).
-# ERE alternation. Change it and you change FOUR files — see
-# process/EXTRACTION.md § "The role set and the commit prefixes".
+# ERE alternation. THE ROLE SET IS CARRIED IN SEVERAL FILES — change one, change
+# them all. The authoritative list is the TABLE in process/EXTRACTION.md § 2.4;
+# read it there rather than trusting a count written here. (This line used to say
+# FOUR files and to cite a section title that never existed.)
 ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 
 # THE TOOL MARKERS for rule (2) — likewise a named var on its own line, so the

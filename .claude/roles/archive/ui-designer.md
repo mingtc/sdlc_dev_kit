@@ -27,8 +27,10 @@ Waking it means doing all of these **in one change**, so the kit never advertise
    licence.
 3. **Move this file** from `roles/archive/` to `roles/`, and remove this banner and § What this
    role needs.
-4. **Register the role** in the adapter's role table and the prefix table (`[UIDesigner]`), and
-   in whatever guard holds the adapter's tables against `.claude/roles/`.
+4. **Register the role** in the adapter's role table and the prefix table (`[UIDesigner]`), and in
+   **every file that carries the role set** — `process/EXTRACTION.md` § 2.4 is the list, and that
+   table is the count. *Not "whatever guard": there is more than one, and a role registered in only
+   some of them commits fine and cannot move a card.*
 5. **Decide the per-issue look gate** — see [orchestrator.md](../orchestrator.md) § Project
    duties, whose "look / visual gate" bullet is where a woken UI role stops being DORMANT.
 

@@ -44,7 +44,9 @@ does not change when a project stamps one.** It only looks like the prefix becau
 placeholder prefix is also `KIT`. That collision is not academic: the initializer's prefix
 substitution matched the marker's **key**, so every stamped file came out reading
 `<!-- XYZ-CLASS: KIT — … -->` — the key rewritten and the value left, a line that refutes itself,
-across a dozen files, with every card minted afterwards inheriting it. A tool that rewrites the
+**in every stamped file that carried the marker**, with every card minted afterwards inheriting it.
+*(The shape is the load-bearing fact, not a count: what made the collision total is that no marked
+file escaped it. `grep -rl 'KIT-CLASS' .claude/templates .claude/roles` if you want today's number.)* A tool that rewrites the
 prefix therefore exempts this key by name, and any census of surviving placeholders exempts it in
 the same change, or protecting the marker simply moves the failure into the census.
 
@@ -228,7 +230,10 @@ enforces is stamped)
 tree, print a report, and change nothing. Described by
 [`hygiene-checklist.md`](hygiene-checklist.md).
 
-**Take but EDIT (MIXED)** — these are the four files an adoption actually has to touch:
+**Take but EDIT** — the files whose **project half you fill on day one**. *The heading used to read
+"the four files", over a table that had five rows, in the file whose § 2.4 forbids exactly that: the
+table is the list and the table is the count.* It is **not** simply the `MIXED` class — see the
+exclusion below the table.
 
 | File | The kit half | Your half |
 |---|---|---|
@@ -237,6 +242,26 @@ tree, print a report, and change nothing. Described by
 | `release.sh` | preflight → bump → attributed commit → annotated tag → push → publish, and the refusals | which files carry the version, which documents are required, whether anything is published at all |
 | `test/run.sh` | the throwaway sandbox with its own publication target, three-way accounting, capability probes, the test-only marker | any case family that pins **your** facts |
 | `setup.sh` | the shape: environment → install → gate → hooks path | **everything about your language runtime** |
+| `.env.example` | the kit's own entries, complete | the **project block** below them |
+| `.gitignore` | the kit's own entries, complete | the marked **build-artifact section** |
+
+**One file is `MIXED` and deliberately NOT a row: `progress/history/INDEX.md`.** Its project half is
+**accumulated, not filled** — rows arrive as the log rotates — so it is `SEED`-shaped work rather than
+a day-one touch. *Stated rather than omitted, because a table that silently drops a member of the
+class its heading names is the failure mode this file is trying to end.*
+
+**Derive the class rather than trusting this table, and anchor to the FIRST marker per file:**
+
+```sh
+for f in $(grep -rl 'KIT-CLASS:' .); do
+  grep -m1 -o 'KIT-CLASS: [A-Z-]*' "$f" | grep -q MIXED && echo "$f"
+done
+```
+
+*The `-m1` is load-bearing and a plain `grep -rl 'KIT-CLASS: MIXED'` is wrong:* `scripts/kit-init.sh`
+is `KIT`, and it **generates** a `verify.sh` — so it carries a `MIXED` marker for the file it writes,
+inside a heredoc. **A generator that emits a classified file contains that file's marker**, and any
+census that does not read the first marker per file counts the generator as its own output.
 
 **Run `./scripts/test/run.sh` right after extraction.** Its own summary prints its
 passed/failed/skipped counts; an independent count of its defined cases must agree. The families
@@ -333,9 +358,59 @@ drift report flagged. This is contracted in
 ### 2.2 The status folder set
 
 The lifecycle is the set of directories under `progress/`: `todo`, `in_progress`,
-`dev_complete`, `qa_complete`, `blocked`, `done` (+ `history/` for the rotated log). The set is
-read by the board mover's target validation, the drift report, the archive sweep and the landing
-gate. **It is a seam; check whether your copy makes it a variable** (§ 4.5).
+`dev_complete`, `qa_complete`, `blocked`, `done` (+ `history/` for the rotated log).
+
+**It is a SEAM WITHOUT A VARIABLE: several files carry the names as literals, and they do not all
+carry the same ones.** The table is the list and the table is the count; the divergence column is the
+part that matters, because *"apply one edit N times"* is the wrong model for this seam.
+
+| File | What it holds | If it is missed |
+|---|---|---|
+| `scripts/move-issue.sh` | the full set, four times: the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex (which carries it twice) | a new column cannot be moved to **at all** |
+| `scripts/check-board.sh` | the full set, as the columns it walks | the new column is invisible to the drift report |
+| `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm | a subtask cannot reach the new column |
+| `setup.sh` | the set **plus `history/`**, as the directories it creates | a fresh clone is missing the directory |
+| `scripts/test/run.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
+| `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
+
+**Other files name columns without carrying the set, and they are not all the same kind.** None is a
+row above; none is safe to ignore; and what a lifecycle change costs each one differs:
+
+- **They perform a transition and name its two ends.** `scripts/archive.sh` moves
+  `qa_complete` → `done` and **refuses rather than creating a missing `done/`**;
+  `scripts/finish-pr.sh` moves `dev_complete` → `qa_complete`. **A change to any column one of them
+  names touches it** — which is checkable per column, and is not a question of where in the flow the
+  column sits.
+- **They mention one column in a comment or an example string.** `scripts/verify.sh` names
+  `dev_complete` in a comment and an echo; `scripts/githooks/commit-msg` names `qa_complete` inside
+  an example subject in its refusal help; `scripts/config.sh` names `in_progress` in an example
+  command. **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
+  class here and the easiest to leave for years.
+
+Derive both sets, and do not trust a single-column probe:
+
+```sh
+grep -rlE '(todo[|, ]+in_progress|STATUS_FOLDERS)' scripts/ setup.sh   # carries the SET
+grep -rlE 'in_progress|dev_complete|qa_complete'   scripts/ setup.sh   # names ANY column
+```
+
+*The second pattern deliberately omits `todo` and `done`. `done` is a shell keyword, so it matches
+loop terminators; it is also the tail of `progress/done/`, so most of what a bare `done` finds in
+`archive.sh` is **path literals — the seam itself**. Either way a bare count answers a question about
+the language and the paths rather than about the seam, which is why the pattern uses the three column
+names that are neither.*
+
+*This paragraph has been wrong twice, in opposite directions, about the same files.* First it claimed
+the archive sweep and the landing gate held **none** of these values, on the evidence of
+`grep -c 'in_progress'` over both — the command was true and the claim was false, because
+`in_progress` is the one column neither touches. **A probe scoped to the one operand that exculpates
+the subject is the guard looking slightly to the left of the defect.** Then the correction generalised
+*"endpoints of their own transition"* from those two files onto five, when three of the five only
+mention a column in a comment or an example. **Both errors were a characterisation stretched past its
+measurement**, which is why the list above is now per file and says what each one does with the name
+it holds.
+
+**Check whether your copy makes it a variable** (§ 4.5).
 
 ### 2.3 The gate command
 
@@ -357,6 +432,7 @@ did not, so the seat that held it **could not move a card** and had to borrow an
 | `scripts/githooks/commit-msg` | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded |
 | `scripts/move-issue.sh` | The acting-role whitelist, plus the same list in its usage text and its error messages | A role missing here cannot move the board **at all** |
 | `scripts/check-board.sh` | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
+| `.claude/settings.json.example` | The set spelled out in prose, in its `<role-prefix-list>` note | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive |
 | `scripts/subtask.sh` | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s |
 
 Change one, change them all — **and the row count is this table, never a number in the prose above
@@ -390,8 +466,8 @@ example channel adapter.
 
 It is the opt-in harness hook wiring (the role gate, the session-start clear, notifications) — the
 *mechanism* travels, but a copied-as-is settings file authorizes the wrong things in your
-repository. Four values inside it are yours, and one of them is a **fifth** statement of the role
-set — keep it in step with § 2.4's four:
+repository. The values inside it listed below are yours, and one of them restates the role
+set — keep it in step with § 2.4, **whose table is the list**:
 
 | Value inside the file | Replace with |
 |---|---|
@@ -474,10 +550,16 @@ cannot be.
 ### 4.5 The status folder set may be a seam without a variable
 The configuration seam parameterises the *prefixes*; whether it parameterises the *lifecycle* is
 the thing to check. If it does not, renaming or adding a state (say, a `review` column) means
-editing the board mover, the drift report, the archive sweep and the landing gate by hand.
-**Check:** `grep -rn 'qa_complete' scripts/ | wc -l` — a handful of hits in one declared list is a
-seam; a scatter across four scripts is this debt.
-**Cost if unpaid:** four scripts edited, by hand, per lifecycle change.
+**opening every carrier in § 2.2's table and deciding what each one should hold** — which is not the
+same as applying one edit N times, because they do not all hold the same set.
+**Check:** `grep -rn 'qa_complete' scripts/ setup.sh` — a handful of hits in one declared list is a
+seam; a scatter across the files § 2.2 lists is this debt.
+**Cost if unpaid:** every carrier in § 2.2's table edited by hand, per lifecycle change — **and the
+divergent ones decided rather than copied.** *(This line, and the sentence above it, previously named
+"the board mover, the drift report, the archive sweep and the landing gate" and costed it as "four
+scripts". Two of those four do not carry the set — they perform one transition each and name its two
+ends — so the cost depends on **which columns** the change touches, not on where in the flow they
+sit: § 2.2 has both lists and the commands that derive them.)*
 
 ### 4.6 The initializer's stamping reach is not total
 The initializer stamps the configuration seam, the item templates and the role docs. Whether it

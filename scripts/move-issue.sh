@@ -187,10 +187,21 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
   fi
 fi
 
-# The status folder set. It is a SEAM WITHOUT A VARIABLE across four scripts
-# (this one, check-board.sh, archive.sh, finish-pr.sh) — process/EXTRACTION.md
-# § "the status folder set" states the cost: adding or renaming a column means
-# editing all four by hand.
+# The status folder set. It is a SEAM WITHOUT A VARIABLE: several files carry the
+# column names as literals, and they do NOT all carry the same ones — this script
+# and the drift report hold the full set, subtask.sh omits `done`, and setup.sh
+# adds `history`. So adding or renaming a column means opening each carrier and
+# deciding what it should hold, not applying one edit N times.
+# process/EXTRACTION.md § "the status folder set" is the list and states the cost;
+# read it there rather than trusting an enumeration written here. (This comment
+# used to name four scripts and cost them as one edit each. Two of those four --
+# archive.sh and finish-pr.sh -- do not carry the SET; each performs ONE transition
+# and names its two ends, so a change to a column either of them names touches it.
+# Two earlier attempts at this note were both wrong: the first said they held none
+# of these values, on a grep scoped to in_progress, the one column neither uses;
+# the second said a column added inside the Dev->QA flow touches them and one at
+# either end does not, which is inverted for archive.sh -- it moves qa_complete to
+# done and refuses a missing done/.)
 if [ "$NOTE_ONLY" -eq 0 ]; then
   case "$TARGET" in
     todo|in_progress|dev_complete|qa_complete|blocked|done) ;;
