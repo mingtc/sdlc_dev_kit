@@ -138,7 +138,8 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 - **Shipped scripts and workflow runners no longer cite the kit repository's change files.** Six
   comments and one prompt string handed to your agent at runtime referred to `change NNN` — a record
   that exists in no repository you have. Each now states the reason it stood for. The self-test
-  harness still carries some; they are being removed. **No action required.**
+  harness carried the last of them, removed with the guard that now refuses the whole class at
+  build time. **No action required.**
 - **The `dev/` index discipline names its granularity.** Every file and subdirectory under `dev/` is
   reachable from exactly one row — the file's own for a loose file, **the directory's** for a split-out
   directory, whose README then indexes its members. `dev/handoffs/` no longer asks for a row per
