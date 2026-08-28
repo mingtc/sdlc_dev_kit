@@ -48,6 +48,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The self-test suite covers the day-one path the documentation prints.** `GIT-HOSTING.md` § 3
+  step 2's first commit has no role prefix and runs with the hooks unwired — the state that made a
+  correct install fail its own self-check. The suite now runs `kit-init` that way and asserts it
+  succeeds, that the board check is not what fails, and separately that a **real** board finding
+  still does fail it, so "tolerate more" can never quietly become "check nothing". **No action
+  required.**
 - **`finish-pr.sh` names the trunk on its green line.** The human-readable post-merge verify line
   now reads `PASS on <trunk>` as its FAIL sibling always did; the machine-readable
   `POST_MERGE_GATE: PASS|FAIL` pair is unchanged, so anything keyed on it keeps working. **No action

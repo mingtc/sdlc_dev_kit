@@ -3398,6 +3398,33 @@ case_check_board_graduation_reads_the_trunk() {
 # This duplicates case 1(c) on purpose, as a NAMED control that survives someone
 # refactoring case 1: a control buried inside a four-state case is the one that
 # gets deleted during a tidy-up. Both are kept, which is the authored default.
+#
+# WHAT EACH CONSUMER ACTUALLY READS — do not collapse these two, they differ:
+#   release.sh gate (d)        keys on the VERDICT LINE alone, and always has.
+#   kit-init's self-check      keys on the verdict line, and when it is NOT clean
+#                              reports the remaining findings as context — after
+#                              dropping any section whose own header says it
+#                              "reports only", which is how arm [g] declares itself.
+#
+# THIS NOTE REPLACES A FALSE ONE, and the falsehood is kept because it is the whole
+# lesson. It used to read "release.sh gate (d) and kit-init's self-check both key on
+# this line". They did not. kit-init re-scanned the rendered ⚠ lines whenever the
+# verdict was dirty, so when arm [g] began printing ADVISORY ⚠ lines — present on
+# every day-one tree by construction — any unrelated arm that flipped the verdict
+# left [g]'s advisories as "whatever was left", and a correct install failed, blaming
+# the one arm whose header says it never decides anything. The trigger was this kit's
+# own documented recipe: GIT-HOSTING § 3 step 2's unprefixed `init` subject flips arm
+# (e). Fixed on the kit-init side; the false sentence is superseded here rather than
+# deleted, because a case whose rationale names the wrong consumer is how the
+# regression shipped underneath a green control.
+#
+# SO: ASSERTING THE VERDICT STRING IS NECESSARY AND NOT SUFFICIENT — and the
+# sufficiency half CANNOT live in this case. It would have to run kit-init, and this
+# sandbox carries a stamp receipt (that receipt is what makes arm [g] report at all),
+# which is one of kit-init's four ALREADY-LIVED signals: it would refuse before
+# reaching any self-check. Measured, not assumed. The consumer is exercised where it
+# can actually run, on the path that broke —
+# case_kit_init_survives_the_documented_first_commit below.
 # =============================================================================
 case_check_board_graduation_verdict_is_not_wired() {
   cf_reset
@@ -3412,9 +3439,165 @@ case_check_board_graduation_verdict_is_not_wired() {
   printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
     || cf "precondition: the arm must be REPORTING for this control to mean anything: $out"
   printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
-    || cf "day-one completeness moved the board verdict: kit-init's self-check fails on every fresh install and no ungraduated project can cut a release: $out"
+    || cf "day-one completeness moved the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is also what sends kit-init's self-check looking for a cause: $out"
 
   finish "check (g) does not decide the verdict: a board with unreplaced scaffolding still reads 'board-drift: clean ✓'"
+  teardown
+}
+
+# =============================================================================
+# CASE — the day-one path THE KIT'S OWN DOCUMENTATION PRINTS
+#
+# WHY NO EXISTING CASE COULD REACH THE BROKEN PATH, which is the reason this one
+# exists rather than a wider assertion somewhere else: every sandbox commit goes
+# through sbcommit and every subject the harness writes carries a role prefix —
+# "[PM] seed sandbox board", "[Dev] <id>: add a real change", "[Architect] graduate,
+# unpublished". Arm (e) therefore never fires in a sandbox, the verdict is always
+# clean, and kit-init always takes its first branch. The suite could not have caught
+# the regression and cannot catch a recurrence without a case that commits THE WAY
+# THE DOCUMENTATION SAYS TO.
+#
+# GIT-HOSTING § 3 step 2 prints `git commit --allow-empty -m '<init>'` and says that
+# wiring the hooks after the first commit "avoids the question entirely" — so the
+# documented day-one sequence is an unprefixed subject with hooks unwired, and that
+# is the state this case reproduces. publish_sandbox is deliberately NOT used: its
+# "[PM] seed sandbox board" subject is exactly what masked this everywhere else, and
+# using the helper here would delete the case's premise while leaving it green.
+# =============================================================================
+case_kit_init_survives_the_documented_first_commit() {
+  cf_reset
+  if ! has_kit_init; then
+    skp "kit-init: the documented day-one first commit" "scripts/kit-init.sh absent"; return
+  fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
+    skp "kit-init: the documented day-one first commit" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
+  fi
+  kit_init_sandbox
+
+  # SEED THE ROOT DOCUMENTS, because make_sandbox does not and a real day-one tree does.
+  # THIS IS THE HALF THAT MAKES THE CASE ABLE TO FAIL, and it was measured: without it
+  # the case passes even against the pre-fix initializer. The regression needed BOTH a
+  # dirty verdict AND arm [g] reporting, and [g] only reports when it finds these files —
+  # `[ -f ] || continue` for the REPLACE pair, "no PROJECT.md to read (skipped)" for FILL.
+  # A sandbox with no root documents therefore produces no advisory lines, leaves the
+  # pre-fix filter nothing to trip over, and turns this case into a green about nothing.
+  # An unzipped kit HAS all three; the sandbox is the synthetic tree, so it is the one
+  # that has to be brought up to the day-one state.
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
+  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+
+  # The documented first commit, verbatim in shape: unprefixed subject, hooks unwired.
+  # The `remote add` is publish_sandbox's job and this case does not call it, so the
+  # remote is added here — kit-init's preflight refuses outright without an origin,
+  # which is a refusal about the fixture rather than about the subject under test.
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m 'init' >/dev/null 2>&1
+  git -C "$SB_WORK" remote add origin "$SB_ORIGIN" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q -u origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" remote set-head origin "$SB_TRUNK" >/dev/null 2>&1
+  # ASSERT THE FIXTURE REACHED THE STATE THE CASE IS ABOUT, or a preflight refusal
+  # about a missing remote reads exactly like the regression this case exists for.
+  git -C "$SB_WORK" remote get-url origin >/dev/null 2>&1 \
+    || _fixture_die "case_kit_init_survives_the_documented_first_commit: no origin remote in the sandbox — kit-init would refuse at preflight and the case would blame the commit subject."
+  # The other half of the premise — arm [g] must actually be reporting — CANNOT be
+  # asserted here, and the reason is the arm's own enabling condition: [g] reports only
+  # once scripts/config.sh carries the stamp receipt, and the receipt is written BY the
+  # run this case is about. Before it, [g] correctly skips. So the premise is checked
+  # after the run, below, where it is true or the case has no subject.
+  # ASSERT THE PREMISE. If the subject were prefixed after all, arm (e) never fires,
+  # the verdict stays clean and this case passes while exercising nothing.
+  git -C "$SB_WORK" log -1 --format='%s' | grep -qE '^\[' \
+    && _fixture_die "case_kit_init_survives_the_documented_first_commit: the first commit's subject IS role-prefixed, so arm (e) cannot fire and this case has no premise."
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+
+  # (a) THE REGRESSION: an unprefixed first commit must not fail the install.
+  [ "$rc" -eq 0 ] \
+    || cf "kit-init FAILED (rc=$rc) on the first-commit subject GIT-HOSTING § 3 step 2 prints: $out"
+  printf '%s\n' "$out" | grep -q 'kit-init COMPLETE and PROVEN' \
+    || cf "no COMPLETE-and-PROVEN line on the documented day-one path: $out"
+
+  # (b) AND THE BOARD CHECK MUST NOT BE THE THING THAT FAILED — "passes" vs "passes
+  #     for the right reason". NOT keyed on the text of [g]'s advisories: a healthy
+  #     run PRINTS those, under an explicit "for context — not the basis of the result
+  #     above" heading, so matching them would fire on correct output. That is the
+  #     same mistake as reading `grep -qi 'not measured'` for the DELETE-IF-UNUSED
+  #     class, measured once already in this file. Key on the FAILURE marker instead.
+  printf '%s\n' "$out" | grep -q '✗ check-board.sh reported drift' \
+    && cf "kit-init's self-check failed its board arm on a correct day-one tree: $out"
+  printf '%s\n' "$out" | grep -q '✓ check-board.sh' \
+    || cf "the self-check's board arm did not report a result at all — it was skipped or renamed: $out"
+
+  # (c) THE PREMISE, CHECKED WHERE IT CAN BE TRUE. The regression needed the board report
+  #     to carry arm [g]'s advisories at self-check time; [g] only reports once the stamp
+  #     receipt exists, and this run is what wrote it. Asserting it against check-board
+  #     directly — not against kit-init's rendering of it — keeps this independent of how
+  #     the initializer chooses to echo context. Without this, a sandbox that produced no
+  #     advisories would pass (a) and (b) while exercising nothing, which is measured: it
+  #     is exactly what this case did before the root documents above were seeded.
+  cb_run | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+    || cf "arm [g] reports no advisory on the post-init tree, so the failure mode this case exists for was never reachable and its green means nothing"
+
+  finish "kit-init: the first-commit subject GIT-HOSTING § 3 step 2 prints does not fail the install, the board arm is not what fails, and arm [g] WAS reporting while it ran"
+  teardown
+}
+
+# =============================================================================
+# CASE — a REAL board finding must still fail the self-check, naming itself
+#
+# WITHOUT THIS, "tolerate more" is indistinguishable from "check nothing". The
+# filter that let the day-one regression through was widened to fix it; this is the
+# control that widening never had, and it is the reason the pair is worth more than
+# either case alone.
+#
+# THE PLANT IS NOT AN ORDINARY CARD, AND THE REASON IS ITSELF A FINDING. kit-init's
+# ALREADY-LIVED probe `find`s progress/*/*-[0-9]*.md in the WORKING TREE, so seeding
+# two ordinary cards makes kit-init refuse before its self-check ever runs — the case
+# would then pass its non-zero assertion for entirely the wrong reason and fail the
+# one that names the cause. Measured 2026-08-29. So the duplicate is planted under
+# filenames the lived-probe glob does not match, which leaves the id collision real,
+# on the trunk, and reachable by the self-check.
+#
+# AND THE FINDING IS DELIBERATELY ONE PRINTED BELOW ITS SECTION HEADER. kit-init's
+# filter skips the header line of every section while deciding whether the section is
+# advisory, so a finding rendered ON its header is currently invisible to it — a
+# coverage narrowing owned elsewhere. Keying this control on a below-header finding
+# keeps it valid across that fix instead of encoding today's gap as correct.
+# =============================================================================
+case_kit_init_still_fails_on_a_real_finding() {
+  cf_reset
+  if ! has_kit_init; then
+    skp "kit-init: a real board finding still fails the self-check" "scripts/kit-init.sh absent"; return
+  fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
+    skp "kit-init: a real board finding still fails the self-check" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
+  fi
+  kit_init_sandbox
+
+  local dup="$SB_PREFIX-100" f
+  for f in "progress/todo/dupe-one.md" "progress/done/dupe-two.md"; do
+    printf -- '---\nid: %s\ntype: chore\nstatus: %s\ntitle: "duplicate plant"\npr: null\n---\n\n## Activity\n' \
+      "$dup" "$(basename "$(dirname "$f")")" > "$SB_WORK/$f"
+  done
+  # BOTH HALVES OF THE PREMISE, asserted: the collision is real, and the plant does
+  # NOT look like a lived board — a plant that trips the already-lived refusal tests
+  # the refusal, not the self-check.
+  [ "$(find "$SB_WORK/progress" -type f -name '*-[0-9]*.md' 2>/dev/null | wc -l | tr -d ' ')" -eq 0 ] \
+    || _fixture_die "case_kit_init_still_fails_on_a_real_finding: the planted files match kit-init's ALREADY-LIVED glob, so it would refuse before the self-check and this case would pass for the wrong reason."
+  publish_sandbox
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | grep -q 'already lived' \
+    && _fixture_die "case_kit_init_still_fails_on_a_real_finding: kit-init took the ALREADY-LIVED refusal, so nothing here exercised the self-check."
+  [ "$rc" -ne 0 ] \
+    || cf "kit-init PASSED with a duplicate id on the board — the self-check tolerates a real finding: $out"
+  printf '%s\n' "$out" | grep -qi 'duplicate' \
+    || cf "kit-init failed but did not NAME the finding that caused it: $out"
+
+  finish "kit-init: a real board finding still fails the self-check, and the failure names that finding"
   teardown
 }
 
@@ -4751,6 +4934,8 @@ CASES=(
   case_check_board_graduation
   case_check_board_graduation_reads_the_trunk
   case_check_board_graduation_verdict_is_not_wired
+  case_kit_init_survives_the_documented_first_commit
+  case_kit_init_still_fails_on_a_real_finding
   case_kit_init_happy
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill
