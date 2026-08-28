@@ -10,6 +10,17 @@
 > `requirements/CORPUS.md` carries the same split for the requirements corpus;
 > [`EXTRACTION.md`](EXTRACTION.md) § 1.2 states the rule.
 >
+> **The instruments are Python 3, standard library only, and that is a carve-out with a reason.**
+> The kit's floor is git and a POSIX shell; `scripts/hygiene/` is carved out here, as the skill set
+> carves out its Node companion — and it holds because these are **advisory instruments, never a
+> gate** — nothing ships them, no gate calls them,
+> no consumer inherits them, and no dependency enters your project because they exist. **A project
+> that forbids Python deletes the directory and loses only the measurements**: every shape below is
+> stated in prose here, which is what makes each one re-implementable in whatever you already run.
+> Say so in the adapter if that is your project. *(The shipped skill set carves out its Node
+> companion the same way — `.claude/skills/README.md`.)* **This paragraph is about the INSTRUMENTS.
+> The pre-cut sweep below is not one of them and is not advisory** — see its own section.
+>
 > **The shapes below travel as a STARTING LIST with their evidence columns blank.** They are not
 > your findings; they are the six shapes that have actually been found in a real repository, kept
 > because a starting list you can refute is worth more than an empty file. Fill each evidence
@@ -78,9 +89,15 @@ one project, each anonymized, none of them yours:
 Run a pass at an **era boundary** (an arc closing, a doctrine round, a seat succession) **or
 roughly every fifth release**. **Seat-triggered, never automatic, and NEVER a release gate.**
 
-Neither the release ritual nor the gate runner calls any of the hygiene instruments in this file,
-and nothing about cutting a version depends on a hygiene pass having run. The instruments are
-**advisory, never a gate**.
+**That is the CADENCE, and it is what nothing depends on.** Neither the release ritual nor the gate
+runner calls any of the hygiene instruments in this file, and no cut depends on a periodic pass
+having run. The instruments are **advisory, never a gate**.
+
+**The pre-cut sweep below is the exception, and it is not one of them.** It is a **required step** of
+the release ritual where the slate came from a round — `contracts/release-ritual.md` § 2 requires it
+with a named owner before the version is written, and **§ 3 refuses a cut without it**. *Required is
+not automated: no script arm decides it, for the reason the sweep's own section gives.* **Read the
+two sentences together or the first one reads as covering the second.**
 
 ## Before a cut — the pre-cut sweep (MANDATORY when the slate came from a round)
 

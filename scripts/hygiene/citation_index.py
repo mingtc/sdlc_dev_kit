@@ -118,17 +118,66 @@ _BARE_NAME = re.compile(
 _VAR_SEG = re.compile(r"^\$\{?\w+\}?$")
 
 
+# Set by iter_files(). None means NO WALK HAS RUN — which is not the same claim as zero, and
+# the notice below refuses to print a count it did not measure. A zero that nobody earned is the
+# defect this whole notice exists to prevent, one level up.
+_WALK_SYMLINKS_SKIPPED = None
+
+
 def iter_files(root: Path):
-    """Every in-scope file in the tree, repo-relative posix, sorted."""
+    """Every in-scope file in the tree, repo-relative posix, sorted.
+
+    Also tallies the symlinks it skipped, for walk_blind_spots(). The tally counts a symlink
+    ONLY where it would otherwise have been included — it resolves to a file and its path is not
+    pruned — so the number means "files absent from this walk because they are symlinks" and not
+    "symlinks seen". The prune test therefore runs BEFORE the symlink test; the set returned is
+    byte-identical to the previous order of those two checks.
+    """
+    global _WALK_SYMLINKS_SKIPPED
     out = []
+    skipped = 0
     for path in root.rglob("*"):
-        if not path.is_file() or path.is_symlink():
+        if not path.is_file():
             continue
         rel = path.relative_to(root).as_posix()
         if any(part in SKIP_DIRS or part.endswith(".egg-info") for part in rel.split("/")[:-1]):
             continue
+        if path.is_symlink():
+            skipped += 1
+            continue
         out.append(rel)
+    _WALK_SYMLINKS_SKIPPED = skipped
     return sorted(out)
+
+
+def walk_blind_spots() -> list:
+    """What ``iter_files`` did NOT look at — the walk's own narrowings, in one place.
+
+    ``instruments.md`` § A.4: a deliberate narrowing says so in the line that reports its
+    result. This lives BESIDE THE WALK rather than in each instrument's print block because
+    every module importing ``iter_files`` or ``Index`` inherits these narrowings, and a notice
+    copied into each one is one authoring site per importer for a single fact — the next narrowing
+    would have to find them all. Importers call this; they do not restate it.
+
+    Derived, not written down: the pruned-directory count comes from ``SKIP_DIRS`` itself, so
+    editing that set cannot leave this line behind.
+    """
+    if _WALK_SYMLINKS_SKIPPED is None:
+        tally = "count unavailable — no walk has run in this process"
+    else:
+        tally = f"{_WALK_SYMLINKS_SKIPPED} skipped in this run"
+    return [
+        f"symlinks are skipped — a symlinked file is absent from this walk entirely "
+        f"({tally}; following one risks double-counting a file under two paths, and cycles)",
+        f"{len(SKIP_DIRS)} directory names are pruned wherever they appear, as is any directory with "
+        f"a name ending .egg-info — the set is SKIP_DIRS in citation_index.py, and it is yours to edit",
+    ]
+
+
+def print_blind_spots(prefix: str = "BLIND SPOT: ") -> None:
+    """Print the walk's narrowings on the human path. Every instrument that walks calls this."""
+    for line in walk_blind_spots():
+        print(prefix + line)
 
 
 def _read(root: Path, rel: str) -> str:
@@ -227,10 +276,19 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        print(json.dumps(rows, indent=2))
+        # The narrowing that produced this set travels WITH it. A machine consumer is the
+        # reader least able to infer a missing file from its absence — it cannot notice what it
+        # was never given — so the notice belongs in the payload, not on a line the human path
+        # prints after this branch has returned (instruments.md § A.4).
+        print(json.dumps({"blind_spots": walk_blind_spots(), "rows": rows}, indent=2))
         return 0
     print(f"citation index over {len(index.files)} files in {index.root}")
     print("EXACT and ANCESTOR are separate columns and are never summed.")
+    # instruments.md § A.4 — name the blind spot in the instrument's OWN output. Derived from
+    # the walker (see walk_blind_spots) rather than written here, because every instrument that
+    # imports iter_files or Index inherits the same narrowings, and a copy per instrument is one
+    # authoring site per importer for a single fact.
+    print_blind_spots()
     print(f"{'EXACT':>7} {'ANC':>7}  PATH")
     for row in rows:
         print(f"{row['exact_n']:>7} {row['anc_n']:>7}  {row['path']}")

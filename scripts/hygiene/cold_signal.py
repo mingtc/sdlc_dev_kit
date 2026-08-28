@@ -63,7 +63,7 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, Index  # noqa: E402
+from citation_index import REPO_ROOT, Index, print_blind_spots, walk_blind_spots  # noqa: E402
 
 DEFAULT_DAYS = 14
 # The default prefix exclusion set — stated in the header above, mirroring
@@ -138,11 +138,12 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        print(json.dumps({"days": args.days, "excluded": list(excluded), "files": len(rows),
+        print(json.dumps({"blind_spots": walk_blind_spots(), "days": args.days, "excluded": list(excluded), "files": len(rows),
                           "bytes": total, "rows": rows}, indent=2))
         return 0
     print(f"cold signal: single-commit AND cold (>{args.days}d) AND zero EXACT referrers")
     print(f"corpus: the whole working copy minus {list(excluded) or '(nothing — --no-excludes)'}.")
+    print_blind_spots()
     print("Run it BOTH ways and write down both totals with today's date — a cold-file count")
     print("without its corpus and its date is a claim, not a measurement.")
     print(f"{len(rows)} file(s), {total} B. A row is a SUSPICION, not a verdict — most are "

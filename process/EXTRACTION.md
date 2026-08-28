@@ -28,7 +28,8 @@ down as debts.**
 
 ## The one file classification convention
 
-Every script, role doc and process file carries a one-line marker in its own comment syntax:
+Every script, role doc and process file carries a one-line marker in its own comment syntax — **with
+the carve-outs at the end of this section, which are the files that cannot**:
 
 ```
 # KIT-CLASS: KIT|MIXED|PROJECT — <one-line reason>. See process/EXTRACTION.md.
@@ -37,7 +38,9 @@ Every script, role doc and process file carries a one-line marker in its own com
 
 `KIT` = travels unedited · `MIXED` = travels, but carries project law you must edit ·
 `PROJECT` = does not travel. **Classify a file by opening it**; this manifest can drift, the
-marker in the file cannot be missed.
+marker in the file cannot be missed. **Where a file carries no marker, the carve-outs at the end of
+this section say where its class lives instead** — opening those files will not answer, and each
+absence is a derivation from something about the file rather than an omission.
 
 **The `KIT` in `KIT-CLASS:` is this convention's own word — it is NOT the identifier prefix, and it
 does not change when a project stamps one.** It only looks like the prefix because the shipped
@@ -54,6 +57,35 @@ the same change, or protecting the marker simply moves the failure into the cens
 marker is the *travel classification*; on a file that becomes the project's, graduation strips it.
 Anything a reader still needs at that moment — a *replace me* notice, a *fill this in* notice —
 belongs in the body, where removing the classification cannot remove it.
+
+**Carve-outs to the marker itself, each a derivation rather than a preference** — and the class-as-data
+case below them is a third way a file can lack a `KIT-CLASS:` comment, which is why no count is
+written here: *the list is the list.*
+
+- **Vendored skill directories are classified by the `Class` column of
+  `.claude/skills/README.md`'s provenance table, not in-file.** *Why:* updating a skill from upstream is a **re-fetch and copy the folder over**, which
+  **erases an in-file marker** — so a marker there would be a classification that silently disappears
+  on the one operation the skill set is designed for, and its absence would read as an unclassified
+  file rather than as an update. The provenance table survives the copy because it lives outside the
+  directory being replaced. *Derive what is marked:* `grep -rl 'KIT-CLASS' .claude/skills/`.
+- **`process/KIT-VERSION` carries no marker.** *Why:* it is a single version literal and **has no
+  comment syntax** — any marker would become part of the value the release ritual reads. The same
+  constraint applies to any file whose entire content is consumed as data.
+
+**And one file carries its class as data because it cannot carry a comment:**
+`.claude/settings.json.example` is JSON, so its classification is the `_KIT_CLASS` key beside its
+other underscore-prefixed notes. *A convention that cannot be expressed in a file's own syntax is
+expressed in that file's own terms, not abandoned.*
+
+**A carve-out to the FLOOR, stated here because this is where the rule lives.** The kit assumes **git and a
+POSIX shell** — and `scripts/hygiene/` is **Python 3, standard library only**. Those files are
+**advisory instruments, never a gate**: nothing ships them, no gate calls them, no consumer inherits
+them, and **a project that forbids Python deletes the directory and loses only the measurements** —
+[`hygiene-checklist.md`](hygiene-checklist.md) states every shape in prose, so each one is
+re-implementable in whatever the project already runs. Say so in the adapter if your project forbids
+Python, the same way the shipped skill set handles its one optional Node dependency
+(`.claude/skills/README.md`). *The floor is a claim about what the kit REQUIRES, not about what it
+contains; an instrument you can delete is not a requirement.*
 
 **In this seed almost everything is `KIT`, and that is a fact about the seed, not a boast.** The
 seed *is* the kit: it holds no product. `MIXED` here means *"the frame travels, the contents are
@@ -192,7 +224,7 @@ names the guard whose job is to keep it honest.
 | `process/doctrine/` | Process doctrine. **Every sheet states its own pattern/instance split at the top; obey it** — § A (or the sections it names) travels, and the instance section is a **blank you fill**, not an example to keep. `find process/doctrine -type f` lists them; the doctrine table in `MANUAL.md` is the index, and a new sheet joins that table **in the same change** that creates it. |
 | `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — they name no language, no flag and no path outside their sixth section. One sheet describes no script at all: `acceptance-tier.md`, whose reference implementation is deliberately **non-travelling**. |
 | `process/templates/` | Fill-in-the-blank shapes. **Hand-filled** — the initializer stamps `.claude/templates/`, not these, so they carry no prefix literal. Blanks are `<angle brackets>`. |
-| `process/hygiene-checklist.md` | The shapes an advisory hygiene pass looks for, plus two ratchet rules and the anti-pigeonhole reservation. The shapes travel with their **evidence columns blank**. |
+| `process/hygiene-checklist.md` | The shapes a hygiene pass looks for, plus two ratchet rules and the anti-pigeonhole reservation. **The cadence is advisory; the pre-cut sweep is MANDATORY when the slate came from a round.** The shapes travel with their **evidence columns blank**. |
 | `process/EXTRACTION.md` | This file. Update its § 4 as you pay the debts down, and **add the debts you discover** — that is ratchet rule 1 applied to a manifest. |
 | `.claude/roles/` | The role docs. Split `KIT` vs `MIXED` — `grep -l 'KIT-CLASS: KIT' .claude/roles/*.md` versus the same for `MIXED`; see § 4.2. |
 | `.claude/skills/` | The named practices, one directory each, plus an index. |
@@ -491,7 +523,7 @@ not carry two numbers.
 
 | Path | Why it stays exactly there |
 |---|---|
-| `.claude/**` (roles, skills, agents, workflows, templates, the settings example, the session-role file) | **Harness-mandated.** The agent harness reads this path: hooks are wired from its settings file, the role gate reads the session-role file, skills and agents are discovered by directory. Moving any of it under `process/` **breaks the harness**, so the kit classifies it with an in-file marker instead. |
+| `.claude/**` (roles, skills, agents, workflows, templates, the settings example, the session-role file) | **Harness-mandated.** The agent harness reads this path: hooks are wired from its settings file, the role gate reads the session-role file, skills and agents are discovered by directory. Moving any of it under `process/` **breaks the harness**, so the kit classifies it in place rather than by location — **with an in-file marker for the role docs, agents, workflows and templates, and by the `Class` column of `.claude/skills/README.md`'s provenance table for the skill directories** (see § The one file classification convention for why the skills differ). |
 | `scripts/**` | **Reference stability.** Every role doc, every hook, every template and the manual itself cite `./scripts/…` — hundreds of pointers whose only job is to be typeable and searchable, and the hooks path is configured relative to it in every worktree. Relocating the tree buys a tidier listing and invalidates every citation. **Do not "tidy" this.** |
 | `progress/`, `progress.md`, `ARCHIVE.md` at the repository root | The board is meant to be seen on a plain listing and rendered by a forge at the root; the scripts resolve it from the root. Root placement is the feature. |
 | `requirements/` at the repository root | The **directory** is path-pinned project content, for the same root-placement reason — but the two documents it holds define **formats that travel** (§ 1.2). Path-pinned and partly-COPY are not in tension once said in one place; they were in tension when said twice, separately, in a previous copy of this manifest. |

@@ -45,7 +45,7 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, iter_files  # noqa: E402
+from citation_index import REPO_ROOT, iter_files, print_blind_spots, walk_blind_spots  # noqa: E402
 
 # ── PARAMETER: THE BASE RATE. Carried with date + source, NOT re-measured here — quoting one of
 #    these as present tense is the exact defect this instrument exists to find. REPLACE THESE
@@ -167,10 +167,11 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        print(json.dumps({"suspicions": rows, "base_rate": BASE_RATE,
+        print(json.dumps({"blind_spots": walk_blind_spots(), "suspicions": rows, "base_rate": BASE_RATE,
                           "id_prefixes_derived_from_seam": derived}, indent=2))
         return 0
     print(f"staleness greps: {len(rows)} SUSPICION(S) on the live reading path")
+    print_blind_spots()
     if not derived:
         print("NOTE: the issue-id prefixes could NOT be read from scripts/config.sh — falling")
         print("      back to a generic shape. Fix the seam or this arm under-reports silently.")

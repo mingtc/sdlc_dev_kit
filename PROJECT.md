@@ -29,8 +29,9 @@ this file at the start of every session.**
 - **Language / runtime:** `<name and version policy>`
 - **Dependency policy:** `<e.g. no new runtime dependency without its own decision; state the
   narrow class, if any, that is exempt and why>`
-- **What the tooling floor is:** `<the kit itself runs on git + a POSIX shell; name anything else
-  a contributor must have installed>`
+- **What the tooling floor is:** `<the kit itself requires git + a POSIX shell; its two optional
+  extras — the Python hygiene instruments and the Node visual companion — are deletable and never
+  gates. Name anything else a contributor must have installed>`
 
 > `./setup.sh`'s **kit half is real and working** in a fresh seed (git hooks, the board sanity
 > check). Its **runtime half is a marked fill-in** — wire your language bootstrap and your test

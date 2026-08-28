@@ -17,8 +17,11 @@ filesystem-as-kanban board (the folder a file sits in *is* its status), **roles 
 worker wears one role at a time, from a doc that is its workflow), a hard **Dev → QA boundary**
 with a landing gate, a set of **contract sheets** that say what each gate must guarantee, a set of
 **doctrine sheets** that carry the reasoning behind the rules, and **launch-pack orchestration**
-for running a batch of work with minimal human relay. It assumes **git and a POSIX shell, and
-nothing else** — no language, no test framework, no hosted forge. The primary agent harness is
+for running a batch of work with minimal human relay. It assumes **git and a POSIX shell** — no
+language, no test framework, no hosted forge. *(Two optional extras are carved out where they live
+and are deletable without loss: the hygiene instruments under `scripts/hygiene/` are Python 3,
+standard-library only and never a gate; `brainstorming`'s visual companion wants Node and is opt-in
+per question.)* The primary agent harness is
 **Claude Code**, and the `.claude/` machinery here is Claude-specific on purpose; the *contracts*
 those files encode (the roles, the commit prefixes, the board rules) bind every agent regardless of
 harness — see [`AGENTS.md`](AGENTS.md).

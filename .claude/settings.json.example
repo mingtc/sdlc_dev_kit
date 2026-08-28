@@ -1,4 +1,5 @@
 {
+  "_KIT_CLASS": "KIT \u2014 the opt-in harness wiring, as a shape. This file is JSON and has no comment syntax, so its classification marker is this KEY rather than a leading comment; process/EXTRACTION.md \u00a7 The one file classification convention states the carve-out. The values inside it that are yours are listed in \u00a7 2.8.",
   "_README": "Kit template — copy to .claude/settings.json to ACTIVATE the Claude Code hooks (they execute shell commands on tool use / session start, so activation is a deliberate operator decision). The git-level commit-prefix guard (scripts/githooks/commit-msg) is wired separately via `git config core.hooksPath scripts/githooks` (setup.sh does this) and does NOT depend on this file.",
 
   "_PLACEHOLDERS": {

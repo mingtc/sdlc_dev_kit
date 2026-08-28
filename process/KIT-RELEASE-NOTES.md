@@ -48,6 +48,51 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The kit's tooling floor is stated more precisely, and two extras are named deletable.** The
+  floor read *"git and a POSIX shell, and nothing else"* — an absolute the tree already
+  contradicted, because `scripts/hygiene/` is Python and `brainstorming` has an optional Node
+  companion. What the kit **requires** is unchanged: git and a POSIX shell, for everything that
+  gates. What is now said out loud is that the hygiene instruments are **Python 3, standard
+  library only, advisory, and never a gate** — *delete the directory if your project forbids
+  Python and you lose the measurements, not a gate*; `process/hygiene-checklist.md` states every
+  shape in prose, so each is re-implementable in whatever you already run. Say so in your adapter
+  if you do forbid it, the way the skill set already handles its one optional Node dependency.
+  **Nothing to do**: no gate, command or refusal changed, and if you have been running the
+  instruments they still run.
+- **Some shipped files carry no `KIT-CLASS:` marker, and the convention now says so.** It used
+  to read *"every script, role doc and process file carries a one-line marker"* and *"classify a
+  file by opening it"* — with no exceptions stated, while three kinds of file had them. Now the
+  rule names them and says where each one's class actually lives: **vendored skill directories**
+  in the new `Class` column of `.claude/skills/README.md`'s provenance table, because updating a
+  skill from upstream is a folder copy that would erase an in-file marker; **`process/KIT-VERSION`**
+  nowhere, because its entire content is the value the release ritual reads; and
+  **`.claude/settings.json.example`** in a `_KIT_CLASS` key, because JSON has no comment syntax.
+  Nothing in your tree changes and nothing is reclassified — **the rule caught up with the tree**.
+- **The pre-cut sweep is now a required step of the release ritual, not an advisory habit.**
+  `contracts/release-ritual.md` § 2 requires it where a slate was minted from findings, with a
+  named owner, before the version is written; § 3 refuses without it and § 4 item 6 makes it
+  observable. **Required does not mean automated** — the sheet says why mechanizing it is held
+  back. `MANUAL.md` and `EXTRACTION.md` no longer describe the hygiene checklist as *"advisory,
+  never a gate"*: the **cadence** is advisory, the **sweep** is not.
+- **`--json` on the hygiene instruments now carries the walk's blind spots**, the same ones the
+  human output prints. `citation_index.py`'s payload changes shape to carry them: it was a bare
+  array of rows and is now `{"blind_spots": […], "rows": […]}`. The other four instruments
+  already emitted an object and simply gain a `blind_spots` key. **Nothing in the kit reads this
+  output**, and the instruments are advisory — so this is a one-line notice rather than an
+  action. **If you have written a consumer of `citation_index.py --json`, it reads
+  `payload["rows"]` now.** That shape is stable from here: the wrapper was added while the
+  consumer set was empty precisely so it would not have to be added later.
+- **Every hygiene instrument now reports what its walk did not look at.** Until now **none of
+  them did** — the five share one file walker, that walker narrows twice, and no report
+  mentioned either narrowing. Both are now stated, on the human path and in `--json`, derived
+  from the walker itself so a new narrowing reaches every report the day it is added: **symlinks
+  are skipped** (a symlinked file is absent from the walk entirely, with the count of how many
+  were skipped in that run) and **the directory names in `SKIP_DIRS` are pruned wherever they
+  appear**, plus any `*.egg-info`. **No instrument's results change** — the walk is what it
+  always was; what changes is that a clean report now tells you what it did not read. If you
+  have edited `SKIP_DIRS`, the count in the line follows your set. **Whether the scanner should
+  FOLLOW symlinks instead of skipping them stays open** — naming the skip is what makes leaving
+  that open honest rather than silent.
 - **`.gitignore` now ignores the hygiene instruments' Python bytecode.** `scripts/hygiene/` is
   Python, and a bare `python -c` import or a REPL session writes `scripts/hygiene/__pycache__/`
   beside it — residue that reddens a guard walking `scripts/` for `KIT-CLASS` markers while
@@ -460,6 +505,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Action required only if you audit classifications by grep.** If you have a check that greps
+  `KIT-CLASS:` across `.claude/skills/` and expects a hit per directory, it was reporting the
+  vendored skills as unclassified and it will keep doing so. Point it at the provenance table's
+  `Class` column instead, or scope it to the paths that do carry markers. **If you have no such
+  check, there is nothing to do.**
+- **If you implement the release ritual yourself, the pre-cut sweep is a required step of it and
+  owes a named owner.** You do not owe a script arm that checks it.
 - **Your process artifacts move out of `docs/`.** The kit used to send engineering design specs
   to `docs/specs/`, plans to `docs/plans/`, refactor passes to `docs/refactor/`, design passes to
   `docs/design/` and run records to `docs/runs/`. **They now go to `dev/` under the same names**,

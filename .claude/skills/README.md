@@ -14,14 +14,22 @@ not state*).
 The skill set is **stack-agnostic**. Nothing here assumes a language, a test runner, a build
 tool or a forge. Where a skill needs a concrete command it says
 `<the project's test command>` and expects the **project adapter** (`CLAUDE.md`) and the
-**project facts** (`PROJECT.md`) to supply the real one. The floor the kit itself needs is
+**project facts** (`PROJECT.md`) to supply the real one. The floor the kit itself **requires** is
 **git + a POSIX shell**.
 
-> One exception worth knowing about: `brainstorming`'s optional **visual companion** ships a
-> small local server (`brainstorming/scripts/server.cjs`) that needs Node to run. It is
-> **opt-in per question** — the skill works fully without it, and declining the companion
-> costs you nothing. If your project forbids Node, say so in the adapter and the companion
-> stays unused.
+> **Two optional extras sit above that floor, and both are deletable without loss.** They are
+> named here, beside the floor, so that neither the claim nor its exceptions can travel alone.
+>
+> - `brainstorming`'s optional **visual companion** ships a small local server
+>   (`brainstorming/scripts/server.cjs`) that needs **Node** to run. It is **opt-in per
+>   question** — the skill works fully without it, and declining the companion costs you nothing.
+> - The hygiene instruments under `scripts/hygiene/` are **Python 3, standard library only**, and
+>   are **advisory, never a gate**: nothing ships them, no gate calls them, and
+>   `process/hygiene-checklist.md` states every shape they look for in prose, so deleting the
+>   directory costs only the measurements.
+>
+> If your project forbids either, say so in the adapter; the companion stays unused and the
+> instruments are deleted.
 
 ## How skills work
 
@@ -127,12 +135,27 @@ every skill directory you keep, adopt or replace** — origin and license — in
 update it in the same change as the skill. A skill whose origin nobody can name is a skill
 nobody can safely update.
 
-| Set | Origin | License |
-| --- | --- | --- |
-| Dev | `<fill in: upstream collection URL, or "authored here">` | `<fill in>` |
-| PM | `<fill in>` | `<fill in>` |
-| Refactorer | Authored for this kit | Same as this repo |
-| `orchestrate` | Authored for this kit | Same as this repo |
+**This table is also where a skill directory's CLASSIFICATION lives**, and that is a derivation, not
+a filing convenience: updating a skill from upstream is a re-fetch that copies the folder over,
+which **erases an in-file marker**, so a marker inside a vendored skill would be a classification
+that disappears on the one operation the set is designed for. This table survives the copy because
+it lives outside the directory being replaced.
+([`../../process/EXTRACTION.md`](../../process/EXTRACTION.md) § The one file classification
+convention states the rule; this is where the answer is.)
+
+**How to read the `Class` column:** it applies to **every directory in the set**. A single skill that
+departs from its set — one that has acquired your project's law, say — gets its own row saying so,
+and that row is what a reader trusts. **The default is `KIT`**: a skill travels unedited. Anything
+authored here carries an in-file marker as well, and the two must agree — if they ever disagree,
+the in-file marker is the one that was easier to forget.
+
+| Set | Origin | License | Class |
+| --- | --- | --- | --- |
+| Dev | `<fill in: upstream collection URL, or "authored here">` | `<fill in>` | `KIT` |
+| PM | `<fill in>` | `<fill in>` | `KIT` |
+| Refactorer | Authored for this kit | Same as this repo | `KIT` |
+| `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
+| `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
 When updating a skill from upstream, re-fetch the source and copy the folder over the
 existing skill, then **diff before committing** — local hardening lives in these files and a

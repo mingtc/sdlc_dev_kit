@@ -53,7 +53,7 @@ from pathlib import Path
 # cache and, with it, the redness in any guard that walks scripts/.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, iter_files  # noqa: E402
+from citation_index import REPO_ROOT, iter_files, print_blind_spots, walk_blind_spots  # noqa: E402
 
 DEFAULT_N = 9
 DEFAULT_MIN = 0.18
@@ -137,12 +137,13 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        print(json.dumps({"corpus": len(files), "n": args.n, "min": args.min,
+        print(json.dumps({"blind_spots": walk_blind_spots(), "corpus": len(files), "n": args.n, "min": args.min,
                           "pairs": rows}, indent=2))
         return 0
     print(f"duplication scan: {args.n}-gram containment over {len(files)} prose files "
           f">{args.min_bytes} B, reporting pairs at or above {args.min:.0%}")
     print("excluded trees: " + " ".join(EXCLUDED_PREFIXES))
+    print_blind_spots()
     print("A pair is a SUSPICION, not a verdict — deliberate duplication is common.")
     print(f"{'CONTAIN':>8} {'SHARED':>7} {'IDENT':>6}  PAIR")
     for row in rows:

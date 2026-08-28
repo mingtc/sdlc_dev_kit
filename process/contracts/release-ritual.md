@@ -50,6 +50,26 @@ rather than deleting the row, so the decision is visible.
   *Why:* rolling back a published name is worse than a missing artifact, and the retry path is
   what keeps the operator from improvising one.
 
+- **Where a slate was minted from findings, the pre-cut sweep is a REQUIRED STEP of this ritual,
+  with a NAMED OWNER, and it runs before the version is written.** The sweep reads the project's
+  declared consumer-facing surfaces; it is not the periodic hygiene cadence, which is advisory.
+  **Required step, not an automated check — and the distinction is deliberate, not a hedge.** This
+  sheet requires that the sweep HAVE RUN and that its owner be named; it does **not** require a
+  script arm that decides it. [`../hygiene-checklist.md`](../hygiene-checklist.md) says why
+  mechanizing it is held back: an automated check could only inspect an **artifact** the sweep
+  produces, not the sweep, and an artifact that is trivially satisfiable makes the check
+  self-certifying — the defect [`../doctrine/instruments.md`](../doctrine/instruments.md) is about,
+  wired into the release path. **So "required" binds the ritual and "not automated" binds the
+  implementation, and a reimplementer owes the first without owing the second.**
+  *Why:* a fully-green, individually-reviewed program still ships stale sibling statements — a
+  change is reviewed against its own operands, and nothing in that review reads the files no diff
+  touched. The sweep is the only instrument that finds a false claim in a file nobody edited, and a
+  ritual that does not name it leaves the one check that catches that class to whoever remembers.
+  **Naming an owner is part of the invariant:** an unowned checklist item is the thing that is
+  skipped when the cut is late. *(The shapes and the sweep's own definition are in
+  [`../hygiene-checklist.md`](../hygiene-checklist.md); this sheet only requires that the ritual
+  run it and say who owns it.)*
+
 ## 3. REFUSAL CONDITIONS
 
 - The proposed name does not parse in the declared shape ⇒ refuse.
@@ -59,6 +79,14 @@ rather than deleting the row, so the decision is visible.
 - Any required release document lacks the version's section ⇒ refuse, naming **that** document
   and what to write in it.
 - The board is not clean ⇒ refuse. A release cut over a drifting board mislabels what shipped.
+- The slate came from a round and the pre-cut sweep **has not run**, or has run with **no named
+  owner** ⇒ refuse, naming which of the two is missing.
+  *Whose refusal this is:* the ritual's, not necessarily the script's. Every other condition here is
+  mechanically checkable from the repository; this one is a fact about **work that happened outside
+  it**, so in an implementation that has not automated the sweep the refusal is the operator's to
+  honour — and it is written here rather than left to memory precisely because an unautomated
+  refusal is the one that gets skipped when the cut is late. *An implementation that DOES automate
+  it owes the self-certification caution above.*
 
 ## 4. WHAT GREEN MEANS
 
@@ -69,6 +97,8 @@ rather than deleting the row, so the decision is visible.
    and printed as **local only**, with the commands that finish the job, before item 4 is attempted.
 4. Both were **pushed**, and only then was the artifact built at the named point and published.
 5. A dry mode exists that performs item 1 and reports 2–4 while changing **nothing**.
+6. Where the slate came from a round, the **pre-cut sweep ran, and the report names its owner** —
+   an unnamed owner is a finding about the ritual, not a pass.
 
 ## 5. MINIMAL INTERFACE
 

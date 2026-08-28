@@ -44,7 +44,7 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, Index  # noqa: E402
+from citation_index import REPO_ROOT, Index, print_blind_spots, walk_blind_spots  # noqa: E402
 
 # ── PARAMETER: THE STARTER ROOTS. **EDIT THIS LIST.** It is the answer to "what does a fresh
 #    agent open on its first minute here?", and it is the only thing that makes an orphan list
@@ -235,11 +235,12 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        print(json.dumps({"nodes": len(nodes), "reachable": len(seen),
+        print(json.dumps({"blind_spots": walk_blind_spots(), "nodes": len(nodes), "reachable": len(seen),
                           "orphans": reported, "exempted": exempted,
                           "laundered_by_index": hubs}, indent=2))
         return 0
     print(f"reachability walk over {len(nodes)} doc nodes from {len(STARTER_ROOTS)} starters")
+    print_blind_spots()
     print(f"reachable: {len(seen)}   orphans: {len(orphans)}   "
           f"of which convention-exempt: {len(exempted)}   reported: {len(reported)}")
     print("An orphan is a SUSPICION, not a verdict. Run --self-test first: a starter root that")
