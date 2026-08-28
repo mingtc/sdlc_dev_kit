@@ -30,10 +30,38 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   caller-named subset must state that it is narrowed, and must never be reportable as the full
   answer.
   *Why:* the whole value of a gate is that its name means one thing.
-- **A narrowed run still runs the cross-cutting floor, and NO option disables that floor.** The
-  always-on set is the checks that redden because of a change made *somewhere else*.
+- **A narrowed run still runs the cross-cutting floor, and NO option disables that floor —
+  INCLUDING BY OMISSION.** The always-on set is the checks that redden because of a change made
+  *somewhere else*. **The floor's declared membership is reconciled against the guards that
+  actually exist, and the difference is reported IN BOTH DIRECTIONS**: a declared guard the
+  enumeration does not see — whether it vanished or the enumeration's scope never covered it —
+  and **a guard the enumeration lists that was never declared**. *Both differences are computed;
+  a run may refuse on the first non-empty one and name the other only once that is fixed —
+  what the invariant forbids is a direction that is never computed at all.*
   *Why:* those are precisely the failures a caller-chosen subset is guaranteed to miss, so making
-  them optional makes the narrowed mode actively misleading rather than merely weaker.
+  them optional makes the narrowed mode actively misleading rather than merely weaker. **And this
+  invariant was about *options* while the likelier defect is omission:** a floor short by one
+  unenrolled guard is disabled in effect, satisfies the letter of *no option disables it*, and
+  defeats the entire *why*. Nothing changes the count, nothing goes red, and every narrowed run
+  afterwards reports a floor exactly as complete as somebody's memory. **A one-directional
+  reconciliation is the half that already ships everywhere and is not the property.**
+  *And the enumeration's own failure is not an empty answer:* a missing or unrunnable enumerator
+  returns nothing, and nothing is indistinguishable from *this project has no guards* — so the
+  runner says **which of the two happened**: the command failed to run, or it ran and found
+  nothing. Reporting the first in the vocabulary reserved for the second is the instrument
+  describing itself in its subject's words. **A project that declares no enumerator gets that
+  stated too**, because *not checked* and *checked and clean* are different sentences and only
+  one of them is a claim the run has earned.
+  **And the green claim requires an operand on BOTH sides:** a declared enumeration that returns
+  nothing, over a declared floor that is empty, has reconciled nothing — there is no difference to
+  report in either direction because there is nothing on either side — and it is reported as such,
+  **never as a clean floor**. That state is not a refusal; declaring the enumerator before writing a
+  first guard is a legitimate place to be. It is simply not a measurement.
+  *Why:* with nothing on either side both differences are **vacuously** empty, so an implementation
+  that reports NO DIFFERENCE without first checking that a difference was possible prints its
+  strongest claim exactly where it measured least — over a tree that may hold unenrolled guards it
+  never saw. Measured in the reference implementation one edit from the shipped state,
+  before this clause existed.
 - **Green is a state of the tree, never of a session** — and *session* includes **where the caller
   was standing.** The gate reads the working tree it is pointed at, holds no memory of a previous
   run, and **its verdict does not depend on the caller's working directory**: the same tree answers
@@ -50,9 +78,9 @@ that no role ever re-derives the check set from prose and no two roles run a dif
 - Any check in the set fails ⇒ the whole gate is **red**, with the failing check named.
 - A check in the declared set **cannot be run at all** (its runner is missing, its inputs are
   absent) ⇒ **red**, never skipped-and-passed. An unrunnable check is an unknown, and an unknown
-  is not a pass — **and it is reported as UNRUNNABLE, in its own word, distinctly from a check that
-  ran and failed.** Both are red; they are not the same fact, and the summary's counts separate
-  them.
+  is not a pass — **and it is reported as UNRUNNABLE, in its own word, distinctly from a
+  check that ran and failed.** Both are red; they are not the same fact, and the summary's
+  counts separate them.
   *Why:* the pass direction is only half of this. A runner that spells "could not start" with the
   same word it uses for "your tree is broken" is reporting on **itself** in the vocabulary reserved
   for its **subject** — so the reader goes to debug a tree that may be perfectly healthy, and the
@@ -94,7 +122,18 @@ there is one runner, one order and one summary* is the contract.
   concrete checks it runs, and the membership of the always-on floor, are the project's law and
   travel with nothing.
 - The kit's copy keeps the two halves apart: the gate set is a **declared table** near the top of
-  the runner, and the floor's membership is a commented, readable list beside it. Replace the table;
-  keep the frame.
+  the runner, and the floor's membership is a commented, readable list beside it — **with a
+  second, also-empty seam next to it naming how this project ENUMERATES its guards as that command
+  sees
+  them**, which is what the list is reconciled against. Replace the table; keep the frame.
+  **The list stays readable on purpose**: it is checkable without running anything, which is why the
+  enumerator is a second knob rather than a replacement for it. *The kit owns where the frame looks;
+  the project owns what is in the list.*
+- **The reconciliation runs on the NARROWED path only, and that is a decision with a reason.** A
+  full run executes every guard whether or not it is enrolled, so a short floor misleads nobody
+  there; the
+  floor exists for the narrowed run, which is where an unenrolled guard silently goes unrun. *A
+  reimplementation may reconcile on every run — nothing forbids it — but it owes the narrowed
+  one.*
 - The count-line invariant in § 2 wants a regression test of its own in the project's suite — the
   one guard whose absence is invisible, because its failure mode is a run that *looks* clean.

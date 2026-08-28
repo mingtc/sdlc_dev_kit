@@ -48,6 +48,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`verify.sh`'s guard floor is now reconciled in both directions.** A new `GUARD_ENUM` seam
+  beside `GUARD_SET` names how your project enumerates its guards **as that command sees them**;
+  the scoped run reports declared-but-vanished (as before) **and guards that exist and were never
+  enrolled** (new), refusing on either. `GUARD_ENUM` is **executed**, and its output is compared
+  to `GUARD_SET` as literal strings — emit the same path shape the list uses.
 - **The self-test suite no longer fails on a project that declared its own role set.** If you ran
   `kit-init.sh --roles` to name your project's roles, the suite's sandboxes inherited that set and
   then judged the suite's own fixtures against it — so `move-issue.sh`, `archive.sh` and
@@ -531,6 +536,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Action required:** if your `GUARD_SET` is non-empty, **set `GUARD_ENUM`**. Until you do, the
+  scoped run prints a note saying the second direction was not checked — it does not fail. **When
+  you set it, expect the FIRST run to refuse — and to name why.** The likeliest cause is a
+  **path-shape mismatch**: your enumerator emits `./tests/x` where the list says `tests/x`, and
+  every declared guard then reads as unseen. The one the seam exists for is a **guard the
+  enumeration lists that nobody enrolled**. Others are possible and the run names whichever fired,
+  one at a time, with the next only after that one is fixed — **read the message rather than
+  working from a list of causes, including this one.** Every narrowed run before now ran a floor
+  only as complete as the list, with nothing detecting the shortfall — an earlier release had
+  already made the banner say so; what was missing was the detection. Enrol each such guard in
+  `GUARD_SET`, or narrow `GUARD_ENUM` if it is deliberately not a floor guard — either way, say
+  which in the file.
 - **Action required only if you audit classifications by grep.** If you have a check that greps
   `KIT-CLASS:` across `.claude/skills/` and expects a hit per directory, it was reporting the
   vendored skills as unclassified and it will keep doing so. Point it at the provenance table's
@@ -571,6 +588,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   described honestly. **If you have filled `GUARD_SET`, take the corrected header block into
   your own copy and keep your contents**; the sentence you are replacing is the one that would
   have told you the omission could not happen quietly.
+  **Superseded 2026-08-29 by the guard-floor reconciliation (`verify.sh`'s `GUARD_ENUM` seam, above):** the unguarded direction is no longer the price — the enumerator supplies the space the list is reconciled against, and the scoped run reports both directions where it saw something. The readability reason above stands and is why the list remained hand-kept.
 - **If you carry a hand-kept index or list guarded in only ONE direction, check what its in-file
   note actually says.** `lookup-tables.md` § A.5 rank 4 has always tolerated that shape *"only
   with a named reason in-file"*; it now requires the reason to **name the direction left

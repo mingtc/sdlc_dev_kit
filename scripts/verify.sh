@@ -110,19 +110,84 @@ GATES=(
 # WHAT THE CHECK BELOW ENFORCES, AND WHAT IT CANNOT — both, because only one of
 # them is obvious. It refuses a scoped run when a LISTED path has vanished, so a
 # rename or a deletion that forgets this list fails loudly. It CANNOT see the
-# other direction: a guard that lands and is never enrolled is invisible here,
-# because this list is the only thing the check reads, and a list is its own
-# horizon. THAT direction is the silent one, and nothing in this file reports it.
+# other direction on its own: a guard that lands and is never enrolled is invisible
+# to a list, because this list is the only thing that check reads, and a list is its
+# own horizon.
+#
+# SUPERSEDED, CONCLUSION ONLY: "and nothing in this file reports it" was true when
+# written and is now false. GUARD_ENUM below supplies the SPACE the list is reconciled
+# against, and the scoped run refuses on a difference in EITHER direction, ONE AT A
+# TIME: both differences are computed, the first non-empty one refuses, and the other
+# is not named until that one is fixed. The reason above is untouched and still holds
+# — a list cannot see past itself, which is WHY a second, independent enumeration had
+# to be added rather than the list made cleverer.
 #
 # The membership is READABLE HERE, without running anything — that is the point of
 # a list rather than a marker scattered across the modules or a glob over names
-# containing "guard". The price of that choice is exactly the unguarded direction
-# named above: hand-kept, one direction checked — which is tolerated only because
-# the blind direction is stated here rather than discovered later
-# (process/doctrine/lookup-tables.md § A.5, rank 4).
+# containing "guard". That readability is why the enumerator is a SECOND knob and not a
+# replacement: the list stays checkable by eye, and the enumerator supplies what it is
+# checked against — two authorities, deliberately, because one cannot audit itself.
+#
+# WHERE THIS SITS ON THE HAND-KEPT-TABLE LADDER depends on whether GUARD_ENUM is set,
+# and both answers are legitimate (process/doctrine/lookup-tables.md § A.5):
+#   • GUARD_ENUM DECLARED  → RANK 3: hand-kept, held complete in BOTH directions by a
+#     guard. The list is the declaration, the enumeration is the space, and the run
+#     refuses on a difference either way. RANK 3 IS EARNED BY THE RUN, NOT BY THE KNOB:
+#     an enumerator that returns nothing reconciles nothing, however correctly it is
+#     declared, and the run says so instead of reporting a clean floor.
+#   • GUARD_ENUM UNSET     → RANK 4: hand-kept, one direction guarded — tolerated only
+#     with a named reason in-file, and § A.5 requires that reason to name the UNGUARDED
+#     direction. The run's own NOTE is that reason, printed rather than filed: it says
+#     the unenrolled direction was not checked, so the blind direction is stated at the
+#     moment it applies rather than discovered later.
 GUARD_SET=(
   # e.g. tests/test_docs_matrix_drift.<ext>
 )
+
+# THE ENUMERATION AUTHORITY — how this project lists its guards AS THE ENUMERATOR SEES
+# THEM. Shipped EMPTY, like GUARD_SET above; with both seams empty a run takes the
+# unset arm and says the second direction was never checked.
+#
+# WHAT A RUN DOES WITH IT turns on two things: whether the seam is SET, and what the
+# enumeration then did — saw something, saw nothing, or failed to run. **Every outcome
+# names itself in the run's own output, so THE RUN IS THE LIST**; do not keep a count
+# of them here, and do not trust one kept anywhere else.
+#   • A GREEN is earned by exactly one combination: set, the enumeration saw
+#     something, and there is no difference in either direction.
+#   • Everything else is either a REFUSAL that names its cause and the guards it
+#     found, or a NOTE that says nothing was measured — and a NOTE is never a pass.
+# *Written this way deliberately: four repairs to this block each replaced one closed
+# set of outcomes with another, and each new list was outrun by the next arm added.*
+#
+# WHY BOTH DIRECTIONS, AND WHY A LIST ALONE CANNOT DO IT. The existence check below
+# walks GUARD_SET and refuses on a path that has vanished — declared-but-absent. The
+# other direction is the one that bites: a guard that LANDS IN THE TREE and is never
+# added to the list changes neither the count nor the note, so nothing is red, nothing
+# is loud, and every scoped run afterwards reports a floor exactly as complete as
+# somebody's memory. The difference between the declared set and the real space is the
+# only place that defect lives, and it lives in both directions.
+#
+# THE DECLARED LIST STAYS READABLE — that is deliberate and is why this is a second
+# knob rather than a replacement. GUARD_SET remains a commented list a reader can
+# check without running anything; this command supplies the SPACE to reconcile it
+# against. The kit owns where the frame looks; the project owns what is in the list.
+#
+# TWO ASYMMETRIES WITH THE SEAMS ABOVE IT — with GATES on execution, with GUARD_SET on
+# comparison — both worth knowing before setting it:
+#   • THIS VALUE IS EXECUTED. The GATES table says to quote nothing and is PARSED,
+#     never evaluated; this is `eval`-ed, so it is the file's first EVAL-ED surface —
+#     the gate commands run too, but they are executed as parsed words, never as text
+#     the shell re-reads. Put a command here, not a value, and treat it as you would
+#     any other line the runner will run.
+#   • ITS OUTPUT IS COMPARED AS LITERAL STRINGS to the entries in GUARD_SET, with no
+#     path normalisation. `find . -name …` yields `./tests/x` and will NOT match a
+#     GUARD_SET entry written `tests/x`. With a populated list every DECLARED guard then
+#     reads as UNSEEN by the enumeration; with an empty one every path found reads as
+#     UNENROLLED. Same mismatch, opposite arm, depending on which side has entries.
+#     Emit the same shape the list uses; `git ls-files` already does.
+#
+# e.g. GUARD_ENUM="git ls-files 'tests/test_*_drift.*'"
+GUARD_ENUM=""
 
 # ═════════════════════════════════════════════════════════════════════════════
 # END CONFIG BLOCK — the frame follows. Take it as-is.
@@ -226,6 +291,119 @@ if [ "$SCOPED" -eq 1 ]; then
       exit 2
     fi
   fi
+
+  # ── THE OTHER DIRECTION: a guard in the tree that nobody enrolled. ──────────
+  # Placed here, beside the existence check, because the two are one reconciliation
+  # and separating them is how only one of them ends up maintained.
+  if [ -z "${GUARD_ENUM:-}" ]; then
+    # NOT A PASS, AND IT SAYS SO. An unset authority means the space was never read,
+    # which is a different sentence from "the declared list is complete" — and only
+    # one of them is a claim this run is entitled to make.
+    echo "verify.sh: NOTE — GUARD_ENUM is unset, so the floor was checked for vanished" >&2
+    echo "  entries only. A guard added to the tree and never listed in GUARD_SET is NOT" >&2
+    echo "  detected by this run. Set GUARD_ENUM at the top of this file to close that." >&2
+  else
+    enum_err="$(mktemp 2>/dev/null || echo /tmp/verify_enum_err.$$)"
+    enum_out="$(eval "$GUARD_ENUM" 2>"$enum_err")"; enum_rc=$?
+    if [ "$enum_rc" -ne 0 ]; then
+      # ANY NON-ZERO IS UNRUNNABLE — not only 126/127. A MIS-TYPED enumerator
+      # (`git ls-fils …`) exits 1 with an empty stdout, and an empty stdout is
+      # indistinguishable from "this project has no guards" — so a rc-127-only test
+      # let a typo print "reconciled BOTH ways … none unenrolled" and exit 0. That is
+      # an affirmative claim the run did not earn, and it is WORSE than the silence
+      # this whole change replaced: silence claimed nothing.
+      # The enumerator's own stderr is KEPT and shown, because "it failed" without
+      # what it said costs the reader the one thing that identifies the typo.
+      echo "verify.sh: REFUSING — GUARD_ENUM did not run cleanly (exit $enum_rc): $GUARD_ENUM" >&2
+      [ -s "$enum_err" ] && { echo "  it said:" >&2; sed 's/^/    /' "$enum_err" >&2; }
+      echo "  This is the command failing, not an empty answer. Fix or clear GUARD_ENUM." >&2
+      rm -f "$enum_err"
+      exit 2
+    fi
+    rm -f "$enum_err"
+    unenrolled=()
+    while IFS= read -r found; do
+      [ -n "$found" ] || continue
+      in_set=0
+      # ${GUARD_SET[@]+…} — the file's own idiom, and NOT optional here: under
+      # `set -u` on bash 3.2 an empty array expands to an unbound variable and the
+      # runner DIES naming nothing. That is the SHIPPED state (GUARD_SET empty) with
+      # an enumerator declared, which is the first thing the config comment above
+      # invites — and what actually ships is BOTH seams empty, so this configuration
+      # is one edit away from the shipped one and had no test at all.
+      for g in ${GUARD_SET[@]+"${GUARD_SET[@]}"}; do [ "$g" = "$found" ] && { in_set=1; break; }; done
+      [ "$in_set" -eq 0 ] && unenrolled+=("$found")
+    done <<ENUM_EOF
+$enum_out
+ENUM_EOF
+    # SET − SPACE, FROM THE SAME SOURCE AS SPACE − SET. Until now "both ways" was
+    # stitched from two authorities: "none unenrolled" came from the enumeration and
+    # "none vanished" from the -e existence test — so an enumerator that exited 0
+    # having seen NOTHING made SPACE empty, SPACE−SET vacuously empty, and the run
+    # printed a green claiming both directions while one of them had no operand. Same
+    # unearned green a mis-typed command produced, through the other door. Computing
+    # both directions from the enumeration makes "both ways" ONE claim about ONE
+    # source rather than two claims stitched together.
+    unseen=()
+    for g in ${GUARD_SET[@]+"${GUARD_SET[@]}"}; do
+      in_space=0
+      while IFS= read -r found; do
+        [ -n "$found" ] || continue
+        [ "$g" = "$found" ] && { in_space=1; break; }
+      done <<SPACE_EOF
+$enum_out
+SPACE_EOF
+      [ "$in_space" -eq 0 ] && unseen+=("$g")
+    done
+
+    # THE OUTCOMES AS ONE CHAIN, so the green line is UNREACHABLE unless both sides had an
+    # operand. Written as if/elif deliberately: every predicate in this block was once
+    # scoped to a populated GUARD_SET, and the shipped state is the empty one.
+    if [ -z "$enum_out" ] && [ "${#GUARD_SET[@]}" -eq 0 ]; then
+      # NOTHING ON EITHER SIDE, so there is nothing to reconcile and no claim to print.
+      # NOT a refusal: setting GUARD_ENUM before writing a first guard is a legitimate
+      # state and blocking it would punish doing the right thing early. NOT a green:
+      # a claim with no operand on either side is not a measurement. rc is unchanged.
+      echo "verify.sh: NOTE — GUARD_ENUM returned nothing and GUARD_SET is empty, so nothing" >&2
+      echo "  was reconciled. That is not a clean floor; it is no floor and no enumeration." >&2
+      echo "  If this project has guards, this command does not see them:" >&2
+      echo "    $GUARD_ENUM" >&2
+    elif [ -z "$enum_out" ]; then
+      # A DECLARED LIST THE ENUMERATOR CANNOT SEE — diagnoses the ENUMERATOR, not the list.
+      # Naming every declared guard would be true and would bury the cause: the command
+      # ran, succeeded, and saw none of them.
+      echo "verify.sh: REFUSING — GUARD_ENUM ran cleanly and returned NOTHING, while GUARD_SET holds ${#GUARD_SET[@]} DECLARED item(s)." >&2
+      echo "  The enumeration saw none of the declared guards; a floor the enumerator cannot see is" >&2
+      echo "  not reconciled. Common causes: a glob that matches nothing, or guards not yet tracked" >&2
+      echo "  where the enumerator reads the index (git ls-files sees only tracked paths)." >&2
+      echo "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" >&2
+      echo "  reads the working tree." >&2
+      exit 2
+    elif [ "${#unseen[@]}" -ne 0 ]; then
+      echo "verify.sh: ${#unseen[@]} DECLARED guard(s) the enumeration does not see:" >&2
+      printf '  %s\n' "${unseen[@]}" >&2
+      echo "  Either the entry is wrong, or GUARD_ENUM's scope excludes it — a declared guard" >&2
+      echo "  outside the enumeration is not reconciled by it, whatever the other direction says." >&2
+      echo "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" >&2
+      echo "  reads the working tree." >&2
+      exit 2
+    elif [ "${#unenrolled[@]}" -ne 0 ]; then
+      echo "verify.sh: ${#unenrolled[@]} guard(s) the enumeration lists and GUARD_SET does not:" >&2
+      printf '  %s\n' "${unenrolled[@]}" >&2
+      echo "  The floor is short by that many, and every scoped run has been reporting a floor" >&2
+      echo "  only as complete as the list. Enrol them in GUARD_SET, or narrow GUARD_ENUM if" >&2
+      echo "  they are deliberately not floor guards — either way, say which in this file." >&2
+      echo "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" >&2
+      echo "  reads the working tree." >&2
+      exit 2
+    else
+      # DECLARED, uppercase, matching the other count-lines in this runner: the green line
+      # is the one most mistakable for a measurement of the tree. And it names the command
+      # TEXT, not just the knob — the refusal path already did, and the green path is
+      # where nobody re-checks which command actually ran.
+      echo "verify.sh: guard floor reconciled BOTH ways against ONE source — ${#GUARD_SET[@]} DECLARED item(s), none unseen by the enumeration, none unenrolled (via GUARD_ENUM: $GUARD_ENUM). Existence of each declared path is checked separately, above."
+    fi
+  fi
   # There is NO scopable gate → a --scope run would test nothing. Refuse rather
   # than print an empty green summary.
   has_select=0
@@ -301,7 +479,9 @@ if [ "$SCOPED" -eq 1 ]; then
   echo
   echo "── SCOPED RUN (TDD inner loop only): ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s)."
   echo "   The floor is this file's GUARD_SET list, not every guard in the tree: a guard that"
-  echo "   exists and was never listed is not run here, and nothing reports that."
+  echo "   exists and was never listed is not run here — the reconciliation printed BEFORE"
+  echo "   this banner reports it where GUARD_ENUM is declared AND SAW SOMETHING; a NOTE on"
+  echo "   stderr says so where it is not declared, or saw nothing."
   echo "   The FULL run stays mandatory at the dev_complete handoff, at QA and at release."
 fi
 
