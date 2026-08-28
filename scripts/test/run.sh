@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — self-test harness for the kanban scripts. See process/EXTRACTION.md.
+# KIT-CLASS: MIXED — self-test harness for the kanban scripts. See process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/run.sh — the kit's self-test harness for the board scripts.
 #
@@ -126,9 +126,9 @@ sbcommit() { MSG_OK=1 git -C "$SB_WORK" commit "$@"; }
 # one that went wrong: the harness seeded `pr: null` while NO template carried the key,
 # so the harness was testing a shape the templates never produce — and `--set-pr`, which
 # writes back only into an EXISTING `pr:` line, could never work on a kit-minted card
-# while passing here. The templates now declare it (change 015), so this line is a
+# while passing here. The templates now declare it, so this line is a
 # projection of them rather than an invention. The assertion that would keep the two in
-# step is still OWED (change 015): no case yet mints a card from the REAL template and
+# step is still OWED: no case yet mints a card from the REAL template and
 # checks that `--set-pr` persists into it. Until one exists the template fix is unproven —
 # a fixture written by hand to match cannot be evidence that the templates produce it.
 seed_issue() {
@@ -397,7 +397,7 @@ _neu_array() {
 # unchanged and only its call site moves: EVERY SITE THAT COPIES THE REAL .claude/
 # TREE INTO A SANDBOX CALLS THIS, immediately after the copy.
 #
-# THE DEFECT IT CLOSES (changes/007). kit-init stamps the issue prefix into
+# THE DEFECT IT CLOSES. kit-init stamps the issue prefix into
 # .claude/templates/ AND scripts/config.sh together. _kit_neutral_config resets
 # config.sh to the shipped `KIT`, so in an adopted project the sandbox held a
 # config.sh saying `KIT` and templates saying `XYZ-NNN`. kit-init inside the
@@ -582,6 +582,108 @@ case_move_issue() {
     || cf "commit subject not found on the trunk (not pushed?)"
 
   finish "move-issue.sh: move + Activity append + commit pushed to the trunk"
+  teardown
+}
+
+# =============================================================================
+# CASE — the mover's not-found refusal costs nothing, and cannot lie
+#
+# FOUR ARMS, and (b)–(d) are why this is a case and not a one-line assertion:
+#   (a) a mistyped id refuses and leaves NO registered kanban worktree — the
+#       property the pre-bootstrap probe exists for;
+#   (b) ABLATION: (a) must be able to FAIL. The probe is disabled in the
+#       sandbox's own copy and (a)'s worktree check is re-run — a green (a) over
+#       a script whose probe never ran would be a green about nothing;
+#   (c) FALSE-REFUSAL CONTROL: a card that IS on the trunk but absent from this
+#       repo's CACHED origin/<trunk> must still MOVE. The probe reads a tracking
+#       ref, so without its fetch-confirmation it refuses a card that exists —
+#       worse than the worktree it saves. This arm reddens if anyone hoists the
+#       fetch out of the condition chain;
+#   (d) a probe that CANNOT ANSWER falls through instead of refusing, and the
+#       refusal's own provenance line is what proves which read caught it.
+# =============================================================================
+case_move_issue_probe() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-100" sandbox chore "Sandbox probe test"
+  publish_sandbox
+
+  local out rc mi="$SB_WORK/scripts/move-issue.sh"
+  kwt_registered() { git -C "$SB_WORK" worktree list --porcelain 2>/dev/null | grep -qF '.kanban-wt'; }
+  kwt_clear() {
+    git -C "$SB_WORK" worktree remove --force "$SB_WORK/.kanban-wt" >/dev/null 2>&1
+    rm -rf "$SB_WORK/.kanban-wt"
+    git -C "$SB_WORK" worktree prune >/dev/null 2>&1
+  }
+
+  # (a) THE PROPERTY.
+  kwt_clear
+  out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-999" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) the mover accepted a card that is on no board"
+  printf '%s\n' "$out" | grep -q 'no file matching' \
+    || cf "(a) the not-found refusal changed shape: $out"
+  printf '%s\n' "$out" | grep -qi 'not yet pushed' \
+    || cf "(a) the refusal lost the push-before-you-move cause: $out"
+  kwt_registered \
+    && cf "(a) a REFUSAL registered a kanban worktree — the probe is gone, or it now runs too late"
+  [ -e "$SB_WORK/.kanban-wt" ] && cf "(a) a REFUSAL left a .kanban-wt/ directory behind"
+
+  # (b) ABLATION — neuter the probe's condition in the sandbox's copy and re-run (a)'s
+  #     worktree check, which must now FIRE. Self-asserting: an anchor that moved is a
+  #     fixture failure, not a case failure (this file's own rule).
+  kwt_clear
+  grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
+    || _fixture_die "case_move_issue_probe(b): no probe condition to ablate in move-issue.sh — the anchor moved, so arm (a) above is unfalsifiable and this case proves nothing."
+  perl -i -pe 's/^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$/if false \&\& [ "\$PROBE_ID_IS_GLOB" -eq 0 ] \\/' "$mi"
+  grep -q '^if false && \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
+    || _fixture_die "case_move_issue_probe(b): the ablation did not take."
+  out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-999" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) the ablated mover accepted a nonexistent card"
+  kwt_registered \
+    || cf "(control) with the probe disabled the refusal STILL left no worktree — arm (a) is not measuring the probe: $out"
+  cp "$REAL_SCRIPTS/move-issue.sh" "$mi"   # restore the real script for (c) and (d)
+
+  # (c) FALSE-REFUSAL CONTROL. Put a card on the trunk WITHOUT it passing through this
+  #     repo's tracking ref: commit and push it from a second clone. Both halves of the
+  #     premise are asserted, because a control whose premise silently did not hold is
+  #     the green that proves nothing.
+  kwt_clear
+  local other="$SB_TMP/other"
+  git clone --quiet "$SB_ORIGIN" "$other" >/dev/null 2>&1
+  git -C "$other" config user.email "test@sandbox.invalid" >/dev/null 2>&1
+  git -C "$other" config user.name  "Sandbox Other"        >/dev/null 2>&1
+  git -C "$other" config commit.gpgsign false              >/dev/null 2>&1
+  sed "s/^id: $SB_PREFIX-100$/id: $SB_PREFIX-101/" \
+    "$SB_WORK/progress/todo/$SB_PREFIX-100-sandbox.md" \
+    > "$other/progress/todo/$SB_PREFIX-101-elsewhere.md"
+  git -C "$other" add -A >/dev/null 2>&1
+  MSG_OK=1 git -C "$other" commit -qm "[PM] $SB_PREFIX-101: minted in another clone" >/dev/null 2>&1
+  git -C "$other" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" 2>/dev/null \
+    | grep -q "$SB_PREFIX-101-elsewhere.md" \
+    || _fixture_die "case_move_issue_probe(c): the second clone's push did not reach the bare trunk — the control has no premise."
+  git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null \
+    | grep -q "$SB_PREFIX-101-elsewhere.md" \
+    && _fixture_die "case_move_issue_probe(c): origin/$SB_TRUNK is already current here, so nothing in this arm exercises the stale-cache path."
+  out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-101" in_progress \
+            --role Dev --note "moved from a stale cache" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(c) FALSE REFUSAL: a card that IS on the trunk was refused because our cached origin/$SB_TRUNK had not seen it (rc=$rc): $out"
+  origin_has_path "progress/in_progress/$SB_PREFIX-101-elsewhere.md" \
+    || cf "(c) the move did not land on the trunk"
+
+  # (d) A PROBE THAT CANNOT ANSWER FALLS THROUGH — and the provenance line is the
+  #     only thing that can tell the two reads apart, which is why it is asserted.
+  kwt_clear
+  git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-998" in_progress --role Dev --note x 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) the mover accepted a nonexistent card with no tracking ref"
+  printf '%s\n' "$out" | grep -q 'no file matching' \
+    || cf "(d) the fall-through refusal changed shape: $out"
+  printf '%s\n' "$out" | grep -q 'inside the kanban worktree' \
+    || cf "(d) with an unreadable tracking ref the probe did not fall through to the worktree read: $out"
+
+  finish "move-issue.sh: a not-found refusal creates no worktree (ablation-proven), never refuses a card the trunk actually carries, and falls through when it cannot read the ref"
   teardown
 }
 
@@ -1043,9 +1145,9 @@ case_archive_apply() {
 # defect under test).
 # =============================================================================
 # =============================================================================
-# 047 — a schema's `required` must name properties the schema DEFINES
+# A SCHEMA'S `required` MUST NAME PROPERTIES THE SCHEMA DEFINES
 # =============================================================================
-# WHY THIS EXISTS (measured, and it shipped): change 026 renamed a schema property
+# WHY THIS EXISTS (measured, and it shipped): a change renamed a schema property
 # from `landed` to `landing` in both runners, and in tranche-runner's PARK_SCHEMA the
 # `properties` block was updated while `required` was not. The schema then DEMANDED A
 # PROPERTY IT DID NOT DEFINE — it could not validate, and a validator would have asked
@@ -1071,7 +1173,7 @@ case_archive_apply() {
 # in each runner, all filled for the QA leg and the run report to read), and a narrower
 # "referenced nowhere else" rescue fires on five. A `required` naming an undefined
 # property is asymmetric — it is ALWAYS a defect, because the schema cannot validate —
-# which is why it is the one that survives. See change 047 for both measurements.
+# which is why it is the one that survives.
 _schema_extract_awk() {
   cat <<'AWKEOF'
 /^const [A-Za-z_]+_SCHEMA[[:space:]]*=/ { s=$2; inprops=0; next }
@@ -1112,7 +1214,7 @@ _schema_audit() {
 }
 
 # =============================================================================
-# 012 — no shipped skill references a FOREIGN PLUGIN NAMESPACE
+# NO SHIPPED SKILL REFERENCES A FOREIGN PLUGIN NAMESPACE
 # =============================================================================
 # WHY A MECHANISM AND NOT A SENTENCE (the raising leg's § A.5b argument, kept because
 # it is the whole reason this is a case): the population of bad references GROWS
@@ -1180,7 +1282,279 @@ $(printf '%s' "$hits" | sed 's/^/      /')"
 }
 
 # =============================================================================
-# 014 — post-init, the KIT-CLASS markers are INTACT, not rewritten and not deleted
+# THE ORDER OF THE THREE CASES BELOW IS DECIDED, NOT ACCIDENTAL. Each was authored
+# separately and each said "beside case_skills_carry_no_foreign_namespace"; all
+# three cannot be literal neighbours. Ordered by SUBJECT ADJACENCY: the two that
+# read the same operand as the case above (the shipped skills corpus — what those
+# skills SAY) sit with it first, and the dev/ index case, whose corpus is a
+# different tree entirely, follows them.
+#   1. no foreign plugin namespace   (above)   — what a skill NAMES
+#   2. no unconditional forge command          — what a skill INSTRUCTS
+#   3. upstream product name only where kept   — what a skill CALLS things
+#   4. the dev/ index names its subdirectories — a different corpus
+# =============================================================================
+
+# =============================================================================
+# no shipped skill states a FORGE COMMAND as an instruction
+# =============================================================================
+# WHY A MECHANISM AND NOT A SENTENCE: the return path is an UPSTREAM RE-COPY. These
+# skills are vendored; updating one is "copy the folder over and diff", and the rule
+# that says which way the merge goes lives in skills/README.md — prose, in the file a
+# diff-reader skims. A re-copy that restores a single forge's command has not updated
+# the skill, it has re-narrowed it, and the adopter who cannot run that command is the
+# one who finds out.
+#
+# WHY PARAGRAPHS AND NOT LINES (instruments.md § A.7.1): line breaks are an artifact of
+# the authoring tool. MEASURED: a correctly-marked paragraph whose "example" wraps onto
+# a line other than the command is a FALSE POSITIVE under grep -n and clean under this.
+# The second control below is that measurement, kept executable.
+#
+# THE LEXICON IS AN ENUMERATION AND SAYS SO (§ A.7.4/5): gh|glab|hub|tea × subcommand,
+# marker set example|illustrative|not exhaustive. Measured cost of the forge list on the
+# shipped tree: zero false positives. "adapter" and "your forge" are DELIBERATELY NOT
+# enrolled — they would suppress a line that gives a live forge instruction while
+# gesturing at the adapter.
+#
+# ADOPTER-SPECIFIC FACT, DECLARED: this pins a KIT property. An adopter who adopts the
+# optional forge flavor and writes its command into their own skill copy should mark it
+# as their project's declared example, or drop this case.
+_forge_cmd_paras() {   # <file> — "<file>:<first-line>:<paragraph>" per PARAGRAPH naming a forge CLI
+  awk -v f="$1" '
+    function flush() {
+      if (p != "" && p ~ /(^|[^A-Za-z])(gh|glab|hub|tea) (pr|issue|repo|api|release|auth|workflow|mr|merge-request) /)
+        print f ":" start ":" p
+      p=""; start=0
+    }
+    /^[[:space:]]*$/ { flush(); next }
+    { if (p == "") { start=NR; p=$0 } else { p = p " " $0 } }
+    END { flush() }
+  ' "$1"
+}
+
+_forge_paras_all() {   # <dir> — every forge-command paragraph under it, marked or not
+  find "$1" -name '*.md' -type f -print0 2>/dev/null \
+    | while IFS= read -r -d '' f; do _forge_cmd_paras "$f"; done
+}
+
+_forge_paras_unmarked() {   # <dir> — the ones that do NOT declare themselves an example
+  _forge_paras_all "$1" | grep -viE 'example|illustrative|not exhaustive' || true
+}
+
+_forge_unmarked_n() {  # <dir> — how many
+  _forge_paras_unmarked "$1" | grep -c . || true
+}
+
+case_skills_name_no_forge_unconditionally() {
+  cf_reset
+  make_sandbox
+
+  local skills="" d
+  for d in "$REAL_REPO_ROOT/_claude/skills" "$REAL_REPO_ROOT/.claude/skills"; do
+    [ -d "$d" ] && skills="$d"
+  done
+  if [ -z "$skills" ]; then
+    cf "no shipped skills directory found under either _claude/ or .claude/ — the check has no operand"
+    finish "shipped skills: no unconditional forge command"; teardown; return
+  fi
+
+  # ASSERT THE OPERAND, not only the comparison: zero files scanned finds zero hits and
+  # "passes" (the sibling namespace case's rule, reused).
+  local nfiles; nfiles="$(find "$skills" -name '*.md' -type f | wc -l | tr -d ' ')"
+  [ "$nfiles" -ge 5 ] \
+    || cf "only $nfiles markdown file(s) under $skills — too few to be the shipped skill set; the scan lost its operand rather than finding a clean tree"
+
+  local total; total="$(_forge_paras_all "$skills" | grep -c . || true)"
+  local unmarked; unmarked="$(_forge_paras_unmarked "$skills")"
+  [ -z "$unmarked" ] || cf "a shipped skill gives a forge command as an instruction, not as an example (the kit is forge-agnostic: an adopter on another forge cannot run it):
+$(printf '%s' "$unmarked" | sed "s|^$skills/||" | cut -c1-200 | sed 's/^/      /')"
+
+  # ── THE REDDENING CONTROLS, on a COPY — never the live tree (instruments.md § A.2).
+  # Both are DELTAS against a baseline taken on the copy, so neither depends on the live
+  # tree being clean: a real defect above must not be able to satisfy a control below.
+  local probe="$SB_TMP/forgeprobe"; rm -rf "$probe"; mkdir -p "$probe"
+  local src; src="$(find "$skills" -name 'SKILL.md' -type f | head -1)"
+  [ -n "$src" ] && cp "$src" "$probe/victim.md"
+  if [ ! -f "$probe/victim.md" ]; then
+    cf "(control) could not copy a SKILL.md to plant into — neither control ran, so the green above is unproven"
+  else
+    local base; base="$(_forge_unmarked_n "$probe")"
+
+    # CONTROL 1 — an unmarked instruction is FOUND and NAMED.
+    printf '\nRun `gh pr create --fill` to open the review.\n' >> "$probe/victim.md"
+    local planted; planted="$(_forge_paras_unmarked "$probe")"
+    printf '%s' "$planted" | grep -q 'gh pr create' \
+      || cf "(control) the check did NOT find a planted unconditional forge command — the pattern set no longer matches the case it was built for"
+    printf '%s' "$planted" | grep -q 'victim.md' \
+      || cf "(control) the finding does not name the file it is in: $planted"
+    local after; after="$(_forge_unmarked_n "$probe")"
+    [ "$after" -eq $(( base + 1 )) ] \
+      || cf "(control) planting one instruction moved the count from $base to $after, not to $(( base + 1 ))"
+
+    # CONTROL 2 — a MARKED instruction whose marker wrapped onto another line is NOT a
+    # finding. This is the § A.7.1 measurement, kept executable: under a raw-line check
+    # this plant is a false positive.
+    printf '\nGitHub the CLI, as one example, is\nnot the requirement: run `gh pr create --fill` here.\n' >> "$probe/victim.md"
+    local wrapped; wrapped="$(_forge_unmarked_n "$probe")"
+    [ "$wrapped" -eq "$after" ] \
+      || cf "(control) a WRAPPED paragraph whose example marker sits on a line other than the command was counted as unmarked ($wrapped, expected $after) — the guard is reading raw lines, not normalised paragraphs"
+  fi
+
+  finish "shipped skills: every forge command is a named example ($total forge-command paragraph(s) across $nfiles md files under the skills tree; span = markdown under the skills tree, lexicon = gh/glab/hub/tea), and a planted instruction is found and named"
+  teardown
+}
+
+# =============================================================================
+# the UPSTREAM PRODUCT NAME survives only where a rename would make a true
+# statement FALSE — and the allowance is a PATTERN, not a file list
+# =============================================================================
+# WHY A MECHANISM AND NOT A SENTENCE: the de-namespacing change closed the `<ns>:<skill>`
+# form (the case above) and then stated, in prose, that the only residue left was
+# directory and file names. It was not — instruction prose, a path in executing code and
+# a rendered page title also carried it — and three of those files were missing from the
+# first hand enumeration of them. A prose enumeration of residue is stale the day a line
+# is added; this makes it executable, so the NEXT mention has to argue for itself.
+#
+# THE THREE ALLOWED SHAPES, each with the reason it is allowed:
+#   1. `~/.config/superpowers/…` — an EXTERNAL tool's real directory. The skills ADOPT that
+#      directory where it already exists — they never create it — and add a worktree inside
+#      it, so renaming it in our copy would send a correct instruction looking for a
+#      directory nothing creates.
+#   2. `using-superpowers` — the shipped skill directory's own name, plus the rows in the
+#      skills index and the Dev role doc that cite it. That rename is link-breaking and
+#      still deferred; WHEN IT LANDS, DELETE THIS ALLOWANCE and this case becomes the
+#      rename's own gate.
+#   3. A line carrying the upstream repository URL — provenance. A skill whose origin
+#      nobody can name is a skill nobody can safely update, so the citation stays.
+# Patterns, not paths: a residue site that moves to another file is still caught and no
+# file list has to be maintained. Line granularity is the known limit — prose sharing a
+# line with an allowed shape rides through, which is why the shapes are narrow.
+#
+# SCOPE, stated rather than implied: the shipped agent surface only (`_claude/` before
+# init, `.claude/` after). NOT the adopter's own tree, which has its own vocabulary and
+# would inherit findings it cannot interpret; NOT this harness, which names the word in
+# comments and plants it in three controls, so scanning it would fire on the instruments
+# instead of the subject.
+_upstream_name_hits() {  # <dir> — prints "file:line:text" per DISALLOWED mention
+  grep -rn -i 'superpowers' "$1" 2>/dev/null \
+    | grep -vE '\.config/superpowers/' \
+    | grep -vE 'using-superpowers' \
+    | grep -vE 'github\.com/[^ ]*/superpowers' || true
+}
+
+case_upstream_name_only_where_kept() {
+  cf_reset
+  make_sandbox
+
+  local agent="" d
+  for d in "$REAL_REPO_ROOT/_claude" "$REAL_REPO_ROOT/.claude"; do
+    [ -d "$d" ] && agent="$d"
+  done
+  if [ -z "$agent" ]; then
+    cf "no shipped agent directory found under either _claude/ or .claude/ — the check has no operand"
+    finish "shipped skills: upstream name only where a rename would falsify"; teardown; return
+  fi
+
+  # ASSERT THE OPERAND, not only the comparison: zero files scanned finds zero mentions
+  # and "passes".
+  local nfiles
+  nfiles="$(find "$agent" -type f \( -name '*.md' -o -name '*.sh' -o -name '*.html' \) | wc -l | tr -d ' ')"
+  [ "$nfiles" -ge 20 ] \
+    || cf "only $nfiles scannable file(s) under $agent — too few to be the shipped agent surface; the scan lost its subject rather than finding a clean tree"
+
+  local hits; hits="$(_upstream_name_hits "$agent")"
+  [ -z "$hits" ] || cf "the upstream product name is used where nothing depends on it — allowed only as the external \`~/.config/superpowers/\` path, the \`using-superpowers\` skill name, or a line carrying the upstream repository URL:
+$(printf '%s' "$hits" | sed 's/^/      /')"
+
+  # ── THE REDDENING CONTROL, on a COPY — never the live tree (instruments.md § A.2).
+  # BOTH DIRECTIONS IN ONE PLANT: a bare product-name mention must be FOUND and named,
+  # and the kept external path planted beside it must NOT be — an allowance that has
+  # stopped working would redden this case on correct content, which is the failure a
+  # one-directional control cannot see.
+  local probe="$SB_TMP/upstreamprobe"; mkdir -p "$probe"
+  local victim="$probe/planted-SKILL.md"
+  local src; src="$(find "$agent" -name 'SKILL.md' -type f | head -1)"
+  [ -n "$src" ] && cp "$src" "$victim"
+  if [ ! -f "$victim" ]; then
+    cf "(control) could not copy a SKILL.md to plant into — the control did not run, so the green above is unproven"
+  else
+    printf '\n**Note:** Superpowers works much better with access to subagents.\n' >> "$victim"
+    printf '\n   ls -d ~/.config/superpowers/worktrees/$project\n' >> "$victim"
+    local planted; planted="$(_upstream_name_hits "$probe")"
+    printf '%s' "$planted" | grep -qi 'Superpowers works much better' \
+      || cf "(control) the check did NOT find a planted product-name mention — it cannot see the defect it is named after"
+    printf '%s' "$planted" | grep -q 'planted-SKILL.md' \
+      || cf "(control) the finding does not name the file it is in: $planted"
+    printf '%s' "$planted" | grep -q '\.config/superpowers/worktrees' \
+      && cf "(control) the kept external path was reported as a finding — the allowance for it has stopped working, and this case would redden on correct content"
+  fi
+
+  finish "shipped skills: upstream name only where a rename would falsify ($nfiles files scanned), and a planted mention is found and named"
+  teardown
+}
+
+# =============================================================================
+# THE dev/ INDEX NAMES every subdirectory that carries its own README
+# =============================================================================
+# WHY A MECHANISM AND NOT A SENTENCE: dev/README.md states its index rule as
+# BIDIRECTIONAL and warns that a rule enforced in one direction rots in the other. It
+# then rotted in exactly that direction — a subdirectory was added with a substantive
+# README and two templates pointing into it, and a grep for its name in dev/README.md
+# matched nothing for the whole life of the directory. The sentence was there; the miss
+# happens in the change that CREATES the directory, where the reviewer reads the new
+# README and not the old index.
+#
+# SCOPE IS THE SPLIT-OUT SUBDIRECTORY, and that is the file's own rule: "split it out
+# into its own dev/<dir>/README.md and leave a one-line row here" means a subdirectory
+# holding a README has a row owed. Dated snapshots are NOT asserted — they arrive
+# constantly in a live project, and a case that reddened on each unindexed one would be
+# switched off in a week. An abandoned case guards nothing.
+_dev_unindexed_subdirs() {  # <dev-dir> — prints the basename of each subdirectory
+  local dev="$1" idx="$1/README.md" d n   # that holds a README.md and is named nowhere in dev/README.md
+  [ -f "$idx" ] || return 0
+  while IFS= read -r d; do
+    [ -f "$d/README.md" ] || continue
+    n="$(basename "$d")"
+    grep -qF -- "$n/" "$idx" || printf '%s\n' "$n"
+  done < <(find "$dev" -mindepth 1 -maxdepth 1 -type d | sort)
+}
+
+case_dev_index_names_its_subdirs() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped tree
+
+  local dev="$REAL_REPO_ROOT/dev"
+  if [ ! -f "$dev/README.md" ]; then
+    skp "dev/ index names every subdirectory that carries its own README" "dev/README.md absent"
+    teardown; return
+  fi
+
+  # ASSERT THE OPERAND, not only the comparison: zero subdirectories scanned finds zero
+  # misses and "passes". A dev/ with no split-out directory means the scan lost its subject.
+  local nsub; nsub="$(find "$dev" -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/README.md' \; -print | wc -l | tr -d ' ')"
+  [ "$nsub" -ge 1 ] \
+    || cf "no subdirectory under dev/ carries a README.md — the scan lost its operand rather than finding a complete index"
+
+  local missing; missing="$(_dev_unindexed_subdirs "$dev")"
+  [ -z "$missing" ] || cf "a dev/ subdirectory with its own README is named nowhere in dev/README.md — unindexed, against that file's own first rule:
+$(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
+
+  # ── THE REDDENING CONTROL, on a COPY — never the live tree (instruments.md § A.2).
+  local probe="$SB_TMP/devprobe"; rm -rf "$probe"; mkdir -p "$probe/zz-planted"
+  cp "$dev/README.md" "$probe/README.md" 2>/dev/null || true
+  printf '# a planted subdirectory nobody indexed\n' > "$probe/zz-planted/README.md"
+  if [ ! -f "$probe/README.md" ]; then
+    cf "(control) could not copy dev/README.md to plant against — the control did not run, so the green above is unproven"
+  else
+    _dev_unindexed_subdirs "$probe" | grep -qx 'zz-planted' \
+      || cf "(control) the check did NOT flag a planted unindexed subdirectory — it cannot see the defect it is named after"
+  fi
+
+  finish "dev/ index names every subdirectory that carries its own README ($nsub scanned), and a planted one is flagged"
+  teardown
+}
+
+# =============================================================================
+# POST-INIT, THE KIT-CLASS MARKERS ARE INTACT — not rewritten and not deleted
 # =============================================================================
 # WHY BOTH DIRECTIONS, and this is the raising leg's point: EITHER CHECK ALONE PASSES ON
 # A TREE WHERE THE MARKERS WERE DELETED. "No <PREFIX>-CLASS survives" is satisfied by a
@@ -1274,7 +1648,7 @@ case_runner_schema_required_defines() {
 }
 
 # =============================================================================
-# 048 — the index insert must REFUSE a malformed index, not mis-write it
+# THE INDEX INSERT MUST REFUSE A MALFORMED INDEX, not mis-write it
 # =============================================================================
 # WHY (reproduced from an adopter following a recipe that omitted the separator): the
 # insert prints the header, then READS THE NEXT LINE and reprints it as the separator.
@@ -1621,7 +1995,73 @@ case_commit_msg() {
   ( env -u MSG_OK "$SB_WORK/scripts/githooks/applypatch-msg" "$msg" ) >/dev/null 2>&1; rc=$?
   [ "$rc" -ne 0 ] || cf "applypatch-msg accepted an unprefixed subject (the am path must not be a hole)"
 
-  finish "commit-msg: accepts every derived role prefix + the auto-exempt set, rejects unprefixed, and applypatch-msg agrees"
+  # --- § A.1: no generated co-author trailer, and no "Generated with …" line ------
+  # DERIVE the markers from the hook's own TOOL_TRAILER_MARKERS line, for the same
+  # reason the prefixes are derived: a project extends that list, and a restated
+  # copy here would make these assertions vacuous the day it does.
+  #
+  # WHAT DERIVING COSTS, STATED because a reddening control measured it: this arm
+  # asserts THE RULE WORKS FOR WHATEVER MARKERS ARE DECLARED — not that the declared
+  # set is the right one. Replace TOOL_TRAILER_MARKERS with a single word that matches
+  # nothing real and every assertion below still passes, because the arm then tests the
+  # hook against that word. Only the empty case is caught, by the derivation check. So
+  # a NARROWED marker list is invisible here by construction; what this arm defends is
+  # the enforcement, and deleting RULE (2) from the hook is what reddens it.
+  local role markers marker
+  role="${prefixes%%|*}"
+  markers="$(sed -n "s/^TOOL_TRAILER_MARKERS='\\(.*\\)'.*/\\1/p" "$hook")"
+  [ -n "$markers" ] || cf "could not derive TOOL_TRAILER_MARKERS from the hook"
+  marker="${markers%%|*}"
+  # The refusal prints that list VERBATIM, so it must stay plain words — a regex
+  # metacharacter in it would be a lie in the help text and a live pattern in the match.
+  printf '%s' "$markers" | grep -qE '^[a-z0-9|]+$' \
+    || cf "(trailer) TOOL_TRAILER_MARKERS is not the plain-word list the refusal prints: '$markers'"
+
+  # `git commit -v` hands the hook the RAW DIFF below the scissors line — uncommented,
+  # context lines carrying one leading space. Editing a file that contains a trailer is
+  # not writing one, so this must be ACCEPTED. (\x escapes keep this file ASCII; the
+  # emoji is there because the shape the tooling emits leads with decoration, not with
+  # the word "Generated".)
+  printf '[%s] a valid subject\n\n# ------------------------ >8 ------------------------\n# Do not modify or remove the line above.\ndiff --git a/doctrine b/doctrine\n--- a/doctrine\n+++ b/doctrine\n@@ -1 +1,2 @@\n Co-Authored-By: %s <noreply@example.com>\n+\xf0\x9f\xa4\x96 Generated with [Some Tool](https://example.com)\n' "$role" "$marker" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "(trailer) a \`commit -v\` message was refused for the DIFF below its scissors line (exit $rc)"
+
+  # A clean multi-line message is ACCEPTED — including a HUMAN co-author trailer and the
+  # words in prose. A guard that rejected every message with a body would pass a
+  # one-directional test.
+  printf '[%s] a valid subject\n\nA body that explains why, and mentions a file generated with the codegen step.\n\nCo-authored-by: A Person <person@example.com>\n' "$role" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "(trailer) a clean multi-line message with a HUMAN co-author was rejected (exit $rc)"
+
+  # A tool-naming trailer is REJECTED, and the refusal names the rule and the markers.
+  printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
+  out="$( env -u MSG_OK "$hook" "$msg" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(trailer) a Co-Authored-By naming '$marker' was accepted"
+  printf '%s' "$out" | grep -q 'commit-hygiene.md' || cf "(trailer) the refusal does not name the rule: $out"
+  printf '%s' "$out" | grep -qi "$marker" || cf "(trailer) the refusal does not list the derived markers: $out"
+
+  # The second arm of § A.1, with the leading decoration the tooling actually emits.
+  printf '[%s] a valid subject\n\n\xf0\x9f\xa4\x96 Generated with [Some Tool](https://example.com)\n' "$role" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -ne 0 ] || cf '(trailer) a "Generated with" line was accepted'
+
+  # The auto-exempt subjects are exempt from the PREFIX rule only: a merge carries a body.
+  printf "Merge branch 'x'\n\nCo-Authored-By: %s <noreply@example.com>\n" "$marker" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -ne 0 ] || cf "(trailer) an auto-exempt SUBJECT carried a tool trailer through — that exemption is the prefix rule's only"
+
+  # The am path judges the trailer the same way, or the import entrance is a hole.
+  printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
+  ( env -u MSG_OK "$SB_WORK/scripts/githooks/applypatch-msg" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -ne 0 ] || cf "(trailer) applypatch-msg accepted a tool trailer (the am path must not be a hole)"
+
+  # The documented escape still works, because importing a third party's commit verbatim
+  # is the case it exists for.
+  printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
+  ( MSG_OK=1 "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "(trailer) MSG_OK=1 did not bypass the trailer rule (the documented import escape)"
+
+  finish "commit-msg: accepts every derived role prefix + the auto-exempt set, rejects unprefixed; rejects a tool co-author trailer and a \"Generated with\" line on both entrances while accepting a human trailer and a \`commit -v\` diff; and applypatch-msg agrees"
   teardown
 }
 
@@ -2829,6 +3269,155 @@ case_check_board_from_a_worktree() {
   teardown
 }
 
+# =============================================================================
+# CASE — arm [g], graduation: its three states, and the verdict control
+#
+# make_sandbox seeds no root documents, so each of the three cases below seeds
+# CLAUDE.md / README.md / PROJECT.md itself. AND THE NEUTRALIZER DELIBERATELY
+# DELETES THE STAMP RECEIPT from scripts/config.sh, so a case that wants the arm to
+# run must put it back — that is not a workaround, it is the arm's enabling
+# condition, and the receipt is written from KIT_STAMP_MARK rather than retyped.
+# =============================================================================
+case_check_board_graduation() {
+  cf_reset
+  make_sandbox
+
+  # ── (a) NO RECEIPT: the arm has no subject. It must SKIP, not pass. ──────────
+  # A pass here would be the false-all-clear class: reporting "graduated ✓" over a
+  # tree the initializer has never touched.
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
+  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -q '^\[g\]' \
+    || cf "(a) no [g] section — the arm is absent, which no other assertion here can detect"
+  printf '%s\n' "$out" | grep -A2 '^\[g\]' | grep -qi 'skipped' \
+    || cf "(a) the arm did not SKIP with no stamp receipt: $out"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
+    && cf "(a) the arm claimed graduation on a tree the initializer never touched: $out"
+
+  # ── (b) RECEIPT + SCAFFOLDING: it reports, and names the files. ──────────────
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'CLAUDE.md' \
+    || cf "(b) the REPLACE finding did not NAME CLAUDE.md — instruments.md § A.4 wants the operand: $out"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'README.md' \
+    || cf "(b) the REPLACE finding did not name README.md: $out"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'PROJECT.md still holds' \
+    || cf "(b) the FILL finding did not fire on a PROJECT.md holding <trunk>: $out"
+  # NAME THE CLASS, not the phrase. This read `grep -qi 'not measured'` as authored, and
+  # a reddening control measured that it CANNOT SEE THE OMISSION IT IS NAMED AFTER:
+  # delete arm (g3)'s echo entirely and the case still passes, because the FILL span line
+  # one line above says "The non-markdown FILL members are NOT measured here" and -i makes
+  # that a match. The assertion was satisfied by a different class's disclaimer.
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'DELETE-IF-UNUSED: not measured' \
+    || cf "(b) DELETE-IF-UNUSED was silently omitted instead of declaring itself unmeasured: $out"
+
+  # ── (c) THE VERDICT CONTROL — the whole reason the arm is separable. ─────────
+  # Graduation is reporting findings RIGHT NOW. The verdict must still read clean,
+  # because the board is clean. If this ever fails, the release ritual's board gate
+  # and kit-init's own self-check both start failing on every fresh install.
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    || cf "(c) graduation findings changed the board verdict — release.sh gate (d) and kit-init's self-check both key on this line: $out"
+
+  # ── (d) GRADUATED: it clears, and it NAMES ITS SOURCE while clearing. ────────
+  printf '# my project\n'                 > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n'                 > "$SB_WORK/README.md"
+  printf '# PROJECT.md\n\nTrunk: main\n'  > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
+    || cf "(d) a graduated tree did not clear: $out"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'read from:' \
+    || cf "(d) the CLEARING branch did not name its operand — instruments.md § A.4, the asymmetry that only errs toward false confidence: $out"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+    && cf "(d) a graduated tree still reported scaffolding: $out"
+
+  finish "check (g): graduation SKIPs with no receipt, reports and names its files while scaffolding stands, clears once replaced naming its source — and never moves the board verdict"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g] reads the TRUNK, and this is the case that matters
+# =============================================================================
+case_check_board_graduation_reads_the_trunk() {
+  cf_reset
+  make_sandbox
+
+  # Scaffolding published; receipt present. The arm reports.
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
+  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  publish_sandbox
+
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+    || cf "precondition failed: the arm did not report on published scaffolding: $out"
+
+  # ── GRADUATE IN THE WORKING TREE ONLY. DO NOT PUBLISH. ──────────────────────
+  # This is the read-the-checkout-not-the-ref defect posed as a question: a working-tree read would
+  # declare graduation here and then, because a satisfied arm stops asking, never
+  # re-open it. The arm is one-way, so a premature clear is UNRECOVERABLE rather
+  # than merely stale — which is why this control is worth more than case 1.
+  printf '# my project\n'                > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n'                > "$SB_WORK/README.md"
+  printf '# PROJECT.md\n\nTrunk: main\n' > "$SB_WORK/PROJECT.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "[Architect] graduate, unpublished" >/dev/null 2>&1
+  # deliberately NO push
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+    || cf "THE ARM READ THE WORKING TREE: it cleared on an unpublished graduation, and a one-way arm that clears early never re-opens: $out"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q "$SB_TRUNK" \
+    || cf "the arm did not name the trunk ref it answered about: $out"
+
+  # And it clears once the work is actually published — the other direction.
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
+    || cf "the arm did not clear once the graduation was published: $out"
+
+  finish "check (g) is a TRUNK read: an unpublished graduation does NOT clear it (025's defect in a one-way arm), and publishing does"
+  teardown
+}
+
+# =============================================================================
+# CASE — the verdict wiring, as a standalone control
+#
+# This duplicates case 1(c) on purpose, as a NAMED control that survives someone
+# refactoring case 1: a control buried inside a four-state case is the one that
+# gets deleted during a tidy-up. Both are kept, which is the authored default.
+# =============================================================================
+case_check_board_graduation_verdict_is_not_wired() {
+  cf_reset
+  make_sandbox
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  publish_sandbox
+
+  local out; out="$(cb_run)"
+  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+    || cf "precondition: the arm must be REPORTING for this control to mean anything: $out"
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    || cf "day-one completeness moved the board verdict: kit-init's self-check fails on every fresh install and no ungraduated project can cut a release: $out"
+
+  finish "check (g) does not decide the verdict: a board with unreplaced scaffolding still reads 'board-drift: clean ✓'"
+  teardown
+}
+
 case_check_board_frontmatter_offset() {
   cf_reset
   make_sandbox
@@ -3083,7 +3672,7 @@ case_option_parsing_hygiene() {
   # the neutralizer. This case does not assert on the template BODY, so nothing
   # here reddens without it today — it is called because the rule is "every site
   # that copies .claude/ in", and a rule with one remembered site and one forgotten
-  # one is how the defect in changes/007 survived two rounds of fixing.
+  # one is how the template-seam defect above survived two rounds of fixing.
   _kit_neutral_claude
   publish_sandbox
 
@@ -3176,6 +3765,18 @@ case_first_mile() {
   printf '%s\n' "$out" | grep -q 'no file matching' || cf "the mover's error changed shape: $out"
   printf '%s\n' "$out" | grep -qi 'not yet pushed' \
     || cf "the not-found error does not name 'minted but not yet pushed?': $out"
+  # THE COSTS-NOTHING ASSERTION DOES NOT BELONG HERE, and the reason is measured
+  # rather than argued (2026-08-29). It was authored for this spot as
+  # "it must not have bootstrapped a worktree … in a repo that had none". This repo
+  # HAS one by the time this line runs: kit-init's own self-check moves a scratch card
+  # through two columns a few lines above, and each move legitimately bootstraps
+  # .kanban-wt. Measured at this exact point — before the call kanban=1, after the call
+  # kanban=1, and the refusal's provenance line reads "read the TRUNK's board straight
+  # out of …", so the probe refused exactly as designed and created nothing. The
+  # assertion would therefore have been a FALSE RED over correct behaviour, measuring
+  # kit-init's residue instead of the refusal's cost.
+  # The property itself is not lost: case_move_issue_probe (a) asserts it where
+  # make_sandbox guarantees the premise, and (b) ablation-proves that (a) can fail.
 
   # Push, then the move composes.
   git -C "$SB_WORK" add "progress/todo/SBX-001-first-mile.md" >/dev/null 2>&1
@@ -3258,6 +3859,18 @@ rel_set() {     # <line-regex> <replacement-line>
   perl -i -pe 'BEGIN{$m=shift; $r=shift} s/^\Q$m\E.*$/$r/' "$1" "$2" "$rel"
   grep -qxF "$2" "$rel" \
     || _fixture_die "rel_set: the sandbox's release.sh does not carry '$2' after the set."
+}
+
+# Plant a mid-run kill immediately BEFORE the pushes, so what dies is a LEGITIMATE
+# cut that has already made its local acts. ASSERTS, like rel_insert/rel_set above:
+# an un-planted kill leaves the case testing a healthy run and reporting PASS.
+rel_plant_midrun_kill() {
+  local rel="$SB_WORK/scripts/release.sh"
+  grep -qE '^echo ".*pushing commit \+ tag' "$rel" \
+    || _fixture_die "rel_plant_midrun_kill: no push-announcement line in the sandbox's release.sh — the kill was NOT planted, so this case would test a healthy run."
+  perl -i -pe 's|^(echo ".*pushing commit \+ tag)|exit 143  # planted mid-run kill\n$1|' "$rel"
+  grep -q 'planted mid-run kill' "$rel" \
+    || _fixture_die "rel_plant_midrun_kill: the sandbox's release.sh does not carry the planted kill after the edit."
 }
 
 # Seed the version-bearing files + both release documents. <doc1_target|none> [doc2_target|none]
@@ -3678,6 +4291,98 @@ case_release_publish_recovery() {
 }
 
 # =============================================================================
+# CASE — the LOCAL-ONLY state is printed as NORMAL output BEFORE the pushes, and
+# every command it prints WORKS. `doctrine/fix-execution.md` § A.7 and
+# `contracts/release-ritual.md` § 2: a run killed between the tag and the pushes
+# never reaches the failure branches that carry this same recovery text, BECAUSE
+# NOTHING FAILED — and the two lines above it assert a release commit and an
+# annotated tag without saying LOCAL, so the dead transcript reads as a cut
+# release.
+#
+# ARM (2) IS THE ONE THAT MATTERS: the commands are EXTRACTED FROM THE TRANSCRIPT
+# and executed. Recovery text that drifts out of date fails this case instead of
+# reading fine — a dangling pointer in recovery text is the same defect as a
+# refusal naming a flag the script does not have.
+# =============================================================================
+case_release_local_only_recovery() {
+  cf_reset
+  if ! has_release; then skp "release.sh local-only recovery" "scripts/release.sh absent"; return; fi
+  local out rc pos_block pos_push c undo
+
+  # (1) The healthy path prints it, and prints it BEFORE the pushes — and the DRY
+  #     RUN does not, because a dry run makes nothing local to recover.
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  out="$(run_release 1.1.0 --dry-run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(dry-run) exited $rc (expected 0): $out"
+  printf '%s\n' "$out" | grep -q 'LOCAL ONLY' \
+    && cf "(dry-run) printed the local-only recovery, but a dry run makes nothing local: $out"
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(healthy) exited $rc (expected 0): $out"
+  printf '%s\n' "$out" | grep -q 'LOCAL ONLY' \
+    || cf "(healthy) no local-only state printed between the tag and the pushes: $out"
+  pos_block="$(printf '%s\n' "$out" | grep -n 'LOCAL ONLY' | head -1 | cut -d: -f1)"
+  pos_push="$(printf '%s\n' "$out" | grep -n 'pushing commit + tag' | head -1 | cut -d: -f1)"
+  { [ -n "$pos_block" ] && [ -n "$pos_push" ] && [ "$pos_block" -lt "$pos_push" ]; } \
+    || cf "(healthy) the state is not printed BEFORE the push (state=$pos_block push=$pos_push): $out"
+  teardown
+
+  # (2) KILL the run between the local acts and the pushes — planted COMMITTED, so
+  #     the clean-tree preflight still passes and a legitimate cut is what dies —
+  #     then run the commands the transcript printed, VERBATIM.
+  make_sandbox; seed_release_files 1.1.0; rel_plant_midrun_kill; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 143 ] || cf "(killed) the planted mid-run kill did not fire (exit $rc): $out"
+  # The state the transcript CLAIMS must be the state on disk, or the text is a lie
+  # that happens to be reassuring.
+  [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" = "tag" ] \
+    || cf "(killed) no local annotated tag — the recovery text's premise is false"
+  [ -z "$(git -C "$SB_WORK" ls-remote --tags origin v1.1.0 2>/dev/null)" ] \
+    || cf "(killed) the tag reached the remote before the pushes"
+  origin_file_contains "VERSION" '1.1.0' \
+    && cf "(killed) the bump reached the remote before the pushes"
+  pos_block=0
+  while IFS= read -r c; do
+    [ -z "$c" ] && continue
+    pos_block=$(( pos_block + 1 ))
+    ( cd "$SB_WORK" && sh -c "$c" ) >/dev/null 2>&1 \
+      || cf "(killed) a printed recovery command failed: $c"
+  done < <(printf '%s\n' "$out" | sed -n 's|^ *\(git push .*\)$|\1|p')
+  [ "$pos_block" -ge 2 ] \
+    || cf "(killed) the printed recovery names $pos_block push command(s), expected the commit's and the tag's: $out"
+  origin_file_contains "VERSION" '1.1.0' \
+    || cf "(recovered) the printed commands did not put the bump on the trunk"
+  [ -n "$(git -C "$SB_WORK" ls-remote --tags origin v1.1.0 2>/dev/null)" ] \
+    || cf "(recovered) the printed commands did not push the tag"
+  # The block's own warning: re-running the script is NOT one of the safe moves.
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(re-run) the script did not refuse once the tag existed"
+  teardown
+
+  # (3) The other half of the printed text — the undo. It is only valid because
+  #     nothing has published, which is the fact the block exists to state.
+  make_sandbox; seed_release_files 1.1.0; rel_plant_midrun_kill; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 143 ] || cf "(undo) the planted mid-run kill did not fire (exit $rc): $out"
+  undo="$(printf '%s\n' "$out" | sed -n 's|^ *\(git tag -d .*\)$|\1|p' | head -1)"
+  [ -n "$undo" ] || cf "(undo) no undo command was printed: $out"
+  if [ -n "$undo" ]; then
+    ( cd "$SB_WORK" && sh -c "$undo" ) >/dev/null 2>&1 \
+      || cf "(undo) the printed undo command failed: $undo"
+    grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(undo) the bump survived the printed undo"
+    git -C "$SB_WORK" rev-parse -q --verify refs/tags/v1.1.0 >/dev/null 2>&1 \
+      && cf "(undo) the tag survived the printed undo"
+    [ -z "$(git -C "$SB_WORK" status --porcelain)" ] \
+      || cf "(undo) the printed undo left the tree dirty"
+  fi
+  teardown
+
+  finish "release.sh local-only recovery: the state + the finishing commands print as normal output BEFORE the pushes (and never on --dry-run), and every command printed — both pushes, the re-run refusal, the undo — does what the text says"
+}
+
+# =============================================================================
 # CASE — A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER (009).
 #
 # self-test-harness.md § 2: "a test-only relaxation of a production rule is reachable
@@ -4001,6 +4706,7 @@ isolation_snapshot
 # comparison below is the only statement of it, and it is derived on both sides.
 CASES=(
   case_move_issue
+  case_move_issue_probe
   case_finish_pr_happy
   case_finish_pr_second_worktree
   case_finish_pr_remote_delete_refused
@@ -4014,6 +4720,9 @@ CASES=(
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines
   case_skills_carry_no_foreign_namespace
+  case_skills_name_no_forge_unconditionally
+  case_upstream_name_only_where_kept
+  case_dev_index_names_its_subdirs
   case_kit_init_markers_intact
   case_archive_requires_the_retired_store
   case_archive_feature_branch_clean
@@ -4039,6 +4748,9 @@ CASES=(
   case_check_board_reads_the_ref
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
+  case_check_board_graduation
+  case_check_board_graduation_reads_the_trunk
+  case_check_board_graduation_verdict_is_not_wired
   case_kit_init_happy
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill
@@ -4052,6 +4764,7 @@ CASES=(
   case_release_doc_arms
   case_release_publish
   case_release_publish_recovery
+  case_release_local_only_recovery
   case_release_bash_n
   case_release_spaced_path
   case_consumer_updater

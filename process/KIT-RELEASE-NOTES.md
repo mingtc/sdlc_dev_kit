@@ -48,6 +48,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The self-test suite gains nine cases, and three of them read your tree rather than a sandbox.**
+  Most of the suite builds a throwaway repository and tests the kit's machinery inside it. Three of
+  the new cases instead read what you actually ship: that no skill states a forge command as an
+  instruction rather than as a named example, that the upstream product name survives only where
+  renaming it would falsify a true statement, and that `dev/README.md` names every subdirectory
+  carrying its own README. **These can go red on content that is yours to edit, and that is the
+  intent** — each names the file and the line it means. If you have taken the optional forge flavor
+  and written your forge's command into your own copy of a skill, mark it as your project's declared
+  example or drop that case; the case's own message says which line it means. **No action required
+  otherwise.**
+- `scripts/test/run.sh` is classified **MIXED**, not KIT: the sandbox frame is the kit's, and any
+  case family that pins your project's own facts is yours to edit or drop. The contract sheet and
+  the extraction manifest already said so; the file's own marker now agrees with them.
 - **A change whose operands straddle the two commit lanes is now a named case with a rule.**
   `process/doctrine/commit-hygiene.md` gains **§ A.5**: where a guard and the record it reads — or
   a declaration and the ceiling it is held against, or a procedure naming two artifacts — sit in
