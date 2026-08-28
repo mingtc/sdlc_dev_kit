@@ -2208,11 +2208,30 @@ case_config_seam_refusal() {
   # Make config.sh unsourceable — the degraded path under test.
   mv "$SB_WORK/scripts/config.sh" "$SB_WORK/scripts/config.sh.disabled" >/dev/null 2>&1
 
-  local s out rc
-  for s in archive.sh next-id.sh new-issue.sh new-bug.sh new-refactor.sh; do
+  # THE CENSUS IS RUN AGAINST THE SANDBOX'S scripts/, and that is load-bearing rather
+  # than incidental: THIS FILE also contains the census phrase — it is quoted on the
+  # line below — so a tree-wide grep returns one more than there are consumers. The
+  # sandbox has no scripts/test (make_sandbox removes it), so the list here is the
+  # consumers and nothing else. A reader who greps the whole tree and gets a bigger
+  # number has not found a miscount.
+  #
+  # THE POPULATION IS DERIVED, NOT TYPED. `new-prd.sh` was the sixth prefix consumer
+  # and sat outside this loop for as long as the loop was a hand-written list — while
+  # the case's own finish string claimed a five-member population. Deriving it from the census
+  # the block itself publishes makes the loop and the grep the same set by construction,
+  # which is the property that was missing rather than the sixth name.
+  local s out rc n_consumers=0
+  local consumers; consumers="$(cd "$SB_WORK/scripts" && grep -ln 'THE PREFIX HAS ONE AUTHORITY' ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
+  [ -n "$consumers" ] \
+    || _fixture_die "case_config_seam_refusal: no script in the sandbox carries the prefix-authority block — the census pattern moved, so this loop would assert nothing while reporting a pass."
+  for s in $consumers; do
+    n_consumers=$(( n_consumers + 1 ))
     case "$s" in
       archive.sh)      out="$( cd "$SB_WORK" && env -u ISSUE_PREFIX "$SB_WORK/scripts/$s" --apply 2>&1 )"; rc=$? ;;
       next-id.sh)      out="$( cd "$SB_WORK" && env -u ISSUE_PREFIX "$SB_WORK/scripts/$s" 2>&1 )"; rc=$? ;;
+      # new-prd.sh takes <slug> and no --id, and its seam is PRD_PREFIX rather than
+      # ISSUE_PREFIX — the one consumer whose output lands in requirements/.
+      new-prd.sh)      out="$( cd "$SB_WORK" && env -u PRD_PREFIX "$SB_WORK/scripts/$s" someslug 2>&1 )"; rc=$? ;;
       *)               out="$( cd "$SB_WORK" && env -u ISSUE_PREFIX "$SB_WORK/scripts/$s" someslug --id "$SB_PREFIX-900" 2>&1 )"; rc=$? ;;
     esac
     [ "$rc" -ne 0 ] || cf "$s: exited 0 with config.sh unsourceable — it fell back instead of refusing"
@@ -2220,13 +2239,48 @@ case_config_seam_refusal() {
       || cf "$s: the refusal does not NAME scripts/config.sh: $out"
   done
 
+  # THE SECOND ARM, which only one consumer has: config.sh present and SOURCEABLE but
+  # the seam empty must ALSO refuse and name it. Restore the seam file, blank the value.
+  mv "$SB_WORK/scripts/config.sh.disabled" "$SB_WORK/scripts/config.sh" >/dev/null 2>&1
+  if [ -f "$SB_WORK/scripts/new-prd.sh" ]; then
+    # WHAT CARRIES THIS ARM, STATED so nobody reads the rc check as the assertion: in a
+    # sandbox there is no PRD template, so new-prd.sh would exit non-zero on that alone
+    # and the `rc -ne 0` check below CANNOT FAIL here. The arm is carried entirely by the
+    # naming check — that the refusal says PRD_PREFIX rather than something else. The rc
+    # check stays because it is free and would matter in a tree that has the template.
+    #
+    # BLANK THE SEAM, NOT THE ENVIRONMENT. config.sh reads PRD_PREFIX="${PRD_PREFIX:-PRD}",
+    # so an empty env var is replaced by the default and the guard never fires — measured:
+    # the run got as far as the template check and reported that instead. The empty seam
+    # has to be empty IN THE FILE, which is also the state an adopter can actually reach.
+    perl -i -pe 's{^PRD_PREFIX=.*$}{PRD_PREFIX=""}' "$SB_WORK/scripts/config.sh"
+    grep -qxF 'PRD_PREFIX=""' "$SB_WORK/scripts/config.sh" \
+      || _fixture_die "case_config_seam_refusal: could not blank PRD_PREFIX in the sandbox's config.sh — the empty-seam arm would test a populated seam."
+    out="$( cd "$SB_WORK" && "$SB_WORK/scripts/new-prd.sh" someslug 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] \
+      || cf "new-prd.sh: exited 0 with a sourceable config.sh and an EMPTY PRD_PREFIX — the second arm does not refuse"
+    printf '%s' "$out" | grep -q 'PRD_PREFIX' \
+      || cf "new-prd.sh: the empty-seam refusal does not NAME PRD_PREFIX: $out"
+  fi
+  mv "$SB_WORK/scripts/config.sh" "$SB_WORK/scripts/config.sh.disabled" >/dev/null 2>&1
+
   # And nothing happened: the sweep did not run, and no card was minted.
   origin_has_path "progress/qa_complete/$SB_PREFIX-203-delta.md" \
     || cf "the refused sweep moved the file anyway"
   [ -z "$(find "$SB_WORK/progress" -name "$SB_PREFIX-900-*.md" 2>/dev/null)" ] \
     || cf "a refused creation script minted a file anyway"
+  # new-prd.sh mints into requirements/, not progress/ — so the two checks above do not
+  # cover the one consumer whose output lands somewhere else. Asserting refusal without
+  # asserting inaction is half a measurement.
+  # VACUOUS ON A CLEAN RUN, and that is the honest description: the sandbox has no
+  # requirements/ at all, so `find` over a missing directory finds nothing whatever the
+  # script did. It bites the moment anything CREATES that directory — which is exactly
+  # the mint this asserts against — so it is a real assertion with a stated blind spot,
+  # not a green that could never go red. Its control planted precisely that.
+  [ -z "$(find "$SB_WORK/requirements" -name '*someslug*' 2>/dev/null)" ] \
+    || cf "a refused new-prd.sh minted into requirements/ anyway"
 
-  finish "the config seam REFUSES with a named cause across all five prefix consumers, and changes nothing"
+  finish "the config seam REFUSES with a named cause across every prefix consumer the block's own census returns ($n_consumers asserted: $(printf '%s' "$consumers" | tr '\n' ' ')), the empty-seam arm refuses too, and nothing is minted in progress/ or requirements/"
   teardown
 }
 

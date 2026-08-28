@@ -10,11 +10,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ── THE PREFIXES HAVE ONE AUTHORITY: scripts/config.sh. ──────────────────────
-# Same rule and same reason as the scripts that carry the block (grep 'THE PREFIX HAS
-# ONE AUTHORITY' — that grep is the list, and one of the copies states it in full): no
-# fallback literal, and a missing or unsourceable seam is a refusal that names it. This
-# script needs PRD_PREFIX.
+# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
+# Same rule and same reason as every other script carrying this block: no fallback
+# literal, and a missing or unsourceable seam is a refusal that names it. This script's
+# seam is PRD_PREFIX; the others' is ISSUE_PREFIX, and the rule is one rule.
+#
+# THE PHRASE ABOVE IS LOAD-BEARING AND IS DELIBERATELY IDENTICAL TO THE OTHER COPIES.
+# It carried the PLURAL form of this phrase (PREFIXES / HAVE) for as long as this
+# script has existed, and the census that finds every carrier matches the singular.
+# So this script, a carrier, was invisible to the instrument meant to find it, by one
+# character: the harness's config-seam case tested five consumers and claimed all of
+# them, and this one was the sixth.
+# The same block is in every script that grep returns — change one, change all.
 CONFIG="$ROOT/scripts/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {

@@ -48,6 +48,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **Six shipped scripts carry one consistent phrase for the prefix-authority rule, and the block
+  no longer states its own size.** `new-prd.sh`'s header used a plural form of the phrase the
+  others share, so the `grep` those scripts tell you is the list did not return it — and the
+  closing line said "change all five" beside a command that returned five. Both are fixed
+  together: the phrase is identical in all six, and the closing line now says the grep is the list
+  rather than counting it. **Nothing to do.** If you have scripted against the old plural phrase,
+  it is gone; the singular one is the rule's name everywhere.
 - **`doctrine/staleness.md` § C now covers enumerations, not only digits.** *"Three outcomes: A, B
   and C"* is a census in prose and rots the same way *"18 contracts"* does. State the axes the
   members vary along, or point at the instrument whose output is the list. **No action required.**

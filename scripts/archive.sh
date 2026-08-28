@@ -38,8 +38,7 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # changing it in five places, and here the cost is worse than a bad mint: a sweep
 # under the wrong prefix silently finds NOTHING and reports "nothing to sweep" on
 # a full column. So: NO fallback literal anywhere.
-# The same block is in new-issue.sh, new-bug.sh, new-refactor.sh, next-id.sh and
-# archive.sh — change one, change all five (grep 'THE PREFIX HAS ONE AUTHORITY').
+# The same block is in every script that grep returns — change one, change all.
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {

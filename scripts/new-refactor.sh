@@ -32,8 +32,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # changing it in five places, and an unsourceable config.sh silently minted ids
 # under a name nobody chose. So: NO fallback literal anywhere. config.sh is the
 # only authority, and its absence is a refusal that NAMES it.
-# The same block is in new-issue.sh, new-bug.sh, new-refactor.sh, next-id.sh and
-# archive.sh — change one, change all five (grep 'THE PREFIX HAS ONE AUTHORITY').
+# The same block is in every script that grep returns — change one, change all.
 CONFIG="$ROOT/scripts/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {
