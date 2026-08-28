@@ -60,6 +60,12 @@ process is an edit rather than an excavation.
    retyped; and the count **excludes provenance citations** — an identifier of the form
    *prefix-number* attributing a hard-won lesson is a citation, and rewriting it would manufacture
    a reference the adopter's own history never had. Those are reported and left, not counted.
+   **The count likewise excludes the KEY of any convention spelled with the placeholder literal** —
+   a classification marker's key is not a surviving placeholder, and a census that counts it refuses
+   on the very fix that protects it, so the substitution's exemption and this one are a single
+   change or neither holds. *(Authoring site:
+   [`../EXTRACTION.md`](../EXTRACTION.md) § The one file classification convention; the obligation
+   on the tool is [`initializer.md`](initializer.md) § 2.)*
    *Why this line earned an implementation:* one adoption measured **hundreds** of surviving foreign
    values in files this very sheet promised were clean — the promise was believed by three readers
    and checked by nobody.

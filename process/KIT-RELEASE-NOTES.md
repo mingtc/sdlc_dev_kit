@@ -48,6 +48,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`contracts/initializer.md` § 2 gains a hard invariant** — a substitution names the space it
+  rewrites, and a convention's key is not in it; any census of surviving placeholder residue exempts
+  those keys in the same change. **`contracts/config-seam.md` § 4 item 3** names the same exemption
+  beside the provenance-citation one. If you implement your own initializer, these are new obligations
+  you already needed and could not read anywhere. No action required — the code half shipped earlier.
 - **`release.sh` prints where the release actually is, before it pushes.** Between the annotated tag
   and the two pushes it now states — as ordinary output, on a healthy run — that the bump, the
   release commit and the tag exist in your clone and **nowhere else**, the two `git push` commands

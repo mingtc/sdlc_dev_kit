@@ -41,6 +41,25 @@ precondition the process depends on and then demonstrating each one working.
   *Why:* measured — versioned session state forks per branch, blocks a branch switch, and reaches
   a landing gate as a merge conflict over a fact nobody was collaborating on. Four actors paid for
   it in the first twelve hours of one adoption.
+- **A substitution NAMES THE SPACE IT REWRITES, and a convention's KEY is not in it.** The stamper
+  rewrites **values** — an identifier prefix, a trunk name, a project name. It never rewrites the
+  **key** of a convention, even where that key is spelled with the same characters as the
+  placeholder being replaced. **And any census of surviving placeholder residue exempts those keys
+  in the same change**, or protecting the key from the rewrite merely moves the failure into the
+  census.
+  *Why:* measured. The shipped classification marker's key begins with the same literal as the
+  shipped placeholder prefix, so a prefix substitution rewrote the **key** and left the **value** —
+  every stamped file carrying the marker came out with a line that refutes itself, and every work
+  item minted afterwards inherited it. **The general form is worth more than the instance: a
+  substitution whose pattern is a placeholder literal will match every convention that uses that
+  literal as a key** — and the collision is found by grepping for a marker that is no longer there,
+  which is to say it is found late. *(The two halves are one change or neither works: the shipped
+  census matches the same residue pattern, so exempting the key from the rewrite without exempting
+  it from the count trades a defaced marker for a failed self-check.)*
+  *Authoring site:* the convention, and both halves of this rule stated for the **authors** of
+  conventions rather than for the tool, are [`../EXTRACTION.md`](../EXTRACTION.md) § The one file
+  classification convention. This sheet binds the initializer; that section binds whoever invents
+  the next convention. **They are one rule with two audiences and must not drift into two.**
 - **Every precondition it performs is ASSERTED afterwards, with a count where a count exists.**
   Reporting success on a partial result is the failure this whole step exists to prevent.
   *Why:* "created the board" is not the same claim as "created seven containers and counted

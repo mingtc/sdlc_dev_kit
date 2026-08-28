@@ -15,7 +15,7 @@
 **One paragraph, in the present tense: what this project IS.** Not the roadmap, not the pitch —
 the sentence a stranger needs before reading anything else. This file is the **project-specific
 half** of the process: [`process/MANUAL.md`](process/MANUAL.md) holds the transferable half, and
-`CLAUDE.md` is the adapter that points at both. Read this file at the start of every session.
+`CLAUDE.md` is the adapter that points at both — *on day one it is still the bootstrap stub, and you replace it with your adapter at `process/SEED.md` step 5.* Read this file at the start of every session.
 
 ## What <project> is
 
