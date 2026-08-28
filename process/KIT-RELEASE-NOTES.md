@@ -48,6 +48,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The self-test harness now runs green in an initialized project.** It previously reported one FAIL
+  and exited 1 for every adopter who completed § Day one and then ran `./scripts/test/run.sh` as the
+  kit instructs: the sandbox inherited your stamped issue prefix in `.claude/templates/` while its
+  config was reset to the shipped one, so the initializer had nothing to substitute inside the
+  sandbox. Nothing to do — re-run the harness. **One limit, stated because it is measured:** a project
+  that also ran `kit-init.sh --roles` to declare its own role set is still red, for a different and
+  unrelated reason the harness names in each failure (`--role must be …`); that is tracked separately
+  and is not fixed here. **One new refusal:** if `.claude/templates/ISSUE.template.md` carries neither
+  the shipped `<PREFIX>` placeholder nor your stamped prefix, the run now aborts with a FIXTURE FAILURE
+  naming the file, instead of a case failure that reads like a defect in `kit-init.sh`.
+  `process/contracts/self-test-harness.md` § 2 now carries the invariant behind all of this, so a
+  project with its own harness is held to it too.
 - **The shipped skills stop naming the upstream product where nothing depends on the name** —
   `executing-plans`, `using-superpowers` § Instruction Priority and `finishing-a-development-branch`
   § Step 6 now read in the kit's own terms, and a worked example's `~/.config/…/hooks/` path is a

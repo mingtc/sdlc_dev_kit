@@ -16,6 +16,25 @@ a disposable repository, so that the tools that guard the project are themselves
   into a target that exists only for the run — a local bare repository is exactly right.
   *Why:* the publication step is where these tools do their most dangerous work, and stubbing it
   out tests everything except the part that matters.
+- **A case asserts THE KIT'S FRAME, never one installation's configuration — and the sandbox
+  reaches that deliberately, for every seam it copies in.** The machinery is copied in from the real
+  tree, which is what makes the test real; the seams that came with it are then handled one of two
+  ways, chosen per seam: **RESET** the seam to the kit's shipped value, or **DERIVE** the
+  expectation from the seam instead of naming a literal. A third way is never legitimate — copying
+  a seam in and then asserting a value only the shipped tree satisfies. **A reset asserts its own
+  postcondition; a derivation is used at EVERY site that names that value.**
+  *Why:* measured three times, and each time the miss was in the part nobody remembered. A fixture
+  that copies an adopter's tree in and neutralizes only *part* of it produces cases that assert that
+  project's configuration — or that fail on it — while reporting on the kit, and the seam it missed
+  is **silent**, because nothing checks a seam nobody listed. The postcondition is what carries the
+  reset half: it makes the next missed seam loud rather than invisible, and it must hold on an
+  unconfigured tree too, where the correct behaviour is to change nothing. The every-site clause
+  carries the derivation half, and it is the one that looks done when it is not: **a value derived
+  once and hardcoded at its other call sites is the same defect as never deriving it**, and it
+  fails only in the projects that configured that seam — which is to say, never here. Both halves
+  are the complement of the DECLARED-adopter-fact invariant below: that one governs a case that
+  pins an installation's fact **on purpose**, this one governs a fixture that hands it one **by
+  accident**.
 - **No case reaches the network, a real remote, or a live credential.**
   *Why:* a self-test that needs the outside world is a self-test that stops being run.
 - **Accounting is EXPLICIT: passed, failed and skipped are counted separately and all three are
@@ -41,7 +60,10 @@ a disposable repository, so that the tools that guard the project are themselves
 
 ## 3. REFUSAL CONDITIONS
 
-- The sandbox cannot be created ⇒ refuse; never fall back to running anywhere else.
+- The sandbox cannot be created — or a seam's reset cannot be applied or cannot be verified, or a
+  seam a case depends on can be neither reset nor derived ⇒ refuse, naming what could not be done;
+  never fall back to running anywhere else, and never continue against a sandbox that is not the
+  shipped frame.
 - A case would touch the real repository or a real remote ⇒ that is a defect in the case, and the
   frame must make it impossible rather than discouraged.
 - Any case fails ⇒ the run is red, and the failing case is named.

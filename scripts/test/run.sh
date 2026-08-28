@@ -323,6 +323,24 @@ _declare_sandbox_gate() {
 KIT_STAMP_MARK="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
 [ -n "$KIT_STAMP_MARK" ] || KIT_STAMP_MARK='# Stamped by scripts/kit-init.sh'
 
+# The angle-bracket prefix placeholder the shipped templates and role docs carry
+# (`<PREFIX>-NNN`), and the classification marker's key, which only LOOKS like the
+# prefix. BOTH DERIVED from kit-init.sh for the same reason KIT_STAMP_MARK is: this
+# harness is a CITER of that script's vocabulary, and a re-typed literal is the next
+# drift. The fallbacks are last resorts for a tree with no kit-init.sh at all — the
+# kit-init family SKIPs there anyway.
+KIT_PREFIX_PLACEHOLDER="$(sed -n "s/^PREFIX_PLACEHOLDER='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
+[ -n "$KIT_PREFIX_PLACEHOLDER" ] || KIT_PREFIX_PLACEHOLDER='<PREFIX>'
+KIT_CLASS_MARKER_KEY="$(sed -n "s/^CLASS_MARKER_KEY='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
+[ -n "$KIT_CLASS_MARKER_KEY" ] || KIT_CLASS_MARKER_KEY='KIT-CLASS:'
+
+# This tree's CURRENT issue prefix, read with kit-init.sh's own anchored sed — the
+# same expression, so a change to the config line's shape breaks both together
+# rather than leaving this one quietly matching nothing. On the shipped frame this
+# reads the neutral prefix; in an adopted project it reads what kit-init stamped,
+# and THAT is the token the sandbox's copied templates and role docs carry.
+KIT_TREE_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([A-Za-z0-9]*\)}"/\1/p' "$REAL_SCRIPTS/config.sh" 2>/dev/null | head -1)"
+
 # _neu_scalar <file> <VAR> <exact replacement line>
 _neu_scalar() {
   local f="$1" var="$2" line="$3"
@@ -366,6 +384,102 @@ _neu_array() {
     || _fixture_die "_neu_array: ${name} in ${f##*/} still holds ${after} record(s) after neutralizing (it held ${before} before)."
   grep -qE "^${name}=\($" "$f" \
     || _fixture_die "_neu_array: emptying ${name} in ${f##*/} destroyed its own '${name}=(' fence."
+}
+
+# =============================================================================
+# THE SECOND NEUTRALIZER — the .claude/ tree the kit-init cases copy in.
+#
+# WHY IT IS A SEPARATE FUNCTION RATHER THAN A LINE INSIDE _kit_neutral_config.
+# That one runs inside make_sandbox, where .claude/ does not exist yet: the
+# templates and the role docs are copied in LATER, by kit_init_sandbox and by the
+# option-parsing case. A branch for them there would be permanently false — the
+# silent no-op this file's own fixture doctrine is written against. So the rule is
+# unchanged and only its call site moves: EVERY SITE THAT COPIES THE REAL .claude/
+# TREE INTO A SANDBOX CALLS THIS, immediately after the copy.
+#
+# THE DEFECT IT CLOSES (changes/007). kit-init stamps the issue prefix into
+# .claude/templates/ AND scripts/config.sh together. _kit_neutral_config resets
+# config.sh to the shipped `KIT`, so in an adopted project the sandbox held a
+# config.sh saying `KIT` and templates saying `XYZ-NNN`. kit-init inside the
+# sandbox then looked for the placeholder and for `KIT-`, found neither, and
+# substituted NOTHING — so `case_kit_init_happy` failed on "the ISSUE template body
+# was not stamped", in every project that had completed the kit's own day one.
+# The neutralizer half of the fix is invertibility; the postcondition half is what
+# makes its next absence loud instead of silent.
+#
+# WHAT IT RESTORES, AND WHAT IT DELIBERATELY CANNOT — the property, then the
+# reading. kit-init stamps three donor tokens into .claude/: the prefix, `<trunk>`
+# and `<project-name>`. What is restored is THE PREFIX IN ITS ID SHAPE (`<PREFIX>-`),
+# because that is the only form whose reverse is decidable: the token is delimited
+# by the `-` and its stamped value is derivable from config.sh. What is NOT
+# restored, and why each one is a refusal rather than an oversight:
+#   • a BARE prefix token in prose. kit-init's template pass is blanket
+#     (`s|<PREFIX>|XYZ|g`), so a sentence that named the placeholder alone comes out
+#     naming the adopter's token alone, with nothing left to distinguish it from any
+#     other use of that word. Not invertible, and guessing would edit prose.
+#   • `<trunk>`, stamped to a BRANCH NAME — reversing `main` to `<trunk>` rewrites
+#     the word wherever the prose happens to use it.
+#   • `<project-name>`, stamped blanket, by the same argument.
+# None of the three costs a case its subject: what the kit-init family asserts is
+# the stamped id reaching the TEMPLATE BODY, and kit-init's own census counts the
+# placeholder and the `<prefix>-` shape — neither can see a bare token. If one ever
+# grows an assertion it needs its own invertible reverse, NOT a wider sed here.
+# READING, 2026-08-28, so the limit is a measurement and not a hope: a tree stamped
+# `--prefix XYZ --trunk main`, restored by this function, still differs from the
+# shipped .claude/ in 5 of the 12 copied files — every difference is `<trunk>`, plus
+# one prose NOTE carrying the bare prefix. Zero differences in the id shape.
+# =============================================================================
+_kit_neutral_claude() {
+  local root="$SB_WORK/.claude" f tpl mk_before mk_after
+  # A scratch token, not a shared vocabulary: it only has to be absent from the
+  # corpus for the length of one sed, so it is spelled here rather than derived.
+  local sentinel='@@KITTESTCLASSKEY@@'
+  [ -d "$root" ] || return 0
+
+  # Reverse kit-init's prefix stamp — and ONLY on a tree that carries one. On the
+  # shipped frame KIT_TREE_PREFIX reads the neutral prefix and this whole block is
+  # skipped, so this repository's own tree is provably untouched: the shape KIT-3's
+  # Phase-1 verdict required of every fixture mutation (assert the anchor and the
+  # postcondition, never "something changed", because on the kit's own tree nothing
+  # SHOULD change). Skipping is CORRECT and not merely safe: a project that stamped
+  # the shipped prefix leaves `KIT-NNN` behind, and kit-init's own OLD_PREFIX branch
+  # rewrites exactly that inside the sandbox.
+  if [ -n "$KIT_TREE_PREFIX" ] && [ "$KIT_TREE_PREFIX" != "$KIT_NEUTRAL_PREFIX" ]; then
+    mk_before="$(grep -roF "$KIT_CLASS_MARKER_KEY" "$root" 2>/dev/null | wc -l | tr -d ' ')"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      # Three expressions, one invocation, applied in order per line: hide the
+      # marker's key, restore the prefix, put the key back. This is kit-init.sh's
+      # own idiom RUN BACKWARDS, and it is here for the same reason it is there:
+      # `KIT-CLASS:` matches a bare `<prefix>-` rewrite, and the shipped prefix is
+      # also `KIT`, so the unprotected form defaces the marker of every file it
+      # touches. Atomic per file — a protect/restore pair around separate commands
+      # would leave the sentinel in the tree if anything failed between them.
+      sed -i.bak -E -e "s|${KIT_CLASS_MARKER_KEY}|${sentinel}|g" \
+                    -e "s|${KIT_TREE_PREFIX}-|${KIT_PREFIX_PLACEHOLDER}-|g" \
+                    -e "s|${sentinel}|${KIT_CLASS_MARKER_KEY}|g" "$f"
+      rm -f "$f.bak"
+    done < <(find "$root" -type f -name '*.md' | sort)
+    mk_after="$(grep -roF "$KIT_CLASS_MARKER_KEY" "$root" 2>/dev/null | wc -l | tr -d ' ')"
+    # BOTH DIRECTIONS. The restoration must happen AND must not be paid for out of
+    # the classification markers; asserting only the first would let the sed that
+    # defaces every marker report success.
+    [ "$mk_before" = "$mk_after" ] \
+      || _fixture_die "_kit_neutral_claude: restoring the prefix placeholder changed the number of '$KIT_CLASS_MARKER_KEY' markers under the sandbox's .claude/ (${mk_before} → ${mk_after}) — the marker's KEY was collateral damage, which is precisely what kit-init.sh's sentinel exists to prevent."
+    grep -rqF "$sentinel" "$root" 2>/dev/null \
+      && _fixture_die "_kit_neutral_claude: the protect/restore sentinel '$sentinel' survived in the sandbox's .claude/ tree — the restore expression did not run."
+  fi
+
+  # THE POSTCONDITION, ASSERTED WHETHER OR NOT ANYTHING WAS RESTORED. This is the
+  # half whose absence is why the defect above regressed unseen: the two earlier
+  # causes were fixed, the numbers moved, and NOTHING asserted that the fixture had
+  # actually reached ship state. It holds in both directions — untouched on the
+  # shipped frame, restored on an adopted one — so it is an anchor, not a diff.
+  tpl="$root/templates/ISSUE.template.md"
+  if [ -f "$tpl" ]; then
+    grep -qF "$KIT_PREFIX_PLACEHOLDER" "$tpl" \
+      || _fixture_die "_kit_neutral_claude: the sandbox's .claude/templates/ISSUE.template.md does not carry the shipped prefix placeholder '$KIT_PREFIX_PLACEHOLDER' after neutralizing (this tree's ISSUE_PREFIX reads '${KIT_TREE_PREFIX:-<unreadable>}'). The fixture did NOT reach ship state: kit-init inside the sandbox would find nothing to substitute, and every case asserting the stamped id would redden as though kit-init were broken."
+  fi
 }
 
 _kit_neutral_config() {
@@ -2762,6 +2876,11 @@ kit_init_sandbox() {
   if [ -d "$REAL_REPO_ROOT/.claude/roles" ]; then
     cp -R "$REAL_REPO_ROOT/.claude/roles" "$SB_WORK/.claude/roles"
   fi
+  # ...and take the adopter's stamp back out of what `cp` just carried in, exactly
+  # as make_sandbox does for scripts/. AFTER both copies and never between them:
+  # the neutralizer walks the whole .claude/ tree, so a call placed between the two
+  # would leave the role docs stamped while reporting that it had run.
+  _kit_neutral_claude
 }
 
 case_kit_init_happy() {
@@ -2960,6 +3079,12 @@ case_option_parsing_hygiene() {
   make_sandbox
   mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
   cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  # The second site that copies the real .claude/ tree in, so the second caller of
+  # the neutralizer. This case does not assert on the template BODY, so nothing
+  # here reddens without it today — it is called because the rule is "every site
+  # that copies .claude/ in", and a rule with one remembered site and one forgotten
+  # one is how the defect in changes/007 survived two rounds of fixing.
+  _kit_neutral_claude
   publish_sandbox
 
   local out rc
@@ -3775,7 +3900,26 @@ case_ship_state() {
     cf "scripts/config.sh is absent — it is the configuration seam itself"
   fi
 
-  finish "ship state: the kit ships an empty gate table and guard floor, empty release seams, RELEASE_PUBLISH=false, and the neutral config.sh seam values the neutralizer resets to"
+  # The FOURTH seam _kit_neutral_claude now resets, and therefore the fourth the
+  # suite stopped being an incidental witness to: the shipped templates carry the
+  # prefix as a PLACEHOLDER, not as a token. A kit that shipped a real prefix here
+  # would sail through a green run — the sandbox would restore nothing, kit-init
+  # would substitute nothing, and the case that checks the stamped id would still
+  # pass because the neutralizer had handed it what it expected.
+  #
+  # Guarded on presence rather than asserted, and the reason is this repository's
+  # own storage: the kit is kept DISARMED here (kit/_claude/, not kit/.claude/), so
+  # a run in place finds no .claude/templates at all. The three kit-init cases skip
+  # loudly for exactly that reason; a `cf` here would turn the same environment
+  # fact into a FALSE RED, which is the defect measured against this file on
+  # 2026-08-26 and worth not re-creating.
+  local rt="$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md"
+  if [ -f "$rt" ]; then
+    grep -qF "$KIT_PREFIX_PLACEHOLDER" "$rt" \
+      || cf ".claude/templates/ISSUE.template.md does not ship the prefix placeholder '$KIT_PREFIX_PLACEHOLDER' — the templates ship a stamped token, and every sandbox would then inherit it"
+  fi
+
+  finish "ship state: the kit ships an empty gate table and guard floor, empty release seams, RELEASE_PUBLISH=false, the neutral config.sh seam values the neutralizer resets to, and the prefix PLACEHOLDER in the shipped ISSUE template"
 }
 
 # =============================================================================
