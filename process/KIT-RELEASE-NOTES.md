@@ -48,6 +48,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`doctrine/fix-execution.md` § A.5b decides when a fix must be a MECHANISM and when a SENTENCE
+  will do.** The rule: *a mechanism is owed where the act is IRREVERSIBLE, or where the failure is
+  SILENT AND COMPOUNDING; everywhere else, prefer the sentence.* Two tests discharge it — *can
+  this act be undone?* and *if this goes wrong, does anything say so, loudly and soon?* — and
+  **the burden of proof sits on the mechanism**, because a sentence is cheaper forever and a
+  mechanism nobody can remove is a cost every future reader pays. `doctrine/subagent-control.md`,
+  `doctrine/live-resources.md` and `doctrine/orchestration.md` previously stated their own
+  versions of this trade and now point at the one sheet instead. **No Action required** — nothing
+  you run changes; this is a rule you read when deciding how to fix something.
 - **The no-census rule now says where it does NOT reach.** An enumeration is a census when it is a
   **claim** about a set — a guard's list, a sentence's list. **A builder's list is not**: a
   fixture that creates six directories is not asserting six is all there are. When the role is
