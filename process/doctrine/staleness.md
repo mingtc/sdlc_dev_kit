@@ -216,6 +216,21 @@ in a document claiming to be current** — is a defect.
   different authors wrote them**, the second holding the first's findings. A form that defeats a
   fresh reader who has been told about it is not an author's carelessness; replacing the list is
   re-arming the trap.*
+  **THE BOUNDARY: this reaches lists that CLAIM, not lists that BUILD.** A guard's list and a
+  sentence's list are assertions about the set — *these are the members* — and they are wrong the
+  moment the set grows. **A builder's list is not a claim about anything; it is the thing being
+  made.** A fixture that creates six directories is not saying six is all there are.
+  **The test that settles it when the role is arguable — and it usually is — is the FAILURE
+  DIRECTION: does a divergence here fail loudly, or pass quietly?** A builder that falls behind
+  produces something incomplete, and the next thing to use it fails, near the cause. A guard or a
+  claim that falls behind goes on answering — blind, or false, and silently. *The direction is
+  answerable about a list whose role you cannot classify, which is why it is the test and the
+  builder/claim distinction is only the usual shape of the answer.*
+  **And the tell that you are looking at a builder: it deliberately includes a non-member of the
+  derived set.** A list of the status columns *plus* the rotation directory is not a stale copy of
+  the columns — it is a different set, correctly written out, and **"deriving" it would delete the
+  member that made it a builder.** *Measured: a sweep applying this rule mechanically was one edit
+  away from turning exactly such a list into a defect.*
 - **Finding the statement you just outran is a ONE-HOP search, and T4 owes it in the same change.**
   The trigger is easy to accept and easy to skip, because the stale sentence is rarely in the file
   you were editing. One hop reaches almost all of them, and the change already has the operands in

@@ -48,6 +48,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The no-census rule now says where it does NOT reach.** An enumeration is a census when it is a
+  **claim** about a set — a guard's list, a sentence's list. **A builder's list is not**: a
+  fixture that creates six directories is not asserting six is all there are. When the role is
+  unclear, ask which way a divergence fails — loudly and near the cause, or silently. **No action
+  required.**
 - **Six shipped scripts carry one consistent phrase for the prefix-authority rule, and the block
   no longer states its own size.** `new-prd.sh`'s header used a plural form of the phrase the
   others share, so the `grep` those scripts tell you is the list did not return it — and the
