@@ -796,11 +796,60 @@ g_stamp="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$CB_TREE/scripts/kit-init.sh" 2
 # regression this token was introduced to end. Change it in all three places or none.
 echo "[g] Graduation — has day one finished?  (reports only; it never changes the verdict below —"
 echo "      a repository one minute after kit-init has not graduated, and its board is truthful)"
-if [ ! -f "$CB_TREE/scripts/config.sh" ]; then
-  echo "      no scripts/config.sh to read  (skipped) — $(cb_src)"
-elif ! grep -qF "$g_stamp" "$CB_TREE/scripts/config.sh" 2>/dev/null; then
-  echo "      the initializer has not run here (no stamp receipt in scripts/config.sh), so there is nothing to graduate from  (skipped) — $(cb_src)"
+# THE ENABLING CONDITION IS "HAS THIS REPOSITORY LIVED", NOT "DID kit-init RUN".
+#
+# It gated on the stamp receipt alone until 2026-08-29, and the reason was sound and is
+# kept: a tree that has not started must not be nagged to finish. But the receipt is
+# only ONE of the signals that a project has started. process/SEED.md step 2 branch B
+# is a SUPPORTED route — implement the contracts in your own toolchain — and a project
+# that takes it NEVER RUNS kit-init, so it never gets a receipt and was never asked to
+# graduate. That is the population most likely to still be carrying scaffolding, because
+# it also skipped the tool that would have stamped it.
+#
+# The widened set is kit-init's OWN already-lived signal set, and the constants come
+# from their declaring sites rather than from a second list here: the receipt token is
+# read out of kit-init.sh above, and the columns are STATUS_FOLDERS, this file's own
+# declared seam. A pre-init tree with an empty board, an empty log and an empty archive
+# still has no signal and is still skipped, which is the original reason preserved.
+#
+# STATED LIMIT: the three non-receipt probes REIMPLEMENT kit-init's shapes rather than
+# calling them, because that block is inline in kit-init.sh and cannot be sourced without
+# running the initializer. The constants are derived; the probe shapes are not. Extracting
+# them into scripts/lib/ is the one-authoring-site fix and is not done here — recorded so
+# the next reader finds a decision rather than an oversight.
+g_lived=""
+if [ -f "$CB_TREE/scripts/config.sh" ] && grep -qF "$g_stamp" "$CB_TREE/scripts/config.sh" 2>/dev/null; then
+  g_lived="the initializer's stamp receipt in scripts/config.sh"
+fi
+if [ -z "$g_lived" ]; then
+  IFS='|' read -r -a g_cols <<< "$STATUS_FOLDERS"
+  for g_c in "${g_cols[@]}"; do
+    [ -d "$CB_TREE/progress/$g_c" ] || continue
+    g_n="$(find "$CB_TREE/progress/$g_c" -type f -name '*-[0-9]*.md' 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "${g_n:-0}" -gt 0 ]; then g_lived="progress/$g_c/ carries $g_n issue file(s)"; break; fi
+  done
+fi
+if [ -z "$g_lived" ] && [ -f "$CB_TREE/progress.md" ]; then
+  g_log="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) { inlog=1; next } } inlog && NF { print }' "$CB_TREE/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
+  [ "${g_log:-0}" -gt 0 ] && g_lived="progress.md § Log holds ${g_log} line(s) of history"
+fi
+if [ -z "$g_lived" ] && [ -f "$CB_TREE/ARCHIVE.md" ]; then
+  g_arc="$(awk '/^## Archived$/ { a=1; next } a && NF { print }' "$CB_TREE/ARCHIVE.md" 2>/dev/null | wc -l | tr -d ' ')"
+  [ "${g_arc:-0}" -gt 0 ] && g_lived="ARCHIVE.md indexes ${g_arc} archived line(s)"
+fi
+
+if [ -z "$g_lived" ]; then
+  # NOT A PASS, AND THE WORDING IS THE POINT. "Nothing to graduate from" reads as a
+  # clean bill; this run did not check. A reader must be able to tell an unrun check
+  # from a clean one, which is the same distinction the guard-floor note draws.
+  echo "      THIS CHECK DID NOT RUN: no sign this repository has started — no stamp receipt, no issue"
+  echo "      files on the board, no history in progress.md § Log, nothing indexed in ARCHIVE.md."
+  echo "      A fresh unpack is not nagged to finish. Nothing here is a statement that the tree is clean.  (skipped) — $(cb_src)"
 else
+  # NAME THE SIGNAL THAT ENABLED THE CHECK. Every other arm in this file prints the
+  # operand it read; an enabling condition is an operand too, and a reader who wants
+  # to know why the check ran on their tree should not have to reason it out.
+  echo "      (enabled by: $g_lived)"
   g_find=0
 
   # (g1) REPLACE class — the scaffolding sentinel. An exact literal, so there is no

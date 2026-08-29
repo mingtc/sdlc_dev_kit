@@ -48,6 +48,10 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The graduation check now runs on projects that never ran `kit-init`.** It enables on any sign
+  the repository has started — work items on the board, history in the running log, entries in the
+  archive, or the initializer's receipt — and on a tree with none of those it reports that **the
+  check did not run**, rather than implying the tree is clean.
 - **`doctrine/fix-execution.md` § A.5b decides when a fix must be a MECHANISM and when a SENTENCE
   will do.** The rule: *a mechanism is owed where the act is IRREVERSIBLE, or where the failure is
   SILENT AND COMPOUNDING; everywhere else, prefer the sentence.* Two tests discharge it — *can
@@ -560,6 +564,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Action required:** if you adopted via `SEED.md` step 2 **branch B** (you implemented the
+  contracts in your own toolchain and never ran `kit-init`), the graduation report now runs
+  against your published trunk and will list any shipped scaffolding you still carry. **Its
+  findings are advisory** — they do not change the drift verdict and cannot fail a build. **the
+  check did not run**, rather than implying the tree is clean.
 - **The hygiene instruments now refuse instead of reporting, when their own blind-spot derivation
   comes back empty.** Every instrument exits **2** and prints `could NOT RUN … NOTHING was
   measured`; on `--json` it emits `{"unrunnable": {…}}` with **no data keys** — no `rows`, no

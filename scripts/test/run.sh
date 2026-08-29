@@ -248,6 +248,23 @@ make_sandbox() {
            "$SB_WORK/progress/dev_complete" "$SB_WORK/progress/qa_complete" \
            "$SB_WORK/progress/blocked" "$SB_WORK/progress/done" \
            "$SB_WORK/progress/history"
+  # THIS LITERAL LIST STAYS, and the reason is a boundary rather than an exception —
+  # written here because the next reader sweeping for enumerations will meet it.
+  #
+  # A LITERAL IN A BUILDER IS NOT THE RISK A LITERAL IN A GUARD IS. If a builder's list
+  # diverges from the kit's, the fixture is INCOMPLETE and something downstream fails
+  # loudly and locally. If a guard's list diverges, the check goes BLIND and passes. That
+  # asymmetry alone settles it, and it is why `_lived_signals` below derives its columns
+  # while this does not.
+  #
+  # AND THE OBVIOUS DERIVATION HERE IS WRONG, which is the trap: `history` is DELIBERATELY
+  # not a status folder — check-board declares six, and the initializer builds
+  # `("${STATUS_FOLDERS[@]}" history)` for the rotated-log destination. A sweep replacing
+  # this list with STATUS_FOLDERS silently stops creating `progress/history/` and surfaces
+  # later as an unrelated case failing. A correct derivation does exist — the six plus
+  # `history` explicitly — it simply buys less than it costs in a builder. *The obvious
+  # derivation is wrong here; the correct one is not worth it. Those are different
+  # sentences and only the second is true of derivation in general.*
   for d in todo in_progress dev_complete qa_complete blocked done history; do
     : > "$SB_WORK/progress/$d/.gitkeep"
   done
@@ -3064,6 +3081,89 @@ case_verify_frame() {
 # Run the SANDBOX copy of check-board.sh. CLAUDE_PROJECT_DIR is unset for the
 # child: that variable is how the script overrides its repo root, and inheriting
 # the harness's would point the sandbox's copy at the REAL board.
+# Read arm [g]'s SECTION out of a check-board report — from its header to the next
+# arm's, however long it grows.
+#
+# THE OFFSET WAS THE DEFECT, NOT ITS SIZE. Every assertion below used `grep -A6`, so an
+# assertion moved past the sixth line by a line ADDED to the arm silently stops being
+# read — and a `grep -q` over a window that no longer contains its subject reports
+# absence, which here reads as a finding rather than as a blind assertion. Widening the
+# number would buy time and keep the shape; anchoring on the next `[x]` header removes
+# it, because the section's end is a fact about the report rather than a guess about
+# its length.
+# ARM [g] IS CURRENTLY THE LAST ARM, so a section read that stops only at the next
+# `[x]` header runs to the end of the report and swallows the trailing verdict line.
+# Measured against a real report: without the `──` guard the section is 5 lines and
+# includes `── board-drift: …`; with it, 4 and clean. Nothing asserts on that line
+# through this helper today — but a NEGATIVE assertion added later would be answered by
+# the verdict rather than by the arm, which is the same class of quiet wrongness the
+# fixed offset had. The guard costs one clause and removes the possibility.
+# (Both halves are needed: `──` alone would not stop at a following arm if one is ever
+# added after [g], and the header test alone does not stop at the summary.)
+# _lived_signals — the signals arm [g] reads to decide whether this repository has
+# STARTED, derived the way the arm derives them rather than enumerated.
+#
+# WHY DERIVED. A fixture that guards two of four signals is the census-in-prose form with
+# a `[ ]` around it: it is correct until the set grows, and it grows silently. Today a
+# sandbox is clean on the log and archive signals by accident — make_sandbox writes no
+# progress.md, and its ARCHIVE.md has the heading with no body — so a guard covering only
+# the receipt and the board would PASS TODAY and stop covering the moment somebody seeds
+# a log line for an unrelated case. The not-run case would then quietly become an
+# enabling-direction case still carrying the not-run name.
+#
+# THIS LIST IS A COPY OF THE ARM'S AND MUST MOVE WHEN THE ARM DOES. It is derived from
+# the same four inputs in the same order; it is not derived from the arm's code, because
+# the arm is the subject under test and a fixture that asked the subject what to check
+# would agree with it by construction.
+#
+# THE COPY IS SAFE BECAUSE OF WHICH WAY A DIVERGENCE FAILS, and that — not the
+# self-certification argument above — is the reason not to collapse these two for
+# tidiness. Suppose the arm gains a fifth signal and this list does not: a fixture
+# carrying only that fifth signal makes this guard say "not started, proceed", the arm
+# then RUNS, and the not-run case asserts THIS CHECK DID NOT RUN against an arm that
+# reported. It fails loudly, immediately, and names the arm. The copy cannot rot quietly
+# in the direction that matters.
+#
+# THERE ARE NOW THREE IMPLEMENTATIONS OF THIS SIGNAL SET — the initializer's
+# already-lived probe, this arm's re-derivation of it, and this fixture. The first two
+# are tracked as their own defect; this comment exists so the third is discoverable from
+# either of them rather than being found by accident.
+_lived_signals() {  # prints one line per signal present; empty output means "not started"
+  local col n log arc cols
+  [ -f "$SB_WORK/scripts/config.sh" ] && grep -q "^$KIT_STAMP_MARK" "$SB_WORK/scripts/config.sh" 2>/dev/null \
+    && echo "the initializer's stamp receipt in scripts/config.sh"
+  # THE COLUMNS ARE DERIVED, from the same declaration the arm reads. They were a
+  # six-name literal here until it was pointed out that this is the guard written to
+  # replace an enumerated guard — a list of columns in it is the defect wearing the
+  # fix's clothes. `cb_default` already reads named values out of the real
+  # check-board.sh and is already used for STATUS_FOLDERS elsewhere in this file, so
+  # the derivation costs one line and removes the question rather than answering it.
+  IFS='|' read -r -a cols <<< "$(cb_default STATUS_FOLDERS)"
+  [ "${#cols[@]}" -gt 0 ] \
+    || _fixture_die "_lived_signals: STATUS_FOLDERS could not be read from check-board.sh — the board signal would be skipped entirely and every guard built on this would pass over a board it never looked at."
+  for col in "${cols[@]}"; do
+    [ -d "$SB_WORK/progress/$col" ] || continue
+    n="$(find "$SB_WORK/progress/$col" -type f -name '*-[0-9]*.md' 2>/dev/null | wc -l | tr -d ' ')"
+    [ "${n:-0}" -gt 0 ] && echo "progress/$col/ carries $n issue file(s)"
+  done
+  if [ -f "$SB_WORK/progress.md" ]; then
+    log="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) { inlog=1; next } } inlog && NF { print }' "$SB_WORK/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
+    [ "${log:-0}" -gt 0 ] && echo "progress.md § Log holds ${log} line(s)"
+  fi
+  if [ -f "$SB_WORK/ARCHIVE.md" ]; then
+    arc="$(awk '/^## Archived$/ { a=1; next } a && NF { print }' "$SB_WORK/ARCHIVE.md" 2>/dev/null | wc -l | tr -d ' ')"
+    [ "${arc:-0}" -gt 0 ] && echo "ARCHIVE.md indexes ${arc} line(s)"
+  fi
+  return 0
+}
+
+_cb_g_section() {  # reads a check-board report on stdin
+  awk '/^\[g\]/ { f = 1 }
+       f && /^──/ { exit }
+       f && /^\[[a-z]\]/ && !/^\[g\]/ { exit }
+       f'
+}
+
 cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
 # =============================================================================
@@ -3901,9 +4001,28 @@ case_check_board_graduation() {
   cf_reset
   make_sandbox
 
-  # ── (a) NO RECEIPT: the arm has no subject. It must SKIP, not pass. ──────────
-  # A pass here would be the false-all-clear class: reporting "graduated ✓" over a
-  # tree the initializer has never touched.
+  # ── (a) NO SIGNAL AT ALL: the check did not run, and says so. ───────────────
+  # THE FIXTURE IS BUILT EMPTY ON PURPOSE, and that is the case rather than a detail:
+  # make_sandbox publishes a board, so a tree with NO sign of having started has to be
+  # constructed deliberately. The old premise here was "no receipt", which is not the
+  # same thing — a board carrying issue files is a signal too, and this arm reads four
+  # of them. A fixture that only removes the receipt tests a tree that HAS started.
+  #
+  # WHY THIS STATE IS ASSERTED HERE **AND** IN A CASE OF ITS OWN, since they look like
+  # duplication and are not: this block is the START of a continuous sequence — the same
+  # sandbox gains a receipt in (b) and the arm must then REPORT — so what (a) proves is
+  # the TRANSITION out of not-run. The standalone case proves the state itself, on a
+  # fixture guarded against all four lived signals. They fail for different reasons: (a)
+  # fails if the arm does not change state when a signal appears, the standalone fails if
+  # the state is wrong at all. Collapsing either would lose one of those.
+  #
+  # AND THE DISTINCTION IS THE POINT: "did not run" is not "nothing to graduate from".
+  # The second reads as a clean bill. A reader must be able to tell an unrun check from
+  # a passing one, so the absence of the COMPLETE claim is asserted beside the presence
+  # of the not-run statement — a check that says nothing satisfies only one of those.
+  rm -f "$SB_WORK"/progress/*/*-[0-9]*.md 2>/dev/null
+  printf '# progress.md\n\n## Log\n\n' > "$SB_WORK/progress.md"
+  printf '# ARCHIVE.md\n\n## Archived\n\n' > "$SB_WORK/ARCHIVE.md"
   printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
   printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
   printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
@@ -3913,10 +4032,11 @@ case_check_board_graduation() {
   out="$(cb_run)"
   printf '%s\n' "$out" | grep -q '^\[g\]' \
     || cf "(a) no [g] section — the arm is absent, which no other assertion here can detect"
-  printf '%s\n' "$out" | grep -A2 '^\[g\]' | grep -qi 'skipped' \
-    || cf "(a) the arm did not SKIP with no stamp receipt: $out"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
-    && cf "(a) the arm claimed graduation on a tree the initializer never touched: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+    || cf "(a) with no signal at all the arm did not say it had not run: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
+    && cf "(a) the arm claimed graduation on a tree with no sign of having started: $out"
+
 
   # ── (b) RECEIPT + SCAFFOLDING: it reports, and names the files. ──────────────
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
@@ -3924,18 +4044,18 @@ case_check_board_graduation() {
   publish_sandbox
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'CLAUDE.md' \
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'CLAUDE.md' \
     || cf "(b) the REPLACE finding did not NAME CLAUDE.md — instruments.md § A.4 wants the operand: $out"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'README.md' \
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'README.md' \
     || cf "(b) the REPLACE finding did not name README.md: $out"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'PROJECT.md still holds' \
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'PROJECT.md still holds' \
     || cf "(b) the FILL finding did not fire on a PROJECT.md holding <trunk>: $out"
   # NAME THE CLASS, not the phrase. This read `grep -qi 'not measured'` as authored, and
   # a reddening control measured that it CANNOT SEE THE OMISSION IT IS NAMED AFTER:
   # delete arm (g3)'s echo entirely and the case still passes, because the FILL span line
   # one line above says "The non-markdown FILL members are NOT measured here" and -i makes
   # that a match. The assertion was satisfied by a different class's disclaimer.
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'DELETE-IF-UNUSED: not measured' \
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'DELETE-IF-UNUSED: not measured' \
     || cf "(b) DELETE-IF-UNUSED was silently omitted instead of declaring itself unmeasured: $out"
 
   # ── (c) THE VERDICT CONTROL — the whole reason the arm is separable. ─────────
@@ -3952,14 +4072,138 @@ case_check_board_graduation() {
   publish_sandbox
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
     || cf "(d) a graduated tree did not clear: $out"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'read from:' \
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'read from:' \
     || cf "(d) the CLEARING branch did not name its operand — instruments.md § A.4, the asymmetry that only errs toward false confidence: $out"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
     && cf "(d) a graduated tree still reported scaffolding: $out"
 
-  finish "check (g): graduation SKIPs with no receipt, reports and names its files while scaffolding stands, clears once replaced naming its source — and never moves the board verdict"
+  finish "check (g): graduation says THIS CHECK DID NOT RUN with no signal, reports and names its files while scaffolding stands, clears once replaced naming its source — and never moves the board verdict"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g]'s ENABLING DIRECTION: a lived signal with NO receipt
+#
+# THE FIXTURE THE OLD GATE EXCLUDED. Arm [g] reads FOUR signals, and the receipt is only
+# the first: a board carrying issue files, history in progress.md § Log, and entries in
+# ARCHIVE.md each enable it too. Every existing case here builds the receipt, so the arm
+# had only ever been watched running for one of its four reasons — and a reader of those
+# greens would reasonably conclude the receipt is what the arm requires.
+#
+# This is the direction's positive half: signal present, receipt ABSENT, arm REPORTS.
+# =============================================================================
+case_check_board_graduation_enabled_without_receipt() {
+  cf_reset
+  make_sandbox
+  # No receipt: the neutralizer already stripped it, and nothing here puts it back.
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
+  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
+  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  seed_issue todo "$SB_PREFIX-410" lived chore "A card on the board is a lived signal"
+  publish_sandbox
+
+  # ASSERT THE PREMISE: no receipt. If one were present the case would pass for the
+  # reason every other case already covers, and prove nothing about the other three.
+  local _sig; _sig="$(_lived_signals)"
+  printf '%s' "$_sig" | grep -q 'stamp receipt' \
+    && _fixture_die "case_check_board_graduation_enabled_without_receipt: the sandbox carries a stamp receipt, so this case would be enabled by the signal every other case already builds and would prove nothing about the other three."
+  printf '%s' "$_sig" | grep -q 'issue file' \
+    || _fixture_die "case_check_board_graduation_enabled_without_receipt: no issue file is on the board, so the signal this case exists to exercise is absent and a green would mean nothing."
+
+  local out; out="$(cb_run)"
+  # ANCHOR THE SECTION, AND KNOW EXACTLY WHAT THE ANCHOR IS WORTH — it is less than it
+  # looks. The negative assertion below ("must NOT say X") is satisfied by an EMPTY
+  # section, so on its own it can pass while checking nothing.
+  #
+  # WHAT ACTUALLY PROTECTS THE NEGATIVE IS THE SIBLING POSITIVE, NOT THIS LINE. Measured
+  # against the extractor with three synthetic reports:
+  #
+  #   section          anchor   negative        positive
+  #   full             PASS     PASS            PASS
+  #   header-only      PASS     PASS (vacuous)  FAIL   <- only the positive catches this
+  #   absent ([G])     FAIL     PASS (vacuous)  FAIL
+  #
+  # The positive fails in BOTH failure modes, so today this anchor catches nothing the
+  # positive does not already catch: its contribution is the DIAGNOSTIC — it names an
+  # absent arm instead of leaving a reader to infer it from a content assertion. It earns
+  # its keep only if the positive is ever deleted, and even then it does not cover a
+  # TRUNCATED section, which satisfies it.
+  #
+  # So do not read this line as the protection and delete the positive believing the case
+  # is still guarded. `grep -q` on empty input returns 1, which is why a positive cannot
+  # pass vacuously and a negative can — that asymmetry, not this anchor, is the guard.
+  printf '%s\n' "$out" | grep -q '^\[g\]' \
+    || cf "no [g] section — the arm is absent, which no other assertion here can detect"
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+    && cf "(enabled) a board carrying an issue file did not enable the arm — it reads four signals and this is one of them: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+    || cf "(enabled) the arm ran but reported no finding on an unreplaced scaffolding tree: $out"
+  # NAME THE SIGNAL. An enabling condition is an operand, and a reader who wants to know
+  # why the check ran on their tree should not have to reason it out.
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'enabled by:' \
+    || cf "(enabled) the arm did not name the signal that enabled it: $out"
+
+  finish "check (g): a lived signal OTHER than the receipt — a card on the board — enables the arm, and it names which signal did"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g]'s NOT-RUN DIRECTION, as its own named control
+#
+# It duplicates (a) of the four-state case deliberately, for the reason the verdict
+# control is duplicated: a state buried inside a multi-state case is the one that gets
+# refactored away, and this is the state whose wording carries the whole distinction
+# between "did not run" and "nothing to graduate from".
+#
+# BOTH HALVES ARE ASSERTED, because a check that says NOTHING satisfies the first alone.
+# =============================================================================
+case_check_board_graduation_not_run_direction() {
+  cf_reset
+  make_sandbox
+  # DELIBERATELY EMPTY: no receipt, no issue files, no § Log history, nothing archived.
+  rm -f "$SB_WORK"/progress/*/*-[0-9]*.md 2>/dev/null
+  printf '# progress.md\n\n## Log\n\n' > "$SB_WORK/progress.md"
+  printf '# ARCHIVE.md\n\n## Archived\n\n' > "$SB_WORK/ARCHIVE.md"
+  publish_sandbox
+
+  # ASSERT THE PREMISE, all four signals absent — otherwise this case tests the other
+  # direction while reporting on this one.
+  local _sig; _sig="$(_lived_signals)"
+  [ -z "$_sig" ] \
+    || _fixture_die "case_check_board_graduation_not_run_direction: the fixture carries lived signal(s) — $(printf '%s' "$_sig" | tr '\n' ';') — so the arm WILL run and this case is the enabling direction wearing the not-run name."
+
+  local out; out="$(cb_run)"
+  # ANCHOR THE SECTION, AND KNOW EXACTLY WHAT THE ANCHOR IS WORTH — it is less than it
+  # looks. The negative assertion below ("must NOT say X") is satisfied by an EMPTY
+  # section, so on its own it can pass while checking nothing.
+  #
+  # WHAT ACTUALLY PROTECTS THE NEGATIVE IS THE SIBLING POSITIVE, NOT THIS LINE. Measured
+  # against the extractor with three synthetic reports:
+  #
+  #   section          anchor   negative        positive
+  #   full             PASS     PASS            PASS
+  #   header-only      PASS     PASS (vacuous)  FAIL   <- only the positive catches this
+  #   absent ([G])     FAIL     PASS (vacuous)  FAIL
+  #
+  # The positive fails in BOTH failure modes, so today this anchor catches nothing the
+  # positive does not already catch: its contribution is the DIAGNOSTIC — it names an
+  # absent arm instead of leaving a reader to infer it from a content assertion. It earns
+  # its keep only if the positive is ever deleted, and even then it does not cover a
+  # TRUNCATED section, which satisfies it.
+  #
+  # So do not read this line as the protection and delete the positive believing the case
+  # is still guarded. `grep -q` on empty input returns 1, which is why a positive cannot
+  # pass vacuously and a negative can — that asymmetry, not this anchor, is the guard.
+  printf '%s\n' "$out" | grep -q '^\[g\]' \
+    || cf "no [g] section — the arm is absent, which no other assertion here can detect"
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+    || cf "(not-run) the arm did not state that it had not run, so a reader cannot tell an unrun check from a clean one: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
+    && cf "(not-run) the arm claimed graduation on a tree with no sign of having started: $out"
+
+  finish "check (g): with NO signal at all the arm says THIS CHECK DID NOT RUN and never claims completion — an unrun check is not a clean one"
   teardown
 }
 
@@ -3980,7 +4224,7 @@ case_check_board_graduation_reads_the_trunk() {
 
   local out
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
     || cf "precondition failed: the arm did not report on published scaffolding: $out"
 
   # ── GRADUATE IN THE WORKING TREE ONLY. DO NOT PUBLISH. ──────────────────────
@@ -3996,15 +4240,15 @@ case_check_board_graduation_reads_the_trunk() {
   # deliberately NO push
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
     || cf "THE ARM READ THE WORKING TREE: it cleared on an unpublished graduation, and a one-way arm that clears early never re-opens: $out"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q "$SB_TRUNK" \
+  printf '%s\n' "$out" | _cb_g_section | grep -q "$SB_TRUNK" \
     || cf "the arm did not name the trunk ref it answered about: $out"
 
   # And it clears once the work is actually published — the other direction.
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -q 'graduation COMPLETE' \
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
     || cf "the arm did not clear once the graduation was published: $out"
 
   finish "check (g) is a TRUNK read: an unpublished graduation does NOT clear it (a one-way arm that clears early never re-opens), and publishing does"
@@ -4055,7 +4299,7 @@ case_check_board_graduation_verdict_is_not_wired() {
   publish_sandbox
 
   local out; out="$(cb_run)"
-  printf '%s\n' "$out" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
     || cf "precondition: the arm must be REPORTING for this control to mean anything: $out"
   printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
     || cf "day-one completeness moved the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is also what sends kit-init's self-check looking for a cause: $out"
@@ -4157,7 +4401,7 @@ case_kit_init_survives_the_documented_first_commit() {
   #     advisories would pass (a) and (b) while exercising nothing, which is measured: it
   #     is exactly what this case did before the root documents above were seeded.
   CB_OUT="$(cb_run)"   # capture, then test — cb_run grows with the board
-  printf '%s\n' "$CB_OUT" | grep -A6 '^\[g\]' | grep -qi 'still scaffolding' \
+  printf '%s\n' "$CB_OUT" | _cb_g_section | grep -qi 'still scaffolding' \
     || cf "arm [g] reports no advisory on the post-init tree, so the failure mode this case exists for was never reachable and its green means nothing"
 
   finish "kit-init: the first-commit subject GIT-HOSTING § 3 step 2 prints does not fail the install, the board arm is not what fails, and arm [g] WAS reporting while it ran"
@@ -5729,6 +5973,8 @@ CASES=(
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
   case_check_board_graduation
+  case_check_board_graduation_enabled_without_receipt
+  case_check_board_graduation_not_run_direction
   case_check_board_graduation_reads_the_trunk
   case_check_board_graduation_verdict_is_not_wired
   case_kit_init_survives_the_documented_first_commit

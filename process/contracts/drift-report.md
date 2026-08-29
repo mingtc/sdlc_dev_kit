@@ -85,7 +85,19 @@ missing line against, and now derives it from this list instead of restating it.
   *Deliberately not enumerated here:* which homes a project has. The kit's own implementation names
   two because it ships two; a project that publishes from a third owes it a reading, and the sheet
   would be wrong rather than general if it fixed the number.
-- **7 — Day-one completeness is reported, and it does NOT decide the report's verdict.** While the
+- **7 — Day-one completeness is reported once the project has STARTED, and it does NOT decide the
+  report's verdict.** **Started is a property of the repository, not of one tool having run:** any
+  signal that work has begun — a board carrying work items, a running log with history, an archive
+  with entries, an initializer's own receipt — enables the check. **Where no such signal is present
+  the report says the check DID NOT RUN**, and says it in those terms. *Why the enabling condition
+  is wider than one tool:* a project may implement this process in its own toolchain and never run
+  the reference initializer at all — a supported route — and gating on that tool's receipt asks
+  nothing of exactly the projects most likely to still be carrying the scaffolding, because they
+  also skipped the tool that would have stamped it. *Why there is an enabling condition at all — the
+  original reason, unchanged:* **a repository that has not started must not be nagged to finish.** A
+  fresh unpack has no signal and is asked nothing. *And why the skip must say "did not run":*
+  *"nothing to graduate from"* reads as a clean bill, and a reader has to be able to tell an unrun
+  check from a passing one — the same distinction every other check in this sheet owes. While the
   project still carries the kit's scaffolding — a `REPLACE`-class file that has not been replaced, a
   `FILL`-class file that still holds a blank — the report says so and names the files. **The verdict
   line stays a statement about the board.**
