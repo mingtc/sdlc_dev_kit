@@ -596,6 +596,10 @@ _kit_neutral_config() {
   # ── verify.sh: the gate table and the guard floor.
   _neu_array "$v" GATES
   _neu_array "$v" GUARD_SET
+  # GUARD_ENUM is a SCALAR, so _neu_array cannot see it — and without this reset a
+  # stamped adopter's enumerator command would be carried into every sandbox and every
+  # reconciliation case would run against their tree instead of the frame.
+  _neu_scalar "$v" GUARD_ENUM 'GUARD_ENUM=""'
 
   # ── release.sh: four declared arrays and the publish/version scalars. Optional —
   #    release.sh is a capability this harness probes for (has_release), so a kit
@@ -2799,6 +2803,196 @@ case_verdict_enum_projection() {
   rm -rf "$ctl/mctl"
 
   finish "the verdict vocabulary: every *runner*.js VERDICTS array projects MANUAL § Dev → QA step 6's ratified tokens, both sides re-derived from the files, each extractor ablation-proven against its own authority (a dropped member reddens naming itself; a corrupted table header changes the extraction)"
+}
+
+# =============================================================================
+# THE GUARD-FLOOR RECONCILIATION CASES, and why they are keyed on BEHAVIOUR
+#
+# EVERY ASSERTION BELOW READS AN EXIT CODE AND WHICH SIDE'S ITEMS ARE NAMED — never the
+# wording of a refusal. The reason is measured rather than stylistic: the classifier
+# these cases replace keyed on message text and went stale in the very edit that
+# IMPROVED the message. A refusal's phrasing is the part most likely to be rewritten by
+# someone doing a kindness; its exit code and the identity of the list it prints are the
+# contract.
+#
+# EVERY CASE INVOKES `--scope`, and that is a fact about where the arm LIVES rather than
+# a preference. The whole guard-floor block sits inside `if [ "$SCOPED" -eq 1 ]`: a plain
+# full run never reaches it. Measured — with a bare invocation every one of these cases
+# reported "exit 0, expected 2" and read as one defect each in the arm under test, when the
+# arm had simply not run. A case must establish which invocation reaches its subject
+# before it can assert anything about that subject's behaviour.
+#
+# THE STATES THIS FILE EXERCISES, one case each, and the behaviour that distinguishes
+# each. NO CLOSED COUNT, and that is the shape ruling on closed outcome lists, applied
+# rather than a style
+# choice: verify.sh's reconciliation has more distinguishable outcomes than the cases
+# below exercise, so a header that counted them would be a claim about the ARM that this
+# file cannot keep true — the next outcome added there would silently falsify a number
+# here. The states are named by their two variables (what GUARD_SET holds, what the
+# enumerator does); the run is the list.
+#   (3) SPACE − SET, from the SHIPPED empty GUARD_SET  → rc 2, the enumerated guard named
+#   (4) enumerator MIS-TYPED (rc 1, not 127)           → rc 2, the enumerator's OWN stderr surfaced
+#   (5) enumerator succeeds and returns NOTHING        → rc 2, no reconciled claim
+#   (6) SET − SPACE, two on disk, enumerator sees one  → rc 2, the UNSEEN one named
+#   (7) wholly empty: no set, enumerator returns none  → rc 0, and NO reconciled claim
+#
+# STATES 3 AND 7 ARE BOTH BUILT ON THE SHIPPED EMPTY GUARD_SET on purpose. That
+# configuration is the one three consecutive rounds of controls never built, and it is
+# what the last defect in this family died on: a fixture that always declares a
+# populated set passes against it by construction.
+# =============================================================================
+
+# Add one record to the sandbox's GUARD_SET, self-asserting like _declare_gate.
+_guard_declare() {  # <verify.sh> <entry>
+  local v="$1" e="$2"
+  grep -qE '^GUARD_SET=\($' "$v" \
+    || _fixture_die "_guard_declare: no '^GUARD_SET=(' line in the sandbox's verify.sh — the anchor moved, so '$e' was NOT declared and the case would run against an empty floor."
+  E="$e" perl -i -pe '$_ .= "  $ENV{E}\n" if /^GUARD_SET=\($/' "$v"
+  grep -qxF "  $e" "$v" \
+    || _fixture_die "_guard_declare: '$e' is not in GUARD_SET after the insert."
+}
+
+# Declare the enumerator command. _neu_scalar asserts the line reads what we wrote.
+#
+# THE COMMAND MUST CONTAIN NO BACKSLASH ESCAPE. _neu_scalar rewrites the line through
+# perl, so a `\n` inside the command is interpreted there and SPLITS THE ASSIGNMENT
+# across two lines — verify.sh then reads GUARD_ENUM as unset, takes the NOTE path, and
+# exits 0. Measured: every one of these cases reported "exit 0, expected 2" and looked
+# like one defect each in the arm under test. Use `echo`, which supplies its own newline,
+# and `true` for the deliberately-empty enumeration.
+_guard_enum() {  # <verify.sh> <command>
+  _neu_scalar "$1" GUARD_ENUM "GUARD_ENUM=\"$2\""
+}
+
+case_guard_floor_unenrolled_from_shipped_empty_set() {
+  cf_reset
+  make_sandbox
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  # THE SHIPPED STATE: GUARD_SET stays EMPTY (the neutralizer left it so). A guard
+  # exists on disk and the enumeration finds it; nothing declares it.
+  : > "$SB_WORK/guard-a.txt"
+  _guard_enum "$v" "echo guard-a.txt"
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 2 ] \
+    || cf "(unenrolled) exit $rc, expected 2 — an enumerated guard that GUARD_SET does not declare must refuse"
+  printf '%s' "$out" | grep -qF 'guard-a.txt' \
+    || cf "(unenrolled) the refusal does not NAME the unenrolled guard, so an operator cannot act on it: $out"
+
+  finish "guard floor: a guard the enumeration lists and the SHIPPED EMPTY GUARD_SET does not declare refuses (rc 2) and names it"
+  teardown
+}
+
+case_guard_floor_enumerator_mistyped() {
+  cf_reset
+  make_sandbox
+  local v="$SB_WORK/scripts/verify.sh" out rc probe_rc
+  : > "$SB_WORK/guard-a.txt"
+  _guard_declare "$v" 'guard-a.txt'
+  # A MIS-TYPED command, not a missing one. THE FIXTURE ASSERTS ITS OWN SHAPE: a
+  # 127-only fixture passes against the defect this case exists for, because the defect
+  # was treating "non-zero" as "not found" — so the probe must exit NON-ZERO AND NOT 127.
+  ( cd "$SB_WORK" && git ls-fils 'guard-*' ) >/dev/null 2>&1; probe_rc=$?
+  { [ "$probe_rc" -ne 0 ] && [ "$probe_rc" -ne 127 ]; } \
+    || _fixture_die "case_guard_floor_enumerator_mistyped: the mis-typed enumerator exited $probe_rc — this case needs a non-zero that is NOT 127, or it cannot tell the fixed behaviour from the defect."
+  _guard_enum "$v" "git ls-fils 'guard-*'"
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 2 ] \
+    || cf "(mis-typed) exit $rc, expected 2 — an enumerator that did not run cleanly must refuse rather than reconcile against its empty output"
+  # WHICH REFUSAL FIRED — not merely that one did. BOTH refusal arms exit 2, and BOTH echo
+  # $GUARD_ENUM back to the operator, so `rc -eq 2` and a grep for the command text
+  # ('ls-fils') match in EITHER arm. Measured: with the rc check narrowed back to
+  # 126/127-only, a mis-typed enumerator (exit 1) falls through to "ran cleanly and returned
+  # NOTHING" — a materially FALSE sentence about a command that failed — and this case still
+  # passed on both of those assertions. It could not fail against the defect it exists for.
+  # So the arm is asserted by a token ONLY THAT ARM prints:
+  printf '%s' "$out" | grep -qF 'did not run cleanly (exit' \
+    || cf "(mis-typed) the UNRUNNABLE arm did not fire — a non-zero enumerator was reported as having run cleanly, which is the defect this case exists for: $out"
+  # ...and the enumerator's own stderr by a token ONLY THE ENUMERATOR can produce. 'ls-fils'
+  # is verify.sh quoting the command back; "not a git command" is git itself speaking, and
+  # it reaches the operator only if the stderr capture is actually surfaced.
+  printf '%s' "$out" | grep -qF 'not a git command' \
+    || cf "(mis-typed) the enumerator's own stderr was swallowed, so the operator cannot see WHY it failed: $out"
+
+  finish "guard floor: a MIS-TYPED enumerator (non-zero, not 127) refuses (rc 2) and surfaces the enumerator's own stderr"
+  teardown
+}
+
+case_guard_floor_enumerator_succeeds_empty() {
+  cf_reset
+  make_sandbox
+  local v="$SB_WORK/scripts/verify.sh" out rc probe_rc probe_out
+  : > "$SB_WORK/guard-a.txt"
+  _guard_declare "$v" 'guard-a.txt'
+  # THE REALISTIC SHAPE: `git ls-files` over a guard that is not yet TRACKED exits 0 and
+  # prints nothing. A fixture built on a FAILING command cannot reach this path — the
+  # defect here is a command that works.
+  probe_out="$( cd "$SB_WORK" && git ls-files 'guard-a.txt' 2>/dev/null )"; probe_rc=$?
+  { [ "$probe_rc" -eq 0 ] && [ -z "$probe_out" ]; } \
+    || _fixture_die "case_guard_floor_enumerator_succeeds_empty: the probe exited $probe_rc with output '$probe_out' — this case needs exit 0 AND empty output, or it is testing the mis-typed path again."
+  _guard_enum "$v" "git ls-files 'guard-a.txt'"
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 2 ] \
+    || cf "(empty-but-clean) exit $rc, expected 2 — an enumerator that ran cleanly and saw NOTHING while GUARD_SET declares items must refuse, not reconcile"
+  # KEYED ON THE CLAIM'S OWN FORM, not on the word. The NOTE that DENIES reconciliation
+  # contains "was reconciled" in a negating sentence, so a bare grep for the word fires on
+  # correct output — measured. The green claim is the phrase below and nothing else is.
+  printf '%s' "$out" | grep -q 'reconciled BOTH ways' \
+    && cf "(empty-but-clean) the run claimed reconciliation over an enumeration that returned nothing: $out"
+
+  finish "guard floor: an enumerator that SUCCEEDS and returns nothing over a populated GUARD_SET refuses (rc 2) and claims no reconciliation"
+  teardown
+}
+
+case_guard_floor_unseen_declared_guard() {
+  cf_reset
+  make_sandbox
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  # TWO guards on disk, BOTH declared, and the enumerator scoped to ONE. This is the
+  # SET − SPACE direction — the `unseen` loop — which had no case at all, so
+  # "reconciled BOTH ways" was asserted by a suite that had only watched one direction.
+  : > "$SB_WORK/guard-a.txt"; : > "$SB_WORK/guard-b.txt"
+  _guard_declare "$v" 'guard-a.txt'
+  _guard_declare "$v" 'guard-b.txt'
+  _guard_enum "$v" "echo guard-a.txt"
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 2 ] \
+    || cf "(unseen) exit $rc, expected 2 — a DECLARED guard the enumeration cannot see is not reconciled by it"
+  # WHICH SIDE NAMES ITEMS is the discriminator: the UNSEEN guard must be named. Both
+  # paths appear in the file, so naming guard-b is what distinguishes this direction
+  # from the other one.
+  printf '%s' "$out" | grep -qF 'guard-b.txt' \
+    || cf "(unseen) the refusal does not name the DECLARED guard the enumeration missed: $out"
+
+  finish "guard floor: a DECLARED guard outside the enumeration's scope refuses (rc 2) and names the unseen one — the SET − SPACE direction"
+  teardown
+}
+
+case_guard_floor_wholly_empty_shipped_state() {
+  cf_reset
+  make_sandbox
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  # THE SHIPPED STATE, END TO END: GUARD_SET empty, an enumerator declared, and nothing
+  # to find. Setting GUARD_ENUM before writing a first guard is legitimate, so this must
+  # NOT refuse — and it must not claim a reconciliation it did not perform either.
+  _guard_enum "$v" "true"
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 0 ] \
+    || cf "(wholly empty) exit $rc, expected 0 — declaring GUARD_ENUM before the first guard exists is legitimate and must not refuse"
+  # THE ONE ASSERTION HERE THAT NECESSARILY TOUCHES THE CLAIM'S WORDING, and it is
+  # unavoidable: this state's whole subject IS the absence of the green claim, and both
+  # states here exit 0, so there is no code to read instead. Keyed on the claim's own
+  # distinctive phrase — NOT on the word "reconciled", which the denying NOTE also uses,
+  # and which therefore fired on correct output when this was first written.
+  printf '%s' "$out" | grep -q 'reconciled BOTH ways' \
+    && cf "(wholly empty) the run claimed reconciliation with an empty GUARD_SET and an empty enumeration — nothing was reconciled: $out"
+
+  finish "guard floor: the wholly-empty shipped state exits 0 with a NOTE and claims no reconciliation"
+  teardown
 }
 
 case_verify_frame() {
@@ -5138,6 +5332,151 @@ case_consumer_updater() {
 }
 
 # =============================================================================
+# CASE — EVERY HYGIENE INSTRUMENT DECLARES ITS BLIND SPOTS, AND THE LIST IS NOT EMPTY
+#
+# THE CLAIM AN EMPTY LIST MAKES. `--json` emits `"blind_spots": [...]`, and a consumer
+# reads `[]` as *this walk has no blind spots*. That has never been true of this walker:
+# it skips symlinks and it prunes a directory set, and it does both in the very run that
+# would print the empty list. **The human path degrades to silence; the machine path
+# degrades to a false claim about the subject** — silence is a gap a reader may notice,
+# `[]` is an answer they will not question.
+#
+# WHY ONE CASE COVERS EVERY INSTRUMENT, and why that is the point rather than a saving:
+# the notice is derived from ONE authoring site, which is a property worth having — and
+# the cost of it is that a single edit empties every consumer AT ONCE. This case is that
+# cost's control: the ablation below must redden every instrument simultaneously, and if
+# it ever reddens only some, the single authoring site has quietly become several.
+#
+# PYTHON IS THESE INSTRUMENTS' DECLARED CARVE-OUT, so an absent interpreter SKIPS with
+# its reason and never fails — the kit assumes git and a POSIX shell, and these are
+# advisory instruments that say so.
+#
+# PYTHONDONTWRITEBYTECODE, because a run that leaves __pycache__ behind mutates the tree
+# it was measuring, and the isolation case would then report the harness as the mutator.
+#
+# --root IS PASSED EXPLICITLY, and that is not belt-and-braces. These instruments default
+# their root to `Path(__file__).resolve().parents[2]` — the tree is inferred from where
+# the FILE SITS, not from what is being measured. The ablation copy below deliberately
+# sits somewhere else, and at that depth the default resolves to the whole scratch area:
+# measured, a copy two directories shallower walked /private/tmp and had to be killed.
+# Naming the root makes the operand a fact of the invocation instead of an accident of
+# the path, and it is the difference between this case measuring the sandbox and this
+# case hanging the suite.
+# =============================================================================
+case_hygiene_instruments_declare_blind_spots() {
+  cf_reset
+  if ! command -v python3 >/dev/null 2>&1; then
+    skp "hygiene instruments declare their blind spots" "python3 absent — these are advisory instruments and Python is their declared carve-out"
+    return
+  fi
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-310" hygiene chore "Hygiene blind-spot probe"
+  publish_sandbox   # cold_signal reads git history, so the sandbox must have some
+
+  local hy="$SB_WORK/scripts/hygiene" inst n_inst=0 empty="" missing="" broke=""
+  if [ ! -d "$hy" ]; then
+    skp "hygiene instruments declare their blind spots" "scripts/hygiene/ absent — this kit ships no advisory instruments"
+    teardown; return
+  fi
+
+  # THE LIST IS DERIVED, never typed: a new instrument is covered the day it lands.
+  local instruments; instruments="$(cd "$hy" && ls ./*.py 2>/dev/null | sed 's@^\./@@' | sort)"
+  [ -n "$instruments" ] \
+    || _fixture_die "case_hygiene_instruments_declare_blind_spots: scripts/hygiene/ contains no *.py — the scan lost its operand rather than finding a clean set."
+
+  for inst in $instruments; do
+    n_inst=$(( n_inst + 1 ))
+    local out rc
+    out="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 python3 "$hy/$inst" --root "$SB_WORK" --json 2>&1 )"; rc=$?
+    if [ "$rc" -ne 0 ]; then broke="$broke $inst"; continue; fi
+    # The payload is an object, and it CARRIES the key — a missing key is a different
+    # defect from an empty one and must not be reported as the same thing.
+    if ! printf '%s' "$out" | PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if isinstance(d,dict) and "blind_spots" in d else 1)' 2>/dev/null; then
+      missing="$missing $inst"; continue
+    fi
+    printf '%s' "$out" | PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["blind_spots"] else 1)' 2>/dev/null \
+      || empty="$empty $inst"
+  done
+
+  # WORDED FOR WHAT IT CATCHES, not for what was first imagined. This bucket was written
+  # as "could not be read", which is now a FALSE sentence about the case it actually fires
+  # on: measured with the walker ablated, every instrument exited non-zero while
+  # emitting a clean, parseable JSON refusal. The payload was readable. What makes it
+  # unusable here is that a refusal is not a blind-spot REPORT, and no declaration can be
+  # read out of one — so the exit code, not the readability, is the whole of the finding.
+  [ -z "$broke" ]   || cf "instrument(s) exited non-zero under --json:$broke — the payload may be perfectly readable; a non-zero exit makes it a REFUSAL rather than a blind-spot report, and a declaration cannot be read out of a refusal"
+  [ -z "$missing" ] || cf "instrument(s) emitted a payload with no 'blind_spots' key:$missing — a missing key is not an empty list, and removing the key would turn a false claim into a missing one"
+  [ -z "$empty" ]   || cf "instrument(s) reported \"blind_spots\": [] :$empty — that asserts THERE ARE NONE, and this walker skips symlinks and prunes a directory set in the very run that printed it"
+
+  # ── THE ABLATION, on a COPY of the tree the instruments read — never the real one.
+  # THE SINGLE-AUTHORING-SITE DERIVATION is what is under test here: one site means one
+  # edit reaches every consumer, so the ablation must reach ALL of them, not some.
+  local probe="$SB_TMP/hygiene-probe"; rm -rf "$probe"; mkdir -p "$probe"
+  cp -R "$hy" "$probe/hygiene" 2>/dev/null
+  local site="$probe/hygiene/citation_index.py"
+  if [ ! -f "$site" ]; then
+    cf "(control) could not copy the derivation's authoring site — the control did not run, so the green above is unproven"
+  else
+    # EMPTY THE DERIVATION, DO NOT BYPASS IT. Inserting `return []` at the top of the
+    # function skips the refusal that an empty derivation is supposed to raise — so the
+    # instruments went back to printing an empty list and NONE of them refused, which
+    # this case then correctly reported as "0 of 5". The ablation has to leave the
+    # emptiness check reachable and give it nothing to find.
+    perl -0777 -i -pe 's{\n    lines = \[}{\n    lines = []\n    _ablated_unused = [}' "$site"
+    if ! grep -qF '_ablated_unused' "$site"; then
+      cf "(control) the ablation did not take on the copy — the anchor moved, so nothing below establishes that the assertion can fire"
+    else
+      # EVERY DERIVED INSTRUMENT LANDS IN EXACTLY ONE BUCKET, AND THE BUCKETS ARE
+      # RECONCILED AGAINST THE COUNT. This loop used to `|| continue` on a non-zero exit,
+      # which silently dropped that instrument from both buckets — so with one probe copy
+      # made to fail, the case reported "empties all of them at once" over four of five
+      # and stayed green. A control with a hole in its accounting is a green that could
+      # not go red, inside the control written against exactly that.
+      #
+      # THE FLAT SIGNAL IS A REFUSAL, NOT AN EMPTY LIST. An empty derivation is the
+      # INSTRUMENT failing, so it exits 2 and emits an object whose only top-level key is
+      # the unrunnable one — the UNRUNNABLE vocabulary, not the report's. `blind_spots:
+      # []` is a payload that can no longer occur, and an arm still hunting it would pass
+      # by never finding what it was looking for.
+      #
+      # A CRASH IS ITS OWN BUCKET, named in its own word: a traceback or an unparseable
+      # payload is neither a refusal nor a healthy report, and folding it into either
+      # would let the loudest failure mode read as one of the quiet ones.
+      local flat=0 still=0 crashed=0 a_out a_rc
+      local still_names="" crash_names=""
+      for inst in $instruments; do
+        a_out="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 python3 "$probe/hygiene/$inst" --root "$SB_WORK" --json 2>/dev/null )"; a_rc=$?
+        if ! printf '%s' "$a_out" | PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+          crashed=$(( crashed + 1 )); crash_names="$crash_names $inst"
+        elif [ "$a_rc" -eq 2 ] && printf '%s' "$a_out" | PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json,sys
+d = json.load(sys.stdin)
+sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/null; then
+          flat=$(( flat + 1 ))
+        else
+          still=$(( still + 1 )); still_names="$still_names $inst"
+        fi
+      done
+
+      # THE RECONCILIATION, and it is the assertion the old loop lacked entirely.
+      [ $(( flat + still + crashed )) -eq "$n_inst" ] \
+        || cf "(control) the ablation accounted for $(( flat + still + crashed )) instrument(s) of $n_inst — some landed in no bucket at all, so any claim below is about a subset nobody enumerated"
+      [ "$crashed" -eq 0 ] \
+        || cf "(control) ablating the derivation made instrument(s) CRASH rather than refuse:$crash_names — a traceback is the instrument failing in the wrong vocabulary, which is a different defect from the one this case asserts"
+      [ "$flat" -gt 0 ] \
+        || cf "(control) ablating the derivation made NO instrument refuse — the assertion above cannot fire and is a green that could not go red"
+      # NAME THE INSTRUMENTS THAT DID NOT GO FLAT. A count tells the maintainer that the
+      # single authoring site has split; only the names tell them which file drifted, and
+      # that is the whole of what they need next.
+      [ "$still" -eq 0 ] \
+        || cf "(control) ablating the single authoring site did not reach:$still_names ($flat of $n_inst refused) — the derivation is no longer one site, which is the property this case exists to protect"
+    fi
+  fi
+
+  finish "every hygiene instrument declares its blind spots and the list is NON-EMPTY ($n_inst instrument(s): $(printf '%s' "$instruments" | tr '\n' ' ')) — an empty list asserts THERE ARE NONE, which is a false claim about the subject — and ablating the single derivation empties all of them at once"
+  teardown
+}
+
+# =============================================================================
 # CASE — SHIP STATE. The control the neutralizer costs us.
 #
 # Why this case has to exist. Before _kit_neutral_config, every sandbox inherited
@@ -5193,6 +5532,10 @@ case_ship_state() {
   if [ -f "$rv" ]; then
     _ship_array_empty "$rv" GATES
     _ship_array_empty "$rv" GUARD_SET
+    # _ship_array_empty CANNOT SEE A SCALAR, so the guard-floor enumerator needs the
+    # line form. Without it the kit could ship a populated GUARD_ENUM — one project's
+    # command, in every adopter's tree — and no case would look.
+    _ship_line "$rv" 'GUARD_ENUM=""'
   else
     cf "scripts/verify.sh is absent — the gate frame is part of the kit"
   fi
@@ -5368,6 +5711,11 @@ CASES=(
   case_archive_progress_honest_noop
   case_archive_progress_index
   case_verify_frame
+  case_guard_floor_unenrolled_from_shipped_empty_set
+  case_guard_floor_enumerator_mistyped
+  case_guard_floor_enumerator_succeeds_empty
+  case_guard_floor_unseen_declared_guard
+  case_guard_floor_wholly_empty_shipped_state
   case_verdict_enum_projection
   case_verify_unrunnable_vs_fail
   case_check_board_id_clean
@@ -5402,6 +5750,7 @@ CASES=(
   case_release_bash_n
   case_release_spaced_path
   case_consumer_updater
+  case_hygiene_instruments_declare_blind_spots
   case_ship_state
   case_isolation
 )

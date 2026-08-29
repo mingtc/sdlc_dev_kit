@@ -63,7 +63,7 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, Index, print_blind_spots, walk_blind_spots  # noqa: E402
+from citation_index import REPO_ROOT, Index, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
 
 DEFAULT_DAYS = 14
 # The default prefix exclusion set — stated in the header above, mirroring
@@ -218,4 +218,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_instrument(main, "cold_signal"))

@@ -551,6 +551,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **The hygiene instruments now refuse instead of reporting, when their own blind-spot derivation
+  comes back empty.** Every instrument exits **2** and prints `could NOT RUN … NOTHING was
+  measured`; on `--json` they emit `{"unrunnable": {…}}` with **no data keys** — no `rows`, no
+  `blind_spots`. **Action required:** if anything of yours consumes these payloads, key on the
+  **exit code** or on the presence of `unrunnable`, not on the shape of the output — a consumer
+  that reads `blind_spots` off the JSON will now raise a lookup error on a refusal instead of
+  silently reading a clean bill. That is deliberate: these instruments are advisory, and the one
+  thing an advisory tool must never do is report *nothing found* when it found nothing out.
 - **Action required:** if your `GUARD_SET` is non-empty, **set `GUARD_ENUM`**. Until you do, the
   scoped run prints a note saying the second direction was not checked — it does not fail. **When
   you set it, expect the FIRST run to refuse — and to name why.** The likeliest cause is a

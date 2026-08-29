@@ -44,8 +44,14 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, Index, print_blind_spots, walk_blind_spots  # noqa: E402
+from citation_index import REPO_ROOT, Index, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
 
+# THE LIST BELOW NAMES PATHS AS AN ADOPTED TREE HAS THEM. Run this against a tree that keeps the
+# same files under other names — a staging copy, an unpacked archive, anything not yet installed —
+# and --self-test reports only the roots it can find and says which are missing. That is a fact
+# about where you pointed it, not a finding about the tree: prune the list to what your project
+# actually has, which is what the list is for.
+#
 # ── PARAMETER: THE STARTER ROOTS. **EDIT THIS LIST.** It is the answer to "what does a fresh
 #    agent open on its first minute here?", and it is the only thing that makes an orphan list
 #    mean anything. Ship-time defaults below are the kit's own front doors; prune the ones your
@@ -196,7 +202,21 @@ def walk(root: Path = REPO_ROOT):
 
 
 def self_test(root: Path = REPO_ROOT) -> int:
-    """Re-verify the two facts this instrument's honesty rests on."""
+    """Re-verify the facts this instrument's honesty rests on.
+
+    No count: this docstring named a number of facts and went stale the day the walker's
+    non-emptiness became another one — a census in prose, in the place nobody thinks to look for
+    one (`doctrine/staleness.md` § C).
+    """
+    # THE WALKER IS ONE OF THOSE FACTS, AND THIS IS THE LINE THAT MAKES IT ONE. The return value is
+    # deliberately discarded: printing the narrowings here would change this arm's output, and the
+    # normal path already prints them. What is wanted is the REFUSAL — `walk_blind_spots()` raises
+    # when its derivation is empty, `run_instrument()` turns that into exit 2, and this arm inherits
+    # both. Called FIRST so an ablated walker refuses before any partial report reaches stdout.
+    # Measured before this line existed: with the derivation emptied, --self-test still printed
+    # SELF-TEST PASS and exited 0 while every other path refused — a green that could not go red,
+    # inside the arm named --self-test.
+    walk_blind_spots()
     missing = [r for r in STARTER_ROOTS if not (root / r).exists()]
     index = Index(root)
     probe_present = (root / BLIND_SPOT_PROBE).exists()
@@ -263,4 +283,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_instrument(main, "reachability_walk"))

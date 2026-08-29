@@ -45,7 +45,7 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, iter_files, print_blind_spots, walk_blind_spots  # noqa: E402
+from citation_index import REPO_ROOT, iter_files, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
 
 # ── PARAMETER: THE BASE RATE. Carried with date + source, NOT re-measured here — quoting one of
 #    these as present tense is the exact defect this instrument exists to find. REPLACE THESE
@@ -191,4 +191,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_instrument(main, "staleness_greps"))

@@ -156,6 +156,29 @@ def iter_files(root: Path):
     return sorted(out)
 
 
+class BlindSpotsUnavailable(RuntimeError):
+    """``walk_blind_spots()`` derived NO lines — so the walk's narrowings were never stated.
+
+    This is a defect in the instrument, never a fact about the tree. The walk has two narrowings
+    by construction (symlinks, pruned directories) and there is no edit to SKIP_DIRS that removes
+    them: emptying that set leaves the line saying zero names are pruned. An empty list therefore
+    means the derivation itself was broken or removed, and the one thing it must not do is print
+    nothing and let a reader take the silence for a clean walker.
+
+    Modelled on ``cold_signal.HistoryUnavailable`` and refused in the same vocabulary, for the
+    reason that sheet gives: UNRUNNABLE is not FAIL, and a report that spells them the same way
+    sends the reader to debug a tree that may be perfectly healthy.
+    """
+
+    # The remedy is passed IN for HistoryUnavailable's reason — a true sentence aimed at the wrong
+    # reader is the same defect one layer up. Here there is one way to arrive, so there is one
+    # remedy; the parameter exists so a second caller cannot inherit advice written for the first.
+    def __init__(self, asked, said, remedy):
+        self.asked, self.said, self.remedy = asked, said, remedy
+        self.rc = None
+        super().__init__("walk_blind_spots() derived no lines")
+
+
 def walk_blind_spots() -> list:
     """What ``iter_files`` did NOT look at — the walk's own narrowings, in one place.
 
@@ -172,18 +195,73 @@ def walk_blind_spots() -> list:
         tally = "count unavailable — no walk has run in this process"
     else:
         tally = f"{_WALK_SYMLINKS_SKIPPED} skipped in this run"
-    return [
+    lines = [
         f"symlinks are skipped — a symlinked file is absent from this walk entirely "
         f"({tally}; following one risks double-counting a file under two paths, and cycles)",
         f"{len(SKIP_DIRS)} directory names are pruned wherever they appear, as is any directory with "
         f"a name ending .egg-info — the set is SKIP_DIRS in citation_index.py, and it is yours to edit",
     ]
+    # AN EMPTY DERIVATION IS THE INSTRUMENT FAILING, AND IT REFUSES RATHER THAN RETURNING []. The
+    # caller cannot tell an empty list from "this walk has no blind spots", and the second claim is
+    # one nobody has ever been able to make: the walk narrows by construction. Returning [] here
+    # would put a false clean bill in every importing instrument's JSON at once. The check lives at
+    # the derivation rather than in each importer's print block for the same reason the notice
+    # itself does: a fact restated per importer is one authoring site per importer, and the next
+    # narrowing would have to find them all.
+    if not lines:
+        raise BlindSpotsUnavailable(
+            asked="walk_blind_spots() in citation_index.py",
+            said="the derivation returned an empty list",
+            remedy="this is a code defect, not a tree state: walk_blind_spots() must state every "
+                   "narrowing iter_files() applies, and it derived none. Restore the derivation — "
+                   "the symlink tally and the SKIP_DIRS count are its two inputs.",
+        )
+    return lines
 
 
 def print_blind_spots(prefix: str = "BLIND SPOT: ") -> None:
     """Print the walk's narrowings on the human path. Every instrument that walks calls this."""
     for line in walk_blind_spots():
         print(prefix + line)
+
+
+def run_instrument(entry, instrument: str, argv=None) -> int:
+    """Run one instrument's ``main`` and turn a broken walker into a REFUSAL, not a traceback.
+
+    THE ONE SITE. Every program that imports ``walk_blind_spots`` inherits this; the refusal text,
+    the exit code and the JSON shape are authored here and nowhere else, so a change to the
+    vocabulary is one edit rather than one per importer. Each instrument's ``__main__`` block calls
+    this instead of ``main()`` —
+    that call is the only line the guard costs an importer, and forgetting it is visible as a
+    traceback rather than as a wrong answer.
+
+    ``--json`` is read from argv rather than from the parsed namespace because the exception can
+    fire before or after parsing, and a refusal that cannot tell which format its reader wanted
+    is the failure mode this is here to prevent. Said plainly so nobody reads it as an oversight.
+    """
+    wants_json = "--json" in (sys.argv[1:] if argv is None else argv)
+    try:
+        return entry() if argv is None else entry(argv)
+    except BlindSpotsUnavailable as exc:
+        # THE REFUSAL, in cold_signal.py's vocabulary, which is verify.sh's. Human text on stderr
+        # either way, so a caller redirecting stdout still sees why.
+        print(f"{instrument}: could NOT RUN — {exc}. NOTHING was measured.", file=sys.stderr)
+        print("  this is not 'no blind spots': the walker has never had none.", file=sys.stderr)
+        print(f"  asked:     {exc.asked}", file=sys.stderr)
+        print(f"  it said:   {exc.said or '(no message)'}", file=sys.stderr)
+        print(f"  remedy:    {exc.remedy}", file=sys.stderr)
+        if wants_json:
+            import json
+
+            # A VALID OBJECT THAT SAYS IT DID NOT RUN, carrying NO data keys — no `rows`, no
+            # `blind_spots`, no counts. `cold_signal`'s § unrunnable states the reasoning and it
+            # is not restated here: empty stdout reads as a successful empty result, and
+            # `"blind_spots": []` asserts the very claim this exception exists to refuse.
+            print(json.dumps({"unrunnable": {
+                "instrument": instrument, "reason": str(exc), "asked": exc.asked,
+                "said": exc.said, "remedy": exc.remedy,
+            }}, indent=2))
+        return 2
 
 
 def _read(root: Path, rel: str) -> str:
@@ -302,4 +380,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_instrument(main, "citation_index"))
