@@ -46,6 +46,10 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.2.0] — 2026-08-31
+
 ### Changed
 
 - **The project-facts sheet is now the only blank, and its template is gone.**
