@@ -34,9 +34,9 @@ this file at the start of every session.**
   gates. Name anything else a contributor must have installed>`
 
 > `./setup.sh`'s **kit half is real and working** in a fresh seed (git hooks, the board sanity
-> check). Its **runtime half is a marked fill-in** — wire your language bootstrap and your test
-> gate there before the first issue, because `./scripts/finish-pr.sh` refuses to land without an
-> executable, committed gate runner.
+> check, the `.env` seed). Its **runtime half is a marked fill-in** — wire your language
+> bootstrap and your test gate there before the first issue, because `./scripts/finish-pr.sh`
+> refuses to land without an executable, committed gate runner.
 
 ## Quality bar
 
@@ -72,8 +72,8 @@ command yet, write `TODO` rather than deleting the row, so the gap stays visible
 | Outbound notification (optional — silent when unconfigured) | `<e.g. ./scripts/notify.sh>` | [`process/contracts/notification.md`](process/contracts/notification.md) |
 | The process self-test harness | `<e.g. ./scripts/test/run.sh>` | [`process/contracts/self-test-harness.md`](process/contracts/self-test-harness.md) |
 | The liveness / watchdog ritual (a discipline, not a program) | `<how a long run is watched>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) |
-| The acceptance tier — what "verified" means at each rigor level | `<how a tier is declared per issue>` | [`process/contracts/acceptance-tier.md`](process/contracts/acceptance-tier.md) |
-| Retention completeness — what may never be dropped when work is condensed | `<who checks it, and when>` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
+| The acceptance tier (a lens, never a gate — **no shipped implementation**) | `<how membership is marked in your runner — or "not adopted">` | [`process/contracts/acceptance-tier.md`](process/contracts/acceptance-tier.md) |
+| Retention completeness (only if you retire documents under a ledger) | `<e.g. the pre-commit hook — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
 
 **One row per contract sheet — the whole of
 [`process/contracts/`](process/contracts/README.md).** **The directory is the authority for the row
@@ -130,8 +130,7 @@ one checker's job or many; the count changes the leg count, so **record which yo
 leaving it to whoever dispatches.**
 
 **§ A.4a is the other half and this list is not its job.** A.4a is per-change and one hop, searched by
-**name** never by path — and it includes **any program whose input format your prose specifies**, which
-is a citer of that prose. This list is only what the pre-cut sweep reads.
+**name** never by path. This list is only what the pre-cut sweep reads.
 
 ## Credential doctrine
 
@@ -143,6 +142,15 @@ is a citer of that prose. This list is only what the pre-cut sweep reads.
 - **What a test may touch:** <the disposable target>; **never** <the real one>.
 - **What the code may never do:** <e.g. request, widen or escalate a permission —
   a grant is a console action by a human>.
+
+## Retained evidence
+
+<!-- Delete only if you keep no evidence documents at all. Doctrine: process/doctrine/retention.md
+     (park beats delete) and process/doctrine/staleness.md (the causing change pays the stamp). -->
+
+- **Where evidence lives:** `<e.g. dev/, indexed by dev/README.md>`.
+- **The rule:** **park beats delete** — when torn, park.
+- **Retirement under a ledger:** `<the ledger path, or "not adopted — park only">`.
 
 ## Branching, trunk, and the board
 

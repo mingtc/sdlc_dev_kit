@@ -61,20 +61,36 @@ anything to start using this kit. Run all four steps; step 1 is the offline case
 
 ```
 1.  git init --bare /path/to/<repo>.git
-    git remote add <remote> /path/to/<repo>.git
+    git remote add <remote> /path/to/<repo>.git   # ABSOLUTE path — see below
 2.  git switch -c <trunk>                        # if the trunk does not exist yet
     git commit --allow-empty -m '<init>'         # if there are no commits yet
 3.  git push -u <remote> <trunk>
 4.  git remote set-head <remote> <trunk>         # ← the step whose absence is SILENT
 ```
 
+**The remote URL must be ABSOLUTE.** A relative path appears to work here and the initializer
+REFUSES it, because a relative remote resolves against whatever directory the caller happens
+to be in — which is not the same directory for a linked worktree as for the main checkout.
+
 **Step 4 names the branch explicitly on purpose.** `git remote set-head <remote> -a` *asks the
 remote what its own HEAD is*, and a freshly created bare repository has none — it fails with
-`Cannot determine remote HEAD`. If you would rather fix the bare side instead:
+`Cannot determine remote HEAD`.
+
+**The alternative below is NOT interchangeable with step 4, and the order is why.** Setting
+the bare side's HEAD *at creation* is the safer form:
 
 ```
 git -C /path/to/<repo>.git symbolic-ref HEAD refs/heads/<trunk>
 ```
+
+*Measured:* a freshly created bare repository's HEAD points at git's own default branch name,
+which your first push may never create. Run against that, `git remote set-head <remote>
+<trunk>` **exits 0 and changes nothing on the remote** — it writes a local tracking ref and
+leaves the bare side's HEAD pointing where it was. The mismatch surfaces much later, as
+`HEAD branch: (unknown)` from `git remote show`, at whatever moment something tries to
+resolve the trunk. Setting HEAD on the bare side cannot mislead that way: it writes the fact on
+the side that owns it. **Prefer it when you control the bare repository; use step 4 when you
+do not.**
 
 This is the same recipe the kit initializer prints when it refuses; keeping the two in sync is
 part of maintaining the kit.

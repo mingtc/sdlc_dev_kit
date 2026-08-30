@@ -319,12 +319,12 @@ for (const issue of ARGS.issues) {
   // outcome NAMES it, or the report re-merges downstream the two axes the schema
   // just separated.
   if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
+    log(`${issue.id}: LANDED`)
     results.push({ id: issue.id, outcome: 'LANDED', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
   } else {
     log(`${issue.id}: LAND-READY (verified; landing deferred) — tranche continues`)
     results.push({ id: issue.id, outcome: 'LAND_READY', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
   }
-  log(`${issue.id}: LANDED`)
 }
 
 return { halted, results }

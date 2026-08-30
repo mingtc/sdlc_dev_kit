@@ -38,7 +38,8 @@ project doc tells you what "green" means here.
 
 **The fourth thing, and it is not prose: [`contracts/`](contracts/).** This manual *describes* the
 gates and rituals; `process/contracts/` states, per gate, what **any** implementation must
-guarantee, when it must **refuse**, and what **green** means in countable terms — six sections, one
+guarantee, when it must **refuse**, and what **green** means in countable terms — the sections
+listed in [`EXTRACTION.md`](EXTRACTION.md), one
 page each, written for a reader who will never open the scripts. It is the **machine-facing
 complement** to these pages: where a sentence here says *what we do*, the matching sheet says
 *what must hold*, and its section 6 marks the shipped script as **one implementation, not the
@@ -89,8 +90,9 @@ person (or the Orchestrator) wears **one hat at a time**, and says which.
 
 The **pattern** is fixed; the **cast is the project's**. A project declares its active roles —
 one row per role, each linking its doc and naming what it owns — in the **adapter**, and the
-adapter's table is the source of truth for which hats exist. This kit ships six workable hats (a
-standing architect seat, an Orchestrator, PM, Dev, QA, Refactorer) plus an archive of parked ones;
+adapter's table is the source of truth for which hats exist. This kit ships the role docs under
+`.claude/roles/` — a standing architect seat, an Orchestrator, PM, Dev, QA and a Refactorer at
+the time of writing — plus an archive of parked ones; `ls .claude/roles/` is the list;
 adding, parking or renaming a hat is a project decision, made in the adapter and in
 `.claude/roles/`.
 
@@ -130,8 +132,8 @@ version control by the initializer, not left for each actor to discover
    > were — a cold-read finding). `verification-before-completion`, `requesting-code-review`,
    > `test-driven-development`, `systematic-debugging` and the rest are **skills**: one directory
    > each under [`.claude/skills/`](../.claude/skills/), holding a `SKILL.md` that is the
-   > workflow, invoked by name. The role docs chain them (each role doc has a *"Skills used in
-   > this role"* table); `.claude/skills/README.md` is the index. A kit installation ships them;
+   > workflow, invoked by name. The role docs chain them (most carry a *"Skills used in
+   > this role"* section — the dispatching docs point at the index instead); `.claude/skills/README.md` is the index. A kit installation ships them;
    > **Which skills exist is a project decision** —
    > when this manual names one it is naming a *practice*, and a project without that skill
    > directory still owes the practice.
@@ -372,7 +374,9 @@ that departs from it says so in the adapter.
 **The invariant:**
 
 - **Code work lives on per-work-item branches** — `feature/<ID>-<slug>`, `fix/<ID>-<slug>`,
-  `refactor/<ID>-<slug>`. **Never per-role branches.** One branch per issue.
+  `refactor/<ID>-<slug>`, where **`<ID>` is the work item's id — `<PREFIX>-NNN`, the same
+  vocabulary the board uses** (§ The board). Sites that spell it out in full mean this.
+  **Never per-role branches.** One branch per issue.
 - **Kanban state + metadata commit to the trunk.** The board moves, spec/issue edits, role-doc
   updates, refactor/design pass docs, `progress.md`, the project doc and the adapter all commit
   **directly to the trunk** with a role-prefixed message. Only **code** goes through a work
@@ -427,8 +431,11 @@ need the reflog. The contract is
 ### Role-attribution commit prefixes
 
 Every commit subject starts with a **role tag** in square brackets; the `scripts/githooks/
-commit-msg` hook **rejects a prefix-less subject** (wired via `git config core.hooksPath
-scripts/githooks`, which the initializer sets). The **set of legal prefixes is the project's** —
+commit-msg` hook **rejects a prefix-less subject — and refuses a machine-attribution trailer,
+a co-author line naming a tool or a *generated with* line** (wired via `git config
+core.hooksPath scripts/githooks`, which the initializer sets;
+[`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) carries the rule and its
+reason). The **set of legal prefixes is the project's** —
 it is declared in one table in the adapter and enforced from the hook, and the two must agree.
 
 Two attribution rules are the kit's:
@@ -563,20 +570,20 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`supersession.md`](doctrine/supersession.md) | Preserve the reason, supersede only the conclusion — and the `superseded_in_part` annotation that follows from it. | § Execution discipline, item 5 |
 | [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried, and its scope may not exceed its evidence's scope. The authoring-time neighbour of `supersession.md`. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
 | [`commit-hygiene.md`](doctrine/commit-hygiene.md) | What a commit owes beyond its content: no generated co-author trailers, a role-prefixed subject enforced at write time, hand the commit then read `git status -sb`, never end a landing on an unpushed looks-pushed state, and — where a change's operands straddle the two commit lanes — the gate's unit is the **set**, not the file. | § Branching and role attribution |
-| [`model-provisioning.md`](doctrine/model-provisioning.md) | How a dispatched worker is provisioned (model + effort per work class), the leaf rule (a worker does not spawn workers), and the rule that a ladder is only real where a harness knob exists. | The role docs' own *"Model & effort contract"* sections |
-| [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite from the corpus, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. Its marking convention is stated in one test runner's mechanics; a different stack ports the **question and the two tiers**, not the mechanics. | Here — and `EXTRACTION.md` § 4, which lists the guards that do **not** travel |
+| [`model-provisioning.md`](doctrine/model-provisioning.md) | How a dispatched worker is provisioned (model + effort per work class), the leaf rule (a worker does not spawn workers), and the rule that a ladder is only real where a harness knob exists. | The role docs that carry a *"Model & effort contract"* section |
+| [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite from the corpus, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. Its marking convention is stated in one test runner's mechanics; a different stack ports the **question and the two tiers**, not the mechanics. | Here |
 | [`calibration.md`](doctrine/calibration.md) | **The two AVAILABLE rituals that measure the kit's own claims** — a regeneration spike (hide a decision-dense module; rebuild it from the corpus with the acceptance tier as the criterion) and a seed acceptance test (bootstrap a fresh project from the seed document and count the steps guessed). Both must declare their honest-worker limits, and the **findings list is the deliverable**. **Available, never an obligation.** | Here — and `contracts/acceptance-tier.md`, the tier they exercise |
-| [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. The reason (deletion silences guards; evidence is not re-derivable; a negative claim dies with its enumeration) is preserved in full; only this one conclusion narrows. | The adapter's House rules; the project doc's retained-evidence policy |
-| [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers (a successor lands, a plan closes, a ruling overturns a conclusion, a number/universal stops being true), each owed in the same commit as its cause, never a sweep. Five stamp fields (the "kept because" surviving-value clause is the one authors drop); "derive, date, or do not state" for numbers in prose. | The implementer/reviewer role docs' *Definition of Done*; `dev/README.md`'s own preamble |
-| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | The adapter's House rules; the project doc's quality bar |
-| [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | The orchestrator role doc's § Token discretion (run-plan duties); every dispatching role |
+| [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. The reason (deletion silences guards; evidence is not re-derivable; a negative claim dies with its enumeration) is preserved in full; only this one conclusion narrows. | The project doc's § Retained evidence |
+| [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers (a successor lands, a plan closes, a ruling overturns a conclusion, a number/universal stops being true), each owed in the same commit as its cause, never a sweep. Five stamp fields (the "kept because" surviving-value clause is the one authors drop); "derive, date, or do not state" for numbers in prose. | The implementer/reviewer role docs' *Definition of Done* |
+| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | Here — no sheet points at it yet |
+| [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | The orchestrator role doc's run-plan duties |
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
-| [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | § Execution discipline, item 2 |
+| [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | Here — and `doctrine/subagent-control.md`, which item 2 names |
 | [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one and it is not close; contradictory demands return *nothing* rather than a compromise; a returned report is a claim that carries its own evidence or is re-measured; a resume is only safe for work without side effects; a deferred decision is named inside every item whose scope touches it; and hand off while sharp, not while failing. | § Execution discipline, item 2 |
-| [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | § The default path is lite (the gates a release adds) |
+| [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | Here |
 | [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
-| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output**. | § Execution discipline, item 3 — and § The measurement rituals |
-| [`fix-execution.md`](doctrine/fix-execution.md) | **Landing what a round found, without minting what it warned about** — the span between findings and implementation, and between the last landing and the cut. A minted item is a hypothesis, so the slate is scrutinized before a line moves and **holding an item is a success**; a ruling is recorded **before** it is executed, verbatim and with what was *not* ruled beside it; the round's traps travel as acceptance criteria; truth is corpus-wide in two obligations, one per change and one before the cut; a gate budgets a **property**, never a machine; and one authoring site per vocabulary, with a guard that bites when a projection parts from it. | § The fix-execution phase — and `doctrine/dogfooding.md` § A.13/§ A.14, which hand off to its § A.1 |
+| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output**. | § Execution discipline, item 3 |
+| [`fix-execution.md`](doctrine/fix-execution.md) | **Landing what a round found, without minting what it warned about** — the span between findings and implementation, and between the last landing and the cut. A minted item is a hypothesis, so the slate is scrutinized before a line moves and **holding an item is a success**; a ruling is recorded **before** it is executed, verbatim and with what was *not* ruled beside it; the round's traps travel as acceptance criteria; truth is corpus-wide in two obligations, one per change and one before the cut; a gate budgets a **property**, never a machine; and one authoring site per vocabulary, with a guard that bites when a projection parts from it. | § The fix-execution phase § A.1 |
 
 Two neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and

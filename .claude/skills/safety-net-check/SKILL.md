@@ -118,7 +118,7 @@ For each gap on Option A:
 
 1. **Write the test** asserting current behavior. Run it — it should pass (because it asserts what's already true).
 2. **Briefly verify the test is real:** temporarily change the production code to break the asserted behavior. The test should fail. Revert.
-3. **Commit the test on the default branch** with prefix `[Refactor]` (lowercase "refactor" prefix tag, distinct from `[Refactorer]` who is the role) — actually use `[Refactorer]` to match the role tag — and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`.
+3. **Commit the test on the default branch** with prefix `[Refactorer]`, matching the role tag, and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`.
 
 These tests land *before* the refactor branch is created. They protect the upcoming work.
 

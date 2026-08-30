@@ -1,7 +1,7 @@
 // KIT-CLASS: KIT — the two-wave parallel runner. Everything project-specific is in CFG below.
 export const meta = {
   name: 'wave-runner',
-  description: 'Run two waves of zero-overlap issues in parallel (args: {repo, wave1:[...], wave2:[...]}, same per-issue fields as tranche-runner plus worktreeMode + phase, including docsPath for the direct-to-trunk lite variant). One leg of each pair runs in a self-created worktree so pairs never contend for the main checkout; the board mover and the landing script serialize via the kanban worktree lock. Prompts, schemas and provisioning mirror tranche-runner.js; the park-QA discipline mirrors it EXCEPT that a park this runner cannot verify halts the wave immediately, where tranche-runner grants one bounded fix round first — stated because a claim of mirroring is read as total. The price of the parallelism: merge-conflict bounces are possible — assign zero-overlap surfaces per pair and SAY them in extraDev.',
+  description: 'Run two waves of zero-overlap issues in parallel (args: {repo, wave1:[...], wave2:[...]}, same per-issue fields as tranche-runner plus the wave-only ones (worktreeMode, phase, restartNote), including docsPath for the direct-to-trunk lite variant). One leg of each pair runs in a self-created worktree so pairs never contend for the main checkout; the board mover and the landing script serialize via the kanban worktree lock. Prompts, schemas and provisioning mirror tranche-runner.js; the park-QA discipline mirrors it EXCEPT that a park this runner cannot verify halts the wave immediately, where tranche-runner grants one bounded fix round first — stated because a claim of mirroring is read as total. The price of the parallelism: merge-conflict bounces are possible — assign zero-overlap surfaces per pair and SAY them in extraDev.',
   phases: [
     { title: 'Wave1', detail: 'first parallel pair' },
     { title: 'Wave2', detail: 'second parallel pair' },
@@ -266,11 +266,13 @@ async function runIssue(issue) {
 phase('Wave1')
 const wave1 = await parallel((ARGS.wave1 || []).map(i => () => runIssue(i)))
 results.push(...wave1.filter(Boolean))
-const w1ok = wave1.filter(Boolean).every(r => r.outcome === 'LANDED' || r.outcome === 'PARKED_OK')
+// LAND_READY is a PASS whose landing was deferred, so it does not halt: the halt keys on the
+// verdict, never on the landing, per the note above.
+const w1ok = wave1.filter(Boolean).every(r => r.outcome === 'LANDED' || r.outcome === 'LAND_READY' || r.outcome === 'PARKED_OK')
 if (!w1ok) return { halted: 'wave1', results }
 
 phase('Wave2')
 const wave2 = await parallel((ARGS.wave2 || []).map(i => () => runIssue(i)))
 results.push(...wave2.filter(Boolean))
-const w2ok = wave2.filter(Boolean).every(r => r.outcome === 'LANDED' || r.outcome === 'PARKED_OK')
+const w2ok = wave2.filter(Boolean).every(r => r.outcome === 'LANDED' || r.outcome === 'LAND_READY' || r.outcome === 'PARKED_OK')
 return { halted: w2ok ? null : 'wave2', results }

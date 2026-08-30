@@ -8,7 +8,7 @@ documents, or the console command to run. It carries **no content of its own**.
 
 **What this directory is not.** It is not a copy of the donor project's pack. The donor's
 routers cited that project's own document sections, and porting them would have shipped
-sixty dead addresses. What travels is the **pattern below** plus one skeleton
+dozens of dead addresses. What travels is the **pattern below** plus one skeleton
 (`EXAMPLE-start-here/`) showing the shape. `install-skills.sh` skips this README and any
 `EXAMPLE-*` directory, so a project that has not authored a pack installs nothing.
 

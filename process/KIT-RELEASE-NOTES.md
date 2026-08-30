@@ -48,6 +48,38 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The project-facts sheet is now the only blank, and its template is gone.**
+  `process/templates/PROJECT.template.md` is removed: `PROJECT.md` ships as its own blank and you
+  fill it **in place**. The template's `§ Retained evidence` has moved into `PROJECT.md`, and two of
+  its gate rows — the acceptance tier and retention completeness — were the correct ones and are now
+  the shipped ones. *Why:* a template nothing stamps drifts from the instance it claims to be; every
+  edit reached the live sheet and none reached the copy. **Action required only if you linked the
+  template path** — re-point at `PROJECT.md`. A sheet you have already filled is untouched.
+- **`.claude/workflows/wave-runner.js` no longer halts a wave on a verified pass whose landing was
+  deferred.** A `LAND_READY` outcome now continues, matching the runner's own stated rule and its
+  sibling tranche runner. If you relied on the wave stopping there, it will now proceed to wave 2.
+- **The debugging helper `find-polluter.sh` parses again under the default macOS bash.** It was
+  unparseable under bash 3.2 — the shell that ships on macOS — so the skill's script could not run
+  at all there. Its `TEST_CMD` knob is unchanged and still required; the usage line now says so.
+- **Three unused skill files were removed** — two reviewer-prompt templates whose dispatch no longer
+  exists and an upstream authoring log citing paths the kit does not have. Nothing references them.
+- **`.claude/templates/SUBTASK.template.md`'s parent link was one level short** and resolved to the
+  wrong directory; a subtask created from the template now links its parent correctly.
+- **`dev/rounds/` now ships** (empty), because the round templates write into it by name.
+- **The tranche runner no longer logs `LANDED` for an issue whose landing was deferred.** It logged
+  `LAND-READY (verified; landing deferred)` and then `LANDED` on the next line for the same issue.
+  Each outcome now logs once, in its own branch. If you parse the runner's log, the duplicate is
+  gone.
+- **`process/GIT-HOSTING.md` now recommends setting the bare repository's HEAD at creation, and says
+  the two forms are not interchangeable.** `git remote set-head <remote> <trunk>` against a bare
+  repo whose HEAD points at a branch your first push never created **exits 0 and changes nothing on
+  the remote** — the mismatch surfaces later as `HEAD branch: (unknown)`. Prefer `git -C <repo>.git
+  symbolic-ref HEAD refs/heads/<trunk>` where you control the bare side. The guide also now states
+  the absolute-path constraint the initializer already enforces.
+- **`AGENTS.md` no longer says your precedence rule is already written.** It said precedence was
+  *stated once* in `requirements/CORPUS.md § Precedence`; that section ships as a blank for you to
+  fill. One precedence rule is the kit's and binds before you fill anything — where a contract sheet
+  and any prose disagree, the sheet wins — and that is now said where it is authored.
 - **Several shipped documents now match the tools they describe.** The archive threshold is
   documented as a constant declared at the top of the report script, not a value your adapter sets;
   the settings example no longer claims the initializer stamps any of its placeholders; the

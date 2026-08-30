@@ -145,9 +145,11 @@ convention states the rule; this is where the answer is.)
 
 **How to read the `Class` column:** it applies to **every directory in the set**. A single skill that
 departs from its set — one that has acquired your project's law, say — gets its own row saying so,
-and that row is what a reader trusts. **The default is `KIT`**: a skill travels unedited. Anything
-authored here carries an in-file marker as well, and the two must agree — if they ever disagree,
-the in-file marker is the one that was easier to forget.
+and that row is what a reader trusts. **The default is `KIT`**: a skill travels unedited. **This
+table is where an authored-here skill's class is recorded**, for the reason the vendored ones
+have: an in-file marker inside a directory that may be re-fetched is erased by the next copy.
+Where a sheet *does* carry one — the `Class` column says so — the two must agree, and the
+in-file marker is the one that was easier to forget.
 
 | Set | Origin | License | Class |
 | --- | --- | --- | --- |
@@ -155,6 +157,7 @@ the in-file marker is the one that was easier to forget.
 | PM | `<fill in>` | `<fill in>` | `KIT` |
 | Refactorer | Authored for this kit | Same as this repo | `KIT` |
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
+| `finishing-a-development-branch` | Dev set, upstream | `<fill in>` | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
 When updating a skill from upstream, re-fetch the source and copy the folder over the
@@ -164,7 +167,12 @@ blind overwrite silently discards it.
 **One class of hardening the diff will show, and it is not drift.** Where an upstream skill states
 an instruction in one tool's or one forge's command, this kit keeps the instruction and demotes the
 command to a named example — the setup commands in `using-git-worktrees`, the review-thread reply
-in `receiving-code-review`. A re-copy that restores the single-command form has not updated the
+in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
+it too:** `finishing-a-development-branch` carries this kit's landing law, `using-superpowers`
+has repaired citations, `using-git-worktrees` gained an external-directory note, and
+`brainstorming`'s visual companion is opt-in machinery this kit added. **Read every diff hunk
+on its own** — the class below is the one that is easiest to mistake for drift, not the only
+one you will meet. A re-copy that restores the single-command form has not updated the
 skill, it has re-narrowed it, and it breaks the claim this file opens with: *nothing here assumes a
 language, a test runner, a build tool or a forge.* Carry the upstream's substance into the local
 wording, never the reverse.

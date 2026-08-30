@@ -12,7 +12,7 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 - Post-merge smoke check after a branch lands on the trunk — verify nothing obvious broke before the next issue starts.
 - A regression or behavior outside AC turns up — file a `type: bug` via `./scripts/new-bug.sh` with the RIDER body (see § Bug filing format).
 
-Not every review needs every check. Calibrate rigor to the project's quality bar (see PROJECT.md) and to the rigor-tier ladder in [orchestrator.md § Token discretion](orchestrator.md#token-discretion).
+Not every review needs every check. Calibrate rigor to the project's quality bar (see PROJECT.md) and to the rigor-tier ladder in [`process/doctrine/rigor-tiers.md`](../../process/doctrine/rigor-tiers.md).
 
 ## Model & effort contract
 

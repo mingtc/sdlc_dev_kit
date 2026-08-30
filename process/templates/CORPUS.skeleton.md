@@ -10,7 +10,7 @@
   LINKS are written for this file's DESTINATION, which is requirements/ — so a process/ target is
   spelled `../process/…` and resolves the moment you copy this file there. They therefore do NOT
   resolve while the file still sits in process/templates/, and that is expected, not a defect.
-  (PROJECT.template.md and CLAUDE-adapter.template.md state the same convention for their own
+  (PROJECT.md and CLAUDE-adapter.template.md state the same convention for their own
   destination, the repository root, where the same targets are spelled `process/…`.)
 -->
 # CORPUS.md — what the requirements corpus IS

@@ -66,8 +66,9 @@ effort**; **never spawn the seat's own model class**. `max_tokens` is harness-ma
 Code and is not a project knob. **The leaf clause holds:** a dispatched UI-Designer worker does
 not spawn subagents.
 
-There is **no shipped `.claude/agents/` leaf worker for this role** — add one modelled on
-`refactorer-worker.md` when you wake it.
+The leaf worker for this role **does ship**, at `.claude/agents/ui-designer-worker.md` — see the
+dated note in this file's footer for when it landed. Wake the role by adopting it, not by
+authoring a second one.
 
 ## What this role does and doesn't do
 

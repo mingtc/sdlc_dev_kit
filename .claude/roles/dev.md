@@ -89,13 +89,13 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 | [verification-before-completion](../skills/verification-before-completion/) | auto before claiming done | Fresh gate-runner output | Reported in chat + issue Activity + progress.md |
 | [requesting-code-review](../skills/requesting-code-review/) | auto in subagent loops; manual before handoff | Reviewer report (Critical/Important/Minor) | Acted on in-session |
 | [receiving-code-review](../skills/receiving-code-review/) | auto when QA or reviewer responds | Verified fixes or reasoned pushback | New commits or review replies |
-| [finishing-a-development-branch](../skills/finishing-a-development-branch/) | auto when execution reports done | Pushed branch, preserved branch, or discarded work — **never a merged commit; landing is QA's act via `finish-pr.sh`** | Pushed work branch + issue file `git mv`d to `progress/dev_complete/` |
+| [finishing-a-development-branch](../skills/finishing-a-development-branch/) | auto when execution reports done | Pushed branch, preserved branch, or discarded work — **never a merged commit; landing is QA's act via `finish-pr.sh`** | Pushed work branch + issue file moved to `progress/dev_complete/` (via `move-issue.sh`) |
 
 **The canonical chain for a `progress/todo/` feature issue:**
 
-> Pick up issue → `git mv` to `in_progress/` → [brainstorming] (if HOW unclear) → [writing-plans] → [using-git-worktrees] → [subagent-driven-development] (or [executing-plans]) → inside each task: [test-driven-development], [systematic-debugging] on failure → [requesting-code-review] after each task → [verification-before-completion] before claiming done → [finishing-a-development-branch] (push the branch — no forge PR) → `move-issue.sh` to `dev_complete/`. QA then lands it with `finish-pr.sh` (pure-git squash-merge; see qa.md).
+> Pick up issue → move to `in_progress/` (via `move-issue.sh`) → [brainstorming] (if HOW unclear) → [writing-plans] → [using-git-worktrees] → [subagent-driven-development] (or [executing-plans]) → inside each task: [test-driven-development], [systematic-debugging] on failure → [requesting-code-review] after each task → [verification-before-completion] before claiming done → [finishing-a-development-branch] (push the branch — no forge PR) → `move-issue.sh` to `dev_complete/`. QA then lands it with `finish-pr.sh` (pure-git squash-merge; see qa.md).
 
-**Calibrate the chain to the change — the rigor-tier ladder.** The full chain above is the TIER 2/3 weight. A **TIER 1** change — a copy/comment tweak or a test-only edit with **no behavior change** — skips brainstorming + writing-plans, runs a single inline implementer, and skips the binding extra gate unless a declared risk surface actually changed. The full ladder (TIER 1/2/3 + the binding-gate decision rule) lives in [orchestrator.md § Token discretion](orchestrator.md#token-discretion); apply the same tiers in a non-orchestrated Dev session.
+**Calibrate the chain to the change — the rigor-tier ladder.** The full chain above is the TIER 2/3 weight. A **TIER 1** change — a copy/comment tweak or a test-only edit with **no behavior change** — skips brainstorming + writing-plans, runs a single inline implementer, and skips the binding extra gate unless a declared risk surface actually changed. The full ladder (TIER 1/2/3 + the binding-gate decision rule) lives in [`process/doctrine/rigor-tiers.md`](../../process/doctrine/rigor-tiers.md); apply the same tiers in a non-orchestrated Dev session.
 
 ## Workflow: `progress/todo/` issue → branch ready for QA
 
@@ -177,7 +177,7 @@ Concrete rules from the skills:
 
 ## Definition of Done
 
-Before `git mv`ing the issue file to `progress/dev_complete/`, every item below must be true. This is the bar enforced by [verification-before-completion](../skills/verification-before-completion/).
+Before moving the issue file to `progress/dev_complete/` (via `move-issue.sh`), every item below must be true. This is the bar enforced by [verification-before-completion](../skills/verification-before-completion/).
 
 - [ ] Every AC in the issue has a passing test, or a documented justification in `progress.md` for why it can't be automated.
 - [ ] **Full** gate run **in this session**: 0 failures. Quote the **result line**, not the run. **A scoped/selective run does NOT satisfy this item** — selective-run (step 7) is for the TDD inner loop ONLY. The line you quote here must come from an unscoped `./scripts/verify.sh`.
@@ -192,7 +192,7 @@ Before `git mv`ing the issue file to `progress/dev_complete/`, every item below 
 - [ ] `progress.md` appended with: what was built, decisions, deviations, anything QA should know.
 - [ ] Work branch pushed (forge-agnostic — a pushed branch, **not** a forge PR).
 - [ ] Issue file Activity log appended, including the "Handoff to QA" notes below (the Activity log IS the review record — there is no forge review object).
-- [ ] Issue file `git mv`d to `progress/dev_complete/` (via `move-issue.sh`).
+- [ ] Issue file moved to `progress/dev_complete/` (via `move-issue.sh`).
 - [ ] **Every duty in § Project duties below is discharged** for the surfaces this change touched.
 
 ### Output-length calibration
@@ -277,7 +277,7 @@ below; that section + the Activity log ARE the review record QA reads:
 ```
 
 If QA fails the review:
-- **AC unmet** → QA `git mv`s the file back to `progress/in_progress/`; you re-enter the workflow at step 4 (re-plan) or step 7 (fix).
+- **AC unmet** → QA moves the file back to `progress/in_progress/` (via `move-issue.sh`); you re-enter the workflow at step 4 (re-plan) or step 7 (fix).
 - **Bug found** (regression / behavior outside AC) → QA files a **new** `type: bug` issue in `progress/todo/` via `./scripts/new-bug.sh`. Your original issue may still go to `progress/qa_complete/` if its AC is fully met; the bug enters the queue independently.
 
 ## Session end checklist

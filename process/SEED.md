@@ -28,7 +28,7 @@ the kit's files on disk — SEED does not conjure them; it tells you what to do 
 |---|---|---|
 | **1** | **Create the repo, the remote, and the remote's published default branch.** `git init`, then a remote (a **local bare repo is fine** and is the offline recipe), push the trunk, then `git remote set-head origin <trunk>` **naming the branch**. `<trunk>` defaults to `main`. | [`contracts/kanban-worktree.md`](contracts/kanban-worktree.md) (why the trunk must be *resolved*, not guessed) · [`contracts/initializer.md`](contracts/initializer.md) · [`GIT-HOSTING.md`](GIT-HOSTING.md) (local-only, bare-repo and hosted options) · `./scripts/kit-init.sh` prints the four-step recipe **on refusal** when the remote precondition is unmet (`--help` describes the precondition but does not print the recipe itself) · [`EXTRACTION.md` § 1.3](EXTRACTION.md) row 1 |
 | **2** | **Fork by stack — see below.** Copy the kit files first (`EXTRACTION.md` § 1), *then* fork. | [`EXTRACTION.md` § 1](EXTRACTION.md) · [`contracts/initializer.md`](contracts/initializer.md) · [`contracts/config-seam.md`](contracts/config-seam.md) |
-| **3** | **Fill in `PROJECT.md`** from the template. It is the first thing the process asks for and the one thing no project can copy. | [`templates/PROJECT.template.md`](templates/PROJECT.template.md) · [`MANUAL.md` § The three documents](MANUAL.md) |
+| **3** | **Fill in `PROJECT.md` IN PLACE.** The shipped sheet is itself the blank — there is no template to copy from, because a template a stamper never touches drifts from the instance it claims to be. It is the first thing the process asks for and the one thing no project can copy. | [`PROJECT.md`](../PROJECT.md) · [`MANUAL.md` § The three documents](MANUAL.md) |
 | **4** | **Start `requirements/CORPUS.md` + `requirements/DECISIONS.md`** from the skeletons — both nearly empty on day one, both existing from day one. | [`templates/CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) · [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) · [`EXTRACTION.md` § 1.2](EXTRACTION.md) (format travels, content never does) |
 | **5** | **REPLACE the `CLAUDE.md` bootstrap stub with your adapter.** The shipped `CLAUDE.md` is scaffolding that says so in its own first lines; you **build the adapter from the template and overwrite the stub**, rather than editing the stub into shape. Point at `process/MANUAL.md` early, then hold **your** project law. | [`templates/CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) · [`MANUAL.md` § Seams](MANUAL.md) (what the manual deliberately does not know) · [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md) (why `REPLACE` is replaced and not edited) |
 | **6** | **Hold a REAL PM session and mint `PRD-001`** — **one** spec, not a backlog. A pre-written backlog is a backlog nobody scoped. **This mandate is not in tension with the lite default:** `PRD-001` **scopes the PRODUCT** on day one; [`MANUAL.md` § The default path is lite](MANUAL.md) governs **subsequent small work**, which takes one issue and no spec. Both stand. | `.claude/roles/pm.md` · [`contracts/issue-creation.md`](contracts/issue-creation.md) · [`contracts/id-minting.md`](contracts/id-minting.md) · `.claude/templates/PRD.template.md` |
@@ -120,12 +120,13 @@ Each of these fails **later and in disguise** if taken out of sequence:
 
 [`templates/`](templates/) — **fill-in-the-blank shapes, nothing more.** Blanks are `<angle
 brackets>`, the same convention `.claude/templates/` uses. **These are hand-filled: the
-initializer stamps `.claude/templates/` only**, so nothing here carries a prefix literal for it to
+initializer stamps `.claude/templates/`, not these**, so nothing here carries a prefix literal
+for it to
 rewrite — write your own prefix into the blanks as you fill them.
 
 | Template | What it gives you |
 |---|---|
-| [`PROJECT.template.md`](templates/PROJECT.template.md) | what-it-is · stack & run commands · the quality bar · **a gates table whose every row names its contract sheet** · a credential-doctrine stub · the roles-active table |
+| [`PROJECT.md`](../PROJECT.md) *(not a template — the shipped sheet IS the blank; fill it in place)* | its sections are its `##` headings — read them there rather than from a list here, which is how this row went stale twice |
 | [`CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) | the adapter shape: point at `process/MANUAL.md` early, then hold your own project law |
 | [`CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) | the corpus manifest shape + its bucket classification |
 | [`DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) | the standing-rulings register: stable ids, three fields, a projection |

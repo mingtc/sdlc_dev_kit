@@ -110,10 +110,12 @@ through the board mover (`./scripts/move-issue.sh`), never through `mv` —
 and **a bare repository on your own disk is a perfectly good one**:
 
 ```sh
-git init --bare /path/to/<project>.git
-git remote add origin /path/to/<project>.git
-git push -u origin <trunk>
-git remote set-head origin <trunk>
+1.  git init --bare /path/to/<project>.git
+    git remote add origin /path/to/<project>.git    # ABSOLUTE path
+2.  git switch -c <trunk>                           # if the trunk does not exist yet
+    MSG_OK=1 git commit --allow-empty -m 'init'     # if there are no commits yet
+3.  git push -u origin <trunk>
+4.  git remote set-head origin <trunk>              # ← the step whose absence is SILENT
 ```
 
 That four-step recipe is exactly what `./scripts/kit-init.sh` prints when it refuses for an unmet

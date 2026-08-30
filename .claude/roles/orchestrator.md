@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — role workflow + the rigor-tier ladder; project references are pointers. See process/EXTRACTION.md. -->
+<!-- KIT-CLASS: KIT — role workflow; project references are pointers. See process/EXTRACTION.md. -->
 # Orchestrator role
 
 The **meta-role**. It does not write product code, grade PRs, or author PRDs itself —
@@ -48,7 +48,7 @@ table below is this project's **instance** and the adapter's PM ratifies it.
 | **XS / mechanical (any role)** | `<fill in — the cheaper model>` | `<fill in>` |
 | **Cleanup / classifier** | `<fill in>` | `<fill in>` |
 
-> **The kit ships a starting position, not a blank.** The six leaf-worker definitions in
+> **The kit ships a starting position, not a blank.** The leaf-worker definitions in
 > [`.claude/agents/`](../agents/) already pin a model and an effort in frontmatter — that is
 > the seed default, and it is *structural*: a plain spawn of `dev-worker` is correctly
 > provisioned with no action. Fill the table above to match those pins (or change both
@@ -83,7 +83,8 @@ subagents.** State it in the dispatch prompt. Coordinator-level fan-out is this 
 runner's job, and nobody below it. (Current models reach for subagents freely; an uncapped
 worker multiplies burn invisibly, because its own token total absorbs its children's.)
 
-Map the tier to the work with the rigor-tier ladder in § Token discretion, which carries the
+Map the tier to the work with the rigor-tier ladder in
+[`process/doctrine/rigor-tiers.md`](../../process/doctrine/rigor-tiers.md), which carries the
 per-tier model/effort mapping.
 
 ## Session start / invocation
@@ -363,9 +364,10 @@ advance the issue to `dev_complete/` (the pushed work branch + the issue's Activ
 handoff — forge-agnostic pure git; there is no PR/MR object to record).
 
 - **Mechanical post-merge check.** The manual "run the full gate runner before EVERY merge"
-  rule is RETIRED: `finish-pr.sh` runs the project's **quick** gate automatically right after
-  the `qa_complete` move and SURFACES its PASS/FAIL (non-blocking — a red result is printed,
-  never swallowed, but does not gate the merge that already landed). The hard-won lesson (a
+  rule is RETIRED, but the merge is NOT ungated: `finish-pr.sh` runs the project's **quick**
+  gate BEFORE the merge and REFUSES to merge on a red result, then runs it again after the
+  merge and SURFACES that PASS/FAIL (the post-merge reading is non-blocking — a red result is
+  printed, never swallowed, but does not gate a merge that already landed). The hard-won lesson (a
   close-out that merged on a partial check and left the trunk's test gate red across two
   merges) is now caught mechanically instead of by discipline. Still: **if the post-merge check
   shows the trunk is red, fix it ON the trunk — do not park the fix.** When PARKING an issue,

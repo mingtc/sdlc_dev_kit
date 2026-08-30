@@ -34,7 +34,7 @@ agent type, so there is no plugin-provided agent to map. Dispatch each one as
 
 ### Prompt filling
 
-Skills provide prompt templates with placeholders like `{WHAT_WAS_IMPLEMENTED}` or `[FULL TEXT of task]`. Fill all placeholders and pass the complete prompt as the message to `@generalist`. The prompt template itself contains the agent's role, review criteria, and expected output format — `@generalist` will follow it.
+Skills provide prompt templates with placeholders like `[FULL TEXT of task]`. Fill all placeholders and pass the complete prompt as the message to `@generalist`. The prompt template itself contains the agent's role, review criteria, and expected output format — `@generalist` will follow it.
 
 ### Parallel dispatch
 

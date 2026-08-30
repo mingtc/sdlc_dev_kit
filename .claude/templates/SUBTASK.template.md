@@ -1,9 +1,9 @@
 <!-- KIT-CLASS: KIT — subtask template (the Orchestrator's decomposition slice). Two
      placeholders are STAMPED by the initializer: `<PREFIX>-` → this project's issue prefix,
      and `<trunk>` → this project's trunk branch (default `main`). 
-     NOTE: `<trunk>` is wired in the initializer today; `<PREFIX>` is the key it is
-     expected to stamp the same way. If your initializer has not wired a key yet,
-     substitute it by hand before first use — never leave an angle bracket in a live issue. -->
+     NOTE: the initializer stamps BOTH `<trunk>` and `<PREFIX>` in this directory today.
+     If your initializer has not wired a key yet, substitute it by hand before first
+     use — never leave an angle bracket in a live issue. -->
 ---
 id: <PREFIX>-NNN-sM      # parent <PREFIX>-NNN + subtask index; does NOT consume the id stream
 type: subtask
@@ -20,7 +20,7 @@ created_by: Orchestrator
 
 # <PREFIX>-NNN-sM — <one-line summary>
 
-> A **subtask** of [<PREFIX>-NNN](../../<status>/<PREFIX>-NNN-<slug>.md). It lives under
+> A **subtask** of [<PREFIX>-NNN](../../../<status>/<PREFIX>-NNN-<slug>.md). It lives under
 > `progress/subtasks/<PREFIX>-NNN/<status>/`; its folder is its status. The parent stays on
 > the main board and advances to `qa_complete/` only when every subtask reaches
 > `qa_complete/`. Move it with `scripts/subtask.sh`, not `move-issue.sh`.

@@ -1,9 +1,9 @@
 <!-- KIT-CLASS: KIT — bug template (the RIDER body). Two placeholders are STAMPED by the
      initializer: `<PREFIX>-` → this project's issue prefix, and `<trunk>` → this project's
      trunk branch (default `main`). Everything else in angle brackets is author fill-in. 
-     NOTE: `<trunk>` is wired in the initializer today; `<PREFIX>` is the key it is
-     expected to stamp the same way. If your initializer has not wired a key yet,
-     substitute it by hand before first use — never leave an angle bracket in a live issue. -->
+     NOTE: the initializer stamps BOTH `<trunk>` and `<PREFIX>` in this directory today.
+     If your initializer has not wired a key yet, substitute it by hand before first
+     use — never leave an angle bracket in a live issue. -->
 ---
 id: <PREFIX>-NNN
 type: bug

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Bisection script to find which test creates unwanted files/state
-# Usage: ./find-polluter.sh <file_or_dir_to_check> <test_pattern>
-# Example: ./find-polluter.sh '.git' 'src/**/*.test.ts'
+# Usage: TEST_CMD=<your single-file test command> ./find-polluter.sh <file_or_dir_to_check> <test_pattern>
+# Example: TEST_CMD="npm test --" ./find-polluter.sh '.git' 'src/**/*.test.ts'
+# TEST_CMD is REQUIRED and has no default: the script refuses rather than guess your runner.
 
 set -e
 
@@ -15,7 +16,7 @@ POLLUTION_CHECK="$1"
 TEST_PATTERN="$2"
 # The runner is a knob, not an assumption: export TEST_CMD to match your stack
 # (e.g. TEST_CMD="npm test --", TEST_CMD="cargo test", TEST_CMD="go test").
-TEST_CMD="${TEST_CMD:?set TEST_CMD to your project's single-file test command, e.g. TEST_CMD=\"npm test --\"}"
+TEST_CMD="${TEST_CMD:?set it to the single-file test command for this stack, e.g. npm test --}"
 
 echo "🔍 Searching for test that creates: $POLLUTION_CHECK"
 echo "Test pattern: $TEST_PATTERN"

@@ -135,7 +135,7 @@ the report.
 - **A single Workflow run cannot pause for human input** — that is *why* GATE A sits between
   the two workflows, and why an uncertain QA verdict parks-and-reports instead of blocking.
 - **Provisioning each dispatched worker (model + effort)** → the rigor-tier ladder in
-  [orchestrator.md § Token discretion](../../roles/orchestrator.md#token-discretion), which
+  [`process/doctrine/rigor-tiers.md`](../../../process/doctrine/rigor-tiers.md), which
   maps each tier to a model and an effort, and § "Model & effort contract" for the standing
   riders, the leaf clause, and the two mechanisms that actually carry an escalation. Read it
   there; **this skill states no provisioning policy of its own.**
