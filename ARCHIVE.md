@@ -27,8 +27,11 @@ When `progress/qa_complete/` has grown enough to clutter the active board (the
 the full files into `progress/done/`. Review the staged diff, then commit.
 
 The contract this implements is
-[`process/contracts/archive-sweep.md`](process/contracts/archive-sweep.md); the
-threshold itself is a value **your adapter sets** — see
+[`process/contracts/archive-sweep.md`](process/contracts/archive-sweep.md). The depth
+that triggers the advisory is a **constant declared at the top of
+`scripts/check-board.sh`** — not a value your adapter sets. No script reads a threshold
+from the adapter, so a number written there changes nothing; change it at the constant
+or not at all. What the adapter DOES record is whether this sweep is run here at all —
 [`CLAUDE.md`](CLAUDE.md) § "What is ON and what is OFF here".
 
 **The heading below is format law and exists from day one, empty.** The sweep

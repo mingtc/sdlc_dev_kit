@@ -34,7 +34,7 @@ the contracts they encode** — those are process law and apply to every agent, 
 | `roles/*.md` — one doc per role | **The role set, and each role's workflow.** You wear exactly one hat at a time and you say which one. The doc for that hat is your workflow for the session; the Architect doc binds only the seated architect instance and never a subagent. |
 | `templates/*.md` — issue, PRD, subtask shapes | **The shape of anything you create.** An issue you author by hand must carry the same frontmatter and sections the template does, because the board scripts and the drift report read them. |
 | `agents/*.md` — leaf worker definitions | **The leaf rule:** a dispatched worker does not spawn further workers. Fan-out is the orchestrating seat's job. |
-| hooks / settings wiring | **The guards those hooks automate still hold** even where your harness cannot run them — the commit-message role prefix, the declared hat, the gate before landing. A guard you cannot execute you must satisfy by hand, not skip. |
+| hooks / settings wiring | **The guards this wiring automates still hold** even where your harness cannot run them — the commit-message role prefix (a git hook) and the declared hat (a session hook). The gate before landing is the odd one out: no hook runs it, `finish-pr.sh` does when a human invokes it — which is precisely why it is the easiest of the three to skip and the one worth naming here. A guard you cannot execute you must satisfy by hand, not skip. |
 
 ## The five things that will get you rejected
 
@@ -56,8 +56,10 @@ the contracts they encode** — those are process law and apply to every agent, 
 
 ## If a document contradicts another
 
-The precedence is stated once, in [`requirements/CORPUS.md`](requirements/CORPUS.md) § Precedence.
-Where a contract sheet in [`process/contracts/`](process/contracts/README.md) and any prose
-disagree, **the sheet wins** — it states what must be true, and the prose is one implementation of
-it. Do not resolve a contradiction silently: record it (`requirements/DECISIONS.md` § Findings) and
+Your project states its own precedence in [`requirements/CORPUS.md`](requirements/CORPUS.md)
+§ Precedence, which ships as a blank for you to fill. One precedence rule is the KIT's and binds
+before you fill anything: where a contract sheet in
+[`process/contracts/`](process/contracts/README.md) and any prose disagree, **the sheet wins**
+— it states what must be true, and the prose is one implementation of it. Do not resolve a
+contradiction silently: record it (`requirements/DECISIONS.md` § Findings) and
 name who decides.

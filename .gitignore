@@ -46,9 +46,16 @@ Thumbs.db
 .vscode/
 
 # ── Logs and scratch ───────────────────────────────────────────────────────
+# EACH ENTRY NAMES ITS PRODUCER, because the header above calls this section real and
+# an entry nothing writes cannot be. `/tmp/` and `/scratch/` were here with none —
+# both root-anchored, and nothing shipped writes either — so they are gone rather than
+# left looking load-bearing.
+#
+# the brainstorming skill's per-session tree: it writes <root>/.brainstorm/<id>/
+# (content + state, including state/server.log) whenever PROJECT_DIR is set, and only
+# falls back to the system /tmp when it is not.
+.brainstorm/
 *.log
-/tmp/
-/scratch/
 
 # ── <your build artifacts> ─────────────────────────────────────────────────
 # FILL ME. One line per generated tree or file your toolchain produces, with a

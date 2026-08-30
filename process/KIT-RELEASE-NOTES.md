@@ -48,6 +48,28 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **Several shipped documents now match the tools they describe.** The archive threshold is
+  documented as a constant declared at the top of the report script, not a value your adapter sets;
+  the settings example no longer claims the initializer stamps any of its placeholders; the
+  initializer's seeded running log teaches the dated `###` entry form its two readers key on; and
+  the publishing helpers' messages describe what the code actually does.
+- **A creation script no longer leaves a half-written card behind.** An option value containing `|`,
+  `&` or `\` is written to the card exactly as given; previously it could abort the substitution and
+  leave a partly-filled card and a `.bak` on the board under an id that was now burned. Cards are
+  built aside and published whole.
+- **A value-taking option with no value now refuses and names itself**, instead of failing with a
+  shell error about a positional parameter.
+- **`move-issue.sh --help` now succeeds and prints to stdout**, like every other tool in the kit.
+- **The rotation tag and cutoff field are meaningful in `--keep-last` mode.** Previously the tag was
+  built from the absent `--before` date, so a second keep-last rotation silently skipped tagging.
+- **`check-board.sh` now refuses an unrecognised option instead of ignoring it.** It previously
+  parsed no arguments at all, so a mistyped flag was silently dropped and the run reported a clean
+  board — a caller scripting options against it got silence that read as success. It now exits
+  non-zero naming the option, and answers a usage request. **Its drift verdict is unchanged: it
+  still exits 0 whatever the board looks like.**
+- **The environment template lists the whole notification path**, and the gitignore's own section
+  names a producer for each entry — two entries that had none were removed, and the directory the
+  brainstorming skill writes into your repository is now ignored.
 - **The drift report's "what green means" no longer tells you to count lines.** A check with more
   than one reading prints each reading, and a reading whose subject is absent still prints, naming
   what was absent — so the number of lines is not the number of invariants and never was. Walk the
@@ -608,6 +630,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **If your commit subjects begin with the word "Squash" without a role prefix, they will now be
+  refused.** The exemption is narrowed to git's own `Squashed commit of the following:`; prefix such
+  subjects, or use the documented override for an imported commit.
+- **Creation now refuses a short name outside the declared shape.** If your automation passes slugs
+  containing spaces, upper case, underscores, dots or slashes — or a leading, trailing or doubled
+  hyphen — those calls now refuse, naming the position and the character, and create nothing.
+  Previously a space was accepted and produced a branch name that is not a legal git reference,
+  discovered later by someone who did not type it. **The name is never rewritten for you.** *This is
+  the script-side behaviour line; the rule itself, and its wording, are covered by the contract's
+  own release line.*
+- **If you ran the initializer with `--roles` before this release, check your subtask tool.** It was
+  outside the set of files the role set was stamped into, so its `--role` whitelist may still name
+  the shipped roles and refuse yours. Re-running `--roles` stamps it.
 - **Action required:** if you adopted via `SEED.md` step 2 **branch B** (you implemented the
   contracts in your own toolchain and never ran `kit-init`), the graduation report now runs
   against your published trunk and will list any shipped scaffolding you still carry. **Its

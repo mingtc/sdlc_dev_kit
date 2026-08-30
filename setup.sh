@@ -76,8 +76,16 @@ fi
 # --- 1b. The board sanity check --------------------------------------------
 # The folder IS the status, so a missing folder is a missing status. Two headings
 # are read by scripts and are checked here for the same reason.
-STATUS_FOLDERS="todo in_progress dev_complete qa_complete blocked done history"
-for f in $STATUS_FOLDERS; do
+#
+# NAMED BOARD_FOLDERS, NOT STATUS_FOLDERS, and the distinction is the initializer's:
+# `history/` is NOT a status — it is where the log rotation puts what it archives —
+# but it must exist for the same reason the statuses must, so this list is the board's
+# DIRECTORIES. check-board.sh has its own STATUS_FOLDERS holding the statuses and
+# deliberately excluding history; calling this one by that name taught a seven-column
+# board and put two different sets behind one name. This is an existence check only,
+# so nothing here behaved wrongly — the label did.
+BOARD_FOLDERS="todo in_progress dev_complete qa_complete blocked done history"
+for f in $BOARD_FOLDERS; do
   if [ -d "$ROOT/progress/$f" ]; then
     [ -e "$ROOT/progress/$f/.gitkeep" ] || warn "progress/$f/ has no .gitkeep — git will drop it when it empties."
   else

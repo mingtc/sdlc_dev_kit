@@ -91,6 +91,37 @@
 # and `git status`; it never mutates.
 set -uo pipefail
 
+# ── ARGUMENT SHAPE ──────────────────────────────────────────────────────────
+# Per process/contracts/issue-creation.md § 3, whose CLI shape binds every command-line
+# tool the kit ships and not only the creators. This script takes no options and PARSED
+# none, so an unrecognised option was silently ignored and the run exited 0 — a REFUSAL
+# THAT READS AS SUCCESS, which is the precise failure that section exists to prevent: a
+# caller scripting against the set could not tell a typo'd flag from a clean board.
+#
+# THE INFORMATIONAL EXIT-0 VERDICT BELOW IS UNTOUCHED. That convention is about what the
+# report FOUND; this is about whether the invocation was even legal. They are different
+# questions, and this guard answers its one before any inspection begins — so no drift
+# reading can reach a run that was mis-invoked.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      # A usage request is always legal and always succeeds — § 3 again.
+      echo "Usage: $(basename "$0")"
+      echo ""
+      echo "Reports board drift: folder-vs-activity, frontmatter ids, role prefixes,"
+      echo "unpublished work, and whether day one has finished."
+      echo ""
+      echo "Takes no options. Informational by convention: it exits 0 whatever it finds,"
+      echo "because drift belongs in the output and not in the exit status. Read-only —"
+      echo "it inspects files and 'git status', and never mutates."
+      exit 0 ;;
+    *)
+      echo "Error: unknown option: $1" >&2
+      echo "  $(basename "$0") takes no options; run it with no arguments." >&2
+      exit 2 ;;
+  esac
+done
+
 # ── Greppable defaults (hard-won: consumers and tests DERIVE these from here with
 #    sed, they do not re-hardcode literals — so a future change here cannot
 #    silently make an assertion vacuous).
@@ -526,7 +557,10 @@ fi
 #     `[Role] <ID> …` subject as PARENT 2 of a "Merge branch …" commit — a
 #     `--first-parent` walk would silently SKIP it. So walk plain history: for a merge
 #     commit inspect PARENT 2's subject; for a non-merge inspect its own. Git/host
-#     subjects (Merge/Revert/Squash/autosquash) are exempt — mirror commit-msg's list.
+#     subjects (Merge/Revert/Squash/autosquash) are exempt — mirror commit-msg's list,
+#     including its NARROWNESS: the squash arm matches git's generated subject, not any
+#     sentence beginning with the word, or this scan would under-report exactly the
+#     unprefixed commits it exists to find.
 #     The accepted prefixes are DERIVED from the commit-msg hook so the two never
 #     drift, with the kit's known set as a fallback. Informational — exit 0.
 #
@@ -580,7 +614,7 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; t
     case "$subj" in
       "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) continue ;;
       "Revert \""*|"Revert '"*) continue ;;
-      "Squash"*) continue ;;
+      "Squashed commit of the following:"*) continue ;;   # narrowed with commit-msg's
       "fixup! "*|"squash! "*|"amend! "*) continue ;;
     esac
     if ! printf '%s' "$subj" | grep -qE "^\[(${ROLE_PREFIXES})\] "; then

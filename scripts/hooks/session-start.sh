@@ -21,8 +21,14 @@ if [ -z "$ROOT" ]; then
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." 2>/dev/null && pwd || true)"
 fi
 
+# The repo-relative path of the role file. Kept as a named var on its OWN line so a
+# test fixture can DERIVE it (sed) instead of re-hardcoding a literal — the same name
+# and the same reason as the pre-tool hook's, because a guard that derives the path
+# from one hook and finds a literal in the other cannot check the pair.
+ROLE_REL=".claude/session-role"
+
 # 1. Freshness — clear the declared hat.
-rm -f "$ROOT/.claude/session-role" 2>/dev/null || true
+rm -f "$ROOT/$ROLE_REL" 2>/dev/null || true
 
 # 2. Board drift — surface it into context (stdout is added to the session).
 if [ -x "$ROOT/scripts/check-board.sh" ]; then

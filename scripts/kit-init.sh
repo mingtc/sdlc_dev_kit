@@ -34,8 +34,11 @@
 #     tree. It initializes the KIT, not an application.
 #   • Not a copier. There is no --from mode: the copy-list is authored in
 #     process/EXTRACTION.md § 1 and a second executable copy of it would drift.
-#     The preflight instead NAMES every copy-list file it needs and refuses with
-#     the missing ones, so "already copied" is verified rather than hoped for.
+#     The preflight instead checks a hand-listed MINIMUM of that list — the files
+#     without which nothing else can run — and refuses naming the missing ones. It
+#     is NOT a check against § 1: that list is prose, and this tool may not carry a
+#     second copy of it. A file that travels but is not in the minimum is not
+#     caught here.
 #   • Not a remote bootstrapper. See --help § "The remote precondition".
 #
 # USAGE
@@ -113,8 +116,10 @@ received the copy-list.
   SCOPE: CONFIGURE-ONLY. This script stamps, creates, wires and verifies. It
   does NOT copy the kit — there is no --from mode. Copy the files named in
   process/EXTRACTION.md § 1 first (scripts/, .claude/templates/, the role docs,
-  process/); this script's preflight then names anything still missing and
-  refuses. Nothing is written unless every precondition passes.
+  process/); this script's preflight then checks a hand-listed minimum of that
+  list and refuses, naming what is missing. It is not a manifest check: a file
+  that travels but is not in the minimum is not caught. Nothing is written
+  unless every precondition passes.
 
 Usage:
   ./scripts/kit-init.sh --prefix XYZ --trunk main [options]
@@ -133,10 +138,10 @@ Options:
                       PROJECT_NAME default, never typed here — see "The census".
   --prd-prefix <P>    PRD id prefix (default: left as config.sh has it).
   --roles "A|B|C"     Your role set, as the ERE alternation the commit-msg hook
-                      enforces. Stamped into ALL THREE script seams that carry
-                      it (githooks/commit-msg, move-issue.sh's --role whitelist,
-                      check-board.sh's derivation fallback).
-                      Default: left as copied.
+                      enforces. Stamped into every script seam that ENFORCES it
+                      (githooks/commit-msg, move-issue.sh's --role whitelist,
+                      check-board.sh's derivation fallback, subtask.sh's --role
+                      whitelist). Default: left as copied.
   --gate-command <C>  Declare <C> as the gate. If scripts/verify.sh is the shipped
                       frame with an EMPTY GATES table, <C> is written into that
                       table as its first record (name "gate", class core). If no
@@ -577,13 +582,23 @@ else
   say "  .claude/roles/: absent — nothing to substitute (copy the role docs if you want them stamped)"
 fi
 
-# --- the role set: ALL THREE script seams at once -------------------------
+# --- the role set: every ENFORCING script seam at once ---------------------
 OLD_ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$COMMITMSG" | head -1)"
 [ -n "$OLD_ROLES" ] || { echo "Error: could not read ROLE_PREFIXES out of scripts/githooks/commit-msg." >&2; exit 1; }
 if [ -n "$ROLES_NEW" ]; then
   # NOTE the '@' delimiter: the role set is a '|'-separated ERE alternation, so
   # the usual s|…|…| would be cut in half by its own data.
-  for f in "$COMMITMSG" "$ROOT/scripts/move-issue.sh" "$ROOT/scripts/check-board.sh"; do
+  # EVERY SEAM THAT REFUSES ON THE SET, not merely the ones that print it. A seam
+  # left unstamped does not go quietly wrong: it REFUSES THE PROJECT'S OWN ROLES,
+  # because its whitelist still names the shipped ones. subtask.sh was outside this
+  # loop while its --role whitelist enforced the shipped set, so a renamed project
+  # got a subtask tool that rejected every role it had just declared.
+  #
+  # scripts/test/run.sh carries the literal too and is DELIBERATELY NOT HERE: the
+  # harness asserts what the kit SHIPS, so stamping it would rewrite the assertion
+  # to match whatever it was measuring and the case could never fail.
+  for f in "$COMMITMSG" "$ROOT/scripts/move-issue.sh" "$ROOT/scripts/check-board.sh" \
+           "$ROOT/scripts/subtask.sh"; do
     [ -f "$f" ] || continue
     sed -i.bak -e "s@${OLD_ROLES}@${ROLES_NEW}@g" "$f"; rm -f "$f.bak"
   done
@@ -591,7 +606,7 @@ if [ -n "$ROLES_NEW" ]; then
   # ROLE_PREFIXES at print time. An earlier version patched that sentence with a
   # second sed, which is one more place to drift and one more thing to get wrong.
   ROLES="$ROLES_NEW"
-  say "  role set → '${ROLES}' in commit-msg + move-issue.sh + check-board.sh"
+  say "  role set → '${ROLES}' in commit-msg + move-issue.sh + check-board.sh + subtask.sh"
 else
   ROLES="$OLD_ROLES"
   say "  role set left as copied: '${ROLES}' (change it with --roles)"
@@ -702,9 +717,15 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
 
 - the \`## Log\` heading itself: check-board.sh probes for it
   (\`grep -qE '^##[[:space:]]+Log'\`) before it can report this section's size;
-- a dated heading per session: archive-progress.sh splits this file on
-  \`## YYYY-MM-DD\` / \`### YYYY-MM-DD\` boundaries when it rotates, so each
-  session's entries sit under ONE heading.
+- a dated \`###\` boundary per session: archive-progress.sh splits this file on
+  \`### YYYY-MM-DD\` when it rotates, so each session's entries sit under ONE
+  heading. **\`###\`, not \`##\`, and that is load-bearing rather than stylistic.**
+  Two tools read the \`## Log\` *section* by scanning from its heading to the next
+  \`##\`: check-board.sh's § Log size arm and this initializer's already-lived
+  probe. An entry written as \`## YYYY-MM-DD\` therefore *terminates the section it
+  is supposed to be inside* — the size arm measures only the preamble and reports
+  healthy forever, and the lived probe counts zero log lines, so a repository with a
+  full history reads as new.
 
 \`\`\`markdown
 ### YYYY-MM-DD [Role] <session title>

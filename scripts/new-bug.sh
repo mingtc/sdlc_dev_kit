@@ -57,7 +57,7 @@ DEST_DIR="$ROOT/progress/todo"
 
 usage() {
   echo "Usage: $(basename "$0") <slug> --id ${ISSUE_PREFIX}-NNN \\"
-  echo "         [--prd ${PRD_PREFIX:-PRD}-NNN] [--stories ID1,ID2,...] \\"
+  echo "         [--prd ${PRD_PREFIX}-NNN] [--stories ID1,ID2,...] \\"
   echo "         [--discovered-in ${ISSUE_PREFIX}-NNN] [--severity Blocker|Critical|Major|Minor]"
   echo "  --id is required; get it from ./scripts/next-id.sh and sanity-check it."
   echo "  -h, --help    this text (exit 0)."
@@ -88,13 +88,23 @@ fi
 SLUG="$1"; shift
 ID=""; PRD=""; STORIES=""; DISCOVERED=""; SEVERITY=""
 
+# AN OPTION THAT TAKES A VALUE MUST REFUSE WHEN THE VALUE IS ABSENT, NAMING IT.
+# `--severity` as the last argument used to reach a bare `$2` under `set -u`, so the
+# script died with "$2: unbound variable": non-zero only by accident of the shell, and
+# naming a positional rather than the flag the operator got wrong. The contract asks
+# for a refusal that names the option.
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --id) ID="$2"; shift 2 ;;
-    --prd) PRD="$2"; shift 2 ;;
-    --stories) STORIES="$2"; shift 2 ;;
-    --discovered-in) DISCOVERED="$2"; shift 2 ;;
+    --id) need_val "$@"; ID="$2"; shift 2 ;;
+    --prd) need_val "$@"; PRD="$2"; shift 2 ;;
+    --stories) need_val "$@"; STORIES="$2"; shift 2 ;;
+    --discovered-in) need_val "$@"; DISCOVERED="$2"; shift 2 ;;
     --severity)
+      need_val "$@"
       case "$2" in
         Blocker|Critical|Major|Minor) SEVERITY="$2" ;;
         *) echo "Error: --severity must be Blocker|Critical|Major|Minor" >&2; exit 1 ;;
@@ -107,38 +117,51 @@ while [ $# -gt 0 ]; do
 done
 
 # Stateless: the caller passes --id (see ./scripts/next-id.sh). Validate + guard.
+# The short name's shape is declared in process/contracts/issue-creation.md § 5;
+# validate_slug (scripts/config.sh) implements it. No pattern here — one shape, one site.
+validate_slug "$SLUG" || exit 2
 validate_issue_id "$ID" "$ROOT" || exit 1
 
 DEST="$DEST_DIR/${ID}-${SLUG}.md"
 TODAY=$(date +%Y-%m-%d)
 BRANCH="fix/${ID}-${SLUG}"
 
-cp "$TEMPLATE" "$DEST"
+# BUILD IT ASIDE, PUBLISH IT WHOLE, and ESCAPE THE REPLACEMENT HALF — both for the
+# reasons new-issue.sh states in full. In short: a value containing `|`, `\` or `&` is
+# not literal inside `s|…|REPL|`, and the card used to be copied onto the board before
+# the substitutions ran, so a failure left a half-filled card and its .bak behind with
+# the id already burned.
+WORK="$(mktemp)"
+trap 'rm -f "$WORK" "$WORK.bak"' EXIT
+sed_repl() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+
+cp "$TEMPLATE" "$WORK"
 
 # Key on the frontmatter KEY, replace only its value token — the prefix-bearing
 # patterns silently no-opped under any prefix but the template's own (see
 # new-issue.sh for the full statement of that defect).
 sed -i.bak \
-  -e "s|^id: [^ ]*|id: ${ID}|" \
-  -e "s|^created_at: YYYY-MM-DD|created_at: ${TODAY}|" \
-  -e "s|^branch: [^ ]*|branch: ${BRANCH}|" \
-  "$DEST"
+  -e "s|^id: [^ ]*|id: $(sed_repl "$ID")|" \
+  -e "s|^created_at: YYYY-MM-DD|created_at: $(sed_repl "$TODAY")|" \
+  -e "s|^branch: [^ ]*|branch: $(sed_repl "$BRANCH")|" \
+  "$WORK"
 
 if [ -n "$PRD" ]; then
-  sed -i.bak -e "s|^prd: .*|prd: ${PRD}|" "$DEST"
+  sed -i.bak -e "s|^prd: .*|prd: $(sed_repl "$PRD")|" "$WORK"
 fi
 if [ -n "$STORIES" ]; then
   STORIES_YAML="[$(echo "$STORIES" | sed 's/,/, /g')]"
-  sed -i.bak -e "s|^stories: .*|stories: ${STORIES_YAML}|" "$DEST"
+  sed -i.bak -e "s|^stories: .*|stories: $(sed_repl "$STORIES_YAML")|" "$WORK"
 fi
 if [ -n "$DISCOVERED" ]; then
-  sed -i.bak -e "s|^discovered_in: [^ ]*|discovered_in: ${DISCOVERED}|" "$DEST"
+  sed -i.bak -e "s|^discovered_in: [^ ]*|discovered_in: $(sed_repl "$DISCOVERED")|" "$WORK"
 fi
 if [ -n "$SEVERITY" ]; then
-  sed -i.bak -e "s|^severity: .*|severity: ${SEVERITY}|" "$DEST"
+  sed -i.bak -e "s|^severity: .*|severity: $(sed_repl "$SEVERITY")|" "$WORK"
 fi
 
-rm -f "${DEST}.bak"
+rm -f "${WORK}.bak"
+mv "$WORK" "$DEST"
 
 echo "Created: $DEST"
 echo "Branch:  ${BRANCH}"

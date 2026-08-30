@@ -87,7 +87,7 @@ SLUG="$1"
 
 # Find the highest existing PRD-NNN, increment by 1. (PRDs are few and authored by
 # one role, so unlike issue ids this one number IS derived here rather than passed
-# in — process/contracts/id-minting.md § "why the two streams differ".)
+# in — process/contracts/id-minting.md § "Spaces and streams".)
 LAST_NUM=$(find "$DEST_DIR" -maxdepth 1 -name "${PRD_PREFIX}-*.md" -type f 2>/dev/null \
   | sed -E "s@.*/${PRD_PREFIX}-0*([0-9]+)-.*@\\1@" \
   | sort -n | tail -1)

@@ -575,7 +575,11 @@ kwt_sync() {
         echo "$dirty" | sed 's/^/    /'
         echo ""
         echo "  Resolve one of two ways:"
-        echo "    • Keep them — commit AND push (an unpushed commit is reset on the next sync):"
+        # SUPERSEDED CONCLUSION, REASON KEPT: this said an unpushed commit "is reset on
+        # the next sync". The unpushed-commit guard in kwt_sync replaced that behaviour
+        # — the sync now REFUSES instead of resetting. Pushing is still the advice, but
+        # for the opposite reason: unpushed work no longer vanishes, it BLOCKS.
+        echo "    • Keep them — commit AND push (an unpushed commit BLOCKS the next sync until it lands):"
         echo "        git -C '$KWT' add -A && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
         echo "    • Discard them — re-run the command with --discard-dirty"
         echo "        (or by hand: git -C '$KWT' reset --hard $KWT_REMOTE/$DEFAULT_BRANCH)"

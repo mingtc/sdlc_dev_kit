@@ -50,7 +50,7 @@ TEMPLATE="$ROOT/.claude/templates/ISSUE.template.md"
 DEST_DIR="$ROOT/progress/todo"
 
 usage() {
-  echo "Usage: $(basename "$0") <slug> --id ${ISSUE_PREFIX}-NNN [--prd ${PRD_PREFIX:-PRD}-NNN] [--stories ID1,ID2,...]"
+  echo "Usage: $(basename "$0") <slug> --id ${ISSUE_PREFIX}-NNN [--prd ${PRD_PREFIX}-NNN] [--stories ID1,ID2,...]"
   echo "  --id is required; get it from ./scripts/next-id.sh and sanity-check it."
   echo "  -h, --help    this text (exit 0)."
 }
@@ -84,11 +84,20 @@ fi
 SLUG="$1"; shift
 ID=""; PRD=""; STORIES=""
 
+# AN OPTION THAT TAKES A VALUE MUST REFUSE WHEN THE VALUE IS ABSENT, NAMING IT.
+# `--severity` as the last argument used to reach a bare `$2` under `set -u`, so the
+# script died with "$2: unbound variable": non-zero only by accident of the shell, and
+# naming a positional rather than the flag the operator got wrong. The contract asks
+# for a refusal that names the option.
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --id) ID="$2"; shift 2 ;;
-    --prd) PRD="$2"; shift 2 ;;
-    --stories) STORIES="$2"; shift 2 ;;
+    --id) need_val "$@"; ID="$2"; shift 2 ;;
+    --prd) need_val "$@"; PRD="$2"; shift 2 ;;
+    --stories) need_val "$@"; STORIES="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
@@ -96,13 +105,31 @@ while [ $# -gt 0 ]; do
 done
 
 # Stateless: the caller passes --id (see ./scripts/next-id.sh). Validate + guard.
+# The short name's shape is declared in process/contracts/issue-creation.md § 5;
+# validate_slug (scripts/config.sh) implements it. No pattern here — one shape, one site.
+validate_slug "$SLUG" || exit 2
 validate_issue_id "$ID" "$ROOT" || exit 1
 
 DEST="$DEST_DIR/${ID}-${SLUG}.md"
 TODAY=$(date +%Y-%m-%d)
 BRANCH="feature/${ID}-${SLUG}"
 
-cp "$TEMPLATE" "$DEST"
+# BUILD IT ASIDE, PUBLISH IT WHOLE. The card used to be `cp`'d onto the board FIRST
+# and substituted in place, so any failure below — and a substitution CAN fail, see
+# sed_repl — left a half-filled card and its .bak sitting in the board folder with the
+# template's placeholder id, having burned the id. The contract forbids exactly that:
+# a refusal must change nothing. Everything now happens on a temp file and the card
+# reaches the board only if every substitution succeeded.
+WORK="$(mktemp)"
+trap 'rm -f "$WORK" "$WORK.bak"' EXIT
+
+# ESCAPE THE REPLACEMENT HALF. These values are free text from the command line, and
+# in `s|…|REPL|` three characters are not literal: the delimiter `|` ends the
+# expression, `\` escapes, and `&` means "the whole match". A --prd of `a|b` used to
+# abort sed mid-run; a value containing `&` was silently corrupted into the card.
+sed_repl() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+
+cp "$TEMPLATE" "$WORK"
 
 # KEY ON THE FRONTMATTER KEY, replace only its VALUE TOKEN. The earlier patterns
 # were `^id: ${ISSUE_PREFIX}-NNN` / `^branch: feature/${ISSUE_PREFIX}-NNN-<slug>`,
@@ -112,21 +139,22 @@ cp "$TEMPLATE" "$DEST"
 # board). Keying on `^<key>: ` makes the substitution prefix-agnostic; each key
 # occurs exactly once, in the frontmatter. Same pattern subtask.sh uses.
 sed -i.bak \
-  -e "s|^id: [^ ]*|id: ${ID}|" \
-  -e "s|^created_at: YYYY-MM-DD|created_at: ${TODAY}|" \
-  -e "s|^branch: [^ ]*|branch: ${BRANCH}|" \
-  "$DEST"
+  -e "s|^id: [^ ]*|id: $(sed_repl "$ID")|" \
+  -e "s|^created_at: YYYY-MM-DD|created_at: $(sed_repl "$TODAY")|" \
+  -e "s|^branch: [^ ]*|branch: $(sed_repl "$BRANCH")|" \
+  "$WORK"
 
 if [ -n "$PRD" ]; then
-  sed -i.bak -e "s|^prd: .*|prd: ${PRD}|" "$DEST"
+  sed -i.bak -e "s|^prd: .*|prd: $(sed_repl "$PRD")|" "$WORK"
 fi
 
 if [ -n "$STORIES" ]; then
   STORIES_YAML="[$(echo "$STORIES" | sed 's/,/, /g')]"
-  sed -i.bak -e "s|^stories: .*|stories: ${STORIES_YAML}|" "$DEST"
+  sed -i.bak -e "s|^stories: .*|stories: $(sed_repl "$STORIES_YAML")|" "$WORK"
 fi
 
-rm -f "${DEST}.bak"
+rm -f "${WORK}.bak"
+mv "$WORK" "$DEST"
 
 echo "Created: $DEST"
 echo "Branch:  ${BRANCH}"

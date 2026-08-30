@@ -187,7 +187,7 @@ for f in "${FILES[@]}"; do
   fi
   # Cite a PRD only when there is a real one (skip an unfilled template placeholder,
   # "n/a", empty). Cite stories only when real (skip a placeholder and the empty list).
-  if [ -n "$PRD" ] && [ "$PRD" != "${PRD_PREFIX:-PRD}-NNN" ] && [ "$PRD" != "n/a" ]; then
+  if [ -n "$PRD" ] && [ "$PRD" != "${PRD_PREFIX}-NNN" ] && [ "$PRD" != "n/a" ]; then
     if [ -n "$STORIES" ] && [ "$STORIES" != "[]" ] \
        && ! printf '%s' "$STORIES" | grep -q 'NNN'; then
       ENTRY="${ENTRY} — references ${PRD} ${STORIES}"

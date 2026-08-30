@@ -125,7 +125,12 @@ subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || tru
 case "$subject" in
   "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) exit 0 ;;
   "Revert \""*|"Revert '"*) exit 0 ;;
-  "Squash"*) exit 0 ;;            # a leading "Squash" subject (local squash-merge tooling)
+  # NARROWED to git's own generated subject. The glob was "Squash"*, which exempted
+  # any human sentence starting with that word — "Squashed a bug in the parser" went
+  # through unprefixed. The kit's own squash path does NOT need the exemption:
+  # finish-pr.sh writes a [QA]-prefixed squash subject, so nothing of ours relies on
+  # the wider form, and git's template is the only unauthored subject it must pass.
+  "Squashed commit of the following:"*) exit 0 ;;
   "fixup! "*|"squash! "*|"amend! "*) exit 0 ;;   # rebase autosquash markers
 esac
 

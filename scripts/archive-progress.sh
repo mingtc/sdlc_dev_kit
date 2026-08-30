@@ -434,8 +434,23 @@ fi
 
 # --apply path
 
+# THE CUT'S IDENTITY, in whichever mode is active. Both of the sites below used
+# $BEFORE, which --keep-last never sets: the tag came out literally
+# "progress-rotation-" and the chunk header's cutoff field came out empty. Worse than
+# cosmetic — a SECOND keep-last rotation hit "tag already exists" and silently skipped
+# the revert-safety tag, so the mode with no date was also the mode with no safety net.
+# In keep-last mode there is no date cutoff to report, and saying so is the honest
+# field; the timestamp is what makes successive rotations distinguishable.
+if [ -n "$KEEP_LAST" ]; then
+  CUT_ID="keep-last-${KEEP_LAST}-$(date -u +%Y%m%dT%H%M%SZ)"
+  CUT_FIELD="none (kept the newest ${KEEP_LAST} entries)"
+else
+  CUT_ID="$BEFORE"
+  CUT_FIELD="$BEFORE"
+fi
+
 if [ "$DO_TAG" = "true" ]; then
-  TAG_NAME="progress-rotation-$BEFORE"
+  TAG_NAME="progress-rotation-$CUT_ID"
   if git -C "$REPO_ROOT" rev-parse "$TAG_NAME" >/dev/null 2>&1; then
     echo "Warning: tag $TAG_NAME already exists; skipping tag." >&2
   else
@@ -448,7 +463,7 @@ fi
 {
   echo "---"
   echo "archived_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "cutoff: $BEFORE"
+  echo "cutoff: $CUT_FIELD"
   echo "source: progress.md"
   echo "---"
   echo ""

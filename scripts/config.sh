@@ -13,7 +13,9 @@
 # invocation — existing files are NOT renamed.
 #
 # Override at runtime via env var, e.g.:
-#   ISSUE_PREFIX=TEST ./scripts/new-issue.sh foo
+#   ISSUE_PREFIX=TEST ./scripts/new-issue.sh foo --id TEST-001
+# (--id is REQUIRED by every creation script — this example predates that and, run as
+# written, refused.)
 #
 # The kanban worktree scripts resolve the TRUNK (default branch) from
 # <remote>/HEAD — see scripts/lib/kanban-worktree.sh's kwt_resolve(), and state
@@ -33,6 +35,10 @@ ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"
 # PRD prefix. Used by new-prd.sh.
 # Generated filenames look like ${PRD_PREFIX}-001-<slug>.md.
 # The default `PRD` is fine for most projects.
+# THE ONE FALLBACK LITERAL FOR THIS NAME, and the only one. Consumers write
+# "${PRD_PREFIX}" bare: they source this file first, so the name is always set by the
+# time they read it, and a second ":-PRD" in a consumer is a second authority for the
+# default that nothing keeps in step with this line.
 PRD_PREFIX="${PRD_PREFIX:-PRD}"
 
 # Project name — the name the role docs and the templates spell out in prose.
@@ -49,6 +55,60 @@ PROJECT_NAME="${PROJECT_NAME:-<project-name>}"
 # which has context the scripts don't) determines the next number — typically via
 # ./scripts/next-id.sh — and passes it as --id. This just guards the input.
 #   Usage:  validate_issue_id "$ID" "$ROOT"   # uses ISSUE_PREFIX; returns non-0 on a hard error
+# THE SHORT NAME'S SHAPE IS DECLARED IN process/contracts/issue-creation.md § 5, and
+# this implements it — it does not define it. The ONE prose statement of the shape here is
+# the gloss the refusal prints, and it belongs to this single site rather than contradicting
+# it: it sits in the same function as the pattern, so the two cannot drift apart independently
+# the way a copy in another tool would, and an operator who has just been refused should not
+# have to open a contract to learn roughly what was wanted. Nothing else restates the rule —
+# a shape written twice in two PLACES is a shape that drifts, which is the sheet's own reason
+# for stating it once. Read § 5 for the shape and for WHY it is this narrow (the name
+# travels into both a git ref and a filename, and it is the intersection of what those
+# two accept).
+#
+# IT IS ALSO WHY THIS REFUSES RATHER THAN SANITISING. Rewriting a bad name into a legal
+# one is the tempting fix and the wrong one: a caller who asked for one name and got
+# another has lost the one thing they typed, and will not find it by the name they used.
+validate_slug() {
+  local slug="$1" pos ch
+  if [ -z "$slug" ]; then
+    echo "Error: <slug> is required — see process/contracts/issue-creation.md § 5." >&2
+    return 1
+  fi
+  printf '%s' "$slug" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$' && return 0
+
+  # NAME THE POSITION AND THE CHARACTER, per § 3. "Invalid name" makes the caller guess
+  # which rule they broke, and the commonest offender — a space — is invisible at the end
+  # of a line, so the one thing they cannot see is the one thing they are not told.
+  pos=1
+  while [ "$pos" -le "${#slug}" ]; do
+    ch="$(printf '%s' "$slug" | cut -c"$pos")"
+    if ! printf '%s' "$ch" | grep -qE '^[a-z0-9-]$'; then
+      case "$ch" in
+        " ") ch="a space" ;;
+        "")  ch="a non-printing character" ;;
+        *)   ch="'$ch'" ;;
+      esac
+      echo "Error: <slug> '$slug' — $ch at position $pos is not allowed." >&2
+      break
+    fi
+    pos=$(( pos + 1 ))
+  done
+  if [ "$pos" -gt "${#slug}" ]; then
+    # Every character is individually legal, so the fault is where the hyphens sit.
+    case "$slug" in
+      -*)   echo "Error: <slug> '$slug' — a leading hyphen at position 1 is not allowed." >&2 ;;
+      *-)   echo "Error: <slug> '$slug' — a trailing hyphen at position ${#slug} is not allowed." >&2 ;;
+      *--*) echo "Error: <slug> '$slug' — two hyphens in a row are not allowed." >&2 ;;
+      *)    echo "Error: <slug> '$slug' does not match the declared shape." >&2 ;;
+    esac
+  fi
+  echo "       A short name is lower-case letters, digits and single hyphens between" >&2
+  echo "       them — the shape is declared in process/contracts/issue-creation.md § 5." >&2
+  echo "       It is not rewritten for you: the name you type is the name you get." >&2
+  return 1
+}
+
 validate_issue_id() {
   local id="$1" root="$2" existing
   if [ -z "$id" ]; then
@@ -79,9 +139,12 @@ validate_issue_id() {
 # different agents on their first day with this kit — the same twenty minutes lost
 # each time.
 #
-# A creation script writes a file into the OPERATOR'S checkout; move-issue.sh reads
-# the board inside .kanban-wt/, which is `reset --hard <remote>/<trunk>` on every
-# op. So a minted-but-unpushed file is INVISIBLE to the mover, which reports
+# A creation script writes a file into the OPERATOR'S checkout; move-issue.sh works on
+# the TRUNK, by two reads rather than one: it moves the file inside .kanban-wt/, which
+# is `reset --hard <remote>/<trunk>` on every op, and when it finds nothing there it
+# re-reads the trunk's board straight out of the freshly-fetched <remote>/<trunk> REF
+# so it can say precisely what it looked at. Neither read can see the operator's own
+# checkout, so a minted-but-unpushed file is INVISIBLE to the mover, which reports
 # "no file matching <ID>-*.md found under progress/" — a true statement with an
 # unfindable cause.
 #
@@ -111,7 +174,8 @@ print_push_before_move() {
   rel="${path#"$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)/"}"
   echo ""
   echo "  ⚠ PUSH IT BEFORE YOU MOVE IT. ./scripts/move-issue.sh reads the board from the"
-  echo "    trunk (via the .kanban-wt worktree), so a file that exists only in this"
+  echo "    trunk — the .kanban-wt worktree for the move itself, and the freshly-fetched"
+  echo "    remote ref when it reports a miss — so a file that exists only in this"
   echo "    checkout is invisible to it — the move fails with 'no file matching'."
   echo ""
   echo "      git add \"${rel}\" && git commit -m \"[<Role>] <ID>: mint\" && git push"

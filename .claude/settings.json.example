@@ -3,7 +3,7 @@
   "_README": "Kit template — copy to .claude/settings.json to ACTIVATE the Claude Code hooks (they execute shell commands on tool use / session start, so activation is a deliberate operator decision). The git-level commit-prefix guard (scripts/githooks/commit-msg) is wired separately via `git config core.hooksPath scripts/githooks` (setup.sh does this) and does NOT depend on this file.",
 
   "_PLACEHOLDERS": {
-    "_note": "Replace every <angle-bracket> token below before copying this file to .claude/settings.json. The initializer stamps the first two; the rest are yours. Then DELETE this _PLACEHOLDERS block — Claude Code ignores unknown keys, but a stale placeholder map is a lie waiting to be read.",
+    "_note": "Replace every <angle-bracket> token below before copying this file to .claude/settings.json. ALL of them are yours: the initializer does not touch this file (it stamps the scripts and the role docs, never this example), so nothing here is filled in for you. Then DELETE this _PLACEHOLDERS block — Claude Code ignores unknown keys, but a stale placeholder map is a lie waiting to be read.",
     "<trunk>": "The single trunk branch. Default: main.",
     "<PREFIX>": "The issue-id prefix (scripts/config.sh ISSUE_PREFIX). Appears in branch names below.",
     "<code-path-globs>": "The comma-separated globs that count as CODE in this project — the paths that MUST go through a work branch and land via ./scripts/finish-pr.sh, never direct to the trunk. The adapter's 'what counts as CODE here' section is the source of truth; keep the two in sync. Example shape: src/**, tests/**, <the build/dependency manifest>.",

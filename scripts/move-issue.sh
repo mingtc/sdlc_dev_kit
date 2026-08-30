@@ -119,6 +119,13 @@ usage() {
   sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
 }
 
+# --help ALWAYS SUCCEEDS, and has to be answered BEFORE the arity check. A bare
+# `--help` is ONE argument, so the guard below swallowed it and exited 1 with usage
+# on stderr — the opposite of the shape every other script here follows and that
+# the issue-creation contract states: usage on stdout, exit 0. The option handler
+# further down has always had the right arm; it was simply unreachable.
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+
 if [ $# -lt 2 ]; then usage >&2; exit 1; fi
 
 ISSUE_ID="$1"; shift

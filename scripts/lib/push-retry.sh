@@ -71,12 +71,18 @@ git_push_with_retry() {
 
     if ! git -C "$repo" rebase "$remote/$branch" --quiet 2>/dev/null; then
       git -C "$repo" rebase --abort >/dev/null 2>&1 || true
+      # READ HEAD HERE, do not report the capture from before the loop. $pre_head is
+      # taken once at entry; if an earlier attempt's rebase SUCCEEDED and a later one
+      # conflicts, the abort returns HEAD to where THIS attempt began — not to
+      # $pre_head — and the message named a sha HEAD is no longer at. The list below
+      # is keyed on the same ref as the sentence above it, so the two cannot disagree.
+      local at_head; at_head="$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo "$pre_head")"
       {
         echo "Error: git_push_with_retry: rebase onto $remote/$branch CONFLICTED — stopping."
-        echo "       This does NOT resolve the conflict and does NOT loop. Pre-attempt state"
-        echo "       restored (rebase aborted; HEAD back at $pre_head)."
+        echo "       This does NOT resolve the conflict and does NOT loop. The rebase was"
+        echo "       aborted, so HEAD is back where this attempt started: $at_head."
         echo "       Commits that did NOT land:"
-        git -C "$repo" log --oneline "$remote/$branch..$pre_head" 2>/dev/null | sed 's/^/         /'
+        git -C "$repo" log --oneline "$remote/$branch..$at_head" 2>/dev/null | sed 's/^/         /'
         echo "       A human must resolve by hand:"
         echo "         git -C '$repo' rebase $remote/$branch   # fix conflicts, git rebase --continue"
         echo "         git -C '$repo' push $remote HEAD:$branch"

@@ -14,9 +14,13 @@
 #     dependency. It tests the SCRIPTS, not the project.
 #   • It is DELIBERATELY NOT wired into scripts/verify.sh — it is an ON-DEMAND
 #     developer/QA tool for proving a change to the board scripts is correct
-#     without risking the real board or the real remote. Run it by hand when you
-#     touch move-issue.sh / finish-pr.sh / archive.sh / next-id.sh / commit-msg /
-#     kanban-worktree.sh / verify.sh / release.sh / kit-init.sh.
+#     without risking the real board or the real remote. RUN IT BY HAND AFTER
+#     TOUCHING ANY SCRIPT IT COVERS — including the hooks, the githooks and lib/.
+#     No list of those scripts lives here on purpose: this line used to name a
+#     handful and had fallen behind the case families the harness had grown, so an
+#     operator changing one of the unnamed ones was told nothing. The covering set
+#     is the CASES list below and the sandbox copies each case makes; read those,
+#     which cannot go stale against the harness because they ARE the harness.
 #
 # ISOLATION (the whole point)
 #   Every case builds a THROWAWAY sandbox in a fresh `mktemp -d`: a work repo
@@ -182,10 +186,12 @@ sbcommit() { MSG_OK=1 git -C "$SB_WORK" commit "$@"; }
 # so the harness was testing a shape the templates never produce — and `--set-pr`, which
 # writes back only into an EXISTING `pr:` line, could never work on a kit-minted card
 # while passing here. The templates now declare it, so this line is a
-# projection of them rather than an invention. The assertion that would keep the two in
-# step is still OWED: no case yet mints a card from the REAL template and
-# checks that `--set-pr` persists into it. Until one exists the template fix is unproven —
-# a fixture written by hand to match cannot be evidence that the templates produce it.
+# projection of them rather than an invention. The assertion that keeps the two in step
+# was OWED when this was written and IS NOW PAID: a case mints a card from the REAL
+# template and checks that `--set-pr` persists into it. The reason stands and is worth
+# keeping — a fixture written by hand to match cannot be evidence that the templates
+# produce it, which is why the paying case reads the shipped template rather than this
+# seed. What changed is only the conclusion: the template fix is no longer unproven.
 seed_issue() {
   local folder="$1" id="$2" slug="$3" type="$4" title="$5" branch="${6:-n/a}"
   local f="$SB_WORK/progress/$folder/${id}-${slug}.md"
@@ -3028,8 +3034,14 @@ case_verify_frame() {
   printf '%s' "$out" | grep -q '0 declared gate' || cf "(b) --list does not report the empty table: $out"
 
   # Re-declare: one green select gate, one red full gate, one guard path.
+  # THE RED GATE IS A SANDBOX-LOCAL SCRIPT, not `/usr/bin/false` — the same reason the
+  # core-gate fixture below states: an absolute path to a system binary is absent on
+  # some platform, and an absent command returns 127, which this harness now classes
+  # UNRUNNABLE rather than FAIL. A portability slip in the fixture would then be
+  # indistinguishable from the defect the case exists to detect.
   : > "$SB_WORK/guard-one.txt"
-  perl -i -pe '$_ .= "  \"green|select|/bin/echo ran-green\"\n  \"redbuild|full|/usr/bin/false\"\n" if /^GATES=\($/' "$v"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/red-gate"; chmod +x "$SB_WORK/red-gate"
+  perl -i -pe '$_ .= "  \"green|select|/bin/echo ran-green\"\n  \"redbuild|full|./red-gate\"\n" if /^GATES=\($/' "$v"
   perl -i -pe '$_ .= "  guard-one.txt\n" if /^GUARD_SET=\($/' "$v"
 
   # (c) unlaundered exit codes.
@@ -3350,8 +3362,15 @@ case_check_board_id_clean() {
   [ -n "$status_folders" ] || cf "could not derive STATUS_FOLDERS from the defaults block"
   [ -n "$id_key" ]         || cf "could not derive ISSUE_ID_KEY from the defaults block"
   [ -n "$id_pattern" ]     || cf "could not derive ISSUE_ID_PATTERN from the defaults block"
+  # NO COLUMN COUNT HERE. This asserted "= 6", which is a census over a set the kit may
+  # legitimately grow: a seventh status would redden this case rather than the property
+  # it protects, and the number would have to be chased here as well as at the seam.
+  # What the case actually needs is that the SPLIT worked — an unsplit blob would make
+  # every membership test below vacuous by matching nothing — and that the one member
+  # this case depends on is present, which the named assertion below states with its
+  # reason attached. A count states neither.
   ncols="$(printf '%s' "$status_folders" | tr '|' '\n' | grep -c . || true)"
-  [ "$ncols" = 6 ] || cf "expected 6 columns in STATUS_FOLDERS, derived $ncols ($status_folders)"
+  [ "$ncols" -gt 1 ] || cf "STATUS_FOLDERS did not split into columns — derived '$status_folders'"
   printf '%s' "$status_folders" | tr '|' '\n' | grep -qx done \
     || cf "STATUS_FOLDERS lacks done/ — a new mint can collide with an ARCHIVED issue"
 
@@ -4715,7 +4734,7 @@ case_option_parsing_hygiene() {
   # first-mile — already probe this exact capability and skip loudly; this one is
   # brought into line with them.
   if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
-    skp "option parsing: 18 checks" ".claude/templates absent — the creation scripts would exit 1 at their template check, before the argument loop this case is about"
+    skp "option parsing across the creation and board scripts" ".claude/templates absent — the creation scripts would exit 1 at their template check, before the argument loop this case is about"
     return
   fi
   make_sandbox
@@ -4743,6 +4762,17 @@ case_option_parsing_hygiene() {
     _opt 2 "a leading '-' is never a <slug>"       "$s" --id
     _opt 2 "an unknown option refuses"             "$s" someslug --bogus x
   done
+  # THE VALUE-TAKING OPTIONS, which the loop above never reaches. Two shapes, both
+  # previously unguarded: an option whose value is outside its declared enum, and an
+  # option given as the LAST argument with no value at all — that one used to trip
+  # `set -u` on a bare $2 and die with "$2: unbound variable", non-zero only by
+  # accident of the shell and naming a positional rather than the flag.
+  _opt 1 "--severity refuses a value outside its enum"  new-bug.sh sl --id "$SB_PREFIX-901" --severity nonsense
+  _opt 2 "a value-taking option with NO value refuses, naming it" new-bug.sh sl --id "$SB_PREFIX-902" --severity
+  _opt 2 "the same, on a sibling's flag"                new-refactor.sh sl --id "$SB_PREFIX-903" --target
+  printf '%s' "$out" | grep -q -- '--target requires a value' \
+    || cf "the no-value refusal did not name the option: $out"
+
   _opt 0 "--help prints usage and SUCCEEDS"        subtask.sh --help
   _opt 2 "a leading '-' is never a positional"     subtask.sh new --help s1 slug
   _opt 2 "an unknown option refuses"               subtask.sh new "$SB_PREFIX-999" s1 slug --bogus x
@@ -4756,9 +4786,69 @@ case_option_parsing_hygiene() {
   minted="$(find "$SB_WORK/progress" "$SB_WORK/requirements" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   [ "$minted" = "0" ] || cf "$minted item(s) were created by refused invocations"
 
-  finish "option parsing: 18 checks — a leading '-' is never a name, --help rc=0, unknown option rc=2, nothing created"
+  finish "option parsing across the creation and board scripts: a leading '-' is never a name, --help rc=0, an unknown option rc=2, a value outside a declared enum refuses, a value-taking option with no value refuses NAMING ITSELF rather than dying on an unbound positional, and no refusal creates anything"
   teardown
 }
+
+case_creation_scripts_substitute_hostile_values() {
+  cf_reset
+  # WHAT THE OPTION-PARSING CASE ABOVE CANNOT SEE. It exercises REFUSALS, so every
+  # invocation it makes stops before the substitution block. Nothing covered the
+  # SUCCESS path's substitution, and that is where the damage lived: each value is
+  # interpolated into a `s|…|REPL|` expression, where `|` ends the expression, `&`
+  # means "the whole match" and `\` escapes. A --prd of `a|b` aborted sed mid-run;
+  # a value containing `&` was silently corrupted into the card.
+  #
+  # AND THE ABORT WAS THE WORSE HALF: the card was copied onto the board BEFORE the
+  # substitutions ran, so the failure left a half-filled card and its .bak sitting in
+  # progress/todo/ with the template's placeholder id — an id burned by an invocation
+  # that reported failure. The contract's own words: a refusal that already wrote the
+  # file is the bug.
+  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
+    skp "creation scripts substitute hostile values" ".claude/templates absent — the creation scripts exit before their substitution block"
+    return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+
+  local out rc card
+  # A pipe: the delimiter itself.
+  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh piped --id "$SB_PREFIX-910" --prd 'a|b' 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a --prd containing the sed delimiter did not succeed: rc=$rc $out"
+  card="$SB_WORK/progress/todo/$SB_PREFIX-910-piped.md"
+  [ -f "$card" ] || cf "the card was not created for a piped --prd"
+  grep -q '^prd: a|b$' "$card" 2>/dev/null \
+    || cf "the piped value did not land verbatim: $(grep '^prd:' "$card" 2>/dev/null)"
+
+  # An ampersand: sed's "whole match" metacharacter.
+  out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh amped --id "$SB_PREFIX-911" --target 'a & b' 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a --target containing '&' did not succeed: rc=$rc $out"
+  card="$SB_WORK/progress/todo/$SB_PREFIX-911-amped.md"
+  grep -q '^target_module: a & b$' "$card" 2>/dev/null \
+    || cf "the '&' value was corrupted rather than written: $(grep '^target_module:' "$card" 2>/dev/null)"
+
+  # NOTHING PARTIAL IS EVER LEFT. The .bak is the tell: it only exists between the
+  # first substitution and the cleanup, so one on the board means a card was being
+  # edited in place where the operator can see it.
+  local strays
+  strays="$(find "$SB_WORK/progress" -name '*.bak' 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$strays" = "0" ] || cf "$strays .bak file(s) left on the board — the card is being built in place"
+
+  # And a refusal AFTER the id validates still writes nothing.
+  local before after
+  before="$(find "$SB_WORK/progress" -name '*.md' | wc -l | tr -d ' ')"
+  ( cd "$SB_WORK" && ./scripts/new-bug.sh refused --id "$SB_PREFIX-912" --severity nonsense ) >/dev/null 2>&1
+  after="$(find "$SB_WORK/progress" -name '*.md' | wc -l | tr -d ' ')"
+  [ "$before" = "$after" ] \
+    || cf "a refused invocation changed the board: $before → $after item(s)"
+
+  finish "creation scripts: a value carrying sed's delimiter or its whole-match metacharacter lands VERBATIM in the card, no .bak is ever left on the board, and a refusal after id validation creates nothing"
+  teardown
+}
+
 
 # =============================================================================
 # CASE — THE FIRST MILE, pinned end to end.
@@ -5074,7 +5164,10 @@ case_release_preflight_gates() {
 
   # (c) a DECLARED extra preflight gate, red
   make_sandbox; seed_release_files 1.1.0
-  rel_insert PREFLIGHT_GATES '"declared extra gate|/usr/bin/false"'
+  # Sandbox-local, for the portability reason the gate fixtures state: an absolute
+  # system path that is absent returns 127, and 127 is UNRUNNABLE here, not FAIL.
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/red-gate"; chmod +x "$SB_WORK/red-gate"
+  rel_insert PREFLIGHT_GATES '"declared extra gate|./red-gate"'
   publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(extra-gate-red) a red declared gate did not abort the cut"
@@ -5984,6 +6077,7 @@ CASES=(
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
   case_option_parsing_hygiene
+  case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy
   case_release_guards
