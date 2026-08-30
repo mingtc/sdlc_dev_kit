@@ -58,6 +58,31 @@ would restate these invariants and the copy is the one that goes stale.
   *Why:* measured — two same-day landings in one project both minted the same register id, each
   correctly reading the file as it stood.
 
+### Spaces and streams — two different questions, and the one carve-out
+
+**This section exists because a creation tool cites it, and because two words in this sheet were
+being read as one.** They are separate axes and a sentence has to say which it means.
+
+- A **space** is *what the identifier names*: § 1's work-item ids and register-entry ids. Different
+  spaces, same invariants — that is what § 1 widened.
+- A **stream** is *who puts the number there*: the caller supplies it, or the creating tool derives
+  it. This is a question about authorship at creation time, and § 1 does not answer it.
+
+**The rule, and its one exception.** Work-item creation is bound by
+[issue-creation.md](issue-creation.md): the identifier is **supplied by the caller** and validated
+before anything is written; creation never mints its own. **The specification creator is the
+declared exception** — it derives the next number itself, read-only, and every invariant in § 2
+still binds it: permanent, never reused, monotonic within its prefix, maximum read
+order-independently.
+
+*Why the exception is safe where the general rule is not, and this is the part that travels:* work
+items are created by several roles in parallel lanes, so a tool that mints at creation time hands
+two lanes the same number — the concurrency hazard § 2 names, learned from a real collision.
+Specifications are few and authored by one role, so nobody else's landing falls between the read and
+the write. **The carve-out is about who else is minting at that moment — not about specifications
+being special.** If a project puts a second author on that stream, the exception stops being safe
+with it, and this paragraph is what they should find.
+
 ## 3. REFUSAL CONDITIONS
 
 - No identifier has ever been issued and none can be inferred ⇒ refuse with a suggested starting

@@ -69,6 +69,15 @@ indexed store — **without ever losing the record it is retiring**.
 
 - The retired store or the index is missing ⇒ refuse; do not create an index on the fly, because
   a new empty index reads as *"nothing was ever archived"*.
+  **Narrowed, and the reason above is exactly what narrows it:** an empty index is a *false* claim
+  only when the store already holds retired material. Where the index is missing and **nothing has
+  been retired yet**, an empty index is TRUE, and refusing teaches a first-time adopter that the
+  tool is broken. So: **index missing and the store already holds retired material ⇒ refuse, listing
+  what it holds as the proof** — that listing is what makes the refusal checkable rather than
+  asserted, and a backfill recipe is owed with it. **Index missing and the store empty ⇒ the tool may
+  create it, carrying a note saying the emptiness was true when written.**
+  *The conclusion moved; the reason did not. Both halves are still "never write a claim the tree
+  contradicts".*
 - The index has no recognisable insertion point ⇒ refuse, saying exactly what heading is expected.
   Appending at a guess corrupts the one document that must stay ordered.
 - Nothing is eligible ⇒ say so plainly and exit successfully. Nothing to do is not an error.

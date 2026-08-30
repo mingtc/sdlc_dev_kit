@@ -48,6 +48,50 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The drift report's "what green means" no longer tells you to count lines.** A check with more
+  than one reading prints each reading, and a reading whose subject is absent still prints, naming
+  what was absent — so the number of lines is not the number of invariants and never was. Walk the
+  invariant list instead.
+- **The initializer's preflight is documented as what it is: a hand-listed minimum presence check,
+  not a manifest check.** Behaviour is unchanged; the contract and the manifest previously promised
+  coverage the tool never had. A file that travels but is not in the minimum is not caught.
+- **The commit-attribution contract now states its two exemptions** — tool-generated subjects
+  (merge, revert, autosquash) and the documented environment escape. Behaviour is unchanged; an
+  implementation built from the old wording rejected every merge commit.
+- **The rotation contract's "never create an index" is narrowed to the case that made it true:**
+  refuse when the store already holds retired material (listing it as proof); creating an empty
+  index is allowed when nothing has been retired yet.
+- **The publishing operation's ahead/behind report is documented as conditional** on the trunk being
+  checked out in the main checkout — as it has always behaved.
+- **The CLI shape (usage always succeeds; unknown option refuses non-zero, naming it; one exit
+  status across the tool set) is stated as binding every shipped command-line tool**, not only the
+  creators.
+- **The post-stamp placeholder census is described as failing, not refusing** — it runs after the
+  initializing commit, so it reports a bad result rather than preventing one.
+- **`dev/RETIRED.md` is documented as a path your project creates**, not a file the kit ships.
+- **The short name a creation tool takes now has a declared shape** — lower-case letters, digits and
+  single hyphens between them, starting and ending with a letter or digit. Anything else is refused
+  at the door, naming the position and the character, and is never silently rewritten. *The shape is
+  the intersection of what a branch name and a file name both accept, because the short name travels
+  into both; the failure it prevents is an ACCEPTED name that produces an illegal branch discovered
+  later by someone who did not type it.*
+- **Specification identifiers: the creation contract now states its one declared exception** — the
+  specification creator derives its own id; every other creator still refuses without one.
+  `id-minting.md` gains § Spaces and streams, which separates WHAT an id names from WHO puts the
+  number there, says what makes the exception safe (one author on that stream, so no concurrency
+  hazard), and says when it lapses.
+- **The rigor-tier sheet fixes the SHAPE of the effort riders, not their names** — a default per
+  tier, an escalation above it that needs sign-off, a floor nobody dispatches at. The named settings
+  are your project's, recorded in `model-provisioning.md` § B.2.
+- **The placeholder census's span is documented as a floor** — it covers the stamped role docs and
+  templates, the directories the initializer itself writes. A value that travelled into a file
+  outside them is your own search to run.
+- **`process/**` travels unedited, and its declared blanks are now named** — each doctrine sheet's
+  instance section, the manifest's debt list, the hygiene checklist's evidence column, and everything
+  under `process/templates/`. Read the old row literally and you leave all of them empty.
+- **The adapter template's House rules gain an attribution example**, carrying the instruction to
+  name the mechanism that enforces it in the same line.
+
 - **The graduation check now runs on projects that never ran `kit-init`.** It enables on any sign
   the repository has started — work items on the board, history in the running log, entries in the
   archive, or the initializer's receipt — and on a tree with none of those it reports that **the
@@ -567,8 +611,9 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 - **Action required:** if you adopted via `SEED.md` step 2 **branch B** (you implemented the
   contracts in your own toolchain and never ran `kit-init`), the graduation report now runs
   against your published trunk and will list any shipped scaffolding you still carry. **Its
-  findings are advisory** — they do not change the drift verdict and cannot fail a build. **the
-  check did not run**, rather than implying the tree is clean.
+  findings are advisory** — they do not change the drift verdict and cannot fail a build. On a tree
+  with no sign of having started, it says so: **the check did not run**, rather than implying the
+  tree is clean.
 - **The hygiene instruments now refuse instead of reporting, when their own blind-spot derivation
   comes back empty.** Every instrument exits **2** and prints `could NOT RUN … NOTHING was
   measured`; on `--json` it emits `{"unrunnable": {…}}` with **no data keys** — no `rows`, no
@@ -663,9 +708,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   project already past day one will see the new `[g]` line report findings if it kept the kit's
   shipped `README.md`, or left `<angle-bracket>` blanks in `PROJECT.md`. That is the check working.
   Replace the files, or fill the blanks, and the arm goes quiet on its own. A reimplementation of the
-  drift report in another stack now owes invariant 7. One known limit, stated because it is measured:
-  the arm is gated on the initializer's stamp receipt, so a project that implemented the contracts in
-  its own toolchain and never ran `kit-init.sh` does not see the prompt — an open question, recorded.
+  drift report in another stack now owes invariant 7. ~~One known limit, stated because it is
+  measured: the arm is gated on the initializer's stamp receipt, so a project that implemented the
+  contracts in its own toolchain and never ran `kit-init.sh` does not see the prompt — an open
+  question, recorded.~~ **SUPERSEDED — the limit was closed; see the Changed entry above for the
+  release that closed it.** The arm now enables on **any sign the repository has started**, the
+  initializer's receipt being only one of them, so a project that never ran the initializer does see
+  the prompt. *The struck text is kept because the limit was real and measured when written, and
+  because it is the reason the enabling condition is what it is: what closed it was widening the
+  signal, not removing the gate.*
 - **The commit-message hook now refuses generated co-author trailers — if your tooling adds one, your
   next commit is rejected.** `scripts/githooks/commit-msg` used to judge only the subject's role tag;
   it now also reads the **whole message** and refuses a `Co-Authored-By:` line naming a **tool**, or
@@ -812,7 +863,11 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 **Checked against the board and the tree on 2026-08-28**, at the kit repository's own revision
 `7da2264` plus the reconciliation that reading produced: every adopter-visible change listed above
-carries its entry, and every entry that needs something from you is in this section. Nothing else above requires an
+carries its entry, and every entry that needs something from you is in this section.
+**That reading covers the tree AS OF THAT REVISION AND NO FURTHER — entries have landed since, and
+they are not inside it.** *An all-clear inherits the date it was taken, never the date it is read.
+Re-take it at the cut rather than trusting this paragraph; a stamp that outlives its revision is the
+same false assurance the entries above keep being about.* Nothing else above requires an
 action — the rest are refusals that fire only on a setup that was already broken, corrections to the
 seed's own files, or new material that binds nothing until you reach for it. **A project that never
 holds a dogfooding round pays nothing for the two new sheets** — they are one more file each in

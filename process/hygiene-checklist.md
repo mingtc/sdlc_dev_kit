@@ -189,8 +189,12 @@ that produced it**, and a re-measurement **PREPENDS** rather than replaces
 ### 4. Giant-file growth
 
 - **What it looks like in the tree:** a document too large to consult, with no index into it.
-- **Instrument:** your drift report's **whole-file** arm, once it exists — the shipped log-size
-  check measures one section, not the file (see shape 5). The **rule** half is already written:
+- **Instrument:** your drift report's **whole-file** arm. ~~Once it exists — the shipped log-size
+  check measures one section, not the file (see shape 5).~~ *Superseded: the reference
+  implementation ships the whole-file arm beside the section one, as its own advisory threshold
+  constant. The reason is kept because it is still the distinction that matters — a section-size
+  check does not measure the file, and shape 5 is the other one.* The **rule** half is already
+  written:
   [`doctrine/lookup-tables.md`](doctrine/lookup-tables.md), which is what an index into such a file
   has to satisfy.
 - **Evidence date + source:** `<date>` — `<the file, its byte size, and whether an index exists>`.

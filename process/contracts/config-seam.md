@@ -55,8 +55,15 @@ process is an edit rather than an excavation.
 2. A single override applied at invocation time is **observably honoured** by every consumer.
 3. A search of the travelling files for another project's values returns **nothing** — a count,
    run by the adopter, not a promise made by the kit. **The initializer runs that count itself and
-   REFUSES a non-zero result**, so this line is an assertion rather than a sentence (§ 6 names
-   where). Two things make it honest: every token searched for is **derived from the seam**, never
+   FAILS LOUDLY on a non-zero result**, so this line is an assertion rather than a sentence (§ 6
+   names where). *The verb is not "refuses": a refusal means **nothing was written**, and this
+   census runs **after** the initializing commit — it reports a bad result, it cannot un-write one.*
+   **And it is a floor, not the whole travelling set:** the census spans the stamped role docs and
+   templates — the directories the initializer itself writes — which is where a surviving foreign
+   value would be its own doing. A value that travelled into a file outside them is **the adopter's
+   own search to run** — this contract does not run it for you, and § 6 names where the census is
+   implemented if you want to model yours on it.
+   Two things make the count honest: every token searched for is **derived from the seam**, never
    retyped; and the count **excludes provenance citations** — an identifier of the form
    *prefix-number* attributing a hard-won lesson is a citation, and rewriting it would manufacture
    a reference the adopter's own history never had. Those are reported and left, not counted.

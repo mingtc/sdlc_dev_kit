@@ -24,9 +24,12 @@ not the definition*. A sheet that made you open the script has failed its only j
 
 ## The sheets
 
-**How many are there?** `find process/contracts -type f | wc -l` — run it. A digit written here is
-wrong the first time a sheet is added, and this kit has already been bitten twice by a transcribed
-census (see [`../EXTRACTION.md`](../EXTRACTION.md) § The one rule about counting).
+**How many sheets are there?** `find process/contracts -type f ! -name README.md | wc -l` — run it.
+*The exclusion is the point: this index is a file in the directory it indexes, so the unfiltered
+count answers a different question than the one asked and answers it one too high.* A digit written
+here is wrong the first time a sheet is added, and this kit has already been bitten twice by a
+transcribed census (see [`../EXTRACTION.md`](../EXTRACTION.md) § The one rule about counting).
+**Deriving is not enough on its own — the derivation has to count the thing the sentence names.**
 
 | Contract | Sheet | Implementation it describes |
 |---|---|---|

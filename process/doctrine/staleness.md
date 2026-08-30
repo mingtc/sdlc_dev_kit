@@ -40,8 +40,11 @@ follow-up work item. Never a sweep.
   the predecessor no longer answers.
 - **T2 — a plan's work closes.** Whoever writes the run report, or lands the last item of a
   slate, stamps the pack or plan that authorized it and names the report. This is usually not a new
-  instruction — the launch-pack template already says *"stamp SPENT with the run-report name when
-  closed"*; § B is what makes the instruction **bind**.
+  instruction — the launch-pack template already carries it: author the pack `LIVE`, *"stamp it as
+  `SPENT` at close"*, **"Stamped against the run report by name"**; § B is what makes the
+  instruction **bind**. *Quoted from the template's own two sentences rather than compressed into
+  one: a paraphrase inside quotation marks is a citation a reader cannot find in the file it names,
+  and this one could not be.*
 - **T3 — a ruling overturns a recorded conclusion.** Already governed:
   [`supersession.md`](supersession.md) § A.1 (preserve the reason, replace only the conclusion,
   transform the guard rather than delete it) and § A.2 (the `superseded_in_part` annotation,

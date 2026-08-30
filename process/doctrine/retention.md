@@ -123,7 +123,11 @@ satisfying one is not a ledger line.
 mirroring the archive index's shape (one index, bodies elsewhere — here the "elsewhere" is version
 history rather than another file). It sits **inside** the retained-evidence area and is itself
 linked from that area's own index, so the guard that already forces every document there to be
-indexed is the guard that also holds the ledger. The stock path is `dev/RETIRED.md`.
+indexed is the guard that also holds the ledger. **The stock path is `dev/RETIRED.md` — a path your
+project CREATES at its first retirement, not a file the kit ships.** *Said plainly because it reads
+as shipped: nothing in the tree carries that name, and a reader who goes looking for it concludes
+the doctrine is describing a feature that was removed. § B is where you record the path you actually
+used, and the stock answer is a default, not an inventory.*
 
 **Possible** — every row carries **seven** fields, and no row lands with a field derived by
 reasoning:

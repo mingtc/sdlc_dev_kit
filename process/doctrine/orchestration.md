@@ -240,7 +240,7 @@ miss, and a rule whose reason is a documented incident survives its author.
    be registered in). `<fill-in>`
 3. **This project's between-leg belt**, as exact commands. `<fill-in>`
 4. **The provisioning ladder and the escalation mechanism** this harness actually has — see
-   [`model-provisioning.md`](model-provisioning.md) § the project instance. `<fill-in>`
+   [`model-provisioning.md`](model-provisioning.md) § B.2 *Your project's ladder*. `<fill-in>`
 5. **The fix-round budget** (how many rounds before a park) and who may authorize an extra round.
    `<fill-in>`
 6. **The verdict vocabulary** in this project's board and Activity-log dialect, including the

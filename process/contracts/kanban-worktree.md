@@ -68,10 +68,14 @@ a work branch, mid-edit, dirty — without ever touching that workspace.
 3. The lock is **released**, including on failure.
 4. The auxiliary checkout holds **no unpublished commit** — the state the drift report's sixth
    check independently confirms.
-5. The publishing operation **reports its actual ahead/behind state on exit**, so a caller that
-   also made a commit by hand learns that something is still local
-   ([`../doctrine/commit-hygiene.md`](../doctrine/commit-hygiene.md) § A.3 — the *looks-pushed*
-   trap).
+5. The publishing operation **reports the main checkout's actual ahead/behind state on exit
+   whenever the trunk is checked out there**, so a caller that also made a commit by hand learns
+   that something is still local ([`../doctrine/commit-hygiene.md`](../doctrine/commit-hygiene.md)
+   § A.3 — the *looks-pushed* trap). **The condition is part of the invariant, not a gap in it:**
+   the report is about the MAIN checkout's trunk, so where the trunk is checked out somewhere else
+   there is no such state to read from there, and the operation says which case it is rather than
+   printing a reading it did not take. *An implementation built from an unconditional wording emits
+   a number from the wrong worktree, which is worse than the silence it was trying to avoid.*
 
 ## 5. MINIMAL INTERFACE
 

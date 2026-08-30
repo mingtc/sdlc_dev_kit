@@ -21,7 +21,11 @@ state — so that every tool and every reader downstream can rely on the shape w
   restates it.
   *Why:* two sources for one fact is the drift this whole kit is organised against.
 - **The identifier is supplied by the caller and validated before anything is written.** Creation
-  never mints its own.
+  never mints its own — **with one declared exception, the specification stream**, whose creator
+  derives its number itself because that stream has a single author and therefore none of the
+  concurrency hazard this rule exists for ([id-minting.md](id-minting.md) § Spaces and streams).
+  *The exception is named here rather than left to the tool, because § 6 binds that tool to this
+  sheet: an unstated carve-out reads as the tool being in breach.*
   *Why:* creation is stateless and therefore repeatable and testable; the one place numbers are
   chosen stays the one place (see [id-minting.md](id-minting.md)).
 - **The identifier in the header and the identifier in the item's own name AGREE.** The
@@ -70,7 +74,8 @@ state — so that every tool and every reader downstream can rely on the shape w
 
 ## 3. REFUSAL CONDITIONS
 
-- No identifier supplied ⇒ refuse; do not mint one silently.
+- No identifier supplied ⇒ refuse; do not mint one silently. *The specification creator is § 2's
+  declared exception and derives its own; every other creator here refuses.*
 - The identifier is malformed, or already in use on the board ⇒ refuse (already-retired ⇒ warn
   loudly, per [id-minting.md](id-minting.md)).
 - The template for the requested kind is missing ⇒ refuse; **never** fall back to writing an
@@ -90,7 +95,17 @@ state — so that every tool and every reader downstream can rely on the shape w
   *Why:* if asking how to use the tool can fail, or can do work, the first thing a new adopter
   types is a mutation.
 - **An unrecognised option ⇒ refuse, non-zero, naming it** — never ignored, never treated as a
-  positional value.
+  positional value. **Refuse with ONE exit status across every script the kit ships**, whichever the
+  project picks: a caller scripting against the set cannot branch on a status that means
+  *unknown option* in one tool and something else in the next.
+
+**These three are the CLI SHAPE, and they bind every command-line tool in the kit, not only the
+creators.** *They are authored here because this is where the failure that produced them was paid
+for; they are stated as general because a shape declared per-tool is a shape that diverges per-tool.
+**Where a tool in your set diverges — a different exit status, a missing usage handler, a usage
+request that refuses — that is a defect against this section, and it is fixed against THIS WORDING
+rather than against the other tools**: reconcile a set to its own majority and the next reading
+finds a different majority and standardises on that instead.*
 
 ## 4. WHAT GREEN MEANS
 
@@ -103,6 +118,29 @@ state — so that every tool and every reader downstream can rely on the shape w
 
 **In:** the item kind, a validated identifier, a short name, and the kind's own optional links
 (a parent, a requirement, a story set).
+
+**The short name has a declared SHAPE, and this is where it is declared.** A short name is
+**lower-case letters, digits, and single hyphens between them** — it starts and ends with a letter
+or digit, and carries nothing else: no spaces, no dots, no slashes, no underscores, no upper case,
+no leading or trailing hyphen, no run of two hyphens. **Anything outside that shape is refused at
+the door under § 3's existing rule**, naming the position and the character; it is never silently
+rewritten into legality, because a caller who asked for one name and got another has lost the one
+thing they typed.
+
+*Why the shape is this narrow, and why it is stated ONCE here rather than as a pattern per tool:*
+**a short name does not stay a short name.** It travels into a branch name and into a file name, and
+those two have different enemies — a branch name must be a legal reference, so a space, a colon, a
+tilde, a caret, a backslash, a run of two dots or a trailing dot makes the reference illegal or
+ambiguous; a file name must survive being handled by a shell and a filesystem, so a space, a quote,
+a leading dash, a slash or a glob character turns one argument into two or one path into another.
+**The shape is the intersection of what both accept**, which is why it is stricter than either alone
+looks like it needs. *A character either travels everywhere the name goes, or it refuses at the
+door — the failure this prevents is not a rejected name, it is an ACCEPTED one: the tool exits zero,
+the item is written, and the illegal branch name is discovered later by someone who did not type it.*
+
+**The validation implements this section; it does not define it.** State the shape here, cite it
+there — a pattern spelled out per tool is a pattern that drifts per tool, and the tools would then
+disagree about what a name is.
 **Out:** the created item's path, and a non-zero exit for every refusal above.
 **Not in:** the content of the work. A template that pre-writes the plan is a template nobody
 edits.

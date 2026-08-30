@@ -1,7 +1,10 @@
 <!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR incidents and wiring. -->
 # Negative-claim doctrine — enumerate the attempts, or say "unmeasured"
 
-**KIT-CLASS: KIT.** One rule, promoted after a shipped negative claim over-reached its evidence.
+**KIT-CLASS: KIT.** Promoted after a shipped negative claim over-reached its evidence; § A carries
+the rule and the ones that grew out of it — *its own headings are the list, which is why no count
+is written here. This line said "one rule" while § A held its mirror rule and a detection-recipe
+rule besides.*
 § A is the transferable pattern; § B is where **your** project records its own instance.
 
 **Why this is its own sheet, not a section of [`supersession.md`](supersession.md).** The two are

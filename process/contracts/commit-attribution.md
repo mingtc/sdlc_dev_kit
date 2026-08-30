@@ -33,8 +33,27 @@ filtered, audited and trusted years later without asking anybody.
 
 ## 3. REFUSAL CONDITIONS
 
-- The subject carries no role declaration ⇒ reject the commit.
-- The subject declares a role outside the closed set ⇒ reject, listing the legal set.
+- The subject carries no role declaration ⇒ reject the commit — **except for the two exemptions
+  below, which are part of the rule and not a weakening of it.**
+- The subject declares a role outside the closed set ⇒ reject, listing the legal set. *No exemption
+  reaches this one: a declared role is either legal or it is not.*
+
+**The two exemptions, stated here because an implementation built from an unconditional rule is
+broken on its first day.**
+
+1. **Host- and tool-generated subjects are exempt** — the merge, revert and autosquash families a
+   version-control tool writes for you. *Why:* nobody authored them under a role, so there is no
+   role to declare; a hook without this rejects every merge commit. **Match the tool's own generated
+   forms and nothing wider** — a glob loose enough to catch a human sentence that merely opens with
+   the same word is a hole, and that is not hypothetical: it was measured in this kit's own hook.
+2. **A documented environment escape is exempt**, for importing a third party's commit verbatim,
+   where rewriting the subject would falsify the record. *Why:* the alternative is that an
+   unattributable import cannot be committed at all. **Only explicit truthy values enable it** —
+   unset, empty and `0` must all read as *off*, or the escape is on by accident for everyone.
+
+*Both are exemptions from the DECLARATION requirement only, and both belong in the contract rather
+than only in the implementation: an installation that re-implements this sheet literally rejects its
+own first commit, and the day-one recipe depends on the escape.*
 - An automated entry path is not covered by the same rule ⇒ that is a defect in the installation,
   discoverable by the drift report rather than at the next audit.
 

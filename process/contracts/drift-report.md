@@ -171,9 +171,24 @@ missing line against, and now derives it from this list instead of restating it.
 
 ## 4. WHAT GREEN MEANS
 
-1. **Every check in § 2 ran**, each printing its own line — a missing line is itself a finding.
-   Count the invariants in § 2 and expect that many; the expectation is derived so that adding an
-   invariant cannot leave a stale number here contradicting it.
+1. **Every invariant in § 2 is represented in the output, and no check is silent.** A missing check
+   is itself a finding. **Test it per check, never by comparing two totals:** walk § 2's list and
+   confirm each invariant has a line; do not count the report's lines and expect that number to
+   match. **They are different quantities on purpose**, and a reader who compares them files a
+   defect that is not there.
+   - **A check with more than one READING prints each reading, labelled.** One invariant, several
+     measurements: a size bound that reads a section *and* the whole file emits a line per reading,
+     and a check over several homes emits a named sub-reading per home.
+   - **A reading whose subject is ABSENT still prints, naming what was absent.** It does not fall
+     silent and it does not pass by default. *This is the property that makes line-counting useless
+     and the report trustworthy at the same time: output shape does not tell you which topology you
+     are in, because the report says so in words instead.*
+   *Both bullets are measured, not reasoned: the reference implementation was RUN in a repository
+   with the mover's auxiliary worktree and in one without, and the set of lines it printed was
+   identical — the absent-home reading named the path it did not find. This paragraph previously
+   said "count the invariants in § 2 and expect that many", which is false against every run.*
+   **The reason a number was ever here is preserved:** § 4 needs something to detect a missing check
+   against. The list in § 2 is that something. Walk it.
 2. Each line states a **count against its bound** where it has one, not an adjective, and names
    the span the count covers.
 3. Each line names **the source it read** — the published ref, or the working copy it inspected on
@@ -202,8 +217,10 @@ from**; the declared thresholds — **each read from a source the report names, 
 verdict line.
 **Not in:** any repair. Every finding names the operation that fixes it and stops there. **Not in
 either:** a fetch. Refreshing the published state is a network act with no bound; the report reads
-the published ref as it stands, **dates it**, and says how to refresh — a stale answer that says so
-beats a hang at session start.
+the published ref as it stands, **names the revision it read**, and says how to refresh — a stale
+answer that says so beats a hang at session start. *"Names the revision" is the exact obligation:
+what makes the answer checkable is that a reader can tell WHICH published state was read, which an
+identifier gives and a timestamp does not.*
 
 ## 6. REFERENCE IMPLEMENTATION
 
@@ -215,9 +232,11 @@ beats a hang at session start.
   board mover's auxiliary worktree — because invariant 6 requires the enumeration, not a fixed
   count of them.
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
-  Two exist: the depth at which the reviewed-and-done column is due for a sweep, and the byte size
-  at which the running log is due for rotation. **Read them from the file** rather than from any
-  document; the log-size one is also the constant
+  They bound the depth at which the reviewed-and-done column is due for a sweep, and the sizes at
+  which the running log is due for rotation — its current section and the whole file being
+  separately bounded. **Read them from the file** rather than from any document, and **read how
+  many there are from the file too**: this sheet once said *two* and the seam had grown a third.
+  The **section**-size one is also the constant
   [`../doctrine/lookup-tables.md`](../doctrine/lookup-tables.md) § A.1 reuses for its index
   trigger, deliberately, so that one idea does not carry two numbers.
 - Check 5 derives the legal role set from the enforcing rule rather than restating it; see

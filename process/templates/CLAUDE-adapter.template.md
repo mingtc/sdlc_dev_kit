@@ -156,8 +156,8 @@ optional is [`process/MANUAL.md` § The default path is lite](process/MANUAL.md)
   that is not blind>`.** A green offline suite is the floor, not a PASS —
   see [`PROJECT.md`](PROJECT.md) § The binding gate.
 
-Calibrate rigor via the rigor-tier ladder in [`.claude/roles/orchestrator.md`](.claude/roles/orchestrator.md)
-§ Token discretion.
+Calibrate rigor via the rigor-tier ladder in
+[`process/doctrine/rigor-tiers.md`](process/doctrine/rigor-tiers.md).
 
 ## House rules — THIS project's law
 
@@ -170,6 +170,14 @@ Calibrate rigor via the rigor-tier ladder in [`.claude/roles/orchestrator.md`](.
 - **<Rule about dependencies>** — e.g. *no new runtime dependency without its own decision*.
 - **<Rule about the documents that must move together>** — e.g. *touch the surface, update the
   matrix / the consumer docs, in the SAME change*.
+- **<Rule about attribution>** — e.g. *every commit subject declares the role that wrote it, and no
+  commit claims a co-author it did not have*. **Name the mechanism that enforces it in the same
+  line**, here the `scripts/githooks/commit-msg` hook, which carries **both** halves: it refuses a
+  prefix-less subject (§ Role-attribution commit prefixes above) **and** refuses a generated
+  co-author trailer or a *"Generated with"* line. *A rule of this kind either has a mechanism or it
+  is a preference: write which one yours is, because a stated rule with no enforcement reads to the
+  next reader as enforced. Where your rule and its guard are two things, they move together — change
+  one without the other and the guard starts enforcing a rule nobody wrote down.*
 - **Commit hygiene is doctrine, not taste** —
   [`process/doctrine/commit-hygiene.md`](process/doctrine/commit-hygiene.md). Your own additions
   here are **subject style only** (tense, length, body format); the rules in that sheet are
@@ -228,7 +236,7 @@ multiple issues in one feature area>**, and the current example of it is **<name
 | Execution discipline + the long-run liveness doctrine | § Execution discipline |
 | Board moves, issue creation, the status folders | § Kanban rules |
 | Lite path vs full ceremony, opt-in machinery | § The default path is lite |
-| **The Dev → QA handoff (7 steps)** + the direct-to-trunk variant + bug severities | § The Dev → QA handoff |
+| **The Dev → QA handoff** + the direct-to-trunk variant + bug severities | § The Dev → QA handoff |
 | The kanban worktree, landing a branch, log-filtering recipes | § Branching and role attribution |
 | Notifications | § Notifications (optional) |
 | Every gate's contract, one sheet each | [`process/contracts/README.md`](process/contracts/README.md) |

@@ -28,9 +28,19 @@ schema/API/logic feature and visible over-process for a one-word relabel.
 | **TIER 2** | The ladder's default | The ladder's default (one step up if the change is `Major`) |
 | **TIER 3** | One step up — **this tier is what justifies it** | One step up |
 
-The top effort tier is not any tier's default: it is a **beast-class** escalation and needs
-**PM sign-off**, on TIER 3 as much as anywhere. The lowest effort tier is never used, the
-maximum never, and every worker dispatched at any tier is a **leaf** (no sub-spawning).
+**The effort riders are a SHAPE here and a set of names in your project's instance.** This sheet
+fixes the shape: each tier has a default effort; **above it sits an escalation that is nobody's
+default and needs PM sign-off**, on TIER 3 as much as anywhere; and **below sits a floor nobody
+dispatches at**. Every worker dispatched at any tier is a **leaf** (no sub-spawning) — that part is
+this sheet's and is not negotiable.
+
+**Which named settings fill those positions is written in
+[`model-provisioning.md`](model-provisioning.md) § B.2, not here.** *Said explicitly because this
+sheet's header states it has no § B instance — true of the TIERS, which are defined by change shape
+and are project-independent, and NOT true of the effort names bolted to them. The previous wording
+fixed both in one sentence, and it read ambiguously in exactly the place where the harness offers
+two settings near the top: "the top tier" and "the maximum" were doing different work in adjacent
+clauses, and no reader could tell whether they named the same rung.*
 
 **The binding-gate decision rule.** Run the project's declared binding extra gate (the
 adapter's § Project duties) **iff the change is on a declared risk surface** — it alters

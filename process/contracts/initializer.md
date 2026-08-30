@@ -11,6 +11,9 @@ precondition the process depends on and then demonstrating each one working.
 - **It CONFIGURES; it does not copy the process in.** The list of what travels is authored in the
   manifest, and the initializer does not carry a second copy of it.
   *Why:* two copy-lists drift, and the executable one wins by accident.
+  **What follows from that, and § 3 says it again where it bites:** carrying no second copy of the
+  manifest, the tool cannot check against the manifest either. Its preflight is a **hand-listed
+  minimum** — the files without which nothing else can run — and not a manifest check.
 - **It PROVES what it claims, by exercising it.** After configuring, it creates a throwaway work
   item, moves it, asks the drift report for a verdict, and forces a deliberately-invalid commit to
   be rejected.
@@ -67,7 +70,12 @@ precondition the process depends on and then demonstrating each one working.
 
 ## 3. REFUSAL CONDITIONS
 
-- Any file the manifest says must already be present is missing ⇒ refuse, naming each one.
+- Any file in the preflight's **hand-listed minimum** — the files without which nothing else can
+  run — is missing ⇒ refuse, naming each one. **This is a minimum presence check, not a manifest
+  check**, and the difference is not an oversight: § 2 forbids the initializer carrying a second
+  copy of the manifest, and the manifest is prose in the extraction sheet, so there is nothing
+  machine-readable for a preflight to check against. **A file that travels but is not in the
+  minimum is not caught here** — say so rather than implying a coverage the tool does not have.
 - No publication remote, or the remote publishes no default branch ⇒ refuse **with the recipe**,
   including the offline path.
 - The remote is a filesystem path that is not absolute ⇒ refuse, with the one-line fix. *Why:* the
@@ -83,8 +91,10 @@ precondition the process depends on and then demonstrating each one working.
   naming the evidence.
 - A required gate definition is absent and none was supplied ⇒ refuse. The landing gate depends on
   it existing before the first landing, not eventually.
-- The post-stamp census finds a surviving foreign value ⇒ refuse
-  ([config-seam.md](config-seam.md) § 4.3).
+- The post-stamp census finds a surviving foreign value ⇒ **fail loudly** — not *refuse*
+  ([config-seam.md](config-seam.md) § 4.3). *The verb is exact and the distinction is this sheet's
+  own: a refusal means **nothing was written**, and this census runs **after** the initializing
+  commit. The tree is initialized when it fires. It reports a bad result; it cannot un-write one.*
 - Any assertion in the self-check fails ⇒ fail loudly. A self-check that reports success on a
   broken installation is worse than no self-check.
 

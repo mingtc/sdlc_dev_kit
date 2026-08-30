@@ -80,8 +80,12 @@ ladder is calibrated to one workload, one price sheet and one date.
    it silently does nothing for a project whose workers are all pinned. And a worker **cannot raise
    its own effort** — there is no self-knob, so never instruct one to.
 
-Per-spawn effort on the spawn tool is an open upstream request at the time of writing; treat its
-absence as the current fact and re-check rather than assuming either way.
+Per-spawn effort on the spawn tool may or may not exist in the harness you are running.
+**Do not take this sheet's word for it either way — check the spawn tool's own parameter list, and
+write what you find into your § B.2 with the date you checked.** *This paragraph carried an
+undated "at the time of writing" and no way to test it, which is precisely the shape
+[`negative-claims.md`](negative-claims.md) § A.1b refuses: a claim of absence or futurity ships
+with a guard — how to re-check it — or it does not ship.*
 
 ---
 
@@ -111,9 +115,10 @@ absence as the current fact and re-check rather than assuming either way.
 - **The seat is outside the ladder** — the human-partnered instance is not a provisionable worker,
   so it gets no row. Say so explicitly; otherwise someone provisions it.
 
-**Where to write it down:** each worker role doc's § "Model & effort contract", the per-tier mapping
-in the orchestrator role doc's § Token discretion, and a one-paragraph summary in the adapter's
-house rules. The seat's own contract stays deliberately silent, per the rider above.
+**Where to write it down:** each worker role doc's § "Model & effort contract", and a one-paragraph
+summary in the adapter's house rules. **The per-tier ladder itself lives in
+[`rigor-tiers.md`](rigor-tiers.md) and is pointed at, never restated** — a second copy of a ladder
+is the thing that goes stale while still reading as authoritative. The seat's own contract stays deliberately silent, per the rider above.
 
 ---
 

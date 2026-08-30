@@ -108,7 +108,7 @@ and a disposition at the same time.
 
 | Disposition | Meaning | Members in this seed |
 |---|---|---|
-| **KEEP** | Travels unedited; stays visibly the kit's. | `process/**`, `.claude/skills/**` |
+| **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** each doctrine sheet's *your project's instance* section, this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty, which is the failure this row caused.* | `process/**`, `.claude/skills/**` |
 | **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh` |
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `setup.sh`'s runtime half |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
@@ -223,10 +223,10 @@ names the guard whose job is to keep it honest.
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/doctrine/` | Process doctrine. **Every sheet states its own pattern/instance split at the top; obey it** — § A (or the sections it names) travels, and the instance section is a **blank you fill**, not an example to keep. `find process/doctrine -type f` lists them; the doctrine table in `MANUAL.md` is the index, and a new sheet joins that table **in the same change** that creates it. |
 | `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — they name no language, no flag and no path outside their sixth section. One sheet describes no script at all: `acceptance-tier.md`, whose reference implementation is deliberately **non-travelling**. |
-| `process/templates/` | Fill-in-the-blank shapes. **Hand-filled** — the initializer stamps `.claude/templates/`, not these, so they carry no prefix literal. Blanks are `<angle brackets>`. |
+| `process/templates/` | Fill-in-the-blank shapes. **Hand-filled** — the initializer stamps `.claude/templates/`, not these, so they carry no prefix literal. Blanks are `<angle brackets>`. **A FILL file has no template here: it ships as its own blank instance and is filled in place.** *A template nothing stamps drifts from the instance it claims to be — every edit reaches the live sheet and none reaches the copy, and nothing in the tree compares them.* |
 | `process/hygiene-checklist.md` | The shapes a hygiene pass looks for, plus two ratchet rules and the anti-pigeonhole reservation. **The cadence is advisory; the pre-cut sweep is MANDATORY when the slate came from a round.** The shapes travel with their **evidence columns blank**. |
 | `process/EXTRACTION.md` | This file. Update its § 4 as you pay the debts down, and **add the debts you discover** — that is ratchet rule 1 applied to a manifest. |
-| `.claude/roles/` | The role docs. Split `KIT` vs `MIXED` — `grep -l 'KIT-CLASS: KIT' .claude/roles/*.md` versus the same for `MIXED`; see § 4.2. |
+| `.claude/roles/` | The role docs. Read each one's marker rather than assuming a split: `grep -l 'KIT-CLASS: MIXED' .claude/roles/*.md` returns nothing in this seed, and § 4.2 says why the pull toward `MIXED` was real anyway. |
 | `.claude/skills/` | The named practices, one directory each, plus an index. |
 | `.claude/agents/` | Leaf-worker agent definitions — **this is where the model/effort ladder's defaults physically live** ([`doctrine/model-provisioning.md`](doctrine/model-provisioning.md) § B.1). |
 | `.claude/workflows/` | The serial and paired multi-issue runners. |
@@ -269,7 +269,7 @@ exclusion below the table.
 
 | File | The kit half | Your half |
 |---|---|---|
-| `githooks/commit-msg` | write-time enforcement, closed set, instructive refusal | the **membership** of the role set (the initializer stamps it) |
+| `githooks/commit-msg` | write-time enforcement, closed set, instructive refusal — **and its second rule, the refusal of generated co-author trailers and *"Generated with"* lines, which is wholly the kit's**: nothing stamps its marker list and no project edits it | the **membership** of the role set (the initializer stamps it) — **and nothing else in the file**. *The hook enforces two rules; only the first has a project-owned part. A reader who takes this row as describing the whole file will look for a project seam in the second rule and find none, which is the answer, not a gap.* |
 | `verify.sh` | one runner, fixed order, one summary block, the narrowed mode and its unskippable floor | the **declared gate table** and the floor's membership |
 | `release.sh` | preflight → bump → attributed commit → annotated tag → push → publish, and the refusals | which files carry the version, which documents are required, whether anything is published at all |
 | `test/run.sh` | the throwaway sandbox with its own publication target, three-way accounting, capability probes, the test-only marker | any case family that pins **your** facts |
@@ -329,13 +329,17 @@ shape for an adopter not running `kit-init.sh`.
 
 **Copy the files in § 1 first, then run this.** `kit-init.sh` is **configure-only** — it does not
 copy the kit (there is no `--from` mode: the copy-list is authored here, and a second executable
-copy of it would drift). Its preflight names any copy-list file still missing and refuses.
+copy of it would drift). Its preflight checks a **hand-listed minimum** of that copy-list — the
+files without which nothing else can run — and refuses, naming each one that is missing. **It is
+not a check against § 1's list**, and it cannot be: § 1 is prose, and the contract forbids the tool
+carrying a second copy of it. A file that travels but is not in the minimum is not caught here.
 
 It performs every precondition in the table below, then **proves them** with a **self-check** that
 mints a scratch item, moves it through two columns, asserts the drift report clean, and has a real
 commit **rejected** by the attribution hook — the whole point being that *every finding in this
 kit's cold-read review was found by reading, and all of them would have been found by running.*
-Four behaviours worth knowing before you run it:
+The behaviours worth knowing before you run it — *the list is the list; it carried a digit once and
+the digit was already short by one when a reader checked it against the tool's contract:*
 
 - **The trunk is confirmed, never inferred.** `--trunk` is required and is cross-checked against
   the remote's published default branch; a disagreement refuses. `<trunk>` defaults to `main`.
@@ -343,9 +347,15 @@ Four behaviours worth knowing before you run it:
   unborn HEAD ⇒ refusal **with the four-step recipe**, whose step 1 is the local bare-repository
   recipe for an offline project ([`GIT-HOSTING.md`](GIT-HOSTING.md)). Creating a remote is a
   repository-topology decision an initializer must not make for you.
-- **It runs a placeholder census on its own output and refuses a non-zero result**
-  ([`contracts/config-seam.md`](contracts/config-seam.md) § 4.3). The promise *"the travelling
-  files are clean"* was believed by three readers and checked by nobody, once. Now it is measured.
+- **A filesystem remote must be an ABSOLUTE path; a relative one refuses, with the one-line fix**
+  ([`contracts/initializer.md`](contracts/initializer.md) § 3). *Why:* the auxiliary checkout runs
+  version-control operations from a different working directory, where a relative path resolves
+  somewhere else or nowhere — so the failure surfaces later, in another tool, as a missing remote.
+- **It runs a placeholder census on its own output and fails loudly on a non-zero result**
+  ([`contracts/config-seam.md`](contracts/config-seam.md) § 4.3). *Not "refuses": the census runs
+  after the initializing commit, so the tree is already written when it fires — it reports the bad
+  result, it does not prevent it.* The promise *"the travelling files are clean"* was believed by
+  three readers and checked by nobody, once. Now it is measured.
 - **A second run refuses.** It names what is already stamped and writes nothing — a half-stamped
   repository is the worst outcome available, so there is no resume path. The same rule protects any
   repository that has already lived.
@@ -510,12 +520,16 @@ set — keep it in step with § 2.4, **whose table is the list**:
 
 ### 2.9 The drift-report thresholds
 
-Two bounds the drift report needs: the depth at which the reviewed-and-done column is *due for a
-sweep*, and the byte size at which the running log is *due for rotation*. Both are named constants
-at the top of the reference implementation — a seam, not a contract term — and **are not repeated
-here as digits.** Read them from the file. The log-size one is deliberately reused as the index
-trigger in [`doctrine/lookup-tables.md`](doctrine/lookup-tables.md) § A.1, so that one idea does
-not carry two numbers.
+The bounds the drift report needs are **named constants at the top of the reference
+implementation** — a seam, not a contract term — and **are neither repeated here as digits nor
+counted here.** Read them from the file. They cover the depth at which the reviewed-and-done column
+is *due for a sweep* and the sizes at which the running log is *due for rotation*, its current
+section and the whole file being separately bounded. The **section**-size one is deliberately
+reused as the index trigger in [`doctrine/lookup-tables.md`](doctrine/lookup-tables.md) § A.1, so
+that one idea does not carry two numbers.
+*This paragraph said "two bounds" while the seam declared three: naming the members is the same
+census the digit is, and it goes stale the same way. Say what the bounds are FOR, and let the file
+say how many.*
 
 ---
 
@@ -544,13 +558,20 @@ one file that never travels**. They are now
 [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md). **What remains yours:** subject *style*
 only. **Check:** your adapter's house rules should *point* at that sheet, not restate it.
 
-### 4.2 Some role docs are `MIXED` — kit workflow wearing project law
+### 4.2 Role docs are kit workflow that accretes project law — the class question is settled, the residual is not
 An implementer/reviewer role doc naturally accretes project-specific duties **inside** its
 Definition-of-Done and review checklists, and a seat contract is written around one project's gates
 and release policy. They are genuinely transferable **workflows** wearing project **law**.
-**Half paid:** the adapter template now ships a named **"Project duties — filled by the adapter"**
-block, so there is a home for them. **The residual:** whether every role doc *points* at that block
-instead of inlining its own list.
+~~**Some role docs are `MIXED`.**~~ **Superseded — the classification half is paid:** every role doc
+in this seed is `KIT`. Derive it rather than trusting this line:
+`grep -l 'KIT-CLASS: MIXED' .claude/roles/*.md .claude/roles/archive/*.md` returns nothing.
+*The reason is kept because it is what made the answer non-obvious: the pull toward `MIXED` was
+real, and what resolved it was giving the project law somewhere else to live, not deciding the docs
+were purer than they looked.*
+**Also paid:** the adapter template ships a named **"Project duties — filled by the adapter"** block,
+so there is a home for them. **The residual, still open:** whether every role doc *points* at that
+block instead of inlining its own list. *A home existing is not the same as everything having moved
+into it — that gap is the debt this section is now about.*
 **Check:** `grep -c 'Project duties' .claude/roles/*.md`, and read any Definition-of-Done item that
 names a file your project does not have.
 **Cost if unpaid:** an adopter inherits checklist items citing files that were never delivered.
@@ -629,8 +650,16 @@ test asserting the fallback *succeeds*. That is a value defined twice, invisible
 breaks, and then silently targeting the wrong project. The seam sheet now forbids it outright:
 **a degraded path refuses and names the seam** rather than inventing a literal
 ([`contracts/config-seam.md`](contracts/config-seam.md) § 2).
-**Check:** `grep -rn 'ISSUE_PREFIX:=' scripts/` should find the seam's own default and nothing
-else.
+**Check:** `grep -rn '^[^#]*ISSUE_PREFIX:=' scripts/` — **it should find nothing at all.**
+*The `:=` (assign-if-unset) form IS the defect: a script carrying it defines its own default and
+stops reading the seam. The seam's own default is spelled `:-`, so it is deliberately not what this
+matches — and the scripts that do mention `:=` mention it in comments recording the removal, which
+is why the pattern skips comment lines.*
+**This check previously read *"should find the seam's own default and nothing else"*, and was wrong
+on both halves** — it found five things, none of them the seam's default, and a reader who ran it
+saw five hits where the sentence promised one and had no way to tell a false alarm from a real one.
+*A verification command whose expected output is wrong is worse than no check: it trains the reader
+to ignore it.* Prove a check on a planted defect before writing it down.
 **The transferable half of how it was paid:** the fix was **declined once**, deliberately, when it
 was proposed as a one-script edit — because changing one of five would leave four inconsistent, and
 because the existing test asserted the old behaviour on purpose. It was paid as one change across

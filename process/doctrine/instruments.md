@@ -451,9 +451,11 @@ ablated copy no longer parses**, and **if the ablation removed nothing**. An abl
 removed nothing is § A.2's own defect one level up.
 
 **The probe that was deliberately NOT written (§ A.3).** Two of those same cases carry an explicit
-note that there is **no** grep-probe asking whether the drift report still contains the check — the
-reasoning being that such a probe *"would turn the check being deleted or refactored away into a SKIP
-instead of a FAIL."* The decision and its reason are recorded **in the harness**, next to the cases
+note that a capability probe was **left out on purpose** — one about the gate runner carrying any
+particular gate, the other about the drift report still containing the check. *Two different
+subjects, one reasoning*, and the reasoning is the transferable half: such a probe *"would turn the
+check being deleted or refactored away into a SKIP instead of a FAIL"* — the exact regression those
+cases exist to catch. The decision and its reason are recorded **in the harness**, next to the cases
 they govern. That comment is where this sheet's § A.3 came from.
 
 **A neutralizing fixture, which is § A.1 learned the hard way.** The harness copies the real
