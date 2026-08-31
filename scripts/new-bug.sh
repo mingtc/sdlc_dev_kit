@@ -161,6 +161,42 @@ if [ -n "$SEVERITY" ]; then
 fi
 
 rm -f "${WORK}.bak"
+# The card head that replaces the template's KIT-CLASS block at mint. See the re-head block below.
+# THE HEAD MUST NOT CONTAIN THE MARKER KEY, not even to deny it. The convention's own way to derive
+# what is classified is `grep -rl` for that key, so a card saying "no <key> marker" would be a false
+# POSITIVE in the one derivation the manifest recommends — and would redden the harness case that
+# asserts a minted card is unmarked. Measured: the first wording did exactly that.
+CARD_HEAD='<!-- A live card, not a template. It carries NO travel-classification marker, by design:
+     this file was born in this repository and never travels, and process/EXTRACTION.md § The one
+     file classification convention states that the absence is deliberate rather than an oversight.
+     Fill every <angle-bracket>; never leave one in a live card. -->'
+
+# RE-HEAD THE CARD: the template's travel classification goes, its still-in-force instruction stays.
+# process/EXTRACTION.md § The marker and graduation: a minted card's class has become PROJECT at the
+# moment of minting, so the KIT-CLASS: marker is stripped. But that marker also carried a FILL
+# instruction still in force while the author fills the card, and the same manifest forbids an
+# instruction living inside a marker that will be removed — so this REPLACES the block rather than
+# deleting it. A blind delete would have taken the guidance with the classification, and nowhere
+# else in the kit states it.
+#
+# THE HEAD IS PREPENDED BY THE SHELL, NOT PASSED INTO awk. `awk -v x="$MULTILINE"` fails with
+# "newline in string" and awk then writes NOTHING — measured: the first version of this block
+# produced an EMPTY card. awk deletes the old block, printf writes the new head, cat appends the
+# rest; every step is POSIX and none of them carries a newline through an assignment.
+#
+# DUPLICATED ACROSS THE MINTING SCRIPTS ON PURPOSE, FOR NOW: they source no common file, and giving
+# them one is a structural change owned elsewhere. When that lib exists, this moves into it.
+_CARD_BODY="${WORK}.rehead"
+awk '
+  /^<!-- KIT-CLASS:/ { skip = 1; next }
+  skip && /-->/      { skip = 0; next }
+  skip              { next }
+                    { print }
+' "$WORK" > "$_CARD_BODY"
+{ printf '%s\n' "$CARD_HEAD"; cat "$_CARD_BODY"; } > "$WORK"
+rm -f "$_CARD_BODY"
+
+
 mv "$WORK" "$DEST"
 
 echo "Created: $DEST"

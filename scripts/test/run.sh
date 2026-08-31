@@ -2079,6 +2079,80 @@ EOF
 }
 
 # =============================================================================
+# A MINTED CARD IS UNMARKED, AND ITS FILL INSTRUCTION SURVIVES THE STRIP
+# =============================================================================
+# The item templates carry a KIT-CLASS: marker because a template travels. A card minted FROM one
+# does not: process/EXTRACTION.md § The marker and graduation says a file whose class has become
+# PROJECT loses its marker, and a card's class becomes PROJECT at the moment of minting. The minting
+# scripts used to `cp` the template wholesale, so every live card opened by calling itself a template.
+#
+# BOTH DIRECTIONS ARE ASSERTED AND THE SECOND IS THE ONE THAT MATTERS. The template's marker block
+# also carried a FILL instruction -- never leave an angle bracket in a live card -- which is still in
+# force while the author fills the card, and which is stated NOWHERE ELSE in the kit. So a case that
+# asserted only "the marker is gone" would pass over a strip that deleted the guidance with it. The
+# scripts REPLACE the block for that reason; this case is what holds them to it.
+#
+# THE ASSERTION IS ANCHORED AT LINE START (`^<!-- KIT-CLASS:`), not a bare substring, because the
+# replacement head talks ABOUT classification. An unanchored match on the marker key would redden on
+# a correct card -- and the head is deliberately worded to avoid the key at all, so this anchoring is
+# a second belt rather than the only one.
+case_minted_card_is_unmarked() {
+  cf_reset
+  # THE FIXTURE IS kit_init_sandbox, NOT make_sandbox, and this is a measured correction rather than
+  # a preference: a bare sandbox carries no .claude/templates/, so every creation script exits 1 and
+  # the case fails on SETUP while looking like a finding. This file already records that trap at the
+  # creation-script fixtures ("against a sandbox with no templates — and every creation script then
+  # exited 1"); the first version of this case walked into it, and BOTH its ablation controls failed
+  # identically, which is how it was caught — a case whose red and its control's red are the same
+  # red is measuring nothing.
+  if ! has_kit_init; then
+    skp "minted card: no travel marker, fill instruction kept" "scripts/kit-init.sh absent"; return
+  fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
+    skp "minted card: no travel marker, fill instruction kept" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
+  fi
+  kit_init_sandbox
+
+  local out rc card id="$SB_PREFIX-701"
+  out="$(cd "$SB_WORK" && ./scripts/new-issue.sh unmarked-probe --id "$id" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { cf "new-issue.sh exited $rc minting $id: $out"; finish "minted card: no travel marker, fill instruction kept"; teardown; return; }
+  card="$SB_WORK/progress/todo/$id-unmarked-probe.md"
+  [ -f "$card" ] || { cf "new-issue.sh did not create progress/todo/$id-unmarked-probe.md: $out"; finish "minted card: no travel marker, fill instruction kept"; teardown; return; }
+
+  # (1) THE CLASSIFICATION IS GONE.
+  ! grep -qE '^<!-- KIT-CLASS:' "$card" \
+    || cf "the minted card still opens with a KIT-CLASS: marker — it is a live card, not a template, and its class became PROJECT at mint"
+
+  # (2) THE STILL-IN-FORCE INSTRUCTION SURVIVED. This is the half a blind strip breaks.
+  grep -qi 'never leave one in a live card' "$card" \
+    || cf "the minted card lost the fill instruction that came with the marker block — a blind strip took the guidance with the classification, and no other file in the kit states it"
+
+  # (3) THE CARD DECLARES ITS OWN UNMARKED-NESS, so a bare absence is not mistaken for an oversight.
+  grep -qi 'no travel-classification marker' "$card" \
+    || cf "the minted card does not say its lack of a marker is deliberate — an absence nobody declared reads as a file somebody forgot"
+
+  # (4) THE TEMPLATE IS UNTOUCHED. The strip must not reach back into the thing that travels.
+  grep -qE '^<!-- KIT-CLASS:' "$SB_WORK/.claude/templates/ISSUE.template.md" \
+    || cf "the template LOST its own marker — a template travels and must keep it; the strip reached the wrong file"
+
+  # (5) EVERY MINTING SCRIPT CARRIES THE RE-HEAD, with a control on the extractor. Driving all five
+  # in one case would be slow; a script that silently loses the block is the regression to catch, and
+  # zero-found must not read as clean.
+  local mfound=0 msh
+  for msh in new-issue.sh new-bug.sh new-prd.sh new-refactor.sh subtask.sh; do
+    [ -f "$SB_WORK/scripts/$msh" ] || continue
+    mfound=$(( mfound + 1 ))
+    grep -q 'RE-HEAD THE CARD' "$SB_WORK/scripts/$msh" \
+      || cf "scripts/$msh does not re-head the card it mints — its cards will open by calling themselves templates"
+  done
+  [ "$mfound" -ge 5 ] \
+    || cf "the extractor found only $mfound minting script(s) — expected at least 5. A count this low means the list stopped matching the tree, NOT that the tree is clean."
+
+  finish "minted card: no travel marker, fill instruction kept, template untouched ($mfound minting script(s) checked)"
+  teardown
+}
+
+# =============================================================================
 # THE INDEX INSERT MUST REFUSE A MALFORMED INDEX, not mis-write it
 # =============================================================================
 # WHY (reproduced from an adopter following a recipe that omitted the separator): the
@@ -6115,6 +6189,7 @@ CASES=(
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines
   case_runner_goldenpaths_empty_skips
+  case_minted_card_is_unmarked
   case_skills_carry_no_foreign_namespace
   case_skills_name_no_forge_unconditionally
   case_upstream_name_only_where_kept

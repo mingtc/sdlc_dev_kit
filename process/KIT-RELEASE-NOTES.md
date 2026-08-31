@@ -60,6 +60,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **A minted card no longer opens by calling itself a template.** `new-issue.sh`, `new-bug.sh`,
+  `new-prd.sh`, `new-refactor.sh` and `subtask.sh` copied their template wholesale, so every live
+  card carried the template's `KIT-CLASS:` marker — false the moment the card exists, since a card's
+  class becomes PROJECT at mint. Each script now **replaces** that block rather than deleting it,
+  because the block also carried the *never leave an angle bracket* instruction, which is still in
+  force while you fill the card and is stated nowhere else. The card's new head says it is a live
+  card, states that its lack of a travel marker is deliberate, and keeps the fill instruction.
+  **No action required.** Cards already on your board keep the old header; strip it if you like —
+  nothing reads it. **If you grep your board for `KIT-CLASS` to audit classification, newly minted
+  cards will now correctly not appear.**
 - **`EXTRACTION.md` no longer tells you both to mark and to strip the same file at the same
   moment.** § The one file classification convention said that once you fill `PROJECT.md` and
   `CLAUDE.md` they are `PROJECT`-class *"by nature"* and to **mark them so**, while § The marker and
