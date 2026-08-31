@@ -618,8 +618,35 @@ sit: § 2.2 has both lists and the commands that derive them.)*
 The initializer stamps the configuration seam, the item templates and the role docs. Whether it
 reaches `.claude/agents/` and `.claude/workflows/` — which contain illustrative ids, trunk names
 and gate-command examples of their own — is the thing to check, and historically it did not.
-**Check, after running the initializer:** `grep -rnE '<PREFIX>|<trunk>|XYZ-[0-9]' .claude/agents .claude/workflows`
-should return nothing that reads as a live value rather than an illustration.
+**Check, after running the initializer** — two commands, because the role docs have a different
+answer for `<trunk>` and the difference is a ruling, not an oversight:
+
+```sh
+grep -rnE '<PREFIX>|<trunk>|XYZ-[0-9]' .claude/agents .claude/workflows
+grep -rnE '<PREFIX>|XYZ-[0-9]'         .claude/roles      # NOT <trunk> — see below
+```
+
+Either should return nothing that reads as a live value rather than an illustration.
+
+**Why `<trunk>` is excluded from the role docs, and why that is a rule rather than a leniency.**
+**`<trunk>` inside a role doc is NOTATION: every role doc that uses it DEFINES it, in its own
+preamble** — *"Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<trunk>` is
+the project's single trunk branch"* — so the angle brackets are a symbol the document introduces, not a
+blank the stamper missed. **Stamping it would delete the referent of a definition the same file
+states.**
+
+**And the initializer never touches it, for any project.** What it rewrites is the **literal trunk
+name** — its `TRUNK_RE` is built from the shipped default read out of `lib/kanban-worktree.sh`, so a
+project whose trunk is `<something-else>` gets every literal occurrence rewritten and every `<trunk>`
+symbol left standing. **That is why the census line reads `trunk '<default>': N → N` on a project whose
+trunk equals the shipped default: it is counting the literal, and there was nothing to change.** *The
+line is honest about which string it counts; it was read as a report about the angle-bracket blanks,
+which it never was.*
+
+**So the previous version of this check was wrong in one direction only:** it named `<trunk>` and did
+not read `.claude/roles`, which is the STAMP-class directory that actually carries the symbols — so it
+could never have reported them, and widening it naively would have reported every definition as a
+defect.
 **Cost if unpaid:** a search-and-replace pass plus a read of the two runners.
 **Note the honest sub-case:** a *provenance citation* of the form *prefix-number* attributing a
 lesson is a **citation, not a value**, and rewriting it would manufacture a reference your history

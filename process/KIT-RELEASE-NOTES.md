@@ -60,6 +60,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`EXTRACTION.md` § 4.6's post-initializer check now reads `.claude/roles/` too, and rules that
+  `<trunk>` there is notation rather than an unfilled blank.** The check previously named `<trunk>`
+  but scanned only `.claude/agents` and `.claude/workflows`, so it never read the directory that
+  actually carries those symbols — and widening it naively would have reported every one as a defect.
+  Every role doc **defines** `<trunk>` in its own preamble, and the initializer rewrites the
+  **literal** trunk name rather than the symbol, which is also why its census line reads
+  `trunk '<default>': N → N` on a project whose trunk is the shipped default: it counts the literal,
+  and there was nothing to change. **No action required** — nothing an adopter runs changes; if you
+  previously widened § 4.6's grep yourself and got hits in `.claude/roles/`, those hits were the
+  definitions.
 - **`SEED.md` step 2 now says that `--gate-command` is for that run only, and names the fallback
   where you are standing when you need it.** The flag cannot be supplied on a re-run — the
   initializer refuses and there is no resume path — so a project that has not settled its gate
