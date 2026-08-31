@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+### Changed
+
+- **`goldenPaths: ''` now actually skips the zero-drift step in both runners.** The runners
+  documented *"empty string = skip the zero-drift diff entirely"* and then used `||`, so `''`
+  silently restored the default `tests/fixtures tests/golden*` — a project with no pinned-output
+  corpus ran a diff against paths that do not exist on every issue, and had to rely on the prompt's
+  *"if it matched NOTHING, treat the step as NOT RUN"* warning each time. Both runners now use `??`.
+  **If you pass `''` today you will now get a skip where you previously got the default**, which is
+  what the comment always promised; if you actually want those paths, name them.
+
 ### Action required
 
 - **Three role docs said the model-and-effort table was ratified while the kit shipped it blank.**

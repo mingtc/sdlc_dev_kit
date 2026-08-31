@@ -30,7 +30,15 @@ const CFG = {
   gateCmd:     ARGS.gateCmd     || './scripts/verify.sh',
   setupCmd:    ARGS.setupCmd    || './setup.sh',            // worktree bootstrap, if the project has one
   codePaths:   ARGS.codePaths   || 'src/**, tests/**, and the build/dependency manifest',
-  goldenPaths: ARGS.goldenPaths || 'tests/fixtures tests/golden*',
+  // Pinned-output paths a behavior-preserving change must not move. Empty string = skip
+  // the zero-drift diff entirely (a project with no goldens should pass '').
+  // `??` NOT `||`, and the difference is the whole point: `'' || <default>` IS the default, so
+  // passing the empty string restored the very value it was documented to suppress. `??` falls
+  // through only on null/undefined, so '' reaches CFG.goldenPaths, the drift step's own
+  // `CFG.goldenPaths &&` guard is falsy on it, and the step is skipped as documented. Do not
+  // "tidy" this back to `||` for consistency with its neighbours: this is the one default in this
+  // block with a meaningful empty value, and scripts/test/run.sh asserts the `??` in both runners.
+  goldenPaths: ARGS.goldenPaths ?? 'tests/fixtures tests/golden*',
   secretsFile: ARGS.secretsFile || '.env',                  // gitignored credentials file, if any
   liveRules:   ARGS.liveRules   || '',
 }

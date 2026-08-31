@@ -38,7 +38,13 @@ const CFG = {
   codePaths:   ARGS.codePaths   || 'src/**, tests/**, and the build/dependency manifest',
   // Pinned-output paths a behavior-preserving change must not move. Empty string = skip
   // the zero-drift diff entirely (a project with no goldens should pass '').
-  goldenPaths: ARGS.goldenPaths || 'tests/fixtures tests/golden*',
+  // `??` NOT `||`, and the difference is the whole point: `'' || <default>` IS the default, so
+  // passing the empty string restored the very value it was documented to suppress. `??` falls
+  // through only on null/undefined, so '' reaches CFG.goldenPaths, the drift step's own
+  // `CFG.goldenPaths &&` guard is falsy on it, and the step is skipped as documented. Do not
+  // "tidy" this back to `||` for consistency with its neighbours: this is the one default in this
+  // block with a meaningful empty value, and scripts/test/run.sh asserts the `??` in both runners.
+  goldenPaths: ARGS.goldenPaths ?? 'tests/fixtures tests/golden*',
   // Optional extra ground rule injected verbatim into every prompt: the project's
   // live/destructive-resource rules. See process/doctrine/live-resources.md.
   liveRules:   ARGS.liveRules   || '',

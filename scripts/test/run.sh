@@ -1996,6 +1996,89 @@ case_runner_schema_required_defines() {
 }
 
 # =============================================================================
+# THE DOCUMENTED goldenPaths ESCAPE MUST ACTUALLY SKIP
+# =============================================================================
+# tranche-runner documented "Empty string = skip the zero-drift diff entirely (a project with no
+# goldens should pass '')" and then wrote `ARGS.goldenPaths || <default>` — and `'' || <default>` IS
+# the default, so the escape restored the very value it was meant to suppress. A project with no
+# pinned-output corpus passed '' exactly as instructed, and both its QA seats ran a diff against
+# paths that do not exist, on every issue, and had to write a paragraph each time explaining that an
+# empty match is not a clean diff. wave-runner carried the identical `||` with no comment promising
+# anything, so the defect was here twice — once documented and broken, once undocumented and broken.
+#
+# THIS CASE DOES NOT EXECUTE THE RUNNERS, and that is deliberate rather than a shortcut. Node is not
+# a kit dependency (kit/scripts/ invokes it nowhere; the one Node extra is opt-in per question and
+# deletable), so a case that ran them would make the harness fail on a conforming machine. The
+# established idiom for the runners in this file is static extraction with a control on the
+# EXTRACTOR — see case_runner_schema_required_defines, whose own comment records that the harness
+# does not exercise them.
+#
+# BOTH HALVES ARE ASSERTED, because either alone is a green that cannot go red for the real
+# behaviour: `??` in the CFG default makes '' REACH CFG.goldenPaths, and the drift step's own guard
+# on that value is what turns that into a SKIP. Assert only the first and a later edit to the guard
+# breaks the skip while this case stays green; assert only the second and a revert to `||` never
+# delivers '' to it. The pair is the property.
+#
+# COMMENTS ARE STRIPPED BEFORE EVERY LOOKUP, and this is not hygiene — it is the fix to a FALSE GREEN
+# this case was CAUGHT producing on its own third control. The runners now carry a comment explaining
+# why the guard matters, and that comment NAMES THE GUARD. So with the real guard ablated out of the
+# code, a plain `grep -F` still matched — the assertion was satisfied by the prose written to explain
+# the thing it was supposed to be measuring.
+#
+# THE GENERAL FORM, because this was the SECOND instance in one session: an assertion that greps
+# source for a token must strip that source's comments, because the comment explaining why the token
+# matters is the place the token is most certain to appear. The first instance was the maintainer
+# repository's own live-state arm, satisfied by an HTML comment recording the very staleness it was
+# checking for. Strip toward OVER-stripping: an over-strip reddens loudly and a reader investigates,
+# an under-strip is the silent pass this note exists to prevent.
+_goldenpaths_runners() {   # every shipped runner, disarmed or armed tree
+  local f
+  for f in "$REAL_REPO_ROOT"/_claude/workflows/*runner*.js "$REAL_REPO_ROOT"/.claude/workflows/*runner*.js; do
+    [ -e "$f" ] && printf '%s\n' "$f"
+  done
+}
+
+case_runner_goldenpaths_empty_skips() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
+
+  local f lab found=0 bad=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    lab="$(basename "$f")"
+    found=$(( found + 1 ))
+
+    # THE OPERAND IS THE CODE, NOT THE FILE: every `//` comment is stripped first. See the header.
+    local code; code="$(sed 's://.*::' "$f")"
+
+    # HALF 1 — the CFG default falls through only on null/undefined.
+    if printf '%s\n' "$code" | grep -qE '^[[:space:]]*goldenPaths:[[:space:]]*ARGS\.goldenPaths[[:space:]]*\?\?'; then
+      :
+    else
+      bad=$(( bad + 1 ))
+      cf "$lab: goldenPaths does not use '??' — with '||' the documented empty-string escape restores the default instead of skipping the zero-drift step, which is the defect this case exists for"
+    fi
+    # And the specific regression, named so a reader knows what to look for.
+    ! printf '%s\n' "$code" | grep -qE '^[[:space:]]*goldenPaths:[[:space:]]*ARGS\.goldenPaths[[:space:]]*\|\|' \
+      || { bad=$(( bad + 1 )); cf "$lab: goldenPaths is back to '||' — see the comment at that line before changing it"; }
+
+    # HALF 2 — the drift step is guarded by the value, so an empty string skips it.
+    printf '%s\n' "$code" | grep -qF 'CFG.goldenPaths &&' \
+      || { bad=$(( bad + 1 )); cf "$lab: the drift step has no guard on CFG.goldenPaths — '??' alone does not produce a skip, it only delivers the empty string to a step that would then run against nothing"; }
+  done <<EOF
+$(_goldenpaths_runners)
+EOF
+
+  # ASSERT THE EXTRACTOR, not only the comparison. Zero runners found checks nothing and reads
+  # green — the vacuous pass this sheet exists to prevent. Two is the shipped count.
+  [ "$found" -ge 2 ] \
+    || cf "the extractor found only $found runner(s) — expected at least 2 (wave + tranche). A count this low means the glob stopped matching, NOT that the tree is clean."
+
+  finish "runner goldenPaths: '' SKIPS the zero-drift step — '??' default AND the CFG guard, in every shipped runner ($found runner(s) checked, $bad finding(s))"
+  teardown
+}
+
+# =============================================================================
 # THE INDEX INSERT MUST REFUSE A MALFORMED INDEX, not mis-write it
 # =============================================================================
 # WHY (reproduced from an adopter following a recipe that omitted the separator): the
@@ -6031,6 +6114,7 @@ CASES=(
   case_archive_index_carries_the_date
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines
+  case_runner_goldenpaths_empty_skips
   case_skills_carry_no_foreign_namespace
   case_skills_name_no_forge_unconditionally
   case_upstream_name_only_where_kept
