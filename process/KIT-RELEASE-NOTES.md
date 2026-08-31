@@ -48,6 +48,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **Three role docs said the model-and-effort table was ratified while the kit shipped it blank.**
+  `.claude/roles/dev.md` and `qa.md` said *"ratified by PM"*; `orchestrator.md` said *"the
+  adapter's PM ratifies it"* in a present tense that reads as a standing fact. All three now say
+  the table ships blank, that filling and ratifying it comes before relying on it, and that until
+  then the seat states its chosen model and effort on the card with a reason. **Action required:**
+  if you read one of those docs and never filled the ladder, fill and ratify it now — the doctrine
+  sheet's own sentence is that an unratified ladder is a habit with a table, and it was coming true
+  silently. `pm.md` and `refactorer.md` always said this correctly and are unchanged.
 - **A `.gitignore` line whose comment trails the pattern matches nothing, and the kit's own FILL
   block taught that shape.** `#` only begins a comment at the START of a line in gitignore syntax,
   so `dist/  # produced by my build` makes the comment part of the pattern: the rule matches

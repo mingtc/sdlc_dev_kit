@@ -35,7 +35,9 @@ How the Orchestrator itself is provisioned — and, because this role dispatches
 provisions everyone else from. The **pattern** (why a ladder exists at all, and the two
 mechanisms that carry an escalation) lives in
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md); the
-table below is this project's **instance** and the adapter's PM ratifies it.
+table below is this project's **instance**, and **ratifying it is the adapter's PM's job — it
+ships blank and is not ratified until they do it.** *An unratified ladder is a habit with a table*
+(`model-provisioning.md` § B.2).
 
 | Role / work class | Model | Effort |
 | --- | --- | --- |

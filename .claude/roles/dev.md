@@ -16,8 +16,12 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 
 How a Dev-hat **worker** is provisioned. The **pattern** is
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md); the
-table below is this project's **instance**, ratified by PM, and the full ladder for every role
-lives in [orchestrator.md § Model & effort contract](orchestrator.md#model--effort-contract).
+table below is this project's **instance** — it ships **blank**, so **fill and ratify it before
+relying on it, and until then state on the card which model and effort you chose and why**. The full
+ladder for every role lives in
+[orchestrator.md § Model & effort contract](orchestrator.md#model--effort-contract). *An unratified
+ladder is a habit with a table* (`model-provisioning.md` § B.2); the claim that it was ratified
+belongs in the change that fills it, never ahead of it.
 
 | Work class | Model | Effort |
 | --- | --- | --- |
