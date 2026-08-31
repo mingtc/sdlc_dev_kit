@@ -16,7 +16,23 @@ export const meta = {
 // "CORRECT, not a failure"; that reasoning was right and is preserved by the field now being
 // able to SAY it, which is what retired the carve-out rather than deleting it.
 
-const ARGS = typeof args === 'string' ? JSON.parse(args) : args
+// THE PARSE IS GUARDED, and the reason is that the unguarded version's failure named nothing it
+// could have named. A non-JSON payload produced a bare `SyntaxError: JSON Parse error: Unexpected
+// identifier` whose only location was the HARNESS file, not this one — so the message pointed away
+// from the thing that was wrong, at the entry point an operator drives first and is most likely to
+// get wrong. The fail-fast was right and is kept: the run still dies at 0 agents, cheaply.
+//
+// The message names THIS runner, echoes the value it got (truncated, so a large payload cannot bury
+// the message), and names the REQUIRED top-level keys only — the full per-issue shape stays at its
+// one authoring site above rather than being copied here, because a copied contract is the one that
+// rots. This is the same shape as the `if (!CFG.repo) throw` below, which was already a named,
+// actionable refusal and simply never got reached.
+let ARGS
+try {
+  ARGS = typeof args === 'string' ? JSON.parse(args) : args
+} catch (e) {
+  throw new Error(`wave-runner: args must be a JSON object, not prose. Got: ${String(args).slice(0, 60)}\nExpected: { repo, wave1: [...], wave2: [...] } — the full shape is in this file's meta.description and the per-issue fields mirror tranche-runner.js\nUnderlying parse error: ${e.message}`)
+}
 
 // ---------------------------------------------------------------------------
 // CFG — the only project-specific values in this file. Override any of them per

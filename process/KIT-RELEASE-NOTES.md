@@ -48,6 +48,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **A malformed `args` payload to either runner now fails with a message that names the runner, the
+  problem and the expected shape.** Passing non-JSON previously produced a bare
+  `SyntaxError: JSON Parse error` whose only location was the harness file, not the runner — so the
+  message pointed away from the thing that was wrong, at the entry point you drive first. The parse
+  is now wrapped: the error names the runner, echoes the value it received (truncated), names the
+  required top-level keys, points at where the full shape is declared in that file, and appends the
+  underlying parse error. **The fail-fast is unchanged** — the run still dies at 0 agents.
 - **`goldenPaths: ''` now actually skips the zero-drift step in both runners.** The runners
   documented *"empty string = skip the zero-drift diff entirely"* and then used `||`, so `''`
   silently restored the default `tests/fixtures tests/golden*` — a project with no pinned-output
