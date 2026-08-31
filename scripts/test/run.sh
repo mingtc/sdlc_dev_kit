@@ -2153,6 +2153,60 @@ case_minted_card_is_unmarked() {
 }
 
 # =============================================================================
+# EVERY SHIPPED RUNNER MUST PARSE
+# =============================================================================
+# wave-runner.js did not parse for several releases: a paragraph of narration inside a returned
+# template literal put backticks around a field name, terminated the literal, and made the whole file
+# unloadable. It shipped in a released zip. Nothing caught it, because nothing in the kit parsed these
+# files -- not the harness, not the build guard (which reads citations and armed names), and `bash -n`
+# cannot read a .js file at all.
+#
+# THE DISCRIMINATION THAT MAKES THIS CHECKABLE, and it is the whole reason this case can exist: these
+# runners are NOT standalone modules. The harness executes their body inside an async wrapper, so a
+# top-level `return` is legal there and illegal to any standalone parser. A healthy runner therefore
+# FAILS a plain parse -- with exactly `Illegal return statement`. A broken one fails with something
+# else. So the assertion is not "it parses"; it is "the ONLY parse error is the dialect one".
+#   healthy: SyntaxError: Illegal return statement      <- expected, tolerated
+#   broken:  SyntaxError: Unexpected identifier '...'   <- the real thing, refused
+# An earlier attempt to guard this class was abandoned as unworkable precisely because the healthy
+# files fail; the mistake was reading "it fails" instead of reading WHICH failure. Do not simplify
+# this back into a bare `node --check` and a rc test.
+#
+# NODE IS NOT A KIT DEPENDENCY, so this SKIPS -- loudly, naming why -- where node is absent. A skip
+# that says nothing is indistinguishable from a pass, so the skip reason names the binary.
+case_shipped_runners_parse() {
+  cf_reset
+  if ! command -v node >/dev/null 2>&1; then
+    skp "shipped runners parse (only the harness-dialect error is tolerated)" "node is not on PATH, and the kit does not require it -- this case cannot run here"
+    return
+  fi
+  make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
+
+  local f lab found=0 out rc
+  for f in "$REAL_REPO_ROOT"/_claude/workflows/*.js "$REAL_REPO_ROOT"/.claude/workflows/*.js; do
+    [ -e "$f" ] || continue
+    lab="$(basename "$f")"
+    found=$(( found + 1 ))
+    out="$(node --input-type=module --check < "$f" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then
+      continue   # parses outright; fine, and means the file has no top-level return
+    fi
+    # The ONE tolerated failure. Anything else is a real lexical or structural break.
+    if printf '%s\n' "$out" | grep -q 'Illegal return statement'; then
+      continue
+    fi
+    cf "$lab does NOT parse, and the failure is not the tolerated harness-dialect one: $(printf '%s' "$out" | grep -m1 'SyntaxError' || printf '%s' "$out" | head -1). A runner that cannot be loaded fails at 0 agents for every adopter who drives it."
+  done
+
+  # ASSERT THE EXTRACTOR. Zero runners found checks nothing and reads green.
+  [ "$found" -ge 2 ] \
+    || cf "the extractor found only $found runner(s) -- expected at least 2 (wave + tranche). A count this low means the glob stopped matching, NOT that the tree is clean."
+
+  finish "shipped runners parse -- only the harness-dialect error is tolerated ($found runner(s) checked)"
+  teardown
+}
+
+# =============================================================================
 # THE INDEX INSERT MUST REFUSE A MALFORMED INDEX, not mis-write it
 # =============================================================================
 # WHY (reproduced from an adopter following a recipe that omitted the separator): the
@@ -6190,6 +6244,7 @@ CASES=(
   case_runner_schema_required_defines
   case_runner_goldenpaths_empty_skips
   case_minted_card_is_unmarked
+  case_shipped_runners_parse
   case_skills_carry_no_foreign_namespace
   case_skills_name_no_forge_unconditionally
   case_upstream_name_only_where_kept
