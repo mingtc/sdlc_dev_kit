@@ -232,9 +232,23 @@ ${issue.extraQA || ''}
 Return the structured result only.`
 }
 
+// PARK-QA BRIEF. Its `landing=not_applicable` sentence carries a superseded conclusion whose reason
+// is kept here rather than in the prompt: the sentence used to read "landed is ALWAYS false", a later
+// change replaced that boolean with the three-valued `landing` field and updated the schema beside it
+// without following the rename into this brief, so the instruction named a field the schema no longer
+// defined. The schema moved and the prose did not — the very divergence that change existed to
+// prevent, one layer over.
+//
+// THAT NARRATION USED TO LIVE INSIDE THE RETURNED TEMPLATE LITERAL, and it broke the file: the pair
+// of backticks it put around `landing` TERMINATED the literal, so wave-runner.js did not parse at all
+// and the wave path was unloadable from the commit that added the narration through the next release.
+// Nothing caught it, because nothing in the kit parses these files. Two rules come out of it and both
+// belong here: maintainer narration goes in a `//` comment, never in a string that is sent to an
+// agent as instructions; and a backtick inside a template literal is a lexical hazard, not a styling
+// choice.
 function parkPrompt(issue) {
   return `Wear the **QA hat** per .claude/roles/qa.md. Issue ${issue.id} was PARKED by its Dev (status=blocked). Verify THE PARK, not the feature: the issue sits in blocked/ with findings; the findings are evidence-backed and honestly scoped; the tree shows no half-landed residue (clean status, no stray branch); nothing in the park's claims is contradicted by the repo. Do not re-litigate whether parking was right — that is the PM's call. ${COMMON}
-Return the structured result only: the ratified verdict for whether the PARK is true, and landing=not_applicable — a park lands nothing, so that is the true value rather than an exception you are being granted. (This line used to say "landed is ALWAYS false"; a later change replaced that boolean with the three-valued `landing` field, updated the schema beside it, and did not follow the rename into this brief — so the instruction named a field the schema no longer defines. The schema moved and the prose did not, which is the very divergence that change existed to prevent, one layer over.)`
+Return the structured result only: the ratified verdict for whether the PARK is true, and landing=not_applicable — a park lands nothing, so that is the true value rather than an exception you are being granted.`
 }
 
 const results = []

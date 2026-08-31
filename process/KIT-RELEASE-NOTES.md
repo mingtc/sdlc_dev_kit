@@ -126,6 +126,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Action required
 
+- **`.claude/workflows/wave-runner.js` did not parse in v0.2.0 — the wave path was unusable.** A
+  paragraph of maintainer narration inside the park-QA brief put backticks around a field name, which
+  terminated the template literal and made the whole file unloadable; driving the wave path produced a
+  syntax error at 0 agents. It was broken in the released zip, not only in the source. The narration
+  has moved into a comment and the brief now matches its sibling's wording. **Action required if you
+  adopted v0.2.0 and use the wave path:** take this file from a later kit, or delete the parenthetical
+  beginning *"(This line used to say"* from `parkPrompt`'s returned string. `tranche-runner.js` was
+  never affected.
+
 - **Three role docs said the model-and-effort table was ratified while the kit shipped it blank.**
   `.claude/roles/dev.md` and `qa.md` said *"ratified by PM"*; `orchestrator.md` said *"the
   adapter's PM ratifies it"* in a present tense that reads as a standing fact. All three now say
