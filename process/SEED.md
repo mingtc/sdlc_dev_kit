@@ -52,6 +52,15 @@ the kit's files on disk — SEED does not conjure them; it tells you what to do 
 
 It stamps the seams, creates the board, wires the hooks and then **proves the result with a
 self-check**. A second run **refuses**; so does a run against a repository that has already lived.
+
+**`--gate-command` is for this run only, and that matters HERE because of the order of operations.**
+A re-run refuses and there is no resume path, so a project extracting an existing tool — which may
+not have settled its gate command by the time it stamps — cannot come back for the flag later. **Omit
+it and declare your gates by hand in `scripts/verify.sh`'s `GATES` table instead.** That is a
+supported route and not a fallback: what the landing gate requires is an **executable, committed gate
+runner**, never that the initializer wrote it. What you must not do is skip both — the shipped frame
+ships with an empty table that **refuses to run**, and the landing gate refuses to land without a
+runner that does.
 *(Authority: [`contracts/initializer.md`](contracts/initializer.md) — *configure, then prove*;
 [`EXTRACTION.md` § 1.3](EXTRACTION.md).)*
 

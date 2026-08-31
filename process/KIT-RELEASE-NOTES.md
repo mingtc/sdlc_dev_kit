@@ -60,6 +60,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`SEED.md` step 2 now says that `--gate-command` is for that run only, and names the fallback
+  where you are standing when you need it.** The flag cannot be supplied on a re-run — the
+  initializer refuses and there is no resume path — so a project that has not settled its gate
+  command by the time it stamps could not come back for it, and the alternative (declaring gates by
+  hand in `scripts/verify.sh`'s `GATES` table) was documented only in `--help` and `README.md`. It
+  is now stated in the order-of-operations document too, as a **supported route rather than a
+  fallback**: what the landing gate requires is an executable, committed gate runner, never that the
+  initializer wrote it. Skipping both is still refused at both ends.
 - **The day-one recipe now says `git init -b main`, and the `git switch -c` line is gone.** A bare
   `git init` puts HEAD on whatever `init.defaultBranch` says — still `master` on any machine whose
   git predates the default change or whose user never set it — so the first commit landed on
