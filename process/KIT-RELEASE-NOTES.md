@@ -46,7 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
-_Nothing yet._
+### Action required
+
+- **A `.gitignore` line whose comment trails the pattern matches nothing, and the kit's own FILL
+  block taught that shape.** `#` only begins a comment at the START of a line in gitignore syntax,
+  so `dist/  # produced by my build` makes the comment part of the pattern: the rule matches
+  nothing, git goes on reporting the artifact, and nothing says why. All four worked examples in
+  `.gitignore`'s `<your build artifacts>` block now put the comment on the line above, with the
+  reason and `git check-ignore -q` beside them. **Action required if you filled that block by
+  following the examples:** move each comment to its own line and verify every entry with
+  `git check-ignore -q <path>` — reading them cannot tell you which are dead.
 
 ## [0.2.0] — 2026-08-31
 

@@ -70,7 +70,25 @@ Thumbs.db
 #     ignore that staging path by name — repo-walking guards honour this file, and
 #     a mid-build copy will otherwise be scanned as if it were source.
 #
-# <e.g. dist/            # produced by <your build command>>
-# <e.g. build/           # produced by <your build command>>
-# <e.g. <dep-dir>/       # installed by ./setup.sh from the committed lockfile>
-# <e.g. <cache-dir>/     # test-runner cache>
+#   • PUT THE COMMENT ON THE LINE ABOVE THE PATTERN. `#` only begins a comment at
+#     the START of a line in gitignore syntax, so a trailing `dist/  # produced by …`
+#     makes that text part of the PATTERN: the rule matches nothing, git goes on
+#     reporting the artifact, and nothing anywhere says why. It fails in the quiet
+#     direction. Every real entry above this block already does it correctly.
+#     Verify each line you add with `git check-ignore -q <path>` rather than by
+#     reading it — an ignore rule that matches nothing looks exactly like one that
+#     works.
+#
+# <e.g.
+#   # produced by <your build command>
+#   dist/
+#
+#   # produced by <your build command>
+#   build/
+#
+#   # installed by ./setup.sh from the committed lockfile
+#   <dep-dir>/
+#
+#   # test-runner cache
+#   <cache-dir>/
+# >
