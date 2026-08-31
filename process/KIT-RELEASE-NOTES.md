@@ -48,6 +48,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **The day-one recipe now says `git init -b main`, and the `git switch -c` line is gone.** A bare
+  `git init` puts HEAD on whatever `init.defaultBranch` says — still `master` on any machine whose
+  git predates the default change or whose user never set it — so the first commit landed on
+  `master` and the later `git switch -c` created `main` from it, leaving two branches at one commit.
+  The deleted line's condition (*"if your trunk does not exist yet"*) was false at the moment it was
+  read, which invited a careful reader to skip it and then be refused by the initializer's trunk
+  check for a reason that did not name the cause. `process/SEED.md` step 1 is reconciled to match.
+  **No action required** — if you already initialized, a stray `master` at the same commit is
+  harmless and yours to delete.
 - **A malformed `args` payload to either runner now fails with a message that names the runner, the
   problem and the expected shape.** Passing non-JSON previously produced a bare
   `SyntaxError: JSON Parse error` whose only location was the harness file, not the runner — so the

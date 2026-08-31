@@ -38,9 +38,8 @@ with your project's values and to prove it works.
 
 ```sh
 # 1. Prerequisites the initializer will not do for you (it guides, it never bootstraps):
-git init
+git init -b main                                 # -b NAMES the trunk — see the note below
 git add -A && MSG_OK=1 git commit -m 'init'      # the first commit
-git switch -c main                               # if your trunk does not exist yet
 git remote add origin <url-or-path-to-a-bare-repo>
 git push -u origin main
 git remote set-head origin main                  # ← the step whose absence is SILENT
@@ -49,6 +48,17 @@ git remote set-head origin main                  # ← the step whose absence is
 ./scripts/kit-init.sh --prefix XYZ --trunk main --gate-command '<your test command>'
 ./scripts/kit-init.sh --help                     # every option, and the preconditions
 ```
+
+**Why `-b`, and not `git init` followed by `git switch -c`.** A bare `git init` puts HEAD on whatever
+`init.defaultBranch` says, which is still `master` on any machine whose git predates the default
+change or whose user never set it. The commit then lands on `master`, and a later `git switch -c main`
+creates `main` **from** it — leaving two branches at one commit and a `master` nobody asked for. The
+switch line also used to carry the condition *"if your trunk does not exist yet"*, which is false at
+the moment it is read: after the commit the branch demonstrably **does** exist, so a careful reader
+skips the line, proceeds with trunk = `master`, passes `--trunk main` to the initializer, and is
+refused several steps later by a check that does not name this as the cause. `-b` removes the
+sequence. *(`-b` needs git 2.28 or newer, released 2020. On older git,
+`git symbolic-ref HEAD refs/heads/main` immediately after `git init` does the same thing everywhere.)*
 
 `--prefix XYZ` makes your issue files `XYZ-001-<slug>.md`; until you stamp it, `scripts/config.sh`
 carries a neutral placeholder and the documents here say `<PREFIX>`. `--trunk` is **required and
