@@ -71,6 +71,17 @@ written here: *the list is the list.*
 - **`process/KIT-VERSION` carries no marker.** *Why:* it is a single version literal and **has no
   comment syntax** — any marker would become part of the value the release ritual reads. The same
   constraint applies to any file whose entire content is consumed as data.
+- **A file BORN in your tree that will never travel carries no marker — and says so in one visible
+  line of its own body.** *Why:* the marker is a **travel** classification, and a file that was never
+  the kit's has no travel to classify; a `PROJECT` marker on it would answer a question nobody asked.
+  **The visible line is not optional, and it is why this carve-out is written rather than left
+  implied:** a bare absence is indistinguishable from an oversight, so without it the next extractor
+  cannot tell deliberate non-marking from a file somebody forgot. *One sentence — "this file carries
+  no `KIT-CLASS:` marker deliberately: it was born here and never travels" — discharges it.*
+  **The distinction that decides this is whether the file's SHAPE travels, not whose content is in
+  it:** `requirements/CORPUS.md` keeps its marker because the *shape* is the kit's however
+  project-specific its entries become, while a feedback log you invent for your own use never had
+  one.
 
 **And one file carries its class as data because it cannot carry a comment:**
 `.claude/settings.json.example` is JSON, so its classification is the `_KIT_CLASS` key beside its
@@ -91,9 +102,17 @@ contains; an instrument you can delete is not a requirement.*
 seed *is* the kit: it holds no product. `MIXED` here means *"the frame travels, the contents are
 yours"* — the gate runner, the attribution hook, the release script, the self-test harness. As soon
 as you fill in `PROJECT.md` and `CLAUDE.md`, **those two are `PROJECT`-class by nature**: they are
-the only files in the tree that never travel anywhere. Mark them so, and re-mark honestly as your
-own files accrete. A marker that says `KIT` over a file carrying your product's law is worse than
-no marker.
+the only files in the tree that never travel anywhere. ~~Mark them so~~ — **they LOSE their markers
+at that moment rather than gaining `PROJECT` ones**, which is § The marker and graduation's act and
+is specified there. Re-mark honestly as your own files accrete. A marker that says `KIT` over a file
+carrying your product's law is worse than no marker.
+
+*(The struck instruction stood until 2026-08-31 and **directly contradicted the graduation rule**,
+which names `PROJECT.md` as its own worked example: one section said mark it `PROJECT`, the other said
+strip it, **at the same moment in the file's life**. Both mistakes were made in an adopting project
+before either was noticed. The reason above is kept because it is the reason for **stripping** — a
+marker that misdescribes a file is worse than none, and a `PROJECT` marker on a file that never
+travels is a travel classification for a journey nobody takes.)*
 
 ## The second axis: DISPOSITION — what state must this file be in before day one is done?
 

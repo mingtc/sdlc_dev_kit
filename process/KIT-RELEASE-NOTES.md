@@ -60,6 +60,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ### Changed
 
+- **`EXTRACTION.md` no longer tells you both to mark and to strip the same file at the same
+  moment.** § The one file classification convention said that once you fill `PROJECT.md` and
+  `CLAUDE.md` they are `PROJECT`-class *"by nature"* and to **mark them so**, while § The marker and
+  graduation said to **strip** the marker at exactly that point — and named `PROJECT.md` as its own
+  worked example. The graduation rule is the correct one and stands; the *mark them so* instruction
+  is struck, with a pointer to it. **A new carve-out covers the file born in your own tree that will
+  never travel:** it carries no marker, and it carries **one visible line saying that absence is
+  deliberate**, because a bare absence cannot be told apart from an oversight. The test is whether
+  the file's **shape** travels — `requirements/CORPUS.md` keeps its marker however project-specific
+  its entries get; a log you invent for yourself never had one. **Action required only if you
+  re-marked a graduated file `PROJECT`:** strip it instead, and if you have unmarked files of your
+  own, give each the one-line note.
 - **`EXTRACTION.md` § 4.6's post-initializer check now reads `.claude/roles/` too, and rules that
   `<trunk>` there is notation rather than an unfilled blank.** The check previously named `<trunk>`
   but scanned only `.claude/agents` and `.claude/workflows`, so it never read the directory that
