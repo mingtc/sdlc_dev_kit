@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+### Added
+
+- **Day one has a documented variant for making your first *published* commit your project's own.**
+  The initializer requires a commit before it runs and then makes and pushes its own, plus more
+  while self-checking, so the earliest history on a hosted remote necessarily began with kit
+  scaffolding — and `--skip-self-check` does not change that. `README.md` § Day one now names the
+  way through: point `origin` at a local bare repository first, run day one against it **with the
+  self-check intact**, author your content, then squash and re-point at the host. **The kit does not
+  perform the squash and has no flag for it** — that is deliberate, because rewriting history is
+  safe there only while nothing has been published, and a tool could not know that. Nothing changes
+  for a project already initialized.
+
 ### Changed
 
 - **The day-one recipe now says `git init -b main`, and the `git switch -c` line is gone.** A bare

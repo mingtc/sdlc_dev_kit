@@ -69,6 +69,38 @@ writes your command into that table as its first record. Drop the flag only if y
 declared your gates in that table by hand — never skip both: **the landing gate refuses to land a
 branch without an executable, committed gate runner, and an empty frame refuses to run.**
 
+### If your first *published* commit must be your project's own
+
+**A supported variant, because the kit's own pieces already allow it and nothing said so.** The
+initializer will not bootstrap: it requires a commit to exist before it runs, and it then makes and
+**pushes** its own initialization commit, plus several more while self-checking. `--skip-self-check`
+suppresses only the self-check's commits, not the initialization commit or its push. So on a hosted
+remote, the earliest history an onlooker sees necessarily begins with kit scaffolding — which is a
+reasonable thing to mind for a repository other people will browse.
+
+The way through is the **local bare repository** the kit already treats as a first-class remote
+(§ Git hosting — local-only is a first-class case):
+
+1. `git init --bare` a throwaway repo somewhere outside your project, and point `origin` at it by
+   **absolute path**.
+2. Run day one against it exactly as above — `kit-init.sh` gets its full commit-and-push cycle **with
+   the self-check intact**, which is the part worth protecting: the self-check is what proves day one
+   worked.
+3. Author your project's content and drive your first issue.
+4. Squash the whole history to a single commit, re-point `origin` at the host, and push that one
+   commit.
+
+**The kit does not do any of step 4 for you, and there is no flag that will.** The squash and the
+re-point are the operator's, deliberately: rewriting history is safe *here* only because nothing has
+been published yet, and a tool that performed it could not know that. **Write the recipe you used into
+`process/LOCAL-PROCEDURES.md`** — it is a local law, not a kit behaviour, and the next person in your
+repository will need it.
+
+*Why this is written down rather than left to be discovered: reaching it requires knowing both the
+initializer's full refusal set and that a bare local remote is legitimate. Both are true and neither
+is obvious, and a reader who wants this and cannot find it will either give up or improvise something
+that corrupts the board.*
+
 The initializer **refuses, and writes nothing, on any repository that has already lived** — a board
 carrying issue files, a `progress.md` § Log with entries, an `ARCHIVE.md` with an index, or a
 `scripts/config.sh` a previous run already stamped. There is no resume path: a half-stamped
