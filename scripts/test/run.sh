@@ -5292,12 +5292,56 @@ seed_release_doc() {  # <path> <title> <target|none> [body-date]
 # wording the two document arms must NOT share.
 release_refusal_line() { printf '%s\n' "$1" | grep '^release\.sh:' | tail -1; }
 
+# THE STUB'S VERDICT LINE IS DERIVED FROM THE REAL PRODUCER, NOT RE-TYPED, and the reason is that
+# the re-typed copy had ALREADY ROTTED: the drift line here read "(informational)" while
+# check-board.sh emits "(informational; exit 0 by convention)". Harmless on the day it diverged —
+# nothing matched the suffix — which is exactly how a second copy earns its keep until it does not.
+#
+# THIS IS NOT THE FIXTURE-ASKS-THE-SUBJECT TRAP, and the distinction is worth stating because the
+# shape looks identical. The subject of every case that uses this stub is release.sh's gate (d);
+# check-board.sh is the thing being STOOD IN FOR, not the thing under test. So reading its wording
+# makes the impostor faithful rather than making the assertion circular.
+#
+# WHAT IT BUYS, MEASURED — and the first answer written here was WRONG, so it is stated carefully.
+# The draft claimed a reworded verdict would reach release.sh's grep and redden the release cases.
+# It cannot: release.sh greps the substring 'board-drift: clean', and the derivation needle below is
+# that same substring. Any rewording that keeps it leaves both satisfied; any rewording that loses it
+# makes the derivation find nothing and the fixture DIES FIRST, before a release case runs.
+#
+# So the direction this actually buys is a LOUDER FAILURE AT CONSTRUCTION, which is the better one:
+# a wording change that breaks the stand-in now exits 1 naming the file and the missing verdict,
+# instead of the harness running on with an impostor whose text no longer matches anything shipped.
+# Proven both ways in a scratch tree: renaming the clean verdict fires the arm below; leaving it
+# alone runs green at the measured baseline.
+_board_verdict() {   # <clean|drift> — the real producer's verdict line, verbatim
+  local needle
+  case "$1" in
+    clean) needle='board-drift: clean' ;;
+    *)     needle='board-drift: findings above' ;;
+  esac
+  # awk, not `sed | head`: a reader that exits early makes the pipeline report the PRODUCER's death
+  # under pipefail — the trap this file's own header documents.
+  awk -v n="$needle" '
+    !seen && index($0, "echo \"── " n) {
+      line = $0
+      sub(/^[[:space:]]*echo "/, "", line)
+      sub(/"[[:space:]]*$/, "", line)
+      print line; seen = 1
+    }
+  ' "$REAL_REPO_ROOT/scripts/check-board.sh"
+}
+
 write_board_stub() {  # <path> clean|drift
-  if [ "$2" = clean ]; then
-    printf '#!/usr/bin/env bash\necho "── board-drift: clean ✓"\n' > "$1"
-  else
-    printf '#!/usr/bin/env bash\necho "── board-drift: findings above ⚠ (informational)"\n' > "$1"
+  local verdict; verdict="$(_board_verdict "$2")"
+  # ASSERT THE EXTRACTOR. An empty derivation would write a stub that prints nothing, and every
+  # release case would then fail on a missing marker — a red with the wrong cause, which is worse
+  # than the divergence this replaced.
+  if [ -z "$verdict" ]; then
+    echo "FIXTURE BROKEN: could not derive the '$2' verdict line from $REAL_REPO_ROOT/scripts/check-board.sh." >&2
+    echo "                The stub would print nothing and every release case would redden for the wrong reason." >&2
+    exit 1
   fi
+  { printf '#!/usr/bin/env bash\n'; printf 'echo "%s"\n' "$verdict"; } > "$1"
   chmod +x "$1"
 }
 
