@@ -331,16 +331,31 @@ async function runIssue(issue) {
   return { id: issue.id, outcome: 'LAND_READY', qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
 }
 
-phase('Wave1')
-const wave1 = await parallel((ARGS.wave1 || []).map(i => () => runIssue(i)))
-results.push(...wave1.filter(Boolean))
+// THE WAVE SUCCESS PREDICATE HAS ONE AUTHORING SITE. It was written out verbatim once per wave,
+// so a third wave meant a third copy — and the outcome vocabulary it keys on is itself carried by
+// hand in several places, so a change there would have had to find every copy of this line too.
+//
 // LAND_READY is a PASS whose landing was deferred, so it does not halt: the halt keys on the
-// verdict, never on the landing, per the note above.
-const w1ok = wave1.filter(Boolean).every(r => r.outcome === 'LANDED' || r.outcome === 'LAND_READY' || r.outcome === 'PARKED_OK')
-if (!w1ok) return { halted: 'wave1', results }
+// VERDICT, never on the landing, per the note above runIssue.
+const waveOk = rs => rs.every(r => r.outcome === 'LANDED' || r.outcome === 'LAND_READY' || r.outcome === 'PARKED_OK')
 
-phase('Wave2')
-const wave2 = await parallel((ARGS.wave2 || []).map(i => () => runIssue(i)))
-results.push(...wave2.filter(Boolean))
-const w2ok = wave2.filter(Boolean).every(r => r.outcome === 'LANDED' || r.outcome === 'LAND_READY' || r.outcome === 'PARKED_OK')
-return { halted: w2ok ? null : 'wave2', results }
+// THE WAVES ARE A TABLE, NOT A COPY-PASTED PAIR. Adding a third wave was five hand edits across
+// four places (a phase call, a parallel call, a results push, a predicate copy, a halt branch);
+// it is now one row here plus its meta.phases entry above — and meta.phases is the one part a
+// table cannot supply, because the harness reads it before this code runs.
+//
+// BOTH PHASES ARE ANNOUNCED EVEN WHEN A WAVE IS EMPTY, which is what the previous shape did and
+// is deliberately preserved: meta.phases DECLARES both, and a declared group that never opens
+// makes the progress display describe a shape the run did not have.
+const WAVES = [
+  { phase: 'Wave1', halt: 'wave1', issues: ARGS.wave1 ?? [] },
+  { phase: 'Wave2', halt: 'wave2', issues: ARGS.wave2 ?? [] },
+]
+
+for (const w of WAVES) {
+  phase(w.phase)
+  const out = (await parallel(w.issues.map(i => () => runIssue(i)))).filter(Boolean)
+  results.push(...out)
+  if (!waveOk(out)) return { halted: w.halt, results }
+}
+return { halted: null, results }
