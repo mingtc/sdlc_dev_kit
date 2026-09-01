@@ -3236,6 +3236,37 @@ case_guard_floor_unseen_declared_guard() {
   teardown
 }
 
+# THE POSITIVE ARM, AND IT IS THE ONE DIRECTION NOTHING WATCHED. Before this case, the phrase
+# "reconciled BOTH ways" appeared in this file exactly twice and BOTH were NEGATIVE (`&& cf`):
+# they prove the claim is ABSENT where it should be. Reword verify.sh's success line — the kind
+# of edit its own guard-floor header calls "a kindness" — and both canaries match nothing, take
+# the PASSING branch, and stay green over a claim that has stopped being emitted at all.
+# A phrase asserted only by its absence is not asserted.
+case_guard_floor_reconciles_and_says_so() {
+  cf_reset
+  make_sandbox
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  # DECLARED == ENUMERATED, exactly. Neither direction has anything to report, which is the
+  # only state that reaches the green line.
+  : > "$SB_WORK/guard-a.txt"; : > "$SB_WORK/guard-b.txt"
+  _guard_declare "$v" 'guard-a.txt'
+  _guard_declare "$v" 'guard-b.txt'
+  _guard_enum "$v" "printf '%s\\n' guard-a.txt guard-b.txt"
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 0 ] \
+    || cf "(reconciled) exit $rc, expected 0 — a GUARD_SET the enumeration matches exactly is the reconciled state and must not refuse: $out"
+  printf '%s' "$out" | grep -q 'reconciled BOTH ways' \
+    || cf "(reconciled) the run did NOT emit the reconciliation claim over a set the enumeration matches exactly, so the phrase the two canary cases assert the ABSENCE of is now emitted by nothing: $out"
+  # THE COUNT TOO, because the green line is the one most mistakable for a measurement of the
+  # tree: two guards declared must read as two, not as whatever the shipped set happened to hold.
+  printf '%s' "$out" | grep -q '2 DECLARED item(s)' \
+    || cf "(reconciled) the green line does not report the 2 DECLARED items this case set up: $out"
+
+  finish "guard floor: a GUARD_SET the enumeration matches exactly reconciles, exits 0 and SAYS SO — the positive direction the two canaries cannot prove"
+  teardown
+}
+
 case_guard_floor_wholly_empty_shipped_state() {
   cf_reset
   make_sandbox
@@ -6355,6 +6386,7 @@ CASES=(
   case_guard_floor_enumerator_mistyped
   case_guard_floor_enumerator_succeeds_empty
   case_guard_floor_unseen_declared_guard
+  case_guard_floor_reconciles_and_says_so
   case_guard_floor_wholly_empty_shipped_state
   case_verdict_enum_projection
   case_verify_unrunnable_vs_fail
