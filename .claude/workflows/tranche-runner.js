@@ -150,6 +150,30 @@ const DEV_SCHEMA = {
 // is `process/doctrine/instruments.md` § A.9 — a read-time defect, not a misaimed
 // guard.
 const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
+
+// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These six tokens were bare string
+// literals at six `return { outcome: '…' }` sites in each runner — twelve copies across the pair,
+// held together by nothing. VERDICTS above has a named declaration AND a harness case pinning it to
+// the ratified table in process/MANUAL.md; this vocabulary had neither.
+//
+// WHAT IT IS: the RUNNER's summary of one issue's leg, composed from the QA verdict and the
+// separate `landing` field rather than replacing either. LANDED and LAND_READY are both verdict
+// PASS — they differ only in whether the landing happened — which is why the wave gate treats both
+// as success. Keep that composition in mind before adding a member: a new outcome that encodes a
+// verdict the ratified table does not have is a second verdict vocabulary wearing another name.
+//
+// NOT YET RATIFIED IN PROCESS DOCTRINE, and that gap is filed rather than papered over: nothing
+// under process/ names this set, so the guard in the self-test holds the two runners to EACH OTHER
+// and not to an authority. Agreement is what is available while the copies are unavoidable — the
+// workflow runtime grants these files no imports, so a shared module cannot exist.
+const OUTCOME = Object.freeze({
+  LANDED:                 'LANDED',                  // verdict PASS, landing landed / not_applicable
+  LAND_READY:             'LAND_READY',              // verdict PASS, landing deferred — a SUCCESS
+  PARKED_OK:              'PARKED_OK',               // parked AND the park verified
+  PARK_UNVERIFIED:        'PARK_UNVERIFIED',         // parked, park not verifiable as written
+  FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
+  BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
+})
 const LANDING = ['landed', 'deferred', 'not_applicable']
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
 
@@ -295,7 +319,7 @@ for (const issue of ARGS.issues) {
   if (!dev || dev.status !== 'dev_complete') {
     if (!(issue.parkable && dev && dev.status === 'blocked')) {
       halted = issue.id
-      results.push({ id: issue.id, outcome: 'BLOCKED_DEV', dev })
+      results.push({ id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev })
       continue
     }
     // A PM-sanctioned park (issue moved to blocked/ with a findings write-up) is a
@@ -326,11 +350,11 @@ for (const issue of ARGS.issues) {
       // because it lands nothing, which is a true statement rather than a value the
       // caller has to know to ignore.
       if (park && isPass(park.verdict)) {
-        results.push({ id: issue.id, outcome: 'PARKED_OK', dev, park })
+        results.push({ id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park })
         log(`${issue.id}: PARKED and VERIFIED by park-QA (tranche continues)`)
       } else {
         halted = issue.id
-        results.push({ id: issue.id, outcome: 'PARK_UNVERIFIED', dev, park })
+        results.push({ id: issue.id, outcome: OUTCOME.PARK_UNVERIFIED, dev, park })
         log(`${issue.id}: PARK_UNVERIFIED — the park could not be verified; tranche HALTS here`)
       }
       continue
@@ -363,7 +387,7 @@ for (const issue of ARGS.issues) {
     // in_progress/ — it is not parked, and calling it PARKED made a run summary report a
     // sanctioned close where there was an unfinished issue. wave-runner.js has always
     // used the honest name; this is the two runners agreeing rather than a new word.
-    results.push({ id: issue.id, outcome: 'FAILED_AFTER_FIX_ROUND', dev, qa })
+    results.push({ id: issue.id, outcome: OUTCOME.FAILED_AFTER_FIX_ROUND, dev, qa })
     continue
   }
   // A pass that did not land is still a pass, and the tranche continues — but the
@@ -371,10 +395,10 @@ for (const issue of ARGS.issues) {
   // just separated.
   if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
     log(`${issue.id}: LANDED`)
-    results.push({ id: issue.id, outcome: 'LANDED', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+    results.push({ id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
   } else {
     log(`${issue.id}: LAND-READY (verified; landing deferred) — tranche continues`)
-    results.push({ id: issue.id, outcome: 'LAND_READY', qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+    results.push({ id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
   }
 }
 

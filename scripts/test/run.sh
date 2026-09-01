@@ -2138,6 +2138,61 @@ EOF
   teardown
 }
 
+# THE RUN-OUTCOME VOCABULARY IS HAND-COPIED INTO BOTH RUNNERS AND RATIFIED NOWHERE. Unlike
+# VERDICTS — which has a declaration in each runner AND a case pinning both to the ratified table in
+# process/MANUAL.md — nothing under process/ names this set, so there is no authority to pin to.
+# What is available is AGREEMENT, and that is what this case holds: the same discipline the schema
+# case above applies, for the same reason (the runtime grants these files no imports, so the copies
+# cannot be removed).
+#
+# IT ALSO ASSERTS THAT EVERY DECLARED TOKEN IS USED. A vocabulary constant that has drifted into a
+# superset of what the runner can actually return is documentation, not a vocabulary — and it would
+# read as coverage to anyone comparing the two declarations.
+_outcome_tokens() {   # <runner file> -> one token per line, sorted
+  awk '
+    /^const OUTCOME = Object\.freeze\(\{/ { inb=1; next }
+    inb && /^\}\)/                         { inb=0; next }
+    inb && match($0, /^[[:space:]]+[A-Z_]+:/) { t=$1; sub(/:$/, "", t); print t }
+  ' "$1" | sort
+}
+
+case_runner_outcome_vocabulary_agrees() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
+
+  local a b f found=0 n=0 t unused=0
+  a="$SB_TMP/outcome-a.txt"; b="$SB_TMP/outcome-b.txt"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    found=$(( found + 1 ))
+    case "$found" in
+      1) _outcome_tokens "$f" > "$a" ;;
+      2) _outcome_tokens "$f" > "$b" ;;
+    esac
+    # EVERY DECLARED TOKEN IS RETURNED SOMEWHERE IN ITS OWN RUNNER.
+    while IFS= read -r t; do
+      [ -n "$t" ] || continue
+      grep -qF "OUTCOME.$t" "$f" || { unused=$(( unused + 1 )); cf "$(basename "$f"): declares OUTCOME.$t and never returns it -- a vocabulary member the runner cannot produce is documentation, and it still compares equal to its twin"; }
+    done < <(_outcome_tokens "$f")
+  done <<EOF
+$(_shipped_runners)
+EOF
+
+  # ASSERT THE EXTRACTOR TWICE: either failure makes the diff below compare nothing and pass.
+  [ "$found" -eq 2 ] \
+    || cf "expected exactly 2 shipped runners, found $found -- a comparison needs two operands"
+  [ -f "$a" ] && n="$(wc -l < "$a" | tr -d ' ')"
+  [ "$n" -ge 6 ] \
+    || cf "the extractor found only $n outcome token(s) -- expected at least 6. A low count means the extractor stopped matching, NOT that the vocabularies agree"
+
+  if [ "$found" -eq 2 ] && ! diff -q "$a" "$b" >/dev/null 2>&1; then
+    cf "the runners' run-outcome vocabularies have DIVERGED -- they are hand-maintained copies with no ratified source to fall back on: $(diff "$a" "$b" | tr '\n' ' ')"
+  fi
+
+  finish "the two shipped runners' run-outcome vocabularies agree and every declared token is returned ($n token(s), $unused unused)"
+  teardown
+}
+
 case_runner_goldenpaths_empty_skips() {
   cf_reset
   make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
@@ -6444,6 +6499,7 @@ CASES=(
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines
   case_runner_schemas_agree
+  case_runner_outcome_vocabulary_agrees
   case_runner_goldenpaths_empty_skips
   case_minted_card_is_unmarked
   case_shipped_runners_parse

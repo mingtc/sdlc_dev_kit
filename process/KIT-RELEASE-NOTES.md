@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The run-outcome vocabulary now has a named declaration in each runner and a self-test case holding
+  the two together.** `LANDED`, `LAND_READY`, `PARKED_OK`, `PARK_UNVERIFIED`, `FAILED_AFTER_FIX_ROUND`
+  and `BLOCKED_DEV` were bare string literals at twelve sites across the pair, with nothing holding
+  them in step — so the two runners could report different outcome sets for the same situation. The
+  case also refuses a declared token the runner never returns. **No action required** — no token was
+  added, removed or renamed, and the values a run reports are unchanged.
+
 - **`EXTRACTION.md` § 2.2 now registers the `.claude/` tree as a status-folder carrier, and its
   derivation recipe can finally reach it.** The recipe scoped to `scripts/` and `setup.sh`, so the
   runners, item templates, role docs, worker definitions and two skills — all of which name board

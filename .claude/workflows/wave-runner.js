@@ -151,6 +151,30 @@ const DEV_SCHEMA = {
 // exists because a docs-path issue has no landing script to complete, which a
 // boolean forces to lie in one direction or the other.
 const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
+
+// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These six tokens were bare string
+// literals at six `return { outcome: '…' }` sites in each runner — twelve copies across the pair,
+// held together by nothing. VERDICTS above has a named declaration AND a harness case pinning it to
+// the ratified table in process/MANUAL.md; this vocabulary had neither.
+//
+// WHAT IT IS: the RUNNER's summary of one issue's leg, composed from the QA verdict and the
+// separate `landing` field rather than replacing either. LANDED and LAND_READY are both verdict
+// PASS — they differ only in whether the landing happened — which is why the wave gate treats both
+// as success. Keep that composition in mind before adding a member: a new outcome that encodes a
+// verdict the ratified table does not have is a second verdict vocabulary wearing another name.
+//
+// NOT YET RATIFIED IN PROCESS DOCTRINE, and that gap is filed rather than papered over: nothing
+// under process/ names this set, so the guard in the self-test holds the two runners to EACH OTHER
+// and not to an authority. Agreement is what is available while the copies are unavoidable — the
+// workflow runtime grants these files no imports, so a shared module cannot exist.
+const OUTCOME = Object.freeze({
+  LANDED:                 'LANDED',                  // verdict PASS, landing landed / not_applicable
+  LAND_READY:             'LAND_READY',              // verdict PASS, landing deferred — a SUCCESS
+  PARKED_OK:              'PARKED_OK',               // parked AND the park verified
+  PARK_UNVERIFIED:        'PARK_UNVERIFIED',         // parked, park not verifiable as written
+  FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
+  BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
+})
 const LANDING = ['landed', 'deferred', 'not_applicable']
 // A verdict that means the review passed. PASS_AC_CORRECTED is a PASS whose AC was
 // itself wrong and was corrected with the issue — MANUAL step 6's third verdict.
@@ -288,10 +312,10 @@ async function runIssue(issue) {
   if (!dev || dev.status !== 'dev_complete') {
     if (issue.parkable && dev && dev.status === 'blocked') {
       const park = await agent(parkPrompt(issue), provision(`park-qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-      if (park && isPass(park.verdict)) { log(`${issue.id}: PARKED and verified`); return { id: issue.id, outcome: 'PARKED_OK', dev, park } }
-      return { id: issue.id, outcome: 'PARK_UNVERIFIED', dev, park }
+      if (park && isPass(park.verdict)) { log(`${issue.id}: PARKED and verified`); return { id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park } }
+      return { id: issue.id, outcome: OUTCOME.PARK_UNVERIFIED, dev, park }
     }
-    return { id: issue.id, outcome: 'BLOCKED_DEV', dev }
+    return { id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev }
   }
   log(`${issue.id}: QA starting`)
   let qa = await agent(qaPrompt(issue), provision(`qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
@@ -317,7 +341,7 @@ async function runIssue(issue) {
   // needs a special case to avoid reading as a failure. One less hand-patch, and
   // the next flattening case will not need a third.
   if (!qa || !isPass(qa.verdict)) {
-    return { id: issue.id, outcome: 'FAILED_AFTER_FIX_ROUND', dev, qa }
+    return { id: issue.id, outcome: OUTCOME.FAILED_AFTER_FIX_ROUND, dev, qa }
   }
   // A PASS that did NOT land is still a success, and the run continues — but the
   // outcome NAMES it, because "verified and landed" and "verified, landing
@@ -325,10 +349,10 @@ async function runIssue(issue) {
   // re-merged the two axes downstream of the schema that separated them.
   if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
     log(`${issue.id}: LANDED`)
-    return { id: issue.id, outcome: 'LANDED', qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
+    return { id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
   }
   log(`${issue.id}: LAND-READY (verified; landing deferred)`)
-  return { id: issue.id, outcome: 'LAND_READY', qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
+  return { id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
 }
 
 // THE WAVE SUCCESS PREDICATE HAS ONE AUTHORING SITE. It was written out verbatim once per wave,
@@ -337,7 +361,7 @@ async function runIssue(issue) {
 //
 // LAND_READY is a PASS whose landing was deferred, so it does not halt: the halt keys on the
 // VERDICT, never on the landing, per the note above runIssue.
-const waveOk = rs => rs.every(r => r.outcome === 'LANDED' || r.outcome === 'LAND_READY' || r.outcome === 'PARKED_OK')
+const waveOk = rs => rs.every(r => r.outcome === OUTCOME.LANDED || r.outcome === OUTCOME.LAND_READY || r.outcome === OUTCOME.PARKED_OK)
 
 // THE WAVES ARE A TABLE, NOT A COPY-PASTED PAIR. Adding a third wave was five hand edits across
 // four places (a phase call, a parallel call, a results push, a predicate copy, a halt branch);
