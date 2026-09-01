@@ -63,12 +63,28 @@
 # Both are the same cause. So an in-place run's output is not admissible as evidence
 # about the kit, and no number taken from one belongs in a change file.
 #
-# THE CASES THAT TOLERATE BOTH SPELLINGS DO NOT MAKE IN-PLACE RUNNING SUPPORTED. Four
-# read whichever of `_claude/` or `.claude/` exists, so that they still read the real
-# shipped tree when someone runs them in place; each says so at its own site. That is a
-# convenience for those cases, not a mode this file offers, and it must not be widened
-# into one — running in place should be honestly unsupported rather than quietly made
-# to work, which is a larger decision than any of those cases took.
+# THE SITES THAT TOLERATE BOTH SPELLINGS DO NOT MAKE IN-PLACE RUNNING SUPPORTED. Those
+# that do read whichever of `_claude/` or `.claude/` exists, so that they still read the
+# real shipped tree when someone runs them in place; each says so at its own site, and one
+# of them is a shared helper rather than a case. That is a convenience for those sites, not
+# a mode this file offers, and it must not be widened into one — running in place should be
+# honestly unsupported rather than quietly made to work, which is a larger decision than
+# any of those sites took.
+#
+# NO COUNT HERE, DELIBERATELY, AND DO NOT RE-ADD ONE. This sentence read "Four" and was
+# wrong every time anyone looked: five when the defect was raised (2026-08-31), SIX the
+# next day, and five again after one site was folded into the helper above — three values
+# across two changes in two days, and the number was re-derived by none of them.
+# `process/doctrine/staleness.md` § C is the rule (derive, date, or do not state) and its
+# own note about enumerations is why this is phrased as a property rather than a total.
+#
+# The instrument whose output IS the list, if a reader wants it. NOTE THE COMMENT SKIP,
+# and it is not tidiness: without it this recipe matches the line you are reading and
+# reports itself as a site — a probe inside its own operand set, which is the defect it
+# exists to measure. Measured: the skip is the difference between six hits and five.
+#
+#   awk '!/^[[:space:]]*#/ && /_claude/ && /REAL_REPO_ROOT/ {print FNR": "fn}
+#        /^[A-Za-z_][A-Za-z0-9_]*\(\)/{fn=$1}' scripts/test/run.sh
 #
 # THE PIPEFAIL RULE, and it has already cost this harness one FALSE RED: under
 # `set -o pipefail`, a pipeline ending in a reader that exits before its input is
