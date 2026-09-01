@@ -1212,6 +1212,32 @@ HOOK
 # =============================================================================
 # CASE — a RED pre-merge gate aborts, destroying nothing.
 # =============================================================================
+# THE POST-REFUSAL CONTRACT, ONE AUTHORING SITE. A refusal must leave four things untouched, and
+# these legs asserted three different subsets of them. The gap that mattered: the two arms whose
+# whole claim is "refused BEFORE any destructive step" checked the issue and the merge and NEITHER
+# BRANCH — the destructive step most worth checking, absent from the only legs written to prove it
+# did not happen.
+#
+# THE MARKER IS OPTIONAL, AND THAT IS NOT A CONVENIENCE. A leg with no commit on its branch (the
+# empty-merge case) has nothing that COULD have merged, so asserting "the change did not land" there
+# would be a check that cannot fail. Inapplicable and missing are different, and collapsing them is
+# how a subset difference gets read as a gap.
+#
+#   assert_landing_untouched <label> <id> <slug> <branch> [<merge marker>]
+assert_landing_untouched() {
+  local lab="$1" id="$2" slug="$3" br="$4" marker="${5:-}"
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1 \
+    || cf "$lab local branch '$br' was destroyed — a refusal must leave it intact"
+  [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "$br" 2>/dev/null)" ] \
+    || cf "$lab remote branch '$br' was deleted — a refusal must leave it intact"
+  origin_has_path "progress/dev_complete/$id-$slug.md" \
+    || cf "$lab issue left dev_complete/ — a refusal must not advance it"
+  if [ -n "$marker" ]; then
+    origin_has_path "$marker" && cf "$lab '$marker' reached the trunk — a refusal must not merge"
+  fi
+  return 0   # the last command above is a `&&` whose false branch is the PASSING one
+}
+
 case_finish_pr_premerge_red() {
   cf_reset
   make_sandbox
@@ -1224,13 +1250,8 @@ case_finish_pr_premerge_red() {
             "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-778" 2>&1 )"; rc=$?
 
   [ "$rc" -ne 0 ] || cf "expected nonzero exit on a red pre-merge gate, got 0: $out"
-  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-778-work" >/dev/null 2>&1 \
-    || cf "local branch was destroyed (must be intact on abort)"
-  [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-778-work" 2>/dev/null)" ] \
-    || cf "remote branch was deleted (must be intact on abort)"
-  origin_has_path "progress/dev_complete/$SB_PREFIX-778-sandbox.md" \
-    || cf "issue was advanced out of dev_complete/ (must stay put on abort)"
-  origin_has_path "CHANGE.txt" && cf "change was merged (must NOT merge on a red gate)"
+  assert_landing_untouched "(red pre-merge gate)" "$SB_PREFIX-778" sandbox \
+    "feature/$SB_PREFIX-778-work" CHANGE.txt
 
   finish "finish-pr.sh red pre-merge gate aborts (no merge/push/delete/advance)"
   teardown
@@ -1252,12 +1273,10 @@ case_finish_pr_empty_merge() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-782" 2>&1 )"; rc=$?
 
   [ "$rc" -ne 0 ] || cf "expected nonzero exit on an empty merge, got 0: $out"
-  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-782-empty" >/dev/null 2>&1 \
-    || cf "local branch was destroyed (must be intact on an empty-merge abort)"
-  [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-782-empty" 2>/dev/null)" ] \
-    || cf "remote branch was deleted (must be intact on an empty-merge abort)"
-  origin_has_path "progress/dev_complete/$SB_PREFIX-782-sandbox.md" \
-    || cf "issue was advanced (must stay in dev_complete/ on an empty-merge abort)"
+  # NO MERGE MARKER: this branch is created off the trunk with no commit, so nothing could have
+  # merged and asserting otherwise would be a check that cannot fail.
+  assert_landing_untouched "(empty merge)" "$SB_PREFIX-782" sandbox \
+    "feature/$SB_PREFIX-782-empty"
 
   finish "finish-pr.sh empty-merge aborts (no branch destruction, no advance)"
   teardown
@@ -1395,9 +1414,7 @@ case_finish_pr_gate_hardening() {
   [ "$rc" -ne 0 ] || cf "(a) fabricated stub was ACCEPTED (expected a nonzero refusal), got 0"
   printf '%s' "$out" | grep -qi 'FINISH_PR_TEST_ALLOW_STUB\|refus' \
     || cf "(a) the refusal did not name why it was refused: $out"
-  origin_has_path "progress/dev_complete/$SB_PREFIX-790-sandbox.md" \
-    || cf "(a) issue advanced out of dev_complete/ (must stay put on refusal)"
-  origin_has_path "CHANGE.txt" && cf "(a) change was merged (a fabricated stub must NOT land)"
+  assert_landing_untouched "(a)" "$SB_PREFIX-790" sandbox "feature/$SB_PREFIX-790-work" CHANGE.txt
   teardown
 
   # --- (b) a genuine worktree's tracked verify.sh (green) is ACCEPTED ---------
@@ -1428,9 +1445,7 @@ case_finish_pr_gate_hardening() {
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-792" \
             --worktree "$SB_TMP/scratch" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(c) a scratch-dir fabricated verify.sh was ACCEPTED (expected a refusal), got 0"
-  origin_has_path "progress/dev_complete/$SB_PREFIX-792-sandbox.md" \
-    || cf "(c) issue advanced despite a non-worktree --worktree (must stay put)"
-  origin_has_path "CHANGE.txt" && cf "(c) change merged via a scratch-dir gate (must NOT land)"
+  assert_landing_untouched "(c)" "$SB_PREFIX-792" sandbox "feature/$SB_PREFIX-792-work" CHANGE.txt
   teardown
 
   # --- (d) the marker + stub path still works --------------------------------
