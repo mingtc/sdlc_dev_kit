@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`tranche-runner` now tells Dev to cut work branches from `<remote>/<trunk>`, not the local trunk**,
+  matching what `wave-runner` already said. Neither runner instructs a pull first, so *"from a fresh
+  main"* meant whatever the checkout happened to hold — and in a tranche that lands issues as it runs,
+  the second issue could branch off a trunk missing the first. A new optional `remote` arg defaults to
+  `origin`. **No action required** unless your remote is not called `origin`, in which case pass
+  `remote` in args as you already do for `wave-runner`.
+
 - **The QA brief's procedure no longer skips a number.** The zero-drift check is conditional, and while
   it was a numbered step the list jumped from 5 to 7 whenever it was absent — which reads to a reviewer
   like a step that went missing on the way to them. It is now an unnumbered continuation of the

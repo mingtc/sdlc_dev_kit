@@ -8,7 +8,7 @@ export const meta = {
   ],
 }
 
-// args: { repo, trunk?, gateCmd?, codePaths?, goldenPaths?, liveRules?,
+// args: { repo, trunk?, remote?, gateCmd?, codePaths?, goldenPaths?, liveRules?,
 //         issues: [{id, branch, title, devModel, devEffort, qaModel, qaEffort,
 //                   devAgentType, qaAgentType, gates, depends_on: [], extraDev, extraQA,
 //                   role, docsPath, parkable}] }
@@ -55,6 +55,13 @@ try {
 const CFG = {
   repo:        ARGS.repo,                                  // REQUIRED: absolute path to the repo
   trunk:       ARGS.trunk       || 'main',                  // the single trunk branch
+  // THE BRANCH BASE IS THE REMOTE'S TRUNK, NOT THE LOCAL ONE, and that is the whole reason this
+  // key exists. The Dev brief used to say 'create branch <b> from a fresh <trunk>' — the LOCAL
+  // ref — while wave-runner's identical instruction said '<remote>/<trunk>'. One instruction, two
+  // bases, and nothing in this file tells Dev to pull first, so 'fresh' meant 'as stale as this
+  // checkout happens to be'. In a tranche that lands issues to the trunk as it runs, that is the
+  // second issue branching off a trunk missing the first.
+  remote:      ARGS.remote      || 'origin',                // the remote whose trunk a branch is cut from
   gateCmd:     ARGS.gateCmd     || './scripts/verify.sh',   // the one-shot gate runner
   // The paths that count as CODE (must go through a work branch). Prose, not globs —
   // it is injected into agent prompts. Mirror the adapter's own definition.
@@ -202,7 +209,7 @@ function devPrompt(issue, fixNotes) {
     : `This issue has no dependencies inside the tranche.`
   const workMode = issue.docsPath
     ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
-    : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.trunk} and work there.`
+    : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.remote}/${CFG.trunk} and work there.`
   const resume = fixNotes
     ? `THIS IS A FIX ROUND: QA bounced the issue back to in_progress with these unmet AC / notes — address exactly these${issue.docsPath ? ` (docs path: continue direct on ${CFG.trunk})` : ` on the SAME branch (git switch ${issue.branch}, do not recreate it)`}:\n${fixNotes}`
     : `Fresh pickup: move the issue todo → in_progress via ./scripts/move-issue.sh ${issue.id} in_progress --role ${role} --note "picked up". ${workMode}`
