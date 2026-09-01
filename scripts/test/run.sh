@@ -2080,6 +2080,64 @@ _shipped_runners() {
   done
 }
 
+# THE TWO RUNNERS CARRY THEIR SCHEMAS BY HAND, AND THE DUPLICATION IS PERMANENT. changes/DECLINED
+# measured that the workflow runtime grants these files no imports and no filesystem access, so a
+# shared module is not expressible — the copies cannot be removed. What CAN be held is their
+# AGREEMENT, and it had already failed: four descriptions had drifted apart and one field had lost
+# its description entirely before anyone compared them. This case is the witness the extraction
+# cannot be.
+_schema_descriptions() {   # <runner file> -> "SCHEMA.field<TAB>description", sorted
+  awk -v q="'" '
+    /^const [A-Z_]+_SCHEMA = \{/ { s = $2; next }
+    s != "" && /^\}/            { s = ""; next }
+    s != "" && match($0, /^[[:space:]]+[A-Za-z_]+:[[:space:]]*\{/) {
+      f = $1; sub(/:.*$/, "", f)
+      key = "description: " q
+      i = index($0, key)
+      if (i > 0) {
+        d = substr($0, i + length(key))
+        j = index(d, q)
+        if (j > 0) d = substr(d, 1, j - 1)
+        print s "." f "\t" d
+      } else {
+        print s "." f "\t<no description>"
+      }
+    }
+  ' "$1" | sort
+}
+
+case_runner_schemas_agree() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
+
+  local a b f found=0 n=0
+  a="$SB_TMP/schema-a.txt"; b="$SB_TMP/schema-b.txt"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    found=$(( found + 1 ))
+    case "$found" in
+      1) _schema_descriptions "$f" > "$a" ;;
+      2) _schema_descriptions "$f" > "$b" ;;
+    esac
+  done <<EOF
+$(_shipped_runners)
+EOF
+
+  # ASSERT THE EXTRACTOR TWICE. Either failure makes the diff below compare nothing and pass.
+  [ "$found" -eq 2 ] \
+    || cf "expected exactly 2 shipped runners, found $found -- a comparison needs two operands, and with fewer this case asserts nothing"
+  [ -f "$a" ] && n="$(wc -l < "$a" | tr -d ' ')"
+  [ "$n" -ge 10 ] \
+    || cf "the extractor found only $n schema field(s) -- expected at least 10. A low count means the extractor stopped matching, NOT that the schemas agree"
+
+  if [ "$found" -eq 2 ] && ! diff -q "$a" "$b" >/dev/null 2>&1; then
+    cf "the shipped runners schemas have DIVERGED -- they are hand-maintained copies and nothing else holds them together. Reconcile them, or if a field genuinely belongs to one runner only, say so in that runner's meta.description (which promises the same fields) and widen this case. Diff: $(diff "$a" "$b" | head -6 | tr '\n' ' ')"
+  fi
+
+  finish "the two shipped runners' schemas agree field-for-field ($n field(s) compared, descriptions included)"
+  teardown
+}
+
 case_runner_goldenpaths_empty_skips() {
   cf_reset
   make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
@@ -6376,6 +6434,7 @@ CASES=(
   case_archive_index_carries_the_date
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines
+  case_runner_schemas_agree
   case_runner_goldenpaths_empty_skips
   case_minted_card_is_unmarked
   case_shipped_runners_parse

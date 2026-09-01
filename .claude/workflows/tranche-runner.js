@@ -157,7 +157,7 @@ const QA_SCHEMA = {
   type: 'object',
   properties: {
     verdict: { enum: VERDICTS },
-    landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land' },
+    landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land (docs path)' },
     ac_walk: { type: 'string', description: 'per-AC PASS/FAIL with concrete evidence' },
     unmet_ac: { type: 'array', items: { type: 'string' } },
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },

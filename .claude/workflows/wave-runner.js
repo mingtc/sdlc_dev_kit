@@ -160,7 +160,7 @@ const QA_SCHEMA = {
   type: 'object',
   properties: {
     verdict: { enum: VERDICTS },
-    landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime); not_applicable = there was nothing to land (docs path)' },
+    landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land (docs path)' },
     ac_walk: { type: 'string', description: 'per-AC PASS/FAIL with concrete evidence' },
     unmet_ac: { type: 'array', items: { type: 'string' } },
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },
@@ -176,16 +176,16 @@ const PARK_SCHEMA = {
     // exemption. This replaces the hand-written carve-out that used to say
     // "ALWAYS false for a park — never a failure signal": the reason it gave was
     // right, and with a three-valued field it no longer needs to be an exception.
-    landing: { enum: LANDING, description: 'ALWAYS not_applicable for a park — a park lands nothing' },
+    landing: { enum: LANDING, description: 'ALWAYS not_applicable for a park — nothing is merged and the issue stays in blocked/' },
     // `park_walk` / `unmet`, matching tranche-runner.js. These used to be `ac_walk`
     // and `unmet_ac` here — the QA field names, reused for a park — so the same
     // outcome came back under two different shapes depending on which runner
     // produced it, and any consumer had to know which. A park review is not an AC
     // walk; the honest names are the ones that describe what it checked. One
     // vocabulary, projected — the same one-vocabulary rule, one level down.
-    park_walk: { type: 'string', description: 'the park claims verified/refuted with evidence' },
-    unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable' },
-    gate_evidence: { type: 'string' },
+    park_walk: { type: 'string', description: 'per-check PASS/FAIL with concrete evidence: issue sits in blocked/; findings/verdict evidence-backed and honestly scoped; no half-landed residue (clean tree, no stray branch, board move committed); no claim contradicted by the tree' },
+    unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable — the fix-round brief' },
+    gate_evidence: { type: 'string', description: 'gate runner / check-board.sh / git state observed' },
     notes: { type: 'string' },
   },
   required: ['verdict', 'landing', 'park_walk', 'gate_evidence'],

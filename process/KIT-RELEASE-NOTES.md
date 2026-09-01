@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The two workflow runners' result schemas now agree field-for-field, and a self-test case keeps
+  them that way.** Five field descriptions had drifted apart between `tranche-runner` and
+  `wave-runner`, and one field had lost its description entirely — so the same result field was
+  explained differently, or not at all, depending on which runner briefed the agent. The runners
+  cannot share a module (the workflow runtime gives them no imports), so the copies are permanent and
+  a guard now holds their agreement instead. **No action required** — no field, type or enum changed,
+  only the descriptions agents are given.
+
 - **`wave-runner` now honours a per-issue `role`.** Its description has always promised the same
   per-issue fields as `tranche-runner`, and `role` was accepted and silently ignored — so a
   Refactorer-hat issue placed in a wave was briefed as Dev, pointed at `dev.md`, **and stamped its
