@@ -1225,7 +1225,7 @@ case_finish_pr_premerge_red() {
   out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD=false \
             "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-778" 2>&1 )"; rc=$?
 
-  [ "$rc" -ne 0 ] || cf "expected nonzero exit on a red pre-merge gate, got 0"
+  [ "$rc" -ne 0 ] || cf "expected nonzero exit on a red pre-merge gate, got 0: $out"
   git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-778-work" >/dev/null 2>&1 \
     || cf "local branch was destroyed (must be intact on abort)"
   [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-778-work" 2>/dev/null)" ] \
@@ -1253,7 +1253,7 @@ case_finish_pr_empty_merge() {
   local out rc
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-782" 2>&1 )"; rc=$?
 
-  [ "$rc" -ne 0 ] || cf "expected nonzero exit on an empty merge, got 0"
+  [ "$rc" -ne 0 ] || cf "expected nonzero exit on an empty merge, got 0: $out"
   git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-782-empty" >/dev/null 2>&1 \
     || cf "local branch was destroyed (must be intact on an empty-merge abort)"
   [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-782-empty" 2>/dev/null)" ] \
