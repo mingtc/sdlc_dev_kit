@@ -245,7 +245,7 @@ Return the structured result only.`
 function qaPrompt(issue) {
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
   const driftStep = CFG.goldenPaths && !issue.docsPath
-    ? `\n   ZERO-DRIFT check (a binding gate for this issue, not a separate step): git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes. REPORT THE PATHS THIS ACTUALLY MATCHED in gate_evidence. If it matched NOTHING, say so loudly and treat the step as NOT RUN — an empty match means this project's pinned output does not live at '${CFG.goldenPaths}', and a diff over nothing reads exactly like a clean diff.`
+    ? `\n   ZERO-DRIFT check (a binding gate for this issue, not a separate step): git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes; byte-drift in pinned output → FAIL. REPORT THE PATHS THIS ACTUALLY MATCHED in gate_evidence. If it matched NOTHING, say so loudly and treat the zero-drift step as NOT RUN — an empty match means this project's pinned output does not live at '${CFG.goldenPaths}', and a diff over nothing reads exactly like a clean diff.`
     : ''
   return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). You are the fresh-eyes reviewer; judge only the AC and the gates.
 ${COMMON}${wt}

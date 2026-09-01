@@ -2165,6 +2165,15 @@ case_runner_goldenpaths_empty_skips() {
     # HALF 2 — the drift step is guarded by the value, so an empty string skips it.
     printf '%s\n' "$code" | grep -qF 'CFG.goldenPaths &&' \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step has no guard on CFG.goldenPaths — '??' alone does not produce a skip, it only delivers the empty string to a step that would then run against nothing"; }
+
+    # HALF 3 — THE STEP TELLS THE AGENT AN EMPTY MATCH IS NOT A PASS, and nothing asserted this
+    # until now. Halves 1 and 2 hold the CONFIG mechanics: they prove an explicitly-emptied
+    # goldenPaths skips the step. Neither says anything about the case where a pin IS declared and
+    # matches NOTHING — where the diff runs, prints nothing, and reads exactly like a clean one.
+    # The only thing standing between that and a recorded false pass is this sentence in the brief,
+    # and a sentence no case asserts can be reworded away while every case stays green.
+    printf '%s\n' "$code" | grep -qF 'treat the zero-drift step as NOT RUN' \
+      || { bad=$(( bad + 1 )); cf "$lab: the drift step no longer tells the agent that an empty match is NOT RUN rather than clean — that sentence is the whole defence against a diff over nothing being recorded as a clean zero-drift result"; }
   done <<EOF
 $(_shipped_runners)
 EOF
