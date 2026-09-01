@@ -60,6 +60,20 @@ const CFG = {
 }
 if (!CFG.repo) throw new Error('wave-runner: args.repo is required (absolute path to the main repo)')
 
+// AN OMITTED WAVE IS A NAMED REFUSAL, and here the unguarded case failed in the OPPOSITE
+// direction from tranche-runner's: an absent list became [], parallel([]) returned [], and
+// [].every(...) is VACUOUSLY TRUE — so both wave gates passed and the run returned
+// { halted: null, results: [] }. A GREEN over zero issues, which is the worst of the two
+// failures because nothing about it looks wrong. One wave is legitimate; neither is not.
+for (const k of ['wave1', 'wave2']) {
+  if (ARGS[k] !== undefined && ARGS[k] !== null && !Array.isArray(ARGS[k])) {
+    throw new Error('wave-runner: args.' + k + ' must be an array of issue objects when present. Got: ' + JSON.stringify(ARGS[k]))
+  }
+}
+if ((ARGS.wave1 ?? []).length === 0 && (ARGS.wave2 ?? []).length === 0) {
+  throw new Error('wave-runner: at least one of args.wave1 / args.wave2 must be a NON-EMPTY array of issue objects — a run over zero issues would otherwise report a clean success. Expected: { repo, wave1: [{id, slug, branch, ...}], wave2: [...] }')
+}
+
 const DEFAULT_MODEL = 'opus'
 const DEFAULT_EFFORT = 'medium'
 // See tranche-runner.js for why an omitted effort must resolve to a real value rather than

@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Both workflow runners now refuse an omitted or empty issue list by name.** Driving
+  `tranche-runner` with no `issues` previously died on JavaScript's own `TypeError: undefined is not
+  iterable`, which names neither the runner nor the field; driving `wave-runner` with no waves was
+  **worse — it reported a clean success over zero issues**, because an empty result list satisfies
+  every wave gate vacuously. Both now fail at 0 agents with a message naming the field and the shape
+  expected. One wave is still legitimate; neither is not. **No action required** — a correct call is
+  unaffected.
+
 ### Added
 
 - **Day one has a documented variant for making your first *published* commit your project's own.**

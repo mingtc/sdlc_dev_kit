@@ -67,6 +67,15 @@ const CFG = {
 }
 if (!CFG.repo) throw new Error('tranche-runner: args.repo is required (absolute path to the repo)')
 
+// AN OMITTED ISSUE LIST IS A NAMED REFUSAL — same shape as the line above and as the guarded
+// parse above that: the reader gets the field name and what it should hold. Without this the
+// loop below threw JS's own words, `ARGS.issues is not iterable`, which names neither the
+// runner nor the field and reads like a bug in the tool rather than a malformed call.
+// Checked HERE rather than at the loop so the run dies at 0 agents, which is this file's posture.
+if (!Array.isArray(ARGS.issues) || ARGS.issues.length === 0) {
+  throw new Error('tranche-runner: args.issues is required and must be a NON-EMPTY array of issue objects. Got: ' + JSON.stringify(ARGS.issues) + '. Expected: { repo, issues: [{id, slug, branch, ...}] }')
+}
+
 const DEFAULT_MODEL = 'opus'
 const DEFAULT_EFFORT = 'medium'
 // Provisioning defaults come from the project's ratified ladder
