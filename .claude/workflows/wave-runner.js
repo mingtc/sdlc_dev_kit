@@ -206,13 +206,20 @@ function devPrompt(issue, fixNotes) {
     : `This issue has no dependencies inside this wave.`
   const restart = issue.restartNote || ''
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
+  // ROLE IS READ HERE, not assumed to be Dev. meta.description above promises 'same per-issue
+  // fields as tranche-runner', and `role` is one of them — it was accepted and silently ignored,
+  // so a Refactorer-hat issue placed in a wave was briefed as Dev, pointed at dev.md, and told to
+  // stamp its board move [Dev]. Same two lines as tranche-runner's devPrompt, deliberately
+  // identical: a promise of 'the same fields' is only true if the same code reads them.
+  const role = issue.role || 'Dev'
+  const roleDoc = role === 'Refactorer' ? '.claude/roles/refactorer.md' : '.claude/roles/dev.md'
   const workMode = issue.docsPath
     ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [Dev]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
     : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.remote}/${CFG.trunk} and work there.`
   const resume = fixNotes
     ? `THIS IS A FIX ROUND: QA bounced the issue back to in_progress with these unmet AC / notes — address exactly these${issue.docsPath ? ` (docs path: continue direct on ${CFG.trunk})` : ' on the SAME branch (do not recreate it)'}:\n${fixNotes}`
-    : `Fresh pickup: if the issue file is still in progress/todo/, move it todo → in_progress via ./scripts/move-issue.sh ${issue.id} in_progress --role Dev --note "picked up"; if a stopped earlier attempt already moved it, skip the move. ${workMode}${restart}`
-  return `Wear the **Dev hat** per .claude/roles/dev.md for issue ${issue.id} (${issue.title}).
+    : `Fresh pickup: if the issue file is still in progress/todo/, move it todo → in_progress via ./scripts/move-issue.sh ${issue.id} in_progress --role ${role} --note "picked up"; if a stopped earlier attempt already moved it, skip the move. ${workMode}${restart}`
+  return `Wear the **${role} hat** per ${roleDoc} for issue ${issue.id} (${issue.title}).
 ${COMMON}${wt}
 ${chain}
 ${resume}
@@ -220,7 +227,7 @@ Requirements:
 - ${issue.docsPath ? 'Docs work: no TDD cycle — each AC still needs its own evidence pointer (file:line or command + result).' : 'TDD per the test-driven-development skill: failing test first, no exceptions.'}
 - ${CFG.gateCmd} green before handoff; paste the observed result line into test_evidence.
 - Every AC has a passing test or a documented progress.md justification.
-- ${issue.docsPath ? `Ensure all commits are pushed to ${CFG.trunk}. THEN the board move:` : 'Push the work branch. THEN the board move:'} ./scripts/move-issue.sh ${issue.id} dev_complete --role Dev --note "..." — the dev_complete move IS part of done-ness.
+- ${issue.docsPath ? `Ensure all commits are pushed to ${CFG.trunk}. THEN the board move:` : 'Push the work branch. THEN the board move:'} ./scripts/move-issue.sh ${issue.id} dev_complete --role ${role} --note "..." — the dev_complete move IS part of done-ness.
 - Append your session summary to progress.md per your role doc.
 ${issue.extraDev || ''}
 Return the structured result only.`

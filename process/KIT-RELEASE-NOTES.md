@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`wave-runner` now honours a per-issue `role`.** Its description has always promised the same
+  per-issue fields as `tranche-runner`, and `role` was accepted and silently ignored — so a
+  Refactorer-hat issue placed in a wave was briefed as Dev, pointed at `dev.md`, **and stamped its
+  board moves `[Dev]`**, which is what the commit-msg hook enforces and what the board's attribution
+  arm reads. **Action required if you have run Refactorer issues through a wave:** their board moves
+  and progress entries carry `[Dev]`, so attribution for that work is wrong on the trunk and in
+  `check-board.sh`'s report. Nothing needs re-running; the record is what is affected.
+
 - **`tranche-runner` now tells Dev to cut work branches from `<remote>/<trunk>`, not the local trunk**,
   matching what `wave-runner` already said. Neither runner instructs a pull first, so *"from a fresh
   main"* meant whatever the checkout happened to hold — and in a tranche that lands issues as it runs,
