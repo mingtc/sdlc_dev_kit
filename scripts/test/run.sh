@@ -1969,18 +1969,20 @@ case_runner_schema_required_defines() {
   make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
 
   local total_schemas=0 total_bad=0 f lab res n bad
-  # DUAL-SPELLING, and the reason belongs here rather than in the reader's memory: the
-  # maintainer repository stores the kit disarmed (`_claude/`), a built kit ships it
-  # armed (`.claude/`). Reading whichever exists lets this case still find the real
-  # shipped tree in place. It does NOT make an in-place run a witness — see the header.
-  for f in "$REAL_REPO_ROOT"/_claude/workflows/*runner*.js "$REAL_REPO_ROOT"/.claude/workflows/*runner*.js; do
-    [ -e "$f" ] || continue
+  # THE ENUMERATION IS _shipped_runners, NOT A SECOND COPY OF ITS GLOB. This case re-typed that
+  # dual-spelling glob for a while: the two copies sat sixty lines apart with nothing holding them
+  # together, so a third runner directory or a changed spelling would have moved one and not the
+  # other. The dual-spelling reason now lives at the helper.
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
     lab="$(basename "$f")"
     res="$(_schema_audit "$f" "$lab" | tail -1)"
     _schema_audit "$f" "$lab" | grep '✗' || true
     n="${res%% *}"; bad="${res##* }"
     total_schemas=$(( total_schemas + n )); total_bad=$(( total_bad + bad ))
-  done
+  done <<EOF
+$(_shipped_runners)
+EOF
 
   # ASSERT THE EXTRACTOR, NOT ONLY THE COMPARISON. Zero schemas found compares zero
   # against zero and "passes" — the vacuous green this whole sheet is about. Six is
@@ -2031,7 +2033,20 @@ case_runner_schema_required_defines() {
 # repository's own live-state arm, satisfied by an HTML comment recording the very staleness it was
 # checking for. Strip toward OVER-stripping: an over-strip reddens loudly and a reader investigates,
 # an under-strip is the silent pass this note exists to prevent.
-_goldenpaths_runners() {   # every shipped runner, disarmed or armed tree
+# EVERY SHIPPED RUNNER, disarmed or armed tree — the ONE authoring site for that enumeration.
+# Renamed from _goldenpaths_runners when it gained its second consumer: a helper named after one
+# caller reads, to the next caller, like something it is not allowed to use.
+#
+# DUAL-SPELLING, and the reason belongs here rather than in each caller's memory: the maintainer
+# repository stores the kit disarmed (`_claude/`), a built kit ships it armed (`.claude/`). Reading
+# whichever exists lets a case still find the real shipped tree in place. It does NOT make an
+# in-place run a witness — see the header.
+#
+# NOT THE ONLY WORKFLOW GLOB IN THIS FILE, AND THE OTHER ONE IS DELIBERATELY WIDER. Do not collapse
+# case_shipped_runners_parse into this helper: it globs `workflows/*.js`, because a file that cannot
+# be parsed matters whether or not its name contains "runner". Narrowing it to `*runner*.js` would
+# quietly shrink the guard that caught a shipped runner which could not be loaded at all.
+_shipped_runners() {
   local f
   for f in "$REAL_REPO_ROOT"/_claude/workflows/*runner*.js "$REAL_REPO_ROOT"/.claude/workflows/*runner*.js; do
     [ -e "$f" ] && printf '%s\n' "$f"
@@ -2066,7 +2081,7 @@ case_runner_goldenpaths_empty_skips() {
     printf '%s\n' "$code" | grep -qF 'CFG.goldenPaths &&' \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step has no guard on CFG.goldenPaths — '??' alone does not produce a skip, it only delivers the empty string to a step that would then run against nothing"; }
   done <<EOF
-$(_goldenpaths_runners)
+$(_shipped_runners)
 EOF
 
   # ASSERT THE EXTRACTOR, not only the comparison. Zero runners found checks nothing and reads
