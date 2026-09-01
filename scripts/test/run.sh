@@ -841,9 +841,7 @@ case_move_issue_set_pr_on_a_minted_card() {
   if ! has_kit_init; then
     skp "move-issue --set-pr writes back into a minted card" "scripts/kit-init.sh absent"; return
   fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "move-issue --set-pr writes back into a minted card" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
-  fi
+  if ! has_issue_template; then skp "move-issue --set-pr writes back into a minted card" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
 
   local id="$SB_PREFIX-777" card="progress/todo/$SB_PREFIX-777-setpr-probe.md" out rc
@@ -1927,9 +1925,7 @@ $(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
 case_kit_init_markers_intact() {
   cf_reset
   if ! has_kit_init; then skp "kit-init: KIT-CLASS markers survive the stamp" "scripts/kit-init.sh absent"; return; fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "kit-init: KIT-CLASS markers survive the stamp" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
-  fi
+  if ! has_issue_template; then skp "kit-init: KIT-CLASS markers survive the stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   # THE SAME SETUP THE SIBLING kit-init CASE USES, derived from it rather than
   # re-invented: kit-init needs a prepared .claude/ and a published trunk, and a bare
   # make_sandbox gives neither — it exits 1 with no output, which reads as a defect in
@@ -2139,9 +2135,7 @@ case_minted_card_is_unmarked() {
   if ! has_kit_init; then
     skp "minted card: no travel marker, fill instruction kept" "scripts/kit-init.sh absent"; return
   fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "minted card: no travel marker, fill instruction kept" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
-  fi
+  if ! has_issue_template; then skp "minted card: no travel marker, fill instruction kept" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
 
   local out rc card id="$SB_PREFIX-701"
@@ -4624,9 +4618,7 @@ case_kit_init_survives_the_documented_first_commit() {
   if ! has_kit_init; then
     skp "kit-init: the documented day-one first commit" "scripts/kit-init.sh absent"; return
   fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "kit-init: the documented day-one first commit" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
-  fi
+  if ! has_issue_template; then skp "kit-init: the documented day-one first commit" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
 
   # SEED THE ROOT DOCUMENTS, because make_sandbox does not and a real day-one tree does.
@@ -4733,9 +4725,7 @@ case_kit_init_still_fails_on_a_real_finding() {
   if ! has_kit_init; then
     skp "kit-init: a real board finding still fails the self-check" "scripts/kit-init.sh absent"; return
   fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "kit-init: a real board finding still fails the self-check" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
-  fi
+  if ! has_issue_template; then skp "kit-init: a real board finding still fails the self-check" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
 
   local dup="$SB_PREFIX-100" f
@@ -4810,6 +4800,21 @@ case_check_board_frontmatter_offset() {
 # CASE — kit-init.sh end to end, against a NON-shipped prefix.
 # The script's own self-check is its primary proof; this keeps it from ROTTING.
 # =============================================================================
+# THE ISSUE-TEMPLATE CAPABILITY PROBE — ONE AUTHORING SITE. Eight cases need a minted card, so
+# eight carried their own copy of this path, in TWO spellings of the skip reason. The path, the
+# spelling policy below and the reason string are one decision, and a decision stated eight times
+# is eight places to amend and seven to forget.
+#
+# `.claude/` ONLY, DELIBERATELY, AND DO NOT WIDEN THIS TO THE DUAL SPELLING. These eight cases
+# exercise a BUILT kit — `kit_init_sandbox` copies `.claude/templates` and nothing else — so the
+# maintainer repository's disarmed `_claude/` tree is not their operand and finding it would make
+# them run against a tree they are not testing. The sites elsewhere in this file that read
+# whichever spelling exists are reading the SHIPPED tree in place, which is a different question;
+# the header says why that is a convenience and not a supported mode.
+ISSUE_TEMPLATE_REL='.claude/templates/ISSUE.template.md'
+ISSUE_TEMPLATE_ABSENT="$ISSUE_TEMPLATE_REL absent (copy-list incomplete)"
+has_issue_template() { [ -f "$REAL_REPO_ROOT/$ISSUE_TEMPLATE_REL" ]; }
+
 has_kit_init() { [ -f "$REAL_SCRIPTS/kit-init.sh" ]; }
 
 kit_init_sandbox() {
@@ -4834,9 +4839,7 @@ kit_init_sandbox() {
 case_kit_init_happy() {
   cf_reset
   if ! has_kit_init; then skp "kit-init: end-to-end init + self-check" "scripts/kit-init.sh absent"; return; fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "kit-init: end-to-end init + self-check" ".claude/templates/ISSUE.template.md absent (copy-list incomplete)"; return
-  fi
+  if ! has_issue_template; then skp "kit-init: end-to-end init + self-check" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   publish_sandbox
 
@@ -4925,9 +4928,7 @@ case_kit_init_refuses_lived_board() {
 case_kit_init_gate_fill() {
   cf_reset
   if ! has_kit_init; then skp "kit-init --gate-command: fills the shipped frame's empty table" "scripts/kit-init.sh absent"; return; fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "kit-init --gate-command: fills the shipped frame's empty table" ".claude/templates/ISSUE.template.md absent"; return
-  fi
+  if ! has_issue_template; then skp "kit-init --gate-command: fills the shipped frame's empty table" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   # Ship-state: empty the GATES table again — make_sandbox neutralized it and then
   # _declare_sandbox_gate put the sandbox's own gate back, and THIS case is about
@@ -5158,9 +5159,7 @@ case_creation_scripts_substitute_hostile_values() {
 case_first_mile() {
   cf_reset
   if ! has_kit_init; then skp "first mile: kit-init → mint → push → move → drift-clean" "scripts/kit-init.sh absent"; return; fi
-  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md" ]; then
-    skp "first mile: kit-init → mint → push → move → drift-clean" ".claude/templates/ISSUE.template.md absent"; return
-  fi
+  if ! has_issue_template; then skp "first mile: kit-init → mint → push → move → drift-clean" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   publish_sandbox
 
