@@ -71,7 +71,7 @@ for (const k of ['wave1', 'wave2']) {
   }
 }
 if ((ARGS.wave1 ?? []).length === 0 && (ARGS.wave2 ?? []).length === 0) {
-  throw new Error('wave-runner: at least one of args.wave1 / args.wave2 must be a NON-EMPTY array of issue objects — a run over zero issues would otherwise report a clean success. Expected: { repo, wave1: [{id, slug, branch, ...}], wave2: [...] }')
+  throw new Error('wave-runner: at least one of args.wave1 / args.wave2 must be a NON-EMPTY array of issue objects — a run over zero issues would otherwise report a clean success. Expected: { repo, wave1: [{id, branch, ...}], wave2: [...] }')
 }
 
 const DEFAULT_MODEL = 'opus'

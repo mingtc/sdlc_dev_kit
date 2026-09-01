@@ -9,9 +9,16 @@ export const meta = {
 }
 
 // args: { repo, trunk?, gateCmd?, codePaths?, goldenPaths?, liveRules?,
-//         issues: [{id, slug, branch, title, devModel, devEffort, qaModel, qaEffort,
+//         issues: [{id, branch, title, devModel, devEffort, qaModel, qaEffort,
 //                   devAgentType, qaAgentType, gates, depends_on: [], extraDev, extraQA,
 //                   role, docsPath, parkable}] }
+//
+// THERE IS NO `slug` FIELD, AND THAT IS DELIBERATE — do not re-add one. It was documented here
+// and echoed in two refusal messages while NOTHING in either runner read it, so a caller was
+// asked for a value that could not affect the run. It has no use to invent, either: every board
+// operation this file emits goes through `./scripts/move-issue.sh <id>`, which takes the id and
+// resolves the card path itself. The mover owning that lookup is exactly why the runner does not
+// need the other half of the filename.
 //
 // `parkable: true` means a Dev status=blocked MAY close this issue — it does NOT mean it
 // closes unreviewed. The park then takes a park-QA leg (PARK_SCHEMA, the same provision()
@@ -37,7 +44,7 @@ let ARGS
 try {
   ARGS = typeof args === 'string' ? JSON.parse(args) : args
 } catch (e) {
-  throw new Error(`tranche-runner: args must be a JSON object, not prose. Got: ${String(args).slice(0, 60)}\nExpected: { repo, issues: [{id, slug, branch, ...}] } — the full shape is in the "// args:" comment at the top of this file\nUnderlying parse error: ${e.message}`)
+  throw new Error(`tranche-runner: args must be a JSON object, not prose. Got: ${String(args).slice(0, 60)}\nExpected: { repo, issues: [{id, branch, ...}] } — the full shape is in the "// args:" comment at the top of this file\nUnderlying parse error: ${e.message}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +80,7 @@ if (!CFG.repo) throw new Error('tranche-runner: args.repo is required (absolute 
 // runner nor the field and reads like a bug in the tool rather than a malformed call.
 // Checked HERE rather than at the loop so the run dies at 0 agents, which is this file's posture.
 if (!Array.isArray(ARGS.issues) || ARGS.issues.length === 0) {
-  throw new Error('tranche-runner: args.issues is required and must be a NON-EMPTY array of issue objects. Got: ' + JSON.stringify(ARGS.issues) + '. Expected: { repo, issues: [{id, slug, branch, ...}] }')
+  throw new Error('tranche-runner: args.issues is required and must be a NON-EMPTY array of issue objects. Got: ' + JSON.stringify(ARGS.issues) + '. Expected: { repo, issues: [{id, branch, ...}] }')
 }
 
 const DEFAULT_MODEL = 'opus'

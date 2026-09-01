@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`tranche-runner` no longer documents a per-issue `slug` field.** It was listed in the args
+  comment and echoed in the parse-failure message while nothing in either runner read it, so a caller
+  was asked for a value that could not affect the run. There is nowhere it could be used: every board
+  move the runners emit goes through `./scripts/move-issue.sh <id>`, which resolves the card path from
+  the id alone. **No action required** — passing `slug` was always inert and still is; it is simply no
+  longer asked for.
+
 - **Both workflow runners now refuse an omitted or empty issue list by name.** Driving
   `tranche-runner` with no `issues` previously died on JavaScript's own `TypeError: undefined is not
   iterable`, which names neither the runner nor the field; driving `wave-runner` with no waves was
