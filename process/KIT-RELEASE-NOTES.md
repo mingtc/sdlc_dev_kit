@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`EXTRACTION.md` § 2.2 now registers the `.claude/` tree as a status-folder carrier, and its
+  derivation recipe can finally reach it.** The recipe scoped to `scripts/` and `setup.sh`, so the
+  runners, item templates, role docs, worker definitions and two skills — all of which name board
+  columns — were invisible to the instrument the section offers for finding carriers. **If you have
+  renamed or added a board column, re-run the widened recipe:** the narrow one returned fewer than
+  half the files that name a column, so a previous lifecycle change may have missed the agent-facing
+  half and left briefs instructing a move to a column that does not exist.
+
 - **The two workflow runners' result schemas now agree field-for-field, and a self-test case keeps
   them that way.** Five field descriptions had drifted apart between `tranche-runner` and
   `wave-runner`, and one field had lost its description entirely — so the same result field was

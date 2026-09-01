@@ -447,13 +447,28 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
   an example subject in its refusal help; `scripts/config.sh` names `in_progress` in an example
   command. **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
   class here and the easiest to leave for years.
+- **THE AGENT-FACING TREE UNDER `.claude/` NAMES COLUMNS TOO, AND IT IS THE LARGEST CARRIER OF THEM.**
+  The workflow runners emit `move-issue.sh <id> <column>` invocations and describe the board in the
+  briefs they hand agents; the item templates state where a card sits at each stage; the role docs and
+  worker definitions name the columns their hat moves between; two skills walk the flow. **They carry
+  the set MINUS `done`** — a runner brief and an issue template both describe the working lifecycle, and
+  nothing there closes an issue. **What a missed column costs here is a WRONG INSTRUCTION rather than a
+  broken script:** the agent is told to move an issue to a column that does not exist, and the failure
+  surfaces as the mover refusing mid-run, at whatever hour the run reached that step.
 
-Derive both sets, and do not trust a single-column probe:
+Derive all three sets, and do not trust a single-column probe:
 
 ```sh
-grep -rlE '(todo[|, ]+in_progress|STATUS_FOLDERS)' scripts/ setup.sh   # carries the SET
-grep -rlE 'in_progress|dev_complete|qa_complete'   scripts/ setup.sh   # names ANY column
+grep -rlE '(todo[|, ]+in_progress|STATUS_FOLDERS)' scripts/ setup.sh .claude/   # carries the SET
+grep -rlE 'in_progress|dev_complete|qa_complete'   scripts/ setup.sh .claude/   # names ANY column
 ```
+
+**THE `.claude/` OPERAND IS NOT DECORATION AND MUST NOT BE DROPPED FOR BREVITY.** Until 2026-09-02 both
+recipes read `scripts/ setup.sh` alone. Measured on the day they were widened: the narrow form found
+**11** files, the widened form **28** — so **more of this seam lived outside the recipe's reach than
+inside it**, and every file in the difference was invisible to the very instrument this section offers
+for finding them. *A derivation whose SPACE is hand-bound answers a smaller question than the one it
+appears to answer, and answers it confidently.*
 
 *The second pattern deliberately omits `todo` and `done`. `done` is a shell keyword, so it matches
 loop terminators; it is also the tail of `progress/done/`, so most of what a bare `done` finds in
