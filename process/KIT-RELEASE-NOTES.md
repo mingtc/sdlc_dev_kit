@@ -46,6 +46,12 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The QA brief's procedure no longer skips a number.** The zero-drift check is conditional, and while
+  it was a numbered step the list jumped from 5 to 7 whenever it was absent — which reads to a reviewer
+  like a step that went missing on the way to them. It is now an unnumbered continuation of the
+  binding-gates step, which is also what it is: a gate for that issue, not a separate phase. **No action
+  required** — the checks are unchanged, only their presentation.
+
 - **`tranche-runner` no longer documents a per-issue `slug` field.** It was listed in the args
   comment and echoed in the parse-failure message while nothing in either runner read it, so a caller
   was asked for a value that could not affect the run. There is nowhere it could be used: every board
