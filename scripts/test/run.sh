@@ -4743,21 +4743,35 @@ case_check_board_frontmatter_offset() {
   mv "$tmp" "$f"
   publish_sandbox
 
+  # THE ID KEY IS DERIVED, NOT RE-TYPED, AND THE ARM BELOW IT IS WHY THAT MATTERS HERE MORE THAN
+  # USUAL. check-board.sh printf's this message with ISSUE_ID_KEY substituted, so a re-typed
+  # "no id:" matches only while that key is spelled `id`. The assertion using it is NEGATIVE —
+  # a non-match is the PASSING branch — so retuning the key would not redden this case, it would
+  # make it measure nothing and still report PASS. An EMPTY derivation does exactly the same, and
+  # that is the failure the arm catches: without it, `grep -q "no : line"` matches nothing and the
+  # case passes vacuously.
+  local id_key; id_key="$(cb_default ISSUE_ID_KEY)"
+  [ -n "$id_key" ] \
+    || cf "(control) could not derive ISSUE_ID_KEY from check-board.sh — the negative assertion below would then match nothing and report PASS while measuring nothing"
+
   local out rc
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "no id: line" \
-    && cf "a card whose frontmatter sits below a comment header was reported as having NO id: $out"
+  printf '%s\n' "$out" | grep -q "no $id_key: line" \
+    && cf "a card whose frontmatter sits below a comment header was reported as having no $id_key: $out"
   printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
     || cf "a healthy card with a comment header did not read clean: $out"
 
-  # CONTROL — a `---` far down a long body must NOT be mistaken for a frontmatter
-  # fence, or the scan cap is doing nothing.
-  local scan
-  scan="$(sed -n 's/^FRONTMATTER_SCAN_LINES=\([0-9]*\)/\1/p' "$REAL_SCRIPTS/check-board.sh" | head -1)"
-  [ -n "$scan" ] || cf "(control) could not derive FRONTMATTER_SCAN_LINES"
+  # NO SCAN-CAP CONTROL HERE, AND ITS ABSENCE IS NOW HONEST. This case used to derive
+  # FRONTMATTER_SCAN_LINES, assert it non-empty, and never use it — with a comment beside it
+  # describing a control ("a `---` far down a long body must NOT be mistaken for a fence") that was
+  # never built, and a finish message claiming "a stated scan cap". A derivation nothing reads is
+  # not a control; the prose around it was the only thing making it look like one, and the prose is
+  # what a reviewer reads. Building the real control means seeding a long body with a `---` past the
+  # cap and asserting the card still parses — real new coverage rather than hygiene, so it is filed
+  # as its own item rather than smuggled in here.
 
-  finish "check (d): a frontmatter below a comment header is parsed (not reported as missing), with a stated scan cap"
+  finish "check (d): a frontmatter below a comment header is parsed, not reported as missing (id key derived, not re-typed)"
   teardown
 }
 
