@@ -56,6 +56,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **If you run `wave-runner.js`, its parallel legs were being told something false.** The brief said
+  a peer works with *zero file overlap with yours* — which reads as *therefore you cannot collide*.
+  **The objects that actually contend cannot be assigned to an issue at all:** HEAD, the shared
+  checkout's current branch, the git index, a gitignored build tree, and the next free id. A peer
+  can move any of them with zero file overlap the whole time. The brief now names them and says
+  what to do: your own worktree, never `checkout`/`switch` in the shared root, never `git add` a
+  path you do not own, re-read anything derived from HEAD after a pause, and a minted id is taken
+  only once it is committed. **No action required** — but if you wrote your own leg briefs from
+  this one, they carry the same false reassurance.
+
 - **`architect.md`'s shared-checkout rule changed from a procedure to a structure.** It used to say:
   before any seat commit, confirm the current branch is the trunk and, if an active run holds the
   checkout, wait. It now says: **while any leg is dispatched, commit from a worktree of your own.**
