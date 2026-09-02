@@ -24,6 +24,26 @@ reverted by `git`. Every other discipline in this kit can be repaired by a commi
 cannot, so it is the only place where the kit puts a **refusal** in the execution path rather
 than an instruction in a document.
 
+**And irreversibility is only half the case — the other half is EPISTEMIC, and it is the half that
+answers the question a reader actually has.** *"If the acts are so dangerous, why not just test
+against a fake?"* Because **an offline fake encodes YOUR ASSUMPTION about the far side**, so every
+defect that lives *in that assumption* is invisible by construction. A green suite against a fake
+proves the code agrees with what you believed — which is precisely the thing in doubt. The failures
+that cost the most are not the ones where the code disagrees with the spec; they are the ones where
+the spec disagrees with the service: an undocumented required field, a silently-truncated value, an
+error shape nobody wrote down, a rate limit that arrives as a success.
+
+**The corollary, and it is where fakes usually rot:** a fake must be **maintained against the real
+thing**, on a stated cadence, by someone. Left alone it does not merely go stale — it becomes a
+**more confident version of the same assumption**, because the suite passing against it accumulates
+into evidence. *An unmaintained fake is not a weak test; it is a machine for reinforcing a belief.*
+
+**This is the REASON under a conclusion the kit already states in several places** — an offline pass
+is a **floor, not a PASS**. Those sites state the rule; none of them states why, so a reader who
+wants to argue with it has nothing to argue with and the rule survives on authority alone. It is the
+same shape as [`instruments.md`](instruments.md) § A.1: a check that cannot go red for the reason you
+care about is not evidence about that reason, whatever colour it prints.
+
 ---
 
 ## § A — The pattern
