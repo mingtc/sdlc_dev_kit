@@ -75,9 +75,22 @@ fi
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 DRY_RUN=true
-case "${1:-}" in
-  --apply) DRY_RUN=false ;;
-  ""|--dry-run) DRY_RUN=true ;;
+# A REAL LOOP, BECAUSE THE SINGLE-`$1` FORM SILENTLY DISCARDED EVERY LATER ARGUMENT — and
+# one of the things it discarded was a hedge. Measured: `--apply --dry-run` set DRY_RUN
+# FALSE and swept, committed and pushed to the trunk, with `--dry-run` thrown away; the
+# reverse order previewed and threw `--apply` away. Order-dependent, opposite outcomes,
+# no warning — and `--apply --dry-run` is exactly the belt-and-braces spelling an unsure
+# operator reaches for. The three sibling mutators all loop; this one did not.
+#
+# THE BARE FORM MUST STAY LEGAL AND MUST STAY A PREVIEW: `contracts/archive-sweep.md`
+# § 2 rules preview-by-default for this script, and the manual documents the bare
+# invocation as the dry run. This loop adds a refusal; it changes no default.
+SAW_APPLY=false; SAW_DRY=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+  --apply) DRY_RUN=false; SAW_APPLY=true; shift ;;
+  --dry-run) DRY_RUN=true; SAW_DRY=true; shift ;;
+  "") shift ;;
   -h|--help) usage; exit 0 ;;
   # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
   # kit already told them apart in every script that has a `-*)` arm — these did not, so a
@@ -85,7 +98,19 @@ case "${1:-}" in
   # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
   -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
   *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
-esac
+  esac
+done
+# A CONTRADICTION IS REFUSED, NOT RESOLVED. Last-flag-wins would still be a guess about
+# which one the operator meant, and the two guesses differ by a push to the trunk.
+if [ "$SAW_APPLY" = true ] && [ "$SAW_DRY" = true ]; then
+  {
+    echo "Error: --apply and --dry-run are contradictory — refusing rather than guessing which you meant."
+    echo "       --apply sweeps, commits and PUSHES to the trunk; --dry-run previews and changes nothing."
+    echo "       Run one of them. The bare form (no flag) is the preview."
+    echo "       NOTHING WAS CHANGED."
+  } >&2
+  exit 2
+fi
 
 # THE SEAT THIS SCRIPT ACTS AS. [Orchestrator] means session-close housekeeping; it is
 # a MEMBER of the role set, not the set itself, so it is a knob and never derived — a

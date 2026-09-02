@@ -227,6 +227,10 @@ while [ $# -gt 0 ]; do
     --publish-only) PUBLISH_ONLY=true; shift ;;
     --no-fetch) NO_FETCH=true; shift ;;
     -h|--help) usage; exit 0 ;;
+    --apply) { echo "release.sh: there is no --apply — this script MUTATES by default, which is the"
+               echo "            opposite of the archive sweeps. Use --dry-run to run every gate and STOP."
+               echo "            NOTHING WAS WRITTEN."; } >&2
+             exit 2 ;;
     -*) echo "release.sh: unknown option '$1'" >&2; usage >&2; exit 2 ;;
     *) if [ -z "$RAW_VERSION" ]; then RAW_VERSION="$1"; shift
        else echo "release.sh: unexpected extra arg '$1'" >&2; exit 2; fi ;;

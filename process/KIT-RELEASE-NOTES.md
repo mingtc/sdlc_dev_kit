@@ -56,6 +56,22 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`archive.sh` now reads every argument you give it, and refuses a self-contradictory pair.** It
+  used to inspect the first argument only — no loop, no `shift` — so everything after it was
+  discarded in silence. Measured: `./scripts/archive.sh --apply --dry-run` swept the board,
+  committed and **pushed to the trunk**, with `--dry-run` thrown away; the same two flags in the
+  other order previewed and threw `--apply` away. Opposite outcomes from the same request, decided
+  by typing order. Both now exit 2, naming both flags and saying nothing was changed. **Action
+  required if any wrapper, alias or CI step calls `archive.sh` with more than one argument:** a
+  stray second word that used to be swallowed is now a refusal. Check what you pass it. `--apply`
+  alone and a bare invocation are unchanged. **`archive-progress.sh` now accepts `--dry-run`**,
+  which it used to reject as an unknown option even though preview is what it does by default; it
+  carries the same contradiction guard. **`finish-pr.sh` and `release.sh` still mutate by default**
+  — nothing there moved — but their refusal of `--apply` now tells you that, and points at
+  `--dry-run`, instead of only saying no. The split is deliberate and is now written down: a bulk
+  sweep over a set you did not enumerate previews first; a tool acting on one operand you typed,
+  behind gates, does not.
+
 - **"Redact secrets, never contents" now says which identifiers count as secrets — because read
   literally, it argued for keeping them.** An account name, a user, a tenant, a host or the
   authenticating identity's own address is *contents* under the old wording, so a capture could

@@ -107,7 +107,24 @@ state — so that every tool and every reader downstream can rely on the shape w
   **A surplus POSITIONAL is a different class and keeps its own status** — the two are told apart by
   a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing it would be.
 
-**These three are the CLI SHAPE, and they bind every command-line tool in the kit, not only the
+- **`--dry-run` names PREVIEW, everywhere, and nothing else.** Wherever a tool can preview, that word
+  is legal and means *change nothing* — including where previewing is already the default, in which
+  case it is the explicit spelling of the default and is idempotent. It must never mean *unknown
+  option* and must never mean *mutate*. **`--apply` is the opt-in for a tool whose default is to
+  preview**, and a tool that mutates by default does not have one: its refusal of `--apply` should
+  say so and name the flag that does preview, because the operator arriving with the wrong word
+  learned it from a sibling and a bare refusal teaches them nothing.
+  *Whether PREVIEW is the default is NOT settled here* — that is each tool's own contract sheet's
+  business, and the split is deliberate: a bulk operation over a set the operator did not enumerate
+  previews by default (`archive-sweep.md` § 2), while a tool acting on one operand the operator
+  typed, behind gates, mutates by default and need only offer a dry mode (`release-ritual.md` § 4).
+  **What is settled here is the WORD**, because a word that means three things across one set is a
+  vocabulary defect no contract sheet owns.
+- **A CONTRADICTORY PAIR IS REFUSED, NEVER RESOLVED.** `--apply --dry-run` is not a last-flag-wins
+  question: the two answers differ by whether the repository changes, and guessing is the one thing a
+  tool must not do about that. Refuse, name both flags, and say nothing was changed.
+
+**These are the CLI SHAPE, and they bind every command-line tool in the kit, not only the
 creators.** *They are authored here because this is where the failure that produced them was paid
 for; they are stated as general because a shape declared per-tool is a shape that diverges per-tool.
 **Where a tool in your set diverges — a different exit status, a missing usage handler, a usage

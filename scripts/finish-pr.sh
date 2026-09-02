@@ -134,6 +134,9 @@ while [ $# -gt 0 ]; do
     --dry-run) DRY_RUN=true; shift ;;
     --discard-dirty) DISCARD_DIRTY=true; KWT_DISCARD_DIRTY=true; shift ;;
     -h|--help) usage; exit 0 ;;
+    --apply) { echo "Error: finish-pr.sh has no --apply — it MUTATES by default, which is the opposite"
+               echo "       of the archive sweeps. Use --dry-run to preview. NOTHING WAS READ OR TOUCHED."; } >&2
+             exit 2 ;;
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac

@@ -75,7 +75,7 @@
 set -euo pipefail
 
 # Defaults
-DRY_RUN=true
+DRY_RUN=true; SAW_APPLY=false; SAW_DRY=false
 DO_TAG=false
 MILESTONE=""
 BEFORE=""
@@ -97,7 +97,12 @@ while [ $# -gt 0 ]; do
     --milestone) MILESTONE="$2"; shift 2 ;;
     --before)    BEFORE="$2"; shift 2 ;;
     --keep-last) KEEP_LAST="$2"; shift 2 ;;
-    --apply)     DRY_RUN=false; shift ;;
+    --apply)     DRY_RUN=false; SAW_APPLY=true; shift ;;
+    # ACCEPTED, THOUGH IT IS ALREADY THE DEFAULT. It used to be refused as an unknown
+    # option — the set's only refusal of a word that means "change nothing", and the
+    # one an operator arrives with from the two mutators that require it. A tool that
+    # can preview accepts the word for previewing; anything else teaches by punishment.
+    --dry-run)   DRY_RUN=true; SAW_DRY=true; shift ;;
     --tag)       DO_TAG=true; shift ;;
     --repo-root) REPO_ROOT="$2"; shift 2 ;;
     -h|--help)   usage; exit 0 ;;
@@ -109,6 +114,17 @@ while [ $# -gt 0 ]; do
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+# THE SAME REFUSAL AS archive.sh, WORD FOR WORD IN SUBSTANCE. Two sibling sweeps that
+# disagreed about a contradictory pair would recreate this whole class inside its fix.
+if [ "$SAW_APPLY" = true ] && [ "$SAW_DRY" = true ]; then
+  {
+    echo "Error: --apply and --dry-run are contradictory — refusing rather than guessing which you meant."
+    echo "       --apply rewrites progress.md and the chunk index; --dry-run previews and changes nothing."
+    echo "       Run one of them. The bare form (no flag) is the preview."
+    echo "       NOTHING WAS CHANGED."
+  } >&2
+  exit 2
+fi
 
 [ -n "$MILESTONE" ] || { echo "Error: --milestone <name> is required." >&2; exit 1; }
 

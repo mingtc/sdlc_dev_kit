@@ -1583,6 +1583,72 @@ case_finish_pr_gate_hardening() {
 # only prove the knob is read; narrowing the declared set is what proves the tag is
 # CHECKED against it.
 # =============================================================================
+# =============================================================================
+# CASE — A CONTRADICTORY --apply/--dry-run PAIR REFUSES, IN EITHER ORDER.
+#
+# archive.sh inspected `$1` ALONE — no loop, no shift, no `$#`. So every argument after
+# the first was silently discarded, and one of the things it discarded was a hedge.
+# Measured: `--apply --dry-run` set DRY_RUN=false and swept, committed and PUSHED to the
+# trunk with `--dry-run` thrown away; the reverse order previewed and threw `--apply`
+# away. Order-dependent, opposite outcomes, no warning — and `--apply --dry-run` is
+# exactly the belt-and-braces spelling an operator who is unsure reaches for.
+#
+# THE EXIT CODE IS NOT THE ASSERTION. This case reads the BOARD, the local HEAD and the
+# REMOTE, because the difference between the two orders was a push to the trunk.
+#
+# NOTE WHAT IS *NOT* CHANGED: the defaults. `contracts/archive-sweep.md` § 2 rules
+# preview-by-default for this script and the manual documents the bare invocation as the
+# dry run. This case pins that too — the instrument leg proves a plain `--apply` still
+# sweeps, so the refusal cannot have been bought by breaking the tool.
+# =============================================================================
+case_archive_hedged_flags_never_mutate() {
+  cf_reset
+  local out rc before card
+
+  _hedge_leg() {  # <flag1> <flag2> <label>
+    make_sandbox
+    seed_issue qa_complete "$SB_PREFIX-260" hedge chore "Hedged sweep"
+    publish_sandbox
+    grep -q '^## Archived$' "$SB_WORK/ARCHIVE.md" 2>/dev/null \
+      || _fixture_die "case_archive_hedged_flags_never_mutate: no '## Archived' heading — archive.sh would refuse for THAT reason and every 'nothing moved' assertion below would pass for the wrong one."
+    before="$(git -C "$SB_WORK" rev-parse HEAD)"
+    rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" "$1" "$2" 2>&1 )" || rc=$?
+    [ "$rc" -eq 2 ] \
+      || cf "($3) a contradictory pair exited $rc, want 2 — the published usage status: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+    printf '%s\n' "$out" | grep -qi 'contradictory' \
+      || cf "($3) the refusal does not say the flags contradict: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+    [ -f "$SB_WORK/progress/qa_complete/$SB_PREFIX-260-hedge.md" ] \
+      || cf "($3) the card LEFT qa_complete/ — the hedge mutated"
+    [ -f "$SB_WORK/progress/done/$SB_PREFIX-260-hedge.md" ] \
+      && cf "($3) the card reached done/"
+    grep -q "$SB_PREFIX-260" "$SB_WORK/ARCHIVE.md" 2>/dev/null \
+      && cf "($3) ARCHIVE.md gained an index entry during a refusal"
+    [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] \
+      || cf "($3) a commit was created during a refusal"
+    origin_has_path "progress/done/$SB_PREFIX-260-hedge.md" \
+      && cf "($3) the sweep reached the REMOTE trunk"
+    teardown
+  }
+
+  _hedge_leg --apply --dry-run "apply-then-dry"
+  _hedge_leg --dry-run --apply "dry-then-apply"
+
+  # ── INSTRUMENT CHECK. Every assertion above is "nothing happened", which a sweep
+  #    broken for ANY reason satisfies. The same fixture with a plain --apply must SWEEP.
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-261" plain chore "Plain sweep"
+  publish_sandbox
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(control) a plain --apply exited $rc — the refusals above may be a broken sweep rather than a guard: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+  origin_has_path "progress/done/$SB_PREFIX-261-plain.md" \
+    || cf "(control) a plain --apply did not reach the trunk — this case cannot tell a refusal from a no-op"
+  teardown
+
+  unset -f _hedge_leg
+  finish "archive.sh: a contradictory --apply/--dry-run pair refuses at status 2 in EITHER order with the board, the local HEAD and the remote all unchanged — and a plain --apply on the same fixture still sweeps"
+}
+
 case_one_member_role_tag_refuses_before_mutating() {
   cf_reset
   make_sandbox
@@ -8548,6 +8614,7 @@ CASES=(
   case_finish_pr_gate_hardening
   case_finish_pr_gate_revision
   case_archive_apply
+  case_archive_hedged_flags_never_mutate
   case_one_member_role_tag_refuses_before_mutating
   case_archive_index_carries_the_date
   case_archive_index_refuses_malformed
