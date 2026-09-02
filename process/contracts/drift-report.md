@@ -176,6 +176,25 @@ missing line against, and now derives it from this list instead of restating it.
   **The span is commit MESSAGES**, and the reading says so: § A.1 of `doctrine/commit-hygiene.md`
   covers specs, issue activity entries and review notes too, and a clean reading here is not a
   statement about any of them.
+- **Where the item format declares dependencies between cards, the report reads them in BOTH
+  directions and says how many it read.**
+  *Why:* a dependency is written on two cards and neither card can see the other. `blocks: [B]` on A
+  with no answering `blocked_by: [A]` on B is correct-looking on each card alone, and the seat that
+  sequences work reads the board rather than both files — so the pair that lost half its declaration
+  is dispatched onto unlanded work. Reading only one of the two keys is worse than not reading them:
+  it is **structurally blind** to every pair whose surviving declaration is the other one, which is
+  the half a concurrent mint produces, and it reports a clean result while being so.
+  *Advisory, and the reason is a property of the FIELD:* every deciding check in this contract reads
+  something a shipped mechanism produces **and clears**. These fields have no producer and no
+  clearing operation, so a deciding finding would be the first whose remedy is *"hand-edit a card"* —
+  and it would hold the release gate shut on it, with the only escape disabling the whole board
+  reading. **Revisit when a mechanism writes and clears them**, at which point the finding will name
+  an operation that fixes it, which is the bar the deciding checks meet.
+  *And the count is part of the invariant:* a board where nobody declared a dependency and a board
+  whose declarations all agree must not print the same thing, or the reading is unfalsifiable — the
+  same rule as every other absent subject here.
+  *A dangling reference is a DIFFERENT finding from an asymmetry* and prints as one: *"B is not on
+  this board"* asks the reader to check an id; *"B did not answer"* asks them to fix a declaration.
 
 ## 3. REFUSAL CONDITIONS
 

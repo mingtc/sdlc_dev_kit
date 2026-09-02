@@ -3752,6 +3752,23 @@ _cb_g_section() {  # reads a check-board report on stdin
        f'
 }
 
+# cb_set_dep <id> <slug> <folder> <blocks|blocked_by> <target-id>
+# Rewrite one dependency field into a seeded card's frontmatter. seed_issue does NOT emit
+# these keys, so this INSERTS before the CLOSING fence — the second `---`, never the
+# first. A fixture that did not take is FATAL, not a case failure: every assertion built
+# on it would then be about a board with no dependencies at all, and would report PASS.
+cb_set_dep() {
+  local id="$1" slug="$2" folder="$3" key="$4" target="$5"
+  local f="$SB_WORK/progress/$folder/${id}-${slug}.md"
+  [ -f "$f" ] || _fixture_die "cb_set_dep: no card at $f"
+  awk -v k="$key" -v t="$target" '
+    /^---[[:space:]]*$/ { n++; if (n == 2) printf "%s: [%s]\n", k, t }
+    { print }
+  ' "$f" > "$f.new" && mv "$f.new" "$f"
+  grep -qF "$key: [$target]" "$f" \
+    || _fixture_die "cb_set_dep: '$key: [$target]' did not land in $f — the symmetry case would run against a board with no dependency declared and would report PASS about nothing."
+}
+
 cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
 # =============================================================================
@@ -4635,6 +4652,97 @@ case_check_board_trailer_scan_shares_the_epoch() {
     && cf "a Co-Authored-By naming a HUMAN was reported as a generated trailer — the arm is matching the trailer rather than the tool markers, which the hook it mirrors explicitly permits"
 
   finish "check-board arm [h]: a generated trailer after the rule's epoch is reported (ablation-proven), one before it is not, the epoch commit itself is not, a HUMAN co-author is not, and [h] names the SAME epoch as [e]"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [i]: blocks/blocked_by symmetry, and the four states it must tell apart.
+#
+# The fields are HAND-MAINTAINED — they appear in the two card templates, two role docs
+# and one skill, and in NO script; the board mover writes back only `pr:`. Yet
+# .claude/roles/orchestrator.md § Chain-verify-first gates DISPATCH on them. So an
+# asymmetric pair reads as fine on each card alone and sends work onto unlanded state,
+# and no single-file check can see it.
+#
+# THE ARM IS ADVISORY BY RULING, so this case asserts BOTH halves of that: the findings
+# are printed AND the verdict line stays clean. A deciding version would hold
+# release.sh gate (d) shut on a field nothing writes and nothing clears.
+#
+# FOUR DIRECTIONS, and the last two are what stop the arm being noise or a lie:
+#   (i)   A declares blocks:[B]; B's blocked_by omits A            → reported
+#   (ii)  B declares blocked_by:[A]; A's blocks omits B            → reported (CONVERSE)
+#   (iii) a symmetric pair                                          → NOT reported
+#   (iv)  a board where no card declares either field               → says so, and does
+#         NOT print what (iii) prints
+# =============================================================================
+case_check_board_dependency_symmetry() {
+  cf_reset
+
+  # --- leg (iv) FIRST, on its own board: (i)-(iii) need declarations, and the two
+  #     states must not be able to mask each other.
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-300" lonely chore "No dependency declared anywhere"
+  publish_sandbox
+  local out rc
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(iv) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q '^\[i\]' \
+    || cf "(iv) no [i] section — the arm is absent, which no other assertion here can detect: $out"
+  # THE EFFECT, not a label: it must say it READ cards and found ZERO declarations. That
+  # is the only sentence separating "nothing to check" from "checked and symmetric".
+  printf '%s\n' "$out" | grep -qE '[1-9][0-9]* card\(s\) read, 0 dependency declaration\(s\)' \
+    || cf "(iv) the arm does not distinguish an UNDECLARED board from a symmetric one — an empty result and a clean result print the same thing: $out"
+  teardown
+
+  # --- legs (i)(ii)(iii) on one board: three pairs, three outcomes, one run.
+  cf_reset
+  make_sandbox
+  # (iii) SYMMETRIC CONTROL — must stay quiet, or every red below is just noise.
+  seed_issue todo "$SB_PREFIX-310" sym-a chore "Symmetric A"
+  seed_issue todo "$SB_PREFIX-311" sym-b chore "Symmetric B"
+  cb_set_dep "$SB_PREFIX-310" sym-a todo blocks     "$SB_PREFIX-311"
+  cb_set_dep "$SB_PREFIX-311" sym-b todo blocked_by "$SB_PREFIX-310"
+  # (i) FORWARD — 320 says it blocks 321; 321 says nothing.
+  seed_issue todo "$SB_PREFIX-320" fwd-a chore "Forward A"
+  seed_issue todo "$SB_PREFIX-321" fwd-b chore "Forward B"
+  cb_set_dep "$SB_PREFIX-320" fwd-a todo blocks "$SB_PREFIX-321"
+  # (ii) REVERSE — 331 says it is blocked by 330; 330 says nothing. This is the half a
+  #      `blocks:`-only arm is STRUCTURALLY blind to, and the half a concurrent mint
+  #      actually produces.
+  seed_issue todo "$SB_PREFIX-330" rev-a chore "Reverse A"
+  seed_issue todo "$SB_PREFIX-331" rev-b chore "Reverse B"
+  cb_set_dep "$SB_PREFIX-331" rev-b todo blocked_by "$SB_PREFIX-330"
+  publish_sandbox
+
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+
+  # (i) and (ii): both reported, each naming BOTH cards — a finding naming one card is
+  #     not actionable, because either card may be the stray.
+  printf '%s\n' "$out" | grep "$SB_PREFIX-320" | grep -q "$SB_PREFIX-321" \
+    || cf "(i) the forward asymmetry $SB_PREFIX-320 blocks $SB_PREFIX-321 was not reported naming both cards: $out"
+  printf '%s\n' "$out" | grep "$SB_PREFIX-331" | grep -q "$SB_PREFIX-330" \
+    || cf "(ii) THE CONVERSE IS UNIMPLEMENTED — $SB_PREFIX-331 declares blocked_by:[$SB_PREFIX-330], $SB_PREFIX-330 does not answer, and the arm is silent. An arm reading only blocks: is blind to half its operand set: $out"
+
+  # (iii) ABLATION: the symmetric pair must NOT appear. Without this, (i) and (ii) are
+  #       satisfied by an arm that prints every card it read.
+  printf '%s\n' "$out" | grep '⚠' | grep -q "$SB_PREFIX-310" \
+    && cf "(iii) ABLATION FAILED — the SYMMETRIC pair $SB_PREFIX-310/$SB_PREFIX-311 was reported, so the arm fires on a healthy board and (i)/(ii) prove nothing: $(printf '%s\n' "$out" | grep '⚠' | tr '\n' '|')"
+
+  # THE ADVISORY RULING, asserted as an EFFECT and not as a word: findings are on the
+  # report and the verdict is still clean. This fails the day somebody wires it to drift.
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    || cf "an ADVISORY arm changed the verdict — release.sh gate (d) refuses on this line, so a hand-maintained field with no producer would now block a release cut: $out"
+  # …and the machine contract that makes kit-init drop it, on the arm's own header line.
+  printf '%s\n' "$out" | grep '^\[i\]' | grep -q 'reports only' \
+    || cf "the advisory arm omits the literal 'reports only' token, so kit-init.sh's self-check reads its findings as decisions and fails fresh installs: $(printf '%s\n' "$out" | grep '^\[i\]')"
+
+  # INSTRUMENT AGAINST A VACUOUS PASS. Everything above is satisfiable by an arm that
+  # never parsed a field, if the fixture's writes silently missed.
+  printf '%s\n' "$out" | grep -qE '[1-9][0-9]* card\(s\) read, [1-9][0-9]* dependency declaration\(s\)' \
+    || cf "the arm reports ZERO declarations on a board carrying four — either the fixture's writes did not take or the parser does not read this YAML shape, and every assertion above is vacuous: $out"
+
+  finish "check-board arm [i]: forward AND converse asymmetries are reported naming both cards, a symmetric pair is not (ablation-proven), an undeclared board says so rather than clearing, and the arm is advisory — the verdict stays clean and the header carries 'reports only'"
   teardown
 }
 
@@ -7299,6 +7407,7 @@ CASES=(
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
   case_check_board_trailer_scan_shares_the_epoch
+  case_check_board_dependency_symmetry
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
   case_check_board_graduation

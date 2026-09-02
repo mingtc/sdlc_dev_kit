@@ -1118,6 +1118,101 @@ elif [ "$h_scanned" -gt 0 ] && [ "$h_hits" -eq 0 ]; then
   echo "    ✓ none of the $h_scanned in-scope commit message(s) carries a generated trailer"
 fi
 
+# ---------------------------------------------------------------------------
+# (i) blocks: / blocked_by: SYMMETRY. Two card templates carry these fields and NO
+#     SCRIPT WRITES THEM — measured: they appear in the two templates, two role docs and
+#     one skill, and in zero scripts; the board mover writes back only `pr:`. They are
+#     hand-maintained, and .claude/roles/orchestrator.md gates DISPATCH on them
+#     (§ Chain-verify-first). So an asymmetric pair reads as fine on each card alone and
+#     sends work onto unlanded state, and no single-file check can see it.
+#
+#     ADVISORY, AND THE REASON IS A PROPERTY OF THE FIELD, NOT A PREFERENCE. Every arm
+#     that sets `drift` reads something a shipped mechanism produces AND clears — the
+#     folder the mover put it in, the depth the sweep clears, the id the minter
+#     allocates, the prefix the hook enforces. These fields have no producer and no
+#     clearing operation, so a deciding finding here would be the first whose fix
+#     instruction is "hand-edit a card", holding release.sh gate (d) shut on it, with the
+#     only escape disabling the WHOLE board gate. Revisit when a mechanism exists that
+#     writes and clears these fields; the finding will then name an operation that fixes
+#     it, which is the standard the other arms meet.
+#
+#     THE HEADER CARRIES THE LITERAL `reports only` AND THE FINDINGS ARE INDENTED. That
+#     token is a machine contract, not a turn of phrase: kit-init's self-check drops
+#     advisory sections by it and resets on any line matching ^[a-z] in brackets. Get
+#     either wrong and this arm starts failing fresh installs.
+#
+#     BOTH DIRECTIONS. Reading only `blocks:` is structurally blind to every
+#     `blocked_by: [A]` whose counterpart never answered — which is the half a concurrent
+#     mint actually produces. Each asymmetric pair fires ONCE, from whichever end carries
+#     the declaration, and every finding names BOTH cards because either end may be the
+#     stray.
+#
+#     IT RUNS AFTER [d] AND REUSES ITS FILE LIST. Stated because it is a real coupling:
+#     d_files is the six live board columns, already filtered for empties.
+# ---------------------------------------------------------------------------
+echo
+echo "[i] blocks:/blocked_by: symmetry (six columns, from STATUS_FOLDERS; reports only — it never changes the verdict below) — $(cb_src):"
+if [ "${#d_files[@]}" -eq 0 ]; then
+  echo "      – no issue file on the board  (skipped)"
+else
+  i_out="$(awk -v scan="$FRONTMATTER_SCAN_LINES" '
+    function flush_list(   n, i, parts) {
+      # A flow list: [A, B] — or a single bare scalar.
+      if (curval ~ /^\[/) {
+        gsub(/^\[|\]$/, "", curval)
+        n = split(curval, parts, /[[:space:]]*,[[:space:]]*/)
+        for (i = 1; i <= n; i++) if (parts[i] != "") add(parts[i])
+      } else if (curval != "") add(curval)
+    }
+    function add(t) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", t); if (t == "") return
+                      DECL++; if (curkey == "blocks") B[id "\x1f" t] = 1; else BB[id "\x1f" t] = 1 }
+    FNR == 1 { if (id != "") { flush_list(); CARD[id] = 1 }
+               id = ""; curkey = ""; curval = ""; inlist = 0 }
+    FNR > scan { next }
+    {
+      line = $0
+      sub(/[[:space:]]*#.*$/, "", line)          # the templates END these lines with a # comment
+      if (line ~ /^[[:space:]]*id:[[:space:]]*/) { v = line; sub(/^[[:space:]]*id:[[:space:]]*/, "", v)
+                                                   gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); id = v }
+      if (line ~ /^[[:space:]]*(blocks|blocked_by):/) {
+        flush_list()
+        curkey = (line ~ /^[[:space:]]*blocks:/) ? "blocks" : "blocked_by"
+        curval = line; sub(/^[[:space:]]*(blocks|blocked_by):[[:space:]]*/, "", curval)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", curval)
+        inlist = (curval == "")                  # empty value ⇒ a BLOCK-style list may follow
+        if (!inlist) { flush_list(); curval = ""; curkey = "" }
+        next
+      }
+      # A FENCE IS NOT A LIST ITEM. `---` matched the block-list pattern when it was
+      # written `-[[:space:]]*`, so the closing frontmatter fence was parsed as a
+      # dependency on "--" and reported as a dangling reference. YAML requires a space
+      # after the dash, so requiring one is both correct and the fix.
+      if (line ~ /^---[[:space:]]*$/) { inlist = 0; curkey = ""; curval = ""; next }
+      if (inlist && line ~ /^[[:space:]]*-[[:space:]]+[^[:space:]]/) {
+        v = line; sub(/^[[:space:]]*-[[:space:]]*/, "", v); add(v); next
+      }
+      if (inlist && line !~ /^[[:space:]]*$/) { inlist = 0; curkey = ""; curval = "" }
+    }
+    END {
+      if (id != "") { flush_list(); CARD[id] = 1 }
+      for (k in B)  { split(k, p, "\x1f")
+                      if (!(p[2] in CARD))            print "    ⚠ " p[1] " declares blocks: [" p[2] "] — " p[2] " is not on this board (a DANGLING reference, not an asymmetry: check the id)"
+                      else if (!((p[2] "\x1f" p[1]) in BB)) print "    ⚠ " p[1] " declares blocks: [" p[2] "] and " p[2] " does not declare blocked_by: [" p[1] "] — either card may be the stray one" }
+      for (k in BB) { split(k, p, "\x1f")
+                      if (!(p[2] in CARD))            print "    ⚠ " p[1] " declares blocked_by: [" p[2] "] — " p[2] " is not on this board (a DANGLING reference, not an asymmetry: check the id)"
+                      else if (!((p[2] "\x1f" p[1]) in B))  print "    ⚠ " p[1] " declares blocked_by: [" p[2] "] and " p[2] " does not declare blocks: [" p[1] "] — either card may be the stray one" }
+      n = 0; for (c in CARD) n++
+      printf "    %d card(s) read, %d dependency declaration(s)\n", n, DECL
+    }
+  ' "${d_files[@]}" 2>/dev/null || true)"
+  # AN UNDECLARED BOARD AND A SYMMETRIC BOARD MUST NOT PRINT THE SAME THING. The count
+  # line above is what separates "checked and found nothing wrong" from "there was
+  # nothing to check" — a reading whose subject is ABSENT still prints, naming what was
+  # absent (contracts/drift-report.md § 4).
+  printf '%s\n' "$i_out" | sed '/^$/d'
+  # NO `drift=1` HERE, DELIBERATELY, AND DO NOT ADD ONE. See the ruling in the header.
+fi
+
 echo
 if [ "$drift" -eq 0 ]; then
   echo "── board-drift: clean ✓"

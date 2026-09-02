@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`check-board.sh` gained arm `[i]`: it checks that `blocks:` and `blocked_by:` agree across your
+  board.** A dependency is written on two cards and neither can see the other, so `blocks: [B]` on A
+  with no answering `blocked_by: [A]` on B looks correct on each card alone — and the seat that
+  sequences work reads the board, not both files, so the pair that lost half its declaration gets
+  dispatched onto work that has not landed. The arm reads **both** keys, so it catches the pair
+  whichever end survived, and every finding names **both** cards because either may be the stray
+  one. A reference to a card that is not on the board is reported separately, as a dangling id
+  rather than a missing answer. **No action required: this arm is ADVISORY** — it carries the
+  `reports only` marker, never changes the `board-drift:` verdict, and cannot block a release. That
+  is deliberate: nothing in the kit writes or clears these fields, so a refusal here would have no
+  operation to name as its remedy. Both the inline (`[A, B]`) and the block (`- A`) YAML shapes are
+  read, and the trailing `#` comments the templates ship with are ignored.
+
 - **`check-board.sh` gained arm `[h]`: it reads recent trunk history for generated co-author
   trailers, and it can block a release.** Your commit-msg hook refuses these at write time, but a
   write-time wall says nothing about history already written, and `contracts/commit-attribution.md`
