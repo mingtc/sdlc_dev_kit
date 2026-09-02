@@ -56,6 +56,22 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **The kit now states which clock a date comes from, and one row that mixed two has been fixed.**
+  A calendar **day** written into a board record — a retirement day, a creation day, an activity
+  line, a rotation day — is the day *you* would name, which is your local one. A timestamp meant to
+  be ordered or compared across machines is UTC and carries an explicit `Z`. That rule was followed
+  everywhere except one place, and it was written down nowhere: `UTC` did not appear in a single
+  file of the kit. **The fix is one character.** `archive-progress.sh`'s
+  `progress/history/INDEX.md` row put a UTC **Rotated** day next to **Covers** dates that were
+  grepped out of your own locally stamped log — for anyone not on UTC, one row disagreeing with
+  itself by up to a day, looking perfectly normal. **No action required, and nothing you have
+  already written is touched:** a stamp keeps the clock it was born with. Rows added from this
+  version on carry your local rotation day; older rows may read a day earlier or later. Do not
+  "correct" them — pattern-matching old stamps against a new rule is how you reintroduce the same
+  drift in the other direction. **What did NOT change:** the two UTC timestamps in the chunk
+  header, which are instants and are right as they are; and every date your board scripts write,
+  which was already local.
+
 - **`archive.sh` now reads every argument you give it, and refuses a self-contradictory pair.** It
   used to inspect the first argument only — no loop, no `shift` — so everything after it was
   discarded in silence. Measured: `./scripts/archive.sh --apply --dry-run` swept the board,

@@ -466,6 +466,11 @@ fi
 # In keep-last mode there is no date cutoff to report, and saying so is the honest
 # field; the timestamp is what makes successive rotations distinguishable.
 if [ -n "$KEEP_LAST" ]; then
+  # UTC, and deliberately: this is an INSTANT, not a calendar day. It discriminates one
+  # revert-safety tag from the next, so it must be monotonic — a local clock crossing a DST
+  # boundary can hand out the same second twice, and a colliding CUT_ID is the failure the
+  # "tag already exists" note below is about. `Z` is written into the value so a reader can
+  # see which clock produced it.
   CUT_ID="keep-last-${KEEP_LAST}-$(date -u +%Y%m%dT%H%M%SZ)"
   CUT_FIELD="none (kept the newest ${KEEP_LAST} entries)"
 else
@@ -486,6 +491,8 @@ fi
 # Write the chunk: header + pre entries (exact original content)
 {
   echo "---"
+  # UTC with an explicit Z, and deliberately: an INSTANT, comparable across machines. The
+  # Rotated column below is a calendar DAY and is local. That is the rule, not an accident.
   echo "archived_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "cutoff: $CUT_FIELD"
   echo "source: progress.md"
@@ -512,7 +519,12 @@ SPAN_LAST="$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' "$PRE_TMP" | sort | tail -1 |
 [ -n "$SPAN_FIRST" ] || SPAN_FIRST="(undated)"
 [ -n "$SPAN_LAST" ]  || SPAN_LAST="(undated)"
 if [ -n "$KEEP_LAST" ]; then CUT_DESC="\`--keep-last $KEEP_LAST\`"; else CUT_DESC="\`--before $BEFORE\`"; fi
-IDX_ROW="| [\`$MILESTONE.md\`]($MILESTONE.md) | $SPAN_FIRST → $SPAN_LAST | $PRE_COUNT | $(date -u +%Y-%m-%d) | $CUT_DESC |"
+# The Rotated column is a CALENDAR DAY and so it is the operator's local day, like every
+# other day this board writes. It was `date -u` and the two cells either side of it were not:
+# SPAN_FIRST/SPAN_LAST are grepped out of the chunk's own content, which move-issue.sh and
+# subtask.sh stamped locally. One generated row, two clocks, eight hours apart — and the two
+# UTC stamps above are a different thing entirely (see their comments): those are INSTANTS.
+IDX_ROW="| [\`$MILESTONE.md\`]($MILESTONE.md) | $SPAN_FIRST → $SPAN_LAST | $PRE_COUNT | $(date +%Y-%m-%d) | $CUT_DESC |"
 
 IDX_HEADER='| Chunk | Covers | Entries | Rotated | Cut |'
 IDX_SEP='|---|---|---|---|---|'

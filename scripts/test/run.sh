@@ -3873,6 +3873,69 @@ ap_seed() {
   [ "$got" -gt "$thresh" ] || cf "(fixture) § Log is $got bytes, NOT over the $thresh threshold — the case would prove nothing"
 }
 
+# =============================================================================
+# CASE — ONE GENERATED ROW, ONE CLOCK.
+#
+# archive-progress.sh's INDEX row has two date columns. `Covers` is grepped out of the
+# chunk's own content, which move-issue.sh and subtask.sh stamped on the operator's LOCAL
+# day; `Rotated` was `date -u`. Eight hours apart on this machine, for a third of every
+# day, in one row, with nothing about it looking wrong. archive-sweep.md § 2 now rules it:
+# a calendar DAY is local, an INSTANT is UTC and says Z.
+#
+# WALL-CLOCK FLAKE IS THE HAZARD HERE, so this case does not compare against "today". It
+# runs the same rotation under two zones 26 HOURS APART — UTC+14 and UTC−12 can never
+# share a calendar day, at any instant — and asserts the column moved WITH the operator.
+# A UTC stamp is TZ-invariant and cannot satisfy that, at any hour. Both zones are POSIX
+# `std offset` strings, so no zoneinfo database is needed.
+# =============================================================================
+case_rotation_day_uses_the_board_clock() {
+  cf_reset
+  make_sandbox
+  local TZE='XXX-14' TZW='XXX+12'   # 26h apart — they NEVER share a calendar day
+  local de dw out rc rot1 rot2
+  de="$(TZ=$TZE date +%Y-%m-%d)"; dw="$(TZ=$TZW date +%Y-%m-%d)"
+
+  # ── INSTRUMENT CHECK, and it must run FIRST. If `date` ignores TZ in this environment,
+  #    every assertion below compares two identical strings and reports a green it could
+  #    not have failed. That is a statement about the environment, so it is a SKIP.
+  if [ "$de" = "$dw" ]; then
+    skp "the rotation day comes from the board's clock" \
+        "the two pinned zones ($TZE / $TZW) both returned $de — date is not honouring TZ here, so this case would prove nothing"
+    teardown; return
+  fi
+
+  local R1="$SB_TMP/tz1" R2="$SB_TMP/tz2"
+  ap_seed "$R1" 12 2026-08-26 || { finish "the rotation day comes from the board's clock"; teardown; return; }
+  ap_seed "$R2" 12 2026-08-26 || { finish "the rotation day comes from the board's clock"; teardown; return; }
+
+  out="$( TZ=$TZE "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R1" --milestone t1 --keep-last 4 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the east-zone rotation exited $rc: $out"
+  out="$( TZ=$TZW "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R2" --milestone t2 --keep-last 4 --apply 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the west-zone rotation exited $rc: $out"
+
+  # Read `Rotated` BY POSITION (field 5 of a leading-pipe row), not by pattern — a pattern
+  # for a date would match the Covers column too and this case would read the wrong cell.
+  rot1="$(awk -F'|' '/t1\.md/ { gsub(/ /,"",$5); print $5; exit }' "$R1/progress/history/INDEX.md" 2>/dev/null)"
+  rot2="$(awk -F'|' '/t2\.md/ { gsub(/ /,"",$5); print $5; exit }' "$R2/progress/history/INDEX.md" 2>/dev/null)"
+  [ -n "$rot1" ] && [ -n "$rot2" ] \
+    || _fixture_die "case_rotation_day_uses_the_board_clock: no Rotated cell in one of the index rows — the column moved and this case is reading the wrong field."
+
+  # EFFECT (i) — DIRECTION, not merely difference: the cell IS each operator's own day.
+  [ "$rot1" = "$de" ] || cf "under TZ=$TZE the row reads Rotated '$rot1' but the day every other board artifact writes there is '$de'"
+  [ "$rot2" = "$dw" ] || cf "under TZ=$TZW the row reads Rotated '$rot2' but the day every other board artifact writes there is '$dw'"
+  # EFFECT (ii) — therefore the two zones DISAGREE. A UTC stamp is TZ-invariant and cannot.
+  [ "$rot1" != "$rot2" ] \
+    || cf "two rotations whose operators are 26 hours apart in calendar terms wrote the SAME Rotated day ('$rot1') — the column is on a clock the rest of the board is not"
+  # EFFECT (iii) — the row's OTHER date column still comes from the chunk's own content.
+  #    If this stops holding, (i) and (ii) are no longer about a row that mixes two clocks.
+  awk -F'|' '/t1\.md/ { gsub(/ /,"",$3); print $3; exit }' "$R1/progress/history/INDEX.md" 2>/dev/null \
+    | grep -qF '2026-08-26→2026-08-26' \
+    || cf "the Covers column is not the seeded local span — the row's two date columns no longer share a source, so this case is not measuring a mixed row"
+
+  finish "archive-progress.sh dates the INDEX row's Rotated column on the same clock the rest of the board writes (the operator's local day), so one generated row never mixes two clocks — proven across two zones 26 hours apart, which no UTC stamp can satisfy"
+  teardown
+}
+
 case_archive_progress_ordinal_knife() {
   cf_reset
   make_sandbox
@@ -8637,6 +8700,7 @@ CASES=(
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections
+  case_rotation_day_uses_the_board_clock
   case_archive_progress_ordinal_knife
   case_archive_progress_honest_noop
   case_archive_progress_index

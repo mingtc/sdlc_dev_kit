@@ -12,6 +12,25 @@ indexed store — **without ever losing the record it is retiring**.
   full activity log intact, into the retired store.
   *Why:* the log is the review record and the only evidence the process produced; an archive that
   keeps a one-line summary has destroyed the thing worth keeping.
+- **A CALENDAR DAY is the operator's LOCAL day. An INSTANT is UTC, and says so with a `Z`.**
+  These are two different things and the board writes both. A day stamped into a durable record —
+  a retirement day, a creation day, an activity line, a rotation day — is the day the operator
+  performing the act would name if you asked them, which is their local one. A timestamp that has
+  to be *ordered* or *compared across machines* — a tag-name discriminator, a provenance field —
+  is UTC and carries an explicit `Z` so a reader can see which clock produced it.
+  *Why:* the two rules look interchangeable and are not, and the cost of mixing them is invisible.
+  The day rule is not a preference for local time; it is the requirement that **every day in one
+  generated record comes from one clock**. A row whose span columns are grepped out of locally
+  stamped content and whose rotation column is `date -u` is eight hours self-inconsistent for a
+  third of every day, and nothing about it looks wrong. The instant rule is not a preference for
+  UTC either; it is the requirement that a value used for *ordering* be monotonic, which a local
+  clock crossing a DST boundary is not. **The reader's test is not "which clock" but "what is this
+  value for":** if a human will read it as a date, it is their date; if a machine will sort or
+  match on it, it is UTC.
+  *And a corollary that matters more than it looks:* **a stamp already written is never
+  reinterpreted or corrected against a later rule.** History keeps the clock it was born with, the
+  same way it keeps the identifiers it was born with (`config-seam.md` § 2). Correcting old stamps
+  by pattern-match to match a new rule reintroduces the same drift in the opposite direction.
 - **Retirement is by state, never by age.** Only items in the terminal reviewed state are
   eligible, whatever their date.
   *Why:* an age rule eventually retires something that is still open, and the board silently
