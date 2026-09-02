@@ -177,6 +177,23 @@ if [ -z "$REPO_ROOT" ]; then
   REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." 2>/dev/null && pwd || true)"
 fi
 
+# THE SHARED ALREADY-LIVED PROBE, resolved from THIS SCRIPT'S LOCATION and deliberately
+# NOT from REPO_ROOT: the line above lets CLAUDE_PROJECT_DIR name a different tree, and
+# the library is code that ships beside this script, not content of the tree being read.
+#
+# NO exit AND NO return, ever, on this path. This script's convention is exit 0 ALWAYS,
+# and contracts/drift-report.md requires that a reading whose subject is ABSENT still
+# PRINTS, naming what was absent. A load failure is therefore a recorded skip, not a
+# raise — and CB_LIVED_LIB_ERR is initialised on EVERY path because `set -u` is on.
+CB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)/lib"
+CB_LIVED_LIB_ERR=""
+# shellcheck source=lib/lived-probe.sh
+if [ ! -f "$CB_LIB_DIR/lived-probe.sh" ] || ! . "$CB_LIB_DIR/lived-probe.sh"; then
+  CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh is missing or could not be sourced"
+elif ! command -v kit_lived_signals >/dev/null 2>&1; then
+  CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED"
+fi
+
 # ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
 # The remote and the trunk are resolved the SAME WAY kwt_resolve does, and the last
 # link of the chain is READ FROM THAT LIBRARY rather than re-typed — a re-typed
@@ -926,28 +943,40 @@ echo "      a repository one minute after kit-init has not graduated, and its bo
 # running the initializer. The constants are derived; the probe shapes are not. Extracting
 # them into scripts/lib/ is the one-authoring-site fix and is not done here — recorded so
 # the next reader finds a decision rather than an oversight.
+#
+# SUPERSEDED 2026-09-02 — the reason above stands and is why the extraction was worth
+# doing; only its conclusion is out of date. The probe shapes now live in
+# scripts/lib/lived-probe.sh, sourced above, and the two copies HAD ALREADY DIVERGED on
+# the receipt before they were merged (that file's header carries the measurement). What
+# remains true: kit-init's block still cannot be sourced, which is exactly why the probes
+# went to a third file rather than one consumer importing the other.
+# CAPTURE, THEN SLICE — never `kit_lived_signals … | head -1`. This script runs
+# `set -o pipefail`, head closes the pipe early, and the SIGPIPE comes back as the
+# pipeline's status. The library emits the receipt FIRST, so the first record is this
+# arm's enabling condition and the old short-circuit order is preserved exactly.
 g_lived=""
-if [ -f "$CB_TREE/scripts/config.sh" ] && grep -qF "$g_stamp" "$CB_TREE/scripts/config.sh" 2>/dev/null; then
-  g_lived="the initializer's stamp receipt in scripts/config.sh"
-fi
-if [ -z "$g_lived" ]; then
+if [ -z "$CB_LIVED_LIB_ERR" ]; then
   IFS='|' read -r -a g_cols <<< "$STATUS_FOLDERS"
-  for g_c in "${g_cols[@]}"; do
-    [ -d "$CB_TREE/progress/$g_c" ] || continue
-    g_n="$(find "$CB_TREE/progress/$g_c" -type f -name '*-[0-9]*.md' 2>/dev/null | wc -l | tr -d ' ')"
-    if [ "${g_n:-0}" -gt 0 ]; then g_lived="progress/$g_c/ carries $g_n issue file(s)"; break; fi
-  done
-fi
-if [ -z "$g_lived" ] && [ -f "$CB_TREE/progress.md" ]; then
-  g_log="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) { inlog=1; next } } inlog && NF { print }' "$CB_TREE/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
-  [ "${g_log:-0}" -gt 0 ] && g_lived="progress.md § Log holds ${g_log} line(s) of history"
-fi
-if [ -z "$g_lived" ] && [ -f "$CB_TREE/ARCHIVE.md" ]; then
-  g_arc="$(awk '/^## Archived$/ { a=1; next } a && NF { print }' "$CB_TREE/ARCHIVE.md" 2>/dev/null | wc -l | tr -d ' ')"
-  [ "${g_arc:-0}" -gt 0 ] && g_lived="ARCHIVE.md indexes ${g_arc} archived line(s)"
+  g_all="$(kit_lived_signals "$CB_TREE" "$g_stamp" "${g_cols[@]}" 2>/dev/null || true)"
+  g_rec="${g_all%%$'\n'*}"
+  case "$g_rec" in
+    stamp\|*)   g_lived="the initializer's stamp receipt in scripts/config.sh" ;;
+    folder\|*)  g_f="${g_rec#folder|}"; g_lived="progress/${g_f%%|*}/ carries ${g_f##*|} issue file(s)" ;;
+    log\|*)     g_lived="progress.md § Log holds ${g_rec#log|} line(s) of history" ;;
+    archive\|*) g_lived="ARCHIVE.md indexes ${g_rec#archive|} archived line(s)" ;;
+  esac
 fi
 
-if [ -z "$g_lived" ]; then
+if [ -n "$CB_LIVED_LIB_ERR" ]; then
+  # A THIRD OUTCOME, AHEAD OF THE OTHER TWO. Without it a load failure would fall into
+  # the "$g_lived is empty" branch below and print the NOT-STARTED clearance — a green
+  # over a question that was never asked, which is precisely the shape this arm's own
+  # neighbours were rewritten to stop producing.
+  echo "      THIS CHECK DID NOT RUN: $CB_LIVED_LIB_ERR — the already-lived probe this arm"
+  echo "      shares with the initializer could not be loaded, so whether this repository has"
+  echo "      STARTED was not measured. Nothing here is a statement that the tree is clean."
+  echo "      Restore it:  git checkout -- scripts/lib/lived-probe.sh  (skipped)"
+elif [ -z "$g_lived" ]; then
   # NOT A PASS, AND THE WORDING IS THE POINT. "Nothing to graduate from" reads as a
   # clean bill; this run did not check. A reader must be able to tell an unrun check
   # from a clean one, which is the same distinction the guard-floor note draws.

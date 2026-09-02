@@ -258,6 +258,13 @@ elif ! command -v git_push_with_retry >/dev/null 2>&1; then
   pf "scripts/lib/push-retry.sh sourced, but git_push_with_retry is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
 fi
 
+# shellcheck source=lib/lived-probe.sh
+if [ ! -f "$SCRIPT_DIR/lib/lived-probe.sh" ] || ! . "$SCRIPT_DIR/lib/lived-probe.sh"; then
+  pf "scripts/lib/lived-probe.sh is missing or could not be sourced — kit-init decides whether this repository has ALREADY LIVED through that file, and will not initialize a tree it cannot prove is unlived. Restore it:  git checkout -- scripts/lib/lived-probe.sh"
+elif ! command -v kit_lived_signals >/dev/null 2>&1; then
+  pf "scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
+fi
+
 # --- git repo, born HEAD, identity ---
 if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   pf "$ROOT is not a git repository — run 'git init' first."
@@ -314,22 +321,30 @@ fi
 # must never be re-initialized — the kit's own donor is simply its most obvious
 # member.
 # =============================================================================
+# THE PROBES LIVE IN scripts/lib/lived-probe.sh, shared with check-board.sh arm [g].
+# This renders; it does not measure. The two used to measure separately and had already
+# diverged on the receipt probe — see that file's header for the measurement.
+#
+# GUARDED WITH `command -v`, AND THAT IS NOT BELT-AND-BRACES. This script runs
+# `set -euo pipefail` and this block sits BEFORE the refusal flush below, so an undefined
+# function here is exit 127 and kills the run with a bare "command not found" instead of
+# the designed refusal that names the missing library. The push-retry source above can
+# skip its guard only because its function is called AFTER the flush.
+#
+# FILLED THROUGH PROCESS SUBSTITUTION, NEVER A PIPE: `… | while read` runs the loop in a
+# subshell, LIVED is empty afterward, and kit-init then initializes a lived repository
+# silently. That is the worst outcome this whole block exists to prevent.
 LIVED=()
-for folder in "${STATUS_FOLDERS[@]}"; do
-  [ -d "$ROOT/progress/$folder" ] || continue
-  n="$(find "$ROOT/progress/$folder" -type f -name '*-[0-9]*.md' 2>/dev/null | wc -l | tr -d ' ')"
-  [ "${n:-0}" -gt 0 ] && LIVED+=("progress/$folder/ carries $n issue file(s)")
-done
-if [ -f "$ROOT/progress.md" ]; then
-  logbody="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) { inlog=1; next } } inlog && NF { print }' "$ROOT/progress.md" | wc -l | tr -d ' ')"
-  [ "${logbody:-0}" -gt 0 ] && LIVED+=("progress.md § Log holds ${logbody} line(s) of history")
-fi
-if [ -f "$ROOT/ARCHIVE.md" ]; then
-  arcbody="$(awk '/^## Archived$/ { a=1; next } a && NF { print }' "$ROOT/ARCHIVE.md" | wc -l | tr -d ' ')"
-  [ "${arcbody:-0}" -gt 0 ] && LIVED+=("ARCHIVE.md indexes ${arcbody} archived line(s)")
-fi
-if [ -f "$ROOT/scripts/config.sh" ] && grep -q "^${STAMP_MARK}" "$ROOT/scripts/config.sh" 2>/dev/null; then
-  LIVED+=("scripts/config.sh: $(grep -m1 "^${STAMP_MARK}" "$ROOT/scripts/config.sh")")
+if command -v kit_lived_signals >/dev/null 2>&1; then
+  while IFS= read -r rec; do
+    [ -n "$rec" ] || continue
+    case "$rec" in
+      stamp\|*)   LIVED+=("scripts/config.sh: ${rec#stamp|}") ;;
+      folder\|*)  _lv="${rec#folder|}"; LIVED+=("progress/${_lv%%|*}/ carries ${_lv##*|} issue file(s)") ;;
+      log\|*)     LIVED+=("progress.md § Log holds ${rec#log|} line(s) of history") ;;
+      archive\|*) LIVED+=("ARCHIVE.md indexes ${rec#archive|} archived line(s)") ;;
+    esac
+  done < <(kit_lived_signals "$ROOT" "$STAMP_MARK" "${STATUS_FOLDERS[@]}")
 fi
 
 if [ ${#LIVED[@]} -gt 0 ]; then

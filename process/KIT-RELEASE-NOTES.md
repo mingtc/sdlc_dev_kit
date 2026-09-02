@@ -46,6 +46,20 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **A new shipped file — `scripts/lib/lived-probe.sh` — and you must copy it.** `kit-init.sh` and
+  `check-board.sh`'s graduation arm both ask whether your repository has already STARTED, and each
+  used to answer with its own copy of the same four probes. **Action required: copy
+  `scripts/lib/lived-probe.sh` when you take the updated `kit-init.sh` and `check-board.sh`.**
+  Without it the initializer refuses and the graduation arm reports that it did not run — loudly in
+  both cases, naming the file, but you will have to go and get it. **One behaviour changed, on
+  purpose:** the two copies had already drifted apart on how they recognise the initializer's stamp
+  in `scripts/config.sh` — one required it at the start of a line, the other matched it anywhere —
+  so a tree could be "not started" to the initializer and "already started" to the report. The
+  shared probe now requires the mark at the **start of a line**, matched literally. If your
+  `config.sh` carries an indented or mid-line stamp receipt, the graduation arm will no longer treat
+  it as a receipt; a board with issue files, a `progress.md` § Log with entries, or an `ARCHIVE.md`
+  index all still enable the arm exactly as before.
+
 - **Three scripts that commit under a fixed role tag now check it against your declared role set,
   and refuse before they touch anything.** `archive.sh`'s sweep, `subtask.sh`'s `create` arm and
   `finish-pr.sh`'s squash each hardcoded a seat — `[Orchestrator]`, `[Orchestrator]`, `[QA]`. If you

@@ -3704,10 +3704,18 @@ case_verify_frame() {
 # reported. It fails loudly, immediately, and names the arm. The copy cannot rot quietly
 # in the direction that matters.
 #
-# THERE ARE NOW THREE IMPLEMENTATIONS OF THIS SIGNAL SET — the initializer's
-# already-lived probe, this arm's re-derivation of it, and this fixture. The first two
-# are tracked as their own defect; this comment exists so the third is discoverable from
-# either of them rather than being found by accident.
+# THERE ARE NOW TWO IMPLEMENTATIONS OF THIS SIGNAL SET, and this one is the INSTRUMENT
+# rather than an operand. It was three — the initializer's probe, the arm's
+# re-derivation, and this fixture — and the first two were merged into
+# scripts/lib/lived-probe.sh, which both consumers now source.
+#
+# THIS FIXTURE IS DELIBERATELY NOT COLLAPSED INTO THAT LIBRARY, and the reason is the
+# whole value of it: a fixture that asked the subject under test what to check would
+# agree with it by construction, and every case resting on it would go green on a probe
+# that had stopped measuring anything. It is now the ONLY independent witness to the
+# signal set, which raises rather than lowers what it is worth. If the library grows a
+# signal, this must grow it too — and the mechanism above is what makes that failure
+# loud instead of quiet.
 _lived_signals() {  # prints one line per signal present; empty output means "not started"
   local col n log arc cols
   [ -f "$SB_WORK/scripts/config.sh" ] && grep -q "^$KIT_STAMP_MARK" "$SB_WORK/scripts/config.sh" 2>/dev/null \
@@ -4740,6 +4748,12 @@ case_check_board_graduation() {
     || cf "(a) no [g] section — the arm is absent, which no other assertion here can detect"
   printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
     || cf "(a) with no signal at all the arm did not say it had not run: $out"
+  # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD. arm [g]'s load-failure branch
+  # prints the SAME "THIS CHECK DID NOT RUN" string, so the assertion above became
+  # satisfiable by a broken scripts/lib/lived-probe.sh the day that branch was added —
+  # the case would go green while measuring a library error instead of the tree's signals.
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'could not be loaded' \
+    && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
   printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
     && cf "(a) the arm claimed graduation on a tree with no sign of having started: $out"
 
@@ -4906,6 +4920,12 @@ case_check_board_graduation_not_run_direction() {
     || cf "no [g] section — the arm is absent, which no other assertion here can detect"
   printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
     || cf "(not-run) the arm did not state that it had not run, so a reader cannot tell an unrun check from a clean one: $out"
+  # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD. arm [g]'s load-failure branch
+  # prints the SAME "THIS CHECK DID NOT RUN" string, so the assertion above became
+  # satisfiable by a broken scripts/lib/lived-probe.sh the day that branch was added —
+  # the case would go green while measuring a library error instead of the tree's signals.
+  printf '%s\n' "$out" | _cb_g_section | grep -q 'could not be loaded' \
+    && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
   printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
     && cf "(not-run) the arm claimed graduation on a tree with no sign of having started: $out"
 
@@ -5462,6 +5482,93 @@ SEAM_EOF
     || cf "(control) subtask.sh did NOT refuse '$outsider', which the project's declared set no longer contains — the probe above cannot tell an accepted role from a whitelist it never reached"
 
   finish "kit-init --roles: every seam that carried the role set carries the new one and none keeps the old, the receipt names them, and subtask.sh's whitelist follows (accepts a declared role, refuses a withdrawn one)"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE ALREADY-LIVED PROBE HAS ONE AUTHORING SITE, ASSERTED AS AN EFFECT.
+#
+# "check-board.sh sources lib/lived-probe.sh" is a LABEL, and it is satisfied by a
+# script that sources the file and then goes on using its own inline copy. Nothing
+# below asserts it. What cannot be faked: add a fifth signal to the LIBRARY and BOTH
+# consumers must see it — the initializer must refuse and NAME it, and arm [g] must RUN
+# and name it as its enabling condition. A consumer still carrying an inline copy sees
+# nothing and fails here, naming itself.
+#
+# THE THIRD COPY IS THE INSTRUMENT, NOT AN OPERAND. `_lived_signals` is this harness's
+# own independent implementation and is deliberately NOT collapsed into the library — a
+# fixture that asked the subject under test what to check would agree with it by
+# construction. It is used here only to establish the PRE-STATE.
+# =============================================================================
+case_lived_probe_has_one_authoring_site() {
+  cf_reset
+  if ! has_kit_init; then skp "lived probe: one authoring site, both consumers" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "lived probe: one authoring site, both consumers" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+
+  local lib="$SB_WORK/scripts/lib/lived-probe.sh"
+  [ -f "$lib" ] \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: the sandbox has no scripts/lib/lived-probe.sh — there is no shared library to mutate, so nothing here can distinguish one authoring site from two."
+
+  # A token that occurs NOWHERE in the shipped scripts, so a match below cannot come from
+  # anything but the plant. NO trailing -<digits>: build-kit.sh's citation gate reads that
+  # as one of the kit repository's change ids and refuses the zip, and this file ships.
+  local tok='LIVEDPROBE-FIFTH-SIGNAL-SENTINEL'
+  # SWEPT OVER THE SANDBOX'S SCRIPTS, AND NOT OVER $REAL_SCRIPTS — which was the first
+  # spelling and it died instantly, correctly: $REAL_SCRIPTS contains THIS FILE, and this
+  # file contains the token on the line above. A uniqueness probe whose corpus includes
+  # its own source always finds itself. Excluding test/ keeps the corpus to the scripts
+  # the two consumers actually load.
+  [ -z "$( { find "$SB_WORK/scripts" -type f ! -path '*/test/*' -exec grep -lF "$tok" {} + 2>/dev/null || true; } )" ] \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: '$tok' already occurs in a sandbox script — every assertion below would be satisfiable without the plant."
+
+  # PRE-STATE, BOTH DIRECTIONS. Without these the case passes on a signal the sandbox
+  # already carried and proves nothing about the library.
+  publish_sandbox
+  local sig pre
+  sig="$(_lived_signals)"
+  [ -z "$sig" ] \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: the sandbox already carries lived signal(s) — $(printf '%s' "$sig" | tr '\n' ';') — so kit-init would refuse and arm [g] would run whatever the plant did."
+  pre="$(cb_run)"
+  printf '%s\n' "$pre" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: arm [g] ALREADY runs on the unplanted sandbox, so the 'it ran' assertion below would pass without the fifth signal."
+
+  # THE PLANT — one probe, in the LIBRARY only, emitting a record shape both consumers
+  # already render. Every step self-asserts: a perl -i whose anchor misses exits 0 and
+  # leaves the file byte-identical, which would make this case green about nothing.
+  grep -qxF 'kit_lived_signals() {' "$lib" \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: no 'kit_lived_signals() {' line in the sandbox's lived-probe.sh — the anchor moved, so the fifth signal was NOT planted and both assertions below would be about the shipped four."
+  TOK="$tok" perl -i -pe '$_ .= "  printf \x27folder|$ENV{TOK}|1\\n\x27\n" if /^kit_lived_signals\(\) \{$/' "$lib"
+  grep -qF "$tok" "$lib" \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: the fifth-signal insert did not take."
+  bash -n "$lib" \
+    || _fixture_die "case_lived_probe_has_one_authoring_site: the mutated lived-probe.sh no longer parses — both consumers would fail to LOAD it, and this case would be measuring a load failure while reporting on a shared probe."
+  # PUBLISH AFTER THE MUTATION, and this is not tidiness: kit-init refuses on uncommitted
+  # changes to TRACKED files, so an unpublished plant replaces the refusal this case reads
+  # with a completely different one.
+  publish_sandbox
+
+  local out rc=0 before after out2
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix ZZZ --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(initializer) kit-init did not refuse on a signal the shared probe emits — it is not deriving already-lived from the library: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -q 'already lived' \
+    || cf "(initializer) kit-init refused without naming the already-lived class: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -qF "$tok" \
+    || cf "(initializer) the refusal did not name the library's fifth signal — kit-init still carries its own inline copy of the probe: $(printf '%s' "$out" | tr '\n' '|')"
+  after="$(git -C "$SB_WORK" rev-parse HEAD)"
+  [ "$before" = "$after" ] || cf "HEAD moved during a refusal"
+
+  out2="$(cb_run)"
+  printf '%s\n' "$out2" | grep -q '^\[g\]' \
+    || cf "no [g] section — the arm is absent, which no other assertion here can detect"
+  printf '%s\n' "$out2" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+    && cf "(arm) arm [g] did not run on a signal the shared probe emits — it still re-derives the set itself: $out2"
+  printf '%s\n' "$out2" | _cb_g_section | grep -qF "$tok" \
+    || cf "(arm) arm [g] ran but did not name the library's fifth signal as its enabling condition — the two consumers are not reading one probe: $out2"
+
+  finish "lived probe: a fifth signal added to scripts/lib/lived-probe.sh reaches BOTH consumers — kit-init refuses naming it, arm [g] is enabled by it (one authoring site, asserted as an effect)"
   teardown
 }
 
@@ -7112,6 +7219,7 @@ CASES=(
   case_kit_init_happy
   case_kit_init_repairs_hook_mode
   case_kit_init_roles_leave_no_seam
+  case_lived_probe_has_one_authoring_site
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
