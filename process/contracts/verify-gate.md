@@ -72,6 +72,22 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   is standing in: it works in the main checkout, and the identical tree is unrunnable from a linked
   worktree, **which is exactly where a trunk gate has to run.** A runner that cannot answer from
   there does not have one canonical entrypoint; it has one per location.
+- **A RED IS A STATE OF THE TREE TOO — so a check that fails for a reason INSIDE THE RUNNER
+  reports UNRUNNABLE, names the environmental cause, and MUST NOT SPEND A FAIL.** A missing
+  interpreter, an absent dependency, a credential the runner needs and does not have, an exit 127:
+  none of these is evidence about the change under review, and reporting one as a failure asserts
+  something false about the code.
+  *Why the invariant above needs its other direction stated:* *"green is a state of the tree"* is
+  read as a rule about **caching a pass**, and every reader agrees with it. The same sentence
+  running the other way — **a red must also be about the tree** — is the one nobody applies,
+  because a red already feels like bad news and bad news feels like a finding. So the gate that
+  correctly refuses to cache a pass will happily hand out a FAIL that belongs to its own
+  environment.
+  **What it costs when it happens: a FAIL is acted on.** Someone reads the change, cannot find the
+  defect, and either concludes the report is unreliable or edits working code until the runner
+  stops complaining. **UNRUNNABLE sends them to the environment, where the problem is.**
+  *And a reviewer holding an UNRUNNABLE has no verdict to issue at all* — not a pass, and not
+  either failure token, both of which assert something false about the implementation.
 
 ## 3. REFUSAL CONDITIONS
 
