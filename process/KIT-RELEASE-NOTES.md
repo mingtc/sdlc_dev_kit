@@ -56,6 +56,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **If a tool had to GUESS your trunk, it now tells you — and the case where it stayed quiet was
+  the common one.** The trunk is resolved as `<remote>/HEAD` → `git config init.defaultBranch` → the
+  kit's last-resort constant. `release.sh` used to warn only at the last link, which needs *both* of
+  the first two to be unset; on a normal developer machine `init.defaultBranch` **is** set, so a cut
+  against it — a value that is your preference for new repositories, and has nothing to do with what
+  your remote calls its trunk — went out with no line about it at all. It now warns, and names the
+  one command that settles it: `git remote set-head <remote> --auto`. `check-board.sh` used to
+  resolve through both fallbacks in silence; it now prints the trunk's provenance on its source
+  line, because every trunk arm in that report is a statement *about* that branch name. **No action
+  required if `<remote>/HEAD` is set** — you will see no new output at all. **If you start seeing a
+  guess warning, that is the finding:** run `git remote set-head <remote> --auto` once.
+
 - **There is now a rule about how a configured default is WRITTEN, not just what it is worth — and
   it can bite you on an edit that looks like formatting.** Several scripts read a default back out
   of `scripts/config.sh` and `scripts/lib/kanban-worktree.sh` by matching the declaration line

@@ -305,7 +305,24 @@ NUM_RE="${NUM//./\\.}"                      # dot-escaped for grep -E
 # ── Resolve the trunk. Same three-step chain as the kanban worktree, and the last
 #    link is READ FROM that library rather than re-typed here.
 DEFAULT_BRANCH="$(git symbolic-ref --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)"
-[ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH="$(git config --get init.defaultBranch 2>/dev/null || true)"
+if [ -z "$DEFAULT_BRANCH" ]; then
+  DEFAULT_BRANCH="$(git config --get init.defaultBranch 2>/dev/null || true)"
+  # STEP 2 IS A FALLBACK AND IT WARNS. kwt_resolve's invariant is that every link below
+  # the first says so, and this script used to honour that at step 3 only — so a cut
+  # against init.defaultBranch, a value that has nothing to do with what the REMOTE
+  # calls its trunk, went out with no line about it at all. That is the quieter half of
+  # the same defect the step-3 warning exists for, and the more likely one: a developer
+  # machine usually HAS init.defaultBranch set, so step 2 is where a real cut lands.
+  if [ -n "$DEFAULT_BRANCH" ]; then
+    {
+      echo "release.sh: the trunk came from STEP 2 of the chain — git config init.defaultBranch"
+      echo "            ('$DEFAULT_BRANCH'), because $REMOTE/HEAD is not set. That is this MACHINE's"
+      echo "            preference for new repositories, not what $REMOTE calls its trunk, and the"
+      echo "            two are not required to agree. Settle it:"
+      echo "              git remote set-head $REMOTE --auto"
+    } >&2
+  fi
+fi
 if [ -z "$DEFAULT_BRANCH" ]; then
   DEFAULT_BRANCH="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
                       "$SCRIPT_DIR/lib/kanban-worktree.sh" 2>/dev/null | head -1)"

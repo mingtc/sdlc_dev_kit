@@ -200,11 +200,26 @@ fi
 # branch name is the drift this file's greppable-defaults contract exists to
 # prevent. (Arm (f) already did it this way; this hoists it to the whole script.)
 CB_REMOTE="${KWT_REMOTE:-origin}"
+#
+# EVERY LINK BELOW THE FIRST SAYS SO. That is kwt_resolve's stated invariant, and this
+# copy honoured it at NO link — it resolved through steps 2 and 3 in silence while the
+# comment above claimed parity with the library. A report whose every trunk arm is
+# ABOUT a branch, printed against a branch name the tool guessed, is the one case where
+# a clean report is worse than no report. CB_TRUNK_SRC is what the header prints.
+CB_TRUNK_SRC=""
 CB_TRUNK="$(git -C "$REPO_ROOT" symbolic-ref --short "refs/remotes/$CB_REMOTE/HEAD" 2>/dev/null | sed "s|^$CB_REMOTE/||" || true)"
-[ -n "$CB_TRUNK" ] || CB_TRUNK="$(git -C "$REPO_ROOT" config --get init.defaultBranch 2>/dev/null || true)"
-if [ -z "$CB_TRUNK" ]; then
-  CB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
-                "$REPO_ROOT/scripts/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
+if [ -n "$CB_TRUNK" ]; then
+  CB_TRUNK_SRC="$CB_REMOTE/HEAD"
+else
+  CB_TRUNK="$(git -C "$REPO_ROOT" config --get init.defaultBranch 2>/dev/null || true)"
+  if [ -n "$CB_TRUNK" ]; then
+    CB_TRUNK_SRC="GUESSED from init.defaultBranch (step 2) — $CB_REMOTE/HEAD is unset"
+  else
+    CB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
+                  "$REPO_ROOT/scripts/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
+    [ -n "$CB_TRUNK" ] \
+      && CB_TRUNK_SRC="GUESSED from the kit's last-resort constant (step 3) — neither $CB_REMOTE/HEAD nor init.defaultBranch is set"
+  fi
 fi
 
 # CB_SRC_KIND is `ref` or `worktree`; CB_SRC_LABEL is what every arm prints.
@@ -257,7 +272,12 @@ if [ "$CB_SRC_KIND" = "ref" ]; then
 fi
 
 # One helper so no arm can print a verdict without its operand beside it.
-cb_src() { printf 'read from: %s' "$CB_SRC_LABEL"; }
+cb_src() {
+  printf 'read from: %s' "$CB_SRC_LABEL"
+  # The trunk's PROVENANCE rides with the source line, because every trunk arm below is
+  # a statement about this name and a guessed name makes all of them guesses.
+  case "$CB_TRUNK_SRC" in GUESSED*) printf '\n   trunk: %s' "$CB_TRUNK_SRC" ;; esac
+}
 
 drift=0
 echo "── check-board.sh — board-drift report @ $(date +%Y-%m-%dT%H:%M:%S)"

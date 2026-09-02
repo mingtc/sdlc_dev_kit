@@ -8708,6 +8708,79 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # fixed for consistency with the header the three origin_* helpers were already rewritten
 # for — not a live bug. The case is built so it cannot pretend otherwise.
 # =============================================================================
+# =============================================================================
+# CASE — EVERY LINK BELOW THE FIRST SAYS SO, IN ALL THREE IMPLEMENTATIONS.
+#
+# The trunk chain — <remote>/HEAD → init.defaultBranch → the kit's last-resort constant
+# — is implemented three times: in kwt_resolve, in check-board.sh and in release.sh.
+# It CANNOT be single-sourced as a function: release.sh sources nothing from scripts/lib/
+# by a standing ruling stated in its own header. So the invariant is what has to be held,
+# and this case is what holds it.
+#
+# WHAT WENT WRONG WITHOUT IT: kwt_resolve warns at steps 2 and 3; release.sh warned at
+# step 3 ONLY, so a cut against init.defaultBranch went out silent — and step 2 is where
+# a real cut lands, because a developer machine usually HAS that config set; check-board
+# warned at NEITHER, while its own comment claimed parity with the library. A report
+# whose every trunk arm is about a branch, printed against a guessed branch name, is the
+# one case where a clean report is worse than none.
+#
+# THE THREE STATES ARE BUILT BY REMOVAL, in order, from a sandbox that starts at step 1.
+# =============================================================================
+case_trunk_chain_announces_every_fallback() {
+  cf_reset
+  if ! has_release; then skp "every link of the trunk chain below the first announces itself" "scripts/release.sh absent"; return; fi
+  make_sandbox
+  seed_release_files 1.1.0
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  local out rc
+
+  # ── STEP 1: origin/HEAD is set. NOBODY announces anything. This is the instrument
+  #    check for both arms below — a tool that announced here would satisfy them free.
+  out="$(cb_run 2>&1)" || true
+  printf '%s' "$out" | grep -q 'GUESSED' \
+    && cf "(step 1) check-board announced a guess while $SB_TRUNK is set as origin/HEAD"
+  out="$(run_release 1.1.0 --dry-run 2>&1)" || true
+  printf '%s' "$out" | grep -q 'STEP 2 of the chain\|is a GUESS' \
+    && cf "(step 1) release.sh announced a fallback while origin/HEAD is set"
+
+  # ── STEP 2: drop origin/HEAD, set init.defaultBranch. BOTH must say so.
+  git -C "$SB_WORK" symbolic-ref -d "refs/remotes/origin/HEAD" >/dev/null 2>&1 || true
+  git -C "$SB_WORK" config init.defaultBranch "$SB_TRUNK"
+  out="$(cb_run 2>&1)" || true
+  printf '%s' "$out" | grep -q 'step 2' \
+    || cf "(step 2) check-board resolved the trunk from init.defaultBranch and said nothing — every trunk arm below it is then a statement about a guessed name: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  out="$(run_release 1.1.0 --dry-run 2>&1)" || true
+  printf '%s' "$out" | grep -q 'STEP 2 of the chain' \
+    || cf "(step 2) release.sh cut against init.defaultBranch with no warning — the quieter half of the guessed-trunk defect, and the likelier one: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # ── STEP 3: drop init.defaultBranch too. BOTH must say so, and say it differently —
+  #    the step-3 message must not be reachable while step 2 still has an answer.
+  git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
+  out="$(cb_run 2>&1)" || true
+  printf '%s' "$out" | grep -q 'step 3' \
+    || cf "(step 3) check-board fell to the last-resort constant and said nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  out="$(run_release 1.1.0 --dry-run 2>&1)" || true
+  printf '%s' "$out" | grep -q 'is a GUESS' \
+    || cf "(step 3) release.sh fell to the last-resort constant with no warning: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # ── AND THE THREE AGREE ON THE ANSWER, which is the other half of "one chain".
+  #    Derived from the library, so the expected value has one author.
+  local last_resort
+  last_resort="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
+                   "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
+  [ -n "$last_resort" ] \
+    || _fixture_die "case_trunk_chain_announces_every_fallback: could not read the last-resort constant — the expected value would be empty and both arms below would pass on nothing."
+  printf '%s' "$out" | grep -qF "'$last_resort'" \
+    || cf "release.sh's step-3 guess is not the library's constant '$last_resort' — the three implementations agree on the WARNING and not on the ANSWER"
+  out="$(cb_run 2>&1)" || true
+  printf '%s' "$out" | grep -qF "$last_resort" \
+    || cf "check-board's step-3 trunk is not the library's constant '$last_resort'"
+
+  finish "all three implementations of the trunk chain announce every link below the first — check-board at steps 2 and 3, release.sh at both (step 2 was silent, and it is where a real cut lands) — none of them announces at step 1, and both agree with the library on the step-3 constant"
+  teardown
+}
+
 case_probe_victim_selection_survives_pipefail() {
   cf_reset
   make_sandbox
@@ -9417,6 +9490,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_trunk_chain_announces_every_fallback
   case_probe_victim_selection_survives_pipefail
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
