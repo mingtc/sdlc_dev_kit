@@ -757,6 +757,30 @@ publish_sandbox() {
 }
 
 # On the remote's trunk: does path exist in the tree?
+# probe_pick <find-args…> — the FIRST match, WITHOUT a pipe.
+#
+# THE HEADER'S PIPEFAIL RULE, applied to the one producer it names by name. `find … |
+# head -1` is a producer that grows with the project feeding a reader that exits early:
+# the reader closes the pipe, `find` takes SIGPIPE, and `pipefail` promotes that to the
+# status of the whole pipeline. Measured on this machine: the raw pipeline exits nonzero
+# 10/10 at ~300 files and 20/20 at 3000; the kit's own largest corpus here is 20 files,
+# so this is a THRESHOLD NOBODY HAS CROSSED — not a live bug. It is fixed for the reason
+# the three `origin_*` helpers ten lines below were: the rule is stated in this file's own
+# header and these four call sites were the last ones ignoring it.
+#
+# CALLERS STILL OWE THE EMPTY TEST. A `find` that fails on an unreadable directory now
+# returns empty AND nonzero; every existing caller tests emptiness, which is the check
+# that matters — the value, not the status.
+probe_pick() { local all; all="$(find "$@")" || return 1; printf '%s' "${all%%$'\n'*}"; }
+
+# _control_did_not_run <what> — ONE spelling of the refusal that says a control was
+# skipped. Six call sites had six wordings and three different trailing clauses; one
+# dropped the "so the green above is unproven" tail entirely, which is the half that tells
+# a reader the PASS beside it is worth nothing. The noun phrase stays the caller's.
+_control_did_not_run() {
+  cf "(control) could not $1 — the control did not run, so the green above is unproven"
+}
+
 origin_has_path() {
   git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
   local paths  # capture, then test — ls-tree grows with the board (header: THE PIPEFAIL RULE)
@@ -888,7 +912,7 @@ ROLE_EOF
   local probe="$SB_TMP/roleprobe.sh"
   cp "$self" "$probe" 2>/dev/null || true
   if [ ! -f "$probe" ]; then
-    cf "(control) could not copy this harness to plant into — the control did not run, so the green above is unproven"
+    _control_did_not_run "copy this harness to plant into"
   else
     # THE OUTSIDER'S NAME IS BUILT, NEVER WRITTEN — and that is not fastidiousness, it
     # is required. This case scans THE FILE IT LIVES IN, so a literal `--role Eng`
@@ -1925,9 +1949,9 @@ $(printf '%s' "$hits" | sed 's/^/      /')"
   # ── THE REDDENING CONTROL, on a COPY — never the live tree (instruments.md § A.2).
   local probe="$SB_TMP/nsprobe"; mkdir -p "$probe"
   cp "$skills"/*/SKILL.md "$probe/" 2>/dev/null || true
-  local victim; victim="$(find "$probe" -name '*.md' -type f | head -1)"
+  local victim; victim="$(probe_pick "$probe" -name '*.md' -type f)"
   if [ -z "$victim" ]; then
-    cf "(control) could not copy a SKILL.md to plant into — the control did not run, so the green above is unproven"
+    _control_did_not_run "copy a SKILL.md to plant into"
   else
     printf '\n- Use superpowers:executing-plans skill if available\n' >> "$victim"
     local planted; planted="$(_foreign_ns_hits "$probe")"
@@ -2036,10 +2060,10 @@ $(printf '%s' "$unmarked" | sed "s|^$skills/||" | cut -c1-200 | sed 's/^/      /
   # Both are DELTAS against a baseline taken on the copy, so neither depends on the live
   # tree being clean: a real defect above must not be able to satisfy a control below.
   local probe="$SB_TMP/forgeprobe"; rm -rf "$probe"; mkdir -p "$probe"
-  local src; src="$(find "$skills" -name 'SKILL.md' -type f | head -1)"
+  local src; src="$(probe_pick "$skills" -name 'SKILL.md' -type f)"
   [ -n "$src" ] && cp "$src" "$probe/victim.md"
   if [ ! -f "$probe/victim.md" ]; then
-    cf "(control) could not copy a SKILL.md to plant into — neither control ran, so the green above is unproven"
+    _control_did_not_run "copy a SKILL.md to plant into (NEITHER control ran)"
   else
     local base; base="$(_forge_unmarked_n "$probe")"
 
@@ -2140,10 +2164,10 @@ $(printf '%s' "$hits" | sed 's/^/      /')"
   # one-directional control cannot see.
   local probe="$SB_TMP/upstreamprobe"; mkdir -p "$probe"
   local victim="$probe/planted-SKILL.md"
-  local src; src="$(find "$agent" -name 'SKILL.md' -type f | head -1)"
+  local src; src="$(probe_pick "$agent" -name 'SKILL.md' -type f)"
   [ -n "$src" ] && cp "$src" "$victim"
   if [ ! -f "$victim" ]; then
-    cf "(control) could not copy a SKILL.md to plant into — the control did not run, so the green above is unproven"
+    _control_did_not_run "copy a SKILL.md to plant into"
   else
     printf '\n**Note:** Superpowers works much better with access to subagents.\n' >> "$victim"
     printf '\n   ls -d ~/.config/superpowers/worktrees/$project\n' >> "$victim"
@@ -2211,7 +2235,7 @@ $(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
   cp "$dev/README.md" "$probe/README.md" 2>/dev/null || true
   printf '# a planted subdirectory nobody indexed\n' > "$probe/zz-planted/README.md"
   if [ ! -f "$probe/README.md" ]; then
-    cf "(control) could not copy dev/README.md to plant against — the control did not run, so the green above is unproven"
+    _control_did_not_run "copy dev/README.md to plant against"
   else
     _dev_unindexed_subdirs "$probe" | grep -qx 'zz-planted' \
       || cf "(control) the check did NOT flag a planted unindexed subdirectory — it cannot see the defect it is named after"
@@ -2269,9 +2293,9 @@ $(printf '%s' "$rewritten" | sed 's/^/      /')"
     #    see the defect at all.
     local probe="$SB_TMP/mkprobe"; rm -rf "$probe"; mkdir -p "$probe"
     cp -R "${dirs[0]}" "$probe/" 2>/dev/null || true
-    local pd; pd="$(find "$probe" -mindepth 1 -maxdepth 1 -type d | head -1)"
+    local pd; pd="$(probe_pick "$probe" -mindepth 1 -maxdepth 1 -type d)"
     if [ -z "$pd" ]; then
-      cf "(control) could not copy a marker directory to plant into — the control did not run"
+      _control_did_not_run "copy a marker directory to plant into"
     else
       find "$pd" -type f -name '*.md' -exec sed -i.bak 's/KIT-CLASS/SBX-CLASS/g' {} \; 2>/dev/null
       find "$pd" -name '*.bak' -delete 2>/dev/null
@@ -8507,7 +8531,7 @@ case_hygiene_instruments_declare_blind_spots() {
   cp -R "$hy" "$probe/hygiene" 2>/dev/null
   local site="$probe/hygiene/citation_index.py"
   if [ ! -f "$site" ]; then
-    cf "(control) could not copy the derivation's authoring site — the control did not run, so the green above is unproven"
+    _control_did_not_run "copy the derivation's authoring site"
   else
     # EMPTY THE DERIVATION, DO NOT BYPASS IT. Inserting `return []` at the top of the
     # function skips the refusal that an empty derivation is supposed to raise — so the
@@ -8670,6 +8694,79 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # THE MUTATION IS A TAG AND NOTHING ELSE. No bump, no push. Every other arm stays clean,
 # so a green here can only come from the arm under test.
 # =============================================================================
+# =============================================================================
+# CASE — VICTIM SELECTION SURVIVES PIPEFAIL.
+#
+# Four control blocks picked their victim with `find … | head -1`, which is the exact
+# shape this file's own header forbids by name: the reader exits early, `find` takes
+# SIGPIPE, and `pipefail` promotes the producer's death to the pipeline's status. The
+# value is still correct — that is what makes it invisible — but the STATUS is wrong, and
+# a caller that ever tested the status would read "no victim" on a probe full of victims.
+#
+# HONEST FRAMING: measured on this machine, the raw pipeline first fails around 300 files
+# and the kit's largest real corpus here is 20. This is a threshold nobody has crossed,
+# fixed for consistency with the header the three origin_* helpers were already rewritten
+# for — not a live bug. The case is built so it cannot pretend otherwise.
+# =============================================================================
+case_probe_victim_selection_survives_pipefail() {
+  cf_reset
+  make_sandbox
+  local big="$SB_TMP/pipebig" i v rc hit=0
+
+  # ── INSTRUMENT CHECK, and it is what makes this case honest: BUILD the hazard before
+  #    asserting anything about it. If this environment's pipe buffer cannot produce a
+  #    SIGPIPE at all, every assertion below is vacuous — so say so as a SKIP, which is
+  #    this file's way of making a statement about the environment rather than the code.
+  mkdir -p "$big"
+  for i in $(seq 1 3000); do : > "$big/f$i.md"; done
+  for i in 1 2 3; do
+    if ! ( set -o pipefail; find "$big" -type f | head -1 >/dev/null ); then hit=1; break; fi
+  done
+  if [ "$hit" -eq 0 ]; then
+    skp "probe victim selection survives pipefail" \
+        "3000 files did not make 'find | head -1' fail under pipefail here — this environment cannot produce the hazard, so the assertions would be vacuous"
+    teardown; return
+  fi
+
+  # THE EFFECT — the STATUS and the value. Asserting only the value is a green that could
+  # not go red: the raw pipeline gets the value right and the status wrong, which is the
+  # entire defect.
+  rc=0; v="$(probe_pick "$big" -type f)" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "probe_pick exited $rc on a corpus where the raw pipeline SIGPIPEs — the status is still the producer's death, not the answer"
+  [ -n "$v" ] && [ -f "$v" ] \
+    || cf "probe_pick returned '$v', which is not an existing file — the replacement gets the status right and the answer wrong, which is worse than what it replaced"
+
+  # …and it still returns NOTHING, nonzero, when there is genuinely nothing to find.
+  rc=0; v="$(probe_pick "$SB_TMP/pipebig" -name 'nothing-matches-this' -type f)" || rc=$?
+  [ -z "$v" ] \
+    || cf "probe_pick invented a victim for a pattern that matches nothing: '$v'"
+
+  # THE CENSUS — the four sites are the point, not the helper. A fifth `find … | head -1`
+  # typed tomorrow puts the hazard straight back.
+  local self="${BASH_SOURCE[0]}" probe="$SB_TMP/pipeprobe.sh" m1='find ' m2='| head -1'
+  # EXCISE THIS CASE'S OWN BODY. Its instrument check BUILDS the forbidden pipeline on
+  # purpose — that is how it proves the hazard exists here — so a census over the whole
+  # file reports the very line that makes the case honest.
+  awk -v fn="case_probe_victim_selection_survives_pipefail" '
+    $0 ~ "^" fn "\\(\\) \\{" { skip=1 }
+    skip && /^\}$/                { skip=0; next }
+    !skip
+  ' "$self" > "$probe"
+  grep -q '^case_probe_victim_selection_survives_pipefail() {' "$probe" \
+    && _fixture_die "case_probe_victim_selection_survives_pipefail: the excision left this case's own body in the probe — the census would report its own instrument check."
+  local rows
+  rows="$(awk -v a="$m1" -v b="$m2" '
+    /^[[:space:]]*#/ { next }
+    index($0,a) && index($0,b) { print NR ": " $0 }
+  ' "$probe")"
+  [ -z "$rows" ] \
+    || cf "a find/head pipeline is back, and this file's header forbids it by name: $(printf '%s' "$rows" | tr '\n' ' ' | cut -c1-200)"
+
+  finish "probe_pick returns the first match with the RIGHT STATUS on a corpus that makes 'find | head -1' SIGPIPE under pipefail (the value was never the problem; the status was), returns nothing for a pattern that matches nothing, and no find/head pipeline remains in this file"
+  teardown
+}
+
 case_release_unmutated_names_the_cut() {
   cf_reset
   if ! has_release; then skp "assert_release_unmutated names the cut it guards" "scripts/release.sh absent"; return; fi
@@ -9320,6 +9417,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_probe_victim_selection_survives_pipefail
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
   case_fixture_append_has_one_authoring_site
