@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **If `finish-pr.sh` refuses because you have no gate runner at all, it now tells you how to GET
+  one.** That advice — *write `scripts/verify.sh`, or generate it with `kit-init.sh --gate-command`* —
+  sat in a branch no input could reach, so the refusal an adopter actually met talked about checking
+  out branches and using `--worktree`: the remedy for a gate at the wrong revision, not for having no
+  gate. The two cases are now told apart and each gets its own remedy. **No action required** — the
+  refusal conditions are unchanged; only what they tell you.
+
 - **`EXTRACTION.md` § 2.2's `setup.sh` row was wrong in both of its cells.** It said `setup.sh`
   CREATES the board directories; `setup.sh` contains no `mkdir` and only checks they exist. And it
   said a missed column means *"a fresh clone is missing the directory"* — that is `kit-init.sh`'s

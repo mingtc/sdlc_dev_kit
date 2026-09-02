@@ -1397,6 +1397,65 @@ case_finish_pr_gate_revision() {
   teardown
 }
 
+# THE GATE-PROVENANCE REFUSAL HAS FIVE ARMS AND ONLY TWO WERE EXERCISED. `NOT AT THE REVISION` and
+# `LOCALLY MODIFIED` had cases; MISSING, NOT EXECUTABLE and NOT TRACKED had none. This case takes the
+# first two, because they are the arms that now carry the write-your-gate advice — advice that lived
+# for a while in a branch NO INPUT COULD ENTER, so it had never printed to anyone.
+#
+# WHY THE ADVICE MATTERS ENOUGH TO ASSERT: an adopter meeting this refusal has no gate at all. The
+# other three arms mean "your gate is the wrong one" and their remedy is a checkout; these two mean
+# "there is no gate" and their remedy is to write one. Printing the checkout advice to someone with
+# no gate sends them to fix a thing that is not their problem.
+case_finish_pr_gate_absent_says_write_one() {
+  cf_reset
+  local out rc br
+
+  # --- (a) verify.sh MISSING from the gate checkout ---------------------------
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-795" nogate chore "No gate at all" "feature/$SB_PREFIX-795-nogate"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-795" nogate CHANGE795.txt
+  br="feature/$SB_PREFIX-795-nogate"
+  git -C "$SB_WORK" checkout "$br" --quiet >/dev/null 2>&1
+  rm -f "$SB_WORK/scripts/verify.sh"
+  [ ! -e "$SB_WORK/scripts/verify.sh" ] \
+    || cf "(control) scripts/verify.sh still exists, so (a) is not testing a MISSING gate"
+
+  # NO FPR_STUB: the provenance block only runs unmarked.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-795" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) finish-pr LANDED with no gate runner at all: $out"
+  printf '%s\n' "$out" | grep -qi 'MISSING' \
+    || cf "(a) the refusal does not name the gate as MISSING: $out"
+  printf '%s\n' "$out" | grep -qF -- '--gate-command' \
+    || cf "(a) the refusal does not tell an adopter with NO gate how to get one — that advice sat in an unreachable branch for a while, and this assertion is what keeps it on a path that runs: $out"
+  printf '%s\n' "$out" | grep -qi 'check the branch out here' \
+    && cf "(a) the refusal offers the CHECKOUT remedy to someone who has no gate at all — that is the other arms' advice and it sends them to fix the wrong thing: $out"
+  assert_landing_untouched "(a)" "$SB_PREFIX-795" nogate "$br" CHANGE795.txt
+  teardown
+
+  # --- (b) verify.sh present but NOT EXECUTABLE -------------------------------
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-796" noexec chore "Gate not executable" "feature/$SB_PREFIX-796-noexec"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-796" noexec CHANGE796.txt
+  br="feature/$SB_PREFIX-796-noexec"
+  git -C "$SB_WORK" checkout "$br" --quiet >/dev/null 2>&1
+  chmod -x "$SB_WORK/scripts/verify.sh"
+  [ ! -x "$SB_WORK/scripts/verify.sh" ] && [ -e "$SB_WORK/scripts/verify.sh" ] \
+    || cf "(control) scripts/verify.sh is not in the present-but-unexecutable state (b) needs"
+
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-796" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) finish-pr LANDED with a non-executable gate runner: $out"
+  printf '%s\n' "$out" | grep -qi 'NOT EXECUTABLE' \
+    || cf "(b) the refusal does not name the gate as NOT EXECUTABLE: $out"
+  printf '%s\n' "$out" | grep -qF -- '--gate-command' \
+    || cf "(b) the refusal does not carry the write-your-gate advice: $out"
+  assert_landing_untouched "(b)" "$SB_PREFIX-796" noexec "$br" CHANGE796.txt
+
+  finish "finish-pr: a MISSING or NON-EXECUTABLE gate refuses before anything destructive and tells an adopter how to GET a gate, not how to move their checkout"
+  teardown
+}
+
 case_finish_pr_gate_hardening() {
   cf_reset
   local out rc
@@ -6492,6 +6551,7 @@ CASES=(
   case_finish_pr_remote_delete_resurrected
   case_finish_pr_premerge_red
   case_finish_pr_empty_merge
+  case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
   case_finish_pr_gate_revision
   case_archive_apply

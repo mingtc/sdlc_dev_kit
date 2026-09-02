@@ -278,8 +278,12 @@ if [ "$ALLOW_STUB" != "true" ]; then
   _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "refs/heads/$BRANCH" 2>/dev/null || true)"
   _gate_head="$(git -C "$GATE_WORKTREE" rev-parse HEAD 2>/dev/null || true)"
   _gate_err=""
-  if   [ ! -e "$_gate_v" ]; then _gate_err="MISSING — $_gate_v does not exist"
-  elif [ ! -x "$_gate_v" ]; then _gate_err="NOT EXECUTABLE — $_gate_v exists but cannot be run"
+  # _gate_absent marks the two arms where there is NO USABLE GATE AT ALL, as opposed to a gate
+  # that exists and is at the wrong revision. They need different advice, and the advice for this
+  # pair used to live in an unreachable branch further down (see the note at the pre-merge gate).
+  _gate_absent=""
+  if   [ ! -e "$_gate_v" ]; then _gate_err="MISSING — $_gate_v does not exist"; _gate_absent=true
+  elif [ ! -x "$_gate_v" ]; then _gate_err="NOT EXECUTABLE — $_gate_v exists but cannot be run"; _gate_absent=true
   elif [ -z "$_gate_head" ] || [ -z "$_branch_tip" ] || [ "$_gate_head" != "$_branch_tip" ]; then
     _gate_err="NOT AT THE REVISION BEING LANDED — the gate checkout '$GATE_WORKTREE' is at ${_gate_head:0:9}, and '$BRANCH' is at ${_branch_tip:0:9}"
   elif ! git -C "$GATE_WORKTREE" cat-file -e "HEAD:scripts/verify.sh" 2>/dev/null; then
@@ -296,10 +300,18 @@ if [ "$ALLOW_STUB" != "true" ]; then
       echo "       revision being landed (process/contracts/landing-gate.md § 2-3) —"
       echo "       otherwise the run proves something about a tree that is not shipping."
       echo ""
-      echo "  Two conforming ways to land ${ISSUE_ID}:"
-      echo "    • check the branch out here:   git -C '$MAIN_ROOT' checkout '$BRANCH'"
-      echo "    • or gate against a worktree that has it:"
-      echo "        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>"
+      if [ -n "$_gate_absent" ]; then
+        echo "  There is no usable gate here at all. The gate runner is a HARD landing"
+        echo "  precondition, not a recommendation (process/contracts/verify-gate.md):"
+        echo "    • write it — scripts/verify.sh ships as a frame with an EMPTY gate table;"
+        echo "      declare your gates in it"
+        echo "    • or generate one:  ./scripts/kit-init.sh --gate-command '<your test command>'"
+      else
+        echo "  Two conforming ways to land ${ISSUE_ID}:"
+        echo "    • check the branch out here:   git -C '$MAIN_ROOT' checkout '$BRANCH'"
+        echo "    • or gate against a worktree that has it:"
+        echo "        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>"
+      fi
     } >&2
     exit 1
   fi
@@ -333,16 +345,16 @@ fi
 #    kwt_unlock releases it on abort.
 echo ""
 echo "Pre-merge gate (blocking): ${GATE_WORKTREE}/scripts/verify.sh --quick"
-if [ ! -x "$GATE_WORKTREE/scripts/verify.sh" ] && [ "$ALLOW_STUB" != "true" ]; then
-  {
-    echo "Error: no executable ${GATE_WORKTREE}/scripts/verify.sh — refusing to land."
-    echo "       The gate runner is a HARD landing precondition, not a recommendation"
-    echo "       (process/contracts/verify-gate.md). Write it — scripts/verify.sh ships"
-    echo "       as a frame with an empty gate table; declare your gates in it — or"
-    echo "       generate one: ./scripts/kit-init.sh --gate-command '<your test command>'"
-  } >&2
-  exit 1
-fi
+# NO EXECUTABILITY CHECK HERE, AND ITS ABSENCE IS DELIBERATE — do not re-add one. This spot held
+# `if [ ! -x "$GATE_WORKTREE/scripts/verify.sh" ] && [ "$ALLOW_STUB" != "true" ]`, which NO INPUT
+# COULD ENTER: when ALLOW_STUB is not true the gate-provenance block above has already exited on the
+# same path via its MISSING / NOT EXECUTABLE arms, and when ALLOW_STUB IS true the second conjunct
+# is false. Nothing between the two reassigns either operand.
+#
+# Its message was the only place that said what to DO about a missing gate — write it, or generate
+# one with kit-init --gate-command — so the advice was stranded behind a condition that could not
+# fire, while the reachable refusal talked about revisions and worktrees. That advice now prints
+# from the block above, on the two arms where there is no usable gate at all.
 if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   PREMERGE_CMD=(${FINISH_PR_PREMERGE_CMD})
