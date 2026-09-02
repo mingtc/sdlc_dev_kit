@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **The coupled-operands rule (`commit-hygiene.md` § A.5) now names a second shape, and it is the
+  one people miss.** The rule was already right; its examples showed only *a document describing
+  code*. The case that goes unrecognised is **a cross-cutting guard whose enrolment list lives in a
+  file your code globs call metadata** — the list is not documentation, it is executable, and it is
+  the thing doing the guarding. **The tell is now written down: if you are about to add a comment
+  explaining why your situation is really covered by § A.5, you are in it.** No action required —
+  the handling has not changed, the set is still the unit, ALL-OLD or ALL-NEW. You just no longer
+  have to argue your way in.
+
 - **If a tool had to GUESS your trunk, it now tells you — and the case where it stayed quiet was
   the common one.** The trunk is resolved as `<remote>/HEAD` → `git config init.defaultBranch` → the
   kit's last-resort constant. `release.sh` used to warn only at the last link, which needs *both* of

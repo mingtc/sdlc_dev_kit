@@ -139,6 +139,33 @@ are the whole rule:
    gate**: it cannot abort a merge that has already happened. It names the ref it read, and a MIXED
    trunk is escalated rather than quietly re-run.
 
+#### The two shapes this rule covers, because one of them does not look like it
+
+**Everything above is stated in terms of "operands" and "lanes", and readers instantiate that in the
+obvious way — a document describing code, where the document is metadata and the code is code. Call
+that the DOCUMENTATION-OF-CODE case. It is the easy one and it is the one people find.**
+
+The other one is the **EXECUTABLE-DECLARATION** case, and it is missed because the file that lands in
+the metadata lane *is not documentation at all — it is executable, and it is the thing doing the
+guarding*:
+
+> A cross-cutting guard lives in the code lane. **The list of what it is enrolled over** — the array,
+> the table, the manifest the guard reads — lives in a file your code globs classify as metadata,
+> because that file's extension or path says configuration. Adding the guard without its enrolment
+> ships a check nothing is subject to; adding the enrolment without the guard ships a list pointing at
+> something that does not exist. **Only jointly satisfiable, in both lanes — A.5 exactly.**
+
+**The tell that you are in this case rather than outside the rule: you are about to write a comment
+explaining why your situation is really covered.** A site that has to argue the general rule applies to
+it is reporting that the general rule does not look like it does. *Measured in the donor project: nine
+instances across five work items, and every one shipped the same apologetic comment at the enrolment
+site — nine independent readings of this section, none of which recognised its own case in it. The
+comment was not wrong. It should not have had to exist.*
+
+**Nothing about the handling changes** — the four numbered points hold identically, and the set is
+still the unit. What changes is only that the executable-declaration case is now named here, so the
+next reader does not have to decide whether their situation is a member.
+
 **A MIXED trunk at any reading is the breach, and it is the only one this shape can produce.** So an
 instruction keyed to *a single append* — re-run the trunk gate after each metadata commit — is
 correct for a lone trunk-lane operand and **impossible** for a coupled one, because there is no

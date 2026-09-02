@@ -122,9 +122,10 @@ GATES=(
 # WHO UPDATES IT: whoever adds or renames a cross-cutting guard, IN THE SAME
 # CHANGE — the guard and its enrolment here are one coupled set. Your code globs
 # classify this file as metadata while the file it guards is code, so this is the
-# EXECUTABLE-DECLARATION case of the adapter's metadata carve-out, not the
-# documentation-of-code case its worked examples show.
-# (process/doctrine/commit-hygiene.md § A.5.)
+# EXECUTABLE-DECLARATION case of the adapter's metadata carve-out.
+# (process/doctrine/commit-hygiene.md § A.5, which now NAMES that case beside the
+# documentation-of-code one — this comment used to have to argue the rule covered it,
+# and a site that has to argue that is reporting a gap in the rule, not in itself.)
 #
 # WHAT THE CHECK BELOW ENFORCES, AND WHAT IT CANNOT — both, because only one of
 # them is obvious. It refuses a scoped run when a LISTED path has vanished, so a
