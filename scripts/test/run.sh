@@ -155,10 +155,21 @@ KIT_NEUTRAL_ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architec
 SB_PREFIX="$KIT_NEUTRAL_PREFIX"
 SB_TRUNK="$(git -C "$REAL_REPO_ROOT" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
 if [ -z "$SB_TRUNK" ]; then
-  SB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
+  SB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
                 "$REAL_SCRIPTS/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
 fi
-[ -n "$SB_TRUNK" ] || SB_TRUNK="main"
+# NO SECOND DEFAULT HERE. `config-seam.md` § 2 forbids a degraded path carrying its own
+# fallback, and this was one: if the declaration's SHAPE ever moved, the sed above matched
+# nothing, this line quietly supplied "main", and the whole suite ran against a trunk name
+# it had not read from anywhere. That is a green built on a value nobody declared. Die
+# instead — a harness that cannot read the kit's own trunk default has nothing to test.
+if [ -z "$SB_TRUNK" ]; then
+  echo "FIXTURE: could not read the trunk from origin/HEAD, and the KWT_TRUNK_LAST_RESORT" >&2
+  echo "         declaration in scripts/lib/kanban-worktree.sh did not parse either." >&2
+  echo "         The declaration shape is contracted (process/contracts/config-seam.md § 2)." >&2
+  echo "         Refusing to invent a trunk name: every sandbox below would be built on it." >&2
+  exit 1
+fi
 # The first role of the set the SANDBOX runs, which is the kit's shipped set because
 # _neu_roles resets it there. This used to read the adopter's commit-msg, and the comment
 # said "derived, so the harness never asserts a role name this project may not have" —
@@ -433,7 +444,16 @@ KIT_CLASS_MARKER_KEY="$(sed -n "s/^CLASS_MARKER_KEY='\(.*\)'/\1/p" "$REAL_SCRIPT
 # rather than leaving this one quietly matching nothing. On the shipped frame this
 # reads the neutral prefix; in an adopted project it reads what kit-init stamped,
 # and THAT is the token the sandbox's copied templates and role docs carry.
-KIT_TREE_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([A-Za-z0-9]*\)}"/\1/p' "$REAL_SCRIPTS/config.sh" 2>/dev/null | head -1)"
+KIT_TREE_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$REAL_SCRIPTS/config.sh" 2>/dev/null | head -1)"
+# Empty here is NOT a benign miss. The `[ -n "$KIT_TREE_PREFIX" ]` branch downstream simply
+# SKIPS when this is empty, so a shape change would silently switch off a whole neutralizer
+# rather than reporting one — the exact class this seam's contract exists to prevent.
+if [ -z "$KIT_TREE_PREFIX" ]; then
+  echo "FIXTURE: the ISSUE_PREFIX declaration in scripts/config.sh did not parse." >&2
+  echo "         Its shape is contracted (process/contracts/config-seam.md § 2)." >&2
+  echo "         Refusing to continue: the tree-prefix neutralizer would silently do nothing." >&2
+  exit 1
+fi
 
 # _neu_scalar <file> <VAR> <exact replacement line>
 _neu_scalar() {
@@ -641,7 +661,7 @@ _kit_neutral_config() {
 
   # ── config.sh: the three values kit-init.sh stamps on day one. The exact line
   #    SHAPE matters, not just the value — kit-init parses these with anchored
-  #    seds (`^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([A-Za-z0-9]*\)}"`), so the
+  #    seds (`^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"`), so the
   #    `${VAR:-default}` form has to survive verbatim.
   _neu_scalar "$c" ISSUE_PREFIX "ISSUE_PREFIX=\"\${ISSUE_PREFIX:-${KIT_NEUTRAL_PREFIX}}\""
   _neu_scalar "$c" PRD_PREFIX   "PRD_PREFIX=\"\${PRD_PREFIX:-${KIT_NEUTRAL_PRD_PREFIX}}\""
@@ -3108,7 +3128,7 @@ case_trunk_fallback_warns() {
   seed_issue todo "$SB_PREFIX-310" sandbox chore "Trunk fallback"
   publish_sandbox
   local last_resort
-  last_resort="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
+  last_resort="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
                    "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
   [ -n "$last_resort" ] || cf "could not derive KWT_TRUNK_LAST_RESORT from the library"
 
@@ -8484,6 +8504,86 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # steps aside when the tree is not the shipped frame, naming the signal that told
 # it so. A SKIP here is a statement about the environment, never a hidden failure.
 # =============================================================================
+# =============================================================================
+# CASE — A REFORMAT OF A DERIVED SEAM DECLARATION IS REFUSED LOUDLY, NEVER ABSORBED.
+#
+# Four names are parsed out of two files by nine anchored expressions in five files.
+# The shape those expressions assume was an undeclared contract between files that never
+# mention each other, until config-seam.md § 2 wrote it down.
+#
+# THE MUTATION HERE IS SEMANTICS-PRESERVING, AND THAT IS THE ENTIRE POINT. Dropping the
+# outer double quotes from `NAME="${NAME:-v}"` is identical to the shell — an assignment
+# RHS is not word-split — and invisible to every anchored sed. So the value keeps working
+# while every derivation of it silently returns nothing. A case that changed the VALUE
+# would be testing the value; this one tests the SHAPE, which is the thing that can break
+# without looking broken.
+#
+# case_ship_state guards the same shape by exact-line comparison, but it SKIPS on an
+# adopted tree — precisely where adopters live. This case does not skip.
+# =============================================================================
+case_seam_shape_reformat_is_loud() {
+  cf_reset
+  # kit-init needs a prepared .claude/ and a published trunk; a bare make_sandbox gives
+  # neither and it refuses at PREFLIGHT with three unmet preconditions — a refusal that
+  # would satisfy every "it refused" assertion below for entirely the wrong reason.
+  kit_init_sandbox
+  publish_sandbox
+  local c="$SB_WORK/scripts/config.sh" k="$SB_WORK/scripts/lib/kanban-worktree.sh"
+  local out rc eff
+
+  # ── INSTRUMENT CHECK, first: kit-init SUCCEEDS on this fixture UNMUTATED. Without this
+  #    the case cannot tell a shape refusal from a fixture that never worked. Run in a
+  #    throwaway copy so the real sandbox stays unstamped for the mutations below.
+  local pristine="$SB_TMP/seam-pristine"
+  rm -rf "$pristine"; cp -R "$SB_WORK" "$pristine"
+  rc=0; out="$( "$pristine/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || _fixture_die "case_seam_shape_reformat_is_loud: kit-init exits $rc on the UNMUTATED fixture — every refusal this case asserts would be free. Output: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  perl -i -pe 's/^ISSUE_PREFIX="\$\{ISSUE_PREFIX:-([^}]*)\}"$/ISSUE_PREFIX=\${ISSUE_PREFIX:-$1}/' "$c"
+  grep -qxF "ISSUE_PREFIX=\${ISSUE_PREFIX:-$KIT_NEUTRAL_PREFIX}" "$c" \
+    || _fixture_die "case_seam_shape_reformat_is_loud: the reformat did not apply — the declaration moved and this case is mutating nothing."
+  # COMMIT IT. kit-init refuses a dirty checkout before it reads anything, and that
+  # refusal would satisfy "(a) it refused" while proving nothing about the shape.
+  git -C "$SB_WORK" add -A && sbcommit -q -m "reformat the ISSUE_PREFIX declaration" >/dev/null 2>&1
+
+  # ── INSTRUMENT CHECK. Prove the mutation changed the SHAPE and not the VALUE. If
+  #    sourcing yields something different, every refusal below is attributable to a
+  #    changed value and this case proves nothing about the shape.
+  eff="$( . "$c" >/dev/null 2>&1; printf '%s' "$ISSUE_PREFIX" )"
+  if [ "$eff" != "$KIT_NEUTRAL_PREFIX" ]; then
+    skp "a reformatted seam declaration is refused loudly" \
+        "sourcing the reformatted config.sh yields '$eff', not '$KIT_NEUTRAL_PREFIX' — the mutation is not semantics-preserving here, so a refusal below would not be about the shape"
+    teardown; return
+  fi
+
+  # EFFECT (a) — kit-init REFUSES and NAMES the file. Not "proceeds on an empty default".
+  rc=0; out="$( "$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) kit-init.sh exited 0 with an unparseable ISSUE_PREFIX declaration — it proceeded on an empty default"
+  printf '%s' "$out" | grep -q 'config\.sh' || cf "(a) the refusal does not NAME scripts/config.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
+  grep -q 'ISSUE_PREFIX:-SBX' "$c" && cf "(a) config.sh was STAMPED during a refusal — the run mutated before it checked"
+
+  # EFFECT (b) — the SAME for the other declaring file. Four consumers parse this one and
+  #    it is not in the seam file at all, which is how it kept escaping the guard.
+  perl -i -pe 's/^KWT_TRUNK_LAST_RESORT="\$\{KWT_TRUNK_LAST_RESORT:-([^}]*)\}"$/KWT_TRUNK_LAST_RESORT=\${KWT_TRUNK_LAST_RESORT:-$1}/' "$k"
+  grep -q '^KWT_TRUNK_LAST_RESORT=\${' "$k" \
+    || _fixture_die "case_seam_shape_reformat_is_loud: the lib reformat did not apply — that declaration moved too."
+  git -C "$SB_WORK" add -A && sbcommit -q -m "reformat the trunk last-resort declaration" >/dev/null 2>&1
+  rc=0; out="$( "$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) kit-init.sh exited 0 with an unparseable KWT_TRUNK_LAST_RESORT declaration"
+
+  # EFFECT (c) — the READ-ONLY consumer degrades ANNOUNCED, never to a guessed branch.
+  #    With both auto-detections removed, check-board has nothing but the declaration left.
+  git -C "$SB_WORK" symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
+  git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/check-board.sh" 2>&1 )" || true
+  printf '%s' "$out" | grep -qF '<unresolved trunk>' \
+    || cf "(c) check-board.sh did not announce the unresolved trunk: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
+
+  finish "a semantics-preserving reformat of either derived seam declaration — config.sh's or the lib's — is refused loudly by kit-init.sh naming the file, and announced rather than guessed by the read-only consumer; the value still sources correctly, which is what makes the shape the thing under test"
+  teardown
+}
+
 case_ship_state() {
   cf_reset
   local rv="$REAL_SCRIPTS/verify.sh" rr="$REAL_SCRIPTS/release.sh" rc_cfg="$REAL_SCRIPTS/config.sh"
@@ -8537,6 +8637,8 @@ case_ship_state() {
     _ship_line "$rr" 'DIST_ARTIFACT_GLOB=""'
   fi
 
+  local SB_REAL_KWT="$REAL_SCRIPTS/lib/kanban-worktree.sh"
+
   # The three seam values, in the exact shape kit-init.sh's anchored seds parse.
   # These are also the neutralizer's targets, so this is where the harness's own
   # KIT_NEUTRAL_* constants are held against the tree instead of assumed.
@@ -8546,6 +8648,16 @@ case_ship_state() {
     _ship_line "$rc_cfg" "PROJECT_NAME=\"\${PROJECT_NAME:-${KIT_NEUTRAL_PROJECT_NAME}}\""
   else
     cf "scripts/config.sh is absent — it is the configuration seam itself"
+  fi
+
+  # THE FOURTH DECLARATION, and it does NOT live in the seam file. Four consumers parse
+  # KWT_TRUNK_LAST_RESORT out of the lib with the same anchored sed they use on config.sh,
+  # so it is bound by the same shape rule (config-seam.md § 2) and belongs in the same
+  # block. Its absence here is why the shape had three assertions and four authors.
+  if [ -f "$SB_REAL_KWT" ]; then
+    _ship_line "$SB_REAL_KWT" 'KWT_TRUNK_LAST_RESORT="${KWT_TRUNK_LAST_RESORT:-main}"'
+  else
+    cf "scripts/lib/kanban-worktree.sh is absent — it declares the trunk last resort"
   fi
 
   # THE ROLE SET, and it is the newest member of the KIT_NEUTRAL_* block above, so this
@@ -8774,6 +8886,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_seam_shape_reformat_is_loud
   case_ship_state
   case_isolation
 )

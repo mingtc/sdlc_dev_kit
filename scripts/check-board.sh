@@ -203,7 +203,7 @@ CB_REMOTE="${KWT_REMOTE:-origin}"
 CB_TRUNK="$(git -C "$REPO_ROOT" symbolic-ref --short "refs/remotes/$CB_REMOTE/HEAD" 2>/dev/null | sed "s|^$CB_REMOTE/||" || true)"
 [ -n "$CB_TRUNK" ] || CB_TRUNK="$(git -C "$REPO_ROOT" config --get init.defaultBranch 2>/dev/null || true)"
 if [ -z "$CB_TRUNK" ]; then
-  CB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
+  CB_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
                 "$REPO_ROOT/scripts/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
 fi
 

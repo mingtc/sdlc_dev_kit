@@ -461,14 +461,14 @@ KWTLIB="$ROOT/scripts/lib/kanban-worktree.sh"
 # script rewrite the travelling docs (whose prose spells the old values out)
 # without carrying a single donor literal of its own — and it is what makes the
 # census below a measurement rather than a promise.
-OLD_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([A-Za-z0-9]*\)}"/\1/p' "$CONFIG" | head -1)"
+OLD_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
 [ -n "$OLD_PREFIX" ] || { echo "Error: could not read the current ISSUE_PREFIX default out of scripts/config.sh." >&2; exit 1; }
 OLD_NAME="$(sed -n 's/^PROJECT_NAME="\${PROJECT_NAME:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
 [ -n "$OLD_NAME" ] || { echo "Error: could not read the current PROJECT_NAME default out of scripts/config.sh." >&2; exit 1; }
 # The old trunk is the LAST link of kanban-worktree.sh's own resolution chain —
 # the named constant that fires when <remote>/HEAD and init.defaultBranch are both
 # silent.
-OLD_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' "$KWTLIB" | head -1)"
+OLD_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' "$KWTLIB" | head -1)"
 [ -n "$OLD_TRUNK" ] || { echo "Error: could not read KWT_TRUNK_LAST_RESORT out of scripts/lib/kanban-worktree.sh." >&2; exit 1; }
 NEW_NAME="${PROJECT_NAME_NEW:-$(basename "$ROOT")}"
 

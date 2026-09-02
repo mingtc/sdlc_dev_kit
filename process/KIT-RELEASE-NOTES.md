@@ -56,6 +56,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **There is now a rule about how a configured default is WRITTEN, not just what it is worth — and
+  it can bite you on an edit that looks like formatting.** Several scripts read a default back out
+  of `scripts/config.sh` and `scripts/lib/kanban-worktree.sh` by matching the declaration line
+  textually. The shape they match is now contracted: `NAME="${NAME:-value}"`, at column 1, whole,
+  on one line. **Dropping the outer quotes is identical to the shell and invisible to every one of
+  those matches** — your value would keep working perfectly while everything that derives it
+  silently read nothing. **Action required only if you have reformatted, indented or line-wrapped
+  one of those declarations:** put it back on one line at column 1, quoted. You will now be told —
+  `kit-init.sh` refuses and names the file it could not parse, and `check-board.sh` prints
+  `<unresolved trunk>` instead of quietly assuming `main`. Changing a default's **value** is
+  unaffected and always was.
+
 - **The kit now states which clock a date comes from, and one row that mixed two has been fixed.**
   A calendar **day** written into a board record — a retirement day, a creation day, an activity
   line, a rotation day — is the day *you* would name, which is your local one. A timestamp meant to

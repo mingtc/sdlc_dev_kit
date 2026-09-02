@@ -307,7 +307,7 @@ NUM_RE="${NUM//./\\.}"                      # dot-escaped for grep -E
 DEFAULT_BRANCH="$(git symbolic-ref --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)"
 [ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH="$(git config --get init.defaultBranch 2>/dev/null || true)"
 if [ -z "$DEFAULT_BRANCH" ]; then
-  DEFAULT_BRANCH="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([A-Za-z0-9._\/-]*\)}"/\1/p' \
+  DEFAULT_BRANCH="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
                       "$SCRIPT_DIR/lib/kanban-worktree.sh" 2>/dev/null | head -1)"
   {
     echo "release.sh: the trunk is a GUESS ('$DEFAULT_BRANCH') — neither $REMOTE/HEAD nor"

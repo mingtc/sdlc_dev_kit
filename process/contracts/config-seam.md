@@ -17,6 +17,25 @@ process is an edit rather than an excavation.
   statement of a shared value must either be computed from the first or held against it by a
   guard.
   *Why:* retyped values drift silently; a derived one cannot, and a checked one announces itself.
+- **A value that anything DERIVES TEXTUALLY is declared in one exact shape:
+  `NAME="${NAME:-value}"`, at column 1, whole, on one line.** No leading whitespace, no line
+  continuation, no alternative spelling of the same expansion. The shape is part of the contract,
+  not a formatting preference, and it binds every file that holds such a declaration — not only
+  the seam file.
+  *Why:* the bullet above says a copy must be derived or checked, and it does not say what the
+  derivation is allowed to assume. So each consumer wrote its own anchored expression, and the
+  shape became an undeclared contract between files that never mention each other. **Dropping the
+  outer quotes is identical to the shell and invisible to every one of those expressions** — the
+  value would keep working perfectly while every derivation of it silently returned nothing. That
+  is the whole hazard in one sentence: a change that is *semantically* a no-op is *textually* a
+  break, and nothing about the edit looks dangerous.
+- **A derivation that comes back EMPTY refuses, naming the file it could not parse. It never
+  supplies its own second default.**
+  *Why:* a fallback on the degraded path is the most expensive kind of silence — it converts
+  "I could not read the declaration" into "the value is `main`", and everything downstream then
+  runs correctly against something nobody declared. The refusal is what makes the shape rule
+  enforceable at all: a shape that can only be violated *loudly* is a shape a reformat cannot
+  quietly break.
 - **A configured value is overridable for one invocation without editing anything.** The
   environment may supply it; the declared default applies otherwise.
   *Why:* trying a change should not require a commit, and a sandbox must be able to run the real
