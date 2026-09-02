@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`new-prd.sh` and `subtask.sh` now refuse a short name that is not `lower-case-with-hyphens`, and
+  `subtask.sh` also checks the subtask suffix.** Three creators already enforced this; these two did
+  not. For `subtask.sh` it was not cosmetic: its `new` arm writes `branch: feature/<id>-<slug>` into
+  a card it **publishes to your trunk**, and the role docs tell Dev and QA to `git switch` that
+  value — so a name with a space produced a published card naming a branch git itself refuses to
+  create, and burned the id. **Action required only if you use capitals, spaces or underscores in
+  short names:** those invocations now exit 2 and write nothing. Existing files are untouched —
+  nothing is renamed. The suffix must be `s` followed by digits, because the `move` arm recovers the
+  parent id from it and any other shape silently resolves to the wrong parent.
+
 - **`.kanban-wt/` is for board files, and the kit now says so — plus the remedy it printed for a
   dirty worktree no longer tells you to `git add -A`.** That directory is the only checkout sitting
   on your trunk while your own is on a work branch, which makes it read as a spare clean tree. It is

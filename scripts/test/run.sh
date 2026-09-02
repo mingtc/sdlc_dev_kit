@@ -6048,6 +6048,83 @@ case_option_parsing_hygiene() {
   teardown
 }
 
+# =============================================================================
+# CASE — THE SHORT NAME'S SHAPE BINDS EVERY CREATOR, INCLUDING THE TWO THAT SKIPPED IT.
+#
+# `validate_slug` implements process/contracts/issue-creation.md § 5 and three creators
+# called it. `new-prd.sh` did not, and `subtask.sh` did not even source config.sh.
+#
+# THE TWO HALVES ARE NOT EQUALLY SERIOUS AND THE CASE SAYS SO. For new-prd.sh the
+# damage is a shell-hostile filename and a burned id — annoying, contained. For
+# subtask.sh it is a FUNCTIONAL BREAK: its create arm writes `branch: feature/<ID>-<SLUG>`
+# into a card it PUBLISHES, and the role docs tell Dev and QA to `git switch` that value.
+# Measured: a slug with a space makes `git check-ref-format` refuse and `git switch -c`
+# exit 128 — so the trunk carries a card naming a branch nobody can check out.
+#
+# THE SUFFIX IS CHECKED TOO, and leaving it out would have been a false claim of
+# closure: it reaches the same filename and the same ref by the same concatenation, and
+# the `move` arm recovers the parent with ${ID%-s*}, so a suffix that is not s<digits>
+# resolves to the WRONG PARENT rather than failing.
+# =============================================================================
+case_creation_slug_shape_is_one_rule() {
+  cf_reset
+  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ] || [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
+    skp "the short name's shape binds every creator" ".claude/templates (or SUBTASK.template.md) absent — the creators exit before the short name is read"
+    return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  seed_issue todo "$SB_PREFIX-014" parent chore "Decomposition parent"
+  publish_sandbox
+
+  local bad='Bad_Slug Name' out rc=0
+
+  # (1) new-prd.sh — the EFFECT: requirements/ untouched, so PRD-001 is not burned.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh "$bad" 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "new-prd.sh: a short name with a space and an underscore → rc=$rc (want 2): $(printf '%s' "$out" | tr '\n' '|')"
+  [ -z "$(find "$SB_WORK/requirements" -name '*.md' 2>/dev/null)" ] \
+    || cf "new-prd.sh WROTE a file for a refused short name — the id is burned: $(ls -1 "$SB_WORK/requirements")"
+  printf '%s' "$out" | grep -q 'position' \
+    || cf "new-prd.sh's refusal does not name the offending position: $(printf '%s' "$out" | tr '\n' '|')"
+
+  # (2) subtask.sh — the EFFECT on the TRUNK, which is where its create arm publishes.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s1 "$bad" --title ok 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "subtask.sh new: exited 0 on a short name git itself refuses as a ref"
+  origin_has_path "progress/subtasks/$SB_PREFIX-014/todo/$SB_PREFIX-014-s1-$bad.md" \
+    && cf "subtask.sh PUBLISHED a card whose filename carries a space and whose branch: is not a legal git ref"
+  # THE REFUSAL MUST PRECEDE THE LOCK, not merely the commit — a refusal that reached
+  # kwt_bootstrap leaves the shared worktree behind for the next lane.
+  [ -e "$SB_WORK/.kanban-wt" ] \
+    && cf "subtask.sh reached kwt_bootstrap before refusing the short name — the refusal is not pre-mutation"
+
+  # (3) THE SUFFIX, same arm. Without this the case would ship "the slug is validated"
+  #     while the other half of the same concatenation is still open.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" 'a b' legal-name --title ok 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "subtask.sh new: exited 0 on a SUFFIX that is not s<digits> — it reaches the filename and the branch name the same way the slug does"
+
+  # (4) THE VALUE IS ECHOED, NOT REWRITTEN INTO LEGALITY (§ 5, and config.sh's reason).
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh "$bad" 2>&1 )" || rc=$?
+  printf '%s' "$out" | grep -qF -- "$bad" \
+    || cf "the refusal does not echo the name that was typed: $(printf '%s' "$out" | tr '\n' '|')"
+
+  # ── INSTRUMENT CHECK. Everything above is "non-zero and nothing landed", which a
+  #    creator broken for ANY reason satisfies. The SAME invocations with a LEGAL short
+  #    name must both succeed and both land.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh legal-name 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) new-prd.sh rejected a LEGAL short name (rc=$rc) — this case cannot tell a slug refusal from a broken script: $(printf '%s' "$out" | tr '\n' '|')"
+  [ -n "$(find "$SB_WORK/requirements" -name '*legal-name*' 2>/dev/null)" ] \
+    || cf "(control) new-prd.sh minted nothing for a legal name — the refusals above prove nothing"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s1 legal-name --title ok 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) subtask.sh new rejected a LEGAL short name and suffix (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  origin_has_path "progress/subtasks/$SB_PREFIX-014/todo/$SB_PREFIX-014-s1-legal-name.md" \
+    || cf "(control) subtask.sh published nothing for a legal name — the 'did not publish' probe above is vacuous"
+
+  finish "the short name's shape binds every creator: new-prd.sh and subtask.sh refuse a name (or a suffix) outside § 5 BEFORE minting or locking, echo what was typed rather than rewriting it, burn no id and publish nothing — and both still mint normally on legal input"
+  teardown
+}
+
 case_creation_scripts_substitute_hostile_values() {
   cf_reset
   # WHAT THE OPTION-PARSING CASE ABOVE CANNOT SEE. It exercises REFUSALS, so every
@@ -7507,6 +7584,7 @@ CASES=(
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
   case_option_parsing_hygiene
+  case_creation_slug_shape_is_one_rule
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy

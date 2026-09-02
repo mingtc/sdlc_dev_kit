@@ -44,6 +44,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"
 
+# config.sh is loaded for its SHARED VALIDATORS, not for a prefix — this script consumes
+# none. Unguarded, like the two libraries above: `set -e` aborts loudly on a missing file,
+# and the six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT
+# copied here, because pasting a guard for a value this script never reads would add a
+# seventh copy of it while fixing a second-copy defect.
+# shellcheck source=config.sh
+. "$SCRIPT_DIR/config.sh"
+
 # The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
 # terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
 # once its PARENT lands — never by a direct move here.
@@ -95,6 +103,33 @@ case "$CMD" in
     # data loss rather than an error.
     ROLE="${SUBTASK_ROLE:-Orchestrator}"
     kit_require_role "$SCRIPT_DIR/.." "$ROLE" SUBTASK_ROLE || exit 1
+
+    # THE SHORT NAME'S SHAPE, and here it is not a tidiness rule — it is a git ref.
+    # This arm writes `branch: feature/<ID>-<SLUG>` into the published card, and the
+    # role docs tell Dev and QA to `git switch` that value. Measured: a slug with a
+    # space makes `git check-ref-format` refuse and `git switch -c` exit 128, so the
+    # card is published to the trunk carrying a branch name nobody can check out, and
+    # the id is burned. Declared in process/contracts/issue-creation.md § 5;
+    # validate_slug (scripts/config.sh) implements it. No pattern here — one shape, one site.
+    validate_slug "$SLUG" || exit 2
+    # THE SUFFIX IS VALIDATED TOO, and shipping without it would be a false claim of
+    # closure: it reaches the same filename and the same ref through the same
+    # concatenation. Its shape is NARROWER than a slug's, and that is load-bearing —
+    # the `move` arm recovers the parent with ${ID%-s*}, so a suffix that is not
+    # s<digits> silently resolves to the wrong parent instead of failing.
+    case "$SUFFIX" in
+      s[0-9]*) case "${SUFFIX#s}" in *[!0-9]*) SUFFIX_BAD=1 ;; *) SUFFIX_BAD=0 ;; esac ;;
+      *) SUFFIX_BAD=1 ;;
+    esac
+    if [ "$SUFFIX_BAD" -ne 0 ]; then
+      {
+        echo "Error: the subtask suffix must be s<digits> — got '$SUFFIX'."
+        echo "       It becomes part of the card's filename AND of the git branch name, and the"
+        echo "       move arm recovers the parent id from it, so a different shape resolves to the"
+        echo "       wrong parent rather than failing. NOTHING WAS CHANGED."
+      } >&2
+      exit 2
+    fi
 
     # Acquire the lock + bootstrap + sync the worktree BEFORE touching anything,
     # so the create lands on the current <remote>/<trunk> tip.

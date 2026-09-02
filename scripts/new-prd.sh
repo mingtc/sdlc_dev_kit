@@ -84,6 +84,9 @@ if [ ! -d "$DEST_DIR" ]; then
 fi
 
 SLUG="$1"
+# The short name's shape is declared in process/contracts/issue-creation.md § 5;
+# validate_slug (scripts/config.sh) implements it. No pattern here — one shape, one site.
+validate_slug "$SLUG" || exit 2
 
 # Find the highest existing PRD-NNN, increment by 1. (PRDs are few and authored by
 # one role, so unlike issue ids this one number IS derived here rather than passed
