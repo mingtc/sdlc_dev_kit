@@ -502,14 +502,41 @@ table below is the list, and the table is the count — and naming only the adap
 drifts: one project had the attribution hook accept a role the board mover
 did not, so the seat that held it **could not move a card** and had to borrow another hat.
 
-| File | What it holds | Note |
-|---|---|---|
-| The adapter (`CLAUDE.md`) | The human-readable role table + the commit-prefix table | The source of truth a reader consults |
-| `scripts/githooks/commit-msg` | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded |
-| `scripts/move-issue.sh` | The acting-role whitelist, plus the same list in its usage text and its error messages | A role missing here cannot move the board **at all** |
-| `scripts/check-board.sh` | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
-| `.claude/settings.json.example` | The set spelled out in prose, in its `<role-prefix-list>` note | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive |
-| `scripts/subtask.sh` | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s |
+**THE TABLE HAS TWO REGISTERS AND THEY BEHAVE OPPOSITELY**, which it did not say until 2026-09-02.
+Some rows are seams `kit-init --roles` **stamps**; others are documentation it **deliberately never
+touches**. A reader who could not tell them apart had two ways to go wrong in opposite directions:
+add a new enforcing seam and assume the initializer would find it, or "fix" the initializer to also
+rewrite the adapter. The `Stamped?` column is the register, and it is mechanical rather than prose.
+
+| File | Register | Stamped? | What it holds | Note |
+|---|---|---|---|---|
+| `scripts/githooks/commit-msg` | **ENFORCING** | yes | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded. **This row is the source the other enforcing rows are stamped FROM** |
+| `scripts/move-issue.sh` | **ENFORCING** | yes | The acting-role whitelist, plus the same list in its usage text and its error messages | A role missing here cannot move the board **at all** |
+| `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
+| `scripts/subtask.sh` | **ENFORCING** | yes | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s. **This is the row that was missing from the initializer's hand-typed list**, so a renamed project got a subtask tool that rejected every role it had just declared |
+| The adapter (`CLAUDE.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
+| `.claude/settings.json.example` | DOCUMENTATION | **no** | The set spelled out in prose, in its `<role-prefix-list>` note | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive. The file's own `_note` says the initializer does not touch it |
+
+**Derive the ENFORCING register rather than trusting this table to be current** — the table is the
+statement of intent, the recipe is the measurement, and a disagreement between them is a finding:
+
+```sh
+ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" scripts/githooks/commit-msg | head -1)"
+grep -lF -- "$ROLES" scripts/*.sh scripts/githooks/*        # the ENFORCING register
+grep -rlE -- "$ROLES" .claude/                              # who MENTIONS a role
+```
+
+**THE GLOB IS NON-RECURSIVE AND THAT IS LOAD-BEARING, not brevity.** Measured 2026-09-02: `grep -rlF`
+over `scripts/` returns the enforcing seams **plus `scripts/test/run.sh`** — the harness, which
+asserts what the kit SHIPS and must never be stamped, because stamping it rewrites the assertion to
+match whatever it was measuring. The non-recursive glob excludes it **by shape**, so there is no
+exclusion list to keep in step with anything. `kit-init.sh` derives its stamping list with exactly
+this recipe, for exactly this reason.
+
+*The second pattern is a different question and its answer is much larger — it finds every file that
+NAMES a role, most of them role docs and skills under `.claude/`, none of them stamped. It is here
+because § 2.2 paid for the lesson that a hand-bound search space answers a smaller question than it
+appears to: keep the `.claude/` operand.*
 
 Change one, change them all — **and the row count is this table, never a number in the prose above
 it.** An earlier version of this heading said "FOUR places", which was true when it was written and

@@ -577,7 +577,14 @@ _kit_neutral_claude() {
 }
 
 # _neu_roles — reset the sandbox's ROLE SET to the kit's shipped alternation, across the
-# same three seams kit-init stamps and by the same substitution run backwards.
+# same seams kit-init stamps and by the same substitution run backwards.
+#
+# THE SEAM LIST IS DERIVED HERE FOR THE SAME REASON IT IS DERIVED IN kit-init, and this
+# fixture is the proof the reason is real: it carried a hand-typed list of THREE while
+# kit-init stamped FOUR — subtask.sh was missing — and two comments in this file said
+# "the three seams kit-init stamps" while the initializer stamped four. A builder's
+# literal is usually cheap because something downstream fails loudly and locally; this
+# one was not, and the header below records what it actually cost.
 #
 # WHY THE SANDBOX MUST OWN ITS ROLE VOCABULARY. Every --role argument and every "[Role]"
 # commit subject in this file is a literal. On a project that ran `kit-init --roles`, the
@@ -592,20 +599,39 @@ _neu_roles() {
   cur="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$cm" | head -1)"
   [ -n "$cur" ] \
     || _fixture_die "_neu_roles: no ROLE_PREFIXES line in the sandbox's commit-msg — the seam was renamed or moved, so the role vocabulary was NOT neutralized and every --role literal in this file would be judged against whatever the adopter declared."
+  local seams=""
   if [ "$cur" != "$KIT_NEUTRAL_ROLE_PREFIXES" ]; then
-    for f in "$cm" "$SB_WORK/scripts/move-issue.sh" "$SB_WORK/scripts/check-board.sh"; do
-      [ -f "$f" ] || continue
+    # NON-RECURSIVE, kit-init's reason verbatim: a recursive sweep would also match
+    # scripts/test/run.sh — this file — and rewrite the assertions to agree with
+    # whatever they were measuring.
+    seams="$( { grep -lF -- "$cur" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } )"
+    [ -n "$seams" ] \
+      || _fixture_die "_neu_roles: the sandbox's commit-msg declares '$cur' but NO file under scripts/ carries it — the derivation found nothing to reset, so the role vocabulary is not neutralized and every --role literal in this file would be judged against whatever the adopter declared."
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
       # The '@' delimiter is kit-init's, for kit-init's reason: the value is a
       # '|'-separated ERE alternation and would cut an s|…|…| in half with its own data.
       NEU_CUR="$cur" NEU_NEW="$KIT_NEUTRAL_ROLE_PREFIXES" \
         perl -i -pe 's@\Q$ENV{NEU_CUR}\E@$ENV{NEU_NEW}@g' "$f"
-    done
+    done <<NEU_SEAM_EOF
+$seams
+NEU_SEAM_EOF
   fi
   # POSTCONDITION, asserted whether or not anything was rewritten — the anchor-and-property
   # shape, not "something changed": on the kit's own tree the set already IS the shipped
   # one and the correct behaviour is to change nothing.
   grep -qF "ROLE_PREFIXES='$KIT_NEUTRAL_ROLE_PREFIXES'" "$cm" \
     || _fixture_die "_neu_roles: the sandbox's commit-msg does not carry the shipped role set after the reset (it reads '$cur')."
+  # AND EVERY OTHER SEAM, not just the one the set is READ from. The old postcondition
+  # checked $cm alone, which is exactly as narrow as the hand-typed list was: a seam left
+  # out of the list was also left out of the check, so the fixture could report success
+  # while a --role whitelist elsewhere still enforced the adopter's set.
+  if [ -n "$seams" ]; then
+    local still
+    still="$( { grep -lF -- "$cur" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } )"
+    [ -z "$still" ] \
+      || _fixture_die "_neu_roles: $(printf '%s' "$still" | tr '\n' ' ')still carr(y|ies) the adopter's role set '$cur' after the reset — the neutralization reached some seams and not others, and the cases judging --role literals against the shipped set would redden as though the tools were broken."
+  fi
 }
 
 _kit_neutral_config() {
@@ -629,7 +655,7 @@ _kit_neutral_config() {
   grep -q "^$KIT_STAMP_MARK" "$c" \
     && _fixture_die "_kit_neutral_config: config.sh still carries kit-init's stamp receipt ('$KIT_STAMP_MARK') — every kit-init case would hit the already-lived refusal."
 
-  # ── the role set, across the three seams kit-init stamps.
+  # ── the role set, across the seams that carry it (derived, as kit-init derives them).
   _neu_roles
 
   # ── verify.sh: the gate table and the guard floor.
@@ -5285,6 +5311,81 @@ case_kit_init_repairs_hook_mode() {
   teardown
 }
 
+# =============================================================================
+# CASE — kit-init --roles LEAVES NO SEAM BEHIND.
+#
+# THE STAMPING LOOP WAS ENTIRELY UNTESTED. Measured before this case was written:
+# `--roles` appeared in this file four times, every one of them inside a comment.
+#
+# What that cost: the loop's seam list was hand-typed, and subtask.sh sat outside it
+# while its --role whitelist enforced the shipped set — so a project that renamed its
+# roles got a subtask tool that rejected every role it had just declared. The list is
+# now derived, and this case is what makes the derivation's completeness assertable
+# instead of argued.
+#
+# THE CONSEQUENCE PROBE IS THE POINT. "Every file carries the new string" is a text
+# match, and a text match cannot tell a stamped whitelist from a stamped comment.
+# subtask.sh validates --role BEFORE kwt_resolve, so a nonexistent card cannot
+# short-circuit it, which makes the whitelist reachable without building a real card.
+# =============================================================================
+case_kit_init_roles_leave_no_seam() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init --roles: no seam keeps the old set" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init --roles: no seam keeps the old set" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+
+  local old="$KIT_NEUTRAL_ROLE_PREFIXES" new='Alpha|Beta|Gamma' before f out rc=0
+
+  # THE OPERAND, ASSERTED BEFORE THE ACT — which files carry the set is the question
+  # this case is about, so it is measured rather than assumed. Empty means the probe
+  # lost its subject and every assertion below would pass over nothing.
+  before="$( cd "$SB_WORK" && { grep -lF -- "$old" scripts/*.sh scripts/githooks/* 2>/dev/null || true; } | sort )"
+  [ -n "$before" ] \
+    || cf "(operand) no shipped script carries the role set before kit-init ran — the probe lost its subject"
+  printf '%s\n' "$before" | grep -qx 'scripts/subtask.sh' \
+    || cf "(operand) scripts/subtask.sh does not carry the role set in this sandbox — the seam this case is named for is absent, so a green below proves nothing"
+
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$new" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "kit-init --roles exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
+
+  # THE EFFECT, PER SEAM: everything that carried the old set carries the new one, and
+  # nothing keeps the old. Both directions — "carries the new" alone is satisfied by a
+  # file that carries both.
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    grep -qF -- "$new" "$SB_WORK/$f" \
+      || cf "$f carried the role set before kit-init --roles and does not carry the new one after it — this seam was left out of the stamping list"
+    grep -qF -- "$old" "$SB_WORK/$f" \
+      && cf "$f still carries the SHIPPED set after kit-init --roles — the substitution did not reach it"
+  done <<SEAM_EOF
+$before
+SEAM_EOF
+
+  # THE RECEIPT NAMES WHAT IT STAMPED, rather than a sentence somebody typed once.
+  printf '%s\n' "$out" | grep -q 'scripts/subtask.sh' \
+    || cf "the run's role-set receipt does not name scripts/subtask.sh among the seams it stamped: $(printf '%s' "$out" | tr '\n' '|')"
+
+  # THE CONSEQUENCE THE LOOP'S OWN COMMENT RECORDS, as behaviour and not as text. The
+  # names are BUILT, never written: this file is scanned for `--role <Name>` literals by
+  # case_role_literals_are_declared, and a typed one would redden that case on this
+  # case's control text. (Measured, on an earlier control's first draft.)
+  local mine outsider accepted refused
+  mine="$(printf '%s' "$new" | cut -d'|' -f1)"
+  outsider="$(printf '%s' "$old" | cut -d'|' -f1)"
+  accepted="$( cd "$SB_WORK" && ./scripts/subtask.sh move SBX-001-s1 in_progress --role "$mine" --note n 2>&1 || true )"
+  printf '%s' "$accepted" | grep -q -- '--role must be' \
+    && cf "subtask.sh refused '$mine', a member of the set kit-init just declared — its whitelist was not stamped"
+  # INSTRUMENT: the probe above is a NEGATIVE and is satisfied by any unreachable code
+  # path. The same probe must FIRE on a role the project no longer declares.
+  refused="$( cd "$SB_WORK" && ./scripts/subtask.sh move SBX-001-s1 in_progress --role "$outsider" --note n 2>&1 || true )"
+  printf '%s' "$refused" | grep -q -- '--role must be' \
+    || cf "(control) subtask.sh did NOT refuse '$outsider', which the project's declared set no longer contains — the probe above cannot tell an accepted role from a whitelist it never reached"
+
+  finish "kit-init --roles: every seam that carried the role set carries the new one and none keeps the old, the receipt names them, and subtask.sh's whitelist follows (accepts a declared role, refuses a withdrawn one)"
+  teardown
+}
+
 case_kit_init_refuses_lived_board() {
   cf_reset
   if ! has_kit_init; then skp "kit-init: refuses a repo that has already lived" "scripts/kit-init.sh absent"; return; fi
@@ -6930,6 +7031,7 @@ CASES=(
   case_kit_init_still_fails_on_a_real_finding
   case_kit_init_happy
   case_kit_init_repairs_hook_mode
+  case_kit_init_roles_leave_no_seam
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals

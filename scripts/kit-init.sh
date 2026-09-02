@@ -138,10 +138,10 @@ Options:
                       PROJECT_NAME default, never typed here — see "The census".
   --prd-prefix <P>    PRD id prefix (default: left as config.sh has it).
   --roles "A|B|C"     Your role set, as the ERE alternation the commit-msg hook
-                      enforces. Stamped into every script seam that ENFORCES it
-                      (githooks/commit-msg, move-issue.sh's --role whitelist,
-                      check-board.sh's derivation fallback, subtask.sh's --role
-                      whitelist). Default: left as copied.
+                      enforces. Stamped into every script seam that ENFORCES it —
+                      the seams are DERIVED at run time, not listed here, and the
+                      run prints the ones it stamped. process/EXTRACTION.md § 2.4
+                      is where the register lives. Default: left as copied.
   --gate-command <C>  Declare <C> as the gate. If scripts/verify.sh is the shipped
                       frame with an EMPTY GATES table, <C> is written into that
                       table as its first record (name "gate", class core). If no
@@ -597,16 +597,43 @@ if [ -n "$ROLES_NEW" ]; then
   # scripts/test/run.sh carries the literal too and is DELIBERATELY NOT HERE: the
   # harness asserts what the kit SHIPS, so stamping it would rewrite the assertion
   # to match whatever it was measuring and the case could never fail.
-  for f in "$COMMITMSG" "$ROOT/scripts/move-issue.sh" "$ROOT/scripts/check-board.sh" \
-           "$ROOT/scripts/subtask.sh"; do
-    [ -f "$f" ] || continue
+  # THE SEAM LIST IS DERIVED, NOT TYPED — because the typed one was wrong, and the
+  # paragraph above is the incident report. A hand-maintained list of "every file that
+  # carries the role set" is a second copy of a fact the files themselves already state,
+  # and it goes stale the first time somebody adds a seam without finding this loop.
+  #
+  # NON-RECURSIVE, AND THAT IS THE WHOLE SAFETY OF IT. Measured 2026-09-02 with
+  # /usr/bin/grep: `grep -rlF` over scripts/ returns FIVE — the four seams plus
+  # scripts/test/run.sh, the one file the paragraph above says must never be stamped.
+  # The glob excludes it BY SHAPE, so there is no exclusion list to keep in step with
+  # anything. Widen this to -r and you silently rewrite the harness's own assertion to
+  # match whatever it was measuring.
+  #
+  # THE DERIVATION'S SUBSTRING SAFETY RESTS ON THE ALREADY-LIVED REFUSAL ABOVE, which
+  # guarantees OLD_ROLES is the long shipped alternation. A hand-edited hook declaring
+  # one short token would make `grep -lF` match far more files and the global sed
+  # corrupt substrings. The glob is what bounds the blast radius; keep it.
+  STAMPED_SEAMS="$( { grep -lF -- "$OLD_ROLES" "$ROOT"/scripts/*.sh "$ROOT"/scripts/githooks/* 2>/dev/null || true; } )"
+  # ASSERTED, NOT ASSUMED: OLD_ROLES was just read OUT of scripts/githooks/commit-msg, so
+  # that file matches by construction. An empty derivation means the tree moved under
+  # this run, and stamping nothing while reporting success is the failure to avoid.
+  [ -n "$STAMPED_SEAMS" ] || {
+    echo "Error: no shipped script carries the role set that was just read out of scripts/githooks/commit-msg — refusing to report a stamping that did not happen." >&2; exit 1; }
+  STAMPED_REL=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
     sed -i.bak -e "s@${OLD_ROLES}@${ROLES_NEW}@g" "$f"; rm -f "$f.bak"
-  done
+    STAMPED_REL="${STAMPED_REL}${STAMPED_REL:+ }${f#"$ROOT"/}"
+  done <<STAMP_EOF
+$STAMPED_SEAMS
+STAMP_EOF
   # NOTHING rewrites the hook's help text: it DERIVES the bracketed list from
   # ROLE_PREFIXES at print time. An earlier version patched that sentence with a
   # second sed, which is one more place to drift and one more thing to get wrong.
   ROLES="$ROLES_NEW"
-  say "  role set → '${ROLES}' in commit-msg + move-issue.sh + check-board.sh + subtask.sh"
+  # THE RECEIPT NAMES WHAT WAS ACTUALLY STAMPED. It used to be a typed sentence, which
+  # is a third copy of the seam list and the one an operator would have believed.
+  say "  role set → '${ROLES}' in ${STAMPED_REL}"
 else
   ROLES="$OLD_ROLES"
   say "  role set left as copied: '${ROLES}' (change it with --roles)"
