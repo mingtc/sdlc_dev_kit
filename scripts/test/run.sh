@@ -5011,6 +5011,21 @@ ISSUE_TEMPLATE_REL='.claude/templates/ISSUE.template.md'
 ISSUE_TEMPLATE_ABSENT="$ISSUE_TEMPLATE_REL absent (copy-list incomplete)"
 has_issue_template() { [ -f "$REAL_REPO_ROOT/$ISSUE_TEMPLATE_REL" ]; }
 
+# THE ROLE-FILE PATH, DERIVED FROM THE HOOKS THAT DECLARE IT. Both hooks keep `ROLE_REL` as a named
+# variable on its own line, and both say in a comment that they do it "so a test fixture can DERIVE it
+# (sed) instead of re-hardcoding a literal" — a promise `process/MANUAL.md` repeats. Nothing derived it:
+# the one assertion about the path hardcoded the string, so all three statements were false.
+#
+# IT READS BOTH HOOKS AND REQUIRES THEM TO AGREE, which is what session-start.sh's own comment asks
+# for: "a guard that derives the path from one hook and finds a literal in the other cannot check the
+# pair." Deriving from one alone would leave the pair unchecked and still look like a derivation.
+_role_rel() {   # -> the agreed ROLE_REL, or empty if the hooks disagree or either cannot be read
+  local a b
+  a="$(sed -n 's/^ROLE_REL="\(.*\)"$/\1/p' "$REAL_SCRIPTS/hooks/require-role.sh" 2>/dev/null)"
+  b="$(sed -n 's/^ROLE_REL="\(.*\)"$/\1/p' "$REAL_SCRIPTS/hooks/session-start.sh" 2>/dev/null)"
+  [ -n "$a" ] && [ "$a" = "$b" ] && printf '%s' "$a"
+}
+
 has_kit_init() { [ -f "$REAL_SCRIPTS/kit-init.sh" ]; }
 
 kit_init_sandbox() {
@@ -5059,8 +5074,13 @@ case_kit_init_happy() {
   # A hat declaration is session state.
   printf '%s\n' "$out" | grep -q 'hat declaration is invisible to git status' \
     || cf "the self-check did not prove the session-role ignore entry: $out"
-  grep -qxF '.claude/session-role' "$SB_WORK/.gitignore" \
-    || cf ".claude/session-role was not written into the new repo's .gitignore"
+  # DERIVED, not re-typed — and the derivation is asserted, because an empty result would make the
+  # grep below look for an empty string, match every line, and pass while checking nothing.
+  local role_rel; role_rel="$(_role_rel)"
+  [ -n "$role_rel" ] \
+    || cf "(control) could not derive an AGREED ROLE_REL from the two hooks — either one of them no longer declares it on its own line, or they now name different paths; the .gitignore assertion below would otherwise search for an empty string and pass"
+  [ -z "$role_rel" ] || grep -qxF "$role_rel" "$SB_WORK/.gitignore" \
+    || cf "$role_rel (derived from the hooks) was not written into the new repo's .gitignore"
   # The board is COMPLETE and left PRISTINE.
   local keeps leftovers
   keeps="$(find "$SB_WORK/progress" -name .gitkeep | wc -l | tr -d ' ')"
