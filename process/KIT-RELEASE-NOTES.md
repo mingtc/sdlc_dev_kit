@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Three card templates told you something about the board checker that was never true.** Each said
+  that leaving one of the example Activity shapes as a bullet would make a freshly minted card report
+  false drift on your first board check. Measured: the seed entry sits *below* the shapes block, so
+  it is the last bullet either way, and the shape lines are written in a form the checker skips. The
+  advice is unchanged — **copy a shape out of the block, do not leave one in place** — but the reason
+  is now the true one: the block is examples, not entries, and indenting it is what stops an author
+  reading one as a logged event. **No action required.**
+
 - **Two prompts your card templates were missing.** A **refactor** card never asked for its notes
   deliverable — even though the issue template names a test-only refactor as the case that owes an
   *explicit dismissal*, so the author most likely to need the prompt was the one who never got it. And

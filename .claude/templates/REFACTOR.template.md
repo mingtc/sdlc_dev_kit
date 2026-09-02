@@ -105,9 +105,12 @@ What this issue does **not** touch. Often easier to list for refactors than for 
 `./scripts/move-issue.sh` appends a line for you on every move; append one by hand only when a
 significant decision is logged elsewhere.
 
-**The entry shapes are the INDENTED BLOCK below, deliberately not bullets** — the board checker
-reads the **last `- ` bullet** under this heading, so an example written as a bullet makes a
-freshly minted issue report false drift.
+**The entry shapes are the INDENTED BLOCK below, deliberately not bullets** — the block is
+**examples, not entries**, and indenting it is what keeps an author from reading one as a logged
+event. *(An earlier wording said a bulleted example makes a freshly minted card report false drift.
+Measured 2026-09-03 and superseded: the seed entry below the block is the last bullet either way, and
+the shape lines carry an em-dash rather than a transition arrow so the checker treats them as
+un-judgeable. The reason to keep them indented is legibility, which is enough.)* Copy a shape out of the block; do not leave one in place as a bullet.
 
     YYYY-MM-DD [Dev] Picked up — moved to in_progress via ./scripts/move-issue.sh. Branch: refactor/<PREFIX>-NNN-<slug>.
     YYYY-MM-DD [Dev] Ready for review — moved to dev_complete. Branch pushed; gates green.

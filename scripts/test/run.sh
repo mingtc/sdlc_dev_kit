@@ -6878,6 +6878,66 @@ CORPUS_EOF
 # strips the section would pass a template check and fail this one. The card is what the
 # author actually receives.
 # =============================================================================
+# =============================================================================
+# CASE — A FRESHLY MINTED CARD IS DRIFT-CLEAN ON THE FIRST BOARD CHECK.
+#
+# Three templates told the author that leaving an example as a bullet would make a
+# freshly minted card report false drift. Measured 2026-09-03, that was never true in any
+# release: the seed entry is the last bullet either way, and the shape lines are
+# un-judgeable to the arm. The wording is corrected — but the PROMISE underneath it is
+# real and was never asserted: a card nobody has moved yet must not be reported as drift.
+#
+# THE PROSE IS NOT WHAT IS TESTED. A text-match over the templates would have pinned the
+# false mechanism just as happily as the true one; this asserts the board report.
+# =============================================================================
+case_minted_card_is_drift_clean() {
+  cf_reset
+  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
+    skp "a freshly minted card is drift-clean" ".claude/templates absent"; return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+
+  local creator base card n=0 i=800 victim=""
+  for creator in "$SB_WORK"/scripts/new-*.sh; do
+    [ -e "$creator" ] || continue
+    base="$(basename "$creator")"; i=$((i+1))
+    ( cd "$SB_WORK" && "./scripts/$base" "clean$i" --id "$SB_PREFIX-$i" >/dev/null 2>&1 ) || true
+    card="$SB_WORK/progress/todo/$SB_PREFIX-$i-clean$i.md"
+    [ -f "$card" ] || continue
+    n=$((n+1)); [ -z "$victim" ] && victim="$card"
+  done
+  [ "$n" -ge 3 ] \
+    || _fixture_die "case_minted_card_is_drift_clean: only $n card(s) minted — the board would be checked over nothing."
+  publish_sandbox
+
+  local out rc=0
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  # INSTRUMENT: arm [a] must have walked a column. "nothing found" over an absent board
+  # is the vacuous pass this arm's own header warns about.
+  printf '%s\n' "$out" | grep -q 'no active column exists' \
+    && cf "(instrument) arm [a] found no active column — the assertion below is vacuous"
+  printf '%s\n' "$out" | grep -q 'last Activity declares' \
+    && cf "a FRESHLY MINTED card reports folder-vs-Activity drift — the templates promise the adopter's first board check is clean: $out"
+
+  # ── ABLATION: the arm must be able to SEE these cards, or the green above is empty.
+  #    Rewrite one card's seed bullet to declare a folder it is not in.
+  grep -q '^- .*`todo/`' "$victim" \
+    || _fixture_die "case_minted_card_is_drift_clean: the seed bullet's shape moved — the plant cannot take and the ablation would prove nothing."
+  perl -i -pe 's/`todo\/`/`dev_complete`/ if /^- /' "$victim"
+  grep -q '`dev_complete`' "$victim" || _fixture_die "case_minted_card_is_drift_clean: the plant did not take."
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -q 'last Activity declares' \
+    || cf "(ablation) arm [a] did NOT report a card whose last Activity declares a folder it is not in — the clean result above establishes nothing"
+
+  finish "a freshly minted card is drift-clean on the first board check across $n creator(s), and the arm demonstrably sees these cards (ablation-proven)"
+  teardown
+}
+
 case_minted_card_prompts_for_notes() {
   cf_reset
   if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
@@ -8410,6 +8470,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_minted_card_is_drift_clean
   case_minted_card_prompts_for_notes
   case_template_header_survives_the_stamp
   case_leaf_workers_carry_the_common_sections
