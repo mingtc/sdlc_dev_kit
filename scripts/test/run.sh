@@ -398,7 +398,10 @@ _declare_gate() {
   rec="  \"$rec_body\""
   grep -qE '^GATES=\($' "$v" \
     || _fixture_die "_declare_gate: no '^GATES=(' line in the sandbox's verify.sh — the anchor moved, so gate '$rec_body' was NOT declared and anything downstream would run against an empty, REFUSING gate runner."
-  REC="$rec_body" perl -i -pe '$_ .= "  \"$ENV{REC}\"\n" if /^GATES=\($/' "$v"
+  # BEGIN{shift}, not $ENV{} — one convention across every parameterised mutator in this
+  # file. It also keeps the record out of the process environment, where a child could
+  # read it and where a value containing a newline would arrive differently.
+  perl -i -pe 'BEGIN{$r=shift} $_ .= "  \"$r\"\n" if /^GATES=\($/' "$rec_body" "$v"
   grep -qxF "$rec" "$v" \
     || _fixture_die "_declare_gate: '$rec_body' is not in verify.sh after the insert."
 }
@@ -3535,9 +3538,33 @@ _guard_declare() {  # <verify.sh> <entry>
   local v="$1" e="$2"
   grep -qE '^GUARD_SET=\($' "$v" \
     || _fixture_die "_guard_declare: no '^GUARD_SET=(' line in the sandbox's verify.sh — the anchor moved, so '$e' was NOT declared and the case would run against an empty floor."
-  E="$e" perl -i -pe '$_ .= "  $ENV{E}\n" if /^GUARD_SET=\($/' "$v"
+  perl -i -pe 'BEGIN{$r=shift} $_ .= "  $r\n" if /^GUARD_SET=\($/' "$e" "$v"
   grep -qxF "  $e" "$v" \
     || _fixture_die "_guard_declare: '$e' is not in GUARD_SET after the insert."
+}
+
+# _plant_in_function <file> <function-name> <line> <case-name>
+#
+# THE OTHER ANCHOR FAMILY. The array-fence helpers above plant after `NAME=(`; these
+# plant after `name() {`, into a sourced library. Two cases needed it and both re-typed
+# the whole four-step idiom — and one of the two omitted the `bash -n`, which is the step
+# that distinguishes "the plant changed the behaviour" from "the library no longer loads".
+# A case measuring a load failure while reporting on a shared probe is a green about
+# nothing, so the post-check is part of the spine rather than the caller's to remember.
+#
+# The case name is an ARGUMENT because a fixture failure must name its own subject: a
+# spine that dies with a generic message costs the reader the one thing the message is for.
+_plant_in_function() {
+  local f="$1" fn="$2" line="$3" who="$4"
+  grep -qxF "$fn() {" "$f" \
+    || _fixture_die "$who: no '$fn() {' line in ${f##*/} — the anchor moved, so NOTHING was planted and every assertion downstream would be about the unplanted library."
+  # Exact-line comparison, not a regex: a function name is matched as a STRING here, so
+  # no quoting question arises and no metacharacter can silently match nothing.
+  perl -i -pe 'BEGIN{$a=shift; $r=shift} $_ .= "$r\n" if $_ eq "$a() {\n"' "$fn" "$line" "$f"
+  grep -qxF "$line" "$f" \
+    || _fixture_die "$who: the plant into $fn did not take."
+  bash -n "$f" \
+    || _fixture_die "$who: the mutated ${f##*/} no longer parses — every consumer would fail to LOAD it, and this case would measure a load error instead of the behaviour under test."
 }
 
 # Declare the enumerator command. _neu_scalar asserts the line reads what we wrote.
@@ -3737,8 +3764,9 @@ case_verify_frame() {
   # indistinguishable from the defect the case exists to detect.
   : > "$SB_WORK/guard-one.txt"
   printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/red-gate"; chmod +x "$SB_WORK/red-gate"
-  perl -i -pe '$_ .= "  \"green|select|/bin/echo ran-green\"\n  \"redbuild|full|./red-gate\"\n" if /^GATES=\($/' "$v"
-  perl -i -pe '$_ .= "  guard-one.txt\n" if /^GUARD_SET=\($/' "$v"
+  _declare_gate 'green|select|/bin/echo ran-green'
+  _declare_gate 'redbuild|full|./red-gate'
+  _guard_declare "$v" guard-one.txt
 
   # (c) unlaundered exit codes.
   out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
@@ -6051,11 +6079,8 @@ case_lived_probe_has_one_authoring_site() {
   # THE PLANT — one probe, in the LIBRARY only, emitting a record shape both consumers
   # already render. Every step self-asserts: a perl -i whose anchor misses exits 0 and
   # leaves the file byte-identical, which would make this case green about nothing.
-  grep -qxF 'kit_lived_signals() {' "$lib" \
-    || _fixture_die "case_lived_probe_has_one_authoring_site: no 'kit_lived_signals() {' line in the sandbox's lived-probe.sh — the anchor moved, so the fifth signal was NOT planted and both assertions below would be about the shipped four."
-  TOK="$tok" perl -i -pe '$_ .= "  printf \x27folder|$ENV{TOK}|1\\n\x27\n" if /^kit_lived_signals\(\) \{$/' "$lib"
-  grep -qF "$tok" "$lib" \
-    || _fixture_die "case_lived_probe_has_one_authoring_site: the fifth-signal insert did not take."
+  _plant_in_function "$lib" kit_lived_signals "  printf 'folder|$tok|1\n'" \
+    "case_lived_probe_has_one_authoring_site"
   bash -n "$lib" \
     || _fixture_die "case_lived_probe_has_one_authoring_site: the mutated lived-probe.sh no longer parses — both consumers would fail to LOAD it, and this case would be measuring a load failure while reporting on a shared probe."
   # PUBLISH AFTER THE MUTATION, and this is not tidiness: kit-init refuses on uncommitted
@@ -6908,11 +6933,8 @@ $consumers
 PRE_EOF
 
   # THE PLANT — one extra emitted line, in the LIBRARY only.
-  grep -qxF 'kit_usage() {' "$lib" \
-    || _fixture_die "case_usage_renderer_has_one_authoring_site: no 'kit_usage() {' line in the sandbox's lib/usage.sh — the anchor moved and the plant did NOT happen."
-  TOK="$tok" perl -i -pe '$_ .= "  echo \x27$ENV{TOK}\x27\n" if /^kit_usage\(\) \{$/' "$lib"
-  grep -qF "$tok" "$lib" || _fixture_die "case_usage_renderer_has_one_authoring_site: the plant did not take."
-  bash -n "$lib" || _fixture_die "case_usage_renderer_has_one_authoring_site: the mutated library no longer parses — every consumer would fail to LOAD it and this case would measure a load error."
+  _plant_in_function "$lib" kit_usage "  echo '$tok'" \
+    "case_usage_renderer_has_one_authoring_site"
 
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -8588,6 +8610,90 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # graduation case stayed green. The fixture derives from the DOCUMENTS; this case is what
 # reaches the probe.
 # =============================================================================
+# =============================================================================
+# CASE — EVERY ANCHORED FIXTURE APPEND HAS A DECLARED AUTHOR.
+#
+# Two anchor families live in this file: the array fence `NAME=(` and the function-body
+# fence `name() {`. Each is a four-step idiom — assert the anchor, plant, assert it
+# landed, and for a sourced library `bash -n` — and the four steps are exactly what a
+# copier drops. Measured when this was written: four call sites had re-typed the plant
+# with no anchor assertion at all, and one of the two library plants omitted the parse
+# check, which is the step that tells "the plant changed the behaviour" apart from "the
+# library no longer loads".
+#
+# THE CENSUS IS THE CONTROL. Consolidating the four helpers did not stop the fifth copy
+# from being typed; this case does. A helper nobody is required to call is a convention,
+# and this file's own history is that conventions here get re-typed.
+#
+# THIS CASE SCANS THE FILE IT LIVES IN, so it is inside its own operand set. The two
+# match strings are held in separate variables on separate lines and comment lines are
+# skipped — otherwise the derivation reddens on its own source and on the comment above.
+# =============================================================================
+case_fixture_append_has_one_authoring_site() {
+  cf_reset
+  make_sandbox
+  local self="${BASH_SOURCE[0]}"
+  local m1='perl -i -pe'
+  local m2='$_ .='
+  local probe="$SB_TMP/appendprobe.sh"
+  cp "$self" "$probe"
+
+  # THE DECLARED AUTHORS. Anything else that plants is a bypass.
+  local allowed=" _declare_gate _guard_declare _plant_in_function rel_insert "
+
+  _append_census() {  # <file> — "line|enclosing-function" for every anchored append
+    awk -v a="$m1" -v b="$m2" '
+      # NOT anchored at the closing brace: several definitions here carry a trailing
+      # `# <args>` comment, and an anchored tracker attributes their body to whatever
+      # function was defined above them — which is a WRONG author, not a missing one.
+      /^[a-z_]+\(\) \{/ { fn=$0; sub(/\(\).*$/,"",fn); next }
+      /^[[:space:]]*#/   { next }
+      index($0,a) && index($0,b) { print NR "|" (fn == "" ? "(top level)" : fn) }
+    ' "$1"
+  }
+
+  local rows n
+  rows="$(_append_census "$probe")"
+  n="$(printf '%s\n' "$rows" | grep -c '|' || true)"
+
+  # ── INSTRUMENT CHECK, and it is mandatory here: arm 1 is a NEGATIVE census, so an
+  #    expression that stopped matching satisfies "no bypasses" forever. Assert the
+  #    derivation still finds the authors themselves.
+  [ "$n" -ge 4 ] \
+    || _fixture_die "case_fixture_append_has_one_authoring_site: the census found only $n anchored append(s) in the whole file — the expression stopped matching, and 'zero bypasses' would then be true of nothing."
+
+  # ARM 1 — every append sits inside a declared author.
+  local row ln fn
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    ln="${row%%|*}"; fn="${row#*|}"
+    case "$allowed" in
+      *" $fn "*) ;;
+      *) cf "line $ln plants through an anchored perl append inside '$fn', which is not one of the declared authors ($allowed) — a fifth copy of the four-step idiom, and the steps it drops are the ones that make a failed plant visible" ;;
+    esac
+  done <<EOF
+$rows
+EOF
+
+  # ARM 2 — THE EFFECT, and arm 1 cannot see it: a spine that swallowed the per-caller
+  # message would pass the census and still cost the reader the subject of the failure.
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  # Positive leg first: on an INTACT anchor the helper succeeds. Without this, "it
+  # aborts" is satisfied by a helper that aborts unconditionally.
+  ( _declare_gate 'census-probe|select|/bin/echo ok' ) >/dev/null 2>&1 \
+    || cf "(arm 2) _declare_gate failed on an INTACT anchor — the abort below would prove nothing"
+  # Now break the anchor and require the abort to name the caller's own record.
+  perl -i -pe 's/^GATES=\($/GATEZ=(/' "$v"
+  rc=0; out="$( _declare_gate 'wanted-gate|select|/bin/echo x' 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(arm 2) _declare_gate returned 0 with its anchor destroyed — the plant silently did nothing and the case downstream would run against an empty gate table"
+  printf '%s' "$out" | grep -qF 'wanted-gate' \
+    || cf "(arm 2) the abort does not name the record it failed to declare: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+
+  finish "every anchored fixture append in this file ($n of them) sits inside one of four declared authors — no fifth copy of the four-step plant idiom — and a plant whose anchor has moved aborts naming the record it failed to declare rather than returning 0 on a file it did not change"
+  teardown
+}
+
 case_scaffolding_fixture_matches_the_tree() {
   cf_reset
   make_sandbox
@@ -9045,6 +9151,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_fixture_append_has_one_authoring_site
   case_scaffolding_fixture_matches_the_tree
   case_kit_init_copy_list_minimum_is_real
   case_seam_shape_reformat_is_loud
