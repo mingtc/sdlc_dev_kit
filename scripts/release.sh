@@ -572,6 +572,38 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
     echo "release.sh: $doc has no '## [$NUM]' section — refusing to tag an undocumented version. Write it: ${what}. Then re-run." >&2
     exit 1
   fi
+  # AND THE SECTION HAS CONTENT. The heading alone used to satisfy this gate, so a
+  # `## [X.Y.Z]` over a placeholder, a TODO, or nothing at all cut a release whose notes
+  # said nothing — and the preflight then reported the section PRESENT, which a reader
+  # takes as the notes being in order. This is the MECHANICAL half of the question;
+  # whether the notes are TRUE is not gateable and is a human pass before the cut.
+  #
+  # A PLACEHOLDER IS NOT CONTENT, and the shipped placeholder shape is <angle brackets>
+  # (EXTRACTION.md's blanks convention), so it is recognised by shape rather than by a
+  # list of words somebody has to keep current.
+  doc_body="$(awk -v num_re="^## \\\\[$NUM_RE\\\\]" '
+    # FOUR BACKSLASHES, matching gate (f) above, and the difference is invisible on
+    # inspection: with two, the shell hands awk `^## [1.1.0]`, where the brackets are a
+    # CHARACTER CLASS rather than literal — so the heading never matches, the section is
+    # read as empty, and this gate refuses every release. Measured, on the first run.
+    BEGIN { inside = 0; n = 0 }
+    /^## \[/ { if (inside) exit; if ($0 ~ num_re) { inside = 1; next } }
+    inside {
+      line = $0
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line == "") next
+      if (line ~ /^<.*>$/) next              # an angle-bracket placeholder
+      if (line ~ /^[-*+][[:space:]]*$/) next # an empty bullet
+      if (line ~ /^[-*+][[:space:]]*<.*>$/) next
+      if (toupper(line) ~ /^(TODO|TBD|N\/A|NONE|WIP)[[:punct:]]*$/) next
+      n++
+    }
+    END { print n+0 }
+  ' "$REPO_ROOT/$doc" 2>/dev/null)"
+  if [ "${doc_body:-0}" -eq 0 ]; then
+    echo "release.sh: ${doc}'s '## [$NUM]' section is EMPTY — a heading with no content under it, or only placeholders. The heading being there is not the notes being there. Write it: ${what}. Then re-run." >&2
+    exit 1
+  fi
 done
 
 # ── Preflight 7 (gate f): the section HEADER DATE is not older than its own body.
@@ -606,7 +638,17 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
   ' "$REPO_ROOT/$doc" 2>/dev/null)"
   header_date="${verdict%%$'\t'*}"
   newest_date="${verdict##*$'\t'}"
-  if [ -n "$header_date" ] && [ -n "$newest_date" ] && [ "$header_date" \< "$newest_date" ]; then
+  # A MISSING HEADER DATE IS A REFUSAL, NOT A SKIP — and this is the state the kit's own
+  # documented workflow actually produces, because NOTHING IN THE KIT EVER STAMPS THAT
+  # DATE. The cutter writes it by hand or does not. The `-n` guard below used to let the
+  # dateless case through: a header with no date is not "earlier than" anything, so the
+  # comparison was skipped and the section cleared. **A gate that only refuses the state
+  # nobody reaches, and passes the state everybody reaches, is not a gate.**
+  if [ -z "$header_date" ]; then
+    echo "release.sh: ${doc}'s '## [$NUM]' heading carries NO DATE, so this gate cannot order it against its own content — and nothing in the kit writes that date for you. Add it to the heading as '## [$NUM] — YYYY-MM-DD' (the day you cut), then re-run." >&2
+    exit 1
+  fi
+  if [ -n "$newest_date" ] && [ "$header_date" \< "$newest_date" ]; then
     echo "release.sh: ${doc}'s '## [$NUM]' header date is $header_date, but the section itself carries $newest_date — a release dated before the changes it contains. The section DATE is the CUTTER'S: set the header to the day you cut (at least $newest_date), then re-run." >&2
     exit 1
   fi

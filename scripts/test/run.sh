@@ -6849,6 +6849,79 @@ case_cli_shape_across_the_shipped_set() {
   teardown
 }
 
+# =============================================================================
+# CASE — GATES (e) AND (f) SEE THE STATE THE DOCUMENTED WORKFLOW ACTUALLY PRODUCES.
+#
+# Gate (e) asserted a HEADING EXISTS and said nothing about the section under it, so a
+# `## [X.Y.Z]` over a placeholder cut a release whose notes said nothing — and the
+# preflight then reported the section PRESENT, which a reader takes as the notes being
+# in order.
+#
+# Gate (f) is worse in a more interesting way. It refuses a header date EARLIER than a
+# date in its own body — but NOTHING IN THE KIT EVER WRITES THAT DATE. The cutter types
+# it or does not, and a header with no date is not "earlier than" anything, so the
+# comparison was skipped and the section cleared. **A gate that refuses the state nobody
+# reaches and passes the state everybody reaches is not a gate**, and its own fixture
+# could not construct the failing input.
+#
+# BOTH LEGS ASSERT THE CUT IS UNMUTATED, because a refusal that already wrote something
+# is the defect these gates exist to prevent.
+# =============================================================================
+case_release_notes_section_is_more_than_a_heading() {
+  cf_reset
+  if ! has_release; then skp "release.sh gates (e)/(f): the section, not just its heading" "scripts/release.sh absent"; return; fi
+  local out rc
+
+  # --- (i) A HEADING OVER A PLACEHOLDER — gate (e). --------------------------
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  # The kit's own blanks convention is <angle brackets>, so the placeholder is
+  # recognised BY SHAPE rather than by a word list somebody has to keep current.
+  printf '# Release notes\n\n## [1.1.0] — 2026-07-24\n\n<what changed, for the consumer>\n\n## [1.0.0] — 2026-07-23\nseed\n' > "$SB_WORK/NOTES.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] a heading with nothing under it" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$(run_release 1.1.0)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a release cut with a notes section holding only a placeholder"
+  printf '%s\n' "$out" | grep -q 'EMPTY' \
+    || cf "(e) the refusal does not say the section is empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -q 'NOTES.md' \
+    || cf "(e) the refusal does not name WHICH document is empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  assert_release_unmutated
+
+  # INSTRUMENT / ABLATION: the same cut with real content must SUCCEED, or the refusal
+  # above is satisfiable by a release.sh broken for any unrelated reason.
+  printf '# Release notes\n\n## [1.1.0] — 2026-07-24\nsomething a consumer can read\n\n## [1.0.0] — 2026-07-23\nseed\n' > "$SB_WORK/NOTES.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] write the notes" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$(run_release 1.1.0)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) ABLATION FAILED — the cut still refused once the section had real content, so the refusal above was not about emptiness: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  teardown
+
+  # --- (ii) A HEADING WITH NO DATE — gate (f), the state the workflow produces.
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  printf '# Release notes\n\n## [1.1.0]\nreal content, measured 2026-07-24\n\n## [1.0.0] — 2026-07-23\nseed\n' > "$SB_WORK/NOTES.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] a dateless heading" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$(run_release 1.1.0)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) a release cut from a section whose heading carries NO DATE — the state the documented workflow produces, since nothing in the kit writes that date"
+  printf '%s\n' "$out" | grep -q 'NO DATE' \
+    || cf "(f) the refusal does not say the date is missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -q 'nothing in the kit writes that date for you' \
+    || cf "(f) the refusal does not tell the cutter that no tool will write it — without that they look for the tool that failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  assert_release_unmutated
+
+  # INSTRUMENT: add the date and the SAME cut must succeed.
+  printf '# Release notes\n\n## [1.1.0] — 2026-07-25\nreal content, measured 2026-07-24\n\n## [1.0.0] — 2026-07-23\nseed\n' > "$SB_WORK/NOTES.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] date it" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$(run_release 1.1.0)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) ABLATION FAILED — the cut still refused once the heading carried a date: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  teardown
+
+  finish "release.sh gates (e)/(f): a heading over a placeholder is refused naming the document, a heading with NO DATE is refused and says no tool will write it, and both cuts succeed once the section is real (ablation-proven both ways)"
+}
+
 case_release_behind_the_remote() {
   cf_reset
   if ! has_release; then skp "release.sh gate (a): HEAD vs the remote tip" "scripts/release.sh absent"; return; fi
@@ -7965,6 +8038,7 @@ CASES=(
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
   case_cli_shape_across_the_shipped_set
+  case_release_notes_section_is_more_than_a_heading
   case_release_behind_the_remote
   case_release_honours_the_one_remote_name
   case_release_guards
