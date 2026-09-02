@@ -6607,6 +6607,92 @@ case_release_honours_the_one_remote_name() {
 # `</dev/null` IS LOAD-BEARING on every invocation: an enumeration that reaches a
 # stdin-reading tool without it hangs the whole suite rather than failing it.
 # =============================================================================
+# =============================================================================
+# CASE — EACH HELP WINDOW ENDS WHERE ITS OWN RULE SAYS, AND THERE ARE TWO RULES.
+#
+# Most shipped tools render `--help` from their own header comment block, ending at the
+# LAST COMMENT LINE. `release.sh` ends at its LAST USAGE EXAMPLE instead, deliberately —
+# its header carries operator notes below the examples that are not help text. Measured:
+# putting release.sh on the header-block rule takes its --help from 11 lines to 63.
+#
+# WHY A CONTROL AT ALL. Nothing asserted --help CONTENT for any tool — the existing
+# coverage checks rc=0 and non-emptiness. A hard-coded window is a census in disguise,
+# and this repository has paid for that class twice: a control that came back green
+# because the paragraph it was checking had landed OUTSIDE the window it checked.
+#
+# THE CORPUS IS DERIVED, and by BEHAVIOUR rather than by a list of filenames, so it
+# survives the renderer being lifted into a library: a script is a header renderer iff
+# its --help succeeds and its first output line is its own line 3, de-hashed.
+# =============================================================================
+case_help_window_ends_where_its_rule_says() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+
+  local tokA='HELPWINDOW-TAIL-SENTINEL' tokIn='HELPWINDOW-EXAMPLE-SENTINEL' tokOut='HELPWINDOW-BELOW-SENTINEL'
+  [ -z "$( { find "$SB_WORK/scripts" -type f ! -path '*/test/*' -exec grep -lF "$tokA" {} + 2>/dev/null || true; } )" ] \
+    || _fixture_die "case_help_window_ends_where_its_rule_says: the sentinel already occurs under scripts/ — every assertion would be satisfiable without the plant."
+
+  # ── derive the corpus by BEHAVIOUR.
+  local f base line3 out corpus="" n=0
+  for f in "$SB_WORK"/scripts/*.sh; do
+    [ -e "$f" ] || continue
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )" || continue
+    line3="$(sed -n '3p' "$f" | sed 's|^# \{0,1\}||')"
+    [ -n "$line3" ] || continue
+    [ "$(printf '%s\n' "$out" | sed -n '1p')" = "$line3" ] || continue
+    corpus="${corpus}${f}\n"; n=$((n+1))
+  done
+  [ "$n" -gt 1 ] \
+    || _fixture_die "case_help_window_ends_where_its_rule_says: the derived corpus holds $n script(s) — the probe lost its subject and every arm below would be vacuous."
+
+  # ── (a) THE HEADER-BLOCK RULE: a comment on the LAST line of the header must appear.
+  #    The insert point is computed HERE, never asked of the script — a harness that
+  #    asked the subject where its header ends would agree with it by construction.
+  local first ins seen_release=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    base="$(basename "$f")"
+    if [ "$base" = "release.sh" ]; then seen_release=1; continue; fi
+    first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$f")"
+    [ -n "$first" ] && [ "$first" -gt 3 ] \
+      || _fixture_die "case_help_window_ends_where_its_rule_says: $base has no header block to plant into (first non-comment line: ${first:-none})."
+    ins=$((first-1))
+    TOK="$tokA" LN="$ins" awk -v tok="$tokA" -v ln="$ins" 'NR==ln{print; print "# " tok; next} {print}' "$f" > "$f.new" && mv "$f.new" "$f"
+    chmod +x "$f"
+    grep -qF "$tokA" "$f" || _fixture_die "case_help_window_ends_where_its_rule_says: the tail sentinel did not land in $base."
+    bash -n "$f" || _fixture_die "case_help_window_ends_where_its_rule_says: $base no longer parses after the plant."
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
+    printf '%s\n' "$out" | grep -qF "$tokA" \
+      || cf "(a) $base --help does not print the LAST line of its own header — its window is truncated, which is the hard-coded-range defect this class has already been paid for twice"
+  done <<CORPUS_EOF
+$(printf '%b' "$corpus")
+CORPUS_EOF
+
+  # ── (b) THE SYNOPSIS RULE: release.sh ends at its last usage EXAMPLE, both directions.
+  if [ "$seen_release" -eq 1 ]; then
+    local r="$SB_WORK/scripts/release.sh" lastex
+    lastex="$(grep -n '^#[[:space:]]\{1,\}\./scripts/release\.sh[[:space:]]' "$r" | tail -1 | cut -d: -f1)"
+    [ -n "$lastex" ] \
+      || _fixture_die "case_help_window_ends_where_its_rule_says: no usage-example line in release.sh's header — its window rule has no anchor and arm (b) measures nothing."
+    awk -v ln="$lastex" -v tok="$tokIn" 'NR==ln{print; print "#   ./scripts/release.sh 9.9.9   " tok; next} {print}' "$r" > "$r.new" && mv "$r.new" "$r"
+    first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$r")"
+    awk -v ln=$((first-1)) -v tok="$tokOut" 'NR==ln{print; print "# " tok; next} {print}' "$r" > "$r.new" && mv "$r.new" "$r"
+    chmod +x "$r"
+    grep -qF "$tokIn" "$r" && grep -qF "$tokOut" "$r" \
+      || _fixture_die "case_help_window_ends_where_its_rule_says: one of release.sh's two sentinels did not land."
+    bash -n "$r" || _fixture_die "case_help_window_ends_where_its_rule_says: release.sh no longer parses after the plant."
+    out="$( cd "$SB_WORK" && "$r" --help </dev/null 2>&1 )"
+    printf '%s\n' "$out" | grep -qF "$tokIn" \
+      || cf "(b) release.sh --help dropped a usage example added at the END of its examples — its window is not tracking the last example: $out"
+    printf '%s\n' "$out" | grep -qF "$tokOut" \
+      && cf "(b) release.sh --help printed a header line BELOW its last usage example — it has been put on the header-block rule, which floods its help with operator notes that are not help text"
+  fi
+
+  finish "each --help window ends where its own rule says: the header-block renderers print to the LAST line of their header (a tail sentinel proves it), and release.sh prints to its LAST USAGE EXAMPLE and no further — both directions asserted, corpus derived by behaviour over $n tool(s)"
+  teardown
+}
+
 case_cli_shape_across_the_shipped_set() {
   cf_reset
   make_sandbox
@@ -7797,6 +7883,7 @@ CASES=(
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy
+  case_help_window_ends_where_its_rule_says
   case_cli_shape_across_the_shipped_set
   case_release_behind_the_remote
   case_release_honours_the_one_remote_name

@@ -204,8 +204,15 @@ for arg in "$@"; do
     --quick) QUICK=1; in_scope=0 ;;
     --list)  LIST=1;  in_scope=0 ;;
     -h|--help)
+      # THE FLOOR, matching the six other header renderers. It changes nothing today —
+      # measured, --help output is byte-identical before and after — and it is added so
+      # that this body has no remaining difference from theirs, which is what lets the
+      # shared renderer be a LIFT of one text rather than a reconciliation of two.
+      # What it guards: an all-comment file leaves `first` empty, yielding
+      # `sed -n "3,-1p"`, which errors.
       first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$VERIFY_SRC")"
-      sed -n "3,$(( ${first:-0} - 1 ))p" "$VERIFY_SRC" | sed 's|^# \{0,1\}||'
+      end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
+      sed -n "3,${end}p" "$VERIFY_SRC" | sed 's|^# \{0,1\}||'
       exit 0 ;;
     -*) echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2 ;;
     *)
