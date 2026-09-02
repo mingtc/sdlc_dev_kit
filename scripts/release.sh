@@ -10,6 +10,7 @@
 #   ./scripts/release.sh 1.1.0 --dry-run   # run every preflight gate, then STOP (mutate nothing)
 #   ./scripts/release.sh 1.1.0 --publish-only            # re-publish the dist branch for an ALREADY-CUT tag
 #   ./scripts/release.sh 1.1.0 --publish-only --dry-run  # report that republish, push NOTHING
+#   ./scripts/release.sh 1.1.0 --no-fetch  # DECLARE an offline cut: the remote is NOT consulted
 #
 # WHAT IT DOES, in order (it ABORTS NONZERO on the first failure, BEFORE mutating
 # anything — a red preflight leaves the repo byte-for-byte untouched):
@@ -17,7 +18,7 @@
 #   PREFLIGHT (read-only)
 #     0. the target parses as X.Y.Z semver                     (else refuse)
 #     1. the tag vX.Y.Z does not already exist                 (idempotency guard)
-#     2. on the trunk with a CLEAN work tree                   (gate a)
+#     2. on the trunk, CLEAN, and AT $REMOTE/<trunk>'s TIP     (gate a)
 #     3. ./scripts/verify.sh is green                          (gate b)
 #     4. every gate declared in PREFLIGHT_GATES passes         (gate c; project-declared)
 #     5. ./scripts/check-board.sh reports a clean board        (gate d)
@@ -189,11 +190,12 @@ usage() {
 }
 
 # ── Arg parse ────────────────────────────────────────────────────────────────
-RAW_VERSION=""; DRY_RUN=false; PUBLISH_ONLY=false
+RAW_VERSION=""; DRY_RUN=false; PUBLISH_ONLY=false; NO_FETCH=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=true; shift ;;
     --publish-only) PUBLISH_ONLY=true; shift ;;
+    --no-fetch) NO_FETCH=true; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "release.sh: unknown option '$1'" >&2; usage >&2; exit 2 ;;
     *) if [ -z "$RAW_VERSION" ]; then RAW_VERSION="$1"; shift
@@ -407,6 +409,90 @@ if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
 fi
 
 echo "── release.sh preflight for $TAG (trunk: $DEFAULT_BRANCH, remote: $REMOTE)"
+
+# ── Preflight 2 (gate a), third check: HEAD IS THE PUBLISHED TRUNK'S TIP. ────
+# The two checks above read only this machine. A checkout that is on the trunk and
+# clean can still be BEHIND the remote, and the cut then names a tree missing what
+# already landed. The damage does not arrive through the branch push — that is
+# rejected as a non-fast-forward and this script exits before tagging. It arrives
+# through THIS SCRIPT'S OWN printed recovery: an operator who makes the branch push
+# work the obvious way (`git pull --rebase`) then runs the second half of that line
+# and publishes an annotated tag on the PRE-REBASE commit, which is now on no branch.
+# `contracts/release-ritual.md` § 2 has always said the point being named is the
+# PUBLISHED trunk; this is the check that makes that sentence true.
+#
+# THE OPERAND IS FETCH_HEAD, NOT refs/remotes/$REMOTE/$DEFAULT_BRANCH. `git fetch
+# <remote> <branch>` updates the tracking ref only OPPORTUNISTICALLY — when $REMOTE is
+# a configured remote NAME with a standard refspec. RELEASE_REMOTE may be a URL (this
+# script already contemplates that where it resolves the dist remote), and a fetch BY
+# URL was measured returning 0 while leaving the tracking ref untouched — so a
+# tracking-ref comparison passes a behind checkout, which is this defect wearing the
+# fix's clothes. Every fetch writes FETCH_HEAD, including a no-op one. `@{upstream}`
+# is wrong for a second reason: it may name a remote other than the one pushed to.
+#
+# THE EXIT STATUS DECIDES; the captured text is shown to the human and never parsed.
+# A fetch whose failure is inferred from its output turns a loud transient into a
+# silently stale ref, which is the same class of defect again.
+if [ "$NO_FETCH" = "true" ]; then
+  {
+    echo "[a] --no-fetch: THE REMOTE WAS NOT CONSULTED. $TAG may name a tree missing whatever has"
+    echo "    landed on $REMOTE/$DEFAULT_BRANCH since this checkout last fetched. This is a DECLARED"
+    echo "    offline cut, and it is in this transcript so it is not deniable afterwards."
+  } >&2
+else
+  echo "[a] HEAD is $REMOTE/$DEFAULT_BRANCH's tip (fetching)..."
+  # No timeout: POSIX has none, and inventing one would be a second policy nobody asked
+  # for. A hung remote hangs HERE, which is safe — release-ritual.md § 2 guarantees a red
+  # preflight leaves the repository byte-for-byte untouched, so Ctrl-C costs nothing.
+  if ! FETCH_ERR="$(git fetch "$REMOTE" "$DEFAULT_BRANCH" 2>&1 >/dev/null)"; then
+    {
+      echo "release.sh: could not fetch '$DEFAULT_BRANCH' from '$REMOTE' — refusing to cut $TAG."
+      echo "            THIS IS A FACT ABOUT THIS MACHINE'S ACCESS TO THE REMOTE, NOT ABOUT YOUR TREE."
+      echo "            It refuses rather than warns because a tag is the one act this ritual never"
+      echo "            rolls back, and an arm that degrades quietly is worth nothing when it matters."
+      echo "            git said:"
+      printf '%s\n' "$FETCH_ERR" | sed 's/^/              /'
+      echo "            Either fix the remote, or DECLARE the offline cut:"
+      echo "              ./scripts/release.sh $NUM --no-fetch"
+      echo "            NOTHING WAS WRITTEN."
+    } >&2
+    exit 1
+  fi
+  REMOTE_TIP="$(git rev-parse --verify --quiet FETCH_HEAD || true)"
+  LOCAL_TIP="$(git rev-parse HEAD)"
+  if [ -z "$REMOTE_TIP" ]; then
+    {
+      echo "release.sh: the fetch of '$DEFAULT_BRANCH' from '$REMOTE' succeeded but named no commit —"
+      echo "            refusing to cut $TAG. Nothing was compared, so nothing is known."
+      echo "            NOTHING WAS WRITTEN."
+    } >&2
+    exit 1
+  fi
+  if [ "$LOCAL_TIP" != "$REMOTE_TIP" ]; then
+    {
+      echo "release.sh: HEAD is not $REMOTE/$DEFAULT_BRANCH's tip — refusing to cut $TAG."
+      echo "              HEAD                     $LOCAL_TIP"
+      echo "              $REMOTE/$DEFAULT_BRANCH  $REMOTE_TIP"
+      # THE REMEDY BRANCHES, and it must: `git pull --ff-only` is a NO-OP when you are
+      # ahead, so printing it unconditionally manufactures a refusal the operator cannot
+      # clear by following its own instruction.
+      if git merge-base --is-ancestor "$LOCAL_TIP" "$REMOTE_TIP" 2>/dev/null; then
+        echo "            BEHIND: the tag would name a tree missing what has already landed. Catch up:"
+        echo "              git pull --ff-only"
+      elif git merge-base --is-ancestor "$REMOTE_TIP" "$LOCAL_TIP" 2>/dev/null; then
+        echo "            AHEAD: the tag would name commits nobody else has — the same state"
+        echo "            check-board.sh's [f1] arm reports. Publish them first:"
+        echo "              git push $REMOTE HEAD:$DEFAULT_BRANCH"
+        echo "            'git pull --ff-only' will NOT clear this; it is a no-op here."
+      else
+        echo "            DIVERGED: neither tip contains the other. Reconcile by hand — this script"
+        echo "            will not choose a history for you — then re-run."
+      fi
+      echo "            NOTHING WAS WRITTEN."
+    } >&2
+    exit 1
+  fi
+fi
 
 # ── Preflight 3 (gate b): verify.sh green. ───────────────────────────────────
 # NOTE the invocation form: ${VAR:-"quoted default"}, NOT a bare `$CMD` variable.

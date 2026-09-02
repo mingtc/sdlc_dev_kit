@@ -46,6 +46,21 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`release.sh` now refuses to cut a tag from a checkout that is not the published trunk's tip.**
+  Gate (a) read only your own machine: on the trunk, tree clean. A checkout that passes both can
+  still be **behind**, and the tag then names a tree missing what already landed. The branch push
+  would have rejected it — but the script's own printed recovery then walks you into publishing an
+  annotated tag on a pre-rebase commit that is on no branch. Gate (a) now fetches and compares.
+  **Action required, both directions.** *Behind:* `git pull --ff-only`, then cut. *Ahead:* push
+  first — this was already refused by gate (d) via the board report's unpublished-trunk arm, and is
+  now caught earlier with a clearer message, so **the pre-cut ritual now includes pushing your
+  release-notes commit before you cut.** If the fetch itself fails, the cut **refuses** rather than
+  warning, because a tag is the one act the ritual never rolls back; the message says plainly that
+  this is about reaching the remote and not about your tree. For a genuinely offline cut, declare
+  it: `./scripts/release.sh X.Y.Z --no-fetch`, which is recorded loudly in the run's output. A
+  local bare repository as `origin` — the kit's own day-one topology — fetches fine and needs no
+  flag.
+
 - **`check-board.sh`'s `[Role]`-prefix arm no longer reports commits that predate your adoption
   of the kit.** A rule cannot be violated before it exists, and this one reported every
   pre-adoption commit as drift — findings you could not fix without rewriting published history.

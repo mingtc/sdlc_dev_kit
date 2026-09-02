@@ -821,7 +821,14 @@ else
     drift=1
   else
     echo "      [f1] main checkout: '$def' is 0 ahead / $f_behind behind $remote/$def  ✓ — read from: $f_main_ref in $kwt_main (checked out here: $f_head)"
-    [ "${f_behind:-0}" -gt 0 ] && echo "           ($f_behind behind is a STALE VIEW, not lost work — pull when convenient.)"
+    # AND THIS ARM AND release.sh GATE (a) DISAGREE ABOUT "BEHIND" ON PURPOSE. That gate
+    # refuses a cut from a behind checkout; this one waves it through. The difference is
+    # not policy, it is what each one KNOWS: this arm reads refs/remotes/… WITHOUT
+    # fetching, so its idea of the remote may be arbitrarily stale and it cannot honestly
+    # gate on it — while gate (a) fetches first and is therefore entitled to. A report
+    # that does not fetch may only report. Do not "reconcile" these by making this one
+    # refuse; make it fetch first, or leave it alone.
+    [ "${f_behind:-0}" -gt 0 ] && echo "           ($f_behind behind is a STALE VIEW, not lost work — pull when convenient. NOTE: release.sh gate (a) DOES refuse a cut from here; it fetches first, this arm does not.)"
   fi
 fi
 

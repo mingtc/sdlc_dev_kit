@@ -28,8 +28,13 @@ rather than deleting the row, so the decision is visible.
   never moved to another point.
   *Why:* consumers pin the name; moving it changes what shipped without changing what they pinned.
 - **Naming happens on a clean trunk.** The point being named is the published trunk with no local
-  modification.
-  *Why:* otherwise the named point contains something that exists only on one machine.
+  modification — **and it misses nothing that has already been published there.**
+  *Why:* otherwise the named point contains something that exists only on one machine. *And, in the
+  other direction, added once the first half was found to be only half-implemented:* a checkout can
+  be on the trunk and perfectly clean and still be BEHIND, and a name cut there omits work that
+  already landed. Both directions are the same invariant — the named point IS the published trunk —
+  so the ritual reads the remote before it names anything, and an operator who cannot reach the
+  remote **declares** that rather than being allowed to assume it.
 - **Between the local acts and the push, the ritual PRINTS what exists only locally and the exact
   commands that finish the job** — as ordinary output, while the run is healthy, never only on a
   failure branch.
@@ -74,7 +79,10 @@ rather than deleting the row, so the decision is visible.
 
 - The proposed name does not parse in the declared shape ⇒ refuse.
 - The name already exists ⇒ refuse (this is also what makes a re-run safe).
-- Not on the trunk, or the workspace is not clean ⇒ refuse.
+- Not on the trunk, the workspace is not clean, or HEAD is not the published trunk's tip ⇒ refuse.
+  The last of the three requires reading the remote; if that read FAILS, refuse too, and say that
+  the refusal is about reaching the remote rather than about the tree. An offline cut is legitimate
+  and is taken by declaring it, never by the ritual quietly skipping the check.
 - Any gate is red ⇒ refuse, naming the gate.
 - Any required release document lacks the version's section ⇒ refuse, naming **that** document
   and what to write in it.

@@ -5770,6 +5770,108 @@ run_release() {  # <version> [extra args…]
       "$SB_WORK/scripts/release.sh" "$@" 2>&1 )
 }
 
+# =============================================================================
+# CASE — GATE (a) SEES A STALE CHECKOUT.
+#
+# Its first two checks read only this machine, so a clean trunk that is BEHIND the
+# remote passed every one of them and the cut named a tree missing whatever landed
+# after it. The damage does not arrive at the branch push — that is rejected — it
+# arrives through the script's OWN printed recovery, which an operator completes by
+# rebasing and then tagging the pre-rebase commit.
+#
+# THE TRACKING REF IS DELIBERATELY REWOUND before the behind leg, and that is the
+# whole point of the case. Measured: `git fetch <URL> <branch>` returns 0 and does
+# NOT update refs/remotes/<remote>/<branch>, so an implementation that compares
+# against the tracking ref reads "in sync" and passes a behind checkout whenever the
+# release remote is given as a URL. Rewinding the ref is what makes the FETCH
+# load-bearing rather than decorative: without it, leg (i) passes for a fix that
+# never fetches at all.
+#
+# THE OFFLINE HALF IS NOT OPTIONAL. The kit REQUIRES only git and a POSIX shell, and
+# the sandbox's own origin is a LOCAL BARE PATH — offline in the network sense and
+# perfectly fetchable. Leg (v) proves the refusal does not fire there; leg (iv)
+# proves the declared escape works when the remote genuinely cannot be reached.
+# Leg (iv) is --dry-run because a full cut against a dead remote fails at the PUSH
+# regardless of this gate, so a nonzero exit there would say nothing about gate (a).
+# =============================================================================
+case_release_behind_the_remote() {
+  cf_reset
+  if ! has_release; then skp "release.sh gate (a): HEAD vs the remote tip" "scripts/release.sh absent"; return; fi
+  local out rc
+
+  # --- (control) the premise exists, AND a non-fetching reader cannot see it ---
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  echo "landed after this checkout" > "$SB_WORK/LATER.txt"
+  git -C "$SB_WORK" add LATER.txt >/dev/null 2>&1
+  sbcommit -qm "[Dev] a commit that lands after the cutter's last pull" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" reset -q --hard HEAD~1
+  git -C "$SB_WORK" update-ref "refs/remotes/origin/$SB_TRUNK" "$(git -C "$SB_WORK" rev-parse HEAD)"
+
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] \
+    || cf "(control) the tree is dirty — gate (a)'s SECOND check would refuse and this case would prove nothing"
+  [ "$(git -C "$SB_WORK" symbolic-ref --short HEAD)" = "$SB_TRUNK" ] \
+    || cf "(control) not on the trunk — gate (a)'s FIRST check would refuse first"
+  [ "$(git -C "$SB_WORK" rev-list --count "HEAD..refs/remotes/origin/$SB_TRUNK" 2>/dev/null)" = "0" ] \
+    || cf "(control) the tracking ref was NOT rewound — a non-fetching implementation would already see the gap, so this case cannot tell a real fetch from a stale read"
+  [ "$(git -C "$SB_WORK" ls-remote origin "refs/heads/$SB_TRUNK" | awk '{print $1}')" \
+      != "$(git -C "$SB_WORK" rev-parse HEAD)" ] \
+    || cf "(control) the remote is NOT actually ahead — the premise does not exist"
+
+  # --- (i) it refuses, names the DIRECTION and the way past, mutates nothing ---
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) a cut from a BEHIND checkout was allowed (rc=0)"
+  printf '%s\n' "$out" | grep -q 'BEHIND' \
+    || cf "(i) the refusal does not name the direction: $out"
+  printf '%s\n' "$out" | grep -q -- 'git pull --ff-only' \
+    || cf "(i) the refusal does not name the way past: $out"
+  assert_release_unmutated
+
+  # --- (ii) ABLATION: catch up and the SAME cut succeeds, naming the FULL tree -
+  git -C "$SB_WORK" fetch -q origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" merge -q --ff-only FETCH_HEAD >/dev/null 2>&1
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(ii) ABLATION FAILED — still refused after catching up, so half (i) proves nothing: $out"
+  git -C "$SB_WORK" cat-file -e "v1.1.0:LATER.txt" 2>/dev/null \
+    || cf "(ii) the tag does not contain the commit that landed after the checkout — the gate refused for the wrong reason"
+  teardown
+
+  # --- (iii) A FAILED FETCH REFUSES, as a fact about the remote ----------------
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  git -C "$SB_WORK" remote set-url origin "$SB_TMP/gone.git" >/dev/null 2>&1
+  git -C "$SB_WORK" fetch origin "$SB_TRUNK" >/dev/null 2>&1 \
+    && cf "(control/iii) the broken remote is still fetchable — the failed-fetch leg measures nothing"
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(iii) a failed fetch did not refuse — the arm degrades silently, which is the class it exists to close"
+  printf '%s\n' "$out" | grep -q -- '--no-fetch' \
+    || cf "(iii) the refusal does not name the declared-offline escape: $out"
+  printf '%s\n' "$out" | grep -q 'NOT ABOUT YOUR TREE' \
+    || cf "(iii) the refusal does not attribute itself to the remote rather than the tree: $out"
+  assert_release_unmutated
+
+  # --- (iv) --no-fetch DECLARES the skip: gates green, and it SAYS SO ----------
+  out="$(run_release 1.1.0 --no-fetch --dry-run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(iv) --no-fetch did not survive an unreachable remote (rc=$rc): $out"
+  printf '%s\n' "$out" | grep -q 'NOT CONSULTED' \
+    || cf "(iv) --no-fetch is SILENT — an undeclared skip is indistinguishable from a gate that ran: $out"
+  assert_release_unmutated
+  teardown
+
+  # --- (v) THE LEGITIMATE OFFLINE CUT: a LOCAL BARE origin, NO flag ------------
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  case "$(git -C "$SB_WORK" remote get-url origin)" in
+    http*|git@*|ssh:*|git:*) cf "(control/v) the sandbox origin is not a local path — this leg does not prove the offline case" ;;
+  esac
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(v) an IN-SYNC cut against a LOCAL BARE origin was refused (rc=$rc) — the arm turned the kit's own day-one topology into a refusal: $out"
+  teardown
+
+  finish "release.sh gate (a): a clean trunk BEHIND the remote refuses naming the direction and the way past — tracking ref rewound, so only a REAL fetch can see it — and cuts once caught up (ablation: the tag contains the later commit); a FAILED fetch refuses naming --no-fetch and blames the remote not the tree; --no-fetch declares the skip loudly; an in-sync cut against a local bare origin is untouched"
+}
+
 case_release_happy() {
   cf_reset
   if ! has_release; then skp "release.sh happy path" "scripts/release.sh absent"; return; fi
@@ -5926,6 +6028,12 @@ case_release_doc_arms() {
   assert_release_unmutated
   seed_release_doc "$SB_WORK/NOTES.md" "Release notes" 1.1.0
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] add the consumer-facing section" >/dev/null 2>&1
+  # PUSHED, and not as tidiness: gate (a) requires HEAD to BE the published trunk's
+  # tip, so the pre-cut section commit has to reach the remote before the cut. That is
+  # not a new rule this fixture is bending to — check-board [f1] already sets drift=1
+  # on an ahead trunk and gate (d) refuses on it, so a STOCK kit has always refused
+  # this cut. The fixture only got away with it by stubbing the board clean.
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(doc2-restored) the cut still aborted after restoring the section: $out"
   grep -qx '1.1.0' "$SB_WORK/VERSION" || cf "(doc2-restored) restoring the section did not unblock the cut"
@@ -5945,6 +6053,7 @@ case_release_doc_arms() {
   # …and correcting the HEADER (never the measurement) unblocks it.
   perl -i -pe 's/^## \[1\.1\.0\] — 2026-07-24$/## [1.1.0] — 2026-09-30/' "$SB_WORK/NOTES.md"
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] date the section at the cut" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1   # gate (a) wants the published tip; see the note above
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(header-date) correcting the header did not unblock the cut: $out"
   teardown
@@ -6050,6 +6159,12 @@ case_release_publish() {
   seed_release_doc "$SB_WORK/CHANGELOG.md" "Changelog" 1.2.0
   seed_release_doc "$SB_WORK/NOTES.md"     "Release notes" 1.2.0
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] document 1.2.0" >/dev/null 2>&1
+  # PUSHED, and not as tidiness: gate (a) requires HEAD to BE the published trunk's
+  # tip, so the pre-cut section commit has to reach the remote before the cut. That is
+  # not a new rule this fixture is bending to — check-board [f1] already sets drift=1
+  # on an ahead trunk and gate (d) refuses on it, so a STOCK kit has always refused
+  # this cut. The fixture only got away with it by stubbing the board clean.
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(run_release_publish 1.2.0)"; rc=$?
   [ "$rc" -eq 0 ] || cf "the second cut exited $rc: $out"
   [ "$(dist_commit_count)" = "1" ] || cf "after a second publish dist has $(dist_commit_count) commits — replace means ONE"
@@ -6785,6 +6900,7 @@ CASES=(
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy
+  case_release_behind_the_remote
   case_release_guards
   case_release_preflight_gates
   case_release_stub_marker
