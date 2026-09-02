@@ -46,6 +46,20 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`.kanban-wt/` is for board files, and the kit now says so — plus the remedy it printed for a
+  dirty worktree no longer tells you to `git add -A`.** That directory is the only checkout sitting
+  on your trunk while your own is on a work branch, which makes it read as a spare clean tree. It is
+  not one: its HEAD **is** the trunk and its push target **is** the trunk, so anything in it is one
+  ordinary commit from `main` with no branch and no gate between. **Action required — check your
+  trunk once.** In one project a commit made in that directory replaced the project README with a
+  generated distribution page and added four release artifacts, a 44 KB wheel among them; that is
+  how this was found. Look for a commit touching files you would not expect on the trunk. Two routes
+  put them there: the blanket `add -A` the tool used to print (now scoped to `progress/`), and
+  `git checkout <ref> -- .`, which **stages** its payload so a plain `git commit -m` carries it —
+  **no guard can catch the second one**, which is why the rule is now written down instead. The
+  dirty-worktree guard also now lists untracked files it finds there, labelled separately: they are
+  not what it refuses on, and a reset does not remove them, so they accumulate.
+
 - **`check-board.sh` gained arm `[i]`: it checks that `blocks:` and `blocked_by:` agree across your
   board.** A dependency is written on two cards and neither can see the other, so `blocks: [B]` on A
   with no answering `blocked_by: [A]` on B looks correct on each card alone — and the seat that

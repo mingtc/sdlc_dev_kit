@@ -6,6 +6,25 @@
 To let **board changes land on the trunk while the operator's own workspace sits anywhere** — on
 a work branch, mid-edit, dirty — without ever touching that workspace.
 
+**AND, SAID PLAINLY BECAUSE ITS ABSENCE COST A PROJECT ITS TRUNK: it is FOR BOARD FILES, and it is
+not a spare checkout.** It is the only checkout sitting on the trunk while the main one is on a work
+branch, which makes it look like a convenient clean tree — and everything written about it described
+how the *scripts* use it, never what an operator may not do in it. **An operator may not use it as a
+workspace.** Do not build in it, do not materialise files in it, do not `git checkout <ref> -- .`
+into it, and do not run a blanket `git add -A` there. Its HEAD **is** the trunk and its push target
+**is** the trunk, so anything present in that directory is one ordinary commit away from `main`, with
+no branch and no landing gate in between.
+
+*Measured, not hypothetical:* in one adopting project a trunk commit replaced the project `README.md`
+with a generated distribution page and added four release artifacts, a 44 KB wheel among them. The
+commit was made inside the auxiliary checkout — established from its own worktree reflog against the
+main checkout's — and every blob was byte-identical to a distribution branch. **The two routes in are
+worth knowing separately:** a blanket `add -A`, which the tool's own printed remedy used to suggest;
+and `git checkout <ref> -- .`, which writes the **index** as well as the working tree, so the payload
+is staged before any `add` is issued and a plain `git commit -m` carries it. *The second route is not
+guarded and cannot be — the guard is never consulted, because the operator commits by hand. Which is
+why this paragraph exists rather than another check.*
+
 ## 2. HARD INVARIANTS
 
 - **The operator's workspace is NEVER switched, reset, stashed or committed from.** Not

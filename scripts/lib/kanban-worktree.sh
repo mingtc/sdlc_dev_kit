@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — the .kanban-wt/ worktree machinery. See process/EXTRACTION.md.
+#
+# WHAT THIS DIRECTORY IS FOR, AND WHAT IT IS NOT. It is FOR BOARD FILES. It is the only
+# checkout on the trunk while the main one is on a work branch, which makes it read as a
+# spare clean tree — and it is not one. Its HEAD IS the trunk and its push target IS the
+# trunk, so anything present here is one ordinary commit away from the trunk with no branch
+# and no landing gate in between. Do not build here, do not materialise files here, do not
+# `git checkout <ref> -- .` into here, and do not run a blanket `git add -A` here.
+#
+# This is stated because its ABSENCE cost a project its trunk: a commit made in this
+# directory replaced a project README with a generated distribution page and added four
+# release artifacts to the trunk. Note the route the guards below CANNOT close —
+# `git checkout <ref> -- .` stages its payload, so a plain `git commit -m` carries it and no
+# guard is ever consulted. See process/contracts/kanban-worktree.md § 1.
 # kanban-worktree.sh — shared machinery for the kanban move scripts.
 #
 # Sourced by move-issue.sh, finish-pr.sh, subtask.sh and archive.sh. All kanban
@@ -444,7 +457,7 @@ kwt__ensure_detached() {
     return 0  # already detached
   fi
 
-  local dirty
+  local dirty untracked
   dirty="$(git -C "$KWT" status --porcelain --untracked-files=no 2>/dev/null || true)"
   if [ -n "$dirty" ] && [ "$KWT_DISCARD_DIRTY" != "true" ]; then
     {
@@ -454,9 +467,28 @@ kwt__ensure_detached() {
       echo ""
       echo "  Uncommitted changes:"
       echo "$dirty" | sed 's/^/    /'
+      # PART 2 OF THE MISMATCH, REPORTED AND NOT REFUSED ON. The refusal above stays
+      # scoped to TRACKED changes because its recorded reason is correct and measured:
+      # `-uno` scopes a DESTRUCTION guard to exactly what `reset --hard` destroys, and
+      # reset --hard leaves untracked files in place. But `reset --hard` not removing
+      # them is precisely why they ACCUMULATE across every board move — and the remedy
+      # printed below would commit them. So they are listed as CONTEXT, labelled, and
+      # they do not change what refuses. Two scopes, two reasons, both stated.
+      untracked="$(git -C "$KWT" ls-files --others --exclude-standard 2>/dev/null || true)"
+      if [ -n "$untracked" ]; then
+        echo ""
+        echo "  ALSO PRESENT, untracked — NOT what the refusal above is about, and NOT destroyed by a"
+        echo "  reset: these survive every board move and accumulate. A blanket 'add -A' would commit"
+        echo "  them to the trunk, which is how a distribution payload once reached a project's main:"
+        echo "$untracked" | sed 's/^/    /'
+      fi
       echo ""
       echo "  Resolve by hand, then re-run:"
-      echo "    • Keep them — commit AND push: git -C '$KWT' add -A && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$branch"
+      echo "    • Keep them — commit AND push:"
+      echo "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$branch"
+      echo "        (SCOPED TO progress/ ON PURPOSE. This worktree sits ON the trunk and pushes TO the"
+      echo "         trunk, so 'add -A' here commits everything in it — including anything you or a"
+      echo "         command materialised in it — straight to $branch with nothing in between.)"
       echo "    • Discard them — git -C '$KWT' reset --hard, then re-run (it will detach cleanly)"
       echo "    • Or re-run with --discard-dirty (mirrors kwt_sync's own opt-out)"
     } >&2
@@ -563,7 +595,7 @@ kwt_sync() {
   # the offline early-return below silently bypassed the guard and proceeded on a
   # contaminated worktree.
   if [ "$KWT_DISCARD_DIRTY" != "true" ]; then
-    local dirty
+    local dirty untracked
     dirty="$(git -C "$KWT" status --porcelain --untracked-files=no 2>/dev/null || true)"
     if [ -n "$dirty" ]; then
       {
@@ -573,6 +605,21 @@ kwt_sync() {
         echo ""
         echo "  Uncommitted changes:"
         echo "$dirty" | sed 's/^/    /'
+        # PART 2 OF THE MISMATCH, REPORTED AND NOT REFUSED ON. The refusal above stays
+        # scoped to TRACKED changes because its recorded reason is correct and measured:
+        # `-uno` scopes a DESTRUCTION guard to exactly what `reset --hard` destroys, and
+        # reset --hard leaves untracked files in place. But `reset --hard` not removing
+        # them is precisely why they ACCUMULATE across every board move — and the remedy
+        # printed below would commit them. So they are listed as CONTEXT, labelled, and
+        # they do not change what refuses. Two scopes, two reasons, both stated.
+        untracked="$(git -C "$KWT" ls-files --others --exclude-standard 2>/dev/null || true)"
+        if [ -n "$untracked" ]; then
+          echo ""
+          echo "  ALSO PRESENT, untracked — NOT what the refusal above is about, and NOT destroyed by a"
+          echo "  reset: these survive every board move and accumulate. A blanket 'add -A' would commit"
+          echo "  them to the trunk, which is how a distribution payload once reached a project's main:"
+          echo "$untracked" | sed 's/^/    /'
+        fi
         echo ""
         echo "  Resolve one of two ways:"
         # SUPERSEDED CONCLUSION, REASON KEPT: this said an unpushed commit "is reset on
@@ -580,7 +627,9 @@ kwt_sync() {
         # — the sync now REFUSES instead of resetting. Pushing is still the advice, but
         # for the opposite reason: unpushed work no longer vanishes, it BLOCKS.
         echo "    • Keep them — commit AND push (an unpushed commit BLOCKS the next sync until it lands):"
-        echo "        git -C '$KWT' add -A && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
+        echo "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
+        echo "        (SCOPED TO progress/ ON PURPOSE — 'add -A' in this worktree commits everything in"
+        echo "         it straight to $DEFAULT_BRANCH, with no branch and no gate in between.)"
         echo "    • Discard them — re-run the command with --discard-dirty"
         echo "        (or by hand: git -C '$KWT' reset --hard $KWT_REMOTE/$DEFAULT_BRANCH)"
       } >&2

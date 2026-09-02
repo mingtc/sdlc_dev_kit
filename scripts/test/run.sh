@@ -4675,6 +4675,87 @@ case_check_board_trailer_scan_shares_the_epoch() {
 #   (iv)  a board where no card declares either field               → says so, and does
 #         NOT print what (iii) prints
 # =============================================================================
+# =============================================================================
+# CASE — THE AUXILIARY WORKTREE'S DIRTY GUARD: REPORTS WIDELY, REFUSES NARROWLY.
+#
+# The guard used to print, as its keep-your-work option, a blanket `git add -A` in a
+# worktree whose HEAD IS the trunk and whose push target IS the trunk, with nothing in
+# between — and it read `status --porcelain -uno`, so it could not SEE half of what that
+# recipe would commit. In one adopting project a commit made in that directory replaced
+# the project README with a generated distribution page and added four release artifacts
+# to main.
+#
+# THE `-uno` IS NOT THE BUG AND MUST NOT BE "FIXED". Its recorded reason is correct and
+# measured: it scopes a DESTRUCTION guard to exactly what `reset --hard` destroys, and
+# reset --hard leaves untracked files alone. The defect was the MISMATCH — a guard scoped
+# to what would be destroyed, printing a remedy scoped to everything in the tree. So the
+# report widens and the REFUSAL does not, and leg (ii) is what holds that line: an
+# untracked file ALONE must not block a board operation, or every stray editor dropping
+# becomes an outage.
+# =============================================================================
+case_kwt_dirty_guard_reports_widely_refuses_narrowly() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-400" alpha chore "Guard alpha"
+  seed_issue todo "$SB_PREFIX-401" beta  chore "Guard beta"
+  publish_sandbox
+
+  # One real board op, to bootstrap the auxiliary worktree.
+  local out rc=0
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-400" in_progress \
+            --role Dev --note "bootstrap the worktree" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(setup) the bootstrapping board move failed, so nothing below is about the guard: $(printf '%s' "$out" | tr '\n' '|')"
+  local kwt="$SB_WORK/.kanban-wt"
+  [ -d "$kwt" ] \
+    || _fixture_die "case_kwt_dirty_guard_reports_widely_refuses_narrowly: no .kanban-wt/ after a board move — the guard under test lives there and this case cannot reach it."
+
+  # --- (i) TRACKED dirt + an untracked stray: refuses, and reports BOTH ------
+  local tracked_card; tracked_card="$(git -C "$kwt" ls-files 'progress/*' | head -1)"
+  [ -n "$tracked_card" ] \
+    || _fixture_die "case_kwt_dirty_guard_reports_widely_refuses_narrowly: no tracked file under progress/ in the worktree to dirty."
+  printf '\nstray edit\n' >> "$kwt/$tracked_card"
+  printf 'a distribution payload\n' > "$kwt/STRAY-PAYLOAD.txt"
+  [ -n "$(git -C "$kwt" status --porcelain --untracked-files=no)" ] \
+    || _fixture_die "case_kwt_dirty_guard_reports_widely_refuses_narrowly: the tracked edit did not register as dirty — the refusal below would not fire and the case would prove nothing."
+
+  rc=0
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-401" in_progress \
+            --role Dev --note "should refuse" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) a board op proceeded with TRACKED changes in the auxiliary worktree"
+  # THE REMEDY IS SCOPED. Both halves: the narrow form present, the blanket form absent.
+  printf '%s\n' "$out" | grep -q -- "add -- progress/" \
+    || cf "(i) the printed remedy is not scoped to progress/: $(printf '%s' "$out" | tr '\n' '|')"
+  # `add -A &&` — the RECIPE shape, not the bare string. The refusal now WARNS about
+  # `add -A` in prose, so a bare match finds this arm's own warning text and reddens on
+  # the fix. (It did, on the first run of this case.) The recipe is the thing that must
+  # be gone; the warning is the thing that must be there.
+  printf '%s\n' "$out" | grep -q -- "add -A &&" \
+    && cf "(i) the printed remedy STILL offers a blanket 'add -A' recipe in a worktree that pushes to the trunk: $(printf '%s' "$out" | tr '\n' '|')"
+  # THE UNTRACKED STRAY IS REPORTED, and labelled as not being the refusal's subject.
+  printf '%s\n' "$out" | grep -q 'STRAY-PAYLOAD.txt' \
+    || cf "(i) the untracked file the remedy would have committed is not reported at all — the guard still cannot see half of what it would commit: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -qi 'untracked' \
+    || cf "(i) the untracked paths are listed without being labelled as untracked, so a reader cannot tell them from the tracked changes that caused the refusal: $(printf '%s' "$out" | tr '\n' '|')"
+
+  # --- (ii) UNTRACKED ONLY: must NOT refuse. This is "refuses narrowly", and it
+  #     is the assertion that stops a future editor widening the trigger.
+  git -C "$kwt" checkout -- "$tracked_card"
+  [ -z "$(git -C "$kwt" status --porcelain --untracked-files=no)" ] \
+    || _fixture_die "case_kwt_dirty_guard_reports_widely_refuses_narrowly: the tracked edit did not revert, so leg (ii) would be measuring the tracked case again."
+  [ -f "$kwt/STRAY-PAYLOAD.txt" ] \
+    || _fixture_die "case_kwt_dirty_guard_reports_widely_refuses_narrowly: the untracked stray is gone, so leg (ii) proves nothing about untracked files."
+  rc=0
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-401" in_progress \
+            --role Dev --note "untracked only — must proceed" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(ii) an UNTRACKED file alone blocked a board operation — the refusal widened past what a reset destroys, and every stray editor dropping is now an outage: $(printf '%s' "$out" | tr '\n' '|')"
+  origin_has_path "progress/in_progress/$SB_PREFIX-401-beta.md" \
+    || cf "(ii) the board op exited 0 but the card did not reach the trunk — it did not actually run"
+
+  finish "kanban worktree dirty guard: TRACKED dirt refuses and the report ALSO lists the untracked paths the remedy would commit (labelled), the remedy is scoped to progress/ and no longer offers a blanket add -A, and an untracked file ALONE does not block a board operation"
+  teardown
+}
+
 case_check_board_dependency_symmetry() {
   cf_reset
 
@@ -7408,6 +7489,7 @@ CASES=(
   case_check_board_arm_e_scopes_to_the_rules_lifetime
   case_check_board_trailer_scan_shares_the_epoch
   case_check_board_dependency_symmetry
+  case_kwt_dirty_guard_reports_widely_refuses_narrowly
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
   case_check_board_graduation
