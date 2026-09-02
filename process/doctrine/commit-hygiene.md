@@ -135,6 +135,19 @@ are the whole rule:
    teaches its readers to ignore the report.
 3. **The merge is the atomic transition.** A squash landing leaves no reading in which the set is
    half-applied.
+3b. **A RECORD WRITTEN AHEAD OF ITS STATE SAYS SO, IN ITSELF.** Point 2 makes the window
+   *expected*; this makes it **self-disclosing**. A metadata annotation written in the trunk lane at
+   the true time — the moment the decision was made — describes a state that does not exist yet, and
+   a reader arriving during the window sees a record that appears **false**. So the record names, in
+   one clause, **what an early reader will see, and how to tell that from the record being wrong**:
+   *"the branch this refers to lands with the set; until it does, `<path>` reads all-old — if you see
+   that, you are early, not looking at an error."*
+   *Why this is a numbered point and not advice:* without it, the window is something a reader has to
+   be **told about out of band** — by whoever happens to be present — and out-of-band knowledge is
+   exactly what does not survive a handoff. With it, the artifact discloses its own bounded
+   incoherence, and the disclosure travels with the artifact. **The test of the clause is whether it
+   distinguishes EARLY from WRONG.** A note saying only *"this is expected"* fails it: a reader who
+   suspects an error is not helped by being told not to.
 4. **The post-landing trunk run proves all-new landed together** — and it is a **detector, never a
    gate**: it cannot abort a merge that has already happened. It names the ref it read, and a MIXED
    trunk is escalated rather than quietly re-run.
