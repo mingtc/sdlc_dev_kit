@@ -4496,7 +4496,44 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
   printf '%s\n' "$out" | grep -q "the epoch is the hook FILE's arrival" \
     || cf "the accepted residual (hook file present, core.hooksPath never set) is not stated in the arm's output: $out"
 
-  finish "check-board arm (e): pre-adoption commits and the epoch commit ITSELF are excluded, a post-epoch unprefixed commit is still reported (ablation-proven), and the narrowing is named with its count"
+  teardown
+
+  # --- SECOND TOPOLOGY: THE EPOCH IS THE ROOT COMMIT. ------------------------
+  # This is what `README.md`'s day-one line actually produces — `git init`, then
+  # `git add -A && MSG_OK=1 git commit -m 'init'` — so the hook file arrives in a
+  # commit with NO PARENT. It is a distinct topology and not a nicer spelling of the
+  # first: a boundary expressed as `$EPOCH^..` resolves to `fatal: ambiguous argument`
+  # here, and with stderr discarded that reads as an EMPTY in-scope set, which the
+  # membership test then treats as "everything is out of scope". The arm goes wholly
+  # blind while printing a scope line and a green. The half above cannot catch that,
+  # because it always builds the epoch as commit 2.
+  cf_reset
+  make_sandbox
+  local rhook="$SB_WORK/scripts/githooks/commit-msg"
+  [ -f "$rhook" ] \
+    || _fixture_die "case_check_board_arm_e_scopes_to_the_rules_lifetime: the sandbox ships no commit-msg hook for the root-epoch half."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  local sha_root; sha_root="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  # INSTRUMENT: it must really be a ROOT commit, or this half is the first one again.
+  [ -z "$(git -C "$SB_WORK" rev-parse --verify --quiet 'HEAD^' || true)" ] \
+    || _fixture_die "case_check_board_arm_e_scopes_to_the_rules_lifetime: the epoch commit has a parent — this half is not exercising the root topology it is named for."
+  sbcommit -q --allow-empty -m "an unprefixed commit after the root epoch" >/dev/null 2>&1
+  local sha_rafter; sha_rafter="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  publish_sandbox
+
+  local rout rhits rhits1
+  rout="$(cb_run)"
+  rhits="$(printf '%s\n' "$rout" | grep 'lacks a \[Role\] prefix' || true)"
+  rhits1="$(printf '%s' "$rhits" | tr '\n' '|')"
+  printf '%s\n' "$rhits" | grep -q "$sha_rafter" \
+    || cf "(root) ABLATION FAILED — with the epoch at the ROOT commit the arm reported NOTHING, so it went blind rather than scoping: $rout"
+  printf '%s\n' "$rhits" | grep -q "$sha_root" \
+    && cf "(root) the ROOT epoch commit was itself reported — strictly-after does not hold when the epoch has no parent: $rhits1"
+  printf '%s\n' "$rout" | grep -q "scope: commits after $sha_root" \
+    || cf "(root) the scope line does not name the root epoch: $rout"
+
+  finish "check-board arm (e): pre-adoption commits and the epoch commit ITSELF are excluded, a post-epoch unprefixed commit is still reported (ablation-proven), the narrowing is named with its count — and the same holds when the epoch is the ROOT commit, which is what the day-one recipe produces"
   teardown
 }
 
