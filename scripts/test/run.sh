@@ -8521,6 +8521,71 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # case_ship_state guards the same shape by exact-line comparison, but it SKIPS on an
 # adopted tree — precisely where adopters live. This case does not skip.
 # =============================================================================
+# =============================================================================
+# CASE — THE COPY-LIST MINIMUM IS A REAL MINIMUM, AND IT IS DERIVED, NOT RETYPED.
+#
+# THIS CASE EXISTS BECAUSE OF A DECLINE. It was asked whether this preflight should
+# check the whole manifest instead of a hand-typed minimum, and the answer was no: the
+# manifest is prose in process/EXTRACTION.md, process/contracts/initializer.md § 1
+# forbids the initializer carrying a second copy of it, and a machine-readable manifest
+# is a new shipped artifact bought for one preflight. What a decline owes is a control
+# proving the thing KEPT actually works — otherwise "the minimum is enough" is an
+# assertion, and the wider promise was withdrawn on the strength of it.
+#
+# The list is DERIVED out of the shipped script. A retyped copy here would be the exact
+# second-hand-typed-list the decline promised not to create, and it would go stale in the
+# one direction that matters: a file added to COPY_LIST and not to this case is a file
+# nobody checks.
+# =============================================================================
+case_kit_init_copy_list_minimum_is_real() {
+  cf_reset
+  kit_init_sandbox
+  publish_sandbox
+  local out rc f n=0
+  local ki="$SB_WORK/scripts/kit-init.sh"
+
+  # DERIVE the list out of the shipped array — never retype it.
+  local list; list="$(awk '/^COPY_LIST=\($/{f=1;next} f&&/^\)$/{exit} f{gsub(/^[[:space:]]+|[[:space:]]+$/,"");print}' "$ki")"
+  [ -n "$list" ] \
+    || _fixture_die "case_kit_init_copy_list_minimum_is_real: could not derive COPY_LIST out of kit-init.sh — the array was renamed or reshaped, and a case that derives nothing passes forever."
+
+  # ── INSTRUMENT CHECK: kit-init SUCCEEDS on the untouched fixture. Every "it refused"
+  #    below is otherwise satisfied by a fixture that never worked in the first place.
+  local pristine="$SB_TMP/cl-pristine"
+  rm -rf "$pristine"; cp -R "$SB_WORK" "$pristine"
+  rc=0; out="$( "$pristine/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || _fixture_die "case_kit_init_copy_list_minimum_is_real: kit-init exits $rc on the UNMUTATED fixture: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # EVERY member is load-bearing: remove exactly one, and the preflight must NAME it.
+  # One at a time, because removing all seven cannot tell a real minimum from a list
+  # whose refusal happens to mention the first entry.
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    n=$((n + 1))
+    local probe="$SB_TMP/cl-probe"
+    rm -rf "$probe"; cp -R "$SB_WORK" "$probe"
+    [ -e "$probe/$f" ] \
+      || { cf "COPY_LIST names '$f' but the shipped kit does not contain it — the list has rotted away from the tree"; continue; }
+    rm -rf "${probe:?}/$f"
+    rc=0; out="$( "$probe/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] \
+      || cf "kit-init exited 0 with '$f' missing — that entry is in COPY_LIST but nothing depends on it being there"
+    printf '%s' "$out" | grep -qF "$f" \
+      || cf "kit-init refused with '$f' missing but did NOT name it: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+    rm -rf "$probe"
+  done <<EOF
+$list
+EOF
+
+  # A LIST THAT SHRANK TO NOTHING would satisfy the loop above vacuously.
+  [ "$n" -ge 5 ] \
+    || cf "COPY_LIST derived only $n entries — the minimum has shrunk or the derivation is reading the wrong array"
+
+  finish "kit-init's copy-list minimum is a REAL minimum: every one of its $n entries, derived out of the shipped array rather than retyped, makes the preflight refuse AND name that path when it is absent (the decline of 104 rests on this)"
+  teardown
+}
+
 case_seam_shape_reformat_is_loud() {
   cf_reset
   # kit-init needs a prepared .claude/ and a published trunk; a bare make_sandbox gives
@@ -8886,6 +8951,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_kit_init_copy_list_minimum_is_real
   case_seam_shape_reformat_is_loud
   case_ship_state
   case_isolation
