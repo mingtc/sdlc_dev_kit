@@ -6809,6 +6809,74 @@ CORPUS_EOF
 # THIS ASSERTS THE EFFECT, which is why it is worth having where a text-match would not
 # be: it measures the file's bytes and the checkout's HEAD, not what any document says.
 # =============================================================================
+# =============================================================================
+# CASE — THE AGENT MODEL PINS MATCH WHAT THE KIT DECLARES ABOUT THEM.
+#
+# Every leaf-worker definition pins a `model:`, and those values are a VENDOR'S PRODUCT
+# NAMES — the one class of fact EXTRACTION § 4.10 otherwise keeps out of the kit. They
+# are kept on purpose (a plain spawn must be correctly provisioned with no action) and
+# are now declared as a carve-out, with one definition named as the deliberate exception.
+#
+# THIS ASSERTS THE DECLARATION, NEVER THE VALUE, and that is the whole design. A case
+# that asserted a worker is pinned to a named model would hard-code the very product fact
+# this change exists to quarantine — and would redden on the vendor's rename instead of
+# catching anything. So it reads the SHAPE: the pins agree except for exactly one file,
+# and that file is the one the declaration names.
+# =============================================================================
+case_agent_model_pins_match_their_declaration() {
+  cf_reset
+  make_sandbox
+  local ad="" d
+  for d in "$REAL_REPO_ROOT/_claude/agents" "$REAL_REPO_ROOT/.claude/agents"; do
+    [ -d "$d" ] && ad="$d"
+  done
+  if [ -z "$ad" ]; then skp "agent model pins match their declaration" "no agents/ directory"; teardown; return; fi
+
+  # Derive (file, pin) pairs. The VALUES are compared to each other, never to a literal.
+  local pins n f base val minority majority mcount
+  pins="$( for f in "$ad"/*.md; do
+             [ -e "$f" ] || continue
+             val="$(sed -n 's/^model:[[:space:]]*//p' "$f" | head -1)"
+             [ -n "$val" ] && printf '%s\t%s\n' "$(basename "$f")" "$val"
+           done )"
+  n="$(printf '%s\n' "$pins" | grep -c . || true)"
+  [ "${n:-0}" -ge 2 ] \
+    || _fixture_die "case_agent_model_pins_match_their_declaration: only ${n:-0} pinned definition(s) — the comparison below is vacuous."
+
+  # The majority pin, and the files that differ from it.
+  majority="$(printf '%s\n' "$pins" | awk -F'\t' '{c[$2]++} END{m=0; for(v in c) if(c[v]>m){m=c[v]; b=v} print b}')"
+  mcount="$(printf '%s\n' "$pins" | awk -F'\t' -v m="$majority" '$2!=m{print $1}' | grep -c . || true)"
+  minority="$(printf '%s\n' "$pins" | awk -F'\t' -v m="$majority" '$2!=m{print $1}')"
+
+  # THE DECLARATION must exist and must name the exception BY FILE.
+  local ex="$REAL_REPO_ROOT/process/EXTRACTION.md"
+  [ -f "$ex" ] || { skp "agent model pins match their declaration" "process/EXTRACTION.md absent"; teardown; return; }
+  grep -q 'THE MODEL PINS ARE PRODUCT NAMES' "$ex" \
+    || cf "the kit ships vendor product names in its agent frontmatter and declares that nowhere — EXTRACTION § 4.10 excludes exactly this class, so an undeclared pin is indistinguishable from an oversight"
+
+  if [ "${mcount:-0}" -eq 0 ]; then
+    grep -q 'ui-designer-worker.md' "$ex" \
+      && cf "every definition now carries the SAME pin, but the declaration still names an exception — the table describes a tree that no longer exists"
+  else
+    [ "${mcount}" -eq 1 ] \
+      || cf "$mcount definitions differ from the majority pin ($(printf '%s' "$minority" | tr '\n' ' ')), and the declaration describes exactly ONE deliberate exception — a new divergent pin is undeclared"
+    grep -qF "$minority" "$ex" \
+      || cf "the definition that differs from the rest ($minority) is NOT the one the declaration names as the exception — either the pin moved or the table did"
+  fi
+
+  # THE VALUES MUST NOT BE WRITTEN INTO THE DECLARATION, which is what keeps it from
+  # going stale on the vendor's schedule.
+  printf '%s\n' "$pins" | awk -F'\t' '{print $2}' | sort -u | while IFS= read -r val; do
+    [ -n "$val" ] || continue
+    grep -qF -- "$val" "$ex" \
+      && echo "LEAK:$val"
+  done | grep -q '^LEAK:' \
+    && cf "the declaration WRITES a pin's value — a second copy of a vendor product name, in the document that exists to say the copy is a debt. Derive them instead."
+
+  finish "the agent model pins match their declaration: $n pinned definition(s), exactly ${mcount:-0} deliberate exception named by file, and no pin VALUE is copied into the declaration"
+  teardown
+}
+
 case_move_issue_leaves_a_dirty_checkout_alone() {
   cf_reset
   make_sandbox
@@ -8138,6 +8206,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_agent_model_pins_match_their_declaration
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set

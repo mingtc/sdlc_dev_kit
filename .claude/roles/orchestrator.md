@@ -53,7 +53,10 @@ ships blank and is not ratified until they do it.** *An unratified ladder is a h
 > **The kit ships a starting position, not a blank.** The leaf-worker definitions in
 > [`.claude/agents/`](../agents/) already pin a model and an effort in frontmatter — that is
 > the seed default, and it is *structural*: a plain spawn of `dev-worker` is correctly
-> provisioned with no action. Fill the table above to match those pins (or change both
+> provisioned with no action. **Those pins are a VENDOR'S PRODUCT NAMES**, which is the one
+> kind of fact the kit otherwise keeps out of itself; they are kept for the property above,
+> declared as a carve-out in `process/EXTRACTION.md` § 1.1, and they go stale on the vendor's
+> schedule with nothing in the kit to detect it. Re-provisioning them is yours to do. Fill the table above to match those pins (or change both
 > together, in the same commit — a table that disagrees with the pins is worse than no table).
 
 **Standing riders, binding wherever this ladder is cited.** These travel with the kit and are

@@ -254,6 +254,32 @@ names the guard whose job is to keep it honest.
 | `setup.sh` | **MIXED**: the frame is the kit's, the language runtime is yours. See § 1.1. |
 | `consumers/` | **OPTIONAL, and delete it if it does not apply.** The thin machinery for the case where something else vendors your project, governed by [`doctrine/distribution.md`](doctrine/distribution.md). **If your project ships to nobody, remove the directory** — an unused distribution surface reads as a promise. |
 
+**THE MODEL PINS ARE PRODUCT NAMES, AND THIS TABLE IS WHERE THEY ARE DECLARED.** Every leaf-worker
+definition under `.claude/agents/` carries a `model:` in its frontmatter, and those values are a
+**vendor's product names** — the one class of fact § 4.10 otherwise keeps out of the kit. They are
+kept rather than emptied, because the orchestrator role doc promises *"the kit ships a starting
+position, not a blank"* and a plain spawn being correctly provisioned with no action is load-bearing.
+
+**A CARVE-OUT FROM § 4.10, NAMED HERE RATHER THAN LEFT AS AN EXCEPTION NOBODY WROTE DOWN**, in the
+same shape and for the same reason as the skills provenance table's `Class` column: the declaration
+lives **outside the directory it describes**, so a re-copy of `.claude/agents/` cannot erase it.
+
+| Definition | Pinned | Why not neutral |
+|---|---|---|
+| every leaf worker except the UI designer | the higher tier | the seed default the orchestrator's § Provisioning promises |
+| `ui-designer-worker.md` | a lower tier | the one deliberate exception; its role is parked, and the pin records the intent rather than a live cost |
+
+**THE VALUES ARE NOT WRITTEN IN THIS TABLE, DELIBERATELY** — derive them:
+`for f in .claude/agents/*.md; do grep -m1 '^model:' "$f"; done`. Writing them here would be a second
+copy of a vendor's product names, going stale on the vendor's schedule rather than ours, in the very
+document that exists to say the copy is a debt.
+
+**THE DEBT, STATED:** these pins go stale when the vendor renames or retires a tier, and **nothing in
+the kit detects that** — no gate reads them and no reachability check can know what a model name
+means. An adopter re-provisioning is the intended cure, and `doctrine/model-provisioning.md` § B is
+where they record what they chose.
+
+
 **`.claude/settings.json.example` is CONFIGURE, not COPY** — § 2.8.
 
 ### 1.1 The kanban script set
@@ -788,6 +814,12 @@ all five, with the guard **transformed** rather than deleted
   reason. That is the supersession law applied to an extraction: *the pattern and the why travel;
   the conclusion's instance does not.*
 - **Nothing under `.claude/` was restructured.** The harness path is pinned (§ 3).
+- **ONE CLASS OF PRODUCT FACT IS DELIBERATELY KEPT: the leaf workers' `model:` pins.** They are a
+  vendor's product names, which this section otherwise excludes — kept because the orchestrator's
+  provisioning contract promises a plain spawn is correctly provisioned with no action, and a blank
+  pin breaks that. **Declared as a carve-out in § 1.1**, in a table homed outside the directory it
+  describes so a re-copy cannot erase it, with the staleness debt named. *An exception that is not
+  written down is indistinguishable from an oversight, and this one had been both.*
 - **No guard was written.** § 4.4 stands as the largest live debt, unpaid and named, rather than
   half-paid by a guard nobody can run.
 - **Two cross-references in the donor's own doctrine were found broken while writing this** — a

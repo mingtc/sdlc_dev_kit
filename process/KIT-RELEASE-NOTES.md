@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The kit's leaf-worker definitions pin a model, those pins are a vendor's product names, and the
+  kit now says so.** They were shipping undeclared inside `.claude/agents/` — the one class of fact
+  the extraction manifest otherwise keeps out of the kit. They are **kept, not emptied**, because a
+  plain spawn of a worker being correctly provisioned with no action is the promise the orchestrator's
+  provisioning contract makes. **No action required now**, but know the debt: **these pins go stale
+  when your provider renames or retires a tier, and nothing in the kit will tell you.** Re-provision
+  them against your own ladder and record what you chose. The declaration lists the shape rather than
+  the values, and gives you the one-liner to read the current pins out of the files.
+
 - **Two shipped documents told you `move-issue.sh` would destroy an uncommitted edit in your own
   checkout. It does not, and never did.** The Dev role doc and the branch-finishing skill both said
   a loose edit "is destroyed" when the mover runs — since v0.1.0, in both. The mover's contract is
