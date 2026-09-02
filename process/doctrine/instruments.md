@@ -367,6 +367,29 @@ other than what you asked.
 - **A tool reports on its SUBJECT and on ITSELF in the same vocabulary unless it is made not to.**
   *"Could not run"* and *"your tree is broken"* are different facts; an instrument that spells both
   `FAIL` has merged them, and the reader cannot separate them afterwards.
+- **A HASH OF NOTHING IS A REAL HASH, and two of them compare EQUAL.** The bullet above is stated for
+  *empty* results; this is the same defect wearing a full, valid, authoritative answer.
+  `git show <ref>:<path> | <hasher>` where the path **does not exist at that ref** hashes the **empty
+  stream** and returns a forty-hex digest that looks exactly like a measurement. So a byte-identity
+  check between two paths that are both **missing** passes — and it passes *confidently*.
+  **Learn the constant, not the warning:** `da39a3ee5e6b4b0d3255bfef95601890afd80709` is SHA-1 of the
+  empty input. A reader who has seen that string once recognises it in an output pane instantly, and
+  recognises nothing at all from a paragraph about empty streams. *(The equivalents for whatever
+  hasher your project uses belong in § B beside your own instruments.)*
+  **The fix is the general one: assert the OPERAND EXISTS before comparing digests of it** —
+  `git cat-file -e <ref>:<path>` — because the digest cannot tell you it had nothing to chew on.
+- **A COUNT JOINED ON A KEY IS SHORT BY EXACTLY THE MEMBERS THAT LACK THE KEY — and those members
+  are systematically the interesting ones.** A join silently drops what it cannot match, so the
+  count it produces is not *"how many are there"* but *"how many carry the key"*, and nothing in the
+  output distinguishes those two questions.
+  **Why the loss is biased rather than random:** the keyless members are the **partial** ones — the
+  record written before its id was assigned, the entry whose author never filled the field, the item
+  that failed halfway through the process that stamps the key. **The population a join disappears is
+  the population most worth looking at.**
+  **So a derived count states its JOIN KEY and reports the members that lack it as a SEPARATE
+  figure** — never folded into the total, never omitted. *"Forty-one matched on `id`; three carry no
+  `id` and are listed below"* is a measurement. *"Forty-one"* is a claim about a population the
+  reader will resolve as forty-four.
 - **An instrument can measure a fact and report an ATTRIBUTION** — and the attribution may be
   invented. *"X changed"* is a measurement; *"the harness changed X"* is a claim about **cause**,
   which a before/after comparison cannot establish over a resource the instrument does not own
