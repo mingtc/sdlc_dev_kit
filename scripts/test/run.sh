@@ -4547,6 +4547,97 @@ case_check_board_reads_the_ref() {
 # exact line the adopter complained about. Commit 2 below is that commit, and asserting
 # it is NOT reported is the whole point of the strictness.
 # =============================================================================
+# =============================================================================
+# CASE — arm [h]: the trailer scan SHARES arm (e)'s epoch and cannot invent its own.
+#
+# Rules (1) and (2) live in ONE file (scripts/githooks/commit-msg), so they begin
+# binding at ONE commit. Two arms deriving that commit separately is one idea carrying
+# two numbers, and the divergence is SILENT: the two agree on every history that exists
+# today and part company on the first re-add, shallow boundary or root epoch. The
+# same-epoch assertion below is the one nothing else in this file makes.
+#
+# THE MARKER IS READ OUT OF THE HOOK, never typed. A hard-coded "claude" here keeps
+# passing after the hook's marker list changes — the drift this plant must be immune to.
+# =============================================================================
+case_check_board_trailer_scan_shares_the_epoch() {
+  cf_reset
+  make_sandbox
+
+  local hook="$SB_WORK/scripts/githooks/commit-msg" marker
+  [ -f "$hook" ] \
+    || _fixture_die "case_check_board_trailer_scan_shares_the_epoch: the sandbox ships no commit-msg hook, so there is no epoch to derive and no marker list to read."
+  marker="$(sed -n "s/^TOOL_TRAILER_MARKERS='\([^|]*\).*/\1/p" "$hook" | head -1)"
+  [ -n "$marker" ] \
+    || _fixture_die "case_check_board_trailer_scan_shares_the_epoch: TOOL_TRAILER_MARKERS could not be read from the hook — the plant would carry a marker the arm never looks for, and this case would report a green about nothing."
+
+  # (1) PRE-ADOPTION: no hook file in this commit at all, and a real trailer in it.
+  mv "$hook" "$SB_TMP/commit-msg.held"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "$(printf '[PM] pre-adoption work\n\nCo-Authored-By: %s <noreply@invalid>' "$marker")" >/dev/null 2>&1
+  local sha_pre; sha_pre="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  # (2) THE EPOCH: the kit copy lands, hook file and all.
+  mv "$SB_TMP/commit-msg.held" "$hook"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "$(printf '[PM] init\n\nCo-Authored-By: %s <noreply@invalid>' "$marker")" >/dev/null 2>&1
+  local sha_epoch; sha_epoch="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  local derived
+  derived="$( { git -C "$SB_WORK" log --diff-filter=A --format=%h --abbrev=9 HEAD -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
+  [ "$derived" = "$sha_epoch" ] \
+    || _fixture_die "case_check_board_trailer_scan_shares_the_epoch: the hook file's add-commit derives to '$derived', not the fixture's commit 2 '$sha_epoch' — the fixture does not model what the arms read."
+
+  # (3) AFTER the rule began, from a checkout that never wired the hook. Correctly
+  #     PREFIXED, so this commit is arm [h]'s finding alone and not also arm (e)'s.
+  sbcommit -q --allow-empty -m "$(printf '[PM] a landing made from an unwired checkout\n\nCo-Authored-By: %s <noreply@invalid>' "$marker")" >/dev/null 2>&1
+  local sha_after; sha_after="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  publish_sandbox
+
+  local out rc hits scopes e_scope h_scope
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q '^\[h\]' \
+    || cf "no [h] section — the arm is absent, which no other assertion here can detect: $out"
+
+  hits="$(printf '%s\n' "$out" | grep 'carries a generated trailer' || true)"
+
+  # ABLATION FIRST — without a red, both exclusions below are satisfiable by an arm
+  # that reports nothing at all.
+  printf '%s\n' "$hits" | grep -q "$sha_after" \
+    || cf "ABLATION FAILED — the post-epoch trailer commit $sha_after was NOT reported, so this arm cannot go red and every exclusion asserted below proves nothing: $out"
+  printf '%s\n' "$hits" | grep -q "$sha_pre" \
+    && cf "the PRE-ADOPTION trailer commit $sha_pre was reported — it predates the hook file entirely: $(printf '%s' "$hits" | tr '\n' '|')"
+  printf '%s\n' "$hits" | grep -q "$sha_epoch" \
+    && cf "the EPOCH commit $sha_epoch was itself reported — the boundary is 'at or after' when it must be STRICTLY after: $(printf '%s' "$hits" | tr '\n' '|')"
+
+  # THE COMPOSITION, compared as TEXT out of the two arms' OWN scope lines. This case
+  # deliberately does NOT recompute the epoch: a third derivation would agree with
+  # neither arm and would answer a question nobody asked.
+  scopes="$(printf '%s\n' "$out" | grep -o 'scope: commits after [0-9a-f]\{9\}' || true)"
+  e_scope="$(printf '%s\n' "$scopes" | sed -n '1p')"
+  h_scope="$(printf '%s\n' "$scopes" | sed -n '2p')"
+  { [ -n "$e_scope" ] && [ -n "$h_scope" ]; } \
+    || cf "fewer than two 'scope: commits after <sha>' lines — one of the two history arms does not name its narrowing where its result is printed: $out"
+  [ "$e_scope" = "$h_scope" ] \
+    || cf "arms [e] and [h] name DIFFERENT epochs ('$e_scope' vs '$h_scope') — one rule, one file, two boundaries: the later one is silently hiding findings"
+
+  # INSTRUMENT AGAINST A VACUOUS PASS: if nothing was out of scope, the two exclusions
+  # above are satisfied by an arm that narrowed nothing.
+  printf '%s\n' "$out" | grep -qE "scope: commits after ${sha_epoch}[^—]*— [1-9][0-9]* of the last" \
+    || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so the exclusions above would pass vacuously: $out"
+
+  # A HUMAN CO-AUTHOR IS NOT A FINDING. Without this the arm could be a bare
+  # "co-authored-by" grep and every assertion above would still pass.
+  sbcommit -q --allow-empty -m "$(printf '[PM] a pair-programmed landing\n\nCo-Authored-By: Jane Smith <jane@invalid>')" >/dev/null 2>&1
+  local sha_human; sha_human="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  publish_sandbox
+  printf '%s\n' "$(cb_run)" | grep 'carries a generated trailer' | grep -q "$sha_human" \
+    && cf "a Co-Authored-By naming a HUMAN was reported as a generated trailer — the arm is matching the trailer rather than the tool markers, which the hook it mirrors explicitly permits"
+
+  finish "check-board arm [h]: a generated trailer after the rule's epoch is reported (ablation-proven), one before it is not, the epoch commit itself is not, a HUMAN co-author is not, and [h] names the SAME epoch as [e]"
+  teardown
+}
+
 case_check_board_arm_e_scopes_to_the_rules_lifetime() {
   cf_reset
   make_sandbox
@@ -7207,6 +7298,7 @@ CASES=(
   case_check_board_arrow_beats_mention
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
+  case_check_board_trailer_scan_shares_the_epoch
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
   case_check_board_graduation

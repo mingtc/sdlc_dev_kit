@@ -46,6 +46,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`check-board.sh` gained arm `[h]`: it reads recent trunk history for generated co-author
+  trailers, and it can block a release.** Your commit-msg hook refuses these at write time, but a
+  write-time wall says nothing about history already written, and `contracts/commit-attribution.md`
+  states the count in a recent window as zero — which nothing measured until now. The arm scans the
+  same recent window as the `[Role]`-prefix arm and **shares its epoch**, so commits that predate
+  your adoption of the kit are not reported. **Action required if recent trunk commits carry tool
+  trailers:** the arm sets the board-drift verdict, so `release.sh` gate (d) will refuse a cut until
+  those commits roll out of the window — it clears itself as history moves, and rewriting published
+  history to clear it is not recommended. A `Co-Authored-By` naming a **human** is untouched and
+  always legitimate; the markers are read from your own hook, not from a list the kit keeps.
+
 - **A new shipped file — `scripts/lib/lived-probe.sh` — and you must copy it.** `kit-init.sh` and
   `check-board.sh`'s graduation arm both ask whether your repository has already STARTED, and each
   used to answer with its own copy of the same four probes. **Action required: copy

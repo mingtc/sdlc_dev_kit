@@ -148,7 +148,7 @@ PROGRESS_LOG_BYTE_THRESHOLD=32768
 # ADVISORY ONLY, like the § Log arm: it reports, it never sets `drift` — every issue
 # in flight reads this script, and a newly-failing board report would halt every run.
 PROGRESS_WHOLE_FILE_BYTE_THRESHOLD=327680
-ROLE_SCAN_N=20        # how many recent trunk commits section (e) scans
+ROLE_SCAN_N=20        # how many recent trunk commits the HISTORY ARMS scan — (e) and (h) share it: one idea, one number
 # Check (d)'s two constants: the frontmatter key that carries an issue's identity, and
 # the id SHAPE (a PATTERN, not the configured prefix, so a future prefix change is not
 # a scatter of literals here — and so a board mid-rename still parses).
@@ -608,11 +608,21 @@ if [ -z "$ROLE_PREFIXES" ]; then
 fi
 # The revision walked is stated, not implied.
 if [ -n "$CB_REF" ]; then
-  role_rev="$CB_REF"
+  CB_RULE_REV="$CB_REF"
 else
-  role_rev="HEAD"
+  CB_RULE_REV="HEAD"
 fi
-# THE RULE'S LIFETIME. This arm used to scan the last N commits unconditionally and
+# THE RULE'S LIFETIME — DERIVED ONCE HERE AND SHARED BY EVERY HISTORY ARM.
+#
+# ONE RULE, ONE EPOCH. scripts/githooks/commit-msg enforces its rules as one file, so
+# they all begin binding at the same commit — the one that ADDED that file. Two arms
+# deriving that commit separately would be one idea carrying two numbers, and the
+# divergence would be SILENT: they agree on every history that exists today and part
+# company on the first re-add, shallow boundary or root epoch. So CB_RULE_EPOCH and
+# CB_RULE_INSCOPE are computed once, above every arm that needs them, and no arm may
+# re-derive them.
+#
+# This arm used to scan the last N commits unconditionally and
 # report EVERY unprefixed subject as drift — including commits made before the project
 # adopted the kit, when no attribution rule existed to be violated. A rule cannot be
 # violated before it exists, and the finding was unfixable by construction: the only
@@ -638,9 +648,9 @@ fi
 # arrived but before kit-init ran, with the hook therefore still unwired — are reported
 # here and tolerated there, and each is right for the question it answers. Reconciled,
 # not assumed: see the matching note at kit-init.sh's board self-check.
-role_epoch=""; role_preepoch=0
-if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; then
-  role_epoch="$( { git -C "$REPO_ROOT" log --diff-filter=A --format=%H "$role_rev" \
+CB_RULE_EPOCH=""; role_preepoch=0
+if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
+  CB_RULE_EPOCH="$( { git -C "$REPO_ROOT" log --diff-filter=A --format=%H "$CB_RULE_REV" \
                      -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
 fi
 # STRICTLY AFTER, and this is an off-by-one that was corrected before it shipped: the
@@ -649,14 +659,32 @@ fi
 # epoch commit is ITSELF one of the unprefixed commits this arm would flag, and "at or
 # after" would keep reporting the exact line the adopter complained about.
 # `--ancestry-path` gives the strict-descendant set in one call, with no per-commit loop.
-role_inscope=""
-if [ -n "$role_epoch" ]; then
-  role_inscope="$(git -C "$REPO_ROOT" rev-list --ancestry-path "$role_epoch..$role_rev" 2>/dev/null || true)"
+CB_RULE_INSCOPE=""
+if [ -n "$CB_RULE_EPOCH" ]; then
+  CB_RULE_INSCOPE="$(git -C "$REPO_ROOT" rev-list --ancestry-path "$CB_RULE_EPOCH..$CB_RULE_REV" 2>/dev/null || true)"
 fi
-echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits of $role_rev, squash-aware) — prefixes $role_src:"
+# ONE RENDERER FOR THE NARROWING, used by every history arm. Two arms printing the same
+# scope in two wordings is the same second-copy defect as two arms deriving it, one level
+# up — and a reader comparing them could not tell a difference in wording from a
+# difference in fact.
+cb_rule_scope_lines() {  # <count excluded>
+  if [ -n "$CB_RULE_EPOCH" ]; then
+    echo "    scope: commits after ${CB_RULE_EPOCH:0:9}, which ADDED scripts/githooks/commit-msg — $1 of the last $ROLE_SCAN_N excluded as predating the rule"
+    echo "      caveat: the epoch is the hook FILE's arrival, not the moment core.hooksPath was set — a"
+    echo "      clone that never wired it is not enforcing the rule, yet this arm treats it as binding from"
+    echo "      that commit. Erring toward reporting drift, not hiding it. This arm's findings flip the"
+    echo "      board-drift verdict that release.sh gate (d) refuses on."
+  else
+    echo "    scope: ALL of the last $ROLE_SCAN_N — no commit in $CB_RULE_REV adds scripts/githooks/commit-msg,"
+    echo "      so the rule's start could not be derived and NOTHING was excluded. Any commit here that"
+    echo "      predates your adoption of the kit is reported below as drift and is not."
+  fi
+}
+
+echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, squash-aware) — prefixes $role_src:"
 role_hits=0
 role_scanned=0
-if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; then
+if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
   while IFS='|' read -r sha parents; do
     [ -z "$sha" ] && continue
     # shellcheck disable=SC2086
@@ -670,7 +698,7 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; t
     # The test is on $sha — the commit in the walked history — not on $target: a merge's
     # parent 2 lives on a side branch, and asking whether THAT is a strict descendant of
     # the epoch answers a different question than "was the rule in force when this landed".
-    if [ -n "$role_epoch" ] && ! printf '%s\n' "$role_inscope" | grep -qxF "$sha"; then
+    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -qxF "$sha"; then
       role_preepoch=$((role_preepoch+1)); continue
     fi
     subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
@@ -686,12 +714,12 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; t
       echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj"
       role_hits=$((role_hits+1)); drift=1
     fi
-  done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P' -n "$ROLE_SCAN_N" "$role_rev" 2>/dev/null)
+  done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P' -n "$ROLE_SCAN_N" "$CB_RULE_REV" 2>/dev/null)
 else
   # NO HISTORY IS A SKIP. This used to fall through the `if` and print
   # "✓ every scanned subject carries a [Role] prefix" over ZERO subjects — a green
   # from an empty set, which is the shape drift-report.md § 2 forbids by name.
-  echo "    – $role_rev does not resolve — no history to scan  (skipped)"
+  echo "    – $CB_RULE_REV does not resolve — no history to scan  (skipped)"
   role_scanned=-1
 fi
 # WHAT THIS ARM DID NOT LOOK AT, NAMED — on the clearing branch as much as the
@@ -700,22 +728,10 @@ fi
 # still has to say so, or "✓ all N scanned subject(s) carry a [Role] prefix" quietly means
 # "…all N of the ones I chose to look at".
 if [ "$role_scanned" -ge 0 ]; then
-  if [ -n "$role_epoch" ]; then
-    echo "    scope: commits after ${role_epoch:0:9}, which ADDED scripts/githooks/commit-msg — $role_preepoch of the last $ROLE_SCAN_N excluded as predating the rule"
-    # THE RESIDUAL, ACCEPTED AND STATED WHERE THE RESULT IS PRINTED. The epoch is when the
-    # hook FILE arrived, which is not when anyone ran `git config core.hooksPath`.
-    echo "      caveat: the epoch is the hook FILE's arrival, not the moment core.hooksPath was set — a"
-    echo "      clone that never wired it is not enforcing the rule, yet this arm treats it as binding from"
-    echo "      that commit. Erring toward reporting drift, not hiding it. This arm's findings flip the"
-    echo "      board-drift verdict that release.sh gate (d) refuses on."
-  else
-    echo "    scope: ALL of the last $ROLE_SCAN_N — no commit in $role_rev adds scripts/githooks/commit-msg,"
-    echo "      so the rule's start could not be derived and NOTHING was excluded. Any commit here that"
-    echo "      predates your adoption of the kit is reported below as drift and is not."
-  fi
+  cb_rule_scope_lines "$role_preepoch"
 fi
 if [ "$role_scanned" -eq 0 ]; then
-  echo "    – $role_rev resolved but yielded no inspectable subject  (skipped)"
+  echo "    – $CB_RULE_REV resolved but yielded no inspectable subject  (skipped)"
 elif [ "$role_scanned" -gt 0 ] && [ "$role_hits" -eq 0 ]; then
   echo "    ✓ all $role_scanned scanned subject(s) carry a [Role] prefix"
 fi
@@ -1035,6 +1051,71 @@ else
   else
     echo "      → day one is not finished. The checklist is process/SEED.md § Day one is done when."
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# (h) GENERATED-TRAILER scan of the same window. RULE (2) of the commit-msg hook is a
+#     WRITE-TIME wall: it stops the next commit and says nothing about history already
+#     written. contracts/commit-attribution.md § 4 states the count of unattributed
+#     commits in a recent window as ZERO, and nothing measured it. This arm does.
+#
+#     IT SHARES ARM (e)'s EPOCH AND MUST NOT DERIVE ITS OWN. Rules (1) and (2) live in
+#     ONE file and therefore begin binding at ONE commit — see CB_RULE_EPOCH above.
+#
+#     THE WINDOW IS ROLE_SCAN_N, REUSED RATHER THAN DUPLICATED. One idea does not carry
+#     two numbers; the constant's stated meaning is widened to "the history arms" at its
+#     declaration rather than a sibling being minted here.
+#
+#     THE MARKERS ARE DERIVED FROM THE HOOK, exactly as arm (e) derives the prefixes, and
+#     the fallback is NAMED for the same reason: it is the half that drifts, so a run
+#     that used it must say so rather than letting a clean result imply the project's own
+#     list was consulted.
+#
+#     SCOPE, SAID PLAINLY: commit MESSAGES in a recent window. commit-hygiene.md § A.1
+#     covers specs, issue activity entries and review notes too; a clean [h] says nothing
+#     about those, and a reader who assumed otherwise would be wrong.
+# ---------------------------------------------------------------------------
+echo
+TOOL_TRAILER_MARKERS="$(sed -n "s/^TOOL_TRAILER_MARKERS='\(.*\)'/\1/p" "$CB_TREE/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
+h_src="derived from scripts/githooks/commit-msg"
+if [ -z "$TOOL_TRAILER_MARKERS" ]; then
+  TOOL_TRAILER_MARKERS='claude|anthropic|copilot|chatgpt|openai|gpt|gemini|codex|aider|bot'
+  h_src="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared marker list"
+fi
+echo "[h] generated-trailer scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, commit MESSAGES only) — markers $h_src:"
+h_hits=0
+h_scanned=0
+h_preepoch=0
+if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
+  while IFS= read -r h_sha; do
+    [ -z "$h_sha" ] && continue
+    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -qxF "$h_sha"; then
+      h_preepoch=$((h_preepoch+1)); continue
+    fi
+    h_scanned=$((h_scanned+1))
+    # THE WHOLE MESSAGE, not the subject: a trailer is by definition in the body. The
+    # two patterns MIRROR the hook's own arms, including their anchoring — § A.1 forbids
+    # such a LINE, so "generated with the codegen step" mid-sentence is prose, not a
+    # provenance claim, and must not be reported.
+    h_body="$(git -C "$REPO_ROOT" log -1 --format=%B "$h_sha" 2>/dev/null || true)"
+    h_bad="$( { printf '%s\n' "$h_body" | grep -iE "^[[:space:]]*co-authored-by:.*[^[:alnum:]](${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" || true; } | head -1 )"
+    [ -n "$h_bad" ] || h_bad="$( { printf '%s\n' "$h_body" | grep -iE '^[^[:alnum:]]*generated with[[:space:]]' || true; } | head -1 )"
+    if [ -n "$h_bad" ]; then
+      echo "    ⚠ ${h_sha:0:9} carries a generated trailer: $(printf '%s' "$h_bad" | sed 's/^[[:space:]]*//')"
+      h_hits=$((h_hits+1)); drift=1
+    fi
+  done < <(git -C "$REPO_ROOT" log --no-color --format='%H' -n "$ROLE_SCAN_N" "$CB_RULE_REV" 2>/dev/null)
+else
+  echo "    – $CB_RULE_REV does not resolve — no history to scan  (skipped)"
+  h_scanned=-1
+fi
+if [ "$h_scanned" -ge 0 ]; then
+  cb_rule_scope_lines "$h_preepoch"
+fi
+if [ "$h_scanned" -eq 0 ]; then
+  echo "    – $CB_RULE_REV resolved but yielded no in-scope commit  (skipped)"
+elif [ "$h_scanned" -gt 0 ] && [ "$h_hits" -eq 0 ]; then
+  echo "    ✓ none of the $h_scanned in-scope commit message(s) carries a generated trailer"
 fi
 
 echo

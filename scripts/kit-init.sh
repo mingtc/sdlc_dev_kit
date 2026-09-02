@@ -999,8 +999,15 @@ else
   while IFS= read -r ki_line; do
     [ -n "$ki_line" ] || continue
     case "$ki_line" in
-      *"lacks a [Role] prefix"*)
-        ki_sha="$(printf '%s' "$ki_line" | sed -n 's/.*⚠[[:space:]]*\([0-9a-f]\{7,\}\)[[:space:]]*subject lacks.*/\1/p')"
+      *"lacks a [Role] prefix"*|*"carries a generated trailer"*)
+        # BOTH HISTORY ARMS, not just the prefix one. Arm [h] reports commits whose
+        # MESSAGE carries a tool trailer, and it is scoped to the same rule epoch as
+        # arm (e) — but the epoch is the hook FILE's arrival, and a commit made after
+        # that and before THIS RUN wired core.hooksPath carries a trailer legitimately:
+        # nothing was enforcing the rule yet. Same argument as the prefix case, same
+        # tolerance, same boundary. Without this arm a tool-assisted adopter's day one
+        # fails the install on findings this run did not cause and cannot fix.
+        ki_sha="$(printf '%s' "$ki_line" | sed -n 's/.*⚠[[:space:]]*\([0-9a-f]\{7,\}\)[[:space:]].*/\1/p')"
         if [ -n "$ki_sha" ] && [ -n "$KI_BASE_SHA" ] \
            && git -C "$ROOT" merge-base --is-ancestor "$ki_sha" "$KI_BASE_SHA" >/dev/null 2>&1; then
           KI_PREKIT="${KI_PREKIT}${ki_line}
@@ -1017,7 +1024,7 @@ $KI_FINDINGS
 KI_EOF
 
   if [ -z "$KI_REAL" ] && [ -n "$KI_PREKIT" ]; then
-    sc_ok "check-board.sh: the only findings are commits predating this run, which the attribution rule did not yet bind"
+    sc_ok "check-board.sh: the only findings are commits predating this run, which the attribution rules did not yet bind"
   elif [ -z "$KI_REAL" ]; then
     # The verdict is dirty and NOTHING this script can attribute explains it. Say exactly
     # that, rather than borrowing the pre-kit sentence above — a success message that

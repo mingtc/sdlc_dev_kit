@@ -159,6 +159,23 @@ missing line against, and now derives it from this list instead of restating it.
   whole report was correct**: the primary copy gave one correct check and five stale ones, and a
   trunk copy gave five correct and one blind. A fix that only relocates the caller trades one blind
   check for another.
+- **Where the project enforces the no-generated-trailer rule mechanically, the report states what a
+  recent window of trunk history holds, over a named window, scoped to a named epoch.**
+  *Why:* the hook that enforces that rule is a **write-time wall** — it stops the next commit and
+  says nothing whatever about history already written, and `contracts/commit-attribution.md` § 4
+  states the count of unattributed commits in a recent window as **zero**. A rule with no reader is
+  a rule nobody can show is holding.
+  *Conditional on purpose, and the condition is load-bearing:* `commit-attribution.md` says of this
+  rule that *"whether you enforce it here, in a separate hook, or by review is your call; that it is
+  a rule is not."* An unconditional invariant would quietly upgrade an explicitly optional
+  enforcement site into a mandatory check for every reimplementation, which is the opposite of what
+  that sheet decided. A project that enforces by review owes this reading nothing.
+  *And the epoch is part of the invariant, not an implementation detail:* a rule cannot be violated
+  before it existed, so a reading that does not say where it started reports pre-adoption history as
+  drift and becomes a finding nobody can act on — which is how a report stops being read at all.
+  **The span is commit MESSAGES**, and the reading says so: § A.1 of `doctrine/commit-hygiene.md`
+  covers specs, issue activity entries and review notes too, and a clean reading here is not a
+  statement about any of them.
 
 ## 3. REFUSAL CONDITIONS
 
