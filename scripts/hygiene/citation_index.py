@@ -116,6 +116,24 @@ TEXT_SUFFIXES = {
 }
 MAX_BYTES = 4 * 1024 * 1024
 
+# ── THE PREFIX EXCLUSION SET — ONE AUTHORING SITE for every instrument in this directory.
+#    It lived twice, under two names (`DEFAULT_EXCLUDED_PREFIXES` here-in-cold_signal and
+#    `EXCLUDED_PREFIXES` in duplication_scan), with byte-identical values and two separate
+#    "EDIT THESE for your tree" instructions. An adopter told to edit a thing twice edits it
+#    once, and the two instruments then disagree about what the corpus IS while both report
+#    confidently on it.
+#
+#    Every exclusion is a WHOLE TREE with a reason, never a per-file silencer:
+#      progress/  — the board. A closed issue body is written once and never touched again BY
+#                   DESIGN, and closed issues quote each other constantly, so including them
+#                   floods a duplication report with true-but-meaningless pairs.
+#      <code>/    — source and tests. Duplication there is a code question with its own tools.
+#      <build>/   — not authored.
+#
+#    EDIT THIS for your tree: name your source, test and build roots. It is the only place;
+#    the instruments import it and neither redefines it.
+DEFAULT_EXCLUDED_PREFIXES = ("progress/", "src/", "tests/", "test/", "dist/", "build/")
+
 _MD_LINK = re.compile(r"\]\(\s*<?([^)>\s]+)")
 _PATH_TOKEN = re.compile(r"(?:\.{1,2}/)?[\w.\-${}]+(?:/[\w.\-${}]+)+")
 _BARE_NAME = re.compile(

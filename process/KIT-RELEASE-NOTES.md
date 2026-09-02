@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The hygiene instruments' prefix-exclusion set now lives in one place.** `cold_signal.py` and
+  `duplication_scan.py` each defined it, under different names, with byte-identical values and **two
+  separate "EDIT THESE for your tree" instructions** — so tuning the corpus in one left the other
+  reporting on a different one. It is now `DEFAULT_EXCLUDED_PREFIXES` in `citation_index.py`, which
+  every instrument in that directory already imports. **Action required if you tuned either copy:**
+  re-apply your edit once, in `citation_index.py`, and delete nothing else — your other copy is gone.
+
 - **`NOTIFY_ON_SETUP_FAILURE` is declarative — nothing in the kit branches on it — and both places
   that named its legal values now agree.** `.env.example` said `continue|abort` while the warning said
   `stop`, and no code read either. The knob records what your project wants done when

@@ -53,28 +53,25 @@ from pathlib import Path
 # cache and, with it, the redness in any guard that walks scripts/.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, iter_files, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
+from citation_index import (  # noqa: E402
+    REPO_ROOT, DEFAULT_EXCLUDED_PREFIXES, iter_files, print_blind_spots, run_instrument, walk_blind_spots,
+)
 
 DEFAULT_N = 9
 DEFAULT_MIN = 0.18
 DEFAULT_MIN_BYTES = 1536
 
 # ── PARAMETERS — the corpus, declared. Authored prose OUTSIDE the board, the source tree and
-#    the test tree. Every exclusion is a whole tree with a reason, never a per-file silencer:
-#      progress/  — the board. A closed issue body is written once and never touched again BY
-#                   DESIGN, and closed issues quote each other constantly, so including them
-#                   floods the report with true-but-meaningless pairs.
-#      <code>/    — source and tests. Duplication there is a code question with its own tools.
-#      <build>/   — not authored.
-#    EDIT THESE for your tree: name your source, test and build roots.
-EXCLUDED_PREFIXES = ("progress/", "src/", "tests/", "test/", "dist/", "build/")
+#    the test tree. The exclusion set is IMPORTED from citation_index.py, which carries the
+#    per-prefix reasons and is the ONE place to edit it for your tree — it used to be defined
+#    here too, under a second name, with a second "EDIT THESE" instruction beside it.
 # The file types considered "prose". Extend if your corpus is (say) .rst or .txt.
 PROSE_SUFFIXES = (".md",)
 
 _WORD = re.compile(r"[a-z0-9_./-]+")
 
 
-def corpus(root: Path, min_bytes: int, excluded=EXCLUDED_PREFIXES):
+def corpus(root: Path, min_bytes: int, excluded=DEFAULT_EXCLUDED_PREFIXES):
     out = []
     for rel in iter_files(root):
         if not rel.endswith(PROSE_SUFFIXES) or rel.startswith(tuple(excluded)):
@@ -94,7 +91,7 @@ def shingles(root: Path, rel: str, size: int) -> set:
 
 
 def scan(root: Path = REPO_ROOT, size: int = DEFAULT_N, minimum: float = DEFAULT_MIN,
-         min_bytes: int = DEFAULT_MIN_BYTES, excluded=EXCLUDED_PREFIXES):
+         min_bytes: int = DEFAULT_MIN_BYTES, excluded=DEFAULT_EXCLUDED_PREFIXES):
     files = corpus(root, min_bytes, excluded)
     sets = {rel: shingles(root, rel, size) for rel in files}
     postings = defaultdict(list)
@@ -142,7 +139,7 @@ def main(argv=None) -> int:
         return 0
     print(f"duplication scan: {args.n}-gram containment over {len(files)} prose files "
           f">{args.min_bytes} B, reporting pairs at or above {args.min:.0%}")
-    print("excluded trees: " + " ".join(EXCLUDED_PREFIXES))
+    print("excluded trees: " + " ".join(DEFAULT_EXCLUDED_PREFIXES))
     print_blind_spots()
     print("A pair is a SUSPICION, not a verdict — deliberate duplication is common.")
     print(f"{'CONTAIN':>8} {'SHARED':>7} {'IDENT':>6}  PAIR")

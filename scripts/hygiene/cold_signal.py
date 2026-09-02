@@ -63,13 +63,14 @@ from pathlib import Path
 # the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from citation_index import REPO_ROOT, Index, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
+from citation_index import (  # noqa: E402
+    REPO_ROOT, DEFAULT_EXCLUDED_PREFIXES, Index, print_blind_spots, run_instrument, walk_blind_spots,
+)
 
 DEFAULT_DAYS = 14
-# The default prefix exclusion set — stated in the header above, mirroring
-# duplication_scan.py's EXCLUDED_PREFIXES. Replaceable with --exclude, clearable with
-# --no-excludes; never silently applied. EDIT THESE for your tree.
-DEFAULT_EXCLUDED_PREFIXES = ("progress/", "src/", "tests/", "test/", "dist/", "build/")
+# The default prefix exclusion set is IMPORTED, not redefined — it lives once, in
+# citation_index.py, which every instrument here already imports. Replaceable with --exclude,
+# clearable with --no-excludes; never silently applied. EDIT IT THERE, not here.
 
 
 class HistoryUnavailable(RuntimeError):
