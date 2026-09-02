@@ -648,8 +648,26 @@ fi
 # arrived but before kit-init ran, with the hook therefore still unwired — are reported
 # here and tolerated there, and each is right for the question it answers. Reconciled,
 # not assumed: see the matching note at kit-init.sh's board self-check.
-CB_RULE_EPOCH=""; role_preepoch=0
-if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
+#
+# A SHALLOW CLONE RE-HOMES THE EPOCH AND MUST NOT BE TRUSTED. A grafted root has no
+# parents, so every file it contains reads as ADDED there — and the derivation below
+# then resolves the hook file's "arrival" to the graft boundary instead of to the real
+# commit. Measured: `git clone --depth 3` of this repository moves the epoch from the
+# true add-commit to the boundary, and the in-scope set collapses to two commits out of
+# a twenty-commit window. The arms would then print a scope line naming a commit that is
+# an artefact of the clone depth, and a ✓ over almost nothing.
+#
+# SHALLOW IS COMMON, NOT EXOTIC: it is the default CI checkout on most forges, which is
+# exactly where a report is most likely to be read by a machine rather than a person.
+#
+# THE ANSWER IS TO STOP NARROWING, NOT TO SKIP. On a shallow clone the pre-adoption
+# commits are ABSENT anyway, so scanning everything present reports no more than it
+# should — and it errs toward reporting, which is the direction this arm's accepted
+# residual already commits to. What must not happen is a narrowing that LOOKS derived.
+CB_RULE_EPOCH=""; CB_RULE_SHALLOW=""; role_preepoch=0
+if [ "$(git -C "$REPO_ROOT" rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
+  CB_RULE_SHALLOW="yes"
+elif git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
   CB_RULE_EPOCH="$( { git -C "$REPO_ROOT" log --diff-filter=A --format=%H "$CB_RULE_REV" \
                      -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
 fi
@@ -674,6 +692,11 @@ cb_rule_scope_lines() {  # <count excluded>
     echo "      clone that never wired it is not enforcing the rule, yet this arm treats it as binding from"
     echo "      that commit. Erring toward reporting drift, not hiding it. This arm's findings flip the"
     echo "      board-drift verdict that release.sh gate (d) refuses on."
+  elif [ -n "$CB_RULE_SHALLOW" ]; then
+    echo "    scope: ALL of the last $ROLE_SCAN_N — THIS IS A SHALLOW CLONE, so the rule's start cannot be"
+    echo "      derived: a grafted root has no parents and every file in it reads as ADDED there, which would"
+    echo "      resolve the epoch to the clone boundary and narrow this arm to almost nothing. Nothing was"
+    echo "      excluded. Run the report against a full clone if you need the narrowing."
   else
     echo "    scope: ALL of the last $ROLE_SCAN_N — no commit in $CB_RULE_REV adds scripts/githooks/commit-msg,"
     echo "      so the rule's start could not be derived and NOTHING was excluded. Any commit here that"

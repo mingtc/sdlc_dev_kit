@@ -4576,6 +4576,56 @@ case_check_board_reads_the_ref() {
 # THE MARKER IS READ OUT OF THE HOOK, never typed. A hard-coded "claude" here keeps
 # passing after the hook's marker list changes — the drift this plant must be immune to.
 # =============================================================================
+# =============================================================================
+# CASE — A SHALLOW CLONE DOES NOT GET A DERIVED-LOOKING NARROWING.
+#
+# The history arms scope themselves to the commit that ADDED the commit-msg hook. In a
+# shallow clone that commit is not the real one: a grafted root has no parents, so every
+# file in it reads as ADDED there and the epoch resolves to the CLONE BOUNDARY. Measured
+# on this repository at `--depth 3`, the in-scope set collapsed to two commits out of a
+# twenty-commit window — and the arm printed a scope line naming that boundary and a ✓.
+#
+# SHALLOW IS THE DEFAULT CI CHECKOUT on most forges, which is precisely where a report is
+# most likely to be consumed by a machine that will not notice.
+#
+# THE FIX IS TO STOP NARROWING, NOT TO SKIP: on a shallow clone the pre-adoption commits
+# are absent anyway, so scanning what is present over-reports at worst. What must never
+# happen is a narrowing that LOOKS derived. This asserts that.
+# =============================================================================
+case_check_board_shallow_clone_does_not_narrow() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-500" shallow chore "Shallow probe"
+  publish_sandbox
+  # A few commits so a depth-limited clone genuinely truncates something.
+  local k
+  for k in 1 2 3; do sbcommit -q --allow-empty -m "[PM] filler $k" >/dev/null 2>&1; done
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+
+  local sh="$SB_TMP/shallow"
+  git clone -q --depth 2 "file://$SB_ORIGIN" "$sh" >/dev/null 2>&1 \
+    || { skp "a shallow clone does not get a derived-looking narrowing" "git could not make a shallow clone here"; teardown; return; }
+
+  # INSTRUMENT: it must actually BE shallow, or the case is about an ordinary clone.
+  [ "$(git -C "$sh" rev-parse --is-shallow-repository 2>/dev/null)" = "true" ] \
+    || _fixture_die "case_check_board_shallow_clone_does_not_narrow: the clone is not shallow — every assertion below would be about a full history."
+  # …and the epoch derivation must genuinely be WRONG there, or there is nothing to guard.
+  local grafted
+  grafted="$( { git -C "$sh" log --diff-filter=A --format=%H HEAD -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
+  [ -n "$grafted" ] \
+    || _fixture_die "case_check_board_shallow_clone_does_not_narrow: the shallow clone resolves no add-commit at all, so the re-homing this case is about does not occur here."
+
+  local out
+  out="$( cd "$sh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"
+  printf '%s\n' "$out" | grep -q 'THIS IS A SHALLOW CLONE' \
+    || cf "the report does not say the history is shallow — the arms narrowed against a graft boundary and presented it as a derived epoch: $out"
+  printf '%s\n' "$out" | grep -q "scope: commits after ${grafted:0:9}" \
+    && cf "the report narrowed to the GRAFT BOUNDARY and named it as the rule's start — that commit is an artefact of the clone depth, not of the kit's arrival: $out"
+
+  finish "a shallow clone gets no derived-looking narrowing: the arms say the history is shallow, exclude nothing, and never present the graft boundary as the rule's epoch"
+  teardown
+}
+
 case_check_board_trailer_scan_shares_the_epoch() {
   cf_reset
   make_sandbox
@@ -8541,6 +8591,7 @@ CASES=(
   case_check_board_arrow_beats_mention
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
+  case_check_board_shallow_clone_does_not_narrow
   case_check_board_trailer_scan_shares_the_epoch
   case_check_board_dependency_symmetry
   case_kwt_dirty_guard_reports_widely_refuses_narrowly

@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`check-board.sh`'s history arms no longer narrow themselves against a shallow clone — and they
+  say so.** Both arms scope themselves to the commit that added your `commit-msg` hook. In a shallow
+  clone that commit is not the real one: a grafted root has no parents, so every file in it reads as
+  *added* there and the epoch resolves to the **clone boundary**. Measured at `--depth 3`, the arms
+  narrowed to two commits out of a twenty-commit window and printed a clean result. **This is the
+  default CI checkout on most forges**, so it is where the report was least trustworthy and most
+  likely to be read by a machine. On a shallow clone the arms now exclude **nothing** and say the
+  history is shallow. **No action required** — you get more reported, not less. Run against a full
+  clone if you want the narrowing back.
+
 - **"Redact secrets, never contents" now says which identifiers count as secrets — because read
   literally, it argued for keeping them.** An account name, a user, a tenant, a host or the
   authenticating identity's own address is *contents* under the old wording, so a capture could
