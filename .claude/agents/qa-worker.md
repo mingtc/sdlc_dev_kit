@@ -27,7 +27,10 @@ risk surface — set through one of the two mechanisms in
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
 (the Workflow tool's per-call `effort`, or the serial frontmatter toggle on this file), never
 on the spawn call, which carries `model` only. The lowest effort tier is **never used**;
-**never `max` effort**; **never spawn the seat's own model class**.
+**never `max` effort**; **never spawn above the project's sanctioned ceiling**
+(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
+seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a
+ceiling.
 
 Effort buys review *depth*, not review *architecture*: the fresh-eyes rule holds at every
 tier.

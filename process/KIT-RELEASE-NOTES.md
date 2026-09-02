@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **"Never spawn the seat's own model class" is retired in favour of your project's declared
+  ceiling.** That rule capped every worker by an accident — whatever tier the seat happened to be
+  running — so a seat at the top of the ladder capped its workers two tiers below anything you had
+  sanctioned. The riders now point at `doctrine/model-provisioning.md` § B.2's
+  *"Needs sign-off to exceed"* instead. **Action required, one line, and skipping it costs you the
+  guard:** fill in that ceiling. **Until you do, the ceiling is the tier the seat is running** — the
+  old rule, kept as the default so nothing is ungoverned while the blank is empty. Unchanged and
+  restated at every one of those sites: **the seat is human-partnered, not a provisionable worker.**
+  That rule was riding on the retired sentence at more than half of them, and an adopter who
+  performed this retirement themselves lost it — which is why it is now stated separately, in one
+  vocabulary, with a test.
+
 - **The pre-cut sweep now re-runs after every fix round, verifies by running things where it can, and
   counts your `--help` text as a surface.** The sweep already existed — one fresh-context checker per
   consumer-facing surface, owned by the PM, required before a cut. Three changes: it **repeats until

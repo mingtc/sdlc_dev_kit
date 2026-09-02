@@ -29,8 +29,10 @@ never raise your own effort; there is no self-knob.**
 
 - **high** — work on a declared risk surface, or genuinely hard work.
 - **xhigh** — beast-class problems, **only by PM sign-off**.
-- The lowest effort tier is **never used**; **never `max` effort**; **never spawn the seat's
-  own model class** (the seat is human-partnered, not a provisionable worker).
+- The lowest effort tier is **never used**; **never `max` effort**; **never spawn above the project's
+  sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is
+  written, it is the tier the seat is running). The seat is human-partnered, not a provisionable
+  worker, and its class is not a ceiling.
 
 ## You are a leaf worker
 

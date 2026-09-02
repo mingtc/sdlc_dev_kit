@@ -49,8 +49,10 @@ table below is this project's **instance**, and the full ladder lives in
 > change both in the same commit if you change either.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort, anywhere**; **never spawn the seat's own model class** — the seat is the
-human-partnered architect instance, not a provisionable worker. `max_tokens` is harness-managed
+effort, anywhere**; **never spawn above the project's sanctioned ceiling**
+(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the seat
+is running). The seat is the human-partnered architect instance, not a provisionable worker, and
+its class is not a ceiling. `max_tokens` is harness-managed
 in Claude Code and is not a project knob.
 
 **The leaf clause: a worker spawned for the Refactorer hat does not spawn subagents** — it

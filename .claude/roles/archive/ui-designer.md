@@ -62,7 +62,10 @@ the ladder is [orchestrator.md § Model & effort contract](../orchestrator.md#mo
 | **XS / mechanical** sweep (one copy rule applied across screens) | `<fill in — the cheaper model>` | `<fill in>` |
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort**; **never spawn the seat's own model class**. `max_tokens` is harness-managed in Claude
+effort**; **never spawn above the project's sanctioned ceiling**
+(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
+seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a
+ceiling. `max_tokens` is harness-managed in Claude
 Code and is not a project knob. **The leaf clause holds:** a dispatched UI-Designer worker does
 not spawn subagents.
 

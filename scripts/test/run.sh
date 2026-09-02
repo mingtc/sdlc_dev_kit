@@ -6823,6 +6823,54 @@ CORPUS_EOF
 # catching anything. So it reads the SHAPE: the pins agree except for exactly one file,
 # and that file is the one the declaration names.
 # =============================================================================
+# =============================================================================
+# CASE — WHEREVER THE PROVISIONING CEILING IS STATED, THE SEAT RULE IS STATED WITH IT.
+#
+# The riders used to say "never spawn the seat's own model class" — a PROXY for "do not
+# quietly provision a fan-out at the top of the ladder", and a poor one: it caps workers
+# by an accident of what the seat happens to be running, so a seat at the top capped
+# every worker two tiers below anything anyone had sanctioned. It is retired in favour of
+# the project's declared ceiling.
+#
+# BUT THE BAN WAS CARRYING A SECOND RULE ON ITS BACK at more than half its sites — that
+# the seat is human-partnered rather than a provisionable worker — and at seven of the
+# thirteen it was the ONLY thing saying so. Retiring the ban there would have removed the
+# only binding sentence. An adopter who performed this retirement themselves hit exactly
+# that regression, which is why this case exists rather than a note.
+#
+# SCOPED TO roles/ AND agents/, deliberately: a recursive sweep would match THIS FILE the
+# moment the case is written, which is the self-match this harness has been bitten by.
+# =============================================================================
+case_provisioning_ceiling_keeps_the_seat_rule() {
+  cf_reset
+  make_sandbox
+  local cd_="" d
+  for d in "$REAL_REPO_ROOT/_claude" "$REAL_REPO_ROOT/.claude"; do [ -d "$d" ] && cd_="$d"; done
+  if [ -z "$cd_" ]; then skp "the ceiling rule keeps the seat rule beside it" "no _claude/.claude directory"; teardown; return; fi
+
+  local sites f n=0 missing=""
+  sites="$( { grep -rl 'sanctioned ceiling' "$cd_/roles" "$cd_/agents" 2>/dev/null || true; } )"
+  n="$(printf '%s\n' "$sites" | grep -c . || true)"
+  [ "${n:-0}" -ge 5 ] \
+    || _fixture_die "case_provisioning_ceiling_keeps_the_seat_rule: only ${n:-0} site(s) state the ceiling — the sweep lost its subject, which is not the same as a clean tree."
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    # THE SEAT RULE, matched on its declared tokens rather than a whole sentence — the
+    # wording differs legitimately between a role doc and a worker definition.
+    grep -q 'human-partnered' "$f" && grep -q 'provisionable' "$f" \
+      || missing="$missing $(basename "$f")"
+  done <<SITES_EOF
+$sites
+SITES_EOF
+
+  [ -z "$missing" ] \
+    || cf "these state the provisioning ceiling but no longer state that the seat is human-partnered rather than a provisionable worker —$missing. At most of these sites the retired ban was the ONLY sentence carrying that rule, and an adopter performing this retirement lost it exactly this way."
+
+  finish "every site stating the provisioning ceiling ($n of them) also states the seat rule — the second rule the retired ban was carrying on its back"
+  teardown
+}
+
 case_agent_model_pins_match_their_declaration() {
   cf_reset
   make_sandbox
@@ -8206,6 +8254,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_provisioning_ceiling_keeps_the_seat_rule
   case_agent_model_pins_match_their_declaration
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count

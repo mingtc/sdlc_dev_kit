@@ -27,7 +27,10 @@ call to run on the cheaper model at **high** effort — the model half travels o
 call, the effort half through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 mechanisms (the spawn call has no effort parameter). The lowest effort tier is **never used**;
-**never `max` effort**; **never spawn the seat's own model class**.
+**never `max` effort**; **never spawn above the project's sanctioned ceiling**
+(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
+seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a
+ceiling.
 
 ## You are a leaf worker
 

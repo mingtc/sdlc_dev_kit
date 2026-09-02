@@ -61,7 +61,11 @@ conversation with the PM. One person per side; the architect is a **succession o
 
 - The seat is the **only instance of its own model class**, and that class sits **outside the
   worker ladder** ([orchestrator.md § Model & effort contract](orchestrator.md#model--effort-contract)).
-- **Never spawn an agent of the seat's own model class.** This includes indirect leaks: workflow
+- **Never spawn above the project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2 — until that
+  ceiling is written, it is the tier the seat is running; the seat's own class is not a ceiling —
+  the seat is **human-partnered**, not a **provisionable** worker, which is why its class was never
+  the right cap).
+  This includes indirect leaks: workflow
   `agent()` calls **inherit the caller's model when `model` is unset** — therefore **every
   spawned agent and every workflow stage gets an explicit model, always.**
 - **Subagent ceiling:** the ladder's top model, effort up to the ladder's top *sanctioned* tier

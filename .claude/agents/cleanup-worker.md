@@ -28,8 +28,9 @@ sanctioned alternative** at the mechanical end and is the caller's choice to mak
 that the model half travels on the spawn call while the effort half needs
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
 mechanisms (a bare model override against this file's pin yields that model at *medium*, not
-at high). The lowest effort tier is **never used**; **never `max` effort**; **never spawn the
-seat's own model class**.
+at high). The lowest effort tier is **never used**; **never `max` effort**; **never spawn above the project's
+sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the seat is
+running). The seat is human-partnered, not a provisionable worker, and its class is not a ceiling.
 
 ## You are a leaf worker
 

@@ -110,6 +110,15 @@ with a guard — how to re-check it — or it does not ship.*
 
 - **Never used at all:** `<the tier/effort combination your project has decided is waste>`.
 - **Needs sign-off to exceed:** `<the ceiling>`, and **whose** sign-off.
+  **THIS IS THE SANCTION GATE, and it replaces a ban the kit used to state instead.** Riders across
+  the role and worker docs said *never spawn the seat's own model class* — a **proxy** for "do not
+  quietly provision a fan-out at the top of the ladder", and a poor one: it caps workers by an
+  accident of what the seat happens to be running rather than by what the project has sanctioned, and
+  on a seat at the top it caps every worker two tiers below anything anyone approved.
+  **WHAT BINDS IF THIS BLANK IS UNFILLED, said here because the retirement is kit-wide and this
+  replacement ships empty:** until a project writes a ceiling, **the ceiling is the tier the seat is
+  running**, and the old ban is the default. A project that fills this in is choosing something
+  better; a project that has not is not left ungoverned.
 - **The leaf clause (§ A.3, binding, not optional):** *a worker spawned for a role does not spawn
   subagents.* Coordinator-level fan-out is the seat's and the runner's job.
 - **The seat is outside the ladder** — the human-partnered instance is not a provisionable worker,
