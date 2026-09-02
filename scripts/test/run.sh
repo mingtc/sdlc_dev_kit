@@ -6658,14 +6658,22 @@ rel_plant_midrun_kill() {
 }
 
 # Seed the version-bearing files + both release documents. <doc1_target|none> [doc2_target|none]
+# THE PRE-RELEASE VERSION, published by the seeder and read by the assertion, so both
+# operands come from the same authority at the same moment. It was a literal in both,
+# which is a retyped copy of a value one of them owns.
+SB_REL_PRE_VERSION="1.0.0"
+
 seed_release_files() {
   local target="$1" notes_target="${2:-$1}"
-  printf '1.0.0\n' > "$SB_WORK/VERSION"
+  printf '%s\n' "$SB_REL_PRE_VERSION" > "$SB_WORK/VERSION"
   cat > "$SB_WORK/pkg.conf" <<'EOF'
 [package]
 name = "sandbox"
-version = "1.0.0"
+version = "PRE"
 EOF
+  perl -i -pe 'BEGIN{$v=shift} s/^version = "PRE"$/version = "$v"/' "$SB_REL_PRE_VERSION" "$SB_WORK/pkg.conf"
+  grep -qF "version = \"$SB_REL_PRE_VERSION\"" "$SB_WORK/pkg.conf" \
+    || _fixture_die "seed_release_files: pkg.conf does not carry the pre-release version — every 'was not mutated' assertion downstream would be about the wrong string."
   rel_insert VERSION_FILES '"VERSION||"'
   rel_insert VERSION_FILES '"pkg.conf|version = |\""'
   rel_insert RELEASE_DOCS  '"CHANGELOG.md|the internal engineering log"'
@@ -6746,12 +6754,23 @@ write_board_stub() {  # <path> clean|drift
 
 # Assert release.sh mutated NOTHING — version files still 1.0.0 locally AND on the
 # remote, and no tag anywhere. The "abort BEFORE mutating anything" contract.
-assert_release_unmutated() {
-  grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "VERSION was mutated despite an aborted preflight"
-  grep -q 'version = "1.0.0"' "$SB_WORK/pkg.conf" || cf "pkg.conf was mutated despite an aborted preflight"
-  git -C "$SB_WORK" rev-parse -q --verify refs/tags/v1.1.0 >/dev/null 2>&1 \
-    && cf "tag v1.1.0 was created despite an aborted preflight"
-  origin_file_contains "VERSION" '1.0.0' || cf "a version bump reached the remote despite an aborted preflight"
+# assert_release_unmutated <cut-version>
+#
+# THE CUT VERSION IS AN ARGUMENT, and it used to be the literal `v1.1.0` in the tag arm.
+# That coupled fourteen call sites to one string: a leg cutting any other version got a
+# tag check that looked for a tag nobody would create, and passed. The tag arm was the
+# only one of the four that could be silently satisfied that way, and it is the arm
+# guarding the most expensive mutation.
+#
+# The PRE-state comes from the seeder rather than from a second literal here, so the two
+# operands are the same value read from one authority.
+assert_release_unmutated() {  # <cut-version>
+  local cut="${1:?assert_release_unmutated: the cut version is required — without it the tag arm looks for a tag nobody would have created and passes}"
+  grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "VERSION was mutated despite an aborted preflight"
+  grep -qF "version = \"$SB_REL_PRE_VERSION\"" "$SB_WORK/pkg.conf" || cf "pkg.conf was mutated despite an aborted preflight"
+  git -C "$SB_WORK" rev-parse -q --verify "refs/tags/v$cut" >/dev/null 2>&1 \
+    && cf "tag v$cut was created despite an aborted preflight"
+  origin_file_contains "VERSION" "$SB_REL_PRE_VERSION" || cf "a version bump reached the remote despite an aborted preflight"
 }
 run_release() {  # <version> [extra args…]
   ( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
@@ -7648,7 +7667,7 @@ case_release_gate_c_skip_shape() {
     || cf "(inline) an inline-shell gate record RAN — gate (c) is eval-ing its records, so the worked example may no longer need to teach the script shape, and this case's premise is gone"
   printf '%s\n' "$out" | grep -q 'inline canary' \
     || cf "(inline) the refusal does not name the gate that failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   teardown
 
   finish "release.sh gate (c): a wrapper-script gate self-skips LOUDLY without aborting the cut (needle proven discriminating), and an inline-shell record does NOT run — which is why the worked example teaches a script"
@@ -7673,7 +7692,7 @@ case_release_notes_section_is_more_than_a_heading() {
     || cf "(e) the refusal does not say the section is empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   printf '%s\n' "$out" | grep -q 'NOTES.md' \
     || cf "(e) the refusal does not name WHICH document is empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
 
   # INSTRUMENT / ABLATION: the same cut with real content must SUCCEED, or the refusal
   # above is satisfiable by a release.sh broken for any unrelated reason.
@@ -7696,7 +7715,7 @@ case_release_notes_section_is_more_than_a_heading() {
     || cf "(f) the refusal does not say the date is missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   printf '%s\n' "$out" | grep -q 'nothing in the kit writes that date for you' \
     || cf "(f) the refusal does not tell the cutter that no tool will write it — without that they look for the tool that failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
 
   # INSTRUMENT: add the date and the SAME cut must succeed.
   printf '# Release notes\n\n## [1.1.0] — 2026-07-25\nreal content, measured 2026-07-24\n\n## [1.0.0] — 2026-07-23\nseed\n' > "$SB_WORK/NOTES.md"
@@ -7741,7 +7760,7 @@ case_release_behind_the_remote() {
     || cf "(i) the refusal does not name the direction: $out"
   printf '%s\n' "$out" | grep -q -- 'git pull --ff-only' \
     || cf "(i) the refusal does not name the way past: $out"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
 
   # --- (ii) ABLATION: catch up and the SAME cut succeeds, naming the FULL tree -
   git -C "$SB_WORK" fetch -q origin "$SB_TRUNK" >/dev/null 2>&1
@@ -7764,14 +7783,14 @@ case_release_behind_the_remote() {
     || cf "(iii) the refusal does not name the declared-offline escape: $out"
   printf '%s\n' "$out" | grep -q 'NOT ABOUT YOUR TREE' \
     || cf "(iii) the refusal does not attribute itself to the remote rather than the tree: $out"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
 
   # --- (iv) --no-fetch DECLARES the skip: gates green, and it SAYS SO ----------
   out="$(run_release 1.1.0 --no-fetch --dry-run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(iv) --no-fetch did not survive an unreachable remote (rc=$rc): $out"
   printf '%s\n' "$out" | grep -q 'NOT CONSULTED' \
     || cf "(iv) --no-fetch is SILENT — an undeclared skip is indistinguishable from a gate that ran: $out"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   teardown
 
   # --- (v) THE LEGITIMATE OFFLINE CUT: a LOCAL BARE origin, NO flag ------------
@@ -7820,7 +7839,7 @@ case_release_guards() {
   make_sandbox; seed_release_files 1.1.0; publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(malformed) expected nonzero for '1.1', got 0"
-  grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(malformed) a version file was mutated"
+  assert_release_unmutated 1.1.0   # (malformed) — all four arms, not just VERSION
   teardown
 
   # (b) the tag already exists
@@ -7828,7 +7847,12 @@ case_release_guards() {
   git -C "$SB_WORK" tag -a v1.1.0 -m "pre-existing" >/dev/null 2>&1
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(tag-exists) expected nonzero when v1.1.0 already exists, got 0"
-  grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(tag-exists) a version file was mutated"
+  # (tag-exists) THIS LEG PRE-CREATES v1.1.0 ITSELF, so the tag arm cannot distinguish
+  # its own fixture from a tag release.sh created. The other three arms still apply and
+  # are what this leg takes; the tag arm is the one deliberately not taken here.
+  grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(tag-exists) VERSION was mutated"
+  grep -qF "version = \"$SB_REL_PRE_VERSION\"" "$SB_WORK/pkg.conf" || cf "(tag-exists) pkg.conf was mutated"
+  origin_file_contains "VERSION" "$SB_REL_PRE_VERSION" || cf "(tag-exists) a bump reached the remote"
   teardown
 
   # (c) off-trunk
@@ -7836,7 +7860,7 @@ case_release_guards() {
   git -C "$SB_WORK" checkout -b feature/off-trunk "$SB_TRUNK" --quiet >/dev/null 2>&1
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(off-trunk) expected nonzero on a feature branch, got 0"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   teardown
 
   # (d) dirty working tree
@@ -7844,7 +7868,7 @@ case_release_guards() {
   echo "dirty" > "$SB_WORK/DIRTY.txt"
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(dirty) expected nonzero on a dirty tree, got 0"
-  grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(dirty) a version file was mutated"
+  assert_release_unmutated 1.1.0   # (dirty) — all four arms, not just VERSION
   teardown
 
   # (e) NO version files declared and VERSION_IN_TAG_ONLY unset → refuse. Tagging
@@ -7872,7 +7896,7 @@ case_release_preflight_gates() {
   out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=false RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(verify-red) expected nonzero, got 0"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   teardown
 
   # (c) a DECLARED extra preflight gate, red
@@ -7886,7 +7910,7 @@ case_release_preflight_gates() {
   [ "$rc" -ne 0 ] || cf "(extra-gate-red) a red declared gate did not abort the cut"
   printf '%s' "$out" | grep -q 'declared extra gate' \
     || cf "(extra-gate-red) the refusal does not name the gate that failed: $out"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   teardown
 
   # (d) board drift
@@ -7894,7 +7918,7 @@ case_release_preflight_gates() {
   out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-drift.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(board-drift) expected nonzero, got 0"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   teardown
 
   finish "release.sh preflight gates: verify red / a declared extra gate red / board drift each abort nonzero before mutation"
@@ -7921,7 +7945,7 @@ case_release_doc_arms() {
     || cf "(doc1-missing) the refusal does not name CHANGELOG.md: $first_line"
   printf '%s' "$first_line" | grep -q 'NOTES\.md' \
     && cf "(doc1-missing) the refusal names the OTHER document — the arms are conflated: $first_line"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   # BOTH missing → exactly ONE refusal, from the first-declared arm (fail-fast).
   seed_release_doc "$SB_WORK/NOTES.md" "Release notes" none
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] drop the second doc section" >/dev/null 2>&1
@@ -7940,7 +7964,7 @@ case_release_doc_arms() {
   printf '%s' "$second_line" | grep -q '1\.1\.0' || cf "(doc2-missing) the refusal does not name the version wanted: $second_line"
   [ "$first_line" != "$second_line" ] \
     || cf "(distinctness) both arms emit the SAME refusal: $second_line"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   seed_release_doc "$SB_WORK/NOTES.md" "Release notes" 1.1.0
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] add the consumer-facing section" >/dev/null 2>&1
   # PUSHED, and not as tidiness: gate (a) requires HEAD to BE the published trunk's
@@ -7964,7 +7988,7 @@ case_release_doc_arms() {
   printf '%s' "$out" | grep -q '2026-09-30' || cf "(header-date) the refusal does not name the newest body date: $out"
   printf '%s' "$out" | grep -q 'NOTES\.md' || cf "(header-date) the refusal does not name the file: $out"
   printf '%s' "$out" | grep -qi "CUTTER" || cf "(header-date) the refusal does not state whose date it is: $out"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
   # …and correcting the HEADER (never the measurement) unblocks it.
   perl -i -pe 's/^## \[1\.1\.0\] — 2026-07-24$/## [1.1.0] — 2026-09-30/' "$SB_WORK/NOTES.md"
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] date the section at the cut" >/dev/null 2>&1
@@ -8032,7 +8056,7 @@ case_release_publish() {
   [ -z "$(git -C "$SB_ORIGIN" rev-parse -q --verify refs/heads/dist 2>/dev/null)" ] \
     || cf "a DRY RUN created the dist branch on the remote"
   printf '%s' "$out" | grep -q 'publish: building' && cf "a DRY RUN ran the build step: $out"
-  assert_release_unmutated
+  assert_release_unmutated 1.1.0
 
   # …then a real run publishes everything ("nothing, then everything", so the dry-run
   # assertion cannot pass by the publish being broken outright).
@@ -8243,7 +8267,11 @@ case_release_local_only_recovery() {
   if [ -n "$undo" ]; then
     ( cd "$SB_WORK" && sh -c "$undo" ) >/dev/null 2>&1 \
       || cf "(undo) the printed undo command failed: $undo"
-    grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(undo) the bump survived the printed undo"
+    # (undo) ONE ARM ON PURPOSE: this leg has already cut a real release, so the tag and
+    # the remote SHOULD carry v1.1.0 — the other three arms would be asserting the
+    # opposite of what this leg established. What is under test is only that the printed
+    # undo restored the version file.
+    grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(undo) the bump survived the printed undo"
     git -C "$SB_WORK" rev-parse -q --verify refs/tags/v1.1.0 >/dev/null 2>&1 \
       && cf "(undo) the tag survived the printed undo"
     [ -z "$(git -C "$SB_WORK" status --porcelain)" ] \
@@ -8299,7 +8327,8 @@ case_release_stub_marker() {
 
   # Refused means refused: no tag, no version bump, HEAD unmoved, tree clean.
   [ -z "$(git -C "$SB_WORK" tag -l v1.1.0)" ] || cf "(i) a tag was created during a refusal"
-  grep -qx '1.0.0' "$SB_WORK/VERSION" || cf "(i) VERSION was bumped during a refusal: $(cat "$SB_WORK/VERSION")"
+  assert_release_unmutated 1.1.0   # (i) — all four arms, not just VERSION
+  grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(i) VERSION reads $(cat "$SB_WORK/VERSION")"
   [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "(i) HEAD moved during a refusal"
   [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "(i) the tree was modified during a refusal"
 
@@ -8629,6 +8658,146 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # match strings are held in separate variables on separate lines and comment lines are
 # skipped — otherwise the derivation reddens on its own source and on the comment above.
 # =============================================================================
+# =============================================================================
+# CASE — assert_release_unmutated NAMES THE CUT IT IS GUARDING.
+#
+# The helper's tag arm used to look for the literal `refs/tags/v1.1.0`. Fourteen legs
+# call it, and while all fourteen happen to cut 1.1.0 today, the coupling is invisible:
+# a leg cutting any other version got a tag check looking for a tag nobody would create,
+# which passes. Of the helper's four arms the tag arm guards the most expensive mutation
+# and was the only one that could be satisfied by looking in the wrong place.
+#
+# THE MUTATION IS A TAG AND NOTHING ELSE. No bump, no push. Every other arm stays clean,
+# so a green here can only come from the arm under test.
+# =============================================================================
+case_release_unmutated_names_the_cut() {
+  cf_reset
+  if ! has_release; then skp "assert_release_unmutated names the cut it guards" "scripts/release.sh absent"; return; fi
+  make_sandbox
+  seed_release_files 1.1.0
+  publish_sandbox
+
+  # Run an assertion helper with this case's own findings set aside, and echo what IT
+  # reported. cf appends to a global, so without this the helper's findings would be
+  # indistinguishable from the case's.
+  _cf_probe() { local saved="$_cf"; _cf=""; "$@"; local got="$_cf"; _cf="$saved"; printf '%s' "$got"; }
+
+  # ── INSTRUMENT CHECK: on an untouched sandbox the helper reports NOTHING. Without
+  #    this, "it fired" below is satisfied by a helper that fires on everything.
+  local quiet; quiet="$(_cf_probe assert_release_unmutated 2.0.0)"
+  [ -z "$quiet" ] \
+    || cf "(instrument) assert_release_unmutated already reports on an UNTOUCHED sandbox, so every 'it fired' below would be free: $quiet"
+
+  # THE MUTATION: a tag at the cut version, and only that.
+  git -C "$SB_WORK" tag -a v2.0.0 -m 'planted' >/dev/null 2>&1
+  git -C "$SB_WORK" rev-parse -q --verify refs/tags/v2.0.0 >/dev/null \
+    || _fixture_die "case_release_unmutated_names_the_cut: the planted tag was not created — this sandbox has no committer identity, and the assertion below would pass by there being nothing to find."
+
+  local got; got="$(_cf_probe assert_release_unmutated 2.0.0)"
+  printf '%s' "$got" | grep -qF 'v2.0.0' \
+    || cf "a tag at the cut version sits in the sandbox and assert_release_unmutated 2.0.0 did not name it — the tag arm is looking somewhere other than the cut it was handed: '$got'"
+
+  # …and it does NOT fire for a cut it was not handed. Otherwise the arm above could be
+  # satisfied by a helper that reports every tag it finds.
+  local other; other="$(_cf_probe assert_release_unmutated 3.0.0)"
+  printf '%s' "$other" | grep -qF 'v2.0.0' \
+    && cf "assert_release_unmutated 3.0.0 reported the v2.0.0 tag — the arm is not scoped to the cut it was handed"
+
+  # THE OTHER THREE ARMS still see their own subjects: mutate pkg.conf alone.
+  perl -i -pe 's/^version = .*/version = "9.9.9"/' "$SB_WORK/pkg.conf"
+  local pk; pk="$(_cf_probe assert_release_unmutated 3.0.0)"
+  printf '%s' "$pk" | grep -qF 'pkg.conf' \
+    || cf "pkg.conf was mutated and the helper did not name it: '$pk'"
+
+  unset -f _cf_probe
+  finish "assert_release_unmutated checks the tag at the cut version it is HANDED — naming it when present, staying silent for a cut it was not handed — and its other arms still name their own subjects; the pre-release version comes from the seeder rather than a second literal"
+  teardown
+}
+
+# =============================================================================
+# CASE — EVERY LANDING PROLOGUE IS THE WHOLE FOUR-STEP.
+#
+# THIS CASE EXISTS BECAUSE OF A PARTIAL DECLINE. It was proposed that the landing
+# prologues be collapsed into one `fpr_sandbox` helper. Declined, measured: most of them
+# use a CARD slug that differs from the BRANCH slug, and that divergence is what
+# exercises finish-pr.sh reading the card's `branch:` field instead of inferring it from
+# the filename. A helper that erases it loses coverage; one that keeps it needs five
+# positional arguments and hides the very difference a reader should see.
+#
+# What the collapse WOULD have bought is that an incomplete prologue becomes impossible.
+# This buys that mechanically instead: the copies stay, and a copy that dropped a step is
+# named by line number rather than found by diffing cases against each other.
+# =============================================================================
+case_landing_prologue_is_complete() {
+  cf_reset
+  make_sandbox
+  local self="${BASH_SOURCE[0]}" probe="$SB_TMP/prologueprobe.sh"
+
+  # EXCISE THIS CASE'S OWN BODY FROM THE PROBE. It scans the file it lives in, and its
+  # own derivation names every token it searches for — so without this it reports itself,
+  # by line number, forever. Building the patterns from variables does not help: they
+  # would still sit inside the window the census looks at.
+  awk -v fn="case_landing_prologue_is_complete" '
+    $0 ~ "^" fn "\\(\\) \\{" { skip=1 }
+    skip && /^\}$/           { skip=0; next }
+    !skip
+  ' "$self" > "$probe"
+  # Anchored at the DEFINITION: the name also appears in the CASES registry, which the
+  # excision does not (and must not) remove.
+  grep -q '^case_landing_prologue_is_complete() {' "$probe" \
+    && _fixture_die "case_landing_prologue_is_complete: the excision did not remove this case's own body from the probe — every finding below would be about this case's own derivation."
+
+  # A LANDING PROLOGUE is a dev_complete card seeded right after make_sandbox in a case
+  # that then invokes finish-pr.sh. That last clause is the operand definition and it
+  # matters: `seed_issue dev_complete` also appears as ordinary BOARD CONTENT in cases
+  # about other subjects, and counting those would report findings against fixtures that
+  # have no reason to publish or branch at all.
+  local rows n
+  rows="$(awk '
+    { L[NR]=$0 }
+    END {
+      for (i=1;i<=NR;i++) {
+        if (L[i] !~ /seed_issue dev_complete/) continue
+        ms=0; for (j=i-1;j>=i-8 && j>=1;j--) if (L[j] ~ /make_sandbox/) { ms=j; break }
+        if (!ms) continue
+        fpr=0; for (j=i+1;j<=i+30 && j<=NR;j++) if (L[j] ~ /finish-pr\.sh/) { fpr=1; break }
+        if (!fpr) continue
+        pub=0; br=0
+        for (j=i+1;j<=i+12 && j<=NR;j++) {
+          if (L[j] ~ /publish_sandbox/) pub=1
+          # seed_branch OR a hand-rolled branch: one case creates an EMPTY branch off the
+          # trunk on purpose, which the helper cannot express. The step is "the branch
+          # exists", not "the helper was called".
+          if (L[j] ~ /seed_branch |git -C "\$SB_WORK" branch /) br=1
+        }
+        miss=""
+        if (!pub) miss=miss " publish_sandbox"
+        if (!br)  miss=miss " a branch"
+        if (miss != "") print i "|" miss
+        seen++
+      }
+      print "COUNT|" seen+0
+    }
+  ' "$probe")"
+  n="$(printf '%s\n' "$rows" | sed -n 's/^COUNT|//p')"
+
+  # ── INSTRUMENT CHECK: the derivation must still find prologues. A pattern that stopped
+  #    matching reports "none incomplete" forever.
+  [ "${n:-0}" -ge 8 ] \
+    || _fixture_die "case_landing_prologue_is_complete: the derivation found only ${n:-0} landing prologue(s) — the shape changed, and 'none incomplete' would then be true of nothing."
+
+  local row
+  while IFS= read -r row; do
+    case "$row" in COUNT\|*|'') continue ;; esac
+    cf "the landing prologue at line ${row%%|*} is missing:${row#*|} — a card seeded dev_complete that is never published, or has no branch, is a fixture finish-pr.sh cannot act on, and the case above it would pass for the wrong reason"
+  done <<EOF
+$rows
+EOF
+
+  finish "all $n landing prologues in this file are the complete four-step (make_sandbox, seed_issue dev_complete, seed_branch, publish_sandbox) — the copies were kept on purpose, because most carry a card-slug/branch-slug divergence a collapse would erase, so this is what makes an incomplete copy visible"
+  teardown
+}
+
 case_fixture_append_has_one_authoring_site() {
   cf_reset
   make_sandbox
@@ -9151,6 +9320,8 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_release_unmutated_names_the_cut
+  case_landing_prologue_is_complete
   case_fixture_append_has_one_authoring_site
   case_scaffolding_fixture_matches_the_tree
   case_kit_init_copy_list_minimum_is_real
