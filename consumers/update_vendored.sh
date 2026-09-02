@@ -238,6 +238,11 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 # behind. `${BASH_SOURCE[0]:-$0}` because this file is a TEMPLATE that consumers
 # copy into their own repository and invoke in ways this kit does not control;
 # the bare form resolves to nothing in any shell that is not bash.
+# THIS COPY OF THE HEADER-BLOCK RENDERER IS DELIBERATE AND CANNOT BE REMOVED. The one
+# definition is scripts/lib/usage.sh, and every shipped script that can source it does.
+# This file cannot: it is a TEMPLATE that is copied OUT into a consumer repository,
+# where scripts/lib/ does not exist. Recorded so the next duplication sweep finds a
+# decision rather than a fourth copy to remove.
 usage() {
     local src="${BASH_SOURCE[0]:-$0}" first end
     first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"

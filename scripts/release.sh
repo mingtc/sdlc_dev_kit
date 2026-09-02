@@ -171,6 +171,13 @@ DIST_BRANCH="${RELEASE_DIST_BRANCH:-dist}"
 # END CONFIG BLOCK — the frame follows. Take it as-is.
 # ═════════════════════════════════════════════════════════════════════════════
 
+# THIS SCRIPT DOES NOT USE scripts/lib/usage.sh, ON PURPOSE — two reasons, both ruled.
+# (1) A DIFFERENT WINDOW RULE: that library prints the header to its last COMMENT line;
+#     this prints to the last USAGE EXAMPLE, because the header below carries operator
+#     notes that are not help text. Measured: on the library's rule this --help goes
+#     from 11 lines to 63, including a TEST SEAMS block. (2) This script sources
+#     NOTHING from scripts/lib/ by design. A sweep that unifies "all the header
+#     renderers" must skip this one; that is what this paragraph is for.
 # --help renders the header's SYNOPSIS: the description plus every usage example.
 # The window is DERIVED, not a literal: a hard-coded `2,9p` once showed none of the
 # examples because they sat below it — and hard-coding a bigger number is the same

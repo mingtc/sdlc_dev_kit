@@ -35,6 +35,25 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Resolved ABSOLUTELY, before the cd: --help renders this file, and a relative
 # `${BASH_SOURCE[0]}` stops resolving the moment the working directory moves.
 VERIFY_SRC="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
+
+# GUARDED, UNLIKE ITS SIBLINGS, AND THE REASON IS ONE MISSING LETTER: this script runs
+# `set -uo pipefail` and NOT `set -e`. An unguarded `.` of a missing library prints an
+# error and CARRIES ON, so `--help` would then die at `kit_usage: command not found`
+# with rc=127 — a usage request failing, which contracts/issue-creation.md § 3 forbids
+# by name. The fallback keeps that promise with no library at all.
+# shellcheck source=lib/usage.sh
+if [ ! -f "$SCRIPT_DIR/lib/usage.sh" ] || ! . "$SCRIPT_DIR/lib/usage.sh" \
+   || ! command -v kit_usage >/dev/null 2>&1; then
+  # THE FALLBACK DOES NOT RE-IMPLEMENT THE RENDERER, and that is deliberate: a copy of
+  # the awk-and-sed window here would be a second authoring site for the rule, which is
+  # the whole defect being closed. It only has to keep the promise that a usage request
+  # SUCCEEDS. So it prints a minimal synopsis and says loudly why the help is degraded.
+  kit_usage() {
+    echo "usage: verify.sh [--quick] [--scope <items…>] [--list] [--help]"
+    echo "(scripts/lib/usage.sh could not be loaded, so the full header could not be"
+    echo " rendered. Restore it:  git checkout -- scripts/lib/usage.sh)" >&2
+  }
+fi
 cd "$REPO_ROOT"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -204,15 +223,7 @@ for arg in "$@"; do
     --quick) QUICK=1; in_scope=0 ;;
     --list)  LIST=1;  in_scope=0 ;;
     -h|--help)
-      # THE FLOOR, matching the six other header renderers. It changes nothing today —
-      # measured, --help output is byte-identical before and after — and it is added so
-      # that this body has no remaining difference from theirs, which is what lets the
-      # shared renderer be a LIFT of one text rather than a reconciliation of two.
-      # What it guards: an all-comment file leaves `first` empty, yielding
-      # `sed -n "3,-1p"`, which errors.
-      first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$VERIFY_SRC")"
-      end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-      sed -n "3,${end}p" "$VERIFY_SRC" | sed 's|^# \{0,1\}||'
+      kit_usage "$VERIFY_SRC"
       exit 0 ;;
     -*) echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2 ;;
     *)

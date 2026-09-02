@@ -57,12 +57,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # once its PARENT lands — never by a direct move here.
 STATUSES=(todo in_progress dev_complete qa_complete blocked)
 
-usage() {
-  local src="${BASH_SOURCE[0]}" first end
-  first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
-  end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-  sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
-}
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
 # every POSITIONAL, not just the first — `subtask.sh new --help s1 slug` would

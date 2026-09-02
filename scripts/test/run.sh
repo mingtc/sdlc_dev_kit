@@ -6624,6 +6624,85 @@ case_release_honours_the_one_remote_name() {
 # survives the renderer being lifted into a library: a script is a header renderer iff
 # its --help succeeds and its first output line is its own line 3, de-hashed.
 # =============================================================================
+# =============================================================================
+# CASE — THE HEADER-BLOCK --help RENDERER HAS ONE AUTHORING SITE.
+#
+# "It sources lib/usage.sh" is a LABEL, satisfied by a script that sources the file and
+# then goes on using its own inline copy. Nothing below asserts it. What cannot be faked:
+# make the LIBRARY emit an extra line and every consumer must show it.
+#
+# ARM 2 IS THE ONE THAT CATCHES THE TRAP, and arm 1 cannot see it. Inside a SOURCED
+# function `${BASH_SOURCE[0]}` names THE LIBRARY — so a naive lift makes every caller's
+# --help print lib/usage.sh's own header. The sentinel is IN the library, so arm 1 stays
+# green while every tool prints the wrong document. Arm 2 asserts each consumer still
+# renders ITS OWN header, which is the only thing that distinguishes the two.
+# =============================================================================
+case_usage_renderer_has_one_authoring_site() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+
+  local lib="$SB_WORK/scripts/lib/usage.sh" tok='USAGERENDER-ONE-HOST-SENTINEL'
+  [ -f "$lib" ] \
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: no scripts/lib/usage.sh in the sandbox — there is no shared host to mutate."
+  [ -z "$( { find "$SB_WORK/scripts" -type f ! -path '*/test/*' -exec grep -lF "$tok" {} + 2>/dev/null || true; } )" ] \
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: the sentinel already occurs under scripts/ — the plant would prove nothing."
+
+  # THE CONSUMER SET IS DERIVED, never listed — a literal list in a guard goes blind the
+  # first time a script joins or leaves.
+  local consumers f base out n=0
+  # Matched WITHOUT a line anchor on purpose: verify.sh sources the library inside a
+  # guard (it runs `set -uo pipefail` and not `set -e`, so an unguarded load would fail
+  # silently and take --help down with rc=127). An anchored pattern would leave the one
+  # consumer with the most fragile load out of the very case that checks the load.
+  consumers="$( { grep -lF '. "$SCRIPT_DIR/lib/usage.sh"' "$SB_WORK"/scripts/*.sh 2>/dev/null || true; } )"
+  [ -n "$consumers" ] \
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: no script sources lib/usage.sh — the per-consumer loop below would run zero times and report PASS."
+
+  # PRE-PLANT: every consumer's --help must already work, or the post-plant grep fails
+  # for a reason that has nothing to do with the library.
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    base="$(basename "$f")"
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )" \
+      || _fixture_die "case_usage_renderer_has_one_authoring_site: $base --help already fails BEFORE the plant."
+    [ -n "$out" ] \
+      || _fixture_die "case_usage_renderer_has_one_authoring_site: $base --help prints nothing before the plant."
+  done <<PRE_EOF
+$consumers
+PRE_EOF
+
+  # THE PLANT — one extra emitted line, in the LIBRARY only.
+  grep -qxF 'kit_usage() {' "$lib" \
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: no 'kit_usage() {' line in the sandbox's lib/usage.sh — the anchor moved and the plant did NOT happen."
+  TOK="$tok" perl -i -pe '$_ .= "  echo \x27$ENV{TOK}\x27\n" if /^kit_usage\(\) \{$/' "$lib"
+  grep -qF "$tok" "$lib" || _fixture_die "case_usage_renderer_has_one_authoring_site: the plant did not take."
+  bash -n "$lib" || _fixture_die "case_usage_renderer_has_one_authoring_site: the mutated library no longer parses — every consumer would fail to LOAD it and this case would measure a load error."
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    base="$(basename "$f")"; n=$((n+1))
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
+    # ARM 1 — the plant reaches this consumer.
+    printf '%s\n' "$out" | grep -qF "$tok" \
+      || cf "(1) $base --help does not carry a line added to lib/usage.sh — it sources the library and then renders with its own inline copy"
+    # ARM 2 — …and it still renders ITS OWN header, not the library's.
+    printf '%s\n' "$out" | grep -qF "$(sed -n '3p' "$f" | sed 's|^# \{0,1\}||')" \
+      || cf "(2) $base --help no longer contains its OWN line 3 — the renderer is reading \${BASH_SOURCE[0]}, which inside a sourced function names the LIBRARY, so every tool is printing lib/usage.sh's header"
+  done <<POST_EOF
+$consumers
+POST_EOF
+
+  # ARM 3 — no second authoring site survives under scripts/.
+  local second
+  second="$( { grep -rlF "awk 'NR>2 && !/^#/{print NR; exit}'" "$SB_WORK/scripts" 2>/dev/null || true; } | grep -v '/lib/usage\.sh$' | grep -v '/test/' || true )"
+  [ -z "$second" ] \
+    || cf "(3) the header-block renderer is still authored in: $(printf '%s' "$second" | tr '\n' ' ') — one rule, more than one place to change it"
+
+  finish "the header-block --help renderer has ONE authoring site: a line added to scripts/lib/usage.sh reaches all $n consumer(s), each still renders its OWN header rather than the library's, and no second implementation survives under scripts/"
+  teardown
+}
+
 case_help_window_ends_where_its_rule_says() {
   cf_reset
   make_sandbox
@@ -7883,6 +7962,7 @@ CASES=(
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy
+  case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
   case_cli_shape_across_the_shipped_set
   case_release_behind_the_remote

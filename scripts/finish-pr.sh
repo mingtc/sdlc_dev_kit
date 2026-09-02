@@ -103,12 +103,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # --help renders the header block, with the window END DERIVED rather than
 # hard-coded: a literal `sed -n '3,50p'` silently truncated the Usage/Examples
 # tail off --help the first time the header gained a paragraph.
-usage() {
-  local src="${BASH_SOURCE[0]}" first end
-  first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
-  end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-  sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
-}
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 # The creation scripts' option hygiene applies to the LANDING script too
 # (process/contracts/issue-creation.md § 3 states the rule): --help exits 0

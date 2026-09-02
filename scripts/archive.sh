@@ -69,12 +69,10 @@ fi
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"
 
-usage() {
-  local src="${BASH_SOURCE[0]}" first end
-  first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
-  end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-  sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
-}
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 DRY_RUN=true
 case "${1:-}" in

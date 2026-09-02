@@ -82,12 +82,15 @@ BEFORE=""
 KEEP_LAST=""
 REPO_ROOT=""
 
-usage() {
-  local src="${BASH_SOURCE[0]}" first end
-  first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
-  end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-  sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
-}
+# SCRIPT_DIR IS INTRODUCED HERE, and this is the largest edit in this change: this
+# script had none, deriving its repo root lazily AFTER the argument loop that handles
+# --help. The renderer needs a path above that loop, so the resolution moves up. Nothing
+# below it changes — the lazy REPO_ROOT resolution is untouched and still authoritative.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 while [ $# -gt 0 ]; do
   case "$1" in

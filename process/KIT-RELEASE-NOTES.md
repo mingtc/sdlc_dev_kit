@@ -46,6 +46,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **A new shipped file — `scripts/lib/usage.sh` — and you must copy it.** Six shipped scripts
+  rendered `--help` from their own header comment block, each with its own copy of the five-line
+  renderer. There is now one, and they source it. **Action required: copy `scripts/lib/usage.sh`
+  when you take the updated `archive.sh`, `archive-progress.sh`, `finish-pr.sh`, `move-issue.sh`,
+  `subtask.sh` or `verify.sh`.** Without it those scripts fail to start — except `verify.sh`, which
+  falls back to a one-line synopsis and tells you the library is missing. **No `--help` output
+  changes**: every one was compared before and after and is byte-identical. `release.sh` keeps its
+  own renderer on purpose (it prints a synopsis ending at its last usage example, not the whole
+  header), and so does `consumers/update_vendored.sh`, which is copied out into repositories that
+  have no `scripts/lib/`.
+
 - **Every command-line tool the kit ships now refuses an unrecognised option with exit status 2, and
   answers `--help` with usage rather than doing work.** The contract always required one status
   across the set but never said which; it now says **2**, matching what `finish-pr.sh`'s exit table

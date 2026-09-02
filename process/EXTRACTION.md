@@ -269,7 +269,7 @@ written around it.
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
 `subtask.sh` · `archive.sh` · `archive-progress.sh`
 
-**Machinery + hooks (KIT):** `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/push-retry.sh` · `lib/role-set.sh` ·
+**Machinery + hooks (KIT):** `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/push-retry.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
 `hooks/require-role.sh` · `hooks/session-start.sh` · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
 enforces is stamped)

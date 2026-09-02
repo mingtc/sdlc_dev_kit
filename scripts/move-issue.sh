@@ -112,25 +112,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # first time somebody added a paragraph to a header, and a bigger literal is the
 # same defect with a bigger number. So: everything from line 3 to the last line
 # before the first non-comment line.
-# THE HEADER-BLOCK RULE, AND WHY THERE ARE DELIBERATELY TWO OF THEM. This prints the
-# header from line 3 to the LAST COMMENT LINE of the block — the whole header is the
-# help. `release.sh` prints from line 3 to its LAST USAGE EXAMPLE instead, and that is a
-# STATED REQUIREMENT (its own comment says so), not drift: its header carries operator
-# notes below the examples that are not help text. Measured 2026-09-02 — putting
-# release.sh on this rule takes its `--help` from 11 lines to 63, including a TEST SEAMS
-# block telling operators to leave a variable unset. **Two rules, both deliberate.** A
-# sweep that unifies "all seven header renderers" is the defect this note exists to stop.
-#
-# THE FLOOR (`end < 3`) IS FOR THE EMPTY case, not the small one: an all-comment file
-# leaves `first` empty and yields `sed -n "3,-1p"`, which errors. `first` can never be
-# less than 3 — the awk starts at NR>2 — and `sed -n "3,2p"` prints line 3 rather than
-# nothing. Keep the floor; the reason it used to give was wrong.
-usage() {
-  local src="${BASH_SOURCE[0]}" first end
-  first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
-  end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-  sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
-}
+# The header-block --help rule, and why release.sh deliberately uses a different one,
+# are stated once in scripts/lib/usage.sh. Do not restate them here.
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 # --help ALWAYS SUCCEEDS, and has to be answered BEFORE the arity check. A bare
 # `--help` is ONE argument, so the guard below swallowed it and exited 1 with usage
