@@ -423,6 +423,19 @@ _declare_sandbox_gate() {
 # kit-init refuse before it reaches anything the case is about).
 # =============================================================================
 
+# The scaffolding sentinel, DERIVED from the shipped root document that carries it. This
+# is the harness's only statement of the mark; check-board.sh's probe for it is a separate
+# author, and case_scaffolding_fixture_matches_the_tree holds the two against each other.
+# NO FALLBACK: a harness that cannot read the mark would seed a fixture check-board.sh
+# cannot see, and every graduation case would then pass by not testing anything.
+KIT_SCAFFOLD_MARK="$(sed -n 's/^<!-- *\(BOOTSTRAP-[A-Z-]*\).*/\1/p' "$REAL_REPO_ROOT/CLAUDE.md" 2>/dev/null | head -1)"
+if [ -z "$KIT_SCAFFOLD_MARK" ]; then
+  echo "FIXTURE: could not read the scaffolding sentinel out of CLAUDE.md." >&2
+  echo "         It is the mark check-board.sh's graduation arm looks for; seeding a" >&2
+  echo "         guessed one would make every graduation case pass without testing." >&2
+  exit 1
+fi
+
 # The stamp receipt kit-init appends to config.sh. DERIVED from kit-init.sh rather
 # than re-typed, per this harness's own contract for every other seam it reads.
 KIT_STAMP_MARK="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
@@ -703,6 +716,35 @@ _kit_neutral_config() {
 }
 
 # Publish the seeded board to the trunk + the remote. Call after seed_issue(s).
+# seed_scaffolding_tree [--no-project]
+#
+# THE DAY-ONE TREE, STATED ONCE. Five cases used to re-type this three-file fixture and
+# they had already stopped agreeing: four wrote PROJECT.md and one did not. The odd one
+# out was RIGHT — it needs check-board's REPLACE finding without the FILL one — but
+# nothing said so, and an absent third `printf` is not an argument. It is now an
+# argument: `--no-project`, at the call site, in the reader's line of sight.
+#
+# THE SENTINEL IS DERIVED FROM THE SHIPPED DOCUMENT, not from check-board.sh's probe and
+# not from memory. The probe is the CONSUMER; deriving the fixture from the consumer
+# would make every case here agree with the tool by construction, which is the one thing
+# a control must not do. The shipped root documents are the AUTHORITY — they are what an
+# adopter actually deletes — so a rename there reaches the fixture, and the case that
+# holds all three against each other catches a rename anywhere else.
+seed_scaffolding_tree() {
+  local want_project=true
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --no-project) want_project=false; shift ;;
+      *) _fixture_die "seed_scaffolding_tree: unknown argument '$1'" ;;
+    esac
+  done
+  printf '<!-- %s -->\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/CLAUDE.md"
+  printf '<!-- %s -->\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/README.md"
+  if [ "$want_project" = true ]; then
+    printf '# PROJECT.md\n\nTrunk: <trunk>\n' > "$SB_WORK/PROJECT.md"
+  fi
+}
+
 publish_sandbox() {
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[PM] seed sandbox board" --quiet >/dev/null 2>&1
@@ -5216,9 +5258,7 @@ case_check_board_graduation() {
   rm -f "$SB_WORK"/progress/*/*-[0-9]*.md 2>/dev/null
   printf '# progress.md\n\n## Log\n\n' > "$SB_WORK/progress.md"
   printf '# ARCHIVE.md\n\n## Archived\n\n' > "$SB_WORK/ARCHIVE.md"
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
-  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  seed_scaffolding_tree
   publish_sandbox
 
   local out
@@ -5297,9 +5337,7 @@ case_check_board_graduation_enabled_without_receipt() {
   cf_reset
   make_sandbox
   # No receipt: the neutralizer already stripped it, and nothing here puts it back.
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
-  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  seed_scaffolding_tree
   seed_issue todo "$SB_PREFIX-410" lived chore "A card on the board is a lived signal"
   publish_sandbox
 
@@ -5420,9 +5458,7 @@ case_check_board_graduation_reads_the_trunk() {
   make_sandbox
 
   # Scaffolding published; receipt present. The arm reports.
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
-  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  seed_scaffolding_tree
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
   publish_sandbox
@@ -5497,8 +5533,10 @@ case_check_board_graduation_reads_the_trunk() {
 case_check_board_graduation_verdict_is_not_wired() {
   cf_reset
   make_sandbox
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
+  # --no-project ON PURPOSE: this case needs g1's REPLACE finding to fire and needs the
+  # FILL arm to have nothing to read. That was previously expressed by an absent printf,
+  # which reads as an oversight; it is an argument now so the next reader sees the choice.
+  seed_scaffolding_tree --no-project
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
   publish_sandbox
@@ -5549,9 +5587,7 @@ case_kit_init_survives_the_documented_first_commit() {
   # pre-fix filter nothing to trip over, and turns this case into a green about nothing.
   # An unzipped kit HAS all three; the sandbox is the synthetic tree, so it is the one
   # that has to be brought up to the day-one state.
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/CLAUDE.md"
-  printf '<!-- BOOTSTRAP-SCAFFOLDING -->\n# scaffolding\n' > "$SB_WORK/README.md"
-  printf '# PROJECT.md\n\nTrunk: <trunk>\n'               > "$SB_WORK/PROJECT.md"
+  seed_scaffolding_tree
 
   # The documented first commit, verbatim in shape: unprefixed subject, hooks unwired.
   # The `remote add` is publish_sandbox's job and this case does not call it, so the
@@ -8537,6 +8573,64 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # one direction that matters: a file added to COPY_LIST and not to this case is a file
 # nobody checks.
 # =============================================================================
+# =============================================================================
+# CASE — THE SCAFFOLDING SENTINEL HAS THREE AUTHORS AND THEY MUST AGREE.
+#
+# The mark is written by two shipped root documents, looked for by check-board.sh's
+# graduation arm, and seeded by this harness. Single-sourcing the FIXTURE (one
+# seed_scaffolding_tree instead of five re-typed pairs) does not make those three agree —
+# it only means a disagreement now shows up once instead of five times. This case is what
+# actually holds them together.
+#
+# WHY NOT JUST DERIVE THE FIXTURE FROM check-board.sh: because then the fixture and the
+# tool agree BY CONSTRUCTION, and a rename in the shipped documents — the thing an adopter
+# deletes, the only place the mark is user-visible — would go unnoticed while every
+# graduation case stayed green. The fixture derives from the DOCUMENTS; this case is what
+# reaches the probe.
+# =============================================================================
+case_scaffolding_fixture_matches_the_tree() {
+  cf_reset
+  make_sandbox
+  local doc probe_hits
+
+  # (a) BOTH shipped root documents carry the mark the harness derived. One of the two is
+  #     where it was derived FROM, so this arm's substance is the other one — a rename
+  #     that touched CLAUDE.md and forgot README.md is the realistic drift.
+  # Read the REAL tree, not the sandbox: make_sandbox does not seed the root documents
+  # (a day-one tree has them, a sandbox is built without them), so a sandbox miss here
+  # would be about the fixture and not about the kit that ships.
+  for doc in CLAUDE.md README.md; do
+    grep -qF "$KIT_SCAFFOLD_MARK" "$REAL_REPO_ROOT/$doc" \
+      || cf "(a) the shipped $doc does not carry '$KIT_SCAFFOLD_MARK' — the two root documents have drifted apart"
+  done
+
+  # (b) check-board.sh LOOKS for exactly that mark. Derived from the script, not retyped:
+  #     a literal here would be a fourth author of the very constant under test.
+  grep -qF "grep -qF '$KIT_SCAFFOLD_MARK'" "$SB_WORK/scripts/check-board.sh" \
+    || cf "(b) check-board.sh does not probe for '$KIT_SCAFFOLD_MARK' — the tool and the documents disagree, so the graduation arm is looking for a mark nobody writes"
+
+  # (c) THE SAME TWO DOCUMENTS, not one and not three. The arm's file list is the other
+  #     half of the fixture's premise and it was re-typed at five sites alongside the mark.
+  probe_hits="$(grep -c "for f in CLAUDE.md README.md" "$SB_WORK/scripts/check-board.sh" || true)"
+  [ "$probe_hits" -ge 1 ] \
+    || cf "(c) check-board.sh's graduation arm no longer iterates CLAUDE.md and README.md — seed_scaffolding_tree seeds a pair the tool does not read"
+
+  # (d) THE EFFECT, end to end. Everything above is textual; this arm proves the seeded
+  #     tree actually trips the arm. Without it, three agreeing strings could still be the
+  #     wrong strings. The receipt is what makes the graduation arm REPORT rather than
+  #     stay unrun — the same premise the rest of this family establishes.
+  seed_scaffolding_tree
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  publish_sandbox
+  local out; out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+    || cf "(d) a tree seeded by seed_scaffolding_tree does not read as still-scaffolding to check-board.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "the scaffolding sentinel's three authors agree: both shipped root documents carry the mark, check-board.sh's graduation arm probes for that same mark on that same pair, and a tree seeded by seed_scaffolding_tree actually reads as still-scaffolding — the fixture derives from the DOCUMENTS, never from the probe, so a rename cannot make the two agree by construction"
+  teardown
+}
+
 case_kit_init_copy_list_minimum_is_real() {
   cf_reset
   kit_init_sandbox
@@ -8951,6 +9045,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_scaffolding_fixture_matches_the_tree
   case_kit_init_copy_list_minimum_is_real
   case_seam_shape_reformat_is_loud
   case_ship_state
