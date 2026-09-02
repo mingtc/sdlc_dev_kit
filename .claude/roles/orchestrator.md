@@ -559,8 +559,12 @@ structurally gone: kanban ops never hold the operator's checkout. A lock directo
 half-applied move can't happen; on a real timeout it fails fast with a clear retry message and
 no state change. Two sessions pushing the trunk can still race on the push itself — the
 worktree sync re-fetches the tip before committing, so a rejected push means re-run, and the
-multi-session discipline (`pull --rebase`, append-only `progress.md`) still applies to the
-**narration commits you make by hand**, which do not go through the kanban worktree.
+multi-session discipline still applies to the **narration commits you make by hand**, which do not
+go through the kanban worktree. **That discipline, and why a coordinator writing the trunk during a
+run is expected rather than a race, is stated once in `process/MANUAL.md` § The kanban worktree** —
+including the part a role doc is the wrong home for: a commit displaced by a rebase is reachable
+from no ref and is outside what `check-board.sh` measures. Read it there rather than restating it
+here.
 
 ## Dogfooding rounds — delivery, not grading
 

@@ -46,6 +46,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **A coordinator writing the trunk while a worker holds a branch is expected — the manual now says
+  so, and says what your drift report cannot see.** Board moves, rulings, PRDs and `dev/` evidence
+  are metadata, so they commit direct to the trunk *while* a dispatched leg works on its branch. Two
+  projects reported that as a defect because nothing said otherwise. **No action required, one habit
+  worth adopting:** the coordinator's own by-hand commits do not go through `.kanban-wt/`, so while a
+  leg is dispatched make them from a worktree of your own rather than switching branches in the
+  shared root, and keep `progress.md` append-only. **And know the limit:** a commit displaced by
+  somebody's rebase is reachable from no ref, which is outside the span `check-board.sh` measures —
+  it prints that limit on every run. The drift report will not surface a displaced commit; the reflog
+  is the only witness.
+
 - **The kit's leaf-worker definitions pin a model, those pins are a vendor's product names, and the
   kit now says so.** They were shipping undeclared inside `.claude/agents/` — the one class of fact
   the extraction manifest otherwise keeps out of the kit. They are **kept, not emptied**, because a

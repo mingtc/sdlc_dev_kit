@@ -428,6 +428,23 @@ was attached and left behind when `HEAD` moved elsewhere — is outside that mea
 need the reflog. The contract is
 [`contracts/kanban-worktree.md`](contracts/kanban-worktree.md).
 
+**A COORDINATOR WRITING THE TRUNK WHILE A WORKER HOLDS A BRANCH IS EXPECTED, NOT A RACE.** Board
+moves, rulings, PRDs and `dev/` evidence are metadata by the code-vs-metadata rule above, so they
+commit direct to the trunk — *while* a dispatched leg is working on its own branch. That is the rule
+operating as designed, and two independent projects have reported it as a defect because nothing said
+so. **What is protected is the shared working tree, not the trunk**; the board scripts route through
+`.kanban-wt/` precisely so both can proceed.
+
+**The coordinator's own by-hand writes are the part that needs discipline**, because they do not go
+through that worktree: while any leg is dispatched, make them from **a worktree of your own** rather
+than a `git switch` in the shared root, and keep the multi-session habits — `pull --rebase`, and
+`progress.md` append-only so two sessions' entries merge instead of colliding.
+
+**And know what your detector cannot see.** A commit dropped by somebody's rebase is reachable from
+no ref, which is **outside the span `check-board.sh` prints** — it says so on every run, in the line
+quoted above. So a displaced commit is not something the drift report will surface for you; if a leg
+rebases the trunk under you, the reflog is the only witness.
+
 ### Role-attribution commit prefixes
 
 Every commit subject starts with a **role tag** in square brackets; the `scripts/githooks/
