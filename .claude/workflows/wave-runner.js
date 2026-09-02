@@ -277,10 +277,11 @@ function qaPrompt(issue) {
 ${COMMON}${wt}
 Procedure (the Dev → QA boundary, code-work flavor):
 1. Read the issue file in progress/dev_complete/ (its AC is the contract) and the linked PRD story.
-2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the [Dev] commits cited in the issue Activity/handoff.` : `Check out the branch ${issue.branch}${issue.worktreeMode ? ' in YOUR OWN worktree (see WORKTREE MODE)' : ' (git fetch, then git switch)'} and run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright.`}
-3. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence.
-4. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
-5. Verdict — the four ratified tokens, from process/MANUAL.md § The Dev → QA handoff step 6, which is their one authoring site: PASS · PASS_AC_CORRECTED (the implementation is right and the AC's own illustration was wrong; correct it with the issue) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY — they are two different facts and this schema keeps them apart.
+2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the [Dev] commits cited in the issue Activity/handoff.` : `Check out the branch ${issue.branch}${issue.worktreeMode ? ' in YOUR OWN worktree (see WORKTREE MODE)' : ' (git fetch, then git switch)'}.`}
+3. Run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright. This step is UNCONDITIONAL: a docs-path issue has no branch, and it still has a gate.
+4. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence.
+5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
+6. Verdict — the four ratified tokens, from process/MANUAL.md § The Dev → QA handoff step 6, which is their one authoring site: PASS · PASS_AC_CORRECTED (the implementation is right and the AC's own illustration was wrong; correct it with the issue) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY — they are two different facts and this schema keeps them apart.
    On a pass (all AC + gates) → ${issue.docsPath ? `close it — ./scripts/move-issue.sh ${issue.id} qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is a true statement rather than a workaround.` : `land via ./scripts/finish-pr.sh ${issue.id} FROM THE MAIN REPO DIR, then set landing=landed only if that script COMPLETED. If you verified the change but deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred, and it is a SUCCESS: report it and do not downgrade the verdict to make it look like one.`}
    Append the progress.md QA line. On a fail → ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC>" and return FAIL_AC (an AC bullet is unmet) or FAIL_REGRESSION (previously-green behaviour broke). Do NOT fix code yourself.
    If ${CFG.gateCmd} reports a gate that COULD NOT RUN, you have no evidence about the implementation and therefore no verdict to issue: stop and report the precondition failure. Do not spend FAIL_AC or FAIL_REGRESSION on it — both assert something false about the code.
@@ -288,6 +289,22 @@ ${issue.extraQA || ''}
 Return the structured result only.`
 }
 
+// WHY QA'S GATE STEP IS UNCONDITIONAL HERE, AND WHY IT IS WORDED LIKE tranche-runner's.
+// It used to be welded to the non-docs half of step 2's ternary — "check out the branch AND run the
+// gate" — so a DOCS-PATH issue, which has no branch, was never told to run it, while the verdict
+// block below still told the reviewer what to do if the gate reported a failure. An instruction
+// about the outcome of a run nobody asked for.
+//
+// THE PARALLELISM IS NOT A REASON TO DIVERGE, and that is worth stating because it is the plausible
+// excuse: a gate run per issue could contend for one checkout in a way a serial runner's does not.
+// It does not here — each leg of a pair runs in its own worktree (see WORKTREE MODE and this
+// runner's own description), which is the same property that makes the pairing safe at all. If a
+// future runner DOES have a contention reason to diverge, write the reason beside the divergence;
+// an accidental difference between the two briefs is what this comment exists to prevent.
+//
+// THE SENTENCE IS DUPLICATED, NOT SHARED. The runtime grants these files no imports, so the copies
+// are unavoidable — the same constraint that keeps VERDICTS and OUTCOME hand-copied here.
+//
 // PARK-QA BRIEF. Its `landing=not_applicable` sentence carries a superseded conclusion whose reason
 // is kept here rather than in the prompt: the sentence used to read "landed is ALWAYS false", a later
 // change replaced that boolean with the three-valued `landing` field and updated the schema beside it

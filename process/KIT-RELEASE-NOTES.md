@@ -56,6 +56,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **If you run `wave-runner.js` on docs-path issues, its QA brief was skipping the gate.** The gate
+  instruction was attached to *"check out the branch and run the gate"* — and a docs-path issue has
+  no branch, so it took the other half of that sentence and got no gate instruction at all, while
+  the verdict block still told the reviewer what to do if the gate failed. The gate is now its own
+  unconditional step, matching `tranche-runner.js`. **Action required if you have adapted
+  `wave-runner.js`:** its QA steps are renumbered (the gate is the new step 3, everything below
+  shifts by one). If your `extraQA` text refers to a step by number, check it.
+
 - **`MANUAL.md` gains a section: the RUN-OUTCOME vocabulary, ratified.** If you use the
   orchestrated runners, the six tokens they report (`LANDED`, `LAND_READY`, `PARKED_OK`,
   `PARK_UNVERIFIED`, `FAILED_AFTER_FIX_ROUND`, `BLOCKED_DEV`) now have an authoring site next to the
