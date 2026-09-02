@@ -6854,6 +6854,55 @@ CORPUS_EOF
 # carry a section of their own that no sibling has. Requiring set EQUALITY would redden
 # on correct content; requiring the strict majority requires exactly what is shared.
 # =============================================================================
+# =============================================================================
+# CASE — THE TEMPLATE HEADER SURVIVES THE STAMP IT DESCRIBES.
+#
+# Each card template's header explains two substitutions the initializer performs — and
+# it used to SPELL BOTH TOKENS OUT, so kit-init rewrote its own explanation. Measured:
+# every initialized adopter tree carried, in all five templates, a sentence reading
+# "the initializer stamps BOTH <the trunk value> and <the prefix value> in this
+# directory today" — a sentence with no referent, shipped since v0.1.0.
+#
+# PRESENCE OF THE HEADER IS NOT THE PROPERTY. Readability AFTER the stamp is, and only an
+# end-to-end kit-init run can see it — which is why no static check caught this.
+# =============================================================================
+case_template_header_survives_the_stamp() {
+  cf_reset
+  if ! has_kit_init; then skp "the template header survives the stamp" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "the template header survives the stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc=0 t base hdr n=0
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"; finish "the template header survives the stamp"; teardown; return; }
+
+  # ── INSTRUMENT CHECK FIRST. Every assertion below is "a token is ABSENT from the
+  #    header", which a kit-init that did nothing at all satisfies perfectly.
+  grep -q 'SBX-' "$SB_WORK/.claude/templates/ISSUE.template.md" \
+    || cf "(instrument) the ISSUE template BODY was not stamped — kit-init did nothing, and every absence asserted below is meaningless"
+
+  for t in "$SB_WORK"/.claude/templates/*.template.md; do
+    [ -e "$t" ] || continue
+    base="$(basename "$t")"; n=$((n+1))
+    hdr="$(awk '/^<!-- KIT-CLASS:/{p=1} p{print} p && /-->/{exit}' "$t")"
+    [ -n "$hdr" ] || { cf "$base: no KIT-CLASS header block after init"; continue; }
+    # THE STAMPED VALUES MUST NOT APPEAR INSIDE THE EXPLANATION.
+    printf '%s\n' "$hdr" | grep -qw 'SBX' \
+      && cf "$base: the post-init header names the stamped PREFIX value — kit-init rewrote the sentence that explains kit-init, and the adopter reads a claim with no referent"
+    printf '%s\n' "$hdr" | grep -qw "$SB_TRUNK" \
+      && cf "$base: the post-init header names the stamped TRUNK value where it should be describing a token"
+    # …and the instruction that is still in force survived.
+    printf '%s\n' "$hdr" | grep -qi 'never leave' \
+      || cf "$base: the post-init header lost its fill instruction"
+  done
+  [ "$n" -ge 5 ] \
+    || cf "only $n template(s) were examined — the glob stopped matching the tree, which is NOT proof the tree is clean"
+
+  finish "the template header survives the stamp: across $n template(s), the post-init KIT-CLASS block names neither stamped value and keeps its fill instruction, while the bodies are demonstrably stamped"
+  teardown
+}
+
 case_leaf_workers_carry_the_common_sections() {
   cf_reset
   make_sandbox
@@ -8310,6 +8359,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_template_header_survives_the_stamp
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule
   case_agent_model_pins_match_their_declaration

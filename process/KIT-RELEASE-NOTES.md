@@ -46,6 +46,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Your card templates' header comment has been telling you something meaningless since day one.**
+  It explained the two placeholders `kit-init.sh` stamps — and it named them literally, so the
+  initializer rewrote its own explanation. Every initialized tree's five templates read *"the
+  initializer stamps BOTH `<your trunk>` and `<your prefix>` in this directory today"*: a sentence
+  with no referent. The header now **describes** the tokens instead of spelling them, and says why,
+  so nobody helpfully puts them back. **No action required** — the templates' bodies were always
+  stamped correctly and nothing about how you use them changes. If you want the corrected header,
+  copy the five files in `.claude/templates/`; your own edits below the comment are untouched. One
+  thing to expect: `kit-init.sh` now reports the trunk token stamped into **fewer** templates, because
+  two of them only ever carried it inside that comment.
+
 - **"Never spawn the seat's own model class" is retired in favour of your project's declared
   ceiling.** That rule capped every worker by an accident — whatever tier the seat happened to be
   running — so a seat at the top of the ladder capped its workers two tiers below anything you had

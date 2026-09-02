@@ -1,9 +1,10 @@
-<!-- KIT-CLASS: KIT — issue template. Two placeholders are STAMPED by the initializer:
-     `<PREFIX>-` → this project's issue prefix, and `<trunk>` → this project's trunk branch
-     (default `main`). Everything else in angle brackets is for the author to fill in. 
-     NOTE: the initializer stamps BOTH `<trunk>` and `<PREFIX>` in this directory today.
-     If your initializer has not wired a key yet, substitute it by hand before first
-     use — never leave an angle bracket in a live issue. -->
+<!-- KIT-CLASS: KIT — issue template. Two placeholders are STAMPED by the
+     initializer: the ISSUE-PREFIX token and the TRUNK token, and this directory is one the
+     initializer reaches. **The tokens are described rather than spelled here on purpose** — a
+     header that names them literally is rewritten by the very substitution it is explaining, and
+     every initialized tree then carried a sentence with no referent.
+     Everything else in angle brackets is for the author to fill in — never leave one in a live
+     issue. If your initializer has not wired a key, substitute it by hand before first use. -->
 ---
 id: <PREFIX>-NNN
 type: feature            # feature | spike | chore
