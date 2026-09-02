@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Two prompts your card templates were missing.** A **refactor** card never asked for its notes
+  deliverable — even though the issue template names a test-only refactor as the case that owes an
+  *explicit dismissal*, so the author most likely to need the prompt was the one who never got it. And
+  a **bug** card's Status note never said the card is moved with `./scripts/move-issue.sh` and never
+  by hand, where every sibling says so and cites the contract — **a QA author filing a bug was not
+  told.** **No action required**; both are prompts in the templates, so copy
+  `.claude/templates/BUG.template.md` and `REFACTOR.template.md` if you want them. Existing cards are
+  untouched.
+
 - **Your card templates' header comment has been telling you something meaningless since day one.**
   It explained the two placeholders `kit-init.sh` stamps — and it named them literally, so the
   initializer rewrote its own explanation. Every initialized tree's five templates read *"the

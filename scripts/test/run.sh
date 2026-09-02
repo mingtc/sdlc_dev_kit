@@ -6866,6 +6866,57 @@ CORPUS_EOF
 # PRESENCE OF THE HEADER IS NOT THE PROPERTY. Readability AFTER the stamp is, and only an
 # end-to-end kit-init run can see it — which is why no static check caught this.
 # =============================================================================
+# =============================================================================
+# CASE — EVERY MINTED BOARD CARD PROMPTS FOR ITS NOTES DELIVERABLE.
+#
+# The rule's own standard is "named, or explicitly dismissed, never absent" — and the one
+# template for the case the rule calls out BY NAME (a test-only refactor with no
+# shipped-surface delta) had no prompt at all. So the author most likely to owe an
+# explicit dismissal was the one never asked for it.
+#
+# IT ASSERTS THE MINTED CARD, NOT THE TEMPLATE, and that is the point: a creator that
+# strips the section would pass a template check and fail this one. The card is what the
+# author actually receives.
+# =============================================================================
+case_minted_card_prompts_for_notes() {
+  cf_reset
+  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
+    skp "every minted board card prompts for its notes deliverable" ".claude/templates absent"; return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+
+  local creator base out card n=0 i=700
+  for creator in "$SB_WORK"/scripts/new-*.sh; do
+    [ -e "$creator" ] || continue
+    base="$(basename "$creator")"
+    i=$((i+1))
+    # SLUG AND --id ONLY. Every board creator accepts exactly that, and passing a flag
+    # one of them does not know now exits 2 (the CLI shape contract) — so a "helpful"
+    # extra flag makes every creator refuse and the loop measures nothing. It did.
+    out="$( cd "$SB_WORK" && "./scripts/$base" "probe$i" --id "$SB_PREFIX-$i" 2>&1 )" || true
+    # THE PATH IS CONSTRUCTED, not parsed out of the output — the creators do not all
+    # print the same "Created:" line, and an output parse that silently matches nothing
+    # turns this loop into a pass over zero cards.
+    card="$SB_WORK/progress/todo/$SB_PREFIX-$i-probe$i.md"
+    # BOARD CARDS ONLY: new-prd.sh writes a requirements document, not a board card, so
+    # it mints nothing here and drops out by shape rather than by a name in a list.
+    [ -f "$card" ] || continue
+    n=$((n+1))
+    grep -qi 'notes deliverable' "$card" \
+      || cf "$base mints a board card with no notes-deliverable prompt — the rule's standard is 'named, or explicitly dismissed, never absent', and this card cannot meet it"
+  done
+
+  [ "$n" -ge 3 ] \
+    || _fixture_die "case_minted_card_prompts_for_notes: only $n board card(s) were minted — the loop lost its subject and would report PASS over nothing."
+
+  finish "every minted board card prompts for its notes deliverable ($n creator(s) exercised; new-prd.sh is correctly excluded — it writes a requirements document, not a board card)"
+  teardown
+}
+
 case_template_header_survives_the_stamp() {
   cf_reset
   if ! has_kit_init; then skp "the template header survives the stamp" "scripts/kit-init.sh absent"; return; fi
@@ -8359,6 +8410,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_minted_card_prompts_for_notes
   case_template_header_survives_the_stamp
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule

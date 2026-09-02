@@ -43,6 +43,13 @@ Refactor's equivalent of Acceptance Criteria. The contract Dev must hold: these 
 - [ ] B2 — <behavior>: verified by `<test>`
 - [ ] B3 — <behavior>: verified by `<test>`
 
+**Notes deliverable.** If this refactor is consumer-visible — a moved or renamed path an adopter
+imports, a changed command, a changed default — its Behaviors Preserved list must NAME its notes
+deliverable as an item of its own, because that list is what QA grades and an unnamed deliverable is
+an ungraded one. **A refactor is the case most likely to need the explicit dismissal**, and the
+issue template names it by name: a test-only refactor with no shipped-surface delta still owes an
+item stating that it has no notes deliverable. **Named, or explicitly dismissed — never absent.**
+
 If any behavior is intentionally unconstrained (safety-net-check Phase 3 decided the behavior is incidental and refactor is free to change it), list it separately so Dev and QA know not to defend it:
 
 **Intentionally unconstrained (refactor may change):**

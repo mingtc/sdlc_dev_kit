@@ -22,7 +22,7 @@ created_by: QA
 
 # <PREFIX>-NNN — <one-line summary>
 
-> **Status** is the folder this file is in. Same lifecycle as feature issues: `todo → in_progress → dev_complete → qa_complete`. Bug-fix branches use the `fix/` prefix instead of `feature/`.
+> **Status** is the folder this file is in. Same lifecycle as feature issues: `todo → in_progress → dev_complete → qa_complete`. Move the file with **`./scripts/move-issue.sh`** — never by hand (`process/contracts/board-mover.md`: *"Only the mover moves it"*, and every move is published to the trunk as its own commit). Do not duplicate status into frontmatter. Bug-fix branches use the `fix/` prefix instead of `feature/`.
 
 ## Bug description
 
