@@ -2921,6 +2921,7 @@ case_archive_feature_branch_clean() {
 # =============================================================================
 case_config_seam_refusal() {
   cf_reset
+  if ! has_issue_template; then skp "the config seam REFUSES with a named cause across every prefix consumer" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   seed_issue qa_complete "$SB_PREFIX-203" delta chore "Archive delta"
   publish_sandbox
@@ -6139,6 +6140,7 @@ case_lived_probe_has_one_authoring_site() {
 case_kit_init_refuses_lived_board() {
   cf_reset
   if ! has_kit_init; then skp "kit-init: refuses a repo that has already lived" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: refuses a repo that has already lived" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   seed_issue todo SBX-500 lived chore "A card already on the board"
   publish_sandbox
@@ -6219,6 +6221,7 @@ case_kit_init_gate_fill() {
 case_kit_init_gate_and_remote_refusals() {
   cf_reset
   if ! has_kit_init; then skp "kit-init: refuses a declared table, a '|' in the gate command, and a relative remote URL" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: refuses a declared table, a pipe in the gate command, and a relative remote" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox            # make_sandbox already DECLARED one gate in verify.sh
   publish_sandbox
   local before out rc
@@ -6260,6 +6263,7 @@ case_kit_init_gate_and_remote_refusals() {
 # =============================================================================
 case_option_parsing_hygiene() {
   cf_reset
+  if ! has_issue_template; then skp "option parsing across the creation and board scripts" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   # THE CAPABILITY PROBE GUARDS THE CASE, NOT JUST THE COPY. It used to guard only
   # the `cp` below, so when .claude/templates was absent the case ran anyway
   # against a sandbox with no templates — and every creation script then exited 1
@@ -6352,6 +6356,7 @@ case_option_parsing_hygiene() {
 # =============================================================================
 case_creation_slug_shape_is_one_rule() {
   cf_reset
+  if ! has_issue_template; then skp "the short name's shape binds every creator" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ] || [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
     skp "the short name's shape binds every creator" ".claude/templates (or SUBTASK.template.md) absent — the creators exit before the short name is read"
     return
@@ -6411,6 +6416,7 @@ case_creation_slug_shape_is_one_rule() {
 
 case_creation_scripts_substitute_hostile_values() {
   cf_reset
+  if ! has_issue_template; then skp "creation scripts substitute hostile values without executing them" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   # WHAT THE OPTION-PARSING CASE ABOVE CANNOT SEE. It exercises REFUSALS, so every
   # invocation it makes stops before the substitution block. Nothing covered the
   # SUCCESS path's substitution, and that is where the damage lived: each value is
@@ -7225,6 +7231,7 @@ case_project_credential_blank_is_countable() {
 
 case_minted_card_is_drift_clean() {
   cf_reset
+  if ! has_issue_template; then skp "a freshly minted card is drift-clean" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
     skp "a freshly minted card is drift-clean" ".claude/templates absent"; return
   fi
@@ -7273,6 +7280,7 @@ case_minted_card_is_drift_clean() {
 
 case_minted_card_prompts_for_notes() {
   cf_reset
+  if ! has_issue_template; then skp "every minted board card prompts for its notes deliverable" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
     skp "every minted board card prompts for its notes deliverable" ".claude/templates absent"; return
   fi
@@ -8751,6 +8759,75 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # WHAT THIS DOES NOT COVER: whether the cap's VALUE is right. This proves the cap is
 # enforced in both directions, not that 25 is the correct number.
 # =============================================================================
+# =============================================================================
+# CASE — EVERY CASE THAT MINTS A CARD PROBES FOR THE TEMPLATE FIRST.
+#
+# Measured when this was written: removing .claude/templates/ISSUE.template.md from the
+# built tree gave 2 FAIL alongside 8 clean skips. The two failures were cases that mint
+# a card and never asked whether the template exists — so a capability the TREE lacks
+# was reported as a defect in the SUBJECT.
+#
+# THE POPULATION IS DERIVED, and that is the whole point of the case rather than the two
+# lines it guards. "Which cases mint a card?" is answerable from the file — the ones that
+# invoke a creation script — so case eleven cannot arrive without a probe and go unnoticed
+# until somebody removes the template again. Enumerating the two would have fixed the
+# instances and left the class, which is this board's most-repeated mistake.
+# =============================================================================
+case_minting_cases_probe_for_the_template() {
+  cf_reset
+  make_sandbox
+  local self="${BASH_SOURCE[0]}" probe="$SB_TMP/mintprobe.sh"
+
+  # Excise this case's own body: its derivation names the creation scripts it looks for,
+  # so a census over the whole file reports this case as an unguarded minter.
+  awk -v fn="case_minting_cases_probe_for_the_template" '
+    $0 ~ "^" fn "\\(\\) \\{" { skip=1 }
+    skip && /^\}$/            { skip=0; next }
+    !skip
+  ' "$self" > "$probe"
+  grep -q '^case_minting_cases_probe_for_the_template() {' "$probe" \
+    && _fixture_die "case_minting_cases_probe_for_the_template: the excision left this case's own body in the probe."
+
+  # For each case function: does it invoke a creator, and does it probe?
+  local rows n=0 bad=0 row
+  rows="$(awk '
+    /^case_[a-z_0-9]+\(\) \{/ { fn=$0; sub(/\(\).*/,"",fn); mint=0; probe=0; next }
+    /^\}$/ {
+      if (fn != "" && mint) printf "%s|%d\n", fn, probe
+      fn=""; next
+    }
+    # WIDE ON PURPOSE: two cases reached the creators through a GLOB
+    # ("$SB_WORK"/scripts/new-*.sh) and a basename, and a pattern listing the four names
+    # literally found neither. Both were real gaps — one of them aborted the whole run
+    # with a fixture failure when the template was removed, which is worse than the FAIL
+    # this item was filed about.
+    # kit_init_sandbox is in here because kit-init COPIES the template into its tree and
+    # refuses the preflight without it — the same capability, reached by a helper rather
+    # than by a creator. The signal is the CALL, not a mention: `kit-init.sh` in a comment
+    # matched two cases that never run it.
+    fn != "" && /new-[a-z*]*\.sh|subtask\.sh|kit_init_sandbox/ { mint=1 }
+    fn != "" && /has_issue_template/                                            { probe=1 }
+  ' "$probe")"
+
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    n=$((n + 1))
+    [ "${row#*|}" = "1" ] && continue
+    bad=$((bad + 1))
+    cf "${row%%|*} invokes a creation script and never calls has_issue_template — on a tree without .claude/templates/ISSUE.template.md it FAILS instead of skipping, reporting a missing capability as a defect in the subject"
+  done <<EOF
+$rows
+EOF
+
+  # ── INSTRUMENT CHECK: a negative census whose derivation finds nothing is green
+  #    forever. Assert it still finds the population it is judging.
+  [ "$n" -ge 5 ] \
+    || _fixture_die "case_minting_cases_probe_for_the_template: the derivation found only $n card-minting case(s) — the creator names or the case-function shape changed, and 'all of them probe' would then be true of almost nothing."
+
+  finish "all $n cases that invoke a creation script probe for the issue template first, so a tree without it SKIPS rather than reporting a missing capability as a defect — and the population is derived from the file, so the next minting case cannot arrive unguarded"
+  teardown
+}
+
 case_frontmatter_scan_cap_is_enforced() {
   cf_reset
   make_sandbox
@@ -9150,6 +9227,7 @@ case_scaffolding_fixture_matches_the_tree() {
 
 case_kit_init_copy_list_minimum_is_real() {
   cf_reset
+  if ! has_issue_template; then skp "kit-init's copy-list minimum is a REAL minimum" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   publish_sandbox
   local out rc f n=0
@@ -9199,6 +9277,7 @@ EOF
 
 case_seam_shape_reformat_is_loud() {
   cf_reset
+  if ! has_issue_template; then skp "a reformatted seam declaration is refused loudly" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   # kit-init needs a prepared .claude/ and a published trunk; a bare make_sandbox gives
   # neither and it refuses at PREFLIGHT with three unmet preconditions — a refusal that
   # would satisfy every "it refused" assertion below for entirely the wrong reason.
@@ -9562,6 +9641,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_minting_cases_probe_for_the_template
   case_frontmatter_scan_cap_is_enforced
   case_trunk_chain_announces_every_fallback
   case_probe_victim_selection_survives_pipefail
