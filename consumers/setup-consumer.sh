@@ -27,6 +27,19 @@
 #
 set -euo pipefail
 
+# THE CLI SHAPE, per process/contracts/issue-creation.md § 3 — this script had no
+# argument handling at all, so `--help` fell through to whatever the body did with a
+# stray token: for one of these two, straight into a `cd` that reported
+# `cd: --: invalid option`. A usage request is ALWAYS legal and ALWAYS succeeds; an
+# unrecognised option refuses with 2, naming it. Both arms sit ABOVE every preflight
+# and every cd, so neither can be reached by asking how to use the tool.
+case "${1:-}" in
+  -h|--help)
+    sed -n '3,26p' "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    exit 0 ;;
+  -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
+esac
+
 log() { printf '%s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 

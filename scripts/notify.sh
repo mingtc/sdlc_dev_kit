@@ -81,6 +81,17 @@ CMD="${1:-}"
 shift || true
 
 case "$CMD" in
+  # A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS — issue-creation.md § 3. This
+  # arm did not exist, so `notify.sh --help` fell through to the unknown-class refusal
+  # and exited 2: asking how to use the tool was itself an error.
+  -h|--help)
+    echo "usage: notify.sh <attention|blocked|done|milestone|progress|test> <message> --session <slug>"
+    echo "       [--ref <ref>] [--progress <n/m>] [--message <text>]"
+    echo ""
+    echo "  test   probe the configured transport and report; NON-ZERO if it fails."
+    echo "  others deliver a notification. Delivery failure is FAIL-SOFT (exit 0) on"
+    echo "         purpose: a notification is not the work. An illegal INVOCATION is not."
+    exit 0 ;;
   test) MODE=test ;;
   attention|blocked|done|milestone|progress) MODE=send; CLASS="$CMD" ;;
   *) warn "unknown class/command '$CMD' (use: attention|blocked|done|milestone|progress|test)"; exit 2 ;;
@@ -94,7 +105,14 @@ while [ $# -gt 0 ]; do
     --ref) REF="${2:-}"; shift 2 ;;
     --progress) PROGRESS="${2:-}"; shift 2 ;;
     --message) MESSAGE="${2:-}"; shift 2 ;;
-    *) warn "ignoring unknown arg: $1"; shift ;;
+    # AN UNRECOGNISED OPTION REFUSES. It used to warn and CARRY ON — so a typo'd flag
+    # delivered the message anyway and exited 0, which is a refusal that reads as
+    # success. THIS DOES NOT TOUCH THE FAIL-SOFT CONTRACT above: a failed DELIVERY still
+    # exits 0 on purpose, because a notification is not the work. That convention is
+    # about what happened when the tool RAN; this is about whether the invocation was
+    # even legal. Same distinction check-board.sh draws for its informational verdict.
+    -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
+    *) echo "Error: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 

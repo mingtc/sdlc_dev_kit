@@ -95,9 +95,17 @@ state — so that every tool and every reader downstream can rely on the shape w
   *Why:* if asking how to use the tool can fail, or can do work, the first thing a new adopter
   types is a mutation.
 - **An unrecognised option ⇒ refuse, non-zero, naming it** — never ignored, never treated as a
-  positional value. **Refuse with ONE exit status across every script the kit ships**, whichever the
-  project picks: a caller scripting against the set cannot branch on a status that means
+  positional value. **Refuse with ONE exit status across every script the kit ships**, and in this
+  kit that status is **2**: a caller scripting against the set cannot branch on a status that means
   *unknown option* in one tool and something else in the next.
+  *The number is NAMED here, and it had to be — this clause used to say "whichever the project
+  picks" and then never picked, so every reading of the set had only a count to go on and the
+  paragraph below forbids reconciling to a count.* **2 is not the majority's value, it is the
+  PUBLISHED one:** `finish-pr.sh`'s exit table declares `2  Usage error (bad or unknown argument).
+  Nothing was read or touched.`, which is the only place the kit ever wrote down what a status
+  MEANS. The pick has an author and a reason rather than a tally.
+  **A surplus POSITIONAL is a different class and keeps its own status** — the two are told apart by
+  a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing it would be.
 
 **These three are the CLI SHAPE, and they bind every command-line tool in the kit, not only the
 creators.** *They are authored here because this is where the failure that produced them was paid

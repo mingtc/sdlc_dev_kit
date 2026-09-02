@@ -46,6 +46,11 @@ case "${1:-}" in
   -h|--help)  usage; exit 0 ;;
   --kit-only) KIT_ONLY=true ;;
   "")         ;;
+  # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
+  # kit already told them apart in every script that has a `-*)` arm — these did not, so a
+  # mistyped flag was reported with the status a surplus word gets. Named in
+  # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+  -*)         printf 'ERROR: unknown option '"'"'%s'"'"'. See ./setup.sh --help.\n' "$1" >&2; exit 2 ;;
   *)          die "Unknown argument '$1'. See ./setup.sh --help." ;;
 esac
 

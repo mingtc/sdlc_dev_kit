@@ -126,6 +126,16 @@ usage() {
 # further down has always had the right arm; it was simply unreachable.
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 
+# A DASH-LEADING FIRST TOKEN IS AN OPTION, NEVER AN ID — and this must be checked BEFORE
+# the arity test, not after. `move-issue.sh --typo` has one argument, so the arity test
+# fired first and refused with the status a MISSING ARGUMENT gets, printing usage and
+# never naming the flag. The contract's words are "never ignored, never treated as a
+# positional value" (issue-creation.md § 3), and being swallowed by an arity check is a
+# third way of not being named.
+case "${1:-}" in
+  -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
+esac
+
 if [ $# -lt 2 ]; then usage >&2; exit 1; fi
 
 ISSUE_ID="$1"; shift
@@ -136,7 +146,9 @@ ISSUE_ID="$1"; shift
 # `--` therefore means "no positional target"; anything else is the target.
 TARGET=""
 case "${1:-}" in
-  --*) ;;
+  -*) ;;                              # `-*`, not `--*`: a single-dash token is an option
+                                      # too, and taking it as the target renamed a typo
+                                      # into a board column that does not exist.
   *)   TARGET="$1"; shift ;;
 esac
 ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0
@@ -149,6 +161,11 @@ while [ $# -gt 0 ]; do
     --set-pr) SET_PR="${2:-}"; shift 2 ;;
     --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
     -h|--help) usage; exit 0 ;;
+    # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
+    # kit already told them apart in every script that has a `-*)` arm — these did not, so a
+    # mistyped flag was reported with the status a surplus word gets. Named in
+    # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+    -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
 done

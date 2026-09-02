@@ -98,6 +98,11 @@ while [ $# -gt 0 ]; do
     --tag)       DO_TAG=true; shift ;;
     --repo-root) REPO_ROOT="$2"; shift 2 ;;
     -h|--help)   usage; exit 0 ;;
+    # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
+    # kit already told them apart in every script that has a `-*)` arm — these did not, so a
+    # mistyped flag was reported with the status a surplus word gets. Named in
+    # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+    -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done

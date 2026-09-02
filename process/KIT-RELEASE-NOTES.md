@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Every command-line tool the kit ships now refuses an unrecognised option with exit status 2, and
+  answers `--help` with usage rather than doing work.** The contract always required one status
+  across the set but never said which; it now says **2**, matching what `finish-pr.sh`'s exit table
+  already published. **Action required if you script against these tools:** `archive.sh`,
+  `archive-progress.sh`, `move-issue.sh`, `kit-init.sh`, `setup.sh` and the two consumer scripts
+  refused a bad flag with **1** and now use **2**. A surplus *positional* argument still exits 1 —
+  that is a different class and the distinction is deliberate. **Two changes can bite you even if
+  you do not script against them:** `notify.sh` used to print *"ignoring unknown arg"*, **deliver the
+  notification, and exit 0** — a typo'd flag now refuses instead; and `next-id.sh --help` used to
+  print a **mintable issue id** and exit 0, so a usage request handed you an identifier you might
+  then have used. A failed *delivery* from `notify.sh` still exits 0 on purpose, and
+  `check-board.sh` still always exits 0 with its verdict on a line — neither of those changed.
+
 - **One name now sets the remote for everything, releases included: `KWT_REMOTE`.** It already
   controlled the board mover, the archive sweep, the subtask mover, the PR landing, the drift report
   and the initializer — but `release.sh` read only its own `RELEASE_REMOTE`, so a fork that set

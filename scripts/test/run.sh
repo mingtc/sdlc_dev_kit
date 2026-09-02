@@ -6589,6 +6589,101 @@ case_release_honours_the_one_remote_name() {
   finish "release.sh honours the shared publication remote: KWT_REMOTE alone retargets the release push and tag to a fork (and not to origin), and RELEASE_REMOTE still overrides it for the release only — asserted on where the annotated tag physically landed"
 }
 
+# =============================================================================
+# CASE — THE CLI SHAPE HOLDS ACROSS THE WHOLE SHIPPED SET, DERIVED NOT LISTED.
+#
+# contracts/issue-creation.md § 3 binds every command-line tool the kit ships: a usage
+# request is always legal and always succeeds; an unrecognised option refuses, non-zero,
+# NAMING it, with ONE status across the set — and § 3 now names that status as 2.
+#
+# THE SUBJECT SET IS DERIVED FROM THE SANDBOX, and that is the whole design. The change
+# file that raised this carried a hand-assembled list, and the list was wrong in both
+# directions — it named two scripts that already conformed and missed the two dangerous
+# ones, where a REFUSAL READ AS SUCCESS: `next-id.sh --help` printed a mintable
+# identifier and exited 0, and `notify.sh` warned about a stray flag, delivered the
+# message anyway, and exited 0. A control that restated that list would have inherited
+# its blind spots; this one goes blind only if the glob does.
+#
+# `</dev/null` IS LOAD-BEARING on every invocation: an enumeration that reaches a
+# stdin-reading tool without it hangs the whole suite rather than failing it.
+# =============================================================================
+case_cli_shape_across_the_shipped_set() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+
+  # THE EXEMPTIONS CARRY THEIR REASON AND ASSERT THEIR OWN EXISTENCE — an exemption
+  # naming a file that is not there is coverage shrinking silently.
+  local e
+  for e in config.sh notify-hook.sh; do
+    [ -f "$SB_WORK/scripts/$e" ] \
+      || _fixture_die "case_cli_shape_across_the_shipped_set: the exemption list names scripts/$e, which is not in the sandbox — the exemption is stale and coverage shrank without anything failing."
+  done
+
+  local f base out rc n=0
+  for f in "$SB_WORK"/scripts/*.sh; do
+    [ -e "$f" ] || continue
+    base="$(basename "$f")"
+    case "$base" in
+      config.sh) continue ;;        # a sourced seam, not a CLI — it has no main
+      notify-hook.sh) continue ;;   # a stdin hook; exit 0 always, by its own design
+    esac
+    n=$((n+1))
+
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "$base --help exited $rc — a usage request must ALWAYS succeed (§ 3)"
+    # NAMING ITSELF IS THE EFFECT ASSERTION. An rc-only check passes vacuously on a tool
+    # that has no --help arm at all and simply does its job: that is exactly how
+    # next-id.sh answered a usage request with a mintable id and looked fine.
+    printf '%s\n' "$out" | grep -qF "$base" \
+      || cf "$base --help exited 0 but its output never names $base — this is satisfied by a tool with no usage handler that just ran: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+    out="$( cd "$SB_WORK" && "$f" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
+    [ "$rc" -eq 2 ] \
+      || cf "$base: an unrecognised option exited $rc, want 2 — § 3 names ONE status across the shipped set: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s\n' "$out" | grep -qF -- '--not-a-real-flag' \
+      || cf "$base: the refusal does not NAME the option it refused (§ 3), so the caller cannot tell which flag was wrong: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  done
+
+  [ "$n" -gt 0 ] \
+    || _fixture_die "case_cli_shape_across_the_shipped_set: the glob matched no script at all — the case would report PASS over an empty set."
+
+  # ── TWO TARGETED PROBES, because the generic one above CANNOT REACH THESE PATHS and a
+  #    mutation test proved it: reverting either fix left the sweep green.
+  #
+  #    notify.sh dispatches on its first argument as a CLASS, so `--not-a-real-flag`
+  #    alone is refused by the class arm and the OPTION LOOP is never entered. That loop
+  #    is where a stray flag used to be warned about and IGNORED — the message delivered,
+  #    exit 0. A refusal that reads as success needs a probe that gets that far.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/notify.sh" done "a message" --session s --not-a-real-flag </dev/null 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] \
+    || cf "notify.sh: a stray option AFTER a valid class exited $rc, want 2 — it is being ignored and the notification is delivered anyway, which is a refusal that reads as success: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  #    move-issue.sh takes positionals, so a dash-leading token is caught BEFORE the
+  #    option loop or it becomes the issue id and dies on the arity check instead —
+  #    refused with the status a MISSING ARGUMENT gets, never naming the flag.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" --not-a-real-flag in_progress --role Dev </dev/null 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] \
+    || cf "move-issue.sh: a dash-leading FIRST token exited $rc, want 2 — it was taken as the issue id rather than refused as an option: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -qF -- '--not-a-real-flag' \
+    || cf "move-issue.sh: the refusal does not name the dash-leading token it refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # ── INSTRUMENT CHECK. Both probes above must be capable of FAILING. A script with no
+  #    argument handling whatsoever must fail both — written OUTSIDE scripts/ so the
+  #    glob above cannot pick it up and turn the control into a subject.
+  local probe="$SB_TMP/no-handlers.sh"
+  printf '#!/usr/bin/env bash\necho ok\n' > "$probe"; chmod +x "$probe"
+  out="$( "$probe" --help </dev/null 2>&1 )"
+  printf '%s\n' "$out" | grep -qF 'no-handlers.sh' \
+    && cf "(control) the --help probe PASSED a script with no usage handler — it is measuring nothing"
+  out="$( "$probe" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] \
+    && cf "(control) the refusal probe PASSED a script with no argument handling — it is measuring nothing"
+
+  finish "the CLI shape across the shipped set (DERIVED from the sandbox, not listed): every tool's usage request exits 0 and names the tool, and every unrecognised option exits 2 and names the option — asserted over $n tools with two exemptions that assert their own existence"
+  teardown
+}
+
 case_release_behind_the_remote() {
   cf_reset
   if ! has_release; then skp "release.sh gate (a): HEAD vs the remote tip" "scripts/release.sh absent"; return; fi
@@ -7702,6 +7797,7 @@ CASES=(
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy
+  case_cli_shape_across_the_shipped_set
   case_release_behind_the_remote
   case_release_honours_the_one_remote_name
   case_release_guards

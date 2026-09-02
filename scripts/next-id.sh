@@ -37,6 +37,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 # under a name nobody chose. So: NO fallback literal anywhere. config.sh is the
 # only authority, and its absence is a refusal that NAMES it.
 # The same block is in every script that grep returns — change one, change all.
+# THIS SCRIPT READ NO ARGUMENTS AT ALL, and that was not harmless: `next-id.sh --help`
+# printed a MINTABLE IDENTIFIER and exited 0. A usage request that answers with an id is
+# a refusal that reads as success, and the id it suggests may then be used. Both arms
+# below are the shipped-set convention (issue-creation.md § 3): a usage request always
+# succeeds; anything else is an unrecognised option and exits 2.
+case "${1:-}" in
+  -h|--help)
+    echo "usage: next-id.sh"
+    echo ""
+    echo "  Prints the next free issue id — max(board, ARCHIVE.md) + 1. READ-ONLY, and"
+    echo "  a SUGGESTION rather than an allocation: the creation scripts take --id."
+    echo "  Takes no options."
+    exit 0 ;;
+  "") ;;
+  *) echo "Error: unknown option: $1 (next-id.sh takes none)" >&2; exit 2 ;;
+esac
+
 CONFIG="$ROOT/scripts/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {
