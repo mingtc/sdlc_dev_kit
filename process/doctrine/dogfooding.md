@@ -242,6 +242,48 @@ round that opens forty items has pre-written a backlog nobody scoped — the one
 rules forbid outright. **The findings document survives whether or not anything is minted**, and it is
 the artefact later readers cite.
 
+### A.14b — Every finding gets a DISPOSITION, and a disposition is a TARGET plus a REASON
+
+**"Not mine" is not a disposition.** A finding correctly dismissed as out of scope *for the question
+asked* is still a finding. *Pre-existing*, *unrelated*, *environmental* and *out of scope* **describe**
+a finding; none of them **moves** it, and a described finding sitting in a report is a finding nobody
+owns.
+
+**And the sharper half: an OBSERVATION is not a disposition either.** *"Noted."* *"Unchecked."* A grep
+result pasted into a section. **These read as coverage** — worse than a classification does, because a
+classification at least admits it is not a hand-off, while an observation looks like one. A later
+reader counting what the round handled will count them.
+
+**So a disposition is two things, and the pair is what makes it checkable:**
+
+| | |
+|---|---|
+| **a TARGET** | from the set below — named, not implied |
+| **a REASON** | why that target and not another |
+
+**The target set, and it is CLOSED — extend it deliberately or not at all:**
+
+1. **Minted** — it becomes a work item. *(Not this round's act: § A.14 sends consolidated problems to
+   a product-owner session, which decides what is minted.)*
+2. **Filed to another backlog** — named, with the identifier or the reference the receiving side will
+   recognise.
+3. **Fixed in place** — for the pure-correction class the process already allows without an item, with
+   what landed.
+4. **Referred to a named owner** — a person or a seat, not a team-shaped noun.
+5. **Declined** — with the reason kept, never the conclusion alone
+   ([`supersession.md`](supersession.md)).
+6. **Recorded as a known limitation** — it stays, someone will meet it, and the record is where they
+   will look.
+
+**Why the set has to be enumerated rather than left to judgement.** *"Route it"* names no targets, and
+with no target set routing collapses to **the one target everyone knows** — mint an issue. Findings
+that do not deserve an issue then get **dropped** instead, because the only available move is too
+heavy. **An unenumerated target set does not produce careful judgement; it produces one target and a
+silent discard pile.**
+
+**The test:** a reader who did not attend the round can, for every finding, name where it went and why.
+If the answer is a description of the finding rather than a destination for it, it has no disposition.
+
 ### A.15 — The round's own defects get their own section, and it is not optional
 
 Rounds make mistakes: contaminated fixtures, an instrument that never fired, a measure that scored
