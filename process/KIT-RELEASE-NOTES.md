@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **"Redact secrets, never contents" now says which identifiers count as secrets — because read
+  literally, it argued for keeping them.** An account name, a user, a tenant, a host or the
+  authenticating identity's own address is *contents* under the old wording, so a capture could
+  faithfully preserve every one of them while obeying the rule. The boundary is now explicit:
+  **redact credentials and the identifiers of principals; never redact the contents** — the field
+  names, link types, codes and bodies are the measured truth the capture exists to hold. **Action
+  required if you have committed captures:** re-read them once for identifiers. **What has NOT
+  changed, and is worth saying because it is the tempting shortcut:** redaction is not a reason to
+  delete or `.gitignore` a capture — raw capture trees are retired never. If redacting would destroy
+  the measurement, say so in *What this does NOT establish*. Also: a probe that is not part of a spike
+  now has a stated home for its captures.
+
 - **The `PREFLIGHT_GATES` worked example now shows a wrapper script, not a bare command — and it has
   to.** Gate (c) runs your declared command with a deliberate word-split and no `eval`, so an inline
   `sh -c '…'` is torn apart before it runs, and a record cannot contain `|` at all. **Action required

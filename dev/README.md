@@ -107,7 +107,12 @@ reading rules, which is the whole reason the split is worth a directory.
 
 <!-- A spike directory gets ONE row here and its own README.md inside if it has more than a couple
      of members. Captures — raw responses, fixtures, transcripts recorded from a real system — stay
-     with their spike, never loose at this level. -->
+     with their spike, never loose at this level.
+     A PROBE THAT IS NOT PART OF A SPIKE still has a home, and this is it: its finding note is a
+     row in § Reports, assessments, and probe findings, and its captures go in a dated directory
+     beside that note, indexed by its own row. The rule above is "never loose at this level", not
+     "only spikes may capture" — a one-off probe that produced raw evidence had nowhere to put it,
+     which is how a capture ends up either loose or deleted. -->
 
 | Directory | Date | Read for |
 |---|---|---|

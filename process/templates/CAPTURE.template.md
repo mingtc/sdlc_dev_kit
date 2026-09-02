@@ -52,7 +52,17 @@ and is not re-derivable at that price. *(Doctrine:
 ## Verbatim codes & bodies — the load-bearing answers
 
 <!-- VERBATIM, not paraphrased, for every answer a conclusion rests on. A paraphrase cannot be
-     re-read for a detail nobody knew to look for on the day. Redact secrets, never contents. -->
+     re-read for a detail nobody knew to look for on the day.
+     REDACT CREDENTIALS AND THE IDENTIFIERS OF PRINCIPALS — accounts, users, tenants, hosts, the
+     authenticating identity's own address — NEVER THE CONTENTS. The field names, link types,
+     codes and bodies are the measured truth this capture exists to hold; the people and machines
+     are not. *"Redact secrets"* alone did not say this, and an email address is not a secret:
+     read literally, the rule argued FOR keeping it.
+     THIS IS NOT A LICENCE TO DROP THE CAPTURE. If redaction would destroy the measured truth,
+     that is a case for § What this does NOT establish, not for deleting or gitignoring the file:
+     raw capture trees are retired never (see the note at the top of this template, and
+     process/doctrine/retention.md). The curated finding note is what a reader needs; the raw
+     capture is retained REDACTED, not dropped. -->
 
 ```json
 <the exact response body / error code that the verdict rests on>
