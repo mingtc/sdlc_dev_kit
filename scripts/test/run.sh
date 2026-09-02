@@ -6523,6 +6523,72 @@ run_release() {  # <version> [extra args…]
 # Leg (iv) is --dry-run because a full cut against a dead remote fails at the PUSH
 # regardless of this gate, so a nonzero exit there would say nothing about gate (a).
 # =============================================================================
+# =============================================================================
+# CASE — THE PUBLICATION REMOTE HAS ONE SHARED NAME AND ONE NARROW OVERRIDE.
+#
+# `KWT_REMOTE` is honoured by six operations; `RELEASE_REMOTE` was read by exactly one.
+# So a fork that set KWT_REMOTE=upstream published its BOARD there and its RELEASES to
+# origin — silently, with a success message. release.sh now reads
+# ${RELEASE_REMOTE:-${KWT_REMOTE:-origin}}: narrow beats shared, shared beats the
+# default, and NEITHER name stops being read, so nobody's existing setting is ignored.
+#
+# EVERY ASSERTION READS WHERE THE ANNOTATED TAG PHYSICALLY LANDED, never a printed
+# remote name — a script that prints the right remote and pushes to the wrong one would
+# satisfy any output check.
+# =============================================================================
+case_release_honours_the_one_remote_name() {
+  cf_reset
+  if ! has_release; then skp "release.sh honours the shared publication remote" "scripts/release.sh absent"; return; fi
+  local out rc fork
+
+  _fork_sandbox() {
+    make_sandbox; seed_release_files 1.1.0; publish_sandbox
+    write_board_stub "$SB_TMP/board-clean.sh" clean
+    fork="$SB_TMP/fork.git"
+    git init --bare -q "$fork"
+    git -C "$fork" symbolic-ref HEAD "refs/heads/$SB_TRUNK"
+    git -C "$SB_WORK" remote add upstream "$fork" >/dev/null 2>&1
+    git -C "$SB_WORK" push -q upstream "$SB_TRUNK" >/dev/null 2>&1
+    git -C "$SB_WORK" remote set-head upstream "$SB_TRUNK" >/dev/null 2>&1
+    # THE TWO REMOTES MUST BE DIFFERENT REPOSITORIES, or every leg below passes without
+    # measuring anything at all.
+    [ "$fork" != "$SB_ORIGIN" ] \
+      || _fixture_die "case_release_honours_the_one_remote_name: the fork and origin are the same path."
+    [ -n "$(git -C "$SB_WORK" ls-remote --heads "$fork" "$SB_TRUNK" 2>/dev/null)" ] \
+      || _fixture_die "case_release_honours_the_one_remote_name: the fork carries no trunk, so a push there cannot be distinguished from a push nowhere."
+    [ -z "$(git -C "$SB_WORK" ls-remote --tags "$fork" v1.1.0 2>/dev/null)" ] \
+      || _fixture_die "case_release_honours_the_one_remote_name: the fork already carries v1.1.0 before any cut."
+  }
+
+  # --- (a) KWT_REMOTE alone retargets the release --------------------------
+  _fork_sandbox
+  rc=0
+  out="$( cd "$SB_WORK" && KWT_REMOTE=upstream RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
+            RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the cut failed with KWT_REMOTE=upstream (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  [ -n "$(git -C "$SB_WORK" ls-remote --tags "$fork" v1.1.0 2>/dev/null)" ] \
+    || cf "(a) the tag did NOT reach the fork — release.sh ignored KWT_REMOTE, so a fork's board and its releases go to different places"
+  [ -z "$(git -C "$SB_WORK" ls-remote --tags "$SB_ORIGIN" v1.1.0 2>/dev/null)" ] \
+    && : || cf "(a) the tag ALSO reached origin — the release was published to a remote the project did not name"
+  teardown
+
+  # --- (b) RELEASE_REMOTE still overrides, narrow beats shared -------------
+  _fork_sandbox
+  rc=0
+  out="$( cd "$SB_WORK" && KWT_REMOTE=upstream RELEASE_REMOTE=origin RELEASE_TEST_ALLOW_STUB=1 \
+            RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" \
+            "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the cut failed with RELEASE_REMOTE=origin overriding KWT_REMOTE (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  [ -n "$(git -C "$SB_WORK" ls-remote --tags "$SB_ORIGIN" v1.1.0 2>/dev/null)" ] \
+    || cf "(b) RELEASE_REMOTE did not win over KWT_REMOTE — the narrow override stopped being read, which silently ignores an adopter's existing setting"
+  [ -z "$(git -C "$SB_WORK" ls-remote --tags "$fork" v1.1.0 2>/dev/null)" ] \
+    && : || cf "(b) the tag also reached the fork — the override did not scope the push"
+  teardown
+
+  unset -f _fork_sandbox
+  finish "release.sh honours the shared publication remote: KWT_REMOTE alone retargets the release push and tag to a fork (and not to origin), and RELEASE_REMOTE still overrides it for the release only — asserted on where the annotated tag physically landed"
+}
+
 case_release_behind_the_remote() {
   cf_reset
   if ! has_release; then skp "release.sh gate (a): HEAD vs the remote tip" "scripts/release.sh absent"; return; fi
@@ -7637,6 +7703,7 @@ CASES=(
   case_first_mile
   case_release_happy
   case_release_behind_the_remote
+  case_release_honours_the_one_remote_name
   case_release_guards
   case_release_preflight_gates
   case_release_stub_marker

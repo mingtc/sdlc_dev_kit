@@ -61,7 +61,10 @@
 #                        — requires RELEASE_TEST_ALLOW_STUB=1
 #   RELEASE_BUILD_CMD    overrides the publish build command (see BUILD_COMMAND)
 #   RELEASE_DIST_BRANCH  overrides the distribution branch name
-#   RELEASE_REMOTE       push remote                (default: origin)
+#   KWT_REMOTE           the SHARED publication remote for every kit operation,
+#                        this one included      (default: origin; a remote NAME)
+#   RELEASE_REMOTE       overrides KWT_REMOTE for the release push ONLY
+#                        (default: whatever KWT_REMOTE is; may be a URL)
 #   RELEASE_ROLE         commit role tag            (default: Architect)
 set -euo pipefail
 
@@ -208,7 +211,20 @@ if [ -z "$RAW_VERSION" ]; then
   usage >&2; exit 2
 fi
 
-REMOTE="${RELEASE_REMOTE:-origin}"
+# THE PUBLICATION REMOTE HAS ONE SHARED NAME AND ONE NARROW OVERRIDE. `KWT_REMOTE` is
+# the name every other operation honours — the board mover, the archive sweep, the
+# subtask mover, the PR landing, the drift report and the initializer, six of them — and
+# it is documented as the fork recipe. `RELEASE_REMOTE` was read only here, so a fork
+# that set KWT_REMOTE=upstream published its board there and its RELEASES to origin,
+# silently. The chain fixes that WITHOUT retiring either name, so nobody's setting is
+# quietly ignored: narrow beats shared, shared beats the git-universal default.
+#
+# ONLY THE OVERRIDE MAY BE A URL. This script resolves the dist remote through
+# `git remote get-url … || echo "$REMOTE"`, so a URL works here. KWT_REMOTE is used as a
+# remote NAME by the worktree machinery (refs/remotes/$KWT_REMOTE/HEAD), where a URL
+# silently fails trunk resolution and falls through to the last-resort guess. So: put a
+# URL in RELEASE_REMOTE if you must; never in KWT_REMOTE.
+REMOTE="${RELEASE_REMOTE:-${KWT_REMOTE:-origin}}"
 ROLE="${RELEASE_ROLE:-Architect}"
 
 # ── Preflight -1 (gate 0): A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER. ─

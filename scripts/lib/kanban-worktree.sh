@@ -84,6 +84,18 @@
 # Override for a fork/mirror workflow:
 #   KWT_REMOTE=upstream ./scripts/move-issue.sh …
 # ---------------------------------------------------------------------------
+# THE PUBLICATION REMOTE, and since 2026-09-02 it governs EVERY kit operation rather
+# than only the board ones: the mover, the archive sweep, the subtask mover, the PR
+# landing, the drift report, the initializer — and the RELEASE push, which used to read
+# its own RELEASE_REMOTE and therefore sent releases to origin while a fork's board went
+# elsewhere. contracts/config-seam.md names the publication remote as a value requiring
+# exactly ONE authoritative definition; this is it.
+#
+# IT IS A REMOTE NAME, NOT A URL. The machinery below reads refs/remotes/$KWT_REMOTE/HEAD
+# to resolve the trunk, and a URL there fails that resolution silently and falls through
+# to KWT_TRUNK_LAST_RESORT. release.sh's RELEASE_REMOTE override may be a URL; this may
+# not. The prefix is now narrower than what the value means — renaming it would silently
+# ignore every current setter, so it stays and this paragraph carries the meaning.
 KWT_REMOTE="${KWT_REMOTE:-origin}"
 
 # ---------------------------------------------------------------------------

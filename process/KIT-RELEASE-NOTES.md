@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **One name now sets the remote for everything, releases included: `KWT_REMOTE`.** It already
+  controlled the board mover, the archive sweep, the subtask mover, the PR landing, the drift report
+  and the initializer — but `release.sh` read only its own `RELEASE_REMOTE`, so a fork that set
+  `KWT_REMOTE=upstream` published its board to the fork and its **releases to `origin`**, silently.
+  **Action required if you are on a fork:** your release push and tag now follow `KWT_REMOTE`. If you
+  genuinely want releases somewhere else, set `RELEASE_REMOTE` — it still overrides, for the release
+  push only, and it is the one place a URL is accepted. `KWT_REMOTE` must be a remote **name**: the
+  worktree machinery resolves your trunk through `refs/remotes/<remote>/HEAD`, and a URL there fails
+  that quietly. Both are now documented in `.env.example`, which listed neither.
+
 - **`subtask.sh new` no longer corrupts a `--title` (or any other value) containing `&`, `|` or a
   backslash.** Three creation scripts escaped these; `subtask.sh` — the one that takes the most free
   text and the only one that **publishes to your trunk** — did not. A `&` was silently corrupted
