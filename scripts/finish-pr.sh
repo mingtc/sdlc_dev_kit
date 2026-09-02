@@ -97,6 +97,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
+# shellcheck source=lib/role-set.sh
+. "$SCRIPT_DIR/lib/role-set.sh"
+
 # --help renders the header block, with the window END DERIVED rather than
 # hard-coded: a literal `sed -n '3,50p'` silently truncated the Usage/Examples
 # tail off --help the first time the header gained a paragraph.
@@ -137,6 +140,16 @@ while [ $# -gt 0 ]; do
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
+
+# THE SEAT THIS SCRIPT ACTS AS. [QA] means the review seat landed it. A knob, never
+# derived. It is used in THREE places below — the squash subject, the --role passed to
+# the board mover, and the recovery text both refusals print — and those three must
+# agree, which is why it is read once here.
+ROLE="${FINISH_PR_ROLE:-QA}"
+# CHECKED BEFORE kwt_resolve. Both consumers reject a withdrawn role, and they reject it
+# at different points: the hook at the squash commit, move-issue.sh's whitelist at the
+# advance. The second one lands the merge and then fails the board move.
+kit_require_role "$SCRIPT_DIR/.." "$ROLE" FINISH_PR_ROLE || exit 1
 
 # Resolve repo root + trunk (works from any worktree, incl. a feature branch).
 kwt_resolve
@@ -317,7 +330,7 @@ if [ "$ALLOW_STUB" != "true" ]; then
   fi
 fi
 
-SQUASH_MSG="[QA] ${ISSUE_ID}: ${TITLE} (squash-merge ${BRANCH})"
+SQUASH_MSG="[$ROLE] ${ISSUE_ID}: ${TITLE} (squash-merge ${BRANCH})"
 
 echo "Plan:"
 echo "  1. Squash-merge '${BRANCH}' → '${DEFAULT_BRANCH}' (in .kanban-wt), commit: \"${SQUASH_MSG}\""
@@ -434,7 +447,7 @@ echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUAS
   echo "   If this run stops here — killed, timed out, disconnected — the landing is"
   echo "   COMPLETE but the cleanup is NOT. Finish it with exactly these two steps:"
   echo "     3. git -C '$MAIN_ROOT' branch -d '${BRANCH}' && git -C '$MAIN_ROOT' push ${KWT_REMOTE} --delete '${BRANCH}'"
-  echo "     4. $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role QA --note '<what the review found>'"
+  echo "     4. $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note '<what the review found>'"
   echo "   Both are safe to re-run: step 3 reports an already-deleted branch and step"
   echo "   4 refuses an issue that is no longer in dev_complete/."
   echo ""
@@ -609,7 +622,7 @@ fi
 #    full worktree machinery: lock + bootstrap + sync + commit + push + board-view ff.
 echo ""
 echo "Advancing ${ISSUE_ID} → qa_complete/..."
-MOVE_ARGS=("$ISSUE_ID" qa_complete --role QA --note "$NOTE")
+MOVE_ARGS=("$ISSUE_ID" qa_complete --role "$ROLE" --note "$NOTE")
 [ "$DISCARD_DIRTY" = "true" ] && MOVE_ARGS+=(--discard-dirty)
 # AN `if`, NOT A BARE CALL. A bare call under `set -e` aborts with move-issue's own
 # exit code — after the squash is on the trunk — so an automation reading $? sees
@@ -625,7 +638,7 @@ if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
     echo "         dev_complete/ → qa_complete/ move, so the board still shows it in review."
     echo "         DO NOT re-run this script: the branch is merged and the squash would have"
     echo "         nothing to do. Finish with just the move:"
-    echo "           $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role QA --note '<what the review found>'"
+    echo "           $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note '<what the review found>'"
   } >&2
 fi
 

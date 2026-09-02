@@ -41,6 +41,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
+# shellcheck source=lib/role-set.sh
+. "$SCRIPT_DIR/lib/role-set.sh"
+
 # The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
 # terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
 # once its PARENT lands — never by a direct move here.
@@ -84,6 +87,14 @@ case "$CMD" in
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
     [ -z "$TITLE" ] && { echo "Error: --title required." >&2; exit 1; }
+
+    # THE SEAT THIS ARM ACTS AS. [Orchestrator] means the decomposer. A knob, never
+    # derived: see the note beside the `move` arm's --role whitelist below — this arm
+    # had the same exposure and none of the validation, committing an unvalidated
+    # hardcoded tag in the same file that spends twelve lines explaining why that is
+    # data loss rather than an error.
+    ROLE="${SUBTASK_ROLE:-Orchestrator}"
+    kit_require_role "$SCRIPT_DIR/.." "$ROLE" SUBTASK_ROLE || exit 1
 
     # Acquire the lock + bootstrap + sync the worktree BEFORE touching anything,
     # so the create lands on the current <remote>/<trunk> tip.
@@ -202,7 +213,7 @@ case "$CMD" in
     fi
 
     git -C "$KWT" add "$DEST"
-    MSG="[Orchestrator] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
+    MSG="[$ROLE] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
     git -C "$KWT" commit -m "$MSG" --quiet
     echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"

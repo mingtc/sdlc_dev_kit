@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Three scripts that commit under a fixed role tag now check it against your declared role set,
+  and refuse before they touch anything.** `archive.sh`'s sweep, `subtask.sh`'s `create` arm and
+  `finish-pr.sh`'s squash each hardcoded a seat — `[Orchestrator]`, `[Orchestrator]`, `[QA]`. If you
+  ran `kit-init --roles` and dropped one of those roles, the tool would move the card **and then**
+  have its commit rejected by your own hook, leaving uncommitted changes in the shared kanban
+  worktree that the next board operation discards — and the operation after that would fail with an
+  error naming neither the role nor the sweep. They now refuse up front, naming the knob.
+  **Action required only if you have narrowed your role set:** export the seat you want each to act
+  as — `ARCHIVE_ROLE`, `SUBTASK_ROLE`, `FINISH_PR_ROLE` — each documented in its script's header and
+  each defaulting to what was previously hardcoded, so **projects that kept the shipped role set
+  need do nothing.** Related, in the same change: `finish-pr.sh`'s recovery text used to tell you to
+  re-run with the very `--role` that had just been rejected; it now names the knob.
+
 - **`release.sh` now refuses to cut a tag from a checkout that is not the published trunk's tip.**
   Gate (a) read only your own machine: on the trunk, tree clean. A checkout that passes both can
   still be **behind**, and the tag then names a tree missing what already landed. The branch push

@@ -1550,6 +1550,85 @@ case_finish_pr_gate_hardening() {
 # =============================================================================
 # CASE — archive.sh --apply indexes + moves to done/
 # =============================================================================
+# =============================================================================
+# CASE — A ONE-MEMBER ROLE TAG REFUSES BEFORE IT MUTATES.
+#
+# Three shipped scripts commit under a role tag that is ONE MEMBER of the role set:
+# archive.sh's sweep, subtask.sh's create arm, finish-pr.sh's squash. They were
+# hardcoded, so `kit-init --roles` — a documented, supported invocation — left them
+# naming a seat the project no longer declares. The initializer correctly cannot stamp
+# them: it rewrites the whole alternation, and one member does not contain it. So the
+# kit's own tooling manufactured the breakage.
+#
+# WHY THE EXIT CODE IS NOT THE ASSERTION. Without the guard, archive.sh still exits
+# nonzero — the hook rejects the commit and `set -e` aborts. A case that checked only
+# `rc -ne 0` would PASS against the defect. The whole content of the fix is WHICH SIDE
+# of the mutation the refusal lands on.
+#
+# WHAT THE REDDENING MUTATION ACTUALLY PROVES — measured, and NOT what was predicted
+# when this case was drafted. Deleting the guard does NOT move the card on the trunk:
+# the sweep git-mv's inside the kanban worktree, the commit fails, and nothing is
+# pushed, so both trunk assertions still hold. What fails is the RESTORE CONTROL at the
+# bottom: the refused run leaves uncommitted state in the SHARED worktree, and the very
+# next board operation — with a perfectly legal role tag — dies on
+# "the kanban worktree has uncommitted changes". So the damage this guard prevents is
+# not a bad commit; it is a POISONED WORKTREE that breaks the next operation, in
+# somebody else's lane, with an error naming neither the role nor the sweep that caused
+# it. That is the documented failure mode, reproduced end to end.
+#
+# The two trunk assertions are kept anyway: they are the ones that would catch a variant
+# where the mv DID reach the trunk, which no other assertion here would notice.
+#
+# THE NARROWING GOES INTO THE HOOK, never into the knob. Setting ARCHIVE_ROLE would
+# only prove the knob is read; narrowing the declared set is what proves the tag is
+# CHECKED against it.
+# =============================================================================
+case_one_member_role_tag_refuses_before_mutating() {
+  cf_reset
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-300" alpha chore "Archive alpha"
+  publish_sandbox
+
+  local cm="$SB_WORK/scripts/githooks/commit-msg" narrow='PM|Dev' out rc=0
+  # PM and Dev are kept because the fixtures commit under both. EVERY FIXTURE MUTATION
+  # ASSERTS: a perl -i whose pattern misses exits 0 and leaves the file byte-identical.
+  NEU_NEW="$narrow" perl -i -pe "s@^ROLE_PREFIXES='.*'\$@ROLE_PREFIXES='\$ENV{NEU_NEW}'@" "$cm"
+  grep -qxF "ROLE_PREFIXES='$narrow'" "$cm" \
+    || _fixture_die "case_one_member_role_tag_refuses_before_mutating: the narrowed role set did not land in the sandbox's commit-msg — the refusal below would be tested against the shipped set, which CONTAINS the tag, and the case would prove nothing."
+  printf '%s\n' "$narrow" | tr '|' '\n' | grep -qx Orchestrator \
+    && _fixture_die "case_one_member_role_tag_refuses_before_mutating: the narrowed set still contains the tag archive.sh writes — the premise of this case is gone."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] narrow the declared role set" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "archive.sh --apply exited 0 with a role tag the project's hook does not accept"
+  # THE EFFECT, ON THE AUTHORITATIVE STATE — this is the assertion the exit code cannot make.
+  origin_has_path "progress/qa_complete/$SB_PREFIX-300-alpha.md" \
+    || cf "the card left qa_complete/ on the trunk even though the sweep's commit could not be made"
+  origin_has_path "progress/done/$SB_PREFIX-300-alpha.md" \
+    && cf "the card reached done/ — the sweep MUTATED and only the commit failed, which is the uncommitted-state-in-a-discarded-worktree loss this refusal exists to prevent"
+  printf '%s\n' "$out" | grep -q 'ARCHIVE_ROLE' \
+    || cf "the refusal does not name the knob that would fix it: $(printf '%s' "$out" | tr '\n' '|')"
+
+  # ── INSTRUMENT CHECK. "Nonzero and nothing moved" is satisfied by an archive.sh
+  #    broken for ANY reason. Restore the declared set and the SAME invocation must work.
+  NEU_NEW="$KIT_NEUTRAL_ROLE_PREFIXES" perl -i -pe "s@^ROLE_PREFIXES='.*'\$@ROLE_PREFIXES='\$ENV{NEU_NEW}'@" "$cm"
+  grep -qxF "ROLE_PREFIXES='$KIT_NEUTRAL_ROLE_PREFIXES'" "$cm" \
+    || _fixture_die "case_one_member_role_tag_refuses_before_mutating: the role set was not restored — the control below cannot run."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] restore the shipped role set" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(control) archive.sh --apply still exited $rc with the shipped role set restored — the refusal above was not about the role tag: $(printf '%s' "$out" | tr '\n' '|')"
+  origin_has_path "progress/done/$SB_PREFIX-300-alpha.md" \
+    || cf "(control) the card did not reach done/ with a legal role tag — this case cannot tell a role refusal from a broken sweep"
+
+  finish "one-member role tags: archive.sh refuses BEFORE mutating when its tag is not in the declared set, names ARCHIVE_ROLE, leaves the card on the trunk untouched, and sweeps normally once the tag is legal again"
+  teardown
+}
+
 case_archive_apply() {
   cf_reset
   make_sandbox
@@ -6978,6 +7057,7 @@ CASES=(
   case_finish_pr_gate_hardening
   case_finish_pr_gate_revision
   case_archive_apply
+  case_one_member_role_tag_refuses_before_mutating
   case_archive_index_carries_the_date
   case_archive_index_refuses_malformed
   case_runner_schema_required_defines

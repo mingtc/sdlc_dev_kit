@@ -269,7 +269,7 @@ written around it.
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
 `subtask.sh` · `archive.sh` · `archive-progress.sh`
 
-**Machinery + hooks (KIT):** `lib/kanban-worktree.sh` · `lib/push-retry.sh` ·
+**Machinery + hooks (KIT):** `lib/kanban-worktree.sh` · `lib/push-retry.sh` · `lib/role-set.sh` ·
 `hooks/require-role.sh` · `hooks/session-start.sh` · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
 enforces is stamped)
@@ -537,6 +537,31 @@ this recipe, for exactly this reason.
 NAMES a role, most of them role docs and skills under `.claude/`, none of them stamped. It is here
 because § 2.2 paid for the lesson that a hand-bound search space answers a smaller question than it
 appears to: keep the `.claude/` operand.*
+
+**AND A THIRD REGISTER: FILES THAT CARRY ONE *MEMBER*, NOT THE SET.** The table above is about the
+role *set*. A separate and easier-to-miss class is a script that hardcodes a single role because it
+always acts as that seat. Those files do not carry the alternation, so **no set-based derivation
+finds them** — including the recipe above and the initializer's stamping loop, which correctly
+cannot stamp them: `--roles` rewrites the whole alternation, and one member does not contain it.
+*So the kit's own initializer manufactures the breakage: `kit-init --roles` is a documented,
+supported invocation that leaves these tags naming roles the project no longer declares.*
+
+They are graded by what a wrong tag costs, because the costs are not comparable:
+
+| Class | Members | Cost when the tag is not in the declared set |
+|---|---|---|
+| Carries one member as an **ENFORCED commit tag** | `scripts/archive.sh` (the sweep), `scripts/subtask.sh` (the `create` arm), `scripts/finish-pr.sh` (the squash subject) | The hook rejects it **mid-operation** — the `git mv` and the Activity append have already happened inside the shared kanban worktree, the commit fails, and the next board operation `reset --hard`s them. **Silent data loss in somebody else's lane**, not an error |
+| Carries one member as an **ENFORCED `--role` argument** | `scripts/finish-pr.sh` (the board advance) | `move-issue.sh`'s whitelist rejects it **after the merge has landed** — the branch is merged and the card is not moved |
+| Carries one member as a **KNOB DEFAULT** | `scripts/release.sh` (`RELEASE_ROLE`), and the three above since 2026-09-02 (`ARCHIVE_ROLE`, `SUBTASK_ROLE`, `FINISH_PR_ROLE`) | **This is the shape the others were converted to.** The project names the seat; the script refuses up front if the tag is not declared, naming the knob |
+| **Mentions** a member in a comment, an example, or recovery text | Several, and cheapest — with one exception worth naming: recovery text that tells the operator to re-run with the role that was just **rejected** is a loop, not a remedy | A reader follows advice that cannot work |
+
+**Never derive the tag from the set** — `${ROLE_PREFIXES%%|*}` and its cousins. These tags carry
+**seat identity**: `[Orchestrator]` on the archive sweep means session-close housekeeping, `[QA]` on
+`finish-pr.sh` means the review seat landed it. A derivation attributes all of them to whichever role
+sorts first and writes a false actor into history permanently — and an adopter's set may legally have
+one member, so a derivation cannot express a distinction its source does not contain. Knob, plus a
+refusal before the first mutation: [`lib/role-set.sh`](../scripts/lib/role-set.sh) is the one
+implementation of both.
 
 Change one, change them all — **and the row count is this table, never a number in the prose above
 it.** An earlier version of this heading said "FOUR places", which was true when it was written and

@@ -20,6 +20,9 @@
 # Usage:
 #   ./scripts/archive.sh           # dry run (previews against the trunk)
 #   ./scripts/archive.sh --apply   # apply: commit + push the sweep
+#
+#   ARCHIVE_ROLE   the seat this sweep commits as (default: Orchestrator). The tag
+#                  is CHECKED against your declared role set before anything moves.
 
 set -euo pipefail
 
@@ -63,6 +66,9 @@ fi
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
+# shellcheck source=lib/role-set.sh
+. "$SCRIPT_DIR/lib/role-set.sh"
+
 usage() {
   local src="${BASH_SOURCE[0]}" first end
   first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
@@ -77,6 +83,15 @@ case "${1:-}" in
   -h|--help) usage; exit 0 ;;
   *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
 esac
+
+# THE SEAT THIS SCRIPT ACTS AS. [Orchestrator] means session-close housekeeping; it is
+# a MEMBER of the role set, not the set itself, so it is a knob and never derived — a
+# derived tag would write whichever role sorts first into history as the actor.
+ROLE="${ARCHIVE_ROLE:-Orchestrator}"
+# CHECKED BEFORE THE LOCK AND BEFORE THE WORKTREE, which is the whole value of it: past
+# this point the git mv and the ARCHIVE.md edit have happened, and a hook that rejects
+# the tag then leaves them uncommitted in a worktree the next board op discards.
+kit_require_role "$SCRIPT_DIR/.." "$ROLE" ARCHIVE_ROLE || exit 1
 
 # Resolve repo root + trunk, take the lock, and route through the standing
 # detached worktree synced to the trunk. The lock is trap-released on EXIT
@@ -309,7 +324,7 @@ git -C "$KWT" add "$ARCHIVE"
 # local commit is fatal — kwt_finalize prints the loud recovery text; abort nonzero.
 SUBTASK_NOTE=""
 [ ${#SUBTASK_TREES[@]} -gt 0 ] && SUBTASK_NOTE=" + ${#SUBTASK_TREES[@]} subtask tree(s)"
-MSG="[Orchestrator] archive: sweep ${#FILES[@]} issue(s) qa_complete/ → done/${SUBTASK_NOTE} + index in ARCHIVE.md"
+MSG="[$ROLE] archive: sweep ${#FILES[@]} issue(s) qa_complete/ → done/${SUBTASK_NOTE} + index in ARCHIVE.md"
 git -C "$KWT" commit -m "$MSG" --quiet
 # THE PRINTED SHA IS A READING TAKEN BEFORE THE ACT IT DESCRIBES, unless it is
 # taken twice. This line said "Commit: <sha> on <trunk>" BEFORE the push — and the
