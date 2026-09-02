@@ -200,6 +200,21 @@ in a document claiming to be current** — is a defect.
   derivation.** A dated snapshot is *accurate as of its date, kept as background, not maintained*.
   A one-day count drift inside a dated charter is cosmetic; a bare universal in a live index is a
   defect.
+- **A COUNT NAMES THE POPULATION IT COUNTED, whenever more than one plausible population exists.**
+  Found vs. filtered. All vs. surviving. Declared vs. present. Raised vs. upheld. A number satisfying
+  all three forms above — derived, dated, attributed — is still wrong to the reader if they resolve
+  *what was counted* differently from the writer, and they usually can, because the axis is exactly
+  what a bare noun leaves out.
+  *The compliance is cheap and it is the shape this section already uses elsewhere:* **state the axis
+  instead of the number.** *"Fifteen found, seven of them cut-blocking"* rather than *"seven false
+  claims"*. The reader now knows which question the seven answers, and the fifteen tells them a
+  filter ran at all.
+  *Where it bites hardest, and this is the half worth remembering:* **in a record that becomes law.**
+  A figure in a run report is read once and discarded. A figure in a doctrine sheet, a contract or a
+  charter is **quoted onward** — so a mis-resolved population is not one wrong sentence, it is the
+  seed of several, each of them now carrying a number nobody can re-derive. *Measured in the donor
+  project: one unqualified count in one sheet reached three downstream documents before anyone asked
+  which population it named.*
 - **A re-measurement PREPENDS; it does not overwrite.** The old figure keeps its date
   ([`supersession.md`](supersession.md) § A.1), because two dated figures are how a reader sees the
   direction of travel.
