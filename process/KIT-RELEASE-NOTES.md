@@ -46,6 +46,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`release.sh`'s notes gates now check the section, not just its heading — and a heading with no
+  date is refused rather than skipped.** Gate (e) asserted a `## [X.Y.Z]` line existed and said nothing
+  about what was under it, so a heading over a placeholder or a `TODO` cut a release whose notes said
+  nothing, and the preflight reported the section *present* — which reads as the notes being in order.
+  Gate (f) refuses a header date earlier than a date inside the section, but **nothing in the kit ever
+  writes that date** — you type it or you do not — and a heading with no date is not "earlier than"
+  anything, so the check was skipped and the section cleared. **Action required if your notes headings
+  are undated:** the cut now refuses until you add `— YYYY-MM-DD` to the version heading, and the
+  refusal says plainly that no tool will write it for you. Placeholders in `<angle brackets>`, bare
+  bullets, `TODO`/`TBD`/`N/A`/`NONE`/`WIP` do not count as content.
+
 - **A new shipped file — `scripts/lib/usage.sh` — and you must copy it.** Six shipped scripts
   rendered `--help` from their own header comment block, each with its own copy of the five-line
   renderer. There is now one, and they source it. **Action required: copy `scripts/lib/usage.sh`
