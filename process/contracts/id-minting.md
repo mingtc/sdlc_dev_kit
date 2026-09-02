@@ -57,6 +57,24 @@ would restate these invariants and the copy is the one that goes stale.
   same-day collision stays disambiguable.
   *Why:* measured — two same-day landings in one project both minted the same register id, each
   correctly reading the file as it stood.
+  **CITE THE WORK-ITEM ID ALONGSIDE THE NUMBER AS A STANDING MINT-TIME FORM, not as a remedy the
+  second filer reaches for once they know they collided.** A number carrying its work-item id is
+  *survivable at read time* — two entries numbered alike are still told apart by anyone reading
+  them — where a bare number needs a renumber, and a renumber needs someone to notice first.
+  The cost is a few characters at mint; the cost of the alternative is a rewrite plus every
+  reference already written to the losing number.
+- **A CONCURRENCY HAZARD IS NEVER A REASON NOT TO FILE.** Not "wait until the other lane lands",
+  not "hold it until you can confirm the number", not "let one of us do the minting". File it,
+  with the disambiguating form above.
+  *Why this has to be said outright:* the invariant above tells the caller they own the hazard, and
+  a careful caller reads that as **an argument for filing less** — which is the one outcome the
+  contract must not produce. **An unfiled finding costs the whole finding; a collided number costs
+  a disambiguation.** Those are not comparable, and leaving the second filer to carry the entire
+  cost of the collision is what makes them feel comparable.
+  *(The caller-supplies-and-validates invariant in [`issue-creation.md`](issue-creation.md) is the
+  other half of this: the creator refuses an identifier that is already live, so a collision that
+  reaches the tool is caught rather than absorbed. Between the two, the filer's job is to file and
+  to carry the work-item id — not to arbitrate the number.)*
 
 ### Spaces and streams — two different questions, and the one carve-out
 
