@@ -1487,6 +1487,63 @@ case_finish_pr_gate_revision() {
     || cf "(ii) the issue left dev_complete/ during a refusal"
   teardown
 
+  # --- (iv) on the branch, at the right revision, gate present and executable,
+  #          but UNTRACKED at that revision ----------------------------------
+  #
+  # THE ONE ARM OF FIVE THAT NOTHING REACHED, and it stayed uncovered because its
+  # fixture is the only awkward one: the other four are a rm, a chmod, a checkout and a
+  # sed. Awkward is not the same as unimportant — a verify.sh that exists, runs, and sits
+  # at the right revision but ships in no commit is a gate the committed tree does not
+  # contain, and it passes every other arm.
+  #
+  # `git rm --cached` is the whole trick: it removes the file from the INDEX while
+  # leaving it on disk, executable, unmodified. Committing that on the branch keeps
+  # HEAD and the branch tip in agreement, so the revision arm above cannot fire.
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-783" untracked chore "Untracked gate" "feature/$SB_PREFIX-783-untracked"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-783" untracked CHANGE783.txt
+  br="feature/$SB_PREFIX-783-untracked"
+  git -C "$SB_WORK" checkout "$br" --quiet >/dev/null 2>&1 \
+    || cf "(control) could not check out $br for (iv)"
+  git -C "$SB_WORK" rm --cached --quiet scripts/verify.sh >/dev/null 2>&1 \
+    || cf "(control) could not un-track scripts/verify.sh for (iv)"
+  sbcommit -q -m "un-track the gate" >/dev/null 2>&1
+
+  # ── THE FIXTURE IS PROVEN TO ISOLATE THIS ARM, and this block is the point of the
+  #    leg rather than a nicety: four of the five arms share a refusal prefix and an
+  #    exit code, so a fixture that accidentally trips a NEIGHBOUR looks identical from
+  #    the outside and would ship as coverage of an arm it never touched.
+  [ -e "$SB_WORK/scripts/verify.sh" ] \
+    || cf "(control iv) verify.sh is absent — this would trip the MISSING arm, not the tracked-ness one"
+  [ -x "$SB_WORK/scripts/verify.sh" ] \
+    || cf "(control iv) verify.sh is not executable — this would trip the NOT EXECUTABLE arm"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$(git -C "$SB_WORK" rev-parse "refs/heads/$br")" ] \
+    || cf "(control iv) HEAD and the branch tip disagree — this would trip the REVISION arm"
+  git -C "$SB_WORK" cat-file -e "HEAD:scripts/verify.sh" 2>/dev/null \
+    && cf "(control iv) scripts/verify.sh IS tracked at HEAD — the un-tracking did not take and this leg tests nothing"
+
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-783" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(iv) finish-pr LANDED with an UNTRACKED gate — it ran a file that ships in no commit: $out"
+  printf '%s\n' "$out" | grep -qi 'NOT TRACKED' \
+    || cf "(iv) the refusal does not name tracked-ness as the cause: $out"
+  # …AND NOT ITS NEIGHBOURS. The exit code and the prefix cannot tell these apart.
+  printf '%s\n' "$out" | grep -qi 'NOT AT THE REVISION BEING LANDED' \
+    && cf "(iv) the refusal blames the REVISION arm — the fixture reached a neighbour, so this leg is coverage of an arm it never touched"
+  printf '%s\n' "$out" | grep -qi 'LOCALLY MODIFIED' \
+    && cf "(iv) the refusal blames the MODIFICATION arm — the fixture reached a neighbour"
+  printf '%s\n' "$out" | grep -qiE 'MISSING —|NOT EXECUTABLE' \
+    && cf "(iv) the refusal blames one of the two absent-gate arms — the fixture reached a neighbour"
+  # REFUSED MEANS NOTHING HAPPENED.
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1 \
+    || cf "(iv) the local branch was deleted during a refusal"
+  origin_has_path "progress/dev_complete/$SB_PREFIX-783-untracked.md" \
+    || cf "(iv) the issue left dev_complete/ during a refusal"
+  origin_has_path "CHANGE783.txt" \
+    && cf "(iv) the branch's change reached the trunk during a refusal"
+  teardown
+
   # --- (iii) the conforming posture still lands, unmarked --------------------
   # Without this, an unconditional refusal passes (i) and (ii) and breaks the kit.
   # Note there is no stub here either: the REAL scripts/verify.sh --quick runs, and
@@ -1508,7 +1565,7 @@ case_finish_pr_gate_revision() {
     || cf "(iii) the conforming landing did not advance the issue: $out"
   origin_has_path "CHANGE782.txt" || cf "(iii) the conforming landing did not squash-merge the change: $out"
 
-  finish "finish-pr landing gate, run WITHOUT the stub marker: a trunk checkout with the branch elsewhere REFUSES on the revision mismatch, a locally-modified gate REFUSES on the modification, both leaving the branch and the issue untouched — and the conforming posture still lands"
+  finish "finish-pr landing gate, run WITHOUT the stub marker: a trunk checkout with the branch elsewhere REFUSES on the revision mismatch, a locally-modified gate REFUSES on the modification, a gate that is present, executable and at the right revision but UNTRACKED there REFUSES on tracked-ness and on nothing else, all three leaving the branch and the issue untouched — and the conforming posture still lands"
   teardown
 }
 
