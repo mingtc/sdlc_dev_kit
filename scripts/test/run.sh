@@ -6890,6 +6890,39 @@ CORPUS_EOF
 # THE PROSE IS NOT WHAT IS TESTED. A text-match over the templates would have pinned the
 # false mechanism just as happily as the true one; this asserts the board report.
 # =============================================================================
+# =============================================================================
+# CASE — PROJECT.md's CREDENTIAL BLANK STAYS VISIBLE TO THE FILL ARM.
+#
+# check-board's graduation arm counts unfilled blanks in PROJECT.md with
+# `grep -oE '<[a-z][^<>]*>'` — LOWERCASE-INITIAL, no nested angle brackets. The credential
+# blank was widened so an adopter whose provider binds privilege to the account has an
+# honest answer to write there, and a widening is exactly where that pattern gets broken:
+# capitalise the first letter and the blank becomes INVISIBLE, so the arm reports zero
+# blanks on an unfilled tree. That is a false green on the one question the adopter most
+# needs to answer, and nothing else would notice.
+# =============================================================================
+case_project_credential_blank_is_countable() {
+  cf_reset
+  make_sandbox
+  # THE REAL SHIPPED TREE, not the sandbox: PROJECT.md is not among the files make_sandbox
+  # copies, and a case that SKIPS is not a case that passed.
+  local pm="$REAL_REPO_ROOT/PROJECT.md"
+  if [ ! -f "$pm" ]; then skp "PROJECT.md's credential blank stays countable" "PROJECT.md absent"; teardown; return; fi
+
+  # INSTRUMENT: the section must be found, or the count below is zero-over-nothing.
+  grep -q 'Read vs write separation' "$pm" \
+    || _fixture_die "case_project_credential_blank_is_countable: no 'Read vs write separation' line in PROJECT.md — the subject moved and a zero count would read as clean."
+
+  local line n
+  line="$(grep -m1 'Read vs write separation' "$pm")"
+  n="$(printf '%s\n' "$line" | grep -oE '<[a-z][^<>]*>' | grep -vc '://' || true)"
+  [ "${n:-0}" -eq 1 ] \
+    || cf "the credential separation line holds ${n:-0} blank(s) the FILL arm can count, want exactly 1 — a capitalised or nested blank is INVISIBLE to that arm, so an adopter graduates without answering it: $line"
+
+  finish "PROJECT.md's read/write separation blank is exactly one blank the graduation FILL arm can count — a widening that capitalises or nests it would make it invisible and graduate an unfilled tree"
+  teardown
+}
+
 case_minted_card_is_drift_clean() {
   cf_reset
   if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
@@ -8470,6 +8503,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_project_credential_blank_is_countable
   case_minted_card_is_drift_clean
   case_minted_card_prompts_for_notes
   case_template_header_survives_the_stamp

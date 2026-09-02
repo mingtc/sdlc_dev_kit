@@ -264,6 +264,29 @@ exemption can be *smuggled* — whether a bad-faith or careless entry keeps the 
 guard that asserts "these files are candidates" but never "these files are not exempt" polices a
 class it cannot see.
 
+### A.11 — Where the provider binds privilege to an IDENTITY, separation is a provisioning decision
+
+Every rule above assumes read and write access **can** be separated — that a narrower credential is
+something you request. **On many providers it is not.** Privilege attaches to the **account** the
+token authenticates as, not to the token, so a read-only token issued by a write-capable identity is
+write-capable. Separation then costs a **second account**, which is a provisioning and billing
+decision rather than a configuration one.
+
+**A project in that position cannot comply with a rule that assumes it can, and the honest failure
+mode is worse than the dishonest one:** the operator writes something plausible into the separation
+blank, and every later reader treats a claim nobody could have made as established.
+
+- **Treat every credential as WRITE-CAPABLE until the separation is taken.** Not "assume the worst"
+  as a posture — as the literal operating rule for budgets, teardown and destructive sends.
+- **Record it as an open decision with its cost**, naming what a second account would buy and what it
+  would cost, so the choice is visible rather than absent.
+- **Say which tenant a least-privilege claim was proven on.** A claim proven on one tenant proves
+  little about another; providers differ, and the same provider differs by plan.
+
+*No mechanism is offered here and that is not an omission: the seam is the provider's. `§ A.10` says
+the structural cure beats the instruction — where the structure is somebody else's to change, the
+instruction is what is left, and it should say so rather than implying a fence exists.*
+
 ---
 
 ## § B — Project duties — filled by the adapter
@@ -294,7 +317,10 @@ class it cannot see.
     where). `<fill-in>`
 11. **The credential separation** — if read and write access use different credentials, state the
     separation and that the destructive credentials are only ever used against disposable
-    targets, never a real one. `<fill-in>`
+    targets, never a real one. **If they CANNOT be separated** — because your provider binds
+    privilege to the identity rather than to the credential (§ A.11) — say so, name where that open
+    decision is recorded, and state that every credential is treated write-capable meanwhile.
+    `<fill-in>`
 
 ---
 

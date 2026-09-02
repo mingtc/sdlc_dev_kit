@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **If your provider binds privilege to the ACCOUNT rather than to the token, the kit now has a place
+  for you to say so.** Every credential rule assumed read and write access can be separated — that a
+  narrower token is something you request. On many providers it is not: a read-only token issued by a
+  write-capable identity is write-capable, and separating them costs a **second account**, which is a
+  provisioning decision rather than a configuration one. The project doc's *"Read vs write
+  separation"* blank previously had no honest answer for you, and the graduation check refuses until
+  that blank is filled — so the pressure was to write something plausible. **Action required if this
+  is your situation:** say in that blank that they cannot be separated and where you recorded the
+  decision, rather than describing a separation you do not have. The operating rule meanwhile is
+  literal: **treat every credential as write-capable.** And when you do claim least privilege, say
+  which tenant you proved it on.
+
 - **Three card templates told you something about the board checker that was never true.** Each said
   that leaving one of the example Activity shapes as a bullet would make a freshly minted card report
   false drift on your first board check. Measured: the seed entry sits *below* the shapes block, so

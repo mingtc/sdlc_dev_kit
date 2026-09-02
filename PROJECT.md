@@ -142,7 +142,7 @@ leaving it to whoever dispatches.**
 
 - **Where credentials live:** `.env` at the repository root — **gitignored, never committed**.
   `.env.example` is the tracked template; copy it, fill it, never commit the copy.
-- **Read vs write separation:** <which credential may mutate anything, and which may not>.
+- **Read vs write separation:** <which credential may mutate anything, and which may not — or, where your provider binds privilege to the account rather than to the token, that they cannot be separated, and where that open decision is recorded>.
 - **What a test may touch:** <the disposable target>; **never** <the real one>.
 - **What the code may never do:** <e.g. request, widen or escalate a permission —
   a grant is a console action by a human>.
