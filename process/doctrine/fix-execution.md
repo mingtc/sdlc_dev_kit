@@ -40,7 +40,7 @@ rescoping before implementation — none aimed at a wrong *problem*, several at 
 two would have re-minted the round's own headline defect, and one systematic mint error was repeated
 across every item (caught once, fixed everywhere).
 
-**Three rules make it work, and the first is the one that gets left out.**
+**What makes it work — and the first is the one that gets left out.**
 
 - **Holding or rescoping an item is a SUCCESS, and the reviewer must be told so in the brief** — or
   they will grade for implementability and hand back a plan instead of a verdict.

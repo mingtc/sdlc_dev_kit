@@ -1,7 +1,7 @@
 <!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the adapter's fill-in, with anonymized worked examples from the donor project. -->
 # Distribution doctrine — shipping a project into other repositories
 
-**KIT-CLASS: KIT.** Seven rules for the case where your project is not the end of the line:
+**KIT-CLASS: KIT.** Rules for the case where your project is not the end of the line:
 something else vendors it. § A is the transferable pattern. § B is what the project adapter
 fills in.
 
@@ -60,7 +60,7 @@ one — and it is why a local bare repository is a complete distribution endpoin
 a fresh single commit, so **its history is not a record and older releases are not on it, by
 design.** That is the price of it being small and cheap; A.1 is what makes the price payable.
 
-Three rules keep that from becoming a trap:
+What keeps that from becoming a trap:
 
 1. **Force-push is normally forbidden; this branch is the named exception.** Write the
    exception down beside the rule it breaks, name the branch in it, and never use the branch

@@ -6772,6 +6772,52 @@ CORPUS_EOF
   teardown
 }
 
+# =============================================================================
+# CASE — NO DOCTRINE SHEET WRITES A COUNT OF ITS OWN RULE SET.
+#
+# Three sheets opened with a bare count of their own § A rules, and two siblings already
+# carried the repair with its reason. A fourth site was worse: "Two rules keep it honest"
+# over FOUR bullets, in shipped prose, false since the sheet was written and false in
+# every release. The § A headings are the list; a number written above them is a census
+# that goes stale the first time the sheet grows.
+#
+# THIS ASSERTS THE SHAPE, NOT THE TRUTH, and the difference is the whole design. Grading
+# whether a count is CORRECT means deciding which lists are growable — natural-language
+# semantics no repository can parse, which this kit's own doctrine says outright. The
+# absence of the shape is mechanical, and it is what the siblings already committed to.
+#
+# SCOPED TO CLASS LINES AND ADOPT LINES, because a wider pattern fires on legitimate
+# prose: a single NAMED rule ("One rule that looks like it belongs here and does not"), a
+# RATIO ("One check per invariant"), and a historical quote of a count that was removed.
+# All three are in the corpus and none is a defect. The uncovered subset is printed on
+# green rather than left implied.
+# =============================================================================
+case_doctrine_states_no_rule_count() {
+  cf_reset
+  make_sandbox
+  local dd="$REAL_REPO_ROOT/process/doctrine"
+  if [ ! -d "$dd" ]; then skp "no doctrine sheet writes a count of its own rule set" "process/doctrine/ absent"; teardown; return; fi
+
+  local n; n="$(ls "$dd"/*.md 2>/dev/null | wc -l | tr -d ' ')"
+  [ "${n:-0}" -ge 2 ] \
+    || _fixture_die "case_doctrine_states_no_rule_count: only ${n:-0} doctrine sheet(s) scanned — the operand was lost, which is not the same as a clean corpus."
+
+  local pat='^\*\*KIT-CLASS.*\b(one|two|three|four|five|six|seven|eight|nine|ten) (rules?|points?|checks?|invariants?)\b|^\*\*How to adopt:\*\*.*\b(one|two|three|four|five|six|seven|eight|nine|ten) (rules?|points?)\b'
+
+  # INSTRUMENT: the pattern must MATCH a known-bad line, or every green below is vacuous.
+  printf '%s\n' '**KIT-CLASS: KIT.** Seven rules for the case where your project is not the end of the line:' > "$SB_TMP/known-bad.md"
+  grep -qiE "$pat" "$SB_TMP/known-bad.md" \
+    || _fixture_die "case_doctrine_states_no_rule_count: the pattern does not match a known-bad line, so it would report a clean corpus whatever the sheets said."
+
+  local bad
+  bad="$( { grep -rniE "$pat" "$dd" 2>/dev/null || true; } )"
+  [ -z "$bad" ] \
+    || cf "a doctrine sheet writes a count of its own rule set — the § A headings ARE the list, and the sheets that already carry this repair say why: $(printf '%s' "$bad" | tr '\n' '|')"
+
+  finish "no doctrine sheet's class line or adopt line writes a count of its own rule set ($n sheets scanned; MID-SECTION introducers like 'What keeps it honest:' are NOT covered by this pattern — a wider one fires on a named single rule and on a ratio, both legitimate and both present)"
+  teardown
+}
+
 case_cli_shape_across_the_shipped_set() {
   cf_reset
   make_sandbox
@@ -8037,6 +8083,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set
   case_release_notes_section_is_more_than_a_heading
   case_release_behind_the_remote

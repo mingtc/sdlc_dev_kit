@@ -1,9 +1,11 @@
 <!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR precedents and wiring. -->
 # Supersession doctrine — how a ruling is amended, and how a spec records being half-overtaken
 
-**KIT-CLASS: KIT.** Two rules, promoted from practice to law. Both answer the same question —
-*what happens to the old record when new evidence arrives* — at two altitudes: a **recorded
-decision** (§ A.1) and a **specification that is only partly overtaken** (§ A.2).
+**KIT-CLASS: KIT.** Rules promoted from practice to law. They answer the same question —
+*what happens to the old record when new evidence arrives* — at differing **altitudes**, from a
+**recorded decision** to a **specification that is only partly overtaken**. *(The § A headings are
+the list. A number written here — or a naming of the members, which is the same census in prose —
+would go false the first time this sheet grew.)*
 § A is the transferable pattern; § B is where **your** project records its own instance.
 
 **Neighbour sheet:** [`negative-claims.md`](negative-claims.md) governs **making** a claim

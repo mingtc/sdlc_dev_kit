@@ -45,7 +45,7 @@ one project's calibration and is therefore a blank you fill.
    pressure. *(Arrived with [`subagent-control.md`](subagent-control.md) § A.2, which is where the
    briefing side of this rule lives.)*
 
-**How to adopt:** copy the seven points above, then write your own § B.2 — one table, work class by
+**How to adopt:** copy the points above, then write your own § B.2 — one table, work class by
 work class, ratified by whoever owns the budget. Do **not** copy a table from another project; a
 ladder is calibrated to one workload, one price sheet and one date.
 

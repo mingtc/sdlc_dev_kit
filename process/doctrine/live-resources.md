@@ -212,7 +212,10 @@ records?) and its result is reported as a count of violations, expected zero.
 
 Probing for a capability that turns out not to exist is a **legitimate close**: "we sent every
 spelling of the destructive verb we could construct; none succeeded; here are the requests and
-the responses". Two rules keep it honest:
+the responses". What keeps it honest — and the list below is the count, not this sentence. *(This line read
+"Two rules keep it honest" over four bullets, and had done since the sheet was written: it was
+never true, in any release. The number is gone rather than corrected to four, because correcting
+it re-arms the same trap on the next bullet.)*
 
 - **Enumerate from the evidence, in the closing leg, independently.** Distinct request spellings,
   total sends, how many succeeded, how many objects, how many captures. Re-derived from the
