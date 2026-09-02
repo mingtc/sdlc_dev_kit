@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The `PREFLIGHT_GATES` worked example now shows a wrapper script, not a bare command — and it has
+  to.** Gate (c) runs your declared command with a deliberate word-split and no `eval`, so an inline
+  `sh -c '…'` is torn apart before it runs, and a record cannot contain `|` at all. **Action required
+  if you copied the old example:** your gate has no skip state. A gate has three outcomes — passed,
+  failed, and **could not run** — and a bare command gives you only the first two, so a check that
+  cannot reach its dependency reads as a pass. Put the credential check in the wrapper, print a loud
+  `SKIP:` line, and exit 0; the example now shows the whole script.
+
 - **If your provider binds privilege to the ACCOUNT rather than to the token, the kit now has a place
   for you to say so.** Every credential rule assumed read and write access can be separated — that a
   narrower token is something you request. On many providers it is not: a read-only token issued by a

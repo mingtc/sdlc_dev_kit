@@ -116,8 +116,28 @@ VERSION_IN_TAG_ONLY=false
 # when its credentials are unset, so the script printed a warning when it was
 # about to run a canary that could not actually reach anything — a gate that can
 # silently no-op must SAY when it is about to.
+#
+# THE EXAMPLE IS A WRAPPER SCRIPT, AND IT HAS TO BE. Gate (c) below runs your record
+# with a DELIBERATE WORD-SPLIT and no `eval`, so a record is a command and its
+# arguments — nothing else. An inline `sh -c 'test -n "$TOK" || …'` does not work
+# here: the quoting is split apart into separate words before anything runs. Nor can
+# a record contain `|`, which is the field separator. **A gate whose logic is more
+# than "run this and read the status" is a script in your repository.**
+#
+# AND THE WRAPPER'S REAL JOB IS THE THIRD STATE. A gate has three outcomes, not two:
+# passed, failed, and COULD NOT RUN. A bare command copied into a project without the
+# canary's environment gives you the first or the second — a false green, or a hard
+# failure that blocks a legitimate offline cut. The wrapper is where "the credential
+# is unset, so this proved nothing" gets said out loud and exits 0.
 PREFLIGHT_GATES=(
-  #   "live read-canary|<runner> -m live"
+  #   "live read-canary|./scripts/canary-live.sh"
+  #
+  #   …where that script is, in full:
+  #       if [ -z "${CANARY_TOKEN:-}" ]; then
+  #         echo "SKIP: live read-canary — CANARY_TOKEN unset; the canary did not run."
+  #         exit 0
+  #       fi
+  #       exec <your live check>
 )
 
 # ── THE RELEASE DOCUMENTS (gates e + f) ──────────────────────────────────────

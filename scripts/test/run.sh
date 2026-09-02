@@ -7333,6 +7333,70 @@ case_cli_shape_across_the_shipped_set() {
 # BOTH LEGS ASSERT THE CUT IS UNMUTATED, because a refusal that already wrote something
 # is the defect these gates exist to prevent.
 # =============================================================================
+# =============================================================================
+# CASE — GATE (c) TEACHES THE SHAPE THAT ACTUALLY RUNS.
+#
+# The worked example in the config block was a bare command. Two things were wrong
+# with that and both are invisible until you try it:
+#
+#   1. Gate (c) runs a record with a DELIBERATE WORD-SPLIT and no `eval`, so an inline
+#      `sh -c '…'` is torn into separate words before anything executes. Only a command
+#      and its arguments work — which means a wrapper SCRIPT.
+#   2. A gate has THREE outcomes, not two: passed, failed, and COULD NOT RUN. A bare
+#      command in a project without the canary's environment gives a false green or a
+#      hard failure that blocks a legitimate offline cut. The third state has to be
+#      said out loud, and the wrapper is the only place there is to say it.
+#
+# BOTH LEGS ASSERT AN EFFECT — that the skip reaches the operator, and that the shape
+# the example does NOT teach genuinely fails — never the comment's wording.
+# =============================================================================
+case_release_gate_c_skip_shape() {
+  cf_reset
+  if ! has_release; then skp "release.sh gate (c): the taught wrapper shape" "scripts/release.sh absent"; return; fi
+  local out rc=0
+
+  # --- (i) THE TAUGHT SHAPE: a wrapper script that self-skips loudly and exits 0. ---
+  make_sandbox; seed_release_files 1.1.0
+  printf '#!/usr/bin/env bash\nif [ -z "${CANARY_TOKEN:-}" ]; then\n  echo "SKIP: live read-canary — CANARY_TOKEN unset; the canary did not run."\n  exit 0\nfi\nexit 0\n' \
+    > "$SB_WORK/canary"; chmod +x "$SB_WORK/canary"
+  rel_insert PREFLIGHT_GATES '"live read-canary|./canary"'
+  publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
+
+  rc=0; out="$(run_release 1.1.0 --dry-run)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(skip) a self-skipping gate ABORTED the cut (rc=$rc) — the third state must not read as a failure: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s\n' "$out" | grep -q 'SKIP: live read-canary' \
+    || cf "(skip) the gate's third state never reached the operator — a canary that could not run passed SILENTLY, which is the false green this example exists to teach against: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # INSTRUMENT: the needle must DISCRIMINATE. If it also matches a run where the canary
+  # DID run, leg (i) proves nothing.
+  rc=0
+  out="$( cd "$SB_WORK" && CANARY_TOKEN=x RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
+            RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(ran) the canary with its credential PRESENT aborted the cut (rc=$rc)"
+  printf '%s\n' "$out" | grep -q 'SKIP: live read-canary' \
+    && cf "(instrument) the SKIP needle matched a run where the canary DID run — leg (i) is not measuring the skip"
+  teardown
+
+  # --- (ii) WHY THE EXAMPLE MUST BE A SCRIPT: gate (c) word-splits, it does not eval. --
+  make_sandbox; seed_release_files 1.1.0
+  # THE RECORD'S QUOTING IS WHAT IS BEING TESTED. `sh -c 'exit 1'` word-splits into
+  # [sh] [-c] ['exit] [1'] — sh then runs `'exit`, which is not a command, so the gate
+  # fails BECAUSE the quotes did not survive. Deliberately references no variable:
+  # release.sh runs `set -u`, and an unset one aborts the script before gate (c) can
+  # refuse, which measures the wrong thing. (It did, on the first run of this case.)
+  rel_insert PREFLIGHT_GATES "\"inline canary|sh -c 'exit 1'\""
+  publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
+  rc=0; out="$(run_release 1.1.0 --dry-run)" || rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(inline) an inline-shell gate record RAN — gate (c) is eval-ing its records, so the worked example may no longer need to teach the script shape, and this case's premise is gone"
+  printf '%s\n' "$out" | grep -q 'inline canary' \
+    || cf "(inline) the refusal does not name the gate that failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  assert_release_unmutated
+  teardown
+
+  finish "release.sh gate (c): a wrapper-script gate self-skips LOUDLY without aborting the cut (needle proven discriminating), and an inline-shell record does NOT run — which is why the worked example teaches a script"
+}
+
 case_release_notes_section_is_more_than_a_heading() {
   cf_reset
   if ! has_release; then skp "release.sh gates (e)/(f): the section, not just its heading" "scripts/release.sh absent"; return; fi
@@ -8513,6 +8577,7 @@ CASES=(
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set
+  case_release_gate_c_skip_shape
   case_release_notes_section_is_more_than_a_heading
   case_release_behind_the_remote
   case_release_honours_the_one_remote_name
