@@ -120,9 +120,10 @@ hand, and never by editing a status field inside the item.
 **The command lives in the role doc, not here** (`.claude/roles/dev.md`, the step that follows
 "finish the branch"). It is not reprinted in this skill on purpose: that step also carries the
 footgun that goes with it — the move must NOT be preceded by a branch switch, because the mover
-re-derives the move inside the standing kanban worktree and a loose edit to your own checkout is
-destroyed. A copy of the command here would be a second authoring site, and the copy that drifts is
-the one without the warning.
+re-derives the move inside the standing kanban worktree and a loose edit to your own checkout is left
+STRANDED at a path the trunk has since renamed. (Not destroyed — the mover never touches your
+checkout; see `process/MANUAL.md` § The kanban worktree.) A copy of the command here would be a
+second authoring site, and the copy that drifts is the one without the warning.
 
 **Do NOT clean up the worktree, and do NOT delete the branch.** Both are needed after this point:
 the reviewer lands from the branch, and the landing script's gate must run against a checkout that

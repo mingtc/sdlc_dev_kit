@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Two shipped documents told you `move-issue.sh` would destroy an uncommitted edit in your own
+  checkout. It does not, and never did.** The Dev role doc and the branch-finishing skill both said
+  a loose edit "is destroyed" when the mover runs — since v0.1.0, in both. The mover's contract is
+  that your checkout is never switched; it has no dirty-tree refusal because your checkout's state
+  is irrelevant to it; and the only hard reset in the worktree machinery is scoped to `.kanban-wt/`.
+  **No action required, and the advice is unchanged** — still do not switch branches before the
+  move — but the reason is now the true one: your edit is left **stranded** at a path the trunk has
+  since renamed, so your next pull collides on the rename. Nothing is lost.
+
 - **`release.sh`'s notes gates now check the section, not just its heading — and a heading with no
   date is refused rather than skipped.** Gate (e) asserted a `## [X.Y.Z]` line existed and said nothing
   about what was under it, so a heading over a placeholder or a `TODO` cut a release whose notes said

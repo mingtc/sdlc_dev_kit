@@ -6792,6 +6792,61 @@ CORPUS_EOF
 # All three are in the corpus and none is a defect. The uncovered subset is printed on
 # green rather than left implied.
 # =============================================================================
+# =============================================================================
+# CASE — THE MOVER LEAVES A DIRTY MAIN CHECKOUT BYTE-IDENTICAL.
+#
+# A shipped role doc and a shipped skill both told adopters that a loose edit to their
+# own checkout "is destroyed" when move-issue.sh runs. It is not: the mover's own
+# contract is that the operator's checkout is NEVER switched, it has no dirty-tree
+# refusal because the checkout's state is irrelevant to it, and the only `reset --hard`
+# in the worktree library is scoped to the kanban worktree. Both sentences were written
+# in the initial commit and neither had been touched since.
+#
+# THE REAL HAZARD IS STRANDING, NOT DESTRUCTION, and it is worth a different warning: the
+# move commits a `git mv` on the trunk while the edit sits at the OLD path in a checkout
+# the mover deliberately did not fast-forward. Nothing is lost; the next pull collides.
+#
+# THIS ASSERTS THE EFFECT, which is why it is worth having where a text-match would not
+# be: it measures the file's bytes and the checkout's HEAD, not what any document says.
+# =============================================================================
+case_move_issue_leaves_a_dirty_checkout_alone() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-101" strand chore "Stranding probe"
+  publish_sandbox
+
+  local card="$SB_WORK/progress/todo/$SB_PREFIX-101-strand.md" before_hash before_head out rc=0
+  [ -f "$card" ] \
+    || _fixture_die "case_move_issue_leaves_a_dirty_checkout_alone: the seeded card is not in the checkout — there is nothing to leave alone."
+  printf '\nan uncommitted edit the operator has not saved anywhere else\n' >> "$card"
+  before_hash="$(shasum "$card" | awk '{print $1}')"
+  before_head="$(git -C "$SB_WORK" rev-parse HEAD)"
+  [ -n "$before_hash" ] && [ -n "$before_head" ] \
+    || _fixture_die "case_move_issue_leaves_a_dirty_checkout_alone: could not record the pre-state."
+  # INSTRUMENT: the checkout must actually BE dirty, or the assertions below hold trivially.
+  [ -n "$(git -C "$SB_WORK" status --porcelain -- "progress/todo/$SB_PREFIX-101-strand.md")" ] \
+    || _fixture_die "case_move_issue_leaves_a_dirty_checkout_alone: the edit did not register as dirty — every assertion below would pass over a clean tree."
+
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-101" in_progress \
+            --role Dev --note "moved while the checkout is dirty" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "the mover failed with a dirty main checkout (rc=$rc) — its contract says that state is irrelevant to it: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # THE MOVE LANDED — otherwise "nothing was touched" is satisfied by a mover that did nothing.
+  origin_has_path "progress/in_progress/$SB_PREFIX-101-strand.md" \
+    || cf "the card did not reach in_progress/ on the trunk — the mover did not run, so the assertions below prove nothing"
+
+  # …AND THE OPERATOR'S FILE IS UNTOUCHED, byte for byte.
+  [ -f "$card" ] \
+    || cf "the operator's uncommitted file was REMOVED from their checkout — the mover's contract is that it never touches it"
+  [ "$(shasum "$card" 2>/dev/null | awk '{print $1}')" = "$before_hash" ] \
+    || cf "the operator's uncommitted edit was MODIFIED — 'destroyed' is what two shipped documents claimed, and this case exists because it is not true"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before_head" ] \
+    || cf "the main checkout's HEAD moved — the mover fast-forwarded a checkout it promises never to switch"
+
+  finish "move-issue.sh leaves a dirty main checkout byte-identical — the file, its bytes and HEAD all survive a move that lands on the trunk (the hazard is stranding at the old path, not destruction)"
+  teardown
+}
+
 case_doctrine_states_no_rule_count() {
   cf_reset
   make_sandbox
@@ -8083,6 +8138,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set
   case_release_notes_section_is_more_than_a_heading
