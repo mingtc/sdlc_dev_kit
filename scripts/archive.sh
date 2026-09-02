@@ -24,7 +24,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# NO `ROOT` HERE, AND ITS ABSENCE IS DELIBERATE. This script carried
+# `ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"` and referenced it nowhere — left behind when the sweep
+# moved to the trunk-pinned kanban worktree, which resolves its own paths. Every sibling that
+# defines ROOT uses it; this was the only one that did not. Re-add it only with a use.
 
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
 # This script used to carry `: "${ISSUE_PREFIX:=<a literal>}"` here — a SECOND
