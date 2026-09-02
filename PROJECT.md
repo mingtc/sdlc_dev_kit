@@ -115,6 +115,10 @@ fresh-context checker per **consumer-facing surface**, verifying that surface's 
 as it stands. **The sheet deliberately does not supply the list — it is yours, and this is its home**,
 because a list kept in a crunch document dies when that document is struck.
 
+**A COMMAND'S USAGE TEXT IS A SURFACE.** `--help` output, refusal messages and the remedies they
+print are consumer-facing claims, they are the cheapest of all to falsify (run them), and they are
+the ones a documentation-shaped surface list forgets — because they are not documents.
+
 **Derive it from what a CONSUMER lands on, not from what you happen to edit.** That distinction is the
 whole rule: scoping a sweep to *"the surfaces no diff touched"* sounds precise and inverts the risk,
 because the edited set fills up with your highest-traffic documents and only ever grows.

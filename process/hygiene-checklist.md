@@ -106,6 +106,18 @@ surface**, verifying that surface's claims against the tree as it stands. **Your
 the project doc** (`PROJECT.md` § The pre-cut sweep's surface list) — if it is still blank, the sweep
 cannot be dispatched, because *"one checker per surface"* has no leg count until the list exists.
 
+**IT RE-RUNS AFTER EVERY FIX ROUND, until a round finds nothing.** A sweep certifies the tree as it
+was *before* its own findings were fixed — and fixing a finding is a landing that edits the very
+surfaces the next reader meets. One pass is a pass over a tree that does not ship.
+
+**Where a surface can be EXECUTED, execute it.** A claim about what a command prints, what a refusal
+says or what a flag does is checkable by running it, and reading is the weaker instrument for exactly
+those. **Usage and `--help` text are surfaces.**
+
+**Brief the checkers adversarially and as NAIVE CONSUMERS** — the question is *"does this tell someone
+who has never seen this repository something false?"*, not *"can I reconstruct what the author
+meant?"* An author-stance read repairs the sentence silently while reading it.
+
 **This is a checklist item and not a gate, deliberately, and the reason is worth knowing:** a gate here
 would have to check an **artifact** the sweep produces rather than the sweep itself, and an artifact
 that is trivially satisfiable makes the gate self-certifying — which is the defect

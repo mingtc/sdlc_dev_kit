@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The pre-cut sweep now re-runs after every fix round, verifies by running things where it can, and
+  counts your `--help` text as a surface.** The sweep already existed — one fresh-context checker per
+  consumer-facing surface, owned by the PM, required before a cut. Three changes: it **repeats until
+  a round finds nothing**, because fixing a finding is itself a landing and a single pass certifies
+  the tree as it was *before* its own fixes; it **executes** what can be executed, since a claim about
+  what a command prints is cheapest to check by running it; and the checkers stand as **naive
+  consumers**, asking whether a document tells someone who has never seen your repository something
+  false. **Action required if your surface list is already written:** add your commands' usage and
+  refusal text to it — those are consumer-facing claims and a documentation-shaped list omits them.
+
 - **A coordinator writing the trunk while a worker holds a branch is expected — the manual now says
   so, and says what your drift report cannot see.** Board moves, rulings, PRDs and `dev/` evidence
   are metadata, so they commit direct to the trunk *while* a dispatched leg works on its branch. Two

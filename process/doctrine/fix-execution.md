@@ -130,9 +130,9 @@ trigger list: **a claim you just outran is a retirement you now owe.** The cheap
   is scheduled to be written against. That one is cheap to check and expensive to miss, because the
   later phase will treat the falsified statement as its specification.
 
-**A.4b — Pre-cut, corpus-wide, once.** After the last landing and before the cut: **one
-fresh-context checker per consumer-facing surface**, each verifying every claim on its surface
-against the tree **as it stands** — hunting claims that contradict the landed reality, same-change
+**A.4b — Pre-cut, corpus-wide, and REPEATED until a round finds nothing.** After the last landing
+and before the cut: **one fresh-context checker per consumer-facing surface**, each verifying every
+claim on its surface against the tree **as it stands** — hunting claims that contradict the landed reality, same-change
 duties that missed a surface, dead cross-references, and bare counts or universals with no
 derivation or date. This is the half A.4a structurally cannot reach: **surfaces no diff touched.**
 
@@ -140,6 +140,26 @@ derivation or date. This is the half A.4a structurally cannot reach: **surfaces 
 individually-reviewed program found dozens of defects, a large minority of them false consumer
 claims — several pre-dating the program and visible only because the sweep read surfaces nobody's
 diff had touched.*
+
+**ONCE WAS WRONG, AND THE REASON IT SAID ONCE IS KEPT.** The original word was `once`, on the sound
+reasoning that a sweep after the last landing reads a tree nobody will change again. That reasoning
+fails on its own output: **fixing a finding is a landing**, and a fix round edits the very surfaces
+the next reader meets. Measured across two adopting projects — a round's own fixes introduced claims
+the round had just finished verifying. So the sweep **re-runs after every fix round, until a round
+finds nothing.** A single pass certifies the tree as it was before the fixes, which is not the tree
+that ships.
+
+**VERIFY BY EXECUTION WHERE THE SURFACE CAN BE EXECUTED, not only by reading.** A claim about what a
+command prints, what a refusal says, or what a flag does is checkable by running it, and reading is
+the weaker instrument for exactly those: it confirms the sentence is plausible against the source
+rather than true against the binary. **Usage and `--help` text are surfaces**, and a surface list
+that omits them omits the claims most cheaply falsified.
+
+**STAND AS A NAIVE CONSUMER, not as the author.** The checker's question is *"does this document tell
+someone who has never seen this repository something false?"* — not *"can I reconstruct what the
+author meant?"* An author-stance read repairs the sentence silently while reading it, which is why
+the checker must be someone who did not write it. **Brief them adversarially** — that is
+`doctrine/subagent-control.md` § A.3's finding, not a second rule, and it is not close.
 
 **Fix the findings by MECHANISM, never by symptom.** Generated regions through their generators,
 projections through their sources, guarded phrases by transforming the guard **with its reason**. A
