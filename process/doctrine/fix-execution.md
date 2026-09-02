@@ -361,7 +361,7 @@ append-only and newest-first, a fix arrives as a line about the fix, and no line
   shipped** (with where), or **not ours** (with why). *"Read it" is not a disposition and neither is
   silence.*
 - **The disposition is recorded where the FILER can reach it, in a record keyed by THEIR identifier
-  for the finding** — their `K-83`, their section number, their line. Keying it by yours makes it
+  for the finding** — their own item id, their section number, their line. Keying it by yours makes it
   findable by you, which is not the problem being solved.
 - **This does not go into content you ship onward.** A supplier's identifier means nothing in a third
   party's tree, and putting it there manufactures exactly the unresolvable citation the rules above
