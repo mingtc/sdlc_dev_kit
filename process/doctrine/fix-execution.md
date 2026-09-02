@@ -350,6 +350,30 @@ this one does not own.**
 - **A supplied document that cannot be recovered is NAMED as missing**, beside the ones that were —
   with what depends on it. *A missing input nobody names reads exactly like an input nobody needed.*
 
+**Consuming a supplied document incurs a DUTY TO ACKNOWLEDGE, and it runs the other way.**
+
+The rules above make the supplier's document citable. Nothing makes the supplier's *finding* answerable.
+So from the filer's side, **"we fixed it" and "we never read it" look identical** — the notes are
+append-only and newest-first, a fix arrives as a line about the fix, and no line is about their report.
+
+- **Every finding consumed from a supplied document gets a DISPOSITION that the filer can find**, and
+  there are exactly four: **fixed** (with what landed), **declined** (with the reason), **already
+  shipped** (with where), or **not ours** (with why). *"Read it" is not a disposition and neither is
+  silence.*
+- **The disposition is recorded where the FILER can reach it, in a record keyed by THEIR identifier
+  for the finding** — their `K-83`, their section number, their line. Keying it by yours makes it
+  findable by you, which is not the problem being solved.
+- **This does not go into content you ship onward.** A supplier's identifier means nothing in a third
+  party's tree, and putting it there manufactures exactly the unresolvable citation the rules above
+  exist to prevent. The acknowledgement belongs in **your** change records, your reply, or a
+  disposition file beside the copied document — all of which the filer can be pointed at, and none of
+  which travels to somebody it would confuse.
+- **The cost runs BOTH ways, which is the argument for making this a duty rather than a courtesy.**
+  Without a disposition the supplier cannot tell fixed from ignored — and **you cannot either.**
+  *Measured: two findings were re-read as live months after being fixed and shipped, because nothing
+  in any document connected a fix to the report that caused it. The re-reading cost more than the
+  acknowledgement would have.*
+
 **The failure is quiet and it compounds** (§ A.5b's second half), which is why this is a step rather
 than a caution: nothing breaks at mint time, every citation still looks fine in review, and the
 program only discovers the gap when an implementer opens a path that is not there — by which time the
