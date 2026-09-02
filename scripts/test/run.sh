@@ -6841,6 +6841,62 @@ CORPUS_EOF
 # SCOPED TO roles/ AND agents/, deliberately: a recursive sweep would match THIS FILE the
 # moment the case is written, which is the self-match this harness has been bitten by.
 # =============================================================================
+# =============================================================================
+# CASE — EVERY LEAF-WORKER DEFINITION CARRIES THE SECTIONS ITS SIBLINGS CARRY.
+#
+# One definition was missing three of them and nothing noticed, because nothing had ever
+# compared the set. The sections are not decoration: they are where the quota discipline,
+# the output budget and the commit rules live, so a worker missing them is dispatched
+# without the constraints its siblings run under.
+#
+# THE REQUIRED SET IS DERIVED BY MAJORITY, NEVER LISTED. A literal list goes blind the
+# day a section is added or renamed, and — measured — three definitions legitimately
+# carry a section of their own that no sibling has. Requiring set EQUALITY would redden
+# on correct content; requiring the strict majority requires exactly what is shared.
+# =============================================================================
+case_leaf_workers_carry_the_common_sections() {
+  cf_reset
+  make_sandbox
+  local ad="" d
+  for d in "$REAL_REPO_ROOT/_claude/agents" "$REAL_REPO_ROOT/.claude/agents"; do [ -d "$d" ] && ad="$d"; done
+  if [ -z "$ad" ]; then skp "leaf-worker definitions carry the sections their siblings carry" "no agents/ directory"; teardown; return; fi
+
+  local n f base req missing=""
+  n="$(ls "$ad"/*.md 2>/dev/null | wc -l | tr -d ' ')"
+  [ "${n:-0}" -ge 5 ] \
+    || _fixture_die "case_leaf_workers_carry_the_common_sections: only ${n:-0} definition(s) scanned — a majority over a lost operand finds nothing and passes."
+
+  # Headings, normalised: the parenthetical differs legitimately per hat
+  # ("Read order (before judging anything)" vs "(before probing anything)").
+  req="$( for f in "$ad"/*.md; do
+            [ -e "$f" ] || continue
+            sed -n 's/^## //p' "$f" | sed 's/[[:space:]]*(.*)$//'
+          done | sort | uniq -c | awk -v t="$n" '$1 * 2 > t { $1=""; sub(/^ /,""); print }' )"
+  [ -n "$req" ] \
+    || _fixture_die "case_leaf_workers_carry_the_common_sections: the derived required set is EMPTY — a zero-heading majority finds zero misses and reports PASS."
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    base="$(basename "$f")"
+    while IFS= read -r h; do
+      [ -n "$h" ] || continue
+      sed -n 's/^## //p' "$f" | sed 's/[[:space:]]*(.*)$//' | grep -qxF "$h" \
+        || missing="$missing
+    $base is missing '$h'"
+    done <<REQ_EOF
+$req
+REQ_EOF
+  done <<DEFS_EOF
+$(ls "$ad"/*.md)
+DEFS_EOF
+
+  [ -z "$missing" ] \
+    || cf "a leaf-worker definition is missing a section every one of its siblings carries — that is where the quota discipline, the output budget and the commit rules live, so this worker is dispatched without the constraints the others run under:$missing"
+
+  finish "every leaf-worker definition carries the sections a majority of them carry ($n definitions, $(printf '%s' "$req" | grep -c .) derived sections; a hat's own unique section is correctly NOT required)"
+  teardown
+}
+
 case_provisioning_ceiling_keeps_the_seat_rule() {
   cf_reset
   make_sandbox
@@ -8254,6 +8310,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_window_ends_where_its_rule_says
+  case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule
   case_agent_model_pins_match_their_declaration
   case_move_issue_leaves_a_dirty_checkout_alone
