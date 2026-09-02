@@ -595,6 +595,47 @@ if [ -n "$CB_REF" ]; then
 else
   role_rev="HEAD"
 fi
+# THE RULE'S LIFETIME. This arm used to scan the last N commits unconditionally and
+# report EVERY unprefixed subject as drift — including commits made before the project
+# adopted the kit, when no attribution rule existed to be violated. A rule cannot be
+# violated before it exists, and the finding was unfixable by construction: the only
+# cure would be rewriting published history. Worse, it fired on the FIRST report an
+# adopter ever sees, because the kit REQUIRES a commit before kit-init.sh may run and
+# wires the hook after it — so a correctly-executed day one guarantees a false finding,
+# and a report that is never clean stops being read.
+#
+# THE EPOCH IS THE COMMIT THAT ADDED THE HOOK FILE, and the alternatives were rejected
+# for reasons worth keeping. The stamp receipt in scripts/config.sh is written only by
+# kit-init.sh, so a hand-copy adopter (SEED.md step 2 branch B) would get no epoch at
+# all. "The commit that wired core.hooksPath" — the shape this was first reported in —
+# DOES NOT EXIST: `git config` writes .git/config and leaves no commit. The hook FILE is
+# part of the kit copy, so both adoption branches have it.
+#
+# THE EARLIEST ADD, NOT THE LATEST (`tail -1` — git log walks newest-first). If the file
+# was ever removed and restored, the rule began at its first arrival; taking the later
+# add would hide every unprefixed commit in between. This arm errs toward reporting.
+#
+# AND THE SCOPING DOES NOT SUBSUME kit-init.sh's OWN ATTRIBUTION FILTER. That filter
+# tolerates findings on commits that are ancestors of HEAD-before-its-run, which is a
+# LATER boundary than this one; the commits between the two — made after the hook file
+# arrived but before kit-init ran, with the hook therefore still unwired — are reported
+# here and tolerated there, and each is right for the question it answers. Reconciled,
+# not assumed: see the matching note at kit-init.sh's board self-check.
+role_epoch=""; role_preepoch=0
+if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; then
+  role_epoch="$( { git -C "$REPO_ROOT" log --diff-filter=A --format=%H "$role_rev" \
+                     -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
+fi
+# STRICTLY AFTER, and this is an off-by-one that was corrected before it shipped: the
+# kit's own day-one recipe is `git add -A && MSG_OK=1 git commit -m 'init'`, which
+# commits the whole kit copy — the hook file included — under the subject `init`. So the
+# epoch commit is ITSELF one of the unprefixed commits this arm would flag, and "at or
+# after" would keep reporting the exact line the adopter complained about.
+# `--ancestry-path` gives the strict-descendant set in one call, with no per-commit loop.
+role_inscope=""
+if [ -n "$role_epoch" ]; then
+  role_inscope="$(git -C "$REPO_ROOT" rev-list --ancestry-path "$role_epoch..$role_rev" 2>/dev/null || true)"
+fi
 echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits of $role_rev, squash-aware) — prefixes $role_src:"
 role_hits=0
 role_scanned=0
@@ -607,6 +648,13 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$role_rev" >/dev/null 2>&1; t
       target="$2"                         # merge commit → parent 2 carries the squashed [Role] subject
     else
       target="$sha"                       # non-merge → its own subject
+    fi
+    # OUT OF SCOPE IS NOT SCANNED, and it is counted so the scope line can say how many.
+    # The test is on $sha — the commit in the walked history — not on $target: a merge's
+    # parent 2 lives on a side branch, and asking whether THAT is a strict descendant of
+    # the epoch answers a different question than "was the rule in force when this landed".
+    if [ -n "$role_epoch" ] && ! printf '%s\n' "$role_inscope" | grep -qxF "$sha"; then
+      role_preepoch=$((role_preepoch+1)); continue
     fi
     subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
     [ -z "$subj" ] && continue
@@ -628,6 +676,26 @@ else
   # from an empty set, which is the shape drift-report.md § 2 forbids by name.
   echo "    – $role_rev does not resolve — no history to scan  (skipped)"
   role_scanned=-1
+fi
+# WHAT THIS ARM DID NOT LOOK AT, NAMED — on the clearing branch as much as the
+# complaining one (doctrine/instruments.md § A.4). An arm that silently narrows its own
+# operand set is the defect this kit spent a crunch removing; a narrowing that is CORRECT
+# still has to say so, or "✓ all N scanned subject(s) carry a [Role] prefix" quietly means
+# "…all N of the ones I chose to look at".
+if [ "$role_scanned" -ge 0 ]; then
+  if [ -n "$role_epoch" ]; then
+    echo "    scope: commits after ${role_epoch:0:9}, which ADDED scripts/githooks/commit-msg — $role_preepoch of the last $ROLE_SCAN_N excluded as predating the rule"
+    # THE RESIDUAL, ACCEPTED AND STATED WHERE THE RESULT IS PRINTED. The epoch is when the
+    # hook FILE arrived, which is not when anyone ran `git config core.hooksPath`.
+    echo "      caveat: the epoch is the hook FILE's arrival, not the moment core.hooksPath was set — a"
+    echo "      clone that never wired it is not enforcing the rule, yet this arm treats it as binding from"
+    echo "      that commit. Erring toward reporting drift, not hiding it. This arm's findings flip the"
+    echo "      board-drift verdict that release.sh gate (d) refuses on."
+  else
+    echo "    scope: ALL of the last $ROLE_SCAN_N — no commit in $role_rev adds scripts/githooks/commit-msg,"
+    echo "      so the rule's start could not be derived and NOTHING was excluded. Any commit here that"
+    echo "      predates your adoption of the kit is reported below as drift and is not."
+  fi
 fi
 if [ "$role_scanned" -eq 0 ]; then
   echo "    – $role_rev resolved but yielded no inspectable subject  (skipped)"

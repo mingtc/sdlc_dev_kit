@@ -46,6 +46,24 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`check-board.sh`'s `[Role]`-prefix arm no longer reports commits that predate your adoption
+  of the kit.** A rule cannot be violated before it exists, and this one reported every
+  pre-adoption commit as drift — findings you could not fix without rewriting published history.
+  It fired on the **first report you ever saw**, because the kit requires a commit before
+  `kit-init.sh` may run and wires the commit-msg hook after it, so a correctly-executed day one
+  guaranteed a false finding. The arm now scopes itself to the commit that **added**
+  `scripts/githooks/commit-msg`, and reports only commits **strictly after** it — strictly,
+  because the kit's own day-one recipe commits the hook file under the subject `init`, making the
+  epoch commit itself one of the unprefixed ones. **Action required — re-read your drift report
+  once.** Findings you had learned to ignore will disappear, and anything that remains is a real
+  finding you may have stopped seeing. If your report was never clean and you had stopped reading
+  it, this is the release to start again. Two things are stated in the arm's own output rather
+  than only here: how many commits it excluded and why, and the one case it still gets wrong — a
+  clone that has the hook **file** but never ran `git config core.hooksPath scripts/githooks` is
+  not enforcing the rule, yet the arm treats it as binding. That errs toward reporting drift
+  rather than hiding it, and those findings flip the `board-drift` verdict that `release.sh`
+  gate (d) refuses on.
+
 - **`kit-init.sh` now repairs the commit-msg hook's executable bit, and does it before the commit
   that creates your trunk — so the repair reaches every future clone.** git skips a hook file that
   is not executable *silently*: it prints a hint to stderr and lets the commit through. A trunk

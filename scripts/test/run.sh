@@ -4419,6 +4419,88 @@ case_check_board_reads_the_ref() {
 }
 
 # =============================================================================
+# CASE — ARM (e) SCOPES ITSELF TO THE RULE'S LIFETIME, AND THE BOUNDARY IS STRICT.
+#
+# A rule cannot be violated before it exists. Arm (e) used to scan the last N commits
+# unconditionally, so a project with any pre-adoption history got findings it could
+# never fix — the only cure would be rewriting published history. It fired on the FIRST
+# report an adopter ever saw, because the kit REQUIRES a commit before kit-init.sh runs
+# and wires the hook after it, and a report that is never clean stops being read.
+#
+# THE FIXTURE IS THE KIT'S OWN DAY-ONE RECIPE, which is what makes the off-by-one real
+# rather than theoretical: `git add -A && MSG_OK=1 git commit -m 'init'` commits the
+# whole kit copy — the hook file included — under the subject `init`. So the epoch
+# commit is ITSELF unprefixed, and a boundary of "at or after" would keep reporting the
+# exact line the adopter complained about. Commit 2 below is that commit, and asserting
+# it is NOT reported is the whole point of the strictness.
+# =============================================================================
+case_check_board_arm_e_scopes_to_the_rules_lifetime() {
+  cf_reset
+  make_sandbox
+
+  local hook="$SB_WORK/scripts/githooks/commit-msg"
+  [ -f "$hook" ] \
+    || _fixture_die "case_check_board_arm_e_scopes_to_the_rules_lifetime: the sandbox ships no scripts/githooks/commit-msg, so there is no epoch to derive and the case would prove nothing."
+
+  # (1) PRE-ADOPTION — the hook file does not exist in this commit at all.
+  mv "$hook" "$SB_TMP/commit-msg.held"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "pre-adoption work, made under no attribution rule" >/dev/null 2>&1
+  local sha_pre; sha_pre="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  # (2) THE EPOCH — the kit copy lands, hook file and all, under the day-one subject.
+  mv "$SB_TMP/commit-msg.held" "$hook"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  local sha_epoch; sha_epoch="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  # INSTRUMENT: the epoch must really be commit 2, or "strictly after" is being asserted
+  # against the wrong commit and every verdict below is about something else.
+  local derived
+  derived="$( { git -C "$SB_WORK" log --diff-filter=A --format=%h --abbrev=9 HEAD -- scripts/githooks/commit-msg 2>/dev/null || true; } | tail -1 )"
+  [ "$derived" = "$sha_epoch" ] \
+    || _fixture_die "case_check_board_arm_e_scopes_to_the_rules_lifetime: the hook file's add-commit derives to '$derived', not the fixture's commit 2 '$sha_epoch' — the fixture does not model what the arm reads."
+
+  # (3) AFTER the rule began, still unprefixed — a REAL finding that must survive.
+  sbcommit -q --allow-empty -m "an unprefixed commit made after the hook file arrived" >/dev/null 2>&1
+  local sha_after; sha_after="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  publish_sandbox
+
+  local out rc hits
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+
+  # Read the FINDINGS, not the whole report: the scope line legitimately prints the
+  # epoch's sha, so a bare absence grep would fail on the arm's own correct output.
+  hits="$(printf '%s\n' "$out" | grep 'lacks a \[Role\] prefix' || true)"
+  # FLATTENED for the messages below: cf renders ONE line, and $hits is a list — an
+  # unflattened list reports its first entry and silently hides the one that fired.
+  local hits1; hits1="$(printf '%s' "$hits" | tr '\n' '|')"
+
+  printf '%s\n' "$hits" | grep -q "$sha_pre" \
+    && cf "the PRE-ADOPTION commit $sha_pre was reported as drift — it predates the hook file entirely: $hits1"
+  printf '%s\n' "$hits" | grep -q "$sha_epoch" \
+    && cf "the EPOCH commit $sha_epoch was itself reported — the boundary is 'at or after' when it must be STRICTLY after, and this is the exact day-one line an adopter sees: $hits1"
+  # INSTRUMENT / ABLATION: without this the three assertions above are all satisfiable by
+  # an arm that reports nothing whatsoever.
+  printf '%s\n' "$hits" | grep -q "$sha_after" \
+    || cf "ABLATION FAILED — the post-epoch unprefixed commit $sha_after was NOT reported, so the arm cannot go red and every exclusion asserted above proves nothing: $out"
+
+  # The narrowing is NAMED, and named with a non-zero count — an arm that silently
+  # narrows its operand set is the defect this kit spent a crunch removing.
+  printf '%s\n' "$out" | grep -q "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg" \
+    || cf "the scope line does not name the epoch it derived: $out"
+  printf '%s\n' "$out" | grep -qE "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg — [1-9][0-9]* of the last" \
+    || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so this case would pass vacuously: $out"
+  # The accepted residual is stated where the result is printed, not only in a change file.
+  printf '%s\n' "$out" | grep -q "the epoch is the hook FILE's arrival" \
+    || cf "the accepted residual (hook file present, core.hooksPath never set) is not stated in the arm's output: $out"
+
+  finish "check-board arm (e): pre-adoption commits and the epoch commit ITSELF are excluded, a post-epoch unprefixed commit is still reported (ablation-proven), and the narrowing is named with its count"
+  teardown
+}
+
+# =============================================================================
 # CASE — NO LOCATION IS THE ONLY CORRECT ONE.
 #
 # The trap in the obvious workaround, and the reason "run it from a trunk checkout"
@@ -6684,6 +6766,7 @@ CASES=(
   case_check_board_register_absent
   case_check_board_arrow_beats_mention
   case_check_board_reads_the_ref
+  case_check_board_arm_e_scopes_to_the_rules_lifetime
   case_check_board_main_checkout_unpushed
   case_check_board_from_a_worktree
   case_check_board_graduation

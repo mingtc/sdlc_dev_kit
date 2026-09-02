@@ -920,6 +920,18 @@ else
   # for a reason rather than by convenience: a commit that predates this run predates the
   # attribution rule this run installs, and a rule cannot be violated before it exists.
   #
+  # THIS FILTER IS NOT REDUNDANT WITH check-board.sh ARM (e)'s OWN SCOPING, and the
+  # question was measured rather than assumed. Arm (e) now excludes commits at or before
+  # the one that ADDED scripts/githooks/commit-msg. This filter excludes commits that are
+  # ancestors of HEAD-before-this-run. Those boundaries are different on purpose because
+  # the two answer different questions: arm (e) asks "was the rule in force when this
+  # commit was made", this asks "did THIS RUN cause the finding". The second boundary is
+  # the later one, so the gap is real — an adopter who follows README's day-one recipe and
+  # then makes a few more commits before running kit-init lands them AFTER the hook file
+  # arrived (so arm (e) reports them, correctly: the file was there) and BEFORE this run
+  # (so this tolerates them, correctly: this run did not cause them). Delete either and
+  # that adopter gets the wrong answer from whichever you kept.
+  #
   # Advisory sections are dropped by their OWN DECLARATION, not by a memorised letter or
   # a matched phrase: an arm that reports without deciding says "reports only" in its
   # header line, and everything under it is skipped until the next "[x]" section. Keying
