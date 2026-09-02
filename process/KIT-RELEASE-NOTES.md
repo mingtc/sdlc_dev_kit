@@ -56,6 +56,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`architect.md`'s shared-checkout rule changed from a procedure to a structure.** It used to say:
+  before any seat commit, confirm the current branch is the trunk and, if an active run holds the
+  checkout, wait. It now says: **while any leg is dispatched, commit from a worktree of your own.**
+  **Action required if your seat follows the old bullet:** stop relying on checking the branch
+  first — there is no ordering of checks that makes a shared root's branch yours while something
+  else can move it. Use the kanban-worktree pattern. The reason is recorded at the site and is
+  worth reading once: the old instruction was violated repeatedly *by the seat that wrote it*.
+
 - **If you run `wave-runner.js` on docs-path issues, its QA brief was skipping the gate.** The gate
   instruction was attached to *"check out the branch and run the gate"* — and a docs-path issue has
   no branch, so it took the other half of that sentence and got no gate instruction at all, while

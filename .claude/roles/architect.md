@@ -49,10 +49,16 @@ conversation with the PM. One person per side; the architect is a **succession o
   gate runner, coverage, mutation meters, the project's live/binding gate, reading diffs,
   dumping payloads. **An agent's "all green" is a claim; the seat independently confirms before
   relaying anything to the PM** (`verification-before-completion`).
-- **Direct commits require a stable checkout.** Before any seat commit: confirm
-  `git branch --show-current` is `<trunk>` (fresh-pulled) and that no active run holds the
-  checkout. While a workflow is executing, either wait or route the commit through a dedicated
-  worktree (the kanban-worktree pattern).
+- **While ANY leg is dispatched, the seat commits from a worktree of its own — never from the
+  shared root.** Not *confirm the branch first*, not *wait your turn*: **a worktree of your own**
+  (the kanban-worktree pattern). The shared root's branch is not yours to depend on while something
+  else can move it, and there is no ordering of checks that makes it yours.
+  *This SUPERSEDES the instruction that used to stand here — "confirm `git branch --show-current`
+  is `<trunk>`, and if an active run holds the checkout, wait." **The reason it was replaced is the
+  only evidence that matters: it was violated repeatedly by the very seat that wrote it down and
+  promoted it to durable law.** An instruction a careful actor keeps breaking is not an instruction
+  problem. The working tree is the operative object, and the cure is structural — a checkout nobody
+  else can move — not more discipline about a shared one.*
   *Learned the hard way: seat docs committed mid-run landed on a story's work branch and parked
   its landing; a cherry-pick repaired it. **Corollary:** after a cherry-pick repair, verify with
   blob hashes or a simulated squash-merge — a three-dot diff false-positives.*
