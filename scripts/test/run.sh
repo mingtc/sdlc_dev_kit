@@ -8726,6 +8726,78 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 #
 # THE THREE STATES ARE BUILT BY REMOVAL, in order, from a sandbox that starts at step 1.
 # =============================================================================
+# =============================================================================
+# CASE — THE FRONTMATTER SCAN CAP DOES WHAT IT IS FOR.
+#
+# check (d) reads a card's `id:` out of the first `---` fence pair it finds, and only
+# looks for that opening fence within FRONTMATTER_SCAN_LINES. Nothing exercised the cap:
+# the harness derived the value, asserted it non-empty, and never used it — beside a
+# comment describing the control it was not.
+#
+# THE CAP'S ACTUAL BEHAVIOUR IS NARROWER THAN "a body --- breaks parsing", and the
+# distinction is the case. A card with real frontmatter at the top closes its block on
+# line 3, and the parser will not re-enter a closed block, so a body `---` a hundred
+# lines down is already harmless — with or without a cap. What the cap governs is the
+# card with NO frontmatter at the top: without it, the first `---` ANYWHERE in the body
+# opens a block, and whatever follows is read as frontmatter.
+#
+# So this case takes both directions: a normal card with a body rule must parse (the
+# direction the finding asks for), and a fence pair sitting PAST the cap must NOT be
+# read as frontmatter (the direction that can actually go red).
+#
+# THE CAP IS DERIVED AND THE FIXTURE IS SIZED FROM IT. A hardcoded line count goes stale
+# the day the cap is retuned, and the case then asserts nothing while reading green.
+#
+# WHAT THIS DOES NOT COVER: whether the cap's VALUE is right. This proves the cap is
+# enforced in both directions, not that 25 is the correct number.
+# =============================================================================
+case_frontmatter_scan_cap_is_enforced() {
+  cf_reset
+  make_sandbox
+  local cap i out
+
+  # DERIVE the cap. It is a bare numeric assignment, not the quoted form cb_default reads.
+  cap="$(sed -n 's/^FRONTMATTER_SCAN_LINES=\([0-9][0-9]*\).*/\1/p' "$SB_WORK/scripts/check-board.sh" | head -1)"
+  case "$cap" in
+    ''|*[!0-9]*) _fixture_die "case_frontmatter_scan_cap_is_enforced: could not derive FRONTMATTER_SCAN_LINES from check-board.sh (got '$cap') — a re-typed cap would go stale the day it is retuned, and this case would assert nothing while reading green." ;;
+  esac
+  [ "$cap" -ge 5 ] \
+    || _fixture_die "case_frontmatter_scan_cap_is_enforced: the derived cap is $cap, too small to seed either side of — the derivation is reading the wrong thing."
+
+  # ── CARD A: normal frontmatter, plus a horizontal rule FAR past the cap. Must parse.
+  seed_issue todo "$SB_PREFIX-300" bodyrule chore "A card with a body rule"
+  local a="$SB_WORK/progress/todo/$SB_PREFIX-300-bodyrule.md"
+  i=0; while [ "$i" -lt $((cap + 10)) ]; do printf 'filler line %s\n' "$i" >> "$a"; i=$((i + 1)); done
+  printf -- '---\n\nA horizontal rule in the body, well past the cap.\n' >> "$a"
+
+  # ── CARD B: NO frontmatter at the top; a complete fence pair PAST the cap. The cap is
+  #    what stops that from being read as frontmatter, so check (d) must report this card
+  #    as having no id: line — the finding it would NOT report if the cap were lifted.
+  local b="$SB_WORK/progress/todo/$SB_PREFIX-301-latefence.md"
+  : > "$b"
+  printf '# A card whose fence sits below the cap\n\n' >> "$b"
+  i=0; while [ "$i" -lt $((cap + 3)) ]; do printf 'preamble %s\n' "$i" >> "$b"; i=$((i + 1)); done
+  printf -- '---\nid: %s-301\nstatus: todo\n---\n\nBody.\n' "$SB_PREFIX" >> "$b"
+  publish_sandbox
+
+  out="$(cb_run 2>&1)" || true
+
+  # ── INSTRUMENT CHECK: check (d) ran at all. Every assertion below is about its output.
+  printf '%s\n' "$out" | grep -q '^\[d\]' \
+    || _fixture_die "case_frontmatter_scan_cap_is_enforced: no [d] section in the report — the arm did not run and both assertions below would be about an empty string."
+
+  # (A) the normal card is NOT reported. Its block closed on line 3; the body rule is noise.
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-300-bodyrule" \
+    && cf "(A) a card with normal frontmatter and a horizontal rule in its body was reported by check (d) — a body '---' is being read as a fence"
+
+  # (B) the late fence is NOT accepted as frontmatter. This is the arm the cap exists for.
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-301-latefence" \
+    || cf "(B) a fence pair $((cap + 5)) lines down was READ AS FRONTMATTER — the cap is not being applied, so any '---' anywhere in a card can start a frontmatter block and whatever follows it is parsed as fields"
+
+  finish "check (d)'s frontmatter scan cap (derived: $cap lines) is enforced in both directions — a normal card with a horizontal rule far down its body still parses, and a complete fence pair below the cap is NOT accepted as frontmatter; the fixture is sized from the derived cap, so retuning it cannot leave this case asserting nothing. Not covered: whether $cap is the RIGHT value"
+  teardown
+}
+
 case_trunk_chain_announces_every_fallback() {
   cf_reset
   if ! has_release; then skp "every link of the trunk chain below the first announces itself" "scripts/release.sh absent"; return; fi
@@ -9490,6 +9562,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_frontmatter_scan_cap_is_enforced
   case_trunk_chain_announces_every_fallback
   case_probe_victim_selection_survives_pipefail
   case_release_unmutated_names_the_cut
