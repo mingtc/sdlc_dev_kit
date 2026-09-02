@@ -430,7 +430,7 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 | `scripts/move-issue.sh` | the full set, four times: the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex (which carries it twice) | a new column cannot be moved to **at all** |
 | `scripts/check-board.sh` | the full set, as the columns it walks | the new column is invisible to the drift report |
 | `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm | a subtask cannot reach the new column |
-| `setup.sh` | the set **plus `history/`**, as the directories it creates | a fresh clone is missing the directory |
+| `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (`grep -c mkdir setup.sh` is 0; its own comment says *"this is an existence check only"*) | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. *Not "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
 | `scripts/test/run.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
 

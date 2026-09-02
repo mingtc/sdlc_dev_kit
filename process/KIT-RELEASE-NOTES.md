@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`EXTRACTION.md` § 2.2's `setup.sh` row was wrong in both of its cells.** It said `setup.sh`
+  CREATES the board directories; `setup.sh` contains no `mkdir` and only checks they exist. And it
+  said a missed column means *"a fresh clone is missing the directory"* — that is `kit-init.sh`'s
+  row. What a missed column actually costs `setup.sh` is that it **stops noticing**: a tree lacking
+  the new column passes its check silently. **If you have added a board column, re-check that
+  `setup.sh`'s `BOARD_FOLDERS` lists it** — nothing failed to tell you it did not.
+
 - **The run-outcome vocabulary now has a named declaration in each runner and a self-test case holding
   the two together.** `LANDED`, `LAND_READY`, `PARKED_OK`, `PARK_UNVERIFIED`, `FAILED_AFTER_FIX_ROUND`
   and `BLOCKED_DEV` were bare string literals at twelve sites across the pair, with nothing holding
