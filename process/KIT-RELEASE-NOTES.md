@@ -46,6 +46,21 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`kit-init.sh` now repairs the commit-msg hook's executable bit, and does it before the commit
+  that creates your trunk — so the repair reaches every future clone.** git skips a hook file that
+  is not executable *silently*: it prints a hint to stderr and lets the commit through. A trunk
+  committed with that bit off gives every clone of your repository a role-prefix guard that never
+  fires. Relatedly, when the bit is missing `kit-init.sh`'s self-check used to report
+  *"core.hooksPath is not in effect"* — the wrong cause, which sent you to re-run wiring that had
+  worked. It now names the mode and gives you the `chmod`. **Action required, once, if you adopted
+  the kit before this release:** run `ls -l scripts/githooks/` on your trunk. If `commit-msg` is
+  not executable, `chmod +x scripts/githooks/*` and **commit the change** — the bit is repository
+  content, so fixing only your own checkout leaves every teammate and every future clone
+  unguarded. Also documented: `core.hooksPath` has **two owners and one lifecycle** —
+  `kit-init.sh` wires it once at adoption and commits the bit, `setup.sh` re-wires and repairs it
+  on every fresh clone (`process/contracts/initializer.md` § 2). Four shipped files previously
+  named one owner each, and named three different ones.
+
 - **The hygiene instruments' prefix-exclusion set now lives in one place.** `cold_signal.py` and
   `duplication_scan.py` each defined it, under different names, with byte-identical values and **two
   separate "EDIT THESE for your tree" instructions** — so tuning the corpus in one left the other

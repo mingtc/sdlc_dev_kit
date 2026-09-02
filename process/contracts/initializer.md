@@ -68,6 +68,16 @@ precondition the process depends on and then demonstrating each one working.
   *Why:* "created the board" is not the same claim as "created seven containers and counted
   seven" — and the count is **derived from the declared set**, never a hand-typed digit.
 
+**The hooks path has TWO owners and one lifecycle, and every site that names it cites this row.**
+`core.hooksPath` is **per-clone git config** — it is not committed and does not travel. So
+`kit-init.sh` wires it **once at adoption**, and because it runs before the initialization commit it
+is also the only one of the two that can commit the hooks' **executable bit** so a repaired mode
+reaches every future clone. `setup.sh` re-wires and repairs it on **every fresh clone**, which is
+the only thing that can, because a clone starts with neither.
+
+*Stated because three shipped documents each named a different single owner, and each was right
+about its own half — a lifecycle described one stage at a time reads as a contradiction.*
+
 ## 3. REFUSAL CONDITIONS
 
 - Any file in the preflight's **hand-listed minimum** — the files without which nothing else can

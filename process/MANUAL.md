@@ -433,7 +433,7 @@ need the reflog. The contract is
 Every commit subject starts with a **role tag** in square brackets; the `scripts/githooks/
 commit-msg` hook **rejects a prefix-less subject — and refuses a machine-attribution trailer,
 a co-author line naming a tool or a *generated with* line** (wired via `git config
-core.hooksPath scripts/githooks`, which the initializer sets;
+core.hooksPath scripts/githooks` — `kit-init.sh` wires it ONCE at adoption and commits the hooks' executable bit; `setup.sh` re-wires and repairs it on EVERY fresh clone (contracts/initializer.md § 2);
 [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) carries the rule and its
 reason). The **set of legal prefixes is the project's** —
 it is declared in one table in the adapter and enforced from the hook, and the two must agree.

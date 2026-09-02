@@ -12,7 +12,9 @@
 # prefix-less commit erodes the audit trail. This hook rejects any commit whose SUBJECT
 # line does not start with a known role tag.
 #
-# Wired via `git config core.hooksPath scripts/githooks` (set by scripts/kit-init.sh);
+# Wired via `git config core.hooksPath scripts/githooks`. TWO OWNERS, ONE LIFECYCLE, and the
+# distinction matters because the wiring is per-clone: `kit-init.sh` wires it ONCE at adoption and commits the hooks' executable bit; `setup.sh` re-wires and repairs it on EVERY fresh clone.
+# (contracts/initializer.md § 2 ratifies this; the other sites naming it cite the contract.)
 # hooksPath lives in the shared .git/config, so the guard is active from every worktree —
 # including the standing .kanban-wt/ where move-issue.sh commits its "[Role] <ID> → …"
 # messages (those pass by construction). finish-pr.sh is pure git (no forge CLI): its

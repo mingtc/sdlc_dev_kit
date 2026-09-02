@@ -5098,6 +5098,74 @@ case_kit_init_happy() {
   teardown
 }
 
+# WHY THIS CASE EXISTS, and why it asserts a PRE-STATE before it asserts anything else.
+# `core.hooksPath` points git at a directory; git then runs what it finds there ONLY if the
+# file is executable. When the bit is off git prints a *hint* to stderr and the commit
+# SUCCEEDS — so a repository can be perfectly wired and completely unguarded, and the old
+# self-check read that success as "core.hooksPath is not in effect", which is the wrong cause
+# and sends an adopter to re-run wiring that already worked.
+#
+# A clone is where the bit goes missing: git records one execute bit per path, so a tree that
+# was committed with the bit off hands every future clone an inert hook. kit-init runs BEFORE
+# the trunk's first commit, which is the only moment a repair can reach every future clone —
+# that is why the chmod lives there and not only in setup.sh.
+#
+# The pre-state assertion is the instrument check. Without it a chmod that silently did nothing
+# — or a source tree that already ships the bit on — would let this case pass while proving
+# nothing at all, which is this harness's own green-that-cannot-go-red trap.
+case_kit_init_repairs_hook_mode() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: repairs a non-executable commit-msg hook" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: repairs a non-executable commit-msg hook" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+
+  local hook="$SB_WORK/scripts/githooks/commit-msg"
+  if [ ! -f "$hook" ]; then
+    cf "no commit-msg hook shipped at scripts/githooks/"
+    finish "kit-init: repairs a non-executable commit-msg hook"; teardown; return
+  fi
+  # THE DAMAGE GOES IN BEFORE THE COMMIT, and that ordering is the whole fidelity of this case.
+  # Clearing the bit AFTER publish_sandbox makes the worktree dirty, and kit-init's preflight
+  # refuses a dirty tree — so the case would fail for a reason that has nothing to do with the
+  # hook. The real defect is a bit that is off IN THE COMMIT, which leaves the worktree clean
+  # and hands the inert hook to every future clone. That is what is modelled here.
+  chmod 0644 "$hook"
+  publish_sandbox
+
+  # INSTRUMENT CHECK: assert the recorded mode, not the filesystem bit — git tracks exactly one
+  # execute bit per path, and it is the INDEX's copy that travels. If this reads 100755 the
+  # damage never landed and every assertion below would pass while proving nothing.
+  local pre
+  pre="$(git -C "$SB_WORK" ls-files -s scripts/githooks/commit-msg 2>/dev/null | awk '{print $1}')"
+  [ "$pre" = "100644" ] || cf "the sandbox did not record a non-executable hook (mode $pre) — this case would pass vacuously"
+
+  local out rc flat
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  # cf renders one line, and kit-init speaks in paragraphs: flatten, or the diagnosis is lost.
+  flat="$(printf '%s' "$out" | tr '\n' ' ')"
+  [ "$rc" -eq 0 ] || cf "kit-init exited $rc against a non-executable hook: $flat"
+  [ -x "$hook" ] || cf "kit-init did NOT restore the hook's execute bit in the worktree"
+
+  # THE ASSERTION THAT CARRIES THE CHANGE. kit-init runs before the trunk's first commit, so a
+  # repair it makes reaches the trunk and therefore every future clone. setup.sh cannot have this
+  # property — it runs after the clone exists. Reading the mode back off the REMOTE's trunk is
+  # what distinguishes "kit-init fixed my checkout" from "kit-init fixed the repository".
+  local shipped
+  shipped="$(git -C "$SB_ORIGIN" ls-tree "$SB_TRUNK" scripts/githooks/commit-msg 2>/dev/null | awk '{print $1}')"
+  [ "$shipped" = "100755" ] \
+    || cf "the repaired bit did not reach the trunk (origin records mode ${shipped:-<absent>}) — a fresh clone would still get an inert hook"
+
+  # The bit is only worth anything if the guard is then LIVE, so assert the effect too.
+  printf '%s\n' "$out" | grep -q 'commit-msg hook REJECTED a prefix-less subject' \
+    || cf "the hook was not proven live after the repair: $flat"
+  # And the wrong diagnosis must not be what an adopter hears.
+  printf '%s\n' "$out" | grep -q 'core.hooksPath is not in effect' \
+    && cf "kit-init blamed core.hooksPath for a mode problem: $flat"
+
+  finish "kit-init: repairs a non-executable commit-msg hook, the repair reaches the trunk, and hooksPath is not blamed"
+  teardown
+}
+
 case_kit_init_refuses_lived_board() {
   cf_reset
   if ! has_kit_init; then skp "kit-init: refuses a repo that has already lived" "scripts/kit-init.sh absent"; return; fi
@@ -6626,6 +6694,7 @@ CASES=(
   case_kit_init_survives_the_documented_first_commit
   case_kit_init_still_fails_on_a_real_finding
   case_kit_init_happy
+  case_kit_init_repairs_hook_mode
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals

@@ -110,7 +110,7 @@ every carrier, parking touches none of the scripts.*
 ## Role-attribution commit prefixes
 
 Every commit subject starts with a role tag; the `scripts/githooks/commit-msg` hook rejects a
-prefix-less subject (wired via `git config core.hooksPath scripts/githooks`).
+prefix-less subject (wired via `git config core.hooksPath scripts/githooks` — `kit-init.sh` wires it ONCE at adoption and commits the hooks' executable bit; `setup.sh` re-wires and repairs it on EVERY fresh clone).
 **This table is this project's prefix set and must match the hook's `ROLE_PREFIXES` line
 verbatim** — the hook keeps that list on its own line precisely so a guard can *derive* it rather
 than re-hardcode it.

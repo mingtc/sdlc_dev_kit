@@ -783,6 +783,16 @@ say "  .gitignore: ${IGN_ADDED} entr(y|ies) added (kanban worktree + .claude/ses
 # 4. HOOKS
 # =============================================================================
 step "Wiring the git hooks"
+# THE MODE BIT IS REPAIRED HERE, AND HERE RATHER THAN ONLY IN setup.sh FOR A PROPERTY setup.sh CANNOT
+# HAVE: this runs BEFORE § 5's commit, so a repaired bit reaches the trunk and therefore every future
+# clone. setup.sh repairs only the checkout it runs in — and if the tracked mode were 100644 it would
+# silently dirty the tree on every fresh clone forever.
+#
+# WHY IT CAN BE WRONG AT ALL: `git clone` and a mode-preserving unzip keep 100755, but SEED step 2
+# branch B is a HAND COPY, and a plain `cp` (no -p) or an extraction that drops permissions lands the
+# hook non-executable. git then IGNORES the hook and the commit SUCCEEDS — see the self-check below,
+# which used to blame the wrong thing for exactly this.
+chmod +x "$ROOT"/scripts/githooks/* 2>/dev/null || true
 git -C "$ROOT" config core.hooksPath scripts/githooks
 say "  core.hooksPath = scripts/githooks  (proven below by a real rejected commit)"
 
@@ -979,8 +989,24 @@ KI_EOF
 fi
 
 # --- (4) the commit-msg hook FIRES (this is the core.hooksPath proof) -------
-if git -C "$ROOT" commit --allow-empty -q -m "kit-init self-check: this subject has no role tag" 2>/dev/null; then
-  sc_bad "the commit-msg hook did NOT reject a prefix-less subject — core.hooksPath is not in effect"
+# GIT'S OWN STDERR IS THE DIAGNOSIS AND IT USED TO BE THROWN AWAY. With the hook present but not
+# executable, git prints "hook was ignored because it's not set as executable" and the commit
+# SUCCEEDS — and this check then reported "core.hooksPath is not in effect", which is FALSE: the
+# config is set and the hook is simply being skipped. Naming the wrong cause sends an adopter to
+# re-run the wiring that already worked.
+# `|| _ki_hook_rc=$?` and NOT `; _ki_hook_rc=$?`: this script runs `set -e`, a bare assignment
+# from a command substitution carries the substitution's status, and the REJECTION — rc=1 — is
+# the healthy outcome here. The first spelling killed the run at this exact point on a HEALTHY
+# tree. Same trap as the MK_OK/MK_BAD grep below; that one cost a run too.
+_ki_hook_rc=0
+_ki_hook_out="$(git -C "$ROOT" commit --allow-empty -q -m "kit-init self-check: this subject has no role tag" 2>&1)" || _ki_hook_rc=$?
+if [ "$_ki_hook_rc" -eq 0 ]; then
+  case "$_ki_hook_out" in
+    *"not set as executable"*|*"hook was ignored"*)
+      sc_bad "the commit-msg hook was IGNORED because it is not executable — core.hooksPath IS set; the file's mode is the problem. Fix: chmod +x scripts/githooks/*" ;;
+    *)
+      sc_bad "the commit-msg hook did NOT reject a prefix-less subject — core.hooksPath is not in effect" ;;
+  esac
   git -C "$ROOT" reset -q --hard HEAD~1
 else
   sc_ok "commit-msg hook REJECTED a prefix-less subject (core.hooksPath is live)"
