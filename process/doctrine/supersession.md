@@ -40,6 +40,22 @@ Both halves are load-bearing, and each fails differently when dropped:
   moving the assertion to the new truth removes only the stale part. If the new truth is
   genuinely unguardable, say so in the amendment — do not let a deletion pass as a move.
 
+- **The reason survives its ILLUSTRATION.** A rule justified by a worked example outlives the
+  example: the tree moves, the case is fixed, and the sheet is left arguing from a state that no
+  longer exists. **The conclusion is not what went stale — the picture is.** So annotate the example
+  as historical, date it, keep the reason it was chosen to demonstrate, and re-point at a live
+  instance if one exists. Do **not** delete it: an unillustrated rule is the weaker artifact, and
+  deleting the spent case removes the only evidence the rule was ever needed.
+  *Measured, on this sheet, twice in four days: the example below was chosen because five copies of
+  one function had drifted into four spellings; then they were reconciled to one spelling; then they
+  were consolidated into a single shared definition. The granularity ruling it justifies still
+  stands, unchanged, both times.*
+  **Anonymized donor examples are historical BY CONSTRUCTION and are never re-measured** — the
+  project they came from is not named and cannot be re-read (`EXTRACTION.md` § 4.10). That is said
+  once, here, rather than as a per-sheet disclaimer on every worked example in the corpus. The
+  obligation to re-point binds only examples drawn from **this** repository, which are the ones that
+  can go stale silently and the ones a reader can check.
+
 This is the difference between an **amendment** and an **erasure**, and it is why a reader of
 an amended rule can still see *what the rule is* **and** *why the previous rule existed*.
 

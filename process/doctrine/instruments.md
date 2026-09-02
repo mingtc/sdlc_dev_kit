@@ -218,6 +218,18 @@ wrong at four different sizes, which is why fixing one instance rarely fixes the
   does the operation actually operate on? No membership reconciliation can see a basis error; only
   the action's own contract can.
 
+  **Over source, the commonest wrong projection is THE FILE instead of THE CODE.** The comment
+  explaining why a token matters is the place that token is most certain to appear — so an assertion
+  that greps the whole file is satisfied by the documentation of the thing it exists to measure, and
+  the effect grows with how well the code is commented. Three remedies, one shape: **strip** the
+  comments from the operand, **anchor** the pattern where the construct must appear, or **remove**
+  the token from the text that is not the subject. Which one depends on the direction of the error —
+  a false pass wants stripping, a false finding usually wants anchoring — and the sign is not
+  predictable from the rule alone, which is why all three are named. Comment syntax is per-language,
+  so a single shared stripper is a worse answer than naming the obligation. Strip toward
+  over-stripping: an over-strip reddens loudly, an under-strip passes silently. Proving any of the
+  three is § A.2's ablation, not a second rule.
+
 ### A.7 — Building a prose guard: representation, then region, then honesty about the remainder
 
 Prose is the operand where instruments are weakest, because natural language has no authoritative

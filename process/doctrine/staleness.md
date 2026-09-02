@@ -237,9 +237,12 @@ in a document claiming to be current** — is a defect.
 - **Finding the statement you just outran is a ONE-HOP search, and T4 owes it in the same change.**
   The trigger is easy to accept and easy to skip, because the stale sentence is rarely in the file
   you were editing. One hop reaches almost all of them, and the change already has the operands in
-  hand: the counts and universals **in the file you touched**; the documents that **cite what you
-  changed** — searched by its **name**, never by its path, since a path search misses every citation
-  that spells it differently; and, if the work is running as a phased program, whether this change
+  hand: the counts and universals **in the file you touched**; **anything that CONSUMES the string** you
+  changed — searched by its **name**, never by its path, since a path search misses every citation
+  that spells it differently. *A matcher is a citer:* a test, a hook, a gate or a parser that matches
+  on a string, a heading, a label or a format your prose specifies is one hop away exactly as a
+  document is, and it breaks **silently** where a document merely reads wrong. The axis is
+  consumption, not prose; and, if the work is running as a phased program, whether this change
   **falsifies a statement a later phase is scheduled to be written against.** That last one is the
   expensive miss: a later phase treats the falsified statement as its specification, so a sweep at
   the end finds it long after it has been built on. *(The corpus-wide half — the surfaces no diff
