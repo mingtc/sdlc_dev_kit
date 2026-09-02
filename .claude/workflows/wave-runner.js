@@ -163,10 +163,12 @@ const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
 // as success. Keep that composition in mind before adding a member: a new outcome that encodes a
 // verdict the ratified table does not have is a second verdict vocabulary wearing another name.
 //
-// NOT YET RATIFIED IN PROCESS DOCTRINE, and that gap is filed rather than papered over: nothing
-// under process/ names this set, so the guard in the self-test holds the two runners to EACH OTHER
-// and not to an authority. Agreement is what is available while the copies are unavoidable — the
-// workflow runtime grants these files no imports, so a shared module cannot exist.
+// RATIFIED IN process/MANUAL.md § The RUN-OUTCOME vocabulary, which is the AUTHORING SITE: this
+// declaration PROJECTS that table and does not re-enumerate it. The copies here are unavoidable —
+// the workflow runtime grants these files no imports, so a shared module cannot exist — so the
+// self-test holds each runner to the ratified table AND to its twin. Both arms are needed: an
+// authority does not make two hand-copied projections agree with each other, and two projections
+// agreeing does not make either right.
 const OUTCOME = Object.freeze({
   LANDED:                 'LANDED',                  // verdict PASS, landing landed / not_applicable
   LAND_READY:             'LAND_READY',              // verdict PASS, landing deferred — a SUCCESS

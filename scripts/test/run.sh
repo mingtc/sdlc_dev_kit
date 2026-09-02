@@ -2514,12 +2514,11 @@ EOF
   teardown
 }
 
-# THE RUN-OUTCOME VOCABULARY IS HAND-COPIED INTO BOTH RUNNERS AND RATIFIED NOWHERE. Unlike
-# VERDICTS — which has a declaration in each runner AND a case pinning both to the ratified table in
-# process/MANUAL.md — nothing under process/ names this set, so there is no authority to pin to.
-# What is available is AGREEMENT, and that is what this case holds: the same discipline the schema
-# case above applies, for the same reason (the runtime grants these files no imports, so the copies
-# cannot be removed).
+# THE RUN-OUTCOME VOCABULARY IS HAND-COPIED INTO BOTH RUNNERS, AND NOW HAS AN AUTHORITY. The copies
+# cannot be removed — the runtime grants these files no imports — so this case holds BOTH directions,
+# and it needs both: an authority does not make two hand-copied projections agree with each other,
+# and two projections agreeing does not make either of them right. A pair that drifts TOGETHER passes
+# an agreement-only guard in silence, which is what this case used to be.
 #
 # IT ALSO ASSERTS THAT EVERY DECLARED TOKEN IS USED. A vocabulary constant that has drifted into a
 # superset of what the runner can actually return is documentation, not a vocabulary — and it would
@@ -2562,10 +2561,31 @@ EOF
     || cf "the extractor found only $n outcome token(s) -- expected at least 6. A low count means the extractor stopped matching, NOT that the vocabularies agree"
 
   if [ "$found" -eq 2 ] && ! diff -q "$a" "$b" >/dev/null 2>&1; then
-    cf "the runners' run-outcome vocabularies have DIVERGED -- they are hand-maintained copies with no ratified source to fall back on: $(diff "$a" "$b" | tr '\n' ' ')"
+    cf "the runners' run-outcome vocabularies have DIVERGED: $(diff "$a" "$b" | tr '\n' ' ')"
   fi
 
-  finish "the two shipped runners' run-outcome vocabularies agree and every declared token is returned ($n token(s), $unused unused)"
+  # ── THE AUTHORITY ARM. Agreement alone cannot see a pair that drifted TOGETHER.
+  #    process/MANUAL.md ratifies the vocabulary; each runner PROJECTS it.
+  local auth="$SB_TMP/outcome-auth.txt" man="$REAL_REPO_ROOT/process/MANUAL.md" na=0
+  if [ -f "$man" ]; then
+    awk '
+      /^### The RUN-OUTCOME vocabulary/ { inb=1; next }
+      inb && /^### /                    { inb=0 }
+      inb && match($0, /^\| `[A-Z_]+`/) { t=$0; sub(/^\| `/, "", t); sub(/`.*$/, "", t); print t }
+    ' "$man" | sort > "$auth"
+    na="$(wc -l < "$auth" | tr -d ' ')"
+    # The extractor is asserted before the comparison: an extractor that matched nothing
+    # makes "the runner projects the table" true of an empty table, forever.
+    [ "$na" -ge 6 ] \
+      || cf "the MANUAL.md run-outcome table yielded only $na token(s) — the extractor stopped matching, so pinning the runners to it would compare against almost nothing"
+    if [ "$na" -ge 6 ] && [ "$found" -eq 2 ] && ! diff -q "$a" "$auth" >/dev/null 2>&1; then
+      cf "the runners' vocabulary does not PROJECT the ratified table in process/MANUAL.md — the two copies may agree with each other and with nothing else: $(diff "$a" "$auth" | tr '\n' ' ')"
+    fi
+  else
+    cf "process/MANUAL.md is absent — the ratified table is the authority this case pins to"
+  fi
+
+  finish "the two shipped runners' run-outcome vocabularies agree with EACH OTHER and PROJECT the ratified table in process/MANUAL.md ($n token(s) per runner, $na ratified, $unused unused) — both arms, because an authority does not make two hand-copies agree and two hand-copies agreeing does not make either right"
   teardown
 }
 

@@ -338,6 +338,37 @@ bounces it.
 7. **Archive.** When `qa_complete/` accumulates, `./scripts/archive.sh --apply` sweeps issues
    into `progress/done/` and indexes them in `ARCHIVE.md`; commit the sweep.
 
+### The RUN-OUTCOME vocabulary (an orchestrated run's summary of one leg)
+
+**THIS LIST IS THE AUTHORING SITE FOR THE RUN-OUTCOME VOCABULARY.** Every runner and every report
+that carries an outcome **projects this list; none of them re-enumerates it.** It is placed here, as
+a sibling of the verdict table above, because an outcome is **composed from** a verdict and a
+landing — not because the handoff produces one. The handoff produces the two inputs; an orchestrator
+produces this.
+
+| Outcome | Composed from | Meaning |
+|---|---|---|
+| `LANDED` | verdict PASS · landing `landed` or `not_applicable` | reviewed green and the change is on the trunk, or had nothing to land |
+| `LAND_READY` | verdict PASS · landing `deferred` | reviewed green, landing correctly not attempted — **a SUCCESS** |
+| `PARKED_OK` | — | parked, **and the park itself was verified** |
+| `PARK_UNVERIFIED` | — | parked, park not verifiable as written |
+| `FAILED_AFTER_FIX_ROUND` | verdict FAIL, twice | failed again after the fix round |
+| `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
+
+**`LANDED` and `LAND_READY` are both verdict PASS** and differ only in whether the landing happened.
+That is why a gate treats both as success, and it is the composition rule that makes the next
+sentence enforceable:
+
+> **A new member that encodes a verdict the table above does not have is a second verdict
+> vocabulary wearing another name.** Before adding one, say which verdict and which landing it is
+> composed from. If you cannot, the thing you need is a verdict, and it belongs in § step 6.
+
+**Why this needed ratifying rather than living in the runners.** The orchestration runtime grants
+those files no imports, so the vocabulary is **unavoidably hand-copied** into each one. A guard can
+hold the copies equal to each other, and that is worth having — but two copies agreeing is not the
+same as either being right, and a pair that drifts together drifts silently. An authority outside
+both is the only thing that makes the guard a *pin* rather than a *comparison*.
+
 ### The direct-to-trunk lite variant (docs / process / metadata issues)
 
 The 7 steps above are the **code-work** boundary — they assume a pushed work branch and a `git

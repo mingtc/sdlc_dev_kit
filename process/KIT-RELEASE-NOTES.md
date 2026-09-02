@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`MANUAL.md` gains a section: the RUN-OUTCOME vocabulary, ratified.** If you use the
+  orchestrated runners, the six tokens they report (`LANDED`, `LAND_READY`, `PARKED_OK`,
+  `PARK_UNVERIFIED`, `FAILED_AFTER_FIX_ROUND`, `BLOCKED_DEV`) now have an authoring site next to the
+  verdict table, with what each is **composed from** — a verdict plus a landing. **No action
+  required**, and nothing a runner reports has changed. What changed is that the runners now
+  *project* a ratified list instead of being held only against each other: two hand-copies agreeing
+  was never evidence either was right. **If you have edited a runner's `OUTCOME` block**, the
+  self-test will now tell you when it no longer matches the table.
+
 - **The coupled-operands rule (`commit-hygiene.md` § A.5) now names a second shape, and it is the
   one people miss.** The rule was already right; its examples showed only *a document describing
   code*. The case that goes unrecognised is **a cross-cutting guard whose enrolment list lives in a
