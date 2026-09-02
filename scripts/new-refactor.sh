@@ -127,7 +127,8 @@ BRANCH="refactor/${ID}-${SLUG}"
 # the id already burned.
 WORK="$(mktemp)"
 trap 'rm -f "$WORK" "$WORK.bak"' EXIT
-sed_repl() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+# sed_repl lives in scripts/config.sh, already sourced above — one definition, and the
+# reason it exists is stated there. It was copied here, byte for byte, in three scripts.
 
 cp "$TEMPLATE" "$WORK"
 

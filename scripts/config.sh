@@ -69,6 +69,20 @@ PROJECT_NAME="${PROJECT_NAME:-<project-name>}"
 # IT IS ALSO WHY THIS REFUSES RATHER THAN SANITISING. Rewriting a bad name into a legal
 # one is the tempting fix and the wrong one: a caller who asked for one name and got
 # another has lost the one thing they typed, and will not find it by the name they used.
+# ESCAPE THE REPLACEMENT HALF. Free-text values reach a `s|…|REPL|` expression, and in
+# the replacement three characters are not literal: the delimiter `|` ends the
+# expression, `\` escapes, and `&` means "the whole match". A --prd of `a|b` used to
+# abort sed mid-run; a value containing `&` was silently corrupted into the card.
+#
+# THIS IS THE ONE DEFINITION. It was copied byte-for-byte into three minting scripts and
+# ABSENT from the one that takes the most free text — subtask.sh, whose create arm
+# publishes to the trunk. A rule stated in four places is a rule that holds in three.
+#
+# WHAT IT DOES NOT COVER, said here so nobody infers otherwise: an embedded NEWLINE.
+# `printf '%s' | sed` on a multi-line value yields a multi-line replacement, which sed
+# rejects. That is true of every caller and is not closed.
+sed_repl() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+
 validate_slug() {
   local slug="$1" pos ch
   if [ -z "$slug" ]; then

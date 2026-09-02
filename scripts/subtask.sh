@@ -175,23 +175,37 @@ case "$CMD" in
     # keys on the frontmatter KEY, never on the template's placeholder VALUE, so
     # a template edit cannot make one a silent no-op. This `sed` has no -i, so it
     # is portable (reads TEMPLATE, writes DEST).
-    sed -e "s|^id: .*|id: ${ID}|" \
+    # EVERY INTERPOLATED VALUE GOES THROUGH sed_repl (scripts/config.sh). This arm takes
+    # more free text than any other creator and had none of the escaping the three
+    # minting scripts carried. Measured: --title 'Fix A & B' published a card whose
+    # frontmatter read "title: Fix A title: <one-line summary…> B" while its H1 was
+    # correct — the two disagreed. --title 'a|b' aborted sed AFTER `> "$DEST"` had
+    # created the file, and since `reset --hard` does not remove untracked files, the
+    # zero-byte husk survived in the SHARED worktree and permanently blocked that id.
+    sed -e "s|^id: .*|id: $(sed_repl "$ID")|" \
         -e "s|^type: .*|type: subtask|" \
-        -e "s|^parent: .*|parent: ${PARENT}|" \
-        -e "s|^title: .*|title: ${TITLE}|" \
-        -e "s|^size: .*|size: ${SIZE}|" \
-        -e "s|^prd: .*|prd: ${PRD}|" \
-        -e "s|^stories: .*|stories: ${STORIES}|" \
-        -e "s|^branch: .*|branch: ${BRANCH}|" \
+        -e "s|^parent: .*|parent: $(sed_repl "$PARENT")|" \
+        -e "s|^title: .*|title: $(sed_repl "$TITLE")|" \
+        -e "s|^size: .*|size: $(sed_repl "$SIZE")|" \
+        -e "s|^prd: .*|prd: $(sed_repl "$PRD")|" \
+        -e "s|^stories: .*|stories: $(sed_repl "$STORIES")|" \
+        -e "s|^branch: .*|branch: $(sed_repl "$BRANCH")|" \
         -e "s|^created_at: .*|created_at: ${TODAY}|" \
-        -e "s|^created_by: .*|created_by: Orchestrator|" \
+        -e "s|^created_by: .*|created_by: $(sed_repl "$ROLE")|" \
         "$TEMPLATE" > "$DEST"
 
     # The H1. Done as a FIRST-MATCH-ONLY pass rather than a sed pattern: a
     # `s|^# .* — .*|…|` would rewrite every em-dashed heading in the body, not
     # just the title. The H1 is the first `^# ` line after the frontmatter.
     H1_TMP="$(mktemp)"
-    awk -v h="# ${ID} — ${TITLE}" 'BEGIN{done=0} done==0 && /^# /{print h; done=1; next} {print}' \
+    # ENVIRON, NOT `awk -v` — and this is a SECOND escaping bug in the same twelve lines,
+    # which sed_repl above does NOT fix. `awk -v` performs escape-sequence processing on
+    # the value it assigns: measured, a --title of `path C:\tmp\new` yields a real TAB
+    # and a real NEWLINE, splitting the H1 across two lines. ENVIRON does no such
+    # processing and is POSIX. (perl would also work and this file already uses it on the
+    # --plan path — do NOT reach for it: that is a dependency past the kit's declared
+    # git-plus-POSIX-shell floor, and it is itself an open finding.)
+    H1="# ${ID} — ${TITLE}" awk 'BEGIN{done=0} done==0 && /^# /{print ENVIRON["H1"]; done=1; next} {print}' \
       "$DEST" > "$H1_TMP" && mv "$H1_TMP" "$DEST"
 
     # RE-HEAD THE CARD: the template's travel classification goes, its still-in-force instruction stays.

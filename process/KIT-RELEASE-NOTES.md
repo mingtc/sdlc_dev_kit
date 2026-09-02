@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`subtask.sh new` no longer corrupts a `--title` (or any other value) containing `&`, `|` or a
+  backslash.** Three creation scripts escaped these; `subtask.sh` — the one that takes the most free
+  text and the only one that **publishes to your trunk** — did not. A `&` was silently corrupted
+  into the card while the heading stayed correct, so the two disagreed. A `|` aborted the run
+  **after** the card file had been created, leaving a zero-byte file inside `.kanban-wt/` that
+  `reset --hard` does not remove and that **blocked that subtask id** until deleted by hand. A
+  backslash was interpreted rather than kept, splitting the heading across two lines. **No action
+  required** — nothing you already have changes, and no interface moved. The escaping helper now
+  lives once in `scripts/config.sh` instead of being copied into three scripts; if you have edited
+  one of those copies, your edit is in a function that no longer exists there. Not covered: a value
+  containing an actual newline.
+
 - **`new-prd.sh` and `subtask.sh` now refuse a short name that is not `lower-case-with-hyphens`, and
   `subtask.sh` also checks the subtask suffix.** Three creators already enforced this; these two did
   not. For `subtask.sh` it was not cosmetic: its `new` arm writes `branch: feature/<id>-<slug>` into

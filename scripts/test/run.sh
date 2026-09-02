@@ -6139,14 +6139,15 @@ case_creation_scripts_substitute_hostile_values() {
   # progress/todo/ with the template's placeholder id — an id burned by an invocation
   # that reported failure. The contract's own words: a refusal that already wrote the
   # file is the bug.
-  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ]; then
-    skp "creation scripts substitute hostile values" ".claude/templates absent — the creation scripts exit before their substitution block"
+  if [ ! -d "$REAL_REPO_ROOT/.claude/templates" ] || [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
+    skp "creation scripts substitute hostile values" ".claude/templates (or SUBTASK.template.md) absent — the creation scripts exit before their substitution block"
     return
   fi
   make_sandbox
   mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
   cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
   _kit_neutral_claude
+  seed_issue todo "$SB_PREFIX-014" parent chore "Decomposition parent"
   publish_sandbox
 
   local out rc card
@@ -6180,7 +6181,54 @@ case_creation_scripts_substitute_hostile_values() {
   [ "$before" = "$after" ] \
     || cf "a refused invocation changed the board: $before → $after item(s)"
 
-  finish "creation scripts: a value carrying sed's delimiter or its whole-match metacharacter lands VERBATIM in the card, no .bak is ever left on the board, and a refusal after id validation creates nothing"
+  # ── subtask.sh: THE CREATOR THAT TAKES THE MOST FREE TEXT AND NEVER GOT THE FIX.
+  #    Its create arm PUBLISHES, so these read the TRUNK, not the checkout — unlike the
+  #    arms above, whose creators are inert.
+  local st="progress/subtasks/$SB_PREFIX-014/todo"
+
+  # (a) '&' — sed's whole-match metacharacter. The tell is not "the title is wrong": it
+  #     is that the frontmatter and the H1 DISAGREE, because only one path was broken.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s1 amped --title 'Fix A & B' 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "subtask.sh new: a --title containing '&' did not succeed: rc=$rc $(printf '%s' "$out" | tr '\n' '|')"
+  origin_file_contains "$st/$SB_PREFIX-014-s1-amped.md" '^title: Fix A & B$' \
+    || cf "subtask.sh: the '&' title was corrupted rather than written into the published card"
+  origin_file_contains "$st/$SB_PREFIX-014-s1-amped.md" "^# $SB_PREFIX-014-s1 — Fix A & B\$" \
+    || cf "subtask.sh: the H1 does not carry the '&' title verbatim"
+
+  # (b) A BACKSLASH — a SECOND escaping bug in the same twelve lines that sed_repl does
+  #     NOT fix. `awk -v` performs escape processing, so \t became a tab and \n split the
+  #     heading. A fix that only escapes the sed passes (a) and fails here.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s4 backsl --title 'path C:\tmp\new' 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "subtask.sh new: a --title containing a backslash did not succeed: rc=$rc"
+  origin_file_contains "$st/$SB_PREFIX-014-s4-backsl.md" '^title: path C:\\tmp\\new$' \
+    || cf "subtask.sh: a backslash in --title was interpreted rather than kept — the frontmatter value is not literal"
+  origin_file_contains "$st/$SB_PREFIX-014-s4-backsl.md" '^# .*path C:\\tmp\\new$' \
+    || cf "subtask.sh: the H1 mangled the backslash — 'awk -v' processes escapes; the heading must go through ENVIRON"
+
+  # (c) '|' — THE DELIMITER, and the real damage is not the abort. sed writes via
+  #     `> "$DEST"`, so the file exists before sed fails; `reset --hard` does not remove
+  #     an untracked file, so the husk BLOCKS the id. The assertion that cannot be faked
+  #     is the control below: the SAME id must still be mintable afterwards.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s2 piped --title 'a|b' 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "subtask.sh new: a --title containing the sed delimiter aborted: rc=$rc $(printf '%s' "$out" | tr '\n' '|')"
+  origin_file_contains "$st/$SB_PREFIX-014-s2-piped.md" '^title: a|b$' \
+    || cf "subtask.sh: the piped value did not land verbatim in the published card"
+
+  # NO HUSK IN THE SHARED WORKTREE. This is the durable half of the '|' damage and it
+  # outlives the failed run: sed's `> "$DEST"` creates the file before sed fails, and
+  # `reset --hard` does not remove an untracked file, so a zero-byte card survives in a
+  # directory the docs tell operators not to touch and blocks that id.
+  #
+  # NOTE WHY THIS IS NOT "re-mint the same id and expect success": once the escaping
+  # WORKS, the piped run publishes the card, so re-minting that id correctly refuses with
+  # "already exists". The first draft of this control asserted the opposite and reddened
+  # on the fix. The husk itself is the thing to look for, so look for it.
+  local husk
+  husk="$( { find "$SB_WORK/.kanban-wt/progress/subtasks" -type f -name '*.md' -size 0 2>/dev/null || true; } )"
+  [ -z "$husk" ] \
+    || cf "a ZERO-BYTE card was left in the SHARED kanban worktree ($husk) — reset --hard does not remove it, so it blocks that subtask id until someone deletes a file by hand inside .kanban-wt/"
+
+  finish "creation scripts (subtask.sh included): a value carrying sed's delimiter or its whole-match metacharacter lands VERBATIM in the card, no .bak is ever left on the board, and a refusal after id validation creates nothing"
   teardown
 }
 

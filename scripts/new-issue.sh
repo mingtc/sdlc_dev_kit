@@ -127,7 +127,8 @@ trap 'rm -f "$WORK" "$WORK.bak"' EXIT
 # in `s|…|REPL|` three characters are not literal: the delimiter `|` ends the
 # expression, `\` escapes, and `&` means "the whole match". A --prd of `a|b` used to
 # abort sed mid-run; a value containing `&` was silently corrupted into the card.
-sed_repl() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
+# sed_repl lives in scripts/config.sh, already sourced above — one definition, and the
+# reason it exists is stated there. It was copied here, byte for byte, in three scripts.
 
 cp "$TEMPLATE" "$WORK"
 
