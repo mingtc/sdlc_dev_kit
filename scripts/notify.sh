@@ -34,8 +34,17 @@
 #
 # Delivery is BEST-EFFORT: a failed send NEVER aborts the caller (exit 0), but
 # prints a loud "⚠ delivery FAILED" so the calling agent can track it and tell
-# the user. `test` is the exception — it exits non-zero on failure so a
-# session-start check can branch on NOTIFY_ON_SETUP_FAILURE.
+# the user. `test` is the exception — it exits non-zero on failure, which is the
+# mechanism a caller branches on.
+#
+# NOTHING IN THE KIT BRANCHES ON NOTIFY_ON_SETUP_FAILURE, AND THAT IS THE DESIGN, NOT AN
+# OVERSIGHT — but it was stated nowhere, so the knob read as enforced. This comment used to
+# say "a session-start check can branch on" it; the shipped `hooks/session-start.sh` does not
+# mention NOTIFY at all, so there is no such call site to branch in. The knob DECLARES the
+# project's policy and `test`'s exit status carries the fact; the CALLER — an adapter's own
+# session-start wiring, or the agent reading the warning — is what acts on the pair. If you
+# want the kit itself to halt a session on a failed delivery test, that is a behaviour change
+# and it is not this knob's current meaning.
 #
 # SESSION SLUG: pings fire only when given --session. The human-launched session
 # holds its slug in context and passes it; subagents it spawns are NOT given one,
@@ -115,7 +124,10 @@ if [ "$MODE" = "test" ]; then
     exit 0
   else
     rc=$?
-    warn "❌ test FAILED via '$NOTIFY_BACKEND' (see DIAGNOSIS above). Policy NOTIFY_ON_SETUP_FAILURE=$NOTIFY_ON_SETUP_FAILURE — stop: halt + tell the user; continue: warn + proceed."
+    # THE VOCABULARY IS `continue|abort`, matching .env.example — the one spelling an adopter
+    # actually types. This line said "stop:" while .env.example said "abort", so the two
+    # statements of the legal values disagreed and neither was checked by anything.
+    warn "❌ test FAILED via '$NOTIFY_BACKEND' (see DIAGNOSIS above). Policy NOTIFY_ON_SETUP_FAILURE=$NOTIFY_ON_SETUP_FAILURE — abort: halt + tell the user; continue: warn + proceed. Nothing here enforces it; the caller acts on this exit status."
     exit "$rc"
   fi
 fi

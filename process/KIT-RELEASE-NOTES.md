@@ -46,6 +46,13 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`NOTIFY_ON_SETUP_FAILURE` is declarative — nothing in the kit branches on it — and both places
+  that named its legal values now agree.** `.env.example` said `continue|abort` while the warning said
+  `stop`, and no code read either. The knob records what your project wants done when
+  `notify.sh test` fails; `test`'s non-zero exit is the fact, and your own session-start wiring is
+  what acts on it. **Action required if you set it to `stop`:** that spelling was never read by
+  anything, but it is now wrong on its face — use `abort`.
+
 - **If `finish-pr.sh` refuses because you have no gate runner at all, it now tells you how to GET
   one.** That advice — *write `scripts/verify.sh`, or generate it with `kit-init.sh --gate-command`* —
   sat in a branch no input could reach, so the refusal an adopter actually met talked about checking
