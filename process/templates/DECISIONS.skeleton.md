@@ -44,13 +44,24 @@ from an invented one, correctly refused to proceed, and demoted both claims to p
 provenance is indistinguishable from fabrication **by construction**, which is why the pointer is
 owed at mint time and not on request: afterwards, the conversation is gone and nobody can supply it.
 
+**Where that primary artifact LIVES.** A dated record at your working-records root —
+`<YYYY-MM-DD>-<slug>.md` — indexed by [`../dev/README.md`](../dev/README.md) § *Reports, assessments,
+and probe findings* **in the same change that creates it**, because that index is bidirectional and a
+file reachable from no row is as lost as one that was never written. This is the same relationship a
+probe capture has to the entry it grounds ([`../process/templates/CAPTURE.template.md`](../process/templates/CAPTURE.template.md)),
+generalised off the probe case: the rule was always *point at a primary artifact*, and the one thing
+it never said was where to put one.
+
 **A ruling about to be EXECUTED owes three more things — inside those same three fields, never as a
 fourth.** A ruling that only describes the world can be tidied later; one that a slate of work is
 about to be built on cannot.
 
-- **Recorded before it is executed.** A decision living only in a prompt, a chat or a coordinator's
-  memory is invisible to the successor and **uncitable by the work items that depend on it**. Record
-  it first; the items then cite this entry as their authority rather than restating it.
+- **Recorded before it is executed**, and *a ruling is not recorded until it is in the file the work
+  will be done from.* The surfaces that do not count — a prompt, a chat, a coordinator's memory, a run
+  log, a message to a peer — are enumerated once in
+  [`../process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.2 rather than
+  here, because two copies of one list is how the two start disagreeing about what a surface is.
+  Record it first; the items then cite this entry as their authority rather than restating it.
 - **Verbatim, in the decider's own words** — in the **Ruling** field. A paraphrase is a second
   authoring site, and the paraphrase is the copy that drifts. Where the decider hedged, the hedge is
   part of the ruling: it is what tells a later leg the ruling may be reopened on evidence.

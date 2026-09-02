@@ -372,6 +372,11 @@ other than what you asked.
   which a before/after comparison cannot establish over a resource the instrument does not own
   exclusively. **A wrong attribution is worse than a bare fact, because it sends the reader to debug
   the one thing the evidence does not implicate.**
+  **The commonest non-exclusive owner is YOU.** A probe whose operand is a state you — or the leg you
+  are grading — just wrote answers about your own side effect. `mtime`-as-freshness is the standard
+  shape: the file is newer because you touched it, and the instrument reports that as evidence the
+  thing you were checking happened. § A.8's **named, non-self-referential witness** is the cure, and
+  it is the same cure whether the other writer is a person, a process, or the run itself.
 
 **The habit: state, beside every instrument, WHICH QUESTION IT ACTUALLY ANSWERS** — and prefer the
 instrument whose question is the one you have. Where two routes to an answer exist, run both and

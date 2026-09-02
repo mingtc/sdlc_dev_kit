@@ -67,9 +67,13 @@ same-commit rule.
 
 **What this sheet adds, for a ruling that is about to be executed rather than merely recorded:**
 
-- **Before execution, not after.** A product decision that lives only in a prompt, a chat or a
-  coordinator's memory is invisible to the successor and **uncitable by the work items that depend on
-  it**. Record it first; every item that touches it cites the record as its authority.
+- **Before execution, not after.** A product decision that lives only in a prompt, a chat, a
+  coordinator's memory, **a run log or a message to a peer** is invisible to the successor and
+  **uncitable by the work items that depend on it**. Record it first; every item that touches it
+  cites the record as its authority. *The crisp form, and the two surfaces added because this is what
+  a real crunch loses rulings to:* **a ruling is not recorded until it is in the file the work will be
+  done from.** A run log is written once and read by whoever was there; a peer message is read by one
+  person. Neither is where the next implementer opens the item.
 - **Verbatim, in the decider's own words.** A paraphrase of a ruling is a second authoring site for
   it, and the paraphrase is the copy that goes stale. Where the decider hedged, the hedge is part of
   the ruling — it is what tells a later leg the ruling may be reopened on evidence.

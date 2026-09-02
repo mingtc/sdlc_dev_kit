@@ -76,6 +76,21 @@ Nothing in the minimum set was merged or split.
   new gate with no contract should redden the build; so should a contract for a gate that is gone.
   Writing that guard in your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's
   standing debt, honestly stated: the contracts travel, a guard over them does not.
+- **A § 6 row RESTATES the implementation's own `KIT-CLASS` marker, deliberately, and the copy is
+  tolerated rather than accidental.** The two statements answer two different readers: the in-file
+  marker answers *"what is this file"* for someone holding the file; the § 6 row answers *"what does
+  this contract's implementation look like"* for someone holding only the spec — including a
+  reimplementer who has no such file at all. **The unguarded direction, named rather than left
+  implied:** nothing checks that a sheet's cited path still exists, and nothing checks that a
+  travelling script has a sheet. Both go wrong silently. Derive them rather than trusting this list:
+
+  ```sh
+  # every path a § 6 bullet names, with the class the sheet claims for it —
+  # bullets WRAP, so join continuation lines first or five rows in one bullet are missed
+  awk '/^- /{b=$0; next} /^[[:space:]]+[^[:space:]]/{b=b " " $0} END{}' process/contracts/*.md
+  grep -rlE '^# KIT-CLASS: (KIT|MIXED)' scripts/ setup.sh   # every script that OWES a sheet
+  ```
+
 - **`PROJECT`-class files owe nothing** and no sheet may claim one — a contract over a file the
   adopter never receives reads as an obligation they do not have.
 - **A `MIXED` file's sheet describes the KIT HALF only**, and says so in its own section 6.
