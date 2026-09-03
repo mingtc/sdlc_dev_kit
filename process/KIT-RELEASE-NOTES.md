@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **Bug cards can now declare what they block.** `BUG.template.md` gains `blocks:` and
+  `blocked_by:`. A bug found in QA that must be fixed before the feature above it can land is an
+  everyday situation, and the board had no way to express it — while the orchestrator **gates
+  dispatch** on those exact fields, so the dependency was invisible to the check that acts on it.
+  **No action required**; existing bug cards without the fields behave as they always did. **And
+  `SUBTASK.template.md` deliberately does NOT get them** — a slice is ordered by its `sM` index and
+  its `parent:`, and a dependency on outside work belongs on the parent, which is what the board
+  dispatches. The template says so, and says what to do instead.
+
 - **The QA schema gains an optional third axis: `premise_refuted`.** An issue can be implemented
   exactly as written, pass review, land — and have **its own premise** turn out to be false, proven
   by the work itself. That had nowhere to go but a commit subject. It is now a field beside

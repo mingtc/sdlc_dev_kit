@@ -14,6 +14,11 @@ environment: <runtime + OS>     # + dependency versions, live-vs-fixture state
 prd: PRD-NNN                    # PRD whose behavior is regressed; n/a if none
 stories: [PRD-NNN-F1-S1]        # specific story whose AC is broken; [] if none
 discovered_in: <PREFIX>-NNN     # the issue whose QA review surfaced this bug
+blocks: []                      # other <PREFIX>-NNN this bug blocks — a bug found in QA that must
+                                # be fixed before the feature above it can land goes HERE, not in
+                                # an activity note: the orchestrator gates dispatch on this field
+                                # and cannot read prose
+blocked_by: []                  # other <PREFIX>-NNN blocking this bug
 branch: fix/<PREFIX>-NNN-<slug>
 pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD

@@ -20,6 +20,14 @@ created_at: YYYY-MM-DD
 created_by: Orchestrator
 ---
 
+<!-- NO `blocks:` / `blocked_by:` HERE, AND THAT IS A DECISION, NOT AN OVERSIGHT — recorded so it is
+     not re-raised. A subtask's ordering is already carried by two things the board can read: the `sM`
+     index within its parent, and the `parent:` field itself. A dependency on work OUTSIDE the parent
+     belongs on the PARENT, because the parent is the unit the board dispatches and the unit the
+     orchestrator's chain check walks; putting it on a slice hides it from the level that acts on it.
+     If you find yourself wanting these fields here, the honest reading is usually that the slice is
+     not a slice — re-scope it into its own issue, which does carry them. -->
+
 # <PREFIX>-NNN-sM — <one-line summary>
 
 > A **subtask** of [<PREFIX>-NNN](../../../<status>/<PREFIX>-NNN-<slug>.md). It lives under
