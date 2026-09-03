@@ -422,7 +422,14 @@ if [ -f "$pmd" ]; then
   fi
   wholebytes="$(wc -c < "$pmd" | tr -d ' ')"
   if [ "$wholebytes" -gt "$PROGRESS_WHOLE_FILE_BYTE_THRESHOLD" ]; then
-    echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ⚠ over (ADVISORY, does not fail the board) — a rotation is due, see ./scripts/archive-progress.sh — $(cb_src)"
+    # THE LITERAL `reports only` IS A MACHINE CONTRACT, NOT PHRASING (drift-report.md § 4).
+    # This header used to say "(ADVISORY, does not fail the board)" — the right meaning in the
+    # wrong vocabulary, so kit-init's board self-check, which drops advisory sections by scanning
+    # `^\[[a-z]\]` headers for that literal, would have read this reading's ⚠ as a real finding
+    # and refused the install. Unreachable only by luck: a fresh tree's progress.md is far below
+    # the threshold, so the reading never fires until an adopter runs kit-init against a tree that
+    # already has a large one.
+    echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ⚠ over (reports only — it never changes the verdict below) — a rotation is due, see ./scripts/archive-progress.sh — $(cb_src)"
   else
     echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ✓ — $(cb_src)"
   fi

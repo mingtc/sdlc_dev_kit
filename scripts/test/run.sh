@@ -8850,6 +8850,56 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # until somebody removes the template again. Enumerating the two would have fixed the
 # instances and left the class, which is this board's most-repeated mistake.
 # =============================================================================
+# =============================================================================
+# CASE — AN ADVISORY SECTION SAYS SO IN THE MACHINE'S VOCABULARY, NOT ONLY IN PROSE.
+#
+# kit-init's board self-check drops advisory sections BY THEIR OWN DECLARATION: an awk sets
+# a flag when an `^[a-z]` arm header contains the literal `reports only`, and skips
+# everything under it. That literal is a machine contract (contracts/drift-report.md § 4),
+# not phrasing.
+#
+# A header can therefore say the right thing in the wrong vocabulary. One did: the
+# whole-file reading advertised "(ADVISORY, does not fail the board)" and carried no
+# token, so kit-init would have counted its ⚠ as a real finding and refused the install —
+# the exact regression the verdict-line filter was landed to end, arriving through a
+# header that MEANS advisory and does not SAY it.
+#
+# It was unreachable only by luck (a fresh tree's progress.md is far below the threshold),
+# which is why prose and token being two authoring sites for one fact needs a census
+# rather than a fix at the one site that happened to be found.
+# =============================================================================
+case_advisory_headers_carry_the_machine_token() {
+  cf_reset
+  make_sandbox
+  local cb="$SB_WORK/scripts/check-board.sh" rows n=0
+
+  # Every arm-header emission that CLAIMS to be advisory in prose must also carry the token.
+  # Derived over the shipped script; the two spellings are held on separate lines so this
+  # case's own text cannot satisfy the search it performs.
+  local prose='ADVISORY'
+  local token='reports only'
+  rows="$(awk -v p="$prose" -v t="$token" '
+    /echo "\[[a-z]\]/ {
+      if (index($0, p) && !index($0, t)) print NR ": " substr($0, 1, 110)
+    }
+  ' "$cb")"
+  [ -z "$rows" ] \
+    || cf "an arm header calls itself advisory in PROSE and omits the machine token — kit-init's self-check reads the token, not the prose, so this arm's findings would be counted as real and would refuse an install: $rows"
+
+  # ── INSTRUMENT CHECK: the token is actually present somewhere, and on more than one arm.
+  #    A census for "prose without token" is satisfied forever by a file with neither.
+  n="$(grep -c "$token" "$cb" || true)"
+  [ "$n" -ge 3 ] \
+    || cf "the literal '$token' appears only $n time(s) in check-board.sh — either the advisory vocabulary was renamed (and kit-init's awk no longer matches anything) or this census is looking for a string the script has stopped using"
+
+  # ── AND THE CONSUMER STILL READS IT. Textual agreement is not the contract; the awk is.
+  grep -qF "$token" "$SB_WORK/scripts/kit-init.sh" \
+    || cf "kit-init.sh does not mention '$token' — the producer and the consumer of this machine contract have drifted, and every advisory arm would start failing installs"
+
+  finish "every check-board arm header that calls itself advisory carries the machine token '$token' that kit-init's self-check actually reads ($n occurrence(s)), and the consumer still reads it — prose and token are one fact, and only one of them is machine-readable"
+  teardown
+}
+
 case_minting_cases_probe_for_the_template() {
   cf_reset
   make_sandbox
@@ -9718,6 +9768,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_advisory_headers_carry_the_machine_token
   case_minting_cases_probe_for_the_template
   case_frontmatter_scan_cap_is_enforced
   case_trunk_chain_announces_every_fallback
