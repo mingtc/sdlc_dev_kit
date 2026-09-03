@@ -8965,6 +8965,86 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # THE EXEMPT CLASSES ARE DERIVED FROM THE RULE'S OWN TEXT, not listed here. A second
 # hand-typed list of exemptions is the defect this whole directory is about.
 # =============================================================================
+# =============================================================================
+# CASE — A PARTIAL PREFIX DERIVATION REPORTS ITSELF PARTIAL, AND THE INITIALIZER
+#        REFUSES THE VALUE THAT CAUSES ONE.
+#
+# Two halves of one contract, only one of which had been written. kit-init validated
+# --prefix and not --prd-prefix, so `--prd-prefix REQ-2` was accepted and stamped; the
+# hygiene instrument derives its id pattern with `([A-Za-z0-9]+)` and could not then read
+# that key. Its `_id_prefixes` returned `derived=True` for a list of length one, so the
+# instrument silently stopped seeing PRD ids WHILE REPORTING ITSELF FULLY DERIVED —
+# `id_prefixes_derived_from_seam` is the flag a reader uses to tell a real zero from a
+# blind one, and a partial derivation is the blind case wearing the confident flag.
+#
+# BOTH ARMS ARE NEEDED. Validation closes one route to a half-derivation; only the flag
+# can tell a reader when some other route was taken.
+# =============================================================================
+case_partial_prefix_derivation_says_so() {
+  cf_reset
+  make_sandbox
+  local hy="$SB_WORK/scripts/hygiene/staleness_greps.py"
+  if [ ! -f "$hy" ]; then
+    skp "a partial prefix derivation reports itself partial" "scripts/hygiene/ is absent — it is the kit's deletable optional extra"
+    teardown; return
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    skp "a partial prefix derivation reports itself partial" "python3 is not on PATH, and the kit does not require it"
+    teardown; return
+  fi
+
+  local probe="$SB_TMP/prdprobe" out
+  rm -rf "$probe"; mkdir -p "$probe/scripts"
+
+  _prd_derived() {  # <config.sh body> -> "prefixes|True|False"
+    printf '%s' "$1" > "$probe/scripts/config.sh"
+    python3 - "$hy" "$probe" <<'PY'
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location('sg', sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+pat, derived = m._id_prefixes(pathlib.Path(sys.argv[2]))
+print(f"{pat}|{derived}")
+PY
+  }
+
+  # ── INSTRUMENT CHECK: BOTH keys readable must report derived. Without this, "partial
+  #    reports False" is satisfied by a derivation that reports False for everything.
+  out="$(_prd_derived 'ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"
+PRD_PREFIX="${PRD_PREFIX:-PRD}"
+')"
+  case "$out" in
+    *'|True') ;;
+    *) cf "(instrument) a config.sh with BOTH keys readable reports '$out' — if a full read is not derived, the partial arm below proves nothing" ;;
+  esac
+
+  # THE ARM: one key readable, one not. Must report NOT derived, and must still use what
+  # it read — a partial pattern finds some ids, and throwing it away would trade a
+  # dishonest instrument for a blind one.
+  out="$(_prd_derived 'ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"
+PRD_PREFIX="${PRD_PREFIX:-REQ-2}"
+')"
+  case "$out" in
+    *'|False') ;;
+    *) cf "a config.sh where only ONE of the two prefix keys parses reports '$out' — a PARTIAL derivation claiming to be complete is this instrument's honesty flag asserting the opposite of the truth" ;;
+  esac
+  case "$out" in
+    KIT'|'*) ;;
+    *) cf "the partial derivation discarded the key it COULD read (got '$out') — reporting the gap is right, going blind on top of it is not" ;;
+  esac
+
+  unset -f _prd_derived
+
+  # THE OTHER HALF: the initializer refuses the value that produces a partial read.
+  if has_kit_init; then
+    grep -q 'PRD_PREFIX_NEW' "$SB_WORK/scripts/kit-init.sh" \
+      && grep -qE '^if \[ -n "\$PRD_PREFIX_NEW" \] && ! printf' "$SB_WORK/scripts/kit-init.sh" \
+      || cf "kit-init.sh does not validate --prd-prefix the way it validates --prefix — the route that produces a partial derivation is still open, and only the flag above would catch it"
+  fi
+
+  finish "a config.sh where only one of the two prefix keys parses reports id_prefixes_derived_from_seam FALSE while still using the key it could read, a full read still reports TRUE, and kit-init refuses the --prd-prefix values that produce the partial case"
+  teardown
+}
+
 case_travelling_scripts_have_a_sheet() {
   cf_reset
   make_sandbox
@@ -10102,6 +10182,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_partial_prefix_derivation_says_so
   case_travelling_scripts_have_a_sheet
   case_release_hook_rejection_leaves_no_bump
   case_shipped_scripts_stay_on_the_floor

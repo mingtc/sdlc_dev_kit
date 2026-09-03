@@ -85,13 +85,26 @@ def _id_prefixes(root: Path):
     cfg = root / "scripts" / "config.sh"
     if cfg.exists():
         text = cfg.read_text(encoding="utf-8", errors="replace")
-    found = []
-    for key in ("ISSUE_PREFIX", "PRD_PREFIX"):
+    keys = ("ISSUE_PREFIX", "PRD_PREFIX")
+    found, unread = [], []
+    for key in keys:
         match = re.search(rf'^{key}="\$\{{{key}:-([A-Za-z0-9]+)\}}"', text, re.M)
         if match:
             found.append(match.group(1))
-    if found:
+        else:
+            unread.append(key)
+    # DERIVED MEANS *EVERY* KEY, NOT *ANY* KEY. This used to be `if found:` — true for a list
+    # of length one — so a config.sh where one key parsed and the other did not returned the
+    # single prefix it had and reported itself fully derived. The flag is this instrument's
+    # own honesty signal: the caller prints it and warns when it is false, precisely so a
+    # reader can tell a real zero from a blind one. A PARTIAL derivation is the blind case
+    # wearing the confident flag, and it is reachable — a prefix containing a character
+    # outside this class is stamped by the initializer and then unreadable here.
+    if found and not unread:
         return "|".join(found), True
+    if found:
+        # Use what was read — a partial pattern still finds SOME ids — but say it is partial.
+        return "|".join(found), False
     return "[A-Z]{2,6}", False
 
 

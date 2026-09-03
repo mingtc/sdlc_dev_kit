@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`kit-init --prd-prefix` is validated, and a half-read prefix seam now admits it.** `--prefix` was
+  checked and `--prd-prefix` was not, so a value like `REQ-2` was accepted and stamped — after which
+  the hygiene instrument could not parse that key, **silently stopped matching your PRD ids, and went
+  on reporting `id_prefixes_derived_from_seam: true`**. `kit-init` now refuses such a value, and the
+  instrument reports `false` whenever it could read only some of the keys (still using the ones it
+  could). **Action required if you adopted with a `--prd-prefix` containing anything outside
+  letters and digits:** your staleness instrument has been half-blind since adoption. Change the
+  value in `scripts/config.sh` — remembering that existing ids keep the prefix they were born with.
+
 - **The self-test now checks that every travelling script has a contract sheet.** `contracts/README.md`
   always stated the rule in both directions and said outright that this one was unguarded. It is
   guarded now, and two exempt classes are named at the rule so a sweep finds a decision rather than a

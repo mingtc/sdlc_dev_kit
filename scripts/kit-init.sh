@@ -223,6 +223,15 @@ step "kit-init preflight"
 if [ -n "$PREFIX" ] && ! printf '%s' "$PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prefix '$PREFIX' must be alphanumeric and start with a letter (it becomes ${PREFIX}-001-<slug>.md)."
 fi
+# THE SAME RULE FOR --prd-prefix, which had NONE. It went straight from the argument arm into
+# the sed that rewrites config.sh, so `--prd-prefix REQ-2` was accepted and stamped — and the
+# hygiene instrument's own prefix derivation matches `[A-Za-z0-9]+`, so from then on it silently
+# stopped seeing PRD ids WHILE REPORTING ITSELF FULLY DERIVED. The narrow class in that
+# instrument is not the defect; it and this check are two halves of one contract, and only one
+# half had been written.
+if [ -n "$PRD_PREFIX_NEW" ] && ! printf '%s' "$PRD_PREFIX_NEW" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
+  pf "--prd-prefix '$PRD_PREFIX_NEW' must be alphanumeric and start with a letter (it becomes ${PRD_PREFIX_NEW}-001-<slug>.md, and the hygiene instruments derive their id pattern from it)."
+fi
 
 # --- the copy-list minimum ---
 COPY_LIST=(
