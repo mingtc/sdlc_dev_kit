@@ -45,6 +45,17 @@ body_of() { printf '%s' "$1" | sed '$d'; }
 
 VERB="${1:-send}"
 
+# A USAGE REQUEST IS ANSWERED BEFORE THE VERB IS INTERPRETED.
+# process/contracts/issue-creation.md § 3: "a request for the usage text is ALWAYS legal and
+# ALWAYS succeeds". This adapter's verb dispatcher used to swallow --help as an unknown verb
+# and exit 2 — measured — which made the one channel adapter the kit ships the counter-example
+# to a rule the kit states, in the file notification.md § 6 names as its reference implementation.
+case "${VERB:-}" in
+  -h|--help|help)
+    sed -n '3,40p' "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    exit 0 ;;
+esac
+
 case "$VERB" in
   send)
     if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then

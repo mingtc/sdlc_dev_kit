@@ -25,6 +25,9 @@
 #
 # Target folders: todo | in_progress | dev_complete | qa_complete | blocked
 #
+#   SUBTASK_ROLE   the seat this script commits as (default: Orchestrator). The tag
+#                  is CHECKED against your declared role set before anything moves.
+
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync. Read move-issue.sh's warning about it first:
 #   the worktree is shared between lanes. (There is deliberately no --no-commit —

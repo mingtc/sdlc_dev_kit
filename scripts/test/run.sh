@@ -10,8 +10,14 @@
 # printing a per-case PASS / FAIL / SKIP summary at the end.
 #
 # WHAT IT IS — and IS NOT
-#   • Pure bash + git only. No language runtime, no package manager, no new
-#     dependency. It tests the SCRIPTS, not the project.
+#   • Pure bash + git, PLUS `perl` — and the third one is the point of this line. `perl`
+#     rewrites sandbox fixtures at 24 command-position sites and is PROBED AT STARTUP: its
+#     absence is a hard refusal with the reason, not an unexplained abort forty cases in.
+#     `node` and `python3` are OPTIONAL — cases needing them SKIP loudly. This header used to
+#     read "no language runtime, no package manager, no new dependency", which was false of
+#     perl and true of nothing else, and nothing probed it. THE KIT's own floor is unchanged:
+#     git and a POSIX shell. This dependency is the HARNESS's, and it is declared here.
+#     It tests the SCRIPTS, not the project.
 #   • It is DELIBERATELY NOT wired into scripts/verify.sh — it is an ON-DEMAND
 #     developer/QA tool for proving a change to the board scripts is correct
 #     without risking the real board or the real remote. RUN IT BY HAND AFTER
@@ -109,6 +115,32 @@
 # pipe it into an early-exiting reader.
 # =============================================================================
 set -uo pipefail
+
+# A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS — process/contracts/issue-creation.md § 3,
+# which this harness enforces on other scripts and did not answer itself. Before this, `--help`
+# was not read at all: it fell through and STARTED THE FULL SUITE, building sandboxes and bare
+# repositories for several minutes, which is the most expensive possible answer to "what is this?".
+case "${1:-}" in
+  -h|--help)
+    sed -n '3,34p' "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    exit 0 ;;
+  '') : ;;
+  *) echo "run.sh: unknown option '$1' — this harness takes none; run it with no arguments." >&2
+     echo "        Run  run.sh --help  for what it does." >&2
+     exit 2 ;;
+esac
+
+# PROBED, NOT ASSUMED. perl is a hard dependency of this harness (fixture mutation) and it is
+# past the kit's declared git-plus-POSIX floor, so it is refused at startup with the reason —
+# not discovered as an unexplained abort forty cases in. node and python3 are OPTIONAL and their
+# cases skip; this one cannot skip, because almost every sandbox is built with it.
+command -v perl >/dev/null 2>&1 || {
+  echo "run.sh: perl is required by this harness and is not on PATH." >&2
+  echo "        It rewrites sandbox fixtures; there is no skip path, because nearly every case" >&2
+  echo "        builds its sandbox with it. The KIT itself needs only git and a POSIX shell —" >&2
+  echo "        this dependency is the TEST HARNESS's, and it is stated in the header above." >&2
+  exit 1
+}
 
 REAL_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REAL_SCRIPTS="$REAL_REPO_ROOT/scripts"

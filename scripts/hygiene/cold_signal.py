@@ -44,8 +44,17 @@
 # two columns and this instrument reports either everything or nothing; that is why
 # citation_index.py refuses to collapse them.
 #
-# IT MUST NEVER BE INVOKED FROM A TEST. History is not a fixture, and a guard that reads live git
-# is nondeterministic by construction. This is a seat-run instrument, not a guard.
+# ITS MEASUREMENT MUST NEVER BE A GATE, AND MUST NEVER BE ASSERTED BY A TEST. History is not a
+# fixture, and a number read from live git is nondeterministic by construction. This is a seat-run
+# instrument, not a guard.
+#
+# WHAT THAT DOES *NOT* FORBID, narrowed here because the wording used to say "never invoked from a
+# test" and the kit's own harness invokes it — deliberately, seeding sandbox history so it can run.
+# A test may RUN this instrument to check what it SAYS ABOUT ITSELF: that it declares its blind
+# spots, that it reports UNRUNNABLE rather than zero when git is absent, that ablating its
+# derivation empties the declaration. Those are properties of the instrument, not of the history.
+# **The line is between asserting what it MEASURED and asserting how it BEHAVES.** The first is a
+# nondeterministic guard; the second is the only way an advisory instrument is held honest at all.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Cold evidence" shape).
 # =============================================================================

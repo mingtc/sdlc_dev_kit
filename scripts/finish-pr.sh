@@ -26,6 +26,9 @@
 #   3  LANDED BUT NOT FINISHED. The squash IS on the trunk; a follow-up step did
 #      not complete. **Do NOT re-run this script** — run the recovery it printed.
 #
+#   FINISH_PR_ROLE   the seat this landing commits as (default: QA). The tag is
+#                    CHECKED against your declared role set before anything moves.
+#
 # THE CODE ANSWERS "IS IT SAFE TO RUN ME AGAIN?", NOT "DID IT LAND?" — and those
 # are different questions, which is why 3 exists. `1` and `3` are both failures and
 # they demand OPPOSITE actions: 1 says retry, 3 says never retry. Collapsing them,

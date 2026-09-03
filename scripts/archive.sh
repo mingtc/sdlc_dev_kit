@@ -138,8 +138,36 @@ SUBTASKS_DIR="$KWT/progress/subtasks"
 [ -f "$ARCHIVE" ] || { echo "Error: $ARCHIVE does not exist at the repo root." >&2; exit 1; }
 
 if ! grep -q '^## Archived$' "$ARCHIVE"; then
+  # THE REFUSAL LISTS WHAT THE STORE HOLDS, AND THAT LISTING IS THE POINT.
+  # process/contracts/archive-sweep.md § 3: "index missing and the store already holds retired
+  # material ⇒ refuse, LISTING WHAT IT HOLDS AS THE PROOF — that listing is what makes the refusal
+  # checkable rather than asserted, and a backfill recipe is owed with it."
+  # This used to be a bare two-liner: it asserted a problem and handed the operator no way to see
+  # it, which is exactly the asserted-rather-than-checkable shape that clause was narrowed to forbid.
+  # $DONE_DIR, not a hand-built path: the store is inside the KANBAN WORKTREE, not the main
+  # checkout, and the two differ. Declared three lines above; using it is why this reads the
+  # tree the refusal is about.
+  _held="$(find "$DONE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | sort || true)"
+  _n_held="$(printf '%s' "$_held" | grep -c . || true)"
   echo "Error: '## Archived' heading not found in $ARCHIVE." >&2
   echo "ARCHIVE.md must have a line containing exactly '## Archived' so this script knows where to insert." >&2
+  if [ "${_n_held:-0}" -gt 0 ]; then
+    echo "" >&2
+    echo "AND THE STORE IS NOT EMPTY — progress/done/ already holds ${_n_held} retired item(s):" >&2
+    printf '%s\n' "$_held" | sed 's|^.*/|      |' >&2
+    echo "" >&2
+    echo "  So this is a MISSING INDEX over real history, not a fresh board. Creating the heading" >&2
+    echo "  now would publish an index that silently claims those ${_n_held} were never retired." >&2
+    echo "  Backfill instead:" >&2
+    echo "    1. add the line '## Archived' to $ARCHIVE" >&2
+    echo "    2. add one entry under it for each item listed above, reading its id, type and" >&2
+    echo "       title out of the file itself" >&2
+    echo "    3. re-run this script; it will index only what is still on the board" >&2
+  else
+    echo "" >&2
+    echo "  progress/done/ is empty, so nothing is being hidden: add the line '## Archived' to" >&2
+    echo "  $ARCHIVE and re-run. Note in it that the emptiness was true when written." >&2
+  fi
   exit 1
 fi
 
