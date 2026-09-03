@@ -8895,6 +8895,52 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # EXPRESSION, which must be identical, and requires each site to DECLARE its policy, which
 # must not be guessed at by the next reader.
 # =============================================================================
+# =============================================================================
+# CASE — NO --help OPENS WITH ITS OWN KIT-CLASS MARKER.
+#
+# Every header-derived --help printed from a literal line 3, and that literal encoded a
+# premise: line 1 is the shebang, line 2 is the whole KIT-CLASS marker. The premise is
+# false wherever the marker WRAPS — measured, three shipped files carry one spanning three
+# lines — and help then opens with marker text, which is precisely what the window exists
+# to exclude. The window's END was carefully derived; only its START was assumed.
+#
+# THE ASSERTION IS ABOUT THE OUTPUT, not about the number. A case pinning `start` to a
+# computed value would pass against a renderer that computed it and then ignored it.
+# =============================================================================
+case_help_never_opens_with_the_class_marker() {
+  cf_reset
+  make_sandbox
+  local f base out n=0 marker_key
+
+  # Derive the marker's own key rather than typing it — the same constant kit-init protects.
+  marker_key="$KIT_CLASS_MARKER_KEY"
+  [ -n "$marker_key" ] \
+    || _fixture_die "case_help_never_opens_with_the_class_marker: no KIT_CLASS_MARKER_KEY — the assertion below would search for an empty string and pass on every file."
+
+  # The REAL shipped tree: make_sandbox does not copy consumers/, and that directory holds
+  # the file whose marker actually wraps — a loop that cannot reach its own subject reports
+  # "no leakage" about the files that never had any.
+  for f in "$REAL_SCRIPTS"/*.sh "$REAL_REPO_ROOT"/consumers/*.sh; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    grep -q -- "--help" "$f" 2>/dev/null || continue
+    grep -q "$marker_key" "$f" 2>/dev/null || continue
+    n=$(( n + 1 ))
+    out="$( cd "$SB_TMP" && bash "$f" --help </dev/null 2>&1 )" || true
+    [ -n "$out" ] || { cf "$base --help printed nothing"; continue; }
+    # THE FIRST FIVE LINES are the window's opening; a marker that wraps shows up there.
+    printf '%s\n' "$out" | head -5 | grep -q "$marker_key" \
+      && cf "$base --help opens with its own $marker_key marker — the window START is assuming the marker is one line, and this file's is not: $(printf '%s' "$out" | head -3 | tr '\n' '|' | cut -c1-140)"
+  done
+
+  # ── INSTRUMENT CHECK: a loop that inspected nothing reports no marker leakage forever.
+  [ "$n" -ge 8 ] \
+    || cf "only $n script(s) with both --help and a $marker_key marker were inspected — expected at least 8. The glob or one of the two filters stopped matching, so 'no leakage' is true of almost nothing"
+
+  finish "no --help among the $n shipped scripts carrying both a $marker_key marker and a --help opens with that marker's own text — the window START is derived from where the marker ENDS (every marker's last line cites the extraction manifest), not from the assumption that it is one line"
+  teardown
+}
+
 case_role_set_read_is_one_expression() {
   cf_reset
   make_sandbox
@@ -9836,6 +9882,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_help_never_opens_with_the_class_marker
   case_role_set_read_is_one_expression
   case_advisory_headers_carry_the_machine_token
   case_minting_cases_probe_for_the_template

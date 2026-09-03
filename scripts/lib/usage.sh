@@ -20,8 +20,9 @@
 #   * consumers/update_vendored.sh is a TEMPLATE that leaves the tree into a consumer's
 #     repository, where scripts/lib/ does not exist. It keeps its own copy, necessarily.
 #
-# KNOWN AND NOT FIXED HERE: the window START is the literal 3, which assumes the
-# KIT-CLASS marker is exactly line 2. Where a marker wraps, help opens with marker text.
+# THE WINDOW START IS DERIVED at both ends now. It used to be the literal 3, which
+# assumed the KIT-CLASS marker was exactly line 2 — false wherever the marker wraps, and
+# help then opened with marker text.
 
 # kit_usage <path to the CALLER's own file>
 kit_usage() {
@@ -30,10 +31,23 @@ kit_usage() {
     echo "kit_usage: called without a readable source path — the caller must pass its own \"\${BASH_SOURCE[0]}\"." >&2
     return 1
   }
-  first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
+  # THE WINDOW START IS DERIVED, NOT A LITERAL 3. The literal encoded a premise — line 1
+  # is the shebang, line 2 is the whole KIT-CLASS marker — and the premise is false
+  # wherever the marker WRAPS: help then opens with marker text, which is the one thing
+  # this window exists to exclude. Measured: three shipped files carry a marker spanning
+  # three lines. Every marker's LAST line cites EXTRACTION.md — that is the convention
+  # `process/EXTRACTION.md` § The one file classification convention sets — so the marker's
+  # end is derivable rather than assumed. Falls back to the KIT-CLASS line itself, then to
+  # the old literal, so a file that follows neither convention degrades to today's
+  # behaviour rather than to nothing.
+  local start
+  start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
+  [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
+  [ -n "$start" ] || start=3
+  first="$(awk -v s="$start" 'NR>=s && !/^#/{print NR; exit}' "$src")"
   # THE FLOOR IS FOR THE EMPTY CASE, not the small one: `first` can never be below 3
   # (the awk starts at NR>2), and `sed -n "3,2p"` prints line 3 rather than erroring.
   # An ALL-COMMENT file leaves `first` unset, and THAT yields `3,-1p`, which does error.
-  end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-  sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
+  end=$(( ${first:-0} - 1 )); [ "$end" -lt "$start" ] && end="$start"
+  sed -n "${start},${end}p" "$src" | sed 's|^# \{0,1\}||'
 }

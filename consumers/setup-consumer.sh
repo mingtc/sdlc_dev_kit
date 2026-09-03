@@ -35,7 +35,13 @@ set -euo pipefail
 # and every cd, so neither can be reached by asking how to use the tool.
 case "${1:-}" in
   -h|--help)
-    sed -n '3,26p' "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    # START DERIVED, not the literal 3. This file's own KIT-CLASS marker spans two lines,
+    # so a literal 3 printed the marker as the first thing --help said. Every marker's LAST
+    # line cites the extraction manifest, which is what makes its end derivable.
+    _h_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    [ -n "$_h_start" ] || _h_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    [ -n "$_h_start" ] || _h_start=3
+    sed -n "${_h_start},26p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
   -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
 esac

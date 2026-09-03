@@ -247,7 +247,15 @@ usage() {
     local src="${BASH_SOURCE[0]:-$0}" first end
     first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
     end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-    sed -n "3,${end}p" "$src" | sed 's|^# \{0,1\}||'
+    # START DERIVED, not the literal 3. This TEMPLATE leaves the tree into a consumer's
+    # repository where scripts/lib/ does not exist, so it keeps its own copy — and its OWN
+    # KIT-CLASS marker spans three lines, which is how this defect was found: `--help` on
+    # this very file opened with three lines of marker text.
+    local start
+    start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
+    [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
+    [ -n "$start" ] || start=3
+    sed -n "${start},${end}p" "$src" | sed 's|^# \{0,1\}||'
 }
 
 case "${1:-}" in

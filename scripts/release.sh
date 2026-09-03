@@ -216,7 +216,14 @@ usage() {
   window_end="$(sed -n "1,${header_end}p" "$src" \
     | grep -n '^#[[:space:]]\{1,\}\./scripts/release\.sh[[:space:]]' \
     | tail -1 | cut -d: -f1)"
-  sed -n "3,${window_end:-9}p" "$src" | sed 's|^# \{0,1\}||'
+  # START DERIVED, not the literal 3 — see scripts/lib/usage.sh for the reasoning (this
+  # script sources nothing from scripts/lib/ by standing ruling, so the logic is repeated
+  # here on purpose and the self-test holds the two identical in behaviour).
+  local start
+  start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
+  [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
+  [ -n "$start" ] || start=3
+  sed -n "${start},${window_end:-9}p" "$src" | sed 's|^# \{0,1\}||'
 }
 
 # ── Arg parse ────────────────────────────────────────────────────────────────

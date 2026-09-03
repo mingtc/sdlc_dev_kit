@@ -56,6 +56,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`--help` no longer opens with the file's own `KIT-CLASS:` line.** Header-derived help started
+  at a literal line 3, which assumed the marker was exactly one line. Where it wraps — three shipped
+  files — help opened with marker text. The start is now derived from where the marker **ends**
+  (every marker's last line cites the extraction manifest). **Action required only if you wrote your
+  own header-derived `--help`** using the shipped `sed -n '3,…p'` idiom, or if your adapted scripts
+  carry a multi-line `KIT-CLASS:` marker: copy the derivation from `scripts/lib/usage.sh`. Every
+  shipped renderer is fixed, including the two consumer templates.
+
 - **Bug cards can now declare what they block.** `BUG.template.md` gains `blocks:` and
   `blocked_by:`. A bug found in QA that must be fixed before the feature above it can land is an
   everyday situation, and the board had no way to express it — while the orchestrator **gates
