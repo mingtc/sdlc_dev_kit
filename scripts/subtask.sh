@@ -40,6 +40,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
+# The mint-time re-head, in one place — scripts/lib/card-head.sh. The block that used to
+# sit in the create arm carried its own comment saying it would move "when that lib exists".
+. "$SCRIPT_DIR/lib/card-head.sh"
 
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"
@@ -221,23 +224,7 @@ case "$CMD" in
     #
     # DUPLICATED ACROSS THE MINTING SCRIPTS ON PURPOSE, FOR NOW: they source no common file, and giving
     # them one is a structural change owned elsewhere. When that lib exists, this moves into it.
-    # THE HEAD MUST NOT CONTAIN THE MARKER KEY, not even to deny it. The convention's own way to derive
-    # what is classified is `grep -rl` for that key, so a card saying "no <key> marker" would be a false
-    # POSITIVE in the one derivation the manifest recommends — and would redden the harness case that
-    # asserts a minted card is unmarked. Measured: the first wording did exactly that.
-    CARD_HEAD='<!-- A live card, not a template. It carries NO travel-classification marker, by design:
-     this file was born in this repository and never travels, and process/EXTRACTION.md § The one
-     file classification convention states that the absence is deliberate rather than an oversight.
-     Fill every <angle-bracket>; never leave one in a live card. -->'
-    _CARD_BODY="${DEST}.rehead"
-    awk '
-      /^<!-- KIT-CLASS:/ { skip = 1; next }
-      skip && /-->/      { skip = 0; next }
-      skip              { next }
-                        { print }
-    ' "$DEST" > "$_CARD_BODY"
-    { printf '%s\n' "$CARD_HEAD"; cat "$_CARD_BODY"; } > "$DEST"
-    rm -f "$_CARD_BODY"
+    kit_rehead_card "$DEST" || exit 1
 
 
     # Optional --plan. Every substitution is KEYED ON THE KEY, never on the

@@ -41,6 +41,16 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   } >&2
   exit 1
 fi
+
+# The mint-time re-head lives in one place now — scripts/lib/card-head.sh. The block that
+# used to sit here carried its own comment saying it would move "when that lib exists".
+CARDLIB="$ROOT/scripts/lib/card-head.sh"
+if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
+  echo "Error: scripts/lib/card-head.sh is missing or could not be sourced — it strips the" >&2
+  echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
+  echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
+  exit 1
+fi
 if [ -z "${ISSUE_PREFIX:-}" ]; then
   echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
   exit 1
@@ -160,35 +170,7 @@ rm -f "${WORK}.bak"
 # what is classified is `grep -rl` for that key, so a card saying "no <key> marker" would be a false
 # POSITIVE in the one derivation the manifest recommends — and would redden the harness case that
 # asserts a minted card is unmarked. Measured: the first wording did exactly that.
-CARD_HEAD='<!-- A live card, not a template. It carries NO travel-classification marker, by design:
-     this file was born in this repository and never travels, and process/EXTRACTION.md § The one
-     file classification convention states that the absence is deliberate rather than an oversight.
-     Fill every <angle-bracket>; never leave one in a live card. -->'
-
-# RE-HEAD THE CARD: the template's travel classification goes, its still-in-force instruction stays.
-# process/EXTRACTION.md § The marker and graduation: a minted card's class has become PROJECT at the
-# moment of minting, so the KIT-CLASS: marker is stripped. But that marker also carried a FILL
-# instruction still in force while the author fills the card, and the same manifest forbids an
-# instruction living inside a marker that will be removed — so this REPLACES the block rather than
-# deleting it. A blind delete would have taken the guidance with the classification, and nowhere
-# else in the kit states it.
-#
-# THE HEAD IS PREPENDED BY THE SHELL, NOT PASSED INTO awk. `awk -v x="$MULTILINE"` fails with
-# "newline in string" and awk then writes NOTHING — measured: the first version of this block
-# produced an EMPTY card. awk deletes the old block, printf writes the new head, cat appends the
-# rest; every step is POSIX and none of them carries a newline through an assignment.
-#
-# DUPLICATED ACROSS THE MINTING SCRIPTS ON PURPOSE, FOR NOW: they source no common file, and giving
-# them one is a structural change owned elsewhere. When that lib exists, this moves into it.
-_CARD_BODY="${WORK}.rehead"
-awk '
-  /^<!-- KIT-CLASS:/ { skip = 1; next }
-  skip && /-->/      { skip = 0; next }
-  skip              { next }
-                    { print }
-' "$WORK" > "$_CARD_BODY"
-{ printf '%s\n' "$CARD_HEAD"; cat "$_CARD_BODY"; } > "$WORK"
-rm -f "$_CARD_BODY"
+kit_rehead_card "$WORK" || exit 1
 
 
 mv "$WORK" "$DEST"

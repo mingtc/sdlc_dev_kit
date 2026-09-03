@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **New shipped file: `scripts/lib/card-head.sh`.** The five creation scripts each carried their
+  own copy of the block that strips a template's `KIT-CLASS:` marker and writes the live-card head;
+  it is one library now, and each script sources it. **Action required if you have adapted or
+  written your own creation script:** source `scripts/lib/card-head.sh` and call
+  `kit_rehead_card "<the card file>"` instead of carrying the block. If you take kit updates by
+  copying `scripts/`, make sure the new file comes with them — a script that calls the function
+  without sourcing the library fails **after** the card is already written. The function also now
+  refuses if the card came out empty or still carries a marker, which no copy checked.
+
 - **`--help` no longer opens with the file's own `KIT-CLASS:` line.** Header-derived help started
   at a literal line 3, which assumed the marker was exactly one line. Where it wraps — three shipped
   files — help opened with marker text. The start is now derived from where the marker **ends**

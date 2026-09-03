@@ -2702,8 +2702,17 @@ case_minted_card_is_unmarked() {
   for msh in new-issue.sh new-bug.sh new-prd.sh new-refactor.sh subtask.sh; do
     [ -f "$SB_WORK/scripts/$msh" ] || continue
     mfound=$(( mfound + 1 ))
-    grep -q 'RE-HEAD THE CARD' "$SB_WORK/scripts/$msh" \
+    # THE ASSERTION FOLLOWS THE AUTHORING SITE. It used to look for the comment 'RE-HEAD
+    # THE CARD', which each script carried because each script carried the whole block.
+    # The block is one library now, so the thing to assert is that the script CALLS it —
+    # a census keyed to text that moved is a census of nothing.
+    grep -q 'kit_rehead_card' "$SB_WORK/scripts/$msh" \
       || cf "scripts/$msh does not re-head the card it mints — its cards will open by calling themselves templates"
+    # NON-COMMENT LINES ONLY. Measured while building this: every one of these scripts
+    # MENTIONS the library in a comment, so a bare grep passes on a script whose sourcing
+    # has been deleted — which is precisely the regression this arm exists for.
+    awk '!/^[[:space:]]*#/ && /card-head\.sh/ { found=1 } END { exit !found }' "$SB_WORK/scripts/$msh" \
+      || cf "scripts/$msh calls kit_rehead_card and never SOURCES scripts/lib/card-head.sh (a comment mentioning it does not count) — it would fail at mint time with 'command not found', after the card is already written"
   done
   [ "$mfound" -ge 5 ] \
     || cf "the extractor found only $mfound minting script(s) — expected at least 5. A count this low means the list stopped matching the tree, NOT that the tree is clean."
