@@ -8932,6 +8932,98 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # THE CARVE-OUTS ARE DERIVED, not listed here: this case reads the shipped scripts, and
 # the two named extras live in directories it does not walk.
 # =============================================================================
+# =============================================================================
+# CASE — A HOOK REJECTION BETWEEN THE BUMP AND THE COMMIT LEAVES NOTHING BEHIND.
+#
+# release.sh's restore used to live INSIDE the per-file bump loop, so it fired only for a
+# failed bump. Everything after it was unprotected: `git add` stages the rewrite, and
+# `git commit` then runs the project's commit-msg hook. A rejection there left the version
+# files REWRITTEN, STAGED and UNCOMMITTED — and the script never said so, because the
+# "LOCAL ONLY, NOTHING IS PUSHED YET" recovery prints on the success path, after the tag.
+#
+# THE TRIGGER IS THE KIT'S OWN SUPPORTED FLOW, which is why this is not hypothetical:
+# narrowing the role set leaves release.sh's own '[Architect]' outside the hook's
+# alternation, and release.sh is correctly not in kit-init's stamping loop.
+#
+# THE ASSERTION IS THE STATE OF THE TREE, not the message. "It printed an error" is
+# satisfied by a run that errored and left the bump behind.
+# =============================================================================
+case_release_hook_rejection_leaves_no_bump() {
+  cf_reset
+  if ! has_release; then skp "a hook rejection between bump and commit leaves nothing behind" "scripts/release.sh absent"; return; fi
+  make_sandbox
+  seed_release_files 1.1.0
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  local out rc
+
+  # BREAK THE COMMIT, and break it the way the kit's own flow does: install a commit-msg
+  # hook that rejects release.sh's role tag. Not `exit 1` unconditionally — a hook that
+  # refuses everything would also refuse the board stub's commits and fail earlier.
+  # INSTALL WHERE GIT ACTUALLY LOOKS. The kit points core.hooksPath at scripts/githooks,
+  # so a hook dropped in .git/hooks is never consulted — measured: the first version of
+  # this leg installed there, release.sh cut cleanly, and the case reported "exited 0 with
+  # a hook that rejects its own tag" about a hook git had not run.
+  local hookdir hook
+  hookdir="$(git -C "$SB_WORK" config --get core.hooksPath 2>/dev/null || true)"
+  [ -n "$hookdir" ] || hookdir=".git/hooks"
+  case "$hookdir" in /*) hook="$hookdir/commit-msg" ;; *) hook="$SB_WORK/$hookdir/commit-msg" ;; esac
+  mkdir -p "$(dirname "$hook")"
+  printf '#!/usr/bin/env bash\ngrep -q "^\\[Architect\\]" "$1" && { echo "hook: [Architect] is not in this project'"'"'s role set" >&2; exit 1; }\nexit 0\n' > "$hook"
+  chmod +x "$hook"
+  # COMMIT THE HOOK. It lives INSIDE the repository (scripts/githooks/), so writing it
+  # leaves the tree dirty and release.sh refuses at its cleanliness gate long before the
+  # bump — a refusal that satisfies "it exited nonzero" while proving nothing about the
+  # MUTATE block. Commit with the hook not yet in force, which is why --no-verify is
+  # correct here rather than a shortcut.
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  git -C "$SB_WORK" -c user.email=t@t -c user.name=t commit --no-verify -q -m "[PM] install a narrow role hook" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin HEAD >/dev/null 2>&1 || true
+
+  rc=0; out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
+      RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "release.sh exited 0 with a commit-msg hook that rejects its own role tag — the commit cannot have happened"
+
+  # ── THE STATE OF THE TREE. This is the case.
+  grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" \
+    || cf "VERSION was left BUMPED on disk after the commit failed — it reads '$(cat "$SB_WORK/VERSION" 2>/dev/null)', and the next thing anyone does in this tree carries a version nobody released"
+  grep -qF "version = \"$SB_REL_PRE_VERSION\"" "$SB_WORK/pkg.conf" \
+    || cf "pkg.conf was left bumped on disk after the commit failed"
+  [ -z "$(git -C "$SB_WORK" diff --cached --name-only 2>/dev/null)" ] \
+    || cf "the bump is still STAGED after the commit failed — a later 'git commit' in this tree would carry it silently: $(git -C "$SB_WORK" diff --cached --name-only | tr '\n' ' ')"
+  git -C "$SB_WORK" rev-parse -q --verify refs/tags/v1.1.0 >/dev/null 2>&1 \
+    && cf "a tag was created even though the release commit failed"
+
+  # …AND IT SAYS SO. Second, because a silent correct cleanup still leaves the operator
+  # believing a release happened.
+  printf '%s' "$out" | grep -qi 'ABORTED between the version bump and the release commit' \
+    || cf "the abort is not announced — the operator is left with a failed command and no account of what was undone: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s' "$out" | grep -qi 'RELEASE_ROLE' \
+    || cf "the abort does not name the knob that fixes the likeliest cause"
+
+  teardown
+
+  # ── INSTRUMENT CHECK, IN ITS OWN SANDBOX. Every assertion above is "nothing was left
+  #    behind", which a release that could never have run satisfies for free. It needs a
+  #    SEPARATE sandbox: a successful cut PUSHES, and sharing one bare origin with the leg
+  #    above would leave that leg's checkout behind its own remote — measured, gate (a)
+  #    then refuses and the whole case passes without ever reaching the MUTATE block.
+  make_sandbox
+  seed_release_files 1.1.0
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  rc=0; out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
+      RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(instrument) the UNBROKEN fixture cannot cut (rc=$rc) — every 'nothing was left behind' assertion above is then free: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  grep -qx '1.1.0' "$SB_WORK/VERSION" \
+    || cf "(instrument) a successful cut did not bump VERSION — the assertions above cannot tell a restore from a bump that never happened"
+
+  finish "a commit-msg hook that rejects release.sh's role tag — the state the kit's own 'kit-init --roles' produces — aborts the cut with the version files restored on disk, nothing left staged, no tag, and an announcement naming both what was undone and the knob that fixes it"
+  teardown
+}
+
 case_shipped_scripts_stay_on_the_floor() {
   cf_reset
   make_sandbox
@@ -9947,6 +10039,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_release_hook_rejection_leaves_no_bump
   case_shipped_scripts_stay_on_the_floor
   case_help_never_opens_with_the_class_marker
   case_role_set_read_is_one_expression

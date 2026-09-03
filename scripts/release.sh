@@ -715,7 +715,56 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 
 # ── MUTATE. Every gate is green; from here we bump, commit, tag, push. ───────
+#
+# THE WHOLE BLOCK HAS A FAILURE PATH, not just the bump loop. The restore used to live
+# INSIDE the per-file loop and fire only for a failed bump_one — so everything after it
+# was unprotected. `git add` stages the rewrite and `git commit` then runs the project's
+# commit-msg hook (unlike the dist commit, which passes `-c core.hooksPath=/dev/null` on
+# purpose). A hook rejection, a signal, or any other nonzero there left the version files
+# REWRITTEN ON DISK, STAGED, AND UNCOMMITTED — a state the script never named, because the
+# "LOCAL ONLY, NOTHING IS PUSHED YET" recovery prints on the success path, after the tag.
+#
+# THE LIKELIEST TRIGGER IS THE KIT'S OWN SUPPORTED FLOW: `kit-init --roles` narrows
+# ROLE_PREFIXES in the hook and cannot touch this script's ROLE (the stamping loop rewrites
+# a whole alternation, which a single role name does not contain). Validating the tag would
+# remove that trigger and leave the hole — any other nonzero between the add and the commit
+# lands in the same place. So the guard is armed for the whole window, not for one cause.
 BUMPED=()
+_MUTATE_ARMED=false
+
+# RESTORE ORDER IS reset-THEN-checkout, AND IT IS NOT INTERCHANGEABLE. Once `git add` has
+# staged the bump, `git checkout -- <path>` restores the worktree FROM THE INDEX — which is
+# the bumped content. Unstaging first puts the index back to HEAD, and only then does the
+# checkout mean what it reads like. Getting this backwards would leave the exact state the
+# guard exists to prevent, while printing that it had cleaned up.
+_release_restore_bumped() {
+  local p
+  [ "${#BUMPED[@]}" -gt 0 ] || return 0
+  git -C "$REPO_ROOT" reset -q -- ${BUMPED[@]+"${BUMPED[@]}"} >/dev/null 2>&1 || true
+  for p in ${BUMPED[@]+"${BUMPED[@]}"}; do
+    git -C "$REPO_ROOT" checkout -- "$p" >/dev/null 2>&1 || true
+  done
+}
+
+# Fires on ANY exit while armed — a failed commit, a signal, a caller's timeout. Disarmed
+# the moment the release commit exists, because from then on the recovery block below is
+# the correct account and undoing the commit is the operator's call, not this trap's.
+_release_mutate_abort() {
+  [ "$_MUTATE_ARMED" = true ] || return 0
+  _MUTATE_ARMED=false
+  {
+    echo ""
+    echo "release.sh: ABORTED between the version bump and the release commit."
+    echo "            Restoring every file this run rewrote; NOTHING was committed,"
+    echo "            tagged or pushed."
+    echo "            The commit-msg hook is the likeliest cause: this script commits as"
+    echo "            '[$ROLE]', and a project that narrowed its role set (kit-init --roles)"
+    echo "            leaves that tag outside the hook's alternation. Set RELEASE_ROLE to a"
+    echo "            role your hook accepts, or widen the set."
+  } >&2
+  _release_restore_bumped
+}
+trap '_release_mutate_abort' EXIT INT TERM
 bump_one() {  # <path> <line-prefix> <quote>
   local f="$REPO_ROOT/$1" prefix="$2" q="$3" tmp expr
   [ -f "$f" ] || { echo "release.sh: VERSION_FILES names '$1', which does not exist." >&2; return 1; }
@@ -749,13 +798,15 @@ if [ "$VERSION_IN_TAG_ONLY" != "true" ]; then
       echo "   ✓ $v_path"
     else
       echo "release.sh: the bump did not apply cleanly to '$v_path' — restoring every file touched, no commit made." >&2
-      for done_path in ${BUMPED[@]+"${BUMPED[@]}"}; do
-        git checkout -- "$done_path" 2>/dev/null || true
-      done
-      git checkout -- "$v_path" 2>/dev/null || true
+      _release_restore_bumped
+      git -C "$REPO_ROOT" checkout -- "$v_path" >/dev/null 2>&1 || true
+      _MUTATE_ARMED=false   # this path prints its own account; do not print the trap's too
       exit 1
     fi
   done
+  # ARM IT HERE, not earlier: before this point nothing is staged and the loop's own
+  # restore is sufficient. From here to the commit is the unprotected window.
+  _MUTATE_ARMED=true
   git add -- "${BUMPED[@]}"
 fi
 
@@ -766,6 +817,9 @@ if [ "$VERSION_IN_TAG_ONLY" = "true" ]; then
 else
   git commit -m "$COMMIT_MSG" --quiet
 fi
+# THE COMMIT EXISTS: disarm. From here the recovery block below is the correct account,
+# and undoing a real commit is the operator's decision rather than a trap's.
+_MUTATE_ARMED=false
 RELEASE_SHA="$(git rev-parse --short HEAD)"
 echo "── release commit: $RELEASE_SHA — \"$COMMIT_MSG\""
 

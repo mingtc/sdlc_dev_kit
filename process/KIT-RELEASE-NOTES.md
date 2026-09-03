@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **A failed release commit no longer leaves your version files bumped.** `release.sh` restored
+  only when a *bump* failed; if the **commit** failed — most likely your commit-msg hook rejecting
+  `[Architect]`, which is what happens after `kit-init --roles` narrows your role set — the version
+  files were left rewritten on disk **and staged**, with nothing said about it. It now restores them
+  and tells you, naming `RELEASE_ROLE` as the fix. **Action required if you narrowed your role set:**
+  set `RELEASE_ROLE` to a role your hook accepts, or widen the set — the cut will now refuse cleanly
+  instead of half-happening, but it still refuses. **If you have a tree with a mystery staged version
+  bump in it, this is where it came from**; unstage and restore it.
+
 - **New shipped file: `scripts/lib/card-head.sh`.** The five creation scripts each carried their
   own copy of the block that strips a template's `KIT-CLASS:` marker and writes the live-card head;
   it is one library now, and each script sources it. **Action required if you have adapted or
