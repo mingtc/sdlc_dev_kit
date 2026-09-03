@@ -56,6 +56,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`instruments.md` gains § A.11: how to guard *every* number a document publishes.** The sheet
+  already held the single-instrument rules; this is the population version, as one rule plus a
+  labelled five-step procedure. **No action required** — it is a technique, not a new obligation on
+  anything you already have. Worth reading once for two things: **an open exempt set is not a set,
+  it is a habit**, and the reviewer's half, which the author of a guard cannot do for themselves —
+  **re-census with a strictly wider operand vocabulary than the guard's own**, because a guard will
+  re-derive its own set and report agreement.
+
 - **`kit-init --prd-prefix` is validated, and a half-read prefix seam now admits it.** `--prefix` was
   checked and `--prd-prefix` was not, so a value like `REQ-2` was accepted and stamped — after which
   the hygiene instrument could not parse that key, **silently stopped matching your PRD ids, and went
