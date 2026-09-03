@@ -85,13 +85,20 @@ for (const k of ['wave1', 'wave2']) {
     throw new Error('wave-runner: args.' + k + ' must be an array of issue objects when present. Got: ' + JSON.stringify(ARGS[k]))
   }
 }
-// A MISSPELLED PER-ISSUE KEY IS REFUSED BY NAME, matching tranche-runner, which carries the
-// authoritative per-issue shape. `depends_on` defaults to [] where it is read, so an honest
-// omission is fine — but a caller who wrote `depends_ons` would get a silent solo run, and a
-// broken dependency chain is what that field exists to prevent (reported by an adopter who lost a five-issue dispatch to it).
+// A MISSPELLED PER-ISSUE KEY IS REFUSED BY NAME. `depends_on` defaults to [] where it is read, so
+// an honest omission is fine — but a caller who wrote `depends_ons` would get a silent solo run,
+// and a broken dependency chain is what that field exists to prevent (reported by an adopter who
+// lost a five-issue dispatch to it).
+//
+// THE WAVE-ONLY FIELDS ARE PART OF THIS SET, AND LEAVING THEM OUT BROKE EVERY RUN. This list was
+// copied verbatim from tranche-runner, whose per-issue shape is ALMOST the same — this runner also
+// reads `worktreeMode`, `phase` and `restartNote`, all three named in meta.description above. A
+// guard copied across two files without re-deriving its operand set refuses the very fields the
+// file's own contract advertises. Derive it from what the file reads, not from its sibling:
+//   grep -oE 'issue\.[a-zA-Z_]+' .claude/workflows/wave-runner.js | sort -u
 const ISSUE_KEYS = new Set(['id', 'branch', 'title', 'devModel', 'devEffort', 'qaModel', 'qaEffort',
   'devAgentType', 'qaAgentType', 'gates', 'depends_on', 'extraDev', 'extraQA', 'role', 'docsPath',
-  'parkable'])
+  'parkable', 'worktreeMode', 'phase', 'restartNote'])
 {
   const strays = []
   for (const w of ['wave1', 'wave2']) {

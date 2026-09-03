@@ -8,7 +8,7 @@
 > `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every line that
 > starts with `GUIDANCE`. The report is written **by the runner that executed the pack**, and it
 > is the deliverable that closes the pack: the pack is stamped `SPENT` **against this file, by
-> name, in the same commit that lands it** ([`../doctrine/staleness.md`](../../process/doctrine/staleness.md)).
+> name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
 >
 > **What a run report is for.** Not a diary. It is (a) the evidence that the run's claims are
 > measurements, (b) the ledger of everything the run left behind, and (c) the batch of questions
@@ -62,7 +62,7 @@
 > - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked
 >   folder, no half-landed residue. A park nobody reviewed is not a close.
 > - `LAND-READY` — verified and reviewed but not landed (blocked-push regime; see
->   [`../GIT-HOSTING.md`](../../process/GIT-HOSTING.md)). Record the branch and its head SHA. **In the ratified
+>   [`process/GIT-HOSTING.md`](../../process/GIT-HOSTING.md)). Record the branch and its head SHA. **In the ratified
 >   vocabulary this is verdict `PASS` with landing `deferred`** — a success, and the runners continue
 >   past it. *(This column had a way to say "green but not landed" before the machinery did, which
 >   is how the gap was visible in reports and invisible to the schema that halted on it.)*
@@ -103,7 +103,7 @@ an unexplained change in what a gate skips is a finding, not noise.>
 >   different mechanism. Say the old diagnosis, the new one, and the evidence. This is a *result*,
 >   not an embarrassment;
 > - **the guard transformations**, each naming the issue and carrying the original reason
->   forward ([`../doctrine/supersession.md`](../../process/doctrine/supersession.md));
+>   forward ([`process/doctrine/supersession.md`](../../process/doctrine/supersession.md));
 > - for a parked issue: the findings, and the **park verification** (§ 1's `PARKED_OK`).
 
 ### <PREFIX>-<n> — <PASS | FAIL → fix → PASS | PARKED_OK>, `<sha>`
@@ -183,7 +183,7 @@ an unexplained change in what a gate skips is a finding, not noise.>
 >    report was wrong without being deceptive, say exactly that — the failure to connect a slow
 >    run to its cause is a different defect from a false claim, and it needs a different cure.
 > 6. **The cure, and whether it landed.** A structural fence beats an instruction.
->    See [`../doctrine/live-resources.md`](../../process/doctrine/live-resources.md).
+>    See [`process/doctrine/live-resources.md`](../../process/doctrine/live-resources.md).
 
 ---
 
@@ -250,7 +250,7 @@ matched at open: <list>.
 
 > **GUIDANCE.** The batch. This section is why the run did not pause: everything that needed a
 > human or a seat judgment and was **not one of the four stop events** lands here
-> ([`../doctrine/orchestration.md`](../../process/doctrine/orchestration.md)). Each item: the question, the
+> ([`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md)). Each item: the question, the
 > evidence, and a **recommendation** — a decision request without a recommendation pushes the work
 > back to the seat. Say who owns each (PM scope / seat ruling / operator action) and whether it
 > blocks anything.

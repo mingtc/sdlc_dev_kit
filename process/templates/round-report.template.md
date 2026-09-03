@@ -7,7 +7,7 @@
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/report.md`, fill every `<slot>`, delete every `GUIDANCE`
 > line, and **index it in `dev/README.md` in the same commit**. The doctrine is
-> [`../doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); the pack it grades against is
+> [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); the pack it grades against is
 > `pack.md` beside it.
 >
 > **The deliverable is EVIDENCE, not a work plan** (§ A.13). Findings become final long before
@@ -128,8 +128,8 @@ what later readers cite.
 ## 6. What was NOT measured
 
 > **GUIDANCE.** The section that keeps the rest honest. **Unmeasured is not passed** — the rule
-> [`../doctrine/calibration.md`](../../../process/doctrine/calibration.md) § A.3 applies to unexercised scope and
-> [`../doctrine/negative-claims.md`](../../../process/doctrine/negative-claims.md) § A.1 to any claim of absence.
+> [`process/doctrine/calibration.md`](../../../process/doctrine/calibration.md) § A.3 applies to unexercised scope and
+> [`process/doctrine/negative-claims.md`](../../../process/doctrine/negative-claims.md) § A.1 to any claim of absence.
 > A halted scenario (§ A.17) is exactly where a round is most tempted to report a green it did not
 > earn.
 
@@ -161,7 +161,7 @@ what later readers cite.
 > **GUIDANCE.** Against the pack's § 6 declaration, per class. **An overrun is disclosed, never
 > absorbed.** Reclaim was **by enumerating the container**; state the enumeration target, and name
 > every orphan — *"deleted 14 of 15"* with the 15th unnamed is not a result
-> ([`../doctrine/live-resources.md`](../../../process/doctrine/live-resources.md) §§ A.1, A.6). Anything created
+> ([`process/doctrine/live-resources.md`](../../../process/doctrine/live-resources.md) §§ A.1, A.6). Anything created
 > outside the enumerated container is handled **by name**; anything undeletable is **named, not
 > quietly left**.
 

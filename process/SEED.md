@@ -142,8 +142,11 @@ rewrite — write your own prefix into the blanks as you fill them.
 | [`progress.skeleton.md`](templates/progress.skeleton.md) | the exact `## Log` + dated-`###` shapes **the drift report's § Log arm and the initializer's already-lived probe require** — both scan to the next `##` and stop, so a `##` dated entry terminates the section it should sit inside. *(The log rotation is the one tool that would accept `##`; it does, deliberately, so that a project which already wrote it is not stranded — and it does not recommend it.)* |
 | [`CAPTURE.template.md`](templates/CAPTURE.template.md) | the measured-truth capture: verdict · endpoints · budget/pacing · verbatim codes & bodies · teardown proof · **what this does NOT establish**. Evidence-ledger class — copy it next to the capture files, not into `requirements/` |
 
-Each skeleton states its own **pattern vs instance** split at the top: what is **format law** (and
-travels) versus what is one project's **content** (and never does).
+The CORPUS and DECISIONS skeletons state a **pattern vs instance** split at the top: what is
+**format law** (and travels) versus what is one project's **content** (and never does).
+`progress.skeleton.md` draws the same line in its own vocabulary instead — *"TWO SHAPES BELOW ARE
+REQUIRED, NOT STYLISTIC"*, and fill the blanks but keep everything else byte-for-byte — so do not
+go looking for that phrase there. *This said "Each skeleton", which was true of two of the three.*
 
 **Two more shapes sit beside them for orchestrated work** —
 [`launch-pack.template.md`](templates/launch-pack.template.md) (the brief that authorizes a

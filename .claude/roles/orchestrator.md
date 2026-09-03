@@ -346,9 +346,8 @@ Therefore, during an AFK run:
 
 - **Do NOT invoke the AskUserQuestion tool.** Treat it as unavailable for the whole run.
 - **Batch every decision** — GATE-A forks, GATE-B parked verdicts, new-public-surface sign-off
-  calls — into a single clearly-marked **§ Decisions for the seat** group in the run
-  report — the name this doc uses 175 lines above and the name the run-report template gives the
-  section; this line said "for the operator" and named nothing that exists, each with a recommendation + one-line rationale. **Keep proceeding** on everything
+  calls — into a single clearly-marked **§ Decisions for the seat** group in the run report, each
+  with a recommendation + one-line rationale. **Keep proceeding** on everything
   that doesn't strictly require sign-off (act on locked recommendations and pre-answered
   defaults).
 - For locked-surface / risky changes, do the work and **flag it "pending operator sign-off"**

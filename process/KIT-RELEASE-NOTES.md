@@ -46,12 +46,23 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`.claude/workflows/wave-runner.js` would have thrown on every run.** The per-issue key guard added
+  in this same [Unreleased] section was copied from `tranche-runner.js` and omitted the three
+  wave-only fields — `worktreeMode`, `phase`, `restartNote` — that this runner reads and that its own
+  description advertises. **Action required if you took the earlier [Unreleased] build:** re-copy
+  `.claude/workflows/wave-runner.js`. Any wave dispatch passing those fields refused before starting.
+- **Four pack and report templates displayed link labels that resolve nowhere.** `launch-pack`,
+  `round-pack`, `round-report` and `run-report` showed `../doctrine/…` labels against hrefs that had
+  been corrected for the landing directory. The links always worked; the visible text was dead. All
+  labels now show the repo-root path. No action required unless you copy labels by hand.
+
 - **`.claude/skills/writing-plans/` offered the wrong skill for inline execution.** It named
   `executing-plans` for the same-session path; `executing-plans` is the **separate-session** skill and
   `subagent-driven-development` is the same-session one. **Re-copy the skill if you vendored it** —
   following the old text sends you to a skill written for a different situation.
 - **`.claude/skills/systematic-debugging/` — two more copies of the broken `find-polluter` example.**
-  The previous release fixed the header comment; `root-cause-tracing.md` and the script's own **usage
+  An earlier entry in THIS same [Unreleased] section fixed the header comment; `root-cause-tracing.md`
+  and the script's own **usage
   message** carried the same pattern, which matches zero files and then reports success. All three
   now carry the required leading `./`. **If you ran the tool from either of those and it found no
   polluter, run it again.**
@@ -98,7 +109,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   the file; commits from those runs carry the wrong attribution and your commit-msg hook accepted them.
 - **`.claude/workflows/tranche-runner.js`'s park brief named a verdict its schema rejects.** The park-QA
   fail bullet was labelled bare `FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` / `FAIL_AC` /
-  `FAIL_REGRESSION`. Same defect as the QA-prompt bullet fixed in the previous entry, in the other
+  `FAIL_REGRESSION`. Same defect as the QA-prompt bullet in the same file, in the other
   prompt. **Re-copy the file if you run park legs.**
 - **`process/templates/CORPUS.skeleton.md` and `DECISIONS.skeleton.md` rendered their instructions as
   body text.** Both embedded a literal `<!-- KIT-CLASS: … -->` inside an HTML comment; comments do not
@@ -123,7 +134,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 - **`archive-progress.sh`'s dry run no longer writes anything.** Its DEFAULT mode (no `--apply`)
   created `progress/history/INDEX.md` when that file was absent, then closed by printing
-  *"(dry run — no changes made.)"*. **Action required if you have ever run it without `--apply`
+  *"(dry run — no changes made. Re-run with `--apply` to rewrite the files.)"*. **Action required if you have ever run it without `--apply`
   on a board with no rotation index:** you may have an empty `INDEX.md` you did not ask for. It is
   harmless — the header is what `--apply` would have written — but if you would rather it were not
   there, delete it. The dry run now names the file it would create instead of creating it.
@@ -231,7 +242,8 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 - **The self-test now checks that every travelling script has a contract sheet.** `contracts/README.md`
   always stated the rule in both directions and said outright that this one was unguarded. It is
   guarded now, and the exempt classes are named at the rule so a sweep finds a decision rather than a
-  violation: `scripts/hygiene/` (optional, never a gate, deletable) and `scripts/lib/` (shared
+  violation: `scripts/hygiene/` (optional, never a gate, deletable), `consumers/` (the consumer-side
+  integration surface, a different audience entirely) and `scripts/lib/` (shared
   internals, whose behaviour their callers' sheets already specify). **Action required if you have
   added your own travelling scripts** — anything carrying `# KIT-CLASS: KIT` or `MIXED`: the new case
   will name it unless a sheet cites it or it sits under one of those prefixes. The test to apply is
@@ -262,7 +274,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   (every marker's last line cites the extraction manifest). **Action required only if you wrote your
   own header-derived `--help`** using the shipped `sed -n '3,…p'` idiom, or if your adapted scripts
   carry a multi-line `KIT-CLASS:` marker: copy the derivation from `scripts/lib/usage.sh`. Every
-  shipped renderer is fixed, including the two consumer templates.
+  shipped renderer is fixed, including all three consumer templates.
 
 - **Bug cards can now declare what they block.** `BUG.template.md` gains `blocks:` and
   `blocked_by:`. A bug found in QA that must be fixed before the feature above it can land is an
@@ -301,7 +313,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   worth reading once: the old instruction was violated repeatedly *by the seat that wrote it*.
 
 - **If you run `wave-runner.js` on docs-path issues, its QA brief was skipping the gate.** The gate
-  instruction was attached to *"check out the branch and run the gate"* — and a docs-path issue has
+  instruction was attached to *check out the branch and run the gate* — and a docs-path issue has
   no branch, so it took the other half of that sentence and got no gate instruction at all, while
   the verdict block still told the reviewer what to do if the gate failed. The gate is now its own
   unconditional step, matching `tranche-runner.js`. **Action required if you have adapted
@@ -839,7 +851,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   documented *"empty string = skip the zero-drift diff entirely"* and then used `||`, so `''`
   silently restored the default `tests/fixtures tests/golden*` — a project with no pinned-output
   corpus ran a diff against paths that do not exist on every issue, and had to rely on the prompt's
-  *"if it matched NOTHING, treat the step as NOT RUN"* warning each time. Both runners now use `??`.
+  *"If it matched NOTHING, say so loudly and treat the zero-drift step as NOT RUN"* warning each time. Both runners now use `??`.
   **If you pass `''` today you will now get a skip where you previously got the default**, which is
   what the comment always promised; if you actually want those paths, name them.
 
@@ -1032,7 +1044,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   consumer that ignores the exit status fails loudly rather than reading a zero. **Nothing to
   do**: on a normal repository the report is byte-for-byte what it was.
 - **The kit's tooling floor is stated more precisely, and two extras are named deletable.** The
-  floor read *"git and a POSIX shell, and nothing else"* — an absolute the tree already
+  floor read *git and a POSIX shell, and nothing else* — an absolute the tree already
   contradicted, because `scripts/hygiene/` is Python and `brainstorming` has an optional Node
   companion. What the kit **requires** is unchanged: git and a POSIX shell, for everything that
   gates. What is now said out loud is that the hygiene instruments are **Python 3, standard
@@ -1224,7 +1236,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   § A.1 now says it, names `wc -c process/doctrine/*.md | sort -n` read against the trigger as the
   way to find *which* sheet (derived, not stored), and requires **a sheet that crosses the trigger
   to carry one line in its own header naming the exemption**; `process/doctrine/instruments.md`
-  carries that line. Second: *"a doctrine sheet triggers nothing however large it grows"* was
+  carries that line. Second: *"triggers nothing **on the size axis**, however large it grows"* was
   grammatically absolute while its qualifier scoped it to size, so a hurried reader could take it as
   beating the role trigger above it. It does not: **a role doc that makes a sheet a mandatory read
   removes the exemption's premise**, so the role trigger applies to it like any other file. **The
@@ -1561,7 +1573,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   arm that appears on every run will otherwise fail that consumer the first time any unrelated
   finding flips the verdict.
 - **The scoped run stops overstating its floor.** `scripts/verify.sh`'s guard-floor header said
-  a rename that forgot the list *"fails loudly instead of quietly shrinking the floor"* — true
+  a rename that forgot the list *fails loudly instead of quietly shrinking the floor* — true
   of a **listed** path that vanishes, and false of the direction that actually costs you: a
   guard that lands and is never enrolled is invisible to that check, because the list is the
   only thing it reads. The header now says both, and names the unguarded direction as the price

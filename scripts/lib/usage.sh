@@ -16,7 +16,13 @@
 # this said "TWO RULES, BOTH RULED" and named two files while four others rendered
 # their own header block:
 #
-#     grep -rln "sed 's|^# \\{0,1\\}||'" scripts consumers setup.sh
+#     grep -rlF 'sed '"'"'s|^# \{0,1\}||'"'"'' scripts consumers setup.sh
+#
+#   (-F, and quoted this way, DELIBERATELY. Written as a normal grep pattern this matches NOTHING:
+#   grep reads \{0,1\} as an interval quantifier rather than as the literal text being searched
+#   for, so the command shipped as a derivation that silently returned an empty set — a recipe
+#   that cannot fail, in a comment telling you to derive rather than trust. Verified: it returns
+#   seven files.)
 #
 #   * scripts/release.sh renders its SYNOPSIS instead, stopping at its last usage
 #     example, because its header carries operator notes below them that are not help

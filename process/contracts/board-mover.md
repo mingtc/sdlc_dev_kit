@@ -134,7 +134,7 @@ The move printed, and a reader can check each line without trusting the tool:
 Green is those three facts. An exit status with no statement of what moved where is not a
 completed move; it is a completed process.
 
-**For a record-without-moving append, green is two facts and the first one is different: the item
+**For a record-without-moving append, green is three facts and the first one is different: the item
 and the container it STAYED IN, then the exact entry, then the published commit.** It must not print
 a `from → to` line, because it performed no transition — a tool that prints one is asserting a
 transition it did not make, and the log's own transition shorthand then counts landings that never

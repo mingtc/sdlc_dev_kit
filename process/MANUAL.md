@@ -184,7 +184,7 @@ version control by the initializer, not left for each actor to discover
   checkout on a work branch, so a HEAD-vs-trunk comparison would redden on every orchestrated
   run — and `behind` is a stale view rather than a finding.
 - If `progress/qa_complete/` is over the threshold, run `./scripts/archive.sh --apply` and
-  commit the sweep.
+  the sweep commits and pushes itself.
 
 ## Kanban rules
 
@@ -349,7 +349,7 @@ bounces it.
      had a name. Two independent inventions and a precedent is the argument for writing it down
      rather than letting each reviewer re-derive it.
 7. **Archive.** When `qa_complete/` accumulates, `./scripts/archive.sh --apply` sweeps issues
-   into `progress/done/` and indexes them in `ARCHIVE.md`; commit the sweep.
+   into `progress/done/` and indexes them in `ARCHIVE.md`. **It commits and pushes itself** — do not look for a staged diff.
 
 ### The RUN-OUTCOME vocabulary (an orchestrated run's summary of one leg)
 

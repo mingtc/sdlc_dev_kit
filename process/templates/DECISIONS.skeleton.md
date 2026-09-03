@@ -51,10 +51,10 @@ provenance is indistinguishable from fabrication **by construction**, which is w
 owed at mint time and not on request: afterwards, the conversation is gone and nobody can supply it.
 
 **Where that primary artifact LIVES.** A dated record at your working-records root —
-`<YYYY-MM-DD>-<slug>.md` — indexed by [`../dev/README.md`](../dev/README.md) § *Reports, assessments,
+`<YYYY-MM-DD>-<slug>.md` — indexed by [`dev/README.md`](../dev/README.md) § *Reports, assessments,
 and probe findings* **in the same change that creates it**, because that index is bidirectional and a
 file reachable from no row is as lost as one that was never written. This is the same relationship a
-probe capture has to the entry it grounds ([`../process/templates/CAPTURE.template.md`](../process/templates/CAPTURE.template.md)),
+probe capture has to the entry it grounds ([`process/templates/CAPTURE.template.md`](../process/templates/CAPTURE.template.md)),
 generalised off the probe case: the rule was always *point at a primary artifact*, and the one thing
 it never said was where to put one.
 
@@ -65,7 +65,7 @@ about to be built on cannot.
 - **Recorded before it is executed**, and *a ruling is not recorded until it is in the file the work
   will be done from.* The surfaces that do not count — a prompt, a chat, a coordinator's memory, a run
   log, a message to a peer — are enumerated once in
-  [`../process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.2 rather than
+  [`process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.2 rather than
   here, because two copies of one list is how the two start disagreeing about what a surface is.
   Record it first; the items then cite this entry as their authority rather than restating it.
 - **Verbatim, in the decider's own words** — in the **Ruling** field. A paraphrase is a second

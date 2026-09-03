@@ -12,7 +12,7 @@
 > over both template trees returns nothing, so the instruction as written deleted nothing.)*
 > What survives is a paste-ready prompt: a runner reads the pack, wears the Orchestrator hat, and
 > executes it without asking the seat what was meant. The pack is authored by **the seat** (the
-> standing, human-partnered position — see [`../../process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md));
+> standing, human-partnered position — see [`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md));
 > it is **not** written by the runner that executes it, and it is never edited mid-run except to
 > stamp it or to record a seat ruling that changed the order.
 >
@@ -31,8 +31,8 @@
 
 > **GUIDANCE.** Author it as `LIVE`, stamp it as `SPENT` at close, and **never rewrite the
 > original wording** — the conclusion is superseded, the wording is preserved
-> ([`../doctrine/supersession.md`](../../process/doctrine/supersession.md);
-> [`../doctrine/staleness.md`](../../process/doctrine/staleness.md) is what makes the stamp owed by the
+> ([`process/doctrine/supersession.md`](../../process/doctrine/supersession.md);
+> [`process/doctrine/staleness.md`](../../process/doctrine/staleness.md) is what makes the stamp owed by the
 > change that closes the run, in that same commit — never by a later sweep).
 > Three states, in order:
 >
@@ -87,7 +87,7 @@
 >    moves, branch pushes, landings through `./scripts/finish-pr.sh`) applies end to end or
 >    whether pushes are refused and closes are **land-ready verdicts** instead. The preflight
 >    and between-issue check, named as a command. Any unexplained regression → STOP and report.
->    See [`../GIT-HOSTING.md`](../../process/GIT-HOSTING.md) § The blocked-push regime.
+>    See [`process/GIT-HOSTING.md`](../../process/GIT-HOSTING.md) § The blocked-push regime.
 > 2. **The release/notes state.** Which notes section is open, whether the topmost is cut and
 >    closed, and who opens the next one. If several issues write into **one shared open
 >    section**, say so here and name the tripwire — it is the most reliably re-discovered defect
@@ -99,7 +99,7 @@
 >    the next free id is **re-read from the file at write time**, never trusted from a brief;
 >    the register tolerates a gap, never a duplicate.
 > 5. **The live/destructive-resource regime for this run** — usually "zero", said explicitly.
->    See [`../doctrine/live-resources.md`](../../process/doctrine/live-resources.md), and § Standing
+>    See [`process/doctrine/live-resources.md`](../../process/doctrine/live-resources.md), and § Standing
 >    discipline below.
 > 6. **Which standing laws are newly binding** (a doctrine that landed since the last pack), so
 >    the runner knows this run is their first field use.
@@ -122,7 +122,7 @@
 > repo beat the briefs, say how many, so the runner expects more and reports them.
 
 Fresh top-level instance, **Orchestrator hat all session**
-([`../../.claude/roles/orchestrator.md`](../../.claude/roles/orchestrator.md) — including its
+([`.claude/roles/orchestrator.md`](../../.claude/roles/orchestrator.md) — including its
 § Model & effort contract). Read order: `PROJECT.md` → `CLAUDE.md` → the role doc →
 `<dev/handoffs/<date>-standing-handoff.md>` → **all <N> issue files in full** (their AC are the
 law; each issue's own § Rigor line binds). The repo files are the truth; the mint recorded
@@ -191,7 +191,7 @@ escalated dispatches **for FAIL paths too**: a FAIL costs a fix leg and a second
 the same tier, which is the forecast error every run makes.> The standing riders bind: explicit
 model on every spawn, never the ceiling tier without sign-off, **workers are leaves** (a
 dispatched worker does not spawn subagents). The doctrine is
-[`../doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md).
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md).
 
 ---
 
@@ -207,12 +207,12 @@ spine** — zero test identifiers removed except where an AC names each removal,
 artifacts byte-identical except the consented, **enumerated** set; **<the live-resource regime,
 stated as an absolute: zero destructive resources, zero live writes — and the instruction that a
 leg believing otherwise STOPS that issue and parks>**
-([`../doctrine/live-resources.md`](../../process/doctrine/live-resources.md)); supersession doctrine on every
+([`process/doctrine/live-resources.md`](../../process/doctrine/live-resources.md)); supersession doctrine on every
 guard a change moves — **transform, never delete; the reason travels**
-([`../doctrine/supersession.md`](../../process/doctrine/supersession.md)); every new `dev/` document indexed
+([`process/doctrine/supersession.md`](../../process/doctrine/supersession.md)); every new `dev/` document indexed
 in the same commit; salvage-then-resume on a dead leg; **QA FAIL → one bounded fix round → a
 second fresh-eyes QA → else park with evidence and CONTINUE** (the pause law:
-[`../doctrine/orchestration.md`](../../process/doctrine/orchestration.md) states the pattern, the
+[`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md) states the pattern, the
 Orchestrator role doc states the enforcement); `git status -sb` after any hand commit;
 `./scripts/check-board.sh` after every board move.
 

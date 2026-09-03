@@ -7,7 +7,7 @@
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/pack.md`, fill every `<slot>`, and **delete every line
 > that starts with `GUIDANCE`**. The doctrine is
-> [`../doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); this file is how a round is *committed
+> [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); this file is how a round is *committed
 > to* before it runs.
 >
 > **This is a PRE-REGISTRATION, and that is the whole point.** Every slot below is a decision that
@@ -30,8 +30,8 @@
 > **GUIDANCE.** Same lifecycle as a launch pack: authored `LIVE`, stamped `SPENT` at close against
 > the report **by name**, in the same commit that lands the report. **Never rewrite the original
 > wording** — the conclusion is superseded, the wording is preserved
-> ([`../doctrine/supersession.md`](../../../process/doctrine/supersession.md),
-> [`../doctrine/staleness.md`](../../../process/doctrine/staleness.md)).
+> ([`process/doctrine/supersession.md`](../../../process/doctrine/supersession.md),
+> [`process/doctrine/staleness.md`](../../../process/doctrine/staleness.md)).
 
 ```
 > **STATUS: LIVE — not yet run.** Dogfooding round: **<round name>**.
@@ -63,7 +63,7 @@ commit — "only what ships" has to be a specific set of bytes, or the round is 
 > **GUIDANCE.** Who meets the product, and **what each tier is blind to**. Tiers exist so an
 > inversion is legible (§ A.3: a more capable participant may report *partial* success where a
 > weaker one reports success and is wrong). State provisioning per tier if participants are agents
-> ([`../doctrine/model-provisioning.md`](../../../process/doctrine/model-provisioning.md)) — and remember
+> ([`process/doctrine/model-provisioning.md`](../../../process/doctrine/model-provisioning.md)) — and remember
 > participants are **leaves**: a participant does not spawn helpers.
 
 | Tier | Who / how provisioned | What they hold | What they are blind to |
@@ -92,7 +92,7 @@ commit — "only what ships" has to be a specific set of bytes, or the round is 
 
 ## 4. Instruments — and each one's named blind spot
 
-> **GUIDANCE.** [`../doctrine/instruments.md`](../../../process/doctrine/instruments.md) binds here in full. Per
+> **GUIDANCE.** [`process/doctrine/instruments.md`](../../../process/doctrine/instruments.md) binds here in full. Per
 > instrument: what it watches, its **blind spot named in its own output**, and the **ablation** that
 > proves it can fail. An instrument with no ablation is listed as **unproven, not passing**. Take
 > each one to the messiest realistic behaviour — or better, to a **previous round's real leftovers**
@@ -131,7 +131,7 @@ them means the participant handled it well.**
 
 ## 6. Resource budget, fences, and the leftovers ruling
 
-> **GUIDANCE.** [`../doctrine/live-resources.md`](../../../process/doctrine/live-resources.md) § A.1 (budget),
+> **GUIDANCE.** [`process/doctrine/live-resources.md`](../../../process/doctrine/live-resources.md) § A.1 (budget),
 > §§ A.3–A.4 (the two fences: selection is not consent; consent carries the **authorizing
 > work-item id**, never a boolean), § A.6 (teardown proof = the delete's own answer **plus a
 > read-back proving absence**). Reclaim **by enumerating the container**, never by replaying a

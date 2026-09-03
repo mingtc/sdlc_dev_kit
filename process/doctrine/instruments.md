@@ -145,7 +145,7 @@ The same applies to a deliberate narrowing: a check that scans the last N items,
 enumerates, or skips a class by design, **says so in the line that reports its result**. Silent
 truncation reads as "covered everything."
 
-**Two specific things belong in that line, because their absence is what lets a verdict be read
+**Three specific things belong in that line, because their absence is what lets a verdict be read
 wider than it is.**
 
 - **The operand set.** *"Board drift: clean"* should be printed, and read, as *"clean over ⟨these

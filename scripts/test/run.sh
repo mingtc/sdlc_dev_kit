@@ -4162,6 +4162,70 @@ cb_set_dep() {
 cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
 # =============================================================================
+# CASE — each runner's stray-key guard admits every per-issue field that runner READS.
+#
+# wave-runner's guard was copied verbatim from tranche-runner, whose per-issue shape is ALMOST
+# the same. wave-runner also reads `worktreeMode`, `phase` and `restartNote` — all three named in
+# its own meta.description — and the copied set omitted all three, so the guard refused the exact
+# fields the file's contract advertises and EVERY wave run threw before its first agent started.
+# Shipped that way for one release. The guard was correct in isolation and wrong about its operand.
+#
+# This is the operand-set defect (doctrine/instruments.md § A.6) in its cheapest form: the answer
+# is derivable from the file itself, so nothing has to be maintained by hand.
+case_runner_key_guards_admit_every_field_they_read() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" r name n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_key_guards_admit_every_field_they_read: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+
+  for r in "$wf"/*.js; do
+    [ -f "$r" ] || continue
+    name="$(basename "$r")"
+    grep -q 'const ISSUE_KEYS' "$r" || continue
+    n=$(( n + 1 ))
+    # Declared: the quoted names inside the ISSUE_KEYS literal. Read: every issue.<field> in the
+    # file. `issue.sh` is excluded — it is the tail of a path in prose, not a field.
+    local missing
+    missing="$(python3 - "$r" <<'PY'
+import re,sys
+s=open(sys.argv[1],encoding='utf-8').read()
+m=re.search(r'const ISSUE_KEYS = new Set\(\[(.*?)\]\)', s, re.S)
+declared=set(re.findall(r"'([A-Za-z_]+)'", m.group(1))) if m else set()
+used={x for x in re.findall(r'issue\.([A-Za-z_]+)', s)} - {'sh'}
+print(' '.join(sorted(used - declared)))
+PY
+)"
+    [ -z "$missing" ] \
+      || cf "$name reads per-issue field(s) its own ISSUE_KEYS refuses: $missing — every call passing one throws before any agent starts"
+  done
+
+  [ "$n" -ge 1 ] \
+    || cf "no runner declared an ISSUE_KEYS set — either the guard was removed or its name changed, and this case then asserts nothing"
+
+  # REDDENING CONTROL: drop a name from a COPY and the derivation must report it.
+  local ctl="$SB_TMP"; [ -n "$ctl" ] || ctl="$(mktemp -d)"
+  mkdir -p "$ctl/kctl"
+  if [ -f "$wf/wave-runner.js" ]; then
+    sed "s/'worktreeMode', //" "$wf/wave-runner.js" > "$ctl/kctl/wave-runner.js"
+    local ablated
+    ablated="$(python3 - "$ctl/kctl/wave-runner.js" <<'PY'
+import re,sys
+s=open(sys.argv[1],encoding='utf-8').read()
+m=re.search(r'const ISSUE_KEYS = new Set\(\[(.*?)\]\)', s, re.S)
+declared=set(re.findall(r"'([A-Za-z_]+)'", m.group(1))) if m else set()
+used={x for x in re.findall(r'issue\.([A-Za-z_]+)', s)} - {'sh'}
+print(' '.join(sorted(used - declared)))
+PY
+)"
+    printf '%s' "$ablated" | grep -q 'worktreeMode' \
+      || cf "(control) dropping worktreeMode from a copy did NOT surface it — the derivation cannot bite"
+  else
+    cf "(control) wave-runner.js not found — the reddening control could not run"
+  fi
+  rm -rf "$ctl/kctl"
+
+  finish "each runner's ISSUE_KEYS admits every per-issue field that runner actually reads ($n runner(s), derived from the file, ablation-proven)"
+}
+
 # CASE — settings.json.example never glosses a placeholder it does not contain.
 #
 # It did. A `_PLACEHOLDERS` map glossed seven <angle-bracket> tokens and told the adopter
@@ -10596,6 +10660,7 @@ CASES=(
   case_archive_progress_honest_noop
   case_archive_progress_dry_run_writes_nothing
   case_settings_example_glosses_only_real_placeholders
+  case_runner_key_guards_admit_every_field_they_read
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set
