@@ -482,7 +482,7 @@ The orchestrator removes *wiring*, not *judgment*. These stay human:
 
 ## Token discretion
 
-Calibrate rigor to the issue, per the adapter's "calibrate to the quality bar". **The
+Calibrate rigor to the issue, per the adapter's own quality bar. **The
 rigor-tier ladder is process law and lives at
 [`process/doctrine/rigor-tiers.md`](../../process/doctrine/rigor-tiers.md)** (promoted from
 this doc 2026-08-21): three tiers by change shape, each implying BOTH a ceremony weight and a

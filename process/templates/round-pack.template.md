@@ -62,7 +62,7 @@ commit — "only what ships" has to be a specific set of bytes, or the round is 
 
 > **GUIDANCE.** Who meets the product, and **what each tier is blind to**. Tiers exist so an
 > inversion is legible (§ A.3: a more capable participant may report *partial* success where a
-> weaker one reports success and is wrong). State provisioning per tier if participants are agents
+> weaker one reports success **and is right**). State provisioning per tier if participants are agents
 > ([`process/doctrine/model-provisioning.md`](../../../process/doctrine/model-provisioning.md)) — and remember
 > participants are **leaves**: a participant does not spawn helpers.
 

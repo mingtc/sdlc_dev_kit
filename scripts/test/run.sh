@@ -3060,13 +3060,15 @@ case_archive_feature_branch_clean() {
 # back to a baked-in prefix literal and CARRIED ON. That fallback was added as a
 # fix for something worse (a default carrying a FOREIGN project's prefix), and the
 # lesson it encoded — a silently wrong prefix is the expensive failure — is the
-# same lesson the refusal now encodes, one level up: five scripts each holding a
-# copy of one project's prefix IS the silently-wrong-prefix bug, and in the sweep
+# same lesson the refusal now encodes, one level up: EVERY script holding its own
+# copy of one project's prefix IS the silently-wrong-prefix bug (derive the set —
+# grep -l 'config.sh' scripts/*.sh — rather than trusting a count here; this said
+# "five" and was true when written), and in the sweep
 # it is worse than a bad mint (a sweep under the wrong prefix finds nothing and
 # reports "nothing to sweep" on a full column). So the conclusion is superseded
-# and the guard is transformed: every one of the five must now REFUSE and NAME
-# config.sh. All five are asserted, because fixing one in isolation would leave
-# the other four inconsistent — which is exactly how the debt survived.
+# and the guard is transformed: every one of them must now REFUSE and NAME
+# config.sh. ALL of them are asserted, because fixing one in isolation would
+# leave the rest inconsistent — which is exactly how the debt survived.
 # =============================================================================
 case_config_seam_refusal() {
   cf_reset
@@ -6199,10 +6201,14 @@ case_check_board_frontmatter_offset() {
 # spelling policy below and the reason string are one decision, and a decision stated per case
 # is eight places to amend and seven to forget.
 #
-# `.claude/` ONLY, DELIBERATELY, AND DO NOT WIDEN THIS TO THE DUAL SPELLING. These eight cases
-# exercise a BUILT kit — `kit_init_sandbox` copies `.claude/templates` and nothing else — so the
+# `.claude/` ONLY, DELIBERATELY, AND DO NOT WIDEN THIS TO THE DUAL SPELLING. The cases that call
+# `kit_init_sandbox` exercise a BUILT kit — it copies `.claude/templates` and nothing else — so the
 # maintainer repository's disarmed `_claude/` tree is not their operand and finding it would make
-# them run against a tree they are not testing. The sites elsewhere in this file that read
+# them run against a tree they are not testing.
+# (This said "these EIGHT cases"; derive the set with `grep -c kit_init_sandbox "$0"` rather than
+# trusting a number here — it was true when written and the population has since grown.)
+#
+# The sites elsewhere in this file that read
 # whichever spelling exists are reading the SHIPPED tree in place, which is a different question;
 # the header says why that is a convenience and not a supported mode.
 ISSUE_TEMPLATE_REL='.claude/templates/ISSUE.template.md'
@@ -7308,7 +7314,10 @@ case_release_honours_the_one_remote_name() {
 # Most shipped tools render `--help` from their own header comment block, ending at the
 # LAST COMMENT LINE. `release.sh` ends at its LAST USAGE EXAMPLE instead, deliberately —
 # its header carries operator notes below the examples that are not help text. Measured:
-# putting release.sh on the header-block rule takes its --help from 11 lines to 63.
+# putting release.sh on the header-block rule takes its --help from its SYNOPSIS length to the whole
+# header block — measure both rather than quoting figures here (`./scripts/release.sh --help | wc -l`
+# against `bash -c '. scripts/lib/usage.sh; kit_usage scripts/release.sh' | wc -l`); this said 63 and
+# the second measure is now 66. It takes its --help from 11 lines to 63.
 #
 # WHY A CONTROL AT ALL. Nothing asserted --help CONTENT for any tool — the existing
 # coverage checks rc=0 and non-emptiness. A hard-coded window is a census in disguise,

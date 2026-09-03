@@ -370,7 +370,7 @@ If this role is woken, these are project law and must be written down:
 - [ ] **No screenshots or annotated images left in scratch directories** — commit them under `dev/design/assets/` or link out
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "UI Designer: <pass scope, N stories>" --session <slug>`. No-op if notifications are off.
 
-> **2026-08-21:** the leaf-worker definition now exists at `.claude/agents/ui-designer-worker.md` (shipped parked-with-refusal). **That covers the WORKER definition only** — item 3 of § What this
-> role needs, the file move. The other four items are authoring work, and the banner at the top of
+> **2026-08-21:** the leaf-worker definition now exists at `.claude/agents/ui-designer-worker.md` (shipped parked-with-refusal). **That covers the WORKER definition only, which is NOT one of the five items** — item 3 is moving
+> *this* file out of `roles/archive/`, not shipping the worker. The other four items are authoring work, and the banner at the top of
 > this file says so. *This parenthetical read "waking the role is a file move, not authoring work",
 > which is the opposite of what that banner and that section both state.*

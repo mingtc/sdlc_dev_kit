@@ -223,7 +223,8 @@ to leave implicit, and the cost lands on whoever inherits the slate rather than 
 **The pattern is [`../../dev/handoffs/README.md`](../../dev/handoffs/README.md)** — newest-wins, what
 a handoff must contain, and the standing-handoff exception.
 
-**What this sheet adds is the timing, which that document does not state:** a coordinator's judgement
+**What this sheet adds is the OBLIGATION on a coordinator, where that document states the timing
+in its own § When to write one — while sharp, not while failing:** a coordinator's judgement
 degrades as its context fills, and it degrades **before** that becomes obvious. Write the handoff at
 the point where you would still call your own judgement good — not at the point where you need one.
 

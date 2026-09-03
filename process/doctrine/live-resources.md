@@ -418,5 +418,5 @@ What the incident actually taught:
   touched — its row count was identical from open to close — and saying so is what made the
   incident bounded rather than alarming.
 
-**The two incidents together are why consent is an id and not a flag.** Both were a *typed flag*
+**The two incidents together are why consent is an id and not a flag.** C.2 turned on a *typed flag*
 on a run whose author was thinking about something else.

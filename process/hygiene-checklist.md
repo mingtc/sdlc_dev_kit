@@ -2,7 +2,7 @@
 # The hygiene checklist — the SHAPES a pass looks for, and the instruments that look
 
 > **Pattern vs instance.** This file is two things at once. The **pattern** — a row carrying
-> five fields (shape · what it looks like in the tree · the instrument that finds it, by path,
+> five fields (shape · what it looks like in the tree · the instrument that finds it, **by role**,
 > or `HAND LANE — no instrument` · its evidence date and source · its retire condition), the
 > two ratchet rules, the anti-pigeonhole reservation, an advisory cadence and the pre-cut sweep
 > with its named owner — is **format law and travels**. The **instance** — every date, every

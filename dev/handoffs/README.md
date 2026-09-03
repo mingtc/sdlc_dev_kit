@@ -41,7 +41,7 @@ answered — rather than when the session starts to feel long.
 *(The reasoning is [`../../process/doctrine/subagent-control.md`](../../process/doctrine/subagent-control.md)
 § A.12, which also names what makes a handoff valuable: not being current, but **being explicit about
 what in it is already stale.** A handoff stamped with what it no longer answers is worth several that
-are merely current — and that is the one thing the newest-wins rule below cannot supply on its own,
+are merely current — and that is the one thing the newest-wins rule ABOVE cannot supply on its own,
 since it tells a reader which file to trust and nothing about which parts of it have expired.)*
 
 ## What a handoff must contain

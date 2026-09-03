@@ -109,7 +109,8 @@ Nothing in the minimum set was merged or split.
   *The test that separates an exemption from an oversight:* **could someone build a conforming kit
   from the sheets without this file?** If yes, it is exempt and belongs in a class above. If no, it
   owes a sheet. *And do not close a gap by writing thin sheets to satisfy a count — this directory
-  also says a sheet is ≤ one page and one nobody finishes reading is not reimplementable. Nine
+  also says a sheet must be short enough to finish, and one nobody finishes reading is not
+  reimplementable. Nine
   sheets written to make a census green is the census defect wearing contract clothing.*
   *One thing that looks like a gap and is not:* a sheet may cite its implementation in **placeholder
   form** — `notification.md` says `scripts/notify/<channel>.sh`, because the channel is the adopter's

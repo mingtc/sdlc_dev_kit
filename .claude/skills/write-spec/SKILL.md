@@ -58,7 +58,7 @@ If these tools are not connected, work entirely from what the user provides. Do 
 
 ### 4. Generate the PRD
 
-Produce a structured PRD with these sections. See **PRD Structure** below for detailed guidance on what each section should contain.
+Produce a structured PRD with these sections. See **PRD Structure** below for detailed guidance on most of them (it covers all but **Success Metrics**, which has no subsection there) — on what each section should contain.
 
 - **Problem Statement**: The user problem, who is affected, and impact of not solving it (2-3 sentences)
 - **Goals**: 3-5 specific, measurable outcomes tied to user or business metrics

@@ -62,7 +62,7 @@ Thumbs.db
 # comment saying WHAT produces it — an unexplained ignore line is indistinguishable
 # from a mistake, and the next reader will not know whether deleting it is safe.
 #
-# Two rules that are not obvious:
+# Rules that are not obvious (this said "Two" and a third was added below it):
 #   • Never add a blanket ignore for a data format your project TRACKS on purpose
 #     (a `*.json` catch-all is the classic way to lose a committed fixture or a
 #     package manifest).

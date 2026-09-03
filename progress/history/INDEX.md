@@ -13,7 +13,9 @@ whole point: it is the **hook** that tells you whether to open a chunk without o
 ([`../../process/doctrine/lookup-tables.md`](../../process/doctrine/lookup-tables.md) § A.3).
 
 **This file exists from day one, and on day one it is correctly empty.** *"No rotations yet"* is a
-real answer; an absent index is not, because the tool refuses rather than creating one — a
+real answer; an absent index is not — where chunks already exist the tool REFUSES rather than
+writing a zero-row index that would read as "nothing was ever archived". (With no chunks it creates
+an empty one and says so, because then the empty index is simply true.) A
 newly-created empty index reads as *"nothing was ever archived"* on a project that has archived
 plenty (`archive-sweep.md` § 3).
 

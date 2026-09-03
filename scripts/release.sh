@@ -195,7 +195,9 @@ DIST_BRANCH="${RELEASE_DIST_BRANCH:-dist}"
 # (1) A DIFFERENT WINDOW RULE: that library prints the header to its last COMMENT line;
 #     this prints to the last USAGE EXAMPLE, because the header below carries operator
 #     notes that are not help text. Measured: on the library's rule this --help goes
-#     from 11 lines to 63, including a TEST SEAMS block. (2) This script sources
+#     from its SYNOPSIS to the whole header block, including a TEST SEAMS block — derive both
+#     (`./scripts/release.sh --help | wc -l`, and kit_usage over this file) rather than trusting a
+#     figure here; this said "11 lines to 63" and the second measure is now 66. (2) This script sources
 #     NOTHING from scripts/lib/ by design. A sweep that unifies "all the header
 #     renderers" must skip this one; that is what this paragraph is for.
 # --help renders the header's SYNOPSIS: the description plus every usage example.

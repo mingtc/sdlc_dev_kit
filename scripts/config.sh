@@ -14,7 +14,8 @@
 #
 # Override at runtime via env var, e.g.:
 #   ISSUE_PREFIX=TEST ./scripts/new-issue.sh foo --id TEST-001
-# (--id is REQUIRED by every creation script — this example predates that and, run as
+# (--id is REQUIRED by new-issue.sh, new-bug.sh and new-refactor.sh; new-prd.sh derives its own
+#  number and REFUSES --id. This example predates that and, run as
 # written, refused.)
 #
 # The kanban worktree scripts resolve the TRUNK (default branch) from
