@@ -287,11 +287,11 @@ Return the structured result only.`
 // same note in tranche-runner.js. A conditional item inside a hand-numbered list makes the list
 // skip a number whenever the item is absent.
 //
-// NOTE A REAL DIVERGENCE THIS DID NOT FIX: this procedure has one FEWER step than tranche's, and
-// the missing one is 'Run the gate'. tranche's QA is told to run it; this one is not, while the
-// verdict block below still tells the reviewer what to do IF the gate reports a gate that could
-// not run. That is a missing instruction, not a numbering artifact, and it is filed separately
-// rather than smuggled in with a renumbering.
+// THE DIVERGENCE THIS ONCE NOTED IS CLOSED. This procedure used to have one FEWER step than
+// tranche's — 'Run the gate' — while the verdict block below still told the reviewer what to do IF
+// the gate reported one that could not run. The gate is now step 3 here and unconditional, matching
+// tranche. *This comment is kept rather than deleted because a shipped release note tells adopters
+// to go and adapt this file, and a stale "we did not fix this" beside a fix is worse than either.*
 function qaPrompt(issue) {
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
   // THE PATH FORM STILL WINS WHERE IT APPLIES — it is right for the projects that have

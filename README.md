@@ -106,10 +106,17 @@ carrying issue files, a `progress.md` § Log with entries, an `ARCHIVE.md` with 
 `scripts/config.sh` a previous run already stamped. There is no resume path: a half-stamped
 repository is worse than an unstamped one.
 
-Then, in order: fill [`PROJECT.md`](PROJECT.md), fill [`CLAUDE.md`](CLAUDE.md), start
+Then, **in SEED's order and using SEED's verbs**: fill [`PROJECT.md`](PROJECT.md) (step 3), start
 [`requirements/CORPUS.md`](requirements/CORPUS.md) and
-[`requirements/DECISIONS.md`](requirements/DECISIONS.md), wire the runtime half of
-[`setup.sh`](setup.sh), and drive your **first** issue through the **full** Dev → QA boundary.
+[`requirements/DECISIONS.md`](requirements/DECISIONS.md) (step 4), **REPLACE** the
+[`CLAUDE.md`](CLAUDE.md) stub with your adapter (step 5 — **replace, never fill**: it is scaffolding
+to be thrown away, as § What you delete says below), **hold a real PM session and mint `PRD-001`**
+(step 6 — *the step most likely to be skipped under pressure to look productive*), and drive your
+**first** issue through the **full** Dev → QA boundary (step 7). Wire the runtime half of
+[`setup.sh`](setup.sh) whenever your stack is decided.
+
+*This paragraph used to list a different order, call `CLAUDE.md` a FILL, and omit step 6 entirely —
+three disagreements with the authority it defers to in its very next sentence.*
 [`process/SEED.md`](process/SEED.md) is the eight-step order of operations, and every step there
 names the authority that actually holds the law.
 

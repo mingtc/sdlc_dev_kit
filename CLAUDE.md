@@ -30,8 +30,16 @@ to keep. A filled roles table and real-looking house rules invite a reader to fi
 move on — and the project then carries the kit's generic law forever, having never once decided its
 own.
 
-So the shipped file states its own status instead, and **the adapter is built from the template, in
-one pass, by someone who has already held the PM session.** `process/SEED.md` § Day one is done when
+So the shipped file states its own status instead, and **the adapter is built from the template in
+one pass, by someone who has held a real PM session — the same session `SEED.md` step 6 asks for.**
+
+**On the ordering, because this sentence used to read as contradicting SEED and does not:** SEED
+puts the adapter at step 5 and the PM session at step 6, so *"already held"* would be the opposite
+order. What is meant is the SESSION, not the step: you cannot write an adapter that states this
+project's law without having had the conversation that decides it, and step 6 is where that
+conversation becomes a `PRD-001`. **If you find yourself writing the adapter with nothing decided,
+that is the signal to go and have the session — not to invent the law and move on**, which is
+exactly the failure the paragraph above describes. `process/SEED.md` § Day one is done when
 is the checklist that says you are finished.
 
 ## What already binds you, before any of that

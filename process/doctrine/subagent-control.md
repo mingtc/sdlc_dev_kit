@@ -144,10 +144,14 @@ which is the argument for the refusal living at the **seam** rather than in the 
 is followed by some workers and not others; a refusal at the seam is followed by all of them,
 including whoever wrote it.
 
-**Where the line between a sentence and a mechanism falls** is not this sheet's to settle alone — see
-§ C's closing caution, which argues for the sentence, against
-[`live-resources.md`](live-resources.md) § A.10, which argues for the structure. The reconciliation
-belongs in the kit's own ruling record, not here.
+**Where the line between a sentence and a mechanism falls IS SETTLED, and not here.**
+[`fix-execution.md`](fix-execution.md) § A.5b holds it — *a MECHANISM where the act is irreversible
+OR the failure is silent and compounding; a SENTENCE everywhere else* — and claims the rule
+exclusively, which is why this sheet points rather than restates. *This paragraph used to say the
+reconciliation "belongs in the kit's own ruling record, not here", describing § C's caution and
+[`live-resources.md`](live-resources.md) § A.10 as an unresolved disagreement. They are not: A.5b is
+the reconciliation, it ships as doctrine rather than as a ruling record, and the sentence outlived
+its own resolution.*
 
 ### A.7 — Verification theatre: a check that cannot fail
 

@@ -237,6 +237,8 @@ names the guard whose job is to keep it honest.
 
 | Path | What it is |
 |---|---|
+| `AGENTS.md` | **The harness-neutral entry point**, for any agent that is not Claude Code. Travels unedited, and it says so in its own marker. *Added 2026-09-03: this file shipped, declared itself COPY-class in its own header, and was named in NO section of this manifest — not § 1, not § 2, not § 3, not the disposition table. A file that travels unedited and is invisible to the list of what travels is the manifest's own failure mode.* |
+| `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** *Added 2026-09-03, same omission.* |
 | `process/MANUAL.md` | The transferable operating manual. Adopt unedited. |
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
@@ -430,6 +432,7 @@ you want to know what the initializer is doing to your repository. **A non-shell
 |---|---|
 | `ISSUE_PREFIX` | The prefix in item filenames and headers — `${ISSUE_PREFIX}-001-<slug>.md`. Used by every creating script and by the archive sweep. **Changing it takes effect on the next invocation; existing files are NOT renamed** — history keeps the identifiers it was born with. |
 | `PRD_PREFIX` | The spec prefix. The default is fine for most projects. |
+| `PROJECT_NAME` | The project's own name, stamped by `kit-init.sh` alongside the two prefixes. **This row was missing entirely** — `config.sh`'s own header names three values the initializer stamps and this table listed two, so the third was a knob no manifest reader could discover. |
 | `validate_issue_id()` | The shared read-only guard: requires an id, enforces the declared shape, hard-errors on an id already live, and **warns** when the id appears only in the archive. Creating scripts are deliberately **stateless** — the caller supplies the number, and `next-id.sh` suggests it. |
 | The publication remote | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
 | The **trunk** | *not a variable* — **a resolution chain**, and its last step cannot warn. The initializer therefore **confirms** it up front (§ 1.3, row 1) rather than letting the chain decide. |
@@ -540,6 +543,7 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 | `scripts/move-issue.sh` | **ENFORCING** | yes | The acting-role whitelist, plus the same list in its usage text and its error messages | A role missing here cannot move the board **at all** |
 | `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
 | `scripts/subtask.sh` | **ENFORCING** | yes | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s. **This is the row that was missing from the initializer's hand-typed list**, so a renamed project got a subtask tool that rejected every role it had just declared |
+| `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | **This row was missing while the table above called itself "the list", which is the drift this section is about happening to this section.** The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
 | The adapter (`CLAUDE.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
 | `.claude/settings.json.example` | DOCUMENTATION | **no** | The set spelled out in prose, in its `<role-prefix-list>` note | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive. The file's own `_note` says the initializer does not touch it |
 
@@ -626,8 +630,8 @@ set — keep it in step with § 2.4, **whose table is the list**:
 | Value inside the file | Replace with |
 |---|---|
 | The trunk name | Your `<trunk>` |
-| The code-path globs (in both the *allowed metadata* list and the *forbidden direct-push* list) | Your § 2.6 answer, verbatim |
-| The two project filenames (cited as the rules' authority and listed among the pushable paths) | Your two files (§ 2.5) |
+| ~~The code-path globs (in both the *allowed metadata* list and the *forbidden direct-push* list)~~ | ~~Your § 2.6 answer, verbatim~~ — **STRUCK 2026-09-03: no such list ships.** The `autoMode` block that held them was removed and the file's own `_WHAT_THIS_FILE_MAY_CONTAIN` key records the removal. These rows told an adopter to go and edit three lists that are not in the file they were opening. |
+| ~~The two project filenames (cited as the rules' authority and listed among the pushable paths)~~ | ~~Your two files (§ 2.5)~~ — **STRUCK, same reason.** *The trunk policy's real home is named in that file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key.* |
 | The role-prefix list in its prose | Your role set |
 
 ### 2.9 The drift-report thresholds

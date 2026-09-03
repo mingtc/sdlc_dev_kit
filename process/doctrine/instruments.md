@@ -325,6 +325,55 @@ time the one real occurrence arrives, the signal has been tuned out. Where a che
 construction, either narrow it to the case that matters or demote it to an informational line and let
 a hard gate carry the real refusal.
 
+### A.11 — Guarding EVERY number a document publishes, not one number
+
+**Everything above is about ONE instrument. This is the population version, and it is a different
+problem:** a document that publishes figures — a manifest, a charter, a report anyone quotes — has a
+*set* of numbers, and guarding some of them is indistinguishable, to a reader, from guarding all of
+them. The rule is one sentence:
+
+> **The figures a document publishes are a POPULATION with a CLOSED exempt set, and both halves are
+> written down.** Not "we check the important ones."
+
+**Why the closed set is the load-bearing half.** An open exempt set is not a set — it is a habit, and
+it absorbs exactly the figures nobody wanted to guard. A reader who finds *some* figures guarded
+reasonably infers the rest were considered; if they were not, the document has told them something
+false without stating a single false sentence.
+
+*Not a third tier.* [`../contracts/acceptance-tier.md`](../contracts/acceptance-tier.md) § 2 rules
+**two tiers and only two** for tests, and this does not touch it. The exempt set here classifies
+**figures inside one document**, not tests, and nothing selects on membership — an exempt figure is
+guarded by nobody and says so, which is the opposite of a bucket that decides what runs.
+
+**THE PROCEDURE — a checklist, and read as one.** These are steps in an order, not five separate
+obligations to be cited individually:
+
+1. **Enumerate the figures.** Every number the document asserts, derived mechanically from the
+   document rather than by reading it. The enumeration is the operand set, and § A.6 applies to it in
+   full.
+2. **Evaluate each against a measured run**, not against the document's own reasoning. A figure that
+   agrees with the prose and disagrees with the tree is the case this exists to catch.
+3. **Guard the ENUMERATION three ways** — that it still finds figures (a census that matches nothing
+   reports full coverage), that each guarded figure has a test, and that the guard set has not
+   shrunk. The third is the **completeness ratchet**: a figure that leaves the guarded set leaves a
+   visible hole rather than silently rejoining the exempt one.
+4. **Pin the exempt set CLOSED**, with a reason per member. *"Not guarded"* is not a reason;
+   *"derived at read time from a source this document does not own"* is.
+5. **Check per-axis mutation specificity.** A mutation to one figure must redden **exactly one**
+   test. If it reddens two, the axes are not separated and the second test is measuring something it
+   does not name; if it reddens none, § A.8 applies.
+
+**And the reviewer's half, which is the part that does not fit in a checklist because it cannot be
+performed by the guard's author:**
+
+> **Re-census with a STRICTLY WIDER operand vocabulary than the guard's own.** A guard's vocabulary
+> is the one thing it cannot use to audit itself: it will re-derive the same set and report agreement.
+> Widen the scope, widen the pattern, widen the file set — then compare counts.
+
+*Measured, twice in one month in this kit:* a sweep scoped to `scripts/` could not see `.claude/`, and
+a regex that could not cross a nested brace missed a fifth divergence. **Both guards were correct
+about everything they could see, and that was the defect.**
+
 ---
 
 > ## ═══ THE SEAM ═══
@@ -334,6 +383,10 @@ a hard gate carry the real refusal.
 >
 > **If you came here to write or review a guard, you are done. Stop at this line, and you were right
 > to.**
+>
+> *(§ A.11 sits just above this line and is numbered after § A.9 and § A.10, which are below it.
+> It was written later; it keeps its number because a shipped release note cites it, and renaming a
+> section to tidy an ordering would falsify a document already in adopters' hands.)*
 >
 > **Everything below is READ TIME. The instrument is CORRECT.** It answered its question accurately;
 > the failure is in what its reader concluded. It binds **whoever consumes the result** — a reviewer
@@ -522,53 +575,3 @@ measured a **fact** (the tree changed) and reported an **attribution** (the harn
 a before/after comparison cannot establish over a tree it does not own exclusively. The first reading
 it produced was that the phase's landing had broken the witness — materially more alarming, and wrong.
 **Nothing in the instrument was broken; the sentence it printed was the defect.**
-
-### A.11 — Guarding EVERY number a document publishes, not one number
-
-**Everything above is about ONE instrument. This is the population version, and it is a different
-problem:** a document that publishes figures — a manifest, a charter, a report anyone quotes — has a
-*set* of numbers, and guarding some of them is indistinguishable, to a reader, from guarding all of
-them. The rule is one sentence:
-
-> **The figures a document publishes are a POPULATION with a CLOSED exempt set, and both halves are
-> written down.** Not "we check the important ones."
-
-**Why the closed set is the load-bearing half.** An open exempt set is not a set — it is a habit, and
-it absorbs exactly the figures nobody wanted to guard. A reader who finds *some* figures guarded
-reasonably infers the rest were considered; if they were not, the document has told them something
-false without stating a single false sentence.
-
-*Not a third tier.* [`../contracts/acceptance-tier.md`](../contracts/acceptance-tier.md) § 2 rules
-**two tiers and only two** for tests, and this does not touch it. The exempt set here classifies
-**figures inside one document**, not tests, and nothing selects on membership — an exempt figure is
-guarded by nobody and says so, which is the opposite of a bucket that decides what runs.
-
-**THE PROCEDURE — a checklist, and read as one.** These are steps in an order, not five separate
-obligations to be cited individually:
-
-1. **Enumerate the figures.** Every number the document asserts, derived mechanically from the
-   document rather than by reading it. The enumeration is the operand set, and § A.6 applies to it in
-   full.
-2. **Evaluate each against a measured run**, not against the document's own reasoning. A figure that
-   agrees with the prose and disagrees with the tree is the case this exists to catch.
-3. **Guard the ENUMERATION three ways** — that it still finds figures (a census that matches nothing
-   reports full coverage), that each guarded figure has a test, and that the guard set has not
-   shrunk. The third is the **completeness ratchet**: a figure that leaves the guarded set leaves a
-   visible hole rather than silently rejoining the exempt one.
-4. **Pin the exempt set CLOSED**, with a reason per member. *"Not guarded"* is not a reason;
-   *"derived at read time from a source this document does not own"* is.
-5. **Check per-axis mutation specificity.** A mutation to one figure must redden **exactly one**
-   test. If it reddens two, the axes are not separated and the second test is measuring something it
-   does not name; if it reddens none, § A.8 applies.
-
-**And the reviewer's half, which is the part that does not fit in a checklist because it cannot be
-performed by the guard's author:**
-
-> **Re-census with a STRICTLY WIDER operand vocabulary than the guard's own.** A guard's vocabulary
-> is the one thing it cannot use to audit itself: it will re-derive the same set and report agreement.
-> Widen the scope, widen the pattern, widen the file set — then compare counts.
-
-*Measured, twice in one month in this kit:* a sweep scoped to `scripts/` could not see `.claude/`, and
-a regex that could not cross a nested brace missed a fifth divergence. **Both guards were correct
-about everything they could see, and that was the defect.**
-

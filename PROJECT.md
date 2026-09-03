@@ -38,6 +38,33 @@ this file at the start of every session.**
 > bootstrap and your test gate there before the first issue, because `./scripts/finish-pr.sh`
 > refuses to land without an executable, committed gate runner.
 
+## Build order — what is being built now, and what is deliberately not yet
+
+> **Six shipped surfaces send a reader here for this and it was not here.** `pm.md` prioritises
+> *"against the build order in PROJECT.md"*, `dev.md`, `orchestrator.md` and three more name it as
+> project context. This sheet's opening paragraph says *"not the roadmap"* — which is true of that
+> PARAGRAPH and was read as true of the file, so the section its own consumers depend on was never
+> written. **The distinction the opening means: not a dated plan with milestones. A build order is
+> "what is in scope now", which is a project FACT and belongs here.**
+
+**The current layer — what a new issue may be about:**
+
+- <the surface or capability being built now>
+- <the second, if there is one — keep this list short enough to be a filter>
+
+**Deliberately NOT yet, and why:**
+
+| Not yet | Why not, and what would change it |
+|---|---|
+| <thing> | <the condition that would pull it in — not a date> |
+
+**Pulling something in means pushing something out.** Record the swap here when it happens; a layer
+that only grows is not a filter and stops answering the question `pm.md` asks it.
+
+*If your project genuinely has no ordering yet — day one, one surface, nothing deferred — write
+that sentence here rather than leaving the section blank. A blank reads as unanswered; a sentence
+reads as answered.*
+
 ## Quality bar
 
 **What "good" means here, stated so a reviewer can apply it without asking.** Keep each line

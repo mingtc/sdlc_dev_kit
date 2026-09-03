@@ -100,9 +100,13 @@ Nothing in the minimum set was merged or split.
   tolerated rather than accidental.** The two statements answer two different readers: the in-file
   marker answers *"what is this file"* for someone holding the file; the § 6 row answers *"what does
   this contract's implementation look like"* for someone holding only the spec — including a
-  reimplementer who has no such file at all. **The unguarded direction, named rather than left
-  implied:** nothing checks that a sheet's cited path still exists, and nothing checks that a
-  travelling script has a sheet. Both go wrong silently. Derive them rather than trusting this list:
+  reimplementer who has no such file at all. **One direction is guarded and one is not, and the
+  difference is worth stating:** the self-test now checks that **every travelling script has a
+  sheet** (`case_travelling_scripts_have_a_sheet`, which derives the exempt classes from the rule
+  below rather than from a list) — that guard SHIPS, so it runs in your tree too. **What is still
+  unguarded: nothing checks that a sheet's cited path still exists.** That one goes wrong silently.
+  *This paragraph said BOTH were unguarded until 2026-09-03, in the same document whose own guard
+  had already landed.* Derive them rather than trusting this list:
 
   ```sh
   # every path a § 6 bullet names, with the class the sheet claims for it —

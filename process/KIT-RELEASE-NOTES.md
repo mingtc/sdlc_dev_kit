@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`PROJECT.md` gains a `Build order` section — and six shipped surfaces have been pointing at it
+  all along.** `pm.md` prioritises *"against the build order in PROJECT.md"*, and five other role
+  docs name it as project context; the sheet had no such section. The opening line *"not the
+  roadmap"* is true of that **paragraph** and was read as true of the **file**. **Action required:
+  write one or two lines in the new section** — what is in scope now, and what is deliberately not
+  yet. *If your project genuinely has no ordering yet, write that sentence rather than leaving it
+  blank: a blank reads as unanswered, a sentence reads as answered.* Nothing breaks if you skip it,
+  but the PM hat's prioritisation step has nothing to read.
+
+
 - **An option you forgot to give a value to now refuses, instead of silently doing nothing.**
   `--note`, `--role`, `--trunk`, `--prefix`, `--message` and every other value-taking option: given
   as the last word with no value, these used to **exit 1 with no output at all** — the script died
