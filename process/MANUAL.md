@@ -133,7 +133,7 @@ version control by the initializer, not left for each actor to discover
    > `test-driven-development`, `systematic-debugging` and the rest are **skills**: one directory
    > each under [`.claude/skills/`](../.claude/skills/), holding a `SKILL.md` that is the
    > workflow, invoked by name. The role docs chain them (most carry a *"Skills used in
-   > this role"* section — the dispatching docs point at the index instead); `.claude/skills/README.md` is the index. A kit installation ships them;
+   > this role"* section; the two dispatching docs — `architect.md` and `orchestrator.md` — carry neither that section nor a pointer to the index, which is a gap rather than a convention); `.claude/skills/README.md` is the index. A kit installation ships them;
    > **Which skills exist is a project decision** —
    > when this manual names one it is naming a *practice*, and a project without that skill
    > directory still owes the practice.

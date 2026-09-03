@@ -1,11 +1,15 @@
 <!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every GUIDANCE line. -->
 # Launch pack template — the commissioning contract for one orchestrated run
 
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/
+     where it sits. A link that resolves while you are reading the template and dies in every copy
+     of it is the worst of both: it passes a link check here and is broken for every adopter. -->
+
 > **GUIDANCE — how to use this file.** Copy it to `dev/launch/<YYYY-MM-DD>-<run-name>-pack.md`,
 > fill every `<slot>`, and **delete every line that starts with `GUIDANCE`** before you launch.
 > What survives is a paste-ready prompt: a runner reads the pack, wears the Orchestrator hat, and
 > executes it without asking the seat what was meant. The pack is authored by **the seat** (the
-> standing, human-partnered position — see [`../doctrine/orchestration.md`](../doctrine/orchestration.md));
+> standing, human-partnered position — see [`../doctrine/orchestration.md`](../../process/doctrine/orchestration.md));
 > it is **not** written by the runner that executes it, and it is never edited mid-run except to
 > stamp it or to record a seat ruling that changed the order.
 >
@@ -24,8 +28,8 @@
 
 > **GUIDANCE.** Author it as `LIVE`, stamp it as `SPENT` at close, and **never rewrite the
 > original wording** — the conclusion is superseded, the wording is preserved
-> ([`../doctrine/supersession.md`](../doctrine/supersession.md);
-> [`../doctrine/staleness.md`](../doctrine/staleness.md) is what makes the stamp owed by the
+> ([`../doctrine/supersession.md`](../../process/doctrine/supersession.md);
+> [`../doctrine/staleness.md`](../../process/doctrine/staleness.md) is what makes the stamp owed by the
 > change that closes the run, in that same commit — never by a later sweep).
 > Three states, in order:
 >
@@ -80,7 +84,7 @@
 >    moves, branch pushes, landings through `./scripts/finish-pr.sh`) applies end to end or
 >    whether pushes are refused and closes are **land-ready verdicts** instead. The preflight
 >    and between-issue check, named as a command. Any unexplained regression → STOP and report.
->    See [`../GIT-HOSTING.md`](../GIT-HOSTING.md) § The blocked-push regime.
+>    See [`../GIT-HOSTING.md`](../../process/GIT-HOSTING.md) § The blocked-push regime.
 > 2. **The release/notes state.** Which notes section is open, whether the topmost is cut and
 >    closed, and who opens the next one. If several issues write into **one shared open
 >    section**, say so here and name the tripwire — it is the most reliably re-discovered defect
@@ -92,7 +96,7 @@
 >    the next free id is **re-read from the file at write time**, never trusted from a brief;
 >    the register tolerates a gap, never a duplicate.
 > 5. **The live/destructive-resource regime for this run** — usually "zero", said explicitly.
->    See [`../doctrine/live-resources.md`](../doctrine/live-resources.md), and § Standing
+>    See [`../doctrine/live-resources.md`](../../process/doctrine/live-resources.md), and § Standing
 >    discipline below.
 > 6. **Which standing laws are newly binding** (a doctrine that landed since the last pack), so
 >    the runner knows this run is their first field use.
@@ -184,7 +188,7 @@ escalated dispatches **for FAIL paths too**: a FAIL costs a fix leg and a second
 the same tier, which is the forecast error every run makes.> The standing riders bind: explicit
 model on every spawn, never the ceiling tier without sign-off, **workers are leaves** (a
 dispatched worker does not spawn subagents). The doctrine is
-[`../doctrine/model-provisioning.md`](../doctrine/model-provisioning.md).
+[`../doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md).
 
 ---
 
@@ -200,12 +204,12 @@ spine** — zero test identifiers removed except where an AC names each removal,
 artifacts byte-identical except the consented, **enumerated** set; **<the live-resource regime,
 stated as an absolute: zero destructive resources, zero live writes — and the instruction that a
 leg believing otherwise STOPS that issue and parks>**
-([`../doctrine/live-resources.md`](../doctrine/live-resources.md)); supersession doctrine on every
+([`../doctrine/live-resources.md`](../../process/doctrine/live-resources.md)); supersession doctrine on every
 guard a change moves — **transform, never delete; the reason travels**
-([`../doctrine/supersession.md`](../doctrine/supersession.md)); every new `dev/` document indexed
+([`../doctrine/supersession.md`](../../process/doctrine/supersession.md)); every new `dev/` document indexed
 in the same commit; salvage-then-resume on a dead leg; **QA FAIL → one bounded fix round → a
 second fresh-eyes QA → else park with evidence and CONTINUE** (the pause law:
-[`../doctrine/orchestration.md`](../doctrine/orchestration.md) states the pattern, the
+[`../doctrine/orchestration.md`](../../process/doctrine/orchestration.md) states the pattern, the
 Orchestrator role doc states the enforcement); `git status -sb` after any hand commit;
 `./scripts/check-board.sh` after every board move.
 
@@ -223,7 +227,7 @@ because self-reports miss what a two-line instrument catches.
 > pack.
 
 `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, written to the shape in
-[`run-report.template.md`](run-report.template.md) and **indexed at close**. Beyond the standing
+[`run-report.template.md`](../../process/templates/run-report.template.md) and **indexed at close**. Beyond the standing
 sections it owes: <the run-specific figures — e.g. the chosen parameter per file with its
 derivation; before/after measurements for the shrink issues; each expensive-artifact
 regeneration cited by commit; the escalation route actually used>.

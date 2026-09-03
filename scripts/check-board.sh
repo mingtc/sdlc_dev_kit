@@ -1173,7 +1173,7 @@ elif [ "$h_scanned" -gt 0 ] && [ "$h_hits" -eq 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# (i) blocks: / blocked_by: SYMMETRY. Two card templates carry these fields and NO
+# (i) blocks: / blocked_by: SYMMETRY. Several card templates carry these fields and NO
 #     SCRIPT WRITES THEM — measured: they appear in the two templates, two role docs and
 #     one skill, and in zero scripts; the board mover writes back only `pr:`. They are
 #     hand-maintained, and .claude/roles/orchestrator.md gates DISPATCH on them

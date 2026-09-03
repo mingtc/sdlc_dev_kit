@@ -69,7 +69,7 @@ runner that does.
 the requirement** — sections 1–5 of every sheet bind any implementation in any language; section 6
 is the pointer to this repository's scripts and is marked as such. Take **no** script at all and
 you still owe every invariant, every refusal condition, and every countable definition of green in
-the sheets. (**How many sheets?** `find process/contracts -type f | wc -l` — run it; a digit typed
+the sheets. (**How many sheets?** `find process/contracts -type f ! -name README.md | wc -l` — run it. **The exclusion is the point**: the index is a file in the directory it indexes, so the unfiltered count answers a different question and answers it one too high. Deriving is not enough on its own — the derivation has to count the thing the sentence names; a digit typed
 here would be wrong the first time a sheet is added.) Any language, any task runner, any CI
 config: the spirit is what transfers.
 *(Authority: [`contracts/README.md`](contracts/README.md) — the index and the six-section shape.)*

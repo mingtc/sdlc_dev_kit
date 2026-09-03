@@ -44,7 +44,7 @@ uninstructed lane.
 
 **This file fails no build.** It is not a guard, not a gate, and not a doctrine sheet — the
 doctrine table in [`MANUAL.md`](MANUAL.md) is scoped to `process/doctrine/` and its directory
-listing is its own count, so a row for this file there would falsify that claim. The one pointer
+listing is its own count, so a row for this file there would falsify that claim. Several files point in — `MANUAL.md`, `EXTRACTION.md`, `contracts/release-ritual.md` and the adapter template among them; derive the set with `grep -rl hygiene-checklist` rather than trusting a count written here, in the file whose own subject is staleness. The pointer named below
 in is from [`doctrine/staleness.md`](doctrine/staleness.md) § D.
 
 ## The two ratchet rules

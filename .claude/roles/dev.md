@@ -313,7 +313,7 @@ Starts from a `type: bug` issue in `progress/todo/` (not a feature). Most of the
 | Done bar | All AC pass | AC pass **and** the bug's reproduction is now a permanent test in the suite. |
 | Handoff notes | Standard | Add a `## Root cause` section to the issue's Handoff-to-QA notes per [systematic-debugging] — what was wrong, why, what test prevents recurrence. |
 
-If three fix attempts fail per [systematic-debugging] Phase 4.5: **stop**, run `./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Three fix attempts failed; needs design conversation."`, and escalate to PM. Do not attempt fix #4 in the same shape.
+If three fix attempts fail per [systematic-debugging] **Phase 4, step 5** ("If 3+ Fixes Failed: Question Architecture" — the skill has four phases and no 4.5): **stop**, run `./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Three fix attempts failed; needs design conversation."`, and escalate to PM. Do not attempt fix #4 in the same shape.
 
 ## Refactor variation
 

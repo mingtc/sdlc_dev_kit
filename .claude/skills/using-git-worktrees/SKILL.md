@@ -198,7 +198,7 @@ Ready to implement <feature-name>
 ### Assuming directory location
 
 - **Problem:** Creates inconsistency, violates project conventions
-- **Fix:** Follow priority: existing > global legacy > instruction file > default
+- **Fix:** Follow the priority order in § Directory Selection — **instruction-file preference > existing project-local > existing global > default**. *(This line used to read `existing > global legacy > instruction file > default`, which is that order backwards and contradicted the section it points at: "Explicit user preference always beats observed filesystem state.")*
 
 ### Proceeding with failing tests
 

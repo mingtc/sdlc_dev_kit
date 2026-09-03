@@ -1,6 +1,12 @@
 <!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR program; § C is the donor project's catalogue, anonymized. -->
 # Fix-execution doctrine — landing what a round found, without minting what it warned about
 
+> **Size note, owed by [`lookup-tables.md`](lookup-tables.md) § A.1.** This sheet is over that
+> section's 32,768-byte trigger and is **deliberately not split**: its § A items are a single
+> execution order, and a reader who arrives at A.9 needs A.1's framing to act on it. *This line
+> exists because the sheet that states the rule was itself the sheet missing it — measured by a
+> fresh-context checker, which found two sheets over the trigger and only one carrying the note.*
+
 A measurement round ends with verified findings and a slate of work items. This sheet is about the
 next stretch: turning that slate into landed changes and a cut. **The characteristic failure of this
 phase is not bad fixes.** It is **fixes that re-create the defect class the round just paid to find**,

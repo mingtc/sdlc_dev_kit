@@ -109,5 +109,5 @@ reason is what stops the same argument being re-litigated
 
 ## References
 
-- [PROJECT.md](../../PROJECT.md) § <section>
+- [PROJECT.md](../PROJECT.md) § <section>   <!-- ../ not ../../ : a PRD lives in requirements/, ONE level down. The card templates beside this one use ../../ correctly because their cards land in progress/<status>/, which is two. -->
 - <linked PRDs, design docs, prior art>

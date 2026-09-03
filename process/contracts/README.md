@@ -108,7 +108,11 @@ Nothing in the minimum set was merged or split.
   # every path a § 6 bullet names, with the class the sheet claims for it —
   # bullets WRAP, so join continuation lines first or five rows in one bullet are missed
   awk '/^- /{b=$0; next} /^[[:space:]]+[^[:space:]]/{b=b " " $0} END{}' process/contracts/*.md
-  grep -rlE '^# KIT-CLASS: (KIT|MIXED)' scripts/ setup.sh   # every script that OWES a sheet
+  grep -rlE '^# KIT-CLASS: (KIT|MIXED)' .   # every travelling file — NOT just scripts/
+  # SCOPE IS THE TRAP HERE. This used to read `scripts/ setup.sh`, which is narrower than the
+  # rule it supports and misses every travelling file under consumers/ and .claude/ — a
+  # derivation offered as the honest alternative to a list, itself undercounting. Run it wide
+  # and let the exempt classes below do the filtering.
   ```
 
 - **`PROJECT`-class files owe nothing** and no sheet may claim one — a contract over a file the
