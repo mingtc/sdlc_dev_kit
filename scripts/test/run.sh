@@ -87,7 +87,9 @@
 # The instrument whose output IS the list, if a reader wants it. NOTE THE COMMENT SKIP,
 # and it is not tidiness: without it this recipe matches the line you are reading and
 # reports itself as a site — a probe inside its own operand set, which is the defect it
-# exists to measure. Measured: the skip is the difference between six hits and five.
+# exists to measure. RUN THE RECIPE RATHER THAN TRUSTING A DIGIT HERE — this line said "six hits
+# and five" and the shipped file gives nine and eight, which is the stale-census defect stated
+# four lines under the header paragraph warning about it.
 #
 #   awk '!/^[[:space:]]*#/ && /_claude/ && /REAL_REPO_ROOT/ {print FNR": "fn}
 #        /^[A-Za-z_][A-Za-z0-9_]*\(\)/{fn=$1}' scripts/test/run.sh
@@ -8996,8 +8998,10 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # =============================================================================
 # CASE — EVERY TRAVELLING SCRIPT HAS A SHEET OR SITS IN A NAMED EXEMPT CLASS.
 #
-# contracts/README.md states the rule in both directions. The mirror direction — every
-# path a sheet cites exists — was already guarded. THIS direction was not, and
+# contracts/README.md states the rule in both directions. THIS one — every travelling script has
+# a sheet — was unguarded, and is what this case closes. The MIRROR direction (every path a sheet
+# cites still exists) is STILL UNGUARDED: this comment claimed it was already covered, and no such
+# case exists anywhere in the suite. contracts/README.md says the same, correctly.
 # contracts/README.md said so in as many words: "nothing checks that a travelling script
 # has a sheet… the guard is the PROJECT's, not the kit's… the contracts travel, a guard
 # over them does not."

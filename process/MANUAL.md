@@ -48,7 +48,7 @@ shell. **Both directions want guarding** — a gate with no sheet, or a sheet ci
 longer exists — and that guard lives in the project's own test tree, not in the kit
 ([`EXTRACTION.md`](EXTRACTION.md) § 4 states the debt honestly).
 
-One sheet there is not about a script at all:
+Some sheets there are not about a script at all — read each one's § 6 for the set rather than trusting a count here (this line said "one sheet" and `EXTRACTION.md` names three, so two shipped files disagreed):
 [`contracts/acceptance-tier.md`](contracts/acceptance-tier.md) — **the acceptance (conformance)
 tier**, the one artifact class that had no travelling spec until it was written. Its reference
 implementation is deliberately **non-travelling** (one test runner's marker), so its invariants and
@@ -419,7 +419,7 @@ that departs from it says so in the adapter.
 
 - **Code work lives on per-work-item branches** — `feature/<ID>-<slug>`, `fix/<ID>-<slug>`,
   `refactor/<ID>-<slug>`, where **`<ID>` is the work item's id — `<PREFIX>-NNN`, the same
-  vocabulary the board uses** (§ The board). Sites that spell it out in full mean this.
+  vocabulary the board uses** (§ Kanban rules — this pointed at "§ The board", which is not a heading in this file). Sites that spell it out in full mean this.
   **Never per-role branches.** One branch per issue.
 - **Kanban state + metadata commit to the trunk.** The board moves, spec/issue edits, role-doc
   updates, refactor/design pass docs, `progress.md`, the project doc and the adapter all commit
@@ -636,7 +636,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`calibration.md`](doctrine/calibration.md) | **The two AVAILABLE rituals that measure the kit's own claims** — a regeneration spike (hide a decision-dense module; rebuild it from the corpus with the acceptance tier as the criterion) and a seed acceptance test (bootstrap a fresh project from the seed document and count the steps guessed). Both must declare their honest-worker limits, and the **findings list is the deliverable**. **Available, never an obligation.** | Here — and `contracts/acceptance-tier.md`, the tier they exercise |
 | [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. The reason (deletion silences guards; evidence is not re-derivable; a negative claim dies with its enumeration) is preserved in full; only this one conclusion narrows. | The project doc's § Retained evidence |
 | [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers (a successor lands, a plan closes, a ruling overturns a conclusion, a number/universal stops being true), each owed in the same commit as its cause, never a sweep. Five stamp fields (the "kept because" surviving-value clause is the one authors drop); "derive, date, or do not state" for numbers in prose. | The implementer/reviewer role docs' *Definition of Done* |
-| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | Here — no sheet points at it yet |
+| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | Pointed at from several sheets — derive with `grep -rl lookup-tables process/`; this cell read "no sheet points at it yet" and was false of both corpora |
 | [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | The orchestrator role doc's run-plan duties |
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
 | [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | Here — and `doctrine/subagent-control.md`, which item 2 names |

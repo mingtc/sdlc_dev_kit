@@ -26,7 +26,7 @@ Every row carries all six fields. The two that get skipped are the two that matt
   condition; *"when X flakes in anger"*, *"when the next issue touches Y"*, *"if the measured count
   resumes growing"* are better.
 
-**Sizes** are the same ladder the board uses (XS / S / M / L), and an *unsized* row says
+**Sizes** are the same ladder the board uses (S / M / L — `XS` belongs to the *model-provisioning* effort ladder and no card template offers it), and an *unsized* row says
 `unsized — needs a measurement first` rather than guessing. A row whose size depends on a
 measurement nobody has taken is a row that must not be bought yet.
 

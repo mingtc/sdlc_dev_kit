@@ -121,7 +121,7 @@ Each of these fails **later and in disguise** if taken out of sequence:
 | **Prefix stamped before the FIRST issue is minted** (step 2 before step 6) | Ids are minted under the kit's placeholder prefix; renaming them afterwards breaks every citation already written. |
 | **A gate runner exists before the FIRST merge** (step 2 before step 7) | The landing gate has nothing to run; the first landing sets the precedent that landings are ungated. |
 | **A real PM session before the first issue** (step 6 before step 7) | The project starts with a backlog nobody scoped, and the first issue's AC is invented by whoever picks it up. |
-| **`PROJECT.md` before the first hat is worn** (step 3 before steps 6–7) | Every role doc says *"read PROJECT.md first"*; without it each session re-invents the quality bar. |
+| **`PROJECT.md` before the first hat is worn** (step 3 before steps 6–7) | Almost every role doc says *"read PROJECT.md first"* — `architect.md` is the exception, naming it fourth in its own read order; without it each session re-invents the quality bar. |
 
 ---
 

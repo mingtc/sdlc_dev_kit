@@ -36,8 +36,10 @@
 # dates it covers, entry count, rotation date, and the cut used. That index is the
 # only thing that makes a chunk findable: `ls` gives filenames with no spans, so
 # without it locating a date means opening chunks until one matches. The index is
-# required and is never created here — a freshly-created empty index cannot be
-# told apart from a project that has never rotated.
+# required, and it is created here ONLY when doing so cannot lie: no chunks present means an
+# empty index is TRUE. Where chunks already exist this refuses instead, because a freshly-created
+# empty index cannot be told apart from a project that has never rotated. (This line read "never
+# created here" while the code below argued the narrower rule and applied it.)
 #
 # "Nothing matched" is NOT "nothing is due": if the cut you gave rotates nothing
 # while § Log is still over the board's threshold, this says so on stderr and

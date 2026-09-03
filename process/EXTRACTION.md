@@ -434,7 +434,7 @@ you want to know what the initializer is doing to your repository. **A non-shell
 | `PRD_PREFIX` | The spec prefix. The default is fine for most projects. |
 | `PROJECT_NAME` | The project's own name, stamped by `kit-init.sh` alongside the two prefixes. **This row was missing entirely** — `config.sh`'s own header names three values the initializer stamps and this table listed two, so the third was a knob no manifest reader could discover. |
 | `validate_issue_id()` | The shared read-only guard: requires an id, enforces the declared shape, hard-errors on an id already live, and **warns** when the id appears only in the archive. Creating scripts are deliberately **stateless** — the caller supplies the number, and `next-id.sh` suggests it. |
-| The publication remote | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
+| The publication remote *(NOT a `config.sh` knob — it is `KWT_REMOTE`, declared in `scripts/lib/kanban-worktree.sh`; this table is § 2.1's and the row sat here as though `config.sh` carried it)* | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
 | The **trunk** | *not a variable* — **a resolution chain**, and its last step cannot warn. The initializer therefore **confirms** it up front (§ 1.3, row 1) rather than letting the chain decide. |
 
 Every knob is a `${VAR:-default}`, so a one-off run can override without an edit.
@@ -479,9 +479,12 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
 - **THE AGENT-FACING TREE UNDER `.claude/` NAMES COLUMNS TOO, AND IT IS THE LARGEST CARRIER OF THEM.**
   The workflow runners emit `move-issue.sh <id> <column>` invocations and describe the board in the
   briefs they hand agents; the item templates state where a card sits at each stage; the role docs and
-  worker definitions name the columns their hat moves between; two skills walk the flow. **They carry
-  the set MINUS `done`** — a runner brief and an issue template both describe the working lifecycle, and
-  nothing there closes an issue. **What a missed column costs here is a WRONG INSTRUCTION rather than a
+  worker definitions name the columns their hat moves between; two skills walk the flow. **Most of them carry
+  the set MINUS `done`** — a runner brief and an issue template describe the working lifecycle, and
+  nothing there closes an issue — **but not all: `.claude/roles/pm.md` states the COMPLETE set,
+  `done` included, as the mover's legal target list.** *This bullet read "they carry the set minus
+  `done`" without the exception, which is the kind of universal `staleness.md` § C is about: derive
+  the carriers (`grep -rl in_progress .claude/`) rather than trusting the quantifier.* **What a missed column costs here is a WRONG INSTRUCTION rather than a
   broken script:** the agent is told to move an issue to a column that does not exist, and the failure
   surfaces as the mover refusing mid-run, at whatever hour the run reached that step.
 

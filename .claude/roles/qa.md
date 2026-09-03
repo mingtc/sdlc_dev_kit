@@ -289,7 +289,7 @@ Bugs are work items in the unified `progress/` system — same lifecycle as feat
 
 ## Severity scale
 
-Defined in [.claude/templates/BUG.template.md](../templates/BUG.template.md). The action column reflects a moderate quality bar — adjust for your project (prototype vs production) per PROJECT.md.
+**Defined HERE, in the table below** — `BUG.template.md` carries the four labels and points back at this section for their meaning, so this pointer used to be circular: it sent a reader to a file that sends them straight back. The action column reflects a moderate quality bar — adjust for your project (prototype vs production) per PROJECT.md.
 
 | Severity | Definition | Default action |
 | --- | --- | --- |

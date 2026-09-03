@@ -1,10 +1,13 @@
 <!-- KIT-CLASS: KIT — the round-pack shape. Copy, fill the <slots>, delete every GUIDANCE line. -->
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — three
+     levels down, NOT to process/templates/ where it sits. A link that resolves while you read the
+     template and dies in every copy of it passes a link check here and is broken for every adopter. -->
 # Round pack template — the pre-registration for one dogfooding round
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/pack.md`, fill every `<slot>`, and **delete every line
 > that starts with `GUIDANCE`**. The doctrine is
-> [`../doctrine/dogfooding.md`](../doctrine/dogfooding.md); this file is how a round is *committed
+> [`../doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); this file is how a round is *committed
 > to* before it runs.
 >
 > **This is a PRE-REGISTRATION, and that is the whole point.** Every slot below is a decision that
@@ -15,7 +18,7 @@
 >
 > **A ROUND is not a RUN.** A launch pack commissions work; this commissions a **measurement**. If
 > what you actually want is issues driven to landing, you want
-> [`launch-pack.template.md`](launch-pack.template.md).
+> [`launch-pack.template.md`](../../../process/templates/launch-pack.template.md).
 >
 > **Size discipline.** One screen per section. Standing rules live in the doctrine sheets and are
 > **cited, never restated** — a copy here goes stale and wins arguments it should lose.
@@ -27,8 +30,8 @@
 > **GUIDANCE.** Same lifecycle as a launch pack: authored `LIVE`, stamped `SPENT` at close against
 > the report **by name**, in the same commit that lands the report. **Never rewrite the original
 > wording** — the conclusion is superseded, the wording is preserved
-> ([`../doctrine/supersession.md`](../doctrine/supersession.md),
-> [`../doctrine/staleness.md`](../doctrine/staleness.md)).
+> ([`../doctrine/supersession.md`](../../../process/doctrine/supersession.md),
+> [`../doctrine/staleness.md`](../../../process/doctrine/staleness.md)).
 
 ```
 > **STATUS: LIVE — not yet run.** Dogfooding round: **<round name>**.
@@ -60,7 +63,7 @@ commit — "only what ships" has to be a specific set of bytes, or the round is 
 > **GUIDANCE.** Who meets the product, and **what each tier is blind to**. Tiers exist so an
 > inversion is legible (§ A.3: a more capable participant may report *partial* success where a
 > weaker one reports success and is wrong). State provisioning per tier if participants are agents
-> ([`../doctrine/model-provisioning.md`](../doctrine/model-provisioning.md)) — and remember
+> ([`../doctrine/model-provisioning.md`](../../../process/doctrine/model-provisioning.md)) — and remember
 > participants are **leaves**: a participant does not spawn helpers.
 
 | Tier | Who / how provisioned | What they hold | What they are blind to |
@@ -89,7 +92,7 @@ commit — "only what ships" has to be a specific set of bytes, or the round is 
 
 ## 4. Instruments — and each one's named blind spot
 
-> **GUIDANCE.** [`../doctrine/instruments.md`](../doctrine/instruments.md) binds here in full. Per
+> **GUIDANCE.** [`../doctrine/instruments.md`](../../../process/doctrine/instruments.md) binds here in full. Per
 > instrument: what it watches, its **blind spot named in its own output**, and the **ablation** that
 > proves it can fail. An instrument with no ablation is listed as **unproven, not passing**. Take
 > each one to the messiest realistic behaviour — or better, to a **previous round's real leftovers**
@@ -128,7 +131,7 @@ them means the participant handled it well.**
 
 ## 6. Resource budget, fences, and the leftovers ruling
 
-> **GUIDANCE.** [`../doctrine/live-resources.md`](../doctrine/live-resources.md) § A.1 (budget),
+> **GUIDANCE.** [`../doctrine/live-resources.md`](../../../process/doctrine/live-resources.md) § A.1 (budget),
 > §§ A.3–A.4 (the two fences: selection is not consent; consent carries the **authorizing
 > work-item id**, never a boolean), § A.6 (teardown proof = the delete's own answer **plus a
 > read-back proving absence**). Reclaim **by enumerating the container**, never by replaying a
@@ -202,7 +205,7 @@ The report names each halted scenario and states what was therefore **unmeasured
 ## 10. The report, and the close conditions
 
 `dev/rounds/<date>-<name>/report.md`, to the shape in
-[`round-report.template.md`](round-report.template.md), **indexed in `dev/README.md` at close**.
+[`round-report.template.md`](../../../process/templates/round-report.template.md), **indexed in `dev/README.md` at close**.
 
 **Close conditions:** this pack stamped **SPENT** against the report by name; every scenario either
 graded or named as halted/unmeasured; the resource accounting reconciled against § 6 with orphans

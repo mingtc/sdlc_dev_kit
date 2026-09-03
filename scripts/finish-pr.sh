@@ -248,7 +248,18 @@ while IFS= read -r f; do
 done < <(find "$KWT/progress/dev_complete" -maxdepth 1 -name "${ISSUE_ID}-*.md" -type f 2>/dev/null)
 
 if [ -z "$SRC" ]; then
-  echo "Error: ${ISSUE_ID} not found in progress/dev_complete/." >&2
+  # NAME THE STATE IT IS ACTUALLY IN — process/contracts/landing-gate.md § 3 requires it, and this
+  # message named only the state it WANTED. Byte-identical for a card in todo/, in qa_complete/ and
+  # for one that does not exist, which are three different problems with three different next steps.
+  _fpr_at="$(find "$KWT/progress" -maxdepth 2 -name "${ISSUE_ID}-*.md" 2>/dev/null | head -1)"
+  if [ -n "$_fpr_at" ]; then
+    _fpr_col="$(basename "$(dirname "$_fpr_at")")"
+    echo "Error: ${ISSUE_ID} is in progress/${_fpr_col}/, not progress/dev_complete/." >&2
+    echo "       finish-pr lands from dev_complete only. Move it there first if QA has handed it back," >&2
+    echo "       or land nothing if it is already in qa_complete/." >&2
+  else
+    echo "Error: ${ISSUE_ID} is in no progress/ folder at all — not dev_complete/, and not anywhere else." >&2
+  fi
   echo "       finish-pr.sh only lands issues sitting in dev_complete/." >&2
   exit 1
 fi
