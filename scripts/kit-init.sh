@@ -603,6 +603,10 @@ else
 fi
 
 # --- the role set: every ENFORCING script seam at once ---------------------
+# THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's kit_role_set. This
+# script sources nothing from scripts/lib/, so the EXPRESSION is shared by declaration and
+# the self-test holds the sites identical. FALLBACK POLICY HERE: fatal — an initializer
+# that cannot read the set it is about to rewrite must not guess at it.
 OLD_ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$COMMITMSG" | head -1)"
 [ -n "$OLD_ROLES" ] || { echo "Error: could not read ROLE_PREFIXES out of scripts/githooks/commit-msg." >&2; exit 1; }
 if [ -n "$ROLES_NEW" ]; then

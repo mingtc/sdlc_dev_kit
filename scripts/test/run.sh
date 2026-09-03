@@ -632,6 +632,8 @@ _kit_neutral_claude() {
 _neu_roles() {
   local cm="$SB_WORK/scripts/githooks/commit-msg" cur f
   [ -f "$cm" ] || return 0
+  # FALLBACK POLICY HERE: _fixture_die. See lib/role-set.sh for the canonical read; the
+  # EXPRESSION is shared by declaration, the POLICY is each caller's and they differ.
   cur="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$cm" | head -1)"
   [ -n "$cur" ] \
     || _fixture_die "_neu_roles: no ROLE_PREFIXES line in the sandbox's commit-msg — the seam was renamed or moved, so the role vocabulary was NOT neutralized and every --role literal in this file would be judged against whatever the adopter declared."
@@ -3132,7 +3134,13 @@ case_commit_msg() {
   # DERIVE the accepted prefixes from the hook's own ROLE_PREFIXES line — do NOT
   # re-hardcode them, or a set change makes these assertions vacuous.
   local prefixes
-  prefixes="$(sed -n "s/^ROLE_PREFIXES='\\(.*\\)'.*/\\1/p" "$hook")"
+  # THE CANONICAL EXPRESSION, byte-identical to lib/role-set.sh's kit_role_set and to the
+  # other three sites. It used to carry a trailing `.*`, which silently tolerated content
+  # after the closing quote that no other reader accepts — the kind of divergence that
+  # makes two sites disagree about the same file with nothing in either to show it.
+  # FALLBACK POLICY HERE: cf (a case finding). The set is derived to keep the assertions
+  # below non-vacuous, so an unreadable hook makes this case meaningless, not skippable.
+  prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
   [ -n "$prefixes" ] || cf "could not derive ROLE_PREFIXES from the hook"
 
   local IFS='|' p rc
@@ -8868,6 +8876,66 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # which is why prose and token being two authoring sites for one fact needs a census
 # rather than a fix at the one site that happened to be found.
 # =============================================================================
+# =============================================================================
+# CASE — ONE READ EXPRESSION, FIVE SITES, AND EVERY SITE DECLARES ITS FALLBACK POLICY.
+#
+# Reading the project's declared role set out of scripts/githooks/commit-msg is ONE act
+# written five times. It cannot be written once: check-board.sh and kit-init.sh source
+# nothing from scripts/lib/, so lib/role-set.sh's kit_role_set reaches three consumers and
+# not the other two.
+#
+# WHAT ACTUALLY WENT WRONG IS NOT THE COUNT. The copies disagreed and the disagreement was
+# invisible: one carried a trailing `.*`, silently tolerating content after the closing
+# quote that no other reader accepts. Two sites, same file, different answers, nothing in
+# either to show it.
+#
+# AND THE POLICIES DIFFER ON PURPOSE — check-board falls back to a hardcoded set and SAYS
+# so; kit-init treats an unreadable hook as fatal; the library returns empty and makes the
+# caller decide; the harness dies. Each is right for its own caller. So this case pins the
+# EXPRESSION, which must be identical, and requires each site to DECLARE its policy, which
+# must not be guessed at by the next reader.
+# =============================================================================
+case_role_set_read_is_one_expression() {
+  cf_reset
+  make_sandbox
+  local expr_ rows n
+
+  # DERIVE the canonical expression from the library, never retype it: the library is the
+  # declared shape, so a change there is meant to reach the census.
+  # Read the REAL shipped tree, not the sandbox: the sandbox omits scripts/test/, which
+  # holds two of the five sites — and a census that cannot see two of its operands reports
+  # agreement among the three it can.
+  expr_="$(sed -n 's/.*sed -n "\(s\/\^ROLE_PREFIXES[^"]*\)".*/\1/p' "$REAL_SCRIPTS/lib/role-set.sh" | head -1)"
+  [ -n "$expr_" ] \
+    || _fixture_die "case_role_set_read_is_one_expression: could not derive the canonical read out of lib/role-set.sh — a census with no expression to compare against passes forever."
+
+  # Every site that reads ROLE_PREFIXES through sed uses THAT expression.
+  rows="$(grep -rn "sed -n \"s/\^ROLE_PREFIXES" "$REAL_SCRIPTS" 2>/dev/null \
+          | grep -vF "$expr_" || true)"
+  [ -z "$rows" ] \
+    || cf "a ROLE_PREFIXES read uses an expression other than the canonical one ('$expr_') — the copies then disagree about the same file with nothing in either to show it: $(printf '%s' "$rows" | tr '\n' ' ' | cut -c1-220)"
+
+  # ── INSTRUMENT CHECK: the census still finds the population. A search that stopped
+  #    matching reports "no divergence" about nothing.
+  n="$(grep -rc "sed -n \"s/\^ROLE_PREFIXES" "$REAL_SCRIPTS" 2>/dev/null | awk -F: '{t+=$2} END{print t+0}')"
+  [ "$n" -ge 4 ] \
+    || cf "the census found only $n ROLE_PREFIXES read(s) — expected at least 4. A low count means the idiom changed shape, NOT that the sites agree"
+
+  # EVERY SITE DECLARES ITS FALLBACK POLICY, because the policies legitimately differ and
+  # an undeclared one is indistinguishable from a copied one.
+  local f miss=""
+  for f in check-board.sh kit-init.sh lib/role-set.sh; do
+    grep -q "sed -n \"s/\^ROLE_PREFIXES" "$REAL_SCRIPTS/$f" 2>/dev/null || continue
+    grep -qiE 'FALLBACK POLICY|Callers MUST treat empty' "$REAL_SCRIPTS/$f" \
+      || miss="$miss $f"
+  done
+  [ -z "$miss" ] \
+    || cf "these sites read ROLE_PREFIXES and declare no fallback policy —$miss. The policies differ on purpose; an undeclared one cannot be told from a copied one, and the next reader has to guess which"
+
+  finish "the ROLE_PREFIXES read is ONE expression at all $n sites (derived from lib/role-set.sh, not retyped) and every shipped site declares its own fallback policy — the expression is shared by assertion because two of the readers source nothing from scripts/lib/, and the policies differ on purpose"
+  teardown
+}
+
 case_advisory_headers_carry_the_machine_token() {
   cf_reset
   make_sandbox
@@ -9768,6 +9836,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_role_set_read_is_one_expression
   case_advisory_headers_carry_the_machine_token
   case_minting_cases_probe_for_the_template
   case_frontmatter_scan_cap_is_enforced

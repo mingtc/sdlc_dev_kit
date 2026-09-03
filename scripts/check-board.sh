@@ -620,6 +620,10 @@ fi
 #     the arm answers one question about one tree.
 # ---------------------------------------------------------------------------
 echo
+# THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's kit_role_set, which is
+# the declared shape. This script sources nothing from scripts/lib/, so the EXPRESSION is
+# shared by declaration and assertion rather than by a call; the self-test holds the five
+# sites identical. FALLBACK POLICY HERE: a hardcoded set, ANNOUNCED in the output below.
 ROLE_PREFIXES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$CB_TREE/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
 # THE DERIVATION ABOVE IS THE PATTERN TO PRESERVE; the literal below is only what
 # is used when the hook cannot be read — and it is the part that drifts (it once
