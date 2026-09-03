@@ -46,6 +46,33 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`archive-progress.sh`'s dry run no longer writes anything.** Its DEFAULT mode (no `--apply`)
+  created `progress/history/INDEX.md` when that file was absent, then closed by printing
+  *"(dry run — no changes made.)"*. **Action required if you have ever run it without `--apply`
+  on a board with no rotation index:** you may have an empty `INDEX.md` you did not ask for. It is
+  harmless — the header is what `--apply` would have written — but if you would rather it were not
+  there, delete it. The dry run now names the file it would create instead of creating it.
+- **`.claude/settings.json.example` no longer carries a `_PLACEHOLDERS` map.** The map glossed seven
+  `<angle-bracket>` tokens (`<trunk>`, `<PREFIX>`, `<code-path-globs>`, `<metadata-path-globs>`,
+  `<adapter>`, `<project-facts>`, `<role-prefix-list>`) and told you to replace "every token below".
+  All seven had already left with the deleted `autoMode` block. **There is nothing in this file to
+  fill in; copy it as it stands.** Those values are real and are declared where they are used — the
+  adapter, `scripts/config.sh`, and the commit-msg hook.
+- **`.claude/workflows/tranche-runner.js` told the QA agent to return a verdict its own schema
+  rejects.** The fail branch said `return verdict=FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` /
+  `FAIL_AC` / `FAIL_REGRESSION`. **Action required if you run this workflow:** a QA leg that failed
+  an issue could error at the structured-output call rather than reporting the failure. Re-copy the
+  file. The instruction is now derived from the enum, so the two cannot part again.
+- **Three documentation pointers were wrong in ways that change what you would do.**
+  `.claude/roles/dev.md` cited `finishing-a-development-branch` **Option 2** for preserving a
+  `dev_complete/` worktree — Option 2 is the *no-handoff* path; **Option 1** is the handoff.
+  `using-git-worktrees`' quick-reference table consulted your instruction-file preference **last**,
+  where § Directory Selection makes it **first** and says explicit preference beats filesystem
+  state. The `finishing-a-development-branch` trunk snippet's `|| git config --get
+  init.defaultBranch` fallback was **unreachable** — `||` binds to the pipeline, and a pipeline
+  ending in `sed` exits 0 even when it produced nothing, so an unset `origin/HEAD` yielded an empty
+  trunk name rather than the fallback.
+
 - **`PROJECT.md` gains a `Build order` section — and shipped role docs have been pointing at it all
   along.** `pm.md` prioritises *"against the build order in PROJECT.md"*, and `dev.md` and
   `orchestrator.md` name it as project context; the sheet had no such section. The opening line *"not the
@@ -69,7 +96,6 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   point, but check it. Nothing changes for a correct invocation.
 
 
-_Nothing yet._
 
 ## [0.3.0] — 2026-09-03
 
@@ -231,11 +257,16 @@ _Nothing yet._
   the first two to be unset; on a normal developer machine `init.defaultBranch` **is** set, so a cut
   against it — a value that is your preference for new repositories, and has nothing to do with what
   your remote calls its trunk — went out with no line about it at all. It now warns, and names the
-  one command that settles it: `git remote set-head <remote> --auto`. `check-board.sh` used to
+  one command that settles it: `git remote set-head <remote> <your-trunk>`. `check-board.sh` used to
   resolve through both fallbacks in silence; it now prints the trunk's provenance on its source
   line, because every trunk arm in that report is a statement *about* that branch name. **No action
   required if `<remote>/HEAD` is set** — you will see no new output at all. **If you start seeing a
-  guess warning, that is the finding:** run `git remote set-head <remote> --auto` once.
+  guess warning, that is the finding:** run `git remote set-head <remote> <your-trunk>` once.
+  **Not `--auto`** — it asks the remote for its own HEAD, and in exactly the state that produces
+  this warning the remote has no usable one: measured against a bare repo created by the kit's own
+  recipe, `--auto` exits 1 with *"Cannot determine remote HEAD"* while the explicit form succeeds.
+  Where you control the bare side, `git -C <repo>.git symbolic-ref HEAD refs/heads/<your-trunk>` is
+  better still, and `process/GIT-HOSTING.md` § 3 says why.
 
 - **There is now a rule about how a configured default is WRITTEN, not just what it is worth — and
   it can bite you on an edit that looks like formatting.** Several scripts read a default back out

@@ -235,6 +235,18 @@ if [ ! -f "$INDEX" ]; then
   fi
   # No chunks: an empty index is the truth. Create it and SAY SO, because a file
   # appearing without explanation is its own small mystery.
+  #
+  # AND NOT DURING A DRY RUN. This block ran unconditionally, 223 lines above the
+  # `(dry run - no changes made.)` line, so the DEFAULT invocation of this script
+  # created a file on disk and then closed by denying it had. A dry run whose own
+  # summary is false is worse than no dry run: it is the instrument reporting the
+  # opposite of what it did (instruments.md § A.2 - the probe can be the defect).
+  # The refusal above stays in BOTH modes: refusing is not mutating, and a dry run
+  # that hid the refusal would misreport in the other direction.
+  if [ "$DRY_RUN" = "true" ]; then
+    echo "Note: ${INDEX#"$REPO_ROOT"/} is absent. --apply would create it with only a header" >&2
+    echo "      (no chunk exists yet, so an empty index is true). NOT creating it now." >&2
+  else
   {
     echo "<!-- Rotation index. Created by archive-progress.sh because it was absent and no"
     echo "     rotated chunk existed yet, so an empty index was simply true. Rows are"
@@ -249,6 +261,7 @@ if [ ! -f "$INDEX" ]; then
     echo '|---|---|---|---|---|'
   } > "$INDEX"
   echo "Note: created ${INDEX#"$REPO_ROOT"/} (it was absent and no chunk existed, so an empty index was true)." >&2
+  fi
 fi
 
 # Split entries: write pre-cutoff to PRE_TMP, post-cutoff to POST_TMP,

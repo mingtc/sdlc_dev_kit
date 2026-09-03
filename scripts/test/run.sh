@@ -88,8 +88,9 @@
 # and it is not tidiness: without it this recipe matches the line you are reading and
 # reports itself as a site — a probe inside its own operand set, which is the defect it
 # exists to measure. RUN THE RECIPE RATHER THAN TRUSTING A DIGIT HERE — this line said "six hits
-# and five" and the shipped file gives nine and eight, which is the stale-census defect stated
-# four lines under the header paragraph warning about it.
+# and five", then "nine and eight", and both were wrong. RUN THE RECIPE — it is four lines below.
+# A digit here is a census in prose about a file that changes every time a case is added, stated
+# four lines under the header paragraph warning about exactly that.
 #
 #   awk '!/^[[:space:]]*#/ && /_claude/ && /REAL_REPO_ROOT/ {print FNR": "fn}
 #        /^[A-Za-z_][A-Za-z0-9_]*\(\)/{fn=$1}' scripts/test/run.sh
@@ -124,7 +125,12 @@ set -uo pipefail
 # repositories for several minutes, which is the most expensive possible answer to "what is this?".
 case "${1:-}" in
   -h|--help)
-    sed -n '3,34p' "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    # DERIVED, NOT A LITERAL. The first version of this arm used `3,34p` and this header runs to
+    # line 118, so --help ended mid-sentence with an unclosed rule. Every other header-derived
+    # --help in the kit derives its end; this arm was written in the same session that removed the
+    # last literal from the others and reintroduced one immediately.
+    _rs_end="$(awk 'NR>2 && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    sed -n "3,${_rs_end:-34}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
   '') : ;;
   *) echo "run.sh: unknown option '$1' — this harness takes none; run it with no arguments." >&2
@@ -3611,6 +3617,54 @@ case_verdict_enum_projection() {
     fi
   done
 
+  # --- THIRD LEG: THE PROSE THAT TELLS THE AGENT WHAT TO RETURN ------------------
+  # The two legs above hold each runner's `const VERDICTS` to the manual's ratified
+  # table. Neither reads the PROMPT, and the prompt is where the agent is actually
+  # told what to send back. tranche-runner's fail branch said `return verdict=FAIL`
+  # for as long as the enum has existed: not in VERDICTS, so the StructuredOutput
+  # call would have been rejected at runtime, and both legs above stayed green the
+  # whole time because the declaration they compare was never wrong.
+  # Found by a fresh-context sweep 2026-09-03.
+  local pr tok bad
+  for r in "$wf"/*.js; do
+    [ -f "$r" ] || continue
+    name="$(basename "$r")"
+    projected="$(_verdict_tokens_runner "$r")"
+    [ -n "$projected" ] || continue
+    # Only the instructing form. Bare "PASS/FAIL per bullet" prose is per-AC evidence,
+    # a different thing on a different field, and sweeping it in would be the operand
+    # error this case already carries a pin about.
+    pr="$(grep -oE 'verdict[[:space:]]*=[[:space:]]*[A-Z_]+' "$r" | grep -oE '[A-Z_]+$' | sort -u || true)"
+    while IFS= read -r tok; do
+      [ -n "$tok" ] || continue
+      printf '%s\n' "$projected" | grep -qx "$tok" \
+        || cf "$name's PROMPT instructs 'verdict=$tok', which its own VERDICTS does not contain — the agent is told to return a value the schema rejects"
+    done <<EOF
+$pr
+EOF
+  done
+
+  # Its control, separately: the leg above is vacuous if no runner instructs a verdict
+  # at all, which is the state the fix left them in. Inject one that is NOT ratified
+  # and require the check to name it.
+  # $SB_TMP is EMPTY in this case — it calls no make_sandbox — so "$SB_TMP/pctl" is
+  # "/pctl", which mkdir cannot create. The control below it already carries this
+  # guard; writing a second control without it produced a red that named the
+  # instrument rather than the subject.
+  local pctl="$SB_TMP"
+  [ -n "$pctl" ] || pctl="$(mktemp -d)"
+  mkdir -p "$pctl/pctl"
+  if [ -f "$wf/tranche-runner.js" ]; then
+    sed 's/Do NOT fix code yourself\./Do NOT fix code yourself. return verdict=BOGUS/' \
+      "$wf/tranche-runner.js" > "$pctl/pctl/tranche-runner.js"
+    bad="$(grep -oE 'verdict[[:space:]]*=[[:space:]]*[A-Z_]+' "$pctl/pctl/tranche-runner.js" | grep -oE '[A-Z_]+$' | sort -u || true)"
+    printf '%s\n' "$bad" | grep -qx 'BOGUS' \
+      || cf "(control) the prompt extractor did not see an injected 'verdict=BOGUS' — the third leg cannot bite"
+  else
+    cf "(control) tranche-runner.js not found — the prompt-prose control could not run"
+  fi
+  rm -rf "$pctl/pctl"
+
   # --- REDDENING CONTROL: drop a member from a COPY and the comparison must fail --
   # Without this the loop above passes whenever both sides are equal, including when
   # the extractors are both broken in the same direction.
@@ -4094,6 +4148,116 @@ cb_set_dep() {
 cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
 # =============================================================================
+# CASE — settings.json.example never glosses a placeholder it does not contain.
+#
+# It did. A `_PLACEHOLDERS` map glossed seven <angle-bracket> tokens and told the adopter
+# to "replace every token below"; ALL SEVEN had left with the `autoMode` block that a
+# sibling key in the same file records as deleted. The glossary outlived its subject —
+# the change edited the thing and not the sentence next door describing it — and the
+# instruction it left behind sent a reader looking for text that was not there.
+#
+# The guard is bidirectional on purpose. One direction catches the defect that happened;
+# the other catches the fix that over-corrects by deleting a gloss while the token stays.
+case_settings_example_glosses_only_real_placeholders() {
+  cf_reset
+  # $REAL_REPO_ROOT, not a sandbox: this file is a KIT DELIVERABLE shipped for the
+  # operator to copy, not something an initialized project is given. Reading it out of
+  # $SB_WORK found nothing and killed the fixture.
+  local f="$REAL_REPO_ROOT/.claude/settings.json.example" declared present tok
+  [ -f "$f" ] || _fixture_die "case_settings_example_glosses_only_real_placeholders: no .claude/settings.json.example in the published kit at $REAL_REPO_ROOT"
+
+  python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$f" \
+    || cf "settings.json.example is not valid JSON"
+
+  # Tokens the file GLOSSES (keys of _PLACEHOLDERS, if that key exists at all) ...
+  declared="$(python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+print("\n".join(k for k in d.get("_PLACEHOLDERS",{}) if k.startswith("<")))' "$f")"
+
+  # ... versus tokens the file actually CONTAINS, everywhere but that map.
+  present="$(python3 -c '
+import json,re,sys
+d=json.load(open(sys.argv[1]))
+# Underscore keys are this file COMMENTING ON ITSELF - the carve-out that exists
+# because JSON has no comment syntax. A token QUOTED in that commentary (including
+# the note recording which tokens were REMOVED) is not a token to replace, and
+# counting it is the self-scanning census defect: the explanation of an absence
+# reads as a presence.
+body=json.dumps({k:v for k,v in d.items() if not k.startswith("_")})
+print("\n".join(sorted(set(re.findall(r"<[A-Za-z][A-Za-z-]*>", body)))))' "$f")"
+
+  while IFS= read -r tok; do
+    [ -n "$tok" ] || continue
+    printf '%s\n' "$present" | grep -qxF "$tok" \
+      || cf "_PLACEHOLDERS glosses $tok, which appears NOWHERE else in the file — the adopter is told to replace text that is not there"
+  done <<EOF
+$declared
+EOF
+
+  while IFS= read -r tok; do
+    [ -n "$tok" ] || continue
+    printf '%s\n' "$declared" | grep -qxF "$tok" \
+      || cf "$tok appears in the file but no _PLACEHOLDERS entry says what to put there"
+  done <<EOF
+$present
+EOF
+
+  finish "settings.json.example: every <token> it glosses appears in it, and every <token> in it is glossed (both directions — the defect was a gloss outliving its subject)"
+}
+
+# CASE — archive-progress.sh's DRY RUN, which is the DEFAULT, writes nothing at all.
+#
+# It used to. The empty-index creation sat 223 lines above the `(dry run — no changes
+# made.)` line and ran in both modes, so the default invocation created
+# progress/history/INDEX.md and then closed by denying it had. Found by a fresh-context
+# sweep 2026-09-03; the reason it survived the mechanical pre-cut sweep is that nothing
+# CLAIMED the two were connected — the write was correct on its own, the summary was
+# correct on its own, and only running the thing shows they contradict.
+#
+# The assertion is a WHOLE-TREE checksum, not `[ ! -f INDEX.md ]`. Naming the one file
+# I know about would pass the day a different dry-run write appears, and this defect's
+# whole lesson is that the write nobody thought about is the one that gets through.
+case_archive_progress_dry_run_writes_nothing() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/apdry" out rc before after
+  ap_seed "$R" 20 2026-08-20 \
+    || { finish "archive-progress.sh: a dry run writes NOTHING"; teardown; return; }
+
+  _tree_sum() { find "$R" -type f -print0 | sort -z | xargs -0 shasum | shasum; }
+  before="$(_tree_sum)"
+
+  # No --apply. Entries ARE older than the cut, so this is the live path, not a no-op.
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
+                  --milestone dry1 --before 2026-08-26 2>&1 )" || rc=$?
+  after="$(_tree_sum)"
+
+  [ "$rc" -eq 0 ] \
+    || cf "the dry run exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  [ "$before" = "$after" ] \
+    || cf "THE DRY RUN MUTATED THE TREE. Files now present: $(find "$R" -type f | sed "s|^$R/||" | tr '\n' ' ')"
+  printf '%s' "$out" | grep -q 'dry run' \
+    || cf "the dry run did not identify itself as one"
+
+  # AND IT SAID SO. A fix that silently skipped the creation would satisfy the checksum
+  # above while leaving the reader unable to tell the index is missing — the honest-blind-
+  # spot duty (instruments.md § A.4). The dry run must ANNOUNCE the write it declined.
+  printf '%s' "$out" | grep -q 'INDEX.md' \
+    || cf "the dry run never mentioned INDEX.md, so a reader cannot tell --apply would create it"
+
+  # THE OTHER DIRECTION, which is what makes the check above a real one: --apply DOES
+  # create it. Without this leg, deleting the creation outright would pass.
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
+                  --milestone dry2 --before 2026-08-26 --apply 2>&1 )" || rc=$?
+  [ -f "$R/progress/history/INDEX.md" ] \
+    || cf "--apply did NOT create the index — the dry-run fix removed the behaviour instead of deferring it (rc=$rc)"
+
+  unset -f _tree_sum
+  finish "archive-progress.sh: the DEFAULT dry run leaves the tree byte-identical (whole-tree checksum) while still naming the index it would create, and --apply still creates it"
+  teardown
+}
+
 # archive-progress.sh: the ordinal knife, the honest no-op, and the index
 # =============================================================================
 # WHY THESE EXIST (measured, not speculative). The rotation's only selector was a
@@ -9178,11 +9342,19 @@ case_travelling_scripts_have_a_sheet() {
   [ -f "$readme" ] && [ -d "$cdir" ] \
     || { skp "every travelling script has a sheet or a named exemption" "process/contracts/ is absent — this project does not carry the contract set"; teardown; return; }
 
+  # THE OPERAND IS EVERY TRAVELLING SCRIPT, NOT scripts/ ALONE, AND BOTH COMMENT SYNTAXES.
+  # This walked $REAL_SCRIPTS with `^# KIT-CLASS:` only — narrower than the rule it enforces in
+  # exactly the two ways contracts/README.md's own recipe warns about, so consumers/ was invisible
+  # to the guard that claims to cover every travelling script.
+  #
   # THE EXEMPT PREFIXES, derived from the rule's own bullet rather than retyped. Each class
   # is named there as a backticked path prefix.
   local exempt n=0 miss="" f rel
-  exempt="$(awk '/TWO CLASSES OF TRAVELLING SCRIPT ARE EXEMPT/,/^- \*\*A § 6 row/' "$readme" \
-            | grep -oE '`scripts/[a-z-]+/`' | tr -d '`' | sort -u)"
+  exempt="$(awk '/EXEMPT-CLASSES:BEGIN/,/EXEMPT-CLASSES:END/' "$readme" \
+            | grep -oE '`[a-z][a-z-]*/([a-z-]+/)?`' | tr -d '`' | sort -u)"
+  # ANY top-level prefix, not `scripts/…` alone: the pattern was written when both exempt classes
+  # happened to live under scripts/, so adding a third (consumers/) left it invisible to the guard
+  # that reads this list — the extractor silently declining to see a class nobody could tell it about.
   [ -n "$exempt" ] \
     || _fixture_die "case_travelling_scripts_have_a_sheet: could not derive the exempt classes out of contracts/README.md — with none derived every travelling script would look owed, and with the derivation reading the wrong block every one would look exempt."
 
@@ -9200,7 +9372,7 @@ case_travelling_scripts_have_a_sheet() {
     grep -rqE "$(printf '%s' "${rel%/*}" | sed 's/[.[\*^$]/\\&/g')/<[a-z-]+>\.(sh|py)" "$cdir" 2>/dev/null && continue
     miss="$miss $rel"
   done <<EOF
-$(grep -rlE '^# KIT-CLASS: (KIT|MIXED)' "$REAL_SCRIPTS" 2>/dev/null | sort)
+$(grep -rlE '^(#|<!--) KIT-CLASS: (KIT|MIXED)' "$REAL_REPO_ROOT/scripts" "$REAL_REPO_ROOT/consumers" "$REAL_REPO_ROOT/setup.sh" 2>/dev/null | sort)
 EOF
 
   [ -z "$miss" ] \
@@ -10376,6 +10548,8 @@ CASES=(
   case_rotation_day_uses_the_board_clock
   case_archive_progress_ordinal_knife
   case_archive_progress_honest_noop
+  case_archive_progress_dry_run_writes_nothing
+  case_settings_example_glosses_only_real_placeholders
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set

@@ -34,8 +34,8 @@ kit_usage() {
   # THE WINDOW START IS DERIVED, NOT A LITERAL 3. The literal encoded a premise — line 1
   # is the shebang, line 2 is the whole KIT-CLASS marker — and the premise is false
   # wherever the marker WRAPS: help then opens with marker text, which is the one thing
-  # this window exists to exclude. Measured: three shipped files carry a marker spanning
-  # three lines. Every marker's LAST line cites EXTRACTION.md — that is the convention
+  # this window exists to exclude. Several shipped files carry a marker spanning more than one
+  # line — derive the set rather than trusting a count here. Every marker's LAST line cites EXTRACTION.md — that is the convention
   # `process/EXTRACTION.md` § The one file classification convention sets — so the marker's
   # end is derivable rather than assumed. Falls back to the KIT-CLASS line itself, then to
   # the old literal, so a file that follows neither convention degrades to today's

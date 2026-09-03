@@ -46,7 +46,7 @@ outcome — but never to nothing.
 
 | Item | Origin | Size | Why deferred | Wake condition | Status |
 |---|---|---|---|---|---|
-| `<one bold sentence: what would be done>` | `<where it was raised — an audit, a session, a review>` | `<XS/S/M/L, or "unsized — needs a measurement first">` | `<the reason, quoted if somebody ruled>` | `<an observable condition>` | `<open / STRUCK — landed as <PREFIX>-NNN, outcome … / STRUCK — ruled dead <date>, because …>` |
+| `<one bold sentence: what would be done>` | `<where it was raised — an audit, a session, a review>` | `<S/M/L, or "unsized — needs a measurement first">` | `<the reason, quoted if somebody ruled>` | `<an observable condition>` | `<open / STRUCK — landed as <PREFIX>-NNN, outcome … / STRUCK — ruled dead <date>, because …>` |
 
 <!-- Day one: this table has exactly the header and the shape row above, and that is correct.
      A queue that starts full is a backlog nobody scoped. -->

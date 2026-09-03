@@ -78,9 +78,14 @@ The branch is landed onto the project's trunk, which the adapter names. Confirm 
 guessing between `main` and `master`:
 
 ```bash
-# The same chain the board scripts use: the remote's HEAD, then the configured default.
-git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
-  || git config --get init.defaultBranch
+# The board's chain, abbreviated: <remote>/HEAD, then init.defaultBranch.
+# TEST THE VALUE, NOT THE EXIT STATUS. This was written with `||`, which binds to the
+# whole PIPELINE — and a pipeline ending in `sed` exits 0 even when symbolic-ref found
+# nothing, so the fallback was unreachable and the answer was an empty string.
+trunk="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
+[ -n "$trunk" ] || trunk="$(git config --get init.defaultBranch 2>/dev/null || true)"
+[ -n "$trunk" ] || echo "Trunk unresolved — ask, or run: git remote set-head origin <trunk>" >&2
+echo "$trunk"
 ```
 
 You need it only to report what the work will land onto — this skill never merges into it.

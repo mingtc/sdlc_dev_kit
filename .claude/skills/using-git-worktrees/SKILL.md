@@ -168,11 +168,12 @@ Ready to implement <feature-name>
 | In a submodule | Treat as normal repo (Step 0 guard) |
 | Native worktree tool available | Use it (Step 1a) |
 | No native tool | Git worktree fallback (Step 1b) |
-| `.worktrees/` exists | Use it (verify ignored) |
-| `worktrees/` exists | Use it (verify ignored) |
-| Both exist | Use `.worktrees/` |
-| Neither exists | Check instruction file, then default `.worktrees/` |
-| Global path exists | Use it (backward compat) |
+| Instructions declare a directory | Use it — **preference beats filesystem state** (Step 1) |
+| No preference, `.worktrees/` exists | Use it (verify ignored) |
+| No preference, `worktrees/` exists | Use it (verify ignored) |
+| No preference, both exist | Use `.worktrees/` |
+| No preference, global path exists | Use it (backward compat) |
+| No preference, none of the above | Default `.worktrees/` at the project root |
 | Directory not ignored | Add to .gitignore + commit |
 | Permission error on create | Sandbox fallback, work in place |
 | Tests fail during baseline | Report failures + ask |

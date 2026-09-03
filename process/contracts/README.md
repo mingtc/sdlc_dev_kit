@@ -76,15 +76,27 @@ Nothing in the minimum set was merged or split.
   new gate with no contract should redden the build; so should a contract for a gate that is gone.
   Writing that guard in your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's
   standing debt, honestly stated: the contracts travel, a guard over them does not.
-- **TWO CLASSES OF TRAVELLING SCRIPT ARE EXEMPT, and they are named here so a sweep finds a
-  DECISION rather than a violation.** The rule above says every travelling script has a sheet. Read
+<!-- EXEMPT-CLASSES:BEGIN — the self-test derives the exempt path prefixes by reading the
+     backticked paths between these two markers. They are here because the derivation used to be
+     anchored on this bullet's WORDING, and the first reword of that wording emptied it. Prose is
+     not an anchor. Move them if the block moves; do not delete one without the other. -->
+- **SOME CLASSES OF TRAVELLING FILE ARE EXEMPT, and they are named here — each with the test
+  applied — so a sweep finds a DECISION rather than a violation.** *(Count them below rather than
+  here: this said "TWO CLASSES" and a third was added the day the guard grew wide enough to need
+  it.)* The rule above says every travelling script has a sheet. Read
   literally it is false, and it should be — a sheet describes a **reimplementable behaviour**, and
-  neither class has one.
+  no class below has one.
   1. **The optional extras.** `scripts/hygiene/` is Python 3, standard-library only, **never a gate,
      and deletable without loss**. A reimplementer who omits every one of them has still built the
      kit. Writing them contract sheets would assert the opposite of the carve-out that makes them
      optional.
-  2. **Shared internals of contracted scripts** — `scripts/lib/`. These exist so that two or three
+  2. **The consumer-side integration surface** — `consumers/`. These serve a DIFFERENT AUDIENCE:
+     not a project adopting this kit, but a downstream project that VENDORS an artifact from one.
+     A reimplementer building this process from the sheets would not create `consumers/`, and would
+     not be wrong — the test below, applied. *Named 2026-09-03, when the guard was widened to walk
+     the whole travelling set and reported nine files here. They were never missing sheets; the
+     guard had simply never been able to see them.*
+  3. **Shared internals of contracted scripts** — `scripts/lib/`. These exist so that two or three
      consumers do not duplicate an idiom; the behaviour they carry is already specified by the
      sheets of the scripts that call them. **A reimplementer working from the sheets alone would not
      create these files, and would not be wrong.** A library is a factoring decision, not a contract.
@@ -96,6 +108,7 @@ Nothing in the minimum set was merged or split.
   *One thing that looks like a gap and is not:* a sheet may cite its implementation in **placeholder
   form** — `notification.md` says `scripts/notify/<channel>.sh`, because the channel is the adopter's
   instance. A sweep matching literal paths reports the shipped example as uncovered; it is not.
+<!-- EXEMPT-CLASSES:END -->
 - **A § 6 row RESTATES the implementation's own `KIT-CLASS` marker, deliberately, and the copy is
   tolerated rather than accidental.** The two statements answer two different readers: the in-file
   marker answers *"what is this file"* for someone holding the file; the § 6 row answers *"what does
@@ -103,7 +116,7 @@ Nothing in the minimum set was merged or split.
   reimplementer who has no such file at all. **One direction is guarded and one is not, and the
   difference is worth stating:** the self-test now checks that **every travelling script has a
   sheet** (`case_travelling_scripts_have_a_sheet`, which derives the exempt classes from the rule
-  below rather than from a list) — that guard SHIPS, so it runs in your tree too. **What is still
+  above rather than from a list) — that guard SHIPS, so it runs in your tree too. **What is still
   unguarded: nothing checks that a sheet's cited path still exists.** That one goes wrong silently.
   *This paragraph said BOTH were unguarded until 2026-09-03, in the same document whose own guard
   had already landed.* Derive them rather than trusting this list:
@@ -111,9 +124,9 @@ Nothing in the minimum set was merged or split.
   ```sh
   # every path a § 6 bullet names, with the class the sheet claims for it —
   # bullets WRAP, so join continuation lines first or five rows in one bullet are missed
-  # THE JOINED BULLET IS PRINTED. This recipe used to end `END{}` — an empty END block, so it
-  # accumulated every bullet into `b` and emitted NOTHING. An adopter following the honest
-  # alternative to a list got a blank screen and no error.
+  # THE JOINED BULLET IS PRINTED — each one as the NEXT bullet starts, and the last one at END.
+  # This used to finish with an empty END block, so it accumulated every bullet into `b` and
+  # emitted NOTHING: an adopter following the honest alternative to a list got a blank screen.
   awk '/^- /{if(b)print b; b=$0; next} /^[[:space:]]+[^[:space:]]/{b=b " " $0} END{if(b)print b}' \
       process/contracts/*.md
 

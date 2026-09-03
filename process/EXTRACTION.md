@@ -824,7 +824,7 @@ all five, with the guard **transformed** rather than deleted
 - **ONE CLASS OF PRODUCT FACT IS DELIBERATELY KEPT: the leaf workers' `model:` pins.** They are a
   vendor's product names, which this section otherwise excludes — kept because the orchestrator's
   provisioning contract promises a plain spawn is correctly provisioned with no action, and a blank
-  pin breaks that. **Declared as a carve-out in § 1.1**, in a table homed outside the directory it
+  pin breaks that. **Declared as a carve-out in § 1's COPY table**, in a table homed outside the directory it
   describes so a re-copy cannot erase it, with the staleness debt named. *An exception that is not
   written down is indistinguishable from an oversight, and this one had been both.*
 - **No guard was written.** § 4.4 stands as the largest live debt, unpaid and named, rather than

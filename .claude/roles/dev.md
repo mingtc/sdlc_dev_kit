@@ -296,7 +296,10 @@ If QA fails the review:
 - [ ] `progress.md` appended with today's entries.
 - [ ] Branch(es) pushed (forge-agnostic — pushed branches, not forge PRs).
 - [ ] Scratch files / experimental tests cleaned up or moved into the plan.
-- [ ] Worktrees in `.worktrees/` for files in `dev_complete/` are **preserved** (per [finishing-a-development-branch](../skills/finishing-a-development-branch/) Option 2 — QA may need them).
+- [ ] Worktrees in `.worktrees/` for files in `dev_complete/` are **preserved** (per [finishing-a-development-branch](../skills/finishing-a-development-branch/) **Option 1**, which is the
+      handoff path and says so outright — QA lands from the branch, and the landing gate must run against a
+      checkout at the revision being landed. Option 2 is "Keep As-Is", the path for work that is NOT being
+      handed off; it preserves the worktree too, which is why the wrong option went unnoticed.)
 - [ ] Worktrees for merged or discarded work cleaned up via the skill.
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "Dev: <PREFIX>-NNN <state>" --session <slug>`. No-op if notifications are off.
 

@@ -326,7 +326,12 @@ if [ -z "$DEFAULT_BRANCH" ]; then
       echo "            ('$DEFAULT_BRANCH'), because $REMOTE/HEAD is not set. That is this MACHINE's"
       echo "            preference for new repositories, not what $REMOTE calls its trunk, and the"
       echo "            two are not required to agree. Settle it:"
-      echo "              git remote set-head $REMOTE --auto"
+      echo "              git remote set-head $REMOTE <your-trunk>"
+      echo "            NOT --auto: it asks the REMOTE for its HEAD, and in this state the remote"
+      echo "            does not have a usable one — measured, it exits 1 with \"Cannot determine"
+      echo "            remote HEAD\" against a bare repo whose HEAD names a branch nothing pushed."
+      echo "            Where you control the bare side, set it there instead:"
+      echo "              git -C <repo>.git symbolic-ref HEAD refs/heads/<your-trunk>"
     } >&2
   fi
 fi

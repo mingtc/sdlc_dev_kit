@@ -113,9 +113,12 @@ polish, microcopy review, and whatever rendered-surface engine the project adopt
 weight that still shows up in every session's skill menu.
 
 Waking that role means: source or author its skills into this directory, list them in the
-table above, remove the DORMANT banner from the role doc, and register the role in the
-adapter's role table — all in the same change, so the kit never advertises a skill it does
-not carry.
+table above, replace the role doc's **PARKED** banner, and register the role in the adapter's
+role table — all in the same change, so the kit never advertises a skill it does not carry.
+**That list is the paperwork, not the work.** The role doc's own § What this role needs before
+it can be woken says waking it "is a real piece of work, not a banner removal"; believe that
+sheet over this line. (This line said "remove the DORMANT banner" — a banner the doc does not
+carry, prescribing the exact act that doc calls insufficient.)
 
 ## How to invoke a skill
 
