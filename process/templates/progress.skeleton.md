@@ -9,6 +9,12 @@
   entry". Fill the <angle-bracket> blanks; keep everything else byte-for-byte.
   DROP THE KIT-CLASS MARKER above from your copy.
 -->
+
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — ./ — NOT to the directory it
+     sits in. A link written for where the template SITS resolves while you read it here and
+     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
+     the only reader who matters. The self-test reads this line to know where to resolve from,
+     so keep its shape. -->
 # progress.md
 
 The running log of activity in this project. All roles append entries here. The

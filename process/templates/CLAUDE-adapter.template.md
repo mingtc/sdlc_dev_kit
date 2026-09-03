@@ -11,6 +11,12 @@
   DROP THE KIT-CLASS MARKER above from your copy: it classifies this file for the kit, not for
   your project. (Your adapter is PROJECT-class by nature — it is the one file that never travels.)
 -->
+
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — ./ — NOT to the directory it
+     sits in. A link written for where the template SITS resolves while you read it here and
+     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
+     the only reader who matters. The self-test reads this line to know where to resolve from,
+     so keep its shape. -->
 # CLAUDE.md — <project name> operating manual
 
 **How this project is developed.** <project> runs a **filesystem-as-kanban** process with **roles

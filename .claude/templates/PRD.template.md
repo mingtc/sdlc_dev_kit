@@ -5,6 +5,12 @@
      every initialized tree then carried a sentence with no referent.
      Everything else in angle brackets is for the author to fill in — never leave one in a live
      issue. If your initializer has not wired a key, substitute it by hand before first use. -->
+
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — requirements/ — NOT to the directory it
+     sits in. A link written for where the template SITS resolves while you read it here and
+     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
+     the only reader who matters. The self-test reads this line to know where to resolve from,
+     so keep its shape. -->
 ---
 id: PRD-NNN
 title: <feature area name>

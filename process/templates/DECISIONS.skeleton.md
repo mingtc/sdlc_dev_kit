@@ -4,7 +4,13 @@
   Copy to requirements/DECISIONS.md, fill every <angle-bracket> blank, delete the HTML comments.
   Start it on DAY ONE with zero entries. The first ruling you fail to record is the one that gets
   re-litigated.  Any version shown in an example is the deliberately fictional 42.x.
-  DROP THE KIT-CLASS MARKER. The `<!-- KIT-CLASS: … -->` line at the top of this file classifies
+  DROP THE KIT-CLASS MARKER. The `<!-- KIT-CLASS: … -->`
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — requirements/ — NOT to the directory it
+     sits in. A link written for where the template SITS resolves while you read it here and
+     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
+     the only reader who matters. The self-test reads this line to know where to resolve from,
+     so keep its shape. -->
+ line at the top of this file classifies
   it FOR THE KIT (does this artifact travel, and which half of it does). It is kit bookkeeping,
   not your project's: delete it from your copy, or replace it with your own classification if you
   are re-cutting a kit from your repository. The same goes for every template you copy.

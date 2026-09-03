@@ -9306,6 +9306,71 @@ case_release_hook_rejection_leaves_no_bump() {
 # every value-taking arm calls the guard, every definition of the guard is identical, and
 # two scripts are actually run.
 # =============================================================================
+# =============================================================================
+# CASE — A TEMPLATE'S LINKS RESOLVE FROM WHERE IT LANDS, NOT FROM WHERE IT SITS.
+#
+# THIS CLASS WAS FIXED THREE TIMES, ONE INSTANCE AT A TIME, BEFORE ANYONE COUNTED IT.
+# PRD.template.md, launch-pack, round-pack, then round-report and run-report — five of the
+# fourteen shipped templates, found across three sweep rounds because each round reported
+# the ones its checker happened to open. **A census would have found all five on day one**,
+# and that is the whole reason this case exists rather than a sixth careful fix.
+#
+# WHY A LINK CHECK RUN IN THE KIT CANNOT SEE IT: the template SITS in process/templates/ and
+# is COPIED to dev/launch/, requirements/, progress/todo/ … A link written for where it sits
+# resolves perfectly here and is dead in every copy an adopter makes. It passes the obvious
+# test and fails the only one that matters.
+#
+# THE DESTINATION IS DECLARED BY EACH TEMPLATE, and this case reads it from a header line
+# rather than a table here — a table would be a fifteenth thing to keep in step.
+# =============================================================================
+case_template_links_resolve_from_their_destination() {
+  cf_reset
+  make_sandbox
+  local probe="$SB_TMP/tmpl" t base dest n=0 bad=0
+  # COPY THE WHOLE TREE, not the directories this case thinks it needs. Measured while
+  # writing it: hand-picking process/ and .claude/ left requirements/ out and the case
+  # reported CLAUDE-adapter.template.md's link to requirements/DECISIONS.md as broken — a
+  # file that ships. **The probe was the defect**, and a link census whose corpus is
+  # hand-listed will keep inventing findings about whatever the list forgot.
+  rm -rf "$probe"; mkdir -p "$probe"
+  ( cd "$REAL_REPO_ROOT" && tar cf - . 2>/dev/null ) | ( cd "$probe" && tar xf - 2>/dev/null ) || true
+  [ -d "$probe/process/templates" ] \
+    || { skp "a template's links resolve from where it LANDS" "process/templates/ is absent"; teardown; return; }
+
+  # The landing directories a template names may not exist on a fresh tree (dev/rounds/<name>/
+  # is minted per round); create them so a CORRECT link is not reported as broken.
+  ( cd "$probe" && mkdir -p requirements progress/todo dev/launch dev/rounds/X docs ) >/dev/null 2>&1
+
+  for t in "$probe"/process/templates/*.md "$probe"/.claude/templates/*.md; do
+    [ -f "$t" ] || continue
+    base="$(basename "$t")"
+    # THE DESTINATION IS THE TEMPLATE'S OWN CLAIM. Only files that state one are checked;
+    # a template with no declared destination is a different (and reported) problem.
+    dest="$(sed -n 's|.*RELATIVE TO WHERE IT LANDS — \([^ ]*\) .*|\1|p' "$t" | head -1)"
+    [ -n "$dest" ] || dest="$(sed -n 's|.*[Cc]opy \(it \)\?to `\([^`]*\)/[^/`]*`.*|\2|p' "$t" | head -1)"
+    [ -n "$dest" ] || continue
+    dest="$(printf '%s' "$dest" | sed 's|<[^>]*>|X|g; s|/$||')"
+    [ -d "$probe/$dest" ] || mkdir -p "$probe/$dest"
+    n=$(( n + 1 ))
+    local miss
+    miss="$(awk -v d="$probe/$dest" '
+      { while (match($0, /\]\([^)#<]+\)/)) {
+          l = substr($0, RSTART+2, RLENGTH-3); $0 = substr($0, RSTART+RLENGTH)
+          if (l ~ /^http/ || l ~ /</) continue
+          cmd = "test -e \"" d "/" l "\""
+          if (system(cmd) != 0) printf "%s:%s ", FNR, l
+      } }' "$t")"
+    [ -z "$miss" ] || { bad=$(( bad + 1 )); cf "$base declares it lands in '$dest' and these links do not resolve from there: $miss — they resolve from process/templates/ instead, which is where the file SITS, so they pass a link check run in the kit and are dead in every copy an adopter makes"; }
+  done
+
+  # ── INSTRUMENT CHECK: a loop that resolved no destinations reports every template clean.
+  [ "$n" -ge 6 ] \
+    || cf "only $n template(s) declared a destination this case could read — expected at least 6. The declaration wording changed, so 'every template's links resolve' is true of almost nothing"
+
+  finish "all $n templates that declare where they land have links that resolve FROM THERE ($bad broken) — checked from the destination each template names, because a link written for where the template SITS passes every check run in the kit and is dead in every adopter's copy"
+  teardown
+}
+
 case_missing_option_value_refuses() {
   cf_reset
   make_sandbox
@@ -10386,6 +10451,7 @@ CASES=(
   case_partial_prefix_derivation_says_so
   case_travelling_scripts_have_a_sheet
   case_release_hook_rejection_leaves_no_bump
+  case_template_links_resolve_from_their_destination
   case_missing_option_value_refuses
   case_shipped_scripts_stay_on_the_floor
   case_help_never_opens_with_the_class_marker

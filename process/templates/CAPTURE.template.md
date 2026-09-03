@@ -11,6 +11,12 @@
   THE DISCIPLINE THIS SHAPE SERVES: process/doctrine/live-resources.md (a disposable target,
   restored) and process/doctrine/negative-claims.md (enumerate, or say "unmeasured").
 -->
+
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — NOT to the directory it
+     sits in. A link written for where the template SITS resolves while you read it here and
+     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
+     the only reader who matters. The self-test reads this line to know where to resolve from,
+     so keep its shape. -->
 # <area> — measured-truth capture, <YYYY-MM-DD> (<ISSUE-ID>)
 
 **Class: EVIDENCE LEDGER, not corpus-core.** This file records **what was measured, once, at a
