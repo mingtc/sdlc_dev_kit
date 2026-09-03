@@ -46,6 +46,33 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Both workflow runners now refuse an unrecognised per-issue key.** `depends_on` was already
+  defaulted, but a caller who wrote `depends_ons` would have got a **silent solo run** — a broken
+  dependency chain being exactly what the field prevents. **Action required if you script these
+  runners:** a misspelled per-issue key now throws by name before any agent starts. That is
+  deliberate; correct the key rather than removing it. The arg contract also now marks per-issue
+  keys with `?`, so you can see which are optional — previously only the top-level keys were marked.
+- **`process/doctrine/instruments.md` § A: brace the ref in every `<ref>:<path>` recipe.** On zsh —
+  the default login shell on macOS — an unbraced `"$REF:path"` is parsed as a history modifier and
+  **the path is silently dropped, exit 0**. `git cat-file -e "$REF:absent"` then exits 0 for a path
+  in no ref, and `git show "$REF:path" | grep` counts matches in the *commit message*. **Action
+  required if you copied either recipe:** rewrite as `"${REF}:path"`. Any landing or tag check you
+  built on the unbraced form could not fail, in either direction.
+- **`dev/downtime-queue.md` gains a claim marker.** The Status vocabulary now reads
+  `open / open (claimed by <PREFIX>-NNN) / STRUCK — …`. Write the claim when the item is minted onto
+  the board, not at landing — it is the only link between the queue and the board. **Action required
+  if you keep a downtime queue:** your existing `open` rows carry no claim, so nothing can tell a
+  stale row from a live one; one pass measuring each row's subject against the trunk is the only way
+  to reconcile them once. The file now also states what the marker cannot see, and warns that
+  counting with `grep -c "| open |"` under-reported one adopter's queue by 8 rows of 37.
+- **`process/doctrine/staleness.md` gains § E — three claim classes a document audit does not look
+  at.** A quotation is a promise about bytes (run a misquote census and report three numbers); a
+  correction pass must census the defect **string** tree-wide, not the document it was found in,
+  because the same prose ships in docstrings and script headers; and a scope word (*"the bullet
+  above"*, *"forty lines below"*) is a claim about the document's layout that only rendering checks.
+  No action required — but if you run document audits, § E.1's census is a numbered deliverable and
+  is meant to replace *"I checked the quotes"*.
+
 - **`.claude/skills/using-git-worktrees/` — the ignore check tested the wrong directory.** It ran
   `git check-ignore -q .worktrees || git check-ignore -q worktrees`: two hard-coded names, ORed. Where
   `.worktrees/` is ignored and the directory actually chosen is `worktrees/`, it short-circuits on the

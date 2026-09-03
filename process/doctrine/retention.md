@@ -140,7 +140,7 @@ reasoning:
 | `bytes` | exact size, the fetch-back's self-check | `git cat-file -s <blob>` |
 | `issue` | the `<PREFIX>-NNN` that retired it, and the date | — |
 | `what it was` | ONE line: what the document was and what it was for, written so a reader can decide whether they want it back without fetching it | — |
-| `fetch-back` | the command, **verbatim, not a recipe to reconstruct** | `git show <commit>:<path>` (equivalently `git cat-file -p <blob>`) |
+| `fetch-back` | the command, **verbatim, not a recipe to reconstruct** | `git show "${commit}:<path>"` (braced — see `instruments.md` § A on zsh eating the path) (equivalently `git cat-file -p <blob>`) |
 
 Two fields carry the weight and both are non-negotiable. **`blob` + `bytes` make the fetch-back
 self-verifying**: piping the object out and counting bytes either matches the recorded size or you

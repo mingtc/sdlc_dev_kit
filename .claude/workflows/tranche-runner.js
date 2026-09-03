@@ -10,8 +10,14 @@ export const meta = {
 
 // args: { repo, trunk?, remote?, gateCmd?, codePaths?, goldenPaths?, liveRules?,
 //         issues: [{id, branch, title, devModel, devEffort, qaModel, qaEffort,
-//                   devAgentType, qaAgentType, gates, depends_on: [], extraDev, extraQA,
-//                   role, docsPath, parkable}] }
+//                   devAgentType?, qaAgentType?, gates?, depends_on?, extraDev?, extraQA?,
+//                   role?, docsPath?, parkable?}] }
+//
+// THE `?` IS ON THE PER-ISSUE KEYS TOO, AND THAT IS THE FIX FOR A REAL DISPATCH LOSS. This list
+// carried no optionality marks at all while the top-level keys above carried `?`, and it showed
+// `depends_on: []` — which reads as "here is the shape and its default", not "required". A caller
+// omitted it on four of five issues and the run died in 33ms on `issue.depends_on.length`, before
+// any agent started. The documentation was the half that caused it (reported by an adopter who lost a five-issue dispatch to it).
 //
 // THERE IS NO `slug` FIELD, AND THAT IS DELIBERATE — do not re-add one. It was documented here
 // and echoed in two refusal messages while NOTHING in either runner read it, so a caller was
@@ -101,6 +107,28 @@ if (!CFG.repo) throw new Error('tranche-runner: args.repo is required (absolute 
 // loop below threw JS's own words, `ARGS.issues is not iterable`, which names neither the
 // runner nor the field and reads like a bug in the tool rather than a malformed call.
 // Checked HERE rather than at the loop so the run dies at 0 agents, which is this file's posture.
+// AND A TYPO IN A PER-ISSUE KEY IS LOUD, because defaulting it silently would be worse than the
+// crash it replaced. `depends_on` now defaults to [] where it is read — but a caller who MEANT to
+// declare a dependency and wrote `depends_ons` would then get a silent solo run, and a broken
+// dependency chain is exactly what that field exists to prevent. A bare default converts an
+// immediate, self-naming failure into the reassuring kind. So: honest omission is fine, an
+// unrecognised key is refused by name, before any agent starts (reported by an adopter who lost a five-issue dispatch to it).
+const ISSUE_KEYS = new Set(['id', 'branch', 'title', 'devModel', 'devEffort', 'qaModel', 'qaEffort',
+  'devAgentType', 'qaAgentType', 'gates', 'depends_on', 'extraDev', 'extraQA', 'role', 'docsPath',
+  'parkable'])
+if (Array.isArray(ARGS.issues)) {
+  const strays = []
+  for (const it of ARGS.issues) {
+    if (!it || typeof it !== 'object') continue
+    for (const k of Object.keys(it)) if (!ISSUE_KEYS.has(k)) strays.push(`${it.id || '<no id>'}.${k}`)
+  }
+  if (strays.length) {
+    throw new Error(`tranche-runner: unrecognised per-issue key(s): ${strays.join(', ')}. ` +
+      `Known keys: ${[...ISSUE_KEYS].join(', ')}. A misspelled key would otherwise be silently ` +
+      `ignored — which for depends_on means a solo run where you declared a dependency.`)
+  }
+}
+
 if (!Array.isArray(ARGS.issues) || ARGS.issues.length === 0) {
   throw new Error('tranche-runner: args.issues is required and must be a NON-EMPTY array of issue objects. Got: ' + JSON.stringify(ARGS.issues) + '. Expected: { repo, issues: [{id, branch, ...}] }')
 }

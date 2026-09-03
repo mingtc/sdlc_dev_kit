@@ -322,7 +322,7 @@ rests on judgment rather than evidence**:
   report's "needs your call" section, continue.
 
 The rule in one line: **verdict rests on evidence → act; verdict rests on judgment →
-park.** This honours the QA role doc's "'looks good' is not evidence" bar — `.claude/roles/qa.md` § Walk the AC is its authoring site, not the adapter — and never auto-merges
+park.** This honours the QA role doc's "'looks good' is not evidence" bar — `.claude/roles/qa.md` § Definition of Pass vs Fail is its authoring site, not the adapter — and never auto-merges
 a judgment call.
 
 **The discriminator — what needs operator sign-off vs what the orchestrator self-serves:**

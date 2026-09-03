@@ -267,7 +267,7 @@ End state: one design pass doc at `dev/design/<YYYY-MM-DD>-<scope>-pass.md`, and
    - Target List (filled by `ui-audit`)
    - Per-target Detail (one block per HIGH/MED target — filled by `interaction-design` + `visual-polish` + `microcopy-review` as applicable)
    - Risk Calls (any items requiring PM input)
-   - Issue Map (filled in step 6)
+   - Issue Map (filled in step 7)
 3. **Run the audit.** Invoke `ui-audit`. Output goes into Audit Findings + Target List. The Pareto cut is mandatory.
 4. **Design per HIGH/MED target.** For each target in order, invoke the applicable skills:
    - Gap is interaction completeness (missing states, undefined transitions) → `interaction-design`
@@ -370,4 +370,7 @@ If this role is woken, these are project law and must be written down:
 - [ ] **No screenshots or annotated images left in scratch directories** — commit them under `dev/design/assets/` or link out
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "UI Designer: <pass scope, N stories>" --session <slug>`. No-op if notifications are off.
 
-> **2026-08-21:** the leaf-worker definition now exists at `.claude/agents/ui-designer-worker.md` (shipped parked-with-refusal; waking the role is a file move, not authoring work).
+> **2026-08-21:** the leaf-worker definition now exists at `.claude/agents/ui-designer-worker.md` (shipped parked-with-refusal). **That covers the WORKER definition only** — item 3 of § What this
+> role needs, the file move. The other four items are authoring work, and the banner at the top of
+> this file says so. *This parenthetical read "waking the role is a file move, not authoring work",
+> which is the opposite of what that banner and that section both state.*

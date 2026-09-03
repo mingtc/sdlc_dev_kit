@@ -422,7 +422,7 @@ other than what you asked.
   `FAIL` has merged them, and the reader cannot separate them afterwards.
 - **A HASH OF NOTHING IS A REAL HASH, and two of them compare EQUAL.** The bullet above is stated for
   *empty* results; this is the same defect wearing a full, valid, authoritative answer.
-  `git show <ref>:<path> | <hasher>` where the path **does not exist at that ref** hashes the **empty
+  `git show "${ref}:<path>" | <hasher>` where the path **does not exist at that ref** hashes the **empty
   stream** and returns a forty-hex digest that looks exactly like a measurement. So a byte-identity
   check between two paths that are both **missing** passes — and it passes *confidently*.
   **Learn the constant, not the warning:** `da39a3ee5e6b4b0d3255bfef95601890afd80709` is SHA-1 of the
@@ -430,7 +430,24 @@ other than what you asked.
   recognises nothing at all from a paragraph about empty streams. *(The equivalents for whatever
   hasher your project uses belong in § B beside your own instruments.)*
   **The fix is the general one: assert the OPERAND EXISTS before comparing digests of it** —
-  `git cat-file -e <ref>:<path>` — because the digest cannot tell you it had nothing to chew on.
+  `git cat-file -e "${ref}:<path>"` — because the digest cannot tell you it had nothing to chew on.
+- **AND BRACE THE REF, OR ON zsh THE PATH IS SILENTLY DROPPED AND THE CURE ABOVE CANCELS THE HAZARD
+  IT CURES.** Unbraced, what follows `$VAR:` is taken as a zsh **history modifier** whenever the next
+  character is a modifier letter (`s l u h t r e q g a A p c x f F w W`). So `"$REF:src/thing.py"`
+  expands to just the ref — `:s` is read as a substitution, it matches nothing, and **the path is
+  gone with no warning and exit 0**. Three outcomes from one shell, and none of them errors usefully:
+  the path vanishes, or a letter is eaten (`"$V:literal/p"` → `abciteral/p`, `:l` lowercasing), or
+  you get `bad substitution`. **`zsh` is the default login shell on macOS**, so this is the default
+  environment for a large share of adopters.
+  **The two failures compose in the worst direction.** `git cat-file -e "$REF:absent/path"` exits 0
+  — it silently asked *"does this commit exist?"*, and it does — so the existence assertion above
+  passes for a path in no ref at all. And `git show "$REF:path" | grep -c <needle>` counts matches in
+  the **commit message**, so a string you just deleted reads as still present. *The same trap makes
+  an absent thing look clean and a removed thing look PRESENT.*
+  **The cure is one character-pair: always `"${REF}:path"`.** Braces end the expansion, so nothing
+  after the colon can be read as a modifier. *Reported by an adopter, 2026-09-03, who lost a landing
+  check to it — and who had prescribed `cat-file -e` here as the cure for the empty-stream hazard
+  above, which is how the cure and the hazard cancelled and the check read clean either way.*
 - **A COUNT JOINED ON A KEY IS SHORT BY EXACTLY THE MEMBERS THAT LACK THE KEY — and those members
   are systematically the interesting ones.** A join silently drops what it cannot match, so the
   count it produces is not *"how many are there"* but *"how many carry the key"*, and nothing in the

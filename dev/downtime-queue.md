@@ -42,11 +42,35 @@ preserve the reason, supersede only the conclusion.)*
 A struck row that has been read by nobody for a long time may be condensed to its reason and its
 outcome — but never to nothing.
 
+**WRITE `open (claimed by <PREFIX>-NNN)` THE MOMENT AN ITEM IS MINTED ONTO THE BOARD**, not at
+landing. That is the whole link between this file and the board, and it is what lets a check ask
+the one question worth asking: *is any row still `open` whose claiming issue has already landed?*
+Without the marker there is no join, and **a stale row looks exactly like a live one** — the cost
+is not tidiness, it is a duplicate issue minted for work that already shipped.
+
+**WHAT THAT MARKER CANNOT SEE, stated so nobody believes the check is the whole guard:**
+
+- **A row silently paid by an issue that never claimed it.** The work landed, the row is honest
+  about nothing, and no id connects them.
+- **A row written for work that already landed.** Mechanically undecidable — nothing in the row
+  says when its subject became true. Its only cure is at mint time: *measure the row's subject
+  against the trunk before writing the row.*
+
+**And when you count this queue, classify each row's own last cell** — strip markdown emphasis
+first, accept any `open…` prefix, and let a trailing `Status:` declaration win over the cell's
+opening words. **Then reconcile against a second instrument.** A naive `grep -c "| open |"`
+under-reported one adopter's queue by 8 rows of 37.
+
+*This section exists because an adopter shipped this file's discipline and measured what enforced
+it: `grep -rln "downtime-queue"` over their whole tree returned exactly one file, the prose that
+institutes it. No script read the queue, no test read it, no role doc named it at landing — and it
+bit twice in one week, both times as silence (reported by an adopter whose queue had a row reading open for a cure already on the trunk).*
+
 ## The queue
 
 | Item | Origin | Size | Why deferred | Wake condition | Status |
 |---|---|---|---|---|---|
-| `<one bold sentence: what would be done>` | `<where it was raised — an audit, a session, a review>` | `<S/M/L, or "unsized — needs a measurement first">` | `<the reason, quoted if somebody ruled>` | `<an observable condition>` | `<open / STRUCK — landed as <PREFIX>-NNN, outcome … / STRUCK — ruled dead <date>, because …>` |
+| `<one bold sentence: what would be done>` | `<where it was raised — an audit, a session, a review>` | `<S/M/L, or "unsized — needs a measurement first">` | `<the reason, quoted if somebody ruled>` | `<an observable condition>` | `<open / open (claimed by <PREFIX>-NNN) / STRUCK — landed as <PREFIX>-NNN, outcome … / STRUCK — ruled dead <date>, because …>` |
 
 <!-- Day one: this table has exactly the header and the shape row above, and that is correct.
      A queue that starts full is a backlog nobody scoped. -->

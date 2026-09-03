@@ -116,7 +116,7 @@ End state: one refactor pass doc at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md`,
    - Target List (filled by `refactor-audit`)
    - Per-target Detail (one block per HIGH/MED target — filled by `refactor-planning` + `safety-net-check` + `migration-planning`)
    - Risk Calls (aggregated from all per-target outputs)
-   - Issue Map (filled in step 6)
+   - Issue Map (filled in step 7)
 3. **Run the audit.** Invoke [refactor-audit](../skills/refactor-audit/). Output goes into the Audit Findings + Target List sections of the doc. The Pareto cut is mandatory — top ~30% HIGH, next ~30% MED, remainder LOW.
 4. **Plan + check + migrate, per HIGH/MED target.** For each HIGH / MED target in order:
    - Invoke [refactor-planning](../skills/refactor-planning/) — produce the desired shape, move sequence, vertical/horizontal scope, size estimate. Output → Per-target Detail block.

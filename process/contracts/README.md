@@ -79,8 +79,8 @@ Nothing in the minimum set was merged or split.
   tree, and nothing yet checks that a sheet's cited path still exists. Writing THAT second guard in
   your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's standing debt.
   *This bullet read "the contracts travel, a guard over them does not" until 2026-09-04. The guard
-  shipped on 2026-09-03 and the § 6 bullet was updated in that same change; this one, forty lines
-  above it, was not — the second half of a document still describing the world the first half had
+  shipped on 2026-09-03 and the § 6 bullet was updated in that same change; this one, in § 4,
+  was not — the second half of a document still describing the world the first half had
   left.*
 <!-- EXEMPT-CLASSES:BEGIN — the self-test derives the exempt path prefixes by reading the
      backticked paths between these two markers. They are here because the derivation used to be

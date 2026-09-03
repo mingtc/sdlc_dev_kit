@@ -85,6 +85,27 @@ for (const k of ['wave1', 'wave2']) {
     throw new Error('wave-runner: args.' + k + ' must be an array of issue objects when present. Got: ' + JSON.stringify(ARGS[k]))
   }
 }
+// A MISSPELLED PER-ISSUE KEY IS REFUSED BY NAME, matching tranche-runner, which carries the
+// authoritative per-issue shape. `depends_on` defaults to [] where it is read, so an honest
+// omission is fine — but a caller who wrote `depends_ons` would get a silent solo run, and a
+// broken dependency chain is what that field exists to prevent (reported by an adopter who lost a five-issue dispatch to it).
+const ISSUE_KEYS = new Set(['id', 'branch', 'title', 'devModel', 'devEffort', 'qaModel', 'qaEffort',
+  'devAgentType', 'qaAgentType', 'gates', 'depends_on', 'extraDev', 'extraQA', 'role', 'docsPath',
+  'parkable'])
+{
+  const strays = []
+  for (const w of ['wave1', 'wave2']) {
+    for (const it of (ARGS[w] ?? [])) {
+      if (!it || typeof it !== 'object') continue
+      for (const k of Object.keys(it)) if (!ISSUE_KEYS.has(k)) strays.push(`${w}:${it.id || '<no id>'}.${k}`)
+    }
+  }
+  if (strays.length) {
+    throw new Error(`wave-runner: unrecognised per-issue key(s): ${strays.join(', ')}. ` +
+      `Known keys: ${[...ISSUE_KEYS].join(', ')}. A misspelled key would otherwise be silently ignored.`)
+  }
+}
+
 if ((ARGS.wave1 ?? []).length === 0 && (ARGS.wave2 ?? []).length === 0) {
   throw new Error('wave-runner: at least one of args.wave1 / args.wave2 must be a NON-EMPTY array of issue objects — a run over zero issues would otherwise report a clean success. Expected: { repo, wave1: [{id, branch, ...}], wave2: [...] }')
 }
@@ -264,7 +285,7 @@ function devPrompt(issue, fixNotes) {
   const role = issue.role || 'Dev'
   const roleDoc = role === 'Refactorer' ? '.claude/roles/refactorer.md' : '.claude/roles/dev.md'
   const workMode = issue.docsPath
-    ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. (This said [Dev] literally while the role variable was derived three lines above and used for the hat, the role doc and both board moves — so a Refactorer on the docs path was told to sign a prefix that is not theirs, and the commit-msg hook takes the subject at its word.) If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
+    ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. (This said [Dev] literally while the role variable was derived at the top of this function and used for the hat, the role doc and both board moves — so a Refactorer on the docs path was told to sign a prefix that is not theirs, and the commit-msg hook takes the subject at its word.) If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
     : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.remote}/${CFG.trunk} and work there.`
   const resume = fixNotes
     ? `THIS IS A FIX ROUND: QA bounced the issue back to in_progress with these unmet AC / notes — address exactly these${issue.docsPath ? ` (docs path: continue direct on ${CFG.trunk})` : ' on the SAME branch (do not recreate it)'}:\n${fixNotes}`

@@ -293,3 +293,83 @@ it abolishes. § D's rule is what collects the remainder — each file gets its 
 is touched, with the guards' redness standing as the visible debt in the meantime. When you measure
 the backlog, **date the figure** (§ C): the donor's own count moved within a day of being taken,
 which is precisely the drift § C exists to stop being asserted as a bare fact.
+
+## § E — Three claim classes a document audit does not look at (the pattern)
+
+§ C is about **numbers** in prose. These three are the other claims a shipped document makes that
+have mechanical truth conditions — and each one survives the lens usually pointed at documents,
+because that lens is looking for something harder. All three were reported by an adopter who found
+them the expensive way, in a release document, across five consecutive audit passes.
+
+### E.1 — A QUOTATION IS A PROMISE ABOUT BYTES, and it is the cheapest claim in any document to check
+
+A quotation asserts that a named document contains a string. That is grep-checkable in one command,
+which makes it the cheapest claim to verify — and therefore the one nobody verifies, because an
+audit's attention goes to the figures and the logic.
+
+**The two shapes a fabricated quotation takes, both fluent, both attributed to a real document that
+says something adjacent:**
+
+- **THE WELD.** The source gives a fact in one clause and its reason in a parenthesis. Prose splices
+  them with a `because` and presents the weld as a quotation. Nobody misread the source; the
+  sentence was **assembled from true pieces into a false attribution**, and a literal grep for the
+  spliced form returns 0.
+- **THE CITATION THAT DOES NOT SUPPORT ITS CLAIM.** The quoted span is real and verbatim, and it is
+  evidence for a **different proposition** than the one it is offered for.
+
+**THE CURE — a MISQUOTE CENSUS, as a numbered deliverable.** Extract every quoted span in the
+section under audit; decide for each whether it claims a source in the repository; grep-verify each
+that does; **report three numbers — how many quotes, how many verified, how many could not be
+located.** A census that returns numbers cannot be silently skipped the way *"I checked the quotes"*
+can. Run it flattened (§ E.2) with a control needle proved to return zero.
+
+**And the drafting rule that removes the class at the source:** *prefer a paraphrase you can defend
+to a quotation you have not checked.* An unquoted paraphrase makes a weaker claim and is honest at
+the weaker strength. **Quotation marks are a promise about bytes.**
+
+### E.2 — CENSUS THE DEFECT STRING, NEVER THE DOCUMENT YOU HAPPEN TO BE EDITING
+
+A correction pass inherits its scope from the audit that raised the defect — *"two documents"* — and
+that scope is wrong, because **the defect was never a document's. It was a sentence that had been
+copied.** Its copies cross lane boundaries that nothing in the process connects, because the
+connection is semantic rather than structural: prose in `*.md` is one lane, the same prose in a
+source docstring, a test docstring, a comment, or a script's header block is another.
+
+Measured by an adopter: a fix removed two defective sentences from the two documents under audit;
+the next pass found both **still present, string for string, in a shipped source module**. The
+artifact would have shipped two of its own members contradicting each other at one tag, with no way
+for a reader to resolve it from inside.
+
+**So: when a correction pass removes a defective claim, census the exact string tree-wide before
+declaring the class swept** — including the lanes you were not auditing.
+
+**Two riders, both learned the same day:**
+
+1. **Census on whitespace-FLATTENED text.** The same paragraph read `0` for a line-anchored needle
+   and `1` flattened, because the phrase wrapped a line break. A line-anchored grep is right for a
+   freeze check and **wrong for a string census**.
+2. **Prove the fix in the ARTIFACT, not the tree.** A stale build directory can make a packager ship
+   a cached member, so a source fix can be invisible to the thing that ships.
+
+### E.3 — A SCOPE WORD IS A CLAIM ABOUT THE DOCUMENT'S OWN LAYOUT, and only rendering checks it
+
+*"The bullet above"*, *"this paragraph"*, *"the three items below"*, *"forty lines above"*, *"the
+table in this section"* — each is a **factual claim about the document's structure at the point the
+reader arrives**, and each is falsifiable, because an edit elsewhere can move, merge, split or
+renumber the referent without touching the sentence that refers to it.
+
+**Why it survives every lens usually applied.** A figure audit checks numbers against measurements.
+A misquote census (§ E.1) checks strings against sources. A link check resolves targets. **None of
+them looks at a scope word, because its referent is not in the text — it is in the LAYOUT.** The
+sentence stays literally intact while becoming false, and it reads perfectly in the diff, in the
+source, and in every check that reads the file as text.
+
+**The cure that actually works: render it and look.** Parse the section, resolve what *above* and
+*below* denote at that position, and compare. Cheaper approximations when full rendering is not
+available: assert the referent's **type** (is there in fact a bullet list immediately preceding?)
+and its **count** (does *"the three items below"* precede exactly three?).
+
+**And the drafting rule: name the structure, do not count the distance.** *"§ 6's bullet"* survives
+an edit that *"forty lines below"* does not. **The better the prose, the more of these claims it
+carries** — they are exactly how a careful writer makes a long document navigable, which is why
+this class scales with quality rather than against it.
