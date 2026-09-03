@@ -447,6 +447,35 @@ Serialization lessons that cost real wall-time.
   remote but never asks whether the *main checkout* is ahead or behind will report a clean board while
   a day of unpushed history sits beside it — which is exactly how the ruling in § A.2 went missing.
 
+**A FLEET SHARING ONE WORKING TREE: what it owes, and why an instruction is not enough.**
+
+Several agents in one checkout means **any one of them switching branches changes every other's
+answer.** The bullets above cover the coordinator; these cover the topology.
+
+- **FILE DISJOINTNESS IS NOT ISOLATION.** Assigning non-overlapping files is necessary and it is not
+  sufficient, because the things that actually contend cannot be assigned to an item at all: **HEAD ·
+  the current branch · the index · a gitignored build tree · the next free id in any sequence.** A
+  peer can move every one of them with zero file overlap the whole time. **Say this to the legs**; a
+  brief that promises non-overlap and stops there is *reassuring about exactly the surfaces it does
+  not cover*, which is worse than saying nothing.
+- **A WRITING PHASE GETS A WORKTREE OF ITS OWN. This is structural, and the structure is the point.**
+  Not *"confirm the branch first"*, not *"wait your turn"*. **A rule of that shape was shipped, and
+  it was violated repeatedly by the very seat that had written it down and promoted it to durable
+  law.** An instruction a careful actor keeps breaking is not an instruction problem: the working
+  tree is the operative object, and there is no ordering of checks that makes a shared root's branch
+  yours while something else can move it.
+- **A COORDINATED FLEET PRODUCES PROBE-NOT-SUBJECT ERRORS AT A RATE, and the rate is a property of
+  the FLEET, not a failing of whoever wrote the probe.** Enough concurrent measurement and some
+  fraction of what a leg reports will be about its own instrument, its own stale read, or a peer's
+  in-flight change. Budget for it.
+  **The cheap defence is DISCLOSURE, not better probes** — every finding states what it measured,
+  when, and against which ref, so a peer can tell *"the subject is wrong"* from *"you read it while I
+  was moving it"* **without re-running anything**. Better probes are expensive and reduce the rate;
+  disclosure is free and makes the residue diagnosable, which is the property that actually matters.
+  *Measured: a case reported "the harness changed a board surface" during a full-suite run. The
+  measurement was correct and the attribution was invented — a concurrent session was editing that
+  file. Nothing in the instrument was broken; the sentence it printed was the defect.*
+
 ---
 
 ## § B — Your program's instance — **fill this in**
