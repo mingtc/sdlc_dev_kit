@@ -24,7 +24,7 @@
 # Usage:
 #   /path/to/<project>/consumers/setup-consumer.sh            # consumer = CWD
 #   /path/to/<project>/consumers/setup-consumer.sh /repo/root # explicit root
-#
+
 set -euo pipefail
 
 # THE CLI SHAPE, per process/contracts/issue-creation.md § 3 — this script had no
@@ -41,7 +41,12 @@ case "${1:-}" in
     _h_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_h_start" ] || _h_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_h_start" ] || _h_start=3
-    sed -n "${_h_start},26p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    # END DERIVED TOO. This was the literal 26 — the same premise the start was fixed for,
+    # wearing the other end: it encodes where this header happens to stop today. Two files
+    # elsewhere claimed in their own comments that every other renderer derives its end, and
+    # those two claims were false because of this line.
+    _h_end="$(awk -v s="$_h_start" 'NR>=s && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    sed -n "${_h_start},${_h_end:-26}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
   -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
 esac

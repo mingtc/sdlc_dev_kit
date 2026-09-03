@@ -54,10 +54,20 @@ case "${VERB:-}" in
   -h|--help|help)
     # THE WINDOW IS DERIVED AT BOTH ENDS. A literal end (`3,40p`) printed 18 lines of raw
     # shell — `set -uo pipefail`, the ROOT= assignment — because this header ends at 22 and the
-    # literal did not know that. Every other header-derived --help in the kit derives its end for
-    # exactly this reason; this arm was added later and reintroduced the literal.
-    _tg_end="$(awk 'NR>2 && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
-    sed -n "3,${_tg_end:-22}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    # literal did not know that.
+    #
+    # The START was the literal 3 while this comment claimed both ends were derived — the
+    # sentence describing the fix outliving half of it. A literal 3 encodes "line 2 is the whole
+    # KIT-CLASS marker", which is true here and false the moment the marker wraps, and the wrap
+    # is what the other renderers were fixed for. Derived the same way they do it: every marker's
+    # LAST line cites the extraction manifest, so the marker's end is derivable; fall back to the
+    # KIT-CLASS line, then to the old literal, so a file following neither convention degrades to
+    # today's behaviour rather than to nothing.
+    _tg_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    [ -n "$_tg_start" ] || _tg_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    [ -n "$_tg_start" ] || _tg_start=3
+    _tg_end="$(awk -v s="$_tg_start" 'NR>=s && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    sed -n "${_tg_start},${_tg_end:-22}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
 esac
 

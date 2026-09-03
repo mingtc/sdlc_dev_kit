@@ -12,13 +12,25 @@
 # header. `${BASH_SOURCE[1]}` happens to work today and breaks the moment anything wraps
 # the call. Callers pass their own path: `kit_usage "${BASH_SOURCE[0]}"`.
 #
-# NOT EVERY SHIPPED RENDERER USES THIS, AND THAT IS DELIBERATE — TWO RULES, BOTH RULED:
+# NOT EVERY SHIPPED RENDERER USES THIS. Derive the set before reasoning about it —
+# this said "TWO RULES, BOTH RULED" and named two files while four others rendered
+# their own header block:
+#
+#     grep -rln "sed 's|^# \\{0,1\\}||'" scripts consumers setup.sh
+#
 #   * scripts/release.sh renders its SYNOPSIS instead, stopping at its last usage
 #     example, because its header carries operator notes below them that are not help
 #     text. Measured: on this rule its --help goes from 11 lines to 63. It also sources
 #     nothing from lib/ by design. Do not sweep it in.
-#   * consumers/update_vendored.sh is a TEMPLATE that leaves the tree into a consumer's
-#     repository, where scripts/lib/ does not exist. It keeps its own copy, necessarily.
+#   * EVERYTHING UNDER consumers/ is a TEMPLATE that leaves the tree into a consumer's
+#     repository, where scripts/lib/ does not exist. Each keeps its own copy, necessarily.
+#     (This rule named update_vendored.sh alone; install-skills.sh and setup-consumer.sh
+#     leave the tree for exactly the same reason and were simply not listed.)
+#   * scripts/notify/telegram.sh and scripts/test/run.sh are NOT ruled. Both stay in the
+#     tree and both COULD source this file. They are named here because an exception that
+#     is not written down is indistinguishable from an oversight, and these two were the
+#     oversight: no reason has been recorded for them, and until one is, they are debt
+#     rather than design. Do not read their presence in this list as a carve-out.
 #
 # THE WINDOW START IS DERIVED at both ends now. It used to be the literal 3, which
 # assumed the KIT-CLASS marker was exactly line 2 — false wherever the marker wraps, and

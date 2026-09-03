@@ -1455,8 +1455,11 @@ case_finish_pr_empty_merge() {
 # CASE — THE LANDING GATE MUST BE THE COMMITTED verify.sh AT THE REVISION BEING
 # LANDED — AND THIS CASE RUNS WITHOUT THE STUB MARKER.
 #
-# THAT IS THE POINT OF IT. The seven existing finish-pr cases run with
-# FINISH_PR_TEST_ALLOW_STUB=1, and the revision check is wrapped in
+# THAT IS THE POINT OF IT. The other finish-pr cases run with the `FPR_STUB` array
+# (FINISH_PR_TEST_ALLOW_STUB=1 + the two command stubs) — all of them except this one and
+# `case_finish_pr_gate_absent_says_write_one`, each of which says "NO FPR_STUB" at its own
+# site and why. Derive it rather than trusting a number here; this sentence said "seven"
+# and was true on the day it was written. The revision check is wrapped in
 # `if [ "$ALLOW_STUB" != "true" ]` — so those cases are green partly BECAUSE they
 # bypass the thing this one exists to hold. A guard that every existing case skips
 # is a guard nothing measures; running unmarked is the whole design of this case,
@@ -1467,8 +1470,12 @@ case_finish_pr_empty_merge() {
 # the common case, not the branch being landed. So the gate proved something about a
 # tree that is not shipping, and reported it as a landing precondition.
 #
-# THREE DIRECTIONS. The third is what stops the fix from being an unconditional
-# refusal, which would pass the first two and break every landing in the kit:
+# THE DIRECTIONS, AND THE CONFORMING ONE IS WHAT STOPS THE FIX FROM BEING AN
+# UNCONDITIONAL REFUSAL — that would pass every refusal arm and break every landing in
+# the kit. This said "THREE DIRECTIONS" and enumerated (i)-(iii); arm (iv) was added
+# afterwards, out of order, and the count above it did not grow. The arms are labelled
+# `# --- (n)` in the body and the finish string reports all of them; read those rather
+# than a number here:
 #   (i)   checkout on the trunk, branch elsewhere → REFUSE, naming the mismatch, and
 #         leave the branch and the issue exactly where they were;
 #   (ii)  checkout ON the branch but verify.sh locally modified → REFUSE, naming the
@@ -3746,6 +3753,12 @@ EOF
 #   (5) enumerator succeeds and returns NOTHING        → rc 2, no reconciled claim
 #   (6) SET − SPACE, two on disk, enumerator sees one  → rc 2, the UNSEEN one named
 #   (7) wholly empty: no set, enumerator returns none  → rc 0, and NO reconciled claim
+#   (8) DECLARED == ENUMERATED, both non-empty         → rc 0, and the reconciled claim IS
+#       emitted. The positive arm, and the only state that reaches the green line: (7)
+#       also exits 0, so without this one every assertion about that claim was an
+#       assertion about its ABSENCE. Added after this list was written, and the list did
+#       not grow with it — which is why "one case each" above is a rule to CHECK against
+#       the case set, not a fact this header can keep true on its own.
 #
 # STATES 3 AND 7 ARE BOTH BUILT ON THE SHIPPED EMPTY GUARD_SET on purpose. That
 # configuration is the one three consecutive rounds of controls never built, and it is
@@ -9120,8 +9133,11 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 #
 # Every header-derived --help printed from a literal line 3, and that literal encoded a
 # premise: line 1 is the shebang, line 2 is the whole KIT-CLASS marker. The premise is
-# false wherever the marker WRAPS — measured, three shipped files carry one spanning three
-# lines — and help then opens with marker text, which is precisely what the window exists
+# false wherever the marker WRAPS — several shipped files carry one spanning more than one
+# line, and the set is derivable, so do not re-add a count here; the twin of this sentence
+# in scripts/lib/usage.sh carried "three" until it was corrected on 2026-09-03 and THIS one
+# was left, which is what fixing an instance instead of a class looks like from the inside
+# — and help then opens with marker text, which is precisely what the window exists
 # to exclude. The window's END was carefully derived; only its START was assumed.
 #
 # THE ASSERTION IS ABOUT THE OUTPUT, not about the number. A case pinning `start` to a
