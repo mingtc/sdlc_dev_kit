@@ -76,6 +76,26 @@ Nothing in the minimum set was merged or split.
   new gate with no contract should redden the build; so should a contract for a gate that is gone.
   Writing that guard in your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's
   standing debt, honestly stated: the contracts travel, a guard over them does not.
+- **TWO CLASSES OF TRAVELLING SCRIPT ARE EXEMPT, and they are named here so a sweep finds a
+  DECISION rather than a violation.** The rule above says every travelling script has a sheet. Read
+  literally it is false, and it should be — a sheet describes a **reimplementable behaviour**, and
+  neither class has one.
+  1. **The optional extras.** `scripts/hygiene/` is Python 3, standard-library only, **never a gate,
+     and deletable without loss**. A reimplementer who omits every one of them has still built the
+     kit. Writing them contract sheets would assert the opposite of the carve-out that makes them
+     optional.
+  2. **Shared internals of contracted scripts** — `scripts/lib/`. These exist so that two or three
+     consumers do not duplicate an idiom; the behaviour they carry is already specified by the
+     sheets of the scripts that call them. **A reimplementer working from the sheets alone would not
+     create these files, and would not be wrong.** A library is a factoring decision, not a contract.
+  *The test that separates an exemption from an oversight:* **could someone build a conforming kit
+  from the sheets without this file?** If yes, it is exempt and belongs in a class above. If no, it
+  owes a sheet. *And do not close a gap by writing thin sheets to satisfy a count — this directory
+  also says a sheet is ≤ one page and one nobody finishes reading is not reimplementable. Nine
+  sheets written to make a census green is the census defect wearing contract clothing.*
+  *One thing that looks like a gap and is not:* a sheet may cite its implementation in **placeholder
+  form** — `notification.md` says `scripts/notify/<channel>.sh`, because the channel is the adopter's
+  instance. A sweep matching literal paths reports the shipped example as uncovered; it is not.
 - **A § 6 row RESTATES the implementation's own `KIT-CLASS` marker, deliberately, and the copy is
   tolerated rather than accidental.** The two statements answer two different readers: the in-file
   marker answers *"what is this file"* for someone holding the file; the § 6 row answers *"what does

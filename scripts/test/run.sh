@@ -8948,6 +8948,69 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # THE ASSERTION IS THE STATE OF THE TREE, not the message. "It printed an error" is
 # satisfied by a run that errored and left the bump behind.
 # =============================================================================
+# =============================================================================
+# CASE — EVERY TRAVELLING SCRIPT HAS A SHEET OR SITS IN A NAMED EXEMPT CLASS.
+#
+# contracts/README.md states the rule in both directions. The mirror direction — every
+# path a sheet cites exists — was already guarded. THIS direction was not, and
+# contracts/README.md said so in as many words: "nothing checks that a travelling script
+# has a sheet… the guard is the PROJECT's, not the kit's… the contracts travel, a guard
+# over them does not."
+#
+# THAT LAST CLAUSE IS SUPERSEDED BY THIS CASE, and the reason it was written is worth
+# keeping: a guard needs the project's own file set, which the kit does not have. But this
+# harness SHIPS and runs inside the project's tree, so it does have it — the obstacle was
+# never that the guard could not travel, only that nothing carrying it did.
+#
+# THE EXEMPT CLASSES ARE DERIVED FROM THE RULE'S OWN TEXT, not listed here. A second
+# hand-typed list of exemptions is the defect this whole directory is about.
+# =============================================================================
+case_travelling_scripts_have_a_sheet() {
+  cf_reset
+  make_sandbox
+  # The REAL tree: make_sandbox does not copy process/, and a case that skips because its
+  # own operand is absent from the fixture is a skip about the fixture, not the project.
+  local readme="$REAL_REPO_ROOT/process/contracts/README.md"
+  local cdir="$REAL_REPO_ROOT/process/contracts"
+  [ -f "$readme" ] && [ -d "$cdir" ] \
+    || { skp "every travelling script has a sheet or a named exemption" "process/contracts/ is absent — this project does not carry the contract set"; teardown; return; }
+
+  # THE EXEMPT PREFIXES, derived from the rule's own bullet rather than retyped. Each class
+  # is named there as a backticked path prefix.
+  local exempt n=0 miss="" f rel
+  exempt="$(awk '/TWO CLASSES OF TRAVELLING SCRIPT ARE EXEMPT/,/^- \*\*A § 6 row/' "$readme" \
+            | grep -oE '`scripts/[a-z-]+/`' | tr -d '`' | sort -u)"
+  [ -n "$exempt" ] \
+    || _fixture_die "case_travelling_scripts_have_a_sheet: could not derive the exempt classes out of contracts/README.md — with none derived every travelling script would look owed, and with the derivation reading the wrong block every one would look exempt."
+
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    rel="${f#$REAL_REPO_ROOT/}"
+    n=$(( n + 1 ))
+    # Exempt by class?
+    local e skip=0
+    for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
+    [ "$skip" -eq 1 ] && continue
+    # Cited by some sheet — literally, or in the placeholder form a sheet may legitimately
+    # use for an adopter-instance path (notification.md's scripts/notify/<channel>.sh).
+    grep -rqF "$rel" "$cdir" 2>/dev/null && continue
+    grep -rqE "$(printf '%s' "${rel%/*}" | sed 's/[.[\*^$]/\\&/g')/<[a-z-]+>\.(sh|py)" "$cdir" 2>/dev/null && continue
+    miss="$miss $rel"
+  done <<EOF
+$(grep -rlE '^# KIT-CLASS: (KIT|MIXED)' "$REAL_SCRIPTS" 2>/dev/null | sort)
+EOF
+
+  [ -z "$miss" ] \
+    || cf "these travelling scripts are cited by no contract sheet and sit in no named exempt class —$miss. Either the sheet is owed or the exemption is, and contracts/README.md is where the exemption goes so the next sweep finds a decision rather than a violation"
+
+  # ── INSTRUMENT CHECK: a sweep that found no travelling scripts reports full coverage.
+  [ "$n" -ge 12 ] \
+    || cf "only $n travelling script(s) were found — expected at least 12. The KIT-CLASS marker or the glob changed, so 'every one is covered' is true of almost nothing"
+
+  finish "all $n travelling (KIT/MIXED) scripts are either cited by a contract sheet — literally, or in the placeholder form a sheet may use for an adopter-instance path — or sit in one of the exempt classes contracts/README.md names, with the class list DERIVED from that rule rather than retyped"
+  teardown
+}
+
 case_release_hook_rejection_leaves_no_bump() {
   cf_reset
   if ! has_release; then skp "a hook rejection between bump and commit leaves nothing behind" "scripts/release.sh absent"; return; fi
@@ -10039,6 +10102,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_travelling_scripts_have_a_sheet
   case_release_hook_rejection_leaves_no_bump
   case_shipped_scripts_stay_on_the_floor
   case_help_never_opens_with_the_class_marker

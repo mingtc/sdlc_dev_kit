@@ -56,6 +56,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **The self-test now checks that every travelling script has a contract sheet.** `contracts/README.md`
+  always stated the rule in both directions and said outright that this one was unguarded. It is
+  guarded now, and two exempt classes are named at the rule so a sweep finds a decision rather than a
+  violation: `scripts/hygiene/` (optional, never a gate, deletable) and `scripts/lib/` (shared
+  internals, whose behaviour their callers' sheets already specify). **Action required if you have
+  added your own travelling scripts** — anything carrying `# KIT-CLASS: KIT` or `MIXED`: the new case
+  will name it unless a sheet cites it or it sits under one of those prefixes. The test to apply is
+  *could someone build a conforming kit from the sheets without this file?* A sheet may cite its
+  implementation in placeholder form (`scripts/notify/<channel>.sh`) and that counts.
+
 - **A failed release commit no longer leaves your version files bumped.** `release.sh` restored
   only when a *bump* failed; if the **commit** failed — most likely your commit-msg hook rejecting
   `[Architect]`, which is what happens after `kit-init --roles` narrows your role set — the version
