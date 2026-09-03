@@ -97,8 +97,15 @@ Follow this priority order. Explicit user preference always beats observed files
 **MUST verify directory is ignored before creating worktree:**
 
 ```bash
-git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
+# Test the directory § Directory Selection actually CHOSE — not a guess at its name.
+git check-ignore -q "$WORKTREE_DIR"
 ```
+
+This was written as `git check-ignore -q .worktrees || git check-ignore -q worktrees`, which asks
+about two hard-coded names and passes if **either** is ignored. Both answers it can give are wrong
+in a real tree: where `.worktrees/` is ignored and the chosen directory is `worktrees/`, the `||`
+short-circuits on the first and reports the second safe when it is not — which is precisely the
+commit-your-worktree accident this step exists to prevent.
 
 **If NOT ignored:** Add to .gitignore, commit the change, then proceed.
 

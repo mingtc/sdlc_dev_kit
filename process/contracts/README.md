@@ -74,8 +74,14 @@ Nothing in the minimum set was merged or split.
 - **Both directions want guarding**, and the guard is the **project's**, not the kit's: every
   travelling (`KIT`/`MIXED`) script has a sheet, and every implementation a sheet cites exists. A
   new gate with no contract should redden the build; so should a contract for a gate that is gone.
-  Writing that guard in your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's
-  standing debt, honestly stated: the contracts travel, a guard over them does not.
+  **One of those two directions now ships a guard and one does not** — see the § 6 bullet below,
+  which is where the split is stated in full: `case_travelling_scripts_have_a_sheet` runs in your
+  tree, and nothing yet checks that a sheet's cited path still exists. Writing THAT second guard in
+  your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's standing debt.
+  *This bullet read "the contracts travel, a guard over them does not" until 2026-09-04. The guard
+  shipped on 2026-09-03 and the § 6 bullet was updated in that same change; this one, forty lines
+  above it, was not — the second half of a document still describing the world the first half had
+  left.*
 <!-- EXEMPT-CLASSES:BEGIN — the self-test derives the exempt path prefixes by reading the
      backticked paths between these two markers. They are here because the derivation used to be
      anchored on this bullet's WORDING, and the first reword of that wording emptied it. Prose is
@@ -143,7 +149,13 @@ Nothing in the minimum set was merged or split.
 - **`PROJECT`-class files owe nothing** and no sheet may claim one — a contract over a file the
   adopter never receives reads as an obligation they do not have.
 - **A `MIXED` file's sheet describes the KIT HALF only**, and says so in its own section 6.
-- **Sheets are ≤ one page.** A sheet nobody finishes reading is not reimplementable.
+- **A sheet is short enough to finish.** A sheet nobody finishes reading is not reimplementable,
+  and length is the thing most likely to make that true. *This said "≤ one page" until 2026-09-04,
+  when it was measured against the directory it governs and **no sheet satisfied it** — the shortest
+  is `notification.md`, the longest `drift-report.md`, and every one is past a page. A bar nothing
+  clears is not a bar; it is a sentence that makes the next reader distrust the neighbouring rules.
+  Derive the spread before invoking this — `wc -l process/contracts/*.md` — and treat a sheet that
+  is an outlier against its siblings as the thing to question, not a fixed line count.*
 - **The version-literal trap:** any example needing a version uses the obviously-fictional
   `42.x`, so no sample can be mistaken for a real version or rot into a lie when the real one
   moves.

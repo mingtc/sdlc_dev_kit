@@ -6,7 +6,10 @@
 #
 # A read-only (<2s) reporter for the mechanical parts of the manual's § "Session
 # close ritual" that would otherwise be self-attested with zero verification. It
-# reports these drift classes:
+# reports these drift classes. THE LETTERS ARE THE ARMS' OWN, and the list below is a projection
+# of them: derive it with `grep -n '^echo "\[[a-z]\]' scripts/check-board.sh` rather than trusting
+# this header, which enumerated (a)-(g) after (h) and (i) had been added and were printing on
+# every run:
 #   (a) any ACTIVE-board issue file whose folder contradicts its last Activity entry
 #       (the folder is authoritative — a mismatch means the Activity log wasn't kept in sync);
 #   (b) progress/qa_complete/ column depth vs the archive.sh sweep threshold;

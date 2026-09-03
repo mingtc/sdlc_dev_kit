@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Bisection script to find which test creates unwanted files/state
 # Usage: TEST_CMD=<your single-file test command> ./find-polluter.sh <file_or_dir_to_check> <test_pattern>
-# Example: TEST_CMD="npm test --" ./find-polluter.sh '.git' 'src/**/*.test.ts'
+# Example: TEST_CMD="npm test --" ./find-polluter.sh '.git' './src/**/*.test.ts'
+#   NOTE THE LEADING './'. `find .` emits paths that begin './', and -path matches the WHOLE
+#   emitted path — so a pattern without it matches nothing, and this script then reports
+#   success over zero test files. This example omitted it.
 # TEST_CMD is REQUIRED and has no default: the script refuses rather than guess your runner.
 
 set -e

@@ -7,7 +7,11 @@
      Everything else in angle brackets is for the author to fill in — never leave one in a live
      issue. If your initializer has not wired a key, substitute it by hand before first use. -->
 
-<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — progress/todo/ — NOT to the directory it
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — progress/subtasks/<PREFIX>-NNN/<status>/ —
+     FOUR segments deep, not two: scripts/subtask.sh sets DEST_DIR to progress/subtasks/<PARENT>/todo.
+     This line said progress/todo/ when the uniform declaration was stamped across the templates, and
+     nothing caught it because this file's only link carries a <status> placeholder and the link check
+     skipped it — the one template with a wrong destination was the one whose links were exempt. NOT to the directory it
      sits in. A link written for where the template SITS resolves while you read it here and
      is dead in every copy an adopter makes: it passes a link check run in the kit and fails
      the only reader who matters. The self-test reads this line to know where to resolve from,

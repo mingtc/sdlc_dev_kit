@@ -6,7 +6,7 @@
 #       line — process/doctrine/commit-hygiene.md § A.1
 #
 # (1) THE ROLE PREFIX.
-# The adapter's § "Branching and role attribution": every commit begins with a role
+# The adapter's § "Role-attribution commit prefixes": every commit begins with a role
 # tag ([PM] / [Dev] / [QA] / …). Role attribution for the one-operator-many-hats model
 # comes from these prefixes cross-checked against the issue-file Activity logs — so a
 # prefix-less commit erodes the audit trail. This hook rejects any commit whose SUBJECT

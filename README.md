@@ -178,7 +178,8 @@ gate is pure git: it does not call a forge CLI, so nothing in the core path brea
 
 ## Where the working records go
 
-- [`dev/`](dev/) — dated working notes, assessments, and **handoffs**; every file indexed in
+- [`dev/`](dev/) — dated working notes, assessments, and **handoffs**; every file and split-out
+  directory reachable from exactly one row in
   [`dev/README.md`](dev/README.md). No file in `dev/` is a living plan except the newest handoff.
   It also holds the directories the process writes into by name — `specs/`, `plans/`, `refactor/`,
   `design/`, `runs/` — so a role doc's stated output path lands somewhere that exists.

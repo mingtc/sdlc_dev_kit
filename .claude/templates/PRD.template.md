@@ -115,5 +115,5 @@ reason is what stops the same argument being re-litigated
 
 ## References
 
-- [PROJECT.md](../PROJECT.md) § <section>   <!-- ../ not ../../ : a PRD lives in requirements/, ONE level down. The card templates beside this one use ../../ correctly because their cards land in progress/<status>/, which is two. -->
+- [PROJECT.md](../PROJECT.md) § <section>   <!-- ../ not ../../ : a PRD lives in requirements/, ONE level down. The ISSUE/BUG/REFACTOR card templates beside this one use ../../ because their cards land in progress/<status>/, which is two. SUBTASK.template.md is the exception and uses ../../../ — its cards land in progress/subtasks/<PREFIX>-NNN/<status>/. Read each template's own destination line rather than this sentence. -->
 - <linked PRDs, design docs, prior art>

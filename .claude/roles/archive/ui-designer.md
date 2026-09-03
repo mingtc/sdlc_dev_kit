@@ -34,8 +34,11 @@ Waking it means doing all of these **in one change**, so the kit never advertise
 5. **Decide the per-issue look gate** — see [orchestrator.md](../orchestrator.md) § Project
    duties, whose "look / visual gate" bullet is where a woken UI role stops being DORMANT.
 
-Until all five are done, every `../skills/<name>` link in this doc is a **known dangling
-reference**, deliberately left visible so waking the role cannot be half-done.
+Until all five are done, this doc NAMES skills it does not ship and deliberately does not LINK to
+them. There is no `../skills/<name>` link here to dangle — a dangling link is a defect every link
+check reports, and this absence is a decision instead. *(This paragraph used to say the opposite:
+that every such link was a "known dangling reference" left visible on purpose. There were never any.
+The one skill link in this doc, to `using-git-worktrees`, resolves — that skill ships.)*
 
 ## When to put on the UI Designer hat
 

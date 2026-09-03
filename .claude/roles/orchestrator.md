@@ -322,7 +322,7 @@ rests on judgment rather than evidence**:
   report's "needs your call" section, continue.
 
 The rule in one line: **verdict rests on evidence → act; verdict rests on judgment →
-park.** This honours the adapter's "'looks good' is not evidence" bar and never auto-merges
+park.** This honours the QA role doc's "'looks good' is not evidence" bar — `.claude/roles/qa.md` § Walk the AC is its authoring site, not the adapter — and never auto-merges
 a judgment call.
 
 **The discriminator — what needs operator sign-off vs what the orchestrator self-serves:**
@@ -346,8 +346,9 @@ Therefore, during an AFK run:
 
 - **Do NOT invoke the AskUserQuestion tool.** Treat it as unavailable for the whole run.
 - **Batch every decision** — GATE-A forks, GATE-B parked verdicts, new-public-surface sign-off
-  calls — into a single clearly-marked **"Decisions for the operator"** group in the run
-  report, each with a recommendation + one-line rationale. **Keep proceeding** on everything
+  calls — into a single clearly-marked **§ Decisions for the seat** group in the run
+  report — the name this doc uses 175 lines above and the name the run-report template gives the
+  section; this line said "for the operator" and named nothing that exists, each with a recommendation + one-line rationale. **Keep proceeding** on everything
   that doesn't strictly require sign-off (act on locked recommendations and pre-answered
   defaults).
 - For locked-surface / risky changes, do the work and **flag it "pending operator sign-off"**
@@ -509,7 +510,7 @@ quota death or account switch loses minutes, not an issue:
 
 ## Notifications (optional)
 
-If the project configures a notification backend (see the adapter § Notifications), fire pings
+If the project configures a notification backend (see the adapter § What is ON and what is OFF here, which is where a project declares it), fire pings
 at the run's natural beats — passing **this session's slug** on every call (`--session <slug>`):
 
 - `attention` — at a GATE-A decision and when a GATE-B verdict is **parked** for the human.

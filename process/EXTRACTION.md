@@ -243,7 +243,7 @@ names the guard whose job is to keep it honest.
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/doctrine/` | Process doctrine. **Every sheet states its own pattern/instance split at the top; obey it** — § A (or the sections it names) travels, and the instance section is a **blank you fill**, not an example to keep. `find process/doctrine -type f` lists them; the doctrine table in `MANUAL.md` is the index, and a new sheet joins that table **in the same change** that creates it. |
-| `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — they name no language, no flag and no path outside their sixth section. Some sheets describe no script at all — `acceptance-tier.md`, `retention-completeness.md` and `liveness-watchdog.md` as of this writing, each saying so in its own § 6, and the set is derived by reading those sections rather than counted here. A sheet without a shipped implementation is not an omission: the rule still travels, and for `liveness-watchdog.md` the absence is the point ("a discipline, not a program — this kit ships no watchdog binary, which is precisely why its rules had to be written down here"). |
+| `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — they name no language and no path outside their sixth section. **They DO name flags outside § 6, in one deliberate case:** `issue-creation.md` § 3 fixes the meaning of `--dry-run` and `--apply` kit-wide, because that is a rule about the vocabulary every tool shares rather than a description of one implementation, and it needs a single authoring site. *This sentence said "no flag" and was raised as a defect on 2026-09-03; the seat refuted it by checking whether `issue-creation.md` was wrong — it is not — instead of whether THIS sentence was, which it was. Raised again by an independent checker on 2026-09-04 and fixed.* Some sheets describe no script at all — `acceptance-tier.md`, `retention-completeness.md` and `liveness-watchdog.md` as of this writing, each saying so in its own § 6, and the set is derived by reading those sections rather than counted here. A sheet without a shipped implementation is not an omission: the rule still travels, and for `liveness-watchdog.md` the absence is the point ("a discipline, not a program — this kit ships no watchdog binary, which is precisely why its rules had to be written down here"). |
 | `process/templates/` | Fill-in-the-blank shapes. **Hand-filled** — the initializer stamps `.claude/templates/`, not these, so they carry no prefix literal. Blanks are `<angle brackets>`. **A FILL file has no template here: it ships as its own blank instance and is filled in place.** *A template nothing stamps drifts from the instance it claims to be — every edit reaches the live sheet and none reaches the copy, and nothing in the tree compares them.* |
 | `process/hygiene-checklist.md` | The shapes a hygiene pass looks for, plus two ratchet rules and the anti-pigeonhole reservation. **The cadence is advisory; the pre-cut sweep is MANDATORY when the slate came from a round.** The shapes travel with their **evidence columns blank**. |
 | `process/EXTRACTION.md` | This file. Update its § 4 as you pay the debts down, and **add the debts you discover** — that is ratchet rule 1 applied to a manifest. |
@@ -268,7 +268,7 @@ lives **outside the directory it describes**, so a re-copy of `.claude/agents/` 
 
 | Definition | Pinned | Why not neutral |
 |---|---|---|
-| every leaf worker except the UI designer | the higher tier | the seed default the orchestrator's § Provisioning promises |
+| every leaf worker except the UI designer | the higher tier | the seed default the orchestrator's § Model & effort contract promises |
 | `ui-designer-worker.md` | a lower tier | the one deliberate exception; its role is parked, and the pin records the intent rather than a live cost |
 
 **THE VALUES ARE NOT WRITTEN IN THIS TABLE, DELIBERATELY** — derive them:
@@ -282,7 +282,7 @@ means. An adopter re-provisioning is the intended cure, and `doctrine/model-prov
 where they record what they chose.
 
 
-**`.claude/settings.json.example` is CONFIGURE, not COPY** — § 2.8.
+**`.claude/settings.json.example` is COPY** — nothing inside it is yours to fill in; what it asks is whether to activate the hooks at all, which execute shell. § 2.8.
 
 ### 1.1 The kanban script set
 
@@ -548,7 +548,7 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 | `scripts/subtask.sh` | **ENFORCING** | yes | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s. **This is the row that was missing from the initializer's hand-typed list**, so a renamed project got a subtask tool that rejected every role it had just declared |
 | `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | **This row was missing while the table above called itself "the list", which is the drift this section is about happening to this section.** The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
 | The adapter (`CLAUDE.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
-| `.claude/settings.json.example` | DOCUMENTATION | **no** | The set spelled out in prose, in its `<role-prefix-list>` note | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive. The file's own `_note` says the initializer does not touch it |
+| ~~`.claude/settings.json.example`~~ | ~~DOCUMENTATION~~ | ~~**no**~~ | ~~The set spelled out in prose, in its `<role-prefix-list>` note~~ — **STRUCK 2026-09-04.** The file holds no role set: the prose that did left with the `autoMode` block, and the `<role-prefix-list>` gloss that outlived it was removed in turn. Row kept struck rather than deleted so a reader who remembers this copy can see it was retired, not overlooked | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive. The file's own `_note` says the initializer does not touch it |
 
 **Derive the ENFORCING register rather than trusting this table to be current** — the table is the
 statement of intent, the recipe is the measurement, and a disagreement between them is a finding:
@@ -623,19 +623,27 @@ Off by default. Set the backend (and its credentials) in the environment file an
 notification hook from `.claude/settings.json.example`. Adding a backend = one script beside the
 example channel adapter.
 
-### 2.8 `.claude/settings.json.example` — CONFIGURE, not COPY
+### 2.8 `.claude/settings.json.example` — COPY, and activating it is the decision
 
-It is the opt-in harness hook wiring (the role gate, the session-start clear, notifications) — the
-*mechanism* travels, but a copied-as-is settings file authorizes the wrong things in your
-repository. The values inside it listed below are yours, and one of them restates the role
-set — keep it in step with § 2.4, **whose table is the list**:
+It is the opt-in harness hook wiring (the role gate, the session-start clear, notifications).
+**Copy it as it stands.** The decision it asks of you is *whether to activate the hooks at all* —
+they execute shell on tool use and at session start — not what to put inside it.
+
+**It used to be CONFIGURE, and this section is the record of why it stopped.** The file carried an
+`autoMode` block whose prose restated the trunk, the code-path globs, the two project filenames and
+the role-prefix list. That block was deleted as a third copy of a rule that already had two
+authoring sites; the table below is what described its contents. Every row is now struck, and the
+last two were struck on 2026-09-04 by a fresh-context checker that read the table against the
+shipped file and found nothing in it left to replace. *Kept rather than deleted because the
+question "where did the trunk name in the settings file go" is one an adopter upgrading across
+this change will ask, and a deleted table cannot answer it.*
 
 | Value inside the file | Replace with |
 |---|---|
-| The trunk name | Your `<trunk>` |
+| ~~The trunk name~~ | ~~Your `<trunk>`~~ — gone with `autoMode`; the trunk policy lives in the adapter, and the file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key says so |
 | ~~The code-path globs (in both the *allowed metadata* list and the *forbidden direct-push* list)~~ | ~~Your § 2.6 answer, verbatim~~ — **STRUCK 2026-09-03: no such list ships.** The `autoMode` block that held them was removed and the file's own `_WHAT_THIS_FILE_MAY_CONTAIN` key records the removal. These rows told an adopter to go and edit three lists that are not in the file they were opening. |
 | ~~The two project filenames (cited as the rules' authority and listed among the pushable paths)~~ | ~~Your two files (§ 2.5)~~ — **STRUCK, same reason.** *The trunk policy's real home is named in that file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key.* |
-| The role-prefix list in its prose | Your role set |
+| ~~The role-prefix list in its prose~~ | ~~Your role set~~ — gone with `autoMode`; § 2.4 no longer lists this file as holding the set |
 
 ### 2.9 The drift-report thresholds
 

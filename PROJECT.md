@@ -111,8 +111,10 @@ a row here names a sheet your kit does not carry, delete that row and say so. A 
 because you have decided not to keep the *gate* is different — say why *in the row* rather than
 removing it silently.
 
-To prove every reference in this file resolves, and that no sheet is missing a row, from the
-repository root:
+To prove every **contract-sheet** reference in this file resolves, and that no sheet is missing a
+row, from the repository root. *It checks that class and no other:* command 1 greps only
+`process/contracts/[a-z-]*\.md`, so this file's other references — the manual, the adapter, the
+role docs — are outside it. Say what a check covers, or its green is read as covering everything:
 
 ```sh
 # 1. every link points at a real sheet

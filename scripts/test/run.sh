@@ -9549,6 +9549,28 @@ case_template_links_resolve_from_their_destination() {
           if (system(cmd) != 0) printf "%s:%s ", FNR, l
       } }' "$t")"
     [ -z "$miss" ] || { bad=$(( bad + 1 )); cf "$base declares it lands in '$dest' and these links do not resolve from there: $miss — they resolve from process/templates/ instead, which is where the file SITS, so they pass a link check run in the kit and are dead in every copy an adopter makes"; }
+
+    # ── THE CLIMB CHECK, for the links the resolver above SKIPS ────────────────────
+    # It skips any link containing `<`, because a placeholder cannot be resolved on
+    # disk. That exemption hid a real defect: SUBTASK.template.md declared it lands in
+    # progress/todo/ when subtask.sh puts it four segments deep, and its ONLY link
+    # carries a <status> placeholder — so the one template with a wrong destination was
+    # the one whose links were entirely exempt from the check.
+    #
+    # A placeholder blocks resolution, not arithmetic. A link may climb no further than
+    # its destination is deep: from a 2-segment destination, `../../../` leaves the
+    # repository, and that is wrong whatever the placeholder expands to.
+    local depth climb over
+    depth="$(printf '%s' "$dest" | awk -F/ '{print NF}')"
+    over="$(awk -v d="$depth" -v D="$dest" '
+      { while (match($0, /\]\([^)#]+\)/)) {
+          l = substr($0, RSTART+2, RLENGTH-3); $0 = substr($0, RSTART+RLENGTH)
+          if (l ~ /^http/ || l !~ /^\.\.\//) continue
+          c = 0; t = l
+          while (t ~ /^\.\.\//) { c++; sub(/^\.\.\//, "", t) }
+          if (c > d) printf "%s:%s(climbs %d from a %d-deep destination) ", FNR, l, c, d
+      } }' "$t")"
+    [ -z "$over" ] || { bad=$(( bad + 1 )); cf "$base declares it lands in '$dest' and these links climb ABOVE the repository root from there: $over"; }
   done
 
   # ── INSTRUMENT CHECK: a loop that resolved no destinations reports every template clean.
@@ -9799,7 +9821,11 @@ case_minting_cases_probe_for_the_template() {
     # refuses the preflight without it — the same capability, reached by a helper rather
     # than by a creator. The signal is the CALL, not a mention: `kit-init.sh` in a comment
     # matched two cases that never run it.
-    fn != "" && /new-[a-z*]*\.sh|subtask\.sh|kit_init_sandbox/ { mint=1 }
+    # ...AND A COMMENT IS NOT A CALL. The note above says "the signal is the CALL, not a
+    # mention" and the pattern still matched mentions: a comment naming subtask.sh, added to
+    # an unrelated case on 2026-09-04, made this guard report that case as unguarded. Skip
+    # comment lines before testing, so the rule matches the sentence that states it.
+    fn != "" && $0 !~ /^[[:space:]]*#/ && /new-[a-z*]*\.sh|subtask\.sh|kit_init_sandbox/ { mint=1 }
     fn != "" && /has_issue_template/                                            { probe=1 }
   ' "$probe")"
 

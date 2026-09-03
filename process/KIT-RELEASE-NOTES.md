@@ -46,6 +46,41 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`.claude/skills/using-git-worktrees/` — the ignore check tested the wrong directory.** It ran
+  `git check-ignore -q .worktrees || git check-ignore -q worktrees`: two hard-coded names, ORed. Where
+  `.worktrees/` is ignored and the directory actually chosen is `worktrees/`, it short-circuits on the
+  first and reports the second safe. **Action required if you vendored this skill:** re-copy it. The
+  check now tests the directory § Directory Selection chose. If you have been running with a
+  `worktrees/` directory, confirm it is in your `.gitignore`.
+- **`.claude/workflows/wave-runner.js` told a Refactorer to commit as `[Dev]`.** On the docs path the
+  brief hard-coded a `[Dev]`-prefixed subject while the role was derived and used everywhere else in
+  the same brief. **Action required if you run wave-runner with `issue.role: "Refactorer"`:** re-copy
+  the file; commits from those runs carry the wrong attribution and your commit-msg hook accepted them.
+- **`.claude/workflows/tranche-runner.js`'s park brief named a verdict its schema rejects.** The park-QA
+  fail bullet was labelled bare `FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` / `FAIL_AC` /
+  `FAIL_REGRESSION`. Same defect as the QA-prompt bullet fixed in the previous entry, in the other
+  prompt. **Re-copy the file if you run park legs.**
+- **`process/templates/CORPUS.skeleton.md` and `DECISIONS.skeleton.md` rendered their instructions as
+  body text.** Both embedded a literal `<!-- KIT-CLASS: … -->` inside an HTML comment; comments do not
+  nest, so the inner `-->` closed the block early and roughly eighteen lines appeared above the heading.
+  **Action required if you copied either skeleton:** open your `requirements/CORPUS.md` and
+  `requirements/DECISIONS.md` and delete any stray instruction text above the `#` heading.
+- **`.claude/templates/SUBTASK.template.md` declared the wrong landing directory.** It said its links
+  are relative to `progress/todo/`; subtask cards land in `progress/subtasks/<PREFIX>-NNN/<status>/`.
+  The links themselves were always right — only the declaration was wrong — so nothing you generated is
+  broken. Re-copy the template if you have vendored it.
+- **`scripts/notify.sh --help` showed `test` as taking a required message.** It does not.
+  `notify.sh test` sends a fixed probe and takes no message argument; the usage line now says so on
+  both of its sites. No behaviour changed.
+- **`.claude/skills/systematic-debugging/find-polluter.sh`'s usage example matched nothing.** The
+  example pattern `'src/**/*.test.ts'` cannot match, because `find .` emits paths beginning `./` and
+  `-path` matches the whole string — so the script reported success over zero test files. The example
+  now carries the leading `./`. **If you ran it and it found no polluter, run it again.**
+- **`process/EXTRACTION.md` § 2.8 is now COPY, not CONFIGURE.** `.claude/settings.json.example` has
+  nothing inside it for you to fill in — the values that table listed left with the deleted `autoMode`
+  block. The decision it asks of you is only whether to activate the hooks at all. No action required
+  beyond ignoring the old instruction to substitute a trunk name and a role-prefix list into it.
+
 - **`archive-progress.sh`'s dry run no longer writes anything.** Its DEFAULT mode (no `--apply`)
   created `progress/history/INDEX.md` when that file was absent, then closed by printing
   *"(dry run — no changes made.)"*. **Action required if you have ever run it without `--apply`

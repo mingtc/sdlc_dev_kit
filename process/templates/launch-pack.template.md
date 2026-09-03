@@ -6,10 +6,13 @@
      of it is the worst of both: it passes a link check here and is broken for every adopter. -->
 
 > **GUIDANCE — how to use this file.** Copy it to `dev/launch/<YYYY-MM-DD>-<run-name>-pack.md`,
-> fill every `<slot>`, and **delete every line that starts with `GUIDANCE`** before you launch.
+> fill every `<slot>`, and **delete every `>` blockquote line** before you launch — the guidance in
+> this template is written as blockquotes, not as lines beginning with the word GUIDANCE. *(This
+> said "every line that starts with `GUIDANCE`". No line in any template does; `grep -rn "^GUIDANCE"`
+> over both template trees returns nothing, so the instruction as written deleted nothing.)*
 > What survives is a paste-ready prompt: a runner reads the pack, wears the Orchestrator hat, and
 > executes it without asking the seat what was meant. The pack is authored by **the seat** (the
-> standing, human-partnered position — see [`../doctrine/orchestration.md`](../../process/doctrine/orchestration.md));
+> standing, human-partnered position — see [`../../process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md));
 > it is **not** written by the runner that executes it, and it is never edited mid-run except to
 > stamp it or to record a seat ruling that changed the order.
 >

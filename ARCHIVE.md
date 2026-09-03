@@ -24,7 +24,9 @@ When `progress/qa_complete/` has grown enough to clutter the active board (the
 ```
 
 `archive.sh` prepends one-line entries below the `## Archived` heading and moves
-the full files into `progress/done/`. Review the staged diff, then commit.
+the full files into `progress/done/`. **It commits and pushes on `--apply`** — there is no staged
+diff left for you to review, so review the run's output and the resulting commit instead. Use
+`--dry-run` (the default) first if you want to see what it would do.
 
 The contract this implements is
 [`process/contracts/archive-sweep.md`](process/contracts/archive-sweep.md). The depth

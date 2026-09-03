@@ -68,7 +68,11 @@
 #     flattest form. Same nesting rule as "###": a boundary only when not under a
 #     "## " section.
 #
-# Idempotency: after a clean rotation, re-running with the same --before
+# Idempotency: after a clean rotation, re-running with the same --before finds nothing to
+# archive. Whether that is exit 0 or exit 3 depends on the LOG, not on this run: if § Log is
+# still over check-board.sh's byte threshold, nothing-matched is exit 3 with "ROTATION IS
+# STILL DUE" — the rule stated above, which this sentence used to contradict by promising a
+# flat exit 0. Original wording, kept because the intent is right: after a clean rotation
 # finds no entries to archive and exits 0.
 #
 # Manual review before commit: this script does NOT `git add`.

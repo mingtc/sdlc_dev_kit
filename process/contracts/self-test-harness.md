@@ -90,7 +90,9 @@ a disposable repository, so that the tools that guard the project are themselves
 - `scripts/test/run.sh` — KIT-CLASS **MIXED**: this sheet describes the **kit half** (the
   disposable sandbox with its own publication target, the three-way accounting, the capability
   probes, the test-only marker). Any case family that pins one installation's own facts is
-  enumerated as such in [`../EXTRACTION.md`](../EXTRACTION.md) § 1 — an adopter edits or drops
+  marked as such in [`../EXTRACTION.md`](../EXTRACTION.md) § 1.1, whose "Take but EDIT" table carries
+  the row *"any case family that pins **your** facts"* — a class, deliberately not an enumeration,
+  because a list of families would go stale the first time one was added. An adopter edits or drops
   those, and expects them to be the first to redden after an extraction.
 - The marker invariant in § 2 is the other half of the lesson contracted in
   [landing-gate.md](landing-gate.md): the landing gate refuses a caller-supplied gate command

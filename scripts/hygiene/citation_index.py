@@ -6,8 +6,14 @@
 #
 # THE SET, STATED ONCE SO THAT NOTHING COUNTS IT BY HAND: **every `.py` file in this directory is
 # an instrument, and this one is also the library the others import.** `ls scripts/hygiene/` is
-# the list. No file carries an ordinal — adding an instrument would renumber the others, and a set
-# maintained by hand, one header at a time, goes false the first time it changes.
+# the list. **This header must not carry an ordinal** — adding an instrument would renumber the
+# others, and a set maintained by hand, one header at a time, goes false the first time it changes.
+#
+# *This said "No file carries an ordinal", which was a claim about the OTHER files and was false:
+# four of the five carry "Instrument N" in their module docstring. Those are each a file naming
+# itself, not a set maintained here, and they are outside this rule's reach — so the rule is
+# stated about the thing it actually governs, this header, rather than as a survey of the
+# directory that nothing was keeping true.*
 #
 # WHY THIS FILE IS PYTHON, IN A KIT THAT IS OTHERWISE BASH + GIT. The files in this
 # directory are INSTRUMENTS, not project runtime: nothing ships them, no gate calls them, and no

@@ -77,7 +77,7 @@ fi
 warn() { printf 'notify: %s\n' "$*" >&2; }
 
 CMD="${1:-}"
-[ -z "$CMD" ] && { warn "usage: notify.sh <attention|blocked|done|milestone|progress|test> <message> --session <slug>"; exit 2; }
+[ -z "$CMD" ] && { warn "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"; warn "       notify.sh test [--session <slug>]   # no message"; exit 2; }
 shift || true
 
 case "$CMD" in
@@ -85,7 +85,8 @@ case "$CMD" in
   # arm did not exist, so `notify.sh --help` fell through to the unknown-class refusal
   # and exited 2: asking how to use the tool was itself an error.
   -h|--help)
-    echo "usage: notify.sh <attention|blocked|done|milestone|progress|test> <message> --session <slug>"
+    echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"
+    echo "       notify.sh test [--session <slug>]        # no message: sends a fixed probe"
     echo "       [--ref <ref>] [--progress <n/m>] [--message <text>]"
     echo ""
     echo "  test   probe the configured transport and report; NON-ZERO if it fails."

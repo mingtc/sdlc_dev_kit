@@ -241,7 +241,7 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 **Orphaned worktree after the work lands**
 - **Problem:** Option 1 — and the project's landing script — deliberately preserve the worktree, and Step 6 cleanup only runs for Option 3. Once the work actually **lands**, nothing tears the worktree down → an empty `.worktrees/<branch>` lingers indefinitely (the lingering-worktree class).
-- **Fix:** After the work handed off via Option 1 has **landed**, return and tear it down: `cd` to the main repo root, then `git worktree remove <path>` + `git worktree prune`. (Orchestrator/Refactorer runs: this is the "worktrees for merged work cleaned up" line in the session-end checklist.)
+- **Fix:** After the work handed off via Option 1 has **landed**, return and tear it down: `cd` to the main repo root, then `git worktree remove <path>` + `git worktree prune`. (Orchestrator runs: this is the "Worktrees for merged work cleaned up" line in that role's session-end checklist. The Refactorer's session-end checklist carries no such line — this named both roles and only one has it.)
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work

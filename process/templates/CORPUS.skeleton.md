@@ -1,15 +1,15 @@
 <!-- KIT-CLASS: KIT — a blank shape. Travels unedited; every angle-bracket blank is yours to fill. -->
-<!--
-  HOW TO USE THIS FILE
-  Copy to requirements/CORPUS.md, fill every <angle-bracket> blank, delete the HTML comments.
-  Start it on DAY ONE, nearly empty. A corpus manifest written after the fact is written from
-  memory, which is the failure it exists to prevent.
-  DROP THE KIT-CLASS MARKER. The `<!-- KIT-CLASS: … -->`
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — requirements/ — NOT to the directory it
      sits in. A link written for where the template SITS resolves while you read it here and
      is dead in every copy an adopter makes: it passes a link check run in the kit and fails
      the only reader who matters. The self-test reads this line to know where to resolve from,
      so keep its shape. -->
+<!--
+  HOW TO USE THIS FILE
+  Copy to requirements/CORPUS.md, fill every <angle-bracket> blank, delete the HTML comments.
+  Start it on DAY ONE, nearly empty. A corpus manifest written after the fact is written from
+  memory, which is the failure it exists to prevent.
+  DROP THE KIT-CLASS MARKER. The `KIT-CLASS:` marker
  line at the top classifies this file FOR
   THE KIT (does it travel, and which half). It is kit bookkeeping, not your project's: delete it
   from your copy — or replace it with your own, if you are re-cutting a kit from your repository.
