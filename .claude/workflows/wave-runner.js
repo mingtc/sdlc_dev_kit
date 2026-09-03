@@ -1,7 +1,7 @@
 // KIT-CLASS: KIT — the two-wave parallel runner. Everything project-specific is in CFG below.
 export const meta = {
   name: 'wave-runner',
-  description: 'Run two waves of zero-overlap issues in parallel (args: {repo, wave1:[...], wave2:[...]}, same per-issue fields as tranche-runner plus the wave-only ones (worktreeMode, phase, restartNote), including docsPath for the direct-to-trunk lite variant). One leg of each pair runs in a self-created worktree so pairs never contend for the main checkout; the board mover and the landing script serialize via the kanban worktree lock. Prompts, schemas and provisioning mirror tranche-runner.js; the park-QA discipline mirrors it EXCEPT that a park this runner cannot verify halts the wave immediately, where tranche-runner grants one bounded fix round first — stated because a claim of mirroring is read as total. The price of the parallelism: merge-conflict bounces are possible — assign zero-overlap surfaces per pair and SAY them in extraDev. NOTE that zero file overlap is NOT isolation: HEAD, the shared checkout's branch, the index, a gitignored build tree and the next free id are shared and cannot be assigned to an issue; the leaf brief says what a leg must do about that.',
+  description: 'Run two waves of zero-overlap issues in parallel (args: {repo, wave1:[...], wave2:[...]}, same per-issue fields as tranche-runner plus the wave-only ones (worktreeMode, phase, restartNote), including docsPath for the direct-to-trunk lite variant). One leg of each pair runs in a self-created worktree so pairs never contend for the main checkout; the board mover and the landing script serialize via the kanban worktree lock. Prompts, schemas and provisioning mirror tranche-runner.js; the park-QA discipline mirrors it EXCEPT that a park this runner cannot verify halts the wave immediately, where tranche-runner grants one bounded fix round first — stated because a claim of mirroring is read as total. The price of the parallelism: merge-conflict bounces are possible — assign zero-overlap surfaces per pair and SAY them in extraDev. NOTE that zero file overlap is NOT isolation: HEAD, the current branch of the shared checkout, the index, a gitignored build tree and the next free id are shared and cannot be assigned to an issue; the leaf brief says what a leg must do about that.',
   phases: [
     { title: 'Wave1', detail: 'first parallel pair' },
     { title: 'Wave2', detail: 'second parallel pair' },
@@ -99,7 +99,7 @@ Ground rules (non-negotiable):
 - ZERO-DRIFT discipline unless the issue explicitly consents otherwise: NO change to the project's pinned output. Any golden/snapshot/fixture diff caused by your change is a bug in your change, not a fixture to update.
 - Board moves only via ./scripts/move-issue.sh (never move files by hand), invoked FROM THE MAIN REPO DIR — the scripts commit+push via the kanban worktree and never touch any checkout's branch state.
 - A PARALLEL leg is working the same repo on a DIFFERENT issue with ZERO file overlap with yours. If you find yourself needing to edit a file the other leg owns (its issue names its surfaces), STOP and return blocked with the evidence instead of creating a conflict.
-- FILE DISJOINTNESS IS NOT ISOLATION, and do not read the line above as if it were. These are SHARED and cannot be assigned to an issue: HEAD · the current branch of the shared checkout · the git index · a gitignored build or cache tree · the next free id in any sequence. A peer can move HEAD, switch the branch under you, stage into the index, write the build tree, or take the id you were about to mint — with zero file overlap the whole time. So: work in YOUR OWN worktree, never `git checkout`/`switch` in the shared root, never `git add` a path you do not own, re-read anything you derived from HEAD after any pause, and treat a minted id as taken only once it is committed.${CFG.liveRules ? `
+- FILE DISJOINTNESS IS NOT ISOLATION, and do not read the line above as if it were. These are SHARED and cannot be assigned to an issue: HEAD · the current branch of the shared checkout · the git index · a gitignored build or cache tree · the next free id in any sequence. A peer can move HEAD, switch the branch under you, stage into the index, write the build tree, or take the id you were about to mint — with zero file overlap the whole time. So: work in YOUR OWN worktree, never run git checkout or git switch in the shared root, never git-add a path you do not own, re-read anything you derived from HEAD after any pause, and treat a minted id as taken only once it is committed.${CFG.liveRules ? `
 - ${CFG.liveRules}` : ''}
 `
 
@@ -188,6 +188,14 @@ const QA_SCHEMA = {
   properties: {
     verdict: { enum: VERDICTS },
     landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land (docs path)' },
+    // A THIRD AXIS, orthogonal to both above, and nullable BY DESIGN. An issue can be
+    // implemented exactly as written, land green, and have its own PREMISE refuted by the
+    // measurement it produced — the most valuable thing a run can produce, and until this
+    // field existed it had nowhere to go but a commit subject. It is NOT a verdict (the
+    // work was correct) and NOT a landing (it landed); making it either would re-merge the
+    // split process/MANUAL.md § Dev → QA step 6 made on purpose. Leave it absent when the
+    // premise stood — an empty string is a claim that something was refuted and named nothing.
+    premise_refuted: { type: 'string', description: 'OPTIONAL. Omit unless the stated premise OF THIS ISSUE was refuted by what this work measured. When present: what the issue assumed, what was measured instead, and where that measurement is recorded. A PASS/landed issue can carry this and it is not a defect — it is the run learning something.' },
     ac_walk: { type: 'string', description: 'per-AC PASS/FAIL with concrete evidence' },
     unmet_ac: { type: 'array', items: { type: 'string' } },
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },

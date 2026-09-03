@@ -184,6 +184,14 @@ const QA_SCHEMA = {
   properties: {
     verdict: { enum: VERDICTS },
     landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land (docs path)' },
+    // A THIRD AXIS, orthogonal to both above, and nullable BY DESIGN. An issue can be
+    // implemented exactly as written, land green, and have its own PREMISE refuted by the
+    // measurement it produced — the most valuable thing a run can produce, and until this
+    // field existed it had nowhere to go but a commit subject. It is NOT a verdict (the
+    // work was correct) and NOT a landing (it landed); making it either would re-merge the
+    // split process/MANUAL.md § Dev → QA step 6 made on purpose. Leave it absent when the
+    // premise stood — an empty string is a claim that something was refuted and named nothing.
+    premise_refuted: { type: 'string', description: 'OPTIONAL. Omit unless the stated premise OF THIS ISSUE was refuted by what this work measured. When present: what the issue assumed, what was measured instead, and where that measurement is recorded. A PASS/landed issue can carry this and it is not a defect — it is the run learning something.' },
     ac_walk: { type: 'string', description: 'per-AC PASS/FAIL with concrete evidence' },
     unmet_ac: { type: 'array', items: { type: 'string' } },
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },

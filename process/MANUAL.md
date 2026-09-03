@@ -292,6 +292,19 @@ bounces it.
    **And `landing` is its OWN field, not a fifth verdict and not a boolean:**
    `landed` · `deferred` · `not_applicable`.
 
+   **And `premise_refuted` is a THIRD axis, optional, orthogonal to both.** An issue can be
+   implemented exactly as written, land green, and have **its own stated premise refuted by the
+   measurement it produced.** That is not a failure — it is often the most valuable thing a run
+   produces — and it is not a verdict, because the work was correct, and not a landing, because it
+   landed. **Given no field of its own it has nowhere to go but a commit subject**, where nothing
+   aggregates it and no report can ask for it.
+   *When present it carries three things:* what the issue assumed · what was measured instead ·
+   where that measurement is recorded. *Absent means the premise stood.* **Absent, not empty** — an
+   empty string asserts that something was refuted and then names nothing.
+   *Why a third axis rather than a seventh outcome token:* an outcome token would conflate *what
+   happened to the issue* with *what the run learned*, which is exactly the conflation this step
+   avoided when it split verdict from landing. The same argument, one axis further out.
+
    **Why the two are separate, stated because collapsing them has already cost a run.** *Did the
    review pass* and *did the change reach the trunk* are two different facts, and a machinery schema
    that carried `verdict: PASS|FAIL` plus `landed: boolean` **could not represent a green review

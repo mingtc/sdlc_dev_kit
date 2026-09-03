@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **The QA schema gains an optional third axis: `premise_refuted`.** An issue can be implemented
+  exactly as written, pass review, land — and have **its own premise** turn out to be false, proven
+  by the work itself. That had nowhere to go but a commit subject. It is now a field beside
+  `verdict` and `landing`, ratified in `MANUAL.md` § The Dev → QA handoff step 6. **No action
+  required — it is optional and absent by default**, and absent means the premise stood. If you
+  populate it, carry three things: what the issue assumed, what was measured instead, and where
+  that measurement is recorded. **Leave it out rather than empty:** an empty string asserts
+  something was refuted and then names nothing.
+
 - **If you run `wave-runner.js`, its parallel legs were being told something false.** The brief said
   a peer works with *zero file overlap with yours* — which reads as *therefore you cannot collide*.
   **The objects that actually contend cannot be assigned to an issue at all:** HEAD, the shared
