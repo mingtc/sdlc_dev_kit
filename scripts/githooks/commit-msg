@@ -149,7 +149,7 @@ fi
   echo "  Subject: $subject"
   echo ""
   echo "  Expected one of:  $(printf '%s' "$ROLE_PREFIXES" | tr '|' '\n' | sed 's/^/[/; s/$/]/' | tr '\n' ' ')"
-  echo "  (the adapter's § 'Branching and role attribution' — the prefix is the audit trail)."
+  echo "  (the adapter's § 'Role-attribution commit prefixes' — the prefix is the audit trail)."
   echo ""
   echo "  Examples:"
   echo "    [Dev] <PREFIX>-001: add the download --help usage example"

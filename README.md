@@ -4,7 +4,7 @@
 # The development-process kit — a seed
 
 > **This file is a placeholder for yours.** Replace it with **your project's** README once you are
-> running; move these instructions to `process/SEED.md`'s companion notes if you want to keep them.
+> running; keep these instructions by moving them into `docs/`, which ships for exactly this — reference material the project did not write. *(This used to say "`process/SEED.md`'s companion notes", which is not a section, not a file, and appears nowhere else in the tree — a dangling destination in the first instruction an adopter reads.)*
 >
 > *Why this sentence is here in the body and not in the comment above it:* the comment is the
 > **classification marker**, and the marker is removed from files that become the project's — which

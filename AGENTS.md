@@ -47,9 +47,18 @@ the contracts they encode** — those are process law and apply to every agent, 
 3. **Landing without the gate.** The gate command in [`PROJECT.md`](PROJECT.md) § Quality gates is
    never optional, and a green offline suite is the floor rather than a pass.
    *(Contract: [`process/contracts/landing-gate.md`](process/contracts/landing-gate.md).)*
-4. **Putting non-code on a branch, or code straight on the trunk.** The code-vs-metadata split is
-   in [`CLAUDE.md`](CLAUDE.md); the list of code globs there is a whitelist, and anything unnamed
-   commits direct to the trunk.
+4. **Putting metadata changed ON ITS OWN onto a branch, or code straight on the trunk.** The
+   code-vs-metadata split is in [`CLAUDE.md`](CLAUDE.md); the list of code globs there is a
+   whitelist, and anything unnamed commits direct to the trunk.
+   **AND THE CARVE-OUT MATTERS MORE THAN THE RULE, because reading the rule as a prohibition is the
+   MEASURED failure:** metadata MAY ride its code branch when it is part of the same change. A
+   register entry, a matrix row, a doc correction the code change *makes true* belongs in the commit
+   that makes it true — splitting it onto the trunk publishes a claim about code that has not landed.
+   The direct-to-trunk rule governs metadata changed **on its own**
+   ([`process/MANUAL.md`](process/MANUAL.md) § The code-vs-metadata rule).
+   *This item said "putting non-code on a branch" without the carve-out until 2026-09-03 — in the one
+   file a non-Claude agent is told to read first, which made it the only place the carve-out was
+   contradicted rather than stated.*
 5. **Recording a ruling only in an issue's Activity log.** A ruling that changes behaviour lands in
    [`requirements/DECISIONS.md`](requirements/DECISIONS.md) in the same change. An Activity line
    says what happened in one issue; the register says what is currently true.
