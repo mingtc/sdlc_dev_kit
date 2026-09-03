@@ -347,6 +347,15 @@ async function runIssue(issue) {
   }
   log(`${issue.id}: QA starting`)
   let qa = await agent(qaPrompt(issue), provision(`qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
+  // AND IF THE SECOND QA FAILS IN THE CURE'S OWN BLIND SPOT, THE ANSWER IS NOT A THIRD
+  // ROUND — there is no third round here, and there must not be one added. A defect that
+  // lives where the FIRST fix's assumptions do not look is evidence about the approach,
+  // not about effort: the cure did not miss it, the cure produced the place where it could
+  // hide. The terminating move is a change of SHAPE or of AUTHOR — a different approach, or
+  // different eyes. See process/doctrine/fix-execution.md § A.5c, which also says why "try
+  // again, harder" is the wrong reading: capability is not what is missing when the search
+  // is pointed at the wrong place.
+  //
   // Both FAIL tokens trigger the one bounded fix round. Tested through isPass()
   // rather than against a literal, so a fifth token added at the authoring site
   // cannot silently fall through this branch as neither-pass-nor-fail.

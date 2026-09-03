@@ -160,6 +160,11 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
 2. A **destructive or irreversible action** needing authorization not already on record.
 3. **Fix rounds exhausted on the LAST remaining issue** (on any other issue: park with
    evidence, continue).
+   *And the budget can be spent by ONE round rather than by the count:* when the second
+   failure sits in the blind spot the first cure created, the item is done — **change the
+   SHAPE or the AUTHOR, never grant another round, and never escalate the model or the
+   effort to compensate** (`process/doctrine/fix-execution.md` § A.5c). Record the blind
+   spot by name: what the cure assumed, and where the new failure sits relative to it.
 4. A **breach of the project's declared destructive-resource discipline discovered IN
    FLIGHT** — an unauthorized live/destructive call, a credential leak, a mutation of a
    resource no issue declared. Stop the *leg*, quarantine, record; the run itself continues

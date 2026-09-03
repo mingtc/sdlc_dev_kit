@@ -380,6 +380,15 @@ for (const issue of ARGS.issues) {
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
     // Call site 6 of 7 — Dev, fix round. Same provisioning as the fresh pickup:
     // a bounce must not silently escalate the model or the effort.
+    //
+    // AND IF THE SECOND QA FAILS IN THE CURE'S OWN BLIND SPOT, THE ANSWER IS NOT A THIRD
+    // ROUND — there is no third round here, and there must not be one added. A defect that
+    // lives where the FIRST fix's assumptions do not look is evidence about the approach,
+    // not about effort: the cure did not miss it, the cure produced the place where it
+    // could hide. The terminating move is a change of SHAPE or of AUTHOR — a different
+    // approach, or different eyes. See process/doctrine/fix-execution.md § A.5c, which
+    // also says why "try again, harder" is the wrong reading: capability is not what is
+    // missing when the search is pointed at the wrong place.
     dev = await agent(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
     if (dev && dev.status === 'dev_complete') {
       // Call site 7 of 7 — QA, second review. Same provisioning as the first.

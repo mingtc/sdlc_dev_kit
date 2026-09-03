@@ -243,6 +243,40 @@ point here for the boundary; [`orchestration.md`](orchestration.md) § A.5 appli
 sheet because the moment it binds is **while deciding how to fix something**, which is this sheet's
 subject.
 
+### A.5c — A second failure in the CURE'S OWN BLIND SPOT ends the item; it does not buy another round
+
+**The fix-round budget is a count, and the count is the whole rule.** One bounded round on a FAIL,
+then the item is done failing. That is right for the ordinary case and it has no way to express the
+one that matters most:
+
+> **round N's defect lives in exactly the blind spot round N−1's fix created.**
+
+**Another round is the wrong response to that, and spending one is how a leg burns its budget
+reproducing the same class.** The second failure is not more of the first — it is *evidence about the
+approach*, and a third attempt from the same angle by the same author will find the blind spot the
+second cure creates. **The terminating move is a change of SHAPE or of AUTHOR: a different approach,
+or different eyes. Never another round.**
+
+**How to tell a cure-shaped failure from an ordinary second one** — the question is not "is this
+related to the fix", because everything after a fix is related to it:
+
+- **Ordinary:** the fix was incomplete, or wrong, in the region it was aimed at. Another attempt at
+  the same region is a reasonable thing to want, and the budget correctly refuses it anyway.
+- **Cure-shaped:** the fix *worked*, and the new failure sits where the fix's own assumptions do not
+  look — the guard that now passes for the wrong reason, the case the narrowed scope excludes, the
+  operand the new expression cannot see. **The cure did not miss it; the cure produced the place
+  where it could hide.**
+
+**AND THIS IS A SHAPE-OR-SCOPE CHANGE, NEVER A PROVISIONING ESCALATION.** *"Try again, harder"* — a
+bigger model, more effort, a longer leash — reads as the obvious answer and overturns by implication
+the standing rule that **a bounce must not silently escalate the model or the effort**. It also does
+not work: capability is not what is missing when the search is pointed at the wrong place. Say
+**different approach** or **different author**, and say which.
+
+*What this owes the record:* the item stops with the blind spot **named** — what the cure assumed, and
+where the new failure sits relative to that assumption. A stop that says only *"failed again"* hands
+the next reader the same budget and the same angle.
+
 ### A.6 — A gate budgets a PROPERTY, never a machine
 
 A gate that asserts a **wall-clock** budget measures the host's load, not the property it exists to

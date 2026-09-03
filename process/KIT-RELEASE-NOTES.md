@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **A new rule on the fix-round budget: a second failure in the cure's own blind spot ends the item.**
+  `fix-execution.md` § A.5c, echoed at both runners' fix-round call sites and in `orchestrator.md`'s
+  pause law. When the new defect sits where the *first fix's* assumptions do not look — the guard
+  that now passes for the wrong reason, the case the narrowed scope excludes — **another round is the
+  wrong response**; change the approach or change who is doing it. **No behaviour changed** — the
+  runners already stopped after one round — and **explicitly not a provisioning escalation**: do not
+  answer it with a bigger model or more effort. The stop should name the blind spot, or the next
+  reader gets the same budget and the same angle.
+
 - **`instruments.md` gains § A.11: how to guard *every* number a document publishes.** The sheet
   already held the single-instrument rules; this is the population version, as one rule plus a
   labelled five-step procedure. **No action required** — it is a technique, not a new obligation on
