@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **New runner arg `driftRule`, for a project whose pinned output is DERIVED rather than stored.**
+  The zero-drift pin was `goldenPaths` — a path shape, which assumes golden FILES. If your pinned
+  output is computed (a derived count, a generated manifest, a build-time checksum) you had nothing
+  to put there, so you passed an empty `goldenPaths` and **the drift step reported NOT RUN on every
+  run, forever** — correct, and useless. **No action required** and nothing changed for golden-file
+  projects: `goldenPaths` is still checked first and still wins. If the NOT-RUN line has been
+  following you around, `driftRule` is where to say, in words, what your pin is and how to check it;
+  the brief injects it verbatim and asks the agent to report what it observed.
+
 - **A new rule on the fix-round budget: a second failure in the cure's own blind spot ends the item.**
   `fix-execution.md` § A.5c, echoed at both runners' fix-round call sites and in `orchestrator.md`'s
   pause law. When the new defect sits where the *first fix's* assumptions do not look — the guard

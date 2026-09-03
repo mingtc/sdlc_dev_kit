@@ -57,6 +57,21 @@ const CFG = {
   goldenPaths: ARGS.goldenPaths ?? 'tests/fixtures tests/golden*',
   secretsFile: ARGS.secretsFile || '.env',                  // gitignored credentials file, if any
   liveRules:   ARGS.liveRules   || '',
+  // THE PIN, IN PROSE, for a project whose pinned output is DERIVED rather than stored.
+  // goldenPaths above expresses the pin as a PATH SHAPE, which presumes a golden-FILE
+  // convention: bytes on disk, drift is a git diff. A project whose pinned output is
+  // computed — a derived count, a generated manifest, a checksum of something assembled at
+  // build time — has nothing to name there, gets an empty goldenPaths, and the drift step
+  // correctly reports NOT RUN on every run forever. Correct, and useless.
+  //
+  // WHY PROSE AND NOT A COMMAND. A command pin would be more expressive, and it would make
+  // this brief tell an agent to execute project-supplied text — a posture the kit should
+  // adopt deliberately if ever, not inherit from a convenience. And these files can run
+  // NOTHING themselves: the workflow runtime grants them no filesystem and no process
+  // access, so anything executable would have to be executed by the agent anyway. Prose
+  // injected verbatim is the shape liveRules already uses; it is weaker, and it is honest
+  // about being weaker.
+  driftRule:   ARGS.driftRule   || '',
 }
 if (!CFG.repo) throw new Error('wave-runner: args.repo is required (absolute path to the main repo)')
 
@@ -279,9 +294,16 @@ Return the structured result only.`
 // rather than smuggled in with a renumbering.
 function qaPrompt(issue) {
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
-  const driftStep = CFG.goldenPaths && !issue.docsPath
-    ? `\n   ZERO-DRIFT check (a binding gate for this issue, not a separate step): git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes; byte-drift in pinned output → FAIL. REPORT THE PATHS THIS ACTUALLY MATCHED in gate_evidence. If it matched NOTHING, say so loudly and treat the zero-drift step as NOT RUN — an empty match means this project's pinned output does not live at '${CFG.goldenPaths}', and a diff over nothing reads exactly like a clean diff.`
-    : ''
+  // THE PATH FORM STILL WINS WHERE IT APPLIES — it is right for the projects that have
+  // golden FILES, which is most of them. driftRule is the fallback for the projects it
+  // cannot serve, and a project may legitimately have both.
+  const driftStep = issue.docsPath
+    ? ''
+    : CFG.goldenPaths
+      ? `\n   ZERO-DRIFT check (a binding gate for this issue, not a separate step): git diff ${CFG.trunk}...${issue.branch} -- ${CFG.goldenPaths} must show no output changes; byte-drift in pinned output → FAIL. REPORT THE PATHS THIS ACTUALLY MATCHED in gate_evidence. If it matched NOTHING, say so loudly and treat the zero-drift step as NOT RUN — an empty match means this project's pinned output does not live at '${CFG.goldenPaths}', and a diff over nothing reads exactly like a clean diff.`
+      : CFG.driftRule
+        ? `\n   ZERO-DRIFT check (a binding gate for this issue, not a separate step) — this project's pinned output is DERIVED, not stored, so it is stated in words rather than as paths: ${CFG.driftRule}\n   Check it on BOTH sides of the change and report what you observed, not that you checked.`
+        : ''
   return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). You are the fresh-eyes reviewer; judge only the AC and the gates.
 ${COMMON}${wt}
 Procedure (the Dev → QA boundary, code-work flavor):

@@ -2616,8 +2616,21 @@ case_runner_goldenpaths_empty_skips() {
       || { bad=$(( bad + 1 )); cf "$lab: goldenPaths is back to '||' — see the comment at that line before changing it"; }
 
     # HALF 2 — the drift step is guarded by the value, so an empty string skips it.
-    printf '%s\n' "$code" | grep -qF 'CFG.goldenPaths &&' \
+    # TWO ACCEPTED SHAPES, and the second is not a loosening. The guard was `CFG.goldenPaths &&`
+    # while the path form was the only pin; a prose fallback for projects whose pinned output is
+    # DERIVED makes it a ternary chain, and the property being asserted is unchanged — an empty
+    # goldenPaths must not reach the PATH step. What this case must not accept is a step that runs
+    # on an empty value, and both shapes below refuse that.
+    printf '%s\n' "$code" | grep -qE 'CFG\.goldenPaths &&|\? CFG\.goldenPaths$|: CFG\.goldenPaths$' \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step has no guard on CFG.goldenPaths — '??' alone does not produce a skip, it only delivers the empty string to a step that would then run against nothing"; }
+
+    # HALF 2b — AND AN EMPTY PROSE PIN SKIPS TOO. The fallback added a second way to reach the
+    # step, so it needs the same guard the first one has: a project with neither pin declared
+    # must get no step at all, not a step interpolating an empty rule.
+    if printf '%s\n' "$code" | grep -qE '^[[:space:]]*driftRule:'; then
+      printf '%s\n' "$code" | grep -qE 'CFG\.driftRule &&|\? CFG\.driftRule$|: CFG\.driftRule$' \
+        || { bad=$(( bad + 1 )); cf "$lab: driftRule is declared and the drift step does not guard on it — a project with no pin of either kind would get a step naming an empty rule, which reads to the agent as a check with nothing to check"; }
+    fi
 
     # HALF 3 — THE STEP TELLS THE AGENT AN EMPTY MATCH IS NOT A PASS, and nothing asserted this
     # until now. Halves 1 and 2 hold the CONFIG mechanics: they prove an explicitly-emptied
