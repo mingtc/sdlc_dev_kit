@@ -46,6 +46,10 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.0] — 2026-09-03
+
 - **`check-board.sh`'s history arms no longer narrow themselves against a shallow clone — and they
   say so.** Both arms scope themselves to the commit that added your `commit-msg` hook. In a shallow
   clone that commit is not the real one: a grafted root has no parents, so every file in it reads as
