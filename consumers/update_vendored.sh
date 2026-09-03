@@ -260,6 +260,17 @@ usage() {
 
 case "${1:-}" in
     -h|--help) usage; exit 0 ;;
+    # AN UNRECOGNISED OPTION EXITS 2 AND NAMES ITSELF. This arm was missing, and its absence
+    # made a shipped release note false: it claims EVERY command-line tool the kit ships
+    # refuses an unrecognised option with status 2, and this file — an executable CLI with
+    # its own --help, --check and --print-seams — fell through to the preflight and exited 1
+    # complaining about something else entirely. process/contracts/issue-creation.md § 3.
+    #
+    # THE KNOWN FLAGS ARE MATCHED FIRST, so this arm only ever sees what nothing claimed.
+    --check|--print-seams) : ;;
+    -?*) printf '%s: unknown option %s\n' "$(basename "$0")" "$1" >&2
+         printf '       Run  %s --help  for the usage.\n' "$(basename "$0")" >&2
+         exit 2 ;;
 esac
 
 # ---- --print-seams: the seam block, machine-readable -----------------------

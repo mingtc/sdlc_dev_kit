@@ -152,13 +152,30 @@ case "${1:-}" in
   *)   TARGET="$1"; shift ;;
 esac
 ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0
+# need_val <all remaining args> — refuse an option whose value was not given.
+#
+# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
+# new-refactor.sh, which already had it. It is repeated per script rather than shared
+# because several of these source nothing from scripts/lib/ (release.sh by standing
+# ruling), and the self-test holds the copies identical.
+#
+# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
+# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
+# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
+# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
+# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
+# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --role) ROLE="${2:-}"; shift 2 ;;
-    --note) NOTE="${2:-}"; shift 2 ;;
+    --role) need_val "$@"; ROLE="$2"; shift 2 ;;
+    --note) need_val "$@"; NOTE="$2"; shift 2 ;;
     --note-only) NOTE_ONLY=1; shift ;;
-    --set-pr) SET_PR="${2:-}"; shift 2 ;;
+    --set-pr) need_val "$@"; SET_PR="$2"; shift 2 ;;
     --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
     -h|--help) usage; exit 0 ;;
     # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the

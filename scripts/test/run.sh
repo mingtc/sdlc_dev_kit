@@ -9254,6 +9254,83 @@ case_release_hook_rejection_leaves_no_bump() {
   teardown
 }
 
+# =============================================================================
+# CASE — A VALUE-TAKING OPTION GIVEN NO VALUE REFUSES, WITH STATUS 2, AND SAYS SO.
+#
+# THE DEFECT WAS SILENT AND IT WAS EVERYWHERE. An arm written
+# `--x) VAR="${2:-}"; shift 2 ;;` reads as safe — `${2:-}` cannot be unbound. But
+# `shift 2` with one argument left RETURNS NON-ZERO, and under `set -e` that aborts:
+# **exit 1, no message, nothing done.** Measured across the shipped set before the fix:
+# 26 arms in six scripts behaved that way. The three creation scripts already had the
+# guard and had had it all along, which is what made the gap invisible — the family that
+# gets read most was the family that was correct.
+#
+# THE CENSUS IS STATIC AND THE PROBES ARE EXECUTED, and it needs both. A static census
+# cannot know that `need_val` does anything; an executed probe covers one script. So:
+# every value-taking arm calls the guard, every definition of the guard is identical, and
+# two scripts are actually run.
+# =============================================================================
+case_missing_option_value_refuses() {
+  cf_reset
+  make_sandbox
+  local f base arms=0 guarded=0 defs="" bad=""
+
+  for f in "$REAL_SCRIPTS"/*.sh; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    # A value-taking arm is a case arm that shifts TWO. Derived, never listed.
+    while IFS= read -r ln; do
+      [ -n "$ln" ] || continue
+      arms=$(( arms + 1 ))
+      case "$ln" in
+        *'need_val "$@"'*) guarded=$(( guarded + 1 )) ;;
+        *) bad="$bad
+    $base: $ln" ;;
+      esac
+    done <<EOF
+$(awk '/^[[:space:]]*(-[a-zA-Z]\|)*--[a-z][a-z-]*\)/ && /shift 2/ { gsub(/^[[:space:]]+/,""); print }' "$f")
+EOF
+    grep -q '^need_val()' "$f" && defs="$defs $base"
+  done
+
+  [ -z "$bad" ] \
+    || cf "these value-taking option arms do not call need_val — each exits 1 in silence when its value is missing, because \`shift 2\` with one argument left fails under set -e:$bad"
+
+  # ── INSTRUMENT CHECK: the derivation still finds arms. A census that matched nothing
+  #    would report "all guarded" forever.
+  [ "$arms" -ge 20 ] \
+    || cf "the census found only $arms value-taking arm(s) — expected at least 20. The arm shape changed, so 'every one is guarded' is true of almost nothing"
+
+  # ONE GUARD, ONE SHAPE. Nine scripts each carry their own copy (several source nothing
+  # from scripts/lib/), so the copies are held identical here rather than shared.
+  local first="" body
+  for base in $defs; do
+    body="$(awk '/^need_val\(\)/{f=1} f{print} f&&/^}/{exit}' "$REAL_SCRIPTS/$base" | tr -d ' \n')"
+    if [ -z "$first" ]; then first="$body"
+    elif [ "$body" != "$first" ]; then
+      cf "$base's need_val differs from the first definition — nine hand-kept copies of one guard, and a divergence here means one script refuses differently from its siblings for the same illegal invocation"
+    fi
+  done
+
+  # ── EXECUTED, because a static census cannot know the guard does anything.
+  local out rc
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-1" todo --note 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] \
+    || cf "(executed) move-issue.sh with a valueless --note exited $rc, want 2: $(printf '%s' "$out" | head -1)"
+  printf '%s' "$out" | grep -q 'requires a value' \
+    || cf "(executed) move-issue.sh's refusal does not say the option requires a value: $(printf '%s' "$out" | head -1)"
+
+  # A LEADING '-' IS NEVER A NAME — the same clause, on a POSITIONAL rather than an option.
+  # notify.sh swallowed `--message` as its message BODY and exited 0, delivering a
+  # notification that read "--message".
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/notify.sh attention --message 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] \
+    || cf "(executed) notify.sh took '--message' as its message body and exited $rc — a leading '-' is never a name, and a delivered notification reading '--message' is quieter than a refusal"
+
+  finish "every one of the $arms value-taking option arms across the shipped scripts calls need_val (${guarded} guarded), the guard's ${defs:+copies} are byte-identical, and two scripts prove it EXECUTED: a valueless --note exits 2 naming the option, and a leading '-' is refused as a positional rather than swallowed as one"
+  teardown
+}
+
 case_shipped_scripts_stay_on_the_floor() {
   cf_reset
   make_sandbox
@@ -10273,6 +10350,7 @@ CASES=(
   case_partial_prefix_derivation_says_so
   case_travelling_scripts_have_a_sheet
   case_release_hook_rejection_leaves_no_bump
+  case_missing_option_value_refuses
   case_shipped_scripts_stay_on_the_floor
   case_help_never_opens_with_the_class_marker
   case_role_set_read_is_one_expression

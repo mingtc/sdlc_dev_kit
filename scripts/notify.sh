@@ -98,13 +98,42 @@ case "$CMD" in
 esac
 
 MESSAGE=""; SESSION=""; REF=""; PROGRESS=""
-if [ "$MODE" = "send" ]; then MESSAGE="${1:-}"; shift || true; fi
+# A LEADING '-' IS NEVER A NAME — process/contracts/issue-creation.md § 3's first CLI-SHAPE
+# clause, which every creation script enforces and this one did not. Measured before this
+# landed: `notify.sh attention --message` consumed `--message` AS THE MESSAGE BODY, sent a
+# notification reading "--message", and exited 0. An operator who forgot the value got a
+# delivered notification saying nothing, which is worse than a refusal and quieter than one.
+if [ "$MODE" = "send" ]; then
+  case "${1:-}" in
+    -?*) echo "Error: '$1' is not a message — a leading '-' is never a value. Quote it if you meant it literally." >&2
+         echo "       Run  $(basename "$0") --help  for the usage." >&2
+         exit 2 ;;
+  esac
+  MESSAGE="${1:-}"; shift || true
+fi
+# need_val <all remaining args> — refuse an option whose value was not given.
+#
+# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
+# new-refactor.sh, which already had it. It is repeated per script rather than shared
+# because several of these source nothing from scripts/lib/ (release.sh by standing
+# ruling), and the self-test holds the copies identical.
+#
+# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
+# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
+# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
+# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
+# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
+# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --session) SESSION="${2:-}"; shift 2 ;;
-    --ref) REF="${2:-}"; shift 2 ;;
-    --progress) PROGRESS="${2:-}"; shift 2 ;;
-    --message) MESSAGE="${2:-}"; shift 2 ;;
+    --session) need_val "$@"; SESSION="$2"; shift 2 ;;
+    --ref) need_val "$@"; REF="$2"; shift 2 ;;
+    --progress) need_val "$@"; PROGRESS="$2"; shift 2 ;;
+    --message) need_val "$@"; MESSAGE="$2"; shift 2 ;;
     # AN UNRECOGNISED OPTION REFUSES. It used to warn and CARRY ON — so a typo'd flag
     # delivered the message anyway and exited 0, which is a refusal that reads as
     # success. THIS DOES NOT TOUCH THE FAIL-SOFT CONTRACT above: a failed DELIVERY still

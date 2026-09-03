@@ -78,6 +78,23 @@ no_dash() {  # <value> <what it should have been>
 [ $# -lt 1 ] && { usage >&2; exit 1; }
 CMD="$1"; shift
 
+# need_val <all remaining args> — refuse an option whose value was not given.
+#
+# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
+# new-refactor.sh, which already had it. It is repeated per script rather than shared
+# because several of these source nothing from scripts/lib/ (release.sh by standing
+# ruling), and the self-test holds the copies identical.
+#
+# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
+# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
+# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
+# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
+# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
+# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+
 case "$CMD" in
   new)
     [ $# -lt 3 ] && { usage >&2; exit 1; }
@@ -85,11 +102,11 @@ case "$CMD" in
     PARENT="$1"; SUFFIX="$2"; SLUG="$3"; shift 3
     TITLE=""; PRD="n/a"; STORIES="[]"; PLAN=""; SIZE="S"
     while [ $# -gt 0 ]; do case "$1" in
-      --title) TITLE="${2:-}"; shift 2 ;;
-      --prd) PRD="${2:-}"; shift 2 ;;
-      --stories) STORIES="[${2:-}]"; shift 2 ;;
-      --plan) PLAN="${2:-}"; shift 2 ;;
-      --size) SIZE="${2:-}"; shift 2 ;;
+      --title) need_val "$@"; TITLE="$2"; shift 2 ;;
+      --prd) need_val "$@"; PRD="$2"; shift 2 ;;
+      --stories) need_val "$@"; STORIES="[$2]"; shift 2 ;;
+      --plan) need_val "$@"; PLAN="$2"; shift 2 ;;
+      --size) need_val "$@"; SIZE="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
       -h|--help) usage; exit 0 ;;
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -301,8 +318,8 @@ case "$CMD" in
     ID="$1"; TARGET="$2"; shift 2
     ROLE="Orchestrator"; NOTE=""
     while [ $# -gt 0 ]; do case "$1" in
-      --role) ROLE="${2:-}"; shift 2 ;;
-      --note) NOTE="${2:-}"; shift 2 ;;
+      --role) need_val "$@"; ROLE="$2"; shift 2 ;;
+      --note) need_val "$@"; NOTE="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
       -h|--help) usage; exit 0 ;;
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;

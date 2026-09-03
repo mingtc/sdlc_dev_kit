@@ -91,12 +91,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/usage.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+# need_val <all remaining args> — refuse an option whose value was not given.
+#
+# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
+# new-refactor.sh, which already had it. It is repeated per script rather than shared
+# because several of these source nothing from scripts/lib/ (release.sh by standing
+# ruling), and the self-test holds the copies identical.
+#
+# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
+# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
+# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
+# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
+# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
+# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --milestone) MILESTONE="$2"; shift 2 ;;
-    --before)    BEFORE="$2"; shift 2 ;;
-    --keep-last) KEEP_LAST="$2"; shift 2 ;;
+    --milestone) need_val "$@"; MILESTONE="$2"; shift 2 ;;
+    --before)    need_val "$@"; BEFORE="$2"; shift 2 ;;
+    --keep-last) need_val "$@"; KEEP_LAST="$2"; shift 2 ;;
     --apply)     DRY_RUN=false; SAW_APPLY=true; shift ;;
     # ACCEPTED, THOUGH IT IS ALREADY THE DEFAULT. It used to be refused as an unknown
     # option — the set's only refusal of a word that means "change nothing", and the
@@ -104,7 +121,7 @@ while [ $# -gt 0 ]; do
     # can preview accepts the word for previewing; anything else teaches by punishment.
     --dry-run)   DRY_RUN=true; SAW_DRY=true; shift ;;
     --tag)       DO_TAG=true; shift ;;
-    --repo-root) REPO_ROOT="$2"; shift 2 ;;
+    --repo-root) need_val "$@"; REPO_ROOT="$2"; shift 2 ;;
     -h|--help)   usage; exit 0 ;;
     # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
     # kit already told them apart in every script that has a `-*)` arm — these did not, so a

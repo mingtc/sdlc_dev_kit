@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **An option you forgot to give a value to now refuses, instead of silently doing nothing.**
+  `--note`, `--role`, `--trunk`, `--prefix`, `--message` and every other value-taking option: given
+  as the last word with no value, these used to **exit 1 with no output at all** — the script died
+  on `shift 2` under `set -e` before it could say anything. They now exit **2** and name the option.
+  **`notify.sh` was the sharp one:** `notify.sh attention --message` took `--message` as the message
+  **body**, sent a notification reading `--message`, and reported success. It now refuses a
+  positional beginning with `-`. **`consumers/update_vendored.sh` had no unknown-option arm at all**
+  and now has one. **Action required if a wrapper, alias or CI step calls these scripts:** an
+  invocation that used to fail quietly (or, for `notify.sh`, appear to succeed) now exits 2 and says
+  why. If anything of yours depended on the old silence, it will start failing loudly — which is the
+  point, but check it. Nothing changes for a correct invocation.
+
+
 _Nothing yet._
 
 ## [0.3.0] — 2026-09-03
