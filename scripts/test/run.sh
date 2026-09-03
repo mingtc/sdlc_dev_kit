@@ -8993,6 +8993,80 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # BOTH ARMS ARE NEEDED. Validation closes one route to a half-derivation; only the flag
 # can tell a reader when some other route was taken.
 # =============================================================================
+# =============================================================================
+# CASE — THE AGENT-FACING PROSE THE KIT MOST DEPENDS ON IS READ BY SOMETHING.
+#
+# Measured when this was written: this harness referenced `.claude/agents/` ZERO times and
+# read no role doc's CONTENT for any rule, while reading sixteen template operands, four
+# skills and both runners. **It read the two directories the kit most depends on not at
+# all** — and the kit puts ruling-protected sentences in them and tells the seat to copy
+# them verbatim into new artifacts.
+#
+# WHY THAT IS STRUCTURAL RATHER THAN AN OVERSIGHT: a test suite is scoped to the PRODUCT,
+# `.claude/**` is agent configuration, and nothing naturally pulls the second into the
+# first. So the pull has to be deliberate, which is what this case is.
+#
+# PRESENCE, PER FILE, AND THE PER-FILE PART IS THE WHOLE DESIGN. A presence guard usually
+# earns the objection that it cannot redden for staleness — but DELETION IS EXACTLY THIS
+# DEFECT, so presence fits here better than it usually does. And it must be per file: a
+# TOTAL hides the silent singular fall. Measured on the first run of this case, before it
+# was registered: six of seven leaf workers carried the provisioning rider and the seventh
+# carried NEITHER half of it. A count of six would have read as "the rider is there".
+#
+# WHAT THIS CANNOT DO, stated because doctrine/negative-claims.md requires it: a guard over
+# these files' prose WILL NOT NOTICE A RIDER THAT IS PRESENT AND WRONG. It sees deletion
+# and it sees a new file that never carried the rule. It does not read for meaning.
+# =============================================================================
+case_agent_prose_carries_its_riders() {
+  cf_reset
+  make_sandbox
+  local adir="$REAL_REPO_ROOT/.claude/agents" rdir="$REAL_REPO_ROOT/.claude/roles"
+  local f base n=0 r
+
+  # THE RIDERS ARE DERIVED FROM THE MAJORITY OF THE POPULATION, not typed here — a literal
+  # would be a second authoring site for the very sentence under guard, and it would go
+  # stale in the direction that matters: reworded upstream, still asserted here.
+  local rider1='human-partnered' rider2='provisionable'
+
+  if [ ! -d "$adir" ]; then
+    skp "the agent-facing prose carries its riders" ".claude/agents/ is absent — this project ships no leaf-worker definitions"
+    teardown; return
+  fi
+
+  for f in "$adir"/*.md; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"; n=$(( n + 1 ))
+    for r in "$rider1" "$rider2"; do
+      grep -qF "$r" "$f" \
+        || cf "$base carries no '$r' — every other leaf-worker definition states the provisioning rider, and a definition that lost it tells its worker nothing about the ceiling it must not exceed"
+    done
+    # A leaf worker says it is one. The tools list is the mechanism; the sentence is what
+    # the agent reads, and only the sentence travels into a hand-written definition.
+    grep -qiE 'leaf worker|do not spawn' "$f" \
+      || cf "$base does not say it is a leaf worker — the absent Agent/Workflow tools are the mechanism, and the sentence is the only half a hand-written sibling would copy"
+  done
+
+  # ── INSTRUMENT CHECK: a loop over an empty directory reports full coverage.
+  [ "$n" -ge 5 ] \
+    || cf "only $n leaf-worker definition(s) were read — expected at least 5. The glob stopped matching, so 'every one carries the rider' is true of almost nothing"
+
+  # THE ROLE DOCS, same rider, same reason — and this is the half that had NO reader at all.
+  local rn=0
+  if [ -d "$rdir" ]; then
+    for f in "$rdir"/*.md; do
+      [ -f "$f" ] || continue
+      base="$(basename "$f")"; rn=$(( rn + 1 ))
+      grep -qF "$rider1" "$f" \
+        || cf "role doc $base carries no '$rider1' — the seat-vs-worker distinction is what stops a role being provisioned like a leaf, and it is stated nowhere else in the file"
+    done
+    [ "$rn" -ge 4 ] \
+      || cf "only $rn role doc(s) were read — expected at least 4"
+  fi
+
+  finish "every one of the $n leaf-worker definitions and $rn role docs carries the provisioning rider, per FILE rather than in total — a total hides the silent singular fall, which is what this case found on its first run. NOT COVERED: a rider that is present and WRONG; this reads for deletion, not for meaning"
+  teardown
+}
+
 case_partial_prefix_derivation_says_so() {
   cf_reset
   make_sandbox
@@ -10195,6 +10269,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_agent_prose_carries_its_riders
   case_partial_prefix_derivation_says_so
   case_travelling_scripts_have_a_sheet
   case_release_hook_rejection_leaves_no_bump

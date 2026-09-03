@@ -56,6 +56,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   history is shallow. **No action required** — you get more reported, not less. Run against a full
   clone if you want the narrowing back.
 
+- **`ui-designer-worker.md` was missing the provisioning rider its six siblings carry**, and the
+  self-test now checks for it. The sentence — *never spawn above the project's sanctioned ceiling;
+  the seat is human-partnered, not a provisionable worker, and its class is not a ceiling* — was
+  absent from that one definition. **Action required if you have written your own leaf workers or
+  role docs:** the new case reads every file under `.claude/agents/` and `.claude/roles/` and names
+  any that lacks the rider. It checks **presence, per file** — deliberately, because the failure
+  mode is the sentence not being copied into a new definition. **It does not read for meaning:** a
+  rider that is present and wrong will not be caught.
+
 - **New runner arg `driftRule`, for a project whose pinned output is DERIVED rather than stored.**
   The zero-drift pin was `goldenPaths` — a path shape, which assumes golden FILES. If your pinned
   output is computed (a derived count, a generated manifest, a build-time checksum) you had nothing

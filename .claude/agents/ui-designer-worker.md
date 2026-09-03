@@ -46,7 +46,10 @@ the community default for this work class, adopted as-is. Escalation to the larg
 the caller's, through the mechanisms in `process/doctrine/model-provisioning.md` § B.1, and
 is justified by novel interaction design or accessibility-critical surfaces, not by volume.
 The lowest effort tier is never used; never the maximum; **never design and implement in the
-same dispatch** — implementation is the Dev worker's, from your handoff.
+same dispatch** — implementation is the Dev worker's, from your handoff. **Never spawn above the
+project's sanctioned ceiling** (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling
+is written, it is the tier the seat is running). The seat is human-partnered, not a provisionable
+worker, and its class is not a ceiling.
 
 ## You are a leaf worker
 
