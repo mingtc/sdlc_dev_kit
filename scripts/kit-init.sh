@@ -582,6 +582,27 @@ census_count() {  # <dir> <ere> [exclude-line-ere] → occurrences across the di
   echo "$n"
 }
 PLACEHOLDER_RE="(${PREFIX_PLACEHOLDER}|${OLD_PREFIX}-[^0-9])"
+# THE ALTERNATION `(^|…)` IS AN ERE EXTENSION, NOT POSIX, AND ITS ONE SYMPTOM IS RECORDED
+# HERE RATHER THAN SWEPT. A strict matcher rejects an anchor inside a group, so on a `grep`
+# that is stricter than the system one this expression matches nothing and the CENSUS below
+# under-reports.
+#
+# WHAT THAT COSTS, AND WHY IT IS A COMMENT RATHER THAN A FIX: the SUBSTITUTION is unaffected
+# — `sed -E` handles the same shape correctly, measured — so the tree is rewritten right and
+# only the count printed about it is wrong. **A wrong REPORT, not a wrong TREE.** That
+# asymmetry is the whole reason this can sit here.
+#
+# AND THE FLOOR IS DELIBERATELY NOT WIDENED TO NAME A grep. That was offered as the cheap
+# fix and it is the wrong trade: it would exchange the kit's central claim — REQUIRES git and
+# a POSIX shell — for five regexes in three scripts, and that claim is what makes
+# `process/SEED.md`'s branch B credible (the contract sheets ARE the specification; the shell
+# is one implementation). A floor naming a grep implementation makes the reference
+# implementation a dependency rather than an example.
+#
+# WHEN THIS FILE IS OPEN FOR ANOTHER REASON, replace this occurrence with a portable
+# equivalent and prove it against BOTH a lenient and a strict matcher. Do not open the file
+# solely for that. Severity, stated so nobody re-inflates it: this bites only where a
+# non-conforming `grep` precedes the system one on PATH, and no adopter has reported it.
 TRUNK_RE="(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)"
 NAME_RE="${OLD_NAME}"
 
