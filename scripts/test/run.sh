@@ -175,7 +175,8 @@ KIT_NEUTRAL_PRD_PREFIX="PRD"
 KIT_NEUTRAL_PROJECT_NAME="<project-name>"
 
 # THE ROLE SET THE KIT SHIPS. DECLARED, not derived — and the asymmetry with
-# KIT_STAMP_MARK / KIT_PREFIX_PLACEHOLDER above is forced rather than chosen: those two
+# KIT_STAMP_MARK / KIT_PREFIX_PLACEHOLDER (defined BELOW, not above — this said "above" while
+# both were three hundred lines further down) is forced rather than chosen: those two
 # have an unstamped source to read (kit-init.sh's own constants, which no stamp rewrites).
 # THIS ONE HAS NONE. kit-init's --roles performs a GLOBAL substitution of the old
 # alternation across githooks/commit-msg, move-issue.sh and check-board.sh, so on an
@@ -6126,9 +6127,12 @@ case_check_board_frontmatter_offset() {
 # CASE — kit-init.sh end to end, against a NON-shipped prefix.
 # The script's own self-check is its primary proof; this keeps it from ROTTING.
 # =============================================================================
-# THE ISSUE-TEMPLATE CAPABILITY PROBE — ONE AUTHORING SITE. Eight cases need a minted card, so
-# eight carried their own copy of this path, in TWO spellings of the skip reason. The path, the
-# spelling policy below and the reason string are one decision, and a decision stated eight times
+# THE ISSUE-TEMPLATE CAPABILITY PROBE — ONE AUTHORING SITE. Every case that needs a minted card
+# carried its own copy of this path, in TWO spellings of the skip reason. (This said "eight cases"
+# and was true when written; derive it —
+#   awk '/^[A-Za-z_][A-Za-z0-9_]*\(\)/{fn=$1} /if ! has_issue_template/{print fn}' "$0" | sort -u | wc -l
+# — rather than trusting a number here.) The path, the
+# spelling policy below and the reason string are one decision, and a decision stated per case
 # is eight places to amend and seven to forget.
 #
 # `.claude/` ONLY, DELIBERATELY, AND DO NOT WIDEN THIS TO THE DUAL SPELLING. These eight cases

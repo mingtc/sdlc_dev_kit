@@ -280,6 +280,12 @@ function devPrompt(issue, fixNotes) {
   // OPTIONAL FIELDS ARE DEFAULTED, NEVER ASSUMED. `depends_on` is documented optional
   // in the args comment above, and `.length` on an absent one throws — which kills the
   // whole run at the first issue that omits it, before any work happens.
+  // THE FAIL BULLETS IN BOTH BRIEFS BELOW NAME THE ENUM, NEVER A BARE `FAIL`. Both were
+  // labelled with one, which the StructuredOutput schema rejects, so a QA leg that failed an
+  // issue errored instead of reporting the failure. Derived from VERDICTS so the two cannot part.
+  // The reason lives HERE and not in the brief: a prompt literal is shipped to an agent as
+  // instructions, and maintainer changelog narration inside one is text the agent must read and
+  // discard. Caught by a fresh-context checker that rendered the brief with a stub harness.
   const deps = Array.isArray(issue.depends_on) ? issue.depends_on : []
   const chain = deps.length
     ? `DEPENDENCY CHAIN — VERIFY FIRST: this issue depends on ${deps.join(', ')} being LANDED on ${CFG.trunk}. Before any work: git log --oneline --grep to confirm each predecessor's "→ qa_complete" landing commit exists on ${CFG.trunk} AND its issue file sits in progress/qa_complete/ or progress/done/. If any link is missing, STOP immediately: return status=blocked with the evidence. Never work past a missing chain.`
@@ -323,7 +329,7 @@ Walk these, each with concrete evidence (file:line, a command + its result line)
 5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${gatesOf(issue)}.
 Verdict:
 - **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
-- **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}, never a bare FAIL, which is what this bullet was labelled with and which the schema enum rejects. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.
+- **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.
 ${issue.extraQA || ''}
 Return the structured result only.`
 }
@@ -357,7 +363,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
    - The four ratified verdicts, from process/MANUAL.md § The Dev → QA handoff step 6 — their one authoring site: PASS · PASS_AC_CORRECTED (implementation right, the AC's own illustration wrong; correct it with the issue) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY: they are two different facts.
    - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
    - If ${CFG.gateCmd} reports a gate that COULD NOT RUN, you have no evidence about the implementation and so no verdict to issue: stop and report the precondition failure. Neither FAIL token fits — both assert something false about the code.
-   - On a fail: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC list>" and return the unmet_ac list with whichever FAILING verdict of ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' / ')} fits — an unmet acceptance criterion vs. a green thing this made red. There is no bare \`FAIL\`: this line used to say to return one, and the schema enum would have rejected it. Do NOT fix code yourself.
+   - On a fail: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC list>" and return the unmet_ac list with whichever FAILING verdict of ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' / ')} fits — an unmet acceptance criterion vs. a green thing this made red. Do NOT fix code yourself.
 ${issue.extraQA || ''}
 Return the structured result only.`
 }

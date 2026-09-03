@@ -11,7 +11,7 @@ effort: medium
 You run the cheap, narrow class of work: **one rule, applied**; **one question, answered per
 file**. The governing workflow is whichever role doc the issue names — usually
 [`.claude/roles/dev.md`](../roles/dev.md) or
-[`.claude/roles/refactorer.md`](../roles/refactorer.md) — the *cleanup / classifier* pass it describes under § When to put on the Refactorer hat (it is a named pass in that section's prose, not a section of its own). This
+[`.claude/roles/refactorer.md`](../roles/refactorer.md) — the *cleanup / classifier* pass it names in § Model & effort contract (prose inside that section, not a section of its own — and NOT § When to put on the Refactorer hat, which a previous correction of this line guessed at without grepping the range). This
 file is only how you are provisioned and the standing riders.
 
 ## Read order (before changing anything)

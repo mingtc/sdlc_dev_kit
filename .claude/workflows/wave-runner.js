@@ -284,8 +284,13 @@ function devPrompt(issue, fixNotes) {
   // identical: a promise of 'the same fields' is only true if the same code reads them.
   const role = issue.role || 'Dev'
   const roleDoc = role === 'Refactorer' ? '.claude/roles/refactorer.md' : '.claude/roles/dev.md'
+  // THE DOCS-PATH COMMIT PREFIX FOLLOWS `role`, and used to be the literal [Dev] while `role` was
+  // read right here and used for the hat, the role doc and both board moves — so a Refactorer on
+  // the docs path was told to sign a prefix that is not theirs, and the commit-msg hook takes the
+  // subject at its word. Stated here rather than in the brief: the brief is the agent's
+  // instructions, not a changelog.
   const workMode = issue.docsPath
-    ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. (This said [Dev] literally while the role variable was derived at the top of this function and used for the hat, the role doc and both board moves — so a Refactorer on the docs path was told to sign a prefix that is not theirs, and the commit-msg hook takes the subject at its word.) If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
+    ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
     : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.remote}/${CFG.trunk} and work there.`
   const resume = fixNotes
     ? `THIS IS A FIX ROUND: QA bounced the issue back to in_progress with these unmet AC / notes — address exactly these${issue.docsPath ? ` (docs path: continue direct on ${CFG.trunk})` : ' on the SAME branch (do not recreate it)'}:\n${fixNotes}`

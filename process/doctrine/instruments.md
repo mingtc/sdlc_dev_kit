@@ -47,8 +47,9 @@ re-derive the sizes with the command § A.1 names before narrowing either end.
 
 > **Who this part binds: whoever BUILDS the instrument. What it changes: the instrument.**
 > Every failure below is an instrument that is green while the defect stands just outside what it
-> can see. **If you are writing or reviewing a guard, this part is your reading, and § A.9 onward is
-> not** — it is for whoever later reads what your instrument prints.
+> can see. **If you are writing or reviewing a guard, this part is your reading, and § A.9 and § A.10
+> are not** — but § A.11 IS: it was added after this range was written and is build-time like the rest
+> of Part One, so read the section headings rather than the numbers here — it is for whoever later reads what your instrument prints.
 
 ### A.1 — Measure the instrument against the shape it will MEET, not the shape it was built from
 

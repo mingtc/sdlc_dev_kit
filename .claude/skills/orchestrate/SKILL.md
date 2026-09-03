@@ -136,7 +136,8 @@ the report.
   the two workflows, and why an uncertain QA verdict parks-and-reports instead of blocking.
 - **Provisioning each dispatched worker (model + effort)** → the rigor-tier ladder in
   [`process/doctrine/rigor-tiers.md`](../../../process/doctrine/rigor-tiers.md), which
-  maps each tier to a model and an effort, and § "Model & effort contract" for the standing
+  maps each tier to a model and an effort, and each role doc's own § "Model & effort contract"
+  (that section lives in the role docs, not in the sheet above) for the standing
   riders, the leaf clause, and the two mechanisms that actually carry an escalation. Read it
   there; **this skill states no provisioning policy of its own.**
 

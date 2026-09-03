@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`.claude/skills/writing-plans/` offered the wrong skill for inline execution.** It named
+  `executing-plans` for the same-session path; `executing-plans` is the **separate-session** skill and
+  `subagent-driven-development` is the same-session one. **Re-copy the skill if you vendored it** —
+  following the old text sends you to a skill written for a different situation.
+- **`.claude/skills/systematic-debugging/` — two more copies of the broken `find-polluter` example.**
+  The previous release fixed the header comment; `root-cause-tracing.md` and the script's own **usage
+  message** carried the same pattern, which matches zero files and then reports success. All three
+  now carry the required leading `./`. **If you ran the tool from either of those and it found no
+  polluter, run it again.**
+- **`.claude/workflows/` briefs no longer carry maintainer narration.** Three prompt literals had
+  explanatory changelog text inside them, which agents received as instruction text to read and
+  discard. No behaviour change; the briefs are shorter and say only what the agent must do.
+
 - **Both workflow runners now refuse an unrecognised per-issue key.** `depends_on` was already
   defaulted, but a caller who wrote `depends_ons` would have got a **silent solo run** — a broken
   dependency chain being exactly what the field prevents. **Action required if you script these
@@ -217,7 +230,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 - **The self-test now checks that every travelling script has a contract sheet.** `contracts/README.md`
   always stated the rule in both directions and said outright that this one was unguarded. It is
-  guarded now, and two exempt classes are named at the rule so a sweep finds a decision rather than a
+  guarded now, and the exempt classes are named at the rule so a sweep finds a decision rather than a
   violation: `scripts/hygiene/` (optional, never a gate, deletable) and `scripts/lib/` (shared
   internals, whose behaviour their callers' sheets already specify). **Action required if you have
   added your own travelling scripts** — anything carrying `# KIT-CLASS: KIT` or `MIXED`: the new case

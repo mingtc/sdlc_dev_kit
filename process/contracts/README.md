@@ -65,7 +65,7 @@ image.
 | Outbound notification | Its contract is almost entirely *what it must NOT do* — be a gate, fail a caller, need configuration. |
 | The process self-test harness | It carries the other half of the landing gate's test-only-marker invariant. |
 | The acceptance tier | **The mirror-image case: the only artifact class with no travelling spec at all.** Its reference implementation is deliberately **non-travelling** (one test runner's marker), which is exactly why the invariants had to be written here — the whole *"a rewrite from the corpus is acceptable"* claim rests on a tier an adopter can reimplement. |
-| Retention completeness | A travelling gate (the retention doctrine's one venue-change mechanism) that had no contract — the same rule that makes the set complete. |
+| Retention completeness | The retention doctrine's one venue-change mechanism, contracted so the rule travels even though no implementation does. **Deliberately non-travelling** — its own § 6 says so, and `scripts/githooks/` ships only `applypatch-msg` and `commit-msg`. *This row called it "a travelling gate", which its sheet contradicts in the same directory.* |
 
 Nothing in the minimum set was merged or split.
 
