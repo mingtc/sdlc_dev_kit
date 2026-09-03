@@ -27,7 +27,9 @@
 #
 #   SUBTASK_ROLE   the seat this script commits as (default: Orchestrator). The tag
 #                  is CHECKED against your declared role set before anything moves.
-
+#                  Read by the `new` arm; the `move` arm takes an explicit `--role` instead
+#                  and defaults to Orchestrator without consulting this variable.
+#
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync. Read move-issue.sh's warning about it first:
 #   the worktree is shared between lanes. (There is deliberately no --no-commit —

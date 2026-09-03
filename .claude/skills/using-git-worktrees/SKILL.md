@@ -218,7 +218,7 @@ Ready to implement <feature-name>
 **Always:**
 - Run Step 0 detection first
 - Prefer native tools over git fallback
-- Follow directory priority: existing > global legacy > instruction file > default
+- Follow directory priority: **instruction-file preference > existing project-local > existing global > default** (§ Directory Selection: *explicit user preference always beats observed filesystem state*)
 - Verify directory is ignored for project-local
 - Auto-detect and run project setup
 - Verify clean test baseline

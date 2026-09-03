@@ -111,12 +111,20 @@ Nothing in the minimum set was merged or split.
   ```sh
   # every path a § 6 bullet names, with the class the sheet claims for it —
   # bullets WRAP, so join continuation lines first or five rows in one bullet are missed
-  awk '/^- /{b=$0; next} /^[[:space:]]+[^[:space:]]/{b=b " " $0} END{}' process/contracts/*.md
-  grep -rlE '^# KIT-CLASS: (KIT|MIXED)' .   # every travelling file — NOT just scripts/
-  # SCOPE IS THE TRAP HERE. This used to read `scripts/ setup.sh`, which is narrower than the
-  # rule it supports and misses every travelling file under consumers/ and .claude/ — a
-  # derivation offered as the honest alternative to a list, itself undercounting. Run it wide
-  # and let the exempt classes below do the filtering.
+  # THE JOINED BULLET IS PRINTED. This recipe used to end `END{}` — an empty END block, so it
+  # accumulated every bullet into `b` and emitted NOTHING. An adopter following the honest
+  # alternative to a list got a blank screen and no error.
+  awk '/^- /{if(b)print b; b=$0; next} /^[[:space:]]+[^[:space:]]/{b=b " " $0} END{if(b)print b}' \
+      process/contracts/*.md
+
+  # every travelling file — BOTH COMMENT SYNTAXES, and that is the trap, not the path.
+  grep -rlE '^(#|<!--) KIT-CLASS: (KIT|MIXED)' .
+  # SCOPE WAS THE OBVIOUS TRAP AND THE PATTERN WAS THE REAL ONE. This read `scripts/ setup.sh`,
+  # which is narrower than the rule it supports; widening the PATH to `.` fixed a third of it and
+  # no more, because `^# KIT-CLASS:` only matches SHELL comment syntax and every travelling
+  # markdown file declares itself in an HTML comment. Measured on the shipped tree: the
+  # shell-only pattern finds 44 files, both syntaxes find 133. **A derivation offered as the
+  # honest alternative to a list undercounted by two thirds, and then undercounted by less.**
   ```
 
 - **`PROJECT`-class files owe nothing** and no sheet may claim one — a contract over a file the

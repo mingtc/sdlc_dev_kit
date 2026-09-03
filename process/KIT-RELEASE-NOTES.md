@@ -46,9 +46,9 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
-- **`PROJECT.md` gains a `Build order` section — and six shipped surfaces have been pointing at it
-  all along.** `pm.md` prioritises *"against the build order in PROJECT.md"*, and five other role
-  docs name it as project context; the sheet had no such section. The opening line *"not the
+- **`PROJECT.md` gains a `Build order` section — and shipped role docs have been pointing at it all
+  along.** `pm.md` prioritises *"against the build order in PROJECT.md"*, and `dev.md` and
+  `orchestrator.md` name it as project context; the sheet had no such section. The opening line *"not the
   roadmap"* is true of that **paragraph** and was read as true of the **file**. **Action required:
   write one or two lines in the new section** — what is in scope now, and what is deliberately not
   yet. *If your project genuinely has no ordering yet, write that sentence rather than leaving it

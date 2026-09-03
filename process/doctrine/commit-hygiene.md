@@ -175,8 +175,10 @@ instances across five work items, and every one shipped the same apologetic comm
 site — nine independent readings of this section, none of which recognised its own case in it. The
 comment was not wrong. It should not have had to exist.*
 
-**Nothing about the handling changes** — the four numbered points hold identically, and the set is
-still the unit. What changes is only that the executable-declaration case is now named here, so the
+**Nothing about the handling changes** — every numbered point above holds identically (count them
+there; this sentence said "the four" until § 3b was inserted and made it five, which is the stale-
+census class `staleness.md` § C names, committed inside the sheet about coupled changes), and the
+set is still the unit. What changes is only that the executable-declaration case is now named here, so the
 next reader does not have to decide whether their situation is a member.
 
 **A MIXED trunk at any reading is the breach, and it is the only one this shape can produce.** So an

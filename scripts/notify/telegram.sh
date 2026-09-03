@@ -52,7 +52,12 @@ VERB="${1:-send}"
 # to a rule the kit states, in the file notification.md § 6 names as its reference implementation.
 case "${VERB:-}" in
   -h|--help|help)
-    sed -n '3,40p' "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
+    # THE WINDOW IS DERIVED AT BOTH ENDS. A literal end (`3,40p`) printed 18 lines of raw
+    # shell — `set -uo pipefail`, the ROOT= assignment — because this header ends at 22 and the
+    # literal did not know that. Every other header-derived --help in the kit derives its end for
+    # exactly this reason; this arm was added later and reintroduced the literal.
+    _tg_end="$(awk 'NR>2 && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
+    sed -n "3,${_tg_end:-22}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
 esac
 

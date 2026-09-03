@@ -110,7 +110,7 @@ Then, **in SEED's order and using SEED's verbs**: fill [`PROJECT.md`](PROJECT.md
 [`requirements/CORPUS.md`](requirements/CORPUS.md) and
 [`requirements/DECISIONS.md`](requirements/DECISIONS.md) (step 4), **REPLACE** the
 [`CLAUDE.md`](CLAUDE.md) stub with your adapter (step 5 — **replace, never fill**: it is scaffolding
-to be thrown away, as § What you delete says below), **hold a real PM session and mint `PRD-001`**
+to be thrown away — see § Conventions used throughout, the Disposition bullet), **hold a real PM session and mint `PRD-001`**
 (step 6 — *the step most likely to be skipped under pressure to look productive*), and drive your
 **first** issue through the **full** Dev → QA boundary (step 7). Wire the runtime half of
 [`setup.sh`](setup.sh) whenever your stack is decided.

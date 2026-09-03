@@ -40,9 +40,11 @@ this file at the start of every session.**
 
 ## Build order — what is being built now, and what is deliberately not yet
 
-> **Six shipped surfaces send a reader here for this and it was not here.** `pm.md` prioritises
-> *"against the build order in PROJECT.md"*, `dev.md`, `orchestrator.md` and three more name it as
-> project context. This sheet's opening paragraph says *"not the roadmap"* — which is true of that
+> **Shipped role docs send a reader here for this and it was not here.** `pm.md` prioritises
+> *"against the build order in PROJECT.md"*; `dev.md` and `orchestrator.md` name it as project
+> context. *(An earlier draft of this note said "six shipped surfaces" — that was six grep HITS
+> across three files, which is the population defect `staleness.md` § C is about, written into the
+> sentence announcing a fix for the same class. Derive it: `grep -rl "build order" .claude/roles/`.)* This sheet's opening paragraph says *"not the roadmap"* — which is true of that
 > PARAGRAPH and was read as true of the file, so the section its own consumers depend on was never
 > written. **The distinction the opening means: not a dated plan with milestones. A build order is
 > "what is in scope now", which is a project FACT and belongs here.**
