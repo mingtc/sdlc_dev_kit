@@ -203,9 +203,9 @@ case "$CMD" in
     # which sed_repl above does NOT fix. `awk -v` performs escape-sequence processing on
     # the value it assigns: measured, a --title of `path C:\tmp\new` yields a real TAB
     # and a real NEWLINE, splitting the H1 across two lines. ENVIRON does no such
-    # processing and is POSIX. (perl would also work and this file already uses it on the
-    # --plan path — do NOT reach for it: that is a dependency past the kit's declared
-    # git-plus-POSIX-shell floor, and it is itself an open finding.)
+    # processing and is POSIX. (perl would also work — do NOT reach for it: that is a
+    # dependency past the kit's declared git-plus-POSIX-shell floor. The --plan path below
+    # used to use it and no longer does; this file is now perl-free.)
     H1="# ${ID} — ${TITLE}" awk 'BEGIN{done=0} done==0 && /^# /{print ENVIRON["H1"]; done=1; next} {print}' \
       "$DEST" > "$H1_TMP" && mv "$H1_TMP" "$DEST"
 
@@ -235,15 +235,36 @@ case "$CMD" in
     # kit template's `- Plan: …` bullet, a frontmatter `plan:` key, and a bare
     # `<plan-path>` token. An earlier version used
     # `sed -i '' … 2>/dev/null || true`, which was BSD-only (a no-op on GNU sed /
-    # Linux) AND swallowed the error. perl -i is portable; PLAN is passed via the
-    # environment so path characters cannot break the pattern; nothing is
-    # swallowed — a failure aborts under `set -e`.
+    # Linux) AND swallowed the error.
+    #
+    # awk + ENVIRON, NOT perl. This was `perl -i -pe` with `$ENV{PLAN}`, and perl is a
+    # dependency past the kit's declared floor — git and a POSIX shell, with the two
+    # optional extras carved out BY NAME so that "what else does this need" has an answer
+    # a reader can trust. The floor's value is not that the list is short; it is that the
+    # list is TRUE, and an undeclared dependency on an optional path is what an adopter
+    # porting to a minimal container finds at the wrong moment. ENVIRON is the same answer
+    # the H1 pass above reaches for, for the same reason: the value never passes through
+    # a layer that interprets it.
+    #
+    # THE `<plan-path>` SUBSTITUTION IS DONE BY index/substr, NOT gsub. A path containing
+    # `&` or a backslash is legal, and both are special in gsub's REPLACEMENT — `&` inserts
+    # the matched text. index/substr has no replacement grammar at all, so there is nothing
+    # to escape and nothing to get wrong.
     if [ -n "$PLAN" ]; then
-      PLAN="$PLAN" perl -i -pe '
-        s{^(\s*[-*]\s*Plan:\s*).*$}{$1`$ENV{PLAN}`};
-        s{^plan:.*$}{plan: $ENV{PLAN}};
-        s{<plan-path>}{$ENV{PLAN}}g;
-      ' "$DEST"
+      _PLAN_TMP="$(mktemp)"
+      PLAN="$PLAN" awk '
+        BEGIN { p = ENVIRON["PLAN"]; tok = "<plan-path>"; tl = length(tok) }
+        /^[[:space:]]*[-*][[:space:]]*Plan:[[:space:]]*/ {
+          match($0, /^[[:space:]]*[-*][[:space:]]*Plan:[[:space:]]*/)
+          print substr($0, 1, RLENGTH) "`" p "`"; next
+        }
+        /^plan:/ { print "plan: " p; next }
+        {
+          while ((i = index($0, tok)) > 0)
+            $0 = substr($0, 1, i - 1) p substr($0, i + tl)
+          print
+        }
+      ' "$DEST" > "$_PLAN_TMP" && mv "$_PLAN_TMP" "$DEST"
     fi
 
     git -C "$KWT" add "$DEST"

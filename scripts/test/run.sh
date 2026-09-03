@@ -8916,6 +8916,62 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # THE ASSERTION IS ABOUT THE OUTPUT, not about the number. A case pinning `start` to a
 # computed value would pass against a renderer that computed it and then ignored it.
 # =============================================================================
+# =============================================================================
+# CASE — NO SHIPPED SCRIPT REACHES PAST THE DECLARED FLOOR.
+#
+# The kit REQUIRES git and a POSIX shell, and carves out its optional extras BY NAME —
+# the hygiene scripts are Python 3 and never a gate; one skill's visual companion wants
+# Node and is opt-in per question. `perl` is not among them, and subtask.sh used it on
+# its --plan path.
+#
+# THE FLOOR'S VALUE IS NOT THAT THE LIST IS SHORT; IT IS THAT THE LIST IS TRUE. perl is on
+# essentially every system the kit will meet, so the practical risk is small — and an
+# undeclared dependency on an optional path is exactly what an adopter porting to a
+# minimal container finds at the wrong moment. A floor nobody checks is a claim.
+#
+# THE CARVE-OUTS ARE DERIVED, not listed here: this case reads the shipped scripts, and
+# the two named extras live in directories it does not walk.
+# =============================================================================
+case_shipped_scripts_stay_on_the_floor() {
+  cf_reset
+  make_sandbox
+  local f base n=0
+
+  # The interpreters that are NOT on the floor. Held one per line so this case's own text
+  # cannot satisfy the search it performs on itself (it does not scan itself, but the
+  # sandbox's copy of this file is not what is walked either — state it anyway).
+  local i1='perl' i2='python' i3='node' i4='ruby'
+
+  for f in "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/lib/*.sh "$SB_WORK"/scripts/githooks/*; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    n=$(( n + 1 ))
+    # NON-COMMENT LINES ONLY: several of these files DISCUSS perl in a comment explaining
+    # why they do not use it, and a bare grep would report the explanation as the defect.
+    local w hit
+    for w in "$i1" "$i2" "$i3" "$i4"; do
+      # COMMAND POSITION, not mere appearance. `echo "… a node id …"` mentions node and
+      # does not invoke it; a census that cannot tell those apart reports prose as a
+      # dependency, which is how a floor check gets switched off for being noisy. The
+      # leading `VAR=value ` group is there because the shipped idiom for passing a value
+      # safely is exactly `PLAN="$PLAN" perl …`.
+      hit="$(awk -v w="$w" '
+        /^[[:space:]]*#/ { next }
+        $0 ~ ("(^|[;&|(]|\\$\\()[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*" w "([[:space:]]|$)") { print NR ": " substr($0,1,90) }
+      ' "$f" 2>/dev/null || true)"
+      [ -z "$hit" ] \
+        || cf "$base invokes '$w', which is not on the kit's declared floor (git + a POSIX shell, with the optional extras carved out by name): $(printf '%s' "$hit" | tr '\n' ' ' | cut -c1-160)"
+    done
+  done
+
+  # ── INSTRUMENT CHECK: a loop that walked nothing reports a clean floor forever.
+  [ "$n" -ge 15 ] \
+    || cf "only $n shipped script(s) were walked — expected at least 15. The glob stopped matching, so 'nothing off the floor' is true of almost nothing"
+
+  finish "none of the $n shipped scripts, libraries or hooks invokes an interpreter past the declared floor of git plus a POSIX shell — the two optional extras are carved out by name and live outside this walk, and comments EXPLAINING why perl is not used do not count as using it"
+  teardown
+}
+
 case_help_never_opens_with_the_class_marker() {
   cf_reset
   make_sandbox
@@ -9891,6 +9947,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_shipped_scripts_stay_on_the_floor
   case_help_never_opens_with_the_class_marker
   case_role_set_read_is_one_expression
   case_advisory_headers_carry_the_machine_token
