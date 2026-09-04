@@ -67,13 +67,47 @@ If PROJECT.md declares the stack, recommend the matching deterministic tools. Ex
 - **Go:** `staticcheck`, `gocyclo`, `golangci-lint`
 - **Rust:** `cargo clippy`, `cargo-bloat`
 
+**BEFORE YOU BELIEVE A TOOL'S OUTPUT, PROVE IT SAW THE SUBJECT.** Every tool above has an
+exclusion list, a default glob and a config file, and **a scan that reached none of your code
+reports clean** — indistinguishable, in the output pane, from a codebase with no smells. Measured at
+an adopter: a hygiene scanner reported a clean pass over 28 Python modules because `src/` sat in its
+own excluded list and it globbed `.md`; a literal reading of this skill would have buried that
+audit's two highest-priority findings.
+
+So for each tool you run, before recording anything from it:
+
+1. **Make it name its operand** — the file count or the file list it actually processed, not the
+   finding count. `0 findings over 0 files` and `0 findings over 28 files` are different results and
+   most tools print them the same way.
+2. **Check that count against the subject** — `git ls-files <target paths> | wc -l`. A mismatch is
+   the finding, and it outranks anything the tool did report.
+3. **Where the tool cannot say, feed it a known positive** — a file you are certain contains the
+   smell. A tool that misses a planted one cannot be trusted about the ones you did not plant.
+
+*This is `process/doctrine/instruments.md` § A.6 (the operand set is where the defect lives) and
+§ A.8 (a green that could not have gone red), applied to somebody else's tool.*
+
 If these aren't configured in the project, that itself is a finding: "tool setup gap" is a refactor target too.
 
 The skill is language-agnostic; deterministic tools are an enhancement, not a requirement.
 
 ## Prioritization (the Pareto cut)
 
-For each candidate target, score on:
+**FIRST, FOR EACH CANDIDATE: CAN THIS ACTUALLY FIRE TODAY?** Before scoring, establish whether the
+defect is **live** (reachable on a path the product executes now) or **latent** (real in the text,
+unreachable as the code stands — behind a disabled flag, in a caller nobody has, on a branch of a
+condition that cannot be taken). Say which, per candidate, with the evidence: the caller, the flag's
+current value, the route in.
+
+**A latent defect is not a non-finding — it is a different finding**, and it almost always drops in
+priority, because the pain it is scored on is not being paid. Measured at an adopter in a controlled
+two-arm comparison: an auditor that asked this question changed **three of its four** answers
+against one that did not, and all three were latent rather than live.
+
+*Neither axis below asks this. "Likelihood-of-future-pain" is about how often the area is TOUCHED;
+a defect can sit in a hot file and still be unreachable.*
+
+Then, for each candidate target, score on:
 
 - **Impact** — how much pain does this currently cause, or how much will it cause as the codebase grows? (High / Medium / Low)
 - **Likelihood-of-future-pain** — does this area get touched often, or is it dormant?

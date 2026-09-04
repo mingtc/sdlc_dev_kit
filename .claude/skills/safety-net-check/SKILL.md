@@ -45,8 +45,18 @@ If anything is red — even unrelated to your target — STOP. The refactor pass
 Tag a baseline commit:
 
 ```
-git tag refactor-baseline-<YYYY-MM-DD>
+git tag "refactor-baseline-$(date -u +%Y%m%dT%H%M%SZ)"
 ```
+
+**The timestamp is not decoration.** A date-only tag collides the second time anyone runs this on
+the same day — `git tag` refuses, and the run continues without a revert point, so **the case with
+no safety net is exactly the case where two refactors are in flight at once.** (This kit measured
+the identical failure in its own `scripts/archive-progress.sh`: a second same-day rotation hit "tag
+already exists" and silently skipped its revert-safety tag.) UTC deliberately — this is an instant,
+not a calendar day, and a local clock crossing a DST boundary can hand out the same second twice.
+
+**Record the tag you actually created** in the assessment output; with a timestamp in the name you
+can no longer reconstruct it from the date.
 
 This makes reverting an off-the-rails refactor one command: `git reset --hard refactor-baseline-<date>`.
 
@@ -118,11 +128,16 @@ For each gap on Option A:
 
 1. **Write the test** asserting current behavior. Run it — it should pass (because it asserts what's already true).
 2. **Briefly verify the test is real:** temporarily change the production code to break the asserted behavior. The test should fail. Revert.
-3. **Commit the test on the default branch** with prefix `[Refactorer]`, matching the role tag, and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`.
+3. **Land the test on the trunk BEFORE the refactor branch exists** — as its own small change,
+   through whatever route your adapter's code paths require. **In most projects the test tree IS a
+   code path**, so that means its own branch and the landing gate, not a direct-to-trunk commit;
+   this step used to say "commit the test on the default branch", which instructs a Refactorer to
+   push code straight to the trunk and contradicts the code-vs-metadata rule in
+   `process/MANUAL.md`. Check your adapter before choosing the route. Prefix `[Refactorer]`, matching the role tag, and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`.
 
 These tests land *before* the refactor branch is created. They protect the upcoming work.
 
-> **Why on the default branch, not on the refactor branch?** The characterization tests are part of the safety net, not the refactor itself. If the refactor is abandoned, the characterization tests stay — they're free behavior documentation. They also need to exist before Dev creates the refactor branch so that Dev can see green-on-baseline.
+> **Why land them first, rather than inside the refactor branch?** The characterization tests are part of the safety net, not the refactor itself. If the refactor is abandoned, the characterization tests stay — they're free behavior documentation. They also need to exist before Dev creates the refactor branch so that Dev can see green-on-baseline.
 
 ## Phase 5: Optional Escalation — Mutation Testing
 
@@ -145,7 +160,8 @@ Add a `Safety-Net Assessment` block under the target in the refactor pass doc:
 ```markdown
 ### Safety-Net Assessment
 
-- **Baseline tag:** `refactor-baseline-2026-05-26`
+- **Baseline tag:** `refactor-baseline-20260526T141133Z` *(record the one you created — with an
+  instant in the name it cannot be reconstructed from the date)*
 - **Tests covering this target:**
   - `path/to/test.ts` — covers create, update flows
   - `path/to/other.test.ts` — covers slug validation

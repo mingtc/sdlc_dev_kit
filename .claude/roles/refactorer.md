@@ -144,7 +144,9 @@ A refactor pass is ready to commit when all of:
 - [ ] **Each issue's branch name is `refactor/<PREFIX>-NNN-<slug>`** (the script defaults this)
 - [ ] **Each issue references the refactor pass doc** in frontmatter (`refactor_pass:` field)
 - [ ] **Issue Map in the doc** lists every created issue against its target
-- [ ] **Baseline tag exists** at `refactor-baseline-<YYYY-MM-DD>` (created by safety-net-check)
+- [ ] **Baseline tag exists** at `refactor-baseline-<UTC instant>` — the name safety-net-check
+      actually created, recorded in its assessment. *(This read `<YYYY-MM-DD>`; a date-only tag
+      collides on the second same-day refactor and the run continues with no revert point.)*
 - [ ] **Characterization tests landed** on the trunk (from safety-net-check Phase 4) — visible in `git log`
 - [ ] **`progress.md` has one Refactorer entry** for this pass
 - [ ] **If this pass supersedes a prior audit or closes the launch pack that commissioned it, the predecessor carries its stamp in the same change** — never a follow-up sweep ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md))
@@ -157,7 +159,7 @@ What Dev sees picking up a `type: refactor` issue from `progress/todo/`:
 
 - **Issue file** at `progress/todo/<PREFIX>-NNN-<slug>.md` with complete frontmatter and the four content sections (Target & Goal, Behaviors Preserved, Move Sequence, Safety-Net Assessment + Migration Plan if applicable)
 - **Refactor pass doc** at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md` — full context for the per-target detail, the audit that surfaced this target, the prioritization rationale
-- **Baseline tag** at `refactor-baseline-<YYYY-MM-DD>` — one command to revert if a move goes wrong
+- **Baseline tag** at `refactor-baseline-<UTC instant>` — one command to revert if a move goes wrong
 - **PROJECT.md** as global context (read once per session)
 - **`progress.md`** for recent strategic decisions
 

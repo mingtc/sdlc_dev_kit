@@ -46,12 +46,36 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`.claude/skills/safety-net-check/` told you to commit characterization tests straight to the
+  trunk.** Where your adapter declares the test tree as a code path — the normal case — that
+  contradicts the code-vs-metadata rule and asks a Refactorer to bypass your landing gate. The step
+  now says to LAND them before the refactor branch exists, by whatever route your code paths require.
+  **Action required if you followed it:** nothing to undo, but check whether any characterization
+  test reached your trunk without passing your gate.
+- **The refactor baseline tag now carries a UTC instant, not a date.** `refactor-baseline-<YYYY-MM-DD>`
+  collides on the second refactor of the same day: `git tag` refuses and the run continues **with no
+  revert point** — so the case with no safety net was exactly the case where two refactors were in
+  flight. **Action required if you have a `refactor-baseline-<date>` tag:** it is fine, but a second
+  refactor today would not have created one. Re-copy the skill, the Refactorer role doc and
+  `REFACTOR.template.md`, which all named the old form.
+- **`.claude/skills/refactor-audit/` now makes you prove a tool saw your code before believing it.**
+  Every deterministic tool it recommends has an exclusion list and a default glob, and **a scan that
+  reached none of your code reports clean.** Measured at an adopter: 28 Python modules invisible to
+  a scanner because `src/` sat in its exclusion list. The skill now requires the tool's file COUNT
+  (not its finding count) checked against `git ls-files`. **Re-run any audit whose tools you did not
+  verify this way** — a clean tool result in a past audit may have been a tool that saw nothing.
+- **`refactor-audit` also now asks whether each candidate defect can actually fire today.** Live
+  versus latent, per candidate, before scoring — because "likelihood of future pain" measures how
+  often an area is *touched*, and a defect can sit in a hot file and be unreachable. In an adopter's
+  controlled comparison this changed three of four priorities.
+
 - **`.claude/skills/writing-plans/` — an earlier [Unreleased] build named the wrong execution skill.**
   Its "Inline Execution" option was changed to `subagent-driven-development`, which made it identical
   to option 1. Reverted: option 2 is `executing-plans`, as the same file states six lines below.
   **Action required if you took the earlier build:** re-copy the skill. *A real contradiction remains
-  between the two execution skills' `description:` lines and this menu — see the kit's own
-  `changes/open/238`; it is not resolved here because the evidence does not say which side is wrong.*
+  between the two execution skills' `description:` lines and this menu — the kit tracks it as an open
+  defect and has deliberately not guessed, because the evidence does not say which side is wrong.
+  If you rely on either skill, read both `description:` lines against this menu before trusting either.*
 - **`scripts/check-board.sh --help` no longer enumerates the drift classes.** It named five; nine
   arms run. The arms print their own letters as the tool runs. No behaviour change.
 - **`.claude/roles/dev.md` overstated what `move-issue.sh` leaves alone.** It said "your current

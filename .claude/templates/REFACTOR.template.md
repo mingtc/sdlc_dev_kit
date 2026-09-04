@@ -79,7 +79,7 @@ If Dev disagrees with the order or the set, see the Refactor variation guidance 
 
 The result of safety-net-check for this target. Restated here for Dev's convenience; full detail in the refactor pass doc.
 
-- **Baseline tag:** `refactor-baseline-<YYYY-MM-DD>` — `git reset --hard <tag>` to undo if needed
+- **Baseline tag:** `refactor-baseline-<UTC instant>` — `git reset --hard <tag>` to undo if needed
 - **Tests covering this target:** see refactor pass doc § Target T<n>
 - **Characterization tests added:** `<test name(s)>` — on `<trunk>` as of the baseline tag
 - **Verdict:** SAFE TO PROCEED | PROCEED WITH CARVEOUT (see below)
