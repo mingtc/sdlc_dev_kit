@@ -72,10 +72,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 - **`.claude/skills/writing-plans/` — an earlier [Unreleased] build named the wrong execution skill.**
   Its "Inline Execution" option was changed to `subagent-driven-development`, which made it identical
   to option 1. Reverted: option 2 is `executing-plans`, as the same file states six lines below.
-  **Action required if you took the earlier build:** re-copy the skill. *A real contradiction remains
-  between the two execution skills' `description:` lines and this menu — the kit tracks it as an open
-  defect and has deliberately not guessed, because the evidence does not say which side is wrong.
-  If you rely on either skill, read both `description:` lines against this menu before trusting either.*
+  **Action required if you took the earlier build:** re-copy the skill.
+
+  **And the confusion behind it is fixed at its source.** The two skills' `description:` lines
+  described DIFFERENT AXES and so read as contradicting each other: `executing-plans` said "in a
+  separate session", meaning the plan was authored elsewhere — the tasks run INLINE, here; and
+  `subagent-driven-development` said "in the current session", meaning you orchestrate from here
+  while each task goes to a fresh subagent. Both now say which they mean and name the other as the
+  alternative. **Re-copy both skills and `.claude/skills/README.md`**, which carried the same
+  ambiguity. No behaviour changed — the routing was always right; only the summaries were unclear.
 - **`scripts/check-board.sh --help` no longer enumerates the drift classes.** It named five; nine
   arms run. The arms print their own letters as the tool runs. No behaviour change.
 - **`.claude/roles/dev.md` overstated what `move-issue.sh` leaves alone.** It said "your current
@@ -92,10 +97,6 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   been corrected for the landing directory. The links always worked; the visible text was dead. All
   labels now show the repo-root path. No action required unless you copy labels by hand.
 
-- **`.claude/skills/writing-plans/` offered the wrong skill for inline execution.** It named
-  `executing-plans` for the same-session path; `executing-plans` is the **separate-session** skill and
-  `subagent-driven-development` is the same-session one. **Re-copy the skill if you vendored it** —
-  following the old text sends you to a skill written for a different situation.
 - **`.claude/skills/systematic-debugging/` — two more copies of the broken `find-polluter` example.**
   An earlier entry in THIS same [Unreleased] section fixed the header comment; `root-cause-tracing.md`
   and the script's own **usage

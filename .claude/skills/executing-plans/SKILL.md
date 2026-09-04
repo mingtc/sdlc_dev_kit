@@ -1,6 +1,6 @@
 ---
 name: executing-plans
-description: Use when you have a written implementation plan to execute in a separate session with review checkpoints
+description: Use when executing a written implementation plan INLINE — you run the tasks yourself in this session, in order, with review checkpoints. The plan was authored earlier or elsewhere; the execution is here. For delegating each task to a fresh subagent instead, use subagent-driven-development
 ---
 
 # Executing Plans

@@ -49,7 +49,7 @@ are loaded on demand by the `SKILL.md` that owns them; they are not entry points
 | --- | --- |
 | [brainstorming](brainstorming/) | Use before any creative work — explore intent before implementing |
 | [writing-plans](writing-plans/) | Turn a spec into a written, TDD-shaped implementation plan |
-| [executing-plans](executing-plans/) | Execute a plan in a separate session with review checkpoints |
+| [executing-plans](executing-plans/) | Execute a plan INLINE — you run the tasks yourself, with review checkpoints |
 | [subagent-driven-development](subagent-driven-development/) | Execute plans with independent tasks via subagents, two-stage review per task |
 | [dispatching-parallel-agents](dispatching-parallel-agents/) | Fan out 2+ genuinely independent investigations to parallel agents |
 | [test-driven-development](test-driven-development/) | The red-green-refactor loop for any feature or bugfix |
