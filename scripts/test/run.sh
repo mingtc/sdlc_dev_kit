@@ -4228,6 +4228,113 @@ PY
   finish "each runner's ISSUE_KEYS admits every per-issue field that runner actually reads ($n runner(s), derived from the file, ablation-proven)"
 }
 
+# CASE — the shipped workflow runners COMPOSE every brief they would send, from a realistic
+# args payload, without throwing. This is the harness EXERCISING the kit rather than reading it.
+#
+# WHY IT EXISTS. Every other case in this file, and every round of the pre-cut sweep, reads.
+# Measured against that: an adopter dispatching a real tranche found the runner dying in 33ms on
+# `issue.depends_on.length` with zero agents started, and this repository then shipped a
+# stray-key guard copied between the two runners whose allow-list omitted three fields the
+# destination file reads — so EVERY wave run would have thrown before its first agent. Neither
+# was reachable by reading; both are caught here in milliseconds.
+#
+# NOTHING IS DISPATCHED. `agent()` is stubbed to return a schema-shaped object, so the script
+# runs its real control flow and builds its real prompts at zero agent cost. What is under test
+# is the CONTRACT — that a caller following the documented shape can start a run.
+case_workflow_briefs_compose_from_a_sparse_payload() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub out n=0
+  [ -d "$wf" ] || _fixture_die "case_workflow_briefs_compose_from_a_sparse_payload: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  if ! command -v node >/dev/null 2>&1; then
+    skp "the shipped workflow runners compose their briefs from a sparse args payload" "node absent"
+    return
+  fi
+
+  stub="$(mktemp -d)/stub-run.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson] = process.argv.slice(2)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const briefs = []
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  briefs.push(String(prompt))
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map((f) => f()))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => {
+  let acc = it
+  for (const s of stages) acc = await s(acc, it, i)
+  return acc
+}))
+const phase = () => {}
+const log = () => {}
+const args = JSON.parse(argsJson)
+const budget = { total: null, spent: () => 0, remaining: () => Infinity }
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget',
+  'return (async () => { ' + src + ' })()')
+try {
+  await body(agent, parallel, pipeline, phase, log, args, budget)
+  console.log(JSON.stringify({ ok: true, briefs: briefs.length, text: briefs.join(String.fromCharCode(10)) }))
+} catch (e) {
+  console.log(JSON.stringify({ ok: false, error: String((e && e.message) || e), briefs: briefs.length }))
+}
+STUBEOF
+
+  # THE PAYLOAD IS DELIBERATELY SPARSE: only the fields a caller must supply. Every optional
+  # per-issue key is omitted, which is exactly the shape that killed the adopter's dispatch.
+  local T_ARGS='{"repo":"/tmp/x","issues":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"}]}'
+  local W_ARGS='{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high","worktreeMode":"self","phase":"Wave1","restartNote":"n"}]}'
+
+  _wf_run() { node "$stub" "$1" "$2" 2>&1; }
+  _wf_ok()  { printf '%s' "$1" | grep -q '"ok":true'; }
+  _wf_err() { printf '%s' "$1" | sed -n 's/.*"error":"\([^"]*\)".*/\1/p'; }
+
+  # --- tranche-runner, sparse ------------------------------------------------------
+  out="$(_wf_run "$wf/tranche-runner.js" "$T_ARGS")"; n=$(( n + 1 ))
+  _wf_ok "$out" \
+    || cf "tranche-runner THREW composing its briefs from a payload carrying only the required per-issue fields: $(_wf_err "$out")"
+
+  # --- wave-runner, sparse + the wave-only fields its own description advertises ----
+  out="$(_wf_run "$wf/wave-runner.js" "$W_ARGS")"; n=$(( n + 1 ))
+  _wf_ok "$out" \
+    || cf "wave-runner THREW composing its briefs from a payload using the wave-only fields meta.description advertises: $(_wf_err "$out")"
+
+  # --- a MISSPELLED per-issue key must be REFUSED BY NAME, not silently ignored -----
+  out="$(_wf_run "$wf/tranche-runner.js" '{"repo":"/tmp/x","issues":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"o","devEffort":"h","qaModel":"o","qaEffort":"h","depends_ons":["ZZ-0"]}]}')"
+  _wf_ok "$out" \
+    && cf "a misspelled per-issue key (depends_ons) was ACCEPTED — a caller who meant to declare a dependency would get a silent solo run"
+  printf '%s' "$out" | grep -q 'depends_ons' \
+    || cf "the misspelled key was refused but not NAMED, so the caller cannot see which key is wrong"
+
+  # --- ABLATION: the exerciser must be able to go red -------------------------------
+  # Without this, a green above could mean "both runners are fine" or "the stub never ran the
+  # real control flow". Remove the depends_on guard from a COPY and the throw must come back —
+  # this is the adopter's original 33ms crash, reproduced.
+  local abl; abl="$(dirname "$stub")/abl.js"
+  sed 's/Array.isArray(issue.depends_on) ? issue.depends_on : \[\]/issue.depends_on/' \
+    "$wf/tranche-runner.js" > "$abl"
+  out="$(_wf_run "$abl" "$T_ARGS")"
+  _wf_ok "$out" \
+    && cf "(ablation) removing the depends_on guard did NOT reproduce the crash — the stub is not running the runner's real control flow, so every green above is empty"
+
+  rm -rf "$(dirname "$stub")"
+  unset -f _wf_run _wf_ok _wf_err
+  finish "both shipped workflow runners compose every brief from a payload carrying only the REQUIRED per-issue fields, refuse a misspelled key by name, and the exerciser is ablation-proven against the adopter's original crash ($n runner(s), nothing dispatched)"
+}
+
 # CASE — check-board's [j] arm joins the downtime queue to the board, and CLASSIFIES the
 # Status cell rather than grepping it.
 #
@@ -10749,6 +10856,7 @@ CASES=(
   case_settings_example_glosses_only_real_placeholders
   case_runner_key_guards_admit_every_field_they_read
   case_downtime_queue_claim_drift
+  case_workflow_briefs_compose_from_a_sparse_payload
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set
