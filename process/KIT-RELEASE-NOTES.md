@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **New: `process/KIT-FEEDBACK.md`, the one document that flows back to whoever gave you this kit.**
+  Copy `process/templates/KIT-FEEDBACK.skeleton.md` to `process/KIT-FEEDBACK.md` and leave it empty —
+  it is now part of "day one is done when". **Action required for existing adopters:** create it now.
+  You have already had the findings worth sending; write down the ones you can still reconstruct, and
+  catch the rest as they happen. What the kit most needs is what you can only learn by RUNNING it — a
+  script that died, a rule that could not be obeyed on your stack, a tool that reported clean over
+  something it could not see. Those are invisible to the kit's own audits, which read rather than run.
+  When you send a snapshot, **record the channel by name** in the divider; the rule says why.
+
 - **`scripts/check-board.sh` gains a new arm `[j]`: downtime-queue claim drift.** If you keep a
   `dev/downtime-queue.md`, mark a row `open (claimed by <PREFIX>-NNN)` when you mint the issue —
   the arm then tells you when such a row is still open after its issue has landed. **Informational;

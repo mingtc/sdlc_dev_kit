@@ -193,6 +193,38 @@ changelog" beats leaving a gap the reader will not notice.
 
 ---
 
+### A.8 — **Feedback flows OUTWARD, in a file, from day one**
+
+Everything else a project holds from its kit came inward. **One document goes back**:
+`process/KIT-FEEDBACK.md`, copied from the shipped skeleton on day one and left empty.
+
+**Why it is a FILE and not a message.** The findings worth sending are noticed in the first week of
+running something and are unreconstructable by the third — the surprise fades, the workaround
+becomes habit, and what remains is a vague sense that a step was awkward. A file catches them at
+the moment they cost something. A channel that requires you to decide *now* whether a finding is
+worth interrupting someone for catches almost none of them.
+
+**Why the kit needs it more than it looks.** A kit is read far more often than it is run, and its
+maintainers audit it by reading. **There is a population of defects that reading cannot reach at any
+strength** — a script that dies on a shape nobody wrote a test for, a rule that contradicts another
+only when both are obeyed at once, a tool that reports clean over a subject it structurally cannot
+see. Those are found by USE, and the only people using it are adopters. *Measured in this kit's own
+history: seven rounds of fresh-context reading over one artifact, then three findings from a single
+project running it that no round had reached.*
+
+**Three obligations, and the third is the one everyone drops:**
+
+1. **Stable ids, append-only.** An entry keeps its number forever so a later one can amend it by
+   name. Editing a sent entry destroys the only shared reference the two sides have.
+2. **Evidence, not impressions.** The command and its output, or the file and its line. An entry
+   with no evidence costs the receiving side a round to disprove.
+3. **RECORD THE CHANNEL when you send.** *Measured: an adopter and a maintainer compared notes and
+   neither could say by what route the previous snapshot had travelled. Both knew it had arrived.*
+   A snapshot whose channel nobody wrote down cannot be sent the same way twice.
+
+**Send early and send partial.** A finding that arrives while the kit is being worked on gets fixed;
+the same finding arriving after a cut waits for the one after it.
+
 ## B. Project duties — filled by the adapter
 
 The rules above are the pattern. **These are the values and duties one project supplies**; fill

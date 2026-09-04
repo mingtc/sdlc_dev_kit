@@ -141,6 +141,7 @@ rewrite — write your own prefix into the blanks as you fill them.
 |---|---|
 | [`PROJECT.md`](../PROJECT.md) *(not a template — the shipped sheet IS the blank; fill it in place)* | its sections are its `##` headings — read them there rather than from a list here, which is how this row went stale twice |
 | [`CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) | the adapter shape: point at `process/MANUAL.md` early, then hold your own project law |
+| [`KIT-FEEDBACK.skeleton.md`](templates/KIT-FEEDBACK.skeleton.md) | the OUTWARD channel: what this project learns that the kit should know. Copy to `process/KIT-FEEDBACK.md` on day one and leave it empty — the entries worth sending are the ones you notice in week one and cannot reconstruct in week three |
 | [`CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) | the corpus manifest shape + its bucket classification |
 | [`DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) | the standing-rulings register: stable ids, three fields, a projection |
 | [`progress.skeleton.md`](templates/progress.skeleton.md) | the exact `## Log` + dated-`###` shapes **the drift report's § Log arm and the initializer's already-lived probe require** — both scan to the next `##` and stop, so a `##` dated entry terminates the section it should sit inside. *(The log rotation is the one tool that would accept `##`; it does, deliberately, so that a project which already wrote it is not stranded — and it does not recommend it.)* |
@@ -172,6 +173,11 @@ you want to know how a stranger meets what you shipped.
 ## Day one is done when
 
 - `./scripts/check-board.sh` (or your stack's drift report) is **clean**;
+- `process/KIT-FEEDBACK.md` **exists and is empty** — copied from the skeleton, not written yet.
+  It is the one document that flows back to whoever gave you this kit
+  ([`doctrine/distribution.md`](doctrine/distribution.md) § A.8). *Create it on day one precisely
+  because you have nothing to put in it yet: the findings worth sending are the ones you notice in
+  week one and cannot reconstruct in week three;*
 - your gate runner is green and **committed**;
 - `PROJECT.md`, `CLAUDE.md`, `CORPUS.md`, `DECISIONS.md`, `progress.md` all exist and are yours —
   and **`CLAUDE.md` and `README.md` have been REPLACED, not edited**: neither still carries the
