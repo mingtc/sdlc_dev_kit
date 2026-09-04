@@ -4228,6 +4228,84 @@ PY
   finish "each runner's ISSUE_KEYS admits every per-issue field that runner actually reads ($n runner(s), derived from the file, ablation-proven)"
 }
 
+# CASE — check-board's [j] arm joins the downtime queue to the board, and CLASSIFIES the
+# Status cell rather than grepping it.
+#
+# The queue institutes strike-never-delete and, before this arm, NOTHING in the kit read the
+# file: an adopter measured `grep -rln downtime-queue` over their tree and got one hit, the
+# prose instituting it. It bit them twice as silence — a row read `open` for a cure already
+# on the trunk, and a stale row looks exactly like a live one.
+#
+# THE FALSIFIER SET IS THE POINT. A naive `grep -c '| open |'` under-reported that adopter's
+# queue by 8 rows of 37, so the fixture below carries the shapes that break it: emphasis, a
+# trailing `Status:` declaration that must win over the cell's opening words, a struck row
+# that must NOT fire, a live claim in todo/ that must NOT fire, and the angle-bracket SHAPE
+# row that is documentation rather than data.
+case_downtime_queue_claim_drift() {
+  cf_reset
+  make_sandbox
+  local out
+  mkdir -p "$SB_WORK/dev"
+  cat > "$SB_WORK/dev/downtime-queue.md" <<'DQEOF'
+| Item | Origin | Size | Why deferred | Wake condition | Status |
+|---|---|---|---|---|---|
+| `<shape row>` | `<x>` | `<S/M/L>` | `<y>` | `<z>` | `<open / open (claimed by <PREFIX>-NNN) / STRUCK …>` |
+| **Landed already** | audit | S | — | now | open (claimed by ZZQ-101) |
+| **Still live** | audit | S | — | now | open (claimed by ZZQ-102) |
+| **Emphasis + trailing decl** | audit | M | — | now | *was struck* — Status: **open (claimed by ZZQ-103)** |
+| **Genuinely struck** | audit | S | — | — | STRUCK — landed as ZZQ-104, outcome fine |
+DQEOF
+  : > "$SB_WORK/progress/done/ZZQ-101-a.md"
+  : > "$SB_WORK/progress/todo/ZZQ-102-b.md"
+  : > "$SB_WORK/progress/done/ZZQ-103-c.md"
+  : > "$SB_WORK/progress/done/ZZQ-104-d.md"
+
+  # SCOPE THE ASSERTIONS TO THE [j] SECTION. The first draft grepped the whole report and
+  # failed: arms [a] and [d] also name these ids, because the fixture puts real cards on the
+  # board. A guard whose operand is the wrong slice reports the neighbouring arm's output as
+  # its own subject — the operand defect (instruments.md § A.6) inside the case testing for it.
+  _j_section() { cd "$SB_WORK" && ./scripts/check-board.sh 2>&1 | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
+  out="$(_j_section)"
+
+  # --- must fire -----------------------------------------------------------------
+  printf '%s' "$out" | grep -q 'ZZQ-101' \
+    || cf "an open row whose issue is in progress/done/ was NOT reported"
+  printf '%s' "$out" | grep -q 'ZZQ-103' \
+    || cf "the emphasised row with a trailing 'Status:' declaration was NOT reported — the cell is being grepped, not classified, which is the 8-of-37 defect"
+
+  # --- must NOT fire -------------------------------------------------------------
+  printf '%s' "$out" | grep -q 'ZZQ-102' \
+    && cf "a LIVE claim (issue still in todo/) was reported — the arm fires on any open row, not on landed ones"
+  printf '%s' "$out" | grep -q 'ZZQ-104' \
+    && cf "a STRUCK row was reported — the arm does not read the Status cell's verdict"
+  printf '%s' "$out" | grep -q 'PREFIX' \
+    && cf "the angle-bracket SHAPE row was read as data"
+
+  # --- informational, and that is a ruling ---------------------------------------
+  printf '%s' "$out" | grep -q '^\[j\]' \
+    || cf "the [j] arm did not print its header, so its subject is unnamed"
+
+  # --- the ABSENT subject still prints (contracts/drift-report.md § 4) ------------
+  rm -f "$SB_WORK/dev/downtime-queue.md"
+  out="$(_j_section)"
+  printf '%s' "$out" | grep -q 'not present' \
+    || cf "with no queue file the arm went SILENT instead of naming what was absent"
+
+  # --- ABLATION: the clean case must be distinguishable from the finding case -----
+  cat > "$SB_WORK/dev/downtime-queue.md" <<'DQEOF'
+| Item | Origin | Size | Why deferred | Wake condition | Status |
+|---|---|---|---|---|---|
+| **Still live** | audit | S | — | now | open (claimed by ZZQ-102) |
+DQEOF
+  out="$(_j_section)"
+  printf '%s' "$out" | grep -q 'no open row claims a landed issue' \
+    || cf "(ablation) a queue with only LIVE claims did not report the clean line, so a green here proves nothing"
+
+  unset -f _j_section
+  finish "check-board [j]: an open queue row whose claiming issue has landed is reported; a live claim, a struck row and the shape row are not; the Status cell is CLASSIFIED (emphasis + trailing declaration) rather than grepped; an absent queue names itself; ablation-proven"
+  teardown
+}
+
 # CASE — settings.json.example never glosses a placeholder it does not contain.
 #
 # It did. A `_PLACEHOLDERS` map glossed seven <angle-bracket> tokens and told the adopter
@@ -10670,6 +10748,7 @@ CASES=(
   case_archive_progress_dry_run_writes_nothing
   case_settings_example_glosses_only_real_placeholders
   case_runner_key_guards_admit_every_field_they_read
+  case_downtime_queue_claim_drift
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set

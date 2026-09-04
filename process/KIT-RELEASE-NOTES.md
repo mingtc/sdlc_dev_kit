@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`scripts/check-board.sh` gains a new arm `[j]`: downtime-queue claim drift.** If you keep a
+  `dev/downtime-queue.md`, mark a row `open (claimed by <PREFIX>-NNN)` when you mint the issue —
+  the arm then tells you when such a row is still open after its issue has landed. **Informational;
+  it never changes the verdict or the exit status.** Without the claim marker there is no join and a
+  stale row is indistinguishable from a live one. **Action required only if you want the check:**
+  re-copy `check-board.sh` and start writing the claim marker. No queue file means the arm skips and
+  says so.
+
 - **`.claude/skills/safety-net-check/` told you to commit characterization tests straight to the
   trunk.** Where your adapter declares the test tree as a code path — the normal case — that
   contradicts the code-vs-metadata rule and asks a Refactorer to bypass your landing gate. The step

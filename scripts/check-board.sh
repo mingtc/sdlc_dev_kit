@@ -1272,6 +1272,75 @@ else
   # NO `drift=1` HERE, DELIBERATELY, AND DO NOT ADD ONE. See the ruling in the header.
 fi
 
+# ---------------------------------------------------------------------------
+# [j] DOWNTIME-QUEUE CLAIM DRIFT — a row still `open (claimed by <PREFIX>-NNN)` whose
+#     claiming issue has already reached a landed column.
+#
+#     WHY THIS EXISTS. dev/downtime-queue.md institutes a strike-never-delete
+#     discipline and, until this arm, NOTHING in the kit read the file: an adopter
+#     measured `grep -rln downtime-queue` over their whole tree and got exactly one
+#     hit, the prose instituting it. It bit them twice, both times as silence — a row
+#     read `open` for a cure already on the trunk, and the cost is not tidiness but a
+#     duplicate issue minted for work that already shipped.
+#
+#     INFORMATIONAL, AND THAT IS A RULING RATHER THAN TIMIDITY. A gate over a RECORD
+#     defect pressures the next leg into striking a row to get green, which is the
+#     opposite of the discipline. It reports; it never sets `drift`.
+#
+#     THE CELL IS CLASSIFIED, NOT GREPPED. `grep -c '| open |'` under-reported one
+#     adopter's queue by 8 rows of 37, because a Status cell may carry emphasis, may
+#     read `open (claimed by …)`, and may close with a trailing `Status:` declaration
+#     that wins over its opening words. So: take the LAST cell, strip emphasis, then
+#     classify.
+#
+#     WHAT IT CANNOT SEE, and the queue's own § Removal discipline says so too: a row
+#     silently paid by an issue that never claimed it, and a row written for work that
+#     had already landed. The second is mechanically undecidable.
+# ---------------------------------------------------------------------------
+DQ_FILE="${DQ_FILE:-dev/downtime-queue.md}"
+echo
+echo "[j] downtime-queue claim drift ($DQ_FILE; reports only — it never changes the verdict):"
+if [ ! -f "$DQ_FILE" ]; then
+  # A READING WHOSE SUBJECT IS ABSENT STILL PRINTS, naming what was absent.
+  echo "      – $DQ_FILE not present  (skipped — no queue to read)"
+else
+  j_out="$(
+    awk -F'|' -v folders="$STATUS_FOLDERS" '
+      /^\|/ {
+        n = NF
+        # Header, separator and the angle-bracket SHAPE row are not data.
+        if ($0 ~ /^\|[[:space:]]*-+/) next
+        if ($0 ~ /Wake condition/) next
+        cell = $(n-1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell ~ /^`?</) next
+        # Strip markdown emphasis and backticks before classifying.
+        gsub(/[*`_~]/, "", cell)
+        # A trailing "Status:" declaration wins over the cell opening words.
+        if (match(cell, /Status:[[:space:]]*/)) cell = substr(cell, RSTART + RLENGTH)
+        if (cell !~ /^open/) next                 # struck or ruled dead: not our business
+        if (match(cell, /[A-Z][A-Z0-9]*-[0-9]+/)) {
+          print substr(cell, RSTART, RLENGTH)
+        }
+      }' "$DQ_FILE" | sort -u | while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        # Landed columns only. An id in todo/in_progress/blocked is a LIVE claim.
+        landed=""
+        for col in done qa_complete; do
+          if ls "progress/$col"/${id}-*.md >/dev/null 2>&1; then landed="$col"; fi
+        done
+        [ -n "$landed" ] || continue
+        echo "      – $id claims an OPEN row, but its card is in progress/$landed/ — strike the row or say why it is still open"
+      done
+  )"
+  if [ -z "$j_out" ]; then
+    echo "      – no open row claims a landed issue ✓"
+  else
+    printf '%s\n' "$j_out"
+  fi
+  # NO `drift=1` HERE, DELIBERATELY. See the ruling in the header.
+fi
+
 echo
 if [ "$drift" -eq 0 ]; then
   echo "── board-drift: clean ✓"
