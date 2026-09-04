@@ -127,7 +127,7 @@ and a disposition at the same time.
 
 | Disposition | Meaning | Members in this seed |
 |---|---|---|
-| **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** each doctrine sheet's *your project's instance* section, this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty, which is the failure this row caused.* | `process/**`, `.claude/skills/**` |
+| **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** the *your project's instance* section that MOST doctrine sheets carry (not all — a sheet that is pure pattern has none, and says so in its own header; derive with `grep -Li "your project's instance" process/doctrine/*.md`), this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty, which is the failure this row caused.* | `process/**`, `.claude/skills/**` |
 | **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh` |
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `setup.sh`'s runtime half |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
@@ -711,13 +711,19 @@ is a hard invariant on the sheet
 ([`contracts/verify-gate.md`](contracts/verify-gate.md) § 2).
 **Check:** you should be able to replace every row of that table without reading the frame below it.
 
-### 4.4 The kit's own guards do not travel — and this is the largest live debt
+### 4.4 MOST of the kit's own guards do not travel — and this is the largest live debt
 The process's own drift guards — *the adapter's role table matches the role docs*, *the prefix
-table matches the hook*, *every travelling script has a contract sheet and every sheet's
-implementation exists*, *the gate runner reports the suite it ran*, *the release script refuses to
-tag an undocumented version*, *the retained-evidence index is complete in both directions* — are
-**process enforcement written in the project's own test path**. They cannot travel, so **an adopter
-receives the rules without the guards.**
+table matches the hook*, *the retained-evidence index is complete in both directions*, and others —
+are **process enforcement written in the project's own test path**. Most cannot travel, so **an
+adopter receives those rules without their guards.**
+
+**THREE OF THE ORIGINAL SIX NOW DO TRAVEL, and this heading said "do not" while they shipped.**
+`scripts/release.sh` refuses to tag a version its notes do not document; `scripts/verify.sh`
+reconciles the suite it ran against `GUARD_ENUM` in both directions; and
+`case_travelling_scripts_have_a_sheet` holds every travelling script to a contract sheet in the
+adopter's own tree. **Derive the debt rather than reading this list as current** — for each rule
+below, grep the shipped `scripts/` for a guard that enforces it. *The debt shrinking is the point of
+naming it; a debt list that never shrinks was never being paid.*
 **Cost:** you rewrite them in your own runner, or you accept unguarded process docs.
 **The honest ranking, cheapest and highest-value first:** (1) the contracts-both-ways guard — a new
 gate with no sheet, or a sheet whose implementation is gone; (2) the role-set agreement across
@@ -765,7 +771,7 @@ states.**
 **And the initializer never touches it, for any project.** What it rewrites is the **literal trunk
 name** — its `TRUNK_RE` is built from the shipped default read out of `lib/kanban-worktree.sh`, so a
 project whose trunk is `<something-else>` gets every literal occurrence rewritten and every `<trunk>`
-symbol left standing. **That is why the census line reads `trunk '<default>': N → N` on a project whose
+symbol left standing. **That is why the census reports `census — <label>: N occurrence(s) survive` on a project whose
 trunk equals the shipped default: it is counting the literal, and there was nothing to change.** *The
 line is honest about which string it counts; it was read as a report about the angle-bracket blanks,
 which it never was.*
@@ -835,7 +841,8 @@ all five, with the guard **transformed** rather than deleted
   pin breaks that. **Declared as a carve-out in § 1's COPY table**, in a table homed outside the directory it
   describes so a re-copy cannot erase it, with the staleness debt named. *An exception that is not
   written down is indistinguishable from an oversight, and this one had been both.*
-- **No guard was written.** § 4.4 stands as the largest live debt, unpaid and named, rather than
+- **No guard was written IN THAT CHANGE.** § 4.4 remains the largest live debt — partly paid since
+  (three of the six guards it named now ship; see the section) and still the biggest one, named rather than
   half-paid by a guard nobody can run.
 - **Two cross-references in the donor's own doctrine were found broken while writing this** — a
   sheet citing a neighbour for a constant the neighbour does not contain, and a citation to a

@@ -31,7 +31,8 @@
 # kit-init lists every signal as a refusal bullet, arm [g] names exactly one as its
 # enabling condition, in its own wording. A library that emitted prose would change one
 # caller's output; callers that re-worded a library's prose would be a second copy again.
-# One authoring site for the three probe shapes, and each caller renders.
+# One authoring site for the probe shapes, and each caller renders. (Said "three"; this file's
+# own header two dozen lines above says FOUR, and four is right.)
 #
 #   stamp|<the matched config.sh line>
 #   folder|<name>|<count>

@@ -6,8 +6,8 @@ transferable pattern — a project adopts them verbatim. § B is the **instance*
 that hold the pattern in *your* repository, and the specific corpus they run over. This is a
 narrower pattern/instance split than [`supersession.md`](supersession.md) or
 [`retention.md`](retention.md) use (there, everything under § A is pattern and everything under § B
-is instance); here the instance is confined to one of four top-level sections, because three of the
-four are pure statement with no repository-specific mechanics to separate out.
+is instance); here the instance is confined to ONE top-level section — § B — because every other
+section is pure statement with no repository-specific mechanics to separate out.
 
 **Why this sheet exists.** Nothing is kept fresh by being revisited. A file goes stale only in the
 gap between the event that spent it and the commit that says so — and the census that motivated
@@ -146,7 +146,7 @@ the domain next changes, is honest; calling it a structural guarantee is not.
 ## § B — Enforcement: your project's instance — **fill this in**
 
 > **PROJECT INSTANCE.** Nothing here is inherited. Every guard below is *yours*, in your test
-> runner, over your corpus. What travels is §§ A, C, D.
+> runner, over your corpus. What travels is every section except this one — §§ A, C, D and E.
 
 **What goes here, one entry per guard:** the guard's name and path · its **declared domain** ·
 its **stated exemption and the reason** · what it reddens on · and, where the guard is a heuristic

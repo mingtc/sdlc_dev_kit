@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`.claude/skills/writing-plans/` — an earlier [Unreleased] build named the wrong execution skill.**
+  Its "Inline Execution" option was changed to `subagent-driven-development`, which made it identical
+  to option 1. Reverted: option 2 is `executing-plans`, as the same file states six lines below.
+  **Action required if you took the earlier build:** re-copy the skill. *A real contradiction remains
+  between the two execution skills' `description:` lines and this menu — see the kit's own
+  `changes/open/238`; it is not resolved here because the evidence does not say which side is wrong.*
+- **`scripts/check-board.sh --help` no longer enumerates the drift classes.** It named five; nine
+  arms run. The arms print their own letters as the tool runs. No behaviour change.
+- **`.claude/roles/dev.md` overstated what `move-issue.sh` leaves alone.** It said "your current
+  checkout and branch are never touched". Your *branch* never is; your *checkout* is fast-forwarded
+  when it is already clean and on the trunk. No behaviour changed — the sentence did.
+
 - **`.claude/workflows/wave-runner.js` would have thrown on every run.** The per-issue key guard added
   in this same [Unreleased] section was copied from `tranche-runner.js` and omitted the three
   wave-only fields — `worktreeMode`, `phase`, `restartNote` — that this runner reads and that its own
@@ -170,7 +182,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 
 - **An option you forgot to give a value to now refuses, instead of silently doing nothing.**
-  `--note`, `--role`, `--trunk`, `--prefix`, `--message` and every other value-taking option: given
+  `--note`, `--role`, `--trunk`, `--prefix` and every other value-taking option: given
   as the last word with no value, these used to **exit 1 with no output at all** — the script died
   on `shift 2` under `set -e` before it could say anything. They now exit **2** and name the option.
   **`notify.sh` was the sharp one:** `notify.sh attention --message` took `--message` as the message
@@ -199,7 +211,8 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   self-test now checks for it. The sentence — *never spawn above the project's sanctioned ceiling;
   the seat is human-partnered, not a provisionable worker, and its class is not a ceiling* — was
   absent from that one definition. **Action required if you have written your own leaf workers or
-  role docs:** the new case reads every file under `.claude/agents/` and `.claude/roles/` and names
+  role docs:** the new case reads every file at the TOP LEVEL of `.claude/agents/` and
+  `.claude/roles/` — not `roles/archive/`, which it does not descend into — and names
   any that lacks the rider. It checks **presence, per file** — deliberately, because the failure
   mode is the sentence not being copied into a new definition. **It does not read for meaning:** a
   rider that is present and wrong will not be caught.
@@ -532,7 +545,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
   header), and so does `consumers/update_vendored.sh`, which is copied out into repositories that
   have no `scripts/lib/`.
 
-- **Every command-line tool the kit ships now refuses an unrecognised option with exit status 2, and
+- **Every command-line tool under `scripts/` now refuses an unrecognised option with exit status 2, and
   answers `--help` with usage rather than doing work.** The contract always required one status
   across the set but never said which; it now says **2**, matching what `finish-pr.sh`'s exit table
   already published. **Action required if you script against these tools:** `archive.sh`,

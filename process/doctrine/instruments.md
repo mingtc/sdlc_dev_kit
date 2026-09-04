@@ -420,7 +420,8 @@ other than what you asked.
 - **A tool reports on its SUBJECT and on ITSELF in the same vocabulary unless it is made not to.**
   *"Could not run"* and *"your tree is broken"* are different facts; an instrument that spells both
   `FAIL` has merged them, and the reader cannot separate them afterwards.
-- **A HASH OF NOTHING IS A REAL HASH, and two of them compare EQUAL.** The bullet above is stated for
+- **A HASH OF NOTHING IS A REAL HASH, and two of them compare EQUAL.** The *Read the STATUS* bullet
+  earlier in this section is stated for
   *empty* results; this is the same defect wearing a full, valid, authoritative answer.
   `git show "${ref}:<path>" | <hasher>` where the path **does not exist at that ref** hashes the **empty
   stream** and returns a forty-hex digest that looks exactly like a measurement. So a byte-identity

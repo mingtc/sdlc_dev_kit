@@ -7317,7 +7317,7 @@ case_release_honours_the_one_remote_name() {
 # putting release.sh on the header-block rule takes its --help from its SYNOPSIS length to the whole
 # header block — measure both rather than quoting figures here (`./scripts/release.sh --help | wc -l`
 # against `bash -c '. scripts/lib/usage.sh; kit_usage scripts/release.sh' | wc -l`); this said 63 and
-# the second measure is now 66. It takes its --help from 11 lines to 63.
+# the second measure is now 66.
 #
 # WHY A CONTROL AT ALL. Nothing asserted --help CONTENT for any tool — the existing
 # coverage checks rc=0 and non-emptiness. A hard-coded window is a census in disguise,
@@ -9088,7 +9088,7 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # =============================================================================
 # CASE — assert_release_unmutated NAMES THE CUT IT IS GUARDING.
 #
-# The helper's tag arm used to look for the literal `refs/tags/v1.1.0`. Fourteen legs
+# The helper's tag arm used to look for the literal `refs/tags/v1.1.0`. Its call sites
 # call it, and while all fourteen happen to cut 1.1.0 today, the coupling is invisible:
 # a leg cutting any other version got a tag check looking for a tag nobody would create,
 # which passes. Of the helper's four arms the tag arm guards the most expensive mutation
@@ -10535,7 +10535,7 @@ case_ship_state() {
   #
   # Guarded on presence rather than asserted, and the reason is this repository's
   # own storage: the kit is kept DISARMED here (kit/_claude/, not kit/.claude/), so
-  # a run in place finds no .claude/templates at all. The three kit-init cases skip
+  # a run in place finds no .claude/templates at all. The kit-init cases skip
   # loudly for exactly that reason; a `cf` here would turn the same environment
   # fact into a FALSE RED, which is the defect measured against this file on
   # 2026-08-26 and worth not re-creating.

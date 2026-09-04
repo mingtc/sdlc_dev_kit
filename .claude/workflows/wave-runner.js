@@ -341,7 +341,7 @@ function qaPrompt(issue) {
 ${COMMON}${wt}
 Procedure (the Dev → QA boundary, code-work flavor):
 1. Read the issue file in progress/dev_complete/ (its AC is the contract) and the linked PRD story.
-2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the [Dev] commits cited in the issue Activity/handoff.` : `Check out the branch ${issue.branch}${issue.worktreeMode ? ' in YOUR OWN worktree (see WORKTREE MODE)' : ' (git fetch, then git switch)'}.`}
+2. ${issue.docsPath ? `DOCS PATH: there is NO branch — the work is already committed direct on ${CFG.trunk}. git pull and review the role-prefixed commits cited in the issue Activity/handoff.` : `Check out the branch ${issue.branch}${issue.worktreeMode ? ' in YOUR OWN worktree (see WORKTREE MODE)' : ' (git fetch, then git switch)'}.`}
 3. Run ${CFG.gateCmd} — anything red that is not pre-existing on ${CFG.trunk} → FAIL outright. This step is UNCONDITIONAL: a docs-path issue has no branch, and it still has a gate.
 4. Walk the AC line by line; record PASS/FAIL per bullet with concrete evidence.
 5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}

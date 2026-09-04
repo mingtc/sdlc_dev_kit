@@ -126,7 +126,7 @@ The consent variable's value is **the id of the issue that authorized the work**
 
 **Why an id and not a flag: this is the earned part.** A boolean is typed by muscle memory and
 means nothing when read back. An id cannot be typed without knowing which issue is being invoked,
-and it converts an untraceable act into an attributable one. In the donor project **both**
+and it converts an untraceable act into an attributable one. In the donor project **C.2**
 incidents that produced this fence involved a *typed flag* on a run whose author was thinking
 about something else entirely (§ C). The fence's teeth are that the flag now has to be a
 sentence about authority.

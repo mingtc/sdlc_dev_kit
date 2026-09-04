@@ -6,7 +6,7 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every line that
-> starts with `GUIDANCE`. The report is written **by the runner that executed the pack**, and it
+> is a `>` blockquote. The report is written **by the runner that executed the pack**, and it
 > is the deliverable that closes the pack: the pack is stamped `SPENT` **against this file, by
 > name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
 >

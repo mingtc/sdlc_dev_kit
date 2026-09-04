@@ -8,7 +8,7 @@ export const meta = {
   ],
 }
 
-// args: { repo, trunk?, remote?, gateCmd?, codePaths?, goldenPaths?, liveRules?,
+// args: { repo, trunk?, remote?, gateCmd?, codePaths?, goldenPaths?, liveRules?, driftRule?,
 //         issues: [{id, branch, title, devModel, devEffort, qaModel, qaEffort,
 //                   devAgentType?, qaAgentType?, gates?, depends_on?, extraDev?, extraQA?,
 //                   role?, docsPath?, parkable?}] }
@@ -140,8 +140,9 @@ const DEFAULT_EFFORT = 'medium'
 // passing undefined silently inherits the session default, which is the single biggest burn
 // lever in the whole system. The lowest tier and `max` are never used here.
 //
-// opts.agentType names a .claude/agents/ leaf worker definition (dev-worker, qa-worker,
-// pm-mint, refactorer-worker, spike-worker, cleanup-worker). Its own frontmatter carries the
+// opts.agentType names a .claude/agents/ leaf worker definition — `ls .claude/agents/` is the
+// list, deliberately not restated here (it read six names while seven ship; ui-designer-worker
+// was the missing one). Its own frontmatter carries the
 // model/effort/tools contract — including a tools list with no spawn tool — so when a type is
 // named it is passed through and the explicit model/effort below act as the caller's override.
 // Omitted ⇒ the key is absent and behaviour is exactly as if this file never knew about types.

@@ -115,7 +115,7 @@ may be older or newer. Two things make that survivable, and both are non-optiona
    refresh (`scripts/update_vendored.sh`).
 2. **The pack is re-copied after every refresh** (`install-skills.sh`), so the pointers and
    the artifact move together. Onboarding says this, and so does the update-communication
-   ritual in `process/doctrine/distribution.md` § A.5: a change to the pack **template** is
+   ritual in `process/doctrine/distribution.md` § A.6: a change to the pack **template** is
    worth a re-copy note in the release documents.
 
 ---

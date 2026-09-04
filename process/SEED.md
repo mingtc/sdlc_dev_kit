@@ -6,8 +6,12 @@ follow the `process/` package"*). This file is the **order of operations** — t
 nothing depends on something that does not exist yet.
 
 **The honest form of that sentence: the kit runs from `process/` PLUS the copy-list `process/` names**
-— [`EXTRACTION.md` § 1](EXTRACTION.md)'s `scripts/`, `.claude/templates/` and `.claude/roles/` — because
-every step below routes to a script or a template that lives outside this directory. (Measured: a cold
+— **everything [`EXTRACTION.md` § 1](EXTRACTION.md)'s COPY table lists**, which is far more than
+`process/`: `AGENTS.md`, `docs/README.md`, the whole of `.claude/`, the kanban script set, `setup.sh`
+and `consumers/` among them. **And `PROJECT.md`, which that table does NOT list** — it is CONFIGURE
+class (§ 2.5), the shipped sheet is the blank, and step 3 below cannot be done without it. Read § 1's
+table and § 2's list, not this sentence's examples — because
+every step below routes to something outside this directory. (Measured: a cold
 reader took *"follow the `process/` package"* literally and bootstrapped without them.)
 
 **This file is a ROUTER.** Every step names its **authority** — a `MANUAL.md` section, a contract

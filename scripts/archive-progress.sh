@@ -60,7 +60,7 @@
 #     probe BOTH scan to the next "##" and stop, so a "##" dated entry TERMINATES the
 #     § Log section it is supposed to sit inside. Measured: the size arm then reports
 #     healthy forever, and the lived probe counts 0 lines and reads a WORKING
-#     repository as new — defeating the refusal initializer.md § 3 requires be made
+#     repository as new — defeating the refusal initializer.md § 2 requires be made
 #     "by a rule rather than by the operator's memory". This tool still accepts "##"
 #     so that a project which already wrote it is not stranded; accepting a form you
 #     no longer document is the forgiving direction.

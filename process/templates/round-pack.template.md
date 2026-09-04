@@ -6,7 +6,7 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/pack.md`, fill every `<slot>`, and **delete every line
-> that starts with `GUIDANCE`**. The doctrine is
+> that is a `>` blockquote**. The doctrine is
 > [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); this file is how a round is *committed
 > to* before it runs.
 >

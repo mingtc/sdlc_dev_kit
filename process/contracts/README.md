@@ -53,9 +53,10 @@ transcribed census (see [`../EXTRACTION.md`](../EXTRACTION.md) § The one rule a
 | Retention completeness | [retention-completeness.md](retention-completeness.md) | a deletion under the retained area requires a same-change ledger row — **non-travelling reference** |
 
 **The first eleven rows are the minimum set** — the set the completeness rule treats as a floor.
-The rows after them are **additions**, most justified by the rule that makes the set complete
-(*every travelling script owes a contract, and those gates had none*), and one by the rule's mirror
-image.
+The rows after them are **additions**. Most are justified by the rule that makes the set complete
+(*every travelling script owes a contract, and those gates had none*); others by its mirror image,
+where a rule travels with no implementation to point at. **Read each row's own reason** — this
+sentence used to partition them as "most … and one", and the counts did not hold.
 
 | Addition | Why it earns a sheet |
 |---|---|
@@ -79,8 +80,7 @@ Nothing in the minimum set was merged or split.
   tree, and nothing yet checks that a sheet's cited path still exists. Writing THAT second guard in
   your own test runner is [`../EXTRACTION.md`](../EXTRACTION.md) § 4's standing debt.
   *This bullet read "the contracts travel, a guard over them does not" until 2026-09-04. The guard
-  shipped on 2026-09-03 and the § 6 bullet was updated in that same change; this one, in § 4,
-  was not — the second half of a document still describing the world the first half had
+  shipped on 2026-09-03 and the § 6 bullet was updated in that same change; this bullet was not — the second half of a document still describing the world the first half had
   left.*
 <!-- EXEMPT-CLASSES:BEGIN — the self-test derives the exempt path prefixes by reading the
      backticked paths between these two markers. They are here because the derivation used to be

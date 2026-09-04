@@ -113,8 +113,8 @@ while [ $# -gt 0 ]; do
       # A usage request is always legal and always succeeds — § 3 again.
       echo "Usage: $(basename "$0")"
       echo ""
-      echo "Reports board drift: folder-vs-activity, frontmatter ids, role prefixes,"
-      echo "unpublished work, and whether day one has finished."
+      echo "Reports board drift. The arms and their letters are printed as it runs; this"
+      echo "summary does not enumerate them, because it went stale twice when arms were added."
       echo ""
       echo "Takes no options. Informational by convention: it exits 0 whatever it finds,"
       echo "because drift belongs in the output and not in the exit status. Read-only —"

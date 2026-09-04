@@ -26,8 +26,9 @@
 #
 #   * scripts/release.sh renders its SYNOPSIS instead, stopping at its last usage
 #     example, because its header carries operator notes below them that are not help
-#     text. Measured once at 11 lines against 63 on the other rule; derive it rather than trusting
-#     these figures — `./scripts/release.sh --help | wc -l`. It also sources
+#     text. Derive both rather than trusting a figure here — `./scripts/release.sh --help | wc -l`
+#     against `bash -c '. scripts/lib/usage.sh; kit_usage scripts/release.sh' | wc -l`. (Measured
+#     11 against 66 on 2026-09-04; an earlier note here said 63 for the second.) It also sources
 #     nothing from lib/ by design. Do not sweep it in.
 #   * EVERYTHING UNDER consumers/ is a TEMPLATE that leaves the tree into a consumer's
 #     repository, where scripts/lib/ does not exist. Each keeps its own copy, necessarily.

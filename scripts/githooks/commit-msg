@@ -19,7 +19,8 @@
 # including the standing .kanban-wt/ where move-issue.sh commits its "[Role] <ID> → …"
 # messages (those pass by construction). finish-pr.sh is pure git (no forge CLI): its
 # squash-merge commits LOCALLY inside .kanban-wt/, so this hook DOES fire on them — and
-# passes, because the squash subject carries the leading "[QA]" prefix and its message is
+# passes, because the squash subject carries a leading role prefix — `[$ROLE]`, where finish-pr.sh
+# reads `ROLE="${FINISH_PR_ROLE:-QA}"`, so QA is the default and not a constant — and its message is
 # one line, so it satisfies rule (2) by construction too.
 #
 # (2) NO GENERATED CO-AUTHOR TRAILER.

@@ -652,9 +652,11 @@ the instruments that look — **the periodic cadence is advisory; the pre-cut sw
 MANDATORY when the slate came from a round**) and [`GIT-HOSTING.md`](GIT-HOSTING.md) (the
 local-only-to-hosted spectrum). Neither is doctrine, so neither has a row above. `GIT-HOSTING.md` is pointed
 at from the sections that need it; **`hygiene-checklist.md` is not pointed at from anywhere else
-in this manual** — this sentence was its only mention, so the claim was true only of itself. It is reached from the pre-cut sweep, which
-names it, and from this sentence — nowhere else. *A previous correction of this line claimed
-`PROJECT.md` reaches it; `PROJECT.md` does not name the file at all.*
+in this manual** — this sentence is its only mention here. It is reached from elsewhere in the
+artifact: `README.md`, `EXTRACTION.md`, the skills index, the hygiene instruments themselves and the
+pre-cut sweep all name it. *Two previous corrections of this line were wrong in opposite
+directions — one claimed `PROJECT.md` reaches it (it does not name the file), and the next claimed
+nothing else does (thirteen files do). Derive it: `grep -rl hygiene-checklist .`*
 
 The honest inventory of what is copyable, what must be configured, what is pinned in place and
 what is **still entangled** is [`EXTRACTION.md`](EXTRACTION.md). Read it before lifting this kit

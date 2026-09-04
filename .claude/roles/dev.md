@@ -115,7 +115,10 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 > issues skip the branch entirely — see the adapter's direct-to-trunk lite variant.)
 
 1. **Pick up the issue.** Read `progress/todo/<PREFIX>-NNN-<slug>.md`. Note `id`, `type`, `branch`, `prd`, `stories`, AC, Dependencies.
-2. **Move the file.** `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role Dev --note "Picked up. Branch: <branch>."` — the script performs the move in the standing kanban worktree, auto-commits as `[Dev] <PREFIX>-NNN → in_progress: ...`, and pushes; your current checkout and branch are never touched.
+2. **Move the file.** `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role Dev --note "Picked up. Branch: <branch>."` — the script performs the move in the standing kanban worktree, auto-commits as `[Dev] <PREFIX>-NNN → in_progress: ...`, and pushes. **Your BRANCH is never touched**; your checkout is fast-forwarded only when it is
+   already clean and on the trunk (step 5 of the script's own header) — so an in-progress branch or a
+   dirty tree is left exactly as it was. *This said "your current checkout and branch are never
+   touched", which is the sentence a Dev reads before picking up an issue.*
 3. **Design check.** Two artifacts can settle the design:
    - **PM PRD** at `requirements/PRD-NNN-<slug>.md` (referenced by the issue's frontmatter) — defines WHAT.
    - **Engineering design** at `dev/specs/...` (output of [brainstorming](../skills/brainstorming/)) — defines HOW.
