@@ -8256,6 +8256,21 @@ case_doctrine_states_no_rule_count() {
   teardown
 }
 
+# ── THE CLI-SHAPE EXEMPT CLASSES, derived ONCE. ──────────────────────────────
+# Two cases need to know which shipped programs the CLI shape does not bind, and two copies of a
+# derivation is the defect both of them exist to catch. The classes and their admission tests are
+# authored in process/contracts/issue-creation.md § 3, between markers rather than anchored on
+# prose — contracts/README.md's block carries the note explaining why, and it was paid for there.
+# Prints one prefix per line; empty output is the caller's problem to refuse, loudly, because with
+# none derived every hook reads as a violation and with the wrong block read every tool reads as
+# exempt. Both are silent.
+_cli_exempt_prefixes() {
+  local sheet="$REAL_REPO_ROOT/process/contracts/issue-creation.md"
+  [ -f "$sheet" ] || return 0
+  awk '/CLI-SHAPE-EXEMPT-CLASSES:BEGIN/,/CLI-SHAPE-EXEMPT-CLASSES:END/' "$sheet" \
+    | grep -oE '`[.a-z][a-z._/-]*`' | tr -d '`' | sort -u
+}
+
 case_cli_shape_across_the_shipped_set() {
   cf_reset
   make_sandbox
@@ -8287,8 +8302,7 @@ case_cli_shape_across_the_shipped_set() {
     || _fixture_die "case_cli_shape_across_the_shipped_set: process/contracts/issue-creation.md is absent — with no exempt classes derived, every hook and library would look like a contract violation."
 
   local exempt
-  exempt="$(awk '/CLI-SHAPE-EXEMPT-CLASSES:BEGIN/,/CLI-SHAPE-EXEMPT-CLASSES:END/' "$sheet" \
-            | grep -oE '`[.a-z][a-z._/-]*`' | tr -d '`' | sort -u)"
+  exempt="$(_cli_exempt_prefixes)"
   [ -n "$exempt" ] \
     || _fixture_die "case_cli_shape_across_the_shipped_set: could not derive the exempt classes out of issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES block. With none derived every hook and library reads as a violation; with the derivation reading the wrong block every tool reads as exempt. Both are silent."
 
@@ -10197,34 +10211,74 @@ EOF
 case_help_never_opens_with_the_class_marker() {
   cf_reset
   make_sandbox
-  local f base out n=0 marker_key
+  local f rel base out n=0 marker_key skipped=0
 
   # Derive the marker's own key rather than typing it — the same constant kit-init protects.
   marker_key="$KIT_CLASS_MARKER_KEY"
   [ -n "$marker_key" ] \
     || _fixture_die "case_help_never_opens_with_the_class_marker: no KIT_CLASS_MARKER_KEY — the assertion below would search for an empty string and pass on every file."
 
-  # The REAL shipped tree: make_sandbox does not copy consumers/, and that directory holds
-  # the file whose marker actually wraps — a loop that cannot reach its own subject reports
-  # "no leakage" about the files that never had any.
-  for f in "$REAL_SCRIPTS"/*.sh "$REAL_REPO_ROOT"/consumers/*.sh; do
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_help_never_opens_with_the_class_marker: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE POPULATION SELECTS ON THE PROPERTY, NOT ON THE STRING. ──────────────────────────────
+  #
+  # It used to be `grep -q -- "--help" "$f"`: any file CONTAINING the characters `--help`. On the
+  # kit's own tree that is nearly the same set as "has a usage handler". On a tree that has run the
+  # initializer it is not: kit-init appends a stamp receipt to scripts/config.sh, the receipt
+  # mentions `--help`, and config.sh also carries a KIT-CLASS marker — so both filters passed and a
+  # SOURCED SEAM WITH NO CLI entered the population. `config.sh --help` prints nothing, because
+  # there is nothing there to print, and the case reported it as a defect. **A blind adopter met
+  # that failure on day one and wrote "a run that reports two failures is unchanged, not broken"
+  # into its own project law.** The tree was not broken; the population was.
+  #
+  # The property is *is this a command-line tool at all*, and the kit now answers that in the
+  # contract that states the CLI shape — with the class's admission test beside it, not as a name
+  # here. A stamp receipt cannot make a sourced seam a CLI, so it cannot re-enter this population
+  # by acquiring a string.
+  local exempt; exempt="$(_cli_exempt_prefixes)"
+  [ -n "$exempt" ] \
+    || _fixture_die "case_help_never_opens_with_the_class_marker: could not derive the CLI-shape exempt classes out of issue-creation.md. With none derived, every sourced seam and hook re-enters this population and the case reports their absent usage handlers as defects — which is the very finding this case was rewritten to close."
+
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    f="$REAL_REPO_ROOT/$rel"
     [ -f "$f" ] || continue
-    base="$(basename "$f")"
-    grep -q -- "--help" "$f" 2>/dev/null || continue
+    head -1 "$f" 2>/dev/null | grep -q '^#!.*sh$' || continue
+
+    local e skip=0
+    for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
+    [ "$skip" -eq 1 ] && { skipped=$(( skipped + 1 )); continue; }
+
+    # Only a file that CARRIES the marker can leak it. This filter is the subject of the
+    # assertion, not a proxy for one.
     grep -q "$marker_key" "$f" 2>/dev/null || continue
     n=$(( n + 1 ))
+    base="$(basename "$f")"
+
+    # Run from a scratch cwd: a usage request is contracted to do no work, and this is one of the
+    # places that claim is exercised rather than assumed.
     out="$( cd "$SB_TMP" && bash "$f" --help </dev/null 2>&1 )" || true
-    [ -n "$out" ] || { cf "$base --help printed nothing"; continue; }
+    [ -n "$out" ] \
+      || { cf "$rel --help printed nothing — every tool the CLI contract binds answers a usage request, and this one is bound"; continue; }
     # THE FIRST FIVE LINES are the window's opening; a marker that wraps shows up there.
     printf '%s\n' "$out" | head -5 | grep -q "$marker_key" \
       && cf "$base --help opens with its own $marker_key marker — the window START is assuming the marker is one line, and this file's is not: $(printf '%s' "$out" | head -3 | tr '\n' '|' | cut -c1-140)"
-  done
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
 
-  # ── INSTRUMENT CHECK: a loop that inspected nothing reports no marker leakage forever.
-  [ "$n" -ge 8 ] \
-    || cf "only $n script(s) with both --help and a $marker_key marker were inspected — expected at least 8. The glob or one of the two filters stopped matching, so 'no leakage' is true of almost nothing"
+  # ── INSTRUMENT CHECKS, and neither is a typed floor. `n >= 8` used to sit here: a literal that
+  #    somebody must maintain and will not, and one that is satisfiable by editing the answer.
+  #    What replaces it is the comparison — the manifest yielded a population, the exempt classes
+  #    matched something, and marker-carrying tools were found among what remained.
+  [ "$n" -gt 0 ] \
+    || cf "(instrument) not one bound tool carrying a $marker_key marker was found — one of the two filters stopped matching, so 'no leakage' is true of nothing"
+  [ "$skipped" -gt 0 ] \
+    || cf "(instrument) not one manifest path matched an exempt class, though the contract declares several — the prefix match stopped working, and sourced seams are being asked for usage handlers again"
 
-  finish "no --help among the $n shipped scripts carrying both a $marker_key marker and a --help opens with that marker's own text — the window START is derived from where the marker ENDS (every marker's last line cites the extraction manifest), not from the assumption that it is one line"
+  finish "no --help among the $n shipped tools that the CLI contract BINDS and that carry a $marker_key marker opens with that marker's own text, and every one of them answers a usage request at all — the window START is derived from where the marker ENDS (every marker's last line cites the extraction manifest), not from the assumption that it is one line. The population is the manifest minus the classes issue-creation.md § 3 declares unbound ($skipped shipped program(s)), so a stamp receipt that merely CONTAINS the string '--help' can no longer drag a sourced seam into it"
   teardown
 }
 

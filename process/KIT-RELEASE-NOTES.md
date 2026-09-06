@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test's second day-one failure is gone too.** `scripts/config.sh --help printed nothing`
+  was reported because the check's population was *any file containing the characters `--help`* —
+  and the initializer's own stamp receipt in `config.sh` contains them. A sourced seam with no
+  command-line interface was being asked for a usage handler. The population is now *the tools the
+  CLI contract binds*, which `process/contracts/issue-creation.md` § 3 states directly. **Together
+  with the previous entries, a tree that completed day one now runs the self-test clean.** If yours
+  does not, that is worth sending back through `process/KIT-FEEDBACK.md`.
+
 - **The self-test no longer judges your own scripts against the kit's CLI contract.** Its CLI-shape
   check walked `scripts/*.sh` — your directory — and reported the gate runner SEED told you to write
   as violating a contract the kit publishes for its own tools. It now derives what to check from
