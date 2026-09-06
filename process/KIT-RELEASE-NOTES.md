@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test no longer accuses you of a kit violation for adding your own gate runner.** Its
+  interpreter-floor check used to walk `scripts/*.sh` — which on your tree includes the gate runner
+  SEED told you to write. If yours calls `perl`, `python3`, `node` or `ruby`, the check reported it
+  as the KIT breaking its own dependency floor. It now derives what to walk from
+  `process/KIT-MANIFEST`, so your files are yours. The check also got **wider**, not narrower: it
+  now covers hooks, the notify backends, `consumers/` and `setup.sh`, none of which the old glob
+  could see. If you have added files to the kit's own directories and want them checked, the rule is
+  a property rather than a list — a shipped shell program may call an off-floor interpreter only if
+  the same file guards it with `command -v`.
+
 - **Action required — `scripts/test/run.sh` and `process/KIT-MANIFEST` are now one unit.** The
   self-test REFUSES to start (exit 2) in a tree that has no `process/KIT-MANIFEST`, instead of
   running with a skip. If you re-copy `run.sh` from a new zip, copy the manifest across too; if you

@@ -10041,42 +10041,86 @@ EOF
 
 case_shipped_scripts_stay_on_the_floor() {
   cf_reset
-  make_sandbox
-  local f base n=0
+  # NO SANDBOX. The population is the SHIPPED MANIFEST, which describes the real tree; a sandbox
+  # is a mutated copy of part of it and could not answer the question.
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_shipped_scripts_stay_on_the_floor: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
 
-  # The interpreters that are NOT on the floor. Held one per line so this case's own text
-  # cannot satisfy the search it performs on itself (it does not scan itself, but the
-  # sandbox's copy of this file is not what is walked either — state it anyway).
-  local i1='perl' i2='python' i3='node' i4='ruby'
+  # The interpreters that are NOT on the floor. Held one per line so this case's own text cannot
+  # satisfy the search it performs. `python3` is listed SEPARATELY from `python`: the command-
+  # position pattern below anchors on a word boundary, so `python3 -c` never matched `python`,
+  # and a shipped hook invoking python3 sat outside this case for as long as it has existed.
+  local i1='perl' i2='python' i3='python3' i4='node' i5='ruby'
 
-  for f in "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/lib/*.sh "$SB_WORK"/scripts/githooks/*; do
-    [ -f "$f" ] || continue
-    base="$(basename "$f")"
+  local rel f sb n=0 walked=0 outspan="" absent=""
+  local undeclared="" stale=""
+
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
     n=$(( n + 1 ))
-    # NON-COMMENT LINES ONLY: several of these files DISCUSS perl in a comment explaining
-    # why they do not use it, and a bare grep would report the explanation as the defect.
-    local w hit
-    for w in "$i1" "$i2" "$i3" "$i4"; do
-      # COMMAND POSITION, not mere appearance. `echo "… a node id …"` mentions node and
-      # does not invoke it; a census that cannot tell those apart reports prose as a
-      # dependency, which is how a floor check gets switched off for being noisy. The
-      # leading `VAR=value ` group is there because the shipped idiom for passing a value
-      # safely is exactly `PLAN="$PLAN" perl …`.
-      hit="$(awk -v w="$w" '
+    f="$REAL_REPO_ROOT/$rel"
+    [ -f "$f" ] || { absent="$absent $rel"; continue; }
+    sb="$(head -1 "$f" 2>/dev/null)"
+    case "$sb" in
+      '#!'*sh) ;;                        # a POSIX-shell program — inside this check's span
+      '#!'*)                             # a program in another language — OUTSIDE it, see below
+        outspan="$outspan ${rel}(${sb##*/})"; continue ;;
+      *) continue ;;                     # not a program at all
+    esac
+    walked=$(( walked + 1 ))
+
+    local w hits guarded
+    for w in "$i1" "$i2" "$i3" "$i4" "$i5"; do
+      # COMMAND POSITION, not mere appearance. `echo "… a node id …"` mentions node and does not
+      # invoke it. The leading `VAR=value ` group is there because the shipped idiom for passing a
+      # value safely is exactly `PLAN="$PLAN" perl …`.
+      hits="$(awk -v w="$w" '
         /^[[:space:]]*#/ { next }
-        $0 ~ ("(^|[;&|(]|\\$\\()[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*" w "([[:space:]]|$)") { print NR ": " substr($0,1,90) }
+        $0 ~ ("(^|[;&|(]|\\$\\()[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*" w "([[:space:]]|$)") { print NR ": " substr($0,1,70) }
       ' "$f" 2>/dev/null || true)"
-      [ -z "$hit" ] \
-        || cf "$base invokes '$w', which is not on the kit's declared floor (git + a POSIX shell, with the optional extras carved out by name): $(printf '%s' "$hit" | tr '\n' ' ' | cut -c1-160)"
+      # DECLARED = the file guards the interpreter with `command -v` in its own text. That is the
+      # property, and it is the whole of the exemption: a program that CHECKS FOR an interpreter
+      # before using it has a defined behaviour without it, and a program that does not, does not.
+      # No name list — attempting one is the defect this case was rewritten to remove.
+      guarded=0
+      grep -qE "command -v ${w}([^0-9A-Za-z_]|\$)" "$f" 2>/dev/null && guarded=1
+      if [ -n "$hits" ] && [ "$guarded" -eq 0 ]; then
+        undeclared="$undeclared
+    $rel invokes '$w' and never checks for it: $(printf '%s' "$hits" | head -1)"
+      elif [ -z "$hits" ] && [ "$guarded" -eq 1 ]; then
+        # THE SECOND DIRECTION, and it is the notch. A declaration that outlives its use is how an
+        # exemption list rots into a list of things nobody checks: the guard reads as evidence that
+        # the dependency is handled, when the dependency is gone.
+        stale="$stale $rel($w)"
+      fi
     done
-  done
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
 
-  # ── INSTRUMENT CHECK: a loop that walked nothing reports a clean floor forever.
-  [ "$n" -ge 15 ] \
-    || cf "only $n shipped script(s) were walked — expected at least 15. The glob stopped matching, so 'nothing off the floor' is true of almost nothing"
+  # ── INSTRUMENT CHECK. The floor here is NOT a typed number — it is the COMPARISON that every
+  #    row of the manifest was reached. A literal minimum ("at least 15") is a number that must be
+  #    maintained and will not be, and it is satisfiable by editing the answer, which is precisely
+  #    what this case is being rewritten to stop.
+  [ "$n" -gt 0 ] \
+    || cf "(instrument) the manifest yielded no paths — every assertion here would be vacuously true"
+  [ -z "$absent" ] \
+    || cf "(instrument) the manifest names path(s) absent from this tree, so they were NOT examined —$absent"
+  [ "$walked" -gt 0 ] \
+    || cf "(instrument) not one shipped SHELL program was found among $n manifest path(s) — the shebang test stopped matching, so 'nothing off the floor' is true of nothing"
 
-  finish "none of the $n shipped scripts, libraries or hooks invokes an interpreter past the declared floor of git plus a POSIX shell — the two optional extras are carved out by name and live outside this walk, and comments EXPLAINING why perl is not used do not count as using it"
-  teardown
+  [ -z "$undeclared" ] \
+    || cf "shipped shell program(s) invoke an interpreter past the kit's declared floor (git + a POSIX shell) WITHOUT checking for it first:$undeclared"
+  [ -z "$stale" ] \
+    || cf "shipped shell program(s) carry a 'command -v' guard for an interpreter they no longer invoke —$stale. A declaration that outlives its use reads as coverage and is none"
+
+  # THE SPAN IS PRINTED ON THE CLEARING BRANCH, and the non-shell members are NAMED rather than
+  # silently dropped. The command-position pattern above is written for SHELL: run against a
+  # Python file it reads `(node == item` and `node = frontier.pop()` as invocations, which is a
+  # false accusation of exactly the kind that gets a floor check switched off for being noisy.
+  # A non-shell program's dependency is declared by its own shebang and is that program's to hold.
+  finish "of $n manifest path(s), the $walked that are shipped SHELL programs invoke no interpreter past the kit's floor without checking for it first, and none carries a check for one it no longer invokes — the population is DERIVED FROM THE MANIFEST rather than from a glob, so a file the adopter was told to add is not counted as ours. NOT MEASURED HERE, because this check's pattern reads shell and would report a variable named 'node' as an invocation:${outspan:- (none)}"
 }
 
 case_help_never_opens_with_the_class_marker() {
