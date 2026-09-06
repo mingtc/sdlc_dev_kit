@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Action required — `scripts/test/run.sh` and `process/KIT-MANIFEST` are now one unit.** The
+  self-test REFUSES to start (exit 2) in a tree that has no `process/KIT-MANIFEST`, instead of
+  running with a skip. If you re-copy `run.sh` from a new zip, copy the manifest across too; if you
+  adopted before the manifest existed and take the new `run.sh` on its own, you will get a refusal
+  that names all three ways this happens and what to do about each. The reason is not bookkeeping:
+  the checks that ask about *the shipped population* derive that population from the manifest, so
+  without it they would assert nothing and print a green while doing it.
+
 - **The zip now carries `process/KIT-MANIFEST` — a list of which files are the kit's.** One row per
   shipped file: `<sha256>  <path>  <KIT-CLASS, or - if the file declares none>`. **It is generated
   by the build and is not tracked anywhere** — editing it means nothing, and it is regenerated whole
