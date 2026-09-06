@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — one notify backend; add siblings the same way. See process/EXTRACTION.md.
-# Telegram transport adapter for scripts/notify.sh — the COMMUNICATION-METHOD LAYER.
+# telegram.sh — Telegram transport adapter for scripts/notify.sh, the COMMUNICATION-METHOD LAYER.
 #
 # It knows nothing about issue ids, gates or progress — it just delivers a
 # normalized message. Swappable: any other chat adapter implements the same verbs

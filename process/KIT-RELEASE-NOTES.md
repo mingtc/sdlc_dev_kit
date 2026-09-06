@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test no longer judges your own scripts against the kit's CLI contract.** Its CLI-shape
+  check walked `scripts/*.sh` — your directory — and reported the gate runner SEED told you to write
+  as violating a contract the kit publishes for its own tools. It now derives what to check from
+  `process/KIT-MANIFEST`. **And what the contract does NOT bind is now written down in the contract
+  itself**, `process/contracts/issue-creation.md` § 3: protocol-invoked programs (git hooks, agent
+  hooks, the stdin notify hook), sourced seams and libraries, and vendored upstream skill helpers —
+  each with the test that admits it, so you can tell whether one of your own programs is bound.
+  `scripts/notify/telegram.sh`'s `--help` now names itself rather than the script that calls it.
+
 - **The self-test no longer accuses you of a kit violation for adding your own gate runner.** Its
   interpreter-floor check used to walk `scripts/*.sh` — which on your tree includes the gate runner
   SEED told you to write. If yours calls `perl`, `python3`, `node` or `ruby`, the check reported it

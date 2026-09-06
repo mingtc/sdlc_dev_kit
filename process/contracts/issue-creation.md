@@ -125,7 +125,36 @@ state — so that every tool and every reader downstream can rely on the shape w
   tool must not do about that. Refuse, name both flags, and say nothing was changed.
 
 **These are the CLI SHAPE, and they bind every command-line tool in the kit, not only the
-creators.** *They are authored here because this is where the failure that produced them was paid
+creators.**
+
+<!-- CLI-SHAPE-EXEMPT-CLASSES:BEGIN — the self-test derives the exempt path prefixes by reading the
+     backticked paths between these two markers. Anchored on the MARKERS, not on this bullet's
+     wording, because contracts/README.md's equivalent block was once anchored on prose and the
+     first reword of that prose emptied it. Prose is not an anchor. Move them if the block moves;
+     do not delete one without the other. -->
+**WHAT "COMMAND-LINE TOOL" EXCLUDES, and each class carries the test that admits it.** *(Count them
+below rather than here.)* A shipped program that is not invoked by someone who could type a flag is
+not bound by the shape above — and saying so here, once, is the alternative to every reader of the
+set deciding it again. **The test that separates a class from an excuse: could this program ever
+receive an option from a human or from a script a human wrote? If yes, it is bound.**
+
+1. **Protocol-invoked programs** — `scripts/githooks/`, `scripts/hooks/`, `consumers/hooks/`,
+   `scripts/notify-hook.sh`. Their caller is git, the agent harness, or a pipe, and each passes a
+   fixed argument shape that is never an option. A usage handler on one answers a question nobody
+   can ask it. *They are still bound by everything else the kit says about refusals; what they are
+   not bound by is a CLI shape for a CLI they do not have.*
+2. **Sourced seams and shared internals** — `scripts/lib/`, `scripts/config.sh`. These are `.`-ed
+   into another program, so they have no argument vector of their own; the behaviour they carry is
+   specified by the sheets of the scripts that call them. Executing one directly is a mistake, not
+   an interface.
+3. **Vendored upstream helpers** — `.claude/skills/`. Scripts inside a vendored skill directory are
+   not ours to shape: an upstream re-copy would revert any change we made, which is the same reason
+   their class lives in the skills README's provenance table rather than in an in-file marker.
+
+**An exemption that names a path the kit does not ship is COVERAGE SHRINKING SILENTLY**, so the
+self-test asserts every prefix above still matches something. Deleting a class is a decision; a
+class quietly matching nothing is not.
+<!-- CLI-SHAPE-EXEMPT-CLASSES:END --> *They are authored here because this is where the failure that produced them was paid
 for; they are stated as general because a shape declared per-tool is a shape that diverges per-tool.
 **Where a tool in your set diverges — a different exit status, a missing usage handler, a usage
 request that refuses — that is a defect against this section, and it is fixed against THIS WORDING

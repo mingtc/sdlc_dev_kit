@@ -8261,41 +8261,112 @@ case_cli_shape_across_the_shipped_set() {
   make_sandbox
   publish_sandbox
 
-  # THE EXEMPTIONS CARRY THEIR REASON AND ASSERT THEIR OWN EXISTENCE — an exemption
-  # naming a file that is not there is coverage shrinking silently.
-  local e
-  for e in config.sh notify-hook.sh; do
-    [ -f "$SB_WORK/scripts/$e" ] \
-      || _fixture_die "case_cli_shape_across_the_shipped_set: the exemption list names scripts/$e, which is not in the sandbox — the exemption is stale and coverage shrank without anything failing."
-  done
+  # ── THE POPULATION IS THE MANIFEST, AND THE EXEMPTIONS ARE THE CONTRACT'S OWN. ──────────────
+  #
+  # This walked `scripts/*.sh` with two exemptions TYPED HERE — config.sh and notify-hook.sh. Both
+  # halves were wrong in ways that only showed on a tree that had lived:
+  #
+  #   * the glob is the adopter's directory, so on an adopted tree it judged the gate runner SEED
+  #     told them to write against the kit's CLI contract, and reported the kit's own contract
+  #     violated by a file the kit does not ship;
+  #   * the glob never saw scripts/hooks/, scripts/notify/, consumers/ or setup.sh, so seven
+  #     shipped programs were outside a case whose finish line said "across the shipped set";
+  #   * and the exemption was a NAME LIST in the test, which is the shape this workstream exists
+  #     to remove. A name list in a test is a place where "not covered" and "not applicable" are
+  #     spelled the same.
+  #
+  # So: the population is derived from process/KIT-MANIFEST, and what the shape does NOT bind is
+  # derived from issue-creation.md's own CLI-SHAPE-EXEMPT-CLASSES block — the contract that states
+  # the rule is where its boundary belongs, and contracts/README.md's equivalent block is the
+  # precedent this copies, markers and all.
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  local sheet="$REAL_REPO_ROOT/process/contracts/issue-creation.md"
+  [ -f "$man" ] \
+    || _fixture_die "case_cli_shape_across_the_shipped_set: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  [ -f "$sheet" ] \
+    || _fixture_die "case_cli_shape_across_the_shipped_set: process/contracts/issue-creation.md is absent — with no exempt classes derived, every hook and library would look like a contract violation."
 
-  local f base out rc n=0
-  for f in "$SB_WORK"/scripts/*.sh; do
-    [ -e "$f" ] || continue
+  local exempt
+  exempt="$(awk '/CLI-SHAPE-EXEMPT-CLASSES:BEGIN/,/CLI-SHAPE-EXEMPT-CLASSES:END/' "$sheet" \
+            | grep -oE '`[.a-z][a-z._/-]*`' | tr -d '`' | sort -u)"
+  [ -n "$exempt" ] \
+    || _fixture_die "case_cli_shape_across_the_shipped_set: could not derive the exempt classes out of issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES block. With none derived every hook and library reads as a violation; with the derivation reading the wrong block every tool reads as exempt. Both are silent."
+
+  # ── THE SECOND DIRECTION, and it is why an exemption cannot rot here: every prefix the contract
+  #    declares must still match something the kit ships. A class that quietly matches nothing is
+  #    coverage shrinking with nothing red to show it.
+  local e stale=""
+  for e in $exempt; do
+    grep -v '^#' "$man" | awk '{print $2}' | grep -q "^${e}" \
+      || stale="$stale $e"
+  done
+  [ -z "$stale" ] \
+    || cf "issue-creation.md exempts path prefix(es) the kit no longer ships —$stale. An exemption naming nothing is coverage shrinking silently; delete the class deliberately or restore the file"
+
+  local rel f base out rc n=0 skipped=0 skiplist="" unreached=0 unreachedlist=""
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    # THE SHEBANG IS READ FROM THE REAL TREE, the execution happens in the SANDBOX. Reading it
+    # from the sandbox would make a file the sandbox does not carry indistinguishable from a file
+    # that is not a program — and that is how a third of this case's population went missing
+    # without a word: `[ -f "$SB_WORK/$rel" ] || continue` silently dropped consumers/, setup.sh
+    # and the skill helpers while the finish line went on saying "across the shipped set".
+    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep -q '^#!.*sh$' || continue
+
+    local skip=0
+    for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
+    if [ "$skip" -eq 1 ]; then skipped=$(( skipped + 1 )); skiplist="$skiplist $rel"; continue; fi
+
+    # BOUND, but is it REACHABLE? These tools are EXECUTED, so they run in the sandbox rather than
+    # in the real tree — a usage request is contracted not to do work, but a tool that VIOLATES the
+    # contract is exactly what this case looks for, and running one for real is how a test mutates
+    # the tree it is judging. The sandbox does not carry the whole shipped set, so some bound tools
+    # cannot be reached. They are COUNTED AND NAMED rather than skipped: an unreachable operand is
+    # a hole in the coverage, and the difference between naming it and dropping it is the whole
+    # subject of this workstream.
+    f="$SB_WORK/$rel"
+    if [ ! -f "$f" ]; then
+      unreached=$(( unreached + 1 )); unreachedlist="$unreachedlist $rel"; continue
+    fi
+
     base="$(basename "$f")"
-    case "$base" in
-      config.sh) continue ;;        # a sourced seam, not a CLI — it has no main
-      notify-hook.sh) continue ;;   # a stdin hook; exit 0 always, by its own design
-    esac
     n=$((n+1))
 
     out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"; rc=$?
-    [ "$rc" -eq 0 ] || cf "$base --help exited $rc — a usage request must ALWAYS succeed (§ 3)"
+    [ "$rc" -eq 0 ] || cf "$rel --help exited $rc — a usage request must ALWAYS succeed (§ 3)"
     # NAMING ITSELF IS THE EFFECT ASSERTION. An rc-only check passes vacuously on a tool
     # that has no --help arm at all and simply does its job: that is exactly how
     # next-id.sh answered a usage request with a mintable id and looked fine.
     printf '%s\n' "$out" | grep -qF "$base" \
-      || cf "$base --help exited 0 but its output never names $base — this is satisfied by a tool with no usage handler that just ran: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+      || cf "$rel --help exited 0 but its output never names $base — this is satisfied by a tool with no usage handler that just ran: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
 
     out="$( cd "$SB_WORK" && "$f" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
     [ "$rc" -eq 2 ] \
-      || cf "$base: an unrecognised option exited $rc, want 2 — § 3 names ONE status across the shipped set: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+      || cf "$rel: an unrecognised option exited $rc, want 2 — § 3 names ONE status across the shipped set: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
     printf '%s\n' "$out" | grep -qF -- '--not-a-real-flag' \
-      || cf "$base: the refusal does not NAME the option it refused (§ 3), so the caller cannot tell which flag was wrong: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  done
+      || cf "$rel: the refusal does not NAME the option it refused (§ 3), so the caller cannot tell which flag was wrong: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
 
+  # ── INSTRUMENT CHECKS. Neither is a typed floor: both are comparisons over the derived set.
   [ "$n" -gt 0 ] \
-    || _fixture_die "case_cli_shape_across_the_shipped_set: the glob matched no script at all — the case would report PASS over an empty set."
+    || _fixture_die "case_cli_shape_across_the_shipped_set: not one bound tool was found in the manifest — the case would report PASS over an empty set."
+  [ "$skipped" -gt 0 ] \
+    || cf "(instrument) not one manifest path matched an exempt class, though the contract declares several — the prefix match stopped working, and every tool is now being judged including the ones the contract says are not bound"
+  # ── THE ACCOUNTING IS DERIVED AND MUST BALANCE. Every shipped shell program is exactly one of:
+  #    exempt by a declared class, exercised here, or bound-but-unreachable-in-the-sandbox. If the
+  #    three do not sum to the population, a member fell out of the walk without a word, which is
+  #    the failure mode this case has just been rewritten out of.
+  local shellprogs=0
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep -q '^#!.*sh$' && shellprogs=$(( shellprogs + 1 ))
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
+  [ "$(( n + skipped + unreached ))" -eq "$shellprogs" ] \
+    || cf "(instrument) the population does not balance: $shellprogs shipped shell program(s), but $n exercised + $skipped exempt + $unreached unreachable = $(( n + skipped + unreached )). A member left the walk without being counted"
 
   # ── TWO TARGETED PROBES, because the generic one above CANNOT REACH THESE PATHS and a
   #    mutation test proved it: reverting either fix left the sweep green.
@@ -8329,7 +8400,7 @@ case_cli_shape_across_the_shipped_set() {
   [ "$rc" -eq 2 ] \
     && cf "(control) the refusal probe PASSED a script with no argument handling — it is measuring nothing"
 
-  finish "the CLI shape across the shipped set (DERIVED from the sandbox, not listed): every tool's usage request exits 0 and names the tool, and every unrecognised option exits 2 and names the option — asserted over $n tools with two exemptions that assert their own existence"
+  finish "the CLI shape across the shipped set: every tool's usage request exits 0 and names the tool, and every unrecognised option exits 2 and names the option — asserted over $n tool(s) DERIVED FROM process/KIT-MANIFEST, so a file the adopter was told to add is not judged against our contract. NOT BOUND, and derived from issue-creation.md's own CLI-SHAPE-EXEMPT-CLASSES block rather than typed here — $skipped shipped program(s) in the declared classes (protocol-invoked, sourced, vendored):$skiplist. Every declared prefix was asserted to still match something. NOT EXERCISED, and this is a HOLE rather than an exemption — $unreached bound tool(s) the sandbox does not carry, so nothing here judged them:${unreachedlist:- (none)}"
   teardown
 }
 
