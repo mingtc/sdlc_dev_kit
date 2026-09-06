@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The zip now carries `process/KIT-MANIFEST` — a list of which files are the kit's.** One row per
+  shipped file: `<sha256>  <path>  <KIT-CLASS, or - if the file declares none>`. **It is generated
+  by the build and is not tracked anywhere** — editing it means nothing, and it is regenerated whole
+  on every build, so do not treat it as a file you maintain. Nothing you run depends on it yet.
+  It exists because the kit's own guards could not previously tell a kit file from a file *you* were
+  told to add: the self-test's interpreter-floor check reports "25 shipped scripts" on an unadopted
+  kit and "26" once you have added the gate runner SEED asks for — counting yours as ours. Reading
+  the path column needs no tools; the hash column is for a verifier and the kit requires none.
+
 - **The self-test no longer fails on a `PROJECT.md` you filled correctly.** One of the two failures
   you have most likely seen on your own tree was `PROJECT.md's read/write separation blank is exactly
   one blank the graduation FILL arm can count` — a case asserting a property of the **shipped** sheet,
