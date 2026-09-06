@@ -7867,6 +7867,28 @@ case_project_credential_blank_is_countable() {
   local line n
   line="$(grep -m1 'Read vs write separation' "$pm")"
   n="$(printf '%s\n' "$line" | grep -oE '<[a-z][^<>]*>' | grep -vc '://' || true)"
+
+  # ── ON A TREE THAT HAS LIVED, THIS CASE HAS NO SUBJECT. ──────────────────────
+  # What it asserts is a property of THE SHIPPED PROJECT.md: that the credential blank, as the
+  # kit writes it, is one the FILL arm can see. An adopter who has done SEED step 3 has filled
+  # that blank — correctly — so the shipped shape is gone and there is nothing here to measure.
+  #
+  # THE FIX THAT WAS NOT MADE, AND WHY. The obvious repair is to accept 0 OR 1 blanks. That
+  # DELETES the case: it then passes on every tree, including a tree where the blank was
+  # capitalised and became invisible, which is the entire defect this case exists to catch. The
+  # count would be satisfied by the failure it guards against.
+  #
+  # SO THE TWO CONDITIONS ARE BOTH REQUIRED, and the second is what makes this safe: zero blanks
+  # AND the initializer's stamp receipt. Zero blanks alone is indistinguishable from the widening
+  # defect on an unadopted tree — which is exactly how this would have become a false green.
+  local stamped=0
+  [ -f "$REAL_SCRIPTS/config.sh" ] && grep -q "^$KIT_STAMP_MARK" "$REAL_SCRIPTS/config.sh" 2>/dev/null && stamped=1
+  if [ "${n:-0}" -eq 0 ] && [ "$stamped" -eq 1 ]; then
+    skp_lived "PROJECT.md's credential blank stays countable" \
+      "PROJECT.md's 'Read vs write separation' line holds no blank and scripts/config.sh carries kit-init's stamp receipt — this tree finished day one and filled it, so the SHIPPED shape this case asserts is legitimately absent"
+    teardown; return
+  fi
+
   [ "${n:-0}" -eq 1 ] \
     || cf "the credential separation line holds ${n:-0} blank(s) the FILL arm can count, want exactly 1 — a capitalised or nested blank is INVISIBLE to that arm, so an adopter graduates without answering it: $line"
 

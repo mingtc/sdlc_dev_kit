@@ -46,6 +46,14 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test no longer fails on a `PROJECT.md` you filled correctly.** One of the two failures
+  you have most likely seen on your own tree was `PROJECT.md's read/write separation blank is exactly
+  one blank the graduation FILL arm can count` — a case asserting a property of the **shipped** sheet,
+  which is legitimately gone once you have done SEED step 3. It now reports **N/A on a lived tree**
+  when that line holds no blank *and* `scripts/config.sh` carries the initializer's stamp receipt.
+  It was **not** widened to accept an empty-or-filled line: that would have made it pass on a tree
+  where the blank had been capitalised into invisibility, which is the defect it exists to catch.
+
 - **The self-test gained a fourth outcome and a new refusal.** Some cases assert the shape of a file
   *as the kit ships it* — and after day one that shape is legitimately gone, because you did what
   SEED told you to. Those cases now report **N/A on a lived tree** rather than PASS or SKIP, each
