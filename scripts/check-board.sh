@@ -1090,8 +1090,33 @@ else
   # GATES, setup.sh's runtime half) do not express a blank that way. Guessing at them
   # would manufacture false reds in shell files, which is worse than a narrow arm that
   # says how narrow it is.
+  #
+  # A COMMENT IS A HISTORICAL NOTE, NEVER A LIVE STATEMENT, so it cannot satisfy — or violate —
+  # a check about the adopter's state. This arm counted the phrase `<angle-bracket>` inside
+  # PROJECT.md's OWN line-1 marker comment, which reads "Fill every <angle-bracket>". Nothing in
+  # SEED or in the file tells an adopter to delete that comment, so a project that filled every
+  # real blank exactly as instructed still read one blank short of done, and `graduation COMPLETE`
+  # was unreachable by any legal means. The only way to clear it was to delete the kit's own
+  # marker — an EDIT of a file whose disposition forbids editing.
+  #
+  # It is the same class as the sentinel arm above, which was matched as a token and so fired on
+  # any file that merely DESCRIBED the sentinel: a grep over a document the kit ships with its own
+  # instructions in it, reading the instructions as the state. The rule both need is one rule —
+  # strip the kit's comments before reading the adopter's answer.
+  #
+  # THE STRIP IS SPAN-AWARE, NOT LINE-WISE. Dropping any line that mentions a comment would hide a
+  # real blank sitting beside an inline note on the same line; this removes the comment SPANS and
+  # keeps the rest, so `a <!-- note --> <real-blank>` still counts one blank. Measured on the
+  # shipped sheet: 74 blanks before, 73 after — the arm loses exactly the marker's own phrase and
+  # keeps every real one. awk, because the kit's floor is git plus a POSIX shell.
   if [ -f "$CB_TREE/PROJECT.md" ]; then
-    g_blanks="$(grep -oE '<[a-z][^<>]*>' "$CB_TREE/PROJECT.md" 2>/dev/null | grep -v '://' | wc -l | tr -d ' ')"
+    g_blanks="$(awk '{
+        line = $0
+        while (match(line, /<!--.*-->/)) sub(/<!--.*-->/, "", line)
+        if (inc) { if (match(line, /-->/)) { sub(/^.*-->/, "", line); inc = 0 } else next }
+        if (match(line, /<!--/)) { sub(/<!--.*$/, "", line); inc = 1 }
+        print line
+      }' "$CB_TREE/PROJECT.md" 2>/dev/null | grep -oE '<[a-z][^<>]*>' | grep -v '://' | wc -l | tr -d ' ')"
     if [ "${g_blanks:-0}" -gt 0 ]; then
       echo "      FILL: PROJECT.md still holds ${g_blanks} <angle-bracket> blank(s)  ⚠ a FILL file is not done until no blank remains — $(cb_src)"
       g_find=1
@@ -1101,7 +1126,7 @@ else
   else
     echo "      FILL: no PROJECT.md to read  (skipped) — $(cb_src)"
   fi
-  echo "      (FILL span: PROJECT.md only. The non-markdown FILL members are NOT measured here.)"
+  echo "      (FILL span: PROJECT.md only, and HTML comments are stripped before counting — the kit's own instructions in that file are not the adopter's answers. The non-markdown FILL members are NOT measured here.)"
 
   # (g3) DELETE-IF-UNUSED — NOT IMPLEMENTED, and said out loud rather than omitted.
   # Deciding it needs a tracked way to record "kept on purpose", which does not exist

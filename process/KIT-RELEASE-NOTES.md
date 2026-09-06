@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`check-board.sh` can now report `graduation COMPLETE`. Until this release it could not.** Its
+  FILL check counted every `<angle-bracket>` in `PROJECT.md` — including the one inside that file's
+  own first-line comment, which reads *"Fill every `<angle-bracket>`"*. So a project that filled
+  every real blank exactly as SEED instructs still read one blank short of done, for ever, and the
+  only way to clear it was to delete the kit's own marker comment — which nothing tells you to do and
+  which the file's disposition forbids. **If you have been seeing `day one is not finished` on a tree
+  you believe is finished, this was why.** HTML comments are now stripped before counting, and the
+  arm says so in its own span line. It did not get weaker: a real unfilled blank still reports.
+
 - **The self-test's second day-one failure is gone too.** `scripts/config.sh --help printed nothing`
   was reported because the check's population was *any file containing the characters `--help`* —
   and the initializer's own stamp receipt in `config.sh` contains them. A sourced seam with no
