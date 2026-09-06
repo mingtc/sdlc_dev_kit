@@ -46,6 +46,32 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test would not START on a project that had finished day one. It does now.** SEED step 5
+  tells you to REPLACE the `CLAUDE.md` bootstrap stub, and § *Day one is done when* requires that
+  neither root document still carry the `BOOTSTRAP-SCAFFOLDING` line — while `scripts/test/run.sh`
+  read that line out of your `CLAUDE.md` to build its own fixture, with no fallback. Doing day one
+  correctly was therefore the thing that killed the harness: it exited before running a single case,
+  with `FIXTURE: could not read the scaffolding sentinel out of CLAUDE.md.` The constant is now
+  declared in the harness and derived from nothing in your tree. **Action required: re-copy
+  `scripts/test/run.sh` — and `scripts/check-board.sh` with it, for the reason the next entry gives —
+  then run it.** You have almost certainly never seen it run on your own tree,
+  and it may be red there — the kit's own baseline was measured on an unadopted blank, which is a
+  state you were told not to remain in. What it reports on your tree is worth sending back through
+  `process/KIT-FEEDBACK.md`.
+- **The graduation arm now matches the sentinel's WHOLE line, not the token inside it.**
+  `check-board.sh`'s `[g] REPLACE` check asked whether `CLAUDE.md` or `README.md` *contained* the
+  string `BOOTSTRAP-SCAFFOLDING`. A document that merely **described** the sentinel satisfied that —
+  a backticked mention in your adapter, or a template that grew one — and the arm then reported
+  *still scaffolding* against a correctly replaced file, with nothing you could delete to clear it
+  except the sentence. It now requires a line equal to the whole shipped comment. Two consequences,
+  both intended: writing about the sentinel no longer trips the arm, and a stub whose sentinel line
+  was **edited** rather than replaced now clears — editing a REPLACE-class file was never legal, and
+  the arm was punishing the wrong readers for it. **Action required: re-copy `scripts/check-board.sh`
+  and `scripts/test/run.sh` TOGETHER.** The two are coupled by this change and the harness proves it:
+  one of its cases asserts that `check-board.sh` probes for exactly the line the harness declares, so
+  a tree that took the new harness and kept the old drift report goes red there — correctly, and
+  bewilderingly if you did not know the two moved as one.
+
 - **New: `process/KIT-FEEDBACK.md`, the one document that flows back to whoever gave you this kit.**
   Copy `process/templates/KIT-FEEDBACK.skeleton.md` to `process/KIT-FEEDBACK.md` and leave it empty —
   it is now part of "day one is done when". **Action required for existing adopters:** create it now.

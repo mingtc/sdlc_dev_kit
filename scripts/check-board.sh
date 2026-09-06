@@ -1065,13 +1065,17 @@ else
   echo "      (enabled by: $g_lived)"
   g_find=0
 
-  # (g1) REPLACE class — the scaffolding sentinel. An exact literal, so there is no
-  # pattern to be wrong about. The two members are the root documents that ship as
-  # scaffolding; both carry the line, and replacing the file removes it with them.
+  # (g1) REPLACE class — the scaffolding sentinel. The WHOLE shipped line, matched exactly
+  # with `grep -qxF`, so there is no pattern to be wrong about and no substring to be wrong
+  # about either. A bare-token match also fires on a backticked mention of the token in
+  # prose and on any template that grew one, and an adopter whose adapter came from such a
+  # template would read "still scaffolding" forever, with nothing to delete that would clear
+  # it. Only the shipped line satisfies this. The two members are the root documents that
+  # ship as scaffolding; both carry the line, and replacing the file removes it with them.
   g_repl=""
   for f in CLAUDE.md README.md; do
     [ -f "$CB_TREE/$f" ] || continue
-    grep -qF 'BOOTSTRAP-SCAFFOLDING' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
+    grep -qxF '<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
   done
   if [ -n "$g_repl" ]; then
     echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"

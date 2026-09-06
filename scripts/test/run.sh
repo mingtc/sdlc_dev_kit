@@ -185,6 +185,31 @@ KIT_NEUTRAL_PROJECT_NAME="<project-name>"
 # from, so the harness must carry it, and case_ship_state is what keeps it honest.
 KIT_NEUTRAL_ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 
+# THE SCAFFOLDING SENTINEL, DECLARED — the whole line the two shipped root documents carry.
+# It belongs in this block for the reason the block gives: it is the kit's SHIPPED value for
+# a seam the sandbox copies in, and it must be DERIVED FROM NOTHING IN THE ADOPTER'S TREE.
+# It was the one constant of that class this harness DERIVED — with a sed over CLAUDE.md in
+# the tree under test — and the cost is measured. Both root documents are REPLACE-class: SEED
+# § "Day one is done when" requires an adopter to have replaced BOTH, so on the only tree an
+# adopter ever has, the derivation reads nothing and the harness REFUSED TO START. Zero cases,
+# on every tree that had followed the kit's own instructions.
+#
+# THE ORIGINAL REASON SURVIVES; ONLY ITS MECHANISM IS SUPERSEDED. The derivation carried a
+# no-fallback rule, and the rule's why was right: "a harness that cannot read the mark would
+# seed a fixture check-board.sh cannot see, and every graduation case would then pass by not
+# testing anything." That property now lives in case_scaffolding_fixture_matches_the_tree
+# arm (b), which asserts check-board.sh probes for THIS literal — so a mark the tool does not
+# look for still reddens, and the fixture still cannot be invisible to the tool in silence.
+# The mark keeps two independent authors (this constant, and check-board.sh's own probe); the
+# shipped documents are a THIRD, asserted by arm (a) wherever a shipped copy is still present.
+#
+# IT IS THE WHOLE LINE, NOT THE TOKEN, and every reader matches it with `grep -qxF`. A bare
+# token also matches a backticked mention in prose and would match the adapter template if
+# that file ever grew one — and an adopter who built their adapter from a template carrying
+# the token would read "still scaffolding" forever. Anchoring to the entire shipped line makes
+# the shipped line the only thing that satisfies it. seed_scaffolding_tree writes exactly this.
+KIT_SCAFFOLD_MARK='<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->'
+
 # ── The seam values this harness runs against, all DERIVED. ──────────────────
 # ISSUE_PREFIX is NOT derived from the adopter's config.sh any more. It used to be,
 # and that was the same defect one level up: the neutralizer resets the SANDBOX's
@@ -467,18 +492,11 @@ _declare_sandbox_gate() {
 # kit-init refuse before it reaches anything the case is about).
 # =============================================================================
 
-# The scaffolding sentinel, DERIVED from the shipped root document that carries it. This
-# is the harness's only statement of the mark; check-board.sh's probe for it is a separate
-# author, and case_scaffolding_fixture_matches_the_tree holds the two against each other.
-# NO FALLBACK: a harness that cannot read the mark would seed a fixture check-board.sh
-# cannot see, and every graduation case would then pass by not testing anything.
-KIT_SCAFFOLD_MARK="$(sed -n 's/^<!-- *\(BOOTSTRAP-[A-Z-]*\).*/\1/p' "$REAL_REPO_ROOT/CLAUDE.md" 2>/dev/null | head -1)"
-if [ -z "$KIT_SCAFFOLD_MARK" ]; then
-  echo "FIXTURE: could not read the scaffolding sentinel out of CLAUDE.md." >&2
-  echo "         It is the mark check-board.sh's graduation arm looks for; seeding a" >&2
-  echo "         guessed one would make every graduation case pass without testing." >&2
-  exit 1
-fi
+# THE SCAFFOLDING SENTINEL IS NOT DERIVED AND IS NOT HERE. It is DECLARED with the neutral
+# config above, because the tree it used to be derived from is the one tree it must survive:
+# both root documents are REPLACE-class, and a harness whose constants come out of files the
+# kit instructs the adopter to delete cannot run on an adopted tree at all. The reasoning,
+# and the property the derivation's no-fallback rule protected, are at its declaration.
 
 # The stamp receipt kit-init appends to config.sh. DERIVED from kit-init.sh rather
 # than re-typed, per this harness's own contract for every other seam it reads.
@@ -770,12 +788,17 @@ _kit_neutral_config() {
 # nothing said so, and an absent third `printf` is not an argument. It is now an
 # argument: `--no-project`, at the call site, in the reader's line of sight.
 #
-# THE SENTINEL IS DERIVED FROM THE SHIPPED DOCUMENT, not from check-board.sh's probe and
-# not from memory. The probe is the CONSUMER; deriving the fixture from the consumer
-# would make every case here agree with the tool by construction, which is the one thing
-# a control must not do. The shipped root documents are the AUTHORITY — they are what an
-# adopter actually deletes — so a rename there reaches the fixture, and the case that
-# holds all three against each other catches a rename anywhere else.
+# THE SENTINEL IS NOT DERIVED FROM check-board.sh's PROBE, and that half of the rule is
+# unchanged: the probe is the CONSUMER, and deriving the fixture from the consumer would make
+# every case here agree with the tool by construction, which is the one thing a control must
+# not do. What is superseded is where the fixture's own copy comes from. It was read out of
+# the shipped root documents on the grounds that they are the AUTHORITY — they are what an
+# adopter actually deletes — and that grounds is exactly why it could not stay: a document the
+# kit tells the adopter to delete is not a source a harness can still read on a tree that
+# finished day one. The copy is now the harness's declared KIT_SCAFFOLD_MARK. The documents
+# remain an author and are still held against that constant wherever a shipped copy survives
+# (case_scaffolding_fixture_matches_the_tree arm (a)), so a rename there still reaches a red.
+# It writes the WHOLE shipped line, because the whole line is what check-board.sh matches.
 seed_scaffolding_tree() {
   local want_project=true
   while [ $# -gt 0 ]; do
@@ -784,8 +807,8 @@ seed_scaffolding_tree() {
       *) _fixture_die "seed_scaffolding_tree: unknown argument '$1'" ;;
     esac
   done
-  printf '<!-- %s -->\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/CLAUDE.md"
-  printf '<!-- %s -->\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/README.md"
+  printf '%s\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/CLAUDE.md"
+  printf '%s\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/README.md"
   if [ "$want_project" = true ]; then
     printf '# PROJECT.md\n\nTrunk: <trunk>\n' > "$SB_WORK/PROJECT.md"
   fi
@@ -9248,8 +9271,13 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 # WHY NOT JUST DERIVE THE FIXTURE FROM check-board.sh: because then the fixture and the
 # tool agree BY CONSTRUCTION, and a rename in the shipped documents — the thing an adopter
 # deletes, the only place the mark is user-visible — would go unnoticed while every
-# graduation case stayed green. The fixture derives from the DOCUMENTS; this case is what
-# reaches the probe.
+# graduation case stayed green. That reason stands, and the fixture is still never derived
+# from the probe. What is superseded is the fixture's other end: it read the DOCUMENTS, and
+# it now reads the harness's own declared KIT_SCAFFOLD_MARK, because the documents are
+# REPLACE-class and a tree that finished day one has replaced both — the derivation made
+# this whole harness refuse to start there, zero cases. The three authors are unchanged.
+# Arm (a) asserts the document author WHERE A SHIPPED COPY IS STILL PRESENT, and names the
+# documents it did not measure when one is not (instruments.md § A.4).
 # =============================================================================
 # =============================================================================
 # CASE — EVERY ANCHORED FIXTURE APPEND HAS A DECLARED AUTHOR.
@@ -10467,23 +10495,52 @@ EOF
 case_scaffolding_fixture_matches_the_tree() {
   cf_reset
   make_sandbox
-  local doc probe_hits
+  local doc probe_hits line1 a_shipped="" a_unshipped=""
 
-  # (a) BOTH shipped root documents carry the mark the harness derived. One of the two is
-  #     where it was derived FROM, so this arm's substance is the other one — a rename
-  #     that touched CLAUDE.md and forgot README.md is the realistic drift.
+  # (a) EVERY SHIPPED root document carries the mark — and "shipped" is decided by the file's
+  #     OWN declared class, not by its name. The harness no longer derives the mark from these
+  #     files, so this arm is the third author held against the first: a rename in the shipped
+  #     documents that KIT_SCAFFOLD_MARK did not follow reddens here.
+  #     WHY IT IS NARROWED TO SHIPPED COPIES. CLAUDE.md and README.md are REPLACE-class, and
+  #     SEED requires an adopter to have replaced both, so on a tree that finished day one the
+  #     two files with those names are the ADOPTER'S. Demanding the kit's mark inside somebody
+  #     else's document is an arm that is red on every correct tree — a control that has to be
+  #     normalised away rather than believed. The shipped copies declare themselves on line 1
+  #     and the adapter template tells the adopter to DROP that marker from their copy, so the
+  #     file's own declaration is the discriminator; the documents this arm did NOT measure are
+  #     named in its own result line, on the clearing branch (instruments.md § A.4), instead of
+  #     being left for a reader to mistake for a wider verdict.
+  #     THE ONE AMBIGUOUS STATE IS A TRUE RED. A file declaring the kit class and carrying no
+  #     sentinel is either the shipped stub EDITED — illegal for a REPLACE-class file — or an
+  #     adapter still carrying the kit's marker. The message names both readings, because the
+  #     arm cannot tell them apart and guessing would send the reader to the wrong file.
   # Read the REAL tree, not the sandbox: make_sandbox does not seed the root documents
   # (a day-one tree has them, a sandbox is built without them), so a sandbox miss here
   # would be about the fixture and not about the kit that ships.
+  # NO PIPE ON THE LINE-1 READ: `sed … | grep -q` is the producer-into-early-exit-reader shape
+  # this file's own header forbids under pipefail, so line 1 goes through a variable.
   for doc in CLAUDE.md README.md; do
-    grep -qF "$KIT_SCAFFOLD_MARK" "$REAL_REPO_ROOT/$doc" \
-      || cf "(a) the shipped $doc does not carry '$KIT_SCAFFOLD_MARK' — the two root documents have drifted apart"
+    if [ ! -f "$REAL_REPO_ROOT/$doc" ]; then
+      a_unshipped="$a_unshipped $doc(absent)"
+      continue
+    fi
+    line1="$(sed -n '1p' "$REAL_REPO_ROOT/$doc")"
+    case "$line1" in
+      *"$KIT_CLASS_MARKER_KEY KIT"*) ;;
+      *) a_unshipped="$a_unshipped $doc(line 1 declares no $KIT_CLASS_MARKER_KEY KIT)"; continue ;;
+    esac
+    a_shipped="$a_shipped $doc"
+    grep -qxF "$KIT_SCAFFOLD_MARK" "$REAL_REPO_ROOT/$doc" \
+      || cf "(a) $doc declares itself $KIT_CLASS_MARKER_KEY KIT on line 1 but holds no line equal to '$KIT_SCAFFOLD_MARK' — and both readings of that are a defect: either it is the shipped stub with its sentinel removed, which is an EDIT of a REPLACE-class file, or it is an adapter built from the template that still carries the kit's marker the template tells you to drop"
   done
 
-  # (b) check-board.sh LOOKS for exactly that mark. Derived from the script, not retyped:
-  #     a literal here would be a fourth author of the very constant under test.
-  grep -qF "grep -qF '$KIT_SCAFFOLD_MARK'" "$SB_WORK/scripts/check-board.sh" \
-    || cf "(b) check-board.sh does not probe for '$KIT_SCAFFOLD_MARK' — the tool and the documents disagree, so the graduation arm is looking for a mark nobody writes"
+  # (b) check-board.sh LOOKS for exactly that line, with the same whole-line match. Derived
+  #     from the script, not retyped: a literal here would be a fourth author of the very
+  #     constant under test. AND THIS IS WHERE THE NO-FALLBACK PROPERTY LIVES now that the
+  #     mark is declared instead of read out of the tree — a constant the tool does not look
+  #     for reddens here, so the fixture cannot be invisible to the tool without a red.
+  grep -qF "grep -qxF '$KIT_SCAFFOLD_MARK'" "$SB_WORK/scripts/check-board.sh" \
+    || cf "(b) check-board.sh does not probe for '$KIT_SCAFFOLD_MARK' with a whole-line match — the tool and the harness disagree, so the graduation arm is looking for a mark nobody writes"
 
   # (c) THE SAME TWO DOCUMENTS, not one and not three. The arm's file list is the other
   #     half of the fixture's premise and it was re-typed at five sites alongside the mark.
@@ -10503,7 +10560,7 @@ case_scaffolding_fixture_matches_the_tree() {
   printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
     || cf "(d) a tree seeded by seed_scaffolding_tree does not read as still-scaffolding to check-board.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
-  finish "the scaffolding sentinel's three authors agree: both shipped root documents carry the mark, check-board.sh's graduation arm probes for that same mark on that same pair, and a tree seeded by seed_scaffolding_tree actually reads as still-scaffolding — the fixture derives from the DOCUMENTS, never from the probe, so a rename cannot make the two agree by construction"
+  finish "the scaffolding sentinel's three authors agree: the harness DECLARES the mark as the whole shipped line and derives it from nothing in the tree under test, check-board.sh's graduation arm matches that same line exactly on that same pair of root documents, and a tree seeded by seed_scaffolding_tree actually reads as still-scaffolding — the fixture is never derived from the probe, so a rename cannot make the two agree by construction. Arm (a)'s span is the root documents whose line 1 declares $KIT_CLASS_MARKER_KEY KIT: asserted to carry it =${a_shipped:- (none)}; not a shipped copy, adopter-owned, NOT MEASURED HERE =${a_unshipped:- (none)}"
   teardown
 }
 
