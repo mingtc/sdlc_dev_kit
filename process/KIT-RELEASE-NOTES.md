@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Action required (maintainers of the kit itself, not adopters): a release cut now takes about
+  twice as long — roughly 7 minutes instead of 3.5.** `scripts/release-kit.sh` gained a second
+  acceptance arm that takes the built zip through day one with the kit's own tools and then runs the
+  self-test on the result, comparing it case-for-case against the run on the unadopted tree. This is
+  why the two entries above exist: until now every green the kit recorded was measured on a tree in
+  a state the kit tells you not to remain in, so a defect that only appears after day one could not
+  be seen from here. **Nothing changes for a project running the kit** — `release-kit.sh` does not
+  ship, and your own `scripts/release.sh` is untouched.
+
 - **`check-board.sh` can now report `graduation COMPLETE`. Until this release it could not.** Its
   FILL check counted every `<angle-bracket>` in `PROJECT.md` — including the one inside that file's
   own first-line comment, which reads *"Fill every `<angle-bracket>`"*. So a project that filled

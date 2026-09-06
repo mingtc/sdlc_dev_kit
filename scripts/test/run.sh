@@ -11154,11 +11154,24 @@ case_ship_state() {
 #  then assert the real repo's HEAD + board surfaces are unchanged.)
 # =============================================================================
 REAL_HEAD_BEFORE=""; REAL_STATUS_BEFORE=""
+# THE SPAN IS THE WHOLE TREE, minus the harness's own directory.
+#
+# It used to be three paths — `scripts progress ARCHIVE.md` — and that was narrower than what this
+# harness READS by a wide margin: it reads PROJECT.md, CLAUDE.md, .claude/{templates,roles,workflows,
+# agents}, _claude/skills, process/, consumers/, dev/ and setup.sh out of the real tree as well. So
+# the case certified "the real repo unchanged" while three of the surfaces it could have written to
+# were outside the question, and cases HAD written to the real CLAUDE.md and PROJECT.md without this
+# noticing. An isolation check whose span is narrower than its subject's reach is a check that
+# reports the absence of the findings it cannot have.
+#
+# `scripts/test/` stays excluded, and for a stated reason rather than by habit: it is the harness's
+# own home, legitimately edited by whoever is developing the harness while it runs.
+#
+# WIDENING IS SAFE HERE BECAUSE THE COMPARISON IS A DELTA. A pre-existing dirty tree — an editor's
+# scratch, a peer's uncommitted work — appears in both snapshots and is not a finding. Only a change
+# DURING the run is.
 _board_status() {
-  # Porcelain status of the surfaces the harness must never mutate. The harness's
-  # OWN dir (scripts/test/) is excluded — it is legitimately edited by whoever
-  # develops the harness.
-  git -C "$REAL_REPO_ROOT" status --porcelain -- scripts progress ARCHIVE.md 2>/dev/null \
+  git -C "$REAL_REPO_ROOT" status --porcelain 2>/dev/null \
     | grep -v ' scripts/test/' || true
 }
 isolation_snapshot() {
@@ -11197,7 +11210,7 @@ case_isolation() {
   if [ "$status_after" != "$REAL_STATUS_BEFORE" ]; then
     cf "a board surface CHANGED during the run — two candidates, and this case cannot tell them apart: (1) the harness broke its own isolation and wrote outside its sandbox, or (2) something else wrote to this checkout while the run was in flight (a concurrent session, an editor, a watcher). Before/after status follows. If a peer holds this checkout, (2) is the likely one and the run's SKIP profile is also unreliable — re-measure on a quiet tree or a built kit. BEFORE: [${REAL_STATUS_BEFORE:-clean}] AFTER: [${status_after:-clean}]"
   fi
-  finish "isolation: the real repo's HEAD + board surfaces unchanged across the run (attribution is out of scope — see the case's note)"
+  finish "isolation: the real repo's HEAD and its WHOLE WORKING TREE — every path git reports, not a named subset — are unchanged across the run, with scripts/test/ excluded as the harness's own home. The span is the whole tree because this harness READS far more of it than any list of surfaces named in advance; a narrower span reports the absence of findings it could not have made. Attribution is out of scope: a path that differs between t0 and t1 does not say who wrote it (see the case's note)"
 }
 
 # =============================================================================
