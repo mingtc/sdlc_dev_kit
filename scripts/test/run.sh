@@ -249,11 +249,53 @@ SB_ROLE="${KIT_NEUTRAL_ROLE_PREFIXES%%|*}"
 CONSUMER_SCRIPT="${CONSUMER_SCRIPT:-}"
 
 # --- Result accounting -------------------------------------------------------
-PASS=0; FAIL=0; SKIP=0
+PASS=0; FAIL=0; SKIP=0; LIVED=0
 declare -a RESULTS
 ok()   { PASS=$((PASS+1)); RESULTS+=("PASS  $1"); printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 bad()  { FAIL=$((FAIL+1)); RESULTS+=("FAIL  $1${2:+ — $2}"); printf '  \033[31mFAIL\033[0m  %s%s\n' "$1" "${2:+ — $2}"; }
 skp()  { SKIP=$((SKIP+1)); RESULTS+=("SKIP  $1${2:+ — $2}"); printf '  \033[33mSKIP\033[0m  %s%s\n' "$1" "${2:+ — $2}"; }
+
+# ── N/A ON A LIVED TREE — a FOURTH outcome kind, and a CLOSED one. ────────────
+#
+# WHAT IT IS FOR. Some cases assert the shape of a file AS THE KIT SHIPS IT. On a tree that has
+# finished day one, that shape is legitimately gone: the adopter filled it, replaced it, or the
+# initializer stamped it. Such a case has no subject any more. It has not passed, it has not
+# failed, and calling it SKIP is wrong for a reason that is about to matter — the adopted-tree
+# gate asserts `S(adopted) = S(pristine)`, so a case reaching for the general `skp` on a lived
+# tree satisfies that equation only by accident and hides a case that stopped measuring.
+#
+# WHY NOT THE OBVIOUS FIX. The tempting repair for these cases is to widen the assertion to
+# "accept the shipped shape OR the adopted one" — say, to accept 0 or 1 blanks on a line whose
+# shipped form has exactly one. That DELETES the case: it then passes on every tree and measures
+# neither, while still printing PASS. `skp_lived` is the alternative — the case keeps its full
+# strength on the tree where its subject exists, and says out loud that it has no subject on the
+# tree where it does not.
+#
+# THE PRECEDENT ALREADY SHIPPED. `case_ship_state` has always read the initializer's stamp
+# receipt and skipped with "this tree has been adopted". It is the first `skp_lived`.
+#
+# THE REASON MUST NAME A FILE, AND THE HELPER REFUSES ONE THAT DOES NOT. A reason like "this
+# tree has been adopted" is a category, not a subject: it cannot be checked, and it is how a
+# whole family of cases quietly goes N/A forever. So the reason must name the file whose shipped
+# shape is absent. A refusal here is a FAIL, not a skip — a mis-declared N/A is a case-authoring
+# defect and it must be loud.
+#
+# THE SPAN OF THAT CHECK, STATED (doctrine/instruments.md § A.4). It is a SHAPE test: the reason
+# must contain a token that looks like a file name — one with a known extension. It does NOT
+# check that the file exists, deliberately: a `DELETE-IF-UNUSED` member removed on day one is
+# exactly the case this kind exists for, and requiring existence would force those reasons to
+# lie. It cannot tell the subject file from a file merely cited in passing. It stops a reason
+# that names no file at all, and that is all it claims to stop.
+_lived_names_a_file() {  # <reason>
+  printf '%s' "${1:-}" | grep -qE '[A-Za-z0-9_-]\.(md|sh|json|js|py|txt|yml|yaml|example|skeleton|template)([^A-Za-z0-9]|$)'
+}
+skp_lived() {  # <case finish line> <why the subject is absent on a tree that has lived>
+  if ! _lived_names_a_file "${2:-}"; then
+    bad "$1" "REFUSED by skp_lived: the reason must NAME THE FILE whose shipped shape is absent, and this one names none — '${2:-}'. A reason that names no file cannot be checked by anyone, which is how a case goes N/A forever. (The check is a SHAPE test: a token with a known file extension. It does not verify the file exists.)"
+    return
+  fi
+  LIVED=$((LIVED+1)); RESULTS+=("N/A   $1 — $2"); printf '  \033[36mN/A\033[0m   %s — %s\n' "$1" "$2"
+}
 
 # Per-case failure accumulator. A case notes each unmet check, then finalizes
 # with ok/bad based on whether anything was noted.
@@ -10691,7 +10733,11 @@ case_ship_state() {
     why="scripts/verify.sh declares $(_neu_array_records "$rv" GATES) gate(s) — this project has filled its own table"
   fi
   if [ -n "$why" ]; then
-    skp "ship state: the kit's own config blocks still ship neutral" "$why"
+    # THE FIRST skp_lived. This case asserts the SHIPPED shape of scripts/verify.sh,
+    # scripts/release.sh and scripts/config.sh; on an adopted tree those shapes are gone
+    # BECAUSE THE ADOPTER DID WHAT THEY WERE TOLD, so the case has no subject rather than
+    # a reason to be lenient. `$why` already names the file that carries the signal.
+    skp_lived "ship state: the kit's own config blocks still ship neutral" "$why"
     return
   fi
 
@@ -11037,10 +11083,67 @@ fi
 echo "case list: ${#CASES[@]} case(s), and every defined case_* is listed."
 echo
 
-for _c in "${CASES[@]}"; do "$_c"; done
+# ── THE RUN, AND A STABLE IDENTITY FOR EACH CASE'S OUTCOME. ──────────────────
+#
+# WHY THE OUTCOME IS DERIVED HERE RATHER THAN READ OFF THE PRINTED LINES. Comparing two runs of
+# this harness — the shipped tree against a tree that has finished day one — needs to know THE
+# SAME CASE's outcome in both. The printed line cannot supply that, and this was measured rather
+# than reasoned:
+#
+#   * a case that names its span embeds a DERIVED COUNT in its finish line ("among the 18 shipped
+#     scripts…" / "…the 19…"), so the better the case behaves — naming its span is this kit's own
+#     rule — the more certainly its text differs between two legitimate trees;
+#   * a case that goes N/A never reaches its finish line at all, so its text differs by
+#     construction.
+#
+# So a comparison keyed on the printed text reports a moved case wherever a count moved, and is
+# blind wherever a case changed kind. Keyed on the FUNCTION NAME it reports neither. The block
+# below is therefore the machine-readable half of this harness's output; the human half above it
+# is unchanged.
+declare -a CASE_OUTCOMES
+_multi=""
+for _c in "${CASES[@]}"; do
+  _p0=$PASS; _f0=$FAIL; _s0=$SKIP; _l0=$LIVED
+  "$_c"
+  _n=$(( (PASS-_p0) + (FAIL-_f0) + (SKIP-_s0) + (LIVED-_l0) ))
+  if   [ "$FAIL"  -gt "$_f0" ]; then _o=FAIL
+  elif [ "$LIVED" -gt "$_l0" ]; then _o=LIVED
+  elif [ "$SKIP"  -gt "$_s0" ]; then _o=SKIP
+  elif [ "$PASS"  -gt "$_p0" ]; then _o=PASS
+  else _o=NO-OUTCOME
+  fi
+  # ── INSTRUMENT CHECK: exactly one outcome per case. A case that records NOTHING is invisible
+  #    in every count this harness prints — it looks identical to a case that was never written.
+  #    A case that records TWO makes every set comparison below ambiguous. Both are reported by
+  #    name rather than absorbed into a total.
+  [ "$_n" -eq 1 ] || _multi="$_multi $_c($_n)"
+  CASE_OUTCOMES+=("$_c $_o")
+done
 
 echo
 echo "════════════════════════════════════════════════════════"
-printf 'summary: %d PASS, %d FAIL, %d SKIP\n' "$PASS" "$FAIL" "$SKIP"
+printf 'summary: %d PASS, %d FAIL, %d SKIP, %d N/A-on-lived-tree\n' "$PASS" "$FAIL" "$SKIP" "$LIVED"
+# THE N/A LIST IS PRINTED, NOT JUST COUNTED. It is a new enumeration, derived from the run rather
+# than typed anywhere, and it is what a reviewer reads at the cut: a case that has quietly had no
+# subject for six months looks exactly like a case that passed, unless the list is in front of them.
+if [ "$LIVED" -gt 0 ]; then
+  echo
+  echo "N/A on a lived tree — these cases had no subject on THIS tree, each naming the file whose"
+  echo "shipped shape is absent. On the pristine tree this list is expected to be empty."
+  for _r in "${RESULTS[@]}"; do case "$_r" in "N/A   "*) printf '  %s\n' "${_r#N/A   }" ;; esac; done
+fi
 echo "════════════════════════════════════════════════════════"
+
+# The machine-readable outcome table: one line per case, keyed on the case's own function name.
+# Stable across trees by construction — see the comment on the run loop above. A reader comparing
+# two runs uses these lines; a human reads the block above.
+echo
+for _r in "${CASE_OUTCOMES[@]}"; do printf 'case-outcome: %s\n' "$_r"; done
+if [ -n "$_multi" ]; then
+  echo
+  echo "harness: REFUSING — these case(s) did not record exactly one outcome:$_multi"
+  echo "  A case recording NONE is invisible in every count above; a case recording TWO makes the"
+  echo "  outcome table ambiguous. Both are defects in the case, not in the tree under test."
+  exit 2
+fi
 [ "$FAIL" -eq 0 ]

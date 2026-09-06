@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test gained a fourth outcome and a new refusal.** Some cases assert the shape of a file
+  *as the kit ships it* — and after day one that shape is legitimately gone, because you did what
+  SEED told you to. Those cases now report **N/A on a lived tree** rather than PASS or SKIP, each
+  naming the file whose shipped shape is absent, and the run prints the list. The summary line gains
+  a fourth field: `summary: N PASS, N FAIL, N SKIP, N N/A-on-lived-tree` — **the first three keep
+  their positions**, so anything reading the line by prefix is unaffected; anything matching it whole
+  is not. The new refusal (exit 2) fires when a case records no outcome at all or more than one:
+  a case recording none is invisible in every count the harness prints. Nothing you do changes.
+
 - **The self-test would not START on a project that had finished day one. It does now.** SEED step 5
   tells you to REPLACE the `CLAUDE.md` bootstrap stub, and § *Day one is done when* requires that
   neither root document still carry the `BOOTSTRAP-SCAFFOLDING` line — while `scripts/test/run.sh`
