@@ -6746,7 +6746,7 @@ SEAM_EOF
 # =============================================================================
 # CASE — move-issue.sh's --help AND its --role enforcement AGREE about the role set.
 #
-# THE DEFECT THIS IS NAMED FOR SHIPPED, and nothing was red (changes/263). The header
+# THE DEFECT THIS IS NAMED FOR SHIPPED, and nothing was red. The header
 # carried the set SPACE-PADDED and the enforcement arm carried it unpadded. `kit-init
 # --roles` finds the seams to stamp with `grep -lF` on the unpadded shape, so it rewrote
 # the enforcement and COULD NOT SEE the header. Every adopter who narrowed their role set
@@ -6758,7 +6758,7 @@ SEAM_EOF
 # old set" — and then derives WHICH FILES ARE SEAMS with `grep -lF -- "$old"`, the same
 # matcher the initializer uses. The instrument and the subject share a blind spot BY
 # CONSTRUCTION, so that case can never see anything the initializer misses. Verifying
-# with the subject's own derivation is the defect changes/262 states as doctrine: derive
+# with the subject's own derivation is the defect process/doctrine/instruments.md states: derive
 # twice, independently, and compare.
 #
 # SO THE TWO OPERANDS HERE ARE READ FROM OUTSIDE BOTH.
@@ -6775,12 +6775,14 @@ SEAM_EOF
 # this case belongs to.
 #   * WHETHER THE ENFORCEMENT'S LIST IS ITSELF DERIVED. It is a stamped literal, so a
 #     hand-edited hook moves the help text and leaves the enforcement behind — the same
-#     disagreement in the other direction. See changes/274.
+#     disagreement in the other direction. Unfixed, and unsupported rather than harmless:
+#     kit-init refuses a tree that has already lived, and the hook still refuses the commit,
+#     but refusing BEFORE the git mv is the whitelist's whole value.
 #   * THE POPULATION IS ONE FILE, NOT A DERIVED SET, and that is a hole rather than a
 #     choice. `scripts/subtask.sh` advertises `[--role Orchestrator|Dev|QA]` in its usage
 #     line and its `move` arm refuses `Orchestrator` on every narrowed tree — the same
 #     defect in a THIRD shape (a partial subset, which `grep -lF` cannot match either).
-#     Measured on a built tree 2026-09-07; it is changes/273 and it is not fixed. This
+#     Measured on a built tree 2026-09-07, and NOT FIXED. This
 #     case is deliberately NOT widened to a derived population yet, because it would then
 #     be red about a file this change does not fix, and a case that is red for a reason
 #     outside its own change teaches the reader to ignore it. Widen it WITH 273.
@@ -6846,10 +6848,10 @@ case_move_issue_help_matches_its_role_enforcement() {
     # than reasoned. Grepping all of --help for a withdrawn role reddens on the header's
     # EXAMPLES, which name a concrete role to be readable (`--role Dev`, `--role QA`). Those
     # are a real and separate instance of this class — an operator copies an example — but they
-    # are not the authoritative list this case and changes/263 are about, and folding them in
-    # would make this case red about something this change does not fix. changes/275.
+    # are not the authoritative list this case is about, and folding them in would make this
+    # case red about something it does not fix. Named in the finish line as a hole instead.
     printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -qx "$r" \
-      && cf "(b) the advertised set still names '$r', which this project's declared set does not contain — this is changes/263 exactly: a second copy of the set in a shape the stamper cannot see"
+      && cf "(b) the advertised set still names '$r', which this project's declared set does not contain — this is the defect this case is named for: a second copy of the set, in a shape the stamper's matcher cannot produce and therefore cannot rewrite"
     probe_out="$( cd "$SB_WORK" && ./scripts/move-issue.sh SBX-001 in_progress --role "$r" --note n 2>&1 || true )"
     printf '%s' "$probe_out" | grep -q -- '--role must be' \
       || cf "(b) move-issue.sh did NOT refuse '$r', a role this project no longer declares — the whitelist was not stamped, or the arm was never reached: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-160)"
@@ -6900,7 +6902,7 @@ WITHDRAWN_EOF
     fi
   fi
 
-  finish "move-issue.sh --help advertises EXACTLY the role set this project declares ($dec_n member(s)) and refuses every member it does not, with both operands derived independently — the declared set from kit-init's own argument, the advertised set from what --help prints — so no shared expression can hide a disagreement; the usage path degrades to NAMING the seam (never guessing the shipped set) with either the library or the hook absent; and re-planting the original padded literal reddens arm (a). NOT COVERED, and each is a HOLE rather than an exemption: whether the ENFORCEMENT list is itself derived rather than stamped (changes/274), and the POPULATION — this case judges move-issue.sh alone, while scripts/subtask.sh carries the same defect in a third shape (a partial subset in its usage line, measured red on a narrowed tree) and is changes/273; and the header EXAMPLES, which name a concrete role in the argument position so they read as runnable commands and therefore name a refused one on a tree that withdrew it — a fourth shape, arguably the one an operator copies, and changes/275"
+  finish "move-issue.sh --help advertises EXACTLY the role set this project declares ($dec_n member(s)) and refuses every member it does not, with both operands derived independently — the declared set from kit-init's own argument, the advertised set from what --help prints — so no shared expression can hide a disagreement; the usage path degrades to NAMING the seam (never guessing the shipped set) with either the library or the hook absent; and re-planting the original padded literal reddens arm (a). NOT COVERED, and each is a HOLE rather than an exemption: whether the ENFORCEMENT list is itself derived rather than stamped (it is not, so a hand-edited hook leaves it behind while this help text follows), and the POPULATION — this case judges move-issue.sh alone, while scripts/subtask.sh carries the same defect in a third shape (a partial subset in its usage line, measured red on a narrowed tree and unfixed); and the header EXAMPLES, which name a concrete role in the argument position so they read as runnable commands and therefore name a refused one on a tree that withdrew it — a fourth shape, and arguably the one an operator copies"
   teardown
 }
 

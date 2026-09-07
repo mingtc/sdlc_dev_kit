@@ -543,7 +543,7 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 | File | Register | Stamped? | What it holds | Note |
 |---|---|---|---|---|
 | `scripts/githooks/commit-msg` | **ENFORCING** | yes | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded. **This row is the source the other enforcing rows are stamped FROM** |
-| `scripts/move-issue.sh` | **ENFORCING** | yes | The acting-role whitelist and its two error messages. **Its usage text no longer carries a copy**: `--help` renders the set from the hook at print time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_display` (`changes/263`) | A role missing here cannot move the board **at all**. **The usage copy was here until 2026-09-07 and was SPACE-PADDED**, so `grep -lF` could not see it: the whitelist was stamped, the header was not, and the script advertised four roles it refused on every tree that narrowed its set. **A `Stamped? yes` that is true of two copies in a file and false of a third is what a per-file column cannot express** — which is why the recipe below now runs in both directions |
+| `scripts/move-issue.sh` | **ENFORCING** | yes | The acting-role whitelist and its two error messages. **Its usage text no longer carries a copy**: `--help` renders the set from the hook at print time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_display` | A role missing here cannot move the board **at all**. **The usage copy was here until 2026-09-07 and was SPACE-PADDED**, so `grep -lF` could not see it: the whitelist was stamped, the header was not, and the script advertised four roles it refused on every tree that narrowed its set. **A `Stamped? yes` that is true of two copies in a file and false of a third is what a per-file column cannot express** — which is why the recipe below now runs in both directions |
 | `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
 | `scripts/subtask.sh` | **ENFORCING** | yes | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s. **This is the row that was missing from the initializer's hand-typed list**, so a renamed project got a subtask tool that rejected every role it had just declared |
 | `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | **This row was missing while the table above called itself "the list", which is the drift this section is about happening to this section.** The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
@@ -599,8 +599,8 @@ filter.*
 
 | hit | verdict |
 |---|---|
-| `scripts/move-issue.sh` — the set **space-padded** in the `--help` header | `changes/263`. Fixed: the header renders from the hook |
-| `scripts/subtask.sh` — `[--role Orchestrator\|Dev\|QA]` in its usage line | **A SECOND INSTANCE IN A THIRD SHAPE.** Not the padded full set but a **partial subset**, so `grep -lF` cannot match it either. `subtask.sh --help` advertises `Orchestrator` and its own `move` arm refuses it on every narrowed tree. `changes/273` |
+| `scripts/move-issue.sh` — the set **space-padded** in the `--help` header | **Fixed**: the header now renders from the hook, so there is no copy to stamp |
+| `scripts/subtask.sh` — `[--role Orchestrator\|Dev\|QA]` in its usage line | **A SECOND INSTANCE IN A THIRD SHAPE.** Not the padded full set but a **partial subset**, so `grep -lF` cannot match it either. `subtask.sh --help` advertises `Orchestrator` and its own `move` arm refuses it on every narrowed tree. **Not fixed** |
 | `scripts/test/run.sh` × 2 | Correct. The harness holds the shipped set as the value it asserts, and a fixture set that is nobody's project |
 
 **So the class is not "a padded copy" — it is "a copy in any shape the stamper's matcher does not
@@ -608,7 +608,7 @@ produce",** and there is no reason to think three shapes is the end of the list.
 argument for rendering from the seam instead of matching harder.
 
 **And a literal search is SHAPE-SENSITIVE, which is how the class survives a green run.**
-`grep -lF -- "$ROLES"` matches one spelling of the set. `changes/263` was a second copy of the same
+`grep -lF -- "$ROLES"` matches one spelling of the set. The `move-issue.sh` defect was a second copy of the same
 list written `PM | Dev | QA | …` — space-padded, in the same file as a copy that matched — so the
 file appeared in the register, was stamped, and kept a stale list anyway. **A derivation cannot
 detect a copy in a shape it does not match, and it reports the file as handled either way.**

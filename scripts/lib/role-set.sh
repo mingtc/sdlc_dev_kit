@@ -37,7 +37,7 @@ kit_role_set() {
 #
 # WHY THIS IS A RENDERER AND NOT A SECOND COPY. A script's usage text has to tell the operator
 # which roles are legal, and the obvious way to do that — type the list into the header — is what
-# `changes/263` was filed about: `move-issue.sh` carried the set space-padded in its `--help`
+# this library was extended for: `move-issue.sh` carried the set space-padded in its `--help`
 # header and unpadded in its enforcement, `kit-init --roles` stamps by `grep -lF` on the unpadded
 # shape, so the enforcement moved and the header did not. The same script then advertised four
 # roles it refused, on every adopted tree. The fix is not a second shape for the matcher to

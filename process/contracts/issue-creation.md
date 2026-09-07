@@ -110,7 +110,7 @@ state — so that every tool and every reader downstream can rely on the shape w
      tools will refuse.
 
   *Why this is stated in the contract and not only in the library that implements it:* the defect
-  it prevents shipped once already (`changes/263` — `move-issue.sh --help` advertised four roles its
+  it prevents shipped once already: `move-issue.sh --help` advertised four roles its
   own `--role` arm rejected on every tree that narrowed its role set, because the header carried a
   second, space-padded copy that the initializer's matcher could not see). **The remedy was one
   fewer copy, not a better matcher**, and the reason a rendered value is safe is only true while

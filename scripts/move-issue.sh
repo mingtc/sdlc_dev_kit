@@ -117,7 +117,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
-# THE ROLE SET IN THE HEADER IS A TOKEN, EXPANDED HERE FROM THE SEAM — `changes/263`.
+# THE ROLE SET IN THE HEADER IS A TOKEN, EXPANDED HERE FROM THE SEAM.
 # The header used to carry the list literally, SPACE-PADDED, while the enforcement arm below
 # carried it unpadded. `kit-init --roles` finds seams to stamp with `grep -lF` on the unpadded
 # shape, so it rewrote the enforcement and could not see the header: every adopter who narrowed
