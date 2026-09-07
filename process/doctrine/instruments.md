@@ -213,6 +213,20 @@ stamped comment was asked for a command-line interface it does not have. A cover
   The two readings disagreeing is the finding. **Where they agree, the agreement is the evidence —
   and where no second reading is possible, say so in the output, because an underived span and a
   span derived once are not the same claim.**
+- **INDEPENDENT MEANS IN A DIFFERENT LANGUAGE, not merely by a different hand.** Two derivations
+  written in one idiom **inherit that idiom's assumptions**, so their agreement is evidence about the
+  operand and **no evidence at all about the idiom.** The place this bites hardest is the one where
+  operand sets are usually written: **a pattern language cannot be used to test its own semantics.**
+  *Measured: a set of path globs was declared with `*` meaning "does not cross `/`". One
+  implementation read them that way and a second, in a shell `case`, read `*` as crossing — a
+  difference of eleven files in one row, and in the direction that certified the surface whose
+  checker actually reads the missed files. Both implementations were competent, both were tested,
+  and each was internally consistent. **The disagreement was only visible across the two
+  languages**; a third reading in either one would have agreed with its sibling and been wrong. So
+  where the operand is expressed as globs, patterns, or any matcher, **one of the two readings must
+  come from outside that matcher** — a literal enumeration, a hand-checked list, a different
+  runtime — and where that is impossible, say so, because two readings in one idiom are closer to
+  one reading than to two.*
 
 **AND THE NOTCH THOSE TWO STOP ONE STEP SHORT OF: ask who WROTE the operand.**
 

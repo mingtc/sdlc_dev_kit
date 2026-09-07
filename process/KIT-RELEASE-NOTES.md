@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`instruments.md` § A.4's derive-twice rule gains a clause: independent means in a DIFFERENT
+  LANGUAGE, not merely by a different hand.** Two derivations written in one idiom inherit that
+  idiom's assumptions, so their agreement is evidence about the operand and none about the idiom —
+  and the place this bites is where operand sets are usually written: **a pattern language cannot
+  be used to test its own semantics.** Measured: one set of path globs, declared with `*` not
+  crossing `/`, read correctly by one implementation and as crossing by a shell `case` in another —
+  a difference of eleven files, in the direction that certified the surface whose checker actually
+  reads the missed ones. Both implementations were competent and internally consistent; a third
+  reading in either language would have agreed with its sibling and been wrong. **Where the operand
+  is a matcher, one of the two readings must come from outside that matcher**, and where that is
+  impossible, say so.
+
 - **A `--help` example that names a role is now governed as program output, not as a comment.**
   `EXTRACTION.md` § 2.4's severity table graded *comment, example and recovery text* together as
   cheapest; that grading is kept for a **comment** and superseded for an example the header
