@@ -82,10 +82,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #
 # THE SHAPE IS THE SIX'S ON PURPOSE. It is the contract's discharge, not a house style, and
 # a guard written deliberately unlike its siblings is a worse artefact than the consistency
-# it buys. The `|| ! . "$CONFIG"` half is KEPT: it catches a file that is PRESENT and
-# unsourceable, which a bare `[ -f ]` does not, and which is precisely what an interrupted
-# upgrade leaves behind. Copying half a guard is how the next reader inherits a false sense
-# of coverage.
+# it buys.
+#
+# THE `|| ! . "$CONFIG"` HALF IS KEPT FOR THAT CONSISTENCY AND FOR NOTHING ELSE. This comment
+# used to justify it differently — "it catches a file that is PRESENT and unsourceable, which a
+# bare `[ -f ]` does not" — and THAT WAS MEASURED FALSE, in all seven scripts that carry this
+# idiom. Under `set -euo pipefail` a seam that exists but cannot be sourced aborts the script
+# from INSIDE the `.`, before the `if` can test its status: a failing command in config.sh exits
+# 127 and a syntax error exits 2, and in neither case does any of the seven print its refusal or
+# name the contract. The half costs nothing and would matter under `set +e`, so it stays; what
+# does not stay is the claim about what it covers.
+#
+# SO THE REFUSAL BELOW NAMES MORE THAN IT CAN DELIVER, and that is a known limitation rather
+# than an oversight: "missing or could not be sourced" is printed only for MISSING. A
+# present-but-unsourceable seam still reaches you as an interpreter error, here and in the six.
 # shellcheck source=config.sh
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
