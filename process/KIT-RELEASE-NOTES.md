@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`check-board.sh`'s graduation report now tells you HOW it matched the scaffolding sentinel, and
+  the output strings changed.** The arm looks for a line **equal to** the whole shipped sentinel
+  comment, not merely for the token anywhere in the file — so a document that *mentions* the
+  sentinel in prose is correctly not a hit, and a stub whose sentinel line has been **edited** is
+  correctly cleared. Both of those are right and neither was visible in the report. **Action
+  required only if you parse this output:** the clearing line now ends with
+  *"(exact whole-line match — a mention of the token in prose is not a hit)"* before its
+  `read from:` suffix, and the complaining line gains *"matched as the exact whole shipped line, so
+  this is the sentinel itself and not a prose mention"*. The phrases your own tooling is most likely
+  to key on — `still scaffolding` on a finding, `read from:` on the clear — are **unchanged and in
+  the same branches**. If you do not parse it, this is a report that now says what it measured.
+
 - **Nine error messages that name `./scripts/kit-init.sh` as the fix now say which tree that fix
   applies to.** A refusal naming a remedy is making a claim, and on a repository that has already
   been initialized `kit-init` refuses — so `verify.sh`'s empty-gate-table message, `finish-pr.sh`'s,

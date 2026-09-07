@@ -1077,11 +1077,30 @@ else
     [ -f "$CB_TREE/$f" ] || continue
     grep -qxF '<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
   done
+  # BOTH BRANCHES NAME THE TEST, and the reason is A.4's asymmetry rather than symmetry for its
+  # own sake. The arm was narrowed from "contains the token" to "holds a line equal to the whole
+  # shipped comment", and a deliberate narrowing owes a statement in the line that reports its
+  # result. The CLEARING branch is the one a reader most needs it from: an adopter whose stub
+  # carried an EDITED sentinel line now reads ✓, and that is the single case where the new
+  # behaviour differs from the old in the clearing direction. The complaining branch names the
+  # test too, because an instrument that names its operand when it complains must name it when it
+  # clears — and here the useful thing to say is the opposite one: this IS the sentinel, not a
+  # prose mention, so there is something real to delete.
+  #
+  # THE SHAPE IS NAMED, NEVER THE STRING. Printing the matched line would make this echo a fourth
+  # author of the sentinel, which is the drift the whole-line match was introduced to remove.
+  #
+  # AND THE WORDING IS CONSTRAINED BY OTHER CASES' ASSERTIONS, checked before it was written
+  # rather than reasoned about: seven cases read this arm's section, ONE requiring the phrase
+  # "still scaffolding" to be ABSENT on the clearing branch and six requiring it PRESENT on the
+  # complaining one. The clearing branch's disclaimer therefore must not contain that phrase, and
+  # does not. That exact failure — one arm's disclaimer satisfying another arm's assertion — is
+  # recorded in this kit's harness against the phrase "not measured".
   if [ -n "$g_repl" ]; then
-    echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"
+    echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; matched as the exact whole shipped line, so this is the sentinel itself and not a prose mention; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"
     g_find=1
   else
-    echo "      REPLACE: CLAUDE.md, README.md carry no scaffolding sentinel  ✓ — $(cb_src)"
+    echo "      REPLACE: CLAUDE.md, README.md carry no scaffolding sentinel  ✓ (exact whole-line match — a mention of the token in prose is not a hit) — $(cb_src)"
   fi
 
   # (g2) FILL class — unfilled <angle-bracket> blanks. SCOPED TO PROJECT.md AND THE
