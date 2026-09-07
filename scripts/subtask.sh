@@ -101,14 +101,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # name the contract. The half costs nothing and would matter under `set +e`, so it stays; what
 # does not stay is the claim about what it covers.
 #
-# SO THE REFUSAL BELOW NAMES MORE THAN IT CAN DELIVER, and that is a known limitation rather
-# than an oversight: "missing or could not be sourced" is printed only for MISSING. A
-# present-but-unsourceable seam still reaches you as an interpreter error, here and in the six.
+# SO THE REFUSAL BELOW SAYS WHAT IT ACTUALLY CHECKS, and it did not always. It read
+# "missing or could not be sourced" — a claim about coverage that the code cannot keep, in this
+# file and in twelve others. It now says "is missing" and carries one line naming its own limit:
+# a present-but-unsourceable seam aborts inside the load and reaches you as the shell's own
+# error, never as this message. The half-truth was corrected the same day it was measured, in
+# every site that carried it except check-board.sh, which another lane holds.
 # shellcheck source=config.sh
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {
-    echo "Error: scripts/config.sh is missing or could not be sourced."
+    echo "Error: scripts/config.sh is missing."
     echo "       Looked for: $CONFIG"
     echo "       It is the configuration SEAM, and this script sources it for the shared"
     echo "       validators (process/contracts/config-seam.md). It reads no prefix from it,"
@@ -117,6 +120,7 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
     echo "       that HAD it. ON A FRESH REPO, initialize the kit instead (it refuses one"
     echo "       that has already lived):"
     echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
+    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
   } >&2
   exit 1
 fi

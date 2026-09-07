@@ -194,7 +194,7 @@ CB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true
 CB_LIVED_LIB_ERR=""
 # shellcheck source=lib/lived-probe.sh
 if [ ! -f "$CB_LIB_DIR/lived-probe.sh" ] || ! . "$CB_LIB_DIR/lived-probe.sh"; then
-  CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh is missing or could not be sourced"
+  CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh is missing (this check sees ABSENCE only — an unsourceable file aborts before it runs)"
 elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED"
 fi

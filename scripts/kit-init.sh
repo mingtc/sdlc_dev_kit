@@ -284,14 +284,14 @@ fi
 # inside the refusal that guarantees NOTHING WAS WRITTEN.
 # shellcheck source=lib/push-retry.sh
 if [ ! -f "$SCRIPT_DIR/lib/push-retry.sh" ] || ! . "$SCRIPT_DIR/lib/push-retry.sh"; then
-  pf "scripts/lib/push-retry.sh is missing or could not be sourced — kit-init publishes its initialization commits through that file's git_push_with_retry, and will not fall back to a single unretried push. Restore it:  git checkout -- scripts/lib/push-retry.sh"
+  pf "scripts/lib/push-retry.sh is missing — kit-init publishes its initialization commits through that file's git_push_with_retry, and will not fall back to a single unretried push. Restore it:  git checkout -- scripts/lib/push-retry.sh (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
 elif ! command -v git_push_with_retry >/dev/null 2>&1; then
   pf "scripts/lib/push-retry.sh sourced, but git_push_with_retry is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
 fi
 
 # shellcheck source=lib/lived-probe.sh
 if [ ! -f "$SCRIPT_DIR/lib/lived-probe.sh" ] || ! . "$SCRIPT_DIR/lib/lived-probe.sh"; then
-  pf "scripts/lib/lived-probe.sh is missing or could not be sourced — kit-init decides whether this repository has ALREADY LIVED through that file, and will not initialize a tree it cannot prove is unlived. Restore it:  git checkout -- scripts/lib/lived-probe.sh"
+  pf "scripts/lib/lived-probe.sh is missing — kit-init decides whether this repository has ALREADY LIVED through that file, and will not initialize a tree it cannot prove is unlived. Restore it:  git checkout -- scripts/lib/lived-probe.sh (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
 elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   pf "scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
 fi

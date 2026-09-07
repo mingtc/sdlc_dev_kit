@@ -92,6 +92,23 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **Every refusal that could not load its configuration or one of its libraries claimed to cover
+  something it cannot, and they now say what they actually check.** When a shipped script cannot load `scripts/config.sh` or one of the three
+  libraries under `scripts/lib/`, it refuses with *"…is missing or could not be sourced."* **Measured:
+  the second half never happens.** A file that exists but cannot be sourced — a truncated copy, a
+  partial write, an edit that broke the syntax — **aborts the script from inside the load, before the
+  check runs**, so you get the shell's own error and never that message. Verified on two different
+  guards and three different breakages: a syntax error exits 2, a bad command exits 127, and in
+  neither case does the kit's refusal appear at all.
+
+  **So the message now says `is missing.` and adds one line naming its own limit** — that it covers
+  absence only, and that a present-but-unsourceable file reaches you as the shell's error instead.
+  **No action required, and nothing about what the scripts DO has changed.** *If you match on this
+  text, the words "or could not be sourced" are gone and one parenthetical line is added; the file
+  paths, the remedies and the exit codes are all unchanged.* **Why it is worth changing at all:** a
+  refusal that overstates its own coverage is the kind a reader stops trusting, and two seats
+  reasoned from this one in a single day without running it.
+
 - **A self-test check that had gone blind now derives what it searches for, and says so if it
   cannot.** One arm of the suite asserts that the `--help` header renderer has **one** authoring
   site — that `scripts/lib/usage.sh` is the only place the logic lives. It looked for that logic by

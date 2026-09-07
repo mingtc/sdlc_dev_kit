@@ -48,7 +48,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {
-    echo "Error: scripts/config.sh is missing or could not be sourced."
+    echo "Error: scripts/config.sh is missing."
     echo "       Looked for: $CONFIG"
     echo "       It is the ONE authority for ISSUE_PREFIX (process/contracts/config-seam.md)."
     echo "       This sweep REFUSES to guess: under a guessed prefix it would find no"
@@ -56,6 +56,7 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
     echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
       echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
     echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
+    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
   } >&2
   exit 1
 fi

@@ -25,7 +25,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="$ROOT/scripts/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {
-    echo "Error: scripts/config.sh is missing or could not be sourced."
+    echo "Error: scripts/config.sh is missing."
     echo "       Looked for: $CONFIG"
     echo "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME"
     echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
@@ -33,6 +33,7 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
     echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
       echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
     echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
+    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
   } >&2
   exit 1
 fi
@@ -41,9 +42,10 @@ fi
 # used to sit here carried its own comment saying it would move "when that lib exists".
 CARDLIB="$ROOT/scripts/lib/card-head.sh"
 if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
-  echo "Error: scripts/lib/card-head.sh is missing or could not be sourced — it strips the" >&2
+  echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
   echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
   echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
+  echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
   exit 1
 fi
 if [ -z "${PRD_PREFIX:-}" ]; then
