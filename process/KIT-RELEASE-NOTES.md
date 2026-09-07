@@ -92,6 +92,20 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **A self-test check that had gone blind now derives what it searches for, and says so if it
+  cannot.** One arm of the suite asserts that the `--help` header renderer has **one** authoring
+  site — that `scripts/lib/usage.sh` is the only place the logic lives. It looked for that logic by
+  a hand-typed string, the library was later reworded, and **the string then matched nothing**: the
+  arm found no second authoring site because it was no longer looking for anything, and reported
+  success. It now reads the expression **out of the library itself**, refuses to run if it cannot
+  find it there, and only then looks for a second copy elsewhere. A second arm — the one that checks
+  no shipped `--help` text hard-codes your role set — gained the same treatment, and is now
+  exercised against a known-bad header on every run before it is trusted.
+  **No action required, and a healthy tree behaves identically.** *If your self-test now stops with
+  a message saying it could not find the renderer's expression in `scripts/lib/usage.sh`, that
+  means the library was edited in a way the check could not follow — the check is telling you it has
+  gone blind rather than passing quietly, which is the whole change.*
+
 - **`doctrine/instruments.md` § A.2 now points its own rule at queries.** That section already held
   *"the audit returned no violations" is not "the audit can see this violation"* — true of an audit,
   and never said of a `grep` that finds nothing, an `ls` that lists nothing, or a selector returning

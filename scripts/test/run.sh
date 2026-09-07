@@ -7079,6 +7079,26 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
   #    (folder names) is correctly NOT found, and a role alternation placed AFTER the code is
   #    correctly out of scope. The three positives are the three shapes actually observed in this
   #    tree; the two negatives are what stops this arm reddening on prose.
+  #    AND THE SELECTOR IS CONTROLLED HERE, not only in the record that added it. Those five
+  #    directions were measured by hand once; that is evidence about a tree on a past day and not
+  #    about THIS run. An empty result from a selector that stopped matching is indistinguishable
+  #    from a clean corpus, so the selector runs first against a window built to be found.
+  local kb="$SB_TMP/known-bad-window.sh"
+  { echo '#!/usr/bin/env bash'
+    echo '# KIT-CLASS: KIT — a fixture. See process/EXTRACTION.md.'
+    echo '#   roles: PM | Dev | QA'
+    echo 'set -eu'; } > "$kb"
+  local kb_start kb_hit
+  kb_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$kb")"
+  kb_hit="$(awk -v s="${kb_start:-0}" 'NR>=s { if ($0 ~ /^#/) print; else exit }' "$kb" \
+            | grep -oE '[A-Z][A-Za-z]+([[:space:]]*\|[[:space:]]*[A-Z][A-Za-z]+){1,}' \
+            | awk -v ok="$shipped" 'BEGIN{n=split(ok,M,"|"); for(i=1;i<=n;i++) mem[M[i]]=1}
+                 { a=$0; gsub(/[[:space:]]*\|[[:space:]]*/,"|",a)
+                   k=split(a,T,"|"); for(i=1;i<=k;i++) if (T[i] in mem) { print a; next } }')"
+  [ -n "$kb_hit" ] \
+    || _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: the literal-census selector does not match a SPACE-PADDED role alternation in a known-bad help window, so it would report a clean corpus whatever the shipped tree carries. Every census result below is vacuous until this passes."
+  rm -f "$kb"
+
   local f start hit literal_carriers=''
   for f in "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/test/*.sh "$SB_WORK"/scripts/lib/*.sh "$SB_WORK"/scripts/githooks/*; do
     [ -f "$f" ] || continue
@@ -8331,10 +8351,30 @@ $consumers
 POST_EOF
 
   # ARM 3 — no second authoring site survives under scripts/.
-  local second
-  second="$( { grep -rlF "awk 'NR>2 && !/^#/{print NR; exit}'" "$SB_WORK/scripts" 2>/dev/null || true; } | grep -v '/lib/usage\.sh$' | grep -v '/test/' || true )"
+  #
+  # THE EXPRESSION IS DERIVED OUT OF THE LIBRARY, NOT RETYPED HERE, and this arm is the reason the
+  # rule exists. It used to grep for the literal `awk 'NR>2 && !/^#/{print NR; exit}'`. The library
+  # was later reworded to `awk -v s="$start" 'NR>=s && !/^#/{print NR; exit}'` — so the literal
+  # matched NOTHING in the shipped tree, the census returned empty, and this arm reported "one
+  # authoring site" while measuring nothing at all. Found by adding the control below, which is the
+  # only reason it was ever visible: the arm passes on an empty result, and an empty result from a
+  # blind search looks exactly like a clean tree.
+  #
+  # What is derived is the STABLE HALF of the idiom — finding the first non-comment line — rather
+  # than the whole statement, whose prefix legitimately changes when the library's floor logic does.
+  local ren_expr ren_all second
+  ren_expr="$(grep -oF '!/^#/{print NR; exit}' "$lib" | head -1)"
+  [ -n "$ren_expr" ] \
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: could not derive the renderer's line-finding expression out of scripts/lib/usage.sh, which authors it. A census with nothing to search for returns empty and reports ONE authoring site forever."
+  # INSTRUMENT: the derived expression must find the library itself. If it cannot, the search is
+  # blind and every result below is about nothing. (The sandbox has no scripts/test/, which
+  # make_sandbox removes, so this file's own copy of the idiom cannot satisfy the control.)
+  ren_all="$( { grep -rlF -- "$ren_expr" "$SB_WORK/scripts" 2>/dev/null || true; } )"
+  printf '%s\n' "$ren_all" | grep -q '/lib/usage\.sh' \
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: the derived renderer expression was not found even in scripts/lib/usage.sh, which authors it — so this census matches nothing and would report ONE authoring site whatever the tree contains."
+  second="$(printf '%s\n' "$ren_all" | grep -v '/lib/usage\.sh' | grep -v '^$' || true)"
   [ -z "$second" ] \
-    || cf "(3) the header-block renderer is still authored in: $(printf '%s' "$second" | tr '\n' ' ') — one rule, more than one place to change it"
+    || cf "(3) the header-block renderer is still authored in: $(printf '%s' "$second" | tr '\n' ' ') — one rule, more than one place to change it, and the two will disagree"
 
   finish "the header-block --help renderer has ONE authoring site: a line added to scripts/lib/usage.sh reaches all $n consumer(s), each still renders its OWN header rather than the library's, and no second implementation survives under scripts/"
   teardown
