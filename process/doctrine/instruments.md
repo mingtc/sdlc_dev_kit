@@ -137,6 +137,47 @@ fit is evidence about the instrument, not noise to be worked around.** The cost 
 reading; the cost of accepting it is a finding written against the wrong subject, which is expensive
 to withdraw and worse to leave standing.
 
+**AND THE SAME RULE POINTED AT A QUERY, WHICH IS WHERE THIS SECTION HAS BEEN STOPPING ONE STEP
+SHORT.** The third bullet above already says it for an audit — *"the audit returned no violations"*
+is not *"the audit can see this violation."* **A `grep` that finds nothing, an `ls` that lists
+nothing, a selector returning an empty set are each making the same claim and owe the same proof.**
+
+> **A null result is not a measurement until the query has been shown able to return a non-null one.**
+
+**An empty answer has two causes and they are indistinguishable from the answer alone:** the subject
+has no members, or **the query cannot return any**. The remedy is this section's own, applied to the
+instrument instead of the subject — **a positive control on the null**: before believing an empty
+answer, run the same query against something that **must** match. *That is asserting a plant took
+before believing its effect, which this sheet already requires; nobody had pointed it at the
+selector.*
+
+**Measured, in one session, four times** — a pattern unsatisfiable under one of two reachable `grep`
+implementations, read as *the guard is absent*; a glob that did not descend into a subdirectory, read
+as *the library would be stamped*; a process query returning nothing, announced as *the run died*
+while the run was alive; and an intersection over text that could not see a **transitive** call, read
+as *the change is safe*. **Each took the first reading. Each was wrong.**
+
+**The empty answer is the one that never prompts a second look — and so is a plausible one.** Nothing
+about a result's shape tells you to check it: an empty set looks like a finished search, and a
+populated set large enough to feel like a survey looks like finished work. **The trigger cannot be
+how the answer looks.** It is that you are about to *believe* it.
+
+**AND THE RULE EARNS ITS KEEP WHEN NOTHING IS WRONG, which is the case worth showing.** One dangling
+link was found in a corpus. Was that a class or an instance? The query was re-run as its own positive
+control — **one dangling against a hundred and eighty links it could see, and none in the opposite
+direction** — and the answer was *one instance, no guard needed.* **Without the control, "one" is
+indistinguishable from "one that my query happened to find", and the cheap correct decision cannot be
+made confidently.** A control is not only how a null is disbelieved; it is how a small number is
+trusted.
+
+**Why no check ships for this**, said plainly because this sheet asks for mechanisms first: the
+population is **every query anybody writes**, including in a message, a change file and a shell
+history — most of it never in the tree at all. And any marking of *which* nulls were trusted would be
+written by the same person who trusted them, which § A.12 rules out on its own. **Two independent
+reasons, and the honest consequence is that this one is a discipline.** Where a null IS in a tracked
+artefact — a test's `|| true`, a guard's empty expected-set — that population is bounded and a check
+over it is worth building.
+
 ### A.3 — Sometimes a capability probe is the WRONG instrument, and that decision is recorded
 
 A.2's probe can itself be the defect. If a case guards its own subject with *"does this check still

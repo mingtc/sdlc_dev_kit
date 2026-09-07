@@ -92,6 +92,16 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **`doctrine/instruments.md` § A.2 now points its own rule at queries.** That section already held
+  *"the audit returned no violations" is not "the audit can see this violation"* — true of an audit,
+  and never said of a `grep` that finds nothing, an `ls` that lists nothing, or a selector returning
+  an empty set. **A null result is not a measurement until the query has been shown able to return a
+  non-null one**, because an empty answer has two indistinguishable causes: the subject has no
+  members, or the query cannot return any. The remedy is the section's own ablation rule applied to
+  the instrument instead of the subject — **run the same query against something that must match,
+  before believing the empty answer.** It also covers the inverse, which is where it pays: a
+  positive control is what makes a *small* count trustworthy rather than merely found.
+
 - **The self-test now stops and tells you when it cannot reach your remote, instead of reporting a
   false failure about your scripts.** Three of the suite's readers check whether something reached
   your trunk by fetching `origin` and then looking at the fetched ref. **The fetch's result was
