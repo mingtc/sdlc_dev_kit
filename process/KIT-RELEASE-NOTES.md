@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The downtime queue now says what sends work to it.** `dev/downtime-queue.md` shipped with its
+  purpose, its three binding clauses and its removal discipline, and never said what earns a **row**
+  instead of a **card** — so it went unused through a whole adoption beside a backlog its own author
+  had noticed was not shrinking. The test: **an item nobody will be wrong because of is a queue
+  entry, not a card.** And the half that explains the silence: a process cannot apply that test by
+  itself, because it needs someone who knows what *wrong* costs — so the sheet now says whose call
+  it is and tells you to go and ask. **No check enforces this and the change file says why**: the
+  only countable proxy would be authored by the same person whose judgement it is meant to check.
+
 - **`rigor-tiers.md` now says what it does NOT decide, and names the question it was being asked to
   answer.** The tier ladder places an issue by change SHAPE — and shape is orthogonal to scope, so a
   one-line change and a week-long change at the same tier drew identical ceremony and nothing

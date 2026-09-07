@@ -7,6 +7,27 @@
 > deferral nobody ever made: the next audit rediscovers it at full price, or worse, someone
 > silently does it inside unrelated work.
 >
+> **WHAT SENDS WORK HERE — the half this file used to leave to judgement.** The rule above says what
+> the queue is *for*. It never said what earns a **row** instead of a **card**, and a queue you have
+> to be in the right mood to use is a queue nobody uses. The test, and it came from a stakeholder
+> rather than from a process:
+>
+> > **An item nobody will be wrong because of is a queue entry, not a card.**
+>
+> **A process cannot apply that test on its own — it needs someone who knows what *wrong* costs, so
+> the last step is to go and ask.** That is why this file's own discipline was never enough to get it
+> used: a disciplined team keeps minting cards, each one honestly justified by the previous review's
+> genuine finding, and what is missing is not rigour but a **stopping rule**. The person holding the
+> queue usually cannot authorise the deferral, and nothing until now told them whose call it was.
+>
+> *Measured, and the shape of it is the argument: this file shipped through an entire adoption
+> unused — beside a self-generating audit backlog whose own author had already noticed it was not
+> shrinking — until the stakeholder supplied that one sentence. The first row was written within the
+> hour, with a wake condition, against a card minted an hour earlier. **The mechanism was never what
+> was missing.*** The adopter's own diagnosis, which is the cleanest statement of the gap: *"each of
+> those cards came out of the previous one's review finding something real, which is a good reason to
+> write the next one and a bad reason to keep writing them forever."*
+
 > **Three clauses bind every row:**
 >
 > 1. **Re-assessed at downtime**, not on a schedule and not on a hunch.
