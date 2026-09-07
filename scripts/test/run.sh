@@ -3275,10 +3275,38 @@ case_config_seam_refusal() {
   # the case's own finish string claimed a five-member population. Deriving it from the census
   # the block itself publishes makes the loop and the grep the same set by construction,
   # which is the property that was missing rather than the sixth name.
+  #
+  # AND THE CENSUS IS KEYED ON THE BLOCK'S CODE, NOT ON ITS HEADER COMMENT — measured, because
+  # the earlier pattern ('THE PREFIX HAS ONE AUTHORITY') is a SECTION-HEADER COMMENT and a
+  # `grep -l` cannot tell a refusal block from a sentence explaining the absence of one.
+  # `subtask.sh` carries that phrase in a comment saying the block is DELIBERATELY not copied
+  # there ("pasting a guard for a value this script never reads would add a seventh copy of it
+  # while fixing a second-copy defect" — and it is right: ISSUE_PREFIX appears zero times in it).
+  # So the old census returned SEVEN and the finish line claimed seven asserted, while the kit
+  # has six. The seventh then satisfied both assertions VIA BASH'S OWN SOURCING DIAGNOSTIC
+  # under `set -euo pipefail` — nonzero, and the path in that message contains "config.sh" —
+  # with zero hits for anything the kit wrote.
+  #
+  # FILTERING COMMENTS IS NOT THE FIX and was measured before being rejected: the phrase is a
+  # header comment in ALL SEVEN, so a non-comment filter returns NOTHING and deletes the census
+  # rather than correcting it.
+  #
+  # WHY THE CODE SHAPE IS THE RIGHT KEY HERE, when deriving from an implementation's shape is
+  # usually how a census inherits an accident: this shape IS the declaration. Guarding the
+  # source and refusing with a named cause is `process/contracts/config-seam.md`'s obligation
+  # discharged, so the idiom tracks membership exactly — where every occurrence proxy guesses.
+  # (Proxies measured: "reads ISSUE_PREFIX" drops new-prd.sh, whose seam is PRD_PREFIX, and adds
+  # config.sh, which DEFINES the value, and kit-init.sh, which REWRITES it.)
   local s out rc n_consumers=0
-  local consumers; consumers="$(cd "$SB_WORK/scripts" && grep -ln 'THE PREFIX HAS ONE AUTHORITY' ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
+  #
+  # `grep -lF`, AND THE -F IS LOAD-BEARING. Written as a normal pattern this returns NOTHING:
+  # `$` mid-expression is read as an end-of-line anchor, so `"$CONFIG"` can never match, and the
+  # census silently empties — which would trip the refusal below rather than pass, but only
+  # because that refusal exists. Measured while writing this fix: the first attempt returned
+  # zero files. `lib/usage.sh`'s header records the same trap for the same reason.
+  local consumers; consumers="$(cd "$SB_WORK/scripts" && grep -lF 'if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then' ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
   [ -n "$consumers" ] \
-    || _fixture_die "case_config_seam_refusal: no script in the sandbox carries the prefix-authority block — the census pattern moved, so this loop would assert nothing while reporting a pass."
+    || _fixture_die "case_config_seam_refusal: no script in the sandbox carries the guarded-source block — the census pattern moved, so this loop would assert nothing while reporting a pass."
   for s in $consumers; do
     n_consumers=$(( n_consumers + 1 ))
     case "$s" in
@@ -3287,11 +3315,35 @@ case_config_seam_refusal() {
       # new-prd.sh takes <slug> and no --id, and its seam is PRD_PREFIX rather than
       # ISSUE_PREFIX — the one consumer whose output lands in requirements/.
       new-prd.sh)      out="$( cd "$SB_WORK" && env -u PRD_PREFIX "$SB_WORK/scripts/$s" someslug 2>&1 )"; rc=$? ;;
-      *)               out="$( cd "$SB_WORK" && env -u ISSUE_PREFIX "$SB_WORK/scripts/$s" someslug --id "$SB_PREFIX-900" 2>&1 )"; rc=$? ;;
+      # The three creators that share one shape. NAMED rather than left to a catch-all, for the
+      # reason the `*)` arm below now states.
+      new-bug.sh|new-issue.sh|new-refactor.sh)
+                       out="$( cd "$SB_WORK" && env -u ISSUE_PREFIX "$SB_WORK/scripts/$s" someslug --id "$SB_PREFIX-900" 2>&1 )"; rc=$? ;;
+      # THE INVOCATION TABLE IS DECLARED, NOT DEFAULTED — and this arm is the half of this case
+      # that was still undeclared after its POPULATION was fixed.
+      #
+      # It used to be the catch-all above, and that made it a LATENT F.1b GENERATOR: any script
+      # that later gained the guarded-source block joined the derived population and was then run
+      # with arguments nobody chose for it. It would exit non-zero — because the ARGUMENTS are
+      # wrong — and every "it refused" assertion below would pass on a refusal that has nothing
+      # to do with the config seam. Measured on the live candidate: `subtask.sh someslug --id
+      # XYZ-900` exits 1 with `Unknown command: someslug`, since its CLI is
+      # `subtask.sh move <PARENT-ID>-<suffix> <target>`.
+      #
+      # So a NEW MEMBER HALTS THIS CASE until somebody says how to run it. That is the right
+      # failure: the population is derived and cannot go stale, and the invocation cannot be
+      # guessed — a case that does not know how to exercise a member knows nothing about it.
+      *)               _fixture_die "case_config_seam_refusal: no invocation is declared for scripts/$s, which the guarded-source census returned. This case cannot test a member it does not know how to run: a default invocation refuses for the WRONG REASON (bad arguments, not an unreadable seam) and every assertion below would pass on it. Add an arm to the case above naming how scripts/$s is invoked." ;;
     esac
     [ "$rc" -ne 0 ] || cf "$s: exited 0 with config.sh unsourceable — it fell back instead of refusing"
     printf '%s' "$out" | grep -q 'config\.sh' \
       || cf "$s: the refusal does not NAME scripts/config.sh: $out"
+    # AUTHORSHIP, NOT PRESENCE. Naming the file is satisfied by the INTERPRETER: an unguarded
+    # source dies with "<script>: line N: <path>/config.sh: No such file or directory", and that
+    # path contains the filename. A refusal the kit did not write is not the kit refusing. The
+    # contract path is what only the kit's own block emits — all six cite it, and bash cannot.
+    printf '%s' "$out" | grep -q 'config-seam\.md' \
+      || cf "$s: the refusal names config.sh but does not cite process/contracts/config-seam.md — so this may be the interpreter's sourcing diagnostic rather than the kit's guarded refusal, which is the state that let a script with NO guard pass this arm: $out"
   done
 
   # THE SECOND ARM, which only one consumer has: config.sh present and SOURCEABLE but
