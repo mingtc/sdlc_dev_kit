@@ -46,7 +46,7 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
-- **Eight error messages that name `./scripts/kit-init.sh` as the fix now say which tree that fix
+- **Nine error messages that name `./scripts/kit-init.sh` as the fix now say which tree that fix
   applies to.** A refusal naming a remedy is making a claim, and on a repository that has already
   been initialized `kit-init` refuses — so `verify.sh`'s empty-gate-table message, `finish-pr.sh`'s,
   and the six `--prefix`/`--trunk` messages in the creation scripts were pointing at a command that
