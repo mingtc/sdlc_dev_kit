@@ -58,6 +58,20 @@ probe capture has to the entry it grounds ([`process/templates/CAPTURE.template.
 generalised off the probe case: the rule was always *point at a primary artifact*, and the one thing
 it never said was where to put one.
 
+**AND THAT RECORD IS THE RULING'S HOME DOCUMENT — which is what makes the projection rule below
+safe.** § *This register is a PROJECTION* deletes a superseded ruling from here, and reconciles that
+with *preserve the reason* by saying the ethic governs **the home document**. For a ruling that came
+out of a conversation, nothing had ever named what that home was — so the reconciliation rested on a
+document nobody could point to, and deleting the entry would have destroyed the only copy of the
+reason. **It is the dated record above.** The register carries the **conclusion**; the record carries
+the **reasoning**, and it is what a later reader is sent to when the conclusion changes.
+
+*Measured on a blind adoption: given no named home, the adopter made the register the home — and then
+met the collision head-on, the projection rule telling it to delete what the supersession ethic told
+it to keep. It kept the entry, named its departure from the projection rule, and justified it from
+the ethic. That was the right call against a kit that had not named the home. With the home named,
+no departure is needed.*
+
 **A ruling about to be EXECUTED owes three more things — inside those same three fields, never as a
 fourth.** A ruling that only describes the world can be tidied later; one that a slate of work is
 about to be built on cannot.
@@ -151,7 +165,11 @@ conclusion becomes *none yet*, and the reason is precisely what the replacement 
 **Provenance.** Unchanged — where it was withdrawn, and where the evidence lives.
 
 **THE TOKEN IS ANCHORED, and that is format law rather than an implementation note:** uppercase, at
-the **head** of the `Ruling` field, followed by a date. An entry that *discusses* a withdrawal — the
+the **head** of the `Ruling` field, followed by a date. **In the `Ruling` field and NOT in the
+`### D-NN` heading**, which is deliberate and is the one place to depart from the worked instance
+below: the heading is the **citable anchor**, so a token living there changes every citation to this
+ruling at the moment it discharges — the anchor convention above exists to prevent exactly that. The
+state moves; the handle must not. An entry that *discusses* a withdrawal — the
 paragraphs you are reading included — does **not** declare one. *Why this is stated rather than left
 to whoever writes the check: a gate elsewhere in this kit could not tell a file that WAS scaffolding
 from one that DESCRIBED it, so documenting the defect tripped the guard. A bare-substring reader of

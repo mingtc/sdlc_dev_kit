@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The rule that a ruling is recorded in the register now sits on the PM's own path, and on day
+  one's.** The rule itself is unchanged and still lives in `process/MANUAL.md` § Execution
+  discipline item 6 — what changed is that `.claude/roles/pm.md` now reaches it (it did not link to
+  the manual at all) and `SEED.md` step 4 now says what routes into the register it tells you to
+  create. **Also new, in `DECISIONS.skeleton.md`: a conversation-sourced ruling's HOME DOCUMENT is
+  named** — it is the dated primary-artifact record that file already required you to point at.
+  That is what makes deleting a superseded entry safe, and it is what the register's own projection
+  rule always assumed without saying. **No rule was added and none changed**; if your project
+  already routes rulings to its register, nothing here asks you to do anything.
+
 - **`requirements/DECISIONS.md` gains a THIRD state: a ruling may be WITHDRAWN pending its
   replacement.** The register offered only *current* or *retired*, so the interval between a revoked
   answer and its successor had no shape — and adopters invent one per project, which is how this was

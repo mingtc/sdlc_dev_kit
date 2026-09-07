@@ -163,6 +163,24 @@ verification burden — do not sweep.
 ruling is not done until the predecessor carries its stamp, in the same change
 ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
 
+**And a ruling is not done until it sits where a reader will look it up.** Every ruling made in this
+hat — not only one that overturns a spec — gets its entry in the project's **decision register** in
+that same change. **The rule and its reasoning are
+[`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6**, which is its single
+authoring site; what stands here is a pointer, because the PM is the role that *makes* the rulings
+and this is the document the PM reads. What earns an entry, and the shape of one, are in the
+register's own skeleton
+([`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)).
+
+> *Why a pointer and not the rule restated — and the measurement is worth more than the pointer.
+> On a blind adoption the rule was **not missing**: the manual carried it, and the adapter this
+> project builds on day one carries it too. The PM still wrote the instruction into its own
+> `PROJECT.md` by hand while filling that sheet — **thirteen minutes and two commits before the
+> adapter handed it the same instruction.** So the rule was stated twice and still arrived after the
+> moment it was needed. This role doc, meanwhile, did not link to the manual at all until this
+> pointer — and it is the document read by the role that makes the rulings. **A rule that is written
+> is not thereby delivered; it has to sit on the path being walked.***
+
 ### Moving an issue (occasional PM use)
 
 PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to a scratch location or to `blocked/`. In all cases:
@@ -256,9 +274,12 @@ fill it in:
   refactors, test/CI/board/process work, issue and PRD ids, role names, batch labels). A paste
   of the changelog is the exact failure mode that file exists to prevent. (`<fill in>`)
 - **The decision register.** Where a ruling is *looked up* — the file a reader consults for
-  "what is currently true", as opposed to the issue that changed it. Keep it a **projection**:
-  state the current ruling, one line of why, and its provenance; the history stays in the
-  ledger. (`<fill in>`)
+  "what is currently true", as opposed to the issue that changed it — **and therefore where every
+  ruling you make gets written, in the same change that makes it** (§ *Amending a PRD in part*
+  above). *Both halves are named together here because this bullet used to name only the reading
+  half, in the role doc belonging to the role that does the writing.* Keep it a **projection**:
+  state the current ruling, one line of why, and its
+  provenance; the history stays in the ledger. (`<fill in>`)
 - **Which surfaces are consumer-visible at all**, so "is this consumer-visible?" is a lookup
   and not a judgement call each time. (`<fill in>`)
 
