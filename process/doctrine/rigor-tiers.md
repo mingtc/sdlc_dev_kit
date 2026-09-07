@@ -3,8 +3,12 @@
 
 **Promoted from the orchestrator role doc at the PM's word (2026-08-21)** — the ladder is
 process law that binds every dispatching role, not one role's private heuristic; the role doc
-now points here. The pattern is § A; there is deliberately no § B instance — the tiers are
-defined by *change shape*, which is project-independent.
+now points here. **Every section here is pattern, and there is deliberately no § B instance** — the
+tiers are defined by *change shape*, which is project-independent. *(This said "the pattern is § A",
+naming the sections rather than stating the property, and went stale the first time a second section
+was added. The property is what is true; an enumeration of sections is a census in prose.)* **One
+number below is explicitly the project's** — the review-return threshold — and it says so where it
+sits rather than making this sheet an instance.
 
 ## A. The ladder
 
@@ -47,6 +51,40 @@ adapter's § Project duties) **iff the change is on a declared risk surface** �
 observable behavior, a public signature, or serialized output. A pure logic/helper/test edit
 that leaves the public output byte-identical does not need it; anything that changes what the
 project emits does. **When in doubt, run it.**
+
+## The question this ladder does NOT answer — scope
+
+**The tier follows the change SHAPE, and shape is orthogonal to SCOPE.** A one-line TIER-2 change and
+a week-long TIER-2 change draw identical ceremony from the table above, correctly: the ladder decides
+**how much ceremony**, and nothing in it decides **how big a bite**. Read it for the second question
+and it answers confidently and wrongly.
+
+**Scope is decided at two moments, and the kit used to have only the first.**
+
+- **At mint, as an estimate.** The size rule lives with the role that mints —
+  `.claude/roles/pm.md` § *Workflow: PRD-first* (`S` ≤ 1 session, `M` 2–4, **`L` means split**), and
+  the issue template's own `size:` field. **At dispatch**, the same judgement is the Orchestrator's:
+  *any issue too big for one clean PR* takes the subtask split. Both are stated where they live and
+  are **not** restated here.
+- **In flight, as evidence** — and this is the half nothing covered. An estimate is made before the
+  work exists; the work then produces a fact about its own size, and nobody was asking.
+
+> **An item returned from review TWICE is a splitting signal, not a quality signal.**
+
+**The tool is [`scripts/subtask.sh`](../../scripts/subtask.sh)**, and the tree it manages is the
+Orchestrator's § *Subtask model*.
+
+*Why this is a signal and not a rule, and why it is worth having anyway:* a second rejection can
+equally be two genuine independent defects. **It is a prompt to ask whether this is one item, not an
+answer** — so it is read advisory and never enforced, because a gate here would teach a reviewer not
+to send work back, which destroys the reading. **The number is yours to change**: it comes from a
+measured three-round instance, and a threshold the kit fixed for every project would be an alarm on a
+borrowed number.
+
+*Measured, and the reason the mid-flight half exists: one adopted item failed review three
+consecutive times and **each failure was caused by the fix for the one before it.** The pre-flight
+estimate had been made and was reasonable. The adopter reached the right question unprompted — asking
+its reviewer "whether this job is simply too big to be one job" — after paying for it three times.*
 
 **Why tiers instead of judgment-per-issue:** heavy fan-outs accelerate token (and quota) burn
 — they hit limits faster, they don't dodge them. A written ladder is how a fleet's ceremony

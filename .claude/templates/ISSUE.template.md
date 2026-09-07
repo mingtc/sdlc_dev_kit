@@ -15,7 +15,7 @@
 id: <PREFIX>-NNN
 type: feature            # feature | spike | chore
 title: <one-line summary>
-size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it)
+size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it — scripts/subtask.sh)
 prd: PRD-NNN             # or n/a on the lite path
 stories: [PRD-NNN-F1-S1] # one or more story IDs from the PRD; [] on the lite path
 branch: feature/<PREFIX>-NNN-<slug>

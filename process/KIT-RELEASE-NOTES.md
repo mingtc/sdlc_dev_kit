@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`rigor-tiers.md` now says what it does NOT decide, and names the question it was being asked to
+  answer.** The tier ladder places an issue by change SHAPE — and shape is orthogonal to scope, so a
+  one-line change and a week-long change at the same tier drew identical ceremony and nothing
+  anywhere asked *is this one item or four?* The sheet now carries the scope question, the two
+  moments it is decided, and `scripts/subtask.sh` as the thing to reach for. **The new part is the
+  mid-flight signal:** an item returned from review **twice** is a splitting signal, not a quality
+  signal. Every trigger the kit had was a pre-flight estimate, and nothing re-asked the question
+  once the work produced evidence. The threshold is yours to change and the sheet says so.
+
 - **The rule that a ruling is recorded in the register now sits on the PM's own path, and on day
   one's.** The rule itself is unchanged and still lives in `process/MANUAL.md` § Execution
   discipline item 6 — what changed is that `.claude/roles/pm.md` now reaches it (it did not link to

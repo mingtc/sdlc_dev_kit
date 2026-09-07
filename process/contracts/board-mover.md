@@ -23,6 +23,12 @@ to change and making every change self-recording.
   happened. And an entry that omits its target is **un-judgeable**: a drift checker holding a
   card's container against its own last entry has nothing to hold it to, so the check goes blind in
   exactly the workflow that uses a custom note — which is the workflow the manual mandates.
+  *And the invariant buys more than the drift check it was written for: because every move carries
+  its target, one card's log holds the ORDERED SEQUENCE of its states, so a **backward** transition —
+  an item returned from review — is derivable without anything new being written down. That is the
+  operand behind the oversize signal in [`../doctrine/rigor-tiers.md`](../doctrine/rigor-tiers.md)
+  § The question this ladder does NOT answer. Named here rather than there because it is a property
+  of this invariant; any implementation honouring § 2 supplies it for free.*
 
 - **RECORDING WITHOUT MOVING IS A SECOND OPERATION, and it changes no container.** An append that
   states something about an item — a declaration owed before an act, a ruling cited, an observation
