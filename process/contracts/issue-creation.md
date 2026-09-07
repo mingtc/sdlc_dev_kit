@@ -94,6 +94,28 @@ state — so that every tool and every reader downstream can rely on the shape w
   argument is interpreted, and its exit status says success.
   *Why:* if asking how to use the tool can fail, or can do work, the first thing a new adopter
   types is a mutation.
+- **WHERE USAGE TEXT IS DERIVED, IT DEGRADES TO NAMING ITS SOURCE — never to a guess, never to an
+  error.** A tool whose help text renders a project-configured value (the declared role set, the
+  status folders, a trunk name) reads that value from its seam at print time rather than carrying a
+  copy. Three rules follow, and they are ranked:
+  1. **The request still exits 0 with its full usage text.** The clause above admits no exception
+     for a value that could not be read, so the render sits behind a guard and the load of any
+     library it needs cannot abort the usage path.
+  2. **An unreadable seam prints the seam's own location** — the file and the variable — in place
+     of the value. The operator learns where to look, which is the whole job of usage text.
+  3. **It NEVER prints the kit's shipped default as a stand-in.** This is the rule with a scar
+     behind it: a list that is correct about the kit and wrong about the project reads as
+     authoritative and is unfalsifiable from the operator's seat. **A guess is worse than a blank
+     here**, because the blank sends them to the seam and the guess sends them to a role their own
+     tools will refuse.
+
+  *Why this is stated in the contract and not only in the library that implements it:* the defect
+  it prevents shipped once already (`changes/263` — `move-issue.sh --help` advertised four roles its
+  own `--role` arm rejected on every tree that narrowed its role set, because the header carried a
+  second, space-padded copy that the initializer's matcher could not see). **The remedy was one
+  fewer copy, not a better matcher**, and the reason a rendered value is safe is only true while
+  the three rules above hold. A policy that lives in the renderer is a policy the next renderer
+  will not inherit.
 - **An unrecognised option ⇒ refuse, non-zero, naming it** — never ignored, never treated as a
   positional value. **Refuse with ONE exit status across every script the kit ships**, and in this
   kit that status is **2**: a caller scripting against the set cannot branch on a status that means

@@ -24,7 +24,7 @@
 #   ./scripts/move-issue.sh <ID> <target> --role <R> [--note "..."] [--discard-dirty] [--set-pr <val>]
 #   ./scripts/move-issue.sh <ID> --note-only --role <R> --note "..."   # record WITHOUT moving
 #
-#   <R> = PM | Dev | QA | Refactorer | UIDesigner | Orchestrator | Architect
+#   <R> = @ROLE_SET@
 #
 # TWO OPERATIONS, and they are not a flag apart — they are different acts:
 #   A MOVE changes the card's container, which IS its status, and records that it
@@ -117,7 +117,40 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
-usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+# THE ROLE SET IN THE HEADER IS A TOKEN, EXPANDED HERE FROM THE SEAM — `changes/263`.
+# The header used to carry the list literally, SPACE-PADDED, while the enforcement arm below
+# carried it unpadded. `kit-init --roles` finds seams to stamp with `grep -lF` on the unpadded
+# shape, so it rewrote the enforcement and could not see the header: every adopter who narrowed
+# their role set got a `--help` advertising roles this script refuses. One authoring site — the
+# hook — read at print time, so there is no second shape for the matcher to learn and nothing to
+# stamp. `scripts/lib/role-set.sh` owns the read (process/EXTRACTION.md § 2.4).
+#
+# SOURCED UNDER A GUARD, and that is not defensiveness. This file runs `set -euo pipefail`, so an
+# unguarded `.` of a missing library aborts — and it would abort ON THE USAGE PATH, which
+# `contracts/issue-creation.md` § 3 says must ALWAYS succeed. verify.sh's loader carries the same
+# guard for the same reason. A `--help` that dies with rc=1 because a library moved is a worse
+# failure than the one this whole change is about.
+# shellcheck source=lib/role-set.sh
+[ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
+
+usage() {   # the path is an ARGUMENT — see lib/usage.sh
+  local roles tok='@ROLE_SET@'
+  if command -v kit_role_display >/dev/null 2>&1; then
+    roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
+  fi
+  # EVERY DEGRADATION NAMES THE SEAM, never the shipped set: a guess that is right about the kit
+  # and wrong about this project is the defect being removed, not a fallback from it.
+  [ -n "${roles:-}" ] \
+    || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
+  # SUBSTITUTED BY POSITION, NOT BY PATTERN. The replacement is a role set read out of a
+  # project's own hook; `sed` would read a `|`-bearing replacement through its delimiter rules and
+  # awk's gsub would read a `&` as the whole match. index/substr interprets nothing, which is the
+  # same reason the creation scripts hand hostile values to their templates this way.
+  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
+    { i = index($0, t)
+      if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
+      else   print }'
+}
 
 # --help ALWAYS SUCCEEDS, and has to be answered BEFORE the arity check. A bare
 # `--help` is ONE argument, so the guard below swallowed it and exited 1 with usage

@@ -543,7 +543,7 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 | File | Register | Stamped? | What it holds | Note |
 |---|---|---|---|---|
 | `scripts/githooks/commit-msg` | **ENFORCING** | yes | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded. **This row is the source the other enforcing rows are stamped FROM** |
-| `scripts/move-issue.sh` | **ENFORCING** | yes | The acting-role whitelist, plus the same list in its usage text and its error messages | A role missing here cannot move the board **at all** |
+| `scripts/move-issue.sh` | **ENFORCING** | yes | The acting-role whitelist and its two error messages. **Its usage text no longer carries a copy**: `--help` renders the set from the hook at print time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_display` (`changes/263`) | A role missing here cannot move the board **at all**. **The usage copy was here until 2026-09-07 and was SPACE-PADDED**, so `grep -lF` could not see it: the whitelist was stamped, the header was not, and the script advertised four roles it refused on every tree that narrowed its set. **A `Stamped? yes` that is true of two copies in a file and false of a third is what a per-file column cannot express** — which is why the recipe below now runs in both directions |
 | `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
 | `scripts/subtask.sh` | **ENFORCING** | yes | The acting-role whitelist on its `move` arm | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the git-mv plus the Activity append are left uncommitted in the shared kanban worktree that the next board op `reset --hard`s. **This is the row that was missing from the initializer's hand-typed list**, so a renamed project got a subtask tool that rejected every role it had just declared |
 | `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | **This row was missing while the table above called itself "the list", which is the drift this section is about happening to this section.** The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
@@ -558,6 +558,80 @@ ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" scripts/githooks/commit-msg | h
 grep -lF -- "$ROLES" scripts/*.sh scripts/githooks/*        # the ENFORCING register
 grep -rlE -- "$ROLES" .claude/                              # who MENTIONS a role
 ```
+
+**BOTH DIRECTIONS OR NEITHER, and the second one is the one this recipe was missing.** *Does the
+correct list appear* is a different question from *does an incorrect one survive*, and only the
+first was ever asked. After `kit-init --roles` has run, the survival question is the one that
+matters:
+
+```sh
+# THE NEGATIVE DIRECTION, and it is SHAPE-INSENSITIVE on purpose: find every alternation of
+# role-shaped tokens anywhere in the tree, normalize the spacing away, and report the ones that
+# are NOT the declared set. Not "does the old set survive" — the old set is whatever it was, and
+# after a rename nobody remembers it. The question is: does anything here disagree with the hook?
+grep -rnoE '[A-Z][A-Za-z]+([[:space:]]*\|[[:space:]]*[A-Z][A-Za-z]+){2,}' \
+     scripts consumers setup.sh .claude 2>/dev/null \
+  | awk -v ok="$ROLES" -F: '
+      BEGIN { n = split(ok, M, "|"); for (i = 1; i <= n; i++) mem[M[i]] = 1 }
+      { a = $0; sub(/^[^:]*:[^:]*:/, "", a)
+        gsub(/[[:space:]]*\|[[:space:]]*/, "|", a)
+        if (a == ok) next                                  # agrees with the hook
+        k = split(a, T, "|")                               # …otherwise: is it a ROLE set at all?
+        for (i = 1; i <= k; i++) if (T[i] in mem) { print; next } }'
+```
+
+**THE MEMBERSHIP TEST IN THAT `BEGIN` BLOCK IS NOT TIDINESS, and it is derived rather than typed.**
+Without it the search returns every markdown table header in the tree — `| Chunk | Covers |
+Entries |` is the same shape as a role alternation — and a recipe that reports forty lines to find
+two is a recipe nobody runs twice. Keeping only alternations that **share at least one member with
+the declared set** is what separates a candidate role set from a table, and it needs no name list:
+the discriminator is the hook.
+
+*What it legitimately reports, and why neither is filtered away: the harness holds the SHIPPED set
+deliberately, as the value it asserts the kit ships, and it holds fixture sets that are nobody's
+project. Read the hits. **Do not add an exclusion list** — that is the shape this whole section is
+about, and the two real defects below were found by reading four lines rather than by trusting a
+filter.*
+
+**Measured 2026-09-07 on a tree built by the kit's own tools and narrowed with
+`kit-init --roles`, this recipe returned four lines and two were defects** — one of them the
+`move-issue.sh` row above, and one nobody had looked for:
+
+| hit | verdict |
+|---|---|
+| `scripts/move-issue.sh` — the set **space-padded** in the `--help` header | `changes/263`. Fixed: the header renders from the hook |
+| `scripts/subtask.sh` — `[--role Orchestrator\|Dev\|QA]` in its usage line | **A SECOND INSTANCE IN A THIRD SHAPE.** Not the padded full set but a **partial subset**, so `grep -lF` cannot match it either. `subtask.sh --help` advertises `Orchestrator` and its own `move` arm refuses it on every narrowed tree. `changes/273` |
+| `scripts/test/run.sh` × 2 | Correct. The harness holds the shipped set as the value it asserts, and a fixture set that is nobody's project |
+
+**So the class is not "a padded copy" — it is "a copy in any shape the stamper's matcher does not
+produce",** and there is no reason to think three shapes is the end of the list. That is the
+argument for rendering from the seam instead of matching harder.
+
+**And a literal search is SHAPE-SENSITIVE, which is how the class survives a green run.**
+`grep -lF -- "$ROLES"` matches one spelling of the set. `changes/263` was a second copy of the same
+list written `PM | Dev | QA | …` — space-padded, in the same file as a copy that matched — so the
+file appeared in the register, was stamped, and kept a stale list anyway. **A derivation cannot
+detect a copy in a shape it does not match, and it reports the file as handled either way.**
+
+So the register is checked by **two derivations that do not share a matcher**, and a disagreement
+between them is the finding — never a reason to widen one of them until they agree:
+
+| derivation | what it sees | what it is blind to |
+|---|---|---|
+| `grep -lF -- "$ROLES"` | the set in exactly the shipped spelling | any other spacing, any partial copy, any copy assembled at runtime |
+| the tool's OWN OUTPUT — run `--help` and read what it prints | what the operator is actually told, whatever produced it | a copy that is never printed |
+
+*The second one is why `scripts/test/run.sh` now carries
+`case_move_issue_help_matches_its_role_enforcement`: it parses the advertised set out of `--help`
+and compares it to what `kit-init` was told on its command line, so neither operand is read through
+an expression the kit ships. **The case that already asserted "no seam keeps the old set" could not
+catch this**, because it derives its own operand set with `grep -lF` — the initializer's matcher.
+An instrument that verifies with the subject's derivation shares the subject's blind spot by
+construction; see [`doctrine/instruments.md`](doctrine/instruments.md) § A.4.*
+
+**The remedy of first resort is not a better matcher — it is one fewer copy.** A list that is
+rendered from the seam at print time cannot drift and needs no stamping, which is why the usage
+text in the table above is now a renderer rather than a row to keep in step.
 
 **THE GLOB IS NON-RECURSIVE AND THAT IS LOAD-BEARING, not brevity.** Measured 2026-09-02: `grep -rlF`
 over `scripts/` returns the enforcing seams **plus `scripts/test/run.sh`** — the harness, which

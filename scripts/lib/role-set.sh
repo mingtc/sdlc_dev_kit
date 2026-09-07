@@ -32,6 +32,33 @@ kit_role_set() {
   sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$1/scripts/githooks/commit-msg" 2>/dev/null | head -1
 }
 
+# kit_role_display <repo-root> — the declared set rendered FOR USAGE TEXT, or, when the seam
+# cannot be read, a sentence naming the seam. NEVER empty and NEVER a failure.
+#
+# WHY THIS IS A RENDERER AND NOT A SECOND COPY. A script's usage text has to tell the operator
+# which roles are legal, and the obvious way to do that — type the list into the header — is what
+# `changes/263` was filed about: `move-issue.sh` carried the set space-padded in its `--help`
+# header and unpadded in its enforcement, `kit-init --roles` stamps by `grep -lF` on the unpadded
+# shape, so the enforcement moved and the header did not. The same script then advertised four
+# roles it refused, on every adopted tree. The fix is not a second shape for the matcher to
+# learn; it is one authoring site — the seam — read at print time.
+#
+# WHY IT DEGRADES TO NAMING THE SEAM RATHER THAN TO A GUESS OR AN ERROR. A usage request must
+# ALWAYS succeed (`process/contracts/issue-creation.md` § 3), so this cannot fail. It must also
+# not GUESS: printing the kit's shipped set on a tree whose seam is unreadable would reproduce
+# exactly the defect above — a list that is right about the kit and wrong about this project.
+# Naming the seam is the only answer that is true on every tree. The caller's own `--help` is
+# still complete and still exits 0; one line of it says where to look instead of what to type.
+kit_role_display() {
+  local set_
+  set_="$(kit_role_set "$1" 2>/dev/null || true)"
+  if [ -n "$set_" ]; then
+    printf '%s' "$set_" | sed 's/|/ | /g'
+  else
+    printf 'as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — unreadable from here, so not listed'
+  fi
+}
+
 # kit_require_role <repo-root> <tag> <knob-name> — refuse, on stderr, with status 1, if
 # <tag> is not a member of the declared set. Silent and 0 when it is.
 #
