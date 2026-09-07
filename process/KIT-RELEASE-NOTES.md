@@ -93,7 +93,8 @@ columns and never the cards.*
 ## [Unreleased]
 
 - **Every refusal that could not load its configuration or one of its libraries claimed to cover
-  something it cannot, and they now say what they actually check.** When a shipped script cannot load `scripts/config.sh` or one of the three
+  something it cannot, and they now say what they actually check.** When a shipped script cannot
+  load `scripts/config.sh` or one of the three
   libraries under `scripts/lib/`, it refuses with *"…is missing or could not be sourced."* **Measured:
   the second half never happens.** A file that exists but cannot be sourced — a truncated copy, a
   partial write, an edit that broke the syntax — **aborts the script from inside the load, before the
