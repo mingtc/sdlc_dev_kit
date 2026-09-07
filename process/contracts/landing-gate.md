@@ -14,6 +14,11 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   re-check** then runs **immediately before the merge, on the tree that is about to land**, and
   its floor is the project's **fast, unskippable** subset — a subset the project **declares**, so
   it can be neither chosen by the caller nor quietly reduced to nothing.
+  **Which tree each layer reads is not this sheet's to define** — the review gate runs against the
+  **work branch** in the reviewer's own checkout, while the board move recording the verdict happens
+  in the auxiliary trunk checkout. That split is
+  [kanban-worktree.md](kanban-worktree.md) § 1, cited rather than restated so the two sheets cannot
+  drift into disagreeing about one moment.
   *Why:* a branch that was green yesterday and a trunk that moved since are two different trees,
   and only one of them is the one you are shipping — so *something* must run at merge time. But
   requiring the full run **twice** buys a second copy of a verdict the review just produced, at a

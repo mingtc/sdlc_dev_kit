@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The auxiliary-checkout contract now says which tree a reviewer reads.** Two sheets each held
+  half of one moment: `kanban-worktree.md` described the standing checkout and never mentioned a
+  reviewer; `landing-gate.md` described the review-to-land transition and never mentioned a
+  worktree — so a reimplementer working from either learned what the checkout is for and never
+  learned who was reading what while it was used. **`kanban-worktree.md` § 1 now owns the split**
+  (the reviewer reads the work branch; the board move recording the verdict happens in the
+  auxiliary checkout) and `landing-gate.md` cites it rather than restating it. No invariant
+  changed and no behaviour changed: this is a gap in the language-agnostic law, not in the tools.
+
 - **The downtime queue now says what sends work to it.** `dev/downtime-queue.md` shipped with its
   purpose, its three binding clauses and its removal discipline, and never said what earns a **row**
   instead of a **card** — so it went unused through a whole adoption beside a backlog its own author

@@ -6,6 +6,23 @@
 To let **board changes land on the trunk while the operator's own workspace sits anywhere** — on
 a work branch, mid-edit, dirty — without ever touching that workspace.
 
+**THE COMMONEST CASE OF "anywhere" IS A REVIEW, and this sheet owns saying so.** During a review the
+two trees have different jobs at the same moment: **the reviewer reads the WORK BRANCH** — checked
+out in their own workspace — **while the board move that records the verdict happens HERE**, in this
+checkout, on the trunk. They are not alternatives and neither is the "real" one. **How the reviewing role does
+that is authored where that role is described** — in the stock harness, `.claude/roles/qa.md`, named
+rather than linked because these sheets are the route for an adopter who takes none of it. What
+belongs *here* is the fact that **an operation spans two trees at all**, which is the split this
+sheet exists for.
+
+*Why it is stated here and nowhere else, and it is a finding rather than a preference:* measured
+across the sheets that describe operations spanning two trees, **each held exactly half the
+situation** — this one described worktrees and never mentioned a reviewer; the landing sheet
+described the review-to-land transition and never mentioned a worktree. **Neither knew it was
+describing the same moment**, which is why no sheet noticed the question existed. A reimplementer
+working from this sheet alone learned what the standing checkout is for and never learned who was
+reading what while it was used.
+
 **AND, SAID PLAINLY BECAUSE ITS ABSENCE COST A PROJECT ITS TRUNK: it is FOR BOARD FILES, and it is
 not a spare checkout.** It is the only checkout sitting on the trunk while the main one is on a work
 branch, which makes it look like a convenient clean tree — and everything written about it described
