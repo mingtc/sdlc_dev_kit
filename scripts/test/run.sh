@@ -885,6 +885,41 @@ NEU_SEAM_EOF
     [ -z "$still" ] \
       || _fixture_die "_neu_roles: $(printf '%s' "$still" | tr '\n' ' ')still carr(y|ies) the adopter's role set '$cur' after the reset — the neutralization reached some seams and not others, and the cases judging --role literals against the shipped set would redden as though the tools were broken."
   fi
+  # ── AND A SECOND DERIVATION THAT SHARES NO MATCHER WITH THE REWRITE. The check above uses
+  #    `grep -lF -- "$cur"` — the SAME expression that chose what to rewrite — so it cannot see
+  #    anything the rewrite could not see. A file carrying the set in a shape that matcher does not
+  #    produce is neither reset nor reported, and this fixture returns success. That is exactly the
+  #    defect the role-set work removed from the PRODUCT (a space-padded copy that `grep -lF` could
+  #    not match, so the enforcement moved and the header did not), surviving here in the fixture
+  #    that neutralizes for it. Derive twice, independently, and compare.
+  #
+  #    THE SECOND DERIVATION IS SHAPE-INSENSITIVE and keyed on the PROPERTY rather than on the
+  #    value: any alternation of capitalized words that shares a member with the shipped set and is
+  #    not the shipped set. It normalizes the spacing around the separators first, which is what
+  #    makes it blind to the padding the literal matcher is blind to.
+  #
+  #    THE REWRITE STAYS LITERAL, deliberately — a loose matcher driving a global substitution is
+  #    how substrings get corrupted, which kit-init's stamping loop already argues at its own glob.
+  #    The asymmetry is the point: narrow to CHANGE, wide to CHECK.
+  #
+  #    MEASURED before it was wired, because a die here aborts every case that builds a sandbox:
+  #    0 hits on the shipped tree, 4 on a tree narrowed by `kit-init --roles` (the state this
+  #    function is handed), and 0 again after a correct reset. The middle number is the one that
+  #    proves it can see; the outer two are the ones that prove it will not fire on a good tree.
+  local shaped
+  shaped="$(
+    { grep -rnoE '[A-Z][A-Za-z]+([[:space:]]*\|[[:space:]]*[A-Z][A-Za-z]+){1,}' \
+           "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } \
+    | awk -v ok="$KIT_NEUTRAL_ROLE_PREFIXES" '
+        BEGIN { n = split(ok, M, "|"); for (i = 1; i <= n; i++) mem[M[i]] = 1 }
+        { a = $0; sub(/^[^:]*:[^:]*:/, "", a)
+          gsub(/[[:space:]]*\|[[:space:]]*/, "|", a)
+          if (a == ok) next
+          k = split(a, T, "|")
+          for (i = 1; i <= k; i++) if (T[i] in mem) { print; next } }' \
+    | sort -u )"
+  [ -z "$shaped" ] \
+    || _fixture_die "_neu_roles: a role-set alternation survives the reset in a shape the literal matcher cannot see, so the rewrite missed it AND the check above passed: $(printf '%s' "$shaped" | sed "s@$SB_WORK/@@g" | tr '\n' ' ' | cut -c1-300) — the cases judging --role literals against the shipped set would redden as though the tools were broken."
 }
 
 _kit_neutral_config() {
