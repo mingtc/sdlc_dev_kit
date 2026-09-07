@@ -413,8 +413,41 @@ make_sandbox() {
   git -C "$SB_WORK" config commit.gpgsign false              >/dev/null 2>&1
 
   # Copy the scripts-under-test in (never symlink — the sandbox must own them so
-  # they resolve the sandbox as their root). Drop this test dir to avoid recursion.
+  # they resolve the sandbox as their root).
   cp -R "$REAL_SCRIPTS" "$SB_WORK/scripts"
+
+  # ...AND THE REST OF THE SHIPPED EXECUTABLE SURFACE, because a case that EXECUTES a shipped
+  # tool can only reach a tool the sandbox carries. Until this line, the sandbox held `scripts/`
+  # and nothing else, so `consumers/` and `setup.sh` — shipped programs an adopter can run — had
+  # never been executed by this harness at all. That was not a decision; it was the shape of one
+  # `cp -R`. `case_cli_shape_across_the_shipped_set` named them on every run as a HOLE rather
+  # than an exemption, which is the distinction that kept arguing after its author moved on.
+  #
+  # GUARDED, because an adopter may legitimately have deleted either: the kit is a copy that
+  # becomes theirs. A missing one is not this fixture's business — the population accounting in
+  # case_cli_shape_across_the_shipped_set is what reports a shipped program that went missing.
+  #
+  # WHAT IS DELIBERATELY *NOT* COPIED: `.claude/`, `process/`, `docs/` and the root documents.
+  # Cases that need `.claude/templates` or `.claude/roles` build them themselves (kit_init_sandbox
+  # does, and several cases copy the templates directly), and a wholesale copy would make those
+  # fixtures redundant and ambiguous while reaching no tool that this pair does not. Cases that
+  # read `process/` read it from the REAL tree on purpose, because it is the shipped text they
+  # are judging rather than a mutable copy.
+  [ -d "$REAL_REPO_ROOT/consumers" ] && cp -R "$REAL_REPO_ROOT/consumers" "$SB_WORK/consumers"
+  [ -f "$REAL_REPO_ROOT/setup.sh" ]  && cp "$REAL_REPO_ROOT/setup.sh" "$SB_WORK/setup.sh"
+
+  # THIS HOLE IS DELIBERATE AND IT IS THE ONLY ONE LEFT, so it says why rather than reading as
+  # the same oversight the two lines above just fixed. A sandbox containing this harness would
+  # let a case execute the harness inside the harness: `scripts/test/run.sh` builds sandboxes,
+  # tears them down and asserts over the real tree, so a nested run would create sandboxes
+  # inside a sandbox that the outer teardown then removes underneath it, and its own
+  # case_isolation would be measuring a tree the outer run is actively rewriting. There is no
+  # ordering that makes that meaningful.
+  # WHAT IT COSTS, NAMED: `scripts/test/run.sh` is a shipped program bound by the CLI contract
+  # and nothing here exercises it. That is reported on every run by
+  # case_cli_shape_across_the_shipped_set's unreached list, and the guard that keeps its
+  # EXECUTABLE BIT honest lives in the builder rather than here, for the reason a harness that
+  # cannot run cannot assert its own executability.
   rm -rf "$SB_WORK/scripts/test"
   # ...and reset every CONFIG-BLOCK seam that `cp` just carried in. The copy above
   # is what brings the adopter's configuration into the sandbox; this is the line

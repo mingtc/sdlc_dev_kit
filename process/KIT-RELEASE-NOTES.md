@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test now exercises `consumers/` and `setup.sh`, which it had never run.** Its sandbox
+  carried only `scripts/`, so the four shipped programs outside that directory — the three consumer
+  helpers and `setup.sh` — were bound by the kit's CLI contract and never executed by anything.
+  They pass it, measured; what changes is that nothing kept them passing before and now something
+  does. **No action required.** If you have edited any of them, the self-test will now check that a
+  usage request succeeds and names the tool, and that an unrecognised option exits 2 and names the
+  option — so a local change that broke either will show up as a failure rather than as silence.
+  **`scripts/test/run.sh` is still not exercised by itself** and says so in that case's own result
+  line: a sandbox containing the harness would let it run inside itself.
+
 - **The self-test now checks its own premise about your root documents, and on an adopted tree it
   says what it is NOT checking.** The case that holds the scaffolding sentinel's authors together
   decides which of `CLAUDE.md` and `README.md` to measure by reading each file's first line: a
