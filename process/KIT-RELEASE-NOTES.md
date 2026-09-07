@@ -46,6 +46,20 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Action required: your `PROJECT.md` liveness row becomes two, and `N/A` is no longer a legal
+  answer to one of them.** The liveness ritual was one thing scoped by duration — *any run expected
+  to outlast a human's attention* — so a project with no long runs could read that honestly and
+  declare the whole thing not applicable. One did. **What then went wrong was not a run hanging; it
+  was work stopping, three times, with nobody watching.** So the contract now names two rituals:
+  **duration** (is this long run alive?), which you may legitimately mark N/A, and **absence** (has
+  work stopped moving?), which no project can. Fill both rows. The absence signal is the **newest
+  commit across every head on your remote** — not `HEAD`, which is one branch in one worktree and
+  reported *697 minutes since anything moved* in a project where the true answer was one minute. And
+  it needs **a reader that is not the party being watched**: `scripts/notify/stall.sh` ships as the
+  smallest one, opt-in, with no default threshold — the threshold belongs to your run's declared
+  cadence, and an alarm on a borrowed number gets muted, which is worse than none because it reads
+  as armed.
+
 - **Action required if you publish without a build: declare what ships.** `scripts/release.sh` has a
   new `SHIP_MANIFEST` seam — a file of `<sha256>  <path>` lines naming what your project intends to
   hand out — and a new preflight gate (g) that checks it before anything is written. **If

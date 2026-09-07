@@ -100,7 +100,8 @@ command yet, write `TODO` rather than deleting the row, so the gap stays visible
 | The role gate | `<how a hat is declared>` | [`process/contracts/role-gate.md`](process/contracts/role-gate.md) |
 | Outbound notification (optional — silent when unconfigured) | `<e.g. ./scripts/notify.sh>` | [`process/contracts/notification.md`](process/contracts/notification.md) |
 | The process self-test harness | `<e.g. ./scripts/test/run.sh>` | [`process/contracts/self-test-harness.md`](process/contracts/self-test-harness.md) |
-| The liveness / watchdog ritual (a discipline, not a program) | `<how a long run is watched>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) |
+| Liveness (i) — DURATION: is a long run still alive? | `<how a long run is watched, or N/A with the reason>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) § 1a |
+| Liveness (ii) — ABSENCE: has work stopped moving? **N/A is not a legal answer here** | `<what reads the remote's freshest ref, at what threshold, and who it reaches>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) § 2a |
 | The acceptance tier (a lens, never a gate — **no shipped implementation**) | `<how membership is marked in your runner — or "not adopted">` | [`process/contracts/acceptance-tier.md`](process/contracts/acceptance-tier.md) |
 | Retention completeness (only if you retire documents under a ledger) | `<e.g. the pre-commit hook — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
 

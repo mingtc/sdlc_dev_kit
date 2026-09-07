@@ -43,7 +43,7 @@ transcribed census (see [`../EXTRACTION.md`](../EXTRACTION.md) § The one rule a
 | The drift report | [drift-report.md](drift-report.md) | one check per invariant, including day-one completeness |
 | The auxiliary trunk checkout | [kanban-worktree.md](kanban-worktree.md) | publish to the trunk from anywhere |
 | The release ritual | [release-ritual.md](release-ritual.md) | gates before the bump, publish after the push (MIXED — kit half only) |
-| The liveness / watchdog ritual | [liveness-watchdog.md](liveness-watchdog.md) | a discipline, not a program |
+| The liveness / watchdog ritual — TWO, split by scope (§ 1a) | [liveness-watchdog.md](liveness-watchdog.md) | duration: a discipline; absence: `scripts/notify/stall.sh` |
 | The configuration seam | [config-seam.md](config-seam.md) | one definition per adopter value |
 | The initializer | [initializer.md](initializer.md) | configure, then **prove** |
 | The role gate | [role-gate.md](role-gate.md) | declare the hat before mutating |

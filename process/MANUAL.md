@@ -137,7 +137,8 @@ version control by the initializer, not left for each actor to discover
    > **Which skills exist is a project decision** —
    > when this manual names one it is naming a *practice*, and a project without that skill
    > directory still owes the practice.
-4. **Long-run liveness discipline.** Any background run expected to exceed ~30 minutes gets a
+4. **Liveness discipline, and it is TWO rituals with different scopes.** **(i) DURATION —
+   *is this long run still alive?*** Any background run expected to exceed ~30 minutes gets a
    **watchdog armed at launch**, and liveness = **artifact freshness, never absence-of-news** —
    a hang is silent, so only growth proves life. Key the watchdog on a signal that actually
    moves mid-run: a workflow's transcript-file mtimes (**resolve symlinks first — `stat -L`**; a
@@ -149,7 +150,21 @@ version control by the initializer, not left for each actor to discover
    sleep — distinguish sleep from hang (a longer CPU-delta window, open connections, a stack
    sample) before reporting anything. Every status statement about an unfinished run rests on a
    fresh probe: *"no news sometimes is not good news."*
-   (The contract sheet is [`contracts/liveness-watchdog.md`](contracts/liveness-watchdog.md).)
+   **(ii) ABSENCE — *has work stopped moving?* This one is N/A for nobody, and the ~30 minutes
+   above does not scope it.** Its signal is the **newest committer date across every head on the
+   remote** — never `HEAD`, never the checkout: `HEAD` is one branch in one worktree, and this
+   process moves work between refs constantly. Measured at one instant in a project of this shape:
+   **697 minutes since `HEAD` moved, 1 minute since anything moved.** The signal must be a
+   **by-product of work** — an empty commit or a heartbeat line moves it, and a check you can
+   satisfy by editing the answer is not one. The threshold is **relative to the run's declared
+   cadence**, never a fixed number. **And it needs a reader that is not the party being watched**:
+   a signal nobody reads is absence-of-news one level up, which is what the discipline it replaces
+   already forbade. `scripts/notify/stall.sh` is the shipped one.
+   *Why two:* a project read the ~30-minute scope honestly, had no runs that long, declared the
+   ritual not applicable — and the failure that arrived was not a hang but work stopping, three
+   times, with nobody watching.
+   (The contract sheet is [`contracts/liveness-watchdog.md`](contracts/liveness-watchdog.md), and
+   its § 1a is the split.)
 5. **Preserve the reason, supersede only the conclusion.** When new evidence overturns a
    recorded decision, amend it — do not erase it — per
    [`doctrine/supersession.md`](doctrine/supersession.md), which is the **single statement** of
