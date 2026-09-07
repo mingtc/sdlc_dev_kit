@@ -3315,6 +3315,12 @@ case_config_seam_refusal() {
       # new-prd.sh takes <slug> and no --id, and its seam is PRD_PREFIX rather than
       # ISSUE_PREFIX — the one consumer whose output lands in requirements/.
       new-prd.sh)      out="$( cd "$SB_WORK" && env -u PRD_PREFIX "$SB_WORK/scripts/$s" someslug 2>&1 )"; rc=$? ;;
+      # subtask.sh joined this census when it gained a seam guard of its own, and its arm is
+      # the BARE invocation — deliberately, and it is the arm least likely to rot. It sources the
+      # seam before it dispatches a subcommand, so a bare call reaches the sourcing failure rather
+      # than a usage error; verified by line order and by running it. No `env -u ISSUE_PREFIX`
+      # either: this is the one member that reads NO prefix, and unsetting one would imply it did.
+      subtask.sh)      out="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s" 2>&1 )"; rc=$? ;;
       # The three creators that share one shape. NAMED rather than left to a catch-all, for the
       # reason the `*)` arm below now states.
       new-bug.sh|new-issue.sh|new-refactor.sh)

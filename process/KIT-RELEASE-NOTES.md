@@ -83,6 +83,18 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **`scripts/subtask.sh` now tells you what happened when `scripts/config.sh` cannot be read.**
+  Every other script that reads the configuration seam already refused with a named cause; this one
+  sourced it bare, so a missing `config.sh` gave you a shell diagnostic — a path and a line number —
+  instead of an explanation. It now names the file, cites
+  [`process/contracts/config-seam.md`](contracts/config-seam.md), says that it reads **no prefix**
+  from the seam so there is nothing for you to guess at, and gives you both ways back: restore the
+  file on a tree that had it, or initialize the kit on a fresh repository. **No action required, and
+  no correct tree behaves any differently** — this changes only what a broken one tells you.
+  **Worth knowing if you upgrade file by file:** `config.sh` is one of the files an upgrade replaces,
+  which is how a tree reaches this state, and `subtask.sh` was the one tool that would not have said
+  so.
+
 - **`EXTRACTION.md` gains a register of VALUE-KIND markers, and `KIT-CLASS:` is its first entry and
   its model.** A value-kind marker answers what no amount of reading a value will answer — what
   kind of thing it is, therefore who owns it and what may be derived from it. **The obligation is

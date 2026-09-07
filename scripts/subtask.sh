@@ -60,12 +60,48 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/role-set.sh"
 
 # config.sh is loaded for its SHARED VALIDATORS, not for a prefix — this script consumes
-# none. Unguarded, like the two libraries above: `set -e` aborts loudly on a missing file,
-# and the six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT
+# none. The six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT
 # copied here, because pasting a guard for a value this script never reads would add a
-# seventh copy of it while fixing a second-copy defect.
+# seventh copy of it while fixing a second-copy defect. Both of those remain true.
+#
+# BUT IT IS GUARDED, AND NOT LIKE THE LIBRARIES ABOVE — a correction to what this comment
+# used to say. It read "Unguarded, like the two libraries above: `set -e` aborts loudly on
+# a missing file." The libraries part was a CLASSIFICATION, and it is the wrong one:
+# scripts/lib/* is sourced unguarded everywhere, including by the six, and nothing demands
+# a named cause of a library. `scripts/config.sh` is not in lib/. It is the CONFIGURATION
+# SEAM, and process/contracts/config-seam.md demands a named cause of anything that reads
+# it — whichever value that is, or none.
+#
+# AND "ABORTS LOUDLY" WAS TRUE ABOUT THE VOLUME AND FALSE ABOUT THE CONTENT. Measured on a
+# tree with the seam removed, this script printed:
+#     ./scripts/subtask.sh: line NN: /abs/path/scripts/config.sh: No such file or directory
+# A path and a line number: no cause, no contract, no remedy — from the one tool in the set
+# that did not say what had happened, while its six siblings explained. That state is
+# reachable by the kit's own documented upgrade, since config.sh is a file an upgrade
+# replaces (process/KIT-RELEASE-NOTES.md § How to upgrade).
+#
+# THE SHAPE IS THE SIX'S ON PURPOSE. It is the contract's discharge, not a house style, and
+# a guard written deliberately unlike its siblings is a worse artefact than the consistency
+# it buys. The `|| ! . "$CONFIG"` half is KEPT: it catches a file that is PRESENT and
+# unsourceable, which a bare `[ -f ]` does not, and which is precisely what an interrupted
+# upgrade leaves behind. Copying half a guard is how the next reader inherits a false sense
+# of coverage.
 # shellcheck source=config.sh
-. "$SCRIPT_DIR/config.sh"
+CONFIG="$SCRIPT_DIR/config.sh"
+if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
+  {
+    echo "Error: scripts/config.sh is missing or could not be sourced."
+    echo "       Looked for: $CONFIG"
+    echo "       It is the configuration SEAM, and this script sources it for the shared"
+    echo "       validators (process/contracts/config-seam.md). It reads no prefix from it,"
+    echo "       so there is nothing to guess and nothing to fall back to."
+    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree"
+    echo "       that HAD it. ON A FRESH REPO, initialize the kit instead (it refuses one"
+    echo "       that has already lived):"
+    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
+  } >&2
+  exit 1
+fi
 
 # The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
 # terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
