@@ -11,6 +11,7 @@
 #   ./scripts/release.sh 1.1.0 --publish-only            # re-publish the dist branch for an ALREADY-CUT tag
 #   ./scripts/release.sh 1.1.0 --publish-only --dry-run  # report that republish, push NOTHING
 #   ./scripts/release.sh 1.1.0 --no-fetch  # DECLARE an offline cut: the remote is NOT consulted
+#   ./scripts/release.sh --approve-shipped # review what SHIP_MANIFEST covers and re-record it (cuts nothing)
 #
 # WHAT IT DOES, in order (it ABORTS NONZERO on the first failure, BEFORE mutating
 # anything — a red preflight leaves the repo byte-for-byte untouched):
@@ -187,6 +188,38 @@ DIST_DOCS=(
 )
 DIST_BRANCH="${RELEASE_DIST_BRANCH:-dist}"
 
+# ── WHAT LEAVES THE BUILDING (gate g) ────────────────────────────────────────
+# A repo-relative path to a file of `<sha256>  <path>` lines — the paths this
+# project INTENDS to ship, listed positively.
+#
+# WHY THIS SEAM EXISTS, and it is the one thing on this sheet that has already
+# cost somebody something. A project whose program is a handful of source files
+# has no BUILD_COMMAND, so it has no DIST_ARTIFACT_GLOB, so the only thing it can
+# hand anyone is THE REPOSITORY — and a repository built by this process contains
+# the board: work cards, review notes, the running log. Those are written to be
+# candid. Measured, in a project running this kit: a release carried its authors'
+# frank assessments of two named colleagues toward one of their machines. Nothing
+# in the ritual was broken. There was simply nothing that said what may leave.
+#
+# SET IT AND THE MANIFEST IS THE BUILD. With BUILD_COMMAND empty and this set,
+# the publish step tars exactly the manifest's paths out of the TAG's tree. With
+# a BUILD_COMMAND, your artifact glob is already a positive allowlist and this
+# seam is optional — but if you declare it, gate (g) checks it.
+#
+# THE HASHES ARE NORMALISED AGAINST YOUR OWN VERSION BUMP. A release rewrites the
+# version inside files you may also ship, so a naive hash would fail every cut on
+# the change the cut itself makes. Gate (g) replaces the version value with a
+# placeholder before hashing, using the SAME expression that performs the bump,
+# and re-checks against a SIMULATED post-bump copy — so the state the tag will
+# carry is checked before anything is written.
+#
+# TO REVIEW AND RE-RECORD: run this script with --approve-shipped (no version). Written
+# without the `./scripts/` prefix on purpose — the SYNOPSIS window in the header above is
+# derived by matching lines shaped like `./scripts/release.sh <args>`, and a line of that
+# shape down here is not a usage example. Writing one moved the window's anchor out of the
+# header entirely and --help stopped printing its own last example; a shipped case caught it.
+SHIP_MANIFEST=""
+
 # ═════════════════════════════════════════════════════════════════════════════
 # END CONFIG BLOCK — the frame follows. Take it as-is.
 # ═════════════════════════════════════════════════════════════════════════════
@@ -230,12 +263,13 @@ usage() {
 }
 
 # ── Arg parse ────────────────────────────────────────────────────────────────
-RAW_VERSION=""; DRY_RUN=false; PUBLISH_ONLY=false; NO_FETCH=false
+RAW_VERSION=""; DRY_RUN=false; PUBLISH_ONLY=false; NO_FETCH=false; APPROVE_SHIPPED=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=true; shift ;;
     --publish-only) PUBLISH_ONLY=true; shift ;;
     --no-fetch) NO_FETCH=true; shift ;;
+    --approve-shipped) APPROVE_SHIPPED=true; shift ;;
     -h|--help) usage; exit 0 ;;
     --apply) { echo "release.sh: there is no --apply — this script MUTATES by default, which is the"
                echo "            opposite of the archive sweeps. Use --dry-run to run every gate and STOP."
@@ -248,8 +282,13 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$RAW_VERSION" ]; then
-  echo "release.sh: a target version is required (e.g. '1.1.0' or 'v1.1.0')." >&2
-  usage >&2; exit 2
+  # --approve-shipped is the one operation here that CUTS NOTHING: it re-records what the
+  # project ships once a person has looked at the diffs. Demanding a version for it would be
+  # demanding a release number in order to perform a review.
+  if [ "$APPROVE_SHIPPED" != true ]; then
+    echo "release.sh: a target version is required (e.g. '1.1.0' or 'v1.1.0')." >&2
+    usage >&2; exit 2
+  fi
 fi
 
 # THE PUBLICATION REMOTE HAS ONE SHARED NAME AND ONE NARROW OVERRIDE. `KWT_REMOTE` is
@@ -267,6 +306,127 @@ fi
 # URL in RELEASE_REMOTE if you must; never in KWT_REMOTE.
 REMOTE="${RELEASE_REMOTE:-${KWT_REMOTE:-origin}}"
 ROLE="${RELEASE_ROLE:-Architect}"
+
+# ── SHIP-MANIFEST MACHINERY. Defined above every preflight for two reasons: gate (g) below
+#    needs it, and --approve-shipped must run BEFORE the gates rather than after — the whole
+#    occasion for re-approving is that a shipped file HAS changed, so that command has to work
+#    on a dirty tree, and it takes no version because it cuts nothing.
+#
+# THE BUMP EXPRESSION HAS ONE AUTHORING SITE, and that is the entire reason it is a function.
+# Gate (g) must normalise the version out of a shipped file before hashing it, which means
+# writing the bump's own substitution a second time — and two parsers of one config drift.
+# Measured elsewhere: a normaliser that retyped the bump as replacing THE LINE, where the bump
+# replaces THE VALUE, and every cut then failed on the change the cut itself made. So the
+# expression is written once and both callers ask for it, differing only in what goes IN.
+_bump_expr() {  # <line-prefix> <quote> <replacement>  → prints the sed expression
+  local prefix="$1" q="$2" rep="$3"
+  if [ -n "$q" ]; then
+    printf 's|^%s%s[^%s]*%s|%s%s%s%s|' "$prefix" "$q" "$q" "$q" "$prefix" "$q" "$rep" "$q"
+  elif [ -n "$prefix" ]; then
+    # THIS ARM REWRITES THE REST OF THE LINE rather than a quoted value, and a normaliser
+    # mirroring it must do the same or the two disagree about every file that uses it.
+    printf 's|^%s.*|%s%s|' "$prefix" "$prefix" "$rep"
+  else
+    # No prefix AND no quote means "the line IS the version" (a plain VERSION file). The
+    # pattern is deliberately narrow — a bare `s|^.*|…|` would rewrite EVERY line, which is a
+    # destructive way to bump a one-line file and a catastrophic one to bump anything else.
+    printf 's|^[0-9][^[:space:]]*[[:space:]]*$|%s|' "$rep"
+  fi
+}
+_sha256_of() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  else printf 'NO-SHA256-TOOL-ON-THIS-HOST'; fi
+}
+_ship_manifest_paths() {
+  grep -v '^[[:space:]]*#' "$REPO_ROOT/$SHIP_MANIFEST" 2>/dev/null \
+    | awk 'NF{ $1=""; sub(/^[[:space:]]+/,""); print }'
+}
+_ship_recorded_hash() {  # <path> → the hash the manifest records for it
+  grep -v '^[[:space:]]*#' "$REPO_ROOT/$SHIP_MANIFEST" 2>/dev/null \
+    | awk -v p="$1" '{ h=$1; $1=""; sub(/^[[:space:]]+/,""); if ($0==p) print h }' | head -1
+}
+_ship_hash() {  # <file-on-disk> <its-repo-relative-path> → sha256, version normalised out
+  local f="$1" rel="$2" rec v_path v_rest prefix q tmp out
+  tmp="$(mktemp)"; cp "$f" "$tmp"
+  for rec in ${VERSION_FILES[@]+"${VERSION_FILES[@]}"}; do
+    v_path="${rec%%|*}"; v_rest="${rec#*|}"
+    [ "$v_rest" = "$rec" ] && continue
+    # Only normalise the file the record is ABOUT. Applying every record to every file would
+    # rewrite lines no bump would ever touch, and the hash would stop meaning anything.
+    [ "$rel" = "$v_path" ] || continue
+    prefix="${v_rest%%|*}"; q="${v_rest#*|}"; [ "$q" = "$v_rest" ] && q=""
+    sed "$(_bump_expr "$prefix" "$q" '@@KIT-VERSION@@')" "$tmp" > "$tmp.n" && mv "$tmp.n" "$tmp"
+  done
+  out="$(_sha256_of "$tmp")"; rm -f "$tmp" "$tmp.n" 2>/dev/null || true; printf '%s' "$out"
+}
+
+# ── --approve-shipped: re-record what may leave, after a person has looked. ───
+#
+# WHAT THE HASH PROVES AND WHAT IT DOES NOT. It proves somebody re-approved AFTER the change.
+# It cannot prove they read the diff, and this command says so rather than letting a green hash
+# imply a review that may not have happened. That limit is why the diffs are PRINTED rather
+# than summarised: the only real defence is that the list is short enough to read, and a
+# manifest that has outgrown that is telling you something about what you are shipping.
+if [ "$APPROVE_SHIPPED" = true ]; then
+  if [ -z "$SHIP_MANIFEST" ]; then
+    _as_out="release/shipped.sha256"
+    mkdir -p "$REPO_ROOT/$(dirname "$_as_out")"
+    {
+      echo "# What this project ships. One '<sha256>  <path>' line per file."
+      echo "# GENERATED FROM EVERY TRACKED FILE AS A STARTING POINT — a draft, not an answer."
+      echo "# DELETE EVERY LINE THAT MUST NOT LEAVE before setting SHIP_MANIFEST to this path."
+      echo "# progress/ is listed below and is the thing to think hardest about: this process"
+      echo "# fills it with candid review notes, by design."
+    } > "$REPO_ROOT/$_as_out"
+    _as_n=0
+    while IFS= read -r _as_f; do
+      [ -n "$_as_f" ] || continue
+      [ -f "$REPO_ROOT/$_as_f" ] || continue
+      [ "$_as_f" = "$_as_out" ] && continue
+      printf '%s  %s\n' "$(_ship_hash "$REPO_ROOT/$_as_f" "$_as_f")" "$_as_f" >> "$REPO_ROOT/$_as_out"
+      _as_n=$(( _as_n + 1 ))
+    done <<EOF
+$(git -C "$REPO_ROOT" ls-files)
+EOF
+    echo "release.sh: wrote a DRAFT manifest of $_as_n tracked file(s) to $_as_out."
+    echo "            It lists EVERYTHING. Read it, delete what must not leave, then set"
+    echo "            SHIP_MANIFEST=\"$_as_out\" in the config block. Nothing else was written."
+    exit 0
+  fi
+  [ -f "$REPO_ROOT/$SHIP_MANIFEST" ] \
+    || { echo "release.sh: SHIP_MANIFEST names '$SHIP_MANIFEST', which does not exist." >&2; exit 1; }
+  _as_changed=0
+  while IFS= read -r _as_f; do
+    [ -n "$_as_f" ] || continue
+    if [ ! -f "$REPO_ROOT/$_as_f" ]; then echo "── GONE     $_as_f"; _as_changed=$(( _as_changed + 1 )); continue; fi
+    if [ "$(_ship_recorded_hash "$_as_f")" != "$(_ship_hash "$REPO_ROOT/$_as_f" "$_as_f")" ]; then
+      _as_changed=$(( _as_changed + 1 ))
+      echo "── CHANGED  $_as_f"
+      git -C "$REPO_ROOT" --no-pager diff --no-color -- "$_as_f" | sed 's/^/    /' || true
+    fi
+  done <<EOF
+$(_ship_manifest_paths)
+EOF
+  if [ "$_as_changed" -eq 0 ]; then
+    echo "release.sh: no shipped file has changed since the manifest was approved. Nothing rewritten."
+    exit 0
+  fi
+  _as_tmp="$(mktemp)"
+  grep '^[[:space:]]*#' "$REPO_ROOT/$SHIP_MANIFEST" > "$_as_tmp" 2>/dev/null || true
+  while IFS= read -r _as_f; do
+    [ -n "$_as_f" ] || continue
+    [ -f "$REPO_ROOT/$_as_f" ] || continue
+    printf '%s  %s\n' "$(_ship_hash "$REPO_ROOT/$_as_f" "$_as_f")" "$_as_f" >> "$_as_tmp"
+  done <<EOF
+$(_ship_manifest_paths)
+EOF
+  mv "$_as_tmp" "$REPO_ROOT/$SHIP_MANIFEST"
+  echo
+  echo "release.sh: re-recorded $_as_changed changed path(s) in $SHIP_MANIFEST."
+  echo "            THIS RECORDS THAT YOU RE-APPROVED, NOT THAT YOU READ. The diffs are above."
+  exit 0
+fi
 
 # ── Preflight -1 (gate 0): A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER. ─
 # `self-test-harness.md` § 2: "a test-only relaxation of a production rule is
@@ -357,13 +517,20 @@ DIST_REMOTE_URL="$(git -C "$REPO_ROOT" remote get-url "$REMOTE" 2>/dev/null || e
 # ── The publish step, as a function so both the normal path and --publish-only
 #    call exactly the same code.
 publish_dist() {
-  local work tagtree distdir artifact rec src dst
+  local work tagtree distdir artifact rec src dst _pd_list
   if [ "$RELEASE_PUBLISH" != "true" ]; then
     echo "release.sh: publishing is not enabled for this project (RELEASE_PUBLISH=false in the config block)." >&2
     return 1
   fi
-  if [ -z "$BUILD_COMMAND" ] || [ -z "$DIST_ARTIFACT_GLOB" ]; then
-    echo "release.sh: RELEASE_PUBLISH is true but BUILD_COMMAND / DIST_ARTIFACT_GLOB are not declared." >&2
+  # WITH NO BUILD, THE MANIFEST IS THE BUILD — and this is the actual fix. A project whose
+  # program is a few source files has no build step, so this ritual used to have nothing to
+  # publish and the operator's only option was to hand over the repository whole. Now the
+  # declared manifest names what leaves and the publish step tars exactly those paths out of
+  # the TAG's tree: the same authority as a built artifact, from a project that cannot build one.
+  if [ -z "$BUILD_COMMAND" ] && [ -n "$SHIP_MANIFEST" ]; then
+    :
+  elif [ -z "$BUILD_COMMAND" ] || [ -z "$DIST_ARTIFACT_GLOB" ]; then
+    echo "release.sh: RELEASE_PUBLISH is true but neither a build (BUILD_COMMAND + DIST_ARTIFACT_GLOB) nor a SHIP_MANIFEST is declared, so there is nothing this ritual can honestly publish." >&2
     return 1
   fi
   work="$(mktemp -d)" || { echo "release.sh: could not create a temp dir for the publish step." >&2; return 1; }
@@ -379,13 +546,32 @@ publish_dist() {
   # Braces are load-bearing: an unbraced `$TAG…` is read as a variable named
   # `TAG…`, which under `set -u` aborts the script — it did once, and it took
   # every release case down with it.
-  echo "── publish: building at ${TAG}…"
-  # shellcheck disable=SC2086  # deliberate word-split of the declared build command
-  ( cd "$tagtree" && $BUILD_COMMAND "$work/out" ) >&2 \
-    || { echo "release.sh: the build at $TAG failed." >&2; return 1; }
-  # shellcheck disable=SC2086,SC2012
-  artifact="$(ls "$work"/out/$DIST_ARTIFACT_GLOB 2>/dev/null | head -1 || true)"
-  [ -n "$artifact" ] || { echo "release.sh: the build at $TAG produced nothing matching '$DIST_ARTIFACT_GLOB'." >&2; return 1; }
+  if [ -z "$BUILD_COMMAND" ]; then
+    # THE PATHS COME FROM THE TAG'S TREE, exactly as a build's would, so "the tag is
+    # authoritative" holds for a manifest project too. THE MANIFEST ITSELF IS READ FROM THE
+    # TAG as well: shipping the paths a LATER edit approved would defeat the point of gate (g)
+    # having checked the tag's state.
+    mkdir -p "$work/out"
+    artifact="$work/out/$(basename "$REPO_ROOT")-${TAG}.tar.gz"
+    [ -f "$tagtree/$SHIP_MANIFEST" ] \
+      || { echo "release.sh: $TAG does not carry '$SHIP_MANIFEST', so what it may ship cannot be read from the tag." >&2; return 1; }
+    _pd_list="$work/paths.txt"
+    grep -v '^[[:space:]]*#' "$tagtree/$SHIP_MANIFEST" \
+      | awk 'NF{ $1=""; sub(/^[[:space:]]+/,""); print }' > "$_pd_list"
+    [ -s "$_pd_list" ] \
+      || { echo "release.sh: the ship manifest at $TAG names no paths, so the tarball would be empty." >&2; return 1; }
+    echo "── publish: taring $(wc -l < "$_pd_list" | tr -d ' ') declared path(s) out of ${TAG}…"
+    ( cd "$tagtree" && tar -czf "$artifact" -T "$_pd_list" ) \
+      || { echo "release.sh: could not build the tarball from the ship manifest at $TAG." >&2; return 1; }
+  else
+    echo "── publish: building at ${TAG}…"
+    # shellcheck disable=SC2086  # deliberate word-split of the declared build command
+    ( cd "$tagtree" && $BUILD_COMMAND "$work/out" ) >&2 \
+      || { echo "release.sh: the build at $TAG failed." >&2; return 1; }
+    # shellcheck disable=SC2086,SC2012
+    artifact="$(ls "$work"/out/$DIST_ARTIFACT_GLOB 2>/dev/null | head -1 || true)"
+    [ -n "$artifact" ] || { echo "release.sh: the build at $TAG produced nothing matching '$DIST_ARTIFACT_GLOB'." >&2; return 1; }
+  fi
 
   distdir="$work/pub"
   mkdir -p "$distdir"
@@ -712,6 +898,96 @@ done
 
 echo "── preflight: all gates green ✓"
 
+# ── Preflight 8 (gate g): WHAT LEAVES THE BUILDING. ──────────────────────────
+#
+# Runs BEFORE any mutation, and that placement is the finding rather than a detail. The
+# measured failure this is written against ran its equivalent check at the tag — after the
+# push — so the first thing it could tell anybody was that an irreversible step had already
+# happened. A control over what ships must run against the state the ritual WILL produce,
+# which means the preflight has to SIMULATE the mutation rather than wait for it.
+if [ -z "$SHIP_MANIFEST" ]; then
+  # THE ONE CONFIGURATION THIS REFUSES, and it is exactly the one that has cost somebody
+  # something: publishing is ON, there is no build, so the only thing the ritual can hand
+  # anyone is the repository — and nothing says what of it may leave. A project WITH a build
+  # already declares a positive allowlist in DIST_ARTIFACT_GLOB, so requiring a second one
+  # there would be ceremony and is not required.
+  if [ "$RELEASE_PUBLISH" = "true" ] && [ -z "$BUILD_COMMAND" ]; then
+    {
+      echo "release.sh: REFUSING — RELEASE_PUBLISH is true, there is no BUILD_COMMAND, and"
+      echo "            SHIP_MANIFEST is empty. In that configuration the only thing this"
+      echo "            ritual can publish is your repository, and nothing declares what of"
+      echo "            it may leave — including progress/, which this process fills with"
+      echo "            candid review notes by design."
+      echo
+      echo "            Declare what ships, in three steps:"
+      echo "              1. draft the list:   ./scripts/release.sh --approve-shipped"
+      echo "              2. read it, and delete every path that must not leave"
+      echo "              3. set SHIP_MANIFEST to that file's path in the config block"
+      echo
+      echo "            Nothing was written."
+    } >&2
+    exit 1
+  fi
+  echo "  gate (g): no SHIP_MANIFEST declared — NOTHING was checked about what leaves. Publishing is $RELEASE_PUBLISH; the build is ${BUILD_COMMAND:-(none)}."
+else
+  [ -f "$REPO_ROOT/$SHIP_MANIFEST" ] \
+    || { echo "release.sh: SHIP_MANIFEST names '$SHIP_MANIFEST', which does not exist. Nothing was written." >&2; exit 1; }
+  _g_n=0; _g_missing=""; _g_changed=""; _g_self=""; _g_docs=""
+  while IFS= read -r _g_path; do
+    [ -n "$_g_path" ] || continue
+    _g_n=$(( _g_n + 1 ))
+    [ "$_g_path" = "$SHIP_MANIFEST" ] && _g_self="$_g_path"
+    if [ ! -f "$REPO_ROOT/$_g_path" ]; then _g_missing="$_g_missing $_g_path"; continue; fi
+    [ "$(_ship_recorded_hash "$_g_path")" = "$(_ship_hash "$REPO_ROOT/$_g_path" "$_g_path")" ] \
+      || _g_changed="$_g_changed $_g_path"
+  done <<EOF
+$(_ship_manifest_paths)
+EOF
+
+  # ── INSTRUMENT CHECK: a manifest that named nothing would satisfy every arm below.
+  [ "$_g_n" -gt 0 ] \
+    || { echo "release.sh: SHIP_MANIFEST '$SHIP_MANIFEST' lists no paths, so gate (g) would certify an empty set. Nothing was written." >&2; exit 1; }
+  [ -z "$_g_self" ] \
+    || { echo "release.sh: the ship manifest lists ITSELF ('$_g_self'). Its own hash cannot be known while it is being written, so the entry is either wrong or a loop. Nothing was written." >&2; exit 1; }
+  [ -z "$_g_missing" ] \
+    || { echo "release.sh: the ship manifest names path(s) that do not exist:$_g_missing. A manifest describing a tree you do not have describes nothing. Nothing was written." >&2; exit 1; }
+
+  # DIST_DOCS MUST BE INSIDE THE MANIFEST, or "what ships" has two definitions and they will
+  # diverge — the same defect as a second parser, one directory over.
+  for _g_rec in ${DIST_DOCS[@]+"${DIST_DOCS[@]}"}; do
+    _g_src="${_g_rec%%|*}"
+    _ship_manifest_paths | grep -qxF "$_g_src" || _g_docs="$_g_docs $_g_src"
+  done
+  [ -z "$_g_docs" ] \
+    || { echo "release.sh: DIST_DOCS names path(s) the ship manifest does not:$_g_docs. Two declarations of what ships is one too many. Nothing was written." >&2; exit 1; }
+
+  [ -z "$_g_changed" ] \
+    || { { echo "release.sh: shipped file(s) have changed since the manifest was approved:$_g_changed"
+           echo "            The version bump is NOT the cause — it is normalised out before hashing."
+           echo "            Review the diffs and re-record:  ./scripts/release.sh --approve-shipped"
+           echo "            Nothing was written."; } >&2; exit 1; }
+
+  # ── AND AGAINST THE STATE THE TAG WILL CARRY, not only the one on disk. The bump is applied
+  #    to a COPY of each shipped version file and the hash re-taken; if normalisation and the
+  #    bump disagree by so much as a character, that surfaces HERE, in preflight, rather than
+  #    at the tag where the only remedy is a force-push.
+  for _g_rec in ${VERSION_FILES[@]+"${VERSION_FILES[@]}"}; do
+    _g_path="${_g_rec%%|*}"; _g_rest="${_g_rec#*|}"
+    [ "$_g_rest" = "$_g_rec" ] && continue
+    _ship_manifest_paths | grep -qxF "$_g_path" || continue
+    _g_pre="${_g_rest%%|*}"; _g_q="${_g_rest#*|}"; [ "$_g_q" = "$_g_rest" ] && _g_q=""
+    _g_tmp="$(mktemp)"
+    sed "$(_bump_expr "$_g_pre" "$_g_q" "$NUM")" "$REPO_ROOT/$_g_path" > "$_g_tmp"
+    if [ "$(_ship_hash "$_g_tmp" "$_g_path")" != "$(_ship_hash "$REPO_ROOT/$_g_path" "$_g_path")" ]; then
+      rm -f "$_g_tmp"
+      echo "release.sh: SIMULATED BUMP MISMATCH on '$_g_path' — normalising the version out of the post-bump file does not reproduce the pre-bump hash, so gate (g) and the bump disagree about what the version IS in that file. This would have wedged the cut at the tag. Nothing was written." >&2
+      exit 1
+    fi
+    rm -f "$_g_tmp"
+  done
+  echo "  gate (g): $_g_n shipped path(s) match the manifest — normalised against VERSION_FILES with the bump's own expression, and re-checked against a simulated post-bump tree"
+fi
+
 # ── Dry run stops here — mutate NOTHING. ─────────────────────────────────────
 if [ "$DRY_RUN" = "true" ]; then
   echo
@@ -776,17 +1052,8 @@ trap '_release_mutate_abort' EXIT INT TERM
 bump_one() {  # <path> <line-prefix> <quote>
   local f="$REPO_ROOT/$1" prefix="$2" q="$3" tmp expr
   [ -f "$f" ] || { echo "release.sh: VERSION_FILES names '$1', which does not exist." >&2; return 1; }
-  if [ -n "$q" ]; then
-    expr="s|^${prefix}${q}[^${q}]*${q}|${prefix}${q}${NUM}${q}|"
-  elif [ -n "$prefix" ]; then
-    expr="s|^${prefix}.*|${prefix}${NUM}|"
-  else
-    # No prefix AND no quote means "the line IS the version" (a plain VERSION
-    # file). The pattern is deliberately narrow — a bare `s|^.*|…|` would rewrite
-    # EVERY line of the file, which is a destructive way to bump a one-line file
-    # and a catastrophic one to bump anything else.
-    expr="s|^[0-9][^[:space:]]*[[:space:]]*$|${NUM}|"
-  fi
+  # ONE AUTHORING SITE, shared with gate (g)'s normaliser — see _bump_expr's own note.
+  expr="$(_bump_expr "$prefix" "$q" "$NUM")"
   tmp="$(mktemp)"
   sed "$expr" "$f" > "$tmp" && mv "$tmp" "$f" || { rm -f "$tmp"; return 1; }
   # READ IT BACK. A format drift in one file would otherwise ship a half-bumped

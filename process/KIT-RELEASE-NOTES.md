@@ -46,6 +46,20 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Action required if you publish without a build: declare what ships.** `scripts/release.sh` has a
+  new `SHIP_MANIFEST` seam — a file of `<sha256>  <path>` lines naming what your project intends to
+  hand out — and a new preflight gate (g) that checks it before anything is written. **If
+  `RELEASE_PUBLISH` is true and you have no `BUILD_COMMAND`, the cut now refuses until the seam is
+  set.** That combination used to mean the only thing the ritual could publish was your repository,
+  and a repository built by this process contains `progress/` — the board, the review notes, the
+  running log, all written to be candid. Start with `./scripts/release.sh --approve-shipped`, which
+  drafts a manifest from every tracked file and tells you to delete what must not leave; then set the
+  seam. **With no build, the manifest becomes the build**: the publish step tars exactly those paths
+  out of the tag. If you have a `BUILD_COMMAND`, your artifact glob is already an allowlist and
+  nothing changes — but declare the seam and gate (g) will check it. The version bump is normalised
+  out of the hashes using the bump's own expression, so bumping a file you ship does not wedge the
+  cut; `--approve-shipped` re-records after you have read the diffs it prints.
+
 - **`doctrine/instruments.md` gained the rule the rest of this release was built to earn.** Naming
   what your instrument measured — which § A.4 already required — makes its verdict honest about what
   it *claims*, and says nothing about whether the claim is right. So the operand set must now be
