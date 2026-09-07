@@ -46,6 +46,17 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`doctrine/instruments.md` § A.4 gains a third notch: ask who WROTE the operand.** Naming a
+  span makes a verdict honest about what it claims; deriving it twice catches what one derivation
+  misses; **neither notices that the set was read out of a field the measured party fills in.**
+  The rule: **a signal is worth reading only where the party it constrains did not author it** —
+  with the test that makes it usable (*if this signal started reporting badly, who would have to
+  change what they write to make it stop?*) and the clause that makes it honest: **when only the
+  self-authored signal exists, say so and do NOT build the check.** A gate over a self-authored
+  operand turns an honest record into a defensive one, and the record was the thing worth having.
+  No bad faith is assumed and none is needed — someone recording their own reason records the
+  reason they believe, and the instrument reports the belief while appearing to report the fact.
+
 - **The pre-cut sweep's checkers no longer have to read the same tree, and § A.4b now says so.**
   The rule required one fresh-context checker per surface and was silent on contemporaneity — read
   strictly it made any one-file change void an entire sweep record, which is how a gate earns a

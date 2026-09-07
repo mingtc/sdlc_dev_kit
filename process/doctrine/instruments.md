@@ -214,6 +214,41 @@ stamped comment was asked for a command-line interface it does not have. A cover
   and where no second reading is possible, say so in the output, because an underived span and a
   span derived once are not the same claim.**
 
+**AND THE NOTCH THOSE TWO STOP ONE STEP SHORT OF: ask who WROTE the operand.**
+
+A set can be derived from the subject, derived twice, and still be worthless — because deriving
+correctly from a **field the constrained party fills in** measures that party's willingness to fill
+it in, and nothing else. The population is right; the *reading* is theirs.
+
+> **A signal is worth reading only where the party it constrains did not author it.**
+
+**This is the anti-gaming clause of § A.2 reached from the other direction.** There the rule is that a
+check you can satisfy by editing the answer is not one; here it is that a check whose operand is
+authored by its subject *is already* such a check, whether or not anyone edits anything. **No bad
+faith is required and none should be assumed** — a person recording their own reason records the
+reason they believe, and the instrument then reports the belief while appearing to report the fact.
+
+**The test is one question: if this signal started reporting badly, who would have to change what
+they write to make it stop?** If the answer is *the person the signal is about*, it is not a
+measurement — it is a self-assessment with a number on it.
+
+**Two shapes, so the line is usable rather than admirable:**
+
+- **Readable.** A count of how often a work item came *back* from review. The transition is performed
+  by the reviewer, recorded by the tool that moves it, and the item's owner controls none of it. The
+  signal survives everyone involved wanting a different answer.
+- **NOT readable.** A count derived from a card's own *origin* or *rationale* field, used to judge
+  whether such cards should be minted. The field is written by the same person doing the minting, at
+  the moment of minting, and a check over it makes the field a form to be filled correctly rather
+  than a record of what happened.
+
+**What to do when only the unreadable signal exists** — which is common, and is the case that decides
+whether this rule is honest or merely a reason to build nothing: **say so, and do not build the
+check.** A gate over a self-authored operand does more harm than the gap it closes, because it
+converts an honest record into a defensive one — and the record was the thing of value.
+**Name the judgement, name whose it is, and route it to them.** An unbuildable check is a finding
+about where authority sits, not a hole in the tooling.
+
 *Deriving from the wrong subject satisfies the first half and fails the second.* A check that read
 its pattern out of the very script it was auditing would have been "derived" and would have
 certified whatever that script said — including the narrowing that made eight of the operands
