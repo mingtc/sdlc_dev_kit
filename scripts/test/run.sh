@@ -1008,14 +1008,73 @@ _control_did_not_run() {
   cf "(control) could not $1 — the control did not run, so the green above is unproven"
 }
 
+# THE ONE FETCH THE THREE origin_* READERS SHARE, AND ITS FAILURE IS A FIXTURE FAILURE.
+#
+# All three used to run this fetch as `>/dev/null 2>&1` with its status discarded, and that made a
+# BROKEN REMOTE indistinguishable from an ABSENT FILE. MEASURED, and both conditions are necessary:
+#   * a failed fetch alone is harmless — `git show origin/<trunk>:<path>` reads the
+#     remote-tracking ref, which is already current, so the reader still answers correctly;
+#   * a stale remote-tracking ref alone is harmless — the fetch repairs it;
+#   * a STALE REF **AND** A FAILED FETCH together produce a confident FALSE NEGATIVE: the reader
+#     reports the file absent from the trunk while the push that put it there LANDED. Reproduced on
+#     a built tree with the push asserted to have landed and the marker asserted present in the bare
+#     repository.
+#
+# That is the exact symptom of an intermittent red this suite has carried since 2026-09-03 —
+# "the filled verify.sh was not pushed to the trunk", failing once and passing on an immediate
+# re-run with nothing changed. This does NOT prove it caused that failure; nothing captured the
+# tree at the moment it went red, which is why the investigation ran out of prescribed
+# measurements. What IS proven is that these readers CANNOT TELL the two apart, so the red they
+# print is not evidence about the subject.
+#
+# WHY _fixture_die AND NOT cf. A fetch that fails says nothing about the script under test. Reported
+# as a finding it is a red for the wrong reason, which teaches the reader to re-run instead of to
+# look — the same lesson a flake teaches, and the reason this family survived: the failure is always
+# in the FALSE-RED direction, and every caller reads `… || cf …`. origin_log_has_subject's own
+# header already records that argument for a DIFFERENT cause in this same function family (a
+# SIGPIPE from `git log | grep -q`), fixed there and left standing here.
+#
+# WHY THE DIE IS SAFE, DERIVED RATHER THAN ASSUMED. Three cases deliberately break the remote —
+# they set origin to a path that does not exist — and NONE of them calls any of these three
+# readers. The intersection of "breaks the remote" and "reads the remote through these helpers" is
+# EMPTY, with both sets non-empty, so a failed fetch inside a caller is never deliberate.
+#
+# AND IT DISTINGUISHES AN UNREACHABLE REMOTE FROM AN UNEXPECTED FAILURE, because the first is a
+# state a case CHOOSES. THREE cases point `origin` at a path that does not exist, deliberately, to
+# measure what the tools do about a remote they cannot reach — and they then read the trunk through
+# the CACHED remote-tracking ref, which is correct and is the thing they are asserting.
+# MEASURED, on the first certified run of the checked fetch: it aborted the whole suite in
+# case_release_behind_the_remote, because that case calls assert_release_unmutated AFTER breaking
+# the remote, and that helper reads the trunk. **The suppressed fetch was load-bearing.**
+#
+# So the discriminator is the REMOTE URL, derived rather than a list of case names: a local path
+# that is not there means somebody meant it, and the reader proceeds off the cache exactly as
+# before. A URL that IS there and still will not fetch is the fixture failing, and that is the only
+# case that dies. *A relative URL is resolved against the WORKTREE, not the harness's cwd — one of
+# the three points origin at `../origin.git`, which RESOLVES and must still be fetched.*
+origin_fetch_or_die() {
+  local url path err
+  url="$(git -C "$SB_WORK" remote get-url origin 2>/dev/null || true)"
+  case "$url" in
+    ''|http*|git@*|ssh:*|git:*) : ;;   # nothing local to stat — let the fetch itself answer
+    *)
+      path="${url#file://}"
+      case "$path" in /*) : ;; *) path="$SB_WORK/$path" ;; esac
+      [ -e "$path" ] || return 0       # deliberately unreachable: skip the fetch, read the cache
+      ;;
+  esac
+  err="$(git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet 2>&1)" && return 0
+  _fixture_die "origin_fetch_or_die: origin resolves to '$path' and the fetch of $SB_TRUNK still failed, so every read of the trunk below would report ABSENT whether or not the content is there — a fixture failure reported as a finding about the subject. git said: $(printf '%s' "$err" | tr '\n' '|' | cut -c1-200)"
+}
+
 origin_has_path() {
-  git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  origin_fetch_or_die
   local paths  # capture, then test — ls-tree grows with the board (header: THE PIPEFAIL RULE)
   paths="$(git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null)"
   printf '%s\n' "$paths" | grep -qxF "$1"
 }
 origin_file_contains() {  # <path> <pattern>
-  git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  origin_fetch_or_die
   local body  # capture, then test — the file may be a log that grows (header: THE PIPEFAIL RULE)
   body="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:$1" 2>/dev/null)"
   printf '%s\n' "$body" | grep -q "$2"
@@ -1027,7 +1086,7 @@ origin_log_has_subject() {  # <pattern>
   # for subjects that were present, and only ever in the direction of a FALSE RED,
   # which is why it survived: every caller reads it as `… || cf …`.
   local subjects
-  git -C "$SB_WORK" fetch origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  origin_fetch_or_die
   subjects="$(git -C "$SB_WORK" log "origin/$SB_TRUNK" --format='%s' 2>/dev/null)"
   printf '%s\n' "$subjects" | grep -q "$1"
 }

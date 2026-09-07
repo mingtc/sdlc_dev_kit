@@ -92,6 +92,20 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **The self-test now stops and tells you when it cannot reach your remote, instead of reporting a
+  false failure about your scripts.** Three of the suite's readers check whether something reached
+  your trunk by fetching `origin` and then looking at the fetched ref. **The fetch's result was
+  discarded**, so if it failed — a moved bare repository, a permissions problem, a lock held by
+  another process — the reader answered *"not there"* and the case failed with a message about the
+  script under test. **Measured: that answer is produced while the push it is asking about
+  succeeded.** The fetch is now checked; if it fails, the run aborts with git's own error and says
+  the fixture could not be set up. **No action required, and nothing changes on a run whose remote
+  is reachable** — which is every run that was passing before.
+  **If your self-test now aborts saying it could not fetch `origin/<trunk>`:** that is your sandbox's
+  remote, not your kit. The message carries git's reason; the usual causes are a bare repository that
+  moved and a `origin` URL that no longer resolves. Previously that condition produced a confusing
+  red about a shipped script instead.
+
 - **`--role` now checks against the role set your hook declares, read at the moment you run it.**
   Both `scripts/move-issue.sh` and `scripts/subtask.sh` validated `--role` against a list written
   into the script and rewritten once, by `kit-init.sh --roles`. Their `--help` already read your hook
