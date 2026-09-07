@@ -422,11 +422,37 @@ case "$CMD" in
     # in process/EXTRACTION.md § 2.4 "The role set". This whitelist is one of its
     # rows — added there in the same change, so the index and its members move
     # together. Do not restate the count here: read the table.
-    case "$ROLE" in
-      PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect) ;;
-      "") echo "Error: --role cannot be empty (PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect)." >&2; exit 1 ;;
-      *)  echo "Error: --role must be PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect (got '$ROLE')." >&2; exit 1 ;;
-    esac
+    # THE SET IS DERIVED, ONCE. The literal below is a STAMPED DEFAULT, not another copy of the
+    # set: a literal beside a READABLE authority is a duplicate and drifts from it, one reached
+    # only when the authority is UNREADABLE cannot, because what it would disagree with is gone
+    # at the moment it is used. scripts/lib/role-set.sh's kit_role_resolve carries the argument.
+    #
+    # THE VALUE LIVES HERE, NOT IN THE LIBRARY, BECAUSE IT MUST BE STAMPABLE. `kit-init --roles`
+    # rewrites the set by `grep -lF` over scripts/*.sh and scripts/githooks/* — a glob that does
+    # not reach scripts/lib/, measured with the literal planted there. A default in the library
+    # would never be stamped, and on a narrowed tree whose hook went unreadable it would enforce
+    # the KIT'S set instead of this project's, which is more permissive than what it replaced.
+    ROLE_SET_DEFAULT='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
+    if command -v kit_role_resolve >/dev/null 2>&1; then
+      kit_role_resolve "$SCRIPT_DIR/.." "$ROLE_SET_DEFAULT"
+    else
+      KIT_ROLE_SET="$ROLE_SET_DEFAULT"
+      KIT_ROLE_SRC="THE KIT'S FALLBACK SET — scripts/lib/role-set.sh is absent, so this project's declared set could not be read"
+      KIT_ROLE_DEFAULTED=1
+    fi
+    # NAMED, NOT SILENT, AND BEFORE ANYTHING IS ENFORCED: otherwise an acceptance or a refusal
+    # reads as being about this project's declared set when it is not.
+    [ -z "${KIT_ROLE_DEFAULTED:-}" ] \
+      || echo "Note: --role is being checked against $KIT_ROLE_SRC" >&2
+    if [ -z "$ROLE" ]; then
+      echo "Error: --role cannot be empty ($KIT_ROLE_SET)." >&2; exit 1
+    fi
+    if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
+      { echo "Error: --role must be $KIT_ROLE_SET (got '$ROLE')."
+        echo "       That set is $KIT_ROLE_SRC."
+      } >&2
+      exit 1
+    fi
     PARENT="${ID%-s*}"
 
     kwt_resolve

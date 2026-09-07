@@ -311,11 +311,43 @@ fi
 # The reason is a measured incident: the commit-msg hook accepted a role this
 # whitelist did not, so the standing seat COULD NOT MOVE A CARD and had to borrow
 # another hat to do it.
-case "$ROLE" in
-  PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect) ;;
-  "") echo "Error: --role is required (PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect)." >&2; usage >&2; exit 1 ;;
-  *) echo "Error: --role must be PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect (got '$ROLE')" >&2; exit 1 ;;
-esac
+# ── THE SET THIS ARM ENFORCES IS DERIVED, ONCE, and the literal below is a STAMPED DEFAULT and
+#    not a second copy. scripts/lib/role-set.sh's kit_role_resolve carries the whole argument for
+#    why those are different objects; the short form is that a literal beside a READABLE authority
+#    is a duplicate and can drift from it, while one reached only when the authority is UNREADABLE
+#    cannot, because the thing it would disagree with is gone at the moment it is used.
+#
+#    THE VALUE LIVES HERE RATHER THAN IN THE LIBRARY BECAUSE IT MUST BE STAMPABLE.
+#    `kit-init --roles` rewrites the set by `grep -lF` over scripts/*.sh and scripts/githooks/* —
+#    a glob that does NOT reach scripts/lib/ and whose own comment says to keep it narrow.
+#    Measured, with the literal planted into lib/role-set.sh: that derivation does not return it.
+#    A default in the library would therefore never be stamped, and on a narrowed tree whose hook
+#    later went unreadable it would enforce the KIT'S set rather than this project's — strictly
+#    more permissive than the literal it replaced. One mechanism, in the library; one value, here.
+ROLE_SET_DEFAULT='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
+if command -v kit_role_resolve >/dev/null 2>&1; then
+  kit_role_resolve "$SCRIPT_DIR/.." "$ROLE_SET_DEFAULT"
+else
+  # The library is the guarded source above, so it can be absent. Same policy, stated the same way.
+  KIT_ROLE_SET="$ROLE_SET_DEFAULT"
+  KIT_ROLE_SRC="THE KIT'S FALLBACK SET — scripts/lib/role-set.sh is absent, so this project's declared set could not be read"
+  KIT_ROLE_DEFAULTED=1
+fi
+# NAMED, NOT SILENT, AND BEFORE ANYTHING IS ENFORCED. A run that fell back says so, because the
+# alternative is an acceptance or a refusal that reads as being about this project's declared set
+# when it is not. check-board.sh's reason for the same announcement, applied to an enforcement
+# rather than to a report.
+[ -z "${KIT_ROLE_DEFAULTED:-}" ] \
+  || echo "Note: --role is being checked against $KIT_ROLE_SRC" >&2
+if [ -z "$ROLE" ]; then
+  echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 1
+fi
+if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
+  { echo "Error: --role must be $KIT_ROLE_SET (got '$ROLE')."
+    echo "       That set is $KIT_ROLE_SRC."
+  } >&2
+  exit 1
+fi
 
 # ONE not-found refusal TEXT, TWO reads that can reach it: the pre-bootstrap probe
 # below and the authoritative lookup after the sync. Factored so the two cannot

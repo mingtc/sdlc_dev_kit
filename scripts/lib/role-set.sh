@@ -59,6 +59,76 @@ kit_role_display() {
   fi
 }
 
+# kit_role_resolve <repo-root> <stamped-default> — resolve the set an OPERATOR-SUPPLIED role is
+# checked against. Sets two variables and echoes nothing:
+#   KIT_ROLE_SET        the set to enforce against — never empty
+#   KIT_ROLE_SRC        where it came from, in words, FOR PRINTING
+#   KIT_ROLE_DEFAULTED  empty when derived; `1` when the default was used
+#
+# KIT_ROLE_DEFAULTED exists so a caller can decide whether to announce WITHOUT parsing
+# KIT_ROLE_SRC. Keying an announcement off the first word of a sentence is a matcher on prose, and
+# prose gets reworded; a flag does not.
+#
+# WHY THIS IS NOT kit_require_role. That function is for a tag the SCRIPT CHOOSES (seat identity),
+# and its unreadable-hook policy is a named SKIP: it does not check and proceeds, because the tag
+# came from the kit and the hook will still refuse a genuinely wrong one. `--role` is different in
+# the one way that matters: the operator typed it, and
+# `process/contracts/issue-creation.md` § 3 says a value outside a declared enum is refused. A skip
+# would silently widen what `--role` accepts to ANYTHING on a tree whose hook is gone. So this
+# resolves an enum to check against instead of deciding whether to check.
+#
+# WHY A DEFAULT IS NOT A SECOND COPY, which is the objection this function has to answer, because
+# removing second copies of the role set is the whole point of this library:
+#
+#   A literal beside a READABLE authority is a DUPLICATE. A literal reached only when the
+#   authority is UNREADABLE is a DEFAULT.
+#
+# Duplicates drift — that is the entire reason § 2.4 hunts them, and it is what happened to
+# `move-issue.sh`'s help text. A default CANNOT drift, because the thing it could disagree with is
+# gone at the moment it is used. They are different objects that happen to be spelled alike.
+#
+# AND WHAT STOPS A DEFAULT BECOMING A FALSE CLAIM IS THAT IT SAYS SO. The moment a fallback is
+# presented as *this project's set*, it is a statement of fact about this tree and it is wrong, and
+# § 3 forbids that correctly. So KIT_ROLE_SRC exists to be PRINTED, and the wording below is
+# `check-board.sh`'s, deliberately: that script has carried derive-with-ANNOUNCED-fallback for two
+# separate lists since before this function existed, and its own comment gives the reason — a run
+# that used the fallback says so, "otherwise ✓ every scanned subject carries a [Role] prefix can
+# mean …one of a set this project may not actually use".
+#
+# WHY THE DEFAULT IS AN ARGUMENT RATHER THAN A LITERAL IN HERE. It has to be STAMPABLE.
+# `kit-init --roles` rewrites the set by `grep -lF` over `scripts/*.sh` and `scripts/githooks/*` —
+# a glob that deliberately does NOT reach `scripts/lib/`, and whose own comment says to keep it
+# narrow because a hand-edited hook could make `grep -lF` match widely and corrupt substrings. A
+# default living in this file would therefore never be stamped, so on a narrowed tree whose hook
+# later became unreadable it would enforce the KIT'S set instead of the project's — strictly more
+# permissive than the literal it replaced. So: the POLICY lives here, once; the VALUE lives in the
+# caller, where the existing stamper already reaches it. One mechanism, no widening.
+#
+# WHY GLOBALS. This returns two things — the set and its provenance — and the provenance must reach
+# the operator. A shell function echoes one value; encoding both into one string and splitting it in
+# every caller is the sort of second parsing site this library exists to remove.
+kit_role_resolve() {
+  KIT_ROLE_SET="$(kit_role_set "$1" 2>/dev/null || true)"
+  if [ -n "$KIT_ROLE_SET" ]; then
+    KIT_ROLE_SRC="derived from scripts/githooks/commit-msg"
+    KIT_ROLE_DEFAULTED=""
+  else
+    KIT_ROLE_SET="$2"
+    KIT_ROLE_SRC="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared role set"
+    KIT_ROLE_DEFAULTED=1
+  fi
+}
+
+# kit_role_member <set> <value> — status 0 if <value> is a member of the `|`-separated <set>.
+# The value is an operator's, so it is compared as TEXT: the quoted pattern makes any glob or `|`
+# inside it literal. Same idiom as kit_require_role's membership test, deliberately — one shape.
+kit_role_member() {
+  case "|$1|" in
+    *"|$2|"*) return 0 ;;
+  esac
+  return 1
+}
+
 # kit_require_role <repo-root> <tag> <knob-name> — refuse, on stderr, with status 1, if
 # <tag> is not a member of the declared set. Silent and 0 when it is.
 #

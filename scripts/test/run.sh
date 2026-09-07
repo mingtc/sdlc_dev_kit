@@ -7132,6 +7132,159 @@ TOOLS_EOF
 }
 
 # =============================================================================
+# CASE — the --role enforcement DERIVES the set, and when it cannot, it says so.
+#
+# THE DEFECT THIS IS NAMED FOR SHIPPED AND WAS MEASURED, not reasoned. Both tools' `--help` was
+# made to derive the role set from the hook at print time — through lib/role-set.sh's
+# kit_role_display, which is where that history is written down. The
+# ENFORCEMENT stayed a hand-typed alternation that `kit-init --roles` rewrites once. So the two
+# halves had different AUTHORITIES, and on a tree whose hook moved without the initializer —
+# which the kit's own documented upgrade produces, since the literal lived in a file an upgrade
+# REPLACES — they disagreed to the operator's face: the usage text named two roles and the refusal
+# message named three, in the same session.
+#
+# AND THE STALENESS WAS IN THE PERMISSIVE DIRECTION, which is the dangerous one. A withdrawn role
+# PASSED the whitelist. That whitelist exists to refuse BEFORE the git mv and the Activity append,
+# because the commit-msg hook refuses AFTER them — leaving uncommitted state in the shared kanban
+# worktree that the next board operation `reset --hard`s. So a stale-permissive literal does not
+# produce an error, it produces silent data loss in somebody else's lane (scripts/lib/role-set.sh's
+# own header states this; it is why that library exists).
+#
+# WHAT THIS CASE ASSERTS, AND WHY EACH ARM IS NOT THE OTHERS:
+#   (a) DERIVED — a role the project declares is accepted and one it withdrew is refused, on a
+#       tree narrowed WITHOUT re-stamping anything. This is the arm the old literal could not pass.
+#   (b) ANNOUNCED — with the seam unreadable the tool still enforces, and SAYS the set it used is
+#       a fallback. A default that presents as the project's set is a false claim about this tree,
+#       and `process/contracts/issue-creation.md` § 3 forbids exactly that.
+#   (c) THE ANNOUNCEMENT IS ABSENT WHEN DERIVED. Without this, (b) is satisfied by a tool that
+#       announces unconditionally, which would make the announcement meaningless.
+#   (d) THE FALLBACK IS THE PROJECT'S SET, NOT THE KIT'S — a role in the shipped set but not in
+#       this project's is still refused on the fallback path. This is the arm that would catch the
+#       default being moved somewhere `kit-init --roles` cannot stamp.
+#
+# THE POPULATION IS DERIVED FROM THE ANNOUNCEMENT STRING, which is the declaration site: a tool
+# carrying it is a tool claiming to have a named fallback, and this case holds it to the claim.
+#
+# NOT COVERED, and named because an instrument that does not name its span is the class this case
+# belongs to:
+#   * scripts/check-board.sh CARRIES THE SAME ANNOUNCEMENT — twice, for the role set and for the
+#     trailer markers — AND THIS CASE CANNOT REACH EITHER. It reads the hook from the REF it
+#     scans (CB_TREE is a temp checkout when --ref is used), so removing the working-tree hook
+#     does not reach its derivation: measured, it still reported "prefixes derived from
+#     scripts/githooks/commit-msg" with the working file gone. Reaching its fallback needs the
+#     hook absent from the scanned ref, which is a different fixture and one NO case here builds.
+#     So check-board.sh's two announcements remain real but unverified, which is what they were
+#     before this case existed.
+#   * WHETHER THE HOOK'S OWN LIST IS DERIVED. It is the authority, so there is nothing above it to
+#     derive from; a hand-edited hook is the state arm (a) is about, not a defect in the hook.
+# =============================================================================
+case_role_enforcement_derives_and_names_its_fallback() {
+  cf_reset
+  if ! has_kit_init; then skp "--role derives the declared set, and names its fallback" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "--role derives the declared set, and names its fallback" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+
+  # ── POPULATION, DERIVED FROM THE DECLARATION SITE. `scripts/*.sh` only: a library has no output
+  #    of its own, and scripts/lib/role-set.sh is where two of these tools get the wording from.
+  local ann='THE KIT'"'"'S FALLBACK SET'
+  local tools
+  tools="$(cd "$SB_WORK/scripts" && grep -lF -- "$ann" ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
+  [ -n "$tools" ] \
+    || _fixture_die "case_role_enforcement_derives_and_names_its_fallback: no shipped tool declares a named fallback for the role set, so every arm below would pass over an empty population."
+
+  # A NARROWING THAT REMOVES MEMBERS, so "derived" and "the kit's set" are distinguishable at all.
+  local shipped="$KIT_NEUTRAL_ROLE_PREFIXES" declared='PM|Dev|Architect' out rc=0
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$declared" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || _fixture_die "case_role_enforcement_derives_and_names_its_fallback: kit-init --roles exited $rc, so nothing below is about a narrowed tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # THE WITHDRAWN MEMBERS ARE DERIVED, never typed — case_role_literals_are_declared scans this
+  # file for `--role <Name>` literals, so a typed name would redden that case on this case's text.
+  local withdrawn kept
+  withdrawn="$(printf '%s\n' "$shipped" | tr '|' '\n' \
+               | grep -vxF -f <(printf '%s\n' "$declared" | tr '|' '\n') || true)"
+  [ -n "$withdrawn" ] \
+    || _fixture_die "case_role_enforcement_derives_and_names_its_fallback: the narrowing removed no member, so 'refuses what the project withdrew' would be satisfied by either set."
+  kept="$(printf '%s' "$declared" | cut -d'|' -f1)"
+
+  local t hook="$SB_WORK/scripts/githooks/commit-msg" held="$SB_TMP/commit-msg.held274"
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    [ -f "$SB_WORK/scripts/$t" ] \
+      || _fixture_die "case_role_enforcement_derives_and_names_its_fallback: $t is in the derived population but absent from the sandbox."
+
+    # THE INVOCATION IS DECLARED PER TOOL AND THE DIE IS OUTSIDE ANY COMMAND SUBSTITUTION.
+    # `_fixture_die` ends in `exit 1`; inside `$( … )` that exits the SUBSHELL and the harness
+    # carries on with the die message captured as output — a guard that cannot fire. Built once,
+    # here, as an argv array with `--role` last so the role is appended.
+    local -a probe
+    case "$t" in
+      move-issue.sh)  probe=(./scripts/move-issue.sh SBX-001 in_progress --note n --role) ;;
+      subtask.sh)     probe=(./scripts/subtask.sh move SBX-001-s1 in_progress --note n --role) ;;
+      check-board.sh) probe=() ;;   # declared UNREACHABLE, not forgotten — see the span above.
+      *) _fixture_die "case_role_enforcement_derives_and_names_its_fallback: '$t' declares a named fallback and no invocation is declared for it. Add its arm — a case that cannot exercise a member knows nothing about it." ;;
+    esac
+    [ "${#probe[@]}" -gt 0 ] || continue
+
+    local r probe_out
+    # ── ARM (a) DERIVED, both directions, with NOTHING re-stamped since kit-init ran.
+    probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$kept" 2>&1 || true )"
+    printf '%s' "$probe_out" | grep -q -- '--role must be' \
+      && cf "($t a) refused '$kept', a member of the set this project declares — the enforcement is not reading the declared set"
+    while IFS= read -r r; do
+      [ -n "$r" ] || continue
+      probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$r" 2>&1 || true )"
+      printf '%s' "$probe_out" | grep -q -- '--role must be' \
+        || cf "($t a) did NOT refuse '$r', a role this project withdrew — this is the PERMISSIVE staleness the whitelist exists to prevent: the board moves, the hook refuses the commit afterwards, and the shared kanban worktree loses it: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-140)"
+    done <<W274_EOF
+$withdrawn
+W274_EOF
+
+    # ── ARM (c) THE ANNOUNCEMENT IS ABSENT WHILE THE SEAM IS READABLE. Ordered before (b) on
+    #    purpose: it is the control that gives (b) its meaning, and it runs on the untouched tree.
+    probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$kept" 2>&1 || true )"
+    printf '%s' "$probe_out" | grep -qF -- "$ann" \
+      && cf "($t c) announced a fallback while the seam was READABLE — an announcement that always fires says nothing, and arm (b) below would be satisfied by it"
+
+    # ── ARM (b) WITH THE SEAM UNREADABLE: still enforces, and NAMES the fallback IN THE OUTPUT.
+    cp "$hook" "$held" 2>/dev/null || { _control_did_not_run "stash the commit-msg hook for $t"; continue; }
+    rm -f "$hook"
+    if [ -e "$hook" ]; then
+      _control_did_not_run "remove the commit-msg hook for $t (it is still there, so nothing below is about an unreadable seam)"
+    else
+      probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$kept" 2>&1 || true )"
+      printf '%s' "$probe_out" | grep -qF -- "$ann" \
+        || cf "($t b) with the seam unreadable it did not SAY the set was a fallback — the announcement is in the file and not in the output, so an operator is told a set that is not their project's as though it were: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-140)"
+      # STILL ENFORCES. A fallback that stops checking is option 1, which this change rejected:
+      # it would silently widen --role to anything on a tree whose hook is gone.
+      probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$(printf 'Nonexistent%s' "$$")" 2>&1 || true )"
+      printf '%s' "$probe_out" | grep -q -- '--role must be' \
+        || cf "($t b) with the seam unreadable it accepted a role no set contains — the fallback stopped enforcing rather than enforcing a named default"
+
+      # ── ARM (d) THE FALLBACK IS THIS PROJECT'S SET, NOT THE KIT'S. A withdrawn role must STILL
+      #    be refused on the fallback path, which is only true if the default was stamped where
+      #    `kit-init --roles` could reach it. This is the arm that catches the default being
+      #    moved into scripts/lib/, which that glob does not cover.
+      while IFS= read -r r; do
+        [ -n "$r" ] || continue
+        probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$r" 2>&1 || true )"
+        printf '%s' "$probe_out" | grep -q -- '--role must be' \
+          || cf "($t d) on the fallback path it accepted '$r', which this project withdrew — the default is the KIT'S set rather than this project's, so it was never stamped, and the fallback is more permissive than the literal it replaced"
+      done <<W274D_EOF
+$withdrawn
+W274D_EOF
+    fi
+    cp "$held" "$hook"; chmod +x "$hook" 2>/dev/null || true; rm -f "$held"
+  done <<T274_EOF
+$tools
+T274_EOF
+
+  finish "the --role enforcement DERIVES this project's declared set — accepting what it declares and refusing what it withdrew on a tree narrowed with nothing re-stamped since, which the hand-typed alternation this replaced could not do — and when the seam is unreadable it enforces a STAMPED DEFAULT and NAMES it as a fallback in its OUTPUT, refusing both a role no set contains and a role this project withdrew, so the default is this project's rather than the kit's; the announcement is asserted ABSENT while the seam is readable, without which an unconditional announcement would satisfy the arm above it; population DERIVED from the announcement string ($(printf '%s' "$tools" | tr '\n' ' ')) with each tool's invocation DECLARED and an undeclared member halting the case. NOT COVERED, and each is a HOLE rather than an exemption: scripts/check-board.sh carries this same announcement TWICE and this case reaches NEITHER, because it reads the hook from the ref it scans rather than from the working tree — measured, it still reported the set as derived with the working hook removed — so its fallbacks remain real but unverified and want a ref-level fixture nothing here builds; and whether the hook's own list is derived, which it cannot be, being the authority"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE ALREADY-LIVED PROBE HAS ONE AUTHORING SITE, ASSERTED AS AN EFFECT.
 #
 # "check-board.sh sources lib/lived-probe.sh" is a LABEL, and it is satisfied by a
@@ -11901,6 +12054,7 @@ CASES=(
   case_kit_init_repairs_hook_mode
   case_kit_init_roles_leave_no_seam
   case_help_advertises_exactly_what_the_role_arm_accepts
+  case_role_enforcement_derives_and_names_its_fallback
   case_lived_probe_has_one_authoring_site
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill

@@ -92,6 +92,34 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **`--role` now checks against the role set your hook declares, read at the moment you run it.**
+  Both `scripts/move-issue.sh` and `scripts/subtask.sh` validated `--role` against a list written
+  into the script and rewritten once, by `kit-init.sh --roles`. Their `--help` already read your hook
+  directly, so the two halves had different authorities: **on a tree where the hook changed without
+  the initializer — which upgrading file by file produces, because that list lived in a file an
+  upgrade replaces — the usage text and the refusal message disagreed with each other**, and the
+  check was wrong in the direction that costs you something. It accepted a role you had **removed**,
+  which is the case the check exists to prevent: the board move happens, the commit-msg hook then
+  refuses the commit, and the work is left uncommitted in the shared `.kanban-wt/` worktree, where
+  the next board operation discards it.
+
+  **ACTION REQUIRED — one check, and only if your hook and your tooling can disagree.**
+
+  1. **If anything you automate passes a fixed `--role` value, confirm your hook still declares it.**
+     Run `./scripts/move-issue.sh --help` and read the `<R> = ` line — that is your set, read from
+     your hook. A role that is **not** on that line is now refused, where before it may have been
+     accepted. This is the fix doing its job, but it can turn a silently-wrong script into a loudly
+     failing one, which is worth finding on your terms rather than mid-move.
+  2. **Nothing to change if your hook and your role set were already in step** — which is every tree
+     that has only ever used `kit-init.sh --roles`.
+
+  **And when the hook cannot be read, it now tells you.** The check falls back to a default stamped
+  into the script for your project, still refuses a role that default does not contain, and prints
+  one line to stderr saying the set it used is a fallback and **not** your project's declared set. It
+  will not silently accept anything, and it will not silently present the kit's own list as yours.
+  **If you parse stderr**, that `Note:` line is new and appears only on a tree whose
+  `scripts/githooks/commit-msg` is unreadable.
+
 - **`scripts/subtask.sh --help` was telling you the wrong roles — and on an unmodified kit it was
   telling you too FEW.** Its `move` usage line named three roles by hand. The `move` arm has always
   validated `--role` against **the whole set your project declares** in
