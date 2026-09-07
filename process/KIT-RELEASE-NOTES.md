@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The skills provenance table now carries the provenance.** Its Origin column read `<fill in>`
+  for the Dev and PM sets, in the document whose own opening sentence is *"a skill whose origin
+  nobody can name is a skill nobody can safely update"* — and the answers were never unknown, only
+  recorded in the kit's change history rather than where a reader looks. The **Dev set** is named as
+  adopted from the upstream *superpowers* collection, with its URL; the **PM set** as authored for
+  this kit. **The Dev set's LICENSE is recorded as `NOT RECORDED`, not guessed** — the upstream's
+  terms were never captured at adoption, and the cell names what would settle it. **The Origin
+  column is the kit's own record and not a blank you fill**; a note above the table now says so, and
+  the only row you fill is the shape row for a skill of yours that departs from its set.
+
 - **`instruments.md` § A.4's derive-twice rule gains a clause: independent means in a DIFFERENT
   LANGUAGE, not merely by a different hand.** Two derivations written in one idiom inherit that
   idiom's assumptions, so their agreement is evidence about the operand and none about the idiom —

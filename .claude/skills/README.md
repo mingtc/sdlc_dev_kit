@@ -156,12 +156,22 @@ in-file marker is the one that was easier to forget.
 
 | Set | Origin | License | Class |
 | --- | --- | --- | --- |
-| Dev | `<fill in: upstream collection URL, or "authored here">` | `<fill in>` | `KIT` |
-| PM | `<fill in>` | `<fill in>` | `KIT` |
+| Dev | **Adopted from a public collection — the upstream "superpowers" collection, `https://github.com/obra/superpowers`.** Its link also survives in `brainstorming/scripts/frame-template.html`, kept there deliberately as provenance | **NOT RECORDED** — the upstream's terms were never captured at adoption; settle it by reading the upstream repository, and do not assume | `KIT` |
+| PM | **Authored for this kit** (`write-spec`, `product-brainstorming`) | Same as this repo | `KIT` |
 | Refactorer | Authored for this kit | Same as this repo | `KIT` |
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
 | `finishing-a-development-branch` | Dev set, upstream | `<fill in>` | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
+
+**THE ORIGIN COLUMN IS THE KIT'S OWN RECORD, NOT A BLANK FOR YOU.** Two of these rows read
+`<fill in>` until 2026-09-07, in the table whose opening sentence is *"a skill whose origin nobody
+can name is a skill nobody can safely update"* — **so the document whose entire job is provenance was
+the one document that did not carry it.** The answers were never unknown; they were recorded in the
+kit's own change history and nowhere a reader of this table would look. **The only row here you fill
+is the last one**, the shape row for a skill of yours that departs from its set.
+
+**A `<fill in>` that survives into a shipped table is worth suspecting generally:** it means either
+nobody knew, or nobody moved the answer to where it is looked up, and those want opposite fixes.
 
 When updating a skill from upstream, re-fetch the source and copy the folder over the
 existing skill, then **diff before committing** — local hardening lives in these files and a
