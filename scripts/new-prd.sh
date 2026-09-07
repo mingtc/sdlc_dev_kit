@@ -30,7 +30,8 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
     echo "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME"
     echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
     echo "       prefix: a guessed prefix mints ids under a name nobody chose."
-    echo "       Restore it (git checkout -- scripts/config.sh), or initialize the kit:"
+    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
+      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
     echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
   } >&2
   exit 1

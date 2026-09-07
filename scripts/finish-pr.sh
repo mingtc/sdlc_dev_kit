@@ -357,7 +357,8 @@ if [ "$ALLOW_STUB" != "true" ]; then
         echo "  precondition, not a recommendation (process/contracts/verify-gate.md):"
         echo "    • write it — scripts/verify.sh ships as a frame with an EMPTY gate table;"
         echo "      declare your gates in it"
-        echo "    • or generate one:  ./scripts/kit-init.sh --gate-command '<your test command>'"
+        echo "    • or, ON A FRESH REPO, generate one:  ./scripts/kit-init.sh --gate-command '<your test command>'"
+        echo "      (kit-init REFUSES a repository that has already lived; if yours has, write it.)"
       else
         echo "  Two conforming ways to land ${ISSUE_ID}:"
         echo "    • check the branch out here:   git -C '$MAIN_ROOT' checkout '$BRANCH'"

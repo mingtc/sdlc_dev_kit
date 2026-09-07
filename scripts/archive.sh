@@ -53,7 +53,8 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
     echo "       It is the ONE authority for ISSUE_PREFIX (process/contracts/config-seam.md)."
     echo "       This sweep REFUSES to guess: under a guessed prefix it would find no"
     echo "       issue files at all and report 'nothing to sweep' on a full column."
-    echo "       Restore it (git checkout -- scripts/config.sh), or initialize the kit:"
+    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
+      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
     echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
   } >&2
   exit 1

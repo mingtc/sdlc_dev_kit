@@ -63,7 +63,8 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
     echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
     echo "       prefix: a guessed prefix mints ids under a name nobody chose, and the"
     echo "       board only finds out at the first move."
-    echo "       Restore it (git checkout -- scripts/config.sh), or initialize the kit:"
+    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
+      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
     echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
   } >&2
   exit 1

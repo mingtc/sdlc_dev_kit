@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Nine error messages now tell you which kind of tree the `kit-init` fix they suggest is for.**
+  If `scripts/config.sh` goes missing, or your gate table is empty, the script that complains offers
+  you two ways out — and one of them, `kit-init`, **refuses a repository that has already lived**.
+  You always had the right instruction first (restore the file; or write the gate table by hand),
+  but nothing said why the second option would turn you away. Now it does, in those messages'
+  own words. **No action required and no behaviour changed** — the remedies, their order and their
+  exit codes are the same. **If you parse these messages**, the text after the alternative has grown
+  by a clause and, at three sites, by one line; the phrases most likely to be keyed on
+  (`config.sh`, `--gate-command`, `REFUSING`) are unchanged and in the same places.
+
 - **`check-board.sh`'s graduation report now tells you HOW it matched the scaffolding sentinel, and
   the output strings changed.** The arm looks for a line **equal to** the whole shipped sentinel
   comment, not merely for the token anywhere in the file — so a document that *mentions* the
