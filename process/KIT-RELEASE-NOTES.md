@@ -46,6 +46,18 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`doctrine/instruments.md` gained the rule the rest of this release was built to earn.** Naming
+  what your instrument measured — which § A.4 already required — makes its verdict honest about what
+  it *claims*, and says nothing about whether the claim is right. So the operand set must now be
+  **derived from the subject, derived a second time by a looser independent reading, and the two
+  compared**; every member must be measured, excluded for a stated reason, or named as **not
+  reached**, with the three asserted to sum. A new § A.12 adds the clause behind it: **a check you
+  can satisfy by editing the answer is not a check** — floors become comparisons rather than numbers
+  somebody maintains, and an expected-failure list is compared in both directions so that fixing a
+  thing also requires deleting its excuse. § A.2 gains two probe controls: break the member *least*
+  likely to be covered, and prove your plant actually took. **Every entry in this release's notes is
+  an instance of the defect that rule describes**, which is why it is written last.
+
 - **Action required (maintainers of the kit itself, not adopters): a release cut now takes about
   twice as long — roughly 7 minutes instead of 3.5.** `scripts/release-kit.sh` gained a second
   acceptance arm that takes the built zip through day one with the kit's own tools and then runs the

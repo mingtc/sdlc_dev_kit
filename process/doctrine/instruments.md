@@ -98,8 +98,8 @@ copy still runs at all** — an ablation that breaks the harness proves nothing 
 
 **And the same rule pointed the other way: prove your PROBE can find.** An ablation asks whether the
 instrument can go red. A probe — a planted defect, a synthetic bad case — asks whether your *attack*
-can reach. **A plant that silently does nothing reads exactly like "the guard caught it."** Three
-controls, each of which has been paid for:
+can reach. **A plant that silently does nothing reads exactly like "the guard caught it."** The controls below
+have each been paid for; the list is the bullets, not a number in this sentence.
 
 - **Visibility** — prove the plant is where the instrument actually looks. A subject resolved
   through a package, an install, a cache or a symlink may not be the copy you edited.
@@ -109,9 +109,33 @@ controls, each of which has been paid for:
 - **Harness realism** — prove the probe does not **invent**. A harness more destructive than any
   real edit manufactures findings; a reflow harness that also merges list items is testing a
   mutation nobody would ever make.
+- **Application — prove the plant TOOK, and that the subject is the subject.** The three controls
+  above ask whether the plant is in the right *place*; this asks whether it exists at all. Measured,
+  as a chain in which every link was individually correct and every link was silent: a substitution
+  whose pattern matched nothing, so nothing changed and nothing was said; a commit that therefore
+  had nothing to commit, and said nothing; a one-commit rewind meant to undo that commit, which
+  instead **rewound past the change under test**, and said nothing. The run then refused for a
+  plausible-looking reason. **Every line of that output was true and the whole run was meaningless —
+  an instrument exercised against a tree with the subject absent from it.** So: assert the mutation
+  is present after making it, and assert the artifact under test is the one you meant, by comparing
+  an identifier before and after rather than by trusting that a command that printed nothing did
+  something. A plant you have not asserted took is not an ablation; it is a hope.
+- **Adversarial choice — break the member LEAST likely to be covered.** A probe aimed at the
+  convenient member measures the path the author already had in mind. Choose the operand you would
+  least expect the instrument to reach: the one added most recently, the one in the unusual
+  directory, the one whose name does not match the others, the one a glob would have to be widened
+  to include. **A guard passes its easiest case by construction — the author wrote it against
+  that case.**
 
 **Attack the attack before trusting its result.** A green from an unproven probe and a red from an
 unproven probe are both uninformative, in the same run.
+
+**And the reader's half, which no control above supplies: do not accept a red you cannot explain.**
+The chain described under *Application* was not caught by any check — it was caught because the
+refusal named a defect that had already been fixed, and that did not fit. **A result that does not
+fit is evidence about the instrument, not noise to be worked around.** The cost of chasing it is one
+reading; the cost of accepting it is a finding written against the wrong subject, which is expensive
+to withdraw and worse to leave standing.
 
 ### A.3 — Sometimes a capability probe is the WRONG instrument, and that decision is recorded
 
@@ -162,6 +186,45 @@ wider than it is.**
   had not landed, and the report was true of the tree it read and false of the question being asked.
   The remedy is one token, and the test is cheap: **read the green line alone, out of context, and
   see whether it still says what it measured.**
+
+**And the notch that all three of those stop one step short of: a DECLARED operand set can be true
+while the coverage is false.**
+
+Naming the span makes a verdict honest about what it *claims*. It does nothing about whether the
+claim is right. An instrument that prints *"clean over every shipped script"* has satisfied
+everything above and may still have walked a set that is not the shipped scripts — because the set
+came from a glob, a directory listing, a pattern, or a list somebody typed, and each of those is a
+**proxy for the population, not the population**.
+
+Measured, repeatedly, and always with the label reading true: a floor check reporting *"none of the
+25 shipped scripts"* on one tree and *"none of the 26"* on another, having counted a file the
+adopter had been instructed to add and labelled it *shipped*. A guard whose population was every
+file **containing** a flag's characters, so a configuration seam that merely mentioned the flag in a
+stamped comment was asked for a command-line interface it does not have. A coverage report that said
+*every* and meant most.
+
+**So the rule has two halves and the second is the one that bites:**
+
+- **Derive the operand set from the subject**, not from a proxy for it. The subject is whatever the
+  claim is about — if the verdict says *shipped*, something must state what ships, and the
+  instrument must read that.
+- **Derive it a second time, by an independent and deliberately LOOSER reading, and compare.** One
+  derivation cannot detect its own omissions; that is the same reason a prose enumeration cannot.
+  The two readings disagreeing is the finding. **Where they agree, the agreement is the evidence —
+  and where no second reading is possible, say so in the output, because an underived span and a
+  span derived once are not the same claim.**
+
+*Deriving from the wrong subject satisfies the first half and fails the second.* A check that read
+its pattern out of the very script it was auditing would have been "derived" and would have
+certified whatever that script said — including the narrowing that made eight of the operands
+invisible. The second reading is what makes the first one falsifiable rather than circular.
+
+**The accounting must balance, and the remainder must be named.** Every member of the population is
+exactly one of: measured, excluded for a stated reason, or **not reached**. A member that leaves the
+walk without being counted is the defect above with nothing to show it, so the instrument asserts
+the three sum to the population and prints the third by name. **A hole and an exemption are
+different claims** — an exemption says something need not be checked, a hole says something *is
+not* — and only the second keeps arguing after its author has moved on.
 
 ### A.5 — Assert the FACT, never the sentence that states it
 
@@ -393,6 +456,51 @@ about everything they could see, and that was the defect.**
 > reading a verdict, a coordinator reading a leg's report, anyone about to act on a green. **The fix
 > is to change the reading, and applying Part One's remedy here means re-aiming an instrument that is
 > already right.**
+
+---
+
+### A.12 — A check you can satisfy by EDITING THE ANSWER is not a check
+
+Some instruments compare a measurement against a value that a person maintains. When the measurement
+moves, there are two ways to make the instrument green: change the thing being measured, or change
+the value it is compared against. **If the second is available, the instrument measures nothing in
+the long run** — because the second is always cheaper, always defensible in the moment, and leaves
+no trace that anything was given up.
+
+The shape is easy to recognise once named:
+
+- an expected **count** that a person edits when the real count changes;
+- a floor — *at least N members were walked* — raised or lowered to match what the walk now finds;
+- an expected-failure **list** that grows by one each time something fails;
+- a tolerance — *this many reds is normal* — recorded anywhere at all.
+
+**The last one has a measured cost.** A project that adopted this kit met two failures caused by the
+kit itself, wrote *"a run that reports two failures is unchanged, not broken"* into its own project
+law, and demoted the check to run on demand rather than as a gate. **One gate slot was lost on day
+one, and nothing anywhere was red about it.** The tolerance was written by a careful person acting
+reasonably on the evidence they had; that is what makes the shape dangerous rather than careless.
+
+**The rule:** a value the instrument compares against is either **derived at run time from something
+that is not the answer**, or it does not exist. Concretely:
+
+- **A floor is replaced by a comparison, never frozen.** *"At least fifteen members were walked"*
+  becomes *"every member of the derived population was reached"* — which cannot be satisfied by
+  editing a number, because there is no number.
+- **An expected-failure set is DECLARED WITH A REASON PER ENTRY and compared in BOTH DIRECTIONS.**
+  An undeclared failure is a finding; **a declared failure that has gone green is also a finding**,
+  because the reason has outlived the defect it described. The second direction is the one a
+  tolerance can never give you, since a count going down looks like progress. **Fixing something
+  must also require deleting its excuse** — and an expected-failure set that has emptied itself is
+  the only kind that was ever worth keeping.
+- **Where a literal genuinely cannot be avoided**, the instrument says in its own output that the
+  value is a literal and what would make it stale — § A.4's rule applied to the span of a number.
+
+**And the counting rule, which is where this sheet's own advice has most often failed in practice:
+after changing what an instrument derives, COUNT what the new derivation reached and compare it to
+what the instrument claims to cover. Do not read the diff and conclude.** A derivation change is
+exactly the edit whose defect is invisible in review — the code reads correctly, the result is
+green, and the population quietly moved. Every instance of the § A.4 defect recorded on this sheet
+was found by counting a result; none was found by reading the code that produced it.
 
 ---
 
