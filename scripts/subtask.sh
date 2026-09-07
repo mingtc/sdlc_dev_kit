@@ -20,8 +20,10 @@
 #   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd PRD-NNN] [--stories a,b] [--plan path] [--size S]
 #       → creates progress/subtasks/<PARENT-ID>/todo/<PARENT-ID>-<suffix>-<slug>.md
 #         from .claude/templates/SUBTASK.template.md, fills frontmatter, commits [Orchestrator].
-#   ./scripts/subtask.sh move <PARENT-ID>-<suffix> <target> [--role Orchestrator|Dev|QA] [--note "..."] [--discard-dirty]
+#   ./scripts/subtask.sh move <PARENT-ID>-<suffix> <target> [--role <R>] [--note "..."] [--discard-dirty]
 #       → git mv within the subtask tree + append Activity + commit "[ROLE] <id> → <target>: NOTE".
+#
+#   <R> = @ROLE_SET@
 #
 # Target folders: todo | in_progress | dev_complete | qa_complete | blocked
 #
@@ -56,8 +58,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # sit in the create arm carried its own comment saying it would move "when that lib exists".
 . "$SCRIPT_DIR/lib/card-head.sh"
 
+# GUARDED, unlike the two libraries above, and for a reason that is not style: usage() now
+# renders the role set THROUGH this library, and process/contracts/issue-creation.md § 3 says a
+# usage request always succeeds. An unguarded source would abort under `set -e` before usage() is
+# even defined, so `--help` would exit non-zero because a library was missing — which is the
+# contract's one prohibition. The operational path still needs it (kit_require_role); that path
+# fails on its own terms, loudly, where the operator asked for an operation.
 # shellcheck source=lib/role-set.sh
-. "$SCRIPT_DIR/lib/role-set.sh"
+[ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
 # config.sh is loaded for its SHARED VALIDATORS, not for a prefix — this script consumes
 # none. The six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT
@@ -121,7 +129,23 @@ STATUSES=(todo in_progress dev_complete qa_complete blocked)
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
-usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+usage() {   # the path is an ARGUMENT — see lib/usage.sh
+  local roles tok='@ROLE_SET@'
+  if command -v kit_role_display >/dev/null 2>&1; then
+    roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
+  fi
+  # EVERY DEGRADATION NAMES THE SEAM, never the shipped set: a guess that is right about the kit
+  # and wrong about this project is the defect being removed, not a fallback from it.
+  [ -n "${roles:-}" ] \
+    || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
+  # SUBSTITUTED BY POSITION, NOT BY PATTERN — the replacement is a `|`-bearing role set, which
+  # `sed` would read through its delimiter rules and awk's gsub would read a `&` in as the whole
+  # match. index/substr interprets nothing. Same reasoning as move-issue.sh, which does this first.
+  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
+    { i = index($0, t)
+      if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
+      else   print }'
+}
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
 # every POSITIONAL, not just the first — `subtask.sh new --help s1 slug` would

@@ -6873,7 +6873,8 @@ SEAM_EOF
 }
 
 # =============================================================================
-# CASE — move-issue.sh's --help AND its --role enforcement AGREE about the role set.
+# CASE — every tool that PROMISES to render the role set has a --help that AGREES with its
+#        --role enforcement. Population DERIVED from the promise, not listed.
 #
 # THE DEFECT THIS IS NAMED FOR SHIPPED, and nothing was red. The header
 # carried the set SPACE-PADDED and the enforcement arm carried it unpadded. `kit-init
@@ -6907,38 +6908,41 @@ SEAM_EOF
 #     disagreement in the other direction. Unfixed, and unsupported rather than harmless:
 #     kit-init refuses a tree that has already lived, and the hook still refuses the commit,
 #     but refusing BEFORE the git mv is the whitelist's whole value.
-#   * THE POPULATION IS ONE FILE, NOT A DERIVED SET, and that is a hole rather than a
-#     choice. `scripts/subtask.sh` advertises a THREE-ROLE SUBSET in its usage line while
-#     its `move` arm enforces the project's WHOLE declared set — the same defect in a THIRD
-#     shape (a partial subset, which `grep -lF` cannot match either), and wrong on every
-#     tree rather than only a narrowed one: under-advertising on the shipped kit,
-#     over-advertising once a role is withdrawn.
-#     THE SUBSET IS DESCRIBED HERE AND NOT QUOTED, deliberately. A comment that spells the
-#     alternation out is one more copy of the role set in the tree — the thing this whole
-#     family of changes removes — and it puts a line into the survival recipe in
-#     process/EXTRACTION.md § 2.4, which is a recipe this same work shipped. Measured on a
-#     built tree 2026-09-07, and NOT FIXED. This
-#     case is deliberately NOT widened to a derived population yet, because it would then
-#     be red about a file this change does not fix, and a case that is red for a reason
-#     outside its own change teaches the reader to ignore it. Widen it WITH 273.
+#   * ROLE SETS IN FILES WITH NO HELP WINDOW AT ALL. The negative census below scans the
+#     comment block lib/usage.sh renders and nothing else, so a role set in a script's body,
+#     in a template, or in a document is invisible to it. That is a deliberate scope and not
+#     an exemption: the authority's own declaration lives in a body, and an arm that flagged
+#     bodies would flag the authority.
+#
+# THE POPULATION USED TO BE ONE FILE AND IS NOW DERIVED, and the reason it was one file is
+# kept because it was a good reason. This case judged move-issue.sh alone and NAMED that as a
+# hole, deliberately not widening: scripts/subtask.sh carried the same defect in a THIRD shape
+# (a partial subset in its own order, which `grep -lF` cannot match either), and widening
+# before that file was fixed would have made this case red about something its own change did
+# not repair — which teaches a reader to ignore it. Both landed together instead. The
+# population is now every tool carrying the @ROLE_SET@ token, and a SECOND census asserts that
+# no help window anywhere under scripts/ still carries a literal, in ANY shape.
+#
+# WHY A NEGATIVE CENSUS RATHER THAN A FOURTH SHAPE FOR THE MATCHER. Three shapes have been
+# found: the full set unpadded, which the initializer does rewrite; the full set space-padded,
+# which it cannot see; and a partial subset in its own order, which it also cannot see. Two of
+# the three were found by accident. Enumerating shapes is a losing game — asserting that no
+# literal survives anywhere is not, and it is the same move as deriving a population instead
+# of listing one.
 # =============================================================================
-case_move_issue_help_matches_its_role_enforcement() {
+case_help_advertises_exactly_what_the_role_arm_accepts() {
   cf_reset
-  if ! has_kit_init; then skp "move-issue --help advertises exactly what its --role arm accepts" "scripts/kit-init.sh absent"; return; fi
-  if ! has_issue_template; then skp "move-issue --help advertises exactly what its --role arm accepts" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if ! has_kit_init; then skp "--help advertises exactly what the --role arm accepts" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "--help advertises exactly what the --role arm accepts" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   kit_init_sandbox
   publish_sandbox
-
-  local mi="$SB_WORK/scripts/move-issue.sh"
-  [ -f "$mi" ] \
-    || _fixture_die "case_move_issue_help_matches_its_role_enforcement: no scripts/move-issue.sh in the sandbox — the subject is absent."
 
   # A NARROWING THAT REMOVES MEMBERS. A set equal to the shipped one would be satisfied by
   # both sides carrying the shipped list, which is the state the defect lived in.
   local shipped="$KIT_NEUTRAL_ROLE_PREFIXES" declared='PM|Dev|Architect' out rc=0
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$declared" 2>&1)" || rc=$?
   [ "$rc" -eq 0 ] \
-    || _fixture_die "case_move_issue_help_matches_its_role_enforcement: kit-init --roles exited $rc, so nothing below is about a narrowed tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    || _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: kit-init --roles exited $rc, so nothing below is about a narrowed tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   # ── THE WITHDRAWN MEMBERS ARE DERIVED, never typed. A typed name goes stale the day the
   #    shipped set changes, and case_role_literals_are_declared scans this file for
@@ -6948,96 +6952,182 @@ case_move_issue_help_matches_its_role_enforcement() {
   withdrawn="$(printf '%s\n' "$shipped" | tr '|' '\n' \
                | grep -vxF -f <(printf '%s\n' "$declared" | tr '|' '\n') || true)"
   [ -n "$withdrawn" ] \
-    || _fixture_die "case_move_issue_help_matches_its_role_enforcement: the narrowing removed no member, so 'advertised == declared' would be satisfied by either side carrying the shipped set."
+    || _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: the narrowing removed no member, so 'advertised == declared' would be satisfied by either side carrying the shipped set."
 
-  # ── ARM (a) THE ADVERTISED SET IS THE DECLARED SET, both directions.
-  local help_out advertised
-  help_out="$( cd "$SB_WORK" && ./scripts/move-issue.sh --help 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] \
-    || cf "(a) --help exited $rc — a usage request must ALWAYS succeed (issue-creation.md § 3), and this one renders derived content, which is the path that can fail"
-  advertised="$(printf '%s\n' "$help_out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
-  [ -n "$advertised" ] \
-    || _fixture_die "case_move_issue_help_matches_its_role_enforcement: --help prints no '<R> = ' line, so there is no advertised set to compare and every arm below would pass over nothing."
+  # ── POPULATION 1, DERIVED FROM THE DECLARATION SITE: every shipped tool that carries the
+  #    @ROLE_SET@ token is a tool PROMISING to render the role set from the seam, and this case
+  #    holds it to that promise. Keyed on the token rather than on a list of filenames, so a tool
+  #    that adopts the pattern joins by adopting it. This is the same exception the config-seam
+  #    census records: an implementation shape is the right key when the shape IS the property's
+  #    declaration, which a placeholder in a help window unambiguously is.
+  local tools
+  tools="$(cd "$SB_WORK/scripts" && grep -lF '@ROLE_SET@' ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
+  [ -n "$tools" ] \
+    || _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: no shipped tool carries the @ROLE_SET@ token, so every arm below would pass over an empty population."
 
-  # Compared as SETS, on normalized whitespace: the presentation may legitimately pad with
-  # spaces, and the defect was never about presentation — it was about MEMBERSHIP.
-  local adv_n dec_n
-  adv_n="$(printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -c . || true)"
-  dec_n="$(printf '%s\n' "$declared"   | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -c . || true)"
-  diff <(printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) \
-       <(printf '%s\n' "$declared"   | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) >/dev/null 2>&1 \
-    || cf "(a) --help advertises a role set that is not the one this project declares. advertised ($adv_n): '$advertised' — declared ($dec_n): '$declared'. The usage text is where an operator learns what is legal, so this is a tool lying about itself"
+  # ── POPULATION 2, DERIVED, AND IT MUST BE EMPTY. Any shipped file whose HELP WINDOW carries an
+  #    alternation of declared role names is carrying a SECOND COPY of the role set, in whatever
+  #    shape its author typed. This is the arm that catches a shape nobody has thought of yet, and
+  #    it exists because three shapes have already been found: the full set unpadded (which the
+  #    initializer's `grep -lF` does rewrite), the full set SPACE-PADDED (which it cannot see), and
+  #    a PARTIAL SUBSET IN ITS OWN ORDER (which it also cannot see). Enumerating shapes is a losing
+  #    game; asserting that no literal survives anywhere is not.
+  #
+  #    NO EXEMPTION LIST, and that is a measured property rather than an omission: the window is
+  #    the comment block lib/usage.sh renders, so the AUTHORITY's own declaration
+  #    (ROLE_PREFIXES in scripts/githooks/commit-msg) is out of scope by construction — it is code,
+  #    not a help window — and so is every role name in a script's body. Measured empty over
+  #    scripts/*.sh, scripts/test/*.sh, scripts/lib/*.sh and scripts/githooks/* on a narrowed tree.
+  #
+  #    THE SELECTOR IS REDDENED IN FIVE DIRECTIONS, because an empty result is also what a broken
+  #    selector returns. Planted into a help window and re-run: the unpadded narrowed set is found,
+  #    the PADDED set is found, a partial subset out of order is found; a non-role alternation
+  #    (folder names) is correctly NOT found, and a role alternation placed AFTER the code is
+  #    correctly out of scope. The three positives are the three shapes actually observed in this
+  #    tree; the two negatives are what stops this arm reddening on prose.
+  local f start hit literal_carriers=''
+  for f in "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/test/*.sh "$SB_WORK"/scripts/lib/*.sh "$SB_WORK"/scripts/githooks/*; do
+    [ -f "$f" ] || continue
+    start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$f")"
+    [ -n "${start:-}" ] || continue
+    hit="$(awk -v s="$start" 'NR>=s { if ($0 ~ /^#/) print; else exit }' "$f" \
+           | grep -oE '[A-Z][A-Za-z]+([[:space:]]*\|[[:space:]]*[A-Z][A-Za-z]+){1,}' \
+           | awk -v ok="$shipped" 'BEGIN{n=split(ok,M,"|"); for(i=1;i<=n;i++) mem[M[i]]=1}
+                { a=$0; gsub(/[[:space:]]*\|[[:space:]]*/,"|",a)
+                  k=split(a,T,"|"); for(i=1;i<=k;i++) if (T[i] in mem) { print a; next } }' \
+           | sort -u | tr '\n' ' ')"
+    [ -n "$hit" ] && literal_carriers="$literal_carriers$(basename "$f")[$hit] "
+  done
+  [ -z "$literal_carriers" ] \
+    || cf "a help window still carries a role-set LITERAL, which is a second copy of the set in a shape the initializer's matcher may not be able to rewrite: $literal_carriers— render it from the seam with the @ROLE_SET@ token instead"
 
-  # ── ARM (b) THE CONSEQUENCE, not the text. A withdrawn role must be REFUSED, and a
-  #    declared one must not be — otherwise (a) is satisfied by a help line that agrees
-  #    with a whitelist neither of them reaches. --role is validated before kwt_resolve,
-  #    so a nonexistent card cannot short-circuit the arm.
-  local r probe_out kept
-  kept="$(printf '%s' "$declared" | cut -d'|' -f1)"
-  probe_out="$( cd "$SB_WORK" && ./scripts/move-issue.sh SBX-001 in_progress --role "$kept" --note n 2>&1 || true )"
-  printf '%s' "$probe_out" | grep -q -- '--role must be' \
-    && cf "(b) move-issue.sh refused '$kept', a member of the set this project just declared — its whitelist was not stamped, and --help now advertises a role the tool rejects"
-  while IFS= read -r r; do
-    [ -n "$r" ] || continue
-    # THE ADVERTISED SET, NOT THE WHOLE HELP TEXT — and this distinction was MEASURED rather
-    # than reasoned. Grepping all of --help for a withdrawn role reddens on the header's
-    # EXAMPLES, which name a concrete role to be readable (`--role Dev`, `--role QA`). Those
-    # are a real and separate instance of this class — an operator copies an example — but they
-    # are not the authoritative list this case is about, and folding them in would make this
-    # case red about something it does not fix. Named in the finish line as a hole instead.
-    printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -qx "$r" \
-      && cf "(b) the advertised set still names '$r', which this project's declared set does not contain — this is the defect this case is named for: a second copy of the set, in a shape the stamper's matcher cannot produce and therefore cannot rewrite"
-    probe_out="$( cd "$SB_WORK" && ./scripts/move-issue.sh SBX-001 in_progress --role "$r" --note n 2>&1 || true )"
+  # ── PER MEMBER. Every arm below runs for every member of population 1, so a tool that adopts
+  #    the token inherits the whole case rather than only the parts somebody remembered.
+  local t tool_path help_out advertised adv_n dec_n
+  dec_n="$(printf '%s\n' "$declared" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -c . || true)"
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    tool_path="$SB_WORK/scripts/$t"
+    [ -f "$tool_path" ] \
+      || _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: $t is in the derived population but absent from the sandbox — the subject is gone."
+
+    # ── ARM (a) THE ADVERTISED SET IS THE DECLARED SET, both directions.
+    help_out="$( cd "$SB_WORK" && "./scripts/$t" --help 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] \
+      || cf "($t a) --help exited $rc — a usage request must ALWAYS succeed (issue-creation.md § 3), and this one renders derived content, which is the path that can fail"
+    printf '%s' "$help_out" | grep -qF '@ROLE_SET@' \
+      && cf "($t a) --help printed the @ROLE_SET@ token itself — the placeholder reached the operator unexpanded, so the tool advertises nothing at all"
+    advertised="$(printf '%s\n' "$help_out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
+    [ -n "$advertised" ] \
+      || _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: $t carries the token but --help prints no '<R> = ' line, so there is no advertised set to compare and every arm below would pass over nothing."
+
+    # Compared as SETS, on normalized whitespace: the presentation may legitimately pad with
+    # spaces, and the defect was never about presentation — it was about MEMBERSHIP.
+    adv_n="$(printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -c . || true)"
+    diff <(printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) \
+         <(printf '%s\n' "$declared"   | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) >/dev/null 2>&1 \
+      || cf "($t a) --help advertises a role set that is not the one this project declares. advertised ($adv_n): '$advertised' — declared ($dec_n): '$declared'. The usage text is where an operator learns what is legal, so this is a tool lying about itself"
+
+    # ── ARM (b) THE CONSEQUENCE, not the text. A withdrawn role must be REFUSED, and a
+    #    declared one must not be — otherwise (a) is satisfied by a help line that agrees
+    #    with a whitelist neither of them reaches.
+    #
+    #    THE INVOCATION IS DECLARED PER TOOL, NEVER GUESSED. A catch-all here would run each new
+    #    member with arguments nobody chose for it; it would exit non-zero for an ARITY reason and
+    #    every "it refused" assertion would pass on a refusal that has nothing to do with the role
+    #    set. That is the vacuous-satisfaction shape the config-seam census was repaired for, and
+    #    the fix is the same: name the members, and die on one that is not named.
+    #    THE DISPATCH IS OUTSIDE ANY COMMAND SUBSTITUTION, and that placement is the whole point
+    #    rather than a style choice. `_fixture_die` ends in `exit 1`; inside `$( … )` that exits the
+    #    SUBSHELL and the harness carries on with the die message captured as the probe's output —
+    #    so a catch-all written there is a guard that cannot fire, which is the defect class this
+    #    case belongs to. The invocation is therefore built ONCE, here, as an argv array with
+    #    `--role` last so the role is appended; every probe below reuses it.
+    local r probe_out kept
+    local -a probe_cmd
+    kept="$(printf '%s' "$declared" | cut -d'|' -f1)"
+    case "$t" in
+      move-issue.sh) probe_cmd=(./scripts/move-issue.sh SBX-001 in_progress --note n --role) ;;
+      # subtask.sh takes a `move` SUBCOMMAND and a <PARENT>-sM id. --role is validated before the
+      # subtask tree is resolved, verified by running it: a declared role on a nonexistent tree
+      # reaches "no subtask tree at …", which is past the whitelist.
+      subtask.sh)    probe_cmd=(./scripts/subtask.sh move SBX-001-s1 in_progress --note n --role) ;;
+      *) _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: '$t' joined the derived population and no invocation is declared for it. Add its arm — a case that cannot exercise a member knows nothing about it." ;;
+    esac
+    probe_out="$( cd "$SB_WORK" && "${probe_cmd[@]}" "$kept" 2>&1 || true )"
     printf '%s' "$probe_out" | grep -q -- '--role must be' \
-      || cf "(b) move-issue.sh did NOT refuse '$r', a role this project no longer declares — the whitelist was not stamped, or the arm was never reached: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-160)"
-  done <<WITHDRAWN_EOF
+      && cf "($t b) it refused '$kept', a member of the set this project just declared — its whitelist was not stamped, and --help now advertises a role the tool rejects"
+    while IFS= read -r r; do
+      [ -n "$r" ] || continue
+      # THE ADVERTISED SET, NOT THE WHOLE HELP TEXT — and this distinction was MEASURED rather
+      # than reasoned. Grepping all of --help for a withdrawn role reddens on the header's
+      # EXAMPLES, which name a concrete role so they read as runnable commands. Those are a real
+      # and separate instance of this class; both tools now carry a label saying an example value
+      # is an example, which is disclosure rather than removal. Named in the finish line.
+      printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -qx "$r" \
+        && cf "($t b) the advertised set still names '$r', which this project's declared set does not contain — a second copy of the set, in a shape the stamper's matcher cannot produce and therefore cannot rewrite"
+      probe_out="$( cd "$SB_WORK" && "${probe_cmd[@]}" "$r" 2>&1 || true )"
+      printf '%s' "$probe_out" | grep -q -- '--role must be' \
+        || cf "($t b) it did NOT refuse '$r', a role this project no longer declares — the whitelist was not stamped, or the arm was never reached: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-160)"
+    done <<WITHDRAWN_EOF
 $withdrawn
 WITHDRAWN_EOF
 
-  # ── ARM (c) THE DEGRADATION IS HONEST, because arm (a) made the usage path depend on a
-  #    library and a seam. issue-creation.md § 3 says a usage request ALWAYS succeeds; the
-  #    sheet's rule for derived content is that it degrades to NAMING THE SOURCE and never
-  #    to a guess — a list that is right about the kit and wrong about this project is the
-  #    defect being removed, not a fallback from it.
-  local d
-  for d in scripts/lib/role-set.sh scripts/githooks/commit-msg; do
-    local keep="$SB_TMP/$(basename "$d").keep"
-    cp "$SB_WORK/$d" "$keep" 2>/dev/null || { _control_did_not_run "stash $d to remove it"; continue; }
-    rm -f "$SB_WORK/$d"
-    out="$( cd "$SB_WORK" && ./scripts/move-issue.sh --help 2>&1 )"; rc=$?
-    [ "$rc" -eq 0 ] \
-      || cf "(c) with $d absent, --help exited $rc — a usage request must always succeed, and this is the path arm (a) put a dependency on"
-    printf '%s\n' "$out" | grep -q 'ROLE_PREFIXES' \
-      || cf "(c) with $d absent, --help does not NAME the seam the role set comes from — it degraded to something that tells the operator nothing about where to look: $(printf '%s' "$out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
-    printf '%s\n' "$out" | grep -qF -- "$shipped" \
-      && cf "(c) with $d absent, --help printed the KIT'S SHIPPED set — it guessed, and a guess that is right about the kit and wrong about this project is the exact defect this case is named for"
-    cp "$keep" "$SB_WORK/$d"; chmod +x "$SB_WORK/$d" 2>/dev/null || true
-  done
+    # ── ARM (c) THE DEGRADATION IS HONEST, because arm (a) made the usage path depend on a
+    #    library and a seam. issue-creation.md § 3 says a usage request ALWAYS succeeds; the
+    #    sheet's rule for derived content is that it degrades to NAMING THE SOURCE and never
+    #    to a guess — a list that is right about the kit and wrong about this project is the
+    #    defect being removed, not a fallback from it.
+    local d keep
+    for d in scripts/lib/role-set.sh scripts/githooks/commit-msg; do
+      keep="$SB_TMP/$(basename "$d").keep"
+      cp "$SB_WORK/$d" "$keep" 2>/dev/null || { _control_did_not_run "stash $d to remove it"; continue; }
+      rm -f "$SB_WORK/$d"
+      out="$( cd "$SB_WORK" && "./scripts/$t" --help 2>&1 )"; rc=$?
+      [ "$rc" -eq 0 ] \
+        || cf "($t c) with $d absent, --help exited $rc — a usage request must always succeed, and this is the path arm (a) put a dependency on"
+      printf '%s\n' "$out" | grep -q 'ROLE_PREFIXES' \
+        || cf "($t c) with $d absent, --help does not NAME the seam the role set comes from — it degraded to something that tells the operator nothing about where to look: $(printf '%s' "$out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
+      printf '%s\n' "$out" | grep -qF -- "$shipped" \
+        && cf "($t c) with $d absent, --help printed the KIT'S SHIPPED set — it guessed, and a guess that is right about the kit and wrong about this project is the exact defect this case is named for"
+      cp "$keep" "$SB_WORK/$d"; chmod +x "$SB_WORK/$d" 2>/dev/null || true
+    done
 
-  # ── THE REDDENING CONTROL, and it re-introduces the ORIGINAL DEFECT rather than a
-  #    synthetic one. Put the padded shipped-set literal back into the header where it
-  #    used to live, and arm (a)'s comparison must fire. A control that cannot reproduce
-  #    the defect the case is named for is not a control (instruments.md § A.2).
-  local before after ctl_adv
-  before="$(printf '%s' "$shipped" | sed 's/|/ | /g')"
-  after="$(grep -c "<R> = " "$mi" || true)"
-  [ "$after" = "1" ] \
-    || _control_did_not_run "locate exactly one '<R> = ' line to overwrite (found $after)"
-  if [ "$after" = "1" ]; then
-    # ASSERT THE PLANT TOOK. A substitution that matched nothing leaves the case green and
-    # the control silent, which is worse than no control at all.
-    PADDED="$before" perl -i -pe 's/^(#\s*<R> = ).*$/$1$ENV{PADDED}/' "$mi"
-    grep -qF -- "$before" "$mi" \
-      || _control_did_not_run "plant the padded shipped set into the header (the substitution matched nothing)"
-    if grep -qF -- "$before" "$mi"; then
-      ctl_adv="$( cd "$SB_WORK" && ./scripts/move-issue.sh --help 2>&1 | sed -n 's/^[[:space:]]*<R> = //p' | head -1 )"
-      diff <(printf '%s\n' "$ctl_adv"  | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) \
-           <(printf '%s\n' "$declared" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) >/dev/null 2>&1 \
-        && cf "(control) the padded shipped-set literal was planted back into the header and arm (a) still saw the declared set — the comparison is reading something other than what --help prints, and it cannot see the defect it is named for"
+    # ── THE REDDENING CONTROL, PER MEMBER, and it re-introduces the ORIGINAL DEFECT rather than a
+    #    synthetic one: the padded shipped-set literal, back in the header where it used to live.
+    #    Arm (a)'s comparison must fire. A control that cannot reproduce the defect the case is
+    #    named for is not a control (instruments.md § A.2).
+    local padded n_leg ctl_adv
+    padded="$(printf '%s' "$shipped" | sed 's/|/ | /g')"
+    n_leg="$(grep -c '<R> = ' "$tool_path" || true)"
+    if [ "$n_leg" != "1" ]; then
+      _control_did_not_run "locate exactly one '<R> = ' line in $t to overwrite (found $n_leg)"
+    else
+      # WRITTEN BY POSITION, and back through `cat` rather than `mv`. index/substr interprets
+      # nothing, so a `|`-bearing replacement survives; `cat >` truncates the ORIGINAL file, which
+      # keeps its executable bit — `mv` would give it the temp file's mode and leave a tool the
+      # next arm cannot run. (That mode-loss shipped once in this repository already.)
+      awk -v p="$padded" '
+        { i = index($0, "<R> = ")
+          if (i) print substr($0, 1, i + 5) p
+          else   print }' "$tool_path" > "$SB_TMP/ctl.$t" \
+        && cat "$SB_TMP/ctl.$t" > "$tool_path"
+      if ! grep -qF -- "$padded" "$tool_path"; then
+        _control_did_not_run "plant the padded shipped set into $t's header (the substitution matched nothing)"
+      else
+        [ -x "$tool_path" ] \
+          || _control_did_not_run "keep $t executable across the plant (the control broke its own subject)"
+        ctl_adv="$( cd "$SB_WORK" && "./scripts/$t" --help 2>&1 | sed -n 's/^[[:space:]]*<R> = //p' | head -1 )"
+        diff <(printf '%s\n' "$ctl_adv"  | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) \
+             <(printf '%s\n' "$declared" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep . | sort) >/dev/null 2>&1 \
+          && cf "($t control) the padded shipped-set literal was planted back into the header and arm (a) still saw the declared set — the comparison is reading something other than what --help prints, and it cannot see the defect it is named for"
+      fi
     fi
-  fi
+  done <<TOOLS_EOF
+$tools
+TOOLS_EOF
 
-  finish "move-issue.sh --help advertises EXACTLY the role set this project declares ($dec_n member(s)) and refuses every member it does not, with both operands derived independently — the declared set from kit-init's own argument, the advertised set from what --help prints — so no shared expression can hide a disagreement; the usage path degrades to NAMING the seam (never guessing the shipped set) with either the library or the hook absent; and re-planting the original padded literal reddens arm (a). NOT COVERED, and each is a HOLE rather than an exemption: whether the ENFORCEMENT list is itself derived rather than stamped (it is not, so a hand-edited hook leaves it behind while this help text follows), and the POPULATION — this case judges move-issue.sh alone, while scripts/subtask.sh carries the same defect in a third shape (a partial subset in its usage line, and wrong on EVERY tree rather than only a narrowed one — it under-advertises on the shipped kit, where the move arm accepts the whole declared set, and over-advertises once a role is withdrawn; measured both ways, unfixed); and the header EXAMPLES, which name a concrete role in the argument position so they read as runnable commands and therefore name a refused one on a tree that withdrew it — a fourth shape, and arguably the one an operator copies"
+  finish "every shipped tool that PROMISES to render the role set from the seam advertises EXACTLY the set this project declares ($dec_n member(s)) and refuses every member it does not — population DERIVED from the @ROLE_SET@ token rather than listed ($(printf '%s' "$tools" | tr '\n' ' ')), with both operands derived independently (the declared set from kit-init's own argument, the advertised set from what --help prints) so no shared expression can hide a disagreement; each member's --role probe is DECLARED per tool and an undeclared member halts the case rather than being run with guessed arguments; the usage path degrades to NAMING the seam (never guessing the shipped set) with either the library or the hook absent; NO help window anywhere under scripts/ still carries a role-set literal, in any of the three shapes observed (full unpadded, space-padded, partial subset out of order), with that selector reddened in five directions including a non-role alternation and a role name outside the window; and re-planting the original padded literal reddens arm (a) for every member. NOT COVERED, and each is a HOLE rather than an exemption: whether the ENFORCEMENT list is itself derived rather than stamped (it is not, so a hand-edited hook leaves it behind while this help text follows); the header EXAMPLES, which name a concrete role in the argument position so they read as runnable commands and therefore name a refused one on a tree that withdrew it — both tools now carry a label saying an example value is an example, which is DISCLOSURE and not removal; and role sets in files with no help window at all, which this arm cannot see by construction"
   teardown
 }
 
@@ -11810,7 +11900,7 @@ CASES=(
   case_kit_init_happy
   case_kit_init_repairs_hook_mode
   case_kit_init_roles_leave_no_seam
-  case_move_issue_help_matches_its_role_enforcement
+  case_help_advertises_exactly_what_the_role_arm_accepts
   case_lived_probe_has_one_authoring_site
   case_kit_init_refuses_lived_board
   case_kit_init_gate_fill

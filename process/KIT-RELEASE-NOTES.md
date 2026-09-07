@@ -83,6 +83,33 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+- **`scripts/subtask.sh --help` was telling you the wrong roles — and on an unmodified kit it was
+  telling you too FEW.** Its `move` usage line named three roles by hand. The `move` arm has always
+  validated `--role` against **the whole set your project declares** in
+  `scripts/githooks/commit-msg`, so on a stock kit the tool accepted seven and advertised three:
+  nothing ever told you `--role Architect` was legal on a subtask, and it always was. If you ran
+  `kit-init.sh --roles` to narrow your set, it went wrong the other way — the hand-typed line was
+  written in a shape the initializer cannot rewrite, so it kept advertising a role your tree now
+  refuses. **It now renders your own declared set**, the same way `move-issue.sh` does, and the two
+  tools cannot drift apart from each other again.
+
+  **ACTION REQUIRED — two things, and the first one is worth a minute even if you touch nothing.**
+
+  1. **Re-check what your team believes it can pass to `subtask.sh move --role`.** If anyone learned
+     the legal values from that usage line, they learned a wrong list. Run
+     `./scripts/subtask.sh --help` and read the `<R> = ` line; that is now your project's set,
+     read from your hook at the moment you ask.
+  2. **If you parse this help text, the shape changed.** The `move` line now reads
+     `[--role <R>]`, and the set moved to its own legend line of the form `<R> = A | B | C`
+     — identical in form to `move-issue.sh`'s, which has looked like this since the previous
+     release. Nothing else in the header moved, the `move` arm's flags and exit codes are
+     unchanged, and `--help` still exits 0.
+
+  **And it stays honest when the seam is gone:** with `scripts/lib/role-set.sh` or
+  `scripts/githooks/commit-msg` missing, `--help` still exits 0 and **names the file the set comes
+  from** rather than printing the kit's shipped default — a list that is right about the kit and
+  wrong about your project is the bug being removed, not a fallback from it.
+
 - **`scripts/subtask.sh` now tells you what happened when `scripts/config.sh` cannot be read.**
   Every other script that reads the configuration seam already refused with a named cause; this one
   sourced it bare, so a missing `config.sh` gave you a shell diagnostic — a path and a line number —
