@@ -46,6 +46,15 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **Eight error messages that name `./scripts/kit-init.sh` as the fix now say which tree that fix
+  applies to.** A refusal naming a remedy is making a claim, and on a repository that has already
+  been initialized `kit-init` refuses — so `verify.sh`'s empty-gate-table message, `finish-pr.sh`'s,
+  and the six `--prefix`/`--trunk` messages in the creation scripts were pointing at a command that
+  would answer *"this repository has already lived."* **Both halves were individually correct**;
+  what was wrong was the sentence joining them. The remedy is still right on a tree that has never
+  been initialized, which is the common case they were written for, and the text now says so —
+  in the same three words `lib/kanban-worktree.sh` has always used.
+
 - **The self-test now exercises `consumers/` and `setup.sh`, which it had never run.** Its sandbox
   carried only `scripts/`, so the four shipped programs outside that directory — the three consumer
   helpers and `setup.sh` — were bound by the kit's CLI contract and never executed by anything.
