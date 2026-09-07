@@ -159,6 +159,30 @@ the round had just finished verifying. So the sweep **re-runs after every fix ro
 finds nothing.** A single pass certifies the tree as it was before the fixes, which is not the tree
 that ships.
 
+**THE CHECKERS NEED NOT BE CONTEMPORANEOUS — and the price of that is one named reader, not a
+disclaimer.** This rule said *one fresh-context checker per surface* and was silent on whether the
+checkers had to read the **same** tree. Read strictly it demands they do, which makes a one-file fix
+cost a whole sweep again; read loosely it permits a cut assembled from readings of trees that never
+existed together. Neither is what is wanted, so:
+
+- **A surface's verdict is carried forward only while no file that surface CLAIMS has changed.** The
+  surface list is what says which files those are; a list with no path expression per surface cannot
+  support this rule and has to re-read everything.
+- **The record names each surface's OWN tree**, never one global sha, and the sweep **prints the
+  span** — oldest surface tree to newest.
+- **A NON-ZERO SPAN OWES ONE ADDITIONAL READER, whose subject is CROSS-REFERENCES.** This is the
+  load-bearing clause and it is why the permission is safe. A carried-forward verdict answers for
+  what a surface says **about itself**; it does not answer for what one surface says **about
+  another**, and two checkers reading two different trees can both be right while the claim spanning
+  them is false. That residual is not eliminated by any per-surface rule — so it is **assigned**
+  rather than assumed away.
+- **A zero span owes no such reader**, which is the whole incentive: a sweep run at one tree is
+  cheaper to certify than one assembled across several, and the doctrine should say so rather than
+  pretending the two are equivalent.
+
+*Why this is stated rather than left to the gate: a gate cannot enforce a span rule its doctrine has
+not chosen, and the silence was being read as permission by one reader and prohibition by another.*
+
 **VERIFY BY EXECUTION WHERE THE SURFACE CAN BE EXECUTED, not only by reading.** A claim about what a
 command prints, what a refusal says, or what a flag does is checkable by running it, and reading is
 the weaker instrument for exactly those: it confirms the sentence is plausible against the source

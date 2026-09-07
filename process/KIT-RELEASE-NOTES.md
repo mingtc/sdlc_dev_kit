@@ -46,6 +46,66 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The pre-cut sweep's checkers no longer have to read the same tree, and § A.4b now says so.**
+  The rule required one fresh-context checker per surface and was silent on contemporaneity — read
+  strictly it made any one-file change void an entire sweep record, which is how a gate earns a
+  routine bypass. **A surface's verdict is now carried forward while no file that surface claims has
+  changed**, each surface records its own tree, and the sweep prints the span. **The clause that
+  makes it safe:** a non-zero span owes one additional reader whose subject is cross-references,
+  because a carried-forward verdict answers for what a surface says about itself and not for what
+  one surface says about another. A zero span owes no such reader. **If you keep a surface list,
+  it now needs a path expression per surface** — without one, nothing can compute which verdicts
+  survive and the honest fallback is re-reading everything.
+
+- **Action required if you have ever run `kit-init --roles`: your `move-issue.sh --help` has been
+  lying to you, and the fix is a re-copy.** The usage header named the role set literally, written
+  **space-padded** — `<R> = PM | Dev | QA | …` — while the `--role` arm that enforces it held the
+  same list unpadded. `kit-init --roles` finds the places to rewrite by matching the unpadded
+  spelling, so it stamped the enforcement and **could not see the header**. On every project that
+  narrowed its role set, the board mover advertised roles it then refused:
+
+  ```
+  $ ./scripts/move-issue.sh --help
+    <R> = PM | Dev | QA | Refactorer | UIDesigner | Orchestrator | Architect
+  $ ./scripts/move-issue.sh XYZ-001 qa_complete --role UIDesigner --note x
+  Error: --role must be PM|Dev|QA|Architect (got 'UIDesigner')
+  ```
+
+  **Nothing in your repository is broken and no board state is wrong** — the enforcement was always
+  the correct list, so nothing illegal ever got through. What was wrong is the one place an operator
+  looks to find out what is legal. **To fix it, re-copy `scripts/move-issue.sh` and
+  `scripts/lib/role-set.sh` together** (the header now expands a token using a new `kit_role_display`
+  in that library, so the two travel as a pair). You do **not** re-run `kit-init`, and you should
+  not: the header no longer carries a copy to stamp, which is the point of the change. After the
+  re-copy, `--help` reads your `ROLE_PREFIXES` at print time and cannot disagree with your hook
+  again.
+
+  **If you cannot re-copy right now:** your `--role` arm is authoritative, and
+  `grep 'ROLE_PREFIXES=' scripts/githooks/commit-msg` is the honest answer to *which roles are
+  legal here*.
+
+- **A usage request that renders one of your configured values now has a stated fallback, and it
+  will never guess.** `contracts/issue-creation.md` § 3 gained the rule behind the fix above: help
+  text that renders a project value (your role set, your status folders, your trunk) reads it from
+  its seam at print time instead of carrying a copy — and when that seam cannot be read it **prints
+  the seam's location** rather than a value. It never substitutes the kit's shipped default. **The
+  request still succeeds with its full text either way**, which is the older rule and is unchanged.
+  *Why you are being told about a fallback:* if you ever see `<R> = as declared in
+  scripts/githooks/commit-msg (ROLE_PREFIXES) — unreadable from here`, that is not a bug. It means
+  the tool could not read your hook and is refusing to guess at your role set, which is the
+  behaviour you want from it.
+
+- **`process/EXTRACTION.md` § 2.4 — the role-set register — now checks itself in both directions,
+  and it found a second defect doing so.** Its recipe asked *does the new list appear* after
+  stamping and never *does an old one survive*, which is how a file could pass the check and keep a
+  stale list. The new half compares every role-shaped list in your tree against your hook,
+  ignoring spacing. **Run it after any `kit-init --roles`** — it is four lines of shell in that
+  section and it is the only thing that catches a copy in a shape the stamper does not produce.
+  Shapes that are now known to exist and are *not* the one it stamps: the set **space-padded**, a
+  **partial subset** of it, and **one member alone** in an argument position inside an example. The
+  list of shapes is not closed, which is why the recipe compares against your hook rather than
+  looking for known spellings. **No action required** if you have never narrowed your role set.
+
 - **The auxiliary-checkout contract now says which tree a reviewer reads.** Two sheets each held
   half of one moment: `kanban-worktree.md` described the standing checkout and never mentioned a
   reviewer; `landing-gate.md` described the review-to-land transition and never mentioned a
