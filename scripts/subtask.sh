@@ -414,9 +414,12 @@ case "$CMD" in
     # file has already been git-mv'd and the Activity entry appended inside the
     # shared kanban worktree, and the commit that would have carried them fails. The
     # result is uncommitted state in an area the next board operation `reset --hard`s
-    # — so a typo'd role does not produce an error, it produces silent data loss in
-    # somebody else's lane. Refusing here costs a re-run; refusing at the hook costs
-    # the move.
+    # — so a typo'd role does not produce the error you asked for, it produces an
+    # inconsistent board and a discarded Activity entry in somebody else's lane.
+    # NOT "silent": that word was here and was measured wrong. The next invocation
+    # detects the dirty worktree, names what it found and prints both ways out. The
+    # reason is unchanged — refusing here costs a re-run; refusing at the hook costs
+    # a reconciliation.
     #
     # THE ROLE SET IS CARRIED IN SEVERAL FILES; the authoritative list is the TABLE
     # in process/EXTRACTION.md § 2.4 "The role set". This whitelist is one of its

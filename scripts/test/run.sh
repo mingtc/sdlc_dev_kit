@@ -7147,8 +7147,11 @@ TOOLS_EOF
 # PASSED the whitelist. That whitelist exists to refuse BEFORE the git mv and the Activity append,
 # because the commit-msg hook refuses AFTER them — leaving uncommitted state in the shared kanban
 # worktree that the next board operation `reset --hard`s. So a stale-permissive literal does not
-# produce an error, it produces silent data loss in somebody else's lane (scripts/lib/role-set.sh's
-# own header states this; it is why that library exists).
+# produce the error you asked for, it produces an INCONSISTENT BOARD and a discarded Activity entry
+# in somebody else's lane — which is why scripts/lib/role-set.sh exists. NOT "silent": that word was
+# in this comment and in that header, and it was measured wrong end to end — the next invocation
+# reports the dirty worktree and names both ways out. The cost is real and it is recoverable, and
+# saying so is what keeps the rest of the rationale credible.
 #
 # WHAT THIS CASE ASSERTS, AND WHY EACH ARM IS NOT THE OTHERS:
 #   (a) DERIVED — a role the project declares is accepted and one it withdrew is refused, on a

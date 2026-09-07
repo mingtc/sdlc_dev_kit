@@ -8,9 +8,20 @@
 # commit-msg hook that rejected its own tools MID-OPERATION: the file is already git-mv'd
 # and the Activity entry already appended inside the shared kanban worktree, and the
 # commit that would have carried them fails. The next board operation `reset --hard`s
-# that worktree. So the failure mode is not an error message — it is silent data loss in
-# somebody else's lane. subtask.sh's `move` arm already argued exactly this for its
-# --role whitelist; these three sites are the same argument, unapplied.
+# that worktree. So the failure mode is not the error you asked for — it is an INCONSISTENT
+# BOARD and a discarded Activity entry, paid for in somebody else's lane.
+#
+# THAT SENTENCE USED TO READ "silent data loss" AND THE WORD "silent" WAS MEASURED WRONG, end to
+# end on a real card by an independent seat. The cost is REPORTED: the next invocation detects the
+# dirty kanban worktree, names what it found, and prints both ways out — which is
+# process/contracts/board-mover.md § 2's wait-never-discard invariant working as designed.
+# THE REASON THIS GUARD EXISTS IS UNCHANGED, and it is the whole point of correcting the wording:
+# refusing BEFORE the mutation costs a re-run, where refusing after it costs a reconciliation.
+# An overstated rationale is the kind a later reader discounts entirely, so the claim is narrowed
+# to what was actually observed rather than deleted.
+#
+# subtask.sh's `move` arm already argued this for its --role whitelist; these three sites are the
+# same argument, unapplied.
 #
 # WHY A KNOB AND A REFUSAL, AND NEVER A DERIVED TAG. The obvious "fix" is to derive the
 # tag from the set — `${ROLE_PREFIXES%%|*}` or similar. Do not. These tags carry SEAT
