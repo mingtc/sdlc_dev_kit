@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **The self-test now checks its own premise about your root documents, and on an adopted tree it
+  says what it is NOT checking.** The case that holds the scaffolding sentinel's authors together
+  decides which of `CLAUDE.md` and `README.md` to measure by reading each file's first line: a
+  document declaring the kit's class is the kit's stub, and anything else is yours and is left
+  alone. That decision was previously unasserted, so a `CLAUDE.md` whose first line had been
+  deleted was silently dropped from the check rather than reported. **No action required, and
+  nothing changed for a correct tree** — on a project that finished day one both documents are
+  yours, neither declares the kit's class, and the case now NAMES them in its result line as not
+  measured, with the signal that told it your tree has been adopted. **What is newly reported:** a
+  root document that is missing entirely is now a failure on any tree, because the day-one
+  checklist requires both to exist and two other checks iterate the same pair. If you deleted one
+  deliberately, that is the finding.
+
 - **The skills provenance table now carries the provenance.** Its Origin column read `<fill in>`
   for the Dev and PM sets, in the document whose own opening sentence is *"a skill whose origin
   nobody can name is a skill nobody can safely update"* — and the answers were never unknown, only

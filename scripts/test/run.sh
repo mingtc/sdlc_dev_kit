@@ -638,6 +638,44 @@ _neu_array_records() {
   ' "$1"
 }
 
+# THE ADOPTION SIGNAL, ONE AUTHORING SITE. Two signals, either sufficient, and the one that
+# fired is returned so a caller can print it: a case that declines to measure something owes
+# the reader the reason it declined (process/doctrine/instruments.md § A.4).
+#
+# WHY IT IS A FUNCTION NOW. case_ship_state derived this inline, and it was the only case that
+# needed it. case_scaffolding_fixture_matches_the_tree's arm (e) needs the SAME judgement about
+# the SAME tree, and a second copy of a two-signal derivation is how the two drift into
+# disagreeing about whether one tree has been adopted — which would show up as one case
+# measuring a document the other calls adopter-owned, with nothing to say which was right.
+_tree_has_lived() {   # -> the signal that fired, or empty for a tree that has not been adopted
+  local rv="$REAL_SCRIPTS/verify.sh" rc_cfg="$REAL_SCRIPTS/config.sh" n
+  if [ -f "$rc_cfg" ] && grep -q "^$KIT_STAMP_MARK" "$rc_cfg" 2>/dev/null; then
+    printf '%s' "scripts/config.sh carries kit-init's stamp receipt — this tree has been adopted"
+    return 0
+  fi
+  if [ -f "$rv" ]; then
+    n="$(_neu_array_records "$rv" GATES)"
+    if [ "$n" -ne 0 ]; then
+      printf '%s' "scripts/verify.sh declares $n gate(s) — this project has filled its own table"
+      return 0
+    fi
+  fi
+  return 0
+}
+
+# Does <root>'s <doc> declare the kit class on line 1? The discriminator arm (a) narrows itself
+# by, lifted out so it can be run against a FABRICATED root in the control below — the real
+# root documents are never mutated, because this harness must not write outside its sandbox.
+_root_doc_is_shipped_copy() {   # <root> <doc>
+  local l1
+  [ -f "$1/$2" ] || return 1
+  l1="$(sed -n '1p' "$1/$2")"
+  case "$l1" in
+    *"$KIT_CLASS_MARKER_KEY KIT"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # _neu_array <file> <ARRAY> — empty a config array's RECORDS, keeping its
 # `NAME=(` / `)` fence and every explanatory comment inside it. The fence must
 # survive: _declare_sandbox_gate, rel_insert and kit-init's --gate-command fill
@@ -6779,10 +6817,16 @@ SEAM_EOF
 #     kit-init refuses a tree that has already lived, and the hook still refuses the commit,
 #     but refusing BEFORE the git mv is the whitelist's whole value.
 #   * THE POPULATION IS ONE FILE, NOT A DERIVED SET, and that is a hole rather than a
-#     choice. `scripts/subtask.sh` advertises `[--role Orchestrator|Dev|QA]` in its usage
-#     line and its `move` arm refuses `Orchestrator` on every narrowed tree — the same
-#     defect in a THIRD shape (a partial subset, which `grep -lF` cannot match either).
-#     Measured on a built tree 2026-09-07, and NOT FIXED. This
+#     choice. `scripts/subtask.sh` advertises a THREE-ROLE SUBSET in its usage line while
+#     its `move` arm enforces the project's WHOLE declared set — the same defect in a THIRD
+#     shape (a partial subset, which `grep -lF` cannot match either), and wrong on every
+#     tree rather than only a narrowed one: under-advertising on the shipped kit,
+#     over-advertising once a role is withdrawn.
+#     THE SUBSET IS DESCRIBED HERE AND NOT QUOTED, deliberately. A comment that spells the
+#     alternation out is one more copy of the role set in the tree — the thing this whole
+#     family of changes removes — and it puts a line into the survival recipe in
+#     process/EXTRACTION.md § 2.4, which is a recipe this same work shipped. Measured on a
+#     built tree 2026-09-07, and NOT FIXED. This
 #     case is deliberately NOT widened to a derived population yet, because it would then
 #     be red about a file this change does not fix, and a case that is red for a reason
 #     outside its own change teaches the reader to ignore it. Widen it WITH 273.
@@ -6902,7 +6946,7 @@ WITHDRAWN_EOF
     fi
   fi
 
-  finish "move-issue.sh --help advertises EXACTLY the role set this project declares ($dec_n member(s)) and refuses every member it does not, with both operands derived independently — the declared set from kit-init's own argument, the advertised set from what --help prints — so no shared expression can hide a disagreement; the usage path degrades to NAMING the seam (never guessing the shipped set) with either the library or the hook absent; and re-planting the original padded literal reddens arm (a). NOT COVERED, and each is a HOLE rather than an exemption: whether the ENFORCEMENT list is itself derived rather than stamped (it is not, so a hand-edited hook leaves it behind while this help text follows), and the POPULATION — this case judges move-issue.sh alone, while scripts/subtask.sh carries the same defect in a third shape (a partial subset in its usage line, measured red on a narrowed tree and unfixed); and the header EXAMPLES, which name a concrete role in the argument position so they read as runnable commands and therefore name a refused one on a tree that withdrew it — a fourth shape, and arguably the one an operator copies"
+  finish "move-issue.sh --help advertises EXACTLY the role set this project declares ($dec_n member(s)) and refuses every member it does not, with both operands derived independently — the declared set from kit-init's own argument, the advertised set from what --help prints — so no shared expression can hide a disagreement; the usage path degrades to NAMING the seam (never guessing the shipped set) with either the library or the hook absent; and re-planting the original padded literal reddens arm (a). NOT COVERED, and each is a HOLE rather than an exemption: whether the ENFORCEMENT list is itself derived rather than stamped (it is not, so a hand-edited hook leaves it behind while this help text follows), and the POPULATION — this case judges move-issue.sh alone, while scripts/subtask.sh carries the same defect in a third shape (a partial subset in its usage line, and wrong on EVERY tree rather than only a narrowed one — it under-advertises on the shipped kit, where the move arm accepts the whole declared set, and over-advertises once a role is withdrawn; measured both ways, unfixed); and the header EXAMPLES, which name a concrete role in the argument position so they read as runnable commands and therefore name a refused one on a tree that withdrew it — a fourth shape, and arguably the one an operator copies"
   teardown
 }
 
@@ -11111,7 +11155,86 @@ case_scaffolding_fixture_matches_the_tree() {
   printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
     || cf "(d) a tree seeded by seed_scaffolding_tree does not read as still-scaffolding to check-board.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
-  finish "the scaffolding sentinel's three authors agree: the harness DECLARES the mark as the whole shipped line and derives it from nothing in the tree under test, check-board.sh's graduation arm matches that same line exactly on that same pair of root documents, and a tree seeded by seed_scaffolding_tree actually reads as still-scaffolding — the fixture is never derived from the probe, so a rename cannot make the two agree by construction. Arm (a)'s span is the root documents whose line 1 declares $KIT_CLASS_MARKER_KEY KIT: asserted to carry it =${a_shipped:- (none)}; not a shipped copy, adopter-owned, NOT MEASURED HERE =${a_unshipped:- (none)}"
+
+  # (e) ARM (a)'s DISCRIMINATOR IS ITSELF ASSERTED, and the two states it hides are asserted
+  #     on DIFFERENT trees, because they are different defects.
+  #
+  #     Arm (a) decides what to measure from each document's OWN line 1, so deleting that line
+  #     silently removes the document from the span: arm (a) prints "not a shipped copy", the
+  #     sentinel could then be renamed or removed inside it, and this case stays green. A
+  #     document that is ABSENT is likewise printed as "(absent)" and not measured — that state
+  #     used to redden, because `grep -qF` failed on a missing file, and the red was real even
+  #     though its message was misleading. Both are states in which this case reports success
+  #     about a document nothing looked at. A CONTROL THAT CHOOSES ITS OWN OPERAND SET OWES AN
+  #     ASSERTION THAT THE SET IS RIGHT — process/doctrine/instruments.md § A.4's operand-set
+  #     rule, read one notch further.
+  #
+  #     EXISTENCE IS ASSERTED ON BOTH KINDS OF TREE. The adoption question is whether a document
+  #     is the ADOPTER'S or the KIT'S — not whether it is THERE. Arm (a) walks both names
+  #     unconditionally and check-board.sh's graduation arm iterates the same pair, so on any
+  #     tree a missing one means both are working with one fewer operand than they think; and
+  #     process/SEED.md's day-one checklist requires both to have been REPLACED, which requires
+  #     both to exist. Measured 2026-09-07: both are present on the shipped tree and on a tree
+  #     built through day one, so this is a floor neither tree is near rather than a rule with a
+  #     tolerated exception.
+  #
+  #     THE CLASS MARKER IS ASSERTED ONLY WHERE THE TREE HAS NOT BEEN ADOPTED. On an adopted
+  #     tree both documents are legitimately the adopter's — the adapter template tells them to
+  #     DROP the marker — so demanding it would be red on every correct tree, which is arm (a)'s
+  #     own reasoning applied to arm (a)'s premise. That judgement about the tree comes from the
+  #     SAME derivation case_ship_state uses, which is why the derivation is now a function
+  #     rather than a second copy that could disagree with it about one tree.
+  local lived_why e_marked=""
+  lived_why="$(_tree_has_lived)"
+  for doc in CLAUDE.md README.md; do
+    if [ ! -f "$REAL_REPO_ROOT/$doc" ]; then
+      cf "(e) $doc is ABSENT — the kit ships both root documents, SEED's day-one checklist requires both to have been replaced, and check-board.sh's graduation arm iterates this same pair. Arm (a) prints an absent document as not-measured rather than reddening, so nothing else in this suite would say this"
+      continue
+    fi
+    if [ -n "$lived_why" ]; then continue; fi
+    if _root_doc_is_shipped_copy "$REAL_REPO_ROOT" "$doc"; then
+      e_marked="$e_marked $doc"
+    else
+      cf "(e) $doc does not declare $KIT_CLASS_MARKER_KEY KIT on line 1, on a tree that has NOT been adopted ($REAL_REPO_ROOT) — arm (a) reads exactly that line to decide whether to measure this document, so its absence removes the document from arm (a)'s span SILENTLY: the sentinel inside it stops being checked and this case still reports success"
+    fi
+  done
+
+  # ── THE REDDENING CONTROL, on a FABRICATED root — never the real documents, which this
+  #    harness must not write to (case_isolation asserts the whole real tree is unchanged across
+  #    the run). The discriminator is lifted into a function precisely so it can be pointed at a
+  #    copy. NO PIPE ON ANY LINE-1 READ, here or in the helper: `sed … | grep -q` is the
+  #    producer-into-early-exit-reader shape this file's header forbids under pipefail, which is
+  #    why arm (a) routes line 1 through a variable and so does this.
+  local ctl="$SB_TMP/rootdocs" ctl_l1
+  mkdir -p "$ctl"
+  printf '%s KIT — a fabricated shipped copy\n\n%s\n' "$KIT_CLASS_MARKER_KEY" "$KIT_SCAFFOLD_MARK" > "$ctl/CLAUDE.md"
+  if ! _root_doc_is_shipped_copy "$ctl" CLAUDE.md; then
+    # THE POSITIVE CONTROL FIRST. A discriminator that accepts nothing would make both negative
+    # controls below pass for the wrong reason (instruments.md § A.2).
+    _control_did_not_run "build a fabricated root document the discriminator ACCEPTS"
+  else
+    # STATE 1 — the marker line removed. THE MUTATION IS ASSERTED TO HAVE APPLIED before its
+    # effect is believed: a sed that matched nothing leaves this control silent and green.
+    sed -i.bak '1d' "$ctl/CLAUDE.md"; rm -f "$ctl/CLAUDE.md.bak"
+    ctl_l1="$(sed -n '1p' "$ctl/CLAUDE.md")"
+    case "$ctl_l1" in
+      *"$KIT_CLASS_MARKER_KEY"*)
+        _control_did_not_run "remove the class marker from the fabricated document (line 1 still carries it)" ;;
+      *)
+        if _root_doc_is_shipped_copy "$ctl" CLAUDE.md; then
+          cf "(control) the discriminator still calls a document a shipped copy after its $KIT_CLASS_MARKER_KEY line was deleted — arm (e) cannot detect the state it is written for"
+        fi ;;
+    esac
+    # STATE 2 — the document gone. Asserted as its own state because arm (a) treats absent and
+    # unmarked identically, printing both as not-measured, while they are different defects.
+    rm -f "$ctl/CLAUDE.md"
+    if [ -f "$ctl/CLAUDE.md" ]; then
+      _control_did_not_run "delete the fabricated document"
+    elif _root_doc_is_shipped_copy "$ctl" CLAUDE.md; then
+      cf "(control) the discriminator calls an ABSENT document a shipped copy — arm (e)'s absent branch could never fire"
+    fi
+  fi
+  finish "the scaffolding sentinel's three authors agree: the harness DECLARES the mark as the whole shipped line and derives it from nothing in the tree under test, check-board.sh's graduation arm matches that same line exactly on that same pair of root documents, and a tree seeded by seed_scaffolding_tree actually reads as still-scaffolding — the fixture is never derived from the probe, so a rename cannot make the two agree by construction. Arm (a)'s span is the root documents whose line 1 declares $KIT_CLASS_MARKER_KEY KIT: asserted to carry it =${a_shipped:- (none)}; not a shipped copy, adopter-owned, NOT MEASURED HERE =${a_unshipped:- (none)}. Arm (e) asserts arm (a)'s own discriminator rather than trusting it: both root documents EXIST on either kind of tree (the adoption question is whose the document is, not whether it is there — and SEED's day-one checklist requires both to have been replaced), and where the tree has NOT been adopted both DECLARE the class on line 1, asserted =${e_marked:- (none)}. WHICH HALF RAN ON THIS TREE: ${lived_why:+the marker half was NOT MEASURED — }${lived_why:-both halves ran; this tree carries no adoption signal}${lived_why:+, and that is the signal that decided it}. A fabricated root document — never the real ones, which this harness does not write to — proves the discriminator ACCEPTS a marked document and REJECTS both a deleted marker and an absent file, with each mutation asserted to have applied before its effect is believed."
   teardown
 }
 
@@ -11312,13 +11435,13 @@ case_ship_state() {
   local rv="$REAL_SCRIPTS/verify.sh" rr="$REAL_SCRIPTS/release.sh" rc_cfg="$REAL_SCRIPTS/config.sh"
   local why=""
 
-  # Is this tree the shipped frame, or an adopted project? Two signals, either
-  # sufficient, and the one that fired is reported.
-  if [ -f "$rc_cfg" ] && grep -q "^$KIT_STAMP_MARK" "$rc_cfg" 2>/dev/null; then
-    why="scripts/config.sh carries kit-init's stamp receipt — this tree has been adopted"
-  elif [ -f "$rv" ] && [ "$(_neu_array_records "$rv" GATES)" -ne 0 ]; then
-    why="scripts/verify.sh declares $(_neu_array_records "$rv" GATES) gate(s) — this project has filled its own table"
-  fi
+  # Is this tree the shipped frame, or an adopted project? Two signals, either sufficient, and
+  # the one that fired is reported. DERIVED BY _tree_has_lived, not here: a second case
+  # (case_scaffolding_fixture_matches_the_tree arm (e)) needs the same judgement about the same
+  # tree, and two copies of a two-signal test are two things that can come to disagree about
+  # whether one tree has been adopted — which would surface as one case measuring a document the
+  # other calls adopter-owned, with nothing to say which was right.
+  why="$(_tree_has_lived)"
   if [ -n "$why" ]; then
     # THE FIRST skp_lived. This case asserts the SHIPPED shape of scripts/verify.sh,
     # scripts/release.sh and scripts/config.sh; on an adopted tree those shapes are gone
