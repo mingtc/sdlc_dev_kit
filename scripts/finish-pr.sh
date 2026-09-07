@@ -63,6 +63,13 @@
 #   git branch -D feature/<ID>-<slug>   &&   git push <remote> --delete feature/<ID>-<slug>
 #   ./scripts/move-issue.sh <ID> qa_complete --role QA --note "Review — PASS. Squash-merged."
 #
+#   THE `--role` VALUE IN THE HAND-EQUIVALENT ABOVE IS AN EXAMPLE VALUE, not a claim that your
+#   project declares it — and note that the line it appears on is a move-issue.sh invocation, so
+#   the set that governs it is the one THAT tool renders in its own `--help`, read from
+#   scripts/githooks/commit-msg. If it names a role you have withdrawn, substitute one of your
+#   own; the sequence is still correct. (.claude/roles/pm.md's Definition of Ready: an example is
+#   read as the contract, not as decoration.)
+#
 # FORGE-PR FLAVOR (an available extension, not the default): a team that wants
 # MR/PR ceremony can add a branch here that opens + merges via a forge CLI instead
 # of the local squash, and pass the resulting number to move-issue.sh --set-pr.

@@ -100,6 +100,13 @@
 #
 #   ./scripts/move-issue.sh <PREFIX>-014 in_progress --role QA \
 #     --note "Review — FAIL on AC. AC unmet: help text missing the example."
+#
+#   THE `--role` VALUE IN THE EXAMPLES ABOVE IS AN EXAMPLE VALUE, not a claim that your project
+#   declares it. What this tree accepts is the set rendered at `<R> =` near the top of this help,
+#   read from scripts/githooks/commit-msg at the moment you asked. If an example names a role you
+#   have withdrawn, the example is still showing you the SHAPE of the command — substitute one of
+#   your own. (.claude/roles/pm.md's Definition of Ready: an example is read as the contract, not
+#   as decoration, so it says which it is rather than letting you find out by running it.)
 
 set -euo pipefail
 

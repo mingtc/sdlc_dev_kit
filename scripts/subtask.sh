@@ -39,6 +39,13 @@
 #   ./scripts/subtask.sh new <PREFIX>-014 s1 anchor-resolver --title "Floor: anchor resolution"
 #   ./scripts/subtask.sh move <PREFIX>-014-s1 in_progress --role Dev --note "Pickup."
 #   ./scripts/subtask.sh move <PREFIX>-014-s1 dev_complete --role Dev --note "Ready for review; gates green."
+#
+#   THE `--role` VALUE IN THE EXAMPLES ABOVE IS AN EXAMPLE VALUE, not a claim that your project
+#   declares it. What this tree accepts is whatever ROLE_PREFIXES declares in
+#   scripts/githooks/commit-msg; the `move` arm validates against that set before it moves
+#   anything. If an example names a role you have withdrawn, it is still showing you the SHAPE of
+#   the command — substitute one of your own. (.claude/roles/pm.md's Definition of Ready: an
+#   example is read as the contract, not as decoration, so it says which it is.)
 
 set -euo pipefail
 
