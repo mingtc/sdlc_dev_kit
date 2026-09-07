@@ -42,9 +42,56 @@ The kit ships an honest debt list rather than a clean claim: [`EXTRACTION.md` §
 names what is still entangled, what it costs you, and how to check each one in your own copy. The
 kit's repository additionally carries the open, not-yet-fixed findings under `changes/open/`.
 
+### UPGRADING CAN UN-CONFIGURE YOUR PROJECT — what to re-check, and why
+
+**The upgrade above is a read, not a run, because an automated overwrite *"would discard exactly the
+local hardening the kit tells you to do."* That reason is right, and the kit does not yet act on it as
+strongly as it warrants: the hardening is ENUMERABLE, and the kit does not enumerate it.**
+
+**Several shipped files carry values the initializer wrote for YOUR project** — your issue prefix,
+your role set, your gate commands, your project name. **Adopting a newer copy of one of those files
+file-by-file replaces your value with the shipped placeholder**, and nothing in the kit marks which
+files those are. **Derive the list against your own version rather than trusting a number here:**
+
+```sh
+# unzip the SAME kit version you are running into a scratch directory, then:
+diff -rq <that-scratch-tree> . -x .git -x .kanban-wt
+```
+
+Every file that differs and that you did not edit yourself is a file the initializer stamped. **Do
+that before adopting, and re-check those files after.**
+
+**Two behaviours to know, because they fail differently:**
+
+- **`scripts/verify.sh` fails LOUDLY** — an emptied `GATES` table refuses rather than reporting a
+  green summary with nothing behind it. You will not miss it.
+- **`scripts/config.sh` fails SILENTLY.** It carries `ISSUE_PREFIX`, `PRD_PREFIX` and `PROJECT_NAME`;
+  replace it and the tools begin looking for the shipped placeholder prefix, so `next-id.sh` reports
+  finding **no existing issues** on a board full of them. **This is the one to check first.**
+
+**And `kit-init.sh` will not re-stamp for you.** It refuses on a repository that has already lived —
+correctly, because an initializer that can overwrite a working board is worse than none. **The repair
+is version control: restore the file and re-apply the upgrade's changes by hand**, which is what
+"file by file" was always asking for.
+
+*The guard that stops `kit-init` re-running on a live board reads part of its evidence from
+`scripts/config.sh`, so replacing that file weakens it. It does not defeat it — the board's own
+contents are a separate signal that no shipped file can overwrite, because the kit ships the empty
+columns and never the cards.*
+
 ---
 
 ## [Unreleased]
+
+- **`EXTRACTION.md` gains a register of VALUE-KIND markers, and `KIT-CLASS:` is its first entry and
+  its model.** A value-kind marker answers what no amount of reading a value will answer — what
+  kind of thing it is, therefore who owns it and what may be derived from it. **The obligation is
+  one line: a new marker joins that table in the change that mints it.** The register is the point
+  rather than the markers: `KIT-CLASS:` already existed and worked, and nothing generalised from it
+  because **there was nowhere for a second marker to be listed beside it.** It also states when NOT
+  to mint one — **where a distinction can be derived from a value's shape or its path, derive it**;
+  a marker earns its place only where values of different kinds share a path, a table, and adjacent
+  lines.
 
 - **Nine error messages now tell you which kind of tree the `kit-init` fix they suggest is for.**
   If `scripts/config.sh` goes missing, or your gate table is empty, the script that complains offers

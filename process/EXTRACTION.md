@@ -37,7 +37,8 @@ the carve-outs at the end of this section, which are the files that cannot**:
 ```
 
 `KIT` = travels unedited · `MIXED` = travels, but carries project law you must edit ·
-`PROJECT` = does not travel. **Classify a file by opening it**; this manifest can drift, the
+`PROJECT` = does not travel. **This marker is the first entry in § The register of VALUE-KIND
+markers below, and its model** — a new marker of that family registers there in the same change. **Classify a file by opening it**; this manifest can drift, the
 marker in the file cannot be missed. **Where a file carries no marker, the carve-outs at the end of
 this section say where its class lives instead** — opening those files will not answer, and each
 absence is a derivation from something about the file rather than an omission.
@@ -113,6 +114,48 @@ strip it, **at the same moment in the file's life**. Both mistakes were made in 
 before either was noticed. The reason above is kept because it is the reason for **stripping** — a
 marker that misdescribes a file is worse than none, and a `PROJECT` marker on a file that never
 travels is a travel classification for a journey nobody takes.)*
+
+
+## The register of VALUE-KIND markers — what a value IS, recorded beside it
+
+**`KIT-CLASS:` above is one instance of a general move**, and this register is where the others are
+listed. A **value-kind marker** answers a question no amount of reading the value itself will answer:
+*what kind of thing is this, and therefore who owns it and what may be derived from it?*
+
+<!-- VALUE-KIND-MARKERS:BEGIN — the register. A marker in use and absent from this table is the
+     defect this register exists to make findable; the markers delimit it so a check can derive the
+     registered set without parsing prose. Anchored on the MARKERS, never on the wording around
+     them — prose is not an anchor, and this repository has emptied two derivations by rewording
+     the sentence they keyed on. Move them if the block moves; never delete one without the other. -->
+
+| Marker | What kind of value it marks | Authored in | Exceptions live |
+|---|---|---|---|
+| `KIT-CLASS:` | Whether a FILE travels — `KIT` / `MIXED` / `PROJECT` | § The one file classification convention, above | in that section's carve-outs |
+
+<!-- VALUE-KIND-MARKERS:END -->
+
+**THE OBLIGATION, and it is the whole of the convention: a new marker is added to this table in the
+same change that mints it.** One marker at a time, each earning its place from a real defect — this
+is deliberately not a schema, and a marker invented before something needed it would be a vocabulary
+nobody speaks.
+
+**WHY THE INDEX IS THE LOAD-BEARING HALF AND THE MARKERS ARE NOT.** `KIT-CLASS:` already existed,
+already worked, and had already survived a collision severe enough to be recorded above — **and
+nobody generalised from it.** Not because the idea was hard, but because **there was nowhere for a
+second marker to be listed beside it**, so each new question of the same shape was answered by
+inventing a bespoke seam and writing the reasoning into prose that the next file starts over from.
+*The cheap part of a vocabulary is the place you keep it, and that is the part that was missing.*
+
+**What this register does NOT claim.** It does not say a marker is the right answer to every question
+about a value — the measured alternative is a **derivation** (a shape test plus an exemption list in
+the sheet that owns the rule, as the shipped CLI-shape guard does), and where that works it is
+better, because it needs nothing written on the value at all. **A marker earns its place only where
+the distinction it carries cannot be derived from the value's shape or its path** — where two values
+of different kinds sit at the same path, in the same table, on adjacent lines.
+
+**And it cannot check that a marker's value is TRUE.** A register proves a marker was declared and
+listed; whether the class it names is correct is the same limit `KIT-CLASS:` has always had, which is
+why *classify a file by opening it* stands above.
 
 ## The second axis: DISPOSITION — what state must this file be in before day one is done?
 
