@@ -660,7 +660,34 @@ They are graded by what a wrong tag costs, because the costs are not comparable:
 | Carries one member as an **ENFORCED commit tag** | `scripts/archive.sh` (the sweep), `scripts/subtask.sh` (the `create` arm), `scripts/finish-pr.sh` (the squash subject) | The hook rejects it **mid-operation** — the `git mv` and the Activity append have already happened inside the shared kanban worktree, the commit fails, and the next board operation `reset --hard`s them. **Silent data loss in somebody else's lane**, not an error |
 | Carries one member as an **ENFORCED `--role` argument** | `scripts/finish-pr.sh` (the board advance) | `move-issue.sh`'s whitelist rejects it **after the merge has landed** — the branch is merged and the card is not moved |
 | Carries one member as a **KNOB DEFAULT** | `scripts/release.sh` (`RELEASE_ROLE`), and the three above since 2026-09-02 (`ARCHIVE_ROLE`, `SUBTASK_ROLE`, `FINISH_PR_ROLE`) | **This is the shape the others were converted to.** The project names the seat; the script refuses up front if the tag is not declared, naming the knob |
-| **Mentions** a member in a comment, an example, or recovery text | Several, and cheapest — with one exception worth naming: recovery text that tells the operator to re-run with the role that was just **rejected** is a loop, not a remedy | A reader follows advice that cannot work |
+| **Mentions** a member in a comment or recovery text | Several, and cheapest — with one exception worth naming: recovery text that tells the operator to re-run with the role that was just **rejected** is a loop, not a remedy | A reader follows advice that cannot work |
+| Names a member in an **EXAMPLE THAT `--help` RENDERS** | Several, and still cheap to fix — but **not deferrable**, see below | The tool prints a **copy-pasteable command that fails**, in the output an operator is most invited to run |
+
+**THE EXAMPLE ROW WAS SPLIT OUT OF THE MENTIONS ROW, and the reason for the original grading is
+kept.** *Comment, example and recovery text* were graded together as *cheapest*, and for a **comment**
+that is right and still stands: nothing breaks, the text goes stale, and no set-based derivation
+finds it. **What changed is not the cost of the fix — it is what the artifact IS.** A header block
+that `--help` renders is not a comment that happens to be readable; it is **program output**, and the
+one output an operator is invited to copy. On a tree that withdrew the named role, that output is an
+instruction that fails.
+
+**This kit had already ruled the underlying question in another venue**, which is what makes this an
+application rather than a fresh opinion: `.claude/roles/pm.md`'s Definition of Ready holds that *"an
+example is read as the contract, not as decoration"* and requires that one **cite its source or be
+labelled** — *"never a bare confident example."* The remedy there is **not** to delete the example.
+
+**So the remedy here is the same, and it costs neither of the two things the alternatives cost:**
+
+> **Keep the example runnable, and let it cite the authority that is already beside it.** The header
+> that renders these examples also renders the legal set — so the example names a real role, and one
+> line says that the role shown is an example value and that the rendered set above is what this tree
+> accepts.
+
+*Why not the two obvious alternatives.* **Placeholdering every example** (`--role <R>`) protects the
+minority of trees that withdrew the role by costing every reader a runnable line forever — and a
+runnable line is what an example is for. **Declaring examples illustrative in a contract sheet** puts
+the caveat where the copying operator will not be standing. **The kit's own rule puts the label on
+the example**, which is the only place that reaches the person about to paste it.
 
 **Never derive the tag from the set** — `${ROLE_PREFIXES%%|*}` and its cousins. These tags carry
 **seat identity**: `[Orchestrator]` on the archive sweep means session-close housekeeping, `[QA]` on

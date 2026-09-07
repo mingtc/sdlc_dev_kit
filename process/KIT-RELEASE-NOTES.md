@@ -46,6 +46,16 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **A `--help` example that names a role is now governed as program output, not as a comment.**
+  `EXTRACTION.md` § 2.4's severity table graded *comment, example and recovery text* together as
+  cheapest; that grading is kept for a **comment** and superseded for an example the header
+  renders, because on a tree that withdrew the named role the tool prints a **copy-pasteable
+  command that fails**, in the output an operator is most invited to run. **The remedy keeps the
+  example runnable:** it names a real role and one line states that the role shown is an example
+  value while the rendered set above is what this tree accepts — which is the kit's own existing
+  rule for examples (*never a bare confident example*), applied where an operator will actually
+  read it rather than in a contract sheet they are not standing in.
+
 - **`doctrine/instruments.md` § A.4 gains a third notch: ask who WROTE the operand.** Naming a
   span makes a verdict honest about what it claims; deriving it twice catches what one derivation
   misses; **neither notices that the set was read out of a field the measured party fills in.**
