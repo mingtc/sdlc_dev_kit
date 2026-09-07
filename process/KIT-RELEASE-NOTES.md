@@ -92,6 +92,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.0] — 2026-09-08
+
 - **Every refusal that could not load its configuration or one of its libraries claimed to cover
   something it cannot, and they now say what they actually check.** When a shipped script cannot
   load `scripts/config.sh` or one of the three
