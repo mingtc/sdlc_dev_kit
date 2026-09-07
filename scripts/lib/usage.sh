@@ -65,9 +65,19 @@ kit_usage() {
   [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start=3
   first="$(awk -v s="$start" 'NR>=s && !/^#/{print NR; exit}' "$src")"
-  # THE FLOOR IS FOR THE EMPTY CASE, not the small one: `first` can never be below 3
-  # (the awk starts at NR>2), and `sed -n "3,2p"` prints line 3 rather than erroring.
-  # An ALL-COMMENT file leaves `first` unset, and THAT yields `3,-1p`, which does error.
+  # THE FLOOR IS FOR THE EMPTY CASE, not the small one: `first` can never be below `start`
+  # (the awk begins at NR>=s), and `start` is itself never below 3 — the marker it derives from
+  # sits below a shebang, and its last fallback is the literal 3. `sed -n "3,2p"` prints line 3
+  # rather than erroring. An ALL-COMMENT file leaves `first` unset, and THAT yields `3,-1p`,
+  # which does error.
+  #
+  # THAT PARENTHETICAL READ "(the awk starts at NR>2)" UNTIL 2026-09-07 — describing the line TWO
+  # ABOVE IT, after that line was reworded to `NR>=s` in the same edit that made `start` derivable.
+  # The conclusion was still true; the reason it gave had stopped being. Recorded rather than
+  # silently fixed because the DISTANCE is the useful part: this is the shortest gap between a
+  # changed line and a stale description of it found in this repository, and both halves were on
+  # one screen to whoever made the change. When you reword an expression, the comment two lines
+  # below it is a concrete place to look.
   end=$(( ${first:-0} - 1 )); [ "$end" -lt "$start" ] && end="$start"
   sed -n "${start},${end}p" "$src" | sed 's|^# \{0,1\}||'
 }
