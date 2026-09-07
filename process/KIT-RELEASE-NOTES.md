@@ -46,6 +46,19 @@ kit's repository additionally carries the open, not-yet-fixed findings under `ch
 
 ## [Unreleased]
 
+- **`requirements/DECISIONS.md` gains a THIRD state: a ruling may be WITHDRAWN pending its
+  replacement.** The register offered only *current* or *retired*, so the interval between a revoked
+  answer and its successor had no shape — and adopters invent one per project, which is how this was
+  found. The `Ruling` field opens `WITHDRAWN <YYYY-MM-DD> — <the condition that discharges it>`, the
+  `Why` keeps the original reason **beside** what revoked it (`supersession.md` § A.1 applied to the
+  interval), and the discharging condition is a **condition, not a date** — the downtime queue's rule,
+  cited rather than restated. **The token is anchored** — uppercase, at the head of the field,
+  followed by a date — so an entry that *discusses* a withdrawal is not read as declaring one.
+  **This is not an exception to the projection rule and needs no carve-out:** *"there is no current
+  ruling on X"* is the current state, not archived history. **Nothing checks it yet**, and the sheet
+  says so: the state is declared now so the check has a token to read when it ships.
+  ([`process/templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) § The THIRD state.)
+
 - **Action required: your `PROJECT.md` liveness row becomes two, and `N/A` is no longer a legal
   answer to one of them.** The liveness ritual was one thing scoped by duration — *any run expected
   to outlast a human's attention* — so a project with no long runs could read that honestly and

@@ -130,6 +130,75 @@ the **home document**, where the original reasoning stays visible and is amended
 **Here** the same decision appears only as its current conclusion, because a projection carrying two
 generations of an answer has stopped being a projection.
 
+## The THIRD state — a ruling WITHDRAWN before its replacement exists
+
+**The two states above are not all the states there are.** An entry is a **current ruling**, or its
+id sits **retired** below. A real requirements conversation spends time in a third: the answer is
+revoked on Monday and its replacement arrives on Wednesday. **The gap is the interval** — and a
+register that cannot say *"nothing is currently true here"* is not answering its own question during
+it, it is declining to.
+
+**So say it — in the same three fields, never as a fourth.**
+
+**Ruling.** `WITHDRAWN <YYYY-MM-DD> — <the condition that discharges it>.` Then, in that same field,
+what was withdrawn, stated so a reader arriving cold learns which question is now unanswered.
+
+**Why.** **The original reason, kept, and what revoked it.** That is
+[`process/doctrine/supersession.md`](../process/doctrine/supersession.md) § A.1 applied to the
+interval, not a second rule: *preserve the reason, supersede only the conclusion* — here the
+conclusion becomes *none yet*, and the reason is precisely what the replacement will be argued from.
+
+**Provenance.** Unchanged — where it was withdrawn, and where the evidence lives.
+
+**THE TOKEN IS ANCHORED, and that is format law rather than an implementation note:** uppercase, at
+the **head** of the `Ruling` field, followed by a date. An entry that *discusses* a withdrawal — the
+paragraphs you are reading included — does **not** declare one. *Why this is stated rather than left
+to whoever writes the check: a gate elsewhere in this kit could not tell a file that WAS scaffolding
+from one that DESCRIBED it, so documenting the defect tripped the guard. A bare-substring reader of
+this state has the identical defect, and the first honest register to write a sentence about a
+withdrawn ruling would be misread as having one.*
+
+**This is NOT an exception to the projection rule, and it needs no carve-out.** The section above
+forbids archiving a **superseded** ruling here. A withdrawn one is not superseded — it has no
+successor yet, and *"there is no current ruling on X"* **is** the current state. Deleting it would
+not protect the projection; it would hide that the fork exists, and the next reader picks the
+defensible-and-wrong answer this file exists to prevent. **A projection that can say *"the answer is
+Y"* and never *"there is no answer yet"* has one value missing.**
+
+**The discharging condition is a CONDITION, not a date** — same rule and same reason as the downtime
+queue's wake condition (*"later" and "next quarter" are how a queue becomes a graveyard*), stated
+once **there** and cited here rather than restated:
+[`dev/downtime-queue.md`](../dev/downtime-queue.md) § How to write a row. Where the condition is
+something carrying an **id** — a work item, an open-questions block, a successor ruling — **name the
+id in the token**, because that is the only part a machine can join. Where it genuinely has none,
+write the observable condition and **say so**: the entry is then checkable by a reader and not by an
+instrument, and which one it is should be visible rather than discovered.
+
+**What discharge looks like, and what the id does.** Answered **in place**, the entry collapses to an
+ordinary three-field ruling, keeping its id and — per § A.1 — its original reason beside the new
+conclusion. Answered **elsewhere under a new id**, the old id is **retired**, with the one line
+§ Retired ids requires, so a citation to it resolves to *retired* instead of to a falsehood.
+
+### What a checker asks — and it must be answerable with nobody looking
+
+> **Is any entry still `WITHDRAWN` whose named discharger has already landed?**
+
+**Write the state so that question is answerable by a machine, because the human who could answer it
+was demonstrably standing right there and did not.** Measured in an adopting project and kept as the
+reason rather than as a scoreboard: the entry named its own expiry condition; the condition fired;
+the successor rulings were minted and the work landed; the session-close ritual ran; and the author
+edited **this very file** twice more in between, adding two further rulings, without the stale entry
+registering. **A discipline that depends on noticing does not survive contact with a second task.**
+
+**What such a check cannot see** — said here for the same reason the downtime queue says it, so
+nobody mistakes the check for the whole guard:
+
+- **A withdrawal nobody declared.** A ruling quietly reworded into a hedge is not in this state, and
+  no reader can tell it was ever revoked.
+- **A discharging condition carrying no id.** Legal and honest, and joinable by a human only.
+- **A condition that fired with nothing landing.** *"Pending a conversation"* leaves no artifact to
+  key on; that entry is only as good as its next reader.
+
 <!--
   THE SHAPE OF THE REGISTER — FORMAT LAW, and it is NOT a table.
   Entries are grouped under `## <letter>. <bucket>` headings, and each entry is a
