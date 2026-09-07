@@ -69,6 +69,15 @@ that before adopting, and re-check those files after.**
   replace it and the tools begin looking for the shipped placeholder prefix, so `next-id.sh` reports
   finding **no existing issues** on a board full of them. **This is the one to check first.**
 
+  **The one-command check, because a silent failure needs a positive test rather than a warning:**
+
+      ./scripts/new-issue.sh --help | grep -o -- '--id [A-Z]*-NNN'
+
+  **That line renders YOUR prefix.** On a correctly configured tree it shows your own — `--id
+  ABC-NNN`. If it shows **`--id KIT-NNN`**, the shipped placeholder is back and `scripts/config.sh`
+  is the file to restore. Everything still runs and exits 0, which is exactly why the check is worth
+  running rather than waiting for a symptom.
+
 **And `kit-init.sh` will not re-stamp for you.** It refuses on a repository that has already lived —
 correctly, because an initializer that can overwrite a working board is worse than none. **The repair
 is version control: restore the file and re-apply the upgrade's changes by hand**, which is what
