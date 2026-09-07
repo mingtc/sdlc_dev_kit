@@ -6921,10 +6921,16 @@ case_kit_init_roles_leave_no_seam() {
   # this case is about, so it is measured rather than assumed. Empty means the probe
   # lost its subject and every assertion below would pass over nothing.
   before="$( cd "$SB_WORK" && { grep -lF -- "$old" scripts/*.sh scripts/githooks/* 2>/dev/null || true; } | sort )"
+  # A `cf` HERE WOULD CHARGE THE WRONG PARTY. An empty derivation is not a finding about the
+  # initializer — it is a probe that lost its subject, and every arm below would then pass over
+  # nothing. So it aborts rather than reporting.
   [ -n "$before" ] \
-    || cf "(operand) no shipped script carries the role set before kit-init ran — the probe lost its subject"
-  printf '%s\n' "$before" | grep -qx 'scripts/subtask.sh' \
-    || cf "(operand) scripts/subtask.sh does not carry the role set in this sandbox — the seam this case is named for is absent, so a green below proves nothing"
+    || _fixture_die "case_kit_init_roles_leave_no_seam: no shipped script carries the role set before kit-init ran, so the derivation found nothing to stamp and every assertion below would pass over an empty population."
+  # AND NO FAVOURITE FILE. This arm used to require scripts/subtask.sh to be a member of the set
+  # the line above has just DERIVED — a hand-typed operand inside a case whose whole subject is
+  # that the seams are derived rather than listed. It also goes red for the wrong reason the day a
+  # change legitimately removes that file's copy, which is a change this repository has already
+  # made once.
 
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$new" 2>&1)" || rc=$?
   [ "$rc" -eq 0 ] || cf "kit-init --roles exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
@@ -6942,9 +6948,19 @@ case_kit_init_roles_leave_no_seam() {
 $before
 SEAM_EOF
 
-  # THE RECEIPT NAMES WHAT IT STAMPED, rather than a sentence somebody typed once.
-  printf '%s\n' "$out" | grep -q 'scripts/subtask.sh' \
-    || cf "the run's role-set receipt does not name scripts/subtask.sh among the seams it stamped: $(printf '%s' "$out" | tr '\n' '|')"
+  # THE RECEIPT NAMES WHAT IT STAMPED, rather than a sentence somebody typed once — and it is now
+  # checked against EVERY member of the derived set instead of one file somebody chose. The named
+  # form passed while the receipt reported its favourite file and silently omitted a different
+  # member, which is precisely the state this arm exists to catch.
+  local unreported=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    printf '%s\n' "$out" | grep -qF "$f" || unreported="$unreported $f"
+  done <<RECEIPT_EOF
+$before
+RECEIPT_EOF
+  [ -z "$unreported" ] \
+    || cf "the run's role-set receipt does not name$unreported among the seams it stamped, although the derivation says they carried the set — a receipt reporting a subset is how a seam gets stamped and not reported, or reported and not stamped: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   # THE CONSEQUENCE THE LOOP'S OWN COMMENT RECORDS, as behaviour and not as text. The
   # names are BUILT, never written: this file is scanned for `--role <Name>` literals by
@@ -8376,7 +8392,7 @@ POST_EOF
   [ -z "$second" ] \
     || cf "(3) the header-block renderer is still authored in: $(printf '%s' "$second" | tr '\n' ' ') — one rule, more than one place to change it, and the two will disagree"
 
-  finish "the header-block --help renderer has ONE authoring site: a line added to scripts/lib/usage.sh reaches all $n consumer(s), each still renders its OWN header rather than the library's, and no second implementation survives under scripts/"
+  finish "the header-block --help renderer has ONE authoring site: a line added to scripts/lib/usage.sh reaches all $n consumer(s), each still renders its OWN header rather than the library's, and no second implementation survives under scripts/ — with the search EXPRESSION derived out of the library rather than retyped here, and asserted to find the library itself first, because this arm passes on an empty result and a search that stopped matching returns empty too. NOT LOOKED AT, and the exclusion is deliberate rather than an oversight: scripts/test/, which make_sandbox removes. The harness derives the same boundary twice on its own account — once to render its own --help and twice inside the case that checks where a header window ends — and that second derivation MUST stay independent, because a harness that asked the subject where its header ends would agree with it by construction. Measured: those independent floors cannot disagree with the library on any file whose header is contiguous comments from line 3, which is every file the renderer can serve"
   teardown
 }
 
@@ -11100,12 +11116,30 @@ case_role_set_read_is_one_expression() {
 
   # EVERY SITE DECLARES ITS FALLBACK POLICY, because the policies legitimately differ and
   # an undeclared one is indistinguishable from a copied one.
-  local f miss=""
-  for f in check-board.sh kit-init.sh lib/role-set.sh; do
-    grep -q "sed -n \"s/\^ROLE_PREFIXES" "$REAL_SCRIPTS/$f" 2>/dev/null || continue
-    grep -qiE 'FALLBACK POLICY|Callers MUST treat empty' "$REAL_SCRIPTS/$f" \
-      || miss="$miss $f"
-  done
+  #
+  # THE POPULATION IS DERIVED, NOT LISTED — and this arm is the reason the rule has to be stated
+  # for cases as well as for products. It read `for f in check-board.sh kit-init.sh lib/role-set.sh`,
+  # a hand-typed list of three, inside a case whose ENTIRE SUBJECT is that this read should be
+  # derived rather than retyped. Arm 1 above already derives the site set recursively; this arm
+  # walked past that derivation and named its own files.
+  #
+  # AND IT FAILED IN THE SILENT DIRECTION, which is why it is worth more than the tidiness: a
+  # FOURTH file that reads ROLE_PREFIXES faithfully and declares no fallback policy is caught by
+  # arm 1 only if its EXPRESSION differs. Copy the canonical expression, say nothing about the
+  # fallback, and this arm never looked — its loop `continue`s on files it does not name, and it
+  # did not name that one. The `continue` shows the author knew the list might not match the
+  # readers; the fix is to stop having a list.
+  local f miss="" sites
+  sites="$( { grep -rl "sed -n \"s/\^ROLE_PREFIXES" "$REAL_SCRIPTS" 2>/dev/null || true; } | sort )"
+  [ -n "$sites" ] \
+    || _fixture_die "case_role_set_read_is_one_expression: the site derivation found no file reading ROLE_PREFIXES, so the fallback-policy arm would pass over an empty population. Arm 1's own instrument check above should have caught this first."
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    grep -qiE 'FALLBACK POLICY|Callers MUST treat empty' "$f" \
+      || miss="$miss ${f#"$REAL_SCRIPTS/"}"
+  done <<SITES_EOF
+$sites
+SITES_EOF
   [ -z "$miss" ] \
     || cf "these sites read ROLE_PREFIXES and declare no fallback policy —$miss. The policies differ on purpose; an undeclared one cannot be told from a copied one, and the next reader has to guess which"
 
