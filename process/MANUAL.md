@@ -62,9 +62,11 @@ selection-neutrality — are the whole of what an adopter owes.
 1. **Read the project doc.** What the project is, the stack/run commands, the quality bar, and
    the binding gates.
 2. **Check the board.** List the status folders (`ls progress/todo/ progress/in_progress/
-   progress/dev_complete/ progress/qa_complete/ progress/blocked/`) — each filename is
-   `<PREFIX>-NNN-<slug>.md` (the prefix comes from `scripts/config.sh`); **the folder is
-   the status**. Run **`./scripts/check-board.sh`** for a drift report.
+   progress/dev_complete/ progress/qa_complete/ progress/blocked/ progress/declined/`) — each
+   filename is `<PREFIX>-NNN-<slug>.md` (the prefix comes from `scripts/config.sh`); **the folder
+   is the status**. `declined/` is terminal and usually short, and it is here rather than left out
+   because a refusal you do not see is a refusal you re-argue. Run
+   **`./scripts/check-board.sh`** for a drift report.
 3. **Pick a hat.** Say which role you are wearing (see § Roles as hats). The role doc in
    `.claude/roles/` is your workflow. If the `require-role` hook is active (see
    `.claude/settings.json.example`), declare it by writing `.claude/session-role` first.
@@ -207,7 +209,14 @@ version control by the initializer, not left for each actor to discover
   --role <Role> --note "…"`** — never by hand, and never duplicate status into frontmatter.
   The target set is the **status folder set** (a configuration seam — see
   [`EXTRACTION.md`](EXTRACTION.md) § CONFIGURE); a stock installation ships
-  `todo | in_progress | dev_complete | qa_complete | blocked | done`.
+  `todo | in_progress | dev_complete | qa_complete | blocked | done | declined`.
+- **`declined/` is where a refusal lives, and the reason is the point.** A card that was
+  considered and rejected has nowhere else to go: left in `todo/` it misrepresents itself as
+  pending work, and deleted it takes its reasoning with it — so the next person to propose the
+  same thing starts from zero. The mover therefore **requires `--note` for `declined/`**, exactly
+  as it does for `blocked/`: *a decline with no recorded why is a deletion with extra steps.* It is
+  terminal and **not swept** (its value is being browsable), and `check-board.sh` reports its depth
+  as a **count only** — a decline is not drift and never turns a green board red.
 - Every move **appends an Activity line** to the issue file and **commits + pushes to the
   trunk** (via the kanban worktree — see § The kanban worktree), so the board is accurate on
   the trunk without a checkout.

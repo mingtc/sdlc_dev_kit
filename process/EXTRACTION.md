@@ -498,7 +498,38 @@ drift report flagged. This is contracted in
 ### 2.2 The status folder set
 
 The lifecycle is the set of directories under `progress/`: `todo`, `in_progress`,
-`dev_complete`, `qa_complete`, `blocked`, `done` (+ `history/` for the rotated log).
+`dev_complete`, `qa_complete`, `blocked`, `done`, `declined` (+ `history/` for the rotated log).
+
+**`declined/` is terminal and is not swept.** A card lands there when it was considered and
+**refused**, and — like `blocked/` — the mover **requires a `--note`**, because *a decline with no
+recorded why is a deletion with extra steps*. `archive.sh` does not touch it (the sweep exists to
+keep the ACTIVE board shallow; this column's whole value is being browsable), and the drift report
+reports its **depth** as a **count only** — a refusal is not work left undone, so the depth never
+changes the verdict.
+
+**"Not counted against the verdict" is not "not checked", and the two were conflated once already.**
+The drift report's `[a]` arm — folder versus last-Activity entry — **does** read `declined/`, and
+must. A declined card is tracked, published and browsable, which is exactly what
+[`contracts/drift-report.md`](contracts/drift-report.md) invariant 1 means by a *live item*; `[a]` is
+the only arm that can see a **hand-move** at all. *Measured, not hypothetical: while this column was
+being added, `[a]` alone kept walking a hardcoded literal list while the other column-walking arms
+were widened, and a card in `declined/` whose last Activity entry declared `→ todo` was reported
+`clean ✓`.*
+
+**THE ONLY COLUMN `[a]` EXCLUDES IS `done/`, and the exclusion is written down beside the arm** —
+it is off-board and can be huge, and the arm has a `<2s` budget. That argument does not transfer to
+`declined/`, which is small and whose whole purpose is being read. **An exclusion with no written
+reason is indistinguishable from an oversight**, so `[a]` derives its columns from `STATUS_FOLDERS`
+minus a **named** skip list: a column added later is checked by default, and leaving one out costs
+somebody a sentence.
+
+**`setup.sh` WARNS about a later-added column rather than failing.** An upgrade to a newer kit is a
+read, not a run, so every tree still on an older version is missing the newest column and is *one
+`mkdir` behind*, not broken. A hard failure there reddens every routine fresh clone over a state the
+adopter has not been told to fix yet, and a red everybody learns to ignore is worse than no check —
+so the original columns stay failures and `setup.sh` carries a second, named list of the ones added
+since, each warning with the exact remedy. The name moves out of that list once no supported tree can
+still be missing it.
 
 **It is a SEAM WITHOUT A VARIABLE: several files carry the names as literals, and they do not all
 carry the same ones.** The table is the list and the table is the count; the divergence column is the
@@ -506,12 +537,14 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 
 | File | What it holds | If it is missed |
 |---|---|---|
-| `scripts/move-issue.sh` | the full set, four times: the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex (which carries it twice) | a new column cannot be moved to **at all** |
-| `scripts/check-board.sh` | the full set, as the columns it walks | the new column is invisible to the drift report |
-| `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm | a subtask cannot reach the new column |
-| `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (`grep -c mkdir setup.sh` is 0; its own comment says *"this is an existence check only"*) | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. *Not "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
+| `scripts/move-issue.sh` | the full set, **five times** — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression. *This row said "four times" while parenthetically admitting the regex carried it twice; the count and its own evidence disagreed.* | a new column cannot be moved to **at all** |
+| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
+| `scripts/subtask.sh` | the set **minus `done` and minus `declined`**, on its `move` arm — both omissions are DECIDED, not inherited. A subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, and a subtask is not independently refusable: what gets declined is the PARENT, and the decomposition goes with it. | a subtask cannot reach the new column |
+| `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (its own comment says *"this is an existence check only"*). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
 | `scripts/test/run.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
+| `scripts/lib/lived-probe.sh` | **nothing — it is PARAMETERISED**, and is in this table so that a maintainer who derives the carriers and meets it knows it needs no edit. The caller passes the columns, precisely because `kit-init.sh` and `check-board.sh` hold their sets in incompatible types (a bash array and a `\|`-delimited string). | nothing; it grows for free |
+| `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, in **brace-expansion form** (`progress/{todo,…}/`) — a lexical shape no `progress/<name>` path search finds, so a grep for the new column reports both files clean whether or not anyone considered them. **The prediction in this row came true the first time it was tested**: `declined/` was added and both files were missed by the sweep that added it, exactly as written. They now carry the exclusion **in prose** — a terminal column is not runnable — so the next reader meets a decision rather than a silence | the listing silently omits the column, and a reader is told the board is smaller than it is. **The subtler cost, once a terminal column exists:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
 
 **Other files name columns without carrying the set, and they are not all the same kind.** None is a
 row above; none is safe to ignore; and what a lifecycle change costs each one differs:

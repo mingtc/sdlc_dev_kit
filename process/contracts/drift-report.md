@@ -267,6 +267,21 @@ identifier gives and a timestamp does not.*
   home — in the shipped implementation **[f1]** the primary checkout's trunk ref and **[f2]** the
   board mover's auxiliary worktree — because invariant 6 requires the enumeration, not a fixed
   count of them.
+- **THE LETTERING RUNS PAST THE INVARIANTS, AND ONLY THE INVARIANT ARMS ARE CONTRACTED.** The
+  implementation carries further lettered sections — reports it finds worth printing that no
+  invariant here demands. *"In the order above" binds the arms that implement invariants 1-7; it
+  says nothing about where a later letter prints, and a reader who took it as a statement about the
+  whole file would read the extras as a contract breach.* **Derive both the letters and their order
+  from the file**, never from this sheet:
+  `grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq`.
+  Whatever it prints must be in letter order, once each, and must match the enumeration in that
+  file's own header — that is the implementation's obligation to itself, not this sheet's to it.
+- **An arm that is not an invariant MUST NOT change the verdict.** That is the one thing this sheet
+  does bind about the extras, and it follows from § 2: the verdict answers *is the board drifting*,
+  so a reading that is not a drift invariant may report and may never redden. A column of recorded
+  refusals is the shipped example — its depth is not work left undone, so counting it has no
+  threshold and sets nothing. **The "reports only" token in such an arm's header is what carries
+  that declaration to its machine consumers** (§ 4).
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
   They bound the depth at which the reviewed-and-done column is due for a sweep, and the sizes at
   which the running log is due for rotation — its current section and the whole file being

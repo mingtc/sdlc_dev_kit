@@ -144,6 +144,7 @@ progress/dev_complete/  # Dev is done; QA has not looked
 progress/qa_complete/   # QA passed and landed it
 progress/blocked/       # parked, with the blocker written down
 progress/done/          # the archive shelf — full bodies, swept off the active board
+progress/declined/      # considered and refused, WITH THE REASON WRITTEN DOWN
 progress/history/       # rotated slices of progress.md
 ```
 

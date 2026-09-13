@@ -35,7 +35,9 @@ trunk branch, default `main`.
    `.claude/roles/orchestrator.md`, `PROJECT.md`, the repo-local worker memory index if the
    project keeps one, `progress.md` (recent entries), then
    `ls progress/{todo,in_progress,dev_complete,qa_complete,blocked}/` and
-   `ls progress/subtasks/ 2>/dev/null`.
+   `ls progress/subtasks/ 2>/dev/null`. **That is the RUNNABLE board and omits the two terminal
+   columns on purpose** — `done/` (shipped) and `declined/` (considered and refused, with the
+   reason); neither holds work you can pick up, and declining is PM's call, not yours.
 2. Resolve the **issue set**: bare `/orchestrate` → study the board and pick the runnable set
    yourself; with args → that set. Each must already exist in `progress/todo/` (PM-created
    feature/spike/chore, or QA-filed bug) and be unblocked (`blocked_by` all landed).

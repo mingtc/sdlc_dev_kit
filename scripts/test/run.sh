@@ -464,7 +464,7 @@ make_sandbox() {
   mkdir -p "$SB_WORK/progress/todo" "$SB_WORK/progress/in_progress" \
            "$SB_WORK/progress/dev_complete" "$SB_WORK/progress/qa_complete" \
            "$SB_WORK/progress/blocked" "$SB_WORK/progress/done" \
-           "$SB_WORK/progress/history"
+           "$SB_WORK/progress/declined" "$SB_WORK/progress/history"
   # THIS LITERAL LIST STAYS, and the reason is a boundary rather than an exception —
   # written here because the next reader sweeping for enumerations will meet it.
   #
@@ -475,14 +475,14 @@ make_sandbox() {
   # while this does not.
   #
   # AND THE OBVIOUS DERIVATION HERE IS WRONG, which is the trap: `history` is DELIBERATELY
-  # not a status folder — check-board declares six, and the initializer builds
+  # not a status folder — check-board declares the statuses, and the initializer builds
   # `("${STATUS_FOLDERS[@]}" history)` for the rotated-log destination. A sweep replacing
   # this list with STATUS_FOLDERS silently stops creating `progress/history/` and surfaces
-  # later as an unrelated case failing. A correct derivation does exist — the six plus
+  # later as an unrelated case failing. A correct derivation does exist — STATUS_FOLDERS plus
   # `history` explicitly — it simply buys less than it costs in a builder. *The obvious
   # derivation is wrong here; the correct one is not worth it. Those are different
   # sentences and only the second is true of derivation in general.*
-  for d in todo in_progress dev_complete qa_complete blocked done history; do
+  for d in todo in_progress dev_complete qa_complete blocked done declined history; do
     : > "$SB_WORK/progress/$d/.gitkeep"
   done
 
@@ -5157,8 +5157,9 @@ case_check_board_id_duplicate() {
   cf_reset
   make_sandbox
 
-  # CROSS-COLUMN duplicate (todo/ vs done/) — the case the six-column breadth
-  # exists for; a naive per-directory loop would miss it.
+  # CROSS-COLUMN duplicate (todo/ vs done/) — the case arm [d]'s WHOLE-BOARD breadth
+  # exists for; a naive per-directory loop would miss it. The breadth is whatever
+  # STATUS_FOLDERS names, which is why this comment does not say how many that is.
   seed_issue todo "$SB_PREFIX-195" first-shape  bug   "Dev-filed bug"
   seed_issue done "$SB_PREFIX-195" second-shape spike "PM-minted spike"
   # SAME-COLUMN duplicate, different slugs.
@@ -5659,6 +5660,197 @@ case_check_board_arrow_beats_mention() {
     || cf "(iii) a backticked declaration with NO arrow was not judged — the fallback pass is gone: $out"
 
   finish "check (a): an arrow outranks a backticked mention in the same bullet (no false drift), an arrow that disagrees is still a finding, and a backtick with no arrow is still judged"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (a) JUDGES declined/, AND ARM (k) ONLY COUNTS IT.
+#
+# THE DEFECT THIS IS NAMED AFTER WAS REAL AND SHIPPED FOR THE LENGTH OF ONE REVIEW.
+# When declined/ was added, STATUS_FOLDERS grew and arms (d) and (i) were widened to
+# derive from it — but arm (a), the ONLY drift-deciding board arm, went on walking a
+# hardcoded literal list that did not contain it. A card in declined/ whose last
+# Activity entry declared `→ todo` is a hand-move, which is precisely the event
+# contracts/drift-report.md says no other check can see, and the report answered
+# `board-drift: clean ✓`.
+#
+# THE TWO ARMS ASK DIFFERENT QUESTIONS AND THIS CASE PINS BOTH, because conflating
+# them is what produced the gap. "How deep is this column" is not judgeable about a
+# refusal — a recorded decline is not work left undone — so (k) counts and never sets
+# drift. "Is this card where its own last Activity entry says it is" stays perfectly
+# judgeable about a refusal, so (a) judges it.
+#
+# Four directions:
+#   (i)   a declined card whose arrow AGREES with its folder → no finding;
+#   (ii)  a declined card whose arrow DISAGREES → a finding, and the verdict goes red;
+#   (iii) arm (k) prints a COUNT of the column;
+#   (iv)  a healthy declined column ALONE never reddens the verdict — (k) has no
+#         threshold, so piling cards in must stay green.
+# =============================================================================
+case_check_board_declined_is_judged_and_counted() {
+  cf_reset
+  make_sandbox
+  local out rc kline
+
+  # (iv)'s population and (i)'s subject: two declined cards whose arrows agree.
+  seed_issue declined "$SB_PREFIX-250" refused-one chore "Refused one"
+  printf -- '- 2026-01-05 [PM] → declined: refused; the cost lands on every reader.\n' \
+    >> "$SB_WORK/progress/declined/$SB_PREFIX-250-refused-one.md"
+  seed_issue declined "$SB_PREFIX-251" refused-two chore "Refused two"
+  printf -- '- 2026-01-05 [PM] → declined: refused; superseded by the standing rule.\n' \
+    >> "$SB_WORK/progress/declined/$SB_PREFIX-251-refused-two.md"
+  publish_sandbox
+
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+
+  # (i) agreeing arrows in declined/ are not findings.
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-250" \
+    && cf "(i) FALSE DRIFT — a declined card whose arrow matches its folder was reported: $(printf '%s\n' "$out" | grep "$SB_PREFIX-250")"
+
+  # (iii) arm (k) prints, and prints the count it read.
+  kline="$(printf '%s\n' "$out" | grep '^\[k\]' || true)"
+  [ -n "$kline" ] || cf "(iii) arm [k] did not print at all: $out"
+  printf '%s\n' "$kline" | grep -q '2 card' \
+    || cf "(iii) arm [k] did not report the two cards seeded into declined/: $kline"
+  printf '%s\n' "$kline" | grep -q 'reports only' \
+    || cf "(iii) arm [k]'s header does not carry the machine token 'reports only', so kit-init's board self-check will read its lines as findings and fail the install: $kline"
+
+  # (iv) a populated, healthy declined column does NOT redden the verdict.
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    || cf "(iv) a healthy board with two declined cards did not read clean — arm [k] must have no threshold and must never set drift: $out"
+
+  # --- (ii) THE ABLATION THAT MAKES (i) WORTH ANYTHING ----------------------
+  # Contradict one card's folder with its own last Activity entry. This is the exact
+  # shape that was reported `clean ✓` before arm (a) derived its columns.
+  printf -- '- 2026-01-06 [PM] → todo: reopened by hand, without the mover.\n' \
+    >> "$SB_WORK/progress/declined/$SB_PREFIX-251-refused-two.md"
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc after the plant (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -q "$SB_PREFIX-251" \
+    || cf "(ii) ABLATION FAILED — a card in declined/ declaring '→ todo' was NOT reported, so arm (a) is not reading the column and half (i) proves nothing: $out"
+  printf '%s\n' "$out" | grep "$SB_PREFIX-251" | grep -q 'declined' \
+    || cf "(ii) the finding does not name the folder the card is actually in: $(printf '%s\n' "$out" | grep "$SB_PREFIX-251")"
+  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    && cf "(ii) a real hand-move in declined/ left the verdict CLEAN — arm (a)'s finding must set drift: $out"
+
+  finish "check-board: arm (a) JUDGES declined/ (a hand-move there is a finding and reddens the verdict — ablation-proven) while arm (k) only COUNTS it (two cards reported, 'reports only' in its header, verdict stays clean)"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MOVER REFUSES A DECLINE WITH NO RECORDED WHY.
+#
+# A DECLINE WITH NO RECORDED WHY IS A DELETION WITH EXTRA STEPS. The reasoning is the
+# entire value of a declined card: a parked card's blocker can be rediscovered by
+# trying again, but a refusal's argument is the only thing the card still carries once
+# the work is not going to happen. Strip it and the column holds a list of titles
+# nobody can act on, and the next person to propose the same thing pays for the
+# refutation a second time.
+#
+# BOTH DIRECTIONS, because a refusal that also refuses the legal call is not a guard,
+# it is a broken target:
+#   (i)  `declined` with NO --note → refused, nonzero, and the card does not move;
+#   (ii) `declined` WITH a --note  → lands, on the trunk, with the reason in the file.
+# =============================================================================
+case_move_issue_declined_requires_a_reason() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-260" no-reason   chore "Declined without a reason"
+  seed_issue todo "$SB_PREFIX-261" with-reason chore "Declined with a reason"
+  publish_sandbox
+
+  local out rc
+
+  # --- (i) the refusal --------------------------------------------------------
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-260" declined \
+            --role PM 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(i) a decline with NO --note was ACCEPTED (exit $rc) — the column would fill with titles nobody can act on: $out"
+  printf '%s\n' "$out" | grep -qi 'note' \
+    || cf "(i) the refusal does not name --note as the thing that is missing, so it does not tell the operator what to do: $out"
+  # THE REFUSAL MUST NOT HAVE MOVED ANYTHING. A guard that refuses after acting is
+  # worse than no guard, because the operator believes nothing happened.
+  origin_has_path "progress/declined/$SB_PREFIX-260-no-reason.md" \
+    && cf "(i) the refusal still published the move — the card reached declined/ on the trunk without a reason"
+  origin_has_path "progress/todo/$SB_PREFIX-260-no-reason.md" \
+    || cf "(i) the card left todo/ on the trunk even though the move was refused"
+
+  # --- (ii) THE ABLATION DIRECTION: the legal call must still work -------------
+  # Without this half, deleting the `declined` target entirely would pass (i).
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-261" declined \
+            --role PM --note "Refused: the cost lands on every reader and the benefit on one." 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(ii) a decline WITH a reason was refused (exit $rc) — the guard is refusing the legal call, not the reasonless one: $out"
+  origin_has_path "progress/declined/$SB_PREFIX-261-with-reason.md" \
+    || cf "(ii) the card did not reach progress/declined/ on the trunk"
+  origin_file_contains "progress/declined/$SB_PREFIX-261-with-reason.md" "the cost lands on every reader" \
+    || cf "(ii) the REASON is not in the card on the trunk — the whole point of the column"
+  origin_log_has_subject "\[PM\] $SB_PREFIX-261 → declined" \
+    || cf "(ii) the move was not published to the trunk as its own commit"
+
+  finish "move-issue.sh: a decline with NO --note is refused and moves nothing, and a decline WITH one lands on the trunk carrying its reason"
+  teardown
+}
+
+# =============================================================================
+# CASE — setup.sh WARNS ABOUT A LATER-ADDED COLUMN; IT DOES NOT FAIL.
+#
+# THIS IS AN UPGRADE-PATH CASE, AND THE FAILURE IT GUARDS AGAINST SHIPPED ONCE.
+# Adding declined/ to setup.sh's BOARD_FOLDERS alone made setup.sh exit nonzero in
+# EVERY existing adopter's tree, because an upgrade to a newer kit is a READ, not a
+# run — so every tree still on the older version is missing the newest column. Those
+# boards are one `mkdir` behind, not broken, and reddening every routine fresh clone
+# over a state the adopter has not been told to fix yet trains everybody to ignore
+# setup.sh's output.
+#
+# Both directions, because "warns" is only meaningful against something that fails:
+#   (i)  a board missing declined/ → WARNS, names the remedy, and setup.sh's board
+#        check does not count a failure;
+#   (ii) a board missing an ORIGINAL column (todo/) → still a FAILURE. Without this
+#        half, softening every column to a warning would pass (i).
+# =============================================================================
+case_setup_warns_on_a_later_added_column() {
+  cf_reset
+  make_sandbox
+  if [ ! -f "$SB_WORK/setup.sh" ]; then
+    skp "setup.sh warns about a later-added board column rather than failing" "the sandbox carries no setup.sh"
+    teardown; return
+  fi
+  # THE PREMISE: the file must actually declare a later-added list, or both halves
+  # below are about a script that never made the distinction.
+  grep -q '^BOARD_FOLDERS_ADDED_LATER=' "$SB_WORK/setup.sh" \
+    || _fixture_die "case_setup_warns_on_a_later_added_column: setup.sh declares no BOARD_FOLDERS_ADDED_LATER — the later-added/original split does not exist, so this case would be asserting about nothing."
+
+  local out rc
+
+  # --- (i) the later-added column is absent -----------------------------------
+  rm -rf "$SB_WORK/progress/declined"
+  [ -d "$SB_WORK/progress/declined" ] \
+    && _fixture_die "case_setup_warns_on_a_later_added_column: progress/declined/ survived the removal — the state this case is about does not exist."
+  out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )"; rc=$?
+  printf '%s\n' "$out" | grep -qi 'progress/declined/ is missing' \
+    || cf "(i) setup.sh said nothing about the missing column — a silent pass is the other failure mode: $out"
+  printf '%s\n' "$out" | grep -i 'progress/declined/ is missing' | grep -q '^WARN' \
+    || cf "(i) the missing later-added column was not reported as a WARN: $(printf '%s\n' "$out" | grep -i 'progress/declined/ is missing')"
+  # THE REMEDY MUST BE NAMED. A warning an adopter cannot act on is noise.
+  printf '%s\n' "$out" | grep -q 'mkdir -p' \
+    || cf "(i) the warning does not name the command that fixes it: $out"
+  printf '%s\n' "$out" | grep -qi 'the board is incomplete' \
+    && cf "(i) the later-added column was reported with the ORIGINAL-column failure text, so it is still a hard failure: $out"
+
+  # --- (ii) THE ABLATION: an ORIGINAL column must still FAIL --------------------
+  # Without this, softening every column to a warning passes (i) and setup.sh stops
+  # noticing a genuinely broken board.
+  rm -rf "$SB_WORK/progress/todo"
+  out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )"; rc=$?
+  printf '%s\n' "$out" | grep -qi 'progress/todo/ is missing' \
+    || cf "(ii) a missing ORIGINAL column was not reported at all: $out"
+  printf '%s\n' "$out" | grep -i 'progress/todo/ is missing' | grep -q 'the board is incomplete' \
+    || cf "(ii) ABLATION FAILED — a missing ORIGINAL column did not get the failure text, so (i) proves nothing: every column would warn: $(printf '%s\n' "$out" | grep -i 'progress/todo/ is missing')"
+
+  finish "setup.sh: a board column this kit version ADDED warns and names its mkdir remedy, while a missing ORIGINAL column is still reported as an incomplete board (ablation-proven)"
   teardown
 }
 
@@ -6809,7 +7001,23 @@ case_kit_init_happy() {
   # The board is COMPLETE and left PRISTINE.
   local keeps leftovers
   keeps="$(find "$SB_WORK/progress" -name .gitkeep | wc -l | tr -d ' ')"
-  [ "$keeps" = "7" ] || cf "expected 7 .gitkeep files, found $keeps"
+  # DERIVED FROM THE INITIALIZER'S OWN DECLARATION, NOT A HAND-TYPED DIGIT. This asserted
+  # `= 7`, which is a census over a set the kit may legitimately grow: adding a status
+  # column reddened THIS case rather than the property it protects (one .gitkeep per board
+  # folder, none missing and none extra), and the number then had to be chased here as well
+  # as at the seam. kit-init builds BOARD_FOLDERS as STATUS_FOLDERS + history and asserts
+  # its own GITKEEP_EXPECTED against it, so the honest control here is the SAME arithmetic
+  # read from the shipped source. The derivation is asserted non-empty first — an empty
+  # expectation would make the comparison below vacuous, which is the trap the check-board
+  # constant-derivation cases record.
+  local kg_cols kg_expected
+  kg_cols="$(sed -n 's/^STATUS_FOLDERS=(\(.*\))$/\1/p' "$SB_WORK/scripts/kit-init.sh" | head -1)"
+  [ -n "$kg_cols" ] \
+    || cf "(control) could not derive STATUS_FOLDERS from kit-init.sh — the declaration moved, and the .gitkeep count below would otherwise compare against an empty expectation"
+  # + 1 for history/, which kit-init appends to BOARD_FOLDERS and which is NOT a status.
+  kg_expected="$(( $(printf '%s\n' "$kg_cols" | tr ' ' '\n' | grep -c .) + 1 ))"
+  [ "$keeps" = "$kg_expected" ] \
+    || cf "expected $kg_expected .gitkeep files (STATUS_FOLDERS + history, derived from kit-init.sh), found $keeps"
   leftovers="$(find "$SB_WORK/progress" -type f -name '*.md' | wc -l | tr -d ' ')"
   [ "$leftovers" = "0" ] || cf "the board is not pristine — $leftovers issue file(s) left behind"
   grep -qE '^##[[:space:]]+Log' "$SB_WORK/progress.md" || cf "progress.md has no '## Log' heading"
@@ -12145,6 +12353,7 @@ isolation_snapshot
 CASES=(
   case_move_issue
   case_move_issue_probe
+  case_move_issue_declined_requires_a_reason
   case_move_issue_set_pr_on_a_minted_card
   case_role_literals_are_declared
   case_finish_pr_happy
@@ -12206,6 +12415,8 @@ CASES=(
   case_check_board_registers
   case_check_board_register_absent
   case_check_board_arrow_beats_mention
+  case_check_board_declined_is_judged_and_counted
+  case_setup_warns_on_a_later_added_column
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
   case_check_board_shallow_clone_does_not_narrow

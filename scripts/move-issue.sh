@@ -38,9 +38,12 @@
 #   the kit's own safety-critical declarations were being appended BY HAND, four
 #   steps, every one of them skippable and none of them reported.
 #
-# Target folders: todo | in_progress | dev_complete | qa_complete | blocked | done
+# Target folders: todo | in_progress | dev_complete | qa_complete | blocked | done | declined
 #   (done/ is the permanent home for completed stories — normally populated by
 #    archive.sh sweeping qa_complete/, but a valid manual target too.)
+#   (declined/ is for a card that was considered and REFUSED. Like blocked/, it
+#    requires --note: the reason is the entire reason to keep the card. It is not
+#    swept — its value is being browsable.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the
@@ -259,7 +262,7 @@ fi
 # note reading "unblocked by → in_progress work" would be read as a declaration
 # that the card has moved when it has not.
 if [ "$NOTE_ONLY" -eq 1 ]; then
-  if printf '%s' "$NOTE" | grep -qE "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done)/?\`)"; then
+  if printf '%s' "$NOTE" | grep -qE "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done|declined))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done|declined)/?\`)"; then
     echo "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." >&2
     echo "  It contains a transition arrow or a backticked status folder, which the drift report" >&2
     echo "  reads as 'this card's declared status is X' — on a card that has not moved." >&2
@@ -285,8 +288,8 @@ fi
 # done and refuses a missing done/.)
 if [ "$NOTE_ONLY" -eq 0 ]; then
   case "$TARGET" in
-    todo|in_progress|dev_complete|qa_complete|blocked|done) ;;
-    *) echo "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done (got '$TARGET')" >&2; exit 1 ;;
+    todo|in_progress|dev_complete|qa_complete|blocked|done|declined) ;;
+    *) echo "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done|declined (got '$TARGET')" >&2; exit 1 ;;
   esac
 
   # A PARK WITH NO BLOCKER RECORDED IS NOT A PARK. The board's own legend reads
@@ -299,6 +302,21 @@ if [ "$NOTE_ONLY" -eq 0 ]; then
     echo "Error: moving to blocked/ requires --note \"…\" naming the blocker." >&2
     echo "  A parked card whose blocker is not written down cannot be unparked by anyone" >&2
     echo "  but the person who parked it, and they will not remember either." >&2
+    exit 1
+  fi
+
+  # A DECLINE WITH NO RECORDED WHY IS A DELETION WITH EXTRA STEPS. Same shape as
+  # blocked/ above and the same reason, one step stronger: a parked card's blocker
+  # can at least be rediscovered by trying again, but a refusal's REASONING is the
+  # only thing the card still carries once the work is not going to happen. Strip it
+  # and the folder holds a list of titles nobody can act on — and the next person to
+  # propose the same thing starts from zero and pays for the refutation again.
+  # That is the whole case for the column: it is worth keeping BECAUSE it is read.
+  if [ "$TARGET" = "declined" ] && [ -z "$NOTE" ]; then
+    echo "Error: moving to declined/ requires --note \"…\" naming WHY it was refused." >&2
+    echo "  The reason is the entire value of a declined card. Without it this is a" >&2
+    echo "  deletion with extra steps, and the next person to propose the same thing" >&2
+    echo "  starts from zero." >&2
     exit 1
   fi
 fi

@@ -68,7 +68,7 @@ REMOTE="${KWT_REMOTE:-origin}"
 # (it does not parameterise it). Read the table rather than a count written here; this
 # line used to say "across four scripts", which was wrong about the number, wrong about
 # the membership, and excluded the file stating it.
-STATUS_FOLDERS=(todo in_progress dev_complete qa_complete blocked done)
+STATUS_FOLDERS=(todo in_progress dev_complete qa_complete blocked done declined)
 # + history/ for rotated progress.md sections (archive-progress.sh's destination).
 BOARD_FOLDERS=("${STATUS_FOLDERS[@]}" history)
 # One .gitkeep per board folder; the count is ASSERTED after creation rather than
@@ -804,8 +804,8 @@ this file is the *history*.
 
 ## Status quick reference
 
-Run \`ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/\`
-to see the board. Each filename is \`${PREFIX}-NNN-<slug>.md\`; the folder is the status.
+Run \`ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/ progress/declined/\`
+to see the board. \`declined/\` is terminal — a card considered and refused, kept for the reason it carries. Each filename is \`${PREFIX}-NNN-<slug>.md\`; the folder is the status.
 \`./scripts/check-board.sh\` reports board drift. Older entries rotate into
 \`progress/history/\` via \`./scripts/archive-progress.sh\`.
 

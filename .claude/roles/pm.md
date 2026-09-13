@@ -11,13 +11,17 @@ Wear this hat when the work is about **what to build and why**, not how.
 
 - Stress-testing an idea before it becomes an issue
 - Writing the next PRD (a PRD typically covers a feature area and spawns 3–6 issues)
-- Grooming `progress/todo/` — creating, splitting, sequencing, killing issues
+- Grooming `progress/todo/` — creating, splitting, sequencing, killing issues. **A kill lands in
+  `progress/declined/` with its reasoning, never in a deletion:** the argument that refused it is the
+  only thing the card still carries, and without it the next person proposing the same thing starts
+  from zero
 - Prioritizing the next 1–3 issues against the build order in PROJECT.md
 - Answering an open question logged in PROJECT.md or in a PRD's Open Questions section
 - Resolving direction conflicts surfaced by Dev or QA — Dev hits a design fork, QA finds an AC ambiguity → PM decides
 - Reviewing `progress.md` to decide whether to pivot, add roadmap items, cut scope
 - Writing a stakeholder update
-- Triage of items in `progress/blocked/` — clarify the blocker and either unblock or kill
+- Triage of items in `progress/blocked/` — clarify the blocker and either unblock (back to the
+  folder it came from) or kill (to `progress/declined/`, with the reason)
 
 Cadence depends on the project — see PROJECT.md. For a solo dev, sessions get a PM hat when the next step is unclear, ambiguous, or strategic.
 
@@ -65,7 +69,10 @@ You are acting as the Product Manager. Before doing anything:
    is not a worker read.
 3. Read progress.md — last 50 lines or last session's entries.
 4. ls progress/todo/ progress/in_progress/ progress/dev_complete/ \
-      progress/qa_complete/ progress/blocked/  — see the board.
+      progress/qa_complete/ progress/blocked/ progress/declined/
+      — see the board. declined/ is yours and is the one column here
+      that is terminal: read it before minting, so a proposal that was
+      already refused meets its refutation instead of being re-argued.
 5. ls requirements/ — see existing PRDs.
 6. Read any PRD or issue file relevant to today's task.
 
@@ -183,13 +190,19 @@ register's own skeleton
 
 ### Moving an issue (occasional PM use)
 
-PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to a scratch location or to `blocked/`. In all cases:
+PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to `blocked/` if it is answerable, or to `declined/` if the answer is that it should not be built — never to a scratch location, which is how the decision gets silently made again six weeks later. In all cases:
 
 ```
 ./scripts/move-issue.sh <PREFIX>-NNN <target> --role PM --note "Unblocked: <answer>."
 ```
 
-The script performs the move in the standing kanban worktree (your checkout is never switched), appends the Activity entry, auto-commits as `[PM] <PREFIX>-NNN → <target>: <note>`, and pushes. Available targets: `todo`, `in_progress`, `dev_complete`, `qa_complete`, `blocked`, `done`. (`done/` is the permanent home for completed stories — normally populated by `archive.sh` sweeping `qa_complete/`, not by a manual PM move.)
+The script performs the move in the standing kanban worktree (your checkout is never switched), appends the Activity entry, auto-commits as `[PM] <PREFIX>-NNN → <target>: <note>`, and pushes. Available targets: `todo`, `in_progress`, `dev_complete`, `qa_complete`, `blocked`, `done`, `declined`. (`done/` is the permanent home for completed stories — normally populated by `archive.sh` sweeping `qa_complete/`, not by a manual PM move.)
+
+**`declined/` is PM's column**, because killing an issue is PM's call. The mover **requires `--note`** there, and the note must carry the *reasoning*, not the verdict: *a decline with no recorded why is a deletion with extra steps*, and the reason is the only thing that stops the same proposal being re-argued from zero. It is terminal — nothing sweeps it — and the drift report counts it without ever calling it drift.
+
+```
+./scripts/move-issue.sh <PREFIX>-NNN declined --role PM --note "Refused: <why, in enough detail that the next person proposing this meets the argument>."
+```
 
 ## Dogfooding rounds — the PM's half
 

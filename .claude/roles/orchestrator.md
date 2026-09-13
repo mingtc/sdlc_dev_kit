@@ -122,10 +122,14 @@ reads, so they happen exactly once — read only what is **not yet in context**:
 4. `progress.md` — recent entries; honor any resume pointer.
 5. `ls progress/{todo,in_progress,dev_complete,qa_complete,blocked}/` and
    `ls progress/subtasks/ 2>/dev/null` — the board, including any in-flight decomposition.
-   (`progress/done/` is the off-board archive of completed stories — full files, swept there
-   from `qa_complete/` by `archive.sh`. You don't move issues there during a run; you land
-   PASSes in `qa_complete/` via the landing script as usual. `done/` is just where shipped
-   work lives.)
+   **Two columns are deliberately not in that listing, and both exclusions are terminal
+   states rather than oversights.** (`progress/done/` is the off-board archive of completed
+   stories — full files, swept there from `qa_complete/` by `archive.sh`. You don't move issues
+   there during a run; you land PASSes in `qa_complete/` via the landing script as usual.
+   `done/` is just where shipped work lives. `progress/declined/` holds cards that were
+   considered and **refused**, each carrying the reason — nothing there is runnable, so it is
+   not part of the set you pick from. **Declining is PM's call, never yours**: an issue you
+   cannot run is parked in `blocked/` with the evidence, and PM decides whether it dies.)
 
 This guard is deliberate: the adapter's protocol and this doc both list project reads; without
 it an agent re-reads files it already has. One driver, one pass, skip the loaded.

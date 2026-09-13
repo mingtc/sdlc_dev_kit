@@ -81,20 +81,50 @@ fi
 # --- 1b. The board sanity check --------------------------------------------
 # The folder IS the status, so a missing folder is a missing status. Two headings
 # are read by scripts and are checked here for the same reason.
+# *That premise is unchanged and is why this check exists at all. What it does NOT settle
+# is the SEVERITY, and the split below is about severity only: a status the board has
+# always had is missing because the tree is broken; a status the kit added in a version
+# this tree has not upgraded to yet is missing because nobody has read the notes yet.
+# Both are missing statuses. Only the first is a defect in the tree in front of you.*
 #
 # NAMED BOARD_FOLDERS, NOT STATUS_FOLDERS, and the distinction is the initializer's:
 # `history/` is NOT a status — it is where the log rotation puts what it archives —
 # but it must exist for the same reason the statuses must, so this list is the board's
 # DIRECTORIES. check-board.sh has its own STATUS_FOLDERS holding the statuses and
-# deliberately excluding history; calling this one by that name taught a seven-column
-# board and put two different sets behind one name. This is an existence check only,
-# so nothing here behaved wrongly — the label did.
-BOARD_FOLDERS="todo in_progress dev_complete qa_complete blocked done history"
+# deliberately excluding history; calling this one by that name taught a SEVEN-COLUMN
+# board — the measured consequence, and the reason the rename happened: a reader who
+# takes this name at face value counts this list and believes the status set is one
+# member larger than it is, because `history/` is in here and is not a status. Two
+# different sets behind one name. This is an existence check only, so nothing here
+# behaved wrongly — the label did.
+#   *(SUPERSEDED ONLY IN ITS ARITHMETIC, never in its reason: this list has since grown
+#   `declined/`, so the wrong count the old name taught is no longer literally seven.
+#   The defect is the OFF-BY-history/ the shared name causes, which is invariant under
+#   the board growing; do not restate it as a digit that has to be chased again.)*
+BOARD_FOLDERS="todo in_progress dev_complete qa_complete blocked done declined history"
+# ADDED-LATER COLUMNS ARE A WARNING, NOT A FAILURE, and the split is the whole point of
+# this list being two. An existing adopter upgrades by READING (KIT-RELEASE-NOTES.md
+# § How to upgrade: "an upgrade is a read, not a run"), so every tree on an older kit
+# has a board without the newest column — and their board is not broken, it is one
+# `mkdir` behind. Hard-failing setup.sh there turns every routine fresh clone red on a
+# state the adopter has not been told to fix yet, and a red that everybody learns to
+# ignore is worse than no check. So: the ORIGINAL board is a failure when absent,
+# because a tree missing `todo/` is genuinely broken; a column the kit added later is a
+# warning THAT NAMES THE REMEDY. Move a name out of this list when its Action-required
+# item is old enough that no supported tree can still be missing it.
+BOARD_FOLDERS_ADDED_LATER="declined"
 for f in $BOARD_FOLDERS; do
   if [ -d "$ROOT/progress/$f" ]; then
     [ -e "$ROOT/progress/$f/.gitkeep" ] || warn "progress/$f/ has no .gitkeep — git will drop it when it empties."
   else
-    note_fail "progress/$f/ is missing — the board is incomplete."
+    case " $BOARD_FOLDERS_ADDED_LATER " in
+      *" $f "*)
+        warn "progress/$f/ is missing — a board column this kit version added. Create it and commit the keep file:
+        mkdir -p '$ROOT/progress/$f' && touch '$ROOT/progress/$f/.gitkeep' && git -C '$ROOT' add '$ROOT/progress/$f/.gitkeep'
+      Until you do, moving a card there will fail. Nothing else is affected." ;;
+      *)
+        note_fail "progress/$f/ is missing — the board is incomplete." ;;
+    esac
   fi
 done
 

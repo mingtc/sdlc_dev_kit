@@ -92,7 +92,49 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Action required
+
+- **The board gains a `progress/declined/` column, and your tree does not have it yet.**
+  `declined/` is where a card that was **considered and refused** lives, with the reasoning
+  that refused it. A refusal previously had nowhere to go: left in `todo/` it misrepresents
+  itself as pending work, and deleted it takes its reasoning with it, so the next person to
+  propose the same thing starts from zero and the refutation is paid for twice.
+
+  **Do this once, in your own tree:**
+
+  ```sh
+  mkdir -p progress/declined
+  touch progress/declined/.gitkeep
+  git add progress/declined/.gitkeep
+  git commit -m "[PM] Add the progress/declined/ board column"
+  ```
+
+  **Until you do, `./setup.sh` warns and names that command**, and a
+  `./scripts/move-issue.sh <ID> declined` is the only thing that actually fails. Nothing else
+  in your board changes, and no existing card moves.
+
+  **What comes with it, once the directory exists:**
+
+  - **`./scripts/move-issue.sh <ID> declined --role PM --note "…"` is a legal move, and the
+    `--note` is REQUIRED there** — exactly as it already is for `blocked/`. *A decline with no
+    recorded why is a deletion with extra steps.* The note should carry the **reasoning**, not
+    the verdict, so the next person proposing the same thing meets the argument.
+  - **`declined/` is terminal and is NOT swept.** `archive.sh` does not touch it. The sweep
+    exists to keep the *active* board shallow; this column's whole value is being browsable.
+  - **`check-board.sh` gains arm `[k]`, a COUNT of the column and only a count.** It has no
+    threshold, it never sets `drift`, and accumulating declined cards can never turn a green
+    board red — a recorded refusal is not work left undone. Arm `[a]` **does** read the column
+    for folder-vs-Activity drift, because "is this card where its own last Activity entry says
+    it is" stays answerable about a refusal, and a hand-move is the one event no other check
+    sees.
+  - **`STATUS_FOLDERS` gains `declined` in both `check-board.sh` and `kit-init.sh`.** If you
+    have local code that re-lists the status folders instead of deriving them from those
+    constants, it is now short by one — `EXTRACTION.md` § 2.2 is the table of every shipped
+    carrier and what each costs when it is missed.
+  - **A fresh `kit-init.sh` creates the column for you.** This item is only for a board that
+    already exists.
+  - **The PM role owns it.** Killing an issue is PM's call, and PM's session-start board
+    listing now includes it.
 
 ## [0.4.0] — 2026-09-08
 

@@ -3,8 +3,14 @@
 # Sweep progress/qa_complete/ off the active board: index each issue in
 # ARCHIVE.md AND move the full issue file into progress/done/ (the permanent
 # home for completed stories). Completed stories are PRESERVED — they are never
-# removed, only moved out of the active five-column board into done/.
+# removed, only moved out of the active board into done/.
 # ARCHIVE.md stays the condensed, searchable index; done/ holds the full bodies.
+#
+# IT SWEEPS ONE COLUMN, AND `declined/` IS DELIBERATELY NOT IT. That is a ruling, stated
+# here because a reader meeting a second terminal column will ask. The sweep exists to keep
+# the ACTIVE board shallow; a declined column's entire value is being browsable, and
+# sweeping it into an index is how it becomes the graveyard it is kept in order not to be.
+# It is terminal and nothing moves it.
 #
 # ALL git ops (the ARCHIVE.md edit, the `git mv`, the commit, the push) happen
 # inside the STANDING detached `.kanban-wt/` worktree pinned to the trunk —

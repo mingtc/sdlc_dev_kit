@@ -8,12 +8,17 @@
 # close ritual" that would otherwise be self-attested with zero verification. It
 # reports these drift classes. THE LETTERS ARE THE ARMS' OWN, and the list below is a projection
 # of them: derive it with
-#   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | sort -u
+#   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
 # rather than trusting
 # this header, which enumerated (a)-(g) after (h) and (i) had been added and were printing on
-# every run:
-#   (a) any ACTIVE-board issue file whose folder contradicts its last Activity entry
-#       (the folder is authoritative — a mismatch means the Activity log wasn't kept in sync);
+# every run. *`uniq`, not `sort -u`: the derivation must show PRINT ORDER as well as membership,
+# and sorting destroys exactly the half that goes wrong when an arm is slotted in out of place —
+# which is the second way this header has now gone stale.*
+#   (a) any issue file on a column this arm reads whose folder contradicts its last
+#       Activity entry (the folder is authoritative — a mismatch means the Activity log
+#       wasn't kept in sync). NOT "the active board": the columns are derived from
+#       STATUS_FOLDERS minus a named skip list, and `declined/` — which is terminal, not
+#       active — is read, because a hand-move is just as invisible there;
 #   (b) progress/qa_complete/ column depth vs the archive.sh sweep threshold;
 #   (c) progress.md § Log BYTE SIZE vs the archive-progress.sh rotation threshold
 #       (byte-based, not line-based — a handful of single-line mega-entries hid real token
@@ -22,7 +27,7 @@
 #       size against its own separate threshold — the § Log arm alone can read "healthy"
 #       while the file's dominant content sits past its exit, which was a real census's
 #       headline finding;
-#   (d) FRONTMATTER ID INTEGRITY across all six columns — a DUPLICATE `id:` (two issue
+#   (d) FRONTMATTER ID INTEGRITY across every column in STATUS_FOLDERS — a DUPLICATE `id:` (two issue
 #       files carrying the same id), an id that DISAGREES with its filename's prefix,
 #       and a missing/malformed id. EMPIRICAL, not speculative: two issues carried the
 #       same `id:` on the trunk at once (a Dev-filed bug and a PM-minted spike, landed
@@ -48,6 +53,32 @@
 #       repository one minute after kit-init has not graduated and its board is
 #       nonetheless truthful. It reports, it never sets `drift`, and it never goes
 #       silent once satisfied; the arm's own header gives all three reasons.
+#   (h) GENERATED-TRAILER scan of the same recent trunk commits arm (e) reads, scoped to
+#       the same rule epoch;
+#   (i) blocks:/blocked_by: SYMMETRY across the columns STATUS_FOLDERS names, reusing the
+#       file list arm (d) already built; reports only.
+#   (j) DOWNTIME-QUEUE claim drift — an open row whose issue has already landed; reports
+#       only.
+#   (k) declined/ COLUMN DEPTH — a COUNT of progress/declined/, and only a count. A
+#       declined card is a recorded refusal rather than work left undone, so it is not
+#       drift: this arm has no threshold, it never sets `drift`, and adding a declined
+#       card can never turn a green board red. It reports because the column earns its
+#       keep only by being read. Note that being uncounted is not the same as being
+#       unjudged: arm (a) DOES walk declined/, because "is the card where its own last
+#       Activity entry says it is" stays answerable about a refusal.
+#
+# THE LIST ABOVE AND THE PRINT ORDER AGREE, and (h)-(j) were added to it here because a
+# projection that omits three printing arms is not a projection. It went stale once before
+# for exactly that reason — see the derivation recipe above, which exists because of it —
+# and a NEW arm slotted in out of letter order would break the same agreement a second way.
+# Both halves are checkable, and BOTH derivations anchor on the line START — a bare
+# `grep -oE '\([a-z]\)'` over the enumeration returns a second hit from any line that
+# names another arm mid-sentence, which (h) in the list above does:
+#   # the arms that PRINT, in print order:
+#   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
+#   # the enumeration below, in file order:
+#   grep -E '^#   \([a-z]\)' scripts/check-board.sh | sed -E 's/^#   (\([a-z]\)).*/\1/'
+# The two must be the same letters, in the same order, once each.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # EVERY CHECK NAMES THE SOURCE IT READ, AND SAYS SO WHEN IT COULD NOT READ ONE.
@@ -130,7 +161,7 @@ done
 # ── Greppable defaults (hard-won: consumers and tests DERIVE these from here with
 #    sed, they do not re-hardcode literals — so a future change here cannot
 #    silently make an assertion vacuous).
-STATUS_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done'
+STATUS_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'
 QA_COMPLETE_THRESHOLD=10
 # The § Log rotation trigger is BYTE-based, not line-based. A handful of single-line
 # mega-entries (averaging ~740 chars) hid real token weight behind a small line count, so a
@@ -297,7 +328,24 @@ fi
 
 # ---------------------------------------------------------------------------
 # (a) Folder vs last-Activity drift across the ACTIVE columns (done/ is off-board
-#     and can be huge — skipped for the <2s budget). The "declared status" is read
+#     and can be huge — skipped for the <2s budget). `declined/` IS walked, and its
+#     inclusion is a ruling rather than an oversight: the budget argument that excuses
+#     done/ does not transfer, because a declined column is small and its whole value is
+#     being browsable. A declined card is tracked, published and read — a LIVE item by
+#     contracts/drift-report.md § invariant 1 — and this arm is the only check that can
+#     see a hand-move, so excluding it would report `clean ✓` over a card whose own last
+#     Activity entry declares a different column. (That exclusion was measured, not
+#     imagined: it shipped for the length of one review and was demonstrated with a card
+#     in declined/ declaring `→ todo`.) Arm [k] counts that column and never judges it;
+#     THIS arm judges the one thing about it that is judgeable — whether the card is
+#     where its own log says it is — and that is not the same question.
+#
+#     THE COLUMN LIST IS DERIVED FROM STATUS_FOLDERS MINUS THE DECIDED EXCLUSION, never
+#     re-typed. A hardcoded literal here is what let arms [d] and [i] be widened for a new
+#     column while the only DRIFT-DECIDING arm silently kept the old set. The exclusion is
+#     a filter with a written reason beside it, so the next column to be added is IN by
+#     default and someone has to write down why if it is not.
+#     The "declared status" is read
 #     from the last Activity bullet in TWO ORDERED PASSES, because the two spellings
 #     are not equals:
 #       1. a transition ARROW `→ <folder>` — a DECLARATION, and what the mover emits;
@@ -309,11 +357,27 @@ fi
 #     `supersedes progress/done/<PREFIX>-379-old.md`. The precedence and its own
 #     measured false positive are recorded at the comparator below.
 # ---------------------------------------------------------------------------
+# done/ only. See the exclusion ruling in this arm's header — anything named here owes a
+# written reason there, and `declined` deliberately is not named.
+A_SKIP_COLS='done'
 echo
-echo "[a] Folder vs last-Activity drift (active columns) — $(cb_src):"
+echo "[a] Folder vs last-Activity drift (every column in STATUS_FOLDERS except ${A_SKIP_COLS}/) — $(cb_src):"
 a_hits=0
 a_cols=0
-for folder in todo in_progress dev_complete qa_complete blocked; do
+IFS='|' read -r -a a_all_cols <<< "$STATUS_FOLDERS"
+a_cols_list=()
+for folder in "${a_all_cols[@]}"; do
+  case "|$A_SKIP_COLS|" in *"|$folder|"*) continue ;; esac
+  a_cols_list+=("$folder")
+done
+# A DERIVATION THAT RETURNS NOTHING WOULD MAKE THIS ARM VACUOUSLY GREEN — it would print
+# the skipped line below and no reader would learn that the loop had no columns to walk
+# because the constant moved rather than because the board is empty.
+if [ "${#a_cols_list[@]}" -eq 0 ]; then
+  echo "    ⚠ (control) no column survived the STATUS_FOLDERS derivation — this arm checked NOTHING; STATUS_FOLDERS is '$STATUS_FOLDERS' and the skip list is '$A_SKIP_COLS'"
+  drift=1
+fi
+for folder in "${a_cols_list[@]}"; do
   dir="$CB_TREE/progress/$folder"
   # A MISSING COLUMN IS A SKIP, NOT A PASS. It used to `continue` silently, so a
   # board with no progress/ at all printed "✓ none" — a green establishing nothing,
@@ -365,7 +429,7 @@ for folder in todo in_progress dev_complete qa_complete blocked; do
   done
 done
 if [ "$a_cols" -eq 0 ]; then
-  echo "    – no active column exists in this source — nothing was checked  (skipped)"
+  echo "    – none of the columns this arm reads exists in this source — nothing was checked  (skipped)"
 elif [ "$a_hits" -eq 0 ]; then
   echo "    ✓ none across $a_cols column(s) (every judgeable last-Activity entry matches its folder)"
 fi
@@ -444,7 +508,7 @@ fi
 
 # BEGIN check (d)
 # ---------------------------------------------------------------------------
-# (d) Frontmatter id integrity across ALL SIX columns (the folder list is DERIVED
+# (d) Frontmatter id integrity across EVERY column STATUS_FOLDERS names (the folder list is DERIVED
 #     from STATUS_FOLDERS above, never re-listed — done/ is in scope on purpose: a
 #     new mint can collide with an ARCHIVED issue, which is exactly why next-id.sh
 #     also reads ARCHIVE.md). Three findings, one pass:
@@ -462,12 +526,15 @@ fi
 #     with a couple of hundred archived issues on it. Read-only; exit 0 by convention.
 # ---------------------------------------------------------------------------
 echo
-echo "[d] Frontmatter id integrity (all six columns, from STATUS_FOLDERS) — $(cb_src):"
-d_files=(); d_hits=0
+echo "[d] Frontmatter id integrity (every column in STATUS_FOLDERS) — $(cb_src):"
+d_files=(); d_hits=0; d_ncols=0
 IFS='|' read -r -a d_cols <<< "$STATUS_FOLDERS"
 for folder in "${d_cols[@]}"; do
   d_dir="$CB_TREE/progress/$folder"
+  # An ABSENT column is not read, and the PASS line below says how many WERE — a
+  # census in that message would state a population this loop may not have visited.
   [ -d "$d_dir" ] || continue
+  d_ncols=$((d_ncols+1))
   for f in "$d_dir"/*.md; do
     [ -e "$f" ] || continue
     if [ -s "$f" ]; then
@@ -596,7 +663,7 @@ if [ "$d_hits" -eq 0 ]; then
   elif [ "$reg_read" -gt 0 ];                            then d_reg_note="; ids distinct in every declared register"
   elif [ "$reg_skipped" -gt 0 ];                         then d_reg_note="; NO register was read ($reg_skipped skipped) — this pass says nothing about them"
   fi
-  echo "    ✓ none (every ${ISSUE_ID_KEY}: unique across all six columns and matching its filename${d_reg_note})"
+  echo "    ✓ none (every ${ISSUE_ID_KEY}: unique across the $d_ncols column(s) read and matching its filename${d_reg_note})"
 fi
 # END check (d)
 
@@ -1255,10 +1322,10 @@ fi
 #     stray.
 #
 #     IT RUNS AFTER [d] AND REUSES ITS FILE LIST. Stated because it is a real coupling:
-#     d_files is the six live board columns, already filtered for empties.
+#     d_files is the board columns STATUS_FOLDERS names, already filtered for empties.
 # ---------------------------------------------------------------------------
 echo
-echo "[i] blocks:/blocked_by: symmetry (six columns, from STATUS_FOLDERS; reports only — it never changes the verdict below) — $(cb_src):"
+echo "[i] blocks:/blocked_by: symmetry (every column in STATUS_FOLDERS; reports only — it never changes the verdict below) — $(cb_src):"
 if [ "${#d_files[@]}" -eq 0 ]; then
   echo "      – no issue file on the board  (skipped)"
 else
@@ -1387,6 +1454,45 @@ else
     printf '%s\n' "$j_out"
   fi
   # NO `drift=1` HERE, DELIBERATELY. See the ruling in the header.
+fi
+
+# ---------------------------------------------------------------------------
+# (k) declined/ depth — A COUNT, AND ONLY A COUNT. It has no threshold and it
+#      NEVER sets `drift`, which is a ruling rather than an oversight: a declined
+#      card is a recorded refusal, not work left undone, so a board does not become
+#      unhealthy by accumulating them. Adding a declined card must not turn a green
+#      board red. The count is reported because the column is worth nothing if it is
+#      never read — the whole case for keeping a refusal is that someone meets it
+#      again — and a number nobody prints is a folder nobody opens.
+#      It is NOT swept: archive.sh's sweep exists to keep the ACTIVE board shallow,
+#      and this column's value is being browsable. An ABSENT column is skipped, not
+#      reported as 0 — "0 declined" over a directory that does not exist is a
+#      statement about nothing (arm [b]'s rule, same reason).
+#      THE HEADER CARRIES THE LITERAL `reports only`, which is a machine contract rather
+#      than phrasing (contracts/drift-report.md § 4): kit-init's board self-check drops
+#      advisory sections by that token, and its awk RESETS THE ADVISORY FLAG on a line
+#      matching `^\[[a-z]\]` — one letter, so `[b2]` does not match it.
+#      Both halves are why this arm is lettered `[k]` and not `[b2]`, and the mechanism
+#      runs the OPPOSITE WAY from the obvious guess. A `[b2]` header would not have been
+#      folded INTO arm [b]'s advisory state; it would have LEAKED PAST the filter. The
+#      flag is only ever re-evaluated on a matching line, so `[b2]` would have INHERITED
+#      whatever [b] last set — and [b] is not advisory, so the flag would have been OFF
+#      and this arm's every line, `⚠` included, would have fallen through to the
+#      finding grep and failed the install. Inheriting an advisory state would merely
+#      have hidden this arm; inheriting a NON-advisory one arms it as a gate, which is
+#      exactly what it must never be. Verified against the consumer, not inferred: the
+#      awk is in kit-init.sh's board self-check, `adv` assigned only inside the
+#      `/^\[[a-z]\]/` rule.
+# ---------------------------------------------------------------------------
+echo
+if [ ! -d "$CB_TREE/progress/declined" ]; then
+  echo "[k] declined/ depth (reports only — a decline is not drift and never changes the verdict below): progress/declined/ absent in this source  (skipped) — $(cb_src)"
+else
+  dc_count=0
+  for f in "$CB_TREE"/progress/declined/*.md; do
+    [ -e "$f" ] && dc_count=$((dc_count+1))
+  done
+  echo "[k] declined/ depth (reports only — a decline is not drift and never changes the verdict below): $dc_count card(s) — $(cb_src)"
 fi
 
 echo

@@ -28,7 +28,7 @@ blocked_by: []           # other <PREFIX>-NNN blocking this issue
 
 # <PREFIX>-NNN — <one-line summary>
 
-> **Status** is the folder this file is in (`progress/todo/`, `progress/in_progress/`, `progress/dev_complete/`, `progress/qa_complete/`, `progress/blocked/`). Move the file with **`./scripts/move-issue.sh`** — never by hand (`process/contracts/board-mover.md`: *"Only the mover moves it"*, and every move is published to the trunk as its own commit). Do not duplicate status into frontmatter.
+> **Status** is the folder this file is in (`progress/todo/`, `progress/in_progress/`, `progress/dev_complete/`, `progress/qa_complete/`, `progress/blocked/`, `progress/done/`, `progress/declined/`). Move the file with **`./scripts/move-issue.sh`** — never by hand (`process/contracts/board-mover.md`: *"Only the mover moves it"*, and every move is published to the trunk as its own commit). Do not duplicate status into frontmatter.
 
 ## References
 

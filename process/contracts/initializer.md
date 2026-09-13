@@ -65,8 +65,11 @@ precondition the process depends on and then demonstrating each one working.
   the next convention. **They are one rule with two audiences and must not drift into two.**
 - **Every precondition it performs is ASSERTED afterwards, with a count where a count exists.**
   Reporting success on a partial result is the failure this whole step exists to prevent.
-  *Why:* "created the board" is not the same claim as "created seven containers and counted
-  seven" — and the count is **derived from the declared set**, never a hand-typed digit.
+  *Why:* "created the board" is not the same claim as "created every declared container and
+  counted them" — and the count is **derived from the declared set**, never a hand-typed digit.
+  *(This sentence carried two hand-typed digits of its own while forbidding them, and they went
+  false the first time the board grew a column. The point it makes is derivation-versus-digit and
+  it needs no number to make it.)*
 
 **The hooks path has TWO owners and one lifecycle, and every site that names it cites this row.**
 `core.hooksPath` is **per-clone git config** — it is not committed and does not travel. So
