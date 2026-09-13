@@ -75,7 +75,9 @@ Thumbs.db
 #     makes that text part of the PATTERN: the rule matches nothing, git goes on
 #     reporting the artifact, and nothing anywhere says why. It fails in the quiet
 #     direction. Every real entry above this block already does it correctly.
-#     Verify each line you add with `git check-ignore -q <path>` rather than by
+#     Verify each line you add with `git check-ignore -q <path>/` — WITH THE TRAILING SLASH
+#     for a directory, and note it answers only for a path that EXISTS; for one not yet
+#     created the bare form returns 1 and tells you nothing (changes/316). Rather than by
 #     reading it — an ignore rule that matches nothing looks exactly like one that
 #     works.
 #

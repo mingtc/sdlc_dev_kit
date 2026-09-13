@@ -3,8 +3,12 @@
 # Usage: TEST_CMD=<your single-file test command> ./find-polluter.sh <file_or_dir_to_check> <test_pattern>
 # Example: TEST_CMD="npm test --" ./find-polluter.sh '.git' './src/**/*.test.ts'
 #   NOTE THE LEADING './'. `find .` emits paths that begin './', and -path matches the WHOLE
-#   emitted path — so a pattern without it matches nothing, and this script then reports
-#   success over zero test files. This example omitted it.
+#   emitted path — so a pattern without it matches nothing. This example omitted it.
+#   THE SCRIPT NOW REFUSES on an empty match rather than reporting success over zero files
+#   (changes/316). It used to print "Found 1 test files" and a clean tick, because
+#   `echo "$EMPTY" | wc -l` is 1 — an empty capture reads as one line. The kit forbids that
+#   shape in terms: skills/refactor-audit/SKILL.md says "0 findings over 0 files" and
+#   "0 findings over 28 files" are different results.
 # TEST_CMD is REQUIRED and has no default: the script refuses rather than guess your runner.
 
 set -e
@@ -27,7 +31,15 @@ echo ""
 
 # Get list of test files
 TEST_FILES=$(find . -path "$TEST_PATTERN" | sort)
-TOTAL=$(echo "$TEST_FILES" | wc -l | tr -d ' ')
+# COUNT FROM THE PRODUCER, NOT FROM A VARIABLE HOLDING ITS OUTPUT. `echo "$X" | wc -l` returns
+# 1 for an empty X, because echo of an empty string emits one newline — so zero matches read as
+# one file and the run reported clean over nothing (changes/316, changes/292's widening).
+TOTAL=$(printf '%s' "$TEST_FILES" | grep -c '' || true)
+if [ "${TOTAL:-0}" -eq 0 ]; then
+  echo "no test files matched $TEST_PATTERN — refusing to report clean over zero files" >&2
+  echo "  the leading './' is required, and -path matches the WHOLE emitted path — see the header" >&2
+  exit 2
+fi
 
 echo "Found $TOTAL test files"
 echo ""

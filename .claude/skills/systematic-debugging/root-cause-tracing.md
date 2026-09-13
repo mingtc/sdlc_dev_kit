@@ -101,6 +101,9 @@ If something appears during tests but you don't know which test:
 Use the bisection script `find-polluter.sh` in this directory:
 
 ```bash
+# The pattern must match your layout: -path matches the WHOLE emitted path, and the script
+# now REFUSES rather than reporting clean if it matches nothing (changes/316). For a flat
+# src/, use './src/*.test.ts'; for nested, './src/**/*.test.ts'.
 TEST_CMD="npm test --" ./find-polluter.sh '.git' './src/**/*.test.ts'
 ```
 
