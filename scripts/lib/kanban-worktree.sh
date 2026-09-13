@@ -737,10 +737,11 @@ kwt_sync() {
 # worktree's index — makes the operator's checkout look dirty).
 # ---------------------------------------------------------------------------
 kwt_finalize() {
-  # THE COMMIT WE ARE ABOUT TO PUBLISH, captured BEFORE the push, so the
-  # read-back below can name it. Two guards hang off this sha, and neither can
-  # be written after the fact: once a commit stops being referenced, the only
-  # record of its identity is the reflog.
+  # THE COMMIT WE ARE ABOUT TO PUBLISH, captured BEFORE the push. It is NOT the
+  # operand of the ancestry assertion below — see there — because a won race
+  # orphans it by design. It is kept for ONE thing that can only be said with it:
+  # telling "the retry rebased this op's commit" apart from "the commit is
+  # unreferenced", which are opposite states that look identical without it.
   local pre_head
   pre_head="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
 
@@ -773,17 +774,33 @@ kwt_finalize() {
   #    one reached the ref, the other was recoverable only from `git reflog --all`
   #    and cost a review window to find. A guard that fires at the moment of loss
   #    beats a report that cannot describe the loss at all.
-  if [ -n "$pre_head" ]; then
+  #    THE OPERAND IS THE POST-PUSH HEAD, NOT $pre_head, and that is the whole
+  #    point of reading it here. git_push_with_retry REBASES onto the remote tip
+  #    when a race rejects the first attempt (push-retry.sh:5,20-23 says so) — and
+  #    a rebase makes a NEW commit, so the operation that SUCCEEDED is the same
+  #    operation that orphaned $pre_head. Asserting on $pre_head therefore fired
+  #    on the SUCCESS path of every won race: it reported a landing that had
+  #    worked as a failure, and advised a cherry-pick that produced a DUPLICATE.
+  local post_head
+  post_head="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
+  if [ -n "$post_head" ]; then
     git -C "$KWT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null || true
-    if ! git -C "$KWT" merge-base --is-ancestor "$pre_head" "$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null; then
+    if ! git -C "$KWT" merge-base --is-ancestor "$post_head" "$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null; then
       {
-        echo "Error: the push reported success, but $(git -C "$KWT" rev-parse --short "$pre_head" 2>/dev/null || echo "$pre_head") is NOT an ancestor of $KWT_REMOTE/$DEFAULT_BRANCH."
+        echo "Error: the push reported success, but $(git -C "$KWT" rev-parse --short "$post_head" 2>/dev/null || echo "$post_head") is NOT an ancestor of $KWT_REMOTE/$DEFAULT_BRANCH."
         echo "       The commit this op made is not on the trunk. It is not lost — it is"
         echo "       UNREFERENCED, which is the state no board check can see:"
-        echo "         git -C '$KWT' log -1 $pre_head          # confirm what it carried"
-        echo "         git -C '$MAIN_ROOT' cherry-pick $pre_head   # replay it onto the trunk"
+        echo "         git -C '$KWT' log -1 $post_head          # confirm what it carried"
+        echo "         git -C '$MAIN_ROOT' cherry-pick $post_head   # replay it onto the trunk"
         echo "       (cherry-pick preserves the original author and [Role]-prefixed subject.)"
         echo "       Do this before the next kanban op; reflog expiry is the only clock on it."
+        # ABSENT AND BROKEN ARE DIFFERENT FACTS, and only $pre_head tells them apart
+        # here: if the retry rebased, the pre-push sha is orphaned BY THE REBASE and
+        # is not the one to replay.
+        if [ -n "$pre_head" ] && [ "$pre_head" != "$post_head" ]; then
+          echo "       Note: a push retry rebased this op's commit, so it began life as"
+          echo "       $(git -C "$KWT" rev-parse --short "$pre_head" 2>/dev/null) — that sha is orphaned BY THE REBASE, not the one to replay."
+        fi
       } >&2
       return 1
     fi
@@ -792,7 +809,10 @@ kwt_finalize() {
   # The landed sha, read AFTER the push and AFTER the ancestry check above — so by
   # construction it names a commit that is on <remote>/<trunk>, which is exactly the
   # claim a caller's "published commit: <sha>" line makes.
-  KWT_LANDED_SHA="$(git -C "$KWT" rev-parse --short HEAD 2>/dev/null || true)"
+  # Reads $post_head rather than HEAD: it names the sha the assertion above
+  # actually cleared. Empty $post_head yields empty, and callers read empty as
+  # NOT PUBLISHED and refuse — it fails closed.
+  KWT_LANDED_SHA="$(git -C "$KWT" rev-parse --short "$post_head" 2>/dev/null || true)"
 
   local main_head
   main_head="$(git -C "$MAIN_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo "")"
