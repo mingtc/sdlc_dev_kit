@@ -132,11 +132,13 @@ carry, prescribing the exact act that doc calls insufficient.)
 
 ## Provenance & licensing
 
-Most of the Dev set and both PM skills came from public, permissively-shared skill
-collections; the Refactorer set was authored for this kit. **Record the real provenance of
-every skill directory you keep, adopt or replace** — origin and license — in this section, and
-update it in the same change as the skill. A skill whose origin nobody can name is a skill
-nobody can safely update.
+**The table below is the record; this paragraph does not restate it.** Origins differ by set,
+and one of them is an open question rather than a fact: the Dev set was adopted from a public
+collection whose terms were **never captured at adoption**, so its licence reads NOT RECORDED and
+must not be assumed permissive. The PM and Refactorer sets were authored for this kit. **Record the
+real provenance of every skill directory you keep, adopt or replace** — origin and license — in
+this section, and update it in the same change as the skill. A skill whose origin nobody can name
+is a skill nobody can safely update.
 
 **This table is also where a skill directory's CLASSIFICATION lives**, and that is a derivation, not
 a filing convenience: updating a skill from upstream is a re-fetch that copies the folder over,

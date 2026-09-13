@@ -256,7 +256,11 @@ case "$CMD" in
     # the trunk, which is the same surface the mover computes against, so "exists"
     # means the same thing to both tools. An issue that exists only in someone's
     # workspace is not yet a parent anything can be hung on.
-    if ! find "$KWT/progress" -type f -name "${PARENT}-*.md" 2>/dev/null | grep -q .; then
+    # `grep -q` DROPPED, not cosmetically: this producer grows with the board and the
+    # reader matches on the FIRST line, so under `pipefail` a big board returned `find`'s
+    # SIGPIPE instead of the answer and this refused to create a subtask under a parent
+    # that DOES exist. Redirecting drains the input for the identical status.
+    if ! find "$KWT/progress" -type f -name "${PARENT}-*.md" 2>/dev/null | grep . >/dev/null; then
       {
         echo "Error: parent '${PARENT}' does not exist on the published board — refusing to create an orphan."
         echo "  Looked for progress/**/${PARENT}-*.md in the trunk-pinned kanban worktree."

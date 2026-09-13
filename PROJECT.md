@@ -83,11 +83,20 @@ checkable:
 implementation of it. Fill the command column; do not edit the sheet column — if a row has no
 command yet, write `TODO` rather than deleting the row, so the gap stays visible.
 
+**TWO ROWS ARE NOT BLANKS, AND THEY ARE MARKED SO.** If you run the shipped scripts, the verify
+gate and the board mover are reached by FIXED paths: `finish-pr.sh` preflights and invokes
+`scripts/verify.sh` by literal name — its own refusal says the executable *"is never
+caller-chosen"* — and calls `move-issue.sh` the same way. Renaming either breaks the landing gate
+silently, so these rows record what the kit does rather than inviting a substitution. What is still
+yours is what goes INSIDE them: the gates `verify.sh` runs, and the statuses your board carries.
+Reimplementing the kit's scripts in another toolchain is the case where the names are yours again —
+and then the contract sheet, not this row, is what you must satisfy.
+
 | Gate | Your command | The contract it implements |
 |---|---|---|
-| The verify gate — one runner, all gates, deterministic order | `<e.g. ./scripts/verify.sh>` | [`process/contracts/verify-gate.md`](process/contracts/verify-gate.md) |
+| The verify gate — one runner, all gates, deterministic order | `./scripts/verify.sh` — the NAME is fixed, the GATES inside it are yours | [`process/contracts/verify-gate.md`](process/contracts/verify-gate.md) |
 | The landing gate — gate, squash, advance the board | `<e.g. ./scripts/finish-pr.sh ID>` | [`process/contracts/landing-gate.md`](process/contracts/landing-gate.md) |
-| The board mover — the ONE way status changes | `<e.g. ./scripts/move-issue.sh ID STATUS>` | [`process/contracts/board-mover.md`](process/contracts/board-mover.md) |
+| The board mover — the ONE way status changes | `./scripts/move-issue.sh ID STATUS` — the NAME is fixed | [`process/contracts/board-mover.md`](process/contracts/board-mover.md) |
 | Commit attribution — the write-time role guard | `<e.g. the commit-msg hook>` | [`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md) |
 | Id minting — monotonic, collision-free | `<e.g. ./scripts/next-id.sh>` | [`process/contracts/id-minting.md`](process/contracts/id-minting.md) |
 | Issue / requirement creation | `<e.g. ./scripts/new-issue.sh>` | [`process/contracts/issue-creation.md`](process/contracts/issue-creation.md) |

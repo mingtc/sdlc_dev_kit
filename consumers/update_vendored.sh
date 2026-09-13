@@ -302,6 +302,28 @@ for seam in "VENDORED_NAME=$VENDORED_NAME" "UPSTREAM_REPO_URL=$UPSTREAM_REPO_URL
     esac
 done
 
+# RELEASE_DOCS IS A SEAM TOO, AND ITS MISS USED TO BE INVISIBLE. It ships with
+# `<path/to/GUIDE.md>` in it. An unfilled entry cannot match a file, so the drop was
+# skipped with the message reserved for a legitimately OLD TAG — "this release carries no
+# …" — which tells the reader the upstream is missing a document when in fact this file is
+# unconfigured. Two very different problems reported in one vocabulary, and the one that is
+# the reader's own fault was the one that looked like the upstream's. Checked here, in the
+# same place and shape as the other seams, so the message names the real cause.
+# `${RELEASE_DOCS[@]}` IS GUARDED BECAUSE THE MESSAGE BELOW SENDS READERS HERE. Under
+# `set -u`, bash 3.2 treats the expansion of an EMPTY array as unbound and dies — so an
+# adopter who takes this die's own second remedy ("delete that entry if you do not vendor
+# one") and vendors no guide at all emptied the array and crashed the script on the next
+# run, at this line, with `RELEASE_DOCS[@]: unbound variable`. The declaration above
+# invites exactly that ("Add or remove rows freely"), so empty is a SUPPORTED state, not
+# operator error. The `${#…[@]}` count is unconditionally defined for an empty array on
+# every bash this script supports, which the bare expansion is not.
+for _rd in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
+    case "${_rd%%|*}" in
+        *"<"*) die "unfilled seam in $(basename "$0"): RELEASE_DOCS still carries the placeholder '${_rd%%|*}'. Fill it with the path that document has IN THE RELEASE, or delete that entry if you do not vendor one. Leaving it would report the drop as 'this release carries no …', which is the message for a tag that predates the document." ;;
+    esac
+done
+unset _rd
+
 # ---- helpers ---------------------------------------------------------------
 
 # Version of the artifact currently vendored, or empty if none is.
@@ -499,7 +521,10 @@ if [ "${1:-}" = "--check" ]; then
         # costs a build. One lightweight ls-remote for the branch head — NO
         # clone, and like everything else in --check it writes nothing. It is
         # narration, so stderr: stdout stays the one verdict line a nag greps.
-        if git ls-remote --heads "$UPSTREAM_REPO_URL" "$DIST_BRANCH" 2>/dev/null | grep -q .; then
+        # `grep -q` dropped for the reason the kit's pipefail rule gives: the producer is
+        # a remote listing that grows, the reader exits on the first line, and `pipefail`
+        # would report the SIGPIPE rather than the match.
+        if git ls-remote --heads "$UPSTREAM_REPO_URL" "$DIST_BRANCH" 2>/dev/null | grep . >/dev/null; then
             log "An update would use the ${DIST_BRANCH} fast path (shallow clone, no build) if it carries ${latest_ver}."
         else
             log "An update would build from tag ${latest_tag} (no ${DIST_BRANCH} branch on the remote)."
@@ -528,7 +553,10 @@ trap cleanup EXIT
 # normal case, not an error.
 drop_release_docs() {   # <source dir> <"tag"|"dist">
     local src="$1" mode="$2" entry path label from to
-    for entry in "${RELEASE_DOCS[@]}"; do
+    # Guarded for the same reason as the preflight above: an empty RELEASE_DOCS is a
+    # supported configuration, and a bare `${RELEASE_DOCS[@]}` under `set -u` dies on it.
+    # Dropping no documents is the correct behaviour here, not a refusal.
+    for entry in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
         path="${entry%%|*}"
         label="${entry##*|}"
         to="$VENDOR_DIR/${VENDORED_NAME}-${label}.md"

@@ -14,8 +14,13 @@
 #
 # ── The three properties that make it ADVISORY ────────────────────────────────
 #   1. it runs `scripts/update_vendored.sh --check` and nothing else,
-#   2. every step is `continue-on-error: true`, so an unreachable upstream
-#      remote can never turn a consumer's checks red,
+#   2. THE STEP THAT TALKS TO THE UPSTREAM carries `continue-on-error: true` and ends
+#      `exit 0`, so an unreachable upstream remote can never turn a consumer's checks
+#      red. `actions/checkout` deliberately does NOT carry the key: a repository that
+#      cannot check itself out is a real CI fault and should be reported as one, not
+#      swallowed by a freshness nag. This once read "every step is
+#      `continue-on-error: true`", which was false of the checkout step in this very
+#      file — the property that matters is about the ADVISORY step, not about every step.
 #   3. it writes nothing to ./vendor/ and commits nothing. Updating stays a
 #      deliberate, human-run `scripts/update_vendored.sh [tag]`.
 #
@@ -56,7 +61,11 @@ jobs:
           set -uo pipefail
           # --check prints exactly ONE verdict line on stdout
           # (UP TO DATE / UPDATE AVAILABLE / AHEAD); all narration is on stderr.
-          verdict="$(bash scripts/update_vendored.sh --check | head -1)"
+          # `sed -n '1p'`, NOT `head -1`: under `set -o pipefail` a reader that exits on
+          # the first line makes the producer die of SIGPIPE, and that death — not the
+          # verdict — becomes the pipeline's status. sed reads to EOF and yields the same
+          # line. The step ends `exit 0` regardless, but the variable would be empty.
+          verdict="$(bash scripts/update_vendored.sh --check | sed -n '1p')"
           printf '%s\n' "$verdict"
           printf '%s\n' "$verdict" >> "$GITHUB_STEP_SUMMARY"
           case "$verdict" in

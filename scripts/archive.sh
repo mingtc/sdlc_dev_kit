@@ -17,7 +17,10 @@
 # NEVER the operator's current checkout. So a sweep run while the checkout sits
 # on a feature branch lands the board change on the TRUNK (and the remote),
 # leaving the feature branch's tree clean. The sweep is self-committing; the
-# commit is attributed `[Orchestrator]` (a session-close housekeeping action).
+# commit is attributed with the ARCHIVE_ROLE seat, `[Orchestrator]` by default (a
+# session-close housekeeping action) — see ARCHIVE_ROLE below, which is what the code
+# reads. It is a knob, not a fixed tag; this line used to state it as a flat fact and
+# then restate it as a default ten lines later.
 #
 # Defaults to dry-run (prints what would be swept). Pass --apply to prepend
 # one-line entries to ARCHIVE.md, `git mv` the issue files into progress/done/,

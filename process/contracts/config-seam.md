@@ -17,11 +17,24 @@ process is an edit rather than an excavation.
   statement of a shared value must either be computed from the first or held against it by a
   guard.
   *Why:* retyped values drift silently; a derived one cannot, and a checked one announces itself.
-- **A value that anything DERIVES TEXTUALLY is declared in one exact shape:
-  `NAME="${NAME:-value}"`, at column 1, whole, on one line.** No leading whitespace, no line
-  continuation, no alternative spelling of the same expansion. The shape is part of the contract,
-  not a formatting preference, and it binds every file that holds such a declaration — not only
-  the seam file.
+- **A value that anything DERIVES TEXTUALLY is declared in ONE EXACT SHAPE, AND THE SHAPE IS
+  FIXED PER DECLARATION SITE**, at column 1, whole, on one line. No leading whitespace, no line
+  continuation, no alternative spelling of the same expansion. **Which shape depends on whether
+  the value is RUNTIME-OVERRIDABLE:**
+  - **overridable — `NAME="${NAME:-value}"`.** The seam file's own values are these: an adopter or
+    a test can supply them from the environment.
+  - **not overridable — `NAME='value'`.** A value that must be the same for every run of the tool
+    that declares it takes the plain single-quoted form, and its readers anchor on THAT shape.
+    Shipped examples: the commit hook's `ROLE_PREFIXES` and `TOOL_TRAILER_MARKERS`, and the
+    initializer's `STAMP_MARK`. Making these `${NAME:-…}` would let the environment weaken a
+    guard, which is a worse defect than the one this bullet exists to prevent.
+
+  *This bullet mandated the `"${NAME:-value}"` shape for everything and said it "binds every file
+  that holds such a declaration". Three shipped declarations did not have it and were right not to,
+  and every reader of them is anchored on the single-quote shape — so a file obeying the rule as
+  written would have emptied the derivations the rule exists to protect.* **What binds every file
+  is the INVARIANT, not one spelling: a declaration's shape is fixed, matched exactly by its
+  readers, and never changed without changing them in the same commit.**
   *Why:* the bullet above says a copy must be derived or checked, and it does not say what the
   derivation is allowed to assume. So each consumer wrote its own anchored expression, and the
   shape became an undeclared contract between files that never mention each other. **Dropping the

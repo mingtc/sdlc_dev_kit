@@ -58,7 +58,7 @@ not a calendar day, and a local clock crossing a DST boundary can hand out the s
 **Record the tag you actually created** in the assessment output; with a timestamp in the name you
 can no longer reconstruct it from the date.
 
-This makes reverting an off-the-rails refactor one command: `git reset --hard refactor-baseline-<date>`.
+This makes reverting an off-the-rails refactor one command: `git reset --hard refactor-baseline-<UTC instant>`.
 
 ## Phase 2: Test Inventory for the Target
 
@@ -66,11 +66,15 @@ List every test that exercises the target's code.
 
 **Approach 1: coverage tooling.** If the project has coverage reporting (`vitest --coverage`, `pytest-cov`, `jest --coverage`, etc.), run it and read which tests touch the target's files. Most precise.
 
-**Approach 2: manual import grep.** If coverage tooling isn't set up, grep test files for imports of the target's modules:
+**Approach 2: manual import grep.** If coverage tooling isn't set up, grep test files for references to the target's modules. **WRITE THE PATTERN AND THE FILE FILTER FOR YOUR OWN STACK** — the shape below is a JavaScript/TypeScript example, not a portable command:
 
 ```
 grep -r "from.*<target-module>" --include="*.test.*" --include="*.spec.*"
 ```
+
+*Run as written on a Python, Go, Rust or Java project it matches nothing — the import keyword is wrong and so are the filename globs — and an empty result here is read one line below as a finding about the project. Adapt both halves first: your language's import/include syntax, and whatever your tests are actually named (`test_*.py`, `*_test.go`, `*Test.java`, `tests/**`).*
+
+**AN EMPTY RESULT IS ONLY A FINDING ONCE YOU HAVE CONFIRMED THE COMMAND CAN FIND ANYTHING.** Point it at a module you KNOW is tested; if that comes back empty too, the pattern is wrong and you have measured your grep, not the project's safety net.
 
 Less precise — captures tests that *could* exercise the target, not necessarily ones that *do*. Good enough for the inventory; supplement with judgment.
 

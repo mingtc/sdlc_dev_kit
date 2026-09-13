@@ -74,8 +74,27 @@
 # does neither gets the message and keeps going with the functions missing —
 # which is the original outage one level up. So: check the status of your
 # `. lib/kanban-worktree.sh`, or run `set -e`. (config.sh's own load sites are
-# the shape to copy — `grep -rn '! \. "$CONFIG"' scripts` — each checking at
+# the shape to copy — `grep -rnF '! . "$CONFIG"' scripts` — each checking at
 # the call site.)
+#
+# `-F`, AND THE PATTERN UNESCAPED, BECAUSE THIS RECIPE IS TYPED BY A PERSON. It was
+# written as a BRE with the dollar in `"$CONFIG"` left unescaped MID-PATTERN, and it
+# returned the real call sites for anyone whose `grep` is POSIX, where `$` is an anchor
+# only as the pattern's LAST character and any earlier one is therefore a literal. Under an implementation that treats `$` as an
+# anchor anywhere the pattern is unsatisfiable, and the answer is ZERO MATCHES AND EXIT 1
+# — indistinguishable from "no call site checks its status", which is the exact outage
+# this block exists to prevent, arriving by way of the advice for it. A wrong derivation
+# is worse than a stale number because it looks live.
+#
+# A script is protected from this and a reader is not: a shell function does not cross a
+# process boundary, so every `#!/usr/bin/env bash` program here resolves `grep` through
+# PATH. Prose has no process boundary at all.
+#
+# `-F` rather than escaping the dollar. Both return the full set under both
+# implementations, measured. `-F` is preferred because it removes the CLASS rather than
+# the instance: a fixed-string search has no metacharacters for two greps to disagree
+# about, so the recipe cannot rot this way again when someone edits it. The escaped form
+# leaves the next reader one metacharacter from the same trap.
 
 # ---------------------------------------------------------------------------
 # Remote name — configurable. Every fetch / push / ls-remote / tracking-ref op
@@ -411,7 +430,7 @@ kwt_unlock() {
 # ---------------------------------------------------------------------------
 kwt_bootstrap() {
   if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
-       | grep -qxF "worktree $KWT"; then
+       | grep -xF "worktree $KWT" >/dev/null; then
     kwt__ensure_detached  # detach-by-construction, not assumed.
     return $?
   fi
@@ -421,7 +440,7 @@ kwt_bootstrap() {
   # bail with a clear message rather than clobbering.
   git -C "$MAIN_ROOT" worktree prune 2>/dev/null || true
   if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
-       | grep -qxF "worktree $KWT"; then
+       | grep -xF "worktree $KWT" >/dev/null; then
     kwt__ensure_detached
     return $?
   fi
@@ -844,7 +863,7 @@ kwt_finalize() {
     # scan ALL worktrees first.
     git -C "$MAIN_ROOT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null || true
     if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
-         | grep -qxF "branch refs/heads/$DEFAULT_BRANCH"; then
+         | grep -xF "branch refs/heads/$DEFAULT_BRANCH" >/dev/null; then
       echo "Note: $DEFAULT_BRANCH is checked out in another worktree — its local ref left as-is (pull there when ready)." >&2
     else
       git -C "$MAIN_ROOT" update-ref "refs/heads/$DEFAULT_BRANCH" "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null || true

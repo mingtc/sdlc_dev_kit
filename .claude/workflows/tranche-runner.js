@@ -99,6 +99,14 @@ const CFG = {
   // injected verbatim is the shape liveRules already uses; it is weaker, and it is honest
   // about being weaker.
   driftRule:   ARGS.driftRule   || '',
+  // THE PROVISIONING DEFAULTS BELONG HERE, and they used to sit outside CFG as bare
+  // `const DEFAULT_MODEL` / `DEFAULT_EFFORT` while line 1 and this header both promised
+  // that everything project-specific was in CFG. The kit's own doctrine
+  // (process/doctrine/model-provisioning.md) calls a model tier and an effort tier one
+  // project's ratified calibration — which is the definition of project-specific — so a
+  // project that ran a different ladder had to EDIT THE FILE to follow its own rule.
+  defaultModel:  ARGS.defaultModel  || 'opus',
+  defaultEffort: ARGS.defaultEffort || 'medium',
 }
 if (!CFG.repo) throw new Error('tranche-runner: args.repo is required (absolute path to the repo)')
 
@@ -133,8 +141,8 @@ if (!Array.isArray(ARGS.issues) || ARGS.issues.length === 0) {
   throw new Error('tranche-runner: args.issues is required and must be a NON-EMPTY array of issue objects. Got: ' + JSON.stringify(ARGS.issues) + '. Expected: { repo, issues: [{id, branch, ...}] }')
 }
 
-const DEFAULT_MODEL = 'opus'
-const DEFAULT_EFFORT = 'medium'
+const DEFAULT_MODEL = CFG.defaultModel
+const DEFAULT_EFFORT = CFG.defaultEffort
 // Provisioning defaults come from the project's ratified ladder
 // (process/doctrine/model-provisioning.md). An omitted effort MUST resolve to a real value —
 // passing undefined silently inherits the session default, which is the single biggest burn

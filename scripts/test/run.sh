@@ -11,7 +11,7 @@
 #
 # WHAT IT IS — and IS NOT
 #   • Pure bash + git, PLUS `perl` — and the third one is the point of this line. `perl`
-#     rewrites sandbox fixtures at 24 command-position sites and is PROBED AT STARTUP: its
+#     rewrites sandbox fixtures throughout this file and is PROBED AT STARTUP: its
 #     absence is a hard refusal with the reason, not an unexplained abort forty cases in.
 #     `node` and `python3` are OPTIONAL — cases needing them SKIP loudly. This header used to
 #     read "no language runtime, no package manager, no new dependency", which was false of
@@ -108,14 +108,47 @@
 #
 # THE SIZE THAT MATTERS IS THE PRODUCER'S OUTPUT, NOT ITS KIND. A builtin is not
 # safe by being a builtin: `printf '%s\n' "$big" | grep -q` on a match in the first
-# line dies 141 too, once "$big" exceeds the pipe buffer. What makes the many
-# `printf "$out" | grep -q` pipelines below sound is that `$out` is one command's
-# captured output, orders below that buffer — and that is the exemption, stated so
-# the next reader can check it rather than assume it.
+# line dies 141 too, once "$big" exceeds the pipe buffer.
 #
-# So: a pipeline whose producer can GROW WITH THE PROJECT — `git log`, `find`,
-# `grep -r` over the corpus — must capture the stream and test the capture, never
-# pipe it into an early-exiting reader.
+# THE EXEMPTION THIS BLOCK USED TO CLAIM WAS WRONG, AND THE REASON IT GAVE WAS RIGHT.
+# It argued that the many `printf "$out" | grep -q` pipelines below were sound because
+# `$out` is one command's captured output, "orders below that buffer". The premise is
+# the correct test; the conclusion did not follow, because CAPTURING THE STREAM DOES
+# NOT SHRINK IT. `git log … | grep -q` and `subjects="$(git log …)"; printf '%s\n'
+# "$subjects" | grep -q` have the SAME failure at the same threshold — the capture only
+# moves which process dies of SIGPIPE, and `pipefail` promotes it either way. Measured
+# on this machine with the exact `origin_has_path` shape, a target matching on the
+# FIRST line so the reader exits at once:
+#
+#     board size     bytes     capture-then-`grep -q`     reader drains input
+#       200 cards    12231          0/100 false reds           0/100
+#       800 cards    48831          0/100                      0/100
+#      2000 cards   122031        100/100 FALSE REDS           0/100
+#      5000 cards   305031        100/100 FALSE REDS           0/100
+#
+# The threshold is the 64KB pipe buffer, and it is a CLIFF, not a flake: below it
+# nothing fails, above it everything does. So the old rule sorted these pipelines into
+# "growable" and "exempt" and then applied the WRONG REMEDY to the growable half.
+#
+# THE RULE, SUPERSEDING THE ABOVE, AND ITS SCOPE STATED SO THE SENTENCE IS TRUE:
+# never let an early-exiting reader decide a verdict under `pipefail` WHERE THE PRODUCER
+# CAN GROW. `grep -q`, `grep -m`, `head`, `sed …q` and `read` are the family; the
+# growable producers are the ones that read a repository, a board, a history or the
+# network. IN THIS FILE the rule applies without exception — every producer here is a
+# fixture a future case can enlarge, so no assertion below uses a piped early-exiting
+# reader at all, and the census in `case_probe_victim_selection_survives_pipefail`
+# enforces exactly that. IN THE SHIPPED SCRIPTS it applies to the growable producers,
+# which that same case censuses separately; the pipelines validating a SINGLE FLAG VALUE
+# (`printf '%s' "$NUM" | grep -qE '^[0-9]+$'`) are deliberately left, because one
+# argument cannot approach the buffer and the rewrite would be churn without a defect.
+# The unqualified form of this sentence would be false about the tree we ship, which is
+# the kind of claim § C of the staleness doctrine calls a bare universal.
+# Drop the `-q` and redirect — `| grep -F pat >/dev/null` — which makes the reader
+# drain its input while returning the IDENTICAL exit status, or in bash test the string
+# directly with `[[ "$out" == *pat* ]]` and have no pipe at all. Both were measured to
+# preserve the TRUE NEGATIVE (50/50 correct reds on a genuinely absent pattern), so the
+# fix cannot turn a red into a false green. This is why no assertion below uses `grep -q`
+# behind a pipe; a bare `grep -q FILE` with no pipe has no producer and is unaffected.
 # =============================================================================
 set -uo pipefail
 
@@ -330,7 +363,7 @@ skp()  { SKIP=$((SKIP+1)); RESULTS+=("SKIP  $1${2:+ — $2}"); printf '  \033[33
 # lie. It cannot tell the subject file from a file merely cited in passing. It stops a reason
 # that names no file at all, and that is all it claims to stop.
 _lived_names_a_file() {  # <reason>
-  printf '%s' "${1:-}" | grep -qE '[A-Za-z0-9_-]\.(md|sh|json|js|py|txt|yml|yaml|example|skeleton|template)([^A-Za-z0-9]|$)'
+  printf '%s' "${1:-}" | grep -E '[A-Za-z0-9_-]\.(md|sh|json|js|py|txt|yml|yaml|example|skeleton|template)([^A-Za-z0-9]|$)' >/dev/null
 }
 skp_lived() {  # <case finish line> <why the subject is absent on a tree that has lived>
   if ! _lived_names_a_file "${2:-}"; then
@@ -1104,26 +1137,28 @@ origin_fetch_or_die() {
 
 origin_has_path() {
   origin_fetch_or_die
-  local paths  # capture, then test — ls-tree grows with the board (header: THE PIPEFAIL RULE)
+  local paths  # ls-tree grows with the board; the reader below must DRAIN it (header: THE PIPEFAIL RULE)
   paths="$(git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null)"
-  printf '%s\n' "$paths" | grep -qxF "$1"
+  printf '%s\n' "$paths" | grep -xF "$1" >/dev/null
 }
 origin_file_contains() {  # <path> <pattern>
   origin_fetch_or_die
-  local body  # capture, then test — the file may be a log that grows (header: THE PIPEFAIL RULE)
+  local body  # the file may be a log that grows; the reader below must DRAIN it (header: THE PIPEFAIL RULE)
   body="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:$1" 2>/dev/null)"
-  printf '%s\n' "$body" | grep -q "$2"
+  printf '%s\n' "$body" | grep "$2" >/dev/null
 }
 origin_log_has_subject() {  # <pattern>
-  # CAPTURE, THEN TEST — never `git log … | grep -q`. See the PIPEFAIL RULE in this
-  # file's header: `git log` grows with the trunk, `grep -q` exits on the first match,
-  # and the producer's SIGPIPE became this function's answer. It returned "not found"
-  # for subjects that were present, and only ever in the direction of a FALSE RED,
-  # which is why it survived: every caller reads it as `… || cf …`.
+  # THE READER MUST DRAIN ITS INPUT — never `grep -q` behind a pipe. See the PIPEFAIL
+  # RULE in this file's header: `git log` grows with the trunk, `grep -q` exits on the
+  # first match, and the producer's SIGPIPE became this function's answer. It returned
+  # "not found" for subjects that were present, and only ever in the direction of a
+  # FALSE RED, which is why it survived: every caller reads it as `… || cf …`.
+  # Capturing into `$subjects` does NOT fix this and was once believed to — the capture
+  # only changes which process takes the signal. Dropping the `-q` is what fixes it.
   local subjects
   origin_fetch_or_die
   subjects="$(git -C "$SB_WORK" log "origin/$SB_TRUNK" --format='%s' 2>/dev/null)"
-  printf '%s\n' "$subjects" | grep -q "$1"
+  printf '%s\n' "$subjects" | grep "$1" >/dev/null
 }
 # A real branch with a real net change, pushed. <id> <slug> <marker-file>
 seed_branch() {
@@ -1223,7 +1258,7 @@ case_role_literals_are_declared() {
 
   while IFS= read -r t; do
     [ -n "$t" ] || continue
-    printf '%s\n' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -qx "$t" \
+    printf '%s\n' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -x "$t" >/dev/null \
       || cf "this harness writes the role '$t', which the sandbox's declared set does not contain (${KIT_NEUTRAL_ROLE_PREFIXES}) — the neutralized commit-msg hook and move-issue.sh whitelist would both reject it, and the case would redden about the fixture while naming a tool"
   done <<ROLE_EOF
 $used
@@ -1243,10 +1278,10 @@ ROLE_EOF
     local outsider='Eng'
     printf '\n  ( cd x && ./scripts/move-issue.sh ID in_progress --role %s --note x )\n' \
       "$outsider" >> "$probe"
-    _role_literals_used "$probe" | grep -qx "$outsider" \
+    _role_literals_used "$probe" | grep -x "$outsider" >/dev/null \
       || cf "(control) a planted '--role $outsider' was NOT found by the scan — it cannot see the defect it is named after"
     # ...and the membership test must reject it, or finding it buys nothing.
-    printf '%s\n' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -qx "$outsider" \
+    printf '%s\n' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -x "$outsider" >/dev/null \
       && cf "(control) '$outsider' IS in the declared set, so the plant cannot demonstrate a rejection — pick a name the set does not contain"
   fi
 
@@ -1301,7 +1336,7 @@ case_move_issue_set_pr_on_a_minted_card() {
   out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress \
             --role "$SB_ROLE" --note "set-pr probe" --set-pr 'https://example.invalid/pr/1' 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "the move with --set-pr exited $rc: $out"
-  printf '%s\n' "$out" | grep -q 'skipping write-back' \
+  printf '%s\n' "$out" | grep 'skipping write-back' >/dev/null \
     && cf "--set-pr reported 'skipping write-back' on a card minted from the shipped template — the template and the flag still do not meet: $out"
   origin_file_contains "progress/in_progress/$SB_PREFIX-777-setpr-probe.md" 'example.invalid/pr/1' \
     || cf "the --set-pr value did not reach the moved card on the trunk"
@@ -1334,7 +1369,7 @@ case_move_issue_probe() {
   publish_sandbox
 
   local out rc mi="$SB_WORK/scripts/move-issue.sh"
-  kwt_registered() { git -C "$SB_WORK" worktree list --porcelain 2>/dev/null | grep -qF '.kanban-wt'; }
+  kwt_registered() { git -C "$SB_WORK" worktree list --porcelain 2>/dev/null | grep -F '.kanban-wt' >/dev/null; }
   kwt_clear() {
     git -C "$SB_WORK" worktree remove --force "$SB_WORK/.kanban-wt" >/dev/null 2>&1
     rm -rf "$SB_WORK/.kanban-wt"
@@ -1345,9 +1380,9 @@ case_move_issue_probe() {
   kwt_clear
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-999" in_progress --role Dev --note x 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) the mover accepted a card that is on no board"
-  printf '%s\n' "$out" | grep -q 'no file matching' \
+  printf '%s\n' "$out" | grep 'no file matching' >/dev/null \
     || cf "(a) the not-found refusal changed shape: $out"
-  printf '%s\n' "$out" | grep -qi 'not yet pushed' \
+  printf '%s\n' "$out" | grep -i 'not yet pushed' >/dev/null \
     || cf "(a) the refusal lost the push-before-you-move cause: $out"
   kwt_registered \
     && cf "(a) a REFUSAL registered a kanban worktree — the probe is gone, or it now runs too late"
@@ -1394,10 +1429,10 @@ case_move_issue_probe() {
   MSG_OK=1 git -C "$other" commit -qm "[PM] $SB_PREFIX-101: minted in another clone" >/dev/null 2>&1
   git -C "$other" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   ORIGIN_PATHS="$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" 2>/dev/null)"
-  printf '%s\n' "$ORIGIN_PATHS" | grep -q "$SB_PREFIX-101-elsewhere.md" \
+  printf '%s\n' "$ORIGIN_PATHS" | grep "$SB_PREFIX-101-elsewhere.md" >/dev/null \
     || _fixture_die "case_move_issue_probe(c): the second clone's push did not reach the bare trunk — the control has no premise."
   CACHED_PATHS="$(git -C "$SB_WORK" ls-tree -r --name-only "origin/$SB_TRUNK" 2>/dev/null)"
-  printf '%s\n' "$CACHED_PATHS" | grep -q "$SB_PREFIX-101-elsewhere.md" \
+  printf '%s\n' "$CACHED_PATHS" | grep "$SB_PREFIX-101-elsewhere.md" >/dev/null \
     && _fixture_die "case_move_issue_probe(c): origin/$SB_TRUNK is already current here, so nothing in this arm exercises the stale-cache path."
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-101" in_progress \
             --role Dev --note "moved from a stale cache" 2>&1 )"; rc=$?
@@ -1412,9 +1447,9 @@ case_move_issue_probe() {
   git -C "$SB_WORK" update-ref -d "refs/remotes/origin/$SB_TRUNK" >/dev/null 2>&1
   out="$( cd "$SB_WORK" && "$mi" "$SB_PREFIX-998" in_progress --role Dev --note x 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(d) the mover accepted a nonexistent card with no tracking ref"
-  printf '%s\n' "$out" | grep -q 'no file matching' \
+  printf '%s\n' "$out" | grep 'no file matching' >/dev/null \
     || cf "(d) the fall-through refusal changed shape: $out"
-  printf '%s\n' "$out" | grep -q 'inside the kanban worktree' \
+  printf '%s\n' "$out" | grep 'inside the kanban worktree' >/dev/null \
     || cf "(d) with an unreadable tracking ref the probe did not fall through to the worktree read: $out"
 
   finish "move-issue.sh: a not-found refusal creates no worktree (ablation-proven), never refuses a card the trunk actually carries, and falls through when it cannot read the ref"
@@ -1457,7 +1492,7 @@ case_finish_pr_happy() {
     || cf "board note does not report the local delete it performed"
   origin_file_contains "progress/qa_complete/$SB_PREFIX-777-sandbox.md" "branch deleted (confirmed gone)" \
     || cf "board note does not report the CONFIRMED remote delete it performed"
-  printf '%s' "$out" | grep -q "confirmed gone by ls-remote" \
+  printf '%s' "$out" | grep "confirmed gone by ls-remote" >/dev/null \
     || cf "run output does not show the remote delete being confirmed by re-measurement"
 
   finish "finish-pr.sh happy path: squash-merge + delete branch + advance, and the board note reports BOTH deletes truthfully"
@@ -1500,11 +1535,11 @@ case_finish_pr_post_merge_names_its_ref() {
   pass_line="$(printf '%s\n' "$out" | grep 'post-merge verify --quick: PASS' | head -1)"
   [ -n "$pass_line" ] \
     || cf "no 'post-merge verify --quick: PASS' line in the run output — the gate did not reach its clearing branch: $out"
-  printf '%s\n' "$pass_line" | grep -q "$SB_TRUNK" \
+  printf '%s\n' "$pass_line" | grep "$SB_TRUNK" >/dev/null \
     || cf "the post-merge PASS line does not name the ref it read (the FAIL line does; the clearing branch is the direction that errs toward false confidence): $pass_line"
 
   # (2) THE CANARY: the machine line is still exactly its token, with no ref appended.
-  printf '%s\n' "$out" | grep -qx 'POST_MERGE_GATE: PASS' \
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: PASS' >/dev/null \
     || cf "the machine line is no longer exactly 'POST_MERGE_GATE: PASS' — an automation greps that token, so a ref appended HERE breaks every consumer: $out"
 
   finish "finish-pr.sh: the post-merge PASS line names the ref it read, and the machine line POST_MERGE_GATE: PASS stays exactly that token"
@@ -1538,9 +1573,9 @@ case_finish_pr_second_worktree() {
   git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-779-work" >/dev/null 2>&1 \
     || cf "local branch was deleted while a worktree held it — the skip was not preserved"
   # ...the operator is TOLD, and told WHICH worktree...
-  printf '%s' "$out" | grep -q "checked out in a worktree" \
+  printf '%s' "$out" | grep "checked out in a worktree" >/dev/null \
     || cf "run output does not say the local branch was kept because a worktree holds it"
-  printf '%s' "$out" | grep -qF "$SB_TMP/wt2" \
+  printf '%s' "$out" | grep -F "$SB_TMP/wt2" >/dev/null \
     || cf "run output does not name the worktree that holds the branch"
   # ...and the remote arm is INDEPENDENT: it fires anyway and succeeds.
   [ -z "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-779-work" 2>/dev/null)" ] \
@@ -1578,11 +1613,11 @@ case_finish_pr_remote_delete_refused() {
   origin_has_path "progress/qa_complete/$SB_PREFIX-780-sandbox.md" || cf "issue not advanced to qa_complete/"
   [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-780-work" 2>/dev/null)" ] \
     || cf "test setup: receive.denyDeletes did not actually refuse the delete"
-  printf '%s' "$out" | grep -q "WARNING: could NOT delete remote branch" \
+  printf '%s' "$out" | grep "WARNING: could NOT delete remote branch" >/dev/null \
     || cf "a refused remote delete was not reported loudly"
-  printf '%s' "$out" | grep -qE 'remote rejected|denyDeletes|deletion prohibited|pre-receive' \
+  printf '%s' "$out" | grep -E 'remote rejected|denyDeletes|deletion prohibited|pre-receive' >/dev/null \
     || cf "git's own rejection text was not surfaced (still silenced?)"
-  printf '%s' "$out" | grep -q "push origin --delete" \
+  printf '%s' "$out" | grep "push origin --delete" >/dev/null \
     || cf "the report does not name the command that finishes the job"
   git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-780-work" >/dev/null 2>&1 \
     && cf "local branch not deleted (the local arm must not be gated on the remote one)"
@@ -1628,13 +1663,13 @@ HOOK
   [ "$rc" -eq 0 ] || cf "finish-pr exited $rc (expected 0 — the landing succeeded): $out"
   origin_has_path "RESURRECT.txt" || cf "squash-merged change not on the trunk"
   local still; still="$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-781-work" 2>/dev/null)"
-  printf '%s' "$still" | grep -q "$tip" \
+  printf '%s' "$still" | grep "$tip" >/dev/null \
     || cf "test setup: the post-receive hook did not resurrect the ref (got: '$still')"
-  printf '%s' "$out" | grep -q "SURVIVED a delete that reported SUCCESS" \
+  printf '%s' "$out" | grep "SURVIVED a delete that reported SUCCESS" >/dev/null \
     || cf "an exit-0 delete whose ref survived was NOT caught — the fix relies on re-measuring, not the exit code"
-  printf '%s' "$out" | grep -q "still advertises the ref" \
+  printf '%s' "$out" | grep "still advertises the ref" >/dev/null \
     || cf "the report does not show the surviving ref it measured"
-  printf '%s' "$out" | grep -q "The LANDING IS FINE" \
+  printf '%s' "$out" | grep "The LANDING IS FINE" >/dev/null \
     || cf "the report does not distinguish residue from a failed landing"
   origin_file_contains "progress/qa_complete/$SB_PREFIX-781-sandbox.md" "STILL PRESENT after a delete that reported success" \
     || cf "board note does not report the surviving remote branch"
@@ -1777,9 +1812,9 @@ case_finish_pr_gate_revision() {
   # NO FPR_STUB. Deliberately.
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-780" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(i) finish-pr LANDED from a trunk checkout with the branch elsewhere — the gate ran against a tree that is not shipping: $out"
-  printf '%s\n' "$out" | grep -qi 'NOT AT THE REVISION BEING LANDED' \
+  printf '%s\n' "$out" | grep -i 'NOT AT THE REVISION BEING LANDED' >/dev/null \
     || cf "(i) the refusal does not name the revision mismatch as the cause: $out"
-  printf '%s\n' "$out" | grep -qi 'Refusing BEFORE any destructive step' \
+  printf '%s\n' "$out" | grep -i 'Refusing BEFORE any destructive step' >/dev/null \
     || cf "(i) the refusal does not state that it refused before anything destructive: $out"
   # REFUSED MEANS NOTHING HAPPENED — the assertions that separate "refused" from
   # "refused after doing some of it". Exit code alone cannot tell those apart.
@@ -1807,7 +1842,7 @@ case_finish_pr_gate_revision() {
 
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-781" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(ii) finish-pr LANDED with a locally-modified gate — the gate that ran is not the one that ships: $out"
-  printf '%s\n' "$out" | grep -qi 'LOCALLY MODIFIED' \
+  printf '%s\n' "$out" | grep -i 'LOCALLY MODIFIED' >/dev/null \
     || cf "(ii) the refusal does not name the modification as the cause (the revisions MATCH here, so only the cleanliness arm can catch it): $out"
   git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1 \
     || cf "(ii) the local branch was deleted during a refusal"
@@ -1854,14 +1889,14 @@ case_finish_pr_gate_revision() {
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-783" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(iv) finish-pr LANDED with an UNTRACKED gate — it ran a file that ships in no commit: $out"
-  printf '%s\n' "$out" | grep -qi 'NOT TRACKED' \
+  printf '%s\n' "$out" | grep -i 'NOT TRACKED' >/dev/null \
     || cf "(iv) the refusal does not name tracked-ness as the cause: $out"
   # …AND NOT ITS NEIGHBOURS. The exit code and the prefix cannot tell these apart.
-  printf '%s\n' "$out" | grep -qi 'NOT AT THE REVISION BEING LANDED' \
+  printf '%s\n' "$out" | grep -i 'NOT AT THE REVISION BEING LANDED' >/dev/null \
     && cf "(iv) the refusal blames the REVISION arm — the fixture reached a neighbour, so this leg is coverage of an arm it never touched"
-  printf '%s\n' "$out" | grep -qi 'LOCALLY MODIFIED' \
+  printf '%s\n' "$out" | grep -i 'LOCALLY MODIFIED' >/dev/null \
     && cf "(iv) the refusal blames the MODIFICATION arm — the fixture reached a neighbour"
-  printf '%s\n' "$out" | grep -qiE 'MISSING —|NOT EXECUTABLE' \
+  printf '%s\n' "$out" | grep -iE 'MISSING —|NOT EXECUTABLE' >/dev/null \
     && cf "(iv) the refusal blames one of the two absent-gate arms — the fixture reached a neighbour"
   # REFUSED MEANS NOTHING HAPPENED.
   git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1 \
@@ -1924,11 +1959,11 @@ case_finish_pr_gate_absent_says_write_one() {
   # NO FPR_STUB: the provenance block only runs unmarked.
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-795" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) finish-pr LANDED with no gate runner at all: $out"
-  printf '%s\n' "$out" | grep -qi 'MISSING' \
+  printf '%s\n' "$out" | grep -i 'MISSING' >/dev/null \
     || cf "(a) the refusal does not name the gate as MISSING: $out"
-  printf '%s\n' "$out" | grep -qF -- '--gate-command' \
+  printf '%s\n' "$out" | grep -F -- '--gate-command' >/dev/null \
     || cf "(a) the refusal does not tell an adopter with NO gate how to get one — that advice sat in an unreachable branch for a while, and this assertion is what keeps it on a path that runs: $out"
-  printf '%s\n' "$out" | grep -qi 'check the branch out here' \
+  printf '%s\n' "$out" | grep -i 'check the branch out here' >/dev/null \
     && cf "(a) the refusal offers the CHECKOUT remedy to someone who has no gate at all — that is the other arms' advice and it sends them to fix the wrong thing: $out"
   assert_landing_untouched "(a)" "$SB_PREFIX-795" nogate "$br" CHANGE795.txt
   teardown
@@ -1946,9 +1981,9 @@ case_finish_pr_gate_absent_says_write_one() {
 
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-796" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) finish-pr LANDED with a non-executable gate runner: $out"
-  printf '%s\n' "$out" | grep -qi 'NOT EXECUTABLE' \
+  printf '%s\n' "$out" | grep -i 'NOT EXECUTABLE' >/dev/null \
     || cf "(b) the refusal does not name the gate as NOT EXECUTABLE: $out"
-  printf '%s\n' "$out" | grep -qF -- '--gate-command' \
+  printf '%s\n' "$out" | grep -F -- '--gate-command' >/dev/null \
     || cf "(b) the refusal does not carry the write-your-gate advice: $out"
   assert_landing_untouched "(b)" "$SB_PREFIX-796" noexec "$br" CHANGE796.txt
 
@@ -1971,7 +2006,7 @@ case_finish_pr_gate_hardening() {
   out="$( cd "$SB_WORK" && FINISH_PR_PREMERGE_CMD="$SB_TMP/fabricated-gate.sh" \
             "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-790" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) fabricated stub was ACCEPTED (expected a nonzero refusal), got 0"
-  printf '%s' "$out" | grep -qi 'FINISH_PR_TEST_ALLOW_STUB\|refus' \
+  printf '%s' "$out" | grep -i 'FINISH_PR_TEST_ALLOW_STUB\|refus' >/dev/null \
     || cf "(a) the refusal did not name why it was refused: $out"
   assert_landing_untouched "(a)" "$SB_PREFIX-790" sandbox "feature/$SB_PREFIX-790-work" CHANGE.txt
   teardown
@@ -2089,7 +2124,7 @@ case_archive_hedged_flags_never_mutate() {
     rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" "$1" "$2" 2>&1 )" || rc=$?
     [ "$rc" -eq 2 ] \
       || cf "($3) a contradictory pair exited $rc, want 2 — the published usage status: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
-    printf '%s\n' "$out" | grep -qi 'contradictory' \
+    printf '%s\n' "$out" | grep -i 'contradictory' >/dev/null \
       || cf "($3) the refusal does not say the flags contradict: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
     [ -f "$SB_WORK/progress/qa_complete/$SB_PREFIX-260-hedge.md" ] \
       || cf "($3) the card LEFT qa_complete/ — the hedge mutated"
@@ -2135,7 +2170,7 @@ case_one_member_role_tag_refuses_before_mutating() {
   NEU_NEW="$narrow" perl -i -pe "s@^ROLE_PREFIXES='.*'\$@ROLE_PREFIXES='\$ENV{NEU_NEW}'@" "$cm"
   grep -qxF "ROLE_PREFIXES='$narrow'" "$cm" \
     || _fixture_die "case_one_member_role_tag_refuses_before_mutating: the narrowed role set did not land in the sandbox's commit-msg — the refusal below would be tested against the shipped set, which CONTAINS the tag, and the case would prove nothing."
-  printf '%s\n' "$narrow" | tr '|' '\n' | grep -qx Orchestrator \
+  printf '%s\n' "$narrow" | tr '|' '\n' | grep -x Orchestrator >/dev/null \
     && _fixture_die "case_one_member_role_tag_refuses_before_mutating: the narrowed set still contains the tag archive.sh writes — the premise of this case is gone."
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[PM] narrow the declared role set" --quiet >/dev/null 2>&1
@@ -2148,7 +2183,7 @@ case_one_member_role_tag_refuses_before_mutating() {
     || cf "the card left qa_complete/ on the trunk even though the sweep's commit could not be made"
   origin_has_path "progress/done/$SB_PREFIX-300-alpha.md" \
     && cf "the card reached done/ — the sweep MUTATED and only the commit failed, which is the uncommitted-state-in-a-discarded-worktree loss this refusal exists to prevent"
-  printf '%s\n' "$out" | grep -q 'ARCHIVE_ROLE' \
+  printf '%s\n' "$out" | grep 'ARCHIVE_ROLE' >/dev/null \
     || cf "the refusal does not name the knob that would fix it: $(printf '%s' "$out" | tr '\n' '|')"
 
   # ── INSTRUMENT CHECK. "Nonzero and nothing moved" is satisfied by an archive.sh
@@ -2267,7 +2302,7 @@ _schema_audit() {
     n=$(( n + 1 ))
     while IFS= read -r r; do
       [ -z "$r" ] && continue
-      if ! awk -F'|' -v s="$sch" '$1==s && $2=="prop"{print $3}' "$ex" | grep -qxF "$r"; then
+      if ! awk -F'|' -v s="$sch" '$1==s && $2=="prop"{print $3}' "$ex" | grep -xF "$r" >/dev/null; then
         echo "    ✗ ${lab} ${sch}: required names '${r}' which properties does not define"
         bad=$(( bad + 1 ))
       fi
@@ -2340,9 +2375,9 @@ $(printf '%s' "$hits" | sed 's/^/      /')"
   else
     printf '\n- Use superpowers:executing-plans skill if available\n' >> "$victim"
     local planted; planted="$(_foreign_ns_hits "$probe")"
-    printf '%s' "$planted" | grep -q 'superpowers:executing-plans' \
+    printf '%s' "$planted" | grep 'superpowers:executing-plans' >/dev/null \
       || cf "(control) the check did NOT find a planted foreign reference — it cannot see the defect it is named after"
-    printf '%s' "$planted" | grep -q "$(basename "$victim")" \
+    printf '%s' "$planted" | grep "$(basename "$victim")" >/dev/null \
       || cf "(control) the finding does not name the file it is in: $planted"
   fi
 
@@ -2455,9 +2490,9 @@ $(printf '%s' "$unmarked" | sed "s|^$skills/||" | cut -c1-200 | sed 's/^/      /
     # CONTROL 1 — an unmarked instruction is FOUND and NAMED.
     printf '\nRun `gh pr create --fill` to open the review.\n' >> "$probe/victim.md"
     local planted; planted="$(_forge_paras_unmarked "$probe")"
-    printf '%s' "$planted" | grep -q 'gh pr create' \
+    printf '%s' "$planted" | grep 'gh pr create' >/dev/null \
       || cf "(control) the check did NOT find a planted unconditional forge command — the pattern set no longer matches the case it was built for"
-    printf '%s' "$planted" | grep -q 'victim.md' \
+    printf '%s' "$planted" | grep 'victim.md' >/dev/null \
       || cf "(control) the finding does not name the file it is in: $planted"
     local after; after="$(_forge_unmarked_n "$probe")"
     [ "$after" -eq $(( base + 1 )) ] \
@@ -2557,11 +2592,11 @@ $(printf '%s' "$hits" | sed 's/^/      /')"
     printf '\n**Note:** Superpowers works much better with access to subagents.\n' >> "$victim"
     printf '\n   ls -d ~/.config/superpowers/worktrees/$project\n' >> "$victim"
     local planted; planted="$(_upstream_name_hits "$probe")"
-    printf '%s' "$planted" | grep -qi 'Superpowers works much better' \
+    printf '%s' "$planted" | grep -i 'Superpowers works much better' >/dev/null \
       || cf "(control) the check did NOT find a planted product-name mention — it cannot see the defect it is named after"
-    printf '%s' "$planted" | grep -q 'planted-SKILL.md' \
+    printf '%s' "$planted" | grep 'planted-SKILL.md' >/dev/null \
       || cf "(control) the finding does not name the file it is in: $planted"
-    printf '%s' "$planted" | grep -q '\.config/superpowers/worktrees' \
+    printf '%s' "$planted" | grep '\.config/superpowers/worktrees' >/dev/null \
       && cf "(control) the kept external path was reported as a finding — the allowance for it has stopped working, and this case would redden on correct content"
   fi
 
@@ -2622,7 +2657,7 @@ $(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
   if [ ! -f "$probe/README.md" ]; then
     _control_did_not_run "copy dev/README.md to plant against"
   else
-    _dev_unindexed_subdirs "$probe" | grep -qx 'zz-planted' \
+    _dev_unindexed_subdirs "$probe" | grep -x 'zz-planted' >/dev/null \
       || cf "(control) the check did NOT flag a planted unindexed subdirectory — it cannot see the defect it is named after"
   fi
 
@@ -2931,14 +2966,14 @@ case_runner_goldenpaths_empty_skips() {
     local code; code="$(sed 's://.*::' "$f")"
 
     # HALF 1 — the CFG default falls through only on null/undefined.
-    if printf '%s\n' "$code" | grep -qE '^[[:space:]]*goldenPaths:[[:space:]]*ARGS\.goldenPaths[[:space:]]*\?\?'; then
+    if printf '%s\n' "$code" | grep -E '^[[:space:]]*goldenPaths:[[:space:]]*ARGS\.goldenPaths[[:space:]]*\?\?'; then >/dev/null
       :
     else
       bad=$(( bad + 1 ))
       cf "$lab: goldenPaths does not use '??' — with '||' the documented empty-string escape restores the default instead of skipping the zero-drift step, which is the defect this case exists for"
     fi
     # And the specific regression, named so a reader knows what to look for.
-    ! printf '%s\n' "$code" | grep -qE '^[[:space:]]*goldenPaths:[[:space:]]*ARGS\.goldenPaths[[:space:]]*\|\|' \
+    ! printf '%s\n' "$code" | grep -E '^[[:space:]]*goldenPaths:[[:space:]]*ARGS\.goldenPaths[[:space:]]*\|\|' >/dev/null \
       || { bad=$(( bad + 1 )); cf "$lab: goldenPaths is back to '||' — see the comment at that line before changing it"; }
 
     # HALF 2 — the drift step is guarded by the value, so an empty string skips it.
@@ -2947,14 +2982,14 @@ case_runner_goldenpaths_empty_skips() {
     # DERIVED makes it a ternary chain, and the property being asserted is unchanged — an empty
     # goldenPaths must not reach the PATH step. What this case must not accept is a step that runs
     # on an empty value, and both shapes below refuse that.
-    printf '%s\n' "$code" | grep -qE 'CFG\.goldenPaths &&|\? CFG\.goldenPaths$|: CFG\.goldenPaths$' \
+    printf '%s\n' "$code" | grep -E 'CFG\.goldenPaths &&|\? CFG\.goldenPaths$|: CFG\.goldenPaths$' >/dev/null \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step has no guard on CFG.goldenPaths — '??' alone does not produce a skip, it only delivers the empty string to a step that would then run against nothing"; }
 
     # HALF 2b — AND AN EMPTY PROSE PIN SKIPS TOO. The fallback added a second way to reach the
     # step, so it needs the same guard the first one has: a project with neither pin declared
     # must get no step at all, not a step interpolating an empty rule.
-    if printf '%s\n' "$code" | grep -qE '^[[:space:]]*driftRule:'; then
-      printf '%s\n' "$code" | grep -qE 'CFG\.driftRule &&|\? CFG\.driftRule$|: CFG\.driftRule$' \
+    if printf '%s\n' "$code" | grep -E '^[[:space:]]*driftRule:'; then >/dev/null
+      printf '%s\n' "$code" | grep -E 'CFG\.driftRule &&|\? CFG\.driftRule$|: CFG\.driftRule$' >/dev/null \
         || { bad=$(( bad + 1 )); cf "$lab: driftRule is declared and the drift step does not guard on it — a project with no pin of either kind would get a step naming an empty rule, which reads to the agent as a check with nothing to check"; }
     fi
 
@@ -2964,7 +2999,7 @@ case_runner_goldenpaths_empty_skips() {
     # matches NOTHING — where the diff runs, prints nothing, and reads exactly like a clean one.
     # The only thing standing between that and a recorded false pass is this sentence in the brief,
     # and a sentence no case asserts can be reworded away while every case stays green.
-    printf '%s\n' "$code" | grep -qF 'treat the zero-drift step as NOT RUN' \
+    printf '%s\n' "$code" | grep -F 'treat the zero-drift step as NOT RUN' >/dev/null \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step no longer tells the agent that an empty match is NOT RUN rather than clean — that sentence is the whole defence against a diff over nothing being recorded as a clean zero-drift result"; }
   done <<EOF
 $(_shipped_runners)
@@ -3100,7 +3135,7 @@ case_shipped_runners_parse() {
       continue   # parses outright; fine, and means the file has no top-level return
     fi
     # The ONE tolerated failure. Anything else is a real lexical or structural break.
-    if printf '%s\n' "$out" | grep -q 'Illegal return statement'; then
+    if printf '%s\n' "$out" | grep 'Illegal return statement'; then >/dev/null
       continue
     fi
     cf "$lab does NOT parse, and the failure is not the tolerated harness-dialect one: $(printf '%s' "$out" | grep -m1 'SyntaxError' || printf '%s' "$out" | head -1). A runner that cannot be loaded fails at 0 agents for every adopter who drives it."
@@ -3159,9 +3194,9 @@ IDXEOF
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
             --milestone mal --keep-last 1 --apply 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(A) a malformed index did NOT refuse — exit 0: $out"
-  printf '%s' "$out" | grep -q 'MALFORMED' \
+  printf '%s' "$out" | grep 'MALFORMED' >/dev/null \
     || cf "(A) the refusal does not name the file as malformed: $out"
-  printf '%s' "$out" | grep -qF 'old.md' \
+  printf '%s' "$out" | grep -F 'old.md' >/dev/null \
     || cf "(A) the refusal does not quote the offending line it found — a drift reported without saying what drifted sends the reader to diff by eye: $out"
   # THE LOAD-BEARING ASSERTION: the failure under test is a WRITE, so proving it
   # refused is not proving it did not write.
@@ -3188,7 +3223,7 @@ IDXEOF
   [ "$rc" -eq 0 ] || cf "(B) a WELL-FORMED index was refused — exit $rc: $out"
   local first_row
   first_row="$(grep -m1 '^| \[' "$R/progress/history/INDEX.md")"
-  printf '%s' "$first_row" | grep -qF 'good.md' \
+  printf '%s' "$first_row" | grep -F 'good.md' >/dev/null \
     || cf "(B) the new row is not first (newest-first is format law): $first_row"
   grep -qF 'old.md' "$R/progress/history/INDEX.md" \
     || cf "(B) the pre-existing row was lost — the index is append-only"
@@ -3209,15 +3244,15 @@ case_archive_index_carries_the_date() {
   [ "$rc" -eq 0 ] || cf "archive.sh --apply exited $rc: $out"
   entry="$(grep "$SB_PREFIX-250" "$SB_WORK/ARCHIVE.md" || true)"
   [ -n "$entry" ] || cf "$SB_PREFIX-250 was not indexed at all: $(cat "$SB_WORK/ARCHIVE.md")"
-  printf '%s' "$entry" | grep -qE 'retired [0-9]{4}-[0-9]{2}-[0-9]{2}' \
+  printf '%s' "$entry" | grep -E 'retired [0-9]{4}-[0-9]{2}-[0-9]{2}' >/dev/null \
     || cf "the index entry carries no retirement date — § 2 requires the date beside the id and title: $entry"
-  printf '%s' "$entry" | grep -q "retired $today" \
+  printf '%s' "$entry" | grep "retired $today" >/dev/null \
     || cf "the retirement date is not today's ($today): $entry"
   # The id stays the FIRST token: next-id.sh documents these entries as
   # `- <PREFIX>-NNN …` and reads them so a new mint cannot collide with an archived
   # id. If the date ever migrates to the front, that convention breaks silently and
   # a re-minted id is the symptom, a long way from the cause.
-  printf '%s' "$entry" | grep -qE "^- $SB_PREFIX-250 " \
+  printf '%s' "$entry" | grep -E "^- $SB_PREFIX-250 " >/dev/null \
     || cf "the entry no longer begins '- $SB_PREFIX-250 ' — next-id.sh reads this shape to avoid re-minting an archived id: $entry"
   # THE PREVIEW AND THE APPLIED ENTRY MUST AGREE. They are built from one string in
   # the script; this holds that true from outside, because a preview that understates
@@ -3227,21 +3262,26 @@ case_archive_index_carries_the_date() {
 
   # --- ABLATION: remove the date write and the assertion above must fail -----
   local a_script="$SB_WORK/scripts/archive.sh" n
-  n="$(grep -c 'ENTRY="${ENTRY} — retired ${RETIRED_ON}"' "$a_script" || true)"
+  # -F: these two operands carry a mid-pattern `$`, which is a literal under POSIX BRE
+  # and an anchor under implementations that anchor anywhere. Inside a script `grep`
+  # always resolves through PATH, so both are correct today — but a fixed-string search
+  # has no metacharacter for two implementations to disagree about, and the cost of not
+  # depending on that is one flag.
+  n="$(grep -cF 'ENTRY="${ENTRY} — retired ${RETIRED_ON}"' "$a_script" || true)"
   if [ "$n" != "1" ]; then
     cf "(control) expected exactly 1 date-append line in archive.sh to ablate, found $n — the anchor moved and this ablation proves nothing"
   else
     make_sandbox
     seed_issue qa_complete "$SB_PREFIX-251" ablated chore "Ablated retirement"
     perl -i -ne 'print unless /^\s*ENTRY="\$\{ENTRY\} — retired \$\{RETIRED_ON\}"\s*$/' "$SB_WORK/scripts/archive.sh"
-    grep -q 'retired ${RETIRED_ON}' "$SB_WORK/scripts/archive.sh" \
+    grep -F 'retired ${RETIRED_ON}' "$SB_WORK/scripts/archive.sh" >/dev/null \
       && cf "(control) the ablation did not remove the date write"
     bash -n "$SB_WORK/scripts/archive.sh" || cf "(control) the ablated archive.sh no longer parses"
     publish_sandbox
     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
     [ "$rc" -eq 0 ] || cf "(control) the ablated archive.sh exited $rc — the ablation broke more than the date: $out"
     entry="$(grep "$SB_PREFIX-251" "$SB_WORK/ARCHIVE.md" || true)"
-    printf '%s' "$entry" | grep -qE 'retired [0-9]{4}-[0-9]{2}-[0-9]{2}' \
+    printf '%s' "$entry" | grep -E 'retired [0-9]{4}-[0-9]{2}-[0-9]{2}' >/dev/null \
       && cf "(control) the ABLATED script still produced a retirement date — the assertion above is not measuring the date write: $entry"
   fi
 
@@ -3277,11 +3317,11 @@ case_archive_requires_the_retired_store() {
   local out rc kwt_done
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(i) archive.sh --apply SUCCEEDED with no progress/done/ — it manufactured the column: $out"
-  printf '%s\n' "$out" | grep -qi 'progress/done' \
+  printf '%s\n' "$out" | grep -i 'progress/done' >/dev/null \
     || cf "(i) the refusal does not name the absent store: $out"
-  printf '%s\n' "$out" | grep -qi 'REFUSING' \
+  printf '%s\n' "$out" | grep -i 'REFUSING' >/dev/null \
     || cf "(i) the message does not say it is refusing: $out"
-  printf '%s\n' "$out" | grep -q '\.gitkeep' \
+  printf '%s\n' "$out" | grep '\.gitkeep' >/dev/null \
     || cf "(i) the refusal does not print the deliberate creation recipe (a bare refusal leaves the operator to invent one, and an empty dir does not survive a clone): $out"
   # AND IT CREATED NOTHING — the assertion that separates "refused" from "refused
   # after doing the thing". Checked in the kanban worktree too, which is where this
@@ -3436,13 +3476,13 @@ case_config_seam_refusal() {
       *)               _fixture_die "case_config_seam_refusal: no invocation is declared for scripts/$s, which the guarded-source census returned. This case cannot test a member it does not know how to run: a default invocation refuses for the WRONG REASON (bad arguments, not an unreadable seam) and every assertion below would pass on it. Add an arm to the case above naming how scripts/$s is invoked." ;;
     esac
     [ "$rc" -ne 0 ] || cf "$s: exited 0 with config.sh unsourceable — it fell back instead of refusing"
-    printf '%s' "$out" | grep -q 'config\.sh' \
+    printf '%s' "$out" | grep 'config\.sh' >/dev/null \
       || cf "$s: the refusal does not NAME scripts/config.sh: $out"
     # AUTHORSHIP, NOT PRESENCE. Naming the file is satisfied by the INTERPRETER: an unguarded
     # source dies with "<script>: line N: <path>/config.sh: No such file or directory", and that
     # path contains the filename. A refusal the kit did not write is not the kit refusing. The
     # contract path is what only the kit's own block emits — all six cite it, and bash cannot.
-    printf '%s' "$out" | grep -q 'config-seam\.md' \
+    printf '%s' "$out" | grep 'config-seam\.md' >/dev/null \
       || cf "$s: the refusal names config.sh but does not cite process/contracts/config-seam.md — so this may be the interpreter's sourcing diagnostic rather than the kit's guarded refusal, which is the state that let a script with NO guard pass this arm: $out"
   done
 
@@ -3466,7 +3506,7 @@ case_config_seam_refusal() {
     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/new-prd.sh" someslug 2>&1 )"; rc=$?
     [ "$rc" -ne 0 ] \
       || cf "new-prd.sh: exited 0 with a sourceable config.sh and an EMPTY PRD_PREFIX — the second arm does not refuse"
-    printf '%s' "$out" | grep -q 'PRD_PREFIX' \
+    printf '%s' "$out" | grep 'PRD_PREFIX' >/dev/null \
       || cf "new-prd.sh: the empty-seam refusal does not NAME PRD_PREFIX: $out"
   fi
   mv "$SB_WORK/scripts/config.sh" "$SB_WORK/scripts/config.sh.disabled" >/dev/null 2>&1
@@ -3505,7 +3545,7 @@ case_next_id() {
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>/dev/null )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(max+1) exited $rc"
   [ "$out" = "$SB_PREFIX-004" ] || cf "(max+1) expected $SB_PREFIX-004 across filenames, got '$out'"
-  printf '%s' "$out" | grep -qE "^$SB_PREFIX-[0-9]{3}$" || cf "(shape) output '$out' is not <PREFIX>-NNN shaped"
+  printf '%s' "$out" | grep -E "^$SB_PREFIX-[0-9]{3}$" >/dev/null || cf "(shape) output '$out' is not <PREFIX>-NNN shaped"
   teardown
 
   # (2) it counts ARCHIVE.md entries too — the number must not reset after a sweep.
@@ -3524,7 +3564,7 @@ case_next_id() {
   publish_sandbox
   err="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>&1 1>/dev/null )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(empty) expected nonzero exit on an empty board, got 0"
-  printf '%s' "$err" | grep -qi 'no existing' || cf "(empty) no explanatory stderr message: '$err'"
+  printf '%s' "$err" | grep -i 'no existing' >/dev/null || cf "(empty) no explanatory stderr message: '$err'"
   teardown
 
   finish "next-id.sh: max+1 (filenames + ARCHIVE.md), <PREFIX>-NNN shape, nonzero on an empty board"
@@ -3574,7 +3614,7 @@ case_commit_msg() {
   local out
   out="$( env -u MSG_OK "$hook" "$msg" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "unprefixed subject accepted (must be rejected)"
-  printf '%s' "$out" | grep -q "\[${prefixes%%|*}\]" \
+  printf '%s' "$out" | grep "\[${prefixes%%|*}\]" >/dev/null \
     || cf "the rejection message does not list the derived role tags: $out"
 
   # The applypatch path judges a subject the SAME way (git am runs that hook, not
@@ -3602,7 +3642,7 @@ case_commit_msg() {
   marker="${markers%%|*}"
   # The refusal prints that list VERBATIM, so it must stay plain words — a regex
   # metacharacter in it would be a lie in the help text and a live pattern in the match.
-  printf '%s' "$markers" | grep -qE '^[a-z0-9|]+$' \
+  printf '%s' "$markers" | grep -E '^[a-z0-9|]+$' >/dev/null \
     || cf "(trailer) TOOL_TRAILER_MARKERS is not the plain-word list the refusal prints: '$markers'"
 
   # `git commit -v` hands the hook the RAW DIFF below the scissors line — uncommented,
@@ -3625,8 +3665,35 @@ case_commit_msg() {
   printf '[%s] a valid subject\n\nCo-Authored-By: %s <noreply@example.com>\n' "$role" "$marker" > "$msg"
   out="$( env -u MSG_OK "$hook" "$msg" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(trailer) a Co-Authored-By naming '$marker' was accepted"
-  printf '%s' "$out" | grep -q 'commit-hygiene.md' || cf "(trailer) the refusal does not name the rule: $out"
-  printf '%s' "$out" | grep -qi "$marker" || cf "(trailer) the refusal does not list the derived markers: $out"
+  printf '%s' "$out" | grep 'commit-hygiene.md' >/dev/null || cf "(trailer) the refusal does not name the rule: $out"
+  printf '%s' "$out" | grep -i "$marker" >/dev/null || cf "(trailer) the refusal does not list the derived markers: $out"
+
+  # ── NO SPACE AFTER THE COLON. This is the ablation for a hole this guard actually had:
+  #    the pre-marker context was once a REQUIRED `[^[:alnum:]]` rather than an optional
+  #    group, so with the marker butted against the colon there was nothing for it to
+  #    consume and the trailer walked through. One deleted space defeated the rule.
+  #    Measured on the hook as it then shipped: the spaced form refused, this one
+  #    ACCEPTED. It is a case and not only a note because the matcher is one edit away
+  #    from the same shape, and nothing else here would notice.
+  printf '[%s] a valid subject\n\nCo-Authored-By:%s <noreply@example.com>\n' "$role" "$marker" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(trailer) 'Co-Authored-By:$marker' with NO SPACE after the colon was accepted — the pre-marker context in rule 2's matcher is a required character again instead of an optional group, and deleting one space defeats the guard"
+
+  #    …and several spaces must not defeat it either, in the other direction.
+  printf '[%s] a valid subject\n\nCo-Authored-By:   %s   <noreply@example.com>\n' "$role" "$marker" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -ne 0 ] || cf "(trailer) a padded 'Co-Authored-By:   $marker' was accepted"
+
+  # ── AND THE FALSE-POSITIVE GUARD THE FIX MUST NOT COST. A human whose name merely
+  #    BEGINS with a marker's stem is not a tool trailer, and the trailing
+  #    `([^[:alnum:]]|$)` is the only thing keeping them out of the refusal. Widening the
+  #    matcher to catch the unspaced form is one careless edit away from dropping this,
+  #    which would refuse a real contributor by name — a far worse failure than the hole.
+  printf '[%s] a valid subject\n\nCo-Authored-By: %sia Ng <person@example.com>\n' "$role" "$marker" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(trailer) a HUMAN named '${marker}ia Ng' was refused (exit $rc) — the marker match has lost its right-hand boundary and now fires on any name starting with '$marker'"
 
   # The second arm of § A.1, with the leading decoration the tooling actually emits.
   printf '[%s] a valid subject\n\n\xf0\x9f\xa4\x96 Generated with [Some Tool](https://example.com)\n' "$role" > "$msg"
@@ -3670,7 +3737,7 @@ case_push_failure() {
             --role Dev --note "should fail to push" 2>&1 )"; rc=$?
 
   [ "$rc" -ne 0 ] || cf "expected nonzero exit when the push fails, got 0"
-  printf '%s' "$out" | grep -qiE 'NOT on origin|push origin HEAD|not pushed|DISCARD this commit|unreachable' \
+  printf '%s' "$out" | grep -iE 'NOT on origin|push origin HEAD|not pushed|DISCARD this commit|unreachable' >/dev/null \
     || cf "no loud recovery text on push failure: $out"
 
   finish "push failure: loud recovery text + nonzero exit (no silent proceed)"
@@ -3703,9 +3770,9 @@ case_trunk_fallback_warns() {
   local out
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-310" in_progress \
             --role Dev --note "fallback step 2" 2>&1 )"
-  printf '%s' "$out" | grep -q 'STEP 2' \
+  printf '%s' "$out" | grep 'STEP 2' >/dev/null \
     || cf "the init.defaultBranch fallback did not name the step it used: $out"
-  printf '%s' "$out" | grep -q 'remote set-head' \
+  printf '%s' "$out" | grep 'remote set-head' >/dev/null \
     || cf "the step-2 warning does not name the one command that settles it: $out"
 
   # Step 3: neither is set → the last-resort literal, named as a GUESS.
@@ -3713,9 +3780,9 @@ case_trunk_fallback_warns() {
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-310" dev_complete \
             --role Dev --note "fallback step 3" 2>&1 )"
-  printf '%s' "$out" | grep -q 'GUESS' \
+  printf '%s' "$out" | grep 'GUESS' >/dev/null \
     || cf "the last-resort fallback did not announce itself as a guess: $out"
-  printf '%s' "$out" | grep -qF "$last_resort" \
+  printf '%s' "$out" | grep -F "$last_resort" >/dev/null \
     || cf "the last-resort warning does not name the literal it used ($last_resort): $out"
 
   finish "the trunk fallback chain WARNS at every step below the first, and names the literal it guessed"
@@ -3824,7 +3891,7 @@ EOF
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
             --milestone mix2 --before 2026-07-25 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "the idempotent re-run exited $rc (expected 0): $out"
-  printf '%s' "$out" | grep -q 'Nothing to archive' \
+  printf '%s' "$out" | grep 'Nothing to archive' >/dev/null \
     || cf "the idempotent re-run did not report 'Nothing to archive': $out"
 
   finish "archive-progress.sh: byte-complete rotation of a mixed-format log (0 lost lines), count mirrors routing, idempotent"
@@ -3927,11 +3994,11 @@ case_verdict_enum_projection() {
   # neighbouring vocabulary reports a divergence that is not there.
   [ "$n_ratified" -gt 0 ] \
     || cf "no ratified verdict tokens were extracted from MANUAL.md — the '| Verdict | Token |' table moved or was renamed, and every comparison below would be vacuous"
-  printf '%s\n' "$ratified" | grep -qx 'FAIL' \
+  printf '%s\n' "$ratified" | grep -x 'FAIL' >/dev/null \
     && cf "the MANUAL extractor swept in a bare FAIL — that is prose, not a ratified token: [$ratified]"
   # The one member whose absence has a recorded cost: a runner missing it cannot
   # represent a green review whose landing was correctly deferred.
-  printf '%s\n' "$ratified" | grep -qx 'PASS_AC_CORRECTED' \
+  printf '%s\n' "$ratified" | grep -x 'PASS_AC_CORRECTED' >/dev/null \
     || cf "the ratified set does not contain PASS_AC_CORRECTED — either the ruling changed or the extractor is wrong: [$ratified]"
 
   local r name projected n_projected missing extra
@@ -3954,7 +4021,7 @@ case_verdict_enum_projection() {
     # read past its declaration would sweep it in — which is the instrument error that
     # was historically measured, on this side. On the MANUAL side the same pin was
     # unfalsifiable: the token has never been in that file.
-    printf '%s\n' "$projected" | grep -qx 'FAILED_AFTER_FIX_ROUND' \
+    printf '%s\n' "$projected" | grep -x 'FAILED_AFTER_FIX_ROUND' >/dev/null \
       && cf "$name's extractor swept in FAILED_AFTER_FIX_ROUND — that is an 'outcome' value on a DIFFERENT field, so the extractor is reading past 'const VERDICTS': [$projected]"
     if [ "$projected" != "$ratified" ]; then
       missing="$(comm -23 <(printf '%s\n' "$ratified") <(printf '%s\n' "$projected") | tr '\n' ' ')"
@@ -3983,7 +4050,7 @@ case_verdict_enum_projection() {
     pr="$(grep -oE 'verdict[[:space:]]*=[[:space:]]*[A-Z_]+' "$r" | grep -oE '[A-Z_]+$' | sort -u || true)"
     while IFS= read -r tok; do
       [ -n "$tok" ] || continue
-      printf '%s\n' "$projected" | grep -qx "$tok" \
+      printf '%s\n' "$projected" | grep -x "$tok" >/dev/null \
         || cf "$name's PROMPT instructs 'verdict=$tok', which its own VERDICTS does not contain — the agent is told to return a value the schema rejects"
     done <<EOF
 $pr
@@ -4004,7 +4071,7 @@ EOF
     sed 's/Do NOT fix code yourself\./Do NOT fix code yourself. return verdict=BOGUS/' \
       "$wf/tranche-runner.js" > "$pctl/pctl/tranche-runner.js"
     bad="$(grep -oE 'verdict[[:space:]]*=[[:space:]]*[A-Z_]+' "$pctl/pctl/tranche-runner.js" | grep -oE '[A-Z_]+$' | sort -u || true)"
-    printf '%s\n' "$bad" | grep -qx 'BOGUS' \
+    printf '%s\n' "$bad" | grep -x 'BOGUS' >/dev/null \
       || cf "(control) the prompt extractor did not see an injected 'verdict=BOGUS' — the third leg cannot bite"
   else
     cf "(control) tranche-runner.js not found — the prompt-prose control could not run"
@@ -4024,9 +4091,9 @@ EOF
     ablated="$(_verdict_tokens_runner "$ctl/vctl/wave-runner.js")"
     [ "$ablated" != "$ratified" ] \
       || cf "(control) dropping PASS_AC_CORRECTED from a copy of wave-runner.js did NOT change the extracted set — the extractor is not reading the declaration, so the comparison above proves nothing"
-    printf '%s\n' "$ablated" | grep -qx 'PASS_AC_CORRECTED' \
+    printf '%s\n' "$ablated" | grep -x 'PASS_AC_CORRECTED' >/dev/null \
       && cf "(control) the ablated copy still yields PASS_AC_CORRECTED — the ablation did not take"
-    comm -23 <(printf '%s\n' "$ratified") <(printf '%s\n' "$ablated") | grep -qx 'PASS_AC_CORRECTED' \
+    comm -23 <(printf '%s\n' "$ratified") <(printf '%s\n' "$ablated") | grep -x 'PASS_AC_CORRECTED' >/dev/null \
       || cf "(control) the comparison does not name PASS_AC_CORRECTED as the missing member, so a real drift would be reported without saying what drifted"
   else
     cf "(control) wave-runner.js not found at $src — the reddening control could not run"
@@ -4163,7 +4230,7 @@ case_guard_floor_unenrolled_from_shipped_empty_set() {
 
   [ "$rc" -eq 2 ] \
     || cf "(unenrolled) exit $rc, expected 2 — an enumerated guard that GUARD_SET does not declare must refuse"
-  printf '%s' "$out" | grep -qF 'guard-a.txt' \
+  printf '%s' "$out" | grep -F 'guard-a.txt' >/dev/null \
     || cf "(unenrolled) the refusal does not NAME the unenrolled guard, so an operator cannot act on it: $out"
 
   finish "guard floor: a guard the enumeration lists and the SHIPPED EMPTY GUARD_SET does not declare refuses (rc 2) and names it"
@@ -4194,12 +4261,12 @@ case_guard_floor_enumerator_mistyped() {
   # NOTHING" — a materially FALSE sentence about a command that failed — and this case still
   # passed on both of those assertions. It could not fail against the defect it exists for.
   # So the arm is asserted by a token ONLY THAT ARM prints:
-  printf '%s' "$out" | grep -qF 'did not run cleanly (exit' \
+  printf '%s' "$out" | grep -F 'did not run cleanly (exit' >/dev/null \
     || cf "(mis-typed) the UNRUNNABLE arm did not fire — a non-zero enumerator was reported as having run cleanly, which is the defect this case exists for: $out"
   # ...and the enumerator's own stderr by a token ONLY THE ENUMERATOR can produce. 'ls-fils'
   # is verify.sh quoting the command back; "not a git command" is git itself speaking, and
   # it reaches the operator only if the stderr capture is actually surfaced.
-  printf '%s' "$out" | grep -qF 'not a git command' \
+  printf '%s' "$out" | grep -F 'not a git command' >/dev/null \
     || cf "(mis-typed) the enumerator's own stderr was swallowed, so the operator cannot see WHY it failed: $out"
 
   finish "guard floor: a MIS-TYPED enumerator (non-zero, not 127) refuses (rc 2) and surfaces the enumerator's own stderr"
@@ -4226,7 +4293,7 @@ case_guard_floor_enumerator_succeeds_empty() {
   # KEYED ON THE CLAIM'S OWN FORM, not on the word. The NOTE that DENIES reconciliation
   # contains "was reconciled" in a negating sentence, so a bare grep for the word fires on
   # correct output — measured. The green claim is the phrase below and nothing else is.
-  printf '%s' "$out" | grep -q 'reconciled BOTH ways' \
+  printf '%s' "$out" | grep 'reconciled BOTH ways' >/dev/null \
     && cf "(empty-but-clean) the run claimed reconciliation over an enumeration that returned nothing: $out"
 
   finish "guard floor: an enumerator that SUCCEEDS and returns nothing over a populated GUARD_SET refuses (rc 2) and claims no reconciliation"
@@ -4251,7 +4318,7 @@ case_guard_floor_unseen_declared_guard() {
   # WHICH SIDE NAMES ITEMS is the discriminator: the UNSEEN guard must be named. Both
   # paths appear in the file, so naming guard-b is what distinguishes this direction
   # from the other one.
-  printf '%s' "$out" | grep -qF 'guard-b.txt' \
+  printf '%s' "$out" | grep -F 'guard-b.txt' >/dev/null \
     || cf "(unseen) the refusal does not name the DECLARED guard the enumeration missed: $out"
 
   finish "guard floor: a DECLARED guard outside the enumeration's scope refuses (rc 2) and names the unseen one — the SET − SPACE direction"
@@ -4278,11 +4345,11 @@ case_guard_floor_reconciles_and_says_so() {
 
   [ "$rc" -eq 0 ] \
     || cf "(reconciled) exit $rc, expected 0 — a GUARD_SET the enumeration matches exactly is the reconciled state and must not refuse: $out"
-  printf '%s' "$out" | grep -q 'reconciled BOTH ways' \
+  printf '%s' "$out" | grep 'reconciled BOTH ways' >/dev/null \
     || cf "(reconciled) the run did NOT emit the reconciliation claim over a set the enumeration matches exactly, so the phrase the two canary cases assert the ABSENCE of is now emitted by nothing: $out"
   # THE COUNT TOO, because the green line is the one most mistakable for a measurement of the
   # tree: two guards declared must read as two, not as whatever the shipped set happened to hold.
-  printf '%s' "$out" | grep -q '2 DECLARED item(s)' \
+  printf '%s' "$out" | grep '2 DECLARED item(s)' >/dev/null \
     || cf "(reconciled) the green line does not report the 2 DECLARED items this case set up: $out"
 
   finish "guard floor: a GUARD_SET the enumeration matches exactly reconciles, exits 0 and SAYS SO — the positive direction the two canaries cannot prove"
@@ -4306,7 +4373,7 @@ case_guard_floor_wholly_empty_shipped_state() {
   # states here exit 0, so there is no code to read instead. Keyed on the claim's own
   # distinctive phrase — NOT on the word "reconciled", which the denying NOTE also uses,
   # and which therefore fired on correct output when this was first written.
-  printf '%s' "$out" | grep -q 'reconciled BOTH ways' \
+  printf '%s' "$out" | grep 'reconciled BOTH ways' >/dev/null \
     && cf "(wholly empty) the run claimed reconciliation with an empty GUARD_SET and an empty enumeration — nothing was reconciled: $out"
 
   finish "guard floor: the wholly-empty shipped state exits 0 with a NOTE and claims no reconciliation"
@@ -4322,11 +4389,11 @@ case_verify_frame() {
   perl -i -ne 'print unless /sandbox gate\|select/' "$v"
   out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) an EMPTY gate table exited 0 — a runner with no gates must never look green"
-  printf '%s' "$out" | grep -q 'REFUSING' || cf "(a) the empty-table refusal is not stated: $out"
+  printf '%s' "$out" | grep 'REFUSING' >/dev/null || cf "(a) the empty-table refusal is not stated: $out"
   # (b) --list still answers.
   out="$( cd "$SB_WORK" && "$v" --list 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(b) --list exited $rc on an empty table (it is informational)"
-  printf '%s' "$out" | grep -q '0 declared gate' || cf "(b) --list does not report the empty table: $out"
+  printf '%s' "$out" | grep '0 declared gate' >/dev/null || cf "(b) --list does not report the empty table: $out"
 
   # Re-declare: one green select gate, one red full gate, one guard path.
   # THE RED GATE IS A SANDBOX-LOCAL SCRIPT, not `/usr/bin/false` — the same reason the
@@ -4343,26 +4410,26 @@ case_verify_frame() {
   # (c) unlaundered exit codes.
   out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(c) a red gate did not make the run exit nonzero"
-  printf '%s' "$out" | grep -q 'FAIL  redbuild' || cf "(c) the summary does not name the failed gate: $out"
-  printf '%s' "$out" | grep -q 'PASS  green'    || cf "(c) the summary does not name the passing gate: $out"
+  printf '%s' "$out" | grep 'FAIL  redbuild' >/dev/null || cf "(c) the summary does not name the failed gate: $out"
+  printf '%s' "$out" | grep 'PASS  green' >/dev/null    || cf "(c) the summary does not name the passing gate: $out"
 
   # (d) --quick skips the `full` class and only that.
   out="$( cd "$SB_WORK" && "$v" --quick 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(d) --quick exited $rc despite the only red gate being class full"
-  printf '%s' "$out" | grep -q 'SKIP  redbuild' || cf "(d) --quick did not skip the full-class gate: $out"
-  printf '%s' "$out" | grep -q 'PASS  green'    || cf "(d) --quick skipped the select-class gate too: $out"
+  printf '%s' "$out" | grep 'SKIP  redbuild' >/dev/null || cf "(d) --quick did not skip the full-class gate: $out"
+  printf '%s' "$out" | grep 'PASS  green' >/dev/null    || cf "(d) --quick skipped the select-class gate too: $out"
 
   # (e) --scope passes the selection PLUS the guard floor to the select gate.
   out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(e) the scoped run exited $rc: $out"
-  printf '%s' "$out" | grep -q 'some/item' || cf "(e) the scoped run did not pass the requested item: $out"
-  printf '%s' "$out" | grep -q 'guard-one.txt' \
+  printf '%s' "$out" | grep 'some/item' >/dev/null || cf "(e) the scoped run did not pass the requested item: $out"
+  printf '%s' "$out" | grep 'guard-one.txt' >/dev/null \
     || cf "(e) the scoped run did not append the GUARD_SET floor — a scoped run must never be narrower than the guards: $out"
   # ...and a vanished guard is a hard stop.
   rm -f "$SB_WORK/guard-one.txt"
   out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(e) a vanished guard did not stop the scoped run — the floor shrank silently"
-  printf '%s' "$out" | grep -q 'guard-one.txt' || cf "(e) the vanished-guard refusal does not name the path: $out"
+  printf '%s' "$out" | grep 'guard-one.txt' >/dev/null || cf "(e) the vanished-guard refusal does not name the path: $out"
 
   finish "verify.sh frame: empty table REFUSES, --list answers anyway, exit codes unlaundered, --quick skips only 'full', --scope appends the guard floor and a vanished guard is a hard stop"
   teardown
@@ -4554,7 +4621,7 @@ used={x for x in re.findall(r'issue\.([A-Za-z_]+)', s)} - {'sh'}
 print(' '.join(sorted(used - declared)))
 PY
 )"
-    printf '%s' "$ablated" | grep -q 'worktreeMode' \
+    printf '%s' "$ablated" | grep 'worktreeMode' >/dev/null \
       || cf "(control) dropping worktreeMode from a copy did NOT surface it — the derivation cannot bite"
   else
     cf "(control) wave-runner.js not found — the reddening control could not run"
@@ -4635,7 +4702,7 @@ STUBEOF
   local W_ARGS='{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high","worktreeMode":"self","phase":"Wave1","restartNote":"n"}]}'
 
   _wf_run() { node "$stub" "$1" "$2" 2>&1; }
-  _wf_ok()  { printf '%s' "$1" | grep -q '"ok":true'; }
+  _wf_ok()  { printf '%s' "$1" | grep '"ok":true' >/dev/null; }
   _wf_err() { printf '%s' "$1" | sed -n 's/.*"error":"\([^"]*\)".*/\1/p'; }
 
   # --- tranche-runner, sparse ------------------------------------------------------
@@ -4652,7 +4719,7 @@ STUBEOF
   out="$(_wf_run "$wf/tranche-runner.js" '{"repo":"/tmp/x","issues":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"o","devEffort":"h","qaModel":"o","qaEffort":"h","depends_ons":["ZZ-0"]}]}')"
   _wf_ok "$out" \
     && cf "a misspelled per-issue key (depends_ons) was ACCEPTED — a caller who meant to declare a dependency would get a silent solo run"
-  printf '%s' "$out" | grep -q 'depends_ons' \
+  printf '%s' "$out" | grep 'depends_ons' >/dev/null \
     || cf "the misspelled key was refused but not NAMED, so the caller cannot see which key is wrong"
 
   # --- ABLATION: the exerciser must be able to go red -------------------------------
@@ -4711,27 +4778,27 @@ DQEOF
   out="$(_j_section)"
 
   # --- must fire -----------------------------------------------------------------
-  printf '%s' "$out" | grep -q 'ZZQ-101' \
+  printf '%s' "$out" | grep 'ZZQ-101' >/dev/null \
     || cf "an open row whose issue is in progress/done/ was NOT reported"
-  printf '%s' "$out" | grep -q 'ZZQ-103' \
+  printf '%s' "$out" | grep 'ZZQ-103' >/dev/null \
     || cf "the emphasised row with a trailing 'Status:' declaration was NOT reported — the cell is being grepped, not classified, which is the 8-of-37 defect"
 
   # --- must NOT fire -------------------------------------------------------------
-  printf '%s' "$out" | grep -q 'ZZQ-102' \
+  printf '%s' "$out" | grep 'ZZQ-102' >/dev/null \
     && cf "a LIVE claim (issue still in todo/) was reported — the arm fires on any open row, not on landed ones"
-  printf '%s' "$out" | grep -q 'ZZQ-104' \
+  printf '%s' "$out" | grep 'ZZQ-104' >/dev/null \
     && cf "a STRUCK row was reported — the arm does not read the Status cell's verdict"
-  printf '%s' "$out" | grep -q 'PREFIX' \
+  printf '%s' "$out" | grep 'PREFIX' >/dev/null \
     && cf "the angle-bracket SHAPE row was read as data"
 
   # --- informational, and that is a ruling ---------------------------------------
-  printf '%s' "$out" | grep -q '^\[j\]' \
+  printf '%s' "$out" | grep '^\[j\]' >/dev/null \
     || cf "the [j] arm did not print its header, so its subject is unnamed"
 
   # --- the ABSENT subject still prints (contracts/drift-report.md § 4) ------------
   rm -f "$SB_WORK/dev/downtime-queue.md"
   out="$(_j_section)"
-  printf '%s' "$out" | grep -q 'not present' \
+  printf '%s' "$out" | grep 'not present' >/dev/null \
     || cf "with no queue file the arm went SILENT instead of naming what was absent"
 
   # --- ABLATION: the clean case must be distinguishable from the finding case -----
@@ -4741,7 +4808,7 @@ DQEOF
 | **Still live** | audit | S | — | now | open (claimed by ZZQ-102) |
 DQEOF
   out="$(_j_section)"
-  printf '%s' "$out" | grep -q 'no open row claims a landed issue' \
+  printf '%s' "$out" | grep 'no open row claims a landed issue' >/dev/null \
     || cf "(ablation) a queue with only LIVE claims did not report the clean line, so a green here proves nothing"
 
   unset -f _j_section
@@ -4790,7 +4857,7 @@ print("\n".join(sorted(set(re.findall(r"<[A-Za-z][A-Za-z-]*>", body)))))' "$f")"
 
   while IFS= read -r tok; do
     [ -n "$tok" ] || continue
-    printf '%s\n' "$present" | grep -qxF "$tok" \
+    printf '%s\n' "$present" | grep -xF "$tok" >/dev/null \
       || cf "_PLACEHOLDERS glosses $tok, which appears NOWHERE else in the file — the adopter is told to replace text that is not there"
   done <<EOF
 $declared
@@ -4798,7 +4865,7 @@ EOF
 
   while IFS= read -r tok; do
     [ -n "$tok" ] || continue
-    printf '%s\n' "$declared" | grep -qxF "$tok" \
+    printf '%s\n' "$declared" | grep -xF "$tok" >/dev/null \
       || cf "$tok appears in the file but no _PLACEHOLDERS entry says what to put there"
   done <<EOF
 $present
@@ -4838,13 +4905,13 @@ case_archive_progress_dry_run_writes_nothing() {
     || cf "the dry run exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   [ "$before" = "$after" ] \
     || cf "THE DRY RUN MUTATED THE TREE. Files now present: $(find "$R" -type f | sed "s|^$R/||" | tr '\n' ' ')"
-  printf '%s' "$out" | grep -q 'dry run' \
+  printf '%s' "$out" | grep 'dry run' >/dev/null \
     || cf "the dry run did not identify itself as one"
 
   # AND IT SAID SO. A fix that silently skipped the creation would satisfy the checksum
   # above while leaving the reader unable to tell the index is missing — the honest-blind-
   # spot duty (instruments.md § A.4). The dry run must ANNOUNCE the write it declined.
-  printf '%s' "$out" | grep -q 'INDEX.md' \
+  printf '%s' "$out" | grep 'INDEX.md' >/dev/null \
     || cf "the dry run never mentioned INDEX.md, so a reader cannot tell --apply would create it"
 
   # THE OTHER DIRECTION, which is what makes the check above a real one: --apply DOES
@@ -4950,7 +5017,7 @@ case_rotation_day_uses_the_board_clock() {
   # EFFECT (iii) — the row's OTHER date column still comes from the chunk's own content.
   #    If this stops holding, (i) and (ii) are no longer about a row that mixes two clocks.
   awk -F'|' '/t1\.md/ { gsub(/ /,"",$3); print $3; exit }' "$R1/progress/history/INDEX.md" 2>/dev/null \
-    | grep -qF '2026-08-26→2026-08-26' \
+    | grep -F '2026-08-26→2026-08-26' >/dev/null \
     || cf "the Covers column is not the seeded local span — the row's two date columns no longer share a source, so this case is not measuring a mixed row"
 
   finish "archive-progress.sh dates the INDEX row's Rotated column on the same clock the rest of the board writes (the operator's local day), so one generated row never mixes two clocks — proven across two zones 26 hours apart, which no UTC stamp can satisfy"
@@ -4998,12 +5065,12 @@ case_archive_progress_honest_noop() {
   # Nothing matches (all entries are today), and § Log is OVER the threshold.
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone n1 --before 2026-08-26 2>&1 )"; rc=$?
   [ "$rc" -eq 3 ] || cf "nothing-matched-while-due exited $rc, expected 3 (a distinct code, not a failure and not a pass): $out"
-  printf '%s' "$out" | grep -q 'ROTATION IS STILL DUE' || cf "the over-threshold no-op did not say a rotation is still due: $out"
-  printf '%s' "$out" | grep -q "$thresh" || cf "the over-threshold no-op did not name the threshold it measured against: $out"
+  printf '%s' "$out" | grep 'ROTATION IS STILL DUE' >/dev/null || cf "the over-threshold no-op did not say a rotation is still due: $out"
+  printf '%s' "$out" | grep "$thresh" >/dev/null || cf "the over-threshold no-op did not name the threshold it measured against: $out"
   # THE REDDENING CONTROL, and the point of the whole case: the GREEN PHRASE must
   # be ABSENT. Its presence is what made the old behaviour read as an all-clear,
   # so a fix that added the warning and kept the phrase would still be broken.
-  printf '%s' "$out" | grep -q 'Nothing to archive' \
+  printf '%s' "$out" | grep 'Nothing to archive' >/dev/null \
     && cf "the over-threshold no-op still printed the green phrase 'Nothing to archive' — that is the false all-clear"
 
   # AND THE OTHER DIRECTION: under threshold, nothing matched, that IS a green and
@@ -5012,9 +5079,9 @@ case_archive_progress_honest_noop() {
   { echo "# progress.md"; echo ""; echo "## Log"; echo ""; echo "## 2026-08-26 [Dev] one small entry"; echo "body"; echo ""; } > "$R/progress.md"
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone n2 --before 2026-08-26 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "under-threshold nothing-matched exited $rc, expected 0: $out"
-  printf '%s' "$out" | grep -q 'Nothing to archive' \
+  printf '%s' "$out" | grep 'Nothing to archive' >/dev/null \
     || cf "under threshold the honest green phrase 'Nothing to archive' is missing: $out"
-  printf '%s' "$out" | grep -q 'under threshold' \
+  printf '%s' "$out" | grep 'under threshold' >/dev/null \
     || cf "the under-threshold green did not state the measurement that makes it a green: $out"
 
   finish "archive-progress.sh: nothing-matched OVER threshold exits 3 without the green phrase; UNDER threshold exits 0 with it"
@@ -5041,7 +5108,7 @@ case_archive_progress_index() {
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone c2 --keep-last 1 --apply 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "the second --apply exited $rc: $out"
   local first_row; first_row="$(grep -m1 '^| \[' "$idx")"
-  printf '%s' "$first_row" | grep -qF 'c2.md' \
+  printf '%s' "$first_row" | grep -F 'c2.md' >/dev/null \
     || cf "the newest chunk is not the first row (newest-first is format law): $first_row"
   grep -qF 'c1.md' "$idx" || cf "the earlier index row was lost — the index is append-only"
 
@@ -5051,7 +5118,7 @@ case_archive_progress_index() {
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone c3 --keep-last 1 --apply 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "a missing index with chunks present did NOT refuse: $out"
   [ -f "$idx" ] && cf "it fabricated an index while chunks existed — that row-less index denies them"
-  printf '%s' "$out" | grep -qF 'c1.md' || cf "the refusal did not name the chunks whose rows would be missing: $out"
+  printf '%s' "$out" | grep -F 'c1.md' >/dev/null || cf "the refusal did not name the chunks whose rows would be missing: $out"
 
   # AND THE OTHER SIDE OF THAT DECISION: no chunks, no index -> CREATE, because
   # "nothing was ever archived" is then simply true. This is the upgrade path.
@@ -5114,7 +5181,7 @@ case_check_board_id_clean() {
   # reason attached. A count states neither.
   ncols="$(printf '%s' "$status_folders" | tr '|' '\n' | grep -c . || true)"
   [ "$ncols" -gt 1 ] || cf "STATUS_FOLDERS did not split into columns — derived '$status_folders'"
-  printf '%s' "$status_folders" | tr '|' '\n' | grep -qx done \
+  printf '%s' "$status_folders" | tr '|' '\n' | grep -x done >/dev/null \
     || cf "STATUS_FOLDERS lacks done/ — a new mint can collide with an ARCHIVED issue"
 
   seed_issue todo        "$SB_PREFIX-100" alpha chore "Healthy alpha"
@@ -5140,13 +5207,13 @@ EOF
   local out rc
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc on a healthy board (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q '^\[d\]' || cf "no [d] section in the report — the check is absent"
-  printf '%s\n' "$out" | grep -qi 'duplicate' \
+  printf '%s\n' "$out" | grep '^\[d\]' >/dev/null || cf "no [d] section in the report — the check is absent"
+  printf '%s\n' "$out" | grep -i 'duplicate' >/dev/null \
     && cf "a duplicate finding on a HEALTHY board — prose mentions were misread: $out"
-  printf '%s\n' "$out" | grep -qi 'disagrees' && cf "a mismatch finding on a HEALTHY board: $out"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-999" \
+  printf '%s\n' "$out" | grep -i 'disagrees' >/dev/null && cf "a mismatch finding on a HEALTHY board: $out"
+  printf '%s\n' "$out" | grep "$SB_PREFIX-999" >/dev/null \
     && cf "an id quoted in prose was read as frontmatter: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "the healthy board did not report clean: $out"
 
   finish "check (d): a healthy board reads clean, and prose/quoted-frontmatter near-misses do not fire"
@@ -5176,43 +5243,43 @@ case_check_board_id_duplicate() {
   local out rc dline
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc with planted duplicates (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q 'board-drift: findings above' \
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
     || cf "the duplicates did not reach the report footer: $out"
 
   dline="$(printf '%s\n' "$out" | grep -i 'duplicate' | grep "$SB_PREFIX-195" || true)"
   [ -n "$dline" ] || cf "no duplicate finding naming $SB_PREFIX-195: $out"
-  printf '%s' "$dline" | grep -q "$SB_PREFIX-195-first-shape.md" \
+  printf '%s' "$dline" | grep "$SB_PREFIX-195-first-shape.md" >/dev/null \
     || cf "the $SB_PREFIX-195 finding does not name the todo/ file: $dline"
-  printf '%s' "$dline" | grep -q "$SB_PREFIX-195-second-shape.md" \
+  printf '%s' "$dline" | grep "$SB_PREFIX-195-second-shape.md" >/dev/null \
     || cf "the $SB_PREFIX-195 finding does not name the done/ file — cross-column breadth missing: $dline"
 
   dline="$(printf '%s\n' "$out" | grep -i 'duplicate' | grep "$SB_PREFIX-300" || true)"
   [ -n "$dline" ] || cf "no duplicate finding naming the same-column pair: $out"
-  printf '%s' "$dline" | grep -q 'same-column-one.md' || cf "the pair finding omits file one: $dline"
-  printf '%s' "$dline" | grep -q 'same-column-two.md' || cf "the pair finding omits file two: $dline"
+  printf '%s' "$dline" | grep 'same-column-one.md' >/dev/null || cf "the pair finding omits file one: $dline"
+  printf '%s' "$dline" | grep 'same-column-two.md' >/dev/null || cf "the pair finding omits file two: $dline"
 
   dline="$(printf '%s\n' "$out" | grep -i 'duplicate' | grep "$SB_PREFIX-400" || true)"
   [ -n "$dline" ] || cf "no duplicate finding naming the triple: $out"
-  printf '%s' "$dline" | grep -q 'triple-a.md' || cf "the triple omits a: $dline"
-  printf '%s' "$dline" | grep -q 'triple-b.md' || cf "the triple omits b: $dline"
-  printf '%s' "$dline" | grep -q 'triple-c.md' || cf "the triple omits c: $dline"
+  printf '%s' "$dline" | grep 'triple-a.md' >/dev/null || cf "the triple omits a: $dline"
+  printf '%s' "$dline" | grep 'triple-b.md' >/dev/null || cf "the triple omits b: $dline"
+  printf '%s' "$dline" | grep 'triple-c.md' >/dev/null || cf "the triple omits c: $dline"
 
-  printf '%s\n' "$out" | grep -i 'duplicate' | grep -q "$SB_PREFIX-500" \
+  printf '%s\n' "$out" | grep -i 'duplicate' | grep "$SB_PREFIX-500" >/dev/null \
     && cf "the innocent single-id issue was named as a duplicate: $out"
 
   # ACTIONABLE, not merely accusatory — it says what to do, in the same register.
-  printf '%s\n' "$out" | grep -i 'duplicate' | grep -q 'next-id.sh' \
+  printf '%s\n' "$out" | grep -i 'duplicate' | grep 'next-id.sh' >/dev/null \
     || cf "the duplicate finding does not say what to do (next-id.sh)"
-  printf '%s\n' "$out" | grep -i 'duplicate' | grep -q '⚠' \
+  printf '%s\n' "$out" | grep -i 'duplicate' | grep '⚠' >/dev/null \
     || cf "the duplicate finding does not use the ⚠ register of the other checks"
 
   # CONTROL — ablate check (d) and the finding must vanish.
   if cb_remove_check_d; then
     out="$(cb_run)"; rc=$?
     [ "$rc" -eq 0 ] || cf "(control) the ablated check-board.sh exited $rc"
-    printf '%s\n' "$out" | grep -qi 'duplicate' \
+    printf '%s\n' "$out" | grep -i 'duplicate' >/dev/null \
       && cf "(control) a duplicate finding survived the ablation — this case proves nothing: $out"
-    printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
       || cf "(control) without check (d) the duplicate board did not read clean, so the finding is not attributable to it: $out"
   fi
 
@@ -5238,32 +5305,32 @@ case_check_board_id_mismatch() {
   local out rc line
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc with planted mismatches (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -qiE 'traceback|syntax error|command not found|unbound variable' \
+  printf '%s\n' "$out" | grep -iE 'traceback|syntax error|command not found|unbound variable' >/dev/null \
     && cf "the reporter emitted an interpreter error on a degenerate frontmatter: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: findings above' \
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
     || cf "the mismatches did not reach the report footer: $out"
 
   line="$(printf '%s\n' "$out" | grep "$SB_PREFIX-200-ahead-fixture.md" || true)"
   [ -n "$line" ] || cf "no finding for the frontmatter-AHEAD mismatch: $out"
-  printf '%s' "$line" | grep -q "$SB_PREFIX-201" || cf "the ahead finding does not name the frontmatter id: $line"
-  printf '%s' "$line" | grep -q "$SB_PREFIX-200" || cf "the ahead finding does not name the filename id: $line"
+  printf '%s' "$line" | grep "$SB_PREFIX-201" >/dev/null || cf "the ahead finding does not name the frontmatter id: $line"
+  printf '%s' "$line" | grep "$SB_PREFIX-200" >/dev/null || cf "the ahead finding does not name the filename id: $line"
   line="$(printf '%s\n' "$out" | grep "$SB_PREFIX-210-behind-fixture.md" || true)"
   [ -n "$line" ] || cf "no finding for the frontmatter-BEHIND mismatch: $out"
-  printf '%s' "$line" | grep -q "$SB_PREFIX-205" || cf "the behind finding does not name the frontmatter id: $line"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-220-no-id.md" \
+  printf '%s' "$line" | grep "$SB_PREFIX-205" >/dev/null || cf "the behind finding does not name the frontmatter id: $line"
+  printf '%s\n' "$out" | grep "$SB_PREFIX-220-no-id.md" >/dev/null \
     || cf "an issue with NO frontmatter id produced no finding: $out"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-230-malformed.md" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-230-malformed.md" >/dev/null \
     || cf "an issue with a MALFORMED frontmatter id produced no finding: $out"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-240-healthy.md" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-240-healthy.md" >/dev/null \
     && cf "the healthy control issue was reported: $out"
 
   # CONTROL — ablate check (d) and every finding must vanish.
   if cb_remove_check_d; then
     out="$(cb_run)"; rc=$?
     [ "$rc" -eq 0 ] || cf "(control) the ablated check-board.sh exited $rc"
-    printf '%s\n' "$out" | grep -q "$SB_PREFIX-200-ahead-fixture.md" \
+    printf '%s\n' "$out" | grep "$SB_PREFIX-200-ahead-fixture.md" >/dev/null \
       && cf "(control) a mismatch finding survived the ablation — this case proves nothing: $out"
-    printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+    printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
       || cf "(control) without check (d) the mismatched board did not read clean: $out"
   fi
 
@@ -5338,28 +5405,28 @@ case_check_board_main_checkout_unpushed() {
   # --- (i) it must be reported, and named as the MAIN checkout -----------------
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q '\[f1\]' \
+  printf '%s\n' "$out" | grep '\[f1\]' >/dev/null \
     || cf "(i) no [f1] reading at all — the main checkout is still unwatched: $out"
-  printf '%s\n' "$out" | grep '\[f1\]' | grep -qi 'ahead' \
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -i 'ahead' >/dev/null \
     || cf "(i) [f1] did not report the unpushed commit: $(printf '%s\n' "$out" | grep '\[f1\]')"
-  printf '%s\n' "$out" | grep -q 'board-drift: findings above' \
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
     || cf "(i) unpushed metadata did not reach the report footer: $out"
   # The finding must be attributed to the right home, or it is indistinguishable from
   # the auxiliary worktree's own divergence.
-  printf '%s\n' "$out" | grep '\[f1\]' | grep -qi 'main checkout' \
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -i 'main checkout' >/dev/null \
     || cf "(i) the [f1] finding does not name the main checkout as the home: $(printf '%s\n' "$out" | grep '\[f1\]')"
 
   # --- (ii) ABLATION: push it, and it must go quiet ----------------------------
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc after the push (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep '\[f1\]' | grep -qi 'ahead of' \
+  printf '%s\n' "$out" | grep '\[f1\]' | grep -i 'ahead of' >/dev/null \
     && cf "(ii) ABLATION FAILED — [f1] still reports the commit as unpublished after it was pushed, so half (i) proves nothing: $(printf '%s\n' "$out" | grep '\[f1\]')"
-  printf '%s\n' "$out" | grep '\[f1\]' | grep -q '✓' \
+  printf '%s\n' "$out" | grep '\[f1\]' | grep '✓' >/dev/null \
     || cf "(ii) [f1] did not report clean after the push: $(printf '%s\n' "$out" | grep '\[f1\]')"
 
   # And the green states its span rather than implying total coverage.
-  printf '%s\n' "$out" | grep -qi 'orphaned sibling' \
+  printf '%s\n' "$out" | grep -i 'orphaned sibling' >/dev/null \
     || cf "the [f] green does not state its span — an unqualified pass implies it saw stranding it cannot see: $out"
 
   finish "check-board [f1]: an unpushed metadata commit in the MAIN checkout is reported and named as that home, and goes quiet once pushed (ablation-proven); the green states its span"
@@ -5417,35 +5484,35 @@ case_verify_unrunnable_vs_fail() {
   [ "$rc" -ne 0 ] || cf "verify.sh exited 0 with a failing gate and an unrunnable one: $out"
 
   # --- the three states, each present in its OWN vocabulary ------------------
-  printf '%s\n' "$out" | grep -q '^PASS  green$' \
+  printf '%s\n' "$out" | grep '^PASS  green$' >/dev/null \
     || cf "no 'PASS  green' line — the runnable-and-green gate is not reported: $out"
-  printf '%s\n' "$out" | grep -q '^FAIL  broken (rc=1)$' \
+  printf '%s\n' "$out" | grep '^FAIL  broken (rc=1)$' >/dev/null \
     || cf "no 'FAIL  broken (rc=1)' line — a genuinely failing gate must still say FAIL: $out"
-  printf '%s\n' "$out" | grep -q '^UNRUNNABLE  missing-interp ' \
+  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' >/dev/null \
     || cf "no 'UNRUNNABLE  missing-interp' line — the fourth state is not being reported: $out"
-  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' | grep -q 'rc=127' \
+  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' | grep 'rc=127' >/dev/null \
     || cf "the UNRUNNABLE line does not carry rc=127: $(printf '%s\n' "$out" | grep '^UNRUNNABLE')"
-  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' | grep -qi 'NOTHING was measured' \
+  printf '%s\n' "$out" | grep '^UNRUNNABLE  missing-interp ' | grep -i 'NOTHING was measured' >/dev/null \
     || cf "the UNRUNNABLE line does not say nothing was measured — the label alone leaves the reader to guess: $(printf '%s\n' "$out" | grep '^UNRUNNABLE')"
 
   # --- THE SECOND DIRECTION: the states must not have collapsed either way ---
-  printf '%s\n' "$out" | grep -q '^FAIL  missing-interp' \
+  printf '%s\n' "$out" | grep '^FAIL  missing-interp' >/dev/null \
     && cf "the unrunnable gate ALSO produced a 'FAIL' line — the two states are merged, which is the whole defect this change closes: $out"
-  printf '%s\n' "$out" | grep -q '^UNRUNNABLE  broken' \
+  printf '%s\n' "$out" | grep '^UNRUNNABLE  broken' >/dev/null \
     && cf "a genuinely FAILING gate was labelled UNRUNNABLE — the states are merged in the other direction, and a real red now reads as an environment problem: $out"
 
   # --- the count line, and `ran` EXCLUDING the unrunnable --------------------
   counts="$(printf '%s\n' "$out" | grep '^gates declared:' || true)"
   [ -n "$counts" ] || cf "no 'gates declared:' count line — verify-gate.md § 4: a pass with no count is an assertion, not a measurement: $out"
-  printf '%s' "$counts" | grep -q 'gates declared: 3' || cf "the count line does not report 3 declared gates: $counts"
-  printf '%s' "$counts" | grep -q 'ran: 2' \
+  printf '%s' "$counts" | grep 'gates declared: 3' >/dev/null || cf "the count line does not report 3 declared gates: $counts"
+  printf '%s' "$counts" | grep 'ran: 2' >/dev/null \
     || cf "REGRESSION — 'ran' does not exclude the unrunnable gate (expected 'ran: 2' of 3 declared). The count line is re-merging the two states the per-gate lines separate: $counts"
-  printf '%s' "$counts" | grep -q 'passed: 1'        || cf "the count line does not report 1 passed: $counts"
-  printf '%s' "$counts" | grep -q 'failed: 1'        || cf "the count line does not report 1 failed: $counts"
-  printf '%s' "$counts" | grep -q 'could not run: 1' || cf "the count line does not report 1 could-not-run: $counts"
-  printf '%s' "$counts" | grep -q 'skipped: 0'       || cf "the count line does not report 0 skipped: $counts"
+  printf '%s' "$counts" | grep 'passed: 1' >/dev/null        || cf "the count line does not report 1 passed: $counts"
+  printf '%s' "$counts" | grep 'failed: 1' >/dev/null        || cf "the count line does not report 1 failed: $counts"
+  printf '%s' "$counts" | grep 'could not run: 1' >/dev/null || cf "the count line does not report 1 could-not-run: $counts"
+  printf '%s' "$counts" | grep 'skipped: 0' >/dev/null       || cf "the count line does not report 0 skipped: $counts"
   # And the block says what an unrunnable gate MEANS, since a reader quotes this block.
-  printf '%s\n' "$out" | grep -qi 'UNKNOWN, not a measured failure' \
+  printf '%s\n' "$out" | grep -i 'UNKNOWN, not a measured failure' >/dev/null \
     || cf "the summary does not say the unrunnable gate is an UNKNOWN rather than a failure: $out"
 
   # --- rc=126 is the same state: found, but not executable ------------------
@@ -5458,12 +5525,12 @@ case_verify_unrunnable_vs_fail() {
   _declare_gate 'not-exec|core|./not-executable-gate'
   publish_sandbox
   out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
-  if printf '%s\n' "$out" | grep -q '^UNRUNNABLE  not-exec '; then
-    printf '%s\n' "$out" | grep '^UNRUNNABLE  not-exec ' | grep -q 'rc=126' \
+  if printf '%s\n' "$out" | grep '^UNRUNNABLE  not-exec '; then >/dev/null
+    printf '%s\n' "$out" | grep '^UNRUNNABLE  not-exec ' | grep 'rc=126' >/dev/null \
       || cf "the non-executable gate is UNRUNNABLE but not at rc=126: $(printf '%s\n' "$out" | grep '^UNRUNNABLE')"
-    printf '%s\n' "$out" | grep -q '^FAIL  not-exec' \
+    printf '%s\n' "$out" | grep '^FAIL  not-exec' >/dev/null \
       && cf "the non-executable gate produced BOTH UNRUNNABLE and FAIL: $out"
-    printf '%s\n' "$out" | grep '^gates declared:' | grep -q 'ran: 1' \
+    printf '%s\n' "$out" | grep '^gates declared:' | grep 'ran: 1' >/dev/null \
       || cf "'ran' does not exclude the rc=126 gate: $(printf '%s\n' "$out" | grep '^gates declared:')"
     [ "$rc" -ne 0 ] || cf "verify.sh exited 0 with an unrunnable gate — finish-pr treats a green --quick as a landing precondition: $out"
   else
@@ -5517,13 +5584,13 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(1) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "$reg_path" \
+  printf '%s\n' "$out" | grep "$reg_path" >/dev/null \
     || cf "(1) the arm does not name the register it read: $out"
-  printf '%s\n' "$out" | grep "$reg_path" | grep -q '2 distinct' \
+  printf '%s\n' "$out" | grep "$reg_path" | grep '2 distinct' >/dev/null \
     || cf "(1) a clean register was not reported as 2 distinct: $(printf '%s\n' "$out" | grep "$reg_path")"
-  printf '%s\n' "$out" | grep -qi 'DUPLICATE id' \
+  printf '%s\n' "$out" | grep -i 'DUPLICATE id' >/dev/null \
     && cf "(1) a duplicate was reported on a clean register: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' || cf "(1) a clean register did not read clean: $out"
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null || cf "(1) a clean register did not read clean: $out"
 
   # --- (2) THE CROSS-SECTION DUPLICATE: no textual conflict, must be caught ----
   cat > "$SB_WORK/$reg_path" <<EOF
@@ -5537,11 +5604,11 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(2) check-board.sh exited $rc with a planted duplicate (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -qi 'DUPLICATE id' \
+  printf '%s\n' "$out" | grep -i 'DUPLICATE id' >/dev/null \
     || cf "(2) a CROSS-SECTION duplicate was NOT reported — this is the collision the arm exists for and it produces no textual conflict: $out"
-  printf '%s\n' "$out" | grep -i 'DUPLICATE id' | grep -q 'D-07' \
+  printf '%s\n' "$out" | grep -i 'DUPLICATE id' | grep 'D-07' >/dev/null \
     || cf "(2) the duplicate finding does not name D-07: $(printf '%s\n' "$out" | grep -i 'DUPLICATE')"
-  printf '%s\n' "$out" | grep -q 'board-drift: findings above' \
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
     || cf "(2) the duplicate did not reach the report footer: $out"
 
   # --- (3) THE D-9 / D-10 MAXIMUM, asserted AGAINST the wrong answer ----------
@@ -5560,11 +5627,11 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(3) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep "$reg_path" | grep -q 'highest id number 10' \
+  printf '%s\n' "$out" | grep "$reg_path" | grep 'highest id number 10' >/dev/null \
     || cf "(3) the maximum was not reported as 10 over a section-grouped register: $(printf '%s\n' "$out" | grep "$reg_path")"
-  printf '%s\n' "$out" | grep "$reg_path" | grep -q 'highest id number 9' \
+  printf '%s\n' "$out" | grep "$reg_path" | grep 'highest id number 9' >/dev/null \
     && cf "(3) the maximum was reported as 9 — that is BOTH wrong answers (positional tail and byte-compare sort agree on it), so the read is not order-independent: $(printf '%s\n' "$out" | grep "$reg_path")"
-  printf '%s\n' "$out" | grep -qi 'DUPLICATE id' \
+  printf '%s\n' "$out" | grep -i 'DUPLICATE id' >/dev/null \
     && cf "(3) D-9 and D-10 were read as duplicates — the id shape is matching too little: $out"
 
   finish "check (d) register arm: a clean register reads distinct and names its file, a CROSS-SECTION duplicate (no textual conflict) is caught by id, and the maximum over a section-grouped register is 10 and not 9 (asserted against both wrong answers)"
@@ -5595,16 +5662,16 @@ case_check_board_register_absent() {
 
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "$reg_path" \
+  printf '%s\n' "$out" | grep "$reg_path" >/dev/null \
     || cf "the absent register is not mentioned at all — a silently omitted line is the defect drift-report.md § 3 names: $out"
-  printf '%s\n' "$out" | grep "$reg_path" | grep -qi 'skipped' \
+  printf '%s\n' "$out" | grep "$reg_path" | grep -i 'skipped' >/dev/null \
     || cf "the absent register was not reported as skipped: $(printf '%s\n' "$out" | grep "$reg_path")"
   # THE CLEARANCE MUST NOT COVER IT.
-  printf '%s\n' "$out" | grep -qi 'NO register was read' \
+  printf '%s\n' "$out" | grep -i 'NO register was read' >/dev/null \
     || cf "the clearance line does not say NO register was read — a pass over unread operands: $out"
-  printf '%s\n' "$out" | grep -qi 'distinct in every declared register' \
+  printf '%s\n' "$out" | grep -i 'distinct in every declared register' >/dev/null \
     && cf "the clearance claims every declared register's ids are distinct on a run where none was read: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "an absent register should not itself be a finding: $out"
 
   finish "check (d): an absent register SKIPS with its reason and the clearance line says NO register was read — never a tick covering unread operands"
@@ -5650,13 +5717,13 @@ case_check_board_arrow_beats_mention() {
 
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-240" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-240" >/dev/null \
     && cf "(i) FALSE DRIFT — a card whose arrow matches its folder was reported because a backticked column was MENTIONED later in the same bullet: $(printf '%s\n' "$out" | grep "$SB_PREFIX-240")"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-241" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-241" >/dev/null \
     || cf "(ii) an arrow DISAGREEING with the folder was not reported — the precedence fix must not have stopped judging arrows: $out"
-  printf '%s\n' "$out" | grep "$SB_PREFIX-241" | grep -q 'qa_complete' \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-241" | grep 'qa_complete' >/dev/null \
     || cf "(ii) the finding does not name what the arrow declared: $(printf '%s\n' "$out" | grep "$SB_PREFIX-241")"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-242" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-242" >/dev/null \
     || cf "(iii) a backticked declaration with NO arrow was not judged — the fallback pass is gone: $out"
 
   finish "check (a): an arrow outranks a backticked mention in the same bullet (no false drift), an arrow that disagrees is still a finding, and a backtick with no arrow is still judged"
@@ -5705,19 +5772,19 @@ case_check_board_declined_is_judged_and_counted() {
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
 
   # (i) agreeing arrows in declined/ are not findings.
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-250" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-250" >/dev/null \
     && cf "(i) FALSE DRIFT — a declined card whose arrow matches its folder was reported: $(printf '%s\n' "$out" | grep "$SB_PREFIX-250")"
 
   # (iii) arm (k) prints, and prints the count it read.
   kline="$(printf '%s\n' "$out" | grep '^\[k\]' || true)"
   [ -n "$kline" ] || cf "(iii) arm [k] did not print at all: $out"
-  printf '%s\n' "$kline" | grep -q '2 card' \
+  printf '%s\n' "$kline" | grep '2 card' >/dev/null \
     || cf "(iii) arm [k] did not report the two cards seeded into declined/: $kline"
-  printf '%s\n' "$kline" | grep -q 'reports only' \
+  printf '%s\n' "$kline" | grep 'reports only' >/dev/null \
     || cf "(iii) arm [k]'s header does not carry the machine token 'reports only', so kit-init's board self-check will read its lines as findings and fail the install: $kline"
 
   # (iv) a populated, healthy declined column does NOT redden the verdict.
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "(iv) a healthy board with two declined cards did not read clean — arm [k] must have no threshold and must never set drift: $out"
 
   # --- (ii) THE ABLATION THAT MAKES (i) WORTH ANYTHING ----------------------
@@ -5728,11 +5795,11 @@ case_check_board_declined_is_judged_and_counted() {
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc after the plant (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-251" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-251" >/dev/null \
     || cf "(ii) ABLATION FAILED — a card in declined/ declaring '→ todo' was NOT reported, so arm (a) is not reading the column and half (i) proves nothing: $out"
-  printf '%s\n' "$out" | grep "$SB_PREFIX-251" | grep -q 'declined' \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-251" | grep 'declined' >/dev/null \
     || cf "(ii) the finding does not name the folder the card is actually in: $(printf '%s\n' "$out" | grep "$SB_PREFIX-251")"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     && cf "(ii) a real hand-move in declined/ left the verdict CLEAN — arm (a)'s finding must set drift: $out"
 
   finish "check-board: arm (a) JUDGES declined/ (a hand-move there is a finding and reddens the verdict — ablation-proven) while arm (k) only COUNTS it (two cards reported, 'reports only' in its header, verdict stays clean)"
@@ -5768,7 +5835,7 @@ case_move_issue_declined_requires_a_reason() {
             --role PM 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(i) a decline with NO --note was ACCEPTED (exit $rc) — the column would fill with titles nobody can act on: $out"
-  printf '%s\n' "$out" | grep -qi 'note' \
+  printf '%s\n' "$out" | grep -i 'note' >/dev/null \
     || cf "(i) the refusal does not name --note as the thing that is missing, so it does not tell the operator what to do: $out"
   # THE REFUSAL MUST NOT HAVE MOVED ANYTHING. A guard that refuses after acting is
   # worse than no guard, because the operator believes nothing happened.
@@ -5830,14 +5897,14 @@ case_setup_warns_on_a_later_added_column() {
   [ -d "$SB_WORK/progress/declined" ] \
     && _fixture_die "case_setup_warns_on_a_later_added_column: progress/declined/ survived the removal — the state this case is about does not exist."
   out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )"; rc=$?
-  printf '%s\n' "$out" | grep -qi 'progress/declined/ is missing' \
+  printf '%s\n' "$out" | grep -i 'progress/declined/ is missing' >/dev/null \
     || cf "(i) setup.sh said nothing about the missing column — a silent pass is the other failure mode: $out"
-  printf '%s\n' "$out" | grep -i 'progress/declined/ is missing' | grep -q '^WARN' \
+  printf '%s\n' "$out" | grep -i 'progress/declined/ is missing' | grep '^WARN' >/dev/null \
     || cf "(i) the missing later-added column was not reported as a WARN: $(printf '%s\n' "$out" | grep -i 'progress/declined/ is missing')"
   # THE REMEDY MUST BE NAMED. A warning an adopter cannot act on is noise.
-  printf '%s\n' "$out" | grep -q 'mkdir -p' \
+  printf '%s\n' "$out" | grep 'mkdir -p' >/dev/null \
     || cf "(i) the warning does not name the command that fixes it: $out"
-  printf '%s\n' "$out" | grep -qi 'the board is incomplete' \
+  printf '%s\n' "$out" | grep -i 'the board is incomplete' >/dev/null \
     && cf "(i) the later-added column was reported with the ORIGINAL-column failure text, so it is still a hard failure: $out"
 
   # --- (ii) THE ABLATION: an ORIGINAL column must still FAIL --------------------
@@ -5845,9 +5912,9 @@ case_setup_warns_on_a_later_added_column() {
   # noticing a genuinely broken board.
   rm -rf "$SB_WORK/progress/todo"
   out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )"; rc=$?
-  printf '%s\n' "$out" | grep -qi 'progress/todo/ is missing' \
+  printf '%s\n' "$out" | grep -i 'progress/todo/ is missing' >/dev/null \
     || cf "(ii) a missing ORIGINAL column was not reported at all: $out"
-  printf '%s\n' "$out" | grep -i 'progress/todo/ is missing' | grep -q 'the board is incomplete' \
+  printf '%s\n' "$out" | grep -i 'progress/todo/ is missing' | grep 'the board is incomplete' >/dev/null \
     || cf "(ii) ABLATION FAILED — a missing ORIGINAL column did not get the failure text, so (i) proves nothing: every column would warn: $(printf '%s\n' "$out" | grep -i 'progress/todo/ is missing')"
 
   finish "setup.sh: a board column this kit version ADDED warns and names its mkdir remedy, while a missing ORIGINAL column is still reported as an incomplete board (ablation-proven)"
@@ -5870,20 +5937,20 @@ case_check_board_reads_the_ref() {
     || cf "(control) the working-tree twin was not written — the divergence does not exist"
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "$ref" \
+  printf '%s\n' "$out" | grep "$ref" >/dev/null \
     || cf "(i) the report does not name $ref anywhere — the operand is still invisible: $out"
-  printf '%s\n' "$out" | grep -qi 'duplicate' \
+  printf '%s\n' "$out" | grep -i 'duplicate' >/dev/null \
     && cf "(i) an UNPUBLISHED duplicate was reported — the arm read the checkout, not $ref: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "(i) the trunk is clean but the report did not say so: $out"
 
   # --- (ii) the ablation: publish it, and it must redden ----------------------
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc after publishing (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -qi 'duplicate' \
+  printf '%s\n' "$out" | grep -i 'duplicate' >/dev/null \
     || cf "(ii) ABLATION FAILED — the duplicate is on $ref and was NOT reported, so half (i) proves nothing: $out"
-  printf '%s\n' "$out" | grep -i 'duplicate' | grep -q "$SB_PREFIX-200" \
+  printf '%s\n' "$out" | grep -i 'duplicate' | grep "$SB_PREFIX-200" >/dev/null \
     || cf "(ii) the duplicate finding does not name $SB_PREFIX-200: $out"
 
   finish "check-board: the arms answer about $ref, not the checkout — an unpublished duplicate is NOT reported, the same duplicate published IS (ablation-proven), and the ref is named in the output"
@@ -5959,9 +6026,9 @@ case_check_board_shallow_clone_does_not_narrow() {
 
   local out
   out="$( cd "$sh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"
-  printf '%s\n' "$out" | grep -q 'THIS IS A SHALLOW CLONE' \
+  printf '%s\n' "$out" | grep 'THIS IS A SHALLOW CLONE' >/dev/null \
     || cf "the report does not say the history is shallow — the arms narrowed against a graft boundary and presented it as a derived epoch: $out"
-  printf '%s\n' "$out" | grep -q "scope: commits after ${grafted:0:9}" \
+  printf '%s\n' "$out" | grep "scope: commits after ${grafted:0:9}" >/dev/null \
     && cf "the report narrowed to the GRAFT BOUNDARY and named it as the rule's start — that commit is an artefact of the clone depth, not of the kit's arrival: $out"
 
   finish "a shallow clone gets no derived-looking narrowing: the arms say the history is shallow, exclude nothing, and never present the graft boundary as the rule's epoch"
@@ -6005,18 +6072,18 @@ case_check_board_trailer_scan_shares_the_epoch() {
   local out rc hits scopes e_scope h_scope
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q '^\[h\]' \
+  printf '%s\n' "$out" | grep '^\[h\]' >/dev/null \
     || cf "no [h] section — the arm is absent, which no other assertion here can detect: $out"
 
   hits="$(printf '%s\n' "$out" | grep 'carries a generated trailer' || true)"
 
   # ABLATION FIRST — without a red, both exclusions below are satisfiable by an arm
   # that reports nothing at all.
-  printf '%s\n' "$hits" | grep -q "$sha_after" \
+  printf '%s\n' "$hits" | grep "$sha_after" >/dev/null \
     || cf "ABLATION FAILED — the post-epoch trailer commit $sha_after was NOT reported, so this arm cannot go red and every exclusion asserted below proves nothing: $out"
-  printf '%s\n' "$hits" | grep -q "$sha_pre" \
+  printf '%s\n' "$hits" | grep "$sha_pre" >/dev/null \
     && cf "the PRE-ADOPTION trailer commit $sha_pre was reported — it predates the hook file entirely: $(printf '%s' "$hits" | tr '\n' '|')"
-  printf '%s\n' "$hits" | grep -q "$sha_epoch" \
+  printf '%s\n' "$hits" | grep "$sha_epoch" >/dev/null \
     && cf "the EPOCH commit $sha_epoch was itself reported — the boundary is 'at or after' when it must be STRICTLY after: $(printf '%s' "$hits" | tr '\n' '|')"
 
   # THE COMPOSITION, compared as TEXT out of the two arms' OWN scope lines. This case
@@ -6032,7 +6099,7 @@ case_check_board_trailer_scan_shares_the_epoch() {
 
   # INSTRUMENT AGAINST A VACUOUS PASS: if nothing was out of scope, the two exclusions
   # above are satisfied by an arm that narrowed nothing.
-  printf '%s\n' "$out" | grep -qE "scope: commits after ${sha_epoch}[^—]*— [1-9][0-9]* of the last" \
+  printf '%s\n' "$out" | grep -E "scope: commits after ${sha_epoch}[^—]*— [1-9][0-9]* of the last" >/dev/null \
     || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so the exclusions above would pass vacuously: $out"
 
   # A HUMAN CO-AUTHOR IS NOT A FINDING. Without this the arm could be a bare
@@ -6040,7 +6107,7 @@ case_check_board_trailer_scan_shares_the_epoch() {
   sbcommit -q --allow-empty -m "$(printf '[PM] a pair-programmed landing\n\nCo-Authored-By: Jane Smith <jane@invalid>')" >/dev/null 2>&1
   local sha_human; sha_human="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
   publish_sandbox
-  printf '%s\n' "$(cb_run)" | grep 'carries a generated trailer' | grep -q "$sha_human" \
+  printf '%s\n' "$(cb_run)" | grep 'carries a generated trailer' | grep "$sha_human" >/dev/null \
     && cf "a Co-Authored-By naming a HUMAN was reported as a generated trailer — the arm is matching the trailer rather than the tool markers, which the hook it mirrors explicitly permits"
 
   finish "check-board arm [h]: a generated trailer after the rule's epoch is reported (ablation-proven), one before it is not, the epoch commit itself is not, a HUMAN co-author is not, and [h] names the SAME epoch as [e]"
@@ -6115,18 +6182,18 @@ case_kwt_dirty_guard_reports_widely_refuses_narrowly() {
             --role Dev --note "should refuse" 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] || cf "(i) a board op proceeded with TRACKED changes in the auxiliary worktree"
   # THE REMEDY IS SCOPED. Both halves: the narrow form present, the blanket form absent.
-  printf '%s\n' "$out" | grep -q -- "add -- progress/" \
+  printf '%s\n' "$out" | grep -- "add -- progress/" >/dev/null \
     || cf "(i) the printed remedy is not scoped to progress/: $(printf '%s' "$out" | tr '\n' '|')"
   # `add -A &&` — the RECIPE shape, not the bare string. The refusal now WARNS about
   # `add -A` in prose, so a bare match finds this arm's own warning text and reddens on
   # the fix. (It did, on the first run of this case.) The recipe is the thing that must
   # be gone; the warning is the thing that must be there.
-  printf '%s\n' "$out" | grep -q -- "add -A &&" \
+  printf '%s\n' "$out" | grep -- "add -A &&" >/dev/null \
     && cf "(i) the printed remedy STILL offers a blanket 'add -A' recipe in a worktree that pushes to the trunk: $(printf '%s' "$out" | tr '\n' '|')"
   # THE UNTRACKED STRAY IS REPORTED, and labelled as not being the refusal's subject.
-  printf '%s\n' "$out" | grep -q 'STRAY-PAYLOAD.txt' \
+  printf '%s\n' "$out" | grep 'STRAY-PAYLOAD.txt' >/dev/null \
     || cf "(i) the untracked file the remedy would have committed is not reported at all — the guard still cannot see half of what it would commit: $(printf '%s' "$out" | tr '\n' '|')"
-  printf '%s\n' "$out" | grep -qi 'untracked' \
+  printf '%s\n' "$out" | grep -i 'untracked' >/dev/null \
     || cf "(i) the untracked paths are listed without being labelled as untracked, so a reader cannot tell them from the tracked changes that caused the refusal: $(printf '%s' "$out" | tr '\n' '|')"
 
   # --- (ii) UNTRACKED ONLY: must NOT refuse. This is "refuses narrowly", and it
@@ -6159,11 +6226,11 @@ case_check_board_dependency_symmetry() {
   local out rc
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(iv) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q '^\[i\]' \
+  printf '%s\n' "$out" | grep '^\[i\]' >/dev/null \
     || cf "(iv) no [i] section — the arm is absent, which no other assertion here can detect: $out"
   # THE EFFECT, not a label: it must say it READ cards and found ZERO declarations. That
   # is the only sentence separating "nothing to check" from "checked and symmetric".
-  printf '%s\n' "$out" | grep -qE '[1-9][0-9]* card\(s\) read, 0 dependency declaration\(s\)' \
+  printf '%s\n' "$out" | grep -E '[1-9][0-9]* card\(s\) read, 0 dependency declaration\(s\)' >/dev/null \
     || cf "(iv) the arm does not distinguish an UNDECLARED board from a symmetric one — an empty result and a clean result print the same thing: $out"
   teardown
 
@@ -6192,27 +6259,27 @@ case_check_board_dependency_symmetry() {
 
   # (i) and (ii): both reported, each naming BOTH cards — a finding naming one card is
   #     not actionable, because either card may be the stray.
-  printf '%s\n' "$out" | grep "$SB_PREFIX-320" | grep -q "$SB_PREFIX-321" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-320" | grep "$SB_PREFIX-321" >/dev/null \
     || cf "(i) the forward asymmetry $SB_PREFIX-320 blocks $SB_PREFIX-321 was not reported naming both cards: $out"
-  printf '%s\n' "$out" | grep "$SB_PREFIX-331" | grep -q "$SB_PREFIX-330" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-331" | grep "$SB_PREFIX-330" >/dev/null \
     || cf "(ii) THE CONVERSE IS UNIMPLEMENTED — $SB_PREFIX-331 declares blocked_by:[$SB_PREFIX-330], $SB_PREFIX-330 does not answer, and the arm is silent. An arm reading only blocks: is blind to half its operand set: $out"
 
   # (iii) ABLATION: the symmetric pair must NOT appear. Without this, (i) and (ii) are
   #       satisfied by an arm that prints every card it read.
-  printf '%s\n' "$out" | grep '⚠' | grep -q "$SB_PREFIX-310" \
+  printf '%s\n' "$out" | grep '⚠' | grep "$SB_PREFIX-310" >/dev/null \
     && cf "(iii) ABLATION FAILED — the SYMMETRIC pair $SB_PREFIX-310/$SB_PREFIX-311 was reported, so the arm fires on a healthy board and (i)/(ii) prove nothing: $(printf '%s\n' "$out" | grep '⚠' | tr '\n' '|')"
 
   # THE ADVISORY RULING, asserted as an EFFECT and not as a word: findings are on the
   # report and the verdict is still clean. This fails the day somebody wires it to drift.
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "an ADVISORY arm changed the verdict — release.sh gate (d) refuses on this line, so a hand-maintained field with no producer would now block a release cut: $out"
   # …and the machine contract that makes kit-init drop it, on the arm's own header line.
-  printf '%s\n' "$out" | grep '^\[i\]' | grep -q 'reports only' \
+  printf '%s\n' "$out" | grep '^\[i\]' | grep 'reports only' >/dev/null \
     || cf "the advisory arm omits the literal 'reports only' token, so kit-init.sh's self-check reads its findings as decisions and fails fresh installs: $(printf '%s\n' "$out" | grep '^\[i\]')"
 
   # INSTRUMENT AGAINST A VACUOUS PASS. Everything above is satisfiable by an arm that
   # never parsed a field, if the fixture's writes silently missed.
-  printf '%s\n' "$out" | grep -qE '[1-9][0-9]* card\(s\) read, [1-9][0-9]* dependency declaration\(s\)' \
+  printf '%s\n' "$out" | grep -E '[1-9][0-9]* card\(s\) read, [1-9][0-9]* dependency declaration\(s\)' >/dev/null \
     || cf "the arm reports ZERO declarations on a board carrying four — either the fixture's writes did not take or the parser does not read this YAML shape, and every assertion above is vacuous: $out"
 
   finish "check-board arm [i]: forward AND converse asymmetries are reported naming both cards, a symmetric pair is not (ablation-proven), an undeclared board says so rather than clearing, and the arm is advisory — the verdict stays clean and the header carries 'reports only'"
@@ -6262,23 +6329,23 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
   # unflattened list reports its first entry and silently hides the one that fired.
   local hits1; hits1="$(printf '%s' "$hits" | tr '\n' '|')"
 
-  printf '%s\n' "$hits" | grep -q "$sha_pre" \
+  printf '%s\n' "$hits" | grep "$sha_pre" >/dev/null \
     && cf "the PRE-ADOPTION commit $sha_pre was reported as drift — it predates the hook file entirely: $hits1"
-  printf '%s\n' "$hits" | grep -q "$sha_epoch" \
+  printf '%s\n' "$hits" | grep "$sha_epoch" >/dev/null \
     && cf "the EPOCH commit $sha_epoch was itself reported — the boundary is 'at or after' when it must be STRICTLY after, and this is the exact day-one line an adopter sees: $hits1"
   # INSTRUMENT / ABLATION: without this the three assertions above are all satisfiable by
   # an arm that reports nothing whatsoever.
-  printf '%s\n' "$hits" | grep -q "$sha_after" \
+  printf '%s\n' "$hits" | grep "$sha_after" >/dev/null \
     || cf "ABLATION FAILED — the post-epoch unprefixed commit $sha_after was NOT reported, so the arm cannot go red and every exclusion asserted above proves nothing: $out"
 
   # The narrowing is NAMED, and named with a non-zero count — an arm that silently
   # narrows its operand set is the defect this kit spent a crunch removing.
-  printf '%s\n' "$out" | grep -q "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg" \
+  printf '%s\n' "$out" | grep "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg" >/dev/null \
     || cf "the scope line does not name the epoch it derived: $out"
-  printf '%s\n' "$out" | grep -qE "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg — [1-9][0-9]* of the last" \
+  printf '%s\n' "$out" | grep -E "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg — [1-9][0-9]* of the last" >/dev/null \
     || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so this case would pass vacuously: $out"
   # The accepted residual is stated where the result is printed, not only in a change file.
-  printf '%s\n' "$out" | grep -q "the epoch is the hook FILE's arrival" \
+  printf '%s\n' "$out" | grep "the epoch is the hook FILE's arrival" >/dev/null \
     || cf "the accepted residual (hook file present, core.hooksPath never set) is not stated in the arm's output: $out"
 
   teardown
@@ -6311,11 +6378,11 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
   rout="$(cb_run)"
   rhits="$(printf '%s\n' "$rout" | grep 'lacks a \[Role\] prefix' || true)"
   rhits1="$(printf '%s' "$rhits" | tr '\n' '|')"
-  printf '%s\n' "$rhits" | grep -q "$sha_rafter" \
+  printf '%s\n' "$rhits" | grep "$sha_rafter" >/dev/null \
     || cf "(root) ABLATION FAILED — with the epoch at the ROOT commit the arm reported NOTHING, so it went blind rather than scoping: $rout"
-  printf '%s\n' "$rhits" | grep -q "$sha_root" \
+  printf '%s\n' "$rhits" | grep "$sha_root" >/dev/null \
     && cf "(root) the ROOT epoch commit was itself reported — strictly-after does not hold when the epoch has no parent: $rhits1"
-  printf '%s\n' "$rout" | grep -q "scope: commits after $sha_root" \
+  printf '%s\n' "$rout" | grep "scope: commits after $sha_root" >/dev/null \
     || cf "(root) the scope line does not name the root epoch: $rout"
 
   finish "check-board arm (e): pre-adoption commits and the epoch commit ITSELF are excluded, a post-epoch unprefixed commit is still reported (ablation-proven), the narrowing is named with its count — and the same holds when the epoch is the ROOT commit, which is what the day-one recipe produces"
@@ -6363,11 +6430,11 @@ case_check_board_from_a_worktree() {
   # exactly the situation the trap lived in.
   out="$( cd "$wt" && env -u CLAUDE_PROJECT_DIR "$wt/scripts/check-board.sh" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc from a linked worktree (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "origin/$SB_TRUNK" \
+  printf '%s\n' "$out" | grep "origin/$SB_TRUNK" >/dev/null \
     || cf "the trunk-property arms do not name origin/$SB_TRUNK when run from a worktree: $out"
-  printf '%s\n' "$out" | grep -q '\[f\].*no registered worktree' \
+  printf '%s\n' "$out" | grep '\[f\].*no registered worktree' >/dev/null \
     && cf "arm [f] reported NO REGISTERED WORKTREE from a linked worktree — the publication path was not located against the main checkout, so the trap survives: $out"
-  printf '%s\n' "$out" | grep -q '^\[f\]' \
+  printf '%s\n' "$out" | grep '^\[f\]' >/dev/null \
     || cf "arm [f] printed no line at all from a linked worktree — a missing line is itself a finding: $out"
 
   finish "check-board is correct from a LINKED WORKTREE too: the trunk arms name origin/$SB_TRUNK and arm [f] still locates .kanban-wt against the main checkout"
@@ -6414,17 +6481,17 @@ case_check_board_graduation() {
 
   local out
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -q '^\[g\]' \
+  printf '%s\n' "$out" | grep '^\[g\]' >/dev/null \
     || cf "(a) no [g] section — the arm is absent, which no other assertion here can detect"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     || cf "(a) with no signal at all the arm did not say it had not run: $out"
   # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD. arm [g]'s load-failure branch
   # prints the SAME "THIS CHECK DID NOT RUN" string, so the assertion above became
   # satisfiable by a broken scripts/lib/lived-probe.sh the day that branch was added —
   # the case would go green while measuring a library error instead of the tree's signals.
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'could not be loaded' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'could not be loaded' >/dev/null \
     && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
     && cf "(a) the arm claimed graduation on a tree with no sign of having started: $out"
 
 
@@ -6434,25 +6501,25 @@ case_check_board_graduation() {
   publish_sandbox
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'CLAUDE.md' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'CLAUDE.md' >/dev/null \
     || cf "(b) the REPLACE finding did not NAME CLAUDE.md — instruments.md § A.4 wants the operand: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'README.md' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'README.md' >/dev/null \
     || cf "(b) the REPLACE finding did not name README.md: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'PROJECT.md still holds' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'PROJECT.md still holds' >/dev/null \
     || cf "(b) the FILL finding did not fire on a PROJECT.md holding <trunk>: $out"
   # NAME THE CLASS, not the phrase. This read `grep -qi 'not measured'` as authored, and
   # a reddening control measured that it CANNOT SEE THE OMISSION IT IS NAMED AFTER:
   # delete arm (g3)'s echo entirely and the case still passes, because the FILL span line
   # one line above says "The non-markdown FILL members are NOT measured here" and -i makes
   # that a match. The assertion was satisfied by a different class's disclaimer.
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'DELETE-IF-UNUSED: not measured' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED: not measured' >/dev/null \
     || cf "(b) DELETE-IF-UNUSED was silently omitted instead of declaring itself unmeasured: $out"
 
   # ── (c) THE VERDICT CONTROL — the whole reason the arm is separable. ─────────
   # Graduation is reporting findings RIGHT NOW. The verdict must still read clean,
   # because the board is clean. If this ever fails, the release ritual's board gate
   # and kit-init's own self-check both start failing on every fresh install.
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "(c) graduation findings changed the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is what sends kit-init's self-check looking for a cause: $out"
 
   # ── (d) GRADUATED: it clears, and it NAMES ITS SOURCE while clearing. ────────
@@ -6462,11 +6529,11 @@ case_check_board_graduation() {
   publish_sandbox
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
     || cf "(d) a graduated tree did not clear: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'read from:' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'read from:' >/dev/null \
     || cf "(d) the CLEARING branch did not name its operand — instruments.md § A.4, the asymmetry that only errs toward false confidence: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     && cf "(d) a graduated tree still reported scaffolding: $out"
 
   finish "check (g): graduation says THIS CHECK DID NOT RUN with no signal, reports and names its files while scaffolding stands, clears once replaced naming its source — and never moves the board verdict"
@@ -6495,9 +6562,9 @@ case_check_board_graduation_enabled_without_receipt() {
   # ASSERT THE PREMISE: no receipt. If one were present the case would pass for the
   # reason every other case already covers, and prove nothing about the other three.
   local _sig; _sig="$(_lived_signals)"
-  printf '%s' "$_sig" | grep -q 'stamp receipt' \
+  printf '%s' "$_sig" | grep 'stamp receipt' >/dev/null \
     && _fixture_die "case_check_board_graduation_enabled_without_receipt: the sandbox carries a stamp receipt, so this case would be enabled by the signal every other case already builds and would prove nothing about the other three."
-  printf '%s' "$_sig" | grep -q 'issue file' \
+  printf '%s' "$_sig" | grep 'issue file' >/dev/null \
     || _fixture_die "case_check_board_graduation_enabled_without_receipt: no issue file is on the board, so the signal this case exists to exercise is absent and a green would mean nothing."
 
   local out; out="$(cb_run)"
@@ -6522,15 +6589,15 @@ case_check_board_graduation_enabled_without_receipt() {
   # So do not read this line as the protection and delete the positive believing the case
   # is still guarded. `grep -q` on empty input returns 1, which is why a positive cannot
   # pass vacuously and a negative can — that asymmetry, not this anchor, is the guard.
-  printf '%s\n' "$out" | grep -q '^\[g\]' \
+  printf '%s\n' "$out" | grep '^\[g\]' >/dev/null \
     || cf "no [g] section — the arm is absent, which no other assertion here can detect"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     && cf "(enabled) a board carrying an issue file did not enable the arm — it reads four signals and this is one of them: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     || cf "(enabled) the arm ran but reported no finding on an unreplaced scaffolding tree: $out"
   # NAME THE SIGNAL. An enabling condition is an operand, and a reader who wants to know
   # why the check ran on their tree should not have to reason it out.
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'enabled by:' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'enabled by:' >/dev/null \
     || cf "(enabled) the arm did not name the signal that enabled it: $out"
 
   finish "check (g): a lived signal OTHER than the receipt — a card on the board — enables the arm, and it names which signal did"
@@ -6584,17 +6651,17 @@ case_check_board_graduation_not_run_direction() {
   # So do not read this line as the protection and delete the positive believing the case
   # is still guarded. `grep -q` on empty input returns 1, which is why a positive cannot
   # pass vacuously and a negative can — that asymmetry, not this anchor, is the guard.
-  printf '%s\n' "$out" | grep -q '^\[g\]' \
+  printf '%s\n' "$out" | grep '^\[g\]' >/dev/null \
     || cf "no [g] section — the arm is absent, which no other assertion here can detect"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     || cf "(not-run) the arm did not state that it had not run, so a reader cannot tell an unrun check from a clean one: $out"
   # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD. arm [g]'s load-failure branch
   # prints the SAME "THIS CHECK DID NOT RUN" string, so the assertion above became
   # satisfiable by a broken scripts/lib/lived-probe.sh the day that branch was added —
   # the case would go green while measuring a library error instead of the tree's signals.
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'could not be loaded' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'could not be loaded' >/dev/null \
     && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
     && cf "(not-run) the arm claimed graduation on a tree with no sign of having started: $out"
 
   finish "check (g): with NO signal at all the arm says THIS CHECK DID NOT RUN and never claims completion — an unrun check is not a clean one"
@@ -6616,7 +6683,7 @@ case_check_board_graduation_reads_the_trunk() {
 
   local out
   out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     || cf "precondition failed: the arm did not report on published scaffolding: $out"
 
   # ── GRADUATE IN THE WORKING TREE ONLY. DO NOT PUBLISH. ──────────────────────
@@ -6632,15 +6699,15 @@ case_check_board_graduation_reads_the_trunk() {
   # deliberately NO push
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     || cf "THE ARM READ THE WORKING TREE: it cleared on an unpublished graduation, and a one-way arm that clears early never re-opens: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -q "$SB_TRUNK" \
+  printf '%s\n' "$out" | _cb_g_section | grep "$SB_TRUNK" >/dev/null \
     || cf "the arm did not name the trunk ref it answered about: $out"
 
   # And it clears once the work is actually published — the other direction.
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -q 'graduation COMPLETE' \
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
     || cf "the arm did not clear once the graduation was published: $out"
 
   finish "check (g) is a TRUNK read: an unpublished graduation does NOT clear it (a one-way arm that clears early never re-opens), and publishing does"
@@ -6693,9 +6760,9 @@ case_check_board_graduation_verdict_is_not_wired() {
   publish_sandbox
 
   local out; out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     || cf "precondition: the arm must be REPORTING for this control to mean anything: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "day-one completeness moved the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is also what sends kit-init's self-check looking for a cause: $out"
 
   finish "check (g) does not decide the verdict: a board with unreplaced scaffolding still reads 'board-drift: clean ✓'"
@@ -6760,7 +6827,7 @@ case_kit_init_survives_the_documented_first_commit() {
   # after the run, below, where it is true or the case has no subject.
   # ASSERT THE PREMISE. If the subject were prefixed after all, arm (e) never fires,
   # the verdict stays clean and this case passes while exercising nothing.
-  git -C "$SB_WORK" log -1 --format='%s' | grep -qE '^\[' \
+  git -C "$SB_WORK" log -1 --format='%s' | grep -E '^\[' >/dev/null \
     && _fixture_die "case_kit_init_survives_the_documented_first_commit: the first commit's subject IS role-prefixed, so arm (e) cannot fire and this case has no premise."
 
   local out rc
@@ -6769,7 +6836,7 @@ case_kit_init_survives_the_documented_first_commit() {
   # (a) THE REGRESSION: an unprefixed first commit must not fail the install.
   [ "$rc" -eq 0 ] \
     || cf "kit-init FAILED (rc=$rc) on the first-commit subject GIT-HOSTING § 3 step 2 prints: $out"
-  printf '%s\n' "$out" | grep -q 'kit-init COMPLETE and PROVEN' \
+  printf '%s\n' "$out" | grep 'kit-init COMPLETE and PROVEN' >/dev/null \
     || cf "no COMPLETE-and-PROVEN line on the documented day-one path: $out"
 
   # (b) AND THE BOARD CHECK MUST NOT BE THE THING THAT FAILED — "passes" vs "passes
@@ -6778,9 +6845,9 @@ case_kit_init_survives_the_documented_first_commit() {
   #     above" heading, so matching them would fire on correct output. That is the
   #     same mistake as reading `grep -qi 'not measured'` for the DELETE-IF-UNUSED
   #     class, measured once already in this file. Key on the FAILURE marker instead.
-  printf '%s\n' "$out" | grep -q '✗ check-board.sh reported drift' \
+  printf '%s\n' "$out" | grep '✗ check-board.sh reported drift' >/dev/null \
     && cf "kit-init's self-check failed its board arm on a correct day-one tree: $out"
-  printf '%s\n' "$out" | grep -q '✓ check-board.sh' \
+  printf '%s\n' "$out" | grep '✓ check-board.sh' >/dev/null \
     || cf "the self-check's board arm did not report a result at all — it was skipped or renamed: $out"
 
   # (c) THE PREMISE, CHECKED WHERE IT CAN BE TRUE. The regression needed the board report
@@ -6791,7 +6858,7 @@ case_kit_init_survives_the_documented_first_commit() {
   #     advisories would pass (a) and (b) while exercising nothing, which is measured: it
   #     is exactly what this case did before the root documents above were seeded.
   CB_OUT="$(cb_run)"   # capture, then test — cb_run grows with the board
-  printf '%s\n' "$CB_OUT" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$CB_OUT" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     || cf "arm [g] reports no advisory on the post-init tree, so the failure mode this case exists for was never reachable and its green means nothing"
 
   finish "kit-init: the first-commit subject GIT-HOSTING § 3 step 2 prints does not fail the install, the board arm is not what fails, and arm [g] WAS reporting while it ran"
@@ -6848,11 +6915,11 @@ case_kit_init_still_fails_on_a_real_finding() {
 
   local out rc
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
-  printf '%s\n' "$out" | grep -q 'already lived' \
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null \
     && _fixture_die "case_kit_init_still_fails_on_a_real_finding: kit-init took the ALREADY-LIVED refusal, so nothing here exercised the self-check."
   [ "$rc" -ne 0 ] \
     || cf "kit-init PASSED with a duplicate id on the board — the self-check tolerates a real finding: $out"
-  printf '%s\n' "$out" | grep -qi 'duplicate' \
+  printf '%s\n' "$out" | grep -i 'duplicate' >/dev/null \
     || cf "kit-init failed but did not NAME the finding that caused it: $out"
 
   finish "kit-init: a real board finding still fails the self-check, and the failure names that finding"
@@ -6884,9 +6951,9 @@ case_check_board_frontmatter_offset() {
   local out rc
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -q "no $id_key: line" \
+  printf '%s\n' "$out" | grep "no $id_key: line" >/dev/null \
     && cf "a card whose frontmatter sits below a comment header was reported as having no $id_key: $out"
-  printf '%s\n' "$out" | grep -q 'board-drift: clean ✓' \
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "a healthy card with a comment header did not read clean: $out"
 
   # NO SCAN-CAP CONTROL HERE, AND ITS ABSENCE IS NOW HONEST. This case used to derive
@@ -6974,29 +7041,29 @@ case_kit_init_happy() {
   local out rc
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] || cf "kit-init exited $rc: $out"
-  printf '%s\n' "$out" | grep -q 'kit-init COMPLETE and PROVEN' || cf "no COMPLETE-and-PROVEN line: $out"
-  printf '%s\n' "$out" | grep -q '✗' && cf "a self-check assertion failed: $out"
+  printf '%s\n' "$out" | grep 'kit-init COMPLETE and PROVEN' >/dev/null || cf "no COMPLETE-and-PROVEN line: $out"
+  printf '%s\n' "$out" | grep '✗' >/dev/null && cf "a self-check assertion failed: $out"
   # The prefix reached the TEMPLATE BODY — the check a silent substitution no-op fails.
-  printf '%s\n' "$out" | grep -q "id: SBX-000" \
+  printf '%s\n' "$out" | grep "id: SBX-000" >/dev/null \
     || cf "the self-check did not report the stamped frontmatter id: $out"
   grep -q 'ISSUE_PREFIX:-SBX' "$SB_WORK/scripts/config.sh" || cf "scripts/config.sh was not stamped"
   grep -q 'SBX-' "$SB_WORK/.claude/templates/ISSUE.template.md" || cf "the ISSUE template body was not stamped"
   grep -q '<PREFIX>' "$SB_WORK/.claude/templates/ISSUE.template.md" \
     && cf "the angle-bracket prefix placeholder SURVIVED in the template"
   # The CENSUS is asserted, not promised.
-  printf '%s\n' "$out" | grep -q "census — prefix placeholders" \
+  printf '%s\n' "$out" | grep "census — prefix placeholders" >/dev/null \
     || cf "the census did not report on prefix placeholders: $out"
-  printf '%s\n' "$out" | grep -qE "census — prefix placeholders[^:]*: 0 in" \
+  printf '%s\n' "$out" | grep -E "census — prefix placeholders[^:]*: 0 in" >/dev/null \
     || cf "the census did not report ZERO surviving prefix placeholders: $out"
   # A hat declaration is session state.
-  printf '%s\n' "$out" | grep -q 'hat declaration is invisible to git status' \
+  printf '%s\n' "$out" | grep 'hat declaration is invisible to git status' >/dev/null \
     || cf "the self-check did not prove the session-role ignore entry: $out"
   # DERIVED, not re-typed — and the derivation is asserted, because an empty result would make the
   # grep below look for an empty string, match every line, and pass while checking nothing.
   local role_rel; role_rel="$(_role_rel)"
   [ -n "$role_rel" ] \
     || cf "(control) could not derive an AGREED ROLE_REL from the two hooks — either one of them no longer declares it on its own line, or they now name different paths; the .gitignore assertion below would otherwise search for an empty string and pass"
-  [ -z "$role_rel" ] || grep -qxF "$role_rel" "$SB_WORK/.gitignore" \
+  [ -z "$role_rel" ] || grep -xF "$role_rel" "$SB_WORK/.gitignore" >/dev/null \
     || cf "$role_rel (derived from the hooks) was not written into the new repo's .gitignore"
   # The board is COMPLETE and left PRISTINE.
   local keeps leftovers
@@ -7025,7 +7092,7 @@ case_kit_init_happy() {
   # A second run must refuse rather than half-stamp.
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
   [ "$rc" -ne 0 ] || cf "the second run did NOT refuse"
-  printf '%s\n' "$out" | grep -q 'already lived' || cf "the second-run refusal did not name what is stamped: $out"
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "the second-run refusal did not name what is stamped: $out"
 
   finish "kit-init: end-to-end init + self-check, census green, board pristine, re-run refuses"
   teardown
@@ -7089,10 +7156,10 @@ case_kit_init_repairs_hook_mode() {
     || cf "the repaired bit did not reach the trunk (origin records mode ${shipped:-<absent>}) — a fresh clone would still get an inert hook"
 
   # The bit is only worth anything if the guard is then LIVE, so assert the effect too.
-  printf '%s\n' "$out" | grep -q 'commit-msg hook REJECTED a prefix-less subject' \
+  printf '%s\n' "$out" | grep 'commit-msg hook REJECTED a prefix-less subject' >/dev/null \
     || cf "the hook was not proven live after the repair: $flat"
   # And the wrong diagnosis must not be what an adopter hears.
-  printf '%s\n' "$out" | grep -q 'core.hooksPath is not in effect' \
+  printf '%s\n' "$out" | grep 'core.hooksPath is not in effect' >/dev/null \
     && cf "kit-init blamed core.hooksPath for a mode problem: $flat"
 
   finish "kit-init: repairs a non-executable commit-msg hook, the repair reaches the trunk, and hooksPath is not blamed"
@@ -7163,7 +7230,7 @@ SEAM_EOF
   local unreported=""
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    printf '%s\n' "$out" | grep -qF "$f" || unreported="$unreported $f"
+    printf '%s\n' "$out" | grep -F "$f" >/dev/null || unreported="$unreported $f"
   done <<RECEIPT_EOF
 $before
 RECEIPT_EOF
@@ -7178,12 +7245,12 @@ RECEIPT_EOF
   mine="$(printf '%s' "$new" | cut -d'|' -f1)"
   outsider="$(printf '%s' "$old" | cut -d'|' -f1)"
   accepted="$( cd "$SB_WORK" && ./scripts/subtask.sh move SBX-001-s1 in_progress --role "$mine" --note n 2>&1 || true )"
-  printf '%s' "$accepted" | grep -q -- '--role must be' \
+  printf '%s' "$accepted" | grep -- '--role must be' >/dev/null \
     && cf "subtask.sh refused '$mine', a member of the set kit-init just declared — its whitelist was not stamped"
   # INSTRUMENT: the probe above is a NEGATIVE and is satisfied by any unreachable code
   # path. The same probe must FIRE on a role the project no longer declares.
   refused="$( cd "$SB_WORK" && ./scripts/subtask.sh move SBX-001-s1 in_progress --role "$outsider" --note n 2>&1 || true )"
-  printf '%s' "$refused" | grep -q -- '--role must be' \
+  printf '%s' "$refused" | grep -- '--role must be' >/dev/null \
     || cf "(control) subtask.sh did NOT refuse '$outsider', which the project's declared set no longer contains — the probe above cannot tell an accepted role from a whitelist it never reached"
 
   finish "kit-init --roles: every seam that carried the role set carries the new one and none keeps the old, the receipt names them, and subtask.sh's whitelist follows (accepts a declared role, refuses a withdrawn one)"
@@ -7353,7 +7420,7 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
     help_out="$( cd "$SB_WORK" && "./scripts/$t" --help 2>&1 )"; rc=$?
     [ "$rc" -eq 0 ] \
       || cf "($t a) --help exited $rc — a usage request must ALWAYS succeed (issue-creation.md § 3), and this one renders derived content, which is the path that can fail"
-    printf '%s' "$help_out" | grep -qF '@ROLE_SET@' \
+    printf '%s' "$help_out" | grep -F '@ROLE_SET@' >/dev/null \
       && cf "($t a) --help printed the @ROLE_SET@ token itself — the placeholder reached the operator unexpanded, so the tool advertises nothing at all"
     advertised="$(printf '%s\n' "$help_out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
     [ -n "$advertised" ] \
@@ -7393,7 +7460,7 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
       *) _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: '$t' joined the derived population and no invocation is declared for it. Add its arm — a case that cannot exercise a member knows nothing about it." ;;
     esac
     probe_out="$( cd "$SB_WORK" && "${probe_cmd[@]}" "$kept" 2>&1 || true )"
-    printf '%s' "$probe_out" | grep -q -- '--role must be' \
+    printf '%s' "$probe_out" | grep -- '--role must be' >/dev/null \
       && cf "($t b) it refused '$kept', a member of the set this project just declared — its whitelist was not stamped, and --help now advertises a role the tool rejects"
     while IFS= read -r r; do
       [ -n "$r" ] || continue
@@ -7402,10 +7469,10 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
       # EXAMPLES, which name a concrete role so they read as runnable commands. Those are a real
       # and separate instance of this class; both tools now carry a label saying an example value
       # is an example, which is disclosure rather than removal. Named in the finish line.
-      printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -qx "$r" \
+      printf '%s\n' "$advertised" | tr '|' '\n' | sed 's/[[:space:]]//g' | grep -x "$r" >/dev/null \
         && cf "($t b) the advertised set still names '$r', which this project's declared set does not contain — a second copy of the set, in a shape the stamper's matcher cannot produce and therefore cannot rewrite"
       probe_out="$( cd "$SB_WORK" && "${probe_cmd[@]}" "$r" 2>&1 || true )"
-      printf '%s' "$probe_out" | grep -q -- '--role must be' \
+      printf '%s' "$probe_out" | grep -- '--role must be' >/dev/null \
         || cf "($t b) it did NOT refuse '$r', a role this project no longer declares — the whitelist was not stamped, or the arm was never reached: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-160)"
     done <<WITHDRAWN_EOF
 $withdrawn
@@ -7424,9 +7491,9 @@ WITHDRAWN_EOF
       out="$( cd "$SB_WORK" && "./scripts/$t" --help 2>&1 )"; rc=$?
       [ "$rc" -eq 0 ] \
         || cf "($t c) with $d absent, --help exited $rc — a usage request must always succeed, and this is the path arm (a) put a dependency on"
-      printf '%s\n' "$out" | grep -q 'ROLE_PREFIXES' \
+      printf '%s\n' "$out" | grep 'ROLE_PREFIXES' >/dev/null \
         || cf "($t c) with $d absent, --help does not NAME the seam the role set comes from — it degraded to something that tells the operator nothing about where to look: $(printf '%s' "$out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
-      printf '%s\n' "$out" | grep -qF -- "$shipped" \
+      printf '%s\n' "$out" | grep -F -- "$shipped" >/dev/null \
         && cf "($t c) with $d absent, --help printed the KIT'S SHIPPED set — it guessed, and a guess that is right about the kit and wrong about this project is the exact defect this case is named for"
       cp "$keep" "$SB_WORK/$d"; chmod +x "$SB_WORK/$d" 2>/dev/null || true
     done
@@ -7571,12 +7638,12 @@ case_role_enforcement_derives_and_names_its_fallback() {
     local r probe_out
     # ── ARM (a) DERIVED, both directions, with NOTHING re-stamped since kit-init ran.
     probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$kept" 2>&1 || true )"
-    printf '%s' "$probe_out" | grep -q -- '--role must be' \
+    printf '%s' "$probe_out" | grep -- '--role must be' >/dev/null \
       && cf "($t a) refused '$kept', a member of the set this project declares — the enforcement is not reading the declared set"
     while IFS= read -r r; do
       [ -n "$r" ] || continue
       probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$r" 2>&1 || true )"
-      printf '%s' "$probe_out" | grep -q -- '--role must be' \
+      printf '%s' "$probe_out" | grep -- '--role must be' >/dev/null \
         || cf "($t a) did NOT refuse '$r', a role this project withdrew — this is the PERMISSIVE staleness the whitelist exists to prevent: the board moves, the hook refuses the commit afterwards, and the shared kanban worktree loses it: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-140)"
     done <<W274_EOF
 $withdrawn
@@ -7585,7 +7652,7 @@ W274_EOF
     # ── ARM (c) THE ANNOUNCEMENT IS ABSENT WHILE THE SEAM IS READABLE. Ordered before (b) on
     #    purpose: it is the control that gives (b) its meaning, and it runs on the untouched tree.
     probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$kept" 2>&1 || true )"
-    printf '%s' "$probe_out" | grep -qF -- "$ann" \
+    printf '%s' "$probe_out" | grep -F -- "$ann" >/dev/null \
       && cf "($t c) announced a fallback while the seam was READABLE — an announcement that always fires says nothing, and arm (b) below would be satisfied by it"
 
     # ── ARM (b) WITH THE SEAM UNREADABLE: still enforces, and NAMES the fallback IN THE OUTPUT.
@@ -7595,12 +7662,12 @@ W274_EOF
       _control_did_not_run "remove the commit-msg hook for $t (it is still there, so nothing below is about an unreadable seam)"
     else
       probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$kept" 2>&1 || true )"
-      printf '%s' "$probe_out" | grep -qF -- "$ann" \
+      printf '%s' "$probe_out" | grep -F -- "$ann" >/dev/null \
         || cf "($t b) with the seam unreadable it did not SAY the set was a fallback — the announcement is in the file and not in the output, so an operator is told a set that is not their project's as though it were: $(printf '%s' "$probe_out" | tr '\n' '|' | cut -c1-140)"
       # STILL ENFORCES. A fallback that stops checking is option 1, which this change rejected:
       # it would silently widen --role to anything on a tree whose hook is gone.
       probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$(printf 'Nonexistent%s' "$$")" 2>&1 || true )"
-      printf '%s' "$probe_out" | grep -q -- '--role must be' \
+      printf '%s' "$probe_out" | grep -- '--role must be' >/dev/null \
         || cf "($t b) with the seam unreadable it accepted a role no set contains — the fallback stopped enforcing rather than enforcing a named default"
 
       # ── ARM (d) THE FALLBACK IS THIS PROJECT'S SET, NOT THE KIT'S. A withdrawn role must STILL
@@ -7610,7 +7677,7 @@ W274_EOF
       while IFS= read -r r; do
         [ -n "$r" ] || continue
         probe_out="$( cd "$SB_WORK" && "${probe[@]}" "$r" 2>&1 || true )"
-        printf '%s' "$probe_out" | grep -q -- '--role must be' \
+        printf '%s' "$probe_out" | grep -- '--role must be' >/dev/null \
           || cf "($t d) on the fallback path it accepted '$r', which this project withdrew — the default is the KIT'S set rather than this project's, so it was never stamped, and the fallback is more permissive than the literal it replaced"
       done <<W274D_EOF
 $withdrawn
@@ -7670,7 +7737,7 @@ case_lived_probe_has_one_authoring_site() {
   [ -z "$sig" ] \
     || _fixture_die "case_lived_probe_has_one_authoring_site: the sandbox already carries lived signal(s) — $(printf '%s' "$sig" | tr '\n' ';') — so kit-init would refuse and arm [g] would run whatever the plant did."
   pre="$(cb_run)"
-  printf '%s\n' "$pre" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+  printf '%s\n' "$pre" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     || _fixture_die "case_lived_probe_has_one_authoring_site: arm [g] ALREADY runs on the unplanted sandbox, so the 'it ran' assertion below would pass without the fifth signal."
 
   # THE PLANT — one probe, in the LIBRARY only, emitting a record shape both consumers
@@ -7690,19 +7757,19 @@ case_lived_probe_has_one_authoring_site() {
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix ZZZ --trunk "$SB_TRUNK" 2>&1)" || rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(initializer) kit-init did not refuse on a signal the shared probe emits — it is not deriving already-lived from the library: $(printf '%s' "$out" | tr '\n' '|')"
-  printf '%s\n' "$out" | grep -q 'already lived' \
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null \
     || cf "(initializer) kit-init refused without naming the already-lived class: $(printf '%s' "$out" | tr '\n' '|')"
-  printf '%s\n' "$out" | grep -qF "$tok" \
+  printf '%s\n' "$out" | grep -F "$tok" >/dev/null \
     || cf "(initializer) the refusal did not name the library's fifth signal — kit-init still carries its own inline copy of the probe: $(printf '%s' "$out" | tr '\n' '|')"
   after="$(git -C "$SB_WORK" rev-parse HEAD)"
   [ "$before" = "$after" ] || cf "HEAD moved during a refusal"
 
   out2="$(cb_run)"
-  printf '%s\n' "$out2" | grep -q '^\[g\]' \
+  printf '%s\n' "$out2" | grep '^\[g\]' >/dev/null \
     || cf "no [g] section — the arm is absent, which no other assertion here can detect"
-  printf '%s\n' "$out2" | _cb_g_section | grep -q 'THIS CHECK DID NOT RUN' \
+  printf '%s\n' "$out2" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     && cf "(arm) arm [g] did not run on a signal the shared probe emits — it still re-derives the set itself: $out2"
-  printf '%s\n' "$out2" | _cb_g_section | grep -qF "$tok" \
+  printf '%s\n' "$out2" | _cb_g_section | grep -F "$tok" >/dev/null \
     || cf "(arm) arm [g] ran but did not name the library's fifth signal as its enabling condition — the two consumers are not reading one probe: $out2"
 
   finish "lived probe: a fifth signal added to scripts/lib/lived-probe.sh reaches BOTH consumers — kit-init refuses naming it, arm [g] is enabled by it (one authoring site, asserted as an effect)"
@@ -7721,8 +7788,8 @@ case_kit_init_refuses_lived_board() {
   before="$(git -C "$SB_WORK" rev-parse HEAD)"
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix ZZZ --trunk "$SB_TRUNK" 2>&1)"; rc=$?
   [ "$rc" -ne 0 ] || cf "kit-init ran against a board carrying an issue file (it must refuse)"
-  printf '%s\n' "$out" | grep -q 'already lived' || cf "the refusal did not name the class: $out"
-  printf '%s\n' "$out" | grep -q 'NOTHING WAS WRITTEN' || cf "the refusal did not state that nothing was written"
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null || cf "the refusal did not name the class: $out"
+  printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null || cf "the refusal did not state that nothing was written"
   # THE REFUSAL MUST BE FOR THE RIGHT REASON. kit-init has four ALREADY-LIVED
   # signals (a board carrying issue files, a progress.md § Log with entries, an
   # ARCHIVE.md with entries, and its own stamp receipt in config.sh) and `grep -q
@@ -7732,9 +7799,9 @@ case_kit_init_refuses_lived_board() {
   # carried kit-init's stamp, so this case passed on the WRONG signal in their tree
   # and nothing said so. Neutralizing removes the stamp; without these two lines it
   # would only convert a measured wrong-reason pass into an unmeasured one.
-  printf '%s\n' "$out" | grep -q 'progress/todo/ carries 1 issue file' \
+  printf '%s\n' "$out" | grep 'progress/todo/ carries 1 issue file' >/dev/null \
     || cf "the refusal did not name the planted issue file as the lived signal — it may have refused for a different reason: $out"
-  printf '%s\n' "$out" | grep -q "$KIT_STAMP_MARK" \
+  printf '%s\n' "$out" | grep "$KIT_STAMP_MARK" >/dev/null \
     && cf "the refusal cited kit-init's own stamp receipt as a lived signal — the sandbox was not neutralized, so this case is measuring the wrong signal: $out"
   after="$(git -C "$SB_WORK" rev-parse HEAD)"
   [ "$before" = "$after" ] || cf "HEAD moved during a refusal"
@@ -7770,18 +7837,18 @@ case_kit_init_gate_fill() {
   local v="$SB_WORK/scripts/verify.sh" out rc
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --gate-command '/bin/echo kit-init-gate-green' 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] || cf "kit-init exited $rc with --gate-command against the empty frame: $out"
-  printf '%s\n' "$out" | grep -q 'kit-init COMPLETE and PROVEN' || cf "no COMPLETE-and-PROVEN line: $out"
-  printf '%s\n' "$out" | grep -q 'GATES table was empty — filled' || cf "kit-init did not report filling the table: $out"
+  printf '%s\n' "$out" | grep 'kit-init COMPLETE and PROVEN' >/dev/null || cf "no COMPLETE-and-PROVEN line: $out"
+  printf '%s\n' "$out" | grep 'GATES table was empty — filled' >/dev/null || cf "kit-init did not report filling the table: $out"
   grep -qF '"gate|core|/bin/echo kit-init-gate-green"' "$v" || cf "the record did not land in verify.sh"
   grep -q '^GATES=($' "$v" || cf "the frame's GATES=( line is gone — the fill rewrote more than one line"
   [ -x "$v" ] || cf "verify.sh lost its executable bit"
   # The filled runner RUNS, and is green — the first landing has a gate to pass.
   out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "the filled verify.sh exited $rc: $out"
-  printf '%s' "$out" | grep -q 'kit-init-gate-green' || cf "the filled verify.sh did not run the declared command: $out"
-  printf '%s' "$out" | grep -q 'PASS  gate' || cf "the summary does not name the filled gate: $out"
+  printf '%s' "$out" | grep 'kit-init-gate-green' >/dev/null || cf "the filled verify.sh did not run the declared command: $out"
+  printf '%s' "$out" | grep 'PASS  gate' >/dev/null || cf "the summary does not name the filled gate: $out"
   out="$( cd "$SB_WORK" && "$v" --list 2>&1 )"; rc=$?
-  printf '%s' "$out" | grep -q '1 declared gate' || cf "--list does not report one declared gate: $out"
+  printf '%s' "$out" | grep '1 declared gate' >/dev/null || cf "--list does not report one declared gate: $out"
   # ...and the filled file reached the trunk with the initialization commit.
   origin_file_contains "scripts/verify.sh" 'gate|core|/bin/echo kit-init-gate-green' \
     || cf "the filled verify.sh was not pushed to the trunk"
@@ -7800,8 +7867,8 @@ case_kit_init_gate_and_remote_refusals() {
   before="$(git -C "$SB_WORK" rev-parse HEAD)"
   refused_clean() {  # <label> <rc> <out> <needle>
     [ "$2" -ne 0 ] || cf "$1: did not refuse"
-    printf '%s\n' "$3" | grep -q 'NOTHING WAS WRITTEN' || cf "$1: the refusal did not state that nothing was written"
-    printf '%s\n' "$3" | grep -q "$4" || cf "$1: the refusal did not name the cause ($4): $3"
+    printf '%s\n' "$3" | grep 'NOTHING WAS WRITTEN' >/dev/null || cf "$1: the refusal did not state that nothing was written"
+    printf '%s\n' "$3" | grep "$4" >/dev/null || cf "$1: the refusal did not name the cause ($4): $3"
     [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "$1: HEAD moved during a refusal"
     [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "$1: the tree was modified during a refusal"
   }
@@ -7816,7 +7883,7 @@ case_kit_init_gate_and_remote_refusals() {
   git -C "$SB_WORK" remote set-url origin "../$(basename "$SB_ORIGIN")" >/dev/null 2>&1
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
   refused_clean "(c) relative remote URL" "$rc" "$out" 'RELATIVE path'
-  printf '%s\n' "$out" | grep -q 'remote set-url' || cf "(c) the refusal did not print the set-url fix: $out"
+  printf '%s\n' "$out" | grep 'remote set-url' >/dev/null || cf "(c) the refusal did not print the set-url fix: $out"
 
   finish "kit-init: refuses --gate-command against a declared table (never appends), a '|' in the command, and a relative remote URL — writing nothing each time"
   teardown
@@ -7888,7 +7955,7 @@ case_option_parsing_hygiene() {
   _opt 1 "--severity refuses a value outside its enum"  new-bug.sh sl --id "$SB_PREFIX-901" --severity nonsense
   _opt 2 "a value-taking option with NO value refuses, naming it" new-bug.sh sl --id "$SB_PREFIX-902" --severity
   _opt 2 "the same, on a sibling's flag"                new-refactor.sh sl --id "$SB_PREFIX-903" --target
-  printf '%s' "$out" | grep -q -- '--target requires a value' \
+  printf '%s' "$out" | grep -- '--target requires a value' >/dev/null \
     || cf "the no-value refusal did not name the option: $out"
 
   _opt 0 "--help prints usage and SUCCEEDS"        subtask.sh --help
@@ -7947,7 +8014,7 @@ case_creation_slug_shape_is_one_rule() {
   [ "$rc" -eq 2 ] || cf "new-prd.sh: a short name with a space and an underscore → rc=$rc (want 2): $(printf '%s' "$out" | tr '\n' '|')"
   [ -z "$(find "$SB_WORK/requirements" -name '*.md' 2>/dev/null)" ] \
     || cf "new-prd.sh WROTE a file for a refused short name — the id is burned: $(ls -1 "$SB_WORK/requirements")"
-  printf '%s' "$out" | grep -q 'position' \
+  printf '%s' "$out" | grep 'position' >/dev/null \
     || cf "new-prd.sh's refusal does not name the offending position: $(printf '%s' "$out" | tr '\n' '|')"
 
   # (2) subtask.sh — the EFFECT on the TRUNK, which is where its create arm publishes.
@@ -7967,7 +8034,7 @@ case_creation_slug_shape_is_one_rule() {
 
   # (4) THE VALUE IS ECHOED, NOT REWRITTEN INTO LEGALITY (§ 5, and config.sh's reason).
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh "$bad" 2>&1 )" || rc=$?
-  printf '%s' "$out" | grep -qF -- "$bad" \
+  printf '%s' "$out" | grep -F -- "$bad" >/dev/null \
     || cf "the refusal does not echo the name that was typed: $(printf '%s' "$out" | tr '\n' '|')"
 
   # ── INSTRUMENT CHECK. Everything above is "non-zero and nothing landed", which a
@@ -8125,31 +8192,31 @@ case_first_mile() {
   [ "$rc" -eq 0 ] || cf "kit-init exited $rc: $out"
 
   # The COMPOSITION: the printed recipe names the literal first id…
-  printf '%s\n' "$out" | grep -q -- '--id SBX-001' \
+  printf '%s\n' "$out" | grep -- '--id SBX-001' >/dev/null \
     || cf "the printed next-step recipe does not name the literal first id 'SBX-001': $out"
   # …and it no longer offers next-id.sh for the FIRST mint.
-  printf '%s\n' "$out" | grep 'next-id.sh' | grep -qi 'after the first\|refuses' \
+  printf '%s\n' "$out" | grep 'next-id.sh' | grep -i 'after the first\|refuses' >/dev/null \
     || cf "next-id.sh is still offered without the after-the-first qualification: $out"
 
   # The CONTRACT is untouched: next-id.sh still refuses on the empty board.
   local nid_err nid_rc
   nid_err="$(cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>&1 1>/dev/null)"; nid_rc=$?
   [ "$nid_rc" -ne 0 ] || cf "next-id.sh answered on an EMPTY board — the id-minting refusal was weakened"
-  printf '%s' "$nid_err" | grep -qi 'no existing' || cf "next-id.sh's refusal lost its explanation: $nid_err"
+  printf '%s' "$nid_err" | grep -i 'no existing' >/dev/null || cf "next-id.sh's refusal lost its explanation: $nid_err"
 
   # Follow the printed recipe VERBATIM: the first issue mints.
   out="$(cd "$SB_WORK" && "$SB_WORK/scripts/new-issue.sh" first-mile --id SBX-001 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] || cf "the printed first-mint recipe failed (rc=$rc): $out"
   f="$SB_WORK/progress/todo/SBX-001-first-mile.md"
   [ -f "$f" ] || cf "the printed recipe did not create progress/todo/SBX-001-first-mile.md"
-  printf '%s\n' "$out" | grep -q 'PUSH IT BEFORE YOU MOVE IT' \
+  printf '%s\n' "$out" | grep 'PUSH IT BEFORE YOU MOVE IT' >/dev/null \
     || cf "new-issue.sh does not print the push-before-you-move step: $out"
 
   # The mover's not-found error NAMES the cause.
   out="$(cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" SBX-001 in_progress --role PM --note x 2>&1)"; rc=$?
   [ "$rc" -ne 0 ] || cf "the mover moved a card that was never pushed"
-  printf '%s\n' "$out" | grep -q 'no file matching' || cf "the mover's error changed shape: $out"
-  printf '%s\n' "$out" | grep -qi 'not yet pushed' \
+  printf '%s\n' "$out" | grep 'no file matching' >/dev/null || cf "the mover's error changed shape: $out"
+  printf '%s\n' "$out" | grep -i 'not yet pushed' >/dev/null \
     || cf "the not-found error does not name 'minted but not yet pushed?': $out"
   # THE COSTS-NOTHING ASSERTION DOES NOT BELONG HERE, and the reason is measured
   # rather than argued (2026-08-28). It was authored for this spot as
@@ -8173,7 +8240,7 @@ case_first_mile() {
   cb_a() { CLAUDE_PROJECT_DIR="$SB_WORK" "$SB_WORK/scripts/check-board.sh" 2>&1 \
              | awk '/^\[a\]/{a=1} a&&/^\[b\]/{exit} a{print}'; }
   out="$(cb_a)"
-  printf '%s\n' "$out" | grep -q '⚠' && cf "a FRESHLY MINTED card produced a drift-[a] finding: $out"
+  printf '%s\n' "$out" | grep '⚠' >/dev/null && cf "a FRESHLY MINTED card produced a drift-[a] finding: $out"
   # ABLATION CONTROL — plant an Activity bullet DECLARING another column and the
   # comparator must fire. Without this, the assertion above is unfalsifiable.
   cp "$f" "$SB_WORK/progress/todo/SBX-002-old-shape.md"
@@ -8189,7 +8256,7 @@ case_first_mile() {
   git -C "$SB_WORK" commit -qm "[PM] SBX-002: ablation plant" >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(cb_a)"
-  printf '%s\n' "$out" | grep -q 'SBX-002-old-shape.md' \
+  printf '%s\n' "$out" | grep 'SBX-002-old-shape.md' >/dev/null \
     || cf "(control) the [a] comparator did NOT fire on a bullet declaring qa_complete — the clean result above proves nothing: $out"
   # Withdraw the plant from the trunk too, so the move below runs against the board
   # the rest of this case describes.
@@ -8565,10 +8632,10 @@ PRE_EOF
     base="$(basename "$f")"; n=$((n+1))
     out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
     # ARM 1 — the plant reaches this consumer.
-    printf '%s\n' "$out" | grep -qF "$tok" \
+    printf '%s\n' "$out" | grep -F "$tok" >/dev/null \
       || cf "(1) $base --help does not carry a line added to lib/usage.sh — it sources the library and then renders with its own inline copy"
     # ARM 2 — …and it still renders ITS OWN header, not the library's.
-    printf '%s\n' "$out" | grep -qF "$(sed -n '3p' "$f" | sed 's|^# \{0,1\}||')" \
+    printf '%s\n' "$out" | grep -F "$(sed -n '3p' "$f" | sed 's|^# \{0,1\}||')" >/dev/null \
       || cf "(2) $base --help no longer contains its OWN line 3 — the renderer is reading \${BASH_SOURCE[0]}, which inside a sourced function names the LIBRARY, so every tool is printing lib/usage.sh's header"
   done <<POST_EOF
 $consumers
@@ -8594,7 +8661,7 @@ POST_EOF
   # blind and every result below is about nothing. (The sandbox has no scripts/test/, which
   # make_sandbox removes, so this file's own copy of the idiom cannot satisfy the control.)
   ren_all="$( { grep -rlF -- "$ren_expr" "$SB_WORK/scripts" 2>/dev/null || true; } )"
-  printf '%s\n' "$ren_all" | grep -q '/lib/usage\.sh' \
+  printf '%s\n' "$ren_all" | grep '/lib/usage\.sh' >/dev/null \
     || _fixture_die "case_usage_renderer_has_one_authoring_site: the derived renderer expression was not found even in scripts/lib/usage.sh, which authors it — so this census matches nothing and would report ONE authoring site whatever the tree contains."
   second="$(printf '%s\n' "$ren_all" | grep -v '/lib/usage\.sh' | grep -v '^$' || true)"
   [ -z "$second" ] \
@@ -8643,7 +8710,7 @@ case_help_window_ends_where_its_rule_says() {
     grep -qF "$tokA" "$f" || _fixture_die "case_help_window_ends_where_its_rule_says: the tail sentinel did not land in $base."
     bash -n "$f" || _fixture_die "case_help_window_ends_where_its_rule_says: $base no longer parses after the plant."
     out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
-    printf '%s\n' "$out" | grep -qF "$tokA" \
+    printf '%s\n' "$out" | grep -F "$tokA" >/dev/null \
       || cf "(a) $base --help does not print the LAST line of its own header — its window is truncated, which is the hard-coded-range defect this class has already been paid for twice"
   done <<CORPUS_EOF
 $(printf '%b' "$corpus")
@@ -8663,9 +8730,9 @@ CORPUS_EOF
       || _fixture_die "case_help_window_ends_where_its_rule_says: one of release.sh's two sentinels did not land."
     bash -n "$r" || _fixture_die "case_help_window_ends_where_its_rule_says: release.sh no longer parses after the plant."
     out="$( cd "$SB_WORK" && "$r" --help </dev/null 2>&1 )"
-    printf '%s\n' "$out" | grep -qF "$tokIn" \
+    printf '%s\n' "$out" | grep -F "$tokIn" >/dev/null \
       || cf "(b) release.sh --help dropped a usage example added at the END of its examples — its window is not tracking the last example: $out"
-    printf '%s\n' "$out" | grep -qF "$tokOut" \
+    printf '%s\n' "$out" | grep -F "$tokOut" >/dev/null \
       && cf "(b) release.sh --help printed a header line BELOW its last usage example — it has been put on the header-block rule, which floods its help with operator notes that are not help text"
   fi
 
@@ -8875,9 +8942,9 @@ case_minted_card_is_drift_clean() {
   [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
   # INSTRUMENT: arm [a] must have walked a column. "nothing found" over an absent board
   # is the vacuous pass this arm's own header warns about.
-  printf '%s\n' "$out" | grep -q 'no active column exists' \
+  printf '%s\n' "$out" | grep 'no active column exists' >/dev/null \
     && cf "(instrument) arm [a] found no active column — the assertion below is vacuous"
-  printf '%s\n' "$out" | grep -q 'last Activity declares' \
+  printf '%s\n' "$out" | grep 'last Activity declares' >/dev/null \
     && cf "a FRESHLY MINTED card reports folder-vs-Activity drift — the templates promise the adopter's first board check is clean: $out"
 
   # ── ABLATION: the arm must be able to SEE these cards, or the green above is empty.
@@ -8888,7 +8955,7 @@ case_minted_card_is_drift_clean() {
   grep -q '`dev_complete`' "$victim" || _fixture_die "case_minted_card_is_drift_clean: the plant did not take."
   publish_sandbox
   out="$(cb_run)"
-  printf '%s\n' "$out" | grep -q 'last Activity declares' \
+  printf '%s\n' "$out" | grep 'last Activity declares' >/dev/null \
     || cf "(ablation) arm [a] did NOT report a card whose last Activity declares a folder it is not in — the clean result above establishes nothing"
 
   finish "a freshly minted card is drift-clean on the first board check across $n creator(s), and the arm demonstrably sees these cards (ablation-proven)"
@@ -8957,12 +9024,12 @@ case_template_header_survives_the_stamp() {
     hdr="$(awk '/^<!-- KIT-CLASS:/{p=1} p{print} p && /-->/{exit}' "$t")"
     [ -n "$hdr" ] || { cf "$base: no KIT-CLASS header block after init"; continue; }
     # THE STAMPED VALUES MUST NOT APPEAR INSIDE THE EXPLANATION.
-    printf '%s\n' "$hdr" | grep -qw 'SBX' \
+    printf '%s\n' "$hdr" | grep -w 'SBX' >/dev/null \
       && cf "$base: the post-init header names the stamped PREFIX value — kit-init rewrote the sentence that explains kit-init, and the adopter reads a claim with no referent"
-    printf '%s\n' "$hdr" | grep -qw "$SB_TRUNK" \
+    printf '%s\n' "$hdr" | grep -w "$SB_TRUNK" >/dev/null \
       && cf "$base: the post-init header names the stamped TRUNK value where it should be describing a token"
     # …and the instruction that is still in force survived.
-    printf '%s\n' "$hdr" | grep -qi 'never leave' \
+    printf '%s\n' "$hdr" | grep -i 'never leave' >/dev/null \
       || cf "$base: the post-init header lost its fill instruction"
   done
   [ "$n" -ge 5 ] \
@@ -8998,7 +9065,7 @@ case_leaf_workers_carry_the_common_sections() {
     base="$(basename "$f")"
     while IFS= read -r h; do
       [ -n "$h" ] || continue
-      sed -n 's/^## //p' "$f" | sed 's/[[:space:]]*(.*)$//' | grep -qxF "$h" \
+      sed -n 's/^## //p' "$f" | sed 's/[[:space:]]*(.*)$//' | grep -xF "$h" >/dev/null \
         || missing="$missing
     $base is missing '$h'"
     done <<REQ_EOF
@@ -9092,7 +9159,7 @@ case_agent_model_pins_match_their_declaration() {
     [ -n "$val" ] || continue
     grep -qF -- "$val" "$ex" \
       && echo "LEAK:$val"
-  done | grep -q '^LEAK:' \
+  done | grep '^LEAK:' >/dev/null \
     && cf "the declaration WRITES a pin's value — a second copy of a vendor product name, in the document that exists to say the copy is a debt. Derive them instead."
 
   finish "the agent model pins match their declaration: $n pinned definition(s), exactly ${mcount:-0} deliberate exception named by file, and no pin VALUE is copied into the declaration"
@@ -9213,12 +9280,30 @@ case_cli_shape_across_the_shipped_set() {
   [ -n "$exempt" ] \
     || _fixture_die "case_cli_shape_across_the_shipped_set: could not derive the exempt classes out of issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES block. With none derived every hook and library reads as a violation; with the derivation reading the wrong block every tool reads as exempt. Both are silent."
 
+  # ── AN OVER-BROAD PREFIX EXEMPTS THE WHOLE TREE, AND EVERY OTHER ARM HERE READS IT AS HEALTH.
+  #    The derivation harvests BACKTICKED PATHS out of the block, so a backticked NON-path in that
+  #    prose is collected as one. That happened: class 2 wrote the shell's sourcing operator as a
+  #    backticked single dot, the derived set gained a bare `.`, and a `.` prefix matches every
+  #    shipped file — so every tool was exempt and this case still reported a healthy population.
+  #    Note which way the failure points: the stale-prefix arm below cannot see it, because an
+  #    over-broad prefix matches MORE than something, and the population arm cannot see it either,
+  #    because exempting everything leaves no violations to find. A defect that silences two checks
+  #    by satisfying both needs its own.
+  local e
+  for e in $exempt; do
+    case "$e" in
+      */) : ;;                       # a directory prefix is the normal shape
+      *.sh|*.md|*/*) : ;;            # a specific file, or any path with a separator
+      *) cf "issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES block yields the exempt prefix '$e', which names no directory and no file — a prefix this broad matches most of the tree and silently exempts it from the CLI shape. Almost certainly a backticked NON-path in that block's prose (the sourcing operator, a flag, a bare extension) being harvested as a path: spell it as a word instead of in backticks. Nothing between those markers may put a non-path in backticks." ;;
+    esac
+  done
+
   # ── THE SECOND DIRECTION, and it is why an exemption cannot rot here: every prefix the contract
   #    declares must still match something the kit ships. A class that quietly matches nothing is
   #    coverage shrinking with nothing red to show it.
-  local e stale=""
+  local stale=""
   for e in $exempt; do
-    grep -v '^#' "$man" | awk '{print $2}' | grep -q "^${e}" \
+    grep -v '^#' "$man" | awk '{print $2}' | grep "^${e}" >/dev/null \
       || stale="$stale $e"
   done
   [ -z "$stale" ] \
@@ -9232,7 +9317,7 @@ case_cli_shape_across_the_shipped_set() {
     # that is not a program — and that is how a third of this case's population went missing
     # without a word: `[ -f "$SB_WORK/$rel" ] || continue` silently dropped consumers/, setup.sh
     # and the skill helpers while the finish line went on saying "across the shipped set".
-    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep -q '^#!.*sh$' || continue
+    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep '^#!.*sh$' >/dev/null || continue
 
     local skip=0
     for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
@@ -9258,13 +9343,13 @@ case_cli_shape_across_the_shipped_set() {
     # NAMING ITSELF IS THE EFFECT ASSERTION. An rc-only check passes vacuously on a tool
     # that has no --help arm at all and simply does its job: that is exactly how
     # next-id.sh answered a usage request with a mintable id and looked fine.
-    printf '%s\n' "$out" | grep -qF "$base" \
+    printf '%s\n' "$out" | grep -F "$base" >/dev/null \
       || cf "$rel --help exited 0 but its output never names $base — this is satisfied by a tool with no usage handler that just ran: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
 
     out="$( cd "$SB_WORK" && "$f" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
     [ "$rc" -eq 2 ] \
       || cf "$rel: an unrecognised option exited $rc, want 2 — § 3 names ONE status across the shipped set: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
-    printf '%s\n' "$out" | grep -qF -- '--not-a-real-flag' \
+    printf '%s\n' "$out" | grep -F -- '--not-a-real-flag' >/dev/null \
       || cf "$rel: the refusal does not NAME the option it refused (§ 3), so the caller cannot tell which flag was wrong: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
   done <<EOF
 $(grep -v '^#' "$man" | awk '{print $2}')
@@ -9282,7 +9367,7 @@ EOF
   local shellprogs=0
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep -q '^#!.*sh$' && shellprogs=$(( shellprogs + 1 ))
+    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep '^#!.*sh$' >/dev/null && shellprogs=$(( shellprogs + 1 ))
   done <<EOF
 $(grep -v '^#' "$man" | awk '{print $2}')
 EOF
@@ -9306,7 +9391,7 @@ EOF
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" --not-a-real-flag in_progress --role Dev </dev/null 2>&1 )"; rc=$?
   [ "$rc" -eq 2 ] \
     || cf "move-issue.sh: a dash-leading FIRST token exited $rc, want 2 — it was taken as the issue id rather than refused as an option: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  printf '%s\n' "$out" | grep -qF -- '--not-a-real-flag' \
+  printf '%s\n' "$out" | grep -F -- '--not-a-real-flag' >/dev/null \
     || cf "move-issue.sh: the refusal does not name the dash-leading token it refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   # ── INSTRUMENT CHECK. Both probes above must be capable of FAILING. A script with no
@@ -9315,7 +9400,7 @@ EOF
   local probe="$SB_TMP/no-handlers.sh"
   printf '#!/usr/bin/env bash\necho ok\n' > "$probe"; chmod +x "$probe"
   out="$( "$probe" --help </dev/null 2>&1 )"
-  printf '%s\n' "$out" | grep -qF 'no-handlers.sh' \
+  printf '%s\n' "$out" | grep -F 'no-handlers.sh' >/dev/null \
     && cf "(control) the --help probe PASSED a script with no usage handler — it is measuring nothing"
   out="$( "$probe" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
   [ "$rc" -eq 2 ] \
@@ -9374,7 +9459,7 @@ case_release_gate_c_skip_shape() {
 
   rc=0; out="$(run_release 1.1.0 --dry-run)" || rc=$?
   [ "$rc" -eq 0 ] || cf "(skip) a self-skipping gate ABORTED the cut (rc=$rc) — the third state must not read as a failure: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  printf '%s\n' "$out" | grep -q 'SKIP: live read-canary' \
+  printf '%s\n' "$out" | grep 'SKIP: live read-canary' >/dev/null \
     || cf "(skip) the gate's third state never reached the operator — a canary that could not run passed SILENTLY, which is the false green this example exists to teach against: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   # INSTRUMENT: the needle must DISCRIMINATE. If it also matches a run where the canary
@@ -9383,7 +9468,7 @@ case_release_gate_c_skip_shape() {
   out="$( cd "$SB_WORK" && CANARY_TOKEN=x RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true \
             RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 --dry-run 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(ran) the canary with its credential PRESENT aborted the cut (rc=$rc)"
-  printf '%s\n' "$out" | grep -q 'SKIP: live read-canary' \
+  printf '%s\n' "$out" | grep 'SKIP: live read-canary' >/dev/null \
     && cf "(instrument) the SKIP needle matched a run where the canary DID run — leg (i) is not measuring the skip"
   teardown
 
@@ -9399,7 +9484,7 @@ case_release_gate_c_skip_shape() {
   rc=0; out="$(run_release 1.1.0 --dry-run)" || rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(inline) an inline-shell gate record RAN — gate (c) is eval-ing its records, so the worked example may no longer need to teach the script shape, and this case's premise is gone"
-  printf '%s\n' "$out" | grep -q 'inline canary' \
+  printf '%s\n' "$out" | grep 'inline canary' >/dev/null \
     || cf "(inline) the refusal does not name the gate that failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   assert_release_unmutated 1.1.0
   teardown
@@ -9422,9 +9507,9 @@ case_release_notes_section_is_more_than_a_heading() {
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   rc=0; out="$(run_release 1.1.0)" || rc=$?
   [ "$rc" -ne 0 ] || cf "(e) a release cut with a notes section holding only a placeholder"
-  printf '%s\n' "$out" | grep -q 'EMPTY' \
+  printf '%s\n' "$out" | grep 'EMPTY' >/dev/null \
     || cf "(e) the refusal does not say the section is empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  printf '%s\n' "$out" | grep -q 'NOTES.md' \
+  printf '%s\n' "$out" | grep 'NOTES.md' >/dev/null \
     || cf "(e) the refusal does not name WHICH document is empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   assert_release_unmutated 1.1.0
 
@@ -9445,9 +9530,9 @@ case_release_notes_section_is_more_than_a_heading() {
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   rc=0; out="$(run_release 1.1.0)" || rc=$?
   [ "$rc" -ne 0 ] || cf "(f) a release cut from a section whose heading carries NO DATE — the state the documented workflow produces, since nothing in the kit writes that date"
-  printf '%s\n' "$out" | grep -q 'NO DATE' \
+  printf '%s\n' "$out" | grep 'NO DATE' >/dev/null \
     || cf "(f) the refusal does not say the date is missing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  printf '%s\n' "$out" | grep -q 'nothing in the kit writes that date for you' \
+  printf '%s\n' "$out" | grep 'nothing in the kit writes that date for you' >/dev/null \
     || cf "(f) the refusal does not tell the cutter that no tool will write it — without that they look for the tool that failed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   assert_release_unmutated 1.1.0
 
@@ -9490,9 +9575,9 @@ case_release_behind_the_remote() {
   # --- (i) it refuses, names the DIRECTION and the way past, mutates nothing ---
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(i) a cut from a BEHIND checkout was allowed (rc=0)"
-  printf '%s\n' "$out" | grep -q 'BEHIND' \
+  printf '%s\n' "$out" | grep 'BEHIND' >/dev/null \
     || cf "(i) the refusal does not name the direction: $out"
-  printf '%s\n' "$out" | grep -q -- 'git pull --ff-only' \
+  printf '%s\n' "$out" | grep -- 'git pull --ff-only' >/dev/null \
     || cf "(i) the refusal does not name the way past: $out"
   assert_release_unmutated 1.1.0
 
@@ -9513,16 +9598,16 @@ case_release_behind_the_remote() {
     && cf "(control/iii) the broken remote is still fetchable — the failed-fetch leg measures nothing"
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(iii) a failed fetch did not refuse — the arm degrades silently, which is the class it exists to close"
-  printf '%s\n' "$out" | grep -q -- '--no-fetch' \
+  printf '%s\n' "$out" | grep -- '--no-fetch' >/dev/null \
     || cf "(iii) the refusal does not name the declared-offline escape: $out"
-  printf '%s\n' "$out" | grep -q 'NOT ABOUT YOUR TREE' \
+  printf '%s\n' "$out" | grep 'NOT ABOUT YOUR TREE' >/dev/null \
     || cf "(iii) the refusal does not attribute itself to the remote rather than the tree: $out"
   assert_release_unmutated 1.1.0
 
   # --- (iv) --no-fetch DECLARES the skip: gates green, and it SAYS SO ----------
   out="$(run_release 1.1.0 --no-fetch --dry-run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(iv) --no-fetch did not survive an unreachable remote (rc=$rc): $out"
-  printf '%s\n' "$out" | grep -q 'NOT CONSULTED' \
+  printf '%s\n' "$out" | grep 'NOT CONSULTED' >/dev/null \
     || cf "(iv) --no-fetch is SILENT — an undeclared skip is indistinguishable from a gate that ran: $out"
   assert_release_unmutated 1.1.0
   teardown
@@ -9614,7 +9699,7 @@ case_release_guards() {
   publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(no-version-files) an undeclared version seam did not refuse"
-  printf '%s' "$out" | grep -q 'VERSION_FILES' || cf "(no-version-files) the refusal does not name the seam: $out"
+  printf '%s' "$out" | grep 'VERSION_FILES' >/dev/null || cf "(no-version-files) the refusal does not name the seam: $out"
   teardown
 
   finish "release.sh guards: malformed / tag-exists / off-trunk / dirty / undeclared-version-seam all abort nonzero without mutating"
@@ -9642,7 +9727,7 @@ case_release_preflight_gates() {
   publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(extra-gate-red) a red declared gate did not abort the cut"
-  printf '%s' "$out" | grep -q 'declared extra gate' \
+  printf '%s' "$out" | grep 'declared extra gate' >/dev/null \
     || cf "(extra-gate-red) the refusal does not name the gate that failed: $out"
   assert_release_unmutated 1.1.0
   teardown
@@ -9675,9 +9760,9 @@ case_release_doc_arms() {
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(doc1-missing) expected nonzero with only doc2 documented, got 0"
   first_line="$(release_refusal_line "$out")"
-  printf '%s' "$first_line" | grep -q 'CHANGELOG\.md' \
+  printf '%s' "$first_line" | grep 'CHANGELOG\.md' >/dev/null \
     || cf "(doc1-missing) the refusal does not name CHANGELOG.md: $first_line"
-  printf '%s' "$first_line" | grep -q 'NOTES\.md' \
+  printf '%s' "$first_line" | grep 'NOTES\.md' >/dev/null \
     && cf "(doc1-missing) the refusal names the OTHER document — the arms are conflated: $first_line"
   assert_release_unmutated 1.1.0
   # BOTH missing → exactly ONE refusal, from the first-declared arm (fail-fast).
@@ -9694,8 +9779,8 @@ case_release_doc_arms() {
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(doc2-missing) expected nonzero — the second arm does not bite"
   second_line="$(release_refusal_line "$out")"
-  printf '%s' "$second_line" | grep -q 'NOTES\.md' || cf "(doc2-missing) the refusal does not name NOTES.md: $second_line"
-  printf '%s' "$second_line" | grep -q '1\.1\.0' || cf "(doc2-missing) the refusal does not name the version wanted: $second_line"
+  printf '%s' "$second_line" | grep 'NOTES\.md' >/dev/null || cf "(doc2-missing) the refusal does not name NOTES.md: $second_line"
+  printf '%s' "$second_line" | grep '1\.1\.0' >/dev/null || cf "(doc2-missing) the refusal does not name the version wanted: $second_line"
   [ "$first_line" != "$second_line" ] \
     || cf "(distinctness) both arms emit the SAME refusal: $second_line"
   assert_release_unmutated 1.1.0
@@ -9719,9 +9804,9 @@ case_release_doc_arms() {
   publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(header-date) a section dated before its own content was accepted"
-  printf '%s' "$out" | grep -q '2026-09-30' || cf "(header-date) the refusal does not name the newest body date: $out"
-  printf '%s' "$out" | grep -q 'NOTES\.md' || cf "(header-date) the refusal does not name the file: $out"
-  printf '%s' "$out" | grep -qi "CUTTER" || cf "(header-date) the refusal does not state whose date it is: $out"
+  printf '%s' "$out" | grep '2026-09-30' >/dev/null || cf "(header-date) the refusal does not name the newest body date: $out"
+  printf '%s' "$out" | grep 'NOTES\.md' >/dev/null || cf "(header-date) the refusal does not name the file: $out"
+  printf '%s' "$out" | grep -i "CUTTER" >/dev/null || cf "(header-date) the refusal does not state whose date it is: $out"
   assert_release_unmutated 1.1.0
   # …and correcting the HEADER (never the measurement) unblocks it.
   perl -i -pe 's/^## \[1\.1\.0\] — 2026-07-24$/## [1.1.0] — 2026-09-30/' "$SB_WORK/NOTES.md"
@@ -9823,7 +9908,7 @@ case_release_ship_manifest_is_driven_against_the_bump() {
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -eq 0 ] \
     || cf "(a) the cut REFUSED with a shipped version file declared, exit $rc — the bump is normalised out of the hash, so bumping a shipped file must not wedge the release: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
-  printf '%s' "$out" | grep -q 'gate (g)' \
+  printf '%s' "$out" | grep 'gate (g)' >/dev/null \
     || cf "(a) gate (g) did not report at all, so the green above says nothing about the manifest: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   teardown
 
@@ -9845,9 +9930,9 @@ case_release_ship_manifest_is_driven_against_the_bump() {
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(b) the cut PROCEEDED with a shipped file edited after the manifest was approved — a normaliser that cancels the whole line rather than the version value passes this, which is the measured defect this case exists for: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
-  printf '%s' "$out" | grep -q 'changed since the manifest was approved' \
+  printf '%s' "$out" | grep 'changed since the manifest was approved' >/dev/null \
     || cf "(b) the refusal does not say the shipped set changed, so an operator cannot tell gate (g) from any other refusal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)"
-  printf '%s' "$out" | grep -q 'approve-shipped' \
+  printf '%s' "$out" | grep 'approve-shipped' >/dev/null \
     || cf "(b) the refusal does not name the command that re-records the manifest, leaving the operator with a stop and no next step"
   [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" != "tag" ] \
     || cf "(b) gate (g) refused AFTER tagging — the whole point of running it in preflight is that nothing is mutated when it fires"
@@ -9868,9 +9953,9 @@ case_release_ship_manifest_is_driven_against_the_bump() {
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(c) the cut PROCEEDED with publishing ON, no build and no ship manifest — the only thing it could publish is the repository, including progress/, and nothing declared what may leave: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
-  printf '%s' "$out" | grep -q 'SHIP_MANIFEST is empty' \
+  printf '%s' "$out" | grep 'SHIP_MANIFEST is empty' >/dev/null \
     || cf "(c) the refusal does not name the empty seam, so an operator cannot tell which of the three conditions to change: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
-  printf '%s' "$out" | grep -q 'approve-shipped' \
+  printf '%s' "$out" | grep 'approve-shipped' >/dev/null \
     || cf "(c) the refusal does not name the command that drafts the manifest — a stop with no next step"
   [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" != "tag" ] \
     || cf "(c) the refusal came AFTER tagging"
@@ -9896,7 +9981,7 @@ case_release_publish() {
   [ "$rc" -eq 0 ] || cf "the dry run exited $rc (expected 0): $out"
   [ -z "$(git -C "$SB_ORIGIN" rev-parse -q --verify refs/heads/dist 2>/dev/null)" ] \
     || cf "a DRY RUN created the dist branch on the remote"
-  printf '%s' "$out" | grep -q 'publish: building' && cf "a DRY RUN ran the build step: $out"
+  printf '%s' "$out" | grep 'publish: building' >/dev/null && cf "a DRY RUN ran the build step: $out"
   assert_release_unmutated 1.1.0
 
   # …then a real run publishes everything ("nothing, then everything", so the dry-run
@@ -9905,13 +9990,13 @@ case_release_publish() {
   [ "$rc" -eq 0 ] || cf "the cut exited $rc (expected 0): $out"
   [ -n "$(git -C "$SB_WORK" ls-remote --tags origin v1.1.0 2>/dev/null)" ] \
     || cf "the tag was not pushed — the publish must come AFTER the tag push"
-  printf '%s' "$out" | grep -q 'clone --branch dist --depth 1' \
+  printf '%s' "$out" | grep 'clone --branch dist --depth 1' >/dev/null \
     || cf "the run never printed the consumer clone line: $out"
   # THE ALLOWLIST, exactly.
   files="$(dist_files)"
   [ "$files" = "$(printf '%s\n' README.md sandbox-1.1.0.pkg sandbox-NOTES.md | sort)" ] \
     || cf "dist carries the wrong file set: $(printf '%s' "$files" | tr '\n' ' ')"
-  printf '%s\n' "$files" | grep -qE '^(scripts/|progress/|pkg\.conf|VERSION)$' \
+  printf '%s\n' "$files" | grep -E '^(scripts/|progress/|pkg\.conf|VERSION)$' >/dev/null \
     && cf "dist carries repo material it must never carry: $files"
   # BUILT AT THE TAG: the artifact's name carries the TAGGED version, which exists
   # only in the tag's tree, and it is byte-identical to a fresh build there.
@@ -9949,8 +10034,8 @@ case_release_publish() {
   [ "$rc" -eq 0 ] || cf "the second cut exited $rc: $out"
   [ "$(dist_commit_count)" = "1" ] || cf "after a second publish dist has $(dist_commit_count) commits — replace means ONE"
   files="$(dist_files)"
-  printf '%s\n' "$files" | grep -q 'sandbox-1.2.0.pkg' || cf "the second publish did not put the new artifact on dist"
-  printf '%s\n' "$files" | grep -q 'sandbox-1.1.0.pkg' && cf "the OLD artifact is still on dist — replace must not accumulate"
+  printf '%s\n' "$files" | grep 'sandbox-1.2.0.pkg' >/dev/null || cf "the second publish did not put the new artifact on dist"
+  printf '%s\n' "$files" | grep 'sandbox-1.1.0.pkg' >/dev/null && cf "the OLD artifact is still on dist — replace must not accumulate"
   teardown
 
   finish "release.sh dist branch: dry run publishes nothing, the real run publishes the allowlist exactly as ONE orphan commit built AT the tag (byte-identical), and a second publish REPLACES it"
@@ -9979,15 +10064,15 @@ case_release_publish_recovery() {
   origin_file_contains "VERSION" '1.1.0' || cf "the version bump is missing from the trunk after a publish failure"
   [ -z "$(git -C "$SB_ORIGIN" rev-parse -q --verify refs/heads/dist 2>/dev/null)" ] \
     || cf "a failed publish left a dist branch behind"
-  printf '%s' "$out" | grep -qi 'RELEASE ITSELF SUCCEEDED' \
+  printf '%s' "$out" | grep -i 'RELEASE ITSELF SUCCEEDED' >/dev/null \
     || cf "the failure message does not say the release succeeded: $out"
-  printf '%s' "$out" | grep -q -- '--publish-only' || cf "the failure message names no retry command: $out"
+  printf '%s' "$out" | grep -- '--publish-only' >/dev/null || cf "the failure message names no retry command: $out"
 
   # The retry it names has to EXIST — a message pointing at a flag the script
   # lacks would be the dangling-pointer defect in its most expensive place.
   out="$( cd "$SB_WORK" && RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 --publish-only 2>&1 )"; rc=$?
-  printf '%s' "$out" | grep -qi "unknown option" && cf "--publish-only is advertised but not implemented: $out"
+  printf '%s' "$out" | grep -i "unknown option" >/dev/null && cf "--publish-only is advertised but not implemented: $out"
   [ "$rc" -ne 0 ] || cf "--publish-only reported success with a failing build stub: $out"
 
   # Make the build work; the retry republishes.
@@ -10014,13 +10099,13 @@ case_release_publish_recovery() {
   [ "$rc" -eq 0 ] || cf "(publish-only dry run) exited $rc: $out"
   after="$(git -C "$SB_ORIGIN" rev-parse -q --verify refs/heads/dist 2>/dev/null)"
   [ "$before" = "$after" ] || cf "(publish-only dry run) the dist ref MOVED during a rehearsal"
-  git -C "$SB_ORIGIN" show "refs/heads/dist:sandbox-1.1.0.pkg" 2>/dev/null | grep -q 'ROUND2' \
+  git -C "$SB_ORIGIN" show "refs/heads/dist:sandbox-1.1.0.pkg" 2>/dev/null | grep 'ROUND2' >/dev/null \
     && cf "(publish-only dry run) the rehearsal republished the artifact"
   # The anti-vacuity control: a REAL --publish-only on the same sandbox moves it.
   out="$( cd "$SB_WORK" && RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 --publish-only 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(control) the real --publish-only exited $rc: $out"
-  git -C "$SB_ORIGIN" show "refs/heads/dist:sandbox-1.1.0.pkg" 2>/dev/null | grep -q 'ROUND2' \
+  git -C "$SB_ORIGIN" show "refs/heads/dist:sandbox-1.1.0.pkg" 2>/dev/null | grep 'ROUND2' >/dev/null \
     || cf "(control) a real --publish-only did NOT republish — the rehearsal assertion proves nothing"
   teardown
 
@@ -10052,11 +10137,11 @@ case_release_local_only_recovery() {
   write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1.0 --dry-run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(dry-run) exited $rc (expected 0): $out"
-  printf '%s\n' "$out" | grep -q 'LOCAL ONLY' \
+  printf '%s\n' "$out" | grep 'LOCAL ONLY' >/dev/null \
     && cf "(dry-run) printed the local-only recovery, but a dry run makes nothing local: $out"
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(healthy) exited $rc (expected 0): $out"
-  printf '%s\n' "$out" | grep -q 'LOCAL ONLY' \
+  printf '%s\n' "$out" | grep 'LOCAL ONLY' >/dev/null \
     || cf "(healthy) no local-only state printed between the tag and the pushes: $out"
   pos_block="$(printf '%s\n' "$out" | grep -n 'LOCAL ONLY' | head -1 | cut -d: -f1)"
   pos_push="$(printf '%s\n' "$out" | grep -n 'pushing commit + tag' | head -1 | cut -d: -f1)"
@@ -10158,9 +10243,9 @@ case_release_stub_marker() {
   # --- (i) UNMARKED: each seam alone must be refused, and write nothing -------
   out="$( cd "$SB_WORK" && RELEASE_VERIFY_CMD=true "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(i) RELEASE_VERIFY_CMD was honored with NO marker — an unmarked caller can skip the verify gate on a production cut: $out"
-  printf '%s\n' "$out" | grep -q 'RELEASE_TEST_ALLOW_STUB' \
+  printf '%s\n' "$out" | grep 'RELEASE_TEST_ALLOW_STUB' >/dev/null \
     || cf "(i) the refusal does not name the marker it requires: $out"
-  printf '%s\n' "$out" | grep -q 'NOTHING WAS WRITTEN' \
+  printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null \
     || cf "(i) the refusal does not state that nothing was written: $out"
 
   out="$( cd "$SB_WORK" && RELEASE_BOARD_CMD="$SB_TMP/board-clean.sh" "$SB_WORK/scripts/release.sh" 1.1.0 2>&1 )"; rc=$?
@@ -10610,7 +10695,7 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 #
 # Reading the project's declared role set out of scripts/githooks/commit-msg is ONE act
 # written five times. It cannot be written once: check-board.sh and kit-init.sh source
-# nothing from scripts/lib/, so lib/role-set.sh's kit_role_set reaches three consumers and
+# nothing from scripts/lib/, so lib/role-set.sh's kit_role_set reaches its sourcing consumers and
 # not the other two.
 #
 # WHAT ACTUALLY WENT WRONG IS NOT THE COUNT. The copies disagreed and the disagreement was
@@ -10947,9 +11032,9 @@ case_release_hook_rejection_leaves_no_bump() {
 
   # …AND IT SAYS SO. Second, because a silent correct cleanup still leaves the operator
   # believing a release happened.
-  printf '%s' "$out" | grep -qi 'ABORTED between the version bump and the release commit' \
+  printf '%s' "$out" | grep -i 'ABORTED between the version bump and the release commit' >/dev/null \
     || cf "the abort is not announced — the operator is left with a failed command and no account of what was undone: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  printf '%s' "$out" | grep -qi 'RELEASE_ROLE' \
+  printf '%s' "$out" | grep -i 'RELEASE_ROLE' >/dev/null \
     || cf "the abort does not name the knob that fixes the likeliest cause"
 
   teardown
@@ -11124,7 +11209,7 @@ EOF
   rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-1" todo --note 2>&1 )" || rc=$?
   [ "$rc" -eq 2 ] \
     || cf "(executed) move-issue.sh with a valueless --note exited $rc, want 2: $(printf '%s' "$out" | head -1)"
-  printf '%s' "$out" | grep -q 'requires a value' \
+  printf '%s' "$out" | grep 'requires a value' >/dev/null \
     || cf "(executed) move-issue.sh's refusal does not say the option requires a value: $(printf '%s' "$out" | head -1)"
 
   # A LEADING '-' IS NEVER A NAME — the same clause, on a POSITIONAL rather than an option.
@@ -11259,7 +11344,7 @@ case_help_never_opens_with_the_class_marker() {
     [ -n "$rel" ] || continue
     f="$REAL_REPO_ROOT/$rel"
     [ -f "$f" ] || continue
-    head -1 "$f" 2>/dev/null | grep -q '^#!.*sh$' || continue
+    head -1 "$f" 2>/dev/null | grep '^#!.*sh$' >/dev/null || continue
 
     local e skip=0
     for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
@@ -11277,7 +11362,7 @@ case_help_never_opens_with_the_class_marker() {
     [ -n "$out" ] \
       || { cf "$rel --help printed nothing — every tool the CLI contract binds answers a usage request, and this one is bound"; continue; }
     # THE FIRST FIVE LINES are the window's opening; a marker that wraps shows up there.
-    printf '%s\n' "$out" | head -5 | grep -q "$marker_key" \
+    printf '%s\n' "$out" | head -5 | grep "$marker_key" >/dev/null \
       && cf "$base --help opens with its own $marker_key marker — the window START is assuming the marker is one line, and this file's is not: $(printf '%s' "$out" | head -3 | tr '\n' '|' | cut -c1-140)"
   done <<EOF
 $(grep -v '^#' "$man" | awk '{print $2}')
@@ -11478,15 +11563,15 @@ case_frontmatter_scan_cap_is_enforced() {
   out="$(cb_run 2>&1)" || true
 
   # ── INSTRUMENT CHECK: check (d) ran at all. Every assertion below is about its output.
-  printf '%s\n' "$out" | grep -q '^\[d\]' \
+  printf '%s\n' "$out" | grep '^\[d\]' >/dev/null \
     || _fixture_die "case_frontmatter_scan_cap_is_enforced: no [d] section in the report — the arm did not run and both assertions below would be about an empty string."
 
   # (A) the normal card is NOT reported. Its block closed on line 3; the body rule is noise.
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-300-bodyrule" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-300-bodyrule" >/dev/null \
     && cf "(A) a card with normal frontmatter and a horizontal rule in its body was reported by check (d) — a body '---' is being read as a fence"
 
   # (B) the late fence is NOT accepted as frontmatter. This is the arm the cap exists for.
-  printf '%s\n' "$out" | grep -q "$SB_PREFIX-301-latefence" \
+  printf '%s\n' "$out" | grep "$SB_PREFIX-301-latefence" >/dev/null \
     || cf "(B) a fence pair $((cap + 5)) lines down was READ AS FRONTMATTER — the cap is not being applied, so any '---' anywhere in a card can start a frontmatter block and whatever follows it is parsed as fields"
 
   finish "check (d)'s frontmatter scan cap (derived: $cap lines) is enforced in both directions — a normal card with a horizontal rule far down its body still parses, and a complete fence pair below the cap is NOT accepted as frontmatter; the fixture is sized from the derived cap, so retuning it cannot leave this case asserting nothing. Not covered: whether $cap is the RIGHT value"
@@ -11505,30 +11590,30 @@ case_trunk_chain_announces_every_fallback() {
   # ── STEP 1: origin/HEAD is set. NOBODY announces anything. This is the instrument
   #    check for both arms below — a tool that announced here would satisfy them free.
   out="$(cb_run 2>&1)" || true
-  printf '%s' "$out" | grep -q 'GUESSED' \
+  printf '%s' "$out" | grep 'GUESSED' >/dev/null \
     && cf "(step 1) check-board announced a guess while $SB_TRUNK is set as origin/HEAD"
   out="$(run_release 1.1.0 --dry-run 2>&1)" || true
-  printf '%s' "$out" | grep -q 'STEP 2 of the chain\|is a GUESS' \
+  printf '%s' "$out" | grep 'STEP 2 of the chain\|is a GUESS' >/dev/null \
     && cf "(step 1) release.sh announced a fallback while origin/HEAD is set"
 
   # ── STEP 2: drop origin/HEAD, set init.defaultBranch. BOTH must say so.
   git -C "$SB_WORK" symbolic-ref -d "refs/remotes/origin/HEAD" >/dev/null 2>&1 || true
   git -C "$SB_WORK" config init.defaultBranch "$SB_TRUNK"
   out="$(cb_run 2>&1)" || true
-  printf '%s' "$out" | grep -q 'step 2' \
+  printf '%s' "$out" | grep 'step 2' >/dev/null \
     || cf "(step 2) check-board resolved the trunk from init.defaultBranch and said nothing — every trunk arm below it is then a statement about a guessed name: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   out="$(run_release 1.1.0 --dry-run 2>&1)" || true
-  printf '%s' "$out" | grep -q 'STEP 2 of the chain' \
+  printf '%s' "$out" | grep 'STEP 2 of the chain' >/dev/null \
     || cf "(step 2) release.sh cut against init.defaultBranch with no warning — the quieter half of the guessed-trunk defect, and the likelier one: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   # ── STEP 3: drop init.defaultBranch too. BOTH must say so, and say it differently —
   #    the step-3 message must not be reachable while step 2 still has an answer.
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
   out="$(cb_run 2>&1)" || true
-  printf '%s' "$out" | grep -q 'step 3' \
+  printf '%s' "$out" | grep 'step 3' >/dev/null \
     || cf "(step 3) check-board fell to the last-resort constant and said nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   out="$(run_release 1.1.0 --dry-run 2>&1)" || true
-  printf '%s' "$out" | grep -q 'is a GUESS' \
+  printf '%s' "$out" | grep 'is a GUESS' >/dev/null \
     || cf "(step 3) release.sh fell to the last-resort constant with no warning: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   # ── AND THE THREE AGREE ON THE ANSWER, which is the other half of "one chain".
@@ -11538,10 +11623,10 @@ case_trunk_chain_announces_every_fallback() {
                    "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
   [ -n "$last_resort" ] \
     || _fixture_die "case_trunk_chain_announces_every_fallback: could not read the last-resort constant — the expected value would be empty and both arms below would pass on nothing."
-  printf '%s' "$out" | grep -qF "'$last_resort'" \
+  printf '%s' "$out" | grep -F "'$last_resort'" >/dev/null \
     || cf "release.sh's step-3 guess is not the library's constant '$last_resort' — the three implementations agree on the WARNING and not on the ANSWER"
   out="$(cb_run 2>&1)" || true
-  printf '%s' "$out" | grep -qF "$last_resort" \
+  printf '%s' "$out" | grep -F "$last_resort" >/dev/null \
     || cf "check-board's step-3 trunk is not the library's constant '$last_resort'"
 
   finish "all three implementations of the trunk chain announce every link below the first — check-board at steps 2 and 3, release.sh at both (step 2 was silent, and it is where a real cut lands) — none of them announces at step 1, and both agree with the library on the step-3 constant"
@@ -11603,7 +11688,71 @@ case_probe_victim_selection_survives_pipefail() {
   [ -z "$rows" ] \
     || cf "a find/head pipeline is back, and this file's header forbids it by name: $(printf '%s' "$rows" | tr '\n' ' ' | cut -c1-200)"
 
-  finish "probe_pick returns the first match with the RIGHT STATUS on a corpus that makes 'find | head -1' SIGPIPE under pipefail (the value was never the problem; the status was), returns nothing for a pattern that matches nothing, and no find/head pipeline remains in this file"
+  # ── THE SAME HAZARD, THE OTHER READER: `… | grep -q` behind a pipe.
+  #    ASSERT THE CONSTRUCT'S ABSENCE, NOT ITS SYMPTOM, and that choice is measured
+  #    rather than stylistic: the false red only appears once the producer clears the
+  #    64KB pipe buffer, so a case that pipes a REALISTIC payload and waits for a red
+  #    stays green forever and certifies the defect as fixed. Below the buffer there is
+  #    nothing to see; above it every run fails. A threshold that sharp cannot be
+  #    sampled, so the census is the only honest instrument.
+  #    NOTE WHAT IS NOT FORBIDDEN: a bare `grep -q FILE` with no pipe has no producer,
+  #    cannot SIGPIPE anything, and is the correct form — this looks for a PIPE first.
+  local qrows
+  qrows="$(awk '
+    /^[[:space:]]*#/ { next }
+    /\|[[:space:]]*grep -q/ { print NR ": " $0 }
+  ' "$probe")"
+  [ -z "$qrows" ] \
+    || cf "a 'grep -q' behind a pipe is back, and under pipefail it reports the PRODUCER'S death instead of the reader's answer once the producer clears the pipe buffer — drop the -q and redirect (\`| grep -F pat >/dev/null\`), which drains the input and returns the identical status: $(printf '%s' "$qrows" | tr '\n' ' ' | cut -c1-200)"
+
+  # ── THE SHIPPED POPULATION, and widening to it is the point of this arm.
+  #    The census above reads only THIS FILE, so it could not see the very scripts an
+  #    adopter runs — and those are where the producer grows with THEIR project, which
+  #    is the condition that makes the defect reachable at all. A guard that certifies
+  #    the harness while the shipped tree carries the construct is a guard that reads
+  #    as armed and is not.
+  #
+  #    WHAT IS FORBIDDEN HERE IS NARROWER THAN ABOVE, ON PURPOSE. In this file every
+  #    piped `grep -q` is forbidden, because every producer here is a fixture that can
+  #    be grown. In the shipped scripts the kit DELIBERATELY LEAVES the pipelines whose
+  #    producer is one flag value being validated — `printf '%s' "$NUM" | grep -qE
+  #    '^[0-9]+$'` — since a single argument cannot approach the 64KB buffer and the
+  #    rewrite would be churn. So this census looks for a producer that CAN grow: a
+  #    command that reads the repository, the board or the network. That is the
+  #    header's own test, applied to the tree we ship rather than to the tree we test.
+  local shipped_rows shipped_files
+  shipped_files="$(find "$REAL_SCRIPTS" "$REAL_REPO_ROOT/consumers" -type f \
+                     \( -name '*.sh' -o -name 'commit-msg' \) 2>/dev/null \
+                   | grep -vF "$REAL_SCRIPTS/test/run.sh" || true)"
+  [ -n "$shipped_files" ] \
+    || _fixture_die "case_probe_victim_selection_survives_pipefail: found no shipped scripts to census — a guard over an empty population passes forever."
+  #    THE PRODUCER IS OFTEN ON A DIFFERENT LINE. `lib/kanban-worktree.sh` writes
+  #    `git -C … worktree list --porcelain \` and puts `| grep -qxF …` on the NEXT line,
+  #    so a single-line pattern demanding producer-and-reader together silently matches
+  #    nothing — which is how the first draft of this arm stayed green through its own
+  #    ablation. Carry the previous non-comment line and test the JOINED pair instead.
+  shipped_rows="$(printf '%s\n' "$shipped_files" | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    awk -v fn="$f" '
+      /^[[:space:]]*#/ { next }
+      {
+        # Join ONLY across a real line-continuation. Joining unconditionally leaks the
+        # previous statement verb into this one and reddens the flag validators that
+        # this arm deliberately permits (a printf of one flag value piped into grep -qE,
+        # sitting under an unrelated find) - measured as a false positive while writing
+        # this. NOTE: no apostrophes or quotes in this comment; it lives inside a
+        # single-quoted awk program, and one would end the program early.
+        joined = (prev ~ /[\\]$/) ? prev " " $0 : $0
+        if (joined ~ /(git|find|ls|cat|_ship_manifest_paths)[^|]*\|[[:space:]]*grep -q/)
+          print fn ":" NR ": " $0
+        prev = $0
+      }
+    ' "$f"
+  done)"
+  [ -z "$shipped_rows" ] \
+    || cf "a SHIPPED script pipes a growable producer into 'grep -q', which under pipefail returns the producer's SIGPIPE instead of the reader's answer once it clears the 64KB buffer — on an adopter's tree that is a refusal of a good state. Drop the -q and redirect (\`| grep -F pat >/dev/null\`): $(printf '%s' "$shipped_rows" | tr '\n' ' ' | cut -c1-300)"
+
+  finish "probe_pick returns the first match with the RIGHT STATUS on a corpus that makes 'find | head -1' SIGPIPE under pipefail (the value was never the problem; the status was), returns nothing for a pattern that matches nothing, neither a find/head pipeline nor a piped 'grep -q' remains in this file, and no SHIPPED script pipes a growable producer into 'grep -q'"
   teardown
 }
 
@@ -11631,19 +11780,19 @@ case_release_unmutated_names_the_cut() {
     || _fixture_die "case_release_unmutated_names_the_cut: the planted tag was not created — this sandbox has no committer identity, and the assertion below would pass by there being nothing to find."
 
   local got; got="$(_cf_probe assert_release_unmutated 2.0.0)"
-  printf '%s' "$got" | grep -qF 'v2.0.0' \
+  printf '%s' "$got" | grep -F 'v2.0.0' >/dev/null \
     || cf "a tag at the cut version sits in the sandbox and assert_release_unmutated 2.0.0 did not name it — the tag arm is looking somewhere other than the cut it was handed: '$got'"
 
   # …and it does NOT fire for a cut it was not handed. Otherwise the arm above could be
   # satisfied by a helper that reports every tag it finds.
   local other; other="$(_cf_probe assert_release_unmutated 3.0.0)"
-  printf '%s' "$other" | grep -qF 'v2.0.0' \
+  printf '%s' "$other" | grep -F 'v2.0.0' >/dev/null \
     && cf "assert_release_unmutated 3.0.0 reported the v2.0.0 tag — the arm is not scoped to the cut it was handed"
 
   # THE OTHER THREE ARMS still see their own subjects: mutate pkg.conf alone.
   perl -i -pe 's/^version = .*/version = "9.9.9"/' "$SB_WORK/pkg.conf"
   local pk; pk="$(_cf_probe assert_release_unmutated 3.0.0)"
-  printf '%s' "$pk" | grep -qF 'pkg.conf' \
+  printf '%s' "$pk" | grep -F 'pkg.conf' >/dev/null \
     || cf "pkg.conf was mutated and the helper did not name it: '$pk'"
 
   unset -f _cf_probe
@@ -11793,7 +11942,7 @@ EOF
   rc=0; out="$( _declare_gate 'wanted-gate|select|/bin/echo x' 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] \
     || cf "(arm 2) _declare_gate returned 0 with its anchor destroyed — the plant silently did nothing and the case downstream would run against an empty gate table"
-  printf '%s' "$out" | grep -qF 'wanted-gate' \
+  printf '%s' "$out" | grep -F 'wanted-gate' >/dev/null \
     || cf "(arm 2) the abort does not name the record it failed to declare: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
 
   finish "every anchored fixture append in this file ($n of them) sits inside one of four declared authors — no fifth copy of the four-step plant idiom — and a plant whose anchor has moved aborts naming the record it failed to declare rather than returning 0 on a file it did not change"
@@ -11865,7 +12014,7 @@ case_scaffolding_fixture_matches_the_tree() {
     >> "$SB_WORK/scripts/config.sh"
   publish_sandbox
   local out; out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep -qi 'still scaffolding' \
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     || cf "(d) a tree seeded by seed_scaffolding_tree does not read as still-scaffolding to check-board.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
 
@@ -11986,7 +12135,7 @@ case_kit_init_copy_list_minimum_is_real() {
     rc=0; out="$( "$probe/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
     [ "$rc" -ne 0 ] \
       || cf "kit-init exited 0 with '$f' missing — that entry is in COPY_LIST but nothing depends on it being there"
-    printf '%s' "$out" | grep -qF "$f" \
+    printf '%s' "$out" | grep -F "$f" >/dev/null \
       || cf "kit-init refused with '$f' missing but did NOT name it: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
     rm -rf "$probe"
   done <<EOF
@@ -12041,7 +12190,7 @@ case_seam_shape_reformat_is_loud() {
   # EFFECT (a) — kit-init REFUSES and NAMES the file. Not "proceeds on an empty default".
   rc=0; out="$( "$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] || cf "(a) kit-init.sh exited 0 with an unparseable ISSUE_PREFIX declaration — it proceeded on an empty default"
-  printf '%s' "$out" | grep -q 'config\.sh' || cf "(a) the refusal does not NAME scripts/config.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
+  printf '%s' "$out" | grep 'config\.sh' >/dev/null || cf "(a) the refusal does not NAME scripts/config.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
   grep -q 'ISSUE_PREFIX:-SBX' "$c" && cf "(a) config.sh was STAMPED during a refusal — the run mutated before it checked"
 
   # EFFECT (b) — the SAME for the other declaring file. Four consumers parse this one and
@@ -12058,7 +12207,7 @@ case_seam_shape_reformat_is_loud() {
   git -C "$SB_WORK" symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
   git -C "$SB_WORK" config --unset init.defaultBranch >/dev/null 2>&1 || true
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/check-board.sh" 2>&1 )" || true
-  printf '%s' "$out" | grep -qF '<unresolved trunk>' \
+  printf '%s' "$out" | grep -F '<unresolved trunk>' >/dev/null \
     || cf "(c) check-board.sh did not announce the unresolved trunk: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
 
   finish "a semantics-preserving reformat of either derived seam declaration — config.sh's or the lib's — is refused loudly by kit-init.sh naming the file, and announced rather than guessed by the read-only consumer; the value still sources correctly, which is what makes the shape the thing under test"
@@ -12125,7 +12274,7 @@ EOF
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       cl=$(( cl + 1 ))
-      grep -v '^#' "$man" | awk '{print $2}' | grep -qxF "$f" || absent="$absent $f"
+      grep -v '^#' "$man" | awk '{print $2}' | grep -xF "$f" >/dev/null || absent="$absent $f"
     done <<EOF
 $(awk '/^COPY_LIST=\(/{f=1;next} f&&/^\)/{exit} f{gsub(/^[[:space:]]+|[[:space:]]+$/,""); if($0!="") print}' "$ki")
 EOF

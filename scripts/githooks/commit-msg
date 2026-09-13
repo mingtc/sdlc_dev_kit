@@ -92,11 +92,29 @@ cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev
 # file was generated with the codegen step" mid-sentence is prose, not a provenance
 # claim. The "Generated with" arm allows leading decoration, since the shape the
 # tooling emits leads with an emoji rather than with the word.
+#
+# THE PRE-MARKER GROUP IS OPTIONAL — `(.*[^[:alnum:]])?` — AND THAT IS THE WHOLE GUARD.
+# It used to be a bare `.*[^[:alnum:]]`, which is a REQUIRED CHARACTER rather than a
+# boundary assertion: with the marker sitting immediately after the colon there was
+# nothing left for it to consume, so `Co-Authored-By:Claude <x@y>` — one deleted space —
+# walked straight past this rule. Measured on this hook, with a role-tagged subject so
+# rule 1 could not mask the result: the spaced form refused, the unspaced form ACCEPTED.
+# Making the group optional lets the colon itself be the left boundary.
+#
+# The trailing `([^[:alnum:]]|$)` stays REQUIRED, and deliberately: it is what keeps a
+# human whose name merely contains a marker's stem out of the refusal. `Co-Authored-By:
+# Claudia Ng <c@d>` is accepted because `i` follows `claud`, and that case is exercised
+# below in the harness alongside the bypass itself.
+#
+# NO `head` ON EITHER ARM. `head -1` exits on the first line it gets, the upstream `grep`
+# then dies of SIGPIPE on a long message, and under `set -o pipefail` that death — not
+# the match — would become `$offender`. `sed -n '1p'` reads to EOF and yields the same
+# first line. See scripts/test/run.sh's header, THE PIPEFAIL RULE, for the measurement.
 offender="$(printf '%s\n' "$cleaned" \
-  | grep -iE "^[[:space:]]*co-authored-by:.*[^[:alnum:]](${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
-  | head -1 || true)"
+  | grep -iE "^[[:space:]]*co-authored-by:(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
+  | sed -n '1p' || true)"
 [ -n "$offender" ] || offender="$(printf '%s\n' "$cleaned" \
-  | grep -iE '^[^[:alnum:]]*generated with[[:space:]]' | head -1 || true)"
+  | grep -iE '^[^[:alnum:]]*generated with[[:space:]]' | sed -n '1p' || true)"
 
 if [ -n "$offender" ]; then
   {

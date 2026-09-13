@@ -244,7 +244,7 @@ In [`update_vendored.sh`](update_vendored.sh) (one block at the top, plus three 
 | `RELEASE_DOCS` | The release documents you ship, and the names they are dropped under. |
 | `build_artifact()` | Your build command, run against the checked-out tag, output to a scratch dir, **all chatter on stderr**. |
 | `artifact_version()` | Version out of an artifact filename. |
-| The `PIN_LINE=` capture and the two install-hint blocks in `setup-consumer.sh` | Your pinning mechanism, and the two install hints (first-install resolves dependencies; refresh does not). |
+| `pin_line()` and `install_hint()` in `update_vendored.sh` — where both are AUTHORED | Your pinning mechanism, and the two install hints (first-install resolves dependencies; refresh does not). `setup-consumer.sh` only CAPTURES the pin line into `PIN_LINE=` and prints one hint; editing it there changes what is displayed, not what is produced. |
 
 Then fill this page's `<angle-brackets>`, and read
 [`process/doctrine/distribution.md`](../process/doctrine/distribution.md) for the rules the

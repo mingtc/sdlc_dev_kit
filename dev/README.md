@@ -80,9 +80,10 @@ this file's rules — written once, not maintained, read to learn how something 
 <!-- One row each, per the split-out rule above: a row is split into its own README only when it
      needs more than a few lines, and these do not. The filename column IS the convention; the role
      docs and skills that write these paths SHOULD cite this table rather than restating it.
-     (Aspirational, and stated as such: no role doc, skill or template currently cites this file —
-     `grep -rn dev/README` finds only the root README, PROJECT.md, docs/README.md and the
-     instruments. Do not read this line as a description of the tree.) -->
+     (Aspirational, and stated as such: no ROLE DOC or SKILL routes a reader here. Several
+     TEMPLATES do, and so do the adopter-facing release notes — run `grep -rn dev/README .` and
+     read the list rather than this sentence, which named a narrower set than its own command
+     returned. Do not read this line as a description of the tree.) -->
 
 | Directory | Written by | Members |
 |---|---|---|

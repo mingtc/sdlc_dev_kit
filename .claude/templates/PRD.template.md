@@ -15,8 +15,11 @@
 id: PRD-NNN
 title: <feature area name>
 status: draft           # draft | approved | completed | superseded
-                        #   completed = every story delivered (all landed in progress/done/);
-                        #   set when the last one lands
+                        #   completed = every story delivered (each reached
+                        #   progress/qa_complete/); set when the last one lands.
+                        #   NOT progress/done/ — that shelf is reached only by a later
+                        #   archive.sh sweep, so waiting for it would leave a fully
+                        #   delivered PRD reading `approved` for as long as nobody archives.
 owner: PM
 created_at: YYYY-MM-DD
 updated_at: YYYY-MM-DD

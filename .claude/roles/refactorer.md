@@ -9,7 +9,7 @@ Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<tru
 
 Wear this hat when the work is about **the shape of the existing code**, not new behavior.
 
-- **Refactor-baseline drift** — duplication or file-bloat crossing a threshold since the last `refactor-baseline-<date>` tag, regardless of whether a "phase" closed. A metric-driven trigger: accumulated drift is reason enough, independent of a closed milestone.
+- **Refactor-baseline drift** — duplication or file-bloat crossing a threshold since the last `refactor-baseline-<UTC instant>` tag, regardless of whether a "phase" closed. A metric-driven trigger: accumulated drift is reason enough, independent of a closed milestone.
 - A milestone has closed and accumulated tech-debt / file bloat is starting to drag — *one trigger of several, not the only one.* Many projects stop producing clean layer boundaries; work arrives as feedback rounds and backlog sweeps too.
 - Token budget per session is rising as files grow — long files are a measurable signal
 - Multiple `progress.md` entries flag deferred cleanups during feature work

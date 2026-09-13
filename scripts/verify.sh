@@ -26,6 +26,9 @@
 # runner would silently authorise every landing in the project. Declare your
 # gates below, or let the initializer write the first record for you:
 #   ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command "<your test command>"
+#   ON A FRESH REPO ONLY — kit-init REFUSES a repository that has already lived (a board
+#   with cards, a progress.md § Log with entries). On a tree that has, add the gate record
+#   to the GATES table by hand instead; the refusal names what it found.
 # (it fills THIS table while it is empty; it never touches a declared one).
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail

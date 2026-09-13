@@ -2,9 +2,12 @@
 <!--
   HOW TO USE THIS FILE
   Copy to progress.md at the repository root and delete these HTML comments.
-  IF YOU CAN RUN THE SHIPPED SCRIPTS YOU DO NOT NEED TO: `kit-init.sh` writes exactly this
-  skeleton for you (process/contracts/initializer.md). This copy is here for the OTHER path —
-  reimplement the initializer in your own toolchain and it must produce this same shape.
+  IF YOU CAN RUN THE SHIPPED SCRIPTS YOU DO NOT NEED TO: `kit-init.sh` writes this SHAPE for
+  you (process/contracts/initializer.md) — the same headings in the same order, with the
+  <angle-bracket> blanks below already filled in with the shipped script names, since the
+  initializer knows them. It is not a byte-for-byte copy of this file and is not meant to be.
+  This copy is here for the OTHER path — reimplement the initializer in your own toolchain and
+  it must produce this same shape.
   TWO SHAPES BELOW ARE REQUIRED, NOT STYLISTIC — a script reads each one; see "How to write an
   entry". Fill the <angle-bracket> blanks; keep everything else byte-for-byte.
   DROP THE KIT-CLASS MARKER above from your copy.

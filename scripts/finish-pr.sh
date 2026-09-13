@@ -545,7 +545,7 @@ fi
 
 # Delete the local branch unless it is still checked out somewhere.
 LOCAL_DELETE_STATE="unknown"
-if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -qxF "branch refs/heads/$BRANCH"; then
+if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch refs/heads/$BRANCH" >/dev/null; then
   LOCAL_DELETE_STATE="worktree-held"
   _wt_holder="$(git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
     | awk -v b="branch refs/heads/$BRANCH" '/^worktree /{w=substr($0,10)} $0==b{print w; exit}')"

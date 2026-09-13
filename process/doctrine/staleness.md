@@ -1,9 +1,11 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. §§ A, C, D are the pattern; § B is the fill-in for YOUR guards. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. Every section EXCEPT § B is the pattern; § B is the fill-in for YOUR guards. Written as an exclusion, not a list: this line said "§§ A, C, D", § E landed later, and the list was not grown — so an adopter copying by this line left § E behind. -->
 # Staleness doctrine — retirement is paid by the change that causes it
 
-**KIT-CLASS: KIT.** § A (the obligation), § C (numbers in prose) and § D (who pays) are the
-transferable pattern — a project adopts them verbatim. § B is the **instance**: the specific guards
-that hold the pattern in *your* repository, and the specific corpus they run over. This is a
+**KIT-CLASS: KIT.** **Every section except § B** is the transferable pattern — a project adopts
+them verbatim. Stated as an exclusion rather than as a list, because the list form of this sentence
+named "§§ A, C, D", § E landed afterwards, and nobody grew it: an adopter reading the list left § E
+behind. § B is the **instance**: the specific guards that hold the pattern in *your* repository,
+and the specific corpus they run over. This is a
 narrower pattern/instance split than [`supersession.md`](supersession.md) or
 [`retention.md`](retention.md) use (there, everything under § A is pattern and everything under § B
 is instance); here the instance is confined to ONE top-level section — § B — because every other
@@ -146,7 +148,8 @@ the domain next changes, is honest; calling it a structural guarantee is not.
 ## § B — Enforcement: your project's instance — **fill this in**
 
 > **PROJECT INSTANCE.** Nothing here is inherited. Every guard below is *yours*, in your test
-> runner, over your corpus. What travels is every section except this one — §§ A, C, D and E.
+> runner, over your corpus. What travels is every section except this one — stated as an
+> EXCLUSION so a later section joins the pattern without anyone having to grow a list here.
 
 **What goes here, one entry per guard:** the guard's name and path · its **declared domain** ·
 its **stated exemption and the reason** · what it reddens on · and, where the guard is a heuristic

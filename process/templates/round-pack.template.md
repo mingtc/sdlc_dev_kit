@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the round-pack shape. Copy, fill the <slots>, delete every GUIDANCE line. -->
+<!-- KIT-CLASS: KIT — the round-pack shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — three
      levels down, NOT to process/templates/ where it sits. A link that resolves while you read the
      template and dies in every copy of it passes a link check here and is broken for every adopter. -->
@@ -217,7 +217,8 @@ itself (§ A.14).
 
 ## Author's pre-launch checklist (before any participant is dispatched)
 
-- [ ] Every `<slot>` filled; every `GUIDANCE` line deleted.
+- [ ] Every `<slot>` filled; every `>` blockquote line deleted (that is where the GUIDANCE
+      lives, and the header states the same rule).
 - [ ] **This file is committed.** A pre-registration that lands after the first dispatch is a
       description.
 - [ ] Every scenario says which of *achieve* / *choose* it measures, and every *choose* scenario

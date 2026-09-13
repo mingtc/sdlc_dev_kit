@@ -48,7 +48,7 @@ shell. **Both directions want guarding** — a gate with no sheet, or a sheet ci
 longer exists — and that guard lives in the project's own test tree, not in the kit
 ([`EXTRACTION.md`](EXTRACTION.md) § 4 states the debt honestly).
 
-Some sheets there are not about a script at all — read each one's § 6 for the set rather than trusting a count here (this line said "one sheet" and `EXTRACTION.md` names three, so two shipped files disagreed):
+Some sheets there are not about a script at all — read each one's § 6 for the set rather than trusting a count here (*this line said "one sheet", was corrected to "`EXTRACTION.md` names three", and that was stale in its turn: the manifest's live prose now names a different number. A parenthetical that cites another file's count inherits that file's staleness and adds a second place to fix. Read the § 6 sections; they are the only copy that cannot drift from itself*):
 [`contracts/acceptance-tier.md`](contracts/acceptance-tier.md) — **the acceptance (conformance)
 tier**, the one artifact class that had no travelling spec until it was written. Its reference
 implementation is deliberately **non-travelling** (one test runner's marker), so its invariants and

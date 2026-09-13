@@ -19,23 +19,24 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 digraph when_to_use {
     "Have implementation plan?" [shape=diamond];
     "Tasks mostly independent?" [shape=diamond];
-    "Stay in this session?" [shape=diamond];
+    "Subagents available?" [shape=diamond];
     "subagent-driven-development" [shape=box];
     "executing-plans" [shape=box];
     "Manual execution or brainstorm first" [shape=box];
 
     "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
     "Have implementation plan?" -> "Manual execution or brainstorm first" [label="no"];
-    "Tasks mostly independent?" -> "Stay in this session?" [label="yes"];
+    "Tasks mostly independent?" -> "Subagents available?" [label="yes"];
     "Tasks mostly independent?" -> "Manual execution or brainstorm first" [label="no - tightly coupled"];
-    "Stay in this session?" -> "subagent-driven-development" [label="yes"];
-    "Stay in this session?" -> "executing-plans" [label="no - parallel session"];
+    "Subagents available?" -> "subagent-driven-development" [label="yes - delegate each task"];
+    "Subagents available?" -> "executing-plans" [label="no - run them inline"];
 }
 ```
 
-**vs. Executing Plans (parallel session):**
-- Same session (no context switch)
-- Fresh subagent per task (no context pollution)
+**vs. Executing Plans (inline execution):**
+- Fresh subagent per task (no context pollution) — `executing-plans` runs the tasks itself, in
+  one context that accumulates every task's output
+- Both run in THIS session; the axis is DELEGATED vs INLINE, not same-session vs parallel-session
 - Two-stage review after each task: spec compliance first, then code quality
 - Faster iteration (no human-in-loop between tasks)
 
@@ -276,4 +277,5 @@ Done!
 - **test-driven-development** - Subagents follow TDD for each task
 
 **Alternative workflow:**
-- **executing-plans** - Use for parallel session instead of same-session execution
+- **executing-plans** - Use when subagents are unavailable: it executes the plan INLINE, in this
+  session, rather than delegating each task to a fresh subagent

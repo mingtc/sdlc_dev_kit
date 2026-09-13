@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every GUIDANCE line. -->
+<!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
 # Launch pack template — the commissioning contract for one orchestrated run
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/
@@ -245,7 +245,8 @@ the two failure modes.**
 
 ## Author's pre-launch checklist (the seat's, before handing the pack over)
 
-- [ ] Every `<slot>` filled; every `GUIDANCE` line deleted.
+- [ ] Every `<slot>` filled; every `>` blockquote line deleted (that is where the GUIDANCE
+      lives, and the header states the same rule).
 - [ ] Every issue in the mission list exists on the board, is unblocked (or its unblocker is
       earlier in the order), and **has a rigor line**.
 - [ ] Every load-bearing figure in the pack was **re-derived from the tree at authoring time**,

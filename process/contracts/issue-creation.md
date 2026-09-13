@@ -131,8 +131,17 @@ state — so that every tool and every reader downstream can rely on the shape w
 
 - **`--dry-run` names PREVIEW, everywhere, and nothing else.** Wherever a tool can preview, that word
   is legal and means *change nothing* — including where previewing is already the default, in which
-  case it is the explicit spelling of the default and is idempotent. It must never mean *unknown
-  option* and must never mean *mutate*. **`--apply` is the opt-in for a tool whose default is to
+  case it is the explicit spelling of the default and is idempotent. **It must never mean *mutate*,
+  and where the tool CAN mutate it must never mean *unknown option*.**
+  **A TOOL THAT MUTATES NOTHING IS OUTSIDE THIS CLAUSE, and refusing the flag is correct there.**
+  A read-only report has no preview to offer: every run of it is already a preview, so accepting
+  `--dry-run` would teach the operator that the word carries meaning where it carries none, and the
+  next tool they try it on may be one that mutates. The refusal should name the flag as unknown and
+  exit with the usage-error status like any other unrecognised option. *This bullet read as an
+  absolute, and shipped read-only tools answer `--dry-run` with `unknown option` — so either the
+  tools were in breach or the clause was. The scope gate in the first sentence was always the
+  operative half ("wherever a tool CAN preview"); this states the consequence the absolute denied,
+  so the two halves stop pointing opposite ways for a tool that cannot mutate.* **`--apply` is the opt-in for a tool whose default is to
   preview**, and a tool that mutates by default does not have one: its refusal of `--apply` should
   say so and name the flag that does preview, because the operator arriving with the wrong word
   learned it from a sibling and a bare refusal teaches them nothing.
@@ -165,9 +174,16 @@ receive an option from a human or from a script a human wrote? If yes, it is bou
    fixed argument shape that is never an option. A usage handler on one answers a question nobody
    can ask it. *They are still bound by everything else the kit says about refusals; what they are
    not bound by is a CLI shape for a CLI they do not have.*
-2. **Sourced seams and shared internals** — `scripts/lib/`, `scripts/config.sh`. These are `.`-ed
-   into another program, so they have no argument vector of their own; the behaviour they carry is
-   specified by the sheets of the scripts that call them. Executing one directly is a mistake, not
+2. **Sourced seams and shared internals** — `scripts/lib/`, `scripts/config.sh`. These are **dot-
+   sourced** into another program, so they have no argument vector of their own; the behaviour they
+   carry is specified by the sheets of the scripts that call them. *The shell's sourcing operator is
+   written out as a word here on purpose: this line once spelled it as a backticked single dot, and
+   the self-test derives the exempt prefixes by reading the BACKTICKED PATHS in this block — so the
+   operator was harvested as a path, and a bare single-dot prefix matches every shipped file. The
+   exemption that is supposed to name three narrow classes silently exempted the entire tree, and
+   the coverage-shrink assertion below could not see it, because a single-dot prefix matches
+   plenty. **Nothing between these markers may put a non-path in backticks** — that is the rule the
+   derivation imposes on this block, and it is why this paragraph spells every operator as a word.* Executing one directly is a mistake, not
    an interface.
 3. **Vendored upstream helpers** — `.claude/skills/`. Scripts inside a vendored skill directory are
    not ours to shape: an upstream re-copy would revert any change we made, which is the same reason

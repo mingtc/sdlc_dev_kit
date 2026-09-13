@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the run-report shape. Copy, fill the <slots>, delete every GUIDANCE line. -->
+<!-- KIT-CLASS: KIT — the run-report shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/
      where it sits. A link that resolves while you read the template and dies in every copy of it
      passes a link check run here and is broken for every adopter. -->
@@ -314,7 +314,8 @@ matched at open: <list>.
 
 ## Closing checklist (the runner's, before the report lands)
 
-- [ ] Every `<slot>` filled; every `GUIDANCE` line deleted.
+- [ ] Every `<slot>` filled; every `>` blockquote line deleted (that is where the GUIDANCE
+      lives, and the header states the same rule).
 - [ ] Every figure either **re-measured** by the orchestrator or **labelled inherited**.
 - [ ] Every gate quote is verbatim and unpiped, with its exit code read from the summary.
 - [ ] Every removal of a test identifier or generated artifact is enumerated and justified.

@@ -218,10 +218,21 @@ def self_test(root: Path = REPO_ROOT) -> int:
     # inside the arm named --self-test.
     walk_blind_spots()
     missing = [r for r in STARTER_ROOTS if not (root / r).exists()]
+    # AN EMPTY STARTER LIST IS A FAILURE, NOT A VACUOUS PASS. `missing` is computed BY
+    # iterating STARTER_ROOTS, so an emptied list makes it `[]` — indistinguishable here
+    # from "every starter root is present". The header orders the adopter to edit this
+    # parameter, so emptying it is a thing that happens; and with no starters the walk
+    # reaches nothing and reports every document unreachable, which is the maximally wrong
+    # answer delivered under SELF-TEST PASS.
+    empty_roots = not STARTER_ROOTS
     index = Index(root)
     probe_present = (root / BLIND_SPOT_PROBE).exists()
     exact, _ = index.referrers(BLIND_SPOT_PROBE)
-    ok = not missing and (not probe_present or bool(exact))
+    ok = not empty_roots and not missing and (not probe_present or bool(exact))
+    if empty_roots:
+        print("STARTER_ROOTS is EMPTY — the walk has no front door and would report every")
+        print("  document unreachable. Populate it with the entry points a reader actually")
+        print("  starts from (the root README and its peers).")
     print(f"starter roots on disk: {len(STARTER_ROOTS) - len(missing)}/{len(STARTER_ROOTS)}")
     if missing:
         print(f"  MISSING: {missing}")

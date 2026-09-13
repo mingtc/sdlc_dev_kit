@@ -21,8 +21,12 @@
 #   (-F, and quoted this way, DELIBERATELY. Written as a normal grep pattern this matches NOTHING:
 #   grep reads \{0,1\} as an interval quantifier rather than as the literal text being searched
 #   for, so the command shipped as a derivation that silently returned an empty set — a recipe
-#   that cannot fail, in a comment telling you to derive rather than trust. Verified: it returns
-#   seven files.)
+#   that cannot fail, in a comment telling you to derive rather than trust. RUN IT rather than
+#   trusting a digit here — this line said "it returns seven files" while the command returned
+#   EIGHT, in the parenthetical whose whole argument is that a derivation beats a transcribed
+#   figure. The eighth was scripts/notify/stall.sh, a real private renderer that was missing from
+#   the exception list below, so a maintainer sweeping "all the header renderers" by this comment
+#   would have missed it.)
 #
 #   * scripts/release.sh renders its SYNOPSIS instead, stopping at its last usage
 #     example, because its header carries operator notes below them that are not help
@@ -34,6 +38,11 @@
 #     repository, where scripts/lib/ does not exist. Each keeps its own copy, necessarily.
 #     (This rule named update_vendored.sh alone; install-skills.sh and setup-consumer.sh
 #     leave the tree for exactly the same reason and were simply not listed.)
+#   * scripts/notify/stall.sh renders its own header window too, and its copy of the window
+#     derivation does NOT carry the KIT-CLASS fallback the other private renderers have — so a
+#     header change that the others tolerate can shift what stall.sh prints. Named here because it
+#     was absent from this list while the derivation above returned it; NOT ruled, same as the two
+#     below.
 #   * scripts/notify/telegram.sh and scripts/test/run.sh are NOT ruled. Both stay in the
 #     tree and both COULD source this file. They are named here because an exception that
 #     is not written down is indistinguishable from an oversight, and these two were the

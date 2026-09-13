@@ -277,7 +277,7 @@ it in, and nothing else. The population is right; the *reading* is theirs.
 
 > **A signal is worth reading only where the party it constrains did not author it.**
 
-**This is the anti-gaming clause of § A.2 reached from the other direction.** There the rule is that a
+**This is the anti-gaming clause of § A.12 reached from the other direction.** There the rule is that a
 check you can satisfy by editing the answer is not one; here it is that a check whose operand is
 authored by its subject *is already* such a check, whether or not anyone edits anything. **No bad
 faith is required and none should be assumed** — a person recording their own reason records the
@@ -534,8 +534,14 @@ about everything they could see, and that was the defect.**
 > **Everything above is BUILD TIME: the instrument is misaimed, or cannot fail. It binds whoever
 > BUILDS the instrument, and the fix is to change the instrument.**
 >
-> **If you came here to write or review a guard, you are done. Stop at this line, and you were right
-> to.**
+> **If you came here to write or review a guard, you are done at this line — WITH ONE EXCEPTION:
+> read § A.12 as well.** It sits below the seam and is a BUILD-TIME rule like everything above it:
+> a check whose comparison value the same person maintains can be made green by editing the answer,
+> which is a defect in the instrument, not in someone's reading of it. *It was placed below the seam
+> and the seam told its own audience to stop before reaching it — so the guard author it binds was
+> instructed not to read it. It is named here rather than moved for the same reason § A.11 keeps its
+> number: shipped release notes cite these sections, and renumbering falsifies a document already in
+> adopters' hands.*
 >
 > *(§ A.11 sits just above this line and is numbered after § A.9 and § A.10, which are below it.
 > It was written later; it keeps its number because a shipped release note cites it, and renaming a

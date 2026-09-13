@@ -33,7 +33,16 @@
 # not contain. The project renames the seat by setting the knob; the kit refuses rather
 # than guessing.
 #
-# WHY IT IS A LIBRARY. All three consumers already source from scripts/lib/. Written
+# WHY IT IS A LIBRARY. Its consumers already source from scripts/lib/ — derive them rather
+# than trusting a number here, which went stale once already as scripts were added. The
+# recipe must match the SOURCING LINE, not the filename: a plain `grep -rln lib/role-set.sh`
+# also returns the files that merely NAME this one in a comment (check-board.sh and
+# kit-init.sh carry their own byte-identical read and source nothing from scripts/lib/; the
+# test harness names it dozens of times), so it answers a different question than the
+# sentence above asks. Matching the source line covers both shapes in the tree — the bare
+# `. "$SCRIPT_DIR/lib/role-set.sh"` and the guarded `[ -r … ] && . …`:
+#   grep -rlE '^[^#]*\.[[:space:]]+"\$SCRIPT_DIR/lib/role-set\.sh"' scripts --include='*.sh'
+# Written
 # inline this would be three more copies of the ROLE_PREFIXES read, an idiom that is
 # already duplicated across the tree; here it is one.
 

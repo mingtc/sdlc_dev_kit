@@ -1,12 +1,14 @@
-<!-- KIT-CLASS: KIT — the round-report shape. Copy, fill the <slots>, delete every GUIDANCE line. -->
+<!-- KIT-CLASS: KIT — the round-report shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — NOT to process/templates/
      where it sits. A link that resolves while you read the template and dies in every copy of it
      passes a link check run here and is broken for every adopter. -->
 # Round report template — what closes one dogfooding round
 
 > **GUIDANCE — how to use this file.** Copy it to
-> `dev/rounds/<YYYY-MM-DD>-<round-name>/report.md`, fill every `<slot>`, delete every `GUIDANCE`
-> line, and **index it in `dev/README.md` in the same commit**. The doctrine is
+> `dev/rounds/<YYYY-MM-DD>-<round-name>/report.md`, fill every `<slot>`, **delete every `>`
+> blockquote line** — the guidance in this template is written as blockquotes, and "delete every
+> GUIDANCE line" taken literally removes each block's header and leaves its body behind — and
+> **index it in `dev/README.md` in the same commit**. The doctrine is
 > [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); the pack it grades against is
 > `pack.md` beside it.
 >
@@ -55,6 +57,14 @@ and whether the round's own instruments held. Do not lead with counts.>
 - **Severity:** `<…>` · **Class:** `<documentation | error text | naming | default | engine>`
 - **Remedy status:** `<OPEN — PM decision>` / `<proposed: …, and by whom>` — never presented as
   part of the finding
+- **Disposition:** `<minted | filed to another backlog | fixed in place | referred to a named owner |
+  declined | recorded as a known limitation>` — **plus the REASON that target and not another**, and
+  the identifier where the target has one. *Required on EVERY finding, by
+  [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md) § A.14b: the target set above is CLOSED, "not mine" is
+  not a disposition, and neither is an observation. A finding with no disposition is one nobody owns,
+  and it still counts as coverage to whoever reads the round. This field was absent from this
+  template while the doctrine required it — so the artefact an author actually fills did not ask for
+  the one thing that moves a finding.*
 
 ---
 
@@ -180,6 +190,8 @@ what later readers cite.
       preserved.
 - [ ] Every scenario appears in § 1 or § 6 — none silently missing.
 - [ ] Every finding's evidence is the **artefact**, and every disagreement records both sides.
+- [ ] **Every finding carries a DISPOSITION** — a target from § A.14b's closed set plus the reason
+      for that target. A finding described but not moved is a finding nobody owns.
 - [ ] § 4 positives filled — not empty because nobody looked.
 - [ ] § 7 filled, honestly, and none of its items leaked into the product's problems.
 - [ ] The cold-grading commit precedes the register-opening commit, and the reconciliation removed

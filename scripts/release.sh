@@ -62,11 +62,20 @@
 #                        — requires RELEASE_TEST_ALLOW_STUB=1
 #   RELEASE_BUILD_CMD    overrides the publish build command (see BUILD_COMMAND)
 #   RELEASE_DIST_BRANCH  overrides the distribution branch name
+#
+# PRODUCTION KNOBS (NOT test seams — SET THESE IN REAL USE WHERE THEY APPLY). These three
+# sat under the heading above, which told the reader to leave them unset in real use, while
+# this kit's own release notes carry "Action required" entries instructing adopters to set
+# two of them. A knob cannot be both.
 #   KWT_REMOTE           the SHARED publication remote for every kit operation,
 #                        this one included      (default: origin; a remote NAME)
+#                        Set it if you work on a FORK: without it the board follows
+#                        KWT_REMOTE and the release would publish somewhere else.
 #   RELEASE_REMOTE       overrides KWT_REMOTE for the release push ONLY
 #                        (default: whatever KWT_REMOTE is; may be a URL)
 #   RELEASE_ROLE         commit role tag            (default: Architect)
+#                        Set it if you NARROWED your role set and it does not contain
+#                        Architect, or the cut's own commit is refused by your hook.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -956,7 +965,7 @@ EOF
   # diverge — the same defect as a second parser, one directory over.
   for _g_rec in ${DIST_DOCS[@]+"${DIST_DOCS[@]}"}; do
     _g_src="${_g_rec%%|*}"
-    _ship_manifest_paths | grep -qxF "$_g_src" || _g_docs="$_g_docs $_g_src"
+    _ship_manifest_paths | grep -xF "$_g_src" >/dev/null || _g_docs="$_g_docs $_g_src"
   done
   [ -z "$_g_docs" ] \
     || { echo "release.sh: DIST_DOCS names path(s) the ship manifest does not:$_g_docs. Two declarations of what ships is one too many. Nothing was written." >&2; exit 1; }
@@ -974,7 +983,7 @@ EOF
   for _g_rec in ${VERSION_FILES[@]+"${VERSION_FILES[@]}"}; do
     _g_path="${_g_rec%%|*}"; _g_rest="${_g_rec#*|}"
     [ "$_g_rest" = "$_g_rec" ] && continue
-    _ship_manifest_paths | grep -qxF "$_g_path" || continue
+    _ship_manifest_paths | grep -xF "$_g_path" >/dev/null || continue
     _g_pre="${_g_rest%%|*}"; _g_q="${_g_rest#*|}"; [ "$_g_q" = "$_g_rest" ] && _g_q=""
     _g_tmp="$(mktemp)"
     sed "$(_bump_expr "$_g_pre" "$_g_q" "$NUM")" "$REPO_ROOT/$_g_path" > "$_g_tmp"

@@ -824,7 +824,7 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
     # The test is on $sha — the commit in the walked history — not on $target: a merge's
     # parent 2 lives on a side branch, and asking whether THAT is a strict descendant of
     # the epoch answers a different question than "was the rule in force when this landed".
-    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -qxF "$sha"; then
+    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -xF "$sha" >/dev/null; then
       role_preepoch=$((role_preepoch+1)); continue
     fi
     subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
@@ -1263,7 +1263,7 @@ h_preepoch=0
 if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
   while IFS= read -r h_sha; do
     [ -z "$h_sha" ] && continue
-    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -qxF "$h_sha"; then
+    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -xF "$h_sha" >/dev/null; then
       h_preepoch=$((h_preepoch+1)); continue
     fi
     h_scanned=$((h_scanned+1))

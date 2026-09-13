@@ -1142,7 +1142,7 @@ SR_DIR="$ROOT/.claude"; SR_FILE="$SR_DIR/session-role"; SR_PRE_EXISTING=false
 [ -f "$SR_FILE" ] && SR_PRE_EXISTING=true
 mkdir -p "$SR_DIR"
 [ "$SR_PRE_EXISTING" = true ] || printf 'Dev\n' > "$SR_FILE"
-if git -C "$ROOT" status --porcelain | grep -q 'session-role'; then
+if git -C "$ROOT" status --porcelain | grep 'session-role' >/dev/null; then
   sc_bad "a hat declaration shows up in git status — .claude/session-role is not ignored (role-gate.md § 2)"
 else
   sc_ok "a hat declaration is invisible to git status — session state, not repository content"

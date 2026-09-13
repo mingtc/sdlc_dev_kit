@@ -142,9 +142,12 @@ Nothing in the minimum set was merged or split.
   # SCOPE WAS THE OBVIOUS TRAP AND THE PATTERN WAS THE REAL ONE. This read `scripts/ setup.sh`,
   # which is narrower than the rule it supports; widening the PATH to `.` fixed a third of it and
   # no more, because `^# KIT-CLASS:` only matches SHELL comment syntax and every travelling
-  # markdown file declares itself in an HTML comment. Measured on the shipped tree: the
-  # shell-only pattern finds 44 files, both syntaxes find 133. **A derivation offered as the
-  # honest alternative to a list undercounted by two thirds, and then undercounted by less.**
+  # markdown file declares itself in an HTML comment. **RUN BOTH AND COMPARE** — the shell-only
+  # pattern returns a small fraction of what both syntaxes return, and the gap is the finding.
+  # No figure is written here on purpose: two were, undated, in the very paragraph arguing that a
+  # derivation beats a transcribed number, and both were wrong on the tree that shipped them.
+  # **A derivation offered as the honest alternative to a list undercounted by two thirds, and
+  # then undercounted by less.**
   ```
 
 - **`PROJECT`-class files owe nothing** and no sheet may claim one — a contract over a file the

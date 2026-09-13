@@ -34,7 +34,9 @@ schema/API/logic feature and visible over-process for a one-word relabel.
 
 **The effort riders are a SHAPE here and a set of names in your project's instance.** This sheet
 fixes the shape: each tier has a default effort; **above it sits an escalation that is nobody's
-default and needs PM sign-off**, on TIER 3 as much as anywhere; and **below sits a floor nobody
+default and needs the sign-off your instance names**, on TIER 3 as much as anywhere — the approving
+hat is a project blank, filled in `model-provisioning.md` § B.2's standing rider, not fixed to the
+PM here; and **below sits a floor nobody
 dispatches at**. Every worker dispatched at any tier is a **leaf** (no sub-spawning) — that part is
 this sheet's and is not negotiable.
 

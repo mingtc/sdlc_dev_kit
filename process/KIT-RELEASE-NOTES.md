@@ -136,6 +136,102 @@ columns and never the cards.*
   - **The PM role owns it.** Killing an issue is PM's call, and PM's session-start board
     listing now includes it.
 
+- **Your commit-msg hook has been letting tool co-author trailers through, and one deleted space
+  was all it took.** Rule 2 required a non-alphanumeric character immediately before the tool
+  marker. That is a *required character*, not a boundary assertion — so with the marker butted
+  straight against the colon there was nothing for it to consume, and the trailer passed.
+  Measured on the hook as it shipped, with a valid role-tagged subject so rule 1 could not mask
+  the result: `Co-Authored-By: Claude <x@y>` was refused, and **`Co-Authored-By:Claude <x@y>` was
+  accepted.**
+
+  **Action required — two things, and the first one takes a minute.**
+
+  1. **Check whether anything already landed through the hole.** The guard only ever
+     *under*-refused, so nothing legitimate was ever blocked and no history is corrupt — but a
+     trailer may be sitting in your log:
+
+     ```sh
+     git log --format='%b' | grep -iE '^[[:space:]]*co-authored-by:[^[:space:]]'
+     ```
+
+     That looks for the defeating shape specifically: a `Co-Authored-By:` with no space after the
+     colon. Judge the hits yourself — a human contributor can legitimately write one.
+
+  2. **If you have edited rule 2's matcher locally, re-apply the fix there.** The pre-marker
+     context must be an *optional group*, so the colon itself can serve as the left boundary:
+
+     ```
+     ^[[:space:]]*co-authored-by:(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|$)
+     ```
+
+     **Keep the trailing `([^[:alnum:]]|$)` required.** It is the only thing stopping the rule
+     from refusing a human whose name merely *begins* with a marker's stem — `Claudia Ng` is
+     accepted, and there is now a test case that keeps it that way.
+
+### Changed
+
+- **Nothing you must do; several things you read are now true that were not.** Shipped statements
+  that contradicted the code beside them, prose passages carrying a census number the kit's own rule
+  bans, and derivations the kit *offers you to run* that returned something other than what their
+  sentence claimed. They are fixed. *(No count is written here on purpose: this section is
+  `[Unreleased]` and still moving, and a total stated over a population that keeps growing is the
+  very defect the third item names.)* The ones worth knowing about:
+
+  - **`PROJECT.md`'s gates table no longer invites you to rename two things the kit hardcodes.**
+    The verify gate and the board mover were presented as adopter-fillable `<e.g. …>` blanks, for
+    filenames `finish-pr.sh` invokes by literal name — its own refusal says the executable *"is
+    never caller-chosen"*. Both rows now state the fixed name and say what genuinely is yours: the
+    gates *inside* `verify.sh`, not its path. **If you renamed either on the strength of that
+    table, your landing gate is broken** — check `./scripts/finish-pr.sh --help` and restore the
+    shipped names.
+  - **`setup.sh` no longer accepts a mistyped flag silently.** It inspected only its first
+    argument, so `./setup.sh --kit-only --nonsense` dropped the second token and **exited 0**. It
+    now reads every argument: an unrecognised option exits 2, a surplus positional exits 1.
+  - **Derivations you may have run and believed.** `EXTRACTION.md`'s recipe for finding the
+    pure-pattern doctrine sheets returned very nearly the *inverse* of what its sentence
+    described; `scripts/lib/usage.sh` said its own command "returns seven files" when it returns
+    eight, and the unlisted eighth is a real header renderer; `contracts/README.md` quoted two
+    file counts that were wrong on the tree that shipped them. If you acted on any of these, re-run
+    them — they are corrected, and where a number was the problem it has been replaced by the
+    command rather than by a fresher number.
+  - **`update_vendored.sh` now refuses an unfilled `RELEASE_DOCS` entry** instead of reporting the
+    miss in the words reserved for a release that genuinely predates a document. If you vendor
+    with it and never filled `<path/to/GUIDE.md>`, you will now get a refusal naming that seam —
+    fill it, or delete the entry if you do not vendor a guide.
+  - **`_claude/templates/PRD.template.md` had the wrong landing shelf.** `status: completed` said
+    stories land in `progress/done/`; they reach `progress/qa_complete/`, and `done/` is reached
+    only by a later `archive.sh` sweep. Read literally, a fully delivered PRD would have stayed
+    `approved` until someone archived it.
+  - **Both workflow runners now hold their model and effort defaults in `CFG`**, where their own
+    first line always promised everything project-specific would be. If you run a different
+    provisioning ladder you can pass `defaultModel`/`defaultEffort` per run instead of editing
+    the file.
+
+### Fixed
+
+- **The self-test harness could report a passing check as a FAIL, at random.** Under
+  `set -o pipefail`, a pipeline ending in `grep -q` returns the *producer's* death rather than the
+  reader's answer: `grep -q` exits the moment it matches, the writer upstream takes `SIGPIPE`, and
+  `pipefail` promotes that to the pipeline's status. **A check that passed was recorded as
+  failing.** The threshold is the 64KB pipe buffer and it is a cliff, not a flake — below it
+  nothing fails, above it every run does, which is why the failing set moved between two runs of
+  an unchanged tree. Fixed by dropping `-q` and redirecting instead — `| grep -F pat >/dev/null` —
+  which drains the input and returns the identical status. **This can only ever have refused a good
+  tree, never passed a bad one**, so nothing you previously got a green on is in doubt.
+
+  **Scope, stated exactly, because "every site" would not be true.** The self-test harness was
+  converted in full. In the *shipped* scripts the fix was applied where the producer **can grow
+  with your project** — the header's own test — which is where the defect can actually reach you:
+  `check-board.sh` reading your commit history is the one most likely to have bitten a long-lived
+  repository, and the worktree scans in `finish-pr.sh` and `lib/kanban-worktree.sh` are the same
+  shape. **Deliberately left:** pipelines whose producer is a single flag value being validated
+  (`printf '%s' "$NUM" | grep -qE '^[0-9]+$'` and its kin) — those cannot approach the 64KB buffer,
+  so they are correct as they stand. To see which sites remain in the tree you have:
+
+  ```sh
+  grep -rn '|[[:space:]]*grep -q' scripts consumers --include='*.sh'
+  ```
+
 ## [0.4.0] — 2026-09-08
 
 - **Every refusal that could not load its configuration or one of its libraries claimed to cover
@@ -271,15 +367,22 @@ columns and never the cards.*
   a marker earns its place only where values of different kinds share a path, a table, and adjacent
   lines.
 
-- **Nine error messages now tell you which kind of tree the `kit-init` fix they suggest is for.**
-  If `scripts/config.sh` goes missing, or your gate table is empty, the script that complains offers
-  you two ways out — and one of them, `kit-init`, **refuses a repository that has already lived**.
-  You always had the right instruction first (restore the file; or write the gate table by hand),
-  but nothing said why the second option would turn you away. Now it does, in those messages'
-  own words. **No action required and no behaviour changed** — the remedies, their order and their
-  exit codes are the same. **If you parse these messages**, the text after the alternative has grown
-  by a clause and, at three sites, by one line; the phrases most likely to be keyed on
-  (`config.sh`, `--gate-command`, `REFUSING`) are unchanged and in the same places.
+- **Nine error messages that name `./scripts/kit-init.sh` as the fix now say which tree that fix
+  applies to.** A refusal naming a remedy is making a claim, and on a repository that has already
+  been initialized `kit-init` refuses — so `verify.sh`'s empty-gate-table message, `finish-pr.sh`'s,
+  `setup.sh`'s, and the six `--prefix`/`--trunk` messages in the creation scripts were pointing at a
+  command that would answer *"this repository has already lived."* **Both halves were individually
+  correct**; what was wrong was the sentence joining them. The remedy is still right on a tree that
+  has never been initialized, which is the common case they were written for, and the text now says
+  so — in the same three words `lib/kanban-worktree.sh` has always used. **No action required and no
+  behaviour changed** — the remedies, their order and their exit codes are the same. **If you parse
+  these messages**, the text after the alternative has grown by a clause and, at three sites, by one
+  line; the phrases most likely to be keyed on (`config.sh`, `--gate-command`, `REFUSING`) are
+  unchanged and in the same places. *This change was documented TWICE in this section — a second
+  bullet, differently worded, describing the same messages. One entry was written when the change
+  was FILED and the other when it LANDED, and nothing removed the first. A reader counting what a
+  release contained would have counted it twice. The duplicate is struck; THIS bullet is the entry
+  the change declares, and the release preflight's notes-obligation arm keys on its first line.*
 
 - **`check-board.sh`'s graduation report now tells you HOW it matched the scaffolding sentinel, and
   the output strings changed.** The arm looks for a line **equal to** the whole shipped sentinel
@@ -292,15 +395,6 @@ columns and never the cards.*
   this is the sentinel itself and not a prose mention"*. The phrases your own tooling is most likely
   to key on — `still scaffolding` on a finding, `read from:` on the clear — are **unchanged and in
   the same branches**. If you do not parse it, this is a report that now says what it measured.
-
-- **Nine error messages that name `./scripts/kit-init.sh` as the fix now say which tree that fix
-  applies to.** A refusal naming a remedy is making a claim, and on a repository that has already
-  been initialized `kit-init` refuses — so `verify.sh`'s empty-gate-table message, `finish-pr.sh`'s,
-  `setup.sh`'s, and the six `--prefix`/`--trunk` messages in the creation scripts were pointing at a command that
-  would answer *"this repository has already lived."* **Both halves were individually correct**;
-  what was wrong was the sentence joining them. The remedy is still right on a tree that has never
-  been initialized, which is the common case they were written for, and the text now says so —
-  in the same three words `lib/kanban-worktree.sh` has always used.
 
 - **The self-test now exercises `consumers/` and `setup.sh`, which it had never run.** Its sandbox
   carried only `scripts/`, so the four shipped programs outside that directory — the three consumer

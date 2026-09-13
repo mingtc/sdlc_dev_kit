@@ -15,16 +15,19 @@
 # Override at runtime via env var, e.g.:
 #   ISSUE_PREFIX=TEST ./scripts/new-issue.sh foo --id TEST-001
 # (--id is REQUIRED by new-issue.sh, new-bug.sh and new-refactor.sh; new-prd.sh derives its own
-#  number and REFUSES --id. This example predates that and, run as
-# written, refused.)
+#  number and REFUSES --id. The example above carries `--id`, so it runs as written. It once
+#  did not, and the note saying so outlived the line it described by longer than the defect —
+#  a correction that becomes false when the thing it corrects is fixed.)
 #
 # The kanban worktree scripts resolve the TRUNK (default branch) from
 # <remote>/HEAD — see scripts/lib/kanban-worktree.sh's kwt_resolve(), and state
 # your trunk in the project adapter (CLAUDE.md § "The trunk"). It is deliberately
 # NOT a knob here: a repository has exactly one answer and git already holds it.
 
-# Issue / bug prefix. Used by new-issue.sh, new-bug.sh, new-refactor.sh,
-# next-id.sh, archive.sh. Generated filenames look like ${ISSUE_PREFIX}-001-<slug>.md.
+# Issue / bug prefix. Generated filenames look like ${ISSUE_PREFIX}-001-<slug>.md.
+# WHO READS IT — derive it, do not trust a list here: both enumerations on this file were
+# once written out by hand and both went short as scripts were added.
+#   grep -rlF ISSUE_PREFIX scripts --include='*.sh'
 #
 # `KIT` is the SHIPPED PLACEHOLDER, not a recommendation — kit-init.sh derives the
 # old value from this very line so it can rewrite the templates' example ids, so
@@ -33,8 +36,10 @@
 # prefix on day one: ./scripts/kit-init.sh --prefix XYZ --trunk main
 ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"
 
-# PRD prefix. Used by new-prd.sh.
-# Generated filenames look like ${PRD_PREFIX}-001-<slug>.md.
+# PRD prefix. Generated filenames look like ${PRD_PREFIX}-001-<slug>.md.
+# WHO READS IT:  grep -rlF PRD_PREFIX scripts --include='*.sh'
+# It is read well beyond new-prd.sh — at least one consumer BRANCHES on its value — so
+# treat a change to it as touching the whole derived set, not one script.
 # The default `PRD` is fine for most projects.
 # THE ONE FALLBACK LITERAL FOR THIS NAME, and the only one. Consumers write
 # "${PRD_PREFIX}" bare: they source this file first, so the name is always set by the

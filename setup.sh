@@ -42,7 +42,13 @@ EOF
 }
 
 KIT_ONLY=false
-case "${1:-}" in
+# EVERY ARGUMENT IS INSPECTED, NOT JUST $1. This read `case "${1:-}"` and looked at the
+# first token only, so `./setup.sh --kit-only --nonsense` dropped the second silently and
+# exited 0 — an acceptance, with a success status, for a mistyped flag, in the file whose
+# own comment below claims the opposite discipline. A surplus token is the likeliest way a
+# flag gets mistyped, and it was the one case that could not be seen.
+while [ $# -gt 0 ]; do
+case "$1" in
   -h|--help)  usage; exit 0 ;;
   --kit-only) KIT_ONLY=true ;;
   "")         ;;
@@ -53,6 +59,8 @@ case "${1:-}" in
   -*)         printf 'ERROR: unknown option '"'"'%s'"'"'. See ./setup.sh --help.\n' "$1" >&2; exit 2 ;;
   *)          die "Unknown argument '$1'. See ./setup.sh --help." ;;
 esac
+shift
+done
 
 FAILURES=0
 note_fail() { warn "$*"; FAILURES=$((FAILURES + 1)); }
