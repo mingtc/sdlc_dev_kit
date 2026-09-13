@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the queue's shape and its instituting rule travel; every row is yours. -->
+<!-- KIT-CLASS: MIXED — the queue's shape and its instituting rule travel; every row is yours. -->
 # The downtime queue — deferred-but-genuine improvements
 
 > **The instituting rule.** Work we deliberately did **not** do now goes **here**, rather than
