@@ -175,7 +175,7 @@ and a disposition at the same time.
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `setup.sh`'s runtime half |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
-| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification adapters (`scripts/notify*`) |
+| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
 
 *(The members are a **derivation of this seed**, not a definition of the axis. Re-derive them by
 opening the tree; a project that adds a surface gives it a disposition then, and this table is
@@ -346,7 +346,14 @@ written around it.
 enforces is stamped)
 
 **Notifications (KIT, all no-ops until configured):** `notify.sh` · `notify-hook.sh` ·
-`notify/<channel>.sh`
+`notify/<channel>.sh` — the channel adapters. **Not `notify/stall.sh`** — see
+§ *The second axis: DISPOSITION*.
+
+**Liveness (KIT):** `notify/stall.sh` — the ABSENCE half of the liveness ritual. It reads the
+remote's freshest ref and **exits 3 on STALLED**, takes `--quiet-minutes`, `--remote` and `--notify`,
+and is emphatically **not** a no-op until configured. It sits in its own category because this
+section's own claim — *every category below is named exhaustively, so counting its own list is the
+census* — is falsified by any file that belongs to none.
 
 **Advisory instruments (KIT, never a gate):** everything under `scripts/hygiene/` — they read the
 tree, print a report, and change nothing. Described by
