@@ -2494,7 +2494,7 @@ columns and never the cards.*
   yours, only the shapes come from the template.
 
 **Checked against the board and the tree on 2026-08-28**, at the kit repository's own revision
-`7da2264` plus the reconciliation that reading produced: every adopter-visible change listed above
+`9de04c5` plus the reconciliation that reading produced: every adopter-visible change listed above
 carries its entry, and every entry that needs something from you is in this section.
 **That reading covers the tree AS OF THAT REVISION AND NO FURTHER — entries have landed since, and
 they are not inside it.** *An all-clear inherits the date it was taken, never the date it is read.
