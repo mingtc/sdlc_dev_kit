@@ -286,6 +286,27 @@ KIT_NEUTRAL_ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architec
 # the shipped line the only thing that satisfies it. seed_scaffolding_tree writes exactly this.
 KIT_SCAFFOLD_MARK='<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->'
 
+# THE REPLACE DISPOSITION DECLARATION, which arm (g1) uses to SELECT its population while
+# KIT_SCAFFOLD_MARK above remains the TEST it applies. Two constants because they are two
+# halves of one arm and neither implies the other: a file may declare the disposition and be
+# correctly graduated (declaration present, sentinel gone → ✓), and a synthetic fixture that
+# writes only the sentinel is no longer in the population at all.
+#
+# THAT IS EXACTLY HOW THIS CONSTANT CAME TO EXIST. `seed_scaffolding_tree` wrote only the
+# sentinel, which was the whole of the arm's input when the member list was hardcoded in
+# check-board.sh. Once (g1) began deriving its population from the files' own declarations,
+# the synthetic tree stopped being a REPLACE file and the arm correctly went quiet — and the
+# case asserting "arm [g] WAS reporting while it ran" failed, exactly as a case testing a
+# premise should when the premise stops holding. The fixture had drifted from what the kit
+# ships, not the other way round.
+KIT_REPLACE_DISPOSITION='KIT-DISPOSITION: REPLACE'
+
+# THE FILL DISPOSITION, for the same reason and with the same asymmetry: arm (g2) now gates its
+# angle-bracket count on PROJECT.md DECLARING FILL, so a synthetic PROJECT.md carrying blanks but
+# no declaration is correctly not measured. Every fixture that wants the FILL finding to fire must
+# write the declaration the shipped sheet carries.
+KIT_FILL_DISPOSITION='KIT-DISPOSITION: FILL'
+
 # ── The seam values this harness runs against, all DERIVED. ──────────────────
 # ISSUE_PREFIX is NOT derived from the adopter's config.sh any more. It used to be,
 # and that was the same defect one level up: the neutralizer resets the SANDBOX's
@@ -1036,10 +1057,24 @@ seed_scaffolding_tree() {
       *) _fixture_die "seed_scaffolding_tree: unknown argument '$1'" ;;
     esac
   done
-  printf '%s\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/CLAUDE.md"
-  printf '%s\n# scaffolding\n' "$KIT_SCAFFOLD_MARK" > "$SB_WORK/README.md"
+  # BOTH HALVES, because arm (g1) needs both: the declaration puts the file in the
+  # REPLACE population and the sentinel is the unreplaced-yet test applied to it. The
+  # declaration goes in a KIT-CLASS comment block, which is where the shipped files carry
+  # it and what the graduation rule requires — see process/EXTRACTION.md § The
+  # KIT-DISPOSITION: marker. Writing the sentinel alone produces a tree the arm skips.
+  for _sf in CLAUDE.md README.md; do
+    {
+      printf '<!-- KIT-CLASS: KIT — synthetic scaffolding for the harness.\n'
+      printf '     %s — the notice itself is the line below, in the body. -->\n' "$KIT_REPLACE_DISPOSITION"
+      printf '%s\n# scaffolding\n' "$KIT_SCAFFOLD_MARK"
+    } > "$SB_WORK/$_sf"
+  done
   if [ "$want_project" = true ]; then
-    printf '# PROJECT.md\n\nTrunk: <trunk>\n' > "$SB_WORK/PROJECT.md"
+    # THE DECLARATION FIRST, then the blank. (g2) gates on the declaration, so a sheet with
+    # blanks and no declaration is a tree the arm correctly skips — which is not the premise
+    # any caller of this helper wants.
+    printf '<!-- %s — synthetic fill sheet. -->\n# PROJECT.md\n\nTrunk: <trunk>\n' \
+      "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
   fi
 }
 
@@ -6621,7 +6656,8 @@ case_check_board_graduation() {
   # ── (d) GRADUATED: it clears, and it NAMES ITS SOURCE while clearing. ────────
   printf '# my project\n'                 > "$SB_WORK/CLAUDE.md"
   printf '# my project\n'                 > "$SB_WORK/README.md"
-  printf '# PROJECT.md\n\nTrunk: main\n'  > "$SB_WORK/PROJECT.md"
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
+    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
   publish_sandbox
 
   out="$(cb_run)"
@@ -6789,7 +6825,8 @@ case_check_board_graduation_reads_the_trunk() {
   # than merely stale — which is why this control is worth more than case 1.
   printf '# my project\n'                > "$SB_WORK/CLAUDE.md"
   printf '# my project\n'                > "$SB_WORK/README.md"
-  printf '# PROJECT.md\n\nTrunk: main\n' > "$SB_WORK/PROJECT.md"
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
+    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -q -m "[Architect] graduate, unpublished" >/dev/null 2>&1
   # deliberately NO push
@@ -10675,6 +10712,105 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
 }
 
 # =============================================================================
+# CASE — A NON-ASCII FILENAME SURVIVES THE COLD-SIGNAL HISTORY WALK.
+#
+# THIS ASSERTS BEHAVIOUR, NOT A MEASUREMENT, and the distinction is cold_signal.py's own
+# header rule: "the line is between asserting what it MEASURED and asserting how it
+# BEHAVES." Nothing here reads a commit count, a horizon or a suspicion set — it asks one
+# question about the walk's KEYS: does the key for a file whose name carries a byte outside
+# ASCII come back as the file's real name, the way `citation_index.iter_files()` spells it?
+# That is a property of the instrument, deterministic on a seeded repository, and it is the
+# only shape in which this defect is testable at all.
+#
+# WHAT IT GUARDS. `git log --name-only` under git's DEFAULT `core.quotePath=true` returns
+# `café.md` as the C-quoted, DOUBLE-QUOTED string `"caf\303\251.md"` — the surrounding quotes
+# are part of the key, which is why the lookup misses even after the escapes are decoded.
+# `survey()` looks the walk's paths up in that dictionary, misses, and drops the file
+# BEFORE any threshold runs. The instrument then prints a confident answer that is short by
+# however many non-ASCII paths the tree holds. AN UNDER-COUNT THAT LOOKS LIKE AN ANSWER is
+# the one failure mode this instrument's own header forbids it, and it left no trace: no
+# warning, no non-zero exit, no UNRUNNABLE.
+#
+# WHY THE FIXTURE FILE IS SEEDED HERE AND NOT REUSED FROM THE BOARD. The sandbox's seeded
+# cards are ASCII, and they should stay that way — a suite whose ordinary fixtures carry
+# accents would be testing this everywhere and nowhere. The probe file is planted,
+# committed and asserted present, so a failure names the fixture rather than the tool.
+#
+# THE ABLATION IS THE POINT. A guard is not armed until its ablation is an artifact: this
+# case copies the instrument, strips the two `-c core.quotePath=false` arguments from the
+# invocation, and requires the SAME probe to go red on the copy. Without that, a green here
+# proves only that the harness can run python3. The real tree is never mutated.
+#
+# PYTHON IS THESE INSTRUMENTS' DECLARED CARVE-OUT, so an absent interpreter SKIPS with its
+# reason — the kit's floor is git and a POSIX shell.
+# =============================================================================
+case_cold_signal_reads_non_ascii_paths() {
+  cf_reset
+  if ! command -v python3 >/dev/null 2>&1; then
+    skp "the cold-signal walk keys a non-ASCII path by its real name" "python3 absent — these are advisory instruments and Python is their declared carve-out"
+    return
+  fi
+  make_sandbox
+  local hy="$SB_WORK/scripts/hygiene"
+  if [ ! -f "$hy/cold_signal.py" ]; then
+    skp "the cold-signal walk keys a non-ASCII path by its real name" "scripts/hygiene/cold_signal.py absent — this kit ships no cold-signal instrument"
+    teardown; return
+  fi
+
+  # THE FIXTURE, and it is asserted rather than assumed. A filesystem that normalises or
+  # rejects the name would otherwise make this case green by having no subject.
+  local probe_name='café.md'
+  printf 'seeded so the walk has a non-ASCII path to key\n' > "$SB_WORK/$probe_name"
+  [ -f "$SB_WORK/$probe_name" ] \
+    || _fixture_die "case_cold_signal_reads_non_ascii_paths: could not create '$probe_name' in the sandbox — this filesystem did not keep the name, so there is no subject to measure."
+  publish_sandbox   # the walk reads git history, so the path must be COMMITTED, not just present
+  git -C "$SB_WORK" log --name-only --format= -- "$probe_name" | /usr/bin/grep -q . \
+    || _fixture_die "case_cold_signal_reads_non_ascii_paths: '$probe_name' is not in the sandbox's history after publish_sandbox — the walk would correctly report nothing and this case would assert it."
+
+  # THE PROBE, written once and run against two trees: the shipped instrument and the
+  # ablated copy. It prints one word — the key's fate — and asserts nothing itself, so the
+  # shell below owns both the green and the red.
+  local probe_py="$SB_TMP/non-ascii-probe.py"
+  cat > "$probe_py" <<'PY'
+import sys
+from pathlib import Path
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+from cold_signal import git_history
+stats = git_history(Path(sys.argv[2]))
+print("HIT" if sys.argv[3] in stats else "MISS")
+PY
+
+  local seen
+  seen="$( PYTHONDONTWRITEBYTECODE=1 python3 "$probe_py" "$hy" "$SB_WORK" "$probe_name" 2>&1 )" || seen="probe failed: $seen"
+  [ "$seen" = "HIT" ] \
+    || cf "the shipped cold_signal.py keyed '$probe_name' as something other than its real name (probe said: $seen) — under git's default core.quotePath=true the key is the C-quoted \"caf\\303\\251.md\", survey() misses it, and the file is dropped before any threshold, so the instrument UNDER-COUNTS while printing a confident answer"
+
+  # ── THE ABLATION, on a COPY. Strip the two `-c core.quotePath=false` arguments from the
+  # invocation ONLY — the docstring that explains them is left alone, because removing the
+  # explanation is not the defect and a copier who deleted the flag would not have deleted
+  # the paragraph either.
+  local ab="$SB_TMP/cold-signal-ablated"; rm -rf "$ab"; mkdir -p "$ab"
+  cp -R "$hy/." "$ab/" 2>/dev/null
+  if [ ! -f "$ab/cold_signal.py" ]; then
+    _control_did_not_run "copy scripts/hygiene/ for the ablation"
+  else
+    perl -0777 -i -pe 's/"-c", "core\.quotePath=false",\n\s*//' "$ab/cold_signal.py"
+    if /usr/bin/grep -q '"-c", "core.quotePath=false"' "$ab/cold_signal.py"; then
+      cf "(control) the ablation did not take on the copy — the invocation's arguments did not match the anchor, so nothing above establishes that the assertion can fire"
+    else
+      local ab_seen
+      ab_seen="$( PYTHONDONTWRITEBYTECODE=1 python3 "$probe_py" "$ab" "$SB_WORK" "$probe_name" 2>&1 )" || ab_seen="probe failed: $ab_seen"
+      [ "$ab_seen" = "MISS" ] \
+        || cf "(control) stripping -c core.quotePath=false from the copy did NOT lose '$probe_name' (probe said: $ab_seen) — the assertion above is a green that could not go red, so either git's default changed or the flag is no longer what carries the name"
+    fi
+  fi
+
+  finish "the cold-signal history walk keys the non-ASCII path '$probe_name' by its real name, and stripping -c core.quotePath=false from a copy loses it"
+  teardown
+}
+
+# =============================================================================
 # CASE — SHIP STATE. The control the neutralizer costs us.
 #
 # Why this case has to exist. Before _kit_neutral_config, every sandbox inherited
@@ -12338,11 +12474,20 @@ case_scaffolding_fixture_matches_the_tree() {
   grep -qF "grep -qxF '$KIT_SCAFFOLD_MARK'" "$SB_WORK/scripts/check-board.sh" \
     || cf "(b) check-board.sh does not probe for '$KIT_SCAFFOLD_MARK' with a whole-line match — the tool and the harness disagree, so the graduation arm is looking for a mark nobody writes"
 
-  # (c) THE SAME TWO DOCUMENTS, not one and not three. The arm's file list is the other
-  #     half of the fixture's premise and it was re-typed at five sites alongside the mark.
-  probe_hits="$(grep -c "for f in CLAUDE.md README.md" "$SB_WORK/scripts/check-board.sh" || true)"
-  [ "$probe_hits" -ge 1 ] \
-    || cf "(c) check-board.sh's graduation arm no longer iterates CLAUDE.md and README.md — seed_scaffolding_tree seeds a pair the tool does not read"
+  # (c) THE ARM SELECTS ITS POPULATION FROM THE FILES' OWN DECLARATION, not from a list
+  #     typed into the script. This assertion used to read `grep -c "for f in CLAUDE.md
+  #     README.md"` — it asserted the hardcoded list itself, so it was a check that the
+  #     duplication was still there. That list was a second copy of EXTRACTION.md § The
+  #     second axis: DISPOSITION's member table, and when (g1) was changed to derive the
+  #     population from KIT-DISPOSITION: REPLACE declarations, this arm reddened for
+  #     asserting the very thing that was removed.
+  #
+  #     WHAT IT ASSERTS NOW IS THE COUPLING THAT REPLACED IT, and it is the stronger
+  #     property: the tool must READ the declaration that seed_scaffolding_tree WRITES.
+  #     Derived from the constant, never re-typed, for the same reason (b) gives about
+  #     the mark — a literal here would be a second author of the key under test.
+  grep -qF "$KIT_REPLACE_DISPOSITION" "$SB_WORK/scripts/check-board.sh" \
+    || cf "(c) check-board.sh's graduation arm does not mention '$KIT_REPLACE_DISPOSITION' — it no longer reads the disposition declaration that seed_scaffolding_tree writes, so the fixture seeds a population the tool cannot see"
 
   # (d) THE EFFECT, end to end. Everything above is textual; this arm proves the seeded
   #     tree actually trips the arm. Without it, three agreeing strings could still be the
@@ -12962,6 +13107,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_hygiene_instruments_declare_blind_spots
+  case_cold_signal_reads_non_ascii_paths
   case_agent_prose_carries_its_riders
   case_partial_prefix_derivation_says_so
   case_travelling_scripts_have_a_sheet

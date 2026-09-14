@@ -36,11 +36,11 @@ belongs in the change that fills it, never ahead of it.
 > table to match it, and change both in the same commit if you change either.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort, anywhere**; **never spawn above the project's sanctioned ceiling**
-(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the seat
-is running). The seat is the human-partnered architect instance, not a provisionable worker, and
-its class is not a ceiling. `max_tokens` is harness-managed
-in Claude Code and is not a project knob.
+effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
+harness-managed in Claude Code, not a project knob. *Until that ceiling is written it is the tier
+the seat is running — and the seat's own class is never the cap, because the seat is the
+**human-partnered** architect instance rather than a **provisionable** worker*
+(`process/doctrine/model-provisioning.md` § B.2).
 
 **The leaf clause: a worker spawned for the QA hat does not spawn subagents** — it reviews
 directly, in its own context. Coordinator-level fan-out is the seat's and the runner's job.
@@ -82,19 +82,12 @@ Today's QA task: <describe>
 
 ### The Dev → QA handoff is forge-agnostic pure git
 
-The Dev → QA handoff produces a **work branch** (`feature|fix|refactor/<PREFIX>-NNN-<slug>`,
-recorded in the issue's `branch:` frontmatter) — **not** a forge PR/MR object.
-There is no forge CLI, no PR/MR ceremony, no forge approve/merge step:
-
-- QA checks the branch out with `git switch <branch>`, reviews it, and on PASS runs
-  `./scripts/finish-pr.sh <PREFIX>-NNN`. That script is **pure git**: it squash-merges the
-  branch into `<trunk>` locally, pushes the trunk, deletes the branch (local + remote), and
-  advances the issue `dev_complete/ → qa_complete/` inside the standing kanban worktree.
-- There is no PR to view, comment on, or approve. **QA's review evidence lives in the issue
-  file's Activity log** — that IS the review record.
-
-Throughout this doc, "PR" is shorthand for "the work branch under review"; read it that way —
-no forge object is implied.
+The handoff produces a **work branch** (`feature|fix|refactor/<PREFIX>-NNN-<slug>`, from the
+issue's `branch:` frontmatter) — **not** a forge PR/MR object. There is no PR to view, comment on
+or approve, and no forge CLI: **QA's review evidence lives in the issue file's Activity log**,
+which IS the review record. Throughout this doc, "PR" is shorthand for "the work branch under
+review". The boundary's own seven steps are
+[`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff.
 
 ## Skills used in this role
 
@@ -248,25 +241,14 @@ the next reviewer will guess.
 
 ## Dogfooding rounds — the QA half
 
-When the project holds a dogfooding round
-([`../../process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md)), QA does the
-**grading**, and it is the same evidence-before-assertion discipline as a review with two
-additions:
-
-- **Re-verify every reported outcome independently, against the artefact itself** — read the
-  document, query the record, diff the output; never against the participant's account of it. Where
-  the participant's claim and your measurement disagree, **record both** and say which you believe
-  and why: that gap *is* the finding (§ A.3).
-- **Grade cold.** The raw material is graded with the findings register **unopened**, as its own
-  commit; the register is opened only after that commit exists, and the reconciliation appends
-  without removing. Primed rediscovery measures nothing, and the point of the commit ordering is
-  that anyone can audit the independence afterwards rather than take your word for it (§ A.5).
-
-**Two things QA does NOT do in a round:** judge whether a provocation was *handled well* from the
-delivering instrument's output — delivery and judgement are separate instruments on purpose (§ A.4);
-and attack its own consolidation — the grouping of findings into problems is challenged by someone
-who did not do it (§ A.14). And a **Blocker halts its scenario, not the round**: escalate it now,
-then take every unaffected scenario as far as it will go (§ A.17).
+*When the project holds a dogfooding round*, QA does the **grading** — the same
+evidence-before-assertion discipline as a review, with two additions: **re-verify every reported
+outcome independently against the artefact itself, never the participant's account of it** (§ A.3),
+and **grade cold**, with the findings register unopened until the grading commit exists (§ A.5).
+Two things QA does **not** do in a round: judge whether a provocation was handled well from the
+delivering instrument's output (§ A.4), or attack its own consolidation (§ A.14). A **Blocker halts
+its scenario, not the round** (§ A.17). All five are
+[`process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md).
 
 ## Bug filing format
 
@@ -289,7 +271,7 @@ Bugs are work items in the unified `progress/` system — same lifecycle as feat
 
 ## Severity scale
 
-**Defined HERE, in the table below** — `BUG.template.md` carries the four labels and points back at this section for their meaning, so this pointer used to be circular: it sent a reader to a file that sends them straight back. The action column reflects a moderate quality bar — adjust for your project (prototype vs production) per PROJECT.md.
+**Defined HERE, in the table below** — `BUG.template.md` carries the four labels and points back here for their meaning. The action column reflects a moderate quality bar; adjust for your project (prototype vs production) per PROJECT.md.
 
 | Severity | Definition | Default action |
 | --- | --- | --- |

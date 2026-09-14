@@ -51,13 +51,12 @@ ships blank and is not ratified until they do it.** *An unratified ladder is a h
 | **Cleanup / classifier** | `<fill in>` | `<fill in>` |
 
 > **The kit ships a starting position, not a blank.** The leaf-worker definitions in
-> [`.claude/agents/`](../agents/) already pin a model and an effort in frontmatter — that is
-> the seed default, and it is *structural*: a plain spawn of `dev-worker` is correctly
-> provisioned with no action. **Those pins are a VENDOR'S PRODUCT NAMES**, which is the one
-> kind of fact the kit otherwise keeps out of itself; they are kept for the property above,
-> declared as a carve-out in `process/EXTRACTION.md` § 1 (the COPY table's `.claude/agents/` row — NOT § 1.1, which is the kanban script set), and they go stale on the vendor's
-> schedule with nothing in the kit to detect it. Re-provisioning them is yours to do. Fill the table above to match those pins (or change both
-> together, in the same commit — a table that disagrees with the pins is worse than no table).
+> [`.claude/agents/`](../agents/) already pin a model and an effort in frontmatter — that is the
+> seed default. Fill the table above to match those pins, and change both in the same commit if
+> you change either: *a table that disagrees with the pins is worse than no table.* Those pins are
+> a vendor's product names and go stale on the vendor's schedule with nothing in the kit to detect
+> it; *when you are deciding whether to re-provision them*, the carve-out and its reasoning are in
+> `process/EXTRACTION.md` § 1, the COPY table's `.claude/agents/` row.
 
 **Standing riders, binding wherever this ladder is cited.** These travel with the kit and are
 not per-project choices:
@@ -72,19 +71,11 @@ not per-project choices:
 - `max_tokens` is **harness-managed in Claude Code and is not a project knob** — do not set
   it, do not document it as a lever.
 
-**HOW the effort column is actually set — read this before dispatching an escalated leg.**
-The spawn tool carries `model` only — **there is no per-call effort parameter** — and the
-session `/effort` toggle does NOT reach the worker types (their agent definitions pin `effort:`
-in frontmatter, which outranks the session). The defaults are therefore already structural: a
-plain spawn of `dev-worker`/`qa-worker`/etc. is correctly provisioned with no action.
-**An ESCALATION** (a rigor line above the type's pin, e.g. Dev at the higher tier) travels only
-through the two mechanisms in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1:
-**(a)** the Workflow tool's per-call `effort`
-(`agent(prompt, {agentType: 'dev-worker', effort: '<higher>'})` — parallel-safe, prefer it), or
-**(b)** the serial frontmatter toggle (edit the worker file's `effort:` line → spawn → revert;
-one lane only, spawns serial while toggled, revert verified with `git status`, never committed).
-**Do not spend a leg rediscovering that nothing else works.**
+**Defaults are structural — a plain spawn of `dev-worker`/`qa-worker`/etc. is correctly
+provisioned with no action.** *When you need to ESCALATE one leg above its type's pin*, the two
+mechanisms that carry it, what does **not** work, and why, are
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1 —
+read it before dispatching, rather than spending a leg rediscovering that nothing else works.
 
 **The leaf clause: every worker this role spawns — Dev, QA, mint, cleanup — does not spawn
 subagents.** State it in the dispatch prompt. Coordinator-level fan-out is this role's and the
@@ -122,14 +113,10 @@ reads, so they happen exactly once — read only what is **not yet in context**:
 4. `progress.md` — recent entries; honor any resume pointer.
 5. `ls progress/{todo,in_progress,dev_complete,qa_complete,blocked}/` and
    `ls progress/subtasks/ 2>/dev/null` — the board, including any in-flight decomposition.
-   **Two columns are deliberately not in that listing, and both exclusions are terminal
-   states rather than oversights.** (`progress/done/` is the off-board archive of completed
-   stories — full files, swept there from `qa_complete/` by `archive.sh`. You don't move issues
-   there during a run; you land PASSes in `qa_complete/` via the landing script as usual.
-   `done/` is just where shipped work lives. `progress/declined/` holds cards that were
-   considered and **refused**, each carrying the reason — nothing there is runnable, so it is
-   not part of the set you pick from. **Declining is PM's call, never yours**: an issue you
-   cannot run is parked in `blocked/` with the evidence, and PM decides whether it dies.)
+   **`done/` and `declined/` are left out deliberately — both are terminal, and nothing in
+   either is runnable.** You land PASSes in `qa_complete/` via the landing script as usual;
+   `archive.sh` sweeps to `done/` later. **Declining is PM's call, never yours**: an issue you
+   cannot run is parked in `blocked/` with the evidence, and PM decides whether it dies.
 
 This guard is deliberate: the adapter's protocol and this doc both list project reads; without
 it an agent re-reads files it already has. One driver, one pass, skip the loaded.
@@ -154,8 +141,8 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
 
 ### The pause law
 
-> Hardened after a real run stopped twice on non-blockers and once emitted a "resuming" that
-> never resumed. The rule below is what those three incidents cost.
+**This section is the binding statement; its rationale and the incidents that earned it are
+[`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md) § A.5.**
 
 **Exactly FOUR events may stop the RUN.** Everything else is parked-and-passed:
 
@@ -163,12 +150,11 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
    parked** (if it can be parked, park it and continue to the next issue).
 2. A **destructive or irreversible action** needing authorization not already on record.
 3. **Fix rounds exhausted on the LAST remaining issue** (on any other issue: park with
-   evidence, continue).
-   *And the budget can be spent by ONE round rather than by the count:* when the second
-   failure sits in the blind spot the first cure created, the item is done — **change the
-   SHAPE or the AUTHOR, never grant another round, and never escalate the model or the
-   effort to compensate** (`process/doctrine/fix-execution.md` § A.5c). Record the blind
-   spot by name: what the cure assumed, and where the new failure sits relative to it.
+   evidence, continue). *When the second failure sits in the blind spot the first cure
+   created*, the budget is spent by that one round — change the SHAPE or the AUTHOR, never
+   grant another and never escalate to compensate
+   ([`process/doctrine/fix-execution.md`](../../process/doctrine/fix-execution.md) § A.5c,
+   which also tells a cure-shaped failure from an ordinary one).
 4. A **breach of the project's declared destructive-resource discipline discovered IN
    FLIGHT** — an unauthorized live/destructive call, a credential leak, a mutation of a
    resource no issue declared. Stop the *leg*, quarantine, record; the run itself continues
@@ -177,22 +163,22 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
 **A problem that is not one of these four is NOT a stop.** Park the item with evidence, add
 the question to the run report's batched **§ Decisions for the seat**, and dispatch the next
 leg — the seat answers decision batches BETWEEN runs, not during them. **A silent stop is a
-failure mode equal to improvising**: "parking well is success; improvising is the only
-failure mode" has a third clause — *stopping without a park note and a next dispatch is
-failure too.*
+failure mode equal to improvising:** stopping without a park note and a next dispatch is a
+failure in its own right.
 
-**Never end a turn on a stated intention.** "Resuming", "next I will…", "now dispatching…"
-are not actions. A turn may end only three ways: a **tool call in flight** (the next leg
-actually dispatched), the **run report written and the pack stamped**, or a **batched
-decision list explicitly awaiting the operator** (event 1–4 above, named). If you catch
-yourself writing "resuming" — the same message must contain the dispatch itself.
+**Never end a turn on a stated intention, and the form of the rule is an ORDERING: when the next
+leg is determined, the dispatch call PRECEDES the status.** "Resuming", "next I will…", "now
+dispatching…" are not actions. A turn may end only three ways: a **tool call in flight**, the
+**run report written and the pack stamped**, or a **batched decision list explicitly awaiting the
+operator** (event 1–4 above, named). Dispatching first ends the turn on a tool call by
+construction rather than by remembering to — *why the ordering is the mechanism and the
+prohibition alone is not* is § A.5's amendment.
 
 ### The conductor's belt (between EVERY leg)
 
-> Earned the hard way: on one run, three agent self-reports and two QA reviews all missed what
-> a two-line hash check caught in seconds. Instruments beat testimony.
-
-Run all five, ~30 seconds total, and record the readings in the run report:
+Run all five, ~30 seconds total, and record the readings in the run report. **Instruments beat
+testimony** — on one run, three agent self-reports and two QA reviews all missed what a two-line
+hash check caught in seconds:
 
 1. **The destructive-resource ledgers**: for each ledger the **project's adapter declares**
    (a disposables manifest, a live-target list, a fixtures-with-side-effects registry), take
@@ -431,33 +417,12 @@ orchestrator and the Dev hat it wears **must never mint a top-level `<PREFIX>-NN
 
 ### Subtask model (chosen: separate hidden tree)
 
-Subtasks live in their own tree so the PM-owned board stays pristine:
-
-```
-progress/
-  todo/  <PREFIX>-042-<slug>.md                ← the only board citizen (PM's issue)
-  subtasks/
-    <PREFIX>-042/
-      todo/         <PREFIX>-042-s2-<slug>.md
-      in_progress/  <PREFIX>-042-s1-<slug>.md
-      dev_complete/ …
-      qa_complete/  …
-```
-
-- **ID:** `<PREFIX>-NNN-sM` (`-s1`, `-s2`, …). Does **not** consume the `<PREFIX>-NNN`
-  integer stream — PM's next `new-issue.sh` is unaffected.
-- **Frontmatter:** `type: subtask`, `parent: <PREFIX>-NNN`, own `branch:`
-  (`feature/<PREFIX>-NNN-sM-<slug>`), own AC (sliced from the parent's AC).
-  Template: [.claude/templates/SUBTASK.template.md](../templates/SUBTASK.template.md).
-- **The parent** stays in `progress/<status>/` as the umbrella. It carries no code of its
-  own; it advances to `qa_complete/` only when **all** its subtasks reach `qa_complete/`.
-  It tracks them in a `## Subtasks (rollup)` checklist.
-- **`ls progress/todo/ …` shows only the parent** — children never clutter the board.
-- **Managed by `scripts/subtask.sh`** (mirrors `move-issue.sh` semantics within the
-  subtask tree). It **sources the same kanban-worktree library** as `move-issue.sh` /
-  `finish-pr.sh`: every git op (create / `git mv` / Activity append / commit / push) runs
-  inside the standing detached kanban worktree, so the operator's checkout is never switched
-  and any working-tree state is irrelevant.
+*When you decompose an issue:* subtasks live in their own tree
+(`progress/subtasks/<PREFIX>-NNN/<status>/`) so the PM-owned board keeps showing only the
+parent, and are **managed by `scripts/subtask.sh`**, which sources the same kanban-worktree
+library as `move-issue.sh` — never by hand and never by `move-issue.sh`. The id scheme, the
+frontmatter, the sliced-AC rule and the parent's rollup are stated on the slice itself:
+[.claude/templates/SUBTASK.template.md](../templates/SUBTASK.template.md).
 
 ## Discovered tech-debt and todos
 
@@ -562,42 +527,22 @@ So: **use a worktree when QA needs to review while Dev continues; use a plain wo
 the main checkout when Dev→QA is sequential.**
 
 **The trunk push is built in.** `move-issue.sh` syncs the kanban worktree to the remote trunk
-before each move and **pushes after each commit** — the orchestrator never has to push the
-trunk by hand after a board move. The remote board stays current automatically (good for fresh
-QA agents and for the quota-resume story: pushed state survives an account switch). The
-**trunk-mutex** this replaces — two sessions deadlocking on who holds the trunk checkout — is
-structurally gone: kanban ops never hold the operator's checkout. A lock directory
-(mkdir-atomic, ~30s timeout + ~120s stale-steal) serializes *concurrent kanban ops* so a
-half-applied move can't happen; on a real timeout it fails fast with a clear retry message and
-no state change. Two sessions pushing the trunk can still race on the push itself — the
-worktree sync re-fetches the tip before committing, so a rejected push means re-run, and the
-multi-session discipline still applies to the **narration commits you make by hand**, which do not
-go through the kanban worktree. **That discipline, and why a coordinator writing the trunk during a
-run is expected rather than a race, is stated once in `process/MANUAL.md` § The kanban worktree** —
-including the part a role doc is the wrong home for: a commit displaced by a rebase is reachable
-from no ref and is outside what `check-board.sh` measures. Read it there rather than restating it
-here.
+before each move and **pushes after each commit** — the orchestrator never pushes the trunk by
+hand after a board move, and the remote board stays current for fresh QA agents and for a
+quota-resume. **The narration commits you make BY HAND are the exception**: they do not go through
+the kanban worktree, so make them from a worktree of your own while any leg is dispatched.
+*That discipline, why a coordinator writing the trunk during a run is expected rather than a race,
+and what `check-board.sh` cannot see, are stated once in*
+[`process/MANUAL.md`](../../process/MANUAL.md) *§ The kanban worktree.*
 
 ## Dogfooding rounds — delivery, not grading
 
-A round ([`../../process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md)) is driven
-from this seat, and the discipline is the mirror image of a run: **you deliver and you do not
-grade.**
-
-- **Participants receive only their task, extracted into isolation** — never a pointer into the
-  pack that also holds the other scenarios and the rubric, and the extracted text is audited for
-  vocabulary that reveals the round (§ A.6). Participants are **leaves**, like any dispatched
-  worker.
-- **Whatever delivers a provocation may never judge the response** (§ A.4). Give the delivering
-  instrument a contract it can satisfy physically — *delivered / not delivered / failed to deliver*
-  — and **no terminal state may mean "the participant handled it well."** That verdict belongs to
-  QA, holding the transcript and the artefact.
-- **Audit the observable surface outermost first** — parent path, path, container name,
-  configuration, titles, neighbours, then contents. The container you renamed may sit inside one you
-  did not, and an irreducible leak becomes a **recorded covariate**, never a hope (§ A.7).
-- **A run delivers work; a round measures how the delivered thing is met.** Do not reach for
-  [`launch-pack.template.md`](../../process/templates/launch-pack.template.md) for a round; its pair
-  is [`round-pack.template.md`](../../process/templates/round-pack.template.md).
+*When this seat drives a dogfooding round rather than a run* — the discipline is the mirror image
+of a run, **you deliver and you do not grade** — read
+[`process/doctrine/dogfooding.md`](../../process/doctrine/dogfooding.md) for this seat's duties:
+participant isolation (§ A.6), the separation of the delivering instrument from the judging one
+(§ A.4), the outermost-first leak audit (§ A.7), and the round's own pack and report templates,
+which are **not** the launch pack's.
 
 ## Relationship to existing skills
 

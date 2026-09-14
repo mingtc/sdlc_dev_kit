@@ -35,11 +35,11 @@ belongs in the change that fills it, never ahead of it.
 > table to match it, and change both in the same commit if you change either.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort, anywhere**; **never spawn above the project's sanctioned ceiling**
-(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the seat
-is running). The seat is the human-partnered architect instance, not a provisionable worker, and
-its class is not a ceiling, and sits outside the ladder.
-`max_tokens` is harness-managed in Claude Code and is not a project knob.
+effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
+harness-managed in Claude Code, not a project knob. *Until that ceiling is written it is the tier
+the seat is running — and the seat's own class is never the cap, because the seat is the
+**human-partnered** architect instance rather than a **provisionable** worker*
+(`process/doctrine/model-provisioning.md` § B.2).
 
 **The leaf clause: a worker spawned for the Dev hat does not spawn subagents** — it works
 directly, in its own context. Coordinator-level fan-out is the seat's and the runner's job.
@@ -116,9 +116,7 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 
 1. **Pick up the issue.** Read `progress/todo/<PREFIX>-NNN-<slug>.md`. Note `id`, `type`, `branch`, `prd`, `stories`, AC, Dependencies.
 2. **Move the file.** `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role Dev --note "Picked up. Branch: <branch>."` — the script performs the move in the standing kanban worktree, auto-commits as `[Dev] <PREFIX>-NNN → in_progress: ...`, and pushes. **Your BRANCH is never touched**; your checkout is fast-forwarded only when it is
-   already clean and on the trunk (step 5 of the script's own header) — so an in-progress branch or a
-   dirty tree is left exactly as it was. *This said "your current checkout and branch are never
-   touched", which is the sentence a Dev reads before picking up an issue.*
+   already clean and on the trunk — so an in-progress branch or a dirty tree is left exactly as it was.
 3. **Design check.** Two artifacts can settle the design:
    - **PM PRD** at `requirements/PRD-NNN-<slug>.md` (referenced by the issue's frontmatter) — defines WHAT.
    - **Engineering design** at `dev/specs/...` (output of [brainstorming](../skills/brainstorming/)) — defines HOW.
@@ -129,22 +127,25 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 6. **Execute.** Invoke [subagent-driven-development](../skills/subagent-driven-development/) (preferred) or [executing-plans](../skills/executing-plans/). Both require [using-git-worktrees] to have run.
 7. **TDD loop inside every task.** Red → verify red → green → verify green → refactor → commit. The Iron Law: no production code without a failing test first. Where TDD genuinely doesn't fit (manual/live verification, hard-to-test integrations), fall back to characterization tests + manual verification — and document the deviation in `progress.md` so QA knows what was and wasn't automated.
 
-   **Selective-run in the inner loop.** Red/green iteration does not need the whole suite. If the project's gate runner offers a scoped mode (`./scripts/verify.sh --scope <paths…>` or equivalent), use it — but understand what makes a scoped run *safer than naming tests alone*, **and what it does not make it**: it runs the tests you name **plus the declared set of cross-cutting drift guards**, and there is **no flag that turns that floor off**. Those guards exist because they redden for a change made **somewhere else**, which is precisely what a naive "just run the tests I touched" sails past. **But the floor is only as complete as the declaration**: a guard that exists in the tree and was never added to the runner's list is not run, and nothing reports it — so a scoped run is never the full-gate claim, whatever the guard count says.
+   **Selective-run in the inner loop.** Red/green iteration does not need the whole suite: if the project's gate runner offers a scoped mode (`./scripts/verify.sh --scope <paths…>` or equivalent), use it. It runs the tests you name **plus the declared set of cross-cutting drift guards**, with no flag that turns that floor off — **but the floor is only as complete as the declaration**, so a scoped run is never the full-gate claim.
 
    > **Selective-run is for the TDD inner loop ONLY. The FULL suite remains mandatory at the
    > `dev_complete` handoff, at QA, and at release. Coverage is never cut and the drift guards
    > are never skipped.**
 
-   If you add or rename a cross-cutting guard, **the guard and its enrolment in the runner's always-on set are one coupled set and ride the same change.** Your code globs put the runner on the metadata side while the file it guards is code, so this is the **executable-declaration** case of the adapter's metadata carve-out — not the documentation-of-code case its worked examples show. Split them and the branch's gate cannot see the guard while the trunk's cannot see what it guards. *(Doctrine: [`process/doctrine/commit-hygiene.md`](../../process/doctrine/commit-hygiene.md) § A.5 — the gate's unit is the SET. The rule it carves out of is [`process/MANUAL.md`](../../process/MANUAL.md) § The code-vs-metadata rule.)*
+   *If you add or rename a cross-cutting guard:* **the guard and its enrolment in the runner's always-on set are one coupled set and ride the same change** — split them and the branch's gate cannot see the guard while the trunk's cannot see what it guards. Why the lanes make this the executable-declaration case, and what a record written ahead of its state owes its reader, are [`process/doctrine/commit-hygiene.md`](../../process/doctrine/commit-hygiene.md) § A.5.
 8. **Debug systematically.** Invoke [systematic-debugging](../skills/systematic-debugging/) on any test failure or unexpected behavior. Phase 1 (root cause) before any fix. Three failed fixes in a row → stop, question architecture, escalate by moving the issue to `progress/blocked/` (see below).
 9. **Review per task.** [subagent-driven-development] already calls [requesting-code-review] after every task. If running [executing-plans], invoke [requesting-code-review] manually at task boundaries.
 10. **Update progress.md.** During or after each meaningful task: decisions, surprises, deviations, skipped tests with reasons.
 11. **Verify before claiming done.** Invoke [verification-before-completion](../skills/verification-before-completion/) — run the project's one-shot gate runner (**`./scripts/verify.sh`**; the commands it wraps are per PROJECT.md — deterministic order, no re-derivation). If the project configures a linter or typechecker, they are gates too; if it configures none, they are not gates here — read PROJECT.md, do not assume either way.
 12. **Finish the branch.** Invoke [finishing-a-development-branch](../skills/finishing-a-development-branch/), choose the **push-the-branch** option — **push the work branch; do NOT create a forge PR** (the handoff is pure git). The handoff notes go in the issue file's Activity log per "Handoff to QA" below, not in a forge review description.
-13. **Move the file to `dev_complete/`.** **No branch switch — do NOT `git switch <trunk>`.** Kanban ops run inside the standing detached kanban worktree, so editing `progress/in_progress/` on your own checkout is the footgun: the loose edit is STRANDED when `move-issue.sh` re-derives the move in the kanban worktree. Nothing of yours is
-   destroyed — the mover never touches your checkout, by contract — but it commits a `git mv` on the
-   trunk while your uncommitted edit sits at the OLD path in a checkout it deliberately did not
-   fast-forward, so your next pull collides on the rename and your edit is to a file that has moved. Just run `./scripts/move-issue.sh <PREFIX>-NNN dev_complete --role Dev --note "Ready for review. Branch <branch> pushed; gates green. Handoff notes below."` — no checkout switch is needed; the script does the folder move + Activity entry + commit inside the kanban worktree and pushes the trunk. The Activity `--note` (plus the "Handoff to QA" notes you append to the issue body) IS the review record — there is no forge object or URL to record. Append a session summary to `progress.md`.
+13. **Move the file to `dev_complete/`.** **No branch switch — do NOT `git switch <trunk>`.** Just run `./scripts/move-issue.sh <PREFIX>-NNN dev_complete --role Dev --note "Ready for review. Branch <branch> pushed; gates green. Handoff notes below."` — the script does the folder move + Activity entry + commit inside the kanban worktree and pushes the trunk. The Activity `--note` (plus the "Handoff to QA" notes you append to the issue body) IS the review record. Append a session summary to `progress.md`.
+
+    *Why you must not edit `progress/in_progress/` on your own checkout instead:* the mover
+    re-derives the move in the kanban worktree, committing a `git mv` on the trunk while your
+    uncommitted edit sits at the OLD path in a checkout it deliberately did not fast-forward — so
+    your next pull collides on the rename and your edit is to a file that has moved. Nothing of
+    yours is destroyed; it is **stranded**.
 
 ### Worktree decision
 
@@ -197,11 +198,11 @@ Before moving the issue file to `progress/dev_complete/` (via `move-issue.sh`), 
 - [ ] Every gate the project's runner wraps is green — read PROJECT.md for the list; do not re-derive it.
 - [ ] **The project's binding extra gate has been run** where this change class requires it (§ Project duties). A green offline suite is the **floor, not a PASS**, for changes on a declared risk surface.
 - [ ] **A stamp is owed on the predecessor when this change lands a successor doc, closes a plan, or overturns a recorded conclusion — in the same commit, never a follow-up issue** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
-- [ ] **The ruling is recorded where it is looked up — in the same change.** A PM/seat ruling that changes behavior, **and any measured discovery** (a probe result that settles what a dependency actually does), gets its entry in the project's decision register — or in its corpus home where it has one — **in the same change**, not only an issue-file note. An Activity line records *this issue*; the next reader looking up *what is currently true* will not find it. Keep the register a **projection**: state the current ruling, one line of why, and its provenance; the history stays in the ledger.
-- [ ] **A negative capability claim ships with its enumeration — or with "unmeasured" language.** If the change writes or edits a shipped *cannot / impossible / not supported / does not exist*, it either lists the **forms actually tried** (enough to see the edge of the evidence) or says the untried forms are **unmeasured, not refuted**; and the claim's scope may not exceed its evidence's scope (evidence about one grammar grounds a claim about that grammar, not its class). Doctrine: [`process/doctrine/negative-claims.md`](../../process/doctrine/negative-claims.md).
-- [ ] **A claim established outside the test suite commits the script that established it**, under the evidence directory's `probes/` subdirectory. **A spike is the obvious case, not the only one** — the duty is about the EVIDENCE TYPE, not the issue type. Wherever a number, a negative, or a compatibility guarantee is settled by a program run outside the suite — because its inputs cannot be committed, its runtime is too long, or it compares two revisions — **that program IS the evidence**, and a schema bump or a dependency-floor move carries more weight than most spikes do. The scripts are what lets a later reader audit the edge of a negative claim, which captures alone may not preserve. A leg that ran no script says so explicitly rather than shipping an empty `probes/` — named, or explicitly dismissed, never absent.
-- [ ] **A claim of ABSENCE or FUTURITY is guarded or deleted.** If the change writes a forward-looking sentence into a shipped surface — *a future release may…*, *not yet*, *does not ship today* — it is **deleted first** (roadmap prose belongs where the roadmap is maintained, not in what ships), and kept only if a reader must plan around it now. Kept means **registered in a guard with a falsifier** — the import path, parameter or capability key whose *existence* would make the claim false — resolved in both directions. The incident that earned this rule: a promise about a future capability outlived its own truth by eight releases, because nobody re-checks a documented *later*.
-- [ ] **Every step whose REPORT and whose EFFECT are separate things has been confirmed by asking the effect, not by reading the report.** A success message, an exit status and an absent error are evidence the tool ran, never that it worked. The confirming read is chosen by the effect's class: wrote a file → re-read the changed region; committed → ask the log; **pushed → ask the remote, never the local ref**; moved an issue file → ask the board; edited a guard → watch it fail. **Where a step has an effect beyond the file it writes, the confirming read is of the EFFECT** — a correct file is not a landed commit. Doctrine: [`process/doctrine/fix-execution.md`](../../process/doctrine/fix-execution.md) § A.5d.
+- [ ] **The ruling is recorded where it is looked up — in the same change.** A ruling that changes behavior, **and any measured discovery**, gets its entry in the project's decision register (or its corpus home), not only an issue-file note: an Activity line records *this issue*, and the next reader looking up *what is currently true* will not find it. Keep the register a **projection** — current ruling, one line of why, its provenance; the history stays in the ledger.
+- [ ] **A negative capability claim ships with its enumeration — or with "unmeasured" language**, and **its scope may not exceed its evidence's scope**. Applies to any shipped *cannot / not supported / does not exist* this change writes or edits. Doctrine: [`process/doctrine/negative-claims.md`](../../process/doctrine/negative-claims.md) § A.1.
+- [ ] **A claim established outside the test suite commits the script that established it**, under the evidence directory's `probes/`. The duty is about the EVIDENCE TYPE, not the issue type — wherever a number, a negative or a compatibility guarantee is settled by a program run outside the suite, **that program IS the evidence**, and a schema bump or dependency-floor move counts as much as a spike. A leg that ran no script says so — **named, or explicitly dismissed, never absent.**
+- [ ] **A claim of ABSENCE or FUTURITY is guarded or deleted.** A forward-looking sentence in a shipped surface (*a future release may…*, *not yet*) is **deleted first**, and kept only if a reader must plan around it now — kept means **registered with a falsifier**, resolved in both directions. *A promise about a future capability once outlived its own truth by eight releases, because nobody re-checks a documented* later. Doctrine: [`process/doctrine/negative-claims.md`](../../process/doctrine/negative-claims.md) § A.1b, including the honest exceptions the rule must not punish.
+- [ ] **Every step whose REPORT and whose EFFECT are separate things has been confirmed by asking the effect, not by reading the report** — a success message, an exit status and an absent error are evidence the tool ran, never that it worked. The confirming read is chosen by the effect's class: wrote a file → re-read it; committed → ask the log; **pushed → ask the remote, never the local ref**; moved an issue file → ask the board; edited a guard → watch it fail. Doctrine: [`process/doctrine/fix-execution.md`](../../process/doctrine/fix-execution.md) § A.5d.
 - [ ] `progress.md` appended with: what was built, decisions, deviations, anything QA should know.
 - [ ] Work branch pushed (forge-agnostic — a pushed branch, **not** a forge PR).
 - [ ] Issue file Activity log appended, including the "Handoff to QA" notes below (the Activity log IS the review record — there is no forge review object).
@@ -300,10 +301,11 @@ If QA fails the review:
 - [ ] `progress.md` appended with today's entries.
 - [ ] Branch(es) pushed (forge-agnostic — pushed branches, not forge PRs).
 - [ ] Scratch files / experimental tests cleaned up or moved into the plan.
-- [ ] Worktrees in `.worktrees/` for files in `dev_complete/` are **preserved** (per [finishing-a-development-branch](../skills/finishing-a-development-branch/) **Option 1**, which is the
-      handoff path and says so outright — QA lands from the branch, and the landing gate must run against a
-      checkout at the revision being landed. Option 2 is "Keep As-Is", the path for work that is NOT being
-      handed off; it preserves the worktree too, which is why the wrong option went unnoticed.)
+- [ ] Worktrees in `.worktrees/` for files in `dev_complete/` are **preserved** — QA lands from the
+      branch, and the landing gate must run against a checkout at the revision being landed. The
+      handoff path is [finishing-a-development-branch](../skills/finishing-a-development-branch/)
+      **Option 1**, not Option 2; *both preserve the worktree, which is why picking the wrong one
+      once went unnoticed.*
 - [ ] Worktrees for merged or discarded work cleaned up via the skill.
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "Dev: <PREFIX>-NNN <state>" --session <slug>`. No-op if notifications are off.
 

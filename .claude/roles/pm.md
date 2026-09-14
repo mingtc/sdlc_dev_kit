@@ -42,11 +42,11 @@ table below is this project's **instance**, and the full ladder lives in
 > table to match it, and change both in the same commit if you change either.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort, anywhere**; **never spawn above the project's sanctioned ceiling**
-(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the seat
-is running). The seat is the human-partnered architect instance, not a provisionable worker, and
-its class is not a ceiling. `max_tokens` is harness-managed
-in Claude Code and is not a project knob.
+effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
+harness-managed in Claude Code, not a project knob. *Until that ceiling is written it is the tier
+the seat is running — and the seat's own class is never the cap, because the seat is the
+**human-partnered** architect instance rather than a **provisionable** worker*
+(`process/doctrine/model-provisioning.md` § B.2).
 
 **The leaf clause: a worker spawned for the PM hat does not spawn subagents** — it mints
 directly, in its own context. Coordinator-level fan-out is the seat's and the runner's job.
@@ -142,29 +142,13 @@ one — the operator answers batches between rounds, not during them
 
 ### Amending a PRD in part — `superseded_in_part`
 
-A PRD is written once and then partially overtaken by later rulings. When a ruling of yours
-overturns **part** of a PRD or story, annotate the PRD's frontmatter — it joins the existing
-`supersedes: []` / `references: []` fields:
-
-```
-superseded_in_part: [<PREFIX>-356 → F2 § S3]      # <issue-id> → <section>
-```
-
-- **The entry format is `[<issue-id> → <section>]`** — the issue whose ruling overturned it,
-  then the PRD section it overturned. One entry per overturned part.
-- **Annotate in the same change as the ruling.** The annotation lands with the ruling that
-  caused it, never in a later sweep — an annotation promised for later is an annotation that
-  does not happen.
-- **It is orthogonal to `status`.** A PRD superseded *in part* is **not** `status: superseded`
-  (that value is for a PRD replaced whole); a `draft`/`approved`/`completed` PRD keeps its
-  status.
-- **The ruling itself still follows the supersession ethic** — **preserve the reason, supersede
-  only the conclusion; transform the guard rather than delete it.** A rationale-free strike is
-  what gets a settled argument re-litigated. The rule statement is
-  [`process/doctrine/supersession.md`](../../process/doctrine/supersession.md).
-
-Applies **going forward**. Retro-annotating older PRDs is its own issue with its own
-verification burden — do not sweep.
+*When a ruling of yours overturns **part** of a PRD or story:* annotate the PRD's frontmatter
+with a `superseded_in_part: [<issue-id> → <section>]` entry, **in the same change as the
+ruling** — an annotation promised for later is an annotation that does not happen. Applies
+**going forward**; retro-annotating older PRDs is its own issue, not a sweep. The entry format,
+why it is orthogonal to `status`, and the ethic the ruling itself must follow — **preserve the
+reason, supersede only the conclusion; transform the guard rather than delete it** — are
+[`process/doctrine/supersession.md`](../../process/doctrine/supersession.md) § A.2.
 
 **The same discipline binds a ruling that overturns any recorded conclusion, not only a PRD.** A
 ruling is not done until the predecessor carries its stamp, in the same change
@@ -172,21 +156,12 @@ ruling is not done until the predecessor carries its stamp, in the same change
 
 **And a ruling is not done until it sits where a reader will look it up.** Every ruling made in this
 hat — not only one that overturns a spec — gets its entry in the project's **decision register** in
-that same change. **The rule and its reasoning are
-[`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6**, which is its single
-authoring site; what stands here is a pointer, because the PM is the role that *makes* the rulings
-and this is the document the PM reads. What earns an entry, and the shape of one, are in the
-register's own skeleton
-([`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)).
-
-> *Why a pointer and not the rule restated — and the measurement is worth more than the pointer.
-> On a blind adoption the rule was **not missing**: the manual carried it, and the adapter this
-> project builds on day one carries it too. The PM still wrote the instruction into its own
-> `PROJECT.md` by hand while filling that sheet — **thirteen minutes and two commits before the
-> adapter handed it the same instruction.** So the rule was stated twice and still arrived after the
-> moment it was needed. This role doc, meanwhile, did not link to the manual at all until this
-> pointer — and it is the document read by the role that makes the rulings. **A rule that is written
-> is not thereby delivered; it has to sit on the path being walked.***
+that same change. Its single authoring site is
+[`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6; what earns an entry,
+and the shape of one, are in the register's own skeleton
+([`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)). *This
+pointer exists because the rule was already stated twice and still arrived after the moment it was
+needed: **a rule that is written is not thereby delivered; it has to sit on the path being walked.***
 
 ### Moving an issue (occasional PM use)
 
@@ -241,18 +216,16 @@ A file is allowed in `progress/todo/` only when every box is checked. If anythin
 - [ ] **Every illustrative example inside an AC CITES ITS SOURCE or is labelled approximate.** An AC that says *"e.g. `0 9 * * 1-5` fires at 09:00 on weekdays"* is asserting a fact the implementer will be graded against — so it either names where that fact came from (a spec section, a manual page, a measured probe) or says plainly that it is illustrative and unverified. **Never a bare confident example.**
 
 > **Why the illustration rule exists.** An AC's example is read as the contract, not as
-> decoration. When the example is *wrong* and the implementation is *right*, the AC turns the
-> process into an argument for the plausible-wrong answer — the exact failure the specification
-> exists to prevent. Two independent reviewers hit this within twelve hours of one adoption and
-> both invented the same escape (the **third verdict** — see below); writing the source next to
-> the example is what stops it being needed. A PM who cannot cite the example should write
-> *"illustrative, unverified"* — that is a complete and honest AC.
+> decoration — when the example is *wrong* and the implementation is *right*, the AC becomes an
+> argument for the plausible-wrong answer, the exact failure a specification exists to prevent. A
+> PM who cannot cite the example writes *"illustrative, unverified"*; that is a complete and
+> honest AC.
 >
 > **The third verdict is yours to receive.** When a reviewer returns
-> **PASS-with-AC-correction**, the AC amendment lands with the issue and the note arrives on
-> your desk ([qa.md § The third verdict](qa.md#the-third-verdict--pass-with-ac-correction)).
-> Read it: an AC illustration that was wrong once is a signal about where this project's facts
-> are being guessed.
+> **PASS-with-AC-correction**, the AC amendment lands with the issue and the note arrives on your
+> desk ([qa.md § The third verdict](qa.md#the-third-verdict--pass-with-ac-correction)) — read it:
+> an AC illustration that was wrong once is a signal about where this project's facts are being
+> guessed.
 
 > **Lite-path exception (the default for small work).** For a small, well-understood standalone
 > fix, the **PRD-exists** box is satisfied by `prd: n/a` + self-authored AC, and "copied from the

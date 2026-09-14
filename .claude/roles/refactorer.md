@@ -49,11 +49,11 @@ table below is this project's **instance**, and the full ladder lives in
 > change both in the same commit if you change either.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
-effort, anywhere**; **never spawn above the project's sanctioned ceiling**
-(`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the seat
-is running). The seat is the human-partnered architect instance, not a provisionable worker, and
-its class is not a ceiling. `max_tokens` is harness-managed
-in Claude Code and is not a project knob.
+effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
+harness-managed in Claude Code, not a project knob. *Until that ceiling is written it is the tier
+the seat is running — and the seat's own class is never the cap, because the seat is the
+**human-partnered** architect instance rather than a **provisionable** worker*
+(`process/doctrine/model-provisioning.md` § B.2).
 
 **The leaf clause: a worker spawned for the Refactorer hat does not spawn subagents** — it
 audits and plans directly, in its own context. Coordinator-level fan-out is the seat's and the
@@ -165,12 +165,7 @@ What Dev sees picking up a `type: refactor` issue from `progress/todo/`:
 
 Dev follows the **Refactor variation** in [.claude/roles/dev.md](dev.md#refactor-variation) for the execution flow — same kanban transitions, same QA handoff, different first-step discipline (verify safety-net claims, no new failing test, TDD loop is Green → Move → Green per Fowler primitive).
 
-**Dev is encouraged to push back.** If on reading the plan Dev sees a better move sequence, a missed target, an ill-advised migration, or a hidden semantic change masquerading as a refactor → Dev appends a note to the issue's Activity log and either:
-
-- (a) Discusses with the Refactorer (`./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Refactor plan disputed: <reason>."`). Refactorer reads, decides, and either updates the plan or proceeds; the issue moves back to `in_progress/` after the discussion resolves.
-- (b) Proceeds with Dev's judgment and documents the deviation in `progress.md` (same as the existing Dev practice for plan deviations).
-
-The second opinion is the point. **The Refactorer's plan is a starting position, not a contract.**
+**Dev is encouraged to push back** — on a better move sequence, a missed target, an ill-advised migration, or a hidden semantic change masquerading as a refactor. *When that happens*, Dev either disputes the plan (the issue arrives in `blocked/` for you to decide on) or proceeds on its own judgment with the deviation documented; the two paths are [dev.md § Disagreeing with the plan](dev.md#disagreeing-with-the-plan). The second opinion is the point: **the Refactorer's plan is a starting position, not a contract.**
 
 ## What does NOT belong in a refactor pass
 
@@ -179,18 +174,10 @@ Quick filter at audit time. If a target falls in any of these, kick it:
 - **Logic changes** — different output for the same input → PM. Update or create a PRD.
 - **Interface changes that alter semantics** (not just rename) → PM. The form is a refactor question; the meaning is a PRD question.
 - **Performance optimization that skips work** — if eliminating a code path could affect correctness even subtly → flag as a Risk Call. Include a recommendation. The human or Dev decides.
+  *Pure restructure with identical observable behavior fits a pass cleanly; the grey area is a change that is subtly observable* — skipping a redundant call that turns out to be load-bearing downstream, caching a value callers expected to be fresh. *When the line is unclear:* flag it in the per-target detail block as a **Performance Risk Call** with a recommendation, status `pending`, and **do not plan that target further until a decision lands**.
 - **Architecture changes** — introducing a new layer, swapping a core dependency, changing how the project boots → PM. PROJECT.md is updated; this is a foundational decision, not a refactor.
 
 The cut line: **refactor is *form*. PRD is *meaning*.** When in doubt, kick.
-
-## Performance work — the grey area
-
-Some "performance refactors" are pure restructure with identical observable behavior — those fit the refactor pass cleanly. Others change behavior in subtle ways (skipping a redundant call that turns out to be load-bearing for a downstream consumer; caching a value that callers expected to be fresh). When the line is unclear:
-
-- Flag it in the per-target detail block as a **Performance Risk Call**.
-- Provide a recommendation.
-- Status: `pending` until a human or Dev confirms.
-- Refactorer doesn't execute the planning further for that target until a decision lands.
 
 ## Project duties — the adapter fills this
 

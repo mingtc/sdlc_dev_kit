@@ -252,3 +252,21 @@ multiple issues in one feature area>**, and the current example of it is **<name
 | Extracting this kit into another repo | [`process/EXTRACTION.md`](process/EXTRACTION.md) |
 | Starting a project from nothing | [`process/SEED.md`](process/SEED.md) |
 | Non-Claude agents | [`AGENTS.md`](AGENTS.md) |
+
+<!-- FILL-IN CHECKLIST — the last thing you do to this file, and then you delete THIS BLOCK too.
+
+     WHY IT IS A CHECKLIST AND NOT JUST THE PROSE AT THE TOP: this file becomes CLAUDE.md, which
+     is loaded on EVERY session forever. A line that survives here is not paid once — it is paid
+     by every session, and guidance addressed to the person filling the template is read by every
+     agent that follows as though it were project law.
+
+     - [ ] Every <angle-bracket> blank filled, or the section deleted.
+     - [ ] Every HTML comment in this file deleted — including this one. They are GUIDANCE: they
+           address the author of the adapter, not its readers, and their job ends when the blank
+           they explain is filled.
+     - [ ] The KIT-CLASS marker on line 1 dropped (your adapter is PROJECT-class by nature).
+     - [ ] Nothing restated from process/MANUAL.md that the manual already says — the adapter
+           ROUTES; a copy drifts and then wins arguments it should lose.
+     - [ ] Read what is left as a stranger would: every remaining sentence is a rule this project
+           is bound by, and anything that is merely explanation of a rule belongs where the rule
+           is authored, not here. -->

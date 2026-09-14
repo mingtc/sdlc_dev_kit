@@ -1,6 +1,6 @@
 ---
 name: product-brainstorming
-description: Brainstorm product ideas, explore problem spaces, and challenge assumptions as a thinking partner. Use when exploring a new opportunity, generating solutions to a product problem, stress-testing an idea, or when a PM needs to think out loud with a sharp sparring partner before converging on a direction.
+description: Use when a product direction is still vague and needs a sparring partner before it converges — exploring a new opportunity, generating solutions to a product problem, stress-testing an idea, or answering an open question, ahead of writing any spec.
 ---
 
 # Product Brainstorming Skill

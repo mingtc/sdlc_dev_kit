@@ -53,15 +53,11 @@ conversation with the PM. One person per side; the architect is a **succession o
   shared root.** Not *confirm the branch first*, not *wait your turn*: **a worktree of your own**
   (the kanban-worktree pattern). The shared root's branch is not yours to depend on while something
   else can move it, and there is no ordering of checks that makes it yours.
-  *This SUPERSEDES the instruction that used to stand here — "confirm `git branch --show-current`
-  is `<trunk>`, and if an active run holds the checkout, wait." **The reason it was replaced is the
-  only evidence that matters: it was violated repeatedly by the very seat that wrote it down and
-  promoted it to durable law.** An instruction a careful actor keeps breaking is not an instruction
-  problem. The working tree is the operative object, and the cure is structural — a checkout nobody
-  else can move — not more discipline about a shared one.*
-  *Learned the hard way: seat docs committed mid-run landed on a story's work branch and parked
-  its landing; a cherry-pick repaired it. **Corollary:** after a cherry-pick repair, verify with
-  blob hashes or a simulated squash-merge — a three-dot diff false-positives.*
+  *This supersedes a "confirm the branch, and wait if a run holds it" instruction that was violated
+  repeatedly by the very seat that wrote it — an instruction a careful actor keeps breaking is not
+  an instruction problem, so the cure is structural* (`process/doctrine/fix-execution.md` § A.5d).
+  *After a cherry-pick repair:* verify with blob hashes or a simulated squash-merge — a three-dot
+  diff false-positives.
 
 ## Model & budget policy (contractual)
 

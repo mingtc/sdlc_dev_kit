@@ -131,6 +131,7 @@ listed. A **value-kind marker** answers a question no amount of reading the valu
 | Marker | What kind of value it marks | Authored in | Exceptions live |
 |---|---|---|---|
 | `KIT-CLASS:` | Whether a FILE travels — `KIT` / `MIXED` / `PROJECT` | § The one file classification convention, above | in that section's carve-outs |
+| `KIT-DISPOSITION:` | What must HAPPEN to a file before day one is done — one of the disposition rows | § The second axis: DISPOSITION, below | in that section's own text |
 
 <!-- VALUE-KIND-MARKERS:END -->
 
@@ -180,6 +181,74 @@ and a disposition at the same time.
 *(The members are a **derivation of this seed**, not a definition of the axis. Re-derive them by
 opening the tree; a project that adds a surface gives it a disposition then, and this table is
 wrong rather than general if a reader treats it as closed.)*
+
+### The `KIT-DISPOSITION:` marker — the table above says WHICH files, the marker says so ON them
+
+The table is the axis's declaring site and stays that. **But a table of member lists is read by a
+human and by nothing else**, and the one shipped reader of this axis — `scripts/check-board.sh`
+arm (g) — carried its members as literal filenames typed into the script, a second copy of this
+table that nothing kept in step with it. Two lists of the same membership, in two files, is the
+drift this manifest names everywhere else.
+
+So a file may **declare its own disposition**, in the same comment block as its `KIT-CLASS:`
+marker:
+
+```
+# KIT-CLASS: MIXED — <why it travels>
+# KIT-DISPOSITION: FILL — <what is not done until it is done>
+```
+
+**The form is constrained by three shipped mechanisms, and each one decided a part of it:**
+
+- **It sits in the SAME comment block as `KIT-CLASS:`**, never in a block of its own. `kit_rehead_card`
+  (`scripts/lib/card-head.sh`) strips the `KIT-CLASS:` comment block when it mints a live card and
+  **asserts the marker is gone afterwards**; a disposition in a separate block would survive into live
+  cards, where it has no meaning — a minted card is nobody's day-one obligation. Sharing the block
+  means the strip takes both, which is the behaviour we want and is already tested.
+- **It survives `kit-init.sh`'s prefix substitution — but NOT for the reason it first appears, and
+  the real reason is narrower and more fragile.** The initializer rewrites `<old-prefix>-` to the
+  adopter's prefix, and sentinel-protects the literal `KIT-CLASS:` across that rewrite so the key is
+  not mangled. **`KIT-DISPOSITION:` begins with `KIT-` and would be mangled by exactly the same
+  substitution** — it escapes only because that rewrite walks `.claude/templates/` and
+  `.claude/roles/`, and **no file carrying a disposition marker lives in either.** Verified by
+  running the initializer against a fresh unpack with `--prefix SBX` and grepping after: every
+  declaration the derivation below returns was intact, and `grep -rn 'SBX-DISPOSITION' .` was empty.
+
+  **So the rule for a third marker is not "avoid the prefix" — it is: if the marker can ever appear
+  in a directory the prefix substitution walks, it MUST be sentinel-protected like `KIT-CLASS:`.**
+  A disposition marker added to a template or a role doc would be silently rewritten today. *(The
+  first draft of this bullet claimed the key "carries no placeholder prefix to be substituted",
+  which is simply false — it was written from the design and corrected by running the initializer.)*
+- **It is stripped at graduation with everything else in the block**, and that is why **a REPLACE
+  file's replace-me instruction still does not live here.** § The marker and graduation states the
+  rule: an instruction must not live inside a marker on a file whose marker will be removed. A
+  `FILL` disposition may live in the marker, because filling is discharged before graduation; a
+  `REPLACE` disposition is *declared* in the marker but its **instruction** stays in the body, as
+  the `BOOTSTRAP-SCAFFOLDING` line, which is what the reader keys on for that row.
+
+**What is marked so far, and what is not.** The marker was introduced with the `FILL` and `REPLACE`
+members declared, because those are the two rows arm (g) actually measures and the point of the
+marker is to feed a reader. **`KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` members are unmarked**,
+and an unmarked file is **not** a file with no disposition — it is a file whose disposition is only
+in the table above. Derive what carries one rather than assuming the set — **and anchor the
+derivation on the file's own header block, because this sheet and the release notes both quote the
+marker as a worked example and a bare grep counts those as declarations:**
+
+```
+for f in $(grep -rlE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:' .); do
+  head -12 "$f" | grep -qE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:' && echo "$f"
+done
+```
+
+*The unanchored `grep -rl` is the right question for "does anything mention this marker" and the
+wrong one for "which files declare it" — measured on this tree, it returns two files more than
+declare one, and both extras are prose. That is the same occurrence-versus-file confusion the
+classification convention's own § The one rule about counting warns of, met again by the marker
+added to answer a different question.*
+
+**An absent marker therefore means "not yet declared", never "nothing to do"** — and a reader of
+this marker must say which rows it measures, exactly as arm (g) does, rather than reporting silence
+as a pass.
 
 **REPLACE is the row that exists because of a measured failure**, and it is the one worth reading
 twice. `README.md` has always carried a *replace me* notice; nothing named the class, nothing else

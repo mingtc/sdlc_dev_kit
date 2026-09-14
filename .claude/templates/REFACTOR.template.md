@@ -10,7 +10,11 @@
      sits in. A link written for where the template SITS resolves while you read it here and
      is dead in every copy an adopter makes: it passes a link check run in the kit and fails
      the only reader who matters. The self-test reads this line to know where to resolve from,
-     so keep its shape. -->
+     so keep its shape IN THE TEMPLATE.
+     IT IS GUIDANCE, AND GUIDANCE IS DELETED ONCE THE FILE IS FILLED: this block addresses
+     whoever maintains the template, not whoever reads the card. Delete it from the minted card
+     along with every other comment — a card is read on every session that touches it, so a line
+     that survives here is paid again by every reader, forever. -->
 ---
 id: <PREFIX>-NNN
 type: refactor

@@ -1137,11 +1137,31 @@ else
   # about either. A bare-token match also fires on a backticked mention of the token in
   # prose and on any template that grew one, and an adopter whose adapter came from such a
   # template would read "still scaffolding" forever, with nothing to delete that would clear
-  # it. Only the shipped line satisfies this. The two members are the root documents that
-  # ship as scaffolding; both carry the line, and replacing the file removes it with them.
+  # it. Only the shipped line satisfies this.
+  #
+  # THE MEMBER SET IS DERIVED FROM THE FILES' OWN `KIT-DISPOSITION:` DECLARATIONS, not typed
+  # here. It was `for f in CLAUDE.md README.md` — a second copy of EXTRACTION.md § The second
+  # axis: DISPOSITION's member list, living in a script that nothing kept in step with that
+  # table. Two lists of one membership is the drift this kit names everywhere else, and here it
+  # had a specific failure mode: a project that gives a third file the REPLACE disposition gets
+  # no finding, because this arm would never have been told to look at it.
+  #
+  # THE DECLARATION SELECTS THE POPULATION; THE SENTINEL IS STILL THE TEST. That split is the
+  # graduation rule, not a convenience: EXTRACTION.md § The marker and graduation forbids a
+  # replace-me INSTRUCTION from living inside a marker that the replacement itself removes. So
+  # the marker says "this file is REPLACE-class" and the body's BOOTSTRAP-SCAFFOLDING line says
+  # "and it has not been replaced yet" — and a file whose marker AND sentinel are both gone is
+  # correctly graduated and correctly invisible to both halves.
+  #
+  # A DERIVED-EMPTY POPULATION IS REPORTED, NEVER PASSED. If nothing in the tree declares the
+  # disposition, this arm has no subject and says so — an empty derivation printing ✓ is the
+  # false-clean this kit's instrument doctrine forbids.
   g_repl=""
-  for f in CLAUDE.md README.md; do
+  g_repl_pop=""
+  for f in CLAUDE.md README.md PROJECT.md; do
     [ -f "$CB_TREE/$f" ] || continue
+    grep -qE '^[[:space:]]*(#|<!--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*REPLACE\b' "$CB_TREE/$f" 2>/dev/null || continue
+    g_repl_pop="$g_repl_pop $f"
     grep -qxF '<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
   done
   # BOTH BRANCHES NAME THE TEST, and the reason is A.4's asymmetry rather than symmetry for its
@@ -1163,11 +1183,13 @@ else
   # complaining one. The clearing branch's disclaimer therefore must not contain that phrase, and
   # does not. That exact failure — one arm's disclaimer satisfying another arm's assertion — is
   # recorded in this kit's harness against the phrase "not measured".
-  if [ -n "$g_repl" ]; then
+  if [ -z "$g_repl_pop" ]; then
+    echo "      REPLACE: no file in this tree declares KIT-DISPOSITION: REPLACE  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+  elif [ -n "$g_repl" ]; then
     echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; matched as the exact whole shipped line, so this is the sentinel itself and not a prose mention; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"
     g_find=1
   else
-    echo "      REPLACE: CLAUDE.md, README.md carry no scaffolding sentinel  ✓ (exact whole-line match — a mention of the token in prose is not a hit) — $(cb_src)"
+    echo "      REPLACE:$g_repl_pop carry no scaffolding sentinel  ✓ (population derived from KIT-DISPOSITION: REPLACE declarations, not a list typed into this script; exact whole-line match — a mention of the token in prose is not a hit) — $(cb_src)"
   fi
 
   # (g2) FILL class — unfilled <angle-bracket> blanks. SCOPED TO PROJECT.md AND THE
@@ -1195,7 +1217,19 @@ else
   # keeps the rest, so `a <!-- note --> <real-blank>` still counts one blank. Measured on the
   # shipped sheet: 74 blanks before, 73 after — the arm loses exactly the marker's own phrase and
   # keeps every real one. awk, because the kit's floor is git plus a POSIX shell.
-  if [ -f "$CB_TREE/PROJECT.md" ]; then
+  #
+  # THE DECLARATION IS NOW THE ENABLING CONDITION, and the SCOPE NARROWING IS UNCHANGED. The
+  # file must declare `KIT-DISPOSITION: FILL` for this to run on it — same reason as (g1): the
+  # member list belongs to the files, not to a copy of EXTRACTION.md's table typed into this
+  # script. What has NOT changed is which files are measured: the angle-bracket test is a
+  # markdown-document test, and the other FILL members express their blanks in shell and in
+  # ignore-file syntax, so declaring FILL on them correctly does NOT enlist them here.
+  #
+  # AND THE DECLARATION FILTERS, IT DOES NOT DISCOVER — true of (g1) as well, measured rather
+  # than assumed: a file of the adopter's own that declares the disposition under a name this
+  # arm does not already consider is NOT reached. Widening the candidate scan is a ruling about
+  # how much of the tree these arms may read, not a detail of the declaration.
+  if [ -f "$CB_TREE/PROJECT.md" ] && grep -qE '^[[:space:]]*(#|<!--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*FILL\b' "$CB_TREE/PROJECT.md" 2>/dev/null; then
     g_blanks="$(awk '{
         line = $0
         while (match(line, /<!--.*-->/)) sub(/<!--.*-->/, "", line)
@@ -1209,10 +1243,12 @@ else
     else
       echo "      FILL: PROJECT.md holds 0 <angle-bracket> blanks  ✓ — $(cb_src)"
     fi
+  elif [ -f "$CB_TREE/PROJECT.md" ]; then
+    echo "      FILL: PROJECT.md does not declare KIT-DISPOSITION: FILL  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
   else
     echo "      FILL: no PROJECT.md to read  (skipped) — $(cb_src)"
   fi
-  echo "      (FILL span: PROJECT.md only, and HTML comments are stripped before counting — the kit's own instructions in that file are not the adopter's answers. The non-markdown FILL members are NOT measured here.)"
+  echo "      (FILL span: PROJECT.md only, gated on its own KIT-DISPOSITION: FILL declaration, and HTML comments are stripped before counting — the kit's own instructions in that file are not the adopter's answers. The non-markdown FILL members declare the disposition but express blanks in shell and ignore-file syntax, so they are NOT measured here.)"
 
   # (g3) DELETE-IF-UNUSED — NOT IMPLEMENTED, and said out loud rather than omitted.
   # Deciding it needs a tracked way to record "kept on purpose", which does not exist

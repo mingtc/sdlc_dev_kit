@@ -17,7 +17,7 @@
 # different path root under the same worktree, so the move logic is now identical.
 #
 # Usage:
-#   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd PRD-NNN] [--stories a,b] [--plan path] [--size S]
+#   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S]
 #       → creates progress/subtasks/<PARENT-ID>/todo/<PARENT-ID>-<suffix>-<slug>.md
 #         from .claude/templates/SUBTASK.template.md, fills frontmatter, commits [Orchestrator].
 #   ./scripts/subtask.sh move <PARENT-ID>-<suffix> <target> [--role <R>] [--note "..."] [--discard-dirty]
@@ -92,10 +92,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # hoisted arm would have called an undefined kit_usage; it is now above too, and it reads no
 # configuration.
 #
-# AND THIS ARM READS NO SEAM. The one derived value in this help text is the ROLE SET, and its
-# seam is scripts/githooks/commit-msg rather than scripts/config.sh — read through role-set.sh,
-# already guarded above, already degrading to naming its own seam. This script consumes no
-# prefix at all, so there is nothing here for config.sh to supply.
+# AND THIS ARM NOW READS THE SEAM, GUARDED — a supersession, not a reversal, and the reason the
+# old line gave is the reason it had to change. It read: "AND THIS ARM READS NO SEAM. The one
+# derived value in this help text is the ROLE SET, and its seam is scripts/githooks/commit-msg
+# rather than scripts/config.sh ... This script consumes no prefix at all, so there is nothing
+# here for config.sh to supply." The first half stands: the role set's seam is still the hook
+# file, still read through role-set.sh, still guarded above.
+#
+# THE SECOND HALF WAS TRUE ABOUT THE OPERATIONAL PATH AND FALSE ABOUT THE HELP TEXT. The `new`
+# arm consumes no prefix — it takes `--prd` as an opaque value and the refusal block below still
+# says so. But the help WINDOW carried a `PRD-` token, typed rather than rendered, which made it
+# a second copy of a seam value in exactly the place process/contracts/issue-creation.md § 3
+# warns about. "There is nothing here for config.sh to supply" was the sentence that let it sit
+# unnoticed: it was a claim about what the script COMPUTES, standing in for a claim about what
+# the script SAYS.
+#
+# SO THE READ IS OPTIONAL HERE AND REQUIRED BELOW, the shape new-prd.sh already carries: sourcing
+# the seam when present keeps the rendered prefix honest, and its absence must not turn a usage
+# request into a refusal (§ 3's one prohibition). usage() does that read itself, at the point of
+# use, rather than a fourth source at the top of the file.
 #
 # THE `case "$CMD"` DISPATCH BELOW KEEPS ITS OWN `-h|--help` ARM. With this arm in front of it
 # a leading `--help` never reaches it, so it is now defence in depth rather than the live path:
@@ -106,7 +121,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/usage.sh"
 
 usage() {   # the path is an ARGUMENT — see lib/usage.sh
-  local roles tok='@ROLE_SET@'
+  local roles prd
   if command -v kit_role_display >/dev/null 2>&1; then
     roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
   fi
@@ -114,23 +129,80 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
   # and wrong about this project is the defect being removed, not a fallback from it.
   [ -n "${roles:-}" ] \
     || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
-  # SUBSTITUTED BY POSITION, NOT BY PATTERN — the replacement is a `|`-bearing role set, which
-  # `sed` would read through its delimiter rules and awk's gsub would read a `&` in as the whole
-  # match. index/substr interprets nothing. Same reasoning as move-issue.sh, which does this first.
-  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
-    { i = index($0, t)
-      if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
-      else   print }'
+  # THE SECOND DERIVED VALUE, and it arrived late: the `--prd` line above typed `PRD-` as a
+  # LITERAL while this file read PRD_PREFIX zero times, so on any project whose prefix is not
+  # the shipped placeholder the help advertised a token the project's own tools will not mint.
+  # It coincided with the truth only because the shipped placeholder happens to be `PRD` —
+  # which is why reading this on a pristine tree can never reveal it, and why the control that
+  # found it was a tree with the prefix RE-STAMPED.
+  #
+  # THE DEGRADATION NAMES THE SEAM, exactly as the role set's does, and for the stronger reason:
+  # this arm is answered ABOVE the seam load, so on a tree with scripts/config.sh missing there
+  # is no value to render and printing the kit's `PRD` would be the defect being removed rather
+  # than a fallback from it. The guarded read below is what keeps a CORRECT tree rendering the
+  # real value from up here; `:-` rather than a bare expansion because `set -u` would otherwise
+  # turn a usage request into an unbound-variable abort — which is issue-creation.md § 3's one
+  # prohibition, reached by the fix instead of by the defect.
+  [ -f "$SCRIPT_DIR/config.sh" ] && . "$SCRIPT_DIR/config.sh" || true
+  prd="${PRD_PREFIX:-}"
+  [ -n "$prd" ] || prd='<PRD_PREFIX from scripts/config.sh>'
+  # SUBSTITUTED BY POSITION, NOT BY PATTERN — the replacements are a `|`-bearing role set and an
+  # operator-chosen prefix, which `sed` would read through its delimiter rules and awk's gsub
+  # would read a `&` in as the whole match. index/substr interprets neither. Same reasoning as
+  # move-issue.sh, which does this first.
+  #
+  # AND A SUBSTITUTED VALUE IS NEVER RE-SCANNED, which is why this is ONE left-to-right pass
+  # rather than one pass per token. THE OBVIOUS SHAPE IS WRONG AND WAS WRITTEN HERE FIRST: two
+  # sequential whole-line substitutions, role set then prefix. A role set is an operator-chosen
+  # seam value, so one containing the OTHER token is a real input rather than a contrived one;
+  # measured on that draft, the second pass rewrote the token the FIRST pass had just emitted as
+  # data, AND the line's own genuine token was left standing — both halves wrong, from a fix
+  # whose whole subject is a value appearing where it should not.
+  #
+  # NO WORKED EXAMPLE IS WRITTEN OUT HERE, and that omission is itself a measured result. The
+  # first draft of this comment illustrated the bug with the wrong OUTPUT spelled in full — a
+  # `|`-separated alternation of role names. The self-test's sandbox refused to start on it:
+  # `_neu_roles` rewrites the declared role set across the tree and then checks that no literal
+  # survived, and an alternation sitting in a comment is indistinguishable from the defect that
+  # guard exists to find. It aborted before any case ran, saying every later case "would assert a
+  # premise that does not exist, and would report PASS while doing it." The guard was right and
+  # the example was the problem: prose that SPELLS a seam value is a copy of it, whatever the
+  # surrounding sentence claims, which is the same lesson as the `--prd` literal this change
+  # removes — one level up, in the fix's own commentary.
+  #
+  # Scanning once and emitting each replacement as it is passed cannot reproduce the bug: `out`
+  # is finished text, `rest` is the only thing still searched. Verified in both directions — a
+  # role set carrying the prefix token and a prefix carrying the role token each survive verbatim
+  # — and with a value containing `&` and a backslash escape, the `sed`/`gsub` trap above.
+  kit_usage "${BASH_SOURCE[0]}" \
+    | ROLE_SET_DISPLAY="$roles" PRD_PREFIX_DISPLAY="$prd" awk '
+    { out = ""; rest = $0
+      while (1) {
+        ir = index(rest, "@ROLE_SET@"); ip = index(rest, "@PRD_PREFIX@")
+        if (ir == 0 && ip == 0) break
+        if (ip == 0 || (ir != 0 && ir < ip)) { i = ir; t = "@ROLE_SET@";   v = ENVIRON["ROLE_SET_DISPLAY"] }
+        else                                 { i = ip; t = "@PRD_PREFIX@"; v = ENVIRON["PRD_PREFIX_DISPLAY"] }
+        out = out substr(rest, 1, i-1) v
+        rest = substr(rest, i + length(t)) }
+      print out rest }'
 }
 
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
 esac
 
-# config.sh is loaded for its SHARED VALIDATORS, not for a prefix — this script consumes
-# none. The six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT
-# copied here, because pasting a guard for a value this script never reads would add a
-# seventh copy of it while fixing a second-copy defect. Both of those remain true.
+# config.sh is loaded HERE for its SHARED VALIDATORS, not for a prefix — no OPERATION below
+# consumes one: `--prd` is carried through as an opaque value and never minted from. The
+# six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT copied here,
+# because pasting a mint-time guard for a value nothing here mints would add a seventh copy of
+# it while fixing a second-copy defect. Both of those remain true.
+#
+# "THIS SCRIPT CONSUMES NONE" IS NARROWER THAN IT WAS, and the narrowing is the point. usage()
+# above now reads PRD_PREFIX — for DISPLAY, guarded, degrading to the seam's own name — because
+# the help window renders the prefix. So the claim is about this load and about the operational
+# path, not about the file: a reader who takes it as "PRD_PREFIX appears nowhere in this script"
+# will contradict it with one grep. That over-broad reading is what let the help text type `PRD-`
+# as a literal for as long as it did.
 #
 # BUT IT IS GUARDED, AND NOT LIKE THE LIBRARIES ABOVE — a correction to what this comment
 # used to say. It read "Unguarded, like the two libraries above: `set -e` aborts loudly on

@@ -282,6 +282,52 @@ columns and never the cards.*
   arithmetically perfect output that showed a reader the amount due twice and never the amount paid.
   **No green from your harness may be read as evidence that your product is usable.**
 
+- **`KIT-DISPOSITION:` — a file can now declare what must HAPPEN to it before day one is done, and
+  `scripts/check-board.sh` arm (g) reads it.** `KIT-CLASS:` answers *does this file travel?*; the
+  disposition axis in [`process/EXTRACTION.md`](EXTRACTION.md) § The second axis: DISPOSITION answers
+  *what has to happen to it* — and until now that axis lived only in a table, while arm (g) carried
+  its member lists as **filenames typed into the script**. They are now derived from the files' own
+  declarations. **You do not have to do anything**, and nothing changes for a project that leaves the
+  shipped markers alone.
+
+  **What it enables, and the exact limit, because the limit matters more than the feature:** arm
+  (g)'s REPLACE check considers `CLAUDE.md`, `README.md` and `PROJECT.md`, and now asks each of them
+  whether it DECLARES the disposition before testing it. **The declaration filters that candidate
+  set; it does not widen it.** So re-dispositioning one of those three is followed correctly — but
+  **a file of your own with a new name is NOT scanned**, even if you declare it. Widening that scan
+  is a separate decision about how much of your tree the arm should read. Declare the disposition in
+  the same comment block as the file's `KIT-CLASS:` marker:
+
+  ```
+  # KIT-CLASS: MIXED — <why it travels>
+  # KIT-DISPOSITION: FILL — <what is not done until it is done>
+  ```
+
+  **Two behaviours to know about before you rely on it.** First, **the declaration selects the
+  population; it does not supply the test.** For `REPLACE` the test is still the body's
+  `BOOTSTRAP-SCAFFOLDING` line, because the marker is stripped by the very replacement it would be
+  asking for — so a `REPLACE` file needs both. For `FILL`, arm (g)'s angle-bracket test is a markdown
+  test: declaring `FILL` on a shell file is correct and useful, but that arm still will not measure
+  it, and says so. Second, **an arm with an empty derived population now prints `(skipped — nothing
+  was checked, which is not a pass)` rather than a tick** — so if you delete a shipped declaration,
+  you get a visible skip instead of a silent green.
+
+  **Only `FILL` and `REPLACE` members ship marked**, because those are the two rows arm (g) actually
+  measures. `KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` files are unmarked — **an absent marker
+  means *not yet declared*, never *nothing to do***; the table in `EXTRACTION.md` is still the full
+  list. Derive what carries one with
+
+  ```
+  grep -rlE '^(#|<!--|//|--)[[:space:]]*KIT-DISPOSITION:' . \
+    | while read -r f; do head -20 "$f" | grep -qE '^(#|<!--|//|--)[[:space:]]*KIT-DISPOSITION:' \
+    && printf '%s\n' "$f"; done
+  ```
+
+  rather than assuming the set. **The head window is load-bearing and is the same trap
+  `KIT-CLASS:` has:** a bare recursive grep also returns the file that DOCUMENTS the convention,
+  because its worked example is a line of the same shape further down. A declarant carries the
+  marker in its header; a description of the marker does not.
+
 ### Changed
 
 - **`--help` now answers on a tree whose `scripts/config.sh` is missing, and so does a bad flag.**
@@ -404,6 +450,53 @@ columns and never the cards.*
     the half that is easy to miss, since the section heading (*while sharp, not while failing*)
     reads as advice to skip the handoff at exactly the moment things are going wrong.
 
+- **The role documents were combed for what fires only in a SITUATION, and four skill
+  descriptions were rewritten to lead with a trigger.** A role doc is loaded **in full** the
+  moment its hat is worn, so a paragraph that fires only when a named situation arises is paid by
+  every session in that role and used by almost none of them. The rule applied: *does this fire on
+  every session in this role, or only in a situation?* — every-session content stays inline;
+  situational content moves to the sheet that owns the situation and leaves a one-line pointer
+  naming both. **No rule was dropped and no measured finding was deleted** — where a reason was
+  already stated on a doctrine sheet, the role doc now points at it instead of restating it; where
+  a finding had no other home it stayed put. `orchestrator.md`, `dev.md`, `pm.md`, `qa.md`,
+  `refactorer.md` and `architect.md` all changed shape; the § headings and the workflows'
+  numbered steps did not move. **The orchestrator's pause law gained something on the way**: the
+  ordering rule from `doctrine/orchestration.md` § A.5's amendment — *when the next leg is
+  determined, the dispatch call PRECEDES the status* — which the role doc had never carried.
+  **If you have adapted any role doc, the diff is worth reading rather than porting wholesale**:
+  what changed is placement, so the interesting question is whether your local additions are
+  every-session or situational by the same test.
+
+- **Two templates gained a fill-in checklist whose last item deletes the checklist**, and the
+  card templates now say that their header comments are GUIDANCE. A template's commentary is
+  copied into a live project, where it becomes a **permanent per-session cost**:
+  `CLAUDE-adapter.template.md` becomes `CLAUDE.md`, which is loaded on every session forever, and
+  a minted issue card is re-read by Dev, QA and the orchestrator every time it moves. Both files
+  already said *"delete the HTML comments"* in a HOW-TO-USE comment at the top; neither gave the
+  author anything to tick at the end, which is where the pack templates already put the rule
+  (*every `>` blockquote line deleted*). So `CLAUDE-adapter.template.md` and
+  `DECISIONS.skeleton.md` now end with a **FILL-IN CHECKLIST** block that closes with an item
+  deleting itself, and `.claude/templates/`'s five card templates state in their own link-base
+  header that the block is guidance addressed to whoever maintains the template — **keep its shape
+  in the template, delete it from the minted card.** *Measured while filing this: the mint-time
+  re-head (`scripts/lib/card-head.sh`) already strips the `KIT-CLASS:` block and writes a live-card
+  head in its place, but it does NOT strip the link-base block — so that comment currently lands in
+  every minted card in every adopting project.* Deleting it by hand at mint time is correct today;
+  stripping it mechanically is a change to the re-head, which this entry does not make.
+
+- **Four skill descriptions now open with a testable condition instead of a capability.** Only a
+  skill's frontmatter `description` is always in context; the body is loaded when the skill is
+  invoked. That makes a vague description expensive in a way a long body is not — and it makes an
+  instruction to load *always* a defeat of the mechanism. `brainstorming`'s description said
+  *"You MUST use this before any creative work"*, which is an order to load rather than a
+  condition; it now names the condition (HOW is not yet settled — architectural forks,
+  cross-cutting effects, genuine design space) and states that the skill gates implementation
+  until a design is approved, which is what its HARD-GATE actually does. `orchestrate`,
+  `product-brainstorming` and `write-spec` led with a sentence describing what they do and
+  reached their trigger only afterwards; all three now lead with the trigger. **No skill body
+  changed and nothing was deleted.** If you have edited these descriptions locally, the rule to
+  apply is: the condition first, and short — the description is the part that is always loaded.
+
 ### Fixed
 
 - **`scripts/hygiene/cold_signal.py` silently skipped any file whose name is not pure ASCII, and
@@ -416,6 +509,13 @@ columns and never the cards.*
   not warn; a file it never saw is indistinguishable in its output from a file it examined and
   cleared. If you have non-ASCII filenames and have been reading this instrument's output as a
   survey of your tree, re-run it — the set it reports may be larger than it was.
+
+  **The fix now has a test, which it did not when it first shipped.** `scripts/test/run.sh` carries
+  a case that seeds a file with an accented name into its sandbox, commits it, and asserts the
+  history walk keys it by its real name — and then strips the fix from a *copy* of the instrument
+  and requires the same probe to fail, so the case cannot pass by accident. If you have vendored or
+  edited this instrument, that case is what tells you whether your copy still handles the names your
+  tree actually contains.
 
 - **A dispatched spec-compliance reviewer was told the implementer "finished suspiciously quickly"
   as a statement of fact.** `.claude/skills/subagent-driven-development/spec-reviewer-prompt.md`
@@ -512,6 +612,54 @@ columns and never the cards.*
   **No guard is added anywhere, and the reason ships with the rule.** Remedy 1 comes with a
   reviewer's question instead: *for the thing this change protects, what happens if nobody invokes the
   protection?* If the answer is the damage, the default is the defect.
+
+- **`subtask.sh --help` advertised a PRD prefix it never read, so on any project whose prefix is not
+  the shipped placeholder the help named a token that project's own tools will not mint.** Its usage
+  line carried `[--prd PRD-NNN]` as typed text while the script read `PRD_PREFIX` nowhere. It now
+  renders the prefix from `scripts/config.sh`, the way `new-issue.sh`, `new-bug.sh` and
+  `new-refactor.sh` already did — the three tools whose help prints the same token.
+
+  **Nothing about `--prd` itself changes**: it is still carried through as an opaque value, still
+  validated against nothing, and every id you have already written is still accepted. This is help
+  text becoming truthful, not a new refusal.
+
+  **A usage request still always succeeds**, including on a tree where `scripts/config.sh` is missing:
+  the seam read is guarded and the text degrades to naming the seam —
+  `[--prd <PRD_PREFIX from scripts/config.sh>-NNN]` — rather than printing the kit's own default,
+  which would be authoritative-looking and wrong about your project.
+
+  **Why it hid for so long, and what to do with that.** The shipped placeholder happens to be `PRD`,
+  so on a pristine tree the typed literal and the correctly-rendered value are the same string: no
+  amount of reading `--help` on an un-stamped tree could reveal it. It took a copy of the tree with
+  the prefix deliberately re-stamped to something the kit does not ship. **If you have re-stamped
+  your own prefix, that is the control to use on anything else that prints one** — run your help text
+  on your real tree, not on a fresh unzip.
+
+- **A line of the launch-pack template's own exemplar was prefixed `>`, so following the template's
+  instructions deleted half a sentence out of your pack.** `process/templates/launch-pack.template.md`
+  tells you — in its opening comment and again in its first guidance block — to **delete every `>`
+  blockquote line** before you launch. One body line inside the § Who you are and what binds you
+  **exemplar** (the text you copy, not the guidance you delete) carried that prefix, so it rendered
+  as a blockquote splitting one paragraph into three, and an author who obeyed the instruction was
+  left with *"...there is no § Rigor section The repo files are the truth"*. The prefix is gone.
+  **If you have already minted a pack from this template, check that paragraph** — the damage is
+  silent, because what remains is still a grammatical sentence. The rest of the template set was
+  swept for the same shape and no other instance was found.
+
+- **`.claude/skills/README.md` justified a rule with a reason that cannot apply to the files it was
+  applied to.** The provenance table's *How to read the `Class` column* paragraph said an
+  **authored-here** skill's class is recorded in the table *"for the reason the vendored ones
+  have"* — that re-fetching a skill from upstream copies the folder over and erases an in-file
+  marker. That reason is real, and `process/EXTRACTION.md`'s carve-out is scoped to **vendored**
+  directories for exactly it — but **nobody re-fetches a skill authored for your kit**, so it never
+  reached them. **The rule is unchanged and only its rationale is replaced:** the table is still
+  where an authored-here skill's class is recorded, now because the `Class` column is read
+  **set-wide**, so a directory the table does not name is one whose class it silently fails to
+  answer. **What this changes for you:** the old wording implied an authored-here skill should
+  *not* carry an in-file `KIT-CLASS:` marker, since one would be erased. Nothing erases it, so it
+  **may carry one** — and where it does, the column and the marker must agree. The paragraph now
+  ships the command that tells you which of your skills carry one rather than a number that goes
+  stale: `grep -rl 'KIT-CLASS' .claude/skills/`.
 
 ## [0.4.0] — 2026-09-08
 

@@ -1,6 +1,7 @@
 # .gitignore
 # KIT-CLASS: MIXED — the kit's own entries are real and complete; the build-artifact
 # section is a marked fill-in. See process/EXTRACTION.md.
+# KIT-DISPOSITION: FILL — the build-artifact section is not done until it is filled.
 
 # ── Secrets — never commit ──────────────────────────────────────────────────
 # Only .env.example is tracked. See PROJECT.md § Credential doctrine.

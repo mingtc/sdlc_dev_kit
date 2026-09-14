@@ -2,6 +2,7 @@
 # KIT-CLASS: MIXED — the KIT half below is real and working (git hooks, the board sanity check,
 # the .env seed); the RUNTIME half is a marked fill-in that only you can write. See
 # process/EXTRACTION.md.
+# KIT-DISPOSITION: FILL — the runtime half is not done until it is written.
 #
 # setup.sh — the one front door for a fresh clone of this repository.
 #

@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Drive a set of already-created issues through the Dev → QA lifecycle with minimal human relay, wearing the Dev and QA hats in turn. Use when the user invokes /orchestrate — bare (study the board + propose a run plan for approval) or with issue IDs / a batch label — and wants them planned, implemented, and QA'd hands-off, stopping only at the two gates (plan decisions, non-clear-cut PASS/FAIL). Implements the Orchestrator role in .claude/roles/orchestrator.md.
+description: Use when the user invokes /orchestrate — bare, or with issue IDs or a batch label — to drive already-created issues through the Dev → QA lifecycle hands-off, stopping only at the two gates (plan decisions, non-clear-cut PASS/FAIL). Implements the Orchestrator role in .claude/roles/orchestrator.md.
 ---
 
 <!-- KIT-CLASS: KIT — the procedure that runs the Orchestrator role. Policy lives in the role doc. -->

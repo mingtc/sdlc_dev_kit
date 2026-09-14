@@ -150,11 +150,23 @@ convention states the rule; this is where the answer is.)
 
 **How to read the `Class` column:** it applies to **every directory in the set**. A single skill that
 departs from its set — one that has acquired your project's law, say — gets its own row saying so,
-and that row is what a reader trusts. **The default is `KIT`**: a skill travels unedited. **This
-table is where an authored-here skill's class is recorded**, for the reason the vendored ones
-have: an in-file marker inside a directory that may be re-fetched is erased by the next copy.
-Where a sheet *does* carry one — the `Class` column says so — the two must agree, and the
-in-file marker is the one that was easier to forget.
+and that row is what a reader trusts. **The default is `KIT`**: a skill travels unedited.
+
+**An authored-here skill's class is recorded HERE TOO, and NOT for the reason the vendored ones
+have.** The carve-out in
+[`../../process/EXTRACTION.md`](../../process/EXTRACTION.md) § The one file classification
+convention is scoped to **vendored** directories, and its reason is the re-fetch: a marker inside a
+folder that gets copied over from upstream is a classification that disappears on the one operation
+the set is designed for. **Nobody re-fetches a skill authored here, so that reason does not reach
+it** — and a reason that does not hold is worse than no reason, because the next reader extends it
+further. The reason that *does* hold is this column's own scope: it is read **set-wide**, so a
+directory it does not name is a directory whose class this table silently does not answer. A
+`Class` column with holes in it cannot be read the way its first sentence says to read it.
+
+**So an authored-here skill may ALSO carry an in-file `KIT-CLASS:` marker, and the carve-out does
+not exempt it from one** — nothing erases it. Where a sheet does carry one the `Class` column says
+so, the two must agree, and **the in-file marker is the one that was easier to forget**. Derive
+which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLASS' .claude/skills/`.
 
 | Set | Origin | License | Class |
 | --- | --- | --- | --- |

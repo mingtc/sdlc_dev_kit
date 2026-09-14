@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: MIXED — kit FRAME (one gate runner, uniform invocation, fixed order, one summary); PROJECT GATES (the table below, shipped EMPTY). See process/EXTRACTION.md.
+# KIT-DISPOSITION: FILL — the GATES table ships empty and is not done until it holds your gates.
 # scripts/verify.sh — the one-shot quality-gate runner.
 #
 # THE SINGLE INVOCATION. Every role and every agent runs THIS, never a command

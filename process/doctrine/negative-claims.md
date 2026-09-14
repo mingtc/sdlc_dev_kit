@@ -338,9 +338,11 @@ survived a review.
   check on its own terms. The rest is convention, and a convention that costs three words at
   authoring time may be the whole available remedy.
 - **Knowing the pattern is demonstrably not sufficient to avoid it.** The strongest evidence for
-  that is a party holding six instances of this shape, writing about them, and producing a seventh
-  inside the correction to the sixth. Treat it as a checklist line at authoring and review time,
-  not as an idea to hold in mind.
+  that is a party holding a collection of instances of this shape, writing about them, and
+  producing a fresh one **inside the correction to one of them** — no count is written here,
+  because a count of a corpus the reader cannot open is form 3 above with nothing behind it, and
+  the argument needs only that it happened during the correction. Treat it as a checklist line at
+  authoring and review time, not as an idea to hold in mind.
 
 ---
 

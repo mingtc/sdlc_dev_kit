@@ -307,3 +307,18 @@ One project rebuilt a module from its corpus alone; the divergences that mattere
 **Where it does NOT go:** a ruling with a natural home — a capability matrix row, a guide section, a
 docstring — is authored **there**, and appears here only as its one-line current conclusion with a
 pointer. Two authoring sites for one rule is how the two start disagreeing.
+
+<!-- FILL-IN CHECKLIST — the last thing you do to this file, and then you delete THIS BLOCK too.
+
+     WHY A CHECKLIST AND NOT JUST THE PROSE AT THE TOP: this file becomes a live register that
+     readers open to ask "what is currently true". Guidance addressed to the person SETTING IT UP
+     is read by everyone after them as though it were a ruling.
+
+     - [ ] Every <angle-bracket> blank filled, or the section deleted.
+     - [ ] Every HTML comment deleted — including this one. They are GUIDANCE: they address the
+           author of the register, not its readers.
+     - [ ] The KIT-CLASS marker on line 1 dropped.
+     - [ ] Every example entry either replaced with a real ruling or removed — an invented ruling
+           left in place teaches invented facts, and the next author copies them.
+     - [ ] Read what is left as a stranger would: every remaining sentence reads as a ruling this
+           project has actually made. -->
