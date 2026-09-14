@@ -23,20 +23,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # them, and this one was the sixth.
 # The same block is in every script that grep returns — change one, change all.
 CONFIG="$ROOT/scripts/config.sh"
-if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
-  {
-    echo "Error: scripts/config.sh is missing."
-    echo "       Looked for: $CONFIG"
-    echo "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME"
-    echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
-    echo "       prefix: a guessed prefix mints ids under a name nobody chose."
-    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
-      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
-    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
-    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
-  } >&2
-  exit 1
-fi
 
 # The mint-time re-head lives in one place now — scripts/lib/card-head.sh. The block that
 # used to sit here carried its own comment saying it would move "when that lib exists".
@@ -46,10 +32,6 @@ if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
   echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
   echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
   echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
-  exit 1
-fi
-if [ -z "${PRD_PREFIX:-}" ]; then
-  echo "Error: scripts/config.sh was sourced but PRD_PREFIX is empty — set it there." >&2
   exit 1
 fi
 
@@ -68,8 +50,44 @@ usage() {
 # --help exits 0; a dash-leading positional refuses with rc=2; an unknown option
 # refuses with rc=2 rather than being swallowed.
 case "${1:-}" in
-  -h|--help) usage; exit 0 ;;
+  -h|--help)
+    # THE SEAM IS OPTIONAL HERE AND REQUIRED BELOW. issue-creation.md § 3: a usage
+    # request ALWAYS succeeds — including on the tree where the seam is gone, which is
+    # exactly where an operator needs the text. Sourcing it when present keeps the
+    # rendered PRD_PREFIX honest; its absence must not turn a usage request into a
+    # refusal. The REQUIRING guard moved below this arm for the same reason; it was
+    # above and made `--help` exit 1 on a seamless tree (the harness case caught it).
+    [ -f "$CONFIG" ] && . "$CONFIG" || true
+    usage; exit 0 ;;
+  # A LEADING '-' IS NEVER A NAME, and this arm sits beside --help ABOVE the seam for the
+  # same reason § 3 gives: the status for an unrecognised option is fixed at 2, and a caller
+  # scripting against the set cannot branch on a status that means 'unknown option' in one
+  # tree and 'seam missing' in another. It needs no option vocabulary — the leading token
+  # here is a <slug>, so a dash-leading token in THAT position is illegal whatever the list
+  # below says, which is what lets it sit this high without a second copy of the options.
+  -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
+      usage >&2
+      exit 2 ;;
 esac
+
+if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
+  {
+    echo "Error: scripts/config.sh is missing."
+    echo "       Looked for: $CONFIG"
+    echo "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME"
+    echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
+    echo "       prefix: a guessed prefix mints ids under a name nobody chose."
+    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
+      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
+    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
+    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
+  } >&2
+  exit 1
+fi
+if [ -z "${PRD_PREFIX:-}" ]; then
+  echo "Error: scripts/config.sh was sourced but PRD_PREFIX is empty — set it there." >&2
+  exit 1
+fi
 
 if [ -z "${1:-}" ]; then
   usage >&2; exit 1

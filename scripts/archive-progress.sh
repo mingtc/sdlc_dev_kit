@@ -14,6 +14,22 @@
 #   ./scripts/archive-progress.sh --milestone <name> --before <YYYY-MM-DD>        # dry run
 #   …add --apply to rewrite the files, and --tag to git-tag first for revert safety.
 #
+# --repo-root <path>  IS A SUPPORTED OPTION, not a test seam. It relocates EVERY path this
+#                     script reads and writes — progress.md, progress/history/<name>.md,
+#                     progress/history/INDEX.md — and the tree that --tag tags. Default: the
+#                     parent of this script's own directory, resolved lazily below the argument
+#                     loop and used only when --repo-root was not given.
+#                     WHY IT IS DOCUMENTED RATHER THAN GATED, since the shape invites the other
+#                     reading: it is parsed in the ordinary loop with the same need_val helper as
+#                     --milestone and --keep-last, above the unknown-option arm, with no marker and
+#                     no precondition — so it is already on the production path for anyone who
+#                     types it. The kit's actual test seams are environment variables that DEFEAT A
+#                     SAFETY GATE (release.sh's RELEASE_TEST_ALLOW_STUB, finish-pr.sh's
+#                     FINISH_PR_TEST_ALLOW_STUB); those let a test skip work that protects the user.
+#                     This defeats nothing — it only says WHERE. Hiding it would cost every caller
+#                     an env assignment and protect nobody; removing it would break anyone already
+#                     rotating a tree other than this script's own parent.
+#
 # WHICH KNIFE, AND WHY THERE ARE TWO. The signal that a rotation is due is a BYTE
 # threshold on § Log, reported by check-board.sh — and bytes can cross it more
 # than once in a day.

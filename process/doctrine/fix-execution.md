@@ -307,6 +307,97 @@ not work: capability is not what is missing when the search is pointed at the wr
 where the new failure sits relative to that assumption. A stop that says only *"failed again"* hands
 the next reader the same budget and the same angle.
 
+### A.5d — A protection reachable only by memory is not a protection; move the default, confirm the effect, or change the reader
+
+§ A.5b decides **sentence or mechanism**. This rule binds **one step later**, when the answer was
+*mechanism*, the mechanism was built, it demonstrably works — and it turns out to sit on a branch a
+bare invocation does not take. **§ A.5b reads as satisfied by that state and it is not:** its
+obligation was discharged the moment the thing that refuses existed, and the damage still happened,
+because nobody invoked it.
+
+> **Where a correct rule exists and keeps being broken by the people who know it, the defect is in
+> the rule's REACHABILITY, not in anyone's care.**
+
+**"Be more careful" is the remedy that has already failed by the time the class is visible**, because
+by then the people breaking the rule are the people who wrote it down. § A.5b's own evidence is the
+first proof of that on this sheet — *the two people best informed about a defect class both walked
+into it within five minutes of writing it down*, and the finding recorded there is that **care is
+demonstrably not the cure**. What is left is to change the geometry: **what a bare invocation gets
+you, what a step's success actually proves, and who is reading.**
+
+**Three remedies, and they are ordered by cost because that is the order to try them in.** The first
+removes the memory requirement entirely; the second replaces it with one mechanical act at the moment
+of the step; the third is what is left when neither is available.
+
+| # | The remedy | What it does to the memory requirement |
+|---|---|---|
+| **1** | **Move the DEFAULT.** Where a consequential effect is reachable by a safe route and an unsafe route, and the unsafe one is what a bare invocation gets you, **change which route is the default. Do not document the safe route better, do not add a warning, do not ask for care.** | **Removes it.** Nobody has to remember anything. |
+| **2** | **Confirm the EFFECT, not the report** — and the confirming read is **chosen by the effect's class**: write a file → re-read the file; commit → ask the log; **push → ask the remote, never the local ref**; move a card → ask the board; edit a guard → **watch it fail**. | **Replaces it** with one mechanical act at the moment of the step. |
+| **3** | **Change WHO IS READING.** Hand forward the prose adjacent to the change that was **left alone** — a list, not a judgement: *"these lines sit next to what I touched and I did not change them."* | **Moves it** to a party who can discharge it. |
+
+**Remedy 1 carries its own exit, and the exit is what makes it a rule rather than a preference.**
+Where a default genuinely cannot be moved — callers break, the protection is expensive — this rule
+does **not** license a warning instead. It requires the attempts to be **enumerated**, in the
+vocabulary [`negative-claims.md`](negative-claims.md) § A.1 already ships: the routes actually tried,
+listed, enough that a reader can see the edge of the evidence. *A default that could not be moved* is
+a measured result and is written as one; *a default nobody tried to move* is not a finding.
+
+**And remedy 1 ships with a reviewer's question rather than a guard**, deliberately: *for the thing
+this change protects, what happens if nobody invokes the protection?* **If the answer is the damage,
+the default is the defect.** No guard is offered because a guard for this class would have to refuse
+on the presence of a protection it cannot tell is optional, and a gate that refuses on the ordinary
+case gets disabled — and **a disabled gate reads as armed** to everyone who does not go looking.
+§ A.6 below states the same cost from the other end: a gate that reddens for reasons unrelated to
+its property trains everyone to ignore it.
+
+**Remedy 2's whole content is one sentence: the report is evidence the tool ran, never that it
+worked.** A success message, an exit status and an absent error are all reports *about* the effect;
+none of them is the effect. The shape above is a **shape**, not a table to copy: name your own
+per-effect confirming read in § B, because the classes that matter are your program's. **The
+widening is the part that is easy to lose** — where a step has an effect beyond the file it writes,
+the confirming read is of the **effect**, and reading the file can pass while the work is still
+wrong.
+
+**Remedy 3's mechanism is a change of READER, not a change of care** — an author reading their own
+change sees what they meant; a second party handed *"here are the lines I left alone"* is reading a
+claim about untouched text, which is the one thing an author cannot check about their own work.
+**That is why it can work where "be careful" cannot.**
+
+**Three things bound remedy 3, and all three are its own limits rather than objections to it:**
+
+- **No gate.** A guard refusing on the presence of nearby prose would refuse on every documentation
+  edit ever made. This is a reporting duty and a reviewer's read.
+- **A window, not a practice to drop.** Where the list gets expensive on a large edit, **narrow the
+  window and say so**; dropping the practice is not the sanctioned remedy.
+- **Its second-party half is UNMEASURED.** The one measured catch had the author produce *and* read
+  its own list, and it still worked — so *"the list works because a second party reads it"* is a
+  mechanism this sheet states and **has not measured**. Notice whether the author-reads-own-list
+  shape is carrying the weight; do not build a gate for it.
+
+**Remedy 3 does NOT extend to a negative result, and the boundary is stated elsewhere and binds
+here.** [`negative-claims.md`](negative-claims.md) § A.5 measured a case where the reviewer *was* the
+second reader: both parties were right about the mechanism and **both stopped at the same place,
+having taken the same route.** For a negative, what is owed is a second **route**, not a second
+reader. Remedy 3 changes who reads a positive claim about untouched text; it does not turn a
+route-bound *cannot* into a measured one.
+
+**Why this is one rule and not three.** Each remedy answers the same question from a different
+distance, and each was reached after the same discovery: **the people breaking the rule already knew
+it.** Stated separately, each arrives as a tip. Stated together, the common premise is the argument,
+and the three become a **cost-ordered choice** a reader makes once.
+
+**What this rule does NOT claim.** It states no rate for any of the three classes — every count
+behind it is an instance count from a record, with **no sweep attempted**. It is not the rule that
+decides *which* route a given tool should default to; whether a bulk operation previews or mutates is
+each tool's own contract sheet's business
+([`../contracts/issue-creation.md`](../contracts/issue-creation.md) parks that question in terms).
+**This rule binds one level up**, and only in a narrower state: **a protection has already been
+built, it works, and it has been found to sit on a branch a bare invocation does not take.** Nothing
+here permits *"the mechanism exists, it is strong, it is optional, and the remedy is a warning."*
+
+*A protection you have to remember to invoke is one you will eventually not invoke, on a day when
+you are busy — which is exactly the day it matters.*
+
 ### A.6 — A gate budgets a PROPERTY, never a machine
 
 A gate that asserts a **wall-clock** budget measures the host's load, not the property it exists to
@@ -523,9 +614,15 @@ answer.** The bullets above cover the coordinator; these cover the topology.
 5. **Every vocabulary the process uses about itself, and the ONE place each is authored** (§ A.8) —
    plus the guard that reddens when a projection parts from it. A vocabulary you cannot name an
    authoring site for is listed here as **unauthored**, not as fine. `<fill-in>`
-6. **Your consent-id policy for full-suite runs** (§ A.10). `<fill-in>`
-7. **Your writable homes, and which one each tool reads** (§ A.11). `<fill-in>`
-8. **Your own § C.** It will be more convincing to your team than the one below.
+6. **Your per-effect confirming reads** (§ A.5d, remedy 2) — one row per class of effect your work
+   actually produces, each naming **what is asked** rather than what is reported: the file, the log,
+   the remote, the board, the guard's red. **A wrapper is one implementation of a row, never the
+   rule** — the kit requires only git and a POSIX shell, so a row is satisfied by a habit, a
+   checklist line or a script, and a project that has built a wrapper names it here as its
+   instance. `<fill-in>`
+7. **Your consent-id policy for full-suite runs** (§ A.10). `<fill-in>`
+8. **Your writable homes, and which one each tool reads** (§ A.11). `<fill-in>`
+9. **Your own § C.** It will be more convincing to your team than the one below.
 
 ---
 

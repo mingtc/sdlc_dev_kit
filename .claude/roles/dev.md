@@ -68,7 +68,7 @@ You are acting as a Senior Engineer. Before doing anything:
 8. git status — report current branch and any uncommitted state.
 
 Then use the dev skills in .claude/skills/ — start by reading
-using-superpowers, then apply brainstorming, writing-plans, executing-plans,
+using-skills, then apply brainstorming, writing-plans, executing-plans,
 subagent-driven-development, test-driven-development, systematic-debugging,
 verification-before-completion, using-git-worktrees, requesting-code-review,
 receiving-code-review, finishing-a-development-branch as appropriate. Invoke
@@ -84,7 +84,7 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
 
 | Skill | Trigger | Produces | Where output goes |
 | --- | --- | --- | --- |
-| [using-superpowers](../skills/using-superpowers/) | auto, every session | Bootstrap — reminds to check skills before acting | n/a |
+| [using-skills](../skills/using-skills/) | auto, every session | Bootstrap — reminds to check skills before acting | n/a |
 | [brainstorming](../skills/brainstorming/) | auto when HOW is unclear; manual | Short engineering design spec | `dev/specs/YYYY-MM-DD-<topic>-design.md` (committed) |
 | [writing-plans](../skills/writing-plans/) | auto after brainstorming; manual | Bite-sized, TDD-shaped task list | `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` (committed) |
 | [using-git-worktrees](../skills/using-git-worktrees/) | auto before execution | Isolated workspace + clean baseline | `.worktrees/<branch>/` (gitignored) |
@@ -201,6 +201,7 @@ Before moving the issue file to `progress/dev_complete/` (via `move-issue.sh`), 
 - [ ] **A negative capability claim ships with its enumeration — or with "unmeasured" language.** If the change writes or edits a shipped *cannot / impossible / not supported / does not exist*, it either lists the **forms actually tried** (enough to see the edge of the evidence) or says the untried forms are **unmeasured, not refuted**; and the claim's scope may not exceed its evidence's scope (evidence about one grammar grounds a claim about that grammar, not its class). Doctrine: [`process/doctrine/negative-claims.md`](../../process/doctrine/negative-claims.md).
 - [ ] **A claim established outside the test suite commits the script that established it**, under the evidence directory's `probes/` subdirectory. **A spike is the obvious case, not the only one** — the duty is about the EVIDENCE TYPE, not the issue type. Wherever a number, a negative, or a compatibility guarantee is settled by a program run outside the suite — because its inputs cannot be committed, its runtime is too long, or it compares two revisions — **that program IS the evidence**, and a schema bump or a dependency-floor move carries more weight than most spikes do. The scripts are what lets a later reader audit the edge of a negative claim, which captures alone may not preserve. A leg that ran no script says so explicitly rather than shipping an empty `probes/` — named, or explicitly dismissed, never absent.
 - [ ] **A claim of ABSENCE or FUTURITY is guarded or deleted.** If the change writes a forward-looking sentence into a shipped surface — *a future release may…*, *not yet*, *does not ship today* — it is **deleted first** (roadmap prose belongs where the roadmap is maintained, not in what ships), and kept only if a reader must plan around it now. Kept means **registered in a guard with a falsifier** — the import path, parameter or capability key whose *existence* would make the claim false — resolved in both directions. The incident that earned this rule: a promise about a future capability outlived its own truth by eight releases, because nobody re-checks a documented *later*.
+- [ ] **Every step whose REPORT and whose EFFECT are separate things has been confirmed by asking the effect, not by reading the report.** A success message, an exit status and an absent error are evidence the tool ran, never that it worked. The confirming read is chosen by the effect's class: wrote a file → re-read the changed region; committed → ask the log; **pushed → ask the remote, never the local ref**; moved an issue file → ask the board; edited a guard → watch it fail. **Where a step has an effect beyond the file it writes, the confirming read is of the EFFECT** — a correct file is not a landed commit. Doctrine: [`process/doctrine/fix-execution.md`](../../process/doctrine/fix-execution.md) § A.5d.
 - [ ] `progress.md` appended with: what was built, decisions, deviations, anything QA should know.
 - [ ] Work branch pushed (forge-agnostic — a pushed branch, **not** a forge PR).
 - [ ] Issue file Activity log appended, including the "Handoff to QA" notes below (the Activity log IS the review record — there is no forge review object).

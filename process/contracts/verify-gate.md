@@ -62,6 +62,21 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   strongest claim exactly where it measured least — over a tree that may hold unenrolled guards it
   never saw. Measured in the reference implementation one edit from the shipped state,
   before this clause existed.
+- **A CHECK ABOUT DEPLOYED BEHAVIOUR PROBES THE DEPLOYED ARTIFACT, never the working copy.** Where
+  a check's claim is about something *running* or *installed* — a service is up, a command is
+  usable, the published copy carries the fix — reading the file in the tree does not establish it.
+  The shape that does: resolve the artifact out of the tree (`git archive <ref>` into a scratch
+  directory, an unzip of the built package, the installed path) and **execute the thing there**.
+  *Why:* measured twice, on two different subjects. A readiness probe answered *"the command is
+  usable"* by testing the FILE while the running loop held code hours old. And a liveness check
+  answered *"the server is alive"* by asserting a state file existed — immediately after the
+  documented stop step, which never unlinked it. **Both checks were correct about what they read
+  and wrong about what they claimed**, and neither could have gone red, because the working copy is
+  where the author's belief lives rather than where the behaviour does.
+  *The narrower form to keep even when the full probe is too expensive:* say in the output which of
+  the two was read — the artifact or the tree — so the reader is not left inferring it.
+  *(`process/doctrine/instruments.md` § A.9 is the general case: the instrument is correct and its
+  reader cannot tell which question it answered.)*
 - **Green is a state of the tree, never of a session** — and *session* includes **where the caller
   was standing.** The gate reads the working tree it is pointed at, holds no memory of a previous
   run, and **its verdict does not depend on the caller's working directory**: the same tree answers

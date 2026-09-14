@@ -2322,8 +2322,10 @@ _schema_audit() {
 # the header carried the namespace. A sentence fixes the kit; it does not fix the plans
 # already written from it, and it does not stop the next one.
 #
-# THE PATTERN IS `<ns>:<skill>` WITH NO SPACES, not the word. `using-superpowers/` is a
+# THE PATTERN IS `<ns>:<skill>` WITH NO SPACES, not the word. `using-skills/` is a
 # legitimate shipped skill directory, so a word match would fire on the fix itself.
+# (It was `using-superpowers/` when this was written; the rename does not change the
+# argument, only the example.)
 # Scoped to markdown and excluding URL schemes and inline CSS (`display:flex`,
 # `.card:hover` live in this tree and are not references) — measured, not assumed: the
 # unscoped form matched four CSS declarations in brainstorming/.
@@ -2522,16 +2524,18 @@ $(printf '%s' "$unmarked" | sed "s|^$skills/||" | cut -c1-200 | sed 's/^/      /
 # first hand enumeration of them. A prose enumeration of residue is stale the day a line
 # is added; this makes it executable, so the NEXT mention has to argue for itself.
 #
-# THE THREE ALLOWED SHAPES, each with the reason it is allowed:
+# THE ALLOWED SHAPES, each with the reason it is allowed. There were three; the second
+# was `using-superpowers`, the shipped skill directory's own name, allowed only because
+# the rename was link-breaking and deferred. THE RENAME LANDED — the directory is
+# `using-skills` — SO THAT ALLOWANCE IS DELETED AND THIS CASE IS NOW THE RENAME'S OWN
+# GATE, exactly as the allowance instructed. Do not restore it: a re-appearance of the
+# old directory name is a finding, which is the whole point of removing the carve-out.
+# The remaining shapes:
 #   1. `~/.config/superpowers/…` — an EXTERNAL tool's real directory. The skills ADOPT that
 #      directory where it already exists — they never create it — and add a worktree inside
 #      it, so renaming it in our copy would send a correct instruction looking for a
 #      directory nothing creates.
-#   2. `using-superpowers` — the shipped skill directory's own name, plus the rows in the
-#      skills index and the Dev role doc that cite it. That rename is link-breaking and
-#      still deferred; WHEN IT LANDS, DELETE THIS ALLOWANCE and this case becomes the
-#      rename's own gate.
-#   3. A line carrying the upstream repository URL — provenance. A skill whose origin
+#   2. A line carrying the upstream repository URL — provenance. A skill whose origin
 #      nobody can name is a skill nobody can safely update, so the citation stays.
 # Patterns, not paths: a residue site that moves to another file is still caught and no
 # file list has to be maintained. Line granularity is the known limit — prose sharing a
@@ -2545,7 +2549,6 @@ $(printf '%s' "$unmarked" | sed "s|^$skills/||" | cut -c1-200 | sed 's/^/      /
 _upstream_name_hits() {  # <dir> — prints "file:line:text" per DISALLOWED mention
   grep -rn -i 'superpowers' "$1" 2>/dev/null \
     | grep -vE '\.config/superpowers/' \
-    | grep -vE 'using-superpowers' \
     | grep -vE 'github\.com/[^ ]*/superpowers' || true
 }
 
@@ -2574,7 +2577,7 @@ case_upstream_name_only_where_kept() {
     || cf "only $nfiles scannable file(s) under $agent — too few to be the shipped agent surface; the scan lost its subject rather than finding a clean tree"
 
   local hits; hits="$(_upstream_name_hits "$agent")"
-  [ -z "$hits" ] || cf "the upstream product name is used where nothing depends on it — allowed only as the external \`~/.config/superpowers/\` path, the \`using-superpowers\` skill name, or a line carrying the upstream repository URL:
+  [ -z "$hits" ] || cf "the upstream product name is used where nothing depends on it — allowed only as the external \`~/.config/superpowers/\` path or a line carrying the upstream repository URL:
 $(printf '%s' "$hits" | sed 's/^/      /')"
 
   # ── THE REDDENING CONTROL, on a COPY — never the live tree (instruments.md § A.2).
@@ -3432,6 +3435,9 @@ case_config_seam_refusal() {
   # (Proxies measured: "reads ISSUE_PREFIX" drops new-prd.sh, whose seam is PRD_PREFIX, and adds
   # config.sh, which DEFINES the value, and kit-init.sh, which REWRITES it.)
   local s out rc n_consumers=0
+  # hout/hrc carry the USAGE and UNKNOWN-OPTION probes below, kept separate from out/rc so the
+  # refusal assertions and the argument-clause assertions cannot read each other's result.
+  local hout hrc
   #
   # `grep -lF`, AND THE -F IS LOAD-BEARING. Written as a normal pattern this returns NOTHING:
   # `$` mid-expression is read as an end-of-line anchor, so `"$CONFIG"` can never match, and the
@@ -3439,6 +3445,19 @@ case_config_seam_refusal() {
   # because that refusal exists. Measured while writing this fix: the first attempt returned
   # zero files. `lib/usage.sh`'s header records the same trap for the same reason.
   local consumers; consumers="$(cd "$SB_WORK/scripts" && grep -lF 'if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then' ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
+  # THE SEAM'S OWN VALUE, for the no-guessing arm inside the loop, and it is OBTAINED THE WAY A
+  # CONSUMER WOULD: source the DISABLED seam in a subshell with the env override unset and read
+  # what it defines. Not parsed out of the file — the shipped line is
+  # `ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"`, so a pattern read of the assignment returns the
+  # PARAMETER EXPANSION rather than the value, and the arm below would compare against nothing.
+  # `env -u`, because a value inherited from this harness's own environment would make the
+  # operand the harness's rather than the seam's.
+  # `|| true`, and the arm is SKIPPED on an empty result and says so: a seam whose shape changed
+  # must not end the run from inside a control.
+  local seam_prefix
+  seam_prefix="$( env -u ISSUE_PREFIX bash -c '. "$1" >/dev/null 2>&1 && printf "%s" "${ISSUE_PREFIX:-}"' _ "$SB_WORK/scripts/config.sh.disabled" || true )"
+  [ -n "$seam_prefix" ] \
+    || cf "(control) could not read ISSUE_PREFIX out of the sandbox's disabled config.sh — the no-guessing arm below is skipped, so its green is unproven"
   [ -n "$consumers" ] \
     || _fixture_die "case_config_seam_refusal: no script in the sandbox carries the guarded-source block — the census pattern moved, so this loop would assert nothing while reporting a pass."
   for s in $consumers; do
@@ -3484,7 +3503,84 @@ case_config_seam_refusal() {
     # contract path is what only the kit's own block emits — all six cite it, and bash cannot.
     printf '%s' "$out" | grep 'config-seam\.md' >/dev/null \
       || cf "$s: the refusal names config.sh but does not cite process/contracts/config-seam.md — so this may be the interpreter's sourcing diagnostic rather than the kit's guarded refusal, which is the state that let a script with NO guard pass this arm: $out"
+
+    # ── AND § 3's TWO ARGUMENT CLAUSES STILL HOLD ON THIS SAME SEAMLESS TREE. This is the half
+    #    of this case that was BLIND: it asserted the refusal and asserted nothing about what the
+    #    tools do with an ARGUMENT. WHEN THIS ARM WAS WRITTEN, every member of the census below
+    #    except next-id.sh refused a usage request on the tree this case builds — issue-creation.md
+    #    § 3's one prohibition ("a request for the usage text is ALWAYS legal and ALWAYS
+    #    succeeds"), fired in the state where an operator most needs the text. The cause was
+    #    file-scope sourcing above the argument parse; next-id.sh already had the other order and
+    #    answered. No count is written here: the population is derived below and the arm asserts
+    #    over whatever it returns, so a number in this sentence could only go stale.
+    #
+    #    THE SAME POPULATION, DERIVED THE SAME WAY, so the refusal half and the argument half
+    #    cannot disagree about who is in the set. And NO invocation table is needed here, which
+    #    is not the oversight the `*)` arm above exists to prevent: `--help` is the one
+    #    invocation § 3 declares legal for every bound tool, so it is derivable from the
+    #    contract rather than from per-member knowledge.
+    hout="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s" --help </dev/null 2>&1 )"; hrc=$?
+    [ "$hrc" -eq 0 ] \
+      || cf "$s: --help exited $hrc with config.sh absent — issue-creation.md § 3 says a usage request ALWAYS succeeds, and this is the tree where the operator needs it most: $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
+    # NAMING ITSELF, because rc=0 alone is satisfied by a tool that printed NOTHING — the same
+    # hole the CLI-shape case names, and the same remedy.
+    printf '%s' "$hout" | grep -F -- "$s" >/dev/null \
+      || cf "$s: --help printed nothing naming $s, with config.sh absent — and rc alone is satisfied by a tool that printed nothing at all, so this arm is stated separately from the one above rather than folded into it: $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
+    # AND IT DID NOT GUESS THE VALUE IT COULD NOT READ. § 3's ranked rules for usage text that
+    # renders a derived value: it degrades to NAMING the seam and NEVER to the kit's shipped
+    # default. Three of the six render a prefix into their usage line, so this arm is the one
+    # that separates a reorder from a reorder plus a fallback literal — which is the tempting
+    # wrong fix, and the one the seam block itself was written to remove one level up.
+    #
+    # THE OPERAND IS THE SEAM'S OWN VALUE, obtained by SOURCING the disabled file rather than
+    # typed here, so a sandbox that stamps a different prefix does not silently empty this arm.
+    # STATED LIMIT: in this sandbox that value IS the kit's shipped placeholder, so this arm
+    # cannot tell a GUESSED default from a value read some other way. It does not need to —
+    # with the seam absent there is no legitimate route to either.
+    if [ -n "${seam_prefix:-}" ]; then
+      printf '%s' "$hout" | grep -F -- "${seam_prefix}-NNN" >/dev/null \
+        && cf "$s: --help with config.sh absent printed '${seam_prefix}-NNN' — it fell back to a prefix literal instead of naming the seam, and a prefix that is right about the kit and wrong about the project is unfalsifiable from the operator's seat (issue-creation.md § 3): $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
+    fi
+    # THE UNKNOWN-OPTION CLAUSE, ON THE FOUR MEMBERS THAT CAN CARRY IT ABOVE THE SEAM — and the
+    # split is DERIVED FROM THE GRAMMAR, not chosen. § 3 also fixes a status for an unrecognised
+    # option ("refuse, non-zero, naming it ... and in this kit that status is 2"), and below the
+    # seam it never gets one: measured, all six exited 1 with the seam refusal.
+    #
+    # WHY ONLY FOUR. The four creators take a <slug> in leading position, so a dash-leading token
+    # THERE is illegal whatever the option list says — the arm re-states no vocabulary. archive.sh
+    # (`--apply`) and subtask.sh (`new`) may LEGALLY lead with an option or a subcommand, so an
+    # arm above their seam could not tell a bad flag from a good one without holding a SECOND COPY
+    # of their option list — the defect § 3's own scar records ("the remedy was one fewer copy,
+    # not a better matcher"). Those two keep rc 1 here, and the finish line says so rather than
+    # this arm quietly skipping them.
+    case "$s" in
+      new-bug.sh|new-issue.sh|new-refactor.sh|new-prd.sh)
+        hout="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s" --bogus </dev/null 2>&1 )"; hrc=$?
+        [ "$hrc" -eq 2 ] \
+          || cf "$s: --bogus exited $hrc with config.sh absent, where issue-creation.md § 3 fixes the status for an unrecognised option at 2 — a caller scripting against the set cannot branch on a status that means 'unknown option' in one tree and 'seam missing' in another: $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
+        printf '%s' "$hout" | grep -F -- '--bogus' >/dev/null \
+          || cf "$s: the unrecognised-option refusal does not NAME --bogus, which § 3 requires of it: $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)" ;;
+    esac
   done
+
+  # ── INSTRUMENT CHECK FOR THE ARMS ABOVE. Written OUTSIDE scripts/ so the census cannot pick it
+  #    up and turn the control into a subject — the same construction, and the same reason, as the
+  #    CLI-shape case's probe. Each arm must be shown able to FAIL, because they all passed on the
+  #    very first run of the fixed tree and a green that has never been red is a wish.
+  local hprobe="$SB_TMP/help-refuses.sh"
+  printf '#!/usr/bin/env bash\necho "%s-NNN" >&2\nexit 1\n' "${seam_prefix:-KIT}" > "$hprobe"
+  chmod +x "$hprobe"
+  hout="$( "$hprobe" --help </dev/null 2>&1 )"; hrc=$?
+  [ "$hrc" -ne 0 ] \
+    || cf "(control) the usage probe read rc=0 from a script that exits 1 — the rc arm above is measuring nothing"
+  [ "$hrc" -ne 2 ] \
+    || cf "(control) the probe that exits 1 was read as rc=2 — the unknown-option arm above cannot tell the two statuses apart"
+  printf '%s' "$hout" | grep -F -- "$(basename "$hprobe")" >/dev/null \
+    && cf "(control) the naming arm matched a probe whose output never names it — it is measuring nothing"
+  if [ -n "${seam_prefix:-}" ]; then
+    printf '%s' "$hout" | grep -F -- "${seam_prefix}-NNN" >/dev/null \
+      || cf "(control) the fallback-literal arm did not see '${seam_prefix}-NNN' in output that carries it — it could not redden on a script that guessed"
+  fi
 
   # THE SECOND ARM, which only one consumer has: config.sh present and SOURCEABLE but
   # the seam empty must ALSO refuse and name it. Restore the seam file, blank the value.
@@ -3527,7 +3623,7 @@ case_config_seam_refusal() {
   [ -z "$(find "$SB_WORK/requirements" -name '*someslug*' 2>/dev/null)" ] \
     || cf "a refused new-prd.sh minted into requirements/ anyway"
 
-  finish "the config seam REFUSES with a named cause across every prefix consumer the block's own census returns ($n_consumers asserted: $(printf '%s' "$consumers" | tr '\n' ' ')), the empty-seam arm refuses too, and nothing is minted in progress/ or requirements/"
+  finish "the config seam REFUSES with a named cause across every prefix consumer the block's own census returns ($n_consumers asserted: $(printf '%s' "$consumers" | tr '\n' ' ')), EVERY ONE OF THEM STILL ANSWERS \`--help\` on that same seamless tree — rc=0, naming itself, and WITHOUT falling back to a prefix literal (operand: the seam's own '${seam_prefix:-<unreadable, arm skipped>}', obtained by sourcing the disabled file) — the four <slug>-leading creators also still refuse an unrecognised option with § 3's status 2 and name it, with every arm shown able to redden against a probe outside scripts/; the empty-seam arm refuses too, and nothing is minted in progress/ or requirements/. TWO HOLES rather than exemptions, both stated: \`--help\` in a LATER argument position, which every member still answers below its seam block and therefore still refuses on this tree; and the unrecognised-option status for archive.sh and subtask.sh, which still exit 1 here because an arm above THEIR seam would need a second copy of their option list"
   teardown
 }
 
@@ -7483,18 +7579,33 @@ WITHDRAWN_EOF
     #    sheet's rule for derived content is that it degrades to NAMING THE SOURCE and never
     #    to a guess — a list that is right about the kit and wrong about this project is the
     #    defect being removed, not a fallback from it.
-    local d keep
-    for d in scripts/lib/role-set.sh scripts/githooks/commit-msg; do
+    # THE PASS COUNT IS DERIVED FROM THE SAME LIST THE LOOP RUNS, never typed beside it: a
+    # literal here would go stale the day a third seam file joins the loop, and the message
+    # would then number the passes wrongly while looking authoritative.
+    local d keep c_i=0 c_n
+    local -a c_seams=(scripts/lib/role-set.sh scripts/githooks/commit-msg)
+    c_n=${#c_seams[@]}
+    for d in "${c_seams[@]}"; do
+      c_i=$(( c_i + 1 ))
       keep="$SB_TMP/$(basename "$d").keep"
       cp "$SB_WORK/$d" "$keep" 2>/dev/null || { _control_did_not_run "stash $d to remove it"; continue; }
       rm -f "$SB_WORK/$d"
       out="$( cd "$SB_WORK" && "./scripts/$t" --help 2>&1 )"; rc=$?
       [ "$rc" -eq 0 ] \
-        || cf "($t c) with $d absent, --help exited $rc — a usage request must always succeed, and this is the path arm (a) put a dependency on"
+        || cf "($t c, pass $c_i of $c_n, $d absent) --help exited $rc — a usage request must always succeed, and this is the path arm (a) put a dependency on"
+      # THE MESSAGE REPORTS THE OPERAND THE ASSERTION READ, NOT A SECOND DERIVATION OVER IT.
+      # This `cf` used to print a `sed` for the `<R> = ` line while the assertion grepped for a
+      # token, so the two read the same string by different routes and could describe different
+      # states — and with the seam removed there may be no `<R> = ` line at all, which rendered an
+      # EMPTY tail that cannot distinguish "--help printed nothing" from "--help printed plenty,
+      # none of it a role line". Both are reported here instead: the byte length is unambiguous
+      # where an extracted line is not, and `$d` and the iteration make two `cf`s unreadable as one.
+      # (Arm (a) already halts on an absent `<R> = ` line, but it runs on the INTACT tree — this
+      # loop has just removed the seam, so that guard says nothing about this string.)
       printf '%s\n' "$out" | grep 'ROLE_PREFIXES' >/dev/null \
-        || cf "($t c) with $d absent, --help does not NAME the seam the role set comes from — it degraded to something that tells the operator nothing about where to look: $(printf '%s' "$out" | sed -n 's/^[[:space:]]*<R> = //p' | head -1)"
+        || cf "($t c, pass $c_i of $c_n, $d absent) --help does not NAME the seam the role set comes from — it degraded to something that tells the operator nothing about where to look. It printed ${#out} byte(s): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
       printf '%s\n' "$out" | grep -F -- "$shipped" >/dev/null \
-        && cf "($t c) with $d absent, --help printed the KIT'S SHIPPED set — it guessed, and a guess that is right about the kit and wrong about this project is the exact defect this case is named for"
+        && cf "($t c, pass $c_i of $c_n, $d absent) --help printed the KIT'S SHIPPED set — it guessed, and a guess that is right about the kit and wrong about this project is the exact defect this case is named for"
       cp "$keep" "$SB_WORK/$d"; chmod +x "$SB_WORK/$d" 2>/dev/null || true
     done
 
@@ -9245,6 +9356,36 @@ _cli_exempt_prefixes() {
     | grep -oE '`[.a-z][a-z._/-]*`' | tr -d '`' | sort -u
 }
 
+# ── WHAT COUNTS AS A SHIPPED PROGRAM, and HOW IT IS INVOKED. ─────────────────
+# ONE derivation, because the case below needs the answer TWICE — once to walk the population and
+# once to make the balance accounting add up — and two copies of a predicate is how a widening
+# lands at one site and not the other. This function is the single place the shape is decided.
+#
+# THE PREDICATE WAS `^#!.*sh$` AND THAT IS SHELL-SHAPED. The five Python tools under
+# scripts/hygiene/ open `#!/usr/bin/env python3`, so they matched no population AND no exempt
+# class: not bound, not exempt, not disclosed, and invisible to the coverage-shrink assertion
+# above, which only watches the exemptions for rot and cannot see the population under-reach.
+# They are BOUND by issue-creation.md's own admission test — "could this program ever receive an
+# option from a human or from a script a human wrote?" — and all five parse flags with argparse.
+#
+# AND A WIDENED MATCH ALONE IS NOT THE FIX; IT IS FIVE FALSE REDS. The case executes its operands
+# DIRECTLY. Those five carry a shebang and are deliberately NOT executable — that half was measured
+# separately and the mode stays off, with the reason recorded at build-kit.sh's bit guard — so
+# running them directly exits 126 and the case reports "--help exited 126" over five tools that in
+# fact comply. **The widening therefore owes an INVOCATION FORM DERIVED FROM THE SHEBANG**, which
+# is what this returns: a non-executable shebang file is run through its interpreter.
+#
+# Prints the argv prefix to invoke <file> with, or nothing if <file> is not a shipped program.
+_cli_invocation() {  # <abs-path-in-real-tree> — echoes the command prefix, or nothing
+  local sb; sb="$(head -1 "$1" 2>/dev/null)"
+  case "$sb" in
+    '#!'*sh)      echo "SHELL" ;;        # a POSIX-shell program — executed directly
+    '#!'*python3*) echo "python3" ;;     # run through its interpreter; the mode bit stays off
+    '#!'*python*)  echo "python" ;;
+    *)            : ;;                   # not a program at all
+  esac
+}
+
 case_cli_shape_across_the_shipped_set() {
   cf_reset
   make_sandbox
@@ -9310,6 +9451,13 @@ case_cli_shape_across_the_shipped_set() {
     || cf "issue-creation.md exempts path prefix(es) the kit no longer ships —$stale. An exemption naming nothing is coverage shrinking silently; delete the class deliberately or restore the file"
 
   local rel f base out rc n=0 skipped=0 skiplist="" unreached=0 unreachedlist=""
+  # ── THE DISCLOSURE OPERANDS, and this is the half the population attack asked for. The
+  #    coverage-shrink assertion above watches the EXEMPTIONS for rot; nothing watched the
+  #    POPULATION for under-reach, which is how five shipped programs sat in no class at all.
+  #    So the finish line now says which invocation shapes were walked and, by name, every
+  #    shebang-carrying manifest entry this predicate does NOT know how to invoke. A program
+  #    added in a sixth language becomes a NAMED outspan instead of a silent absence.
+  local shapes="" outspan=""
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
     # THE SHEBANG IS READ FROM THE REAL TREE, the execution happens in the SANDBOX. Reading it
@@ -9317,7 +9465,19 @@ case_cli_shape_across_the_shipped_set() {
     # that is not a program — and that is how a third of this case's population went missing
     # without a word: `[ -f "$SB_WORK/$rel" ] || continue` silently dropped consumers/, setup.sh
     # and the skill helpers while the finish line went on saying "across the shipped set".
-    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep '^#!.*sh$' >/dev/null || continue
+    # THE SHEBANG IS READ FROM THE REAL TREE (see above), and it decides BOTH membership and the
+    # invocation form. `_cli_invocation` is the one place that mapping lives.
+    local interp; interp="$(_cli_invocation "$REAL_REPO_ROOT/$rel")"
+    if [ -z "$interp" ]; then
+      # NOT A PROGRAM, or a program in a language this predicate does not know. The two are
+      # distinguished by the shebang, and only the second is disclosed — silence is what this
+      # attack was about.
+      case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in
+        '#!'*) outspan="$outspan ${rel}" ;;
+      esac
+      continue
+    fi
+    case " $shapes " in *" $interp "*) : ;; *) shapes="$shapes $interp" ;; esac
 
     local skip=0
     for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
@@ -9338,7 +9498,20 @@ case_cli_shape_across_the_shipped_set() {
     base="$(basename "$f")"
     n=$((n+1))
 
-    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"; rc=$?
+    # INVOKED BY THE FORM ITS OWN SHEBANG DECLARES. A shell program runs directly; an
+    # interpreted one that is deliberately non-executable runs through its interpreter, which
+    # is how the kit invokes it everywhere. Executing the latter directly exits 126 — a false
+    # red against a tool that complies, which is the trap this split exists to avoid.
+    #    Held as two explicit words rather than an argv array: this harness is POSIX sh, which
+    #    has no arrays, and reusing the positional parameters here would be a trap for the next
+    #    edit that gives this case an argument.
+    local iv_cmd iv_arg
+    if [ "$interp" = "SHELL" ]; then iv_cmd="$f"; iv_arg=""; else iv_cmd="$interp"; iv_arg="$f"; fi
+    if [ -n "$iv_arg" ]; then
+      out="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 "$iv_cmd" "$iv_arg" --help </dev/null 2>&1 )"; rc=$?
+    else
+      out="$( cd "$SB_WORK" && "$iv_cmd" --help </dev/null 2>&1 )"; rc=$?
+    fi
     [ "$rc" -eq 0 ] || cf "$rel --help exited $rc — a usage request must ALWAYS succeed (§ 3)"
     # NAMING ITSELF IS THE EFFECT ASSERTION. An rc-only check passes vacuously on a tool
     # that has no --help arm at all and simply does its job: that is exactly how
@@ -9346,7 +9519,11 @@ case_cli_shape_across_the_shipped_set() {
     printf '%s\n' "$out" | grep -F "$base" >/dev/null \
       || cf "$rel --help exited 0 but its output never names $base — this is satisfied by a tool with no usage handler that just ran: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
 
-    out="$( cd "$SB_WORK" && "$f" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
+    if [ -n "$iv_arg" ]; then
+      out="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 "$iv_cmd" "$iv_arg" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
+    else
+      out="$( cd "$SB_WORK" && "$iv_cmd" --not-a-real-flag </dev/null 2>&1 )"; rc=$?
+    fi
     [ "$rc" -eq 2 ] \
       || cf "$rel: an unrecognised option exited $rc, want 2 — § 3 names ONE status across the shipped set: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
     printf '%s\n' "$out" | grep -F -- '--not-a-real-flag' >/dev/null \
@@ -9364,10 +9541,13 @@ EOF
   #    exempt by a declared class, exercised here, or bound-but-unreachable-in-the-sandbox. If the
   #    three do not sum to the population, a member fell out of the walk without a word, which is
   #    the failure mode this case has just been rewritten out of.
+  #    THE SECOND DERIVATION SITE. It recomputes the population, so it must use the SAME
+  #    predicate as the walk or the widening lands at one site and the balance reds for a
+  #    reason having nothing to do with the tools. `_cli_invocation` is that predicate.
   local shellprogs=0
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null | grep '^#!.*sh$' >/dev/null && shellprogs=$(( shellprogs + 1 ))
+    [ -n "$(_cli_invocation "$REAL_REPO_ROOT/$rel")" ] && shellprogs=$(( shellprogs + 1 ))
   done <<EOF
 $(grep -v '^#' "$man" | awk '{print $2}')
 EOF
@@ -9406,7 +9586,7 @@ EOF
   [ "$rc" -eq 2 ] \
     && cf "(control) the refusal probe PASSED a script with no argument handling — it is measuring nothing"
 
-  finish "the CLI shape across the shipped set: every tool's usage request exits 0 and names the tool, and every unrecognised option exits 2 and names the option — asserted over $n tool(s) DERIVED FROM process/KIT-MANIFEST, so a file the adopter was told to add is not judged against our contract. NOT BOUND, and derived from issue-creation.md's own CLI-SHAPE-EXEMPT-CLASSES block rather than typed here — $skipped shipped program(s) in the declared classes (protocol-invoked, sourced, vendored):$skiplist. Every declared prefix was asserted to still match something. NOT EXERCISED, and this is a HOLE rather than an exemption — $unreached bound tool(s) the sandbox does not carry, so nothing here judged them:${unreachedlist:- (none)}"
+  finish "the CLI shape across the shipped set: every tool's usage request exits 0 and names the tool, and every unrecognised option exits 2 and names the option — asserted over $n tool(s) DERIVED FROM process/KIT-MANIFEST, so a file the adopter was told to add is not judged against our contract. NOT BOUND, and derived from issue-creation.md's own CLI-SHAPE-EXEMPT-CLASSES block rather than typed here — $skipped shipped program(s) in the declared classes (protocol-invoked, sourced, vendored):$skiplist. Every declared prefix was asserted to still match something. NOT EXERCISED, and this is a HOLE rather than an exemption — $unreached bound tool(s) the sandbox does not carry, so nothing here judged them:${unreachedlist:- (none)}. THE POPULATION IS EVERY MANIFEST ENTRY WHOSE SHEBANG NAMES AN INVOCATION FORM THIS CASE KNOWS, invoked by that form — shape(s) walked:${shapes:- (none)}; a shell program is executed directly, an interpreted one that is deliberately non-executable is run through its interpreter. NOT REACHED BY THE PREDICATE AT ALL, named rather than dropped, because a population that under-reaches is silent in a way an exemption never is — shebang-carrying manifest entr(ies) in a language this case cannot invoke:${outspan:- (none)}"
   teardown
 }
 
@@ -11381,6 +11561,165 @@ EOF
   teardown
 }
 
+# _role_example_label_token — the label's machine token. DECLARED in
+# process/EXTRACTION.md § 2.4's ROLE-EXAMPLE-LABEL-TOKEN marker block, never typed here and
+# never read off the files the case below checks: a token derived FROM the instances it guards
+# could not see them all drift together in silence. That is the same argument § 2.4's own
+# "never derive the tag from the set" rule makes, one level up.
+#
+# THE TOKEN IS THE LAST BACKTICKED SPAN IN THE BLOCK, not the first. The declaring sentence has
+# to name the flags it is about, so its FIRST span is `--help` — a derivation that took it would
+# declare the token to be a flag name, find it in every usage line in the tree and pass forever.
+# The span COUNT is asserted by the caller so a second trailing span cannot slip in unnoticed.
+_role_example_label_token() {  # echoes the token; prints nothing if the block is absent
+  local sheet="$REAL_REPO_ROOT/process/EXTRACTION.md"
+  [ -f "$sheet" ] || return 0
+  awk '/ROLE-EXAMPLE-LABEL-TOKEN:BEGIN/,/ROLE-EXAMPLE-LABEL-TOKEN:END/' "$sheet" \
+    | grep -oE '`[^`]+`' | tail -1 | tr -d '`'
+}
+
+_role_example_label_spans() {  # echoes how many backticked spans the block holds
+  local sheet="$REAL_REPO_ROOT/process/EXTRACTION.md"
+  [ -f "$sheet" ] || { echo 0; return 0; }
+  awk '/ROLE-EXAMPLE-LABEL-TOKEN:BEGIN/,/ROLE-EXAMPLE-LABEL-TOKEN:END/' "$sheet" \
+    | grep -coE '`[^`]+`'
+}
+
+# =============================================================================
+# CASE — EVERY --help EXAMPLE NAMING A DECLARED ROLE CARRIES THE LABEL
+#
+# The kit rules that a --help example naming a role is PROGRAM OUTPUT, not a comment, and must
+# say the role shown is an example value (process/EXTRACTION.md § 2.4). The rule was stated once
+# and applied to the shipped files BY HAND, and nothing since checked either direction:
+# nothing asserted the labels were still there, and nothing noticed a new site arriving
+# unlabelled — which is the default state the rule exists to end.
+#
+# BOTH DIRECTIONS OR NEITHER. Deleting a label leaves --help printing a bare confident example
+# and every other case green; that was measured on a built tree before this case was written.
+# The population is DERIVED from the manifest and from each tool's OWN --help OUTPUT — never a
+# re-parse of its source, which § 2.4 itself rejects: a derivation that reads its own subject's
+# source shares that subject's blind spot, and the rendered text is what an operator pastes.
+#
+# EVERY READ BELOW IS `grep ... >/dev/null`, NEVER A PIPED `grep -q`, and the harness has its own
+# floor asserting that. Under `set -o pipefail` a `-q` reader exits the moment it matches, the
+# producer dies on SIGPIPE once it has cleared the pipe buffer, and the pipeline reports the
+# PRODUCER'S death instead of the reader's answer. Dropping -q and redirecting drains the input and
+# returns the identical status. This case was written with `-q` and the floor caught all four sites.
+#
+# THE MEMBERSHIP FILTER IS NOT TIDINESS. A bare `--role \S+` scan over the real tree matches
+# `--role whitelist`, `--role must`, `--role enforcement` and dozens more prose fragments, none
+# of them an example. Requiring the word after --role to be a DECLARED role is what makes the
+# population the set this sentence names — the same discriminator § 2.4's own SET recipe uses,
+# and derived from the hook rather than typed here.
+# =============================================================================
+case_role_examples_carry_their_label() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown; the population below reads the REAL tree, not the sandbox
+
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_role_examples_carry_their_label: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  local exempt; exempt="$(_cli_exempt_prefixes)"
+  [ -n "$exempt" ] \
+    || _fixture_die "case_role_examples_carry_their_label: could not derive the CLI-shape exempt classes out of issue-creation.md — with none derived, every sourced seam and hook is judged as though an operator could type a --role flag at it."
+
+  local spans; spans="$(_role_example_label_spans)"
+  [ "$spans" -ge 1 ] \
+    || _fixture_die "case_role_examples_carry_their_label: process/EXTRACTION.md's ROLE-EXAMPLE-LABEL-TOKEN block holds no backticked span, so there is no token to assert and every header would pass labelled or not."
+
+  local token; token="$(_role_example_label_token)"
+  [ -n "$token" ] \
+    || _fixture_die "case_role_examples_carry_their_label: could not derive the label's machine token from process/EXTRACTION.md's ROLE-EXAMPLE-LABEL-TOKEN block — with none derived, every header naming a role in a --role position would silently pass, labelled or not."
+
+  # THE TOKEN MUST NOT BE A FLAG NAME. The block's sentence names the flags it is about, so a
+  # derivation that took the wrong span would land on `--help` or `--role` — which appears in
+  # every usage line in the tree and would make this case pass on a wholly unlabelled tree.
+  case "$token" in
+    -*) _fixture_die "case_role_examples_carry_their_label: the token derived from the ROLE-EXAMPLE-LABEL-TOKEN block is '$token', which is a FLAG name, not a label. The block's declaring sentence must END on the literal; a token that is a flag appears in every usage line and would pass on a tree with no labels at all." ;;
+  esac
+
+  local roles; roles="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$REAL_REPO_ROOT/scripts/githooks/commit-msg" | head -1)"
+  [ -n "$roles" ] \
+    || _fixture_die "case_role_examples_carry_their_label: could not derive the declared role set from scripts/githooks/commit-msg — with none derived, the --role-position scan below has no membership to require and would match any word after --role."
+
+  # ── THE POPULATION: bound tools whose OWN --help OUTPUT puts a DECLARED role in a --role
+  #    argument position. Membership and invocation form both come from `_cli_invocation`, the
+  #    one place that mapping lives — so a shipped program in a language this harness learns to
+  #    invoke joins this population at the same moment it joins the CLI-shape one, rather than
+  #    being silently out of reach of a rule that binds it.
+  local rel f base out interp n=0 skipped=0
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    f="$REAL_REPO_ROOT/$rel"
+    [ -f "$f" ] || continue
+    interp="$(_cli_invocation "$f")"
+    [ -n "$interp" ] || continue
+
+    local e skip=0
+    for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
+    if [ "$skip" -eq 1 ]; then skipped=$(( skipped + 1 )); continue; fi
+
+    if [ "$interp" = SHELL ]; then
+      out="$( cd "$SB_TMP" && bash "$f" --help </dev/null 2>&1 )" || true
+    else
+      out="$( cd "$SB_TMP" && "$interp" "$f" --help </dev/null 2>&1 )" || true
+    fi
+    # A silent bound tool is case_help_never_opens_with_the_class_marker's finding, not this
+    # case's — skip rather than re-assert it, so one absent handler cannot report as two defects.
+    [ -n "$out" ] || continue
+
+    printf '%s\n' "$out" | grep -E -- "--role[[:space:]]+($roles)([^A-Za-z]|\$)" >/dev/null || continue
+    n=$(( n + 1 ))
+    base="$(basename "$f")"
+    printf '%s\n' "$out" | grep -F -- "$token" >/dev/null \
+      || cf "$base --help shows a declared role in a --role argument position and carries no '$token' — an operator reading this tree's --help sees a bare confident example with no notice that the role shown may not be one this project declares"
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
+
+  # ── INSTRUMENT CHECKS. A search that stopped matching would report "all labelled" forever,
+  #    which is the exact failure mode this family was found through: an instrument reddened on
+  #    these examples once, and what replaced it was a sentence.
+  [ "$n" -gt 0 ] \
+    || cf "(instrument) not one bound tool's --help showed a declared role in a --role argument position — the population this case exists to police is empty, so 'every one labelled' would be true of nothing"
+  [ "$skipped" -gt 0 ] \
+    || cf "(instrument) not one manifest path matched an exempt class, though the contract declares several — the prefix match stopped working, and sourced seams are being asked for usage handlers again"
+
+  # ── THE REDDENING CONTROL, on a COPY — never a shipped file. A fabricated header, built so it
+  #    puts a declared role in a --role position and deliberately carries no label, must trip the
+  #    SAME predicate the population loop uses — proving the PREDICATE is what is green, not
+  #    merely this run's shipped tree.
+  #    The probe is a HEADER ONLY, so it is rendered by sourcing the real lib/usage.sh and calling
+  #    kit_usage on it — never a hand-rolled re-implementation of the window that renderer computes.
+  #    It carries a trailing non-comment line because kit_usage's window ENDS at the first one; an
+  #    all-comment file renders empty, which the first guard below caught when it did.
+  local first_role; first_role="$(printf '%s' "$roles" | cut -d'|' -f1)"
+  local probe="$SB_TMP/roleprobe.sh"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf '# Usage:\n'
+    printf '#   ./scripts/roleprobe.sh --role %s --note "..."\n' "$first_role"
+    printf 'true\n'
+  } > "$probe" 2>/dev/null
+  if [ ! -s "$probe" ]; then
+    _control_did_not_run "write the planted header to probe into"
+  else
+    out="$(bash -c '. "$1/scripts/lib/usage.sh"; kit_usage "$2"' _ "$REAL_REPO_ROOT" "$probe" 2>&1)" || true
+    if ! printf '%s\n' "$out" | grep -E -- "--role[[:space:]]+($roles)([^A-Za-z]|\$)" >/dev/null; then
+      _control_did_not_run "get the planted header to show a declared role in a --role argument position at all: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+    elif printf '%s\n' "$out" | grep -F -- "$token" >/dev/null; then
+      _control_did_not_run "plant a header that OMITS the label — the probe's own text already carries '$token', so a red here would prove nothing"
+    fi
+    # No further assertion is needed: the two guards above are exhaustive. If both pass, the probe
+    # IS a genuine unlabelled role example — precisely what the population loop's own `cf` fires
+    # on, the same predicate, exercised on a copy every run.
+  fi
+
+  finish "of $n bound tool(s) whose --help shows a declared role in a --role argument position (population from process/KIT-MANIFEST through the same _cli_invocation predicate the CLI-shape case walks, roles from scripts/githooks/commit-msg, $skipped exempt by issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES block, the label's token from EXTRACTION.md's ROLE-EXAMPLE-LABEL-TOKEN block and asserted not to be a flag name), every one carries the label — and a planted unlabelled example on a COPY trips the same predicate every run"
+  teardown
+}
+
 case_role_set_read_is_one_expression() {
   cf_reset
   make_sandbox
@@ -12631,6 +12970,7 @@ CASES=(
   case_missing_option_value_refuses
   case_shipped_scripts_stay_on_the_floor
   case_help_never_opens_with_the_class_marker
+  case_role_examples_carry_their_label
   case_role_set_read_is_one_expression
   case_advisory_headers_carry_the_machine_token
   case_minting_cases_probe_for_the_template

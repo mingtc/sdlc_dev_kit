@@ -59,7 +59,7 @@ are loaded on demand by the `SKILL.md` that owns them; they are not entry points
 | [receiving-code-review](receiving-code-review/) | Process review feedback rigorously, not performatively |
 | [finishing-a-development-branch](finishing-a-development-branch/) | End completed work: push and hand off for review, preserve, or discard — it never lands the work itself |
 | [using-git-worktrees](using-git-worktrees/) | Isolated workspaces for feature work and plan execution |
-| [using-superpowers](using-superpowers/) | Bootstrap: how to find and use skills; cross-harness tool mapping |
+| [using-skills](using-skills/) | Bootstrap: how to find and use skills; cross-harness tool mapping |
 
 ### PM — Product Management
 
@@ -183,7 +183,7 @@ blind overwrite silently discards it.
 an instruction in one tool's or one forge's command, this kit keeps the instruction and demotes the
 command to a named example — the setup commands in `using-git-worktrees`, the review-thread reply
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
-it too:** `finishing-a-development-branch` carries this kit's landing law, `using-superpowers`
+it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
 has repaired citations, `using-git-worktrees` gained an external-directory note, and
 `brainstorming`'s visual companion is opt-in machinery this kit added. **Read every diff hunk
 on its own** — the class below is the one that is easiest to mistake for drift, not the only

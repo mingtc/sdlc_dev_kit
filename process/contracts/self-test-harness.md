@@ -57,6 +57,30 @@ a disposable repository, so that the tools that guard the project are themselves
   of the defined cases must agree, and neither number is written into a document.
   *Why:* measured twice — a manifest stated a case count as a "measured, not estimated" fact and
   it had already drifted by the time anyone re-ran the two commands.
+- **THE SAME RULE ONE LEVEL DOWN: a case that QUANTIFIES emits its own count, and something
+  compares that count to a declared number.** The invariant above governs the *suite's* total. It
+  says nothing about a single case whose name promises a population — *"checks the rule across
+  three inputs"*, *"every spelling is refused"* — and that is where the count goes wrong invisibly,
+  because the suite's total is unaffected by a case that quantified three and ran two.
+  **A number in a case's name or docstring is prose; a number the case prints is an operand.**
+  *Why:* measured — a case claiming three inputs ran two and skipped the one that broke the rule,
+  and passed. Nothing could have caught it: the suite counted the case, not the case's own loop.
+  *And the reason it must be a SEPARATE comparison, not a self-check:* a case that emits `n` and
+  also asserts `n == 3` from its own body restates its premise (`process/doctrine/instruments.md`
+  § A.8's *restated premise*). The declared number lives where a reader edits it deliberately.
+- **A GUARD IS NOT ARMED UNTIL ITS ABLATION IS AN ARTIFACT — a file another reader can run, not a
+  habit and not a comment.** `process/doctrine/instruments.md` § A.2 establishes that every green
+  owes an ablation; this invariant is about **where the ablation lives**. An ablation performed once
+  at authoring time and described in prose afterwards is indistinguishable, to every later reader,
+  from one that was never performed.
+  *Why:* an ablation's whole value is that it is **re-runnable against a tree that has moved.** The
+  guard it proved is still green a year later; the question is whether it is still green *for the
+  same reason*, and only an artifact can be re-asked. Prose asserting the ablation happened cannot
+  go red.
+  **The shape to copy, where the guard has more than one red:** a **declared expected-red set**, one
+  entry per red with its reason, and a refusal on any difference in **either** direction — including
+  a declared red that has gone green, because the reason is then stale and the entry must go.
+  **This invariant is NOT a gate, and that is a ruling rather than an omission** — see § 6.
 
 ## 3. REFUSAL CONDITIONS
 
@@ -97,3 +121,40 @@ a disposable repository, so that the tools that guard the project are themselves
 - The marker invariant in § 2 is the other half of the lesson contracted in
   [landing-gate.md](landing-gate.md): the landing gate refuses a caller-supplied gate command
   unless this harness has set the marker.
+- **The ablation-is-an-artifact invariant is doctrine, NOT a gate, and the ruling has a
+  measurement behind it.** The obvious mechanisation — refuse a run in which any case lacks a
+  companion ablation — was considered and rejected. **Derive the split on your own tree before
+  reasoning about it**, because it moves with every case added, and no number for it is written
+  here (`doctrine/staleness.md` § C):
+
+  ```sh
+  # cases defined
+  grep -cE '^case_[a-z_]*\(\)' scripts/test/run.sh
+  # of those, the ones carrying an ablation IN THEIR OWN BODY — the closing-brace reset is
+  # load-bearing: without it the last case name carries past the function and mentions in the
+  # comments between cases are attributed to whichever case happened to precede them.
+  awk '/^case_[a-z_]*\(\)/{n=$1; inb=1} /^}/{inb=0; n=""} /[Aa]blat/{if(inb && n!="")print n}' \
+    scripts/test/run.sh | sort -u | wc -l
+  ```
+
+  Run on the reference implementation the day this invariant landed, the second number was a **small
+  minority** of the first. A gate would refuse every run until the remainder is written, which on
+  any adopter's tree is a larger wall still — **and a gate whose cost is a wall gets disabled, after which a
+  disabled gate reads as armed.** That is the exact failure this invariant exists to prevent,
+  committed by the enforcement of the invariant.
+- **The general rule that ruling is an instance of**, and it is worth more than the ruling:
+  **a check that is mechanically decidable may be a gate; a check that is heuristic must be
+  advisory, and must publish its own precision.** Shipping a heuristic as a gate is the same error
+  as an over-promising test name — a claim wider than the predicate — committed by the guard
+  instead of the test. *Measured:* a detector for checks whose name promises a population flagged
+  thirteen, of which **one** was a defect. At that precision a gate is disabled inside a week; a
+  list beside its own hit rate is a useful artifact at the same accuracy, because the reader can
+  spend attention where it pays. **The output half of this — that the artifact must itself say
+  whether it is a judgement or a pile of candidates — is
+  [`../doctrine/consumer-output.md`](../doctrine/consumer-output.md) § A.4.**
+- **What none of this covers, stated because pretending otherwise is worse.** No assertion about a
+  number can see a **comprehension** defect. The measured case: a report with a fully green suite
+  and arithmetically perfect output showed a reader the amount due twice and never the amount paid.
+  Every number was correct and the artifact was unusable. **A class this harness cannot reach wants
+  a named second reader, not a wider suite** — and no green here may be read as evidence that a
+  product is usable.

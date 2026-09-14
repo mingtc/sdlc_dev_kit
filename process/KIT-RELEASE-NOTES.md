@@ -168,7 +168,142 @@ columns and never the cards.*
      from refusing a human whose name merely *begins* with a marker's stem — `Claudia Ng` is
      accepted, and there is now a test case that keeps it that way.
 
+- **The `using-superpowers` skill directory is now `using-skills`, and this SUPERSEDES what 0.2.0's
+  notes told you.** That release said *"The `using-superpowers` skill directory keeps its name for
+  now — renaming it breaks every path that cites it."* **That sentence described what 0.2.0 shipped
+  and is left standing there unedited** — a released note is a record of what was true at that
+  version, so the repair is this entry rather than a rewrite of history. The *"for now"* has
+  expired.
+
+  **Why the name changed:** it was the last place the upstream plugin's product name survived where
+  nothing depended on it. The skill's own frontmatter says it *"establishes how to find and use
+  skills"* — it is not about skills that are external — and every sibling directory is kebab-case,
+  so `using-skills` parallels `using-git-worktrees` and keeps the naming uniform. **The upstream is
+  still acknowledged**, unchanged, in `.claude/skills/README.md` § Provenance & licensing and in the
+  `brainstorming` companion's page header: a skill whose origin nobody can name is a skill nobody
+  can safely update.
+
+  **Do this only if something in YOUR tree names the old path.** The shipped tree is already
+  consistent — `.claude/roles/dev.md` and `.claude/skills/README.md` were re-pointed in the same
+  change. What is yours to re-point is anything you wrote:
+
+  ```sh
+  grep -rn 'using-superpowers' . --exclude-dir=.git
+  ```
+
+  Any hit is a path you own — a plan document, a role doc you adapted, a script, a note. Rewrite it
+  to `using-skills`. **If that grep is silent, there is nothing to do.**
+
+  **One thing that is NOT a stale path and must not be rewritten:** `~/.config/superpowers/worktrees/`
+  in `using-git-worktrees` § Directory Selection is an **external tool's real directory**, which the
+  skills *adopt* where it already exists rather than create. Renaming it would send a correct
+  instruction looking for a directory nothing makes. The grep above will not show it as a
+  `using-superpowers` hit, but a wider search for the word will, and that is the one to leave alone.
+
+  **The self-test now gates this.** The case that refuses the upstream product name where nothing
+  depends on it carried a literal carve-out for the old directory name; that carve-out is deleted,
+  so the old name re-appearing anywhere in the shipped agent surface is now a FAIL rather than an
+  allowance.
+
+### Added
+
+- **Adopter-visible: a new doctrine sheet, `process/doctrine/consumer-output.md` — what a tool's
+  output owes a reader who cannot re-measure it.** Every other sheet in `process/doctrine/` addresses
+  a reader who can go and check: a maintainer with the tree, a reviewer with the diff, a seat that can
+  re-run the guard. **Nothing addressed the person your product hands a report to** — someone with no
+  access to the evidence and, usually, no way to tell a measurement from an inference. The
+  discriminator is **re-measurability**, and every rule in it follows from that one asymmetry.
+
+  What it asks of a consumer-facing output, in short: a label's scope may not exceed its evidence's
+  and **the label itself is where that is said**; what was READ and what was DERIVED are marked **per
+  item**, because a wrong inference usually makes the result look *better* and is therefore invisible
+  in the aggregate; where every candidate value is wrong in a different direction the tool
+  synthesises **none** of them and records the absence as a decision with the event that would
+  discharge it; a predicate that is not mechanically decidable hands back a **census that says so in
+  its own output**; an inference whose error would leave no trace is **demoted from a decision to a
+  proposal**; prefer the decomposed figure the reader can trace over the combined one they must
+  trust; and **a limit recorded where the affected party does not look has not been disclosed** —
+  placement separates detection from remedy.
+
+  **No Action required, and no gate.** A doctrine sheet is addressed on demand rather than read at
+  session start, this change wires no mandatory read, and § B says in the sheet why no guard ships:
+  none of its rules is mechanically decidable in general, and a low-precision gate gets disabled
+  inside a week — after which a disabled gate reads as armed. **What it costs you** is § B, the
+  adapter's fill-in: if your project ships an output to someone who cannot re-measure it, list those
+  surfaces and say who the consumer is and what they cannot check. If all your outputs are read by
+  people who can re-measure them, § B tells you to delete it and stop.
+
+  Its row is in `process/MANUAL.md`'s doctrine table, and `distribution.md` and `staleness.md` § C
+  each gained one line pointing at it — `distribution.md` § A.4's downgrade incident (a healthy
+  checkout reporting **UPDATE AVAILABLE** and offering a **downgrade**) is the new sheet's
+  refuse-to-synthesise clause failing, at distribution scale.
+
+- **Adopter-visible: three new hard invariants about what an instrument owes before its green means
+  anything — and a ruling that NONE of them is a gate.** They landed in the two contract sheets that
+  own the instruments they bind, not in `process/doctrine/instruments.md`, because that sheet already
+  establishes the *practice* (§ A.2, every green owes an ablation) and what was missing is the
+  **disposition**: where the ablation lives, what a case must emit, what a check must probe.
+
+  - **An ablation is an ARTIFACT, not a habit** (`process/contracts/self-test-harness.md` § 2). A
+    file another reader can run — not a comment, not prose recording that an ablation was once
+    performed, which is indistinguishable to every later reader from one that never happened. The
+    point is that an ablation must be **re-askable against a tree that has moved**: the guard is
+    still green a year on, and the open question is whether it is green *for the same reason*.
+    Where a guard has more than one red, the shape to copy is a **declared expected-red set** that
+    refuses on a difference in **either** direction — a declared red gone green means the reason is
+    stale and the entry must go.
+  - **A case that QUANTIFIES emits its count** (same sheet, § 2), and something *other than the case*
+    compares it to a declared number — a case asserting its own count restates its premise. The
+    suite-level rule beside it governs the total; this governs a single case whose name promises a
+    population, which is where a count goes wrong invisibly, because the suite's total is unaffected
+    by a case that claimed three inputs and ran two.
+  - **A check about deployed behaviour probes the DEPLOYED ARTIFACT** (`process/contracts/verify-gate.md`
+    § 2), never the working copy — resolve it out of the tree and execute it there. Measured on two
+    different subjects: a readiness probe that answered *"the command is usable"* by testing the file
+    while the running loop held hours-old code, and a liveness check that called a server alive by
+    asserting a state file existed, immediately after the documented stop step that never unlinked
+    it. Both were correct about what they read and wrong about what they claimed.
+
+  **No Action required, and no gate — the ruling is the point.** The obvious mechanisation (refuse a
+  run in which any case lacks a companion ablation) was measured on the kit's own tree and rejected:
+  it would refuse every run until a large majority of existing cases acquire one, and **a gate whose
+  cost is a wall gets disabled, after which a disabled gate reads as armed** — the very failure the
+  invariant exists to prevent. § 6 carries the two commands so you can derive the split on *your*
+  tree; no number for it is written in the sheet.
+
+  **The general rule this is an instance of, and it is the part worth carrying away:** *a check that
+  is mechanically decidable may be a gate; a check that is heuristic must be advisory, and must
+  publish its own precision.* Shipping a heuristic as a gate is the same error as an over-promising
+  test name — a claim wider than the predicate — committed by the guard instead of the test. The
+  output half is `process/doctrine/consumer-output.md` § A.4, and § 6 links to it.
+
+  **And the limit, stated because pretending otherwise is worse:** no assertion about a number can
+  see a **comprehension** defect — the measured case was a report with a fully green suite and
+  arithmetically perfect output that showed a reader the amount due twice and never the amount paid.
+  **No green from your harness may be read as evidence that your product is usable.**
+
 ### Changed
+
+- **`--help` now answers on a tree whose `scripts/config.sh` is missing, and so does a bad flag.**
+  Six tools — `archive.sh`, `new-bug.sh`, `new-issue.sh`, `new-prd.sh`, `new-refactor.sh`,
+  `subtask.sh` — answered a usage request with the seam refusal instead of their usage text, which
+  is the one thing [`contracts/issue-creation.md`](contracts/issue-creation.md) § 3 says can never
+  be refused, in the state where you most need the text. They now answer it. **Nothing a correct
+  tree does changes**: with `config.sh` in place every one of them prints exactly what it printed
+  before, and the seam still REFUSES every operation and mints nothing.
+
+  - **Where the help text names your issue or PRD prefix and the seam cannot be read**, it now
+    prints the seam's location — `<ISSUE_PREFIX from scripts/config.sh>` — and never the kit's
+    shipped default. A prefix that is right about the kit and wrong about your project reads as
+    authoritative and you cannot falsify it from where you sit.
+  - **An unrecognised option on a seamless tree now exits 2 for the four creators**, the status
+    § 3 fixes for it, where all six previously exited 1 carrying the seam refusal. `archive.sh` and
+    `subtask.sh` still exit 1 there, and deliberately: their leading token may legally be an option
+    or a subcommand, so deciding this above the seam would need a second copy of their option list —
+    the defect § 3's own scar records. If you branch on these statuses, that split is the contract.
+  - **Still refused on a seamless tree: `--help` in a LATER position** (`new-issue.sh my-slug
+    --help`). Ask for it first, or restore the seam. The kit's self-test states this as a known
+    hole rather than asserting it away.
 
 - **Nothing you must do; several things you read are now true that were not.** Shipped statements
   that contradicted the code beside them, prose passages carrying a census number the kit's own rule
@@ -207,7 +342,109 @@ columns and never the cards.*
     provisioning ladder you can pass `defaultModel`/`defaultEffort` per run instead of editing
     the file.
 
+- **`process/doctrine/negative-claims.md` gained § A.5, the route law — and it is an obligation on
+  your REVIEWS, not only on your findings.** The sheet governed how *wide* a claim may be; § A.5
+  governs how it was **obtained**: *a claim is true only of the operand, the route and the moment
+  that produced it, and the scope goes inside the sentence the reader acts on.* Six forms — a
+  negative names its **route**, a diagnosis the **instances** it was derived from, a count its
+  **command**, a report the **layer** it observed, a permission the **question** it was asked, and a
+  positive claim about a corpus the **site** it happens at. **The half worth your attention is the
+  second-reader clause: two readers on one route is one measurement read twice.** A reviewer's *"I
+  agree it cannot be caught"* is itself a negative result obtained by one route, so what a
+  load-bearing *cannot* is owed is a second **route**, not a second opinion.
+
+  **Nothing to do on adoption**, and nothing new to wire: the two sites that route a claim past this
+  sheet — the implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut
+  checks — already point at it, so your reviewers inherit § A.5 by reading the sheet they are
+  already sent to. **Nothing enforces it**, deliberately: mechanising the general form over a real
+  corpus returns a hit list that is almost entirely ordinary usage, because scope is a paragraph
+  property. The one greppable member is the corpus-scoped reassurance — *"unreachable from the
+  corpus"* and its kin — which is worth a check on its own terms in your tree:
+
+  ```sh
+  grep -rniE 'unreachable (from|through|in) (the |our |this )?corpus' . \
+    | grep -v 'doctrine/negative-claims.md'
+  ```
+
+  **The second filter is not cosmetic and the reason is the rule itself.** § A.5 quotes the pattern
+  in order to name it, so the sheet stating the rule is a hit for its own recipe — run it unfiltered
+  and the one result you get is the doctrine telling you to run it. Drop the filter once your own
+  tree has a real hit to compare against.
+
+  If you keep a doctrine-sheet index of your own, § A.5 also changes this sheet's one-line summary
+  in `process/MANUAL.md`.
+
+- **Two new conventions about what a file MEANS and what a handoff owes when you did not choose to
+  stop.** Both are authoring-time habits: neither is a gate, neither changes a command or a path,
+  and nothing you already run behaves differently.
+
+  - **`process/doctrine/subagent-control.md` gains § A.14 — *a file that means two things has no
+    correct writer*.** When a second consumer starts reading an artifact for a fact it was not built
+    to carry, **the fix is a second artifact, not a cleverer query against the first.** A fleet meets
+    this before a lone author does, because a file written by one worker and read by another has
+    nobody holding both ends: each side is looking at a file that is correct for its own purpose, so
+    no review catches the overload. The failure does not look like a bug — two rulings that are each
+    correct meet inside one overloaded file and produce a report where **both halves are false and
+    neither rule is wrong.** The tempting wrong answer is always available and always cheaper: a
+    smarter read of the overloaded file works, and leaves the file meaning two things, so the next
+    consumer arrives and the query gets smarter again. **If you keep a notes file, a progress log or
+    a status record that a second tool has started deriving something from, that is this section's
+    subject.** It carries a pointer to `process/doctrine/instruments.md` § A.6, which owns the same
+    defect from the reader's end.
+  - **`dev/handoffs/README.md` gains the stop you did NOT choose.** Its § *When to write one* said
+    to write at a natural boundary you chose in advance; it now also names **asked to halt, context
+    spent, a subordinate terminated**. The two do not conflict: **the chosen boundary is where you
+    write a good handoff; the unchosen stop is where you owe a short one regardless.** And § *What
+    a handoff must contain* now opens with the question it actually answers — **what do you HOLD
+    that the repository does not** — because `git status` cannot see a ruling received in
+    conversation, a conclusion reached but unwritten, or what a terminated worker reported before
+    it stopped. **A clean tree is not an answer to that question.** The existing standing-rulings
+    bullet is unchanged and was widened by a sibling naming the three classes it did not cover.
+    **If you have adapted this README, both additions are worth porting by hand** — the trigger is
+    the half that is easy to miss, since the section heading (*while sharp, not while failing*)
+    reads as advice to skip the handoff at exactly the moment things are going wrong.
+
 ### Fixed
+
+- **`scripts/hygiene/cold_signal.py` silently skipped any file whose name is not pure ASCII, and
+  reported it as cold.** The instrument matches `git log --name-only` output against the paths its
+  own walk found. Under git's default `core.quotePath=true` a path containing any byte outside
+  ASCII comes back C-quoted and double-quoted — `café.md` arrives as `"caf\303\251.md"` — so the
+  lookup missed, the file scored zero commits, and it was dropped **before** any threshold was
+  applied. Fixed with `-c core.quotePath=false` on the walk. **The direction matters: this was an
+  UNDER-count that still printed a confident answer.** The tool did not decline to answer and did
+  not warn; a file it never saw is indistinguishable in its output from a file it examined and
+  cleared. If you have non-ASCII filenames and have been reading this instrument's output as a
+  survey of your tree, re-run it — the set it reports may be larger than it was.
+
+- **A dispatched spec-compliance reviewer was told the implementer "finished suspiciously quickly"
+  as a statement of fact.** `.claude/skills/subagent-driven-development/spec-reviewer-prompt.md`
+  asserted that unconditionally, about work neither the dispatcher nor the reviewer had seen, in a
+  prompt sent on every dispatch. It is not a fact the template can know, and it primed the reviewer
+  toward manufactured suspicion rather than verification. **The sentence is deleted. Everything
+  that makes the prompt work is kept** — the report may still be incomplete, inaccurate or
+  optimistic, and the reviewer must still verify everything independently by reading the code.
+  If you have copied this template into your own dispatch path, delete the same sentence.
+
+- **`process/doctrine/instruments.md` § A.9 shipped a worked example that does not do what it said.**
+  The sheet taught that `"$REF:src/thing.py"` on zsh drops the path silently at exit 0. Measured on
+  zsh 5.9: **that exact string is `bad substitution`, exit 1** — the loudest of the three outcomes,
+  not the silent one. **The hazard is real and the cure is unchanged — always brace, `"${REF}:path"`
+  — but the example was the part you would have copied.** The silent drop happens when `:s` finds
+  its delimiter repeated in your path (`"$REF:spath/thing.py"` → the bare ref, exit 0), so *which*
+  of the three failures you get depends on your path's characters, not on the shape of your mistake.
+  The bullet now shows a string that actually produces each outcome. **Also marked unmeasured:** the
+  sheet's claim that zsh being the macOS default login shell makes this "the default environment for
+  a large share of adopters" — a population nobody sampled. The hazard does not need the figure.
+
+- **`scripts/archive-progress.sh --repo-root <path>` is documented, and is a SUPPORTED option.** It
+  was accepted on the ordinary production path and named nowhere in `--help`. It relocates every
+  path the script reads and writes — `progress.md`, `progress/history/<name>.md`, the history
+  `INDEX.md` — and the tree that `--tag` tags. **Nothing about its behaviour changed**; it was
+  already reachable by anyone who typed it. If you script a rotation against a tree other than the
+  script's own parent, this is now a documented flag rather than an undocumented one you were
+  relying on. It is explicitly **not** a test seam: the kit's real test seams are environment
+  variables that defeat a safety gate, and this defeats nothing — it only says where.
 
 - **The self-test harness could report a passing check as a FAIL, at random.** Under
   `set -o pipefail`, a pipeline ending in `grep -q` returns the *producer's* death rather than the
@@ -231,6 +468,50 @@ columns and never the cards.*
   ```sh
   grep -rn '|[[:space:]]*grep -q' scripts consumers --include='*.sh'
   ```
+
+- **A new doctrine subsection and one new Definition-of-Done item: a protection reachable only by
+  memory is not a protection.** [`doctrine/fix-execution.md`](doctrine/fix-execution.md) **§ A.5d**,
+  placed inside the § A.5 family after the how-a-cure-fails rule. It binds **one step after** § A.5b
+  — you decided a mechanism was owed, you built it, it works, and it turns out to sit on a branch a
+  bare invocation does not take. **§ A.5b reads as satisfied by that state and it is not.** The rule:
+  *where a correct rule exists and keeps being broken by the people who know it, the defect is in the
+  rule's REACHABILITY, not in anyone's care.* Three remedies in **cost order**, which is the order to
+  try them in:
+
+  1. **Move the DEFAULT** — change which route a bare invocation takes. Do not document the safe
+     route better, do not add a warning. Where a default genuinely cannot be moved, the rule does not
+     license a warning instead: it requires the attempts **enumerated**, in
+     [`doctrine/negative-claims.md`](doctrine/negative-claims.md) § A.1's vocabulary.
+  2. **Confirm the EFFECT, not the report** — *the report is evidence the tool ran, never that it
+     worked* — with the confirming read chosen by the effect's class: file → re-read it; commit → ask
+     the log; **push → ask the remote, never the local ref**; card → ask the board; guard → watch it
+     fail.
+  3. **Change WHO IS READING** — hand forward the prose adjacent to your change that you **left
+     alone**, as a list rather than a judgement.
+
+  **What you must do about it: one thing, and it is small.** § B of that sheet gained a new fill-in
+  item — **your per-effect confirming reads**, one row per class of effect your work actually
+  produces. **A wrapper is one implementation of a row, never the rule**: the kit requires only git
+  and a POSIX shell, so a row is satisfied by a habit, a checklist line or a script, and a project
+  that has built a wrapper names it there as its instance. If your § B is empty, nothing breaks.
+
+  **The DoD item** — [`.claude/roles/dev.md`](../.claude/roles/dev.md) § Definition of Done — is
+  remedy 2 only, and it is a reporting duty, not a gate: *every step whose report and whose effect are
+  separate things has been confirmed by asking the effect.* Remedy 3 deliberately got **no** DoD item,
+  because an untouched-neighbours list as a per-change duty without a declared window is a bill on
+  every documentation edit you make; it is stated in doctrine and left to your reviewer's read.
+
+  **Two limits stated in the shipped text rather than left for you to discover.** Remedy 3's
+  second-party half is **unmeasured** — the one measured catch had the author produce *and* read its
+  own list — so notice whether the author-reads-own-list shape is carrying the weight, and do not
+  build a gate for it. And remedy 3 **does not extend to a negative result**: § A.5 of
+  [`doctrine/negative-claims.md`](doctrine/negative-claims.md) measured a case where the reviewer WAS
+  the second reader and both stopped at the same place, so for a negative what is owed is a second
+  **route**, not a second reader.
+
+  **No guard is added anywhere, and the reason ships with the rule.** Remedy 1 comes with a
+  reviewer's question instead: *for the thing this change protects, what happens if nobody invokes the
+  protection?* If the answer is the damage, the default is the defect.
 
 ## [0.4.0] — 2026-09-08
 

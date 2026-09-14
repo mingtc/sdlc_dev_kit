@@ -4,7 +4,9 @@
 **KIT-CLASS: KIT.** Promoted after a shipped negative claim over-reached its evidence; § A carries
 the rule and the ones that grew out of it — *its own headings are the list, which is why no count
 is written here. This line said "one rule" while § A held its mirror rule and a detection-recipe
-rule besides.*
+rule besides.* **§ A.5 generalises the sheet past its title:** the rule about how wide a claim may
+be is the same rule as how it was OBTAINED, and it binds any claim whose scope can exceed its
+evidence — the negative being the worst case and the one the title names.
 § A is the transferable pattern; § B is where **your** project records its own instance.
 
 **Why this is its own sheet, not a section of [`supersession.md`](supersession.md).** The two are
@@ -133,9 +135,11 @@ Corollaries worth stating, because each is a real failure mode:
   supersede only the conclusion. A well-enumerated negative is *cheap* to amend precisely because
   the evidence's edge is already written down.
 
-**How to adopt:** § A is project-agnostic; take it verbatim, **both rules**. Wire them into the
-two places a claim passes through in your own process — the implementer's definition of done,
-and the reviewer's checklist — as one line each. The doctrine is worthless as a document nobody
+**How to adopt:** § A is project-agnostic; take it verbatim, **every rule under it**. Wire them
+into the two places a claim passes through in your own process — the implementer's definition of
+done, and the reviewer's checklist — as one line each. **§ A.5's second-reader clause belongs in
+the REVIEWER's line specifically**, because it is the only one of these rules a reviewer can fail
+while doing everything else right. The doctrine is worthless as a document nobody
 is routed to. A.1b additionally asks for a **machine**: run your own shipped-text corpus past a
 forward-looking phrase list, and make each surviving occurrence carry a falsifier your test
 suite resolves. The phrase list, the corpus and the guard's path are **yours**, not this
@@ -178,6 +182,166 @@ completeness they do not have. It is stated **here** because its failure mode is
 about a corpus, which is this sheet's subject; that sheet points at this rule rather than carrying
 it.)*
 
+### A.5 — THE ROUTE LAW: a claim names the route that produced it, in the same sentence
+
+§ A.1 says the claim's scope may not exceed its evidence's scope. **This is that rule pointed at
+the axis A.1 leaves implied: not how WIDE the evidence was, but HOW IT WAS OBTAINED.**
+
+> **A claim is true only of the OPERAND, the ROUTE and the MOMENT that produced it — and the scope
+> goes INSIDE the sentence the reader acts on.**
+>
+> A **negative** is the worst case and the one this sheet is named for: *cannot*, *never*,
+> *impossible*, *clean*, *none found* is a claim about **the route it was obtained by**, not about
+> the system, unless every route was enumerated.
+
+**Why a negative is the worst case, stated because it is the reason and not the rule.** A positive
+result carries its own evidence — *"X happens"* is proved by the run that showed it. **A negative
+carries none.** *"X does not happen"* is only ever *"X did not happen along the path I took"*, and
+the distance between those two sentences is where this class lives. § A.2's two reasons compound
+it: nobody re-tests a documented *cannot*, and the sentence is written at the moment of maximum
+confidence and minimum coverage.
+
+**The rule is not restricted to negatives.** Any claim whose scope can exceed its evidence — a
+verdict, a count, a label, a status line, a capability, a diagnosis — owes the same thing. The
+negative is named separately because it is the member nobody re-checks.
+
+#### The six forms
+
+Each is the same rule pointed at a different kind of claim, and each fails the same way: **a claim
+true of what the speaker examined, read as a claim about the system.**
+
+| form | the claim | what it must name |
+|---|---|---|
+| **1 — a negative** | *cannot, never, clean, none found* | the **route** it was obtained by |
+| **2 — a diagnosis** | *"X happens because Y"* | the **instances** it was derived from |
+| **3 — a count** | *"there are N"* | the **command** that produced N |
+| **4 — a report** | *"component X is broken"* | the **layer** actually observed |
+| **5 — a permission** | *"yes, do that"* | the **question** it was asked |
+| **6 — a positive claim about a corpus** | *"X happens in the report"* | the **site** it happens at |
+
+**Form 2 — a diagnosis is obtained by a route exactly as a negative is.** The first instance anyone
+looks at is a sample of one route, and the features it happens to have get written down as the
+cause. A measured case: a defect was diagnosed as *"it mis-pairs whenever the line carries a second
+span"*; two later attempts called it irreproducible, both testing the same way. The true mechanism
+was different and simpler — a marker that never closes at all — and the second span was irrelevant.
+**The original sentence described a CO-OCCURRENCE the observer happened to see, wearing a
+mechanism's clothes.** So: *a diagnosis names the instances it was derived from, in the same
+sentence.*
+
+**Form 3 sharpens [`staleness.md`](staleness.md) § C.** *Derive, date, or do not state* is
+satisfied by a bare number with a date, and that number is **still unfalsifiable**: a reader who
+gets a different answer cannot tell a changed tree from a different counting rule, so the cheapest
+move available to them is to doubt the number rather than check it. **"Derive" has to mean "show
+the derivation", not "a derivation was performed".** Measured: two parties disagreed over a figure,
+one of them named the rule it had counted by, and the disagreement resolved in a single command
+instead of an argument — the file had two populations and each had counted one. **A count that
+names its command can be disagreed with; one that does not can only be doubted.**
+
+**Form 4 names the OBSERVATION BOUNDARY — what the reporter could actually see.** A report that
+blames a component it never inspected sends the fix to the wrong place, **and the wrongness is
+invisible from where the fix lands**: the seat dispatched to fix the named component finds nothing
+wrong with it, and then faces a choice between two wrong conclusions — that the report was mistaken
+(it was not; the corruption was real) or that the component needed changing anyway (it did not).
+Measured: output emerged corrupted from a call to a script, the script was blamed, and the
+substitution was happening in the caller's own shell. **When a report blames a component, check the
+layer above it before dispatching.**
+
+**Form 5 is this law with a permission in place of a measurement.** A grant is a claim about the
+question in front of the granter, and it is silent about every constraint the granter did not see.
+Measured: a delivery was authorised; the executing seat held it, because it could see that the
+source was an unlanded branch — a constraint the granter had never been asked about. **A permission
+answers the question it was asked. The seat executing it sees constraints the granter did not, and
+those remain the executing seat's to JUDGE and — the part that makes this safe — to REPORT.** A
+seat that silently declines leaves the granter waiting for a result that will never arrive; a seat
+that silently obeys ships the defect with the granter's signature on it. *A hold that is not
+reported is indistinguishable from a hold that never happened.*
+
+**Form 6 is the one § A.2 above argues this sheet does not need, and the exception is precise.**
+§ A.2 is right that a false positive fails loudly on first use — **that is true of a
+positive EVENT.** A positive claim over a **corpus** — *"this happens in the report"*, *"the guide
+covers this"* — is not proved by any one event, and a reader cannot disprove *"X happens somewhere
+in here"*, so nobody tries. **It is not merely less useful; it is unfalsifiable, and therefore
+never checked.** Name the site.
+
+#### The second-reader clause — two readers on one route is one measurement read twice
+
+**This binds REVIEWS, not only findings, and it is the half that misses the case which produced the
+law.** A reviewer's *"I agree it cannot be caught"* is itself a negative result, obtained by one
+route.
+
+Measured: an implementer found half a defect unfixable, documented it and shipped; a reviewer
+re-derived the mechanism independently, agreed, and escalated the scope call — correct behaviour at
+every step. Both were right about the mechanism. **Both stopped at the same place, having tested
+the same single route.** A third party later measured a different entry point, which catches the
+fault cleanly.
+
+**That eliminates the cheap remedy.** *"Have someone else check it"* is the standard answer to a
+claim class, and here **the reviewer WAS the second reader.** A second reader re-derives the same
+mechanism along the same route and agrees. **The disagreement has to come from a different ROUTE,
+not a different person.** So a reviewer meeting a *cannot* asks for the route, and where the claim
+is load-bearing, asks for a second route rather than a second opinion.
+
+#### Disclosure elsewhere is not scope
+
+Every instance behind this rule disclosed its scope **somewhere** — in a design note, in the code
+beside it, in a rule already in force. **The defect is entirely about POSITION.** A scope stated in
+a paragraph the reader does not open while acting is not a scope; it is a fact the reader will be
+told they should have known.
+
+The sharpest measured case is the one where the rule was not merely documented but **already
+binding**: a standing ruling required every instrument to state what it did not establish, and
+instruments kept shipping claims they could not back anyway. **The rule existed, elsewhere, and the
+elsewhere is the whole defect.** The author's own diagnosis is the reason this clause exists:
+
+> *"I keep writing the acceptance criterion for the claim and relying on remembering the other rule
+> for the limit. Remembering is not a mechanism."*
+
+#### The corollaries — the same rule addressed to five parties
+
+A rule addressed to everyone is remembered by no one, and the evidence is that each party misses it
+for a **different** reason. So:
+
+- **The AC author** — an acceptance criterion that demands a claim demands **the claim's limit in
+  the same AC**. Not in the doctrine it points at, not in a rule the author is expected to recall.
+- **The inheritor** — a technique adopted from elsewhere **re-asserts its original scope about a
+  subject nobody re-measured**. Carry the measurement or re-take it. *A technique carried forward
+  without its measurement is a habit wearing a control's clothes.*
+- **The fixer** — a fix binds **only the layers it joined**. A green suite over the joined layer
+  says nothing about the layer the consumer reads; *"the tests are green"* after a consistency fix
+  names that layer or claims nothing.
+- **The reviewer** — the second-reader clause above.
+- **The executor** — form 5 above: judge the constraints the granter could not see, and report the
+  hold.
+
+#### What it costs, and why that is the argument
+
+**Three words, in the sentence that carries the claim:**
+
+- ❌ *"a locked file cannot be caught"*
+- ✅ *"a locked file cannot be caught **through the command the consumer types**"* — which
+  immediately invites *"what about the other entry points?"*, and **that question is the whole
+  mechanism.**
+
+The route is nearly always already known to the writer at the moment of writing. **It costs nothing
+to state and it is never recoverable afterwards** — which is why the measured instance above
+survived a review.
+
+#### What this rule does NOT claim
+
+- **It does not close the gap; it makes it visible to a reader.** An implementer who writes
+  *"cannot be caught through `<the one entry point>`"* may still ship, and a reviewer may still
+  agree. The rule buys a question that can be asked, not an answer.
+- **Nothing enforces it, and that is measured rather than conceded.** An attempt to mechanise the
+  general form over a real corpus returned a hit list that was almost entirely ordinary usage,
+  because **scope is a paragraph property, not a line property.** The one greppable member is the
+  corpus-scoped reassurance — *"unreachable from the corpus"* and its kin — and that one is worth a
+  check on its own terms. The rest is convention, and a convention that costs three words at
+  authoring time may be the whole available remedy.
+- **Knowing the pattern is demonstrably not sufficient to avoid it.** The strongest evidence for
+  that is a party holding six instances of this shape, writing about them, and producing a seventh
+  inside the correction to the sixth. Treat it as a checklist line at authoring and review time,
+  not as an idea to hold in mind.
+
 ---
 
 ## B. Your project's instance — **fill this in**
@@ -189,8 +353,10 @@ it.)*
 1. **Your motivating incident**, if you have one — what was claimed, what evidence it rested on,
    and which axis the claim exceeded. Keep the good half: a well-scoped enumeration is not
    discredited by the over-generalisation stacked on top of it.
-2. **Where A.1 and A.1b are wired**, one line each: the implementer's Definition of Done, the
-   reviewer's cross-cut checks, and the spike's probe-evidence rule.
+2. **Where A.1, A.1b and A.5 are wired**, one line each: the implementer's Definition of Done, the
+   reviewer's cross-cut checks, and the spike's probe-evidence rule. **A.5 additionally wants a
+   line wherever your process writes an acceptance criterion** — its AC-author corollary is the one
+   that fails silently, because the author is relying on remembering a rule that lives elsewhere.
 3. **Your A.1b machine**, if you build one: the guard's path, the corpus it reads (**reuse the
    consumer-reaching corpus you already have — never mint a second one**), the phrase list with a
    stated reason per phrase, the falsifier kinds it resolves for real, and the surfaces where a

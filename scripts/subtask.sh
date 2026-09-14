@@ -67,6 +67,66 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
+# ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED. ──────────────────
+# process/contracts/issue-creation.md § 3: a request for the usage text is ALWAYS legal and
+# ALWAYS succeeds. This arm used to sit BELOW the seam block, so on a tree with
+# scripts/config.sh missing `subtask.sh --help` exited 1 carrying the seam refusal — the
+# contract's one prohibition, fired in the state where an operator most needs the help text.
+# next-id.sh has had this order since it gained an argument parser at all, and its comment
+# carries the reason; this is that order.
+#
+# NOTHING ELSE MOVES, and that is the point: the seam still refuses every OPERATION below,
+# because a guessed prefix is the expensive failure this block exists to prevent. Only the
+# usage request is decided ahead of it.
+#
+# LEADING ARGUMENT ONLY, and that is a stated NARROWING rather than the whole clause.
+# `--help` in a LATER position —
+#     ./scripts/subtask.sh new <PARENT-ID> s1 my-slug --help
+# — is still answered further down, so with the seam missing that spelling still exits 1.
+# Answering help before ANY argument is interpreted would also change what a bad flag
+# FOLLOWED by `--help` returns on a correct tree (`subtask.sh --not-a-flag --help`), and that is a
+# separate decision from this one.
+#
+# THE LIBRARY MOVES WITH THE ARM. lib/role-set.sh was already above the seam and already
+# GUARDED, for this same clause — the note beside it says so. lib/usage.sh was below, so the
+# hoisted arm would have called an undefined kit_usage; it is now above too, and it reads no
+# configuration.
+#
+# AND THIS ARM READS NO SEAM. The one derived value in this help text is the ROLE SET, and its
+# seam is scripts/githooks/commit-msg rather than scripts/config.sh — read through role-set.sh,
+# already guarded above, already degrading to naming its own seam. This script consumes no
+# prefix at all, so there is nothing here for config.sh to supply.
+#
+# THE `case "$CMD"` DISPATCH BELOW KEEPS ITS OWN `-h|--help` ARM. With this arm in front of it
+# a leading `--help` never reaches it, so it is now defence in depth rather than the live path:
+# it is what a reader of the dispatch table learns help from, and it is what would carry the
+# behaviour again if this arm were ever moved. It is not a second implementation — both call
+# the one usage().
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() {   # the path is an ARGUMENT — see lib/usage.sh
+  local roles tok='@ROLE_SET@'
+  if command -v kit_role_display >/dev/null 2>&1; then
+    roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
+  fi
+  # EVERY DEGRADATION NAMES THE SEAM, never the shipped set: a guess that is right about the kit
+  # and wrong about this project is the defect being removed, not a fallback from it.
+  [ -n "${roles:-}" ] \
+    || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
+  # SUBSTITUTED BY POSITION, NOT BY PATTERN — the replacement is a `|`-bearing role set, which
+  # `sed` would read through its delimiter rules and awk's gsub would read a `&` in as the whole
+  # match. index/substr interprets nothing. Same reasoning as move-issue.sh, which does this first.
+  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
+    { i = index($0, t)
+      if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
+      else   print }'
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
 # config.sh is loaded for its SHARED VALIDATORS, not for a prefix — this script consumes
 # none. The six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT
 # copied here, because pasting a guard for a value this script never reads would add a
@@ -129,27 +189,6 @@ fi
 # terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
 # once its PARENT lands — never by a direct move here.
 STATUSES=(todo in_progress dev_complete qa_complete blocked)
-
-# shellcheck source=lib/usage.sh
-. "$SCRIPT_DIR/lib/usage.sh"
-
-usage() {   # the path is an ARGUMENT — see lib/usage.sh
-  local roles tok='@ROLE_SET@'
-  if command -v kit_role_display >/dev/null 2>&1; then
-    roles="$(kit_role_display "$SCRIPT_DIR/.." || true)"
-  fi
-  # EVERY DEGRADATION NAMES THE SEAM, never the shipped set: a guess that is right about the kit
-  # and wrong about this project is the defect being removed, not a fallback from it.
-  [ -n "${roles:-}" ] \
-    || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
-  # SUBSTITUTED BY POSITION, NOT BY PATTERN — the replacement is a `|`-bearing role set, which
-  # `sed` would read through its delimiter rules and awk's gsub would read a `&` in as the whole
-  # match. index/substr interprets nothing. Same reasoning as move-issue.sh, which does this first.
-  kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
-    { i = index($0, t)
-      if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
-      else   print }'
-}
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
 # every POSITIONAL, not just the first — `subtask.sh new --help s1 slug` would

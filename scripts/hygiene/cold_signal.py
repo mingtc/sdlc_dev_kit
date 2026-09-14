@@ -97,15 +97,33 @@ class HistoryUnavailable(RuntimeError):
     # one layer up — a true sentence aimed at the wrong reader.
     def __init__(self, root, rc, said, remedy):
         self.root, self.rc, self.said, self.remedy = root, rc, said, remedy
-        self.asked = f"git -C {root} log --no-merges --format=%x01%ct --name-only"
+        self.asked = (f"git -C {root} -c core.quotePath=false "
+                      "log --no-merges --format=%x01%ct --name-only")
         super().__init__(f"git log could not run in {root}")
 
 
 def git_history(root: Path):
-    """``path -> (commit_count, last_unix_ts)`` from ONE local history walk. No remote."""
+    """``path -> (commit_count, last_unix_ts)`` from ONE local history walk. No remote.
+
+    `-c core.quotePath=false` IS LOAD-BEARING AND IS NOT STYLE. The keys this returns are
+    matched against `citation_index.iter_files()` paths, which are real filenames. Under git's
+    default `core.quotePath=true` a path with any byte outside ASCII comes back C-quoted and
+    double-quoted — `café.md` arrives as `"caf\\303\\251.md"` — so the lookup in `survey()`
+    misses, the file scores zero commits, and it is dropped from the walk BEFORE any threshold
+    is applied. The failure is silent and it is directional: the file reads as never-committed,
+    which is not "cold", so the tool UNDER-COUNTS while still printing a confident answer. That
+    is the one failure mode this instrument must not have — a report that declines to answer is
+    recoverable (see `HistoryUnavailable`), a report that answers wrongly is not.
+
+    Measured before and after on a scratch repo containing `café.md` and `plain.md`: with the
+    default, this function keyed `'"caf\\303\\251.md"'` and `'café.md' in stats` was False;
+    with the flag, `stats['café.md']` is `(1, <ts>)`. Ablation: drop the two `-c` arguments and
+    the same probe goes red again.
+    """
     try:
         proc = subprocess.run(
-            ["git", "-C", str(root), "log", "--no-merges", "--format=%x01%ct", "--name-only"],
+            ["git", "-C", str(root), "-c", "core.quotePath=false",
+             "log", "--no-merges", "--format=%x01%ct", "--name-only"],
             capture_output=True, text=True, check=True,
         )
     except subprocess.CalledProcessError as exc:

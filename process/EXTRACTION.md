@@ -780,6 +780,25 @@ labelled** — *"never a bare confident example."* The remedy there is **not** t
 > line says that the role shown is an example value and that the rendered set above is what this tree
 > accepts.
 
+**The label is not free text — it carries a MACHINE TOKEN, declared here rather than read off the
+files it currently guards**: a token derived FROM the instances it checks could not see them all
+drift together in silence. That is the same argument the *"never derive the tag from the set"* rule
+below makes, applied one level up. The self-test derives the literal from the marker block rather
+than typing it a second time.
+
+<!-- ROLE-EXAMPLE-LABEL-TOKEN:BEGIN — anchored on the MARKERS, not on the sentence they wrap:
+     prose is not an anchor, for the reason contracts/issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES
+     block already gives. Move them together; do not delete one without the other.
+     THE TOKEN IS THE LAST BACKTICKED SPAN BETWEEN THE MARKERS, and the sentence is written to end
+     on it. "The FIRST span" was the obvious rule and it is wrong here: the sentence has to name the
+     flags it is about, so the first span is `--help`. A derivation that took it would declare the
+     token to be a flag name, find it in every usage line in the tree, and pass forever — the
+     silent-green shape this whole block exists to prevent. Keep the literal last; the self-test
+     asserts the span count so a second trailing span cannot slip in unnoticed. -->
+Every shipped header block whose `--help` rendering puts a declared role name in a `--role` argument
+position must also carry this literal, verbatim, in that same rendering: `IS AN EXAMPLE VALUE`
+<!-- ROLE-EXAMPLE-LABEL-TOKEN:END -->
+
 *Why not the two obvious alternatives.* **Placeholdering every example** (`--role <R>`) protects the
 minority of trees that withdrew the role by costing every reader a runnable line forever — and a
 runnable line is what an example is for. **Declaring examples illustrative in a contract sheet** puts

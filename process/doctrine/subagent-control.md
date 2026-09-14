@@ -242,6 +242,41 @@ surface you will act on.
 The general form of two defects the kit has paid for separately: a checker that watched one writable
 home and not the other, and a printed commit id read before a rebase moved it.
 
+### A.14 — A file that means two things has no correct writer
+
+A.13 is about a coordinator reading **the wrong surface**. This is the failure one step earlier:
+the surface is the right one, and it has quietly been made to mean **two things**.
+
+> **When a second consumer starts reading an artifact for a fact the artifact was not built to
+> carry, the fix is a SECOND artifact, not a cleverer query against the first.**
+
+**Why a fleet meets this before a single author does.** A file written by one worker and read by
+another is the fleet's whole coordination surface, and **nobody holds both ends**. The writer knows
+what it meant; the second reader knows what it needed; the overload exists in neither head, so no
+review catches it — each side is looking at a file that is correct **for its own purpose**.
+
+**The failure shape, and it is worth stating because it does not look like a bug.** Two rulings that
+are each correct meet inside one overloaded file and produce a report where **both halves are false
+and neither rule is wrong.** Measured: a notes file whose newest write was used to derive a
+*stopped work* timestamp, so an ordinary late entry dragged the derived stop **past** the last work
+— the disagreement branch never fired, and the page printed *"finished for the day, and nothing
+since"* directly above *"work moved 1 minute ago."* Nothing failed. Nothing was unguarded. The file
+was asked what it meant and gave the two different answers it had been built to give.
+
+**Why the cleverer query is the tempting wrong answer, and this is the part to hold onto.** At the
+moment the defect surfaces, a smarter read of the overloaded file is always available and always
+cheaper — *derive the timestamp from the commit that introduced the heading*, not from the file's
+mtime. It works. **And it leaves the file meaning two things**, so it buys one fix and keeps the
+generator: the next consumer arrives, reads the file for a third fact, and the query gets smarter
+again. **Name what each file MEANS, and split it when the answer needs an "and".**
+
+**The reader-side twin, so both directions are named.** Coming the other way, an operand's second
+consumer is discovered rather than designed — *this field's order looked free until another script
+turned out to read its leading token.* Same defect, opposite end: there, you are the consumer nobody
+named; here, you are the author about to create one. [`instruments.md`](instruments.md) § A.6 owns
+the consumer-side rule, where the operand belongs to an instrument; **this one binds the author
+deciding, before anything reads it, what one file is FOR.**
+
 ---
 
 ## § B — Your fleet's instance — **fill this in**

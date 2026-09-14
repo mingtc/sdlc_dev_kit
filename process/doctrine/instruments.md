@@ -636,14 +636,44 @@ other than what you asked.
   hasher your project uses belong in § B beside your own instruments.)*
   **The fix is the general one: assert the OPERAND EXISTS before comparing digests of it** —
   `git cat-file -e "${ref}:<path>"` — because the digest cannot tell you it had nothing to chew on.
-- **AND BRACE THE REF, OR ON zsh THE PATH IS SILENTLY DROPPED AND THE CURE ABOVE CANCELS THE HAZARD
-  IT CURES.** Unbraced, what follows `$VAR:` is taken as a zsh **history modifier** whenever the next
-  character is a modifier letter (`s l u h t r e q g a A p c x f F w W`). So `"$REF:src/thing.py"`
-  expands to just the ref — `:s` is read as a substitution, it matches nothing, and **the path is
-  gone with no warning and exit 0**. Three outcomes from one shell, and none of them errors usefully:
-  the path vanishes, or a letter is eaten (`"$V:literal/p"` → `abciteral/p`, `:l` lowercasing), or
-  you get `bad substitution`. **`zsh` is the default login shell on macOS**, so this is the default
-  environment for a large share of adopters.
+- **AND BRACE THE REF, OR ON zsh THE PATH IS MANGLED AND THE CURE ABOVE CANCELS THE HAZARD IT
+  CURES.** Unbraced, what follows `$VAR:` is taken as a zsh **history modifier** whenever the next
+  character is a modifier letter (`s l u h t r e q g a A p c x f F w W`). Three outcomes, and
+  **which one you get depends on the characters of YOUR path, not on the shape of the mistake** —
+  which is why this cannot be learned from one example:
+  - **the path silently vanishes, exit 0** — `:s` is `s<delim>old<delim>new<delim>`, so it consumes
+    the path as a substitution whenever the delimiter recurs often enough in it. Measured:
+    `"$REF:spath/thing.py"` → `abc`, rc 0.
+  - **a letter is eaten, exit 0** — `"$V:literal/p"` → `abciteral/p` (`:l` lowercasing, and the `l`
+    is gone). Measured. Several modifiers do this; `:h` also rewrites the whole expansion to `.`.
+  - **`bad substitution`, exit 1** — when the modifier is unterminated. Measured:
+    `"$REF:src/thing.py"` → `bad substitution`, rc 1, because `:s`'s delimiter is then `r` and the
+    path holds too few of them.
+  <!-- CORRECTED 2026-09-14 (§ A.9 audit). This bullet asserted that `"$REF:src/thing.py"`
+       "expands to just the ref … gone with no warning and exit 0". MEASURED ON zsh 5.9,
+       macOS 15.6: that exact string is `bad substitution`, rc 1 — the loudest of the three
+       outcomes, not the silent one. The silent drop is real and is now shown with a string that
+       actually produces it (`:spath/…`). The REASON the bullet exists is untouched and was never
+       in doubt: an unbraced `$REF:path` is unsafe on zsh, and the adopter's 2026-09-03 report
+       stands. What was wrong was the worked example, which is the part a reader copies.
+       HOW THE THREE OUTCOMES WERE SIZED, since a reader may want the shape of the risk: each of
+       the 18 modifier letters was expanded as `"$REF:<letter>path/thing.py"` under /bin/zsh and
+       compared against the literal it would have been if nothing had been interpreted —
+       11 came back rc 0 AND ALTERED, 6 came back rc 0 and untouched (the modifiers that need a
+       following argument), 1 errored. So the majority outcome is a silent wrong answer, which is
+       why "silently" is right about the class even though it was wrong about the example given.
+       Re-derive before quoting: the split is a property of the probe path's characters, and a
+       different path moves letters between the first two buckets. -->
+  **How common zsh is among adopters is UNMEASURED here.** This bullet previously asserted *"`zsh`
+  is the default login shell on macOS, so this is the default environment for a large share of
+  adopters."* That is a claim about a population this repository has never sampled, and the local
+  probes available disagree with each other — on the machine where the correction above was
+  measured, `dscl . -read /Users/<me> UserShell` is `/bin/zsh` while `/Users/root` is `/bin/sh` and
+  `/Users/_mbsetupuser` is `/bin/bash`, none of which establishes what a new account gets on a
+  current release. **The hazard does not need the population figure**: one adopter lost a landing
+  check to it, and bracing costs two characters. Stated as unmeasured rather than dropped, because
+  the reason it was reached for — this is not an exotic shell — is sound even though the number
+  behind it was never derived.
   **The two failures compose in the worst direction.** `git cat-file -e "$REF:absent/path"` exits 0
   — it silently asked *"does this commit exist?"*, and it does — so the existence assertion above
   passes for a path in no ref at all. And `git show "$REF:path" | grep -c <needle>` counts matches in

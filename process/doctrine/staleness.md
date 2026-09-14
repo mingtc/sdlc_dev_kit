@@ -267,6 +267,12 @@ in a document claiming to be current** — is a defect.
   touched, which one hop structurally cannot reach — is a separate obligation:
   [`fix-execution.md`](fix-execution.md) § A.4.)*
 
+**Where this section's reader cannot open the source.** Everything above assumes a reader who can go
+and re-derive the number. Where the number is in a **product's output**, read by someone with no
+access to the evidence, [`consumer-output.md`](consumer-output.md) carries the additional duties —
+per-item read-vs-derived marking, and preferring the decomposed figure the reader can trace over the
+combined one they must trust.
+
 ## § D — Who pays, stated as a rule (the pattern)
 
 - **The Definition of Done for any change that lands a successor document, closes a plan, or

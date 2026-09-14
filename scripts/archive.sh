@@ -41,6 +41,44 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # moved to the trunk-pinned kanban worktree, which resolves its own paths. Every sibling that
 # defines ROOT uses it; this was the only one that did not. Re-add it only with a use.
 
+# ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED. ──────────────────
+# process/contracts/issue-creation.md § 3: a request for the usage text is ALWAYS legal and
+# ALWAYS succeeds. This arm used to sit BELOW the seam block, so on a tree with
+# scripts/config.sh missing `archive.sh --help` exited 1 carrying the seam refusal — the
+# contract's one prohibition, fired in the state where an operator most needs the help text.
+# next-id.sh has had this order since it gained an argument parser at all, and its comment
+# carries the reason; this is that order.
+#
+# NOTHING ELSE MOVES, and that is the point: the seam still refuses every OPERATION below,
+# because a guessed prefix is the expensive failure this block exists to prevent. Only the
+# usage request is decided ahead of it.
+#
+# LEADING ARGUMENT ONLY, and that is a stated NARROWING rather than the whole clause.
+# `--help` in a LATER position —
+#     ./scripts/archive.sh --apply --help
+# — is still answered further down, so with the seam missing that spelling still exits 1.
+# Answering help before ANY argument is interpreted would also change what a bad flag
+# FOLLOWED by `--help` returns on a correct tree (`archive.sh --not-a-flag --help`), and that is a
+# separate decision from this one.
+#
+# THE LIBRARY MOVES WITH THE ARM, because the arm needs it: kit_usage renders the help and it
+# reads no configuration at all, so hoisting it above the seam adds no new dependency to the
+# operational path — it only stops the usage path depending on the seam.
+#
+# AND THIS ARM READS NO SEAM, unlike the three creators whose usage LINE renders a prefix and
+# therefore hoist CONFIG and read the seam inside their own arm. This help text is this file's own header block, which
+# derives nothing configurable, so the usage path has no reason to touch scripts/config.sh — and
+# § 3 asks a usage request to do no work. Give this arm the creators' guarded read if this
+# header ever starts rendering a seam value.
+# shellcheck source=lib/usage.sh
+. "$SCRIPT_DIR/lib/usage.sh"
+
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
 # This script used to carry `: "${ISSUE_PREFIX:=<a literal>}"` here — a SECOND
 # default below config.sh's own, so the sweep still ran with the seam missing.
@@ -79,11 +117,6 @@ fi
 
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"
-
-# shellcheck source=lib/usage.sh
-. "$SCRIPT_DIR/lib/usage.sh"
-
-usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 DRY_RUN=true
 # A REAL LOOP, BECAUSE THE SINGLE-`$1` FORM SILENTLY DISCARDED EVERY LATER ARGUMENT — and

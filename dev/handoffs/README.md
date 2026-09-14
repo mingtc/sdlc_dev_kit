@@ -38,6 +38,23 @@ There is no clean signal for the moment, which is why this is a habit rather tha
 at a **natural boundary you chose in advance** — an arc closing, a phase landing, a decision batch
 answered — rather than when the session starts to feel long.
 
+**And there is a second trigger, which is the boundary you did NOT choose: asked to halt, context
+spent, a subordinate terminated.** The paragraph above is about writing a *good* handoff, and it
+holds; this is about not writing *none*. **The chosen boundary is where you write a good handoff;
+the unchosen stop is where you owe a short one regardless** — and the failure the two trigger
+together is reading *"while sharp, not while failing"* as permission to skip the one at the wrong
+moment, when the wrong moment is exactly where the unwritten thing is lost.
+
+**Short is the whole point here.** An unchosen stop has no budget for the key-file table or the
+deliberately-not-doing list; it has budget for the enumeration below, and a session holding nothing
+pays one word to say so.
+
+**What this trigger cannot reach, said so it is not mistaken for coverage.** It binds **the stop you
+are told to make**, not the one that happens to you — a session that is killed writes nothing at
+all. Where the stop is a *subordinate's*, the obligation is the **coordinator's**: what a terminated
+worker reported before it stopped is held by whoever received it, and it is on that handoff, not on
+the one the dead worker never wrote.
+
 *(The reasoning is [`../../process/doctrine/subagent-control.md`](../../process/doctrine/subagent-control.md)
 § A.12, which also names what makes a handoff valuable: not being current, but **being explicit about
 what in it is already stale.** A handoff stamped with what it no longer answers is worth several that
@@ -45,6 +62,12 @@ are merely current — and that is the one thing the newest-wins rule ABOVE cann
 since it tells a reader which file to trust and nothing about which parts of it have expired.)*
 
 ## What a handoff must contain
+
+**The question a handoff answers is *what do you HOLD that the repository does not* — not *what is
+uncommitted*.** Those come apart, and the gap between them is where handoffs lose things: a ruling
+received in conversation, a conclusion reached while reading, a finding a worker reported before it
+died. **None of that is a working-tree state, so `git status` cannot see any of it, and a clean tree
+is not an answer to the question.** Enumerate what is held; the tree is a separate, smaller item.
 
 At minimum, and in this order:
 
@@ -57,6 +80,10 @@ At minimum, and in this order:
 - **Standing rulings made this session** — as *pointers* into the ruling register, which is where
   they were authored. If a ruling was made and not authored anywhere, that is the handoff's most
   urgent item.
+- **Its three siblings, which are the rest of what is HELD:** conclusions reached but not yet
+  written down, edits composed and not committed, and **what a terminated subordinate reported
+  before it stopped**. The rulings bullet above is the sharpest member of this set and is not
+  restated here; these are the ones an author reaches for second, or not at all.
 - **What is deliberately NOT being done**, and why — otherwise the next seat helpfully does it.
 - **A key-file lookup table** for the arc in progress: the five or ten paths a newcomer to this
   work would otherwise spend an hour finding.

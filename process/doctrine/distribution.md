@@ -22,6 +22,12 @@ overturns a rule here, keep the reason and replace only the conclusion. The reas
 the load-bearing part — several of them are incidents, and an incident with its reason stripped
 gets re-lived.
 
+**And a second neighbour, one step further out.**
+[`consumer-output.md`](consumer-output.md) generalises § A.4's incident past distribution: the
+downgrade report is a tool synthesising a value when both candidates were wrong in different
+directions, handed to a consumer who could not re-measure it. That sheet carries the rule; this one
+keeps the incident.
+
 ---
 
 ## A. The pattern (this is the transferable part)
