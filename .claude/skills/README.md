@@ -41,13 +41,58 @@ name as a slash command (e.g. `/test-driven-development`).
 Some skills carry sibling files — prompt templates, reference tables, helper scripts. Those
 are loaded on demand by the `SKILL.md` that owns them; they are not entry points.
 
+### What a description costs, and the one rule it must meet
+
+**A skill's BODY is lazy — its `description` is not.** The harness reads every skill's frontmatter to
+build its menu and loads a body only when the skill is invoked, so the always-loaded price of this
+whole directory is the descriptions, and a body's length is nearly free. That inverts the intuition,
+and it is the reason the rule below is about precision rather than deletion.
+
+**The rule: a description names a condition the reader can TEST, and names it first.** Read a
+capability sentence first and the condition becomes optional; an instruction to load
+*always* defeats the mechanism outright, because the body then arrives in every session whether the
+work needs it or not.
+
+**The exception, and it is ONE skill: [`using-skills`](using-skills/).** Its description opens
+*"Use when starting any conversation"*, which names no condition — and that is correct here, because
+**this skill's subject is skill use itself.** A session cannot test which skills apply before it
+knows how to find and invoke them, so the bootstrap skill's honest trigger is every session; the
+description is accurate, not lazy. **The carve-out is scoped to that argument and travels no
+further:** it is for a skill whose *subject is the skill mechanism*, never for a skill whose
+condition is merely awkward to state. If a second skill ever claims it, the question to answer is
+whether a session could apply it *without* having read it first — and for everything but the
+bootstrap the answer is yes.
+
+**Two further reasons this one is not fixed locally.** It is **vendored** — § Provenance & licensing
+below warns that a re-copy restoring an upstream wording *"has not updated the skill, it has
+re-narrowed it"*, and a local rewrite of a vendored description is that drift in the other direction,
+paid again at every re-fetch. And the change, if it is ever wanted, belongs upstream rather than here.
+
+**What the rule tests is not mechanically decidable, so it is a convention with a reader and not a
+gate.** *Does this condition discriminate* has no pattern that decides it, and the tempting proxy —
+matching the opening words — is measurably the wrong instrument. Derive it on this tree rather than
+trusting the claim:
+
+```
+for f in .claude/skills/*/SKILL.md; do
+  d=$(grep -m1 '^description:' "$f")
+  case "$d" in *"Use when"*) ;; *) echo "opens otherwise: $f";; esac
+done
+```
+
+The descriptions that fail that match name a **sharper** condition than the one that passes it — a
+specific prior step, a specific unit of work — while *"any conversation"* passes it and names none.
+**A form check would flag the precise ones and clear the unconditional one.** So the check is a
+human reading each description and asking what it excludes; nothing in this kit gates it, and no
+count of conforming descriptions is written here, because the set moves whenever a skill is added.
+
 ## Roles & skill inventory
 
 ### Dev — Engineering
 
 | Skill | Purpose |
 | --- | --- |
-| [brainstorming](brainstorming/) | Use before any creative work — explore intent before implementing |
+| [brainstorming](brainstorming/) | Use when HOW to build something is not yet settled — explore intent before implementing, and gate implementation until a design is approved |
 | [writing-plans](writing-plans/) | Turn a spec into a written, TDD-shaped implementation plan |
 | [executing-plans](executing-plans/) | Execute a plan INLINE — you run the tasks yourself, with review checkpoints |
 | [subagent-driven-development](subagent-driven-development/) | Execute plans with independent tasks via subagents, two-stage review per task |

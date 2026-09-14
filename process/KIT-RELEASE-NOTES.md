@@ -497,6 +497,25 @@ columns and never the cards.*
   changed and nothing was deleted.** If you have edited these descriptions locally, the rule to
   apply is: the condition first, and short — the description is the part that is always loaded.
 
+- **That description rule now has a home in the shipped tree, with one stated exception.** The rule
+  above shipped only as a release note, which records what changed in a release and is not where a
+  reader looking at the skills directory would find a standing convention.
+  `.claude/skills/README.md` § How skills work gains **What a description costs, and the one rule it
+  must meet**, beside the mechanism it depends on. **The exception is `using-skills` and it is
+  scoped by argument, not by listing:** its description opens *"Use when starting any conversation"*,
+  which names no condition — and that is honest for the one skill whose SUBJECT IS SKILL USE ITSELF,
+  because a session cannot test which skills apply before it knows how to find and invoke them. A
+  second claimant must show a session could not reach it without having read it first. **Its
+  frontmatter was deliberately NOT rewritten**, for a second reason worth porting: the skill is
+  vendored, and § Provenance & licensing warns that a re-copy restoring an upstream wording *"has
+  not updated the skill, it has re-narrowed it"* — a local rewrite of a vendored description is that
+  same drift, paid again at every re-fetch. **And the section states plainly that this rule is a
+  convention with a reader, not a gate**, with a recipe that shows why the obvious proxy fails: the
+  descriptions in this kit that do NOT open *"Use when"* name a **sharper** condition than the one
+  that does, so a form check would flag the precise ones and clear the unconditional one. **If you
+  have added skills of your own, the rule to apply is the one above; if one of them claims this
+  exception, apply the test rather than the precedent.**
+
 ### Fixed
 
 - **`scripts/hygiene/cold_signal.py` silently skipped any file whose name is not pure ASCII, and
