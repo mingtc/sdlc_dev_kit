@@ -94,6 +94,25 @@ columns and never the cards.*
 
 ### Action required
 
+- **If a board move ever told you a commit was not on the trunk and advised a cherry-pick, check
+  your trunk for a duplicate.** The kanban worktree's landing assertion read the sha it held
+  *before* the push, and a push retry rebases — so on every won race the operation that SUCCEEDED
+  was the same operation that orphaned the sha being asserted on. The result was **the push failure
+  recovery text, which must name the commit that actually landed**, naming one that had been
+  replaced: a landing that worked reported as a failure, with a remedy that produces a second copy
+  of the same work. The assertion now reads the post-push HEAD, and tells a rebase apart from a
+  genuine orphan. **What you must do:** if you followed that advice, `git log --oneline` your trunk
+  around that date and drop the duplicate.
+
+- **If you deleted `scripts/notify*` as unused, check whether `stall.sh` went with it.** The
+  `DELETE-IF-UNUSED` glob was written as `scripts/notify*`, which matched the whole directory —
+  including `notify/stall.sh`, which is **not** a notification channel but the liveness control that
+  notices when a board has gone quiet. An adopter who ships no notifications was therefore told, by a
+  glob, to **delete if unused — see that row below**, and would have taken the watchdog with the
+  adapters. The glob now names the channel adapters only, and `stall.sh` has its own
+  **Liveness (KIT)** category. **What you must do:** if `scripts/notify/` is gone from your tree,
+  restore `stall.sh` from the zip.
+
 - **The board gains a `progress/declined/` column, and your tree does not have it yet.**
   `declined/` is where a card that was **considered and refused** lives, with the reasoning
   that refused it. A refusal previously had nowhere to go: left in `todo/` it misrepresents
