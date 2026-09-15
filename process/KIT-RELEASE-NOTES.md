@@ -92,6 +92,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.5.0] — 2026-09-15
+
 ### Action required
 
 - **If a board move ever told you a commit was not on the trunk and advised a cherry-pick, check
