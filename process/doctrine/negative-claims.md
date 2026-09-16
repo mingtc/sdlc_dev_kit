@@ -313,6 +313,60 @@ for a **different** reason. So:
 - **The executor** — form 5 above: judge the constraints the granter could not see, and report the
   hold.
 
+#### When this binds — the trigger, and the exemption is the point
+
+**Everything above tells you what a claim owes. This says when.** The rule was shipped without a
+trigger, and a rule demanded of every sentence is obeyed where it is convenient and skipped where it
+matters. That is not a prediction: it was measured on the seat that wrote the sheet.
+
+**Two obligations, and they have different triggers — collapsing them is what breaks the rule.**
+
+1. **NAMING the route is universal.** It costs three words, the route is already known at the moment
+   of writing, and § *What it costs* below is the argument. Nothing below exempts you from it.
+2. **TAKING a second route costs real work, so it is owed only where a claim is LOAD-BEARING** —
+   and that word is used above, in the second-reader clause, without ever being defined. It is
+   defined here:
+
+> **A claim is LOAD-BEARING if someone will act on it, or if its being wrong changes a decision.**
+> A load-bearing claim owes **a second observation by a different route** before it is stated.
+> **Everything else owes nothing, and that exemption is the point.**
+
+**The question that sorts them is one line: *if this is wrong, what happens?*** If the answer is
+"nothing" — a remark, an aside, a claim the next step would expose anyway — it is exempt, and the
+exemption is what makes the rest enforceable. If the answer is anything at all, the claim is
+load-bearing and the second route is owed.
+
+**What counts as a second route, by claim shape.** A second *reading* is never one — the
+second-reader clause above is the reason, and it applies to you re-reading your own work exactly as
+it applies to a reviewer.
+
+| shape | the second route |
+|---|---|
+| **a count** | derive it a **second way**; re-reading the first derivation is the same route |
+| **a guard** | prove it **fires** AND that it **stays quiet** — a guard only ever seen refusing has not been shown to permit |
+| **a diagnosis** | reproduce it once more **with the suspected cause removed** |
+| **a negative** | try a **different entry point**, not the same one more carefully |
+
+**The guard row is the one with independent evidence, and it is the expensive one.** Two release
+guards were once verified in their red state and never in their green; one of them blocked every
+release for a week before anyone noticed, because a guard that refuses everything looks exactly like
+a guard that is working. *An ablation proves a guard CAN fire. Nothing but a green case proves it can
+stay SILENT.*
+
+**Why this is a trigger and not a better-worded rule.** Restating the law more forcefully has been
+tried and it does not work — § *What this rule does NOT claim* below records the measurement:
+parties produce instances of this class **while actively writing about it**, with the rule on screen.
+A trigger does something a restatement cannot: it **narrows the population** the rule is demanded of,
+which is the only move that makes a convention with no mechanism affordable enough to actually run.
+
+**What this trigger does not do.** It is a convention with a reader, not a mechanism — the honest gap
+§ *What this rule does NOT claim* already names, and this clause does not close it. It has not been
+measured in use; the argument for it is that the untriggered form demonstrably was not applied. **It
+will also mis-sort**, and the direction of the error is chosen deliberately: a claim's consequences
+are often clearer after it turns out to be wrong, so when the answer to *if this is wrong, what
+happens?* is genuinely unclear, treat it as load-bearing. Thirty seconds is cheaper than the hours
+the measured instances cost to discover.
+
 #### What it costs, and why that is the argument
 
 **Three words, in the sentence that carries the claim:**

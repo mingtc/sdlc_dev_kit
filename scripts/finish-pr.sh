@@ -431,8 +431,23 @@ fi
 echo ""
 echo "Squash-merging '${BRANCH}' → ${DEFAULT_BRANCH}..."
 if ! git -C "$KWT" merge --squash "$BRANCH" >/dev/null 2>&1; then
+  # The issue-card hint is TRUE only when the card is actually one of the conflicted
+  # paths. Printed unconditionally it was false on every ordinary code conflict, which
+  # is the common case — and a diagnostic that is usually wrong trains the reader to
+  # skip the whole block. Ask the index which paths are unmerged (`U`), and match the
+  # card by BASENAME: the board mover may already have moved it to another column on
+  # the trunk, so its dev_complete/ path is not the path git reports.
+  _fpr_conflicted="$(git -C "$KWT" diff --name-only --diff-filter=U 2>/dev/null)"
+  _fpr_card_conflict=""
+  case "$(printf '%s\n' "$_fpr_conflicted" | sed 's|.*/||')" in
+    *"${ISSUE_ID}-"*.md*) _fpr_card_conflict=yes ;;
+  esac
   {
     echo "Error: squash-merge of '${BRANCH}' hit conflicts (has ${DEFAULT_BRANCH} advanced?)."
+    if [ -n "$_fpr_card_conflict" ]; then
+      echo "       The conflict includes the ISSUE FILE: review evidence was appended on the branch."
+      echo "       The card is metadata and is written on the trunk — the board mover edits it there."
+    fi
     echo "       Nothing was pushed. Resolve by hand, then push + move:"
     echo "         cd '$KWT' && git merge --squash '$BRANCH'   # resolve, then:"
     echo "         git -C '$KWT' commit -m '${SQUASH_MSG}' && git -C '$KWT' push ${KWT_REMOTE} HEAD:${DEFAULT_BRANCH}"

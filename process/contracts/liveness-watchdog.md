@@ -17,6 +17,7 @@ them as one cost a coordinated run twenty-four hours across three episodes.
 | the question | is this long run still alive? | has work stopped moving? |
 | the subject | one run, while it runs | the project, always |
 | armed | at that run's launch | once, and never disarmed |
+| **retired** | **by the act that ends that run, in the same step** — § 2 | **never — the project has no end** |
 | **N/A for** | **a project with no long runs — legitimately** | **nobody** |
 
 **THE SPLIT IS THE FINDING, and it was paid for in full.** This sheet's scope test was invariant 1
@@ -38,6 +39,23 @@ your answer to the absence half is *N/A*, the answer is wrong — there is no pr
   a project may declare N/A** — see § 1a for what that does not exempt.
   *Why:* the moment you start wondering is the moment you have already lost the baseline you
   needed to compare against.
+- **A DURATION watchdog is RETIRED BY THE ACT THAT ENDS ITS RUN, in the same step — and that
+  step ENUMERATES what the run armed rather than walking a list of handles it happens to hold.**
+  **This binds the DURATION column only.** § 1a's *"once, and never disarmed"* for the ABSENCE
+  half is correct and unchanged: the absence watchdog's subject is the project, which has no end,
+  so it has no ending act to be retired by. Nothing above is superseded — the arm invariant and
+  this one are the two halves of one lifecycle.
+  *Why:* a teardown written as a list of handles — pids, session directories, process names —
+  **cannot retire a thing that has neither**, and the party most likely to hold such a thing is
+  the party running the teardown. Measured: a coordinated run's own recurring wake-up fired
+  eleven and a half minutes after that run's `CLOSE`, having never been eligible for either of
+  the two stop mechanisms the close ritual had. Nothing was harmed that time. The previous run's
+  strays were not so cheap — two samplers still running **six days** after its close, both
+  pointed at deleted paths, one appending rows to a tracked file every five minutes, and clearing
+  them became the next run's blocking precondition.
+  *And the check that would have caught it must be read back, not assumed:* a process listing
+  cannot see a scheduled wake-up. Confirming retirement means **reading the scheduler back** —
+  the same gesture arming it already made.
 - **ABSENCE liveness is armed ONCE, for the project, and is never N/A.** Its subject is not a run;
   it is whether the work is moving at all.
   *Why:* the measured failure was not a hang. Work stopped, the party who would have noticed was
@@ -130,6 +148,10 @@ thing that answers *who looks*, and it exists because the discipline alone did n
   refuse the signal.** Those are three different defects with one consequence: a reading that is
   true of something nobody asked about.
 - **Nothing reads the absence signal ⇒ the ritual is not armed, whatever is configured.** § 2a.
+- **A run ends and its DURATION watchdog is still armed ⇒ that run is not closed.** The close is
+  not done when the work is done; it is done when what the run armed has been enumerated and
+  retired. **A process check does not discharge this** — a scheduled wake-up has no process, so
+  *nothing in `ps`* is a reading about processes and not an answer about arms.
 
 ## 4. WHAT GREEN MEANS
 
@@ -144,9 +166,15 @@ Green is **a measurement with a timestamp**, not an adjective:
 ## 5. MINIMAL INTERFACE
 
 **In:** the run's identity; a signal that provably moves while it works; a sampling interval; a
-staleness bound; the run's completion marker.
+staleness bound; the run's completion marker; **and, for the DURATION half, the enumeration of
+what this run armed** — every watcher, sampler and scheduled wake-up, each with the act that
+retires it.
 **Out:** timestamped freshness samples with deltas; an alert on a crossed bound; a final verdict
-of completed / failed / unknown — and *unknown* is a legal, honest verdict.
+of completed / failed / unknown — and *unknown* is a legal, honest verdict; **and, at the close of
+a DURATION run, that enumeration walked, with each arm read back as retired.** Walking an empty
+enumeration is a normal close and **completes without error** — a retirement step that failed on
+a run that armed nothing would make every clean close look broken, which is how a step gets
+skipped.
 **Not in:** killing the run. Deciding to stop work is a human's call informed by these
 observations.
 

@@ -89,6 +89,11 @@ which IS the review record. Throughout this doc, "PR" is shorthand for "the work
 review". The boundary's own seven steps are
 [`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff.
 
+**You read and gate on the branch; you WRITE on the trunk.** The issue file is metadata, and the
+board mover has already edited that card on the trunk, so appending evidence from the branch you
+checked out — cut before that move, which is the ordinary case — collides at the squash-merge and
+`finish-pr.sh` refuses to land the work.
+
 ## Skills used in this role
 
 **QA's discipline in this kit is not packaged as a skill, and that is deliberate.** Three
@@ -122,6 +127,7 @@ End state: a verdict (PASS or FAIL), the issue file moved to its next folder, an
 
    - **Zero-drift on pinned output.** Where the project pins output (goldens, snapshots, fixtures), the default gate is that **the pins must not move**: a regeneration run leaves the working tree **clean**, and any drift is an unintended regression → FAIL. The single exception is a **consented change**: the change lands with regenerated pins, **only the AC-named ones may differ**, and that diff **IS** the spec record of the intended change. Any pin that moved outside the AC-named set → FAIL.
    - **A negative capability claim.** If the change ships or edits a *cannot / impossible / not supported / does not exist*, ask **which forms were actually tried, and does the claim's scope exceed them?** The claim must either enumerate the attempts or say the untried forms are **unmeasured**. A class-level *cannot* grounded on evidence about one instance is a **FAIL even with the suite green** — nobody retests a documented negative. Doctrine: [`process/doctrine/negative-claims.md`](../../process/doctrine/negative-claims.md).
+   - **A LOAD-BEARING claim, of any shape — ask for a second ROUTE, not a second opinion.** A claim is load-bearing if you will act on it, or if its being wrong changes your verdict; the sorting question is *if this is wrong, what happens?* **Your own agreement is not a second route** — two readers re-deriving one mechanism along one route is one measurement read twice, and that is the way a reviewer fails while doing everything else right. So: a **count** is re-derived a second way, a **guard** is shown both firing AND staying quiet (a guard only ever seen refusing has not been shown to permit), a **diagnosis** is reproduced with the suspected cause removed. Doctrine: [`process/doctrine/negative-claims.md`](../../process/doctrine/negative-claims.md) § A.5, *When this binds*.
    - **A forward-looking sentence** in a shipped surface (*a future release may…*, *not yet*, *is planned*, *does not ship today*) → ask **is it deleted, or registered with a falsifier the suite resolves?** Roadmap prose in a shipped document is **deletion-first**; a sentence kept because a reader must plan around it now belongs in a guard registry with the import path, parameter or key whose *existence* would make it false — and the half that matters is the guard reddening when the falsifier **now exists**. **An unguarded promise is a FAIL even with the suite green**: nobody re-checks a documented *later*.
    - **A successor doc, a closed plan, or an overturned conclusion** → **the predecessor must carry its stamp in the same commit** — a stamp promised for later never happens ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)). FAIL if the stamp is missing; **not** a follow-up bug.
 

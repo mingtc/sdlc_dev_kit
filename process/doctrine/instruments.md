@@ -74,6 +74,49 @@ picks the form the *authoring tool* produced rather than the form the *claim* li
 reflow changes what it sees. § A.7 is that rule in full, for prose specifically; state it here
 because it is a special case of measuring against the shape you will meet.
 
+**AND A CONTROL TAKEN ONCE, AT AUTHORING TIME, MEASURES THE SHAPE THE INSTRUMENT WAS BUILT FROM —
+not the shape it later meets.** Everything above is satisfied by a control run at the bench and
+written down. That is necessary and it is not enough, because the shape moves and the record does
+not. So:
+
+> **A reporting instrument's control must execute on every run and appear in its own output — a
+> control recorded once at authoring time is indistinguishable, to every later reader, from one that
+> no longer holds.**
+
+*Why this is stated separately from § A.2, which already demands an ablation.* § A.2 and the arming
+invariant it feeds ([`../contracts/self-test-harness.md`](../contracts/self-test-harness.md) § 2)
+bind a **guard** — something that can go red — and put its ablation in an artifact *beside* it. A
+**reporter** always exits 0; its output is prose a person reads. There is no red to ablate, so the
+only place a control can be read is the line the reader is already looking at. **The shape: every
+run also asks a question whose answer cannot legitimately be empty, and prints that answer beside
+the verdict; if the control comes back empty, the verdict is reported as `n/a-control-failed`, never
+as a zero.** A reader who was not present at arming can then tell a true zero from a broken
+predicate. § A.4 governs what else that same output line owes — the blind spot, the operand set and
+the span — and the control field is an obligation of the same kind, for the same reason: it is only
+worth anything where the reader already is.
+
+*Measured, and the measurement is what makes this a separate rule rather than a restatement.* In one
+run's instruments, a group of defects all had the same shape — a plausible value where an error
+belonged — and **several were in instruments whose positive and negative controls were on the record
+before arming, for the very predicate that failed**. Recording was done; it did not carry: those
+controls had been taken against a *simulated* subject, and the instruments failed at first contact
+with a real one — this section's own rule, re-proved against instruments that had satisfied it once.
+**A second group failed for a different reason, and it is what fixes the UNIT this rule binds.**
+Those defects were in predicates added *after* their instrument's arming row was signed — a new
+feature of a file that had already passed. An arming record kept per FILE cannot see them, and will
+credit a later-written predicate with a control taken for a different one. **So the unit is the
+predicate, not the file**, and re-arming is owed whenever an instrument meets a new subject, new
+paths, or gains a new feature. The one instrument in that run carrying an every-run control field
+was the one that reported a true zero as visibly distinct from a broken one.
+
+**This is doctrine, and deliberately not a gate.** The reason is
+[`../contracts/self-test-harness.md`](../contracts/self-test-harness.md) § 6's, preserved here rather
+than re-argued: a gate whose cost is a wall gets disabled, and **a disabled gate reads as armed** —
+the exact failure this sheet exists to prevent, committed by the enforcement. What is NOT established
+is that the every-run form would have caught all of them: the one instrument that carried it caught
+one of its own two defects, so the demonstrated claim is the narrow one — *recording is not
+sufficient* — and sufficiency of the every-run form is unmeasured.
+
 ### A.2 — A negative check is not verification: every green owes an ablation
 
 Verifying that the wrong thing is **absent** never establishes that the right thing is **present**.
@@ -89,6 +132,14 @@ like if the thing I need were simply not there?"** If the answer is "exactly the
 is decoration.
 
 This is the cheapest rule on this sheet and the most frequently broken. Expect to break it.
+
+**And WHERE the ablation lives is a separate demand from whether it was performed.**
+[`../contracts/self-test-harness.md`](../contracts/self-test-harness.md) § 2 carries the invariant
+this section feeds — **a guard is not armed until its ablation is an ARTIFACT**, a file another
+reader can run, not a habit and not a comment — because an ablation's whole value is that it is
+re-runnable against a tree that has moved. That sheet also states the disposition: it is doctrine,
+not a gate, and § 6 there carries the measurement behind that ruling. The reporter's form of the
+same problem is § A.1's closing rule.
 
 **The ablation shape, concretely.** Remove the logic under test from a copy, re-run the case against
 input that *did* produce a finding, and assert the finding **disappears**. That makes a subsequent
@@ -477,6 +528,14 @@ it** — and a warning that fires on every ordinary run is the same disease at a
 time the one real occurrence arrives, the signal has been tuned out. Where a check is noisy by
 construction, either narrow it to the case that matters or demote it to an informational line and let
 a hard gate carry the real refusal.
+
+**Which of those two a check gets is a ruling, and it is made elsewhere.**
+[`../contracts/self-test-harness.md`](../contracts/self-test-harness.md) § 6 states the general form:
+**a check that is mechanically decidable may be a gate; a check that is heuristic must be advisory,
+and must publish its own precision.** Shipping a heuristic as a gate is a claim wider than the
+predicate — the same error as an over-promising test name, committed by the guard instead of the
+test — and the sheet carries the measured case that settled it. Read that ruling before deciding
+whether a check built under this section refuses or reports.
 
 ### A.11 — Guarding EVERY number a document publishes, not one number
 

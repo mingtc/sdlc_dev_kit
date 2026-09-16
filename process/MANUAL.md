@@ -152,6 +152,13 @@ version control by the initializer, not left for each actor to discover
    sleep — distinguish sleep from hang (a longer CPU-delta window, open connections, a stack
    sample) before reporting anything. Every status statement about an unfinished run rests on a
    fresh probe: *"no news sometimes is not good news."*
+   **And the run that armed it retires it, in the act that ends the run** — by **enumerating what
+   this run armed** and walking that list, never by walking the handles you happen to hold. A
+   teardown made of pids and session directories cannot retire a scheduled wake-up, which has
+   neither, and the party likeliest to hold one is the party running the teardown; `ps` cannot see
+   it, so confirming retirement means **reading the scheduler back**. Walking an empty enumeration
+   is a normal close. (**The ~30-minute scope and this retirement are both the DURATION half only**;
+   the absence watchdog below is armed once and never disarmed, because the project has no end.)
    **(ii) ABSENCE — *has work stopped moving?* This one is N/A for nobody, and the ~30 minutes
    above does not scope it.** Its signal is the **newest committer date across every head on the
    remote** — never `HEAD`, never the checkout: `HEAD` is one branch in one worktree, and this
@@ -286,6 +293,20 @@ bounces it.
 3. **QA checks out the branch** (`git switch <branch>` from the issue's `branch:` frontmatter)
    and runs **`./scripts/verify.sh`** — the **full** run, not a narrowed one. Anything red that
    isn't pre-existing → **FAIL outright**, Dev fixes first.
+
+   **QA reads and gates on the branch, and WRITES on the trunk.** The issue file is metadata by
+   § The code-vs-metadata rule, and `move-issue.sh` has already edited that same card on the trunk
+   — a coordinator writing the trunk while a worker holds a branch being *expected, not a race*
+   (§ The kanban worktree). Append review evidence to the card from the trunk, never from the
+   branch you just switched to: **where the branch was cut BEFORE the board move** — the ordinary
+   case, since the move to `dev_complete` happens at step 1 and the branch predates it — the branch
+   carries the card's pre-move text, so two edits to one card in two lanes collide at the
+   squash-merge and `finish-pr.sh` refuses the landing. (A branch rebased onto the trunk after the
+   move merges the card cleanly; that is the exception, not something to rely on.)
+   *(Measured: a project hit this on its second issue and had to reset, re-apply and force-push.
+   It is stated here rather than left to the metadata rule
+   because both instructions are correct in isolation — nobody mid-`git switch` re-derives that a
+   card is metadata.)*
 
    **Name the lane the run was in — and where the change's operands straddle the lanes, quote the
    SET.** A gate run is a reading of **one** commit lane, and an exit code does not say which one.
@@ -538,7 +559,8 @@ Two attribution rules are the kit's:
 
 Forge-agnostic, pure version control; **no forge CLI**. It squash-merges the issue's work branch
 into the trunk locally, pushes, deletes the branch (local + remote), and advances the issue
-`dev_complete → qa_complete`. QA's review evidence lives in the **issue file's Activity log** —
+`dev_complete → qa_complete`. QA's review evidence lives in the **issue file's Activity log —
+committed on the trunk**, not on the branch (§ The Dev → QA handoff step 3) —
 there is no PR/MR object to open, approve or comment on. (A forge-PR flavor can be added later if
 a team wants MR ceremony; see the `finish-pr.sh` header and
 [`GIT-HOSTING.md`](GIT-HOSTING.md).)
@@ -653,7 +675,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | File | The pattern it states | Where this manual points at it |
 |---|---|---|
 | [`supersession.md`](doctrine/supersession.md) | Preserve the reason, supersede only the conclusion — and the `superseded_in_part` annotation that follows from it. | § Execution discipline, item 5 |
-| [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried, and its scope may not exceed its evidence's scope. § A.5 generalises that past negatives: **a claim names the route that produced it, in the same sentence** — and two readers on one route is one measurement read twice. The authoring-time neighbour of `supersession.md`. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
+| [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried, and its scope may not exceed its evidence's scope. § A.5 generalises that past negatives: **a claim names the route that produced it, in the same sentence** — and two readers on one route is one measurement read twice. Naming the route is universal; a **second route** is owed where the claim is **load-bearing**, sorted by *if this is wrong, what happens?* The authoring-time neighbour of `supersession.md`. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
 | [`commit-hygiene.md`](doctrine/commit-hygiene.md) | What a commit owes beyond its content: no generated co-author trailers, a role-prefixed subject enforced at write time, hand the commit then read `git status -sb`, never end a landing on an unpushed looks-pushed state, and — where a change's operands straddle the two commit lanes — the gate's unit is the **set**, not the file. | § Branching and role attribution |
 | [`model-provisioning.md`](doctrine/model-provisioning.md) | How a dispatched worker is provisioned (model + effort per work class), the leaf rule (a worker does not spawn workers), and the rule that a ladder is only real where a harness knob exists. | The role docs that carry a *"Model & effort contract"* section |
 | [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. Its marking convention is stated in one test runner's mechanics; a different stack ports the **question and the two tiers**, not the mechanics. | Here |
@@ -667,7 +689,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one and it is not close; contradictory demands return *nothing* rather than a compromise; a returned report is a claim that carries its own evidence or is re-measured; a resume is only safe for work without side effects; a deferred decision is named inside every item whose scope touches it; hand off while sharp, not while failing — **and at the stop you did not choose, where what a handoff owes is an enumeration of what is HELD**; and **a file that means two things has no correct writer**, so a second consumer earns a second artifact rather than a cleverer query. | § Execution discipline, item 2 |
 | [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | Here |
 | [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
-| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output** — where naming the operand set stops one step short, so it must be **derived from the subject, derived a second time by a looser reading, and the two compared**, with the remainder named rather than dropped. And a value the instrument compares against is derived or does not exist: **a check you can satisfy by editing the answer is not one**. | § Execution discipline, item 3 |
+| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output** — where naming the operand set stops one step short, so it must be **derived from the subject, derived a second time by a looser reading, and the two compared**, with the remainder named rather than dropped. And a value the instrument compares against is derived or does not exist: **a check you can satisfy by editing the answer is not one**. For an instrument that only REPORTS — one that always exits 0, so there is no red to ablate — **the control must execute on every run and appear in the instrument's own output**, and the unit it binds is the predicate, not the file. | § Execution discipline, item 3 |
 | [`fix-execution.md`](doctrine/fix-execution.md) | **Landing what a round found, without minting what it warned about** — the span between findings and implementation, and between the last landing and the cut. A minted item is a hypothesis, so the slate is scrutinized before a line moves and **holding an item is a success**; a ruling is recorded **before** it is executed, verbatim and with what was *not* ruled beside it; the round's traps travel as acceptance criteria; truth is corpus-wide in two obligations, one per change and one before the cut; a gate budgets a **property**, never a machine; and one authoring site per vocabulary, with a guard that bites when a projection parts from it. | § The fix-execution phase |
 | [`consumer-output.md`](doctrine/consumer-output.md) | **What a tool's output owes a reader who cannot RE-MEASURE it** — the discriminator is re-measurability, not honesty. A label's scope may not exceed its evidence's, said in the label itself; **read and derived are distinguished per item**, because a wrong inference usually makes the result look *better*; where every candidate value is wrong in a different direction, synthesise none and record the absence as a decision with its discharging event; a non-decidable predicate hands back a **census that says so in its own output**; an inference whose error leaves no trace is demoted from a decision to a proposal; prefer the longer form the consumer can check, and pay the new emptiness boundary a split creates; and **a limit recorded where the affected party does not look has not been disclosed** — placement separates detection from remedy. | Here |
 | [`generality.md`](doctrine/generality.md) | **When one consumer's request may become everyone's rule** — four questions asked before a request changes shipped behaviour. The load-bearing one is the **flip-flop test**: *would the opposite request be equally reasonable from a different consumer?* If yes it is a **setting**, answered by a declared seam with a default, never by changing behaviour — and the consumer who wants the opposite is **named**, because "someone might disagree" refuses nothing. Also: strip the donor's identifiers and re-read the argument; name what would falsify the rule; **record a HELD request and the event that would release it**. The counter-case has equal weight — **the test is not *how many consumers*, it is *does the argument need this consumer*** — and § A.6 forbids wiring any of it as a gate. | Here |

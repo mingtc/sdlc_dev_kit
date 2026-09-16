@@ -92,6 +92,50 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Action required
+
+- **If you run a DURATION watchdog, the run that armed it must now retire it — and if your close
+  ritual is a list of handles, check whether it can.** `process/contracts/liveness-watchdog.md`
+  § 2 armed a duration watchdog
+  at launch and **said nothing anywhere about the end of that run**; the word *disarmed* appeared
+  in the sheet only in § 1a's ABSENCE column, where it is correct by design. § 2 now carries the
+  paired invariant, § 1a a `retired` row, § 3 a refusal, and § 5 the enumeration on both sides of
+  the interface. `MANUAL.md` § Execution discipline item 4(i) gains the matching clause.
+
+  **This binds the DURATION half only.** The ABSENCE watchdog is still *armed once, and never
+  disarmed* — its subject is the project, which has no end, so it has no ending act to be retired
+  by. Nothing about the absence half changed.
+
+  **The failure this closes is not forgetfulness — it is shape.** A close ritual is normally a list
+  of handles: pids, session directories, process names. **A scheduled wake-up has none of those**,
+  so it was never eligible for a list of that shape — which is why care with the list is not the
+  fix, and enumerating what was armed is.
+  Measured here: a coordinated run's own recurring wake-up fired eleven and a half minutes after
+  that run's own close. That one was harmless. The previous run's strays were not — two samplers
+  still running **six days** after its close, both pointed at deleted paths, one appending rows to
+  a tracked file every five minutes, and clearing them became the next run's blocking precondition.
+
+  **What you must do,** once, in your own tree:
+
+  1. **Write down what a run of yours arms** — every watcher, sampler, alarm and **scheduled
+     wake-up or timer**, each beside the act that retires it. That list is the fix; the rest is
+     bookkeeping.
+  2. **Make your close ritual walk that enumeration**, rather than the handles it happens to hold.
+  3. **Confirm by reading the scheduler back.** If your close check is a process listing, it
+     **cannot see a wake-up** — *nothing in `ps`* is a reading about processes, not an answer about
+     arms. The read-back is the same gesture arming it already made.
+  4. **Check for strays from runs you have already closed.** This is the one that costs something
+     today: anything armed before you adopt this was never retired by anybody.
+
+  **Walking an empty enumeration is a normal close and must complete without error.** A retirement
+  step that failed on a run that armed nothing would make every clean close look broken, which is
+  how a step gets skipped.
+
+  **We have not measured what this costs you.** The chore is listed here because the kit's own
+  MAJOR rule places a changed contract invariant under Action required, not because anyone has sized
+  it against a real adopter tree. If your runs arm nothing but processes you already kill by name,
+  step 1 is the whole of it.
+
 ### Added
 
 - **`process/doctrine/generality.md`** — a new doctrine sheet: **when one consumer's request may
@@ -117,6 +161,75 @@ columns and never the cards.*
   who your consumers are, where a disposition is recorded, what a seam looks like in your tree — and
   the sheet tells you to delete § B wholesale if your project ships to nobody. Its § C states its own
   evidence base, which is thin and says so; expect the sheet to be tuned as more consumers arrive.
+- **`doctrine/instruments.md` § A.1 — a reporting instrument's control must execute on EVERY run and
+  appear in its own output.** § A.2 already asks every green to owe an ablation, and
+  `contracts/self-test-harness.md` § 2 says where that ablation lives. Both bind a **guard** —
+  something that can go red. A **reporter** always exits 0 and its output is prose a person reads, so
+  there is no red to ablate and the only place a control can be read is the line the reader is
+  already looking at. The shape: ask, on every run, a question whose answer cannot legitimately be
+  empty, and print it beside the verdict; if it comes back empty, report the verdict as
+  `n/a-control-failed` rather than as a zero. **The unit is the PREDICATE, not the file** — an arming
+  record kept per file will credit a later-written predicate with a control taken for a different
+  one, so re-arming is owed when an instrument meets a new subject, new paths, or gains a new
+  feature. **Nothing refuses**: this is doctrine, and the reason is
+  `contracts/self-test-harness.md` § 6's — a gate whose cost is a wall gets disabled, and a disabled
+  gate reads as armed.
+- **Two cross-references that were owed.** § A.2 now points at
+  `contracts/self-test-harness.md` § 2's *ablation is an artifact* invariant, and § A.8 at its § 6
+  ruling that **a check that is mechanically decidable may be a gate; a check that is heuristic must
+  be advisory, and must publish its own precision.** The relationship was documented from the
+  contract end only; both ends are now wired.
+### Changed
+
+- **The Dev → QA handoff now says which lane QA writes in: read and gate on the branch, write on
+  the trunk.** Step 3 sends QA to the work branch, and the review evidence it records goes into the
+  issue file's Activity log — but the board mover has already edited that same card on the trunk,
+  so a reviewer who followed both instructions literally appended to the *branch's* copy and
+  `finish-pr.sh` refused the landing with a squash conflict on the card. Both instructions were
+  correct in isolation; the issue file is metadata, and metadata commits to the trunk. § The Dev →
+  QA handoff step 3 now states the read/write split with its reason, § Landing code names the lane,
+  and `.claude/roles/qa.md` carries the same sentence for the reviewer who reads only the role doc.
+  `finish-pr.sh`'s conflict message now names this as the likely cause when the conflicted file is
+  the issue card, instead of only asking whether the trunk has advanced.
+  **No action required:** nothing in your tree must change, and a project that hit this has already
+  worked around it. Nothing was ever lost — the gate refuses before any destructive step.
+- **`process/doctrine/negative-claims.md` § A.5 now says WHEN it binds — and this supersedes
+  0.5.0's *“nothing new to wire”*.** The route law shipped in 0.5.0 stating what a claim owes but
+  never when, so read as written it applied to every sentence — which meant it was applied where it
+  was convenient and skipped where it mattered. That is measured, not predicted, and it was measured
+  on the party that wrote the rule.
+
+  **The amendment splits one obligation into two, and only the expensive half gets a trigger.**
+  Naming the route stays **universal**: it costs three words and the route is already known when you
+  write the sentence. Taking a **second route** is owed only where a claim is **load-bearing** —
+  *someone will act on it, or its being wrong changes a decision* — and the sorting question is one
+  line: **if this is wrong, what happens?** If the answer is nothing, the claim is exempt, **and the
+  exemption is the point**: a rule demanded of every sentence is obeyed in none. The word
+  *load-bearing* was already used in § A.5's second-reader clause and never defined; it is defined
+  now, in the clause that needs it.
+
+  **A second reading is still not a second route** — that half is unchanged. What a second route
+  looks like is now tabulated by claim shape: a **count** is re-derived a second way, a **guard** is
+  shown both firing AND staying quiet (*a guard only ever seen refusing has not been shown to
+  permit*), a **diagnosis** is reproduced with the suspected cause removed, a **negative** is retried
+  through a different entry point.
+
+  **The rule is still not mechanised**, deliberately and for the reason § A.5 already gives: scope is
+  a paragraph property, so a grep over a real corpus returns mostly ordinary usage. The trigger does
+  something a restatement cannot — it **narrows the population** the rule is demanded of, which is
+  what makes an unmechanised convention cheap enough to actually run. It has not been measured in
+  use, and § A.5 says so in its own *What this trigger does not do*.
+
+#### Action required
+
+- **Wire § A.5 into your two role documents, one line each — 0.5.0 told you that you did not have to,
+  and that was wrong.** The reasoning then was that your reviewers *inherit* § A.5 by reading the
+  sheet their checklist already points at. **That is the exact defect § A.5 itself names in
+  *Disclosure elsewhere is not scope*: a rule stated somewhere the reader does not open while acting
+  is not wired.** The kit's own `.claude/roles/dev.md` (*Definition of Done*) and
+  `.claude/roles/qa.md` (cross-cut checks) now carry that line; if you took those files on day one
+  and have edited them since, copy the two bullets across by hand — they are additions, and they
+  change no bullet you already have.
 
 ## [0.5.0] — 2026-09-15
 
