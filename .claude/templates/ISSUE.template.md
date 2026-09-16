@@ -87,6 +87,17 @@ Filled in by Dev. Empty when PM hands off.
 `./scripts/move-issue.sh` appends a line for you on every move; append one by hand only when a
 significant decision is logged elsewhere.
 
+**"Elsewhere" has one name: the decision register**
+([`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)). A ruling made while working this
+card is **not durable on this card** — an Activity entry records *this issue*, and a reader asking
+*what is currently true* reads the register. So the seat that makes it **promotes it to the register
+in the same change**, and the Activity line here cites the id it was given:
+`[decision: D-NN]`. Which rulings earn an entry, and the one-question diagnostic that separates a
+**fork** (→ the register) from a **fact** (→ amend the PRD), are in
+[`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)
+§ *Which decisions live HERE*; *when* is
+[`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6.
+
 **The entry shapes are the INDENTED BLOCK below, deliberately not bullets** — the block is
 **examples, not entries**, and indenting it is what keeps an author from reading one as a logged
 event. *(An earlier wording said a bulleted example makes a freshly minted card report false drift.

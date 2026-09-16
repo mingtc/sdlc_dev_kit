@@ -94,6 +94,51 @@ columns and never the cards.*
 
 ### Action required
 
+- **Your PRDs' § Decision Log becomes a CITATION LIST, and a dangling `D-NN` citation now REDDENS
+  `check-board.sh` — which your release gate reads.** Two things changed together.
+
+  **1. Where a decision lives is now decidable — the fork/fact split.** A **fork** (two defensible
+  answers existed and one was chosen) is a `D-NN` entry in `requirements/DECISIONS.md`. A **fact**
+  (what the product does changed; there was no fork) amends the PRD. The one-question diagnostic:
+  *could a competent stranger, reading only the PRD, arrive at a different answer and be reasonable?*
+  Yes → fork. No → fact. Where a fork **constrains** a requirement it gets both — the ruling in the
+  register, the PRD **citing the id** — and **never the text in both places**, because the second copy
+  is the one that drifts. The rule is stated once, in
+  [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) § *Which decisions live HERE*;
+  `MANUAL.md` § Execution discipline item 6, `.claude/roles/pm.md`, `.claude/templates/PRD.template.md`,
+  `.claude/templates/ISSUE.template.md` and `requirements/README.md` point at it rather than restate it.
+
+  **2. Citations are now checked.** `check-board.sh` gains arm **`[l]`** — `contracts/drift-report.md`
+  § 2's declared-reference-integrity invariant. It reports two findings separately: a citation that
+  resolves to **no entry**, and a citation of a **retired** id. **It DECIDES the verdict** (it is not
+  advisory and carries no `reports only` token), so a dangling citation holds a release gate shut
+  wherever your ritual matches the board verdict. That consequence was chosen deliberately: an advisory
+  finding is something a seat must decide whether to chase on every run, and a decision-to-chase is a
+  cost paid forever, where a deciding check is answered once and then quiet.
+
+  **WHAT YOU MUST DO — and the good news is that nothing forces it on a timetable.**
+
+  - **If your PRDs' Decision Logs are empty, you owe nothing.** Start citing when you next rule.
+  - **If a Decision Log holds entries, migrate it — per entry, by hand.** Apply the diagnostic to each:
+    promote a **fork** to a `D-NN` in `requirements/DECISIONS.md` and replace the entry with a
+    citation; leave a **fact** as an amendment to the PRD body and delete the log line. **This cannot
+    be scripted** — the diagnostic is the whole point, and no instrument can apply it.
+  - **Migration is NOT gate-forced.** Arm `[l]` finds **dangling** citations, never un-promoted
+    entries, so an unmigrated project is not reddened — it is simply not yet getting the benefit. The
+    only way to go red is to *write* a citation whose id does not exist or has been retired.
+  - **The citation marker is `[decision: D-NN]`, and it is format law.** It is **anchored** on purpose:
+    a bare `D-NN` cannot be told apart from prose *about* a ruling, so a card discussing a retired id
+    would be misread as citing it. Only text carrying the marker is read as a citation.
+  - **If you cite the register from somewhere other than a PRD or an issue card, declare it.** Arm
+    `[l]` reads `CITATION_SURFACES` at the top of `check-board.sh` — a declared list, not a tree walk.
+    Each record is `<dir>|<filename pattern>|<what it is>`, resolved with `find` rather than a shell
+    glob — without `globstar` a `progress/**/*.md` glob collapses to one level and silently misses
+    every subtask card while still reporting the surface covered. It ships with two records:
+    `requirements|PRD-*.md` and `progress|*.md`. A surface you do not declare is not
+    checked; a declared one that is absent SKIPS with its reason rather than passing.
+  - **`scripts/` is deliberately not a surface** and you should not add it: scripts carry ids in
+    comments and test fixtures, which are mentions rather than citations.
+
 - **If you run a DURATION watchdog, the run that armed it must now retire it — and if your close
   ritual is a list of handles, check whether it can.** `process/contracts/liveness-watchdog.md`
   § 2 armed a duration watchdog

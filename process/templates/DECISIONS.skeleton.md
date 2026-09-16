@@ -281,6 +281,49 @@ nobody mistakes the check for the whole guard:
 
 ---
 
+## Which decisions live HERE, and which are PRD content — the fork/fact split
+
+**A DECISION is a fork.** Two or more defensible answers existed and one was chosen, so a reader who
+does not know the choice will pick a plausible wrong one. → **a `D-NN` entry in this register.**
+
+**A REQUIREMENT CHANGE is a fact.** What the product does changed; there was no fork. → **amend the
+PRD.**
+
+**The diagnostic — ask it about the READER, never about the decision:** *could a competent stranger,
+reading only the PRD, arrive at a different answer and be reasonable?* **Yes** → it is a fork, and it
+is a `D-NN`. **No** → it is a fact, and it amends the PRD.
+
+*Why the diagnostic is phrased about a stranger:* this register's own definition of an entry is
+reader-relative — *a fork where a reader would otherwise pick something defensible and wrong*. A test
+phrased about the decision (*"was this hard?"*, *"did we discuss it?"*) measures the author's memory
+of the meeting. The stranger test measures the artifact, which is the thing that has to survive the
+meeting being forgotten.
+
+**Overlap — a fork that CONSTRAINS a requirement gets BOTH:** the ruling here under its `D-NN`, and
+the PRD **citing that id**. **Never the text in both places.** Cite by id, never inline: an inlined
+copy is a second authoring site, and it is the copy that drifts. The citation form is the anchored
+marker below.
+
+**Ad-hoc — the permanent home.** A decision made in a story, a review or a conversation is **not
+durable where it was made**. The seat that makes it **promotes it to this register in the same
+change** — [`process/MANUAL.md`](../process/MANUAL.md) § Execution discipline item 6 is the single authoring
+site for *when*; this section is the *which*.
+
+**And the entry is where the REASON is written** — not only the conclusion. A later ruling may
+supersede the conclusion, and **the reason is what stops the same argument being re-litigated**
+([`process/doctrine/supersession.md`](../process/doctrine/supersession.md)). That is what the **Why** field
+is for, and it is why a PRD citing a `D-NN` loses nothing by not restating it. *(This sentence was
+the PRD template's Decision Log instruction, and it moved here with the authority: the reason is now
+written in the entry, so the instruction lives where the writing happens.)*
+
+**THE CITATION MARKER IS `[decision: D-NN]`, and it is format law.** A citation to a ruling — in a
+PRD, an issue card, anywhere outside this file — is written as that bracketed token. It is
+**anchored, not a bare id**, for the same reason the `WITHDRAWN` token is: a bare `D-NN` cannot be
+told apart from prose *about* a ruling, so the first honest sentence discussing `D-07` would be
+misread as citing it. Only text that declares itself a citation is read as one, by construction
+rather than by stripping comments out of it afterwards. A checker joins the marker to the `### D-NN`
+headings below; what it can and cannot see is § *What a checker asks* above, applied to citations.
+
 ## What earns an entry — the lessons from an actual regeneration
 
 <!-- FOLDED IN from a real regeneration spike, whose whole output was "what the corpus failed to

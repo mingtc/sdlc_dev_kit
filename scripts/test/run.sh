@@ -5810,6 +5810,147 @@ case_check_board_register_absent() {
 }
 
 # =============================================================================
+# CASE — ARM (l): DECLARED REFERENCE INTEGRITY. A citation resolves, or it is a
+# finding — and a MENTION is never a citation.
+#
+# Five legs, and the fourth is the one that matters most. The alternative design —
+# a bare `D-NN` grep over the tree, rescued by stripping comments — was rejected on
+# a MEASUREMENT taken in this kit: a non-greedy multiline HTML-comment strip applied
+# to THIS FILE paired a `<!--` inside a shell string with a `-->` thousands of lines
+# later and deleted 226,350 characters between them, after which the file read as
+# holding no ids at all. A checker built on it reports CLEAN for the wrong reason.
+# Leg (4) is the regression that keeps the positive-marker design honest: a card
+# that DISCUSSES ids — including inside a comment — must produce zero citations
+# while still being READ, which is what separates a real negative from a skip.
+#
+# Leg (5) is the second measured defect, found by running leg (3) rather than by
+# reading it: a retired row NAMES ITS SUCCESSOR in the same sentence, so a bare id
+# grep over § Retired ids marks the LIVE successor retired too — a FALSE RED on a
+# correct citation, which is precisely how a gate gets disabled.
+#
+# Every operand is DERIVED from check-board.sh's own declarations — the register
+# record, the marker, the surfaces — never re-typed, so a change to any of them
+# moves this case with it instead of leaving it asserting a stale shape.
+# =============================================================================
+case_check_board_citations() {
+  cf_reset
+  make_sandbox
+
+  local registers reg_path reg_mark marker surfaces prd_dir prd_pat out rc
+  registers="$(cb_default REGISTERS)"
+  marker="$(cb_default CITATION_MARKER)"
+  surfaces="$(sed -n "/^CITATION_SURFACES='/,/'\$/p" "$REAL_SCRIPTS/check-board.sh" | sed "s/^CITATION_SURFACES='//; s/'\$//")"
+  [ -n "$registers" ] || { cf "could not derive REGISTERS"; finish "arm (l): citations"; teardown; return; }
+  [ -n "$marker" ]    || cf "could not derive CITATION_MARKER from check-board.sh"
+  [ -n "$surfaces" ]  || cf "could not derive CITATION_SURFACES from check-board.sh"
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  # The FIRST declared surface, used as the citing document's home.
+  prd_dir="$(printf '%s\n' "$surfaces" | head -1 | awk -F'|' '{print $1}')"
+  prd_pat="$(printf '%s\n' "$surfaces" | head -1 | awk -F'|' '{print $2}')"
+  [ -n "$prd_dir" ] || cf "the first declared citation surface has no directory ($surfaces)"
+  # Turn the declared filename pattern into one concrete name.
+  local prd_file="${prd_pat/\*/001-cites}"
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")" "$SB_WORK/$prd_dir"
+
+  # The register the citations resolve against: D-01 and D-02 live, nothing retired.
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-01 — first
+${reg_mark}D-02 — second
+
+## Retired ids
+
+\`<none yet>\` <!-- e.g. \`D-07\` — retired <date>; the scope it held moved into D-11. -->
+
+## Findings
+EOF
+
+  # --- (1) A LIVE citation resolves, and the arm names what it read --------------
+  printf '## Decision Log\n- `[decision: D-01]` — a live ruling\n' > "$SB_WORK/$prd_dir/$prd_file"
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(1) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep '^\[l\]' >/dev/null \
+    || cf "(1) arm [l] did not print at all — a silent check is itself a finding (drift-report.md § 4): $out"
+  printf '%s\n' "$out" | grep '^\[l\]' | grep -i 'reports only' >/dev/null \
+    && cf "(1) arm [l] declares itself 'reports only' — it DECIDES the verdict, and that token is the machine contract for an ADVISORY arm: $(printf '%s\n' "$out" | grep '^\[l\]')"
+  printf '%s\n' "$out" | grep "$reg_path" | grep -i 'live id' >/dev/null \
+    || cf "(1) the arm does not name the register it resolved against: $out"
+  printf '%s\n' "$out" | grep -i '1 citation(s)' >/dev/null \
+    || cf "(1) the citation count was not reported — an unfalsifiable reading: $out"
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
+    || cf "(1) a resolving citation reddened the board: $out"
+
+  # --- (2) A DANGLING citation IS a finding, and it DECIDES ----------------------
+  printf '## Decision Log\n- `[decision: D-77]` — an id nobody minted\n' > "$SB_WORK/$prd_dir/$prd_file"
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(2) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep '⚠' | grep 'D-77' >/dev/null \
+    || cf "(2) a dangling citation was NOT reported: $out"
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
+    || cf "(2) the dangling citation did not reach the verdict — the maintainer ruled this arm DECIDING: $out"
+  # THROUGH THE REAL CONSUMER: kit-init's board self-check drops advisory arms by token.
+  printf '%s\n' "$out" \
+    | awk '/^\[[a-z]\]/ { adv = (index($0, "reports only") > 0) } adv { next } { print }' \
+    | grep '⚠' | grep 'D-77' >/dev/null \
+    || cf "(2) the finding does not survive kit-init's advisory filter, so it would not hold a gate shut: $out"
+
+  # --- (3) A RETIRED id cited as live is a DIFFERENT finding, named as retired ---
+  # POSIX sed only — the kit requires git and a POSIX shell and nothing else.
+  # The retired ROW names its successor, which is the shape leg (5) then probes.
+  sed -i.bak 's|^`<none yet>`.*|`D-02` — retired 2026-01-01; its scope moved into D-01.|' "$SB_WORK/$reg_path"
+  rm -f "$SB_WORK/$reg_path.bak"
+  grep -q '^`D-02` — retired' "$SB_WORK/$reg_path" \
+    || cf "(3 setup) the retired row was not planted — this leg and leg (5) would both pass vacuously"
+  printf '## Decision Log\n- `[decision: D-02]` — cites a retired handle\n' > "$SB_WORK/$prd_dir/$prd_file"
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(3) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep '⚠' | grep 'D-02' | grep -i 'RETIRED' >/dev/null \
+    || cf "(3) a citation of a RETIRED id was not reported as retired — that is a different finding from a dangling one and must print as one: $out"
+  printf '%s\n' "$out" | grep '⚠' | grep 'D-02' | grep -i 'NOT an entry' >/dev/null \
+    && cf "(3) the retired citation printed as a DANGLING one — the two findings ask the reader for different things: $out"
+
+  # --- (5) THE SUCCESSOR NAMED IN THE RETIRED ROW IS STILL LIVE ------------------
+  # Measured defect, not hypothesis: with the register still holding the row above
+  # ("`D-02` — retired …; its scope moved into D-01"), a citation of D-01 must stay
+  # CLEAN. A bare id grep over § Retired ids reads D-01 out of the prose and false-reds
+  # a correct citation.
+  printf '## Decision Log\n- `[decision: D-01]` — the LIVE successor named in the retired row\n' > "$SB_WORK/$prd_dir/$prd_file"
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(5) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep '⚠' | grep 'D-01' >/dev/null \
+    && cf "(5) the LIVE successor named inside the retired row was itself reported — the retired set is matching the row's prose, not the row's own id, which FALSE-REDS a correct citation: $out"
+  printf '%s\n' "$out" | grep "$reg_path" | grep '1 retired id' >/dev/null \
+    || cf "(5) the retired set is not 1 — one row retires exactly one id: $(printf '%s\n' "$out" | grep "$reg_path")"
+
+  # --- (4) THE HAZARD REGRESSION: A MENTION IS NOT A CITATION --------------------
+  # The card below names a dangling id, a retired id, and one inside an HTML comment,
+  # and carries NO marker. It must be READ (so this is a real negative, not a skip)
+  # and yield ZERO citations.
+  printf '%s\n' \
+    '# A card that DISCUSSES rulings' \
+    'It talks about D-77 and about D-02 and about D-01 at length.' \
+    '<!-- a comment mentioning D-99 -->' \
+    'None of those is a citation: there is no marker anywhere in this file.' \
+    > "$SB_WORK/$prd_dir/$prd_file"
+  publish_sandbox
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(4) check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep -i '1 file(s) read, 0 citation(s)' >/dev/null \
+    || cf "(4) the mention-only card was not READ-with-zero-citations — a real negative must show the file was read, not skipped: $(printf '%s\n' "$out" | grep "$prd_dir")"
+  printf '%s\n' "$out" | grep '⚠' | grep -E 'D-77|D-99|D-02' >/dev/null \
+    && cf "(4) a MENTION was read as a CITATION — this is the hazard the positive marker exists for, and a bare-id reader fails exactly here: $out"
+
+  finish "arm (l): a live citation resolves and is counted, a dangling one is a DECIDING finding that survives kit-init's advisory filter, a retired one prints as retired rather than dangling, the LIVE successor named inside a retired row is not itself reported, and a card that merely MENTIONS ids (one of them inside an HTML comment) is READ and yields zero citations"
+  teardown
+}
+
+# =============================================================================
 # CASE — ARM (a): AN ARROW IS A DECLARATION, A BACKTICK IS A MENTION.
 #
 # The comparator used to run ONE alternation over both spellings and take the last
@@ -12699,6 +12840,264 @@ case_seam_shape_reformat_is_loud() {
 }
 
 # =============================================================================
+# CASE — A PUBLISHED EXIT-CODE TABLE IS AN INSTRUCTION TO BRANCH, AND NOTHING DROVE ONE.
+# =============================================================================
+# ── THE PROGRAMS THAT DECLARE A CALLER-BRANCHABLE EXIT-CODE TABLE. ───────────────────────────
+#
+# DERIVED, NOT NAMED, and the derivation is the point of the case below rather than a flourish.
+# The gap this case closes is not "stall.sh has no test" — it is a CLASS: a shipped program that
+# publishes a table of exit codes has told every caller to BRANCH on them, and a code nothing
+# drives is a branch nobody has ever taken. `-ne 0` is not a substitute: the whole content of a
+# table is that the nonzero codes MEAN DIFFERENT THINGS, so an assertion that collapses them
+# asserts the one thing the table denies.
+#
+# THE SHAPE, and why it is this narrow. A declaring program writes its table as header comment
+# lines of the form `#   <code>  <word…>` — an EXIT STATUS (0-255) in the first comment column,
+# followed by prose, two or more of them, and the set STARTING AT 0. That is a structural
+# property of the text rather than a name list or a phrase match: a program that starts
+# publishing a table joins this population by writing one, and one that stops publishing leaves.
+#
+# THE TWO NARROWINGS WERE MEASURED, NOT REASONED, AND THEY ARE NOT A CONJUNCTION — that was
+# written here first and was false. The draft predicate read any `#   <digits>  <word>` line
+# inside the leading comment block and collected THIS FILE's own byte-count table — `200 cards
+# 12231 …` — as a set of exit codes. The comment-block bound did not help, because this harness's
+# header is one unbroken block with that table inside it. So two narrowings went in: the value
+# must be a possible exit status (0-255), and the set must begin at 0, because a program that
+# tells callers to branch publishes its SUCCESS code.
+#
+# RUN SEPARATELY AGAINST THE SHIPPED TREE, EACH ONE ALONE ALREADY YIELDS THE SAME TWO MEMBERS —
+# the byte counts are four digits AND never include a 0 row, so either test excludes them. The
+# pair is kept deliberately and the redundancy is the reason, not an oversight: they fail on
+# different future text (a three-digit measurement that happens to start at 0; a small-number
+# table that is not exit codes), and a derivation whose only narrowing is the one this tree
+# happened to need is a derivation tuned to one file. What must NOT be written here is that both
+# are required to reach two — nothing measured says so.
+#
+# WHAT IT DOES NOT CLAIM. It reads the leading comment block only, so a table written further
+# down is invisible — disclosed in the finish line rather than silently excluded, because a
+# derivation that cannot say where it stopped looking is a name list wearing a loop.
+#
+# Prints `<rel-path> <code> <code>…` per declaring program, codes ascending and unique.
+_exit_code_tables() {  # reads the manifest; one line per shipped program that declares a table
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" rel codes
+  [ -f "$man" ] || return 0
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*) ;; *) continue ;; esac
+    # THE SPAN IS THE LEADING COMMENT BLOCK — every line up to the first that is neither a
+    # comment nor blank. That bound alone is NOT what excludes a measurement table, and saying
+    # so here is the correction: this harness's own header is one unbroken comment block with a
+    # byte-count table inside it, and the bound admitted it. The VALUE RANGE below is what
+    # excludes it.
+    codes="$(awk '
+        NR>1 && !/^#/ && !/^[[:space:]]*$/ { exit }
+        /^#[[:space:]]+(0|[1-9][0-9]?|1[0-9][0-9]|2[0-4][0-9]|25[0-5])[[:space:]]+[A-Za-z]/ {
+          gsub(/^#[[:space:]]+/,""); print $1 }
+      ' "$REAL_REPO_ROOT/$rel" 2>/dev/null | sort -un | tr '\n' ' ')"
+    # A TABLE IS TWO CODES OR MORE. One number in a header is a sentence, not a table, and
+    # nothing branches on a single answer.
+    [ "$(printf '%s' "$codes" | wc -w | tr -d ' ')" -ge 2 ] || continue
+    # ...AND IT STARTS AT 0. A program that tells callers to branch publishes its SUCCESS code;
+    # a run of small numbers that never mentions 0 is a list of something else.
+    case "$codes" in '0 '*) ;; *) continue ;; esac
+    printf '%s %s\n' "$rel" "${codes% }"
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
+}
+
+case_declared_exit_codes_are_driven() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_declared_exit_codes_are_driven: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE POPULATION, derived once and used twice: to say who is in it, and to say which of
+  #    their codes this file actually drives. Both halves are below; neither is typed.
+  local pop; pop="$(_exit_code_tables)"
+  [ -n "$pop" ] \
+    || _fixture_die "case_declared_exit_codes_are_driven: not one shipped program was found declaring an exit-code table. The header shape this derivation reads has moved, so the case would report PASS over an empty set — which is exactly the silence it exists to break."
+
+  # ── THE DRIVEN ARMS. One member of the population is driven end to end here, and it is
+  #    `scripts/notify/stall.sh` because its table is the one whose CODES CARRY THE MEANING:
+  #    0/3/1 are moving / stalled / unknown, and the third is a different answer from the
+  #    second rather than a worse version of it. Collapsing unknown into stalled is how a
+  #    watchdog earns a reputation for false alarms and then gets muted — so a test that only
+  #    proved "nonzero when quiet" would leave the defect that matters unguarded.
+  local sub="scripts/notify/stall.sh"
+  local driven="" undriven=""
+  # NO PIPED `grep -q` — this file's own header rule, and `$pop` is a producer that grows with
+  # the population, which is exactly the class the rule names. Tested as a string instead.
+  case "
+$pop" in *"
+$sub "*) : ;; *)
+    cf "(instrument) $sub is not in the derived population, so every arm below is about a program this case can no longer say declares a table — the header shape moved, or the manifest stopped naming it" ;;
+  esac
+
+  local out rc
+
+  # ── (a) SOMETHING ON THE REMOTE IS NEWER THAN THE THRESHOLD → 0, `moving`.
+  make_sandbox
+  publish_sandbox
+  out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh --quiet-minutes 90 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(a) a remote whose newest head is minutes old exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)"
+  case "$out" in *moving*) driven="$driven 0" ;; *)
+    cf "(a) the clearing line never says 'moving', so a caller reading the text cannot tell a clearance from a stall: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)" ;;
+  esac
+  # THE SPAN ON THE CLEARING BRANCH (doctrine/instruments.md § A.4): a clearance with no
+  # subject is read as covering whatever the reader had in mind.
+  case "$out" in *"$SB_TRUNK"*) : ;; *)
+    cf "(a) the clearing line does not name the ref it measured, so 'moving' covers whatever the reader assumes it covers: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)" ;;
+  esac
+  case "$out" in *head*) : ;; *)
+    cf "(a) the clearing line does not say how many heads it walked — a clearance over an unstated span" ;;
+  esac
+
+  # ── (d) HEAD IS NOT THE SIGNAL, and it rides arm (a)'s sandbox because it is the same
+  #        question asked of a worse tree. A branch that is NOT checked out is advanced on the
+  #        remote and HEAD is left where it was; the answer must still be `moving`.
+  #        This is the arm that catches someone "simplifying" `git ls-remote` into a local
+  #        rev-parse — a monitor keyed on HEAD once reported a dead project that was working
+  #        normally, 697 minutes against 1, and that measurement is the reason the program
+  #        reads every head instead of one.
+  local sideref="liveness-side"
+  git -C "$SB_WORK" push --quiet origin "HEAD:refs/heads/$sideref" >/dev/null 2>&1
+  # THE PLANT IS A DATE, NOT A PUSH ORDER. Backdating the CHECKED-OUT tip is what makes HEAD
+  # stale; the side branch keeps the fresh date. Without this the two are the same commit and
+  # the arm passes on a tree where HEAD would have answered correctly too.
+  GIT_COMMITTER_DATE="2020-01-01T00:00:00 +0000" GIT_AUTHOR_DATE="2020-01-01T00:00:00 +0000" \
+    sbcommit --allow-empty -m "[$SB_ROLE] backdate the checked-out tip" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet --force origin "$SB_TRUNK" >/dev/null 2>&1
+  local head_age; head_age="$(git -C "$SB_WORK" show -s --format=%ct HEAD 2>/dev/null || echo 0)"
+  [ "$head_age" -lt "$(( $(date +%s) - 86400 ))" ] \
+    || _fixture_die "case_declared_exit_codes_are_driven: the backdated HEAD is not actually old, so arm (d) would pass on a tree where HEAD is a perfectly good signal and would prove nothing."
+  out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh --quiet-minutes 90 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(d) HEAD IS BEING READ AS THE SIGNAL: the checked-out tip is backdated to 2020 while '$sideref' on the remote is minutes old, and this exited $rc rather than 0. A program that walks every head cannot see the backdated one as the answer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+  case "$out" in *"$sideref"*) : ;; *)
+    cf "(d) the report does not name '$sideref' as the newest ref, so even a green here does not say the non-checked-out branch was what it measured: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;;
+  esac
+  teardown
+
+  # ── (b) NOTHING NEWER THAN THE THRESHOLD → 3, `STALLED`, naming the age and the threshold.
+  #        The fixture builds its own dated commit rather than growing a date parameter on a
+  #        shared seeder: the subject here is a REMOTE, and a dated commit in every other
+  #        case's fixture is a cost those cases did not ask for.
+  make_sandbox
+  GIT_COMMITTER_DATE="2020-01-01T00:00:00 +0000" GIT_AUTHOR_DATE="2020-01-01T00:00:00 +0000" \
+    publish_sandbox
+  local newest; newest="$(git -C "$SB_ORIGIN" log -1 --format=%ct "refs/heads/$SB_TRUNK" 2>/dev/null || echo 0)"
+  [ "$newest" -gt 0 ] && [ "$newest" -lt "$(( $(date +%s) - 86400 ))" ] \
+    || _fixture_die "case_declared_exit_codes_are_driven: the remote's newest head is not older than a day (committer date '$newest'), so arm (b) would be asserting a stall over a tree that is not quiet."
+  out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh --quiet-minutes 90 2>&1 )"; rc=$?
+  if [ "$rc" -eq 3 ]; then driven="$driven 3"; else
+    cf "(b) a remote whose newest head predates the threshold by years exited $rc, want 3. A watchdog that cannot report a stall is the original defect with a program in front of it: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  fi
+  case "$out" in *STALLED*) : ;; *)
+    cf "(b) the finding never says STALLED, so an operator reading the line cannot tell it from a clearance: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+  esac
+  case "$out" in *"threshold 90m"*) : ;; *)
+    cf "(b) the finding does not restate the threshold it was judged against, so a reader cannot tell an alarm from a mis-set flag: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+  esac
+
+  # ── (e) `--notify` REACHING NOBODY MUST BE LOUD, and it rides arm (b) because a stall is the
+  #        only branch that delivers. A stall report that was computed and not delivered is the
+  #        original defect with an extra step, so the FINDING must still print and the failure
+  #        to deliver must be stated in the same breath.
+  rm -f "$SB_WORK/scripts/notify.sh"
+  out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh --quiet-minutes 90 --notify 2>&1 )"; rc=$?
+  [ "$rc" -eq 3 ] \
+    || cf "(e) with no notify.sh to dispatch to, --notify changed the VERDICT to $rc — delivery is not the finding, and a watchdog that downgrades its own answer because the phone was off has lost the thing it computed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  case "$out" in *STALLED*) : ;; *)
+    cf "(e) the finding itself disappeared when delivery failed — computed and then swallowed, which is the defect the program exists to end: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+  esac
+  case "$out" in *"reached nobody"*|*"NOT DELIVERED"*) : ;; *)
+    cf "(e) --notify reached nobody and said so nowhere: the operator is left believing a report was sent. Silence on a failed delivery is indistinguishable from a delivery: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+  esac
+  teardown
+
+  # ── (c) THE ARM THAT MATTERS: A REMOTE THAT CANNOT BE READ → 1, `UNKNOWN`, NEVER 3.
+  #        Three routes to unreadable, because they fail in three different places in the
+  #        program and one of them is the instrument check. Driving one and claiming the code
+  #        is covered is the single-observation habit this repository keeps paying for.
+  make_sandbox
+  publish_sandbox
+  local label
+  for label in undeclared vanished empty; do
+    local remote_arg="origin"
+    case "$label" in
+      undeclared) remote_arg="no-such-remote-declared-anywhere" ;;
+      vanished)   git -C "$SB_WORK" remote add vanished "$SB_TMP/never-created.git" >/dev/null 2>&1
+                  remote_arg="vanished" ;;
+      empty)      git init --bare "$SB_TMP/nothing.git" >/dev/null 2>&1
+                  git -C "$SB_WORK" remote add emptyremote "$SB_TMP/nothing.git" >/dev/null 2>&1
+                  remote_arg="emptyremote" ;;
+    esac
+    out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh --quiet-minutes 90 --remote "$remote_arg" 2>&1 )"; rc=$?
+    if [ "$rc" -eq 3 ]; then
+      cf "(c/$label) AN UNREADABLE REMOTE WAS REPORTED AS A STALL (exit 3). Unknown and alive are different answers and so are unknown and stalled: a watchdog that cannot tell 'nothing moved' from 'I could not look' raises an alarm every time the network hiccups, and the operator who mutes it has muted the real one too: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    elif [ "$rc" -eq 0 ]; then
+      cf "(c/$label) an unreadable remote was CLEARED (exit 0) — the quieter half of the same defect, and the worse one: nobody is told anything at all: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    elif [ "$rc" -ne 1 ]; then
+      cf "(c/$label) an unreadable remote exited $rc, want 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+    else
+      driven="$driven 1"
+    fi
+    case "$out" in *UNKNOWN*) : ;; *)
+      cf "(c/$label) the exit code says unknown and the TEXT does not, so an operator watching the log rather than the status learns nothing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+    esac
+  done
+  teardown
+
+  # ── (f) USAGE ERROR → 2, the fourth declared code. Cheap here and NOT redundant with the
+  #        CLI-shape sweep: that case proves an unknown OPTION exits 2, while the table also
+  #        declares 2 for a missing required value — and this program's threshold is required
+  #        with no default on purpose, so the refusal is the behaviour.
+  make_sandbox
+  publish_sandbox
+  out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh 2>&1 )"; rc=$?
+  if [ "$rc" -eq 2 ]; then driven="$driven 2"; else
+    cf "(f) omitting the required --quiet-minutes exited $rc, want 2. A threshold with a silent default is this program inventing a cadence for a project it knows nothing about, and an alarm on a borrowed number fires through every night until somebody mutes it: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  fi
+  case "$out" in *"--quiet-minutes"*) : ;; *)
+    cf "(f) the refusal does not name the option it wanted, leaving the caller with a stop and no next step: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+  esac
+  out="$( cd "$SB_WORK" && ./scripts/notify/stall.sh --quiet-minutes ninety 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] \
+    || cf "(f) a non-numeric threshold exited $rc, want 2 — an unparsed threshold that runs anyway compares against an arithmetic accident: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  teardown
+
+  # ── THE ACCOUNTING. Every code the subject DECLARES must have been driven above, and the
+  #    comparison is derived on both sides: the declared set comes out of the program's own
+  #    header, the driven set out of the arms that ran. A code added to the table and to no arm
+  #    reds here rather than sitting in the header as a promise nobody keeps.
+  local declared; declared="$(printf '%s\n' "$pop" | awk -v s="$sub" '$1==s{$1="";print}')"
+  local c
+  for c in $declared; do
+    case " $driven " in *" $c "*) : ;; *) undriven="$undriven $c" ;; esac
+  done
+  [ -z "$undriven" ] \
+    || cf "$sub declares exit code(s) no arm here drives —$undriven. A published code is an instruction to callers to branch on it; a code nothing drives is a branch nobody has ever taken"
+
+  # ── THE SECOND DIRECTION, and it is the one that makes this a population rather than a test.
+  #    Every OTHER declaring program is named with its codes and with the fact that this case
+  #    does not drive them. That is a disclosure, not a failure: naming the rest of the class is
+  #    how the next member gets a case instead of a silence, and a finish line that said "the
+  #    shipped set" while driving one member would be the claim this harness has been burned by.
+  local others=""
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case "$line" in "$sub "*) continue ;; esac
+    others="$others ${line%% *}(${line#* })"
+  done <<EOF
+$pop
+EOF
+
+  finish "the exit-code table is DRIVEN, one arm per declared code, against a remote this case builds itself: newer-than-threshold clears with 0 and names the ref and the head count; nothing-newer reports 3 naming the age and the threshold; an unreadable remote reports 1 and UNKNOWN by THREE routes (a remote never declared, one whose repository is gone, one that advertises no heads at all) and NEVER 3 — unknown and stalled are different answers and a watchdog that confuses them gets muted; a missing or non-numeric threshold refuses with 2. Two further arms: a backdated checked-out tip beside a minutes-old branch nobody checked out still reads as moving, naming that branch, so HEAD cannot be the signal; and --notify with nothing to dispatch to still prints the finding, still exits 3, and says out loud that it reached nobody. The codes asserted are compared against the table the program's own header declares, so a code added there and nowhere here reds. THE POPULATION IS DERIVED from every shipped program whose header declares a table of two or more codes; the members this case does NOT drive are named rather than dropped, and their codes with them:${others:- (none — this is the only declaring program the manifest names)}. NOT MEASURED: a table written below the header block, which this derivation does not read"
+}
+
+# =============================================================================
 # CASE — THE SHIPPED MANIFEST DESCRIBES THIS TREE, AND THE COPY-LIST IS INSIDE IT.
 #
 # The zip carries process/KIT-MANIFEST: <sha256>  <path>  <class>, one row per shipped file,
@@ -13047,6 +13446,7 @@ CASES=(
   case_check_board_frontmatter_offset
   case_check_board_registers
   case_check_board_register_absent
+  case_check_board_citations
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted
   case_setup_warns_on_a_later_added_column
@@ -13129,6 +13529,7 @@ CASES=(
   case_scaffolding_fixture_matches_the_tree
   case_kit_init_copy_list_minimum_is_real
   case_seam_shape_reformat_is_loud
+  case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
   case_ship_state
   case_isolation

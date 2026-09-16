@@ -163,6 +163,16 @@ and the shape of one, are in the register's own skeleton
 pointer exists because the rule was already stated twice and still arrived after the moment it was
 needed: **a rule that is written is not thereby delivered; it has to sit on the path being walked.***
 
+**Which rulings go there, and which are PRD content — the fork/fact split.** A **fork** (two
+defensible answers existed and one was chosen) is a `D-NN` in the register. A **fact** (what the
+product does changed, with no fork) amends the PRD. The one-question diagnostic: *could a competent
+stranger, reading only the PRD, arrive at a different answer and be reasonable?* **Yes** → fork.
+**No** → fact. Where a fork **constrains** a requirement it gets both — the ruling in the register,
+and the PRD **citing the id** as `[decision: D-NN]` in its § Decision Log, **never the text in both
+places**. The PRD's Decision Log is a **citation list, not an authoring site**: a second copy of a
+ruling is the copy that drifts, and the board check reports a citation that resolves to nothing or to
+a retired id.
+
 ### Moving an issue (occasional PM use)
 
 PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to `blocked/` if it is answerable, or to `declined/` if the answer is that it should not be built — never to a scratch location, which is how the decision gets silently made again six weeks later. In all cases:

@@ -191,6 +191,15 @@ version control by the initializer, not left for each actor to discover
    The register is a **projection of current state** — current ruling, one line of why,
    provenance — and the history stays in the ledger, which is what keeps it compatible with item 5
    rather than a second archive.
+   **And *"the corpus home it already has"* has a boundary, which is the fork/fact split:** a
+   **fork** — two defensible answers existed and one was chosen — is a register entry under a `D-NN`;
+   a **fact** — what the product does changed, with no fork — amends the PRD. The diagnostic, the
+   overlap rule (*cite the id, never inline the text*) and the anchored citation marker are stated
+   once in [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) § *Which decisions
+   live HERE*, and this line points rather than restates: **this item stays the single authoring
+   site for the *when*, the skeleton for the *which*.** Without a boundary the clause is an unbounded
+   escape — every decision has *some* home it could be argued into, and a home argued into after the
+   fact is the one nobody thinks to read.
 
 ## Session close ritual
 

@@ -195,6 +195,45 @@ missing line against, and now derives it from this list instead of restating it.
   same rule as every other absent subject here.
   *A dangling reference is a DIFFERENT finding from an asymmetry* and prints as one: *"B is not on
   this board"* asks the reader to check an id; *"B did not answer"* asks them to fix a declaration.
+- **DECLARED REFERENCE INTEGRITY — every citation of a register identifier resolves to a live entry,
+  and a RETIRED identifier is never cited as live. It DECIDES the verdict.** Where the process lets
+  documents outside a register cite that register's identifiers, the report reads a **declared list of
+  citation surfaces** — not a tree walk — joins each citation to the register's live identifier set,
+  and reports two findings separately: a citation resolving to **no entry**, and a citation resolving
+  to a **retired** one. It names each surface it read, states how many citations it read, and SKIPS a
+  declared surface that is absent with its reason.
+  *Why this is a separate invariant and not a widening of 4:* invariant 4 is integrity **inside** an
+  identifier space — uniqueness, and a maximum read order-independently. **A reference resolving from
+  outside the space is a different property with a different remedy**, and this sheet already draws
+  that distinction one bullet above for the board's dependency fields. Folding it into 4 would make
+  one check carry two properties and print one verdict, which § 4's own *"a check with more than one
+  READING prints each reading, labelled"* forbids.
+  *Why it DECIDES, stated as the ruling's own reason rather than derived:* **an advisory finding is a
+  thing a seat must decide whether to chase, and a decision-to-chase on every run is a cost paid
+  forever; a deciding check is answered once and then it is quiet.** Precedence that costs a reader
+  hops is the thing being avoided, and an unresolvable citation is exactly such a hop. *The
+  dependency precedent above does NOT transfer, and the difference is the remedy's shape:* those
+  fields have no producer and no clearing operation, so the remedy is *"hand-edit a card"* and a
+  second party must answer. A dangling citation is **single-ended** — the id you cited does not
+  exist, which is a typo or a deleted entry, one correct fix, no second party — and that is the bar
+  the deciding checks meet. **The consequence is chosen, not inherited: a dangling citation holds the
+  release gate shut wherever the release ritual matches the verdict line.**
+  *Why a DECLARED SCOPE and a POSITIVE MARKER, and this half is measured:* a bare token grep over the
+  tree cannot tell a **citation** from a **mention**, and the per-syntax comment strips needed to
+  rescue it are a second parser that can be wrong silently. Measured on this kit's own tree: an
+  HTML-comment strip applied to a **shell** file paired a `<!--` inside a shell string with a `-->`
+  thousands of lines later and deleted **226,350 characters** between them — the file then read as
+  containing no identifiers at all, and a checker built on it would have reported clean **for the
+  wrong reason, with nothing in its output revealing it**. So the arm reads only declared surfaces,
+  and only text carrying an **anchored** citation marker; prose *about* an identifier is invisible by
+  construction rather than by being stripped. That is the same argument the register's own withdrawn
+  state makes about its token, applied to citations.
+  *And the counts are part of the invariant:* a corpus where nobody has cited anything and a corpus
+  whose citations all resolve must not print the same thing, or the reading is unfalsifiable — the
+  same rule as every other absent subject here.
+  *Deliberately not enumerated here:* which documents are citation surfaces. That is the project's
+  axis — the kit's implementation declares the ones it ships — and this sheet would be wrong rather
+  than general if it fixed the membership.
 
 ## 3. REFUSAL CONDITIONS
 

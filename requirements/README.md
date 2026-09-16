@@ -25,6 +25,15 @@ PRD (id · status · what it covers) and keep it here rather than in the manifes
 
 **A PRD is never renamed.** Guards and citations key on the `PRD-NNN` in the filename.
 
+**A PRD's § Decision Log is a CITATION LIST, not a second register.** Every fork that constrains a
+PRD is ruled once in [`DECISIONS.md`](DECISIONS.md) under a `D-NN`, and the PRD cites the id with the
+anchored marker `[decision: D-NN]` — **never the ruling's text in both places**, because a second
+copy is the copy that drifts. What separates a **fork** (→ the register) from a **fact** (→ amend the
+PRD) is the one-question diagnostic in
+[`process/templates/DECISIONS.skeleton.md`](../process/templates/DECISIONS.skeleton.md) § *Which
+decisions live HERE*. `./scripts/check-board.sh` joins the two: a citation resolving to no entry, or
+to a retired id, is a drift finding.
+
 **A PRD overtaken in part is annotated in the same change** — `superseded_in_part: [<issue-id> →
 <section>]` in the PRD's frontmatter, landing with the ruling that caused it, never in a later
 sweep. It is orthogonal to `status`: *superseded in part* is not `status: superseded`. The law is
