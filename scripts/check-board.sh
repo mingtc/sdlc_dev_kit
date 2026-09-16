@@ -66,6 +66,12 @@
 #       keep only by being read. Note that being uncounted is not the same as being
 #       unjudged: arm (a) DOES walk declined/, because "is the card where its own last
 #       Activity entry says it is" stays answerable about a refusal.
+#   (l) DECLARED REFERENCE INTEGRITY — every register id CITED on a DECLARED citation
+#       surface resolves to a live `### D-NN` entry, and a RETIRED id is not cited as
+#       live. Two findings, printed separately. It DECIDES the verdict, so it carries
+#       no `reports only` token. The operands are CITATION_SURFACES and
+#       CITATION_MARKER, both declared at the top of this file with the measurement
+#       that rules out the obvious alternative (a tree walk plus a comment strip).
 #
 # THE LIST ABOVE AND THE PRINT ORDER AGREE, and (h)-(j) were added to it here because a
 # projection that omits three printing arms is not a projection. It went stale once before
@@ -197,6 +203,46 @@ ISSUE_ID_PATTERN='[A-Za-z]+-[0-9]+'
 # The path is repo-relative; an absent register SKIPS with its reason (never a silent
 # pass). Add a record per register you keep; the shipped one is the decision register.
 REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
+# ─── ARM (l)'s OPERANDS: declared reference integrity ────────────────────────
+# WHO MAY CITE a register id, and WHAT A CITATION LOOKS LIKE. Both are DECLARED,
+# and both halves are load-bearing — the design is a declared scope plus a positive
+# marker, never a tree walk plus a comment strip.
+#
+# WHY NOT A TREE WALK. A bare `D-NN` grep over the tree cannot tell a CITATION from a
+# MENTION. This very file mentions ids in shell comments; scripts/test/run.sh carries
+# more as here-doc fixtures. Neither is an adopter citation surface, and both would be
+# read as dangling citations by a bare grep.
+#
+# AND WHY NOT A COMMENT STRIP, WHICH IS THE MEASURED HALF. Rescuing the bare grep needs
+# a per-syntax comment stripper, which is a second parser that fails silently. Measured
+# on this kit's own tree: a non-greedy multiline HTML-comment strip applied to
+# scripts/test/run.sh paired a `<!--` inside a shell string with a `-->` thousands of
+# lines later and DELETED 226,350 CHARACTERS between them. The file then read as holding
+# no ids at all — a checker built on it reports CLEAN for the wrong reason, with nothing
+# in its output revealing it. That is doctrine/instruments.md's false-confidence
+# asymmetry arriving inside the instrument built to prevent drift.
+#
+# THE MARKER INVERTS THE PROBLEM: only text declaring itself a citation is read, so
+# prose ABOUT an id is invisible BY CONSTRUCTION rather than by being stripped. It is
+# ANCHORED for the same reason the register's WITHDRAWN token is (see the skeleton's
+# § The THIRD state): a bare substring cannot tell a file that CITES a ruling from one
+# that DESCRIBES it.
+#
+# The marker, as one extended regex with ONE capture group, and that group is the bare
+# id — the arm extracts it by stripping the fixed literal ends, so nothing here has to
+# re-type the register's id shape as a second pattern that could disagree with it.
+CITATION_MARKER='\[decision: (D-[0-9]+)\]'
+# One record per citation surface:  <dir>|<filename pattern>|<what it is>
+# Resolved with `find <dir> -name <pattern>` — a DIRECTORY WALK, deliberately, and NOT a
+# shell glob: this script runs without `globstar`, under which `progress/**/*.md` silently
+# collapses to one level and a card two levels down goes unread while the surface still
+# reports as covered. A surface whose directory is absent, or which matches no file, SKIPS
+# with its reason (never a silent pass), exactly as an absent register does.
+# `scripts/` is deliberately NOT here: it holds ids in shell comments and here-doc test
+# fixtures, neither of which is a citation. Add a record per surface your project lets
+# cite the register.
+CITATION_SURFACES='requirements|PRD-*.md|PRD
+progress|*.md|issue card'
 # How far into a file check (d) will look for the frontmatter's OPENING `---`.
 # It is not always line 1: the kit's own templates open with an HTML comment
 # explaining what the initializer stamps, and a card minted from one carries that
@@ -1529,6 +1575,156 @@ else
     [ -e "$f" ] && dc_count=$((dc_count+1))
   done
   echo "[k] declined/ depth (reports only — a decline is not drift and never changes the verdict below): $dc_count card(s) — $(cb_src)"
+fi
+
+
+# ---------------------------------------------------------------------------
+# (l) DECLARED REFERENCE INTEGRITY — every register id CITED outside the register
+#     resolves to a live entry, and a RETIRED id is never cited as live.
+#     contracts/drift-report.md § 2's declared-reference-integrity invariant. It
+#     DECIDES the verdict (it sets `drift`) and therefore carries NO `reports only`
+#     token — that token is the machine contract for an ADVISORY arm (§ 4), and an
+#     arm that decides must not claim it.
+#
+#     TWO FINDINGS, PRINTED SEPARATELY because they ask the reader for different
+#     things: a citation resolving to NO entry says "the id you typed does not
+#     exist" (a typo, or an entry deleted without its citations); a citation
+#     resolving to a RETIRED id says "that handle was retired and means nothing
+#     now" — which is the promise the register makes when it retires rather than
+#     reuses an id, made observable.
+#
+#     WHY THE OPERANDS ARE DECLARED RATHER THAN WALKED, and why a comment strip is
+#     not the answer: see CITATION_SURFACES / CITATION_MARKER at the top of this
+#     file. The short form is that a bare id grep cannot tell a citation from a
+#     mention, and the strip that would rescue it destroyed 226 KB of a real file
+#     in this kit while reporting clean.
+#
+#     THE RETIRED SET IS READ FROM THE REGISTER'S OWN § Retired ids SECTION, WITH
+#     HTML COMMENTS STRIPPED FIRST — and here the strip IS correct, because the
+#     operand is markdown whose comments are real comments. The shipped register's
+#     example format line names two ids INSIDE a comment while the true retired set
+#     is `<none yet>`; without the strip every fresh install would report a citation
+#     of those example ids as citing a retired ruling. Verified against the shipped
+#     file, not assumed.
+#
+#     COUNTS ARE PART OF THE READING: a corpus where nobody cited anything and a
+#     corpus whose citations all resolve must not print the same line, or the
+#     reading is unfalsifiable.
+# ---------------------------------------------------------------------------
+echo
+l_cites=0; l_surf_read=0; l_surf_skipped=0; l_hits=0
+# The live id set and the retired id set, from the SAME declared register records
+# arm (d) reads — one declaration, two readers.
+l_live=""; l_retired=""; l_reg_named=""; l_reg_read=0
+while IFS='|' read -r lreg_path lreg_mark lreg_shape; do
+  [ -n "$lreg_path" ] || continue
+  lreg_file="$CB_TREE/$lreg_path"
+  [ -f "$lreg_file" ] || continue
+  l_reg_read=$((l_reg_read+1))
+  l_reg_named="${l_reg_named:+$l_reg_named, }$lreg_path"
+  l_live="$l_live
+$(grep -oE "^${lreg_mark}${lreg_shape}" "$lreg_file" 2>/dev/null | sed "s|^${lreg_mark}||" || true)"
+  # § Retired ids. TWO filters, and BOTH are needed — a bare id grep over this
+  # section is wrong TWICE OVER, and each half was caught by running it:
+  #   1. HTML COMMENTS STRIPPED. The shipped register names example ids INSIDE a
+  #      comment while the true retired set is `<none yet>`; without the strip every
+  #      fresh install reports a citation of those examples as citing a retired
+  #      ruling. Here the strip IS correct — the operand is markdown, whose comments
+  #      are real comments. (It is NOT correct on a shell file; that is why this arm
+  #      never walks scripts/. See CITATION_SURFACES.)
+  #   2. ANCHORED ON THE ROW'S OWN ID, not on every id in the row. A retired row
+  #      names its SUCCESSOR in the same sentence — the register's own example is
+  #      "`D-07` — retired <date>; the scope it held moved into D-11" — so a bare
+  #      grep marks the LIVE successor retired too. Measured: a planted row retiring
+  #      one id reported TWO, and a PRD citing the live successor was reported as
+  #      citing a retired ruling. That is a FALSE RED on a correct citation, which is
+  #      the failure mode that gets a gate disabled.
+  # FORMAT LAW is what makes the anchor available: the retired id is the row's first
+  # token, in backticks. Anything after it is prose about the retirement.
+  #
+  # THE STRIPPER IS BOUNDED TO THIS SECTION AND MUST STAY THAT WAY. It removes HTML
+  # comment SPANS so a commented example id (`<!-- e.g. D-07 retired -->`) is not read
+  # as a live retirement — measured: the shipped skeleton carries exactly that example.
+  # It is POSIX awk rather than `perl -0pe` because perl is past the kit's declared
+  # floor (git + a POSIX shell) and the interpreter-floor case reddens on it.
+  # WHAT IT MUST NOT BE POINTED AT: any file that can contain a bare `<!--` inside a
+  # string or a heredoc. A span strip cannot tell that `<!--` from a real comment, so it
+  # swallows everything to the next `-->` anywhere in the file. Measured on
+  # scripts/test/run.sh: 307363 bytes removed, every fixture with them. The register's
+  # `## Retired ids` section is safe because format law makes it a list of backticked
+  # ids and prose. Widen the scope and you inherit that defect — use a positive citation
+  # marker instead — see the register format law in process/templates/DECISIONS.skeleton.md.
+  l_retired="$l_retired
+$(sed -n '/^## Retired ids/,/^## /{ /^## Retired ids/d; /^## /d; p; }' "$lreg_file" 2>/dev/null \
+    | awk 'BEGIN{c=0} { line=$0
+            while (1) {
+              if (c) { i=index(line,"-->"); if (!i) { line=""; break }
+                       line=substr(line,i+3); c=0; continue }
+              i=index(line,"<!--"); if (!i) break
+              rest=substr(line,i+4); line=substr(line,1,i-1)
+              j=index(rest,"-->")
+              if (j) { line=line substr(rest,j+3); continue }
+              c=1; break }
+            print line }' \
+    | grep -oE "^[[:space:]]*\`${lreg_shape}\`" \
+    | grep -oE "$lreg_shape" || true)"
+done <<< "$(printf '%s\n' "$REGISTERS")"
+l_live="$(printf '%s\n' "$l_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
+l_retired="$(printf '%s\n' "$l_retired" | grep -E '^D-[0-9]+$' | sort -u || true)"
+l_live_n="$(printf '%s\n' "$l_live" | grep -c . || true)"
+l_retired_n="$(printf '%s\n' "$l_retired" | grep -c . || true)"
+
+if [ "$l_reg_read" -eq 0 ]; then
+  echo "[l] Declared reference integrity — every cited register id resolves: no register was read (none of the declared ones is present in this source) — nothing to resolve citations against (skipped) — $(cb_src)"
+else
+  echo "[l] Declared reference integrity — every cited register id resolves to a live entry, and no retired id is cited — $(cb_src):"
+  echo "    register(s) read: $l_reg_named — $l_live_n live id(s), $l_retired_n retired id(s)"
+  while IFS='|' read -r csurf_dir csurf_pat csurf_what; do
+    [ -n "$csurf_dir" ] || continue
+    if [ ! -d "$CB_TREE/$csurf_dir" ]; then
+      echo "    $csurf_dir/ ($csurf_what): directory not present in this source  (skipped — this project keeps none)"
+      l_surf_skipped=$((l_surf_skipped+1)); continue
+    fi
+    # A DIRECTORY WALK, not a glob — see CITATION_SURFACES. NUL-free paths only;
+    # the kit's own naming rules forbid newlines in a card's filename.
+    csurf_files="$(find "$CB_TREE/$csurf_dir" -type f -name "$csurf_pat" 2>/dev/null | sort || true)"
+    if [ -z "$csurf_files" ]; then
+      echo "    $csurf_dir/ ($csurf_what): 0 file(s) matching '$csurf_pat'  (skipped — nothing to read)"
+      l_surf_skipped=$((l_surf_skipped+1)); continue
+    fi
+    csurf_nfiles="$(printf '%s\n' "$csurf_files" | grep -c . || true)"
+    l_surf_read=$((l_surf_read+1))
+    csurf_cites=0
+    while IFS= read -r cfile; do
+      [ -n "$cfile" ] || continue
+      # THE POSITIVE MARKER. Only text that declares itself a citation is read.
+      # The id is recovered by stripping the marker's fixed literal ends, so the
+      # id shape is never re-typed as a second pattern.
+      while IFS= read -r cid; do
+        [ -n "$cid" ] || continue
+        csurf_cites=$((csurf_cites+1)); l_cites=$((l_cites+1))
+        crel="${cfile#"$CB_TREE"/}"
+        if printf '%s\n' "$l_retired" | grep -qx "$cid"; then
+          echo "    ⚠ $crel cites $cid, which is RETIRED — a retired id is never reused, so this citation resolves to nothing; re-point it at the ruling that replaced it, or drop it"
+          l_hits=$((l_hits+1)); drift=1
+        elif ! printf '%s\n' "$l_live" | grep -qx "$cid"; then
+          echo "    ⚠ $crel cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names"
+          l_hits=$((l_hits+1)); drift=1
+        fi
+      done <<< "$(grep -oE "$CITATION_MARKER" "$cfile" 2>/dev/null \
+                   | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' || true)"
+    done <<< "$csurf_files"
+    echo "    $csurf_dir/ ($csurf_what): $csurf_nfiles file(s) read, $csurf_cites citation(s)"
+  done <<< "$(printf '%s\n' "$CITATION_SURFACES")"
+  if [ "$l_hits" -eq 0 ]; then
+    if [ "$l_surf_read" -eq 0 ]; then
+      echo "    NO citation surface was read ($l_surf_skipped skipped) — this pass says nothing about citations"
+    elif [ "$l_cites" -eq 0 ]; then
+      echo "    ✓ none ($l_surf_read surface(s) read, 0 citations found — nothing cites the register yet)"
+    else
+      echo "    ✓ none (all $l_cites citation(s) across $l_surf_read surface(s) resolve to a live entry; none cites a retired id)"
+    fi
+  fi
 fi
 
 echo
