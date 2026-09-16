@@ -13022,21 +13022,33 @@ case_declared_exit_codes_are_driven() {
   [ -n "$pop" ] \
     || _fixture_die "case_declared_exit_codes_are_driven: not one shipped program was found declaring an exit-code table. The header shape this derivation reads has moved, so the case would report PASS over an empty set — which is exactly the silence it exists to break."
 
-  # ── THE DRIVEN ARMS. One member of the population is driven end to end here, and it is
-  #    `scripts/notify/stall.sh` because its table is the one whose CODES CARRY THE MEANING:
+  # ── THE DRIVEN ARMS. TWO members of the population are driven end to end here, and each is
+  #    here for its own reason rather than because the list grew.
+  #
+  #    `scripts/notify/stall.sh` — its table is the one whose CODES CARRY THE MEANING:
   #    0/3/1 are moving / stalled / unknown, and the third is a different answer from the
   #    second rather than a worse version of it. Collapsing unknown into stalled is how a
   #    watchdog earns a reputation for false alarms and then gets muted — so a test that only
   #    proved "nonzero when quiet" would leave the defect that matters unguarded.
+  #
+  #    `scripts/finish-pr.sh` — the same shape with a MUTATED TRUNK behind it instead of a muted
+  #    alarm. Its 1 says "nothing landed, safe to re-run" and its 3 says "LANDED, do NOT re-run":
+  #    opposite instructions, not degrees. A caller that collapses 3 into 1 re-runs a landing that
+  #    already happened. Unlike stall.sh it is not opt-in — it IS the landing path — so its 3 is
+  #    reachable on every project running the kit.
   local sub="scripts/notify/stall.sh"
-  local driven="" undriven=""
+  local fpr="scripts/finish-pr.sh"
+  local driven="" fpr_driven="" undriven=""
   # NO PIPED `grep -q` — this file's own header rule, and `$pop` is a producer that grows with
   # the population, which is exactly the class the rule names. Tested as a string instead.
-  case "
+  local _s
+  for _s in "$sub" "$fpr"; do
+    case "
 $pop" in *"
-$sub "*) : ;; *)
-    cf "(instrument) $sub is not in the derived population, so every arm below is about a program this case can no longer say declares a table — the header shape moved, or the manifest stopped naming it" ;;
-  esac
+$_s "*) : ;; *)
+      cf "(instrument) $_s is not in the derived population, so every arm below is about a program this case can no longer say declares a table — the header shape moved, or the manifest stopped naming it" ;;
+    esac
+  done
 
   local out rc
 
@@ -13172,33 +13184,179 @@ $sub "*) : ;; *)
     || cf "(f) a non-numeric threshold exited $rc, want 2 — an unparsed threshold that runs anyway compares against an arithmetic accident: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
   teardown
 
-  # ── THE ACCOUNTING. Every code the subject DECLARES must have been driven above, and the
+  # ═══ scripts/finish-pr.sh — THE SECOND SUBJECT. Four arms, one per declared code. ═══
+  #
+  # WHY ALL FOUR AND NOT JUST 3. The accounting below is ALL-OR-NOTHING PER SUBJECT: it walks the
+  # codes the program's own header declares and reds on any the arms here did not drive. So a
+  # subject that drives 3 alone reds on 0, 1 and 2 — and the only ways out are to hand-type an
+  # exemption list (which turns a derived accounting into a name list with a loop, the exact
+  # failure this case's header refuses) or to drive the rest. Driving the rest is cheaper than
+  # arguing, and the overlap with the case_finish_pr_* family is NAMED rather than discovered:
+  #
+  #   * `case_finish_pr_happy` lands green and asserts `-eq 0`, so arm (g) genuinely repeats it;
+  #   * `case_finish_pr_empty_merge` asserts `-ne 0`, which is NOT the same assertion as `-eq 1`
+  #     — this case's own header says so in as many words ("`-ne 0` is not a substitute … an
+  #     assertion that collapses them asserts the one thing the table denies"). Arm (h) is the
+  #     first thing in this harness to assert finish-pr's 1 as a VALUE;
+  #   * nothing anywhere asserted 2 or 3 for this program before these arms.
+  #
+  # The overlap is not redundancy. Those cases assert BEHAVIOUR (what moved, what did not, what
+  # the board note claims); these assert the CODE AS A PUBLISHED BRANCH INSTRUCTION, and they are
+  # what the accounting reads. A cross-case accounting would need `$driven` to survive a
+  # teardown, and nothing in this harness carries state between cases.
+
+  # ── (g) A COMPLETE LANDING → 0.
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-384" codes chore "Exit-code table: complete landing" "feature/$SB_PREFIX-384-codes"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-384" codes CODES.txt
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-384" 2>&1 )"; rc=$?
+  if [ "$rc" -eq 0 ]; then fpr_driven="$fpr_driven 0"; else
+    cf "(g) a landing that squashed, pushed, retired the branch and advanced the board exited $rc, want 0. A green run reported nonzero is the direction that gets the code ignored: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  fi
+  teardown
+
+  # ── (h) REFUSED WITH NOTHING LANDED → 1, AND THE TRUNK MUST BE UNTOUCHED. The premise of the
+  #        1 row is "safe to fix the cause and re-run", and that is only true if nothing landed —
+  #        so the arm asserts the trunk as well as the code. The route is an empty merge: a branch
+  #        with no net change vs the trunk, which finish-pr aborts AFTER the squash attempt and
+  #        BEFORE any push.
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-385" codes chore "Exit-code table: nothing to land" "feature/$SB_PREFIX-385-codes"
+  publish_sandbox
+  git -C "$SB_WORK" branch "feature/$SB_PREFIX-385-codes" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-385-codes" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-385" 2>&1 )"; rc=$?
+  if [ "$rc" -eq 1 ]; then fpr_driven="$fpr_driven 1"; else
+    cf "(h) a branch with no net change exited $rc, want 1. 1 is the code that PROMISES nothing landed; any other value here either denies a true refusal or claims a landing that did not happen: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  fi
+  # THE PROMISE THE CODE MAKES, ASSERTED SEPARATELY FROM THE CODE.
+  origin_has_path "progress/qa_complete/$SB_PREFIX-385-codes.md" \
+    && cf "(h) exit 1 was returned and the card IS in qa_complete/ on the trunk — the code promises nothing landed and something did"
+  [ -n "$(git -C "$SB_WORK" ls-remote --heads origin "feature/$SB_PREFIX-385-codes" 2>/dev/null)" ] \
+    || cf "(h) exit 1 was returned and the feature branch was deleted from the remote anyway — a refusal that destroys state is not the refusal the 1 row describes"
+  teardown
+
+  # ── (i) USAGE ERROR → 2. A leading '-' where the issue id goes: the program's own header calls
+  #        2 "nothing was read or touched", and this is the refusal that fires before any read.
+  make_sandbox
+  publish_sandbox
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh --no-such-option 2>&1 )"; rc=$?
+  if [ "$rc" -eq 2 ]; then fpr_driven="$fpr_driven 2"; else
+    cf "(i) an unknown option exited $rc, want 2. 2 and 1 are the difference between 'you typed it wrong' and 'the landing was refused', and a caller that cannot tell them apart retries a typo: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  fi
+  teardown
+
+  # ── (j) THE ARM THIS SUBJECT IS HERE FOR: LANDED BUT NOT FINISHED → 3, NEVER 1.
+  #
+  #    THE PLANT IS NOT A STUB, AND THAT IS THE WHOLE DESIGN PROBLEM. A fixture that replaces the
+  #    landing with something that returns 3 asserts the code and not the meaning — the meaning is
+  #    that THE SQUASH IS ON THE TRUNK. So this arm runs the landing for real, end to end: the real
+  #    pre-merge gate, a real `git merge --squash` with real net changes, a real push to a real bare
+  #    remote. Nothing about steps 1-3 is faked.
+  #
+  #    WHAT IS BROKEN IS STEP 4, AND IT IS BROKEN IN THE TREE RATHER THAN IN THE PROGRAM.
+  #    finish-pr's step 4 is `move-issue.sh <id> qa_complete`, and move-issue refuses when the
+  #    DESTINATION COLUMN does not exist in the kanban worktree ("progress/qa_complete/ does not
+  #    exist in the worktree"). The kanban worktree is a fresh checkout of the trunk, so deleting
+  #    `progress/qa_complete/` from the TRUNK before publishing makes the board advance fail on a
+  #    tree that is otherwise entirely healthy. This is a real adopter state, not a contrivance:
+  #    git does not track an empty directory, so a board whose columns were never given a .gitkeep
+  #    does not survive a clone — which is precisely why kit-init.sh writes one per column.
+  #
+  #    AND THE SANDBOX SURVIVES THE HALF-FINISHED STATE, which is what lets the assertions read it:
+  #    the trunk is a bare repository holding a landing whose cleanup never ran.
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-386" codes chore "Exit-code table: landed, not finished" "feature/$SB_PREFIX-386-codes"
+  # THE PLANT. Remove the destination column from the tree BEFORE it is published, so the trunk
+  # the kanban worktree checks out has never had one.
+  rm -rf "$SB_WORK/progress/qa_complete"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-386" codes LANDED.txt
+  # THE PLANT IS REAL, CONFIRMED ON THE REMOTE. Asserted rather than assumed: if the column were
+  # still on the trunk the landing would simply succeed and this arm would assert 3 against a run
+  # that had no reason to return it, reporting a defect in finish-pr that is really a fixture that
+  # forgot to plant anything.
+  origin_has_path "progress/qa_complete/.gitkeep" \
+    && _fixture_die "case_declared_exit_codes_are_driven: arm (j) planted a missing qa_complete/ column and the trunk still carries one, so the board advance would succeed and the arm would be asserting 3 over a healthy landing."
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-386" 2>&1 )"; rc=$?
+  if [ "$rc" -eq 3 ]; then fpr_driven="$fpr_driven 3"; else
+    if [ "$rc" -eq 1 ]; then
+      cf "(j) A LANDING THAT REACHED THE TRUNK WAS REPORTED AS 1 — the code whose own header row says 'nothing landed, safe to fix the cause and re-run'. The 3 row forbids that re-run in the same breath. An automation reading 1 here re-runs finish-pr against a branch that is already merged: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+    elif [ "$rc" -eq 0 ]; then
+      cf "(j) a landing whose board advance FAILED exited 0 — the quieter half of the same defect and the worse one: the caller is told the run is complete and the card is still sitting in dev_complete/: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+    else
+      cf "(j) a landing whose board advance failed exited $rc, want 3: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+    fi
+  fi
+
+  # ── THE MEANING, NOT THE CODE. Three assertions, and they are what separate this arm from a stub.
+  # (1) THE SQUASH IS GENUINELY ON THE TRUNK. Without this the 3 above could have been returned by
+  #     a run that landed nothing, which is the 1 row, and the arm would be asserting the opposite
+  #     of what it claims.
+  origin_has_path "LANDED.txt" \
+    || cf "(j) exit 3 says LANDED BUT NOT FINISHED and the branch's change is NOT on the trunk — either nothing landed (making 3 the wrong code) or this fixture reached 3 without a landing, which would assert the code and not the meaning"
+  # (2) THE FOLLOW-UP GENUINELY DID NOT COMPLETE. The card must still be where it started.
+  origin_has_path "progress/dev_complete/$SB_PREFIX-386-codes.md" \
+    || cf "(j) the card is no longer in dev_complete/ on the trunk, so the follow-up step did not fail — 3 was returned over a run that finished"
+  # (3) THE TEXT SAYS BOTH HALVES. A caller reading the log rather than the status must be told the
+  #     trunk moved AND told not to re-run; the exit code alone is the half nobody reads first.
+  case "$out" in *"LANDED, NOT FINISHED"*|*"IS LANDED"*) : ;; *)
+    cf "(j) the run never says the landing happened, so an operator reading the output cannot tell this from an ordinary refusal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;;
+  esac
+  case "$out" in *"DO NOT re-run"*|*"do NOT re-run"*) : ;; *)
+    cf "(j) the run does not tell the operator NOT to re-run the script, which is the one instruction the 3 row exists to deliver: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)" ;;
+  esac
+  teardown
+
+  # ── THE ACCOUNTING. Every code each subject DECLARES must have been driven above, and the
   #    comparison is derived on both sides: the declared set comes out of the program's own
   #    header, the driven set out of the arms that ran. A code added to the table and to no arm
   #    reds here rather than sitting in the header as a promise nobody keeps.
-  local declared; declared="$(printf '%s\n' "$pop" | awk -v s="$sub" '$1==s{$1="";print}')"
-  local c
-  for c in $declared; do
-    case " $driven " in *" $c "*) : ;; *) undriven="$undriven $c" ;; esac
+  #
+  #    PER SUBJECT, NOT POOLED. The two programs' tables overlap numerically and mean entirely
+  #    different things — stall.sh's 3 is STALLED and finish-pr's 3 is LANDED BUT NOT FINISHED —
+  #    so a single pooled `driven` set would let an arm for one program discharge the other's
+  #    obligation. Both declare 0 1 2 3 today, which is exactly the tree on which a pooled
+  #    accounting would look green while half the arms were missing.
+  local declared c
+  local _pair
+  for _pair in "$sub|$driven" "$fpr|$fpr_driven"; do
+    local _who="${_pair%%|*}" _got="${_pair#*|}" _missing=""
+    declared="$(printf '%s\n' "$pop" | awk -v s="$_who" '$1==s{$1="";print}')"
+    for c in $declared; do
+      case " $_got " in *" $c "*) : ;; *) _missing="$_missing $c" ;; esac
+    done
+    [ -z "$_missing" ] \
+      || { undriven="$undriven $_who:$_missing"
+           cf "$_who declares exit code(s) no arm here drives —$_missing. A published code is an instruction to callers to branch on it; a code nothing drives is a branch nobody has ever taken"; }
   done
-  [ -z "$undriven" ] \
-    || cf "$sub declares exit code(s) no arm here drives —$undriven. A published code is an instruction to callers to branch on it; a code nothing drives is a branch nobody has ever taken"
 
   # ── THE SECOND DIRECTION, and it is the one that makes this a population rather than a test.
   #    Every OTHER declaring program is named with its codes and with the fact that this case
   #    does not drive them. That is a disclosure, not a failure: naming the rest of the class is
   #    how the next member gets a case instead of a silence, and a finish line that said "the
   #    shipped set" while driving one member would be the claim this harness has been burned by.
-  local others=""
+  #
+  #    THE EXCLUSION IS DERIVED FROM THE DRIVEN SET, not from a second list of subject names. The
+  #    driven subjects are `$sub` and `$fpr`; a third one added above and forgotten here would be
+  #    announced as undriven, which is the safe direction — a member wrongly named as driven is
+  #    the silence this disclosure exists to break.
+  local others="" _skip
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    case "$line" in "$sub "*) continue ;; esac
+    _skip=""
+    for _s in "$sub" "$fpr"; do
+      case "$line" in "$_s "*) _skip=yes ;; esac
+    done
+    [ -z "$_skip" ] || continue
     others="$others ${line%% *}(${line#* })"
   done <<EOF
 $pop
 EOF
 
-  finish "the exit-code table is DRIVEN, one arm per declared code, against a remote this case builds itself: newer-than-threshold clears with 0 and names the ref and the head count; nothing-newer reports 3 naming the age and the threshold; an unreadable remote reports 1 and UNKNOWN by THREE routes (a remote never declared, one whose repository is gone, one that advertises no heads at all) and NEVER 3 — unknown and stalled are different answers and a watchdog that confuses them gets muted; a missing or non-numeric threshold refuses with 2. Two further arms: a backdated checked-out tip beside a minutes-old branch nobody checked out still reads as moving, naming that branch, so HEAD cannot be the signal; and --notify with nothing to dispatch to still prints the finding, still exits 3, and says out loud that it reached nobody. The codes asserted are compared against the table the program's own header declares, so a code added there and nowhere here reds. THE POPULATION IS DERIVED from every shipped program whose header declares a table of two or more codes; the members this case does NOT drive are named rather than dropped, and their codes with them:${others:- (none — this is the only declaring program the manifest names)}. NOT MEASURED: a table written below the header block, which this derivation does not read"
+  finish "TWO declaring programs are DRIVEN, one arm per declared code each, against sandboxes this case builds itself. scripts/notify/stall.sh: newer-than-threshold clears with 0 and names the ref and the head count; nothing-newer reports 3 naming the age and the threshold; an unreadable remote reports 1 and UNKNOWN by THREE routes (a remote never declared, one whose repository is gone, one that advertises no heads at all) and NEVER 3 — unknown and stalled are different answers and a watchdog that confuses them gets muted; a missing or non-numeric threshold refuses with 2; plus a backdated checked-out tip beside a minutes-old branch nobody checked out still reading as moving, naming that branch, so HEAD cannot be the signal, and --notify with nothing to dispatch to still printing the finding, still exiting 3, and saying out loud that it reached nobody. scripts/finish-pr.sh: a complete landing exits 0; a branch with no net change exits 1 AND the trunk is asserted untouched, because 'safe to re-run' is only true if nothing landed; an unknown option exits 2; and a landing whose BOARD ADVANCE fails exits 3 and never 1 — the plant is a trunk published without a progress/qa_complete/ column, so the squash, the push and the branch retirement all happen FOR REAL and only step 4 breaks, and the arm then asserts the meaning rather than the code: the branch's change IS on the trunk, the card is still in dev_complete/, and the output says both that it landed and that the operator must not re-run. The codes asserted are compared PER SUBJECT against the table each program's own header declares — never pooled, because both tables read 0 1 2 3 and mean different things — so a code added there and nowhere here reds. THE POPULATION IS DERIVED from every shipped program whose header declares a table of two or more codes; the members this case does NOT drive are named rather than dropped, and their codes with them:${others:- (none — these are the only declaring programs the manifest names)}. NOT MEASURED: a table written below the header block, which this derivation does not read; and for finish-pr, the OTHER routes to each code — 1 has several refusal sites and only the empty merge is driven, and 3 has exactly one author (a failing move-issue.sh) which is the site driven here"
 }
 
 # =============================================================================

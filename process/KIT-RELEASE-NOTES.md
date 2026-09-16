@@ -334,18 +334,31 @@ columns and never the cards.*
   two or more exit codes starting at `0` is telling every caller to **branch** on them, and until now
   nothing drove one — an assertion that a run merely "failed" collapses exactly what a table exists to
   distinguish. `scripts/test/run.sh`'s new `case_declared_exit_codes_are_driven` derives that
-  population, drives `scripts/notify/stall.sh` through every code it declares (moving / STALLED /
-  UNKNOWN / usage error), and **names the members it does not drive, with their codes**, in its own
-  result line — so the next program to publish a table appears there rather than going quiet. It also
-  proves the watchdog cannot be simplified into a local `git rev-parse`: a backdated checked-out tip
-  beside a fresh branch nobody checked out must still read as *moving*.
+  population, drives **both** the programs it finds through every code each declares, and **names any
+  member it does not drive, with its codes**, in its own result line — so the next program to publish
+  a table appears there rather than going quiet. **The two subjects, and the defect each guards:**
 
-  **No action required.** If you have edited `scripts/notify/stall.sh`, this case will now tell you:
-  a code added to ITS table with no arm driving it reddens, and so does a change that collapses two
-  of its answers into one. **For a program the case only DISCLOSES, the effect is different and worth
-  knowing:** add a code to such a program's table and the result line simply grows to name it — the
-  run stays green, because disclosure is not a gate. `scripts/test/run.sh` is not wired into
-  `scripts/verify.sh` and remains an on-demand tool.
+  - `scripts/notify/stall.sh` — moving / STALLED / UNKNOWN / usage error. An unreadable remote must
+    report UNKNOWN and never STALLED: a watchdog that confuses *"nothing moved"* with *"I could not
+    look"* raises an alarm on every network hiccup, and the operator who mutes it has muted the real
+    one too. The case also proves the watchdog cannot be simplified into a local `git rev-parse`: a
+    backdated checked-out tip beside a fresh branch nobody checked out must still read as *moving*.
+  - `scripts/finish-pr.sh` — the same shape with a **mutated trunk** behind it instead of a muted
+    alarm. Its `1` says *nothing landed, safe to re-run* and its `3` says **LANDED, do NOT re-run**:
+    opposite instructions, not degrees. A caller that collapses `3` into `1` re-runs a landing that
+    already happened. The `3` arm plants the failure in the **tree** rather than the program — a
+    trunk with no `progress/qa_complete/` column — so the gate, the squash, the push and the branch
+    retirement all happen for real and only the board advance breaks; it then asserts that the
+    change IS on the trunk and the card IS still in `dev_complete/`, rather than asserting the
+    number alone.
+
+  **No action required.** If you have edited either program, this case will now tell you: a code
+  added to ITS table with no arm driving it reddens, and so does a change that collapses two of its
+  answers into one. **The codes are compared per program, never pooled** — both declare `0 1 2 3`
+  and their `3`s mean opposite things. **For a program the case only DISCLOSES, the effect is
+  different and worth knowing:** add a code to such a program's table and the result line simply
+  grows to name it — the run stays green, because disclosure is not a gate. `scripts/test/run.sh` is
+  not wired into `scripts/verify.sh` and remains an on-demand tool.
 ### Changed
 
 - **The Dev → QA handoff now says which lane QA writes in: read and gate on the branch, write on
