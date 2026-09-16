@@ -1325,6 +1325,110 @@ ROLE_EOF
 }
 
 # =============================================================================
+# CASE — THE PROGRESS RECORD IS ONE SHAPE, AND ITS WRITER'S ABSENCE IS A NO-OP
+#
+# Two invariants from process/contracts/progress-record.md, and the second is the one
+# that cannot be asserted:
+#
+#   § 2 / § 4  ONE SHAPE. A reader that parses ONLY the four required fields reads
+#              every record — including records carrying optional fields it has never
+#              heard of. Tested by writing records WITH and WITHOUT extras and
+#              requiring a uniform column count.
+#
+#   § 4        THE ABLATION. Removing the writer entirely leaves a converted
+#              producer's stdout, stderr and EXIT STATUS byte-identical. This is the
+#              invariant whose violation is invisible until something unrelated turns
+#              red, so it is MEASURED BY DELETING THE LIBRARY AND RE-RUNNING — never
+#              by reading the `kit_progress() { :; }` stub and believing it.
+#
+# THE OPERAND IS ASSERTED BEFORE EITHER CHECK. A run in which the library never loaded
+# would produce zero records and an identical ablation, and would pass both tests while
+# measuring nothing — the green would be the sound of the subject being absent.
+# =============================================================================
+case_progress_record_is_one_shape_and_optional() {
+  cf_reset
+  make_sandbox
+
+  local lib="$SB_WORK/scripts/lib/progress-record.sh"
+  if [ ! -f "$lib" ]; then
+    skp "the progress record is one shape and its writer is optional" "scripts/lib/progress-record.sh is not in the sandbox"
+    teardown; return
+  fi
+
+  # ── SHAPE. Four records: two carrying optional fields, two carrying none, and one
+  #    whose description holds a tab and a newline — the only inputs that could split
+  #    a record into the wrong number of columns or into two lines.
+  local recdir="$SB_TMP/records"
+  (
+    cd "$SB_WORK" || exit 1
+    # shellcheck source=/dev/null
+    . ./scripts/lib/progress-record.sh
+    export KIT_PROGRESS_DIR="$recdir"
+    KIT_PROGRESS_DIR="$recdir" kit_progress "verify.sh"  status  "gate started" "gate=unit" "event=start"
+    KIT_PROGRESS_DIR="$recdir" kit_progress "Dev:ID-1"   info    "no optional fields at all"
+    KIT_PROGRESS_DIR="$recdir" kit_progress "QA:ID-1"    warning "$(printf 'holds a\ttab and a\nnewline')"
+    KIT_PROGRESS_DIR="$recdir" kit_progress "release.sh" error   "one more" "rc=2"
+  ) >/dev/null 2>&1
+
+  local nrec=0
+  [ -d "$recdir" ] && nrec="$(cat "$recdir"/*.tsv 2>/dev/null | grep -c . || true)"
+  # ASSERT THE OPERAND: four calls must have produced four lines. Zero means the
+  # library never loaded, which would make every check below vacuously green.
+  if [ "${nrec:-0}" -ne 4 ]; then
+    cf "four kit_progress calls produced $nrec record line(s), not 4 — the writer did not run, so nothing below was measured"
+  else
+    # ONE SHAPE: every line has the same column count, whether or not it carries extras.
+    local ncols
+    ncols="$(awk -F'\t' '{print NF}' "$recdir"/*.tsv 2>/dev/null | sort -u | tr '\n' ' ')"
+    [ "$(printf '%s' "$ncols" | tr -d ' ')" = "5" ] \
+      || cf "records do not share one column count (saw: $ncols) — a reader of the four required fields would need a fork in the middle, which contracts/progress-record.md § 2 forbids"
+
+    # ...AND THE FOUR REQUIRED FIELDS ARE ALL NON-EMPTY on every line.
+    awk -F'\t' '$1=="" || $2=="" || $3=="" || $4=="" {bad=1} END{exit bad?1:0}' "$recdir"/*.tsv 2>/dev/null \
+      || cf "a record is missing one of the four REQUIRED fields — § 5's envelope is not being written"
+
+    # ...AND THE CLASS IS A MEMBER OF THE DECLARED SET on every line.
+    awk -F'\t' '$3!="status" && $3!="info" && $3!="warning" && $3!="error" {bad=1} END{exit bad?1:0}' "$recdir"/*.tsv 2>/dev/null \
+      || cf "a record carries a class outside the declared set (status|info|warning|error) — § 5"
+  fi
+
+  # ── THE ABLATION (§ 4), EXECUTED. move-issue.sh is the converted role-side producer
+  #    and it REFUSES without a valid id, which is all this needs: the refusal path runs
+  #    the sourcing block, so removing the library must not change it. A refusal is a
+  #    deliberate choice of subject — it exercises the load WITHOUT needing a board, and
+  #    an abort from an unguarded `.` under this script's `set -euo pipefail` would show
+  #    up here as a changed exit status, which is precisely the failure being excluded.
+  local mv="$SB_WORK/scripts/move-issue.sh"
+  if [ ! -x "$mv" ]; then
+    _control_did_not_run "find an executable move-issue.sh to ablate against"
+  else
+    local with_out="$SB_TMP/with.out" with_err="$SB_TMP/with.err" with_rc=0
+    ( cd "$SB_WORK" && ./scripts/move-issue.sh --help ) >"$with_out" 2>"$with_err" || with_rc=$?
+
+    mv "$lib" "$SB_TMP/progress-record.sh.away" 2>/dev/null || true
+    local wo_out="$SB_TMP/without.out" wo_err="$SB_TMP/without.err" wo_rc=0
+    ( cd "$SB_WORK" && ./scripts/move-issue.sh --help ) >"$wo_out" 2>"$wo_err" || wo_rc=$?
+    mv "$SB_TMP/progress-record.sh.away" "$lib" 2>/dev/null || true
+
+    # THE CONTROL ON THE ABLATION ITSELF: if the library was not actually gone for the
+    # second run, "identical" proves nothing. Asserted rather than assumed, because a
+    # failed `mv` above is silenced by its own `|| true`.
+    [ -f "$SB_TMP/progress-record.sh.away" ] \
+      && _control_did_not_run "restore the library — the ablation left the sandbox modified"
+
+    [ "$with_rc" -eq "$wo_rc" ] \
+      || cf "removing scripts/lib/progress-record.sh changed move-issue.sh's exit status ($with_rc → $wo_rc) — the record is a DEPENDENCY, which contracts/progress-record.md § 2 forbids"
+    cmp -s "$with_out" "$wo_out" \
+      || cf "removing scripts/lib/progress-record.sh changed move-issue.sh's stdout — the record is not additive"
+    cmp -s "$with_err" "$wo_err" \
+      || cf "removing scripts/lib/progress-record.sh changed move-issue.sh's stderr — the record is not additive"
+  fi
+
+  finish "the progress record writes one shape ($nrec records, uniform columns, required fields present) and removing its library leaves move-issue.sh byte-identical in stdout, stderr and exit status"
+  teardown
+}
+
+# =============================================================================
 # CASE — --set-pr WRITES BACK INTO A CARD MINTED FROM THE REAL TEMPLATE
 #
 # WHY THIS CASE AND NOT A FIXTURE ASSERTION: `--set-pr` writes only into an EXISTING
@@ -13388,6 +13492,7 @@ CASES=(
   case_move_issue_declined_requires_a_reason
   case_move_issue_set_pr_on_a_minted_card
   case_role_literals_are_declared
+  case_progress_record_is_one_shape_and_optional
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_second_worktree

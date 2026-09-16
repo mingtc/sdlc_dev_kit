@@ -94,6 +94,51 @@ columns and never the cards.*
 
 ### Action required
 
+- **If you run more than one agent session at a time, add one line to
+  `process/LOCAL-PROCEDURES.md` — and it is the one obligation that may NOT live in a prompt.**
+
+  **The finding.** An agent session that is *prompted* — it advances one burst per message and then
+  stops — **cannot send anything while idle**, because sending is an act. So it cannot report the
+  one state you need from it: that it has stopped. Two such sessions that agree to keep each other
+  informed go quiet together, and **the silence is indistinguishable from work.**
+
+  **And the part that decides where the fix goes.** An obligation delivered only in a session's
+  opening instructions **is a conversation citing itself.** It binds the session that heard it and
+  **evaporates at the next restart** — the successor inherits your queue, your board and your whole
+  repository, and does not inherit the prompt. Measured on one pair across one restart boundary:
+  eight unprompted progress notes before, **none** after, from a successor that was landing work,
+  bouncing reviews and closing board asymmetries the entire time. It simply never knew it owed
+  anyone a note, and nothing in the repository told it.
+
+  **What to do — it is one copy-paste, and `SEED.md` step 8 now carries it for new projects:**
+
+  ```markdown
+  ## Standing obligations — these bind EVERY session, including one nobody briefed
+
+  - **If you are working a queue while anyone else waits on you, write a one-line progress note
+    at every job boundary and at least every `<interval>` — into `<the shared log or channel>`.**
+    A note is not a question and it does not pause your work. You cannot be asked for it: an idle
+    session cannot send anything, so silence from you is indistinguishable from work.
+  ```
+
+  Fill the two blanks with your own interval and your own destination. **It belongs in
+  `LOCAL-PROCEDURES.md` rather than anywhere else** because that file is already on your
+  session-start read order, which is the only property that matters here.
+
+  **Skip it honestly if it does not apply.** A project where no session ever waits on another does
+  not need the line and adding it is ceremony. **A project that runs sessions in parallel and skips
+  it will not find out until a restart**, which is the expensive way to learn it.
+
+  **The spawner's side is doctrine, not an action** —
+  [`doctrine/subagent-control.md`](doctrine/subagent-control.md) § A.15: only the spawner has a
+  clock (and the act that ends the run **retires** what it armed); notes come from inside the work;
+  age is read from artifacts and **never asked**; overdue has a named act and a named owner; pause
+  and done are **files**, so a human who cannot see the sessions can still stop them. Scoped to
+  **prompted** workers on purpose — a fleet of autonomous loops does not need the first item, so
+  the intervals are a setting with a default and never doctrine. Pointers from
+  [`contracts/liveness-watchdog.md`](contracts/liveness-watchdog.md) § 2 and
+  `.claude/roles/orchestrator.md`'s conductor's belt.
+
 - **Your PRDs' § Decision Log becomes a CITATION LIST, and a dangling `D-NN` citation now REDDENS
   `check-board.sh` — which your release gate reads.** Two things changed together.
 
@@ -183,6 +228,66 @@ columns and never the cards.*
 
 ### Added
 
+- **Progress records — `scripts/lib/progress-record.sh` and `process/contracts/progress-record.md`.**
+  Shipped scripts already announced their phases to stdout, in three different shapes, and **nowhere
+  a reader could open once the terminal had scrolled**. There is now one record shape, one place,
+  and it is **transient by construction**: `.progress-records/` (gitignored, one file per UTC day),
+  records expiring on a short TTL swept as a side effect of writing. *Nobody should ever have to dig
+  through old logs for anything* — durable insight stays in reports, the card's Activity log and
+  your change files.
+
+  **Four required fields — timestamp, actor, class, description — and everything else is an
+  OPTIONAL FIELD, never a different payload.** A reader that understands only those four reads every
+  record. That is the invariant worth knowing if you write your own producer or your own reader: a
+  format with a fork in the middle has to be learned twice.
+
+  **NOTHING IS REQUIRED OF YOU, AND THIS IS NOT UNDER Action required BECAUSE IT CANNOT BREAK YOU.**
+  It is never a gate and never a dependency: no gate's verdict, no script's exit status and no
+  script's output changes because a record was or was not written, and deleting
+  `scripts/lib/progress-record.sh` outright leaves every converted script byte-identical in stdout,
+  stderr and exit status. That is measured by ablation in the self-test harness, not asserted. **If
+  you never look at `.progress-records/`, nothing about your project changes** — though you may want
+  the ignore rule, which the shipped `.gitignore` carries.
+
+  **No role gains a reporting obligation.** The role-side record is written by `move-issue.sh`,
+  which was already handed the hat and the id as arguments — so attribution is assigned by the
+  caller rather than reported by the agent.
+
+  **Two producers are converted on purpose, and the rest of the population is deliberately left
+  alone**: `scripts/verify.sh` (per-gate start and outcome, plus one run summary — its summary
+  block is unchanged, since roles quote that block into reviews) and `scripts/move-issue.sh` (the
+  board transition, recorded after the push and never before). If you want to convert more, the
+  contract sheet's § 5a carries the derivation commands rather than a list to trust.
+
+- **`.claude/skills/orchestrate/SKILL.md` § Dispatch attribution** — what a watcher can read while a
+  run is still in flight, and **nothing in it is load-bearing**: omit any of it and the run is
+  unaffected, so there is nothing to migrate and nothing that breaks.
+
+  **Attribution is assigned by the dispatcher, never reported by the agent** — an agent that never
+  says which issue it is on cannot misreport it. The section's numbered clauses are the list, and each
+  has to pay off with nothing watching: **a `<verb>:<subject>` label on every dispatch**, where the verb names the seat
+  *and the round* (`dev`, `qa`, `dev-fix`, `qa2`, `park-qa` — the shape the shipped runners in
+  `.claude/workflows/` already pass, now written down rather than improvised) and the subject is one
+  of three kinds — a tracked id, an artifact path, or **a question**; **phases declared before the
+  first dispatch** rather than counted afterwards; **five lifecycle states** where `failed` and
+  `abandoned` are deliberately distinct, because both are "not running" and conflating them is how a
+  real failure reads as a tidy-up; **position reported as a step in a published sequence, never as a
+  percentage**; a **staleness threshold that is the project's seam, not a kit constant**, the same
+  refusal `scripts/notify/stall.sh` already makes; and the convention that **a script names its steps
+  as it begins them**, in whatever shape that script already uses.
+
+  **The `ask:` lane is the new kind.** A leg dispatched to *answer* something — derive a population,
+  take a measurement, return a verdict on a claim — produces an answer, not a diff, and is **done when
+  the question is answered, not when a file changes**. Dispatching one as a `dev` leg mis-states its
+  definition of done and gets it graded against a diff it was never going to produce.
+
+  **The five states are not a second outcome vocabulary.** They are lifecycle *positions*; the
+  RUN-OUTCOME list in `process/MANUAL.md` remains the sole authoring site for how a finished leg
+  ended, and the new section says so where it could be misread.
+
+  A scoped pointer was added to `.claude/roles/orchestrator.md` § Attribution, which until now
+  described only the post-hoc `[Dev]`/`[QA]` commit trail and said nothing about a leg still running.
+
 - **`process/doctrine/generality.md`** — a new doctrine sheet: **when one consumer's request may
   become everyone's rule.** It governs the moment a request arrives from someone who uses what you
   ship and you are deciding whether to change **the shipped thing** because of it.
@@ -224,6 +329,23 @@ columns and never the cards.*
   ruling that **a check that is mechanically decidable may be a gate; a check that is heuristic must
   be advisory, and must publish its own precision.** The relationship was documented from the
   contract end only; both ends are now wired.
+- **The self-test now DRIVES every exit code a shipped program publishes, and the set of programs it
+  checks is derived from the manifest rather than typed.** A program whose header declares a table of
+  two or more exit codes starting at `0` is telling every caller to **branch** on them, and until now
+  nothing drove one — an assertion that a run merely "failed" collapses exactly what a table exists to
+  distinguish. `scripts/test/run.sh`'s new `case_declared_exit_codes_are_driven` derives that
+  population, drives `scripts/notify/stall.sh` through every code it declares (moving / STALLED /
+  UNKNOWN / usage error), and **names the members it does not drive, with their codes**, in its own
+  result line — so the next program to publish a table appears there rather than going quiet. It also
+  proves the watchdog cannot be simplified into a local `git rev-parse`: a backdated checked-out tip
+  beside a fresh branch nobody checked out must still read as *moving*.
+
+  **No action required.** If you have edited `scripts/notify/stall.sh`, this case will now tell you:
+  a code added to ITS table with no arm driving it reddens, and so does a change that collapses two
+  of its answers into one. **For a program the case only DISCLOSES, the effect is different and worth
+  knowing:** add a code to such a program's table and the result line simply grows to name it — the
+  run stays green, because disclosure is not a gate. `scripts/test/run.sh` is not wired into
+  `scripts/verify.sh` and remains an on-demand tool.
 ### Changed
 
 - **The Dev → QA handoff now says which lane QA writes in: read and gate on the branch, write on

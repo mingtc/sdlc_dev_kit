@@ -277,6 +277,77 @@ named; here, you are the author about to create one. [`instruments.md`](instrume
 the consumer-side rule, where the operand belongs to an instrument; **this one binds the author
 deciding, before anything reads it, what one file is FOR.**
 
+### A.15 — A prompted worker cannot time itself: the cadence contract for peers you are not watching
+
+A worker that is **prompted** — it advances one burst per message and then stops — has a property
+that changes what a spawner owes it. **An idle prompted worker cannot send anything.** Not a
+heartbeat, not *"I am blocked"*, not *"still going"*, because **sending is an act and an idle
+session is not acting.** So two prompted workers that agree to keep each other informed **fall
+silent together, and the silence is indistinguishable from work.**
+
+[`../contracts/liveness-watchdog.md`](../contracts/liveness-watchdog.md) § 2 already owns the
+signal half — *the signal must be a by-product of work, not something a worker can emit*, and
+*liveness is artifact freshness and never the absence of news*. **What follows is the half it does
+not cover: what a spawner owes a SET of prompted peers over a task longer than one session.**
+
+**Scope, and it is narrow on purpose.** This binds **prompted** workers. A fleet of autonomous
+loops — workers that wake on their own clock — does not need item 1 and would find the cadence a
+tax, which by [`generality.md`](generality.md) § A.2 makes the **intervals a setting with a
+default and never doctrine.** State your own in § B; the numbered obligations below are the rule.
+
+1. **Only the spawner has a clock, and the act that ends the run retires it.** Arm the wake-ups
+   **before** spawning anything — an idle notice on every child, plus a recurring timer at roughly
+   half the cadence you expect notes at. *Why:* an idle child cannot tell you it is idle, so the
+   only clock in the system is yours.
+   **And the arming obliges a retirement:** the act that ends the run walks **an enumeration of
+   what it armed**, not a list of handles it happens to hold. A scheduled wake-up has no pid and no
+   session directory, so a teardown made of handles cannot reach it. That invariant is
+   [`../contracts/liveness-watchdog.md`](../contracts/liveness-watchdog.md) § 2 and § 3 — it is
+   cited here rather than restated because **arming without retiring is how this item was first
+   drafted**, and a sheet that tells you to arm and stops has shipped the asymmetry.
+2. **Every worker owes notes from INSIDE its work** — at each job boundary and at a stated
+   interval, whichever comes first. *Why:* the only signal a prompted worker can produce unasked is
+   one it produces **while acting**, so the note must ride on the work rather than wait for a gap.
+   **A note is not a question, and the two instructions are different:** *"do not stop to report
+   between jobs"* and *"go silent"* read alike to a worker told the first and cost a run the
+   second.
+3. **Age is read from ARTIFACTS, never asked.** Derive it from what the work leaves behind — the
+   shared log both sides write, committer dates across all refs, the newest commit's subject. Never
+   from a worker's answer to *"are you alive?"*, and never from a file's mtime: a status page
+   rewriting itself on a loop is permanently fresh and proves only that the loop runs.
+   *Why:* § A.4's rule, aimed at liveness — a self-report is not a measurement — and the party
+   likeliest to have stopped is the party you are asking.
+4. **Overdue has a NAMED ACT and a NAMED OWNER** — who pokes whom, with what words, at what
+   threshold. *Why:* a trigger nobody owns does not fire. An escalation written as *"someone should
+   check"* is a description of a hope.
+5. **Pause and done are FILES.** A stop is a file the workers read and a completion is a file they
+   write, both in a place a person can open. *Why:* the human supervising usually **cannot see the
+   sessions at all**, and a deliberately stopped pair must not read as a stalled one. A stop that
+   exists only inside a conversation cannot be exercised by anyone outside it.
+
+> **AND THE OBLIGATION MUST LIVE WHERE A SESSION THAT WAS NEVER PROMPTED WILL FIND IT.**
+> Item 2 is the one that fails this way, and it fails silently. An obligation delivered only in a
+> worker's opening instructions **is a conversation citing itself** — it binds the session that
+> received it and **evaporates at the next restart**, because the successor inherits the queue, the
+> repository and the board, and does not inherit the prompt.
+>
+> **Measured, on one pair across one restart boundary:** eight unprompted progress notes before the
+> restart and **none** after, from a successor that was neither idle nor failing — it landed work,
+> bounced a review, closed board asymmetries. It simply never knew it owed anyone a note, and
+> **nothing in the repository told it.** The two notes that eventually arrived came only after a
+> human poked it by hand, which is the spawner's clock covering for a contract that had lapsed.
+>
+> **So the cadence obligation is written into the project's own working agreement** —
+> `process/LOCAL-PROCEDURES.md`, minted on day one ([`../SEED.md`](../SEED.md) step 8) — as a line
+> the session-start read order surfaces. The kit ships that line; § B names where yours went.
+> *This is the kit's own law about rulings applied to obligations:* a conversation may not be its
+> own evidence, which is why `DECISIONS.md` exists rather than a memory of what was agreed.
+>
+> **What would falsify this:** a project whose workers reliably keep the cadence across restarts
+> **without** the working-agreement line — which would mean the prompt was never the only carrier
+> and the line is ceremony. The cheap test is the one that produced the measurement above: restart a
+> worker mid-queue, hand it nothing, and read the log for a note it owed.
+
 ---
 
 ## § B — Your fleet's instance — **fill this in**
@@ -295,7 +366,12 @@ deciding, before anything reads it, what one file is FOR.**
    — with the reason for each placement. `<fill-in>`
 5. **Your resume policy** (§ A.8): which of your work classes have external effects, so a resume is
    decidable rather than argued. `<fill-in>`
-6. **Your own § C.** It will be more convincing to your team than the one below.
+6. **Your cadence, if your workers are prompted** (§ A.15) — the note interval and the wake-up
+   interval, **where the note is written**, who pokes an overdue worker and with what words, and the
+   paths of the pause and done files. **And the line in your working agreement that carries the
+   worker's half**, named by path, because § A.15's whole point is that this one may not live in a
+   prompt. `<fill-in>`
+7. **Your own § C.** It will be more convincing to your team than the one below.
 
 ---
 
@@ -317,6 +393,8 @@ deciding, before anything reads it, what one file is FOR.**
 | Coordinator commands were issued against tooling whose interface was assumed rather than read | Work silently not done; a record claiming an action that never happened | §§ A.6, A.13: read the interface; refusals at the seam; measure the surface you act on |
 | Reviewers repeatedly found a **guard's reach smaller than its documentation claimed** | Several defects hid behind green checks | § A.3: ask for the guard to be watched failing **on the exact shape it polices** |
 | Consolidation of findings into work items was done by one party, unreviewed | A fabricated cost attached to the highest-value item; the flagship finding omitted entirely | [`dogfooding.md`](dogfooding.md) § A.14: have the judgement layer attacked by someone who did not produce it |
+| Two prompted sessions each waited for the other to speak first | Half a working day lost; the silence looked exactly like progress from outside | § A.15: only the spawner has a clock, and notes come from inside the work |
+| A restarted session inherited the queue and the board but not its predecessor's opening instructions | A cadence obligation lapsed silently; the successor worked correctly and reported to nobody | § A.15: the obligation lives in the working agreement — one delivered at session start is a conversation citing itself |
 
 **The single pattern behind most of the rows** — more useful than any individual one — is **a claim
 made where a measurement was available.** Asserted counts, assumed interfaces, inherited premises,

@@ -58,6 +58,21 @@ if [ ! -f "$SCRIPT_DIR/lib/usage.sh" ] || ! . "$SCRIPT_DIR/lib/usage.sh" \
     echo " rendered. Restore it:  git checkout -- scripts/lib/usage.sh)" >&2
   }
 fi
+
+# ── THE PROGRESS RECORD — OPTIONAL, AND OPTIONAL IS THE CONTRACT, NOT A HEDGE.
+#    This runner's phases already print to stdout; the record is the half that
+#    survives the scrollback. `process/contracts/progress-record.md` is the sheet.
+#
+#    THE STUB IS WHY THIS IS NOT A DEPENDENCY. If the library is absent — a partial
+#    checkout, a consumer who deleted it — every call below becomes a no-op and the
+#    gates run exactly as they did before. NOTHING here may change a gate's verdict,
+#    this script's exit status, or its summary block, and nothing does: kit_progress
+#    always returns 0 and is never read.
+# shellcheck source=lib/progress-record.sh
+if [ ! -f "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progress-record.sh" \
+   || ! command -v kit_progress >/dev/null 2>&1; then
+  kit_progress() { :; }
+fi
 cd "$REPO_ROOT"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -462,11 +477,14 @@ run_gate() {
   echo
   echo "── GATE: $name"
   echo "   \$ $*"
+  # The actor is this script, not a role: no hat is worn to run a gate.
+  kit_progress "verify.sh" status "GATE: $name" "gate=$name" "event=start"
   local rc=0
   "$@" || rc=$?
   if [ "$rc" -eq 0 ]; then
     RESULTS+=("PASS  $name")
     PASSED=$(( PASSED + 1 ))
+    kit_progress "verify.sh" status "GATE PASSED: $name" "gate=$name" "event=end" "outcome=pass" "rc=0"
   elif [ "$rc" -eq 127 ] || [ "$rc" -eq 126 ]; then
     # UNRUNNABLE IS NOT FAIL, AND BOTH ARE RED. 127 is "command not found", 126
     # is "found but not executable" — in both the gate NEVER EXECUTED, so nothing
@@ -482,6 +500,10 @@ run_gate() {
     # to run, so the one command everybody must run fails there and says "FAIL".
     RESULTS+=("UNRUNNABLE  $name (rc=$rc — the command never executed; NOTHING was measured)")
     UNRUNNABLE=$(( UNRUNNABLE + 1 ))
+    # `warning`, NOT `error`, and for the same reason the line above is not spelled
+    # FAIL: nothing was measured, so an UNKNOWN is not a measured failure. A reader
+    # filtering the records on `error` must not be sent to the tree by this row.
+    kit_progress "verify.sh" warning "GATE COULD NOT RUN: $name" "gate=$name" "event=end" "outcome=unrunnable" "rc=$rc"
     {
       echo "verify.sh: gate '$name' could NOT RUN (rc=$rc). This is not a test failure —"
       echo "  nothing was measured. Check the command's interpreter/binary path:"
@@ -496,6 +518,7 @@ run_gate() {
   else
     RESULTS+=("FAIL  $name (rc=$rc)")
     FAILEDN=$(( FAILEDN + 1 ))
+    kit_progress "verify.sh" error "GATE FAILED: $name" "gate=$name" "event=end" "outcome=fail" "rc=$rc"
     FAILED=1
   fi
 }
@@ -572,4 +595,14 @@ if [ "$SCOPED" -eq 1 ]; then
   echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s). NOT the full-gate claim, and the floor is only as complete as that declaration."
 fi
 [ "$UNRUNNABLE" -gt 0 ] && echo "NOTE: $UNRUNNABLE gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."
+
+# THE RUN SUMMARY AS ONE RECORD. Written AFTER the summary block and changing not one
+# line of it: that block's shape is contractual (roles quote it into reviews) and this
+# addition is forbidden from touching it. The counts are the SAME accumulators the
+# block printed, so the record cannot disagree with the lines above it.
+kit_progress "verify.sh" "$([ "$FAILED" -eq 0 ] && echo status || echo error)" \
+  "run finished — $(( PASSED + FAILEDN )) of ${#GATES[@]} gate(s) ran, $PASSED passed, $FAILEDN failed, $UNRUNNABLE could not run, $SKIPPED skipped" \
+  "event=summary" "declared=${#GATES[@]}" "passed=$PASSED" "failed=$FAILEDN" \
+  "unrunnable=$UNRUNNABLE" "skipped=$SKIPPED" "scoped=$SCOPED" "exit=$FAILED"
+
 exit "$FAILED"

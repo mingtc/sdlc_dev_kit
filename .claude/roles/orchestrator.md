@@ -195,6 +195,13 @@ hash check caught in seconds:
    re-measured. A leg silent past its class's expected budget gets ONE poll, then is declared
    dead → salvage-then-resume. **Never relay a leg's self-report as a measurement** — the
    belt exists because self-reports miss what instruments catch.
+   **And the clock for that budget is YOURS.** A prompted leg cannot tell you it has gone idle —
+   sending is an act — so arm the wake-ups before you dispatch, require notes from inside the
+   work rather than between jobs, and name who pokes whom when one is overdue. The obligations,
+   including the one that must live in `process/LOCAL-PROCEDURES.md` because a restarted session
+   never receives your dispatch, are
+   [`process/doctrine/subagent-control.md`](../../process/doctrine/subagent-control.md)
+   § A.15.
 
 ### One long session is correct
 
@@ -505,6 +512,24 @@ scheme:
 
 `git log --grep '\[Dev\]'` / `'\[QA\]'` accountability is unchanged — whether a human or the
 orchestrator invoked the scripts, the prefixes and Activity logs are identical.
+
+### Dispatch attribution is a SECOND thing, and it is answerable while the run is still in flight
+
+The prefixes above are the audit trail **after** a leg lands. They say nothing about a leg that is
+still running, so ten dispatched legs are ten anonymous processes unless **you** say what each one
+is at dispatch — the agent must never be the one to say, or the claim becomes a self-report and the
+belt's own rule (§ The conductor's belt: *instruments beat testimony*) is broken at its source.
+
+**Four questions — which issue, which role, is it alive, what comes next — and all four are the
+dispatcher's to answer in advance.** The binding form is the procedure's: read
+[`.claude/skills/orchestrate/SKILL.md`](../skills/orchestrate/SKILL.md) § Dispatch attribution for
+the `<verb>:<subject>` label contract, the phase declaration, the five lifecycle states (where
+`failed` and `abandoned` are deliberately distinct from each other and from a landed leg's
+RUN-OUTCOME), and the refusal to render a position as a percentage.
+
+**None of it is load-bearing, and that is deliberate.** Nothing consumes these beyond a reader;
+omitting one costs legibility, never correctness. Do not build anything that breaks when a label is
+missing.
 
 ## Worktree / trunk discipline
 

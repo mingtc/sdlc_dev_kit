@@ -86,6 +86,13 @@ your answer to the absence half is *N/A*, the answer is wrong — there is no pr
   run is proven by something measurably changing; nothing else counts.
   *Why:* a hung run and a healthy quiet run emit exactly the same thing, which is nothing, so
   "no complaints" is not a signal at all.
+  **Where the watched thing is a PROMPTED AGENT SESSION, this invariant has a second edge and it
+  is the sharper one:** such a session cannot emit anything while idle, because sending is an act.
+  So it cannot report the one state you need — that it has stopped — and two of them watching each
+  other go quiet together. What a spawner owes a set of them (only the spawner has a clock; notes
+  from inside the work; overdue with a named owner; pause and done as files; and the obligation
+  written where an unprompted successor will find it) is
+  [`../doctrine/subagent-control.md`](../doctrine/subagent-control.md) § A.15.
 - **The watched signal MUST be one that actually moves mid-run.** Choose it by asking *what
   changes while this is working?* and confirm that it does before trusting it.
   *Why:* a watchdog keyed on something that cannot move is not a watchdog; it is a scheduled

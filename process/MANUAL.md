@@ -598,6 +598,35 @@ backend's credentials) in the environment file and add the `Notification` hook f
 only when a backend is configured; **nothing here is required for the process to work.**
 Contract: [`contracts/notification.md`](contracts/notification.md).
 
+## Progress records (optional) — where a phase goes after the scrollback
+
+Several shipped scripts already announce their phases to stdout. **Nothing wrote them anywhere a
+reader could open once the terminal had scrolled**, which is the whole gap this closes: a
+maintainer watching a long run wants *which phase, how long, what is left*, and that was available
+only by staring at a terminal, and only while it was open.
+
+`scripts/lib/progress-record.sh` appends one line per event to `.progress-records/` (gitignored,
+one file per UTC day). **Four required fields — timestamp, actor, class, description — and
+everything else is an OPTIONAL FIELD rather than a different payload**, so a reader that
+understands only those four reads every record. `kit_progress_tail` prints the recent ones.
+
+**Three properties, and each is load-bearing rather than decorative:**
+
+- **Transient by construction.** Records expire on a short TTL, swept as a side effect of writing.
+  *Nobody should ever have to dig through old logs for anything* — durable insight stays in
+  reports, the card's Activity log and change files. Wanting to keep one means wanting a card.
+- **Never a gate, and never a dependency.** No gate's verdict, no script's exit status and no
+  output changes because a record was or was not written. Delete the library and every converted
+  script behaves identically.
+- **Converged on two producers on purpose** — `verify.sh` and `move-issue.sh`. The rest of the
+  population is deliberately unconverted until a run has exercised the format; widen from the
+  derivation in the contract sheet's § 5a, not from memory.
+
+**No role gains a reporting obligation.** The role-side record is written by the board mover,
+which was already given the hat and the id as arguments — so attribution is assigned by the
+caller rather than reported by the agent, which is the only version an agent cannot get wrong.
+Contract: [`contracts/progress-record.md`](contracts/progress-record.md).
+
 ## The measurement rituals (optional) — three ways to find out whether this is working
 
 Everything above tells you how work moves. **None of it measures whether the result is any good to
@@ -695,7 +724,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | § The default path is lite — and the orchestrator role doc's run-plan duties |
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
 | [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | Here — and `doctrine/subagent-control.md`, which item 2 names |
-| [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one and it is not close; contradictory demands return *nothing* rather than a compromise; a returned report is a claim that carries its own evidence or is re-measured; a resume is only safe for work without side effects; a deferred decision is named inside every item whose scope touches it; hand off while sharp, not while failing — **and at the stop you did not choose, where what a handoff owes is an enumeration of what is HELD**; and **a file that means two things has no correct writer**, so a second consumer earns a second artifact rather than a cleverer query. | § Execution discipline, item 2 |
+| [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one and it is not close; contradictory demands return *nothing* rather than a compromise; a returned report is a claim that carries its own evidence or is re-measured; a resume is only safe for work without side effects; a deferred decision is named inside every item whose scope touches it; hand off while sharp, not while failing — **and at the stop you did not choose, where what a handoff owes is an enumeration of what is HELD**; and **a file that means two things has no correct writer**, so a second consumer earns a second artifact rather than a cleverer query. **And the cadence a spawner owes PROMPTED peers** — an idle prompted session cannot emit anything, so silence from it is indistinguishable from work: only the spawner has a clock, notes come from inside the work, age is read from artifacts and never asked, overdue has a named act and a named owner, pause and done are files — **and the obligation is written into the project's working agreement, because one delivered only at session start is a conversation citing itself and dies at the next restart.** | § Execution discipline, item 2 |
 | [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you.** | Here |
 | [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
 | [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output** — where naming the operand set stops one step short, so it must be **derived from the subject, derived a second time by a looser reading, and the two compared**, with the remainder named rather than dropped. And a value the instrument compares against is derived or does not exist: **a check you can satisfy by editing the answer is not one**. For an instrument that only REPORTS — one that always exits 0, so there is no red to ablate — **the control must execute on every run and appear in the instrument's own output**, and the unit it binds is the predicate, not the file. | § Execution discipline, item 3 |

@@ -52,6 +52,14 @@ Thumbs.db
 # both root-anchored, and nothing shipped writes either — so they are gone rather than
 # left looking load-bearing.
 #
+# the progress records: scripts/lib/progress-record.sh appends one TSV per UTC day
+# whenever a shipped script or a board move calls kit_progress. TRANSIENT BY
+# CONSTRUCTION — the library unlinks day files past KIT_PROGRESS_TTL_DAYS (default 2)
+# on every write, and durable insight stays in reports, the card's Activity log and
+# change files. Nobody should ever have to dig through old logs for anything, so a
+# record that survives into a commit is the defect, not the convenience.
+.progress-records/
+
 # the brainstorming skill's per-session tree: it writes <root>/.brainstorm/<id>/
 # (content + state, including state/server.log) whenever PROJECT_DIR is set, and only
 # falls back to the system /tmp when it is not.

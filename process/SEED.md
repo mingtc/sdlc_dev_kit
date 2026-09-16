@@ -113,6 +113,35 @@ will not remember them on day two.
 workaround inside twelve hours, and the audit found a **third** convention that had accreted with
 no friction entry at all — tribal knowledge growing inside a kit built to eliminate it.)*
 
+### The one line to seed it with, if you will ever run agents in parallel
+
+**Copy this in on day one, under a second heading, even if the register above is empty.** It is
+not a resolved contradiction — it is the one standing obligation that **cannot be carried by a
+session's opening instructions**, because the session that needs it most is the one that was never
+given any.
+
+```markdown
+## Standing obligations — these bind EVERY session, including one nobody briefed
+
+- **If you are working a queue while anyone else waits on you, write a one-line progress note
+  at every job boundary and at least every `<interval>` — into `<the shared log or channel>`.**
+  A note is not a question and it does not pause your work. You cannot be asked for it: an idle
+  session cannot send anything, so silence from you is indistinguishable from work.
+```
+
+**Why it lives here and not in the prompt that starts a session.** An obligation delivered only at
+session start **is a conversation citing itself** — the same reason `DECISIONS.md` exists rather
+than a memory of what was agreed. It binds the session that heard it and evaporates at the next
+restart, and the successor inherits the queue, the board and the repository but **not the prompt**.
+Measured on one pair across one restart: eight unprompted notes before, none after, from a
+successor that was working fine and simply did not know it owed anyone one. The doctrine — this
+line is the worker's half, and the spawner's obligations sit beside it — is
+[`doctrine/subagent-control.md`](doctrine/subagent-control.md) § A.15.
+
+**Skip it honestly if it does not apply.** A project where no session ever waits on another does
+not need the line, and adding it would be ceremony. **A project that runs agents in parallel and
+skips it will not find out until a restart, which is the expensive way.**
+
 ---
 
 ## Why the order is what it is
@@ -188,7 +217,9 @@ you want to know how a stranger meets what you shipped.
   [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md); this bullet is that list, read as
   a checklist;
 - `process/LOCAL-PROCEDURES.md` exists and holds **every kit contradiction day one resolved**
-  (step 8's closing act — two lines is a pass; zero means they went into someone's head);
+  (step 8's closing act — two lines is a pass; zero means they went into someone's head) — **and,
+  if sessions here will ever run in parallel, the standing-obligations line step 8 seeds**, because
+  that one cannot be carried by a prompt;
 - **one** issue has gone `todo → in_progress → dev_complete → qa_complete` with its evidence in its
   own Activity log.
 

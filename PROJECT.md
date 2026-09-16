@@ -114,6 +114,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | Liveness (ii) — ABSENCE: has work stopped moving? **N/A is not a legal answer here** | `<what reads the remote's freshest ref, at what threshold, and who it reaches>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) § 2a |
 | The acceptance tier (a lens, never a gate — **no shipped implementation**) | `<how membership is marked in your runner — or "not adopted">` | [`process/contracts/acceptance-tier.md`](process/contracts/acceptance-tier.md) |
 | Retention completeness (only if you retire documents under a ledger) | `<e.g. the pre-commit hook — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
+| The progress record (optional — a no-op when its writer is absent, never a gate) | `<where transient progress records go — e.g. .progress-records/, or "not adopted">` | [`process/contracts/progress-record.md`](process/contracts/progress-record.md) |
 
 **One row per contract sheet — the whole of
 [`process/contracts/`](process/contracts/README.md).** **The directory is the authority for the row

@@ -127,6 +127,123 @@ todos surfaced for PM**, plus the conductor's-belt readings per leg. Then run th
 session-end checklist. A run that closes a launch pack stamps that pack in the same change as
 the report.
 
+## Dispatch attribution — what a watcher can read while the run is in flight
+
+**The problem this solves:** ten legs in flight are ten anonymous processes unless the dispatcher
+says what each one is. **Attribution is assigned by the dispatcher, never reported by the agent** —
+which is the property worth keeping, because an agent cannot misreport which issue it is on if it
+never says. The dispatcher already knew; it writes it down. (Same shape as the belt's rule that
+instruments beat testimony, role doc § The conductor's belt.)
+
+**Every clause below must pay off with nothing watching.** That is the test, not whether something
+reads it: a label makes the CLI legible, a declared phase list makes the plan checkable, a recorded
+step makes the post-mortem evidence rather than recollection. **A field that exists only to feed a
+viewer fails this test and does not belong here.**
+
+### 1. Every dispatch carries a label, `<verb>:<subject>`
+
+**The verb names the seat and the round** — `dev`, `qa`, `dev-fix`, `qa2`, `park-qa` are what the
+shipped runners in [`.claude/workflows/`](../../workflows/) already pass, and that is the
+convention: the round is part of the verb because *a second QA pass after a fix* and *a first QA
+pass* are different facts about where the run stands. Do not flatten them into a generic verb; the
+flattening is what loses the answer to "which role, and how many times has this bounced".
+
+**The subject is one of three kinds, and a dispatcher that cannot name which kind it has is
+improvising:**
+
+| kind | the subject is | example |
+|---|---|---|
+| a tracked item | its id | `dev:<PREFIX>-042` |
+| a named artifact | its path | `refactor:<path/to/the/file>` |
+| **a question** | the question, briefly | `ask:<the-question-in-a-few-words>` |
+
+**The third kind is the one with no home today, and it is a real kind rather than a catch-all.** A
+leg dispatched to *answer* something — derive a population, take a measurement, return a verdict on
+a claim — produces an ANSWER, not a diff, and **it is done when the question is answered, not when a
+file changes.** Calling that a `dev` leg mis-states its definition of done, which is how such a leg
+gets graded against a diff it was never going to produce.
+
+**The honest gap, stated rather than solved:** a question's subject is free text and free text
+drifts. Keep it short and accept it. The alternative is minting ids for questions, which is ceremony
+for something usually answered once and never cited again.
+
+### 2. Phases are declared before the first dispatch, not counted afterwards
+
+The runner's `meta.phases` is the declaration — *what comes next* is then a statement of intent a
+reader can check, rather than a shape inferred from however many groups happened to open. **A
+declared phase that never opens is visible; an undeclared group that opens is not**, which is why
+the declaration is the artifact and the count is not.
+
+### 3. Every level declares a state, and the two terminal failures are distinct
+
+A position without a terminal state cannot be read: *step 4 of 7* says nothing about whether the
+work is alive, finished, failed or abandoned, and an agent that crashed looks exactly like an agent
+still thinking.
+
+| state | meaning | how it is decided |
+|---|---|---|
+| `planned` | declared, not started | in the plan, no start record |
+| `running` | started, no terminal record | started, nothing terminal yet |
+| `done` | finished, succeeded | its own terminal record |
+| **`failed`** | finished, did not succeed | **distinct from `done`, and stays visible** |
+| **`abandoned`** | descoped or superseded | **distinct from `failed`** |
+
+**`failed` and `abandoned` are the pair that matters.** Both are "not running", and conflating them
+is how a real failure is read as a tidy-up. A failed node stays until somebody acknowledges it; an
+abandoned one is a deliberate act and says so.
+
+**This is NOT a second outcome vocabulary, and the distinction is load-bearing.** These five are
+**lifecycle positions** — where a node is. The RUN-OUTCOME vocabulary in
+[`process/MANUAL.md`](../../../process/MANUAL.md) § The RUN-OUTCOME vocabulary is **the summary of a
+finished leg**, composed from a verdict and a landing, and that section is its sole authoring site.
+A leg in state `done` still has a RUN-OUTCOME; a leg in state `running` does not have one yet.
+**Never encode an outcome as a state or a state as an outcome** — if what you want to say is *how a
+leg ended*, the vocabulary is that list and not this one.
+
+### 4. Report position as a step in a published sequence — never as a percentage
+
+**Steps-completed-over-steps-declared is a fact; rendering it as a percentage is a claim about
+remaining TIME, and it will be wrong in the flattering direction.** The steps are not equal — a leg
+whose gate run dwarfs the six steps around it will sit at the same number for a long time, and a bar
+that stalls at 85% manufactures an expectation of imminence until the watcher stops watching.
+
+The line to write instead needs no estimate and is strictly more useful:
+
+```
+qa:<PREFIX>-042 — step 4 of 7 (adversarial re-read) · 6m on this step · 23m total
+```
+
+*"Six minutes on a step that usually takes one"* is actionable; *"57%"* is not.
+
+**A step number is checkable, which is why this is not a role grading itself.** The sequences are
+already published and enumerable — the seven-step Dev → QA boundary in
+[`process/MANUAL.md`](../../../process/MANUAL.md) § The Dev → QA handoff, and each role doc's own
+Definition of Done. A leg claiming *step 9 of 7* is visibly wrong. That is a different class from a
+leg estimating how well it is doing.
+
+**Estimation can be EARNED later, and only from accumulated per-step timings** — *step 4 is p90 at
+8 minutes and this one is at 14* is a measurement. A weight hardcoded now would be the borrowed
+number [`process/doctrine/rigor-tiers.md`](../../../process/doctrine/rigor-tiers.md) refuses.
+
+### 5. Liveness has a threshold, and the threshold is the project's
+
+*Alive* is decidable; *stalled* is not — a leg running the full gate is legitimately silent for
+minutes. **Any staleness threshold is a declared seam with a project default, never a kit
+constant**, which is the same refusal [`scripts/notify/stall.sh`](../../../scripts/notify/stall.sh)
+makes when it requires `--quiet-minutes` and supplies none.
+
+### 6. A script announces its phases; it needs no new mechanism
+
+**A role dispatches agents; a script runs steps**, and the second case needs no new mechanism: a
+script that names each step as it begins is readable at the CLI with nothing added, and that
+readability is the whole justification. **The shipped scripts already do this, in their own shapes
+rather than one** — `verify.sh` prints `── GATE: <name>` per declared gate, `check-board.sh` prefixes
+every arm's line with its letter. **Match the script's existing shape; do not impose a common one**,
+because the value is a legible transcript, not a parseable format. **Do not stream per-assertion
+results**: a suite with five-digit assertion counts reports at the granularity its harness already
+emits, and at that scale the useful signal is not progress but **the first failure**, which is
+already greppable.
+
 ## Scaling notes
 
 - **N=1** → a single planning agent in Phase 1 and a single-item pipeline in Phase 2.

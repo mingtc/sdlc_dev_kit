@@ -143,6 +143,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
+# ── THE PROGRESS RECORD — OPTIONAL. `process/contracts/progress-record.md` is the sheet.
+#
+#    WHY THIS SCRIPT IS THE ROLE-SIDE CONSUMER AND THE ROLE DOC IS NOT. A role's
+#    lifecycle transition ALREADY passes through here: `--role` names the hat,
+#    the id names the issue, the target names the new state. So the record's
+#    `<role>:<issue-id>` actor is ASSIGNED BY THE CALLER rather than reported by the
+#    agent — which is the only version of this that a tired or adversarial agent
+#    cannot get wrong, and the reason no role doc gains a reporting obligation here.
+#
+#    GUARDED for the same reason role-set.sh above is: this file runs `set -euo
+#    pipefail`, so an unguarded `.` of a missing library would abort — and on the
+#    usage path, which contracts/issue-creation.md § 3 says must always succeed.
+#    Absent the library, the stub makes every call a no-op and the move is unchanged.
+# shellcheck source=lib/progress-record.sh
+if [ ! -r "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progress-record.sh" \
+   || ! command -v kit_progress >/dev/null 2>&1; then
+  kit_progress() { :; }
+fi
+
 usage() {   # the path is an ARGUMENT — see lib/usage.sh
   local roles tok='@ROLE_SET@'
   if command -v kit_role_display >/dev/null 2>&1; then
@@ -623,6 +642,23 @@ echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published.
 # reporting success on a commit that never reached the remote.
 kwt_finalize || exit 1
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
+
+# THE RECORD, AFTER THE PUSH AND NOT BEFORE. A transition recorded before it is
+# published is a record of an intention — and the push is exactly the step that can
+# fail, which is why the line above it is `|| exit 1`. Placed here, the record can
+# only ever describe something that reached the trunk.
+#
+# THE TWO OPERATIONS KEEP THEIR OWN WORDING but NOT their own SHAPE: a note-only
+# append and a move are different acts, so their descriptions differ and `event`
+# tells them apart — but both are the same four required fields plus optional
+# extras, which is the whole point of the format.
+if [ "$NOTE_ONLY" -eq 1 ]; then
+  kit_progress "${ROLE}:${ISSUE_ID}" info "noted on ${ISSUE_ID}: ${NOTE}" \
+    "event=note" "issue=${ISSUE_ID}" "role=${ROLE}" "sha=${KWT_LANDED_SHA:-$SHA}"
+else
+  kit_progress "${ROLE}:${ISSUE_ID}" status "${ISSUE_ID} → ${TARGET}: ${NOTE}" \
+    "event=move" "issue=${ISSUE_ID}" "role=${ROLE}" "to=${TARGET}" "sha=${KWT_LANDED_SHA:-$SHA}"
+fi
 # AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
 # match — the normal case — and under `set -e` that is an abort AFTER a successful
 # landing, which is the precise hazard the ungated-landing review found. Caught by the

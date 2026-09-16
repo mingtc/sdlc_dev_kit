@@ -231,3 +231,4 @@ gate is pure git: it does not call a forge CLI, so nothing in the core path brea
   an instance, **keep the pattern and keep the why** — that is the supersession law
   ([`process/doctrine/supersession.md`](process/doctrine/supersession.md)), and it applies to this
   kit's own documents as much as to your project's.
+
