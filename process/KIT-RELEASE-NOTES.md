@@ -92,7 +92,31 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **`process/doctrine/generality.md`** — a new doctrine sheet: **when one consumer's request may
+  become everyone's rule.** It governs the moment a request arrives from someone who uses what you
+  ship and you are deciding whether to change **the shipped thing** because of it.
+
+  Four questions, and the second carries the weight: **would the opposite request be equally
+  reasonable from a different consumer? If yes it is a SETTING, not a rule** — and the answer to a
+  setting is a **declared seam with a default**, never a change to shipped behaviour. The sheet
+  requires you to *name* the consumer who would want the opposite, because *"someone might disagree"*
+  is available about every rule ever written and therefore refuses nothing. The other three: is the
+  evidence one consumer or several (the weakest, and it sets the burden of proof rather than deciding
+  the outcome); does the argument survive the donor being **anonymous**; and **what would falsify it**.
+  Two further clauses: a **held** request is recorded with the observable event that would release it,
+  and none of this may be **wired as a gate** — no check in your repository knows what a different
+  consumer would want.
+
+  **The counter-case has equal weight and is stated before § A**: over-applying this produces a
+  product that learns nothing. **The test is not *how many consumers* — it is *does the argument need
+  this consumer*.** A reviewer who reads the sheet as *"one consumer means no"* is reading it wrong.
+
+  **Nothing you run changes, and there is no new gate.** § B is a fill-in table for your own project —
+  who your consumers are, where a disposition is recorded, what a seam looks like in your tree — and
+  the sheet tells you to delete § B wholesale if your project ships to nobody. Its § C states its own
+  evidence base, which is thin and says so; expect the sheet to be tuned as more consumers arrive.
 
 ## [0.5.0] — 2026-09-15
 
