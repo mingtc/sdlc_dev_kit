@@ -195,7 +195,7 @@ kit_progress() {
   local extra=""
   case "$class" in
     status|info|warning|error) ;;
-    *) extra="declared-class=$(_pr_clean "$class")"; class="info" ;;
+    *) extra="declared-class=$(_pr_tok "$class")"; class="info" ;;
   esac
 
   # THE ACTOR HAS A SHAPE, AND IT IS ENFORCED THE SAME WAY — written, never refused and

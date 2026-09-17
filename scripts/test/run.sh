@@ -37,6 +37,35 @@
 #   is torn down after each case. A failing case cannot mutate the real repo, and
 #   case_isolation proves that rather than asserting it.
 #
+# ONE INSTANCE PER MACHINE — AN ASSUMPTION THIS HARNESS DOCUMENTS RATHER THAN A CAUSE IT KNOWS.
+#   Run one copy of this harness at a time. Two concurrent runs may collide in the sandbox EVEN
+#   AGAINST SEPARATE TREES AND SEPARATE BARE REMOTES, which is the configuration in which it was
+#   observed: of two runs started in parallel, one finished normally and the other aborted
+#   mid-suite with a FIXTURE FAILURE naming a sandbox file that did not exist. Re-run alone, in
+#   the same tree, that second run completed normally — so the tree was not the cause.
+#
+#   THE CAUSE IS NOT DERIVED, AND THIS PARAGRAPH IS NOT A DIAGNOSIS. It was seen once, on one
+#   machine, on one pair of runs. `make_sandbox` takes a fresh `mktemp -d`, which should not
+#   collide, and `teardown` removes `$SB_TMP`, a global that every `make_sandbox` reassigns —
+#   both are READ from the source below, and NEITHER HAS BEEN MEASURED against this failure. A
+#   host-level cause (temp-dir reaping, a git config lock) is equally unexcluded. Do not read
+#   this block as saying which it is.
+#
+#   IT IS WRITTEN DOWN BECAUSE THE RED IS OTHERWISE UNATTRIBUTABLE, NOT BECAUSE IT IS DANGEROUS.
+#   The failure direction is the safe one: the run that failed ABORTED, loudly, naming the
+#   missing sandbox file, rather than reporting a green it had not earned. That is a statement
+#   about the ONE OBSERVED FAILURE and not a guarantee about every collision, which nothing here
+#   has measured. What costs is a reader meeting that red with no way to tell it from a real
+#   defect, because the natural response — re-run it — makes it vanish, which is the shape of a
+#   flake. That is why the remedy here is a sentence and not a mechanism.
+#
+#   THIS IS NOT WHAT `case_isolation` ASSERTS, AND THE TWO ARE DELIBERATELY SEPARATE. That case
+#   asserts the REAL REPOSITORY's HEAD and working tree are unchanged across a run — isolation
+#   FROM this harness TO the repository it is run in. This paragraph is about isolation of the
+#   harness from ANOTHER INSTANCE OF ITSELF: the opposite direction, a different subject and a
+#   different failure. Folding them would put two properties under one verdict, so a red would
+#   no longer say which of them broke.
+#
 # NOTHING HERE HARD-CODES A PREFIX OR A TRUNK NAME
 #   Both are DERIVED from the seams (scripts/config.sh's ISSUE_PREFIX,
 #   kanban-worktree.sh's KWT_TRUNK_LAST_RESORT, this repo's own <remote>/HEAD), so
@@ -1489,6 +1518,70 @@ case_progress_record_is_one_shape_and_optional() {
     # so a reader tokenising the extras field sees a key nobody wrote.
     awk -F'\t' '$5 ~ /declared-actor=[^ ]* / && $5 !~ /declared-actor=[^ ]*$/ {n=split($5,p," "); for(i=1;i<=n;i++) if (p[i] !~ /=/) bad=1} END{exit bad?1:0}' "$bogusdir"/*.tsv 2>/dev/null \
       || cf "a preserved actor value was not collapsed to one token — whitespace inside it split the extras field into a key=value nobody wrote"
+  fi
+
+  # ── THE CLASS ARM, ONE COLUMN OVER, AND THE SAME TOKEN RULE. contracts/progress-record.md
+  #    § "Reserved extra keys" declares `declared-class=` as *the offered class, normalised to
+  #    one token*, for the reason stated there: extras are read back by splitting the field on
+  #    spaces, so whitespace inside a preserved value splits one key into two and hands a
+  #    reader a `key=value` nobody wrote. The actor side was given that shape first; this is
+  #    the class side asserted to the same standard rather than left to a second reading.
+  #
+  #    BOTH DIRECTIONS ARE DRIVEN FROM ONE POPULATION, and the NEGATIVE is the one that
+  #    matters: this arm cleans EVERY unrecognised class, so a change here that mangled a
+  #    whitespace-free value would corrupt the common case to fix the rare one.
+  local classdir="$SB_TMP/records-class"
+  (
+    cd "$SB_WORK" || exit 1
+    # shellcheck source=/dev/null
+    . ./scripts/lib/role-set.sh
+    # shellcheck source=/dev/null
+    . ./scripts/lib/progress-record.sh
+    export KIT_PROGRESS_DIR="$classdir"
+    # The NEGATIVE half: unrecognised but whitespace-free. These must survive VERBATIM —
+    # a typo is preserved so it stays visible, which is the whole point of the arm.
+    kit_progress "Dev:C-1" "typo"      "unrecognised, no whitespace — must be preserved verbatim"
+    kit_progress "Dev:C-2" "sta.tus"   "punctuation is not whitespace"
+    # The POSITIVE half: whitespace of each kind that reaches this arm, plus the boundary
+    # where the value collapses to nothing at all.
+    kit_progress "Dev:C-3" "bad class" "a space — the measured case"
+    kit_progress "Dev:C-4" "$(printf 'tab\tclass')" "a tab, which the column cleaner turns INTO a space"
+    kit_progress "Dev:C-5" "  padded  " "leading whitespace, which a trailing-only trim leaves"
+    kit_progress "Dev:C-6" ""          "no class at all — the empty boundary"
+    # ...and alongside another extra, where a split key corrupts its NEIGHBOUR too.
+    kit_progress "Dev:C-7" "bad class" "with a second extra" "gate=unit"
+  ) >/dev/null 2>&1
+
+  local ncls=0
+  [ -d "$classdir" ] && ncls="$(cat "$classdir"/*.tsv 2>/dev/null | grep -c . || true)"
+  # ASSERT THE OPERAND FIRST: seven calls, seven lines. Zero would make every check below
+  # vacuously green — nothing having been written.
+  if [ "${ncls:-0}" -ne 7 ]; then
+    _control_did_not_run "drive the class arm ($ncls record(s) produced, expected 7) — nothing below was measured"
+  else
+    # THE NEGATIVE CONTROL. An unrecognised class with no whitespace is preserved BYTE FOR
+    # BYTE. Asserted as equality against the value offered, not as "looks reasonable".
+    grep -q 'declared-class=typo$' "$classdir"/*.tsv 2>/dev/null \
+      || cf "a whitespace-free class was not preserved verbatim in declared-class= — the normaliser is rewriting the common case, which is worse than the split it fixes"
+    grep -q 'declared-class=sta\.tus' "$classdir"/*.tsv 2>/dev/null \
+      || cf "a whitespace-free class containing punctuation was altered — only WHITESPACE is collapsed"
+    # ...AND THE CLOSED SET NEVER REACHES THE ARM AT ALL.
+    awk -F'\t' '$3!="status" && $3!="info" && $3!="warning" && $3!="error" {bad=1} END{exit bad?1:0}' "$classdir"/*.tsv 2>/dev/null \
+      || cf "a record carries a class outside the declared set — the arm must rewrite the column to info, not pass the offered value through"
+
+    # THE POSITIVE. Every token in the extras field parses as `key=value`, on every line.
+    # This is the property the contract states, asserted directly rather than via a regex
+    # that only looks at the declared-class= key: a split corrupts the whole field.
+    awk -F'\t' '$5!="" {n=split($5,p," "); for(i=1;i<=n;i++) if (p[i] !~ /=/) bad=1} END{exit bad?1:0}' "$classdir"/*.tsv 2>/dev/null \
+      || cf "a class containing whitespace split the extras field into a token that is not a key=value pair — contracts/progress-record.md § Reserved extra keys requires a preserved value be collapsed to ONE TOKEN"
+    # ...AND NO KEY IS WRITTEN WITH NOTHING AFTER THE `=`. The contract requires a
+    # placeholder: an empty value is a key that looks answered and is not, which is the
+    # same defect the run= seam states for itself.
+    awk -F'\t' '$5 ~ /declared-class=($| )/ {bad=1} END{exit bad?1:0}' "$classdir"/*.tsv 2>/dev/null \
+      || cf "declared-class= was written with an empty value — the contract requires a placeholder, or the key looks answered and is not"
+    # ...AND THE NEIGHBOURING EXTRA SURVIVES INTACT.
+    grep -q 'gate=unit' "$classdir"/*.tsv 2>/dev/null \
+      || cf "a caller's own extra was lost beside a normalised declared-class= — the arm corrupted a neighbour"
   fi
 
   # ── § 5b, THE RESERVED `run=` EXTRA. The negative is the one that matters here too:

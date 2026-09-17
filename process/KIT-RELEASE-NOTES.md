@@ -389,6 +389,25 @@ columns and never the cards.*
   not wired into `scripts/verify.sh` and remains an on-demand tool.
 ### Changed
 
+- **`scripts/test/run.sh` is single-instance per machine, and its header now says so — run one copy
+  at a time.** Two concurrent runs may collide in the sandbox **even against separate trees and
+  separate bare remotes**, which is the configuration in which it was seen: of two runs started in
+  parallel, one finished normally and the other aborted mid-suite with a FIXTURE FAILURE naming a
+  sandbox file that did not exist. Re-run alone in the same tree, that run completed normally — the
+  tree was not the cause. **This matters to you if you parallelise**, from two terminals or a CI
+  matrix that runs the harness in more than one job at once.
+
+  **Nothing to do, and this is documentation rather than a fix.** The cause is **not derived** — it
+  was observed once, on one machine, and the candidate explanations are read from the harness's
+  source, not measured. The failure direction is the safe one: the run that failed **aborted loudly**
+  naming the missing file rather than reporting a green it had not earned, which is why this is
+  written down instead of mechanised. **What it costs is attribution, not correctness** — meeting
+  that red with nothing saying the harness is single-instance, the natural response is to re-run,
+  which makes it vanish and reads as a flake. The header paragraph exists so the next reader
+  attributes it in one step. **It is not what `case_isolation` asserts**: that case proves this
+  harness does not disturb the repository it runs in, the opposite direction from one instance
+  colliding with another.
+
 - **The Dev → QA handoff now says which lane QA writes in: read and gate on the branch, write on
   the trunk.** Step 3 sends QA to the work branch, and the review evidence it records goes into the
   issue file's Activity log — but the board mover has already edited that same card on the trunk,
