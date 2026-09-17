@@ -259,6 +259,34 @@ columns and never the cards.*
   board transition, recorded after the push and never before). If you want to convert more, the
   contract sheet's § 5a carries the derivation commands rather than a list to trust.
 
+- **The progress record's `actor` column now has a DECLARED SHAPE, and a run id you can group by —
+  `process/contracts/progress-record.md` § 5b.** Three of the four required columns were declared
+  well enough to filter on; `actor` was not — `<role>:<issue-id>` was a convention, so anything a
+  caller typed was equally acceptable and a reader filtering by agent was matching whatever each
+  call site happened to say. It is now two declared kinds: the role side, `<role>` or
+  `<role>:<issue-id>`, and the script side, `<name>.sh`.
+
+  **The role vocabulary is DERIVED FROM YOUR OWN `scripts/githooks/commit-msg`, never from a list
+  in the kit.** If you narrowed `ROLE_PREFIXES` on adoption, this column narrowed with it and there
+  is nothing to re-type. The match is case-sensitive, exactly as your commit-msg hook's is, so one
+  seat cannot end up spelled two ways in the same column.
+
+  **A run/session id rides as a declared EXTRA rather than a fifth column.** Set
+  `KIT_PROGRESS_RUN` and every record that process writes carries `run=<id>`, so an orchestrator
+  and the subagents it spawned can be collected with one grep across a day's records — and across
+  the two day files a run spanning midnight lands in. Unset or empty writes **no key at all**, and
+  a `run=` passed as an explicit argument beats the environment, which is how a caller changes the
+  id on the fly. **Its propagation is yours to arrange:** a subagent spawned with a cleared
+  environment writes records with no `run=` and says nothing about it — no writer can tell that
+  apart from "no run in scope", so the dispatching site owns passing it on. Stated as a limit
+  rather than left implied.
+
+  **NOT UNDER Action required, and the reason is the design rather than a judgement call.** An
+  actor outside the shape **still writes** — normalised to `unknown` with the offered value
+  preserved in `declared-actor=`, exactly as an unrecognised class has always been carried in
+  `declared-class=`. Nothing refuses, nothing is dropped, and no exit status changes, so no script
+  you run starts failing. A typo becomes *visible* instead of silently corrupting the filter.
+
 - **`.claude/skills/orchestrate/SKILL.md` § Dispatch attribution** — what a watcher can read while a
   run is still in flight, and **nothing in it is load-bearing**: omit any of it and the run is
   unaffected, so there is nothing to migrate and nothing that breaks.

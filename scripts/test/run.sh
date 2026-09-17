@@ -1335,6 +1335,14 @@ ROLE_EOF
 #              heard of. Tested by writing records WITH and WITHOUT extras and
 #              requiring a uniform column count.
 #
+#   § 5b       THE ACTOR AND THE RESERVED EXTRAS have declared shapes, and the
+#              validator's own RISK is the mirror of the defect it fixes — a validator
+#              firing on CORRECT input. So the NEGATIVE control is the one that matters
+#              and it is DERIVED: every role in this sandbox's own ROLE_PREFIXES is
+#              driven through the writer and none may be tagged. The `run=` extra is
+#              checked the same way — present when the seam is set, ABSENT ENTIRELY
+#              when it is not.
+#
 #   § 4        THE ABLATION. Removing the writer entirely leaves a converted
 #              producer's stdout, stderr and EXIT STATUS byte-identical. This is the
 #              invariant whose violation is invisible until something unrelated turns
@@ -1390,6 +1398,134 @@ case_progress_record_is_one_shape_and_optional() {
     # ...AND THE CLASS IS A MEMBER OF THE DECLARED SET on every line.
     awk -F'\t' '$3!="status" && $3!="info" && $3!="warning" && $3!="error" {bad=1} END{exit bad?1:0}' "$recdir"/*.tsv 2>/dev/null \
       || cf "a record carries a class outside the declared set (status|info|warning|error) — § 5"
+
+    # ...AND THE ACTOR IS A MEMBER OF § 5b's SHAPE on every line. The four calls above
+    # use both declared kinds — the script side (`verify.sh`, `release.sh`) and the role
+    # side (`Dev:ID-1`, `QA:ID-1`) — so a validator that fired on correct input would
+    # surface right here.
+    awk -F'\t' '$2=="unknown" {bad=1} END{exit bad?1:0}' "$recdir"/*.tsv 2>/dev/null \
+      || cf "a record written with a WELL-SHAPED actor came back as 'unknown' — the § 5b validator is firing on correct input, which is the mirror of the defect it fixes"
+  fi
+
+  # ── § 5b, THE NEGATIVE CONTROL, AND IT IS THE ONE THAT MATTERS. This change added a
+  #    validator, so its own risk is a legitimate actor being tagged. The population is
+  #    DERIVED FROM THIS SANDBOX'S OWN SEAM rather than typed here: a project that narrows
+  #    ROLE_PREFIXES must narrow this control with it, and a list written here would be the
+  #    second declaration § 5b exists to forbid.
+  # nroles is declared at the TOP so the finish() line below can name it on EVERY path.
+  # Under `set -u` an unset one taken from the unreadable-seam branch would abort the whole
+  # harness rather than report this case — a fixture that kills the run is worse than a red.
+  local roledir="$SB_TMP/records-roles" roleset="" nroles=0
+  roleset="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$SB_WORK/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
+  [ -z "$roleset" ] || nroles="$(printf '%s' "$roleset" | tr '|' '\n' | grep -c . || true)"
+  if [ -z "$roleset" ]; then
+    _control_did_not_run "derive ROLE_PREFIXES from the sandbox's scripts/githooks/commit-msg — the negative control for § 5b's actor shape had no population to drive"
+  else
+    (
+      cd "$SB_WORK" || exit 1
+      # BOTH libraries, in move-issue.sh's order. Sourcing only the writer leaves the
+      # MEMBERSHIP half unreachable — its declared policy is to accept when the set cannot
+      # be read — so this control would be green because the check never ran.
+      # shellcheck source=/dev/null
+      . ./scripts/lib/role-set.sh
+      # shellcheck source=/dev/null
+      . ./scripts/lib/progress-record.sh
+      export KIT_PROGRESS_DIR="$roledir"
+      # shellcheck disable=SC2086
+      ( IFS='|'; for r in $roleset; do
+          kit_progress "$r"          status "bare role"
+          kit_progress "$r:ID-1"     status "role with an id"
+        done )
+    ) >/dev/null 2>&1
+
+    local nrole_rec=0
+    [ -d "$roledir" ] && nrole_rec="$(cat "$roledir"/*.tsv 2>/dev/null | grep -c . || true)"
+    # ASSERT THE OPERAND FIRST: two records per declared role. Zero would make the
+    # "nothing was tagged" check below vacuously green — nothing having been written.
+    if [ "${nrole_rec:-0}" -ne $(( nroles * 2 )) ]; then
+      _control_did_not_run "drive every declared role through the writer ($nroles role(s) should have produced $(( nroles * 2 )) records, got $nrole_rec)"
+    else
+      grep -q 'declared-actor=' "$roledir"/*.tsv 2>/dev/null \
+        && cf "a role from this project's OWN declared set was tagged declared-actor= — § 5b's validator rejects a legitimate actor, which is worse than the best-effort column it replaced"
+      awk -F'\t' '$2=="unknown" {bad=1} END{exit bad?1:0}' "$roledir"/*.tsv 2>/dev/null \
+        || cf "a role from this project's OWN declared set landed in the actor column as 'unknown' — § 5b"
+    fi
+  fi
+
+  # ── § 5b, THE POSITIVE HALF: an actor outside the shape still WRITES, is TAGGED, and
+  #    the record still has its four columns on one line. The whole property being copied
+  #    from the class arm is that a typo is VISIBLE rather than lost.
+  local bogusdir="$SB_TMP/records-bogus"
+  (
+    cd "$SB_WORK" || exit 1
+    # Both libraries again, for the same reason: `orchestrator/sub-3` is structurally fine
+    # and is caught only by the MEMBERSHIP half, which needs the role set in scope.
+    # shellcheck source=/dev/null
+    . ./scripts/lib/role-set.sh
+    # shellcheck source=/dev/null
+    . ./scripts/lib/progress-record.sh
+    export KIT_PROGRESS_DIR="$bogusdir"
+    kit_progress "orchestrator/sub-3" status "structurally fine but NOT a member — the membership half"
+    kit_progress ""                   info   "no actor at all"
+    # THE STRUCTURAL HALF, which must hold whether or not the role set is readable. An
+    # earlier draft checked structure only AFTER the membership lookup, so on a tree whose
+    # hook is unreadable an actor with a space in it was accepted as a role name.
+    kit_progress "has space"          info   "whitespace is not a role and never was"
+    kit_progress "Dev:"               info   "a colon with no id is not the declared shape"
+  ) >/dev/null 2>&1
+
+  local nbog=0
+  [ -d "$bogusdir" ] && nbog="$(cat "$bogusdir"/*.tsv 2>/dev/null | grep -c . || true)"
+  if [ "${nbog:-0}" -ne 4 ]; then
+    cf "an actor outside § 5b's shape produced $nbog record(s), not 4 — the validator DROPPED a record, and § 3 says a malformed field must never make work look like it never happened"
+  else
+    [ "$(awk -F'\t' '{print NF}' "$bogusdir"/*.tsv | sort -u | tr -d '\n')" = "5" ] \
+      || cf "a tagged record does not carry the four required columns plus extras — § 2's envelope must survive normalisation"
+    awk -F'\t' '$2!="unknown" {bad=1} END{exit bad?1:0}' "$bogusdir"/*.tsv 2>/dev/null \
+      || cf "an actor outside § 5b's shape was written through unnormalised — the column is still best-effort"
+    [ "$(grep -c 'declared-actor=' "$bogusdir"/*.tsv 2>/dev/null || echo 0)" -eq 4 ] \
+      || cf "a normalised actor was not preserved in declared-actor= — § 5b requires the offered value be carried, or the typo is silent"
+    # ...AND AS ONE TOKEN. A space inside the preserved value splits one extra into two,
+    # so a reader tokenising the extras field sees a key nobody wrote.
+    awk -F'\t' '$5 ~ /declared-actor=[^ ]* / && $5 !~ /declared-actor=[^ ]*$/ {n=split($5,p," "); for(i=1;i<=n;i++) if (p[i] !~ /=/) bad=1} END{exit bad?1:0}' "$bogusdir"/*.tsv 2>/dev/null \
+      || cf "a preserved actor value was not collapsed to one token — whitespace inside it split the extras field into a key=value nobody wrote"
+  fi
+
+  # ── § 5b, THE RESERVED `run=` EXTRA. The negative is the one that matters here too:
+  #    an UNSET seam must write NO `run=` key at all, never `run=` with nothing after it.
+  #    And an explicit argument must WIN over the environment without producing two keys.
+  local rundir="$SB_TMP/records-run"
+  (
+    cd "$SB_WORK" || exit 1
+    # shellcheck source=/dev/null
+    . ./scripts/lib/role-set.sh
+    # shellcheck source=/dev/null
+    . ./scripts/lib/progress-record.sh
+    export KIT_PROGRESS_DIR="$rundir"
+    unset KIT_PROGRESS_RUN
+    kit_progress "Dev:ID-1" status "no run id in scope"
+    KIT_PROGRESS_RUN="" kit_progress "Dev:ID-1" status "run id declared but EMPTY"
+    KIT_PROGRESS_RUN="r-1" kit_progress "Dev:ID-1" status "run id in scope"
+    KIT_PROGRESS_RUN="r-env" kit_progress "Dev:ID-1" status "explicit wins" "run=r-arg" "event=x"
+  ) >/dev/null 2>&1
+
+  local nrun=0
+  [ -d "$rundir" ] && nrun="$(cat "$rundir"/*.tsv 2>/dev/null | grep -c . || true)"
+  if [ "${nrun:-0}" -ne 4 ]; then
+    _control_did_not_run "write the four run-id records ($nrun produced) — nothing below was measured"
+  else
+    # UNSET AND EMPTY WRITE NO KEY. An empty key is a column that looks answered and is
+    # not, and it would make a reader filtering on `run=` collect unrelated records.
+    [ "$(grep -c 'run=' "$rundir"/*.tsv 2>/dev/null || echo 0)" -eq 2 ] \
+      || cf "an unset or empty run-id seam still wrote a run= key (or a set one did not) — § 5b says empty or unset writes NO key at all"
+    # EXACTLY ONE `run=` PER RECORD THAT HAS ONE — the environment must not add a second.
+    awk -F'\t' '{n=gsub(/(^| )run=/,"",$5); if (n>1) bad=1} END{exit bad?1:0}' "$rundir"/*.tsv 2>/dev/null \
+      || cf "a record carries TWO run= keys — the explicit argument and the environment both wrote, and § 5b says the argument wins"
+    # ...AND IT IS THE ARGUMENT THAT WON.
+    grep -q 'run=r-arg' "$rundir"/*.tsv 2>/dev/null \
+      || cf "an explicit run= argument did not reach the record — § 5b's precedence is what lets a caller change the run id on the fly"
+    grep -q 'run=r-env' "$rundir"/*.tsv 2>/dev/null \
+      && cf "the environment's run id overrode an explicit run= argument — § 5b declares the opposite precedence"
   fi
 
   # ── THE ABLATION (§ 4), EXECUTED. move-issue.sh is the converted role-side producer
@@ -1424,7 +1560,7 @@ case_progress_record_is_one_shape_and_optional() {
       || cf "removing scripts/lib/progress-record.sh changed move-issue.sh's stderr — the record is not additive"
   fi
 
-  finish "the progress record writes one shape ($nrec records, uniform columns, required fields present) and removing its library leaves move-issue.sh byte-identical in stdout, stderr and exit status"
+  finish "the progress record writes one shape ($nrec records, uniform columns, required fields present), § 5b's actor shape accepts all $nroles derived role(s) untagged and normalises a malformed one WITHOUT dropping it, the run= extra is absent when its seam is unset and an explicit one wins, and removing the library leaves move-issue.sh byte-identical in stdout, stderr and exit status"
   teardown
 }
 

@@ -40,11 +40,13 @@ and widen from the derivation in § 5a rather than from memory.
   *Why:* it is what makes elapsed time and liveness **exact** rather than inferred. Every other
   way of knowing how long a phase took reconstructs it from arrival order, which is wrong the
   moment two producers write concurrently.
-- **The actor is ASSIGNED BY THE CALLER, never self-reported by the agent.** Where a role and an
-  issue apply, the actor is `<role>:<issue-id>`.
+- **The actor is ASSIGNED BY THE CALLER, never self-reported by the agent**, and it **has a
+  declared shape** (§ 5b) rather than a convention.
   *Why:* attribution an agent reports about itself is attribution an agent can get wrong. Where
   the dispatching or invoking site already knows the answer — and it does, wherever a hat and an
-  id were passed in as arguments — reading it there costs nothing and cannot drift.
+  id were passed in as arguments — reading it there costs nothing and cannot drift. **And a
+  column with no declared shape is one a reader can only filter on best-effort**: it holds
+  whatever each caller happened to type, so `actor` earns the same closed treatment `class` has.
 - **TRANSIENT BY CONSTRUCTION.** The location is version-control-ignored, records expire on a
   short declared TTL, and expiry runs as a side effect of writing rather than as a task somebody
   must remember. **The rule to write down: *nobody should ever have to dig through old logs for
@@ -76,9 +78,13 @@ caller would be allowed to act on. Every degradation is silent by design.
 
 The one thing that must not happen quietly is **losing a record to a malformed field**. A record
 whose class is not a member of the declared set is **written anyway**, normalised to the neutral
-class, with the offered value carried in an optional field.
+class, with the offered value carried in an optional field. **A record whose actor does not match
+the declared shape is treated identically** — written, normalised to the reserved actor, offered
+value preserved (§ 5b).
 *Why:* dropping it would make a typo at a call site indistinguishable from work that never
-happened — the one reading this format must never produce.
+happened — the one reading this format must never produce. **And refusing it would make this
+library a dependency**, which § 2 forbids outright: a validator that can fail a caller is a new
+way for unrelated work to go red.
 
 ## 4. WHAT GREEN MEANS
 
@@ -99,7 +105,7 @@ happened — the one reading this format must never produce.
 | field | why it is required |
 |---|---|
 | `timestamp` | makes elapsed time and liveness EXACT rather than inferred |
-| `actor` | who wrote it — `<role>:<issue-id>` where one applies, assigned by the caller |
+| `actor` | who wrote it — assigned by the caller, in the shape § 5b declares |
 | `class` | one of `status` / `info` / `warning` / `error` — what a reader filters on |
 | `description` | the human-readable line |
 
@@ -147,13 +153,104 @@ arguments, converting *that script* records the role's lifecycle with **no repor
 the role at all**. Prefer that every time it is available — it is the version an agent cannot get
 wrong.
 
+## 5b. THE ACTOR'S SHAPE, AND THE RESERVED EXTRA KEYS
+
+### The actor
+
+**Two kinds, because the converted producers are two kinds** — § 5a's rule that a converted
+producer need not be a member of the role population is the reason this is not one:
+
+| kind | shape | example |
+|---|---|---|
+| role side | `<role>` or `<role>:<issue-id>` | `Dev`, `Dev:<PREFIX>-042` |
+| script side | `<name>.sh` | `verify.sh` |
+
+**The role vocabulary is DERIVED, never listed here.** Run it:
+
+```sh
+sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" scripts/githooks/commit-msg | head -1
+```
+
+That is the same seam `scripts/lib/role-set.sh` reads and the same one the commit-msg hook
+enforces, so a project that narrows its role set narrows this column with it and nothing needs
+re-typing. *A list written here would be a second declaration of a fact that already has an
+authoring site, and the second one drifts.*
+
+**The role is matched CASE-SENSITIVELY.** The hook matches its tags case-sensitively, so `dev` is
+not the seat `Dev` anywhere else in this kit; accepting it here would put two spellings of one
+seat in the column, which is the split this shape exists to close. Normalising the case instead
+would rewrite attribution § 2 reserves to the caller.
+
+**An actor matching neither kind still writes.** The column is set to the reserved value
+`unknown` and the offered value is carried in `declared-actor=<value>` — exactly as an unknown
+class is carried in `declared-class=`. So a typo is **visible** rather than either lost or
+silently accepted, and `actor != unknown` is a filter a reader can trust.
+
+**The shape has two halves, and only one of them needs the role set.** The STRUCTURAL half — a
+non-empty role, a non-empty id after any colon, and no whitespace anywhere — is true of the
+declared shape on every tree, so an implementation checks it unconditionally. The MEMBERSHIP half
+is the role-set lookup.
+
+**An unreadable role seam ACCEPTS the membership half rather than tagging it**, and that policy
+differs from every other reader's on purpose. `kit_require_role` announces its skip on stderr and
+`kit_role_resolve` substitutes a stamped default and says so; a writer bound by § 2 can do
+neither, since it may not write to stderr and may not fail its caller. So it takes the harmless
+direction: tagging every role-side record on a tree whose hook was deleted would turn a missing
+hook into a **poisoned log**, corrupting the column this shape exists to make filterable, whereas
+accepting them leaves the column exactly as filterable as it was before. **The structural half is
+still enforced there** — an unreadable seam stops the writer guessing *which roles are legal*, not
+*what the shape is*.
+
+**An implementation reads the role set through the seam's OWNER and holds no copy of the read.**
+A second copy of that expression is the defect [`../EXTRACTION.md`](../EXTRACTION.md) § 2.4 exists
+to catch, and calling it a fallback does not make it anything else: the copies then disagree about
+the same file with nothing in either to show it.
+
+### Reserved extra keys
+
+Extras are otherwise free-form `key=value`. **A key with a meaning readers rely on is declared
+here rather than invented at a call site**, for the same reason the class enum is closed: two
+callers inventing the same key with different shapes is a filter that silently under-collects.
+
+| key | shape | written when |
+|---|---|---|
+| `run=` | a single token — a run or session id | a run id is in scope (below) |
+| `declared-class=` | the offered class, normalised to one token | the class was outside the enum |
+| `declared-actor=` | the offered actor, normalised to one token | the actor was outside § 5b's shape |
+
+**A preserved value is collapsed to ONE TOKEN.** Extras are read back by splitting the field on
+spaces, so whitespace inside a value would split one key into two and hand a reader a `key=value`
+nobody wrote. An empty value is written as a placeholder rather than as nothing after the `=`.
+
+**`run=` is an EXTRA and not a fifth required column, deliberately.** It groups an orchestrator
+and every subagent it spawned across every producer — a reader greps `run=<id>` — and a run that
+spans midnight is two day files and one grep. Making it required would oblige every reader that
+does not care about runs to learn it, which § 2's four-field envelope exists to prevent.
+
+- **It comes from a declared environment seam** — `KIT_PROGRESS_RUN` in the reference
+  implementation — and **empty or unset writes no key at all** —
+  never `run=` with nothing after it. An empty key is a column that looks answered and is not,
+  and it would make a reader filtering on `run=` collect every unrelated record.
+- **An explicit `run=` argument WINS over the environment**, and never produces two keys. The
+  environment is ambient and inherited; an argument was typed at that call site for that record.
+  That precedence is what lets a caller change the run id on the fly without disturbing an
+  environment its children also read.
+- **PROPAGATION IS NOT GUARANTEED, AND THIS IS A STATED LIMIT RATHER THAN AN OVERSIGHT.** A
+  subagent spawned with a cleared environment writes records with **no `run=` and says nothing
+  about it**. No writer can detect that from the inside — there is no difference it can see
+  between "no run in scope" and "a run whose id was dropped on the way in". **The dispatching
+  site owns passing it on.** Written down because an unset seam that degrades silently is the
+  shape a reader mistakes for a working one.
+
 ## 6. REFERENCE IMPLEMENTATION
 
 **One implementation, not the definition.**
 
 - [`scripts/lib/progress-record.sh`](../../scripts/lib/progress-record.sh) (`KIT-CLASS: KIT`) —
   the one writer. Tab-separated, four fixed columns then `key=value` extras; one file per UTC day
-  under a version-control-ignored directory; expiry on write.
+  under a version-control-ignored directory; expiry on write. It validates the class and the
+  actor the same way — write, normalise, preserve the offered value — and reads the role
+  vocabulary from the seam § 5b names rather than holding a copy of it.
 - Converted producers, and **only** these two: [`scripts/verify.sh`](../../scripts/verify.sh)
   (the script side — per-gate start and outcome, plus one run summary) and
   [`scripts/move-issue.sh`](../../scripts/move-issue.sh) (the role side — the board transition,
