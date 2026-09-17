@@ -1621,6 +1621,104 @@ case_progress_record_is_one_shape_and_optional() {
       && cf "the environment's run id overrode an explicit run= argument — § 5b declares the opposite precedence"
   fi
 
+  # ── BYTE-IDENTITY, ACROSS ALL THREE PRESERVING KEYS AT ONCE. THIS BLOCK EXISTS BECAUSE
+  #    THE CONTROLS ABOVE WERE GREEN WHILE THE FEATURE WAS BROKEN, and the reason is the
+  #    population, not the assertion. The class arm's negative half offers `typo` and
+  #    `sta.tus`: both whitespace-free, and both — the part that cost — UNDERSCORE-FREE.
+  #    So "a whitespace-free value is carried verbatim" was true of every value the suite
+  #    drove and false of the writer, which substituted whitespace with `_` and then
+  #    trimmed `^_` and `_$`. After the substitution a separator it inserted and one the
+  #    caller typed are the same byte, so the trim ate both: `_x` was carried as `x`, and
+  #    `_` was carried as the `<empty>` placeholder that means the caller offered nothing.
+  #
+  #    EXTENDED INTO THIS CASE RATHER THAN GIVEN ITS OWN, deliberately. This is not a new
+  #    property — it is the SAME property the class and actor arms above already assert
+  #    (`contracts/progress-record.md` § Reserved extra keys: a preserved value is carried
+  #    byte for byte), driven against the population those arms lacked. A parallel case
+  #    would put one rule in two places, and the next seat widening the population would
+  #    widen one of them.
+  #
+  #    ONE POPULATION, THREE CALL SITES. The population is declared ONCE below, so
+  #    widening it is a single edit and it cannot go stale on one arm only. The three keys
+  #    are the three sites the writer synthesises — derive them with
+  #    `grep -n _pr_tok scripts/lib/progress-record.sh` and a key with no row here is an
+  #    arm going untested.
+  #
+  #    ASSERTED AS EQUALITY AGAINST THE OFFERED VALUE, never as "looks reasonable": the
+  #    defect this catches produces output that is perfectly well-formed and simply is not
+  #    what the caller wrote, which no shape check can see.
+  local tokdir="$SB_TMP/records-tok"
+  # Space-separated because the whole population is whitespace-free BY CONSTRUCTION —
+  # a value with whitespace in it belongs in the POSITIVE halves above, not here.
+  local tok_pop='_ __ ___ _x x_ _x_ _snake_case_ __both__ a_b typo sta.tus no_edge_underscores -_- _._ 13/13 KIT-042 _run_ run_ _run'
+  local ntok=0 tok_bad=0 tok_drove=0 _v _arm _key _got
+  for _v in $tok_pop; do ntok=$(( ntok + 3 )); done
+  # AND THE POPULATION'S OWN PREMISE IS ASSERTED, not just stated in the comment above.
+  # Every member must be whitespace-free, because the whole claim is that a value needing
+  # NO collapse survives untouched. A member with whitespace in it would be a row this
+  # block expects to come back changed, and it would read as a failure of the writer
+  # rather than as a badly chosen fixture. The word-split above cannot produce one, so
+  # this fires only if the list is later rewritten with quoting — which is exactly when
+  # a reader would otherwise be misled.
+  case "$tok_pop" in
+    *"  "*|*"	"*) _fixture_die "case_progress_record_is_one_shape_and_optional: tok_pop carries a value with whitespace in it, but every member must be ALREADY one token — that is the premise of the byte-identity comparison, and a spaced member would be asserted to survive a collapse it is supposed to undergo." ;;
+  esac
+  (
+    cd "$SB_WORK" || exit 1
+    # shellcheck source=/dev/null
+    . ./scripts/lib/role-set.sh
+    # shellcheck source=/dev/null
+    . ./scripts/lib/progress-record.sh
+    # ONE DIRECTORY PER ROW so the offered value can be recovered from the record without
+    # parsing it back out of a shared file — the comparison is against what was OFFERED.
+    i=0
+    for v in $tok_pop; do
+      i=$(( i + 1 ))
+      # declared-class= — the class is outside the closed enum, so the arm fires.
+      KIT_PROGRESS_DIR="$tokdir/$i-class" kit_progress "Dev:T" "$v" "byte-identity row"
+      # declared-actor= — the actor is outside § 5b's shape, so the validator tags it.
+      KIT_PROGRESS_DIR="$tokdir/$i-actor" kit_progress "$v" info "byte-identity row"
+      # run= — the adopter-set seam, the one reachable on a stock tree.
+      KIT_PROGRESS_DIR="$tokdir/$i-run" KIT_PROGRESS_RUN="$v" kit_progress "Dev:T" info "byte-identity row"
+    done
+  ) >/dev/null 2>&1
+
+  local ntok_rec=0
+  [ -d "$tokdir" ] && ntok_rec="$(cat "$tokdir"/*/*.tsv 2>/dev/null | grep -c . || true)"
+  # ASSERT THE OPERAND FIRST: three records per population member. A short count means
+  # an arm did not fire at all, which would make every comparison below vacuously green.
+  if [ "${ntok_rec:-0}" -ne "$ntok" ]; then
+    _control_did_not_run "drive the byte-identity population through all three preserving keys ($ntok_rec record(s) produced, expected $ntok) — nothing below was measured"
+  else
+    local _i=0
+    for _v in $tok_pop; do
+      _i=$(( _i + 1 ))
+      for _arm in class actor run; do
+        case "$_arm" in
+          class) _key='declared-class=' ;;
+          actor) _key='declared-actor=' ;;
+          run)   _key='run=' ;;
+        esac
+        _got="$(awk -F'\t' -v k="$_key" '{n=split($5,p," "); for(i=1;i<=n;i++) if (index(p[i],k)==1) print substr(p[i],length(k)+1)}' "$tokdir/$_i-$_arm"/*.tsv 2>/dev/null)"
+        tok_drove=$(( tok_drove + 1 ))
+        if [ "$_got" != "$_v" ]; then
+          tok_bad=$(( tok_bad + 1 ))
+          # REPORT THE FIRST THREE IN FULL AND COUNT THE REST. Every row carries the same
+          # diagnosis, so a broken cleaner would otherwise print one failure per population
+          # member and bury the rest of the case; the tally below names the true total.
+          [ "$tok_bad" -le 3 ] && cf "a value that was ALREADY one token was rewritten in ${_key} — offered [$_v], carried [$_got]. contracts/progress-record.md § Reserved extra keys requires it be carried BYTE FOR BYTE: a collapse touches WHITESPACE and nothing else, and a writer that trims its own substituted separator cannot tell it from one the caller typed. The record is then well-formed and wrong, which a reader cannot detect at all."
+        fi
+      done
+    done
+    # THE TALLY, ALWAYS. It states the true total when more than three rows broke, and it
+    # is also the control on the LOOP: a comparison that silently skipped rows would leave
+    # tok_drove short while every row it did reach passed.
+    [ "$tok_drove" -eq "$ntok" ] \
+      || _control_did_not_run "compare every byte-identity row (drove $tok_drove of $ntok) — the loop did not cover the population it declared"
+    [ "$tok_bad" -eq 0 ] \
+      || cf "$tok_bad of $ntok value/key rows carried a rewritten value — an already-one-token value must survive declared-class=, declared-actor= and run= byte for byte (first three reported above)"
+  fi
+
   # ── THE ABLATION (§ 4), EXECUTED. move-issue.sh is the converted role-side producer
   #    and it REFUSES without a valid id, which is all this needs: the refusal path runs
   #    the sourcing block, so removing the library must not change it. A refusal is a
@@ -1653,7 +1751,7 @@ case_progress_record_is_one_shape_and_optional() {
       || cf "removing scripts/lib/progress-record.sh changed move-issue.sh's stderr — the record is not additive"
   fi
 
-  finish "the progress record writes one shape ($nrec records, uniform columns, required fields present), § 5b's actor shape accepts all $nroles derived role(s) untagged and normalises a malformed one WITHOUT dropping it, the run= extra is absent when its seam is unset and an explicit one wins, and removing the library leaves move-issue.sh byte-identical in stdout, stderr and exit status"
+  finish "the progress record writes one shape ($nrec records, uniform columns, required fields present), § 5b's actor shape accepts all $nroles derived role(s) untagged and normalises a malformed one WITHOUT dropping it, the run= extra is absent when its seam is unset and an explicit one wins, every already-one-token value is carried BYTE-IDENTICAL across declared-class=, declared-actor= and run= ($ntok value/key rows compared as equality against the value offered), and removing the library leaves move-issue.sh byte-identical in stdout, stderr and exit status"
   teardown
 }
 
@@ -11735,24 +11833,56 @@ case_travelling_scripts_have_a_sheet() {
   # to the guard that claims to cover every travelling script.
   #
   # THE EXEMPT PREFIXES, derived from the rule's own bullet rather than retyped. Each class
-  # is named there as a backticked path prefix.
-  local exempt n=0 miss="" f rel
+  # is named there as a NUMBERED ITEM carrying a backticked path prefix.
+  local exempt n=0 judged=0 skipped=0 miss="" f rel items=0
+  # THE OPERAND IS THE NUMBERED ITEMS, NOT EVERY BACKTICK BETWEEN THE MARKERS.
+  # It was every backtick, and that made the block's own PROSE an operand of the guard the
+  # block constrains. Measured: one ordinary sentence inside the markers reading "a line
+  # naming `scripts/` here would exempt everything" put `scripts/` into the derived class
+  # list, which exempts the ENTIRE travelling population — and the case still finished
+  # green, having judged one file of forty-six. The note WARNING about the hazard BECAME
+  # the hazard. A class is now declared only by a numbered item, so prose between the
+  # markers is inert and the hazard note lives outside them.
   exempt="$(awk '/EXEMPT-CLASSES:BEGIN/,/EXEMPT-CLASSES:END/' "$readme" \
+            | grep -E '^[[:space:]]+[0-9]+\.[[:space:]]' \
             | grep -oE '`[a-z][a-z-]*/([a-z-]+/)?`' | tr -d '`' | sort -u)"
+  items="$(awk '/EXEMPT-CLASSES:BEGIN/,/EXEMPT-CLASSES:END/' "$readme" \
+            | grep -cE '^[[:space:]]+[0-9]+\.[[:space:]]' || true)"
   # ANY top-level prefix, not `scripts/…` alone: the pattern was written when both exempt classes
   # happened to live under scripts/, so adding a third (consumers/) left it invisible to the guard
   # that reads this list — the extractor silently declining to see a class nobody could tell it about.
+  # That widening is kept; what changed is WHICH LINES it is applied to.
   [ -n "$exempt" ] \
     || _fixture_die "case_travelling_scripts_have_a_sheet: could not derive the exempt classes out of contracts/README.md — with none derived every travelling script would look owed, and with the derivation reading the wrong block every one would look exempt."
+
+  # ── THE NUMBERED ITEMS AND THE DERIVED CLASSES MUST RECONCILE. An item whose path lost its
+  #    backticks is a class the reader believes is declared and the guard cannot see — coverage
+  #    shrinking with nothing red to show it. Counted, not assumed.
+  local nclass; nclass="$(printf '%s\n' $exempt | grep -c . || true)"
+  [ "$items" -eq "$nclass" ] \
+    || cf "contracts/README.md's EXEMPT-CLASSES block holds $items numbered item(s) but yields $nclass derived class(es). An item that names its path prefix in anything but backticks is invisible to this derivation while reading, to a person, exactly like a declared exemption"
+
+  # ── AN OVER-BROAD PREFIX EXEMPTS THE WHOLE POPULATION AND EVERY OTHER ARM READS IT AS HEALTH.
+  #    The sibling reader of issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES block carries this arm
+  #    and this one never has. A prefix naming no directory matches most of the tree.
+  local e
+  for e in $exempt; do
+    [ -e "$REAL_REPO_ROOT/$e" ] \
+      || cf "contracts/README.md declares the exempt class '$e', which names nothing this kit ships. Either the class is stale — coverage shrinking silently — or the prefix is mistyped, and a mistyped prefix that happens to be broad exempts files nobody decided to exempt"
+  done
 
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     rel="${f#$REAL_REPO_ROOT/}"
     n=$(( n + 1 ))
-    # Exempt by class?
-    local e skip=0
-    for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
-    [ "$skip" -eq 1 ] && continue
+    # Exempt by class? COUNT THE TWO POPULATIONS SEPARATELY. `n` used to be the whole walk and
+    # the floor below was asserted against it, so a mass exemption could not move the number the
+    # instrument check reads: exempting everything left `n` unchanged and the floor quiet. The
+    # floor now guards the JUDGED population, which is the one the finish line's claim is about.
+    local e2 skip=0
+    for e2 in $exempt; do case "$rel" in "$e2"*) skip=1 ;; esac; done
+    if [ "$skip" -eq 1 ]; then skipped=$(( skipped + 1 )); continue; fi
+    judged=$(( judged + 1 ))
     # Cited by some sheet — literally, or in the placeholder form a sheet may legitimately
     # use for an adopter-instance path (notification.md's scripts/notify/<channel>.sh).
     grep -rqF "$rel" "$cdir" 2>/dev/null && continue
@@ -11765,11 +11895,13 @@ EOF
   [ -z "$miss" ] \
     || cf "these travelling scripts are cited by no contract sheet and sit in no named exempt class —$miss. Either the sheet is owed or the exemption is, and contracts/README.md is where the exemption goes so the next sweep finds a decision rather than a violation"
 
-  # ── INSTRUMENT CHECK: a sweep that found no travelling scripts reports full coverage.
-  [ "$n" -ge 12 ] \
-    || cf "only $n travelling script(s) were found — expected at least 12. The KIT-CLASS marker or the glob changed, so 'every one is covered' is true of almost nothing"
+  # ── INSTRUMENT CHECK: a sweep that JUDGED no travelling scripts reports full coverage.
+  #    Asserted against the JUDGED count, not the walked one. Against the walk it could not
+  #    see a mass exemption at all — exempting every file leaves the walk the same size.
+  [ "$judged" -ge 12 ] \
+    || cf "only $judged travelling script(s) were JUDGED (of $n walked, $skipped skipped as exempt) — expected at least 12 judged. Either the KIT-CLASS marker or the glob changed, or an exempt class has grown wide enough to swallow the population, and in both cases 'every one is covered' is true of almost nothing"
 
-  finish "all $n travelling (KIT/MIXED) scripts are either cited by a contract sheet — literally, or in the placeholder form a sheet may use for an adopter-instance path — or sit in one of the exempt classes contracts/README.md names, with the class list DERIVED from that rule rather than retyped"
+  finish "every travelling (KIT/MIXED) script is either cited by a contract sheet — literally, or in the placeholder form a sheet may use for an adopter-instance path — or sits in one of the exempt classes contracts/README.md names. THE TWO POPULATIONS ARE REPORTED SEPARATELY, because a single 'all N' over a walk that includes the exempt reads as a judged population and is not one: $n walked, $judged JUDGED against the sheets, $skipped SKIPPED by ${nclass} declared exempt class(es) — the class list DERIVED from that rule's NUMBERED ITEMS rather than retyped, reconciled against the item count, and every declared prefix asserted to still name something this kit ships"
   teardown
 }
 
@@ -12386,6 +12518,52 @@ SITES_EOF
     || cf "these sites read ROLE_PREFIXES and declare no fallback policy —$miss. The policies differ on purpose; an undeclared one cannot be told from a copied one, and the next reader has to guess which"
 
   finish "the ROLE_PREFIXES read is ONE expression at all $n sites (derived from lib/role-set.sh, not retyped) and every shipped site declares its own fallback policy — the expression is shared by assertion because two of the readers source nothing from scripts/lib/, and the policies differ on purpose"
+  teardown
+}
+
+case_every_arm_file_seam_is_declared_in_the_contract() {
+  cf_reset
+  make_sandbox
+  local cb="$SB_WORK/scripts/check-board.sh"
+  local sheet="$REAL_REPO_ROOT/process/contracts/drift-report.md"
+  [ -f "$sheet" ] \
+    || { skp "every board arm's declared file seam is named by its contract" "process/contracts/drift-report.md is absent — this project does not carry the contract set"; teardown; return; }
+
+  # ── THE OPERAND IS DERIVED, NOT TYPED. An earlier attempt at this case carried a hand-written
+  #    table of arm letters and went red on its own first run, because two arms had landed between
+  #    the table being written and the case being run. Letters are the implementation's and move;
+  #    what does NOT move is that an arm reading a PROJECT FILE through a named seam owes that
+  #    file a mention in the sheet a reimplementation is written against.
+  #
+  #    WHY THE FILE SEAM AND NOT THE LETTER: § 6 of the sheet already tells a reader to derive the
+  #    letters and their order FROM THE FILE, and says in terms that the lettering runs past the
+  #    invariants. A case demanding a row per letter would enforce the opposite of that design.
+  #    A seam is different in kind — it is a file an adopter can point somewhere else, so a
+  #    reimplementer who has never heard of it builds a report that silently reads nothing.
+  local seams n=0 undeclared="" nm def
+  seams="$(grep -oE '^[A-Z][A-Z0-9_]*_FILE="\$\{[A-Z][A-Z0-9_]*:-[^}"]+\}"' "$cb" || true)"
+
+  # ── INSTRUMENT CHECK FIRST, and it is the one this case cannot do without. A census over a
+  #    derivation that has silently stopped matching reports perfect health forever. The shape
+  #    being matched is a shell default-expansion seam; if it is renamed or respelled this
+  #    yields nothing and every arm reads as declared.
+  [ -n "$seams" ] \
+    || _fixture_die "case_every_arm_file_seam_is_declared_in_the_contract: derived NO file seam out of check-board.sh. The seam spelling (NAME_FILE=\"\${NAME:-path}\") has changed or the arms no longer carry one — with none derived this case asserts nothing and passes."
+
+  while IFS= read -r nm; do
+    [ -n "$nm" ] || continue
+    n=$(( n + 1 ))
+    # The default half is the shipped project path — the thing the sheet must name.
+    def="$(printf '%s' "$nm" | sed -E 's/.*:-([^}"]+)\}"$/\1/')"
+    grep -qF "$def" "$sheet" || undeclared="$undeclared $def"
+  done <<EOF
+$seams
+EOF
+
+  [ -z "$undeclared" ] \
+    || cf "check-board.sh reads (an) adopter-repointable project file(s) that drift-report.md names nowhere —$undeclared. An arm with a file seam and no entry in the contract is invisible to § 4.1, which walks § 2's list and confirms each invariant has a line: an arm with no invariant is structurally unreachable from that walk, so it ships, runs, prints findings, and a reimplementation written from this sheet does not contain it. Either the sheet owes the entry or the arm owes its retirement"
+
+  finish "every project file that a check-board arm reads through a NAMED, adopter-repointable seam is mentioned in drift-report.md — $n seam(s) derived out of check-board.sh's own default-expansion spelling rather than listed here, because the arm letters move and this case's first ancestor went red on its own first run for carrying a list of them. NOT ASSERTED: that the sheet's entry is a TRUE description of what the arm does, which is not decidable here and is left to review; and nothing about arms that read no repointable file"
   teardown
 }
 
@@ -14010,6 +14188,7 @@ CASES=(
   case_help_never_opens_with_the_class_marker
   case_role_examples_carry_their_label
   case_role_set_read_is_one_expression
+  case_every_arm_file_seam_is_declared_in_the_contract
   case_advisory_headers_carry_the_machine_token
   case_minting_cases_probe_for_the_template
   case_frontmatter_scan_cap_is_enforced

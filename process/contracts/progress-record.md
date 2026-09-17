@@ -222,6 +222,35 @@ callers inventing the same key with different shapes is a filter that silently u
 spaces, so whitespace inside a value would split one key into two and hand a reader a `key=value`
 nobody wrote. An empty value is written as a placeholder rather than as nothing after the `=`.
 
+**AND COLLAPSING TOUCHES WHITESPACE AND NOTHING ELSE: a value that is ALREADY one token is
+carried BYTE FOR BYTE.** The declared keys exist to keep an offered value VISIBLE — a typo the
+caller made is preserved so a reader can see it — so a writer that rewrites a value nobody asked
+it to rewrite defeats the key's whole purpose. The failure is also worse than the split the
+collapse prevents: a split record is *visibly* malformed and any tokenising reader trips on it,
+whereas a quietly shortened value is **well-formed and wrong** — it parses, it reads as an answer,
+and nothing in the record shows that the caller offered something else. **An implementation that
+substitutes a separator must not then trim that separator from the ends**, because at that point
+a substituted separator and one the caller typed are the same character and no trim can tell them
+apart. Trim the whitespace at the edges *first*, while it is still whitespace; collapse what is
+left in the interior after.
+
+**AN EXTRA'S VALUE IS ONE TOKEN, AND THAT IS THE CALLER'S OBLIGATION — THE WRITER CARRIES IT
+VERBATIM RATHER THAN REPAIRING IT.** The same split applies to an extra the caller passed:
+`step=13 of 13` reaches a reader as the key `step=13` followed by two bare tokens. But a caller's
+`key=value` is the caller's, and the writer's only duty is to keep the record one line with its
+four columns.
+
+- **This is stated rather than enforced, and that is a choice.** Normalising the value half would
+  make the writer rewrite data the caller typed — which is the very defect the byte-for-byte rule
+  above forbids for the keys the writer DOES own, and which § 2 reserves to the caller for
+  attribution already. A
+  writer cannot both decline ownership of a caller's values and repair them.
+- **So a caller remains free to split the field.** There is no mechanism and no refusal. An
+  unenforced obligation is weaker than a guard; it is the correct instrument only because the
+  guard would have to take back ownership the writer deliberately declined.
+- **A worked example in an implementation is the wording an adopter copies**, so an example that
+  splits the field teaches the defect. Write `step=13/13`, never `step=13 of 13`.
+
 **`run=` is an EXTRA and not a fifth required column, deliberately.** It groups an orchestrator
 and every subagent it spawned across every producer — a reader greps `run=<id>` — and a run that
 spans midnight is two day files and one grep. Making it required would oblige every reader that

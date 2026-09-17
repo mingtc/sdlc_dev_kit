@@ -679,7 +679,24 @@ while IFS='|' read -r reg_path reg_mark reg_shape; do
   # Every id in the file, in the order the file happens to hold them.
   reg_ids="$(grep -oE "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | sed "s|^${reg_mark}||" || true)"
   if [ -z "$reg_ids" ]; then
-    echo "    $reg_path: 0 '${reg_mark}${reg_shape}' entry headings  (nothing to check yet)"
+    # A LOOSE SECOND LOOK, SO THE QUIET LINE IS FALSIFIABLE RATHER THAN REASSURING.
+    # "0 entry headings" is the same output for an empty register and for a POPULATED one
+    # whose headings have drifted off the declared shape — headings at ####, or the register
+    # rewritten as a table, both of which the format law argues against by name. Read as a
+    # clean register, the reading is unfalsifiable. So: look for the id shape ANYWHERE in the
+    # file, and say which of the two was found.
+    if grep -qE "$reg_shape" "$reg_file" 2>/dev/null; then
+      echo "    ⚠ $reg_path: 0 '${reg_mark}${reg_shape}' entry headings, but the file DOES carry '${reg_shape}' elsewhere — the entry SHAPE has drifted off its declared form, so every reading below (duplicates, the highest id) covers nothing while reporting nothing wrong"
+      d_hits=$((d_hits+1)); drift=1
+    else
+      # THE RESIDUAL HOLE, NAMED RATHER THAN IMPLIED. An id spelled without the declared
+      # separator — D01 where the shape says D-NN — carries neither the heading mark nor the
+      # id shape, so neither look above can see it and this line stays quiet about a populated
+      # register. Closing it needs the id PREFIX as a fourth REGISTERS field, a wider seam
+      # change than one malformed spelling warrants; it reopens if a project writes that way.
+      # What changed is that this line now states WHAT IT LOOKED FOR AND DID NOT FIND.
+      echo "    $reg_path: 0 '${reg_mark}${reg_shape}' entry headings, and no line anywhere in the file carries '${reg_shape}' either  (nothing to check yet — an id written without its declared separator would still be invisible here)"
+    fi
     continue
   fi
   reg_total="$(printf '%s\n' "$reg_ids" | grep -c .)"

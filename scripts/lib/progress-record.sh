@@ -31,7 +31,7 @@
 #
 # THE FORMAT IS TAB-SEPARATED, four fixed columns then `key=value` extras:
 #
-#     2026-09-16T10:04:11Z<TAB>Dev:KIT-042<TAB>status<TAB>moved to dev_complete<TAB>step=13 of 13
+#     2026-09-16T10:04:11Z<TAB>Dev:KIT-042<TAB>status<TAB>moved to dev_complete<TAB>step=13/13
 #
 #   Tab, because the four required columns are then split by any reader in any
 #   language with no quoting rules to agree on first, and because it is the one
@@ -40,6 +40,12 @@
 #   one line and always has at least four columns. JSON was the alternative and was
 #   not taken: it needs an encoder in every writer, and `awk -F'\t'` is the floor
 #   this kit already requires.
+#
+#   THE EXAMPLE'S EXTRA IS `step=13/13` AND NOT `step=13 of 13`, WHICH IS WHAT IT USED
+#   TO SAY. Extras are read back by splitting the field on spaces, so a spaced value
+#   parses as the key `step=13` followed by two bare tokens — and the one worked example
+#   this file offered an adopter was an extra that did not survive being read back. See
+#   THE CALLER'S EXTRAS, VERBATIM below for why the fix is here and not in the loop.
 #
 # TRANSIENT BY CONSTRUCTION — THE RULE TO WRITE DOWN IS *nobody should ever have to
 # dig through old logs for anything*. The directory is gitignored, records older than
@@ -81,9 +87,25 @@ _pr_clean() {
 # there: it turns a tab into a SPACE, and a space inside an extra's value splits one key
 # into two when a reader tokenises the field. Runs of whitespace become `_`, and an empty
 # result becomes `<empty>` so the key is never written with nothing after the `=`.
+#
+# THE ORDER OF THE THREE EXPRESSIONS IS THE WHOLE CORRECTNESS ARGUMENT, and getting it
+# wrong is a defect that has already shipped here. The edges are trimmed FIRST, while the
+# thing at the edge is still WHITESPACE; only then is what remains in the interior
+# collapsed to `_`. An earlier draft substituted first and trimmed `^_` and `_$` after —
+# and at that point a substituted `_` and a `_` THE CALLER TYPED are the same byte, so
+# the trim could not tell them apart and ate both. `_x` came back as `x`, and `_` came
+# back as `<empty>`: the placeholder that means "there was nothing here", written over a
+# value the caller did offer. Trimming whitespace at the ends can never target a literal
+# underscore, so the distinction is structural rather than guessed at.
+#
+# WHAT MUST STAY TRUE EITHER WAY: a value that is ALREADY one token is carried BYTE FOR
+# BYTE. Preserving the offered value is the entire reason the declared- keys exist — a
+# typo stays VISIBLE — and a writer that quietly rewrites it produces a record that is
+# well-formed and wrong, which a reader cannot detect at all. That is a worse failure
+# than the split this function exists to prevent, because a split is visible.
 _pr_tok() {
   local v
-  v="$(printf '%s' "$1" | tr '\n\r\t' '   ' | sed 's/[[:space:]]\{1,\}/_/g; s/^_//; s/_$//')"
+  v="$(printf '%s' "$1" | tr '\n\r\t' '   ' | sed 's/^[[:space:]]\{1,\}//; s/[[:space:]]\{1,\}$//; s/[[:space:]]\{1,\}/_/g')"
   [ -n "$v" ] || v='<empty>'
   printf '%s' "$v"
 }
@@ -218,6 +240,26 @@ kit_progress() {
   day="${ts%%T*}"
 
   # THE CALLER'S EXTRAS, VERBATIM. `run=` is watched for on the way past — see below.
+  #
+  # VERBATIM MEANS VERBATIM, AND THE VALUE'S SHAPE IS THE CALLER'S OBLIGATION RATHER THAN
+  # THIS WRITER'S. An extra's value must be ONE TOKEN — the extras field is read back by
+  # splitting on spaces, so `step=13 of 13` reaches a reader as the key `step=13` plus two
+  # bare tokens. The contract states that obligation (contracts/progress-record.md
+  # § Reserved extra keys); this loop does NOT enforce it, and that is a decision rather
+  # than an omission.
+  #
+  # WHY THERE IS NO MECHANISM HERE, when there is one for `declared-class=` and
+  # `declared-actor=` two blocks up: those are keys THIS LIBRARY INVENTS, so it owes their
+  # shape. An extra is the caller's own `key=value`. Running it through _pr_tok would
+  # rewrite data the caller typed — the same overreach the actor validator refuses in
+  # _pr_actor_ok above ("NORMALISING it would rewrite attribution the caller assigned"),
+  # and the same defect as a writer that silently reshapes a preserved value. The library declined
+  # ownership of caller-supplied values deliberately, and a documented obligation is the
+  # correct instrument where the alternative is taking ownership back.
+  #
+  # SO A CALLER REMAINS FREE TO SPLIT THE FIELD, and that is accepted, not overlooked. An
+  # unenforced obligation is weaker than a guard; it is the right trade only because the
+  # guard would have to rewrite the caller's data to exist.
   local k run_given=0
   for k in "$@"; do
     [ -n "$k" ] || continue

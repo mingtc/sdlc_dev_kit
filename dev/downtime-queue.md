@@ -84,8 +84,20 @@ under-reported one adopter's queue by 8 rows of 37.
 
 *This section exists because an adopter shipped this file's discipline and measured what enforced
 it: `grep -rln "downtime-queue"` over their whole tree returned exactly one file, the prose that
-institutes it. No script read the queue, no test read it, no role doc named it at landing — and it
-bit twice in one week, both times as silence (reported by an adopter whose queue had a row reading open for a cure already on the trunk).*
+institutes it. **At that time** no script read the queue, no test read it, and no role doc named it
+at landing — and it bit twice in one week, both times as silence (reported by an adopter whose queue
+had a row reading open for a cure already on the trunk). **That measurement stands and is the reason
+for everything above; its conclusion no longer holds, and only the conclusion is superseded.***
+
+**A READER EXISTS NOW, AND THIS IS WHERE IT IS NAMED.** `scripts/check-board.sh` reads this file —
+the path is a seam, `DQ_FILE`, so an adopter may point it elsewhere — and reports a row claiming to
+be open against an item that has already landed. **It reports only and never changes the board
+verdict**, for the reason [`../process/contracts/drift-report.md`](../process/contracts/drift-report.md)
+§ 2 states: the queue holds work deliberately not being done, so a deciding finding would hold a
+release gate shut on a decision to defer. *The back-pointer is the point of this paragraph.* A rule
+whose enforcement is real and unnamed reads, to the next person editing either side, exactly like a
+rule with no enforcement at all — which is the state the measurement above describes and this
+sentence ends. **Edit the classification rules above and that arm is what you are changing.**
 
 ## The queue
 

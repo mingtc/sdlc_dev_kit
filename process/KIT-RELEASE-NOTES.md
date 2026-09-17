@@ -389,6 +389,60 @@ columns and never the cards.*
   not wired into `scripts/verify.sh` and remains an on-demand tool.
 ### Changed
 
+- **A declaration in this kit now says which program reads it — or says that none does.** Six
+  documents and one guard changed, and the shape is the same in each: a rule that stated a format,
+  a marker or a shape named nothing that reads it, so it read exactly like an enforced rule while
+  being kept only by hand. **What this changes for you is what you can trust a document to mean**,
+  and in two places it changes what your own board report says.
+  - **`contracts/drift-report.md` gains two entries and a posture.** Where your project keeps a
+    deferred-work queue whose rows name items, the report states which rows claim to be open against
+    items that have already landed — *conditional on your keeping such a queue, and it reports only,
+    never changing the verdict*. **A project with no deferral queue owes this reading nothing.** The
+    dependency-symmetry entry gains a destination: an advisory finding your session does not fix goes
+    to that queue, which is **an obligation on the reader and not on the check** — the check is
+    unchanged and still never decides. And invariant 3 now says that where the running log is bounded
+    in more than one way, each reading declares its own posture: in the shipped implementation the
+    current section decides and the whole file reports only.
+  - **The board report's register reading stopped saying "nothing to check yet" about a populated
+    register.** If your register's entry headings have drifted off the declared `### D-NN` shape —
+    headings one level deeper, or the register rewritten as a table — the report previously printed
+    `0 entry headings (nothing to check yet)`, which is what it also prints for an empty register.
+    **The two are now distinguished, and the drifted case is a finding that sets the verdict.** *You
+    may see a new warning on a register that has been quietly unread.* One shape remains invisible
+    and is now named in the report's own output: an id written without its declared separator —
+    `D01` where the shape says `D-01` — carries neither the heading mark nor the id shape.
+  - **`requirements/DECISIONS.md`, `dev/downtime-queue.md` and `dev/README.md` now name their
+    readers**; the two agent definitions that cited "the ladder" by nickname now cite its path; and
+    `EXTRACTION.md`'s marker register states that **no program reads it**, with the reason, rather
+    than leaving a reader to infer one from its two read siblings.
+  - **`doctrine/instruments.md` § A.13 states the rule**: *readerless is fine; undeclared readerless
+    is not.* Its numbering is deliberate and its section is named in the Part One seam's exception
+    list, so a guard author told to "stop at this line" is still sent to it.
+  **No Action required.** Nothing starts refusing, no file moved, no command or flag changed. The
+  two behaviour changes are a new advisory reading that needs a queue you may not keep, and a
+  register warning that fires only where a register had drifted off its own declared shape.
+
+- **The progress-record library's worked example no longer splits its own extras field, and the
+  contract now states the caller's obligation.** The header's format example reads `step=13/13`
+  where it read `step=13 of 13`. **This matters to you if you copied that line**, because extras are
+  read back by splitting the field on spaces: `step=13 of 13` reaches a reader as the key `step=13`
+  followed by two bare tokens `of` and `13`, so the one worked example the file offered was an extra
+  that did not survive being read back.
+
+  **The rule behind it is now written down** in `process/contracts/progress-record.md`
+  § Reserved extra keys: **an extra's VALUE is one token, and that is YOUR obligation as the caller
+  — the writer carries it verbatim rather than repairing it.**
+
+  **Nothing enforces this, deliberately, and you should know that rather than discover it.** The
+  library will not normalise an extra you pass, and it will not refuse one. It cannot: a value you
+  typed is yours, and a writer that repaired it would be rewriting your data — the same overreach
+  the actor validator already refuses one column over. So **a spaced extra still writes, and still
+  splits the field when a reader tokenises it.** If you pass extras with spaces in their values
+  today, they keep working exactly as before and nothing will tell you they are splitting.
+
+  **To do:** nothing is required. If you want the property, join the value yourself — `13/13`,
+  `13_of_13`, anything without a space.
+
 - **`scripts/test/run.sh` is single-instance per machine, and its header now says so — run one copy
   at a time.** Two concurrent runs may collide in the sandbox **even against separate trees and
   separate bare remotes**, which is the configuration in which it was seen: of two runs started in
@@ -457,6 +511,39 @@ columns and never the cards.*
   `.claude/roles/qa.md` (cross-cut checks) now carry that line; if you took those files on day one
   and have edited them since, copy the two bullets across by hand — they are additions, and they
   change no bullet you already have.
+
+### Fixed
+
+- **A run id, class or actor with a leading or trailing underscore is no longer silently shortened
+  in a progress record.** The single-token cleaner behind `run=`, `declared-class=` and
+  `declared-actor=` collapsed whitespace to `_` and then trimmed a leading or trailing `_` — and
+  after the substitution its own separator and one you typed are the same byte, so the trim removed
+  both. A value that was already one token came back rewritten.
+
+  **This is reachable from a stock tree through `KIT_PROGRESS_RUN`, which is a seam YOU set.** If
+  you exported a run id that starts or ends with `_`, the records did not carry it:
+
+  ```
+  KIT_PROGRESS_RUN=_run_   wrote  run=run
+  KIT_PROGRESS_RUN=run_    wrote  run=run
+  KIT_PROGRESS_RUN=_run    wrote  run=run
+  KIT_PROGRESS_RUN=_       wrote  run=<empty>
+  ```
+
+  Three distinct ids collapsed onto one another **and** onto any unrelated run genuinely called
+  `run`, so a grep for the id you exported collected nothing while a grep for `run=run`
+  over-collected. **The failure shape is the reason this is worth a line:** the record is
+  well-formed and wrong. It parses, it reads as an answer, and nothing in it shows the id was
+  shortened — unlike a split field, which any tokenising reader trips on immediately.
+
+  A value that is already one token is now carried **byte for byte**. Whitespace is still collapsed
+  to `_` and a value that is entirely whitespace still reaches the `<empty>` placeholder; only the
+  literal underscores you typed survive that they did not before.
+
+  **To do: nothing, and there is nothing you can do about records already written.** Past records
+  cannot be recovered — the original id is not in them. Records written from the next release
+  onward carry the id you exported. **If you worked around this by avoiding underscores at the
+  edges of your run ids, you no longer need to**, and ids you already chose keep working unchanged.
 
 ## [0.5.0] — 2026-09-15
 

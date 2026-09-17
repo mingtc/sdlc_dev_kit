@@ -84,9 +84,15 @@ Nothing in the minimum set was merged or split.
   shipped on 2026-09-03 and the § 6 bullet was updated in that same change; this bullet was not — the second half of a document still describing the world the first half had
   left.*
 <!-- EXEMPT-CLASSES:BEGIN — the self-test derives the exempt path prefixes by reading the
-     backticked paths between these two markers. They are here because the derivation used to be
-     anchored on this bullet's WORDING, and the first reword of that wording emptied it. Prose is
-     not an anchor. Move them if the block moves; do not delete one without the other. -->
+     backticked paths on the NUMBERED ITEMS between these two markers, and on nothing else.
+     They are here because the derivation used to be anchored on this bullet's WORDING, and
+     the first reword of that wording emptied it. Prose is not an anchor. Move them if the
+     block moves; do not delete one without the other.
+     THE OPERAND IS THE NUMBERED LIST, NOT THE WHOLE BLOCK. A class is declared by adding a
+     numbered item that backticks its path prefix; prose between these markers is read by
+     people and by nothing else. The hazard that narrowing answers is stated OUTSIDE these
+     markers, immediately below the END, because a note about the derivation cannot live
+     inside the derivation's own operand — see the paragraph there. -->
 - **SOME CLASSES OF TRAVELLING FILE ARE EXEMPT, and they are named here — each with the test
   applied — so a sweep finds a DECISION rather than a violation.** *(Count them below rather than
   here: this said "TWO CLASSES" and a third was added the day the guard grew wide enough to need
@@ -117,6 +123,19 @@ Nothing in the minimum set was merged or split.
   form** — `notification.md` says `scripts/notify/<channel>.sh`, because the channel is the adopter's
   instance. A sweep matching literal paths reports the shipped example as uncovered; it is not.
 <!-- EXEMPT-CLASSES:END -->
+
+**THE HAZARD THIS BLOCK'S SHAPE ANSWERS, stated here because it cannot be stated inside the block.**
+The self-test derives the exempt prefixes from the block above, so **anything in that block that
+looks like a path prefix becomes a live operand of the guard** — and the guard is the one that holds
+every other travelling script to a sheet. A line reading *"everything under `scripts/` is exempt"*
+placed between those markers does not describe the exemption set; it **joins** it, and a prefix that
+broad exempts the entire travelling population while the self-test still reports a healthy run. That
+is not hypothetical: an earlier attempt to warn about this hazard *inside* the markers became the
+hazard, and the guard then judged one file of forty-six and finished green. **So the derivation reads
+the NUMBERED ITEMS ONLY**, and this paragraph lives outside the markers where it is prose and nothing
+else. *The sibling block in [`issue-creation.md`](issue-creation.md) carries the same hazard with a
+different mitigation — it asserts the derived prefixes LOOK like paths — and the two are worth
+reading together.*
 - **A § 6 row RESTATES the implementation's own `KIT-CLASS` marker, deliberately, and the copy is
   tolerated rather than accidental.** The two statements answer two different readers: the in-file
   marker answers *"what is this file"* for someone holding the file; the § 6 row answers *"what does

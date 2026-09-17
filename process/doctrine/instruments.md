@@ -593,14 +593,18 @@ about everything they could see, and that was the defect.**
 > **Everything above is BUILD TIME: the instrument is misaimed, or cannot fail. It binds whoever
 > BUILDS the instrument, and the fix is to change the instrument.**
 >
-> **If you came here to write or review a guard, you are done at this line — WITH ONE EXCEPTION:
-> read § A.12 as well.** It sits below the seam and is a BUILD-TIME rule like everything above it:
-> a check whose comparison value the same person maintains can be made green by editing the answer,
-> which is a defect in the instrument, not in someone's reading of it. *It was placed below the seam
-> and the seam told its own audience to stop before reaching it — so the guard author it binds was
-> instructed not to read it. It is named here rather than moved for the same reason § A.11 keeps its
-> number: shipped release notes cite these sections, and renumbering falsifies a document already in
-> adopters' hands.*
+> **If you came here to write or review a guard, you are done at this line — WITH TWO EXCEPTIONS:
+> read § A.12 and § A.13 as well.** Both sit below the seam and are BUILD-TIME rules like everything
+> above it. § A.12: a check whose comparison value the same person maintains can be made green by
+> editing the answer, which is a defect in the instrument, not in someone's reading of it. § A.13: a
+> declaration with no reader is fine and a declaration that does not SAY it has no reader is not —
+> which binds the guard author because it is the sentence they write beside the guard, or fail to.
+> *§ A.12 was placed below the seam and the seam told its own audience to stop before reaching it —
+> so the guard author it binds was instructed not to read it. It is named here rather than moved for
+> the same reason § A.11 keeps its number: shipped release notes cite these sections, and renumbering
+> falsifies a document already in adopters' hands. § A.13 was added later and placed at the end of
+> Part One for the same numbering reason; this sentence is what keeps it reachable, and the count in
+> this bullet moves with the list rather than being restated anywhere else.*
 >
 > *(§ A.11 sits just above this line and is numbered after § A.9 and § A.10, which are below it.
 > It was written later; it keeps its number because a shipped release note cites it, and renaming a
@@ -656,6 +660,32 @@ what the instrument claims to cover. Do not read the diff and conclude.** A deri
 exactly the edit whose defect is invisible in review — the code reads correctly, the result is
 green, and the population quietly moved. Every instance of the § A.4 defect recorded on this sheet
 was found by counting a result; none was found by reading the code that produced it.
+
+### A.13 — Readerless is fine; UNDECLARED readerless is not
+
+A document that states a law and names nothing that reads it is not thereby broken. Plenty of good
+rules are kept by people, and a sheet's own carve-out — *these are advisory instruments, never a
+gate* — is a complete answer. **The defect is the SILENT case: a declaration that neither has a
+reader nor says it has none.** It reads exactly like an enforced rule, so the next person edits the
+declaration believing something will catch a mistake, and the next person after that builds a
+reimplementation from it and omits what nobody told them exists. *The same hole has a second
+opening, and it is the one that is hard to see from either end: a reader with no declaration. A
+script that reads a file no document names is a coupling nobody can find by grepping — the file's
+owner cannot know their edit breaks something, and the script's owner cannot know the file moved.*
+
+**So the rule is about the SENTENCE, not about the mechanism:** where a document declares a format,
+a marker, a threshold or a shape, it says which program reads it — **or says that none does, and
+why**. Where a program reads a project file through a seam, the file's own document names it back.
+*This was derived rather than reasoned: a population of format-law declarations was walked and the
+readerless ones split cleanly — all but one declared their readerlessness, each for a different and
+sufficient reason (an adopter-owned guard yet to be written, an explicit never-a-gate carve-out, a
+pattern copy whose instance is the read one), and the single exception was the one real defect.*
+**The healthy majority is the evidence for the rule, not the exception**; what they had in common
+was not a reader but a stated position on having one. And *naming the reader is cheap and naming its
+absence is cheaper* — both are one sentence, and neither obliges anyone to build a mechanism. A
+project that wants a stronger form derives the declarations and asserts each names a reader, which
+is the cheap direction and the only one that is decidable; whether a declaration TRULY describes its
+reader is a review question, not an instrument's.
 
 ---
 

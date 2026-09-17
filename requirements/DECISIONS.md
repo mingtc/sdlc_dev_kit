@@ -59,6 +59,21 @@ carrying two generations of an answer has stopped being a projection.
   BUCKET NAMES ARE NOT RESERVED. The three below are EXAMPLES; invent your own, drop these,
   reorder them. `<your-bucket>` stays in your copy as the reminder that the list is yours.
   Letter the buckets (A., B., …) so a bucket can be cited without quoting its wording.
+
+  A SCRIPT READS THE ENTRY-HEADING SHAPE, and this is where that is said. The heading form
+  `### D-NN` is not a stylistic preference: `./scripts/check-board.sh` derives every entry id
+  from it — reporting how many entries the register holds, how many are DISTINCT, and the
+  highest id number read order-independently — and the citation arm joins `[decision: D-NN]`
+  markers to these same headings. Change the heading form and both readings go silent rather
+  than wrong, which is why this is format law and not house style. The register's path and its
+  heading shape reach that script as a SEAM it declares, so a project keeping its register
+  elsewhere points the seam rather than editing the script.
+
+  WHAT THAT READER CANNOT SEE, stated so the quiet case is not mistaken for a clean one: an id
+  written WITHOUT the declared separator — `D01` where the shape says `D-01` — carries neither
+  the heading mark nor the id shape, so it is invisible to both. A register spelled that way
+  reads as empty. The report's own line says as much where it reports nothing found; the
+  remedy is to spell ids as the shape declares.
 -->
 
 ## A. Product identity & scope

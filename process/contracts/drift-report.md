@@ -33,6 +33,14 @@ missing line against, and now derives it from this list instead of restating it.
 - **3 — The running narrative log is within its size threshold.** Over it, a rotation is due and
   the report names it.
   *Why:* a log nobody can open is a log nobody reads, and the process's memory is in it.
+  *Where the log is bounded in more than one way, EACH READING DECLARES ITS OWN POSTURE, and they
+  need not be the same.* § 4 already requires a line per reading; this adds that a reading which
+  cannot move the verdict says so where it is read. In the shipped implementation the **current
+  section** being over threshold decides and the **whole file** being over threshold reports only —
+  a deliberate asymmetry, because rotating answers the section and cannot shrink the accumulated
+  file, so a deciding whole-file reading would be a finding with no operation that clears it.
+  **Without this sentence the posture lived only in the implementation's own comment**, and a reader
+  of this sheet would take a hard invariant to be hard in both of its readings.
 - **4 — Identifier integrity across EVERY state and EVERY identifier space the process
   maintains — each space named separately, and each skipped one skipped with its own reason.**
   Every item declares an identifier; identifiers are unique across the whole lifecycle; each
@@ -195,6 +203,36 @@ missing line against, and now derives it from this list instead of restating it.
   same rule as every other absent subject here.
   *A dangling reference is a DIFFERENT finding from an asymmetry* and prints as one: *"B is not on
   this board"* asks the reader to check an id; *"B did not answer"* asks them to fix a declaration.
+  *AND AN ADVISORY FINDING HAS A DESTINATION, which is an obligation on the READER and not on the
+  check.* A finding this arm prints and the session does not fix goes to the project's deferred-work
+  queue, where the next reader meets it as a queued item rather than as a line that scrolled past.
+  **The check is unchanged by this: it still only reports, and it still never moves the verdict.**
+  *Why the destination is part of the contract and not a matter of habit:* ruling a finding advisory
+  settles what the check does to the **verdict** and settles nothing about what the reader does with
+  the **finding**, and a reading nobody is obliged to act on is a reading that stops being read. The
+  measured case is this arm's own: real declaration defects sat under a headline reading `clean` for
+  days, and what eventually cleared them was one reader happening to be in the file. That worked, and
+  it worked by luck. **What is NOT claimed here is that advisory findings are ignored** — they were
+  acted on; the defect is that whether they are read is unmanaged. *A project that keeps no deferred-work
+  queue owes nothing here* — the destination is the queue it already has, not a queue this sheet mints.
+- **Where the project keeps a DEFERRED-WORK QUEUE whose rows name items, the report states which
+  rows claim to be open against items that have already landed. It reports only.**
+  *Why:* a deferral queue is the destination the bullet above sends an advisory finding to, and a
+  queue is only a destination while its rows are true. A row naming work that has since landed is
+  not merely stale — it is the queue asserting there is something left to do, which is the one claim
+  the queue exists to make, made falsely. Nothing else on the board can see it: the item's own card
+  is correct, the queue's own file is internally consistent, and only the JOIN between them is wrong.
+  *Conditional on purpose, and the condition is load-bearing:* § 2's entries are what a
+  reimplementation owes, so an unconditional invariant here would oblige every reimplementer to keep
+  a deferral queue and read it. **A project with no such queue owes this reading nothing** — the same
+  shape, and for the same reason, as the trailer-scan bullet above, whose enforcement site
+  [`commit-attribution.md`](commit-attribution.md) leaves to the project.
+  *Why it reports and never decides:* the remedy is to edit a queue row, which is the "hand-edit"
+  shape the dependency bullet above rules advisory — and the queue holds work deliberately not being
+  done, so a deciding finding would hold the release gate shut on a decision to defer.
+  *Retirement was considered and refused.* An arm that ships and is documented nowhere is the defect;
+  deleting a working reading to save one bullet trades a real check for a documentation saving, and
+  the conditional clause is what makes documenting it bearable.
 - **DECLARED REFERENCE INTEGRITY — every citation of a register identifier resolves to a live entry,
   and a RETIRED identifier is never cited as live. It DECIDES the verdict.** Where the process lets
   documents outside a register cite that register's identifiers, the report reads a **declared list of
@@ -321,6 +359,17 @@ identifier gives and a timestamp does not.*
   refusals is the shipped example — its depth is not work left undone, so counting it has no
   threshold and sets nothing. **The "reports only" token in such an arm's header is what carries
   that declaration to its machine consumers** (§ 4).
+- **THE PROJECT FILES AN ARM READS THROUGH A REPOINTABLE SEAM ARE NAMED HERE, because a seam an
+  adopter can move is a seam a reimplementation must know exists.** In the shipped implementation
+  the deferred-work queue bullet's arm reads `dev/downtime-queue.md`, overridable by `DQ_FILE`, and
+  that file's own entry in `dev/README.md` names this report back. **Derive the current set from the
+  file rather than trusting this list to be complete** —
+  `grep -oE '^[A-Z][A-Z0-9_]*_FILE="\$\{[A-Z][A-Z0-9_]*:-[^}"]+\}"' scripts/check-board.sh` — and
+  the self-test asserts that every seam it yields is mentioned in this sheet, in that direction. *A
+  seam with no mention here is the failure this bullet exists to prevent: § 4.1 walks § 2's list and
+  confirms each invariant has a line, so an arm carrying no invariant is structurally invisible to
+  it — the arm ships, runs and prints findings, and a report rebuilt from this sheet does not contain
+  it. That is how this arm shipped undocumented for two releases.*
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
   They bound the depth at which the reviewed-and-done column is due for a sweep, and the sizes at
   which the running log is due for rotation — its current section and the whole file being

@@ -123,10 +123,27 @@ listed. A **value-kind marker** answers a question no amount of reading the valu
 *what kind of thing is this, and therefore who owns it and what may be derived from it?*
 
 <!-- VALUE-KIND-MARKERS:BEGIN — the register. A marker in use and absent from this table is the
-     defect this register exists to make findable; the markers delimit it so a check can derive the
-     registered set without parsing prose. Anchored on the MARKERS, never on the wording around
+     defect this register exists to make findable; the markers delimit it so that a check CAN derive
+     the registered set without parsing prose. Anchored on the MARKERS, never on the wording around
      them — prose is not an anchor, and this repository has emptied two derivations by rewording
-     the sentence they keyed on. Move them if the block moves; never delete one without the other. -->
+     the sentence they keyed on. Move them if the block moves; never delete one without the other.
+
+     NO SHIPPED PROGRAM READS THIS BLOCK, and that is stated here rather than left to be
+     discovered. EVERY OTHER MARKER PAIR THIS KIT SHIPS IS READ by the self-test —
+     contracts/README.md's EXEMPT-CLASSES, issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES, and
+     ROLE-EXAMPLE-LABEL-TOKEN in THIS FILE a few sections down — so a reader meeting delimiters
+     here reasonably infers a reader that does not exist, and the nearest counter-example to
+     that inference is in the same document. Derive the set rather than trusting this sentence:
+     `grep -rhoE '[A-Z][A-Z0-9-]*:BEGIN' . | sort -u`, then ask which names appear in a
+     shipped program. The delimiters are worth keeping WITHOUT one: they make the register derivable by
+     anyone who wants the set, and they hold the block's boundary against the reword that has
+     emptied two derivations already. What they do not do is enforce the obligation stated below
+     the table, which remains a discipline a person keeps.
+     THE SECOND DIRECTION IS ALSO UNCHECKED: nothing asserts that a marker in USE appears in this
+     table, which is the defect the register exists to make findable and is exactly what a reader
+     would do first. Deriving markers in use needs a definition of "a marker" that survives
+     contact with prose ABOUT markers — this document is full of it — and no cheap one has been
+     found. That is the reason this is unread, and it is a reason rather than an oversight. -->
 
 | Marker | What kind of value it marks | Authored in | Exceptions live |
 |---|---|---|---|

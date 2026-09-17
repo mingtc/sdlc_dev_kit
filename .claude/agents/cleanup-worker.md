@@ -24,7 +24,12 @@ is the contract.** If the sweep turns out to need judgement per file rather than
 
 ## Provisioning contract
 
-Opus **medium** is the set default above, per the ladder's `Cleanup / classifier` line (Opus
+Opus **medium** is the set default above, per the `Cleanup / classifier` row of the ladder in
+[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.2 — the
+project's filled copy of which is `.claude/roles/orchestrator.md`'s own ladder table, and the two
+move together in one commit (that file says so). *The path is named rather than the ladder called by
+nickname, because a maintainer editing the ladder finds the pins that depend on it by grepping for
+its path, and a nickname is not greppable.* (Opus
 **medium** or the cheaper model at **high**). **The cheaper model at high effort is the
 sanctioned alternative** at the mechanical end and is the caller's choice to make — noting
 that the model half travels on the spawn call while the effort half needs

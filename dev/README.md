@@ -55,7 +55,9 @@ date will be read as current no matter what its first paragraph says.
 - **[`downtime-queue.md`](downtime-queue.md)** — deferred-but-genuine improvements: things
   deliberately **not** done now, kept as a table rather than lost to audit footnotes. Re-assessed at
   downtime; anything picked up goes through the normal mint → Dev → QA path, and **nothing in it may
-  ride along with other work.**
+  ride along with other work.** *Read by `scripts/check-board.sh`, which reports a row claiming to be
+  open against an item that has already landed — advisory, it never changes the board verdict. The
+  file path is a seam (`DQ_FILE`).*
 
 <!-- Add further standing queues here only if they are genuinely LIVING (maintained, not dated).
      Everything else belongs in the snapshot tables below. -->
