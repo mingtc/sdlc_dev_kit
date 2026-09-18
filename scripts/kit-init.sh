@@ -220,23 +220,32 @@ need_val() {
 #
 # Bash still processes quoting, expansion and escapes inside the `word` of a
 # `${VAR:-word}` even when the whole expansion is double-quoted, and the value ALSO
-# passes through a `sed` replacement on its way there. So a hostile character breaks
-# at one of two distinct stages, and the two failures look nothing alike:
+# passes through a `sed` replacement on its way there. So a hostile character breaks at
+# one of THREE distinct stages, and the three failures look nothing alike — which is why
+# they are listed apart rather than as one refused set:
 #
 #   • UNSOURCEABLE — config.sh is no longer valid shell, so EVERY script that sources
 #     it dies, not just this one. An apostrophe opens a single-quoted string that runs
 #     to end of file.  '  "  `  and an embedded NEWLINE.
 #   • SILENTLY WRONG — config.sh sources cleanly and PROJECT_NAME holds something the
-#     caller never typed. This is the worse half: nothing reports it.
+#     caller never typed. THIS IS THE DANGEROUS CLASS: the other two announce themselves
+#     on the next command, and this one never announces itself at all.
 #       $   expands at source time — `A$HOME B` becomes the sourcing user's home path
 #       \   is eaten by the sed replacement
 #       &   is sed's "the whole match", so the ENTIRE config line is spliced into the value
 #       }   closes the expansion early, truncating the name and stranding the remainder
-#       |   is the sed delimiter and ABORTS the substitution mid-run
+#
+#   • HALF-STAMPED — `|` is the sed DELIMITER. The substitution does not fail quietly and
+#     it does not write a wrong value: sed ABORTS, config.sh keeps the shipped placeholder,
+#     and under `set -e` the run dies at that line — AFTER the seams above it are already
+#     stamped. That is the half-initialized repository this script's own idempotency note
+#     calls "the worst outcome available", and a second run then REFUSES with no resume
+#     path. A third outcome, listed separately because calling it "silently wrong" would
+#     send the reader looking for a bad value in a file that never changed.
 #
 # THE SET WAS DERIVED BY EXECUTION, NOT FROM MEMORY. Every printable ASCII character was
 # stamped through the real substitution and the result both `bash -n`-parsed and sourced
-# back; the ones listed above are those that failed one test or the other, and every
+# back; the ones listed above are those that failed at one of the three stages, and every
 # other printable character round-tripped byte for byte. scripts/test/run.sh RE-DERIVES
 # the set the same way rather than trusting this comment, and requires this function to
 # agree with the derivation in BOTH directions — refusing everything measured hostile and

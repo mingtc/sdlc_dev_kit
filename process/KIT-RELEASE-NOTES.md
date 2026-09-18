@@ -585,12 +585,16 @@ columns and never the cards.*
 
   The refused set was **derived by execution** rather than listed from memory — every printable ASCII
   character stamped through the real substitution, then both parsed and sourced back. **Nine
-  characters fail**, in two classes that look nothing alike: `'`, `"`, `` ` `` and an embedded
-  newline leave the file **unsourceable**, so every script that reads it dies; `$`, `\`, `&`, `}` and
-  `|` let it source and **silently change the value you asked for** — `$` expands at source time (so
-  the same file means different things to different operators), `&` splices the whole config line
-  into the value, `}` closes the expansion early and truncates the name, `\` is eaten by the
-  substitution and `|` aborts it. Every other printable character round-trips byte for byte. The refusal names the character **and its position**, fires at argument-parse time
+  characters fail**, in three classes that look nothing alike: `'`, `"`, `` ` `` and an embedded
+  newline leave the file **unsourceable**, so every script that reads it dies; `$`, `\`, `&` and `}`
+  let it source and **silently change the value you asked for** — `$` expands at source time (so the
+  same file means different things to different operators), `&` splices the whole config line into
+  the value, `}` closes the expansion early and truncates the name, and `\` is eaten by the
+  substitution. **`|` is a third case and the nastiest:** it is the substitution's own delimiter, so
+  the substitution **aborts**, `config.sh` keeps the shipped placeholder, and the initializer dies at
+  that line **after** the seams before it are already stamped — a half-initialized repository, which
+  a second run then refuses with no resume path. Every other printable character round-trips byte for
+  byte. The refusal names the character **and its position**, fires at argument-parse time
   before anything is written, and exits 2 — and **it does not rewrite your name for you**: a
   sanitiser is a second parser that fails silently on whatever the first one missed, which is exactly
   what the five silent characters above already demonstrate.
