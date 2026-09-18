@@ -210,10 +210,16 @@ so here rather than reading as settled.** Two halves, and they are not equally s
   different languages, neither ever shown the process being measured, converged on substantially the
   same working shape. That is real evidence that a *process* can generalise across consumers, and it
   is why this sheet does not simply refuse single-consumer evidence.
-- **The CONTENT half — does one consumer's REQUEST generalise — is n=1.** The second consumer did not
-  produce a request before its run ended, so the population of requests to test A.1 against is one.
-  **The four questions above are therefore reasoned rather than measured**, and A.2 in particular has
-  been applied in practice but never yet tested against a genuine cross-consumer reversal.
+- **The CONTENT half — does one consumer's REQUEST generalise — has a population of two, and the two
+  do not overlap.** Each of the two consumers produced exactly one request, and they land on
+  different surfaces: one is a deterministic defect in the initializer, the other a boundary between
+  two roles in the handoff sequence. **A.1's *one consumer or several* is therefore askable at n=2 on
+  that channel** — but two requests on two different surfaces are a population, not a reversal.
+  **The four questions above remain reasoned rather than measured**: nothing in the two requests
+  tests whether a question sorts well, because no question has yet had to separate two consumers who
+  disagree. A.2 in particular has been applied in practice and still has **not** been tested against
+  a genuine cross-consumer reversal — for that the two consumers must meet the *same* surface and
+  resolve it differently, which these two do not.
 
 **What follows from that, and it is a duty rather than a caveat:** this sheet is expected to be
 **tuned** as more consumers arrive. Expect some questions to be sharpened, at least one to be

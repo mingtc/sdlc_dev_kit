@@ -8533,6 +8533,153 @@ case_kit_init_refuses_lived_board() {
 }
 
 # =============================================================================
+# CASE — kit-init.sh --project-name refuses what it cannot stamp, and ONLY that.
+#
+# THE INCIDENT, and it was found by use rather than by review. An adopted project
+# ran the initializer with an ordinary place name carrying an apostrophe. The
+# stamping and the board creation both reported CLEAN; the self-check then failed
+# with "could not mint" and no cause. The stamped line was
+#     PROJECT_NAME="${PROJECT_NAME:-The Old Bell's Rota}"
+# and bash still processes quoting inside the `word` of a `${VAR:-word}` even when
+# the whole expansion is double-quoted, so the apostrophe opened a single-quoted
+# string that ran to end of file. config.sh was unsourceable and EVERY script that
+# reads it died. The repair was by hand, outside the tool that made the mess.
+#
+# WHAT THIS CASE ASSERTS, and the second half is the one that matters. A refusal is
+# cheap to write and easy to write too wide: a --project-name arm that rejected
+# everything unfamiliar would pass a positive-only case while making the flag
+# useless. So the NEGATIVE control runs a full init with an ordinary two-word name
+# and requires it to stamp, mint and self-check green. Without it this case cannot
+# tell a narrow refusal from a blanket one.
+#
+# THE REFUSED SET IS RE-DERIVED HERE BY EXECUTION, NOT READ OFF THE COMMENT IN
+# kit-init.sh. Each candidate character is stamped through the REAL substitution
+# expression — read out of kit-init.sh rather than retyped — and the result is both
+# parsed and sourced back. A character is hostile if it leaves config.sh unparseable
+# OR if the value that comes back out differs from the value that went in. The
+# validator must refuse every character this derivation calls hostile, and must NOT
+# refuse one it calls safe. A hand-listed set is a claim; this is a measurement, and
+# it is the reason a character nobody thought of cannot quietly stay accepted.
+# =============================================================================
+case_kit_init_project_name_refusal() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init --project-name: refuses what it cannot stamp" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init --project-name: refuses what it cannot stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc before after
+
+  # --- (a) THE DERIVATION. Re-measure which characters are hostile, using the real
+  # stamping expression lifted out of kit-init.sh so a change to that line is felt here.
+  local stamp_sed probe hostile safe got line
+  stamp_sed="$(grep -m1 -F 's|^PROJECT_NAME=.*|PROJECT_NAME=' "$SB_WORK/scripts/kit-init.sh")"
+  [ -n "$stamp_sed" ] \
+    || _fixture_die "case_kit_init_project_name_refusal: could not find the PROJECT_NAME stamping line in kit-init.sh — the derivation below would measure nothing and the case would pass vacuously."
+  probe="$SB_TMP/pn-probe"; mkdir -p "$probe"
+  hostile=""; safe=""
+  local code c nn
+  for code in 32 34 36 38 39 92 96 124 125 45 46 97 65 48 44 40; do
+    c="$(printf "\\$(printf '%03o' "$code")")"
+    nn="A${c}B"
+    printf 'PROJECT_NAME="${PROJECT_NAME:-<project-name>}"\nX=1\n' > "$probe/config.sh"
+    if ! sed -i.bak -e "s|^PROJECT_NAME=.*|PROJECT_NAME=\"\${PROJECT_NAME:-${nn}}\"|" "$probe/config.sh" 2>/dev/null; then
+      hostile="$hostile$c"; continue          # the substitution itself aborted
+    fi
+    if ! bash -n "$probe/config.sh" 2>/dev/null; then
+      hostile="$hostile$c"; continue          # config.sh is no longer sourceable
+    fi
+    got="$( ( unset PROJECT_NAME; . "$probe/config.sh" >/dev/null 2>&1; printf '%s' "${PROJECT_NAME:-}" ) )"
+    if [ "$got" = "$nn" ]; then safe="$safe$c"; else hostile="$hostile$c"; fi
+  done
+  [ -n "$hostile" ] \
+    || _fixture_die "case_kit_init_project_name_refusal: the derivation found NO hostile character among its candidates — the probe is broken, and every assertion below would be vacuous."
+  [ -n "$safe" ] \
+    || _fixture_die "case_kit_init_project_name_refusal: the derivation found NO safe character — the probe is broken, and the narrowness assertion below would be vacuous."
+
+  # --- (b) the validator agrees with the derivation, character for character.
+  # It is run OUT OF THE SHIPPED SCRIPT, never a copy: a paraphrase here would stay
+  # green through any edit to the real function.
+  local vfn
+  vfn="$(sed -n '/^validate_project_name() {$/,/^}$/p' "$SB_WORK/scripts/kit-init.sh")"
+  [ -n "$vfn" ] \
+    || cf "kit-init.sh declares no validate_project_name() — --project-name is unvalidated again"
+  if [ -n "$vfn" ]; then
+    local i n
+    n="${#hostile}"; i=1
+    while [ "$i" -le "$n" ]; do
+      c="${hostile:$((i-1)):1}"
+      if ( eval "$vfn"; validate_project_name "A${c}B" ) >/dev/null 2>&1; then
+        cf "validate_project_name ACCEPTS '$c', which the derivation just measured as hostile (it breaks or corrupts the stamped config.sh)"
+      fi
+      i=$(( i + 1 ))
+    done
+    n="${#safe}"; i=1
+    while [ "$i" -le "$n" ]; do
+      c="${safe:$((i-1)):1}"
+      if ! ( eval "$vfn"; validate_project_name "A${c}B" ) >/dev/null 2>&1; then
+        cf "validate_project_name REFUSES '$c', which the derivation just measured as safe — the refusal is wider than the defect"
+      fi
+      i=$(( i + 1 ))
+    done
+    ( eval "$vfn"; validate_project_name "A
+B" ) >/dev/null 2>&1 \
+      && cf "validate_project_name accepts an embedded newline, which aborts the substitution"
+  fi
+
+  # --- (c) THE POSITIVE. The real invocation, with the real name that found this.
+  local hostile_name hn_pre expect_pos _sq
+  _sq="'"                       # one apostrophe, held in a variable so no line below has to
+                                # escape it inside a double-quoted string — the escaping idiom
+                                # for a single-quoted context ends the string early here, and
+                                # the name arrived EMPTY, which the premise check caught.
+  hostile_name="The Old Bell${_sq}s Rota"
+  # DERIVED, not typed: the expected column is computed from the name above, so changing
+  # the name cannot leave a stale digit here asserting the wrong column. The derivation is
+  # then CHECKED against the name — an arithmetic slip would otherwise hand the assertion
+  # below a plausible-looking wrong number and it would fail for a reason nobody could read.
+  hn_pre="${hostile_name%%${_sq}*}"
+  expect_pos=$(( ${#hn_pre} + 1 ))
+  [ "${hostile_name:$((expect_pos-1)):1}" = "$_sq" ] \
+    || _fixture_die "case_kit_init_project_name_refusal: the derived apostrophe position ($expect_pos) does not point at an apostrophe in '$hostile_name' — the POSITION assertion below would compare against the wrong column."
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name "$hostile_name" 2>&1)"; rc=$?
+  [ "$rc" -eq 2 ] || cf "--project-name with an apostrophe exited $rc; an illegal invocation is exit 2 (process/contracts/issue-creation.md § 3): $out"
+  printf '%s\n' "$out" | grep -F 'apostrophe' >/dev/null \
+    || cf "the refusal did not NAME the offending character: $out"
+  printf '%s\n' "$out" | grep -F "position $expect_pos" >/dev/null \
+    || cf "the refusal did not name the offending character's POSITION (expected position $expect_pos): $out"
+  # It refused BEFORE writing, which is the whole point of doing it at parse time.
+  after="$(git -C "$SB_WORK" rev-parse HEAD)"
+  [ "$before" = "$after" ] || cf "HEAD moved during a --project-name refusal"
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "the tree was modified during a --project-name refusal"
+  grep -q 'ISSUE_PREFIX:-SBX' "$SB_WORK/scripts/config.sh" \
+    && cf "config.sh was stamped during a --project-name refusal — it refused too late"
+
+  # --- (d) THE NEGATIVE, and it is the one that proves the refusal is narrow.
+  # An ordinary name — spaces and letters, nothing exotic — must initialize, stamp and
+  # mint exactly as the unflagged happy path does.
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name "The Old Bell Rota" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a --project-name with no hostile character was REFUSED (exit $rc) — the refusal is a blanket one: $out"
+  printf '%s\n' "$out" | grep 'kit-init COMPLETE and PROVEN' >/dev/null \
+    || cf "the clean --project-name run did not reach COMPLETE and PROVEN: $out"
+  printf '%s\n' "$out" | grep '✗' >/dev/null && cf "a self-check assertion failed on the clean --project-name run: $out"
+  printf '%s\n' "$out" | grep "id: SBX-000" >/dev/null \
+    || cf "the clean --project-name run did not mint the scratch card: $out"
+  # The name actually landed, and config.sh still sources.
+  grep -qF 'PROJECT_NAME:-The Old Bell Rota' "$SB_WORK/scripts/config.sh" \
+    || cf "the clean --project-name was not stamped into scripts/config.sh"
+  bash -n "$SB_WORK/scripts/config.sh" \
+    || cf "scripts/config.sh does not parse after a clean --project-name run"
+  got="$( ( unset PROJECT_NAME; . "$SB_WORK/scripts/config.sh" >/dev/null 2>&1; printf '%s' "${PROJECT_NAME:-}" ) )"
+  [ "$got" = "The Old Bell Rota" ] \
+    || cf "sourcing the stamped config.sh yields PROJECT_NAME='$got', not the name that was asked for"
+
+  finish "kit-init --project-name: refuses every character measured hostile, accepts every one measured safe, and a clean name still initializes and mints"
+  teardown
+}
+
+# =============================================================================
 # CASE — kit-init.sh --gate-command against the SHIPPED FRAME.
 # The incident (measured 2026-08-26, from the seed's own zip): the seed ships
 # verify.sh as a frame with an EMPTY table that refuses to run; --gate-command
@@ -14142,6 +14289,7 @@ CASES=(
   case_role_enforcement_derives_and_names_its_fallback
   case_lived_probe_has_one_authoring_site
   case_kit_init_refuses_lived_board
+  case_kit_init_project_name_refusal
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
   case_option_parsing_hygiene

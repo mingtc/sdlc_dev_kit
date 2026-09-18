@@ -136,6 +136,12 @@ Options:
                       spell it (default: this repository's directory name). The
                       name the docs CURRENTLY carry is read out of config.sh's
                       PROJECT_NAME default, never typed here — see "The census".
+                      REFUSED, naming the character and its position, if <N>
+                      contains any of  '  "  `  $  \  &  }  |  or a newline: the
+                      name is stamped into a shell assignment in scripts/config.sh,
+                      and those either leave that file unsourceable (so every
+                      script that reads it dies) or change the stamped value
+                      without saying so. It is not rewritten for you.
   --prd-prefix <P>    PRD id prefix (default: left as config.sh has it).
   --roles "A|B|C"     Your role set, as the ERE alternation the commit-msg hook
                       enforces. Stamped into every script seam that ENFORCES it —
@@ -204,10 +210,94 @@ need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
 
+# validate_project_name <name> — refuse a --project-name that cannot survive being
+# stamped into config.sh. Returns non-zero and names the character AND its position.
+#
+# WHAT BREAKS, AND WHY THE STAMP CANNOT SIMPLY BE QUOTED BETTER. The value is written
+# into scripts/config.sh as the default of a parameter expansion inside double quotes:
+#
+#     PROJECT_NAME="${PROJECT_NAME:-<the value>}"
+#
+# Bash still processes quoting, expansion and escapes inside the `word` of a
+# `${VAR:-word}` even when the whole expansion is double-quoted, and the value ALSO
+# passes through a `sed` replacement on its way there. So a hostile character breaks
+# at one of two distinct stages, and the two failures look nothing alike:
+#
+#   • UNSOURCEABLE — config.sh is no longer valid shell, so EVERY script that sources
+#     it dies, not just this one. An apostrophe opens a single-quoted string that runs
+#     to end of file.  '  "  `  and an embedded NEWLINE.
+#   • SILENTLY WRONG — config.sh sources cleanly and PROJECT_NAME holds something the
+#     caller never typed. This is the worse half: nothing reports it.
+#       $   expands at source time — `A$HOME B` becomes the sourcing user's home path
+#       \   is eaten by the sed replacement
+#       &   is sed's "the whole match", so the ENTIRE config line is spliced into the value
+#       }   closes the expansion early, truncating the name and stranding the remainder
+#       |   is the sed delimiter and ABORTS the substitution mid-run
+#
+# THE SET WAS DERIVED BY EXECUTION, NOT FROM MEMORY. Every printable ASCII character was
+# stamped through the real substitution and the result both `bash -n`-parsed and sourced
+# back; the ones listed above are those that failed one test or the other, and every
+# other printable character round-tripped byte for byte. scripts/test/run.sh RE-DERIVES
+# the set the same way rather than trusting this comment, and requires this function to
+# agree with the derivation in BOTH directions — refusing everything measured hostile and
+# accepting everything measured safe. A hand-listed set is a claim; the re-derivation is
+# the measurement, and it is what stops the next character nobody listed getting through.
+#
+# IT REFUSES RATHER THAN SANITISING, which is scripts/config.sh's own standing posture
+# (see validate_slug and the paragraph above it): rewriting a bad name into a legal one
+# hands the caller a project called something they did not type and cannot search for.
+# A sanitiser is also a second parser, and it fails silently on whatever the first one
+# missed — which is exactly the failure mode the silent half above already demonstrates.
+validate_project_name() {
+  local name="$1" pos=1 ch what
+  if [ -z "$name" ]; then
+    echo "Error: --project-name requires a non-empty value." >&2
+    return 1
+  fi
+  case "$name" in
+    *"
+"*) echo "Error: --project-name — an embedded newline is not allowed." >&2
+        echo "       It aborts the substitution that writes scripts/config.sh." >&2
+        return 1 ;;
+  esac
+  while [ "$pos" -le "${#name}" ]; do
+    ch="${name:$((pos-1)):1}"
+    what=""
+    case "$ch" in
+      "'")  what="an apostrophe" ;;
+      '"')  what="a double quote" ;;
+      '`')  what="a backtick" ;;
+      '$')  what="a dollar sign" ;;
+      '\')  what="a backslash" ;;
+      '&')  what="an ampersand" ;;
+      '}')  what="a closing brace" ;;
+      '|')  what="a pipe" ;;
+    esac
+    if [ -n "$what" ]; then
+      echo "Error: --project-name '$name' — $what at position $pos is not allowed." >&2
+      echo "       The name is stamped into scripts/config.sh as the default of" >&2
+      echo "       PROJECT_NAME=\"\${PROJECT_NAME:-<name>}\", and that character would" >&2
+      case "$ch" in
+        "'"|'"'|'`') echo "       leave config.sh unparseable — every script that sources it dies." >&2 ;;
+        *)           echo "       change the stamped value without saying so." >&2 ;;
+      esac
+      echo "       It is not rewritten for you: the name you type is the name you get." >&2
+      echo "       Spell it without that character (a hyphen or a space reads fine)." >&2
+      return 1
+    fi
+    pos=$(( pos + 1 ))
+  done
+  return 0
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
     --prefix)         need_val "$@"; PREFIX="$2"; shift 2 ;;
-    --project-name)   need_val "$@"; PROJECT_NAME_NEW="$2"; shift 2 ;;
+    # REFUSED AT PARSE TIME, before anything is written. The value is stamped into a
+    # shell assignment in scripts/config.sh; a character that breaks it there breaks
+    # every script that sources config.sh, and half of them break SILENTLY. Exit 2 is
+    # the illegal-invocation status process/contracts/issue-creation.md § 3 declares.
+    --project-name)   need_val "$@"; validate_project_name "$2" || exit 2; PROJECT_NAME_NEW="$2"; shift 2 ;;
     --trunk)          need_val "$@"; TRUNK="$2"; shift 2 ;;
     --prd-prefix)     need_val "$@"; PRD_PREFIX_NEW="$2"; shift 2 ;;
     --roles)          need_val "$@"; ROLES_NEW="$2"; shift 2 ;;
@@ -955,8 +1045,14 @@ SCRATCH_ID="${PREFIX}-${SCRATCH_NUM}"
 SCRATCH_FILE="${SCRATCH_ID}-${SCRATCH_SLUG}.md"
 
 # --- (1) mint a scratch card through the real creation path -----------------
-if "$ROOT/scripts/new-issue.sh" "$SCRATCH_SLUG" --id "$SCRATCH_ID" >/dev/null 2>&1 \
-   && [ -f "$ROOT/progress/todo/$SCRATCH_FILE" ]; then
+# THE MINT'S OUTPUT IS CAPTURED AND REPLAYED ON FAILURE, the same way (2) replays
+# move-issue.sh's. It used to be discarded to /dev/null, and the resulting
+# "✗ could not mint" named the symptom and threw away the one line that identified
+# the cause: an adopter whose config.sh had been stamped unsourceable was told the
+# mint failed and nothing about WHY, so the only way forward was to re-run the
+# failing command by hand. A refusal that hides its cause trains the reader to re-run.
+MINT_OUT="$("$ROOT/scripts/new-issue.sh" "$SCRATCH_SLUG" --id "$SCRATCH_ID" 2>&1)" && MINT_RC=0 || MINT_RC=$?
+if [ "$MINT_RC" -eq 0 ] && [ -f "$ROOT/progress/todo/$SCRATCH_FILE" ]; then
   sc_ok "minted progress/todo/$SCRATCH_FILE"
   # The identity check a silent substitution no-op would fail: the frontmatter id
   # must carry the REAL prefix, not the template's placeholder.
@@ -969,7 +1065,12 @@ if "$ROOT/scripts/new-issue.sh" "$SCRATCH_SLUG" --id "$SCRATCH_ID" >/dev/null 2>
   git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init self-check: mint scratch card $SCRATCH_ID"
   git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
 else
-  sc_bad "could not mint $SCRATCH_ID via scripts/new-issue.sh"
+  sc_bad "could not mint $SCRATCH_ID via scripts/new-issue.sh (exit $MINT_RC):"
+  if [ -n "$MINT_OUT" ]; then
+    printf '%s\n' "$MINT_OUT" | sed 's/^/      /' >&2
+  else
+    printf '      (the command printed nothing; the card simply did not appear at progress/todo/%s)\n' "$SCRATCH_FILE" >&2
+  fi
 fi
 
 # --- (2) move it through TWO columns ----------------------------------------

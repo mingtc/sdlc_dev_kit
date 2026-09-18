@@ -512,6 +512,26 @@ columns and never the cards.*
   and have edited them since, copy the two bullets across by hand — they are additions, and they
   change no bullet you already have.
 
+- **`process/doctrine/generality.md` § C — the sheet's own stated evidence base was wrong, and is
+  corrected.** § C exists so a reader can weigh how well-supported the four questions in § A are, and
+  it said the CONTENT half was **n=1**: *"The second consumer did not produce a request before its
+  run ended."* **Both halves of that were false.** Both consumers produced exactly one request each,
+  and the population is **two**. The two land on **different surfaces** — one a deterministic defect
+  in an initializer, the other a contradiction between two steps of a role handoff — which is what
+  makes them a genuine cross-consumer population rather than two instances of one complaint.
+
+  **What the correction does NOT claim, and this matters more than the number.** n=2 does **not**
+  make the four questions *measured*, and § C still says they are **reasoned**. Two requests on two
+  different surfaces are a *population*, not a *reversal*: no question has yet had to separate two
+  consumers who disagree, so A.2's flip-flop test remains untested — for that the two consumers must
+  meet the **same** surface and resolve it differently, which these two do not. Replacing an
+  overclaim with a different overclaim would be the same defect the correction is fixing.
+
+  **To do: nothing** — no rule in § A changed, only the statement of how well-supported they are. If
+  you have quoted § C's *n=1* anywhere in your own process notes as a reason to discount the sheet,
+  that reason no longer holds; the sheet's evidence base is thin, which it still says, but it is not
+  as thin as it said.
+
 ### Fixed
 
 - **A run id, class or actor with a leading or trailing underscore is no longer silently shortened
@@ -544,6 +564,38 @@ columns and never the cards.*
   cannot be recovered — the original id is not in them. Records written from the next release
   onward carry the id you exported. **If you worked around this by avoiding underscores at the
   edges of your run ids, you no longer need to**, and ids you already chose keep working unchanged.
+
+- **`kit-init.sh --project-name` now REFUSES a name it cannot stamp, instead of writing a
+  `scripts/config.sh` that no script can source.** The name is written into `config.sh` as the
+  default of `PROJECT_NAME="${PROJECT_NAME:-<your name>}"`, and bash still processes quoting inside
+  the `word` of a `${VAR:-word}` even when the whole expansion is double-quoted. **An apostrophe
+  therefore opened a single-quoted string that ran to end of file**, leaving `config.sh` unparseable
+  — so every script that sources it died, and the initializer's own self-check reported only
+  `✗ could not mint …` with no cause. A real project hit this on its first command with an ordinary
+  name — an apostrophe in a place name is enough, and they are common in the charity and hospitality
+  sectors.
+
+  The refused set was **derived by execution** rather than listed from memory — every printable ASCII
+  character stamped through the real substitution, then both parsed and sourced back. **Nine
+  characters fail**, in two classes that look nothing alike: `'`, `"`, `` ` `` and an embedded
+  newline leave the file **unsourceable**, so every script that reads it dies; `$`, `\`, `&`, `}` and
+  `|` let it source and **silently change the value you asked for** — `$` expands at source time (so
+  the same file means different things to different operators), `&` splices the whole config line
+  into the value, `}` closes the expansion early and truncates the name, `\` is eaten by the
+  substitution and `|` aborts it. Every other printable character round-trips byte for byte. The refusal names the character **and its position**, fires at argument-parse time
+  before anything is written, and exits 2 — and **it does not rewrite your name for you**: a
+  sanitiser is a second parser that fails silently on whatever the first one missed, which is exactly
+  what the five silent characters above already demonstrate.
+
+  **Independently, the self-check now replays the failing mint's own output.** It used to discard it,
+  so the one line naming the cause was thrown away and the only way forward was to re-run the failing
+  command by hand.
+
+  **To do: nothing.** The refusal fires only inside `kit-init.sh`, which a project runs once on day
+  one; if you are already initialized you are past the line that broke. **If your project name
+  contains one of the nine**, spell it without that character when you initialize — a
+  hyphen or a space reads fine — and set the prose spelling you actually want in your role docs and
+  templates afterwards, where it is not a shell value.
 
 ## [0.5.0] — 2026-09-15
 
