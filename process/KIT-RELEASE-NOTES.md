@@ -389,6 +389,14 @@ columns and never the cards.*
   not wired into `scripts/verify.sh` and remains an on-demand tool.
 ### Changed
 
+- **`process/doctrine/generality.md` § C states its evidence base correctly.** It said the content
+  half of the cross-consumer question rested on one consumer's request; the second consumer's request
+  existed and was committed, so the population is two and the two do not overlap. **The sheet's
+  conclusion is unchanged and deliberately so** — the four questions remain *reasoned rather than
+  measured*, because two requests landing on two different surfaces are a population, not a reversal,
+  and no question has yet had to separate two consumers who disagree. **Nothing to do:** no rule
+  changed, only the paragraph that says how well evidenced the rules are.
+
 - **A declaration in this kit now says which program reads it — or says that none does.** Six
   documents and one guard changed, and the shape is the same in each: a rule that stated a format,
   a marker or a shape named nothing that reads it, so it read exactly like an enforced rule while
