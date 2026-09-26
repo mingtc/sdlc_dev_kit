@@ -202,7 +202,8 @@ changelog" beats leaving a gap the reader will not notice.
 ### A.8 — **Feedback flows OUTWARD, in a file, from day one**
 
 Everything else a project holds from its kit came inward. **One document goes back**:
-`process/KIT-FEEDBACK.md`, copied from the shipped skeleton on day one and left empty.
+`process/KIT-FEEDBACK.md`, copied from the shipped skeleton on day one, empty rather than
+fabricated.
 
 **Why it is a FILE and not a message.** The findings worth sending are noticed in the first week of
 running something and are unreconstructable by the third — the surprise fades, the workaround

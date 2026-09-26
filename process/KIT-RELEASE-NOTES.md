@@ -141,6 +141,12 @@ columns and never the cards.*
   later seed step lands; the step form does not outlive day one. **Nothing to do:** a project past
   day one never writes the step form.
 
+- **`process/KIT-FEEDBACK.md` on day one is "empty rather than fabricated", not "empty".** SEED's
+  day-one checklist, the skeleton, `process/doctrine/distribution.md` § A.8 and
+  `process/EXTRACTION.md` said the file must be empty; the reason behind it (findings are noticed in
+  week one and lost by week three) argues for writing a finding down the day it happens. A day-one
+  finding now belongs in the file; an entry written only to fill it does not. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

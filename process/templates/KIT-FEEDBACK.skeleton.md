@@ -6,11 +6,12 @@
      so keep its shape. -->
 <!--
   HOW TO USE THIS FILE
-  Copy to process/KIT-FEEDBACK.md and start it on DAY ONE, empty. Delete the HTML comments.
+  Copy to process/KIT-FEEDBACK.md and start it on DAY ONE, empty rather than fabricated: it holds
+  what day one actually measured, usually nothing. Delete the HTML comments.
   DROP THE KIT-CLASS MARKER. The `KIT-CLASS:` marker line at the top classifies this file FOR
   THE KIT (does it travel, and which half). It is kit bookkeeping, not your project's.
 
-  WHY IT IS EMPTY AND STILL WORTH CREATING: the entries you will want to send are the ones you
+  WHY IT IS USUALLY EMPTY AND STILL WORTH CREATING: the entries you will want to send are the ones you
   notice in the first week and cannot reconstruct in the third. A file created after the fact is
   written from memory, which is the failure it exists to prevent.
 -->
@@ -82,4 +83,6 @@ finding arriving after a cut waits for the one after it.
 
 ## Entries
 
-<!-- The first entry onward, newest at the bottom. Nothing here on day one, and that is correct. -->
+<!-- The first entry onward, newest at the bottom. Usually nothing here on day one, and that is
+     correct. A finding day one actually measured belongs here all the same, for the reason above;
+     what does not belong is an entry written to fill the file. -->
