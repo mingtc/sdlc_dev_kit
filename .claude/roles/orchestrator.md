@@ -531,6 +531,12 @@ RUN-OUTCOME), and the refusal to render a position as a percentage.
 omitting one costs legibility, never correctness. Do not build anything that breaks when a label is
 missing.
 
+**The run id is the same kind of thing, but its absence is SILENT.** A missing label is visible; a
+missing `run=` leaves every progress record this run writes ungrouped and says nothing. So choose one
+id at step 0 and pass it in every dispatch brief, for the leg to prefix its shipped-script and board
+commands with — the procedure, the operator's before-launch route and the check are
+[`.claude/skills/orchestrate/SKILL.md`](../skills/orchestrate/SKILL.md) § Dispatch attribution § 7.
+
 ## Worktree / trunk discipline
 
 Inherited from Dev: **code lives on the worktree/work branch; kanban state and metadata live

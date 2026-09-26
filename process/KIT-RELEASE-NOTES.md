@@ -187,6 +187,14 @@ columns and never the cards.*
   that carries it — and name that tree and commit, or halt before a verdict and report it, naming the
   AC. **Nothing to do.**
 
+- **`.claude/skills/orchestrate/SKILL.md` now says how a run's id reaches every leg**, so a run's
+  progress records carry `run=<id>`. An orchestrator that picks the id at step 0 passes it in every
+  dispatch brief, and each leg prefixes its shipped-script and board commands with
+  `KIT_PROGRESS_RUN=<id>`; an operator can instead set it before launching the session. An `export`
+  inside an agent's tool call did not survive past that call on the harness measured. Confirm by
+  grepping the leg's own progress record. **Nothing to do**, but if you want your runs grouped, set
+  the id that way.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

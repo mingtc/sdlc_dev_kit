@@ -74,6 +74,11 @@
 # ITS PROPAGATION IS NOT GUARANTEED AND CANNOT BE FIXED FROM IN HERE: a subagent spawned
 # with a cleared environment writes records with no `run=` and says nothing about it. The
 # dispatching site owns passing it on. Stated as a limit rather than left implied.
+# THE MEASURED FAILURE ROUTE: on the one harness measured (2026-09-26), an `export` run
+# inside an agent's tool call died with that call, reaching neither the agent's next command
+# nor any subagent; the environment the session was LAUNCHED with, and its settings `env`
+# block, did reach subagents. So an id chosen mid-session travels as a per-command prefix
+# via each dispatch brief — .claude/skills/orchestrate/SKILL.md § Dispatch attribution § 7.
 
 # _pr_clean <string> — collapse a field to something that cannot break the record.
 # Tabs and newlines become spaces; a trailing space is trimmed. NOT a quoting scheme:

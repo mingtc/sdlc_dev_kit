@@ -244,6 +244,42 @@ results**: a suite with five-digit assertion counts reports at the granularity i
 emits, and at that scale the useful signal is not progress but **the first failure**, which is
 already greppable.
 
+### 7. The run id rides in the environment of every leg's shell
+
+Every progress record a leg writes carries `run=<id>` only if `KIT_PROGRESS_RUN` is set in the
+shell that runs the leg's command
+([`process/contracts/progress-record.md`](../../../process/contracts/progress-record.md)). That is
+what groups this run's records. **Choose one id at step 0 and state it in the run plan.** Step 0
+runs inside a session that has already started, so you cannot change your own launch environment.
+Carry the id like this:
+
+- **Your route is the dispatch brief.** Put the id in every brief. Have the leg prefix every
+  shipped-script or board command with `KIT_PROGRESS_RUN=<id>`, one command at a time, and do the
+  same in your own commands.
+- **Do not rely on an `export` inside a tool call.** On the one harness measured, it died with that
+  command. It reached neither the agent's next command nor any leg dispatched afterwards.
+- **The operator's route is before launch.** Whoever launches the session can set the id in its
+  launch environment, or in the `env` block of `.claude/settings.local.json`. On the harness
+  measured, dispatched legs inherited both, and no prefix is needed. **The kit's `.gitignore` does
+  not ignore that file.** Check `git check-ignore -q .claude/settings.local.json` (exit 0) before
+  writing the id there: a committed id is inherited by every clone, and it is stale on the next run.
+  Clear it when the run ends.
+
+**Then confirm it, in the leg's tree rather than yours.** Today a leg in a linked worktree writes its
+records under that worktree's own `.progress-records/`, because the record directory follows the
+checkout's top level. That is a known defect being fixed, and until then grepping your own checkout
+gives a false alarm or a false pass. After a leg's first shipped-script command, grep that tree's
+day file for `run=<id>`. Alternatively, carry an absolute `KIT_PROGRESS_DIR` the same way the id is
+carried, and grep there. A zero means the id is not arriving.
+
+*Measured 2026-09-26 on one agent harness, with a sentinel variable read by a dispatched sub-agent's
+own shell.* The launch environment and a settings `env` block, both `settings.json` and
+`settings.local.json`, reached the sub-agent. An `export` reached neither the same agent's next
+command nor the sub-agent. **Unmeasured:**
+- worktree-isolated agents and remote agents;
+- whether a settings edit made mid-session takes effect;
+- how any other harness behaves.
+
 ## Scaling notes
 
 - **N=1** → a single planning agent in Phase 1 and a single-item pipeline in Phase 2.
