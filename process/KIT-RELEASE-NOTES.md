@@ -102,6 +102,15 @@ columns and never the cards.*
   report's § 2:** a wrong *requirement* is a PM decision — § 9 with PM as its owner if the issue can
   be parked, a stop if it cannot. The token `PASS_AC_CORRECTED` is unchanged. **Nothing to do.**
 
+- **`process/doctrine/generality.md` — § A.1 counts independence per surface, and § C restates its
+  evidence with a dated count.** Consumers who could not have coordinated may still have shared the
+  constraint — for example the same agent harness, vendor tooling, exercise design or product — and
+  on a surface that shared thing shapes, their agreement now counts as one. § C now states a dated
+  count across every consumer observed so far: the flip-flop test (§ A.2) met a real disagreement
+  between consumers and sorted it correctly as a setting, the closest case to the sheet's own
+  falsifier was examined and judged not one, and the evidence is still called thin because every
+  consumer shared one environment. **Nothing to do:** the four questions are unchanged.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

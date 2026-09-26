@@ -62,6 +62,15 @@ A request from one consumer is not thereby refused. It is **owed the remaining t
 full**, where a multi-consumer request may pass on A.2 alone. That is the whole operational content of
 this question: it decides how hard you look, not what you find.
 
+**Count independence per surface, because a shared environment is not independence.** Consumers who
+could not have coordinated may still have **shared the constraint** — for example the same agent
+harness, the same vendor's tooling, the same exercise design, the same product. On a surface that
+shared thing shapes — how the tool wants edits isolated, what it adds to a commit by default, what the
+exercise asked every participant to do — their agreement is one environment answering several times,
+and it counts as **one**. On a surface the shared thing does not touch, the same consumers still count
+separately. So before crediting a count, name what the consumers had in common and ask whether this
+surface is one it shapes. ***Could not have coordinated* is not *did not share the constraint*.**
+
 **And prefer a CLASS to an INSTANCE when you file the evidence.** Where you can state the request as
 *this kind of thing goes wrong in this kind of way*, rather than *this file was wrong on Tuesday*, you
 have done most of A.3's work already and you have something a second consumer can recognise in their
@@ -203,17 +212,40 @@ author, none of § A binds. Filling it in is what makes § A enforceable here ra
 
 ## C. This sheet's own evidence base — stated, because it is thin
 
-**Written from a single round's worth of observation on the question it is actually about, and it says
-so here rather than reading as settled.** Two halves, and they are not equally supported:
+**Written from a single round's worth of observation on the question it is actually about, amended
+after a second, and it says so here rather than reading as settled.** Two halves, and they are not
+equally supported:
 
 - **The SHAPE half is affirmative at n=2.** Two independent consumers, on different products in
   different languages, neither ever shown the process being measured, converged on substantially the
   same working shape. That is real evidence that a *process* can generalise across consumers, and it
   is why this sheet does not simply refuse single-consumer evidence.
-- **The CONTENT half — does one consumer's REQUEST generalise — has a population of two, and the two
-  do not overlap.** Each of the two consumers produced exactly one request, and they land on
-  different surfaces: one is a deterministic defect in the initializer, the other a boundary between
-  two roles in the handoff sequence. **A.1's *one consumer or several* is therefore askable at n=2 on
+- **The CONTENT half — does one consumer's REQUEST generalise — has now been exercised on overlapping
+  surfaces, once, in one environment.**
+  *As of 2026-09-25, a join over both rounds:* **five consumer-instances on three products** — two of
+  them carried from the first round, and one a continuation of another's tree — which is **up to four
+  independent lineages**, and four only on surfaces the product does not drive. The join went surface
+  by surface through each consumer's own feedback, procedure and decision records, under two counting
+  rules: a consumer that continues another's tree inherits its rulings and is **never** independent of
+  it, and two consumers on the same product count as one on any surface the product drives. **A.2 has
+  met a genuine cross-consumer disagreement and sorted it correctly.** On one surface — which role a
+  commit is attributed to before any role has been declared — four lineages gave three different
+  answers, each rationale denying another's premise, and the two on the same product disagreed with
+  each other, which located the choice in the seat rather than the product. A.2 called it a
+  **setting**, owed a declared seam with a default. The shipped seams the join met were recognised as
+  seams, with no change owed. **The falsifier this section names below did not occur, and the closest
+  case was examined and judged not one:** one consumer reversed a shipped instruction that two others
+  followed, but its stated reason was answered by an option that instruction's section never
+  mentioned, and a later entry of its own removed the premise — a discoverability gap, not opposed
+  interests. **The doubt is stated rather than closed:** that consumer's own clause about genuinely
+  parallel work could still be a real setting. **So the four questions are no longer only reasoned —
+  but they are not yet measured across environments:** every instance in the join shared one harness
+  and one exercise design, so on the surfaces those shape, its counts overstate generality. That is
+  the qualifier A.1 now carries, and it is why this section's heading still says *thin*.
+  *As stated on 2026-09-18, from the first round alone, and superseded above:* **a population of
+  two, and the two do not overlap.** Each of the two consumers produced exactly one request, and they
+  land on different surfaces: one is a deterministic defect in the initializer, the other a boundary
+  between two roles in the handoff sequence. **A.1's *one consumer or several* is therefore askable at n=2 on
   that channel** — but two requests on two different surfaces are a population, not a reversal.
   **The four questions above remain reasoned rather than measured**: nothing in the two requests
   tests whether a question sorts well, because no question has yet had to separate two consumers who
@@ -223,7 +255,9 @@ so here rather than reading as settled.** Two halves, and they are not equally s
 
 **What follows from that, and it is a duty rather than a caveat:** this sheet is expected to be
 **tuned** as more consumers arrive. Expect some questions to be sharpened, at least one to be
-demoted, and A.2's three dispositions to acquire a fourth. **The falsifier A.4 demands of every rule,
+demoted, and A.2's three dispositions to acquire a fourth. *(2026-09-25: the demotion has happened,
+and it landed on A.1's weight rather than its place — A.1 now carries the environment qualifier, so a
+count on a surface a shared environment shapes weighs less than it did.)* **The falsifier A.4 demands of every rule,
 applied to this sheet itself:** a consumer meeting all four questions and still receiving a change
 that another consumer has to reverse would show that the four are not sufficient, and this sheet would
 owe a fifth.
