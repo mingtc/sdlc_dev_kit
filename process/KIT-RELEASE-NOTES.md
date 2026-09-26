@@ -435,6 +435,18 @@ columns and never the cards.*
   gives a back-out that touches only what the attempt did. Lines the kit added arrive unstamped, so
   it lists the checks to run before you commit. **Nothing to do** unless you want the cheaper route.
 
+### Fixed
+
+- **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped
+  this file un-rolled.** Each was built before its notes were rolled, so in an affected copy the
+  section headed `## [Unreleased]` IS that release's entry, and its `## [<version>] — <date>`
+  heading never arrived. Check yours: if `grep -c '^## \[<your KIT-VERSION>\]' process/KIT-RELEASE-NOTES.md`
+  prints `0`, your copy is affected; a kit rebuilt from the release tag is not. In the one release
+  measured (`0.6.0`), nothing else differed from the tagged release except `process/KIT-MANIFEST`'s
+  hash for this file, and `KIT-VERSION` was correct. **Nothing to do:** this file's section for your
+  version is the correct record, and you may retitle your copy's `## [Unreleased]` heading to match
+  it. From this release on, the zip is built from, and checked against, the tagged commit.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
