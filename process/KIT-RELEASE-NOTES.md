@@ -330,6 +330,19 @@ columns and never the cards.*
   disk but not committed — ignored ones included — and prints the exact command; its recipe's first
   commit now commits the kit as unzipped.
 
+- **Kit feedback is now recorded by default — decide whether you want that.** `PROJECT.md` gains
+  § The kit, upstream. Its `kit-feedback:` line is `auto` unless you change it, and **a `PROJECT.md`
+  with no such line is read as `auto`**. Under `auto`, seats write to `process/KIT-FEEDBACK.md` at
+  named moments, without being asked: a local ruling that resolves a kit contradiction or silence,
+  session close, a kit upgrade, and an orchestrated run's close. Each session's `progress.md` entry
+  then ends with a `kit-feedback:` line. The moments and the line are in `process/MANUAL.md` § Kit
+  feedback. The checklist lines are in the session-end checklists of the PM, Dev, QA, Refactorer
+  and Orchestrator role docs. A dispatched leg records a finding as a `kit-finding:` line in its
+  `progress.md` entry, and the orchestrator writes the entry. **Choose one:** keep `auto`; set
+  `manual`, which is today's behaviour (written on request); or set `off`, for a project whose
+  findings are not meant for the kit. Then fill *Feedback is sent to* and *Kit updates reach this
+  project by*, where "nobody" is a legal answer. **Nothing is ever sent automatically.**
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
@@ -337,6 +350,13 @@ columns and never the cards.*
   and including the first spec. The unpacked kit's first commit, code and tests, and the
   initializer's own commits fall outside it. A project that wears another hat records the
   departure, its span and its reason in `process/LOCAL-PROCEDURES.md`. **Nothing to do.**
+
+- `process/templates/KIT-FEEDBACK.skeleton.md` gains a visible "leaves your project — review and
+  cut before sending" header, a handwritten `## About this project`, and a per-entry *The moment.*
+  block. Copy the header and the About block into your existing `process/KIT-FEEDBACK.md` by hand;
+  existing entries stay as they are.
+- Entries now quote a kit script's own diagnostic line only: never test output, source, diffs or
+  file contents.
 
 ### Changed
 
@@ -459,6 +479,12 @@ columns and never the cards.*
   it. The reasons show where a PRD is missing:
   `grep -h '^prd_reason:' progress/qa_complete/*.md progress/done/*.md` lists them. **Optional for a
   running project:** add the line to your own templates; nothing reads it as a gate.
+
+- `process/KIT-FEEDBACK.md`'s § Sending names a destination (`PROJECT.md`'s *Feedback is sent to*),
+  or says the file stays put and nobody goes looking for a recipient.
+
+- `process/doctrine/distribution.md` no longer tells a project that ships to nobody to stop before
+  § A.8, in its scope line or in § B's first row.
 
 ### Fixed
 

@@ -218,6 +218,7 @@ version control by the initializer, not left for each actor to discover
   run — and `behind` is a stale view rather than a finding.
 - If `progress/qa_complete/` is over the threshold, run `./scripts/archive.sh --apply` and
   the sweep commits and pushes itself.
+- **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** answer the session-close questions and end your `progress.md` entry with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — `process/MANUAL.md` § Kit feedback.
 
 ## Kanban rules
 
@@ -668,6 +669,64 @@ which was already given the hat and the id as arguments — so attribution is as
 caller rather than reported by the agent, which is the only version an agent cannot get wrong.
 Contract: [`contracts/progress-record.md`](contracts/progress-record.md).
 
+## Kit feedback — on by default, switchable, never sent automatically
+
+**What the kit cannot find by reading, a project finds by running it**, and
+`process/KIT-FEEDBACK.md` is where the project writes that down. A finding recorded only when
+somebody remembers to is recorded by inclination, not by the workflow. So this section names the
+**moments** at which a seat writes, and a setting that switches them off.
+
+**The setting** is the `kit-feedback:` line in `PROJECT.md` § The kit, upstream:
+
+| Value | What it means |
+|---|---|
+| `auto` — **the default** | At each capture moment below, the seat writes an entry, or states that there is none, without being asked. **A missing line reads as `auto`.** |
+| `manual` | No capture moment fires, and no `kit-feedback:` line is written. The file is kept as this project's channel to the kit, and an entry is written when someone asks. |
+| `off` | No capture moment fires, and no `kit-feedback:` line is written: a `none` would read as *nothing found*. This project's findings are not meant for the kit, which suits a tangential project. A person may still write an entry. |
+
+**Why it is a setting.** Two situations want the opposite of the default: a kit judged mature
+enough that feedback is noise, and a tangential project whose findings would pull the kit toward
+one consumer's shape ([`doctrine/generality.md`](doctrine/generality.md) § A.2).
+
+**The capture moments, a closed list.** Each is a place the workflow already stops. There is no
+open-ended *"whenever something goes wrong"* trigger.
+
+1. **M1: a `process/LOCAL-PROCEDURES.md` entry that resolves a kit contradiction or a kit
+   silence.** Write its `K-NN` in the same commit. A recorded departure from a setting's default
+   is **not** a kit finding and mints nothing. **A dispatched leg writes no entry.** It puts one
+   `kit-finding: <what; kit file:line or "silent">` line in its `progress.md` entry, and the
+   orchestrator writes the entry (M4).
+2. **M2: session close.** Answer these questions:
+   - (a) if this session did M1, is its `K-NN` written?
+   - (b) did it bypass or override a kit hook, refusal or gate?
+   - (c) did a kit script or gate report something false?
+   - (d) did it hit a kit instruction it could not follow as written, without recording that
+     anywhere?
+
+   Each *yes* to (b), (c) or (d) is an entry **when the kit's rule, script or silence was the
+   cause**. When the kit was plainly right and the fault is this project's, say so in `progress.md`
+   and write no entry. The session's `progress.md` entry ends with
+   `kit-feedback: none`, or with `kit-feedback: K-NN[, K-NN…]`. **An explicit `none` is required**,
+   so a missing line shows as an omission rather than as a silence. A missing line is reported,
+   never refused, and the line records that the questions were asked, not that the answers are
+   true.
+3. **M3: applying a kit upgrade.** An *Action required* item that could not be applied as written
+   is an entry.
+4. **M4: closing an orchestrated run.** During a run **the orchestrator is the only writer**:
+   parallel legs would mint the same `K-NN` twice. It collects every `kit-finding:` line from the
+   legs' `progress.md` entries, as well as anything a leg's report names, and writes the entries.
+   A runner's success return may carry no notes, so the `progress.md` lines are the record. The
+   run report carries the same `kit-feedback:` line.
+
+**What an entry carries, and what may leave the project**, is the skeleton's to say:
+`process/templates/KIT-FEEDBACK.skeleton.md` § The shape of an entry, and its header.
+**Sending is the project's act.** Nothing leaves automatically, under any setting. Where it goes is
+*Feedback is sent to* in `PROJECT.md` § The kit, upstream, and how is the file's own § Sending it.
+
+**Removing the default is the kit maintainer's act; an adopter sets `off` instead.** Delete this
+section, and every line in the kit that carries the literal `process/MANUAL.md` § Kit feedback.
+Each such line stands alone. What remains is the `manual` behaviour.
+
 ## The measurement rituals (optional) — three ways to find out whether this is working
 
 Everything above tells you how work moves. **None of it measures whether the result is any good to
@@ -743,6 +802,8 @@ dispatched one leg per surface. The reasoning, and the rules behind these two st
 | The role set + the commit-prefix table | the adapter + `.claude/roles/` |
 | Which paths count as **code** | the adapter (§ The code-vs-metadata rule) |
 | House rules, credentials, capability/documentation duties | the adapter — **project law, and none of this file's business** |
+| Where kit feedback is sent, and how kit updates reach the project | `PROJECT.md` § The kit, upstream |
+| Whether kit findings are recorded without being asked (`kit-feedback:`) | `PROJECT.md` § The kit, upstream — `process/MANUAL.md` § Kit feedback |
 
 ## Doctrine — the files this manual points at
 

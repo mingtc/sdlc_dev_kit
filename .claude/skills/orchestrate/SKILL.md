@@ -126,6 +126,7 @@ Emit a run report: **landed** / **parked for your call** / **bugs filed** / **ne
 todos surfaced for PM**, plus the conductor's-belt readings per leg. Then run the role's
 session-end checklist. A run that closes a launch pack stamps that pack in the same change as
 the report.
+**Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** collect every `kit-finding:` line from the legs' `progress.md` entries (a runner's success return may carry no notes), plus any kit finding a leg's report names, and write them as `K-NN` entries — you are the only writer during a run — and give the report its `kit-feedback:` line — `process/MANUAL.md` § Kit feedback.
 
 ## Dispatch attribution — what a watcher can read while the run is in flight
 

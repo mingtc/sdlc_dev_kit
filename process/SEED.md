@@ -119,6 +119,7 @@ Create it at close of day one, even if it holds two lines:
 Each entry: **the contradiction**, **the resolution**, **the date**, and **who ruled**.
 Not a diary and not a backlog — an entry earns its place by being something the next
 worker would otherwise have to decide again.
+Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an entry here that resolves a kit contradiction or silence (not a recorded departure from a setting's default) is also a `K-NN` in `process/KIT-FEEDBACK.md`, written in the same commit — a dispatched leg puts a `kit-finding:` line in its `progress.md` entry instead, and the orchestrator writes the entry — `process/MANUAL.md` § Kit feedback.
 
 - **YYYY-MM-DD — <the contradiction, in one line>.** Resolution: <what is now law>. Ruled by: <role>.
 ```
@@ -188,7 +189,7 @@ rewrite — write your own prefix into the blanks as you fill them.
 |---|---|
 | [`PROJECT.md`](../PROJECT.md) *(not a template — the shipped sheet IS the blank; fill it in place)* | its sections are its `##` headings — read them there rather than from a list here, which is how this row went stale twice |
 | [`CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) | the adapter shape: point at `process/MANUAL.md` early, then hold your own project law |
-| [`KIT-FEEDBACK.skeleton.md`](templates/KIT-FEEDBACK.skeleton.md) | the OUTWARD channel: what this project learns that the kit should know. Copy to `process/KIT-FEEDBACK.md` on day one, empty rather than fabricated — the entries worth sending are the ones you notice in week one and cannot reconstruct in week three |
+| [`KIT-FEEDBACK.skeleton.md`](templates/KIT-FEEDBACK.skeleton.md) | the OUTWARD channel: what this project learns that the kit should know, sent only when the project chooses. Copy to `process/KIT-FEEDBACK.md` on day one, empty rather than fabricated, and write its About block by hand — the entries worth sending are the ones you notice in week one and cannot reconstruct in week three |
 | [`CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) | the corpus manifest shape + its bucket classification |
 | [`DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) | the standing-rulings register: stable ids, three fields, a projection |
 | [`progress.skeleton.md`](templates/progress.skeleton.md) | the exact `## Log` + dated-`###` shapes **the drift report's § Log arm and the initializer's already-lived probe require** — both scan to the next `##` and stop, so a `##` dated entry terminates the section it should sit inside. *(The log rotation is the one tool that would accept `##`; it does, deliberately, so that a project which already wrote it is not stranded — and it does not recommend it.)* |
@@ -221,12 +222,15 @@ you want to know how a stranger meets what you shipped.
 
 - `./scripts/check-board.sh` (or your stack's drift report) is **clean**;
 - `process/KIT-FEEDBACK.md` **exists, and is empty rather than fabricated**: it was copied from
-  the skeleton and holds only what day one actually measured, which is usually nothing. The word
-  was *empty* until literal readers were found discarding real day-one findings to satisfy it.
-  It is the one document that flows back to whoever gave you this kit
-  ([`doctrine/distribution.md`](doctrine/distribution.md) § A.8). *Create it on day one precisely
-  because you usually have nothing to put in it yet: the findings worth sending are the ones you
-  notice in week one and cannot reconstruct in week three;*
+  the skeleton when day one began, its About block written by hand. *Create it then precisely
+  because, at that moment, you have nothing to put in it yet: the findings worth sending are the
+  ones you notice in week one and cannot reconstruct in week three.* By the close its entries hold
+  only what day one actually found, and nothing written to fill it. The word was *empty* until
+  literal readers were found discarding real day-one findings to satisfy it.
+  Under the default, seats write to it at named moments without being asked, so each kit contradiction or silence day one resolves in `process/LOCAL-PROCEDURES.md` is an entry, unless `PROJECT.md` sets `kit-feedback: manual` or `off` — `process/MANUAL.md` § Kit feedback.
+  It is the one document that can flow back to the kit, sent when this project chooses to the
+  destination `PROJECT.md` § The kit, upstream names
+  ([`doctrine/distribution.md`](doctrine/distribution.md) § A.8);
 - your gate runner is green and **committed**;
 - `PROJECT.md`, `CLAUDE.md`, `CORPUS.md`, `DECISIONS.md`, `progress.md` all exist and are yours —
   and **`CLAUDE.md` and `README.md` have been REPLACED, not edited**: neither still carries the

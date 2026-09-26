@@ -308,6 +308,7 @@ If QA fails the review:
       **Option 1**, not Option 2; *both preserve the worktree, which is why picking the wrong one
       once went unnoticed.*
 - [ ] Worktrees for merged or discarded work cleaned up via the skill.
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "Dev: <PREFIX>-NNN <state>" --session <slug>`. No-op if notifications are off.
 
 ## Bug-fix variation

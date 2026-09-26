@@ -240,3 +240,12 @@ enforces. *(Authority:
 | Surface / area | State | Note |
 |---|---|---|
 | `<area>` | <active / dormant / parked> | <one line> |
+
+## The kit, upstream
+
+<!-- This project's relation to the kit it runs. "nobody" is a legal answer to a blank below, and
+     a better one than a guess: a recipient nobody named is a recipient nobody will find. -->
+
+- `kit-feedback: auto` — the kit's default, pre-filled: `auto` records kit findings in `process/KIT-FEEDBACK.md` at the capture moments without being asked; `manual` and `off` fire no capture moment, and `off` also says this project's findings are not meant for the kit; a missing line reads as `auto`, and nothing is ever sent automatically — `process/MANUAL.md` § Kit feedback.
+- **Feedback is sent to:** `<who receives this project's process/KIT-FEEDBACK.md, and by what route — or "nobody: it stays here">`
+- **Kit updates reach this project by:** `<who sends a newer kit version, and how — or "nobody: we check, on a named trigger">`

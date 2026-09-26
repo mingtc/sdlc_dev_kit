@@ -293,4 +293,5 @@ Before closing a PM session:
 - [ ] PROJECT.md updated if the decision is foundational (architecture, scope, philosophy)
 - [ ] Open questions in any PRD are tagged with who needs to answer (PM, Dev, stakeholder)
 - [ ] If a stakeholder-facing artifact was produced (status update, competitive brief, demo notes), saved under `docs/` and linked from `progress.md`
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` (a one-line entry written for it, if the session wrote none) — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.
 - [ ] If notifications are configured, fired a `done` ping summarizing the session — `./scripts/notify.sh done "PM: <what was scoped/created>" --session <slug>`. No-op if notifications are off.

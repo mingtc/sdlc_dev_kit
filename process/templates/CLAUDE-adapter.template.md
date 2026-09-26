@@ -44,6 +44,7 @@ quality bar, the gates, credentials, the active-roles table) live in
    Minted at SEED step 8; short by design. Reading it is what stops the next worker paying again
    for a question already answered — and when you resolve a new one, **you append to it in the
    same session**.
+   **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** an append that resolves a kit contradiction or silence (not a recorded departure from a setting's default) is a kit finding, so write its `K-NN` in `process/KIT-FEEDBACK.md` in the same commit — a dispatched leg puts a `kit-finding:` line in its `progress.md` entry instead, and the orchestrator writes the entry — `process/MANUAL.md` § Kit feedback.
 
 ## Roles
 

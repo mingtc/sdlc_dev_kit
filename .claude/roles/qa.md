@@ -308,4 +308,5 @@ Bugs are work items in the unified `progress/` system — same lifecycle as feat
 - [ ] Each verdict + bug IDs recorded in the issue file's Activity log (via `move-issue.sh --note`). Forge-agnostic pure git — no PR to comment on or approve.
 - [ ] `progress.md` — one line per issue reviewed: `YYYY-MM-DD QA review of <PREFIX>-NNN: PASS/FAIL — <reason or bug refs>`.
 - [ ] No output files (gate diffs, sample artifacts) left untracked that should be in git.
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.
 - [ ] If notifications are configured, fired a `done` ping with the verdict — `./scripts/notify.sh done "QA: <PREFIX>-NNN PASS/FAIL" --session <slug>`. No-op if notifications are off.

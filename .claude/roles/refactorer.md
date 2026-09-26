@@ -215,4 +215,5 @@ blank.
 - [ ] **`progress.md` has one Refactorer entry** for this pass
 - [ ] **Memory hygiene done** — stale/superseded repo-local memory entries updated or pruned (file + index line). Scope is the repo-local store only; the seat's harness-provided memory is out of reach and out of scope.
 - [ ] **No files left in scratch directories** — everything is either in `dev/refactor/`, `progress/todo/`, or the project's test tree
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "Refactorer: <pass scope, N issues>" --session <slug>`. No-op if notifications are off.

@@ -277,6 +277,7 @@ matched at open: <list>.
 - **<PREFIX>-<n>** *(<QA-filed | seat | PM>, `discovered_in: <PREFIX>-<m>`)* — <question>.
   Evidence: <…>. **Recommendation:** <…>. Owner: <…>. Blocks: <nothing | …>.
 - **<observation with no id>** — <the finding, and who owes the filing>.
+- **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`** — `kit-feedback: <none | K-NN[, K-NN…]>`, the legs' `kit-finding:` lines from their `progress.md` entries and any kit finding their reports name, each written as an entry by the orchestrator — `process/MANUAL.md` § Kit feedback.
 
 ---
 
@@ -333,6 +334,7 @@ matched at open: <list>.
 - [ ] Every removal of a test identifier or generated artifact is enumerated and justified.
 - [ ] Residue named, not counted. Zeros stated as claims.
 - [ ] The decision batch has a recommendation and an owner per item.
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** § 9 carries the `kit-feedback:` line, and every leg's `kit-finding:` line (read from its `progress.md` entry, not only its report) is an entry in `process/KIT-FEEDBACK.md` — `process/MANUAL.md` § Kit feedback.
 - [ ] The orchestrator's own misses section is non-empty or explicitly says why.
 - [ ] The commissioning pack is stamped **SPENT against this file by name, in this commit**; any
       mid-run consult document is stamped **SUPERSEDED by this file**.

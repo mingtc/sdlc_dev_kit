@@ -629,6 +629,7 @@ the bullet blank.
       surfaced for PM, and the conductor's-belt readings. Long-form report →
       `dev/runs/<date>-<run-slug>.md`; the `progress.md` entries stay SHORT pointers
       (≤ ~4 lines each), never the narration.
+- [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** every `kit-finding:` line in the legs' `progress.md` entries, and every kit finding their reports name, is a `K-NN` in `process/KIT-FEEDBACK.md`, written by you alone, and the run report and your `progress.md` entry carry the `kit-feedback:` line — `process/MANUAL.md` § Kit feedback.
 - [ ] `progress.md` resume pointer cleared or updated.
 - [ ] Worktrees for merged work cleaned up; worktrees for parked `dev_complete/` work
       preserved (QA may revisit).

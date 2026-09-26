@@ -5,11 +5,12 @@
 something else vendors it. § A is the transferable pattern. § B is what the project adapter
 fills in.
 
-**Scope.** This sheet governs **outbound distribution** — an artifact you build, a consumer
-that pins it, and the thin machinery in [`consumers/`](../../consumers/README.md) that keeps the
-two in step. If your project ships to nobody, none of it binds you; delete `consumers/` and
-stop here. **Nothing in this kit requires a forge**: every rule below works with a local bare
-repository as the remote (see [`GIT-HOSTING.md`](../GIT-HOSTING.md)).
+**Scope.** This sheet governs **outbound distribution** — an artifact you build, a consumer that
+pins it, and the thin machinery in [`consumers/`](../../consumers/README.md) that keeps the two in
+step. If your project ships to nobody, none of it binds you **except § A.8**, which is about sending
+feedback to this kit rather than shipping to consumers of your own: delete `consumers/` and skip to
+§ A.8. **Nothing in this kit requires a forge**: every rule below works with a local bare repository
+as the remote (see [`GIT-HOSTING.md`](../GIT-HOSTING.md)).
 
 **Why it is written down at all.** Distribution failures are **slow** failures. A consumer
 holds a *copy* — of your artifact, of your updater script, of your documents — and a copy that
@@ -203,7 +204,10 @@ changelog" beats leaving a gap the reader will not notice.
 
 Everything else a project holds from its kit came inward. **One document goes back**:
 `process/KIT-FEEDBACK.md`, copied from the shipped skeleton on day one, empty rather than
-fabricated.
+fabricated. **It is written in the project and sent only by the project's choice**, to the
+destination `PROJECT.md` § The kit, upstream names. If that names nobody, the file stays where it
+is.
+Under the default, seats write to it at named capture moments without being asked, unless `PROJECT.md` sets `kit-feedback: manual` or `off` — `process/MANUAL.md` § Kit feedback.
 
 **Why it is a FILE and not a message.** The findings worth sending are noticed in the first week of
 running something and are unreconstructable by the third — the surprise fades, the workaround
@@ -223,14 +227,16 @@ project running it that no round had reached.*
 
 1. **Stable ids, append-only.** An entry keeps its number forever so a later one can amend it by
    name. Editing a sent entry destroys the only shared reference the two sides have.
-2. **Evidence, not impressions.** The command and its output, or the file and its line. An entry
-   with no evidence costs the receiving side a round to disprove.
+2. **Evidence, not impressions.** The kit script's own diagnostic line, or the kit file and its
+   line. Never test-runner or gate output, which carries the project's test output, and never the
+   project's source, diffs or file contents. An entry with no evidence costs the receiving side a
+   round to disprove.
 3. **RECORD THE CHANNEL when you send.** *Measured: an adopter and a maintainer compared notes and
    neither could say by what route the previous snapshot had travelled. Both knew it had arrived.*
    A snapshot whose channel nobody wrote down cannot be sent the same way twice.
 
-**Send early and send partial.** A finding that arrives while the kit is being worked on gets fixed;
-the same finding arriving after a cut waits for the one after it.
+**Where there is a destination, send early and send partial.** A finding that arrives while the kit
+is being worked on gets fixed; the same finding arriving after a cut waits for the one after it.
 
 ## B. Project duties — filled by the adapter
 
@@ -241,7 +247,7 @@ wholesale if the project ships to nobody.
 
 | Duty | Fill in |
 |---|---|
-| **Do we distribute at all?** | `<yes / no>`. If no: delete `consumers/` and this sheet. |
+| **Do we distribute at all?** | `<yes / no>`. If no: delete `consumers/` and this section; keep § A.8, which binds every adopter. |
 | **What is the artifact?** | `<one built file per release, of kind …>` — and the glob that matches it and nothing else. |
 | **The upstream remote** | `<url or local bare repo path>` — recorded on **one line**, in one file (A.1, and the migration point below). |
 | **Release tag convention** | `<pattern>`, and which tags are explicitly **not** releases. |
