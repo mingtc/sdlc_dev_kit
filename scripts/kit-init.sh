@@ -982,6 +982,12 @@ write)
 # Every role runs THIS, in this order, instead of re-deriving commands from prose.
 # finish-pr.sh refuses to land unless this file exists, is executable, is tracked
 # at HEAD, and has no uncommitted modifications.
+#
+# EXIT STATUS — the frame's, never the gate's own: 0 green; 1 the gate FAILED; 3 the
+# gate COULD NOT RUN (its command was not found or not executable: 127 or 126). The
+# gate's own code is kept in the printed line. Callers read these values — the
+# landing script names a 3 "COULD NOT RUN" — so a gate that fails with its own 2 or 3
+# must not reach them as the runner's.
 set -uo pipefail
 REPO_ROOT="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
 cd "\$REPO_ROOT"
@@ -1000,12 +1006,32 @@ echo "── gate: ${GATE_CMD}"
 ${GATE_CMD}
 GATE_RC=\$?
 
+# The gate's code, mapped onto the frame's: 126/127 is a gate that never ran (an
+# UNKNOWN, not a failure); any other non-zero is a failure, whatever number it used.
+P=0; F=0; U=0
+if [ "\$GATE_RC" -eq 0 ]; then
+  LINE="PASS  ${GATE_CMD}"; P=1; STATUS=0
+elif [ "\$GATE_RC" -eq 126 ] || [ "\$GATE_RC" -eq 127 ]; then
+  LINE="UNRUNNABLE  ${GATE_CMD} (rc=\$GATE_RC — the command never executed; NOTHING was measured)"; U=1; STATUS=3
+else
+  LINE="FAIL  ${GATE_CMD} (rc=\$GATE_RC)"; F=1; STATUS=1
+fi
+
+# The frame's summary block, in the frame's shape: marker, the gate's line, the counts.
 echo ""
 echo "═══ verify.sh summary ═══"
-if [ "\$GATE_RC" -eq 0 ]; then echo "PASS  ${GATE_CMD}"; else echo "FAIL  ${GATE_CMD} (rc=\$GATE_RC)"; fi
-exit "\$GATE_RC"
+echo "\$LINE"
+echo "───"
+echo "gates declared: 1 · ran: \$(( P + F )) · passed: \$P · failed: \$F · could not run: \$U · skipped: 0"
+if [ "\$U" -gt 0 ]; then echo "NOTE: 1 gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."; fi
+exit "\$STATUS"
 EOF
   chmod +x "$ROOT/scripts/verify.sh"
+  # THE GENERATED RUNNER SPEAKS THE FRAME'S STATUSES, NOT ITS GATE'S. It used to end in
+  # `exit "$GATE_RC"`, which passed the gate's own code through: a gate that could not start
+  # printed FAIL and exited 127, and a gate that fails with its own 2 or 3 reached the landing
+  # script as the frame's "refused" or "COULD NOT RUN — nothing was measured". The self-test
+  # drives THIS heredoc through kit-init and holds its count line to the frame's shape.
   say "  scripts/verify.sh: written around '${GATE_CMD}' (no runner existed)"
   ;;
 *)
