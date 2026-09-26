@@ -552,6 +552,14 @@ columns and never the cards.*
   finding: any blank left is reported, and none reads as graduated. **Nothing to do** — if a blank
   you had missed is now reported, fill it.
 
+- **`kit-init.sh` signs its own commits with the pre-role hat, not the first role in your set.** Its
+  initialization and self-check commits used to take their tag from whichever role `--roles` (or the
+  hook) listed first; they now carry the hat `process/contracts/role-gate.md` § 2a declares (`PM` by
+  default), or the one you name with **`KIT_INIT_ROLE=<role>`**. If your role set does not contain
+  that hat, kit-init now **refuses before writing anything** and says to set `KIT_INIT_ROLE`.
+  **Nothing to do for a project already initialized**; a new one that narrows `--roles` past `PM`
+  sets the knob.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

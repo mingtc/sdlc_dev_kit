@@ -53,11 +53,15 @@ hats, each for a reason it can name. So the hat for that window is a **declared 
 
 - **The default pre-role hat:** `PM`
 - **The span:** every commit a seat authors on day one, up to and including the first spec
-  ([`../SEED.md`](../SEED.md) steps 1–6). Three kinds of day-one commit fall outside the span:
+  ([`../SEED.md`](../SEED.md) steps 1–6). Two kinds of day-one commit fall outside the span:
   - the unpacked kit's first commit, made before the commit guard is wired or under the guard's
     documented escape, which carries no hat;
-  - code and tests, which carry the hat that writes them;
-  - the initializer's own commits (§ 6).
+  - code and tests, which carry the hat that writes them.
+
+  **The initializer's own commits are inside it**: it signs them with this hat (§ 6). They were
+  listed as a third exclusion while the initializer took its tag from the role set's first member
+  instead of from this seam; the reason for that exclusion — a commit that does not read the seam
+  cannot be said to wear its hat — is why the initializer now reads it.
 - **A departure — say which, and why.** A project that wears another hat records that hat, the span
   it covers, and the reason in `process/LOCAL-PROCEDURES.md` ([`../SEED.md`](../SEED.md) § Step 8's
   closing act). A project that takes the default records nothing.
@@ -107,9 +111,14 @@ declared, never that it was the right one.
 - `scripts/kit-init.sh` — KIT-CLASS: KIT. Writes the declaration's own path — the session-role
   file under the agent-harness directory — into the new repository's ignore list, which is how the
   session-state invariant in § 2 is *installed* rather than merely stated.
-  **Its own commits do not read § 2a's seam.** The initializer signs its initialization and
-  self-check commits with whichever role the declared set lists first. When that role is the
-  pre-role hat, the two agree. When it is not, those commits carry a different hat from the one
-  § 2a declares, and nothing reconciles the two.
+  **Its own commits wear § 2a's hat.** The initializer signs its initialization and self-check
+  commits with the pre-role hat — § 2a's default, or the hat named by its `KIT_INIT_ROLE` knob — and
+  refuses, before writing anything, when that hat is not in the role set it will leave in force,
+  naming the knob. A project that departs from § 2a's default sets the knob to the same hat it
+  records.
+  *Why this is stated:* it used to take the tag from whichever role the declared set listed first.
+  That agreed with § 2a only when the first member happened to be the pre-role hat, and a tag chosen
+  by position records a seat nobody sat in — the derivation the kit's role-set library forbids for
+  every other script that commits as a seat.
 - What the declaration's **content** looks like, and why the gate keys on existence rather than
   content, is [`../MANUAL.md`](../MANUAL.md) § Session start.

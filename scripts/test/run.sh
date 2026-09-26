@@ -8391,7 +8391,9 @@ case_kit_init_roles_leave_no_seam() {
   # change legitimately removes that file's copy, which is a change this repository has already
   # made once.
 
-  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$new" 2>&1)" || rc=$?
+  # THE HAT IS NAMED, because this set does not contain the pre-role hat and kit-init refuses to
+  # sign its own commits with a hat the set would reject (it names KIT_INIT_ROLE when it does).
+  out="$(KIT_INIT_ROLE="$(printf '%s' "$new" | cut -d'|' -f1)" "$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$new" 2>&1)" || rc=$?
   [ "$rc" -eq 0 ] || cf "kit-init --roles exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
 
   # THE EFFECT, PER SEAM: everything that carried the old set carries the new one, and
@@ -8439,6 +8441,94 @@ RECEIPT_EOF
 
   finish "kit-init --roles: every seam that carried the role set carries the new one and none keeps the old, the receipt names them, and subtask.sh's whitelist follows (accepts a declared role, refuses a withdrawn one)"
   teardown
+}
+
+# =============================================================================
+# CASE — kit-init SIGNS ITS OWN COMMITS WITH THE PRE-ROLE HAT, never with whichever role
+#        sorts first.
+#
+# It derived the tag as `${ROLES%%|*}` — the first member of the set — which
+# scripts/lib/role-set.sh's header forbids by name: a derived tag "writes a FALSE SEAT into
+# git history, permanently". On the shipped set the first member happens to be the pre-role
+# hat, so every shipped tree looked right and the rule was broken only where it could not be
+# seen: a project whose set lists another role first got its first attributed commits in
+# that role's name.
+#
+#   (a) a set whose FIRST member is not the hat — every kit-init commit carries the hat;
+#   (b) KIT_INIT_ROLE names another member — every commit carries that one (the knob);
+#   (c) a set WITHOUT the hat and no knob — REFUSED before anything is written, naming the
+#       knob, as role-set.sh refuses;
+#   (d) the default in kit-init.sh equals role-gate.md § 2a's declared default — the seam
+#       has one value, and this is what holds its two copies together.
+# THE NAMES ARE BUILT, NEVER TYPED: case_role_literals_are_declared scans this file for role
+# literals, and the hat is read from the contract rather than written here.
+# =============================================================================
+_ki_hat_doc() {
+  sed -n 's/^- \*\*The default pre-role hat:\*\* `\([^`]*\)`.*/\1/p' \
+    "$REAL_REPO_ROOT/process/contracts/role-gate.md" 2>/dev/null | head -1
+}
+_ki_run_subjects() {  # <roles> [KEY=VAL…] — fresh sandbox, run kit-init, set _ki_out _ki_rc _ki_subj
+  local roles="$1"; shift
+  kit_init_sandbox
+  publish_sandbox
+  local pre; pre="$(git -C "$SB_WORK" rev-parse HEAD)"
+  _ki_rc=0
+  _ki_out="$( cd "$SB_WORK" && env "$@" ./scripts/kit-init.sh --prefix SBX --trunk "$SB_TRUNK" --roles "$roles" 2>&1 )" || _ki_rc=$?
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  _ki_subj="$(git -C "$SB_WORK" log --format=%s "$pre..origin/$SB_TRUNK" 2>/dev/null)"
+}
+case_kit_init_signs_with_the_pre_role_hat() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init signs with the pre-role hat" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init signs with the pre-role hat" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local hat other third set_ n bad
+  hat="$(_ki_hat_doc)"
+  [ -n "$hat" ] || { cf "could not read the default pre-role hat out of process/contracts/role-gate.md § 2a — nothing below has an operand"; finish "kit-init signs with the pre-role hat"; return; }
+  # Two other members of the kit's neutral set, neither of them the hat.
+  other="$(printf '%s' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -vx "$hat" | sed -n 1p)"
+  third="$(printf '%s' "$KIT_NEUTRAL_ROLE_PREFIXES" | tr '|' '\n' | grep -vx "$hat" | sed -n 2p)"
+  set_="$other|$hat|$third"
+
+  # (a) first member is not the hat
+  _ki_run_subjects "$set_"
+  if [ "$_ki_rc" -ne 0 ]; then
+    cf "(a) kit-init exited $_ki_rc with the hat in the set: $(printf '%s' "$_ki_out" | tail -8 | tr '\n' '|')"
+  else
+    n="$(printf '%s\n' "$_ki_subj" | grep -c 'kit-init\|SBX-000' || true)"
+    [ "$n" -gt 0 ] || cf "(a) no kit-init commit reached the trunk — nothing was measured: $_ki_subj"
+    bad="$(printf '%s\n' "$_ki_subj" | grep 'kit-init\|SBX-000' | grep -vF "[$hat]" || true)"
+    [ -z "$bad" ] || cf "(a) with '$other' listed first, kit-init signed commits with another hat than the pre-role hat [$hat]: $(printf '%s' "$bad" | tr '\n' '|')"
+  fi
+  teardown
+
+  # (b) the knob names another member
+  _ki_run_subjects "$set_" KIT_INIT_ROLE="$third"
+  if [ "$_ki_rc" -ne 0 ]; then
+    cf "(b) kit-init exited $_ki_rc with KIT_INIT_ROLE=$third, a member of the set: $(printf '%s' "$_ki_out" | tail -8 | tr '\n' '|')"
+  else
+    bad="$(printf '%s\n' "$_ki_subj" | grep 'kit-init\|SBX-000' | grep -vF "[$third]" || true)"
+    [ -n "$(printf '%s\n' "$_ki_subj" | grep 'kit-init')" ] && [ -z "$bad" ] \
+      || cf "(b) KIT_INIT_ROLE=$third was not the hat on every kit-init commit: $(printf '%s' "${bad:-$_ki_subj}" | tr '\n' '|')"
+  fi
+  teardown
+
+  # (c) a set without the hat, no knob -> refused before anything is written
+  _ki_run_subjects "$other|$third"
+  [ "$_ki_rc" -ne 0 ] || cf "(c) kit-init ran with a role set that does not contain its hat [$hat] — its own commits would carry a hat the hook rejects"
+  printf '%s\n' "$_ki_out" | grep 'NOTHING WAS WRITTEN' >/dev/null \
+    || cf "(c) the refusal did not say nothing was written: $(printf '%s' "$_ki_out" | tail -8 | tr '\n' '|')"
+  printf '%s\n' "$_ki_out" | grep 'KIT_INIT_ROLE' >/dev/null \
+    || cf "(c) the refusal does not name the knob that fixes it"
+  grep -q 'Stamped by scripts/kit-init.sh' "$SB_WORK/scripts/config.sh" \
+    && cf "(c) the refused run stamped scripts/config.sh"
+  teardown
+
+  # (d) one value, two copies, held together
+  local lit; lit="$(sed -n "s/^KIT_INIT_ROLE_DEFAULT='\([^']*\)'.*/\1/p" "$REAL_SCRIPTS/kit-init.sh" | head -1)"
+  [ "$lit" = "$hat" ] \
+    || cf "(d) kit-init.sh's KIT_INIT_ROLE_DEFAULT is '${lit:-<absent>}' and role-gate.md § 2a declares '$hat' — the pre-role hat has two values"
+
+  finish "kit-init signs its own commits with the pre-role hat [$hat] even when another role is listed first (a), honours KIT_INIT_ROLE (b), refuses before writing when the hat is not in the set (c), and its default is role-gate.md § 2a's (d)"
 }
 
 # =============================================================================
@@ -14768,6 +14858,7 @@ CASES=(
   case_kit_init_happy
   case_kit_init_repairs_hook_mode
   case_kit_init_roles_leave_no_seam
+  case_kit_init_signs_with_the_pre_role_hat
   case_help_advertises_exactly_what_the_role_arm_accepts
   case_role_enforcement_derives_and_names_its_fallback
   case_lived_probe_has_one_authoring_site

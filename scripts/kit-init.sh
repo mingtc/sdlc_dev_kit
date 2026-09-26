@@ -105,6 +105,21 @@ PREFIX_PLACEHOLDER='<PREFIX>'
 CLASS_MARKER_KEY='KIT-CLASS:'
 CLASS_MARKER_SENTINEL='@@KITCLASSKEY@@'
 
+# THE HAT THIS SCRIPT'S OWN COMMITS CARRY — the PRE-ROLE HAT, never a member picked by position.
+# process/contracts/role-gate.md § 2a declares the hat for day one's commits as a setting with a
+# default; this is that default, and KIT_INIT_ROLE is the knob for a project that departs from it
+# (the same knob shape as FINISH_PR_ROLE, ARCHIVE_ROLE and RELEASE_ROLE). The self-test holds this
+# literal equal to § 2a's token, so the seam keeps one value.
+# IT USED TO BE DERIVED — `${ROLES%%|*}`, the first member of the set — which
+# scripts/lib/role-set.sh forbids by name: seat identity is not a position, and a derived tag
+# "writes a FALSE SEAT into git history, permanently". On the shipped set the first member IS the
+# pre-role hat, so every shipped tree looked right; a project whose set lists another role first
+# got its first attributed commits — the initialization and the self-check — in that role's name.
+# The derivation's stated reason, keeping the self-check donor-free whatever the set, still holds:
+# a knob with a refusal (checked in the preflight, before anything is written) is donor-free too.
+KIT_INIT_ROLE_DEFAULT='PM'
+SELF_ROLE="${KIT_INIT_ROLE:-$KIT_INIT_ROLE_DEFAULT}"
+
 PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true
 PROJECT_NAME_NEW=""
 
@@ -161,6 +176,11 @@ Options:
                       without one — and the shipped frame REFUSES TO RUN while its
                       table is empty, so omit the flag only once you have declared
                       your gates in that table by hand.
+  KIT_INIT_ROLE=<R>   (environment) The hat this script's own commits carry. Default:
+                      the pre-role hat, process/contracts/role-gate.md § 2a. Must be a
+                      member of the role set in force, or the run is refused before
+                      anything is written. Set it when your project wears another hat
+                      before any role is declared, or declares a set without that one.
   --skip-self-check   Stamp and create, but do not run the self-check. Discouraged
                       — the self-check is the only part that PROVES the result.
   -h, --help          This text.
@@ -643,6 +663,22 @@ else
   fi
 fi
 
+# --- the hat this run's own commits carry must be in the set it will enforce ---
+# Checked HERE, before anything is written, because the commit-msg hook would reject the first
+# commit AFTER the stamping — the refusal lib/role-set.sh's kit_require_role makes for the other
+# scripts that commit under a chosen seat. The set is the one this run will leave in force: the
+# --roles value when given, otherwise the hook's as copied (an unreadable hook is refused below
+# on its own terms, so it is not guessed at here).
+# `|| true` IS LOAD-BEARING: with the hook absent, sed fails, pipefail carries it out of the
+# substitution, and `set -e` would end the preflight before it could NAME the missing file.
+PF_ROLES="${ROLES_NEW:-$( { sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$ROOT/scripts/githooks/commit-msg" 2>/dev/null || true; } | head -1)}"
+if [ -n "$PF_ROLES" ]; then
+  case "|$PF_ROLES|" in
+    *"|$SELF_ROLE|"*) : ;;
+    *) pf "this script signs its own commits as [$SELF_ROLE] — the pre-role hat (process/contracts/role-gate.md § 2a's default${KIT_INIT_ROLE:+, here set by KIT_INIT_ROLE}) — and the role set '$PF_ROLES' does not contain it, so the commit-msg hook would reject them. Name the hat your project wears before any role is declared: KIT_INIT_ROLE=<one of the set> ./scripts/kit-init.sh …" ;;
+  esac
+fi
+
 if [ ${#PF[@]} -gt 0 ]; then
   {
     echo ""
@@ -676,6 +712,7 @@ say "  repo:   $ROOT"
 say "  prefix: $PREFIX"
 say "  trunk:  $TRUNK  (confirmed against $REMOTE/HEAD → $REMOTE_HEAD)"
 say "  remote: $REMOTE"
+say "  commit hat: [$SELF_ROLE] (the pre-role hat — process/contracts/role-gate.md § 2a${KIT_INIT_ROLE:+; set by KIT_INIT_ROLE})"
 say "  ✓ preflight clean — proceeding."
 
 # =============================================================================
@@ -913,9 +950,9 @@ else
   ROLES="$OLD_ROLES"
   say "  role set left as copied: '${ROLES}' (change it with --roles)"
 fi
-# The role this script uses for its OWN commits is DERIVED from the effective
-# set — never a literal, so the self-check stays donor-free whatever the set is.
-SELF_ROLE="${ROLES%%|*}"
+# The role this script uses for its OWN commits is SELF_ROLE, set at the top from the
+# pre-role hat and checked against the effective set in the preflight — no longer derived
+# from the set here (see KIT_INIT_ROLE_DEFAULT for why).
 
 # --- the gate command ---
 case "$GATE_MODE" in
