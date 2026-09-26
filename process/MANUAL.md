@@ -360,7 +360,7 @@ bounces it.
    *When present it carries three things:* what the issue assumed · what was measured instead ·
    where that measurement is recorded. *Absent means the premise stood.* **Absent, not empty** — an
    empty string asserts that something was refuted and then names nothing.
-   *Why a third axis rather than a seventh outcome token:* an outcome token would conflate *what
+   *Why a third axis rather than one more outcome token:* an outcome token would conflate *what
    happened to the issue* with *what the run learned*, which is exactly the conflation this step
    avoided when it split verdict from landing. The same argument, one axis further out.
 
@@ -386,6 +386,18 @@ bounces it.
    example, this branch's diff applied onto the tree that carries the gate — or halt before a verdict
    and report the precondition failure, naming the AC. Whoever runs it names that tree and commit:
    Dev in the `dev_complete` note, QA in the review evidence on the issue file.
+
+   **A review leg that returns no verdict is the same precondition failure, one layer out.** When
+   an orchestrated run's review leg comes back with nothing — the agent returned nothing (it died
+   or was skipped) — or with a value outside the four tokens, the **last** review formed no
+   verdict. The runner reports **`NO_VERDICT`** (§ The RUN-OUTCOME vocabulary, below) and halts.
+   It does not spend the fix round on it, and it never files it as `FAILED_AFTER_FIX_ROUND`, which
+   asserts FAIL verdicts that were never formed. The issue is unreviewed as it now stands: the next
+   move is a review, not a fix. *Two known gaps, stated so this is not over-read:* the review of a
+   **park** is not yet covered — its path still reads a missing verdict as a failed one — and a
+   runner's structured review result still requires one of the four tokens, so a reviewer that
+   obeys *"stop and report the precondition failure"* has no value to return and reaches
+   `NO_VERDICT` only if the leg returns nothing at all.
 
    The four, in full:
    - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
@@ -435,6 +447,7 @@ produces this.
 | `PARK_UNVERIFIED` | — | parked, park not verifiable as written |
 | `FAILED_AFTER_FIX_ROUND` | verdict FAIL, twice | failed again after the fix round |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
+| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg returned nothing, or a value outside the four tokens: **unreviewed, not failed** — halts (not yet applied to a park's review) |
 
 **`LANDED` and `LAND_READY` are both verdict PASS** and differ only in whether the landing happened.
 That is why a gate treats both as success, and it is the composition rule that makes the next
@@ -443,6 +456,13 @@ sentence enforceable:
 > **A new member that encodes a verdict the table above does not have is a second verdict
 > vocabulary wearing another name.** Before adding one, say which verdict and which landing it is
 > composed from. If you cannot, the thing you need is a verdict, and it belongs in § step 6.
+
+**`NO_VERDICT` is composed from the ABSENCE of a verdict, and that is not a second verdict
+vocabulary** — it encodes no verdict at all. It is step 6's precondition failure (*"halts before a
+verdict is formed, reported as itself"*) surfacing at the outcome layer, where a runner otherwise
+had only `FAILED_AFTER_FIX_ROUND` — *verdict FAIL, twice* — to spend on it, and filing it there
+asserted FAIL verdicts that were never formed. So the test above is met rather than waived: the composition is
+*no verdict · no landing*, and the thing it names already exists in step 6.
 
 **Why this needed ratifying rather than living in the runners.** The orchestration runtime grants
 those files no imports, so the vocabulary is **unavoidably hand-copied** into each one. A guard can

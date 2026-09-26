@@ -169,6 +169,8 @@ Action on PASS:
 > evidence about the implementation, so neither FAIL token is honest — both assert something false
 > about the code. Stop and report the precondition failure.
 > **The same holds for an AC that names a gate the tree under review does not hold** — not in its gate runner, or its machinery absent, so the runner cannot report it. Run it against a tree holding both this change and the gate, and record that tree and commit in your review evidence; or stop and report the precondition failure, naming the AC (MANUAL § The Dev → QA handoff, step 6).
+>
+> **A review that forms no verdict is reported as none.** In an orchestrated run, a review leg that returns nothing, or a value outside the four tokens, is filed as `NO_VERDICT` — unreviewed, not failed — and never as `FAILED_AFTER_FIX_ROUND` (MANUAL § The Dev → QA handoff, step 6). Two known gaps: the runners' structured review result still requires one of the four tokens, so a reviewer who stops on a precondition failure has no value to return there yet; and the review of a **park** is not yet covered.
 
 **FAIL — any of:**
 - One or more AC bullets unmet.

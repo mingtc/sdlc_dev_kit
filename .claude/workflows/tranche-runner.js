@@ -203,7 +203,7 @@ const DEV_SCHEMA = {
 // guard.
 const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
 
-// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These six tokens were bare string
+// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These tokens (six, then) were bare string
 // literals at six `return { outcome: '…' }` sites in each runner — twelve copies across the pair,
 // held together by nothing. VERDICTS above has a named declaration AND a harness case pinning it to
 // the ratified table in process/MANUAL.md; this vocabulary had neither.
@@ -227,9 +227,15 @@ const OUTCOME = Object.freeze({
   PARK_UNVERIFIED:        'PARK_UNVERIFIED',         // parked, park not verifiable as written
   FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
   BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
+  NO_VERDICT:             'NO_VERDICT',              // a QA leg formed no ratified verdict — a precondition failure, NOT a FAIL
 })
 const LANDING = ['landed', 'deferred', 'not_applicable']
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
+// A verdict at all: one of the ratified tokens. A review leg that returns nothing, or a value outside
+// VERDICTS, formed no verdict — MANUAL step 6's precondition failure — and is neither pass nor FAIL.
+// Applied to the issue review only: the PARK review's branch still keys on isPass alone, so a park
+// review that forms no verdict is not yet told apart from one that fails. A known gap.
+const isVerdict = v => VERDICTS.includes(v)
 
 const QA_SCHEMA = {
   type: 'object',
@@ -440,7 +446,10 @@ for (const issue of ARGS.issues) {
   // Call site 5 of 7 — QA, first review.
   let qa = await agent(qaPrompt(issue), provision(`qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
 
-  if (qa && !isPass(qa.verdict)) {
+  // Only a ratified FAIL spends the fix round. isVerdict() reads VERDICTS, so a token added at
+  // the authoring site still reaches this branch; a value OUTSIDE the set is not a FAIL, and is
+  // reported as NO_VERDICT below.
+  if (qa && isVerdict(qa.verdict) && !isPass(qa.verdict)) {
     log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
     // Call site 6 of 7 — Dev, fix round. Same provisioning as the fresh pickup:
@@ -465,7 +474,18 @@ for (const issue of ARGS.issues) {
   // stopped a successful run. `!qa.landed` halted the tranche and skipped every
   // remaining issue on a review that had passed with its landing correctly
   // deferred. A deferred landing is continue-and-defer; only a failed REVIEW halts.
-  if (!qa || !isPass(qa.verdict)) {
+  // NO VERDICT IS NOT A FAIL. A review leg that returned nothing (the agent died or was skipped),
+  // or a value outside the ratified set: the LAST review formed no verdict — and filing it under
+  // FAILED_AFTER_FIX_ROUND asserted FAIL verdicts that were never formed. It is MANUAL step 6's precondition failure surfacing at the outcome layer
+  // (process/MANUAL.md § The RUN-OUTCOME vocabulary), so it is named as itself. It HALTS, as a
+  // failure does, because the issue has not been reviewed — but it claims no failure.
+  if (!qa || !isVerdict(qa.verdict)) {
+    halted = issue.id
+    log(`${issue.id}: NO_VERDICT — the last review leg returned no ratified verdict; the issue is unreviewed; tranche HALTS here`)
+    results.push({ id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, qa })
+    continue
+  }
+  if (!isPass(qa.verdict)) {
     halted = issue.id
     // FAILED, not PARKED. A QA failure after the bounded fix round leaves the issue in
     // in_progress/ — it is not parked, and calling it PARKED made a run summary report a

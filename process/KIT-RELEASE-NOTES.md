@@ -35,6 +35,7 @@ Once you hold a newer release:
 
 1. Read every version entry below that is newer than your [`KIT-VERSION`](KIT-VERSION).
 2. Apply the **Action required** items — those are the only ones that can break you.
+   Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an **Action required** item you could not apply as written is a `K-NN` in `process/KIT-FEEDBACK.md`, with the item named in its *The moment.* block — `process/MANUAL.md` § Kit feedback.
 3. Adopt whatever else you want from **Changed** / **Added**, file by file, the same way you would
    any other change: through your own board, with your own gates.
 4. Update your `KIT-VERSION` to the version you have reached, so the next reader knows where you
@@ -298,6 +299,18 @@ columns and never the cards.*
      it was environmental (gates that could not run, none that failed) — previously it would have
      been a FAIL.
   6. If you carry an edited copy of `scripts/finish-pr.sh`, port its post-merge block by hand.
+
+- **The runners have a new RUN-OUTCOME member, `NO_VERDICT`, and an out-of-set verdict no longer
+  spends the fix round.** If anything you run reads the outcomes `.claude/workflows/wave-runner.js`
+  or `.claude/workflows/tranche-runner.js` return — a report template, a dashboard, a script that
+  tallies a run — teach it `NO_VERDICT`: the last review leg of an issue returned nothing, or a
+  value outside the four verdict tokens. It HALTS the run and means **unreviewed, not failed**; do
+  not count it as a failure. Behaviour change: a review verdict outside the four tokens used to be
+  treated as a FAIL and sent the issue through the fix round; it now halts as `NO_VERDICT` with no
+  fix round. If you carry edited copies of the runners, port two edits: the `isVerdict` guard on
+  the fix-round trigger (`qa && isVerdict(qa.verdict) && !isPass(qa.verdict)`), and the
+  `NO_VERDICT` branch ahead of the FAIL branch. `process/templates/run-report.template.md` § 1 has
+  the matching verdict-path line. Not yet covered: the review of a park.
 
 ### Added
 

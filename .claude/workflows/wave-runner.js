@@ -212,7 +212,7 @@ const DEV_SCHEMA = {
 // boolean forces to lie in one direction or the other.
 const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
 
-// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These six tokens were bare string
+// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These tokens (six, then) were bare string
 // literals at six `return { outcome: '…' }` sites in each runner — twelve copies across the pair,
 // held together by nothing. VERDICTS above has a named declaration AND a harness case pinning it to
 // the ratified table in process/MANUAL.md; this vocabulary had neither.
@@ -236,12 +236,18 @@ const OUTCOME = Object.freeze({
   PARK_UNVERIFIED:        'PARK_UNVERIFIED',         // parked, park not verifiable as written
   FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
   BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
+  NO_VERDICT:             'NO_VERDICT',              // a QA leg formed no ratified verdict — a precondition failure, NOT a FAIL
 })
 const LANDING = ['landed', 'deferred', 'not_applicable']
 // A verdict that means the review passed. PASS_AC_CORRECTED is a PASS whose AC's
 // ILLUSTRATION was wrong (never its requirement — a wrong requirement is a PM decision)
 // and was corrected with the issue — MANUAL step 6's third verdict.
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
+// A verdict at all: one of the ratified tokens. A review leg that returns nothing, or a value outside
+// VERDICTS, formed no verdict — MANUAL step 6's precondition failure — and is neither pass nor FAIL.
+// Applied to the issue review only: the PARK review's branch still keys on isPass alone, so a park
+// review that forms no verdict is not yet told apart from one that fails. A known gap.
+const isVerdict = v => VERDICTS.includes(v)
 
 const QA_SCHEMA = {
   type: 'object',
@@ -430,8 +436,11 @@ async function runIssue(issue) {
   //
   // Both FAIL tokens trigger the one bounded fix round. Tested through isPass()
   // rather than against a literal, so a fifth token added at the authoring site
-  // cannot silently fall through this branch as neither-pass-nor-fail.
-  if (qa && !isPass(qa.verdict)) {
+  // cannot silently fall through this branch as neither-pass-nor-fail. isVerdict()
+  // keeps that property (it reads VERDICTS) and adds one exclusion: a value OUTSIDE
+  // the ratified set is not a FAIL, so it does not spend the fix round — it is no
+  // verdict, and is reported as NO_VERDICT below.
+  if (qa && isVerdict(qa.verdict) && !isPass(qa.verdict)) {
     log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
     dev = await agent(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
@@ -449,7 +458,16 @@ async function runIssue(issue) {
   // `not_applicable` because there is genuinely nothing to land, so it no longer
   // needs a special case to avoid reading as a failure. One less hand-patch, and
   // the next flattening case will not need a third.
-  if (!qa || !isPass(qa.verdict)) {
+  // NO VERDICT IS NOT A FAIL. A review leg that returned nothing (the agent died or was skipped),
+  // or a value outside the ratified set: the LAST review formed no verdict — and filing it under
+  // FAILED_AFTER_FIX_ROUND asserted FAIL verdicts that were never formed. It is MANUAL step 6's precondition failure surfacing at the outcome layer
+  // (process/MANUAL.md § The RUN-OUTCOME vocabulary), so it is named as itself. It HALTS, as a
+  // failure does, because the issue has not been reviewed — but it claims no failure.
+  if (!qa || !isVerdict(qa.verdict)) {
+    log(`${issue.id}: NO_VERDICT — the last review leg returned no ratified verdict; the issue is unreviewed`)
+    return { id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, qa }
+  }
+  if (!isPass(qa.verdict)) {
     return { id: issue.id, outcome: OUTCOME.FAILED_AFTER_FIX_ROUND, dev, qa }
   }
   // A PASS that did NOT land is still a success, and the run continues — but the

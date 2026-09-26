@@ -62,6 +62,10 @@
 >   correction is in § 2.
 > - `→ QA FAIL → fix → QA FAIL → PARKED` — fix budget spent. Parking is a legitimate close.
 > - `PARKED → seat-authorized round 2 → PASS` — name the authorizing commit or message.
+> - `→ QA returned no verdict → NO_VERDICT` (or `→ QA FAIL → fix → QA returned no verdict →
+>   NO_VERDICT`) — the last review formed none: **unreviewed, not failed**, and the run halted
+>   there. Say how the leg ended (it returned nothing, or a value outside the four tokens); never
+>   write it as a FAIL.
 > - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked
 >   folder, no half-landed residue. A park nobody reviewed is not a close.
 > - `LAND-READY` — verified and reviewed but not landed (blocked-push regime; see
