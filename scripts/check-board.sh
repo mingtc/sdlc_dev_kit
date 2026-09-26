@@ -72,6 +72,12 @@
 #       no `reports only` token. The operands are CITATION_SURFACES and
 #       CITATION_MARKER, both declared at the top of this file with the measurement
 #       that rules out the obvious alternative (a tree walk plus a comment strip).
+#   (m) PRD COVERAGE — of the landed issues, how many carry `prd: n/a`, and how many of
+#       those give no `prd_reason:`. A COUNT only: `prd: n/a` is legal, so it never sets
+#       `drift`; reports only.
+#   (n) KIT-FEEDBACK LINE — under `kit-feedback: auto` (a missing setting reads as auto),
+#       whether the newest progress.md session entry ends with its `kit-feedback:` line. A
+#       missing line is reported, never refused, so it never sets `drift`; reports only.
 #
 # THE LIST ABOVE AND THE PRINT ORDER AGREE, and (h)-(j) were added to it here because a
 # projection that omits three printing arms is not a projection. It went stale once before
@@ -1869,6 +1875,97 @@ else
     fi
   fi
 fi
+
+# BEGIN prd-coverage arm
+# ---------------------------------------------------------------------------
+# (m) PRD COVERAGE — A COUNT, AND ONLY A COUNT: of the landed issues (progress/qa_complete/
+#      and progress/done/, top level — subtasks inherit their parent's PRD and are not counted
+#      twice), how many carry `prd: n/a`, and how many of THOSE carry no `prd_reason:`.
+#      IT NEVER SETS `drift`, and that is a ruling: `prd: n/a` is legal, individually, and a
+#      gate over it would be satisfied by PRDs written to satisfy it. A stray is legal; a
+#      stray RATE is a finding, and a rate nobody prints is a rate nobody sees. It is
+#      mechanically decidable and has no false positives by construction — it reads one
+#      frontmatter key per card and judges nothing.
+#      THE REASONS ARE THE PAYLOAD. The arm counts them; to read them:
+#        grep -h '^prd_reason:' progress/qa_complete/*.md progress/done/*.md
+#      An EMPTY reason is the template's unfilled line (`prd_reason:` followed only by its
+#      comment) or a card minted before the field existed; both count as "no reason".
+#      The header carries the literal `reports only` — the machine contract arm [k] explains.
+#      The BEGIN/END markers let a copy of this file be made without the arm, which is how the
+#      self-test proves the verdict does not depend on it.
+# ---------------------------------------------------------------------------
+echo
+m_total=0; m_na=0; m_noreason=0; m_cols=""
+for col in qa_complete done; do
+  [ -d "$CB_TREE/progress/$col" ] || continue
+  m_cols="${m_cols}${m_cols:+ + }$col"
+  for f in "$CB_TREE/progress/$col"/*.md; do
+    [ -e "$f" ] || continue
+    m_total=$((m_total+1))
+    m_prd=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd:/{print $2; exit}' "$f")
+    [ "$m_prd" = "n/a" ] || continue
+    m_na=$((m_na+1))
+    m_why=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd_reason:/{sub(/^prd_reason:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); print; exit}' "$f")
+    [ -n "$m_why" ] || m_noreason=$((m_noreason+1))
+  done
+done
+if [ -z "$m_cols" ]; then
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): no landed column in this source  (skipped) — $(cb_src)"
+else
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): $m_na of $m_total landed issue(s) carry prd: n/a; $m_noreason of those give no prd_reason ($m_cols) — $(cb_src)"
+fi
+# END prd-coverage arm
+
+# BEGIN kit-feedback arm — `process/MANUAL.md` § Kit feedback
+# ---------------------------------------------------------------------------
+# (n) KIT-FEEDBACK LINE — under `kit-feedback: auto` (PROJECT.md § The kit, upstream; a missing
+#      setting line READS AS auto), each session's progress.md entry ends with a `kit-feedback:`
+#      line. This arm says what the NEWEST dated entry under `## Log` carries.
+#      A MISSING LINE IS REPORTED, NEVER REFUSED — that is a ruling, and it is why the header
+#      carries the literal `reports only` (the machine contract arm [k] explains) and why this
+#      arm never sets `drift`. The line records that the session-close questions were asked; it
+#      cannot say the answers are true, so a gate on it would only teach seats to write it.
+#      `manual` and `off` fire no capture moment and write no line, so there is nothing to check.
+#      REMOVABLE WITH THE DEFAULT: the kit maintainer who removes kit feedback deletes this block,
+#      BEGIN to END, with the rest of that section's lines.
+# ---------------------------------------------------------------------------
+echo
+echo "[n] kit-feedback line (reports only — a missing line is reported, never refused, and never changes the verdict below) — $(cb_src):"
+n_set=""
+[ -f "$CB_TREE/PROJECT.md" ] && n_set="$(awk 'match($0, /^[[:space:]]*[-*][[:space:]]*`?kit-feedback:[[:space:]]*[A-Za-z]+/) {
+    v = substr($0, RSTART, RLENGTH); sub(/.*kit-feedback:[[:space:]]*/, "", v); print v; exit }' "$CB_TREE/PROJECT.md" 2>/dev/null || true)"
+case "$n_set" in
+  manual|off)
+    echo "      kit-feedback: $n_set — not checked (no capture moment fires, and no line is written, under $n_set)" ;;
+  auto|"")
+    [ -n "$n_set" ] || echo "      kit-feedback: none declared in PROJECT.md — read as auto"
+    if [ ! -f "$CB_TREE/progress.md" ]; then
+      echo "      no progress.md in this source  (skipped — nothing to check)"
+    else
+      # The NEWEST dated entry: the last `### YYYY-MM-DD` block under `## Log` (entries are appended).
+      n_entry="$(awk '
+          /^##[[:space:]]+Log/ { inlog = 1; next }
+          inlog && /^##[[:space:]]/ && !/^###/ { inlog = 0 }
+          inlog && /^###[[:space:]]+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { buf = ""; have = 1 }
+          inlog && have { buf = buf $0 "\n" }
+          END { printf "%s", buf }' "$CB_TREE/progress.md" 2>/dev/null || true)"
+      if [ -z "$n_entry" ]; then
+        echo "      no session entry yet — nothing to check"
+      else
+        n_head="$(printf '%s\n' "$n_entry" | sed -n '1s/^###[[:space:]]*//p')"
+        n_line="$(printf '%s\n' "$n_entry" | grep -E '^[[:space:]]*([-*][[:space:]]+)?`?kit-feedback:' | tail -n 1 || true)"
+        if [ -n "$n_line" ]; then
+          n_line="$(printf '%s' "$n_line" | sed -E 's/^[[:space:]]*([-*][[:space:]]+)?`?//; s/`[[:space:]]*$//')"
+          echo "      newest entry ($n_head): $n_line"
+        else
+          echo "      ⚠ the newest session entry ($n_head) has no kit-feedback: line — the session-close questions (MANUAL § Kit feedback, M2) end with one"
+        fi
+      fi
+    fi ;;
+  *)
+    echo "      ⚠ kit-feedback: '$n_set' in PROJECT.md is not auto, manual or off — not checked" ;;
+esac
+# END kit-feedback arm
 
 echo
 if [ "$drift" -eq 0 ]; then

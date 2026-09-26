@@ -8457,6 +8457,187 @@ case_check_board_graduation_reads_the_trunk() {
 }
 
 # =============================================================================
+# CASE — the KIT-FEEDBACK arm REPORTS a missing line and never refuses it.
+#
+# Under `kit-feedback: auto` (PROJECT.md § The kit, upstream — and a missing setting line reads
+# as auto) each session's newest progress.md entry ends with a `kit-feedback:` line. The arm says
+# what it found; a missing line is REPORTED, never refused, so the verdict never moves.
+#   (1) auto, the newest entry has its line      → the line's value is printed
+#   (2) auto, the newest entry has NONE          → ⚠ reported; the verdict is unchanged (control
+#       below: the same board, the arm's marked block deleted from a copy)
+#   (3) off                                      → not checked
+#   (4) NO setting line, newest entry has none   → "none declared, read as auto", then ⚠
+#   (5) auto, no dated entry at all              → "no session entry yet" — the shipped progress.md
+#   (6) kit-init's board self-check DROPS (2)'s ⚠: its filter is EXTRACTED from kit-init.sh at run
+#       time, never copied, and run over the report (2) produced; a header without the token is
+#       the control that the filter keeps a finding.
+#   (7) a FRESH kit-init completes with the arm in the report: the ⚠ condition cannot coexist with
+#       a fresh install (a dated progress.md entry is a lived signal, which kit-init refuses — also
+#       asserted here), so the install meets the arm's no-entry branch and must stay COMPLETE.
+# =============================================================================
+_kf_board() {  # <PROJECT.md setting line or ""> <progress.md Log body> — writes, publishes, runs
+  make_sandbox
+  { printf '# PROJECT.md\n\n## The kit, upstream\n\n'; [ -n "$1" ] && printf '%s\n' "$1"; } > "$SB_WORK/PROJECT.md"
+  printf '# progress.md\n\n## Log\n\n%s' "$2" > "$SB_WORK/progress.md"
+  publish_sandbox
+  _kf_out="$(cb_run)"
+  _kf_sec="$(printf '%s\n' "$_kf_out" | awk '/^\[[a-z]\] kit-feedback line/{f=1; print; next} f && /^(\[[a-z]\]|──)/{exit} f')"
+  _kf_one="$(printf '%s' "$_kf_sec" | tr '\n' '|')"   # for messages: one line, so a FAIL line holds all its reasons
+}
+case_kit_feedback_line_is_reported_not_refused() {
+  cf_reset
+  local auto='- `kit-feedback: auto` — the kit default' e_old e_with e_without v1 v2 abl filt kept out rc
+  # THE OLDER ENTRY IS THE OPPOSITE OF THE NEWEST in each board, so an arm that read any entry
+  # but the newest gets (1) and (2) wrong in opposite directions.
+  e_with='### 2026-01-01\n\n- [Dev] an older session, no line.\n\n### 2026-01-02\n\n- [Dev] did the work.\n- `kit-feedback: none`\n'
+  e_without='### 2026-01-01\n\n- [Dev] an older session.\nkit-feedback: none\n\n### 2026-01-02\n\n- [Dev] did the work, and wrote no kit-feedback line.\n'
+
+  # (1)
+  _kf_board "$auto" "$(printf "$e_with")"
+  printf '%s\n' "$_kf_sec" | grep -E '^\[[a-z]\] kit-feedback line .*reports only' >/dev/null \
+    || cf "(1) no kit-feedback header carrying 'reports only': ${_kf_one:-no section}"
+  printf '%s\n' "$_kf_sec" | grep -F '(2026-01-02): kit-feedback: none' >/dev/null \
+    || cf "(1) the newest entry's line was not reported: $_kf_one"
+  printf '%s\n' "$_kf_sec" | grep '⚠' >/dev/null && cf "(1) a present line was reported as missing: $_kf_one"
+  teardown
+
+  # (2) + the verdict control
+  _kf_board "$auto" "$(printf "$e_without")"
+  printf '%s\n' "$_kf_sec" | grep '⚠' | grep 'no kit-feedback: line' >/dev/null \
+    || cf "(2) a newest entry with no kit-feedback line was not reported: ${_kf_one:-no section}"
+  v1="$(printf '%s\n' "$_kf_out" | grep '^── board-drift:')"
+  abl="$SB_WORK/scripts/check-board-ablated.sh"
+  awk '/^# BEGIN kit-feedback arm/{skip=1} !skip{print} /^# END kit-feedback arm/{skip=0}' "$SB_WORK/scripts/check-board.sh" > "$abl"; chmod +x "$abl"
+  grep -q 'kit-feedback line' "$abl" && _control_did_not_run "delete the arm's marked block from a copy of check-board.sh"
+  rc=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board-ablated.sh 2>&1 )" || rc=$?
+  rm -f "$abl"
+  v2="$(printf '%s\n' "$out" | grep '^── board-drift:')"
+  [ "$v2" = "── board-drift: clean ✓" ] \
+    || _control_did_not_run "build a board whose verdict is clean without the arm (it was: ${v2:-none})"
+  [ "$v1" = "$v2" ] || cf "(2) the verdict moved with the arm reporting a missing line: with '$v1', without '$v2'"
+  # (6) kit-init's own filter, extracted, over this very report
+  filt="$(awk '/KI_FINDINGS="\$\(printf/{f=1; next} f && /^[[:space:]]*'"'"' \| grep/{exit} f' "$SB_WORK/scripts/kit-init.sh")"
+  if [ -z "$filt" ] || ! printf '%s' "$filt" | grep 'reports only' >/dev/null; then
+    _control_did_not_run "extract kit-init's advisory filter from kit-init.sh (found: ${filt:-nothing})"
+  else
+    kept="$(printf '%s\n' "$_kf_out" | awk "$filt" | grep '⚠' | grep 'kit-feedback' || true)"
+    [ -z "$kept" ] || cf "(6) kit-init's board self-check would count the kit-feedback ⚠ as a finding: $kept"
+    kept="$(printf '%s\n' "$_kf_sec" | sed 's/reports only/REPORTS/' | awk "$filt" | grep '⚠' || true)"
+    [ -n "$kept" ] || _control_did_not_run "show the extracted filter KEEPS a finding under a header without the token"
+  fi
+  teardown
+
+  # (3)
+  _kf_board '- `kit-feedback: off` — not for the kit' "$(printf "$e_without")"
+  printf '%s\n' "$_kf_sec" | grep -F 'kit-feedback: off — not checked' >/dev/null \
+    || cf "(3) off was not reported as not checked: ${_kf_one:-no section}"
+  printf '%s\n' "$_kf_sec" | grep '⚠' >/dev/null && cf "(3) a missing line was reported under off: $_kf_one"
+  teardown
+
+  # (4)
+  _kf_board "" "$(printf "$e_without")"
+  printf '%s\n' "$_kf_sec" | grep -F 'none declared' | grep -F 'read as auto' >/dev/null \
+    || cf "(4) a PROJECT.md with no setting line was not read as auto, out loud: ${_kf_one:-no section}"
+  printf '%s\n' "$_kf_sec" | grep '⚠' >/dev/null || cf "(4) read as auto, the missing line was not reported: $_kf_one"
+  teardown
+
+  # (5)
+  _kf_board "$auto" ""
+  printf '%s\n' "$_kf_sec" | grep -F 'no session entry yet' >/dev/null \
+    || cf "(5) a Log with no dated entry was not reported as nothing to check: ${_kf_one:-no section}"
+  teardown
+
+  # (7) a fresh kit-init completes; and a dated entry makes it refuse as lived
+  if has_kit_init && has_issue_template; then
+    kit_init_sandbox
+    printf '# progress.md\n\n## Log\n\n' > "$SB_WORK/progress.md"
+    publish_sandbox
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/kit-init.sh --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep 'kit-init COMPLETE and PROVEN' >/dev/null \
+      || cf "(7) a fresh kit-init did not complete with the arm in check-board's report (rc=$rc): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+    teardown
+    kit_init_sandbox
+    printf '# progress.md\n\n## Log\n\n### 2026-01-02\n\n- [Dev] a session.\n' > "$SB_WORK/progress.md"
+    publish_sandbox
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/kit-init.sh --prefix SBX --trunk "$SB_TRUNK" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "(7) kit-init accepted a tree whose progress.md holds a dated entry — the arm's ⚠ condition CAN meet a fresh install, and (6) is then the only guard"
+    teardown
+  fi
+
+  finish "check-board's kit-feedback arm reports the newest entry's line (1), reports a missing one without moving the verdict (2), skips off (3), reads a missing setting as auto out loud (4), has nothing to check before the first entry (5), is dropped by kit-init's own extracted filter (6), and a fresh install still completes (7)"
+}
+
+# =============================================================================
+# CASE — the PRD-COVERAGE arm COUNTS, and never changes the verdict.
+#
+# Of the landed issues, how many carry `prd: n/a`, and how many of those give no
+# `prd_reason:`. A card without a PRD is legal, so the arm never sets drift; a stray RATE is a
+# finding, and a rate nobody prints is a rate nobody sees. The cards are MINTED through the
+# shipped new-issue.sh, so the frontmatter is the template's own (including the unfilled
+# `prd_reason:` line and its comment), then moved to a landed column and published.
+# THE VERDICT CONTROL deletes the arm's marked block from a COPY of check-board.sh and requires
+# the same verdict line and exit status from the same board. The arm is found by its label, not
+# its letter, so re-lettering does not break this case.
+# =============================================================================
+case_prd_coverage_counts_only() {
+  cf_reset
+  if ! has_issue_template; then skp "check-board PRD coverage counts, never decides" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local out line rc id cb="$SB_WORK/scripts/check-board.sh" abl v1 v2 rc1 rc2
+  for id in 961:prd-probe:PRD-001 962:na-with-reason:n/a 963:na-no-reason:n/a; do
+    ( cd "$SB_WORK" && ./scripts/new-issue.sh "$(printf '%s' "$id" | cut -d: -f2)" --id "$SB_PREFIX-${id%%:*}" --prd "${id##*:}" >/dev/null 2>&1 ) \
+      || _fixture_die "case_prd_coverage_counts_only: new-issue.sh could not mint $SB_PREFIX-${id%%:*}"
+  done
+  sed -i.bak 's/^prd_reason:.*/prd_reason: a one-off chore no PRD covers/' "$SB_WORK/progress/todo/$SB_PREFIX-962-na-with-reason.md"
+  rm -f "$SB_WORK/progress/todo/$SB_PREFIX-962-na-with-reason.md.bak"
+  grep -q '^prd_reason: a one-off' "$SB_WORK/progress/todo/$SB_PREFIX-962-na-with-reason.md" \
+    || _fixture_die "case_prd_coverage_counts_only: could not fill prd_reason on the minted card"
+  # new-issue.sh writes the card into the checkout only (it is committed by whoever publishes),
+  # so a plain mv, then one publish.
+  mkdir -p "$SB_WORK/progress/qa_complete"
+  mv "$SB_WORK/progress/todo/$SB_PREFIX-961-prd-probe.md" "$SB_WORK/progress/todo/$SB_PREFIX-962-na-with-reason.md" \
+    "$SB_WORK/progress/todo/$SB_PREFIX-963-na-no-reason.md" "$SB_WORK/progress/qa_complete/" \
+    || _fixture_die "case_prd_coverage_counts_only: could not move the minted cards to qa_complete/"
+  # ...and each card's last Activity entry DECLARES the column it now sits in, or arm (a)
+  # reports the move as drift and the verdict control below compares a dirty board with a
+  # dirty board — equal, and blind to an arm that decided. The base board must be CLEAN.
+  local c
+  for c in "$SB_WORK/progress/qa_complete/$SB_PREFIX"-96[123]-*.md; do
+    printf -- '- 2026-01-01 [%s] → qa_complete: landed (fixture)\n' "$SB_ROLE" >> "$c"
+  done
+  publish_sandbox
+  origin_has_path "progress/qa_complete/$SB_PREFIX-963-na-no-reason.md" \
+    || _fixture_die "case_prd_coverage_counts_only: the landed cards are not on the trunk — check-board reads the trunk"
+
+  rc1=0; out="$(cb_run)" || rc1=$?
+  line="$(printf '%s\n' "$out" | grep -E '^\[[a-z]\] PRD coverage' | head -1)"
+  [ -n "$line" ] || cf "no PRD coverage line in the report — the arm is absent"
+  printf '%s\n' "$line" | grep -F '2 of 3 landed issue(s) carry prd: n/a; 1 of those give no prd_reason' >/dev/null \
+    || cf "the count is wrong (expected 2 of 3 n/a, 1 with no reason): ${line:-none}"
+  printf '%s\n' "$line" | grep -F 'reports only' >/dev/null \
+    || cf "the arm's header lacks the literal 'reports only' — kit-init's self-check would read its line as a finding: $line"
+  v1="$(printf '%s\n' "$out" | grep '^── board-drift:')"
+
+  # VERDICT CONTROL: the same board, the arm's block deleted from a copy.
+  abl="$SB_TMP/check-board-without-prd-arm.sh"
+  awk '/^# BEGIN prd-coverage arm/{skip=1} !skip{print} /^# END prd-coverage arm/{skip=0}' "$cb" > "$abl"
+  grep -q 'PRD coverage' "$abl" && _control_did_not_run "delete the arm's marked block from a copy of check-board.sh"
+  cp "$abl" "$SB_WORK/scripts/check-board-ablated.sh"; chmod +x "$SB_WORK/scripts/check-board-ablated.sh"
+  rc2=0; out="$( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board-ablated.sh 2>&1 )" || rc2=$?
+  rm -f "$SB_WORK/scripts/check-board-ablated.sh"
+  v2="$(printf '%s\n' "$out" | grep '^── board-drift:')"
+  # THE PREMISE IS ON THE BOARD WITHOUT THE ARM: it must be clean, or a dirty-equals-dirty
+  # comparison is blind to an arm that decided.
+  [ "$v2" = "── board-drift: clean ✓" ] \
+    || _control_did_not_run "build a board whose verdict is clean without the arm (it was: ${v2:-none})"
+  [ -n "$v1" ] && [ "$v1" = "$v2" ] && [ "$rc1" -eq "$rc2" ] \
+    || cf "the verdict moved with the arm present: with '$v1' (rc $rc1), without '$v2' (rc $rc2)"
+
+  finish "check-board's PRD coverage arm counts landed cards with prd: n/a (2 of 3) and those with no prd_reason (1), carries 'reports only', and leaves the verdict and exit status exactly as they are without it"
+  teardown
+}
+
+# =============================================================================
 # CASE — A DETACHED CHECKOUT IS NAMED AS ONE, WITH ITS SHA — never as a branch
 #        called DETACHED.
 #
@@ -15745,6 +15926,8 @@ CASES=(
   case_check_board_graduation_enabled_without_receipt
   case_check_board_graduation_not_run_direction
   case_check_board_graduation_reads_the_trunk
+  case_prd_coverage_counts_only
+  case_kit_feedback_line_is_reported_not_refused
   case_check_board_names_a_detached_head
   case_check_board_fill_arm_reads_blanks_not_usage
   case_check_board_graduation_verdict_is_not_wired

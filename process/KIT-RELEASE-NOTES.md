@@ -416,6 +416,13 @@ columns and never the cards.*
 - Entries now quote a kit script's own diagnostic line only: never test output, source, diffs or
   file contents.
 
+- **`check-board.sh` reports two new things, and neither changes the verdict.** `[m] PRD coverage`:
+  of your landed issues, how many carry `prd: n/a`, and how many of those give no `prd_reason:`.
+  `[n] kit-feedback line`: under `kit-feedback: auto` (the default, including when `PROJECT.md` has
+  no such line), whether your newest `progress.md` session entry ends with its `kit-feedback:` line —
+  a missing line is reported with ⚠, never refused; under `manual` or `off` it is not checked. Both
+  are marked `reports only`, so `kit-init`'s self-check ignores them. **Nothing to do.**
+
 ### Changed
 
 - **`PASS-with-AC-correction` is scoped where it is stated.** The verdict applies to an AC's

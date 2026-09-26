@@ -756,7 +756,9 @@ open-ended *"whenever something goes wrong"* trigger.
 
 **Removing the default is the kit maintainer's act; an adopter sets `off` instead.** Delete this
 section, and every line in the kit that carries the literal `process/MANUAL.md` § Kit feedback.
-Each such line stands alone. What remains is the `manual` behaviour.
+Each such line stands alone, with one exception: in `scripts/check-board.sh` the literal is on the
+`# BEGIN kit-feedback arm` line, and the whole block down to `# END kit-feedback arm` goes with it.
+What remains is the `manual` behaviour.
 
 ## The measurement rituals (optional) — three ways to find out whether this is working
 
