@@ -4068,6 +4068,10 @@ case_archive_index_carries_the_date() {
   if [ "$n" != "1" ]; then
     cf "(control) expected exactly 1 date-append line in archive.sh to ablate, found $n — the anchor moved and this ablation proves nothing"
   else
+    # TEARDOWN FIRST. make_sandbox sets SB_TMP afresh, so without this the first sandbox's
+    # path was lost and the one teardown below removed only the second — a whole sandbox
+    # left in the temp dir on every run.
+    teardown
     make_sandbox
     seed_issue qa_complete "$SB_PREFIX-251" ablated chore "Ablated retirement"
     perl -i -ne 'print unless /^\s*ENTRY="\$\{ENTRY\} — retired \$\{RETIRED_ON\}"\s*$/' "$SB_WORK/scripts/archive.sh"
@@ -4954,8 +4958,10 @@ EOF
   # "/pctl", which mkdir cannot create. The control below it already carries this
   # guard; writing a second control without it produced a red that named the
   # instrument rather than the subject.
-  local pctl="$SB_TMP"
-  [ -n "$pctl" ] || pctl="$(mktemp -d)"
+  # AND WHAT THIS CASE CREATES, IT REMOVES — the parent, not only the child it wrote. Removing
+  # only "$pctl/pctl" left the empty mktemp parent in the temp dir on every run.
+  local pctl="$SB_TMP" pctl_own=""
+  [ -n "$pctl" ] || { pctl="$(mktemp -d)"; pctl_own=1; }
   mkdir -p "$pctl/pctl"
   if [ -f "$wf/tranche-runner.js" ]; then
     sed 's/Do NOT fix code yourself\./Do NOT fix code yourself. return verdict=BOGUS/' \
@@ -4967,12 +4973,13 @@ EOF
     cf "(control) tranche-runner.js not found — the prompt-prose control could not run"
   fi
   rm -rf "$pctl/pctl"
+  [ -n "$pctl_own" ] && rm -rf "$pctl"
 
   # --- REDDENING CONTROL: drop a member from a COPY and the comparison must fail --
   # Without this the loop above passes whenever both sides are equal, including when
   # the extractors are both broken in the same direction.
-  local ctl="$SB_TMP"
-  [ -n "$ctl" ] || ctl="$(mktemp -d)"
+  local ctl="$SB_TMP" ctl_own=""
+  [ -n "$ctl" ] || { ctl="$(mktemp -d)"; ctl_own=1; }   # removed at the end, parent and all
   mkdir -p "$ctl/vctl"
   local src="$wf/wave-runner.js"
   if [ -f "$src" ]; then
@@ -5015,6 +5022,7 @@ EOF
       || cf "(control) corrupting the ratifying table's header did NOT change the MANUAL extraction — the extractor is not anchored on that table, so it is reading the same tokens out of neighbouring prose and every comparison above is about the wrong operand: [$ratified]"
   fi
   rm -rf "$ctl/mctl"
+  [ -n "$ctl_own" ] && rm -rf "$ctl"
 
   finish "the verdict vocabulary: every *runner*.js VERDICTS array projects MANUAL § Dev → QA step 6's ratified tokens, both sides re-derived from the files, each extractor ablation-proven against its own authority (a dropped member reddens naming itself; a corrupted table header changes the extraction)"
 }
@@ -5497,7 +5505,7 @@ PY
     || cf "no runner declared an ISSUE_KEYS set — either the guard was removed or its name changed, and this case then asserts nothing"
 
   # REDDENING CONTROL: drop a name from a COPY and the derivation must report it.
-  local ctl="$SB_TMP"; [ -n "$ctl" ] || ctl="$(mktemp -d)"
+  local ctl="$SB_TMP" ctl_own=""; [ -n "$ctl" ] || { ctl="$(mktemp -d)"; ctl_own=1; }
   mkdir -p "$ctl/kctl"
   if [ -f "$wf/wave-runner.js" ]; then
     sed "s/'worktreeMode', //" "$wf/wave-runner.js" > "$ctl/kctl/wave-runner.js"
@@ -5517,6 +5525,7 @@ PY
     cf "(control) wave-runner.js not found — the reddening control could not run"
   fi
   rm -rf "$ctl/kctl"
+  [ -n "$ctl_own" ] && rm -rf "$ctl"   # the parent too: removing only the child left it behind
 
   finish "each runner's ISSUE_KEYS admits every per-issue field that runner actually reads ($n runner(s), derived from the file, ablation-proven)"
 }

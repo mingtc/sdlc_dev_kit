@@ -602,6 +602,10 @@ columns and never the cards.*
   A stray from before this fix is a `tmp.*` directory in your temp dir holding part of your project,
   and is safe to delete.
 
+- **The self-test (`scripts/test/run.sh`) no longer leaves directories in your temp dir.** Every run
+  left four: one whole sandbox and three empty ones. **Nothing to do.** Leftovers from older runs are
+  `tmp.*` directories in your temp dir and are safe to delete.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
