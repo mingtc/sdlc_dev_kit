@@ -341,7 +341,7 @@ bounces it.
    | PASS | `PASS` |
    | FAIL on AC | `FAIL_AC` |
    | FAIL on regression | `FAIL_REGRESSION` |
-   | PASS-with-AC-correction | `PASS_AC_CORRECTED` |
+   | PASS-with-AC-correction — an AC's *illustration* was wrong, never its *requirement* | `PASS_AC_CORRECTED` |
 
    **And `landing` is its OWN field, not a fifth verdict and not a boolean:**
    `landed` · `deferred` · `not_applicable`.

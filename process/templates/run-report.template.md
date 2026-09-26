@@ -56,7 +56,10 @@
 >
 > - `work PASS → QA PASS` — clean.
 > - `→ QA FAIL (AC<n>) → 1 fix round → QA #2 PASS` — the normal recovery. Name the AC that failed.
-> - `QA PASS-with-AC-correction` — passed, and the AC itself was wrong; the correction is in § 2.
+> - `QA PASS-with-AC-correction` — passed, and an AC's *illustration* was wrong (never its
+>   *requirement*, which is a PM decision rather than a correction —
+>   [`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff, step 6); the
+>   correction is in § 2.
 > - `→ QA FAIL → fix → QA FAIL → PARKED` — fix budget spent. Parking is a legitimate close.
 > - `PARKED → seat-authorized round 2 → PASS` — name the authorizing commit or message.
 > - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked
@@ -97,8 +100,13 @@ an unexplained change in what a gate skips is a finding, not noise.>
 > lines each. What belongs here and nowhere else:
 >
 > - **what the issue actually delivered**, in the reader's terms, not the diff's;
-> - **the AC corrections** — where the AC was wrong and QA judged the departure justified,
->   quoting the AC clause that permits the judgment;
+> - **the AC corrections** — where an AC's *illustration* was wrong and QA judged the departure
+>   from it justified, quoting the AC clause that permits the judgment and the source the
+>   corrected illustration was checked against. An AC whose *requirement* was wrong is not an AC
+>   correction: it is a PM decision. If the issue can be parked, park it and put the question in
+>   § 9 with PM as its owner; if it cannot, it is a stop event (an unresolved fork about what to
+>   build — [`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md) § A.5),
+>   not an item in the batch;
 > - **an overturned premise** — when the issue's own diagnosis was wrong and the leg proved a
 >   different mechanism. Say the old diagnosis, the new one, and the evidence. This is a *result*,
 >   not an embarrassment;

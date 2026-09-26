@@ -238,8 +238,9 @@ const OUTCOME = Object.freeze({
   BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
 })
 const LANDING = ['landed', 'deferred', 'not_applicable']
-// A verdict that means the review passed. PASS_AC_CORRECTED is a PASS whose AC was
-// itself wrong and was corrected with the issue — MANUAL step 6's third verdict.
+// A verdict that means the review passed. PASS_AC_CORRECTED is a PASS whose AC's
+// ILLUSTRATION was wrong (never its requirement — a wrong requirement is a PM decision)
+// and was corrected with the issue — MANUAL step 6's third verdict.
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
 
 const QA_SCHEMA = {

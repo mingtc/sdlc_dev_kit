@@ -92,7 +92,15 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`PASS-with-AC-correction` is scoped where it is stated.** The verdict applies to an AC's
+  *illustration*, never to its *requirement*. That limit was in `process/MANUAL.md` step 6 but
+  fifty lines below the verdict table, and `.claude/roles/qa.md`, `process/templates/run-report.template.md`
+  and a comment in `.claude/workflows/wave-runner.js` restated the verdict as "the AC was wrong".
+  All now carry the scope, and the table's cell states it. **One new instruction in the run
+  report's § 2:** a wrong *requirement* is a PM decision — § 9 with PM as its owner if the issue can
+  be parked, a stop if it cannot. The token `PASS_AC_CORRECTED` is unchanged. **Nothing to do.**
 
 ## [0.6.0] — 2026-09-18
 

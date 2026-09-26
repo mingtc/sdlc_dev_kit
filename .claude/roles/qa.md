@@ -192,10 +192,14 @@ Action on FAIL splits by reason:
 
 ### The third verdict — PASS-with-AC-correction
 
-Sometimes the AC is wrong and the implementation is right: an AC's illustrative example asserts
-a fact that turns out to be false. **Do not FAIL the implementation for matching reality.**
-PASS it, **land the AC amendment with the issue**, and send the note to PM — an AC illustration
-that was wrong once is a signal about where this project's facts are being guessed.
+Sometimes an AC's *illustration* is wrong and the implementation is right: the example baked
+into the acceptance criterion asserts something the source does not support. **The scope is
+the illustration, never the requirement** — if the AC asks for the wrong *behavior*, that is a PM
+decision, not a reviewer's correction
+([MANUAL § The Dev → QA handoff, step 6](../../process/MANUAL.md)). **Do not FAIL the
+implementation for matching reality.** PASS it, **land the AC amendment with the issue**, and send
+the note to PM — an AC illustration that was wrong once is a signal about where this project's
+facts are being guessed.
 
 This verdict exists because two independent reviewers hit the same trap within twelve hours of
 one another and both invented the same escape. Writing it down is what stops it being
