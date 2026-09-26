@@ -1756,6 +1756,57 @@ case_progress_record_is_one_shape_and_optional() {
 }
 
 # =============================================================================
+# EVERY WORKTREE OF ONE REPOSITORY WRITES ONE PLACE. A record written from a linked
+# worktree lands in the MAIN checkout's .progress-records/ — where the orchestrator
+# reads — and survives the worktree's removal, which is what the landing flow does to a
+# leg's worktree. The pre-fix library wrote under the worktree's own root; this case is
+# red against it. The operand is asserted first: a record in NEITHER tree means the
+# library never loaded, and both checks below would then pass on nothing.
+# =============================================================================
+case_progress_record_one_place_across_worktrees() {
+  cf_reset
+  make_sandbox
+
+  if [ ! -f "$SB_WORK/scripts/lib/progress-record.sh" ]; then
+    skp "progress records from a linked worktree land in the main checkout" "scripts/lib/progress-record.sh is not in the sandbox"
+    teardown; return
+  fi
+
+  # make_sandbox leaves HEAD unborn, and a worktree needs a commit to check out. A setup
+  # commit, so it goes through sbcommit (which bypasses the role-prefix hook) like every other.
+  local wt="$SB_TMP/linked-wt" n_main=0 n_wt=0
+  sbcommit -q --allow-empty -m "seed for a linked worktree" >/dev/null 2>&1
+  if ! git -C "$SB_WORK" worktree add -q --detach "$wt" >/dev/null 2>&1; then
+    _control_did_not_run "create a linked worktree of the sandbox — nothing below was measured"
+  else
+    (
+      cd "$wt" || exit 1
+      unset KIT_PROGRESS_DIR
+      # shellcheck source=/dev/null
+      . "$SB_WORK/scripts/lib/progress-record.sh"
+      kit_progress "Dev:ID-1" status "written from a linked worktree"
+    ) >/dev/null 2>&1
+    n_main="$(cat "$SB_WORK"/.progress-records/*.tsv 2>/dev/null | grep -c 'written from a linked worktree' || true)"
+    n_wt="$(cat "$wt"/.progress-records/*.tsv 2>/dev/null | grep -c . || true)"
+    if [ "$(( ${n_main:-0} + ${n_wt:-0} ))" -eq 0 ]; then
+      _control_did_not_run "write one record from the linked worktree (none in either tree)"
+    else
+      [ "${n_main:-0}" -eq 1 ] \
+        || cf "a record written from a linked worktree did not land in the main checkout's .progress-records/ ($n_main there) — the orchestrator reads there"
+      [ "${n_wt:-0}" -eq 0 ] \
+        || cf "a record written from a linked worktree landed under the worktree's own root ($n_wt there) — it is deleted with the worktree when the leg lands"
+      git -C "$SB_WORK" worktree remove --force "$wt" >/dev/null 2>&1
+      [ ! -d "$wt" ] || cf "control: the linked worktree was NOT removed, so its survival is unmeasured"
+      grep -q 'written from a linked worktree' "$SB_WORK"/.progress-records/*.tsv 2>/dev/null \
+        || cf "the record did not survive removing the linked worktree"
+    fi
+  fi
+
+  finish "a progress record written from a linked worktree lands in the main checkout's .progress-records/ ($n_main there, $n_wt in the worktree) and survives the worktree's removal"
+  teardown
+}
+
+# =============================================================================
 # CASE — --set-pr WRITES BACK INTO A CARD MINTED FROM THE REAL TEMPLATE
 #
 # WHY THIS CASE AND NOT A FIXTURE ASSERTION: `--set-pr` writes only into an EXISTING
@@ -5729,6 +5780,525 @@ STUBEOF
   finish "both shipped workflow runners compose every brief from a payload carrying only the REQUIRED per-issue fields, refuse a misspelled key by name, and the exerciser is ablation-proven against the adopter's original crash ($n runner(s), nothing dispatched)"
 }
 
+# CASE — a QA leg that forms NO verdict is filed as NO_VERDICT, never as FAILED_AFTER_FIX_ROUND.
+#
+# WHY IT EXISTS. Both runners decided a leg's outcome with `if (!qa || !isPass(qa.verdict))`, so a QA
+# leg that returned nothing — no review happened — was filed as FAILED_AFTER_FIX_ROUND, which the
+# ratified table composes from "verdict FAIL, twice". A run report then said the implementation had
+# failed review twice when nobody had reviewed it: MANUAL step 6's could-not-run rule ("do not reach
+# for FAIL_AC or FAIL_REGRESSION") broken one layer out. Found by an adopter; reproduced by driving
+# both runners with a null QA reply.
+#
+# THE STUB DOES NOT FILL OPTIONAL FIELDS (not required, description beginning "OPTIONAL."), or
+# every reply would carry precondition_failure: 'stub' and every review would halt as NO_VERDICT.
+#
+# NOTHING IS DISPATCHED. `agent()` is stubbed and SCRIPTED by label prefix: a prefix mapped to null
+# returns null (the leg formed nothing), a prefix mapped to an object returns a schema-shaped reply
+# with those fields overridden. Two CONTROL rows hold the neighbours still: a genuine FAIL-then-FAIL
+# must stay FAILED_AFTER_FIX_ROUND, and a PASS must stay LANDED — so the case cannot go green by
+# relabelling every non-pass.
+case_runner_no_verdict_is_not_a_failure() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub out n=0 row name script want got
+  [ -d "$wf" ] || _fixture_die "case_runner_no_verdict_is_not_a_failure: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "the review leg that forms no verdict is NO_VERDICT, not a failure" "node absent"; return; }
+
+  stub="$(mktemp -d)/drive.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, scriptJson] = process.argv.slice(2)
+const script = JSON.parse(scriptJson)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  const pre = String(opts.label || '').split(':')[0]
+  if (Object.prototype.hasOwnProperty.call(script, pre)) return script[pre] === null ? null : Object.assign(stubFor(opts.schema), script[pre])
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map((f) => f()))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  const r = await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  console.log(((r && r.results) || []).map(x => x.outcome).join(','))
+} catch (e) { console.log('THREW:' + String((e && e.message) || e)) }
+STUBEOF
+
+  local T_ARGS='{"repo":"/tmp/x","issues":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"}]}'
+  local W_ARGS='{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high","worktreeMode":"self","phase":"Wave1","restartNote":"n"}]}'
+
+  # name | agent script | expected outcome
+  while IFS='|' read -r name script want; do
+    [ -n "$name" ] || continue
+    for row in "tranche-runner.js|$T_ARGS" "wave-runner.js|$W_ARGS"; do
+      [ -f "$wf/${row%%|*}" ] || { cf "${row%%|*} not found in $wf"; continue; }
+      got="$(node "$stub" "$wf/${row%%|*}" "${row#*|}" "$script" 2>&1)"; n=$(( n + 1 ))
+      [ "$got" = "$want" ] \
+        || cf "${row%%|*} [$name]: expected $want, got '$got'"
+    done
+  done <<'ROWS'
+first QA leg returned nothing|{"qa":null}|NO_VERDICT
+FAIL, fix round, second QA returned nothing|{"qa":{"verdict":"FAIL_AC"},"qa2":null}|NO_VERDICT
+verdict outside the ratified set|{"qa":{"verdict":"NOT_A_TOKEN"}}|NO_VERDICT
+CONTROL: FAIL, fix round, FAIL again|{"qa":{"verdict":"FAIL_AC"},"qa2":{"verdict":"FAIL_REGRESSION"}}|FAILED_AFTER_FIX_ROUND
+CONTROL: PASS, landed|{}|LANDED
+ROWS
+
+  rm -rf "$(dirname "$stub")"
+  finish "a review leg that forms no verdict is filed as NO_VERDICT in both runners — never FAILED_AFTER_FIX_ROUND — while a real FAIL-twice and a PASS keep their outcomes ($n drive(s), nothing dispatched)"
+}
+
+# CASE — a leg that ended with NOTHING is named for that, never as a verdict or a status it did not give.
+#
+# WHY IT EXISTS. Three absences were filed as negatives. (1) A PARK review that returned nothing, or a
+# value outside the ratified verdicts, was PARK_UNVERIFIED — "park not verifiable as written", a
+# judgement on the park — though nobody reviewed it. (2) In the tranche runner the same absence also
+# SPENT the park fix round, sending Dev after findings nobody formed; with the stubbed replies here
+# that path even ended LANDED. (3) A DEV leg that returned nothing was BLOCKED_DEV — "Dev could not
+# proceed" — a status Dev reports, and this Dev reported nothing; a null fix-round Dev reply became
+# FAILED_AFTER_FIX_ROUND or, on the park path, a second park review of a tree nobody could vouch for.
+# Now: an absent park verdict is NO_VERDICT (as the issue review's is), and an absent Dev reply is
+# LEG_ABORTED (as a thrown leg is) — both halt, and neither spends a further leg.
+#
+# The CONTROL rows hold the neighbours still: a park review that PASSES is PARKED_OK, one that FAILS
+# (twice, in the tranche runner) is PARK_UNVERIFIED, and a Dev that REPORTS blocked on an unparkable
+# issue is BLOCKED_DEV — so the case cannot go green by relabelling every non-success.
+# THE STUB DOES NOT FILL OPTIONAL FIELDS (not required, description beginning "OPTIONAL."), or
+# every reply would carry precondition_failure: 'stub' and every review would halt as NO_VERDICT.
+case_runner_absent_reply_is_named_not_judged() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub got want f args name park script n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_absent_reply_is_named_not_judged: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "a leg that ended with nothing is named, not judged" "node absent"; return; }
+
+  stub="$(mktemp -d)/drive.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, scriptJson] = process.argv.slice(2)
+const script = JSON.parse(scriptJson)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const has = (k) => Object.prototype.hasOwnProperty.call(script, k)
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  const label = String(opts.label || ''), pre = label.split(':')[0]
+  const key = has(label) ? label : (has(pre) ? pre : null)
+  if (key !== null) {
+    if (script[key] === 'THROW') throw new Error('budget ceiling reached')
+    return script[key] === null ? null : Object.assign(stubFor(opts.schema), script[key])
+  }
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map(async (f) => { try { return await f() } catch (e) { return null } }))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  const r = await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  console.log(String(r && r.halted) + '|' + ((r && r.results) || []).map(x => x.id + '=' + (x.outcome || (x.skipped ? 'skipped' : '?'))).join(','))
+} catch (e) { console.log('REJECTED:' + String((e && e.message) || e)) }
+STUBEOF
+
+  local base='"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"'
+  local wv=',"worktreeMode":"self","phase":"Wave1","restartNote":"n"'
+
+  # runner | row | parkable | agent script | expected "halted|outcomes"
+  while IFS='|' read -r f name park script want_h want_o; do
+    [ -n "$f" ] || continue
+    [ -f "$wf/$f" ] || { cf "$f not found in $wf"; continue; }
+    case "$f" in
+      tranche-runner.js) args="{\"repo\":\"/tmp/x\",\"issues\":[{$base,\"parkable\":$park}]}" ;;
+      *)                 args="{\"repo\":\"/tmp/x\",\"wave1\":[{$base$wv,\"parkable\":$park}]}" ;;
+    esac
+    got="$(node "$stub" "$wf/$f" "$args" "$script" 2>&1)"; n=$(( n + 1 ))
+    want="$want_h|$want_o"
+    [ "$got" = "$want" ] || cf "$f [$name]: expected '$want', got '$got'"
+  done <<'ROWS'
+tranche-runner.js|park review returned nothing|true|{"dev":{"status":"blocked"},"park-qa":null}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|park review returned nothing|true|{"dev":{"status":"blocked"},"park-qa":null}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|park verdict outside the set|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"BOGUS"}}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|park verdict outside the set|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"BOGUS"}}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|park FAIL, fix, second park review nothing|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"FAIL_AC"},"dev-park-fix":{"status":"blocked"},"park-qa2":null}|ZZ-1|ZZ-1=NO_VERDICT
+tranche-runner.js|Dev returned nothing|false|{"dev":null}|ZZ-1|ZZ-1=LEG_ABORTED
+wave-runner.js|Dev returned nothing|false|{"dev":null}|wave1|ZZ-1=LEG_ABORTED
+tranche-runner.js|QA FAIL, fix-round Dev returned nothing|false|{"qa":{"verdict":"FAIL_AC"},"dev-fix":null}|ZZ-1|ZZ-1=LEG_ABORTED
+wave-runner.js|QA FAIL, fix-round Dev returned nothing|false|{"qa":{"verdict":"FAIL_AC"},"dev-fix":null}|wave1|ZZ-1=LEG_ABORTED
+tranche-runner.js|park FAIL, park-fix Dev returned nothing|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"FAIL_AC"},"dev-park-fix":null}|ZZ-1|ZZ-1=LEG_ABORTED
+tranche-runner.js|CONTROL: park review PASS|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"PASS"}}|null|ZZ-1=PARKED_OK
+wave-runner.js|CONTROL: park review PASS|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"PASS"}}|null|ZZ-1=PARKED_OK
+tranche-runner.js|CONTROL: park review FAIL twice|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"FAIL_AC"},"dev-park-fix":{"status":"blocked"},"park-qa2":{"verdict":"FAIL_AC"}}|ZZ-1|ZZ-1=PARK_UNVERIFIED
+wave-runner.js|CONTROL: park review FAIL|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"FAIL_AC"}}|wave1|ZZ-1=PARK_UNVERIFIED
+tranche-runner.js|CONTROL: Dev reports blocked, unparkable|false|{"dev":{"status":"blocked"}}|ZZ-1|ZZ-1=BLOCKED_DEV
+wave-runner.js|CONTROL: Dev reports blocked, unparkable|false|{"dev":{"status":"blocked"}}|wave1|ZZ-1=BLOCKED_DEV
+ROWS
+
+  rm -rf "$(dirname "$stub")"
+  finish "a park review that formed no verdict is NO_VERDICT (and spends no park fix round), and a Dev leg that returned nothing is LEG_ABORTED, in both runners — while a park PASS, a park FAIL and a REPORTED blocked keep their outcomes ($n drive(s), nothing dispatched)"
+}
+
+# CASE — a leg whose agent() THROWS is named LEG_ABORTED and halts the run; no runner drops an issue.
+#
+# WHY IT EXISTS. The Workflow runtime's agent() THROWS once the turn's token budget ceiling is
+# reached (and on a call it refuses), and parallel() resolves a throwing thunk to null. The wave
+# runner filtered those nulls out with `.filter(Boolean)`: the issue vanished from the outcomes, the
+# wave predicate ran over what was left — an empty list passes — the next wave started, and the run
+# reported green over work nobody finished. The tranche runner, serial and uncaught, rejected the
+# whole run instead, losing every outcome it had already recorded, including issues that had LANDED.
+#
+# THE parallel() STUB IS THE RUNTIME'S, NOT THE SIBLING CASE'S: a throwing thunk resolves to null,
+# the call never rejects. With the sibling's plain Promise.all the wave defect is invisible — the
+# throw would reject the run, which is the tranche's symptom, not the wave's. `agent()` is scripted
+# by FULL label first (so one issue's leg can throw while its neighbour's does not), then by prefix.
+# The all-green row is the CONTROL: nothing throws, nothing halts, every issue is named.
+# THE STUB DOES NOT FILL OPTIONAL FIELDS (not required, description beginning "OPTIONAL."), or
+# every reply would carry precondition_failure: 'stub' and every review would halt as NO_VERDICT.
+case_runner_throwing_leg_is_named_not_dropped() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub got want name script f args n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_throwing_leg_is_named_not_dropped: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "a leg whose agent() throws is LEG_ABORTED, not dropped" "node absent"; return; }
+
+  stub="$(mktemp -d)/drive.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, scriptJson] = process.argv.slice(2)
+const script = JSON.parse(scriptJson)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const has = (k) => Object.prototype.hasOwnProperty.call(script, k)
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  const label = String(opts.label || ''), pre = label.split(':')[0]
+  const key = has(label) ? label : (has(pre) ? pre : null)
+  if (key !== null) {
+    if (script[key] === 'THROW') throw new Error('budget ceiling reached')
+    return script[key] === null ? null : Object.assign(stubFor(opts.schema), script[key])
+  }
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map(async (f) => { try { return await f() } catch (e) { return null } }))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  const r = await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  console.log(String(r && r.halted) + '|' + ((r && r.results) || []).map(x => x.id + '=' + (x.outcome || (x.skipped ? 'skipped' : '?'))).join(','))
+} catch (e) { console.log('REJECTED:' + String((e && e.message) || e)) }
+STUBEOF
+
+  local base='"branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"'
+  local wv=',"worktreeMode":"self","restartNote":"n"'
+  local T_ARGS="{\"repo\":\"/tmp/x\",\"issues\":[{\"id\":\"ZZ-1\",$base},{\"id\":\"ZZ-2\",$base},{\"id\":\"ZZ-3\",$base}]}"
+  local W_ARGS="{\"repo\":\"/tmp/x\",\"wave1\":[{\"id\":\"ZZ-1\",$base$wv,\"phase\":\"Wave1\"},{\"id\":\"ZZ-2\",$base$wv,\"phase\":\"Wave1\"}],\"wave2\":[{\"id\":\"ZZ-3\",$base$wv,\"phase\":\"Wave2\"}]}"
+
+  # runner | row | agent script | expected "halted|outcomes"
+  while IFS='|' read -r f name script want_h want_o; do
+    [ -n "$f" ] || continue
+    [ -f "$wf/$f" ] || { cf "$f not found in $wf"; continue; }
+    case "$f" in tranche-runner.js) args="$T_ARGS" ;; *) args="$W_ARGS" ;; esac
+    got="$(node "$stub" "$wf/$f" "$args" "$script" 2>&1)"; n=$(( n + 1 ))
+    want="$want_h|$want_o"
+    [ "$got" = "$want" ] || cf "$f [$name]: expected '$want', got '$got'"
+  done <<'ROWS'
+tranche-runner.js|ZZ-1 QA throws|{"qa:ZZ-1":"THROW"}|ZZ-1|ZZ-1=LEG_ABORTED,ZZ-2=skipped,ZZ-3=skipped
+wave-runner.js|ZZ-1 QA throws|{"qa:ZZ-1":"THROW"}|wave1|ZZ-1=LEG_ABORTED,ZZ-2=LANDED
+tranche-runner.js|ZZ-2 QA throws after ZZ-1 landed|{"qa:ZZ-2":"THROW"}|ZZ-2|ZZ-1=LANDED,ZZ-2=LEG_ABORTED,ZZ-3=skipped
+wave-runner.js|ZZ-2 QA throws|{"qa:ZZ-2":"THROW"}|wave1|ZZ-1=LANDED,ZZ-2=LEG_ABORTED
+tranche-runner.js|every Dev leg throws|{"dev":"THROW"}|ZZ-1|ZZ-1=LEG_ABORTED,ZZ-2=skipped,ZZ-3=skipped
+wave-runner.js|every Dev leg throws|{"dev":"THROW"}|wave1|ZZ-1=LEG_ABORTED,ZZ-2=LEG_ABORTED
+tranche-runner.js|CONTROL: nothing throws|{}|null|ZZ-1=LANDED,ZZ-2=LANDED,ZZ-3=LANDED
+wave-runner.js|CONTROL: nothing throws|{}|null|ZZ-1=LANDED,ZZ-2=LANDED,ZZ-3=LANDED
+ROWS
+
+  # A RUNNER BUG STAYS LOUD. Only a throw from agent() is an outcome; the runners' own code throwing
+  # is a defect, and filing it as LEG_ABORTED (or dropping it, as the wave runner used to) would hide
+  # it. So the depends_on guard is removed from a COPY — the adopter's original crash — and each
+  # runner must fail the run rather than return one.
+  local bugdir="$(dirname "$stub")/bug"; mkdir -p "$bugdir"
+  for f in tranche-runner.js wave-runner.js; do
+    [ -f "$wf/$f" ] || continue
+    sed 's/Array.isArray(issue.depends_on) ? issue.depends_on : \[\]/issue.depends_on/' "$wf/$f" > "$bugdir/$f"
+    cmp -s "$wf/$f" "$bugdir/$f" && { cf "$f: the depends_on-guard ablation did not take (the pattern moved), so the loud-bug row proves nothing"; continue; }
+    case "$f" in tranche-runner.js) args="$T_ARGS" ;; *) args="$W_ARGS" ;; esac
+    got="$(node "$stub" "$bugdir/$f" "$args" '{}' 2>&1)"; n=$(( n + 1 ))
+    case "$got" in
+      REJECTED:*) ;;
+      *) cf "$f: a bug in the runner's own code (depends_on guard removed from a copy) did not fail the run — got '$got'; a runner that files or drops its own bug hides it" ;;
+    esac
+  done
+
+  rm -rf "$(dirname "$stub")"
+  finish "a leg whose agent() throws is named LEG_ABORTED and halts the run in both runners — the wave runner no longer drops it and passes, the tranche runner no longer rejects the run and loses what landed — a bug in the runner's own code still fails the run loudly, and a run where nothing throws is unchanged ($n drive(s), nothing dispatched)"
+}
+
+# CASE — a reviewer that reports a PRECONDITION FAILURE has a legal reply, and it is NO_VERDICT.
+#
+# WHY IT EXISTS. MANUAL step 6: a gate that could not run, or an AC naming a gate the tree does not
+# hold, leaves no verdict to issue. Both runners' QA_SCHEMA and PARK_SCHEMA REQUIRED `verdict`, one of
+# the four ratified tokens, and the runtime makes a structured-output agent retry until its reply
+# validates — so a reviewer obeying step 6 had no legal reply and had to invent a token. Driven: a
+# reply naming the precondition failure beside an invented FAIL spent the fix round and ended
+# FAILED_AFTER_FIX_ROUND; beside an invented PASS it LANDED; on a park it was judged (PARK_UNVERIFIED /
+# PARKED_OK). Now each schema carries an OPTIONAL `precondition_failure`, `verdict` is not required,
+# and a reply naming one is NO_VERDICT whatever token came with it.
+#
+# TWO ARMS. (1) The schemas, read off the agent() calls the runner really makes: `verdict` is NOT
+# required, `precondition_failure` IS declared, and `verdict` is still exactly VERDICTS — the field is
+# separate so the ratified vocabulary does not grow. (2) The routing, driven. CONTROL rows keep a real
+# FAIL-twice, a PASS, a park PASS, and a PASS beside an EMPTY precondition_failure (models fill optional
+# strings with "", and a blank must not halt a run) on their old outcomes.
+#
+# THE STUB DOES NOT FILL OPTIONAL FIELDS. A stub that fills every declared property would send
+# precondition_failure: 'stub' on every reply and turn every row into NO_VERDICT; it skips a property
+# that is not required and whose description begins "OPTIONAL." — the schemas' own convention.
+case_runner_precondition_failure_has_a_reply() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub got want f args name park script n=0 sch
+  [ -d "$wf" ] || _fixture_die "case_runner_precondition_failure_has_a_reply: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "a precondition failure has a legal reply, and it is NO_VERDICT" "node absent"; return; }
+
+  stub="$(mktemp -d)/drive.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, scriptJson, mode] = process.argv.slice(2)
+const script = JSON.parse(scriptJson)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const has = (k) => Object.prototype.hasOwnProperty.call(script, k)
+const seen = {}
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  const label = String(opts.label || ''), pre = label.split(':')[0]
+  if (opts.schema && /qa/.test(pre)) seen[pre.replace(/2$/, '')] = opts.schema
+  const key = has(label) ? label : (has(pre) ? pre : null)
+  if (key !== null) {
+    const v = script[key]
+    if (v === null) return null
+    const o = Object.assign(stubFor(opts.schema), v)
+    for (const k of (v.__omit || [])) delete o[k]
+    delete o.__omit
+    return o
+  }
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map(async (f) => { try { return await f() } catch (e) { return null } }))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  const r = await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  if (mode === 'schemas') {
+    for (const [leg, s] of Object.entries(seen)) {
+      const req = (s.required || []).includes('verdict') ? 'verdict-required' : 'verdict-optional'
+      const pf = (s.properties || {}).precondition_failure ? 'pf-declared' : 'pf-absent'
+      const en = JSON.stringify(((s.properties || {}).verdict || {}).enum || [])
+      console.log(leg + ' ' + req + ' ' + pf + ' ' + en)
+    }
+  } else {
+    console.log(String(r && r.halted) + '|' + ((r && r.results) || []).map(x => x.id + '=' + (x.outcome || '?')).join(','))
+  }
+} catch (e) { console.log('REJECTED:' + String((e && e.message) || e)) }
+STUBEOF
+
+  local base='"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"'
+  local wv=',"worktreeMode":"self","phase":"Wave1","restartNote":"n"'
+  _pf_args() { case "$1" in
+      tranche-runner.js) printf '{"repo":"/tmp/x","issues":[{%s,"parkable":%s}]}' "$base" "$2" ;;
+      *)                 printf '{"repo":"/tmp/x","wave1":[{%s%s,"parkable":%s}]}' "$base" "$wv" "$2" ;;
+    esac; }
+
+  # ARM 1 — the schemas the runners actually hand to agent(), QA and park, in both runners.
+  for f in tranche-runner.js wave-runner.js; do
+    [ -f "$wf/$f" ] || { cf "$f not found in $wf"; continue; }
+    sch="$(node "$stub" "$wf/$f" "$(_pf_args "$f" false)" '{}' schemas; node "$stub" "$wf/$f" "$(_pf_args "$f" true)" '{"dev":{"status":"blocked"}}' schemas)"
+    for leg in qa park-qa; do
+      got="$(printf '%s\n' "$sch" | grep "^$leg " | head -1)"
+      [ -n "$got" ] || { cf "$f: no $leg schema was seen — the drive did not reach that leg, so the schema arm checked nothing"; continue; }
+      case "$got" in *verdict-required*) cf "$f $leg: verdict is still REQUIRED — a reviewer obeying step 6 has no legal reply" ;; esac
+      case "$got" in *pf-absent*) cf "$f $leg: no precondition_failure property — nowhere to say that no verdict was possible" ;; esac
+      case "$got" in *'["PASS","PASS_AC_CORRECTED","FAIL_AC","FAIL_REGRESSION"]'*) ;; *) cf "$f $leg: the verdict enum is not exactly the four ratified tokens — the precondition failure must be a separate field, not a fifth token: [$got]" ;; esac
+      n=$(( n + 1 ))
+    done
+  done
+
+  # ARM 2 — routing. runner | row | parkable | agent script | expected "halted|outcomes"
+  while IFS='|' read -r f name park script want_h want_o; do
+    [ -n "$f" ] || continue
+    [ -f "$wf/$f" ] || continue
+    got="$(node "$stub" "$wf/$f" "$(_pf_args "$f" "$park")" "$script" 2>&1)"; n=$(( n + 1 ))
+    want="$want_h|$want_o"
+    [ "$got" = "$want" ] || cf "$f [$name]: expected '$want', got '$got'"
+  done <<'ROWS'
+tranche-runner.js|precondition + invented FAIL|false|{"qa":{"precondition_failure":"gate X could not run","verdict":"FAIL_AC"}}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|precondition + invented FAIL|false|{"qa":{"precondition_failure":"gate X could not run","verdict":"FAIL_AC"}}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|precondition + invented PASS|false|{"qa":{"precondition_failure":"gate X could not run","verdict":"PASS"}}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|precondition + invented PASS|false|{"qa":{"precondition_failure":"gate X could not run","verdict":"PASS"}}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|precondition, verdict omitted|false|{"qa":{"precondition_failure":"gate X could not run","__omit":["verdict"]}}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|precondition, verdict omitted|false|{"qa":{"precondition_failure":"gate X could not run","__omit":["verdict"]}}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|park precondition + FAIL|true|{"dev":{"status":"blocked"},"park-qa":{"precondition_failure":"check-board.sh could not run","verdict":"FAIL_AC"}}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|park precondition + FAIL|true|{"dev":{"status":"blocked"},"park-qa":{"precondition_failure":"check-board.sh could not run","verdict":"FAIL_AC"}}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|park precondition + PASS|true|{"dev":{"status":"blocked"},"park-qa":{"precondition_failure":"check-board.sh could not run","verdict":"PASS"}}|ZZ-1|ZZ-1=NO_VERDICT
+wave-runner.js|park precondition + PASS|true|{"dev":{"status":"blocked"},"park-qa":{"precondition_failure":"check-board.sh could not run","verdict":"PASS"}}|wave1|ZZ-1=NO_VERDICT
+tranche-runner.js|CONTROL: FAIL twice|false|{"qa":{"verdict":"FAIL_AC"},"qa2":{"verdict":"FAIL_REGRESSION"}}|ZZ-1|ZZ-1=FAILED_AFTER_FIX_ROUND
+wave-runner.js|CONTROL: FAIL twice|false|{"qa":{"verdict":"FAIL_AC"},"qa2":{"verdict":"FAIL_REGRESSION"}}|wave1|ZZ-1=FAILED_AFTER_FIX_ROUND
+tranche-runner.js|CONTROL: PASS|false|{}|null|ZZ-1=LANDED
+wave-runner.js|CONTROL: PASS|false|{}|null|ZZ-1=LANDED
+tranche-runner.js|CONTROL: PASS beside an EMPTY precondition_failure|false|{"qa":{"precondition_failure":"","verdict":"PASS"}}|null|ZZ-1=LANDED
+wave-runner.js|CONTROL: PASS beside an EMPTY precondition_failure|false|{"qa":{"precondition_failure":"","verdict":"PASS"}}|null|ZZ-1=LANDED
+tranche-runner.js|CONTROL: park PASS|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"PASS"}}|null|ZZ-1=PARKED_OK
+wave-runner.js|CONTROL: park PASS|true|{"dev":{"status":"blocked"},"park-qa":{"verdict":"PASS"}}|null|ZZ-1=PARKED_OK
+ROWS
+  unset -f _pf_args
+
+  rm -rf "$(dirname "$stub")"
+  finish "both runners' QA and park schemas let a reviewer report a precondition failure instead of inventing a verdict — verdict not required, precondition_failure declared, the enum still the four ratified tokens — and such a reply is NO_VERDICT whatever token came with it, while a real FAIL, a PASS, a park PASS and a PASS beside an empty string keep their outcomes ($n check(s), nothing dispatched)"
+}
+
+# CASE — every record a runner returns carries each leg's free text, SUCCESS INCLUDED.
+#
+# WHY IT EXISTS. On LANDED and LAND_READY both runners returned only { id, outcome, qa_evidence, gates }:
+# a Dev leg's summary and deviations, and a review's notes and premise_refuted, were dropped on exactly
+# the path where the run succeeds. Anything a leg reported there — a caveat, a surprise, a kit finding
+# the orchestrator is meant to collect — never reached it, and premise_refuted, the axis that exists so
+# a PASS/landed issue can say what it learned, was lost on the one outcome it was designed for. Now
+# every record carries `leg_notes`: one entry per leg that replied, in call order.
+#
+# MARKERS ARE READ FROM `leg_notes` ONLY, not from the whole record: the failure paths already carried
+# the raw `dev`/`qa`/`park` objects, so a whole-record search would be green on them without the fix.
+# Rows cover success (LANDED, LAND_READY, PARKED_OK), failure (FAILED_AFTER_FIX_ROUND, with BOTH Dev
+# replies — nothing earlier is overwritten), and a thrown QA leg (the Dev leg before it keeps its
+# entry). The CONTROL row: an EMPTY free-text field adds nothing, so a filler cannot pose as a note.
+#
+# THE STUB DOES NOT FILL OPTIONAL FIELDS (a property not required whose description begins
+# "OPTIONAL."), or every reply would carry precondition_failure: 'stub' and every review would halt.
+case_runner_returns_leg_notes_on_every_outcome() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub got want f args name park script n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_returns_leg_notes_on_every_outcome: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "every runner record carries its legs' free text" "node absent"; return; }
+
+  stub="$(mktemp -d)/drive.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, scriptJson] = process.argv.slice(2)
+const script = JSON.parse(scriptJson)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const has = (k) => Object.prototype.hasOwnProperty.call(script, k)
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  const label = String(opts.label || ''), pre = label.split(':')[0]
+  const key = has(label) ? label : (has(pre) ? pre : null)
+  if (key !== null) {
+    const v = script[key]
+    if (v === null) return null
+    if (v === 'THROW') throw new Error('budget ceiling reached')
+    const o = Object.assign(stubFor(opts.schema), v)
+    for (const k of (v.__omit || [])) delete o[k]
+    delete o.__omit
+    return o
+  }
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map(async (f) => { try { return await f() } catch (e) { return null } }))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  const r = await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  const marks = ['MARK-DEV-SUMMARY', 'MARK-DEV-DEVIATIONS', 'MARK-REVIEW-NOTES', 'MARK-PREMISE', 'MARK-FIX-SUMMARY']
+  console.log(((r && r.results) || []).filter(x => x.outcome).map(x => x.outcome + '[' + marks.filter(m => JSON.stringify(x.leg_notes || []).includes(m)).map(m => m.replace('MARK-', '')).join(',') + ']' + (Array.isArray(x.leg_notes) ? '' : '(no leg_notes)')).join(' '))
+} catch (e) { console.log('REJECTED:' + String((e && e.message) || e)) }
+STUBEOF
+
+  local base='"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"'
+  local wv=',"worktreeMode":"self","phase":"Wave1","restartNote":"n"'
+  local D='"summary":"built MARK-DEV-SUMMARY","deviations":"MARK-DEV-DEVIATIONS"'
+  _ln_args() { case "$1" in
+      tranche-runner.js) printf '{"repo":"/tmp/x","issues":[{%s,"parkable":%s}]}' "$base" "$2" ;;
+      *)                 printf '{"repo":"/tmp/x","wave1":[{%s%s,"parkable":%s}]}' "$base" "$wv" "$2" ;;
+    esac; }
+
+  # row | parkable | agent script (@D@ = a Dev reply's marked free text) | expected, both runners
+  while IFS='|' read -r name park script want; do
+    [ -n "$name" ] || continue
+    script="$(printf '%s' "$script" | sed "s/@D@/$D/g")"
+    for f in tranche-runner.js wave-runner.js; do
+      [ -f "$wf/$f" ] || { cf "$f not found in $wf"; continue; }
+      got="$(node "$stub" "$wf/$f" "$(_ln_args "$f" "$park")" "$script" 2>&1)"; n=$(( n + 1 ))
+      [ "$got" = "$want" ] || cf "$f [$name]: expected '$want', got '$got'"
+    done
+  done <<'ROWS'
+LANDED|false|{"dev":{@D@},"qa":{"verdict":"PASS","landing":"landed","notes":"MARK-REVIEW-NOTES","premise_refuted":"MARK-PREMISE"}}|LANDED[DEV-SUMMARY,DEV-DEVIATIONS,REVIEW-NOTES,PREMISE]
+LAND_READY|false|{"dev":{@D@},"qa":{"verdict":"PASS","landing":"deferred","notes":"MARK-REVIEW-NOTES"}}|LAND_READY[DEV-SUMMARY,DEV-DEVIATIONS,REVIEW-NOTES]
+PARKED_OK|true|{"dev":{"status":"blocked",@D@},"park-qa":{"verdict":"PASS","notes":"MARK-REVIEW-NOTES"}}|PARKED_OK[DEV-SUMMARY,DEV-DEVIATIONS,REVIEW-NOTES]
+FAIL, fix, FAIL — both Dev replies kept|false|{"dev":{@D@},"dev-fix":{"summary":"MARK-FIX-SUMMARY"},"qa":{"verdict":"FAIL_AC"},"qa2":{"verdict":"FAIL_AC","notes":"MARK-REVIEW-NOTES"}}|FAILED_AFTER_FIX_ROUND[DEV-SUMMARY,DEV-DEVIATIONS,REVIEW-NOTES,FIX-SUMMARY]
+QA throws — the Dev entry before it kept|false|{"dev":{@D@},"qa":"THROW"}|LEG_ABORTED[DEV-SUMMARY,DEV-DEVIATIONS]
+CONTROL: empty free text adds nothing|false|{"dev":{"summary":"","deviations":""},"qa":{"verdict":"PASS","landing":"landed","notes":""}}|LANDED[]
+ROWS
+  unset -f _ln_args
+
+  rm -rf "$(dirname "$stub")"
+  finish "every record both runners return carries each leg's free text as leg_notes — on LANDED, LAND_READY and PARKED_OK as well as on failures and a thrown leg — in call order, with nothing overwritten and no entry for an empty field ($n drive(s), nothing dispatched)"
+}
+
 # CASE — check-board's [j] arm joins the downtime queue to the board, and CLASSIFIES the
 # Status cell rather than grepping it.
 #
@@ -8177,6 +8747,116 @@ case_kit_init_survives_the_documented_first_commit() {
 
   finish "kit-init: the first-commit subject GIT-HOSTING § 3 step 2 prints does not fail the install, the board arm is not what fails, and arm [g] WAS reporting while it ran"
   teardown
+}
+
+# =============================================================================
+# CASE — kit-init REFUSES while shipped kit paths are on disk but untracked
+#
+# The remote + trunk recipe kit-init printed on refusal used to make the first commit
+# `--allow-empty`. Followed literally from an unzip, kit-init then committed only its own
+# allow-list and printed COMPLETE and PROVEN with README.md, PROJECT.md, CLAUDE.md,
+# AGENTS.md, setup.sh, .env.example, consumers/ and docs/ untracked — on disk, absent from
+# the trunk (measured 2026-09-26). The preflight now refuses that state, reading the
+# shipped process/KIT-MANIFEST.
+#
+# THREE STATES, because a refusal tested only where it fires is half a test:
+#   (a) an empty first commit, the kit on disk      ⇒ refused, NOTHING written
+#   (b) the kit committed as unzipped               ⇒ no such refusal; COMPLETE
+#   (c) a shipped file deleted before that commit   ⇒ no such refusal; COMPLETE
+#       (a deletion is the adopter's decision — the check is "on disk and not tracked",
+#        never "absent from HEAD")
+#   (d) the kit committed, but a shipped file IGNORED ⇒ refused, naming it as IGNORED
+#       (by .git/info/exclude here; a global core.excludesFile is the usual real cause —
+#        the first version asked only about untracked NON-ignored files and passed this)
+#   (e) the kit committed, .claude/ IGNORED        ⇒ refused BEFORE stamping, naming .claude
+#       (every file under it tracked — committed with -f — so (d)'s check is satisfied; the
+#        commit step's `git add -A -- .claude` still fails on the ignored pathspec. Before the
+#        fix kit-init stamped config.sh, the role docs and core.hooksPath, THEN died, and the
+#        next run refused as already-lived: half-initialized, no resume path)
+# make_sandbox copies no process/, so the manifest is copied in here. Without it the
+# check is SKIPPED, and (a) would fail for the wrong reason while (b) and (c) passed
+# about nothing — so the premise is asserted, not assumed.
+# =============================================================================
+case_kit_init_refuses_an_uncommitted_kit() {
+  cf_reset
+  local T="kit-init: refuses, writing nothing, while shipped kit paths are on disk but not committed"
+  if ! has_kit_init; then skp "$T" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$T" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/process/KIT-MANIFEST" ]; then skp "$T" "process/KIT-MANIFEST absent from this tree"; return; fi
+  local state out rc head0 hp0
+  for state in empty committed deleted ignored claude-ignored; do
+    kit_init_sandbox
+    mkdir -p "$SB_WORK/process"
+    cp "$REAL_REPO_ROOT/process/KIT-MANIFEST" "$SB_WORK/process/KIT-MANIFEST"
+    # PREMISE: the manifest names a shipped path this sandbox holds on disk — else (a) has
+    # nothing to find — and setup.sh is one of them, or (c) deletes nothing shipped.
+    # DRAINED, never `| grep -q` — this file's pipefail rule (a reader that exits early turns the
+    # producer's SIGPIPE into the pipeline's status).
+    awk -F'  ' '!/^#/ && NF>=2 {print $2}' "$SB_WORK/process/KIT-MANIFEST" | grep -x 'setup.sh' >/dev/null \
+      && [ -f "$SB_WORK/setup.sh" ] \
+      || _fixture_die "case_kit_init_refuses_an_uncommitted_kit: the manifest does not name setup.sh, or the sandbox does not hold it — states (a) and (c) would have no subject."
+    case "$state" in
+      empty)     sbcommit -q --allow-empty -m 'init' >/dev/null 2>&1 ;;
+      committed) git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m 'init' >/dev/null 2>&1 ;;
+      deleted)   rm -f "$SB_WORK/setup.sh"
+                 git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m 'init' >/dev/null 2>&1 ;;
+      ignored)   printf 'setup.sh\n' >> "$SB_WORK/.git/info/exclude"
+                 git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m 'init' >/dev/null 2>&1
+                 git -C "$SB_WORK" ls-files --error-unmatch setup.sh >/dev/null 2>&1 \
+                   && _fixture_die "case_kit_init_refuses_an_uncommitted_kit (ignored): setup.sh was committed although excluded — state (d) has no subject." ;;
+      claude-ignored)
+                 printf '.claude/\n' >> "$SB_WORK/.git/info/exclude"
+                 git -C "$SB_WORK" add -A >/dev/null 2>&1; git -C "$SB_WORK" add -f .claude >/dev/null 2>&1
+                 sbcommit -q -m 'init' >/dev/null 2>&1
+                 { git -C "$SB_WORK" check-ignore --no-index -q .claude \
+                   && [ -n "$(git -C "$SB_WORK" ls-files .claude)" ]; } \
+                   || _fixture_die "case_kit_init_refuses_an_uncommitted_kit (claude-ignored): .claude is not both ignored and committed — state (e) has no subject." ;;
+    esac
+    git -C "$SB_WORK" remote add origin "$SB_ORIGIN" >/dev/null 2>&1
+    git -C "$SB_WORK" push -q -u origin "$SB_TRUNK" >/dev/null 2>&1
+    git -C "$SB_WORK" remote set-head origin "$SB_TRUNK" >/dev/null 2>&1
+    git -C "$SB_WORK" rev-parse --verify --quiet "refs/remotes/origin/$SB_TRUNK" >/dev/null \
+      || _fixture_die "case_kit_init_refuses_an_uncommitted_kit ($state): the trunk was not published — kit-init would refuse on the remote, and the case would blame the kit check."
+    head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+    hp0="$(git -C "$SB_WORK" config core.hooksPath || true)"   # make_sandbox sets its own; compare, do not assume empty
+    out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+    case "$state" in
+      claude-ignored)
+        [ "$rc" -ne 0 ] \
+          || cf "(e) kit-init did not refuse with .claude/ ignored (rc=0): $out"
+        printf '%s\n' "$out" | grep 'kit-init commits are IGNORED: .claude' >/dev/null \
+          || cf "(e) the refusal did not name .claude as an ignored path kit-init commits: $out"
+        grep -q 'Stamped by scripts/kit-init.sh' "$SB_WORK/scripts/config.sh" 2>/dev/null \
+          && cf "(e) config.sh was STAMPED — kit-init wrote before it refused (the half-initialized state)"
+        [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] \
+          || cf "(e) HEAD moved — the refusal wrote a commit" ;;
+      ignored)
+        [ "$rc" -ne 0 ] \
+          || cf "(d) kit-init did not refuse a committed kit with a shipped file IGNORED and uncommitted (rc=0): $out"
+        printf '%s\n' "$out" | grep 'IGNORED (setup.sh' >/dev/null \
+          || cf "(d) the refusal did not name setup.sh as IGNORED: $out"
+        [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] \
+          || cf "(d) HEAD moved — the refusal wrote a commit" ;;
+      empty)
+        [ "$rc" -ne 0 ] \
+          || cf "(a) kit-init did not refuse an empty first commit with the kit on disk and untracked (rc=0): $out"
+        printf '%s\n' "$out" | grep 'shipped kit path(s) are on disk but NOT COMMITTED' >/dev/null \
+          || cf "(a) the refusal did not name the uncommitted kit — it refused for some other reason, or not at all: $out"
+        printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null \
+          || cf "(a) the refusal did not say NOTHING WAS WRITTEN: $out"
+        [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] \
+          || cf "(a) HEAD moved — the refusal wrote a commit"
+        [ "$(git -C "$SB_WORK" config core.hooksPath || true)" = "$hp0" ] \
+          || cf "(a) core.hooksPath changed — the refusal wired the hooks" ;;
+      committed|deleted)
+        printf '%s\n' "$out" | grep 'NOT COMMITTED' >/dev/null \
+          && cf "($state) the untracked-kit refusal fired on a tree whose kit IS committed: $out"
+        printf '%s\n' "$out" | grep 'kit-init COMPLETE and PROVEN' >/dev/null \
+          || cf "($state) no COMPLETE-and-PROVEN line: $out" ;;
+    esac
+    teardown
+  done
+  finish "$T — (a) an empty first commit is refused and nothing is written; (b) the kit committed as unzipped and (c) a shipped file deleted before that commit both proceed to COMPLETE; (d) a shipped file IGNORED and so never committed is refused, named as ignored; (e) .claude/ ignored though committed is refused before anything is stamped"
 }
 
 # =============================================================================
@@ -12351,6 +13031,9 @@ PY
 # is a new shipped artifact bought for one preflight. What a decline owes is a control
 # proving the thing KEPT actually works — otherwise "the minimum is enough" is an
 # assertion, and the wider promise was withdrawn on the strength of it.
+# (Since then the build ships process/KIT-MANIFEST, and the preflight reads it for one
+# question only — shipped paths on disk but uncommitted. Presence is still the
+# hand-listed minimum, which is what this case controls.)
 #
 # The list is DERIVED out of the shipped script. A retyped copy here would be the exact
 # second-hand-typed-list the decline promised not to create, and it would go stale in the
@@ -14977,6 +15660,7 @@ CASES=(
   case_move_issue_set_pr_on_a_minted_card
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
+  case_progress_record_one_place_across_worktrees
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_post_merge_reads_the_landed_trunk
@@ -15023,6 +15707,11 @@ CASES=(
   case_runner_key_guards_admit_every_field_they_read
   case_downtime_queue_claim_drift
   case_workflow_briefs_compose_from_a_sparse_payload
+  case_runner_no_verdict_is_not_a_failure
+  case_runner_absent_reply_is_named_not_judged
+  case_runner_throwing_leg_is_named_not_dropped
+  case_runner_precondition_failure_has_a_reply
+  case_runner_returns_leg_notes_on_every_outcome
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set
@@ -15060,6 +15749,7 @@ CASES=(
   case_check_board_fill_arm_reads_blanks_not_usage
   case_check_board_graduation_verdict_is_not_wired
   case_kit_init_survives_the_documented_first_commit
+  case_kit_init_refuses_an_uncommitted_kit
   case_kit_init_still_fails_on_a_real_finding
   case_kit_init_happy
   case_kit_init_repairs_hook_mode
