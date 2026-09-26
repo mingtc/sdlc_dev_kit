@@ -172,6 +172,13 @@ columns and never the cards.*
   makes no claim about behaviour — is unaffected.** Issues already minted from the old template
   keep their wording; the rule binds at review either way. **Nothing to do.**
 
+- **`process/doctrine/instruments.md` § A.8 names the shadowed guard; `.claude/roles/qa.md` step 5
+  asks for it.** A check added beside an existing one can satisfy the existing check's tests (they
+  assert only that an input is refused, not which check refused it), so the old check can be deleted
+  with every gate still green. The defence: break the old check with the new one in place and
+  confirm its own test reddens. An unaddressed shadow is a FAIL even with the suite green. No
+  mutation harness is required. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

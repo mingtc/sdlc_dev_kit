@@ -497,6 +497,20 @@ attempted."*
 - **When such a test is resurrected, re-attack its assertions BEFORE celebrating.** Making a dead
   test run is precisely the moment an assertion quietly becomes a tautology.
 
+**A guard shadowed by a newer one cannot redden either.** A change adds a check that correctly
+refuses some of the inputs an existing check already refuses, for a different reason. The suite
+grows, every gate stays green, and review finds nothing wrong. But the existing check's tests assert
+only *that* their inputs are refused, never *which check* refused them. With the new check in place
+they pass without the old check, so **the old check can be deleted and its own tests stay green**.
+Each check can still say no; its tests cannot tell it from its neighbour. The suite got greener as
+its coverage shrank. The defence is § A.2's ablation, done when the overlap is made: **break the old
+check, with the new one in place, and watch the old check's own test redden.** Feeding in a broken
+input is not enough, because the new check refuses that too. Disabling the new check tests nothing. If the old check's own test stays green, give
+it a test only it catches, or retire it on purpose. **An ablation done once goes stale** the moment a
+neighbouring check lands, which is why the question belongs to the change that adds the neighbour.
+A mutation harness shows the same thing only if a newly surviving mutant is read as coverage lost,
+not as a stale entry to suppress. Nothing here requires one.
+
 **An exemption tested in one direction is an unmeasured hole.** Any guard strict enough to be worth
 having needs a documented way out for the site that legitimately cannot comply. That hatch is then
 tested only in the passing direction — *a marked site passes* — which proves it is usable and proves
