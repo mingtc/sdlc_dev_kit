@@ -119,6 +119,14 @@ columns and never the cards.*
   stays write-time and author-only. `process/doctrine/conformance-tier.md` § A.4 carries the pointer.
   **Nothing to do.**
 
+- **`process/doctrine/generality.md` § A.2 — a fourth row and a discoverability caution.** When
+  consumers agree on an outcome by different arguments, it is a rule whose test is unstated: ship it
+  with one sentence stating what it tests. When a consumer resolves a surface the opposite way
+  because they never found the answer you already ship — their reason would dissolve given it —
+  that is not a setting: the remedy is a pointer from where they were, and the answer is checked
+  first, because a defective answer may make the dissent the better call. **Nothing to do:** the
+  four questions are unchanged.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

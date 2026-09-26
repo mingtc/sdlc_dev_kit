@@ -91,11 +91,13 @@ the alerts on their phone wants it quiet; neither is wrong"* is a finding — it
 populations with genuinely opposed interests, which is what makes a single shipped default impossible
 rather than merely contested.
 
-**The three dispositions this question produces, and only the middle one is new:**
+**The dispositions this question produces, and only the setting is a new kind of answer** — the
+second row is a rule, shipped with what it tests:
 
 | Answer | Disposition |
 |---|---|
 | **No** — the opposite is not reasonable from anyone | It is a **rule**. Ship it. |
+| **No, but the consumers who agree reached the outcome by different arguments** | It is a **rule whose test is unstated**. Ship it **with one sentence stating what it tests** — the property that decides the case — not only the outcome. |
 | **Yes** — a nameable consumer wants the opposite, for a reason | It is a **setting**. Ship a seam with a default; do not change behaviour. |
 | **Yes, and no seam is affordable** | Ship **nothing**, and record why — including which consumer you chose not to serve. |
 
@@ -104,6 +106,14 @@ declared seam serves *both* consumers permanently; a rule serves one and quietly
 a schedule nobody is watching. Where you choose a seam, the change's record should say it **upholds**
 the request, in a form that survives the next consumer asking for the reverse.
 
+**Same outcome, divergent argument, is agreement on an answer and not on a rule.** When consumers do
+the same thing but each gives a reason that ignores or denies the others', nobody has written down what
+the rule tests. The next consumer, in circumstances none of them had, can reach the opposite by an
+argument of their own — and it may look like a setting when it may be a missing sentence. So the remedy
+is neither a behaviour change nor a seam: state the property the rule turns on (for example, *what
+makes day-one scaffolding metadata rather than code*), so that each consumer's case is decided by that
+sentence rather than by their own reasoning.
+
 **The signature to watch for in your own history:** the same knob argued in both directions at
 different times. If you can find a reversal — the same behaviour changed one way, then back — you have
 observed the failure rather than predicted it, and everything it touched is a setting.
@@ -111,6 +121,19 @@ observed the failure rather than predicted it, and everything it touched is a se
 **A caution that costs nothing to state.** A reversal **within one consumer**, an hour apart, is not
 this. It is a consumer changing their mind, which is ordinary; the test is about opposed interests
 across *different* parties, and conflating the two will make you call settings out of noise.
+
+**A second caution: a consumer who did not FIND your answer has not disagreed with it.** Before
+reading an opposite resolution as opposed interests, ask whether the dissenting consumer met the part
+of what you ship that already addresses their stated reason. The mark of this case is that the reason
+would **dissolve given the answer** — sometimes the consumer's own later record dissolves it. The
+remedy is a **pointer from the surface they were on** to where the answer lives, not a seam. The same
+reading applies when consumers *agree* by rediscovering a rule you already ship: that is not evidence
+for a new rule, it is evidence the old one is not found where it is needed. Whatever part of the
+reason survives the answer is still owed the setting question.
+
+**Check the answer before you point at it.** A discoverability reading assumes the thing the consumer
+missed is right. If it is itself defective, the dissent may have been the better call, and the finding
+is a defect in your answer rather than a missing pointer.
 
 ### A.3 — Does the argument survive the donor being anonymous?
 
@@ -257,7 +280,9 @@ equally supported:
 **tuned** as more consumers arrive. Expect some questions to be sharpened, at least one to be
 demoted, and A.2's three dispositions to acquire a fourth. *(2026-09-25: the demotion has happened,
 and it landed on A.1's weight rather than its place — A.1 now carries the environment qualifier, so a
-count on a surface a shared environment shapes weighs less than it did.)* **The falsifier A.4 demands of every rule,
+count on a surface a shared environment shapes weighs less than it did. The same
+evidence gave A.2 a fourth row — a rule shipped with its test stated, for the same outcome reached by
+divergent arguments — and sharpened it with a discoverability caution.)* **The falsifier A.4 demands of every rule,
 applied to this sheet itself:** a consumer meeting all four questions and still receiving a change
 that another consumer has to reverse would show that the four are not sufficient, and this sheet would
 owe a fifth.
