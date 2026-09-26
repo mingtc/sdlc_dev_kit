@@ -143,6 +143,20 @@ function provision(label, phase, model, effort, agentType, schema) {
   return opts
 }
 
+// A LEG'S THROW IS MARKED WHERE IT HAPPENS. The runtime's agent() THROWS for run-level reasons — the
+// turn's token budget ceiling is reached, or it refuses the call — and those are LEG_ABORTED. The
+// runner's OWN code can throw too, and that is a bug, which must stay loud rather than be filed as
+// an outcome. The two cannot be told apart after the fact, so every agent() call goes through leg(),
+// which marks what it rethrows with the leg's label; the catch sites below act only on marked errors.
+const LEG_THREW = 'legThrew'
+async function leg(prompt, opts) {
+  try { return await agent(prompt, opts) } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e))
+    err[LEG_THREW] = (opts && opts.label) || 'unlabelled leg'
+    throw err
+  }
+}
+
 const COMMON = `
 Repository (the main repo, absolute path): ${CFG.repo}
 Trunk branch: ${CFG.trunk}
@@ -237,6 +251,7 @@ const OUTCOME = Object.freeze({
   FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
   BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
   NO_VERDICT:             'NO_VERDICT',              // a QA leg formed no ratified verdict — a precondition failure, NOT a FAIL
+  LEG_ABORTED:            'LEG_ABORTED',             // a leg's agent() THREW (budget ceiling, refused call) — state unknown, NOT a FAIL
 })
 const LANDING = ['landed', 'deferred', 'not_applicable']
 // A verdict that means the review passed. PASS_AC_CORRECTED is a PASS whose AC's
@@ -414,17 +429,17 @@ Return the structured result only: the ratified verdict for whether the PARK is 
 const results = []
 async function runIssue(issue) {
   log(`${issue.id}: Dev starting (${issue.worktreeMode ? 'worktree leg' : 'main-checkout leg'})`)
-  let dev = await agent(devPrompt(issue, null), provision(`dev:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
+  let dev = await leg(devPrompt(issue, null), provision(`dev:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
   if (!dev || dev.status !== 'dev_complete') {
     if (issue.parkable && dev && dev.status === 'blocked') {
-      const park = await agent(parkPrompt(issue), provision(`park-qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
+      const park = await leg(parkPrompt(issue), provision(`park-qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
       if (park && isPass(park.verdict)) { log(`${issue.id}: PARKED and verified`); return { id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park } }
       return { id: issue.id, outcome: OUTCOME.PARK_UNVERIFIED, dev, park }
     }
     return { id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev }
   }
   log(`${issue.id}: QA starting`)
-  let qa = await agent(qaPrompt(issue), provision(`qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
+  let qa = await leg(qaPrompt(issue), provision(`qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
   // AND IF THE SECOND QA FAILS IN THE CURE'S OWN BLIND SPOT, THE ANSWER IS NOT A THIRD
   // ROUND — there is no third round here, and there must not be one added. A defect that
   // lives where the FIRST fix's assumptions do not look is evidence about the approach,
@@ -443,9 +458,9 @@ async function runIssue(issue) {
   if (qa && isVerdict(qa.verdict) && !isPass(qa.verdict)) {
     log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
-    dev = await agent(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
+    dev = await leg(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
     if (dev && dev.status === 'dev_complete') {
-      qa = await agent(qaPrompt(issue), provision(`qa2:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
+      qa = await leg(qaPrompt(issue), provision(`qa2:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
     }
   }
   // THE HALT KEYS ON THE VERDICT, NEVER ON THE LANDING. A deferred landing is
@@ -488,7 +503,11 @@ async function runIssue(issue) {
 //
 // LAND_READY is a PASS whose landing was deferred, so it does not halt: the halt keys on the
 // VERDICT, never on the landing, per the note above runIssue.
-const waveOk = rs => rs.every(r => r.outcome === OUTCOME.LANDED || r.outcome === OUTCOME.LAND_READY || r.outcome === OUTCOME.PARKED_OK)
+//
+// AND ONE OUTCOME PER DISPATCHED ISSUE, or the wave is not ok. `rs.every(...)` is true of an empty
+// list, so a wave whose issues all vanished used to pass — see the note on the loop below. The
+// count is checked here, where the predicate lives, so no caller can hand it a shortened list.
+const waveOk = (rs, dispatched) => rs.length === dispatched && rs.every(r => r.outcome === OUTCOME.LANDED || r.outcome === OUTCOME.LAND_READY || r.outcome === OUTCOME.PARKED_OK)
 
 // THE WAVES ARE A TABLE, NOT A COPY-PASTED PAIR. Adding a third wave was five hand edits across
 // four places (a phase call, a parallel call, a results push, a predicate copy, a halt branch);
@@ -505,8 +524,24 @@ const WAVES = [
 
 for (const w of WAVES) {
   phase(w.phase)
-  const out = (await parallel(w.issues.map(i => () => runIssue(i)))).filter(Boolean)
+  // NEVER DROP AN ISSUE. When a leg's agent() THROWS — the runtime does that once the turn's token
+  // budget ceiling is reached, and on a call it refuses — parallel() resolves that thunk to null.
+  // This line used to `.filter(Boolean)` the nulls away: the issue vanished from the outcomes, the
+  // wave predicate ran over what was left (an empty list passes), the next wave started, and the
+  // run reported green over work nobody finished. So each thunk catches a throw leg() marked and
+  // names it LEG_ABORTED with the error, and any null that still arrives is named the same way against
+  // the issue it was dispatched for. An UNMARKED throw is the runner's own bug: parallel() would
+  // swallow it too, so it is carried out of the barrier and re-thrown — loud, as in the tranche
+  // runner, never an outcome. process/MANUAL.md § The RUN-OUTCOME vocabulary.
+  const out = (await parallel(w.issues.map(i => () => runIssue(i).catch(e =>
+    (e && e[LEG_THREW])
+      ? { id: i.id, outcome: OUTCOME.LEG_ABORTED, error: `${e[LEG_THREW]}: ${e.message}` }
+      : { id: i.id, runnerBug: e }))))
+    .map((r, k) => r || { id: w.issues[k].id, outcome: OUTCOME.LEG_ABORTED, error: 'the leg resolved to null' })
+  const bug = out.find(r => r.runnerBug)
+  if (bug) throw bug.runnerBug
+  for (const r of out) if (r.outcome === OUTCOME.LEG_ABORTED) log(`${r.id}: LEG_ABORTED — ${r.error}; state unknown, the wave HALTS`)
   results.push(...out)
-  if (!waveOk(out)) return { halted: w.halt, results }
+  if (!waveOk(out, w.issues.length)) return { halted: w.halt, results }
 }
 return { halted: null, results }

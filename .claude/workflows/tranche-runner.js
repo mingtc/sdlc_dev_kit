@@ -160,6 +160,20 @@ function provision(label, phase, model, effort, agentType, schema) {
   return opts
 }
 
+// A LEG'S THROW IS MARKED WHERE IT HAPPENS. The runtime's agent() THROWS for run-level reasons — the
+// turn's token budget ceiling is reached, or it refuses the call — and those are LEG_ABORTED. The
+// runner's OWN code can throw too, and that is a bug, which must stay loud rather than be filed as
+// an outcome. The two cannot be told apart after the fact, so every agent() call goes through leg(),
+// which marks what it rethrows with the leg's label; the catch sites below act only on marked errors.
+const LEG_THREW = 'legThrew'
+async function leg(prompt, opts) {
+  try { return await agent(prompt, opts) } catch (e) {
+    const err = e instanceof Error ? e : new Error(String(e))
+    err[LEG_THREW] = (opts && opts.label) || 'unlabelled leg'
+    throw err
+  }
+}
+
 const COMMON = `
 Repository (work here, absolute path): ${CFG.repo}
 Trunk branch: ${CFG.trunk}
@@ -228,6 +242,7 @@ const OUTCOME = Object.freeze({
   FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
   BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
   NO_VERDICT:             'NO_VERDICT',              // a QA leg formed no ratified verdict — a precondition failure, NOT a FAIL
+  LEG_ABORTED:            'LEG_ABORTED',             // a leg's agent() THREW (budget ceiling, refused call) — state unknown, NOT a FAIL
 })
 const LANDING = ['landed', 'deferred', 'not_applicable']
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
@@ -388,121 +403,137 @@ let halted = null
 
 for (const issue of ARGS.issues) {
   if (halted) { results.push({ id: issue.id, skipped: true, reason: `tranche halted at ${halted}` }); continue }
+  // A THROWING LEG MUST NOT TAKE THE RUN WITH IT. The runtime's agent() THROWS once the turn's
+  // token budget ceiling is reached, and on a call it refuses. Uncaught here, that rejected the
+  // whole tranche: every outcome already recorded — including issues that had LANDED on the
+  // trunk — was lost with it, and the run reported an error instead of what it did. So the issue
+  // in flight is named LEG_ABORTED with the error, the tranche HALTS at it, and every earlier
+  // outcome is kept. The wave runner's loop names the same case the same way. Only a throw leg()
+  // marked is caught: a throw from the runner's own code is re-thrown, so a bug still fails loudly.
+  // process/MANUAL.md § The RUN-OUTCOME vocabulary.
+  try {
 
-  // NO per-issue phase() here. Every agent below is already assigned to a DECLARED
-  // group by provision()'s `phase` argument ('Dev' / 'QA'), which is what meta.phases
-  // names. The global phase() call that used to sit here created one undeclared group
-  // per issue on top of that, so meta.phases described a shape the run never had —
-  // and a global phase inside a loop is the state opts.phase exists to avoid touching.
-  log(`${issue.id}: Dev round starting`)
-  // Call site 1 of 7 — Dev, fresh pickup.
-  let dev = await agent(devPrompt(issue, null), provision(`dev:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-  if (!dev || dev.status !== 'dev_complete') {
-    if (!(issue.parkable && dev && dev.status === 'blocked')) {
-      halted = issue.id
-      results.push({ id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev })
-      continue
-    }
-    // A PM-sanctioned park (issue moved to blocked/ with a findings write-up) is a
-    // valid close for this issue ONLY once fresh eyes have verified the park is TRUE.
-    // PARKED_OK is unreachable from here without a park-QA PASS.
-    log(`${issue.id}: Dev PARKED the issue — park-QA round starting (no close without review)`)
-    // Call site 2 of 7 — park-QA, first review. Same provision() seam and the issue's own
-    // qaModel/qaEffort/qaAgentType: a park review must not silently escalate or degrade.
-    let park = await agent(parkPrompt(issue, null), provision(`park-qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-    if (!park || !isPass(park.verdict)) {
-      log(`${issue.id}: park-QA ${(park && park.verdict) || 'no verdict'} — one bounded fix round`)
-      const parkNotes = `${(((park && park.unmet) || []).join('\n'))}\n${(park && park.notes) || ''}`
-      // Call site 3 of 7 — Dev, park fix round. Same provisioning as the fresh pickup.
-      dev = await agent(devPrompt(issue, parkNotes), provision(`dev-park-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-      if (dev && dev.status === 'dev_complete') {
-        // The fix round withdrew the park and finished the work — it is no longer a park,
-        // so it takes the ordinary QA leg below rather than a second park-QA.
-        log(`${issue.id}: park withdrawn by the fix round — falling through to the ordinary QA leg`)
-      } else {
-        // Call site 4 of 7 — park-QA, second review. Same provisioning as the first.
-        park = await agent(parkPrompt(issue, parkNotes), provision(`park-qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-      }
-    }
+    // NO per-issue phase() here. Every agent below is already assigned to a DECLARED
+    // group by provision()'s `phase` argument ('Dev' / 'QA'), which is what meta.phases
+    // names. The global phase() call that used to sit here created one undeclared group
+    // per issue on top of that, so meta.phases described a shape the run never had —
+    // and a global phase inside a loop is the state opts.phase exists to avoid touching.
+    log(`${issue.id}: Dev round starting`)
+    // Call site 1 of 7 — Dev, fresh pickup.
+    let dev = await leg(devPrompt(issue, null), provision(`dev:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
     if (!dev || dev.status !== 'dev_complete') {
-      // The verdict alone decides a park's close, as before — but that is now the
-      // GENERAL rule rather than a park-shaped exemption: no halt anywhere in this
-      // runner keys on the landing field. A park reports landing=not_applicable
-      // because it lands nothing, which is a true statement rather than a value the
-      // caller has to know to ignore.
-      if (park && isPass(park.verdict)) {
-        results.push({ id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park })
-        log(`${issue.id}: PARKED and VERIFIED by park-QA (tranche continues)`)
-      } else {
+      if (!(issue.parkable && dev && dev.status === 'blocked')) {
         halted = issue.id
-        results.push({ id: issue.id, outcome: OUTCOME.PARK_UNVERIFIED, dev, park })
-        log(`${issue.id}: PARK_UNVERIFIED — the park could not be verified; tranche HALTS here`)
+        results.push({ id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev })
+        continue
       }
+      // A PM-sanctioned park (issue moved to blocked/ with a findings write-up) is a
+      // valid close for this issue ONLY once fresh eyes have verified the park is TRUE.
+      // PARKED_OK is unreachable from here without a park-QA PASS.
+      log(`${issue.id}: Dev PARKED the issue — park-QA round starting (no close without review)`)
+      // Call site 2 of 7 — park-QA, first review. Same provision() seam and the issue's own
+      // qaModel/qaEffort/qaAgentType: a park review must not silently escalate or degrade.
+      let park = await leg(parkPrompt(issue, null), provision(`park-qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
+      if (!park || !isPass(park.verdict)) {
+        log(`${issue.id}: park-QA ${(park && park.verdict) || 'no verdict'} — one bounded fix round`)
+        const parkNotes = `${(((park && park.unmet) || []).join('\n'))}\n${(park && park.notes) || ''}`
+        // Call site 3 of 7 — Dev, park fix round. Same provisioning as the fresh pickup.
+        dev = await leg(devPrompt(issue, parkNotes), provision(`dev-park-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
+        if (dev && dev.status === 'dev_complete') {
+          // The fix round withdrew the park and finished the work — it is no longer a park,
+          // so it takes the ordinary QA leg below rather than a second park-QA.
+          log(`${issue.id}: park withdrawn by the fix round — falling through to the ordinary QA leg`)
+        } else {
+          // Call site 4 of 7 — park-QA, second review. Same provisioning as the first.
+          park = await leg(parkPrompt(issue, parkNotes), provision(`park-qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
+        }
+      }
+      if (!dev || dev.status !== 'dev_complete') {
+        // The verdict alone decides a park's close, as before — but that is now the
+        // GENERAL rule rather than a park-shaped exemption: no halt anywhere in this
+        // runner keys on the landing field. A park reports landing=not_applicable
+        // because it lands nothing, which is a true statement rather than a value the
+        // caller has to know to ignore.
+        if (park && isPass(park.verdict)) {
+          results.push({ id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park })
+          log(`${issue.id}: PARKED and VERIFIED by park-QA (tranche continues)`)
+        } else {
+          halted = issue.id
+          results.push({ id: issue.id, outcome: OUTCOME.PARK_UNVERIFIED, dev, park })
+          log(`${issue.id}: PARK_UNVERIFIED — the park could not be verified; tranche HALTS here`)
+        }
+        continue
+      }
+    }
+
+    log(`${issue.id}: QA round starting`)
+    // Call site 5 of 7 — QA, first review.
+    let qa = await leg(qaPrompt(issue), provision(`qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
+
+    // Only a ratified FAIL spends the fix round. isVerdict() reads VERDICTS, so a token added at
+    // the authoring site still reaches this branch; a value OUTSIDE the set is not a FAIL, and is
+    // reported as NO_VERDICT below.
+    if (qa && isVerdict(qa.verdict) && !isPass(qa.verdict)) {
+      log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
+      const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
+      // Call site 6 of 7 — Dev, fix round. Same provisioning as the fresh pickup:
+      // a bounce must not silently escalate the model or the effort.
+      //
+      // AND IF THE SECOND QA FAILS IN THE CURE'S OWN BLIND SPOT, THE ANSWER IS NOT A THIRD
+      // ROUND — there is no third round here, and there must not be one added. A defect that
+      // lives where the FIRST fix's assumptions do not look is evidence about the approach,
+      // not about effort: the cure did not miss it, the cure produced the place where it
+      // could hide. The terminating move is a change of SHAPE or of AUTHOR — a different
+      // approach, or different eyes. See process/doctrine/fix-execution.md § A.5c, which
+      // also says why "try again, harder" is the wrong reading: capability is not what is
+      // missing when the search is pointed at the wrong place.
+      dev = await leg(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
+      if (dev && dev.status === 'dev_complete') {
+        // Call site 7 of 7 — QA, second review. Same provisioning as the first.
+        qa = await leg(qaPrompt(issue), provision(`qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
+      }
+    }
+
+    // THE HALT KEYS ON THE VERDICT, NEVER ON THE LANDING — this is the line that
+    // stopped a successful run. `!qa.landed` halted the tranche and skipped every
+    // remaining issue on a review that had passed with its landing correctly
+    // deferred. A deferred landing is continue-and-defer; only a failed REVIEW halts.
+    // NO VERDICT IS NOT A FAIL. A review leg that returned nothing (the agent died or was skipped),
+    // or a value outside the ratified set: the LAST review formed no verdict — and filing it under
+    // FAILED_AFTER_FIX_ROUND asserted FAIL verdicts that were never formed. It is MANUAL step 6's precondition failure surfacing at the outcome layer
+    // (process/MANUAL.md § The RUN-OUTCOME vocabulary), so it is named as itself. It HALTS, as a
+    // failure does, because the issue has not been reviewed — but it claims no failure.
+    if (!qa || !isVerdict(qa.verdict)) {
+      halted = issue.id
+      log(`${issue.id}: NO_VERDICT — the last review leg returned no ratified verdict; the issue is unreviewed; tranche HALTS here`)
+      results.push({ id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, qa })
       continue
     }
-  }
-
-  log(`${issue.id}: QA round starting`)
-  // Call site 5 of 7 — QA, first review.
-  let qa = await agent(qaPrompt(issue), provision(`qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
-
-  // Only a ratified FAIL spends the fix round. isVerdict() reads VERDICTS, so a token added at
-  // the authoring site still reaches this branch; a value OUTSIDE the set is not a FAIL, and is
-  // reported as NO_VERDICT below.
-  if (qa && isVerdict(qa.verdict) && !isPass(qa.verdict)) {
-    log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
-    const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
-    // Call site 6 of 7 — Dev, fix round. Same provisioning as the fresh pickup:
-    // a bounce must not silently escalate the model or the effort.
-    //
-    // AND IF THE SECOND QA FAILS IN THE CURE'S OWN BLIND SPOT, THE ANSWER IS NOT A THIRD
-    // ROUND — there is no third round here, and there must not be one added. A defect that
-    // lives where the FIRST fix's assumptions do not look is evidence about the approach,
-    // not about effort: the cure did not miss it, the cure produced the place where it
-    // could hide. The terminating move is a change of SHAPE or of AUTHOR — a different
-    // approach, or different eyes. See process/doctrine/fix-execution.md § A.5c, which
-    // also says why "try again, harder" is the wrong reading: capability is not what is
-    // missing when the search is pointed at the wrong place.
-    dev = await agent(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-    if (dev && dev.status === 'dev_complete') {
-      // Call site 7 of 7 — QA, second review. Same provisioning as the first.
-      qa = await agent(qaPrompt(issue), provision(`qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
+    if (!isPass(qa.verdict)) {
+      halted = issue.id
+      // FAILED, not PARKED. A QA failure after the bounded fix round leaves the issue in
+      // in_progress/ — it is not parked, and calling it PARKED made a run summary report a
+      // sanctioned close where there was an unfinished issue. wave-runner.js has always
+      // used the honest name; this is the two runners agreeing rather than a new word.
+      results.push({ id: issue.id, outcome: OUTCOME.FAILED_AFTER_FIX_ROUND, dev, qa })
+      continue
     }
-  }
-
-  // THE HALT KEYS ON THE VERDICT, NEVER ON THE LANDING — this is the line that
-  // stopped a successful run. `!qa.landed` halted the tranche and skipped every
-  // remaining issue on a review that had passed with its landing correctly
-  // deferred. A deferred landing is continue-and-defer; only a failed REVIEW halts.
-  // NO VERDICT IS NOT A FAIL. A review leg that returned nothing (the agent died or was skipped),
-  // or a value outside the ratified set: the LAST review formed no verdict — and filing it under
-  // FAILED_AFTER_FIX_ROUND asserted FAIL verdicts that were never formed. It is MANUAL step 6's precondition failure surfacing at the outcome layer
-  // (process/MANUAL.md § The RUN-OUTCOME vocabulary), so it is named as itself. It HALTS, as a
-  // failure does, because the issue has not been reviewed — but it claims no failure.
-  if (!qa || !isVerdict(qa.verdict)) {
+    // A pass that did not land is still a pass, and the tranche continues — but the
+    // outcome NAMES it, or the report re-merges downstream the two axes the schema
+    // just separated.
+    if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
+      log(`${issue.id}: LANDED`)
+      results.push({ id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+    } else {
+      log(`${issue.id}: LAND-READY (verified; landing deferred) — tranche continues`)
+      results.push({ id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+    }
+  } catch (e) {
+    if (!(e && e[LEG_THREW])) throw e   // the runner's own bug: stays loud, never an outcome
     halted = issue.id
-    log(`${issue.id}: NO_VERDICT — the last review leg returned no ratified verdict; the issue is unreviewed; tranche HALTS here`)
-    results.push({ id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, qa })
-    continue
-  }
-  if (!isPass(qa.verdict)) {
-    halted = issue.id
-    // FAILED, not PARKED. A QA failure after the bounded fix round leaves the issue in
-    // in_progress/ — it is not parked, and calling it PARKED made a run summary report a
-    // sanctioned close where there was an unfinished issue. wave-runner.js has always
-    // used the honest name; this is the two runners agreeing rather than a new word.
-    results.push({ id: issue.id, outcome: OUTCOME.FAILED_AFTER_FIX_ROUND, dev, qa })
-    continue
-  }
-  // A pass that did not land is still a pass, and the tranche continues — but the
-  // outcome NAMES it, or the report re-merges downstream the two axes the schema
-  // just separated.
-  if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
-    log(`${issue.id}: LANDED`)
-    results.push({ id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
-  } else {
-    log(`${issue.id}: LAND-READY (verified; landing deferred) — tranche continues`)
-    results.push({ id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
+    const error = `${e[LEG_THREW]}: ${e.message}`
+    log(`${issue.id}: LEG_ABORTED — ${error}; state unknown, tranche HALTS here`)
+    results.push({ id: issue.id, outcome: OUTCOME.LEG_ABORTED, error })
   }
 }
 

@@ -66,6 +66,10 @@
 >   NO_VERDICT`) — the last review formed none: **unreviewed, not failed**, and the run halted
 >   there. Say how the leg ended (it returned nothing, or a value outside the four tokens); never
 >   write it as a FAIL.
+> - `→ <leg> threw → LEG_ABORTED` — a leg's call threw (the run's token budget ran out, or the call
+>   was refused) before the issue reached an outcome: **state unknown, not failed**, and the run
+>   halted there. Quote the record's `error`, and say what the issue's branch, board folder and
+>   trunk show — the leg may have left work half-done.
 > - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked
 >   folder, no half-landed residue. A park nobody reviewed is not a close.
 > - `LAND-READY` — verified and reviewed but not landed (blocked-push regime; see
@@ -73,6 +77,12 @@
 >   vocabulary this is verdict `PASS` with landing `deferred`** — a success, and the runners continue
 >   past it. *(This column had a way to say "green but not landed" before the machinery did, which
 >   is how the gap was visible in reports and invisible to the schema that halted on it.)*
+>
+> **One row per DISPATCHED issue — count them against what the run was given.** A runner's
+> `results` shorter than the issues dispatched to it is the signature of a dropped issue, not of a
+> smaller run: name every missing id as its own row and find out what happened to it. Issues of a
+> wave the run never started — it halted before that wave — are **unrun**, not dropped: list them as
+> such (the tranche runner records them as skipped; the wave runner lists nothing for them).
 >
 > The gate column quotes the runner's **own summary line, verbatim** — never a hand-typed count.
 

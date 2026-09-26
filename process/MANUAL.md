@@ -449,6 +449,7 @@ produces this.
 | `FAILED_AFTER_FIX_ROUND` | verdict FAIL, twice | failed again after the fix round |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
 | `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg returned nothing, or a value outside the four tokens: **unreviewed, not failed** — halts (not yet applied to a park's review) |
+| `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — before the issue reached an outcome: **state unknown, not failed** — halts |
 
 **`LANDED` and `LAND_READY` are both verdict PASS** and differ only in whether the landing happened.
 That is why a gate treats both as success, and it is the composition rule that makes the next
@@ -464,6 +465,20 @@ verdict is formed, reported as itself"*) surfacing at the outcome layer, where a
 had only `FAILED_AFTER_FIX_ROUND` — *verdict FAIL, twice* — to spend on it, and filing it there
 asserted FAIL verdicts that were never formed. So the test above is met rather than waived: the composition is
 *no verdict · no landing*, and the thing it names already exists in step 6.
+
+**`LEG_ABORTED` is not `NO_VERDICT`, and the difference is what the next move is.** `NO_VERDICT` is
+about the issue: its last review leg came back and graded nothing, so the next move is a review.
+`LEG_ABORTED` is about the run: a leg's call **threw** — any leg, Dev or review — which the runtime
+does once the turn's token budget is spent, so the issue is in whatever state that leg left it,
+possibly half-done, and the next move is to inspect the issue and resume the run, not to review it.
+It is marked "—" because it is composed from no review verdict and no landing: the leg that threw
+reported nothing. **A throw from the runner's own code is not a leg aborting**: it is a defect in
+the runner, and the run fails loudly rather than filing it as an outcome. (What the runtime raises
+at the agent call itself — a budget ceiling, a refused call, or a schema it cannot satisfy — is
+filed as `LEG_ABORTED`, since it surfaces there; the record's `error` says which.) **Both halt, and no
+runner ever drops an issue:** one outcome per dispatched issue is the invariant a run report stands
+on. A runner that loses an issue — a wave runner once filtered a thrown leg out of its results, and
+then judged the wave by what was left — reports green over work nobody finished.
 
 **Why this needed ratifying rather than living in the runners.** The orchestration runtime grants
 those files no imports, so the vocabulary is **unavoidably hand-copied** into each one. A guard can

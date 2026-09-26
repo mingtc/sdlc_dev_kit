@@ -343,6 +343,27 @@ columns and never the cards.*
   findings are not meant for the kit. Then fill *Feedback is sent to* and *Kit updates reach this
   project by*, where "nobody" is a legal answer. **Nothing is ever sent automatically.**
 
+- **A wave run may have dropped issues — green or halted — so check your past run reports.** Until
+  this release, when a leg's `agent()` call THREW inside `.claude/workflows/wave-runner.js` (the
+  runtime does this once the turn's token budget ceiling is reached, and on a call it refuses), the
+  issue vanished from the results and the wave was judged on the rest; a wave whose issues all
+  vanished passed. **To check a past run:** compare the issue ids you dispatched with the ids in its
+  returned `results` — an id missing from a wave that ran was dropped, and its work may be
+  half-done: look for its branch, its board folder and any landing commit on the trunk before
+  re-dispatching it. (Issues of a wave the run never started are unrun, not dropped.)
+  `git log --oneline --grep '→ qa_complete'` lists what reached QA-complete; a dispatched id with no
+  match is a question to check, not proof of a drop — `LAND_READY`, parked and failed issues are
+  legitimately absent. For `.claude/workflows/tranche-runner.js`, a run that ENDED IN AN ERROR
+  instead of a result lost every outcome it had recorded, landings included: reconcile it against
+  the trunk rather than the report.
+- **The runners have another RUN-OUTCOME member, `LEG_ABORTED`.** Anything that reads the runners'
+  outcomes must accept it: a leg's call threw before the issue reached an outcome — **state
+  unknown, not failed** — and the run halts. Each such record carries `error` naming the leg. If
+  you carry edited copies of the runners, port: the `leg()` wrapper and `await leg(` at every
+  `agent()` call; in the wave runner, the per-thunk catch, the null-to-`LEG_ABORTED` mapping in
+  place of `.filter(Boolean)`, the re-throw of an unmarked error, and `waveOk(rs, dispatched)`; in
+  the tranche runner, the loop body's `try/catch`.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
