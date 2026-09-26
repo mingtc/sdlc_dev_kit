@@ -430,7 +430,7 @@ columns and never the cards.*
   dispatch brief, and each leg prefixes its shipped-script and board commands with
   `KIT_PROGRESS_RUN=<id>`; an operator can instead set it before launching the session. An `export`
   inside an agent's tool call did not survive past that call on the harness measured. Confirm by
-  grepping the leg's own progress record. **Nothing to do**, but if you want your runs grouped, set
+  grepping the main checkout's progress record (every worktree writes there). **Nothing to do**, but if you want your runs grouped, set
   the id that way.
 
 - **`.gitignore` now ignores `.claude/settings.local.json`** — the agent harness's per-checkout,
@@ -481,6 +481,13 @@ columns and never the cards.*
 
   The last command must print nothing before you go on. Then add `!/.claude/` to `.gitignore`,
   commit that one file with a role-prefixed subject, push, and re-run `./scripts/kit-init.sh`.
+
+- **Progress records written from a linked worktree now land in the main checkout's
+  `.progress-records/`**, and survive the worktree's removal. Before, they landed under the worktree
+  and were deleted with it. `KIT_PROGRESS_DIR` still overrides the location. A bare repository's
+  linked worktree, a submodule, and a `--separate-git-dir` repository's linked worktree write in their
+  own checkout, as before — carry an absolute `KIT_PROGRESS_DIR` there. Expiry now runs against the
+  one shared directory, so keep `KIT_PROGRESS_TTL_DAYS` one value per repository. **Nothing to do.**
 
 ## [0.6.0] — 2026-09-18
 

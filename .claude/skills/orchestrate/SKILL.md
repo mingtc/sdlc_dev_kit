@@ -267,12 +267,14 @@ Carry the id like this:
   writing the id there: a committed id is inherited by every clone, and it is stale on the next run.
   Clear it when the run ends.
 
-**Then confirm it, in the leg's tree rather than yours.** Today a leg in a linked worktree writes its
-records under that worktree's own `.progress-records/`, because the record directory follows the
-checkout's top level. That is a known defect being fixed, and until then grepping your own checkout
-gives a false alarm or a false pass. After a leg's first shipped-script command, grep that tree's
-day file for `run=<id>`. Alternatively, carry an absolute `KIT_PROGRESS_DIR` the same way the id is
-carried, and grep there. A zero means the id is not arriving.
+**Then confirm it.** Every worktree of one repository writes its records to the **main checkout's**
+`.progress-records/` — not necessarily yours, if you run in a linked worktree yourself — so after a
+leg's first shipped-script command, grep the main checkout's day file for `run=<id>`. Some shapes
+fall back to the writer's own tree instead — for example a bare repository's linked worktree, a
+submodule, or a `--separate-git-dir` repository's linked worktree — and a leg that cannot write the
+main checkout's directory writes nothing. In any of those, carry an absolute `KIT_PROGRESS_DIR` in
+every brief the same way as the id, and grep there. A zero means the id is not arriving — or the
+record is not where you looked.
 
 *Measured 2026-09-26 on one agent harness, with a sentinel variable read by a dispatched sub-agent's
 own shell.* The launch environment and a settings `env` block, both `settings.json` and

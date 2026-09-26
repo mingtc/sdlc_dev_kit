@@ -116,11 +116,29 @@ _pr_tok() {
 }
 
 # kit_progress_dir — where records go. Derived, never assumed present.
+#
+# EVERY WORKTREE OF ONE REPOSITORY WRITES ONE PLACE: the MAIN checkout's root, not this
+# checkout's. It was `--show-toplevel`, which in a linked worktree is that worktree — so a
+# dispatched leg's records landed where the orchestrator never read them, and were deleted
+# with the worktree when the leg landed. The main checkout is the first entry of
+# `git worktree list --porcelain` (git 2.7+), accepted only if it is not bare AND is its own
+# top level — asked with GIT_DIR and GIT_WORK_TREE unset, because a git hook exports GIT_DIR and
+# then `git -C <any dir> rev-parse --show-toplevel` answers <any dir>, which would accept a git dir.
+# Otherwise this checkout's top level, as before — for example a bare repository's linked
+# worktree (no main checkout), a submodule or a `--separate-git-dir` repository's linked worktree
+# (their first entry is a git dir), and no repository at all ($PWD). A worktree whose main checkout
+# was deleted or moved without `git worktree repair` has no working repository: it writes at $PWD.
+# Those fallbacks write into a tree that may be removed; carry an absolute KIT_PROGRESS_DIR there.
 kit_progress_dir() {
   if [ -n "${KIT_PROGRESS_DIR:-}" ]; then printf '%s' "$KIT_PROGRESS_DIR"; return 0; fi
-  local root
+  local root main
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || root=""
   [ -n "$root" ] || root="$PWD"
+  main="$(git worktree list --porcelain 2>/dev/null \
+    | awk 'NR==1 && /^worktree /{p=substr($0,10)} /^$/{exit} /^bare$/{p=""} END{print p}')"
+  if [ -n "$main" ] && [ "$(unset GIT_DIR GIT_WORK_TREE; git -C "$main" rev-parse --show-toplevel 2>/dev/null)" = "$main" ]; then
+    root="$main"
+  fi
   printf '%s/.progress-records' "$root"
 }
 

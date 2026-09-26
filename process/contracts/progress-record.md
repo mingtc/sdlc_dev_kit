@@ -36,6 +36,16 @@ and widen from the derivation in § 5a rather than from memory.
   declared seam, holding records partitioned by day.
   *Why:* "wherever the script felt like putting it" is the state this contract replaces; a reader
   who must first discover the location has not been given a record.
+- **ONE location PER REPOSITORY, not per checkout.** Every worktree of one repository writes to the
+  same directory, which by default sits at the **main** checkout, never the worktree the writer
+  happens to stand in. The declared seam still overrides it. Where there is no main checkout (a
+  bare repository's linked worktree), or where it cannot be identified (for example a submodule),
+  the writer's own checkout is the fallback, and the implementation says which.
+  *Why:* dispatched work runs in linked worktrees, and those are removed when the work lands. A
+  record written under one lands where the reader does not look, and is then deleted with it.
+  *Consequence, stated so it is not discovered:* expiry runs on write, so every worktree's writer
+  now expires the one shared directory — a leg's own TTL setting governs the orchestrator's records
+  too. Keep the TTL one value per repository.
 - **A timestamp is REQUIRED and it is absolute.**
   *Why:* it is what makes elapsed time and liveness **exact** rather than inferred. Every other
   way of knowing how long a phase took reconstructs it from arrival order, which is wrong the
@@ -92,6 +102,9 @@ way for unrelated work to go red.
 - A reader that parses **only** those four fields reads every record in the corpus — including
   records carrying optional fields it has never heard of.
 - Records past the TTL are gone without anyone having run anything.
+- A record written from a linked worktree of a repository with a main checkout is in the main
+  checkout's directory, and it is still there after that worktree is removed (§ 2 names the
+  fallbacks).
 - Removing the writer entirely leaves each converted producer's output and exit status
   **byte-identical**. *This is the one that must be measured by ablation rather than asserted:
   it is the invariant whose violation is invisible until something unrelated turns red.*
@@ -277,7 +290,9 @@ does not care about runs to learn it, which § 2's four-field envelope exists to
 
 - [`scripts/lib/progress-record.sh`](../../scripts/lib/progress-record.sh) (`KIT-CLASS: KIT`) —
   the one writer. Tab-separated, four fixed columns then `key=value` extras; one file per UTC day
-  under a version-control-ignored directory; expiry on write. It validates the class and the
+  under a version-control-ignored directory at the main checkout's root, from the first entry of
+  `git worktree list`, accepted only when it is not bare and is its own top level; expiry on write.
+  It validates the class and the
   actor the same way — write, normalise, preserve the offered value — and reads the role
   vocabulary from the seam § 5b names rather than holding a copy of it.
 - Converted producers, and **only** these two: [`scripts/verify.sh`](../../scripts/verify.sh)
