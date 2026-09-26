@@ -7748,6 +7748,39 @@ case_check_board_graduation_reads_the_trunk() {
 }
 
 # =============================================================================
+# CASE — A DETACHED CHECKOUT IS NAMED AS ONE, WITH ITS SHA — never as a branch
+#        called DETACHED.
+#
+# [f1] printed "(checked out here: DETACHED)", which reads exactly like a branch of
+# that name and says nothing about where the HEAD is. That is a common state, not an
+# edge: the landing script leaves a gate checkout detached at the landed commit.
+# =============================================================================
+case_check_board_names_a_detached_head() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local sha out f1
+  sha="$(git -C "$SB_WORK" rev-parse --short HEAD)"
+  git -C "$SB_WORK" checkout -q --detach HEAD >/dev/null 2>&1
+  git -C "$SB_WORK" symbolic-ref -q HEAD >/dev/null 2>&1 \
+    && _control_did_not_run "detach the main checkout"
+  out="$(cb_run)"
+  f1="$(printf '%s\n' "$out" | grep '\[f1\] main checkout:' | head -1)"
+  [ -n "$f1" ] || cf "no [f1] line — the arm did not report, so nothing below was measured: $out"
+  printf '%s\n' "$f1" | grep -F "checked out here: a detached HEAD at $sha" >/dev/null \
+    || cf "the [f1] line does not name the detached HEAD and its sha ($sha): $f1"
+  printf '%s\n' "$f1" | grep -F 'DETACHED' >/dev/null \
+    && cf "the [f1] line still prints DETACHED as if it were a branch name: $f1"
+  # CONTROL: on a branch, the name is still printed, quoted.
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '\[f1\] main checkout:' | grep -E "checked out here: '?$SB_TRUNK'?\)" >/dev/null \
+    || cf "(control) on '$SB_TRUNK' by name the [f1] line does not name the branch: $(printf '%s\n' "$out" | grep '\[f1\]')"
+  finish "check-board [f1]: a detached main checkout is reported as 'a detached HEAD at <sha>', never as a branch named DETACHED; a branch is still named"
+  teardown
+}
+
+# =============================================================================
 # CASE — arm (g2) COUNTS BLANKS, NOT USAGE; AND A PROJECT.md THAT LOST ITS
 #        DECLARATION IS STILL READ.
 #
@@ -14718,6 +14751,7 @@ CASES=(
   case_check_board_graduation_enabled_without_receipt
   case_check_board_graduation_not_run_direction
   case_check_board_graduation_reads_the_trunk
+  case_check_board_names_a_detached_head
   case_check_board_fill_arm_reads_blanks_not_usage
   case_check_board_graduation_verdict_is_not_wired
   case_kit_init_survives_the_documented_first_commit

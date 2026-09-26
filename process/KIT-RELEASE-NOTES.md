@@ -593,6 +593,15 @@ columns and never the cards.*
   that named neither git nor its version. It now works on older git and gives the same answer on
   current git. **Nothing to do.**
 
+- **`check-board.sh` no longer leaves part of a trunk copy in your temp dir when it is killed.** When
+  a supervisor, a timeout or `kill <pid>` sent TERM or HUP mid-run, it removed its temp copy while
+  `tar` was still writing into it, and `tar` re-created thousands of files that look like part of a
+  checkout. It now waits for the copy to finish before cleaning up. Other signals and SIGKILL are
+  still out of reach, and a Ctrl-C was never affected. A detached checkout is now named
+  `a detached HEAD at <sha>` instead of `DETACHED`, which read like a branch name. **Nothing to do.**
+  A stray from before this fix is a `tmp.*` directory in your temp dir holding part of your project,
+  and is safe to delete.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

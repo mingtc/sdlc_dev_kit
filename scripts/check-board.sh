@@ -313,6 +313,19 @@ fi
 # skipped every arm there would be useless exactly when a new adopter first runs it.
 # So it falls back, says so in a line nobody can miss, and every arm repeats the
 # source beside its own verdict.
+# cb_head_label <repo> — what a checkout has checked out, in a form that cannot be misread.
+# THIS PRINTED `DETACHED`, AS IF IT WERE A NAME: "(checked out here: DETACHED)" and
+# "WORKING TREE on 'DETACHED'" read exactly like a branch called DETACHED, and they said nothing
+# about WHERE the HEAD was — the one thing a reader of a detached checkout needs, and a common
+# case, since the landing script leaves a gate checkout detached at the landed commit. A branch
+# prints as its quoted name; a detached HEAD prints as "a detached HEAD at <short sha>".
+cb_head_label() {
+  local b h
+  if b="$(git -C "$1" symbolic-ref -q --short HEAD 2>/dev/null)"; then printf "'%s'" "$b"; return; fi
+  h="$(git -C "$1" rev-parse --short HEAD 2>/dev/null || true)"
+  printf 'a detached HEAD at %s' "${h:-<no commit>}"
+}
+
 CB_REF=""
 CB_SRC_KIND="worktree"
 CB_SRC_LABEL=""
@@ -322,8 +335,7 @@ if [ -n "$CB_TRUNK" ] \
   CB_SRC_KIND="ref"
   CB_SRC_LABEL="$CB_REF @ $(git -C "$REPO_ROOT" rev-parse --short "$CB_REF" 2>/dev/null || echo '?')"
 else
-  cb_branch="$(git -C "$REPO_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')"
-  CB_SRC_LABEL="WORKING TREE on '$cb_branch' (no $CB_REMOTE/${CB_TRUNK:-<unresolved trunk>} ref)"
+  CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (no $CB_REMOTE/${CB_TRUNK:-<unresolved trunk>} ref)"
 fi
 
 # CB_TREE is the directory the board-reading arms walk. For a ref, the ref's own
@@ -335,6 +347,18 @@ CB_TREE="$REPO_ROOT"
 CB_TMP=""
 cb_cleanup() { [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
 trap cb_cleanup EXIT
+# THE SIGNALS ARE TRAPPED TOO, OR THE CLEANUP RACES THE COPY IT IS CLEANING. With the EXIT trap
+# alone, an untrapped TERM or HUP makes bash run cb_cleanup AT ONCE — while the `archive | tar`
+# below is still writing — and tar then re-creates part of the directory the trap just removed.
+# Measured on a trunk of some 15,000 files, killed mid-copy: every TERM and HUP left a partial
+# copy of the trunk in the temp dir, thousands of files, which reads like part of a checkout of
+# the project. A TRAPPED signal's handler runs only after the foreground pipeline finishes, so
+# the exit — and with it the cleanup — waits for tar. The codes are the conventional 128+N.
+# OUT OF REACH, stated: a signal not listed here (USR1 was measured leaking the same way) still
+# races, and SIGKILL cannot be caught by any trap.
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap 'exit 130' INT
 if [ "$CB_SRC_KIND" = "ref" ]; then
   CB_TMP="$(mktemp -d 2>/dev/null || true)"
   if [ -n "$CB_TMP" ] \
@@ -345,9 +369,8 @@ if [ "$CB_SRC_KIND" = "ref" ]; then
     # The materialization is the one step that can fail without the ref being
     # wrong. Degrade to the checkout and RELABEL, so no arm prints a ref it did
     # not actually read. Silence here would re-create the exact defect above.
-    cb_branch="$(git -C "$REPO_ROOT" symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')"
     CB_SRC_KIND="worktree"
-    CB_SRC_LABEL="WORKING TREE on '$cb_branch' (could not read $CB_REF — archive failed)"
+    CB_SRC_LABEL="WORKING TREE on $(cb_head_label "$REPO_ROOT") (could not read $CB_REF — archive failed)"
     CB_REF=""
     CB_TREE="$REPO_ROOT"
   fi
@@ -1034,7 +1057,7 @@ elif ! git -C "$kwt_main" rev-parse --verify --quiet "$f_main_ref" >/dev/null 2>
 elif ! git -C "$kwt_main" rev-parse --verify --quiet "refs/remotes/$remote/$def" >/dev/null 2>&1; then
   echo "      [f1] main checkout: $remote/$def unavailable (never pushed? offline?)  (skipped) — inspected: $kwt_main"
 else
-  f_head="$(git -C "$kwt_main" symbolic-ref --short HEAD 2>/dev/null || echo 'DETACHED')"
+  f_head="$(cb_head_label "$kwt_main")"
   f_ahead="$(git -C "$kwt_main" rev-list --count "$remote/$def..$f_main_ref" 2>/dev/null || echo 0)"
   f_behind="$(git -C "$kwt_main" rev-list --count "$f_main_ref..$remote/$def" 2>/dev/null || echo 0)"
   if [ "${f_ahead:-0}" -gt 0 ]; then
