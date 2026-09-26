@@ -111,6 +111,14 @@ columns and never the cards.*
   falsifier was examined and judged not one, and the evidence is still called thin because every
   consumer shared one environment. **Nothing to do:** the four questions are unchanged.
 
+- **`process/contracts/acceptance-tier.md`: a tier mark that is wrong on its face is now removed
+  when found, by whoever finds it** (outside a calibration ritual, which records it as a finding).
+  It applies only to the named classes — a presentation-pinning artifact, or a test whose subject is
+  the repository's own machinery rather than the product — and only with a named reason checkable
+  against the tree and the corpus manifest. Adding a mark, or re-deciding one that turns on intent,
+  stays write-time and author-only. `process/doctrine/conformance-tier.md` § A.4 carries the pointer.
+  **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

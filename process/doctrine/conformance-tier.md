@@ -69,6 +69,15 @@ tier-triage meeting.
 **When:** at the point the test is written or moved, never later. A retro-classification pass is
 exactly the sweep this convention exists to avoid.
 
+**The one later act.** A mark that is **wrong on its face** is removed when found, on a reason
+anyone can check against the tree. Inside a calibration ritual it is recorded as a finding instead.
+Such a mark is one that no answer about the test's promise could make a member. One example is a
+test of this repository's own machinery: § B's first finding, which the donor recorded as a finding
+and which under this rule is face-wrong. The reason above stands. Only its conclusion narrowed,
+because a checkable reason is not a guess. Nothing is added or re-decided later. The classes and the
+checkable-reason rule are the contract's
+([`../contracts/acceptance-tier.md`](../contracts/acceptance-tier.md) § 2).
+
 **The question to ask, and nothing else:** *if this fails after regeneration, is the product
 wrong, or merely different?* Product wrong → tier member. Merely different → leave it unmarked;
 regression-tier is the **default**, and an unmarked test is not a defect.

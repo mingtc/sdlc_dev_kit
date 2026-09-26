@@ -24,9 +24,30 @@ can be **measured** instead of believed.
   *Why:* the moment membership decides what runs, every author is under pressure to mark for speed
   rather than for truth, and the answer stops meaning anything.
 - **MEMBERSHIP IS DECIDED AT WRITE TIME, BY WHOEVER WRITES THE TEST.** Never by a later
-  reclassification pass, and never by a separate triage body.
+  reclassification pass, and never by a separate triage body — **except to REMOVE a mark that is
+  wrong on its face, with a checkable reason recorded (the next invariant).**
   *Why:* the author is the only person who still knows which promise the test was defending; a
   retro-sweep is the failure mode this rule exists to forbid.
+  *Amended, the reason kept:* only the conclusion narrowed, for marks whose verdict that knowledge
+  cannot change. A checkable reason is not a guess.
+- **A MARK THAT IS WRONG ON ITS FACE IS REMOVED WHEN FOUND, BY WHOEVER FINDS IT, WITH A CHECKABLE
+  REASON RECORDED — except inside a calibration ritual, which records it as a finding instead.** A
+  mark is wrong on its face when no answer to *which promise was this test defending?* could make it
+  a member. There are two classes, and only these: a **presentation-pinning artifact** (the evidence
+  invariant below), and a test whose **subject is not the product**. That subject is this
+  repository's own machinery, such as its gate runner, guards, hooks, process scripts or a helper
+  private to the suite, which a rewrite from the corpus would not contain. A harness that drives the
+  product is not this class: it resists the question and stays a finding. A file under `scripts/`
+  may still be product; the corpus decides, never the path.
+  **A reason is checkable** when it names what carries the mark and its path, and a reader holding
+  only the tree can confirm it without asking the author. For an artifact, the reader opens it and
+  confirms that it is a captured rendering. For a test, the reader finds its subject by opening the
+  test, then confirms that subject's absence from the product against the corpus manifest
+  ([`../../requirements/CORPUS.md`](../../requirements/CORPUS.md)). The exception runs one way:
+  adding a mark, or re-deciding one whose correctness turns on intent, stays the author's, at write
+  time.
+  *Why:* with no path to remove it, a face-wrong mark stays in the selection for good. The floor guard
+  sees the set shrink, but nothing sees it fill with noise.
 - **THE MARKED SET IS A FLOOR, NOT A CENSUS.** Whatever is unmarked is **unexamined**, not judged;
   an incomplete classification must be declared as such wherever the total is published.
   *Why:* a partial pass presented as complete converts an honest gap into a false claim of
@@ -68,8 +89,12 @@ each must fail loudly and by name:
 - The selected count falls **below the declared floor** ⇒ fail, and report both numbers.
 - The default run's selection **differs** with the tier present ⇒ fail: the lens has become a gate.
 - Membership is used to run **less** of the suite anywhere ⇒ refuse the change, not the tier.
-- A presentation-pinning artifact is found **carrying the mark** ⇒ refuse; it is evidence and
-  belongs outside the tier.
+- A mark that is **wrong on its face** is found — a presentation-pinning artifact, or a test whose
+  subject is not the product (§ 2) ⇒ refuse the mark and remove it, recording the checkable reason.
+  The artifact is evidence and the test is machinery; both belong outside the tier.
+- A mark is **removed on a reason that is not checkable** — one that needs the author's intent, or is
+  keyed on a path pattern ⇒ refuse the removal, and record the doubt as a finding for the test's
+  author.
 - A total is republished with **no way to re-derive it** ⇒ refuse the number, not the document.
 - A test answers the membership question **neither way** ⇒ record it as a finding; refuse to invent
   a third tier for it.
