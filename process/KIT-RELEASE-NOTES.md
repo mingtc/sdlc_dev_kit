@@ -536,6 +536,15 @@ columns and never the cards.*
   unchanged. `process/MANUAL.md` step 6 and `.claude/roles/qa.md` say how to use it;
   `process/templates/run-report.template.md` § 1 says to quote it.
 
+- **A runner's result now carries what every leg wrote.** Each record with an outcome returned by
+  `.claude/workflows/wave-runner.js` and `.claude/workflows/tranche-runner.js` gains `leg_notes`: one
+  entry per leg that replied, in call order, with its `summary`, `deviations`, `notes`,
+  `premise_refuted` and `precondition_failure` where filled — on every outcome, including `LANDED` and
+  `LAND_READY`, which used to return none of it (so `premise_refuted` on a landed issue was lost).
+  Additive: existing fields are unchanged. `process/MANUAL.md` § The RUN-OUTCOME vocabulary states the
+  result shape; the `progress.md` `kit-finding:` lines remain the durable record of a leg's kit
+  findings. **Nothing to do.**
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

@@ -168,12 +168,41 @@ function provision(label, phase, model, effort, agentType, schema) {
 // which marks what it rethrows with the leg's label; the catch sites below act only on marked errors.
 const LEG_THREW = 'legThrew'
 async function leg(prompt, opts) {
-  try { return await agent(prompt, opts) } catch (e) {
+  let reply
+  try {
+    reply = await agent(prompt, opts)
+  } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e))
     err[LEG_THREW] = (opts && opts.label) || 'unlabelled leg'
     throw err
   }
+  // OUTSIDE the try on purpose: recordLeg is the runner's own code, and a bug in it must fail the
+  // run loudly — inside the try it would be marked as a leg throw and filed LEG_ABORTED.
+  recordLeg(opts && opts.label, reply)
+  return reply
 }
+
+// EVERY LEG'S FREE TEXT REACHES THE RESULT, ON EVERY OUTCOME. A success used to return only
+// { id, outcome, qa_evidence, gates }: a Dev leg's summary and deviations, and a review's notes and
+// premise_refuted, were dropped on exactly the path where the run succeeds — so anything a leg
+// reported there (a caveat, a surprise, a kit finding) never reached the orchestrator, and the
+// premise_refuted axis, which exists so a PASS/landed issue can say what it learned, was lost on the
+// one outcome it was designed for. So leg() records each reply's free-text fields as it returns, in
+// call order, and every record the runner returns carries them as `leg_notes`: one entry per leg that
+// replied, { leg: <label prefix>, ...the non-empty free-text fields }. A leg that threw or returned
+// nothing adds no entry; the legs before it keep theirs. process/MANUAL.md § The RUN-OUTCOME
+// vocabulary states the result shape.
+const LEG_TEXT = ['summary', 'deviations', 'notes', 'premise_refuted', 'precondition_failure']
+const legTrail = Object.create(null)   // no prototype: an issue id like `constructor` must not collide
+function recordLeg(label, reply) {
+  if (!label || !reply || typeof reply !== 'object') return
+  const at = String(label).indexOf(':')
+  if (at < 0) return
+  const entry = { leg: String(label).slice(0, at) }
+  for (const k of LEG_TEXT) if (typeof reply[k] === 'string' && reply[k].trim() !== '') entry[k] = reply[k]
+  if (Object.keys(entry).length > 1) (legTrail[String(label).slice(at + 1)] ||= []).push(entry)
+}
+const legNotes = id => (legTrail[id] || []).slice()
 
 const COMMON = `
 Repository (work here, absolute path): ${CFG.repo}
@@ -593,4 +622,5 @@ for (const issue of ARGS.issues) {
   }
 }
 
+for (const r of results) if (r.outcome) r.leg_notes = legNotes(r.id)
 return { halted, results }

@@ -483,6 +483,17 @@ runner ever drops an issue:** one outcome per dispatched issue is the invariant 
 on. A runner that loses an issue — a wave runner once filtered a thrown leg out of its results, and
 then judged the wave by what was left — reports green over work nobody finished.
 
+**What a runner returns for each issue, and why the free text rides on every outcome.** Each record
+is `{ id, outcome, … }`, plus the fields its outcome needs: `error` on `LEG_ABORTED`, the replies
+of the legs that decided it on a failure or a park (`dev`, `qa`, `park`), and `qa_evidence` and
+`gates` on `LANDED` and `LAND_READY`. **Every record with an outcome also carries `leg_notes`**: one entry per leg
+that replied, in call order — `{ leg, summary, deviations, notes, premise_refuted,
+precondition_failure }`, each field present only when the leg filled it. It is on the success path
+on purpose. A success used to return nothing a leg had written, so a caveat, a surprise or a kit
+finding reported there never reached the orchestrator — and `premise_refuted`, the axis that exists
+so a PASS/landed issue can say what it learned, was lost on the one outcome it was designed for. A
+leg that threw or returned nothing adds no entry; the legs before it keep theirs.
+
 **Why this needed ratifying rather than living in the runners.** The orchestration runtime grants
 those files no imports, so the vocabulary is **unavoidably hand-copied** into each one. A guard can
 hold the copies equal to each other, and that is worth having — but two copies agreeing is not the
@@ -732,9 +743,11 @@ open-ended *"whenever something goes wrong"* trigger.
    is an entry.
 4. **M4: closing an orchestrated run.** During a run **the orchestrator is the only writer**:
    parallel legs would mint the same `K-NN` twice. It collects every `kit-finding:` line from the
-   legs' `progress.md` entries, as well as anything a leg's report names, and writes the entries.
-   A runner's success return may carry no notes, so the `progress.md` lines are the record. The
-   run report carries the same `kit-feedback:` line.
+   legs' `progress.md` entries, as well as anything a leg's report names — every record a runner
+   returns carries each leg's free text as `leg_notes` (§ The RUN-OUTCOME vocabulary) — and writes
+   the entries. **The `progress.md` lines stay the record:** a runner's return lives only as long as
+   the orchestrator's session, and a line in the trunk's `progress.md` outlives it. The run report
+   carries the same `kit-feedback:` line.
 
 **What an entry carries, and what may leave the project**, is the skeleton's to say:
 `process/templates/KIT-FEEDBACK.skeleton.md` § The shape of an entry, and its header.
