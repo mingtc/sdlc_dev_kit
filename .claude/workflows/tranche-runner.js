@@ -1,7 +1,7 @@
 // KIT-CLASS: KIT — the serial tranche runner. Everything project-specific is in CFG below.
 export const meta = {
   name: 'tranche-runner',
-  description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that cannot verify halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
+  description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that FAILS the park halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
   phases: [
     { title: 'Dev', detail: 'one Dev-hat agent per issue, TDD on a work branch (or direct-to-trunk on the docs path); per-issue devModel + devEffort override', model: 'opus' },
     { title: 'QA', detail: 'separate fresh-eyes QA-hat agent per issue; lands via the landing script; a park takes the same seam as a park-QA leg (the ratified verdict set, landing always not_applicable) instead of closing unreviewed; per-issue qaModel + qaEffort override', model: 'opus' },
@@ -29,8 +29,9 @@ export const meta = {
 // `parkable: true` means a Dev status=blocked MAY close this issue — it does NOT mean it
 // closes unreviewed. The park then takes a park-QA leg (PARK_SCHEMA, the same provision()
 // seam and the issue's own qaModel/qaEffort/qaAgentType) that verifies the park is TRUE; only
-// a park-QA PASS records PARKED_OK, and a park still unverified after one bounded fix round
-// records PARK_UNVERIFIED and HALTS the tranche.
+// a park-QA PASS records PARKED_OK, and a park the review still FAILS after one bounded fix round
+// records PARK_UNVERIFIED and HALTS the tranche (a park review that returns nothing is NO_VERDICT:
+// it gets no fix round and halts).
 //   WHY this exists (keep the reason, it cost a tranche to learn): an unreviewed park was
 //   treated as a clean close, and its findings turned out to be wrong — while four
 //   downstream issues had already been gated on them. A park is a CLOSE, and every close in
@@ -248,9 +249,14 @@ const LANDING = ['landed', 'deferred', 'not_applicable']
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
 // A verdict at all: one of the ratified tokens. A review leg that returns nothing, or a value outside
 // VERDICTS, formed no verdict — MANUAL step 6's precondition failure — and is neither pass nor FAIL.
-// Applied to the issue review only: the PARK review's branch still keys on isPass alone, so a park
-// review that forms no verdict is not yet told apart from one that fails. A known gap.
+// Applied to BOTH reviews: the issue review and the park review. A park review that formed no verdict
+// verified nothing, so it is NO_VERDICT, not PARK_UNVERIFIED — which judges the park itself.
 const isVerdict = v => VERDICTS.includes(v)
+// A Dev leg answered at all: a reply carrying one of DEV_SCHEMA's statuses. A Dev leg that returned
+// nothing (the agent was skipped, or died on a terminal error) is not "Dev could not proceed" — that
+// is BLOCKED_DEV, a status Dev reports — it is a leg that produced nothing, whose tree state the runner
+// cannot know. It is LEG_ABORTED, like a leg whose call threw, and no further leg is spent on it.
+const devAnswered = d => !!d && DEV_SCHEMA.properties.status.enum.includes(d.status)
 
 const QA_SCHEMA = {
   type: 'object',
@@ -400,6 +406,19 @@ Return the structured result only.`
 
 const results = []
 let halted = null
+// Two ways a leg can end with nothing to act on, named — never re-labelled as a verdict or a status
+// the leg did not report. Each records the outcome and halts the tranche at this issue.
+function devReturnedNothing(issue, label, dev) {
+  halted = issue.id
+  const error = `${label}:${issue.id}: the Dev leg returned nothing`
+  log(`${issue.id}: LEG_ABORTED — ${error}; state unknown, tranche HALTS here`)
+  results.push({ id: issue.id, outcome: OUTCOME.LEG_ABORTED, error, dev })
+}
+function parkReturnedNoVerdict(issue, dev, park) {
+  halted = issue.id
+  log(`${issue.id}: NO_VERDICT — the park review returned no ratified verdict; the park is unreviewed; tranche HALTS here`)
+  results.push({ id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, park })
+}
 
 for (const issue of ARGS.issues) {
   if (halted) { results.push({ id: issue.id, skipped: true, reason: `tranche halted at ${halted}` }); continue }
@@ -421,8 +440,9 @@ for (const issue of ARGS.issues) {
     log(`${issue.id}: Dev round starting`)
     // Call site 1 of 7 — Dev, fresh pickup.
     let dev = await leg(devPrompt(issue, null), provision(`dev:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-    if (!dev || dev.status !== 'dev_complete') {
-      if (!(issue.parkable && dev && dev.status === 'blocked')) {
+    if (!devAnswered(dev)) { devReturnedNothing(issue, 'dev', dev); continue }
+    if (dev.status !== 'dev_complete') {
+      if (!(issue.parkable && dev.status === 'blocked')) {
         halted = issue.id
         results.push({ id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev })
         continue
@@ -434,21 +454,28 @@ for (const issue of ARGS.issues) {
       // Call site 2 of 7 — park-QA, first review. Same provision() seam and the issue's own
       // qaModel/qaEffort/qaAgentType: a park review must not silently escalate or degrade.
       let park = await leg(parkPrompt(issue, null), provision(`park-qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-      if (!park || !isPass(park.verdict)) {
-        log(`${issue.id}: park-QA ${(park && park.verdict) || 'no verdict'} — one bounded fix round`)
+      // ONLY A RATIFIED FAIL SPENDS THE PARK FIX ROUND. This read `!park || !isPass(park.verdict)`,
+      // so a park review that returned nothing — or a value outside VERDICTS — sent Dev into the fix
+      // round on findings nobody formed: the same defect the issue review's fix round had. No verdict
+      // is NO_VERDICT, and it halts.
+      if (!park || !isVerdict(park.verdict)) { parkReturnedNoVerdict(issue, dev, park); continue }
+      if (!isPass(park.verdict)) {
+        log(`${issue.id}: park-QA ${park.verdict} — one bounded fix round`)
         const parkNotes = `${(((park && park.unmet) || []).join('\n'))}\n${(park && park.notes) || ''}`
         // Call site 3 of 7 — Dev, park fix round. Same provisioning as the fresh pickup.
         dev = await leg(devPrompt(issue, parkNotes), provision(`dev-park-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-        if (dev && dev.status === 'dev_complete') {
+        if (!devAnswered(dev)) { devReturnedNothing(issue, 'dev-park-fix', dev); continue }
+        if (dev.status === 'dev_complete') {
           // The fix round withdrew the park and finished the work — it is no longer a park,
           // so it takes the ordinary QA leg below rather than a second park-QA.
           log(`${issue.id}: park withdrawn by the fix round — falling through to the ordinary QA leg`)
         } else {
           // Call site 4 of 7 — park-QA, second review. Same provisioning as the first.
           park = await leg(parkPrompt(issue, parkNotes), provision(`park-qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
+          if (!park || !isVerdict(park.verdict)) { parkReturnedNoVerdict(issue, dev, park); continue }
         }
       }
-      if (!dev || dev.status !== 'dev_complete') {
+      if (dev.status !== 'dev_complete') {
         // The verdict alone decides a park's close, as before — but that is now the
         // GENERAL rule rather than a park-shaped exemption: no halt anywhere in this
         // runner keys on the landing field. A park reports landing=not_applicable
@@ -488,7 +515,8 @@ for (const issue of ARGS.issues) {
       // also says why "try again, harder" is the wrong reading: capability is not what is
       // missing when the search is pointed at the wrong place.
       dev = await leg(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, 'Dev', issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-      if (dev && dev.status === 'dev_complete') {
+      if (!devAnswered(dev)) { devReturnedNothing(issue, 'dev-fix', dev); continue }
+      if (dev.status === 'dev_complete') {
         // Call site 7 of 7 — QA, second review. Same provisioning as the first.
         qa = await leg(qaPrompt(issue), provision(`qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
       }

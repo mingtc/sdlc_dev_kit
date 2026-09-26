@@ -260,9 +260,14 @@ const LANDING = ['landed', 'deferred', 'not_applicable']
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
 // A verdict at all: one of the ratified tokens. A review leg that returns nothing, or a value outside
 // VERDICTS, formed no verdict — MANUAL step 6's precondition failure — and is neither pass nor FAIL.
-// Applied to the issue review only: the PARK review's branch still keys on isPass alone, so a park
-// review that forms no verdict is not yet told apart from one that fails. A known gap.
+// Applied to BOTH reviews: the issue review and the park review. A park review that formed no verdict
+// verified nothing, so it is NO_VERDICT, not PARK_UNVERIFIED — which judges the park itself.
 const isVerdict = v => VERDICTS.includes(v)
+// A Dev leg answered at all: a reply carrying one of DEV_SCHEMA's statuses. A Dev leg that returned
+// nothing (the agent was skipped, or died on a terminal error) is not "Dev could not proceed" — that
+// is BLOCKED_DEV, a status Dev reports — it is a leg that produced nothing, whose tree state the runner
+// cannot know. It is LEG_ABORTED, like a leg whose call threw, and no further leg is spent on it.
+const devAnswered = d => !!d && DEV_SCHEMA.properties.status.enum.includes(d.status)
 
 const QA_SCHEMA = {
   type: 'object',
@@ -427,13 +432,24 @@ Return the structured result only: the ratified verdict for whether the PARK is 
 }
 
 const results = []
+// A Dev leg that returned nothing: named, never re-labelled as a status Dev did not report.
+function devReturnedNothing(issue, label, dev) {
+  const error = `${label}:${issue.id}: the Dev leg returned nothing`
+  log(`${issue.id}: LEG_ABORTED — ${error}; state unknown, the wave HALTS`)
+  return { id: issue.id, outcome: OUTCOME.LEG_ABORTED, error, dev }
+}
 async function runIssue(issue) {
   log(`${issue.id}: Dev starting (${issue.worktreeMode ? 'worktree leg' : 'main-checkout leg'})`)
   let dev = await leg(devPrompt(issue, null), provision(`dev:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-  if (!dev || dev.status !== 'dev_complete') {
-    if (issue.parkable && dev && dev.status === 'blocked') {
+  if (!devAnswered(dev)) return devReturnedNothing(issue, 'dev', dev)
+  if (dev.status !== 'dev_complete') {
+    if (issue.parkable && dev.status === 'blocked') {
       const park = await leg(parkPrompt(issue), provision(`park-qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-      if (park && isPass(park.verdict)) { log(`${issue.id}: PARKED and verified`); return { id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park } }
+      if (!park || !isVerdict(park.verdict)) {
+        log(`${issue.id}: NO_VERDICT — the park review returned no ratified verdict; the park is unreviewed`)
+        return { id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, park }
+      }
+      if (isPass(park.verdict)) { log(`${issue.id}: PARKED and verified`); return { id: issue.id, outcome: OUTCOME.PARKED_OK, dev, park } }
       return { id: issue.id, outcome: OUTCOME.PARK_UNVERIFIED, dev, park }
     }
     return { id: issue.id, outcome: OUTCOME.BLOCKED_DEV, dev }
@@ -459,7 +475,8 @@ async function runIssue(issue) {
     log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
     dev = await leg(devPrompt(issue, notes), provision(`dev-fix:${issue.id}`, issue.phase, issue.devModel, issue.devEffort, issue.devAgentType, DEV_SCHEMA))
-    if (dev && dev.status === 'dev_complete') {
+    if (!devAnswered(dev)) return devReturnedNothing(issue, 'dev-fix', dev)
+    if (dev.status === 'dev_complete') {
       qa = await leg(qaPrompt(issue), provision(`qa2:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
     }
   }

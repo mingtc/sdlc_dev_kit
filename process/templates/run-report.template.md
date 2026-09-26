@@ -63,11 +63,13 @@
 > - `→ QA FAIL → fix → QA FAIL → PARKED` — fix budget spent. Parking is a legitimate close.
 > - `PARKED → seat-authorized round 2 → PASS` — name the authorizing commit or message.
 > - `→ QA returned no verdict → NO_VERDICT` (or `→ QA FAIL → fix → QA returned no verdict →
->   NO_VERDICT`) — the last review formed none: **unreviewed, not failed**, and the run halted
+>   NO_VERDICT`, or `PARKED → park review returned no verdict → NO_VERDICT`) — the last review, of
+>   the issue or of its park, formed none: **unreviewed, not failed**, and the run halted
 >   there. Say how the leg ended (it returned nothing, or a value outside the four tokens); never
 >   write it as a FAIL.
-> - `→ <leg> threw → LEG_ABORTED` — a leg's call threw (the run's token budget ran out, or the call
->   was refused) before the issue reached an outcome: **state unknown, not failed**, and the run
+> - `→ <leg> threw → LEG_ABORTED` (or `→ Dev returned nothing → LEG_ABORTED`) — a leg's call threw
+>   (the run's token budget ran out, or the call was refused), or a Dev leg returned nothing, before
+>   the issue reached an outcome: **state unknown, not failed**, and the run
 >   halted there. Quote the record's `error`, and say what the issue's branch, board folder and
 >   trunk show — the leg may have left work half-done.
 > - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked

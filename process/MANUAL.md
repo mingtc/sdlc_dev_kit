@@ -389,16 +389,15 @@ bounces it.
    Dev in the `dev_complete` note, QA in the review evidence on the issue file.
 
    **A review leg that returns no verdict is the same precondition failure, one layer out.** When
-   an orchestrated run's review leg comes back with nothing — the agent returned nothing (it died
-   or was skipped) — or with a value outside the four tokens, the **last** review formed no
-   verdict. The runner reports **`NO_VERDICT`** (§ The RUN-OUTCOME vocabulary, below) and halts.
-   It does not spend the fix round on it, and it never files it as `FAILED_AFTER_FIX_ROUND`, which
-   asserts FAIL verdicts that were never formed. The issue is unreviewed as it now stands: the next
-   move is a review, not a fix. *Two known gaps, stated so this is not over-read:* the review of a
-   **park** is not yet covered — its path still reads a missing verdict as a failed one — and a
-   runner's structured review result still requires one of the four tokens, so a reviewer that
-   obeys *"stop and report the precondition failure"* has no value to return and reaches
-   `NO_VERDICT` only if the leg returns nothing at all.
+   an orchestrated run's review leg — of the issue, or of its **park** — comes back with nothing
+   (the agent returned nothing: it died or was skipped) or with a value outside the four tokens,
+   the **last** review formed no verdict. The runner reports **`NO_VERDICT`** (§ The RUN-OUTCOME vocabulary, below) and halts.
+   It does not spend the fix round on it, and it never files it as `FAILED_AFTER_FIX_ROUND` — or,
+   for a park, as `PARK_UNVERIFIED` — both of which assert a FAIL that was never formed. The issue
+   (or the park) is unreviewed as it now stands: the next move is a review, not a fix. *One known
+   gap, stated so this is not over-read:* a runner's structured review result still requires one of
+   the four tokens, so a reviewer that obeys *"stop and report the precondition failure"* has no
+   value to return and reaches `NO_VERDICT` only if the leg returns nothing at all.
 
    The four, in full:
    - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
@@ -445,11 +444,11 @@ produces this.
 | `LANDED` | verdict PASS · landing `landed` or `not_applicable` | reviewed green and the change is on the trunk, or had nothing to land |
 | `LAND_READY` | verdict PASS · landing `deferred` | reviewed green, landing correctly not attempted — **a SUCCESS** |
 | `PARKED_OK` | — | parked, **and the park itself was verified** |
-| `PARK_UNVERIFIED` | — | parked, park not verifiable as written |
+| `PARK_UNVERIFIED` | — | parked, park not verifiable as written — the LAST park review returned a FAIL verdict |
 | `FAILED_AFTER_FIX_ROUND` | verdict FAIL, twice | failed again after the fix round |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
-| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg returned nothing, or a value outside the four tokens: **unreviewed, not failed** — halts (not yet applied to a park's review) |
-| `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — before the issue reached an outcome: **state unknown, not failed** — halts |
+| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, or a value outside the four tokens: **unreviewed, not failed** — halts |
+| `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — or a Dev leg returned nothing (or a status outside its schema), before the issue reached an outcome: **state unknown, not failed** — halts |
 
 **`LANDED` and `LAND_READY` are both verdict PASS** and differ only in whether the landing happened.
 That is why a gate treats both as success, and it is the composition rule that makes the next
@@ -469,10 +468,12 @@ asserted FAIL verdicts that were never formed. So the test above is met rather t
 **`LEG_ABORTED` is not `NO_VERDICT`, and the difference is what the next move is.** `NO_VERDICT` is
 about the issue: its last review leg came back and graded nothing, so the next move is a review.
 `LEG_ABORTED` is about the run: a leg's call **threw** — any leg, Dev or review — which the runtime
-does once the turn's token budget is spent, so the issue is in whatever state that leg left it,
-possibly half-done, and the next move is to inspect the issue and resume the run, not to review it.
-It is marked "—" because it is composed from no review verdict and no landing: the leg that threw
-reported nothing. **A throw from the runner's own code is not a leg aborting**: it is a defect in
+does once the turn's token budget is spent, or a **Dev** leg returned nothing (skipped, or dead on a
+terminal error). Either way the issue is in whatever state that leg left it, possibly half-done, and
+the next move is to inspect the issue and resume the run, not to review it. A Dev leg that returned
+nothing is not `BLOCKED_DEV`: that is a status Dev *reports*, and this Dev reported nothing.
+It is marked "—" because it is composed from no review verdict and no landing: the leg that threw,
+or the Dev leg that returned nothing, reported nothing. **A throw from the runner's own code is not a leg aborting**: it is a defect in
 the runner, and the run fails loudly rather than filing it as an outcome. (What the runtime raises
 at the agent call itself — a budget ceiling, a refused call, or a schema it cannot satisfy — is
 filed as `LEG_ABORTED`, since it surfaces there; the record's `error` says which.) **Both halt, and no

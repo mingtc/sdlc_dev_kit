@@ -507,6 +507,17 @@ columns and never the cards.*
 - `process/doctrine/distribution.md` no longer tells a project that ships to nobody to stop before
   § A.8, in its scope line or in § B's first row.
 
+- **A leg that returned nothing is no longer filed as a judgement.** In `.claude/workflows/wave-runner.js`
+  and `.claude/workflows/tranche-runner.js`: a park review that returned nothing, or a verdict outside
+  the four tokens, is now `NO_VERDICT` (was `PARK_UNVERIFIED` — and in the tranche runner it had spent
+  the park fix round and could end `LANDED` on a park nobody reviewed); a Dev leg that returned
+  nothing or a status outside its schema — first pickup or either fix round — is now `LEG_ABORTED`
+  (was `BLOCKED_DEV`, or `FAILED_AFTER_FIX_ROUND` / `PARKED_OK` after a fix round), and no further leg
+  runs on it. `PARK_UNVERIFIED` and `BLOCKED_DEV` now mean only what they say: the last park review's
+  FAIL, and a Dev that reported `blocked`. Ratified in `process/MANUAL.md` § The RUN-OUTCOME
+  vocabulary; `process/templates/run-report.template.md` § 1 has the paths. **If a dashboard counts
+  those tokens,** some rows move to `LEG_ABORTED` or `NO_VERDICT`.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped
