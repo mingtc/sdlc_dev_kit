@@ -1292,26 +1292,129 @@ else
   # than assumed: a file of the adopter's own that declares the disposition under a name this
   # arm does not already consider is NOT reached. Widening the candidate scan is a ruling about
   # how much of the tree these arms may read, not a detail of the declaration.
-  if [ -f "$CB_TREE/PROJECT.md" ] && grep -qE '^[[:space:]]*(#|<!--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*FILL\b' "$CB_TREE/PROJECT.md" 2>/dev/null; then
-    g_blanks="$(awk '{
+  #
+  # A CODE SAMPLE'S METAVARIABLES ARE NOT BLANKS, AND THE SHAPE IS WHAT TELLS THEM APART. A
+  # filled PROJECT.md documents its own commands — `tool <input.csv> --out <dir>` — and this arm
+  # counted every usage bracket as an unfilled blank, holding graduation COMPLETE out of reach of
+  # a sheet that was done. Measured on two freshly filled sheets from a run of the kit: 4 and 8
+  # hits, every one a usage metavariable. The obvious cure — strip code spans — is WRONG HERE,
+  # because the shipped sheet writes most of its real blanks inside code spans (`<test command>`,
+  # `<trunk>`, the whole `<e.g. ./scripts/…>` column); stripping them would clear a sheet with
+  # dozens of blanks left. So: a span whose ENTIRE content is one <angle-bracket> is a blank (the
+  # shipped shape); a span where the bracket sits among other text is a code sample, and so is
+  # every line of a fenced block (a fence closed by its own shape — see the awk). On the
+  # shipped sheet the three hits this drops are `<remote>/HEAD` and the branch pattern's
+  # `<feature|fix|refactor>` and `<slug>`, which are the convention's metavariables, not answers.
+  # THE LIMIT, STATED: an adopter's own one-bracket span (`<input.csv>` written alone in
+  # backticks) has the blank's shape and still counts; nothing in the text can tell it apart. And
+  # the other direction: a blank written with company inside ONE span — `<host>:<port>`, or
+  # `<test command> --quick` — now counts 0, because the span no longer has the blank's shape.
+  # Spans are matched per line, as runs of equal backtick length; a span wrapped across lines is
+  # not seen as one.
+  #
+  # A PROJECT.md WITH NO DECLARATION IS READ, NOT SKIPPED — superseding, for this one file, the
+  # conclusion that the declaration is the enabling condition. The reason that stands: the member
+  # list belongs to the files, so no OTHER file is enlisted here by name. What changed is that the
+  # gate had a measured cost on this file: two fresh trees rewrote PROJECT.md from the top, neither
+  # kept its line-3 declaration, and the arm printed "skipped" on both — so the one day-one FILL
+  # check was off on every fresh tree observed, and the miscount above was masked by it. A missing
+  # declaration is not itself a defect: the graduation rule (process/EXTRACTION.md § The marker
+  # and graduation) strips PROJECT.md's marker once it is filled. So an undeclared PROJECT.md is
+  # read as graduated-or-rewritten, and the COUNT decides: a blank left is a finding, none is ✓.
+  # A PROJECT.md that declares a DIFFERENT disposition is still not measured — that is a choice
+  # its owner wrote down.
+  g_pm="$CB_TREE/PROJECT.md"
+  g_fill_state=""
+  if [ ! -f "$g_pm" ]; then
+    g_fill_state="absent"
+  elif grep -qE '^[[:space:]]*(#|<!--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*FILL\b' "$g_pm" 2>/dev/null; then
+    g_fill_state="declared"
+  elif grep -qE '^[[:space:]]*(#|<!--)?[[:space:]]*KIT-DISPOSITION:' "$g_pm" 2>/dev/null; then
+    g_fill_state="other"
+  else
+    g_fill_state="undeclared"
+  fi
+  if [ "$g_fill_state" = "declared" ] || [ "$g_fill_state" = "undeclared" ]; then
+    g_text="$(awk '
+      # A span: a run of N backticks closed by the next run of EXACTLY N on the line.
+      function run_at(s, n,   p, k, m) {
+        p = 1
+        while ((k = index(substr(s, p), "`")) > 0) {
+          k = p + k - 1
+          m = 0; while (substr(s, k + m, 1) == "`") m++
+          if (m == n) return k
+          p = k + m
+        }
+        return 0
+      }
+      # Keep a span only when its WHOLE content is one <angle-bracket> (the shipped blank).
+      function spans(line,   out, rest, i, n, tick, after, j, c) {
+        out = ""; rest = line
+        while ((i = index(rest, "`")) > 0) {
+          out = out substr(rest, 1, i - 1); rest = substr(rest, i)
+          n = 0; while (substr(rest, n + 1, 1) == "`") n++
+          tick = substr(rest, 1, n); after = substr(rest, n + 1)
+          j = run_at(after, n)
+          if (j == 0) { out = out tick; rest = after; continue }
+          c = substr(after, 1, j - 1); rest = substr(after, j + n)
+          gsub(/^[ \t]+/, "", c); gsub(/[ \t]+$/, "", c)
+          if (c ~ /^<[a-z][^<>]*>$/) out = out " " c " "
+          else out = out " "
+        }
+        return out rest
+      }
+      # FENCES ARE MATCHED BY SHAPE, NEVER TOGGLED. An opener: up to 3 spaces, then 3+ of one
+      # char; a backtick opener whose info string holds a backtick is an inline span instead.
+      # A closer: the SAME char, AT LEAST as long, nothing after it. Anything else inside is
+      # code. A toggle on any fence-like line hid the rest of the file on the first mismatch.
+      function fence_open(line,   t, info) {
+        if (!match(line, /^ ? ? ?(```+|~~~+)/)) return 0
+        t = substr(line, RSTART, RLENGTH); sub(/^ +/, "", t)
+        info = substr(line, RSTART + RLENGTH)
+        if (substr(t, 1, 1) == "`" && index(info, "`") > 0) return 0
+        fch = substr(t, 1, 1); flen = length(t); return 1
+      }
+      function fence_close(line,   t) {
+        if (!match(line, /^ ? ? ?(```+|~~~+)[ \t]*$/)) return 0
+        t = line; sub(/^ +/, "", t); sub(/[ \t]+$/, "", t)
+        return substr(t, 1, 1) == fch && length(t) >= flen
+      }
+      {
         line = $0
         while (match(line, /<!--.*-->/)) sub(/<!--.*-->/, "", line)
         if (inc) { if (match(line, /-->/)) { sub(/^.*-->/, "", line); inc = 0 } else next }
         if (match(line, /<!--/)) { sub(/<!--.*$/, "", line); inc = 1 }
-        print line
-      }' "$CB_TREE/PROJECT.md" 2>/dev/null | grep -oE '<[a-z][^<>]*>' | grep -v '://' | wc -l | tr -d ' ')"
-    if [ "${g_blanks:-0}" -gt 0 ]; then
-      echo "      FILL: PROJECT.md still holds ${g_blanks} <angle-bracket> blank(s)  ⚠ a FILL file is not done until no blank remains — $(cb_src)"
+        if (fence) { if (fence_close(line)) fence = 0; else held[++nh] = line; next }
+        if (fence_open(line)) { fence = 1; nh = 0; next }
+        print spans(line)
+      }
+      # A FENCE STILL OPEN AT END OF FILE HIDES NOTHING: its lines are read as prose, so a
+      # blank after a broken fence still counts. The error runs toward a red, never a clean.
+      END { if (fence) for (k = 1; k <= nh; k++) print spans(held[k])
+      }' "$g_pm" 2>/dev/null)" && g_read=ok || g_read=""
+    # AN UNREAD SHEET IS NOT A CLEAN ONE. If the reader itself fails, an empty count would read
+    # as 0 and print ✓ — so the count is taken only from a reading that completed.
+    g_blanks="$(printf '%s\n' "$g_text" | grep -oE '<[a-z][^<>]*>' | grep -v '://' | wc -l | tr -d ' ')"
+    if [ "$g_fill_state" = "undeclared" ]; then
+      g_why="PROJECT.md carries no KIT-DISPOSITION declaration (graduated, or the line was dropped in a rewrite) and"
+    else
+      g_why="PROJECT.md"
+    fi
+    if [ -z "$g_read" ]; then
+      echo "      FILL: NOT COUNTED — the blank reader failed on PROJECT.md, so nothing was counted, and that is not a pass  ⚠ — $(cb_src)"
+      g_find=1
+    elif [ "${g_blanks:-0}" -gt 0 ]; then
+      echo "      FILL: ${g_why} still holds ${g_blanks} <angle-bracket> blank(s)  ⚠ a FILL file is not done until no blank remains — $(cb_src)"
       g_find=1
     else
-      echo "      FILL: PROJECT.md holds 0 <angle-bracket> blanks  ✓ — $(cb_src)"
+      echo "      FILL: ${g_why} holds 0 <angle-bracket> blanks  ✓ — $(cb_src)"
     fi
-  elif [ -f "$CB_TREE/PROJECT.md" ]; then
-    echo "      FILL: PROJECT.md does not declare KIT-DISPOSITION: FILL  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+  elif [ "$g_fill_state" = "other" ]; then
+    echo "      FILL: PROJECT.md declares a KIT-DISPOSITION other than FILL  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
   else
     echo "      FILL: no PROJECT.md to read  (skipped) — $(cb_src)"
   fi
-  echo "      (FILL span: PROJECT.md only, gated on its own KIT-DISPOSITION: FILL declaration, and HTML comments are stripped before counting — the kit's own instructions in that file are not the adopter's answers. The non-markdown FILL members declare the disposition but express blanks in shell and ignore-file syntax, so they are NOT measured here.)"
+  echo "      (FILL span: PROJECT.md only — read when it declares KIT-DISPOSITION: FILL or declares nothing (graduated or rewritten), not when it declares another disposition. HTML comments are stripped and code samples are not blanks: a code span counts only when its whole content is one <angle-bracket>, and fenced blocks never — the kit's own instructions and the adopter's command usage are not the adopter's answers. The non-markdown FILL members declare the disposition but express blanks in shell and ignore-file syntax, so they are NOT measured here.)"
 
   # (g3) DELETE-IF-UNUSED — NOT IMPLEMENTED, and said out loud rather than omitted.
   # Deciding it needs a tracked way to record "kept on purpose", which does not exist

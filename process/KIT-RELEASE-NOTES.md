@@ -545,6 +545,13 @@ columns and never the cards.*
   result shape; the `progress.md` `kit-finding:` lines remain the durable record of a leg's kit
   findings. **Nothing to do.**
 
+- **`check-board.sh`'s graduation arm reads `PROJECT.md` as written.** Command usage in your own
+  docs — `` `tool <input.csv>` ``, a fenced example — is no longer counted as an unfilled blank; a
+  code span holding only one `<…>` still is. **A `PROJECT.md` that no longer carries its
+  `KIT-DISPOSITION: FILL` line is now read where it used to print "skipped"**, so it can produce a
+  finding: any blank left is reported, and none reads as graduated. **Nothing to do** — if a blank
+  you had missed is now reported, fill it.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

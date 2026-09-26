@@ -1,6 +1,6 @@
 <!-- KIT-CLASS: KIT — the project-facts sheet, blank. Fill every <angle-bracket>; delete a section
      only when you can say why this project does not have it. -->
-<!-- KIT-DISPOSITION: FILL — not done until no <angle-bracket> remains. -->
+<!-- KIT-DISPOSITION: FILL — not done until no <angle-bracket> blank remains (usage placeholders in a code sample are not blanks). -->
 # PROJECT.md — <project name>
 
 **One paragraph, in the present tense: what this project IS.** Not the roadmap, not the pitch —

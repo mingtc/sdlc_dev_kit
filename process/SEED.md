@@ -235,7 +235,8 @@ you want to know how a stranger meets what you shipped.
 - `PROJECT.md`, `CLAUDE.md`, `CORPUS.md`, `DECISIONS.md`, `progress.md` all exist and are yours —
   and **`CLAUDE.md` and `README.md` have been REPLACED, not edited**: neither still carries the
   `BOOTSTRAP-SCAFFOLDING` line the shipped copies ship with;
-- **every file's disposition is discharged** — no `FILL` file still holds an `<angle bracket>`, and
+- **every file's disposition is discharged** — no `FILL` file still holds an `<angle bracket>` blank
+  (a code sample's usage placeholders, like `tool <file>`, are not blanks), and
   every `DELETE-IF-UNUSED` directory has been either removed or kept **on purpose**, which is a
   decision you record rather than a question you leave open. The axis and its members are
   [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md); this bullet is that list, read as

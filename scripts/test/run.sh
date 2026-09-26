@@ -7748,6 +7748,115 @@ case_check_board_graduation_reads_the_trunk() {
 }
 
 # =============================================================================
+# CASE — arm (g2) COUNTS BLANKS, NOT USAGE; AND A PROJECT.md THAT LOST ITS
+#        DECLARATION IS STILL READ.
+#
+# TWO DEFECTS, FOUND TOGETHER ON TWO FRESH TREES OF A RUN OF THE KIT, AND THE SECOND
+# HID THE FIRST.
+#   * A filled PROJECT.md documents its own commands, and their usage lines carry
+#     metavariables — `tool <input.csv> --out <dir>`. The arm counted every one as an
+#     unfilled blank, which holds `graduation COMPLETE` out of reach of a sheet that is done.
+#   * Neither tree kept the sheet's `KIT-DISPOSITION: FILL` line when it rewrote the file,
+#     and the arm was gated on it, so it printed "skipped" on both. The miscount was masked
+#     by the arm being off — fixing the count alone would have changed nothing on either.
+#
+# WHY NOT SIMPLY STRIP CODE SPANS, which is what the finding proposed: the SHIPPED sheet
+# writes most of its real blanks INSIDE code spans — `<test command>`, `<trunk>`, a whole
+# column of `<e.g. ./scripts/…>`. Stripping every span would have cleared a sheet with
+# dozens of blanks still in it: a false clean in the one direction this arm must not err.
+# The discriminator is the SHAPE: a span whose entire content is one <angle-bracket> is a
+# blank; a span in which the bracket sits among other text is a code sample, and its
+# brackets are usage. A fenced block is code throughout.
+#
+# THE ROWS, each on its own published PROJECT.md, the REPLACE files graduated so FILL is
+# the only thing that can hold completion back:
+#   (1) DECLARED, filled, carrying usage metavariables inline, in a double-backtick span and
+#       in a fenced block — 0 blanks, and graduation COMPLETE;
+#   (2) DECLARED, the same usage PLUS one bare blank and one whole-span blank — exactly 2;
+#   (3) UNDECLARED (the declaration dropped in a rewrite) with one real blank among the
+#       usage — REPORTED as a finding naming the missing declaration, never "skipped";
+#   (4) UNDECLARED and filled — read as graduated: 0 blanks, ✓, graduation COMPLETE. This is
+#       the row that keeps (3) honest: the kit's own graduation rule strips the marker from
+#       a filled PROJECT.md, so a missing declaration alone is not a defect;
+#   (5) THE CONTROL: a PROJECT.md declaring ANOTHER disposition is still not measured;
+#   (6) a ``` line INSIDE a ~~~ block does not close it, and the blank after the block counts;
+#   (7) a fence left OPEN to the end of the file hides nothing: the blank after it counts.
+#       A fence that toggled on any fence-like line hid the rest of the file on the first
+#       mismatch — a false CLEAN, the one direction this arm must never err in.
+# =============================================================================
+_cb_fill_usage='Run it: `./bin/tool <input.csv> --out <dir>`, and ``see `<x>` here``.
+
+```sh
+./bin/tool <arg-one> <arg-two>
+```
+'
+_cb_fill_sheet() {  # <marker line or empty> <body…> — writes, publishes, runs; sets _cb_fill_out
+  { [ -n "$1" ] && printf '%s\n' "$1"; printf '# PROJECT.md\n\n%s\n' "$2"; } > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+  _cb_fill_out="$(cb_run | _cb_g_section)"
+}
+case_check_board_fill_arm_reads_blanks_not_usage() {
+  cf_reset
+  make_sandbox
+  printf '# my project\n' > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  local decl="<!-- $KIT_FILL_DISPOSITION — synthetic fill sheet. -->"
+
+  # (1) declared, filled, usage only
+  _cb_fill_sheet "$decl" "$_cb_fill_usage"
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md holds 0 <angle-bracket> blanks' >/dev/null \
+    || cf "(1) usage metavariables in code were counted as blanks: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+  printf '%s\n' "$_cb_fill_out" | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(1) a filled sheet that documents its own commands did not reach graduation COMPLETE"
+
+  # (2) declared, usage + one bare blank + one whole-span blank
+  _cb_fill_sheet "$decl" "Owner: <owner>. Tests: \`<test command>\`.
+$_cb_fill_usage"
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md still holds 2 <angle-bracket> blank' >/dev/null \
+    || cf "(2) expected exactly 2 blanks (one bare, one whole-span — the shipped shape), beside usage that must not count: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+
+  # (3) undeclared, one real blank among the usage -> a finding, never a skip
+  _cb_fill_sheet "" "Owner: <owner>.
+$_cb_fill_usage"
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md' | grep 'no KIT-DISPOSITION' | grep '1 <angle-bracket> blank' >/dev/null \
+    || cf "(3) a PROJECT.md that lost its declaration and still holds a blank was not reported as one: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+  printf '%s\n' "$_cb_fill_out" | grep 'graduation COMPLETE' >/dev/null \
+    && cf "(3) graduation COMPLETE over a PROJECT.md still holding a blank"
+
+  # (4) undeclared and filled -> graduated
+  _cb_fill_sheet "" "$_cb_fill_usage"
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md' | grep 'no KIT-DISPOSITION' | grep 'holds 0 <angle-bracket> blanks' >/dev/null \
+    || cf "(4) an undeclared, filled PROJECT.md was not read as graduated: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+  printf '%s\n' "$_cb_fill_out" | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(4) a graduated PROJECT.md (marker stripped, as the graduation rule says) held completion back"
+
+  # (5) CONTROL: another disposition is not measured
+  _cb_fill_sheet "<!-- KIT-DISPOSITION: KEEP — synthetic. -->" "Owner: <owner>."
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md' | grep 'skipped' >/dev/null \
+    || cf "(5) a PROJECT.md declaring a disposition other than FILL was measured: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+
+  # (6) a mismatched inner fence does not close the block
+  _cb_fill_sheet "$decl" '~~~
+```
+~~~
+Owner: <owner>.'
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md still holds 1 <angle-bracket> blank' >/dev/null \
+    || cf "(6) a blank after a ~~~ block holding a \`\`\` line was not counted (the fence closed on the wrong character): $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+
+  # (7) an unclosed fence hides nothing
+  _cb_fill_sheet "$decl" '```sh
+make it
+Owner: <owner>.'
+  printf '%s\n' "$_cb_fill_out" | grep 'FILL: PROJECT.md still holds 1 <angle-bracket> blank' >/dev/null \
+    || cf "(7) a blank after a fence that never closes was hidden: $(printf '%s' "$_cb_fill_out" | grep 'FILL:')"
+
+  finish "check (g2): usage metavariables in code spans and fenced blocks are not blanks while a whole-span <blank> still is, a fence closes only on its own shape and an unclosed one hides nothing, and a PROJECT.md that lost its FILL declaration is read — a finding while a blank remains, graduated once none does — never skipped"
+  teardown
+}
+
+# =============================================================================
 # CASE — the verdict wiring, as a standalone control
 #
 # This duplicates case 1(c) on purpose, as a NAMED control that survives someone
@@ -14609,6 +14718,7 @@ CASES=(
   case_check_board_graduation_enabled_without_receipt
   case_check_board_graduation_not_run_direction
   case_check_board_graduation_reads_the_trunk
+  case_check_board_fill_arm_reads_blanks_not_usage
   case_check_board_graduation_verdict_is_not_wired
   case_kit_init_survives_the_documented_first_commit
   case_kit_init_still_fails_on_a_real_finding
