@@ -45,6 +45,32 @@ is acting as.
   process already states in prose.
   *Why:* a process that only works with a particular harness wired in is not transferable.
 
+## 2a. THE PRE-ROLE HAT — a SETTING, declared here with its default
+
+Day one commits before any issue exists, and every commit subject still names a role
+([`commit-attribution.md`](commit-attribution.md) § 2). Projects that meet this choose different
+hats, each for a reason it can name. So the hat for that window is a **declared seam**, not a rule:
+
+- **The default pre-role hat:** `PM`
+- **The span:** every commit a seat authors on day one, up to and including the first spec
+  ([`../SEED.md`](../SEED.md) steps 1–6). Three kinds of day-one commit fall outside the span:
+  - the unpacked kit's first commit, made before the commit guard is wired or under the guard's
+    documented escape, which carries no hat;
+  - code and tests, which carry the hat that writes them;
+  - the initializer's own commits (§ 6).
+- **A departure — say which, and why.** A project that wears another hat records that hat, the span
+  it covers, and the reason in `process/LOCAL-PROCEDURES.md` ([`../SEED.md`](../SEED.md) § Step 8's
+  closing act). A project that takes the default records nothing.
+- **Nothing checks that the right hat was worn** (§ 5).
+
+**Why this default.** Day one is the PM's session before it is anyone else's. The bootstrap
+`CLAUDE.md` makes the interview about what the project *is* its first act. The project sheet's first
+blanks are scope decisions: what the project is, what it is not, its public surface and its build
+order. The first spec closes that session. Where day one also records the stack, the gates and the
+house rules, the PM hat is **transcribing the human's answers from that interview**, not making its
+own call. So the PM role doc's *"does not pick libraries"* (`.claude/roles/pm.md`) still governs
+the PM's own judgement, not this record.
+
 ## 3. REFUSAL CONDITIONS
 
 - A mutation is attempted inside the repository with no declaration present ⇒ **block**, and
@@ -81,5 +107,9 @@ declared, never that it was the right one.
 - `scripts/kit-init.sh` — KIT-CLASS: KIT. Writes the declaration's own path — the session-role
   file under the agent-harness directory — into the new repository's ignore list, which is how the
   session-state invariant in § 2 is *installed* rather than merely stated.
+  **Its own commits do not read § 2a's seam.** The initializer signs its initialization and
+  self-check commits with whichever role the declared set lists first. When that role is the
+  pre-role hat, the two agree. When it is not, those commits carry a different hat from the one
+  § 2a declares, and nothing reconciles the two.
 - What the declaration's **content** looks like, and why the gate keys on existence rather than
   content, is [`../MANUAL.md`](../MANUAL.md) § Session start.

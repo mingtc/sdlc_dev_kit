@@ -11,6 +11,7 @@ filtered, audited and trusted years later without asking anybody.
 - **Every commit subject declares the acting role, in one fixed, machine-greppable shape.** The
   shape is the same for every role and appears at the start of the subject.
   *Why:* a convention that varies by author is a convention only its author can query.
+  *Which role to name on day one, before any issue exists:* [`role-gate.md`](role-gate.md) § 2a.
 - **The role set is CLOSED and shared.** A subject naming a role outside the declared set is
   rejected exactly like a subject naming none.
   *Why:* an open set decays into free text within a month, and then the filter that made the

@@ -28,6 +28,14 @@ the kit's files on disk — SEED does not conjure them; it tells you what to do 
 
 ## The eight steps
 
+**The hat for day one.** Most of these steps commit before any issue exists, and every commit
+after the first still carries a role prefix. The hat for those commits is a declared seam with a default:
+[`contracts/role-gate.md`](contracts/role-gate.md) § 2a names the default, its span, and the
+commits that fall outside it. The unpacked kit's first commit, made before the commit guard is
+wired or under its escape, carries no hat. Code carries the hat that writes it, and the
+initializer signs its own commits. If you wear a different hat, you owe step 8's file one line
+saying which, and why.
+
 | # | Do this | Authority — where the law actually lives |
 |---|---|---|
 | **1** | **Create the repo, the remote, and the remote's published default branch.** `git init -b <trunk>` — **`-b` names the trunk; a bare `git init` puts HEAD on `init.defaultBranch` and leaves you a branch nobody asked for** (`README.md` § Day one carries the reason) — then a remote (a **local bare repo is fine** and is the offline recipe), push the trunk, then `git remote set-head origin <trunk>` **naming the branch**. `<trunk>` defaults to `main`. | [`contracts/kanban-worktree.md`](contracts/kanban-worktree.md) (why the trunk must be *resolved*, not guessed) · [`contracts/initializer.md`](contracts/initializer.md) · [`GIT-HOSTING.md`](GIT-HOSTING.md) (local-only, bare-repo and hosted options) · `./scripts/kit-init.sh` prints the four-step recipe **on refusal** when the remote precondition is unmet (`--help` describes the precondition but does not print the recipe itself) · [`EXTRACTION.md` § 1.3](EXTRACTION.md) row 1 |
@@ -87,11 +95,21 @@ it followable.
 
 ## Step 8's closing act — mint `process/LOCAL-PROCEDURES.md`
 
-**A home for LOCAL LAW.** Day one *will* produce resolutions this kit does not contain: which hat
-signs the very first commit, when a hat can first be declared, whether day-one scaffolding is
-exempt from the code-vs-metadata rule. Every one of those is a **decision**, and with no home a
-decision becomes **tribal knowledge** — rediscovered independently by the next worker, at full
-price, every time.
+**A home for LOCAL LAW.** Day one *will* produce resolutions this kit does not contain, such as
+whether day-one scaffolding is exempt from the code-vs-metadata rule. Every one of those is a
+**decision**, and with no home a decision becomes **tribal knowledge** — rediscovered independently
+by the next worker, at full price, every time.
+
+**One day-one question is now a SETTING rather than an open one:** which hat signs the commits made
+before any issue exists. [`contracts/role-gate.md`](contracts/role-gate.md) § 2a answers it with a
+default. **If you took the default, write nothing. If you did not, this file is where you say which
+hat, and why**: the hat, the span it covers, and the reason. *This paragraph used to list that
+question as open (which hat signs the very first commit, and when a hat can first be declared,
+which [`contracts/role-gate.md`](contracts/role-gate.md) § 2 answers: declaring is always
+permitted). The adoptions that met it did not agree, and each named a sound reason for its own
+answer. When projects disagree for reasons that are each sound, a default with a recorded departure
+removes the cost of every project deciding from scratch. The question still belongs here, but now
+as a departure to record.*
 
 Create it at close of day one, even if it holds two lines:
 
@@ -154,7 +172,7 @@ Each of these fails **later and in disguise** if taken out of sequence:
 | **Prefix stamped before the FIRST issue is minted** (step 2 before step 6) | Ids are minted under the kit's placeholder prefix; renaming them afterwards breaks every citation already written. |
 | **A gate runner exists before the FIRST merge** (step 2 before step 7) | The landing gate has nothing to run; the first landing sets the precedent that landings are ungated. |
 | **A real PM session before the first issue** (step 6 before step 7) | The project starts with a backlog nobody scoped, and the first issue's AC is invented by whoever picks it up. |
-| **`PROJECT.md` before the first hat is worn** (step 3 before steps 6–7) | Almost every role doc says *"read PROJECT.md first"* — `architect.md` is the exception, naming it fourth in its own read order; without it each session re-invents the quality bar. |
+| **`PROJECT.md` before the first spec and the first issue** (step 3 before steps 6–7) | Almost every role doc says *"read PROJECT.md first"* — `architect.md` is the exception, naming it fourth in its own read order; without it each session re-invents the quality bar. |
 
 ---
 

@@ -92,6 +92,14 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Added
+
+- **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
+  declares the pre-role hat as a setting: `[PM]` for every commit a seat authors on day one, up to
+  and including the first spec. The unpacked kit's first commit, code and tests, and the
+  initializer's own commits fall outside it. A project that wears another hat records the
+  departure, its span and its reason in `process/LOCAL-PROCEDURES.md`. **Nothing to do.**
+
 ### Changed
 
 - **`PASS-with-AC-correction` is scoped where it is stated.** The verdict applies to an AC's
