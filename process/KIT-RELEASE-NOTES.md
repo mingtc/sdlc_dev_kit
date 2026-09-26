@@ -319,6 +319,17 @@ columns and never the cards.*
   `scripts/check-board.sh` reports `trunk: GUESSED from the kit's last-resort constant`. The recipe
   (`kit-init`'s refusal, README, `process/GIT-HOSTING.md` § 3) now sets it at creation.
 
+- **If `kit-init` completed on your repository but shipped kit files never reached your trunk,
+  commit them.** It happened on the empty-first-commit path the old recipe offered, and when a
+  shipped file was ignored (a global excludes file often ignores `CLAUDE.md`). Run `git status` and
+  `git status --ignored`: commit the **kit** paths they name — `README.md`, `PROJECT.md`,
+  `CLAUDE.md`, `AGENTS.md`, `setup.sh`, `.env.example`, `consumers/`, `docs/`, and any other path
+  listed in `process/KIT-MANIFEST` — with `git add -f -- <those paths>` (not a blind `git add -A`,
+  which would take your own files too), a role-prefixed subject, and a push. Delete a shipped file
+  instead if you do not want it. `kit-init` now refuses, writing nothing, while a shipped path is on
+  disk but not committed — ignored ones included — and prints the exact command; its recipe's first
+  commit now commits the kit as unzipped.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
@@ -453,6 +464,23 @@ columns and never the cards.*
   hash for this file, and `KIT-VERSION` was correct. **Nothing to do:** this file's section for your
   version is the correct record, and you may retitle your copy's `## [Unreleased]` heading to match
   it. From this release on, the zip is built from, and checked against, the tagged commit.
+
+- **`kit-init` no longer dies half-way when a path it commits is ignored.** With `.claude/` (or
+  another path the initializer commits) in `.git/info/exclude` or a global excludes file, it stamped
+  `scripts/config.sh`, the gate runner, the role docs and `core.hooksPath`, then failed at
+  "Committing the initialized tree", and every later run refused as already-lived. It now refuses
+  first, writing nothing, and prints the un-ignore (a `!/.claude/` line in `.gitignore`). **If you
+  hit the old failure** (a run that died there, then "already lived"), from the repository root:
+
+  ```
+  git restore --staged --worktree --source=HEAD -- scripts
+  git ls-files --error-unmatch .claude >/dev/null 2>&1 && git restore --staged --worktree --source=HEAD -- .claude
+  git config --unset core.hooksPath
+  git status --porcelain --untracked-files=no
+  ```
+
+  The last command must print nothing before you go on. Then add `!/.claude/` to `.gitignore`,
+  commit that one file with a role-prefixed subject, push, and re-run `./scripts/kit-init.sh`.
 
 ## [0.6.0] — 2026-09-18
 

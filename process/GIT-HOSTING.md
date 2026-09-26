@@ -64,7 +64,7 @@ anything to start using this kit. Run all four steps; step 1 is the offline case
     git -C /path/to/<repo>.git symbolic-ref HEAD refs/heads/<trunk>   # the bare side's HEAD names the trunk
     git remote add <remote> /path/to/<repo>.git   # ABSOLUTE path — see below
 2.  git switch -c <trunk>                        # if the trunk does not exist yet
-    git commit --allow-empty -m '<init>'         # if there are no commits yet
+    git add -A && MSG_OK=1 git commit -m '<init>'   # if there are no commits yet: commit the kit AS UNZIPPED
 3.  git push -u <remote> <trunk>
 4.  git remote set-head <remote> <trunk>         # ← the step whose absence is SILENT
 ```

@@ -118,8 +118,10 @@ received the copy-list.
   process/EXTRACTION.md § 1 first (scripts/, .claude/templates/, the role docs,
   process/); this script's preflight then checks a hand-listed minimum of that
   list and refuses, naming what is missing. It is not a manifest check: a file
-  that travels but is not in the minimum is not caught. Nothing is written
-  unless every precondition passes.
+  that travels but is not in the minimum is not caught. It reads the shipped
+  process/KIT-MANIFEST for one other question only, and refuses while any
+  shipped path is on disk but not committed. Nothing is written unless every
+  precondition passes.
 
 Usage:
   ./scripts/kit-init.sh --prefix XYZ --trunk main [options]
@@ -440,6 +442,107 @@ if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null ||
   pf "this checkout has uncommitted changes to TRACKED files — commit or stash them; kit-init commits the tree it initializes."
 fi
 
+# --- the kit itself must be COMMITTED: no shipped path on disk and untracked ---
+# kit-init's own commit (§ 5) adds an ALLOW-LIST — the paths it writes — and trusts the adopter's
+# first commit to hold the rest of the kit. MEASURED 2026-09-26: the remote + trunk recipe this
+# script printed on refusal made that first commit `--allow-empty`, so an adopter who ran kit-init
+# before committing (README § Day one says the copy is already done) was handed an empty first
+# commit by the tool itself. kit-init then printed COMPLETE and PROVEN with README.md, PROJECT.md,
+# CLAUDE.md, AGENTS.md, setup.sh, .env.example, consumers/ and docs/ untracked — on disk here, absent
+# from the trunk, so the kanban worktree and every clone were a partial kit and an agent session in a
+# fresh clone had no adapter. The recipe is fixed; this refusal catches the adopters who arrive by
+# any other route (an empty commit made by hand, the kit copied into a repository after its first
+# push).
+# THE POPULATION is process/KIT-MANIFEST's path column, plus the manifest itself (it excludes
+# itself) — the build writes it, so this reads the shipped manifest rather than carrying a second
+# copy of it. THE TEST is "ON DISK AND NOT TRACKED", which is two decisions:
+#   * NOT "absent from HEAD": a shipped file the adopter deleted before the first commit is their
+#     decision and is not refused. Deleting is the supported way to not have a shipped file.
+#   * IGNORED COUNTS. The first version asked `git ls-files --others --exclude-standard`, which drops
+#     ignored files — and review measured the hole: CLAUDE.md in a global core.excludesFile (common
+#     among agent users, and meant for OTHER repositories), then README § Day one verbatim, and
+#     kit-init printed COMPLETE and PROVEN over a trunk with no CLAUDE.md, `git status` clean. An
+#     ignored shipped path is refused like any other, because ignoring cannot be how an adopter
+#     declines a shipped file — it leaves the file on disk here and absent everywhere else, which is
+#     this refusal's whole subject — and the likeliest cause is a rule written for some other
+#     repository. `git add -f` is the explicit override; deleting the file is the explicit decline.
+# No manifest (a hand copy that left it behind), or one whose path column yields nothing (a
+# malformed separator), means no check — and either SAYS so. No commits yet means no check: the
+# no-commits refusal above already stands, with the recipe.
+# Measured as a detector at this point in the run: the empty-`init` state holds every shipped path
+# uncommitted; README § Day one's state holds none — the shipped .gitignore ignores no shipped path.
+KIT_MANIFEST_FILE="$ROOT/process/KIT-MANIFEST"
+if [ -f "$KIT_MANIFEST_FILE" ] && git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+  _km_paths="$(grep -v '^#' "$KIT_MANIFEST_FILE" | awk -F'  ' 'NF>=2 {print $2}' || true)"
+  if [ -z "$_km_paths" ]; then
+    say "  ℹ process/KIT-MANIFEST yields no paths (empty, or not '<sha256>  <path>  <class>' with two-space separators) — the uncommitted-kit check is skipped."
+  else
+    # -z so a shipped name git would C-quote still compares equal to the manifest's plain path. No
+    # reader here exits early (`sed -n '1,5p'`, not `head`), so pipefail cannot turn a SIGPIPE into
+    # a false refusal; the loop ends on `fi`, so its status is never a failed test's.
+    UNCOMMITTED_KIT="$(comm -23 \
+      <({ printf '%s\n' process/KIT-MANIFEST; printf '%s\n' "$_km_paths"; } | while IFS= read -r _p; do
+          if [ -e "$ROOT/$_p" ]; then printf '%s\n' "$_p"; fi
+        done | sort -u) \
+      <(git -C "$ROOT" ls-files -c -z 2>/dev/null | tr '\0' '\n' | sort -u))"
+    if [ -n "$UNCOMMITTED_KIT" ]; then
+      _uk_n="$(printf '%s\n' "$UNCOMMITTED_KIT" | wc -l | tr -d ' ')"
+      _uk_eg="$(printf '%s\n' "$UNCOMMITTED_KIT" | sed -n '1,5p' | tr '\n' ' ')"
+      _uk_ign="$(printf '%s\n' "$UNCOMMITTED_KIT" | git -C "$ROOT" check-ignore --stdin 2>/dev/null || true)"
+      _uk_ign_note=""
+      if [ -n "$_uk_ign" ]; then
+        _uk_ign_note="
+        $(printf '%s\n' "$_uk_ign" | wc -l | tr -d ' ') of them are IGNORED ($(printf '%s\n' "$_uk_ign" | sed -n '1,5p' | tr '\n' ' ')) — 'git check-ignore -v <path>' names the rule; a global excludes file is the usual one. The command below adds them with -f; delete a file instead if you do not want it."
+      fi
+      pf "${_uk_n} shipped kit path(s) are on disk but NOT COMMITTED (e.g. ${_uk_eg}) — kit-init commits only the paths it writes, so the rest would never reach '$TRUNK'.${_uk_ign_note}
+        Commit exactly the shipped paths still on disk (nothing else of yours), then push:
+          cd \"\$(git rev-parse --show-toplevel)\" && { echo process/KIT-MANIFEST; awk -F'  ' '!/^#/ && NF>=2 {print \$2}' process/KIT-MANIFEST; } | while IFS= read -r p; do [ ! -e \"\$p\" ] || echo \"\$p\"; done | git --literal-pathspecs add -f --pathspec-from-file=-
+          MSG_OK=1 git commit -m '[PM] commit the kit files' && git push"
+    fi
+  fi
+elif [ ! -f "$KIT_MANIFEST_FILE" ]; then
+  say "  ℹ no process/KIT-MANIFEST — the uncommitted-kit check is skipped (it reads that file)."
+fi
+
+# --- every path § 5 will commit must be ADDABLE: none of them ignored ---
+# § 5 commits with `git add -A -- <this list>`, and git refuses an EXPLICIT pathspec that an ignore
+# rule matches — exit 1, "The following paths are ignored" — even when everything beneath it is
+# tracked. MEASURED 2026-09-27: `.claude/` in .git/info/exclude (a global excludes file does the
+# same, and agent users write that rule for other repositories); the refusal above caught the
+# ignored shipped files, its remedy committed them with -f, and the re-run passed this preflight,
+# stamped config.sh, the gate runner, the role docs and core.hooksPath — then died at "Committing the
+# initialized tree". A third run refused as ALREADY LIVED: half-stamped, no resume path, the exact
+# state this preflight's NOTHING WAS WRITTEN exists to prevent.
+# THE TEST IS § 5's OWN COMMAND, dry-run (`--dry-run` stages nothing and leaves the index untouched —
+# measured), not a re-derivation of git's ignore rules: whatever would make that add fail, fails
+# here, before anything is written. The ignored members are named by `git check-ignore --no-index`
+# (which also sees a tracked path an ignore rule matches). The remedy UN-ignores rather than working
+# round it: the kit commits these paths on purpose, and a staging step that skipped an ignored
+# directory would silently drop whatever kit-init later creates inside it.
+# THE LIST IS DECLARED ONCE, here, and § 5 reads it: two copies of it are how the preflight and the
+# commit would disagree about what "will be committed" means.
+KIT_COMMIT_PATHS=(scripts .claude progress progress.md ARCHIVE.md .gitignore process requirements dev)
+if git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+  _kc_present=()
+  for _p in "${KIT_COMMIT_PATHS[@]}"; do [ -e "$ROOT/$_p" ] && _kc_present+=("$_p"); done
+  if [ ${#_kc_present[@]} -gt 0 ] && ! _kc_out="$(git -C "$ROOT" add -A --dry-run -- "${_kc_present[@]}" 2>&1)"; then
+    _kc_ign=()
+    for _p in "${_kc_present[@]}"; do
+      git -C "$ROOT" check-ignore --no-index -q -- "$_p" 2>/dev/null && _kc_ign+=("$_p")
+    done
+    if [ ${#_kc_ign[@]} -gt 0 ]; then
+      _kc_neg=""
+      for _p in "${_kc_ign[@]}"; do
+        if [ -d "$ROOT/$_p" ]; then _kc_neg="$_kc_neg'!/$_p/' "; else _kc_neg="$_kc_neg'!/$_p' "; fi
+      done
+      pf "path(s) kit-init commits are IGNORED: ${_kc_ign[*]} — its commit step would fail on them AFTER stamping, leaving a half-initialized repository with no resume path. 'git check-ignore -v --no-index <path>' names the rule. Un-ignore them in this repository (a line in .gitignore overrides .git/info/exclude and a global excludes file), commit that, then push:
+          cd \"\$(git rev-parse --show-toplevel)\" && printf '%s\\n' ${_kc_neg}>> .gitignore && git add .gitignore && MSG_OK=1 git commit -m '[PM] un-ignore the paths the kit commits' && git push"
+    else
+      pf "git cannot stage the paths kit-init commits (a dry run of its own 'git add' failed) — it would fail AFTER stamping. git said: $(printf '%s' "$_kc_out" | tr '\n' ' ' | cut -c1-300)"
+    fi
+  fi
+fi
+
 # =============================================================================
 # THE ALREADY-LIVED REFUSAL.
 #
@@ -554,7 +657,7 @@ if [ ${#PF[@]} -gt 0 ]; then
     echo "        git -C /path/to/$(basename "$ROOT").git symbolic-ref HEAD refs/heads/${TRUNK:-<your-trunk>}   # the bare side's HEAD names the trunk"
     echo "        git remote add $REMOTE /path/to/$(basename "$ROOT").git"
     echo "    2.  git switch -c ${TRUNK:-<your-trunk>}          # if the trunk does not exist yet"
-    echo "        MSG_OK=1 git commit --allow-empty -m 'init'   # if there are no commits yet"
+    echo "        git add -A && MSG_OK=1 git commit -m 'init'   # if there are no commits yet: commit the kit AS UNZIPPED"
     echo "    3.  git push -u $REMOTE ${TRUNK:-<your-trunk>}"
     echo "    4.  git remote set-head $REMOTE ${TRUNK:-<your-trunk>}   # ← the step whose absence is SILENT"
     echo ""
@@ -1004,7 +1107,7 @@ say "  core.hooksPath = scripts/githooks  (proven below by a real rejected commi
 # =============================================================================
 step "Committing the initialized tree to $TRUNK"
 ADD_PATHS=()
-for p in scripts .claude progress progress.md ARCHIVE.md .gitignore process requirements dev; do
+for p in "${KIT_COMMIT_PATHS[@]}"; do
   [ -e "$ROOT/$p" ] && ADD_PATHS+=("$p")
 done
 git -C "$ROOT" add -A -- "${ADD_PATHS[@]}"
@@ -1117,9 +1220,11 @@ BOARD_OUT="$(CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/scripts/check-board.sh" 2>&1 || t
 # blaming an arm whose own header says it never changes the verdict.
 #
 # The trigger was this kit's OWN documented recipe: process/GIT-HOSTING.md § 3 step 2
-# prints `git commit --allow-empty -m '<init>'` and notes that wiring the hooks after the
+# printed `git commit --allow-empty -m '<init>'` and notes that wiring the hooks after the
 # first commit "avoids the question entirely" — an unprefixed subject with hooks unwired,
-# which is exactly what makes the attribution arm fire.
+# which is exactly what makes the attribution arm fire. (The recipe now commits the kit as
+# unzipped rather than an empty commit — see the untracked-kit refusal in the preflight — but
+# its first subject is still unprefixed, so the trigger stands.)
 #
 # scripts/release.sh gate (d) already had this right: it keys on the verdict line and
 # prints ⚠ lines only as context after deciding. This now does the same.

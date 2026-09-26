@@ -14,6 +14,10 @@ precondition the process depends on and then demonstrating each one working.
   **What follows from that, and § 3 says it again where it bites:** carrying no second copy of the
   manifest, the tool cannot check against the manifest either. Its preflight is a **hand-listed
   minimum** — the files without which nothing else can run — and not a manifest check.
+  *That premise was true while the manifest was prose, and it is superseded: the build now ships a
+  machine-readable one, `process/KIT-MANIFEST`, generated from the tree. Reading it is not carrying
+  a second copy, so the preflight uses it for exactly ONE question — is any shipped path on disk and
+  not tracked (§ 3). It still does not enforce presence from it, for the live reason § 3 gives.*
 - **It PROVES what it claims, by exercising it.** After configuring, it creates a throwaway work
   item, moves it, asks the drift report for a verdict, and forces a deliberately-invalid commit to
   be rejected.
@@ -85,10 +89,36 @@ about its own half — a lifecycle described one stage at a time reads as a cont
 
 - Any file in the preflight's **hand-listed minimum** — the files without which nothing else can
   run — is missing ⇒ refuse, naming each one. **This is a minimum presence check, not a manifest
-  check**, and the difference is not an oversight: § 2 forbids the initializer carrying a second
-  copy of the manifest, and the manifest is prose in the extraction sheet, so there is nothing
-  machine-readable for a preflight to check against. **A file that travels but is not in the
-  minimum is not caught here** — say so rather than implying a coverage the tool does not have.
+  check**, and the difference is not an oversight. *The live reason:* a shipped file the adopter
+  deletes is theirs to delete, so presence is enforced only for the files without which nothing else
+  can run — a manifest-wide presence check would refuse every legitimate deletion. *(The original
+  reason is superseded and kept here because it was the reason: § 2 forbids the initializer carrying
+  a second copy of the manifest, and the manifest was prose in the extraction sheet, so there was
+  nothing machine-readable for a preflight to check against. The build now ships
+  `process/KIT-MANIFEST`; the next bullet reads it — for commitment, never for presence.)* **A file
+  that travels but is not in the minimum is not caught here** — say so rather than implying a
+  coverage the tool does not have.
+- A shipped path — per the shipped `process/KIT-MANIFEST` — is on disk but not committed ⇒ refuse,
+  naming them and the command that commits the kit. *Why:* the initializer commits only the paths it
+  writes and trusts the first commit to hold the rest of the kit; an empty first commit made that
+  false, and the run still reported success with the root documents, the adapter stub and the setup
+  script untracked and absent from the trunk (measured). **On disk AND not tracked, never merely
+  absent from HEAD:** a shipped file the adopter deleted before the first commit is theirs to delete.
+  **An IGNORED shipped path counts:** ignoring is not how a shipped file is declined (deleting is),
+  it leaves the file here and absent from every clone, and the usual cause is an ignore rule written
+  for other repositories — measured: a globally ignored adapter file passed a version that asked
+  only about untracked, non-ignored files. The refusal names the ignored ones and the explicit
+  override. No manifest, or one with no readable paths ⇒ no check, and the run says so; no commits
+  yet ⇒ the no-commits refusal already stands.
+- A path the initializer will COMMIT is ignored ⇒ refuse, naming it and the rule's finder, with a
+  remedy that un-ignores it in the repository. *Why:* the commit step names these paths explicitly,
+  and version control refuses an explicit path an ignore rule matches even when everything beneath it
+  is tracked — so the run failed **after** stamping, and the next run refused as already-lived: a
+  half-initialized repository with no resume path (measured: `.claude/` in a local or global excludes
+  file). The test is the commit step's own staging command, dry-run, so the preflight and the commit
+  cannot disagree; the list of paths is declared once and both read it. Un-ignore rather than work
+  round: the initializer commits these paths on purpose, and a staging step that skipped an ignored
+  directory would silently drop what it later creates there.
 - No publication remote, or the remote publishes no default branch ⇒ refuse **with the recipe**,
   including the offline path.
 - The remote is a filesystem path that is not absolute ⇒ refuse, with the one-line fix. *Why:* the

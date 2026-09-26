@@ -172,13 +172,14 @@ and **a bare repository on your own disk is a perfectly good one**:
     git -C /path/to/<project>.git symbolic-ref HEAD refs/heads/<trunk>   # the bare side's HEAD names the trunk
     git remote add origin /path/to/<project>.git    # ABSOLUTE path
 2.  git switch -c <trunk>                           # if the trunk does not exist yet
-    MSG_OK=1 git commit --allow-empty -m 'init'     # if there are no commits yet
+    git add -A && MSG_OK=1 git commit -m 'init'     # if there are no commits yet: commit the kit AS UNZIPPED
 3.  git push -u origin <trunk>
 4.  git remote set-head origin <trunk>              # ← the step whose absence is SILENT
 ```
 
-That four-step recipe is exactly what `./scripts/kit-init.sh` prints when it refuses for an unmet
-remote precondition — the offline case is in the refusal message, not an afterthought. The
+That four-step recipe is what `./scripts/kit-init.sh` prints when it refuses for an unmet remote
+precondition: the same commands in the same order, with your values in place of the angle
+brackets. So the offline case is in the refusal message, not an afterthought. The
 `set-head` step is the one whose absence is silent: without it the trunk is defaulted by the
 worktree library and your first board move pushes to a branch nobody chose.
 
