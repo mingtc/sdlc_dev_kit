@@ -36,6 +36,175 @@ discard exactly the local hardening the kit tells you to do. So an upgrade is a 
 Diffing your kit against a newer release is a legitimate way to do step 3 — but expect the diff to
 include your own local law, which is not drift.
 
+### Or let git do step 3 — a three-way merge against the release you are running
+
+**An option, not the procedure.** The read above stays the default, and it is still how you decide
+every conflict this produces. Nothing here ships: it is plain git over your own history.
+
+**What it needs is the release you are running, exactly as shipped** — and if you followed the kit's
+`README.md` § Day one, you probably have it: the `init` commit is made *before* `kit-init.sh` stamps
+anything, so your first commit **is** that release. With it as the base, git applies the new release
+three ways: a line the kit changed and you did not arrives by itself; a line you changed and the kit
+did not stays yours — **including every value `kit-init.sh` stamped**, which is exactly what adopting
+a newer copy of the whole file loses (§ Known gaps, below); and a line you *both* changed is left as
+a conflict for you to decide.
+
+The blocks below carry no comments on purpose: an interactive shell that does not treat `#` as a
+comment (zsh's default) would run them. Paste each one whole.
+
+**ONCE per repository — not per clone.** It checks your first commit's *contents*, not its name,
+because a first commit called `init` is not always the release: an empty `init` made so the
+initializer had something to run on, or a kit unzipped into a directory that already held files,
+both produce one. Branching from either would make the upgrade delete your files. It prints the
+version your first commit carries; that must be the version you adopted.
+
+```sh
+root=$(git rev-list --max-parents=0 HEAD)
+extra=$({ git ls-tree --full-tree -r --name-only "$root"
+          git show "$root:process/KIT-MANIFEST" 2>/dev/null | awk '!/^#/ && NF { print $2 }'
+          echo process/KIT-MANIFEST; } | sort | uniq -u)
+if [ "$(echo "$root" | wc -l)" -eq 1 ] && [ -z "$extra" ]; then
+  git show "$root:process/KIT-VERSION"
+  git branch kit "$root"
+else
+  printf 'Your first commit is NOT the release as shipped. It differs in:\n%s\n' "$extra"
+fi
+```
+
+The check compares **paths** against the release's own `process/KIT-MANIFEST`, not bytes, so a
+shipped file edited *before* the first commit would pass it; README § Day one commits straight after
+the unzip, so following it does not produce that case. **Releases before 0.4.0 shipped no
+`KIT-MANIFEST`, so ONCE refuses them** — use the zip route below. **If the `kit` branch already
+exists on your remote** (`git branch -r` lists `origin/kit`), **skip ONCE** and run
+`git branch kit origin/kit` instead: re-running ONCE in a second clone moves the base back to your
+first commit and brings back conflicts you have already resolved.
+
+**EVERY UPGRADE** — one chained command, so a failed step stops everything after it. It refuses to
+start unless your working tree is clean (so backing out, below, can never discard work of yours); it
+unpacks the release in a checkout of its own, `../kit-upgrade`, and **refuses to commit it unless the
+zip unpacked at the root and its `process/KIT-VERSION` is the version you named**; then it applies
+the release, **uncommitted**, on a branch of your own. `git add -A -f` is deliberate: the zip is
+exactly the release, and a personal ignore rule must not drop a shipped file from it.
+
+```sh
+{ [ -z "$(git status --porcelain)" ] || { echo 'Refusing: commit or stash your work first.'; false; }; } &&
+kit_before=$(git rev-parse kit) && echo "kit was $kit_before" &&
+git worktree add ../kit-upgrade kit &&
+( cd ../kit-upgrade &&
+  git rm -rq . && unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d . &&
+  test -f process/KIT-MANIFEST && grep -qx '<X.Y.Z>' process/KIT-VERSION &&
+  git add -A -f && MSG_OK=1 git commit -m 'kit <X.Y.Z>, as shipped' ) &&
+git worktree remove ../kit-upgrade &&
+git switch -c <your-branch> &&
+git cherry-pick --no-commit kit
+```
+
+It prints `kit was <sha>` first: that is the release you were running, and BACK OUT reads it back
+from `$kit_before` (if you lose the shell, set `kit_before=<that sha>` before using BACK OUT).
+
+**If it stopped part-way** — a refused check inside `../kit-upgrade`, or a branch name already
+taken — your trunk and your commits were never touched. Run `git worktree remove --force
+../kit-upgrade` if that directory is still there, and BACK OUT (below), which undoes only what this
+attempt did; then fix the cause and run it again. If it stopped at *nothing to commit*, `kit`
+already carries that release from an earlier attempt: run only
+`git switch -c <your-branch> && git cherry-pick --no-commit kit`.
+
+The cherry-pick applies the whole release in one go and leaves **every** conflict in place at once.
+Resolve each one, `git add` it (or `git rm` it, for a file you had deleted), and then — before
+anything is committed — work through the list further down.
+
+**BACK OUT**, at any point before you commit. Each line checks its own condition, so running it
+twice, or after a stop before your branch existed, does nothing. The first acts only while you are on
+`<your-branch>`: it **discards every uncommitted change made since the chain ran, including anything
+you edited meanwhile**, returns to the trunk and deletes the branch — with `-d`, which refuses a
+branch carrying commits, so a branch of your own that happens to share the name survives. The second
+moves `kit` back to `$kit_before` only if this attempt added exactly one commit on top of it.
+
+```sh
+[ "$(git branch --show-current)" = '<your-branch>' ] && git reset --hard && git switch <trunk> && git branch -d <your-branch>
+[ -n "$kit_before" ] && [ "$(git rev-parse -q --verify 'kit^' 2>/dev/null)" = "$kit_before" ] && git branch -f kit "$kit_before"
+```
+
+**Why `cherry-pick` and not `merge`.** A cherry-pick's base is the `kit` commit's parent — the
+release you were running, as shipped — whatever your trunk's history looks like. A `git merge` finds
+its base through the trunk's ancestry instead, and a squash landing (which is how
+`scripts/finish-pr.sh` lands) drops the `kit` branch from that ancestry: the *next* upgrade would
+then merge against your first commit, and most of the conflicts you had already resolved would come
+back, with new ones on every line the kit changed in both releases. **Keep the `kit` branch** — its
+tip is the next upgrade's base — and push it (`git push origin kit`) if the next upgrade may run from
+another clone.
+
+**No first commit that passes ONCE?** — ONCE said so, your release predates the manifest, you
+squashed your history (README § Day one's variant for a first published commit of your own), or the
+kit went into a repository that already had one. The same route works from **the zip of the version
+you are running**, if you still have it: build the `kit` branch from that instead of ONCE, then
+follow EVERY UPGRADE.
+
+```sh
+git worktree add --detach ../kit-upgrade &&
+( cd ../kit-upgrade &&
+  git switch --orphan kit && unzip -q <path-to>/project-kit-v<your-version>.zip -d . &&
+  test -f process/KIT-VERSION && grep -qx '<your-version>' process/KIT-VERSION &&
+  git add -A -f && MSG_OK=1 git commit -m 'kit <your-version>, as shipped' ) &&
+git worktree remove ../kit-upgrade
+```
+
+Without either — no first commit that passes ONCE and no zip of your version — the read is the
+route.
+
+**Before you commit — what this does not do for you:**
+
+- **Steps 1 and 2 still apply.** This moves text. An **Action required** item is something to *do*,
+  and applying its release does not do it. Step 4 needs no action unless you edited `KIT-VERSION`
+  yourself: the new release's copy arrives with everything else.
+- **A clean hunk arrives without a question.** That is what makes this cheap, and it is why nothing
+  is committed for you: `git diff --cached` is everything you are about to adopt, and it gets the
+  review any change gets.
+- **A line the kit ADDS arrives unstamped**, clean or conflicted: `kit-init.sh` stamped the lines
+  that existed when it ran. What it stamps: in `.claude/roles/` and `.claude/templates/`, `<PREFIX>`
+  becomes your prefix, and so does `KIT-` (before a non-digit in the role docs, before anything in
+  the templates); `<project-name>` becomes your project name; `<trunk>` (templates) and the word
+  `main` (both, and only if your trunk is something else) become your trunk. In `scripts/`: your
+  prefix, PRD prefix and project name in `config.sh`, your gate in `verify.sh`, and — if you passed
+  `--roles` — your role set in every script that enforces the shipped one. **In these checks the
+  angle-bracket tokens are literal** — they are what to search for, not blanks to fill. The first two
+  lines must print nothing; the third must show **your** prefix (the § Known gaps check):
+
+  ```sh
+  git grep -nE '<PREFIX>|<project-name>|KIT-[^0-9]' -- .claude/roles | grep -v 'KIT-CLASS:'
+  git grep -nE '<PREFIX>|<project-name>|<trunk>|KIT-' -- .claude/templates | grep -v 'KIT-CLASS:'
+  ./scripts/new-issue.sh --help | grep -o -- '--id [A-Z]*-NNN'
+  ```
+
+  If your trunk is not `main`, this must print nothing too:
+
+  ```sh
+  git grep -nw main -- .claude/roles .claude/templates
+  ```
+
+  And if you passed `--roles`, so must this:
+
+  ```sh
+  grep -lF -- "$(git show kit:scripts/githooks/commit-msg | sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p")" scripts/*.sh scripts/githooks/*
+  ```
+
+  Stamp by hand whatever they print.
+- **A file you replaced or deleted conflicts whenever the kit changes it.** A `README.md` or
+  `CLAUDE.md` you made your own is left as a content conflict (`git checkout --ours <file>` keeps
+  yours); a shipped file you deleted is left as modify/delete (`git rm <file>` keeps it gone). Read
+  the version entries below first — the kit's change may be one to carry across by hand.
+
+Then commit it, and land it the way you land anything:
+
+```sh
+git commit -m '[<Role>] Upgrade the kit to <X.Y.Z>'
+```
+
+**And one thing it gives you that the read does not.** Once an upgrade has landed,
+`git diff --name-status kit` lists every shipped file your project has changed (`M`) or removed (`D`)
+and every file of your own (`A`) — `kit-init.sh`'s stamps among them. That is the enumeration
+§ Known gaps says the kit does not ship; here your own history makes it.
+
 ## Known gaps
 
 The kit ships an honest debt list rather than a clean claim: [`EXTRACTION.md` § 4](EXTRACTION.md)
@@ -204,6 +373,16 @@ columns and never the cards.*
   copy their own `.claude/settings.local.json` aside — the next pull DELETES it from their clone (or
   refuses, if they edited it) — and put it back after pulling. `.claude/settings.json` (the shared
   one) is unaffected.
+
+- **An upgrade can now be a three-way merge — as an option; the read stays the default.** § How to
+  upgrade gains a plain-git route for step 3: a `kit` branch holding the release you run exactly as
+  shipped — your Day-one first commit, checked against that release's `KIT-MANIFEST`, or else the
+  zip of your version — the new release committed onto it, and `git cherry-pick --no-commit kit` onto
+  a branch of your own. Lines only the kit changed arrive by themselves; your local law and
+  `kit-init.sh`'s stamps stay; lines you both changed are left as conflicts for you to decide. It
+  refuses a dirty tree and a zip that is not the version you named, commits nothing for you, and
+  gives a back-out that touches only what the attempt did. Lines the kit added arrive unstamped, so
+  it lists the checks to run before you commit. **Nothing to do** unless you want the cheaper route.
 
 ## [0.6.0] — 2026-09-18
 
