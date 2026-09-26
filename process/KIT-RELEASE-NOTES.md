@@ -179,6 +179,14 @@ columns and never the cards.*
   confirm its own test reddens. An unaddressed shadow is a FAIL even with the suite green. No
   mutation harness is required. **Nothing to do.**
 
+- **An AC that names a gate the tree under review does not hold is a precondition failure**
+  (`process/MANUAL.md` § The Dev → QA handoff, step 6; `.claude/roles/qa.md`; `.claude/roles/dev.md`'s
+  Definition of Done). That happens, for example, when the gate's machinery is still on an unlanded
+  branch, and the gate runner cannot report it. Do not grade such an AC from other evidence: run the
+  gate against a tree holding both the change and the gate — this branch's diff applied onto the tree
+  that carries it — and name that tree and commit, or halt before a verdict and report it, naming the
+  AC. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

@@ -168,12 +168,13 @@ Action on PASS:
 > **If the gate runner reports a gate that could not RUN, you have no verdict to issue.** There is no
 > evidence about the implementation, so neither FAIL token is honest — both assert something false
 > about the code. Stop and report the precondition failure.
+> **The same holds for an AC that names a gate the tree under review does not hold** — not in its gate runner, or its machinery absent, so the runner cannot report it. Run it against a tree holding both this change and the gate, and record that tree and commit in your review evidence; or stop and report the precondition failure, naming the AC (MANUAL § The Dev → QA handoff, step 6).
 
 **FAIL — any of:**
 - One or more AC bullets unmet.
 - Any `Blocker` or `Critical` bug found.
 - Test regression (a test green on the trunk is red on this branch).
-- The binding extra gate is required and was not run, or was run and is not clean.
+- The binding extra gate is required and was not run, or was run and is not clean. *(Not run because the tree under review does not hold it is not a FAIL: it is the precondition failure above, and no verdict is issued.)*
 - Drift in pinned output outside a consented, AC-named set.
 
 Action on FAIL splits by reason:

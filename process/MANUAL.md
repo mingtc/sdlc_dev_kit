@@ -378,6 +378,15 @@ bounces it.
    something false about the code. *(This is why the gate runner names an unrunnable gate in its own
    word rather than spelling it as a failure — `contracts/verify-gate.md` § 3.)*
 
+   **An AC that names a gate the tree under review does not hold is the same precondition failure,
+   and one the runner cannot report.** The gate is either missing from the gate runner, or its
+   machinery is absent — for example, still on an unlanded branch. A gate absent from the tree is not
+   one the runner "could not run", so its summary stays clean. Do not grade that AC from other
+   evidence. Either run the gate against a tree that holds **both** this change and the gate — for
+   example, this branch's diff applied onto the tree that carries the gate — or halt before a verdict
+   and report the precondition failure, naming the AC. Whoever runs it names that tree and commit:
+   Dev in the `dev_complete` note, QA in the review evidence on the issue file.
+
    The four, in full:
    - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
      trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works. Action:
