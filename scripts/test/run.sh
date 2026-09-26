@@ -2013,6 +2013,334 @@ case_finish_pr_post_merge_names_its_ref() {
 }
 
 # =============================================================================
+# CASE — THE POST-MERGE CHECK READS THE TRUNK IT LANDED INTO, IN EVERY POSTURE
+#        THE PRE-MERGE GATE ACCEPTS.
+#
+# UNSTUBBED, DELIBERATELY, AND THAT IS THE WHOLE POINT. Every other finish-pr case
+# runs the post-merge step as FINISH_PR_VERIFY_CMD=true — a verify that cannot say
+# where it ran — so this suite could never see WHICH TREE the post-merge reading
+# was of. And it was of the wrong one: the pre-merge gate requires the gate
+# checkout to sit AT THE BRANCH TIP, nothing moved it after the landing, and the
+# post-merge run read it there and printed `PASS on <trunk>` and
+# `POST_MERGE_GATE: PASS` over a trunk that was red. Measured in a project running
+# the kit, whose reviewers caught it only by checking the merged trunk by hand.
+#
+# THE FIXTURE. The committed verify.sh RECORDS the revision and the tree it read,
+# one line per run, and is RED exactly when TRUNK_BREAK.txt is present — a file the
+# trunk gains AFTER the branch forks. So the pre-merge gate (branch tip) is green and
+# lets the landing happen, and the landed trunk is red. A post-merge reading that
+# says anything but FAIL, or records a revision without the landed commit, read
+# something other than the trunk.
+#
+# THE POSTURES, each one the pre-merge gate ACCEPTS:
+#   (A)  --worktree at a linked worktree ON the branch — the documented QA usage;
+#   (A2) --worktree at a DETACHED checkout at the branch tip;
+#   (C)  the default path, main checkout DETACHED at the branch tip — accepted by the
+#        provenance check as "the revision, not the ref name";
+#   (F)  the main checkout on the branch BY NAME, with the trunk checked out in ANOTHER
+#        worktree — the landing's switch to the trunk fails ("could not switch"), so
+#        the checkout stays at the branch tip;
+#   (G)  the main checkout on a DIFFERENT BRANCH NAME at the same tip — accepted by
+#        revision, and not the branch the switch looks for;
+#   (B)  THE CONTROL: the default path, main checkout on the branch BY NAME. It read
+#        the trunk before any cure, because the landing switches that checkout to the
+#        trunk before deleting the branch. If (B) goes red, the fixture is broken, not
+#        the script.
+#
+# WHAT THIS CASE DOES NOT ASSERT: HOW the right tree is reached. That is the cure's
+# design, and it is asserted separately (the case after this one), so this case keeps
+# its meaning whatever the cure turns out to be.
+# =============================================================================
+_fpr_pm_sandbox() {  # <id> — builds the fixture above; sets FPR_PM_BR, FPR_PM_LOG
+  make_sandbox
+  cat > "$SB_WORK/scripts/verify.sh" <<'V'
+#!/usr/bin/env bash
+# SANDBOX GATE THAT SAYS WHERE IT RAN: one line per run — the revision, the tree, the verdict.
+# RED exactly when TRUNK_BREAK.txt is present, a file only the trunk has.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+head="$(git -C "$root" rev-parse HEAD)"
+if [ -e "$root/TRUNK_BREAK.txt" ]; then
+  # FPR_PM_RO: leave a READ-ONLY directory behind, as some real gates do — the tree it
+  # ran in must still be removable, and its removal must not abort the landing script.
+  if [ -n "${FPR_PM_RO:-}" ]; then mkdir -p "$root/ro"; : > "$root/ro/f"; chmod 555 "$root/ro"; fi
+  printf '%s\t%s\tRED\n' "$head" "$root" >> "$FPR_PM_LOG"; exit 1
+fi
+printf '%s\t%s\tgreen\n' "$head" "$root" >> "$FPR_PM_LOG"; exit 0
+V
+  chmod +x "$SB_WORK/scripts/verify.sh"
+  FPR_PM_BR="feature/$SB_PREFIX-$1-pm"
+  seed_issue dev_complete "$SB_PREFIX-$1" pm chore "Post-merge reads the trunk" "$FPR_PM_BR"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-$1" pm "CHANGE$1.txt"
+  # THE TRUNK MOVES ON AFTER THE FORK — and what it gains turns the gate red.
+  echo "only the trunk has this" > "$SB_WORK/TRUNK_BREAK.txt"
+  git -C "$SB_WORK" add TRUNK_BREAK.txt >/dev/null 2>&1
+  sbcommit -m "trunk moves on after the fork" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  FPR_PM_LOG="$SB_TMP/verify.log"; : > "$FPR_PM_LOG"
+}
+# _fpr_pm_run <id> [finish-pr args…] — the landing, UNSTUBBED. Sets FPR_PM_OUT, FPR_PM_RC.
+_fpr_pm_run() {
+  local id="$1"; shift
+  FPR_PM_OUT="$( cd "$SB_WORK" && env FPR_PM_LOG="$FPR_PM_LOG" FPR_PM_RO="${FPR_PM_RO:-}" ./scripts/finish-pr.sh "$SB_PREFIX-$id" "$@" 2>&1 )"; FPR_PM_RC=$?
+}
+# _fpr_pm_landed — the full sha of the squash on origin's trunk (empty if absent). Sets FPR_PM_SQUASH.
+_fpr_pm_landed() {
+  origin_fetch_or_die
+  FPR_PM_SQUASH="$(git -C "$SB_WORK" log -F --grep="(squash-merge $FPR_PM_BR)" --format=%H "origin/$SB_TRUNK" -1 2>/dev/null)"
+}
+# _fpr_pm_assert_read_the_trunk <label> <branch tip before the landing>
+_fpr_pm_assert_read_the_trunk() {
+  local L="$1" tip="$2" n pre post read_sha T=$'\t'
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "($L) finish-pr exited $FPR_PM_RC, so the landing did not complete and nothing below was measured: $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+    return
+  fi
+  origin_has_path TRUNK_BREAK.txt \
+    || { _control_did_not_run "($L) put TRUNK_BREAK.txt on the trunk"; return; }
+  _fpr_pm_landed
+  [ -n "$FPR_PM_SQUASH" ] || { cf "($L) no squash commit for $FPR_PM_BR on origin/$SB_TRUNK"; return; }
+  n="$(wc -l < "$FPR_PM_LOG" | tr -d ' ')"
+  [ "$n" -eq 2 ] || cf "($L) the gate recorded $n run(s), expected 2 (pre-merge, then post-merge): $(tr '\n' '|' < "$FPR_PM_LOG")"
+  pre="$(sed -n 1p "$FPR_PM_LOG")"; post="$(sed -n 2p "$FPR_PM_LOG")"
+  # CONTROL: the pre-merge gate read the branch tip and was green — the fixture is what it says.
+  [ "${pre%%"$T"*}" = "$tip" ] && [ "${pre##*"$T"}" = "green" ] \
+    || _control_did_not_run "($L) show the pre-merge gate green at the branch tip ${tip:0:9} (it recorded: $pre)"
+  read_sha="${post%%"$T"*}"
+  if [ -z "$read_sha" ] || ! git -C "$SB_WORK" merge-base --is-ancestor "$FPR_PM_SQUASH" "$read_sha" 2>/dev/null; then
+    cf "($L) the post-merge gate read ${read_sha:0:9}, a tree WITHOUT the landed commit ${FPR_PM_SQUASH:0:9} — not the trunk it landed into (it recorded: ${post:-nothing})"
+  fi
+  printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: FAIL' >/dev/null \
+    || cf "($L) the trunk it landed into is RED, and the machine line does not say FAIL: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify' | tr '\n' '|')"
+}
+case_finish_pr_post_merge_reads_the_landed_trunk() {
+  cf_reset
+  local tip
+
+  # --- (A) --worktree at a linked worktree ON the branch ----------------------
+  _fpr_pm_sandbox 941
+  git -C "$SB_WORK" worktree add -q "$SB_TMP/wt" "$FPR_PM_BR" >/dev/null 2>&1
+  tip="$(git -C "$SB_WORK" rev-parse "refs/heads/$FPR_PM_BR")"
+  [ "$(git -C "$SB_TMP/wt" symbolic-ref -q --short HEAD 2>/dev/null)" = "$FPR_PM_BR" ] \
+    || _control_did_not_run "(A) put a linked worktree on $FPR_PM_BR"
+  _fpr_pm_run 941 --worktree "$SB_TMP/wt"
+  _fpr_pm_assert_read_the_trunk A "$tip"
+  teardown
+
+  # --- (A2) --worktree at a DETACHED checkout at the branch tip ---------------
+  _fpr_pm_sandbox 942
+  git -C "$SB_WORK" worktree add -q --detach "$SB_TMP/wt" "$FPR_PM_BR" >/dev/null 2>&1
+  tip="$(git -C "$SB_WORK" rev-parse "refs/heads/$FPR_PM_BR")"
+  [ "$(git -C "$SB_TMP/wt" rev-parse HEAD 2>/dev/null)" = "$tip" ] \
+    && ! git -C "$SB_TMP/wt" symbolic-ref -q HEAD >/dev/null 2>&1 \
+    || _control_did_not_run "(A2) put a detached worktree at the tip of $FPR_PM_BR"
+  _fpr_pm_run 942 --worktree "$SB_TMP/wt"
+  _fpr_pm_assert_read_the_trunk A2 "$tip"
+  teardown
+
+  # --- (C) default path, main checkout DETACHED at the branch tip -------------
+  _fpr_pm_sandbox 943
+  git -C "$SB_WORK" checkout -q --detach "$FPR_PM_BR" >/dev/null 2>&1
+  tip="$(git -C "$SB_WORK" rev-parse "refs/heads/$FPR_PM_BR")"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD 2>/dev/null)" = "$tip" ] \
+    && ! git -C "$SB_WORK" symbolic-ref -q HEAD >/dev/null 2>&1 \
+    || _control_did_not_run "(C) detach the main checkout at the tip of $FPR_PM_BR"
+  _fpr_pm_run 943
+  _fpr_pm_assert_read_the_trunk C "$tip"
+  teardown
+
+  # --- (F) main checkout on the branch by name; the trunk held by ANOTHER worktree
+  _fpr_pm_sandbox 945
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  git -C "$SB_WORK" worktree add -q "$SB_TMP/trunk-wt" "$SB_TRUNK" >/dev/null 2>&1
+  tip="$(git -C "$SB_WORK" rev-parse "refs/heads/$FPR_PM_BR")"
+  [ "$(git -C "$SB_TMP/trunk-wt" symbolic-ref -q --short HEAD 2>/dev/null)" = "$SB_TRUNK" ] \
+    && [ "$(git -C "$SB_WORK" symbolic-ref -q --short HEAD 2>/dev/null)" = "$FPR_PM_BR" ] \
+    || _control_did_not_run "(F) hold $SB_TRUNK in a second worktree with the main checkout on $FPR_PM_BR"
+  _fpr_pm_run 945
+  printf '%s\n' "$FPR_PM_OUT" | grep 'could not switch the main checkout' >/dev/null \
+    || _control_did_not_run "(F) make the landing's switch to $SB_TRUNK fail"
+  _fpr_pm_assert_read_the_trunk F "$tip"
+  teardown
+
+  # --- (G) main checkout on a DIFFERENT branch name at the same tip ------------
+  _fpr_pm_sandbox 946
+  git -C "$SB_WORK" checkout -q -b "other/$SB_PREFIX-946" "$FPR_PM_BR" >/dev/null 2>&1
+  tip="$(git -C "$SB_WORK" rev-parse "refs/heads/$FPR_PM_BR")"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD 2>/dev/null)" = "$tip" ] \
+    && [ "$(git -C "$SB_WORK" symbolic-ref -q --short HEAD 2>/dev/null)" = "other/$SB_PREFIX-946" ] \
+    || _control_did_not_run "(G) put the main checkout on another branch name at the tip of $FPR_PM_BR"
+  _fpr_pm_run 946
+  _fpr_pm_assert_read_the_trunk G "$tip"
+  teardown
+
+  # --- (B) THE CONTROL: default path, main checkout on the branch BY NAME -----
+  _fpr_pm_sandbox 944
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  tip="$(git -C "$SB_WORK" rev-parse "refs/heads/$FPR_PM_BR")"
+  [ "$(git -C "$SB_WORK" symbolic-ref -q --short HEAD 2>/dev/null)" = "$FPR_PM_BR" ] \
+    || _control_did_not_run "(B) put the main checkout on $FPR_PM_BR by name"
+  _fpr_pm_run 944
+  _fpr_pm_assert_read_the_trunk B "$tip"
+  teardown
+
+  finish "finish-pr.sh: the post-merge check reads the trunk it landed into — a committed gate that records where it ran says FAIL on a red trunk under --worktree on the branch (A), --worktree detached (A2), a detached main checkout (C), the trunk held by another worktree (F), another branch name at the tip (G), and the by-name control (B)"
+}
+
+# =============================================================================
+# CASE — HOW THE POST-MERGE CHECK REACHES THE TRUNK, AND WHAT IT SAYS WHEN IT
+#        CANNOT.
+#
+# The case above asserts THAT the right tree is read; this one asserts the chosen
+# way of reaching it, which is a design choice and is kept apart so the two can be
+# judged separately:
+#   * the EXISTING gate checkout is detached to the landed commit — it was fit to run
+#     the gate a minute earlier, and its installed dependencies survive a detach, so
+#     the post-merge run meets the environment the pre-merge run did;
+#   * the human line names the SHA it read, not only the ref — a ref names whichever
+#     commit the reader has in mind; a sha names one;
+#   * ONLY when that checkout has uncommitted tracked changes (moving it would carry
+#     them into the reading, or refuse) is a FRESH detached worktree used, and it is
+#     removed afterwards, and the operator's dirt is left exactly where it was;
+#   * a reading that CANNOT RUN says so in its own word — never PASS, and never FAIL,
+#     because a FAIL asserts something about the trunk that nobody measured.
+#
+#   (A) --worktree on the branch: after the landing that worktree is DETACHED AT THE
+#       LANDED COMMIT, the run output says it moved it, and the human line names the
+#       sha the gate recorded.
+#   (D) the main checkout on the branch BY NAME but DIRTY — the landing declines to
+#       switch it, so it is still on the branch: the reading is taken in a FRESH
+#       worktree at the landed commit, reports FAIL on the red trunk, and leaves
+#       neither the worktree nor its directory behind.
+#       Its gate leaves a READ-ONLY directory in that tree, and the landing script
+#       must still remove it and reach its exit — a failed removal once aborted it
+#       under `set -e` after the landing, with no EXIT line and the tree left behind.
+#   (E) the landed trunk's verify.sh is NOT EXECUTABLE: COULD NOT RUN, and the
+#       machine line says UNRUNNABLE — not PASS, not FAIL.
+#   (H) an ENVIRONMENTAL red in the fresh worktree, through the REAL verify.sh: a
+#       green trunk whose one gate needs an ignored deps/ directory the fresh tree
+#       lacks. verify.sh exits 1 and its summary counts one gate that could not run
+#       and none that failed — so the reading is COULD NOT RUN, never FAIL.
+# =============================================================================
+case_finish_pr_post_merge_moves_the_gate_checkout() {
+  cf_reset
+  local post read_sha read_root T=$'\t' line work_p
+
+  # --- (A) the linked worktree is moved to the landed commit, and the sha is named
+  _fpr_pm_sandbox 951
+  git -C "$SB_WORK" worktree add -q "$SB_TMP/wt" "$FPR_PM_BR" >/dev/null 2>&1
+  _fpr_pm_run 951 --worktree "$SB_TMP/wt"
+  _fpr_pm_landed
+  if [ "$FPR_PM_RC" -ne 0 ] || [ -z "$FPR_PM_SQUASH" ]; then
+    cf "(A) the landing did not complete (rc=$FPR_PM_RC, squash '${FPR_PM_SQUASH:-none}'), so nothing below was measured: $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    [ "$(git -C "$SB_TMP/wt" rev-parse HEAD 2>/dev/null)" = "$FPR_PM_SQUASH" ] \
+      && ! git -C "$SB_TMP/wt" symbolic-ref -q HEAD >/dev/null 2>&1 \
+      || cf "(A) the --worktree checkout is not DETACHED AT THE LANDED COMMIT ${FPR_PM_SQUASH:0:9} after the landing (HEAD $(git -C "$SB_TMP/wt" rev-parse --short HEAD 2>/dev/null), ref '$(git -C "$SB_TMP/wt" symbolic-ref -q --short HEAD 2>/dev/null)')"
+    printf '%s\n' "$FPR_PM_OUT" | grep -F "$SB_TMP/wt" | grep -i 'detached' >/dev/null \
+      || cf "(A) the run moved the operator's worktree and did not SAY so — no line names '$SB_TMP/wt' as detached"
+    post="$(sed -n 2p "$FPR_PM_LOG")"; read_sha="${post%%"$T"*}"
+    line="$(printf '%s\n' "$FPR_PM_OUT" | grep 'post-merge verify --quick:' | head -1)"
+    [ -n "$read_sha" ] && printf '%s\n' "$line" | grep -F "${read_sha:0:7}" >/dev/null \
+      || cf "(A) the post-merge line does not name the sha the gate recorded reading (${read_sha:0:9}): $line"
+    printf '%s\n' "$FPR_PM_OUT" | grep -F "'$FPR_PM_BR' is no longer checked out anywhere" >/dev/null \
+      || cf "(A) the detach freed the branch the board note calls KEPT, and the run did not say so"
+  fi
+  teardown
+
+  # --- (D) dirty gate checkout -> a FRESH worktree, removed afterwards ----------
+  _fpr_pm_sandbox 952
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  echo "uncommitted" >> "$SB_WORK/CHANGE952.txt"      # tracked on the branch: the checkout is DIRTY
+  work_p="$(cd "$SB_WORK" && pwd -P)"
+  FPR_PM_RO=1 _fpr_pm_run 952
+  _fpr_pm_landed
+  if [ "$FPR_PM_RC" -ne 0 ] || [ -z "$FPR_PM_SQUASH" ]; then
+    cf "(D) the landing did not complete (rc=$FPR_PM_RC), so nothing below was measured: $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    post="$(sed -n 2p "$FPR_PM_LOG")"; read_sha="${post%%"$T"*}"
+    read_root="${post#*"$T"}"; read_root="${read_root%"$T"*}"
+    [ -n "$read_sha" ] && git -C "$SB_WORK" merge-base --is-ancestor "$FPR_PM_SQUASH" "$read_sha" 2>/dev/null \
+      || cf "(D) the post-merge reading (${read_sha:0:9}) does not contain the landed commit ${FPR_PM_SQUASH:0:9}: ${post:-nothing recorded}"
+    case "$read_root" in
+      ''|"$SB_WORK"|"$work_p") cf "(D) the reading ran in the DIRTY main checkout ('${read_root:-nowhere}'), not a fresh worktree"
+                               read_root="" ;;   # nothing fresh to look for below
+    esac
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: FAIL' >/dev/null \
+      || cf "(D) the landed trunk is RED and the machine line does not say FAIL: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify' | tr '\n' '|')"
+    printf '%s\n' "$FPR_PM_OUT" | grep -i 'fresh worktree' >/dev/null \
+      || cf "(D) the output does not say the reading was taken in a FRESH worktree — a reader cannot tell a red from missing dependencies there"
+    printf '%s\n' "$FPR_PM_OUT" | grep -E '^POST_MERGE_GATE: ' >/dev/null \
+      || cf "(D) no POST_MERGE_GATE line — the script stopped before reporting (a read-only leftover in the fresh tree)"
+    if [ -n "$read_root" ]; then
+      [ ! -e "$read_root" ] || { cf "(D) the fresh worktree '$read_root' was left on disk"; chmod -R u+w "$read_root" 2>/dev/null; rm -rf "$(dirname "$read_root")" 2>/dev/null; }
+      git -C "$SB_WORK" worktree list --porcelain 2>/dev/null | grep -F "$read_root" >/dev/null \
+        && cf "(D) the fresh worktree is still registered with git"
+    fi
+    [ "$(git -C "$SB_WORK" symbolic-ref -q --short HEAD 2>/dev/null)" = "$FPR_PM_BR" ] \
+      || cf "(D) the dirty main checkout was MOVED off $FPR_PM_BR — its owner's posture was not left alone"
+    grep -x "uncommitted" "$SB_WORK/CHANGE952.txt" >/dev/null \
+      || cf "(D) the dirty main checkout LOST its uncommitted change"
+  fi
+  teardown
+
+  # --- (E) the landed trunk's gate cannot run -> COULD NOT RUN / UNRUNNABLE -----
+  _fpr_pm_sandbox 953
+  chmod -x "$SB_WORK/scripts/verify.sh"
+  git -C "$SB_WORK" update-index --chmod=-x scripts/verify.sh >/dev/null 2>&1
+  sbcommit -m "trunk's gate loses its execute bit" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q --detach "$FPR_PM_BR" >/dev/null 2>&1   # the branch's gate IS executable
+  [ -x "$SB_WORK/scripts/verify.sh" ] \
+    || _control_did_not_run "(E) restore the branch's executable gate, so the pre-merge gate could run"
+  _fpr_pm_run 953
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(E) the landing did not complete (rc=$FPR_PM_RC) — an unrunnable POST-merge reading must not move the exit code: $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: UNRUNNABLE' >/dev/null \
+      || cf "(E) the machine line is not 'POST_MERGE_GATE: UNRUNNABLE': $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE' | tr '\n' '|')"
+    printf '%s\n' "$FPR_PM_OUT" | grep -E '^POST_MERGE_GATE: (PASS|FAIL)$' >/dev/null \
+      && cf "(E) a reading that could not run was reported as PASS or FAIL"
+    printf '%s\n' "$FPR_PM_OUT" | grep 'post-merge verify --quick: COULD NOT RUN' >/dev/null \
+      || cf "(E) the human line does not say COULD NOT RUN"
+    [ "$(wc -l < "$FPR_PM_LOG" | tr -d ' ')" -eq 1 ] \
+      || cf "(E) the gate recorded a post-merge run it could not have made: $(tr '\n' '|' < "$FPR_PM_LOG")"
+  fi
+  teardown
+
+  # --- (H) an ENVIRONMENTAL red in the fresh worktree, through the REAL verify.sh
+  make_sandbox
+  awk '{print} /^GATES=\($/{print "  \"deps|core|deps/run-gate\""}' "$SB_WORK/scripts/verify.sh" > "$SB_TMP/v.sh" \
+    && cat "$SB_TMP/v.sh" > "$SB_WORK/scripts/verify.sh"
+  echo "deps/" >> "$SB_WORK/.gitignore"
+  mkdir -p "$SB_WORK/deps" && printf '#!/bin/sh\nexit 0\n' > "$SB_WORK/deps/run-gate" && chmod +x "$SB_WORK/deps/run-gate"
+  FPR_PM_BR="feature/$SB_PREFIX-954-pm"
+  seed_issue dev_complete "$SB_PREFIX-954" pm chore "Environmental red" "$FPR_PM_BR"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-954" pm CHANGE954.txt
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  echo "uncommitted" >> "$SB_WORK/CHANGE954.txt"      # DIRTY: the reading goes to a fresh tree
+  ( cd "$SB_WORK" && ./scripts/verify.sh --quick ) >/dev/null 2>&1 \
+    || _control_did_not_run "(H) make the real verify.sh green where deps/ is installed"
+  git -C "$SB_WORK" check-ignore -q deps/run-gate \
+    || _control_did_not_run "(H) keep deps/ ignored, so a fresh worktree lacks it"
+  FPR_PM_OUT="$( cd "$SB_WORK" && ./scripts/finish-pr.sh "$SB_PREFIX-954" 2>&1 )"; FPR_PM_RC=$?
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(H) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$FPR_PM_OUT" | grep -E '^gates declared: .*failed: 0 .*could not run: 1' >/dev/null \
+      || _control_did_not_run "(H) get verify.sh's summary to count one gate that could not run and none that failed"
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: UNRUNNABLE' >/dev/null \
+      || cf "(H) an environmental red in the fresh tree was not reported UNRUNNABLE: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify' | tr '\n' '|')"
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: FAIL' >/dev/null \
+      && cf "(H) a gate that could not run was reported as a FAIL of the trunk"
+  fi
+  teardown
+
+  finish "finish-pr.sh: the post-merge check detaches the existing gate checkout to the landed commit, names the sha it read and says the branch is now unheld (A), uses a fresh worktree only for a dirty checkout and removes it even when the gate leaves it read-only (D), and says COULD NOT RUN / UNRUNNABLE rather than PASS or FAIL when the landed gate cannot run (E) or ran and could not run a gate in the fresh tree (H)"
+}
+
+# =============================================================================
 # CASE — the branch is checked out in a SECOND WORKTREE. This is the field
 # condition: a landing run from a linked worktree that holds the branch, where
 # the local delete correctly SKIPS — and the board note still claimed it. The
@@ -14207,6 +14535,8 @@ CASES=(
   case_progress_record_is_one_shape_and_optional
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
+  case_finish_pr_post_merge_reads_the_landed_trunk
+  case_finish_pr_post_merge_moves_the_gate_checkout
   case_finish_pr_second_worktree
   case_finish_pr_remote_delete_refused
   case_finish_pr_remote_delete_resurrected

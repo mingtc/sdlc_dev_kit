@@ -375,11 +375,16 @@ handoff — forge-agnostic pure git; there is no PR/MR object to record).
 
 - **Mechanical post-merge check.** The manual "run the full gate runner before EVERY merge"
   rule is RETIRED, but the merge is NOT ungated: `finish-pr.sh` runs the project's **quick**
-  gate BEFORE the merge and REFUSES to merge on a red result, then runs it again after the
-  merge and SURFACES that PASS/FAIL (the post-merge reading is non-blocking — a red result is
-  printed, never swallowed, but does not gate a merge that already landed). The hard-won lesson (a
-  close-out that merged on a partial check and left the trunk's test gate red across two
-  merges) is now caught mechanically instead of by discipline. Still: **if the post-merge check
+  gate BEFORE the merge and REFUSES to merge on a red result, then runs it again **at the landed
+  commit** after the merge and SURFACES that PASS/FAIL, naming the commit it read — or
+  UNRUNNABLE when nothing about the trunk could be measured (the post-merge reading is non-blocking — a
+  red result is printed, never swallowed, but does not gate a merge that already landed). The
+  hard-won lesson (a close-out that merged on a partial check and left the trunk's test gate red
+  across two merges) is caught mechanically instead of by discipline — **but only by a line that
+  names a trunk commit.** An earlier version of this check read the gate checkout where it stood,
+  which under `--worktree` or a detached checkout was the pre-merge branch tip, and printed PASS
+  naming the trunk over a red one — while this bullet called the lesson caught. So read the
+  commit on the line, and treat an UNRUNNABLE as no reading. Still: **if the post-merge check
   shows the trunk is red, fix it ON the trunk — do not park the fix.** When PARKING an issue,
   check whether its branch carries a trunk-gate fix that must be hotfixed onto the trunk rather
   than parked with it.

@@ -24,7 +24,14 @@ release notes are whatever your `scripts/release.sh` declares in its `RELEASE_DO
 
 **There is no updater, and that is deliberate.** The kit is *copied* into your repository on day
 one and becomes yours — your adapter, your role set, your gates. An automated overwrite would
-discard exactly the local hardening the kit tells you to do. So an upgrade is a read, not a run:
+discard exactly the local hardening the kit tells you to do. So an upgrade is a read, not a run.
+
+**First, how does a newer version reach you, and whose job is that?** The party who gave you the
+kit sends you the next zip; if nobody gave it to you, nobody will, and checking for one is yours to
+schedule. Write down which — and, if it is yours, on what trigger — in
+[`PROJECT.md`](../PROJECT.md) § The kit, upstream.
+
+Once you hold a newer release:
 
 1. Read every version entry below that is newer than your [`KIT-VERSION`](KIT-VERSION).
 2. Apply the **Action required** items — those are the only ones that can break you.
@@ -260,6 +267,37 @@ columns and never the cards.*
 ---
 
 ## [Unreleased]
+
+### Action required
+
+- **`finish-pr.sh`'s post-merge check usually read the branch you had just landed, not the trunk —
+  and printed `POST_MERGE_GATE: PASS` naming your trunk.** It ran the gate in the checkout that had
+  passed the pre-merge gate, which is required to sit at the branch tip, and nothing moved it after
+  the merge. It read the trunk only when the landing switched that checkout there.
+  It now reads the **landed commit** in every posture, and its human line names the commit it read.
+
+  **What to do:**
+  1. **Re-check any PASS recorded before this version.** A pre-fix `POST_MERGE_GATE: PASS` was a
+     reading of the trunk **only if the same run also printed `Switched the main checkout to
+     <trunk>` and its `post-merge verify --quick: PASS` line names your main checkout's path.**
+     For every other PASS — `--worktree`, a detached checkout, a checkout on another branch name,
+     the trunk held by another worktree, a checkout with uncommitted changes — run
+     `./scripts/verify.sh` on your trunk once.
+  2. **An automation keyed on `POST_MERGE_GATE:` must handle a third word, `UNRUNNABLE`**: nothing
+     about the trunk was measured (no tree could be read, its gate is not executable, or the gate
+     ran and its summary counts only gates that could not run). Treat it as no reading — never as a
+     pass, and not as a red trunk. The exit code is unchanged.
+  3. **The human line changed** to `post-merge verify --quick: PASS|FAIL on <trunk> at <sha> (… in
+     <tree> — <how it got there>)`. Anything parsing the old sentence must be updated; the machine
+     line is still one bare word.
+  4. **Your checkout may be moved, conditionally, and the run says so.** Already on the trunk and
+     containing the landing: not moved. Clean: **detached at the landed commit and left there** —
+     including the worktree you passed to `--worktree`; check a branch out before working in it.
+     Uncommitted tracked changes: not moved; a temporary worktree is read and removed instead.
+  5. **A red in any post-merge reading is now COULD NOT RUN** when the gate's own summary shows
+     it was environmental (gates that could not run, none that failed) — previously it would have
+     been a FAIL.
+  6. If you carry an edited copy of `scripts/finish-pr.sh`, port its post-merge block by hand.
 
 ### Added
 

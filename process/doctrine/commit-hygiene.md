@@ -220,12 +220,19 @@ law is the compensator set, measured in practice rather than reasoned out:
 
 1. **After any landing that touched the trunk lane, the actor re-runs the gate ON THE TRUNK and
    quotes both lanes separately.** One exit code cannot speak for two lanes.
-2. **The lander's post-merge check is a DETECTOR, never a gate**, and it names the ref it read. A
-   tool that *reads* as a gate while being advisory is the false-assurance shape. *(The reference
-   implementation already behaves this way — its landing script runs the tracked gate after the
-   merge, reports the result on a fixed machine-readable line, and deliberately does not let that
-   result move its own exit code. [`../contracts/landing-gate.md`](../contracts/landing-gate.md) is
-   where a project states it as an invariant rather than leaving it to the implementation.)*
+2. **The lander's post-merge check is a DETECTOR, never a gate**, it reads the **landed commit**, and
+   it names the ref and the commit it read. A tool that *reads* as a gate while being advisory is the
+   false-assurance shape. *(The reference implementation behaves this way — its landing script runs
+   the tracked gate at the landed commit after the merge, names the commit it read, reports the
+   result on a fixed machine-readable line, and deliberately does not let that result move its own
+   exit code. **It did not always read the landed commit**, and this parenthesis once said it already
+   behaved this way: it ran the gate in whichever checkout had passed the pre-merge gate, which in
+   most accepted postures was still at the pre-merge branch tip, and printed a green naming the
+   trunk. That is the "true verdict about the wrong unit" the paragraph above warns of, built by the
+   kit itself — so compensator 1 is not made redundant by this one: a hand reading of the merged
+   trunk is what exposed it.
+   [`../contracts/landing-gate.md`](../contracts/landing-gate.md) is where a project states it as an
+   invariant rather than leaving it to the implementation.)*
 3. **A trunk-lane commit is followed by the trunk gate at the pushed tip before the act is declared
    done** — including the coordinating seat's own commits, which are the ones most likely to skip
    it, because nobody reviews the coordinator.

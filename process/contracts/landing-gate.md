@@ -97,14 +97,29 @@ and itself in one vocabulary ([`../doctrine/instruments.md`](../doctrine/instrum
 Report it on its own line, in a form a machine can key on.
 
 **That run is a DETECTOR, never a gate — and for a coupled change it is the only reading that can
-finish the proof.** It cannot abort a merge that has already happened, so a tool that *reads* as a
-gate while being advisory is the false-assurance shape; that is why its result gets its own line and
-does not move this operation's status. Two obligations follow, and the second is why the run is worth
-having at all:
+finish the proof, provided it reads the trunk.** It cannot abort a merge that has already happened,
+so a tool that *reads* as a gate while being advisory is the false-assurance shape; that is why its
+result gets its own line and does not move this operation's status. The obligations follow, and the
+last is why the run is worth having at all:
 
-- **It names the ref it read** — on the clearing branch as much as on the complaining one. A
-  post-landing *green* that does not say which trunk it read is read as covering whichever trunk the
-  reader had in mind ([`../doctrine/instruments.md`](../doctrine/instruments.md) § A.4).
+- **It reads the landed commit** — not whichever checkout ran the landing re-check. § 2 binds that
+  checkout to the **branch tip**, which is right before the merge and wrong after it: a post-merge run
+  that reads it where it stands reads the branch, and its green is about a tree that did not ship.
+  *Why this is stated rather than assumed:* the reference implementation did exactly that unless the
+  landing happened to switch that checkout to the trunk, and printed a green naming the trunk over a
+  trunk that was red; reviewers who checked the merged trunk by hand were the only thing that caught
+  it. *"The landed commit"* means its **tracked** content: a reading taken in a prepared checkout
+  carries that checkout's untracked and ignored files — its installed dependencies — and they are
+  part of what was read. **If it cannot read the landed commit, it says so in its own word** —
+  neither green nor red, because neither was measured ([verify-gate.md](verify-gate.md) § 3's
+  UNRUNNABLE, applied to the reading as a whole, and to a run whose own summary counts only gates
+  that could not run).
+- **It names the ref and the commit it read** — on the clearing branch as much as on the complaining
+  one. A post-landing *green* that does not say which trunk it read is read as covering whichever
+  trunk the reader had in mind ([`../doctrine/instruments.md`](../doctrine/instruments.md) § A.4).
+  *The ref alone was not enough:* a line naming the trunk while having read the branch looks exactly
+  like a line that read the trunk. A commit identifier is what makes the wrong unit visible on the
+  line that claims it.
 - **Where the landed change's operands straddled the two commit lanes, this run IS the proof.** The
   branch could only ever demonstrate ALL-NEW on one lane, and the trunk was **expected** to be
   ALL-OLD until the merge — so nothing before this moment could show that all of it landed together.

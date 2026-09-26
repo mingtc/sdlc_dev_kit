@@ -534,7 +534,9 @@ states what no mechanism can do about it once the two have been split.
 
 ### The kanban worktree (load-bearing)
 
-`move-issue.sh` / `finish-pr.sh` / `subtask.sh` never hijack your checkout. All kanban version-
+`move-issue.sh` / `finish-pr.sh` / `subtask.sh` never commit in your checkout (`finish-pr.sh` does
+move one, and says so: it switches a clean checkout on the landed branch to the trunk, and detaches
+its gate checkout to the landed commit for the post-merge reading — see its header). All kanban version-
 control ops run inside a **standing detached worktree pinned to the trunk** (`.kanban-wt/`,
 gitignored, auto-bootstrapped, lock-serialized, and it fast-forwards your main checkout when that
 sits clean on the trunk). This is what lets a board move commit to the trunk **while your working

@@ -48,13 +48,25 @@
 # TRUNK, not about this landing: all four of the contract's green facts happened. A
 # script that exited non-zero for it would be reporting on its subject and on itself
 # in one code (process/doctrine/instruments.md § A.9). It is reported instead on a
-# machine-greppable line — `POST_MERGE_GATE: PASS|FAIL` — so an automation that
-# cares can key on that without confusing it for a failed landing.
+# machine-greppable line — `POST_MERGE_GATE: PASS|FAIL|UNRUNNABLE` — so an automation
+# that cares can key on that without confusing it for a failed landing. UNRUNNABLE is
+# the third word because "nothing could be read" is neither of the other two: a FAIL
+# asserts the trunk is red and a PASS that it is green, and neither was measured.
+# The reading is of the LANDED COMMIT, in every posture the pre-merge gate accepts,
+# and its human line names the sha it read — see the post-merge block at the end.
 #
 # All trunk git ops happen inside the standing detached `.kanban-wt/` worktree
-# (see scripts/lib/kanban-worktree.sh), which is pinned to the trunk, so the
-# operator's main checkout is never hijacked; if it is sitting clean on the trunk
-# it gets fast-forwarded so the board view stays live.
+# (see scripts/lib/kanban-worktree.sh), which is pinned to the trunk, so no
+# COMMIT is ever made in the operator's checkout; if it is sitting clean on the
+# trunk it gets fast-forwarded so the board view stays live. BUT TWO STEPS DO MOVE
+# A CHECKOUT, and each says so when it does — this paragraph once said the main
+# checkout was never hijacked, and that was false before either of them was named:
+#   1. a main checkout sitting clean ON THE BRANCH BY NAME is switched to the trunk
+#      before the branch is deleted ("Switched the main checkout to <trunk>");
+#   2. after the landing, the post-merge reading DETACHES THE GATE CHECKOUT (the main
+#      one, or --worktree's) to the landed commit — unless it is already on the trunk
+#      containing it (no move), or has uncommitted tracked changes (not moved; a
+#      fresh worktree is read instead). See the post-merge block at the end.
 #
 # Equivalent to running by hand:
 #   git -C .kanban-wt merge --squash feature/<ID>-<slug>
@@ -92,6 +104,11 @@
 #   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD) now exists ONLY for the
 #   sandbox self-test and is refused on the production path unless
 #   FINISH_PR_TEST_ALLOW_STUB=1 (set only by scripts/test/run.sh).
+#   AFTER THE LANDING, THAT WORKTREE IS DETACHED AT THE LANDED COMMIT and the
+#   post-merge check reads the trunk there; it is left detached, and the run says so.
+#   (If it has uncommitted tracked changes it is not moved, and a fresh worktree is
+#   read instead.) Before this, the post-merge check read it where it stood — at the
+#   branch tip — and printed a PASS naming the trunk.
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
 #
@@ -319,6 +336,10 @@ fi
 #    checkout of some other revision, of which the trunk is the common case and the
 #    measured one. QA has two conforming postures — check the branch out, or point
 #    --worktree at a worktree that has it — and the refusal names both.
+#    THAT IS THE PRE-MERGE TREE, AND ONLY THE PRE-MERGE TREE. Binding this checkout
+#    to the branch tip is right for the gate that runs before the merge and was wrong
+#    for the one after it, which read the same checkout without moving it; the
+#    post-merge block at the end now re-points its reading at the landed commit.
 #
 #    WHY HERE and not with the other preflight refusals: this check's operand is
 #    the issue's `branch:`, which is read out of the kanban worktree, so it cannot
@@ -364,6 +385,9 @@ if [ "$ALLOW_STUB" != "true" ]; then
         echo "    • check the branch out here:   git -C '$MAIN_ROOT' checkout '$BRANCH'"
         echo "    • or gate against a worktree that has it:"
         echo "        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>"
+        echo "  Either way, the post-merge check then reads ${DEFAULT_BRANCH} at the landed commit: the gate"
+        echo "  checkout is switched to ${DEFAULT_BRANCH} or DETACHED there, and one with uncommitted"
+        echo "  changes is left alone while a fresh worktree is read instead."
       fi
     } >&2
     exit 1
@@ -710,15 +734,138 @@ fi
 # never a caller command; the FINISH_PR_VERIFY_CMD stub is honored only behind
 # FINISH_PR_TEST_ALLOW_STUB (validated at the top, so a production caller that set
 # it has already been refused before any merge happened).
+#
+# ── WHICH TREE IT READS, AND WHY THAT IS CHOSEN HERE RATHER THAN ASSUMED.
+#    This check used to run "$GATE_WORKTREE/scripts/verify.sh" where it stood — and
+#    the gate-provenance block above REQUIRES that checkout to sit at the BRANCH TIP,
+#    and nothing after the landing moved it. So under --worktree, and on the default
+#    path with the main checkout detached at the tip, the "post-merge" reading was of
+#    the PRE-merge branch, and it printed `PASS on <trunk>` and `POST_MERGE_GATE: PASS`
+#    over a trunk that was red. Measured in a project running the kit: its reviewers
+#    checked the merged trunk by hand, and the one automated check of the trunk after
+#    each landing had been reading a different tree. Only the main checkout on the
+#    branch BY NAME and clean, when the switch succeeded, ever read the trunk, because
+#    the landing switches that one checkout to the trunk before deleting the branch —
+#    and the switch fails when the trunk is checked out in another worktree.
+#
+#    So the tree is now chosen, in this order, and the line below names the SHA read:
+#      1. the gate checkout is ON <trunk> by name, clean, and already contains the
+#         landed commit — read it where it stands (the by-name default path, when the
+#         landing's switch to <trunk> succeeded);
+#      2. otherwise, if it is clean, DETACH IT TO THE LANDED COMMIT and read it there.
+#         It was fit to run the gate a minute ago and its installed dependencies
+#         survive a detach, so the reading meets the environment the pre-merge run
+#         did. It is left there, and the output says so;
+#      3. only if it has uncommitted tracked changes (or the detach is refused), read a
+#         FRESH detached worktree at the landed commit, then remove it. A fresh tree
+#         has none of this checkout's installed dependencies, and the output says that
+#         too, because a red there may be the environment's rather than the trunk's;
+#      4. if no tree can be produced, or its gate is missing or not executable, the
+#         reading COULD NOT RUN — reported in its own word, never as PASS and never as
+#         FAIL (contracts/verify-gate.md § 3: an unrunnable check is an unknown). The
+#         same holds when the gate RAN and its own summary line counts gates that
+#         could not run and none that failed: verify.sh exits 1 for both, so the
+#         exit status cannot tell them apart and the summary is read instead.
+#    "THE LANDED COMMIT" MEANS ITS TRACKED CONTENT. Untracked and ignored files in a
+#    detached or in-place checkout — installed dependencies are the point — are carried
+#    along and are part of the reading; that is the trade the detach makes on purpose.
+#    EVERY STEP BELOW IS SAFE UNDER `set -e`: the landing has happened, so nothing here
+#    may abort before the EXIT line — each fallible command sits in a condition or ends
+#    in `|| true`, and what it failed to do is printed instead.
+#    The operand is KWT_LANDED_SHA — set by the library only after the push is read
+#    back as an ancestor of <remote>/<trunk> — never the kanban worktree's HEAD, which
+#    the board advance above has since moved.
 echo ""
 echo "Post-merge mechanical check (surfaced, not blocking):"
+PM_TREE=""; PM_HOW=""; PM_FRESH_DIR=""; PM_UNRUNNABLE=""; _pm_sum=""; _pm_failed=""
+_pm_landed=""
+[ -n "${KWT_LANDED_SHA:-}" ] \
+  && _pm_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_LANDED_SHA}^{commit}" 2>/dev/null || true)"
+_pm_clean() { git -C "$1" diff --quiet 2>/dev/null && git -C "$1" diff --cached --quiet 2>/dev/null; }
+if [ -z "$_pm_landed" ]; then
+  PM_UNRUNNABLE="the landed commit is not known (no published sha was read back), so there is no revision to read"
+else
+  _pm_head="$(git -C "$GATE_WORKTREE" rev-parse HEAD 2>/dev/null || true)"
+  _pm_ref="$(git -C "$GATE_WORKTREE" symbolic-ref -q --short HEAD 2>/dev/null || true)"
+  _pm_was="${_pm_ref:-a detached HEAD at ${_pm_head:0:9}}"
+  _pm_why=""
+  if [ "$_pm_ref" = "$DEFAULT_BRANCH" ] && _pm_clean "$GATE_WORKTREE" \
+     && git -C "$GATE_WORKTREE" merge-base --is-ancestor "$_pm_landed" "$_pm_head" 2>/dev/null; then
+    PM_TREE="$GATE_WORKTREE"
+    PM_HOW="the gate checkout, already on ${DEFAULT_BRANCH} and containing the landed commit"
+  elif ! _pm_clean "$GATE_WORKTREE"; then
+    _pm_why="has uncommitted tracked changes"
+  elif _pm_det_err="$(git -C "$GATE_WORKTREE" checkout --detach --quiet "$_pm_landed" 2>&1)"; then
+    PM_TREE="$GATE_WORKTREE"
+    PM_HOW="the gate checkout, detached to the landed commit"
+    echo "  Detached the gate checkout '${GATE_WORKTREE}' at the landed commit ${KWT_LANDED_SHA} (it was on ${_pm_was}),"
+    echo "  so this reading is of ${DEFAULT_BRANCH}, not of the branch. It is left there. Tracked content is the"
+    echo "  landed commit's; untracked and ignored files in it (installed dependencies) are part of the reading."
+    # THE BOARD NOTE SAID "KEPT", AND IT WAS TRUE WHEN IT WAS WRITTEN. The delete arm above
+    # skipped the local branch because this checkout held it; after the detach nothing may.
+    if [ "$_pm_ref" = "$BRANCH" ] && [ "$LOCAL_DELETE_STATE" = "worktree-held" ] \
+       && ! git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch refs/heads/$BRANCH" >/dev/null; then
+      echo "  '${BRANCH}' is no longer checked out anywhere — the board note above says KEPT because it was,"
+      echo "  until this detach. It is merged; delete it now: git -C '${MAIN_ROOT}' branch -D '${BRANCH}'"
+    fi
+  else
+    _pm_nl=$'\n'
+    _pm_why="refused the detach (git said: ${_pm_det_err%%"$_pm_nl"*})"
+  fi
+  if [ -n "$_pm_why" ]; then
+    echo "  The gate checkout '${GATE_WORKTREE}' ${_pm_why}, so it is NOT moved;"
+    echo "  reading ${DEFAULT_BRANCH} at ${KWT_LANDED_SHA} in a FRESH worktree instead."
+    _pm_tmp="${TMPDIR:-/tmp}"; _pm_tmp="${_pm_tmp%/}"
+    if PM_FRESH_DIR="$(mktemp -d "${_pm_tmp}/finish-pr-postmerge.XXXXXX" 2>/dev/null)" \
+       && git -C "$MAIN_ROOT" worktree add --detach --quiet "$PM_FRESH_DIR/tree" "$_pm_landed" >/dev/null 2>&1; then
+      PM_TREE="$PM_FRESH_DIR/tree"
+      PM_HOW="a FRESH worktree at the landed commit — it has none of your checkout's installed dependencies"
+    else
+      PM_UNRUNNABLE="the gate checkout could not be moved and no fresh worktree could be made at ${KWT_LANDED_SHA}"
+    fi
+  fi
+fi
+PM_READ=""
+[ -n "$PM_TREE" ] && PM_READ="$(git -C "$PM_TREE" rev-parse --short HEAD 2>/dev/null || true)"
+if [ -z "$PM_UNRUNNABLE" ] && [ -n "$PM_TREE" ] && ! { [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; } \
+   && [ ! -x "$PM_TREE/scripts/verify.sh" ]; then
+  PM_UNRUNNABLE="${DEFAULT_BRANCH}'s scripts/verify.sh at ${PM_READ:-?} is missing or not executable"
+fi
 if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   POSTMERGE_CMD=(${FINISH_PR_VERIFY_CMD})
 else
-  POSTMERGE_CMD=("$GATE_WORKTREE/scripts/verify.sh" --quick)
+  POSTMERGE_CMD=("$PM_TREE/scripts/verify.sh" --quick)
 fi
-if "${POSTMERGE_CMD[@]}"; then
+_pm_rc=""
+if [ -z "$PM_UNRUNNABLE" ]; then
+  # CAPTURED, THEN PRINTED, so the gate's own summary can be read below. In a condition,
+  # so a red cannot trip `set -e`.
+  if _pm_out="$( ( cd "$PM_TREE" && "${POSTMERGE_CMD[@]}" ) 2>&1 )"; then _pm_rc=0; else _pm_rc=$?; fi
+  printf '%s\n' "$_pm_out"
+  # verify.sh's summary line: `gates declared: … · failed: <n> · could not run: <m> · …`.
+  # Read the LAST such line only; a gate runner that prints none leaves both empty, and
+  # a non-zero exit is then taken at its word as FAIL.
+  # KNOWN LIMIT, ACCEPTED: the line is trusted by its shape. A project gate runner that
+  # is not the kit's, and ECHOES a sub-runner's `failed: 0 · could not run: <m>` before
+  # a real red of its own, is read as UNRUNNABLE and told "nothing was measured" — false.
+  # It errs toward NO READING, never toward PASS. The robust fix is an exit status
+  # verify.sh gives the two outcomes, which this block should read instead once it exists.
+  _pm_sum="$(printf '%s\n' "$_pm_out" | grep '^gates declared:' | tail -n 1 || true)"
+  _pm_failed="$(printf '%s' "$_pm_sum" | sed -n 's/.*failed: \([0-9][0-9]*\).*/\1/p')"
+  _pm_cnr="$(printf '%s' "$_pm_sum" | sed -n 's/.*could not run: \([0-9][0-9]*\).*/\1/p')"
+  if [ "$_pm_rc" -ne 0 ] && [ "${_pm_failed:-x}" = "0" ] && [ "${_pm_cnr:-0}" -gt 0 ] 2>/dev/null; then
+    PM_UNRUNNABLE="the gate ran at ${PM_READ:-?} in ${PM_TREE} and its summary counts ${_pm_cnr} gate(s) that could not run and none that failed"
+  fi
+fi
+if [ -n "$PM_UNRUNNABLE" ]; then
+  # NEITHER WORD OF THE PAIR. A FAIL asserts the trunk is red, and nothing measured it;
+  # a PASS is the lie this block was rewritten to stop telling.
+  echo "  post-merge verify --quick: COULD NOT RUN — ${PM_UNRUNNABLE}." >&2
+  echo "  NOTHING about ${DEFAULT_BRANCH} was measured. This is not a PASS and not a FAIL: run the gate on" >&2
+  echo "  ${DEFAULT_BRANCH}${KWT_LANDED_SHA:+ at ${KWT_LANDED_SHA}} in a prepared checkout before calling the landing checked." >&2
+  echo "POST_MERGE_GATE: UNRUNNABLE"
+elif [ "$_pm_rc" -eq 0 ]; then
   # NAMES THE REF ON THE CLEARING BRANCH TOO. The FAIL sibling below names
   # ${DEFAULT_BRANCH} twice; this line named nothing, so the two halves of one gate
   # were specific in failure and vague in success — the asymmetry that errs only ever
@@ -726,17 +873,51 @@ if "${POSTMERGE_CMD[@]}"; then
   # contracts/landing-gate.md § 4 states it: "it names the ref it read — on the
   # clearing branch as much as on the complaining one."
   # The POST_MERGE_GATE: lines below are a MACHINE CONTRACT and are symmetric BY
-  # DESIGN — one fixed prefix, one of two words. They are deliberately NOT changed:
-  # an automation keys on the token, and a ref belongs in the human sentence.
-  echo "  post-merge verify --quick: PASS on ${DEFAULT_BRANCH} (post-merge, in ${GATE_WORKTREE})"
+  # DESIGN — one fixed prefix, one bare word (PASS, FAIL, or UNRUNNABLE above). No
+  # ref or sha is ever appended to them: an automation keys on the token, and a ref
+  # belongs in the human sentence.
+  #
+  # AND NOW THE SHA, NOT ONLY THE REF. A ref names whichever commit the reader has in
+  # mind; the sha names the one that was read — which is how a PASS "on <trunk>" that
+  # had read the branch tip would have been visible on the line that claimed it.
+  echo "  post-merge verify --quick: PASS on ${DEFAULT_BRANCH} at ${PM_READ:-?} (post-merge, in ${PM_TREE} — ${PM_HOW})"
   # THE MACHINE-GREPPABLE LINE. A human reads the sentence above; an automation
   # needs a token it can key on without parsing prose, because this outcome
   # deliberately does NOT move the exit code (see the header's exit table). One
-  # fixed prefix, one of two words, on stdout, always printed.
+  # fixed prefix, one word — PASS, FAIL, or UNRUNNABLE when nothing could be read —
+  # on stdout, always printed.
   echo "POST_MERGE_GATE: PASS"
 else
-  echo "  post-merge verify --quick: FAIL — ${DEFAULT_BRANCH} may be red; fix it ON ${DEFAULT_BRANCH}, do not park it." >&2
+  echo "  post-merge verify --quick: FAIL on ${DEFAULT_BRANCH} at ${PM_READ:-?} (in ${PM_TREE} — ${PM_HOW}) — ${DEFAULT_BRANCH} may be red; fix it ON ${DEFAULT_BRANCH}, do not park it." >&2
+  if [ -n "$PM_FRESH_DIR" ] && [ -z "$_pm_sum" ]; then
+    echo "  That reading was taken in a FRESH worktree without your installed dependencies, and the gate's" >&2
+    echo "  output carried no summary that could separate a failure from a gate that could not run: re-run" >&2
+    echo "  it on ${DEFAULT_BRANCH} at ${PM_READ:-?} in a prepared checkout before acting on it." >&2
+  elif [ -n "$PM_FRESH_DIR" ]; then
+    echo "  That reading was taken in a FRESH worktree without your installed dependencies. The gate counted" >&2
+    echo "  ${_pm_failed:-?} failure(s), not gates that could not run — but a check that needs a dependency can FAIL" >&2
+    echo "  rather than refuse, so confirm on ${DEFAULT_BRANCH} at ${PM_READ:-?} in a prepared checkout." >&2
+  fi
   echo "POST_MERGE_GATE: FAIL"
+fi
+# THE FRESH TREE IS REMOVED, never left for somebody to mistake for a working checkout
+# — and if it cannot be, that is SAID, not swallowed. Every command here is guarded:
+# this runs after the landing, and a bare `[ … ] && git worktree remove` that failed as
+# the last command of its list once aborted the script under `set -e` (a gate that left
+# a read-only directory behind), exiting 255 with no EXIT line and the tree still there.
+if [ -n "$PM_FRESH_DIR" ]; then
+  chmod -R u+w "$PM_FRESH_DIR" 2>/dev/null || true
+  if [ -n "$PM_TREE" ]; then git -C "$MAIN_ROOT" worktree remove --force "$PM_TREE" >/dev/null 2>&1 || true; fi
+  rm -rf "$PM_FRESH_DIR" 2>/dev/null || true
+  git -C "$MAIN_ROOT" worktree prune >/dev/null 2>&1 || true
+  if [ -e "$PM_FRESH_DIR" ]; then
+    {
+      echo "WARNING: the fresh post-merge worktree could NOT be removed and is still on disk:"
+      echo "           ${PM_FRESH_DIR}"
+      echo "         It is a throwaway reading of ${DEFAULT_BRANCH}, not a working checkout. Remove it with:"
+      echo "           chmod -R u+w '${PM_FRESH_DIR}' && rm -rf '${PM_FRESH_DIR}' && git -C '${MAIN_ROOT}' worktree prune"
+    } >&2
+  fi
 fi
 
 # ── THE EXIT. Last statement in the file, so nothing can run after it and quietly
