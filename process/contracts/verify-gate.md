@@ -111,7 +111,12 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   absent) ⇒ **red**, never skipped-and-passed. An unrunnable check is an unknown, and an unknown
   is not a pass — **and it is reported as UNRUNNABLE, in its own word, distinctly from a
   check that ran and failed.** Both are red; they are not the same fact, and the summary's
-  counts separate them.
+  counts separate them — **and so does the exit status, for a caller that reads only that**: a
+  measured failure and an unrunnable-only red get different non-zero values, the failure
+  dominating when both happen.
+  *Why the status too:* a caller that reads the status and not the summary — a landing script, a
+  release gate — otherwise has two choices, both bad: call every red a failure, or parse the
+  summary's prose and trust a line any check could have printed.
   *Why:* the pass direction is only half of this. A runner that spells "could not start" with the
   same word it uses for "your tree is broken" is reporting on **itself** in the vocabulary reserved
   for its **subject** — so the reader goes to debug a tree that may be perfectly healthy, and the
@@ -140,7 +145,8 @@ additionally names the subset it was given, so its output can never be mistaken 
 
 **In:** the repository tree; optionally a caller-named subset (inner loop only).
 **Out:** a per-check verdict, the count of checks run, one overall verdict, and a process exit
-status that is non-zero for red — so a human and a machine read the same result.
+status that is non-zero for red — so a human and a machine read the same result — and that differs
+between a red with a measured failure and a red where nothing failed but a check could not run (§ 3).
 **Not in:** the check definitions themselves. Which checks exist is the project's law; *that
 there is one runner, one order and one summary* is the contract.
 
@@ -152,6 +158,10 @@ there is one runner, one order and one summary* is the contract.
   runner, fixed order, one summary block, the narrowed mode with its unskippable floor). The
   concrete checks it runs, and the membership of the always-on floor, are the project's law and
   travel with nothing.
+- **Its exit status:** `0` green; `1` at least one check failed (whatever else happened); `2` the
+  runner refused to run its table (empty or malformed, or an unknown argument); `3` nothing failed
+  and at least one check could not run. `3` is new beside the other three, and `1` keeps its
+  meaning, so a caller that asks only "zero or not" reads it exactly as before.
 - The kit's copy keeps the two halves apart: the gate set is a **declared table** near the top of
   the runner, and the floor's membership is a commented, readable list beside it — **with a
   second, also-empty seam next to it naming how this project ENUMERATES its guards as that command

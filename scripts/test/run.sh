@@ -2523,6 +2523,46 @@ case_finish_pr_premerge_red() {
 }
 
 # =============================================================================
+# CASE — a pre-merge gate that COULD NOT RUN refuses as firmly as a failing one, and
+#        is NAMED as what it is.
+#
+# The gate runner exits 3 when nothing failed and a gate never executed. The landing
+# refuses on any red; what changed is the message: "FAILED — fix the branch" sent the
+# reader to a branch nothing had measured. Driven through the test-only command seam
+# with a gate that exits 3, and a gate that exits 1 as the control.
+# =============================================================================
+case_finish_pr_premerge_names_an_unrunnable_gate() {
+  cf_reset
+  local out rc
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-785" sandbox chore "Pre-merge unrunnable" "feature/$SB_PREFIX-785-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-785" work CHANGE.txt
+  printf '#!/usr/bin/env bash\nexit 3\n' > "$SB_TMP/gate-exit-3"; chmod +x "$SB_TMP/gate-exit-3"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_TMP/gate-exit-1"; chmod +x "$SB_TMP/gate-exit-1"
+
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-exit-3" \
+            "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-785" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(3) a pre-merge gate that could not run did not refuse the landing: $out"
+  printf '%s\n' "$out" | grep 'pre-merge gate COULD NOT RUN' >/dev/null \
+    || cf "(3) the refusal does not say the gate COULD NOT RUN: $(printf '%s' "$out" | grep -i 'pre-merge' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep 'pre-merge gate FAILED' >/dev/null \
+    && cf "(3) a gate that never executed was reported as FAILED"
+  assert_landing_untouched "(3)" "$SB_PREFIX-785" sandbox "feature/$SB_PREFIX-785-work" CHANGE.txt
+
+  # CONTROL: a failing gate is still FAILED.
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-exit-1" \
+            "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-785" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(1) a failing pre-merge gate did not refuse the landing: $out"
+  printf '%s\n' "$out" | grep 'pre-merge gate FAILED' >/dev/null \
+    || cf "(control) a failing pre-merge gate is no longer reported as FAILED: $(printf '%s' "$out" | grep -i 'pre-merge' | tr '\n' '|')"
+  assert_landing_untouched "(1)" "$SB_PREFIX-785" sandbox "feature/$SB_PREFIX-785-work" CHANGE.txt
+
+  finish "finish-pr.sh: a pre-merge gate that exits 3 (could not run) refuses naming COULD NOT RUN, never FAILED; exit 1 is still FAILED; neither lands anything"
+  teardown
+}
+
+# =============================================================================
 # CASE — an EMPTY merge aborts. (An earlier version fell through to branch
 # deletion + advance, destroying a mistyped branch with no landed code.)
 # =============================================================================
@@ -6439,6 +6479,44 @@ case_verify_unrunnable_vs_fail() {
   fi
 
   finish "verify.sh: UNRUNNABLE is reported for rc=127 and is NOT also FAIL, a real failure is still FAIL and NOT unrunnable, and the count line's 'ran' EXCLUDES the gate that never executed"
+  teardown
+}
+
+# =============================================================================
+# CASE — verify.sh's EXIT STATUS SEPARATES THE TWO REDS, as its summary does.
+#
+# It printed UNRUNNABLE and FAIL on different lines and counted them apart, then exited 1
+# for both — so every caller that reads the status (the landing script's post-merge check
+# is one) could not tell "your tree is broken" from "this gate could not start" without
+# parsing the summary's prose. The status now says it too:
+#   0  every gate that ran passed and none was unrunnable;
+#   1  at least one gate FAILED — whatever else happened (a measured failure dominates);
+#   3  nothing failed, and at least one gate COULD NOT RUN — an unknown, still red.
+# (2 stays the runner's own refusal: an empty or malformed table, an unknown argument.)
+# THE FOUR ROWS ARE THE PRECEDENCE, and each holds the summary beside the status, so a
+# status that moved without its count line — or the reverse — reddens.
+# =============================================================================
+case_verify_exit_status_separates_the_reds() {
+  cf_reset
+  make_sandbox
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/failing-gate"; chmod +x "$SB_WORK/failing-gate"
+  local v="$SB_WORK/scripts/verify.sh" out rc
+  # _vx_row <label> <want rc> <want failed> <want could-not-run> <gate record…>
+  _vx_row() {
+    local L="$1" want="$2" wf="$3" wu="$4"; shift 4
+    _neu_array "$v" GATES
+    local g; for g in "$@"; do _declare_gate "$g"; done
+    rc=0; out="$( cd "$SB_WORK" && "$v" 2>&1 )" || rc=$?
+    [ "$rc" -eq "$want" ] || cf "($L) exit $rc, expected $want: $(printf '%s\n' "$out" | grep -E '^(PASS|FAIL|UNRUNNABLE) |^gates declared:' | tr '\n' '|')"
+    printf '%s\n' "$out" | grep '^gates declared:' | grep "failed: $wf · could not run: $wu " >/dev/null \
+      || cf "($L) the summary does not count failed: $wf and could not run: $wu: $(printf '%s\n' "$out" | grep '^gates declared:')"
+  }
+  _vx_row "none"        0 0 0 'green|core|/bin/echo ok'
+  _vx_row "failed only" 1 1 0 'green|core|/bin/echo ok' 'broken|core|./failing-gate'
+  _vx_row "unrunnable only" 3 0 1 'green|core|/bin/echo ok' 'missing|core|/nonexistent-dir-for-the-harness/interpreter'
+  _vx_row "both — a failure dominates" 1 1 1 'broken|core|./failing-gate' 'missing|core|/nonexistent-dir-for-the-harness/interpreter'
+  unset -f _vx_row
+  finish "verify.sh's exit status separates the two reds: 0 green, 1 when any gate FAILED (it dominates), 3 when nothing failed and a gate COULD NOT RUN — each row agreeing with the summary's counts"
   teardown
 }
 
@@ -14782,6 +14860,7 @@ CASES=(
   case_finish_pr_remote_delete_refused
   case_finish_pr_remote_delete_resurrected
   case_finish_pr_premerge_red
+  case_finish_pr_premerge_names_an_unrunnable_gate
   case_finish_pr_empty_merge
   case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
@@ -14828,6 +14907,7 @@ CASES=(
   case_guard_floor_wholly_empty_shipped_state
   case_verdict_enum_projection
   case_verify_unrunnable_vs_fail
+  case_verify_exit_status_separates_the_reds
   case_check_board_id_clean
   case_check_board_id_duplicate
   case_check_board_id_mismatch

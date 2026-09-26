@@ -373,6 +373,19 @@ columns and never the cards.*
   both `required` lists, `preconditionFailed` / `formedVerdict`, and every review decision routed
   through `formedVerdict`.
 
+- **`scripts/verify.sh` exits `3` — not `1` — when nothing failed but a gate could not run.** A
+  gate whose command never started (a missing interpreter, an uninstalled dependency — exit 126 or
+  127) was counted `could not run` in the summary but made the runner exit `1`, the same as a real
+  failure. Now: `0` green, `1` at least one gate **failed** (it still wins when both happen), `2`
+  the runner refused its table, **`3` nothing failed and at least one gate could not run.**
+  **Action required only if something of yours tests the status for exactly `1`** (for example
+  `[ $? -eq 1 ]`, or a `case` with `1)` as its only red arm): add `3` as a red that means "fix the
+  environment", or treat any non-zero as red. `if ./scripts/verify.sh`, `|| exit`, `set -e` and CI
+  steps need nothing. **If you run your own gate runner instead of the kit's** (you implemented
+  `contracts/verify-gate.md` yourself), § 5 now asks it to give the two reds different non-zero
+  statuses; until it does, `finish-pr.sh` still reads its summary line for an exit `1`, as before.
+  `finish-pr.sh` and `release.sh` now say **COULD NOT RUN** instead of FAILED when the gate exits `3`.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a

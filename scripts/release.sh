@@ -775,8 +775,14 @@ fi
 # first word, and produces a FALSE failure on every run. When the seam is SET, the
 # unquoted expansion still splits a multi-word stub, as intended.
 echo "[b] verify.sh (the project's gate runner)..."
-if ! ${RELEASE_VERIFY_CMD:-"$SCRIPT_DIR/verify.sh"}; then
-  echo "release.sh: verify.sh FAILED — refusing to cut $TAG on a red gate." >&2
+if ${RELEASE_VERIFY_CMD:-"$SCRIPT_DIR/verify.sh"}; then :; else
+  _rel_vrc=$?
+  # Both reds refuse; exit 3 is the one whose cause is the environment, not the tree.
+  if [ "$_rel_vrc" -eq 3 ]; then
+    echo "release.sh: verify.sh COULD NOT RUN a gate (exit 3; none failed) — refusing to cut $TAG on an unmeasured gate." >&2
+  else
+    echo "release.sh: verify.sh FAILED — refusing to cut $TAG on a red gate." >&2
+  fi
   exit 1
 fi
 

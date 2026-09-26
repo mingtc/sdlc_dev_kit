@@ -12,6 +12,13 @@
 #   ./scripts/verify.sh --scope <item…> # the named items PLUS the always-on guard floor
 #   ./scripts/verify.sh --list          # print the declared gates and exit 0
 #
+# EXIT STATUS — the two reds are told apart here as well as in the summary:
+#   0  green: every gate that ran passed, and none could not run
+#   1  RED, MEASURED: at least one gate FAILED (it dominates — whatever else happened)
+#   2  REFUSED: the runner did not run the table (empty or malformed table, unknown argument)
+#   3  RED, UNKNOWN: nothing failed, and at least one gate COULD NOT RUN
+# Anything non-zero is red, so a caller that asks only "green or not" is unaffected.
+#
 # --scope is for the TDD INNER LOOP ONLY. The FULL run stays mandatory at the
 # dev_complete handoff, at QA, and at release — coverage is never cut and the guard
 # floor is never skipped. There is NO flag, env var or argument combination that
@@ -462,7 +469,7 @@ fi
 #    and the script's own exit status is 1 if ANY gate failed. A gate is never
 #    "soft" — if you want a non-blocking check, it does not belong in this table.
 RESULTS=()
-FAILED=0
+FAILED=0            # 1 once any gate is red, of either kind — the progress record's status word reads it (its exit= field reads EXIT_STATUS)
 # THE COUNTS ARE PART OF THE VERDICT, not decoration — `contracts/verify-gate.md`
 # § 2 ("the count of checks executed is part of the output, not an inference from
 # the absence of complaints") and § 4 ("'it passed' with no count is not green; it
@@ -596,6 +603,20 @@ if [ "$SCOPED" -eq 1 ]; then
 fi
 [ "$UNRUNNABLE" -gt 0 ] && echo "NOTE: $UNRUNNABLE gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."
 
+# THE EXIT STATUS SEPARATES THE TWO REDS, as the count line above does. It used to be
+# `exit "$FAILED"` — 1 for both — so a caller reading the status (the landing script's
+# post-merge check is one) could not tell "your tree is broken" from "this gate could not
+# start" without parsing this block's prose, and one that did parse it trusted a line any
+# gate command could have echoed. A measured failure DOMINATES: with both present the tree
+# is known to be red, and 1 says so. Only when nothing failed does an unrunnable gate
+# decide the status, as 3 — still non-zero, because an unknown is not a pass. 1 is kept
+# for the failure so that every caller keying on it keeps working; the new state gets the
+# new number (2 is already this runner's refusal).
+if   [ "$FAILEDN" -gt 0 ];    then EXIT_STATUS=1
+elif [ "$UNRUNNABLE" -gt 0 ]; then EXIT_STATUS=3
+else                               EXIT_STATUS=0
+fi
+
 # THE RUN SUMMARY AS ONE RECORD. Written AFTER the summary block and changing not one
 # line of it: that block's shape is contractual (roles quote it into reviews) and this
 # addition is forbidden from touching it. The counts are the SAME accumulators the
@@ -603,6 +624,6 @@ fi
 kit_progress "verify.sh" "$([ "$FAILED" -eq 0 ] && echo status || echo error)" \
   "run finished — $(( PASSED + FAILEDN )) of ${#GATES[@]} gate(s) ran, $PASSED passed, $FAILEDN failed, $UNRUNNABLE could not run, $SKIPPED skipped" \
   "event=summary" "declared=${#GATES[@]}" "passed=$PASSED" "failed=$FAILEDN" \
-  "unrunnable=$UNRUNNABLE" "skipped=$SKIPPED" "scoped=$SCOPED" "exit=$FAILED"
+  "unrunnable=$UNRUNNABLE" "skipped=$SKIPPED" "scoped=$SCOPED" "exit=$EXIT_STATUS"
 
-exit "$FAILED"
+exit "$EXIT_STATUS"

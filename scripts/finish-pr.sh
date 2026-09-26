@@ -441,10 +441,20 @@ fi
 if "${PREMERGE_CMD[@]}"; then
   echo "  pre-merge verify --quick: PASS"
 else
+  _pre_rc=$?
+  # BOTH REDS REFUSE; THEY ARE NOT NAMED ALIKE. The kit's verify.sh exits 3 when nothing
+  # failed and a gate could not run: an unknown, not a measured failure, and the fix is in
+  # the environment rather than the branch. Any other non-zero status is read as FAIL.
   {
-    echo "Error: pre-merge gate FAILED — refusing to merge '${BRANCH}'."
-    echo "       No squash, no push, no branch deletion, no issue advance."
-    echo "       Fix the branch so the quick gate is green, then re-run finish-pr.sh."
+    if [ "$_pre_rc" -eq 3 ]; then
+      echo "Error: pre-merge gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — refusing to merge '${BRANCH}'."
+      echo "       No squash, no push, no branch deletion, no issue advance."
+      echo "       Nothing about the branch was measured: fix what the gate needs to start (its summary names it), then re-run finish-pr.sh."
+    else
+      echo "Error: pre-merge gate FAILED — refusing to merge '${BRANCH}'."
+      echo "       No squash, no push, no branch deletion, no issue advance."
+      echo "       Fix the branch so the quick gate is green, then re-run finish-pr.sh."
+    fi
   } >&2
   exit 1
 fi
@@ -763,9 +773,10 @@ fi
 #      4. if no tree can be produced, or its gate is missing or not executable, the
 #         reading COULD NOT RUN — reported in its own word, never as PASS and never as
 #         FAIL (contracts/verify-gate.md § 3: an unrunnable check is an unknown). The
-#         same holds when the gate RAN and its own summary line counts gates that
-#         could not run and none that failed: verify.sh exits 1 for both, so the
-#         exit status cannot tell them apart and the summary is read instead.
+#         same holds when the gate RAN and nothing failed but a gate could not run:
+#         verify.sh says so by exiting 3. (It exited 1 for both once, and the summary
+#         line was read to tell them apart; that reading is kept only for a runner
+#         that still exits 1 — see the parse below.)
 #    "THE LANDED COMMIT" MEANS ITS TRACKED CONTENT. Untracked and ignored files in a
 #    detached or in-place checkout — installed dependencies are the point — are carried
 #    along and are part of the reading; that is the trade the detach makes on purpose.
@@ -846,15 +857,21 @@ if [ -z "$PM_UNRUNNABLE" ]; then
   # verify.sh's summary line: `gates declared: … · failed: <n> · could not run: <m> · …`.
   # Read the LAST such line only; a gate runner that prints none leaves both empty, and
   # a non-zero exit is then taken at its word as FAIL.
-  # KNOWN LIMIT, ACCEPTED: the line is trusted by its shape. A project gate runner that
-  # is not the kit's, and ECHOES a sub-runner's `failed: 0 · could not run: <m>` before
-  # a real red of its own, is read as UNRUNNABLE and told "nothing was measured" — false.
-  # It errs toward NO READING, never toward PASS. The robust fix is an exit status
-  # verify.sh gives the two outcomes, which this block should read instead once it exists.
+  # THE EXIT STATUS IS READ FIRST. The kit's verify.sh exits 3 when nothing failed and a gate
+  # could not run, so for it the status alone decides and the summary is not needed. The
+  # summary is still read for a status of 1 — the only red a gate runner that predates the
+  # distinct status (or is not the kit's) can give — and the kit's own runner never pairs 1
+  # with a `failed: 0` count, so this fallback acts only on such runners.
+  # KNOWN LIMIT, NARROWED BUT NOT GONE: on those runners the line is trusted by its shape. One
+  # that ECHOES a sub-runner's `failed: 0 · could not run: <m>` before a real red of its own
+  # is read as UNRUNNABLE and told "nothing was measured" — false. It errs toward NO READING,
+  # never toward PASS.
   _pm_sum="$(printf '%s\n' "$_pm_out" | grep '^gates declared:' | tail -n 1 || true)"
   _pm_failed="$(printf '%s' "$_pm_sum" | sed -n 's/.*failed: \([0-9][0-9]*\).*/\1/p')"
   _pm_cnr="$(printf '%s' "$_pm_sum" | sed -n 's/.*could not run: \([0-9][0-9]*\).*/\1/p')"
-  if [ "$_pm_rc" -ne 0 ] && [ "${_pm_failed:-x}" = "0" ] && [ "${_pm_cnr:-0}" -gt 0 ] 2>/dev/null; then
+  if [ "$_pm_rc" -eq 3 ]; then
+    PM_UNRUNNABLE="the gate ran at ${PM_READ:-?} in ${PM_TREE} and exited 3: nothing failed, and ${_pm_cnr:-at least one} gate(s) could not run"
+  elif [ "$_pm_rc" -eq 1 ] && [ "${_pm_failed:-x}" = "0" ] && [ "${_pm_cnr:-0}" -gt 0 ] 2>/dev/null; then
     PM_UNRUNNABLE="the gate ran at ${PM_READ:-?} in ${PM_TREE} and its summary counts ${_pm_cnr} gate(s) that could not run and none that failed"
   fi
 fi
