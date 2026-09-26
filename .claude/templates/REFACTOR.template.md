@@ -23,6 +23,7 @@ target_module: <short identifier for the area being refactored>
 refactor_pass: dev/refactor/<YYYY-MM-DD>-<scope>-pass.md
 size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it)
 prd: n/a                 # usually n/a for refactor; set if scope ties to a specific PRD
+prd_reason:              # with prd: n/a — ONE line: why no PRD covers this (required, even when obvious)
 stories: []              # usually empty; populate if scope ties to specific stories
 branch: refactor/<PREFIX>-NNN-<slug>
 pr: null   # forge PR/MR reference; stays null on the forge-agnostic path

@@ -22,6 +22,7 @@ title: <one-line summary>
 severity: Critical              # Blocker | Critical | Major | Minor
 environment: <runtime + OS>     # + dependency versions, live-vs-fixture state
 prd: PRD-NNN                    # PRD whose behavior is regressed; n/a if none
+prd_reason:                     # with prd: n/a only — ONE line: why no PRD covers the broken behaviour
 stories: [PRD-NNN-F1-S1]        # specific story whose AC is broken; [] if none
 discovered_in: <PREFIX>-NNN     # the issue whose QA review surfaced this bug
 blocks: []                      # other <PREFIX>-NNN this bug blocks — a bug found in QA that must

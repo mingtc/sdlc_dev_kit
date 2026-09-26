@@ -97,7 +97,7 @@ Today I need help with: <task>
 Start: a vague ask, an open question in PROJECT.md, or stakeholder feedback. End: one or more issue files in `progress/todo/` ready for Dev pickup.
 
 > **Not every issue needs a PRD.** The **default for small, well-understood work is the lite
-> path**: mint one `progress/todo/` issue directly — real AC, `prd: n/a`, `stories: []`, no
+> path**: mint one `progress/todo/` issue directly — real AC, `prd: n/a` with a one-line `prd_reason:`, `stories: []`, no
 > subtask tree — and hand it to Dev for `issue → branch → TDD → land` (see the adapter § "The
 > default path is lite"). The two heavier intake shapes below are for **feature-area-scale**
 > work only. **PRD-first** (the numbered steps) starts from a feature area and writes the spec.
@@ -212,7 +212,7 @@ Two rules bind this seat specifically:
 
 A file is allowed in `progress/todo/` only when every box is checked. If anything is missing, leave the file in a scratch location. **Two boxes are path-conditional** — see the lite-path note below the list.
 
-- [ ] **PRD exists** at `requirements/PRD-NNN-<slug>.md`, produced by [write-spec](../skills/write-spec/), status `draft` or `approved` — **feature-area work only.** A small standalone fix on the lite path sets `prd: n/a`, `stories: []`, and authors its own AC; no PRD required.
+- [ ] **PRD exists** at `requirements/PRD-NNN-<slug>.md`, produced by [write-spec](../skills/write-spec/), status `draft` or `approved` — **feature-area work only.** A small standalone fix on the lite path sets `prd: n/a` with a one-line `prd_reason:`, `stories: []`, and authors its own AC; no PRD required.
 - [ ] **Frontmatter complete** — `id`, `type`, `title`, `size`, `prd`, `stories`, `branch`, `created_at`, `created_by`
 - [ ] **Problem statement** — one paragraph grounded in PROJECT.md context
 - [ ] **Acceptance Criteria** — each independently testable by QA (copied from the PRD's referenced stories for feature-area work; authored directly in the issue on the lite path)
@@ -238,7 +238,7 @@ A file is allowed in `progress/todo/` only when every box is checked. If anythin
 > guessed.
 
 > **Lite-path exception (the default for small work).** For a small, well-understood standalone
-> fix, the **PRD-exists** box is satisfied by `prd: n/a` + self-authored AC, and "copied from the
+> fix, the **PRD-exists** box is satisfied by `prd: n/a` + a one-line `prd_reason:` + self-authored AC, and "copied from the
 > PRD's stories" reads as "authored in the issue". Every other box (frontmatter, problem,
 > independently-testable AC, out-of-scope, dependencies, branch, activity log, notes
 > deliverable, cited examples) still applies. Full ceremony is reserved for feature-area work.

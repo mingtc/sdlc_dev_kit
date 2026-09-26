@@ -453,6 +453,13 @@ columns and never the cards.*
   gives a back-out that touches only what the attempt did. Lines the kit added arrive unstamped, so
   it lists the checks to run before you commit. **Nothing to do** unless you want the cheaper route.
 
+- **`prd: n/a` now asks for a one-line reason.** The issue, bug and refactor templates carry a
+  `prd_reason:` line under `prd:` — leave it empty when a PRD is named; with `prd: n/a`, say in one
+  line why no PRD covers the work. `n/a` stays legal, and `.claude/roles/pm.md`'s lite path names
+  it. The reasons show where a PRD is missing:
+  `grep -h '^prd_reason:' progress/qa_complete/*.md progress/done/*.md` lists them. **Optional for a
+  running project:** add the line to your own templates; nothing reads it as a gate.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

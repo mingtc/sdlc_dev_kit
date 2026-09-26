@@ -20,7 +20,8 @@ id: <PREFIX>-NNN
 type: feature            # feature | spike | chore
 title: <one-line summary>
 size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it — scripts/subtask.sh)
-prd: PRD-NNN             # or n/a on the lite path
+prd: PRD-NNN             # or n/a on the lite path — legal, and then prd_reason is REQUIRED
+prd_reason:              # with prd: n/a only — ONE line: why no PRD covers this work
 stories: [PRD-NNN-F1-S1] # one or more story IDs from the PRD; [] on the lite path
 branch: feature/<PREFIX>-NNN-<slug>
 pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
