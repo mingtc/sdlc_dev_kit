@@ -394,10 +394,12 @@ bounces it.
    the **last** review formed no verdict. The runner reports **`NO_VERDICT`** (§ The RUN-OUTCOME vocabulary, below) and halts.
    It does not spend the fix round on it, and it never files it as `FAILED_AFTER_FIX_ROUND` — or,
    for a park, as `PARK_UNVERIFIED` — both of which assert a FAIL that was never formed. The issue
-   (or the park) is unreviewed as it now stands: the next move is a review, not a fix. *One known
-   gap, stated so this is not over-read:* a runner's structured review result still requires one of
-   the four tokens, so a reviewer that obeys *"stop and report the precondition failure"* has no
-   value to return and reaches `NO_VERDICT` only if the leg returns nothing at all.
+   (or the park) is unreviewed as it now stands: the next move is a review, not a fix. **A reviewer
+   that stops on a precondition failure says so in the structured result itself:** a runner's review
+   schema carries an optional `precondition_failure` field, and `verdict` is no longer required.
+   A reply that names one is `NO_VERDICT` whatever token came with it — the precondition failure
+   says no verdict was possible, so a token beside it was invented to fill a slot. It is a separate
+   field and not a fifth token, so the four above stay the whole verdict vocabulary.
 
    The four, in full:
    - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
@@ -447,7 +449,7 @@ produces this.
 | `PARK_UNVERIFIED` | — | parked, park not verifiable as written — the LAST park review returned a FAIL verdict |
 | `FAILED_AFTER_FIX_ROUND` | verdict FAIL, twice | failed again after the fix round |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
-| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, or a value outside the four tokens: **unreviewed, not failed** — halts |
+| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, a value outside the four tokens, or a named `precondition_failure`: **unreviewed, not failed** — halts |
 | `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — or a Dev leg returned nothing (or a status outside its schema), before the issue reached an outcome: **state unknown, not failed** — halts |
 
 **`LANDED` and `LAND_READY` are both verdict PASS** and differ only in whether the landing happened.

@@ -252,6 +252,18 @@ const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
 // Applied to BOTH reviews: the issue review and the park review. A park review that formed no verdict
 // verified nothing, so it is NO_VERDICT, not PARK_UNVERIFIED — which judges the park itself.
 const isVerdict = v => VERDICTS.includes(v)
+// A verdict FORMED: a reply carrying a ratified token AND no precondition_failure. A reviewer that
+// reports a precondition failure — a gate that could not run, an AC naming a gate this tree does not
+// hold (MANUAL step 6) — has told us no verdict is possible, so any token sent alongside it is not
+// one: the schema used to REQUIRE a verdict, and a reviewer obeying step 6 had to invent one. Only a
+// NON-EMPTY string counts: structured-output models often fill an optional string with "", and a
+// blank here would halt every review in the run. The field's description says to omit it otherwise.
+const preconditionFailed = r => !!r && typeof r.precondition_failure === 'string' && r.precondition_failure.trim() !== ''
+const formedVerdict = r => !!r && !preconditionFailed(r) && isVerdict(r.verdict)
+// Why a review leg formed no verdict, for the log and the record.
+const noVerdictWhy = r => preconditionFailed(r)
+  ? `the reviewer reported a precondition failure (${r.precondition_failure.trim()})`
+  : 'the review leg returned no ratified verdict'
 // A Dev leg answered at all: a reply carrying one of DEV_SCHEMA's statuses. A Dev leg that returned
 // nothing (the agent was skipped, or died on a terminal error) is not "Dev could not proceed" — that
 // is BLOCKED_DEV, a status Dev reports — it is a leg that produced nothing, whose tree state the runner
@@ -262,6 +274,13 @@ const QA_SCHEMA = {
   type: 'object',
   properties: {
     verdict: { enum: VERDICTS },
+    // WHY `verdict` IS NOT IN `required`. MANUAL step 6: a gate that could not run, or an AC naming a
+    // gate the tree does not hold, leaves NO verdict to issue. While `verdict` was required, a reviewer
+    // obeying that had no legal reply — it had to invent a token, most likely a FAIL, which asserts
+    // something false about the code. It now sends precondition_failure instead; the runner files that
+    // as NO_VERDICT and never reads a verdict beside it. A separate field, not a fifth enum value, so
+    // the ratified verdict vocabulary stays exactly the four tokens VERDICTS projects.
+    precondition_failure: { type: 'string', description: 'OPTIONAL. Set ONLY when no verdict can be formed (MANUAL step 6): a gate that could not run, or an AC naming a gate this tree does not hold. Name it. When set, omit verdict and send landing=not_applicable; the run files it as NO_VERDICT, never as a failure. Otherwise OMIT this field — never an empty string, and never a filler such as "N/A" or "none": ANY non-empty value halts the run.' },
     landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land (docs path)' },
     // A THIRD AXIS, orthogonal to both above, and nullable BY DESIGN. An issue can be
     // implemented exactly as written, land green, and have its own PREMISE refuted by the
@@ -276,7 +295,7 @@ const QA_SCHEMA = {
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },
     notes: { type: 'string' },
   },
-  required: ['verdict', 'landing', 'ac_walk', 'gate_evidence'],
+  required: ['landing', 'ac_walk', 'gate_evidence'],
 }
 
 // PARK_SCHEMA — the park-QA leg's contract. Still deliberately NOT QA_SCHEMA (the
@@ -290,6 +309,13 @@ const PARK_SCHEMA = {
   type: 'object',
   properties: {
     verdict: { enum: VERDICTS },
+    // WHY `verdict` IS NOT IN `required`. MANUAL step 6: a gate that could not run, or an AC naming a
+    // gate the tree does not hold, leaves NO verdict to issue. While `verdict` was required, a reviewer
+    // obeying that had no legal reply — it had to invent a token, most likely a FAIL, which asserts
+    // something false about the code. It now sends precondition_failure instead; the runner files that
+    // as NO_VERDICT and never reads a verdict beside it. A separate field, not a fifth enum value, so
+    // the ratified verdict vocabulary stays exactly the four tokens VERDICTS projects.
+    precondition_failure: { type: 'string', description: 'OPTIONAL. Set ONLY when no verdict can be formed (MANUAL step 6): a gate that could not run, or an AC naming a gate this tree does not hold. Name it. When set, omit verdict and send landing=not_applicable; the run files it as NO_VERDICT, never as a failure. Otherwise OMIT this field — never an empty string, and never a filler such as "N/A" or "none": ANY non-empty value halts the run.' },
     landing: { enum: LANDING, description: 'ALWAYS not_applicable for a park — nothing is merged and the issue stays in blocked/' },
     park_walk: { type: 'string', description: 'per-check PASS/FAIL with concrete evidence: issue sits in blocked/; findings/verdict evidence-backed and honestly scoped; no half-landed residue (clean tree, no stray branch, board move committed); no claim contradicted by the tree' },
     unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable — the fix-round brief' },
@@ -300,7 +326,7 @@ const PARK_SCHEMA = {
   // and did not follow it into `required` here, so the schema demanded a property it
   // no longer defines — the validator would have asked every park leg for a field the
   // brief never mentions. Wave's two `required` arrays were updated; this one was missed.
-  required: ['verdict', 'landing', 'park_walk', 'gate_evidence'],
+  required: ['landing', 'park_walk', 'gate_evidence'],
 }
 
 // A brief that interpolates an absent field prints the literal string "undefined" as
@@ -365,6 +391,7 @@ Walk these, each with concrete evidence (file:line, a command + its result line)
 5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${gatesOf(issue)}.
 Verdict:
 - **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
+- **NO VERDICT** — a check you must run COULD NOT RUN: set precondition_failure to name it and omit verdict. That is not a FAIL, and the park is not judged.
 - **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.
 ${issue.extraQA || ''}
 Return the structured result only.`
@@ -398,7 +425,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
 6. Verdict:
    - The four ratified verdicts, from process/MANUAL.md § The Dev → QA handoff step 6 — their one authoring site: PASS · PASS_AC_CORRECTED (implementation right, the AC's own illustration wrong; correct it with the issue — only when you checked the fact yourself against a citable source; the amendment carries the corrected illustration AND its source) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY: they are two different facts.
    - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
-   - If ${CFG.gateCmd} reports a gate that COULD NOT RUN, you have no evidence about the implementation and so no verdict to issue: stop and report the precondition failure. Neither FAIL token fits — both assert something false about the code.
+   - If ${CFG.gateCmd} reports a gate that COULD NOT RUN — or an AC names a gate this tree does not hold — you have no evidence about the implementation and so no verdict to issue: stop, set precondition_failure to name it, OMIT verdict, and send landing=not_applicable. Neither FAIL token fits — both assert something false about the code.
    - On a fail: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC list>" and return the unmet_ac list with whichever FAILING verdict of ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' / ')} fits — an unmet acceptance criterion vs. a green thing this made red. Do NOT fix code yourself.
 ${issue.extraQA || ''}
 Return the structured result only.`
@@ -416,7 +443,7 @@ function devReturnedNothing(issue, label, dev) {
 }
 function parkReturnedNoVerdict(issue, dev, park) {
   halted = issue.id
-  log(`${issue.id}: NO_VERDICT — the park review returned no ratified verdict; the park is unreviewed; tranche HALTS here`)
+  log(`${issue.id}: NO_VERDICT — park review: ${noVerdictWhy(park)}; the park is unreviewed; tranche HALTS here`)
   results.push({ id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, park })
 }
 
@@ -458,7 +485,7 @@ for (const issue of ARGS.issues) {
       // so a park review that returned nothing — or a value outside VERDICTS — sent Dev into the fix
       // round on findings nobody formed: the same defect the issue review's fix round had. No verdict
       // is NO_VERDICT, and it halts.
-      if (!park || !isVerdict(park.verdict)) { parkReturnedNoVerdict(issue, dev, park); continue }
+      if (!formedVerdict(park)) { parkReturnedNoVerdict(issue, dev, park); continue }
       if (!isPass(park.verdict)) {
         log(`${issue.id}: park-QA ${park.verdict} — one bounded fix round`)
         const parkNotes = `${(((park && park.unmet) || []).join('\n'))}\n${(park && park.notes) || ''}`
@@ -472,7 +499,7 @@ for (const issue of ARGS.issues) {
         } else {
           // Call site 4 of 7 — park-QA, second review. Same provisioning as the first.
           park = await leg(parkPrompt(issue, parkNotes), provision(`park-qa2:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, PARK_SCHEMA))
-          if (!park || !isVerdict(park.verdict)) { parkReturnedNoVerdict(issue, dev, park); continue }
+          if (!formedVerdict(park)) { parkReturnedNoVerdict(issue, dev, park); continue }
         }
       }
       if (dev.status !== 'dev_complete') {
@@ -497,10 +524,11 @@ for (const issue of ARGS.issues) {
     // Call site 5 of 7 — QA, first review.
     let qa = await leg(qaPrompt(issue), provision(`qa:${issue.id}`, 'QA', issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
 
-    // Only a ratified FAIL spends the fix round. isVerdict() reads VERDICTS, so a token added at
-    // the authoring site still reaches this branch; a value OUTSIDE the set is not a FAIL, and is
-    // reported as NO_VERDICT below.
-    if (qa && isVerdict(qa.verdict) && !isPass(qa.verdict)) {
+    // Only a ratified FAIL spends the fix round. formedVerdict() reads VERDICTS (through
+    // isVerdict), so a token added at the authoring site still reaches this branch; a value OUTSIDE
+    // the set, or a reply reporting a precondition_failure, is not a FAIL, and is reported as
+    // NO_VERDICT below.
+    if (formedVerdict(qa) && !isPass(qa.verdict)) {
       log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
       const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
       // Call site 6 of 7 — Dev, fix round. Same provisioning as the fresh pickup:
@@ -531,9 +559,9 @@ for (const issue of ARGS.issues) {
     // FAILED_AFTER_FIX_ROUND asserted FAIL verdicts that were never formed. It is MANUAL step 6's precondition failure surfacing at the outcome layer
     // (process/MANUAL.md § The RUN-OUTCOME vocabulary), so it is named as itself. It HALTS, as a
     // failure does, because the issue has not been reviewed — but it claims no failure.
-    if (!qa || !isVerdict(qa.verdict)) {
+    if (!formedVerdict(qa)) {
       halted = issue.id
-      log(`${issue.id}: NO_VERDICT — the last review leg returned no ratified verdict; the issue is unreviewed; tranche HALTS here`)
+      log(`${issue.id}: NO_VERDICT — ${noVerdictWhy(qa)}; the issue is unreviewed; tranche HALTS here`)
       results.push({ id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, qa })
       continue
     }

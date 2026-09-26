@@ -364,6 +364,15 @@ columns and never the cards.*
   place of `.filter(Boolean)`, the re-throw of an unmarked error, and `waveOk(rs, dispatched)`; in
   the tranche runner, the loop body's `try/catch`.
 
+- **If you carry edited copies of the runners, port `precondition_failure` WITH its routing — or do
+  not take the new review instruction.** `.claude/roles/qa.md` and `process/MANUAL.md` step 6 now tell
+  a reviewer who cannot form a verdict to set `precondition_failure` and omit `verdict`. An edited
+  runner without the change sets no `additionalProperties`, so a reviewer can send
+  `precondition_failure` beside an invented PASS and the old runner LANDS it on a gate that never ran.
+  Port all of it: the `precondition_failure` property in `QA_SCHEMA` and `PARK_SCHEMA`, `verdict` out of
+  both `required` lists, `preconditionFailed` / `formedVerdict`, and every review decision routed
+  through `formedVerdict`.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
@@ -517,6 +526,15 @@ columns and never the cards.*
   FAIL, and a Dev that reported `blocked`. Ratified in `process/MANUAL.md` § The RUN-OUTCOME
   vocabulary; `process/templates/run-report.template.md` § 1 has the paths. **If a dashboard counts
   those tokens,** some rows move to `LEG_ABORTED` or `NO_VERDICT`.
+
+- **A reviewer that cannot form a verdict now says so instead of inventing one.** In
+  `.claude/workflows/wave-runner.js` and `.claude/workflows/tranche-runner.js`, the QA and park
+  review schemas gain an optional `precondition_failure` (name the gate that could not run, or the
+  gate an AC names that the tree does not hold), and `verdict` is no longer required. A reply naming
+  one is filed as `NO_VERDICT` — unreviewed, not failed — whatever token came with it; any non-empty
+  value counts, so the field is omitted, never filled with "N/A". The four verdict tokens are
+  unchanged. `process/MANUAL.md` step 6 and `.claude/roles/qa.md` say how to use it;
+  `process/templates/run-report.template.md` § 1 says to quote it.
 
 ### Fixed
 
