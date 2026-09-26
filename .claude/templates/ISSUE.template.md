@@ -45,7 +45,7 @@ One paragraph: what this issue solves and why it exists. Distilled from the PRD 
 
 ## Acceptance Criteria
 
-Copied from the PRD stories listed in frontmatter (or authored here on the lite path). Each must be independently verifiable by QA. The issue is `dev_complete` only when every AC has a passing test, or a documented justification in `progress.md` for why it cannot be automated (e.g. behavior observable only through the project's declared live/manual gate).
+Copied from the PRD stories listed in frontmatter (or authored here on the lite path). Each must be independently verifiable by QA. The issue is `dev_complete` only when every AC has a passing test, or a documented justification in `progress.md` for why it cannot be automated (e.g. behavior observable only through the project's declared live/manual gate). For an AC whose deliverable is prose describing code behaviour, *"it is a description"* is not such a justification: each behavioural claim it makes needs a test or a `file:line` QA can check it against ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4). An AC whose prose makes no claim about behaviour is unaffected.
 
 - [ ] AC1 — from PRD-NNN § F1 § S1: <statement>
 - [ ] AC2 — from PRD-NNN § F1 § S1: <statement>

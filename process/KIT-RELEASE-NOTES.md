@@ -152,6 +152,26 @@ columns and never the cards.*
   same; the checkout that held the trunk can be detached rather than moved to a branch — though not
   while a leg is working from it. **Nothing to do.**
 
+- **`PASS-with-AC-correction` now states when it is available, wherever it is handed to a
+  reviewer.** The reviewer must have checked the fact themselves against a citable source — "the AC
+  looks off to me" is a FAIL or a question, never this — and the AC amendment carries the corrected
+  illustration **and its source**. Both were already the rule in `process/MANUAL.md` § The Dev → QA
+  handoff, step 6; `.claude/roles/qa.md` § The third verdict and the QA prompts in
+  `.claude/workflows/wave-runner.js` and `.claude/workflows/tranche-runner.js` now say so.
+  **Nothing to do.**
+
+- **An AC whose deliverable is prose describing code behaviour is now held to its claims, on both
+  sides of the handoff.** *Dev:* for such an AC, "it is a description" is no longer a
+  test-or-justify justification — each behavioural claim needs a test or a `file:line` QA can
+  check it against (`.claude/templates/ISSUE.template.md`, `.claude/roles/dev.md`'s Definition of
+  Done, and the Dev prompts in `.claude/workflows/wave-runner.js` and
+  `.claude/workflows/tranche-runner.js`). *QA:* such an AC is graded claim by claim, and a claim
+  that can be neither tied to a falsifier the suite resolves nor located at a `file:line` leaves
+  the bullet unmet — `FAIL_AC`, naming the claim (`process/MANUAL.md` § The Dev → QA handoff step
+  4, `.claude/roles/qa.md` step 4, and both runners' QA prompts). **A pure-docs AC — prose that
+  makes no claim about behaviour — is unaffected.** Issues already minted from the old template
+  keep their wording; the rule binds at review either way. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

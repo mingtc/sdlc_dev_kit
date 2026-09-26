@@ -123,6 +123,7 @@ End state: a verdict (PASS or FAIL), the issue file moved to its next folder, an
 2. **Check out the branch.** `git switch <branch>` (branch from the issue's `branch:` frontmatter); pull latest. Pure git — no forge checkout helper.
 3. **Run the gates.** `./scripts/verify.sh` is the single runner (its parts are per PROJECT.md § Quality gates). **If anything is red and not pre-existing, FAIL outright — Dev needs to fix before review continues.** No exceptions. **QA runs the FULL runner, never a scoped run.** A scoped mode, where the runner offers one, is a Dev **inner-loop** convenience only: it runs a named selection plus an always-on drift-guard floor, and it is *not* the gate. **A scoped result quoted in a handoff does not discharge this step — re-run the full runner yourself.**
 4. **Walk the AC line by line.** For each AC bullet, record `PASS` or `FAIL` with concrete evidence (the output, a fixture diff, a gate diff, `file:line`). **"Looks good" is not evidence.**
+   **An AC whose deliverable is a description of code behaviour** — a doc, help text, a comment or a report that says what the code *does* — is graded **claim by claim**, not as prose: each behavioural claim is either tied to **a falsifier the suite resolves** (name the test) or checked by you against the code at a named `file:line`. A claim you cannot tie to a test or locate at a `file:line` leaves the bullet unmet — `FAIL_AC`, naming the claim. **"It is a description" is not a justification for having neither** — the claim is exactly the sentence the suite could check and nothing does, the same shape as the forward-looking sentence in step 5. Prose that makes no claim about behaviour is outside this rule.
 5. **Cross-cut checks based on what the change touches.** Which checks fire is a **project** question — the list lives in § Project duties below and in PROJECT.md. The ones below this line are portable and bind everywhere — count them where they are written rather than trusting a digit here:
 
    - **Zero-drift on pinned output.** Where the project pins output (goldens, snapshots, fixtures), the default gate is that **the pins must not move**: a regeneration run leaves the working tree **clean**, and any drift is an unintended regression → FAIL. The single exception is a **consented change**: the change lands with regenerated pins, **only the AC-named ones may differ**, and that diff **IS** the spec record of the intended change. Any pin that moved outside the AC-named set → FAIL.
@@ -197,9 +198,15 @@ into the acceptance criterion asserts something the source does not support. **T
 the illustration, never the requirement** — if the AC asks for the wrong *behavior*, that is a PM
 decision, not a reviewer's correction
 ([MANUAL § The Dev → QA handoff, step 6](../../process/MANUAL.md)). **Do not FAIL the
-implementation for matching reality.** PASS it, **land the AC amendment with the issue**, and send
-the note to PM — an AC illustration that was wrong once is a signal about where this project's
-facts are being guessed.
+implementation for matching reality.** PASS it, **land the AC amendment with the issue** —
+replacing the wrong illustration with the corrected one **and its source** — and send the note to
+PM: an AC illustration that was wrong once is a signal about where this project's facts are being
+guessed.
+
+**Verify before you invoke it.** The verdict is only available when you have **checked the fact
+yourself** against a citable source. *"The AC looks off to me"* is a FAIL or a question, never
+this — without the source, the correction is a guess replacing the AC's claim, and the amendment
+would carry it into the issue as settled.
 
 This verdict exists because two independent reviewers hit the same trap within twelve hours of
 one another and both invented the same escape. Writing it down is what stops it being

@@ -328,6 +328,11 @@ bounces it.
    example inside an AC must cite its source or be labelled approximate** — an uncited example
    is read as the contract, and when it is wrong the review has no honest verdict left except the
    third one below. Meeting one, check the example against its source before grading the bullet.
+   **An AC whose deliverable is prose describing code behaviour is graded claim by claim**: each
+   behavioural claim is tied to a falsifier the suite resolves or checked against the code at a
+   named `file:line`. A claim that can be neither leaves the bullet unmet — `FAIL_AC`, naming the
+   claim — and *"it is a description"* does not excuse it. Prose that makes no claim about
+   behaviour is outside this rule.
 5. **QA runs the binding cross-cut check.** For any change touching the surface the project doc
    declares binding, run the project's **live round-trip check** and restore the fixture it used
    to baseline. A green unit suite alone is not a PASS for that surface.

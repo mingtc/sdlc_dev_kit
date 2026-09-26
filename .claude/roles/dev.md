@@ -192,7 +192,7 @@ Concrete rules from the skills:
 
 Before moving the issue file to `progress/dev_complete/` (via `move-issue.sh`), every item below must be true. This is the bar enforced by [verification-before-completion](../skills/verification-before-completion/).
 
-- [ ] Every AC in the issue has a passing test, or a documented justification in `progress.md` for why it can't be automated.
+- [ ] Every AC in the issue has a passing test, or a documented justification in `progress.md` for why it can't be automated. **For an AC whose deliverable is prose describing code behaviour, being a description is not that justification**: each behavioural claim it makes has a test or a `file:line` QA can check it against — QA grades it claim by claim ([qa.md § Workflow: review pass / fail](qa.md#workflow-review-pass--fail), step 4).
 - [ ] **Full** gate run **in this session**: 0 failures. Quote the **result line**, not the run. **A scoped/selective run does NOT satisfy this item** — selective-run (step 7) is for the TDD inner loop ONLY. The line you quote here must come from an unscoped `./scripts/verify.sh`.
 - [ ] No skipped tests without a `progress.md` entry explaining why and linking a follow-up issue if needed.
 - [ ] Every gate the project's runner wraps is green — read PROJECT.md for the list; do not re-derive it.
