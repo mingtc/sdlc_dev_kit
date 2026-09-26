@@ -236,8 +236,13 @@ if [ -n "$WORKTREE" ]; then
   if [ ! -d "$WORKTREE" ]; then
     _err="--worktree '$WORKTREE' is not a directory"
   else
-    _wt_common="$( cd "$WORKTREE" 2>/dev/null && d="$(git rev-parse --git-common-dir 2>/dev/null)" && cd "$d" 2>/dev/null && pwd )"
-    _this_common="$( cd "$MAIN_ROOT" && d="$(git rev-parse --git-common-dir 2>/dev/null)" && cd "$d" 2>/dev/null && pwd )"
+    # BOTH SIDES PHYSICAL (`pwd -P`), because they are compared as strings. With a logical
+    # `pwd`, a path into the MAIN checkout — where git names the common dir relatively —
+    # kept whatever symlink it was named through, and a genuine worktree of this repo was
+    # refused as foreign (on macOS the temp dir's own spelling does it). Physical resolution
+    # widens nothing: a foreign repository resolves to a different directory either way.
+    _wt_common="$( cd "$WORKTREE" 2>/dev/null && d="$(git rev-parse --git-common-dir 2>/dev/null)" && cd "$d" 2>/dev/null && pwd -P )"
+    _this_common="$( cd "$MAIN_ROOT" && d="$(git rev-parse --git-common-dir 2>/dev/null)" && cd "$d" 2>/dev/null && pwd -P )"
     if [ -z "$_wt_common" ] || [ "$_wt_common" != "$_this_common" ]; then
       _err="--worktree '$WORKTREE' is not a git worktree of THIS repo"
     elif [ ! -x "$WORKTREE/scripts/verify.sh" ]; then

@@ -642,6 +642,12 @@ columns and never the cards.*
   left four: one whole sandbox and three empty ones. **Nothing to do.** Leftovers from older runs are
   `tmp.*` directories in your temp dir and are safe to delete.
 
+- **`finish-pr.sh --worktree` no longer refuses your main checkout when you name it through a
+  symlink.** The check that the path is a worktree of this repository compared a symlinked spelling
+  with the resolved one, so the main checkout named through, say, a macOS `/var/…` path (really
+  `/private/var/…`) was refused as *"not a git worktree of THIS repo"*. Both sides are now resolved;
+  a genuinely foreign repository is still refused. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

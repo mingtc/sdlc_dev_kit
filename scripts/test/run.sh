@@ -2825,6 +2825,58 @@ case_finish_pr_gate_absent_says_write_one() {
   teardown
 }
 
+# =============================================================================
+# CASE — --worktree NAMED THROUGH A SYMLINK IS THE SAME CHECKOUT.
+#
+# The --worktree check compared two paths as STRINGS: this repository's common git dir,
+# resolved physically, against the named path's, resolved with a logical `pwd`. Where git
+# names the common dir relatively — any path into the MAIN checkout — the logical spelling
+# kept the symlink, the strings differed, and a genuine worktree of this repo was refused
+# as "not a git worktree of THIS repo". On macOS the temp dir itself is such a spelling.
+# The link is built HERE, so the case does not depend on the platform providing one.
+#   (a) the main checkout, named through a symlink — accepted, and it lands;
+#   (b) CONTROL: a foreign repository — still refused;
+#   (c) CONTROL: a symlink to the foreign repository — still refused: resolving the link
+#       must not make everything look like this repo.
+# =============================================================================
+case_finish_pr_worktree_through_a_symlink() {
+  cf_reset
+  local out rc br
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-786" sandbox chore "Worktree via symlink" "feature/$SB_PREFIX-786-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-786" work CHANGE786.txt
+  br="feature/$SB_PREFIX-786-work"
+  git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1
+  ln -s "$SB_WORK" "$SB_TMP/link-to-work"
+  [ -L "$SB_TMP/link-to-work" ] || _control_did_not_run "build the symlink"
+
+  # (b) + (c) first, before anything lands
+  git init -q "$SB_TMP/foreign" >/dev/null 2>&1
+  mkdir -p "$SB_TMP/foreign/scripts" && cp "$SB_WORK/scripts/verify.sh" "$SB_TMP/foreign/scripts/verify.sh"
+  git -C "$SB_TMP/foreign" add -A >/dev/null 2>&1
+  git -C "$SB_TMP/foreign" -c user.email=t@t -c user.name=t commit -qm foreign --no-verify >/dev/null 2>&1
+  ln -s "$SB_TMP/foreign" "$SB_TMP/link-to-foreign"
+  local f
+  for f in "$SB_TMP/foreign" "$SB_TMP/link-to-foreign"; do
+    rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-786" --worktree "$f" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "(control) --worktree '$f', a FOREIGN repository, was accepted"
+    printf '%s\n' "$out" | grep 'not a git worktree of THIS repo' >/dev/null \
+      || cf "(control) --worktree '$f' was not refused as a foreign repository: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  done
+  assert_landing_untouched "(control)" "$SB_PREFIX-786" sandbox "$br" CHANGE786.txt
+
+  # (a) the main checkout through the symlink
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-786" --worktree "$SB_TMP/link-to-work" 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep 'not a git worktree of THIS repo' >/dev/null \
+    && cf "(a) --worktree named the main checkout through a symlink and was refused as foreign: $(printf '%s' "$out" | grep 'not a git worktree')"
+  [ "$rc" -eq 0 ] || cf "(a) the landing through the symlinked --worktree exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  origin_has_path "CHANGE786.txt" || cf "(a) the change did not reach the trunk"
+
+  finish "finish-pr --worktree: the main checkout named through a symlink is the same checkout and lands (a); a foreign repository is still refused, named directly (b) or through a symlink (c)"
+  teardown
+}
+
 case_finish_pr_gate_hardening() {
   cf_reset
   local out rc
@@ -14937,6 +14989,7 @@ CASES=(
   case_finish_pr_empty_merge
   case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
+  case_finish_pr_worktree_through_a_symlink
   case_finish_pr_gate_revision
   case_archive_apply
   case_archive_hedged_flags_never_mutate
