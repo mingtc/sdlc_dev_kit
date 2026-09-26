@@ -312,6 +312,13 @@ columns and never the cards.*
   `NO_VERDICT` branch ahead of the FAIL branch. `process/templates/run-report.template.md` § 1 has
   the matching verdict-path line. Not yet covered: the review of a park.
 
+- **If your remote is a local bare repository made from the old recipe, point its HEAD at your
+  trunk:** `git -C /path/to/<project>.git symbolic-ref HEAD refs/heads/<trunk>`, then in each existing
+  clone `git remote set-head origin <trunk>`. The old recipe left the bare repository's HEAD on git's
+  own default branch, so a fresh `git clone` of it checks out nothing, and in such a clone
+  `scripts/check-board.sh` reports `trunk: GUESSED from the kit's last-resort constant`. The recipe
+  (`kit-init`'s refusal, README, `process/GIT-HOSTING.md` § 3) now sets it at creation.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a

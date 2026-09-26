@@ -44,6 +44,9 @@ with your project's values and to prove it works.
 # 1. Prerequisites the initializer will not do for you (it guides, it never bootstraps):
 git init -b main                                 # -b NAMES the trunk — see the note below
 git add -A && MSG_OK=1 git commit -m 'init'      # the first commit
+# (a LOCAL bare remote? create it with its HEAD on the trunk, or a clone of it checks out nothing:
+#    git init --bare /abs/path/to/<project>.git
+#    git -C /abs/path/to/<project>.git symbolic-ref HEAD refs/heads/main )
 git remote add origin <url-or-path-to-a-bare-repo>
 git push -u origin main
 git remote set-head origin main                  # ← the step whose absence is SILENT
@@ -85,8 +88,9 @@ reasonable thing to mind for a repository other people will browse.
 The way through is the **local bare repository** the kit already treats as a first-class remote
 (§ Git hosting — local-only is a first-class case):
 
-1. `git init --bare` a throwaway repo somewhere outside your project, and point `origin` at it by
-   **absolute path**.
+1. `git init --bare` a throwaway repo somewhere outside your project, set its HEAD on the trunk
+   (`git -C <bare> symbolic-ref HEAD refs/heads/<trunk>` — without it a clone of it checks out
+   nothing), and point `origin` at it by **absolute path**.
 2. Run day one against it exactly as above — `kit-init.sh` gets its full commit-and-push cycle **with
    the self-check intact**, which is the part worth protecting: the self-check is what proves day one
    worked.
@@ -165,6 +169,7 @@ and **a bare repository on your own disk is a perfectly good one**:
 
 ```sh
 1.  git init --bare /path/to/<project>.git
+    git -C /path/to/<project>.git symbolic-ref HEAD refs/heads/<trunk>   # the bare side's HEAD names the trunk
     git remote add origin /path/to/<project>.git    # ABSOLUTE path
 2.  git switch -c <trunk>                           # if the trunk does not exist yet
     MSG_OK=1 git commit --allow-empty -m 'init'     # if there are no commits yet

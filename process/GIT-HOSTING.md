@@ -61,6 +61,7 @@ anything to start using this kit. Run all four steps; step 1 is the offline case
 
 ```
 1.  git init --bare /path/to/<repo>.git
+    git -C /path/to/<repo>.git symbolic-ref HEAD refs/heads/<trunk>   # the bare side's HEAD names the trunk
     git remote add <remote> /path/to/<repo>.git   # ABSOLUTE path — see below
 2.  git switch -c <trunk>                        # if the trunk does not exist yet
     git commit --allow-empty -m '<init>'         # if there are no commits yet
@@ -76,12 +77,12 @@ to be in — which is not the same directory for a linked worktree as for the ma
 remote what its own HEAD is*, and a freshly created bare repository has none — it fails with
 `Cannot determine remote HEAD`.
 
-**The alternative below is NOT interchangeable with step 4, and the order is why.** Setting
-the bare side's HEAD *at creation* is the safer form:
-
-```
-git -C /path/to/<repo>.git symbolic-ref HEAD refs/heads/<trunk>
-```
+**Step 1's `symbolic-ref` line is NOT interchangeable with step 4, and the order is why** — which
+is why the recipe now does both. Setting the bare side's HEAD *at creation* is the safer form.
+*(It used to be offered here as an alternative to step 4, and README § Day one's recipe did not
+use it; an adopter following that recipe verbatim got a bare repository whose HEAD named git's
+default branch, and a `git clone` of it that warned* "remote HEAD refers to nonexistent ref" *and
+checked out nothing — reproduced 2026-09-26.)*
 
 *Measured:* a freshly created bare repository's HEAD points at git's own default branch name,
 which your first push may never create. Run against that, `git remote set-head <remote>
@@ -89,8 +90,8 @@ which your first push may never create. Run against that, `git remote set-head <
 leaves the bare side's HEAD pointing where it was. The mismatch surfaces much later, as
 `HEAD branch: (unknown)` from `git remote show`, at whatever moment something tries to
 resolve the trunk. Setting HEAD on the bare side cannot mislead that way: it writes the fact on
-the side that owns it. **Prefer it when you control the bare repository; use step 4 when you
-do not.**
+the side that owns it. **When you control the bare repository, step 1 does it; step 4 is still
+needed for your local record of it, and is all you can do when you do not control the remote.**
 
 This is the same recipe the kit initializer prints when it refuses; keeping the two in sync is
 part of maintaining the kit.
@@ -308,7 +309,8 @@ is derived from "what exists now", it is a collision candidate the moment two br
 
 ## 7. Checklists
 
-**New project, local-only.** Bare repo created and backed up · remote added · trunk pushed ·
+**New project, local-only.** Bare repo created **with its HEAD on the trunk** (§ 3 step 1's
+`symbolic-ref`) and backed up · remote added · trunk pushed ·
 `git remote set-head` run **explicitly** · initializer re-run and satisfied · one board move
 performed as a smoke test.
 
