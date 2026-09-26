@@ -195,6 +195,16 @@ columns and never the cards.*
   grepping the leg's own progress record. **Nothing to do**, but if you want your runs grouped, set
   the id that way.
 
+- **`.gitignore` now ignores `.claude/settings.local.json`** — the agent harness's per-checkout,
+  per-person settings file, which can carry an `env` block such as a run id that would be stale in
+  every other clone. The harness ignores it for you only when it wrote the file itself, and only on
+  that machine. **For a running project, optional:** add the line `.claude/settings.local.json` to
+  your `.gitignore`. If `git ls-files .claude/settings.local.json` prints it, it was committed
+  already: before anyone runs `git rm --cached .claude/settings.local.json`, tell every teammate to
+  copy their own `.claude/settings.local.json` aside — the next pull DELETES it from their clone (or
+  refuses, if they edited it) — and put it back after pulling. `.claude/settings.json` (the shared
+  one) is unaffected.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

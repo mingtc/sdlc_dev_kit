@@ -21,6 +21,10 @@
 # Ephemeral: one line naming the hat this session is wearing. Never committed.
 .claude/session-role
 
+# ── Agent harness: per-checkout, per-person settings ───────────────────────
+# Yours, not the project's: it may carry an env block such as a run id, stale in every clone.
+.claude/settings.local.json
+
 # ── Process kit: isolation worktrees ───────────────────────────────────────
 .worktrees/
 .claude/worktrees/
