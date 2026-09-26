@@ -147,6 +147,11 @@ columns and never the cards.*
   week one and lost by week three) argues for writing a finding down the day it happens. A day-one
   finding now belongs in the file; an entry written only to fill it does not. **Nothing to do.**
 
+- **"Direct to the trunk" names the ref, not a checkout** (`process/MANUAL.md` § The code-vs-metadata
+  rule). Metadata committed on the trunk branch from a linked worktree lands on the trunk just the
+  same; the checkout that held the trunk can be detached rather than moved to a branch — though not
+  while a leg is working from it. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

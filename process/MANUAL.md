@@ -509,6 +509,11 @@ two.)*
 makes true rides with it too — a guard's enrolment in the gate runner's always-on set, a new check's
 row in a declared table, a threshold the change is what makes correct. The examples above are all
 documentation-of-code, which reads as an exhaustive list of what may ride; it is not one. Where the
+*"Direct to the trunk"* names the trunk **ref**, not a checkout: a commit made on the trunk branch
+from a linked worktree lands there just the same, and since git by default lets only one worktree
+hold that branch at a time, the checkout that gives it up can simply be detached rather than moved
+to a branch of its own — though not while a leg is working from that checkout (§ The kanban
+worktree).
 two operands are only **jointly** satisfiable, the unit is the **set** and neither lane alone can be
 read as the answer — [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) § A.5, which also
 states what no mechanism can do about it once the two have been split.
