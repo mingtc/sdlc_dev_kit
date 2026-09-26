@@ -489,6 +489,11 @@ columns and never the cards.*
   own checkout, as before — carry an absolute `KIT_PROGRESS_DIR` there. Expiry now runs against the
   one shared directory, so keep `KIT_PROGRESS_TTL_DAYS` one value per repository. **Nothing to do.**
 
+- **The board scripts no longer need git 2.31.** `scripts/lib/kanban-worktree.sh` used a `git
+  rev-parse` flag that arrived in git 2.31; on an older git every board script failed with a message
+  that named neither git nor its version. It now works on older git and gives the same answer on
+  current git. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

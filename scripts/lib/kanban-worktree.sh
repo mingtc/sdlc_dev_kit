@@ -190,6 +190,27 @@ fi
 # worktree, or from inside .kanban-wt itself: git-common-dir always points at the
 # primary worktree's .git, whose dirname is the main repo root.
 #
+# THE COMMON DIR IS MADE ABSOLUTE HERE, NOT BY GIT. It was
+# `git rev-parse --path-format=absolute --git-common-dir`, and `--path-format` arrived in
+# git 2.31. An older rev-parse does not reject the unknown flag: it ECHOES it and exits 0, so
+# the "path" came back as two lines beginning `--path-format=absolute` and every board script
+# died inside `dirname` with a usage error that named neither git nor its version. So: ask for
+# the plain common dir, relative or absolute as git chooses, and let `cd … && pwd -P` make it
+# absolute and physical — which is what `--path-format=absolute` returns on the git that has it,
+# so the answer is unchanged there. The query runs from the TOP LEVEL (`--show-cdup`) because a
+# relative common dir is only cwd-relative from git 2.13 on; before that, asked from a
+# subdirectory, it came back relative to the top level and named a directory that does not
+# exist. From the top level both readings are the same path. Every `cd` clears CDPATH: a
+# relative `cd .git` otherwise searches $CDPATH first, lands in another repository's .git and
+# prints where it went into the captured answer.
+#
+# WHY NOT `git worktree list --porcelain`, the route scripts/lib/progress-record.sh takes to the
+# main checkout: that route's fallback, for a checkout with no main one (a bare repository's
+# linked worktree), is THIS checkout — right for a progress record, wrong here. The lock and the
+# standing worktree must be ONE per repository whichever checkout asks, or two linked worktrees
+# take two different locks and exclude nothing. The common dir is the one thing every worktree
+# of a repository shares, so MAIN_ROOT stays a function of it alone.
+#
 # THE TRUNK IS RESOLVED IN THREE STEPS, AND EVERY STEP BELOW THE FIRST WARNS.
 # The chain is <remote>/HEAD → init.defaultBranch → KWT_TRUNK_LAST_RESORT, and it
 # used to be SILENT the whole way down: a fresh repository with no <remote>/HEAD
@@ -202,9 +223,16 @@ fi
 # an initialized repository never reaches step 2 at all.
 # ---------------------------------------------------------------------------
 kwt_resolve() {
-  local common_dir
-  common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
+  local cdup named common_dir
+  cdup="$(git rev-parse --show-cdup 2>/dev/null)" &&
+    named="$(CDPATH= cd "./$cdup" && git rev-parse --git-common-dir 2>/dev/null)" &&
+    [ -n "$named" ] || {
     echo "Error: not inside a git repository." >&2
+    return 1
+  }
+  common_dir="$(CDPATH= cd "./$cdup" 2>/dev/null && CDPATH= cd "$named" 2>/dev/null && pwd -P)" || {
+    echo "Error: git names '$named' as this repository's common git directory, and it" >&2
+    echo "       could not be entered from '$PWD/$cdup'." >&2
     return 1
   }
   MAIN_ROOT="$(dirname "$common_dir")"
