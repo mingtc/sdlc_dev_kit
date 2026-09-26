@@ -28,8 +28,9 @@ A manifest entry **may be a location**: *"everything under `<dir>/`"* is legal w
 is the unit. Enumerate only where the set is small and stable.
 
 <!-- FOUR COLUMNS, and each earns its place: `Kind` is `file` or `location`; `Status` is `present`
-     or `forward-referenced (<ISSUE-ID>)`. Both answer a question the guard asks, so dropping
-     either would put the guard ahead of the shape it checks. -->
+     or `forward-referenced (<ISSUE-ID>)` — or, on day one, `forward-referenced (SEED step <N>)`
+     (see below). `Kind` and `Status` each answer a question the guard asks, so dropping either
+     would put the guard ahead of the shape it checks. -->
 
 | Entry | Kind | Status | Why it is corpus |
 |---|---|---|---|
@@ -42,6 +43,16 @@ is the unit. Enumerate only where the set is small and stable.
 the entry (e.g. `forward-referenced (XYZ-042)`). An unmarked entry pointing at nothing is
 indistinguishable from rot, and the guard below is entitled to fail on it. When the entry lands,
 flip `Status` to `present` **in the same change**.
+
+**On day one, name the seed step instead of an id that does not exist yet:**
+**`forward-referenced (SEED step <N>)`**, for a row that a later step of
+[`process/SEED.md`](../process/SEED.md) lands, such as the first spec. Minting issues only to have
+ids for these rows would invent work the seed already sequences. When the step lands the entry, flip
+it to `present` in the same change. If a work item takes the entry over first, re-point the marker
+at that item's id. **A `SEED step` marker does not outlive day one.** An issue id has state a reader
+can check, and a step number does not. So any step marker still standing when day one closes is
+re-pointed at an id, or its row is removed. **A guard that parses the marker must accept both
+forms, and may reject the step form once day one is done.**
 
 **A `location` row buys cheapness at a price: nothing inside it is individually reachable.** That is
 usually the right call for a directory that grows with every feature area — but if a reader needs to

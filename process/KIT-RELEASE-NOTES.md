@@ -127,6 +127,12 @@ columns and never the cards.*
   first, because a defective answer may make the dissent the better call. **Nothing to do:** the
   four questions are unchanged.
 
+- **The corpus manifest has a legal forward-reference marker on day one.** `requirements/CORPUS.md`
+  (and its skeleton) accepted only `forward-referenced (<ISSUE-ID>)`, and no issue id exists at
+  SEED step 4. It now also accepts `forward-referenced (SEED step <N>)` on day one, for a row a
+  later seed step lands; the step form does not outlive day one. **Nothing to do:** a project past
+  day one never writes the step form.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

@@ -45,7 +45,8 @@ A manifest entry **may be a location**: *"everything under `<dir>/`"* is legal w
 is the unit. Enumerate only where the set is small and stable.
 
 <!-- FOUR COLUMNS, and each one answers a question a guard asks.
-     `Kind` is `file` or `location`. `Status` is `present` or `forward-referenced (<ISSUE-ID>)`. -->
+     `Kind` is `file` or `location`. `Status` is `present` or `forward-referenced (<ISSUE-ID>)` —
+     or, on day one, `forward-referenced (SEED step <N>)` (see below). -->
 
 | Entry | Kind | Status | Why it is corpus |
 |---|---|---|---|
@@ -57,6 +58,16 @@ is the unit. Enumerate only where the set is small and stable.
 the entry (e.g. `forward-referenced (<PREFIX>-042)`). An unmarked entry pointing at nothing is
 indistinguishable from rot, and the guard below is entitled to fail on it. When the entry lands,
 flip `Status` to `present` **in the same change**.
+
+**On day one, name the seed step instead of an id that does not exist yet:**
+**`forward-referenced (SEED step <N>)`**, for a row that a later step of
+[`process/SEED.md`](../process/SEED.md) lands, such as the first spec. Minting issues only to have
+ids for these rows would invent work the seed already sequences. When the step lands the entry, flip
+it to `present` in the same change. If a work item takes the entry over first, re-point the marker
+at that item's id. **A `SEED step` marker does not outlive day one.** An issue id has state a reader
+can check, and a step number does not. So any step marker still standing when day one closes is
+re-pointed at an id, or its row is removed. **A guard that parses the marker must accept both
+forms, and may reject the step form once day one is done.**
 
 ## The bucket classification — every root document, every top-level directory
 
