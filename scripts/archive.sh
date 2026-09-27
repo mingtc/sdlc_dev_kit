@@ -223,6 +223,13 @@ if [ -d "$SUBTASKS_DIR" ]; then
     parent_reaches_done "$parent" && SUBTASK_TREES+=("$parent")
   done
 fi
+# Likewise a tree: `git mv` onto an existing directory nests the tree inside it, silently.
+for p in "${SUBTASK_TREES[@]:-}"; do
+  if [ -n "$p" ] && [ -e "$DONE_DIR/subtasks/$p" ]; then
+    echo "Error: progress/done/subtasks/$p/ already exists — refusing before any write rather than nest progress/subtasks/$p/ inside it. Merge the two trees by hand, then re-run." >&2
+    exit 1
+  fi
+done
 
 # Build entries.
 ENTRIES=""

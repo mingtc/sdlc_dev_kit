@@ -352,10 +352,11 @@ case_archive_requires_the_retired_store() {
 }
 
 # =============================================================================
-# CASE — a card whose name is already retired refuses before anything is written
+# CASE — a card or subtask tree whose name is already retired refuses before anything is written
 #
 # `git mv` onto an existing done/ file fails after ARCHIVE.md is rewritten, and under `set -e`
-# the sweep stops there, leaving the shared board worktree dirty. --dry-run refuses too.
+# the sweep stops there, leaving the shared board worktree dirty. Onto an existing
+# done/subtasks/<parent>/ it succeeds, nesting the tree. --dry-run refuses too.
 # =============================================================================
 case_archive_refuses_a_name_already_retired() {
   cf_reset
@@ -371,7 +372,27 @@ case_archive_refuses_a_name_already_retired() {
     || cf "the refusal left the kanban worktree dirty: $(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>&1 | tr '\n' '|')"
   rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --dry-run 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] || cf "--dry-run exited 0, previewing a sweep --apply refuses"
-  finish "archive.sh: a qa_complete/ card whose name is already in done/ refuses before any write, naming it, and --dry-run refuses too"
+  teardown
+
+  # (tree) A done/ parent's live subtask tree whose done/subtasks/<parent>/ already exists:
+  # `git mv` would move it INTO that directory rather than fail.
+  make_sandbox
+  local p="$SB_PREFIX-280"
+  seed_issue qa_complete "$SB_PREFIX-281" sweepme chore "Something to sweep"
+  seed_issue done "$p" parent chore "Retired parent"
+  mkdir -p "$SB_WORK/progress/done/subtasks/$p/qa_complete" "$SB_WORK/progress/subtasks/$p/qa_complete"
+  seed_issue "done/subtasks/$p/qa_complete" "$p-s1" old chore "Retired slice"
+  seed_issue "subtasks/$p/qa_complete" "$p-s2" late chore "Late slice"
+  publish_sandbox
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(tree) --apply exited 0 with progress/done/subtasks/$p/ already present"
+  origin_has_path "progress/done/subtasks/$p/$p/qa_complete/$p-s2-late.md" && cf "(tree) the tree was moved INTO done/subtasks/$p/, nested"
+  printf '%s' "$out" | grep -F "subtasks/$p" >/dev/null || cf "(tree) the refusal does not name the tree: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+  [ -z "$(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>&1)" ] || cf "(tree) the refusal left the kanban worktree dirty"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(tree) --dry-run exited 0, previewing a sweep --apply refuses"
+
+  finish "archive.sh: a card or a subtask tree whose name is already in done/ refuses before any write, naming it, and --dry-run refuses too"
   teardown
 }
 

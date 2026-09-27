@@ -766,6 +766,10 @@ columns and never the cards.*
   as last fetched (never fetching) and name it. With no configured trunk they print the same "trunk is a GUESS" warning
   `next-id.sh` does.
 
+- **`archive.sh` no longer nests a subtask tree inside an already-retired one.** When `progress/done/subtasks/<parent>/` existed,
+  the sweep moved the live tree inside it and reported success; it now refuses before writing. **If you hit it:** move the
+  nested tree's contents up one level by hand.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
