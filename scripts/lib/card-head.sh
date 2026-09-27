@@ -1,10 +1,23 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — the mint-time card re-head, in one place.
+# KIT-CLASS: KIT — the mint-time card re-head and publish, in one place.
 # See process/EXTRACTION.md.
 #
 # The creation scripts strip a template's travel-classification marker at mint time and put
 # a live-card head in its place; this is that block's one copy. The card path is an argument
 # because `${BASH_SOURCE[0]}` inside a sourced function names this library, not the caller.
+
+# kit_card_work <dest-dir> — print a new temp file beside the destination, so publishing is a
+# rename on one filesystem. Dot-named, so no board glob sees it. The caller's EXIT trap removes
+# it and its siblings: rm -f "$WORK" "$WORK.bak" "$WORK.rehead".
+kit_card_work() {
+  mktemp "$1/.mint.XXXXXX"
+}
+
+# kit_publish_card <work> <dest> — give the file the umask's mode (mktemp makes it 0600), then
+# move it into place.
+kit_publish_card() {
+  chmod "$(printf '%o' $(( 0666 & ~$(umask) )))" "$1" && mv "$1" "$2"
+}
 
 # kit_rehead_card <card-file>
 #

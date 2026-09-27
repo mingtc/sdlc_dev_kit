@@ -108,8 +108,8 @@ if [ -e "$DEST" ]; then
 fi
 
 # Built aside and moved in last, as new-issue.sh does: a failed step leaves no PRD to spend the id.
-WORK="$(mktemp)"
-trap 'rm -f "$WORK" "$WORK.bak"' EXIT
+WORK="$(kit_card_work "$DEST_DIR")"
+trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead"' EXIT
 
 cp "$TEMPLATE" "$WORK"
 
@@ -125,7 +125,7 @@ rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1
 
-mv "$WORK" "$DEST"
+kit_publish_card "$WORK" "$DEST" || exit 1
 
 echo "Created: $DEST"
 echo ""

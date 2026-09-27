@@ -124,8 +124,8 @@ BRANCH="feature/${ID}-${SLUG}"
 
 # BUILD IT ASIDE, PUBLISH IT WHOLE: a refusal must change nothing, so the card reaches the
 # board only after every substitution has succeeded.
-WORK="$(mktemp)"
-trap 'rm -f "$WORK" "$WORK.bak"' EXIT
+WORK="$(kit_card_work "$DEST_DIR")"
+trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead"' EXIT
 
 # Every value goes through sed_repl (scripts/config.sh): `|`, `\` and `&` are not literal in
 # `s|…|REPL|`.
@@ -154,7 +154,7 @@ rm -f "${WORK}.bak"
 kit_rehead_card "$WORK" || exit 1
 
 
-mv "$WORK" "$DEST"
+kit_publish_card "$WORK" "$DEST" || exit 1
 
 echo "Created: $DEST"
 echo "Branch:  ${BRANCH}"

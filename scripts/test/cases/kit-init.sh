@@ -1481,10 +1481,13 @@ case_new_prd_failure_leaves_nothing() {
   local lib="$SB_WORK/scripts/lib/card-head.sh" out rc
   cp "$lib" "$SB_TMP/card-head.real"
   # The re-head is the last step before publishing; a stub that fails it stands for any late failure.
-  printf '%s\n' 'kit_rehead_card() { echo "stub: re-head failed" >&2; return 1; }' > "$lib"
+  # Appended, so the library's other functions stay defined.
+  { cat "$SB_TMP/card-head.real"; printf '%s\n' 'kit_rehead_card() { echo "stub: re-head failed" >&2; return 1; }'; } > "$lib"
 
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh probe 2>&1 )" || rc=$?
   [ "$rc" -ne 0 ] || cf "new-prd.sh exited 0 with a failing re-head: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s' "$out" | grep -F 'stub: re-head failed' >/dev/null \
+    || cf "new-prd.sh failed before reaching the re-head, so this proves nothing about a late failure: $(printf '%s' "$out" | tr '\n' '|')"
   [ -z "$(find "$SB_WORK/requirements" -type f 2>/dev/null)" ] \
     || cf "a failed new-prd.sh left file(s) in requirements/ — the id is spent: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
 
@@ -1496,6 +1499,59 @@ case_new_prd_failure_leaves_nothing() {
     || cf "(control) the retry did not mint $KIT_NEUTRAL_PRD_PREFIX-001-probe.md: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
 
   finish "new-prd.sh: a failed re-head leaves requirements/ empty, and the retry mints the first id"
+  teardown
+}
+
+# =============================================================================
+# CASE — every creator builds its file beside the destination (so publishing is a rename) and
+# publishes it with the umask's mode; neither a success nor a failure leaves a temp file there.
+# =============================================================================
+case_creators_build_beside_and_publish_with_the_umask() {
+  cf_reset
+  if ! has_issue_template; then skp "creators build beside the destination, umask mode" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then
+    skp "creators build beside the destination, umask mode" ".claude/templates/PRD.template.md absent — new-prd.sh exits at its template check"
+    return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+
+  local lib="$SB_WORK/scripts/lib/card-head.sh" seen="$SB_TMP/rehead-dir" s dir args out rc mode n=920
+  cp "$lib" "$SB_TMP/card-head.real"
+  # 027, not 022: a hard-coded 644 fails it as surely as mktemp's 0600 does.
+  for s in new-issue.sh new-bug.sh new-refactor.sh new-prd.sh; do
+    n=$((n + 1))
+    case "$s" in
+      new-prd.sh) dir="$SB_WORK/requirements"; args="mode$n" ;;
+      *)          dir="$SB_WORK/progress/todo"; args="mode$n --id $SB_PREFIX-$n" ;;
+    esac
+
+    # FAILURE: a re-head stub records where the file is being built, leaves its scratch file as a
+    # re-head that died mid-way would, and fails.
+    { cat "$SB_TMP/card-head.real"; printf 'kit_rehead_card() { dirname "$1" > %q; : > "$1.rehead"; return 1; }\n' "$seen"; } > "$lib"
+    : > "$seen"
+    rc=0; out="$( cd "$SB_WORK" && umask 027 && ./scripts/$s $args 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "$s: exited 0 with a failing re-head"
+    [ "$(cat "$seen")" = "$dir" ] \
+      || cf "$s: builds its file in '$(cat "$seen")', not beside its destination '$dir' — the publishing move is not a rename"
+    [ -z "$(find "$dir" -name '.*' -type f ! -name .gitkeep 2>/dev/null)" ] \
+      || cf "$s: a failed mint left a temp file in $dir: $(ls -1A "$dir" | tr '\n' ' ')"
+    [ -z "$(find "$dir" -name "*mode$n*" 2>/dev/null)" ] || cf "$s: a failed mint published a file"
+
+    # SUCCESS: the real re-head; the published file carries the umask's mode.
+    cp "$SB_TMP/card-head.real" "$lib"
+    rc=0; out="$( cd "$SB_WORK" && umask 027 && ./scripts/$s $args 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || { cf "$s: failed with the real re-head (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"; continue; }
+    mode="$(ls -l "$dir"/*"mode$n".md 2>/dev/null | cut -c1-10)"
+    [ "$mode" = "-rw-r-----" ] || cf "$s: minted '$mode' under umask 027 (want -rw-r-----)"
+    [ -z "$(find "$dir" -name '.*' -type f ! -name .gitkeep 2>/dev/null)" ] \
+      || cf "$s: a successful mint left a temp file in $dir: $(ls -1A "$dir" | tr '\n' ' ')"
+  done
+
+  finish "the four creators build beside the destination, publish with the umask's mode, and leave no temp file after a success or a failure"
   teardown
 }
 

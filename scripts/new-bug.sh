@@ -131,8 +131,8 @@ TODAY=$(date +%Y-%m-%d)
 BRANCH="fix/${ID}-${SLUG}"
 
 # BUILD IT ASIDE, PUBLISH IT WHOLE, and escape every value: as new-issue.sh states.
-WORK="$(mktemp)"
-trap 'rm -f "$WORK" "$WORK.bak"' EXIT
+WORK="$(kit_card_work "$DEST_DIR")"
+trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead"' EXIT
 
 cp "$TEMPLATE" "$WORK"
 
@@ -162,7 +162,7 @@ rm -f "${WORK}.bak"
 kit_rehead_card "$WORK" || exit 1
 
 
-mv "$WORK" "$DEST"
+kit_publish_card "$WORK" "$DEST" || exit 1
 
 echo "Created: $DEST"
 echo "Branch:  ${BRANCH}"

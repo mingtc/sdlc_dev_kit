@@ -351,6 +351,7 @@ CASES=(
   case_option_parsing_hygiene
   case_creation_slug_shape_is_one_rule
   case_new_prd_failure_leaves_nothing
+  case_creators_build_beside_and_publish_with_the_umask
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy

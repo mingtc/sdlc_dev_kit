@@ -698,6 +698,11 @@ columns and never the cards.*
   failure left it there and the next run took the following number; it now builds aside and moves the PRD in last,
   as `new-issue.sh` does. **Nothing to do.**
 
+- **Cards and PRDs made by the creation scripts get your umask's permissions, and the final move is a rename.** They
+  were built in the system temp dir, so arrived `-rw-------` (and on macOS were copied across filesystems); they are now
+  built beside their destination as a hidden `.mint.*` file, removed on failure. Git always recorded them as ordinary
+  files. **Nothing to do** — `chmod 644` any earlier card you want others to read.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
