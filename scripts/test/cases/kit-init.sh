@@ -974,7 +974,7 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
   #    the comment block lib/usage.sh renders, so the AUTHORITY's own declaration
   #    (ROLE_PREFIXES in scripts/githooks/commit-msg) is out of scope by construction — it is code,
   #    not a help window — and so is every role name in a script's body. Measured empty over
-  #    scripts/*.sh, scripts/test/*.sh, scripts/lib/*.sh and scripts/githooks/* on a narrowed tree.
+  #    scripts/*.sh, scripts/test/run.sh, scripts/lib/*.sh and scripts/githooks/* on a narrowed tree.
   #
   #    THE SELECTOR IS REDDENED IN FIVE DIRECTIONS, because an empty result is also what a broken
   #    selector returns. Planted into a help window and re-run: the unpadded narrowed set is found,
@@ -1003,7 +1003,8 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
   rm -f "$kb"
 
   local f start hit literal_carriers=''
-  for f in "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/test/*.sh "$SB_WORK"/scripts/lib/*.sh "$SB_WORK"/scripts/githooks/*; do
+  # The harness is read from the real tree: make_sandbox removes scripts/test/, and only run.sh renders --help.
+  for f in "$SB_WORK"/scripts/*.sh "$REAL_SCRIPTS"/test/run.sh "$SB_WORK"/scripts/lib/*.sh "$SB_WORK"/scripts/githooks/*; do
     [ -f "$f" ] || continue
     start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$f")"
     [ -n "${start:-}" ] || continue
