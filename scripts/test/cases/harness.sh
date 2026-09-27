@@ -6,12 +6,9 @@
 # =============================================================================
 
 # _role_literals_used <file> — every role NAME this harness writes, extracted BY
-# POSITION rather than by neighbouring words. Position is what makes it precise: the
-# same tokens appear inside diagnostic strings ("the release commit carries no [Role]
-# prefix", "every --role literal in this file") and those are prose ABOUT roles, not
-# roles being used. A word-proximity scan picks them up; an argument-position scan
-# does not. Measured on this file: by position the answer is exactly the four roles
-# the cases use, with no exemption list to maintain.
+# POSITION: a --role argument, or a [Role] tag opening a commit subject or an Activity
+# line. Position excludes the same tokens in diagnostic prose ABOUT roles, with no
+# exemption list to maintain.
 _role_literals_used() {  # <path to a harness source>
   local f="$1"
   {
@@ -29,20 +26,10 @@ _role_literals_used() {  # <path to a harness source>
 # =============================================================================
 # CASE — EVERY ROLE LITERAL THIS HARNESS WRITES IS ONE THE SANDBOX DECLARES
 #
-# WHAT THIS GUARDS, AND WHAT ALREADY GUARDS THE REST. case_ship_state asserts the
-# SHIPPED commit-msg still carries the role set this file declares — that is the
-# constant-vs-file direction. Nothing asserted the other direction: that the names the
-# CASES TYPE are members of that set. The neutralizer corrects the sandbox's hook and
-# move-issue.sh whitelist; it cannot correct a case that types a role the hook does not
-# carry, and such a case fails with "--role must be …" or a rejected commit — a red
-# about the fixture wearing the costume of a tool defect.
-#
-# THE FORM IS NARROWER THAN THE ONE FIRST PROPOSED, and the reason is kept because the
-# first form would now be wrong. The original proposal was to FORBID role literals
-# outright, which was right while the sandbox inherited the adopter's set: a literal was
-# then one rename away from a false red. Once the sandbox DECLARES the set, the literals
-# are correct — and three cases model a hand-off, so they need two distinct ones. What
-# survives is membership, not abstinence.
+# case_ship_state holds the shipped commit-msg to the declared set; this is the other
+# direction: every role the CASES type is a member of it. A case typing an undeclared role
+# fails with "--role must be …" or a rejected commit — a fixture red that reads as a tool
+# defect. Membership, not abstinence: the hand-off cases need two distinct roles.
 # =============================================================================
 case_role_literals_are_declared() {
   cf_reset
@@ -70,17 +57,14 @@ case_role_literals_are_declared() {
 $used
 ROLE_EOF
 
-  # ── THE REDDENING CONTROL, on a COPY — never this file (instruments.md § A.2).
+  # ── THE REDDENING CONTROL, on a COPY — never the harness itself (instruments.md § A.2).
   local probe="$SB_TMP/roleprobe.sh"
   cp "$self" "$probe" 2>/dev/null || true
   if [ ! -f "$probe" ]; then
     _control_did_not_run "copy this harness to plant into"
   else
-    # THE OUTSIDER'S NAME IS BUILT, NEVER WRITTEN — and that is not fastidiousness, it
-    # is required. This case scans THE FILE IT LIVES IN, so a literal `--role Eng`
-    # written here would be found by the scan above and redden the case on its own
-    # control text. Measured: it did, on the first draft. `%s` carries the name into
-    # the PROBE while this source holds only the format string.
+    # THE OUTSIDER'S NAME IS BUILT, NEVER WRITTEN: this case scans its own source, so a
+    # literal outsider role written here would redden it. `%s` carries it into the probe.
     local outsider='Eng'
     printf '\n  ( cd x && ./scripts/move-issue.sh ID in_progress --role %s --note x )\n' \
       "$outsider" >> "$probe"
@@ -98,16 +82,10 @@ ROLE_EOF
 # =============================================================================
 # CASE — EVERY CASE THAT MINTS A CARD PROBES FOR THE TEMPLATE FIRST.
 #
-# Measured when this was written: removing .claude/templates/ISSUE.template.md from the
-# built tree gave 2 FAIL alongside 8 clean skips. The two failures were cases that mint
-# a card and never asked whether the template exists — so a capability the TREE lacks
-# was reported as a defect in the SUBJECT.
-#
-# THE POPULATION IS DERIVED, and that is the whole point of the case rather than the two
-# lines it guards. "Which cases mint a card?" is answerable from the file — the ones that
-# invoke a creation script — so case eleven cannot arrive without a probe and go unnoticed
-# until somebody removes the template again. Enumerating the two would have fixed the
-# instances and left the class, which is this board's most-repeated mistake.
+# A case that mints a card without calling has_issue_template FAILS on a tree without
+# .claude/templates/ISSUE.template.md, reporting a missing capability as a defect in the
+# subject. The population is derived from the harness text — the cases that invoke a
+# creation script or kit_init_sandbox — so a new minting case cannot arrive unguarded.
 # =============================================================================
 case_minting_cases_probe_for_the_template() {
   cf_reset
@@ -117,8 +95,7 @@ case_minting_cases_probe_for_the_template() {
     || _fixture_die "case_minting_cases_probe_for_the_template: could not copy the harness's own source to census."
   _harness_population_is_whole "$self"
 
-  # Excise this case's own body: its derivation names the creation scripts it looks for,
-  # so a census over the whole file reports this case as an unguarded minter.
+  # Excise this case's own body: its derivation names the creation scripts it looks for.
   awk -v fn="case_minting_cases_probe_for_the_template" '
     $0 ~ "^" fn "\\(\\) \\{" { skip=1 }
     skip && /^\}$/            { skip=0; next }
@@ -135,19 +112,9 @@ case_minting_cases_probe_for_the_template() {
       if (fn != "" && mint) printf "%s|%d\n", fn, probe
       fn=""; next
     }
-    # WIDE ON PURPOSE: two cases reached the creators through a GLOB
-    # ("$SB_WORK"/scripts/new-*.sh) and a basename, and a pattern listing the four names
-    # literally found neither. Both were real gaps — one of them aborted the whole run
-    # with a fixture failure when the template was removed, which is worse than the FAIL
-    # this item was filed about.
-    # kit_init_sandbox is in here because kit-init COPIES the template into its tree and
-    # refuses the preflight without it — the same capability, reached by a helper rather
-    # than by a creator. The signal is the CALL, not a mention: `kit-init.sh` in a comment
-    # matched two cases that never run it.
-    # ...AND A COMMENT IS NOT A CALL. The note above says "the signal is the CALL, not a
-    # mention" and the pattern still matched mentions: a comment naming subtask.sh, added to
-    # an unrelated case on 2026-09-04, made this guard report that case as unguarded. Skip
-    # comment lines before testing, so the rule matches the sentence that states it.
+    # WIDE ON PURPOSE: a creator reached through a glob or a basename counts, and so does
+    # kit_init_sandbox, which copies the template and refuses without it. The signal is a
+    # CALL, so comment lines are skipped.
     fn != "" && $0 !~ /^[[:space:]]*#/ && /new-[a-z*]*\.sh|subtask\.sh|kit_init_sandbox/ { mint=1 }
     fn != "" && /has_issue_template/                                            { probe=1 }
   ' "$probe")"
@@ -162,8 +129,7 @@ case_minting_cases_probe_for_the_template() {
 $rows
 EOF
 
-  # ── INSTRUMENT CHECK: a negative census whose derivation finds nothing is green
-  #    forever. Assert it still finds the population it is judging.
+  # ── INSTRUMENT CHECK: a negative census whose derivation finds nothing is green forever.
   [ "$n" -ge 5 ] \
     || _fixture_die "case_minting_cases_probe_for_the_template: the derivation found only $n card-minting case(s) — the creator names or the case-function shape changed, and 'all of them probe' would then be true of almost nothing."
 
@@ -174,26 +140,18 @@ EOF
 # =============================================================================
 # CASE — VICTIM SELECTION SURVIVES PIPEFAIL.
 #
-# Four control blocks picked their victim with `find … | head -1`, which is the exact
-# shape this file's own header forbids by name: the reader exits early, `find` takes
-# SIGPIPE, and `pipefail` promotes the producer's death to the pipeline's status. The
-# value is still correct — that is what makes it invisible — but the STATUS is wrong, and
-# a caller that ever tested the status would read "no victim" on a probe full of victims.
-#
-# HONEST FRAMING: measured on this machine, the raw pipeline first fails around 300 files
-# and the kit's largest real corpus here is 20. This is a threshold nobody has crossed,
-# fixed for consistency with the header the three origin_* helpers were already rewritten
-# for — not a live bug. The case is built so it cannot pretend otherwise.
+# `find … | head -1` is the shape run.sh's PIPEFAIL RULE forbids: the value is right and the
+# STATUS is the producer's SIGPIPE. probe_pick replaces it. This case proves the hazard exists
+# here, asserts probe_pick's status and value, and censuses the harness and the shipped
+# scripts for the piped readers the rule forbids.
 # =============================================================================
 case_probe_victim_selection_survives_pipefail() {
   cf_reset
   make_sandbox
   local big="$SB_TMP/pipebig" i v rc hit=0
 
-  # ── INSTRUMENT CHECK, and it is what makes this case honest: BUILD the hazard before
-  #    asserting anything about it. If this environment's pipe buffer cannot produce a
-  #    SIGPIPE at all, every assertion below is vacuous — so say so as a SKIP, which is
-  #    this file's way of making a statement about the environment rather than the code.
+  # ── INSTRUMENT CHECK: BUILD the hazard before asserting anything about it. If this
+  #    environment cannot produce the SIGPIPE, every assertion below is vacuous, so SKIP.
   mkdir -p "$big"
   for i in $(seq 1 3000); do : > "$big/f$i.md"; done
   for i in 1 2 3; do
@@ -205,9 +163,8 @@ case_probe_victim_selection_survives_pipefail() {
     teardown; return
   fi
 
-  # THE EFFECT — the STATUS and the value. Asserting only the value is a green that could
-  # not go red: the raw pipeline gets the value right and the status wrong, which is the
-  # entire defect.
+  # THE EFFECT — the STATUS and the value. The raw pipeline gets the value right and the
+  # status wrong, so asserting the value alone could not go red.
   rc=0; v="$(probe_pick "$big" -type f)" || rc=$?
   [ "$rc" -eq 0 ] \
     || cf "probe_pick exited $rc on a corpus where the raw pipeline SIGPIPEs — the status is still the producer's death, not the answer"
@@ -219,15 +176,12 @@ case_probe_victim_selection_survives_pipefail() {
   [ -z "$v" ] \
     || cf "probe_pick invented a victim for a pattern that matches nothing: '$v'"
 
-  # THE CENSUS — the four sites are the point, not the helper. A fifth `find … | head -1`
-  # typed tomorrow puts the hazard straight back.
+  # THE CENSUS: a new `find … | head -1` anywhere in the harness puts the hazard back.
   local self="$SB_TMP/pipepop.sh" probe="$SB_TMP/pipeprobe.sh" m1='find ' m2='| head -1'
   _harness_probe_copy "$self" \
     || _fixture_die "case_probe_victim_selection_survives_pipefail: could not copy the harness's own source to census."
   _harness_population_is_whole "$self"
-  # EXCISE THIS CASE'S OWN BODY. Its instrument check BUILDS the forbidden pipeline on
-  # purpose — that is how it proves the hazard exists here — so a census over the whole
-  # file reports the very line that makes the case honest.
+  # EXCISE THIS CASE'S OWN BODY: its instrument check builds the forbidden pipeline on purpose.
   awk -v fn="case_probe_victim_selection_survives_pipefail" '
     $0 ~ "^" fn "\\(\\) \\{" { skip=1 }
     skip && /^\}$/                { skip=0; print ""; next }
@@ -244,15 +198,9 @@ case_probe_victim_selection_survives_pipefail() {
   [ -z "$rows" ] \
     || cf "a find/head pipeline is back, and run.sh's header forbids it by name: $(printf '%s' "$rows" | tr '\n' ' ' | cut -c1-200)"
 
-  # ── THE SAME HAZARD, THE OTHER READER: `… | grep -q` behind a pipe.
-  #    ASSERT THE CONSTRUCT'S ABSENCE, NOT ITS SYMPTOM, and that choice is measured
-  #    rather than stylistic: the false red only appears once the producer clears the
-  #    64KB pipe buffer, so a case that pipes a REALISTIC payload and waits for a red
-  #    stays green forever and certifies the defect as fixed. Below the buffer there is
-  #    nothing to see; above it every run fails. A threshold that sharp cannot be
-  #    sampled, so the census is the only honest instrument.
-  #    NOTE WHAT IS NOT FORBIDDEN: a bare `grep -q FILE` with no pipe has no producer,
-  #    cannot SIGPIPE anything, and is the correct form — this looks for a PIPE first.
+  # ── THE SAME HAZARD, THE OTHER READER: `… | grep -q` behind a pipe. Assert the construct's
+  #    ABSENCE, not its symptom: the false red appears only above the 64KB buffer, so a case
+  #    waiting for it on a realistic payload stays green forever. A bare `grep -q FILE` is fine.
   local qrows
   qrows="$(awk '
     /^[[:space:]]*#/ { next }
@@ -261,48 +209,26 @@ case_probe_victim_selection_survives_pipefail() {
   [ -z "$qrows" ] \
     || cf "a 'grep -q' behind a pipe is back, and under pipefail it reports the PRODUCER'S death instead of the reader's answer once the producer clears the pipe buffer — drop the -q and redirect (\`| grep -F pat >/dev/null\`), which drains the input and returns the identical status: $(printf '%s' "$qrows" | tr '\n' ' ' | cut -c1-200)"
 
-  # ── THE SHIPPED POPULATION, and widening to it is the point of this arm.
-  #    The census above reads only THIS FILE, so it could not see the very scripts an
-  #    adopter runs — and those are where the producer grows with THEIR project, which
-  #    is the condition that makes the defect reachable at all. A guard that certifies
-  #    the harness while the shipped tree carries the construct is a guard that reads
-  #    as armed and is not.
-  #
-  #    WHAT IS FORBIDDEN HERE IS NARROWER THAN ABOVE, ON PURPOSE. In this file every
-  #    piped `grep -q` is forbidden, because every producer here is a fixture that can
-  #    be grown. In the shipped scripts the kit DELIBERATELY LEAVES the pipelines whose
-  #    producer is one flag value being validated — `printf '%s' "$NUM" | grep -qE
-  #    '^[0-9]+$'` — since a single argument cannot approach the 64KB buffer and the
-  #    rewrite would be churn. So this census looks for a producer that CAN grow: a
-  #    command that reads the repository, the board or the network. That is the
-  #    header's own test, applied to the tree we ship rather than to the tree we test.
-  #
-  #    THE HARNESS IS EXCLUDED AS A POPULATION, NOT BY ITS ENTRY POINT'S PATH. Excluding
-  #    one path left every other file of the harness to be judged by the NARROWER shipped
-  #    rule instead of the harness rule above. The set the harness census reads is the set
-  #    this one leaves out, so each file is judged by exactly one of the two rules.
+  # ── THE SHIPPED POPULATION, where the producer grows with the adopter's project. Narrower
+  #    than the harness rule: a pipe validating one flag value is allowed, a producer that
+  #    reads the repository, the board or the network is not. The harness files are excluded
+  #    as a population, so each file is judged by exactly one of the two rules.
   local shipped_rows shipped_files
   shipped_files="$(find "$REAL_SCRIPTS" "$REAL_REPO_ROOT/consumers" -type f \
                      \( -name '*.sh' -o -name 'commit-msg' \) 2>/dev/null \
                    | grep -vxF -f <(_harness_sources) || true)"
   [ -n "$shipped_files" ] \
     || _fixture_die "case_probe_victim_selection_survives_pipefail: found no shipped scripts to census — a guard over an empty population passes forever."
-  #    THE PRODUCER IS OFTEN ON A DIFFERENT LINE. `lib/kanban-worktree.sh` writes
-  #    `git -C … worktree list --porcelain \` and puts `| grep -qxF …` on the NEXT line,
-  #    so a single-line pattern demanding producer-and-reader together silently matches
-  #    nothing — which is how the first draft of this arm stayed green through its own
-  #    ablation. Carry the previous non-comment line and test the JOINED pair instead.
+  #    THE PRODUCER IS OFTEN ON THE PREVIOUS LINE (`… --porcelain \` then `| grep -qxF …` in
+  #    lib/kanban-worktree.sh), so a line continuation is joined before the pattern is tested.
   shipped_rows="$(printf '%s\n' "$shipped_files" | while IFS= read -r f; do
     [ -n "$f" ] || continue
     awk -v fn="$f" '
       /^[[:space:]]*#/ { next }
       {
-        # Join ONLY across a real line-continuation. Joining unconditionally leaks the
-        # previous statement verb into this one and reddens the flag validators that
-        # this arm deliberately permits (a printf of one flag value piped into grep -qE,
-        # sitting under an unrelated find) - measured as a false positive while writing
-        # this. NOTE: no apostrophes or quotes in this comment; it lives inside a
-        # single-quoted awk program, and one would end the program early.
+        # Join ONLY across a real line-continuation: joining unconditionally leaks the
+        # previous verb into this line and reddens the permitted flag validators. No
+        # quotes in this comment: it lives inside a single-quoted awk program.
         joined = (prev ~ /[\\]$/) ? prev " " $0 : $0
         if (joined ~ /(git|find|ls|cat|_ship_manifest_paths)[^|]*\|[[:space:]]*grep -q/)
           print fn ":" NR ": " $0
@@ -320,16 +246,9 @@ case_probe_victim_selection_survives_pipefail() {
 # =============================================================================
 # CASE — EVERY LANDING PROLOGUE IS THE WHOLE FOUR-STEP.
 #
-# THIS CASE EXISTS BECAUSE OF A PARTIAL DECLINE. It was proposed that the landing
-# prologues be collapsed into one `fpr_sandbox` helper. Declined, measured: most of them
-# use a CARD slug that differs from the BRANCH slug, and that divergence is what
-# exercises finish-pr.sh reading the card's `branch:` field instead of inferring it from
-# the filename. A helper that erases it loses coverage; one that keeps it needs five
-# positional arguments and hides the very difference a reader should see.
-#
-# What the collapse WOULD have bought is that an incomplete prologue becomes impossible.
-# This buys that mechanically instead: the copies stay, and a copy that dropped a step is
-# named by line number rather than found by diffing cases against each other.
+# The prologues are deliberately not one helper: most use a CARD slug that differs from the
+# BRANCH slug, which exercises finish-pr.sh reading the card's `branch:` field. So the copies
+# stay, and this case names by line any copy that dropped a step.
 # =============================================================================
 case_landing_prologue_is_complete() {
   cf_reset
@@ -339,10 +258,7 @@ case_landing_prologue_is_complete() {
     || _fixture_die "case_landing_prologue_is_complete: could not copy the harness's own source to census."
   _harness_population_is_whole "$self"
 
-  # EXCISE THIS CASE'S OWN BODY FROM THE PROBE. It scans the file it lives in, and its
-  # own derivation names every token it searches for — so without this it reports itself,
-  # by line number, forever. Building the patterns from variables does not help: they
-  # would still sit inside the window the census looks at.
+  # EXCISE THIS CASE'S OWN BODY: its derivation names every token it searches for.
   awk -v fn="case_landing_prologue_is_complete" '
     $0 ~ "^" fn "\\(\\) \\{" { skip=1 }
     skip && /^\}$/           { skip=0; print ""; next }
@@ -354,11 +270,9 @@ case_landing_prologue_is_complete() {
   grep -q '^case_landing_prologue_is_complete() {' "$probe" \
     && _fixture_die "case_landing_prologue_is_complete: the excision did not remove this case's own body from the probe — every finding below would be about this case's own derivation."
 
-  # A LANDING PROLOGUE is a dev_complete card seeded right after make_sandbox in a case
-  # that then invokes finish-pr.sh. That last clause is the operand definition and it
-  # matters: `seed_issue dev_complete` also appears as ordinary BOARD CONTENT in cases
-  # about other subjects, and counting those would report findings against fixtures that
-  # have no reason to publish or branch at all.
+  # A LANDING PROLOGUE is a dev_complete card seeded right after make_sandbox in a case that
+  # then invokes finish-pr.sh. The last clause matters: dev_complete cards also appear as
+  # board content in cases that never land.
   local rows n
   rows="$(awk '
     { L[NR]=$0 }
@@ -373,8 +287,7 @@ case_landing_prologue_is_complete() {
         for (j=i+1;j<=i+12 && j<=NR;j++) {
           if (L[j] ~ /publish_sandbox/) pub=1
           # seed_branch OR a hand-rolled branch: one case creates an EMPTY branch off the
-          # trunk on purpose, which the helper cannot express. The step is "the branch
-          # exists", not "the helper was called".
+          # trunk on purpose. The step is that the branch exists.
           if (L[j] ~ /seed_branch |git -C "\$SB_WORK" branch /) br=1
         }
         miss=""
@@ -388,8 +301,7 @@ case_landing_prologue_is_complete() {
   ' "$probe" | _harness_where)"
   n="$(printf '%s\n' "$rows" | sed -n 's/^COUNT|//p')"
 
-  # ── INSTRUMENT CHECK: the derivation must still find prologues. A pattern that stopped
-  #    matching reports "none incomplete" forever.
+  # ── INSTRUMENT CHECK: a pattern that stopped matching reports "none incomplete" forever.
   [ "${n:-0}" -ge 8 ] \
     || _fixture_die "case_landing_prologue_is_complete: the derivation found only ${n:-0} landing prologue(s) — the shape changed, and 'none incomplete' would then be true of nothing."
 
@@ -408,21 +320,11 @@ EOF
 # =============================================================================
 # CASE — EVERY ANCHORED FIXTURE APPEND HAS A DECLARED AUTHOR.
 #
-# Two anchor families live in this file: the array fence `NAME=(` and the function-body
-# fence `name() {`. Each is a four-step idiom — assert the anchor, plant, assert it
-# landed, and for a sourced library `bash -n` — and the four steps are exactly what a
-# copier drops. Measured when this was written: four call sites had re-typed the plant
-# with no anchor assertion at all, and one of the two library plants omitted the parse
-# check, which is the step that tells "the plant changed the behaviour" apart from "the
-# library no longer loads".
-#
-# THE CENSUS IS THE CONTROL. Consolidating the four helpers did not stop the fifth copy
-# from being typed; this case does. A helper nobody is required to call is a convention,
-# and this file's own history is that conventions here get re-typed.
-#
-# THIS CASE SCANS THE FILE IT LIVES IN, so it is inside its own operand set. The two
-# match strings are held in separate variables on separate lines and comment lines are
-# skipped — otherwise the derivation reddens on its own source and on the comment above.
+# Two anchor families: the array fence `NAME=(` and the function-body fence `name() {`. A
+# plant is a four-step idiom — assert the anchor, plant, assert it landed, and for a sourced
+# library `bash -n` — and a re-typed copy drops steps, so every anchored perl append must sit
+# inside a declared author. This case scans its own file: the two match strings are held in
+# separate variables and comment lines are skipped.
 # =============================================================================
 case_fixture_append_has_one_authoring_site() {
   cf_reset
@@ -452,9 +354,8 @@ case_fixture_append_has_one_authoring_site() {
   rows="$(_append_census "$probe" | _harness_where)"
   n="$(printf '%s\n' "$rows" | grep -c '|' || true)"
 
-  # ── INSTRUMENT CHECK, and it is mandatory here: arm 1 is a NEGATIVE census, so an
-  #    expression that stopped matching satisfies "no bypasses" forever. Assert the
-  #    derivation still finds the authors themselves.
+  # ── INSTRUMENT CHECK: arm 1 is a NEGATIVE census, so assert the derivation still finds
+  #    the authors themselves.
   [ "$n" -ge 4 ] \
     || _fixture_die "case_fixture_append_has_one_authoring_site: the census found only $n anchored append(s) in the whole file — the expression stopped matching, and 'zero bypasses' would then be true of nothing."
 
@@ -493,43 +394,22 @@ EOF
 # =============================================================================
 # CASE — SHIP STATE. The control the neutralizer costs us.
 #
-# Why this case has to exist. Before _kit_neutral_config, every sandbox inherited
-# the real scripts/ verbatim, so the whole suite was an incidental — and
-# unstated — witness to the SHIPPED defaults: if this repository had ever declared
-# a gate or set RELEASE_PUBLISH=true, cases would have started behaving
-# differently and someone would eventually have noticed. Neutralizing deliberately
-# destroys that coupling, which is the point; it also destroys the witness. After
-# it, every green rests on the harness's OWN assignment of the neutral values, and
-# a kit that shipped `RELEASE_PUBLISH=true` would sail through a fully green run.
-# A SHIPPED DEFAULT IS ITSELF A SHIPPABLE DEFECT, and this is the only case that
-# looks at it. Same argument as the belt-tooling rule one level down: a fixture cannot certify the
-# thing it overwrites.
-#
-# It reads the REAL files and mutates nothing.
-#
-# WHY IT SKIPS RATHER THAN FAILS ON A CONFIGURED TREE. "The frame ships empty" is
-# a claim about the KIT, not about an adopter — a project that has filled its gate
-# table has done exactly what it was told to. So the case states its subject and
-# steps aside when the tree is not the shipped frame, naming the signal that told
-# it so. A SKIP here is a statement about the environment, never a hidden failure.
+# Every sandbox is reset to the KIT_NEUTRAL_* values, so no other case sees the shipped
+# defaults: a kit that shipped `RELEASE_PUBLISH=true` or a populated gate table would pass a
+# green run. This case reads the REAL files and mutates nothing. On an adopted tree it is
+# N/A, naming the signal: a filled gate table is what the adopter was told to do.
 # =============================================================================
 case_ship_state() {
   cf_reset
   local rv="$REAL_SCRIPTS/verify.sh" rr="$REAL_SCRIPTS/release.sh" rc_cfg="$REAL_SCRIPTS/config.sh"
   local why=""
 
-  # Is this tree the shipped frame, or an adopted project? Two signals, either sufficient, and
-  # the one that fired is reported. DERIVED BY _tree_has_lived, not here: a second case
-  # (case_scaffolding_fixture_matches_the_tree arm (e)) needs the same judgement about the same
-  # tree, and two copies of a two-signal test are two things that can come to disagree about
-  # whether one tree has been adopted — which would surface as one case measuring a document the
-  # other calls adopter-owned, with nothing to say which was right.
+  # Is this tree the shipped frame, or an adopted project? _tree_has_lived decides, for this
+  # case and case_scaffolding_fixture_matches_the_tree alike, and returns the signal that fired.
   why="$(_tree_has_lived)"
   if [ -n "$why" ]; then
-    # THE FIRST skp_lived. This case asserts the SHIPPED shape of scripts/verify.sh,
-    # scripts/release.sh and scripts/config.sh; on an adopted tree those shapes are gone
-    # BECAUSE THE ADOPTER DID WHAT THEY WERE TOLD, so the case has no subject rather than
-    # a reason to be lenient. `$why` already names the file that carries the signal.
+    # On an adopted tree these shipped shapes are gone because the adopter did what they
+    # were told: the case has no subject. `$why` names the file that carries the signal.
     skp_lived "ship state: the kit's own config blocks still ship neutral" "$why"
     return
   fi
@@ -584,23 +464,17 @@ case_ship_state() {
     cf "scripts/config.sh is absent — it is the configuration seam itself"
   fi
 
-  # THE FOURTH DECLARATION, and it does NOT live in the seam file. Four consumers parse
-  # KWT_TRUNK_LAST_RESORT out of the lib with the same anchored sed they use on config.sh,
-  # so it is bound by the same shape rule (config-seam.md § 2) and belongs in the same
-  # block. Its absence here is why the shape had three assertions and four authors.
+  # KWT_TRUNK_LAST_RESORT lives in the lib, not the seam file, and is bound by the same shape
+  # rule (config-seam.md § 2).
   if [ -f "$SB_REAL_KWT" ]; then
     _ship_line "$SB_REAL_KWT" 'KWT_TRUNK_LAST_RESORT="${KWT_TRUNK_LAST_RESORT:-main}"'
   else
     cf "scripts/lib/kanban-worktree.sh is absent — it declares the trunk last resort"
   fi
 
-  # THE ROLE SET, and it is the newest member of the KIT_NEUTRAL_* block above, so this
-  # block's own rule reaches it: neutralizing a seam costs the suite its only incidental
-  # witness to the shipped value, and this case is where that debt is paid. It is owed
-  # here MORE than the others, not less — the other neutral constants have an unstamped
-  # source in kit-init.sh to be checked against, and this one has none, because
-  # `kit-init --roles` rewrites every occurrence in every seam that carries it. A drifted
-  # literal here would silently neutralize sandboxes to a role set the kit no longer ships.
+  # THE ROLE SET. It has no unstamped source to check against (`kit-init --roles` rewrites
+  # every copy), so a drifted KIT_NEUTRAL_ROLE_PREFIXES would silently neutralize sandboxes
+  # to a set the kit no longer ships.
   local rh="$REAL_SCRIPTS/githooks/commit-msg"
   if [ -f "$rh" ]; then
     _ship_line "$rh" "ROLE_PREFIXES='${KIT_NEUTRAL_ROLE_PREFIXES}'"
@@ -608,19 +482,9 @@ case_ship_state() {
     cf "scripts/githooks/commit-msg is absent — it is the role set's authoring site"
   fi
 
-  # The FOURTH seam _kit_neutral_claude now resets, and therefore the fourth the
-  # suite stopped being an incidental witness to: the shipped templates carry the
-  # prefix as a PLACEHOLDER, not as a token. A kit that shipped a real prefix here
-  # would sail through a green run — the sandbox would restore nothing, kit-init
-  # would substitute nothing, and the case that checks the stamped id would still
-  # pass because the neutralizer had handed it what it expected.
-  #
-  # Guarded on presence rather than asserted, and the reason is this repository's
-  # own storage: the kit is kept DISARMED here (kit/_claude/, not kit/.claude/), so
-  # a run in place finds no .claude/templates at all. The kit-init cases skip
-  # loudly for exactly that reason; a `cf` here would turn the same environment
-  # fact into a FALSE RED, which is the defect measured against this file on
-  # 2026-08-26 and worth not re-creating.
+  # The shipped templates carry the prefix as a PLACEHOLDER. A kit shipping a real prefix
+  # there would pass a green run, because the neutralizer hands every case what it expects.
+  # Guarded on presence: a tree without .claude/templates has no subject here.
   local rt="$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md"
   if [ -f "$rt" ]; then
     grep -qF "$KIT_PREFIX_PLACEHOLDER" "$rt" \
@@ -636,22 +500,10 @@ case_ship_state() {
 #  then assert the real repo's HEAD + board surfaces are unchanged.)
 # =============================================================================
 REAL_HEAD_BEFORE=""; REAL_STATUS_BEFORE=""
-# THE SPAN IS THE WHOLE TREE, minus the harness's own directory.
-#
-# It used to be three paths — `scripts progress ARCHIVE.md` — and that was narrower than what this
-# harness READS by a wide margin: it reads PROJECT.md, CLAUDE.md, .claude/{templates,roles,workflows,
-# agents}, _claude/skills, process/, consumers/, dev/ and setup.sh out of the real tree as well. So
-# the case certified "the real repo unchanged" while three of the surfaces it could have written to
-# were outside the question, and cases HAD written to the real CLAUDE.md and PROJECT.md without this
-# noticing. An isolation check whose span is narrower than its subject's reach is a check that
-# reports the absence of the findings it cannot have.
-#
-# `scripts/test/` stays excluded, and for a stated reason rather than by habit: it is the harness's
-# own home, legitimately edited by whoever is developing the harness while it runs.
-#
-# WIDENING IS SAFE HERE BECAUSE THE COMPARISON IS A DELTA. A pre-existing dirty tree — an editor's
-# scratch, a peer's uncommitted work — appears in both snapshots and is not a finding. Only a change
-# DURING the run is.
+# THE SPAN IS THE WHOLE TREE, minus the harness's own directory: the harness reads far more
+# of the real tree than scripts/ and progress/, and a narrower span cannot see a write to
+# what it reads. scripts/test/ is excluded as the harness's own home. The comparison is a
+# DELTA, so a tree already dirty at t0 is not a finding.
 _board_status() {
   git -C "$REAL_REPO_ROOT" status --porcelain 2>/dev/null \
     | grep -v ' scripts/test/' || true
@@ -660,25 +512,9 @@ isolation_snapshot() {
   REAL_HEAD_BEFORE="$(git -C "$REAL_REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "(no HEAD yet)")"
   REAL_STATUS_BEFORE="$(_board_status)"
 }
-# THIS CASE REPORTS WHAT IT MEASURED, NOT WHO DID IT — and the difference cost a
-# diagnostic detour the day it was found. It compares two snapshots of a tree it does
-# NOT own exclusively, so a difference means "this changed between t0 and t1" and
-# nothing more. It said "the harness added a mutation", and the harness had not: a
-# concurrent session was mid-edit in a board script while the run was in flight. The
-# tree was clean at t0, so the detection was exactly right; only the attribution was
-# invented. The reader was sent to debug the harness's isolation — the one thing the
-# evidence did not implicate — and the first reading was that a landing had broken
-# the witness, which is materially more alarming than "another window is editing a
-# file".
-#
-# THE AMBIGUITY IS IRREDUCIBLE FROM IN HERE, so the output names it rather than
-# resolving it. Recording the tree state at run start does not help and is already
-# done — REAL_STATUS_BEFORE is that snapshot, and the comparison below is already a
-# delta, so "appeared during the run" is already distinguished from "was already
-# dirty". What no snapshot of a tree can distinguish is WHO WROTE: "the harness wrote
-# it" and "a peer wrote it" are both just "the path differs between t0 and t1".
-# Separating them needs an observation of authorship this process has no way to make.
-# So per instruments.md § A.4 the case names its own blind spot in its own output.
+# THIS CASE REPORTS WHAT IT MEASURED, NOT WHO DID IT. A path that differs between t0 and t1
+# may have been written by the harness or by a concurrent session in the same checkout, and
+# no snapshot can tell them apart, so the output names both (instruments.md § A.4).
 case_isolation() {
   cf_reset
   local after status_after

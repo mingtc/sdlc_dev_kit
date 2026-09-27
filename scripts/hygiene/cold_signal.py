@@ -42,7 +42,7 @@
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Cold evidence" shape).
 # =============================================================================
-"""Instrument 3 — single-commit AND cold AND zero-exact-referrer files. Read-only, stdlib."""
+"""Single-commit AND cold AND zero-exact-referrer files. Read-only, stdlib."""
 
 from __future__ import annotations
 

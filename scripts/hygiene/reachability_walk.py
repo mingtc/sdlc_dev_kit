@@ -28,7 +28,7 @@
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Orphans" shape).
 # =============================================================================
-"""Instrument 2 — the starter-graph reachability walk. Read-only, stdlib only."""
+"""The starter-graph reachability walk. Read-only, stdlib only."""
 
 from __future__ import annotations
 

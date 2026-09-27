@@ -25,7 +25,7 @@
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md`.
 # =============================================================================
-"""Instrument 1 — cross-file 9-gram containment over the prose corpus. Read-only, stdlib."""
+"""Cross-file 9-gram containment over the prose corpus. Read-only, stdlib."""
 
 from __future__ import annotations
 

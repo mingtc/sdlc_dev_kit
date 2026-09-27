@@ -26,7 +26,7 @@
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "decay" shape).
 # =============================================================================
-"""Instrument 4 — the two staleness-signal greps, reported as suspicions. Stdlib only."""
+"""The two staleness-signal greps, reported as suspicions. Stdlib only."""
 
 from __future__ import annotations
 

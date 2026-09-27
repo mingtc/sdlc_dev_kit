@@ -10,23 +10,15 @@
 # printing a per-case PASS / FAIL / SKIP summary at the end.
 #
 # WHAT IT IS — and IS NOT
-#   • Pure bash + git, PLUS `perl` — and the third one is the point of this line. `perl`
-#     rewrites sandbox fixtures throughout this harness and is PROBED AT STARTUP: its
-#     absence is a hard refusal with the reason, not an unexplained abort forty cases in.
-#     `node` and `python3` are OPTIONAL — cases needing them SKIP loudly. This header used to
-#     read "no language runtime, no package manager, no new dependency", which was false of
-#     perl and true of nothing else, and nothing probed it. THE KIT's own floor is unchanged:
-#     git and a POSIX shell. This dependency is the HARNESS's, and it is declared here.
-#     It tests the SCRIPTS, not the project.
+#   • Pure bash + git, plus `perl`, which rewrites sandbox fixtures and is PROBED AT
+#     STARTUP: its absence is a refusal with the reason. `node` and `python3` are
+#     OPTIONAL — cases needing them SKIP loudly. The KIT's floor is git and a POSIX
+#     shell; perl is the HARNESS's dependency. It tests the SCRIPTS, not the project.
 #   • It is DELIBERATELY NOT wired into scripts/verify.sh — it is an ON-DEMAND
 #     developer/QA tool for proving a change to the board scripts is correct
 #     without risking the real board or the real remote. RUN IT BY HAND AFTER
 #     TOUCHING ANY SCRIPT IT COVERS — including the hooks, the githooks and lib/.
-#     No list of those scripts lives here on purpose: this line used to name a
-#     handful and had fallen behind the case families the harness had grown, so an
-#     operator changing one of the unnamed ones was told nothing. The covering set
-#     is the CASES list below and the sandbox copies each case makes; read those,
-#     which cannot go stale against the harness because they ARE the harness.
+#     The covering set is the CASES list and the sandbox copies each case makes.
 #
 # ISOLATION (the whole point)
 #   Every case builds a THROWAWAY sandbox in a fresh `mktemp -d`: a work repo
@@ -37,34 +29,11 @@
 #   is torn down after each case. A failing case cannot mutate the real repo, and
 #   case_isolation proves that rather than asserting it.
 #
-# ONE INSTANCE PER MACHINE — AN ASSUMPTION THIS HARNESS DOCUMENTS RATHER THAN A CAUSE IT KNOWS.
-#   Run one copy of this harness at a time. Two concurrent runs may collide in the sandbox EVEN
-#   AGAINST SEPARATE TREES AND SEPARATE BARE REMOTES, which is the configuration in which it was
-#   observed: of two runs started in parallel, one finished normally and the other aborted
-#   mid-suite with a FIXTURE FAILURE naming a sandbox file that did not exist. Re-run alone, in
-#   the same tree, that second run completed normally — so the tree was not the cause.
-#
-#   THE CAUSE IS NOT DERIVED, AND THIS PARAGRAPH IS NOT A DIAGNOSIS. It was seen once, on one
-#   machine, on one pair of runs. `make_sandbox` takes a fresh `mktemp -d`, which should not
-#   collide, and `teardown` removes `$SB_TMP`, a global that every `make_sandbox` reassigns —
-#   both are READ from lib/fixtures.sh, and NEITHER HAS BEEN MEASURED against this failure. A
-#   host-level cause (temp-dir reaping, a git config lock) is equally unexcluded. Do not read
-#   this block as saying which it is.
-#
-#   IT IS WRITTEN DOWN BECAUSE THE RED IS OTHERWISE UNATTRIBUTABLE, NOT BECAUSE IT IS DANGEROUS.
-#   The failure direction is the safe one: the run that failed ABORTED, loudly, naming the
-#   missing sandbox file, rather than reporting a green it had not earned. That is a statement
-#   about the ONE OBSERVED FAILURE and not a guarantee about every collision, which nothing here
-#   has measured. What costs is a reader meeting that red with no way to tell it from a real
-#   defect, because the natural response — re-run it — makes it vanish, which is the shape of a
-#   flake. That is why the remedy here is a sentence and not a mechanism.
-#
-#   THIS IS NOT WHAT `case_isolation` ASSERTS, AND THE TWO ARE DELIBERATELY SEPARATE. That case
-#   asserts the REAL REPOSITORY's HEAD and working tree are unchanged across a run — isolation
-#   FROM this harness TO the repository it is run in. This paragraph is about isolation of the
-#   harness from ANOTHER INSTANCE OF ITSELF: the opposite direction, a different subject and a
-#   different failure. Folding them would put two properties under one verdict, so a red would
-#   no longer say which of them broke.
+# ONE INSTANCE PER MACHINE. Run one copy of this harness at a time. Two concurrent runs
+#   can collide in the sandbox, even against separate trees and separate bare remotes: the
+#   symptom is a FIXTURE FAILURE naming a sandbox file that does not exist, and the run
+#   passes when repeated alone. The cause is not known. Re-run alone before debugging such
+#   a red. (case_isolation is a different property: the real repository is unchanged.)
 #
 # NOTHING HERE HARD-CODES A PREFIX OR A TRUNK NAME
 #   Both are DERIVED from the seams (scripts/config.sh's ISSUE_PREFIX,
@@ -85,112 +54,38 @@
 #   is never used to hide a missing behaviour (see the notes on the two cases that
 #   deliberately have NO capability probe).
 #
-# WHERE THIS HARNESS IS A WITNESS, AND WHERE IT IS NOT. It is a witness when run from
-# a BUILT KIT — an unzipped tree given day-one git topology. It is NOT a witness run
-# in place inside the repository that maintains the kit, and that is a property of
-# that repository's storage rather than a defect in anything here: the kit is kept
-# there DISARMED, under `_claude/` rather than `.claude/`, so a harness auto-loader
-# does not pick up the kit's own skills and roles as the maintainer's.
+# RUN IT FROM A BUILT KIT. It is a witness only when run from an unzipped release given
+# day-one git topology. The repository that maintains the kit stores it DISARMED
+# (`_claude/`, not `.claude/`), so in place the day-one cases skip and false reds occur;
+# the harness refuses there, because that tree has no process/KIT-MANIFEST.
 #
-# WHAT IN-PLACE RUNNING ACTUALLY COSTS, measured rather than described: the day-one
-# cases SKIP on a `.claude/` path that is present two directories over under the other
-# spelling, and at least one case has reported a FALSE RED with no defect behind it.
-# Both are the same cause. So an in-place run's output is not admissible as evidence
-# about the kit, and no number taken from one belongs in a change file.
-#
-# THE SITES THAT TOLERATE BOTH SPELLINGS DO NOT MAKE IN-PLACE RUNNING SUPPORTED. Those
-# that do read whichever of `_claude/` or `.claude/` exists, so that they still read the
-# real shipped tree when someone runs them in place; each says so at its own site, and one
-# of them is a shared helper rather than a case. That is a convenience for those sites, not
-# a mode this file offers, and it must not be widened into one — running in place should be
-# honestly unsupported rather than quietly made to work, which is a larger decision than
-# any of those sites took.
-#
-# NO COUNT HERE, DELIBERATELY, AND DO NOT RE-ADD ONE. This sentence read "Four" and was
-# wrong every time anyone looked: five when the defect was raised (2026-08-31), SIX the
-# next day, and five again after one site was folded into the helper above — three values
-# across two changes in two days, and the number was re-derived by none of them.
-# `process/doctrine/staleness.md` § C is the rule (derive, date, or do not state) and its
-# own note about enumerations is why this is phrased as a property rather than a total.
-#
-# The instrument whose output IS the list, if a reader wants it. NOTE THE COMMENT SKIP,
-# and it is not tidiness: without it this recipe matches the line you are reading and
-# reports itself as a site — a probe inside its own operand set, which is the defect it
-# exists to measure. RUN THE RECIPE RATHER THAN TRUSTING A DIGIT HERE — this line said "six hits
-# and five", then "nine and eight", and both were wrong. RUN THE RECIPE — it is four lines below.
-# A digit here is a census in prose about a file that changes every time a case is added, stated
-# four lines under the header paragraph warning about exactly that.
+# A few sites read whichever of `_claude/` or `.claude/` exists, so they still find the
+# shipped tree in place. That is a convenience at those sites, not a mode this harness
+# offers: do not widen it into one. To list them (the comment skip keeps this recipe
+# from matching itself):
 #
 #   awk '!/^[[:space:]]*#/ && /_claude/ && /REAL_REPO_ROOT/ {print FILENAME":"FNR": "fn}
 #        /^[A-Za-z_][A-Za-z0-9_]*\(\)/{fn=$1}' scripts/test/run.sh scripts/test/lib/*.sh scripts/test/cases/*.sh
 #
-# THE PIPEFAIL RULE, and it has already cost this harness one FALSE RED: under
-# `set -o pipefail`, a pipeline ending in a reader that exits before its input is
-# drained — `head`, `grep -q`, `grep -m`, `sed …q`, `read` are the family — returns
-# the PRODUCER's death, not the reader's answer. The early exit closes the pipe, the
-# producer still writing behind it takes SIGPIPE and dies 141, and `pipefail`
-# promotes that to the status of the whole pipeline. Here that inverts an assertion:
-# `origin_log_has_subject` returned "not found" for a subject that WAS present, and
-# it did so *because* the match was early. Measured on its own pipeline: 0/1 failures
-# on a 1-commit trunk, 58/60 at ten commits, 60/60 at twenty-five — so it is not a
-# flake, it is a threshold nobody had crossed while the sandboxes stayed small.
-#
-# THE SIZE THAT MATTERS IS THE PRODUCER'S OUTPUT, NOT ITS KIND. A builtin is not
-# safe by being a builtin: `printf '%s\n' "$big" | grep -q` on a match in the first
-# line dies 141 too, once "$big" exceeds the pipe buffer.
-#
-# THE EXEMPTION THIS BLOCK USED TO CLAIM WAS WRONG, AND THE REASON IT GAVE WAS RIGHT.
-# It argued that the many `printf "$out" | grep -q` pipelines below were sound because
-# `$out` is one command's captured output, "orders below that buffer". The premise is
-# the correct test; the conclusion did not follow, because CAPTURING THE STREAM DOES
-# NOT SHRINK IT. `git log … | grep -q` and `subjects="$(git log …)"; printf '%s\n'
-# "$subjects" | grep -q` have the SAME failure at the same threshold — the capture only
-# moves which process dies of SIGPIPE, and `pipefail` promotes it either way. Measured
-# on this machine with the exact `origin_has_path` shape, a target matching on the
-# FIRST line so the reader exits at once:
-#
-#     board size     bytes     capture-then-`grep -q`     reader drains input
-#       200 cards    12231          0/100 false reds           0/100
-#       800 cards    48831          0/100                      0/100
-#      2000 cards   122031        100/100 FALSE REDS           0/100
-#      5000 cards   305031        100/100 FALSE REDS           0/100
-#
-# The threshold is the 64KB pipe buffer, and it is a CLIFF, not a flake: below it
-# nothing fails, above it everything does. So the old rule sorted these pipelines into
-# "growable" and "exempt" and then applied the WRONG REMEDY to the growable half.
-#
-# THE RULE, SUPERSEDING THE ABOVE, AND ITS SCOPE STATED SO THE SENTENCE IS TRUE:
-# never let an early-exiting reader decide a verdict under `pipefail` WHERE THE PRODUCER
-# CAN GROW. `grep -q`, `grep -m`, `head`, `sed …q` and `read` are the family; the
-# growable producers are the ones that read a repository, a board, a history or the
-# network. IN THIS HARNESS the rule applies without exception — every producer here is a
-# fixture a future case can enlarge, so no assertion in it uses a piped early-exiting
-# reader at all, and the census in `case_probe_victim_selection_survives_pipefail`
-# enforces exactly that. IN THE SHIPPED SCRIPTS it applies to the growable producers,
-# which that same case censuses separately; the pipelines validating a SINGLE FLAG VALUE
-# (`printf '%s' "$NUM" | grep -qE '^[0-9]+$'`) are deliberately left, because one
-# argument cannot approach the buffer and the rewrite would be churn without a defect.
-# The unqualified form of this sentence would be false about the tree we ship, which is
-# the kind of claim § C of the staleness doctrine calls a bare universal.
-# Drop the `-q` and redirect — `| grep -F pat >/dev/null` — which makes the reader
-# drain its input while returning the IDENTICAL exit status, or in bash test the string
-# directly with `[[ "$out" == *pat* ]]` and have no pipe at all. Both were measured to
-# preserve the TRUE NEGATIVE (50/50 correct reds on a genuinely absent pattern), so the
-# fix cannot turn a red into a false green. This is why no assertion in the harness uses `grep -q`
-# behind a pipe; a bare `grep -q FILE` with no pipe has no producer and is unaffected.
-# =============================================================================
+# THE PIPEFAIL RULE. Under `set -o pipefail`, a reader that exits before draining its
+# input — `grep -q`, `grep -m`, `head`, `sed …q`, `read` — closes the pipe; once the
+# producer's output exceeds the 64KB pipe buffer the producer dies of SIGPIPE, and
+# pipefail makes that the pipeline's status, so a match reads as "not found". Capturing
+# the output into a variable first does not help: it only moves which process dies.
+#   • IN THIS HARNESS no assertion uses a piped early-exiting reader, because every
+#     producer is a fixture a future case can enlarge.
+#   • IN THE SHIPPED SCRIPTS the rule binds producers that can grow (a repository, a
+#     board, a history, the network). A pipe validating a single flag value is left.
+#   case_probe_victim_selection_survives_pipefail enforces both. The fix: drop the `-q`
+#   and redirect (`| grep -F pat >/dev/null` drains the input and returns the same
+#   status), or test the string with `[[ "$out" == *pat* ]]`. A bare `grep -q FILE`
+#   has no pipe and is unaffected.
 set -uo pipefail
 
-# A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS — process/contracts/issue-creation.md § 3,
-# which this harness enforces on other scripts and did not answer itself. Before this, `--help`
-# was not read at all: it fell through and STARTED THE FULL SUITE, building sandboxes and bare
-# repositories for several minutes, which is the most expensive possible answer to "what is this?".
+# A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS (process/contracts/issue-creation.md § 3).
 case "${1:-}" in
   -h|--help)
-    # DERIVED, NOT A LITERAL. The first version of this arm used `3,34p` and this header runs to
-    # line 118, so --help ended mid-sentence with an unclosed rule. Every other header-derived
-    # --help in the kit derives its end; this arm was written in the same session that removed the
-    # last literal from the others and reintroduced one immediately.
+    # The window ends at the header's last comment line, derived rather than typed.
     _rs_end="$(awk 'NR>2 && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
     sed -n "3,${_rs_end:-34}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
@@ -200,10 +95,7 @@ case "${1:-}" in
      exit 2 ;;
 esac
 
-# PROBED, NOT ASSUMED. perl is a hard dependency of this harness (fixture mutation) and it is
-# past the kit's declared git-plus-POSIX floor, so it is refused at startup with the reason —
-# not discovered as an unexplained abort forty cases in. node and python3 are OPTIONAL and their
-# cases skip; this one cannot skip, because almost every sandbox is built with it.
+# perl is required: nearly every sandbox is built with it, so there is no skip path.
 command -v perl >/dev/null 2>&1 || {
   echo "run.sh: perl is required by this harness and is not on PATH." >&2
   echo "        It rewrites sandbox fixtures; there is no skip path, because nearly every case" >&2
@@ -217,21 +109,9 @@ REAL_SCRIPTS="$REAL_REPO_ROOT/scripts"
 
 # ── THE MANIFEST IS REQUIRED, AND ITS ABSENCE IS A REFUSAL RATHER THAN A SKIP. ───────────────
 #
-# The header above already says this harness is a witness only when run from a BUILT KIT, that an
-# in-place run's day-one cases skip on a path that exists under the other spelling, that at least
-# one case has reported a FALSE RED there, and that "no number taken from one belongs in a change
-# file." All of that was true, and all of it was PROSE — so the run happened anyway and produced
-# numbers somebody then had to decide whether to believe.
-#
-# `process/KIT-MANIFEST` is generated by the build and never tracked, so its presence is exactly
-# the question "am I a built kit?", answered by a file rather than by a reader's discipline.
-#
-# WHY A REFUSAL AND NOT A SKIP, WHICH IS WHAT THIS WAS FOR ONE COMMIT. The cases that ask about
-# the shipped population DERIVE that population from this file. With a skip, a tree without the
-# manifest runs those cases against nothing and prints a summary with no red in it — the vacuous
-# coverage this whole workstream exists to kill, reintroduced by the fix for it. A skip is the
-# correct shape for a subject that is legitimately absent; the manifest is never legitimately
-# absent from a tree this harness is entitled to judge.
+# `process/KIT-MANIFEST` is generated by the build and never tracked, so its presence answers
+# "am I a built kit?". The cases about the shipped population derive it from this manifest;
+# with a skip they would run against nothing and print a green.
 if [ ! -f "$REAL_REPO_ROOT/process/KIT-MANIFEST" ]; then
   {
     echo "run.sh: REFUSING — there is no process/KIT-MANIFEST in this tree."
@@ -260,30 +140,16 @@ fi
 
 # ── THE HARNESS'S OWN TEXT IS A POPULATION, AUTHORED ONCE. ───────────────────────────────────
 #
-# Several cases census THIS HARNESS's source — its role literals, its minting cases, its piped
-# readers, its landing prologues, its fixture appends. They used to name their subject with
-# `${BASH_SOURCE[0]}`, and inside a function that is NOT "this harness": it is the file the
-# function was DEFINED in. While the harness is one file the two are the same, which is exactly
-# why the difference is invisible. The day a case moves into a sourced file, its census shrinks to
-# that one file, every negative census ("none of them does X") gets TRUER, and nothing reddens.
+# Several cases census this harness's source: its role literals, minting cases, piped readers,
+# landing prologues and fixture appends. Inside a function `${BASH_SOURCE[0]}` names the file
+# the function was DEFINED in, not the harness, so a census must read the population derived
+# here from the one list the loader sources: the entry point, then _harness_sourced (lib/*.sh,
+# then cases/*.sh, in C-locale order). A file placed there is harness: loaded, and censused.
 #
-# So the population is derived here, once, from the ONE LIST the loader below sources: the entry
-# point, then _harness_sourced. The files a census reads and the files the entry point loads
-# cannot then differ, because there is one author for both.
-#
-# THE LIST IS A GLOB — lib/*.sh, then cases/*.sh, beside the entry point, in C-locale order —
-# written in _harness_sourced and nowhere else. It stayed empty until the harness was split,
-# because a glob also sources whatever a project keeps under those names: a change to announce,
-# not to make silently. The split's release note announces it. A file there is harness: loaded,
-# and read by every census.
-#
-# A CONCATENATION, NOT A LIST, for the cases that plant into a copy or excise their own body: they
-# read one probe file. A line number of the concatenation is a line of no file, so a census that
-# reports one passes it through _harness_where, which names the file and the line in it.
-#
-# AND EVERY CASE THAT READS IT ASSERTS IT IS WHOLE (_harness_population_is_whole): the case_*()
-# definitions across the population must number exactly what CASES lists. A population that lost
-# a file then reddens instead of shrinking.
+# _harness_probe_copy concatenates the population for the cases that plant into a copy or
+# excise their own body; a census reporting a line of it passes it through _harness_where,
+# which names the file and the line in it. Every case that reads the population asserts it is
+# whole (_harness_population_is_whole), so a population that lost a file reddens.
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_ENTRY="$HARNESS_DIR/$(basename "${BASH_SOURCE[0]}")"
 
@@ -365,20 +231,11 @@ echo
 isolation_snapshot
 
 # ── THE CASE LIST. Explicit for ORDER, derived for COMPLETENESS. ─────────────
-# The order is real and cannot be generated: case_isolation must run last (it
-# compares the real repo against the snapshot taken above), case_ship_state reads
-# the real tree, and the check-board and release families build on cheaper cases
-# having already proven their primitives. So the sequence stays hand-written.
-#
-# WHAT WAS HAND-WRITTEN AND SHOULD NOT HAVE BEEN IS THE MEMBERSHIP. This list used
-# to be 38 bare calls with nothing comparing it to the functions that exist, so a
-# new case_* function that nobody added here SILENTLY NEVER RAN — and the suite
-# reported a full green while carrying a case it had not executed. The assertion
-# below closes that. It is not hypothetical: the most recent case added to this
-# file was appended by hand, and the change file that named this very defect
-# recorded the count as 37 while the tree held 38, because the person adding the
-# 38th updated the list and not the prose. THE COUNT IS NOWHERE IN PROSE NOW; the
-# comparison below is the only statement of it, and it is derived on both sides.
+# The order cannot be generated: case_isolation must run last (it compares the real
+# repo against the snapshot taken above), case_ship_state reads the real tree, and the
+# check-board and release families build on cheaper cases having proven their
+# primitives. Membership is compared below with the defined case_* functions, so a
+# case missing from this list refuses the run rather than silently never running.
 CASES=(
   case_move_issue
   case_move_issue_probe
@@ -555,8 +412,7 @@ CASES=(
 )
 
 # Every case_* function that exists must be in CASES, and vice versa. A mismatch is
-# FATAL before any case runs: a suite that cannot enumerate its own subject has
-# nothing to say about anything else.
+# FATAL before any case runs.
 _defined_cases="$(declare -F | sed 's/^declare -f //' | grep '^case_' | sort)"
 _listed_cases="$(printf '%s\n' "${CASES[@]}" | sort)"
 if [ -z "$_defined_cases" ]; then
@@ -584,21 +440,9 @@ echo
 
 # ── THE RUN, AND A STABLE IDENTITY FOR EACH CASE'S OUTCOME. ──────────────────
 #
-# WHY THE OUTCOME IS DERIVED HERE RATHER THAN READ OFF THE PRINTED LINES. Comparing two runs of
-# this harness — the shipped tree against a tree that has finished day one — needs to know THE
-# SAME CASE's outcome in both. The printed line cannot supply that, and this was measured rather
-# than reasoned:
-#
-#   * a case that names its span embeds a DERIVED COUNT in its finish line ("among the 18 shipped
-#     scripts…" / "…the 19…"), so the better the case behaves — naming its span is this kit's own
-#     rule — the more certainly its text differs between two legitimate trees;
-#   * a case that goes N/A never reaches its finish line at all, so its text differs by
-#     construction.
-#
-# So a comparison keyed on the printed text reports a moved case wherever a count moved, and is
-# blind wherever a case changed kind. Keyed on the FUNCTION NAME it reports neither. The block
-# below is therefore the machine-readable half of this harness's output; the human half above it
-# is unchanged.
+# The outcome is keyed on the case's FUNCTION NAME, not its printed line: a finish line may
+# embed a derived count, and an N/A case never reaches its finish line, so the printed text
+# differs between two legitimate trees. Compare runs with the case-outcome: lines below.
 declare -a CASE_OUTCOMES
 _multi=""
 for _c in "${CASES[@]}"; do
@@ -611,10 +455,8 @@ for _c in "${CASES[@]}"; do
   elif [ "$PASS"  -gt "$_p0" ]; then _o=PASS
   else _o=NO-OUTCOME
   fi
-  # ── INSTRUMENT CHECK: exactly one outcome per case. A case that records NOTHING is invisible
-  #    in every count this harness prints — it looks identical to a case that was never written.
-  #    A case that records TWO makes every set comparison below ambiguous. Both are reported by
-  #    name rather than absorbed into a total.
+  # ── INSTRUMENT CHECK: exactly one outcome per case. A case recording none is invisible in
+  #    every count; one recording two makes the outcome table ambiguous.
   [ "$_n" -eq 1 ] || _multi="$_multi $_c($_n)"
   CASE_OUTCOMES+=("$_c $_o")
 done
@@ -622,9 +464,8 @@ done
 echo
 echo "════════════════════════════════════════════════════════"
 printf 'summary: %d PASS, %d FAIL, %d SKIP, %d N/A-on-lived-tree\n' "$PASS" "$FAIL" "$SKIP" "$LIVED"
-# THE N/A LIST IS PRINTED, NOT JUST COUNTED. It is a new enumeration, derived from the run rather
-# than typed anywhere, and it is what a reviewer reads at the cut: a case that has quietly had no
-# subject for six months looks exactly like a case that passed, unless the list is in front of them.
+# THE N/A LIST IS PRINTED, NOT JUST COUNTED: a case with no subject on this tree otherwise
+# looks exactly like a case that passed.
 if [ "$LIVED" -gt 0 ]; then
   echo
   echo "N/A on a lived tree — these cases had no subject on THIS tree, each naming the file whose"
@@ -633,9 +474,7 @@ if [ "$LIVED" -gt 0 ]; then
 fi
 echo "════════════════════════════════════════════════════════"
 
-# The machine-readable outcome table: one line per case, keyed on the case's own function name.
-# Stable across trees by construction — see the comment on the run loop above. A reader comparing
-# two runs uses these lines; a human reads the block above.
+# The machine-readable outcome table: one line per case, keyed on its function name.
 echo
 for _r in "${CASE_OUTCOMES[@]}"; do printf 'case-outcome: %s\n' "$_r"; done
 if [ -n "$_multi" ]; then
