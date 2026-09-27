@@ -227,8 +227,13 @@ case_archive_index_carries_the_date() {
   seed_issue qa_complete "$SB_PREFIX-250" dated chore "Dated retirement"
   publish_sandbox
 
-  local out rc entry today
+  local out rc entry today preview
   today="$(date +%Y-%m-%d)"
+  # The dry run first, while the item is still on the board: its previewed entry is compared below.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the dry run exited $rc: $out"
+  preview="$(printf '%s\n' "$out" | grep -E "^- $SB_PREFIX-250 " || true)"
+  [ -n "$preview" ] || cf "the dry run previewed no entry for $SB_PREFIX-250: $out"
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "archive.sh --apply exited $rc: $out"
   entry="$(grep "$SB_PREFIX-250" "$SB_WORK/ARCHIVE.md" || true)"
@@ -241,9 +246,8 @@ case_archive_index_carries_the_date() {
   # mint cannot collide with an archived id.
   printf '%s' "$entry" | grep -E "^- $SB_PREFIX-250 " >/dev/null \
     || cf "the entry no longer begins '- $SB_PREFIX-250 ' — next-id.sh reads this shape to avoid re-minting an archived id: $entry"
-  # The dry run on the same board must still exit 0.
-  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "the dry run exited $rc: $out"
+  [ "$preview" = "$entry" ] \
+    || cf "the dry run previewed an entry the apply did not write — preview: $preview | written: $entry"
 
   # --- ABLATION: remove the date write and the assertion above must fail -----
   local a_script="$SB_WORK/scripts/archive.sh" n

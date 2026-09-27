@@ -968,16 +968,16 @@ case_finish_pr_gate_hardening() {
 # THE STATES, named by their two variables (what GUARD_SET holds, what the enumerator
 # does), one case each. verify.sh has more outcomes than these, so check the list against
 # the case set rather than trusting a count:
-#   (3) SPACE − SET, from the SHIPPED empty GUARD_SET  → rc 2, the enumerated guard named
-#   (4) enumerator MIS-TYPED (rc 1, not 127)           → rc 2, the enumerator's OWN stderr surfaced
-#   (5) enumerator succeeds and returns NOTHING        → rc 2, no reconciled claim
-#   (6) SET − SPACE, two on disk, enumerator sees one  → rc 2, the UNSEEN one named
-#   (7) wholly empty: no set, enumerator returns none  → rc 0, and NO reconciled claim
-#   (8) DECLARED == ENUMERATED, both non-empty         → rc 0, and the reconciled claim IS
-#       emitted: the only state that reaches the green line. (7) also exits 0, so without
+#   (1) SPACE − SET, from the SHIPPED empty GUARD_SET  → rc 2, the enumerated guard named
+#   (2) enumerator MIS-TYPED (rc 1, not 127)           → rc 2, the enumerator's OWN stderr surfaced
+#   (3) enumerator succeeds and returns NOTHING        → rc 2, no reconciled claim
+#   (4) SET − SPACE, two on disk, enumerator sees one  → rc 2, the UNSEEN one named
+#   (5) wholly empty: no set, enumerator returns none  → rc 0, and NO reconciled claim
+#   (6) DECLARED == ENUMERATED, both non-empty         → rc 0, and the reconciled claim IS
+#       emitted: the only state that reaches the green line. (5) also exits 0, so without
 #       this one every assertion about that claim is an assertion about its ABSENCE.
 #
-# STATES 3 AND 7 ARE BOTH BUILT ON THE SHIPPED EMPTY GUARD_SET: a fixture that always
+# STATES 1 AND 5 ARE BOTH BUILT ON THE SHIPPED EMPTY GUARD_SET: a fixture that always
 # declares a populated set passes against it by construction.
 # =============================================================================
 
