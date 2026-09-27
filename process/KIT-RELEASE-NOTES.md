@@ -720,8 +720,8 @@ columns and never the cards.*
 
 - **`qa.md`'s regression path could publish "Merged." on a card nothing merged, and let a Critical bug land.** A
   `Blocker`/`Critical` now always sends the issue back (`FAIL_REGRESSION`); a PASS with `Major`/`Minor` bugs lands with
-  `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, because
-  `next-id.sh` reads the local board and a work branch repeats ids minted after it was cut.
+  `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, where the
+  card is published.
 
 - **`move-issue.sh` can move a parent issue that has subtasks.** Once a parent had any subtask, every move refused with
   "multiple files match", so a decomposed issue could never land. It now looks only at `progress/<column>/`, and
@@ -740,6 +740,10 @@ columns and never the cards.*
   `dev/downtime-queue.md` and `progress/` relative to where you ran it, so from a subdirectory or the SessionStart hook it
   reported a present queue as absent. It now reads `<remote>/<trunk>` (or the working tree, labelled) and names it.
   `DQ_FILE` is relative to the repository root — make an absolute value repo-relative.
+
+- **`next-id.sh` no longer repeats an id minted on the trunk after your branch was cut.** It read only your checkout; it
+  now also reads `<remote>/<trunk>`'s board and `ARCHIVE.md` as last fetched (it never fetches) and prints which it read
+  on stderr. Filing from the trunk after `git pull --ff-only` is still the rule: the card has to be published there.
 
 ## [0.6.0] — 2026-09-18
 

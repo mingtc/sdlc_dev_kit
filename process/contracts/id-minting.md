@@ -39,6 +39,8 @@ would restate these invariants and the copy is the one that goes stale.
   numbers, so an identifier that no longer appears on the board is still taken.
   *Why:* a minting rule that only reads the live board reissues the number of the first item that
   ever completed — the collision arrives late and is nearly invisible.
+  **Both are the trunk's as well as this checkout's.** *Why:* a branch cut before a mint on the
+  trunk cannot see it, and reissues that number.
 - **Minting is a SUGGESTION; assignment is the caller's, and is validated.** The tool proposes
   the next free identifier; the creating step takes the identifier as an input and re-checks it.
   *Why:* the caller has context the tool does not (a reserved range, a batch being minted), and a
@@ -135,7 +137,7 @@ make. Validation is a separate call: identifier in, accept / hard refusal / loud
 > One implementation, not the definition.
 
 - `scripts/next-id.sh` — KIT-CLASS: KIT. The read-only proposal, over both the live board and
-  the retired index.
+  the retired index, in this checkout and on `<remote>/<trunk>` as last fetched.
 - `scripts/config.sh` — KIT-CLASS: KIT. The prefix seam and the shared validation used by every
   creating step; contracted in [config-seam.md](config-seam.md).
 - The creating steps that consume a validated identifier are contracted in

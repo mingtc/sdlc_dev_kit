@@ -168,7 +168,7 @@ If you hit something that needs a PM decision (AC ambiguous, architectural fork,
 
 ### Spawning a follow-up issue
 
-If during work you discover a separable tech-debt task, refactor, or spike that shouldn't bloat the current issue: from the trunk, not your work branch, run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ...` to create a new `progress/todo/<PREFIX>-NNN-<slug>.md` (`--id` required; `next-id.sh` suggests the next free number from the local board — sanity-check it), then commit and push it. Reference it from the current issue's "Out of Scope" and from `progress.md`. Stay focused on the current ticket. **A dispatched Dev worker does not mint:** it records the follow-up in the issue's Out of Scope and its report ([orchestrator.md § Discovered tech-debt and todos](orchestrator.md#discovered-tech-debt-and-todos)).
+If during work you discover a separable tech-debt task, refactor, or spike that shouldn't bloat the current issue: from the trunk, not your work branch, run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ...` to create a new `progress/todo/<PREFIX>-NNN-<slug>.md` (`--id` required; `next-id.sh` suggests the next free number — sanity-check it), then commit and push it. Reference it from the current issue's "Out of Scope" and from `progress.md`. Stay focused on the current ticket. **A dispatched Dev worker does not mint:** it records the follow-up in the issue's Out of Scope and its report ([orchestrator.md § Discovered tech-debt and todos](orchestrator.md#discovered-tech-debt-and-todos)).
 
 ## Subagent strategy
 

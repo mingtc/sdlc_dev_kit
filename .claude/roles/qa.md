@@ -187,7 +187,7 @@ Action on FAIL splits by reason:
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — AC unmet.`
 
 **FAIL on regression** (a `Blocker` or `Critical` bug found, whether or not the AC is met):
-- File each bug **from the trunk, not the work branch** — `next-id.sh` reads the local board, so a branch cut before later mints repeats a taken id: `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity Critical`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
+- File each bug **from the trunk, not the work branch** — the card is published there, and `next-id.sh` reads the trunk only as last fetched: `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity Critical`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
 - `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL_REGRESSION. Bugs filed: <PREFIX>-NNN."` Do not merge. The note is the review record.
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — bugs <PREFIX>-NNN, <PREFIX>-NNN filed.`
 

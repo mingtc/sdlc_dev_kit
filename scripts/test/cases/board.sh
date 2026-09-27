@@ -833,6 +833,42 @@ case_next_id() {
 }
 
 # =============================================================================
+# CASE — next-id.sh on a branch cut before a trunk mint does not repeat that id
+#
+# The trunk is read from <remote>/<trunk> as last fetched, never fetched by the script:
+#   (a) the fetched trunk's card and (b) its ARCHIVE.md entry both count, and the source is
+#   named on stderr; (c) a branch-only card still counts.
+# =============================================================================
+case_next_id_reads_the_trunk() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-001" one chore "one"
+  publish_sandbox
+  git -C "$SB_WORK" checkout -q -b work
+  local other="$SB_TMP/other" out err rc
+  git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
+  : > "$other/progress/todo/$SB_PREFIX-002-two.md"
+  printf -- '- %s-005 [chore] retired on the trunk\n' "$SB_PREFIX" >> "$other/ARCHIVE.md"
+  git -C "$other" add -A && MSG_OK=1 git -C "$other" -c user.email=o@x.invalid -c user.name=o commit -qm "[PM] mint" \
+    && git -C "$other" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_next_id_reads_the_trunk: the second clone could not publish its mint."
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1 || _fixture_die "case_next_id_reads_the_trunk: fetch failed."
+  [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-002-two.md" ] || _fixture_die "case_next_id_reads_the_trunk: the branch already holds the trunk's mint."
+
+  out="$( cd "$SB_WORK" && ./scripts/next-id.sh 2>"$SB_TMP/err" )"; rc=$?; err="$(cat "$SB_TMP/err")"
+  [ "$rc" -eq 0 ] || cf "exited $rc: $err"
+  [ "$out" = "$SB_PREFIX-006" ] || cf "(a)(b) on a branch behind the trunk: want $SB_PREFIX-006 (trunk ARCHIVE.md max 005), got '$out'"
+  printf '%s' "$err" | grep "origin/$SB_TRUNK" >/dev/null || cf "(a) stderr does not name the trunk ref it read: '$err'"
+
+  : > "$SB_WORK/progress/todo/$SB_PREFIX-009-local.md"
+  out="$( cd "$SB_WORK" && ./scripts/next-id.sh 2>/dev/null )"
+  [ "$out" = "$SB_PREFIX-010" ] || cf "(c) a card only on this checkout no longer counts: want $SB_PREFIX-010, got '$out'"
+
+  finish "next-id.sh: max over this checkout AND <remote>/<trunk> (board and ARCHIVE.md), naming the ref it read"
+  teardown
+}
+
+# =============================================================================
 # CASE — the commit-msg hook
 # =============================================================================
 case_commit_msg() {

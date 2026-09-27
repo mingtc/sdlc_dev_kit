@@ -3,7 +3,9 @@
 # Suggest the next issue id (e.g. <PREFIX>-034) — READ-ONLY, no side effects.
 #
 # Computes max(existing) + 1 across the live board (progress/** filenames) AND ARCHIVE.md, so
-# numbering does not reset after a milestone close.
+# numbering does not reset after a milestone close — in this checkout AND on <remote>/<trunk>, so
+# a branch cut before a trunk mint does not repeat it. The ref is read as last fetched, never
+# fetched, and named on stderr.
 #
 # A SUGGESTION, not authority: the creation scripts are stateless and take --id; the agent
 # sanity-checks this and passes its choice. If no number can be determined it says so on
@@ -26,7 +28,8 @@ case "${1:-}" in
   -h|--help)
     echo "usage: next-id.sh"
     echo ""
-    echo "  Prints the next free issue id — max(board, ARCHIVE.md) + 1. READ-ONLY, and"
+    echo "  Prints the next free issue id — max(board, ARCHIVE.md) + 1, over this checkout"
+    echo "  and <remote>/<trunk> as last fetched. READ-ONLY, and"
     echo "  a SUGGESTION rather than an allocation: the creation scripts take --id."
     echo "  Takes no options."
     exit 0 ;;
@@ -55,6 +58,18 @@ if [ -z "${ISSUE_PREFIX:-}" ]; then
   exit 1
 fi
 
+# THE TRUNK, through the board library's resolution. No ref (day one, local-only): this checkout.
+# shellcheck source=lib/kanban-worktree.sh
+. "$ROOT/scripts/lib/kanban-worktree.sh" || exit 1
+cd "$ROOT" && kwt_resolve || exit 1
+TRUNK_REF="$KWT_REMOTE/$DEFAULT_BRANCH"
+if git rev-parse --verify --quiet "refs/remotes/$TRUNK_REF" >/dev/null; then
+  echo "next-id: read this checkout and $TRUNK_REF @ $(git rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2
+else
+  TRUNK_REF=""
+  echo "next-id: read this checkout only — no $KWT_REMOTE/$DEFAULT_BRANCH ref" >&2
+fi
+
 # Highest number seen across live filenames + archived entries.
 # - progress/** : full paths are fine to grep (the prefix-NNN only appears in the
 #   filename, never the directory part), so spaces in the path don't matter.
@@ -64,6 +79,10 @@ max="$(
   {
     find "$ROOT/progress" -type f -name "${ISSUE_PREFIX}-*.md" 2>/dev/null
     [ -f "$ROOT/ARCHIVE.md" ] && cat "$ROOT/ARCHIVE.md"
+    if [ -n "$TRUNK_REF" ]; then
+      git ls-tree -r --name-only "refs/remotes/$TRUNK_REF" -- progress
+      git show "refs/remotes/$TRUNK_REF:ARCHIVE.md"
+    fi
   } 2>/dev/null \
     | grep -oE "${ISSUE_PREFIX}-[0-9]+" \
     | sed -E "s/^${ISSUE_PREFIX}-0*//" \
