@@ -260,6 +260,7 @@ CASES=(
   case_finish_pr_gate_hardening
   case_finish_pr_worktree_through_a_symlink
   case_finish_pr_gate_revision
+  case_finish_pr_trunk_gate_judges_the_branch
   case_archive_apply
   case_archive_hedged_flags_never_mutate
   case_one_member_role_tag_refuses_before_mutating

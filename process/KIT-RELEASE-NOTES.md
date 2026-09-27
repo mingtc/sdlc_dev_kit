@@ -433,6 +433,12 @@ columns and never the cards.*
   run: … · skipped: 0`. The quickest way to get the exact text is to run `kit-init.sh --gate-command`
   in a scratch unpack of this version and copy its tail.
 
+- **A branch no longer judges itself: the trunk's `scripts/verify.sh` gates any branch that changes it.** `finish-pr.sh` ran
+  the branch's own runner, so a branch could weaken or delete the gate that judged it and land green. Now the trunk's copy
+  runs against the branch's tree (QA's review gate likewise, `qa.md` step 3) and the run says so. **If a branch legitimately
+  changes `verify.sh`:** it must pass the trunk's current gate; the change governs the NEXT landing. To tighten a gate the
+  trunk cannot yet pass, land the gate change on its own first. A killed run may leave `scripts/.verify-trunk.*`; delete it.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a

@@ -61,8 +61,8 @@
 # frontmatter in progress/dev_complete/.
 # --worktree <path>: run the BLOCKING pre-merge gate against a genuine git worktree of THIS
 #   repo (QA's own checkout of the branch) instead of the main checkout — needed when the main
-#   checkout belongs to a parallel leg. The gate ALWAYS runs that worktree's TRACKED, unmodified
-#   scripts/verify.sh --quick: the caller names a LOCATION, never a command
+#   checkout belongs to a parallel leg. The gate ALWAYS runs the trunk's committed
+#   scripts/verify.sh --quick in that worktree: the caller names a LOCATION, never a command
 #   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are the self-test's seams, refused unless
 #   FINISH_PR_TEST_ALLOW_STUB=1). After the landing that worktree is left DETACHED AT THE
 #   LANDED COMMIT, where the post-merge check reads the trunk; if it has uncommitted tracked
@@ -312,16 +312,32 @@ echo ""
 echo "Pre-merge gate (blocking): ${GATE_WORKTREE}/scripts/verify.sh --quick"
 # No executability check here, and do not add one: the gate-provenance block above already
 # refuses a missing or non-executable gate, with the advice on what to do about it.
+# THE JUDGE IS THE TRUNK'S RUNNER (contracts/landing-gate.md § 2): where the branch changes
+# scripts/verify.sh, the trunk's copy runs in the branch's tree, from a sibling file because the
+# runner roots itself at its own directory's parent. A killed run can leave that file behind.
+_trunk_gate=""
 if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   PREMERGE_CMD=(${FINISH_PR_PREMERGE_CMD})
+elif git -C "$KWT" cat-file -e HEAD:scripts/verify.sh 2>/dev/null \
+     && ! git -C "$KWT" diff --quiet HEAD "refs/heads/$BRANCH" -- scripts/verify.sh 2>/dev/null; then
+  if ! { _trunk_gate="$(mktemp "$GATE_WORKTREE/scripts/.verify-trunk.XXXXXX")" \
+         && git -C "$KWT" show HEAD:scripts/verify.sh > "$_trunk_gate" && chmod +x "$_trunk_gate"; }; then
+    [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
+    echo "Error: could not stage ${DEFAULT_BRANCH}'s scripts/verify.sh in '${GATE_WORKTREE}/scripts/' — refusing to merge '${BRANCH}'." >&2
+    exit 1
+  fi
+  echo "  '${BRANCH}' changes scripts/verify.sh, so ${DEFAULT_BRANCH}'s copy judges it; the branch's governs from the next landing."
+  PREMERGE_CMD=("$_trunk_gate" --quick)
 else
   PREMERGE_CMD=("$GATE_WORKTREE/scripts/verify.sh" --quick)
 fi
 if "${PREMERGE_CMD[@]}"; then
+  [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
   echo "  pre-merge verify --quick: PASS"
 else
   _pre_rc=$?
+  [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
   # Both reds refuse, named apart: verify.sh exits 3 when a gate could not run (nothing was
   # measured; the fix is in the environment). Any other non-zero status is FAIL.
   {

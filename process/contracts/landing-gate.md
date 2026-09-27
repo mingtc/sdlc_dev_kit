@@ -39,6 +39,9 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   revision being landed and free of uncommitted modification, or landing refuses.
   *Why:* an edited-but-uncommitted gate means the proof came from a definition that will not
   exist for anybody else.
+- **The trunk's gate definition judges the branch.** Where the branch changes the definition, the
+  trunk's runs against the branch's tree; the branch's own governs from the next landing.
+  *Why:* a branch that can rewrite its judge is not judged.
 - **One work item, one landed commit.** The branch's history is collapsed into a single
   trunk commit that names the item.
   *Why:* the trunk's log is the project's ledger; a ledger where one decision spans forty commits

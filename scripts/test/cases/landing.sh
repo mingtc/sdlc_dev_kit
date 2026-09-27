@@ -818,6 +818,59 @@ case_finish_pr_gate_revision() {
   teardown
 }
 
+# =============================================================================
+# CASE — THE TRUNK'S verify.sh JUDGES THE BRANCH. Unmarked, like the case above.
+#
+# Measured before the fix: a branch that added what the trunk's gate refuses AND deleted that
+# gate from its own verify.sh landed green, and its weakened runner became the trunk's.
+#   (a) such a branch is REFUSED, the trunk's runner named, and nothing lands or is left behind;
+#   (b) a branch that changes verify.sh and passes the trunk's runner LANDS, and its copy is then
+#       the trunk's (it governs the next landing).
+# =============================================================================
+case_finish_pr_trunk_gate_judges_the_branch() {
+  cf_reset
+  local out rc br row
+  for row in a b; do
+    make_sandbox
+    printf '#!/usr/bin/env bash\n[ ! -e BAD ] || { echo "strict: BAD present"; exit 1; }\n' > "$SB_WORK/strict-gate"
+    chmod +x "$SB_WORK/strict-gate"
+    _declare_gate 'strict|core|./strict-gate'
+    seed_issue dev_complete "$SB_PREFIX-790" judge chore "Trunk gate judges" "feature/$SB_PREFIX-790-judge"
+    publish_sandbox
+    br="feature/$SB_PREFIX-790-judge"
+    git -C "$SB_WORK" branch "$br" "$SB_TRUNK" >/dev/null 2>&1 && git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1 \
+      || _fixture_die "case_finish_pr_trunk_gate_judges_the_branch: could not branch."
+    if [ "$row" = a ]; then
+      : > "$SB_WORK/BAD"
+      perl -i -ne 'print unless /"strict\|core\|/' "$SB_WORK/scripts/verify.sh"
+    else
+      printf '\n# the branch changes its gate runner\n' >> "$SB_WORK/scripts/verify.sh"
+    fi
+    git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[Dev] $SB_PREFIX-790: change the gate" >/dev/null 2>&1 \
+      && git -C "$SB_WORK" push -q -u origin "$br" >/dev/null 2>&1 \
+      || _fixture_die "case_finish_pr_trunk_gate_judges_the_branch: could not commit and push row $row."
+    ( cd "$SB_WORK" && ./scripts/verify.sh --quick >/dev/null 2>&1 ) \
+      || _fixture_die "case_finish_pr_trunk_gate_judges_the_branch: row $row's own runner is not green, so the row tests nothing."
+
+    # NO FPR_STUB. Deliberately.
+    out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-790" 2>&1 )"; rc=$?
+    printf '%s\n' "$out" | grep -F "changes scripts/verify.sh, so $SB_TRUNK's copy judges it" >/dev/null \
+      || cf "($row) the run does not say the trunk's runner judged the branch"
+    ls "$SB_WORK"/scripts/.verify-trunk.* >/dev/null 2>&1 && cf "($row) the trunk's runner was left in scripts/"
+    if [ "$row" = a ]; then
+      [ "$rc" -ne 0 ] || cf "(a) a branch that deleted the gate it fails LANDED"
+      origin_has_path "BAD" && cf "(a) what the trunk's gate refuses reached the trunk"
+      origin_has_path "progress/dev_complete/$SB_PREFIX-790-judge.md" || cf "(a) the issue left dev_complete/ during a refusal"
+    else
+      [ "$rc" -eq 0 ] || cf "(b) a branch that changes verify.sh and passes the trunk's runner did not land (exit $rc): $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+      origin_file_contains "scripts/verify.sh" "the branch changes its gate runner" \
+        || cf "(b) the landed trunk does not carry the branch's verify.sh, so it cannot govern the next landing"
+    fi
+    teardown
+  done
+  finish "finish-pr.sh: the trunk's verify.sh judges a branch that changes it — a weakened gate is refused, a legitimate change lands and governs the next landing"
+}
+
 # CASE — a MISSING or NOT EXECUTABLE gate refuses and says how to WRITE one. The other
 # provenance arms mean "your gate is the wrong one", and their remedy is a checkout; these
 # two mean "there is no gate", and the checkout advice would send the adopter to fix the
