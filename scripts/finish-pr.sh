@@ -791,6 +791,10 @@ fi
 #    The operand is KWT_LANDED_SHA — set by the library only after the push is read
 #    back as an ancestor of <remote>/<trunk> — never the kanban worktree's HEAD, which
 #    the board advance above has since moved.
+# RULE-COPIES:BEGIN — deliberate copies of where the post-merge reading leaves the gate checkout; the self-test holds them.
+# key: detached at the landed commit
+# copies: .claude/roles/qa.md scripts/check-board.sh
+# RULE-COPIES:END
 echo ""
 echo "Post-merge mechanical check (surfaced, not blocking):"
 PM_TREE=""; PM_HOW=""; PM_FRESH_DIR=""; PM_UNRUNNABLE=""; _pm_sum=""; _pm_failed=""

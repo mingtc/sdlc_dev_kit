@@ -4,7 +4,11 @@
      header that names them literally is rewritten by the very substitution it is explaining, and
      every initialized tree then carried a sentence with no referent.
      Everything else in angle brackets is for the author to fill in — never leave one in a live
-     issue. If your initializer has not wired a key, substitute it by hand before first use. -->
+     issue. If your initializer has not wired a key, substitute it by hand before first use.
+     RULE-COPIES:BEGIN — deliberate copies of the Acceptance Criteria's test-or-justify rule; the self-test holds them.
+     key: has a passing test, or a documented justification in progress.md for why it cannot be automated
+     copies: .claude/roles/dev.md .claude/workflows/wave-runner.js .claude/workflows/tranche-runner.js
+     RULE-COPIES:END -->
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — progress/todo/ — NOT to the directory it
      sits in. A link written for where the template SITS resolves while you read it here and

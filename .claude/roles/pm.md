@@ -231,11 +231,7 @@ A file is allowed in `progress/todo/` only when every box is checked. If anythin
 > PM who cannot cite the example writes *"illustrative, unverified"*; that is a complete and
 > honest AC.
 >
-> **The third verdict is yours to receive.** When a reviewer returns
-> **PASS-with-AC-correction**, the AC amendment lands with the issue and the note arrives on your
-> desk ([qa.md § The third verdict](qa.md#the-third-verdict--pass-with-ac-correction)) — read it:
-> an AC illustration that was wrong once is a signal about where this project's facts are being
-> guessed.
+> **The third verdict's PM note is yours to read** — [qa.md § The third verdict](qa.md#the-third-verdict--pass-with-ac-correction).
 
 > **Lite-path exception (the default for small work).** For a small, well-understood standalone
 > fix, the **PRD-exists** box is satisfied by `prd: n/a` + a one-line `prd_reason:` + self-authored AC, and "copied from the

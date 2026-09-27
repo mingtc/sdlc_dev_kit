@@ -44,9 +44,9 @@ with your project's values and to prove it works.
 # 1. Prerequisites the initializer will not do for you (it guides, it never bootstraps):
 git init -b main                                 # -b NAMES the trunk — see the note below
 git add -A && MSG_OK=1 git commit -m 'init'      # the first commit
-# (a LOCAL bare remote? create it with its HEAD on the trunk, or a clone of it checks out nothing:
+# (a LOCAL bare remote? create it first, per process/GIT-HOSTING.md § 3:
 #    git init --bare /abs/path/to/<project>.git
-#    git -C /abs/path/to/<project>.git symbolic-ref HEAD refs/heads/main )
+#    git -C /abs/path/to/<project>.git symbolic-ref HEAD refs/heads/main   # the bare side's HEAD names the trunk )
 git remote add origin <url-or-path-to-a-bare-repo>
 git push -u origin main
 git remote set-head origin main                  # ← the step whose absence is SILENT
@@ -88,9 +88,8 @@ reasonable thing to mind for a repository other people will browse.
 The way through is the **local bare repository** the kit already treats as a first-class remote
 (§ Git hosting — local-only is a first-class case):
 
-1. `git init --bare` a throwaway repo somewhere outside your project, set its HEAD on the trunk
-   (`git -C <bare> symbolic-ref HEAD refs/heads/<trunk>` — without it a clone of it checks out
-   nothing), and point `origin` at it by **absolute path**.
+1. Create a throwaway bare repo outside your project by [`process/GIT-HOSTING.md`](process/GIT-HOSTING.md)
+   § 3's recipe, and point `origin` at it.
 2. Run day one against it exactly as above — `kit-init.sh` gets its full commit-and-push cycle **with
    the self-check intact**, which is the part worth protecting: the self-check is what proves day one
    worked.
@@ -165,27 +164,13 @@ through the board mover (`./scripts/move-issue.sh`), never through `mv` —
 ## Git hosting — local-only is a first-class case
 
 **You do not need a hosted forge.** The kit needs an `origin` it can fetch, reset and push through,
-and **a bare repository on your own disk is a perfectly good one**:
+and **a bare repository on your own disk is a perfectly good one**: the recipe is
+[`process/GIT-HOSTING.md`](process/GIT-HOSTING.md) § 3, and `./scripts/kit-init.sh` prints it when it
+refuses.
 
-```sh
-1.  git init --bare /path/to/<project>.git
-    git -C /path/to/<project>.git symbolic-ref HEAD refs/heads/<trunk>   # the bare side's HEAD names the trunk
-    git remote add origin /path/to/<project>.git    # ABSOLUTE path
-2.  git switch -c <trunk>                           # if the trunk does not exist yet
-    git add -A && MSG_OK=1 git commit -m 'init'     # if there are no commits yet: commit the kit AS UNZIPPED
-3.  git push -u origin <trunk>
-4.  git remote set-head origin <trunk>              # ← the step whose absence is SILENT
-```
-
-That four-step recipe is what `./scripts/kit-init.sh` prints when it refuses for an unmet remote
-precondition: the same commands in the same order, with your values in place of the angle
-brackets. So the offline case is in the refusal message, not an afterthought. The
-`set-head` step is the one whose absence is silent: without it the trunk is defaulted by the
-worktree library and your first board move pushes to a branch nobody chose.
-
-**GitHub (or any forge) is an OPTIONAL extra**, and everything specific to one lives in
-[`process/GIT-HOSTING.md`](process/GIT-HOSTING.md) — read it only if you want a forge. The landing
-gate is pure git: it does not call a forge CLI, so nothing in the core path breaks without one.
+**GitHub (or any forge) is an OPTIONAL extra**, and everything specific to one lives in the same
+file. The landing gate is pure git: it does not call a forge CLI, so nothing in the core path breaks
+without one.
 
 ## Where the working records go
 

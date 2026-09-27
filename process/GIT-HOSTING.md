@@ -93,8 +93,11 @@ resolve the trunk. Setting HEAD on the bare side cannot mislead that way: it wri
 the side that owns it. **When you control the bare repository, step 1 does it; step 4 is still
 needed for your local record of it, and is all you can do when you do not control the remote.**
 
-This is the same recipe the kit initializer prints when it refuses; keeping the two in sync is
-part of maintaining the kit.
+The kit initializer prints this same recipe when it refuses.
+<!-- RULE-COPIES:BEGIN — deliberate copies of this recipe; the self-test holds them.
+key: the bare side's HEAD names the trunk
+copies: README.md scripts/kit-init.sh
+RULE-COPIES:END -->
 
 **If the commit-message hook is already wired**, step 2's commit needs a subject the hook accepts
 (a role-prefixed subject, or the hook's own documented bypass) — see the hook and the setup script

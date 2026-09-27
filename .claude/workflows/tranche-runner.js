@@ -394,7 +394,7 @@ ${resume}
 Requirements:
 - ${issue.docsPath ? 'Docs work: no TDD cycle — each AC still needs its own evidence pointer (file:line or command + result).' : 'TDD per the test-driven-development skill: failing test first, no exceptions.'}
 - ${CFG.gateCmd} green before handoff; paste the observed result line into test_evidence.
-- Every AC has a passing test or a documented progress.md justification. For an AC whose deliverable is prose describing code behaviour, being a description is NOT that justification: each behavioural claim needs a test or a file:line QA can check it against.
+- Every AC has a passing test, or a documented justification in progress.md for why it cannot be automated. For an AC whose deliverable is prose describing code behaviour, being a description is NOT that justification: each behavioural claim needs a test or a file:line QA can check it against.
 - ${issue.docsPath ? `Ensure all commits are pushed to ${CFG.trunk}. THEN the board move:` : 'Push the work branch. THEN the board move:'} ./scripts/move-issue.sh ${issue.id} dev_complete --role ${role} --note "..." — the dev_complete move IS part of done-ness; the issue is not done until the board says so.
 - Append your session summary to progress.md per your role doc (a [${role}]-prefixed metadata commit to ${CFG.trunk}; code itself stays on the work branch, committed with the [${role}] prefix).
 ${issue.extraDev || ''}

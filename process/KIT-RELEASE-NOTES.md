@@ -623,6 +623,13 @@ columns and never the cards.*
   **Nothing to do for a project already initialized**; a new one that narrows `--roles` past `PM`
   sets the knob.
 
+- **Some restated rules are now pointers, and the copies that stay are declared and checked.** `README.md`'s
+  extra copies of the bare-remote recipe, `orchestrator.md`'s and `MANUAL.md`'s account of `finish-pr.sh`'s
+  post-merge reading, and `pm.md`'s paraphrase of the third verdict now name their source. Each rule's canonical
+  site lists its deliberate copies in a `RULE-COPIES` comment; a self-test case goes red when a listed copy loses
+  the rule's key sentence or an unlisted shipped file gains it. **Nothing to do** unless you reworded a listed
+  copy — the case names it.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

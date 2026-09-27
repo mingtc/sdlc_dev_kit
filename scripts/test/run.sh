@@ -549,6 +549,7 @@ CASES=(
   case_seam_shape_reformat_is_loud
   case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
+  case_restated_rules_are_registered
   case_ship_state
   case_isolation
 )

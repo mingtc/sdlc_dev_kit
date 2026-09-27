@@ -283,9 +283,7 @@ const OUTCOME = Object.freeze({
   LEG_ABORTED:            'LEG_ABORTED',             // a leg's agent() THREW (budget ceiling, refused call) — state unknown, NOT a FAIL
 })
 const LANDING = ['landed', 'deferred', 'not_applicable']
-// A verdict that means the review passed. PASS_AC_CORRECTED is a PASS whose AC's
-// ILLUSTRATION was wrong (never its requirement — a wrong requirement is a PM decision)
-// and was corrected with the issue — MANUAL step 6's third verdict.
+// A verdict that means the review passed. PASS_AC_CORRECTED: MANUAL step 6's third verdict.
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
 // A verdict at all: one of the ratified tokens. A review leg that returns nothing, or a value outside
 // VERDICTS, formed no verdict — MANUAL step 6's precondition failure — and is neither pass nor FAIL.
@@ -407,7 +405,7 @@ ${resume}
 Requirements:
 - ${issue.docsPath ? 'Docs work: no TDD cycle — each AC still needs its own evidence pointer (file:line or command + result).' : 'TDD per the test-driven-development skill: failing test first, no exceptions.'}
 - ${CFG.gateCmd} green before handoff; paste the observed result line into test_evidence.
-- Every AC has a passing test or a documented progress.md justification. For an AC whose deliverable is prose describing code behaviour, being a description is NOT that justification: each behavioural claim needs a test or a file:line QA can check it against.
+- Every AC has a passing test, or a documented justification in progress.md for why it cannot be automated. For an AC whose deliverable is prose describing code behaviour, being a description is NOT that justification: each behavioural claim needs a test or a file:line QA can check it against.
 - ${issue.docsPath ? `Ensure all commits are pushed to ${CFG.trunk}. THEN the board move:` : 'Push the work branch. THEN the board move:'} ./scripts/move-issue.sh ${issue.id} dev_complete --role ${role} --note "..." — the dev_complete move IS part of done-ness.
 - Append your session summary to progress.md per your role doc.
 ${issue.extraDev || ''}

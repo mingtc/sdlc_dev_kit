@@ -2491,3 +2491,105 @@ EOF
 
   finish "process/KIT-MANIFEST names $n shipped path(s), every one of which exists in this tree; it excludes itself; and all $cl entries of kit-init.sh's own COPY_LIST minimum are inside it — both sides of that comparison derived, neither retyped here"
 }
+
+# =============================================================================
+# A RESTATED RULE IS COPIED ONLY WHERE ITS CANONICAL SITE SAYS
+# =============================================================================
+# A RULE-COPIES block at a rule's canonical site names its key sentence and its deliberate copies.
+# Each listed file must carry the key; no unlisted shipped file may. Matching is on folded text:
+# lines joined, comment leaders, `*` and backticks dropped, whitespace collapsed, case ignored.
+# Not scanned: process/KIT-RELEASE-NOTES.md (a dated record) and scripts/test/ (it asserts rules).
+_rule_copies_begin='^[[:space:]]*(<!--[[:space:]]*|#[[:space:]]*)?RULE-COPIES:BEGIN'
+
+_rule_fold() {  # <root> <rel>... — "<rel><TAB><folded text>" per file, RULE-COPIES blocks dropped
+  local root="$1"; shift
+  ( cd "$root" && LC_ALL=C awk -v b="$_rule_copies_begin" '
+      function emit() { gsub(/[[:space:]]+/, " ", buf); print f "\t" tolower(buf) }
+      FNR == 1 { if (f != "") emit(); f = FILENAME; buf = ""; skip = 0 }
+      $0 ~ b { skip = 1 }
+      skip { if ($0 ~ /RULE-COPIES:END/) skip = 0; next }
+      { sub(/^[[:space:]]*(#+|\/\/+|\*+|>+)?[[:space:]]*/, ""); gsub(/[*`]/, ""); buf = buf " " $0 }
+      END { if (f != "") emit() }
+    ' "$@" )
+}
+
+_rule_registers() {  # <root> <rel>... — "<canonical><TAB><key><TAB><copies>" per RULE-COPIES block
+  local root="$1"; shift
+  ( cd "$root" && LC_ALL=C awk -v b="$_rule_copies_begin" '
+      $0 ~ b { inb = 1; k = ""; c = ""; next }
+      inb && /RULE-COPIES:END/ { print FILENAME "\t" k "\t" c; inb = 0; next }
+      inb { l = $0; sub(/^[[:space:]]*#?[[:space:]]*/, "", l); sub(/[[:space:]]+$/, "", l)
+            if (l ~ /^key: /) k = substr(l, 6); else if (l ~ /^copies: /) c = substr(l, 9) }
+    ' "$@" )
+}
+
+_rule_findings() {  # <root> <fold file> <registers> — one finding per line; none means the tree holds
+  local root="$1" fold="$2" canon key copies lkey c hit
+  while IFS="$(printf '\t')" read -r canon key copies; do
+    [ -n "$canon" ] || continue
+    if [ -z "$key" ] || [ -z "$copies" ]; then echo "$canon: a RULE-COPIES block without a 'key:' or 'copies:' line"; continue; fi
+    lkey="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')"
+    for c in $canon $copies; do
+      [ -f "$root/$c" ] || { echo "$canon lists $c, which is not in the tree"; continue; }
+      awk -F'\t' -v f="$c" -v k="$lkey" '$1 == f && index($2, k) { h = 1 } END { exit !h }' "$fold" \
+        || echo "$c does not carry the key sentence of $canon's rule: '$key'"
+    done
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      case " $canon $copies " in *" $hit "*) ;; *) echo "$hit carries the key sentence of $canon's rule and is not listed there: '$key'" ;; esac
+    done <<RULE_HITS_EOF
+$(awk -F'\t' -v k="$lkey" 'index($2, k) { print $1 }' "$fold")
+RULE_HITS_EOF
+  done <<RULE_REGS_EOF
+$3
+RULE_REGS_EOF
+}
+
+case_restated_rules_are_registered() {
+  cf_reset
+  make_sandbox
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" rel files=()
+  while IFS= read -r rel; do
+    case "$rel" in ''|process/KIT-RELEASE-NOTES.md|scripts/test/*) continue ;; esac
+    [ -f "$REAL_REPO_ROOT/$rel" ] && files+=("$rel")
+  done <<RULE_MAN_EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+RULE_MAN_EOF
+  local regs nregs
+  regs="$(_rule_registers "$REAL_REPO_ROOT" "${files[@]}")"
+  nregs="$(printf '%s\n' "$regs" | grep -c . || true)"
+  [ "${nregs:-0}" -gt 0 ] \
+    || _fixture_die "case_restated_rules_are_registered: no RULE-COPIES block in ${#files[@]} shipped file(s) — the case has no operand."
+
+  _rule_fold "$REAL_REPO_ROOT" "${files[@]}" > "$SB_TMP/fold" \
+    || _fixture_die "case_restated_rules_are_registered: could not fold the shipped tree."
+  local found; found="$(_rule_findings "$REAL_REPO_ROOT" "$SB_TMP/fold" "$regs")"
+  [ -z "$found" ] || cf "$(printf '%s' "$found" | tr '\n' '|')"
+
+  # ── THE REDDENING CONTROL, on a COPY of the first rule's files: empty one listed copy and plant
+  #    the key in an unlisted file; both must be named.
+  local ctl="$SB_TMP/ctl" canon key copies c victim=""
+  IFS="$(printf '\t')" read -r canon key copies <<RULE_CTL_EOF
+$regs
+RULE_CTL_EOF
+  for c in $canon $copies; do
+    mkdir -p "$ctl/$(dirname "$c")" && cp "$REAL_REPO_ROOT/$c" "$ctl/$c" || true
+    [ "$c" = "$canon" ] || [ -n "$victim" ] || victim="$c"
+  done
+  if [ -z "$victim" ] || [ ! -f "$ctl/$victim" ]; then
+    _control_did_not_run "copy a registered copy to empty"
+  else
+    : > "$ctl/$victim"
+    printf '%s\n' "$key" > "$ctl/planted.md"
+    # shellcheck disable=SC2086  # the lists are space-separated paths by declaration
+    _rule_fold "$ctl" $canon $copies planted.md > "$SB_TMP/ctlfold"
+    local planted; planted="$(_rule_findings "$ctl" "$SB_TMP/ctlfold" "$(_rule_registers "$ctl" "$canon")")"
+    printf '%s\n' "$planted" | grep -F "$victim does not carry" >/dev/null \
+      || cf "(control) emptying the registered copy $victim was not reported: ${planted:-(nothing)}"
+    printf '%s\n' "$planted" | grep -F "planted.md carries" >/dev/null \
+      || cf "(control) the key planted in an unlisted file was not reported: ${planted:-(nothing)}"
+  fi
+
+  finish "$nregs restated rule(s) declared in RULE-COPIES blocks: every listed copy carries its key sentence, no unlisted shipped file does, and an emptied copy and a planted echo are both named"
+  teardown
+}

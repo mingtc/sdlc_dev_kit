@@ -130,8 +130,8 @@ listed. A **value-kind marker** answers a question no amount of reading the valu
 
      NO SHIPPED PROGRAM READS THIS BLOCK, and that is stated here rather than left to be
      discovered. EVERY OTHER MARKER PAIR THIS KIT SHIPS IS READ by the self-test —
-     contracts/README.md's EXEMPT-CLASSES, issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES, and
-     ROLE-EXAMPLE-LABEL-TOKEN in THIS FILE a few sections down — so a reader meeting delimiters
+     contracts/README.md's EXEMPT-CLASSES, issue-creation.md's CLI-SHAPE-EXEMPT-CLASSES, the
+     RULE-COPIES blocks, and ROLE-EXAMPLE-LABEL-TOKEN in THIS FILE a few sections down — so a reader meeting delimiters
      here reasonably infers a reader that does not exist, and the nearest counter-example to
      that inference is in the same document. Derive the set rather than trusting this sentence:
      `grep -rhoE '[A-Z][A-Z0-9-]*:BEGIN' . | sort -u`, then ask which names appear in a

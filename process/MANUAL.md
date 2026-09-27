@@ -421,8 +421,8 @@ bounces it.
      prevent; **(2) amend the AC** in the issue file, replacing the wrong illustration with the
      corrected one **and its source**; **(3) leave a PM note** — the ruling is the PM's to keep,
      and a silently-corrected AC teaches nobody.
-     **Verify before you invoke it.** This verdict is only available when the reviewer has
-     **checked the fact themselves** against a citable source; "the AC looks off to me" is a FAIL
+     **Verify before you invoke it.** This verdict is only available when you have
+     **checked the fact yourself** against a citable source; "the AC looks off to me" is a FAIL
      or a question, never this. And it applies to an AC's *illustration*, never to its
      *requirement*: if the AC asks for the wrong **behavior**, that is a PM decision, not a
      reviewer's correction.
@@ -430,6 +430,10 @@ bounces it.
      adoption (the seed acceptance test), and used by the donor project's own review before it
      had a name. Two independent inventions and a precedent is the argument for writing it down
      rather than letting each reviewer re-derive it.
+     <!-- RULE-COPIES:BEGIN — deliberate copies of this verdict's precondition; the self-test holds them.
+     key: checked the fact yourself against a citable source
+     copies: .claude/roles/qa.md .claude/workflows/wave-runner.js .claude/workflows/tranche-runner.js
+     RULE-COPIES:END -->
 7. **Archive.** When `qa_complete/` accumulates, `./scripts/archive.sh --apply` sweeps issues
    into `progress/done/` and indexes them in `ARCHIVE.md`. **It commits and pushes itself** — do not look for a staged diff.
 
@@ -585,9 +589,7 @@ states what no mechanism can do about it once the two have been split.
 ### The kanban worktree (load-bearing)
 
 `move-issue.sh` / `finish-pr.sh` / `subtask.sh` never commit in your checkout (`finish-pr.sh` does
-move one, and says so: it switches a clean checkout on the landed branch to the trunk, and detaches
-its gate checkout to the landed commit for the post-merge reading — see its header). All kanban version-
-control ops run inside a **standing detached worktree pinned to the trunk** (`.kanban-wt/`,
+move one; its header says which, and when). All kanban version-control ops run inside a **standing detached worktree pinned to the trunk** (`.kanban-wt/`,
 gitignored, auto-bootstrapped, lock-serialized, and it fast-forwards your main checkout when that
 sits clean on the trunk). This is what lets a board move commit to the trunk **while your working
 checkout is on a work branch**. Never delete it mid-op; if an op dies between commit and push,
