@@ -193,7 +193,7 @@ route.
   And if you passed `--roles`, so must this:
 
   ```sh
-  grep -lF -- "$(git show kit:scripts/githooks/commit-msg | sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p")" scripts/*.sh scripts/githooks/*
+  grep -lF -- "'$(git show kit:scripts/githooks/commit-msg | sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p")'" scripts/*.sh scripts/githooks/*
   ```
 
   Stamp by hand whatever they print.
@@ -216,8 +216,7 @@ and every file of your own (`A`) — `kit-init.sh`'s stamps among them. That is 
 ## Known gaps
 
 The kit ships an honest debt list rather than a clean claim: [`EXTRACTION.md` § 4](EXTRACTION.md)
-names what is still entangled, what it costs you, and how to check each one in your own copy. The
-kit's repository additionally carries the open, not-yet-fixed findings under `changes/open/`.
+names what is still entangled, what it costs you, and how to check each one in your own copy.
 
 ### UPGRADING CAN UN-CONFIGURE YOUR PROJECT — what to re-check, and why
 
@@ -280,19 +279,21 @@ columns and never the cards.*
   then `scripts/test/cases/*.sh`. The case list and every case's verdict are unchanged.
 
   **What to do:**
-  1. **Before upgrading, run `git diff kit -- scripts/test/run.sh`.** Empty: take the new
-     `scripts/test/` whole. Anything printed will conflict: keep the new `run.sh`, and re-apply each
-     edit in the file its region moved to, which the table after this list gives. To find a function:
+  1. **Before upgrading, compare your `scripts/test/run.sh` with the one your `KIT-VERSION` shipped**
+     (`git diff kit -- scripts/test/run.sh` if you made the `kit` branch in § How to upgrade;
+     otherwise against that release's zip). No difference: take the new `scripts/test/` whole. A
+     difference: keep the new `run.sh`, and re-apply each edit in the file its region moved to, which
+     the table after this list gives. To find a function:
      `grep -n '^<name>()' scripts/test/lib/*.sh scripts/test/cases/*.sh`.
-  2. **`scripts/test/` is one unit** with `process/KIT-MANIFEST`. Copy all of it: a new `run.sh` on
-     its own refuses, because it defines no case.
+  2. **Copy all of `scripts/test/`, and keep `process/KIT-MANIFEST`**, which `run.sh` refuses
+     without: a new `run.sh` without `lib/` and `cases/` fails at startup.
   3. **Every `*.sh` under `scripts/test/lib/` or `scripts/test/cases/` is now harness**: loaded, and
      read by the cases that census the harness's own text. Keep nothing else there.
 
   | Was in `run.sh` | Now in `scripts/test/` |
   |---|---|
   | header, startup guards, `CASES`, registry guard, run loop, summary | `run.sh` |
-  | neutral config (`KIT_NEUTRAL_*`), recorders, `make_sandbox` (the sandbox board's status set), `seed_*`, `_neu_*`, `_kit_neutral_*`, `origin_*`, `_plant_in_function` | `lib/fixtures.sh` |
+  | neutral config (`KIT_NEUTRAL_*`), recorders, `make_sandbox` (the sandbox board's status set), `seed_*` (except the family-specific ones, in their case files), `_neu_*`, `_kit_neutral_*`, `origin_*`, `_plant_in_function` | `lib/fixtures.sh` |
   | `move-issue.sh`, `next-id.sh`, `commit-msg`, push failure, trunk chain, config seam, progress record, dirty guard | `cases/board.sh` |
   | `finish-pr.sh`; `verify.sh` and its guard floor | `cases/landing.sh` |
   | `archive.sh`, `archive-progress.sh`, rotation day | `cases/archive.sh` |
@@ -340,15 +341,16 @@ columns and never the cards.*
   not count it as a failure. Behaviour change: a review verdict outside the four tokens used to be
   treated as a FAIL and sent the issue through the fix round; it now halts as `NO_VERDICT` with no
   fix round. If you carry edited copies of the runners, port two edits: the `isVerdict` guard on
-  the fix-round trigger (`qa && isVerdict(qa.verdict) && !isPass(qa.verdict)`), and the
-  `NO_VERDICT` branch ahead of the FAIL branch. `process/templates/run-report.template.md` § 1 has
-  the matching verdict-path line. Not yet covered: the review of a park.
+  the fix-round trigger (`qa && isVerdict(qa.verdict) && !isPass(qa.verdict)`; shipped as
+  `formedVerdict(qa) && !isPass(qa.verdict)` once you also take the `precondition_failure` entry
+  below), and the `NO_VERDICT` branch ahead of the FAIL branch.
+  `process/templates/run-report.template.md` § 1 has the matching verdict-path line.
 
 - **If your remote is a local bare repository made from the old recipe, point its HEAD at your
   trunk:** `git -C /path/to/<project>.git symbolic-ref HEAD refs/heads/<trunk>`, then in each existing
   clone `git remote set-head origin <trunk>`. The old recipe left the bare repository's HEAD on git's
   own default branch, so a fresh `git clone` of it checks out nothing, and in such a clone
-  `scripts/check-board.sh` reports `trunk: GUESSED from the kit's last-resort constant`. The recipe
+  `scripts/check-board.sh` reports `trunk: GUESSED …`. The recipe
   (`kit-init`'s refusal, README, `process/GIT-HOSTING.md` § 3) now sets it at creation.
 
 - **If `kit-init` completed on your repository but shipped kit files never reached your trunk,
@@ -363,17 +365,12 @@ columns and never the cards.*
   commit now commits the kit as unzipped.
 
 - **Kit feedback is now recorded by default — decide whether you want that.** `PROJECT.md` gains
-  § The kit, upstream. Its `kit-feedback:` line is `auto` unless you change it, and **a `PROJECT.md`
-  with no such line is read as `auto`**. Under `auto`, seats write to `process/KIT-FEEDBACK.md` at
-  named moments, without being asked: a local ruling that resolves a kit contradiction or silence,
-  session close, a kit upgrade, and an orchestrated run's close. Each session's `progress.md` entry
-  then ends with a `kit-feedback:` line. The moments and the line are in `process/MANUAL.md` § Kit
-  feedback. The checklist lines are in the session-end checklists of the PM, Dev, QA, Refactorer
-  and Orchestrator role docs. A dispatched leg records a finding as a `kit-finding:` line in its
-  `progress.md` entry, and the orchestrator writes the entry. **Choose one:** keep `auto`; set
-  `manual`, which is today's behaviour (written on request); or set `off`, for a project whose
-  findings are not meant for the kit. Then fill *Feedback is sent to* and *Kit updates reach this
-  project by*, where "nobody" is a legal answer. **Nothing is ever sent automatically.**
+  § The kit, upstream: copy it into yours and choose its `kit-feedback:` line. `auto` (the default,
+  and how a `PROJECT.md` with no such line is read) has seats record kit findings in
+  `process/KIT-FEEDBACK.md` at the moments `process/MANUAL.md` § Kit feedback names; `manual` is
+  today's behaviour (written on request); `off` suits a project whose findings are not meant for the
+  kit. Then fill *Feedback is sent to* and *Kit updates reach this project by*, where "nobody" is a
+  legal answer. **Nothing is ever sent automatically.**
 
 - **A wave run may have dropped issues — green or halted — so check your past run reports.** Until
   this release, when a leg's `agent()` call THREW inside `.claude/workflows/wave-runner.js` (the
@@ -389,10 +386,11 @@ columns and never the cards.*
   instead of a result lost every outcome it had recorded, landings included: reconcile it against
   the trunk rather than the report.
 - **The runners have another RUN-OUTCOME member, `LEG_ABORTED`.** Anything that reads the runners'
-  outcomes must accept it: a leg's call threw before the issue reached an outcome — **state
-  unknown, not failed** — and the run halts. Each such record carries `error` naming the leg. If
-  you carry edited copies of the runners, port: the `leg()` wrapper and `await leg(` at every
-  `agent()` call; in the wave runner, the per-thunk catch, the null-to-`LEG_ABORTED` mapping in
+  outcomes must accept it: a leg's call threw, or a Dev leg returned no valid status (see Changed),
+  before the issue reached an outcome — **state unknown, not failed** — and the run halts. Each such
+  record carries `error` naming the leg. If you carry edited copies of the runners, port: the `leg()`
+  wrapper and `await leg(` at every `agent()` call; `devAnswered` / `devReturnedNothing` at every Dev
+  call; in the wave runner, the per-thunk catch, the null-to-`LEG_ABORTED` mapping in
   place of `.filter(Boolean)`, the re-throw of an unmarked error, and `waveOk(rs, dispatched)`; in
   the tranche runner, the loop body's `try/catch`.
 
@@ -431,7 +429,8 @@ columns and never the cards.*
   `126`/`127` → exit 3 (`UNRUNNABLE`), anything else → exit 1 (`FAIL`, keeping `rc=<code>` in the
   line), followed by the count line `gates declared: 1 · ran: … · passed: … · failed: … · could not
   run: … · skipped: 0`. The quickest way to get the exact text is to run `kit-init.sh --gate-command`
-  in a scratch unpack of this version and copy its tail.
+  in a scratch unpack of this version with `scripts/verify.sh` deleted before its first commit, and
+  copy its tail.
 
 - **A branch no longer judges itself: the trunk's `scripts/verify.sh` gates any branch that changes it.** `finish-pr.sh` ran
   the branch's own runner, so a branch could weaken or delete the gate that judged it and land green. Now the trunk's copy
@@ -458,10 +457,9 @@ columns and never the cards.*
 
 - `process/templates/KIT-FEEDBACK.skeleton.md` gains a visible "leaves your project — review and
   cut before sending" header, a handwritten `## About this project`, and a per-entry *The moment.*
-  block. Copy the header and the About block into your existing `process/KIT-FEEDBACK.md` by hand;
-  existing entries stay as they are.
-- Entries now quote a kit script's own diagnostic line only: never test output, source, diffs or
-  file contents.
+  block, and its § What belongs here allows quoting only a kit script's own diagnostic line — never
+  test output, source, diffs or file contents. Copy the header and the About block into your
+  existing `process/KIT-FEEDBACK.md` by hand; existing entries stay as they are.
 
 - **`check-board.sh` reports two new things, and neither changes the verdict.** `[m] PRD coverage`:
   of your landed issues, how many carry `prd: n/a`, and how many of those give no `prd_reason:`.
@@ -484,22 +482,22 @@ columns and never the cards.*
   reason; incident accounts, superseded designs and restated rules are removed, and some `--help` text is shorter
   with the same usage, options and exit codes. **Nothing to do.**
 
-- **`PASS-with-AC-correction` is scoped where it is stated.** The verdict applies to an AC's
-  *illustration*, never to its *requirement*. That limit was in `process/MANUAL.md` step 6 but
-  fifty lines below the verdict table, and `.claude/roles/qa.md`, `process/templates/run-report.template.md`
-  and a comment in `.claude/workflows/wave-runner.js` restated the verdict as "the AC was wrong".
-  All now carry the scope, and the table's cell states it. **One new instruction in the run
-  report's § 2:** a wrong *requirement* is a PM decision — § 9 with PM as its owner if the issue can
-  be parked, a stop if it cannot. The token `PASS_AC_CORRECTED` is unchanged. **Nothing to do.**
+- **`PASS-with-AC-correction` is scoped and conditioned wherever it is stated.** It applies to an
+  AC's *illustration*, never its *requirement*, and only to a fact the reviewer checked against a
+  citable source ("the AC looks off to me" is a FAIL or a question); the amendment carries the
+  corrected illustration and its source. `process/MANUAL.md` step 6's table, `.claude/roles/qa.md`,
+  `process/templates/run-report.template.md` and both runners' QA prompts now say so. **One new
+  instruction in the run report's § 2:** a wrong *requirement* is a PM decision — § 9 with PM as its
+  owner if the issue can be parked, a stop if it cannot. The token `PASS_AC_CORRECTED` is unchanged.
+  **Nothing to do.**
 
-- **`process/doctrine/generality.md` — § A.1 counts independence per surface, and § C restates its
-  evidence with a dated count.** Consumers who could not have coordinated may still have shared the
-  constraint — for example the same agent harness, vendor tooling, exercise design or product — and
-  on a surface that shared thing shapes, their agreement now counts as one. § C now states a dated
-  count across every consumer observed so far: the flip-flop test (§ A.2) met a real disagreement
-  between consumers and sorted it correctly as a setting, the closest case to the sheet's own
-  falsifier was examined and judged not one, and the evidence is still called thin because every
-  consumer shared one environment. **Nothing to do:** the four questions are unchanged.
+- **`process/doctrine/generality.md`: § A.1 counts independence per surface, § A.2 gains a row and a
+  discoverability caution, and § C's evidence is restated and dated.** Consumers who shared a
+  constraint (the same harness, tooling, exercise design or product) count as one on the surface it
+  shapes. Consumers who agree on an outcome by different arguments have found a rule whose test is
+  unstated: ship it with one sentence stating what it tests. A consumer who resolves a surface the
+  opposite way because they never found the answer you already ship needs a pointer, not a setting —
+  once the answer itself is checked. **Nothing to do:** the four questions are unchanged.
 
 - **`process/contracts/acceptance-tier.md`: a tier mark that is wrong on its face is now removed
   when found, by whoever finds it** (outside a calibration ritual, which records it as a finding).
@@ -508,14 +506,6 @@ columns and never the cards.*
   against the tree and the corpus manifest. Adding a mark, or re-deciding one that turns on intent,
   stays write-time and author-only. `process/doctrine/conformance-tier.md` § A.4 carries the pointer.
   **Nothing to do.**
-
-- **`process/doctrine/generality.md` § A.2 — a fourth row and a discoverability caution.** When
-  consumers agree on an outcome by different arguments, it is a rule whose test is unstated: ship it
-  with one sentence stating what it tests. When a consumer resolves a surface the opposite way
-  because they never found the answer you already ship — their reason would dissolve given it —
-  that is not a setting: the remedy is a pointer from where they were, and the answer is checked
-  first, because a defective answer may make the dissent the better call. **Nothing to do:** the
-  four questions are unchanged.
 
 - **The corpus manifest has a legal forward-reference marker on day one.** `requirements/CORPUS.md`
   (and its skeleton) accepted only `forward-referenced (<ISSUE-ID>)`, and no issue id exists at
@@ -533,14 +523,6 @@ columns and never the cards.*
   rule). Metadata committed on the trunk branch from a linked worktree lands on the trunk just the
   same; the checkout that held the trunk can be detached rather than moved to a branch — though not
   while a leg is working from it. **Nothing to do.**
-
-- **`PASS-with-AC-correction` now states when it is available, wherever it is handed to a
-  reviewer.** The reviewer must have checked the fact themselves against a citable source — "the AC
-  looks off to me" is a FAIL or a question, never this — and the AC amendment carries the corrected
-  illustration **and its source**. Both were already the rule in `process/MANUAL.md` § The Dev → QA
-  handoff, step 6; `.claude/roles/qa.md` § The third verdict and the QA prompts in
-  `.claude/workflows/wave-runner.js` and `.claude/workflows/tranche-runner.js` now say so.
-  **Nothing to do.**
 
 - **An AC whose deliverable is prose describing code behaviour is now held to its claims, on both
   sides of the handoff.** *Dev:* for such an AC, "it is a description" is no longer a
@@ -572,8 +554,8 @@ columns and never the cards.*
 - **`.claude/skills/orchestrate/SKILL.md` now says how a run's id reaches every leg**, so a run's
   progress records carry `run=<id>`. An orchestrator that picks the id at step 0 passes it in every
   dispatch brief, and each leg prefixes its shipped-script and board commands with
-  `KIT_PROGRESS_RUN=<id>`; an operator can instead set it before launching the session. An `export`
-  inside an agent's tool call did not survive past that call on the harness measured. Confirm by
+  `KIT_PROGRESS_RUN=<id>`; an operator can instead set it before launching the session (an `export`
+  inside one tool call does not persist). Confirm by
   grepping the main checkout's progress record (every worktree writes there). **Nothing to do**, but if you want your runs grouped, set
   the id that way.
 
@@ -604,8 +586,9 @@ columns and never the cards.*
   `grep -h '^prd_reason:' progress/qa_complete/*.md progress/done/*.md` lists them. **Optional for a
   running project:** add the line to your own templates; nothing reads it as a gate.
 
-- `process/KIT-FEEDBACK.md`'s § Sending names a destination (`PROJECT.md`'s *Feedback is sent to*),
-  or says the file stays put and nobody goes looking for a recipient.
+- `process/templates/KIT-FEEDBACK.skeleton.md` § Sending it now names a destination (`PROJECT.md`'s
+  *Feedback is sent to*), or says the file stays put and nobody goes looking for a recipient. Copy it
+  into your `process/KIT-FEEDBACK.md` by hand.
 
 - `process/doctrine/distribution.md` no longer tells a project that ships to nobody to stop before
   § A.8, in its scope line or in § B's first row.
@@ -713,7 +696,8 @@ columns and never the cards.*
   ```
 
   The last command must print nothing before you go on. Then add `!/.claude/` to `.gitignore`,
-  commit that one file with a role-prefixed subject, push, and re-run `./scripts/kit-init.sh`.
+  commit that one file with a role-prefixed subject, push, and re-run `./scripts/kit-init.sh` with the
+  options you first gave it.
 
 - **Progress records written from a linked worktree now land in the main checkout's
   `.progress-records/`**, and survive the worktree's removal. Before, they landed under the worktree
