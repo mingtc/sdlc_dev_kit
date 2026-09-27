@@ -347,6 +347,7 @@ CASES=(
   case_kit_init_repairs_hook_mode
   case_kit_init_roles_leave_no_seam
   case_kit_init_roles_refuses_what_it_cannot_stamp
+  case_kit_init_stamps_any_legal_trunk
   case_kit_init_signs_with_the_pre_role_hat
   case_kit_init_generated_runner_speaks_the_frame
   case_help_advertises_exactly_what_the_role_arm_accepts

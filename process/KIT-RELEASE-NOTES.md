@@ -770,6 +770,10 @@ columns and never the cards.*
   the sweep moved the live tree inside it and reported success; it now refuses before writing. **If you hit it:** move the
   nested tree's contents up one level by hand.
 
+- **`kit-init --trunk` stamps any legal branch name verbatim.** A trunk whose name holds `&`, `|` or `@` (all legal in git) was
+  mis-stamped into the role docs or stopped kit-init half-way; it is now escaped. **If you initialized with such a trunk,**
+  check `.claude/roles/` and `.claude/templates/` for `main` where your trunk should be.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

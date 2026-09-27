@@ -515,6 +515,44 @@ case_kit_init_roles_refuses_what_it_cannot_stamp() {
 }
 
 # =============================================================================
+# CASE — kit-init stamps a legal trunk name that is a sed metacharacter, verbatim
+#
+# git accepts '&', '|' and '@' in a branch name. Measured before the fix: 'a&b' committed role
+# docs reading a`main`b and failed the census; '|' and '@' killed a sed with the tree
+# half-stamped. The name is legal, so it is escaped, never refused.
+# =============================================================================
+case_kit_init_stamps_any_legal_trunk() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init --trunk: any legal branch name stamps verbatim" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init --trunk: any legal branch name stamps verbatim" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local t out rc n old
+  for t in 'a&b' 'a|b' 'a@b'; do
+    git check-ref-format --branch "$t" >/dev/null 2>&1 || _fixture_die "case_kit_init_stamps_any_legal_trunk: git rejects '$t' as a branch name here."
+    kit_init_sandbox
+    publish_sandbox
+    # What kit-init replaces is the kit's last-resort trunk, read as kit-init reads it.
+    old="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
+    if [ -z "$old" ] || ! grep -rqE "(^|[^A-Za-z])$old([^A-Za-z]|\$)" "$SB_WORK/.claude/roles" 2>/dev/null; then
+      teardown
+      skp "kit-init --trunk: any legal branch name stamps verbatim" "the role docs name no '${old:-<unreadable>}' to stamp (an adopted tree's docs carry its own trunk)"
+      return
+    fi
+    git -C "$SB_WORK" push -q origin "$SB_TRUNK:refs/heads/$t" >/dev/null 2>&1 \
+      && git -C "$SB_ORIGIN" symbolic-ref HEAD "refs/heads/$t" \
+      && git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1 \
+      && git -C "$SB_WORK" checkout -q -b "$t" "origin/$t" \
+      && git -C "$SB_WORK" remote set-head origin "$t" >/dev/null \
+      || _fixture_die "case_kit_init_stamps_any_legal_trunk: could not make '$t' the remote's trunk."
+    rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$t" 2>&1)" || rc=$?
+    [ "$rc" -eq 0 ] || cf "'$t': kit-init exited $rc: $(printf '%s' "$out" | grep -m2 -E 'sed:|✗' | tr '\n' '|' | cut -c1-200)"
+    n="$(grep -rF -- "$t" "$SB_WORK/.claude/roles" 2>/dev/null | wc -l | tr -d ' ')"
+    [ "$n" -gt 0 ] || cf "'$t': no role doc carries the trunk name after the stamp"
+    teardown
+  done
+  finish "kit-init --trunk: a legal branch name carrying '&', '|' or '@' is stamped verbatim, and the self-check passes"
+}
+
+# =============================================================================
 # CASE — kit-init --roles LEAVES NO SEAM BEHIND.
 #
 # The seam list is derived; this case makes its completeness assertable. A missed seam gives a

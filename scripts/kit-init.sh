@@ -632,6 +632,12 @@ if [ -d "$ROOT/.claude/templates" ]; then
 fi
 say "  .claude/templates/: prefix (${PREFIX_PLACEHOLDER} and ${OLD_PREFIX}-) → ${PREFIX}- in ${TPL_HITS} template(s)"
 
+# repl_esc <value> <delimiter> — <value>, literal in the replacement half of s<d>…<d>…<d>.
+# A legal branch name may carry '&', '|' or '@', so the trunk is escaped, never refused.
+repl_esc() { printf '%s' "$1" | sed -e "s/[\\\\&$2]/\\\\&/g"; }
+TRUNK_R_PIPE="$(repl_esc "$TRUNK" '|')"
+TRUNK_R_AT="$(repl_esc "$TRUNK" '@')"
+
 # The templates carry the explicit placeholder `<trunk>`, stamped here on its own: the
 # role-doc substitution below runs only when .claude/roles/ exists.
 TRUNK_TPL_HITS=0
@@ -639,7 +645,7 @@ if [ -d "$ROOT/.claude/templates" ]; then
   for t in "$ROOT"/.claude/templates/*.md; do
     [ -e "$t" ] || continue
     if grep -q '<trunk>' "$t"; then
-      sed -i.bak -e "s|<trunk>|${TRUNK}|g" "$t"; rm -f "$t.bak"
+      sed -i.bak -e "s|<trunk>|${TRUNK_R_PIPE}|g" "$t"; rm -f "$t.bak"
       TRUNK_TPL_HITS=$((TRUNK_TPL_HITS+1))
     fi
   done
@@ -697,8 +703,8 @@ if [ -d "$ROLES_DIR" ]; then
           -e "s|${OLD_PREFIX}-([^0-9])|${PREFIX}-\1|g" \
           -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$f"
       if [ "$TRUNK" != "$OLD_TRUNK" ]; then
-        sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK}\2@g" "$f"
-        sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK}\2@g" "$f"
+        sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
+        sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
       fi
       [ "$NEW_NAME" = "$OLD_NAME" ] || sed -i.bak -e "s|${OLD_NAME}|${NEW_NAME}|g" "$f"
       rm -f "$f.bak"
