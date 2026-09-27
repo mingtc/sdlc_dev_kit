@@ -1148,7 +1148,7 @@ case_move_issue_leaves_a_dirty_checkout_alone() {
   [ -f "$card" ] \
     || cf "the operator's uncommitted file was REMOVED from their checkout — the mover's contract is that it never touches it"
   [ "$(shasum "$card" 2>/dev/null | awk '{print $1}')" = "$before_hash" ] \
-    || cf "the operator's uncommitted edit was MODIFIED — 'destroyed' is what two shipped documents claimed, and this case exists because it is not true"
+    || cf "the operator's uncommitted edit was MODIFIED — the mover's contract is that it never touches it"
   [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before_head" ] \
     || cf "the main checkout's HEAD moved — the mover fast-forwarded a checkout it promises never to switch"
 
@@ -1291,6 +1291,6 @@ case_trunk_chain_announces_every_fallback() {
   printf '%s' "$out" | grep -F "$last_resort" >/dev/null \
     || cf "check-board's step-3 trunk is not the library's constant '$last_resort'"
 
-  finish "all three implementations of the trunk chain announce every link below the first — check-board at steps 2 and 3, release.sh at both (step 2 was silent, and it is where a real cut lands) — none of them announces at step 1, and both agree with the library on the step-3 constant"
+  finish "all three implementations of the trunk chain announce every link below the first — check-board at steps 2 and 3, release.sh at both — none of them announces at step 1, and both agree with the library on the step-3 constant"
   teardown
 }

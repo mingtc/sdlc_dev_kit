@@ -8,25 +8,16 @@
 # =============================================================================
 # THE RELEASE FAMILY — driven through release.sh's DECLARED SEAMS.
 #
-# The frame ships with an empty config block, so each case FILLS IT IN inside the
-# sandbox (two version files, covering both the quoted and the bare form; two
-# release documents; optionally the publish config) and then walks the REAL entry
-# point. Nothing here asserts one project's version files.
-#
-# WHY THESE ARE END TO END: a gate and a version rule were once each proven in
-# isolation while the full cut path was mutually unsatisfiable — the suite gate
-# ran before the bump, the docs gate refused to tag a version whose section was
-# not already written, and a separate rule refused any section ahead of the
-# packaged version. Every arm was green; the path was impossible. So the publish
-# and the gates are never exercised as lone functions.
+# The frame ships with an empty config block, so each case fills it in inside the sandbox
+# (two version files, quoted and bare; two release documents; optionally the publish
+# config) and walks the real entry point. The cases are end to end because gates proven
+# one at a time can still leave the full cut path unsatisfiable.
 # =============================================================================
 has_release() { [ -f "$REAL_SCRIPTS/release.sh" ]; }
 
-# Insert a record after a config-array's opening line in the sandbox's release.sh.
-# BOTH OF THESE ASSERT — see "EVERY MUTATION ASSERTS" above. They are two of the
-# three helpers measured exiting 0 over a byte-identical file when their anchor was
-# absent, which is how a release case could declare no VERSION_FILES at all and
-# still report PASS about the version rule.
+# Insert a record after a config-array's opening line in the sandbox's release.sh. Both
+# helpers assert (fixtures.sh's EVERY MUTATION ASSERTS): an anchor that misses would leave
+# a case declaring nothing and passing.
 rel_insert() {  # <array-name> <record-line>
   local rel="$SB_WORK/scripts/release.sh"
   grep -qE "^$1=\($" "$rel" \
@@ -58,9 +49,7 @@ rel_plant_midrun_kill() {
 }
 
 # Seed the version-bearing files + both release documents. <doc1_target|none> [doc2_target|none]
-# THE PRE-RELEASE VERSION, published by the seeder and read by the assertion, so both
-# operands come from the same authority at the same moment. It was a literal in both,
-# which is a retyped copy of a value one of them owns.
+# The pre-release version, read by the seeder and by the assertions, so both have one source.
 SB_REL_PRE_VERSION="1.0.0"
 
 seed_release_files() {
@@ -99,35 +88,19 @@ seed_release_doc() {  # <path> <title> <target|none> [body-date]
 # wording the two document arms must NOT share.
 release_refusal_line() { printf '%s\n' "$1" | grep '^release\.sh:' | tail -1; }
 
-# THE STUB'S VERDICT LINE IS DERIVED FROM THE REAL PRODUCER, NOT RE-TYPED, and the reason is that
-# the re-typed copy had ALREADY ROTTED: the drift line here read "(informational)" while
-# check-board.sh emits "(informational; exit 0 by convention)". Harmless on the day it diverged —
-# nothing matched the suffix — which is exactly how a second copy earns its keep until it does not.
-#
-# THIS IS NOT THE FIXTURE-ASKS-THE-SUBJECT TRAP, and the distinction is worth stating because the
-# shape looks identical. The subject of every case that uses this stub is release.sh's gate (d);
-# check-board.sh is the thing being STOOD IN FOR, not the thing under test. So reading its wording
-# makes the impostor faithful rather than making the assertion circular.
-#
-# WHAT IT BUYS, MEASURED — and the first answer written here was WRONG, so it is stated carefully.
-# The draft claimed a reworded verdict would reach release.sh's grep and redden the release cases.
-# It cannot: release.sh greps the substring 'board-drift: clean', and the derivation needle below is
-# that same substring. Any rewording that keeps it leaves both satisfied; any rewording that loses it
-# makes the derivation find nothing and the fixture DIES FIRST, before a release case runs.
-#
-# So the direction this actually buys is a LOUDER FAILURE AT CONSTRUCTION, which is the better one:
-# a wording change that breaks the stand-in now exits 1 naming the file and the missing verdict,
-# instead of the harness running on with an impostor whose text no longer matches anything shipped.
-# Proven both ways in a scratch tree: renaming the clean verdict fires the arm below; leaving it
-# alone runs green at the measured baseline.
+# THE STUB'S VERDICT LINE IS DERIVED FROM THE REAL PRODUCER, NOT RE-TYPED. check-board.sh is
+# what the stub stands in for, not the subject (release.sh's gate (d) is), so reading its
+# wording keeps the stand-in faithful without making an assertion circular. The needle is
+# the substring release.sh greps, so a rewording that drops it kills the fixture at
+# construction, naming the file.
 _board_verdict() {   # <clean|drift> — the real producer's verdict line, verbatim
   local needle
   case "$1" in
     clean) needle='board-drift: clean' ;;
     *)     needle='board-drift: findings above' ;;
   esac
-  # awk, not `sed | head`: a reader that exits early makes the pipeline report the PRODUCER's death
-  # under pipefail — the trap this file's own header documents.
+  # awk, not `sed | head`: a reader that exits early reports the producer's death under
+  # pipefail (run.sh's PIPEFAIL RULE).
   awk -v n="$needle" '
     !seen && index($0, "echo \"── " n) {
       line = $0
@@ -140,9 +113,8 @@ _board_verdict() {   # <clean|drift> — the real producer's verdict line, verba
 
 write_board_stub() {  # <path> clean|drift
   local verdict; verdict="$(_board_verdict "$2")"
-  # ASSERT THE EXTRACTOR. An empty derivation would write a stub that prints nothing, and every
-  # release case would then fail on a missing marker — a red with the wrong cause, which is worse
-  # than the divergence this replaced.
+  # ASSERT THE EXTRACTOR: an empty derivation writes a stub that prints nothing, and every
+  # release case would then redden for the wrong reason.
   if [ -z "$verdict" ]; then
     echo "FIXTURE BROKEN: could not derive the '$2' verdict line from $REAL_REPO_ROOT/scripts/check-board.sh." >&2
     echo "                The stub would print nothing and every release case would redden for the wrong reason." >&2
@@ -152,18 +124,10 @@ write_board_stub() {  # <path> clean|drift
   chmod +x "$1"
 }
 
-# Assert release.sh mutated NOTHING — version files still 1.0.0 locally AND on the
-# remote, and no tag anywhere. The "abort BEFORE mutating anything" contract.
+# Assert release.sh mutated NOTHING: the version files still hold the pre-release version
+# locally and on the remote, and there is no tag at the cut version. The cut version is an
+# argument, so the tag arm looks for the tag this cut would create.
 # assert_release_unmutated <cut-version>
-#
-# THE CUT VERSION IS AN ARGUMENT, and it used to be the literal `v1.1.0` in the tag arm.
-# That coupled fourteen call sites to one string: a leg cutting any other version got a
-# tag check that looked for a tag nobody would create, and passed. The tag arm was the
-# only one of the four that could be silently satisfied that way, and it is the arm
-# guarding the most expensive mutation.
-#
-# The PRE-state comes from the seeder rather than from a second literal here, so the two
-# operands are the same value read from one authority.
 assert_release_unmutated() {  # <cut-version>
   local cut="${1:?assert_release_unmutated: the cut version is required — without it the tag arm looks for a tag nobody would have created and passes}"
   grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "VERSION was mutated despite an aborted preflight"
@@ -179,41 +143,11 @@ run_release() {  # <version> [extra args…]
 }
 
 # =============================================================================
-# CASE — GATE (a) SEES A STALE CHECKOUT.
-#
-# Its first two checks read only this machine, so a clean trunk that is BEHIND the
-# remote passed every one of them and the cut named a tree missing whatever landed
-# after it. The damage does not arrive at the branch push — that is rejected — it
-# arrives through the script's OWN printed recovery, which an operator completes by
-# rebasing and then tagging the pre-rebase commit.
-#
-# THE TRACKING REF IS DELIBERATELY REWOUND before the behind leg, and that is the
-# whole point of the case. Measured: `git fetch <URL> <branch>` returns 0 and does
-# NOT update refs/remotes/<remote>/<branch>, so an implementation that compares
-# against the tracking ref reads "in sync" and passes a behind checkout whenever the
-# release remote is given as a URL. Rewinding the ref is what makes the FETCH
-# load-bearing rather than decorative: without it, leg (i) passes for a fix that
-# never fetches at all.
-#
-# THE OFFLINE HALF IS NOT OPTIONAL. The kit REQUIRES only git and a POSIX shell, and
-# the sandbox's own origin is a LOCAL BARE PATH — offline in the network sense and
-# perfectly fetchable. Leg (v) proves the refusal does not fire there; leg (iv)
-# proves the declared escape works when the remote genuinely cannot be reached.
-# Leg (iv) is --dry-run because a full cut against a dead remote fails at the PUSH
-# regardless of this gate, so a nonzero exit there would say nothing about gate (a).
-# =============================================================================
-# =============================================================================
 # CASE — THE PUBLICATION REMOTE HAS ONE SHARED NAME AND ONE NARROW OVERRIDE.
 #
-# `KWT_REMOTE` is honoured by six operations; `RELEASE_REMOTE` was read by exactly one.
-# So a fork that set KWT_REMOTE=upstream published its BOARD there and its RELEASES to
-# origin — silently, with a success message. release.sh now reads
-# ${RELEASE_REMOTE:-${KWT_REMOTE:-origin}}: narrow beats shared, shared beats the
-# default, and NEITHER name stops being read, so nobody's existing setting is ignored.
-#
-# EVERY ASSERTION READS WHERE THE ANNOTATED TAG PHYSICALLY LANDED, never a printed
-# remote name — a script that prints the right remote and pushes to the wrong one would
-# satisfy any output check.
+# release.sh reads ${RELEASE_REMOTE:-${KWT_REMOTE:-origin}}: narrow beats shared, shared
+# beats the default, and neither name stops being read. Every assertion reads where the
+# annotated tag landed, never a printed remote name.
 # =============================================================================
 case_release_honours_the_one_remote_name() {
   cf_reset
@@ -269,39 +203,13 @@ case_release_honours_the_one_remote_name() {
 }
 
 # =============================================================================
-# CASE — GATES (e) AND (f) SEE THE STATE THE DOCUMENTED WORKFLOW ACTUALLY PRODUCES.
-#
-# Gate (e) asserted a HEADING EXISTS and said nothing about the section under it, so a
-# `## [X.Y.Z]` over a placeholder cut a release whose notes said nothing — and the
-# preflight then reported the section PRESENT, which a reader takes as the notes being
-# in order.
-#
-# Gate (f) is worse in a more interesting way. It refuses a header date EARLIER than a
-# date in its own body — but NOTHING IN THE KIT EVER WRITES THAT DATE. The cutter types
-# it or does not, and a header with no date is not "earlier than" anything, so the
-# comparison was skipped and the section cleared. **A gate that refuses the state nobody
-# reaches and passes the state everybody reaches is not a gate**, and its own fixture
-# could not construct the failing input.
-#
-# BOTH LEGS ASSERT THE CUT IS UNMUTATED, because a refusal that already wrote something
-# is the defect these gates exist to prevent.
-# =============================================================================
-# =============================================================================
 # CASE — GATE (c) TEACHES THE SHAPE THAT ACTUALLY RUNS.
 #
-# The worked example in the config block was a bare command. Two things were wrong
-# with that and both are invisible until you try it:
-#
-#   1. Gate (c) runs a record with a DELIBERATE WORD-SPLIT and no `eval`, so an inline
-#      `sh -c '…'` is torn into separate words before anything executes. Only a command
-#      and its arguments work — which means a wrapper SCRIPT.
-#   2. A gate has THREE outcomes, not two: passed, failed, and COULD NOT RUN. A bare
-#      command in a project without the canary's environment gives a false green or a
-#      hard failure that blocks a legitimate offline cut. The third state has to be
-#      said out loud, and the wrapper is the only place there is to say it.
-#
-# BOTH LEGS ASSERT AN EFFECT — that the skip reaches the operator, and that the shape
-# the example does NOT teach genuinely fails — never the comment's wording.
+# Gate (c) word-splits a record and does not `eval` it, so an inline `sh -c '…'` is torn
+# apart: only a command and its arguments work, which means a wrapper script. A gate has
+# three outcomes (passed, failed, could not run), and the wrapper is where the third is
+# said. Both legs assert an effect: the skip reaches the operator, and the untaught shape
+# fails.
 # =============================================================================
 case_release_gate_c_skip_shape() {
   cf_reset
@@ -332,11 +240,9 @@ case_release_gate_c_skip_shape() {
 
   # --- (ii) WHY THE EXAMPLE MUST BE A SCRIPT: gate (c) word-splits, it does not eval. --
   make_sandbox; seed_release_files 1.1.0
-  # THE RECORD'S QUOTING IS WHAT IS BEING TESTED. `sh -c 'exit 1'` word-splits into
-  # [sh] [-c] ['exit] [1'] — sh then runs `'exit`, which is not a command, so the gate
-  # fails BECAUSE the quotes did not survive. Deliberately references no variable:
-  # release.sh runs `set -u`, and an unset one aborts the script before gate (c) can
-  # refuse, which measures the wrong thing. (It did, on the first run of this case.)
+  # THE RECORD'S QUOTING IS WHAT IS BEING TESTED: `sh -c 'exit 1'` word-splits into [sh]
+  # [-c] ['exit] [1'], so the gate fails because the quotes did not survive. It references
+  # no variable: release.sh runs `set -u`, and an unset one would abort before gate (c).
   rel_insert PREFLIGHT_GATES "\"inline canary|sh -c 'exit 1'\""
   publish_sandbox; write_board_stub "$SB_TMP/board-clean.sh" clean
   rc=0; out="$(run_release 1.1.0 --dry-run)" || rc=$?
@@ -350,6 +256,14 @@ case_release_gate_c_skip_shape() {
   finish "release.sh gate (c): a wrapper-script gate self-skips LOUDLY without aborting the cut (needle proven discriminating), and an inline-shell record does NOT run — which is why the worked example teaches a script"
 }
 
+# =============================================================================
+# CASE — GATES (e) AND (f) SEE THE STATE THE DOCUMENTED WORKFLOW ACTUALLY PRODUCES.
+#
+# Gate (e): a `## [X.Y.Z]` heading over a placeholder is an empty section, and refuses.
+# Gate (f): a heading with no date refuses, because nothing in the kit writes that date,
+# so a dateless heading is the state the workflow produces. Both legs assert the cut is
+# unmutated.
+# =============================================================================
 case_release_notes_section_is_more_than_a_heading() {
   cf_reset
   if ! has_release; then skp "release.sh gates (e)/(f): the section, not just its heading" "scripts/release.sh absent"; return; fi
@@ -405,6 +319,21 @@ case_release_notes_section_is_more_than_a_heading() {
   finish "release.sh gates (e)/(f): a heading over a placeholder is refused naming the document, a heading with NO DATE is refused and says no tool will write it, and both cuts succeed once the section is real (ablation-proven both ways)"
 }
 
+# =============================================================================
+# CASE — GATE (a) SEES A STALE CHECKOUT.
+#
+# A clean trunk BEHIND the remote must refuse, and its local checks alone cannot see that.
+#
+# THE TRACKING REF IS DELIBERATELY REWOUND before the behind leg. `git fetch <URL> <branch>`
+# returns 0 without updating refs/remotes/<remote>/<branch>, so a comparison against the
+# tracking ref passes a behind checkout whenever the remote is a URL. The rewind makes the
+# fetch load-bearing.
+#
+# THE OFFLINE HALF: the sandbox origin is a local bare path, offline in the network sense
+# and fetchable. Leg (v) proves the refusal does not fire there; leg (iv) proves the
+# declared escape works when the remote cannot be reached. Leg (iv) is --dry-run because a
+# full cut against a dead remote fails at the push regardless of this gate.
+# =============================================================================
 case_release_behind_the_remote() {
   cf_reset
   if ! has_release; then skp "release.sh gate (a): HEAD vs the remote tip" "scripts/release.sh absent"; return; fi
@@ -524,9 +453,8 @@ case_release_guards() {
   git -C "$SB_WORK" tag -a v1.1.0 -m "pre-existing" >/dev/null 2>&1
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] || cf "(tag-exists) expected nonzero when v1.1.0 already exists, got 0"
-  # (tag-exists) THIS LEG PRE-CREATES v1.1.0 ITSELF, so the tag arm cannot distinguish
-  # its own fixture from a tag release.sh created. The other three arms still apply and
-  # are what this leg takes; the tag arm is the one deliberately not taken here.
+  # (tag-exists) This leg pre-creates v1.1.0, so the tag arm cannot tell its fixture from
+  # a created tag. The other three arms apply.
   grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(tag-exists) VERSION was mutated"
   grep -qF "version = \"$SB_REL_PRE_VERSION\"" "$SB_WORK/pkg.conf" || cf "(tag-exists) pkg.conf was mutated"
   origin_file_contains "VERSION" "$SB_REL_PRE_VERSION" || cf "(tag-exists) a bump reached the remote"
@@ -602,11 +530,8 @@ case_release_preflight_gates() {
 }
 
 # =============================================================================
-# CASE — the release-document arms are INDEPENDENT, with DISTINCT refusals, and
-# the header-date gate bites. A consumer-facing notes file that nothing enforces
-# stops being maintained by the second release; and a section header dated BEFORE
-# the work inside it shipped once for a whole arc, because a header promise is
-# only as good as whoever re-reads it.
+# CASE — the release-document arms are INDEPENDENT, with DISTINCT refusals, and the
+# header-date gate bites: a section dated before the newest date in its own body refuses.
 # =============================================================================
 case_release_doc_arms() {
   cf_reset
@@ -644,11 +569,8 @@ case_release_doc_arms() {
   assert_release_unmutated 1.1.0
   seed_release_doc "$SB_WORK/NOTES.md" "Release notes" 1.1.0
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] add the consumer-facing section" >/dev/null 2>&1
-  # PUSHED, and not as tidiness: gate (a) requires HEAD to BE the published trunk's
-  # tip, so the pre-cut section commit has to reach the remote before the cut. That is
-  # not a new rule this fixture is bending to — check-board [f1] already sets drift=1
-  # on an ahead trunk and gate (d) refuses on it, so a STOCK kit has always refused
-  # this cut. The fixture only got away with it by stubbing the board clean.
+  # PUSHED: gate (a) requires HEAD to be the published trunk's tip, so the section commit
+  # must reach the remote before the cut.
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(doc2-restored) the cut still aborted after restoring the section: $out"
@@ -718,21 +640,13 @@ dist_commit_count() { git -C "$SB_ORIGIN" rev-list --count refs/heads/dist 2>/de
 # =============================================================================
 # CASE — THE SHIP MANIFEST IS DRIVEN AGAINST THE BUMP, NOT RETYPED BESIDE IT.
 #
-# Gate (g) hashes the files a project declares it ships. A release rewrites the version
-# INSIDE files a project may also ship, so the gate must normalise that value out before
-# hashing — and the only honest way to do that is with the bump's own substitution.
-#
-# THE FAILURE THIS IS WRITTEN AGAINST was measured in a project running this kit: its
-# normaliser retyped the bump as replacing THE LINE, where the bump replaces THE VALUE.
-# Every cut then failed on the change the cut itself made, and the release was unpublishable
-# until somebody found the difference between two expressions that looked the same.
-#
-# SO THE CASE DRIVES BOTH DIRECTIONS THROUGH ONE FIXTURE, and that pairing is the point:
+# Gate (g) hashes the files a project ships. A release rewrites the version inside them,
+# so the gate normalises that value out with the bump's own substitution, which replaces
+# the VALUE, not the line. One fixture drives both directions:
 #   (a) bump a shipped version file — the cut PROCEEDS, because normalisation cancels it;
 #   (b) append a comment after the closing quote on that same line — the cut REFUSES, with
-#       nothing mutated, because that edit is not the version and must not be cancelled.
-# A normaliser that took the whole line would pass (a) and pass (b) too, which is exactly
-# how the original defect looked green until it wedged.
+#       nothing mutated, because that edit is not the version.
+# A normaliser that cancelled the whole line would let (b) proceed.
 # =============================================================================
 case_release_ship_manifest_is_driven_against_the_bump() {
   cf_reset
@@ -744,10 +658,8 @@ case_release_ship_manifest_is_driven_against_the_bump() {
   seed_release_files 1.1.0
   man="release/shipped.sha256"
   mkdir -p "$SB_WORK/release"
-  # The manifest is generated by the shipped command rather than hand-written here: a
-  # hand-written hash would be this case's own second parser, which is the defect above.
-  # The draft is built from `git ls-files`, so the seeded files must be TRACKED first —
-  # publish_sandbox commits them, but that happens after the manifest has to exist.
+  # The manifest comes from the shipped command: a hand-written hash would be a second
+  # parser. Its draft is built from `git ls-files`, so the seeded files are staged first.
   git -C "$SB_WORK" add -A >/dev/null 2>&1 || true
   ( cd "$SB_WORK" && ./scripts/release.sh --approve-shipped >/dev/null 2>&1 ) || true
   [ -f "$SB_WORK/$man" ] \
@@ -787,7 +699,7 @@ case_release_ship_manifest_is_driven_against_the_bump() {
   write_board_stub "$SB_TMP/board-clean.sh" clean
   out="$(run_release 1.1.0)"; rc=$?
   [ "$rc" -ne 0 ] \
-    || cf "(b) the cut PROCEEDED with a shipped file edited after the manifest was approved — a normaliser that cancels the whole line rather than the version value passes this, which is the measured defect this case exists for: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+    || cf "(b) the cut PROCEEDED with a shipped file edited after the manifest was approved — a normaliser that cancels the whole line rather than the version value passes this: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
   printf '%s' "$out" | grep 'changed since the manifest was approved' >/dev/null \
     || cf "(b) the refusal does not say the shipped set changed, so an operator cannot tell gate (g) from any other refusal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-220)"
   printf '%s' "$out" | grep 'approve-shipped' >/dev/null \
@@ -796,9 +708,8 @@ case_release_ship_manifest_is_driven_against_the_bump() {
     || cf "(b) gate (g) refused AFTER tagging — the whole point of running it in preflight is that nothing is mutated when it fires"
   teardown
 
-  # ── (c) THE REFUSAL THAT CLOSES F-15, and it needs the harness because it sits behind every
-  #        earlier gate: publishing ON, no build, no manifest — the one configuration in which
-  #        the only thing this ritual can hand anyone is the repository.
+  # ── (c) Publishing ON, no build, no manifest: the one configuration in which the ritual
+  #        could hand anyone only the repository. It must refuse in preflight.
   make_sandbox
   seed_release_files 1.1.0
   perl -i -pe 's/^RELEASE_PUBLISH=false$/RELEASE_PUBLISH=true/' "$SB_WORK/scripts/release.sh"
@@ -819,7 +730,7 @@ case_release_ship_manifest_is_driven_against_the_bump() {
     || cf "(c) the refusal came AFTER tagging"
   teardown
 
-  finish "gate (g)'s hash normalisation is DRIVEN against bump_one's own expression through one fixture in both directions: bumping a declared shipped version file proceeds (the version is normalised out), while a non-version edit after the closing quote on that same line refuses in preflight with nothing tagged and names --approve-shipped. A normaliser that cancelled the whole line instead of the value would pass both arms, which is how the measured original looked green until it wedged. And arm (c) holds the refusal that closes the finding: publishing on, no build and no manifest is refused in preflight, naming the empty seam and the command that drafts one, with nothing tagged"
+  finish "gate (g)'s hash normalisation is DRIVEN against bump_one's own expression through one fixture in both directions: bumping a declared shipped version file proceeds (the version is normalised out), while a non-version edit after the closing quote on that same line refuses in preflight with nothing tagged and names --approve-shipped. A normaliser that cancelled the whole line instead of the value would let the second arm proceed. And arm (c): publishing on, no build and no manifest is refused in preflight, naming the empty seam and the command that drafts one, with nothing tagged"
 }
 
 case_release_publish() {
@@ -882,11 +793,7 @@ case_release_publish() {
   seed_release_doc "$SB_WORK/CHANGELOG.md" "Changelog" 1.2.0
   seed_release_doc "$SB_WORK/NOTES.md"     "Release notes" 1.2.0
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[Dev] document 1.2.0" >/dev/null 2>&1
-  # PUSHED, and not as tidiness: gate (a) requires HEAD to BE the published trunk's
-  # tip, so the pre-cut section commit has to reach the remote before the cut. That is
-  # not a new rule this fixture is bending to — check-board [f1] already sets drift=1
-  # on an ahead trunk and gate (d) refuses on it, so a STOCK kit has always refused
-  # this cut. The fixture only got away with it by stubbing the board clean.
+  # PUSHED: gate (a) requires HEAD to be the published trunk's tip (as above).
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(run_release_publish 1.2.0)"; rc=$?
   [ "$rc" -eq 0 ] || cf "the second cut exited $rc: $out"
@@ -926,8 +833,7 @@ case_release_publish_recovery() {
     || cf "the failure message does not say the release succeeded: $out"
   printf '%s' "$out" | grep -- '--publish-only' >/dev/null || cf "the failure message names no retry command: $out"
 
-  # The retry it names has to EXIST — a message pointing at a flag the script
-  # lacks would be the dangling-pointer defect in its most expensive place.
+  # The retry it names must exist: a pointer to a missing flag is a dangling pointer.
   out="$( cd "$SB_WORK" && RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" \
             "$SB_WORK/scripts/release.sh" 1.1.0 --publish-only 2>&1 )"; rc=$?
   printf '%s' "$out" | grep -i "unknown option" >/dev/null && cf "--publish-only is advertised but not implemented: $out"
@@ -942,14 +848,10 @@ case_release_publish_recovery() {
     || cf "--publish-only did not publish the dist branch"
   [ "$(dist_commit_count)" = "1" ] || cf "--publish-only produced $(dist_commit_count) commits"
 
-  # --publish-only --dry-run PUSHES NOTHING. THE UNCOVERED CELL: --dry-run alone
-  # was proven and --publish-only alone was proven, never the two TOGETHER — and
-  # the handler sits ABOVE the dry-run stop point on purpose, so it structurally
-  # cannot reach it. A run the operator believed was a rehearsal force-pushed the
-  # branch; since --publish-only takes a VERSION, that could roll dist BACK to an
-  # older artifact while reporting a rehearsal. The assertion is the dist COMMIT
-  # HASH, not mere existence: in the interesting scenario the branch already
-  # exists, so an existence check passes vacuously.
+  # --publish-only --dry-run PUSHES NOTHING. The --publish-only handler runs before the
+  # dry-run stop point, so it must honour --dry-run itself; a rehearsal that pushed could
+  # roll dist back to an older artifact. The assertion is the dist commit hash: the branch
+  # already exists here, so an existence check would pass vacuously.
   before="$(git -C "$SB_ORIGIN" rev-parse -q --verify refs/heads/dist 2>/dev/null)"
   printf 'echo "build-marker: ROUND2" >> "$outdir/sandbox-${ver}.pkg"\n' >> "$SB_TMP/build-stub.sh"
   out="$( cd "$SB_WORK" && RELEASE_BUILD_CMD="$SB_TMP/build-stub.sh" \
@@ -971,18 +873,11 @@ case_release_publish_recovery() {
 }
 
 # =============================================================================
-# CASE — the LOCAL-ONLY state is printed as NORMAL output BEFORE the pushes, and
-# every command it prints WORKS. `doctrine/fix-execution.md` § A.7 and
-# `contracts/release-ritual.md` § 2: a run killed between the tag and the pushes
-# never reaches the failure branches that carry this same recovery text, BECAUSE
-# NOTHING FAILED — and the two lines above it assert a release commit and an
-# annotated tag without saying LOCAL, so the dead transcript reads as a cut
-# release.
-#
-# ARM (2) IS THE ONE THAT MATTERS: the commands are EXTRACTED FROM THE TRANSCRIPT
-# and executed. Recovery text that drifts out of date fails this case instead of
-# reading fine — a dangling pointer in recovery text is the same defect as a
-# refusal naming a flag the script does not have.
+# CASE — the LOCAL-ONLY state is printed as NORMAL output BEFORE the pushes, and every
+# command it prints WORKS (doctrine/fix-execution.md § A.7, contracts/release-ritual.md
+# § 2). A run killed between the tag and the pushes never reaches the failure branches,
+# so the state must print on the healthy path. Arm (2) extracts the printed commands from
+# the transcript and runs them, so recovery text that drifts fails here.
 # =============================================================================
 case_release_local_only_recovery() {
   cf_reset
@@ -1051,10 +946,8 @@ case_release_local_only_recovery() {
   if [ -n "$undo" ]; then
     ( cd "$SB_WORK" && sh -c "$undo" ) >/dev/null 2>&1 \
       || cf "(undo) the printed undo command failed: $undo"
-    # (undo) ONE ARM ON PURPOSE: this leg has already cut a real release, so the tag and
-    # the remote SHOULD carry v1.1.0 — the other three arms would be asserting the
-    # opposite of what this leg established. What is under test is only that the printed
-    # undo restored the version file.
+    # (undo) ONE ARM ON PURPOSE: this leg made a real local cut, so assert_release_unmutated
+    # does not apply. The printed undo's effect is asserted directly.
     grep -qx "$SB_REL_PRE_VERSION" "$SB_WORK/VERSION" || cf "(undo) the bump survived the printed undo"
     git -C "$SB_WORK" rev-parse -q --verify refs/tags/v1.1.0 >/dev/null 2>&1 \
       && cf "(undo) the tag survived the printed undo"
@@ -1070,22 +963,14 @@ case_release_local_only_recovery() {
 # CASE — A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER.
 #
 # self-test-harness.md § 2: "a test-only relaxation of a production rule is reachable
-# ONLY behind an explicit marker that no production caller sets."
+# ONLY behind an explicit marker that no production caller sets." RELEASE_VERIFY_CMD and
+# RELEASE_BOARD_CMD override the two gates that decide whether a cut may happen, so
+# without the marker they refuse, as finish-pr.sh's seams do.
 #
-# RELEASE_VERIFY_CMD and RELEASE_BOARD_CMD override the two gates that decide whether
-# a cut may happen at all. Unmarked, `RELEASE_VERIFY_CMD=true ./scripts/release.sh
-# 1.1.0` cut a release with the verify gate silently skipped — not a weaker gate, no
-# gate. finish-pr.sh grew exactly this refusal after a fabricated `echo PASS; exit 0`
-# stub was used in earnest to force a landing through a red suite; release.sh got the
-# same seams and never the marker. **The incident's fix was applied to one sibling and
-# not the other**, which is the whole of the finding.
-#
-# BOTH DIRECTIONS, and the second is the one that keeps the harness itself honest:
+# BOTH DIRECTIONS:
 #   (i)  unmarked → refuse, before anything is written (no tag, no bump, HEAD still);
-#   (ii) marked   → honored, which is what every other release case in this file
-#        depends on. If the refusal became unconditional, (i) would still pass and
-#        the whole release family would break — so (ii) is asserted here rather than
-#        left implicit in cases whose subject is something else.
+#   (ii) marked   → honored. Every other release case depends on it, and an
+#        unconditional refusal would still pass (i).
 # =============================================================================
 case_release_stub_marker() {
   cf_reset
@@ -1139,13 +1024,10 @@ case_release_bash_n() {
 # =============================================================================
 # CASE — release.sh completes a cut from a repo path CONTAINING A SPACE.
 #
-# The defect class: the board gate runs "$SCRIPT_DIR/check-board.sh" BY DEFAULT.
-# Expanded UNQUOTED — stored in a bare var and run as `$BOARD_CMD` — a repo path
-# with a space word-splits, the shell runs the path's FIRST word, the
-# 'board-drift: clean' marker is absent, and the cut aborts on EVERY run with a
-# FALSE drift. Every other release case passes a space-free stub, so they exercise
-# the SET seam and can never see this class. This case drives the DEFAULT gate
-# from a spaced path — the only path that reproduces it.
+# The board gate runs "$SCRIPT_DIR/check-board.sh" by default. Expanded unquoted, a spaced
+# repo path word-splits and the cut aborts on a false drift. Every other release case sets
+# the seam to a space-free stub, so only this case drives the default gate from a spaced
+# path.
 # =============================================================================
 case_release_spaced_path() {
   cf_reset
@@ -1210,18 +1092,10 @@ case_consumer_updater() {
 # =============================================================================
 # CASE — A HOOK REJECTION BETWEEN THE BUMP AND THE COMMIT LEAVES NOTHING BEHIND.
 #
-# release.sh's restore used to live INSIDE the per-file bump loop, so it fired only for a
-# failed bump. Everything after it was unprotected: `git add` stages the rewrite, and
-# `git commit` then runs the project's commit-msg hook. A rejection there left the version
-# files REWRITTEN, STAGED and UNCOMMITTED — and the script never said so, because the
-# "LOCAL ONLY, NOTHING IS PUSHED YET" recovery prints on the success path, after the tag.
-#
-# THE TRIGGER IS THE KIT'S OWN SUPPORTED FLOW, which is why this is not hypothetical:
-# narrowing the role set leaves release.sh's own '[Architect]' outside the hook's
-# alternation, and release.sh is correctly not in kit-init's stamping loop.
-#
-# THE ASSERTION IS THE STATE OF THE TREE, not the message. "It printed an error" is
-# satisfied by a run that errored and left the bump behind.
+# A commit-msg hook that rejects release.sh's commit must leave the version files restored,
+# nothing staged and no tag. The trigger is the kit's own flow: narrowing the role set
+# leaves release.sh's tag outside the hook's set, and kit-init does not stamp release.sh.
+# The assertion is the state of the tree, not the message.
 # =============================================================================
 case_release_hook_rejection_leaves_no_bump() {
   cf_reset
@@ -1232,13 +1106,9 @@ case_release_hook_rejection_leaves_no_bump() {
   write_board_stub "$SB_TMP/board-clean.sh" clean
   local out rc
 
-  # BREAK THE COMMIT, and break it the way the kit's own flow does: install a commit-msg
-  # hook that rejects release.sh's role tag. Not `exit 1` unconditionally — a hook that
-  # refuses everything would also refuse the board stub's commits and fail earlier.
-  # INSTALL WHERE GIT ACTUALLY LOOKS. The kit points core.hooksPath at scripts/githooks,
-  # so a hook dropped in .git/hooks is never consulted — measured: the first version of
-  # this leg installed there, release.sh cut cleanly, and the case reported "exited 0 with
-  # a hook that rejects its own tag" about a hook git had not run.
+  # BREAK THE COMMIT the way the kit's own flow does: a hook that rejects release.sh's role
+  # tag only, since a hook refusing everything would fail earlier. Install it where git
+  # looks: the kit points core.hooksPath at scripts/githooks, so .git/hooks is not consulted.
   local hookdir hook
   hookdir="$(git -C "$SB_WORK" config --get core.hooksPath 2>/dev/null || true)"
   [ -n "$hookdir" ] || hookdir=".git/hooks"
@@ -1246,11 +1116,8 @@ case_release_hook_rejection_leaves_no_bump() {
   mkdir -p "$(dirname "$hook")"
   printf '#!/usr/bin/env bash\ngrep -q "^\\[Architect\\]" "$1" && { echo "hook: [Architect] is not in this project'"'"'s role set" >&2; exit 1; }\nexit 0\n' > "$hook"
   chmod +x "$hook"
-  # COMMIT THE HOOK. It lives INSIDE the repository (scripts/githooks/), so writing it
-  # leaves the tree dirty and release.sh refuses at its cleanliness gate long before the
-  # bump — a refusal that satisfies "it exited nonzero" while proving nothing about the
-  # MUTATE block. Commit with the hook not yet in force, which is why --no-verify is
-  # correct here rather than a shortcut.
+  # COMMIT THE HOOK: it lives inside the repository, and a dirty tree would refuse at the
+  # cleanliness gate before the bump. --no-verify keeps the hook out of this fixture commit.
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   git -C "$SB_WORK" -c user.email=t@t -c user.name=t commit --no-verify -q -m "[PM] install a narrow role hook" >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin HEAD >/dev/null 2>&1 || true
@@ -1279,11 +1146,9 @@ case_release_hook_rejection_leaves_no_bump() {
 
   teardown
 
-  # ── INSTRUMENT CHECK, IN ITS OWN SANDBOX. Every assertion above is "nothing was left
-  #    behind", which a release that could never have run satisfies for free. It needs a
-  #    SEPARATE sandbox: a successful cut PUSHES, and sharing one bare origin with the leg
-  #    above would leave that leg's checkout behind its own remote — measured, gate (a)
-  #    then refuses and the whole case passes without ever reaching the MUTATE block.
+  # ── INSTRUMENT CHECK, IN ITS OWN SANDBOX: the assertions above are satisfied by a release
+  #    that never ran. A successful cut pushes, and a shared origin would leave the leg
+  #    above behind its remote, so gate (a) would refuse first.
   make_sandbox
   seed_release_files 1.1.0
   publish_sandbox
@@ -1302,14 +1167,9 @@ case_release_hook_rejection_leaves_no_bump() {
 # =============================================================================
 # CASE — assert_release_unmutated NAMES THE CUT IT IS GUARDING.
 #
-# The helper's tag arm used to look for the literal `refs/tags/v1.1.0`. Its call sites
-# call it, and while all fourteen happen to cut 1.1.0 today, the coupling is invisible:
-# a leg cutting any other version got a tag check looking for a tag nobody would create,
-# which passes. Of the helper's four arms the tag arm guards the most expensive mutation
-# and was the only one that could be satisfied by looking in the wrong place.
-#
-# THE MUTATION IS A TAG AND NOTHING ELSE. No bump, no push. Every other arm stays clean,
-# so a green here can only come from the arm under test.
+# The tag arm must look for the tag at the version it is handed, never a fixed literal, or
+# a leg cutting another version passes by looking in the wrong place. The mutation is a
+# tag and nothing else, so a green can come only from the arm under test.
 # =============================================================================
 case_release_unmutated_names_the_cut() {
   cf_reset

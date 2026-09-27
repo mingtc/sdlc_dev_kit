@@ -5,58 +5,12 @@
 # =============================================================================
 
 # =============================================================================
-# CASE — archive.sh --apply indexes + moves to done/
-# =============================================================================
-# =============================================================================
-# CASE — A ONE-MEMBER ROLE TAG REFUSES BEFORE IT MUTATES.
-#
-# Three shipped scripts commit under a role tag that is ONE MEMBER of the role set:
-# archive.sh's sweep, subtask.sh's create arm, finish-pr.sh's squash. They were
-# hardcoded, so `kit-init --roles` — a documented, supported invocation — left them
-# naming a seat the project no longer declares. The initializer correctly cannot stamp
-# them: it rewrites the whole alternation, and one member does not contain it. So the
-# kit's own tooling manufactured the breakage.
-#
-# WHY THE EXIT CODE IS NOT THE ASSERTION. Without the guard, archive.sh still exits
-# nonzero — the hook rejects the commit and `set -e` aborts. A case that checked only
-# `rc -ne 0` would PASS against the defect. The whole content of the fix is WHICH SIDE
-# of the mutation the refusal lands on.
-#
-# WHAT THE REDDENING MUTATION ACTUALLY PROVES — measured, and NOT what was predicted
-# when this case was drafted. Deleting the guard does NOT move the card on the trunk:
-# the sweep git-mv's inside the kanban worktree, the commit fails, and nothing is
-# pushed, so both trunk assertions still hold. What fails is the RESTORE CONTROL at the
-# bottom: the refused run leaves uncommitted state in the SHARED worktree, and the very
-# next board operation — with a perfectly legal role tag — dies on
-# "the kanban worktree has uncommitted changes". So the damage this guard prevents is
-# not a bad commit; it is a POISONED WORKTREE that breaks the next operation, in
-# somebody else's lane, with an error naming neither the role nor the sweep that caused
-# it. That is the documented failure mode, reproduced end to end.
-#
-# The two trunk assertions are kept anyway: they are the ones that would catch a variant
-# where the mv DID reach the trunk, which no other assertion here would notice.
-#
-# THE NARROWING GOES INTO THE HOOK, never into the knob. Setting ARCHIVE_ROLE would
-# only prove the knob is read; narrowing the declared set is what proves the tag is
-# CHECKED against it.
-# =============================================================================
-# =============================================================================
 # CASE — A CONTRADICTORY --apply/--dry-run PAIR REFUSES, IN EITHER ORDER.
 #
-# archive.sh inspected `$1` ALONE — no loop, no shift, no `$#`. So every argument after
-# the first was silently discarded, and one of the things it discarded was a hedge.
-# Measured: `--apply --dry-run` set DRY_RUN=false and swept, committed and PUSHED to the
-# trunk with `--dry-run` thrown away; the reverse order previewed and threw `--apply`
-# away. Order-dependent, opposite outcomes, no warning — and `--apply --dry-run` is
-# exactly the belt-and-braces spelling an operator who is unsure reaches for.
-#
-# THE EXIT CODE IS NOT THE ASSERTION. This case reads the BOARD, the local HEAD and the
-# REMOTE, because the difference between the two orders was a push to the trunk.
-#
-# NOTE WHAT IS *NOT* CHANGED: the defaults. `contracts/archive-sweep.md` § 2 rules
-# preview-by-default for this script and the manual documents the bare invocation as the
-# dry run. This case pins that too — the instrument leg proves a plain `--apply` still
-# sweeps, so the refusal cannot have been bought by breaking the tool.
+# Both orders must refuse at status 2 before anything moves. The exit code is not the
+# assertion: the case reads the board, the local HEAD and the remote. The control proves a
+# plain `--apply` still sweeps, so the refusal is not a broken tool. The bare invocation
+# stays the preview (contracts/archive-sweep.md § 2).
 # =============================================================================
 case_archive_hedged_flags_never_mutate() {
   cf_reset
@@ -106,6 +60,19 @@ case_archive_hedged_flags_never_mutate() {
   finish "archive.sh: a contradictory --apply/--dry-run pair refuses at status 2 in EITHER order with the board, the local HEAD and the remote all unchanged — and a plain --apply on the same fixture still sweeps"
 }
 
+# =============================================================================
+# CASE — A ONE-MEMBER ROLE TAG REFUSES BEFORE IT MUTATES.
+#
+# archive.sh commits under one member of the role set (ARCHIVE_ROLE). When the declared set
+# no longer holds it, the sweep must refuse before it moves anything. The exit code is not
+# the assertion: without the guard the hook rejects the commit and the script still exits
+# nonzero. What reddens is the restore control: the refused run leaves uncommitted state in
+# the shared kanban worktree, and the next board operation dies on it. The trunk assertions
+# catch a variant where the move reaches the trunk.
+#
+# Narrow the hook's declared set, not the knob: setting ARCHIVE_ROLE proves only that the
+# knob is read.
+# =============================================================================
 case_one_member_role_tag_refuses_before_mutating() {
   cf_reset
   make_sandbox
@@ -152,6 +119,9 @@ case_one_member_role_tag_refuses_before_mutating() {
   teardown
 }
 
+# =============================================================================
+# CASE — archive.sh --apply indexes + moves to done/
+# =============================================================================
 case_archive_apply() {
   cf_reset
   make_sandbox
@@ -176,22 +146,11 @@ case_archive_apply() {
 # =============================================================================
 # THE INDEX INSERT MUST REFUSE A MALFORMED INDEX, not mis-write it
 # =============================================================================
-# WHY (reproduced from an adopter following a recipe that omitted the separator): the
-# insert prints the header, then READS THE NEXT LINE and reprints it as the separator.
-# If that line is not a separator, the file's FIRST DATA ROW is consumed into the
-# separator's position and the new row lands SECOND — silently breaking the newest-first
-# ordering the index exists to provide. And `grep -qF` on the header ACCEPTED that file:
-# a presence check standing in for a well-formedness check, which is the guard looking
-# slightly to the left of the defect (instruments.md § A.6).
-#
-# BOTH FIXTURES ARE HAND-WRITTEN, DELIBERATELY. The sibling index case builds its index
-# by RUNNING THE SCRIPT, so it only ever meets the well-formed shape — a guard measured
-# against its author's own output is measuring the author. The malformed shape cannot be
-# produced by the code under test, so it has to be typed here.
-#
-# AND THE FAILURE UNDER TEST IS A WRITE THAT HAPPENED, so a non-zero exit is not enough:
-# the control asserts the file is BYTE-UNCHANGED. The well-formed control is the other
-# half — without it, an unconditional refusal would pass the first assertion.
+# The insert reprints the line after the header as the separator, so an index with no
+# separator loses its first data row into that slot and the new row lands second. Both
+# fixtures are hand-written, because the script under test only produces the well-formed
+# shape. A refusal is not enough: the file must be byte-unchanged, and the well-formed half
+# rules out an unconditional refusal.
 _ap_seed_small_log() {  # <repo>
   { echo "# progress.md"; echo ""; echo "## Log"; echo ""
     echo "## 2026-08-20 [Dev] one"; echo "body"; echo ""
@@ -259,16 +218,8 @@ IDXEOF
 # =============================================================================
 # CASE — THE ARCHIVE INDEX CARRIES A RETIREMENT DATE (both directions).
 #
-# archive-sweep.md § 2: "Every retired item gains an INDEX entry ... carrying at
-# least its identifier, its title and its RETIREMENT DATE." The entry carried the
-# first two, so the index answered *what* was archived and never *when* — the one
-# question a retention policy asks of it.
-#
-# BOTH DIRECTIONS, because the first alone proves the line RUNS, not that it DOES
-# ANYTHING: with the date write ablated out, the assertion must fail. A control that
-# cannot fail is not a control, and this harness has already caught one of mine that
-# could not (a fixture whose own portability slip was indistinguishable from the
-# defect under test).
+# archive-sweep.md § 2: an index entry carries the identifier, the title and the retirement
+# date. With the date write ablated, the assertion must fail.
 # =============================================================================
 case_archive_index_carries_the_date() {
   cf_reset
@@ -286,32 +237,22 @@ case_archive_index_carries_the_date() {
     || cf "the index entry carries no retirement date — § 2 requires the date beside the id and title: $entry"
   printf '%s' "$entry" | grep "retired $today" >/dev/null \
     || cf "the retirement date is not today's ($today): $entry"
-  # The id stays the FIRST token: next-id.sh documents these entries as
-  # `- <PREFIX>-NNN …` and reads them so a new mint cannot collide with an archived
-  # id. If the date ever migrates to the front, that convention breaks silently and
-  # a re-minted id is the symptom, a long way from the cause.
+  # The id stays the FIRST token: next-id.sh reads `- <PREFIX>-NNN …` entries so that a new
+  # mint cannot collide with an archived id.
   printf '%s' "$entry" | grep -E "^- $SB_PREFIX-250 " >/dev/null \
     || cf "the entry no longer begins '- $SB_PREFIX-250 ' — next-id.sh reads this shape to avoid re-minting an archived id: $entry"
-  # THE PREVIEW AND THE APPLIED ENTRY MUST AGREE. They are built from one string in
-  # the script; this holds that true from outside, because a preview that understates
-  # what will be written is how a bulk irreversible op gets approved.
+  # The dry run on the same board must still exit 0.
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "the dry run exited $rc: $out"
 
   # --- ABLATION: remove the date write and the assertion above must fail -----
   local a_script="$SB_WORK/scripts/archive.sh" n
-  # -F: these two operands carry a mid-pattern `$`, which is a literal under POSIX BRE
-  # and an anchor under implementations that anchor anywhere. Inside a script `grep`
-  # always resolves through PATH, so both are correct today — but a fixed-string search
-  # has no metacharacter for two implementations to disagree about, and the cost of not
-  # depending on that is one flag.
+  # -F: both operands carry a mid-pattern `$`, which grep implementations read differently.
   n="$(grep -cF 'ENTRY="${ENTRY} — retired ${RETIRED_ON}"' "$a_script" || true)"
   if [ "$n" != "1" ]; then
     cf "(control) expected exactly 1 date-append line in archive.sh to ablate, found $n — the anchor moved and this ablation proves nothing"
   else
-    # TEARDOWN FIRST. make_sandbox sets SB_TMP afresh, so without this the first sandbox's
-    # path was lost and the one teardown below removed only the second — a whole sandbox
-    # left in the temp dir on every run.
+    # TEARDOWN FIRST: make_sandbox sets SB_TMP afresh, so the first sandbox must go now.
     teardown
     make_sandbox
     seed_issue qa_complete "$SB_PREFIX-251" ablated chore "Ablated retirement"
@@ -334,16 +275,9 @@ case_archive_index_carries_the_date() {
 # =============================================================================
 # CASE — THE RETIRED STORE IS REQUIRED, NOT MANUFACTURED (both directions).
 #
-# archive-sweep.md § 3: "The retired store or the index is missing ⇒ refuse; do not
-# create an index on the fly." The script honoured that for the index and `mkdir -p`'d
-# the store — so it manufactured the board topology it was operating within, and
-# because board-mover.md's first invariant is "the container IS the status", an
-# invented container is an invented status. A mistyped or renamed column became a new
-# column holding real retired work.
-#
-# BOTH DIRECTIONS: the refusal must fire AND MUST CREATE NOTHING, and a board that
-# does have the column must still archive normally — otherwise the fix is an
-# unconditional refusal, which passes the first assertion and breaks the tool.
+# archive-sweep.md § 3: a missing retired store refuses. Creating it would invent a column,
+# and the container is the status (board-mover.md). The refusal must create nothing, and a
+# board that has the column must still archive, or an unconditional refusal would pass.
 # =============================================================================
 case_archive_requires_the_retired_store() {
   cf_reset
@@ -365,9 +299,7 @@ case_archive_requires_the_retired_store() {
     || cf "(i) the message does not say it is refusing: $out"
   printf '%s\n' "$out" | grep '\.gitkeep' >/dev/null \
     || cf "(i) the refusal does not print the deliberate creation recipe (a bare refusal leaves the operator to invent one, and an empty dir does not survive a clone): $out"
-  # AND IT CREATED NOTHING — the assertion that separates "refused" from "refused
-  # after doing the thing". Checked in the kanban worktree too, which is where this
-  # script actually operates and therefore where a stray mkdir would land.
+  # AND IT CREATED NOTHING, checked in the kanban worktree too, where the script operates.
   kwt_done="$SB_WORK/.kanban-wt/progress/done"
   [ ! -d "$SB_WORK/progress/done" ] || cf "(i) the refusal still created progress/done/ in the checkout"
   [ ! -d "$kwt_done" ] || cf "(i) the refusal still created progress/done/ inside the kanban worktree"
@@ -376,8 +308,7 @@ case_archive_requires_the_retired_store() {
   teardown
 
   # --- (ii) the store is PRESENT: archive normally ---------------------------
-  # Without this the fix could be an unconditional refusal and half (i) would still
-  # pass. It is the same shape as the UNRUNNABLE case's second direction.
+  # Without this half, an unconditional refusal would pass half (i).
   make_sandbox
   seed_issue qa_complete "$SB_PREFIX-261" hasstore chore "Has retired store"
   [ -d "$SB_WORK/progress/done" ] || cf "(control) the sandbox has no progress/done/ — half (ii) cannot test the happy path"
@@ -419,15 +350,9 @@ case_archive_feature_branch_clean() {
 # =============================================================================
 # CASE — archive-progress.sh rotates a mixed-format progress.md BYTE-COMPLETE.
 #
-# The defect this pins: the split-awk classified a Log line as archivable ONLY
-# when it matched a bare date-prefixed bullet, so entries grouped under a dated
-# section HEADER (with undated sub-bullets) matched nothing and fell into an
-# "intentionally dropped" branch — they reached NEITHER the retained progress.md
-# NOR the history chunk. Silent data loss on --apply.
-#
-# The reconstruction check is the byte-completeness proof: split the new
-# progress.md at "## Log", splice the archived chunk (minus its YAML header)
-# between the halves, and it must equal the original fixture verbatim.
+# Entries under a dated section header with undated sub-bullets must reach the retained log
+# or the chunk, never neither. The proof: split the new progress.md at "## Log", splice the
+# chunk (minus its YAML header) between the halves, and it must equal the original.
 # =============================================================================
 case_archive_progress_sections() {
   cf_reset
@@ -435,14 +360,9 @@ case_archive_progress_sections() {
   local R="$SB_TMP/ap"
   mkdir -p "$R/progress/history"
 
-  # THE FIXTURE CARRIES ALL THREE BOUNDARY FORMS, IN THEIR REAL NESTING ORDER.
-  # Note where the post-cutoff entry sits: at its OWN `## ` heading, not as a bare
-  # bullet after one. That is not cosmetic — it is the nesting-precedence rule
-  # under test. Once a `## DATE` section opens, every line until the next `## `
-  # heading belongs to THAT section, whatever those lines look like, so a bare
-  # post-cutoff bullet placed inside a pre-cutoff `## ` section is correctly
-  # archived WITH it. A fixture that placed it there and then asserted retention
-  # would be testing the fixture's own confusion, not the script.
+  # THE FIXTURE CARRIES ALL THREE BOUNDARY FORMS, IN THEIR REAL NESTING ORDER. The post-cutoff
+  # entry has its own `## ` heading: a `## DATE` section owns every line until the next `## `,
+  # so a post-cutoff bullet inside a pre-cutoff section is correctly archived with it.
   cat > "$R/progress.md" <<'EOF'
 # progress.md
 
@@ -491,10 +411,8 @@ EOF
     cf "reconstruction != original — $(diff "$R/original.md" "$recon" | grep -c '^<') line(s) lost"
   fi
 
-  # The reported count must EXACTLY MIRROR the awk routing: a dated header whose
-  # date is at END-OF-LINE is a boundary (the awk arms need no trailing space), so
-  # it must be counted too. A count below what was routed is the shape of the old
-  # undercount.
+  # The reported count must mirror the awk routing, including a dated header whose date ends
+  # the line.
   local reported routed
   reported="$(printf '%s\n' "$out" | sed -n 's/^Found \([0-9][0-9]*\) entries.*/\1/p')"
   routed="$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' "$chunk")"
@@ -527,16 +445,8 @@ EOF
 
 # CASE — archive-progress.sh's DRY RUN, which is the DEFAULT, writes nothing at all.
 #
-# It used to. The empty-index creation sat 223 lines above the `(dry run — no changes
-# made.)` line and ran in both modes, so the default invocation created
-# progress/history/INDEX.md and then closed by denying it had. Found by a fresh-context
-# sweep 2026-09-03; the reason it survived the mechanical pre-cut sweep is that nothing
-# CLAIMED the two were connected — the write was correct on its own, the summary was
-# correct on its own, and only running the thing shows they contradict.
-#
-# The assertion is a WHOLE-TREE checksum, not `[ ! -f INDEX.md ]`. Naming the one file
-# I know about would pass the day a different dry-run write appears, and this defect's
-# whole lesson is that the write nobody thought about is the one that gets through.
+# The assertion is a whole-tree checksum, not `[ ! -f INDEX.md ]`: naming one file would
+# pass the day a different dry-run write appears.
 case_archive_progress_dry_run_writes_nothing() {
   cf_reset
   make_sandbox
@@ -559,9 +469,8 @@ case_archive_progress_dry_run_writes_nothing() {
   printf '%s' "$out" | grep 'dry run' >/dev/null \
     || cf "the dry run did not identify itself as one"
 
-  # AND IT SAID SO. A fix that silently skipped the creation would satisfy the checksum
-  # above while leaving the reader unable to tell the index is missing — the honest-blind-
-  # spot duty (instruments.md § A.4). The dry run must ANNOUNCE the write it declined.
+  # AND IT SAID SO: a fix that silently skipped the creation would pass the checksum. The
+  # dry run must announce the write it declined (instruments.md § A.4).
   printf '%s' "$out" | grep 'INDEX.md' >/dev/null \
     || cf "the dry run never mentioned INDEX.md, so a reader cannot tell --apply would create it"
 
@@ -579,16 +488,11 @@ case_archive_progress_dry_run_writes_nothing() {
 
 # archive-progress.sh: the ordinal knife, the honest no-op, and the index
 # =============================================================================
-# WHY THESE EXIST (measured, not speculative). The rotation's only selector was a
-# DATE, while the trigger that says a rotation is due is a BYTE threshold — and
-# bytes cross it more than once in a working day. So the second rotation of a day
-# had no expressible cut: it reported "Nothing to archive" and exited 0 on an
-# over-threshold log. THE TOOL'S SUCCESS WAS WHAT MADE IT INERT, which is why the
-# exit-3 case below asserts the ABSENCE of the green phrase and not just the code.
-#
-# DERIVE, DO NOT RE-HARDCODE: the threshold is read out of the REAL check-board.sh,
-# so a retune there cannot silently make these cases vacuous. (cb_default is not
-# usable — it expects a single-quoted value and this constant is a bare integer.)
+# Rotation is due on a byte threshold, and a date knife cannot cut a same-day log, so a
+# second rotation in one day needs --keep-last, and an over-threshold no-op must not print
+# the green phrase (exit 3). The threshold is read from the real check-board.sh so that a
+# retune cannot make these cases vacuous. cb_default does not apply: it expects a quoted
+# value and this constant is a bare integer.
 ap_thresh() {
   sed -n 's/^PROGRESS_LOG_BYTE_THRESHOLD=\([0-9]*\).*/\1/p' "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
 }
@@ -615,17 +519,11 @@ ap_seed() {
 # =============================================================================
 # CASE — ONE GENERATED ROW, ONE CLOCK.
 #
-# archive-progress.sh's INDEX row has two date columns. `Covers` is grepped out of the
-# chunk's own content, which move-issue.sh and subtask.sh stamped on the operator's LOCAL
-# day; `Rotated` was `date -u`. Eight hours apart on this machine, for a third of every
-# day, in one row, with nothing about it looking wrong. archive-sweep.md § 2 now rules it:
-# a calendar DAY is local, an INSTANT is UTC and says Z.
-#
-# WALL-CLOCK FLAKE IS THE HAZARD HERE, so this case does not compare against "today". It
-# runs the same rotation under two zones 26 HOURS APART — UTC+14 and UTC−12 can never
-# share a calendar day, at any instant — and asserts the column moved WITH the operator.
-# A UTC stamp is TZ-invariant and cannot satisfy that, at any hour. Both zones are POSIX
-# `std offset` strings, so no zoneinfo database is needed.
+# archive-sweep.md § 2: a calendar day is local; an instant is UTC and says Z. `Covers`
+# comes from the chunk's locally stamped content, so `Rotated` must be local too. To avoid a
+# wall-clock flake, the rotation runs under two zones 26 hours apart, which never share a
+# calendar day, and the column must move with the operator. Both are POSIX `std offset`
+# strings, so no zoneinfo database is needed.
 # =============================================================================
 case_rotation_day_uses_the_board_clock() {
   cf_reset
@@ -687,8 +585,7 @@ case_archive_progress_ordinal_knife() {
   local left; left="$(grep -c '^## 2026-08-26' "$R/progress.md" || true)"
   [ "$left" = "8" ] || cf "after --keep-last 8 the log holds $left entries, expected 8"
 
-  # SECOND rotation, SAME CALENDAR DAY. This is the whole finding: a date knife
-  # has nothing left to cut here, because everything before today already went.
+  # SECOND rotation, SAME CALENDAR DAY: a date knife has nothing left to cut here.
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone d2 --keep-last 3 --apply 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "SECOND same-day --keep-last run exited $rc (expected 0) — the duty cycle is not closed: $out"
   left="$(grep -c '^## 2026-08-26' "$R/progress.md" || true)"
@@ -718,15 +615,13 @@ case_archive_progress_honest_noop() {
   [ "$rc" -eq 3 ] || cf "nothing-matched-while-due exited $rc, expected 3 (a distinct code, not a failure and not a pass): $out"
   printf '%s' "$out" | grep 'ROTATION IS STILL DUE' >/dev/null || cf "the over-threshold no-op did not say a rotation is still due: $out"
   printf '%s' "$out" | grep "$thresh" >/dev/null || cf "the over-threshold no-op did not name the threshold it measured against: $out"
-  # THE REDDENING CONTROL, and the point of the whole case: the GREEN PHRASE must
-  # be ABSENT. Its presence is what made the old behaviour read as an all-clear,
-  # so a fix that added the warning and kept the phrase would still be broken.
+  # THE REDDENING CONTROL: the green phrase must be ABSENT. A fix that added the warning
+  # and kept the phrase would still read as an all-clear.
   printf '%s' "$out" | grep 'Nothing to archive' >/dev/null \
     && cf "the over-threshold no-op still printed the green phrase 'Nothing to archive' — that is the false all-clear"
 
-  # AND THE OTHER DIRECTION: under threshold, nothing matched, that IS a green and
-  # keeps the phrase. Both states must exist and be distinct, or the change is a
-  # rename rather than a new state.
+  # AND THE OTHER DIRECTION: under threshold, nothing matched IS a green and keeps the
+  # phrase. Both states must exist, or the change is a rename rather than a new state.
   { echo "# progress.md"; echo ""; echo "## Log"; echo ""; echo "## 2026-08-26 [Dev] one small entry"; echo "body"; echo ""; } > "$R/progress.md"
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone n2 --before 2026-08-26 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "under-threshold nothing-matched exited $rc, expected 0: $out"

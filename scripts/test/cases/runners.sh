@@ -8,33 +8,11 @@
 # =============================================================================
 # A SCHEMA'S `required` MUST NAME PROPERTIES THE SCHEMA DEFINES
 # =============================================================================
-# WHY THIS EXISTS (measured, and it shipped): a change renamed a schema property
-# from `landed` to `landing` in both runners, and in tranche-runner's PARK_SCHEMA the
-# `properties` block was updated while `required` was not. The schema then DEMANDED A
-# PROPERTY IT DID NOT DEFINE — it could not validate, and a validator would have asked
-# every park leg for a field no brief mentions.
-#
-# THREE THINGS THAT SHOULD HAVE STOPPED IT DID NOT: `node --check` cannot see it (it is
-# valid JavaScript and the defect is semantic); the harness did not exercise the runners
-# at all, which the implementing leg reported explicitly rather than letting a green
-# imply coverage; and the review comparison — one line — was not run.
-#
-# AND THE ENUM GUARD DOES NOT CATCH THIS. That case compares each runner's VERDICTS
-# array against the ratified token set: a different assertion entirely. A guard for the
-# adjacent defect is not a guard for this one, and the presence of *a* schema guard is
-# exactly what stops the next person looking harder (negative-claims.md § A.4).
-#
-# ALL SIX SCHEMAS, NOT FOUR. A hand-run of this check once covered four, because
-# its source slice began at `const VERDICTS` and both DEV_SCHEMAs fell outside it. That
-# limit was stated by the leg that ran it; the extractor below keys on
-# `^const <NAME>_SCHEMA` so a seventh schema is covered the day it appears.
-#
-# ONE DIRECTION ONLY, and the other was measured and declined: "a property no consumer
-# reads" would fire on six legitimate keys (DEV_SCHEMA.summary/.test_evidence/.deviations
-# in each runner, all filled for the QA leg and the run report to read), and a narrower
-# "referenced nowhere else" rescue fires on five. A `required` naming an undefined
-# property is asymmetric — it is ALWAYS a defect, because the schema cannot validate —
-# which is why it is the one that survives.
+# A `required` naming an undefined property means the schema cannot validate. `node --check`
+# cannot see it (the defect is semantic), and the VERDICTS enum case is a different
+# assertion. The extractor keys on `^const <NAME>_SCHEMA`, so every schema is covered. One
+# direction only: "a property no consumer reads" would fire on legitimate keys, while an
+# undefined `required` name is always a defect.
 _schema_extract_awk() {
   cat <<'AWKEOF'
 /^const [A-Za-z_]+_SCHEMA[[:space:]]*=/ { s=$2; inprops=0; next }
@@ -79,10 +57,7 @@ case_runner_schema_required_defines() {
   make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
 
   local total_schemas=0 total_bad=0 f lab res n bad
-  # THE ENUMERATION IS _shipped_runners, NOT A SECOND COPY OF ITS GLOB. This case re-typed that
-  # dual-spelling glob for a while: the two copies sat sixty lines apart with nothing holding them
-  # together, so a third runner directory or a changed spelling would have moved one and not the
-  # other. The dual-spelling reason now lives at the helper.
+  # THE ENUMERATION IS _shipped_runners, NOT A SECOND COPY OF ITS GLOB.
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     lab="$(basename "$f")"
@@ -94,10 +69,9 @@ case_runner_schema_required_defines() {
 $(_shipped_runners)
 EOF
 
-  # ASSERT THE EXTRACTOR, NOT ONLY THE COMPARISON. Zero schemas found compares zero
-  # against zero and "passes" — the vacuous green this whole sheet is about. Six is
-  # the shipped count (DEV/QA/PARK in each of two runners); fewer means the extractor
-  # stopped matching, which is a defect in the CASE and must not read as a clean tree.
+  # ASSERT THE EXTRACTOR, NOT ONLY THE COMPARISON: zero schemas compares zero against zero
+  # and passes. Six is the shipped count (DEV/QA/PARK in each of two runners); fewer means
+  # the extractor stopped matching.
   [ "$total_schemas" -ge 6 ] \
     || cf "the extractor found only $total_schemas schema(s) — expected at least 6 (DEV/QA/PARK × 2 runners). A count this low means the extractor stopped matching, NOT that the tree is clean."
   [ "$total_bad" -eq 0 ] \
@@ -107,55 +81,12 @@ EOF
   teardown
 }
 
-# =============================================================================
-# THE DOCUMENTED goldenPaths ESCAPE MUST ACTUALLY SKIP
-# =============================================================================
-# tranche-runner documented "Empty string = skip the zero-drift diff entirely (a project with no
-# goldens should pass '')" and then wrote `ARGS.goldenPaths || <default>` — and `'' || <default>` IS
-# the default, so the escape restored the very value it was meant to suppress. A project with no
-# pinned-output corpus passed '' exactly as instructed, and both its QA seats ran a diff against
-# paths that do not exist, on every issue, and had to write a paragraph each time explaining that an
-# empty match is not a clean diff. wave-runner carried the identical `||` with no comment promising
-# anything, so the defect was here twice — once documented and broken, once undocumented and broken.
-#
-# THIS CASE DOES NOT EXECUTE THE RUNNERS, and that is deliberate rather than a shortcut. Node is not
-# a kit dependency (kit/scripts/ invokes it nowhere; the one Node extra is opt-in per question and
-# deletable), so a case that ran them would make the harness fail on a conforming machine. The
-# established idiom for the runners in this file is static extraction with a control on the
-# EXTRACTOR — see case_runner_schema_required_defines, whose own comment records that the harness
-# does not exercise them.
-#
-# BOTH HALVES ARE ASSERTED, because either alone is a green that cannot go red for the real
-# behaviour: `??` in the CFG default makes '' REACH CFG.goldenPaths, and the drift step's own guard
-# on that value is what turns that into a SKIP. Assert only the first and a later edit to the guard
-# breaks the skip while this case stays green; assert only the second and a revert to `||` never
-# delivers '' to it. The pair is the property.
-#
-# COMMENTS ARE STRIPPED BEFORE EVERY LOOKUP, and this is not hygiene — it is the fix to a FALSE GREEN
-# this case was CAUGHT producing on its own third control. The runners now carry a comment explaining
-# why the guard matters, and that comment NAMES THE GUARD. So with the real guard ablated out of the
-# code, a plain `grep -F` still matched — the assertion was satisfied by the prose written to explain
-# the thing it was supposed to be measuring.
-#
-# THE GENERAL FORM, because this was the SECOND instance in one session: an assertion that greps
-# source for a token must strip that source's comments, because the comment explaining why the token
-# matters is the place the token is most certain to appear. The first instance was the maintainer
-# repository's own live-state arm, satisfied by an HTML comment recording the very staleness it was
-# checking for. Strip toward OVER-stripping: an over-strip reddens loudly and a reader investigates,
-# an under-strip is the silent pass this note exists to prevent.
 # EVERY SHIPPED RUNNER, disarmed or armed tree — the ONE authoring site for that enumeration.
-# Renamed from _goldenpaths_runners when it gained its second consumer: a helper named after one
-# caller reads, to the next caller, like something it is not allowed to use.
-#
-# DUAL-SPELLING, and the reason belongs here rather than in each caller's memory: the maintainer
-# repository stores the kit disarmed (`_claude/`), a built kit ships it armed (`.claude/`). Reading
-# whichever exists lets a case still find the real shipped tree in place. It does NOT make an
-# in-place run a witness — see the header.
-#
-# NOT THE ONLY WORKFLOW GLOB IN THIS FILE, AND THE OTHER ONE IS DELIBERATELY WIDER. Do not collapse
-# case_shipped_runners_parse into this helper: it globs `workflows/*.js`, because a file that cannot
-# be parsed matters whether or not its name contains "runner". Narrowing it to `*runner*.js` would
-# quietly shrink the guard that caught a shipped runner which could not be loaded at all.
+# Dual spelling: the maintainer repository stores the kit disarmed (`_claude/`) and a built
+# kit ships it armed (`.claude/`), so reading whichever exists finds the real shipped tree.
+# It does NOT make an in-place run a witness (run.sh's header). case_shipped_runners_parse
+# globs the wider `workflows/*.js` on purpose, since a file that cannot parse matters
+# whatever its name: do not collapse it into this helper.
 _shipped_runners() {
   local f
   for f in "$REAL_REPO_ROOT"/_claude/workflows/*runner*.js "$REAL_REPO_ROOT"/.claude/workflows/*runner*.js; do
@@ -163,12 +94,8 @@ _shipped_runners() {
   done
 }
 
-# THE TWO RUNNERS CARRY THEIR SCHEMAS BY HAND, AND THE DUPLICATION IS PERMANENT. changes/DECLINED
-# measured that the workflow runtime grants these files no imports and no filesystem access, so a
-# shared module is not expressible — the copies cannot be removed. What CAN be held is their
-# AGREEMENT, and it had already failed: four descriptions had drifted apart and one field had lost
-# its description entirely before anyone compared them. This case is the witness the extraction
-# cannot be.
+# THE TWO RUNNERS CARRY THEIR SCHEMAS BY HAND: the workflow runtime grants them no imports,
+# so the copies cannot be shared. This case holds their agreement.
 _schema_descriptions() {   # <runner file> -> "SCHEMA.field<TAB>description", sorted
   awk -v q="'" '
     /^const [A-Z_]+_SCHEMA = \{/ { s = $2; next }
@@ -221,15 +148,10 @@ EOF
   teardown
 }
 
-# THE RUN-OUTCOME VOCABULARY IS HAND-COPIED INTO BOTH RUNNERS, AND NOW HAS AN AUTHORITY. The copies
-# cannot be removed — the runtime grants these files no imports — so this case holds BOTH directions,
-# and it needs both: an authority does not make two hand-copied projections agree with each other,
-# and two projections agreeing does not make either of them right. A pair that drifts TOGETHER passes
-# an agreement-only guard in silence, which is what this case used to be.
-#
-# IT ALSO ASSERTS THAT EVERY DECLARED TOKEN IS USED. A vocabulary constant that has drifted into a
-# superset of what the runner can actually return is documentation, not a vocabulary — and it would
-# read as coverage to anyone comparing the two declarations.
+# THE RUN-OUTCOME VOCABULARY IS HAND-COPIED INTO BOTH RUNNERS (no imports). This case holds
+# both directions: the copies agree with each other, and they project the ratified table in
+# process/MANUAL.md, because a pair that drifts together passes an agreement-only check. It
+# also asserts that every declared token is returned somewhere in its runner.
 _outcome_tokens() {   # <runner file> -> one token per line, sorted
   awk '
     /^const OUTCOME = Object\.freeze\(\{/ { inb=1; next }
@@ -296,6 +218,18 @@ EOF
   teardown
 }
 
+# =============================================================================
+# THE DOCUMENTED goldenPaths ESCAPE MUST ACTUALLY SKIP
+# =============================================================================
+# A project with no pinned-output corpus passes goldenPaths '' to skip the zero-drift diff.
+# `'' || <default>` IS the default, so the CFG default must use `??`, and the drift step's
+# own guard must turn the empty value into a skip. Both halves are asserted: either alone
+# stays green while the other breaks. The runners are read statically, so this case runs
+# without Node.
+#
+# COMMENTS ARE STRIPPED BEFORE EVERY LOOKUP. The runners' comments name the guard, so with
+# the guard ablated a plain grep would still match the prose. Strip toward over-stripping:
+# an over-strip reddens loudly, an under-strip passes silently.
 case_runner_goldenpaths_empty_skips() {
   cf_reset
   make_sandbox   # for SB_TMP + teardown; this case reads the REAL shipped runners
@@ -321,36 +255,30 @@ case_runner_goldenpaths_empty_skips() {
       || { bad=$(( bad + 1 )); cf "$lab: goldenPaths is back to '||' — see the comment at that line before changing it"; }
 
     # HALF 2 — the drift step is guarded by the value, so an empty string skips it.
-    # TWO ACCEPTED SHAPES, and the second is not a loosening. The guard was `CFG.goldenPaths &&`
-    # while the path form was the only pin; a prose fallback for projects whose pinned output is
-    # DERIVED makes it a ternary chain, and the property being asserted is unchanged — an empty
-    # goldenPaths must not reach the PATH step. What this case must not accept is a step that runs
-    # on an empty value, and both shapes below refuse that.
+    # HALF 2 — the drift step is guarded by the value, so an empty string skips it. Two
+    # shapes are accepted: `CFG.goldenPaths &&`, or a ternary chain with a prose fallback for
+    # derived pins. Either way an empty goldenPaths must not reach the PATH step.
     printf '%s\n' "$code" | grep -E 'CFG\.goldenPaths &&|\? CFG\.goldenPaths$|: CFG\.goldenPaths$' >/dev/null \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step has no guard on CFG.goldenPaths — '??' alone does not produce a skip, it only delivers the empty string to a step that would then run against nothing"; }
 
-    # HALF 2b — AND AN EMPTY PROSE PIN SKIPS TOO. The fallback added a second way to reach the
-    # step, so it needs the same guard the first one has: a project with neither pin declared
-    # must get no step at all, not a step interpolating an empty rule.
+    # HALF 2b — AND AN EMPTY PROSE PIN SKIPS TOO: a project with neither pin declared gets no
+    # step at all, not a step interpolating an empty rule.
     if printf '%s\n' "$code" | grep -E '^[[:space:]]*driftRule:'; then >/dev/null
       printf '%s\n' "$code" | grep -E 'CFG\.driftRule &&|\? CFG\.driftRule$|: CFG\.driftRule$' >/dev/null \
         || { bad=$(( bad + 1 )); cf "$lab: driftRule is declared and the drift step does not guard on it — a project with no pin of either kind would get a step naming an empty rule, which reads to the agent as a check with nothing to check"; }
     fi
 
-    # HALF 3 — THE STEP TELLS THE AGENT AN EMPTY MATCH IS NOT A PASS, and nothing asserted this
-    # until now. Halves 1 and 2 hold the CONFIG mechanics: they prove an explicitly-emptied
-    # goldenPaths skips the step. Neither says anything about the case where a pin IS declared and
-    # matches NOTHING — where the diff runs, prints nothing, and reads exactly like a clean one.
-    # The only thing standing between that and a recorded false pass is this sentence in the brief,
-    # and a sentence no case asserts can be reworded away while every case stays green.
+    # HALF 3 — THE STEP TELLS THE AGENT AN EMPTY MATCH IS NOT A PASS. Where a pin is declared
+    # and matches nothing, the diff prints nothing and reads like a clean one; this sentence
+    # in the brief is the only defence, so it is asserted.
     printf '%s\n' "$code" | grep -F 'treat the zero-drift step as NOT RUN' >/dev/null \
       || { bad=$(( bad + 1 )); cf "$lab: the drift step no longer tells the agent that an empty match is NOT RUN rather than clean — that sentence is the whole defence against a diff over nothing being recorded as a clean zero-drift result"; }
   done <<EOF
 $(_shipped_runners)
 EOF
 
-  # ASSERT THE EXTRACTOR, not only the comparison. Zero runners found checks nothing and reads
-  # green — the vacuous pass this sheet exists to prevent. Two is the shipped count.
+  # ASSERT THE EXTRACTOR: zero runners found checks nothing and reads green. Two is the
+  # shipped count.
   [ "$found" -ge 2 ] \
     || cf "the extractor found only $found runner(s) — expected at least 2 (wave + tranche). A count this low means the glob stopped matching, NOT that the tree is clean."
 
@@ -361,25 +289,17 @@ EOF
 # =============================================================================
 # EVERY SHIPPED RUNNER MUST PARSE
 # =============================================================================
-# wave-runner.js did not parse for several releases: a paragraph of narration inside a returned
-# template literal put backticks around a field name, terminated the literal, and made the whole file
-# unloadable. It shipped in a released zip. Nothing caught it, because nothing in the kit parsed these
-# files -- not the harness, not the build guard (which reads citations and armed names), and `bash -n`
-# cannot read a .js file at all.
+# `bash -n` cannot read a .js file, so this is the parse check the runners get.
 #
-# THE DISCRIMINATION THAT MAKES THIS CHECKABLE, and it is the whole reason this case can exist: these
-# runners are NOT standalone modules. The harness executes their body inside an async wrapper, so a
-# top-level `return` is legal there and illegal to any standalone parser. A healthy runner therefore
-# FAILS a plain parse -- with exactly `Illegal return statement`. A broken one fails with something
-# else. So the assertion is not "it parses"; it is "the ONLY parse error is the dialect one".
+# The runners are not standalone modules: they run inside an async wrapper, so a top-level
+# `return` is legal there and illegal to a standalone parser. A healthy runner fails a plain
+# parse with exactly `Illegal return statement`; a broken one fails with something else. The
+# assertion is that the ONLY parse error is the dialect one:
 #   healthy: SyntaxError: Illegal return statement      <- expected, tolerated
 #   broken:  SyntaxError: Unexpected identifier '...'   <- the real thing, refused
-# An earlier attempt to guard this class was abandoned as unworkable precisely because the healthy
-# files fail; the mistake was reading "it fails" instead of reading WHICH failure. Do not simplify
-# this back into a bare `node --check` and a rc test.
+# Do not simplify this into a bare `node --check` and a rc test.
 #
-# NODE IS NOT A KIT DEPENDENCY, so this SKIPS -- loudly, naming why -- where node is absent. A skip
-# that says nothing is indistinguishable from a pass, so the skip reason names the binary.
+# Node is not a kit dependency, so this SKIPS where node is absent, naming the binary.
 case_shipped_runners_parse() {
   cf_reset
   if ! command -v node >/dev/null 2>&1; then
@@ -412,51 +332,6 @@ case_shipped_runners_parse() {
   teardown
 }
 
-# =============================================================================
-# CASE — THE VERDICT VOCABULARY HAS ONE AUTHORING SITE AND TWO PROJECTIONS.
-#
-# MANUAL.md § Dev → QA step 6 ratifies the verdict tokens and says outright: "Every
-# schema, runner and report that carries a verdict PROJECTS this list; none of them
-# re-enumerates it." Two runners carry a `const VERDICTS` array. Nothing held them to
-# the ratified set, so the projection could drift from its source silently — and a
-# runner whose enum is missing a member REJECTS a legitimate verdict at schema
-# validation, which halts a run that had succeeded.
-#
-# **THIS IS ALSO THE FIRST CASE IN THIS HARNESS THAT TOUCHES THE RUNNERS AT ALL.**
-# Measured before writing it: `grep -c 'wave-runner\|tranche-runner'` over this file
-# returned 0. Every green until now said precisely nothing about them.
-#
-# BOTH SIDES ARE RE-DERIVED FROM THE FILES, never restated here — the same contract
-# check-board.sh's ROLE_PREFIXES derivation follows. A test that hardcodes the list
-# it is checking has two authoring sites and is the third one.
-#
-# AND THE EXTRACTORS ARE THEMSELVES GUARDED, because a loose one silently answers a
-# different question. **The code was right and the instrument was wrong** — that
-# conclusion stands and is the lesson; only its attribution is corrected here.
-#
-# WHAT WAS ACTUALLY MEASURED, each token against the side it really came from:
-#   • `FAILED_AFTER_FIX_ROUND` is swept in by an unscoped scan OF THE RUNNERS, where
-#     it is an `outcome:` value on a different field. It has NEVER appeared in
-#     MANUAL.md, in any commit — so a MANUAL-side pin against it could not fire under
-#     any extractor, however loose.
-#   • a bare `FAIL` is swept out of THE MANUAL's prose, where the word is used as
-#     narration and as a row label.
-# This comment previously said the first token came from the MANUAL. It did not, and
-# the definiteness was the problem: a pin was aimed at an operand that could never
-# hold the token, and read as coverage. Superseded rather than deleted, because the
-# shape — an instrument error attributed to the wrong side of the comparison it
-# guards — is the reason the two NEGATIVE pins below now sit on the side that can
-# actually fail. THE CASE HAS THREE PINS, NOT TWO, and the third is deliberately left
-# where it is: the positive `PASS_AC_CORRECTED` assertion has the opposite polarity, so
-# a rename cannot make it vacuous — it reddens loudly on the next run instead. It is
-# untouched on purpose, and named here so a later reader can tell "excluded" from
-# "overlooked".
-#
-# So the MANUAL side is scoped to the rows of the `| Verdict | Token |` table and the
-# runner side to the `const VERDICTS` declaration, and the assertions below hold both
-# to that.
-# =============================================================================
-
 # One token per line, sorted. Scoped to the ratifying TABLE, not to the section.
 _verdict_tokens_manual() {  # <path to MANUAL.md>
   awk '
@@ -471,6 +346,22 @@ _verdict_tokens_runner() {  # <path to a runner .js>
   sed -n "s/^const VERDICTS = \[\(.*\)\]/\1/p" "$1" | grep -oE "'[A-Z_]+'" | tr -d "'" | sort
 }
 
+# =============================================================================
+# CASE — THE VERDICT VOCABULARY HAS ONE AUTHORING SITE AND TWO PROJECTIONS.
+#
+# MANUAL.md § Dev → QA step 6 ratifies the verdict tokens: "Every schema, runner and report
+# that carries a verdict PROJECTS this list; none of them re-enumerates it." A runner whose
+# enum misses a member rejects a legitimate verdict at schema validation and halts the run.
+#
+# Both sides are re-derived from the files, never restated here. The MANUAL extractor reads
+# only the rows of the `| Verdict | Token |` table and the runner extractor only the
+# `const VERDICTS` declaration, and each is pinned on the side that can fail:
+#   • `FAILED_AFTER_FIX_ROUND` is an `outcome:` value in the runners, so a runner extractor
+#     that reads past `const VERDICTS` sweeps it in;
+#   • a bare `FAIL` is MANUAL prose, so a MANUAL extractor that reads past the table sweeps
+#     it in;
+#   • the positive `PASS_AC_CORRECTED` pin reddens on a rename rather than going vacuous.
+# =============================================================================
 case_verdict_enum_projection() {
   cf_reset
   local wf="$REAL_REPO_ROOT/.claude/workflows" manual="$REAL_REPO_ROOT/process/MANUAL.md"
@@ -510,12 +401,8 @@ case_verdict_enum_projection() {
       fi
       continue
     fi
-    # THE PIN THAT USED TO SIT ON THE MANUAL SIDE, moved to the operand that can
-    # actually hold the token. `FAILED_AFTER_FIX_ROUND` is an `outcome:` value in these
-    # runners, on a different field from `const VERDICTS`, so a runner extractor that
-    # read past its declaration would sweep it in — which is the instrument error that
-    # was historically measured, on this side. On the MANUAL side the same pin was
-    # unfalsifiable: the token has never been in that file.
+    # THE FAILED_AFTER_FIX_ROUND PIN sits on the runner side: it is an `outcome:` value on a
+    # different field, so an extractor that read past `const VERDICTS` would sweep it in.
     printf '%s\n' "$projected" | grep -x 'FAILED_AFTER_FIX_ROUND' >/dev/null \
       && cf "$name's extractor swept in FAILED_AFTER_FIX_ROUND — that is an 'outcome' value on a DIFFERENT field, so the extractor is reading past 'const VERDICTS': [$projected]"
     if [ "$projected" != "$ratified" ]; then
@@ -526,22 +413,16 @@ case_verdict_enum_projection() {
   done
 
   # --- THIRD LEG: THE PROSE THAT TELLS THE AGENT WHAT TO RETURN ------------------
-  # The two legs above hold each runner's `const VERDICTS` to the manual's ratified
-  # table. Neither reads the PROMPT, and the prompt is where the agent is actually
-  # told what to send back. tranche-runner's fail branch said `return verdict=FAIL`
-  # for as long as the enum has existed: not in VERDICTS, so the StructuredOutput
-  # call would have been rejected at runtime, and both legs above stayed green the
-  # whole time because the declaration they compare was never wrong.
-  # Found by a fresh-context sweep 2026-09-03.
+  # The legs above compare declarations; the prompt is where the agent is told what to send
+  # back, and a `verdict=<TOKEN>` outside VERDICTS is rejected at runtime.
   local pr tok bad
   for r in "$wf"/*.js; do
     [ -f "$r" ] || continue
     name="$(basename "$r")"
     projected="$(_verdict_tokens_runner "$r")"
     [ -n "$projected" ] || continue
-    # Only the instructing form. Bare "PASS/FAIL per bullet" prose is per-AC evidence,
-    # a different thing on a different field, and sweeping it in would be the operand
-    # error this case already carries a pin about.
+    # Only the instructing form: bare "PASS/FAIL per bullet" prose is per-AC evidence on a
+    # different field.
     pr="$(grep -oE 'verdict[[:space:]]*=[[:space:]]*[A-Z_]+' "$r" | grep -oE '[A-Z_]+$' | sort -u || true)"
     while IFS= read -r tok; do
       [ -n "$tok" ] || continue
@@ -552,15 +433,9 @@ $pr
 EOF
   done
 
-  # Its control, separately: the leg above is vacuous if no runner instructs a verdict
-  # at all, which is the state the fix left them in. Inject one that is NOT ratified
-  # and require the check to name it.
-  # $SB_TMP is EMPTY in this case — it calls no make_sandbox — so "$SB_TMP/pctl" is
-  # "/pctl", which mkdir cannot create. The control below it already carries this
-  # guard; writing a second control without it produced a red that named the
-  # instrument rather than the subject.
-  # AND WHAT THIS CASE CREATES, IT REMOVES — the parent, not only the child it wrote. Removing
-  # only "$pctl/pctl" left the empty mktemp parent in the temp dir on every run.
+  # Its control: the leg above is vacuous if no runner instructs a verdict, so inject one
+  # that is NOT ratified and require the check to name it. $SB_TMP is empty here (no
+  # make_sandbox), so fall back to a mktemp dir, and remove the parent as well as the child.
   local pctl="$SB_TMP" pctl_own=""
   [ -n "$pctl" ] || { pctl="$(mktemp -d)"; pctl_own=1; }
   mkdir -p "$pctl/pctl"
@@ -599,18 +474,10 @@ EOF
   rm -rf "$ctl/vctl"
 
   # --- REDDENING CONTROL, MANUAL SIDE: the extraction must depend on THAT TABLE ------
-  # WHY THIS IS NOT THE `n_ratified > 0` GUARD ABOVE, and why a second emptiness check
-  # would not do either. That guard defends the table being deleted outright, and it
-  # names the table in its message, so it reads exactly like this control and is the
-  # first thing a fixer finds. It is SILENT under the failure this closes: an extractor
-  # that reads past the `| Verdict | Token |` table but stays inside § Dev → QA step 6
-  # picks the same four tokens out of the surrounding prose, so `n_ratified` is 4, the
-  # per-runner comparison is equal, and the case is green **while nothing in the run has
-  # read the ratifying table**. An emptiness guard proves the extractor found something;
-  # this proves it found THAT TABLE.
-  #
-  # It is also TOKEN-NAME-INDEPENDENT — it pins no literal, so renaming a verdict cannot
-  # make it vacuous, which is the failure mode two of this case's three pins had.
+  # The `n_ratified > 0` guard only defends deletion. An extractor that reads past the table
+  # but stays inside step 6 picks the same tokens out of the prose and stays green, so
+  # corrupting the table header must change the extraction. It pins no literal, so a rename
+  # cannot make it vacuous.
   mkdir -p "$ctl/mctl"
   sed 's/|[[:space:]]*Verdict[[:space:]]*|[[:space:]]*Token[[:space:]]*|/| Xerdict | Xoken |/' \
     "$manual" > "$ctl/mctl/MANUAL.md"
@@ -631,14 +498,8 @@ EOF
 # =============================================================================
 # CASE — each runner's stray-key guard admits every per-issue field that runner READS.
 #
-# wave-runner's guard was copied verbatim from tranche-runner, whose per-issue shape is ALMOST
-# the same. wave-runner also reads `worktreeMode`, `phase` and `restartNote` — all three named in
-# its own meta.description — and the copied set omitted all three, so the guard refused the exact
-# fields the file's contract advertises and EVERY wave run threw before its first agent started.
-# Shipped that way for one release. The guard was correct in isolation and wrong about its operand.
-#
-# This is the operand-set defect (doctrine/instruments.md § A.6) in its cheapest form: the answer
-# is derivable from the file itself, so nothing has to be maintained by hand.
+# The operand-set defect (doctrine/instruments.md § A.6): the fields a runner reads are
+# derivable from the file, so nothing is maintained by hand.
 case_runner_key_guards_admit_every_field_they_read() {
   cf_reset
   local wf="$REAL_REPO_ROOT/.claude/workflows" r name n=0
@@ -695,18 +556,12 @@ PY
 }
 
 # CASE — the shipped workflow runners COMPOSE every brief they would send, from a realistic
-# args payload, without throwing. This is the harness EXERCISING the kit rather than reading it.
-#
-# WHY IT EXISTS. Every other case in this file, and every round of the pre-cut sweep, reads.
-# Measured against that: an adopter dispatching a real tranche found the runner dying in 33ms on
-# `issue.depends_on.length` with zero agents started, and this repository then shipped a
-# stray-key guard copied between the two runners whose allow-list omitted three fields the
-# destination file reads — so EVERY wave run would have thrown before its first agent. Neither
-# was reachable by reading; both are caught here in milliseconds.
+# args payload, without throwing. This is the harness EXERCISING the kit rather than reading
+# it: a runner that throws before its first agent cannot be found by reading.
 #
 # NOTHING IS DISPATCHED. `agent()` is stubbed to return a schema-shaped object, so the script
-# runs its real control flow and builds its real prompts at zero agent cost. What is under test
-# is the CONTRACT — that a caller following the documented shape can start a run.
+# runs its real control flow and builds its real prompts at zero agent cost. What is under
+# test is the CONTRACT — that a caller following the documented shape can start a run.
 case_workflow_briefs_compose_from_a_sparse_payload() {
   cf_reset
   local wf="$REAL_REPO_ROOT/.claude/workflows" stub out n=0
@@ -760,7 +615,7 @@ try {
 STUBEOF
 
   # THE PAYLOAD IS DELIBERATELY SPARSE: only the fields a caller must supply. Every optional
-  # per-issue key is omitted, which is exactly the shape that killed the adopter's dispatch.
+  # per-issue key is omitted.
   local T_ARGS='{"repo":"/tmp/x","issues":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"}]}'
   local W_ARGS='{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high","worktreeMode":"self","phase":"Wave1","restartNote":"n"}]}'
 
@@ -786,9 +641,8 @@ STUBEOF
     || cf "the misspelled key was refused but not NAMED, so the caller cannot see which key is wrong"
 
   # --- ABLATION: the exerciser must be able to go red -------------------------------
-  # Without this, a green above could mean "both runners are fine" or "the stub never ran the
-  # real control flow". Remove the depends_on guard from a COPY and the throw must come back —
-  # this is the adopter's original 33ms crash, reproduced.
+  # Remove the depends_on guard from a COPY and the throw must come back; otherwise the
+  # stub is not running the runner's real control flow.
   local abl; abl="$(dirname "$stub")/abl.js"
   sed 's/Array.isArray(issue.depends_on) ? issue.depends_on : \[\]/issue.depends_on/' \
     "$wf/tranche-runner.js" > "$abl"
@@ -798,17 +652,13 @@ STUBEOF
 
   rm -rf "$(dirname "$stub")"
   unset -f _wf_run _wf_ok _wf_err
-  finish "both shipped workflow runners compose every brief from a payload carrying only the REQUIRED per-issue fields, refuse a misspelled key by name, and the exerciser is ablation-proven against the adopter's original crash ($n runner(s), nothing dispatched)"
+  finish "both shipped workflow runners compose every brief from a payload carrying only the REQUIRED per-issue fields, refuse a misspelled key by name, and the exerciser is ablation-proven (the depends_on guard removed from a copy) ($n runner(s), nothing dispatched)"
 }
 
 # CASE — a QA leg that forms NO verdict is filed as NO_VERDICT, never as FAILED_AFTER_FIX_ROUND.
 #
-# WHY IT EXISTS. Both runners decided a leg's outcome with `if (!qa || !isPass(qa.verdict))`, so a QA
-# leg that returned nothing — no review happened — was filed as FAILED_AFTER_FIX_ROUND, which the
-# ratified table composes from "verdict FAIL, twice". A run report then said the implementation had
-# failed review twice when nobody had reviewed it: MANUAL step 6's could-not-run rule ("do not reach
-# for FAIL_AC or FAIL_REGRESSION") broken one layer out. Found by an adopter; reproduced by driving
-# both runners with a null QA reply.
+# FAILED_AFTER_FIX_ROUND means "verdict FAIL, twice" in the ratified table. A leg that
+# returned nothing reviewed nothing (MANUAL step 6's could-not-run rule).
 #
 # THE STUB DOES NOT FILL OPTIONAL FIELDS (not required, description beginning "OPTIONAL."), or
 # every reply would carry precondition_failure: 'stub' and every review would halt as NO_VERDICT.
@@ -884,15 +734,9 @@ ROWS
 
 # CASE — a leg that ended with NOTHING is named for that, never as a verdict or a status it did not give.
 #
-# WHY IT EXISTS. Three absences were filed as negatives. (1) A PARK review that returned nothing, or a
-# value outside the ratified verdicts, was PARK_UNVERIFIED — "park not verifiable as written", a
-# judgement on the park — though nobody reviewed it. (2) In the tranche runner the same absence also
-# SPENT the park fix round, sending Dev after findings nobody formed; with the stubbed replies here
-# that path even ended LANDED. (3) A DEV leg that returned nothing was BLOCKED_DEV — "Dev could not
-# proceed" — a status Dev reports, and this Dev reported nothing; a null fix-round Dev reply became
-# FAILED_AFTER_FIX_ROUND or, on the park path, a second park review of a tree nobody could vouch for.
-# Now: an absent park verdict is NO_VERDICT (as the issue review's is), and an absent Dev reply is
-# LEG_ABORTED (as a thrown leg is) — both halt, and neither spends a further leg.
+# An absent park verdict is NO_VERDICT (as the issue review's is), and an absent Dev reply
+# is LEG_ABORTED (as a thrown leg is): both halt, and neither spends a further leg.
+# PARK_UNVERIFIED and BLOCKED_DEV are judgements a reply gives, never the absence of one.
 #
 # The CONTROL rows hold the neighbours still: a park review that PASSES is PARKED_OK, one that FAILS
 # (twice, in the tranche runner) is PARK_UNVERIFIED, and a Dev that REPORTS blocked on an unparkable
@@ -983,17 +827,13 @@ ROWS
 
 # CASE — a leg whose agent() THROWS is named LEG_ABORTED and halts the run; no runner drops an issue.
 #
-# WHY IT EXISTS. The Workflow runtime's agent() THROWS once the turn's token budget ceiling is
-# reached (and on a call it refuses), and parallel() resolves a throwing thunk to null. The wave
-# runner filtered those nulls out with `.filter(Boolean)`: the issue vanished from the outcomes, the
-# wave predicate ran over what was left — an empty list passes — the next wave started, and the run
-# reported green over work nobody finished. The tranche runner, serial and uncaught, rejected the
-# whole run instead, losing every outcome it had already recorded, including issues that had LANDED.
+# The Workflow runtime's agent() THROWS once the turn's token budget ceiling is reached (and
+# on a call it refuses), and parallel() resolves a throwing thunk to null. That null must
+# not vanish from the outcomes, and a serial runner must not reject the run and lose the
+# outcomes it already recorded.
 #
-# THE parallel() STUB IS THE RUNTIME'S, NOT THE SIBLING CASE'S: a throwing thunk resolves to null,
-# the call never rejects. With the sibling's plain Promise.all the wave defect is invisible — the
-# throw would reject the run, which is the tranche's symptom, not the wave's. `agent()` is scripted
-# by FULL label first (so one issue's leg can throw while its neighbour's does not), then by prefix.
+# THE parallel() STUB IS THE RUNTIME'S, NOT THE SIBLING CASE'S: a throwing thunk resolves to
+# null, and the call never rejects.
 # The all-green row is the CONTROL: nothing throws, nothing halts, every issue is named.
 # THE STUB DOES NOT FILL OPTIONAL FIELDS (not required, description beginning "OPTIONAL."), or
 # every reply would carry precondition_failure: 'stub' and every review would halt as NO_VERDICT.
@@ -1066,10 +906,9 @@ tranche-runner.js|CONTROL: nothing throws|{}|null|ZZ-1=LANDED,ZZ-2=LANDED,ZZ-3=L
 wave-runner.js|CONTROL: nothing throws|{}|null|ZZ-1=LANDED,ZZ-2=LANDED,ZZ-3=LANDED
 ROWS
 
-  # A RUNNER BUG STAYS LOUD. Only a throw from agent() is an outcome; the runners' own code throwing
-  # is a defect, and filing it as LEG_ABORTED (or dropping it, as the wave runner used to) would hide
-  # it. So the depends_on guard is removed from a COPY — the adopter's original crash — and each
-  # runner must fail the run rather than return one.
+  # A RUNNER BUG STAYS LOUD. Only a throw from agent() is an outcome; a throw from the
+  # runner's own code is a defect and must fail the run. So the depends_on guard is removed
+  # from a COPY, and each runner must fail the run rather than return one.
   local bugdir="$(dirname "$stub")/bug"; mkdir -p "$bugdir"
   for f in tranche-runner.js wave-runner.js; do
     [ -f "$wf/$f" ] || continue
@@ -1084,19 +923,16 @@ ROWS
   done
 
   rm -rf "$(dirname "$stub")"
-  finish "a leg whose agent() throws is named LEG_ABORTED and halts the run in both runners — the wave runner no longer drops it and passes, the tranche runner no longer rejects the run and loses what landed — a bug in the runner's own code still fails the run loudly, and a run where nothing throws is unchanged ($n drive(s), nothing dispatched)"
+  finish "a leg whose agent() throws is named LEG_ABORTED and halts the run in both runners, with no issue dropped and no recorded outcome lost — a bug in the runner's own code still fails the run loudly, and a run where nothing throws is unchanged ($n drive(s), nothing dispatched)"
 }
 
 # CASE — a reviewer that reports a PRECONDITION FAILURE has a legal reply, and it is NO_VERDICT.
 #
-# WHY IT EXISTS. MANUAL step 6: a gate that could not run, or an AC naming a gate the tree does not
-# hold, leaves no verdict to issue. Both runners' QA_SCHEMA and PARK_SCHEMA REQUIRED `verdict`, one of
-# the four ratified tokens, and the runtime makes a structured-output agent retry until its reply
-# validates — so a reviewer obeying step 6 had no legal reply and had to invent a token. Driven: a
-# reply naming the precondition failure beside an invented FAIL spent the fix round and ended
-# FAILED_AFTER_FIX_ROUND; beside an invented PASS it LANDED; on a park it was judged (PARK_UNVERIFIED /
-# PARKED_OK). Now each schema carries an OPTIONAL `precondition_failure`, `verdict` is not required,
-# and a reply naming one is NO_VERDICT whatever token came with it.
+# MANUAL step 6: a gate that could not run, or an AC naming a gate the tree does not hold,
+# leaves no verdict to issue. The runtime retries a structured-output agent until its reply
+# validates, so a required `verdict` would force the reviewer to invent a token. Each QA and
+# park schema carries an OPTIONAL `precondition_failure`, `verdict` is not required, and a
+# reply naming one is NO_VERDICT whatever token came with it.
 #
 # TWO ARMS. (1) The schemas, read off the agent() calls the runner really makes: `verdict` is NOT
 # required, `precondition_failure` IS declared, and `verdict` is still exactly VERDICTS — the field is
@@ -1223,12 +1059,8 @@ ROWS
 
 # CASE — every record a runner returns carries each leg's free text, SUCCESS INCLUDED.
 #
-# WHY IT EXISTS. On LANDED and LAND_READY both runners returned only { id, outcome, qa_evidence, gates }:
-# a Dev leg's summary and deviations, and a review's notes and premise_refuted, were dropped on exactly
-# the path where the run succeeds. Anything a leg reported there — a caveat, a surprise, a kit finding
-# the orchestrator is meant to collect — never reached it, and premise_refuted, the axis that exists so
-# a PASS/landed issue can say what it learned, was lost on the one outcome it was designed for. Now
-# every record carries `leg_notes`: one entry per leg that replied, in call order.
+# Every record carries `leg_notes`: one entry per leg that replied, in call order, on the
+# success paths too, where a leg's caveats and premise_refuted would otherwise be lost.
 #
 # MARKERS ARE READ FROM `leg_notes` ONLY, not from the whole record: the failure paths already carried
 # the raw `dev`/`qa`/`park` objects, so a whole-record search would be green on them without the fix.
@@ -1322,19 +1154,13 @@ ROWS
 
 # CASE — settings.json.example never glosses a placeholder it does not contain.
 #
-# It did. A `_PLACEHOLDERS` map glossed seven <angle-bracket> tokens and told the adopter
-# to "replace every token below"; ALL SEVEN had left with the `autoMode` block that a
-# sibling key in the same file records as deleted. The glossary outlived its subject —
-# the change edited the thing and not the sentence next door describing it — and the
-# instruction it left behind sent a reader looking for text that was not there.
-#
-# The guard is bidirectional on purpose. One direction catches the defect that happened;
-# the other catches the fix that over-corrects by deleting a gloss while the token stays.
+# Bidirectional: every glossed <token> appears in the file (a gloss must not outlive its
+# subject), and every <token> in the file is glossed (a fix must not delete a gloss while the
+# token stays).
 case_settings_example_glosses_only_real_placeholders() {
   cf_reset
-  # $REAL_REPO_ROOT, not a sandbox: this file is a KIT DELIVERABLE shipped for the
-  # operator to copy, not something an initialized project is given. Reading it out of
-  # $SB_WORK found nothing and killed the fixture.
+  # $REAL_REPO_ROOT, not a sandbox: this file is a kit deliverable for the operator to copy,
+  # and an initialized project is not given it.
   local f="$REAL_REPO_ROOT/.claude/settings.json.example" declared present tok
   [ -f "$f" ] || _fixture_die "case_settings_example_glosses_only_real_placeholders: no .claude/settings.json.example in the published kit at $REAL_REPO_ROOT"
 
@@ -1375,21 +1201,16 @@ EOF
 $present
 EOF
 
-  finish "settings.json.example: every <token> it glosses appears in it, and every <token> in it is glossed (both directions — the defect was a gloss outliving its subject)"
+  finish "settings.json.example: every <token> it glosses appears in it, and every <token> in it is glossed (both directions)"
 }
 
 # =============================================================================
 # CASE — EVERY LEAF-WORKER DEFINITION CARRIES THE SECTIONS ITS SIBLINGS CARRY.
 #
-# One definition was missing three of them and nothing noticed, because nothing had ever
-# compared the set. The sections are not decoration: they are where the quota discipline,
-# the output budget and the commit rules live, so a worker missing them is dispatched
-# without the constraints its siblings run under.
-#
-# THE REQUIRED SET IS DERIVED BY MAJORITY, NEVER LISTED. A literal list goes blind the
-# day a section is added or renamed, and — measured — three definitions legitimately
-# carry a section of their own that no sibling has. Requiring set EQUALITY would redden
-# on correct content; requiring the strict majority requires exactly what is shared.
+# The sections hold the quota discipline, the output budget and the commit rules. THE
+# REQUIRED SET IS DERIVED BY MAJORITY, NEVER LISTED: a literal list goes blind when a section
+# is added or renamed, and some definitions legitimately carry a section of their own, so set
+# equality would redden on correct content.
 # =============================================================================
 case_leaf_workers_carry_the_common_sections() {
   cf_reset
@@ -1437,20 +1258,11 @@ DEFS_EOF
 # =============================================================================
 # CASE — WHEREVER THE PROVISIONING CEILING IS STATED, THE SEAT RULE IS STATED WITH IT.
 #
-# The riders used to say "never spawn the seat's own model class" — a PROXY for "do not
-# quietly provision a fan-out at the top of the ladder", and a poor one: it caps workers
-# by an accident of what the seat happens to be running, so a seat at the top capped
-# every worker two tiers below anything anyone had sanctioned. It is retired in favour of
-# the project's declared ceiling.
+# The seat rule — the seat is human-partnered rather than a provisionable worker — must sit
+# beside every statement of the provisioning ceiling. At some sites the retired model-class
+# ban was the only sentence carrying it, so removing the ban can silently remove the rule.
 #
-# BUT THE BAN WAS CARRYING A SECOND RULE ON ITS BACK at more than half its sites — that
-# the seat is human-partnered rather than a provisionable worker — and at seven of the
-# thirteen it was the ONLY thing saying so. Retiring the ban there would have removed the
-# only binding sentence. An adopter who performed this retirement themselves hit exactly
-# that regression, which is why this case exists rather than a note.
-#
-# SCOPED TO roles/ AND agents/, deliberately: a recursive sweep would match THIS FILE the
-# moment the case is written, which is the self-match this harness has been bitten by.
+# SCOPED TO roles/ AND agents/: a recursive sweep would match the harness itself.
 # =============================================================================
 case_provisioning_ceiling_keeps_the_seat_rule() {
   cf_reset
@@ -1476,25 +1288,20 @@ $sites
 SITES_EOF
 
   [ -z "$missing" ] \
-    || cf "these state the provisioning ceiling but no longer state that the seat is human-partnered rather than a provisionable worker —$missing. At most of these sites the retired ban was the ONLY sentence carrying that rule, and an adopter performing this retirement lost it exactly this way."
+    || cf "these state the provisioning ceiling but no longer state that the seat is human-partnered rather than a provisionable worker —$missing"
 
-  finish "every site stating the provisioning ceiling ($n of them) also states the seat rule — the second rule the retired ban was carrying on its back"
+  finish "every site stating the provisioning ceiling ($n of them) also states the seat rule"
   teardown
 }
 
 # =============================================================================
 # CASE — THE AGENT MODEL PINS MATCH WHAT THE KIT DECLARES ABOUT THEM.
 #
-# Every leaf-worker definition pins a `model:`, and those values are a VENDOR'S PRODUCT
-# NAMES — the one class of fact EXTRACTION § 4.10 otherwise keeps out of the kit. They
-# are kept on purpose (a plain spawn must be correctly provisioned with no action) and
-# are now declared as a carve-out, with one definition named as the deliberate exception.
-#
-# THIS ASSERTS THE DECLARATION, NEVER THE VALUE, and that is the whole design. A case
-# that asserted a worker is pinned to a named model would hard-code the very product fact
-# this change exists to quarantine — and would redden on the vendor's rename instead of
-# catching anything. So it reads the SHAPE: the pins agree except for exactly one file,
-# and that file is the one the declaration names.
+# Every leaf-worker definition pins a `model:`, a vendor's product name — the class
+# EXTRACTION § 4.10 otherwise keeps out of the kit, kept as a declared carve-out with one
+# definition named as the exception. THIS ASSERTS THE DECLARATION, NEVER THE VALUE: a named
+# model here would hard-code the product fact and redden on the vendor's rename. It reads
+# the shape: the pins agree except for exactly one file, the one the declaration names.
 # =============================================================================
 case_agent_model_pins_match_their_declaration() {
   cf_reset
@@ -1553,26 +1360,12 @@ case_agent_model_pins_match_their_declaration() {
 # =============================================================================
 # CASE — THE AGENT-FACING PROSE THE KIT MOST DEPENDS ON IS READ BY SOMETHING.
 #
-# Measured when this was written: this harness referenced `.claude/agents/` ZERO times and
-# read no role doc's CONTENT for any rule, while reading sixteen template operands, four
-# skills and both runners. **It read the two directories the kit most depends on not at
-# all** — and the kit puts ruling-protected sentences in them and tells the seat to copy
-# them verbatim into new artifacts.
+# The role docs and `.claude/agents/` carry ruling-protected sentences that seats copy
+# verbatim. PRESENCE, PER FILE: deletion is the defect, and a total hides a single file that
+# lost the rider.
 #
-# WHY THAT IS STRUCTURAL RATHER THAN AN OVERSIGHT: a test suite is scoped to the PRODUCT,
-# `.claude/**` is agent configuration, and nothing naturally pulls the second into the
-# first. So the pull has to be deliberate, which is what this case is.
-#
-# PRESENCE, PER FILE, AND THE PER-FILE PART IS THE WHOLE DESIGN. A presence guard usually
-# earns the objection that it cannot redden for staleness — but DELETION IS EXACTLY THIS
-# DEFECT, so presence fits here better than it usually does. And it must be per file: a
-# TOTAL hides the silent singular fall. Measured on the first run of this case, before it
-# was registered: six of seven leaf workers carried the provisioning rider and the seventh
-# carried NEITHER half of it. A count of six would have read as "the rider is there".
-#
-# WHAT THIS CANNOT DO, stated because doctrine/negative-claims.md requires it: a guard over
-# these files' prose WILL NOT NOTICE A RIDER THAT IS PRESENT AND WRONG. It sees deletion
-# and it sees a new file that never carried the rule. It does not read for meaning.
+# WHAT THIS CANNOT DO (doctrine/negative-claims.md): it WILL NOT NOTICE A RIDER THAT IS
+# PRESENT AND WRONG. It sees deletion and a new file that never carried the rule, not meaning.
 # =============================================================================
 case_agent_prose_carries_its_riders() {
   cf_reset
@@ -1580,9 +1373,8 @@ case_agent_prose_carries_its_riders() {
   local adir="$REAL_REPO_ROOT/.claude/agents" rdir="$REAL_REPO_ROOT/.claude/roles"
   local f base n=0 r
 
-  # THE RIDERS ARE DERIVED FROM THE MAJORITY OF THE POPULATION, not typed here — a literal
-  # would be a second authoring site for the very sentence under guard, and it would go
-  # stale in the direction that matters: reworded upstream, still asserted here.
+  # The riders are the seat rule's two declared tokens, the ones
+  # case_provisioning_ceiling_keeps_the_seat_rule matches.
   local rider1='human-partnered' rider2='provisionable'
 
   if [ ! -d "$adir" ]; then
@@ -1620,6 +1412,6 @@ case_agent_prose_carries_its_riders() {
       || cf "only $rn role doc(s) were read — expected at least 4"
   fi
 
-  finish "every one of the $n leaf-worker definitions and $rn role docs carries the provisioning rider, per FILE rather than in total — a total hides the silent singular fall, which is what this case found on its first run. NOT COVERED: a rider that is present and WRONG; this reads for deletion, not for meaning"
+  finish "every one of the $n leaf-worker definitions and $rn role docs carries the provisioning rider, per FILE rather than in total — a total hides the silent singular fall. NOT COVERED: a rider that is present and WRONG; this reads for deletion, not for meaning"
   teardown
 }

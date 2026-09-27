@@ -104,7 +104,7 @@ DQEOF
   printf '%s' "$out" | grep 'ZZQ-101' >/dev/null \
     || cf "an open row whose issue is in progress/done/ was NOT reported"
   printf '%s' "$out" | grep 'ZZQ-103' >/dev/null \
-    || cf "the emphasised row with a trailing 'Status:' declaration was NOT reported — the cell is being grepped, not classified, which is the 8-of-37 defect"
+    || cf "the emphasised row with a trailing 'Status:' declaration was NOT reported — the cell is being grepped, not classified"
 
   # --- must NOT fire -------------------------------------------------------------
   printf '%s' "$out" | grep 'ZZQ-102' >/dev/null \
@@ -1898,7 +1898,7 @@ EOF
   [ -z "$undeclared" ] \
     || cf "check-board.sh reads (an) adopter-repointable project file(s) that drift-report.md names nowhere —$undeclared. An arm with a file seam and no entry in the contract is invisible to § 4.1, which walks § 2's list and confirms each invariant has a line: an arm with no invariant is structurally unreachable from that walk, so it ships, runs, prints findings, and a reimplementation written from this sheet does not contain it. Either the sheet owes the entry or the arm owes its retirement"
 
-  finish "every project file that a check-board arm reads through a NAMED, adopter-repointable seam is mentioned in drift-report.md — $n seam(s) derived out of check-board.sh's own default-expansion spelling rather than listed here, because the arm letters move and this case's first ancestor went red on its own first run for carrying a list of them. NOT ASSERTED: that the sheet's entry is a TRUE description of what the arm does, which is not decidable here and is left to review; and nothing about arms that read no repointable file"
+  finish "every project file that a check-board arm reads through a NAMED, adopter-repointable seam is mentioned in drift-report.md — $n seam(s) derived out of check-board.sh's own default-expansion spelling rather than listed here, because the arm letters move. NOT ASSERTED: that the sheet's entry is a TRUE description of what the arm does, which is not decidable here and is left to review; and nothing about arms that read no repointable file"
   teardown
 }
 

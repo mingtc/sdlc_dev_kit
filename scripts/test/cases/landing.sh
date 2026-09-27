@@ -7,12 +7,9 @@
 # =============================================================================
 # CASE — finish-pr.sh happy path (squash-merge, delete branch, advance)
 #
-# It asserts the STATE (both refs gone) AND THE CLAIM (what the board note says
-# happened). The claim half is not decoration: a hard-coded "branch deleted."
-# composed a hundred lines before any attempt once let eight consecutive landings
-# log a deletion that had not happened, with no case reddening. The conditions
-# this case does NOT have — the branch held by a second worktree, and a delete
-# that cannot succeed — are the three sibling cases below.
+# It asserts the STATE (both refs gone) AND THE CLAIM (what the board note says happened):
+# a note composed before the deletes can report a deletion that did not happen. A branch
+# held by a second worktree and a delete that cannot succeed are the sibling cases below.
 # =============================================================================
 case_finish_pr_happy() {
   cf_reset
@@ -33,9 +30,7 @@ case_finish_pr_happy() {
     || cf "issue not advanced to qa_complete/ on the trunk"
   origin_has_path "CHANGE.txt" || cf "squash-merged change not on the trunk"
 
-  # THE CLAIM. These two strings can only be produced by the arms that MEASURED a
-  # confirmed deletion — a bare substring match on a pre-composed note proved
-  # nothing, which is exactly how the old defect hid.
+  # THE CLAIM. These strings are produced only by the arms that MEASURED a confirmed deletion.
   origin_file_contains "progress/qa_complete/$SB_PREFIX-777-sandbox.md" "local branch deleted" \
     || cf "board note does not report the local delete it performed"
   origin_file_contains "progress/qa_complete/$SB_PREFIX-777-sandbox.md" "branch deleted (confirmed gone)" \
@@ -51,26 +46,17 @@ case_finish_pr_happy() {
 # CASE — THE POST-MERGE PASS LINE NAMES THE REF IT READ, AND THE MACHINE LINE
 #        DOES NOT.
 #
-# An instrument that names its operand when it complains must name it when it
-# clears: the FAIL branch already says which branch may be red, and the PASS branch
-# used to say only that something passed. On the clearing branch that asymmetry is
-# the expensive direction, because it is the one that errs toward false confidence.
-#
-# THE SECOND ASSERTION IS THE CANARY, and without it the first is not a control.
-# `POST_MERGE_GATE: PASS` is a MACHINE CONTRACT — an automation greps that exact
-# token — so the fix must land on the human line and nowhere else. A ref appended
-# there would break every consumer while making assertion 1 pass.
-#
-# AND THE FIRST ASSERTION IS SCOPED TO THE PASS LINE ITSELF, not to the run output.
-# The "Done. … landed on '<trunk>'" line above already carries the ref, so a bare
-# grep for the trunk name over `$out` passes before the fix and proves nothing.
+# The PASS line must name its operand, as the FAIL line does: the clearing branch is the
+# direction that errs toward false confidence. `POST_MERGE_GATE: PASS` is a MACHINE
+# CONTRACT, so the second assertion is the canary: a ref appended there breaks every
+# consumer. The first assertion reads the PASS line alone, because the "Done. … landed on
+# '<trunk>'" line already carries the ref.
 # =============================================================================
 case_finish_pr_post_merge_names_its_ref() {
   cf_reset
   make_sandbox
-  # The 6th argument is the card's `branch:` frontmatter, and finish-pr.sh reads it to
-  # find what to merge. Omitting it leaves the card saying `n/a`, and the run dies with
-  # "local branch 'n/a' not found" — a fixture gap that reads like a tool defect.
+  # The 6th argument is the card's `branch:` frontmatter, which finish-pr.sh reads to find
+  # what to merge; without it the run dies on "local branch 'n/a' not found".
   seed_issue dev_complete "$SB_PREFIX-140" postmerge chore "Post-merge ref naming" "feature/$SB_PREFIX-140-postmerge"
   publish_sandbox
   seed_branch "$SB_PREFIX-140" postmerge "postmerge.txt"
@@ -98,14 +84,9 @@ case_finish_pr_post_merge_names_its_ref() {
 # CASE — THE POST-MERGE CHECK READS THE TRUNK IT LANDED INTO, IN EVERY POSTURE
 #        THE PRE-MERGE GATE ACCEPTS.
 #
-# UNSTUBBED, DELIBERATELY, AND THAT IS THE WHOLE POINT. Every other finish-pr case
-# runs the post-merge step as FINISH_PR_VERIFY_CMD=true — a verify that cannot say
-# where it ran — so this suite could never see WHICH TREE the post-merge reading
-# was of. And it was of the wrong one: the pre-merge gate requires the gate
-# checkout to sit AT THE BRANCH TIP, nothing moved it after the landing, and the
-# post-merge run read it there and printed `PASS on <trunk>` and
-# `POST_MERGE_GATE: PASS` over a trunk that was red. Measured in a project running
-# the kit, whose reviewers caught it only by checking the merged trunk by hand.
+# UNSTUBBED, DELIBERATELY: a stubbed post-merge verify (FINISH_PR_VERIFY_CMD=true) cannot
+# say where it ran. The pre-merge gate requires the gate checkout at the branch tip, so a
+# post-merge run that nothing moves reads the branch and can print PASS over a red trunk.
 #
 # THE FIXTURE. The committed verify.sh RECORDS the revision and the tree it read,
 # one line per run, and is RED exactly when TRUNK_BREAK.txt is present — a file the
@@ -124,14 +105,12 @@ case_finish_pr_post_merge_names_its_ref() {
 #        the checkout stays at the branch tip;
 #   (G)  the main checkout on a DIFFERENT BRANCH NAME at the same tip — accepted by
 #        revision, and not the branch the switch looks for;
-#   (B)  THE CONTROL: the default path, main checkout on the branch BY NAME. It read
-#        the trunk before any cure, because the landing switches that checkout to the
-#        trunk before deleting the branch. If (B) goes red, the fixture is broken, not
-#        the script.
+#   (B)  THE CONTROL: the default path, main checkout on the branch BY NAME. The landing
+#        switches that checkout to the trunk before deleting the branch, so it reads the
+#        trunk. If (B) goes red, the fixture is broken, not the script.
 #
-# WHAT THIS CASE DOES NOT ASSERT: HOW the right tree is reached. That is the cure's
-# design, and it is asserted separately (the case after this one), so this case keeps
-# its meaning whatever the cure turns out to be.
+# WHAT THIS CASE DOES NOT ASSERT: HOW the right tree is reached. The next case asserts
+# that, so this one keeps its meaning whatever the mechanism.
 # =============================================================================
 _fpr_pm_sandbox() {  # <id> — builds the fixture above; sets FPR_PM_BR, FPR_PM_LOG
   make_sandbox
@@ -273,17 +252,12 @@ case_finish_pr_post_merge_reads_the_landed_trunk() {
 # CASE — HOW THE POST-MERGE CHECK REACHES THE TRUNK, AND WHAT IT SAYS WHEN IT
 #        CANNOT.
 #
-# The case above asserts THAT the right tree is read; this one asserts the chosen
-# way of reaching it, which is a design choice and is kept apart so the two can be
-# judged separately:
-#   * the EXISTING gate checkout is detached to the landed commit — it was fit to run
-#     the gate a minute earlier, and its installed dependencies survive a detach, so
-#     the post-merge run meets the environment the pre-merge run did;
-#   * the human line names the SHA it read, not only the ref — a ref names whichever
-#     commit the reader has in mind; a sha names one;
-#   * ONLY when that checkout has uncommitted tracked changes (moving it would carry
-#     them into the reading, or refuse) is a FRESH detached worktree used, and it is
-#     removed afterwards, and the operator's dirt is left exactly where it was;
+# The case above asserts THAT the right tree is read; this one asserts how:
+#   * the EXISTING gate checkout is detached to the landed commit — its installed
+#     dependencies survive a detach, so the post-merge run meets the pre-merge environment;
+#   * the human line names the SHA it read, not only the ref;
+#   * ONLY when that checkout has uncommitted tracked changes is a FRESH detached worktree
+#     used; it is removed afterwards, and the operator's dirt is left where it was;
 #   * a reading that CANNOT RUN says so in its own word — never PASS, and never FAIL,
 #     because a FAIL asserts something about the trunk that nobody measured.
 #
@@ -293,10 +267,9 @@ case_finish_pr_post_merge_reads_the_landed_trunk() {
 #   (D) the main checkout on the branch BY NAME but DIRTY — the landing declines to
 #       switch it, so it is still on the branch: the reading is taken in a FRESH
 #       worktree at the landed commit, reports FAIL on the red trunk, and leaves
-#       neither the worktree nor its directory behind.
-#       Its gate leaves a READ-ONLY directory in that tree, and the landing script
-#       must still remove it and reach its exit — a failed removal once aborted it
-#       under `set -e` after the landing, with no EXIT line and the tree left behind.
+#       neither the worktree nor its directory behind. Its gate leaves a READ-ONLY
+#       directory in that tree, and the landing script must still remove it and reach
+#       its exit.
 #   (E) the landed trunk's verify.sh is NOT EXECUTABLE: COULD NOT RUN, and the
 #       machine line says UNRUNNABLE — not PASS, not FAIL.
 #   (H) an ENVIRONMENTAL red in the fresh worktree, through the REAL verify.sh: a
@@ -423,10 +396,8 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
 }
 
 # =============================================================================
-# CASE — the branch is checked out in a SECOND WORKTREE. This is the field
-# condition: a landing run from a linked worktree that holds the branch, where
-# the local delete correctly SKIPS — and the board note still claimed it. The
-# skip is correct behaviour and stays; the claim must not.
+# CASE — the branch is checked out in a SECOND WORKTREE: the local delete correctly SKIPS,
+# and the board note must not claim it.
 # =============================================================================
 case_finish_pr_second_worktree() {
   cf_reset
@@ -467,9 +438,8 @@ case_finish_pr_second_worktree() {
 }
 
 # =============================================================================
-# CASE — the remote REFUSES the delete (receive.denyDeletes). Forge-agnostic: a
-# plain bare repo declining a deletion. Before the delete arms surfaced git's own
-# stderr this was indistinguishable from success in any filtered log.
+# CASE — the remote REFUSES the delete (receive.denyDeletes). Forge-agnostic: a plain bare
+# repo declining a deletion. git's own stderr must be surfaced.
 # =============================================================================
 case_finish_pr_remote_delete_refused() {
   cf_reset
@@ -507,11 +477,8 @@ case_finish_pr_remote_delete_refused() {
 }
 
 # =============================================================================
-# CASE — THE EXACT FIELD SHAPE: a delete that reports SUCCESS and does not stick.
-# Observed once for real (push exited 0, the ref was still advertised; a
-# controlled re-run reproduced it — deleted, absent for 150s, then back at the
-# identical SHA). An exit code cannot see that; only re-measuring the remote can.
-# Here a post-receive hook restores any deleted ref, which is the same observable.
+# CASE — a delete that reports SUCCESS and does not stick. An exit code cannot see that;
+# only re-measuring the remote can. Here a post-receive hook restores any deleted ref.
 # =============================================================================
 case_finish_pr_remote_delete_resurrected() {
   cf_reset
@@ -556,19 +523,10 @@ HOOK
   teardown
 }
 
-# =============================================================================
-# CASE — a RED pre-merge gate aborts, destroying nothing.
-# =============================================================================
-# THE POST-REFUSAL CONTRACT, ONE AUTHORING SITE. A refusal must leave four things untouched, and
-# these legs asserted three different subsets of them. The gap that mattered: the two arms whose
-# whole claim is "refused BEFORE any destructive step" checked the issue and the merge and NEITHER
-# BRANCH — the destructive step most worth checking, absent from the only legs written to prove it
-# did not happen.
-#
-# THE MARKER IS OPTIONAL, AND THAT IS NOT A CONVENIENCE. A leg with no commit on its branch (the
-# empty-merge case) has nothing that COULD have merged, so asserting "the change did not land" there
-# would be a check that cannot fail. Inapplicable and missing are different, and collapsing them is
-# how a subset difference gets read as a gap.
+# THE POST-REFUSAL CONTRACT, ONE AUTHORING SITE: a refusal leaves the local branch, the
+# remote branch and the issue untouched, and merges nothing. The merge marker is OPTIONAL:
+# a leg with no commit on its branch has nothing that could merge, and asserting it there
+# would be a check that cannot fail.
 #
 #   assert_landing_untouched <label> <id> <slug> <branch> [<merge marker>]
 assert_landing_untouched() {
@@ -585,6 +543,9 @@ assert_landing_untouched() {
   return 0   # the last command above is a `&&` whose false branch is the PASSING one
 }
 
+# =============================================================================
+# CASE — a RED pre-merge gate aborts, destroying nothing.
+# =============================================================================
 case_finish_pr_premerge_red() {
   cf_reset
   make_sandbox
@@ -609,9 +570,8 @@ case_finish_pr_premerge_red() {
 #        is NAMED as what it is.
 #
 # The gate runner exits 3 when nothing failed and a gate never executed. The landing
-# refuses on any red; what changed is the message: "FAILED — fix the branch" sent the
-# reader to a branch nothing had measured. Driven through the test-only command seam
-# with a gate that exits 3, and a gate that exits 1 as the control.
+# refuses on any red, and names exit 3 COULD NOT RUN rather than FAILED. Driven through the
+# test-only command seam with a gate that exits 3, and a gate that exits 1 as the control.
 # =============================================================================
 case_finish_pr_premerge_names_an_unrunnable_gate() {
   cf_reset
@@ -645,8 +605,7 @@ case_finish_pr_premerge_names_an_unrunnable_gate() {
 }
 
 # =============================================================================
-# CASE — an EMPTY merge aborts. (An earlier version fell through to branch
-# deletion + advance, destroying a mistyped branch with no landed code.)
+# CASE — an EMPTY merge aborts, before any branch deletion or advance.
 # =============================================================================
 case_finish_pr_empty_merge() {
   cf_reset
@@ -670,46 +629,21 @@ case_finish_pr_empty_merge() {
 }
 
 # =============================================================================
-# CASE — THE GATE-EXECUTABLE HARDENING (the fabricated-stub hole, used once in
-# earnest to force a landing through a red suite). One case, four legs:
-#   (a) a caller-supplied FINISH_PR_PREMERGE_CMD is REFUSED on the production
-#       path (no marker) before ANY destructive step;
-#   (b) a genuine worktree's TRACKED scripts/verify.sh (green) is ACCEPTED via
-#       --worktree — the legitimate worktree-QA capability, preserved;
-#   (c) --worktree pointed at a scratch dir carrying a FABRICATED verify.sh is
-#       REFUSED (it is not a git worktree of this repo);
-#   (d) the sandbox stub injection STILL works, but ONLY behind the explicit
-#       test-only marker.
-# =============================================================================
-# =============================================================================
 # CASE — THE LANDING GATE MUST BE THE COMMITTED verify.sh AT THE REVISION BEING
 # LANDED — AND THIS CASE RUNS WITHOUT THE STUB MARKER.
 #
-# THAT IS THE POINT OF IT. The other finish-pr cases run with the `FPR_STUB` array
-# (FINISH_PR_TEST_ALLOW_STUB=1 + the two command stubs) — all of them except this one and
-# `case_finish_pr_gate_absent_says_write_one`, each of which says "NO FPR_STUB" at its own
-# site and why. Derive it rather than trusting a number here; this sentence said "seven"
-# and was true on the day it was written. The revision check is wrapped in
-# `if [ "$ALLOW_STUB" != "true" ]` — so those cases are green partly BECAUSE they
-# bypass the thing this one exists to hold. A guard that every existing case skips
-# is a guard nothing measures; running unmarked is the whole design of this case,
-# not an incidental detail of it.
+# The revision check is wrapped in `if [ "$ALLOW_STUB" != "true" ]`, so every case that runs
+# with `FPR_STUB` bypasses it. Running unmarked is the whole design of this case.
 #
-# The defect: the gate ran whatever scripts/verify.sh happened to be in the gate
-# checkout, which on the default path is the main checkout — and that is the TRUNK in
-# the common case, not the branch being landed. So the gate proved something about a
-# tree that is not shipping, and reported it as a landing precondition.
-#
-# THE DIRECTIONS, AND THE CONFORMING ONE IS WHAT STOPS THE FIX FROM BEING AN
-# UNCONDITIONAL REFUSAL — that would pass every refusal arm and break every landing in
-# the kit. This said "THREE DIRECTIONS" and enumerated (i)-(iii); arm (iv) was added
-# afterwards, out of order, and the count above it did not grow. The arms are labelled
-# `# --- (n)` in the body and the finish string reports all of them; read those rather
-# than a number here:
+# On the default path the gate checkout is the main checkout, usually on the trunk, so the
+# gate must refuse unless it is the branch's committed, unmodified verify.sh. The arms are
+# labelled `# --- (n)` in the body; the conforming one stops the fix from being an
+# unconditional refusal:
 #   (i)   checkout on the trunk, branch elsewhere → REFUSE, naming the mismatch, and
 #         leave the branch and the issue exactly where they were;
 #   (ii)  checkout ON the branch but verify.sh locally modified → REFUSE, naming the
 #         modification (the revisions match, so only the cleanliness arm can catch it);
+#   (iv)  the gate present, executable and at the right revision, but UNTRACKED → REFUSE;
 #   (iii) checkout on the branch, gate committed and unmodified → LANDS.
 # =============================================================================
 case_finish_pr_gate_revision() {
@@ -769,15 +703,10 @@ case_finish_pr_gate_revision() {
   # --- (iv) on the branch, at the right revision, gate present and executable,
   #          but UNTRACKED at that revision ----------------------------------
   #
-  # THE ONE ARM OF FIVE THAT NOTHING REACHED, and it stayed uncovered because its
-  # fixture is the only awkward one: the other four are a rm, a chmod, a checkout and a
-  # sed. Awkward is not the same as unimportant — a verify.sh that exists, runs, and sits
-  # at the right revision but ships in no commit is a gate the committed tree does not
-  # contain, and it passes every other arm.
-  #
-  # `git rm --cached` is the whole trick: it removes the file from the INDEX while
-  # leaving it on disk, executable, unmodified. Committing that on the branch keeps
-  # HEAD and the branch tip in agreement, so the revision arm above cannot fire.
+  # A verify.sh that exists, runs and sits at the right revision but ships in no commit
+  # passes every other arm. `git rm --cached` removes it from the INDEX and leaves it on
+  # disk, executable and unmodified; committing that on the branch keeps HEAD and the
+  # branch tip in agreement, so the revision arm cannot fire.
   make_sandbox
   seed_issue dev_complete "$SB_PREFIX-783" untracked chore "Untracked gate" "feature/$SB_PREFIX-783-untracked"
   publish_sandbox
@@ -789,10 +718,8 @@ case_finish_pr_gate_revision() {
     || cf "(control) could not un-track scripts/verify.sh for (iv)"
   sbcommit -q -m "un-track the gate" >/dev/null 2>&1
 
-  # ── THE FIXTURE IS PROVEN TO ISOLATE THIS ARM, and this block is the point of the
-  #    leg rather than a nicety: four of the five arms share a refusal prefix and an
-  #    exit code, so a fixture that accidentally trips a NEIGHBOUR looks identical from
-  #    the outside and would ship as coverage of an arm it never touched.
+  # ── THE FIXTURE IS PROVEN TO ISOLATE THIS ARM: the arms share a refusal prefix and an
+  #    exit code, so a fixture that trips a neighbour looks identical from outside.
   [ -e "$SB_WORK/scripts/verify.sh" ] \
     || cf "(control iv) verify.sh is absent — this would trip the MISSING arm, not the tracked-ness one"
   [ -x "$SB_WORK/scripts/verify.sh" ] \
@@ -848,15 +775,10 @@ case_finish_pr_gate_revision() {
   teardown
 }
 
-# THE GATE-PROVENANCE REFUSAL HAS FIVE ARMS AND ONLY TWO WERE EXERCISED. `NOT AT THE REVISION` and
-# `LOCALLY MODIFIED` had cases; MISSING, NOT EXECUTABLE and NOT TRACKED had none. This case takes the
-# first two, because they are the arms that now carry the write-your-gate advice — advice that lived
-# for a while in a branch NO INPUT COULD ENTER, so it had never printed to anyone.
-#
-# WHY THE ADVICE MATTERS ENOUGH TO ASSERT: an adopter meeting this refusal has no gate at all. The
-# other three arms mean "your gate is the wrong one" and their remedy is a checkout; these two mean
-# "there is no gate" and their remedy is to write one. Printing the checkout advice to someone with
-# no gate sends them to fix a thing that is not their problem.
+# CASE — a MISSING or NOT EXECUTABLE gate refuses and says how to WRITE one. The other
+# provenance arms mean "your gate is the wrong one", and their remedy is a checkout; these
+# two mean "there is no gate", and the checkout advice would send the adopter to fix the
+# wrong thing.
 case_finish_pr_gate_absent_says_write_one() {
   cf_reset
   local out rc br
@@ -878,7 +800,7 @@ case_finish_pr_gate_absent_says_write_one() {
   printf '%s\n' "$out" | grep -i 'MISSING' >/dev/null \
     || cf "(a) the refusal does not name the gate as MISSING: $out"
   printf '%s\n' "$out" | grep -F -- '--gate-command' >/dev/null \
-    || cf "(a) the refusal does not tell an adopter with NO gate how to get one — that advice sat in an unreachable branch for a while, and this assertion is what keeps it on a path that runs: $out"
+    || cf "(a) the refusal does not tell an adopter with NO gate how to get one: $out"
   printf '%s\n' "$out" | grep -i 'check the branch out here' >/dev/null \
     && cf "(a) the refusal offers the CHECKOUT remedy to someone who has no gate at all — that is the other arms' advice and it sends them to fix the wrong thing: $out"
   assert_landing_untouched "(a)" "$SB_PREFIX-795" nogate "$br" CHANGE795.txt
@@ -910,12 +832,10 @@ case_finish_pr_gate_absent_says_write_one() {
 # =============================================================================
 # CASE — --worktree NAMED THROUGH A SYMLINK IS THE SAME CHECKOUT.
 #
-# The --worktree check compared two paths as STRINGS: this repository's common git dir,
-# resolved physically, against the named path's, resolved with a logical `pwd`. Where git
-# names the common dir relatively — any path into the MAIN checkout — the logical spelling
-# kept the symlink, the strings differed, and a genuine worktree of this repo was refused
-# as "not a git worktree of THIS repo". On macOS the temp dir itself is such a spelling.
-# The link is built HERE, so the case does not depend on the platform providing one.
+# The --worktree check must resolve both paths the same way: a logical `pwd` keeps a symlink
+# that git's physical resolution drops, and a genuine worktree of this repo is then refused
+# as "not a git worktree of THIS repo". On macOS the temp dir itself is such a spelling. The
+# link is built here, so the case does not depend on the platform providing one.
 #   (a) the main checkout, named through a symlink — accepted, and it lands;
 #   (b) CONTROL: a foreign repository — still refused;
 #   (c) CONTROL: a symlink to the foreign repository — still refused: resolving the link
@@ -959,6 +879,17 @@ case_finish_pr_worktree_through_a_symlink() {
   teardown
 }
 
+# =============================================================================
+# CASE — THE GATE-EXECUTABLE HARDENING. One case, four legs:
+#   (a) a caller-supplied FINISH_PR_PREMERGE_CMD is REFUSED on the production
+#       path (no marker) before ANY destructive step;
+#   (b) a genuine worktree's TRACKED scripts/verify.sh (green) is ACCEPTED via
+#       --worktree — the legitimate worktree-QA capability, preserved;
+#   (c) --worktree pointed at a scratch dir carrying a FABRICATED verify.sh is
+#       REFUSED (it is not a git worktree of this repo);
+#   (d) the sandbox stub injection STILL works, but ONLY behind the explicit
+#       test-only marker.
+# =============================================================================
 case_finish_pr_gate_hardening() {
   cf_reset
   local out rc
@@ -1028,43 +959,26 @@ case_finish_pr_gate_hardening() {
 # THE GUARD-FLOOR RECONCILIATION CASES, and why they are keyed on BEHAVIOUR
 #
 # EVERY ASSERTION BELOW READS AN EXIT CODE AND WHICH SIDE'S ITEMS ARE NAMED — never the
-# wording of a refusal. The reason is measured rather than stylistic: the classifier
-# these cases replace keyed on message text and went stale in the very edit that
-# IMPROVED the message. A refusal's phrasing is the part most likely to be rewritten by
-# someone doing a kindness; its exit code and the identity of the list it prints are the
-# contract.
+# wording of a refusal. A refusal's phrasing is the part most likely to be rewritten; its
+# exit code and the list it prints are the contract.
 #
-# EVERY CASE INVOKES `--scope`, and that is a fact about where the arm LIVES rather than
-# a preference. The whole guard-floor block sits inside `if [ "$SCOPED" -eq 1 ]`: a plain
-# full run never reaches it. Measured — with a bare invocation every one of these cases
-# reported "exit 0, expected 2" and read as one defect each in the arm under test, when the
-# arm had simply not run. A case must establish which invocation reaches its subject
-# before it can assert anything about that subject's behaviour.
+# EVERY CASE INVOKES `--scope`: the whole guard-floor block sits inside
+# `if [ "$SCOPED" -eq 1 ]`, so a plain full run never reaches it.
 #
-# THE STATES THIS FILE EXERCISES, one case each, and the behaviour that distinguishes
-# each. NO CLOSED COUNT, and that is the shape ruling on closed outcome lists, applied
-# rather than a style
-# choice: verify.sh's reconciliation has more distinguishable outcomes than the cases
-# below exercise, so a header that counted them would be a claim about the ARM that this
-# file cannot keep true — the next outcome added there would silently falsify a number
-# here. The states are named by their two variables (what GUARD_SET holds, what the
-# enumerator does); the run is the list.
+# THE STATES, named by their two variables (what GUARD_SET holds, what the enumerator
+# does), one case each. verify.sh has more outcomes than these, so check the list against
+# the case set rather than trusting a count:
 #   (3) SPACE − SET, from the SHIPPED empty GUARD_SET  → rc 2, the enumerated guard named
 #   (4) enumerator MIS-TYPED (rc 1, not 127)           → rc 2, the enumerator's OWN stderr surfaced
 #   (5) enumerator succeeds and returns NOTHING        → rc 2, no reconciled claim
 #   (6) SET − SPACE, two on disk, enumerator sees one  → rc 2, the UNSEEN one named
 #   (7) wholly empty: no set, enumerator returns none  → rc 0, and NO reconciled claim
 #   (8) DECLARED == ENUMERATED, both non-empty         → rc 0, and the reconciled claim IS
-#       emitted. The positive arm, and the only state that reaches the green line: (7)
-#       also exits 0, so without this one every assertion about that claim was an
-#       assertion about its ABSENCE. Added after this list was written, and the list did
-#       not grow with it — which is why "one case each" above is a rule to CHECK against
-#       the case set, not a fact this header can keep true on its own.
+#       emitted: the only state that reaches the green line. (7) also exits 0, so without
+#       this one every assertion about that claim is an assertion about its ABSENCE.
 #
-# STATES 3 AND 7 ARE BOTH BUILT ON THE SHIPPED EMPTY GUARD_SET on purpose. That
-# configuration is the one three consecutive rounds of controls never built, and it is
-# what the last defect in this family died on: a fixture that always declares a
-# populated set passes against it by construction.
+# STATES 3 AND 7 ARE BOTH BUILT ON THE SHIPPED EMPTY GUARD_SET: a fixture that always
+# declares a populated set passes against it by construction.
 # =============================================================================
 
 # Add one record to the sandbox's GUARD_SET, self-asserting like _declare_gate.
@@ -1078,13 +992,10 @@ _guard_declare() {  # <verify.sh> <entry>
 }
 
 # Declare the enumerator command. _neu_scalar asserts the line reads what we wrote.
-#
-# THE COMMAND MUST CONTAIN NO BACKSLASH ESCAPE. _neu_scalar rewrites the line through
-# perl, so a `\n` inside the command is interpreted there and SPLITS THE ASSIGNMENT
-# across two lines — verify.sh then reads GUARD_ENUM as unset, takes the NOTE path, and
-# exits 0. Measured: every one of these cases reported "exit 0, expected 2" and looked
-# like one defect each in the arm under test. Use `echo`, which supplies its own newline,
-# and `true` for the deliberately-empty enumeration.
+# THE COMMAND MUST CONTAIN NO BACKSLASH ESCAPE: _neu_scalar rewrites the line through perl,
+# so a `\n` splits the assignment, and verify.sh then reads GUARD_ENUM as unset and exits 0.
+# Use `echo`, which supplies its own newline, and `true` for the deliberately-empty
+# enumeration.
 _guard_enum() {  # <verify.sh> <command>
   _neu_scalar "$1" GUARD_ENUM "GUARD_ENUM=\"$2\""
 }
@@ -1114,9 +1025,8 @@ case_guard_floor_enumerator_mistyped() {
   local v="$SB_WORK/scripts/verify.sh" out rc probe_rc
   : > "$SB_WORK/guard-a.txt"
   _guard_declare "$v" 'guard-a.txt'
-  # A MIS-TYPED command, not a missing one. THE FIXTURE ASSERTS ITS OWN SHAPE: a
-  # 127-only fixture passes against the defect this case exists for, because the defect
-  # was treating "non-zero" as "not found" — so the probe must exit NON-ZERO AND NOT 127.
+  # A MIS-TYPED command, not a missing one: the probe must exit NON-ZERO AND NOT 127, or it
+  # cannot tell treating "non-zero" as "not found" from the fixed behaviour.
   ( cd "$SB_WORK" && git ls-fils 'guard-*' ) >/dev/null 2>&1; probe_rc=$?
   { [ "$probe_rc" -ne 0 ] && [ "$probe_rc" -ne 127 ]; } \
     || _fixture_die "case_guard_floor_enumerator_mistyped: the mis-typed enumerator exited $probe_rc — this case needs a non-zero that is NOT 127, or it cannot tell the fixed behaviour from the defect."
@@ -1125,13 +1035,8 @@ case_guard_floor_enumerator_mistyped() {
 
   [ "$rc" -eq 2 ] \
     || cf "(mis-typed) exit $rc, expected 2 — an enumerator that did not run cleanly must refuse rather than reconcile against its empty output"
-  # WHICH REFUSAL FIRED — not merely that one did. BOTH refusal arms exit 2, and BOTH echo
-  # $GUARD_ENUM back to the operator, so `rc -eq 2` and a grep for the command text
-  # ('ls-fils') match in EITHER arm. Measured: with the rc check narrowed back to
-  # 126/127-only, a mis-typed enumerator (exit 1) falls through to "ran cleanly and returned
-  # NOTHING" — a materially FALSE sentence about a command that failed — and this case still
-  # passed on both of those assertions. It could not fail against the defect it exists for.
-  # So the arm is asserted by a token ONLY THAT ARM prints:
+  # WHICH REFUSAL FIRED — not merely that one did. Both refusal arms exit 2 and echo
+  # $GUARD_ENUM back, so the arm is asserted by a token ONLY THAT ARM prints:
   printf '%s' "$out" | grep -F 'did not run cleanly (exit' >/dev/null \
     || cf "(mis-typed) the UNRUNNABLE arm did not fire — a non-zero enumerator was reported as having run cleanly, which is the defect this case exists for: $out"
   # ...and the enumerator's own stderr by a token ONLY THE ENUMERATOR can produce. 'ls-fils'
@@ -1161,9 +1066,8 @@ case_guard_floor_enumerator_succeeds_empty() {
 
   [ "$rc" -eq 2 ] \
     || cf "(empty-but-clean) exit $rc, expected 2 — an enumerator that ran cleanly and saw NOTHING while GUARD_SET declares items must refuse, not reconcile"
-  # KEYED ON THE CLAIM'S OWN FORM, not on the word. The NOTE that DENIES reconciliation
-  # contains "was reconciled" in a negating sentence, so a bare grep for the word fires on
-  # correct output — measured. The green claim is the phrase below and nothing else is.
+  # KEYED ON THE CLAIM'S OWN FORM: the NOTE that DENIES reconciliation contains "was
+  # reconciled", so a bare grep for the word fires on correct output.
   printf '%s' "$out" | grep 'reconciled BOTH ways' >/dev/null \
     && cf "(empty-but-clean) the run claimed reconciliation over an enumeration that returned nothing: $out"
 
@@ -1175,9 +1079,8 @@ case_guard_floor_unseen_declared_guard() {
   cf_reset
   make_sandbox
   local v="$SB_WORK/scripts/verify.sh" out rc
-  # TWO guards on disk, BOTH declared, and the enumerator scoped to ONE. This is the
-  # SET − SPACE direction — the `unseen` loop — which had no case at all, so
-  # "reconciled BOTH ways" was asserted by a suite that had only watched one direction.
+  # TWO guards on disk, BOTH declared, and the enumerator scoped to ONE: the SET − SPACE
+  # direction (the `unseen` loop).
   : > "$SB_WORK/guard-a.txt"; : > "$SB_WORK/guard-b.txt"
   _guard_declare "$v" 'guard-a.txt'
   _guard_declare "$v" 'guard-b.txt'
@@ -1196,12 +1099,9 @@ case_guard_floor_unseen_declared_guard() {
   teardown
 }
 
-# THE POSITIVE ARM, AND IT IS THE ONE DIRECTION NOTHING WATCHED. Before this case, the phrase
-# "reconciled BOTH ways" appeared in this file exactly twice and BOTH were NEGATIVE (`&& cf`):
-# they prove the claim is ABSENT where it should be. Reword verify.sh's success line — the kind
-# of edit its own guard-floor header calls "a kindness" — and both canaries match nothing, take
-# the PASSING branch, and stay green over a claim that has stopped being emitted at all.
-# A phrase asserted only by its absence is not asserted.
+# THE POSITIVE ARM. The other assertions on "reconciled BOTH ways" are negative (`&& cf`),
+# so a reworded success line would leave them green over a claim no longer emitted. A
+# phrase asserted only by its absence is not asserted.
 case_guard_floor_reconciles_and_says_so() {
   cf_reset
   make_sandbox
@@ -1217,13 +1117,13 @@ case_guard_floor_reconciles_and_says_so() {
   [ "$rc" -eq 0 ] \
     || cf "(reconciled) exit $rc, expected 0 — a GUARD_SET the enumeration matches exactly is the reconciled state and must not refuse: $out"
   printf '%s' "$out" | grep 'reconciled BOTH ways' >/dev/null \
-    || cf "(reconciled) the run did NOT emit the reconciliation claim over a set the enumeration matches exactly, so the phrase the two canary cases assert the ABSENCE of is now emitted by nothing: $out"
+    || cf "(reconciled) the run did NOT emit the reconciliation claim over a set the enumeration matches exactly, so the phrase the canary cases assert the ABSENCE of is emitted by nothing: $out"
   # THE COUNT TOO, because the green line is the one most mistakable for a measurement of the
   # tree: two guards declared must read as two, not as whatever the shipped set happened to hold.
   printf '%s' "$out" | grep '2 DECLARED item(s)' >/dev/null \
     || cf "(reconciled) the green line does not report the 2 DECLARED items this case set up: $out"
 
-  finish "guard floor: a GUARD_SET the enumeration matches exactly reconciles, exits 0 and SAYS SO — the positive direction the two canaries cannot prove"
+  finish "guard floor: a GUARD_SET the enumeration matches exactly reconciles, exits 0 and SAYS SO — the positive direction the absence canaries cannot prove"
   teardown
 }
 
@@ -1239,11 +1139,8 @@ case_guard_floor_wholly_empty_shipped_state() {
 
   [ "$rc" -eq 0 ] \
     || cf "(wholly empty) exit $rc, expected 0 — declaring GUARD_ENUM before the first guard exists is legitimate and must not refuse"
-  # THE ONE ASSERTION HERE THAT NECESSARILY TOUCHES THE CLAIM'S WORDING, and it is
-  # unavoidable: this state's whole subject IS the absence of the green claim, and both
-  # states here exit 0, so there is no code to read instead. Keyed on the claim's own
-  # distinctive phrase — NOT on the word "reconciled", which the denying NOTE also uses,
-  # and which therefore fired on correct output when this was first written.
+  # The one assertion here that touches the claim's wording, unavoidably: both states exit
+  # 0. Keyed on the claim's own phrase, not on "reconciled", which the denying NOTE uses.
   printf '%s' "$out" | grep 'reconciled BOTH ways' >/dev/null \
     && cf "(wholly empty) the run claimed reconciliation with an empty GUARD_SET and an empty enumeration — nothing was reconciled: $out"
 
@@ -1254,12 +1151,10 @@ case_guard_floor_wholly_empty_shipped_state() {
 # =============================================================================
 # CASE — THE GATE RUNNER'S OWN CONTRACT.
 #
-# NOTE ON THE ABSENT CAPABILITY PROBE (deliberate): there is no grep-probe on
-# verify.sh having any particular gate, because such a probe would turn the frame
-# being gutted into a SKIP instead of a FAIL — which is the exact regression this
-# case exists to catch. Everything here is pure bash.
+# NO CAPABILITY PROBE on verify.sh having any particular gate: it would turn a gutted frame
+# into a SKIP instead of a FAIL. Everything here is pure bash.
 #
-# Five properties, each one a defect that has happened somewhere:
+# The properties:
 #   (a) an EMPTY gate table REFUSES (nonzero) instead of printing a green summary
 #       with nothing behind it — an empty-but-passing runner silently authorises
 #       every landing, because finish-pr.sh treats a green --quick as its gate;
@@ -1286,11 +1181,8 @@ case_verify_frame() {
   printf '%s' "$out" | grep '0 declared gate' >/dev/null || cf "(b) --list does not report the empty table: $out"
 
   # Re-declare: one green select gate, one red full gate, one guard path.
-  # THE RED GATE IS A SANDBOX-LOCAL SCRIPT, not `/usr/bin/false` — the same reason the
-  # core-gate fixture below states: an absolute path to a system binary is absent on
-  # some platform, and an absent command returns 127, which this harness now classes
-  # UNRUNNABLE rather than FAIL. A portability slip in the fixture would then be
-  # indistinguishable from the defect the case exists to detect.
+  # THE RED GATE IS A SANDBOX-LOCAL SCRIPT, not `/usr/bin/false`: an absent system binary
+  # returns 127, which is UNRUNNABLE rather than FAIL.
   : > "$SB_WORK/guard-one.txt"
   printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/red-gate"; chmod +x "$SB_WORK/red-gate"
   _declare_gate 'green|select|/bin/echo ran-green'
@@ -1328,26 +1220,14 @@ case_verify_frame() {
 # =============================================================================
 # CASE — UNRUNNABLE IS NOT FAIL, AND `ran` EXCLUDES IT.
 #
-# verify.sh has four result states: PASS, FAIL, SKIP and UNRUNNABLE. The fourth
-# exists because `127` (command not found) and `126` (found, not executable) are
-# statements about the RUNNER'S ENVIRONMENT, not verdicts about the subject — the
-# gate never executed, so nothing was measured. Spelling that FAIL sends a reader to
-# debug a tree that may be perfectly fine.
+# verify.sh has four result states: PASS, FAIL, SKIP and UNRUNNABLE. 127 (command not
+# found) and 126 (found, not executable) are statements about the RUNNER'S ENVIRONMENT: the
+# gate never executed, so nothing was measured.
 #
-# WHY THIS CASE EXISTS AT ALL: the change that added the state was proven in a
-# scratch directory that no longer exists, and the implementing leg said so rather
-# than letting it ship quiet — by instruments.md § B that makes it unproven, not
-# passing. It could not write the case because this file is owned elsewhere. This
-# discharges that.
-#
-# TWO ASSERTIONS EARN THEIR KEEP, AND BOTH ARE THE SECOND DIRECTION:
-#   • `FAIL <gate>` must be ABSENT for an unrunnable gate. Asserting UNRUNNABLE is
-#     present cannot catch a regression that emits BOTH, or that re-merges the
-#     states — and re-merging is what happened once during the change itself.
-#   • `ran:` must EXCLUDE the unrunnable. The first implementation printed `ran: 3`
-#     when one of three never ran, so the count line contradicted its own per-gate
-#     lines. Review did not catch it; running it did.
-# Both are held here in the direction that fails when the states collapse.
+# BOTH ASSERTIONS THAT MATTER ARE THE SECOND DIRECTION:
+#   • `FAIL <gate>` must be ABSENT for an unrunnable gate: asserting UNRUNNABLE is present
+#     cannot catch a regression that emits both or re-merges the states;
+#   • `ran:` must EXCLUDE the unrunnable, or the count line contradicts its per-gate lines.
 # =============================================================================
 case_verify_unrunnable_vs_fail() {
   cf_reset
@@ -1355,13 +1235,9 @@ case_verify_unrunnable_vs_fail() {
   # Ship-state first: make_sandbox declares its own always-green gate, and this case
   # needs to control the whole table.
   _neu_array "$SB_WORK/scripts/verify.sh" GATES
-  # THE FAILING GATE IS A SANDBOX-LOCAL SCRIPT, NOT `/bin/false`, and that is not
-  # fussiness. `/bin/false` does not exist on every platform this kit has to run on
-  # (measured: absent on darwin, where it is /usr/bin/false), and an absent command
-  # returns 127 — so a portability slip in THIS FIXTURE is indistinguishable from the
-  # defect the case exists to detect. A script the sandbox writes and chmod +x's has
-  # no PATH dependency at all. Same reasoning as the non-executable fixture below,
-  # one bit apart.
+  # THE FAILING GATE IS A SANDBOX-LOCAL SCRIPT, NOT `/bin/false`, which is absent on some
+  # platforms and would return 127: a portability slip in the fixture would then be
+  # indistinguishable from the defect under test.
   printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_WORK/failing-gate"
   chmod +x "$SB_WORK/failing-gate"
   _declare_gate 'green|core|/bin/echo gate-ran-green'
@@ -1389,7 +1265,7 @@ case_verify_unrunnable_vs_fail() {
 
   # --- THE SECOND DIRECTION: the states must not have collapsed either way ---
   printf '%s\n' "$out" | grep '^FAIL  missing-interp' >/dev/null \
-    && cf "the unrunnable gate ALSO produced a 'FAIL' line — the two states are merged, which is the whole defect this change closes: $out"
+    && cf "the unrunnable gate ALSO produced a 'FAIL' line — the two states are merged: $out"
   printf '%s\n' "$out" | grep '^UNRUNNABLE  broken' >/dev/null \
     && cf "a genuinely FAILING gate was labelled UNRUNNABLE — the states are merged in the other direction, and a real red now reads as an environment problem: $out"
 
@@ -1438,10 +1314,8 @@ case_verify_unrunnable_vs_fail() {
 # =============================================================================
 # CASE — verify.sh's EXIT STATUS SEPARATES THE TWO REDS, as its summary does.
 #
-# It printed UNRUNNABLE and FAIL on different lines and counted them apart, then exited 1
-# for both — so every caller that reads the status (the landing script's post-merge check
-# is one) could not tell "your tree is broken" from "this gate could not start" without
-# parsing the summary's prose. The status now says it too:
+# Callers that read the status (the landing script's post-merge check is one) must tell
+# "your tree is broken" from "this gate could not start" without parsing prose:
 #   0  every gate that ran passed and none was unrunnable;
 #   1  at least one gate FAILED — whatever else happened (a measured failure dominates);
 #   3  nothing failed, and at least one gate COULD NOT RUN — an unknown, still red.
