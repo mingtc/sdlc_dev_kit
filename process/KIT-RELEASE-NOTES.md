@@ -756,6 +756,11 @@ columns and never the cards.*
   chunk written and `progress.md` rewritten with no index row (the header-less case silently). Both now refuse first.
   **If you hit it:** add the chunk's row to `INDEX.md` by hand, or restore both from git and re-run.
 
+- **`kit-init --roles` refuses a role set it cannot stamp.** `&` was silently mis-stamped (`PM|A&B` became `PM|APM|…|ArchitectB`),
+  `@` stopped kit-init half-way with files rewritten, and a quote broke the commit-msg hook. It now refuses before writing
+  unless the set is letter-led alphanumeric names joined by `|`. **If you initialized with such a set,** check
+  `ROLE_PREFIXES` in `scripts/githooks/commit-msg`.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

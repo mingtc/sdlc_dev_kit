@@ -482,6 +482,39 @@ case_kit_init_repairs_hook_mode() {
 }
 
 # =============================================================================
+# CASE — kit-init --roles refuses a set it cannot stamp, and writes nothing
+#
+# The set goes into a sed replacement and a single-quoted shell line. Measured before the
+# guard: '&' stamped ROLE_PREFIXES='PM|APM|Dev|…|ArchitectB' and exited 0; '@' killed the sed
+# with the tree half-stamped; a quote broke the commit-msg hook. The control stamps.
+# =============================================================================
+case_kit_init_roles_refuses_what_it_cannot_stamp() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init --roles: refuses what it cannot stamp" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init --roles: refuses what it cannot stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local head set out rc
+  # A fresh sandbox per value: an accepted one publishes, and would make the next look lived.
+  for set in 'PM|A&B' 'PM|Dev@X' "PM|O'Brien" 'PM||Dev' 'PM|Dev QA' 'PM|9ers'; do
+    kit_init_sandbox
+    publish_sandbox
+    head="$(git -C "$SB_WORK" rev-parse HEAD)"
+    rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$set" 2>&1)" || rc=$?
+    [ "$rc" -ne 0 ] || cf "'$set' was accepted: $(grep '^ROLE_PREFIXES' "$SB_WORK/scripts/githooks/commit-msg")"
+    printf '%s' "$out" | grep -F -- "--roles '$set'" >/dev/null || cf "'$set': the refusal does not name the value: $(printf '%s' "$out" | grep -m2 -E 'sed:|•' | tr '\n' '|' | cut -c1-160)"
+    [ -z "$(git -C "$SB_WORK" status --porcelain)" ] && [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head" ] \
+      || cf "'$set': the refused run wrote to the tree"
+    teardown
+  done
+  kit_init_sandbox
+  publish_sandbox
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles 'PM|Dev|QA' 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) --roles 'PM|Dev|QA' was refused (rc=$rc): $(printf '%s' "$out" | grep -m2 '•' | tr '\n' '|')"
+  grep -qxF "ROLE_PREFIXES='PM|Dev|QA'" "$SB_WORK/scripts/githooks/commit-msg" || cf "(control) the set was not stamped"
+  finish "kit-init --roles: a set with a character or a name shape it cannot stamp is refused by value before anything is written, and a plain set still stamps"
+  teardown
+}
+
+# =============================================================================
 # CASE — kit-init --roles LEAVES NO SEAM BEHIND.
 #
 # The seam list is derived; this case makes its completeness assertable. A missed seam gives a

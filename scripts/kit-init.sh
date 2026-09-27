@@ -126,7 +126,8 @@ Options:
                       without saying so. It is not rewritten for you.
   --prd-prefix <P>    PRD id prefix (default: left as config.sh has it).
   --roles "A|B|C"     Your role set, as the ERE alternation the commit-msg hook
-                      enforces. Stamped into every script seam that ENFORCES it —
+                      enforces: names of letters and digits, each starting with a
+                      letter. Stamped into every script seam that ENFORCES it —
                       the seams are DERIVED at run time, not listed here, and the
                       run prints the ones it stamped. process/EXTRACTION.md § 2.4
                       is where the register lives. Default: left as copied.
@@ -282,6 +283,17 @@ fi
 # (`[A-Za-z0-9]+`) from it, so a prefix outside that class makes them silently miss PRD ids.
 if [ -n "$PRD_PREFIX_NEW" ] && ! printf '%s' "$PRD_PREFIX_NEW" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prd-prefix '$PRD_PREFIX_NEW' must be alphanumeric and start with a letter (it becomes ${PRD_PREFIX_NEW}-001-<slug>.md, and the hygiene instruments derive their id pattern from it)."
+fi
+# AND FOR --roles, which is stamped through a sed replacement into single-quoted shell lines:
+# '&', '@' and a quote each mis-stamp or break a seam.
+if [ -n "$ROLES_NEW" ] && ! printf '%s' "$ROLES_NEW" | grep -qE '^[A-Za-z][A-Za-z0-9]*(\|[A-Za-z][A-Za-z0-9]*)*$'; then
+  _r_ok="${ROLES_NEW%%[!A-Za-z0-9|]*}"
+  if [ "${#_r_ok}" -lt "${#ROLES_NEW}" ]; then
+    _r_why="'${ROLES_NEW:${#_r_ok}:1}' at position $(( ${#_r_ok} + 1 )) is not allowed"
+  else
+    _r_why="a name is empty or starts with a digit"
+  fi
+  pf "--roles '$ROLES_NEW' — $_r_why: the set is role names joined by '|', each alphanumeric and starting with a letter."
 fi
 
 # --- the copy-list minimum ---
