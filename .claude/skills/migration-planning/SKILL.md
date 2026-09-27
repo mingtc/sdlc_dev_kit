@@ -51,7 +51,7 @@ Three buckets:
 | Classification | Definition | Migration needed? |
 | --- | --- | --- |
 | **Internal** | Used only within one module / file. Nothing outside knows about it. | No. Free rename. |
-| **Project-internal cross-module** | Used by multiple modules inside this repo. Not exposed outside. | Atomic: rename + update all callers in one PR. Compiler / test suite catches mistakes. |
+| **Project-internal cross-module** | Used by multiple modules inside this repo. Not exposed outside. | Atomic: rename + update all callers in one change. Compiler / test suite catches mistakes. |
 | **Project-external** | Consumed outside this repo (other repos, external API clients, end users, scripts, bookmarks). | Yes. Plan a coexistence → deprecation → sunset sequence. |
 
 To classify: grep for usage. If grep returns only the target module, it's Internal. If grep returns multiple modules in this repo but nothing in other repos / external callers, it's Project-internal cross-module. If callers exist outside the repo's control, it's Project-external.
@@ -88,7 +88,7 @@ State the sunset date or version explicitly: "Sunset planned for v1.4 / 2026-08-
 
 ### Step 3 — Sunset
 
-Old name removed. This is a separate PR, often in a separate milestone. Caller responsibility to have migrated by now.
+Old name removed. This is a separate change, often in a separate milestone. Caller responsibility to have migrated by now.
 
 Before sunsetting:
 
@@ -132,7 +132,7 @@ Add a `Migration Plan` block under the target in the refactor pass doc:
 | Surface item | Classification | Plan |
 | --- | --- | --- |
 | `GET /api/v1/things` → `/api/v1/things-v2` | Project-external | Coexistence (both paths) → deprecation header on old → sunset planned 2026-08-01 |
-| `export type Foo` | Project-internal cross-module | Atomic rename in same PR; update all importers |
+| `export type Foo` | Project-internal cross-module | Atomic rename in the same change; update all importers |
 | `export function helper()` | Internal | Free rename, no migration |
 
 ### Risk Calls

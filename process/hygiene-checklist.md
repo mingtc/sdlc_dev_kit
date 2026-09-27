@@ -13,7 +13,7 @@
 > **The instruments are Python 3, standard library only, and that is a carve-out with a reason.**
 > The kit's floor is git and a POSIX shell; `scripts/hygiene/` is carved out here, as the skill set
 > carves out its Node companion — and it holds because these are **advisory instruments, never a
-> gate** — nothing ships them, no gate calls them,
+> gate** — they run only by hand, no gate calls them,
 > no consumer inherits them, and no dependency enters your project because they exist. **A project
 > that forbids Python deletes the directory and loses only the measurements**: every shape below is
 > stated in prose here, which is what makes each one re-implementable in whatever you already run.

@@ -24,7 +24,7 @@ tool or a forge. Where a skill needs a concrete command it says
 >   (`brainstorming/scripts/server.cjs`) that needs **Node** to run. It is **opt-in per
 >   question** — the skill works fully without it, and declining the companion costs you nothing.
 > - The hygiene instruments under `scripts/hygiene/` are **Python 3, standard library only**, and
->   are **advisory, never a gate**: nothing ships them, no gate calls them, and
+>   are **advisory, never a gate**: they run only by hand, no gate calls them, and
 >   `process/hygiene-checklist.md` states every shape they look for in prose, so deleting the
 >   directory costs only the measurements.
 >
@@ -127,8 +127,8 @@ QA's discipline in this kit is **not** packaged as a skill, and that is delibera
   **adapter**, because only the project knows what it is.
 
 A project that grows a rendered surface will want web-QA skills (accessibility audit, visual
-regression). **The kit ships none** — source or author them, then add them to the table above
-and to the QA role doc's skill list in the same change.
+regression). **The kit ships none** — source or author them, then give QA a table under § Roles & skill
+inventory and add them to the QA role doc's skill list, in the same change.
 
 ### Refactorer — Code Health
 
@@ -157,13 +157,12 @@ polish, microcopy review, and whatever rendered-surface engine the project adopt
 **intentionally absent** from this kit: a UI skill set that has no UI to look at is dead
 weight that still shows up in every session's skill menu.
 
-Waking that role means: source or author its skills into this directory, list them in the
-table above, replace the role doc's **PARKED** banner, and register the role in the adapter's
+Waking that role means: source or author its skills into this directory, give the role a
+table under § Roles & skill inventory, replace the role doc's **PARKED** banner, and register the role in the adapter's
 role table — all in the same change, so the kit never advertises a skill it does not carry.
 **That list is the paperwork, not the work.** The role doc's own § What this role needs before
 it can be woken says waking it "is a real piece of work, not a banner removal"; believe that
-sheet over this line. (This line said "remove the DORMANT banner" — a banner the doc does not
-carry, prescribing the exact act that doc calls insufficient.)
+sheet over this line.
 
 ## How to invoke a skill
 
@@ -219,15 +218,11 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | PM | **Authored for this kit** (`write-spec`, `product-brainstorming`) | Same as this repo | `KIT` |
 | Refactorer | Authored for this kit | Same as this repo | `KIT` |
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
-| `finishing-a-development-branch` | Dev set, upstream | `<fill in>` | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
+| `finishing-a-development-branch` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
-**THE ORIGIN COLUMN IS THE KIT'S OWN RECORD, NOT A BLANK FOR YOU.** Two of these rows read
-`<fill in>` until 2026-09-07, in the table whose opening sentence is *"a skill whose origin nobody
-can name is a skill nobody can safely update"* — **so the document whose entire job is provenance was
-the one document that did not carry it.** The answers were never unknown; they were recorded in the
-kit's own change history and nowhere a reader of this table would look. **The only row here you fill
-is the last one**, the shape row for a skill of yours that departs from its set.
+**THE ORIGIN COLUMN IS THE KIT'S OWN RECORD, NOT A BLANK FOR YOU. The only row here you fill is the
+last one**, the shape row for a skill of yours that departs from its set.
 
 **A `<fill in>` that survives into a shipped table is worth suspecting generally:** it means either
 nobody knew, or nobody moved the answer to where it is looked up, and those want opposite fixes.
@@ -242,8 +237,9 @@ command to a named example — the setup commands in `using-git-worktrees`, the 
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
 it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
 has repaired citations, `using-git-worktrees` gained an external-directory note, and
-`brainstorming`'s visual companion is opt-in machinery this kit added. **Read every diff hunk
-on its own** — the class below is the one that is easiest to mistake for drift, not the only
+`writing-plans` saves plans under the kit's id-keyed name. (`brainstorming`'s visual companion is
+upstream's; the kit only declares it an opt-in extra above the floor.) **Read every diff hunk on its
+own** — that class is the one that is easiest to mistake for drift, not the only
 one you will meet. A re-copy that restores the single-command form has not updated the
 skill, it has re-narrowed it, and it breaks the claim this file opens with: *nothing here assumes a
 language, a test runner, a build tool or a forge.* Carry the upstream's substance into the local

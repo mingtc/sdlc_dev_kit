@@ -91,7 +91,7 @@ expressed in that file's own terms, not abandoned.*
 
 **A carve-out to the FLOOR, stated here because this is where the rule lives.** The kit assumes **git and a
 POSIX shell** — and `scripts/hygiene/` is **Python 3, standard library only**. Those files are
-**advisory instruments, never a gate**: nothing ships them, no gate calls them, no consumer inherits
+**advisory instruments, never a gate**: they run only by hand, no gate calls them, no consumer inherits
 them, and **a project that forbids Python deletes the directory and loses only the measurements** —
 [`hygiene-checklist.md`](hygiene-checklist.md) states every shape in prose, so each one is
 re-implementable in whatever the project already runs. Say so in the adapter if your project forbids

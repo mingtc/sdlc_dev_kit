@@ -277,10 +277,7 @@ main checkout's directory writes nothing. In any of those, carry an absolute `KI
 every brief the same way as the id, and grep there. A zero means the id is not arriving — or the
 record is not where you looked.
 
-*Measured 2026-09-26 on one agent harness, with a sentinel variable read by a dispatched sub-agent's
-own shell.* The launch environment and a settings `env` block, both `settings.json` and
-`settings.local.json`, reached the sub-agent. An `export` reached neither the same agent's next
-command nor the sub-agent. **Unmeasured:**
+*The harness above was measured 2026-09-26.* **Not measured:**
 - worktree-isolated agents and remote agents;
 - whether a settings edit made mid-session takes effect;
 - how any other harness behaves.

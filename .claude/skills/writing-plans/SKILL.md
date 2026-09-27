@@ -15,7 +15,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** If working in an isolated worktree, it should have been created via the `using-git-worktrees` skill at execution time.
 
-**Save plans to:** `dev/plans/YYYY-MM-DD-<feature-name>.md`
+**Save plans to:** `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`
 - (User preferences for plan location override this default)
 
 ## Scope Check

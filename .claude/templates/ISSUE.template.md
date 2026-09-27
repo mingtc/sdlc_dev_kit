@@ -85,7 +85,7 @@ What this issue does **not** touch — derived from the PRD's Non-Goals plus any
 Filled in by Dev. Empty when PM hands off.
 
 - Engineering design (from [brainstorming](../../.claude/skills/brainstorming/)): `dev/specs/<date>-<topic>-design.md`
-- Plan (from [writing-plans](../../.claude/skills/writing-plans/)): `dev/plans/<date>-<slug>.md`
+- Plan (from [writing-plans](../../.claude/skills/writing-plans/)): `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`
 
 ## Activity
 

@@ -126,10 +126,10 @@ Each numbered move is one commit. Each commit message names the Fowler primitive
 - **Vertical** — one module / module-cluster, multiple moves. Typical case. Default when uncertain.
 - **Horizontal** — one rule applied across many files. Examples: rename a convention everywhere, replace all `console.log` calls with a logger, switch a type alias across the repo.
 
-Either fits as one kanban issue / one PR. The commit pattern differs:
+Either fits as one kanban issue / one work branch. The commit pattern differs:
 
-- **Vertical PR:** commits ordered by the move sequence (one Fowler move per commit).
-- **Horizontal PR:** commits grouped by directory or rule scope, with each commit named for the rule application (e.g. `Rename old_helper → new_helper across src/<module>/`).
+- **Vertical:** commits ordered by the move sequence (one Fowler move per commit).
+- **Horizontal:** commits grouped by directory or rule scope, with each commit named for the rule application (e.g. `Rename old_helper → new_helper across src/<module>/`).
 
 Don't mix vertical and horizontal in one issue. Split them.
 

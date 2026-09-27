@@ -22,7 +22,7 @@ Use at the start of every refactor pass, typically:
 
 **Don't use when:**
 
-- You're mid-feature and want a "while I'm here" cleanup — that belongs in the feature PR if trivial, or as a follow-up issue if not
+- You're mid-feature and want a "while I'm here" cleanup — that belongs in the feature's own work branch if trivial, or as a follow-up issue if not
 - The codebase is brand-new — there isn't enough surface area for an audit to be meaningful yet
 - You audited recently and nothing has changed structurally — re-audit when new work has landed, not on a clock
 
@@ -69,10 +69,9 @@ If PROJECT.md declares the stack, recommend the matching deterministic tools. Ex
 
 **BEFORE YOU BELIEVE A TOOL'S OUTPUT, PROVE IT SAW THE SUBJECT.** Every tool above has an
 exclusion list, a default glob and a config file, and **a scan that reached none of your code
-reports clean** — indistinguishable, in the output pane, from a codebase with no smells. Measured at
-an adopter: a hygiene scanner reported a clean pass over 28 Python modules because `src/` sat in its
-own excluded list and it globbed `.md`; a literal reading of this skill would have buried that
-audit's two highest-priority findings.
+reports clean** — indistinguishable, in the output pane, from a codebase with no smells. (Measured at an adopter:
+a scanner whose own exclusion list held `src/` reported clean and buried the audit's two
+highest-priority findings.)
 
 So for each tool you run, before recording anything from it:
 
@@ -100,9 +99,7 @@ condition that cannot be taken). Say which, per candidate, with the evidence: th
 current value, the route in.
 
 **A latent defect is not a non-finding — it is a different finding**, and it almost always drops in
-priority, because the pain it is scored on is not being paid. Measured at an adopter in a controlled
-two-arm comparison: an auditor that asked this question changed **three of its four** answers
-against one that did not, and all three were latent rather than live.
+priority, because the pain it is scored on is not being paid.
 
 *Neither axis below asks this. "Likelihood-of-future-pain" is about how often the area is TOUCHED;
 a defect can sit in a hot file and still be unreachable.*

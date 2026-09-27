@@ -50,9 +50,7 @@ git tag "refactor-baseline-$(date -u +%Y%m%dT%H%M%SZ)"
 
 **The timestamp is not decoration.** A date-only tag collides the second time anyone runs this on
 the same day — `git tag` refuses, and the run continues without a revert point, so **the case with
-no safety net is exactly the case where two refactors are in flight at once.** (This kit measured
-the identical failure in its own `scripts/archive-progress.sh`: a second same-day rotation hit "tag
-already exists" and silently skipped its revert-safety tag.) UTC deliberately — this is an instant,
+no safety net is exactly the case where two refactors are in flight at once.** UTC deliberately — this is an instant,
 not a calendar day, and a local clock crossing a DST boundary can hand out the same second twice.
 
 **Record the tag you actually created** in the assessment output; with a timestamp in the name you
@@ -134,10 +132,8 @@ For each gap on Option A:
 2. **Briefly verify the test is real:** temporarily change the production code to break the asserted behavior. The test should fail. Revert.
 3. **Land the test on the trunk BEFORE the refactor branch exists** — as its own small change,
    through whatever route your adapter's code paths require. **In most projects the test tree IS a
-   code path**, so that means its own branch and the landing gate, not a direct-to-trunk commit;
-   this step used to say "commit the test on the default branch", which instructs a Refactorer to
-   push code straight to the trunk and contradicts the code-vs-metadata rule in
-   `process/MANUAL.md`. Check your adapter before choosing the route. Prefix `[Refactorer]`, matching the role tag, and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`.
+   code path**, so that means its own branch and the landing gate, not a direct-to-trunk commit.
+   Check your adapter before choosing the route. Prefix `[Refactorer]`, matching the role tag, and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`.
 
 These tests land *before* the refactor branch is created. They protect the upcoming work.
 
@@ -200,7 +196,7 @@ If you catch yourself:
 | 1. Baseline | Run suite green, tag commit | Baseline tag |
 | 2. Inventory | List tests covering target | Test list |
 | 3. Gap analysis | Compare planned moves to test coverage | Gap list with decisions (A/B/C) |
-| 4. Add chars tests | Write + commit characterization tests | New tests on default branch |
+| 4. Add chars tests | Write characterization tests; land them via their own branch | Tests landed on the trunk |
 | 5. Escalate? | Optional mutation testing for high-stakes only | Defer to optional |
 | 6. Output | Section in refactor pass doc | Verdict + assessment block |
 

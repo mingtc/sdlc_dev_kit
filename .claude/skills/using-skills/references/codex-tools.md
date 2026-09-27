@@ -44,7 +44,7 @@ BRANCH=$(git branch --show-current)
 - `BRANCH` empty → detached HEAD (cannot branch/push/PR from sandbox)
 
 See `using-git-worktrees` Step 0 and `finishing-a-development-branch`
-Step 2 (*Detect Environment* — Step 1 is *Verify Tests* and contains no detection) for how each
+Step 2 (*Detect Environment*) for how each
 skill uses these signals.
 
 ## Codex App Finishing

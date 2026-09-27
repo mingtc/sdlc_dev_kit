@@ -101,13 +101,13 @@ If something appears during tests but you don't know which test:
 Use the bisection script `find-polluter.sh` in this directory:
 
 ```bash
-# The pattern must match your layout: -path matches the WHOLE emitted path, and the script
-# now REFUSES rather than reporting clean if it matches nothing. For a flat
-# src/, use './src/*.test.ts'; for nested, './src/**/*.test.ts'.
-TEST_CMD="npm test --" ./find-polluter.sh '.git' './src/**/*.test.ts'
+# -path matches the WHOLE emitted path (hence the leading ./), and its `*` crosses `/`, so
+# './src/*.test.ts' covers nested directories too.
+TEST_CMD="npm test --" ./find-polluter.sh 'packages/core/.git' './src/*.test.ts'
 ```
 
-Runs tests one-by-one, stops at first polluter. `TEST_CMD` is required — the script refuses
+Runs tests one-by-one, stops at first polluter. It refuses rather than report clean when the
+pattern matches nothing or the path already exists before the first test. `TEST_CMD` is required — the script refuses
 rather than guess your runner. See script for usage.
 
 ## Real Example: Empty projectDir

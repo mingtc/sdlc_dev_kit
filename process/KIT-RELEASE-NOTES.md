@@ -824,6 +824,11 @@ columns and never the cards.*
   `model-provisioning.md` § B.1 says to check whether your spawn tool takes an effort parameter rather than asserting it has
   none; `fix-execution.md` § A.5c states that a bounce never silently escalates model or effort.
 
+- **`systematic-debugging/find-polluter.sh` refuses (exit 2) when the path to check already exists**, instead of skipping every
+  test and printing "all tests clean" (its example was `.git`, which every repository has). Use `'./src/*.test.ts'`: `find -path`'s
+  `*` crosses `/`, and the `**` form skipped tests directly under `src/`. `using-git-worktrees` sets `WORKTREE_DIR` before checking
+  it; `writing-plans` saves to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

@@ -48,7 +48,7 @@ Tests failing (<N> failures). Must fix before completing:
 
 [Show failures]
 
-Cannot proceed with merge/PR until tests pass.
+Cannot hand off until tests pass.
 ```
 
 Stop. Don't proceed to Step 2.
@@ -79,9 +79,7 @@ guessing between `main` and `master`:
 
 ```bash
 # The board's chain, abbreviated: <remote>/HEAD, then init.defaultBranch.
-# TEST THE VALUE, NOT THE EXIT STATUS. This was written with `||`, which binds to the
-# whole PIPELINE — and a pipeline ending in `sed` exits 0 even when symbolic-ref found
-# nothing, so the fallback was unreachable and the answer was an empty string.
+# Test the value, not the exit status: a pipeline ending in sed exits 0.
 trunk="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
 [ -n "$trunk" ] || trunk="$(git config --get init.defaultBranch 2>/dev/null || true)"
 [ -n "$trunk" ] || echo "Trunk unresolved — ask, or run: git remote set-head origin <trunk>" >&2
@@ -185,7 +183,7 @@ WORKTREE_PATH=$(git rev-parse --show-toplevel)
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
-**If worktree path is under `.worktrees/`, `worktrees/`, or `~/.config/superpowers/worktrees/`:** these are the three locations `using-git-worktrees` creates or adopts — the skills own this worktree, so they own the cleanup. (That third path is an external tool's; `using-git-worktrees` § Directory Selection says why it is spelled that way.)
+**If worktree path is under `.worktrees/`, `worktrees/`, `~/.config/superpowers/worktrees/`, or the worktree directory your instructions declare:** these are the locations `using-git-worktrees` creates or adopts — the skills own this worktree, so they own the cleanup. (That third path is an external tool's; `using-git-worktrees` § Directory Selection says why it is spelled that way.)
 
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
@@ -209,7 +207,7 @@ git worktree prune  # Self-healing: clean up any stale registrations
 ## Common Mistakes
 
 **Skipping test verification**
-- **Problem:** Merge broken code, create failing PR
+- **Problem:** Hand off broken code
 - **Fix:** Always verify tests before offering options
 
 **Open-ended questions**
@@ -237,11 +235,11 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 **Cleaning up harness-owned worktrees**
 - **Problem:** Removing a worktree the harness created causes phantom state
-- **Fix:** Only clean up worktrees under `.worktrees/`, `worktrees/`, or `~/.config/superpowers/worktrees/`
+- **Fix:** Only clean up worktrees under `.worktrees/`, `worktrees/`, `~/.config/superpowers/worktrees/`, or the worktree directory your instructions declare
 
 **Orphaned worktree after the work lands**
 - **Problem:** Option 1 — and the project's landing script — deliberately preserve the worktree, and Step 6 cleanup only runs for Option 3. Once the work actually **lands**, nothing tears the worktree down → an empty `.worktrees/<branch>` lingers indefinitely (the lingering-worktree class).
-- **Fix:** After the work handed off via Option 1 has **landed**, return and tear it down: `cd` to the main repo root, then `git worktree remove <path>` + `git worktree prune`. (Orchestrator runs: this is the "Worktrees for merged work cleaned up" line in that role's session-end checklist. The Refactorer's session-end checklist carries no such line — this named both roles and only one has it.)
+- **Fix:** After the work handed off via Option 1 has **landed**, return and tear it down: `cd` to the main repo root, then `git worktree remove <path>` + `git worktree prune`. (Orchestrator runs: this is the "Worktrees for merged work cleaned up" line in that role's session-end checklist.)
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work

@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 # Bisection script to find which test creates unwanted files/state
-# Usage: TEST_CMD=<your single-file test command> ./find-polluter.sh <file_or_dir_to_check> <test_pattern>
-# Example: TEST_CMD="npm test --" ./find-polluter.sh '.git' './src/**/*.test.ts'
+# Usage: TEST_CMD=<your single-file test command> ./find-polluter.sh <path_that_should_not_exist> <test_pattern>
+# Example: TEST_CMD="npm test --" ./find-polluter.sh 'packages/core/.git' './src/*.test.ts'
 #   NOTE THE LEADING './'. `find .` emits paths that begin './', and -path matches the WHOLE
-#   emitted path — so a pattern without it matches nothing. This example omitted it.
-#   THE SCRIPT NOW REFUSES on an empty match rather than reporting success over zero files.
-#   It used to print "Found 1 test files" and a clean tick, because
-#   `echo "$EMPTY" | wc -l` is 1 — an empty capture reads as one line. The kit forbids that
-#   shape in terms: skills/refactor-audit/SKILL.md says "0 findings over 0 files" and
-#   "0 findings over 28 files" are different results.
+#   emitted path — so a pattern without it matches nothing. In -path, `*` also crosses `/`, so
+#   './src/*.test.ts' already covers nested directories ('./src/**/*.test.ts' would skip src/ itself).
+# The path must not exist when the run starts, and the script refuses on zero matched test files:
+#   either way a "clean" would be a verdict over tests that never ran.
 # TEST_CMD is REQUIRED and has no default: the script refuses rather than guess your runner.
 
 set -e
 
 if [ $# -ne 2 ]; then
-  echo "Usage: $0 <file_to_check> <test_pattern>"
-  echo "Example: $0 '.git' './src/**/*.test.ts'   # the leading ./ is required — see header"
+  echo "Usage: $0 <path_that_should_not_exist> <test_pattern>"
+  echo "Example: $0 'packages/core/.git' './src/*.test.ts'   # the leading ./ is required — see header"
   exit 1
 fi
 
@@ -41,19 +39,20 @@ if [ "${TOTAL:-0}" -eq 0 ]; then
   exit 2
 fi
 
+# A path that already exists cannot be traced to a test: refuse rather than skip every test and
+# still report clean. (After each test the check below exits on pollution, so this is the only
+# point at which it can already be there.)
+if [ -e "$POLLUTION_CHECK" ]; then
+  echo "$POLLUTION_CHECK already exists before any test ran — remove it, or name a path that should not exist" >&2
+  exit 2
+fi
+
 echo "Found $TOTAL test files"
 echo ""
 
 COUNT=0
 for TEST_FILE in $TEST_FILES; do
   COUNT=$((COUNT + 1))
-
-  # Skip if pollution already exists
-  if [ -e "$POLLUTION_CHECK" ]; then
-    echo "⚠️  Pollution already exists before test $COUNT/$TOTAL"
-    echo "   Skipping: $TEST_FILE"
-    continue
-  fi
 
   echo "[$COUNT/$TOTAL] Testing: $TEST_FILE"
 

@@ -230,7 +230,9 @@ Narrow down. Evaluate ideas against what matters.
 
 ### 5. Capture
 
-Document what matters. A brainstorm with no capture is a brainstorm that never happened.
+Document what matters. A brainstorm with no capture is a brainstorm that never happened. Put it in
+the PRD it feeds (Open Questions, Decision Log); a decision that forecloses alternatives also goes in
+`progress.md`.
 
 - Key ideas and why they are interesting
 - Assumptions to test

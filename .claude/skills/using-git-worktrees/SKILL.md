@@ -82,6 +82,9 @@ Follow this priority order. Explicit user preference always beats observed files
 
 4. **If there is no other guidance available**, default to `.worktrees/` at the project root.
 
+Record the choice for the steps below: `WORKTREE_DIR=<the directory chosen>` (for the default,
+`WORKTREE_DIR=.worktrees`).
+
 > One spelling worth knowing about: **`~/.config/superpowers/worktrees/` is an external tool's
 > directory, not one these skills chose.** Directory Selection's third option *adopts* that
 > directory only where it already exists — the external tool or the user created it, never these
@@ -97,15 +100,10 @@ Follow this priority order. Explicit user preference always beats observed files
 **MUST verify directory is ignored before creating worktree:**
 
 ```bash
-# Test the directory § Directory Selection actually CHOSE — not a guess at its name.
-git check-ignore -q "$WORKTREE_DIR"
+# Test the directory § Directory Selection actually CHOSE — not a guess at its name. The trailing
+# slash lets a `dir/` ignore pattern match before the directory exists.
+git check-ignore -q "$WORKTREE_DIR/"
 ```
-
-This was written as `git check-ignore -q .worktrees || git check-ignore -q worktrees`, which asks
-about two hard-coded names and passes if **either** is ignored. Both answers it can give are wrong
-in a real tree: where `.worktrees/` is ignored and the chosen directory is `worktrees/`, the `||`
-short-circuits on the first and reports the second safe when it is not — which is precisely the
-commit-your-worktree accident this step exists to prevent.
 
 **If NOT ignored:** Add to .gitignore, commit the change, then proceed.
 
@@ -119,7 +117,7 @@ Global directories (`~/.config/superpowers/worktrees/`) need no verification.
 project=$(basename "$(git rev-parse --show-toplevel)")
 
 # Determine path based on chosen location
-# For project-local: path="$LOCATION/$BRANCH_NAME"
+# For project-local: path="$WORKTREE_DIR/$BRANCH_NAME"
 # For global: path="~/.config/superpowers/worktrees/$project/$BRANCH_NAME"
 
 git worktree add "$path" -b "$BRANCH_NAME"
@@ -206,7 +204,7 @@ Ready to implement <feature-name>
 ### Assuming directory location
 
 - **Problem:** Creates inconsistency, violates project conventions
-- **Fix:** Follow the priority order in § Directory Selection — **instruction-file preference > existing project-local > existing global > default**. *(This line used to read `existing > global legacy > instruction file > default`, which is that order backwards and contradicted the section it points at: "Explicit user preference always beats observed filesystem state.")*
+- **Fix:** Follow the priority order in § Directory Selection — **instruction-file preference > existing project-local > existing global > default**.
 
 ### Proceeding with failing tests
 

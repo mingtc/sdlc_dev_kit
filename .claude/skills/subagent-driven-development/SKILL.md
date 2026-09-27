@@ -211,7 +211,7 @@ Done!
 - Subagent can ask questions (before AND during work)
 
 **vs. Executing Plans:**
-- Same session (no handoff)
+- Fresh context per task (executing-plans accumulates every task in one context)
 - Continuous progress (no waiting)
 - Review checkpoints automatic
 
