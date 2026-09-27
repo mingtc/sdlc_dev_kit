@@ -7,26 +7,14 @@
 > deferral nobody ever made: the next audit rediscovers it at full price, or worse, someone
 > silently does it inside unrelated work.
 >
-> **WHAT SENDS WORK HERE — the half this file used to leave to judgement.** The rule above says what
-> the queue is *for*. It never said what earns a **row** instead of a **card**, and a queue you have
-> to be in the right mood to use is a queue nobody uses. The test, and it came from a stakeholder
-> rather than from a process:
+> **What earns a row instead of a card:**
 >
 > > **An item nobody will be wrong because of is a queue entry, not a card.**
 >
 > **A process cannot apply that test on its own — it needs someone who knows what *wrong* costs, so
-> the last step is to go and ask.** That is why this file's own discipline was never enough to get it
-> used: a disciplined team keeps minting cards, each one honestly justified by the previous review's
-> genuine finding, and what is missing is not rigour but a **stopping rule**. The person holding the
-> queue usually cannot authorise the deferral, and nothing until now told them whose call it was.
->
-> *Measured, and the shape of it is the argument: this file shipped through an entire adoption
-> unused — beside a self-generating audit backlog whose own author had already noticed it was not
-> shrinking — until the stakeholder supplied that one sentence. The first row was written within the
-> hour, with a wake condition, against a card minted an hour earlier. **The mechanism was never what
-> was missing.*** The adopter's own diagnosis, which is the cleanest statement of the gap: *"each of
-> those cards came out of the previous one's review finding something real, which is a good reason to
-> write the next one and a bad reason to keep writing them forever."*
+> the last step is to go and ask.** A disciplined team lacks not rigour but a **stopping rule**: a
+> card justified by the previous review's genuine finding is a good reason to write the next one and
+> a bad reason to keep writing them forever.
 
 > **Three clauses bind every row:**
 >
@@ -82,22 +70,12 @@ first, accept any `open…` prefix, and let a trailing `Status:` declaration win
 opening words. **Then reconcile against a second instrument.** A naive `grep -c "| open |"`
 under-reported one adopter's queue by 8 rows of 37.
 
-*This section exists because an adopter shipped this file's discipline and measured what enforced
-it: `grep -rln "downtime-queue"` over their whole tree returned exactly one file, the prose that
-institutes it. **At that time** no script read the queue, no test read it, and no role doc named it
-at landing — and it bit twice in one week, both times as silence (reported by an adopter whose queue
-had a row reading open for a cure already on the trunk). **That measurement stands and is the reason
-for everything above; its conclusion no longer holds, and only the conclusion is superseded.***
-
-**A READER EXISTS NOW, AND THIS IS WHERE IT IS NAMED.** `scripts/check-board.sh` reads this file —
-the path is a seam, `DQ_FILE`, so an adopter may point it elsewhere — and reports a row claiming to
-be open against an item that has already landed. **It reports only and never changes the board
-verdict**, for the reason [`../process/contracts/drift-report.md`](../process/contracts/drift-report.md)
-§ 2 states: the queue holds work deliberately not being done, so a deciding finding would hold a
-release gate shut on a decision to defer. *The back-pointer is the point of this paragraph.* A rule
-whose enforcement is real and unnamed reads, to the next person editing either side, exactly like a
-rule with no enforcement at all — which is the state the measurement above describes and this
-sentence ends. **Edit the classification rules above and that arm is what you are changing.**
+**The reader.** `scripts/check-board.sh` reads this file — the path is a seam, `DQ_FILE` — and
+reports a row claiming to be open against an item that has already landed. **It reports only and
+never changes the board verdict** ([`../process/contracts/drift-report.md`](../process/contracts/drift-report.md)
+§ 2): the queue holds work deliberately not being done, so a deciding finding would hold a release
+gate shut on a decision to defer. **Edit the classification rules above and that arm is what you are
+changing.**
 
 ## The queue
 

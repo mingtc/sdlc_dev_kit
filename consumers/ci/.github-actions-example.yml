@@ -59,10 +59,7 @@ jobs:
           set -uo pipefail
           # --check prints exactly ONE verdict line on stdout
           # (UP TO DATE / UPDATE AVAILABLE / AHEAD); all narration is on stderr.
-          # `sed -n '1p'`, NOT `head -1`: under `set -o pipefail` a reader that exits on
-          # the first line makes the producer die of SIGPIPE, and that death — not the
-          # verdict — becomes the pipeline's status. sed reads to EOF and yields the same
-          # line. The step ends `exit 0` regardless, but the variable would be empty.
+          # `sed -n '1p'`, NOT `head -1`: sed reads to EOF, so the producer never dies of SIGPIPE.
           verdict="$(bash scripts/update_vendored.sh --check | sed -n '1p')"
           printf '%s\n' "$verdict"
           printf '%s\n' "$verdict" >> "$GITHUB_STEP_SUMMARY"

@@ -20,8 +20,8 @@ are amending — say what changed and why.
 
 ## Provisioning contract
 
-Opus **high** is the set default above, per `.claude/roles/pm.md` § "Model & effort contract":
-minting is `high` because a wrong AC is paid for downstream by every Dev and QA worker that
+Opus **high** is the seed default (the frontmatter above); `.claude/roles/pm.md` § "Model & effort
+contract" is filled to match it. Minting is `high` because a wrong AC is paid for downstream by every Dev and QA worker that
 reads it. An **XS / mechanical** PM chore (a one-field edit, a board relabel) is the caller's
 call to run on the cheaper model at **high** effort — the model half travels on the spawn
 call, the effort half through

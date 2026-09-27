@@ -22,7 +22,7 @@
 > The pre-cut sweep below is not one of them and is not advisory** — see its own section.
 >
 > **The shapes below travel as a STARTING LIST with their evidence columns blank.** They are not
-> your findings; they are the six shapes that have actually been found in a real repository, kept
+> your findings; they are the shapes that have actually been found in a real repository, kept
 > because a starting list you can refute is worth more than an empty file. Fill each evidence
 > column with your own measurement, or **retire the row** under ratchet rule 2 with the reason
 > *"not present in this tree, measured `<date>`"*.
@@ -44,8 +44,11 @@ uninstructed lane.
 
 **This file fails no build.** It is not a guard, not a gate, and not a doctrine sheet — the
 doctrine table in [`MANUAL.md`](MANUAL.md) is scoped to `process/doctrine/` and its directory
-listing is its own count, so a row for this file there would falsify that claim. Several files point in — `MANUAL.md`, `EXTRACTION.md`, `contracts/release-ritual.md` and the adapter template among them; derive the set with `grep -rl hygiene-checklist` rather than trusting a count written here, in the file whose own subject is staleness. The pointer named below
-in is from [`doctrine/staleness.md`](doctrine/staleness.md) § D.
+listing is its own count, so a row for this file there would falsify that claim. Several files
+point in — `MANUAL.md`, `EXTRACTION.md`, `contracts/release-ritual.md`,
+[`doctrine/staleness.md`](doctrine/staleness.md) § D and the adapter template among them; derive
+the set with `grep -rl hygiene-checklist` rather than trusting a count written here, in the file
+whose own subject is staleness.
 
 ## The two ratchet rules
 

@@ -52,21 +52,19 @@ Thumbs.db
 
 # ── Logs and scratch ───────────────────────────────────────────────────────
 # EACH ENTRY NAMES ITS PRODUCER, because the header above calls this section real and
-# an entry nothing writes cannot be. `/tmp/` and `/scratch/` were here with none —
-# both root-anchored, and nothing shipped writes either — so they are gone rather than
-# left looking load-bearing.
+# an entry nothing writes cannot be.
 #
 # the progress records: scripts/lib/progress-record.sh appends one TSV per UTC day
 # whenever a shipped script or a board move calls kit_progress. TRANSIENT BY
 # CONSTRUCTION — the library unlinks day files past KIT_PROGRESS_TTL_DAYS (default 2)
-# on every write, and durable insight stays in reports, the card's Activity log and
-# change files. Nobody should ever have to dig through old logs for anything, so a
+# on every write, and durable insight stays in reports and the card's Activity log.
+# Nobody should ever have to dig through old logs for anything, so a
 # record that survives into a commit is the defect, not the convenience.
 .progress-records/
 
 # the brainstorming skill's per-session tree: it writes <root>/.brainstorm/<id>/
-# (content + state, including state/server.log) whenever PROJECT_DIR is set, and only
-# falls back to the system /tmp when it is not.
+# (content + state, including state/server.log) whenever it is started with
+# --project-dir, and only falls back to the system /tmp when it is not.
 .brainstorm/
 *.log
 
@@ -75,7 +73,7 @@ Thumbs.db
 # comment saying WHAT produces it — an unexplained ignore line is indistinguishable
 # from a mistake, and the next reader will not know whether deleting it is safe.
 #
-# Rules that are not obvious (this said "Two" and a third was added below it):
+# Rules that are not obvious:
 #   • Never add a blanket ignore for a data format your project TRACKS on purpose
 #     (a `*.json` catch-all is the classic way to lose a committed fixture or a
 #     package manifest).
@@ -88,11 +86,9 @@ Thumbs.db
 #     makes that text part of the PATTERN: the rule matches nothing, git goes on
 #     reporting the artifact, and nothing anywhere says why. It fails in the quiet
 #     direction. Every real entry above this block already does it correctly.
-#     Verify each line you add with `git check-ignore -q <path>/` — WITH THE TRAILING SLASH
-#     for a directory, and note it answers only for a path that EXISTS; for one not yet
-#     created the bare form returns 1 and tells you nothing. Rather than by
-#     reading it — an ignore rule that matches nothing looks exactly like one that
-#     works.
+#     Verify each line you add with `git check-ignore -q <path>/` (the trailing slash for
+#     a directory: the bare form answers 1 until the directory exists), rather than by
+#     reading it — an ignore rule that matches nothing looks exactly like one that works.
 #
 # <e.g.
 #   # produced by <your build command>

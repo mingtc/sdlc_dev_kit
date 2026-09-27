@@ -21,12 +21,10 @@ and let PM mint it.
 
 ## Provisioning contract
 
-Opus **high** is the set default above, per the `Spike / probe` row of the ladder in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.2 — the
-project's filled copy of which is `.claude/roles/orchestrator.md`'s own ladder table, and the two
-move together in one commit (that file says so). *The path is named rather than the ladder called by
-nickname, because a maintainer editing the ladder finds the pins that depend on it by grepping for
-its path, and a nickname is not greppable.* A probe is
+Opus **high** is the kit's seed default (the frontmatter above); fill the `Spike / probe` row of
+`.claude/roles/orchestrator.md`'s ladder to match it
+([`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.2).
+A probe is
 reasoning-dense and cheap to run once, expensive to run wrong. Effort escalations travel only
 through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's

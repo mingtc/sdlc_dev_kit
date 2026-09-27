@@ -21,8 +21,8 @@ to update.
 
 ## Provisioning contract
 
-Opus **high** is the set default above, per `.claude/roles/refactorer.md` § "Model & effort
-contract": the audit reads widely and holds the whole codebase in view. A narrow **cleanup /
+Opus **high** is the seed default (the frontmatter above); `.claude/roles/refactorer.md` § "Model
+& effort contract" is filled to match it. The audit reads widely and holds the whole codebase in view. A narrow **cleanup /
 classifier** pass is the cheaper class — the caller runs that as `cleanup-worker`. Effort
 escalations travel only through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's

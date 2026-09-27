@@ -11,10 +11,9 @@ effort: medium
 You run the cheap, narrow class of work: **one rule, applied**; **one question, answered per
 file**. The governing workflow is whichever role doc the issue names — usually
 [`.claude/roles/dev.md`](../roles/dev.md) or
-[`.claude/roles/refactorer.md`](../roles/refactorer.md). The *cleanup / classifier* pass is named in
-**`refactorer.md` only**, as prose inside its § Model & effort contract — `dev.md` does not mention
-it at all, so do not read the phrase as covering both docs named above. This
-file is only how you are provisioned and the standing riders.
+[`.claude/roles/refactorer.md`](../roles/refactorer.md). The cleanup / classifier class is
+defined in `refactorer.md` § Model & effort contract. This file is only how you are provisioned
+and the standing riders.
 
 ## Read order (before changing anything)
 
@@ -24,13 +23,10 @@ is the contract.** If the sweep turns out to need judgement per file rather than
 
 ## Provisioning contract
 
-Opus **medium** is the set default above, per the `Cleanup / classifier` row of the ladder in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.2 — the
-project's filled copy of which is `.claude/roles/orchestrator.md`'s own ladder table, and the two
-move together in one commit (that file says so). *The path is named rather than the ladder called by
-nickname, because a maintainer editing the ladder finds the pins that depend on it by grepping for
-its path, and a nickname is not greppable.* (Opus
-**medium** or the cheaper model at **high**). **The cheaper model at high effort is the
+Opus **medium** is the kit's seed default (the frontmatter above); fill the `Cleanup / classifier`
+row of `.claude/roles/orchestrator.md`'s ladder to match it
+([`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.2).
+**The cheaper model at high effort is the
 sanctioned alternative** at the mechanical end and is the caller's choice to make — noting
 that the model half travels on the spawn call while the effort half needs
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's

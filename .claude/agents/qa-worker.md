@@ -21,8 +21,8 @@ unmet AC named.
 
 ## Provisioning contract
 
-Opus **medium** is the default set above, per `.claude/roles/qa.md` § "Model & effort
-contract". **high** is the caller's setting for a `Major` review or a review on a declared
+Opus **medium** is the seed default (the frontmatter above); `.claude/roles/qa.md` § "Model &
+effort contract" is filled to match it. **high** is the caller's setting for a `Major` review or a review on a declared
 risk surface — set through one of the two mechanisms in
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
 (the Workflow tool's per-call `effort`, or the serial frontmatter toggle on this file), never
@@ -45,7 +45,7 @@ tier.
 - **Targeted reads** — the diff and the AC's evidence points, not whole trees.
 - **Never `Read` an image or a binary file, and never screenshot.** Verify a built artifact by
   **hash, size, or listing** (`shasum`, `wc -c`, `tar -tzf`, `unzip -l`). The ban is
-  **permanent** — high-resolution vision costs roughly 3× its old per-image price.
+  **permanent**.
 - Run the gates your brief and the AC name; do not re-run a green suite for reassurance.
 
 ## Output-length calibration

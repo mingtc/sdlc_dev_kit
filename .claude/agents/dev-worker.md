@@ -19,8 +19,8 @@ contract**; anything outside the AC is out of scope for this pickup.
 
 ## Provisioning contract
 
-Opus **medium** is the default set above, per the ladder in
-`.claude/roles/dev.md` § "Model & effort contract". Deviations are the **caller's** to make,
+Opus **medium** is the seed default (the frontmatter above); `.claude/roles/dev.md`
+§ "Model & effort contract" is filled to match it. Deviations are the **caller's** to make,
 never yours to assume — and the caller **cannot set effort on the spawn call** (the spawn tool
 carries `model` only): an escalation reaches you through one of the two mechanisms in
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
@@ -43,8 +43,8 @@ above — fan-out is a coordinator decision (the seat's or the runner's), not yo
 ## Quota-lean discipline
 
 - **Targeted reads.** Read the lines you need, not whole trees.
-- **Never `Read` an image or a binary file, and never screenshot.** High-resolution vision is
-  roughly 3× its old per-image price; the ban is **permanent**. Verify an artifact by **hash,
+- **Never `Read` an image or a binary file, and never screenshot.** The ban is
+  **permanent**. Verify an artifact by **hash,
   size, or listing** (`shasum`, `wc -c`, `tar -tzf`, `unzip -l`) — never by looking at it.
 - No full-suite or repeated-build runs beyond the gates your brief names.
 

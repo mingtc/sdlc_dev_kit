@@ -445,6 +445,9 @@ columns and never the cards.*
   execution obligations; the anchor stamp): compare yours with it and take what you lack. In a register with no entries yet,
   write ids in prose as `D-NN` — the drift report reads a literal id in an entry-less register as a drifted shape.
 
+- **If you set `KWT_REMOTE` or `RELEASE_REMOTE` in `.env`, it was never read.** Only the notification scripts read `.env`; the
+  board and release scripts take these from the environment. Export them in your shell. `.env.example` now says so.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
@@ -468,6 +471,10 @@ columns and never the cards.*
   are marked `reports only`, so `kit-init`'s self-check ignores them. **Nothing to do.**
 
 ### Changed
+
+- **The long-form run report has one home, `dev/launch/`.** `orchestrator.md` sent it to `dev/runs/` while every template put it
+  in `dev/launch/`; the kit no longer ships `dev/runs/`. Records already in yours are yours: index the directory in
+  `dev/README.md` or move them.
 
 - **The card creators fill what they were given:** the H1 carries the minted id, the seed Activity entry is dated, and `--prd`,
   `--discovered-in`, `--pass` and a subtask's parent reach the body; the template's LINKS comment no longer lands in a card.

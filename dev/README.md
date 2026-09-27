@@ -22,12 +22,6 @@ split-out directory it is the directory's**, and that directory's own README ind
 see the split-out rule below, which is an **exception to the granularity, never to the discipline**.
 The rule runs both ways, and a rule enforced in only one direction rots in the other:
 
-*(This sentence used to read "gets exactly one row" — per file, with no exception named — while the
-split-out rule four paragraphs down said the opposite for anything that outgrows a row. Both read as
-binding, and **the more specific one was the one nobody applied**: a directory README ordered
-per-file rows into a section that has no table. Superseded on granularity only; the bidirectional
-argument below is untouched and is the reason either way.)*
-
 1. **Nothing exists here unindexed.** An unindexed file is reachable only by accident of
    cross-citation — and the ones nothing happens to cite are reachable from nowhere at all. A
    directory admitted to the corpus as a single *location* row makes this index the only thing that
@@ -73,7 +67,7 @@ date will be read as current no matter what its first paragraph says.
   report** the pack is stamped SPENT against. Neither is ever deleted; the convention is in
   [`launch/README.md`](launch/README.md).
 
-## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`, `runs/`)
+## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`)
 
 The directories the process writes into **by name**, so that a role doc saying *"output goes to
 `dev/plans/…`"* names somewhere that exists. They ship empty; their members are dated snapshots under
@@ -81,11 +75,7 @@ this file's rules — written once, not maintained, read to learn how something 
 
 <!-- One row each, per the split-out rule above: a row is split into its own README only when it
      needs more than a few lines, and these do not. The filename column IS the convention; the role
-     docs and skills that write these paths SHOULD cite this table rather than restating it.
-     (Aspirational, and stated as such: no ROLE DOC or SKILL routes a reader here. Several
-     TEMPLATES do, and so do the adopter-facing release notes — run `grep -rn dev/README .` and
-     read the list rather than this sentence, which named a narrower set than its own command
-     returned. Do not read this line as a description of the tree.) -->
+     docs and skills that write these paths SHOULD cite this table rather than restating it. -->
 
 | Directory | Written by | Members |
 |---|---|---|
@@ -93,7 +83,6 @@ this file's rules — written once, not maintained, read to learn how something 
 | [`plans/`](plans/) | Dev, from the writing-plans skill | `YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` — the TDD-shaped task list a work item was executed from |
 | [`refactor/`](refactor/) | Refactorer | `YYYY-MM-DD-<scope>-pass.md` — a refactor pass and its targets, cited by the cards it mints |
 | [`design/`](design/) | whoever holds the design hat | `YYYY-MM-DD-<slug>-pass.md` — a design pass |
-| [`runs/`](runs/) | the Orchestrator | `YYYY-MM-DD-<run-slug>.md` — the long-form run record that `progress.md`'s short pointers point at |
 
 **Why they are here and not under `docs/`:** these are *this project's own working records*, and
 [`../docs/README.md`](../docs/README.md) is for material the project did not write — a vendor's API

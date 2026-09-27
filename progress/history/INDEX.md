@@ -15,9 +15,7 @@ whole point: it is the **hook** that tells you whether to open a chunk without o
 **This file exists from day one, and on day one it is correctly empty.** *"No rotations yet"* is a
 real answer; an absent index is not — where chunks already exist the tool REFUSES rather than
 writing a zero-row index that would read as "nothing was ever archived". (With no chunks it creates
-an empty one and says so, because then the empty index is simply true.) A
-newly-created empty index reads as *"nothing was ever archived"* on a project that has archived
-plenty (`archive-sweep.md` § 3).
+an empty one and says so, because then the empty index is simply true — `archive-sweep.md` § 3.)
 
 **A rotated chunk inherits the index trigger.** If a chunk itself grows past the threshold in
 [`../../process/doctrine/lookup-tables.md`](../../process/doctrine/lookup-tables.md) § A.1, it owes

@@ -9,6 +9,7 @@ export const meta = {
 }
 
 // args: { repo, trunk?, remote?, gateCmd?, codePaths?, goldenPaths?, liveRules?, driftRule?,
+//         defaultModel?, defaultEffort?,
 //         issues: [{id, branch, title, devModel, devEffort, qaModel, qaEffort,
 //                   devAgentType?, qaAgentType?, gates?, depends_on?, extraDev?, extraQA?,
 //                   role?, docsPath?, parkable?}] }
@@ -32,12 +33,13 @@ try {
 // ---------------------------------------------------------------------------
 // CFG — the only project-specific values in this file. Override any of them per
 // run via args; the defaults are the kit's, not any one project's. Keep them in
-// sync with scripts/config.sh and the project adapter (CLAUDE.md).
+// sync with the project adapter (CLAUDE.md), scripts/verify.sh and KWT_REMOTE.
 // ---------------------------------------------------------------------------
 const CFG = {
   repo:        ARGS.repo,                                  // REQUIRED: absolute path to the repo
   trunk:       ARGS.trunk       || 'main',                  // the single trunk branch
   // Branches are cut from <remote>/<trunk>, never the local trunk, which may be stale.
+  // The runners do not read KWT_REMOTE: pass `remote` to match it on a fork.
   remote:      ARGS.remote      || 'origin',                // the remote whose trunk a branch is cut from
   gateCmd:     ARGS.gateCmd     || './scripts/verify.sh',   // the one-shot gate runner
   // The paths that count as CODE (must go through a work branch). Prose, not globs —
@@ -54,7 +56,8 @@ const CFG = {
   // manifest) and so has no goldenPaths to name. Prose, not a command: the brief must not tell
   // an agent to execute project-supplied text.
   driftRule:   ARGS.driftRule   || '',
-  // Provisioning defaults: one project's ratified ladder (process/doctrine/model-provisioning.md).
+  // Provisioning defaults: the kit's seed, matching the .claude/agents/ pins; replace with your
+  // ratified ladder (process/doctrine/model-provisioning.md § B.2).
   defaultModel:  ARGS.defaultModel  || 'opus',
   defaultEffort: ARGS.defaultEffort || 'medium',
 }

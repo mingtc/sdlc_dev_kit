@@ -77,12 +77,8 @@ to be in — which is not the same directory for a linked worktree as for the ma
 remote what its own HEAD is*, and a freshly created bare repository has none — it fails with
 `Cannot determine remote HEAD`.
 
-**Step 1's `symbolic-ref` line is NOT interchangeable with step 4, and the order is why** — which
-is why the recipe now does both. Setting the bare side's HEAD *at creation* is the safer form.
-*(It used to be offered here as an alternative to step 4, and README § Day one's recipe did not
-use it; an adopter following that recipe verbatim got a bare repository whose HEAD named git's
-default branch, and a `git clone` of it that warned* "remote HEAD refers to nonexistent ref" *and
-checked out nothing — reproduced 2026-09-26.)*
+**Step 1's `symbolic-ref` line is NOT interchangeable with step 4, and the order is why.** Setting
+the bare side's HEAD *at creation* is the safer form.
 
 *Measured:* a freshly created bare repository's HEAD points at git's own default branch name,
 which your first push may never create. Run against that, `git remote set-head <remote>
@@ -255,7 +251,7 @@ not a work problem.**
 
 - **Closes become verified land-ready branches with recorded verdicts.** The reviewer does the
   full review, runs every gate, and records the verdict in the issue file's Activity log as a
-  distinct close state — `LAND-READY` (the donor spelled it `PASS_LAND_READY`) — meaning
+  distinct close state — `LAND_READY` (process/MANUAL.md § The RUN-OUTCOME vocabulary) — meaning
   *reviewed, gates green, not landed*. The verdict is a real close; only the merge is deferred.
 - **State the regime at preflight and re-check between issues.** Which regime a run is in changes
   what "done" means, so it belongs in the run's standing facts and in the between-leg readings.

@@ -189,8 +189,8 @@ instead of picking one by sort order — because picking wrong means a healthy c
 the one your manifest pins, and re-run.
 
 **What a refresh leaves in `./vendor/`.** The artifact plus one copy of each release document
-the project ships, all refreshed on every run and all taken from the tag you vendored, so they
-always describe the artifact sitting next to them:
+the project ships, all refreshed on every run and all taken from the tag you vendored, so after a
+successful run they describe the artifact sitting next to them:
 
 | In `./vendor/` | What it is |
 |----------------|------------|
@@ -233,7 +233,7 @@ plus the vendored documents are the whole contract.
 
 ## For maintainers: the seams you must fill
 
-In [`update_vendored.sh`](update_vendored.sh) (one block at the top, plus three functions):
+In [`update_vendored.sh`](update_vendored.sh) (one block at the top, plus the seam functions below):
 
 | Seam | What it is |
 |---|---|
@@ -260,5 +260,4 @@ env) and gets contract smoke checks — syntax, a working `--help`, and `--check
 report-only. **Consumers never run this**; it is the kit maintainer's gate. The DEEP scenario
 matrix (the three verdicts, the multi-artifact refusal, the reachable no-artifact failure) is
 per-project by nature — the artifacts it must fabricate are the project's — and belongs in the
-distributing project's own test surface; `process/doctrine/distribution.md` § worked example
-describes the donor's version of exactly that matrix.
+distributing project's own test surface.

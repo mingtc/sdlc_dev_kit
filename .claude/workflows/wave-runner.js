@@ -8,6 +8,11 @@ export const meta = {
   ],
 }
 
+// args: { repo, trunk?, remote?, gateCmd?, setupCmd?, codePaths?, goldenPaths?, secretsFile?,
+//         liveRules?, driftRule?, defaultModel?, defaultEffort?, wave1: [...], wave2: [...] }
+// Each issue takes tranche-runner.js's per-issue fields plus worktreeMode, phase, restartNote.
+// The parse error below points at meta.description, which names only the waves; this is the full shape.
+
 // issue.docsPath — as in tranche-runner.js: true for a docs/process-lite issue with no work
 // branch (direct-to-trunk). Such an issue reports `landing: not_applicable`.
 
@@ -23,11 +28,12 @@ try {
 // ---------------------------------------------------------------------------
 // CFG — the only project-specific values in this file. Override any of them per
 // run via args; the defaults are the kit's, not any one project's. Keep them in
-// sync with scripts/config.sh and the project adapter (CLAUDE.md).
+// sync with the project adapter (CLAUDE.md), scripts/verify.sh and KWT_REMOTE.
 // ---------------------------------------------------------------------------
 const CFG = {
   repo:        ARGS.repo,                                   // REQUIRED: absolute path to the main repo
   trunk:       ARGS.trunk       || 'main',
+  // The runners do not read KWT_REMOTE: pass `remote` to match it on a fork.
   remote:      ARGS.remote      || 'origin',
   gateCmd:     ARGS.gateCmd     || './scripts/verify.sh',
   setupCmd:    ARGS.setupCmd    || './setup.sh',            // worktree bootstrap, if the project has one
@@ -42,7 +48,8 @@ const CFG = {
   // manifest) and so has no goldenPaths to name. Prose, not a command: the brief must not tell
   // an agent to execute project-supplied text.
   driftRule:   ARGS.driftRule   || '',
-  // Provisioning defaults: one project's ratified ladder (process/doctrine/model-provisioning.md).
+  // Provisioning defaults: the kit's seed, matching the .claude/agents/ pins; replace with your
+  // ratified ladder (process/doctrine/model-provisioning.md § B.2).
   defaultModel:  ARGS.defaultModel  || 'opus',
   defaultEffort: ARGS.defaultEffort || 'medium',
 }

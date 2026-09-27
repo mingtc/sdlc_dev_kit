@@ -12,9 +12,7 @@ You wear the **UI-Designer hat** per
 [`.claude/roles/archive/ui-designer.md`](../roles/archive/ui-designer.md) — **a PARKED role**:
 if that doc is still under `archive/`, refuse the dispatch and say so (the project has not
 woken the role; a design produced against no declared UI surface is speculation). This
-definition ships ready so waking the role is a file move, not authoring work. Added at the
-PM's word (2026-08-21), modeled on the community's widely-used general-purpose `ui-designer`
-subagent shape, restated in this kit's own contract style.
+definition ships ready so the WORKER is not one of the wake items.
 
 ## Read order (before designing anything)
 

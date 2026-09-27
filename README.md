@@ -153,7 +153,7 @@ without one.
   directory reachable from exactly one row in
   [`dev/README.md`](dev/README.md). No file in `dev/` is a living plan except the newest handoff.
   It also holds the directories the process writes into by name — `specs/`, `plans/`, `refactor/`,
-  `design/`, `runs/` — so a role doc's stated output path lands somewhere that exists.
+  `design/`, `launch/` — so a role doc's stated output path lands somewhere that exists.
 - [`docs/`](docs/) — reference material **this project did not write**: a vendor's API guide, a spec
   somebody else owns, an artifact produced to leave the project. Not the working records of building
   — those are `dev/`'s, and [`docs/README.md`](docs/README.md) states the test that tells them apart.

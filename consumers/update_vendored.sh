@@ -47,8 +47,8 @@
 # VENDORED_NO_DIST=1 to skip the fast path entirely.
 #
 # WHAT LANDS IN ./vendor/ (all of it refreshed on every run, all of it sourced
-# from the checked-out tag, so it always describes the artifact sitting next to
-# it):
+# from the checked-out tag, so after a successful run it describes the artifact
+# sitting next to it):
 #   • the artifact you pin (exactly ONE — see vendored_version() on why more is
 #     a refusal rather than a guess)
 #   • one dropped copy per entry in RELEASE_DOCS — the release documents your

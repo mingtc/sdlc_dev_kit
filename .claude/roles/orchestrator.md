@@ -44,7 +44,7 @@ ships blank and is not ratified until they do it.** *An unratified ladder is a h
 | **Orchestrator** (this role) | `<fill in>` | `<fill in>` |
 | **Refactorer** | `<fill in>` | `<fill in>` |
 | **PM-hat mint** | `<fill in>` | `<fill in>` |
-| **Spike / probe** | `<fill in>` | `<fill in>` |
+| **Spike / probe** (`spike-worker`) | `<fill in>` | `<fill in>` |
 | **Dev** | `<fill in>` | `<fill in>` default; higher for risk-surface / genuinely hard work; the top tier **only by PM sign-off** |
 | **QA** | `<fill in>` | `<fill in>` default; higher for `Major` / risk-surface reviews |
 | **XS / mechanical (any role)** | `<fill in — the cheaper model>` | `<fill in>` |
@@ -619,7 +619,7 @@ the bullet blank.
       line per issue reviewed.
 - [ ] The run report lists: merged, parked-for-your-call, bugs filed, todos/new-scope
       surfaced for PM, and the conductor's-belt readings. Long-form report →
-      `dev/runs/<date>-<run-slug>.md`; the `progress.md` entries stay SHORT pointers
+      `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`; the `progress.md` entries stay SHORT pointers
       (≤ ~4 lines each), never the narration.
 - [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** every `kit-finding:` line in the legs' `progress.md` entries, and every kit finding their reports name, is a `K-NN` in `process/KIT-FEEDBACK.md`, written by you alone, and the run report and your `progress.md` entry carry the `kit-feedback:` line — `process/MANUAL.md` § Kit feedback.
 - [ ] `progress.md` resume pointer cleared or updated.
