@@ -82,7 +82,8 @@ state — so that every tool and every reader downstream can rely on the shape w
   ad-hoc shape, because that shape immediately becomes a second definition.
 - An item with the same name already exists ⇒ refuse rather than overwriting. Overwriting a
   description of work is data loss with no undo in the reader's hands.
-- A decomposition names a parent that does not exist ⇒ refuse.
+- A decomposition names a parent that does not exist, is itself a child, or is retired (done or
+  declined) ⇒ refuse. A done parent's tree is swept with it, new children included.
 - **An argument standing in a NAME's position that carries an option's syntax — a leading dash —
   ⇒ refuse, non-zero, naming the position it was standing in.** A dash-leading token is never a
   name, in any position, however plausible it looks.

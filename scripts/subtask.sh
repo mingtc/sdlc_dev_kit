@@ -189,6 +189,12 @@ case "$CMD" in
       exit 2
     fi
 
+    # THE PARENT IS AN ISSUE, NEVER A SUBTASK: the move arm recovers a parent with ${ID%-s*}.
+    case "${PARENT##*-s}" in
+      "$PARENT"|''|*[!0-9]*) ;;
+      *) echo "Error: '$PARENT' is a subtask id — decompose its parent instead. NOTHING WAS CHANGED." >&2; exit 2 ;;
+    esac
+
     # Acquire the lock + bootstrap + sync the worktree BEFORE touching anything,
     # so the create lands on the current <remote>/<trunk> tip.
     kwt_resolve
@@ -201,17 +207,25 @@ case "$CMD" in
 
     # THE PARENT MUST EXIST (issue-creation.md § 3): creation here publishes, so an orphan would
     # reach the trunk. Searched on the published board ($KWT), the surface the mover reads.
-    # No `grep -q`: this producer grows with the board, and under `pipefail` an early-exiting
-    # reader returns `find`'s SIGPIPE. Redirecting drains the input.
-    if ! find "$KWT/progress" -type f -name "${PARENT}-*.md" 2>/dev/null | grep . >/dev/null; then
+    # Depth 2 is progress/<column>/<card>: a subtask tree without its parent card is no parent.
+    # Captured whole, then cut: `| head -1` would SIGPIPE the producer under `pipefail`.
+    PARENT_CARD="$(find "$KWT/progress" -maxdepth 2 -type f -name "${PARENT}-*.md" 2>/dev/null || true)"
+    PARENT_CARD="${PARENT_CARD%%$'\n'*}"
+    if [ -z "$PARENT_CARD" ]; then
       {
         echo "Error: parent '${PARENT}' does not exist on the published board — refusing to create an orphan."
-        echo "  Looked for progress/**/${PARENT}-*.md in the trunk-pinned kanban worktree."
+        echo "  Looked for progress/<column>/${PARENT}-*.md in the trunk-pinned kanban worktree."
         echo "  If you have just created ${PARENT}, PUBLISH IT FIRST: the board mover and this"
         echo "  script both read the published board, so an unpushed card is invisible to both."
       } >&2
       exit 1
     fi
+    # A retired parent takes no new work: archive.sh sweeps a done/ parent's tree, todo cards and all.
+    case "$(basename "$(dirname "$PARENT_CARD")")" in
+      done|declined)
+        echo "Error: parent '${PARENT}' is in progress/$(basename "$(dirname "$PARENT_CARD")")/ — a retired issue takes no new subtasks. Open a new issue." >&2
+        exit 1 ;;
+    esac
 
     ID="${PARENT}-${SUFFIX}"
     SLUGFILE="${ID}-${SLUG}.md"

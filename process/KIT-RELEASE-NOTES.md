@@ -745,6 +745,10 @@ columns and never the cards.*
   now also reads `<remote>/<trunk>`'s board and `ARCHIVE.md` as last fetched (it never fetches) and prints which it read
   on stderr. Filing from the trunk after `git pull --ff-only` is still the rule: the card has to be published there.
 
+- **`subtask.sh new` takes only an open issue as a parent.** It accepted a subtask id (nesting a tree nothing can resolve),
+  a parent in `done/` (whose tree the next `archive.sh` sweep retires, new card included) and a leftover tree with no
+  parent card. Each now refuses. Follow-up work on a retired issue is a new issue.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

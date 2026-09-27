@@ -358,6 +358,7 @@ CASES=(
   case_new_prd_failure_leaves_nothing
   case_creators_build_beside_and_publish_with_the_umask
   case_subtask_builds_beside_and_publishes_whole
+  case_subtask_parent_is_an_open_issue
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy

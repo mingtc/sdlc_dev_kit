@@ -1609,6 +1609,49 @@ case_subtask_builds_beside_and_publishes_whole() {
   teardown
 }
 
+# =============================================================================
+# CASE — subtask.sh new takes an open ISSUE as its parent, nothing else
+#
+#   (a) a subtask id is refused, even when a parent's own slug makes <id>-*.md match a card;
+#   (b) a parent in done/ is refused: the next sweep retires its tree with the new card in it;
+#   (c) a subtask tree whose parent card is gone is not a parent.
+# The control mints under a real parent, so the refusals are not a broken create.
+# =============================================================================
+case_subtask_parent_is_an_open_issue() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh new: the parent is an open issue" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
+    skp "subtask.sh new: the parent is an open issue" ".claude/templates/SUBTASK.template.md absent — subtask.sh exits at its template check"
+    return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/progress/subtasks/$SB_PREFIX-018/todo"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  seed_issue in_progress "$SB_PREFIX-015" s1-rollout chore "Parent whose slug opens with s1"
+  seed_issue done "$SB_PREFIX-016" landed chore "Landed parent"
+  seed_issue "subtasks/$SB_PREFIX-018/todo" "$SB_PREFIX-018-s1" orphan chore "Orphaned slice"
+  publish_sandbox
+
+  local out rc st="progress/subtasks"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-015" s2 slice --title t 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) subtask.sh new under an open parent failed (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-015-s1" s1 nested --title t 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a subtask id was accepted as a parent"
+  origin_has_path "$st/$SB_PREFIX-015-s1/todo/$SB_PREFIX-015-s1-s1-nested.md" && cf "(a) a tree was published under subtask id $SB_PREFIX-015-s1"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-016" s1 late --title t 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a parent in done/ took a new subtask"
+  origin_has_path "$st/$SB_PREFIX-016/todo/$SB_PREFIX-016-s1-late.md" && cf "(b) a subtask was published under a done/ parent"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-018" s2 more --title t 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a subtask tree with no parent card was accepted as a parent"
+
+  finish "subtask.sh new: an open issue is a parent, and a subtask id, a done/ parent and an orphaned tree are refused"
+  teardown
+}
+
 case_creation_scripts_substitute_hostile_values() {
   cf_reset
   if ! has_issue_template; then skp "creation scripts substitute hostile values without executing them" "$ISSUE_TEMPLATE_ABSENT"; return; fi
