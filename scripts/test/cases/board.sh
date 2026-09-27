@@ -35,31 +35,23 @@ case_move_issue() {
 # =============================================================================
 # CASE — THE PROGRESS RECORD IS ONE SHAPE, AND ITS WRITER'S ABSENCE IS A NO-OP
 #
-# Two invariants from process/contracts/progress-record.md, and the second is the one
-# that cannot be asserted:
+# Invariants from process/contracts/progress-record.md:
 #
-#   § 2 / § 4  ONE SHAPE. A reader that parses ONLY the four required fields reads
-#              every record — including records carrying optional fields it has never
-#              heard of. Tested by writing records WITH and WITHOUT extras and
-#              requiring a uniform column count.
+#   § 2 / § 4  ONE SHAPE: a reader parsing only the four required fields reads every record,
+#              with or without optional fields, so records WITH and WITHOUT extras must share
+#              one column count.
 #
-#   § 5b       THE ACTOR AND THE RESERVED EXTRAS have declared shapes, and the
-#              validator's own RISK is the mirror of the defect it fixes — a validator
-#              firing on CORRECT input. So the NEGATIVE control is the one that matters
-#              and it is DERIVED: every role in this sandbox's own ROLE_PREFIXES is
-#              driven through the writer and none may be tagged. The `run=` extra is
-#              checked the same way — present when the seam is set, ABSENT ENTIRELY
-#              when it is not.
+#   § 5b       The actor and the reserved extras have declared shapes. The validator's own
+#              risk is firing on CORRECT input, so the NEGATIVE control matters most, and it is
+#              DERIVED: every role in the sandbox's ROLE_PREFIXES goes through the writer and
+#              none may be tagged. `run=` is present when its seam is set, ABSENT when not.
 #
-#   § 4        THE ABLATION. Removing the writer entirely leaves a converted
-#              producer's stdout, stderr and EXIT STATUS byte-identical. This is the
-#              invariant whose violation is invisible until something unrelated turns
-#              red, so it is MEASURED BY DELETING THE LIBRARY AND RE-RUNNING — never
-#              by reading the `kit_progress() { :; }` stub and believing it.
+#   § 4        THE ABLATION: removing the writer leaves a producer's stdout, stderr and exit
+#              status byte-identical, measured by deleting the library and re-running, never
+#              by reading the `kit_progress() { :; }` stub.
 #
-# THE OPERAND IS ASSERTED BEFORE EITHER CHECK. A run in which the library never loaded
-# would produce zero records and an identical ablation, and would pass both tests while
-# measuring nothing — the green would be the sound of the subject being absent.
+# The operand is asserted first: a library that never loaded writes zero records and would
+# pass both checks.
 # =============================================================================
 case_progress_record_is_one_shape_and_optional() {
   cf_reset
@@ -115,14 +107,11 @@ case_progress_record_is_one_shape_and_optional() {
       || cf "a record written with a WELL-SHAPED actor came back as 'unknown' — the § 5b validator is firing on correct input, which is the mirror of the defect it fixes"
   fi
 
-  # ── § 5b, THE NEGATIVE CONTROL, AND IT IS THE ONE THAT MATTERS. This change added a
-  #    validator, so its own risk is a legitimate actor being tagged. The population is
-  #    DERIVED FROM THIS SANDBOX'S OWN SEAM rather than typed here: a project that narrows
-  #    ROLE_PREFIXES must narrow this control with it, and a list written here would be the
-  #    second declaration § 5b exists to forbid.
-  # nroles is declared at the TOP so the finish() line below can name it on EVERY path.
-  # Under `set -u` an unset one taken from the unreadable-seam branch would abort the whole
-  # harness rather than report this case — a fixture that kills the run is worse than a red.
+  # ── § 5b, THE NEGATIVE CONTROL: no legitimate actor may be tagged. The population is
+  #    DERIVED from this sandbox's ROLE_PREFIXES, never typed: a typed list would be the second
+  #    declaration § 5b forbids.
+  # nroles is declared at the TOP so finish() can name it on every path; under `set -u` an
+  # unset one would abort the whole harness.
   local roledir="$SB_TMP/records-roles" roleset="" nroles=0
   roleset="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$SB_WORK/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
   [ -z "$roleset" ] || nroles="$(printf '%s' "$roleset" | tr '|' '\n' | grep -c . || true)"
@@ -160,9 +149,8 @@ case_progress_record_is_one_shape_and_optional() {
     fi
   fi
 
-  # ── § 5b, THE POSITIVE HALF: an actor outside the shape still WRITES, is TAGGED, and
-  #    the record still has its four columns on one line. The whole property being copied
-  #    from the class arm is that a typo is VISIBLE rather than lost.
+  # ── § 5b, THE POSITIVE HALF: an actor outside the shape still WRITES, is TAGGED, and keeps
+  #    its four columns on one line, so a typo is visible rather than lost.
   local bogusdir="$SB_TMP/records-bogus"
   (
     cd "$SB_WORK" || exit 1
@@ -175,9 +163,8 @@ case_progress_record_is_one_shape_and_optional() {
     export KIT_PROGRESS_DIR="$bogusdir"
     kit_progress "orchestrator/sub-3" status "structurally fine but NOT a member — the membership half"
     kit_progress ""                   info   "no actor at all"
-    # THE STRUCTURAL HALF, which must hold whether or not the role set is readable. An
-    # earlier draft checked structure only AFTER the membership lookup, so on a tree whose
-    # hook is unreadable an actor with a space in it was accepted as a role name.
+    # THE STRUCTURAL HALF must hold whether or not the role set is readable: an actor with a
+    # space in it is never a role name.
     kit_progress "has space"          info   "whitespace is not a role and never was"
     kit_progress "Dev:"               info   "a colon with no id is not the declared shape"
   ) >/dev/null 2>&1
@@ -199,16 +186,10 @@ case_progress_record_is_one_shape_and_optional() {
       || cf "a preserved actor value was not collapsed to one token — whitespace inside it split the extras field into a key=value nobody wrote"
   fi
 
-  # ── THE CLASS ARM, ONE COLUMN OVER, AND THE SAME TOKEN RULE. contracts/progress-record.md
-  #    § "Reserved extra keys" declares `declared-class=` as *the offered class, normalised to
-  #    one token*, for the reason stated there: extras are read back by splitting the field on
-  #    spaces, so whitespace inside a preserved value splits one key into two and hands a
-  #    reader a `key=value` nobody wrote. The actor side was given that shape first; this is
-  #    the class side asserted to the same standard rather than left to a second reading.
-  #
-  #    BOTH DIRECTIONS ARE DRIVEN FROM ONE POPULATION, and the NEGATIVE is the one that
-  #    matters: this arm cleans EVERY unrecognised class, so a change here that mangled a
-  #    whitespace-free value would corrupt the common case to fix the rare one.
+  # ── THE CLASS ARM, to the same token rule (contracts/progress-record.md § Reserved extra
+  #    keys): extras are read back by splitting on spaces, so a preserved value holding
+  #    whitespace hands a reader a `key=value` nobody wrote. The NEGATIVE half matters most:
+  #    this arm cleans every unrecognised class and must not mangle a whitespace-free one.
   local classdir="$SB_TMP/records-class"
   (
     cd "$SB_WORK" || exit 1
@@ -300,45 +281,22 @@ case_progress_record_is_one_shape_and_optional() {
       && cf "the environment's run id overrode an explicit run= argument — § 5b declares the opposite precedence"
   fi
 
-  # ── BYTE-IDENTITY, ACROSS ALL THREE PRESERVING KEYS AT ONCE. THIS BLOCK EXISTS BECAUSE
-  #    THE CONTROLS ABOVE WERE GREEN WHILE THE FEATURE WAS BROKEN, and the reason is the
-  #    population, not the assertion. The class arm's negative half offers `typo` and
-  #    `sta.tus`: both whitespace-free, and both — the part that cost — UNDERSCORE-FREE.
-  #    So "a whitespace-free value is carried verbatim" was true of every value the suite
-  #    drove and false of the writer, which substituted whitespace with `_` and then
-  #    trimmed `^_` and `_$`. After the substitution a separator it inserted and one the
-  #    caller typed are the same byte, so the trim ate both: `_x` was carried as `x`, and
-  #    `_` was carried as the `<empty>` placeholder that means the caller offered nothing.
-  #
-  #    EXTENDED INTO THIS CASE RATHER THAN GIVEN ITS OWN, deliberately. This is not a new
-  #    property — it is the SAME property the class and actor arms above already assert
-  #    (`contracts/progress-record.md` § Reserved extra keys: a preserved value is carried
-  #    byte for byte), driven against the population those arms lacked. A parallel case
-  #    would put one rule in two places, and the next seat widening the population would
-  #    widen one of them.
-  #
-  #    ONE POPULATION, THREE CALL SITES. The population is declared ONCE below, so
-  #    widening it is a single edit and it cannot go stale on one arm only. The three keys
-  #    are the three sites the writer synthesises — derive them with
-  #    `grep -n _pr_tok scripts/lib/progress-record.sh` and a key with no row here is an
-  #    arm going untested.
-  #
-  #    ASSERTED AS EQUALITY AGAINST THE OFFERED VALUE, never as "looks reasonable": the
-  #    defect this catches produces output that is perfectly well-formed and simply is not
-  #    what the caller wrote, which no shape check can see.
+  # ── BYTE-IDENTITY, ACROSS ALL THREE PRESERVING KEYS AT ONCE. A preserved value is carried
+  #    byte for byte (§ Reserved extra keys), and the population must include UNDERSCORES: a
+  #    writer that substitutes whitespace with `_` and then trims `^_`/`_$` cannot tell its own
+  #    separator from the caller's, so `_x` comes back as `x` and `_` as `<empty>`, while
+  #    whitespace-free, underscore-free values all pass. The population is declared ONCE for
+  #    the keys the writer synthesises (`grep -n _pr_tok scripts/lib/progress-record.sh`; a key
+  #    with no row here is untested). Asserted as EQUALITY with the offered value: the defect
+  #    yields well-formed output that is simply not what the caller wrote.
   local tokdir="$SB_TMP/records-tok"
   # Space-separated because the whole population is whitespace-free BY CONSTRUCTION —
   # a value with whitespace in it belongs in the POSITIVE halves above, not here.
   local tok_pop='_ __ ___ _x x_ _x_ _snake_case_ __both__ a_b typo sta.tus no_edge_underscores -_- _._ 13/13 KIT-042 _run_ run_ _run'
   local ntok=0 tok_bad=0 tok_drove=0 _v _arm _key _got
   for _v in $tok_pop; do ntok=$(( ntok + 3 )); done
-  # AND THE POPULATION'S OWN PREMISE IS ASSERTED, not just stated in the comment above.
-  # Every member must be whitespace-free, because the whole claim is that a value needing
-  # NO collapse survives untouched. A member with whitespace in it would be a row this
-  # block expects to come back changed, and it would read as a failure of the writer
-  # rather than as a badly chosen fixture. The word-split above cannot produce one, so
-  # this fires only if the list is later rewritten with quoting — which is exactly when
-  # a reader would otherwise be misled.
+  # The population's premise, asserted: every member is already one token, or a row would be
+  # expected to come back changed and would read as a writer failure.
   case "$tok_pop" in
     *"  "*|*"	"*) _fixture_die "case_progress_record_is_one_shape_and_optional: tok_pop carries a value with whitespace in it, but every member must be ALREADY one token — that is the premise of the byte-identity comparison, and a spaced member would be asserted to survive a collapse it is supposed to undergo." ;;
   esac
@@ -398,12 +356,9 @@ case_progress_record_is_one_shape_and_optional() {
       || cf "$tok_bad of $ntok value/key rows carried a rewritten value — an already-one-token value must survive declared-class=, declared-actor= and run= byte for byte (first three reported above)"
   fi
 
-  # ── THE ABLATION (§ 4), EXECUTED. move-issue.sh is the converted role-side producer
-  #    and it REFUSES without a valid id, which is all this needs: the refusal path runs
-  #    the sourcing block, so removing the library must not change it. A refusal is a
-  #    deliberate choice of subject — it exercises the load WITHOUT needing a board, and
-  #    an abort from an unguarded `.` under this script's `set -euo pipefail` would show
-  #    up here as a changed exit status, which is precisely the failure being excluded.
+  # ── THE ABLATION (§ 4), EXECUTED, against move-issue.sh --help: it runs the sourcing block
+  #    without needing a board, and an abort from an unguarded `.` under `set -euo pipefail`
+  #    would show as a changed exit status.
   local mv="$SB_WORK/scripts/move-issue.sh"
   if [ ! -x "$mv" ]; then
     _control_did_not_run "find an executable move-issue.sh to ablate against"
@@ -435,12 +390,11 @@ case_progress_record_is_one_shape_and_optional() {
 }
 
 # =============================================================================
-# EVERY WORKTREE OF ONE REPOSITORY WRITES ONE PLACE. A record written from a linked
-# worktree lands in the MAIN checkout's .progress-records/ — where the orchestrator
-# reads — and survives the worktree's removal, which is what the landing flow does to a
-# leg's worktree. The pre-fix library wrote under the worktree's own root; this case is
-# red against it. The operand is asserted first: a record in NEITHER tree means the
-# library never loaded, and both checks below would then pass on nothing.
+# CASE — EVERY WORKTREE OF ONE REPOSITORY WRITES ONE PLACE.
+# A record written from a linked worktree lands in the MAIN checkout's .progress-records/,
+# where the orchestrator reads, and survives the worktree's removal (the landing flow removes a
+# leg's worktree). The operand is asserted first: a record in NEITHER tree means the library
+# never loaded.
 # =============================================================================
 case_progress_record_one_place_across_worktrees() {
   cf_reset
@@ -488,20 +442,11 @@ case_progress_record_one_place_across_worktrees() {
 # =============================================================================
 # CASE — --set-pr WRITES BACK INTO A CARD MINTED FROM THE REAL TEMPLATE
 #
-# WHY THIS CASE AND NOT A FIXTURE ASSERTION: `--set-pr` writes only into an EXISTING
-# `pr:` frontmatter line and otherwise warns "skipping write-back". The harness used
-# to seed `pr: null` in its own fixtures while NO shipped template carried the key —
-# so the suite tested a shape the templates never produced, and the flag could not
-# work on a kit-minted card while passing here. The templates now declare it; this is
-# the case that proves the two ends meet, and it mints through new-issue.sh rather
-# than seeding, because the seam is precisely between the template and the tool.
-#
-# THE PREMISE IS ASSERTED IN TWO PLACES, and both were paid for. An earlier attempt at
-# this case died on `move-issue.sh` refusing "no file matching …" — a not-found
-# refusal that reads like a mover defect and is really the card never reaching the
-# trunk. So: the minted card must carry a `pr:` line at all (or the template half is
-# undone and this case proves nothing), and it must be ON the trunk before the mover
-# is asked to move it (or the refusal is about the fixture).
+# `--set-pr` writes only into an EXISTING `pr:` line and otherwise warns "skipping
+# write-back", so the card is MINTED through new-issue.sh from the real template, never
+# seeded: the seam is between the template and the tool. Two premises are asserted: the
+# minted card carries a `pr:` line, and it is ON the trunk before the mover runs (a not-found
+# refusal there is about the fixture, not the mover).
 # =============================================================================
 case_move_issue_set_pr_on_a_minted_card() {
   cf_reset
@@ -586,14 +531,10 @@ case_move_issue_probe() {
 
   # (b) ABLATION — neuter the probe's condition in the sandbox's copy and re-run (a)'s
   #     worktree check, which must now FIRE. Self-asserting: an anchor that moved is a
-  #     fixture failure, not a case failure (this file's own rule).
+  #     fixture failure, not a case failure.
   kwt_clear
-  # Keep a copy of the NEUTRALIZED sandbox script to restore from. Restoring from
-  # $REAL_SCRIPTS instead — which is what this did — re-imports the adopter's tree
-  # after the neutralizer removed it, so on a project that ran `kit-init --roles`
-  # arms (c) and (d) ran against that project's role whitelist and (c) failed with
-  # "--role must be …". Measured. The sandbox owns its scripts; nothing may reach
-  # back past _kit_neutral_config for a copy.
+  # Restore from a copy of the NEUTRALIZED sandbox script, never from $REAL_SCRIPTS: that
+  # re-imports the adopter's tree (a `kit-init --roles` whitelist) past _kit_neutral_config.
   cp "$mi" "$SB_TMP/move-issue.neutral"
   grep -q '^if \[ "\$PROBE_ID_IS_GLOB" -eq 0 \] \\$' "$mi" \
     || _fixture_die "case_move_issue_probe(b): no probe condition to ablate in move-issue.sh — the anchor moved, so arm (a) above is unfalsifiable and this case proves nothing."
@@ -655,20 +596,10 @@ case_move_issue_probe() {
 # =============================================================================
 # CASE — THE CONFIG SEAM REFUSES RATHER THAN FALLING BACK.
 #
-# This case was INVERTED, not deleted, and the reason it exists is unchanged. It
-# used to assert the opposite: that with config.sh unsourceable each script fell
-# back to a baked-in prefix literal and CARRIED ON. That fallback was added as a
-# fix for something worse (a default carrying a FOREIGN project's prefix), and the
-# lesson it encoded — a silently wrong prefix is the expensive failure — is the
-# same lesson the refusal now encodes, one level up: EVERY script holding its own
-# copy of one project's prefix IS the silently-wrong-prefix bug (derive the set —
-# grep -l 'config.sh' scripts/*.sh — rather than trusting a count here; this said
-# "five" and was true when written), and in the sweep
-# it is worse than a bad mint (a sweep under the wrong prefix finds nothing and
-# reports "nothing to sweep" on a full column). So the conclusion is superseded
-# and the guard is transformed: every one of them must now REFUSE and NAME
-# config.sh. ALL of them are asserted, because fixing one in isolation would
-# leave the rest inconsistent — which is exactly how the debt survived.
+# Every script holding its own copy of one project's prefix is the silently-wrong-prefix bug:
+# a sweep under the wrong prefix finds nothing and reports "nothing to sweep" on a full column.
+# So with config.sh unsourceable, every consumer must REFUSE and NAME config.sh. All are
+# asserted, because fixing one in isolation leaves the rest inconsistent.
 # =============================================================================
 case_config_seam_refusal() {
   cf_reset
@@ -679,60 +610,28 @@ case_config_seam_refusal() {
   # Make config.sh unsourceable — the degraded path under test.
   mv "$SB_WORK/scripts/config.sh" "$SB_WORK/scripts/config.sh.disabled" >/dev/null 2>&1
 
-  # THE CENSUS IS RUN AGAINST THE SANDBOX'S scripts/, and that is load-bearing rather
-  # than incidental: THIS FILE also contains the census phrase — it is quoted on the
-  # line below — so a tree-wide grep returns one more than there are consumers. The
-  # sandbox has no scripts/test (make_sandbox removes it), so the list here is the
-  # consumers and nothing else. A reader who greps the whole tree and gets a bigger
-  # number has not found a miscount.
+  # THE CENSUS runs against the SANDBOX's scripts/, which has no scripts/test/: the harness
+  # quotes the census phrase (below), so a tree-wide grep counts one more than there are
+  # consumers.
   #
-  # THE POPULATION IS DERIVED, NOT TYPED. `new-prd.sh` was the sixth prefix consumer
-  # and sat outside this loop for as long as the loop was a hand-written list — while
-  # the case's own finish string claimed a five-member population. Deriving it from the census
-  # the block itself publishes makes the loop and the grep the same set by construction,
-  # which is the property that was missing rather than the sixth name.
-  #
-  # AND THE CENSUS IS KEYED ON THE BLOCK'S CODE, NOT ON ITS HEADER COMMENT — measured, because
-  # the earlier pattern ('THE PREFIX HAS ONE AUTHORITY') is a SECTION-HEADER COMMENT and a
-  # `grep -l` cannot tell a refusal block from a sentence explaining the absence of one.
-  # `subtask.sh` carries that phrase in a comment saying the block is DELIBERATELY not copied
-  # there ("pasting a guard for a value this script never reads would add a seventh copy of it
-  # while fixing a second-copy defect" — and it is right: ISSUE_PREFIX appears zero times in it).
-  # So the old census returned SEVEN and the finish line claimed seven asserted, while the kit
-  # has six. The seventh then satisfied both assertions VIA BASH'S OWN SOURCING DIAGNOSTIC
-  # under `set -euo pipefail` — nonzero, and the path in that message contains "config.sh" —
-  # with zero hits for anything the kit wrote.
-  #
-  # FILTERING COMMENTS IS NOT THE FIX and was measured before being rejected: the phrase is a
-  # header comment in ALL SEVEN, so a non-comment filter returns NOTHING and deletes the census
-  # rather than correcting it.
-  #
-  # WHY THE CODE SHAPE IS THE RIGHT KEY HERE, when deriving from an implementation's shape is
-  # usually how a census inherits an accident: this shape IS the declaration. Guarding the
-  # source and refusing with a named cause is `process/contracts/config-seam.md`'s obligation
-  # discharged, so the idiom tracks membership exactly — where every occurrence proxy guesses.
-  # (Proxies measured: "reads ISSUE_PREFIX" drops new-prd.sh, whose seam is PRD_PREFIX, and adds
-  # config.sh, which DEFINES the value, and kit-init.sh, which REWRITES it.)
+  # THE POPULATION IS DERIVED from the census, never typed, so the loop and the grep are one
+  # set. It is keyed on the guarded-source CODE, not a section-header comment: a header phrase
+  # also appears where a script explains why it does NOT carry the block, and a non-comment
+  # filter over a header phrase returns nothing. The code shape IS the declaration here:
+  # guarding the source and refusing with a named cause discharges
+  # `process/contracts/config-seam.md`.
   local s out rc n_consumers=0
   # hout/hrc carry the USAGE and UNKNOWN-OPTION probes below, kept separate from out/rc so the
   # refusal assertions and the argument-clause assertions cannot read each other's result.
   local hout hrc
-  #
-  # `grep -lF`, AND THE -F IS LOAD-BEARING. Written as a normal pattern this returns NOTHING:
-  # `$` mid-expression is read as an end-of-line anchor, so `"$CONFIG"` can never match, and the
-  # census silently empties — which would trip the refusal below rather than pass, but only
-  # because that refusal exists. Measured while writing this fix: the first attempt returned
-  # zero files. `lib/usage.sh`'s header records the same trap for the same reason.
+  # `grep -lF`, and the -F is load-bearing: as a regex, `$` mid-pattern is an end-of-line
+  # anchor, so `"$CONFIG"` never matches and the census empties. `lib/usage.sh`'s header
+  # records the same trap.
   local consumers; consumers="$(cd "$SB_WORK/scripts" && grep -lF 'if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then' ./*.sh 2>/dev/null | sed 's@^\./@@' | sort)"
-  # THE SEAM'S OWN VALUE, for the no-guessing arm inside the loop, and it is OBTAINED THE WAY A
-  # CONSUMER WOULD: source the DISABLED seam in a subshell with the env override unset and read
-  # what it defines. Not parsed out of the file — the shipped line is
-  # `ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"`, so a pattern read of the assignment returns the
-  # PARAMETER EXPANSION rather than the value, and the arm below would compare against nothing.
-  # `env -u`, because a value inherited from this harness's own environment would make the
-  # operand the harness's rather than the seam's.
-  # `|| true`, and the arm is SKIPPED on an empty result and says so: a seam whose shape changed
-  # must not end the run from inside a control.
+  # THE SEAM'S OWN VALUE, for the no-guessing arm, obtained as a consumer would: source the
+  # DISABLED seam in a subshell with the env override unset (`env -u`, so the harness's own
+  # environment cannot supply it). A pattern read of `ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"`
+  # returns the expansion, not the value. An empty result SKIPS the arm, saying so.
   local seam_prefix
   seam_prefix="$( env -u ISSUE_PREFIX bash -c '. "$1" >/dev/null 2>&1 && printf "%s" "${ISSUE_PREFIX:-}"' _ "$SB_WORK/scripts/config.sh.disabled" || true )"
   [ -n "$seam_prefix" ] \
@@ -747,57 +646,33 @@ case_config_seam_refusal() {
       # new-prd.sh takes <slug> and no --id, and its seam is PRD_PREFIX rather than
       # ISSUE_PREFIX — the one consumer whose output lands in requirements/.
       new-prd.sh)      out="$( cd "$SB_WORK" && env -u PRD_PREFIX "$SB_WORK/scripts/$s" someslug 2>&1 )"; rc=$? ;;
-      # subtask.sh joined this census when it gained a seam guard of its own, and its arm is
-      # the BARE invocation — deliberately, and it is the arm least likely to rot. It sources the
-      # seam before it dispatches a subcommand, so a bare call reaches the sourcing failure rather
-      # than a usage error; verified by line order and by running it. No `env -u ISSUE_PREFIX`
-      # either: this is the one member that reads NO prefix, and unsetting one would imply it did.
+      # subtask.sh reads NO prefix; its BARE invocation reaches the seam because it sources the
+      # seam before dispatching a subcommand. No `env -u`: unsetting a prefix would imply it
+      # read one.
       subtask.sh)      out="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s" 2>&1 )"; rc=$? ;;
       # The three creators that share one shape. NAMED rather than left to a catch-all, for the
       # reason the `*)` arm below now states.
       new-bug.sh|new-issue.sh|new-refactor.sh)
                        out="$( cd "$SB_WORK" && env -u ISSUE_PREFIX "$SB_WORK/scripts/$s" someslug --id "$SB_PREFIX-900" 2>&1 )"; rc=$? ;;
-      # THE INVOCATION TABLE IS DECLARED, NOT DEFAULTED — and this arm is the half of this case
-      # that was still undeclared after its POPULATION was fixed.
-      #
-      # It used to be the catch-all above, and that made it a LATENT F.1b GENERATOR: any script
-      # that later gained the guarded-source block joined the derived population and was then run
-      # with arguments nobody chose for it. It would exit non-zero — because the ARGUMENTS are
-      # wrong — and every "it refused" assertion below would pass on a refusal that has nothing
-      # to do with the config seam. Measured on the live candidate: `subtask.sh someslug --id
-      # XYZ-900` exits 1 with `Unknown command: someslug`, since its CLI is
-      # `subtask.sh move <PARENT-ID>-<suffix> <target>`.
-      #
-      # So a NEW MEMBER HALTS THIS CASE until somebody says how to run it. That is the right
-      # failure: the population is derived and cannot go stale, and the invocation cannot be
-      # guessed — a case that does not know how to exercise a member knows nothing about it.
+      # THE INVOCATION TABLE IS DECLARED, NOT DEFAULTED: a catch-all would run a new member
+      # with arguments nobody chose, it would exit non-zero for the WRONG reason, and every
+      # "it refused" assertion would pass. So a new member halts this case until its arm is
+      # written.
       *)               _fixture_die "case_config_seam_refusal: no invocation is declared for scripts/$s, which the guarded-source census returned. This case cannot test a member it does not know how to run: a default invocation refuses for the WRONG REASON (bad arguments, not an unreadable seam) and every assertion below would pass on it. Add an arm to the case above naming how scripts/$s is invoked." ;;
     esac
     [ "$rc" -ne 0 ] || cf "$s: exited 0 with config.sh unsourceable — it fell back instead of refusing"
     printf '%s' "$out" | grep 'config\.sh' >/dev/null \
       || cf "$s: the refusal does not NAME scripts/config.sh: $out"
-    # AUTHORSHIP, NOT PRESENCE. Naming the file is satisfied by the INTERPRETER: an unguarded
-    # source dies with "<script>: line N: <path>/config.sh: No such file or directory", and that
-    # path contains the filename. A refusal the kit did not write is not the kit refusing. The
-    # contract path is what only the kit's own block emits — all six cite it, and bash cannot.
+    # AUTHORSHIP, NOT PRESENCE: an unguarded source dies with the interpreter's "…/config.sh:
+    # No such file or directory", which names the file too. Only the kit's own block cites the
+    # contract.
     printf '%s' "$out" | grep 'config-seam\.md' >/dev/null \
       || cf "$s: the refusal names config.sh but does not cite process/contracts/config-seam.md — so this may be the interpreter's sourcing diagnostic rather than the kit's guarded refusal, which is the state that let a script with NO guard pass this arm: $out"
 
-    # ── AND § 3's TWO ARGUMENT CLAUSES STILL HOLD ON THIS SAME SEAMLESS TREE. This is the half
-    #    of this case that was BLIND: it asserted the refusal and asserted nothing about what the
-    #    tools do with an ARGUMENT. WHEN THIS ARM WAS WRITTEN, every member of the census below
-    #    except next-id.sh refused a usage request on the tree this case builds — issue-creation.md
-    #    § 3's one prohibition ("a request for the usage text is ALWAYS legal and ALWAYS
-    #    succeeds"), fired in the state where an operator most needs the text. The cause was
-    #    file-scope sourcing above the argument parse; next-id.sh already had the other order and
-    #    answered. No count is written here: the population is derived below and the arm asserts
-    #    over whatever it returns, so a number in this sentence could only go stale.
-    #
-    #    THE SAME POPULATION, DERIVED THE SAME WAY, so the refusal half and the argument half
-    #    cannot disagree about who is in the set. And NO invocation table is needed here, which
-    #    is not the oversight the `*)` arm above exists to prevent: `--help` is the one
-    #    invocation § 3 declares legal for every bound tool, so it is derivable from the
-    #    contract rather than from per-member knowledge.
+    # ── § 3's TWO ARGUMENT CLAUSES MUST STILL HOLD ON THIS SEAMLESS TREE: a usage request
+    #    ALWAYS succeeds (issue-creation.md § 3), and here is where an operator most needs it.
+    #    File-scope sourcing above the argument parse breaks it. No invocation table is
+    #    needed: `--help` is the one invocation § 3 declares legal for every bound tool.
     hout="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s" --help </dev/null 2>&1 )"; hrc=$?
     [ "$hrc" -eq 0 ] \
       || cf "$s: --help exited $hrc with config.sh absent — issue-creation.md § 3 says a usage request ALWAYS succeeds, and this is the tree where the operator needs it most: $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
@@ -805,33 +680,20 @@ case_config_seam_refusal() {
     # hole the CLI-shape case names, and the same remedy.
     printf '%s' "$hout" | grep -F -- "$s" >/dev/null \
       || cf "$s: --help printed nothing naming $s, with config.sh absent — and rc alone is satisfied by a tool that printed nothing at all, so this arm is stated separately from the one above rather than folded into it: $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
-    # AND IT DID NOT GUESS THE VALUE IT COULD NOT READ. § 3's ranked rules for usage text that
-    # renders a derived value: it degrades to NAMING the seam and NEVER to the kit's shipped
-    # default. Three of the six render a prefix into their usage line, so this arm is the one
-    # that separates a reorder from a reorder plus a fallback literal — which is the tempting
-    # wrong fix, and the one the seam block itself was written to remove one level up.
-    #
-    # THE OPERAND IS THE SEAM'S OWN VALUE, obtained by SOURCING the disabled file rather than
-    # typed here, so a sandbox that stamps a different prefix does not silently empty this arm.
-    # STATED LIMIT: in this sandbox that value IS the kit's shipped placeholder, so this arm
-    # cannot tell a GUESSED default from a value read some other way. It does not need to —
-    # with the seam absent there is no legitimate route to either.
+    # AND IT DID NOT GUESS THE VALUE IT COULD NOT READ: usage text rendering a derived value
+    # degrades to NAMING the seam, never to the shipped default (§ 3). The operand is the
+    # seam's own value, sourced above. In this sandbox it IS the shipped placeholder, so the
+    # arm cannot tell a guessed default from another read; with the seam absent neither is
+    # legitimate.
     if [ -n "${seam_prefix:-}" ]; then
       printf '%s' "$hout" | grep -F -- "${seam_prefix}-NNN" >/dev/null \
         && cf "$s: --help with config.sh absent printed '${seam_prefix}-NNN' — it fell back to a prefix literal instead of naming the seam, and a prefix that is right about the kit and wrong about the project is unfalsifiable from the operator's seat (issue-creation.md § 3): $(printf '%s' "$hout" | tr '\n' '|' | cut -c1-240)"
     fi
-    # THE UNKNOWN-OPTION CLAUSE, ON THE FOUR MEMBERS THAT CAN CARRY IT ABOVE THE SEAM — and the
-    # split is DERIVED FROM THE GRAMMAR, not chosen. § 3 also fixes a status for an unrecognised
-    # option ("refuse, non-zero, naming it ... and in this kit that status is 2"), and below the
-    # seam it never gets one: measured, all six exited 1 with the seam refusal.
-    #
-    # WHY ONLY FOUR. The four creators take a <slug> in leading position, so a dash-leading token
-    # THERE is illegal whatever the option list says — the arm re-states no vocabulary. archive.sh
-    # (`--apply`) and subtask.sh (`new`) may LEGALLY lead with an option or a subcommand, so an
-    # arm above their seam could not tell a bad flag from a good one without holding a SECOND COPY
-    # of their option list — the defect § 3's own scar records ("the remedy was one fewer copy,
-    # not a better matcher"). Those two keep rc 1 here, and the finish line says so rather than
-    # this arm quietly skipping them.
+    # THE UNKNOWN-OPTION CLAUSE, only where the grammar allows it above the seam: the creators
+    # take a <slug> first, so a dash-leading token there is illegal whatever the option list
+    # says. archive.sh (`--apply`) and subtask.sh (`new`) may legally lead with an option or a
+    # subcommand, so an arm above their seam would need a second copy of their option list.
+    # They keep rc 1, and the finish line says so.
     case "$s" in
       new-bug.sh|new-issue.sh|new-refactor.sh|new-prd.sh)
         hout="$( cd "$SB_WORK" && "$SB_WORK/scripts/$s" --bogus </dev/null 2>&1 )"; hrc=$?
@@ -842,10 +704,8 @@ case_config_seam_refusal() {
     esac
   done
 
-  # ── INSTRUMENT CHECK FOR THE ARMS ABOVE. Written OUTSIDE scripts/ so the census cannot pick it
-  #    up and turn the control into a subject — the same construction, and the same reason, as the
-  #    CLI-shape case's probe. Each arm must be shown able to FAIL, because they all passed on the
-  #    very first run of the fixed tree and a green that has never been red is a wish.
+  # ── INSTRUMENT CHECK FOR THE ARMS ABOVE: each must be shown able to FAIL, against a probe
+  #    written OUTSIDE scripts/ so the census cannot pick it up.
   local hprobe="$SB_TMP/help-refuses.sh"
   printf '#!/usr/bin/env bash\necho "%s-NNN" >&2\nexit 1\n' "${seam_prefix:-KIT}" > "$hprobe"
   chmod +x "$hprobe"
@@ -865,16 +725,10 @@ case_config_seam_refusal() {
   # the seam empty must ALSO refuse and name it. Restore the seam file, blank the value.
   mv "$SB_WORK/scripts/config.sh.disabled" "$SB_WORK/scripts/config.sh" >/dev/null 2>&1
   if [ -f "$SB_WORK/scripts/new-prd.sh" ]; then
-    # WHAT CARRIES THIS ARM, STATED so nobody reads the rc check as the assertion: in a
-    # sandbox there is no PRD template, so new-prd.sh would exit non-zero on that alone
-    # and the `rc -ne 0` check below CANNOT FAIL here. The arm is carried entirely by the
-    # naming check — that the refusal says PRD_PREFIX rather than something else. The rc
-    # check stays because it is free and would matter in a tree that has the template.
-    #
-    # BLANK THE SEAM, NOT THE ENVIRONMENT. config.sh reads PRD_PREFIX="${PRD_PREFIX:-PRD}",
-    # so an empty env var is replaced by the default and the guard never fires — measured:
-    # the run got as far as the template check and reported that instead. The empty seam
-    # has to be empty IN THE FILE, which is also the state an adopter can actually reach.
+    # The rc check cannot fail here: with no PRD template in the sandbox new-prd.sh exits
+    # non-zero anyway. The naming check (PRD_PREFIX) carries this arm.
+    # Blank the seam IN THE FILE, not the environment: `PRD_PREFIX="${PRD_PREFIX:-PRD}"`
+    # replaces an empty env var with the default, so the guard would never fire.
     perl -i -pe 's{^PRD_PREFIX=.*$}{PRD_PREFIX=""}' "$SB_WORK/scripts/config.sh"
     grep -qxF 'PRD_PREFIX=""' "$SB_WORK/scripts/config.sh" \
       || _fixture_die "case_config_seam_refusal: could not blank PRD_PREFIX in the sandbox's config.sh — the empty-seam arm would test a populated seam."
@@ -891,14 +745,8 @@ case_config_seam_refusal() {
     || cf "the refused sweep moved the file anyway"
   [ -z "$(find "$SB_WORK/progress" -name "$SB_PREFIX-900-*.md" 2>/dev/null)" ] \
     || cf "a refused creation script minted a file anyway"
-  # new-prd.sh mints into requirements/, not progress/ — so the two checks above do not
-  # cover the one consumer whose output lands somewhere else. Asserting refusal without
-  # asserting inaction is half a measurement.
-  # VACUOUS ON A CLEAN RUN, and that is the honest description: the sandbox has no
-  # requirements/ at all, so `find` over a missing directory finds nothing whatever the
-  # script did. It bites the moment anything CREATES that directory — which is exactly
-  # the mint this asserts against — so it is a real assertion with a stated blind spot,
-  # not a green that could never go red. Its control planted precisely that.
+  # new-prd.sh mints into requirements/, which the checks above do not cover. The sandbox has
+  # no requirements/, so this is vacuous on a clean run and bites once anything creates it.
   [ -z "$(find "$SB_WORK/requirements" -name '*someslug*' 2>/dev/null)" ] \
     || cf "a refused new-prd.sh minted into requirements/ anyway"
 
@@ -957,10 +805,7 @@ case_commit_msg() {
   # DERIVE the accepted prefixes from the hook's own ROLE_PREFIXES line — do NOT
   # re-hardcode them, or a set change makes these assertions vacuous.
   local prefixes
-  # THE CANONICAL EXPRESSION, byte-identical to lib/role-set.sh's kit_role_set and to the
-  # other three sites. It used to carry a trailing `.*`, which silently tolerated content
-  # after the closing quote that no other reader accepts — the kind of divergence that
-  # makes two sites disagree about the same file with nothing in either to show it.
+  # THE CANONICAL EXPRESSION, byte-identical to lib/role-set.sh's kit_role_set.
   # FALLBACK POLICY HERE: cf (a case finding). The set is derived to keep the assertions
   # below non-vacuous, so an unreadable hook makes this case meaningless, not skippable.
   prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
@@ -999,17 +844,10 @@ case_commit_msg() {
   [ "$rc" -ne 0 ] || cf "applypatch-msg accepted an unprefixed subject (the am path must not be a hole)"
 
   # --- § A.1: no generated co-author trailer, and no "Generated with …" line ------
-  # DERIVE the markers from the hook's own TOOL_TRAILER_MARKERS line, for the same
-  # reason the prefixes are derived: a project extends that list, and a restated
-  # copy here would make these assertions vacuous the day it does.
-  #
-  # WHAT DERIVING COSTS, STATED because a reddening control measured it: this arm
-  # asserts THE RULE WORKS FOR WHATEVER MARKERS ARE DECLARED — not that the declared
-  # set is the right one. Replace TOOL_TRAILER_MARKERS with a single word that matches
-  # nothing real and every assertion below still passes, because the arm then tests the
-  # hook against that word. Only the empty case is caught, by the derivation check. So
-  # a NARROWED marker list is invisible here by construction; what this arm defends is
-  # the enforcement, and deleting RULE (2) from the hook is what reddens it.
+  # DERIVE the markers from the hook's TOOL_TRAILER_MARKERS, as the prefixes are. This asserts
+  # the rule works for WHATEVER markers are declared, not that the set is right: a narrowed
+  # list is invisible here by construction, and only an empty one is caught. Deleting RULE (2)
+  # from the hook is what reddens it.
   local role markers marker
   role="${prefixes%%|*}"
   markers="$(sed -n "s/^TOOL_TRAILER_MARKERS='\\(.*\\)'.*/\\1/p" "$hook")"
@@ -1020,11 +858,9 @@ case_commit_msg() {
   printf '%s' "$markers" | grep -E '^[a-z0-9|]+$' >/dev/null \
     || cf "(trailer) TOOL_TRAILER_MARKERS is not the plain-word list the refusal prints: '$markers'"
 
-  # `git commit -v` hands the hook the RAW DIFF below the scissors line — uncommented,
-  # context lines carrying one leading space. Editing a file that contains a trailer is
-  # not writing one, so this must be ACCEPTED. (\x escapes keep this file ASCII; the
-  # emoji is there because the shape the tooling emits leads with decoration, not with
-  # the word "Generated".)
+  # `git commit -v` hands the hook the RAW DIFF below the scissors line; editing a file that
+  # contains a trailer is not writing one, so this is ACCEPTED. (\x escapes keep this file
+  # ASCII; the emoji leads because the tooling's shape does.)
   printf '[%s] a valid subject\n\n# ------------------------ >8 ------------------------\n# Do not modify or remove the line above.\ndiff --git a/doctrine b/doctrine\n--- a/doctrine\n+++ b/doctrine\n@@ -1 +1,2 @@\n Co-Authored-By: %s <noreply@example.com>\n+\xf0\x9f\xa4\x96 Generated with [Some Tool](https://example.com)\n' "$role" "$marker" > "$msg"
   ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
   [ "$rc" -eq 0 ] || cf "(trailer) a \`commit -v\` message was refused for the DIFF below its scissors line (exit $rc)"
@@ -1043,13 +879,8 @@ case_commit_msg() {
   printf '%s' "$out" | grep 'commit-hygiene.md' >/dev/null || cf "(trailer) the refusal does not name the rule: $out"
   printf '%s' "$out" | grep -i "$marker" >/dev/null || cf "(trailer) the refusal does not list the derived markers: $out"
 
-  # ── NO SPACE AFTER THE COLON. This is the ablation for a hole this guard actually had:
-  #    the pre-marker context was once a REQUIRED `[^[:alnum:]]` rather than an optional
-  #    group, so with the marker butted against the colon there was nothing for it to
-  #    consume and the trailer walked through. One deleted space defeated the rule.
-  #    Measured on the hook as it then shipped: the spaced form refused, this one
-  #    ACCEPTED. It is a case and not only a note because the matcher is one edit away
-  #    from the same shape, and nothing else here would notice.
+  # ── NO SPACE AFTER THE COLON: the pre-marker context must be an OPTIONAL group; a required
+  #    `[^[:alnum:]]` has nothing to consume here and the trailer walks through.
   printf '[%s] a valid subject\n\nCo-Authored-By:%s <noreply@example.com>\n' "$role" "$marker" > "$msg"
   ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
   [ "$rc" -ne 0 ] \
@@ -1060,11 +891,9 @@ case_commit_msg() {
   ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
   [ "$rc" -ne 0 ] || cf "(trailer) a padded 'Co-Authored-By:   $marker' was accepted"
 
-  # ── AND THE FALSE-POSITIVE GUARD THE FIX MUST NOT COST. A human whose name merely
-  #    BEGINS with a marker's stem is not a tool trailer, and the trailing
-  #    `([^[:alnum:]]|$)` is the only thing keeping them out of the refusal. Widening the
-  #    matcher to catch the unspaced form is one careless edit away from dropping this,
-  #    which would refuse a real contributor by name — a far worse failure than the hole.
+  # ── THE FALSE-POSITIVE GUARD: a human whose name BEGINS with a marker's stem is not a tool
+  #    trailer, and the trailing `([^[:alnum:]]|$)` keeps them out. Refusing a real
+  #    contributor by name is worse than the hole.
   printf '[%s] a valid subject\n\nCo-Authored-By: %sia Ng <person@example.com>\n' "$role" "$marker" > "$msg"
   ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
   [ "$rc" -eq 0 ] \
@@ -1120,12 +949,9 @@ case_push_failure() {
 }
 
 # =============================================================================
-# CASE — THE TRUNK FALLBACK IS LOUD. With no <remote>/HEAD and no
-# init.defaultBranch, the resolution chain reaches its last-resort literal — and
-# that used to be SILENT the whole way down, so a fresh repository got a trunk
-# name nobody chose and found out when the first board move pushed to it. The
-# chain is kept (a hard refusal would break every read-only caller); what is
-# asserted here is that each fallback step SAYS which step it used.
+# CASE — THE TRUNK FALLBACK IS LOUD. With no <remote>/HEAD and no init.defaultBranch, the
+# chain reaches its last-resort literal. The chain is kept (a hard refusal would break every
+# read-only caller); each fallback step must SAY which step it used.
 # =============================================================================
 case_trunk_fallback_warns() {
   cf_reset
@@ -1137,10 +963,8 @@ case_trunk_fallback_warns() {
                    "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
   [ -n "$last_resort" ] || cf "could not derive KWT_TRUNK_LAST_RESORT from the library"
 
-  # Step 2: no <remote>/HEAD, but init.defaultBranch is set. NOTE the command:
-  # <remote>/HEAD is a SYMBOLIC ref, and `update-ref -d` does not remove one — a
-  # setup that used it silently left the ref in place, so the case passed by
-  # never reaching the fallback at all. `symbolic-ref -d` is the one that works.
+  # Step 2: no <remote>/HEAD, but init.defaultBranch is set. <remote>/HEAD is a SYMBOLIC ref:
+  # `update-ref -d` leaves it in place, `symbolic-ref -d` removes it.
   git -C "$SB_WORK" symbolic-ref -d refs/remotes/origin/HEAD >/dev/null 2>&1 || true
   local out
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$SB_PREFIX-310" in_progress \
@@ -1167,12 +991,8 @@ case_trunk_fallback_warns() {
 # =============================================================================
 # CASE — THE MOVER REFUSES A DECLINE WITH NO RECORDED WHY.
 #
-# A DECLINE WITH NO RECORDED WHY IS A DELETION WITH EXTRA STEPS. The reasoning is the
-# entire value of a declined card: a parked card's blocker can be rediscovered by
-# trying again, but a refusal's argument is the only thing the card still carries once
-# the work is not going to happen. Strip it and the column holds a list of titles
-# nobody can act on, and the next person to propose the same thing pays for the
-# refutation a second time.
+# The reasoning is the entire value of a declined card: a parked card's blocker can be
+# rediscovered, a refusal's argument cannot. A decline with no recorded why is a deletion.
 #
 # BOTH DIRECTIONS, because a refusal that also refuses the legal call is not a guard,
 # it is a broken target:
@@ -1222,20 +1042,12 @@ case_move_issue_declined_requires_a_reason() {
 # =============================================================================
 # CASE — THE AUXILIARY WORKTREE'S DIRTY GUARD: REPORTS WIDELY, REFUSES NARROWLY.
 #
-# The guard used to print, as its keep-your-work option, a blanket `git add -A` in a
-# worktree whose HEAD IS the trunk and whose push target IS the trunk, with nothing in
-# between — and it read `status --porcelain -uno`, so it could not SEE half of what that
-# recipe would commit. In one adopting project a commit made in that directory replaced
-# the project README with a generated distribution page and added four release artifacts
-# to main.
-#
-# THE `-uno` IS NOT THE BUG AND MUST NOT BE "FIXED". Its recorded reason is correct and
-# measured: it scopes a DESTRUCTION guard to exactly what `reset --hard` destroys, and
-# reset --hard leaves untracked files alone. The defect was the MISMATCH — a guard scoped
-# to what would be destroyed, printing a remedy scoped to everything in the tree. So the
-# report widens and the REFUSAL does not, and leg (ii) is what holds that line: an
-# untracked file ALONE must not block a board operation, or every stray editor dropping
-# becomes an outage.
+# The guard's `status --porcelain -uno` is correct and must NOT be "fixed": it scopes a
+# DESTRUCTION guard to what `reset --hard` destroys, which leaves untracked files alone. But
+# the worktree's HEAD and push target are the trunk, so the printed keep-your-work remedy must
+# be scoped to progress/ (never a blanket `git add -A`), and the REPORT must also list the
+# untracked paths such a recipe would commit. The REFUSAL stays narrow: leg (ii) holds that an
+# untracked file alone does not block a board operation.
 # =============================================================================
 case_kwt_dirty_guard_reports_widely_refuses_narrowly() {
   cf_reset
@@ -1269,10 +1081,8 @@ case_kwt_dirty_guard_reports_widely_refuses_narrowly() {
   # THE REMEDY IS SCOPED. Both halves: the narrow form present, the blanket form absent.
   printf '%s\n' "$out" | grep -- "add -- progress/" >/dev/null \
     || cf "(i) the printed remedy is not scoped to progress/: $(printf '%s' "$out" | tr '\n' '|')"
-  # `add -A &&` — the RECIPE shape, not the bare string. The refusal now WARNS about
-  # `add -A` in prose, so a bare match finds this arm's own warning text and reddens on
-  # the fix. (It did, on the first run of this case.) The recipe is the thing that must
-  # be gone; the warning is the thing that must be there.
+  # `add -A &&`, the RECIPE shape: the refusal warns about `add -A` in prose, so a bare match
+  # would find the warning.
   printf '%s\n' "$out" | grep -- "add -A &&" >/dev/null \
     && cf "(i) the printed remedy STILL offers a blanket 'add -A' recipe in a worktree that pushes to the trunk: $(printf '%s' "$out" | tr '\n' '|')"
   # THE UNTRACKED STRAY IS REPORTED, and labelled as not being the refusal's subject.
@@ -1303,19 +1113,10 @@ case_kwt_dirty_guard_reports_widely_refuses_narrowly() {
 # =============================================================================
 # CASE — THE MOVER LEAVES A DIRTY MAIN CHECKOUT BYTE-IDENTICAL.
 #
-# A shipped role doc and a shipped skill both told adopters that a loose edit to their
-# own checkout "is destroyed" when move-issue.sh runs. It is not: the mover's own
-# contract is that the operator's checkout is NEVER switched, it has no dirty-tree
-# refusal because the checkout's state is irrelevant to it, and the only `reset --hard`
-# in the worktree library is scoped to the kanban worktree. Both sentences were written
-# in the initial commit and neither had been touched since.
-#
-# THE REAL HAZARD IS STRANDING, NOT DESTRUCTION, and it is worth a different warning: the
-# move commits a `git mv` on the trunk while the edit sits at the OLD path in a checkout
-# the mover deliberately did not fast-forward. Nothing is lost; the next pull collides.
-#
-# THIS ASSERTS THE EFFECT, which is why it is worth having where a text-match would not
-# be: it measures the file's bytes and the checkout's HEAD, not what any document says.
+# The mover never switches the operator's checkout, and its only `reset --hard` is scoped to
+# the kanban worktree, so a loose edit is not destroyed. The real hazard is STRANDING: the move
+# commits a `git mv` on the trunk while the edit sits at the OLD path, and the next pull
+# collides. Asserted on the file's bytes and HEAD, not on what any document says.
 # =============================================================================
 case_move_issue_leaves_a_dirty_checkout_alone() {
   cf_reset
@@ -1359,16 +1160,10 @@ case_move_issue_leaves_a_dirty_checkout_alone() {
 # CASE — A PARTIAL PREFIX DERIVATION REPORTS ITSELF PARTIAL, AND THE INITIALIZER
 #        REFUSES THE VALUE THAT CAUSES ONE.
 #
-# Two halves of one contract, only one of which had been written. kit-init validated
-# --prefix and not --prd-prefix, so `--prd-prefix REQ-2` was accepted and stamped; the
-# hygiene instrument derives its id pattern with `([A-Za-z0-9]+)` and could not then read
-# that key. Its `_id_prefixes` returned `derived=True` for a list of length one, so the
-# instrument silently stopped seeing PRD ids WHILE REPORTING ITSELF FULLY DERIVED —
-# `id_prefixes_derived_from_seam` is the flag a reader uses to tell a real zero from a
-# blind one, and a partial derivation is the blind case wearing the confident flag.
-#
-# BOTH ARMS ARE NEEDED. Validation closes one route to a half-derivation; only the flag
-# can tell a reader when some other route was taken.
+# kit-init must validate --prd-prefix as it does --prefix: a value like `REQ-2` is stamped,
+# and the hygiene instrument's `([A-Za-z0-9]+)` pattern cannot read it. The instrument must
+# then report id_prefixes_derived_from_seam FALSE, the flag a reader uses to tell a real zero
+# from a blind one. Both arms: validation closes one route, the flag reports any other.
 # =============================================================================
 case_partial_prefix_derivation_says_so() {
   cf_reset
@@ -1436,22 +1231,14 @@ PRD_PREFIX="${PRD_PREFIX:-REQ-2}"
 }
 
 # =============================================================================
-# CASE — EVERY LINK BELOW THE FIRST SAYS SO, IN ALL THREE IMPLEMENTATIONS.
+# CASE — EVERY LINK BELOW THE FIRST SAYS SO, IN EVERY IMPLEMENTATION OF THE CHAIN.
 #
-# The trunk chain — <remote>/HEAD → init.defaultBranch → the kit's last-resort constant
-# — is implemented three times: in kwt_resolve, in check-board.sh and in release.sh.
-# It CANNOT be single-sourced as a function: release.sh sources nothing from scripts/lib/
-# by a standing ruling stated in its own header. So the invariant is what has to be held,
-# and this case is what holds it.
-#
-# WHAT WENT WRONG WITHOUT IT: kwt_resolve warns at steps 2 and 3; release.sh warned at
-# step 3 ONLY, so a cut against init.defaultBranch went out silent — and step 2 is where
-# a real cut lands, because a developer machine usually HAS that config set; check-board
-# warned at NEITHER, while its own comment claimed parity with the library. A report
-# whose every trunk arm is about a branch, printed against a guessed branch name, is the
-# one case where a clean report is worse than none.
-#
-# THE THREE STATES ARE BUILT BY REMOVAL, in order, from a sandbox that starts at step 1.
+# The trunk chain (<remote>/HEAD → init.defaultBranch → the kit's last-resort constant) is
+# implemented in kwt_resolve, check-board.sh and release.sh, and cannot be one function:
+# release.sh sources nothing from scripts/lib/ (its header states why). So the invariant is
+# held here: every step below the first warns, in each. Step 2 is where a real cut lands,
+# since a developer machine usually has init.defaultBranch set. The states are built by
+# removal, starting from step 1.
 # =============================================================================
 case_trunk_chain_announces_every_fallback() {
   cf_reset
@@ -1491,8 +1278,8 @@ case_trunk_chain_announces_every_fallback() {
   printf '%s' "$out" | grep 'is a GUESS' >/dev/null \
     || cf "(step 3) release.sh fell to the last-resort constant with no warning: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
-  # ── AND THE THREE AGREE ON THE ANSWER, which is the other half of "one chain".
-  #    Derived from the library, so the expected value has one author.
+  # ── AND THE IMPLEMENTATIONS AGREE ON THE ANSWER. Derived from the library, so the expected
+  #    value has one author.
   local last_resort
   last_resort="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' \
                    "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"

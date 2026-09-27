@@ -4,92 +4,19 @@
 # check-board.sh's arms, and the cb_* / _lived_signals helpers other families call.
 # =============================================================================
 
-# =============================================================================
-# check-board.sh check (d): frontmatter id integrity
-# =============================================================================
-# WHY THESE CASES EXIST (empirical, not speculative): two issues carried the SAME
-# `id:` on the trunk simultaneously — a Dev-filed bug and a PM-minted spike,
-# landed minutes apart from separate worktrees. Their SLUGS differed, so git
-# raised nothing, and no check read frontmatter `id:` — so the board reported
-# `board-drift: clean ✓` with a duplicate id on it.
+# _lived_signals — the signals arm [g] reads to decide whether this repository has STARTED,
+# derived as the arm derives them, never enumerated in part: a guard over a subset passes until
+# a case seeds a signal it does not cover.
 #
-# NOTE ON THE ABSENT CAPABILITY PROBE (deliberate, same reasoning as
-# case_verify_frame): there is NO grep-probe on check-board.sh having the check,
-# because such a probe would turn the check being deleted or refactored away into
-# a SKIP instead of a FAIL.
-#
-# DERIVE, DO NOT RE-HARDCODE: the constants these cases key on are read out of the
-# REAL check-board.sh with sed, per that script's own greppable-defaults contract,
-# so a future edit there cannot silently make these assertions vacuous.
-
-# Run the SANDBOX copy of check-board.sh. CLAUDE_PROJECT_DIR is unset for the
-# child: that variable is how the script overrides its repo root, and inheriting
-# the harness's would point the sandbox's copy at the REAL board.
-# Read arm [g]'s SECTION out of a check-board report — from its header to the next
-# arm's, however long it grows.
-#
-# THE OFFSET WAS THE DEFECT, NOT ITS SIZE. Every assertion below used `grep -A6`, so an
-# assertion moved past the sixth line by a line ADDED to the arm silently stops being
-# read — and a `grep -q` over a window that no longer contains its subject reports
-# absence, which here reads as a finding rather than as a blind assertion. Widening the
-# number would buy time and keep the shape; anchoring on the next `[x]` header removes
-# it, because the section's end is a fact about the report rather than a guess about
-# its length.
-# ARM [g] IS CURRENTLY THE LAST ARM, so a section read that stops only at the next
-# `[x]` header runs to the end of the report and swallows the trailing verdict line.
-# Measured against a real report: without the `──` guard the section is 5 lines and
-# includes `── board-drift: …`; with it, 4 and clean. Nothing asserts on that line
-# through this helper today — but a NEGATIVE assertion added later would be answered by
-# the verdict rather than by the arm, which is the same class of quiet wrongness the
-# fixed offset had. The guard costs one clause and removes the possibility.
-# (Both halves are needed: `──` alone would not stop at a following arm if one is ever
-# added after [g], and the header test alone does not stop at the summary.)
-# _lived_signals — the signals arm [g] reads to decide whether this repository has
-# STARTED, derived the way the arm derives them rather than enumerated.
-#
-# WHY DERIVED. A fixture that guards two of four signals is the census-in-prose form with
-# a `[ ]` around it: it is correct until the set grows, and it grows silently. Today a
-# sandbox is clean on the log and archive signals by accident — make_sandbox writes no
-# progress.md, and its ARCHIVE.md has the heading with no body — so a guard covering only
-# the receipt and the board would PASS TODAY and stop covering the moment somebody seeds
-# a log line for an unrelated case. The not-run case would then quietly become an
-# enabling-direction case still carrying the not-run name.
-#
-# THIS LIST IS A COPY OF THE ARM'S AND MUST MOVE WHEN THE ARM DOES. It is derived from
-# the same four inputs in the same order; it is not derived from the arm's code, because
-# the arm is the subject under test and a fixture that asked the subject what to check
-# would agree with it by construction.
-#
-# THE COPY IS SAFE BECAUSE OF WHICH WAY A DIVERGENCE FAILS, and that — not the
-# self-certification argument above — is the reason not to collapse these two for
-# tidiness. Suppose the arm gains a fifth signal and this list does not: a fixture
-# carrying only that fifth signal makes this guard say "not started, proceed", the arm
-# then RUNS, and the not-run case asserts THIS CHECK DID NOT RUN against an arm that
-# reported. It fails loudly, immediately, and names the arm. The copy cannot rot quietly
-# in the direction that matters.
-#
-# THERE ARE NOW TWO IMPLEMENTATIONS OF THIS SIGNAL SET, and this one is the INSTRUMENT
-# rather than an operand. It was three — the initializer's probe, the arm's
-# re-derivation, and this fixture — and the first two were merged into
-# scripts/lib/lived-probe.sh, which both consumers now source.
-#
-# THIS FIXTURE IS DELIBERATELY NOT COLLAPSED INTO THAT LIBRARY, and the reason is the
-# whole value of it: a fixture that asked the subject under test what to check would
-# agree with it by construction, and every case resting on it would go green on a probe
-# that had stopped measuring anything. It is now the ONLY independent witness to the
-# signal set, which raises rather than lowers what it is worth. If the library grows a
-# signal, this must grow it too — and the mechanism above is what makes that failure
-# loud instead of quiet.
+# It is the INSTRUMENT, deliberately NOT collapsed into scripts/lib/lived-probe.sh: a fixture that
+# asked the subject what to check would agree with it by construction. It must move when the
+# library does, and a divergence fails LOUDLY: a fixture carrying only a signal this copy lacks
+# lets the arm run, and the not-run case then fails naming the arm.
 _lived_signals() {  # prints one line per signal present; empty output means "not started"
   local col n log arc cols
   [ -f "$SB_WORK/scripts/config.sh" ] && grep -q "^$KIT_STAMP_MARK" "$SB_WORK/scripts/config.sh" 2>/dev/null \
     && echo "the initializer's stamp receipt in scripts/config.sh"
-  # THE COLUMNS ARE DERIVED, from the same declaration the arm reads. They were a
-  # six-name literal here until it was pointed out that this is the guard written to
-  # replace an enumerated guard — a list of columns in it is the defect wearing the
-  # fix's clothes. `cb_default` already reads named values out of the real
-  # check-board.sh and is already used for STATUS_FOLDERS elsewhere in this file, so
-  # the derivation costs one line and removes the question rather than answering it.
+  # THE COLUMNS ARE DERIVED from the declaration the arm reads, never a literal list.
   IFS='|' read -r -a cols <<< "$(cb_default STATUS_FOLDERS)"
   [ "${#cols[@]}" -gt 0 ] \
     || _fixture_die "_lived_signals: STATUS_FOLDERS could not be read from check-board.sh — the board signal would be skipped entirely and every guard built on this would pass over a board it never looked at."
@@ -109,6 +36,11 @@ _lived_signals() {  # prints one line per signal present; empty output means "no
   return 0
 }
 
+# Read arm [g]'s SECTION from a check-board report: from its header to the next arm's header or
+# the `──` verdict line. Never a fixed `grep -A<n>` window: a line added to the arm pushes an
+# assertion out of it, and a missing match then reads as a finding. Both stops are needed: the
+# header test alone runs into the verdict when [g] is the last arm, and `──` alone would not
+# stop at a following arm.
 _cb_g_section() {  # reads a check-board report on stdin
   awk '/^\[g\]/ { f = 1 }
        f && /^──/ { exit }
@@ -133,21 +65,17 @@ cb_set_dep() {
     || _fixture_die "cb_set_dep: '$key: [$target]' did not land in $f — the symmetry case would run against a board with no dependency declared and would report PASS about nothing."
 }
 
+# Run the SANDBOX copy of check-board.sh with CLAUDE_PROJECT_DIR unset: inherited, it would point
+# the copy at the REAL board.
 cb_run() { ( cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR "$SB_WORK/scripts/check-board.sh" 2>&1 ); }
 
 # CASE — check-board's [j] arm joins the downtime queue to the board, and CLASSIFIES the
 # Status cell rather than grepping it.
 #
-# The queue institutes strike-never-delete and, before this arm, NOTHING in the kit read the
-# file: an adopter measured `grep -rln downtime-queue` over their tree and got one hit, the
-# prose instituting it. It bit them twice as silence — a row read `open` for a cure already
-# on the trunk, and a stale row looks exactly like a live one.
-#
-# THE FALSIFIER SET IS THE POINT. A naive `grep -c '| open |'` under-reported that adopter's
-# queue by 8 rows of 37, so the fixture below carries the shapes that break it: emphasis, a
-# trailing `Status:` declaration that must win over the cell's opening words, a struck row
-# that must NOT fire, a live claim in todo/ that must NOT fire, and the angle-bracket SHAPE
-# row that is documentation rather than data.
+# A queue row can read `open` for a cure already on the trunk, and a stale row looks exactly like
+# a live one. The fixture carries the shapes a naive `grep -c '| open |'` gets wrong: emphasis, a
+# trailing `Status:` declaration that must win over the cell's opening words, a struck row and a
+# live claim in todo/ that must NOT fire, and the angle-bracket SHAPE row, which is documentation.
 case_downtime_queue_claim_drift() {
   cf_reset
   make_sandbox
@@ -167,10 +95,8 @@ DQEOF
   : > "$SB_WORK/progress/done/ZZQ-103-c.md"
   : > "$SB_WORK/progress/done/ZZQ-104-d.md"
 
-  # SCOPE THE ASSERTIONS TO THE [j] SECTION. The first draft grepped the whole report and
-  # failed: arms [a] and [d] also name these ids, because the fixture puts real cards on the
-  # board. A guard whose operand is the wrong slice reports the neighbouring arm's output as
-  # its own subject — the operand defect (instruments.md § A.6) inside the case testing for it.
+  # SCOPE THE ASSERTIONS TO THE [j] SECTION: arms [a] and [d] also name these ids, because the
+  # fixture puts real cards on the board (instruments.md § A.6).
   _j_section() { cd "$SB_WORK" && ./scripts/check-board.sh 2>&1 | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
   out="$(_j_section)"
 
@@ -226,10 +152,8 @@ seed_issue_mismatched() {
   rm -f "$f.bak"
 }
 
-# Strip check (d) out of the SANDBOX copy. The control leg re-runs a board that
-# DID produce a finding and asserts the finding disappears — so a passing leg is
-# attributable to the new logic rather than to any output the script happened to
-# emit.
+# Strip check (d) out of the SANDBOX copy. The control leg asserts a finding disappears, so a
+# pass is attributable to the check rather than to whatever the script emitted.
 cb_remove_check_d() {
   local s="$SB_WORK/scripts/check-board.sh"
   grep -q '# BEGIN check (d)' "$s" \
@@ -240,6 +164,13 @@ cb_remove_check_d() {
   return 0
 }
 
+# =============================================================================
+# check-board.sh check (d): frontmatter id integrity
+# =============================================================================
+# Two cards can carry the same `id:` on the trunk under different slugs, which git never flags.
+# No capability probe for the check, on purpose: it would turn the check being deleted into a
+# SKIP instead of a FAIL. The constants are read from the REAL check-board.sh (cb_default), so an
+# edit there cannot make these assertions vacuous.
 case_check_board_id_clean() {
   cf_reset
   make_sandbox
@@ -253,13 +184,8 @@ case_check_board_id_clean() {
   [ -n "$status_folders" ] || cf "could not derive STATUS_FOLDERS from the defaults block"
   [ -n "$id_key" ]         || cf "could not derive ISSUE_ID_KEY from the defaults block"
   [ -n "$id_pattern" ]     || cf "could not derive ISSUE_ID_PATTERN from the defaults block"
-  # NO COLUMN COUNT HERE. This asserted "= 6", which is a census over a set the kit may
-  # legitimately grow: a seventh status would redden this case rather than the property
-  # it protects, and the number would have to be chased here as well as at the seam.
-  # What the case actually needs is that the SPLIT worked — an unsplit blob would make
-  # every membership test below vacuous by matching nothing — and that the one member
-  # this case depends on is present, which the named assertion below states with its
-  # reason attached. A count states neither.
+  # No column count: a new status would redden this case, not the property. What matters is
+  # that the split worked (an unsplit blob matches nothing) and that done/ is present.
   ncols="$(printf '%s' "$status_folders" | tr '|' '\n' | grep -c . || true)"
   [ "$ncols" -gt 1 ] || cf "STATUS_FOLDERS did not split into columns — derived '$status_folders'"
   printf '%s' "$status_folders" | tr '|' '\n' | grep -x done >/dev/null \
@@ -269,9 +195,9 @@ case_check_board_id_clean() {
   seed_issue in_progress "$SB_PREFIX-101" beta  chore "Healthy beta"
   seed_issue done        "$SB_PREFIX-102" gamma chore "Healthy gamma"
 
-  # NEAR MISS — an id mentioned in PROSE, and a frontmatter shape QUOTED in the
-  # body at line start. A whole-file grep for '^id:' would read the first of those
-  # as this file's own id. The parse must be anchored to the frontmatter block.
+  # NEAR MISS — an id mentioned in PROSE, and a frontmatter shape QUOTED in the body at line
+  # start. A whole-file grep for '^id:' would read one as the card's own id. The parse must be
+  # anchored to the frontmatter block.
   cat >> "$SB_WORK/progress/todo/$SB_PREFIX-100-alpha.md" <<EOF
 
 This paragraph supersedes progress/done/$SB_PREFIX-379-old.md and quotes a
@@ -305,9 +231,7 @@ case_check_board_id_duplicate() {
   cf_reset
   make_sandbox
 
-  # CROSS-COLUMN duplicate (todo/ vs done/) — the case arm [d]'s WHOLE-BOARD breadth
-  # exists for; a naive per-directory loop would miss it. The breadth is whatever
-  # STATUS_FOLDERS names, which is why this comment does not say how many that is.
+  # CROSS-COLUMN duplicate (todo/ vs done/): the reason arm [d] reads the whole board.
   seed_issue todo "$SB_PREFIX-195" first-shape  bug   "Dev-filed bug"
   seed_issue done "$SB_PREFIX-195" second-shape spike "PM-minted spike"
   # SAME-COLUMN duplicate, different slugs.
@@ -420,47 +344,11 @@ case_check_board_id_mismatch() {
 }
 
 # =============================================================================
-# CASE — check (d) reads a frontmatter that does NOT start on line 1.
-#
-# Measured on the very first card of a fresh install: the kit's own templates open
-# with an HTML comment saying what the initializer stamps, so a minted card carries
-# that comment ABOVE its frontmatter — and a parser demanding `---` on line 1
-# reported every such card as having no id at all. The board read RED on a
-# perfectly healthy first day, which is the fastest way to teach an adopter to
-# ignore the board report.
-# =============================================================================
-# =============================================================================
-# CASE — THE ARMS ANSWER ABOUT THE NAMED REF, NOT ABOUT THE CHECKOUT.
-#
-# This is the control the pre-P3 harness could not express, and its absence is why
-# the defect survived so long: the existing board cases publish the whole sandbox
-# and THEN run the checker, so the working tree and the trunk agree and every one of
-# them passes under both the broken and the fixed implementation. A control that
-# cannot fail is not a control.
-#
-# So this case makes the two DISAGREE and asserts which one the report answers
-# about. It uses check (d) — id uniqueness — because that is the arm where reading
-# the checkout is not merely stale but structurally incapable: duplicate ids can
-# only ARISE on the trunk (two concurrent mints both landing), and a branch contains
-# at most one of the pair.
-#
-# Both halves are asserted, in opposite directions:
-#   (i)  a duplicate that exists ONLY in the working tree is NOT reported, and the
-#        report names the ref it read instead;
-#   (ii) the same duplicate, once published, IS reported.
-# An implementation that reads the checkout fails (i). One that reads nothing at all,
-# or that skips whenever the trees differ, fails (ii).
-# =============================================================================
-# =============================================================================
 # CASE — ARM [f1]: THE MAIN CHECKOUT IS WATCHED TOO.
 #
-# The home the drift report did not watch. Everything the kit classifies as METADATA
-# commits direct to the trunk from the primary checkout — rulings, PRDs, issue edits,
-# role docs, process/**, progress.md, the adapter — and arm [f] watched only the board
-# mover's auxiliary worktree. So the one home carrying the process's own memory was
-# the one home nothing watched, and the report said `clean ✓` with unpublished rulings
-# sitting beside it. Measured on a real program at the cost of a successor's first
-# hour, hunting an authority its own launch instructions cited.
+# METADATA (rulings, PRDs, issue edits, role docs, process/**, progress.md) commits direct to the
+# trunk from the main checkout, not from the board mover's worktree, so an unpushed commit there
+# must be reported.
 #
 # Both directions, so neither half can be vacuous:
 #   (i)  a committed-but-unpushed trunk commit in the main checkout IS reported, and
@@ -517,17 +405,10 @@ case_check_board_main_checkout_unpushed() {
 # =============================================================================
 # CASE — CHECK (d)'s REGISTER ARM: the identifier space with no textual conflict.
 #
-# The board's id space collides loudly enough that git notices; a REGISTER's does
-# not. Two legs minting the same `### D-NN` in DIFFERENT SECTIONS of an append-only
-# register produce NO textual conflict at all, so a rebase merges both cleanly and
-# the duplicate lands with no witness. That is the shape this arm exists for and the
-# second scenario below is it.
-#
-# The arm landed proven by hand only, which by instruments.md § B item 2 makes it
-# UNPROVEN rather than passing. This encodes what was proven.
-#
-# The register's path/mark/shape are DERIVED from the script's own REGISTERS record,
-# never re-typed — the same contract every other constant in these cases follows.
+# Two legs minting the same `### D-NN` in DIFFERENT SECTIONS of an append-only register produce
+# no textual conflict, so a rebase merges both and the duplicate lands with no witness. Leg (2)
+# is that shape. The register's path, mark and shape are DERIVED from the script's REGISTERS
+# record, never re-typed.
 # =============================================================================
 case_check_board_registers() {
   cf_reset
@@ -583,11 +464,8 @@ EOF
     || cf "(2) the duplicate did not reach the report footer: $out"
 
   # --- (3) THE D-9 / D-10 MAXIMUM, asserted AGAINST the wrong answer ----------
-  # A section-grouped register with D-10 ABOVE D-9. Both plausible wrong readings
-  # give 9: positional `tail -1` takes the file's last line, and a byte compare
-  # sorts "D-10" before "D-9". Asserting only "says 10" would pass an
-  # implementation that got 10 by luck on other data; asserting NOT 9 is what makes
-  # this control sharp, because both wrong answers are the SAME wrong answer.
+  # D-10 sits ABOVE D-9. Both plausible wrong readings (positional `tail -1`, byte-compare sort)
+  # give 9, so asserting NOT 9 is what makes this sharp.
   cat > "$SB_WORK/$reg_path" <<EOF
 # DECISIONS
 ## A. First bucket
@@ -612,12 +490,9 @@ EOF
 # =============================================================================
 # CASE — AN ABSENT REGISTER SKIPS, AND THE CLEARANCE SAYS NOTHING WAS READ.
 #
-# Separate from the case above because the assertion is about the CLEARANCE LINE,
-# not about a register. The arm's first version printed "every declared register's
-# ids distinct" on a run where every register was SKIPPED — a pass over operands
-# that were never read, which is instruments.md § A.4's own rule failing inside the
-# arm enforcing it. A tick that covers nothing is worse than no tick, because a
-# reader quoting it has been told the registers are clean.
+# Separate from the case above because the assertion is about the CLEARANCE LINE: it must never
+# claim ids are distinct on a run where every register was SKIPPED (instruments.md § A.4). A tick
+# that covers nothing tells its reader the registers are clean.
 # =============================================================================
 case_check_board_register_absent() {
   cf_reset
@@ -653,24 +528,13 @@ case_check_board_register_absent() {
 # CASE — ARM (l): DECLARED REFERENCE INTEGRITY. A citation resolves, or it is a
 # finding — and a MENTION is never a citation.
 #
-# Five legs, and the fourth is the one that matters most. The alternative design —
-# a bare `D-NN` grep over the tree, rescued by stripping comments — was rejected on
-# a MEASUREMENT taken in this kit: a non-greedy multiline HTML-comment strip applied
-# to THIS FILE paired a `<!--` inside a shell string with a `-->` thousands of lines
-# later and deleted 226,350 characters between them, after which the file read as
-# holding no ids at all. A checker built on it reports CLEAN for the wrong reason.
-# Leg (4) is the regression that keeps the positive-marker design honest: a card
-# that DISCUSSES ids — including inside a comment — must produce zero citations
-# while still being READ, which is what separates a real negative from a skip.
-#
-# Leg (5) is the second measured defect, found by running leg (3) rather than by
-# reading it: a retired row NAMES ITS SUCCESSOR in the same sentence, so a bare id
-# grep over § Retired ids marks the LIVE successor retired too — a FALSE RED on a
-# correct citation, which is precisely how a gate gets disabled.
-#
-# Every operand is DERIVED from check-board.sh's own declarations — the register
-# record, the marker, the surfaces — never re-typed, so a change to any of them
-# moves this case with it instead of leaving it asserting a stale shape.
+# The arm reads a declared marker, never a bare `D-NN` grep rescued by stripping comments: a
+# multiline HTML-comment strip can pair a `<!--` in a shell string with a distant `-->` and
+# delete most of a file, which then reads as clean. Leg (4) keeps that design honest: a card that
+# DISCUSSES ids, one inside a comment, is READ and yields zero citations.
+# Leg (5): a retired row names its successor, so a bare id grep over § Retired ids would mark the
+# LIVE successor retired, a false red on a correct citation.
+# Every operand is DERIVED from check-board.sh's declarations, never re-typed.
 # =============================================================================
 case_check_board_citations() {
   cf_reset
@@ -755,10 +619,8 @@ EOF
     && cf "(3) the retired citation printed as a DANGLING one — the two findings ask the reader for different things: $out"
 
   # --- (5) THE SUCCESSOR NAMED IN THE RETIRED ROW IS STILL LIVE ------------------
-  # Measured defect, not hypothesis: with the register still holding the row above
-  # ("`D-02` — retired …; its scope moved into D-01"), a citation of D-01 must stay
-  # CLEAN. A bare id grep over § Retired ids reads D-01 out of the prose and false-reds
-  # a correct citation.
+  # With the register still holding the row above ("`D-02` — retired …; its scope moved into
+  # D-01"), a citation of D-01 must stay CLEAN.
   printf '## Decision Log\n- `[decision: D-01]` — the LIVE successor named in the retired row\n' > "$SB_WORK/$prd_dir/$prd_file"
   publish_sandbox
   out="$(cb_run)"; rc=$?
@@ -793,13 +655,10 @@ EOF
 # =============================================================================
 # CASE — ARM (a): AN ARROW IS A DECLARATION, A BACKTICK IS A MENTION.
 #
-# The comparator used to run ONE alternation over both spellings and take the last
-# match in the line, so a normal entry —
+# A move entry such as
 #   - <date> [Dev] → dev_complete: unblocked; see `blocked` for the prior context.
-# — was read as declaring `blocked` on a card correctly sitting in dev_complete/: a
-# FALSE drift finding on the workflow the manual mandates. Not introduced by the
-# arrow convention, but made reachable by it, since before the arrow existed a move
-# entry carried no structured token at all.
+# must not be read as declaring `blocked`: the arrow is the declaration, and a trailing backtick
+# is a mention.
 #
 # Three directions, because precedence needs all three to be pinned:
 #   (i)   arrow + trailing backtick mention, card matches the ARROW → no finding;
@@ -812,8 +671,7 @@ case_check_board_arrow_beats_mention() {
   make_sandbox
   local out rc
 
-  # (i) the false positive that started this: arrow agrees with the folder, and a
-  #     backticked mention of another column trails it in the prose.
+  # (i) the arrow agrees with the folder, and a backticked mention of another column trails it.
   seed_issue dev_complete "$SB_PREFIX-240" arrowwins chore "Arrow beats mention"
   printf -- '- 2026-01-04 [Dev] → dev_complete: unblocked; see `blocked` for the prior context.\n' \
     >> "$SB_WORK/progress/dev_complete/$SB_PREFIX-240-arrowwins.md"
@@ -845,19 +703,10 @@ case_check_board_arrow_beats_mention() {
 # =============================================================================
 # CASE — ARM (a) JUDGES declined/, AND ARM (k) ONLY COUNTS IT.
 #
-# THE DEFECT THIS IS NAMED AFTER WAS REAL AND SHIPPED FOR THE LENGTH OF ONE REVIEW.
-# When declined/ was added, STATUS_FOLDERS grew and arms (d) and (i) were widened to
-# derive from it — but arm (a), the ONLY drift-deciding board arm, went on walking a
-# hardcoded literal list that did not contain it. A card in declined/ whose last
-# Activity entry declared `→ todo` is a hand-move, which is precisely the event
-# contracts/drift-report.md says no other check can see, and the report answered
-# `board-drift: clean ✓`.
-#
-# THE TWO ARMS ASK DIFFERENT QUESTIONS AND THIS CASE PINS BOTH, because conflating
-# them is what produced the gap. "How deep is this column" is not judgeable about a
-# refusal — a recorded decline is not work left undone — so (k) counts and never sets
-# drift. "Is this card where its own last Activity entry says it is" stays perfectly
-# judgeable about a refusal, so (a) judges it.
+# Arm (a), the only drift-deciding board arm, must walk every STATUS_FOLDERS column, declined/
+# included: a card in declined/ whose last Activity entry says `→ todo` is a hand-move, which no
+# other check can see (contracts/drift-report.md). Arm (k) only counts the column: a recorded
+# decline is not work left undone, so it never sets drift.
 #
 # Four directions:
 #   (i)   a declined card whose arrow AGREES with its folder → no finding;
@@ -900,8 +749,7 @@ case_check_board_declined_is_judged_and_counted() {
     || cf "(iv) a healthy board with two declined cards did not read clean — arm [k] must have no threshold and must never set drift: $out"
 
   # --- (ii) THE ABLATION THAT MAKES (i) WORTH ANYTHING ----------------------
-  # Contradict one card's folder with its own last Activity entry. This is the exact
-  # shape that was reported `clean ✓` before arm (a) derived its columns.
+  # Contradict one card's folder with its own last Activity entry.
   printf -- '- 2026-01-06 [PM] → todo: reopened by hand, without the mover.\n' \
     >> "$SB_WORK/progress/declined/$SB_PREFIX-251-refused-two.md"
   publish_sandbox
@@ -921,13 +769,9 @@ case_check_board_declined_is_judged_and_counted() {
 # =============================================================================
 # CASE — setup.sh WARNS ABOUT A LATER-ADDED COLUMN; IT DOES NOT FAIL.
 #
-# THIS IS AN UPGRADE-PATH CASE, AND THE FAILURE IT GUARDS AGAINST SHIPPED ONCE.
-# Adding declined/ to setup.sh's BOARD_FOLDERS alone made setup.sh exit nonzero in
-# EVERY existing adopter's tree, because an upgrade to a newer kit is a READ, not a
-# run — so every tree still on the older version is missing the newest column. Those
-# boards are one `mkdir` behind, not broken, and reddening every routine fresh clone
-# over a state the adopter has not been told to fix yet trains everybody to ignore
-# setup.sh's output.
+# An upgrade is a READ, not a run, so every tree on an older kit is missing the newest column.
+# Those boards are one `mkdir` behind, not broken, and failing setup.sh on them trains everybody
+# to ignore its output.
 #
 # Both directions, because "warns" is only meaningful against something that fails:
 #   (i)  a board missing declined/ → WARNS, names the remedy, and setup.sh's board
@@ -978,6 +822,16 @@ case_setup_warns_on_a_later_added_column() {
   teardown
 }
 
+# =============================================================================
+# CASE — THE ARMS ANSWER ABOUT THE NAMED REF, NOT ABOUT THE CHECKOUT.
+#
+# Board cases that publish before running cannot tell a checkout read from a ref read, so this
+# case makes the two DISAGREE. It uses check (d): duplicate ids arise only on the trunk (two
+# concurrent mints landing), so a checkout read is structurally blind to them.
+#   (i)  a duplicate only in the working tree is NOT reported, and the report names its ref;
+#   (ii) the same duplicate, once published, IS reported.
+# Reading the checkout fails (i); reading nothing, or skipping when the trees differ, fails (ii).
+# =============================================================================
 case_check_board_reads_the_ref() {
   cf_reset
   make_sandbox
@@ -1015,48 +869,13 @@ case_check_board_reads_the_ref() {
 }
 
 # =============================================================================
-# CASE — ARM (e) SCOPES ITSELF TO THE RULE'S LIFETIME, AND THE BOUNDARY IS STRICT.
-#
-# A rule cannot be violated before it exists. Arm (e) used to scan the last N commits
-# unconditionally, so a project with any pre-adoption history got findings it could
-# never fix — the only cure would be rewriting published history. It fired on the FIRST
-# report an adopter ever saw, because the kit REQUIRES a commit before kit-init.sh runs
-# and wires the hook after it, and a report that is never clean stops being read.
-#
-# THE FIXTURE IS THE KIT'S OWN DAY-ONE RECIPE, which is what makes the off-by-one real
-# rather than theoretical: `git add -A && MSG_OK=1 git commit -m 'init'` commits the
-# whole kit copy — the hook file included — under the subject `init`. So the epoch
-# commit is ITSELF unprefixed, and a boundary of "at or after" would keep reporting the
-# exact line the adopter complained about. Commit 2 below is that commit, and asserting
-# it is NOT reported is the whole point of the strictness.
-# =============================================================================
-# =============================================================================
-# CASE — arm [h]: the trailer scan SHARES arm (e)'s epoch and cannot invent its own.
-#
-# Rules (1) and (2) live in ONE file (scripts/githooks/commit-msg), so they begin
-# binding at ONE commit. Two arms deriving that commit separately is one idea carrying
-# two numbers, and the divergence is SILENT: the two agree on every history that exists
-# today and part company on the first re-add, shallow boundary or root epoch. The
-# same-epoch assertion below is the one nothing else in this file makes.
-#
-# THE MARKER IS READ OUT OF THE HOOK, never typed. A hard-coded "claude" here keeps
-# passing after the hook's marker list changes — the drift this plant must be immune to.
-# =============================================================================
-# =============================================================================
 # CASE — A SHALLOW CLONE DOES NOT GET A DERIVED-LOOKING NARROWING.
 #
-# The history arms scope themselves to the commit that ADDED the commit-msg hook. In a
-# shallow clone that commit is not the real one: a grafted root has no parents, so every
-# file in it reads as ADDED there and the epoch resolves to the CLONE BOUNDARY. Measured
-# on this repository at `--depth 3`, the in-scope set collapsed to two commits out of a
-# twenty-commit window — and the arm printed a scope line naming that boundary and a ✓.
-#
-# SHALLOW IS THE DEFAULT CI CHECKOUT on most forges, which is precisely where a report is
-# most likely to be consumed by a machine that will not notice.
-#
-# THE FIX IS TO STOP NARROWING, NOT TO SKIP: on a shallow clone the pre-adoption commits
-# are absent anyway, so scanning what is present over-reports at worst. What must never
-# happen is a narrowing that LOOKS derived. This asserts that.
+# The history arms scope themselves to the commit that ADDED the commit-msg hook. In a shallow
+# clone a grafted root has no parents, so every file reads as added there and the epoch resolves
+# to the CLONE BOUNDARY. Shallow is the default CI checkout on most forges. The fix is to stop
+# narrowing, not to skip: scanning what is present over-reports at worst. What must never happen
+# is a narrowing that LOOKS derived.
 # =============================================================================
 case_check_board_shallow_clone_does_not_narrow() {
   cf_reset
@@ -1092,6 +911,14 @@ case_check_board_shallow_clone_does_not_narrow() {
   teardown
 }
 
+# =============================================================================
+# CASE — arm [h]: the trailer scan SHARES arm (e)'s epoch and cannot invent its own.
+#
+# Rules (1) and (2) live in one file (scripts/githooks/commit-msg), so they bind from one commit.
+# Two arms deriving it separately agree on ordinary histories and silently part on a re-add, a
+# shallow boundary or a root epoch; the same-epoch assertion below catches that. The marker is
+# read out of the hook, never typed, so a change to the marker list cannot leave a stale plant.
+# =============================================================================
 case_check_board_trailer_scan_shares_the_epoch() {
   cf_reset
   make_sandbox
@@ -1174,14 +1001,10 @@ case_check_board_trailer_scan_shares_the_epoch() {
 # =============================================================================
 # CASE — arm [i]: blocks/blocked_by symmetry, and the four states it must tell apart.
 #
-# The fields are HAND-MAINTAINED — they appear in the two card templates, two role docs
-# and one skill, and in NO script; the board mover writes back only `pr:`. Yet
-# .claude/roles/orchestrator.md § Chain-verify-first gates DISPATCH on them. So an
-# asymmetric pair reads as fine on each card alone and sends work onto unlanded state,
-# and no single-file check can see it.
-#
-# THE ARM IS ADVISORY BY RULING, so this case asserts BOTH halves of that: the findings
-# are printed AND the verdict line stays clean. A deciding version would hold
+# The fields are HAND-MAINTAINED (no script writes them), yet
+# .claude/roles/orchestrator.md § Chain-verify-first gates DISPATCH on them, and an asymmetric
+# pair reads fine on each card alone. The arm is ADVISORY by ruling, so this case asserts both
+# halves: the findings print AND the verdict stays clean. A deciding version would hold
 # release.sh gate (d) shut on a field nothing writes and nothing clears.
 #
 # FOUR DIRECTIONS, and the last two are what stop the arm being noise or a lie:
@@ -1262,6 +1085,15 @@ case_check_board_dependency_symmetry() {
   teardown
 }
 
+# =============================================================================
+# CASE — ARM (e) SCOPES ITSELF TO THE RULE'S LIFETIME, AND THE BOUNDARY IS STRICT.
+#
+# A rule cannot be violated before it exists: pre-adoption commits are findings nobody can fix
+# short of rewriting published history, and they would fire on an adopter's first report.
+# The fixture is the kit's day-one recipe: `git add -A && MSG_OK=1 git commit -m 'init'` commits
+# the hook file under the unprefixed subject `init`, so the epoch commit must itself be excluded
+# ("strictly after", not "at or after"). Commit 2 below is that commit.
+# =============================================================================
 case_check_board_arm_e_scopes_to_the_rules_lifetime() {
   cf_reset
   make_sandbox
@@ -1314,27 +1146,22 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
   printf '%s\n' "$hits" | grep "$sha_after" >/dev/null \
     || cf "ABLATION FAILED — the post-epoch unprefixed commit $sha_after was NOT reported, so the arm cannot go red and every exclusion asserted above proves nothing: $out"
 
-  # The narrowing is NAMED, and named with a non-zero count — an arm that silently
-  # narrows its operand set is the defect this kit spent a crunch removing.
+  # The narrowing is NAMED, with a non-zero count: a silent narrowing is itself a defect.
   printf '%s\n' "$out" | grep "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg" >/dev/null \
     || cf "the scope line does not name the epoch it derived: $out"
   printf '%s\n' "$out" | grep -E "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg — [1-9][0-9]* of the last" >/dev/null \
     || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so this case would pass vacuously: $out"
-  # The accepted residual is stated where the result is printed, not only in a change file.
+  # The accepted residual is stated where the result is printed.
   printf '%s\n' "$out" | grep "the epoch is the hook FILE's arrival" >/dev/null \
     || cf "the accepted residual (hook file present, core.hooksPath never set) is not stated in the arm's output: $out"
 
   teardown
 
   # --- SECOND TOPOLOGY: THE EPOCH IS THE ROOT COMMIT. ------------------------
-  # This is what `README.md`'s day-one line actually produces — `git init`, then
-  # `git add -A && MSG_OK=1 git commit -m 'init'` — so the hook file arrives in a
-  # commit with NO PARENT. It is a distinct topology and not a nicer spelling of the
-  # first: a boundary expressed as `$EPOCH^..` resolves to `fatal: ambiguous argument`
-  # here, and with stderr discarded that reads as an EMPTY in-scope set, which the
-  # membership test then treats as "everything is out of scope". The arm goes wholly
-  # blind while printing a scope line and a green. The half above cannot catch that,
-  # because it always builds the epoch as commit 2.
+  # The day-one recipe on a fresh `git init` puts the hook file in a commit with NO PARENT. A
+  # boundary written `$EPOCH^..` then fails, reads as an EMPTY in-scope set with stderr
+  # discarded, and the arm goes blind while printing a scope line and a green. The half above
+  # always builds the epoch as commit 2 and cannot catch that.
   cf_reset
   make_sandbox
   local rhook="$SB_WORK/scripts/githooks/commit-msg"
@@ -1368,15 +1195,9 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
 # =============================================================================
 # CASE — NO LOCATION IS THE ONLY CORRECT ONE.
 #
-# The trap in the obvious workaround, and the reason "run it from a trunk checkout"
-# was never a fix. Arm (f)'s subject is the publication path, which is registered
-# against the MAIN worktree — so a report run from a linked worktree used to print
-# "no registered worktree (skipped)" about a worktree that existed three directories
-# away. Fixing the stale arms by relocating the caller traded five stale arms for one
-# blind one, and there was no location from which the whole report was correct.
-#
-# This asserts the report is correct FROM A LINKED WORKTREE: the trunk-property arm
-# still names the ref, and the local arm still finds the publication path.
+# Arm (f)'s publication path is registered against the MAIN worktree, so a report run from a
+# linked worktree must still find it, and the trunk-property arms must still name the ref: no
+# location may leave part of the report blind.
 # =============================================================================
 case_check_board_from_a_worktree() {
   cf_reset
@@ -1420,35 +1241,20 @@ case_check_board_from_a_worktree() {
 # =============================================================================
 # CASE — arm [g], graduation: its three states, and the verdict control
 #
-# make_sandbox seeds no root documents, so each of the three cases below seeds
-# CLAUDE.md / README.md / PROJECT.md itself. AND THE NEUTRALIZER DELIBERATELY
-# DELETES THE STAMP RECEIPT from scripts/config.sh, so a case that wants the arm to
-# run must put it back — that is not a workaround, it is the arm's enabling
-# condition, and the receipt is written from KIT_STAMP_MARK rather than retyped.
+# make_sandbox seeds no root documents, so each state below seeds CLAUDE.md / README.md /
+# PROJECT.md itself. The neutralizer deletes the stamp receipt from scripts/config.sh, so a
+# state that wants the arm to run puts it back from KIT_STAMP_MARK: it is the enabling condition.
 # =============================================================================
 case_check_board_graduation() {
   cf_reset
   make_sandbox
 
   # ── (a) NO SIGNAL AT ALL: the check did not run, and says so. ───────────────
-  # THE FIXTURE IS BUILT EMPTY ON PURPOSE, and that is the case rather than a detail:
-  # make_sandbox publishes a board, so a tree with NO sign of having started has to be
-  # constructed deliberately. The old premise here was "no receipt", which is not the
-  # same thing — a board carrying issue files is a signal too, and this arm reads four
-  # of them. A fixture that only removes the receipt tests a tree that HAS started.
-  #
-  # WHY THIS STATE IS ASSERTED HERE **AND** IN A CASE OF ITS OWN, since they look like
-  # duplication and are not: this block is the START of a continuous sequence — the same
-  # sandbox gains a receipt in (b) and the arm must then REPORT — so what (a) proves is
-  # the TRANSITION out of not-run. The standalone case proves the state itself, on a
-  # fixture guarded against all four lived signals. They fail for different reasons: (a)
-  # fails if the arm does not change state when a signal appears, the standalone fails if
-  # the state is wrong at all. Collapsing either would lose one of those.
-  #
-  # AND THE DISTINCTION IS THE POINT: "did not run" is not "nothing to graduate from".
-  # The second reads as a clean bill. A reader must be able to tell an unrun check from
-  # a passing one, so the absence of the COMPLETE claim is asserted beside the presence
-  # of the not-run statement — a check that says nothing satisfies only one of those.
+  # Built EMPTY on purpose: make_sandbox publishes a board, and a card is a lived signal too, so
+  # removing only the receipt tests a tree that HAS started. This is the start of a sequence (the
+  # same sandbox gains a receipt in (b)), so it proves the TRANSITION out of not-run; the
+  # standalone not-run case proves the state itself. "Did not run" must not read as "nothing to
+  # graduate from", so the absence of COMPLETE is asserted beside the not-run statement.
   rm -f "$SB_WORK"/progress/*/*-[0-9]*.md 2>/dev/null
   printf '# progress.md\n\n## Log\n\n' > "$SB_WORK/progress.md"
   printf '# ARCHIVE.md\n\n## Archived\n\n' > "$SB_WORK/ARCHIVE.md"
@@ -1461,10 +1267,8 @@ case_check_board_graduation() {
     || cf "(a) no [g] section — the arm is absent, which no other assertion here can detect"
   printf '%s\n' "$out" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     || cf "(a) with no signal at all the arm did not say it had not run: $out"
-  # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD. arm [g]'s load-failure branch
-  # prints the SAME "THIS CHECK DID NOT RUN" string, so the assertion above became
-  # satisfiable by a broken scripts/lib/lived-probe.sh the day that branch was added —
-  # the case would go green while measuring a library error instead of the tree's signals.
+  # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD: that branch prints the same did-not-run
+  # string, so a broken scripts/lib/lived-probe.sh would satisfy the assertion above.
   printf '%s\n' "$out" | _cb_g_section | grep 'could not be loaded' >/dev/null \
     && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
@@ -1483,18 +1287,13 @@ case_check_board_graduation() {
     || cf "(b) the REPLACE finding did not name README.md: $out"
   printf '%s\n' "$out" | _cb_g_section | grep -i 'PROJECT.md still holds' >/dev/null \
     || cf "(b) the FILL finding did not fire on a PROJECT.md holding <trunk>: $out"
-  # NAME THE CLASS, not the phrase. This read `grep -qi 'not measured'` as authored, and
-  # a reddening control measured that it CANNOT SEE THE OMISSION IT IS NAMED AFTER:
-  # delete arm (g3)'s echo entirely and the case still passes, because the FILL span line
-  # one line above says "The non-markdown FILL members are NOT measured here" and -i makes
-  # that a match. The assertion was satisfied by a different class's disclaimer.
+  # The class name exactly: a case-insensitive 'not measured' also matches the FILL span line's
+  # own disclaimer, so it could not see this class being omitted.
   printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED: not measured' >/dev/null \
     || cf "(b) DELETE-IF-UNUSED was silently omitted instead of declaring itself unmeasured: $out"
 
-  # ── (c) THE VERDICT CONTROL — the whole reason the arm is separable. ─────────
-  # Graduation is reporting findings RIGHT NOW. The verdict must still read clean,
-  # because the board is clean. If this ever fails, the release ritual's board gate
-  # and kit-init's own self-check both start failing on every fresh install.
+  # ── (c) THE VERDICT CONTROL: graduation findings must never move the verdict, or release.sh's
+  #    board gate and kit-init's self-check fail every fresh install.
   printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "(c) graduation findings changed the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is what sends kit-init's self-check looking for a cause: $out"
 
@@ -1520,13 +1319,9 @@ case_check_board_graduation() {
 # =============================================================================
 # CASE — arm [g]'s ENABLING DIRECTION: a lived signal with NO receipt
 #
-# THE FIXTURE THE OLD GATE EXCLUDED. Arm [g] reads FOUR signals, and the receipt is only
-# the first: a board carrying issue files, history in progress.md § Log, and entries in
-# ARCHIVE.md each enable it too. Every existing case here builds the receipt, so the arm
-# had only ever been watched running for one of its four reasons — and a reader of those
-# greens would reasonably conclude the receipt is what the arm requires.
-#
-# This is the direction's positive half: signal present, receipt ABSENT, arm REPORTS.
+# Arm [g] reads several lived signals and the receipt is only one; every other case builds the
+# receipt. This is the positive half for another signal: a card on the board, receipt ABSENT,
+# arm REPORTS.
 # =============================================================================
 case_check_board_graduation_enabled_without_receipt() {
   cf_reset
@@ -1536,8 +1331,8 @@ case_check_board_graduation_enabled_without_receipt() {
   seed_issue todo "$SB_PREFIX-410" lived chore "A card on the board is a lived signal"
   publish_sandbox
 
-  # ASSERT THE PREMISE: no receipt. If one were present the case would pass for the
-  # reason every other case already covers, and prove nothing about the other three.
+  # ASSERT THE PREMISE: no receipt. With one, the case would pass for the reason every other
+  # case already covers and prove nothing about the other signals.
   local _sig; _sig="$(_lived_signals)"
   printf '%s' "$_sig" | grep 'stamp receipt' >/dev/null \
     && _fixture_die "case_check_board_graduation_enabled_without_receipt: the sandbox carries a stamp receipt, so this case would be enabled by the signal every other case already builds and would prove nothing about the other three."
@@ -1545,27 +1340,9 @@ case_check_board_graduation_enabled_without_receipt() {
     || _fixture_die "case_check_board_graduation_enabled_without_receipt: no issue file is on the board, so the signal this case exists to exercise is absent and a green would mean nothing."
 
   local out; out="$(cb_run)"
-  # ANCHOR THE SECTION, AND KNOW EXACTLY WHAT THE ANCHOR IS WORTH — it is less than it
-  # looks. The negative assertion below ("must NOT say X") is satisfied by an EMPTY
-  # section, so on its own it can pass while checking nothing.
-  #
-  # WHAT ACTUALLY PROTECTS THE NEGATIVE IS THE SIBLING POSITIVE, NOT THIS LINE. Measured
-  # against the extractor with three synthetic reports:
-  #
-  #   section          anchor   negative        positive
-  #   full             PASS     PASS            PASS
-  #   header-only      PASS     PASS (vacuous)  FAIL   <- only the positive catches this
-  #   absent ([G])     FAIL     PASS (vacuous)  FAIL
-  #
-  # The positive fails in BOTH failure modes, so today this anchor catches nothing the
-  # positive does not already catch: its contribution is the DIAGNOSTIC — it names an
-  # absent arm instead of leaving a reader to infer it from a content assertion. It earns
-  # its keep only if the positive is ever deleted, and even then it does not cover a
-  # TRUNCATED section, which satisfies it.
-  #
-  # So do not read this line as the protection and delete the positive believing the case
-  # is still guarded. `grep -q` on empty input returns 1, which is why a positive cannot
-  # pass vacuously and a negative can — that asymmetry, not this anchor, is the guard.
+  # ANCHOR THE SECTION. The negative below is satisfied by an EMPTY section; what protects it is
+  # the sibling POSITIVE (grep on empty input returns 1), not this anchor, which only names an
+  # absent arm. Do not delete the positive believing this line guards the case.
   printf '%s\n' "$out" | grep '^\[g\]' >/dev/null \
     || cf "no [g] section — the arm is absent, which no other assertion here can detect"
   printf '%s\n' "$out" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
@@ -1584,10 +1361,8 @@ case_check_board_graduation_enabled_without_receipt() {
 # =============================================================================
 # CASE — arm [g]'s NOT-RUN DIRECTION, as its own named control
 #
-# It duplicates (a) of the four-state case deliberately, for the reason the verdict
-# control is duplicated: a state buried inside a multi-state case is the one that gets
-# refactored away, and this is the state whose wording carries the whole distinction
-# between "did not run" and "nothing to graduate from".
+# Deliberately duplicates state (a) of the graduation case: a state buried in a multi-state case
+# is the one that gets refactored away.
 #
 # BOTH HALVES ARE ASSERTED, because a check that says NOTHING satisfies the first alone.
 # =============================================================================
@@ -1600,42 +1375,22 @@ case_check_board_graduation_not_run_direction() {
   printf '# ARCHIVE.md\n\n## Archived\n\n' > "$SB_WORK/ARCHIVE.md"
   publish_sandbox
 
-  # ASSERT THE PREMISE, all four signals absent — otherwise this case tests the other
-  # direction while reporting on this one.
+  # ASSERT THE PREMISE: no lived signal at all, or this case tests the other direction while
+  # reporting on this one.
   local _sig; _sig="$(_lived_signals)"
   [ -z "$_sig" ] \
     || _fixture_die "case_check_board_graduation_not_run_direction: the fixture carries lived signal(s) — $(printf '%s' "$_sig" | tr '\n' ';') — so the arm WILL run and this case is the enabling direction wearing the not-run name."
 
   local out; out="$(cb_run)"
-  # ANCHOR THE SECTION, AND KNOW EXACTLY WHAT THE ANCHOR IS WORTH — it is less than it
-  # looks. The negative assertion below ("must NOT say X") is satisfied by an EMPTY
-  # section, so on its own it can pass while checking nothing.
-  #
-  # WHAT ACTUALLY PROTECTS THE NEGATIVE IS THE SIBLING POSITIVE, NOT THIS LINE. Measured
-  # against the extractor with three synthetic reports:
-  #
-  #   section          anchor   negative        positive
-  #   full             PASS     PASS            PASS
-  #   header-only      PASS     PASS (vacuous)  FAIL   <- only the positive catches this
-  #   absent ([G])     FAIL     PASS (vacuous)  FAIL
-  #
-  # The positive fails in BOTH failure modes, so today this anchor catches nothing the
-  # positive does not already catch: its contribution is the DIAGNOSTIC — it names an
-  # absent arm instead of leaving a reader to infer it from a content assertion. It earns
-  # its keep only if the positive is ever deleted, and even then it does not cover a
-  # TRUNCATED section, which satisfies it.
-  #
-  # So do not read this line as the protection and delete the positive believing the case
-  # is still guarded. `grep -q` on empty input returns 1, which is why a positive cannot
-  # pass vacuously and a negative can — that asymmetry, not this anchor, is the guard.
+  # ANCHOR THE SECTION. The negative below is satisfied by an EMPTY section; what protects it is
+  # the sibling POSITIVE (grep on empty input returns 1), not this anchor, which only names an
+  # absent arm. Do not delete the positive believing this line guards the case.
   printf '%s\n' "$out" | grep '^\[g\]' >/dev/null \
     || cf "no [g] section — the arm is absent, which no other assertion here can detect"
   printf '%s\n' "$out" | _cb_g_section | grep 'THIS CHECK DID NOT RUN' >/dev/null \
     || cf "(not-run) the arm did not state that it had not run, so a reader cannot tell an unrun check from a clean one: $out"
-  # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD. arm [g]'s load-failure branch
-  # prints the SAME "THIS CHECK DID NOT RUN" string, so the assertion above became
-  # satisfiable by a broken scripts/lib/lived-probe.sh the day that branch was added —
-  # the case would go green while measuring a library error instead of the tree's signals.
+  # AND NOT BECAUSE THE SHARED PROBE WOULD NOT LOAD: that branch prints the same did-not-run
+  # string, so a broken scripts/lib/lived-probe.sh would satisfy the assertion above.
   printf '%s\n' "$out" | _cb_g_section | grep 'could not be loaded' >/dev/null \
     && cf "the arm skipped because the shared already-lived probe would not load, not because this tree has no signal: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
@@ -1664,10 +1419,7 @@ case_check_board_graduation_reads_the_trunk() {
     || cf "precondition failed: the arm did not report on published scaffolding: $out"
 
   # ── GRADUATE IN THE WORKING TREE ONLY. DO NOT PUBLISH. ──────────────────────
-  # This is the read-the-checkout-not-the-ref defect posed as a question: a working-tree read would
-  # declare graduation here and then, because a satisfied arm stops asking, never
-  # re-open it. The arm is one-way, so a premature clear is UNRECOVERABLE rather
-  # than merely stale — which is why this control is worth more than case 1.
+  # The arm is one-way: a working-tree read would clear here and never re-open.
   printf '# my project\n'                > "$SB_WORK/CLAUDE.md"
   printf '# my project\n'                > "$SB_WORK/README.md"
   printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
@@ -1877,9 +1629,8 @@ case_prd_coverage_counts_only() {
 # CASE — A DETACHED CHECKOUT IS NAMED AS ONE, WITH ITS SHA — never as a branch
 #        called DETACHED.
 #
-# [f1] printed "(checked out here: DETACHED)", which reads exactly like a branch of
-# that name and says nothing about where the HEAD is. That is a common state, not an
-# edge: the landing script leaves a gate checkout detached at the landed commit.
+# [f1] must not print "(checked out here: DETACHED)", which reads like a branch of that name. A
+# detached checkout is common: the landing script leaves a gate checkout detached.
 # =============================================================================
 case_check_board_names_a_detached_head() {
   cf_reset
@@ -1910,38 +1661,26 @@ case_check_board_names_a_detached_head() {
 # CASE — arm (g2) COUNTS BLANKS, NOT USAGE; AND A PROJECT.md THAT LOST ITS
 #        DECLARATION IS STILL READ.
 #
-# TWO DEFECTS, FOUND TOGETHER ON TWO FRESH TREES OF A RUN OF THE KIT, AND THE SECOND
-# HID THE FIRST.
-#   * A filled PROJECT.md documents its own commands, and their usage lines carry
-#     metavariables — `tool <input.csv> --out <dir>`. The arm counted every one as an
-#     unfilled blank, which holds `graduation COMPLETE` out of reach of a sheet that is done.
-#   * Neither tree kept the sheet's `KIT-DISPOSITION: FILL` line when it rewrote the file,
-#     and the arm was gated on it, so it printed "skipped" on both. The miscount was masked
-#     by the arm being off — fixing the count alone would have changed nothing on either.
+# A filled PROJECT.md documents its commands, and their usage lines carry metavariables
+# (`tool <input.csv> --out <dir>`); those are not blanks. And a rewrite can drop the sheet's
+# `KIT-DISPOSITION: FILL` line, so an undeclared sheet is still read, never skipped.
 #
-# WHY NOT SIMPLY STRIP CODE SPANS, which is what the finding proposed: the SHIPPED sheet
-# writes most of its real blanks INSIDE code spans — `<test command>`, `<trunk>`, a whole
-# column of `<e.g. ./scripts/…>`. Stripping every span would have cleared a sheet with
-# dozens of blanks still in it: a false clean in the one direction this arm must not err.
-# The discriminator is the SHAPE: a span whose entire content is one <angle-bracket> is a
-# blank; a span in which the bracket sits among other text is a code sample, and its
-# brackets are usage. A fenced block is code throughout.
+# Do not strip code spans wholesale: the shipped sheet writes most real blanks INSIDE spans
+# (`<test command>`, `<trunk>`). The discriminator is SHAPE: a span that is exactly one
+# <angle-bracket> is a blank; a bracket among other text is usage. A fenced block is code.
 #
-# THE ROWS, each on its own published PROJECT.md, the REPLACE files graduated so FILL is
-# the only thing that can hold completion back:
-#   (1) DECLARED, filled, carrying usage metavariables inline, in a double-backtick span and
-#       in a fenced block — 0 blanks, and graduation COMPLETE;
+# THE ROWS, each on its own published PROJECT.md, REPLACE files graduated so FILL alone can hold
+# completion back:
+#   (1) DECLARED, filled, usage inline, in a double-backtick span and in a fenced block — 0
+#       blanks, and graduation COMPLETE;
 #   (2) DECLARED, the same usage PLUS one bare blank and one whole-span blank — exactly 2;
-#   (3) UNDECLARED (the declaration dropped in a rewrite) with one real blank among the
-#       usage — REPORTED as a finding naming the missing declaration, never "skipped";
-#   (4) UNDECLARED and filled — read as graduated: 0 blanks, ✓, graduation COMPLETE. This is
-#       the row that keeps (3) honest: the kit's own graduation rule strips the marker from
-#       a filled PROJECT.md, so a missing declaration alone is not a defect;
+#   (3) UNDECLARED with one real blank among the usage — REPORTED, naming the missing
+#       declaration, never "skipped";
+#   (4) UNDECLARED and filled — read as graduated (graduation strips the marker from a filled
+#       PROJECT.md, so a missing declaration alone is not a defect);
 #   (5) THE CONTROL: a PROJECT.md declaring ANOTHER disposition is still not measured;
 #   (6) a ``` line INSIDE a ~~~ block does not close it, and the blank after the block counts;
 #   (7) a fence left OPEN to the end of the file hides nothing: the blank after it counts.
-#       A fence that toggled on any fence-like line hid the rest of the file on the first
-#       mismatch — a false CLEAN, the one direction this arm must never err in.
 # =============================================================================
 _cb_fill_usage='Run it: `./bin/tool <input.csv> --out <dir>`, and ``see `<x>` here``.
 
@@ -2018,43 +1757,23 @@ Owner: <owner>.'
 # =============================================================================
 # CASE — the verdict wiring, as a standalone control
 #
-# This duplicates case 1(c) on purpose, as a NAMED control that survives someone
-# refactoring case 1: a control buried inside a four-state case is the one that
-# gets deleted during a tidy-up. Both are kept, which is the authored default.
+# Duplicates state (c) of the graduation case as a NAMED control, which survives a refactor of
+# that case.
 #
-# WHAT EACH CONSUMER ACTUALLY READS — do not collapse these two, they differ:
-#   release.sh gate (d)        keys on the VERDICT LINE alone, and always has.
-#   kit-init's self-check      keys on the verdict line, and when it is NOT clean
-#                              reports the remaining findings as context — after
-#                              dropping any section whose own header says it
-#                              "reports only", which is how arm [g] declares itself.
-#
-# THIS NOTE REPLACES A FALSE ONE, and the falsehood is kept because it is the whole
-# lesson. It used to read "release.sh gate (d) and kit-init's self-check both key on
-# this line". They did not. kit-init re-scanned the rendered ⚠ lines whenever the
-# verdict was dirty, so when arm [g] began printing ADVISORY ⚠ lines — present on
-# every day-one tree by construction — any unrelated arm that flipped the verdict
-# left [g]'s advisories as "whatever was left", and a correct install failed, blaming
-# the one arm whose header says it never decides anything. The trigger was this kit's
-# own documented recipe: GIT-HOSTING § 3 step 2's unprefixed `init` subject flips arm
-# (e). Fixed on the kit-init side; the false sentence is superseded here rather than
-# deleted, because a case whose rationale names the wrong consumer is how the
-# regression shipped underneath a green control.
-#
-# SO: ASSERTING THE VERDICT STRING IS NECESSARY AND NOT SUFFICIENT — and the
-# sufficiency half CANNOT live in this case. It would have to run kit-init, and this
-# sandbox carries a stamp receipt (that receipt is what makes arm [g] report at all),
-# which is one of kit-init's four ALREADY-LIVED signals: it would refuse before
-# reaching any self-check. Measured, not assumed. The consumer is exercised where it
-# can actually run, on the path that broke —
-# case_kit_init_survives_the_documented_first_commit below.
+# The two consumers read different things; do not collapse them:
+#   release.sh gate (d)        keys on the VERDICT LINE alone.
+#   kit-init's self-check      keys on the verdict line and, when it is NOT clean, reports the
+#                              remaining findings as context, after dropping every section
+#                              whose header says it "reports only" (as arm [g] does).
+# So asserting the verdict string is necessary and not sufficient. The sufficiency half cannot
+# live here: this sandbox's stamp receipt is an already-lived signal, so kit-init would refuse
+# first. It runs in scripts/test/cases/kit-init.sh, case_kit_init_survives_the_documented_first_commit.
 # =============================================================================
 case_check_board_graduation_verdict_is_not_wired() {
   cf_reset
   make_sandbox
-  # --no-project ON PURPOSE: this case needs g1's REPLACE finding to fire and needs the
-  # FILL arm to have nothing to read. That was previously expressed by an absent printf,
-  # which reads as an oversight; it is an argument now so the next reader sees the choice.
+  # --no-project ON PURPOSE: g1's REPLACE finding must fire and the FILL arm must have nothing
+  # to read.
   seed_scaffolding_tree --no-project
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
@@ -2070,6 +1789,13 @@ case_check_board_graduation_verdict_is_not_wired() {
   teardown
 }
 
+# =============================================================================
+# CASE — check (d) reads a frontmatter that does NOT start on line 1.
+#
+# The templates open with an HTML comment, so a minted card carries it ABOVE its frontmatter. A
+# parser demanding `---` on line 1 reports every such card as having no id, and the board reads
+# RED on a healthy first day.
+# =============================================================================
 case_check_board_frontmatter_offset() {
   cf_reset
   make_sandbox
@@ -2081,13 +1807,8 @@ case_check_board_frontmatter_offset() {
   mv "$tmp" "$f"
   publish_sandbox
 
-  # THE ID KEY IS DERIVED, NOT RE-TYPED, AND THE ARM BELOW IT IS WHY THAT MATTERS HERE MORE THAN
-  # USUAL. check-board.sh printf's this message with ISSUE_ID_KEY substituted, so a re-typed
-  # "no id:" matches only while that key is spelled `id`. The assertion using it is NEGATIVE —
-  # a non-match is the PASSING branch — so retuning the key would not redden this case, it would
-  # make it measure nothing and still report PASS. An EMPTY derivation does exactly the same, and
-  # that is the failure the arm catches: without it, `grep -q "no : line"` matches nothing and the
-  # case passes vacuously.
+  # THE ID KEY IS DERIVED: the assertion below is NEGATIVE, so a re-typed or empty key would make
+  # it match nothing and pass. The derivation is asserted non-empty.
   local id_key; id_key="$(cb_default ISSUE_ID_KEY)"
   [ -n "$id_key" ] \
     || cf "(control) could not derive ISSUE_ID_KEY from check-board.sh — the negative assertion below would then match nothing and report PASS while measuring nothing"
@@ -2100,15 +1821,6 @@ case_check_board_frontmatter_offset() {
   printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "a healthy card with a comment header did not read clean: $out"
 
-  # NO SCAN-CAP CONTROL HERE, AND ITS ABSENCE IS NOW HONEST. This case used to derive
-  # FRONTMATTER_SCAN_LINES, assert it non-empty, and never use it — with a comment beside it
-  # describing a control ("a `---` far down a long body must NOT be mistaken for a fence") that was
-  # never built, and a finish message claiming "a stated scan cap". A derivation nothing reads is
-  # not a control; the prose around it was the only thing making it look like one, and the prose is
-  # what a reviewer reads. Building the real control means seeding a long body with a `---` past the
-  # cap and asserting the card still parses — real new coverage rather than hygiene, so it is filed
-  # as its own item rather than smuggled in here.
-
   finish "check (d): a frontmatter below a comment header is parsed, not reported as missing (id key derived, not re-typed)"
   teardown
 }
@@ -2116,13 +1828,9 @@ case_check_board_frontmatter_offset() {
 # =============================================================================
 # CASE — PROJECT.md's CREDENTIAL BLANK STAYS VISIBLE TO THE FILL ARM.
 #
-# check-board's graduation arm counts unfilled blanks in PROJECT.md with
-# `grep -oE '<[a-z][^<>]*>'` — LOWERCASE-INITIAL, no nested angle brackets. The credential
-# blank was widened so an adopter whose provider binds privilege to the account has an
-# honest answer to write there, and a widening is exactly where that pattern gets broken:
-# capitalise the first letter and the blank becomes INVISIBLE, so the arm reports zero
-# blanks on an unfilled tree. That is a false green on the one question the adopter most
-# needs to answer, and nothing else would notice.
+# The FILL arm counts blanks with `grep -oE '<[a-z][^<>]*>'`: lowercase-initial, no nesting. A
+# capitalised or nested credential blank is INVISIBLE to it, so the arm reports zero blanks on
+# an unfilled tree, a false green on the question the adopter most needs to answer.
 # =============================================================================
 case_project_credential_blank_is_countable() {
   cf_reset
@@ -2140,19 +1848,9 @@ case_project_credential_blank_is_countable() {
   line="$(grep -m1 'Read vs write separation' "$pm")"
   n="$(printf '%s\n' "$line" | grep -oE '<[a-z][^<>]*>' | grep -vc '://' || true)"
 
-  # ── ON A TREE THAT HAS LIVED, THIS CASE HAS NO SUBJECT. ──────────────────────
-  # What it asserts is a property of THE SHIPPED PROJECT.md: that the credential blank, as the
-  # kit writes it, is one the FILL arm can see. An adopter who has done SEED step 3 has filled
-  # that blank — correctly — so the shipped shape is gone and there is nothing here to measure.
-  #
-  # THE FIX THAT WAS NOT MADE, AND WHY. The obvious repair is to accept 0 OR 1 blanks. That
-  # DELETES the case: it then passes on every tree, including a tree where the blank was
-  # capitalised and became invisible, which is the entire defect this case exists to catch. The
-  # count would be satisfied by the failure it guards against.
-  #
-  # SO THE TWO CONDITIONS ARE BOTH REQUIRED, and the second is what makes this safe: zero blanks
-  # AND the initializer's stamp receipt. Zero blanks alone is indistinguishable from the widening
-  # defect on an unadopted tree — which is exactly how this would have become a false green.
+  # ── ON A TREE THAT HAS LIVED, THIS CASE HAS NO SUBJECT: the adopter filled the blank (SEED
+  #    step 3). Do not accept "0 or 1 blanks": that passes on the capitalised-blank defect. Skip
+  #    only on zero blanks AND the initializer's stamp receipt together.
   local stamped=0
   [ -f "$REAL_SCRIPTS/config.sh" ] && grep -q "^$KIT_STAMP_MARK" "$REAL_SCRIPTS/config.sh" 2>/dev/null && stamped=1
   if [ "${n:-0}" -eq 0 ] && [ "$stamped" -eq 1 ]; then
@@ -2176,24 +1874,14 @@ case_every_arm_file_seam_is_declared_in_the_contract() {
   [ -f "$sheet" ] \
     || { skp "every board arm's declared file seam is named by its contract" "process/contracts/drift-report.md is absent — this project does not carry the contract set"; teardown; return; }
 
-  # ── THE OPERAND IS DERIVED, NOT TYPED. An earlier attempt at this case carried a hand-written
-  #    table of arm letters and went red on its own first run, because two arms had landed between
-  #    the table being written and the case being run. Letters are the implementation's and move;
-  #    what does NOT move is that an arm reading a PROJECT FILE through a named seam owes that
-  #    file a mention in the sheet a reimplementation is written against.
-  #
-  #    WHY THE FILE SEAM AND NOT THE LETTER: § 6 of the sheet already tells a reader to derive the
-  #    letters and their order FROM THE FILE, and says in terms that the lettering runs past the
-  #    invariants. A case demanding a row per letter would enforce the opposite of that design.
-  #    A seam is different in kind — it is a file an adopter can point somewhere else, so a
-  #    reimplementer who has never heard of it builds a report that silently reads nothing.
+  # ── THE OPERAND IS DERIVED, NOT TYPED: every NAME_FILE="${NAME:-path}" seam, never the arm
+  #    letters, which move (§ 6 tells a reader to derive them from the file). A seam is a file an
+  #    adopter can repoint, so a reimplementation that never heard of it silently reads nothing;
+  #    its default path must be named in drift-report.md.
   local seams n=0 undeclared="" nm def
   seams="$(grep -oE '^[A-Z][A-Z0-9_]*_FILE="\$\{[A-Z][A-Z0-9_]*:-[^}"]+\}"' "$cb" || true)"
 
-  # ── INSTRUMENT CHECK FIRST, and it is the one this case cannot do without. A census over a
-  #    derivation that has silently stopped matching reports perfect health forever. The shape
-  #    being matched is a shell default-expansion seam; if it is renamed or respelled this
-  #    yields nothing and every arm reads as declared.
+  # ── INSTRUMENT CHECK FIRST: a derivation that stopped matching reports every arm as declared.
   [ -n "$seams" ] \
     || _fixture_die "case_every_arm_file_seam_is_declared_in_the_contract: derived NO file seam out of check-board.sh. The seam spelling (NAME_FILE=\"\${NAME:-path}\") has changed or the arms no longer carry one — with none derived this case asserts nothing and passes."
 
@@ -2217,20 +1905,10 @@ EOF
 # =============================================================================
 # CASE — AN ADVISORY SECTION SAYS SO IN THE MACHINE'S VOCABULARY, NOT ONLY IN PROSE.
 #
-# kit-init's board self-check drops advisory sections BY THEIR OWN DECLARATION: an awk sets
-# a flag when an `^[a-z]` arm header contains the literal `reports only`, and skips
-# everything under it. That literal is a machine contract (contracts/drift-report.md § 4),
-# not phrasing.
-#
-# A header can therefore say the right thing in the wrong vocabulary. One did: the
-# whole-file reading advertised "(ADVISORY, does not fail the board)" and carried no
-# token, so kit-init would have counted its ⚠ as a real finding and refused the install —
-# the exact regression the verdict-line filter was landed to end, arriving through a
-# header that MEANS advisory and does not SAY it.
-#
-# It was unreachable only by luck (a fresh tree's progress.md is far below the threshold),
-# which is why prose and token being two authoring sites for one fact needs a census
-# rather than a fix at the one site that happened to be found.
+# kit-init's board self-check drops advisory sections by the literal `reports only` in their
+# `[x]` header (a machine contract, contracts/drift-report.md § 4). A header that says ADVISORY
+# in prose without the token would have its ⚠ counted as a real finding and refuse the install.
+# Prose and token are two authoring sites for one fact, so this is a census.
 # =============================================================================
 case_advisory_headers_carry_the_machine_token() {
   cf_reset
@@ -2267,27 +1945,12 @@ case_advisory_headers_carry_the_machine_token() {
 # =============================================================================
 # CASE — THE FRONTMATTER SCAN CAP DOES WHAT IT IS FOR.
 #
-# check (d) reads a card's `id:` out of the first `---` fence pair it finds, and only
-# looks for that opening fence within FRONTMATTER_SCAN_LINES. Nothing exercised the cap:
-# the harness derived the value, asserted it non-empty, and never used it — beside a
-# comment describing the control it was not.
-#
-# THE CAP'S ACTUAL BEHAVIOUR IS NARROWER THAN "a body --- breaks parsing", and the
-# distinction is the case. A card with real frontmatter at the top closes its block on
-# line 3, and the parser will not re-enter a closed block, so a body `---` a hundred
-# lines down is already harmless — with or without a cap. What the cap governs is the
-# card with NO frontmatter at the top: without it, the first `---` ANYWHERE in the body
-# opens a block, and whatever follows is read as frontmatter.
-#
-# So this case takes both directions: a normal card with a body rule must parse (the
-# direction the finding asks for), and a fence pair sitting PAST the cap must NOT be
-# read as frontmatter (the direction that can actually go red).
-#
-# THE CAP IS DERIVED AND THE FIXTURE IS SIZED FROM IT. A hardcoded line count goes stale
-# the day the cap is retuned, and the case then asserts nothing while reading green.
-#
-# WHAT THIS DOES NOT COVER: whether the cap's VALUE is right. This proves the cap is
-# enforced in both directions, not that 25 is the correct number.
+# check (d) looks for a card's opening `---` only within FRONTMATTER_SCAN_LINES. A card with real
+# frontmatter closes its block at the top and is never re-entered, so a body `---` is harmless
+# regardless; the cap governs a card with NO frontmatter at the top, where the first `---`
+# anywhere would open a block. Both directions: a normal card with a body rule parses, and a
+# fence pair PAST the cap is NOT read as frontmatter. The fixture is sized from the derived cap.
+# NOT COVERED: whether the cap's value is right.
 # =============================================================================
 case_frontmatter_scan_cap_is_enforced() {
   cf_reset

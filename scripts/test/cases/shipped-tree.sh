@@ -359,7 +359,7 @@ POST_EOF
   [ -z "$second" ] \
     || cf "(3) the header-block renderer is still authored in: $(printf '%s' "$second" | tr '\n' ' ') — one rule, more than one place to change it, and the two will disagree"
 
-  finish "the header-block --help renderer has ONE authoring site: a line added to scripts/lib/usage.sh reaches all $n consumer(s), each still renders its OWN header rather than the library's, and no second implementation survives under scripts/ — with the search EXPRESSION derived out of the library rather than retyped here, and asserted to find the library itself first, because this arm passes on an empty result and a search that stopped matching returns empty too. NOT LOOKED AT, and the exclusion is deliberate rather than an oversight: scripts/test/, which make_sandbox removes. The harness derives the same boundary twice on its own account — once to render its own --help and twice inside the case that checks where a header window ends — and that second derivation MUST stay independent, because a harness that asked the subject where its header ends would agree with it by construction. Measured: those independent floors cannot disagree with the library on any file whose header is contiguous comments from line 3, which is every file the renderer can serve"
+  finish "the header-block --help renderer has ONE authoring site: a line added to scripts/lib/usage.sh reaches all $n consumer(s), each still renders its OWN header rather than the library's, and no second implementation survives under scripts/ — the search expression is derived from the library and asserted to find the library itself first. scripts/test/ is not looked at (make_sandbox removes it): the harness keeps its own independent derivation of where a header ends"
   teardown
 }
 
@@ -768,7 +768,7 @@ sys.exit(0 if isinstance(d, dict) and list(d) == ["unrunnable"] else 1)' 2>/dev/
     fi
   fi
 
-  finish "every hygiene instrument declares its blind spots and the list is NON-EMPTY ($n_inst instrument(s): $(printf '%s' "$instruments" | tr '\n' ' ')) — an empty list asserts THERE ARE NONE, which is a false claim about the subject — and ablating the single derivation empties all of them at once"
+  finish "every hygiene instrument declares its blind spots and the list is NON-EMPTY ($n_inst instrument(s): $(printf '%s' "$instruments" | tr '\n' ' ')) — an empty list asserts THERE ARE NONE, which is a false claim about the subject — and ablating the single derivation makes every instrument refuse (exit 2, unrunnable)"
   teardown
 }
 
@@ -1042,7 +1042,7 @@ EOF
     body="$(awk '/^need_val\(\)/{f=1} f{print} f&&/^}/{exit}' "$REAL_SCRIPTS/$base" | tr -d ' \n')"
     if [ -z "$first" ]; then first="$body"
     elif [ "$body" != "$first" ]; then
-      cf "$base's need_val differs from the first definition — nine hand-kept copies of one guard, and a divergence here means one script refuses differently from its siblings for the same illegal invocation"
+      cf "$base's need_val differs from the first definition — the copies of this guard must be identical, and a divergence here means one script refuses differently from its siblings for the same illegal invocation"
     fi
   done
 

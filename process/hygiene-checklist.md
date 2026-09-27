@@ -134,14 +134,14 @@ Named by **role**, because the concrete filenames and the implementation languag
 [`../scripts/hygiene/`](../scripts/hygiene/) rather than to this checklist — a reimplementation in
 another language satisfies this file unchanged.
 
-| # | Instrument | Modality |
-|---|---|---|
-| 1 | the **duplication scan** | cross-file n-gram containment over the prose corpus |
-| 2 | the **reachability walk** | starter-graph walk → orphan list, with its convention exemptions named *in the instrument* |
-| 3 | the **cold-signal scan** | single-commit AND cold AND zero EXACT referrers, from local history |
-| 4 | the **staleness greps** | the loose staleness signals, reported as suspicions **with their base rate** |
+| Instrument | Modality |
+|---|---|
+| the **duplication scan** | cross-file n-gram containment over the prose corpus |
+| the **reachability walk** | starter-graph walk → orphan list, with its convention exemptions named *in the instrument* |
+| the **cold-signal scan** | single-commit AND cold AND zero EXACT referrers, from local history |
+| the **staleness greps** | the loose staleness signals, reported as suspicions **with their base rate** |
 
-All four share one **citation index**, which reports **EXACT and ANCESTOR referrers as separate
+They all share one **citation index**, which reports **EXACT and ANCESTOR referrers as separate
 columns and never collapses them.** That separation is the central honesty mechanism of the whole
 set: an ancestor referrer ("something under this directory is cited") is not evidence that *this
 file* is read, and collapsing the two turns every orphan into a false negative.
