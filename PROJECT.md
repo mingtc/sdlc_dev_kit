@@ -41,14 +41,8 @@ this file at the start of every session.**
 
 ## Build order — what is being built now, and what is deliberately not yet
 
-> **Shipped role docs send a reader here for this and it was not here.** `pm.md` prioritises
-> *"against the build order in PROJECT.md"*; `dev.md` and `orchestrator.md` name it as project
-> context. *(An earlier draft of this note said "six shipped surfaces" — that was six grep HITS
-> across three files, which is the population defect `staleness.md` § C is about, written into the
-> sentence announcing a fix for the same class. Derive it: `grep -rl "build order" .claude/roles/`.)* This sheet's opening paragraph says *"not the roadmap"* — which is true of that
-> PARAGRAPH and was read as true of the file, so the section its own consumers depend on was never
-> written. **The distinction the opening means: not a dated plan with milestones. A build order is
-> "what is in scope now", which is a project FACT and belongs here.**
+> Role docs (`pm.md`, `dev.md`, `orchestrator.md`) read this section. Not a dated plan — what is
+> in scope now.
 
 **The current layer — what a new issue may be about:**
 
@@ -84,12 +78,13 @@ checkable:
 implementation of it. Fill the command column; do not edit the sheet column — if a row has no
 command yet, write `TODO` rather than deleting the row, so the gap stays visible.
 
-**TWO ROWS ARE NOT BLANKS, AND THEY ARE MARKED SO.** If you run the shipped scripts, the verify
-gate and the board mover are reached by FIXED paths: `finish-pr.sh` preflights and invokes
-`scripts/verify.sh` by literal name — its own refusal says the executable *"is never
-caller-chosen"* — and calls `move-issue.sh` the same way. Renaming either breaks the landing gate
-silently, so these rows record what the kit does rather than inviting a substitution. What is still
-yours is what goes INSIDE them: the gates `verify.sh` runs, and the statuses your board carries.
+**SOME ROWS ARE NOT BLANKS, AND THEY ARE MARKED SO.** If you run the shipped scripts, the verify
+gate, the board mover and the configuration seam are reached by FIXED paths: `finish-pr.sh`
+preflights and invokes `scripts/verify.sh` by literal name — its own refusal says the executable
+*"is never caller-chosen"* — and calls `move-issue.sh` the same way, and every issue script sources
+`scripts/config.sh`. A rename breaks every script that calls the old name, so these rows record what
+the kit does rather than inviting a substitution. What is still yours is what goes INSIDE them: the
+gates `verify.sh` runs, the statuses your board carries, and the values `config.sh` holds.
 Reimplementing the kit's scripts in another toolchain is the case where the names are yours again —
 and then the contract sheet, not this row, is what you must satisfy.
 
@@ -105,7 +100,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The archive sweep | `<e.g. ./scripts/archive.sh --apply>` | [`process/contracts/archive-sweep.md`](process/contracts/archive-sweep.md) |
 | The auxiliary trunk checkout | `<e.g. the kanban worktree>` | [`process/contracts/kanban-worktree.md`](process/contracts/kanban-worktree.md) |
 | The release ritual | `<e.g. ./scripts/release.sh>` | [`process/contracts/release-ritual.md`](process/contracts/release-ritual.md) |
-| The configuration seam | `<where your adopter values live — e.g. scripts/config.sh>` | [`process/contracts/config-seam.md`](process/contracts/config-seam.md) |
+| The configuration seam | `scripts/config.sh` — the NAME is fixed, the VALUES are yours | [`process/contracts/config-seam.md`](process/contracts/config-seam.md) |
 | The initializer | `<e.g. ./scripts/kit-init.sh>` | [`process/contracts/initializer.md`](process/contracts/initializer.md) |
 | The role gate | `<how a hat is declared>` | [`process/contracts/role-gate.md`](process/contracts/role-gate.md) |
 | Outbound notification (optional — silent when unconfigured) | `<e.g. ./scripts/notify.sh>` | [`process/contracts/notification.md`](process/contracts/notification.md) |
@@ -113,7 +108,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | Liveness (i) — DURATION: is a long run still alive? | `<how a long run is watched, or N/A with the reason>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) § 1a |
 | Liveness (ii) — ABSENCE: has work stopped moving? **N/A is not a legal answer here** | `<what reads the remote's freshest ref, at what threshold, and who it reaches>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) § 2a |
 | The acceptance tier (a lens, never a gate — **no shipped implementation**) | `<how membership is marked in your runner — or "not adopted">` | [`process/contracts/acceptance-tier.md`](process/contracts/acceptance-tier.md) |
-| Retention completeness (only if you retire documents under a ledger) | `<e.g. the pre-commit hook — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
+| Retention completeness (only if you retire documents under a ledger) | `<e.g. a pre-commit hook you write (the kit ships none) — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
 | The progress record (optional — a no-op when its writer is absent, never a gate) | `<where transient progress records go — e.g. .progress-records/, or "not adopted">` | [`process/contracts/progress-record.md`](process/contracts/progress-record.md) |
 
 **One row per contract sheet — the whole of
@@ -206,7 +201,8 @@ leaving it to whoever dispatches.**
 - **Work branches:** `<feature|fix|refactor>/<PREFIX>-NNN-<slug>` — **one branch per work item,
   never per role.**
 - **What counts as CODE** (and therefore needs a branch): `<the globs — the same list as
-  CLAUDE.md § "The trunk, the branches, and what counts as code here", which is the authority>`.
+  the adapter's § "The trunk, the branches, and what counts as code here", which is the authority
+  (built at SEED step 5 from process/templates/CLAUDE-adapter.template.md)>`.
   Everything else — the board, the docs, this file — commits **direct to the trunk**.
   *(The rule: [`process/MANUAL.md` § The code-vs-metadata rule](process/MANUAL.md).)*
 - **The remote may be local-only.** A bare repository on disk is a fully supported `origin`; see
@@ -222,11 +218,11 @@ leaving it to whoever dispatches.**
 | Orchestrator | `.claude/roles/orchestrator.md` | <yes/no> | <reason> |
 | Refactorer | `.claude/roles/refactorer.md` | <yes/no> | <reason> |
 | Architect | `.claude/roles/architect.md` | <yes/no> | <reason> |
-| UI-Designer | `.claude/roles/archive/ui-designer.md` | no (parked) | <reason — un-park it by moving the doc out of `archive/`> |
+| UI-Designer | `.claude/roles/archive/ui-designer.md` | no (parked) | <reason — waking it is every step in the doc's § What this role needs before it can be woken, not a move> |
 | <your own role> | `<doc>` | <yes/no> | — |
 
 **The role set is a configuration seam**, not prose: whatever you decide here must match
-[`CLAUDE.md`](CLAUDE.md)'s roles table and the role alternation your commit-attribution guard
+the adapter's roles table ([`CLAUDE.md`](CLAUDE.md), from SEED step 5) and the role alternation your commit-attribution guard
 enforces. *(Authority:
 [`process/contracts/config-seam.md`](process/contracts/config-seam.md) and
 [`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md).)*

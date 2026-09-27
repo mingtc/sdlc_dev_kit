@@ -42,7 +42,7 @@ guarantee, when it must **refuse**, and what **green** means in countable terms 
 gate, indexed in [`contracts/README.md`](contracts/README.md), written for a reader who will
 never open the scripts. It is the **machine-facing complement** to these pages: where a sentence here says *what we do*, the matching sheet says
 *what must hold*, and its section 6 marks the shipped script as **one implementation, not the
-definition**. A project reimplementing this kit in another language owes the contracts, not the
+definition**. **Where a sheet and any prose disagree, the sheet wins.** A project reimplementing this kit in another language owes the contracts, not the
 shell. **Both directions want guarding** — a gate with no sheet, or a sheet citing a gate that no
 longer exists — and the kit's self-test guards the first (`case_travelling_scripts_have_a_sheet`);
 the second is still the project's to write.

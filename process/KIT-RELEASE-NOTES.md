@@ -661,6 +661,10 @@ columns and never the cards.*
   `high`); a typed leg now sends only the model/effort its issue names. Expect those legs to cost what their pins say. The
   wave's shared brief no longer tells the main-checkout leg to work in its own worktree.
 
+- **Where a contract sheet and any prose disagree, the sheet wins** — now stated in `process/MANUAL.md` § The three documents,
+  so it reaches every harness (only `AGENTS.md` said it). `PROJECT.md`'s configuration-seam row marks `scripts/config.sh` a
+  fixed name, like `verify.sh`.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

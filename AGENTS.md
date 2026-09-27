@@ -15,7 +15,7 @@
    *(The stub is `REPLACE`-class scaffolding and is replaced, never edited, at the end of day one:
    [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.)*
 2. **[`process/MANUAL.md`](process/MANUAL.md)** — the **process itself**: the board, roles as hats,
-   the Dev → QA boundary and its seven steps, the session rituals, the execution discipline.
+   the Dev → QA boundary, the session rituals, the execution discipline.
    **True in both states**, and it needs no configuring.
 
 The filename says `CLAUDE.md` for one reason only: it is the filename the Claude Code harness reads
@@ -32,15 +32,18 @@ the contracts they encode** — those are process law and apply to every agent, 
 | What lives in `.claude/` | What binds you |
 |---|---|
 | `roles/*.md` — one doc per role | **The role set, and each role's workflow.** You wear exactly one hat at a time and you say which one. The doc for that hat is your workflow for the session; the Architect doc binds only the seated architect instance and never a subagent. |
-| `templates/*.md` — issue, PRD, subtask shapes | **The shape of anything you create.** An issue you author by hand must carry the same frontmatter and sections the template does, because the board scripts and the drift report read them. |
+| `templates/*.md` — the shape of every issue type, PRD and subtask | **The shape of anything you create.** An issue you author by hand must carry the same frontmatter and sections the template does, because the board scripts and the drift report read them. |
 | `agents/*.md` — leaf worker definitions | **The leaf rule:** a dispatched worker does not spawn further workers. Fan-out is the orchestrating seat's job. |
-| hooks / settings wiring | **The guards this wiring automates still hold** even where your harness cannot run them — the commit-message role prefix (a git hook) and the declared hat (a session hook). The gate before landing is the odd one out: no hook runs it, `finish-pr.sh` does when a human invokes it — which is precisely why it is the easiest of the three to skip and the one worth naming here. A guard you cannot execute you must satisfy by hand, not skip. |
+| `skills/*/SKILL.md` — named procedures | **The ones the manual names are steps you owe.** Read the `SKILL.md` and do it by hand. |
+| hooks / settings wiring | **The guards this wiring automates still hold** even where your harness cannot run them — the commit-message role prefix (a git hook) and the declared hat (a session hook). The gate before landing is the odd one out: no hook runs it, `finish-pr.sh` does when the landing seat (QA) invokes it — which is precisely why it is the easiest of the three to skip and the one worth naming here. A guard you cannot execute you must satisfy by hand, not skip. |
 
-## The five things that will get you rejected
+## What will get you rejected
 
-1. **A commit subject with no role tag.** Every subject starts `[Role] …` — the set is in
-   [`CLAUDE.md`](CLAUDE.md) § "Role-attribution commit prefixes", and a git hook enforces it. The
-   prefix is the audit trail for a one-person-many-hats project.
+1. **A commit subject with no role tag.** Every subject starts `[Role] …` — the set is in the
+   adapter's § "Role-attribution commit prefixes" (until it exists:
+   [`process/MANUAL.md`](process/MANUAL.md) § of the same name, and
+   [`process/contracts/role-gate.md`](process/contracts/role-gate.md) § 2a for day one's hat), and a
+   git hook enforces it. The prefix is the audit trail for a one-person-many-hats project.
 2. **Moving an issue file with `mv`.** The folder under `progress/` *is* the status; status changes
    go through the board mover so the move, the frontmatter and the commit stay in step.
    *(Contract: [`process/contracts/board-mover.md`](process/contracts/board-mover.md).)*
@@ -48,17 +51,13 @@ the contracts they encode** — those are process law and apply to every agent, 
    never optional, and a green offline suite is the floor rather than a pass.
    *(Contract: [`process/contracts/landing-gate.md`](process/contracts/landing-gate.md).)*
 4. **Putting metadata changed ON ITS OWN onto a branch, or code straight on the trunk.** The
-   code-vs-metadata split is in [`CLAUDE.md`](CLAUDE.md); the list of code globs there is a
-   whitelist, and anything unnamed commits direct to the trunk.
+   adapter's list of code globs is a whitelist, and anything unnamed commits direct to the trunk.
    **AND THE CARVE-OUT MATTERS MORE THAN THE RULE, because reading the rule as a prohibition is the
    MEASURED failure:** metadata MAY ride its code branch when it is part of the same change. A
    register entry, a matrix row, a doc correction the code change *makes true* belongs in the commit
    that makes it true — splitting it onto the trunk publishes a claim about code that has not landed.
    The direct-to-trunk rule governs metadata changed **on its own**
    ([`process/MANUAL.md`](process/MANUAL.md) § The code-vs-metadata rule).
-   *This item said "putting non-code on a branch" without the carve-out until 2026-09-03 — in the one
-   file a non-Claude agent is told to read first, which made it the only place the carve-out was
-   contradicted rather than stated.*
 5. **Recording a ruling only in an issue's Activity log.** A ruling that changes behaviour lands in
    [`requirements/DECISIONS.md`](requirements/DECISIONS.md) in the same change. An Activity line
    says what happened in one issue; the register says what is currently true.
@@ -67,8 +66,8 @@ the contracts they encode** — those are process law and apply to every agent, 
 
 Your project states its own precedence in [`requirements/CORPUS.md`](requirements/CORPUS.md)
 § Precedence, which ships as a blank for you to fill. One precedence rule is the KIT's and binds
-before you fill anything: where a contract sheet in
-[`process/contracts/`](process/contracts/README.md) and any prose disagree, **the sheet wins**
-— it states what must be true, and the prose is one implementation of it. Do not resolve a
-contradiction silently: record it (`requirements/DECISIONS.md` § Findings) and
-name who decides.
+before you fill anything: where a contract sheet and any prose disagree, **the sheet wins**
+([`process/MANUAL.md`](process/MANUAL.md) § The three documents). Do not resolve a contradiction
+silently: record it (`requirements/DECISIONS.md` § Findings) and name who decides. A contradiction
+inside the kit itself is resolved in `process/LOCAL-PROCEDURES.md`
+([`process/MANUAL.md`](process/MANUAL.md) § Kit feedback).

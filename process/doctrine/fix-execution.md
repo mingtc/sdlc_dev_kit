@@ -609,8 +609,8 @@ answer.** The bullets above cover the coordinator; these cover the topology.
 2. **Your ruling-record location and its citation convention** (§ A.2). `<fill-in>`
 3. **Your two-bucket sorting record** (§ A.5) — where the parked-with-a-recommendation items live.
    `<fill-in>`
-4. **Your surface list for the pre-cut sweep** (§ A.4b), and the inventory format its fixes are
-   verified against item by item. `<fill-in>`
+4. **The inventory format the pre-cut sweep's fixes are verified against** item by item (§ A.4b).
+   The surface list itself lives in `PROJECT.md` § The pre-cut sweep's surface list. `<fill-in>`
 5. **Every vocabulary the process uses about itself, and the ONE place each is authored** (§ A.8) —
    plus the guard that reddens when a projection parts from it. A vocabulary you cannot name an
    authoring site for is listed here as **unauthored**, not as fine. `<fill-in>`
