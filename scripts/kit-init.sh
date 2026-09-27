@@ -587,6 +587,8 @@ KWTLIB="$ROOT/scripts/lib/kanban-worktree.sh"
 # travelling docs without carrying a donor literal, and the census below is a measurement.
 OLD_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
 [ -n "$OLD_PREFIX" ] || { echo "Error: could not read the current ISSUE_PREFIX default out of scripts/config.sh." >&2; exit 1; }
+# It is matched below as a regex, so it keeps --prefix's shape (config.sh says so beside it).
+printf '%s' "$OLD_PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$' || { echo "Error: scripts/config.sh's ISSUE_PREFIX default '$OLD_PREFIX' must be alphanumeric and start with a letter. Nothing was written." >&2; exit 1; }
 OLD_NAME="$(sed -n 's/^PROJECT_NAME="\${PROJECT_NAME:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
 [ -n "$OLD_NAME" ] || { echo "Error: could not read the current PROJECT_NAME default out of scripts/config.sh." >&2; exit 1; }
 # The old trunk is the LAST link of kanban-worktree.sh's own resolution chain —
@@ -686,8 +688,12 @@ PLACEHOLDER_RE="(${PREFIX_PLACEHOLDER}|${OLD_PREFIX}-[^0-9])"
 # the printed count would be wrong. The floor stays git + a POSIX shell rather than naming a
 # grep. When this file is open for another reason, replace it with a portable equivalent
 # proven against a strict and a lenient matcher.
-TRUNK_RE="(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)"
-NAME_RE="${OLD_NAME}"
+# ere_lit <value> — <value> as an ERE matching only itself, inside s|…| or s@…@. The old trunk
+# and name are whatever the seams' defaults say, so they are matched literally.
+ere_lit() { printf '%s' "$1" | sed -e 's/[]$.*(){}+?|[@]/[&]/g' -e 's/[\\^]/\\&/g'; }
+TRUNK_LIT="$(ere_lit "$OLD_TRUNK")"
+TRUNK_RE="(^|[^A-Za-z])${TRUNK_LIT}([^A-Za-z]|\$)"
+NAME_RE="$(ere_lit "$OLD_NAME")"
 
 ROLES_DIR="$ROOT/.claude/roles"
 if [ -d "$ROLES_DIR" ]; then
@@ -703,10 +709,10 @@ if [ -d "$ROLES_DIR" ]; then
           -e "s|${OLD_PREFIX}-([^0-9])|${PREFIX}-\1|g" \
           -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$f"
       if [ "$TRUNK" != "$OLD_TRUNK" ]; then
-        sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
-        sed -i.bak -E "s@(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
+        sed -i.bak -E "s@(^|[^A-Za-z])${TRUNK_LIT}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
+        sed -i.bak -E "s@(^|[^A-Za-z])${TRUNK_LIT}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
       fi
-      [ "$NEW_NAME" = "$OLD_NAME" ] || sed -i.bak -e "s|${OLD_NAME}|${NEW_NAME}|g" "$f"
+      [ "$NEW_NAME" = "$OLD_NAME" ] || sed -i.bak -E -e "s|${NAME_RE}|${NEW_NAME}|g" "$f"
       rm -f "$f.bak"
     done < <(md_files "$d")
   done

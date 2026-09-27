@@ -774,6 +774,11 @@ columns and never the cards.*
   mis-stamped into the role docs or stopped kit-init half-way; it is now escaped. **If you initialized with such a trunk,**
   check `.claude/roles/` and `.claude/templates/` for `main` where your trunk should be.
 
+- **`kit-init` no longer over-matches a hand-edited default.** A `PROJECT_NAME` default in `scripts/config.sh` or a
+  `KWT_TRUNK_LAST_RESORT` default in `scripts/lib/kanban-worktree.sh` holding `.` or another regex character rewrote unrelated
+  words; both are now matched literally, and a non-alphanumeric `ISSUE_PREFIX` default is refused before any write. **If you
+  edited one of these before running kit-init,** diff `.claude/roles/` against the kit for words that changed.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

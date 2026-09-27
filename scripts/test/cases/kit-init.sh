@@ -553,6 +553,53 @@ case_kit_init_stamps_any_legal_trunk() {
 }
 
 # =============================================================================
+# CASE — kit-init matches the seams' current defaults literally, or refuses them
+#
+# The old name, prefix and trunk are read from the seams, not typed, so a hand-edited default
+# reaches the stamp's pattern side. Measured before the fix: a name default 'o.e' rewrote 'role'
+# as 'rFoo' in 911 places and committed it; a prefix default '.I.' rewrote 'JIT-' as 'ABC-'; a
+# last-resort trunk 'rel.1' rewrote 'relx1'.
+# =============================================================================
+case_kit_init_matches_old_values_literally() {
+  cf_reset
+  local L="kit-init: the name and last-resort trunk defaults are matched literally, a non-alphanumeric prefix default refused"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local out rc doc
+  kit_init_sandbox
+  doc="$(probe_pick "$SB_WORK/.claude/roles" -name '*.md')" || true
+  if [ -z "$doc" ]; then teardown; skp "$L" "no role doc to stamp"; return; fi
+  sed -i.bak 's/^PROJECT_NAME=.*/PROJECT_NAME="${PROJECT_NAME:-o.e}"/' "$SB_WORK/scripts/config.sh"
+  printf '\nmarker: o.e ohe\n' >> "$doc"; rm -f "$SB_WORK/scripts/config.sh.bak"
+  publish_sandbox
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name Foo 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "name 'o.e': kit-init exited $rc: $(printf '%s' "$out" | grep -m2 '✗' | tr '\n' '|' | cut -c1-200)"
+  grep -qx 'marker: Foo ohe' "$doc" || cf "name 'o.e': the planted line reads '$(grep '^marker:' "$doc")', not 'marker: Foo ohe'"
+  teardown
+
+  kit_init_sandbox
+  sed -i.bak 's/^ISSUE_PREFIX=.*/ISSUE_PREFIX="${ISSUE_PREFIX:-K.T}"/' "$SB_WORK/scripts/config.sh"
+  rm -f "$SB_WORK/scripts/config.sh.bak"
+  publish_sandbox
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -ne 0 ] || cf "prefix 'K.T': kit-init exited 0"
+  printf '%s' "$out" | grep -F "ISSUE_PREFIX default 'K.T'" >/dev/null || cf "prefix 'K.T': the refusal does not name the default"
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "prefix 'K.T': the tree was modified before the refusal"
+  teardown
+
+  kit_init_sandbox
+  doc="$(probe_pick "$SB_WORK/.claude/roles" -name '*.md')" || true
+  sed -i.bak 's/^KWT_TRUNK_LAST_RESORT=.*/KWT_TRUNK_LAST_RESORT="${KWT_TRUNK_LAST_RESORT:-rel.1}"/' "$SB_WORK/scripts/lib/kanban-worktree.sh"
+  printf '\nmarker: rel.1 relx1\n' >> "$doc"; rm -f "$SB_WORK/scripts/lib/kanban-worktree.sh.bak"
+  publish_sandbox
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "trunk 'rel.1': kit-init exited $rc: $(printf '%s' "$out" | grep -m2 '✗' | tr '\n' '|' | cut -c1-200)"
+  grep -qx "marker: $SB_TRUNK relx1" "$doc" || cf "trunk 'rel.1': the planted line reads '$(grep '^marker:' "$doc")', not 'marker: $SB_TRUNK relx1'"
+  teardown
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — kit-init --roles LEAVES NO SEAM BEHIND.
 #
 # The seam list is derived; this case makes its completeness assertable. A missed seam gives a
