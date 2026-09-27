@@ -158,6 +158,9 @@ there is one runner, one order and one summary* is the contract.
   runner, fixed order, one summary block, the narrowed mode with its unskippable floor). The
   concrete checks it runs, and the membership of the always-on floor, are the project's law and
   travel with nothing.
+- **It never resolves a subset's items.** It hands them to the `select` gate's runner, so § 3's refusal
+  of a subset that resolves to nothing is that runner's: declare one that exits non-zero on no match.
+  *Why:* an item is whatever the runner takes — a path, a node id, a name filter — and only it can read one.
 - **Its exit status:** `0` green; `1` at least one check failed (whatever else happened); `2` the
   runner refused to run its table (empty or malformed, or an unknown argument); `3` nothing failed
   and at least one check could not run. `3` is new beside the other three, and `1` keeps its

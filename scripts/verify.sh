@@ -76,7 +76,9 @@ cd "$REPO_ROOT"
 #                          selection, so a --scope run skips it (and says so).
 #                select  — like `core`, and it ALSO accepts a selection: on a
 #                          --scope run the frame appends the requested items plus
-#                          the whole GUARD_SET to this gate's command line.
+#                          the whole GUARD_SET to this gate's command line. It
+#                          never resolves an item: declare a runner that exits
+#                          non-zero when an item matches nothing.
 #                full    — runs ONLY on a full run. Skipped by --quick and by
 #                          --scope. This is where a slow artifact build belongs.
 #   <command…> the command, word-split on spaces exactly as the shell would.
@@ -432,7 +434,7 @@ echo "───"
 echo "gates declared: ${#GATES[@]} · ran: $(( PASSED + FAILEDN )) · passed: $PASSED · failed: $FAILEDN · could not run: $UNRUNNABLE · skipped: $SKIPPED"
 if [ "$SCOPED" -eq 1 ]; then
   # A narrowed run says so in the block itself, the part that gets quoted into a review.
-  echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s). NOT the full-gate claim, and the floor is only as complete as that declaration."
+  echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s). NOT the full-gate claim; whether each item matched anything is the runner's word, not this frame's, and the floor is only as complete as that declaration."
 fi
 [ "$UNRUNNABLE" -gt 0 ] && echo "NOTE: $UNRUNNABLE gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."
 

@@ -642,6 +642,10 @@ columns and never the cards.*
   declares the brief lines only it has. **Nothing to do** unless you changed one runner's shared code alone — the new
   case names the difference.
 
+- **`verify.sh --scope` says who decides whether an item matched.** The frame hands each item to your `select` gate's runner
+  and never resolves it, so a runner that exits 0 on no match reads green; the `SCOPE: NARROWED` line now says so. **If your
+  `select` runner exits 0 on no match,** declare one that refuses instead.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

@@ -1248,6 +1248,10 @@ case_verify_frame() {
   out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(e) the scoped run exited $rc: $out"
   printf '%s' "$out" | grep 'some/item' >/dev/null || cf "(e) the scoped run did not pass the requested item: $out"
+  # `some/item` matches nothing, and the gate still passes: the frame cannot resolve an item, so the
+  # quoted block must say whose word "matched" is.
+  printf '%s\n' "$out" | grep '^SCOPE: NARROWED' | grep -F "the runner's word, not this frame's" >/dev/null \
+    || cf "(e) the SCOPE line does not say the runner, not the frame, decides whether an item matched: $out"
   printf '%s' "$out" | grep 'guard-one.txt' >/dev/null \
     || cf "(e) the scoped run did not append the GUARD_SET floor — a scoped run must never be narrower than the guards: $out"
   # ...and a vanished guard is a hard stop.
@@ -1256,7 +1260,7 @@ case_verify_frame() {
   [ "$rc" -ne 0 ] || cf "(e) a vanished guard did not stop the scoped run — the floor shrank silently"
   printf '%s' "$out" | grep 'guard-one.txt' >/dev/null || cf "(e) the vanished-guard refusal does not name the path: $out"
 
-  finish "verify.sh frame: empty table REFUSES, --list answers anyway, exit codes unlaundered, --quick skips only 'full', --scope appends the guard floor and a vanished guard is a hard stop"
+  finish "verify.sh frame: empty table REFUSES, --list answers anyway, exit codes unlaundered, --quick skips only 'full', --scope appends the guard floor, says the runner resolves its items, and a vanished guard is a hard stop"
   teardown
 }
 
