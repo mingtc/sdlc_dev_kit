@@ -805,7 +805,7 @@ between them is the finding — never a reason to widen one of them until they a
 | the tool's OWN OUTPUT — run `--help` and read what it prints | what the operator is actually told, whatever produced it | a copy that is never printed |
 
 *The second one is why the harness (`scripts/test/cases/kit-init.sh`) now carries
-`case_move_issue_help_matches_its_role_enforcement`: it parses the advertised set out of `--help`
+`case_help_advertises_exactly_what_the_role_arm_accepts`: it parses the advertised set out of `--help`
 and compares it to what `kit-init` was told on its command line, so neither operand is read through
 an expression the kit ships. **The case that already asserted "no seam keeps the old set" could not
 catch this**, because it derives its own operand set with `grep -lF` — the initializer's matcher.
