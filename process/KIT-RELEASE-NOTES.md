@@ -749,6 +749,13 @@ columns and never the cards.*
   a parent in `done/` (whose tree the next `archive.sh` sweep retires, new card included) and a leftover tree with no
   parent card. Each now refuses. Follow-up work on a retired issue is a new issue.
 
+- **`archive.sh` refuses a card whose name is already in `progress/done/`, before writing anything** — it rewrote `ARCHIVE.md`
+  and then failed on the move, leaving `.kanban-wt/` dirty. **If you hit it:** `git -C .kanban-wt checkout -- ARCHIVE.md`,
+  resolve the duplicate, re-run.
+- **`archive-progress.sh` checks `progress/history/INDEX.md` before it writes.** A malformed or header-less index left the
+  chunk written and `progress.md` rewritten with no index row (the header-less case silently). Both now refuse first.
+  **If you hit it:** add the chunk's row to `INDEX.md` by hand, or restore both from git and re-run.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

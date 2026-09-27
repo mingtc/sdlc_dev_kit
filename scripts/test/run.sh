@@ -277,6 +277,7 @@ CASES=(
   case_dev_index_names_its_subdirs
   case_kit_init_markers_intact
   case_archive_requires_the_retired_store
+  case_archive_refuses_a_name_already_retired
   case_archive_feature_branch_clean
   case_config_seam_refusal
   case_next_id

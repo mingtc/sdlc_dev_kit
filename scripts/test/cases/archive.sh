@@ -173,6 +173,7 @@ case_archive_index_refuses_malformed() {
 | [`old.md`](old.md) | 2026-01-01 → 2026-01-02 | 5 | 2026-01-03 | `--before 2026-01-03` |
 IDXEOF
   before="$(mktemp)"; cp "$R/progress/history/INDEX.md" "$before"
+  cp "$R/progress.md" "$SB_TMP/progress.before"
 
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
             --milestone mal --keep-last 1 --apply 2>&1 )"; rc=$?
@@ -188,7 +189,24 @@ IDXEOF
   # And it must not have helpfully repaired the file by inserting a separator.
   grep -qF '|---|' "$R/progress/history/INDEX.md" \
     && cf "(A) it inserted the separator itself — the index is the adopter's record, not the tool's to repair"
+  # Nor the log and the chunk: a refusal writes nothing.
+  cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "(A) progress.md was rewritten on a run that refused"
+  [ ! -e "$R/progress/history/mal.md" ] || cf "(A) the chunk was written on a run that refused"
+  printf '%s' "$out" | grep -F 'ARE ON DISK' >/dev/null && cf "(A) the refusal still says the chunk and the log ARE ON DISK"
+  rc=0; "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone mal --keep-last 1 >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || cf "(A) the dry run exited 0 on the index --apply refuses"
   rm -f "$before"
+
+  # ── C. NO HEADER ROW: refuses naming it, and writes nothing.
+  _ap_seed_small_log "$R"; cp "$R/progress.md" "$SB_TMP/progress.before"
+  printf '# rotation index\n\nno table here\n' > "$R/progress/history/INDEX.md"
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" \
+            --milestone nohdr --keep-last 1 --apply 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(C) an index with no header row did NOT refuse"
+  printf '%s' "$out" | grep 'no recognisable insertion point' >/dev/null \
+    || cf "(C) the refusal did not say why: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+  cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "(C) progress.md was rewritten on a run that refused"
+  [ ! -e "$R/progress/history/nohdr.md" ] || cf "(C) the chunk was written on a run that refused"
 
   # ── B. WELL-FORMED: must still insert, and FIRST. Without this half, a script that
   #      refused unconditionally would pass (A) and look correct.
@@ -211,7 +229,7 @@ IDXEOF
   grep -qF 'old.md' "$R/progress/history/INDEX.md" \
     || cf "(B) the pre-existing row was lost — the index is append-only"
 
-  finish "archive-progress.sh: a MALFORMED index refuses with the file byte-unchanged and un-repaired; a well-formed one still inserts newest-first"
+  finish "archive-progress.sh: a MALFORMED or header-less index refuses, dry run included, with it, progress.md and the chunk all unwritten, and the index un-repaired; a well-formed one still inserts newest-first"
   teardown
 }
 
@@ -330,6 +348,30 @@ case_archive_requires_the_retired_store() {
   grep -q "$SB_PREFIX-261" "$SB_WORK/ARCHIVE.md" || cf "(ii) the card was not indexed: $out"
 
   finish "archive.sh: an absent retired store REFUSES, names it, prints the .gitkeep creation recipe, creates nothing and leaves the kanban worktree clean, and --dry-run refuses too — while a board that has done/ still archives normally"
+  teardown
+}
+
+# =============================================================================
+# CASE — a card whose name is already retired refuses before anything is written
+#
+# `git mv` onto an existing done/ file fails after ARCHIVE.md is rewritten, and under `set -e`
+# the sweep stops there, leaving the shared board worktree dirty. --dry-run refuses too.
+# =============================================================================
+case_archive_refuses_a_name_already_retired() {
+  cf_reset
+  make_sandbox
+  seed_issue qa_complete "$SB_PREFIX-270" twice chore "Retired twice"
+  cp "$SB_WORK/progress/qa_complete/$SB_PREFIX-270-twice.md" "$SB_WORK/progress/done/"
+  publish_sandbox
+  local out rc
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "--apply exited 0 with $SB_PREFIX-270-twice.md already in done/"
+  printf '%s' "$out" | grep -F "$SB_PREFIX-270-twice.md" >/dev/null || cf "the refusal does not name the colliding card: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  [ -z "$(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>&1)" ] \
+    || cf "the refusal left the kanban worktree dirty: $(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>&1 | tr '\n' '|')"
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "--dry-run exited 0, previewing a sweep --apply refuses"
+  finish "archive.sh: a qa_complete/ card whose name is already in done/ refuses before any write, naming it, and --dry-run refuses too"
   teardown
 }
 

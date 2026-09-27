@@ -182,6 +182,17 @@ if [ ${#FILES[@]} -eq 0 ]; then
   exit 0
 fi
 
+# A NAME ALREADY RETIRED REFUSES HERE, before any write: its `git mv` would fail after the
+# ARCHIVE.md rewrite and leave the board worktree dirty.
+_taken=""
+for f in "${FILES[@]}"; do
+  if [ -e "$DONE_DIR/$(basename "$f")" ]; then _taken="$_taken $(basename "$f")"; fi
+done
+if [ -n "$_taken" ]; then
+  echo "Error: progress/done/ already holds:$_taken — refusing before any write. Resolve the duplicate by hand, then re-run." >&2
+  exit 1
+fi
+
 echo "Found ${#FILES[@]} file(s) to sweep into progress/done/."
 echo ""
 

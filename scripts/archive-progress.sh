@@ -361,6 +361,55 @@ echo "First 3 archivable entries:"
 grep -E '^## [0-9]{4}-[0-9]{2}-[0-9]{2}|^### [0-9]{4}-[0-9]{2}-[0-9]{2}|^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} ' "$PRE_TMP" | awk 'NR<=3 { print "  " $0 }'
 echo ""
 
+IDX_HEADER='| Chunk | Covers | Entries | Rotated | Cut |'
+IDX_SEP='|---|---|---|---|---|'
+
+# THE INSERTION POINT IS TWO LINES: the insert prints the header, then reprints the NEXT line
+# as the separator. If that line is not a separator, the first data row is consumed and the
+# new row lands second, breaking newest-first order. So check well-formedness, not presence
+# (instruments.md § A.6). The separator is matched by SHAPE (any GFM separator), not bytes.
+# Checked BEFORE any write, so a refusal leaves the log and the chunk as they were. A dry run
+# with no index skips it: --apply creates one with this header.
+if [ -f "$INDEX" ]; then
+  _idx_hdr_line="$(grep -nF -m1 "$IDX_HEADER" "$INDEX" | cut -d: -f1 || true)"
+  if [ -z "$_idx_hdr_line" ]; then
+    # REFUSE rather than append at a guess: the one document that must stay ordered
+    # is the one an append-at-a-guess corrupts (archive-sweep.md § 3).
+    {
+      echo ""
+      echo "Error: ${INDEX#"$REPO_ROOT"/} has no recognisable insertion point."
+      echo "  Expected a table whose header row is exactly:"
+      echo "    $IDX_HEADER"
+      echo "  Nothing was written. Add these two lines, then re-run:"
+      echo "    $IDX_HEADER"
+      echo "    $IDX_SEP"
+    } >&2
+    exit 1
+  fi
+  _idx_next="$(sed -n "$((_idx_hdr_line + 1))p" "$INDEX")"
+  if ! printf '%s' "$_idx_next" | grep -qE '^[[:space:]]*\|[-:| [:space:]]*-[-:| [:space:]]*\|[[:space:]]*$'; then
+    # REFUSE, AND DO NOT REPAIR: this file is the adopter's record, and inserting the separator
+    # would be the tool rewriting it to suit itself.
+    {
+      echo ""
+      echo "Error: ${INDEX#"$REPO_ROOT"/} is MALFORMED — the header row is not followed by a separator."
+      echo "  Line $((_idx_hdr_line + 1)) is:"
+      echo "    ${_idx_next:-(empty)}"
+      echo "  A markdown table's header owes a separator on the very next line, and this"
+      echo "  insert reads that line and reprints it. Without one, YOUR FIRST DATA ROW"
+      echo "  would be consumed into the separator's place and the new row would land"
+      echo "  second — breaking the newest-first order this index exists to give you."
+      echo "  The file must open its table with exactly these two lines:"
+      echo "    $IDX_HEADER"
+      echo "    $IDX_SEP"
+      echo "  Nothing was written. This tool will not insert the separator for you: this"
+      echo "  file is your record, and a tool that quietly rewrites it to suit itself is"
+      echo "  how an index comes to state things nobody put there. Fix the two lines, then re-run."
+    } >&2
+    exit 1
+  fi
+fi
+
 if [ "$DRY_RUN" = "true" ]; then
   echo "(dry run — no changes made. Re-run with --apply to rewrite the files.)"
   exit 0
@@ -416,55 +465,6 @@ if [ -n "$KEEP_LAST" ]; then CUT_DESC="\`--keep-last $KEEP_LAST\`"; else CUT_DES
 # shares a clock with SPAN_FIRST/SPAN_LAST (grepped from locally-stamped entries).
 IDX_ROW="| [\`$MILESTONE.md\`]($MILESTONE.md) | $SPAN_FIRST → $SPAN_LAST | $PRE_COUNT | $(date +%Y-%m-%d) | $CUT_DESC |"
 
-IDX_HEADER='| Chunk | Covers | Entries | Rotated | Cut |'
-IDX_SEP='|---|---|---|---|---|'
-
-# THE INSERTION POINT IS TWO LINES: the insert prints the header, then reprints the NEXT line
-# as the separator. If that line is not a separator, the first data row is consumed and the
-# new row lands second, breaking newest-first order. So check well-formedness, not presence
-# (instruments.md § A.6). The separator is matched by SHAPE (any GFM separator), not bytes.
-_idx_hdr_line="$(grep -nF -m1 "$IDX_HEADER" "$INDEX" | cut -d: -f1)"
-if [ -z "$_idx_hdr_line" ]; then
-  # REFUSE rather than append at a guess: the one document that must stay ordered
-  # is the one an append-at-a-guess corrupts (archive-sweep.md § 3).
-  {
-    echo ""
-    echo "Error: ${INDEX#"$REPO_ROOT"/} has no recognisable insertion point."
-    echo "  Expected a table whose header row is exactly:"
-    echo "    $IDX_HEADER"
-    echo "  The chunk and the rewritten log ARE ON DISK; only the index row is missing."
-    echo "  Add these two lines, then append this row by hand under them:"
-    echo "    $IDX_HEADER"
-    echo "    $IDX_SEP"
-    echo "    $IDX_ROW"
-  } >&2
-  exit 1
-fi
-_idx_next="$(sed -n "$((_idx_hdr_line + 1))p" "$INDEX")"
-if ! printf '%s' "$_idx_next" | grep -qE '^[[:space:]]*\|[-:| [:space:]]*-[-:| [:space:]]*\|[[:space:]]*$'; then
-  # REFUSE, AND DO NOT REPAIR: this file is the adopter's record, and inserting the separator
-  # would be the tool rewriting it to suit itself.
-  {
-    echo ""
-    echo "Error: ${INDEX#"$REPO_ROOT"/} is MALFORMED — the header row is not followed by a separator."
-    echo "  Line $((_idx_hdr_line + 1)) is:"
-    echo "    ${_idx_next:-(empty)}"
-    echo "  A markdown table's header owes a separator on the very next line, and this"
-    echo "  insert reads that line and reprints it. Without one, YOUR FIRST DATA ROW"
-    echo "  would be consumed into the separator's place and the new row would land"
-    echo "  second — breaking the newest-first order this index exists to give you."
-    echo "  The file must open its table with exactly these two lines:"
-    echo "    $IDX_HEADER"
-    echo "    $IDX_SEP"
-    echo "  Nothing was written. This tool will not insert the separator for you: this"
-    echo "  file is your record, and a tool that quietly rewrites it to suit itself is"
-    echo "  how an index comes to state things nobody put there."
-    echo "  The chunk and the rewritten log ARE ON DISK; only the index row is missing."
-    echo "  Fix the two lines, then append this row by hand under them:"
-    echo "    $IDX_ROW"
-  } >&2
-  exit 1
-fi
 # Append DIRECTLY BELOW the header row, newest first, rewriting no existing row.
 awk -v hdr="$IDX_HEADER" -v row="$IDX_ROW" '
   { print }
