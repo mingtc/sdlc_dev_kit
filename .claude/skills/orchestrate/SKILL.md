@@ -262,8 +262,8 @@ Carry the id like this:
 - **The operator's route is before launch.** Whoever launches the session can set the id in its
   launch environment, or in the `env` block of `.claude/settings.local.json`. On the harness
   measured, dispatched legs inherited both, and no prefix is needed. **A project's `.gitignore` may
-  not ignore that file** — the kit's lists it only from the release after 0.6.0, and the harness's own
-  global exclude covers only a file the harness wrote. Check
+  not ignore that file**, and the harness's own global exclude covers only a file the harness
+  wrote. Check
   `git check-ignore -q .claude/settings.local.json` (exit 0) before
   writing the id there: a committed id is inherited by every clone, and it is stale on the next run.
   Clear it when the run ends.

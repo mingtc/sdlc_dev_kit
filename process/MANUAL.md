@@ -281,7 +281,7 @@ Calibrate rigor to the change via the **rigor-tier ladder** in
 **Why:** the process serves the product, not the reverse. Run the full chain when the risk earns
 it; take the lite path otherwise.
 
-## The Dev → QA handoff (the boundary — 7 steps)
+## The Dev → QA handoff (the boundary)
 
 The one hard boundary in the process. Dev hands a `dev_complete/` issue to QA; QA lands it or
 bounces it.
@@ -494,7 +494,7 @@ both is the only thing that makes the guard a *pin* rather than a *comparison*.
 
 ### The direct-to-trunk lite variant (docs / process / metadata issues)
 
-The 7 steps above are the **code-work** boundary — they assume a pushed work branch and a `git
+The steps above are the **code-work** boundary — they assume a pushed work branch and a `git
 switch` to it. An issue that touches **none of the project's code paths** (see § The
 code-vs-metadata rule) — a docs, process, role-doc, script, or other metadata change — is worked
 **direct on the trunk**: Dev commits the change straight to the trunk with a Dev prefix, then
@@ -669,7 +669,7 @@ understands only those four reads every record. `kit_progress_tail` prints the r
 
 - **Transient by construction.** Records expire on a short TTL, swept as a side effect of writing.
   *Nobody should ever have to dig through old logs for anything* — durable insight stays in
-  reports, the card's Activity log and change files. Wanting to keep one means wanting a card.
+  reports and the card's Activity log. Wanting to keep one means wanting a card.
 - **Never a gate, and never a dependency.** No gate's verdict, no script's exit status and no
   output changes because a record was or was not written. Delete the library and every converted
   script behaves identically.

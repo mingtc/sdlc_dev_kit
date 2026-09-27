@@ -222,7 +222,7 @@ made confidently.** A control is not only how a null is disbelieved; it is how a
 trusted.
 
 **Why no check ships for this**, said plainly because this sheet asks for mechanisms first: the
-population is **every query anybody writes**, including in a message, a change file and a shell
+population is **every query anybody writes**, including in a message, a card and a shell
 history — most of it never in the tree at all. And any marking of *which* nulls were trusted would be
 written by the same person who trusted them, which § A.12 rules out on its own. **Two independent
 reasons, and the honest consequence is that this one is a discipline.** Where a null IS in a tracked

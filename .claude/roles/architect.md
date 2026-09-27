@@ -158,6 +158,11 @@ conversation with the PM. One person per side; the architect is a **succession o
    ad-hoc live probes are throttled and purposeful.
 7. **Repo-only scope** — everything outside this project folder is out of bounds.
 
+## Skills used in this role
+
+None of its own: the seat delegates. Every skill and the role it serves is in
+[`.claude/skills/README.md`](../skills/README.md).
+
 ## Project duties — the adapter fills this
 
 Everything above is the seat *pattern*. Four things are **project law** and must be written

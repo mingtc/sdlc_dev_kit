@@ -450,15 +450,14 @@ and every appearance of it is an independent assertion.
 ### A.9 — Mints cite by content anchor, stamped with the tree they were read against
 
 **The pattern is [`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)'s anchor
-convention** (prefer a section anchor over a bare `file:line`; reserve line anchors for append-only
-ledgers) and [`lookup-tables.md`](lookup-tables.md) § A.4.
-
-**What this sheet adds is the stamp, and two corollaries about phases.**
+convention and its tree stamp** (prefer a section anchor over a bare `file:line`; reserve line
+anchors for append-only ledgers; record the tree the anchors were read against) and
+[`lookup-tables.md`](lookup-tables.md) § A.4. **Here it binds every mint, with two corollaries about
+phases.**
 
 - **Stamp every mint with the tree identifier its citations were read against.** Line numbers rot in
   hours on an active trunk, so a work item minted early in a program carries citations that are stale
-  before its implementer opens the file. The stamp does not stop the rot — it makes it **detectable
-  rather than discovered.**
+  before its implementer opens the file.
 - **When a slate is executed in phases, mint each phase's items AFTER the prior phase lands**,
   against the tree they will actually meet. Minting the whole slate up front produces citations that
   were never true at the moment they were used.
@@ -476,7 +475,7 @@ of those citations is unresolvable the moment the source moves, is edited, or be
 this one does not own.**
 
 - **Copy every supplied document into this repository, verbatim, before minting anything that cites
-  it.** Not a link, not a path into a sibling project, not a quotation in a change file — **the
+  it.** Not a link, not a path into a sibling project, not a quotation in a card — **the
   document.** It is an operand, and an operand outside version control is not one.
 - **Date the copy by the day it was supplied, and never edit it.** Later feedback from the same source
   is a **new dated file**, because the thing that makes the original citable is that it still says

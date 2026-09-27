@@ -1,9 +1,7 @@
 <!-- KIT-CLASS: KIT — the seed's front door. Scaffolding: REPLACE-class, like CLAUDE.md.
      See process/EXTRACTION.md § The second axis: DISPOSITION. -->
-<!-- KIT-DISPOSITION: REPLACE — and the instruction does NOT live here. The replace-me notice is
-     the BOOTSTRAP-SCAFFOLDING line below, in the body, because this marker is removed by the very
-     act it would be asking for (EXTRACTION.md § The marker and graduation). This declaration is
-     the file's disposition for anything reading dispositions; it is not the sentinel. -->
+<!-- KIT-DISPOSITION: REPLACE — the instruction is the BOOTSTRAP-SCAFFOLDING line below
+     (EXTRACTION.md § The marker and graduation). -->
 <!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->
 # The development-process kit — a seed
 

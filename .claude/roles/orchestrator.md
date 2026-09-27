@@ -574,6 +574,9 @@ which are **not** the launch pack's.
 
 ## Relationship to existing skills
 
+This role's own skill is [`orchestrate`](../skills/orchestrate/); every skill and its role is in
+[`.claude/skills/README.md`](../skills/README.md).
+
 - `subagent-driven-development` — the engine *inside* the Dev phase (controller dispatches
   implementer + spec-reviewer + quality-reviewer per task). The orchestrator invokes it
   unchanged; it does not replace it.
