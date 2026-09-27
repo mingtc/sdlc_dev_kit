@@ -122,6 +122,26 @@ SUBTASKS_DIR="$KWT/progress/subtasks"
 
 [ -d "$QA_DIR" ] || { echo "Error: $QA_DIR does not exist." >&2; exit 1; }
 [ -f "$ARCHIVE" ] || { echo "Error: $ARCHIVE does not exist at the repo root." >&2; exit 1; }
+# THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED (archive-sweep.md § 3): the folder IS the
+# status, so creating it would turn a mistyped column into a new column holding retired work.
+# Checked before any write: a refusal after one leaves the board worktree dirty.
+if [ ! -d "$DONE_DIR" ]; then
+  {
+    echo "Error: the retired store progress/done/ does not exist on the trunk."
+    echo "       Looked for: ${DONE_DIR#"$KWT"/}   (inside the kanban worktree at $KWT)"
+    echo ""
+    echo "  REFUSING rather than creating it. This script would otherwise invent a"
+    echo "  status folder, and the folder IS the status — so a renamed or mistyped"
+    echo "  column would silently become a new column holding retired work."
+    echo ""
+    echo "  If the board genuinely has no done/ column yet, create it deliberately"
+    echo "  and publish it, the way kit-init does — one .gitkeep per column, so it"
+    echo "  survives a clone:"
+    echo "    mkdir -p progress/done && : > progress/done/.gitkeep"
+    echo "    git add progress/done/.gitkeep && git commit -m '[PM] board: add the done/ column' && git push"
+  } >&2
+  exit 1
+fi
 
 if ! grep -q '^## Archived$' "$ARCHIVE"; then
   # The refusal lists what the store holds: archive-sweep.md § 3 requires that listing as the
@@ -274,26 +294,6 @@ rm -f "$ENTRIES_FILE"
 
 # Move the full files into progress/done/ (preserve, don't remove). Prefer
 # `git mv` (tracks the rename); fall back to plain mv if untracked.
-#
-# THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED (archive-sweep.md § 3): the folder IS the
-# status, so creating it would turn a mistyped column into a new column holding retired work.
-if [ ! -d "$DONE_DIR" ]; then
-  {
-    echo "Error: the retired store progress/done/ does not exist on the trunk."
-    echo "       Looked for: ${DONE_DIR#"$KWT"/}   (inside the kanban worktree at $KWT)"
-    echo ""
-    echo "  REFUSING rather than creating it. This script would otherwise invent a"
-    echo "  status folder, and the folder IS the status — so a renamed or mistyped"
-    echo "  column would silently become a new column holding retired work."
-    echo ""
-    echo "  If the board genuinely has no done/ column yet, create it deliberately"
-    echo "  and publish it, the way kit-init does — one .gitkeep per column, so it"
-    echo "  survives a clone:"
-    echo "    mkdir -p progress/done && : > progress/done/.gitkeep"
-    echo "    git add progress/done/.gitkeep && git commit -m '[PM] board: add the done/ column' && git push"
-  } >&2
-  exit 1
-fi
 for f in "${FILES[@]}"; do
   dest="$DONE_DIR/$(basename "$f")"
   if git -C "$KWT" ls-files --error-unmatch "$f" >/dev/null 2>&1; then

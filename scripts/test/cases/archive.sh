@@ -309,6 +309,12 @@ case_archive_requires_the_retired_store() {
   [ ! -d "$kwt_done" ] || cf "(i) the refusal still created progress/done/ inside the kanban worktree"
   [ -f "$SB_WORK/progress/qa_complete/$SB_PREFIX-260-nostore.md" ] \
     || cf "(i) the card left qa_complete/ during a refusal"
+  # A dirty board worktree makes every later board command refuse, including this one.
+  [ -z "$(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>&1)" ] \
+    || cf "(i) the refusal left the kanban worktree dirty: $(git -C "$SB_WORK/.kanban-wt" status --porcelain 2>&1 | tr '\n' '|')"
+  # The preview must not promise a sweep that --apply refuses.
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/archive.sh" --dry-run 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(i) --dry-run exited 0 with no progress/done/, previewing a sweep --apply refuses: $out"
   teardown
 
   # --- (ii) the store is PRESENT: archive normally ---------------------------
@@ -323,7 +329,7 @@ case_archive_requires_the_retired_store() {
     || cf "(ii) the card was not moved into done/: $out"
   grep -q "$SB_PREFIX-261" "$SB_WORK/ARCHIVE.md" || cf "(ii) the card was not indexed: $out"
 
-  finish "archive.sh: an absent retired store REFUSES, names it, prints the .gitkeep creation recipe and creates nothing (checkout and kanban worktree both) — while a board that has done/ still archives normally"
+  finish "archive.sh: an absent retired store REFUSES, names it, prints the .gitkeep creation recipe, creates nothing and leaves the kanban worktree clean, and --dry-run refuses too — while a board that has done/ still archives normally"
   teardown
 }
 

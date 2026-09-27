@@ -728,6 +728,10 @@ columns and never the cards.*
   `move-issue.sh <PARENT>-sM` refuses instead of moving the subtask off its tree — move subtasks with `subtask.sh`.
   **Nothing to do.**
 
+- **`archive.sh` no longer leaves the board worktree dirty when `progress/done/` is missing.** `--apply` rewrote `ARCHIVE.md`
+  in `.kanban-wt/` and then refused, so every later board command refused as dirty. It now refuses before writing, and
+  `--dry-run` refuses the same board. **If you hit it:** `git -C .kanban-wt checkout -- ARCHIVE.md`, then re-run.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
