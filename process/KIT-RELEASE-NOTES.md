@@ -820,6 +820,10 @@ columns and never the cards.*
   § 6: only an arm implementing no § 2 invariant must not change the verdict. `issue-creation.md`: a mutating tool with no
   preview refuses `--dry-run` as an unknown option.
 
+- **Doctrine pointers corrected:** `rigor-tiers.md` names `PROJECT.md` § The binding gate as where the binding gate is declared;
+  `model-provisioning.md` § B.1 says to check whether your spawn tool takes an effort parameter rather than asserting it has
+  none; `fix-execution.md` § A.5c states that a bounce never silently escalates model or effort.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

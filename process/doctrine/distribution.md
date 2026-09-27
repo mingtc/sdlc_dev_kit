@@ -220,7 +220,7 @@ maintainers audit it by reading. **There is a population of defects that reading
 strength** — a script that dies on a shape nobody wrote a test for, a rule that contradicts another
 only when both are obeyed at once, a tool that reports clean over a subject it structurally cannot
 see. Those are found by USE, and the only people using it are adopters. *Measured in this kit's own
-history: seven rounds of fresh-context reading over one artifact, then three findings from a single
+history: repeated rounds of fresh-context reading over one artifact, then findings from a single
 project running it that no round had reached.*
 
 **Three obligations, and the third is the one everyone drops:**

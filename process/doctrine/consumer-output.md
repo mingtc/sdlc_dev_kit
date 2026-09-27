@@ -90,8 +90,8 @@ decision. An unexplained hole reads as an oversight and gets filled by the next 
 
 **So the absence owes three things where it appears:** what is missing, why every available answer
 would be wrong, and **the observable event that would discharge it** — a new input seen, a rule
-agreed — never a date. (Same shape as [`supersession.md`](supersession.md)'s conditions: the
-condition names an event, not a calendar.)
+agreed — never a date. (Same shape as [`generality.md`](generality.md) § A.5: the condition names an
+event, not a calendar.)
 
 **The kit's own incident, and it is exactly this clause failing.**
 [`distribution.md`](distribution.md) § A.4 records an updater that answered *"which version is
@@ -263,7 +263,7 @@ itself).
   what a label may say. Routing a product-surface rule into that sheet would also re-commit A.7's own
   error: placing the rule where its subject lives rather than where its reader is standing.
 - **`negative-claims.md`** is reached through a lexicon check, and none of the failures above ships
-  one of its four words. The doctrine would be unreachable at the moment it is needed — a gap in the
+  a word from its lexicon. The doctrine would be unreachable at the moment it is needed — a gap in the
   **mechanism**, not only in the prose.
 - **`staleness.md` § C** governs a number in maintained prose, read by someone who can open the source.
   Here the reader cannot.

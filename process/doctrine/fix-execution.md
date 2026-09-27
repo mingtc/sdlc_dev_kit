@@ -3,9 +3,7 @@
 
 > **Size note, owed by [`lookup-tables.md`](lookup-tables.md) § A.1.** This sheet is over that
 > section's 32,768-byte trigger and is **deliberately not split**: its § A items are a single
-> execution order, and a reader who arrives at A.9 needs A.1's framing to act on it. *This line
-> exists because the sheet that states the rule was itself the sheet missing it — measured by a
-> fresh-context checker, which found two sheets over the trigger and only one carrying the note.*
+> execution order, and a reader who arrives at A.9 needs A.1's framing to act on it.
 
 A measurement round ends with verified findings and a slate of work items. This sheet is about the
 next stretch: turning that slate into landed changes and a cut. **The characteristic failure of this
@@ -20,8 +18,7 @@ release**.
 
 **How the overlaps are handled.** Where a rule already lives elsewhere, this sheet carries a
 **pointer plus its own increment** — the convention [`dogfooding.md`](dogfooding.md) § A.2 already
-uses for [`instruments.md`](instruments.md). Applied provisionally: the general ownership rule is
-proposed and not yet ratified.
+uses for [`instruments.md`](instruments.md).
 
 ---
 
@@ -120,13 +117,10 @@ classes, and both were caught by fresh-eyes review briefed to look for them.*
 Every landed change outruns some sibling statement of the same fact. Per-item review judges the
 item's own grep list, and **nobody's grep list is the corpus.**
 
-> **AMENDED from the supplied form, on measured grounds. The supplied rule was a single pre-cut
-> sweep. One sweep is necessary and is not sufficient**, because it is the wrong instrument for half
-> the problem: a sweep at the end is the **only** thing that can find a stale statement in a file
-> nobody edited, and the **worst** thing that can find a stale statement a *later phase will be
-> written against*. By the time the sweep runs, the phases that inherited the false premise have
-> shipped. So the obligation splits by *when the staleness bites*, not by how much of the corpus it
-> covers.
+**One pre-cut sweep is necessary and is not sufficient.** A sweep at the end is the **only** thing
+that can find a stale statement in a file nobody edited, and the **worst** thing that can find one a
+*later phase will be written against*: by the time it runs, the phases that inherited the false
+premise have shipped. So the obligation splits by *when the staleness bites*.
 
 **A.4a — In-change, one hop, every change.** The author checks the statements **its own operands
 make**, and the statements that **cite those operands**. That is one hop, the files are already open,
@@ -151,19 +145,16 @@ individually-reviewed program found dozens of defects, a large minority of them 
 claims — several pre-dating the program and visible only because the sweep read surfaces nobody's
 diff had touched.*
 
-**ONCE WAS WRONG, AND THE REASON IT SAID ONCE IS KEPT.** The original word was `once`, on the sound
-reasoning that a sweep after the last landing reads a tree nobody will change again. That reasoning
-fails on its own output: **fixing a finding is a landing**, and a fix round edits the very surfaces
-the next reader meets. Measured across two adopting projects — a round's own fixes introduced claims
-the round had just finished verifying. So the sweep **re-runs after every fix round, until a round
-finds nothing.** A single pass certifies the tree as it was before the fixes, which is not the tree
-that ships.
+**Repeated, because fixing a finding is a landing:** a fix round edits the very surfaces the next
+reader meets. Measured across two adopting projects — a round's own fixes introduced claims the round
+had just finished verifying. So the sweep **re-runs after every fix round, until a round finds
+nothing.** A single pass certifies the tree as it was before the fixes, which is not the tree that
+ships.
 
 **THE CHECKERS NEED NOT BE CONTEMPORANEOUS — and the price of that is one named reader, not a
-disclaimer.** This rule said *one fresh-context checker per surface* and was silent on whether the
-checkers had to read the **same** tree. Read strictly it demands they do, which makes a one-file fix
-cost a whole sweep again; read loosely it permits a cut assembled from readings of trees that never
-existed together. Neither is what is wanted, so:
+disclaimer.** Requiring them all to read the **same** tree makes a one-file fix cost a whole sweep
+again; not requiring it permits a cut assembled from readings of trees that never existed together.
+So:
 
 - **A surface's verdict is carried forward only while no file that surface CLAIMS has changed.** The
   surface list is what says which files those are; a list with no path expression per surface cannot
@@ -181,7 +172,7 @@ existed together. Neither is what is wanted, so:
   pretending the two are equivalent.
 
 *Why this is stated rather than left to the gate: a gate cannot enforce a span rule its doctrine has
-not chosen, and the silence was being read as permission by one reader and prohibition by another.*
+not chosen.*
 
 **VERIFY BY EXECUTION WHERE THE SURFACE CAN BE EXECUTED, not only by reading.** A claim about what a
 command prints, what a refusal says, or what a flag does is checkable by running it, and reading is
@@ -298,9 +289,10 @@ related to the fix", because everything after a fix is related to it:
   where it could hide.**
 
 **AND THIS IS A SHAPE-OR-SCOPE CHANGE, NEVER A PROVISIONING ESCALATION.** *"Try again, harder"* — a
-bigger model, more effort, a longer leash — reads as the obvious answer and overturns by implication
-the standing rule that **a bounce must not silently escalate the model or the effort**. It also does
-not work: capability is not what is missing when the search is pointed at the wrong place. Say
+bigger model, more effort, a longer leash — reads as the obvious answer. But **a bounce never
+silently escalates the model or the effort**: escalation is a deliberate per-item decision
+([`model-provisioning.md`](model-provisioning.md) § B.1), and here it would not work anyway, because
+capability is not what is missing when the search is pointed at the wrong place. Say
 **different approach** or **different author**, and say which.
 
 *What this owes the record:* the item stops with the blind spot **named** — what the cure assumed, and
@@ -455,14 +447,6 @@ diverged, and the divergence was read as a failure.
 itself, name the **one place it is authored**. If you cannot, the vocabulary has no authoring site,
 and every appearance of it is an independent assertion.
 
-> **This kit currently fails that test, and the failure is recorded here rather than in a backlog
-> item, because a sheet that names its own adopter's live violation is worth more than one that does
-> not.** Its **landing** verdict set has an authoring site and a projection into the runners. Its
-> **scrutiny** verdict set — the vocabulary a slate-scrutiny leg returns — has **none**: it exists
-> only inside the dispatch packs that use it, one copy per pack, unratified and unguarded. So the
-> second enumeration is in exactly the state the first one was in before it was fixed. Named here as
-> owed.
-
 ### A.9 — Mints cite by content anchor, stamped with the tree they were read against
 
 **The pattern is [`templates/DECISIONS.skeleton.md`](../templates/DECISIONS.skeleton.md)'s anchor
@@ -540,16 +524,9 @@ closed; the class was not, and nobody noticed until the supplier asked.*
 
 ### A.10 — A consent id authorizes a spend, and a full-suite run is its own spend
 
-**The pattern is [`live-resources.md`](live-resources.md) § A.4** — consent carries the authorizing
-issue id, never a boolean.
-
-**What this sheet adds:** running the **entire** live suite under one item's id spends the whole
-suite's resource budget against a single item's authority. Default to the **targeted selection the
-item actually needs**; run the full suite at phase boundaries as **its own budgeted, recorded
-decision**. *The source program's one budget overrun — disclosed, reclaimed, harmless — came precisely
-from full-ring runs under single-item ids, and the disclosure discipline (ceiling and intent declared
-before the spend; the overrun stated, never absorbed) is what kept it a footnote instead of an
-incident.*
+**Stated in full in [`live-resources.md`](live-resources.md) § A.4:** consent carries the authorizing
+issue id, the id buys one item's targeted selection, and a full-suite run at a phase boundary is its
+own budgeted, recorded decision.
 
 ### A.11 — One writer per surface at a time, and the checker watches every writable home
 
@@ -593,9 +570,8 @@ answer.** The bullets above cover the coordinator; these cover the topology.
   when, and against which ref, so a peer can tell *"the subject is wrong"* from *"you read it while I
   was moving it"* **without re-running anything**. Better probes are expensive and reduce the rate;
   disclosure is free and makes the residue diagnosable, which is the property that actually matters.
-  *Measured: a case reported "the harness changed a board surface" during a full-suite run. The
-  measurement was correct and the attribution was invented — a concurrent session was editing that
-  file. Nothing in the instrument was broken; the sentence it printed was the defect.*
+  *The measured instance — a correct measurement carrying an invented attribution — is
+  [`instruments.md`](instruments.md) § C's last example, and the rule is its § A.9.*
 
 ---
 

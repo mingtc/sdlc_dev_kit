@@ -175,9 +175,7 @@ instances across five work items, and every one shipped the same apologetic comm
 site — nine independent readings of this section, none of which recognised its own case in it. The
 comment was not wrong. It should not have had to exist.*
 
-**Nothing about the handling changes** — every numbered point above holds identically (count them
-there; this sentence said "the four" until § 3b was inserted and made it five, which is the stale-
-census class `staleness.md` § C names, committed inside the sheet about coupled changes), and the
+**Nothing about the handling changes** — every numbered point above holds identically, and the
 set is still the unit. What changes is only that the executable-declaration case is now named here, so the
 next reader does not have to decide whether their situation is a member.
 
@@ -225,13 +223,7 @@ law is the compensator set, measured in practice rather than reasoned out:
    false-assurance shape. *(The reference implementation behaves this way — its landing script runs
    the tracked gate at the landed commit after the merge, names the commit it read, reports the
    result on a fixed machine-readable line, and deliberately does not let that result move its own
-   exit code. **It did not always read the landed commit**, and this parenthesis once said it already
-   behaved this way: it ran the gate in whichever checkout had passed the pre-merge gate, which in
-   most accepted postures was still at the pre-merge branch tip, and printed a green naming the
-   trunk. That is the "true verdict about the wrong unit" the paragraph above warns of, built by the
-   kit itself — so compensator 1 is not made redundant by this one: a hand reading of the merged
-   trunk is what exposed it.
-   [`../contracts/landing-gate.md`](../contracts/landing-gate.md) is where a project states it as an
+   exit code. [`../contracts/landing-gate.md`](../contracts/landing-gate.md) is where a project states it as an
    invariant rather than leaving it to the implementation.)*
 3. **A trunk-lane commit is followed by the trunk gate at the pushed tip before the act is declared
    done** — including the coordinating seat's own commits, which are the ones most likely to skip

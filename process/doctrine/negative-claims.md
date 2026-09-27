@@ -3,8 +3,7 @@
 
 **KIT-CLASS: KIT.** Promoted after a shipped negative claim over-reached its evidence; § A carries
 the rule and the ones that grew out of it — *its own headings are the list, which is why no count
-is written here. This line said "one rule" while § A held its mirror rule and a detection-recipe
-rule besides.* **§ A.5 generalises the sheet past its title:** the rule about how wide a claim may
+is written here.* **§ A.5 generalises the sheet past its title:** the rule about how wide a claim may
 be is the same rule as how it was OBTAINED, and it binds any claim whose scope can exceed its
 evidence — the negative being the worst case and the one the title names.
 § A is the transferable pattern; § B is where **your** project records its own instance.
@@ -205,7 +204,7 @@ confidence and minimum coverage.
 verdict, a count, a label, a status line, a capability, a diagnosis — owes the same thing. The
 negative is named separately because it is the member nobody re-checks.
 
-#### The six forms
+#### The forms
 
 Each is the same rule pointed at a different kind of claim, and each fails the same way: **a claim
 true of what the speaker examined, read as a claim about the system.**
@@ -296,7 +295,7 @@ elsewhere is the whole defect.** The author's own diagnosis is the reason this c
 > *"I keep writing the acceptance criterion for the claim and relying on remembering the other rule
 > for the limit. Remembering is not a mechanism."*
 
-#### The corollaries — the same rule addressed to five parties
+#### The corollaries — the same rule addressed to each party
 
 A rule addressed to everyone is remembered by no one, and the evidence is that each party misses it
 for a **different** reason. So:

@@ -62,8 +62,9 @@ ladder is calibrated to one workload, one price sheet and one date.
    the `model:` and `effort:` keys. A plain spawn of that type is correctly provisioned with **no
    per-call action**. **Frontmatter effort OUTRANKS the session's**, which cuts both ways: defaults
    cannot drift with a window's setting, and no session toggle can reach a pinned worker.
-2. **The spawn tool has a `model` parameter and NO effort parameter.** "Explicit model on every
-   spawn" is a rule you can keep; effort never travels on the call.
+2. **Check whether the spawn tool takes an effort parameter** (the paragraph below says how). Where it
+   takes only `model`, "explicit model on every spawn" is a rule you can keep and effort never travels
+   on the call.
 3. **Escalating one work item above its type default** — in preference order:
    - **(a) The Workflow route.** Where the harness exposes a programmatic spawn
      (`agent(prompt, { agentType: '<worker>', effort: 'high' })`), the per-call `effort` is the
@@ -82,10 +83,7 @@ ladder is calibrated to one workload, one price sheet and one date.
 
 Per-spawn effort on the spawn tool may or may not exist in the harness you are running.
 **Do not take this sheet's word for it either way — check the spawn tool's own parameter list, and
-write what you find into your § B.2 with the date you checked.** *This paragraph carried an
-undated "at the time of writing" and no way to test it, which is precisely the shape
-[`negative-claims.md`](negative-claims.md) § A.1b refuses: a claim of absence or futurity ships
-with a guard — how to re-check it — or it does not ship.*
+write what you find into your § B.2 with the date you checked.**
 
 ---
 
@@ -133,74 +131,27 @@ is the thing that goes stale while still reading as authoritative. The seat's ow
 
 ## Appendix — the originating study (a worked example from the donor project, anonymized)
 
-> **This appendix is EVIDENCE, not law.** It is one project's evaluation, on one date, of one
-> model-generation change. Its **conclusions about that generation are not yours**; what travels is
-> the *shape* of the reasoning and the *kind* of measurement that settled it. Every issue id,
-> price and per-agent figure has been stripped or generalized.
+> **This appendix is EVIDENCE, not law:** one project's evaluation, on one date, of one
+> model-generation change. What travels is the *shape* of the reasoning and the *kind* of
+> measurement that settled it.
 
-**The trigger.** A fleet of dispatched workers was provisioned with the previous model
-generation's habits. The tooling requested the model as a bare **alias**, never a pinned version;
-the alias moved to a new generation. Nothing in the configuration changed — the model under it did.
-The result was a quota surprise, and § A.6 is the rule that came out of it.
+**The trigger.** Workers were provisioned by habit and requested the model as a bare **alias**; the
+alias moved to a new generation. Nothing in the configuration changed — the model under it did — and
+the result was a quota surprise. § A.6 is the rule that came out of it. § A.3's leaf clause came from
+the same study: workers that had the spawn tool and were never told not to use it multiplied cost
+invisibly inside their parents' totals.
 
-**The seven documented behavioural deltas that mattered, and why each hit the workflow** (drawn
-from the vendor's own migration guidance and cross-checked against the project's recorded per-agent
-token usage):
+**The measurement that settled it.** Grouping recorded runs by how their workers were provisioned
+showed a **~2–5× per-agent spread on comparable work**, explained by two variables and not by task
+difficulty: **effort tier** and **brief width**. The cheapest workers did real multi-file analysis at
+the middle effort tier with one-goal briefs; the most expensive carried maximal effort, maximal
+checklists and maximal verification demands.
 
-1. **Thinking on by default**, where omitting the parameter previously meant *no* thinking.
-   Baseline spend on every request that never opted in.
-2. **Effort re-tune required — downward.** The new generation's low and medium tiers "punch well
-   above their weight", and prior-generation effort defaults are "usually not the right setting".
-   The old guidance was *default high*; the new one is *start high, then sweep down*.
-3. **Over-verification: DELETE verification scaffolding.** The model verifies its own work
-   unprompted, and instructions telling it to verify now cause *over*-verification with **no
-   capability regression** when removed. This **inverts** the standard self-check best practice —
-   briefs saturated with "double-check", "re-run after every step", "prove each claim" were paying
-   twice for work the model already did.
-4. **Delegates to subagents MORE**, where the previous generation under-reached. Any
-   *"delegate more"* guidance comes out, and an explicit cap goes in. This is where § A.3's leaf
-   clause comes from: workers had the spawn tool available and were never told not to use it, so
-   any fan-out multiplied cost invisibly inside a parent's totals.
-5. **Longer everything** — visible responses, narration between tool calls, files written to disk,
-   self-correction prose. Effort does **not** reliably shorten visible output; a prompt-level
-   length instruction does.
-6. **Literal instruction-following.** Every enumerated checklist item is now guaranteed spend, so a
-   brief's line count is a budget. Good for correctness; price it consciously.
-7. **High-resolution vision**, at roughly triple the previous per-image token cost. An
-   image-reading loop can cost more than tens of agents' text work — which is why the project's
-   standing ban on screenshots and image reads was kept, not relaxed.
+**What it recommended, in priority order:** re-tune effort (for that generation, downward); cap
+spawning in every worker brief; delete implementer-side verification scaffolding and keep the
+objective gates; right-size review rigor by tier; length-calibrate outputs; slim briefs to goal,
+constraints and gates; and make the runner honour the ladder, with an explicit default at every call
+site rather than an inherited one.
 
-**The measurement that settled the argument.** Grouping recorded runs by how their workers were
-provisioned showed a **~2–5× per-agent spread on comparable work**, explained by two variables and
-not by task difficulty: **effort tier** and **brief width**. The cheapest workers did real
-multi-file analysis at the middle effort tier with one-goal briefs; the most expensive carried
-maximal effort, maximal checklists and maximal verification demands. Behavioural fingerprints of
-the deltas above were visible in the transcripts: reviewers independently re-measuring every figure,
-golden suites run two or three times per review, several redundant build invocations per work item,
-and reports of extraordinary length.
-
-**What the study recommended, in priority order** — the durable half:
-
-1. **Re-tune effort downward** — the single biggest lever, and the one the project's own numbers
-   supported.
-2. **Add a no-spawn cap to every worker brief** (§ A.3's leaf clause).
-3. **Delete implementer-side verification scaffolding; keep the objective gates.** A gate is a
-   pass/fail fact and is cheap to state; *"verify yourself before claiming"* prose buys the same
-   work twice.
-4. **Right-size review rigor by tier, deliberately.** Fresh-eyes review stays as the quality bar;
-   *"re-derive every figure, everything re-measured"* is the high tier, not the default.
-5. **Length-calibrate outputs in every brief** — lead with the outcome, cap report length, keep
-   commit messages compact, make activity notes carry evidence pointers rather than transcripts.
-6. **Slim the briefs: goal + constraints + gates, not enumerated method.** Keep the constraints
-   that are not derivable (probe-truth rules, safety rails); drop step-by-step how-to the model
-   plans better itself.
-7. **Keep the image ban**, now at higher stakes.
-8. **Make the runner honour the ladder** — per-work-item model and effort fields at every call
-   site, with an explicit default rather than an inherited one.
-
-**What the study could NOT explain, recorded rather than guessed:** whether plan-level quota
-accounting also changed on the vendor's side (invisible from inside); whether any worker had in
-fact spawned children during the arc (their totals would absorb them silently — the cap makes the
-question moot going forward, and auditing old transcripts was judged not worth the tokens); and
-exactly when the alias moved. All three are examples of § A.6's real lesson: **the alias moving is
-an event you will learn about from the meter, not from your configuration.**
+**What it could not see is § A.6's real lesson:** the alias moving is an event you learn about from
+the meter, not from your configuration.

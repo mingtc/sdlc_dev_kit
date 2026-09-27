@@ -172,7 +172,7 @@ dispatching…" are not actions. A turn may end only three ways: a **tool call i
 **run report written and the pack stamped**, or a **batched decision list explicitly awaiting the
 operator** (event 1–4 above, named). Dispatching first ends the turn on a tool call by
 construction rather than by remembering to — *why the ordering is the mechanism and the
-prohibition alone is not* is § A.5's amendment.
+prohibition alone is not* is § A.5.
 
 ### The conductor's belt (between EVERY leg)
 

@@ -133,44 +133,24 @@ batched decision list is the only channel that still works. So in an unattended 
 convenience for the human's morning; it is the sole exit, and a run that stops to ask has stopped for
 good.
 
-**A silent stop is a failure mode equal to improvising.** The old formula — *"parking well is
-success; improvising is the only failure mode"* — was found incomplete: stopping without a park
-note and a next dispatch is a third failure, and the most expensive, because the work is neither
-done nor recorded nor handed on.
+**A silent stop is a failure mode equal to improvising, and the most expensive:** stopping without a
+park note and a next dispatch leaves the work neither done nor recorded nor handed on.
 
-**Never end a turn on a stated intention.** "Resuming", "next I will", "now dispatching" are not
-actions. A turn may end exactly three ways: **a dispatch actually in flight**, **the report
-written and the pack stamped**, or **a named stop event with its batched decision list awaiting
-the human**. If the words "resuming" appear, the same turn must contain the dispatch.
+**Never end a turn on a stated intention — and the rule is an ORDERING: when the next leg is
+determined, the dispatch call PRECEDES the status.** "Resuming", "next I will", "now dispatching" are
+not actions. A turn may end exactly three ways: **a dispatch actually in flight**, **the report
+written and the pack stamped**, or **a named stop event with its batched decision list awaiting the
+human**. Dispatching first ends the turn on a tool call *by construction* rather than by remembering
+to: belt → **dispatch** → status, never belt → status → dispatch. The gap between status and dispatch
+is where every measured instance lived.
 
-*The reason this is doctrine rather than advice:* it was written after a run paused twice on
-things that were not stop events, and once wrote "resuming" in a turn that then ended.
-
-**AMENDED — the rule above is right and its FORM was wrong: DISPATCH FIRST, NARRATE SECOND.**
-Everything above stands, including its reason. What is added is the mechanism, because the
-prohibition on its own does not hold: *"never end a turn on a stated intention"* asks the actor to
-notice at the exact moment described by the sentence that names the failure — **"describing the
-transition discharged the urge to make it."** The narration substitutes for the act, and the check
-that would catch it is due precisely when the substitution has already happened.
-
-So the rule is an **ordering**, not a prohibition: **when the next leg is determined, the dispatch
-call PRECEDES the status.** The turn then ends on a tool call *by construction* rather than by
-remembering to. The belt order becomes belt → **dispatch** → status, never belt → status → dispatch;
-the gap between status and dispatch is where every measured instance lived.
-
-*Why this is a mechanism rather than a firmer instruction* — the test is
-[`fix-execution.md`](fix-execution.md) § A.5b, and this failure is caught by its **second** half
-rather than its first. Nothing here is irreversible; a stalled turn is resumed at no cost. What earns
-the mechanism is that the failure is **silent**: an idle session is indistinguishable from a working
-one, so nothing surfaces
-it but a human's glance or a liveness probe. The instances that produced this amendment were not
-caused by carelessness — they were paid by coordinators who had the rule in front of them, more than
-once each, including by the party that wrote the brief forbidding it. **Care was demonstrably not the
-cure.**
-
-*And note what the original wording already knew:* it said *"if the words 'resuming' appear, the same
-turn must contain the dispatch."* That is this amendment, stated as a repair instead of as an order.
-The repair asks you to catch yourself; the order removes the opportunity.
+*Why an ordering and not a prohibition:* the rule was written after a run paused twice on things
+that were not stop events and once wrote "resuming" in a turn that then ended — and the prohibition
+alone did not hold, because **describing the transition discharged the urge to make it**. The
+instances were paid by coordinators who had the rule in front of them, including the party that
+wrote the brief forbidding it: **care was not the cure.** What earns a mechanism is that the failure
+is **silent** — an idle session is indistinguishable from a working one — which is the second half of
+[`fix-execution.md`](fix-execution.md) § A.5b's test.
 
 ### A.6 — Decisions are batched between runs, never negotiated during them
 

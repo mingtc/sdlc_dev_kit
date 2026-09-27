@@ -32,8 +32,8 @@ A file owes an index when **both** hold:
    record cited once for one fact is **not** in the corpus and owes nothing.
 2. **It is ≥ 32,768 bytes.** Reuse the constant your drift report already carries for log rotation
    (the log-size threshold named at the top of the drift-report implementation — a seam, per
-   [`../contracts/drift-report.md`](../contracts/drift-report.md) § 6 — calibrated there as *"≈ ~8k
-   tokens of every session's start budget"*). **Do not mint a second threshold** — a project that
+   [`../contracts/drift-report.md`](../contracts/drift-report.md) § 6 — calibrated there as *"32 KiB ≈ 8k
+   tokens of session-start budget"*). **Do not mint a second threshold** — a project that
    carries two numbers for one idea will drift them.
 
 **Plus a role trigger, at any size:** a file a role doc names as a **mandatory read** owes an

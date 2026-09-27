@@ -126,9 +126,9 @@ The consent variable's value is **the id of the issue that authorized the work**
 
 **Why an id and not a flag: this is the earned part.** A boolean is typed by muscle memory and
 means nothing when read back. An id cannot be typed without knowing which issue is being invoked,
-and it converts an untraceable act into an attributable one. In the donor project **C.2**
-incidents that produced this fence involved a *typed flag* on a run whose author was thinking
-about something else entirely (§ C). The fence's teeth are that the flag now has to be a
+and it converts an untraceable act into an attributable one. In the donor project the incident that
+produced this fence (§ C.2) involved a *typed flag* on a run whose author was thinking about
+something else entirely. The fence's teeth are that the flag now has to be a
 sentence about authority.
 
 **And the id authorizes ONE ITEM'S spend, so a FULL-SUITE run is its own spend.** The fence above
@@ -145,10 +145,6 @@ was never written for the suite.
   came precisely from full-suite runs under single-item ids; it was disclosed and fully reclaimed, and
   **the disclosure is why it stayed a footnote instead of becoming an incident.** An overrun quietly
   absorbed is a ceiling that has stopped meaning anything.
-
-*(This rule arrives from a fix program rather than from a round:
-[`fix-execution.md`](fix-execution.md) § A.10, which is where its phase-boundary half is stated in
-context.)*
 
 ### A.5 — The instrument beats the self-report
 
@@ -178,15 +174,6 @@ for an honest wrong report is an instrument or a refusal, never a sterner instru
 report is the only account of work nobody watched, is
 [`subagent-control.md`](subagent-control.md) § A.4; and the question of whether your instrument can
 see anything at all is [`instruments.md`](instruments.md).
-
-**The two shapes a report fails in, which are worth knowing by name because the fix differs.** A
-report is honestly wrong in one of two ways: **a green whose scope is smaller than it appears** — the
-check passed because it could not see the case, not because the case is fine — or **a count, hash or
-figure quoted rather than derived**, accurate at some earlier moment. The first is answered by asking
-what the check *could* have caught; the second by re-deriving the number. Both are answered in advance
-by **requiring a report to carry its own evidence**: the runner's raw summary, **the exit status read
-without laundering it through a filter**, the transcript. A claim arriving without its evidence is
-unverified by definition, and saying so in the brief up front costs nothing.
 
 ### A.6 — Reclaimable resources self-delete, and the teardown proof is part of the result
 
@@ -232,10 +219,7 @@ records?) and its result is reported as a count of violations, expected zero.
 
 Probing for a capability that turns out not to exist is a **legitimate close**: "we sent every
 spelling of the destructive verb we could construct; none succeeded; here are the requests and
-the responses". What keeps it honest — and the list below is the count, not this sentence. *(This line read
-"Two rules keep it honest" over four bullets, and had done since the sheet was written: it was
-never true, in any release. The number is gone rather than corrected to four, because correcting
-it re-arms the same trap on the next bullet.)*
+the responses". What keeps it honest:
 
 - **Enumerate from the evidence, in the closing leg, independently.** Distinct request spellings,
   total sends, how many succeeded, how many objects, how many captures. Re-derived from the
@@ -418,5 +402,5 @@ What the incident actually taught:
   touched — its row count was identical from open to close — and saying so is what made the
   incident bounded rather than alarming.
 
-**The two incidents together are why consent is an id and not a flag.** C.2 turned on a *typed flag*
-on a run whose author was thinking about something else.
+**C.2 is why consent is an id and not a flag:** it turned on a *typed flag* on a run whose author
+was thinking about something else.

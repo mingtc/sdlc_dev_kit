@@ -277,8 +277,8 @@ equally supported:
   resolve it differently, which these two do not.
 
 **What follows from that, and it is a duty rather than a caveat:** this sheet is expected to be
-**tuned** as more consumers arrive. Expect some questions to be sharpened, at least one to be
-demoted, and A.2's three dispositions to acquire a fourth. *(2026-09-25: the demotion has happened,
+**tuned** as more consumers arrive. Expect questions to be sharpened or demoted, and A.2's
+dispositions to grow. *(2026-09-25: a demotion has happened,
 and it landed on A.1's weight rather than its place — A.1 now carries the environment qualifier, so a
 count on a surface a shared environment shapes weighs less than it did. The same
 evidence gave A.2 a fourth row — a rule shipped with its test stated, for the same outcome reached by

@@ -613,16 +613,7 @@ about everything they could see, and that was the defect.**
 > editing the answer, which is a defect in the instrument, not in someone's reading of it. § A.13: a
 > declaration with no reader is fine and a declaration that does not SAY it has no reader is not —
 > which binds the guard author because it is the sentence they write beside the guard, or fail to.
-> *§ A.12 was placed below the seam and the seam told its own audience to stop before reaching it —
-> so the guard author it binds was instructed not to read it. It is named here rather than moved for
-> the same reason § A.11 keeps its number: shipped release notes cite these sections, and renumbering
-> falsifies a document already in adopters' hands. § A.13 was added later and placed at the end of
-> Part One for the same numbering reason; this sentence is what keeps it reachable, and the count in
-> this bullet moves with the list rather than being restated anywhere else.*
->
-> *(§ A.11 sits just above this line and is numbered after § A.9 and § A.10, which are below it.
-> It was written later; it keeps its number because a shipped release note cites it, and renaming a
-> section to tidy an ordering would falsify a document already in adopters' hands.)*
+> *Sections keep their numbers wherever they sit, because shipped release notes cite them.*
 >
 > **Everything below is READ TIME. The instrument is CORRECT.** It answered its question accurately;
 > the failure is in what its reader concluded. It binds **whoever consumes the result** — a reviewer
@@ -752,40 +743,15 @@ other than what you asked.
   - **`bad substitution`, exit 1** — when the modifier is unterminated. Measured:
     `"$REF:src/thing.py"` → `bad substitution`, rc 1, because `:s`'s delimiter is then `r` and the
     path holds too few of them.
-  <!-- CORRECTED 2026-09-14 (§ A.9 audit). This bullet asserted that `"$REF:src/thing.py"`
-       "expands to just the ref … gone with no warning and exit 0". MEASURED ON zsh 5.9,
-       macOS 15.6: that exact string is `bad substitution`, rc 1 — the loudest of the three
-       outcomes, not the silent one. The silent drop is real and is now shown with a string that
-       actually produces it (`:spath/…`). The REASON the bullet exists is untouched and was never
-       in doubt: an unbraced `$REF:path` is unsafe on zsh, and the adopter's 2026-09-03 report
-       stands. What was wrong was the worked example, which is the part a reader copies.
-       HOW THE THREE OUTCOMES WERE SIZED, since a reader may want the shape of the risk: each of
-       the 18 modifier letters was expanded as `"$REF:<letter>path/thing.py"` under /bin/zsh and
-       compared against the literal it would have been if nothing had been interpreted —
-       11 came back rc 0 AND ALTERED, 6 came back rc 0 and untouched (the modifiers that need a
-       following argument), 1 errored. So the majority outcome is a silent wrong answer, which is
-       why "silently" is right about the class even though it was wrong about the example given.
-       Re-derive before quoting: the split is a property of the probe path's characters, and a
-       different path moves letters between the first two buckets. -->
-  **How common zsh is among adopters is UNMEASURED here.** This bullet previously asserted *"`zsh`
-  is the default login shell on macOS, so this is the default environment for a large share of
-  adopters."* That is a claim about a population this repository has never sampled, and the local
-  probes available disagree with each other — on the machine where the correction above was
-  measured, `dscl . -read /Users/<me> UserShell` is `/bin/zsh` while `/Users/root` is `/bin/sh` and
-  `/Users/_mbsetupuser` is `/bin/bash`, none of which establishes what a new account gets on a
-  current release. **The hazard does not need the population figure**: one adopter lost a landing
-  check to it, and bracing costs two characters. Stated as unmeasured rather than dropped, because
-  the reason it was reached for — this is not an exotic shell — is sound even though the number
-  behind it was never derived.
+  **How common zsh is among adopters is UNMEASURED here, and the hazard does not need the figure**:
+  one adopter lost a landing check to it, and bracing costs two characters.
   **The two failures compose in the worst direction.** `git cat-file -e "$REF:absent/path"` exits 0
   — it silently asked *"does this commit exist?"*, and it does — so the existence assertion above
   passes for a path in no ref at all. And `git show "$REF:path" | grep -c <needle>` counts matches in
   the **commit message**, so a string you just deleted reads as still present. *The same trap makes
   an absent thing look clean and a removed thing look PRESENT.*
   **The cure is one character-pair: always `"${REF}:path"`.** Braces end the expansion, so nothing
-  after the colon can be read as a modifier. *Reported by an adopter, 2026-09-03, who lost a landing
-  check to it — and who had prescribed `cat-file -e` here as the cure for the empty-stream hazard
-  above, which is how the cure and the hazard cancelled and the check read clean either way.*
+  after the colon can be read as a modifier.
 - **A COUNT JOINED ON A KEY IS SHORT BY EXACTLY THE MEMBERS THAT LACK THE KEY — and those members
   are systematically the interesting ones.** A join silently drops what it cannot match, so the
   count it produces is not *"how many are there"* but *"how many carry the key"*, and nothing in the
@@ -883,12 +849,12 @@ is stale.** That is a good trade and a real blind spot, and § A.4 is where it g
 
 ## § C — Worked example: this kit's own self-test harness
 
-> Not anonymized, because it is ours. Read `scripts/test/run.sh` alongside this.
+> Not anonymized, because it is ours. Read `scripts/test/cases/` (`check-board.sh`, `landing.sh`,
+> `harness.sh`) and `scripts/test/lib/fixtures.sh` alongside this; `scripts/test/run.sh` is only the
+> entry point.
 >
-> **These examples are the harness's DESIGN, not its bugs.** An earlier version of this section cited
-> three defects the kit had at the time; all three were subsequently fixed, which made the section
-> false within one phase of being written. What is cited now is structure that exists **because** the
-> rule is followed, plus one live instance kept deliberately.
+> **These examples are the harness's DESIGN, not its bugs:** structure that exists **because** the
+> rule is followed, plus one historical instance with its repair.
 
 **The ablation (§ A.2), done properly.** The harness's board-checker cases do not merely assert that
 a drift finding appears. A control leg **strips the check under test out of the sandbox's copy** of
@@ -898,11 +864,11 @@ to emit. Two guards on the ablation itself are the part worth copying: it **refu
 ablated copy no longer parses**, and **if the ablation removed nothing**. An ablation that silently
 removed nothing is § A.2's own defect one level up.
 
-**The probe that was deliberately NOT written (§ A.3).** Two of those same cases carry an explicit
-note that a capability probe was **left out on purpose** — one about the gate runner carrying any
-particular gate, the other about the drift report still containing the check. *Two different
-subjects, one reasoning*, and the reasoning is the transferable half: such a probe *"would turn the
-check being deleted or refactored away into a SKIP instead of a FAIL"* — the exact regression those
+**The probe that was deliberately NOT written (§ A.3).** Two cases carry an explicit note that a
+capability probe was **left out on purpose** — a board-checker case, about the drift report still
+containing its check, and the gate-runner case, about the runner carrying any particular gate. *Two
+different subjects, one reasoning*, and the reasoning is the transferable half: such a probe *"would
+turn the check being deleted into a SKIP instead of a FAIL"* — the exact regression those
 cases exist to catch. The decision and its reason are recorded **in the harness**, next to the cases
 they govern. That comment is where this sheet's § A.3 came from.
 
@@ -921,7 +887,7 @@ honest reading is *nothing was scanned*. The repair is the one this sheet prescr
 copy: the arm now reports **skipped, with the reason**, and the code keeps the old behaviour's
 description beside it so nobody re-introduces the fall-through.
 
-**And one live instance, kept because it is the clearest § A.9 case we have.** The harness's isolation
+**And one historical instance, kept because it is the clearest § A.9 case we have.** The harness's isolation
 case verifies that the real repository's board surfaces are untouched by a run. During a multi-session
 run it reported: *"the harness added a mutation to a board surface during the run."* **The detection
 was exactly correct** — a board surface had changed between the run's start and its end. **The harness
@@ -929,4 +895,6 @@ had not done it**; a concurrent session was editing that file while the run was 
 measured a **fact** (the tree changed) and reported an **attribution** (the harness changed it), which
 a before/after comparison cannot establish over a tree it does not own exclusively. The first reading
 it produced was that the phase's landing had broken the witness — materially more alarming, and wrong.
-**Nothing in the instrument was broken; the sentence it printed was the defect.**
+**Nothing in the instrument was broken; the sentence it printed was the defect.** The repair is in the
+case: it now reports that a board surface CHANGED, names both candidates (the harness broke its
+isolation, or something else wrote to the checkout) and says it cannot tell them apart.

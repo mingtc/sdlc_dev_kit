@@ -243,7 +243,8 @@ implementation's text or module layout, which a rewrite may shape differently.
 1. **Tests over the process kit's own scripts** (that the release ritual refuses to tag an
    undocumented version; that the gate runner reports the suite it ran). Real, and it is the
    **process** refusing, not the product promising — a regeneration of the product need not ship
-   this repository's scripts at all.
+   this repository's scripts at all. *Face-wrong under § A.4: outside a calibration ritual the mark
+   is removed, not recorded.*
 2. **The offline twins of the live gates.** They exercise the *harness* that drives the live arm,
    offline. The live arm is product; its harness is this suite's own machinery. This is the reason a
    ring mark should key on the ring, never on a filename pattern.

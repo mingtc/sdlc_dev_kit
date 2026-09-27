@@ -1,10 +1,8 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. Every section EXCEPT § B is the pattern; § B is the fill-in for YOUR guards. Written as an exclusion, not a list: this line said "§§ A, C, D", § E landed later, and the list was not grown — so an adopter copying by this line left § E behind. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. Every section EXCEPT § B is the pattern; § B is the fill-in for YOUR guards. -->
 # Staleness doctrine — retirement is paid by the change that causes it
 
 **KIT-CLASS: KIT.** **Every section except § B** is the transferable pattern — a project adopts
-them verbatim. Stated as an exclusion rather than as a list, because the list form of this sentence
-named "§§ A, C, D", § E landed afterwards, and nobody grew it: an adopter reading the list left § E
-behind. § B is the **instance**: the specific guards that hold the pattern in *your* repository,
+them verbatim. § B is the **instance**: the specific guards that hold the pattern in *your* repository,
 and the specific corpus they run over. This is a
 narrower pattern/instance split than [`supersession.md`](supersession.md) or
 [`retention.md`](retention.md) use (there, everything under § A is pattern and everything under § B

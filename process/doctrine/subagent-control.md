@@ -14,13 +14,10 @@ provisioned** — the ladder, the leaf clause. This sheet is the two hard parts 
 brief**, and **what to believe**. Different moment, different reader: those two are read while
 planning a run, this one while writing the brief and while reading what came back.
 
-**How the overlaps are handled, and it is provisional.** Where a rule already lives in another
+**How the overlaps are handled.** Where a rule already lives in another
 sheet, this one carries a **pointer plus its own increment** — never a second statement of the rule.
 That is the convention [`dogfooding.md`](dogfooding.md) § A.2 and § A.16 already use for
-[`instruments.md`](instruments.md), and this sheet follows it rather than inventing one. **It is
-applied here provisionally:** the general rule — *every rule has one owning sheet, and the owner is
-the sheet a reader is holding at the moment the rule binds* — has been proposed and **not yet
-ratified**. Until it is, read the pointers below as this sheet's practice, not as a kit-wide law.
+[`instruments.md`](instruments.md), and this sheet follows it rather than inventing one.
 
 ---
 
@@ -147,11 +144,7 @@ including whoever wrote it.
 **Where the line between a sentence and a mechanism falls IS SETTLED, and not here.**
 [`fix-execution.md`](fix-execution.md) § A.5b holds it — *a MECHANISM where the act is irreversible
 OR the failure is silent and compounding; a SENTENCE everywhere else* — and claims the rule
-exclusively, which is why this sheet points rather than restates. *This paragraph used to say the
-reconciliation "belongs in the kit's own ruling record, not here", describing § C's caution and
-[`live-resources.md`](live-resources.md) § A.10 as an unresolved disagreement. They are not: A.5b is
-the reconciliation, it ships as doctrine rather than as a ruling record, and the sentence outlived
-its own resolution.*
+exclusively, which is why this sheet points rather than restates.
 
 ### A.7 — Verification theatre: a check that cannot fail
 
@@ -221,7 +214,8 @@ to leave implicit, and the cost lands on whoever inherits the slate rather than 
 ### A.12 — Hand off while sharp, not while failing
 
 **The pattern is [`../../dev/handoffs/README.md`](../../dev/handoffs/README.md)** — newest-wins, what
-a handoff must contain, and the standing-handoff exception.
+a handoff must contain, the second trigger (the stop you did not choose, where a handoff owes an
+enumeration of what is HELD) and the standing-handoff exception.
 
 **What this sheet adds is the OBLIGATION on a coordinator, where that document states the timing
 in its own § When to write one — while sharp, not while failing:** a coordinator's judgement

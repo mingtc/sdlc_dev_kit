@@ -1,13 +1,9 @@
 <!-- KIT-CLASS: KIT — the rigor-tier ladder: ceremony weight AND provisioning follow the issue's tier. -->
 # Rigor tiers — calibrate ceremony and provisioning to the change, not the habit
 
-**Promoted from the orchestrator role doc at the PM's word (2026-08-21)** — the ladder is
-process law that binds every dispatching role, not one role's private heuristic; the role doc
-now points here. **Every section here is pattern, and there is deliberately no § B instance** — the
-tiers are defined by *change shape*, which is project-independent. *(This said "the pattern is § A",
-naming the sections rather than stating the property, and went stale the first time a second section
-was added. The property is what is true; an enumeration of sections is a census in prose.)* **One
-number below is explicitly the project's** — the review-return threshold — and it says so where it
+**The ladder is process law that binds every dispatching role**, not one role's private heuristic.
+**Every section here is pattern, and there is deliberately no § B instance** — the tiers are defined
+by *change shape*, which is project-independent. **One number below is explicitly the project's** — the review-return threshold — and it says so where it
 sits rather than making this sheet an instance.
 
 ## A. The ladder
@@ -41,15 +37,11 @@ dispatches at**. Every worker dispatched at any tier is a **leaf** (no sub-spawn
 this sheet's and is not negotiable.
 
 **Which named settings fill those positions is written in
-[`model-provisioning.md`](model-provisioning.md) § B.2, not here.** *Said explicitly because this
-sheet's header states it has no § B instance — true of the TIERS, which are defined by change shape
-and are project-independent, and NOT true of the effort names bolted to them. The previous wording
-fixed both in one sentence, and it read ambiguously in exactly the place where the harness offers
-two settings near the top: "the top tier" and "the maximum" were doing different work in adjacent
-clauses, and no reader could tell whether they named the same rung.*
+[`model-provisioning.md`](model-provisioning.md) § B.2, not here** — the tiers are
+project-independent; the effort names bolted to them are not.
 
-**The binding-gate decision rule.** Run the project's declared binding extra gate (the
-adapter's § Project duties) **iff the change is on a declared risk surface** — it alters
+**The binding-gate decision rule.** Run the project's declared binding extra gate
+(`PROJECT.md` § The binding gate, named in the adapter's § The binding gates here) **iff the change is on a declared risk surface** — it alters
 observable behavior, a public signature, or serialized output. A pure logic/helper/test edit
 that leaves the public output byte-identical does not need it; anything that changes what the
 project emits does. **When in doubt, run it.**
