@@ -168,7 +168,7 @@ If you hit something that needs a PM decision (AC ambiguous, architectural fork,
 
 ### Spawning a follow-up issue
 
-If during work you discover a separable tech-debt task, refactor, or spike that shouldn't bloat the current issue: run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ...` to create a new `progress/todo/<PREFIX>-NNN-<slug>.md` (`--id` required; `next-id.sh` suggests the next free number — sanity-check it). Reference it from the current issue's "Out of Scope" and from `progress.md`. Stay focused on the current ticket.
+If during work you discover a separable tech-debt task, refactor, or spike that shouldn't bloat the current issue: from the trunk, not your work branch, run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ...` to create a new `progress/todo/<PREFIX>-NNN-<slug>.md` (`--id` required; `next-id.sh` suggests the next free number from the local board — sanity-check it), then commit and push it. Reference it from the current issue's "Out of Scope" and from `progress.md`. Stay focused on the current ticket. **A dispatched Dev worker does not mint:** it records the follow-up in the issue's Out of Scope and its report ([orchestrator.md § Discovered tech-debt and todos](orchestrator.md#discovered-tech-debt-and-todos)).
 
 ## Subagent strategy
 
@@ -293,7 +293,7 @@ below; that section + the Activity log ARE the review record QA reads:
 
 If QA fails the review:
 - **AC unmet** → QA moves the file back to `progress/in_progress/` (via `move-issue.sh`); you re-enter the workflow at step 4 (re-plan) or step 7 (fix).
-- **Bug found** (regression / behavior outside AC) → QA files a **new** `type: bug` issue in `progress/todo/` via `./scripts/new-bug.sh`. Your original issue may still go to `progress/qa_complete/` if its AC is fully met; the bug enters the queue independently.
+- **Bug found** (regression / behavior outside AC) → QA files a **new** `type: bug` issue in `progress/todo/` via `./scripts/new-bug.sh`. A `Blocker` or `Critical` sends your issue back to `progress/in_progress/`; with a `Major` or `Minor` it may still land if its AC is fully met, and the bug enters the queue independently.
 
 ## Session end checklist
 
@@ -305,8 +305,7 @@ If QA fails the review:
 - [ ] Worktrees in `.worktrees/` for files in `dev_complete/` are **preserved** — QA lands from the
       branch, and the landing gate must run against a checkout at the revision being landed. The
       handoff path is [finishing-a-development-branch](../skills/finishing-a-development-branch/)
-      **Option 1**, not Option 2; *both preserve the worktree, which is why picking the wrong one
-      once went unnoticed.*
+      **Option 1**, not Option 2.
 - [ ] Worktrees for merged or discarded work cleaned up via the skill.
 - [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "Dev: <PREFIX>-NNN <state>" --session <slug>`. No-op if notifications are off.
@@ -324,7 +323,7 @@ Starts from a `type: bug` issue in `progress/todo/` (not a feature). Most of the
 | Done bar | All AC pass | AC pass **and** the bug's reproduction is now a permanent test in the suite. |
 | Handoff notes | Standard | Add a `## Root cause` section to the issue's Handoff-to-QA notes per [systematic-debugging] — what was wrong, why, what test prevents recurrence. |
 
-If three fix attempts fail per [systematic-debugging] **Phase 4, step 5** ("If 3+ Fixes Failed: Question Architecture" — the skill has four phases and no 4.5): **stop**, run `./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Three fix attempts failed; needs design conversation."`, and escalate to PM. Do not attempt fix #4 in the same shape.
+If three fix attempts fail per [systematic-debugging] **Phase 4, step 5** ("If 3+ Fixes Failed: Question Architecture"): **stop**, run `./scripts/move-issue.sh <PREFIX>-NNN blocked --role Dev --note "Three fix attempts failed; needs design conversation."`, and escalate to PM. Do not attempt fix #4 in the same shape.
 
 ## Refactor variation
 

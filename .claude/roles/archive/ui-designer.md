@@ -36,9 +36,7 @@ Waking it means doing all of these **in one change**, so the kit never advertise
 
 Until all five are done, this doc NAMES skills it does not ship and deliberately does not LINK to
 them. There is no `../skills/<name>` link here to dangle — a dangling link is a defect every link
-check reports, and this absence is a decision instead. *(This paragraph used to say the opposite:
-that every such link was a "known dangling reference" left visible on purpose. There were never any.
-The one skill link in this doc, to `using-git-worktrees`, resolves — that skill ships.)*
+check reports, and this absence is a decision instead.
 
 ## When to put on the UI Designer hat
 
@@ -72,8 +70,8 @@ ceiling. `max_tokens` is harness-managed in Claude
 Code and is not a project knob. **The leaf clause holds:** a dispatched UI-Designer worker does
 not spawn subagents.
 
-The leaf worker for this role **does ship**, at `.claude/agents/ui-designer-worker.md` — see the
-dated note in this file's footer for when it landed. Wake the role by adopting it, not by
+The leaf worker for this role **does ship**, parked with a refusal, at
+`.claude/agents/ui-designer-worker.md`; it is not one of the five items. Wake the role by adopting it, not by
 authoring a second one.
 
 ## What this role does and doesn't do
@@ -369,8 +367,3 @@ If this role is woken, these are project law and must be written down:
 - [ ] **`progress.md` has one UIDesigner entry** for this pass
 - [ ] **No screenshots or annotated images left in scratch directories** — commit them under `dev/design/assets/` or link out
 - [ ] If notifications are configured, fired a `done` ping — `./scripts/notify.sh done "UI Designer: <pass scope, N stories>" --session <slug>`. No-op if notifications are off.
-
-> **2026-08-21:** the leaf-worker definition now exists at `.claude/agents/ui-designer-worker.md` (shipped parked-with-refusal). **That covers the WORKER definition only, which is NOT one of the five items** — item 3 is moving
-> *this* file out of `roles/archive/`, not shipping the worker. The other four items are authoring work, and the banner at the top of
-> this file says so. *This parenthetical read "waking the role is a file move, not authoring work",
-> which is the opposite of what that banner and that section both state.*

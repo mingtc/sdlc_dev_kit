@@ -130,7 +130,7 @@ End state: one refactor pass doc at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md`,
    ```
    `--id` is **required** (`next-id.sh` suggests the next free number across the board + the archive — sanity-check it; re-run before each issue so it increments). The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: refactor`, branch `refactor/<PREFIX>-NNN-<slug>`, and frontmatter linking back to the refactor pass doc. Then fill in: title, Target & Goal, Behaviors Preserved (from safety-net-check), Move Sequence (from refactor-planning), Safety-Net Assessment (link to the doc's per-target block), Migration Plan (if applicable), Out of Scope, and the initial Activity entry: `YYYY-MM-DD [Refactorer] Created in todo/. Refactor pass: <link>.`
 7. **Map issues to targets.** Fill the doc's Issue Map section: a one-line entry per issue tying `<PREFIX>-NNN` to the target it covers.
-8. **Commit the doc + issues.** On the trunk, commit message: `[Refactorer] Refactor pass <YYYY-MM-DD> — <scope>. Targets: N HIGH, M MED.` Append a single line to `progress.md`: `YYYY-MM-DD [Refactorer] Refactor pass authored — dev/refactor/<file>.md. N issues created: <PREFIX>-NNN through <PREFIX>-NNN.`
+8. **Commit and push the doc + issues.** On the trunk, commit message: `[Refactorer] Refactor pass <YYYY-MM-DD> — <scope>. Targets: N HIGH, M MED.` Append a single line to `progress.md`: `YYYY-MM-DD [Refactorer] Refactor pass authored — dev/refactor/<file>.md. N issues created: <PREFIX>-NNN through <PREFIX>-NNN.`
 9. **Take the Refactorer hat off.** The handoff to Dev is now a normal `progress/todo/` pickup.
 
 ## Definition of Ready
@@ -145,8 +145,7 @@ A refactor pass is ready to commit when all of:
 - [ ] **Each issue references the refactor pass doc** in frontmatter (`refactor_pass:` field)
 - [ ] **Issue Map in the doc** lists every created issue against its target
 - [ ] **Baseline tag exists** at `refactor-baseline-<UTC instant>` — the name safety-net-check
-      actually created, recorded in its assessment. *(This read `<YYYY-MM-DD>`; a date-only tag
-      collides on the second same-day refactor and the run continues with no revert point.)*
+      actually created, recorded in its assessment (a date-only tag would collide on a second same-day pass).
 - [ ] **Characterization tests landed** on the trunk (from safety-net-check Phase 4) — visible in `git log`
 - [ ] **`progress.md` has one Refactorer entry** for this pass
 - [ ] **If this pass supersedes a prior audit or closes the launch pack that commissioned it, the predecessor carries its stamp in the same change** — never a follow-up sweep ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md))

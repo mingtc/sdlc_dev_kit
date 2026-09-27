@@ -271,6 +271,10 @@ columns and never the cards.*
 
 ### Action required
 
+- **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <PREFIX>-NNN. Merged."` and then
+  squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
+  the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
+
 - **The self-test harness is split into files.** `scripts/test/run.sh` is still the one command. It
   keeps its header, startup guards, `CASES` and the run loop, and sources `scripts/test/lib/*.sh`,
   then `scripts/test/cases/*.sh`. The case list and every case's verdict are unchanged.
@@ -713,6 +717,11 @@ columns and never the cards.*
 
 - **The self-test no longer fails on a project that completed day one** because its `README.md` was replaced — a check
   added this release measured the kit's README even after SEED had you replace it. **Nothing to do.**
+
+- **`qa.md`'s regression path could publish "Merged." on a card nothing merged, and let a Critical bug land.** A
+  `Blocker`/`Critical` now always sends the issue back (`FAIL_REGRESSION`); a PASS with `Major`/`Minor` bugs lands with
+  `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, because
+  `next-id.sh` reads the local board and a work branch repeats ids minted after it was cut.
 
 ## [0.6.0] — 2026-09-18
 

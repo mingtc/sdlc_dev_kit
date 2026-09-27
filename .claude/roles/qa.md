@@ -86,7 +86,7 @@ The handoff produces a **work branch** (`feature|fix|refactor/<PREFIX>-NNN-<slug
 issue's `branch:` frontmatter) — **not** a forge PR/MR object. There is no PR to view, comment on
 or approve, and no forge CLI: **QA's review evidence lives in the issue file's Activity log**,
 which IS the review record. Throughout this doc, "PR" is shorthand for "the work branch under
-review". The boundary's own seven steps are
+review". The boundary's own steps are
 [`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff.
 
 **You read and gate on the branch; you WRITE on the trunk.** The issue file is metadata, and the
@@ -150,7 +150,7 @@ Action on PASS:
   2. Advances the issue file `dev_complete/ → qa_complete/` via `move-issue.sh`, inside the standing kanban worktree: commits as `[QA] <PREFIX>-NNN → qa_complete: ...` and pushes. **No commit is made in your checkout** — if it is sitting clean on the trunk it gets fast-forwarded so the board view stays live. It **can be moved**, and the run says so when it is: a clean checkout on the landed branch is switched to the trunk, and the checkout the gate ran in is **detached at the landed commit** for the post-merge reading (left alone if it has uncommitted changes).
 - **Gating a parallel leg's checkout (`--worktree`).** When the main checkout belongs to a concurrent leg, point the blocking pre-merge gate at your own worktree with `./scripts/finish-pr.sh <PREFIX>-NNN --worktree <path>`. The script runs *that worktree's own tracked* gate runner itself — **you pass a location, not a command.** A caller-supplied gate *command* is refused on the production path, deliberately: a wrapper the caller writes can lie about the gate it ran. `--worktree` must name a genuine git worktree of this repo whose gate runner is committed and unmodified, or it is refused. After the landing, that worktree is **left detached at the landed commit** so the post-merge check reads the trunk there, not your branch tip; check a branch out before you work in it again, and delete the now-unheld local branch the run names.
 - Manual fallback if `finish-pr.sh` can't run: do the squash-merge into `<trunk>` by hand with plain git, then `./scripts/move-issue.sh <PREFIX>-NNN qa_complete --role QA --note "Review — PASS. Squash-merged into <trunk>."` — no `git switch`/`git pull` needed; the script syncs and commits inside the kanban worktree regardless of your checkout's state.
-- Append `progress.md`: `YYYY-MM-DD QA review of <PREFIX>-NNN: PASS — merged.`
+- Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: PASS — landed.`
 
 > **THE VERDICT VOCABULARY IS AUTHORED IN ONE PLACE, and this section is its operating detail.**
 > [`../../process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff, step 6 ratifies four
@@ -184,16 +184,14 @@ Action on FAIL splits by reason:
 **FAIL on AC unmet** (the original issue's own AC isn't satisfied):
 - `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL on AC. AC unmet: <which>."` (auto-commits as `[QA] <PREFIX>-NNN → in_progress: ...` inside the kanban worktree).
 - Record the FAIL verdict in the issue file's **Activity log** (`move-issue.sh`'s `--note` does this) — there is no PR to comment on; the Activity log is the review record.
-- Append `progress.md`: `YYYY-MM-DD QA review of <PREFIX>-NNN: FAIL — AC unmet.`
+- Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — AC unmet.`
 
-**FAIL on regression / behavior outside AC** (a Blocker or Critical bug found, but the original issue's own AC may be fully met):
-- File each bug via `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity Critical`. `--id` is **required** (`next-id.sh` gives the next free number across the board + the archive — sanity-check it). The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
-- If the original issue's AC is fully met AND no Blocker/Critical bug breaks the core flow → `./scripts/move-issue.sh <PREFIX>-NNN qa_complete --role QA --note "Review — PASS for AC. Bugs filed: <PREFIX>-NNN. Merged."`, then squash-merge via `./scripts/finish-pr.sh`.
-- If the original AC is partially met OR a Blocker/Critical bug breaks the core flow → `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL. Bugs filed: <PREFIX>-NNN."`, do not merge.
-- Record the FAIL verdict + bug IDs in the issue file's **Activity log** — no PR to comment on.
-- Append `progress.md`: `YYYY-MM-DD QA review of <PREFIX>-NNN: FAIL — bugs <PREFIX>-NNN, <PREFIX>-NNN filed.`
+**FAIL on regression** (a `Blocker` or `Critical` bug found, whether or not the AC is met):
+- File each bug **from the trunk, not the work branch** — `next-id.sh` reads the local board, so a branch cut before later mints repeats a taken id: `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity Critical`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
+- `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL_REGRESSION. Bugs filed: <PREFIX>-NNN."` Do not merge. The note is the review record.
+- Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — bugs <PREFIX>-NNN, <PREFIX>-NNN filed.`
 
-`Major` and `Minor` bugs do **not** automatically fail the review (calibrate to the project's quality bar). File them as `type: bug` issues in `progress/todo/`, link them from the issue's Activity log, and let PM decide defer-or-fix. The original change can still PASS.
+`Major` and `Minor` bugs do **not** fail the review (calibrate to the project's quality bar). File them the same way, `git switch <branch>` back, and land with `./scripts/finish-pr.sh <PREFIX>-NNN --note "Review — PASS. Bugs filed: <PREFIX>-NNN."`; PM decides defer-or-fix.
 
 ### The third verdict — PASS-with-AC-correction
 
@@ -301,10 +299,10 @@ Bugs are work items in the unified `progress/` system — same lifecycle as feat
 
 ## Session end checklist
 
-- [ ] Every reviewed issue file is in its correct folder — `qa_complete/` (PASS) or `in_progress/` (FAIL on AC).
+- [ ] Every reviewed issue file is in its correct folder — `qa_complete/` (PASS) or `in_progress/` (FAIL).
 - [ ] Every new bug file lives in `progress/todo/` with a full RIDER, a unique id, `type: bug`, a severity, `discovered_in`, and branch `fix/<PREFIX>-NNN-<slug>`. Created via `./scripts/new-bug.sh`.
 - [ ] Each verdict + bug IDs recorded in the issue file's Activity log (via `move-issue.sh --note`). Forge-agnostic pure git — no PR to comment on or approve.
-- [ ] `progress.md` — one line per issue reviewed: `YYYY-MM-DD QA review of <PREFIX>-NNN: PASS/FAIL — <reason or bug refs>`.
+- [ ] `progress.md` — one line per issue reviewed: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: PASS/FAIL — <reason or bug refs>`.
 - [ ] No output files (gate diffs, sample artifacts) left untracked that should be in git.
 - [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.
 - [ ] If notifications are configured, fired a `done` ping with the verdict — `./scripts/notify.sh done "QA: <PREFIX>-NNN PASS/FAIL" --session <slug>`. No-op if notifications are off.

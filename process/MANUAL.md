@@ -38,17 +38,16 @@ project doc tells you what "green" means here.
 
 **The fourth thing, and it is not prose: [`contracts/`](contracts/).** This manual *describes* the
 gates and rituals; `process/contracts/` states, per gate, what **any** implementation must
-guarantee, when it must **refuse**, and what **green** means in countable terms — the sections
-listed in [`EXTRACTION.md`](EXTRACTION.md), one
-page each, written for a reader who will never open the scripts. It is the **machine-facing
-complement** to these pages: where a sentence here says *what we do*, the matching sheet says
+guarantee, when it must **refuse**, and what **green** means in countable terms — one page per
+gate, indexed in [`contracts/README.md`](contracts/README.md), written for a reader who will
+never open the scripts. It is the **machine-facing complement** to these pages: where a sentence here says *what we do*, the matching sheet says
 *what must hold*, and its section 6 marks the shipped script as **one implementation, not the
 definition**. A project reimplementing this kit in another language owes the contracts, not the
 shell. **Both directions want guarding** — a gate with no sheet, or a sheet citing a gate that no
-longer exists — and that guard lives in the project's own test tree, not in the kit
-([`EXTRACTION.md`](EXTRACTION.md) § 4 states the debt honestly).
+longer exists — and the kit's self-test guards the first (`case_travelling_scripts_have_a_sheet`);
+the second is still the project's to write.
 
-Some sheets there are not about a script at all — read each one's § 6 for the set rather than trusting a count here (*this line said "one sheet", was corrected to "`EXTRACTION.md` names three", and that was stale in its turn: the manifest's live prose now names a different number. A parenthetical that cites another file's count inherits that file's staleness and adds a second place to fix. Read the § 6 sections; they are the only copy that cannot drift from itself*):
+Some sheets there are not about a script at all — read each one's § 6 for the set rather than trusting a count here:
 [`contracts/acceptance-tier.md`](contracts/acceptance-tier.md) — **the acceptance (conformance)
 tier**, the one artifact class that had no travelling spec until it was written. Its reference
 implementation is deliberately **non-travelling** (one test runner's marker), so its invariants and
@@ -71,8 +70,7 @@ selection-neutrality — are the whole of what an adopter owes.
    `.claude/roles/` is your workflow. If the `require-role` hook is active (see
    `.claude/settings.json.example`), declare it by writing `.claude/session-role` first.
 
-> **What goes in `.claude/session-role`** (undocumented until a cold reader hit it — the gap was
-> found by a fresh adopter, not by a review). **One line:** `<Role> <scope>` — e.g.
+> **What goes in `.claude/session-role`.** **One line:** `<Role> <scope>` — e.g.
 > `Dev <PREFIX>-001`; or, **only** when the operator has explicitly waived the hat,
 > `none — operator override: <reason>`. The gate is **existence, not content**: the
 > `require-role` hook allows any mutation once the file is present, and the line's job is to tell
@@ -93,8 +91,7 @@ person (or the Orchestrator) wears **one hat at a time**, and says which.
 The **pattern** is fixed; the **cast is the project's**. A project declares its active roles —
 one row per role, each linking its doc and naming what it owns — in the **adapter**, and the
 adapter's table is the source of truth for which hats exist. This kit ships the role docs under
-`.claude/roles/` — a standing architect seat, an Orchestrator, PM, Dev, QA and a Refactorer at
-the time of writing — plus an archive of parked ones; `ls .claude/roles/` is the list;
+`.claude/roles/` plus an archive of parked ones; `ls .claude/roles/` is the list;
 adding, parking or renaming a hat is a project decision, made in the adapter and in
 `.claude/roles/`.
 
@@ -130,14 +127,12 @@ version control by the initializer, not left for each actor to discover
    [`doctrine/instruments.md`](doctrine/instruments.md): measure the instrument against the shape it
    will meet, give every green an ablation, and name each instrument's blind spot in its own output.
 
-   > **Where the named practices live** (this file cited them by name before it said what they
-   > were — a cold-read finding). `verification-before-completion`, `requesting-code-review`,
+   > **Where the named practices live.** `verification-before-completion`, `requesting-code-review`,
    > `test-driven-development`, `systematic-debugging` and the rest are **skills**: one directory
    > each under [`.claude/skills/`](../.claude/skills/), holding a `SKILL.md` that is the
    > workflow, invoked by name. The role docs chain them (most carry a *"Skills used in
-   > this role"* section; the two dispatching docs — `architect.md` and `orchestrator.md` — carry neither that section nor a pointer to the index, which is a gap rather than a convention); `.claude/skills/README.md` is the index. A kit installation ships them;
-   > **Which skills exist is a project decision** —
-   > when this manual names one it is naming a *practice*, and a project without that skill
+   > this role"* section); `.claude/skills/README.md` is the index. **Which skills exist is a
+   > project decision** — when this manual names one it is naming a *practice*, and a project without that skill
    > directory still owes the practice.
 4. **Liveness discipline, and it is TWO rituals with different scopes.** **(i) DURATION —
    *is this long run still alive?*** Any background run expected to exceed ~30 minutes gets a
@@ -162,8 +157,7 @@ version control by the initializer, not left for each actor to discover
    **(ii) ABSENCE — *has work stopped moving?* This one is N/A for nobody, and the ~30 minutes
    above does not scope it.** Its signal is the **newest committer date across every head on the
    remote** — never `HEAD`, never the checkout: `HEAD` is one branch in one worktree, and this
-   process moves work between refs constantly. Measured at one instant in a project of this shape:
-   **697 minutes since `HEAD` moved, 1 minute since anything moved.** The signal must be a
+   process moves work between refs constantly. The signal must be a
    **by-product of work** — an empty commit or a heartbeat line moves it, and a check you can
    satisfy by editing the answer is not one. The threshold is **relative to the run's declared
    cadence**, never a fixed number. **And it needs a reader that is not the party being watched**:
@@ -242,8 +236,7 @@ version control by the initializer, not left for each actor to discover
   decomposition) with `./scripts/subtask.sh`.
 - **A newly created issue is not published.** Creation is inert by contract
   ([`contracts/issue-creation.md`](contracts/issue-creation.md) § 2) and the board mover reads
-  the **published** board — so commit and push a new issue before trying to move it. Three
-  independent adopters lost the same twenty minutes to this before it was written down.
+  the **published** board — so commit and push a new issue before trying to move it.
 - Do **not** pre-write the product backlog; issues enter through a real PM session.
 
 ## The default path is lite — full ceremony is for feature-area work
@@ -284,8 +277,7 @@ a command from prose. Two rules about them are the kit's, not the project's:
   [`doctrine/live-resources.md`](doctrine/live-resources.md).
 
 Calibrate rigor to the change via the **rigor-tier ladder** in
-[`doctrine/rigor-tiers.md`](doctrine/rigor-tiers.md) (promoted to doctrine 2026-08-21; the
-orchestrator role doc carries the run-plan duties that apply it).
+[`doctrine/rigor-tiers.md`](doctrine/rigor-tiers.md).
 
 **Why:** the process serves the product, not the reverse. Run the full chain when the risk earns
 it; take the lite path otherwise.
@@ -313,10 +305,6 @@ bounces it.
    carries the card's pre-move text, so two edits to one card in two lanes collide at the
    squash-merge and `finish-pr.sh` refuses the landing. (A branch rebased onto the trunk after the
    move merges the card cleanly; that is the exception, not something to rely on.)
-   *(Measured: a project hit this on its second issue and had to reset, re-apply and force-push.
-   It is stated here rather than left to the metadata rule
-   because both instructions are correct in isolation — nobody mid-`git switch` re-derives that a
-   card is metadata.)*
 
    **Name the lane the run was in — and where the change's operands straddle the lanes, quote the
    SET.** A gate run is a reading of **one** commit lane, and an exit code does not say which one.
@@ -430,10 +418,6 @@ bounces it.
      or a question, never this. And it applies to an AC's *illustration*, never to its
      *requirement*: if the AC asks for the wrong **behavior**, that is a PM decision, not a
      reviewer's correction.
-     *Provenance:* invented independently by **two** reviewers in the first twelve hours of one
-     adoption (the seed acceptance test), and used by the donor project's own review before it
-     had a name. Two independent inventions and a precedent is the argument for writing it down
-     rather than letting each reviewer re-derive it.
      <!-- RULE-COPIES:BEGIN — deliberate copies of this verdict's precondition; the self-test holds them.
      key: checked the fact yourself against a citable source
      copies: .claude/roles/qa.md .claude/workflows/wave-runner.js .claude/workflows/tranche-runner.js
@@ -524,14 +508,8 @@ the full 7-step branch-based boundary.
 
 ### Bug-severity calibration
 
-The QA role doc carries the full scale.
-
-| Severity | Meaning | Blocks PASS? |
-|----------|---------|--------------|
-| **Blocker** | Halts all work / data loss / corrupts user data. | Yes |
-| **Critical** | Core behavior broken, no workaround. | Yes |
-| **Major** | A behavior broken but with a workaround, or an edge case. | No (file as follow-up) |
-| **Minor** | Cosmetic / rare edge / log noise. | No (file as follow-up) |
+The labels are defined in [`.claude/roles/qa.md`](../.claude/roles/qa.md) § Severity scale.
+A `Blocker` or `Critical` blocks the PASS; a `Major` or `Minor` is filed as a follow-up.
 
 ---
 
@@ -546,7 +524,7 @@ that departs from it says so in the adapter.
 
 - **Code work lives on per-work-item branches** — `feature/<ID>-<slug>`, `fix/<ID>-<slug>`,
   `refactor/<ID>-<slug>`, where **`<ID>` is the work item's id — `<PREFIX>-NNN`, the same
-  vocabulary the board uses** (§ Kanban rules — this pointed at "§ The board", which is not a heading in this file). Sites that spell it out in full mean this.
+  vocabulary the board uses** (§ Kanban rules).
   **Never per-role branches.** One branch per issue.
 - **Kanban state + metadata commit to the trunk.** The board moves, spec/issue edits, role-doc
   updates, refactor/design pass docs, `progress.md`, the project doc and the adapter all commit
@@ -761,11 +739,7 @@ open-ended *"whenever something goes wrong"* trigger.
 **Sending is the project's act.** Nothing leaves automatically, under any setting. Where it goes is
 *Feedback is sent to* in `PROJECT.md` § The kit, upstream, and how is the file's own § Sending it.
 
-**Removing the default is the kit maintainer's act; an adopter sets `off` instead.** Delete this
-section, and every line in the kit that carries the literal `process/MANUAL.md` § Kit feedback.
-Each such line stands alone, with one exception: in `scripts/check-board.sh` the literal is on the
-`# BEGIN kit-feedback arm` line, and the whole block down to `# END kit-feedback arm` goes with it.
-What remains is the `manual` behaviour.
+**Removing the default is the kit maintainer's act; an adopter sets `off` instead.**
 
 ## The measurement rituals (optional) — three ways to find out whether this is working
 
@@ -812,7 +786,7 @@ The trigger is a *slate minted from findings*, not a fix.)
 
 findings → **scrutiny** → ruled decisions recorded → implementation → **pre-cut sweep** → cut
 
-Two of those five are steps the lifecycle above does not otherwise have:
+Two of those are steps the lifecycle above does not otherwise have:
 
 - **Scrutiny (before any implementation).** Every minted item is a hypothesis written at findings
   altitude. One fresh-context reviewer per item, **read-only**, four questions: does the fix close
@@ -862,7 +836,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`calibration.md`](doctrine/calibration.md) | **The two AVAILABLE rituals that measure the kit's own claims** — a regeneration spike (hide a decision-dense module; rebuild it from the corpus with the acceptance tier as the criterion) and a seed acceptance test (bootstrap a fresh project from the seed document and count the steps guessed). Both must declare their honest-worker limits, and the **findings list is the deliverable**. **Available, never an obligation.** | § The measurement rituals |
 | [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. The reason (deletion silences guards; evidence is not re-derivable; a negative claim dies with its enumeration) is preserved in full; only this one conclusion narrows. | The project doc's § Retained evidence |
 | [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers (a successor lands, a plan closes, a ruling overturns a conclusion, a number/universal stops being true), each owed in the same commit as its cause, never a sweep. Five stamp fields (the "kept because" surviving-value clause is the one authors drop); "derive, date, or do not state" for numbers in prose. | The implementer role doc's *Definition of Done* |
-| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | Pointed at from several sheets — derive with `grep -rl lookup-tables process/`; this cell read "no sheet points at it yet" and was false of both corpora |
+| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | Pointed at from several sheets — derive with `grep -rl lookup-tables process/` |
 | [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | § The default path is lite — and the orchestrator role doc's run-plan duties |
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
 | [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | Here — and `doctrine/subagent-control.md`, which item 2 names |
@@ -878,13 +852,7 @@ Two neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and
 the instruments that look — **the periodic cadence is advisory; the pre-cut sweep in it is
 MANDATORY when the slate came from a round**) and [`GIT-HOSTING.md`](GIT-HOSTING.md) (the
-local-only-to-hosted spectrum). Neither is doctrine, so neither has a row above. `GIT-HOSTING.md` is pointed
-at from the sections that need it; **`hygiene-checklist.md` is not pointed at from anywhere else
-in this manual** — this sentence is its only mention here. It is reached from elsewhere in the
-artifact: `README.md`, `EXTRACTION.md`, the skills index, the hygiene instruments themselves and the
-pre-cut sweep all name it. *Two previous corrections of this line were wrong in opposite
-directions — one claimed `PROJECT.md` reaches it (it does not name the file), and the next claimed
-nothing else does (thirteen files do). Derive it: `grep -rl hygiene-checklist .`*
+local-only-to-hosted spectrum). Neither is doctrine, so neither has a row above.
 
 The honest inventory of what is copyable, what must be configured, what is pinned in place and
 what is **still entangled** is [`EXTRACTION.md`](EXTRACTION.md). Read it before lifting this kit

@@ -137,7 +137,7 @@ one — the operator answers batches between rounds, not during them
 6. **Resolve open questions.** Any P0 open question that blocks Dev — answer it now, or move it out of P0 in the PRD.
 7. **Split into issues.** Each issue maps to one or more stories from the PRD. The size rule: `S` (≤1 session) or `M` (2–4 sessions). `L` means split.
 8. **Create issue file(s).** Run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories PRD-NNN-F1-S1,PRD-NNN-F1-S2` for each. `--id` is **required** (the script is stateless): `next-id.sh` suggests the next free number across the live board **and** the archive (so it never resets after a milestone close) — sanity-check it, flag it if it looks wrong, and re-run it before each issue so the number increments as files land. The script copies [.claude/templates/ISSUE.template.md](../templates/ISSUE.template.md) to `progress/todo/<PREFIX>-NNN-<slug>.md` and pre-fills `id`, `created_at`, `branch`, `prd`, `stories`. Fill in `title`, `size`, `created_by: PM`, and the body's Problem / AC (copied from PRD stories) / Out-of-scope / Dependencies, plus the first Activity entry: `YYYY-MM-DD [PM] Created in todo/. PRD-NNN § F1 § S1, S2.` **Name the notes deliverable**: if the issue is consumer-visible, its AC list must name its release-notes / changelog entries as an AC of its own; if it is not consumer-visible, add an AC stating it has none. **Named, or explicitly dismissed — never absent.**
-9. **Confirm Definition of Ready** (below). If anything is missing, the file stays out of `todo/` (leave fields as `TODO`, or move it to a scratch dir).
+9. **Confirm Definition of Ready** (below), then commit and push the card(s) to the trunk — nobody can move a card that has not reached it. If anything is missing, do not commit or push the card: leave its fields as `TODO` until they are filled.
 10. **Take the PM hat off.** Switch to a Dev session, or hand off to a future Dev session.
 
 ### Amending a PRD in part — `superseded_in_part`
@@ -159,9 +159,7 @@ hat — not only one that overturns a spec — gets its entry in the project's *
 that same change. Its single authoring site is
 [`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6; what earns an entry,
 and the shape of one, are in the register's own skeleton
-([`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)). *This
-pointer exists because the rule was already stated twice and still arrived after the moment it was
-needed: **a rule that is written is not thereby delivered; it has to sit on the path being walked.***
+([`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)).
 
 **Which rulings go there, and which are PRD content — the fork/fact split.** A **fork** (two
 defensible answers existed and one was chosen) is a `D-NN` in the register. A **fact** (what the
@@ -210,7 +208,7 @@ Two rules bind this seat specifically:
 
 ## Definition of Ready
 
-A file is allowed in `progress/todo/` only when every box is checked. If anything is missing, leave the file in a scratch location. **Two boxes are path-conditional** — see the lite-path note below the list.
+A card is published to `progress/todo/` only when every box is checked. If anything is missing, do not commit or push it; a published card that fails goes to `blocked/` or `declined/` (§ Moving an issue). **Two boxes are path-conditional** — see the lite-path note below the list.
 
 - [ ] **PRD exists** at `requirements/PRD-NNN-<slug>.md`, produced by [write-spec](../skills/write-spec/), status `draft` or `approved` — **feature-area work only.** A small standalone fix on the lite path sets `prd: n/a` with a one-line `prd_reason:`, `stories: []`, and authors its own AC; no PRD required.
 - [ ] **Frontmatter complete** — `id`, `type`, `title`, `size`, `prd`, `stories`, `branch`, `created_at`, `created_by`
@@ -268,9 +266,7 @@ fill it in:
 - **The decision register.** Where a ruling is *looked up* — the file a reader consults for
   "what is currently true", as opposed to the issue that changed it — **and therefore where every
   ruling you make gets written, in the same change that makes it** (§ *Amending a PRD in part*
-  above). *Both halves are named together here because this bullet used to name only the reading
-  half, in the role doc belonging to the role that does the writing.* Keep it a **projection**:
-  state the current ruling, one line of why, and its
+  above). Keep it a **projection**: state the current ruling, one line of why, and its
   provenance; the history stays in the ledger. (`<fill in>`)
 - **Which surfaces are consumer-visible at all**, so "is this consumer-visible?" is a lookup
   and not a judgement call each time. (`<fill in>`)
@@ -282,7 +278,7 @@ explicitly rather than leaving the bullet blank.
 
 Before closing a PM session:
 
-- [ ] Every new issue file lives in `progress/todo/` (or `progress/blocked/` if blocked at creation)
+- [ ] Every new issue file lives in `progress/todo/` (or `progress/blocked/` if blocked at creation), committed and pushed to the trunk
 - [ ] Every new/changed PRD file committed under `requirements/`
 - [ ] Issue file frontmatter and Activity logs are current
 - [ ] `progress.md` updated **only** if a strategic decision was made

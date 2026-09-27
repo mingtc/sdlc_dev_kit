@@ -373,9 +373,8 @@ handing the branch to QA. An agent's "500/500 green" is a *claim*; the diff + a 
 advance the issue to `dev_complete/` (the pushed work branch + the issue's Activity log are the
 handoff — forge-agnostic pure git; there is no PR/MR object to record).
 
-- **Mechanical post-merge check.** The manual "run the full gate runner before EVERY merge"
-  rule is RETIRED, but the merge is NOT ungated: `finish-pr.sh` runs the project's **quick**
-  gate BEFORE the merge and REFUSES to merge on a red result, then reads the landed commit and
+- **Mechanical post-merge check.** The merge is gated mechanically: `finish-pr.sh` runs the
+  project's **quick** gate BEFORE the merge and REFUSES to merge on a red result, then reads the landed commit and
   SURFACES the result without gating (its header says how). The hard-won lesson (a close-out that
   merged on a partial check and left the trunk's test gate red across two merges) is caught
   mechanically instead of by discipline — **but only by a line that names a trunk commit**: read
@@ -460,9 +459,8 @@ The orchestrator removes *wiring*, not *judgment*. These stay human:
 
 Calibrate rigor to the issue, per the adapter's own quality bar. **The
 rigor-tier ladder is process law and lives at
-[`process/doctrine/rigor-tiers.md`](../../process/doctrine/rigor-tiers.md)** (promoted from
-this doc 2026-08-21): three tiers by change shape, each implying BOTH a ceremony weight and a
-worker provisioning, plus the binding-gate decision rule. This role's operational duties with
+[`process/doctrine/rigor-tiers.md`](../../process/doctrine/rigor-tiers.md)**: three tiers by change shape, each
+implying BOTH a ceremony weight and a worker provisioning, plus the binding-gate decision rule. This role's operational duties with
 it: place every issue on the ladder **at run-plan time**, state the tier per issue in the
 proposal (so the human can veto the placement), and run each issue at its stated weight —
 never a TIER-3 ceremony on a TIER-1 change, never a TIER-3 change smuggled through at TIER-1
@@ -523,7 +521,7 @@ belt's own rule (§ The conductor's belt: *instruments beat testimony*) is broke
 **Four questions — which issue, which role, is it alive, what comes next — and all four are the
 dispatcher's to answer in advance.** The binding form is the procedure's: read
 [`.claude/skills/orchestrate/SKILL.md`](../skills/orchestrate/SKILL.md) § Dispatch attribution for
-the `<verb>:<subject>` label contract, the phase declaration, the five lifecycle states (where
+the `<verb>:<subject>` label contract, the phase declaration, the lifecycle states (where
 `failed` and `abandoned` are deliberately distinct from each other and from a landed leg's
 RUN-OUTCOME), and the refusal to render a position as a percentage.
 
@@ -544,8 +542,7 @@ on the trunk.** `move-issue.sh` / `finish-pr.sh` enforce this with a **standing 
 worktree**: they resolve the real repo root via `git rev-parse --git-common-dir` and do the
 move + commit + push there, never switching the operator's checkout. The scripts are therefore
 safe to run **from anywhere** (the main checkout, a feature worktree, or the kanban worktree
-itself), with any working-tree state — the old dirty-tree and detached-HEAD refusals are
-retired.
+itself), with any working-tree state.
 
 Two things a worktree still costs you, and the rule that follows:
 
