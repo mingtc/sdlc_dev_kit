@@ -8,13 +8,8 @@
 # The development-process kit — a seed
 
 > **This file is a placeholder for yours.** Replace it with **your project's** README once you are
-> running; keep these instructions by moving them into `docs/`, which ships for exactly this — reference material the project did not write. *(This used to say "`process/SEED.md`'s companion notes", which is not a section, not a file, and appears nowhere else in the tree — a dangling destination in the first instruction an adopter reads.)*
->
-> *Why this sentence is here in the body and not in the comment above it:* the comment is the
-> **classification marker**, and the marker is removed from files that become the project's — which
-> is every REPLACE-class file, of which this is one. While the instruction lived inside the marker,
-> stripping the marker stripped the instruction, and the one file whose replace-me notice is not in
-> a fill-in stub would have lost it silently at exactly the moment it was meant to be read.
+> running; to keep these instructions, move them to `docs/KIT-README.md` (`docs/README.md` is
+> taken) — its links are written for the root and need `../` once moved.
 
 **What this is.** A generic, language-agnostic **development-process kit**: a
 filesystem-as-kanban board (the folder a file sits in *is* its status), **roles as hats** (one
@@ -56,21 +51,15 @@ git remote set-head origin main                  # ← the step whose absence is
 ./scripts/kit-init.sh --help                     # every option, and the preconditions
 ```
 
-**Why `-b`, and not `git init` followed by `git switch -c`.** A bare `git init` puts HEAD on whatever
-`init.defaultBranch` says, which is still `master` on any machine whose git predates the default
-change or whose user never set it. The commit then lands on `master`, and a later `git switch -c main`
-creates `main` **from** it — leaving two branches at one commit and a `master` nobody asked for. The
-switch line also used to carry the condition *"if your trunk does not exist yet"*, which is false at
-the moment it is read: after the commit the branch demonstrably **does** exist, so a careful reader
-skips the line, proceeds with trunk = `master`, passes `--trunk main` to the initializer, and is
-refused several steps later by a check that does not name this as the cause. `-b` removes the
-sequence. *(`-b` needs git 2.28 or newer, released 2020. On older git,
-`git symbolic-ref HEAD refs/heads/main` immediately after `git init` does the same thing everywhere.)*
+**Why `-b`.** A bare `git init` puts HEAD on `init.defaultBranch`, still `master` on many machines,
+so the first commit lands on `master` and a later `git switch -c main` leaves a `master` nobody asked
+for. *(`-b` needs git 2.28 or newer. On older git, `git symbolic-ref HEAD refs/heads/main` right after
+`git init` does the same.)*
 
 `--prefix XYZ` makes your issue files `XYZ-001-<slug>.md`; until you stamp it, `scripts/config.sh`
-carries a neutral placeholder and the documents here say `<PREFIX>`. `--trunk` is **required and
-confirmed, never inferred** — if it disagrees with `origin/HEAD`, the initializer refuses rather
-than letting the scripts pick. `--gate-command` declares your first gate: the seed ships
+carries a neutral placeholder, and the generic documents say `<PREFIX>` before and after. `--trunk`
+is **required and confirmed, never inferred** — if it disagrees with `origin/HEAD`, the initializer
+refuses rather than letting the scripts pick. `--gate-command` declares your first gate: the seed ships
 `scripts/verify.sh` as a frame whose gate table is **empty and refuses to run**, and the flag
 writes your command into that table as its first record. Drop the flag only if you have already
 declared your gates in that table by hand — never skip both: **the landing gate refuses to land a
@@ -78,12 +67,12 @@ branch without an executable, committed gate runner, and an empty frame refuses 
 
 ### If your first *published* commit must be your project's own
 
-**A supported variant, because the kit's own pieces already allow it and nothing said so.** The
-initializer will not bootstrap: it requires a commit to exist before it runs, and it then makes and
-**pushes** its own initialization commit, plus several more while self-checking. `--skip-self-check`
-suppresses only the self-check's commits, not the initialization commit or its push. So on a hosted
-remote, the earliest history an onlooker sees necessarily begins with kit scaffolding — which is a
-reasonable thing to mind for a repository other people will browse.
+**A supported variant.** The initializer will not bootstrap: it requires a commit to exist before
+it runs, and it then makes and **pushes** its own initialization commit, plus several more while
+self-checking. `--skip-self-check` suppresses only the self-check's commits, not the initialization
+commit or its push. So on a hosted remote, the earliest history an onlooker sees necessarily begins
+with kit scaffolding — which is a reasonable thing to mind for a repository other people will
+browse.
 
 The way through is the **local bare repository** the kit already treats as a first-class remote
 (§ Git hosting — local-only is a first-class case):
@@ -95,7 +84,8 @@ The way through is the **local bare repository** the kit already treats as a fir
    worked.
 3. Author your project's content and drive your first issue.
 4. Squash the whole history to a single commit, re-point `origin` at the host, and push that one
-   commit.
+   commit; then discard the board worktree's pre-squash history —
+   `git -C .kanban-wt reset --hard origin/<trunk>` — or the next board command refuses.
 
 **The kit does not do any of step 4 for you, and there is no flag that will.** The squash and the
 re-point are the operator's, deliberately: rewriting history is safe *here* only because nothing has
@@ -103,29 +93,14 @@ been published yet, and a tool that performed it could not know that. **Write th
 `process/LOCAL-PROCEDURES.md`** — it is a local law, not a kit behaviour, and the next person in your
 repository will need it.
 
-*Why this is written down rather than left to be discovered: reaching it requires knowing both the
-initializer's full refusal set and that a bare local remote is legitimate. Both are true and neither
-is obvious, and a reader who wants this and cannot find it will either give up or improvise something
-that corrupts the board.*
-
 The initializer **refuses, and writes nothing, on any repository that has already lived** — a board
 carrying issue files, a `progress.md` § Log with entries, an `ARCHIVE.md` with an index, or a
 `scripts/config.sh` a previous run already stamped. There is no resume path: a half-stamped
 repository is worse than an unstamped one.
 
-Then, **in SEED's order and using SEED's verbs**: fill [`PROJECT.md`](PROJECT.md) (step 3), start
-[`requirements/CORPUS.md`](requirements/CORPUS.md) and
-[`requirements/DECISIONS.md`](requirements/DECISIONS.md) (step 4), **REPLACE** the
-[`CLAUDE.md`](CLAUDE.md) stub with your adapter (step 5 — **replace, never fill**: it is scaffolding
-to be thrown away — see § Conventions used throughout, the Disposition bullet), **hold a real PM session and mint `PRD-001`**
-(step 6 — *the step most likely to be skipped under pressure to look productive*), and drive your
-**first** issue through the **full** Dev → QA boundary (step 7). Wire the runtime half of
+Then follow [`process/SEED.md`](process/SEED.md) from step 3, in order: it is the order of
+operations, and every step there names the authority that holds the law. Wire the runtime half of
 [`setup.sh`](setup.sh) whenever your stack is decided.
-
-*This paragraph used to list a different order, call `CLAUDE.md` a FILL, and omit step 6 entirely —
-three disagreements with the authority it defers to in its very next sentence.*
-[`process/SEED.md`](process/SEED.md) is the eight-step order of operations, and every step there
-names the authority that actually holds the law.
 
 ## Reading order
 
@@ -134,7 +109,7 @@ names the authority that actually holds the law.
 | 1 | **This file** | What the kit is, and how to stamp it. |
 | 2 | [`process/SEED.md`](process/SEED.md) **or** [`process/EXTRACTION.md`](process/EXTRACTION.md) | **SEED** is the *you-have-nothing* path: an empty directory and a sentence. **EXTRACTION** is the *donor-extraction* path: you have a working repository in front of you and want to know what to copy. Both end in the same place. |
 | 3 | [`process/MANUAL.md`](process/MANUAL.md) | **The operating manual** — roles, the board, the Dev → QA boundary, the rituals, the execution discipline. Read once, in full. Adopt unedited. |
-| 4 | [`CLAUDE.md`](CLAUDE.md) | **On day one, the bootstrap stub** — it says the project is not set up yet and sends you to [`process/SEED.md`](process/SEED.md). **You replace it** at the end of day one with **the adapter** — this project's own law, and the values the manual deliberately does not know — built from [`process/templates/CLAUDE-adapter.template.md`](process/templates/CLAUDE-adapter.template.md). From then on, read it every session alongside [`PROJECT.md`](PROJECT.md). |
+| 4 | [`CLAUDE.md`](CLAUDE.md) | **On day one, the bootstrap stub** — it says the project is not set up yet and sends you to [`process/SEED.md`](process/SEED.md). **You replace it** at SEED step 5 with **the adapter** — this project's own law, and the values the manual deliberately does not know — built from [`process/templates/CLAUDE-adapter.template.md`](process/templates/CLAUDE-adapter.template.md). From then on, read it every session alongside [`PROJECT.md`](PROJECT.md). |
 
 Then, as needed: [`process/contracts/README.md`](process/contracts/README.md) (one sheet per gate —
 what must be TRUE, independent of how you implement it), [`process/doctrine/`](process/doctrine/)
@@ -188,7 +163,8 @@ without one.
   definitions.
 - [`scripts/`](scripts/) — the board mover, the id minter, the drift report, the landing gate, the
   initializer, the archive sweeps, and the process self-test.
-- [`consumers/`](consumers/) — present only if this project ships something someone else installs;
+- [`consumers/`](consumers/) — ships as an option: delete it unless this project ships something
+  someone else installs;
   the doctrine is [`process/doctrine/distribution.md`](process/doctrine/distribution.md).
 
 ## Which version of the kit is this, and what changed

@@ -803,6 +803,10 @@ columns and never the cards.*
   is now `git branch -D …; git push <remote> --delete …`. A surviving branch is named on the "Done." line; the exit status
   stays 0.
 
+- **Day one's instructions work as written.** `process/SEED.md` step 1 commits the kit before pushing (the push failed with no
+  commit); step 4 copies `process/KIT-FEEDBACK.md` from its skeleton; `README.md`'s *first published commit* variant ends
+  with `git -C .kanban-wt reset --hard origin/<trunk>`, without which the next board command refused.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

@@ -10,9 +10,8 @@ nothing depends on something that does not exist yet.
 `process/`: `AGENTS.md`, `docs/README.md`, the whole of `.claude/`, the kanban script set, `setup.sh`
 and `consumers/` among them. **And `PROJECT.md`, which that table does NOT list** — it is CONFIGURE
 class (§ 2.5), the shipped sheet is the blank, and step 3 below cannot be done without it. Read § 1's
-table and § 2's list, not this sentence's examples — because
-every step below routes to something outside this directory. (Measured: a cold
-reader took *"follow the `process/` package"* literally and bootstrapped without them.)
+table and § 2's list, not this sentence's examples — because every step below routes to something
+outside this directory.
 
 **This file is a ROUTER.** Every step names its **authority** — a `MANUAL.md` section, a contract
 sheet, or a template — and the authority, not this page, is the law. If a step here ever disagrees
@@ -38,10 +37,10 @@ saying which, and why.
 
 | # | Do this | Authority — where the law actually lives |
 |---|---|---|
-| **1** | **Create the repo, the remote, and the remote's published default branch.** `git init -b <trunk>` — **`-b` names the trunk; a bare `git init` puts HEAD on `init.defaultBranch` and leaves you a branch nobody asked for** (`README.md` § Day one carries the reason) — then a remote (a **local bare repo is fine** and is the offline recipe), push the trunk, then `git remote set-head origin <trunk>` **naming the branch**. `<trunk>` defaults to `main`. | [`contracts/kanban-worktree.md`](contracts/kanban-worktree.md) (why the trunk must be *resolved*, not guessed) · [`contracts/initializer.md`](contracts/initializer.md) · [`GIT-HOSTING.md`](GIT-HOSTING.md) (local-only, bare-repo and hosted options) · `./scripts/kit-init.sh` prints the four-step recipe **on refusal** when the remote precondition is unmet (`--help` describes the precondition but does not print the recipe itself) · [`EXTRACTION.md` § 1.3](EXTRACTION.md) row 1 |
-| **2** | **Fork by stack — see below.** Copy the kit files first (`EXTRACTION.md` § 1), *then* fork. | [`EXTRACTION.md` § 1](EXTRACTION.md) · [`contracts/initializer.md`](contracts/initializer.md) · [`contracts/config-seam.md`](contracts/config-seam.md) |
+| **1** | **Create the repo, the remote, and the remote's published default branch.** With the kit's files in place (`EXTRACTION.md` § 1), `git init -b <trunk>` — **`-b` names the trunk; a bare `git init` puts HEAD on `init.defaultBranch` and leaves you a branch nobody asked for** (`README.md` § Day one carries the reason) — then commit them (`git add -A && MSG_OK=1 git commit -m init`), add a remote (a **local bare repo is fine** and is the offline recipe), push the trunk, then `git remote set-head origin <trunk>` **naming the branch**. `<trunk>` defaults to `main`. | [`contracts/kanban-worktree.md`](contracts/kanban-worktree.md) (why the trunk must be *resolved*, not guessed) · [`contracts/initializer.md`](contracts/initializer.md) · [`GIT-HOSTING.md`](GIT-HOSTING.md) (local-only, bare-repo and hosted options) · `./scripts/kit-init.sh` prints the four-step recipe **on refusal** when the remote precondition is unmet (`--help` describes the precondition but does not print the recipe itself) · [`EXTRACTION.md` § 1.3](EXTRACTION.md) row 1 |
+| **2** | **Fork by stack — see below.** | [`EXTRACTION.md` § 1](EXTRACTION.md) · [`contracts/initializer.md`](contracts/initializer.md) · [`contracts/config-seam.md`](contracts/config-seam.md) |
 | **3** | **Fill in `PROJECT.md` IN PLACE.** The shipped sheet is itself the blank — there is no template to copy from, because a template a stamper never touches drifts from the instance it claims to be. It is the first thing the process asks for and the one thing no project can copy. | [`PROJECT.md`](../PROJECT.md) · [`MANUAL.md` § The three documents](MANUAL.md) |
-| **4** | **Start `requirements/CORPUS.md` + `requirements/DECISIONS.md`** from the skeletons — both nearly empty on day one, both existing from day one. **And learn what ROUTES into the register before you need it:** every ruling, in the change that makes it ([`MANUAL.md` § Execution discipline](MANUAL.md) item 6). *This step said only "create it". A blind adoption then wrote the routing instruction into its own project sheet by hand at the previous step — thirteen minutes before the adapter at step 5 handed it the same instruction. The rule was never missing; it arrived after the step that needed it, and neither step 3 nor this one pointed at it.* | [`templates/CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) · [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) · [`MANUAL.md` § Execution discipline](MANUAL.md) (item 6 — what routes into the register) · [`EXTRACTION.md` § 1.2](EXTRACTION.md) (format travels, content never does) |
+| **4** | **Start the shipped `requirements/CORPUS.md` + `requirements/DECISIONS.md` in place** — both nearly empty on day one. **And learn what ROUTES into the register before you need it:** every ruling, in the change that makes it ([`MANUAL.md` § Execution discipline](MANUAL.md) item 6). **And copy [`templates/KIT-FEEDBACK.skeleton.md`](templates/KIT-FEEDBACK.skeleton.md) to `process/KIT-FEEDBACK.md`**, its About block by hand. | [`templates/CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) · [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) · [`MANUAL.md` § Execution discipline](MANUAL.md) (item 6 — what routes into the register) · [`EXTRACTION.md` § 1.2](EXTRACTION.md) (format travels, content never does) |
 | **5** | **REPLACE the `CLAUDE.md` bootstrap stub with your adapter.** The shipped `CLAUDE.md` is scaffolding that says so in its own first lines; you **build the adapter from the template and overwrite the stub**, rather than editing the stub into shape. Point at `process/MANUAL.md` early, then hold **your** project law. | [`templates/CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) · [`MANUAL.md` § Seams](MANUAL.md) (what the manual deliberately does not know) · [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md) (why `REPLACE` is replaced and not edited) |
 | **6** | **Hold a REAL PM session and mint `PRD-001`** — **one** spec, not a backlog. A pre-written backlog is a backlog nobody scoped. **This mandate is not in tension with the lite default:** `PRD-001` **scopes the PRODUCT** on day one; [`MANUAL.md` § The default path is lite](MANUAL.md) governs **subsequent small work**, which takes one issue and no spec. Both stand. | `.claude/roles/pm.md` · [`contracts/issue-creation.md`](contracts/issue-creation.md) · [`contracts/id-minting.md`](contracts/id-minting.md) · `.claude/templates/PRD.template.md` |
 | **7** | **Drive the FIRST issue through the FULL Dev → QA boundary.** The boundary is the thing being installed; the first issue is where it is proven. Do not shortcut it because the change is small. | [`MANUAL.md` § The Dev → QA handoff (the boundary — 7 steps)](MANUAL.md) · [`contracts/verify-gate.md`](contracts/verify-gate.md) · [`contracts/board-mover.md`](contracts/board-mover.md) · [`contracts/landing-gate.md`](contracts/landing-gate.md) · [`contracts/commit-attribution.md`](contracts/commit-attribution.md) |
@@ -81,9 +80,8 @@ runner that does.
 the requirement** — sections 1–5 of every sheet bind any implementation in any language; section 6
 is the pointer to this repository's scripts and is marked as such. Take **no** script at all and
 you still owe every invariant, every refusal condition, and every countable definition of green in
-the sheets. (**How many sheets?** `find process/contracts -type f ! -name README.md | wc -l` — run it. **The exclusion is the point**: the index is a file in the directory it indexes, so the unfiltered count answers a different question and answers it one too high. Deriving is not enough on its own — the derivation has to count the thing the sentence names; a digit typed
-here would be wrong the first time a sheet is added.) Any language, any task runner, any CI
-config: the spirit is what transfers.
+the sheets (`find process/contracts -type f ! -name README.md | wc -l` counts them). Any language,
+any task runner, any CI config: the spirit is what transfers.
 *(Authority: [`contracts/README.md`](contracts/README.md) — the index and the six-section shape.)*
 
 This fork is a **ruling**, not a courtesy: *"the project need not use any particular language or
@@ -103,13 +101,7 @@ by the next worker, at full price, every time.
 **One day-one question is now a SETTING rather than an open one:** which hat signs the commits made
 before any issue exists. [`contracts/role-gate.md`](contracts/role-gate.md) § 2a answers it with a
 default. **If you took the default, write nothing. If you did not, this file is where you say which
-hat, and why**: the hat, the span it covers, and the reason. *This paragraph used to list that
-question as open (which hat signs the very first commit, and when a hat can first be declared,
-which [`contracts/role-gate.md`](contracts/role-gate.md) § 2 answers: declaring is always
-permitted). The adoptions that met it did not agree, and each named a sound reason for its own
-answer. When projects disagree for reasons that are each sound, a default with a recorded departure
-removes the cost of every project deciding from scratch. The question still belongs here, but now
-as a departure to record.*
+hat, and why**: the hat, the span it covers, and the reason.
 
 Create it at close of day one, even if it holds two lines:
 
@@ -127,10 +119,6 @@ Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an entry
 **Why it is a closing step and not an opening one:** on day zero you have no contradictions yet,
 and a file of invented rules is worse than none. By the end of day one you have several — and you
 will not remember them on day two.
-
-*(Measured in the seed acceptance test: three agents independently rediscovered the same
-workaround inside twelve hours, and the audit found a **third** convention that had accreted with
-no friction entry at all — tribal knowledge growing inside a kit built to eliminate it.)*
 
 ### The one line to seed it with, if you will ever run agents in parallel
 
@@ -152,9 +140,7 @@ given any.
 session start **is a conversation citing itself** — the same reason `DECISIONS.md` exists rather
 than a memory of what was agreed. It binds the session that heard it and evaporates at the next
 restart, and the successor inherits the queue, the board and the repository but **not the prompt**.
-Measured on one pair across one restart: eight unprompted notes before, none after, from a
-successor that was working fine and simply did not know it owed anyone one. The doctrine — this
-line is the worker's half, and the spawner's obligations sit beside it — is
+The doctrine — this line is the worker's half, and the spawner's obligations sit beside it — is
 [`doctrine/subagent-control.md`](doctrine/subagent-control.md) § A.15.
 
 **Skip it honestly if it does not apply.** A project where no session ever waits on another does
@@ -187,7 +173,7 @@ rewrite — write your own prefix into the blanks as you fill them.
 
 | Template | What it gives you |
 |---|---|
-| [`PROJECT.md`](../PROJECT.md) *(not a template — the shipped sheet IS the blank; fill it in place)* | its sections are its `##` headings — read them there rather than from a list here, which is how this row went stale twice |
+| [`PROJECT.md`](../PROJECT.md) *(not a template — the shipped sheet IS the blank; fill it in place)* | its sections are its `##` headings — read them there rather than from a list here |
 | [`CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) | the adapter shape: point at `process/MANUAL.md` early, then hold your own project law |
 | [`KIT-FEEDBACK.skeleton.md`](templates/KIT-FEEDBACK.skeleton.md) | the OUTWARD channel: what this project learns that the kit should know, sent only when the project chooses. Copy to `process/KIT-FEEDBACK.md` on day one, empty rather than fabricated, and write its About block by hand — the entries worth sending are the ones you notice in week one and cannot reconstruct in week three |
 | [`CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) | the corpus manifest shape + its bucket classification |
@@ -199,7 +185,7 @@ The CORPUS and DECISIONS skeletons state a **pattern vs instance** split at the 
 **format law** (and travels) versus what is one project's **content** (and never does).
 `progress.skeleton.md` draws the same line in its own vocabulary instead — *"TWO SHAPES BELOW ARE
 REQUIRED, NOT STYLISTIC"*, and fill the blanks but keep everything else byte-for-byte — so do not
-go looking for that phrase there. *This said "Each skeleton", which was true of two of the three.*
+go looking for that phrase there.
 
 **Two more shapes sit beside them for orchestrated work** —
 [`launch-pack.template.md`](templates/launch-pack.template.md) (the brief that authorizes a
@@ -222,11 +208,10 @@ you want to know how a stranger meets what you shipped.
 
 - `./scripts/check-board.sh` (or your stack's drift report) is **clean**;
 - `process/KIT-FEEDBACK.md` **exists, and is empty rather than fabricated**: it was copied from
-  the skeleton when day one began, its About block written by hand. *Create it then precisely
-  because, at that moment, you have nothing to put in it yet: the findings worth sending are the
-  ones you notice in week one and cannot reconstruct in week three.* By the close its entries hold
-  only what day one actually found, and nothing written to fill it. The word was *empty* until
-  literal readers were found discarding real day-one findings to satisfy it.
+  the skeleton at step 4, its About block written by hand. *Create it then precisely because, at
+  that moment, you have nothing to put in it yet: the findings worth sending are the ones you notice
+  in week one and cannot reconstruct in week three.* By the close its entries hold only what day one
+  actually found, and nothing written to fill it.
   Under the default, seats write to it at named moments without being asked, so each kit contradiction or silence day one resolves in `process/LOCAL-PROCEDURES.md` is an entry, unless `PROJECT.md` sets `kit-feedback: manual` or `off` — `process/MANUAL.md` § Kit feedback.
   It is the one document that can flow back to the kit, sent when this project chooses to the
   destination `PROJECT.md` § The kit, upstream names
