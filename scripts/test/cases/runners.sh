@@ -674,24 +674,11 @@ PY
   finish "each runner's ISSUE_KEYS admits every per-issue field that runner actually reads ($n runner(s), derived from the file, ablation-proven)"
 }
 
-# CASE — the shipped workflow runners COMPOSE every brief they would send, from a realistic
-# args payload, without throwing. This is the harness EXERCISING the kit rather than reading
-# it: a runner that throws before its first agent cannot be found by reading.
-#
-# NOTHING IS DISPATCHED. `agent()` is stubbed to return a schema-shaped object, so the script
-# runs its real control flow and builds its real prompts at zero agent cost. What is under
-# test is the CONTRACT — that a caller following the documented shape can start a run.
-case_workflow_briefs_compose_from_a_sparse_payload() {
-  cf_reset
-  local wf="$REAL_REPO_ROOT/.claude/workflows" stub out n=0
-  [ -d "$wf" ] || _fixture_die "case_workflow_briefs_compose_from_a_sparse_payload: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
-  if ! command -v node >/dev/null 2>&1; then
-    skp "the shipped workflow runners compose their briefs from a sparse args payload" "node absent"
-    return
-  fi
-
-  stub="$(mktemp -d)/stub-run.mjs"
-  cat > "$stub" <<'STUBEOF'
+# THE BRIEF STUB: runs a runner file with `args` from argv (a JSON value) and prints one JSON line,
+# { ok, briefs, text } or { ok: false, error, briefs }. `agent()` returns a schema-shaped reply;
+# nothing is dispatched. <dest path>
+_wf_brief_stub() {
+  cat > "$1" <<'STUBEOF'
 import fs from 'node:fs'
 const [file, argsJson] = process.argv.slice(2)
 const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
@@ -732,6 +719,26 @@ try {
   console.log(JSON.stringify({ ok: false, error: String((e && e.message) || e), briefs: briefs.length }))
 }
 STUBEOF
+}
+
+# CASE — the shipped workflow runners COMPOSE every brief they would send, from a realistic
+# args payload, without throwing. This is the harness EXERCISING the kit rather than reading
+# it: a runner that throws before its first agent cannot be found by reading.
+#
+# NOTHING IS DISPATCHED. `agent()` is stubbed to return a schema-shaped object, so the script
+# runs its real control flow and builds its real prompts at zero agent cost. What is under
+# test is the CONTRACT — that a caller following the documented shape can start a run.
+case_workflow_briefs_compose_from_a_sparse_payload() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub out n=0
+  [ -d "$wf" ] || _fixture_die "case_workflow_briefs_compose_from_a_sparse_payload: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  if ! command -v node >/dev/null 2>&1; then
+    skp "the shipped workflow runners compose their briefs from a sparse args payload" "node absent"
+    return
+  fi
+
+  stub="$(mktemp -d)/stub-run.mjs"
+  _wf_brief_stub "$stub"
 
   # THE PAYLOAD IS DELIBERATELY SPARSE: only the fields a caller must supply. Every optional
   # per-issue key is omitted.
@@ -772,6 +779,61 @@ STUBEOF
   rm -rf "$(dirname "$stub")"
   unset -f _wf_run _wf_ok _wf_err
   finish "both shipped workflow runners compose every brief from a payload carrying only the REQUIRED per-issue fields, refuse a misspelled key by name, and the exerciser is ablation-proven (the depends_on guard removed from a copy) ($n runner(s), nothing dispatched)"
+}
+
+# CASE — a prose (non-JSON) `args` is refused at 0 agents, naming the runner and its args shape.
+#
+# Each runner parses a string `args` inside a guard, so a caller who sends prose learns which
+# runner refused and what shape it wanted. Without the guard the raw SyntaxError names neither.
+# Control: the same runner accepts a JSON payload sent as a string (the guard's other branch).
+# Ablation: the guard removed from a copy must fail the refusal check.
+_prose_refused() {   # <stub output> <runner name> <shape token>: 0 when refused as documented
+  printf '%s' "$1" | grep -F '"ok":false' >/dev/null \
+    && printf '%s' "$1" | grep -F '"briefs":0' >/dev/null \
+    && printf '%s' "$1" | grep -F "$2: args must be a JSON object" >/dev/null \
+    && printf '%s' "$1" | grep -F "$3" >/dev/null
+}
+
+case_runner_refuses_a_prose_payload_by_name() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub out file name shape json n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_refuses_a_prose_payload_by_name: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "a prose args payload is refused by name" "node absent"; return; }
+
+  stub="$(mktemp -d)/stub-run.mjs"
+  _wf_brief_stub "$stub"
+  local prose='"Please run ZZ-1 then ZZ-2, opus, high effort"'
+
+  while IFS='|' read -r file name shape json; do
+    [ -n "$file" ] || continue
+    n=$(( n + 1 ))
+    out="$(node "$stub" "$wf/$file" "$prose" 2>&1)"
+    _prose_refused "$out" "$name" "$shape" \
+      || cf "$file did not refuse a prose payload at 0 agents naming '$name' and its shape '$shape': $(printf '%s' "$out" | cut -c1-200)"
+
+    # CONTROL: JSON sent as a string is parsed, not refused.
+    out="$(node "$stub" "$wf/$file" "\"$(printf '%s' "$json" | sed 's/"/\\"/g')\"" 2>&1)"
+    printf '%s' "$out" | grep -F '"ok":true' >/dev/null \
+      || cf "(control) $file refused a valid JSON payload sent as a string: $(printf '%s' "$out" | cut -c1-200)"
+
+    # ABLATION: the guard removed from a copy must fail the check above.
+    awk '/^try \{$/ { next } /^\} catch \(e\) \{$/ { skip = 1; next } skip { if (/^\}$/) skip = 0; next } { print }' \
+      "$wf/$file" > "$(dirname "$stub")/abl.js"
+    if grep -F 'not prose' "$(dirname "$stub")/abl.js" >/dev/null; then
+      cf "(ablation) removing the guard from a copy of $file did not take -- the check below would prove nothing"
+    else
+      out="$(node "$stub" "$(dirname "$stub")/abl.js" "$prose" 2>&1)"
+      _prose_refused "$out" "$name" "$shape" \
+        && cf "(ablation) $file with its guard removed still passed the refusal check -- the check cannot bite"
+    fi
+  done <<'EOF'
+tranche-runner.js|tranche-runner|issues: [|{"repo":"/tmp/x","issues":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"}]}
+wave-runner.js|wave-runner|wave1: [|{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"}]}
+EOF
+
+  [ "$n" -eq 2 ] || cf "expected 2 runner rows, read $n"
+  rm -rf "$(dirname "$stub")"
+  finish "a prose args payload is refused at 0 agents naming the runner and its args shape; JSON sent as a string is accepted; the guard removed from a copy fails the check ($n runner(s), nothing dispatched)"
 }
 
 # CASE — a QA leg that forms NO verdict is filed as NO_VERDICT, never as FAILED_AFTER_FIX_ROUND.
