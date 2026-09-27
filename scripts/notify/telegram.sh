@@ -45,24 +45,10 @@ body_of() { printf '%s' "$1" | sed '$d'; }
 
 VERB="${1:-send}"
 
-# A USAGE REQUEST IS ANSWERED BEFORE THE VERB IS INTERPRETED.
-# process/contracts/issue-creation.md § 3: "a request for the usage text is ALWAYS legal and
-# ALWAYS succeeds". This adapter's verb dispatcher used to swallow --help as an unknown verb
-# and exit 2 — measured — which made the one channel adapter the kit ships the counter-example
-# to a rule the kit states, in the file notification.md § 6 names as its reference implementation.
+# A usage request is answered before the verb is interpreted (issue-creation.md § 3).
 case "${VERB:-}" in
   -h|--help|help)
-    # THE WINDOW IS DERIVED AT BOTH ENDS. A literal end (`3,40p`) printed 18 lines of raw
-    # shell — `set -uo pipefail`, the ROOT= assignment — because this header ends at 22 and the
-    # literal did not know that.
-    #
-    # The START was the literal 3 while this comment claimed both ends were derived — the
-    # sentence describing the fix outliving half of it. A literal 3 encodes "line 2 is the whole
-    # KIT-CLASS marker", which is true here and false the moment the marker wraps, and the wrap
-    # is what the other renderers were fixed for. Derived the same way they do it: every marker's
-    # LAST line cites the extraction manifest, so the marker's end is derivable; fall back to the
-    # KIT-CLASS line, then to the old literal, so a file following neither convention degrades to
-    # today's behaviour rather than to nothing.
+    # The window is derived at both ends, as lib/usage.sh derives it.
     _tg_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_tg_start" ] || _tg_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_tg_start" ] || _tg_start=3

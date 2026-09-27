@@ -252,12 +252,7 @@ if [ "$NOTE_ONLY" -eq 0 ]; then
   fi
 fi
 
-# THE ROLE SET IS CARRIED IN SEVERAL FILES — change one, change them all. The list is the
-# TABLE in process/EXTRACTION.md § 2.4 "The role set".
-# ── THE SET THIS ARM ENFORCES IS DERIVED, ONCE (scripts/lib/role-set.sh kit_role_resolve). The
-#    literal below is a STAMPED DEFAULT, used only when the authority is unreadable. It lives
-#    here, not in the library, because `kit-init --roles` stamps scripts/*.sh and never reaches
-#    scripts/lib/.
+# Derived by lib/role-set.sh kit_role_resolve; this literal is only its stamped default (see there).
 ROLE_SET_DEFAULT='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 if command -v kit_role_resolve >/dev/null 2>&1; then
   kit_role_resolve "$SCRIPT_DIR/.." "$ROLE_SET_DEFAULT"

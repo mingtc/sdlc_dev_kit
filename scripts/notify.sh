@@ -37,14 +37,8 @@
 # the user. `test` is the exception — it exits non-zero on failure, which is the
 # mechanism a caller branches on.
 #
-# NOTHING IN THE KIT BRANCHES ON NOTIFY_ON_SETUP_FAILURE, AND THAT IS THE DESIGN, NOT AN
-# OVERSIGHT — but it was stated nowhere, so the knob read as enforced. This comment used to
-# say "a session-start check can branch on" it; the shipped `hooks/session-start.sh` does not
-# mention NOTIFY at all, so there is no such call site to branch in. The knob DECLARES the
-# project's policy and `test`'s exit status carries the fact; the CALLER — an adapter's own
-# session-start wiring, or the agent reading the warning — is what acts on the pair. If you
-# want the kit itself to halt a session on a failed delivery test, that is a behaviour change
-# and it is not this knob's current meaning.
+# NOTHING IN THE KIT BRANCHES ON NOTIFY_ON_SETUP_FAILURE: the knob declares the project's
+# policy, `test`'s exit status carries the fact, and the caller acts on the pair.
 #
 # SESSION SLUG: pings fire only when given --session. The human-launched session
 # holds its slug in context and passes it; subagents it spawns are NOT given one,
@@ -81,9 +75,7 @@ CMD="${1:-}"
 shift || true
 
 case "$CMD" in
-  # A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS — issue-creation.md § 3. This
-  # arm did not exist, so `notify.sh --help` fell through to the unknown-class refusal
-  # and exited 2: asking how to use the tool was itself an error.
+  # A usage request always succeeds (issue-creation.md § 3).
   -h|--help)
     echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"
     echo "       notify.sh test [--session <slug>]        # no message: sends a fixed probe"
@@ -99,11 +91,8 @@ case "$CMD" in
 esac
 
 MESSAGE=""; SESSION=""; REF=""; PROGRESS=""
-# A LEADING '-' IS NEVER A NAME — process/contracts/issue-creation.md § 3's first CLI-SHAPE
-# clause, which every creation script enforces and this one did not. Measured before this
-# landed: `notify.sh attention --message` consumed `--message` AS THE MESSAGE BODY, sent a
-# notification reading "--message", and exited 0. An operator who forgot the value got a
-# delivered notification saying nothing, which is worse than a refusal and quieter than one.
+# A LEADING '-' IS NEVER A NAME (issue-creation.md § 3): a forgotten message must not send the
+# next flag as its body.
 if [ "$MODE" = "send" ]; then
   case "${1:-}" in
     -?*) echo "Error: '$1' is not a message — a leading '-' is never a value. Quote it if you meant it literally." >&2
@@ -112,19 +101,7 @@ if [ "$MODE" = "send" ]; then
   esac
   MESSAGE="${1:-}"; shift || true
 fi
-# need_val <all remaining args> — refuse an option whose value was not given.
-#
-# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
-# new-refactor.sh, which already had it. It is repeated per script rather than shared
-# because several of these source nothing from scripts/lib/ (release.sh by standing
-# ruling), and the self-test holds the copies identical.
-#
-# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
-# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
-# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
-# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
-# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
-# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+# need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
@@ -135,12 +112,7 @@ while [ $# -gt 0 ]; do
     --ref) need_val "$@"; REF="$2"; shift 2 ;;
     --progress) need_val "$@"; PROGRESS="$2"; shift 2 ;;
     --message) need_val "$@"; MESSAGE="$2"; shift 2 ;;
-    # AN UNRECOGNISED OPTION REFUSES. It used to warn and CARRY ON — so a typo'd flag
-    # delivered the message anyway and exited 0, which is a refusal that reads as
-    # success. THIS DOES NOT TOUCH THE FAIL-SOFT CONTRACT above: a failed DELIVERY still
-    # exits 0 on purpose, because a notification is not the work. That convention is
-    # about what happened when the tool RAN; this is about whether the invocation was
-    # even legal. Same distinction check-board.sh draws for its informational verdict.
+    # An illegal invocation refuses with 2; the fail-soft exit 0 is for a failed DELIVERY only.
     -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
     *) echo "Error: unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -172,9 +144,7 @@ if [ "$MODE" = "test" ]; then
     exit 0
   else
     rc=$?
-    # THE VOCABULARY IS `continue|abort`, matching .env.example — the one spelling an adopter
-    # actually types. This line said "stop:" while .env.example said "abort", so the two
-    # statements of the legal values disagreed and neither was checked by anything.
+    # The policy vocabulary is `continue|abort`, as .env.example spells it.
     warn "❌ test FAILED via '$NOTIFY_BACKEND' (see DIAGNOSIS above). Policy NOTIFY_ON_SETUP_FAILURE=$NOTIFY_ON_SETUP_FAILURE — abort: halt + tell the user; continue: warn + proceed. Nothing here enforces it; the caller acts on this exit status."
     exit "$rc"
   fi

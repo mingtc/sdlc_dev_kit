@@ -5,46 +5,19 @@
 #   (2) the MESSAGE carries no generated co-author trailer and no "Generated with …"
 #       line — process/doctrine/commit-hygiene.md § A.1
 #
-# (1) THE ROLE PREFIX.
-# The adapter's § "Role-attribution commit prefixes": every commit begins with a role
-# tag ([PM] / [Dev] / [QA] / …). Role attribution for the one-operator-many-hats model
-# comes from these prefixes cross-checked against the issue-file Activity logs — so a
-# prefix-less commit erodes the audit trail. This hook rejects any commit whose SUBJECT
-# line does not start with a known role tag.
+# Wired via `git config core.hooksPath scripts/githooks`: `kit-init.sh` wires it at adoption and
+# `setup.sh` re-wires it on every fresh clone (contracts/initializer.md § 2). hooksPath lives in
+# the shared .git/config, so it fires in every worktree, .kanban-wt/ included; the kit's own
+# board and squash commits pass by construction.
 #
-# Wired via `git config core.hooksPath scripts/githooks`. TWO OWNERS, ONE LIFECYCLE, and the
-# distinction matters because the wiring is per-clone: `kit-init.sh` wires it ONCE at adoption and commits the hooks' executable bit; `setup.sh` re-wires and repairs it on EVERY fresh clone.
-# (contracts/initializer.md § 2 ratifies this; the other sites naming it cite the contract.)
-# hooksPath lives in the shared .git/config, so the guard is active from every worktree —
-# including the standing .kanban-wt/ where move-issue.sh commits its "[Role] <ID> → …"
-# messages (those pass by construction). finish-pr.sh is pure git (no forge CLI): its
-# squash-merge commits LOCALLY inside .kanban-wt/, so this hook DOES fire on them — and
-# passes, because the squash subject carries a leading role prefix — `[$ROLE]`, where finish-pr.sh
-# reads `ROLE="${FINISH_PR_ROLE:-QA}"`, so QA is the default and not a constant — and its message is
-# one line, so it satisfies rule (2) by construction too.
-#
-# (2) NO GENERATED CO-AUTHOR TRAILER.
-# doctrine/commit-hygiene.md § A.1 states it as an absolute on purpose and says why:
-# "usually not" is a rule every hurried session resolves in favour of the default the
-# tool ships with, and the default is to add the trailer. An absolute is a rule a hook
-# can enforce — so this one does. It reads the WHOLE message, not only the subject,
-# because the trailer lives in the body; that is also why the auto-exempt subjects below
-# are exempt from rule (1) ONLY. A merge or a revert carries a body like anything else.
-#
-# TOOL-naming trailers only, and that is a decision rather than an oversight. § A.1's
-# text is "naming a tool", and a `Co-Authored-By:` naming a HUMAN is legitimate practice
-# — a real pairing session, a patch author credited on import — so it is accepted. The
-# markers live in TOOL_TRAILER_MARKERS below: one named line, extended in one place by a
-# project that meets a new tool, matched at a word boundary (so a human "Claudette" is
-# not a "Claude"), and free of regex metacharacters so the refusal can print the very
-# list it enforces. Unlike ROLE_PREFIXES it is a kit default rather than project law:
-# nothing stamps it on adoption.
+# Rule (2) reads the WHOLE message (the trailer lives in the body), so the auto-exempt subjects
+# below are exempt from rule (1) ONLY. It refuses TOOL-naming trailers only: a Co-Authored-By
+# naming a HUMAN is legitimate. TOOL_TRAILER_MARKERS is a kit default, not project law; nothing
+# stamps it.
 #
 # Bypass:  MSG_OK=1 git commit …   (1 / true / yes are truthy; 0 or unset do NOT bypass).
-#          For a genuine one-off that legitimately can't carry a tag — and, for rule (2),
-#          for importing a third party's commit VERBATIM (a cherry-pick, or a `git am` of
-#          a patch whose message already carries a tool trailer), where rewriting someone
-#          else's message is the worse of the two evils. Not for your own commits.
+#          For a genuine one-off that can't carry a tag, or for importing a third party's
+#          commit VERBATIM (a cherry-pick, a `git am`). Not for your own commits.
 #
 # Auto-exempt from rule (1): git/host-generated subjects that are never authored by a
 # role — merge commits, revert commits, and rebase autosquash markers.
@@ -54,15 +27,9 @@ set -uo pipefail
 MSG_FILE="${1:-}"
 [ -z "$MSG_FILE" ] && exit 0            # no message file → nothing to guard (defensive)
 
-# THE ACCEPTED ROLE TAGS — the kit's default set, matching the role docs under
-# .claude/roles/. Kept as a named var on its OWN LINE so every other consumer can
-# DERIVE the list with one sed rather than re-hardcoding it (hard-won: the day a
-# re-hardcoded copy drifted, the standing seat could not move a card because this
-# hook accepted a role that move-issue.sh's whitelist did not).
-# ERE alternation. THE ROLE SET IS CARRIED IN SEVERAL FILES — change one, change
-# them all. The authoritative list is the TABLE in process/EXTRACTION.md § 2.4;
-# read it there rather than trusting a count written here. (This line used to say
-# FOUR files and to cite a section title that never existed.)
+# THE ACCEPTED ROLE TAGS, an ERE alternation on its OWN LINE so every consumer derives it with
+# one sed instead of holding a copy. The set is carried in several files, listed in the table
+# at process/EXTRACTION.md § 2.4: change one, change them all.
 ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 
 # THE TOOL MARKERS for rule (2) — likewise a named var on its own line, so the
@@ -75,41 +42,22 @@ case "${MSG_OK:-}" in
   1|true|yes) exit 0 ;;
 esac
 
-# THE MESSAGE AS GIT WILL KEEP IT, computed once and used by both rules:
-#   • everything from `git commit -v`'s scissors line down is CUT. Below that line
-#     sits a raw diff — uncommented, and carrying its context lines with one leading
-#     space. Measured, not feared: with -v the hook receives the diff, so a scan of
-#     the whole file would refuse any commit that merely EDITS a file containing a
-#     trailer — this hook, or the doctrine sheet that states the rule. The marker is
-#     matched by its dashes so it is found whatever `core.commentChar` is set to.
-#   • comment lines are dropped. Git drops them later, but read the real message now
-#     so a leading `# …` template line can't be read as a subject or as a trailer.
+# THE MESSAGE AS GIT WILL KEEP IT, used by both rules:
+#   • everything from `git commit -v`'s scissors line down is CUT: below it sits a raw diff, so
+#     a commit that merely edits a file containing a trailer would be refused. Matched by its
+#     dashes, whatever `core.commentChar` is.
+#   • comment lines are dropped, so a `# …` template line is never read as subject or trailer.
 cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev/null \
              | grep -vE '^[[:space:]]*#' || true)"
 
 # --- RULE (2): no generated co-author trailer, no "Generated with …" line ----------
-# Both arms anchor at the start of a line, because § A.1 forbids such a LINE — "the
-# file was generated with the codegen step" mid-sentence is prose, not a provenance
-# claim. The "Generated with" arm allows leading decoration, since the shape the
-# tooling emits leads with an emoji rather than with the word.
-#
-# THE PRE-MARKER GROUP IS OPTIONAL — `(.*[^[:alnum:]])?` — AND THAT IS THE WHOLE GUARD.
-# It used to be a bare `.*[^[:alnum:]]`, which is a REQUIRED CHARACTER rather than a
-# boundary assertion: with the marker sitting immediately after the colon there was
-# nothing left for it to consume, so `Co-Authored-By:Claude <x@y>` — one deleted space —
-# walked straight past this rule. Measured on this hook, with a role-tagged subject so
-# rule 1 could not mask the result: the spaced form refused, the unspaced form ACCEPTED.
-# Making the group optional lets the colon itself be the left boundary.
-#
-# The trailing `([^[:alnum:]]|$)` stays REQUIRED, and deliberately: it is what keeps a
-# human whose name merely contains a marker's stem out of the refusal. `Co-Authored-By:
-# Claudia Ng <c@d>` is accepted because `i` follows `claud`, and that case is exercised
-# below in the harness alongside the bypass itself.
-#
-# NO `head` ON EITHER ARM. `head -1` exits on the first line it gets, the upstream `grep`
-# then dies of SIGPIPE on a long message, and under `set -o pipefail` that death — not
-# the match — would become `$offender`. `sed -n '1p'` reads to EOF and yields the same
-# first line. See scripts/test/run.sh's header, THE PIPEFAIL RULE, for the measurement.
+# Both arms anchor at a line start: § A.1 forbids such a LINE, and mid-sentence prose is not
+# one. "Generated with" allows leading decoration, since the tooling leads with an emoji.
+# The pre-marker group `(.*[^[:alnum:]])?` is OPTIONAL so the colon itself can be the left
+# boundary (`Co-Authored-By:Claude`). The trailing `([^[:alnum:]]|$)` is REQUIRED, so a human
+# whose name contains a marker's stem (`Claudia`) is accepted.
+# No `head`: it exits early, the upstream grep dies of SIGPIPE, and under pipefail that becomes
+# the result. `sed -n '1p'` reads to EOF.
 offender="$(printf '%s\n' "$cleaned" \
   | grep -iE "^[[:space:]]*co-authored-by:(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
   | sed -n '1p' || true)"
@@ -146,11 +94,8 @@ subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || tru
 case "$subject" in
   "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) exit 0 ;;
   "Revert \""*|"Revert '"*) exit 0 ;;
-  # NARROWED to git's own generated subject. The glob was "Squash"*, which exempted
-  # any human sentence starting with that word — "Squashed a bug in the parser" went
-  # through unprefixed. The kit's own squash path does NOT need the exemption:
-  # finish-pr.sh writes a [QA]-prefixed squash subject, so nothing of ours relies on
-  # the wider form, and git's template is the only unauthored subject it must pass.
+  # Git's own squash template only: a wider "Squash"* glob exempts human subjects, and the
+  # kit's own squash subject carries a role prefix.
   "Squashed commit of the following:"*) exit 0 ;;
   "fixup! "*|"squash! "*|"amend! "*) exit 0 ;;   # rebase autosquash markers
 esac

@@ -2,49 +2,18 @@
 # KIT-CLASS: KIT — the shared role-set read and the pre-mutation tag check.
 # See process/EXTRACTION.md § 2.4.
 #
-# WHY THIS EXISTS. Three shipped scripts commit under a role tag that is ONE MEMBER of
-# the project's role set — archive.sh's sweep, subtask.sh's create arm, finish-pr.sh's
-# squash. Those tags used to be hardcoded, so a project that narrowed its role set got a
-# commit-msg hook that rejected its own tools MID-OPERATION: the file is already git-mv'd
-# and the Activity entry already appended inside the shared kanban worktree, and the
-# commit that would have carried them fails. The next board operation `reset --hard`s
-# that worktree. So the failure mode is not the error you asked for — it is an INCONSISTENT
-# BOARD and a discarded Activity entry, paid for in somebody else's lane.
+# WHY THIS EXISTS: archive.sh, subtask.sh and finish-pr.sh commit under a role tag that must be a
+# member of the project's role set. A tag the commit-msg hook rejects fails AFTER the git mv and
+# the Activity append in the shared kanban worktree, and the next board operation reports that
+# dirty state (process/contracts/board-mover.md § 2). Refusing BEFORE the mutation costs a re-run;
+# after it, a reconciliation.
 #
-# THAT SENTENCE USED TO READ "silent data loss" AND THE WORD "silent" WAS MEASURED WRONG, end to
-# end on a real card by an independent seat. The cost is REPORTED: the next invocation detects the
-# dirty kanban worktree, names what it found, and prints both ways out — which is
-# process/contracts/board-mover.md § 2's wait-never-discard invariant working as designed.
-# THE REASON THIS GUARD EXISTS IS UNCHANGED, and it is the whole point of correcting the wording:
-# refusing BEFORE the mutation costs a re-run, where refusing after it costs a reconciliation.
-# An overstated rationale is the kind a later reader discounts entirely, so the claim is narrowed
-# to what was actually observed rather than deleted.
+# A KNOB AND A REFUSAL, NEVER A DERIVED TAG: the tag carries SEAT IDENTITY ([Orchestrator] on the
+# archive sweep, [QA] on finish-pr). Deriving it from the set (`${ROLE_PREFIXES%%|*}`) writes a
+# false seat into git history, and a one-member set cannot express the distinction at all.
 #
-# subtask.sh's `move` arm already argued this for its --role whitelist; these three sites are the
-# same argument, unapplied.
-#
-# WHY A KNOB AND A REFUSAL, AND NEVER A DERIVED TAG. The obvious "fix" is to derive the
-# tag from the set — `${ROLE_PREFIXES%%|*}` or similar. Do not. These tags carry SEAT
-# IDENTITY: [Orchestrator] on the archive sweep means session-close housekeeping,
-# [QA] on finish-pr means the review seat landed it, [Orchestrator] on subtask.sh means
-# the decomposer. A derived tag attributes all three to whichever role happens to sort
-# first and writes a FALSE SEAT into git history, permanently. And an adopter's set may
-# legally have ONE member, so a derivation cannot express a distinction its source does
-# not contain. The project renames the seat by setting the knob; the kit refuses rather
-# than guessing.
-#
-# WHY IT IS A LIBRARY. Its consumers already source from scripts/lib/ — derive them rather
-# than trusting a number here, which went stale once already as scripts were added. The
-# recipe must match the SOURCING LINE, not the filename: a plain `grep -rln lib/role-set.sh`
-# also returns the files that merely NAME this one in a comment (check-board.sh and
-# kit-init.sh carry their own byte-identical read and source nothing from scripts/lib/; the
-# test harness names it dozens of times), so it answers a different question than the
-# sentence above asks. Matching the source line covers both shapes in the tree — the bare
-# `. "$SCRIPT_DIR/lib/role-set.sh"` and the guarded `[ -r … ] && . …`:
+# Its consumers are the files that SOURCE it (a filename grep also returns files that only name it):
 #   grep -rlE '^[^#]*\.[[:space:]]+"\$SCRIPT_DIR/lib/role-set\.sh"' scripts --include='*.sh'
-# Written
-# inline this would be three more copies of the ROLE_PREFIXES read, an idiom that is
-# already duplicated across the tree; here it is one.
 
 # kit_role_set <repo-root> — echo the project's declared role set, or nothing.
 # Callers MUST treat empty as "could not read", never as "no roles declared".
@@ -55,20 +24,10 @@ kit_role_set() {
 # kit_role_display <repo-root> — the declared set rendered FOR USAGE TEXT, or, when the seam
 # cannot be read, a sentence naming the seam. NEVER empty and NEVER a failure.
 #
-# WHY THIS IS A RENDERER AND NOT A SECOND COPY. A script's usage text has to tell the operator
-# which roles are legal, and the obvious way to do that — type the list into the header — is what
-# this library was extended for: `move-issue.sh` carried the set space-padded in its `--help`
-# header and unpadded in its enforcement, `kit-init --roles` stamps by `grep -lF` on the unpadded
-# shape, so the enforcement moved and the header did not. The same script then advertised four
-# roles it refused, on every adopted tree. The fix is not a second shape for the matcher to
-# learn; it is one authoring site — the seam — read at print time.
-#
-# WHY IT DEGRADES TO NAMING THE SEAM RATHER THAN TO A GUESS OR AN ERROR. A usage request must
-# ALWAYS succeed (`process/contracts/issue-creation.md` § 3), so this cannot fail. It must also
-# not GUESS: printing the kit's shipped set on a tree whose seam is unreadable would reproduce
-# exactly the defect above — a list that is right about the kit and wrong about this project.
-# Naming the seam is the only answer that is true on every tree. The caller's own `--help` is
-# still complete and still exits 0; one line of it says where to look instead of what to type.
+# The set is RENDERED from the seam at print time, never typed into a header: a typed copy drifts
+# from the enforcement. It degrades to NAMING THE SEAM, never to a guess or an error: a usage
+# request must always succeed (`process/contracts/issue-creation.md` § 3), and the kit's shipped
+# set would be wrong about this project.
 kit_role_display() {
   local set_
   set_="$(kit_role_set "$1" 2>/dev/null || true)"
@@ -85,48 +44,21 @@ kit_role_display() {
 #   KIT_ROLE_SRC        where it came from, in words, FOR PRINTING
 #   KIT_ROLE_DEFAULTED  empty when derived; `1` when the default was used
 #
-# KIT_ROLE_DEFAULTED exists so a caller can decide whether to announce WITHOUT parsing
-# KIT_ROLE_SRC. Keying an announcement off the first word of a sentence is a matcher on prose, and
-# prose gets reworded; a flag does not.
+# KIT_ROLE_DEFAULTED lets a caller decide whether to announce without matching on KIT_ROLE_SRC's
+# prose.
 #
-# WHY THIS IS NOT kit_require_role. That function is for a tag the SCRIPT CHOOSES (seat identity),
-# and its unreadable-hook policy is a named SKIP: it does not check and proceeds, because the tag
-# came from the kit and the hook will still refuse a genuinely wrong one. `--role` is different in
-# the one way that matters: the operator typed it, and
-# `process/contracts/issue-creation.md` § 3 says a value outside a declared enum is refused. A skip
-# would silently widen what `--role` accepts to ANYTHING on a tree whose hook is gone. So this
-# resolves an enum to check against instead of deciding whether to check.
+# NOT kit_require_role, whose unreadable-hook policy is a named SKIP: `--role` is the OPERATOR'S
+# value, and `process/contracts/issue-creation.md` § 3 refuses a value outside a declared enum. A
+# skip would widen `--role` to anything on a tree whose hook is gone.
 #
-# WHY A DEFAULT IS NOT A SECOND COPY, which is the objection this function has to answer, because
-# removing second copies of the role set is the whole point of this library:
+# THE DEFAULT IS NOT A SECOND COPY: a literal reached only when the authority is UNREADABLE cannot
+# drift from it. It must SAY it is a fallback, so KIT_ROLE_SRC exists to be printed.
 #
-#   A literal beside a READABLE authority is a DUPLICATE. A literal reached only when the
-#   authority is UNREADABLE is a DEFAULT.
+# THE DEFAULT IS AN ARGUMENT, and every caller's ROLE_SET_DEFAULT literal points here: it must be
+# stampable, and `kit-init --roles` rewrites scripts/*.sh and scripts/githooks/* but never
+# scripts/lib/. The POLICY lives here once; the VALUE lives in the caller.
 #
-# Duplicates drift — that is the entire reason § 2.4 hunts them, and it is what happened to
-# `move-issue.sh`'s help text. A default CANNOT drift, because the thing it could disagree with is
-# gone at the moment it is used. They are different objects that happen to be spelled alike.
-#
-# AND WHAT STOPS A DEFAULT BECOMING A FALSE CLAIM IS THAT IT SAYS SO. The moment a fallback is
-# presented as *this project's set*, it is a statement of fact about this tree and it is wrong, and
-# § 3 forbids that correctly. So KIT_ROLE_SRC exists to be PRINTED, and the wording below is
-# `check-board.sh`'s, deliberately: that script has carried derive-with-ANNOUNCED-fallback for two
-# separate lists since before this function existed, and its own comment gives the reason — a run
-# that used the fallback says so, "otherwise ✓ every scanned subject carries a [Role] prefix can
-# mean …one of a set this project may not actually use".
-#
-# WHY THE DEFAULT IS AN ARGUMENT RATHER THAN A LITERAL IN HERE. It has to be STAMPABLE.
-# `kit-init --roles` rewrites the set by `grep -lF` over `scripts/*.sh` and `scripts/githooks/*` —
-# a glob that deliberately does NOT reach `scripts/lib/`, and whose own comment says to keep it
-# narrow because a hand-edited hook could make `grep -lF` match widely and corrupt substrings. A
-# default living in this file would therefore never be stamped, so on a narrowed tree whose hook
-# later became unreadable it would enforce the KIT'S set instead of the project's — strictly more
-# permissive than the literal it replaced. So: the POLICY lives here, once; the VALUE lives in the
-# caller, where the existing stamper already reaches it. One mechanism, no widening.
-#
-# WHY GLOBALS. This returns two things — the set and its provenance — and the provenance must reach
-# the operator. A shell function echoes one value; encoding both into one string and splitting it in
-# every caller is the sort of second parsing site this library exists to remove.
+# Globals, because the provenance must reach the operator alongside the set.
 kit_role_resolve() {
   KIT_ROLE_SET="$(kit_role_set "$1" 2>/dev/null || true)"
   if [ -n "$KIT_ROLE_SET" ]; then
@@ -152,11 +84,8 @@ kit_role_member() {
 # kit_require_role <repo-root> <tag> <knob-name> — refuse, on stderr, with status 1, if
 # <tag> is not a member of the declared set. Silent and 0 when it is.
 #
-# AN UNREADABLE HOOK IS NOT A PASS AND NOT A FAILURE — it is a NAMED skip. The set is the
-# only authority on what is legal, and a script that cannot read it knows nothing. It
-# says so and proceeds, because refusing every board operation on a tree whose hook was
-# deleted would be a worse failure than the one this guard exists to prevent, and the
-# hook itself will still refuse the commit if the tag is genuinely wrong.
+# AN UNREADABLE HOOK IS A NAMED SKIP, not a pass or a failure: refusing every board operation on
+# a tree whose hook was deleted is worse, and the hook still refuses a genuinely wrong tag.
 kit_require_role() {
   local root="$1" tag="$2" knob="$3" set_
   set_="$(kit_role_set "$root")"

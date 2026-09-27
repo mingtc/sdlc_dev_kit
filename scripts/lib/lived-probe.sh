@@ -1,54 +1,30 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — the ONE already-lived probe. See process/EXTRACTION.md.
 #
-# WHAT "ALREADY LIVED" MEANS, IN ONE PLACE. Two shipped consumers ask the same question
-# of a tree — has this repository STARTED? — and used to answer it with two separate
-# implementations of the same four probes: a board carrying issue files, a progress.md
-# § Log with entries, an ARCHIVE.md with an index, or a config.sh already stamped.
-# scripts/kit-init.sh asks in order to REFUSE to initialize a lived tree;
-# scripts/check-board.sh arm [g] asks in order to decide whether to RUN.
 #
-# THE TWO COPIES HAD ALREADY DIVERGED, which is why this is an extraction and not a
-# tidy-up, and why "preserve behaviour exactly" was not available to it. Measured
-# 2026-09-02 with /usr/bin/grep, on a config.sh whose stamp line is INDENTED:
+# HAS THIS REPOSITORY STARTED? One answer for scripts/kit-init.sh (which refuses to initialize
+# a lived tree) and scripts/check-board.sh arm [g] (which runs only on one). Four signals: a
+# stamped config.sh, a board column holding issue files, a progress.md § Log with entries, an
+# ARCHIVE.md with an index.
 #
-#     kit-init      grep -q "^$STAMP_MARK"   → NOT lived   (anchored, and a BRE)
-#     check-board   grep -qF "$g_stamp"      → LIVED       (literal, unanchored)
+# THE STAMP MATCH IS ANCHORED AND LITERAL: `index($0,m)==1`, so the '.' in the mark is not a
+# wildcard and a mid-line mention does not count. Two separate copies once disagreed on this
+# and let the initializer run on a tree the report called started.
 #
-# So a repository could be "not started" to the initializer and "already lived" to the
-# report — with the INITIALIZER as the blind one, i.e. it would have initialized a tree
-# the report already considered started. That is the failure this file exists to end.
-#
-# THE ADJUDICATION, stated rather than smuggled: ANCHORED, like kit-init, AND LITERAL,
-# like check-board — which neither had. `index($0,m)==1` is both, with no regex
-# metacharacters in play at all, so the '.' characters in the mark stop being wildcards.
-# Consequences, both accepted: arm [g] TIGHTENS (a config.sh that merely mentions the
-# mark mid-line no longer enables it via the receipt — the other three signals still
-# can), and kit-init loses BRE looseness it never wanted.
-#
-# IT EMITS RECORDS, NOT SENTENCES, and that is what stops the extraction re-creating the
-# defect. The two callers legitimately SAY different things about the same answer:
-# kit-init lists every signal as a refusal bullet, arm [g] names exactly one as its
-# enabling condition, in its own wording. A library that emitted prose would change one
-# caller's output; callers that re-worded a library's prose would be a second copy again.
-# One authoring site for the probe shapes, and each caller renders. (Said "three"; this file's
-# own header two dozen lines above says FOUR, and four is right.)
+# IT EMITS RECORDS, NOT SENTENCES: the callers word the same answer differently, and each
+# renders its own.
 #
 #   stamp|<the matched config.sh line>
 #   folder|<name>|<count>
 #   log|<count>
 #   archive|<count>
 #
-# STAMP FIRST, and that is load-bearing rather than alphabetical: arm [g] takes the FIRST
-# record as its enabling condition, and the receipt is the signal it named before this
-# extraction. Empty output means NOT STARTED. kit-init's bullet order changes (stamp
-# leads instead of trails); no assertion reads that order.
+# STAMP FIRST, on purpose: arm [g] takes the FIRST record as its enabling condition. Empty
+# output means NOT STARTED.
 
 # kit_lived_signals <tree> <stamp_mark> <status_folder>...
 kit_lived_signals() {
-  # A ZERO-COLUMN CALL IS REFUSED, NOT ANSWERED. Emitting nothing would be indis-
-  # tinguishable from "this tree has not started", which is the silent-blind failure the
-  # callers' own fixtures already guard against; the library owes the same.
+  # A zero-column call is refused: empty output would read as "not started".
   if [ "$#" -lt 3 ]; then
     echo "kit_lived_signals: need <tree> <stamp_mark> <status_folder>... — got $# argument(s). Refusing to report 'not started' about a tree whose board columns were never named." >&2
     return 1
@@ -62,9 +38,8 @@ kit_lived_signals() {
     [ -n "$line" ] && printf 'stamp|%s\n' "$line"
   fi
 
-  # (2) BOARD COLUMNS — the caller passes them, because the two callers hold
-  # STATUS_FOLDERS in incompatible TYPES (a bash array in one, a '|'-delimited string in
-  # the other). A library that read the variable itself would work for exactly one of them.
+  # (2) BOARD COLUMNS are passed in: the callers hold STATUS_FOLDERS in different types (a bash
+  # array, a '|'-delimited string).
   for c in "$@"; do
     [ -d "$tree/progress/$c" ] || continue
     n="$( { find "$tree/progress/$c" -type f -name '*-[0-9]*.md' 2>/dev/null || true; } | wc -l | tr -d ' ')"

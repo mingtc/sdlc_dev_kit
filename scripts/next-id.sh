@@ -2,21 +2,15 @@
 # KIT-CLASS: KIT — next free issue id; prefix from config.sh. See process/EXTRACTION.md.
 # Suggest the next issue id (e.g. <PREFIX>-034) — READ-ONLY, no side effects.
 #
-# It computes max(existing) + 1 across BOTH the live board (progress/** filenames)
-# AND archived issues (ARCHIVE.md) — so the number does NOT reset to -001 after a
-# milestone close moves issues out of progress/ into ARCHIVE.md.
+# Computes max(existing) + 1 across the live board (progress/** filenames) AND ARCHIVE.md, so
+# numbering does not reset after a milestone close.
 #
-# This is a SUGGESTION the agent consults, not authority. The creation scripts
-# (new-issue.sh / new-bug.sh / new-refactor.sh) are stateless and take the number
-# via --id; the agent runs this, sanity-checks it against its own context, and
-# passes the chosen value. If this can't determine a number, it says so on stderr
-# and exits non-zero — the agent then decides with context (and flags if unsure).
+# A SUGGESTION, not authority: the creation scripts are stateless and take --id; the agent
+# sanity-checks this and passes its choice. If no number can be determined it says so on
+# stderr and exits non-zero.
 #
-# THE EMPTY-BOARD REFUSAL IS THE CONTRACT, not a gap
-# (process/contracts/id-minting.md): where no identifier has ever been issued,
-# choosing where numbering starts is a DECISION, not an inference. So on a freshly
-# initialized board this exits non-zero on purpose, and kit-init.sh prints the
-# literal first id rather than composing this script into a recipe that must fail.
+# THE EMPTY-BOARD REFUSAL IS THE CONTRACT (process/contracts/id-minting.md): where no id has
+# ever been issued, where numbering starts is a decision, not an inference.
 #
 # Usage:   ./scripts/next-id.sh
 # Example: ID=$(./scripts/next-id.sh) && ./scripts/new-issue.sh my-slug --id "$ID"
@@ -25,23 +19,9 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 
-# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
-# This kit used to carry `: "${ISSUE_PREFIX:=<a literal>}"` here — a SECOND
-# default below config.sh's own, so the script still ran with the seam missing.
-# It was well meant, and it replaced something worse (a default carrying a
-# FOREIGN project's prefix), so THE REASON SURVIVES: a silently wrong prefix is
-# the expensive failure, not a missing one. The CONCLUSION is superseded, because
-# the literal reproduced that very failure one level down — five scripts each
-# holding their own copy of one project's prefix, so changing the prefix meant
-# changing it in five places, and an unsourceable config.sh silently minted ids
-# under a name nobody chose. So: NO fallback literal anywhere. config.sh is the
-# only authority, and its absence is a refusal that NAMES it.
-# The same block is in every script that grep returns — change one, change all.
-# THIS SCRIPT READ NO ARGUMENTS AT ALL, and that was not harmless: `next-id.sh --help`
-# printed a MINTABLE IDENTIFIER and exited 0. A usage request that answers with an id is
-# a refusal that reads as success, and the id it suggests may then be used. Both arms
-# below are the shipped-set convention (issue-creation.md § 3): a usage request always
-# succeeds; anything else is an unrecognised option and exits 2.
+# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
+# Arguments are read first (issue-creation.md § 3): a usage request always succeeds and must
+# never print a mintable id; anything else exits 2.
 case "${1:-}" in
   -h|--help)
     echo "usage: next-id.sh"

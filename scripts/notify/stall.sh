@@ -2,31 +2,18 @@
 # KIT-CLASS: KIT — the ABSENCE half of the liveness ritual. See process/EXTRACTION.md.
 # stall.sh — has work stopped moving? Reads the remote's freshest ref and reports.
 #
-# THIS EXISTS BECAUSE THE DISCIPLINE ALONE DID NOT WORK, and that is measured rather than
-# assumed. process/contracts/liveness-watchdog.md carried the rules for months; a project
-# read them honestly, found their scope test was "any run expected to outlast a human's
-# attention", had no runs of that length, and declared the whole ritual not applicable.
-# The failure that then arrived was not a run hanging — it was work stopping, three times,
-# with nobody watching. A sentence that is read, agreed with, and correctly scoped out is
-# not a control. This is the smallest program that answers the question the sentence could
-# not: WHO LOOKS.
+# The liveness rules (process/contracts/liveness-watchdog.md) are not a control on their own:
+# a rule that is read, agreed with and scoped out watches nothing. This answers WHO LOOKS.
 #
-# WHAT IT MEASURES, and why not the obvious thing:
-#   NEWEST COMMITTER DATE ACROSS EVERY HEAD ON THE REMOTE — never HEAD, never the checkout.
-#   `HEAD` is one branch in one worktree, and in a process that moves work between refs
-#   constantly it measures one lane of a road. Measured at one instant in a project of
-#   exactly this shape: 697 minutes since HEAD moved, 1 minute since anything moved. A
-#   monitor keyed on HEAD reported a dead project that was working normally.
+# WHAT IT MEASURES: the NEWEST COMMITTER DATE ACROSS EVERY HEAD ON THE REMOTE — never HEAD,
+#   never the checkout. HEAD is one lane; a project can be busy on every other branch.
 #
-# WHAT IT CANNOT DO, said here rather than discovered:
-#   * It cannot see unpushed work. That is a POLICY, not an oversight — the process
-#     publishes to the remote, so a leg working past the threshold without pushing is
-#     stalled from the process's point of view. Reading every clone needs access this
-#     process does not have.
-#   * It cannot tell a stall from a deliberate pause. It reports; a person decides.
-#   * It cannot detect a signal being GAMED. An empty commit moves the freshest ref, and so
-#     does a heartbeat line in the log. `liveness-watchdog.md` § 2 states the rule — the
-#     signal must be a by-product of work — and no program can enforce it.
+# WHAT IT CANNOT DO:
+#   * See unpushed work. A POLICY: the process publishes to the remote, so a leg working past
+#     the threshold without pushing is stalled from the process's point of view.
+#   * Tell a stall from a deliberate pause. It reports; a person decides.
+#   * Detect a GAMED signal (an empty commit, a heartbeat line). `liveness-watchdog.md` § 2:
+#     the signal must be a by-product of work, which no program can enforce.
 #
 # Usage:
 #   ./scripts/notify/stall.sh --quiet-minutes 90            # report; exit 3 if stalled
@@ -64,21 +51,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# THE THRESHOLD IS REQUIRED AND HAS NO DEFAULT, deliberately. `liveness-watchdog.md` § 2
-# says the threshold is relative to the run's DECLARED CADENCE, so a default here would be
-# this script inventing a cadence for a project it knows nothing about — and an alarm on a
-# borrowed number fires through every night and weekend until somebody mutes it.
+# THE THRESHOLD IS REQUIRED AND HAS NO DEFAULT: it is relative to the run's declared cadence
+# (`liveness-watchdog.md` § 2), which this script cannot know.
 [ -n "$QUIET_MINUTES" ] \
   || { echo "stall.sh: --quiet-minutes is required and has no default — the threshold belongs to your run's declared cadence, not to this script." >&2; usage >&2; exit 2; }
 case "$QUIET_MINUTES" in
   ''|*[!0-9]*) echo "stall.sh: --quiet-minutes must be a whole number of minutes (got '$QUIET_MINUTES')." >&2; exit 2 ;;
 esac
 
-# ── THE READ. `git ls-remote` rather than a local ref: a local tracking ref is only as
-#    fresh as the last fetch, so reading it would measure THIS machine's habits and report
-#    them as the project's. The refs come back as sha + name; each sha's committer date is
-#    then read from the object, which requires it to be present locally — so a fetch is
-#    attempted first and its failure is reported as UNKNOWN rather than as a stall.
+# ── THE READ: `git ls-remote`, not a local tracking ref, which is only as fresh as the last
+#    fetch. The dates come from the objects, so a fetch is attempted first; a failed read is
+#    UNKNOWN, never a stall.
 LS="$(git ls-remote --heads "$REMOTE" 2>&1)" || {
   echo "stall.sh: UNKNOWN — could not read '$REMOTE'. Unknown and alive are different answers, and this is the first: $(printf '%s' "$LS" | tr '\n' ' ' | cut -c1-200)" >&2
   exit 1
@@ -100,9 +83,8 @@ done <<EOF
 $LS
 EOF
 
-# ── INSTRUMENT CHECK: a walk that read no commit date would report "stalled" over nothing,
-#    which is the false-alarm that trains a reader to ignore the next one. Unknown, not
-#    stalled — and it NAMES the refs it could not read rather than reporting a bare failure.
+# ── INSTRUMENT CHECK: a walk that read no commit date is UNKNOWN, not stalled, and names the
+#    refs it could not read.
 if [ "$NEWEST" -eq 0 ]; then
   echo "stall.sh: UNKNOWN — '$REMOTE' has heads but no commit date could be read for any of them:$UNREAD. A fetch may have failed, or these refs are not present locally. Reporting unknown rather than stalled, because a walk that measured nothing is not evidence of silence." >&2
   exit 1
@@ -114,9 +96,8 @@ AGE=$(( NOW - NEWEST ))
 AGE_MIN=$(( AGE / 60 ))
 HEADS="$(printf '%s\n' "$LS" | grep -c 'refs/heads/' || true)"
 
-# THE SPAN IS PRINTED ON THE CLEARING BRANCH AS WELL AS THE COMPLAINING ONE
-# (doctrine/instruments.md § A.4): a clearance with no subject is read as covering whatever
-# the reader had in mind, and "moving" with no ref name beside it is exactly that.
+# THE SPAN IS PRINTED ON THE CLEARING BRANCH TOO (doctrine/instruments.md § A.4): an
+# all-clear with no subject reads as covering everything.
 SPAN="across $HEADS head(s) on '$REMOTE'; newest is '$NEWEST_REF'"
 [ -n "$UNREAD" ] && SPAN="$SPAN; NOT MEASURED — no commit date readable for:$UNREAD"
 

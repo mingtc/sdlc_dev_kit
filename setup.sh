@@ -43,20 +43,13 @@ EOF
 }
 
 KIT_ONLY=false
-# EVERY ARGUMENT IS INSPECTED, NOT JUST $1. This read `case "${1:-}"` and looked at the
-# first token only, so `./setup.sh --kit-only --nonsense` dropped the second silently and
-# exited 0 — an acceptance, with a success status, for a mistyped flag, in the file whose
-# own comment below claims the opposite discipline. A surplus token is the likeliest way a
-# flag gets mistyped, and it was the one case that could not be seen.
+# Every argument is inspected: a mistyped surplus flag must not pass silently with exit 0.
 while [ $# -gt 0 ]; do
 case "$1" in
   -h|--help)  usage; exit 0 ;;
   --kit-only) KIT_ONLY=true ;;
   "")         ;;
-  # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
-  # kit already told them apart in every script that has a `-*)` arm — these did not, so a
-  # mistyped flag was reported with the status a surplus word gets. Named in
-  # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+  # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
   -*)         printf 'ERROR: unknown option '"'"'%s'"'"'. See ./setup.sh --help.\n' "$1" >&2; exit 2 ;;
   *)          die "Unknown argument '$1'. See ./setup.sh --help." ;;
 esac
@@ -88,39 +81,16 @@ else
 fi
 
 # --- 1b. The board sanity check --------------------------------------------
-# The folder IS the status, so a missing folder is a missing status. Two headings
-# are read by scripts and are checked here for the same reason.
-# *That premise is unchanged and is why this check exists at all. What it does NOT settle
-# is the SEVERITY, and the split below is about severity only: a status the board has
-# always had is missing because the tree is broken; a status the kit added in a version
-# this tree has not upgraded to yet is missing because nobody has read the notes yet.
-# Both are missing statuses. Only the first is a defect in the tree in front of you.*
+# The folder IS the status, so a missing folder is a missing status. Two headings are read by
+# scripts and are checked here for the same reason.
 #
-# NAMED BOARD_FOLDERS, NOT STATUS_FOLDERS, and the distinction is the initializer's:
-# `history/` is NOT a status — it is where the log rotation puts what it archives —
-# but it must exist for the same reason the statuses must, so this list is the board's
-# DIRECTORIES. check-board.sh has its own STATUS_FOLDERS holding the statuses and
-# deliberately excluding history; calling this one by that name taught a SEVEN-COLUMN
-# board — the measured consequence, and the reason the rename happened: a reader who
-# takes this name at face value counts this list and believes the status set is one
-# member larger than it is, because `history/` is in here and is not a status. Two
-# different sets behind one name. This is an existence check only, so nothing here
-# behaved wrongly — the label did.
-#   *(SUPERSEDED ONLY IN ITS ARITHMETIC, never in its reason: this list has since grown
-#   `declined/`, so the wrong count the old name taught is no longer literally seven.
-#   The defect is the OFF-BY-history/ the shared name causes, which is invariant under
-#   the board growing; do not restate it as a digit that has to be chased again.)*
+# BOARD_FOLDERS, NOT STATUS_FOLDERS: these are the board's DIRECTORIES, and `history/` (where
+# the log rotation archives) is one of them but is not a status. Do not count this list as the
+# status set.
 BOARD_FOLDERS="todo in_progress dev_complete qa_complete blocked done declined history"
-# ADDED-LATER COLUMNS ARE A WARNING, NOT A FAILURE, and the split is the whole point of
-# this list being two. An existing adopter upgrades by READING (KIT-RELEASE-NOTES.md
-# § How to upgrade: "an upgrade is a read, not a run"), so every tree on an older kit
-# has a board without the newest column — and their board is not broken, it is one
-# `mkdir` behind. Hard-failing setup.sh there turns every routine fresh clone red on a
-# state the adopter has not been told to fix yet, and a red that everybody learns to
-# ignore is worse than no check. So: the ORIGINAL board is a failure when absent,
-# because a tree missing `todo/` is genuinely broken; a column the kit added later is a
-# warning THAT NAMES THE REMEDY. Move a name out of this list when its Action-required
-# item is old enough that no supported tree can still be missing it.
+# A COLUMN ADDED IN A LATER KIT VERSION IS A WARNING THAT NAMES THE REMEDY, NOT A FAILURE: an
+# adopter upgrades by reading the release notes, so an older tree is one `mkdir` behind, not
+# broken. Move a name out of this list once no supported tree can still be missing it.
 BOARD_FOLDERS_ADDED_LATER="declined"
 for f in $BOARD_FOLDERS; do
   if [ -d "$ROOT/progress/$f" ]; then

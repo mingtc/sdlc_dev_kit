@@ -2,40 +2,24 @@
 # KIT-CLASS: KIT — shared push-retry machinery for direct-to-trunk pushes.
 # See process/EXTRACTION.md.
 #
-# git_push_with_retry — fetch + rebase-onto-remote-tip + bounded retry, loud and
-# non-zero on failure. Built for a measured push race: a worker's hand-made trunk
-# commit (a progress.md/handoff append direct to the trunk, or the .kanban-wt
-# board-move commit) can lose a push race against a parallel landing and — with a
-# plain `git push`, no retry — die silently, its content surviving only in an
-# orphaned local commit. That cost one project a graft weeks later, which is why
-# this exists as machinery rather than as advice.
-#
-# This is the ONE definition — source this file from any script that pushes a
-# trunk commit (kanban-worktree.sh sources it for kwt_finalize; any other
-# worker-invoked script that commits direct to the trunk should source it too)
-# rather than re-implementing the retry loop.
+# git_push_with_retry — fetch + rebase-onto-remote-tip + bounded retry, loud and non-zero on
+# failure. A trunk commit that loses a push race to a parallel landing must not die silently
+# as an orphaned local commit. The ONE definition: any script that pushes a trunk commit
+# sources this rather than re-implementing the loop (kanban-worktree.sh does, for kwt_finalize).
 #
 # Hard constraints:
-#   - NEVER `git pull -q 2>/dev/null`. The recorded lesson is explicit: a
-#     diverged pull fails silently. Every fetch/push/rebase below is checked by
-#     its own exit code; nothing is swallowed.
-#   - A rebase that CONFLICTS does not resolve anything and does not loop: it
-#     aborts the rebase (restoring the pre-attempt HEAD), reports what a human
-#     must do, and returns non-zero. Silent conflict resolution on the trunk is
-#     worse than the race it would "fix".
-#   - Bounded retries — the bound is GIT_PUSH_RETRY_MAX below, stated in code,
-#     not tribal knowledge. The final failure NAMES the commits that did not
-#     land (`git log <remote>/<branch>..HEAD`) so they are reported, not
-#     discovered by grafting weeks later.
+#   - NEVER `git pull -q 2>/dev/null`: a diverged pull fails silently. Every fetch, push and
+#     rebase below is checked by its own exit code.
+#   - A CONFLICTING rebase is aborted, reported and returned non-zero: never resolved, never
+#     looped. Silent conflict resolution on the trunk is worse than the race.
+#   - Bounded by GIT_PUSH_RETRY_MAX. The final failure NAMES the commits that did not land.
 #
 # Usage:
 #   git_push_with_retry <repo_dir> <remote> <branch> [max_retries]
-# <repo_dir> is a working tree (or worktree) checked out with the commit(s) to
-# land already made locally on <branch>; <branch> is both the local and remote
-# branch name. Returns 0 once pushed; returns 1 (with the reason and the unlanded
-# commits printed to stderr) once the bound is exhausted, the initial fetch fails
-# outright (offline / remote unreachable — retrying a network that isn't there
-# wastes the bound), or a rebase conflicts.
+# <repo_dir> is a working tree (or worktree) with the commit(s) already made on <branch>, which
+# names both the local and remote branch. Returns 0 once pushed; 1 (reason and unlanded commits
+# on stderr) when the bound is exhausted, the initial fetch fails (offline: retrying wastes the
+# bound), or a rebase conflicts.
 GIT_PUSH_RETRY_MAX="${GIT_PUSH_RETRY_MAX:-5}"   # the bound — override only for tests.
 
 git_push_with_retry() {
@@ -71,11 +55,8 @@ git_push_with_retry() {
 
     if ! git -C "$repo" rebase "$remote/$branch" --quiet 2>/dev/null; then
       git -C "$repo" rebase --abort >/dev/null 2>&1 || true
-      # READ HEAD HERE, do not report the capture from before the loop. $pre_head is
-      # taken once at entry; if an earlier attempt's rebase SUCCEEDED and a later one
-      # conflicts, the abort returns HEAD to where THIS attempt began — not to
-      # $pre_head — and the message named a sha HEAD is no longer at. The list below
-      # is keyed on the same ref as the sentence above it, so the two cannot disagree.
+      # Read HEAD here, not $pre_head: after an earlier successful rebase, the abort returns
+      # HEAD to where THIS attempt began.
       local at_head; at_head="$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo "$pre_head")"
       {
         echo "Error: git_push_with_retry: rebase onto $remote/$branch CONFLICTED — stopping."
@@ -102,13 +83,10 @@ git_push_with_retry() {
   return 1
 }
 
-# git_report_ahead_behind <dir> <remote> <branch> — the "looks-pushed" check,
-# encoded rather than remembered. move-issue.sh / finish-pr.sh push THEIR OWN
-# board/squash commit via the kanban worktree; a hand-made trunk commit made
-# separately in the OPERATOR'S main checkout stays local, so a leg that did both
-# looks pushed once the board move succeeds. This reports the actual ahead/behind
-# state of <dir>'s checked-out <branch> vs <remote>/<branch> so that gap cannot go
-# unnoticed. Read-only: fetches, never resets or pushes.
+# git_report_ahead_behind <dir> <remote> <branch> — the "looks-pushed" check. A board move
+# pushes its own commit via the kanban worktree; a hand-made trunk commit in the OPERATOR'S
+# checkout stays local and looks pushed. Reports <dir>'s ahead/behind against <remote>/<branch>.
+# Read-only: fetches, never resets or pushes.
 git_report_ahead_behind() {
   local dir="$1" remote="$2" branch="$3"
   git -C "$dir" fetch "$remote" "$branch" --quiet 2>/dev/null || {
@@ -123,13 +101,7 @@ git_report_ahead_behind() {
     echo "Warning: '$dir' local $branch is ${ahead} commit(s) AHEAD of $remote/$branch and NOT pushed (the looks-pushed check)." >&2
     echo "         Push it: git -C '$dir' push $remote $branch" >&2
   else
-    # NAMES THE TREE IT READ, exactly as the warning branch above does. This
-    # branch used to print "nothing local left unpushed" with no subject, so a
-    # statement about ONE checkout read as a global clearance — and it was
-    # measured doing that beside a commit made in a DIFFERENT worktree that had
-    # not landed. The complaint was specific and the all-clear was vague, and an
-    # instrument specific in failure and vague in success errs only ever toward
-    # false confidence, because the vague half is where a reader stops.
+    # Names the tree it read: an all-clear without a subject reads as a global clearance.
     echo "Ahead/behind $remote/$branch in '$dir': ahead=${ahead:-0} behind=${behind:-0} — nothing local left unpushed THERE." >&2
   fi
 }

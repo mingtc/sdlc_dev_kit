@@ -321,10 +321,7 @@ case "$CMD" in
     # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION: a role the commit-msg hook rejects
     # would fail mid-operation, leaving the git mv and the Activity entry uncommitted in the
     # shared kanban worktree. Refusing here costs a re-run; at the hook, a reconciliation.
-    # This whitelist is a row of process/EXTRACTION.md § 2.4 "The role set".
-    # THE SET IS DERIVED, ONCE (scripts/lib/role-set.sh kit_role_resolve). The literal below is
-    # a STAMPED DEFAULT, used only when the authority is unreadable. It lives here, not in the
-    # library, because `kit-init --roles` stamps scripts/*.sh and never reaches scripts/lib/.
+    # Derived by lib/role-set.sh kit_role_resolve; this literal is only its stamped default (see there).
     ROLE_SET_DEFAULT='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
     if command -v kit_role_resolve >/dev/null 2>&1; then
       kit_role_resolve "$SCRIPT_DIR/.." "$ROLE_SET_DEFAULT"

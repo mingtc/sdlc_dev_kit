@@ -18,12 +18,9 @@
 #   • target is OUTSIDE the repo (scratchpad)→ allow (not our concern).
 #   • target is UNDER the repo, no role file → BLOCK (exit 2 + instructive stderr).
 #
-# A HAT DECLARATION IS SESSION STATE, NEVER REPOSITORY CONTENT
-# (process/contracts/role-gate.md § 2). `.claude/session-role` is gitignored by
-# kit-init.sh for a measured reason: tracked, it forks per branch, blocks a
-# boundary `git switch` with "local changes would be overwritten", and reaches a
-# landing gate as a merge conflict over a fact nobody was collaborating on. Four
-# agents paid for that in one twelve-hour transplant; one hit the conflict.
+# A HAT DECLARATION IS SESSION STATE, NEVER REPOSITORY CONTENT (process/contracts/role-gate.md
+# § 2): kit-init.sh gitignores `.claude/session-role`, because a tracked one forks per branch,
+# blocks a `git switch` and reaches the landing gate as a merge conflict.
 #
 # SAFETY: the "role file exists → allow" check runs FIRST and unconditionally, before
 # any payload parsing, so a parse bug can never lock out a session that HAS declared

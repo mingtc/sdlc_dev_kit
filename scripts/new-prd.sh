@@ -10,22 +10,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
-# Same rule and same reason as every other script carrying this block: no fallback
-# literal, and a missing or unsourceable seam is a refusal that names it. This script's
-# seam is PRD_PREFIX; the others' is ISSUE_PREFIX, and the rule is one rule.
-#
-# THE PHRASE ABOVE IS LOAD-BEARING AND IS DELIBERATELY IDENTICAL TO THE OTHER COPIES.
-# It carried the PLURAL form of this phrase (PREFIXES / HAVE) for as long as this
-# script has existed, and the census that finds every carrier matches the singular.
-# So this script, a carrier, was invisible to the instrument meant to find it, by one
-# character: the harness's config-seam case tested five consumers and claimed all of
-# them, and this one was the sixth.
-# The same block is in every script that grep returns — change one, change all.
+# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
+# This script's seam is PRD_PREFIX. The refusal sits below the usage arm.
 CONFIG="$ROOT/scripts/config.sh"
 
-# The mint-time re-head lives in one place now — scripts/lib/card-head.sh. The block that
-# used to sit here carried its own comment saying it would move "when that lib exists".
 CARDLIB="$ROOT/scripts/lib/card-head.sh"
 if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
   echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
@@ -44,27 +32,12 @@ usage() {
   echo "  -h, --help    this text (exit 0)."
 }
 
-# A LEADING '-' IS NEVER A NAME (process/contracts/issue-creation.md § 3). This
-# script is where the incident happened: `new-prd.sh --help` created
-# requirements/PRD-001---help.md, burning PRD-001's id, and printed "Created:".
-# --help exits 0; a dash-leading positional refuses with rc=2; an unknown option
-# refuses with rc=2 rather than being swallowed.
+# A leading '-' is never a name, and usage comes before the seam: as new-issue.sh states
+# (issue-creation.md § 3).
 case "${1:-}" in
   -h|--help)
-    # THE SEAM IS OPTIONAL HERE AND REQUIRED BELOW. issue-creation.md § 3: a usage
-    # request ALWAYS succeeds — including on the tree where the seam is gone, which is
-    # exactly where an operator needs the text. Sourcing it when present keeps the
-    # rendered PRD_PREFIX honest; its absence must not turn a usage request into a
-    # refusal. The REQUIRING guard moved below this arm for the same reason; it was
-    # above and made `--help` exit 1 on a seamless tree (the harness case caught it).
     [ -f "$CONFIG" ] && . "$CONFIG" || true
     usage; exit 0 ;;
-  # A LEADING '-' IS NEVER A NAME, and this arm sits beside --help ABOVE the seam for the
-  # same reason § 3 gives: the status for an unrecognised option is fixed at 2, and a caller
-  # scripting against the set cannot branch on a status that means 'unknown option' in one
-  # tree and 'seam missing' in another. It needs no option vocabulary — the leading token
-  # here is a <slug>, so a dash-leading token in THAT position is illegal whatever the list
-  # below says, which is what lets it sit this high without a second copy of the options.
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
       usage >&2
       exit 2 ;;
@@ -115,13 +88,11 @@ if [ ! -d "$DEST_DIR" ]; then
 fi
 
 SLUG="$1"
-# The short name's shape is declared in process/contracts/issue-creation.md § 5;
-# validate_slug (scripts/config.sh) implements it. No pattern here — one shape, one site.
+# The slug's shape is issue-creation.md § 5, implemented once by validate_slug in scripts/config.sh.
 validate_slug "$SLUG" || exit 2
 
-# Find the highest existing PRD-NNN, increment by 1. (PRDs are few and authored by
-# one role, so unlike issue ids this one number IS derived here rather than passed
-# in — process/contracts/id-minting.md § "Spaces and streams".)
+# PRD ids are derived here rather than passed in: PRDs are few and authored by one role
+# (process/contracts/id-minting.md § "Spaces and streams").
 LAST_NUM=$(find "$DEST_DIR" -maxdepth 1 -name "${PRD_PREFIX}-*.md" -type f 2>/dev/null \
   | sed -E "s@.*/${PRD_PREFIX}-0*([0-9]+)-.*@\\1@" \
   | sort -n | tail -1)
@@ -138,9 +109,8 @@ fi
 
 cp "$TEMPLATE" "$DEST"
 
-# Portable sed -i (BSD on macOS, GNU on Linux) via .bak then delete. Keyed on the
-# frontmatter KEY, not on the template's placeholder value, so a template edit
-# cannot make the substitution a silent no-op.
+# Keyed on the frontmatter KEY, not the template's placeholder value, so a template edit cannot
+# make the substitution a silent no-op.
 sed -i.bak \
   -e "s|^id: .*|id: ${ID}|" \
   -e "s|^created_at: YYYY-MM-DD|created_at: ${TODAY}|" \
@@ -148,25 +118,7 @@ sed -i.bak \
   "$DEST"
 rm -f "${DEST}.bak"
 
-# RE-HEAD THE CARD: the template's travel classification goes, its still-in-force instruction stays.
-# process/EXTRACTION.md § The marker and graduation: a minted card's class has become PROJECT at the
-# moment of minting, so the KIT-CLASS: marker is stripped. But that marker also carried a FILL
-# instruction still in force while the author fills the card, and the same manifest forbids an
-# instruction living inside a marker that will be removed — so this REPLACES the block rather than
-# deleting it. A blind delete would have taken the guidance with the classification, and nowhere
-# else in the kit states it.
-#
-# THE HEAD IS PREPENDED BY THE SHELL, NOT PASSED INTO awk. `awk -v x="$MULTILINE"` fails with
-# "newline in string" and awk then writes NOTHING — measured: the first version of this block
-# produced an EMPTY card. awk deletes the old block, printf writes the new head, cat appends the
-# rest; every step is POSIX and none of them carries a newline through an assignment.
-#
-# DUPLICATED ACROSS THE MINTING SCRIPTS ON PURPOSE, FOR NOW: they source no common file, and giving
-# them one is a structural change owned elsewhere. When that lib exists, this moves into it.
-# THE HEAD MUST NOT CONTAIN THE MARKER KEY, not even to deny it. The convention's own way to derive
-# what is classified is `grep -rl` for that key, so a card saying "no <key> marker" would be a false
-# POSITIVE in the one derivation the manifest recommends — and would redden the harness case that
-# asserts a minted card is unmarked. Measured: the first wording did exactly that.
+# Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$DEST" || exit 1
 
 echo "Created: $DEST"
