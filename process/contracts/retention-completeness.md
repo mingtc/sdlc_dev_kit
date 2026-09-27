@@ -79,13 +79,6 @@ authorized — both are owed to a slower, human verification this gate cannot pe
   is a blank. An adopter writes the hook in their own `githooks/` and owes the invariants above:
   a staged deletion under the retained area requires a same-change, path-naming ledger row; renames
   are exempt at any detection strength; a documented one-off bypass exists.
-- **This section used to name `scripts/githooks/pre-commit` as the reference implementation, and no
-  such file has ever shipped** — `githooks/` carries `applypatch-msg` and `commit-msg` only. The
-  hook was evidently real in the donor project and was lost in extraction while **both of its
-  citations survived**, in two different files, so the sheet went on promising a gate that fired
-  nowhere. Recorded rather than quietly corrected, because "a sheet citing a gate that no longer
-  exists" is a drift class the manual names, and this was an instance of it inside the contract
-  corpus itself. *(Ruled 2026-08-26: re-mark the sheet, do not write the hook.)*
 - [`../doctrine/retention.md`](../doctrine/retention.md) § A.5 — the reason this direction could
   not be an offline test and moves venue to this gate instead.
 - The human verification this gate defers to — that a ledger row's fetch-back actually works —

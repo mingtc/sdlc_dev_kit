@@ -178,5 +178,3 @@ checkout contract's problem, and a reimplementation may solve it any way it like
   SINGLE-OPERATOR-ONLY.** It exists for the case where you know the uncommitted state is your own
   half-applied move. In any run with a **second lane** — a parallel worker, an orchestrated
   tranche, a background job that also moves cards — passing it can destroy work you never saw.
-  Default behaviour (refuse, list, wait) is **unchanged** by this note: the sheet gained the
-  invariant after a real collision between two lanes; the implementation already honoured it.

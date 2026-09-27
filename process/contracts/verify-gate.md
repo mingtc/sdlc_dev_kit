@@ -163,8 +163,8 @@ there is one runner, one order and one summary* is the contract.
   *Why:* an item is whatever the runner takes — a path, a node id, a name filter — and only it can read one.
 - **Its exit status:** `0` green; `1` at least one check failed (whatever else happened); `2` the
   runner refused to run its table (empty or malformed, or an unknown argument); `3` nothing failed
-  and at least one check could not run. `3` is new beside the other three, and `1` keeps its
-  meaning, so a caller that asks only "zero or not" reads it exactly as before.
+  and at least one check could not run. Anything non-zero is red, so a caller asking only "zero or
+  not" is unaffected.
 - The kit's copy keeps the two halves apart: the gate set is a **declared table** near the top of
   the runner, and the floor's membership is a commented, readable list beside it — **with a
   second, also-empty seam next to it naming how this project ENUMERATES its guards as that command

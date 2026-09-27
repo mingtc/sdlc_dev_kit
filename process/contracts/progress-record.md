@@ -142,8 +142,7 @@ grep -rlE '^[[:space:]]*(echo|printf)([[:space:]]+-[A-Za-z]+)*[[:space:]]+"─�
 ```
 
 *Control the pattern before trusting its answer.* A looser match on the marker character alone
-returns most of the tree, because the same glyph rules the comment banners — the first derivation
-of this population did exactly that and had to be thrown away.
+returns most of the tree, because the same glyph rules the comment banners.
 
 Roles whose lifecycle is **enumerable in advance** — a numbered workflow:
 

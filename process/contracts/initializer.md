@@ -11,13 +11,10 @@ precondition the process depends on and then demonstrating each one working.
 - **It CONFIGURES; it does not copy the process in.** The list of what travels is authored in the
   manifest, and the initializer does not carry a second copy of it.
   *Why:* two copy-lists drift, and the executable one wins by accident.
-  **What follows from that, and § 3 says it again where it bites:** carrying no second copy of the
-  manifest, the tool cannot check against the manifest either. Its preflight is a **hand-listed
-  minimum** — the files without which nothing else can run — and not a manifest check.
-  *That premise was true while the manifest was prose, and it is superseded: the build now ships a
-  machine-readable one, `process/KIT-MANIFEST`, generated from the tree. Reading it is not carrying
-  a second copy, so the preflight uses it for exactly ONE question — is any shipped path on disk and
-  not tracked (§ 3). It still does not enforce presence from it, for the live reason § 3 gives.*
+  The build ships a machine-readable manifest, `process/KIT-MANIFEST`, generated from the tree;
+  reading it is not carrying a second copy. The preflight uses it for exactly ONE question — is any
+  shipped path on disk and not committed (§ 3) — and enforces presence only for a **hand-listed
+  minimum**, for the reason § 3 gives.
 - **It PROVES what it claims, by exercising it.** After configuring, it creates a throwaway work
   item, moves it, asks the drift report for a verdict, and forces a deliberately-invalid commit to
   be rejected.
@@ -71,9 +68,6 @@ precondition the process depends on and then demonstrating each one working.
   Reporting success on a partial result is the failure this whole step exists to prevent.
   *Why:* "created the board" is not the same claim as "created every declared container and
   counted them" — and the count is **derived from the declared set**, never a hand-typed digit.
-  *(This sentence carried two hand-typed digits of its own while forbidding them, and they went
-  false the first time the board grew a column. The point it makes is derivation-versus-digit and
-  it needs no number to make it.)*
 
 **The hooks path has TWO owners and one lifecycle, and every site that names it cites this row.**
 `core.hooksPath` is **per-clone git config** — it is not committed and does not travel. So
@@ -82,20 +76,14 @@ is also the only one of the two that can commit the hooks' **executable bit** so
 reaches every future clone. `setup.sh` re-wires and repairs it on **every fresh clone**, which is
 the only thing that can, because a clone starts with neither.
 
-*Stated because three shipped documents each named a different single owner, and each was right
-about its own half — a lifecycle described one stage at a time reads as a contradiction.*
-
 ## 3. REFUSAL CONDITIONS
 
 - Any file in the preflight's **hand-listed minimum** — the files without which nothing else can
   run — is missing ⇒ refuse, naming each one. **This is a minimum presence check, not a manifest
   check**, and the difference is not an oversight. *The live reason:* a shipped file the adopter
   deletes is theirs to delete, so presence is enforced only for the files without which nothing else
-  can run — a manifest-wide presence check would refuse every legitimate deletion. *(The original
-  reason is superseded and kept here because it was the reason: § 2 forbids the initializer carrying
-  a second copy of the manifest, and the manifest was prose in the extraction sheet, so there was
-  nothing machine-readable for a preflight to check against. The build now ships
-  `process/KIT-MANIFEST`; the next bullet reads it — for commitment, never for presence.)* **A file
+  can run — a manifest-wide presence check would refuse every legitimate deletion. The next bullet
+  reads `process/KIT-MANIFEST` for commitment, never for presence. **A file
   that travels but is not in the minimum is not caught here** — say so rather than implying a
   coverage the tool does not have.
 - A shipped path — per the shipped `process/KIT-MANIFEST` — is on disk but not committed ⇒ refuse,

@@ -14,13 +14,8 @@ reasons invariant 7 gives.
 ## 2. HARD INVARIANTS
 
 **One check per invariant below. Each is an invariant of the process, not a feature of a report; a
-reimplementation owes every one of them, in any presentation it likes.**
-
-*(This paragraph used to open "Six checks", and § 4 used to repeat the numeral. A seventh invariant
-was added and the count went false in two places at once — the exact shape
-[`../doctrine/staleness.md`](../doctrine/staleness.md) § C forbids. **The list below is the count**;
-the reason a number was there at all is preserved in § 4.1, which needs an expectation to detect a
-missing line against, and now derives it from this list instead of restating it.)*
+reimplementation owes every one of them, in any presentation it likes. The list below is the
+count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
 
 - **1 — Location agrees with the record.** For every live item, the state declared by its last
   activity entry is the state it is actually in.
@@ -296,12 +291,7 @@ missing line against, and now derives it from this list instead of restating it.
      silent and it does not pass by default. *This is the property that makes line-counting useless
      and the report trustworthy at the same time: output shape does not tell you which topology you
      are in, because the report says so in words instead.*
-   *Both bullets are measured, not reasoned: the reference implementation was RUN in a repository
-   with the mover's auxiliary worktree and in one without, and the set of lines it printed was
-   identical — the absent-home reading named the path it did not find. This paragraph previously
-   said "count the invariants in § 2 and expect that many", which is false against every run.*
-   **The reason a number was ever here is preserved:** § 4 needs something to detect a missing check
-   against. The list in § 2 is that something. Walk it.
+   § 4 needs something to detect a missing check against: the list in § 2. Walk it.
 2. Each line states a **count against its bound** where it has one, not an adjective, and names
    the span the count covers.
 3. Each line names **the source it read** — the published ref, or the working copy it inspected on
@@ -344,16 +334,15 @@ identifier gives and a timestamp does not.*
   home — in the shipped implementation **[f1]** the primary checkout's trunk ref and **[f2]** the
   board mover's auxiliary worktree — because invariant 6 requires the enumeration, not a fixed
   count of them.
-- **THE LETTERING RUNS PAST THE INVARIANTS, AND ONLY THE INVARIANT ARMS ARE CONTRACTED.** The
-  implementation carries further lettered sections — reports it finds worth printing that no
-  invariant here demands. *"In the order above" binds the arms that implement invariants 1-7; it
-  says nothing about where a later letter prints, and a reader who took it as a statement about the
-  whole file would read the extras as a contract breach.* **Derive both the letters and their order
+- **THE LETTERING RUNS PAST THE NUMBERED INVARIANTS.** § 2's unnumbered invariants are contracted
+  too, and their arms follow **[g]**; the implementation also carries lettered sections that
+  implement no § 2 invariant — reports it finds worth printing. *"In the order above" binds the arms
+  that implement invariants 1-7; it says nothing about where a later letter prints.* **Derive both the letters and their order
   from the file**, never from this sheet:
   `grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq`.
   Whatever it prints must be in letter order, once each, and must match the enumeration in that
   file's own header — that is the implementation's obligation to itself, not this sheet's to it.
-- **An arm that is not an invariant MUST NOT change the verdict.** That is the one thing this sheet
+- **An arm that implements no § 2 invariant MUST NOT change the verdict.** That is the one thing this sheet
   does bind about the extras, and it follows from § 2: the verdict answers *is the board drifting*,
   so a reading that is not a drift invariant may report and may never redden. A column of recorded
   refusals is the shipped example — its depth is not work left undone, so counting it has no
@@ -369,12 +358,12 @@ identifier gives and a timestamp does not.*
   seam with no mention here is the failure this bullet exists to prevent: § 4.1 walks § 2's list and
   confirms each invariant has a line, so an arm carrying no invariant is structurally invisible to
   it — the arm ships, runs and prints findings, and a report rebuilt from this sheet does not contain
-  it. That is how this arm shipped undocumented for two releases.*
+  it.*
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
   They bound the depth at which the reviewed-and-done column is due for a sweep, and the sizes at
   which the running log is due for rotation — its current section and the whole file being
   separately bounded. **Read them from the file** rather than from any document, and **read how
-  many there are from the file too**: this sheet once said *two* and the seam had grown a third.
+  many there are from the file too**.
   The **section**-size one is also the constant
   [`../doctrine/lookup-tables.md`](../doctrine/lookup-tables.md) § A.1 reuses for its index
   trigger, deliberately, so that one idea does not carry two numbers.

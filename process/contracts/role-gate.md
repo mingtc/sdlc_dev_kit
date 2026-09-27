@@ -58,10 +58,7 @@ hats, each for a reason it can name. So the hat for that window is a **declared 
     documented escape, which carries no hat;
   - code and tests, which carry the hat that writes them.
 
-  **The initializer's own commits are inside it**: it signs them with this hat (§ 6). They were
-  listed as a third exclusion while the initializer took its tag from the role set's first member
-  instead of from this seam; the reason for that exclusion — a commit that does not read the seam
-  cannot be said to wear its hat — is why the initializer now reads it.
+  **The initializer's own commits are inside it**: it signs them with this hat (§ 6).
 - **A departure — say which, and why.** A project that wears another hat records that hat, the span
   it covers, and the reason in `process/LOCAL-PROCEDURES.md` ([`../SEED.md`](../SEED.md) § Step 8's
   closing act). A project that takes the default records nothing.
@@ -116,9 +113,6 @@ declared, never that it was the right one.
   refuses, before writing anything, when that hat is not in the role set it will leave in force,
   naming the knob. A project that departs from § 2a's default sets the knob to the same hat it
   records.
-  *Why this is stated:* it used to take the tag from whichever role the declared set listed first.
-  That agreed with § 2a only when the first member happened to be the pre-role hat, and a tag chosen
-  by position records a seat nobody sat in — the derivation the kit's role-set library forbids for
-  every other script that commits as a seat.
+  *Why:* a tag chosen by position in the role set records a seat nobody sat in.
 - What the declaration's **content** looks like, and why the gate keys on existence rather than
   content, is [`../MANUAL.md`](../MANUAL.md) § Session start.

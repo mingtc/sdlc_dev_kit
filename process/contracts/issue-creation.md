@@ -59,9 +59,9 @@ state — so that every tool and every reader downstream can rely on the shape w
   operator's workspace, and their reason is untouched — creating a description of work is not
   starting it, and a script that published drafts nobody had read would break § 4.3. **But a
   creator whose file lands in the shared, trunk-pinned publication area is in a different
-  situation: that area is `reset --hard` by the next operation that touches it, so an unpublished
-  file there is not a draft being protected — it is a file about to be destroyed.** Inertness
-  there does not withhold publication; it loses the work.
+  situation: an unpublished file there is on no ref, invisible to every other lane, and — once
+  staged — it blocks the next board operation, which refuses to sync over it.** Inertness there
+  does not protect a draft; it strands one.
   So such a creator **publishes as part of creation**, and the carve-out is **contracted rather
   than tacit**: it names itself as the exception, states this reason, and the exception is scoped
   to *writing into the publication area* — not to a script, and not to a kind of item. A creator
@@ -110,39 +110,29 @@ state — so that every tool and every reader downstream can rely on the shape w
      here**, because the blank sends them to the seam and the guess sends them to a role their own
      tools will refuse.
 
-  *Why this is stated in the contract and not only in the library that implements it:* the defect
-  it prevents shipped once already: `move-issue.sh --help` advertised four roles its
-  own `--role` arm rejected on every tree that narrowed its role set, because the header carried a
-  second, space-padded copy that the initializer's matcher could not see). **The remedy was one
-  fewer copy, not a better matcher**, and the reason a rendered value is safe is only true while
-  the three rules above hold. A policy that lives in the renderer is a policy the next renderer
-  will not inherit.
+  *Why this is stated in the contract and not only in the library that implements it:* a rendered
+  value is safe only while the three rules above hold, and a policy that lives in the renderer is a
+  policy the next renderer will not inherit.
 - **An unrecognised option ⇒ refuse, non-zero, naming it** — never ignored, never treated as a
   positional value. **Refuse with ONE exit status across every script the kit ships**, and in this
   kit that status is **2**: a caller scripting against the set cannot branch on a status that means
   *unknown option* in one tool and something else in the next.
-  *The number is NAMED here, and it had to be — this clause used to say "whichever the project
-  picks" and then never picked, so every reading of the set had only a count to go on and the
-  paragraph below forbids reconciling to a count.* **2 is not the majority's value, it is the
-  PUBLISHED one:** `finish-pr.sh`'s exit table declares `2  Usage error (bad or unknown argument).
-  Nothing was read or touched.`, which is the only place the kit ever wrote down what a status
-  MEANS. The pick has an author and a reason rather than a tally.
+  **2 is not the majority's value, it is the PUBLISHED one:** `finish-pr.sh`'s exit table declares
+  `2  Usage error (bad or unknown argument). Nothing was read or touched.`, which is the only place
+  the kit writes down what a status MEANS.
   **A surplus POSITIONAL is a different class and keeps its own status** — the two are told apart by
   a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing it would be.
 
 - **`--dry-run` names PREVIEW, everywhere, and nothing else.** Wherever a tool can preview, that word
   is legal and means *change nothing* — including where previewing is already the default, in which
   case it is the explicit spelling of the default and is idempotent. **It must never mean *mutate*,
-  and where the tool CAN mutate it must never mean *unknown option*.**
+  and where the tool CAN PREVIEW it must never mean *unknown option*; a mutating tool that offers
+  no preview refuses it as unknown like any other flag.**
   **A TOOL THAT MUTATES NOTHING IS OUTSIDE THIS CLAUSE, and refusing the flag is correct there.**
   A read-only report has no preview to offer: every run of it is already a preview, so accepting
   `--dry-run` would teach the operator that the word carries meaning where it carries none, and the
   next tool they try it on may be one that mutates. The refusal should name the flag as unknown and
-  exit with the usage-error status like any other unrecognised option. *This bullet read as an
-  absolute, and shipped read-only tools answer `--dry-run` with `unknown option` — so either the
-  tools were in breach or the clause was. The scope gate in the first sentence was always the
-  operative half ("wherever a tool CAN preview"); this states the consequence the absolute denied,
-  so the two halves stop pointing opposite ways for a tool that cannot mutate.* **`--apply` is the opt-in for a tool whose default is to
+  exit with the usage-error status like any other unrecognised option. **`--apply` is the opt-in for a tool whose default is to
   preview**, and a tool that mutates by default does not have one: its refusal of `--apply` should
   say so and name the flag that does preview, because the operator arriving with the wrong word
   learned it from a sibling and a bare refusal teaches them nothing.
@@ -177,15 +167,10 @@ receive an option from a human or from a script a human wrote? If yes, it is bou
    not bound by is a CLI shape for a CLI they do not have.*
 2. **Sourced seams and shared internals** — `scripts/lib/`, `scripts/config.sh`. These are **dot-
    sourced** into another program, so they have no argument vector of their own; the behaviour they
-   carry is specified by the sheets of the scripts that call them. *The shell's sourcing operator is
-   written out as a word here on purpose: this line once spelled it as a backticked single dot, and
-   the self-test derives the exempt prefixes by reading the BACKTICKED PATHS in this block — so the
-   operator was harvested as a path, and a bare single-dot prefix matches every shipped file. The
-   exemption that is supposed to name three narrow classes silently exempted the entire tree, and
-   the coverage-shrink assertion below could not see it, because a single-dot prefix matches
-   plenty. **Nothing between these markers may put a non-path in backticks** — that is the rule the
-   derivation imposes on this block, and it is why this paragraph spells every operator as a word.* Executing one directly is a mistake, not
-   an interface.
+   carry is specified by the sheets of the scripts that call them. Executing one directly is a
+   mistake, not an interface. *The self-test derives the exempt prefixes from the BACKTICKED PATHS
+   in this block, so **nothing between these markers may put a non-path in backticks** — which is
+   why the sourcing operator is spelled as a word.*
 3. **Vendored upstream helpers** — `.claude/skills/`. Scripts inside a vendored skill directory are
    not ours to shape: an upstream re-copy would revert any change we made, which is the same reason
    their class lives in the skills README's provenance table rather than in an in-file marker.

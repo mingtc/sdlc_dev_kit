@@ -96,6 +96,4 @@ judgement about the change's content.
 - The single-definition invariant is why the set is held in **one** enforcing file and *derived*
   everywhere else rather than retyped. The places it appears are listed in
   [`../EXTRACTION.md`](../EXTRACTION.md) § 2.4 — **that table is the count** — and they change
-  together or not at all. *The enumeration that used to stand here named four of them and was one
-  short on the day it was written; a copy of a list is the thing this invariant exists to forbid,
-  and a sheet that keeps one is arguing against itself.*
+  together or not at all.

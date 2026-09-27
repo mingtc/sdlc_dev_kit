@@ -29,10 +29,7 @@ process is an edit rather than an excavation.
     initializer's `STAMP_MARK`. Making these `${NAME:-…}` would let the environment weaken a
     guard, which is a worse defect than the one this bullet exists to prevent.
 
-  *This bullet mandated the `"${NAME:-value}"` shape for everything and said it "binds every file
-  that holds such a declaration". Three shipped declarations did not have it and were right not to,
-  and every reader of them is anchored on the single-quote shape — so a file obeying the rule as
-  written would have emptied the derivations the rule exists to protect.* **What binds every file
+  **What binds every file
   is the INVARIANT, not one spelling: a declaration's shape is fixed, matched exactly by its
   readers, and never changed without changing them in the same commit.**
   *Why:* the bullet above says a copy must be derived or checked, and it does not say what the
@@ -42,13 +39,14 @@ process is an edit rather than an excavation.
   value would keep working perfectly while every derivation of it silently returned nothing. That
   is the whole hazard in one sentence: a change that is *semantically* a no-op is *textually* a
   break, and nothing about the edit looks dangerous.
-- **A derivation that comes back EMPTY refuses, naming the file it could not parse. It never
-  supplies its own second default.**
+- **A derivation that comes back EMPTY, or a script running with the seam unavailable, REFUSES —
+  naming the file it could not parse, or the seam. It never supplies its own second default.**
   *Why:* a fallback on the degraded path is the most expensive kind of silence — it converts
   "I could not read the declaration" into "the value is `main`", and everything downstream then
   runs correctly against something nobody declared. The refusal is what makes the shape rule
   enforceable at all: a shape that can only be violated *loudly* is a shape a reformat cannot
-  quietly break.
+  quietly break. If a fallback truly must exist, it is **one** shared fallback, in one place, and
+  it announces itself.
 - **A configured value is overridable for one invocation without editing anything.** The
   environment may supply it; the declared default applies otherwise.
   *Why:* trying a change should not require a commit, and a sandbox must be able to run the real
@@ -56,11 +54,6 @@ process is an edit rather than an excavation.
 - **NO donor-specific value is baked into anything that travels.** A file that travels unedited
   contains no adopter's name, prefix, trunk or paths.
   *Why:* every such literal is a trap the next adopter finds by failure rather than by reading.
-- **A DEGRADED path may not carry its own second default.** Where a script can run with the seam
-  unavailable, it **refuses and names the seam** — it does not fall back to a literal of its own.
-  *Why:* a defensive literal is invisible until the seam breaks, and then it silently targets the
-  wrong project. If a fallback truly must exist, it is **one** shared fallback, in one place, and
-  it announces itself.
 - **Changing a configured value takes effect at the next invocation and NEVER rewrites existing
   records.** History keeps the identifiers it was born with.
   *Why:* rewriting existing records to match a new setting invalidates every reference already

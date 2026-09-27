@@ -815,6 +815,11 @@ columns and never the cards.*
   commit); step 4 copies `process/KIT-FEEDBACK.md` from its skeleton; `README.md`'s *first published commit* variant ends
   with `git -C .kanban-wt reset --hard origin/<trunk>`, without which the next board command refused.
 
+- **`process/contracts/kanban-worktree.md` now says the sync never discards:** it refuses over uncommitted tracked changes (discarded
+  only on explicit instruction) and over unpublished commits, as `board-mover.md` and the scripts already did. `drift-report.md`
+  § 6: only an arm implementing no § 2 invariant must not change the verdict. `issue-creation.md`: a mutating tool with no
+  preview refuses `--dry-run` as an unknown option.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

@@ -189,16 +189,12 @@ observations.
 
 > One implementation, not the definition.
 
-- ~~This ritual is **a discipline, not a program** — this kit ships no watchdog binary, which
-  is precisely why its rules had to be written down here.~~
-  **SUPERSEDED, and the reason is kept because it is still true of the DURATION half.** That half
-  is a discipline: it is armed per run, keyed on whatever that run's own artifacts are, and no
-  shipped program could know what those are. **The ABSENCE half is not a discipline, and treating
-  it as one is what cost twenty-four hours.** Its signal is the same for every project running
-  this process — the remote's freshest ref — so it can be a program, and it is:
+- **The DURATION half is a discipline, not a program:** it is armed per run, keyed on whatever that
+  run's own artifacts are, and no shipped program could know what those are. **The ABSENCE half is
+  a program:** its signal is the same for every project running this process — the remote's
+  freshest ref — so it can be one, and it is:
   [`scripts/notify/stall.sh`](../../scripts/notify/stall.sh). *A gate beats a sentence wherever a
-  sentence can be replaced by one; this page had the sentence for months and the sentence was read,
-  agreed with, and scoped out.*
+  sentence can be replaced by one.*
 - [`../MANUAL.md`](../MANUAL.md) § Execution discipline, item 4 — the same discipline in the
   transferable manual; the adapter may restate it as project law.
 - Provenance: ratified after a run was reported healthy for hours on the strength of no news,

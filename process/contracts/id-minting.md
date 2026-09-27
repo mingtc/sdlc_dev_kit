@@ -10,10 +10,7 @@ thing.
 **Two identifier spaces, not one.** A **work item's** id is the obvious case and the one with a
 tool. A **register entry's** id — a decision record, a requirements register, anything whose
 entries carry handles that later text resolves through — is the second, and it is hand-minted, so
-the invariants below reach it while the tooling does not. This sheet used to say *"a work item's
-identifier"* while the concurrency invariant in § 2 was learned **from a register collision**: the
-evidence was already about the wider space. Widened rather than duplicated, because a second sheet
-would restate these invariants and the copy is the one that goes stale.
+the invariants below reach it while the tooling does not.
 
 ## 2. HARD INVARIANTS
 

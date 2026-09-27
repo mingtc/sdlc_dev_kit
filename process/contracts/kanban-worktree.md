@@ -30,17 +30,9 @@ how the *scripts* use it, never what an operator may not do in it. **An operator
 workspace.** Do not build in it, do not materialise files in it, do not `git checkout <ref> -- .`
 into it, and do not run a blanket `git add -A` there. Its HEAD **is** the trunk and its push target
 **is** the trunk, so anything present in that directory is one ordinary commit away from `main`, with
-no branch and no landing gate in between.
-
-*Measured, not hypothetical:* in one adopting project a trunk commit replaced the project `README.md`
-with a generated distribution page and added four release artifacts, a 44 KB wheel among them. The
-commit was made inside the auxiliary checkout — established from its own worktree reflog against the
-main checkout's — and every blob was byte-identical to a distribution branch. **The two routes in are
-worth knowing separately:** a blanket `add -A`, which the tool's own printed remedy used to suggest;
-and `git checkout <ref> -- .`, which writes the **index** as well as the working tree, so the payload
-is staged before any `add` is issued and a plain `git commit -m` carries it. *The second route is not
-guarded and cannot be — the guard is never consulted, because the operator commits by hand. Which is
-why this paragraph exists rather than another check.*
+no branch and no landing gate in between. `git checkout <ref> -- .` is the route to know: it writes
+the **index** as well as the working tree, so a plain `git commit -m` carries the payload, and no
+guard can see a commit the operator makes by hand.
 
 ## 2. HARD INVARIANTS
 
@@ -56,10 +48,13 @@ why this paragraph exists rather than another check.*
   starts each operation from the published state, never from whatever it held last time.
   *Why:* a stale publication area silently re-publishes an old tree and reverts other people's
   board changes.
-- **That synchronisation DISCARDS local state in the auxiliary checkout — so nothing durable may
-  ever be left there.** Every operation publishes what it commits before it returns.
-  *Why:* the next operation's reset is a scheduled deletion; anything left behind is lost, which
-  is why the drift report checks this specifically.
+- **That synchronisation RESETS the auxiliary checkout to the published trunk, and REFUSES first
+  over anything the reset would destroy** — uncommitted tracked changes (discarded only on an
+  explicit instruction) and unpublished commits (no opt-out). So nothing durable may be left
+  there: every operation publishes what it commits before it returns
+  ([`board-mover.md`](board-mover.md) § 2).
+  *Why:* that area is shared between lanes, so what is left there blocks the next operation and
+  may be another run's work; the drift report checks this specifically.
 - **Concurrent operations are serialized by a lock, and an abandoned lock is reclaimable.** The
   lock is acquired atomically; a stale one is detected by liveness, not by age alone.
   *Why:* a lock nobody can reclaim converts one crashed run into a permanently stuck board; a
@@ -86,6 +81,10 @@ why this paragraph exists rather than another check.*
   what to configure.
 - The lock cannot be acquired within its bound, and the holder is alive ⇒ refuse with the holder
   named. Waiting forever and stealing the lock are both worse.
+- The auxiliary checkout holds uncommitted tracked changes ⇒ refuse, naming them, unless the caller
+  explicitly asked for them to be discarded.
+- The auxiliary checkout holds commits not on the published trunk ⇒ refuse, naming them. There is no
+  opt-out: discarding a commit is a deliberate hand command.
 - The auxiliary checkout cannot be created or synchronised ⇒ refuse; do **not** fall back to the
   operator's workspace. The fallback is the one behaviour this contract exists to forbid.
 - The publication of a committed change fails, or the retry bound is exhausted, or a rebase

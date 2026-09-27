@@ -23,9 +23,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   and only one of them is the one you are shipping — so *something* must run at merge time. But
   requiring the full run **twice** buys a second copy of a verdict the review just produced, at a
   cost that gets the re-check deleted. **A sheet that demands the full run at both layers is a
-  sheet no adopter can satisfy**, which is how this one was found: an adopter building from the
-  contracts alone could not land at all, because the reference implementation ran the fast floor
-  while this section said "not a narrowed run".
+  sheet no adopter can satisfy.**
 - **The landing re-check may be a subset, but never NOTHING and never the caller's choice.** A
   project may name a bigger floor; it may not name an empty one.
   *Why:* "we already ran it on the branch" is the sentence that precedes every merged red trunk.
@@ -156,10 +154,7 @@ code-review object — the item's activity log **is** the review record.
 - `scripts/verify.sh` — the gate this kit hands it; contracted in
   [verify-gate.md](verify-gate.md), whose sheet describes the **kit half** of that MIXED file.
 - **The two layers, named concretely in the shipped implementation (§ 2's first invariant):** the
-  **review** gate is the boundary's step 3 — the reviewer runs the gate runner **unnarrowed** on the
-  branch. The **landing** re-check is the landing script running that same tracked gate in its
-  quick mode: the fast floor, chosen by the script and not by the caller. **The landing script was
-  NOT changed when this sheet was corrected** — the practice was sound and had run for months; what
-  was wrong was this sheet conflating the two layers into one demand no adopter could meet. *(Found
-  by a seed acceptance test; corrected by ruling. Supersession ethic: preserve the reason,
-  supersede the error.)*
+  **review** gate is [`../MANUAL.md`](../MANUAL.md) § The Dev → QA handoff, step 3 — the reviewer
+  runs the gate runner **unnarrowed** on the branch. The **landing** re-check is the landing script
+  running that same tracked gate in its quick mode: the fast floor, chosen by the script and not by
+  the caller.
