@@ -130,6 +130,7 @@ function recordLeg(label, reply) {
 }
 const legNotes = id => (legTrail[id] || []).slice()
 
+// Own COMMON lines (the rest must match wave-runner.js): 'Repository (' '- Board moves'
 const COMMON = `
 Repository (work here, absolute path): ${CFG.repo}
 Trunk branch: ${CFG.trunk}
@@ -167,8 +168,8 @@ const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
 
 // THE RUN-OUTCOME VOCABULARY: the runner's summary of one issue, composed from the QA verdict and
 // `landing` (LANDED and LAND_READY are both PASS). It projects process/MANUAL.md § The RUN-OUTCOME
-// vocabulary; the self-test holds each runner to that table and to its twin (no imports here, so
-// the copy is unavoidable). A new member must not encode a verdict the ratified table lacks.
+// vocabulary; the self-test holds each runner to that table and to its twin (no imports; a shared
+// child workflow carries data only and was declined, so each keeps its copy). A new member must not encode a verdict the ratified table lacks.
 const OUTCOME = Object.freeze({
   LANDED:                 'LANDED',                  // verdict PASS, landing landed / not_applicable
   LAND_READY:             'LAND_READY',              // verdict PASS, landing deferred — a SUCCESS

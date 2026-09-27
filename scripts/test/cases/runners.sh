@@ -94,8 +94,8 @@ _shipped_runners() {
   done
 }
 
-# THE TWO RUNNERS CARRY THEIR SCHEMAS BY HAND: the workflow runtime grants them no imports,
-# so the copies cannot be shared. This case holds their agreement.
+# THE TWO RUNNERS CARRY THEIR SCHEMAS BY HAND (no imports; a shared child workflow was declined).
+# This case holds their agreement.
 _schema_descriptions() {   # <runner file> -> "SCHEMA.field<TAB>description", sorted
   awk -v q="'" '
     /^const [A-Z_]+_SCHEMA = \{/ { s = $2; next }
@@ -216,6 +216,125 @@ EOF
 
   finish "the two shipped runners' run-outcome vocabularies agree with EACH OTHER and PROJECT the ratified table in process/MANUAL.md ($n token(s) per runner, $na ratified, $unused unused) — both arms, because an authority does not make two hand-copies agree and two hand-copies agreeing does not make either right"
   teardown
+}
+
+# =============================================================================
+# THE RUNNERS' TWIN CODE IS HELD IDENTICAL
+# =============================================================================
+# A shared module could carry data only (a child workflow returns no functions, and nesting is
+# one level), so the runners copy what they share, and this case holds the copies together:
+#   • each block below, anchor line through end line, identical once whole-line comments and
+#     blank lines are dropped (maintainer notes may differ; code may not);
+#   • COMMON line for line, except the lines each runner declares its own in the
+#     `// Own COMMON lines` comment above it. A declaration must name exactly one line its
+#     twin lacks, so a stale or over-broad one reds instead of exempting a shared line;
+#   • every CFG key both runners define, default for default. A key one runner alone defines is
+#     one only that runner reads (the wave's worktree bootstrap).
+# The guarded parse is not held: its message names the runner and its args shape by design.
+_TWIN_BLOCKS='provision()|^const DEFAULT_MODEL =|^}
+leg() and the leg-notes trail|^const LEG_THREW =|^const legNotes =
+DEV_SCHEMA|^const DEV_SCHEMA =|^}
+the verdict and outcome vocabulary through devAnswered|^const VERDICTS =|^const devAnswered =
+QA_SCHEMA|^const QA_SCHEMA =|^}
+PARK_SCHEMA|^const PARK_SCHEMA =|^}
+gatesOf()|^function gatesOf[(]|^}'
+
+# <file> <start ERE> <end ERE>: the start line through the first LATER line matching end.
+# Exits 3 when either anchor is missing, so a lost anchor is never an empty match.
+_twin_block() {
+  awk -v s="$2" -v e="$3" '
+    !on && $0 ~ s        { on = 1; first = NR }
+    !on                  { next }
+    !/^[[:space:]]*(\/\/.*)?$/ { print }
+    NR > first && $0 ~ e { closed = 1; exit }
+    END                  { if (!closed) exit 3 }
+  ' "$1"
+}
+_common_lines() { awk '/^const COMMON = `$/ { on = 1; next } on && /^`$/ { exit } on' "$1"; }
+_own_common()   { sed -n 's#^// Own COMMON lines[^:]*: ##p' "$1" | grep -oE "'[^']+'" | sed "s/^'//; s/'\$//"; }
+_cfg_defaults() {   # key: default, comments and alignment dropped
+  awk '/^const CFG = \{/ { on = 1; next } on && /^\}/ { exit } on' "$1" \
+    | grep -v '^[[:space:]]*//' | sed 's#[[:space:]]*//.*$##; s/[[:space:]][[:space:]]*/ /g; s/^ //'
+}
+
+case_runner_twin_code_is_identical() {
+  cf_reset
+  local f w="" t="" found=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    found=$(( found + 1 ))
+    case "$(basename "$f")" in wave-runner.js) w="$f" ;; tranche-runner.js) t="$f" ;; esac
+  done <<EOF
+$(_shipped_runners)
+EOF
+  if [ "$found" -ne 2 ] || [ -z "$w" ] || [ -z "$t" ]; then
+    cf "expected wave-runner.js and tranche-runner.js, found $found runner(s) -- parity needs both operands"
+    finish "the runners' twin code is identical"
+    return
+  fi
+
+  # ── THE BLOCKS ─────────────────────────────────────────────────────────────
+  local name s e a b nb=0 nl=0
+  while IFS='|' read -r name s e; do
+    a="$(_twin_block "$w" "$s" "$e")" || { cf "wave-runner.js: $name's anchors ($s … $e) no longer match -- re-anchor this case"; continue; }
+    b="$(_twin_block "$t" "$s" "$e")" || { cf "tranche-runner.js: $name's anchors ($s … $e) no longer match -- re-anchor this case"; continue; }
+    nb=$(( nb + 1 )); nl=$(( nl + $(printf '%s\n' "$a" | wc -l) ))
+    [ "$a" = "$b" ] \
+      || cf "$name differs between the runners (< wave, > tranche): $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b") | grep '^[<>]' | sed -n '1,4p' | cut -c1-140 | tr '\n' ' ')"
+  done <<EOF
+$_TWIN_BLOCKS
+EOF
+  # CONTROL: one character changed in a copy's gatesOf must change the extraction.
+  [ "$(_twin_block <(sed 's/the suite alone is the bar/the suite alone is the baR/' "$t") '^function gatesOf[(]' '^}')" \
+    != "$(_twin_block "$t" '^function gatesOf[(]' '^}')" ] \
+    || cf "(control) a one-character edit to gatesOf did not change the extracted block -- the block comparison cannot bite"
+
+  # ── COMMON ─────────────────────────────────────────────────────────────────
+  local cw ct side own twin lab tlab p line n rest rest_w="" rest_t=""
+  cw="$(_common_lines "$w")"; ct="$(_common_lines "$t")"
+  for side in wave tranche; do
+    if [ "$side" = wave ]; then f="$w"; own="$cw"; twin="$ct"; lab=wave-runner.js; tlab=tranche-runner.js
+    else f="$t"; own="$ct"; twin="$cw"; lab=tranche-runner.js; tlab=wave-runner.js; fi
+    rest="$own"
+    while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      line="$(printf '%s\n' "$own" | P="$p" awk 'index($0, ENVIRON["P"]) == 1')"
+      n="$(printf '%s' "$line" | grep -c '^' || true)"
+      if [ "$n" -eq 0 ]; then
+        cf "$lab declares '$p' an own COMMON line and its COMMON has no such line -- drop the stale declaration"
+      elif [ "$n" -gt 1 ]; then
+        cf "$lab's own-line declaration '$p' matches $n COMMON lines -- a declaration names one line"
+      elif printf '%s\n' "$twin" | grep -xF -- "$line" >/dev/null; then
+        cf "$lab declares '$p' its own, and $tlab's COMMON has that line too -- it is shared, so drop the declaration"
+      fi
+      rest="$(printf '%s\n' "$rest" | P="$p" awk 'index($0, ENVIRON["P"]) != 1')"
+    done < <(_own_common "$f")
+    if [ "$side" = wave ]; then rest_w="$rest"; else rest_t="$rest"; fi
+  done
+  local ns; ns="$(printf '%s\n' "$rest_w" | grep -c . || true)"
+  [ "$ns" -ge 8 ] \
+    || cf "only $ns shared COMMON line(s) extracted -- the extractor stopped matching, or the declarations swallowed the block"
+  [ "$rest_w" = "$rest_t" ] \
+    || cf "COMMON differs in a line neither runner declares its own (< wave, > tranche) -- make them match, or declare it in the '// Own COMMON lines' comment: $(diff <(printf '%s\n' "$rest_w") <(printf '%s\n' "$rest_t") | grep '^[<>]' | sed -n '1,4p' | cut -c1-140 | tr '\n' ' ')"
+
+  # ── CFG DEFAULTS ───────────────────────────────────────────────────────────
+  local dw dt k ks=0 solo=""
+  dw="$(_cfg_defaults "$w")"; dt="$(_cfg_defaults "$t")"
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    if printf '%s\n' "$dt" | grep "^$k:" >/dev/null; then
+      ks=$(( ks + 1 ))
+      [ "$(printf '%s\n' "$dw" | grep "^$k:")" = "$(printf '%s\n' "$dt" | grep "^$k:")" ] \
+        || cf "CFG.$k's default differs: wave '$(printf '%s\n' "$dw" | grep "^$k:")' vs tranche '$(printf '%s\n' "$dt" | grep "^$k:")'"
+    else solo="$solo wave:$k"; fi
+  done < <(printf '%s\n' "$dw" | sed -n 's/^\([A-Za-z_]*\):.*/\1/p')
+  for k in $(printf '%s\n' "$dt" | sed -n 's/^\([A-Za-z_]*\):.*/\1/p'); do
+    printf '%s\n' "$dw" | grep "^$k:" >/dev/null || solo="$solo tranche:$k"
+  done
+  [ "$ks" -ge 8 ] \
+    || cf "only $ks shared CFG key(s) extracted -- the extractor stopped matching"
+
+  finish "the runners' twin code is identical: $nb block(s) ($nl line(s)), $ns shared COMMON line(s) with each runner's own lines declared, $ks shared CFG default(s) (one runner only:${solo:- none})"
 }
 
 # =============================================================================

@@ -503,7 +503,8 @@ so a PASS/landed issue can say what it learned, was lost on the one outcome it w
 leg that threw or returned nothing adds no entry; the legs before it keep theirs.
 
 **Why this needed ratifying rather than living in the runners.** The orchestration runtime grants
-those files no imports, so the vocabulary is **unavoidably hand-copied** into each one. A guard can
+those files no imports (a child workflow can pass data, at a cost the kit declines), so the vocabulary
+is **hand-copied** into each one. A guard can
 hold the copies equal to each other, and that is worth having — but two copies agreeing is not the
 same as either being right, and a pair that drifts together drifts silently. An authority outside
 both is the only thing that makes the guard a *pin* rather than a *comparison*.

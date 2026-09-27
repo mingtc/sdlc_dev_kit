@@ -634,6 +634,10 @@ columns and never the cards.*
   the rule's key sentence or an unlisted shipped file gains it. **Nothing to do** unless you reworded a listed
   copy — the case names it.
 
+- **The self-test holds the two workflow runners' shared code identical**; each runner's `// Own COMMON lines` comment
+  declares the brief lines only it has. **Nothing to do** unless you changed one runner's shared code alone — the new
+  case names the difference.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

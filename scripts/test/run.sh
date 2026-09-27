@@ -266,6 +266,7 @@ CASES=(
   case_runner_schema_required_defines
   case_runner_schemas_agree
   case_runner_outcome_vocabulary_agrees
+  case_runner_twin_code_is_identical
   case_runner_goldenpaths_empty_skips
   case_minted_card_is_unmarked
   case_shipped_runners_parse
