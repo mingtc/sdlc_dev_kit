@@ -105,7 +105,7 @@ last is why the run is worth having at all:
 - **It reads the landed commit** — not whichever checkout ran the landing re-check. § 2 binds that
   checkout to the **branch tip**, which is right before the merge and wrong after it: a post-merge run
   that reads it where it stands reads the branch, and its green is about a tree that did not ship
-  (the reference implementation once did; `scripts/finish-pr.sh`'s post-merge block has the account).
+  (`scripts/finish-pr.sh`'s post-merge block says how it chooses the tree).
   *"The landed commit"* means its **tracked** content: a reading taken in a prepared checkout
   carries that checkout's untracked and ignored files — its installed dependencies — and they are
   part of what was read. **If it cannot read the landed commit, it says so in its own word** —

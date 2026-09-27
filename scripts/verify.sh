@@ -3,9 +3,8 @@
 # KIT-DISPOSITION: FILL — the GATES table ships empty and is not done until it holds your gates.
 # scripts/verify.sh — the one-shot quality-gate runner.
 #
-# THE SINGLE INVOCATION. Every role and every agent runs THIS, never a command
-# re-derived from prose. That is the whole point: "no role re-derives commands
-# from docs" is only true if there is exactly one command to run.
+# THE SINGLE INVOCATION. Every role and every agent runs THIS, never a command re-derived from
+# prose.
 #
 #   ./scripts/verify.sh                 # every gate, in the declared order
 #   ./scripts/verify.sh --quick         # skip the gates classed `full` (fast sanity gate)
@@ -19,25 +18,17 @@
 #   3  RED, UNKNOWN: nothing failed, and at least one gate COULD NOT RUN
 # Anything non-zero is red, so a caller that asks only "green or not" is unaffected.
 #
-# --scope is for the TDD INNER LOOP ONLY. The FULL run stays mandatory at the
-# dev_complete handoff, at QA, and at release — coverage is never cut and the guard
-# floor is never skipped. There is NO flag, env var or argument combination that
-# runs a scoped selection without the floor: a scoped run that could skip the
-# cross-cutting guards would let a change sail past the very tests designed to
-# catch it from a distance.
+# --scope is for the TDD INNER LOOP ONLY. The FULL run stays mandatory at the dev_complete
+# handoff, at QA, and at release. No flag, env var or argument combination runs a scoped
+# selection without the guard floor.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# THIS FILE SHIPS WITH AN EMPTY GATE TABLE, AND IT REFUSES TO RUN UNTIL YOU FILL
-# IT IN. That refusal is deliberate. A runner that reports a green summary with
-# zero gates is worse than no runner: finish-pr.sh treats a green
-# `verify.sh --quick` as a landing precondition, so an empty-but-passing gate
-# runner would silently authorise every landing in the project. Declare your
-# gates below, or let the initializer write the first record for you:
+# THIS FILE SHIPS WITH AN EMPTY GATE TABLE AND REFUSES TO RUN UNTIL YOU FILL IT IN: finish-pr.sh
+# treats a green `verify.sh --quick` as a landing precondition, so an empty-but-green runner
+# would authorise every landing. Declare your gates below, or, ON A FRESH REPO ONLY, let the
+# initializer write the first record (it fills THIS table while it is empty):
 #   ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command "<your test command>"
-#   ON A FRESH REPO ONLY — kit-init REFUSES a repository that has already lived (a board
-#   with cards, a progress.md § Log with entries). On a tree that has, add the gate record
-#   to the GATES table by hand instead; the refusal names what it found.
-# (it fills THIS table while it is empty; it never touches a declared one).
+# kit-init REFUSES a repository that has already lived; there, add the record to GATES by hand.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -47,18 +38,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # `${BASH_SOURCE[0]}` stops resolving the moment the working directory moves.
 VERIFY_SRC="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 
-# GUARDED, UNLIKE ITS SIBLINGS, AND THE REASON IS ONE MISSING LETTER: this script runs
-# `set -uo pipefail` and NOT `set -e`. An unguarded `.` of a missing library prints an
-# error and CARRIES ON, so `--help` would then die at `kit_usage: command not found`
-# with rc=127 — a usage request failing, which contracts/issue-creation.md § 3 forbids
-# by name. The fallback keeps that promise with no library at all.
+# GUARDED, unlike its siblings: this script has no `set -e`, so an unguarded `.` of a missing
+# library carries on, and --help would then fail at `kit_usage: command not found`.
 # shellcheck source=lib/usage.sh
 if [ ! -f "$SCRIPT_DIR/lib/usage.sh" ] || ! . "$SCRIPT_DIR/lib/usage.sh" \
    || ! command -v kit_usage >/dev/null 2>&1; then
-  # THE FALLBACK DOES NOT RE-IMPLEMENT THE RENDERER, and that is deliberate: a copy of
-  # the awk-and-sed window here would be a second authoring site for the rule, which is
-  # the whole defect being closed. It only has to keep the promise that a usage request
-  # SUCCEEDS. So it prints a minimal synopsis and says loudly why the help is degraded.
+  # A minimal synopsis only: a copy of the renderer here would be a second authoring site.
   kit_usage() {
     echo "usage: verify.sh [--quick] [--scope <items…>] [--list] [--help]"
     echo "(scripts/lib/usage.sh could not be loaded, so the full header could not be"
@@ -66,15 +51,8 @@ if [ ! -f "$SCRIPT_DIR/lib/usage.sh" ] || ! . "$SCRIPT_DIR/lib/usage.sh" \
   }
 fi
 
-# ── THE PROGRESS RECORD — OPTIONAL, AND OPTIONAL IS THE CONTRACT, NOT A HEDGE.
-#    This runner's phases already print to stdout; the record is the half that
-#    survives the scrollback. `process/contracts/progress-record.md` is the sheet.
-#
-#    THE STUB IS WHY THIS IS NOT A DEPENDENCY. If the library is absent — a partial
-#    checkout, a consumer who deleted it — every call below becomes a no-op and the
-#    gates run exactly as they did before. NOTHING here may change a gate's verdict,
-#    this script's exit status, or its summary block, and nothing does: kit_progress
-#    always returns 0 and is never read.
+# ── THE PROGRESS RECORD (process/contracts/progress-record.md) — OPTIONAL. Without the library
+#    every call is a no-op; kit_progress never changes a verdict, the exit status or the summary.
 # shellcheck source=lib/progress-record.sh
 if [ ! -f "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progress-record.sh" \
    || ! command -v kit_progress >/dev/null 2>&1; then
@@ -105,132 +83,48 @@ cd "$REPO_ROOT"
 #              Quote nothing here; if you need shell syntax, put it in a script
 #              and name the script.
 #
-# THE ORDER IS FIXED AND IS THE ORDER OF THIS ARRAY. Cheapest-and-most-likely-to-
-# fail first: a role that has to wait ten minutes to learn a typo broke the build
-# stops running the gate at all.
+# THE ORDER IS FIXED AND IS THE ORDER OF THIS ARRAY: cheapest and most likely to fail first.
 #
-# A GATE MUST PRINT WHAT IT RAN. Hard-won: this runner once passed a redundant
-# quiet flag to a test runner that already had one in its own config; the two
-# stacked, the summary count line vanished, and the canonical gate reported the
-# suite it had just run WITHOUT EVER PRINTING A NUMBER — so every count quoted in
-# every review came from a separate, unrecorded invocation. Own the verbosity in
-# ONE place (your test runner's config, or here — never both) and make sure a
-# green run still shows how much it ran.
+# A GATE MUST PRINT WHAT IT RAN, so a green run still shows how much ran. Own the test runner's
+# verbosity in ONE place (its config, or here — never both: stacked quiet flags hide the count).
 GATES=(
   # ── EMPTY ON PURPOSE. See the refusal note in the header. ──
   #
-  # A WORKED EXAMPLE, from an anonymized donor project (a library with a test
-  # suite and a packaged artifact). Two gates, in this order:
+  # A worked example, for a library with a test suite and a packaged artifact:
   #
   #   "tests|select|<interpreter> -m <test-runner>"
   #   "artifact build|full|<interpreter> -m <build-tool> --outdir dist"
   #
-  # Why that split: the suite is `select` because the test runner accepts a list
-  # of files/ids as trailing arguments, which is what makes --scope possible at
-  # all; the artifact build is `full` because it proves the *package* still
-  # assembles — a question no scoped selection can answer, and one nobody needs
-  # answered ten times an hour during a TDD loop.
+  # The suite is `select` because its runner takes files/ids as trailing arguments, which is what
+  # makes --scope possible; the build is `full` because no scoped selection can prove the package
+  # assembles.
 )
 
 # ── THE GUARD SET — the always-on floor of a --scope run. ────────────────────
-# WHAT BELONGS IN IT (the inclusion rule, one sentence): a test whose subject is a
-# CROSS-CUTTING DRIFT GUARD — it holds a hand-maintained or generated artifact (a
-# capability matrix, a generated projection, the front-door docs, a registry's
-# completeness) against real code ELSEWHERE in the tree, so it reddens for a
-# change made somewhere else. That is exactly the class of failure a scoped run
-# would otherwise miss, which is why membership here is not optional and no flag
-# disables it.
+# WHAT BELONGS IN IT: a CROSS-CUTTING DRIFT GUARD — a test that holds an artifact (a capability
+# matrix, a generated projection, the front-door docs, a registry's completeness) against code
+# ELSEWHERE in the tree, so it reddens for a change made somewhere else. A scoped run would
+# otherwise miss exactly that.
+# WHAT DOES NOT: a test of one surface's own behaviour; the Dev's --scope selection covers it.
+# WHO UPDATES IT: whoever adds or renames a cross-cutting guard, IN THE SAME CHANGE — the
+# executable-declaration case of the metadata carve-out (process/doctrine/commit-hygiene.md § A.5).
 #
-# WHAT DOES NOT: a test of one surface's own behavior, however important — those
-# redden for a change made in the file under test, so the Dev's own --scope
-# selection already covers them.
-#
-# WHO UPDATES IT: whoever adds or renames a cross-cutting guard, IN THE SAME
-# CHANGE — the guard and its enrolment here are one coupled set. Your code globs
-# classify this file as metadata while the file it guards is code, so this is the
-# EXECUTABLE-DECLARATION case of the adapter's metadata carve-out.
-# (process/doctrine/commit-hygiene.md § A.5, which now NAMES that case beside the
-# documentation-of-code one — this comment used to have to argue the rule covered it,
-# and a site that has to argue that is reporting a gap in the rule, not in itself.)
-#
-# WHAT THE CHECK BELOW ENFORCES, AND WHAT IT CANNOT — both, because only one of
-# them is obvious. It refuses a scoped run when a LISTED path has vanished, so a
-# rename or a deletion that forgets this list fails loudly. It CANNOT see the
-# other direction on its own: a guard that lands and is never enrolled is invisible
-# to a list, because this list is the only thing that check reads, and a list is its
-# own horizon.
-#
-# SUPERSEDED, CONCLUSION ONLY: "and nothing in this file reports it" was true when
-# written and is now false. GUARD_ENUM below supplies the SPACE the list is reconciled
-# against, and the scoped run refuses on a difference in EITHER direction, ONE AT A
-# TIME: both differences are computed, the first non-empty one refuses, and the other
-# is not named until that one is fixed. The reason above is untouched and still holds
-# — a list cannot see past itself, which is WHY a second, independent enumeration had
-# to be added rather than the list made cleverer.
-#
-# The membership is READABLE HERE, without running anything — that is the point of
-# a list rather than a marker scattered across the modules or a glob over names
-# containing "guard". That readability is why the enumerator is a SECOND knob and not a
-# replacement: the list stays checkable by eye, and the enumerator supplies what it is
-# checked against — two authorities, deliberately, because one cannot audit itself.
-#
-# WHERE THIS SITS ON THE HAND-KEPT-TABLE LADDER depends on whether GUARD_ENUM is set,
-# and both answers are legitimate (process/doctrine/lookup-tables.md § A.5):
-#   • GUARD_ENUM DECLARED  → RANK 3: hand-kept, held complete in BOTH directions by a
-#     guard. The list is the declaration, the enumeration is the space, and the run
-#     refuses on a difference either way. RANK 3 IS EARNED BY THE RUN, NOT BY THE KNOB:
-#     an enumerator that returns nothing reconciles nothing, however correctly it is
-#     declared, and the run says so instead of reporting a clean floor.
-#   • GUARD_ENUM UNSET     → RANK 4: hand-kept, one direction guarded — tolerated only
-#     with a named reason in-file, and § A.5 requires that reason to name the UNGUARDED
-#     direction. The run's own NOTE is that reason, printed rather than filed: it says
-#     the unenrolled direction was not checked, so the blind direction is stated at the
-#     moment it applies rather than discovered later.
+# The list stays READABLE here without running anything. A scoped run refuses on a listed path
+# that has vanished; a guard that was never listed is visible only through GUARD_ENUM below.
+# Ladder rank (process/doctrine/lookup-tables.md § A.5): GUARD_ENUM set and seeing something is
+# RANK 3, both directions guarded; unset is RANK 4, and the run's NOTE names the unguarded direction.
 GUARD_SET=(
   # e.g. tests/test_docs_matrix_drift.<ext>
 )
 
-# THE ENUMERATION AUTHORITY — how this project lists its guards AS THE ENUMERATOR SEES
-# THEM. Shipped EMPTY, like GUARD_SET above; with both seams empty a run takes the
-# unset arm and says the second direction was never checked.
-#
-# WHAT A RUN DOES WITH IT turns on two things: whether the seam is SET, and what the
-# enumeration then did — saw something, saw nothing, or failed to run. **Every outcome
-# names itself in the run's own output, so THE RUN IS THE LIST**; do not keep a count
-# of them here, and do not trust one kept anywhere else.
-#   • A GREEN is earned by exactly one combination: set, the enumeration saw
-#     something, and there is no difference in either direction.
-#   • Everything else is either a REFUSAL that names its cause and the guards it
-#     found, or a NOTE that says nothing was measured — and a NOTE is never a pass.
-# *Written this way deliberately: four repairs to this block each replaced one closed
-# set of outcomes with another, and each new list was outrun by the next arm added.*
-#
-# WHY BOTH DIRECTIONS, AND WHY A LIST ALONE CANNOT DO IT. The existence check below
-# walks GUARD_SET and refuses on a path that has vanished — declared-but-absent. The
-# other direction is the one that bites: a guard that LANDS IN THE TREE and is never
-# added to the list changes neither the count nor the note, so nothing is red, nothing
-# is loud, and every scoped run afterwards reports a floor exactly as complete as
-# somebody's memory. The difference between the declared set and the real space is the
-# only place that defect lives, and it lives in both directions.
-#
-# THE DECLARED LIST STAYS READABLE — that is deliberate and is why this is a second
-# knob rather than a replacement. GUARD_SET remains a commented list a reader can
-# check without running anything; this command supplies the SPACE to reconcile it
-# against. The kit owns where the frame looks; the project owns what is in the list.
-#
-# TWO ASYMMETRIES WITH THE SEAMS ABOVE IT — with GATES on execution, with GUARD_SET on
-# comparison — both worth knowing before setting it:
-#   • THIS VALUE IS EXECUTED. The GATES table says to quote nothing and is PARSED,
-#     never evaluated; this is `eval`-ed, so it is the file's first EVAL-ED surface —
-#     the gate commands run too, but they are executed as parsed words, never as text
-#     the shell re-reads. Put a command here, not a value, and treat it as you would
-#     any other line the runner will run.
-#   • ITS OUTPUT IS COMPARED AS LITERAL STRINGS to the entries in GUARD_SET, with no
-#     path normalisation. `find . -name …` yields `./tests/x` and will NOT match a
-#     GUARD_SET entry written `tests/x`. With a populated list every DECLARED guard then
-#     reads as UNSEEN by the enumeration; with an empty one every path found reads as
-#     UNENROLLED. Same mismatch, opposite arm, depending on which side has entries.
-#     Emit the same shape the list uses; `git ls-files` already does.
+# THE ENUMERATION AUTHORITY — a command listing this project's guards, reconciled against
+# GUARD_SET in BOTH directions (declared but unseen; seen but unenrolled). Shipped EMPTY.
+# One outcome is green: set, it saw something, and no difference either way. Every other outcome
+# is a REFUSAL naming its cause or a NOTE saying nothing was measured, and the run prints which —
+# do not keep a list of outcomes here.
+#   • THIS VALUE IS `eval`-ED. Put a command here, and treat it as a line the runner will run.
+#   • Its output is compared to GUARD_SET as LITERAL STRINGS: `find . -name …` yields `./tests/x`,
+#     which does not match `tests/x`. Emit the list's shape; `git ls-files` does.
 #
 # e.g. GUARD_ENUM="git ls-files 'tests/test_*_drift.*'"
 GUARD_ENUM=""
@@ -254,9 +148,7 @@ for arg in "$@"; do
       exit 0 ;;
     -*) echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2 ;;
     *)
-      # A bare word is a scope item only after --scope; anything else is still a
-      # loud failure. A flag-looking arg AFTER --scope is caught by the -* branch
-      # above, so a typo'd flag can never be swallowed as a test path.
+      # A bare word is a scope item only after --scope; a flag-looking arg is caught by -* above.
       if [ "$in_scope" -eq 1 ]; then
         SCOPE+=("$arg")
       else
@@ -340,12 +232,8 @@ if [ "$SCOPED" -eq 1 ]; then
   fi
 
   # ── THE OTHER DIRECTION: a guard in the tree that nobody enrolled. ──────────
-  # Placed here, beside the existence check, because the two are one reconciliation
-  # and separating them is how only one of them ends up maintained.
   if [ -z "${GUARD_ENUM:-}" ]; then
-    # NOT A PASS, AND IT SAYS SO. An unset authority means the space was never read,
-    # which is a different sentence from "the declared list is complete" — and only
-    # one of them is a claim this run is entitled to make.
+    # Not a pass, and it says so: the space was never read.
     echo "verify.sh: NOTE — GUARD_ENUM is unset, so the floor was checked for vanished" >&2
     echo "  entries only. A guard added to the tree and never listed in GUARD_SET is NOT" >&2
     echo "  detected by this run. Set GUARD_ENUM at the top of this file to close that." >&2
@@ -353,14 +241,8 @@ if [ "$SCOPED" -eq 1 ]; then
     enum_err="$(mktemp 2>/dev/null || echo /tmp/verify_enum_err.$$)"
     enum_out="$(eval "$GUARD_ENUM" 2>"$enum_err")"; enum_rc=$?
     if [ "$enum_rc" -ne 0 ]; then
-      # ANY NON-ZERO IS UNRUNNABLE — not only 126/127. A MIS-TYPED enumerator
-      # (`git ls-fils …`) exits 1 with an empty stdout, and an empty stdout is
-      # indistinguishable from "this project has no guards" — so a rc-127-only test
-      # let a typo print "reconciled BOTH ways … none unenrolled" and exit 0. That is
-      # an affirmative claim the run did not earn, and it is WORSE than the silence
-      # this whole change replaced: silence claimed nothing.
-      # The enumerator's own stderr is KEPT and shown, because "it failed" without
-      # what it said costs the reader the one thing that identifies the typo.
+      # ANY non-zero is unrunnable, not only 126/127: a mistyped enumerator exits 1 with an empty
+      # stdout, which must not read as "no guards". Its stderr is shown.
       echo "verify.sh: REFUSING — GUARD_ENUM did not run cleanly (exit $enum_rc): $GUARD_ENUM" >&2
       [ -s "$enum_err" ] && { echo "  it said:" >&2; sed 's/^/    /' "$enum_err" >&2; }
       echo "  This is the command failing, not an empty answer. Fix or clear GUARD_ENUM." >&2
@@ -372,25 +254,13 @@ if [ "$SCOPED" -eq 1 ]; then
     while IFS= read -r found; do
       [ -n "$found" ] || continue
       in_set=0
-      # ${GUARD_SET[@]+…} — the file's own idiom, and NOT optional here: under
-      # `set -u` on bash 3.2 an empty array expands to an unbound variable and the
-      # runner DIES naming nothing. That is the SHIPPED state (GUARD_SET empty) with
-      # an enumerator declared, which is the first thing the config comment above
-      # invites — and what actually ships is BOTH seams empty, so this configuration
-      # is one edit away from the shipped one and had no test at all.
+      # ${GUARD_SET[@]+…}: under `set -u` on bash 3.2 an empty array is unbound (the shipped state).
       for g in ${GUARD_SET[@]+"${GUARD_SET[@]}"}; do [ "$g" = "$found" ] && { in_set=1; break; }; done
       [ "$in_set" -eq 0 ] && unenrolled+=("$found")
     done <<ENUM_EOF
 $enum_out
 ENUM_EOF
-    # SET − SPACE, FROM THE SAME SOURCE AS SPACE − SET. Until now "both ways" was
-    # stitched from two authorities: "none unenrolled" came from the enumeration and
-    # "none vanished" from the -e existence test — so an enumerator that exited 0
-    # having seen NOTHING made SPACE empty, SPACE−SET vacuously empty, and the run
-    # printed a green claiming both directions while one of them had no operand. Same
-    # unearned green a mis-typed command produced, through the other door. Computing
-    # both directions from the enumeration makes "both ways" ONE claim about ONE
-    # source rather than two claims stitched together.
+    # SET − SPACE from the same enumeration as SPACE − SET: "both ways" is one claim about one source.
     unseen=()
     for g in ${GUARD_SET[@]+"${GUARD_SET[@]}"}; do
       in_space=0
@@ -403,22 +273,16 @@ SPACE_EOF
       [ "$in_space" -eq 0 ] && unseen+=("$g")
     done
 
-    # THE OUTCOMES AS ONE CHAIN, so the green line is UNREACHABLE unless both sides had an
-    # operand. Written as if/elif deliberately: every predicate in this block was once
-    # scoped to a populated GUARD_SET, and the shipped state is the empty one.
+    # One if/elif chain: the green line is reachable only when both sides had an operand.
     if [ -z "$enum_out" ] && [ "${#GUARD_SET[@]}" -eq 0 ]; then
-      # NOTHING ON EITHER SIDE, so there is nothing to reconcile and no claim to print.
-      # NOT a refusal: setting GUARD_ENUM before writing a first guard is a legitimate
-      # state and blocking it would punish doing the right thing early. NOT a green:
-      # a claim with no operand on either side is not a measurement. rc is unchanged.
+      # Nothing on either side: not a refusal (setting GUARD_ENUM before the first guard is
+      # legitimate) and not a green. rc is unchanged.
       echo "verify.sh: NOTE — GUARD_ENUM returned nothing and GUARD_SET is empty, so nothing" >&2
       echo "  was reconciled. That is not a clean floor; it is no floor and no enumeration." >&2
       echo "  If this project has guards, this command does not see them:" >&2
       echo "    $GUARD_ENUM" >&2
     elif [ -z "$enum_out" ]; then
-      # A DECLARED LIST THE ENUMERATOR CANNOT SEE — diagnoses the ENUMERATOR, not the list.
-      # Naming every declared guard would be true and would bury the cause: the command
-      # ran, succeeded, and saw none of them.
+      # A declared list the enumerator cannot see diagnoses the ENUMERATOR, not the list.
       echo "verify.sh: REFUSING — GUARD_ENUM ran cleanly and returned NOTHING, while GUARD_SET holds ${#GUARD_SET[@]} DECLARED item(s)." >&2
       echo "  The enumeration saw none of the declared guards; a floor the enumerator cannot see is" >&2
       echo "  not reconciled. Common causes: a glob that matches nothing, or guards not yet tracked" >&2
@@ -444,10 +308,8 @@ SPACE_EOF
       echo "  reads the working tree." >&2
       exit 2
     else
-      # DECLARED, uppercase, matching the other count-lines in this runner: the green line
-      # is the one most mistakable for a measurement of the tree. And it names the command
-      # TEXT, not just the knob — the refusal path already did, and the green path is
-      # where nobody re-checks which command actually ran.
+      # The green line says DECLARED and names the command TEXT: it is the line most easily
+      # mistaken for a measurement of the tree.
       echo "verify.sh: guard floor reconciled BOTH ways against ONE source — ${#GUARD_SET[@]} DECLARED item(s), none unseen by the enumeration, none unenrolled (via GUARD_ENUM: $GUARD_ENUM). Existence of each declared path is checked separately, above."
     fi
   fi
@@ -470,11 +332,8 @@ fi
 #    "soft" — if you want a non-blocking check, it does not belong in this table.
 RESULTS=()
 FAILED=0            # 1 once any gate is red, of either kind — the progress record's status word reads it (its exit= field reads EXIT_STATUS)
-# THE COUNTS ARE PART OF THE VERDICT, not decoration — `contracts/verify-gate.md`
-# § 2 ("the count of checks executed is part of the output, not an inference from
-# the absence of complaints") and § 4 ("'it passed' with no count is not green; it
-# is an assertion"). Counted here rather than derived from RESULTS at the end, so
-# the number cannot disagree with the lines it summarises.
+# THE COUNTS ARE PART OF THE VERDICT (contracts/verify-gate.md § 2, § 4). Accumulated as the gates
+# run, so the number cannot disagree with the lines it summarises.
 PASSED=0
 FAILEDN=0
 UNRUNNABLE=0
@@ -493,23 +352,13 @@ run_gate() {
     PASSED=$(( PASSED + 1 ))
     kit_progress "verify.sh" status "GATE PASSED: $name" "gate=$name" "event=end" "outcome=pass" "rc=0"
   elif [ "$rc" -eq 127 ] || [ "$rc" -eq 126 ]; then
-    # UNRUNNABLE IS NOT FAIL, AND BOTH ARE RED. 127 is "command not found", 126
-    # is "found but not executable" — in both the gate NEVER EXECUTED, so nothing
-    # was measured. Spelling that `FAIL` is the runner reporting on ITSELF in the
-    # vocabulary it uses for its SUBJECT, and the reader cannot then tell "your
-    # tree is broken" from "this gate could not start" — so they debug the tree,
-    # which may be perfectly fine. (process/doctrine/instruments.md § A.9.)
-    #
-    # THE COMMONEST CAUSE, named because the message is where it will be read: a
-    # declared gate command carrying a RELATIVE interpreter path (a project-local
-    # virtualenv, a vendored binary) resolves against THIS checkout's root — and
-    # a linked worktree does not have one. That is exactly where a trunk gate has
-    # to run, so the one command everybody must run fails there and says "FAIL".
+    # UNRUNNABLE IS NOT FAIL, AND BOTH ARE RED: 127/126 mean the gate never executed, so nothing
+    # was measured (process/doctrine/instruments.md § A.9). The commonest cause: a RELATIVE
+    # interpreter path, which resolves against this checkout's root and is absent in a linked
+    # worktree.
     RESULTS+=("UNRUNNABLE  $name (rc=$rc — the command never executed; NOTHING was measured)")
     UNRUNNABLE=$(( UNRUNNABLE + 1 ))
-    # `warning`, NOT `error`, and for the same reason the line above is not spelled
-    # FAIL: nothing was measured, so an UNKNOWN is not a measured failure. A reader
-    # filtering the records on `error` must not be sent to the tree by this row.
+    # `warning`, not `error`: an unknown is not a measured failure.
     kit_progress "verify.sh" warning "GATE COULD NOT RUN: $name" "gate=$name" "event=end" "outcome=unrunnable" "rc=$rc"
     {
       echo "verify.sh: gate '$name' could NOT RUN (rc=$rc). This is not a test failure —"
@@ -572,55 +421,30 @@ for rec in "${GATES[@]}"; do
   run_gate "$g_name" "${cmd[@]}"
 done
 
-# ── ONE summary block. Roles read THIS, not the scrollback, so its shape is part
-#    of the contract: the marker line, then one line per gate, THEN THE COUNTS,
-#    then the exit code.
-#
-#    THE COUNT LINE IS NOT OPTIONAL. `contracts/verify-gate.md` § 4: "'it passed'
-#    with no count is not green; it is an assertion." A reader quoting this block
-#    into a review must be able to say how much ran without re-running it, and a
-#    per-gate list alone cannot be checked against anything — it is exactly as
-#    long as whatever the frame happened to append. The counts are accumulated as
-#    the gates run, not derived from the lines above, so the summary cannot
-#    disagree with its own evidence.
-#
-#    UNRUNNABLE IS COUNTED SEPARATELY FROM FAILED, and both are red. Collapsing
-#    them is the defect this line exists to prevent: "1 failed" sends a reader to
-#    the tree, "1 could not run" sends them to the command.
+# ── ONE summary block. Roles quote THIS, so its shape is contractual: the marker line, one line
+#    per gate, THE COUNTS (contracts/verify-gate.md § 4: "'it passed' with no count is not
+#    green"), then the exit code. UNRUNNABLE is counted apart from FAILED; both are red.
 echo
 echo "═══ verify.sh summary ═══"
 printf '%s\n' "${RESULTS[@]}"
 echo "───"
-# `ran` EXCLUDES the unrunnable, deliberately: a gate whose command never executed
-# produced no measurement, so counting it as "ran" would re-merge the two states
-# this block exists to separate — the count line contradicting its own lines.
+# `ran` excludes the unrunnable: they produced no measurement.
 echo "gates declared: ${#GATES[@]} · ran: $(( PASSED + FAILEDN )) · passed: $PASSED · failed: $FAILEDN · could not run: $UNRUNNABLE · skipped: $SKIPPED"
 if [ "$SCOPED" -eq 1 ]; then
-  # A NARROWED RUN IS A WEAKER CLAIM AND SAYS SO IN THE BLOCK ITSELF (§ 2, § 4),
-  # not only in the banner printed before the gates — the summary is the part
-  # that gets quoted into a review, so it is the part that must carry the caveat.
+  # A narrowed run says so in the block itself, the part that gets quoted into a review.
   echo "SCOPE: NARROWED — ${#SCOPE[@]} requested item(s) + ${#GUARD_SET[@]} DECLARED guard(s). NOT the full-gate claim, and the floor is only as complete as that declaration."
 fi
 [ "$UNRUNNABLE" -gt 0 ] && echo "NOTE: $UNRUNNABLE gate(s) could NOT RUN — that is an UNKNOWN, not a measured failure."
 
-# THE EXIT STATUS SEPARATES THE TWO REDS, as the count line above does. It used to be
-# `exit "$FAILED"` — 1 for both — so a caller reading the status (the landing script's
-# post-merge check is one) could not tell "your tree is broken" from "this gate could not
-# start" without parsing this block's prose, and one that did parse it trusted a line any
-# gate command could have echoed. A measured failure DOMINATES: with both present the tree
-# is known to be red, and 1 says so. Only when nothing failed does an unrunnable gate
-# decide the status, as 3 — still non-zero, because an unknown is not a pass. 1 is kept
-# for the failure so that every caller keying on it keeps working; the new state gets the
-# new number (2 is already this runner's refusal).
+# THE EXIT STATUS SEPARATES THE TWO REDS: a measured failure dominates (1); only when nothing
+# failed does an unrunnable gate decide it (3). 2 is the refusal.
 if   [ "$FAILEDN" -gt 0 ];    then EXIT_STATUS=1
 elif [ "$UNRUNNABLE" -gt 0 ]; then EXIT_STATUS=3
 else                               EXIT_STATUS=0
 fi
 
-# THE RUN SUMMARY AS ONE RECORD. Written AFTER the summary block and changing not one
-# line of it: that block's shape is contractual (roles quote it into reviews) and this
-# addition is forbidden from touching it. The counts are the SAME accumulators the
-# block printed, so the record cannot disagree with the lines above it.
+# THE RUN SUMMARY AS ONE RECORD, after the summary block and changing none of it; the counts are
+# the same accumulators the block printed.
 kit_progress "verify.sh" "$([ "$FAILED" -eq 0 ] && echo status || echo error)" \
   "run finished — $(( PASSED + FAILEDN )) of ${#GATES[@]} gate(s) ran, $PASSED passed, $FAILEDN failed, $UNRUNNABLE could not run, $SKIPPED skipped" \
   "event=summary" "declared=${#GATES[@]}" "passed=$PASSED" "failed=$FAILEDN" \

@@ -453,6 +453,10 @@ columns and never the cards.*
 
 ### Changed
 
+- **Shipped scripts carry their rules, not their history.** Script comments keep each rule and a one-line
+  reason; incident accounts, superseded designs and restated rules are removed, and some `--help` text is shorter
+  with the same usage, options and exit codes. **Nothing to do.**
+
 - **`PASS-with-AC-correction` is scoped where it is stated.** The verdict applies to an AC's
   *illustration*, never to its *requirement*. That limit was in `process/MANUAL.md` step 6 but
   fifty lines below the verdict table, and `.claude/roles/qa.md`, `process/templates/run-report.template.md`

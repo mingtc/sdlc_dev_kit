@@ -334,6 +334,10 @@ bounces it.
    named `file:line`. A claim that can be neither leaves the bullet unmet — `FAIL_AC`, naming the
    claim — and *"it is a description"* does not excuse it. Prose that makes no claim about
    behaviour is outside this rule.
+   <!-- RULE-COPIES:BEGIN — deliberate copies of the behaviour-describing AC rule; the self-test holds them.
+   key: prose describing code behaviour
+   copies: .claude/roles/qa.md .claude/roles/dev.md .claude/templates/ISSUE.template.md .claude/workflows/wave-runner.js .claude/workflows/tranche-runner.js
+   RULE-COPIES:END -->
 5. **QA runs the binding cross-cut check.** For any change touching the surface the project doc
    declares binding, run the project's **live round-trip check** and restore the fixture it used
    to baseline. A green unit suite alone is not a PASS for that surface.

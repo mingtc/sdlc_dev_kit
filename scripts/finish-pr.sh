@@ -2,23 +2,17 @@
 # KIT-CLASS: KIT — forge-agnostic squash-merge landing; pure git. See process/EXTRACTION.md.
 # QA's PASS ritual in one command — FORGE-AGNOSTIC, pure git (no forge CLI, no forge API).
 #
-# Squash-merges the issue's feature branch into the TRUNK locally, pushes the
-# trunk, deletes the branch (local + remote), and advances the issue file from
-# progress/dev_complete/ → progress/qa_complete/. There is no forge dependency
-# and none is needed: QA's review evidence lives in the issue file's Activity log,
-# not in a PR/MR. That choice has been PAID FOR ONCE ALREADY — the donor project
-# migrated forge hosts mid-life and this script needed zero changes — so the
-# portable path is measured, not speculative. It also means the kit works against
-# a bare repo on a USB disk with no forge at all (see process/GIT-HOSTING.md).
+# Squash-merges the issue's feature branch into the TRUNK locally, pushes the trunk, deletes the
+# branch (local + remote), and advances the issue file from progress/dev_complete/ →
+# progress/qa_complete/. QA's review evidence lives in the issue file's Activity log, not in a
+# PR/MR, so this works against any remote, including a bare repo with no forge
+# (see process/GIT-HOSTING.md).
 #
-# THE BOARD NOTE NEVER CLAIMS MORE THAN THE RUN DID. The branch-delete step
-# surfaces git's own errors, CONFIRMS the remote delete by re-measuring the
-# remote rather than trusting the push's exit code, and the default Activity note
-# is composed from those two outcomes AFTER the attempt — never before it. A
-# branch that survives is reported loudly and NON-fatally: the merge has already
-# landed, so a surviving branch is residue, not a failed landing.
+# The default Activity note is composed AFTER the branch delete, from what it did, and the remote
+# delete is confirmed by re-reading the remote. A branch that survives is reported loudly and
+# NON-fatally: the merge has already landed.
 #
-# ── EXIT CODES, AND THE QUESTION THEY ANSWER ─────────────────────────────────
+# ── EXIT CODES: "IS IT SAFE TO RUN ME AGAIN?", NOT "DID IT LAND?" ──────────────
 #   0  Everything the landing gate calls green: re-check passed, one squash commit,
 #      published, branch retired, board advanced. See contracts/landing-gate.md § 4.
 #   1  Refused or failed WITH NOTHING LANDED. Safe to fix the cause and re-run.
@@ -29,44 +23,20 @@
 #   FINISH_PR_ROLE   the seat this landing commits as (default: QA). The tag is
 #                    CHECKED against your declared role set before anything moves.
 #
-# THE CODE ANSWERS "IS IT SAFE TO RUN ME AGAIN?", NOT "DID IT LAND?" — and those
-# are different questions, which is why 3 exists. `1` and `3` are both failures and
-# they demand OPPOSITE actions: 1 says retry, 3 says never retry. Collapsing them,
-# as this script did when the board advance was a bare call under `set -e`, hands an
-# automation the value it reads as "did not land" on a landing that DID — so it
-# retries a merge that already happened. Measured cost, from the change that
-# produced this table: an `&&` chain returned non-zero on the normal path and a
-# GREEN landing exited 1.
+# A RED POST-MERGE GATE IS NOT A NON-ZERO EXIT: it is a fact about the trunk, not about this
+# landing. It is printed as `POST_MERGE_GATE: PASS|FAIL|UNRUNNABLE` for an automation to key on
+# (UNRUNNABLE: nothing could be measured). It reads the LANDED COMMIT, and its human line names
+# the sha it read.
 #
-# It also does NOT project the QA verdict's `landing` field. That field says whether
-# the change reached the trunk, and it reads `landed` both when everything finished
-# and when the board advance failed — so an exit code projecting it would give the
-# same value to "done" and "half-done", which is the exact collapse
-# process/MANUAL.md § The Dev → QA handoff step 6 separates the two axes to prevent.
-#
-# A RED POST-MERGE GATE IS NOT A NON-ZERO EXIT, deliberately. It is a fact about the
-# TRUNK, not about this landing: all four of the contract's green facts happened. A
-# script that exited non-zero for it would be reporting on its subject and on itself
-# in one code (process/doctrine/instruments.md § A.9). It is reported instead on a
-# machine-greppable line — `POST_MERGE_GATE: PASS|FAIL|UNRUNNABLE` — so an automation
-# that cares can key on that without confusing it for a failed landing. UNRUNNABLE is
-# the third word because "nothing could be read" is neither of the other two: a FAIL
-# asserts the trunk is red and a PASS that it is green, and neither was measured.
-# The reading is of the LANDED COMMIT, in every posture the pre-merge gate accepts,
-# and its human line names the sha it read — see the post-merge block at the end.
-#
-# All trunk git ops happen inside the standing detached `.kanban-wt/` worktree
-# (see scripts/lib/kanban-worktree.sh), which is pinned to the trunk, so no
-# COMMIT is ever made in the operator's checkout; if it is sitting clean on the
-# trunk it gets fast-forwarded so the board view stays live. BUT TWO STEPS DO MOVE
-# A CHECKOUT, and each says so when it does — this paragraph once said the main
-# checkout was never hijacked, and that was false before either of them was named:
+# No COMMIT is made in your checkout: trunk git ops run in the standing detached `.kanban-wt/`
+# worktree (scripts/lib/kanban-worktree.sh), and a checkout sitting clean on the trunk is
+# fast-forwarded. TWO STEPS DO MOVE A CHECKOUT, and each says so when it does:
 #   1. a main checkout sitting clean ON THE BRANCH BY NAME is switched to the trunk
 #      before the branch is deleted ("Switched the main checkout to <trunk>");
 #   2. after the landing, the post-merge reading DETACHES THE GATE CHECKOUT (the main
 #      one, or --worktree's) to the landed commit — unless it is already on the trunk
 #      containing it (no move), or has uncommitted tracked changes (not moved; a
-#      fresh worktree is read instead). See the post-merge block at the end.
+#      fresh worktree is read instead).
 #
 # Equivalent to running by hand:
 #   git -C .kanban-wt merge --squash feature/<ID>-<slug>
@@ -75,40 +45,27 @@
 #   git branch -D feature/<ID>-<slug>   &&   git push <remote> --delete feature/<ID>-<slug>
 #   ./scripts/move-issue.sh <ID> qa_complete --role QA --note "Review — PASS. Squash-merged."
 #
-#   THE `--role` VALUE IN THE HAND-EQUIVALENT ABOVE IS AN EXAMPLE VALUE, not a claim that your
-#   project declares it — and note that the line it appears on is a move-issue.sh invocation, so
-#   the set that governs it is the one THAT tool renders in its own `--help`, read from
-#   scripts/githooks/commit-msg. If it names a role you have withdrawn, substitute one of your
-#   own; the sequence is still correct. (.claude/roles/pm.md's Definition of Ready: an example is
-#   read as the contract, not as decoration.)
+#   The `--role` value above IS AN EXAMPLE VALUE: the roles move-issue.sh accepts are the ones its
+#   own `--help` lists, from scripts/githooks/commit-msg. Substitute one of yours.
 #
-# FORGE-PR FLAVOR (an available extension, not the default): a team that wants
-# MR/PR ceremony can add a branch here that opens + merges via a forge CLI instead
-# of the local squash, and pass the resulting number to move-issue.sh --set-pr.
-# It is deliberately NOT the default. The [Role] prefix on the squash commit is
-# the audit trail either way.
+# FORGE-PR FLAVOR (an extension, not the default): a team that wants MR/PR ceremony can add a
+# branch here that opens and merges via a forge CLI instead of the local squash, and pass the
+# resulting number to move-issue.sh --set-pr. The [Role] prefix on the squash commit is the audit
+# trail either way.
 #
 # Usage:
 #   ./scripts/finish-pr.sh <ID> [--branch <name>] [--worktree <path>] [--note "..."] [--dry-run] [--discard-dirty]
 #
 # Without --branch, the branch is read from the issue file's `branch:`
 # frontmatter in progress/dev_complete/.
-# --worktree <path>: run the BLOCKING pre-merge gate against a genuine git
-#   worktree of THIS repo (the QA's own checkout of the branch) instead of the
-#   main checkout — needed when the main checkout belongs to a parallel leg. The
-#   gate ALWAYS runs that worktree's TRACKED scripts/verify.sh --quick; the path
-#   must be a real registered worktree of this repo whose scripts/verify.sh is
-#   committed and unmodified. THE CALLER NAMES A LOCATION, NEVER A COMMAND, so a
-#   fabricated `echo PASS; exit 0` stub has nowhere to enter — that hole was used
-#   once, in earnest, to force a landing. The command seam
-#   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD) now exists ONLY for the
-#   sandbox self-test and is refused on the production path unless
-#   FINISH_PR_TEST_ALLOW_STUB=1 (set only by scripts/test/run.sh).
-#   AFTER THE LANDING, THAT WORKTREE IS DETACHED AT THE LANDED COMMIT and the
-#   post-merge check reads the trunk there; it is left detached, and the run says so.
-#   (If it has uncommitted tracked changes it is not moved, and a fresh worktree is
-#   read instead.) Before this, the post-merge check read it where it stood — at the
-#   branch tip — and printed a PASS naming the trunk.
+# --worktree <path>: run the BLOCKING pre-merge gate against a genuine git worktree of THIS
+#   repo (QA's own checkout of the branch) instead of the main checkout — needed when the main
+#   checkout belongs to a parallel leg. The gate ALWAYS runs that worktree's TRACKED, unmodified
+#   scripts/verify.sh --quick: the caller names a LOCATION, never a command
+#   (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are the self-test's seams, refused unless
+#   FINISH_PR_TEST_ALLOW_STUB=1). After the landing that worktree is left DETACHED AT THE
+#   LANDED COMMIT, where the post-merge check reads the trunk; if it has uncommitted tracked
+#   changes it is not moved, and a fresh worktree is read instead.
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
 #
@@ -127,19 +84,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"
 
-# --help renders the header block, with the window END DERIVED rather than
-# hard-coded: a literal `sed -n '3,50p'` silently truncated the Usage/Examples
-# tail off --help the first time the header gained a paragraph.
+# --help renders the header block; lib/usage.sh derives where the window ends.
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
-# The creation scripts' option hygiene applies to the LANDING script too
-# (process/contracts/issue-creation.md § 3 states the rule): --help exits 0
-# rather than 1, a leading '-' is never an issue id, and an unknown option
-# refuses with rc=2 instead of being swallowed. The dangerous shape is a wrong
-# arg accepted WITH a success message.
+# Option hygiene (process/contracts/issue-creation.md § 3): --help exits 0, a leading '-' is never
+# an issue id, and an unknown option exits 2 instead of being swallowed.
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
 esac
@@ -152,19 +104,9 @@ esac
 shift
 
 BRANCH=""; NOTE=""; NOTE_GIVEN=false; DRY_RUN=false; DISCARD_DIRTY=false; WORKTREE=""
-# need_val <all remaining args> — refuse an option whose value was not given.
-#
-# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
-# new-refactor.sh, which already had it. It is repeated per script rather than shared
-# because several of these source nothing from scripts/lib/ (release.sh by standing
-# ruling), and the self-test holds the copies identical.
-#
-# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
-# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
-# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
-# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
-# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
-# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+# need_val <all remaining args> — refuse an option whose value was not given: exit 2, naming it.
+# The same name and shape as the creators' copies; the self-test holds them identical. Never
+# `VAR="${2:-}"; shift 2`: with one argument left, `shift 2` fails and `set -e` exits 1 silently.
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
@@ -186,31 +128,20 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# THE SEAT THIS SCRIPT ACTS AS. [QA] means the review seat landed it. A knob, never
-# derived. It is used in THREE places below — the squash subject, the --role passed to
-# the board mover, and the recovery text both refusals print — and those three must
-# agree, which is why it is read once here.
+# THE SEAT THIS SCRIPT ACTS AS, read once: the squash subject, the --role passed to the mover and
+# the recovery text must agree.
 ROLE="${FINISH_PR_ROLE:-QA}"
-# CHECKED BEFORE kwt_resolve. Both consumers reject a withdrawn role, and they reject it
-# at different points: the hook at the squash commit, move-issue.sh's whitelist at the
-# advance. The second one lands the merge and then fails the board move.
+# CHECKED BEFORE kwt_resolve: move-issue.sh would reject a withdrawn role only at the advance,
+# after the merge had landed.
 kit_require_role "$SCRIPT_DIR/.." "$ROLE" FINISH_PR_ROLE || exit 1
 
 # Resolve repo root + trunk (works from any worktree, incl. a feature branch).
 kwt_resolve
 
-# ── THE GATE EXECUTABLE IS NEVER CALLER-CHOSEN. The blocking pre-merge gate runs
-#    a TRACKED scripts/verify.sh that finish-pr.sh CHOOSES. The env-command seams
-#    (FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD) exist ONLY for the sandbox
-#    self-test harness and are honored ONLY behind an explicit test-only marker
-#    (FINISH_PR_TEST_ALLOW_STUB=1) that the harness sets and no worktree-QA
-#    wrapper or default landing path ever sets. On the production path an attempt
-#    to inject a gate command is REFUSED loudly before any destructive step —
-#    this is what closes the fabricated-stub hole (a scratch `echo PASS; exit 0`
-#    pointed at via FINISH_PR_PREMERGE_CMD once forced a landing through a red
-#    suite). The legitimate worktree-QA capability is preserved as
-#    --worktree <path>: a LOCATION, not a command, whose tracked scripts/verify.sh
-#    finish-pr.sh runs itself.
+# ── THE GATE EXECUTABLE IS NEVER CALLER-CHOSEN. The pre-merge gate runs a TRACKED
+#    scripts/verify.sh that finish-pr.sh chooses. FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD
+#    are the self-test's seams, honoured only behind FINISH_PR_TEST_ALLOW_STUB=1; on the
+#    production path they are refused before any destructive step. Use --worktree <path>.
 ALLOW_STUB=false
 [ "${FINISH_PR_TEST_ALLOW_STUB:-}" = "1" ] && ALLOW_STUB=true
 if [ "$ALLOW_STUB" != "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; }; then
@@ -224,23 +155,17 @@ if [ "$ALLOW_STUB" != "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n
   exit 1
 fi
 
-# Resolve the checkout whose TRACKED scripts/verify.sh the pre-merge gate runs.
-# Default = the repo root finish-pr resolved. --worktree overrides it, but ONLY
-# to a genuine git worktree of THIS repo whose scripts/verify.sh is committed and
-# unmodified — so a scratch dir carrying a fabricated verify.sh has nowhere to
-# enter (a scratch dir is not a registered worktree; an edited-but-uncommitted
-# verify.sh trips the clean-vs-HEAD check).
+# The checkout whose TRACKED scripts/verify.sh the pre-merge gate runs: the repo root, or
+# --worktree, which must be a registered worktree of THIS repo with verify.sh committed and
+# unmodified.
 GATE_WORKTREE="$MAIN_ROOT"
 if [ -n "$WORKTREE" ]; then
   _err=""
   if [ ! -d "$WORKTREE" ]; then
     _err="--worktree '$WORKTREE' is not a directory"
   else
-    # BOTH SIDES PHYSICAL (`pwd -P`), because they are compared as strings. With a logical
-    # `pwd`, a path into the MAIN checkout — where git names the common dir relatively —
-    # kept whatever symlink it was named through, and a genuine worktree of this repo was
-    # refused as foreign (on macOS the temp dir's own spelling does it). Physical resolution
-    # widens nothing: a foreign repository resolves to a different directory either way.
+    # Both sides PHYSICAL (`pwd -P`): they are compared as strings, and a symlinked spelling of
+    # this repo's own path must not read as foreign.
     _wt_common="$( cd "$WORKTREE" 2>/dev/null && d="$(git rev-parse --git-common-dir 2>/dev/null)" && cd "$d" 2>/dev/null && pwd -P )"
     _this_common="$( cd "$MAIN_ROOT" && d="$(git rev-parse --git-common-dir 2>/dev/null)" && cd "$d" 2>/dev/null && pwd -P )"
     if [ -z "$_wt_common" ] || [ "$_wt_common" != "$_this_common" ]; then
@@ -277,9 +202,7 @@ while IFS= read -r f; do
 done < <(find "$KWT/progress/dev_complete" -maxdepth 1 -name "${ISSUE_ID}-*.md" -type f 2>/dev/null)
 
 if [ -z "$SRC" ]; then
-  # NAME THE STATE IT IS ACTUALLY IN — process/contracts/landing-gate.md § 3 requires it, and this
-  # message named only the state it WANTED. Byte-identical for a card in todo/, in qa_complete/ and
-  # for one that does not exist, which are three different problems with three different next steps.
+  # Name the column the card IS in (process/contracts/landing-gate.md § 3): each has its own next step.
   _fpr_at="$(find "$KWT/progress" -maxdepth 2 -name "${ISSUE_ID}-*.md" 2>/dev/null | head -1)"
   if [ -n "$_fpr_at" ]; then
     _fpr_col="$(basename "$(dirname "$_fpr_at")")"
@@ -305,13 +228,8 @@ fi
 # A title for the squash commit subject.
 TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$SRC")
 [ -z "$TITLE" ] && TITLE="$ISSUE_ID"
-# THE DEFAULT ACTIVITY NOTE IS NOT COMPOSED HERE. It used to be — `…; branch
-# deleted.` hard-coded a hundred lines BEFORE the delete arms — so the board
-# recorded an unconditional claim written in advance, true or false, and eight
-# consecutive landings logged a deletion that had not happened. The note is now
-# composed AFTER the delete arms from what they actually did (see the NOTE_GIVEN
-# block below them). An operator-supplied --note is still honored verbatim and is
-# never overwritten.
+# The default Activity note is composed AFTER the delete arms, from what they did (the NOTE_GIVEN
+# block below them). An operator-supplied --note is used verbatim.
 
 # The branch must exist locally (its commits are what we squash).
 if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null 2>&1; then
@@ -319,46 +237,18 @@ if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/n
   exit 1
 fi
 
-# ── THE GATE MUST BE THE COMMITTED ONE, AT THE REVISION BEING LANDED — on BOTH
-#    paths, and saying WHICH refusal fired. `contracts/landing-gate.md` states this
-#    twice over and the code implemented neither statement fully: § 2's landing
-#    re-check runs *"on the tree that is about to land"*, and *"the gate that runs
-#    is the COMMITTED one … tracked at the revision being landed and free of
-#    uncommitted modification, or landing refuses"*; § 3 requires the refusal to
-#    name which of the four it was. So this is CONFORMANCE, not new policy — the
-#    contract already forbade what the code allowed.
-#
-#    What the code did: the default path checked EXECUTABLE and nothing else, so
-#    `finish-pr.sh <ID>` run from a trunk checkout ran the TRUNK's verify.sh and
-#    landed a branch whose own gate was red — reproduced in a sandbox, exit 0, the
-#    red gate on the trunk, the branch deleted and the board advanced. The
-#    --worktree arm already carried three of the four, but against its OWN HEAD,
-#    which is the revision being landed only if that worktree is on the branch —
-#    and nothing checked that either.
-#
-#    THE REVISION, NOT THE REF NAME. A detached checkout sitting exactly on the
-#    branch tip IS the tree about to land and is accepted; what is refused is a
-#    checkout of some other revision, of which the trunk is the common case and the
-#    measured one. QA has two conforming postures — check the branch out, or point
-#    --worktree at a worktree that has it — and the refusal names both.
-#    THAT IS THE PRE-MERGE TREE, AND ONLY THE PRE-MERGE TREE. Binding this checkout
-#    to the branch tip is right for the gate that runs before the merge and was wrong
-#    for the one after it, which read the same checkout without moving it; the
-#    post-merge block at the end now re-points its reading at the landed commit.
-#
-#    WHY HERE and not with the other preflight refusals: this check's operand is
-#    the issue's `branch:`, which is read out of the kanban worktree, so it cannot
-#    run before kwt_sync. That is safe because kwt_sync itself now refuses rather
-#    than resetting over anything it would destroy; .kanban-wt is a derived mirror
-#    and nothing the contract protects has been touched at this point.
+# ── THE GATE MUST BE THE COMMITTED ONE, AT THE REVISION BEING LANDED
+#    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
+#    (§ 3). The test is the REVISION, not the ref name: a detached checkout exactly at the branch
+#    tip is accepted. This binds the PRE-merge tree only; the post-merge block reads the landed
+#    commit. It runs after kwt_sync because `branch:` is read from the kanban worktree; nothing
+#    the contract protects has been touched yet.
 if [ "$ALLOW_STUB" != "true" ]; then
   _gate_v="$GATE_WORKTREE/scripts/verify.sh"
   _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "refs/heads/$BRANCH" 2>/dev/null || true)"
   _gate_head="$(git -C "$GATE_WORKTREE" rev-parse HEAD 2>/dev/null || true)"
   _gate_err=""
-  # _gate_absent marks the two arms where there is NO USABLE GATE AT ALL, as opposed to a gate
-  # that exists and is at the wrong revision. They need different advice, and the advice for this
-  # pair used to live in an unreachable branch further down (see the note at the pre-merge gate).
+  # _gate_absent: no usable gate at all, as opposed to one at the wrong revision; the advice differs.
   _gate_absent=""
   if   [ ! -e "$_gate_v" ]; then _gate_err="MISSING — $_gate_v does not exist"; _gate_absent=true
   elif [ ! -x "$_gate_v" ]; then _gate_err="NOT EXECUTABLE — $_gate_v exists but cannot be run"; _gate_absent=true
@@ -417,26 +307,12 @@ if [ "$DRY_RUN" = "true" ]; then
   exit 0
 fi
 
-# ── BLOCKING pre-merge gate. Run a quick gate on the code BEFORE the
-#    squash-merge; a RED gate ABORTS here — nothing destructive has happened
-#    yet (no squash, no push, no branch deletion, no issue advance). The gate is
-#    the TRACKED $GATE_WORKTREE/scripts/verify.sh --quick, an executable
-#    finish-pr.sh chooses — never a caller-supplied command. The
-#    FINISH_PR_PREMERGE_CMD stub is honored only behind FINISH_PR_TEST_ALLOW_STUB
-#    (already validated above). The lock is held here, so the EXIT-trap
-#    kwt_unlock releases it on abort.
+# ── BLOCKING pre-merge gate: a RED gate aborts before anything destructive (no squash, push,
+#    branch deletion or issue advance). The lock is held; the EXIT trap releases it.
 echo ""
 echo "Pre-merge gate (blocking): ${GATE_WORKTREE}/scripts/verify.sh --quick"
-# NO EXECUTABILITY CHECK HERE, AND ITS ABSENCE IS DELIBERATE — do not re-add one. This spot held
-# `if [ ! -x "$GATE_WORKTREE/scripts/verify.sh" ] && [ "$ALLOW_STUB" != "true" ]`, which NO INPUT
-# COULD ENTER: when ALLOW_STUB is not true the gate-provenance block above has already exited on the
-# same path via its MISSING / NOT EXECUTABLE arms, and when ALLOW_STUB IS true the second conjunct
-# is false. Nothing between the two reassigns either operand.
-#
-# Its message was the only place that said what to DO about a missing gate — write it, or generate
-# one with kit-init --gate-command — so the advice was stranded behind a condition that could not
-# fire, while the reachable refusal talked about revisions and worktrees. That advice now prints
-# from the block above, on the two arms where there is no usable gate at all.
+# No executability check here, and do not add one: the gate-provenance block above already
+# refuses a missing or non-executable gate, with the advice on what to do about it.
 if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   PREMERGE_CMD=(${FINISH_PR_PREMERGE_CMD})
@@ -447,9 +323,8 @@ if "${PREMERGE_CMD[@]}"; then
   echo "  pre-merge verify --quick: PASS"
 else
   _pre_rc=$?
-  # BOTH REDS REFUSE; THEY ARE NOT NAMED ALIKE. The kit's verify.sh exits 3 when nothing
-  # failed and a gate could not run: an unknown, not a measured failure, and the fix is in
-  # the environment rather than the branch. Any other non-zero status is read as FAIL.
+  # Both reds refuse, named apart: verify.sh exits 3 when a gate could not run (nothing was
+  # measured; the fix is in the environment). Any other non-zero status is FAIL.
   {
     if [ "$_pre_rc" -eq 3 ]; then
       echo "Error: pre-merge gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — refusing to merge '${BRANCH}'."
@@ -470,12 +345,8 @@ fi
 echo ""
 echo "Squash-merging '${BRANCH}' → ${DEFAULT_BRANCH}..."
 if ! git -C "$KWT" merge --squash "$BRANCH" >/dev/null 2>&1; then
-  # The issue-card hint is TRUE only when the card is actually one of the conflicted
-  # paths. Printed unconditionally it was false on every ordinary code conflict, which
-  # is the common case — and a diagnostic that is usually wrong trains the reader to
-  # skip the whole block. Ask the index which paths are unmerged (`U`), and match the
-  # card by BASENAME: the board mover may already have moved it to another column on
-  # the trunk, so its dev_complete/ path is not the path git reports.
+  # Name the issue file only when it IS a conflicted path, matched by basename (the mover may
+  # already have moved it on the trunk).
   _fpr_conflicted="$(git -C "$KWT" diff --name-only --diff-filter=U 2>/dev/null)"
   _fpr_card_conflict=""
   case "$(printf '%s\n' "$_fpr_conflicted" | sed 's|.*/||')" in
@@ -495,11 +366,8 @@ if ! git -C "$KWT" merge --squash "$BRANCH" >/dev/null 2>&1; then
   exit 1
 fi
 
-# ── Empty-merge ABORT. Nothing staged → the branch has no net change vs the
-#    trunk (already merged, or a mistyped/stale branch). ABORT nonzero WITHOUT
-#    destroying state: do NOT delete the branch, do NOT advance the issue. (An
-#    earlier version fell through here to branch deletion + advance, destroying a
-#    mistyped branch with no landed code.)
+# ── Empty merge: the branch has no net change vs the trunk. Abort non-zero WITHOUT deleting the
+#    branch or advancing the issue.
 if git -C "$KWT" diff --cached --quiet 2>/dev/null; then
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>/dev/null || true
   {
@@ -511,11 +379,8 @@ if git -C "$KWT" diff --cached --quiet 2>/dev/null; then
 fi
 
 git -C "$KWT" commit -m "$SQUASH_MSG" --quiet
-# TWO LINES, NOT ONE, AND THE SECOND COMES AFTER THE PUSH. This used to print one
-# line naming the local sha as being "on <trunk>" BEFORE anything was pushed — and
-# the sha itself can change in flight, because the push wrapper rebases onto the
-# remote tip when a race rejects the first attempt and a rebase makes a NEW commit.
-# So the single line was two claims, one premature and one that could be false.
+# Two lines, the second after the push: a push race rebases and remakes the commit, so the
+# local sha is not yet the published one.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Squash commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
 # Push HEAD → trunk and keep the operator's checkout / local ref current.
@@ -528,13 +393,8 @@ fi
 # The PUBLISHED sha, from the library that read it back off the ref. If the rebase
 # above remade the commit, this is the one on the trunk and ${SHA} is not.
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUASH_MSG}\""
-# ── THE RECOVERY IS PRINTED AS NORMAL OUTPUT, HERE, WHILE THE RUN IS HEALTHY.
-#    `doctrine/fix-execution.md` § A.7: a multi-step landing script gets killed
-#    mid-run — by a caller's timeout, a shell, the host — and a failure branch that
-#    would have printed the recovery does not run, because nothing failed. So the
-#    remaining steps are printed at the moment the run stops being undoable: the
-#    merge is now ON THE TRUNK, and steps 3 and 4 are not done. A successor with a
-#    fresh shell can finish from these lines without reconstructing the state.
+# ── THE RECOVERY IS PRINTED NOW, while the run is healthy (doctrine/fix-execution.md § A.7): a
+#    killed run prints no failure branch, and from here the merge is on the trunk.
 {
   echo ""
   echo "── LANDED. Steps 1-2 of 4 are DONE and are on ${KWT_REMOTE}/${DEFAULT_BRANCH}."
@@ -546,10 +406,8 @@ echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUAS
   echo "   4 refuses an issue that is no longer in dev_complete/."
   echo ""
 } 
-# AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
-# match — the normal case — and under `set -e` that is an abort AFTER a successful
-# landing, which is the precise hazard the ungated-landing review found. Caught by the
-# control, not by reading: a green landing exited 1.
+# An `if`, not an `&&` chain: the chain returns non-zero when the shas match, and `set -e` would
+# then abort a green landing.
 if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
   echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
 fi
@@ -573,29 +431,10 @@ if [ "$MAIN_HEAD" = "$BRANCH" ]; then
   fi
 fi
 
-# ── THE DELETE ARMS REPORT WHAT THEY ACTUALLY DID.
-#    Both git calls used to be silenced with `>/dev/null 2>&1` and a failure was a
-#    bare `Note:` on stderr changing no exit code — so a refused delete was
-#    indistinguishable from a successful one in any filtered log, while the board
-#    note (composed a hundred lines earlier) claimed "branch deleted" either way.
-#    Four things are true here, and the exit code is deliberately NOT one of them:
-#      1. git's own stderr is SURFACED, never sent to /dev/null;
-#      2. the remote outcome is CONFIRMED BY RE-MEASURING the remote after the
-#         push — an exit-0 push whose ref is still advertised afterwards is caught
-#         and named. That is not hypothetical: a landing printed the success line
-#         (so the push exited 0) and the ref was still on the remote, and a
-#         controlled re-run reproduced it — deleted, absent for 150s, then back at
-#         the identical SHA. The push is not the liar; something re-creates the
-#         ref. Only a measurement catches that, never an exit code;
-#      3. the ls-remote GATE distinguishes its three outcomes (present / absent /
-#         the probe itself failed). It used to collapse the last two into a silent
-#         no-attempt path that printed nothing at all;
-#      4. each arm records an outcome in a variable the Activity note is built from.
-#    WHY EXIT 0 STAYS 0: the merge has already landed and been pushed. A surviving
-#    branch is residue, not a failed landing. So the report is LOUD, unmissable and
-#    NON-FATAL, and it names the one command that finishes the job.
-#    The local-skip-in-a-worktree rule and $KWT_REMOTE are preserved; the script
-#    stays forge-agnostic — pure git, no forge CLI, no forge API.
+# ── THE DELETE ARMS REPORT WHAT THEY DID. git's stderr is shown; the remote delete is CONFIRMED
+#    by re-reading the remote (a ref can survive a delete that exited 0); the probe's three
+#    outcomes (present / absent / probe failed) are kept apart; each arm records the outcome the
+#    Activity note is built from. The exit status is unaffected: a surviving branch is residue.
 
 # Delete the local branch unless it is still checked out somewhere.
 LOCAL_DELETE_STATE="unknown"
@@ -690,9 +529,8 @@ case "$_probe_rc" in
     ;;
 esac
 
-# ── Compose the Activity note HERE, from the two outcome variables, so the board
-#    can never record a deletion the run did not perform. An operator-supplied
-#    --note wins and is left exactly as given.
+# ── Compose the Activity note from the two outcome variables, so the board never records a
+#    deletion the run did not perform. An operator-supplied --note wins, unchanged.
 if [ "$NOTE_GIVEN" != "true" ]; then
   case "$LOCAL_DELETE_STATE" in
     deleted)       _local_clause="local branch deleted" ;;
@@ -718,11 +556,8 @@ echo ""
 echo "Advancing ${ISSUE_ID} → qa_complete/..."
 MOVE_ARGS=("$ISSUE_ID" qa_complete --role "$ROLE" --note "$NOTE")
 [ "$DISCARD_DIRTY" = "true" ] && MOVE_ARGS+=(--discard-dirty)
-# AN `if`, NOT A BARE CALL. A bare call under `set -e` aborts with move-issue's own
-# exit code — after the squash is on the trunk — so an automation reading $? sees
-# `1`, the same value this script uses for "refused, nothing landed", and cannot
-# tell the two apart. It then does the one thing that must never happen here:
-# RETRIES THE LANDING. This is where EXIT_LANDED_INCOMPLETE exists to be returned.
+# An `if`, not a bare call: under `set -e` a failed move would exit 1 ("nothing landed") after
+# the squash landed. This is where exit 3 comes from.
 if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
   LANDED_INCOMPLETE=1
   {
@@ -743,57 +578,22 @@ else
   echo "LANDED, NOT FINISHED. ${ISSUE_ID} is on '${DEFAULT_BRANCH}'; one or more follow-up steps did not complete (see above)."
 fi
 
-# Post-merge mechanical check. Runs the TRACKED verify.sh --quick and SURFACES
-# the result, but must NOT gate: the `if` wrapper is load-bearing so `set -e` can't
-# abort on a red gate. The executable is finish-pr's chosen tracked verify.sh,
-# never a caller command; the FINISH_PR_VERIFY_CMD stub is honored only behind
-# FINISH_PR_TEST_ALLOW_STUB (validated at the top, so a production caller that set
-# it has already been refused before any merge happened).
-#
-# ── WHICH TREE IT READS, AND WHY THAT IS CHOSEN HERE RATHER THAN ASSUMED.
-#    This check used to run "$GATE_WORKTREE/scripts/verify.sh" where it stood — and
-#    the gate-provenance block above REQUIRES that checkout to sit at the BRANCH TIP,
-#    and nothing after the landing moved it. So under --worktree, and on the default
-#    path with the main checkout detached at the tip, the "post-merge" reading was of
-#    the PRE-merge branch, and it printed `PASS on <trunk>` and `POST_MERGE_GATE: PASS`
-#    over a trunk that was red. Measured in a project running the kit: its reviewers
-#    checked the merged trunk by hand, and the one automated check of the trunk after
-#    each landing had been reading a different tree. Only the main checkout on the
-#    branch BY NAME and clean, when the switch succeeded, ever read the trunk, because
-#    the landing switches that one checkout to the trunk before deleting the branch —
-#    and the switch fails when the trunk is checked out in another worktree.
-#
-#    So the tree is now chosen, in this order, and the line below names the SHA read:
-#      1. the gate checkout is ON <trunk> by name, clean, and already contains the
-#         landed commit — read it where it stands (the by-name default path, when the
-#         landing's switch to <trunk> succeeded);
-#      2. otherwise, if it is clean, DETACH IT TO THE LANDED COMMIT and read it there.
-#         It was fit to run the gate a minute ago and its installed dependencies
-#         survive a detach, so the reading meets the environment the pre-merge run
-#         did. It is left there, and the output says so;
-#      3. only if it has uncommitted tracked changes (or the detach is refused), read a
-#         FRESH detached worktree at the landed commit, then remove it. A fresh tree
-#         has none of this checkout's installed dependencies, and the output says that
-#         too, because a red there may be the environment's rather than the trunk's;
-#      4. if no tree can be produced, or its gate is missing or not executable, the
-#         reading COULD NOT RUN — reported in its own word, never as PASS and never as
-#         FAIL (contracts/verify-gate.md § 3: an unrunnable check is an unknown). The
-#         same holds when the gate RAN and nothing failed but a gate could not run:
-#         verify.sh says so by exiting 3. (It exited 1 for both once, and the summary
-#         line was read to tell them apart; that reading is kept only for a runner
-#         that still exits 1 — see the parse below.)
-#    "THE LANDED COMMIT" MEANS ITS TRACKED CONTENT. Untracked and ignored files in a
-#    detached or in-place checkout — installed dependencies are the point — are carried
-#    along and are part of the reading; that is the trade the detach makes on purpose.
-#    EVERY STEP BELOW IS SAFE UNDER `set -e`: the landing has happened, so nothing here
-#    may abort before the EXIT line — each fallible command sits in a condition or ends
-#    in `|| true`, and what it failed to do is printed instead.
-#    The operand is KWT_LANDED_SHA — set by the library only after the push is read
-#    back as an ancestor of <remote>/<trunk> — never the kanban worktree's HEAD, which
-#    the board advance above has since moved.
+# ── POST-MERGE CHECK: surfaced, never gating (the `if` wrappers keep `set -e` off a red).
+#    It reads the LANDED COMMIT, never the gate checkout where it stands: the pre-merge gate
+#    required that checkout at the branch tip. The tree, in order:
+#      1. the gate checkout, if it is ON <trunk> by name, clean, and contains the landed commit;
+#      2. else, if clean, the gate checkout DETACHED AT THE LANDED COMMIT, and left there (its
+#         installed dependencies survive a detach);
+#      3. else (uncommitted tracked changes, or the detach refused) a FRESH detached worktree at
+#         the landed commit, removed afterwards — without those dependencies, and it says so;
+#      4. no tree, or no executable gate: COULD NOT RUN (contracts/verify-gate.md § 3), as is a
+#         gate that exits 3. Never PASS, never FAIL.
+#    "The landed commit" means its tracked content; untracked files in the checkout are read too.
+#    Every step below is `set -e`-safe: the landing has happened. The operand is KWT_LANDED_SHA
+#    (read back after the push), never the kanban worktree's HEAD.
 # RULE-COPIES:BEGIN — deliberate copies of where the post-merge reading leaves the gate checkout; the self-test holds them.
 # key: detached at the landed commit
-# copies: .claude/roles/qa.md scripts/check-board.sh
+# copies: .claude/roles/qa.md
 # RULE-COPIES:END
 echo ""
 echo "Post-merge mechanical check (surfaced, not blocking):"
@@ -821,8 +621,7 @@ else
     echo "  Detached the gate checkout '${GATE_WORKTREE}' at the landed commit ${KWT_LANDED_SHA} (it was on ${_pm_was}),"
     echo "  so this reading is of ${DEFAULT_BRANCH}, not of the branch. It is left there. Tracked content is the"
     echo "  landed commit's; untracked and ignored files in it (installed dependencies) are part of the reading."
-    # THE BOARD NOTE SAID "KEPT", AND IT WAS TRUE WHEN IT WAS WRITTEN. The delete arm above
-    # skipped the local branch because this checkout held it; after the detach nothing may.
+    # The board note said KEPT because this checkout held the branch; after the detach nothing may.
     if [ "$_pm_ref" = "$BRANCH" ] && [ "$LOCAL_DELETE_STATE" = "worktree-held" ] \
        && ! git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch refs/heads/$BRANCH" >/dev/null; then
       echo "  '${BRANCH}' is no longer checked out anywhere — the board note above says KEPT because it was,"
@@ -863,18 +662,10 @@ if [ -z "$PM_UNRUNNABLE" ]; then
   # so a red cannot trip `set -e`.
   if _pm_out="$( ( cd "$PM_TREE" && "${POSTMERGE_CMD[@]}" ) 2>&1 )"; then _pm_rc=0; else _pm_rc=$?; fi
   printf '%s\n' "$_pm_out"
-  # verify.sh's summary line: `gates declared: … · failed: <n> · could not run: <m> · …`.
-  # Read the LAST such line only; a gate runner that prints none leaves both empty, and
-  # a non-zero exit is then taken at its word as FAIL.
-  # THE EXIT STATUS IS READ FIRST. The kit's verify.sh exits 3 when nothing failed and a gate
-  # could not run, so for it the status alone decides and the summary is not needed. The
-  # summary is still read for a status of 1 — the only red a gate runner that predates the
-  # distinct status (or is not the kit's) can give — and the kit's own runner never pairs 1
-  # with a `failed: 0` count, so this fallback acts only on such runners.
-  # KNOWN LIMIT, NARROWED BUT NOT GONE: on those runners the line is trusted by its shape. One
-  # that ECHOES a sub-runner's `failed: 0 · could not run: <m>` before a real red of its own
-  # is read as UNRUNNABLE and told "nothing was measured" — false. It errs toward NO READING,
-  # never toward PASS.
+  # The exit status decides first: the kit's verify.sh exits 3 when a gate could not run. For a
+  # status of 1 (another runner), the LAST `gates declared: … · failed: <n> · could not run: <m>`
+  # line is read; with none, 1 is FAIL. Limit: such a runner echoing a sub-runner's
+  # `failed: 0 · could not run: <m>` before its own red reads as UNRUNNABLE — never as PASS.
   _pm_sum="$(printf '%s\n' "$_pm_out" | grep '^gates declared:' | tail -n 1 || true)"
   _pm_failed="$(printf '%s' "$_pm_sum" | sed -n 's/.*failed: \([0-9][0-9]*\).*/\1/p')"
   _pm_cnr="$(printf '%s' "$_pm_sum" | sed -n 's/.*could not run: \([0-9][0-9]*\).*/\1/p')"
@@ -892,26 +683,11 @@ if [ -n "$PM_UNRUNNABLE" ]; then
   echo "  ${DEFAULT_BRANCH}${KWT_LANDED_SHA:+ at ${KWT_LANDED_SHA}} in a prepared checkout before calling the landing checked." >&2
   echo "POST_MERGE_GATE: UNRUNNABLE"
 elif [ "$_pm_rc" -eq 0 ]; then
-  # NAMES THE REF ON THE CLEARING BRANCH TOO. The FAIL sibling below names
-  # ${DEFAULT_BRANCH} twice; this line named nothing, so the two halves of one gate
-  # were specific in failure and vague in success — the asymmetry that errs only ever
-  # toward false confidence, because the vague half is the one a reader stops at.
-  # contracts/landing-gate.md § 4 states it: "it names the ref it read — on the
-  # clearing branch as much as on the complaining one."
-  # The POST_MERGE_GATE: lines below are a MACHINE CONTRACT and are symmetric BY
-  # DESIGN — one fixed prefix, one bare word (PASS, FAIL, or UNRUNNABLE above). No
-  # ref or sha is ever appended to them: an automation keys on the token, and a ref
-  # belongs in the human sentence.
-  #
-  # AND NOW THE SHA, NOT ONLY THE REF. A ref names whichever commit the reader has in
-  # mind; the sha names the one that was read — which is how a PASS "on <trunk>" that
-  # had read the branch tip would have been visible on the line that claimed it.
+  # The clearing line names the ref and the sha read, as the FAIL line does
+  # (contracts/landing-gate.md § 4). POST_MERGE_GATE: lines are a machine contract: one fixed
+  # prefix, one bare word, nothing appended.
   echo "  post-merge verify --quick: PASS on ${DEFAULT_BRANCH} at ${PM_READ:-?} (post-merge, in ${PM_TREE} — ${PM_HOW})"
-  # THE MACHINE-GREPPABLE LINE. A human reads the sentence above; an automation
-  # needs a token it can key on without parsing prose, because this outcome
-  # deliberately does NOT move the exit code (see the header's exit table). One
-  # fixed prefix, one word — PASS, FAIL, or UNRUNNABLE when nothing could be read —
-  # on stdout, always printed.
+  # The machine-greppable line, always on stdout; this outcome never moves the exit code.
   echo "POST_MERGE_GATE: PASS"
 else
   echo "  post-merge verify --quick: FAIL on ${DEFAULT_BRANCH} at ${PM_READ:-?} (in ${PM_TREE} — ${PM_HOW}) — ${DEFAULT_BRANCH} may be red; fix it ON ${DEFAULT_BRANCH}, do not park it." >&2
@@ -926,11 +702,8 @@ else
   fi
   echo "POST_MERGE_GATE: FAIL"
 fi
-# THE FRESH TREE IS REMOVED, never left for somebody to mistake for a working checkout
-# — and if it cannot be, that is SAID, not swallowed. Every command here is guarded:
-# this runs after the landing, and a bare `[ … ] && git worktree remove` that failed as
-# the last command of its list once aborted the script under `set -e` (a gate that left
-# a read-only directory behind), exiting 255 with no EXIT line and the tree still there.
+# The fresh tree is removed, and a failure to remove it is SAID. Every command is guarded: this
+# runs after the landing, where `set -e` must not abort.
 if [ -n "$PM_FRESH_DIR" ]; then
   chmod -R u+w "$PM_FRESH_DIR" 2>/dev/null || true
   if [ -n "$PM_TREE" ]; then git -C "$MAIN_ROOT" worktree remove --force "$PM_TREE" >/dev/null 2>&1 || true; fi
@@ -946,10 +719,8 @@ if [ -n "$PM_FRESH_DIR" ]; then
   fi
 fi
 
-# ── THE EXIT. Last statement in the file, so nothing can run after it and quietly
-#    change the code. `set -e` cannot reach here: every post-landing step that can
-#    fail is wrapped, precisely so this line — not an aborted mid-script command —
-#    is what an automation reads.
+# ── THE EXIT. Last statement in the file; every post-landing step above is guarded, so this is
+#    what an automation reads.
 if [ "${LANDED_INCOMPLETE:-0}" -ne 0 ]; then
   echo "EXIT: 3 (landed, not finished — do NOT re-run this script; run the recovery above)" >&2
   exit 3
