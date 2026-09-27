@@ -107,7 +107,11 @@ if [ -e "$DEST" ]; then
   exit 1
 fi
 
-cp "$TEMPLATE" "$DEST"
+# Built aside and moved in last, as new-issue.sh does: a failed step leaves no PRD to spend the id.
+WORK="$(mktemp)"
+trap 'rm -f "$WORK" "$WORK.bak"' EXIT
+
+cp "$TEMPLATE" "$WORK"
 
 # Keyed on the frontmatter KEY, not the template's placeholder value, so a template edit cannot
 # make the substitution a silent no-op.
@@ -115,11 +119,13 @@ sed -i.bak \
   -e "s|^id: .*|id: ${ID}|" \
   -e "s|^created_at: YYYY-MM-DD|created_at: ${TODAY}|" \
   -e "s|^updated_at: YYYY-MM-DD|updated_at: ${TODAY}|" \
-  "$DEST"
-rm -f "${DEST}.bak"
+  "$WORK"
+rm -f "${WORK}.bak"
 
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
-kit_rehead_card "$DEST" || exit 1
+kit_rehead_card "$WORK" || exit 1
+
+mv "$WORK" "$DEST"
 
 echo "Created: $DEST"
 echo ""

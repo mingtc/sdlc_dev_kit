@@ -1462,6 +1462,43 @@ case_creation_slug_shape_is_one_rule() {
   teardown
 }
 
+# =============================================================================
+# CASE — new-prd.sh publishes a whole PRD or nothing: a failed step must not leave a
+# half-made file in requirements/, where it spends the id.
+# =============================================================================
+case_new_prd_failure_leaves_nothing() {
+  cf_reset
+  if ! has_issue_template; then skp "new-prd.sh: a failed mint leaves nothing" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then
+    skp "new-prd.sh: a failed mint leaves nothing" ".claude/templates/PRD.template.md absent — new-prd.sh exits at its template check"
+    return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+
+  local lib="$SB_WORK/scripts/lib/card-head.sh" out rc
+  cp "$lib" "$SB_TMP/card-head.real"
+  # The re-head is the last step before publishing; a stub that fails it stands for any late failure.
+  printf '%s\n' 'kit_rehead_card() { echo "stub: re-head failed" >&2; return 1; }' > "$lib"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh probe 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "new-prd.sh exited 0 with a failing re-head: $(printf '%s' "$out" | tr '\n' '|')"
+  [ -z "$(find "$SB_WORK/requirements" -type f 2>/dev/null)" ] \
+    || cf "a failed new-prd.sh left file(s) in requirements/ — the id is spent: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
+
+  # CONTROL: with the real re-head the same call mints, and at the first number.
+  cp "$SB_TMP/card-head.real" "$lib"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh probe 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) new-prd.sh failed with the real re-head (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  [ -f "$SB_WORK/requirements/$KIT_NEUTRAL_PRD_PREFIX-001-probe.md" ] \
+    || cf "(control) the retry did not mint $KIT_NEUTRAL_PRD_PREFIX-001-probe.md: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
+
+  finish "new-prd.sh: a failed re-head leaves requirements/ empty, and the retry mints the first id"
+  teardown
+}
+
 case_creation_scripts_substitute_hostile_values() {
   cf_reset
   if ! has_issue_template; then skp "creation scripts substitute hostile values without executing them" "$ISSUE_TEMPLATE_ABSENT"; return; fi

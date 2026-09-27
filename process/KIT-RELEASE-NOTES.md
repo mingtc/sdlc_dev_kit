@@ -694,6 +694,10 @@ columns and never the cards.*
   `/private/var/…`) was refused as *"not a git worktree of THIS repo"*. Both sides are now resolved;
   a genuinely foreign repository is still refused. **Nothing to do.**
 
+- **`new-prd.sh` no longer leaves a half-made PRD when it fails.** It built the file in `requirements/`, so a late
+  failure left it there and the next run took the following number; it now builds aside and moves the PRD in last,
+  as `new-issue.sh` does. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

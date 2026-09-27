@@ -350,6 +350,7 @@ CASES=(
   case_kit_init_gate_and_remote_refusals
   case_option_parsing_hygiene
   case_creation_slug_shape_is_one_rule
+  case_new_prd_failure_leaves_nothing
   case_creation_scripts_substitute_hostile_values
   case_first_mile
   case_release_happy
