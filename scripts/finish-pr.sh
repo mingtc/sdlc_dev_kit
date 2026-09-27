@@ -104,9 +104,7 @@ esac
 shift
 
 BRANCH=""; NOTE=""; NOTE_GIVEN=false; DRY_RUN=false; DISCARD_DIRTY=false; WORKTREE=""
-# need_val <all remaining args> — refuse an option whose value was not given: exit 2, naming it.
-# The same name and shape as the creators' copies; the self-test holds them identical. Never
-# `VAR="${2:-}"; shift 2`: with one argument left, `shift 2` fails and `set -e` exits 1 silently.
+# need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }

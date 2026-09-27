@@ -140,11 +140,7 @@ no_dash() {  # <value> <what it should have been>
 [ $# -lt 1 ] && { usage >&2; exit 1; }
 CMD="$1"; shift
 
-# need_val <all remaining args> — refuse an option whose value was not given.
-#
-# Repeated per script rather than shared (several of these source nothing from
-# scripts/lib/); the self-test holds the copies identical. It exists because `shift 2` with
-# one argument left aborts under `set -e` with no message (issue-creation.md § 3).
+# need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }

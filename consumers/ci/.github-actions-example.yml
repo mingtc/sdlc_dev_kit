@@ -18,9 +18,7 @@
 #      `exit 0`, so an unreachable upstream remote can never turn a consumer's checks
 #      red. `actions/checkout` deliberately does NOT carry the key: a repository that
 #      cannot check itself out is a real CI fault and should be reported as one, not
-#      swallowed by a freshness nag. This once read "every step is
-#      `continue-on-error: true`", which was false of the checkout step in this very
-#      file — the property that matters is about the ADVISORY step, not about every step.
+#      swallowed by a freshness nag.
 #   3. it writes nothing to ./vendor/ and commits nothing. Updating stays a
 #      deliberate, human-run `scripts/update_vendored.sh [tag]`.
 #

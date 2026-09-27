@@ -4,53 +4,32 @@
 # =============================================================================
 # scripts/hygiene/citation_index.py — the citation index, and the shared half the others import.
 #
-# THE SET, STATED ONCE SO THAT NOTHING COUNTS IT BY HAND: **every `.py` file in this directory is
-# an instrument, and this one is also the library the others import.** `ls scripts/hygiene/` is
-# the list. **This header must not carry an ordinal** — adding an instrument would renumber the
-# others, and a set maintained by hand, one header at a time, goes false the first time it changes.
+# THE SET: every `.py` file in this directory is an instrument, and this one is also the library
+# the others import. `ls scripts/hygiene/` is the list; this header carries no ordinal, because a
+# hand-kept count goes false the first time the set changes.
 #
-# *This said "No file carries an ordinal", which was a claim about the OTHER files and was false:
-# four of the five carry "Instrument N" in their module docstring. Those are each a file naming
-# itself, not a set maintained here, and they are outside this rule's reach — so the rule is
-# stated about the thing it actually governs, this header, rather than as a survey of the
-# directory that nothing was keeping true.*
+# Python, STANDARD LIBRARY ONLY: these are measuring tools, not project runtime. No gate calls
+# them and no dependency enters your project because they exist. A project that is not Python can
+# delete this directory and lose only the measurements; process/hygiene-checklist.md states each
+# shape in prose.
 #
-# WHY THIS FILE IS PYTHON, IN A KIT THAT IS OTHERWISE BASH + GIT. The files in this
-# directory are INSTRUMENTS, not project runtime: nothing ships them, no gate calls them, and no
-# consumer inherits them. They are the seat's measuring tools, and they are Python because a
-# shingle scan and a graph walk in bash would be slower to run and far slower to read. They use
-# the STANDARD LIBRARY ONLY — no dependency enters your project because these exist, which is the
-# line that keeps them from becoming a runtime obligation. A project whose language is not Python
-# can delete this directory and lose nothing but the measurements; process/hygiene-checklist.md
-# states each shape in prose, and re-implementing one is a day's work.
-#
-# WHAT IT IS. A deterministic, read-only map from every path in this tree to the files that
-# cite it. Instruments 2 (reachability_walk.py) and 3 (cold_signal.py) both need one, so it
-# lands ONCE, here, and they import it.
+# WHAT IT IS. A deterministic, read-only map from every path in this tree to the files that cite
+# it. reachability_walk.py and cold_signal.py both need one, so it lives once, here.
 #
 # THE ONE RULE THAT MATTERS — EXACT AND ANCESTOR REFERRERS ARE SEPARATE COLUMNS, NEVER
-# COLLAPSED. A citation of `dev/<some-study>/captures` from a shipped docstring makes the TREE
-# evidence; it does not make each capture individually load-bearing. The consequence of
-# conflating them, in one sentence: a census then either PARALYSES ITSELF (everything looks
-# cited) or DESTROYS EVIDENCE (nothing looks cited). The donor project's worked example was one
-# evidence tree carrying 718 referrers, MOSTLY ANCESTOR-LEVEL — collapse the columns and that
-# tree either justifies keeping every file under it or none. `referrers()` therefore returns two
-# sets and every caller prints two columns.
+# COLLAPSED. A citation of `dev/<some-study>/captures` makes the TREE evidence; it does not make
+# each capture load-bearing. Conflated, a census either paralyses itself (everything looks cited)
+# or destroys evidence (nothing does). `referrers()` returns two sets; every caller prints two.
 #
 # WHAT IT IS NOT. Not a guard, not a gate, not collected by any test runner. It writes nothing,
 # deletes nothing, moves nothing and makes no network call.
 #
-# THE SHAPES IT LOOKS FOR, and the blind spots it does NOT have — each one cost the donor
-# project's census a wrong orphan list ("FOUR successive tokenizer/normalisation bugs each
-# produced a plausible-looking but wrong orphan list"):
+# THE SHAPES IT LOOKS FOR, each a blind spot that would otherwise yield a wrong orphan list:
 #   (a) markdown link targets, `[x](process/MANUAL.md)` and `[x](verify-gate.md)`;
 #   (b) repo-relative path tokens in prose, code and shell;
 #   (c) referrer-relative tokens — `./file.md`, `../x/y.md`, and a bare sibling name;
-#   (d) EXTENSION-LESS SCRIPT PATHS. A setup script holding
-#       `HOOK_SRC="$SCRIPT_DIR/hooks/post-merge"` was eaten by the census's regex as
-#       `SCRIPT_DIR/hooks/`, and the hook it installs was reported as a FALSE ORPHAN — recorded
-#       at the time as "a blind spot any future orphan guard must handle". Handled here by
-#       stripping a leading `$VAR/` segment and resolving the remainder referrer-relative;
+#   (d) EXTENSION-LESS SCRIPT PATHS such as `HOOK_SRC="$SCRIPT_DIR/hooks/post-merge"`: a leading
+#       `$VAR/` segment is stripped and the rest resolved referrer-relative;
 #       `reachability_walk.py --self-test` re-proves the edge on YOUR tree.
 #
 # THE CHECKLIST THESE INSTRUMENTS SERVE: `process/hygiene-checklist.md`.
@@ -65,29 +44,11 @@ import re
 import sys
 from pathlib import Path
 
-# NO BYTECODE CACHE, DELIBERATELY — and the LIMIT of this line is stated, because a guard-rail
-# that is believed to do more than it does is worse than none.
-#
-# THE HAZARD: a project guard that walks `scripts/` and fails on any file without a KIT-CLASS
-# marker will REDDEN on an interpreter-written `scripts/hygiene/__pycache__/*.pyc`. `.gitignore`
-# usually covers `__pycache__/`, so `git status` stays clean while the guard is red — invisible
-# to the normal check. Measured in the donor project: one bare `python -c "import
-# citation_index"` wrote the cache and took that guard from green to one failure.
-#
-# WHAT THIS LINE DOES: it suppresses the cache for everything imported AFTER this module in the
-# same process.
-#
-# WHAT IT CANNOT DO — CPython writes a module's own `.pyc` at COMPILE time, BEFORE the body
-# runs, so no statement inside this file can prevent `citation_index`'s OWN cache. Re-measured
-# both ways: flag set by the importer first -> no `__pycache__`; flag set only here -> the `.pyc`
-# is still written.
-#
-# THEREFORE THE IMPORTER CONTRACT, AND IT IS ON THE IMPORTER: **set
-# `sys.dont_write_bytecode = True` BEFORE importing this module.** Every instrument that imports
-# this file does, each with the comment saying why — the obligation is on the importer, so how many
-# importers there are is a fact about the directory and not part of the rule. A
-# bare REPL / `python -c` import will redden such a guard until it is cleaned up
-# (`rm -rf scripts/hygiene/__pycache__`).
+# NO BYTECODE CACHE. A guard that fails on any file without a KIT-CLASS marker would redden on a
+# gitignored `scripts/hygiene/__pycache__/*.pyc` that `git status` never shows. This line covers
+# only modules imported AFTER this one: CPython writes this module's own `.pyc` before its body
+# runs. So every importer sets `sys.dont_write_bytecode = True` BEFORE importing it, and a bare
+# REPL / `python -c` import needs `rm -rf scripts/hygiene/__pycache__` afterwards.
 sys.dont_write_bytecode = True
 
 # scripts/hygiene/<file>.py → the repo root is two levels up. The ONE place any instrument
@@ -123,11 +84,6 @@ TEXT_SUFFIXES = {
 MAX_BYTES = 4 * 1024 * 1024
 
 # ── THE PREFIX EXCLUSION SET — ONE AUTHORING SITE for every instrument in this directory.
-#    It lived twice, under two names (`DEFAULT_EXCLUDED_PREFIXES` here-in-cold_signal and
-#    `EXCLUDED_PREFIXES` in duplication_scan), with byte-identical values and two separate
-#    "EDIT THESE for your tree" instructions. An adopter told to edit a thing twice edits it
-#    once, and the two instruments then disagree about what the corpus IS while both report
-#    confidently on it.
 #
 #    Every exclusion is a WHOLE TREE with a reason, never a per-file silencer:
 #      progress/  — the board. A closed issue body is written once and never touched again BY
@@ -148,20 +104,16 @@ _BARE_NAME = re.compile(
 _VAR_SEG = re.compile(r"^\$\{?\w+\}?$")
 
 
-# Set by iter_files(). None means NO WALK HAS RUN — which is not the same claim as zero, and
-# the notice below refuses to print a count it did not measure. A zero that nobody earned is the
-# defect this whole notice exists to prevent, one level up.
+# Set by iter_files(). None means NO WALK HAS RUN, which is not zero: the notice will not print a
+# count it did not measure.
 _WALK_SYMLINKS_SKIPPED = None
 
 
 def iter_files(root: Path):
     """Every in-scope file in the tree, repo-relative posix, sorted.
 
-    Also tallies the symlinks it skipped, for walk_blind_spots(). The tally counts a symlink
-    ONLY where it would otherwise have been included — it resolves to a file and its path is not
-    pruned — so the number means "files absent from this walk because they are symlinks" and not
-    "symlinks seen". The prune test therefore runs BEFORE the symlink test; the set returned is
-    byte-identical to the previous order of those two checks.
+    Also tallies the symlinks it skipped, for walk_blind_spots(): only those that would otherwise
+    have been included, so the prune test runs BEFORE the symlink test.
     """
     global _WALK_SYMLINKS_SKIPPED
     out = []
@@ -183,20 +135,12 @@ def iter_files(root: Path):
 class BlindSpotsUnavailable(RuntimeError):
     """``walk_blind_spots()`` derived NO lines — so the walk's narrowings were never stated.
 
-    This is a defect in the instrument, never a fact about the tree. The walk has two narrowings
-    by construction (symlinks, pruned directories) and there is no edit to SKIP_DIRS that removes
-    them: emptying that set leaves the line saying zero names are pruned. An empty list therefore
-    means the derivation itself was broken or removed, and the one thing it must not do is print
-    nothing and let a reader take the silence for a clean walker.
-
-    Modelled on ``cold_signal.HistoryUnavailable`` and refused in the same vocabulary, for the
-    reason that sheet gives: UNRUNNABLE is not FAIL, and a report that spells them the same way
-    sends the reader to debug a tree that may be perfectly healthy.
+    A defect in the instrument, never a fact about the tree: the walk narrows by construction
+    (symlinks, pruned directories), so an empty list means the derivation broke. Refused as
+    UNRUNNABLE, in ``cold_signal.HistoryUnavailable``'s vocabulary: UNRUNNABLE is not FAIL.
     """
 
-    # The remedy is passed IN for HistoryUnavailable's reason — a true sentence aimed at the wrong
-    # reader is the same defect one layer up. Here there is one way to arrive, so there is one
-    # remedy; the parameter exists so a second caller cannot inherit advice written for the first.
+    # The remedy is passed in, so a second caller cannot inherit advice written for the first.
     def __init__(self, asked, said, remedy):
         self.asked, self.said, self.remedy = asked, said, remedy
         self.rc = None
@@ -206,14 +150,10 @@ class BlindSpotsUnavailable(RuntimeError):
 def walk_blind_spots() -> list:
     """What ``iter_files`` did NOT look at — the walk's own narrowings, in one place.
 
-    ``instruments.md`` § A.4: a deliberate narrowing says so in the line that reports its
-    result. This lives BESIDE THE WALK rather than in each instrument's print block because
-    every module importing ``iter_files`` or ``Index`` inherits these narrowings, and a notice
-    copied into each one is one authoring site per importer for a single fact — the next narrowing
-    would have to find them all. Importers call this; they do not restate it.
-
-    Derived, not written down: the pruned-directory count comes from ``SKIP_DIRS`` itself, so
-    editing that set cannot leave this line behind.
+    ``instruments.md`` § A.4: a narrowing says so in the line that reports its result. It lives
+    beside the walk, so every importer of ``iter_files`` or ``Index`` inherits one statement;
+    importers call this and do not restate it. Derived from ``SKIP_DIRS``, so editing that set
+    cannot leave this line behind.
     """
     if _WALK_SYMLINKS_SKIPPED is None:
         tally = "count unavailable — no walk has run in this process"
@@ -225,13 +165,8 @@ def walk_blind_spots() -> list:
         f"{len(SKIP_DIRS)} directory names are pruned wherever they appear, as is any directory with "
         f"a name ending .egg-info — the set is SKIP_DIRS in citation_index.py, and it is yours to edit",
     ]
-    # AN EMPTY DERIVATION IS THE INSTRUMENT FAILING, AND IT REFUSES RATHER THAN RETURNING []. The
-    # caller cannot tell an empty list from "this walk has no blind spots", and the second claim is
-    # one nobody has ever been able to make: the walk narrows by construction. Returning [] here
-    # would put a false clean bill in every importing instrument's JSON at once. The check lives at
-    # the derivation rather than in each importer's print block for the same reason the notice
-    # itself does: a fact restated per importer is one authoring site per importer, and the next
-    # narrowing would have to find them all.
+    # An empty derivation is the instrument failing, so it refuses rather than returning []: every
+    # importer would print [] as "this walk has no blind spots", which the walk never has.
     if not lines:
         raise BlindSpotsUnavailable(
             asked="walk_blind_spots() in citation_index.py",
@@ -252,16 +187,9 @@ def print_blind_spots(prefix: str = "BLIND SPOT: ") -> None:
 def run_instrument(entry, instrument: str, argv=None) -> int:
     """Run one instrument's ``main`` and turn a broken walker into a REFUSAL, not a traceback.
 
-    THE ONE SITE. Every program that imports ``walk_blind_spots`` inherits this; the refusal text,
-    the exit code and the JSON shape are authored here and nowhere else, so a change to the
-    vocabulary is one edit rather than one per importer. Each instrument's ``__main__`` block calls
-    this instead of ``main()`` —
-    that call is the only line the guard costs an importer, and forgetting it is visible as a
-    traceback rather than as a wrong answer.
-
-    ``--json`` is read from argv rather than from the parsed namespace because the exception can
-    fire before or after parsing, and a refusal that cannot tell which format its reader wanted
-    is the failure mode this is here to prevent. Said plainly so nobody reads it as an oversight.
+    The one site for the refusal text, the exit code and the JSON shape. Each instrument's
+    ``__main__`` block calls this instead of ``main()``. ``--json`` is read from argv, not the
+    parsed namespace, because the exception can fire before parsing.
     """
     wants_json = "--json" in (sys.argv[1:] if argv is None else argv)
     try:
@@ -277,10 +205,8 @@ def run_instrument(entry, instrument: str, argv=None) -> int:
         if wants_json:
             import json
 
-            # A VALID OBJECT THAT SAYS IT DID NOT RUN, carrying NO data keys — no `rows`, no
-            # `blind_spots`, no counts. `cold_signal`'s § unrunnable states the reasoning and it
-            # is not restated here: empty stdout reads as a successful empty result, and
-            # `"blind_spots": []` asserts the very claim this exception exists to refuse.
+            # A valid object that says it did not run, with NO data keys: `"blind_spots": []`
+            # would assert the very claim this refuses (reasoning: cold_signal.py's refusal block).
             print(json.dumps({"unrunnable": {
                 "instrument": instrument, "reason": str(exc), "asked": exc.asked,
                 "said": exc.said, "remedy": exc.remedy,
@@ -384,18 +310,14 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        # The narrowing that produced this set travels WITH it. A machine consumer is the
-        # reader least able to infer a missing file from its absence — it cannot notice what it
-        # was never given — so the notice belongs in the payload, not on a line the human path
-        # prints after this branch has returned (instruments.md § A.4).
+        # The narrowing travels WITH the payload: a machine consumer cannot notice a file it was
+        # never given (instruments.md § A.4).
         print(json.dumps({"blind_spots": walk_blind_spots(), "rows": rows}, indent=2))
         return 0
     print(f"citation index over {len(index.files)} files in {index.root}")
     print("EXACT and ANCESTOR are separate columns and are never summed.")
-    # instruments.md § A.4 — name the blind spot in the instrument's OWN output. Derived from
-    # the walker (see walk_blind_spots) rather than written here, because every instrument that
-    # imports iter_files or Index inherits the same narrowings, and a copy per instrument is one
-    # authoring site per importer for a single fact.
+    # instruments.md § A.4: name the blind spot in the instrument's own output, derived from the
+    # walker (walk_blind_spots).
     print_blind_spots()
     print(f"{'EXACT':>7} {'ANC':>7}  PATH")
     for row in rows:

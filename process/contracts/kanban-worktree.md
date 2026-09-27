@@ -138,4 +138,4 @@ refusal above.
   checkout (a hand-made direct-to-trunk commit), under the same contract.
 - The trunk-confirmation invariant in § 2 is a standing finding in
   [`../EXTRACTION.md`](../EXTRACTION.md) § 2: a resolution chain that ends in a hard-coded name
-  cannot warn, so the **initializer** confirms the trunk up front instead.
+  can only guess (it warns, but cannot know it is right), so the **initializer** confirms the trunk up front.

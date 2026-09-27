@@ -9,30 +9,19 @@
 # makes no network call, and needs no dependency (standard library only; see
 # citation_index.py's header for why these instruments are Python at all).
 #
-# THE PARAMETERIZATION, AND WHY THIS ONE. Two shapes were on record for the donor project's own
-# scan: 9-GRAM CONTAINMENT over prose files larger than 1.5 KB, and "6-line normalized windows".
-# THIS SCRIPT TAKES THE 9-GRAM SHAPE, for one reason worth copying: it is the shape in which the
-# only calibration figure that existed was recorded — "only four pairs above 18%: one
-# byte-identical, one duplicated by design (a pack pair that says so in its own text), two benign
-# intra-spike quotations". A line-window scan cannot be compared against that number at all, so
-# adopting it would have thrown away the only baseline anyone had. So: WORD SHINGLES OF SIZE 9
-# (`--n`, default 9), CONTAINMENT (intersection over the SMALLER document's shingle set, so a
-# short quotation inside a long document is still visible), a report threshold of 18% (`--min`),
-# and a corpus floor of 1536 bytes (`--min-bytes`).
+# THE PARAMETERIZATION: WORD SHINGLES OF SIZE 9 (`--n`), CONTAINMENT (intersection over the
+# SMALLER document's shingle set, so a short quotation inside a long document is still visible),
+# a report threshold of 18% (`--min`), and a corpus floor of 1536 bytes (`--min-bytes`).
 #
-# RE-CALIBRATE BEFORE YOU QUOTE. That "four pairs above 18%" is ANOTHER PROJECT'S corpus on one
-# day. Run this on yours, write down what you get, and cite your own number with its date — the
-# whole point of the base-rate discipline (see staleness_greps.py) is that a figure without a
-# date and a source is a claim, not a measurement.
+# RE-CALIBRATE BEFORE YOU QUOTE: run this on your corpus and cite your own number with its date.
 #
 # NORMALIZATION, stated because it is where a duplicate scan lies: text is lowercased, fenced
 # code blocks and inline code are KEPT (they duplicate as often as prose does), markdown
 # punctuation and whitespace collapse to single spaces, and shingles are word-level. Two files
 # that differ only in heading punctuation are still reported as a pair.
 #
-# A PAIR IS A SUSPICION, NOT A VERDICT. Of the donor's four: one was a real duplicate, one was
-# duplicated ON PURPOSE and said so in its own text, and two were quotations. The instrument
-# classifies nothing; it prints pairs and the reader adjudicates.
+# A PAIR IS A SUSPICION, NOT A VERDICT: a real duplicate, a deliberate one that says so, and a
+# quotation all look alike here. The instrument classifies nothing; the reader adjudicates.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md`.
 # =============================================================================
@@ -49,8 +38,7 @@ from itertools import combinations
 from pathlib import Path
 
 # NO BYTECODE CACHE, DELIBERATELY — see citation_index.py's header for the full statement and
-# the importer contract. Set BEFORE the sibling import below; moving it after re-creates the
-# cache and, with it, the redness in any guard that walks scripts/.
+# the importer contract. Set BEFORE the sibling import below.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from citation_index import (  # noqa: E402
@@ -61,10 +49,8 @@ DEFAULT_N = 9
 DEFAULT_MIN = 0.18
 DEFAULT_MIN_BYTES = 1536
 
-# ── PARAMETERS — the corpus, declared. Authored prose OUTSIDE the board, the source tree and
-#    the test tree. The exclusion set is IMPORTED from citation_index.py, which carries the
-#    per-prefix reasons and is the ONE place to edit it for your tree — it used to be defined
-#    here too, under a second name, with a second "EDIT THESE" instruction beside it.
+# ── PARAMETERS — the corpus: authored prose outside the excluded trees. The exclusion set is
+#    IMPORTED from citation_index.py, the one place to edit it.
 # The file types considered "prose". Extend if your corpus is (say) .rst or .txt.
 PROSE_SUFFIXES = (".md",)
 

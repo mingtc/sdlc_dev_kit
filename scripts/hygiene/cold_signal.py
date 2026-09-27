@@ -28,33 +28,17 @@
 # THE PARAMETER, AND ITS DEFAULT, STATED HERE: `--days` is the coldness horizon and defaults
 # to 14 ("cold beyond two weeks").
 #
-# CALIBRATION — AND WHY ANOTHER PROJECT'S FIGURE IS NOT A BASELINE FOR YOUR RUN. The donor
-# project's census recorded 185 files / 1,473,757 B over ITS OWN 1,799-candidate scope. THIS
-# INSTRUMENT DOES NOT WALK THAT SCOPE, so the two numbers are NOT COMPARABLE and a difference
-# between them is NOT evidence of decay — the same discipline duplication_scan.py applies to
-# itself. What travels is the METHOD, not the number:
-#   • run it BOTH ways (`--no-excludes` and default) and print both totals;
-#   • name the single biggest contributor to the gap, because in the donor's tree ONE directory
-#     (the archived board) was 78.3% of the un-excluded byte total, and without that sentence the
-#     whole-tree figure reads as decay when it is the floor class working as designed;
-#   • write your two numbers down WITH THE DATE, and re-measure before quoting either.
+# CALIBRATION: another project's figure is not a baseline for your run. Run it BOTH ways
+# (`--no-excludes` and default), print both totals, name the single biggest contributor to the
+# gap (typically the archived board: the floor class working as designed), and write both
+# numbers down WITH THE DATE.
 #
-# WHY THE THIRD CONJUNCT IS "EXACT" AND NOT "ANY". Almost the whole suspicion set is saved by
-# ANCESTOR-directory citations — the exact-vs-ancestor distinction doing its job. Collapse the
-# two columns and this instrument reports either everything or nothing; that is why
-# citation_index.py refuses to collapse them.
+# The third conjunct is EXACT, not ANY: most of the suspicion set is saved by ANCESTOR
+# citations, which is why citation_index.py keeps the two columns apart.
 #
-# ITS MEASUREMENT MUST NEVER BE A GATE, AND MUST NEVER BE ASSERTED BY A TEST. History is not a
-# fixture, and a number read from live git is nondeterministic by construction. This is a seat-run
-# instrument, not a guard.
-#
-# WHAT THAT DOES *NOT* FORBID, narrowed here because the wording used to say "never invoked from a
-# test" and the kit's own harness invokes it — deliberately, seeding sandbox history so it can run.
-# A test may RUN this instrument to check what it SAYS ABOUT ITSELF: that it declares its blind
-# spots, that it reports UNRUNNABLE rather than zero when git is absent, that ablating its
-# derivation empties the declaration. Those are properties of the instrument, not of the history.
-# **The line is between asserting what it MEASURED and asserting how it BEHAVES.** The first is a
-# nondeterministic guard; the second is the only way an advisory instrument is held honest at all.
+# ITS MEASUREMENT MUST NEVER BE A GATE OR BE ASSERTED BY A TEST: live git history is not a
+# fixture. A test may RUN it to check how it BEHAVES (it declares its blind spots, it reports
+# UNRUNNABLE rather than zero when git is absent), never what it MEASURED.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Cold evidence" shape).
 # =============================================================================
@@ -77,9 +61,8 @@ from citation_index import (  # noqa: E402
 )
 
 DEFAULT_DAYS = 14
-# The default prefix exclusion set is IMPORTED, not redefined — it lives once, in
-# citation_index.py, which every instrument here already imports. Replaceable with --exclude,
-# clearable with --no-excludes; never silently applied. EDIT IT THERE, not here.
+# The default prefix exclusion set is IMPORTED from citation_index.py: edit it there. Replaceable
+# with --exclude, clearable with --no-excludes.
 
 
 class HistoryUnavailable(RuntimeError):
@@ -92,9 +75,7 @@ class HistoryUnavailable(RuntimeError):
     may be perfectly healthy.
     """
 
-    # The remedy is passed IN, never inferred here: the two ways this fires need opposite
-    # advice, and telling a reader whose git is missing to run `git init` is the same defect
-    # one layer up — a true sentence aimed at the wrong reader.
+    # The remedy is passed IN: the two ways this fires need opposite advice.
     def __init__(self, root, rc, said, remedy):
         self.root, self.rc, self.said, self.remedy = root, rc, said, remedy
         self.asked = (f"git -C {root} -c core.quotePath=false "
@@ -105,20 +86,10 @@ class HistoryUnavailable(RuntimeError):
 def git_history(root: Path):
     """``path -> (commit_count, last_unix_ts)`` from ONE local history walk. No remote.
 
-    `-c core.quotePath=false` IS LOAD-BEARING AND IS NOT STYLE. The keys this returns are
-    matched against `citation_index.iter_files()` paths, which are real filenames. Under git's
-    default `core.quotePath=true` a path with any byte outside ASCII comes back C-quoted and
-    double-quoted — `café.md` arrives as `"caf\\303\\251.md"` — so the lookup in `survey()`
-    misses, the file scores zero commits, and it is dropped from the walk BEFORE any threshold
-    is applied. The failure is silent and it is directional: the file reads as never-committed,
-    which is not "cold", so the tool UNDER-COUNTS while still printing a confident answer. That
-    is the one failure mode this instrument must not have — a report that declines to answer is
-    recoverable (see `HistoryUnavailable`), a report that answers wrongly is not.
-
-    Measured before and after on a scratch repo containing `café.md` and `plain.md`: with the
-    default, this function keyed `'"caf\\303\\251.md"'` and `'café.md' in stats` was False;
-    with the flag, `stats['café.md']` is `(1, <ts>)`. Ablation: drop the two `-c` arguments and
-    the same probe goes red again.
+    `-c core.quotePath=false` IS LOAD-BEARING. Under git's default a non-ASCII path comes back
+    C-quoted (`café.md` arrives as `"caf\\303\\251.md"`), misses the `survey()` lookup against
+    `citation_index.iter_files()`, and drops out of the walk silently: the tool UNDER-COUNTS while
+    printing a confident answer.
     """
     try:
         proc = subprocess.run(
@@ -133,8 +104,7 @@ def git_history(root: Path):
             "release or an export is not a repository — run it inside a clone, or `git init` first.",
         ) from None
     except FileNotFoundError:
-        # git absent entirely. The kit's floor assumes it, so this is unusual — and a traceback
-        # about a missing binary is exactly as unhelpful as one about a missing repository.
+        # git absent entirely: refuse, as for a missing repository, rather than a traceback.
         raise HistoryUnavailable(
             root, None, "git is not on PATH",
             "install git, or put it on PATH. The kit's floor assumes git; nothing here can "
@@ -209,12 +179,9 @@ def main(argv=None) -> int:
         if args.json:
             import json
 
-            # A VALID OBJECT THAT SAYS IT DID NOT RUN, and it carries NO data keys — no `rows`,
-            # no `files`, no `bytes`. Both alternatives are worse for the one reader who cannot
-            # infer anything: empty stdout is indistinguishable from a successful empty result
-            # (instruments.md § A.9 — read the STATUS, never the output shape), and `"rows": []`
-            # asserts there are no cold files, which is a measurement nobody made. Omitting the
-            # keys makes a consumer that skipped the exit code fail loudly on the lookup instead.
+            # A valid object that says it did not run, with NO data keys: empty stdout reads as a
+            # successful empty result (instruments.md § A.9), and `"rows": []` asserts a
+            # measurement nobody made. A consumer that skipped the exit code fails on the lookup.
             print(json.dumps({"unrunnable": {
                 "instrument": "cold_signal", "reason": str(exc), "asked": exc.asked,
                 "git_rc": exc.rc, "git_said": exc.said, "remedy": exc.remedy,

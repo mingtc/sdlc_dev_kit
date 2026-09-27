@@ -8,25 +8,11 @@ export const meta = {
   ],
 }
 
-// issue.docsPath — same field name and semantics as tranche-runner.js: true for a
-// docs/process-lite issue with NO work branch (direct-to-trunk). On the docs path there is
-// nothing for the landing script to squash-merge, so such an issue reports
-// `landing: not_applicable` — a true statement rather than a value the caller has to know
-// to forgive. This comment used to explain why a `landed:false` on the docs path was
-// "CORRECT, not a failure"; that reasoning was right and is preserved by the field now being
-// able to SAY it, which is what retired the carve-out rather than deleting it.
+// issue.docsPath — as in tranche-runner.js: true for a docs/process-lite issue with no work
+// branch (direct-to-trunk). Such an issue reports `landing: not_applicable`.
 
-// THE PARSE IS GUARDED, and the reason is that the unguarded version's failure named nothing it
-// could have named. A non-JSON payload produced a bare `SyntaxError: JSON Parse error: Unexpected
-// identifier` whose only location was the HARNESS file, not this one — so the message pointed away
-// from the thing that was wrong, at the entry point an operator drives first and is most likely to
-// get wrong. The fail-fast was right and is kept: the run still dies at 0 agents, cheaply.
-//
-// The message names THIS runner, echoes the value it got (truncated, so a large payload cannot bury
-// the message), and names the REQUIRED top-level keys only — the full per-issue shape stays at its
-// one authoring site above rather than being copied here, because a copied contract is the one that
-// rots. This is the same shape as the `if (!CFG.repo) throw` below, which was already a named,
-// actionable refusal and simply never got reached.
+// The parse is guarded so a non-JSON payload is refused naming this runner, at 0 agents. The
+// message names the required top-level keys only; the per-issue shape stays in meta.description.
 let ARGS
 try {
   ARGS = typeof args === 'string' ? JSON.parse(args) : args
@@ -46,72 +32,33 @@ const CFG = {
   gateCmd:     ARGS.gateCmd     || './scripts/verify.sh',
   setupCmd:    ARGS.setupCmd    || './setup.sh',            // worktree bootstrap, if the project has one
   codePaths:   ARGS.codePaths   || 'src/**, tests/**, and the build/dependency manifest',
-  // Pinned-output paths a behavior-preserving change must not move. Empty string = skip
-  // the zero-drift diff entirely (a project with no goldens should pass '').
-  // `??` NOT `||`, and the difference is the whole point: `'' || <default>` IS the default, so
-  // passing the empty string restored the very value it was documented to suppress. `??` falls
-  // through only on null/undefined, so '' reaches CFG.goldenPaths, the drift step's own
-  // `CFG.goldenPaths &&` guard is falsy on it, and the step is skipped as documented. Do not
-  // "tidy" this back to `||` for consistency with its neighbours: this is the one default in this
-  // block with a meaningful empty value, and scripts/test/run.sh asserts the `??` in both runners.
+  // Pinned-output paths a behavior-preserving change must not move. '' skips the zero-drift
+  // diff (a project with no goldens should pass ''). `??` NOT `||`: with `||`, '' restores the
+  // default. The self-test asserts the `??` in both runners.
   goldenPaths: ARGS.goldenPaths ?? 'tests/fixtures tests/golden*',
   secretsFile: ARGS.secretsFile || '.env',                  // gitignored credentials file, if any
   liveRules:   ARGS.liveRules   || '',
-  // THE PIN, IN PROSE, for a project whose pinned output is DERIVED rather than stored.
-  // goldenPaths above expresses the pin as a PATH SHAPE, which presumes a golden-FILE
-  // convention: bytes on disk, drift is a git diff. A project whose pinned output is
-  // computed — a derived count, a generated manifest, a checksum of something assembled at
-  // build time — has nothing to name there, gets an empty goldenPaths, and the drift step
-  // correctly reports NOT RUN on every run forever. Correct, and useless.
-  //
-  // WHY PROSE AND NOT A COMMAND. A command pin would be more expressive, and it would make
-  // this brief tell an agent to execute project-supplied text — a posture the kit should
-  // adopt deliberately if ever, not inherit from a convenience. And these files can run
-  // NOTHING themselves: the workflow runtime grants them no filesystem and no process
-  // access, so anything executable would have to be executed by the agent anyway. Prose
-  // injected verbatim is the shape liveRules already uses; it is weaker, and it is honest
-  // about being weaker.
+  // The pin in prose, for a project whose pinned output is DERIVED (a count, a generated
+  // manifest) and so has no goldenPaths to name. Prose, not a command: the brief must not tell
+  // an agent to execute project-supplied text.
   driftRule:   ARGS.driftRule   || '',
-  // THE PROVISIONING DEFAULTS BELONG HERE, and they used to sit outside CFG as bare
-  // `const DEFAULT_MODEL` / `DEFAULT_EFFORT` while line 1 and this header both promised
-  // that everything project-specific was in CFG. The kit's own doctrine
-  // (process/doctrine/model-provisioning.md) calls a model tier and an effort tier one
-  // project's ratified calibration — which is the definition of project-specific — so a
-  // project that ran a different ladder had to EDIT THE FILE to follow its own rule.
+  // Provisioning defaults: one project's ratified ladder (process/doctrine/model-provisioning.md).
   defaultModel:  ARGS.defaultModel  || 'opus',
   defaultEffort: ARGS.defaultEffort || 'medium',
 }
 if (!CFG.repo) throw new Error('wave-runner: args.repo is required (absolute path to the main repo)')
 
-// AN OMITTED WAVE IS A NAMED REFUSAL, and here the unguarded case failed in the OPPOSITE
-// direction from tranche-runner's: an absent list became [], parallel([]) returned [], and
-// [].every(...) is VACUOUSLY TRUE — so both wave gates passed and the run returned
-// { halted: null, results: [] }. A GREEN over zero issues, which is the worst of the two
-// failures because nothing about it looks wrong. One wave is legitimate; neither is not.
+// An omitted wave is refused by name: [].every() is vacuously true, so a run over zero issues
+// would report success. One wave is legitimate; neither is not.
 for (const k of ['wave1', 'wave2']) {
   if (ARGS[k] !== undefined && ARGS[k] !== null && !Array.isArray(ARGS[k])) {
     throw new Error('wave-runner: args.' + k + ' must be an array of issue objects when present. Got: ' + JSON.stringify(ARGS[k]))
   }
 }
-// A MISSPELLED PER-ISSUE KEY IS REFUSED BY NAME. `depends_on` defaults to [] where it is read, so
-// an honest omission is fine — but a caller who wrote `depends_ons` would get a silent solo run,
-// and a broken dependency chain is what that field exists to prevent (reported by an adopter who
-// lost a five-issue dispatch to it).
-//
-// THE WAVE-ONLY FIELDS ARE PART OF THIS SET, AND LEAVING THEM OUT BROKE EVERY RUN. This list was
-// copied verbatim from tranche-runner, whose per-issue shape is ALMOST the same — this runner also
-// reads `worktreeMode`, `phase` and `restartNote`, all three named in meta.description above. A
-// guard copied across two files without re-deriving its operand set refuses the very fields the
-// file's own contract advertises. Derive it from what the file reads, not from its sibling:
+// A misspelled per-issue key is refused by name: `depends_on` defaults to [], so a typo
+// (`depends_ons`) would otherwise run the issue solo. Derive this set from the fields this file
+// reads, not from tranche-runner's (this runner also reads worktreeMode, phase, restartNote):
 //   grep -oE 'issue\.[a-zA-Z_]+' .claude/workflows/wave-runner.js | sort -u | grep -v '^issue\.sh$'
-// THE `grep -v` IS NOT TIDINESS. Without it the pattern also matches the filename in
-// `./scripts/move-issue.sh`, which is not a property access at all, and the recipe returns
-// a `sh` that is not and must never be an issue key — one token more than the Set below,
-// so the derivation offered here DISAGREED with the declaration it is offered to check.
-// Run as corrected it returns exactly the members below, which is the point of printing it.
-// Expected, at the time of writing: the Set's own contents, and nothing else. If the two
-// ever differ again, the file changed and one of them is wrong — do not reconcile by
-// editing whichever is easier.
 const ISSUE_KEYS = new Set(['id', 'branch', 'title', 'devModel', 'devEffort', 'qaModel', 'qaEffort',
   'devAgentType', 'qaAgentType', 'gates', 'depends_on', 'extraDev', 'extraQA', 'role', 'docsPath',
   'parkable', 'worktreeMode', 'phase', 'restartNote'])
@@ -143,11 +90,9 @@ function provision(label, phase, model, effort, agentType, schema) {
   return opts
 }
 
-// A LEG'S THROW IS MARKED WHERE IT HAPPENS. The runtime's agent() THROWS for run-level reasons — the
-// turn's token budget ceiling is reached, or it refuses the call — and those are LEG_ABORTED. The
-// runner's OWN code can throw too, and that is a bug, which must stay loud rather than be filed as
-// an outcome. The two cannot be told apart after the fact, so every agent() call goes through leg(),
-// which marks what it rethrows with the leg's label; the catch sites below act only on marked errors.
+// agent() throws for run-level reasons (budget ceiling, refused call): those are LEG_ABORTED. A
+// throw from the runner's own code is a bug and must stay loud. leg() marks what it rethrows with
+// the leg's label, and the catch sites act only on marked errors.
 const LEG_THREW = 'legThrew'
 async function leg(prompt, opts) {
   let reply
@@ -164,16 +109,9 @@ async function leg(prompt, opts) {
   return reply
 }
 
-// EVERY LEG'S FREE TEXT REACHES THE RESULT, ON EVERY OUTCOME. A success used to return only
-// { id, outcome, qa_evidence, gates }: a Dev leg's summary and deviations, and a review's notes and
-// premise_refuted, were dropped on exactly the path where the run succeeds — so anything a leg
-// reported there (a caveat, a surprise, a kit finding) never reached the orchestrator, and the
-// premise_refuted axis, which exists so a PASS/landed issue can say what it learned, was lost on the
-// one outcome it was designed for. So leg() records each reply's free-text fields as it returns, in
-// call order, and every record the runner returns carries them as `leg_notes`: one entry per leg that
-// replied, { leg: <label prefix>, ...the non-empty free-text fields }. A leg that threw or returned
-// nothing adds no entry; the legs before it keep theirs. process/MANUAL.md § The RUN-OUTCOME
-// vocabulary states the result shape.
+// Every record the runner returns carries each leg's free text as `leg_notes`, on EVERY outcome,
+// a success included: one entry per leg that replied, in call order, { leg: <label prefix>,
+// ...the non-empty LEG_TEXT fields }. process/MANUAL.md § The RUN-OUTCOME vocabulary.
 const LEG_TEXT = ['summary', 'deviations', 'notes', 'premise_refuted', 'precondition_failure']
 const legTrail = Object.create(null)   // no prototype: an issue id like `constructor` must not collide
 function recordLeg(label, reply) {
@@ -234,44 +172,15 @@ const DEV_SCHEMA = {
   required: ['status', 'branch', 'summary', 'test_evidence'],
 }
 // ── THE VERDICT VOCABULARY IS PROJECTED, NEVER RE-ENUMERATED ─────────────────
-// The authoring site is `process/MANUAL.md` § The Dev → QA handoff, step 6. These
-// two constants are its PROJECTION into this runner's schemas; if they disagree
-// with that list, the list wins and these are the defect.
-//
-// WHY THIS EXISTS. The schemas used to read `verdict: PASS|FAIL` plus
-// `landed: boolean` — TWO members against the four MANUAL ratifies, and a boolean
-// where the ratified vocabulary has three states. A reviewer returning the
-// ratified "pass, every gate green, landing deferred" had nowhere to put it and
-// had to flatten; the halt below then read the flattened value as a failure and
-// STOPPED A RUN THAT HAD SUCCEEDED. That is not a misaimed check — the check was
-// correct about what it was given. It is the read-time defect of
-// `process/doctrine/instruments.md` § A.9: the machinery reported on its subject
-// and on itself in one vocabulary, so nobody could tell the two apart.
-//
-// THE TWO AXES ARE ORTHOGONAL AND MUST STAY SO. "Did the review pass" and "did the
-// change reach the trunk" are different facts. Collapsing them is the entire bug,
-// so `landing` is its own field with its own three values — and `not_applicable`
-// exists because a docs-path issue has no landing script to complete, which a
-// boolean forces to lie in one direction or the other.
+// Authoring site: process/MANUAL.md § The Dev → QA handoff, step 6. If these disagree with that
+// list, the list wins. The verdict (did the review pass) and `landing` (did the change reach the
+// trunk) are separate axes: collapsing them halts runs that succeeded.
 const VERDICTS = ['PASS', 'PASS_AC_CORRECTED', 'FAIL_AC', 'FAIL_REGRESSION']
 
-// THE RUN-OUTCOME VOCABULARY, ONE AUTHORING SITE PER RUNNER. These tokens (six, then) were bare string
-// literals at six `return { outcome: '…' }` sites in each runner — twelve copies across the pair,
-// held together by nothing. VERDICTS above has a named declaration AND a harness case pinning it to
-// the ratified table in process/MANUAL.md; this vocabulary had neither.
-//
-// WHAT IT IS: the RUNNER's summary of one issue's leg, composed from the QA verdict and the
-// separate `landing` field rather than replacing either. LANDED and LAND_READY are both verdict
-// PASS — they differ only in whether the landing happened — which is why the wave gate treats both
-// as success. Keep that composition in mind before adding a member: a new outcome that encodes a
-// verdict the ratified table does not have is a second verdict vocabulary wearing another name.
-//
-// RATIFIED IN process/MANUAL.md § The RUN-OUTCOME vocabulary, which is the AUTHORING SITE: this
-// declaration PROJECTS that table and does not re-enumerate it. The copies here are unavoidable —
-// the workflow runtime grants these files no imports, so a shared module cannot exist — so the
-// self-test holds each runner to the ratified table AND to its twin. Both arms are needed: an
-// authority does not make two hand-copied projections agree with each other, and two projections
-// agreeing does not make either right.
+// THE RUN-OUTCOME VOCABULARY: the runner's summary of one issue, composed from the QA verdict and
+// `landing` (LANDED and LAND_READY are both PASS). It projects process/MANUAL.md § The RUN-OUTCOME
+// vocabulary; the self-test holds each runner to that table and to its twin (no imports here, so
+// the copy is unavoidable). A new member must not encode a verdict the ratified table lacks.
 const OUTCOME = Object.freeze({
   LANDED:                 'LANDED',                  // verdict PASS, landing landed / not_applicable
   LAND_READY:             'LAND_READY',              // verdict PASS, landing deferred — a SUCCESS
@@ -285,48 +194,33 @@ const OUTCOME = Object.freeze({
 const LANDING = ['landed', 'deferred', 'not_applicable']
 // A verdict that means the review passed. PASS_AC_CORRECTED: MANUAL step 6's third verdict.
 const isPass = v => v === 'PASS' || v === 'PASS_AC_CORRECTED'
-// A verdict at all: one of the ratified tokens. A review leg that returns nothing, or a value outside
-// VERDICTS, formed no verdict — MANUAL step 6's precondition failure — and is neither pass nor FAIL.
-// Applied to BOTH reviews: the issue review and the park review. A park review that formed no verdict
-// verified nothing, so it is NO_VERDICT, not PARK_UNVERIFIED — which judges the park itself.
+// A verdict at all: one of the ratified tokens. Anything else, or nothing, is no verdict (MANUAL
+// step 6's precondition failure): neither pass nor FAIL, for the issue and the park review alike.
 const isVerdict = v => VERDICTS.includes(v)
-// A verdict FORMED: a reply carrying a ratified token AND no precondition_failure. A reviewer that
-// reports a precondition failure — a gate that could not run, an AC naming a gate this tree does not
-// hold (MANUAL step 6) — has told us no verdict is possible, so any token sent alongside it is not
-// one: the schema used to REQUIRE a verdict, and a reviewer obeying step 6 had to invent one. Only a
-// NON-EMPTY string counts: structured-output models often fill an optional string with "", and a
-// blank here would halt every review in the run. The field's description says to omit it otherwise.
+// A verdict FORMED: a ratified token AND no precondition_failure; a token sent beside a reported
+// precondition failure is not a verdict. Only a NON-EMPTY string counts: models often fill an
+// optional string with "".
 const preconditionFailed = r => !!r && typeof r.precondition_failure === 'string' && r.precondition_failure.trim() !== ''
 const formedVerdict = r => !!r && !preconditionFailed(r) && isVerdict(r.verdict)
 // Why a review leg formed no verdict, for the log and the record.
 const noVerdictWhy = r => preconditionFailed(r)
   ? `the reviewer reported a precondition failure (${r.precondition_failure.trim()})`
   : 'the review leg returned no ratified verdict'
-// A Dev leg answered at all: a reply carrying one of DEV_SCHEMA's statuses. A Dev leg that returned
-// nothing (the agent was skipped, or died on a terminal error) is not "Dev could not proceed" — that
-// is BLOCKED_DEV, a status Dev reports — it is a leg that produced nothing, whose tree state the runner
-// cannot know. It is LEG_ABORTED, like a leg whose call threw, and no further leg is spent on it.
+// A Dev leg that returned no DEV_SCHEMA status produced nothing, and its tree state is unknown:
+// LEG_ABORTED, not BLOCKED_DEV (a status Dev reports).
 const devAnswered = d => !!d && DEV_SCHEMA.properties.status.enum.includes(d.status)
 
 const QA_SCHEMA = {
   type: 'object',
   properties: {
     verdict: { enum: VERDICTS },
-    // WHY `verdict` IS NOT IN `required`. MANUAL step 6: a gate that could not run, or an AC naming a
-    // gate the tree does not hold, leaves NO verdict to issue. While `verdict` was required, a reviewer
-    // obeying that had no legal reply — it had to invent a token, most likely a FAIL, which asserts
-    // something false about the code. It now sends precondition_failure instead; the runner files that
-    // as NO_VERDICT and never reads a verdict beside it. A separate field, not a fifth enum value, so
-    // the ratified verdict vocabulary stays exactly the four tokens VERDICTS projects.
+    // `verdict` is not required: on a precondition failure (MANUAL step 6) the reviewer sends
+    // precondition_failure instead, filed as NO_VERDICT. A separate field keeps VERDICTS at the
+    // four ratified tokens.
     precondition_failure: { type: 'string', description: 'OPTIONAL. Set ONLY when no verdict can be formed (MANUAL step 6): a gate that could not run, or an AC naming a gate this tree does not hold. Name it. When set, omit verdict and send landing=not_applicable; the run files it as NO_VERDICT, never as a failure. Otherwise OMIT this field — never an empty string, and never a filler such as "N/A" or "none": ANY non-empty value halts the run.' },
     landing: { enum: LANDING, description: 'landed = the landing script completed; deferred = verified but deliberately not landed (blocked-push regime) — a SUCCESS, not a failure; not_applicable = there was nothing to land (docs path)' },
-    // A THIRD AXIS, orthogonal to both above, and nullable BY DESIGN. An issue can be
-    // implemented exactly as written, land green, and have its own PREMISE refuted by the
-    // measurement it produced — the most valuable thing a run can produce, and until this
-    // field existed it had nowhere to go but a commit subject. It is NOT a verdict (the
-    // work was correct) and NOT a landing (it landed); making it either would re-merge the
-    // split process/MANUAL.md § Dev → QA step 6 made on purpose. Leave it absent when the
-    // premise stood — an empty string is a claim that something was refuted and named nothing.
+    // A third axis, neither verdict nor landing: the issue's own premise, refuted by what it
+    // measured. Omit it when the premise stood; an empty string claims a refutation and names none.
     premise_refuted: { type: 'string', description: 'OPTIONAL. Omit unless the stated premise OF THIS ISSUE was refuted by what this work measured. When present: what the issue assumed, what was measured instead, and where that measurement is recorded. A PASS/landed issue can carry this and it is not a defect — it is the run learning something.' },
     ac_walk: { type: 'string', description: 'per-AC PASS/FAIL with concrete evidence' },
     unmet_ac: { type: 'array', items: { type: 'string' } },
@@ -339,24 +233,13 @@ const PARK_SCHEMA = {
   type: 'object',
   properties: {
     verdict: { enum: VERDICTS },
-    // WHY `verdict` IS NOT IN `required`. MANUAL step 6: a gate that could not run, or an AC naming a
-    // gate the tree does not hold, leaves NO verdict to issue. While `verdict` was required, a reviewer
-    // obeying that had no legal reply — it had to invent a token, most likely a FAIL, which asserts
-    // something false about the code. It now sends precondition_failure instead; the runner files that
-    // as NO_VERDICT and never reads a verdict beside it. A separate field, not a fifth enum value, so
-    // the ratified verdict vocabulary stays exactly the four tokens VERDICTS projects.
+    // `verdict` is not required: on a precondition failure (MANUAL step 6) the reviewer sends
+    // precondition_failure instead, filed as NO_VERDICT. A separate field keeps VERDICTS at the
+    // four ratified tokens.
     precondition_failure: { type: 'string', description: 'OPTIONAL. Set ONLY when no verdict can be formed (MANUAL step 6): a gate that could not run, or an AC naming a gate this tree does not hold. Name it. When set, omit verdict and send landing=not_applicable; the run files it as NO_VERDICT, never as a failure. Otherwise OMIT this field — never an empty string, and never a filler such as "N/A" or "none": ANY non-empty value halts the run.' },
-    // A park lands nothing, so `not_applicable` is the TRUE value rather than an
-    // exemption. This replaces the hand-written carve-out that used to say
-    // "ALWAYS false for a park — never a failure signal": the reason it gave was
-    // right, and with a three-valued field it no longer needs to be an exception.
+    // A park lands nothing, so `not_applicable` is the true value.
     landing: { enum: LANDING, description: 'ALWAYS not_applicable for a park — nothing is merged and the issue stays in blocked/' },
-    // `park_walk` / `unmet`, matching tranche-runner.js. These used to be `ac_walk`
-    // and `unmet_ac` here — the QA field names, reused for a park — so the same
-    // outcome came back under two different shapes depending on which runner
-    // produced it, and any consumer had to know which. A park review is not an AC
-    // walk; the honest names are the ones that describe what it checked. One
-    // vocabulary, projected — the same one-vocabulary rule, one level down.
+    // `park_walk` / `unmet`, matching tranche-runner.js: a park review is not an AC walk.
     park_walk: { type: 'string', description: 'per-check PASS/FAIL with concrete evidence: issue sits in blocked/; findings/verdict evidence-backed and honestly scoped; no half-landed residue (clean tree, no stray branch, board move committed); no claim contradicted by the tree' },
     unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable — the fix-round brief' },
     gate_evidence: { type: 'string', description: 'gate runner / check-board.sh / git state observed' },
@@ -365,8 +248,8 @@ const PARK_SCHEMA = {
   required: ['landing', 'park_walk', 'gate_evidence'],
 }
 
-// See tranche-runner.js: an interpolated absent field prints "undefined" into the
-// brief as though it were an instruction. Where there is no binding gate, say so.
+// An absent field interpolates as "undefined", which reads as an instruction. Where there is no
+// binding gate, say so.
 function gatesOf(issue) {
   return issue.gates ? String(issue.gates) : 'none declared for this issue — the suite alone is the bar here'
 }
@@ -380,18 +263,10 @@ function devPrompt(issue, fixNotes) {
     : `This issue has no dependencies inside this wave.`
   const restart = issue.restartNote || ''
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
-  // ROLE IS READ HERE, not assumed to be Dev. meta.description above promises 'same per-issue
-  // fields as tranche-runner', and `role` is one of them — it was accepted and silently ignored,
-  // so a Refactorer-hat issue placed in a wave was briefed as Dev, pointed at dev.md, and told to
-  // stamp its board move [Dev]. Same two lines as tranche-runner's devPrompt, deliberately
-  // identical: a promise of 'the same fields' is only true if the same code reads them.
+  // `role` is read here, as in tranche-runner's devPrompt. It drives the hat, the role doc, the
+  // board moves and the docs-path commit prefix.
   const role = issue.role || 'Dev'
   const roleDoc = role === 'Refactorer' ? '.claude/roles/refactorer.md' : '.claude/roles/dev.md'
-  // THE DOCS-PATH COMMIT PREFIX FOLLOWS `role`, and used to be the literal [Dev] while `role` was
-  // read right here and used for the hat, the role doc and both board moves — so a Refactorer on
-  // the docs path was told to sign a prefix that is not theirs, and the commit-msg hook takes the
-  // subject at its word. Stated here rather than in the brief: the brief is the agent's
-  // instructions, not a changelog.
   const workMode = issue.docsPath
     ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
     : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.remote}/${CFG.trunk} and work there.`
@@ -412,20 +287,12 @@ ${issue.extraDev || ''}
 Return the structured result only.`
 }
 
-// THE ZERO-DRIFT CHECK IS AN UNNUMBERED CONTINUATION OF THE GATES STEP, DELIBERATELY — see the
-// same note in tranche-runner.js. A conditional item inside a hand-numbered list makes the list
-// skip a number whenever the item is absent.
-//
-// THE DIVERGENCE THIS ONCE NOTED IS CLOSED. This procedure used to have one FEWER step than
-// tranche's — 'Run the gate' — while the verdict block below still told the reviewer what to do IF
-// the gate reported one that could not run. The gate is now step 3 here and unconditional, matching
-// tranche. *This comment is kept rather than deleted because a shipped release note tells adopters
-// to go and adapt this file, and a stale "we did not fix this" beside a fix is worse than either.*
+// The zero-drift check is an unnumbered continuation of the gates step, deliberately: it is
+// conditional, and a conditional item in a hand-numbered list skips a number when absent.
 function qaPrompt(issue) {
   const wt = issue.worktreeMode ? WORKTREE_MODE : ''
-  // THE PATH FORM STILL WINS WHERE IT APPLIES — it is right for the projects that have
-  // golden FILES, which is most of them. driftRule is the fallback for the projects it
-  // cannot serve, and a project may legitimately have both.
+  // The path form wins where it applies (golden FILES); driftRule is the fallback for a derived
+  // pin. A project may have both.
   const driftStep = issue.docsPath
     ? ''
     : CFG.goldenPaths
@@ -449,36 +316,11 @@ ${issue.extraQA || ''}
 Return the structured result only.`
 }
 
-// WHY QA'S GATE STEP IS UNCONDITIONAL HERE, AND WHY IT IS WORDED LIKE tranche-runner's.
-// It used to be welded to the non-docs half of step 2's ternary — "check out the branch AND run the
-// gate" — so a DOCS-PATH issue, which has no branch, was never told to run it, while the verdict
-// block below still told the reviewer what to do if the gate reported a failure. An instruction
-// about the outcome of a run nobody asked for.
+// QA's gate step is unconditional, as in tranche-runner: a docs-path issue has no branch and still
+// has a gate. A difference between the twins' briefs needs its reason written beside it.
 //
-// THE PARALLELISM IS NOT A REASON TO DIVERGE, and that is worth stating because it is the plausible
-// excuse: a gate run per issue could contend for one checkout in a way a serial runner's does not.
-// It does not here — each leg of a pair runs in its own worktree (see WORKTREE MODE and this
-// runner's own description), which is the same property that makes the pairing safe at all. If a
-// future runner DOES have a contention reason to diverge, write the reason beside the divergence;
-// an accidental difference between the two briefs is what this comment exists to prevent.
-//
-// THE SENTENCE IS DUPLICATED, NOT SHARED. The runtime grants these files no imports, so the copies
-// are unavoidable — the same constraint that keeps VERDICTS and OUTCOME hand-copied here.
-//
-// PARK-QA BRIEF. Its `landing=not_applicable` sentence carries a superseded conclusion whose reason
-// is kept here rather than in the prompt: the sentence used to read "landed is ALWAYS false", a later
-// change replaced that boolean with the three-valued `landing` field and updated the schema beside it
-// without following the rename into this brief, so the instruction named a field the schema no longer
-// defined. The schema moved and the prose did not — the very divergence that change existed to
-// prevent, one layer over.
-//
-// THAT NARRATION USED TO LIVE INSIDE THE RETURNED TEMPLATE LITERAL, and it broke the file: the pair
-// of backticks it put around `landing` TERMINATED the literal, so wave-runner.js did not parse at all
-// and the wave path was unloadable from the commit that added the narration through the next release.
-// Nothing caught it, because nothing in the kit parses these files. Two rules come out of it and both
-// belong here: maintainer narration goes in a `//` comment, never in a string that is sent to an
-// agent as instructions; and a backtick inside a template literal is a lexical hazard, not a styling
-// choice.
+// Maintainer notes go in `//` comments, never inside a prompt literal: the agent reads the literal
+// as instructions, and a backtick in it ends the literal.
 function parkPrompt(issue) {
   return `Wear the **QA hat** per .claude/roles/qa.md. Issue ${issue.id} was PARKED by its Dev (status=blocked). Verify THE PARK, not the feature: the issue sits in blocked/ with findings; the findings are evidence-backed and honestly scoped; the tree shows no half-landed residue (clean status, no stray branch); nothing in the park's claims is contradicted by the repo. Do not re-litigate whether parking was right — that is the PM's call. ${COMMON}
 If a check you must run COULD NOT RUN, there is no verdict to give: set precondition_failure to name it and omit verdict.
@@ -510,22 +352,9 @@ async function runIssue(issue) {
   }
   log(`${issue.id}: QA starting`)
   let qa = await leg(qaPrompt(issue), provision(`qa:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
-  // AND IF THE SECOND QA FAILS IN THE CURE'S OWN BLIND SPOT, THE ANSWER IS NOT A THIRD
-  // ROUND — there is no third round here, and there must not be one added. A defect that
-  // lives where the FIRST fix's assumptions do not look is evidence about the approach,
-  // not about effort: the cure did not miss it, the cure produced the place where it could
-  // hide. The terminating move is a change of SHAPE or of AUTHOR — a different approach, or
-  // different eyes. See process/doctrine/fix-execution.md § A.5c, which also says why "try
-  // again, harder" is the wrong reading: capability is not what is missing when the search
-  // is pointed at the wrong place.
-  //
-  // Both FAIL tokens trigger the one bounded fix round. Tested through isPass()
-  // rather than against a literal, so a fifth token added at the authoring site
-  // cannot silently fall through this branch as neither-pass-nor-fail. formedVerdict()
-  // keeps that property (it reads VERDICTS, through isVerdict) and adds two exclusions:
-  // a value OUTSIDE the ratified set, and a reply reporting a precondition_failure. Neither
-  // is a FAIL, so neither spends the fix round — each is no verdict, reported as NO_VERDICT
-  // below.
+  // Only a ratified FAIL spends the one bounded fix round (formedVerdict reads VERDICTS, so a new
+  // token still reaches here); no verdict is NO_VERDICT, below. There is no third round: a second
+  // FAIL calls for a different approach or author (process/doctrine/fix-execution.md § A.5c).
   if (formedVerdict(qa) && !isPass(qa.verdict)) {
     log(`${issue.id}: QA ${qa.verdict} — one bounded fix round`)
     const notes = `${(qa.unmet_ac || []).join('\n')}\n${qa.notes || ''}`
@@ -535,21 +364,9 @@ async function runIssue(issue) {
       qa = await leg(qaPrompt(issue), provision(`qa2:${issue.id}`, issue.phase, issue.qaModel, issue.qaEffort, issue.qaAgentType, QA_SCHEMA))
     }
   }
-  // THE HALT KEYS ON THE VERDICT, NEVER ON THE LANDING. A deferred landing is
-  // continue-and-defer, not a stop: the review succeeded and said so, and the only
-  // question a halt should answer is whether the REVIEW failed.
-  //
-  // This replaces `(!issue.docsPath && !qa.landed)` and the docsPath carve-out that
-  // went with it. That carve-out's reasoning was sound and is preserved by the
-  // three-valued field rather than by an exception: a docs-path issue returns
-  // `not_applicable` because there is genuinely nothing to land, so it no longer
-  // needs a special case to avoid reading as a failure. One less hand-patch, and
-  // the next flattening case will not need a third.
-  // NO VERDICT IS NOT A FAIL. A review leg that returned nothing (the agent died or was skipped),
-  // or a value outside the ratified set: the LAST review formed no verdict — and filing it under
-  // FAILED_AFTER_FIX_ROUND asserted FAIL verdicts that were never formed. It is MANUAL step 6's precondition failure surfacing at the outcome layer
-  // (process/MANUAL.md § The RUN-OUTCOME vocabulary), so it is named as itself. It HALTS, as a
-  // failure does, because the issue has not been reviewed — but it claims no failure.
+  // The halt keys on the VERDICT, never on the landing: a deferred landing is a success. No
+  // verdict is not a FAIL: it is NO_VERDICT (process/MANUAL.md § The RUN-OUTCOME vocabulary), and
+  // it halts because the issue is unreviewed.
   if (!formedVerdict(qa)) {
     log(`${issue.id}: NO_VERDICT — ${noVerdictWhy(qa)}; the issue is unreviewed`)
     return { id: issue.id, outcome: OUTCOME.NO_VERDICT, dev, qa }
@@ -557,10 +374,7 @@ async function runIssue(issue) {
   if (!isPass(qa.verdict)) {
     return { id: issue.id, outcome: OUTCOME.FAILED_AFTER_FIX_ROUND, dev, qa }
   }
-  // A PASS that did NOT land is still a success, and the run continues — but the
-  // outcome NAMES it, because "verified and landed" and "verified, landing
-  // deferred" are different facts and a report that spells both `LANDED` has
-  // re-merged the two axes downstream of the schema that separated them.
+  // A PASS that did not land is LAND_READY: still a success, and named as such.
   if (qa.landing === 'landed' || qa.landing === 'not_applicable') {
     log(`${issue.id}: LANDED`)
     return { id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
@@ -569,26 +383,13 @@ async function runIssue(issue) {
   return { id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
 }
 
-// THE WAVE SUCCESS PREDICATE HAS ONE AUTHORING SITE. It was written out verbatim once per wave,
-// so a third wave meant a third copy — and the outcome vocabulary it keys on is itself carried by
-// hand in several places, so a change there would have had to find every copy of this line too.
-//
-// LAND_READY is a PASS whose landing was deferred, so it does not halt: the halt keys on the
-// VERDICT, never on the landing, per the note above runIssue.
-//
-// AND ONE OUTCOME PER DISPATCHED ISSUE, or the wave is not ok. `rs.every(...)` is true of an empty
-// list, so a wave whose issues all vanished used to pass — see the note on the loop below. The
-// count is checked here, where the predicate lives, so no caller can hand it a shortened list.
+// The wave success predicate, in one place. LAND_READY does not halt (the halt keys on the
+// verdict). One outcome per dispatched issue, or the wave is not ok: every() is true of [].
 const waveOk = (rs, dispatched) => rs.length === dispatched && rs.every(r => r.outcome === OUTCOME.LANDED || r.outcome === OUTCOME.LAND_READY || r.outcome === OUTCOME.PARKED_OK)
 
-// THE WAVES ARE A TABLE, NOT A COPY-PASTED PAIR. Adding a third wave was five hand edits across
-// four places (a phase call, a parallel call, a results push, a predicate copy, a halt branch);
-// it is now one row here plus its meta.phases entry above — and meta.phases is the one part a
-// table cannot supply, because the harness reads it before this code runs.
-//
-// BOTH PHASES ARE ANNOUNCED EVEN WHEN A WAVE IS EMPTY, which is what the previous shape did and
-// is deliberately preserved: meta.phases DECLARES both, and a declared group that never opens
-// makes the progress display describe a shape the run did not have.
+// The waves are a table: a new wave is one row here plus its meta.phases entry (the harness reads
+// meta.phases before this code runs). Both phases are announced even when a wave is empty, because
+// meta.phases declares both.
 const WAVES = [
   { phase: 'Wave1', halt: 'wave1', issues: ARGS.wave1 ?? [] },
   { phase: 'Wave2', halt: 'wave2', issues: ARGS.wave2 ?? [] },
@@ -596,15 +397,9 @@ const WAVES = [
 
 for (const w of WAVES) {
   phase(w.phase)
-  // NEVER DROP AN ISSUE. When a leg's agent() THROWS — the runtime does that once the turn's token
-  // budget ceiling is reached, and on a call it refuses — parallel() resolves that thunk to null.
-  // This line used to `.filter(Boolean)` the nulls away: the issue vanished from the outcomes, the
-  // wave predicate ran over what was left (an empty list passes), the next wave started, and the
-  // run reported green over work nobody finished. So each thunk catches a throw leg() marked and
-  // names it LEG_ABORTED with the error, and any null that still arrives is named the same way against
-  // the issue it was dispatched for. An UNMARKED throw is the runner's own bug: parallel() would
-  // swallow it too, so it is carried out of the barrier and re-thrown — loud, as in the tranche
-  // runner, never an outcome. process/MANUAL.md § The RUN-OUTCOME vocabulary.
+  // NEVER DROP AN ISSUE. parallel() resolves a thunk whose agent() threw to null, and dropping the
+  // nulls would let the wave pass over unfinished work. A throw leg() marked is LEG_ABORTED, a stray
+  // null is named the same way, and an unmarked throw (the runner's own bug) is re-thrown.
   const out = (await parallel(w.issues.map(i => () => runIssue(i).catch(e =>
     (e && e[LEG_THREW])
       ? { id: i.id, outcome: OUTCOME.LEG_ABORTED, error: `${e[LEG_THREW]}: ${e.message}` }

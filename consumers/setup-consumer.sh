@@ -27,24 +27,14 @@
 
 set -euo pipefail
 
-# THE CLI SHAPE, per process/contracts/issue-creation.md § 3 — this script had no
-# argument handling at all, so `--help` fell through to whatever the body did with a
-# stray token: for one of these two, straight into a `cd` that reported
-# `cd: --: invalid option`. A usage request is ALWAYS legal and ALWAYS succeeds; an
-# unrecognised option refuses with 2, naming it. Both arms sit ABOVE every preflight
-# and every cd, so neither can be reached by asking how to use the tool.
+# Usage and unknown-option arms sit above every preflight and cd
+# (process/contracts/issue-creation.md § 3): --help always succeeds; an unknown option exits 2.
 case "${1:-}" in
   -h|--help)
-    # START DERIVED, not the literal 3. This file's own KIT-CLASS marker spans two lines,
-    # so a literal 3 printed the marker as the first thing --help said. Every marker's LAST
-    # line cites the extraction manifest, which is what makes its end derivable.
+    # Start and end derived: the KIT-CLASS marker's last line cites EXTRACTION.md.
     _h_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_h_start" ] || _h_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_h_start" ] || _h_start=3
-    # END DERIVED TOO. This was the literal 26 — the same premise the start was fixed for,
-    # wearing the other end: it encodes where this header happens to stop today. Two files
-    # elsewhere claimed in their own comments that every other renderer derives its end, and
-    # those two claims were false because of this line.
     _h_end="$(awk -v s="$_h_start" 'NR>=s && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
     sed -n "${_h_start},${_h_end:-26}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;
@@ -60,11 +50,8 @@ HOOK_SRC="$SCRIPT_DIR/hooks/post-merge"
 SKILLS_INSTALLER="$SCRIPT_DIR/install-skills.sh"
 [ -f "$UPDATE_SRC" ] || die "cannot find update_vendored.sh next to this script ($UPDATE_SRC)."
 
-# Learn the seams from the update script itself — VENDORED_NAME and
-# ARTIFACT_GLOB are configured in exactly one place and this script reads them
-# there. (The earlier shape of this file recovered the artifact path by string-
-# slicing the printed pin line, which coupled onboarding to one project's
-# pinning syntax; the pin line is for humans and manifests, not for parsing.)
+# Learn the seams from the update script itself (--print-seams): they are
+# configured in one place. The pin line is for humans and manifests, not parsing.
 eval "$(bash "$UPDATE_SRC" --print-seams | sed 's/^/SEAM_/')"
 VENDORED_NAME="${SEAM_VENDORED_NAME:?--print-seams gave no VENDORED_NAME}"
 ARTIFACT_GLOB="${SEAM_ARTIFACT_GLOB:?--print-seams gave no ARTIFACT_GLOB}"
@@ -90,10 +77,8 @@ log "Copied scripts/update_vendored.sh into the consumer."
 #    edits (see the printed one-liner below). It is NOT installed automatically —
 #    wiring the hook stays the consumer's explicit choice.
 if [ -f "$HOOK_SRC" ]; then
-    # STAMPED, not copied verbatim: the template's <vendored-name> placeholder
-    # is what the nag PRINTS, so a raw copy would leak an angle-bracket into a
-    # consumer's terminal on every pull. Substituted here rather than made a
-    # runtime lookup, because a hook must stay a few lines that cannot fail.
+    # STAMPED, not copied verbatim: the nag PRINTS <vendored-name>. A sed here,
+    # not a runtime lookup, keeps the hook a few lines that cannot fail.
     sed "s/<vendored-name>/${VENDORED_NAME}/g" "$HOOK_SRC" \
         > "$CONSUMER/scripts/${VENDORED_NAME}-post-merge.hook"
     chmod +x "$CONSUMER/scripts/${VENDORED_NAME}-post-merge.hook"

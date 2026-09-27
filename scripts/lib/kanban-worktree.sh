@@ -78,8 +78,7 @@ if [ ! -f "$KWT_LIB_DIR/push-retry.sh" ] || ! . "$KWT_LIB_DIR/push-retry.sh"; th
     echo "       That file is the ONE definition of the push-race retry"
     echo "       (git_push_with_retry) every trunk-publishing op goes through."
     echo "       Without it a board move pushes ONCE with no retry, and a lost"
-    echo "       race leaves the commit local — which cost one project a graft"
-    echo "       weeks later (see that file's header)."
+    echo "       race leaves the commit local and unpublished."
     echo "       This library REFUSES to load half-defined rather than let the"
     echo "       next kwt_finalize report a missing function as a push failure."
     echo "       Restore it:  git checkout -- scripts/lib/push-retry.sh"
@@ -383,7 +382,7 @@ kwt__ensure_detached() {
         echo ""
         echo "  ALSO PRESENT, untracked — NOT what the refusal above is about, and NOT destroyed by a"
         echo "  reset: these survive every board move and accumulate. A blanket 'add -A' would commit"
-        echo "  them to the trunk, which is how a distribution payload once reached a project's main:"
+        echo "  them to the trunk:"
         echo "$untracked" | sed 's/^/    /'
       fi
       echo ""
@@ -481,7 +480,7 @@ kwt_sync() {
           echo ""
           echo "  ALSO PRESENT, untracked — NOT what the refusal above is about, and NOT destroyed by a"
           echo "  reset: these survive every board move and accumulate. A blanket 'add -A' would commit"
-          echo "  them to the trunk, which is how a distribution payload once reached a project's main:"
+          echo "  them to the trunk:"
           echo "$untracked" | sed 's/^/    /'
         fi
         echo ""

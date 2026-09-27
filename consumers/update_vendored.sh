@@ -80,16 +80,11 @@ set -euo pipefail
 VENDORED_NAME="${VENDORED_NAME:-<vendored-name>}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# THE ONE PLACE THE UPSTREAM REPO LOCATION LIVES.
-# Keep it that way. This seam exists because a forge migration is otherwise a
-# hunt through every consumer's copy of this file: the donor project migrated
-# forges once during this script's life and, because the URL lived on exactly
-# one line, each consumer's migration was a one-line edit (plus one re-vendor).
-# Any URL git can clone works — including a LOCAL bare repository
-# (`/srv/git/<project>.git` or `file:///…`), which is the no-forge case
-# process/GIT-HOSTING.md describes. It is overridable from the environment
-# (default unchanged) so a self-test can point tag selection at a local
-# throwaway repo without touching the network.
+# THE ONE PLACE THE UPSTREAM REPO LOCATION LIVES — keep it that way, so a forge
+# migration is a one-line edit per consumer. Any URL git can clone works,
+# including a LOCAL bare repository (`/srv/git/<project>.git` or `file:///…`,
+# the no-forge case in process/GIT-HOSTING.md). Overridable from the environment
+# so a self-test can point it at a local throwaway repo.
 UPSTREAM_REPO_URL="${VENDORED_REPO_URL:-<upstream-repo-url>}"
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -204,12 +199,9 @@ pin_line() {   # <vendored artifact path, consumer-relative>
 }
 
 install_hint() {   # <vendored artifact path> <first-install|refresh>
-    # THE DISTINCTION IS DELIBERATE, and it is a learning, not a style choice:
-    # a REFRESH may skip dependency re-resolution (the environment already has
-    # the transitive dependencies; only the artifact moved), while a
-    # FIRST INSTALL must NOT — skipping resolution there leaves the
-    # dependencies uninstalled and the failure surfaces much later, somewhere
-    # unrelated. Two hints, two flags, on purpose.
+    # Deliberately two hints: a REFRESH may skip dependency re-resolution (only
+    # the artifact moved); a FIRST INSTALL must not, or the dependencies stay
+    # uninstalled and the failure surfaces later, somewhere unrelated.
     case "$2" in
         first-install) log "    <install command for $1 — RESOLVE dependencies>" ;;
         *)             log "    <install command for $1 — artifact only, skip dependency re-resolution>" ;;
@@ -221,36 +213,16 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ---- -h/--help: usage, before anything can refuse --------------------------
-# This script shipped without a help handler, and `--help` therefore fell all
-# the way through to TAG RESOLUTION — including a network clone — and died with
-# "tag not found: --help" (measured by an adopter 2026-08-22, the day the
-# consumer seam was first filled; the self-test case that asserts "--help exits
-# 0" had been a declared SKIP at assembly, so nothing caught it). A help flag is
-# the FIRST thing a new consumer types, and it must answer on a repo where the
-# seams are still placeholders — so this arm sits above the seam preflight, above
-# the `git` probe, and touches neither the seams nor the network.
-#
-# The text is DERIVED from this file's own header, never retyped: the header IS
-# the documentation, and a second copy of it is the copy that goes stale. Same
-# block as move-issue.sh / archive.sh / finish-pr.sh / subtask.sh — line 3 to the
-# last comment line before the first non-comment line, computed rather than
-# hard-coded, so adding a paragraph to the header cannot leave a stale range
-# behind. `${BASH_SOURCE[0]:-$0}` because this file is a TEMPLATE that consumers
-# copy into their own repository and invoke in ways this kit does not control;
-# the bare form resolves to nothing in any shell that is not bash.
-# THIS COPY OF THE HEADER-BLOCK RENDERER IS DELIBERATE AND CANNOT BE REMOVED. The one
-# definition is scripts/lib/usage.sh, and every shipped script that can source it does.
-# This file cannot: it is a TEMPLATE that is copied OUT into a consumer repository,
-# where scripts/lib/ does not exist. Recorded so the next duplication sweep finds a
-# decision rather than a fourth copy to remove.
+# Above the seam preflight and the `git` probe, so --help answers on a template
+# whose seams are still placeholders and touches no network. The text is this
+# file's header. This copy of the header renderer (the shared one is
+# scripts/lib/usage.sh) is deliberate: this TEMPLATE is copied into consumer
+# repositories, where scripts/lib/ does not exist.
 usage() {
     local src="${BASH_SOURCE[0]:-$0}" first end
     first="$(awk 'NR>2 && !/^#/{print NR; exit}' "$src")"
     end=$(( ${first:-0} - 1 )); [ "$end" -lt 3 ] && end=3
-    # START DERIVED, not the literal 3. This TEMPLATE leaves the tree into a consumer's
-    # repository where scripts/lib/ does not exist, so it keeps its own copy — and its OWN
-    # KIT-CLASS marker spans three lines, which is how this defect was found: `--help` on
-    # this very file opened with three lines of marker text.
+    # Start derived: the KIT-CLASS marker spans several lines; its last cites EXTRACTION.md.
     local start
     start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
     [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
@@ -260,13 +232,8 @@ usage() {
 
 case "${1:-}" in
     -h|--help) usage; exit 0 ;;
-    # AN UNRECOGNISED OPTION EXITS 2 AND NAMES ITSELF. This arm was missing, and its absence
-    # made a shipped release note false: it claims EVERY command-line tool the kit ships
-    # refuses an unrecognised option with status 2, and this file — an executable CLI with
-    # its own --help, --check and --print-seams — fell through to the preflight and exited 1
-    # complaining about something else entirely. process/contracts/issue-creation.md § 3.
-    #
-    # THE KNOWN FLAGS ARE MATCHED FIRST, so this arm only ever sees what nothing claimed.
+    # An unrecognised option exits 2 and names itself (process/contracts/issue-creation.md
+    # § 3). The known flags are matched first.
     --check|--print-seams) : ;;
     -?*) printf '%s: unknown option %s\n' "$(basename "$0")" "$1" >&2
          printf '       Run  %s --help  for the usage.\n' "$(basename "$0")" >&2
@@ -302,21 +269,10 @@ for seam in "VENDORED_NAME=$VENDORED_NAME" "UPSTREAM_REPO_URL=$UPSTREAM_REPO_URL
     esac
 done
 
-# RELEASE_DOCS IS A SEAM TOO, AND ITS MISS USED TO BE INVISIBLE. It ships with
-# `<path/to/GUIDE.md>` in it. An unfilled entry cannot match a file, so the drop was
-# skipped with the message reserved for a legitimately OLD TAG — "this release carries no
-# …" — which tells the reader the upstream is missing a document when in fact this file is
-# unconfigured. Two very different problems reported in one vocabulary, and the one that is
-# the reader's own fault was the one that looked like the upstream's. Checked here, in the
-# same place and shape as the other seams, so the message names the real cause.
-# `${RELEASE_DOCS[@]}` IS GUARDED BECAUSE THE MESSAGE BELOW SENDS READERS HERE. Under
-# `set -u`, bash 3.2 treats the expansion of an EMPTY array as unbound and dies — so an
-# adopter who takes this die's own second remedy ("delete that entry if you do not vendor
-# one") and vendors no guide at all emptied the array and crashed the script on the next
-# run, at this line, with `RELEASE_DOCS[@]: unbound variable`. The declaration above
-# invites exactly that ("Add or remove rows freely"), so empty is a SUPPORTED state, not
-# operator error. The `${#…[@]}` count is unconditionally defined for an empty array on
-# every bash this script supports, which the bare expansion is not.
+# RELEASE_DOCS is a seam too: an unfilled entry would otherwise be reported as
+# "this release carries no …", the message for an old tag. `${RELEASE_DOCS[@]+…}`
+# because an empty array is a supported configuration, and a bare expansion of an
+# empty array under `set -u` dies on bash 3.2.
 for _rd in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
     case "${_rd%%|*}" in
         *"<"*) die "unfilled seam in $(basename "$0"): RELEASE_DOCS still carries the placeholder '${_rd%%|*}'. Fill it with the path that document has IN THE RELEASE, or delete that entry if you do not vendor one. Leaving it would report the drop as 'this release carries no …', which is the message for a tag that predates the document." ;;
@@ -327,14 +283,10 @@ unset _rd
 # ---- helpers ---------------------------------------------------------------
 
 # Version of the artifact currently vendored, or empty if none is.
-# MORE THAN ONE ARTIFACT IS A REFUSAL, NEVER A GUESS. ./vendor/ is long-lived,
-# so a stale artifact CAN sit beside the current one, and answering by sort
-# order (`ls | head -1`) means a healthy checkout can report UPDATE AVAILABLE
-# with a DOWNGRADE as its remedy — the exact incident this refusal comes from.
-# Which artifact is current is a question only a human can answer.
-# (Contrast the this-run-created directories elsewhere in this script — the
-# build output dir, the distribution-branch clone — where `head -1` stays
-# CORRECT: a directory this run just made cannot hold a stale artifact.)
+# More than one artifact is a refusal, never a guess: ./vendor/ is long-lived, so
+# a stale artifact can sit beside the current one, and a sort-order pick can
+# offer a DOWNGRADE as the remedy. (`head -1` stays correct on the directories
+# this run creates, which cannot hold a stale artifact.)
 vendored_version() {
     local arts count base
     arts=$(ls "$VENDOR_DIR"/$ARTIFACT_GLOB 2>/dev/null || true)
@@ -351,13 +303,10 @@ vendored_version() {
     artifact_version "$base"
 }
 
-# Newest RELEASE tag on the remote (semver-sorted), without cloning. Empty if
-# none. The trailing `|| true` keeps a failed ls-remote (unreachable host, no
-# tags) from tripping `set -euo pipefail` in the caller's command substitution —
-# an empty result is the intended "no tag" signal, handled by the caller.
-# The RELEASE_TAG_RE filter is applied AFTER the sed, so a stray non-release tag
-# (a process baseline tag, an experiment) can never sort to the top and be
-# reported as "latest"; `--sort=-v:refname` ordering among release tags is kept.
+# Newest RELEASE tag on the remote (semver-sorted), without cloning; empty if
+# none. `|| true` keeps a failed ls-remote from tripping `set -euo pipefail` in
+# the caller. The RELEASE_TAG_RE filter runs after the sed, so a non-release tag
+# can never be reported as "latest".
 remote_latest_tag() {
     git ls-remote --tags --refs --sort=-v:refname "$UPSTREAM_REPO_URL" 2>/dev/null \
         | sed -n 's#.*refs/tags/##p' | grep -E "$RELEASE_TAG_RE" | head -1 || true
@@ -413,15 +362,10 @@ notes_subsections() {   # <release document> <version>
     ' "$1"
 }
 
-# Report what changed between the vendored version and the latest tag.
-# STRICTLY REPORT-ONLY, and that is the whole contract of this function: the
-# notes for the intervening versions exist nowhere in the consumer's tree yet,
-# so they are read out of a THROWAWAY shallow clone that is deleted before this
-# returns. Nothing under the consumer repo is written, ./vendor/ is not touched,
-# and EVERY failure path (no temp dir, clone refused, a tag carrying no notes,
-# an empty span) prints a note and returns SUCCESS — a report must never break
-# the answer it decorates. Output goes to stderr with the rest of the
-# narration, so --check's stdout stays exactly the one verdict line.
+# Report what changed between the vendored version and the latest tag, from a
+# THROWAWAY shallow clone deleted before this returns. STRICTLY REPORT-ONLY:
+# nothing in the consumer repo is written, every failure path prints a note and
+# returns SUCCESS, and output goes to stderr so --check's stdout stays one line.
 print_notes_delta() {   # <vendored version> <latest version> <latest tag>
     local from="$1" to="$2" tag="$3"
     local work clone notes changelog span v header
@@ -517,13 +461,9 @@ if [ "${1:-}" = "--check" ]; then
     newest=$(printf '%s\n%s\n' "$local_ver" "$latest_ver" | sort -V | tail -1)
     if [ "$newest" = "$latest_ver" ]; then
         echo "UPDATE AVAILABLE: vendored ${local_ver} < latest ${latest_ver}. Run this script (no --check) to update."
-        # WHICH PATH an update would take, so the integrator knows whether it
-        # costs a build. One lightweight ls-remote for the branch head — NO
-        # clone, and like everything else in --check it writes nothing. It is
-        # narration, so stderr: stdout stays the one verdict line a nag greps.
-        # `grep -q` dropped for the reason the kit's pipefail rule gives: the producer is
-        # a remote listing that grows, the reader exits on the first line, and `pipefail`
-        # would report the SIGPIPE rather than the match.
+        # Which path an update would take: one ls-remote for the branch head, no
+        # clone, narration on stderr. `grep .` not `grep -q`: under pipefail a
+        # reader that exits early reports the producer's SIGPIPE, not the match.
         if git ls-remote --heads "$UPSTREAM_REPO_URL" "$DIST_BRANCH" 2>/dev/null | grep . >/dev/null; then
             log "An update would use the ${DIST_BRANCH} fast path (shallow clone, no build) if it carries ${latest_ver}."
         else
@@ -553,9 +493,7 @@ trap cleanup EXIT
 # normal case, not an error.
 drop_release_docs() {   # <source dir> <"tag"|"dist">
     local src="$1" mode="$2" entry path label from to
-    # Guarded for the same reason as the preflight above: an empty RELEASE_DOCS is a
-    # supported configuration, and a bare `${RELEASE_DOCS[@]}` under `set -u` dies on it.
-    # Dropping no documents is the correct behaviour here, not a refusal.
+    # Guarded like the preflight: an empty RELEASE_DOCS drops no documents.
     for entry in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
         path="${entry%%|*}"
         label="${entry##*|}"
@@ -583,10 +521,8 @@ vendor_from_dir() {  # <dir> <"tag"|"dist"> -> echoes the artifact filename
     local src="$1" mode="$2" arts art name
     arts=$(ls "$src"/$ARTIFACT_GLOB 2>/dev/null || true)
     [ -n "$arts" ] || return 1
-    # `head -1` is CORRECT here and only here: $src was created by THIS run
-    # (a build output dir or a fresh shallow clone) and cannot hold a stale
-    # artifact. The long-lived ./vendor/ gets the refusal instead — see
-    # vendored_version().
+    # `head -1` is correct here only: $src was created by this run and cannot hold
+    # a stale artifact (./vendor/ gets the refusal in vendored_version()).
     art=$(printf '%s\n' "$arts" | head -1)
     name="${art##*/}"
     mkdir -p "$VENDOR_DIR"
@@ -599,17 +535,10 @@ vendor_from_dir() {  # <dir> <"tag"|"dist"> -> echoes the artifact filename
 
 # ---- the distribution-branch FAST PATH (tried first, falls back silently) ---
 # The upstream publishes a consumer-only branch at every release: ONE commit
-# carrying just the artifact, the release documents and a short README. When it
-# is there and current, a shallow clone of it gets us the same files this script
-# would otherwise spend a full clone plus a build to produce — no build
-# toolchain, no history, no source.
-#
-# It is a FAST PATH, never a requirement. The branch is absent on any repo state
-# older than its introduction and can lag a tag if a publish failed, so every
-# failure here falls through to the build-from-tag path below, which remains the
-# AUTHORITATIVE way to reproduce any version. A log line always says which path
-# ran, so an integrator is never guessing — but ./vendor/ ends up identical
-# either way, which is why the fallback is invisible in the result.
+# carrying the artifact, the release documents and a short README, so a shallow
+# clone replaces a full clone plus a build. It is a FAST PATH, never a
+# requirement: every failure falls through to the build-from-tag path, which
+# stays authoritative. ./vendor/ ends up identical either way.
 try_dist_fast_path() {  # <requested tag or ""> <latest tag or "">
     local want_tag="$1" latest_tag="$2" clone dist_art dist_ver want_ver
     [ "$VENDORED_NO_DIST" = "1" ] && { log "Skipping the $DIST_BRANCH fast path (VENDORED_NO_DIST=1)."; return 1; }
@@ -661,10 +590,8 @@ log "Cloning the ${VENDORED_NAME} upstream repo (network)…"
 git clone --quiet "$UPSTREAM_REPO_URL" "$CLONE" || die "clone failed: $UPSTREAM_REPO_URL"
 
 if [ -z "$TAG" ]; then
-    # `|| true` binds to the whole pipeline (|| is looser than |), so a failed
-    # `git tag` cannot trip `set -euo pipefail` before the `|| die` below
-    # reports it. Same RELEASE_TAG_RE filter as remote_latest_tag(), so a stray
-    # non-release tag is never auto-picked as the latest to build and vendor.
+    # `|| true` binds to the whole pipeline, so a failed `git tag` reaches the
+    # `|| die` below. Same RELEASE_TAG_RE filter as remote_latest_tag().
     TAG=$(git -C "$CLONE" tag --sort=-v:refname | grep -E "$RELEASE_TAG_RE" | head -1 || true)
     [ -n "$TAG" ] || die "no release tags in $UPSTREAM_REPO_URL — cannot pick a latest."
     log "Latest tag: $TAG"
@@ -673,24 +600,17 @@ git -C "$CLONE" checkout --quiet "refs/tags/$TAG" 2>/dev/null \
     || git -C "$CLONE" checkout --quiet "$TAG" \
     || die "tag not found: $TAG"
 
-# The release documents are dropped from the CHECKED-OUT TAG's own tree, BEFORE
-# the build and independently of it: deterministic, the same bytes that tag's
-# artifact carries, and a tag predating a document simply skips it. Without this
-# drop a vendoring consumer's entire view of the upstream is the artifact, so
-# "what changed under me since I last re-vendored?" has no in-band answer.
+# The release documents are dropped from the CHECKED-OUT TAG's own tree, before
+# and independently of the build, so a consumer can see what changed in-band.
 mkdir -p "$VENDOR_DIR"
 drop_release_docs "$CLONE" tag
 
 log "Building the artifact…"
 build_artifact "$WORK/dist" "$CLONE"
 
-# CAPTURE, THEN TEST, THEN SELECT. Written as one line —
-# `ART=$(ls … | head -1)` — the no-match case fails the ASSIGNMENT under
-# `set -euo pipefail`, so the `die` below becomes unreachable dead code and the
-# failure it exists to explain dies bare. Capture with `|| true`, test, then
-# select. `head -1` itself stays CORRECT here: the build output dir was created
-# by this run and cannot hold a stale artifact (unlike the long-lived
-# ./vendor/, whose multi-artifact case vendored_version() refuses).
+# Capture, then test, then select: as one `ART=$(ls … | head -1)` the no-match
+# case fails the assignment under `set -euo pipefail` and the `die` is never
+# reached. `head -1` is correct on this run's own build output dir.
 ARTIFACTS=$(ls "$WORK"/dist/$ARTIFACT_GLOB 2>/dev/null || true)
 [ -n "$ARTIFACTS" ] || die "the build produced no ${VENDORED_NAME} artifact matching $ARTIFACT_GLOB."
 ARTIFACT=$(printf '%s\n' "$ARTIFACTS" | head -1)

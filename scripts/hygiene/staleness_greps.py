@@ -10,25 +10,19 @@
 #
 #   SHAPE (i)  SUPERSEDED-CONCLUSION — a sentence restating a conclusion a later change
 #              narrowed: an open/absent/unstarted claim that NAMES an artifact which now
-#              EXISTS, or an issue that is now in `progress/done/`. The donor's specimen was one
-#              line of a front-door README reading "Still open: <area> (unstarted)" while five
-#              surfaces of that area had shipped.
+#              EXISTS, or an issue that is now in `progress/done/`.
 #   SHAPE (ii) UNMEASURED-CLAIM-NOW-MEASURED — a MEASURE-FIRST / "not yet measured" /
 #              "does not exist yet" claim whose named verdict artifact or issue HAS since landed.
 #
-# THE BASE RATE IS PRINTED WITH EVERY REPORT, and that is the copyable part: an instrument that
-# does not say how often it cries wolf gets wired into a gate by somebody. Each figure is carried
-# WITH ITS DATE AND SOURCE and is never restated as present-tense fact. THE SHIPPED FIGURES BELOW
-# ARE ANOTHER PROJECT'S, on one day, and are labelled as such — replace them with yours the first
-# time you run this and adjudicate the output.
+# THE BASE RATE IS PRINTED WITH EVERY REPORT: an instrument that does not say how often it cries
+# wolf gets wired into a gate. Each figure carries its date and source. THE SHIPPED FIGURES ARE
+# ANOTHER PROJECT'S; replace them with yours the first time you run this and adjudicate the output.
 #
-# THE SCOPE IS THE LIVE READING PATH, stated: root-level prose, `process/**`, the role docs,
+# THE SCOPE IS THE LIVE READING PATH: root-level prose, `process/**`, the role docs,
 # `requirements/*`, and the top level of `dev/` plus its handoffs — the files a fresh agent is
-# TOLD to read, where a wrong sentence does real damage. Ledger prose deep in an evidence tree is
-# out of scope by design, not by oversight. So are the HISTORICAL RECORDS listed below: an
-# archive index, a running log and a changelog quote dated claims that were true when written and
-# are never edited afterwards. In the donor's first run those four files alone were 70 of 96 raw
-# hits. Each exclusion is a whole file with a reason, never a per-line silencer.
+# TOLD to read. Ledger prose deep in an evidence tree is out of scope by design, and so are the
+# HISTORICAL RECORDS below, which quote dated claims that were true when written. Each exclusion
+# is a whole file with a reason, never a per-line silencer.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "decay" shape).
 # =============================================================================
@@ -93,13 +87,9 @@ def _id_prefixes(root: Path):
             found.append(match.group(1))
         else:
             unread.append(key)
-    # DERIVED MEANS *EVERY* KEY, NOT *ANY* KEY. This used to be `if found:` — true for a list
-    # of length one — so a config.sh where one key parsed and the other did not returned the
-    # single prefix it had and reported itself fully derived. The flag is this instrument's
-    # own honesty signal: the caller prints it and warns when it is false, precisely so a
-    # reader can tell a real zero from a blind one. A PARTIAL derivation is the blind case
-    # wearing the confident flag, and it is reachable — a prefix containing a character
-    # outside this class is stamped by the initializer and then unreadable here.
+    # DERIVED MEANS *EVERY* KEY: a partial read returns what it found with the flag False, so the
+    # caller can tell a real zero from a blind one. Reachable: the initializer can stamp a prefix
+    # with a character outside this class.
     if found and not unread:
         return "|".join(found), True
     if found:

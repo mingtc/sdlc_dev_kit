@@ -27,24 +27,14 @@
 
 set -euo pipefail
 
-# THE CLI SHAPE, per process/contracts/issue-creation.md § 3 — this script had no
-# argument handling at all, so `--help` fell through to whatever the body did with a
-# stray token: for one of these two, straight into a `cd` that reported
-# `cd: --: invalid option`. A usage request is ALWAYS legal and ALWAYS succeeds; an
-# unrecognised option refuses with 2, naming it. Both arms sit ABOVE every preflight
-# and every cd, so neither can be reached by asking how to use the tool.
+# Usage and unknown-option arms sit above every preflight and cd
+# (process/contracts/issue-creation.md § 3): --help always succeeds; an unknown option exits 2.
 case "${1:-}" in
   -h|--help)
-    # START DERIVED, not the literal 3. This file's own KIT-CLASS marker spans two lines,
-    # so a literal 3 printed the marker as the first thing --help said. Every marker's LAST
-    # line cites the extraction manifest, which is what makes its end derivable.
+    # Start and end derived: the KIT-CLASS marker's last line cites EXTRACTION.md.
     _h_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_h_start" ] || _h_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
     [ -n "$_h_start" ] || _h_start=3
-    # END DERIVED TOO. This was the literal 26 — the same premise the start was fixed for,
-    # wearing the other end: it encodes where this header happens to stop today. Two files
-    # elsewhere claimed in their own comments that every other renderer derives its end, and
-    # those two claims were false because of this line.
     _h_end="$(awk -v s="$_h_start" 'NR>=s && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
     sed -n "${_h_start},${_h_end:-26}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
     exit 0 ;;

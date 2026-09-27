@@ -16,13 +16,9 @@
 # network (one lightweight `git ls-remote`) only then — never on other git
 # operations.
 #
-# THAT PROMISE IS WHY THE HOOK SETS VENDORED_CHECK_NOTES=0 BELOW. Run by hand,
-# `--check` also prints WHAT CHANGED (the release notes' section headers for the
-# versions in between), which needs the latest tag's notes file and therefore a
-# throwaway shallow clone. Paying for that on every `git pull` would make the
-# nag slower than the thing it is nagging about, so the hook opts out and stays
-# at one `ls-remote`. When you want the detail, run
-# `scripts/update_vendored.sh --check` yourself.
+# That is why the hook sets VENDORED_CHECK_NOTES=0 below: the what-changed report
+# needs a shallow clone, too slow for every `git pull`. Run
+# `scripts/update_vendored.sh --check` yourself for the detail.
 #
 # ── Install (from the consumer repo root) ────────────────────────────────────
 # After `setup-consumer.sh` has run, the template sits in the consumer's own
@@ -49,10 +45,8 @@ LABEL="<vendored-name>"
 # swallow errors and always exit 0. `--check` itself never writes, so there is
 # nothing to undo.
 #
-# The `case` reads only the FIRST stdout line, because --check's contract is
-# exactly one verdict line there — `UP TO DATE`, `UPDATE AVAILABLE` or `AHEAD` —
-# with all narration on stderr. That contract is what makes this hook (and the
-# CI templates in consumers/ci/) a grep rather than a parser.
+# The `case` reads only the FIRST stdout line: --check prints exactly one verdict
+# line there (`UP TO DATE`, `UPDATE AVAILABLE` or `AHEAD`), narration on stderr.
 if [ -x "$CHECK" ]; then
     if out="$(VENDORED_CHECK_NOTES=0 "$CHECK" --check 2>/dev/null | head -1)"; then
         case "$out" in

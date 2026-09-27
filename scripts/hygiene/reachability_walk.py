@@ -9,11 +9,9 @@
 # writes nothing, deletes nothing, moves nothing, makes no network call, needs no dependency
 # (standard library only). Advisory, never a gate: no gate runner and no release step calls it.
 #
-# AN ORPHAN IS A SUSPICION, NOT A VERDICT. The donor project tested the assumption "a stray file
-# nobody references will never get read" and refuted it in BOTH directions: a set of shipped,
-# guarded skill files were entirely unreferenced and read constantly, while the most-cited
-# document in its `dev/` tree declared itself dead at its own line 3. Reachability-by-link and
-# reachability-by-convention are two different graphs, and only one of them is measurable here.
+# AN ORPHAN IS A SUSPICION, NOT A VERDICT: files found by convention (a router, an installer) are
+# read without being linked, and a linked file can be dead. Reachability-by-link is the only
+# graph measurable here.
 #
 # THE CONVENTION EXEMPTIONS, NAMED BY NAME. These are found BY POSITION — a router selects them
 # by bare name, or an installer enumerates the directory on purpose — so unreferenced-ness is a
@@ -25,10 +23,8 @@
 # your answer to give. `--self-test` re-verifies each on disk and refuses if one has moved, which
 # is also what tells you on day one that the shipped list needs pruning to the files you have.
 #
-# THE EXTENSION-LESS BLIND SPOT IS HANDLED, NOT INHERITED — see citation_index.py (d). A setup
-# script's `HOOK_SRC="$SCRIPT_DIR/hooks/post-merge"` was once eaten by a regex and the hook it
-# installs was reported as a FALSE ORPHAN. `--self-test` re-proves that edge on YOUR tree, and
-# names the probe path it used so a project without that file can point it elsewhere.
+# THE EXTENSION-LESS BLIND SPOT IS HANDLED — see citation_index.py (d). `--self-test` re-proves
+# that edge on YOUR tree and names the probe path it used.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Orphans" shape).
 # =============================================================================
@@ -46,11 +42,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from citation_index import REPO_ROOT, Index, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
 
-# THE LIST BELOW NAMES PATHS AS AN ADOPTED TREE HAS THEM. Run this against a tree that keeps the
-# same files under other names — a staging copy, an unpacked archive, anything not yet installed —
-# and --self-test reports only the roots it can find and says which are missing. That is a fact
-# about where you pointed it, not a finding about the tree: prune the list to what your project
-# actually has, which is what the list is for.
+# THE LIST BELOW NAMES PATHS AS AN ADOPTED TREE HAS THEM. Against a tree not yet installed,
+# --self-test reports the roots it cannot find: a fact about where you pointed it, not a finding.
 #
 # ── PARAMETER: THE STARTER ROOTS. **EDIT THIS LIST.** It is the answer to "what does a fresh
 #    agent open on its first minute here?", and it is the only thing that makes an orphan list
@@ -202,28 +195,13 @@ def walk(root: Path = REPO_ROOT):
 
 
 def self_test(root: Path = REPO_ROOT) -> int:
-    """Re-verify the facts this instrument's honesty rests on.
-
-    No count: this docstring named a number of facts and went stale the day the walker's
-    non-emptiness became another one — a census in prose, in the place nobody thinks to look for
-    one (`doctrine/staleness.md` § C).
-    """
-    # THE WALKER IS ONE OF THOSE FACTS, AND THIS IS THE LINE THAT MAKES IT ONE. The return value is
-    # deliberately discarded: printing the narrowings here would change this arm's output, and the
-    # normal path already prints them. What is wanted is the REFUSAL — `walk_blind_spots()` raises
-    # when its derivation is empty, `run_instrument()` turns that into exit 2, and this arm inherits
-    # both. Called FIRST so an ablated walker refuses before any partial report reaches stdout.
-    # Measured before this line existed: with the derivation emptied, --self-test still printed
-    # SELF-TEST PASS and exited 0 while every other path refused — a green that could not go red,
-    # inside the arm named --self-test.
+    """Re-verify the facts this instrument's honesty rests on."""
+    # Called FIRST, its return value discarded: what is wanted is the REFUSAL (an empty derivation
+    # raises; run_instrument() makes it exit 2) before any partial report reaches stdout.
     walk_blind_spots()
     missing = [r for r in STARTER_ROOTS if not (root / r).exists()]
-    # AN EMPTY STARTER LIST IS A FAILURE, NOT A VACUOUS PASS. `missing` is computed BY
-    # iterating STARTER_ROOTS, so an emptied list makes it `[]` — indistinguishable here
-    # from "every starter root is present". The header orders the adopter to edit this
-    # parameter, so emptying it is a thing that happens; and with no starters the walk
-    # reaches nothing and reports every document unreachable, which is the maximally wrong
-    # answer delivered under SELF-TEST PASS.
+    # An EMPTY starter list is a failure, not a vacuous pass: `missing` would be [] and the walk
+    # would report every document unreachable under SELF-TEST PASS.
     empty_roots = not STARTER_ROOTS
     index = Index(root)
     probe_present = (root / BLIND_SPOT_PROBE).exists()
