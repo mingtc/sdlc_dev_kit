@@ -8,7 +8,7 @@
 #   1. PREFLIGHT   — every precondition, all reported at once, then refuse.
 #   2. STAMP       — the prefix / trunk / project name / role set / gate command,
 #                    through the EXISTING seams only (scripts/config.sh,
-#                    .claude/templates/, .claude/roles/, githooks/commit-msg +
+#                    .claude/templates/, .claude/roles/, PROJECT.md, githooks/commit-msg +
 #                    move-issue.sh + check-board.sh, scripts/verify.sh). It
 #                    creates NO parallel config file, and it COUNTS what it left
 #                    behind (see "The census" in --help).
@@ -422,7 +422,7 @@ fi
 # ignore rules. The remedy UN-ignores: skipping an ignored directory would silently drop
 # whatever kit-init later creates inside it.
 # THE LIST IS DECLARED ONCE, here, and § 5 reads it.
-KIT_COMMIT_PATHS=(scripts .claude progress progress.md ARCHIVE.md .gitignore process requirements dev)
+KIT_COMMIT_PATHS=(scripts .claude progress progress.md ARCHIVE.md .gitignore process requirements dev PROJECT.md)
 if git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
   _kc_present=()
   for _p in "${KIT_COMMIT_PATHS[@]}"; do [ -e "$ROOT/$_p" ] && _kc_present+=("$_p"); done
@@ -653,6 +653,18 @@ if [ -d "$ROOT/.claude/templates" ]; then
   done
 fi
 say "  .claude/templates/: <trunk> → ${TRUNK} in ${TRUNK_TPL_HITS} template(s)"
+
+# --- PROJECT.md: the three blanks this run already holds -------------------
+# Left blank, the adopter types them again and the two copies can diverge. Every other blank
+# is the adopter's.
+PM="$ROOT/PROJECT.md"
+if [ -f "$PM" ]; then
+  PM_HITS="$( { grep -oE "<project name>|${PREFIX_PLACEHOLDER}|<trunk>" "$PM" || true; } | wc -l | tr -d ' ')"
+  sed -i.bak -e "s|<project name>|${NEW_NAME}|g" \
+             -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" \
+             -e "s|<trunk>|${TRUNK_R_PIPE}|g" "$PM"; rm -f "$PM.bak"
+  say "  PROJECT.md: <project name>, ${PREFIX_PLACEHOLDER}, <trunk> → ${NEW_NAME}, ${PREFIX}, ${TRUNK} (${PM_HITS} blank(s))"
+fi
 
 # --- the ROLE DOCS ---------------------------------------------------------
 # Substituted here, then COUNTED (the census below). The tokens:

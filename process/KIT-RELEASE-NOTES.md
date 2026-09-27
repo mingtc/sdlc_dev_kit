@@ -669,6 +669,9 @@ columns and never the cards.*
   rows are yours); § 1.3 says `kit-init.sh` refuses while a shipped path is on disk but not committed; § 2.2 names `new-issue.sh`,
   `new-bug.sh` and `new-refactor.sh` as carriers of `todo` — renaming that column breaks every creator.
 
+- **`kit-init.sh` fills PROJECT.md's project name, issue prefix and trunk** with the values you pass it, and commits the sheet; the
+  other blanks are still yours. A project already initialized has nothing to do.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

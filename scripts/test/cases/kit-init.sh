@@ -529,6 +529,8 @@ case_kit_init_stamps_any_legal_trunk() {
   for t in 'a&b' 'a|b' 'a@b'; do
     git check-ref-format --branch "$t" >/dev/null 2>&1 || _fixture_die "case_kit_init_stamps_any_legal_trunk: git rejects '$t' as a branch name here."
     kit_init_sandbox
+    # PROJECT.md's <trunk> blank is stamped too (case_kit_init_stamps_project_md); absent on a lived tree.
+    grep -qF '<trunk>' "$REAL_REPO_ROOT/PROJECT.md" 2>/dev/null && cp "$REAL_REPO_ROOT/PROJECT.md" "$SB_WORK/PROJECT.md"
     publish_sandbox
     # What kit-init replaces is the kit's last-resort trunk, read as kit-init reads it.
     old="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' "$SB_WORK/scripts/lib/kanban-worktree.sh" | head -1)"
@@ -547,6 +549,9 @@ case_kit_init_stamps_any_legal_trunk() {
     [ "$rc" -eq 0 ] || cf "'$t': kit-init exited $rc: $(printf '%s' "$out" | grep -m2 -E 'sed:|✗' | tr '\n' '|' | cut -c1-200)"
     n="$(grep -rF -- "$t" "$SB_WORK/.claude/roles" 2>/dev/null | wc -l | tr -d ' ')"
     [ "$n" -gt 0 ] || cf "'$t': no role doc carries the trunk name after the stamp"
+    if [ -f "$SB_WORK/PROJECT.md" ] && ! grep -qF -- "\`$t\`" "$SB_WORK/PROJECT.md"; then
+      cf "'$t': PROJECT.md's trunk blank does not read \`$t\`"
+    fi
     teardown
   done
   finish "kit-init --trunk: a legal branch name carrying '&', '|' or '@' is stamped verbatim, and the self-check passes"
@@ -597,6 +602,44 @@ case_kit_init_matches_old_values_literally() {
   grep -qx "marker: $SB_TRUNK relx1" "$doc" || cf "trunk 'rel.1': the planted line reads '$(grep '^marker:' "$doc")', not 'marker: $SB_TRUNK relx1'"
   teardown
   finish "$L"
+}
+
+# =============================================================================
+# CASE — kit-init fills PROJECT.md's name, prefix and trunk blanks, and nothing else
+#
+# kit-init holds all three; left blank, the adopter types them again and the copies can
+# diverge. THE EXPECTATION IS BUILT HERE, token by token, from the shipped sheet: a byte
+# comparison proves the three are filled AND that every other line — every other blank — is
+# untouched. The name carries '/', '.' and '*', which a sed pattern or delimiter would mangle.
+# =============================================================================
+case_kit_init_stamps_project_md() {
+  cf_reset
+  local L="kit-init: PROJECT.md's project-name, prefix and trunk blanks carry the given values, every other line is untouched, and the stamp is committed"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local pm="$REAL_REPO_ROOT/PROJECT.md" lived tok
+  if [ ! -f "$pm" ]; then skp "$L" "PROJECT.md absent"; return; fi
+  lived="$(_tree_has_lived)"
+  if [ -n "$lived" ]; then
+    skp_lived "$L" "PROJECT.md is this project's own once $lived"; return
+  fi
+  for tok in '<project name>' '<PREFIX>' '<trunk>'; do
+    grep -qF -- "$tok" "$pm" \
+      || _fixture_die "case_kit_init_stamps_project_md: the shipped PROJECT.md carries no '$tok' — the blank was respelled, and this case would compare against a sheet with nothing to stamp."
+  done
+  local name='Wid/get.*' want out rc
+  want="$(N="$name" T="$SB_TRUNK" perl -pe 's/\Q<project name>\E/$ENV{N}/g; s/\Q<PREFIX>\E/SBX/g; s/\Q<trunk>\E/$ENV{T}/g' "$pm")"
+  kit_init_sandbox
+  cp "$pm" "$SB_WORK/PROJECT.md"
+  publish_sandbox
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name "$name" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "kit-init exited $rc: $(printf '%s' "$out" | grep -m2 -E 'sed:|✗' | tr '\n' '|' | cut -c1-200)"
+  [ "$want" = "$(cat "$SB_WORK/PROJECT.md")" ] \
+    || cf "PROJECT.md is not the shipped sheet with exactly those three blanks filled: $(diff <(printf '%s\n' "$want") "$SB_WORK/PROJECT.md" | grep '^[<>]' | head -4 | tr '\n' '|' | cut -c1-300)"
+  [ -z "$(git -C "$SB_WORK" status --porcelain -- PROJECT.md)" ] || cf "the stamped PROJECT.md was left uncommitted"
+  origin_file_contains PROJECT.md '/SBX-NNN-' || cf "the stamped PROJECT.md did not reach the trunk"
+  finish "$L"
+  teardown
 }
 
 # =============================================================================
