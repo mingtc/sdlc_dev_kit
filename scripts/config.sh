@@ -82,6 +82,15 @@ validate_slug() {
   return 1
 }
 
+# kit_trunk_ref <root> — print <remote>/<trunk>, resolved by kwt_resolve, and return 0 when that
+# ref exists, 3 when it does not (day one, local-only), 1 when it cannot be resolved. Read as last
+# fetched, never fetched: the id readers (next-id.sh, validate_issue_id) share this one resolution.
+kit_trunk_ref() {
+  ( . "$1/scripts/lib/kanban-worktree.sh" >/dev/null && cd "$1" && kwt_resolve >/dev/null || exit 1
+    printf '%s' "$KWT_REMOTE/$DEFAULT_BRANCH"
+    git rev-parse --verify --quiet "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" >/dev/null || exit 3 )
+}
+
 # validate_issue_id "$ID" "$ROOT" — validate a caller-supplied id and check collisions
 # (read-only). The creation scripts are STATELESS: the caller picks the number (typically via
 # ./scripts/next-id.sh) and passes --id. Uses ISSUE_PREFIX; returns non-0 on a hard error.
@@ -97,15 +106,31 @@ validate_issue_id() {
     echo "Error: --id '$id' must look like ${ISSUE_PREFIX}-NNN." >&2
     return 1
   fi
-  # Hard collision: this id is already a live file anywhere under progress/.
+  # Hard collision: this id is already a live file anywhere under progress/ — here, or on the
+  # trunk, which a branch cut before a mint there cannot see.
   existing="$(find "$root/progress" -type f -name "${id}-*.md" 2>/dev/null | head -1)"
   if [ -n "$existing" ]; then
     echo "Error: ${id} already exists at ${existing#"$root"/}." >&2
     return 1
   fi
-  # Soft collision: this id appears in ARCHIVE.md (an archived issue used it).
-  if [ -f "$root/ARCHIVE.md" ] && grep -qE "(^|[^A-Za-z0-9])${id}([^0-9]|\$)" "$root/ARCHIVE.md" 2>/dev/null; then
-    echo "Warning: ${id} appears in ARCHIVE.md — it may already belong to an archived issue." >&2
+  local ref rc=0 idre="(^|[^A-Za-z0-9])${id}([^0-9]|\$)"
+  ref="$(kit_trunk_ref "$root")" || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    existing="$(git -C "$root" ls-tree -r --name-only "refs/remotes/$ref" -- progress 2>/dev/null | grep -E "/${id}-[^/]*\.md\$" || true)"
+    if [ -n "$existing" ]; then
+      echo "Error: ${id} already exists on $ref (as last fetched) at ${existing%%$'\n'*} — not yet in this checkout." >&2
+      return 1
+    fi
+  fi
+  # Soft collision: this id appears in ARCHIVE.md (an archived issue used it), here or on the trunk.
+  local where=""
+  if [ -f "$root/ARCHIVE.md" ] && grep -qE "$idre" "$root/ARCHIVE.md" 2>/dev/null; then
+    where="ARCHIVE.md"
+  elif [ "$rc" -eq 0 ] && git -C "$root" show "refs/remotes/$ref:ARCHIVE.md" 2>/dev/null | grep -E "$idre" >/dev/null; then
+    where="$ref's ARCHIVE.md (as last fetched)"
+  fi
+  if [ -n "$where" ]; then
+    echo "Warning: ${id} appears in $where — it may already belong to an archived issue." >&2
     echo "         Proceeding; ensure this is intentional (./scripts/next-id.sh suggests the next free id)." >&2
   fi
   return 0

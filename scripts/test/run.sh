@@ -282,6 +282,7 @@ CASES=(
   case_config_seam_refusal
   case_next_id
   case_next_id_reads_the_trunk
+  case_creation_id_check_reads_the_trunk
   case_commit_msg
   case_push_failure
   case_trunk_fallback_warns

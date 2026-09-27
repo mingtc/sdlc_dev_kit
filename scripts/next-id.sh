@@ -58,17 +58,13 @@ if [ -z "${ISSUE_PREFIX:-}" ]; then
   exit 1
 fi
 
-# THE TRUNK, through the board library's resolution. No ref (day one, local-only): this checkout.
-# shellcheck source=lib/kanban-worktree.sh
-. "$ROOT/scripts/lib/kanban-worktree.sh" || exit 1
-cd "$ROOT" && kwt_resolve || exit 1
-TRUNK_REF="$KWT_REMOTE/$DEFAULT_BRANCH"
-if git rev-parse --verify --quiet "refs/remotes/$TRUNK_REF" >/dev/null; then
-  echo "next-id: read this checkout and $TRUNK_REF @ $(git rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2
-else
-  TRUNK_REF=""
-  echo "next-id: read this checkout only — no $KWT_REMOTE/$DEFAULT_BRANCH ref" >&2
-fi
+# THE TRUNK (kit_trunk_ref, scripts/config.sh). No ref (day one, local-only): this checkout.
+rc=0; TRUNK_REF="$(kit_trunk_ref "$ROOT")" || rc=$?
+case "$rc" in
+  0) echo "next-id: read this checkout and $TRUNK_REF @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2 ;;
+  3) echo "next-id: read this checkout only — no $TRUNK_REF ref" >&2; TRUNK_REF="" ;;
+  *) exit 1 ;;
+esac
 
 # Highest number seen across live filenames + archived entries.
 # - progress/** : full paths are fine to grep (the prefix-NNN only appears in the
@@ -80,8 +76,8 @@ max="$(
     find "$ROOT/progress" -type f -name "${ISSUE_PREFIX}-*.md" 2>/dev/null
     [ -f "$ROOT/ARCHIVE.md" ] && cat "$ROOT/ARCHIVE.md"
     if [ -n "$TRUNK_REF" ]; then
-      git ls-tree -r --name-only "refs/remotes/$TRUNK_REF" -- progress
-      git show "refs/remotes/$TRUNK_REF:ARCHIVE.md"
+      git -C "$ROOT" ls-tree -r --name-only "refs/remotes/$TRUNK_REF" -- progress
+      git -C "$ROOT" show "refs/remotes/$TRUNK_REF:ARCHIVE.md"
     fi
   } 2>/dev/null \
     | grep -oE "${ISSUE_PREFIX}-[0-9]+" \

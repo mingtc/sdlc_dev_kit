@@ -839,21 +839,28 @@ case_next_id() {
 #   (a) the fetched trunk's card and (b) its ARCHIVE.md entry both count, and the source is
 #   named on stderr; (c) a branch-only card still counts.
 # =============================================================================
-case_next_id_reads_the_trunk() {
-  cf_reset
-  make_sandbox
+# _branch_behind_a_trunk_mint <case> — a branch `work` cut at -001; a second clone then puts card
+# -002 and an ARCHIVE.md entry -005 on the trunk, and the sandbox fetches (its checkout has neither).
+_branch_behind_a_trunk_mint() {
   seed_issue todo "$SB_PREFIX-001" one chore "one"
   publish_sandbox
   git -C "$SB_WORK" checkout -q -b work
-  local other="$SB_TMP/other" out err rc
+  local other="$SB_TMP/other"
   git clone -q "$SB_ORIGIN" "$other" >/dev/null 2>&1
   : > "$other/progress/todo/$SB_PREFIX-002-two.md"
   printf -- '- %s-005 [chore] retired on the trunk\n' "$SB_PREFIX" >> "$other/ARCHIVE.md"
   git -C "$other" add -A && MSG_OK=1 git -C "$other" -c user.email=o@x.invalid -c user.name=o commit -qm "[PM] mint" \
     && git -C "$other" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
-    || _fixture_die "case_next_id_reads_the_trunk: the second clone could not publish its mint."
-  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1 || _fixture_die "case_next_id_reads_the_trunk: fetch failed."
-  [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-002-two.md" ] || _fixture_die "case_next_id_reads_the_trunk: the branch already holds the trunk's mint."
+    || _fixture_die "$1: the second clone could not publish its mint."
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1 || _fixture_die "$1: fetch failed."
+  [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-002-two.md" ] || _fixture_die "$1: the branch already holds the trunk's mint."
+}
+
+case_next_id_reads_the_trunk() {
+  cf_reset
+  make_sandbox
+  local out err rc
+  _branch_behind_a_trunk_mint case_next_id_reads_the_trunk
 
   out="$( cd "$SB_WORK" && ./scripts/next-id.sh 2>"$SB_TMP/err" )"; rc=$?; err="$(cat "$SB_TMP/err")"
   [ "$rc" -eq 0 ] || cf "exited $rc: $err"
@@ -865,6 +872,38 @@ case_next_id_reads_the_trunk() {
   [ "$out" = "$SB_PREFIX-010" ] || cf "(c) a card only on this checkout no longer counts: want $SB_PREFIX-010, got '$out'"
 
   finish "next-id.sh: max over this checkout AND <remote>/<trunk> (board and ARCHIVE.md), naming the ref it read"
+  teardown
+}
+
+# =============================================================================
+# CASE — a creator's --id check reads the trunk too
+#
+# On a branch behind a trunk mint: (a) the trunk's card id is refused, naming the ref; (b) the
+# trunk's ARCHIVE.md entry warns; (c) a free id still creates.
+# =============================================================================
+case_creation_id_check_reads_the_trunk() {
+  cf_reset
+  if ! has_issue_template; then skp "a creator's --id check reads the trunk too" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  local out rc
+  _branch_behind_a_trunk_mint case_creation_id_check_reads_the_trunk
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh taken --id "$SB_PREFIX-002" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) --id $SB_PREFIX-002, on the trunk only, was accepted"
+  printf '%s' "$out" | grep "origin/$SB_TRUNK" >/dev/null || cf "(a) the refusal does not name the trunk ref: $(printf '%s' "$out" | grep -m2 -i error | tr '\n' '|')"
+  [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-002-taken.md" ] || cf "(a) the refused card was written"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh retired --id "$SB_PREFIX-005" 2>&1 )" || rc=$?
+  printf '%s' "$out" | grep 'ARCHIVE.md' >/dev/null || cf "(b) --id $SB_PREFIX-005, in the trunk's ARCHIVE.md only, gave no warning"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh free --id "$SB_PREFIX-006" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a free id was refused: $(printf '%s' "$out" | grep -m2 -i error | tr '\n' '|')"
+
+  finish "creators' --id check: an id on <remote>/<trunk> (as last fetched) is refused naming the ref, one in its ARCHIVE.md warns, and a free id creates"
   teardown
 }
 

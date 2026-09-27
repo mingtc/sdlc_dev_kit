@@ -761,6 +761,11 @@ columns and never the cards.*
   unless the set is letter-led alphanumeric names joined by `|`. **If you initialized with such a set,** check
   `ROLE_PREFIXES` in `scripts/githooks/commit-msg`.
 
+- **`new-issue.sh`, `new-bug.sh` and `new-refactor.sh` refuse an `--id` already taken on the trunk.** Their check read only your
+  checkout, so a card created on a branch could reuse an id minted on the trunk later; they now also read `<remote>/<trunk>`
+  as last fetched (never fetching) and name it. With no configured trunk they print the same "trunk is a GUESS" warning
+  `next-id.sh` does.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
