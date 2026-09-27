@@ -703,6 +703,10 @@ columns and never the cards.*
   built beside their destination as a hidden `.mint.*` file, removed on failure. Git always recorded them as ordinary
   files. **Nothing to do** — `chmod 644` any earlier card you want others to read.
 
+- **`subtask.sh new` no longer leaves a half-made card in the kanban worktree when it fails.** It built the card in
+  place, so a failure part-way left a partial card there; it now builds it aside, moves it in before committing, and
+  gets your umask's permissions. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

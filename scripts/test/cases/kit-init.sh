@@ -1555,6 +1555,60 @@ case_creators_build_beside_and_publish_with_the_umask() {
   teardown
 }
 
+# =============================================================================
+# CASE — subtask.sh new builds its card beside the destination in the kanban worktree and
+# publishes it before the commit: a failed create leaves that worktree clean and publishes
+# nothing; a successful one carries the umask's mode.
+# =============================================================================
+case_subtask_builds_beside_and_publishes_whole() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh new: built aside, published whole" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
+    skp "subtask.sh new: built aside, published whole" ".claude/templates/SUBTASK.template.md absent — subtask.sh exits at its template check"
+    return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  seed_issue todo "$SB_PREFIX-014" parent chore "Decomposition parent"
+  publish_sandbox
+
+  local lib="$SB_WORK/scripts/lib/card-head.sh" seen="$SB_TMP/rehead-dir" out rc kwt dir mode dirty
+  local st="progress/subtasks/$SB_PREFIX-014/todo"
+  cp "$lib" "$SB_TMP/card-head.real"
+
+  # FAILURE after the first write: the re-head stub records where the card is being built,
+  # leaves its scratch file, and fails.
+  { cat "$SB_TMP/card-head.real"; printf 'kit_rehead_card() { dirname "$1" > %q; : > "$1.rehead"; return 1; }\n' "$seen"; } > "$lib"
+  : > "$seen"
+  rc=0; out="$( cd "$SB_WORK" && umask 027 && ./scripts/subtask.sh new "$SB_PREFIX-014" s1 failed --title t 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "subtask.sh new exited 0 with a failing re-head"
+  kwt="$(cd "$SB_WORK/.kanban-wt" 2>/dev/null && pwd -P)"
+  dir="$kwt/$st"
+  [ -n "$kwt" ] || cf "(control) no kanban worktree at $SB_WORK/.kanban-wt — the failure half never reached the create"
+  [ "$(cd "$(cat "$seen")" 2>/dev/null && pwd -P)" = "$dir" ] \
+    || cf "subtask.sh builds its card in '$(cat "$seen")', not beside its destination '$dir'"
+  dirty="$(git -C "$kwt" status --porcelain --untracked-files=all 2>&1)"
+  [ -z "$dirty" ] || cf "a failed create left the kanban worktree dirty: $(printf '%s' "$dirty" | tr '\n' '|')"
+  origin_has_path "$st/$SB_PREFIX-014-s1-failed.md" && cf "a failed create published its card"
+  [ ! -e "$SB_WORK/.kanban-wt.lock" ] || cf "a failed create left the kanban lock held — its cleanup replaced kwt_lock's unlock"
+
+  # SUCCESS, with --plan so every rewrite runs.
+  cp "$SB_TMP/card-head.real" "$lib"
+  rc=0; out="$( cd "$SB_WORK" && umask 027 && ./scripts/subtask.sh new "$SB_PREFIX-014" s2 made --title t --plan dev/p.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "subtask.sh new failed with the real re-head (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  mode="$(ls -l "$dir/$SB_PREFIX-014-s2-made.md" 2>/dev/null | cut -c1-10)"
+  [ "$mode" = "-rw-r-----" ] || cf "subtask.sh minted '$mode' under umask 027 (want -rw-r-----)"
+  dirty="$(git -C "$kwt" status --porcelain --untracked-files=all 2>&1)"
+  [ -z "$dirty" ] || cf "a successful create left the kanban worktree dirty: $(printf '%s' "$dirty" | tr '\n' '|')"
+  origin_file_contains "$st/$SB_PREFIX-014-s2-made.md" 'dev/p\.md' \
+    || cf "the published card does not carry --plan — the last rewrite did not reach the commit"
+
+  finish "subtask.sh new: built beside its destination in the kanban worktree, published before the commit, a failed create leaves the worktree clean and publishes nothing, and the card carries the umask's mode"
+  teardown
+}
+
 case_creation_scripts_substitute_hostile_values() {
   cf_reset
   if ! has_issue_template; then skp "creation scripts substitute hostile values without executing them" "$ISSUE_TEMPLATE_ABSENT"; return; fi

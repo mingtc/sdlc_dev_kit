@@ -222,10 +222,15 @@ case "$CMD" in
     TODAY=$(date +%Y-%m-%d)
     BRANCH="feature/${ID}-${SLUG}"
 
+    # BUILT BESIDE THE DESTINATION, PUBLISHED BEFORE THE COMMIT (lib/card-head.sh): a failed step
+    # leaves the shared worktree clean. The trap keeps kwt_lock's own EXIT action, kwt_unlock.
+    WORK="$(kit_card_work "$DEST_DIR")"
+    trap 'rm -f "$WORK" "$WORK.h1" "$WORK.plan" "$WORK.rehead"; kwt_unlock' EXIT
+
     # Fill the template (frontmatter + heading + Activity). Every substitution
     # keys on the frontmatter KEY, never on the template's placeholder VALUE, so
     # a template edit cannot make one a silent no-op. This `sed` has no -i, so it
-    # is portable (reads TEMPLATE, writes DEST).
+    # is portable (reads TEMPLATE, writes WORK).
     # EVERY INTERPOLATED VALUE GOES THROUGH sed_repl (scripts/config.sh): `&` and the
     # delimiter are live in a sed replacement.
     sed -e "s|^id: .*|id: $(sed_repl "$ID")|" \
@@ -238,20 +243,19 @@ case "$CMD" in
         -e "s|^branch: .*|branch: $(sed_repl "$BRANCH")|" \
         -e "s|^created_at: .*|created_at: ${TODAY}|" \
         -e "s|^created_by: .*|created_by: $(sed_repl "$ROLE")|" \
-        "$TEMPLATE" > "$DEST"
+        "$TEMPLATE" > "$WORK"
 
     # The H1. Done as a FIRST-MATCH-ONLY pass rather than a sed pattern: a
     # `s|^# .* — .*|…|` would rewrite every em-dashed heading in the body, not
     # just the title. The H1 is the first `^# ` line after the frontmatter.
-    H1_TMP="$(mktemp)"
     # ENVIRON, NOT `awk -v`: -v processes escape sequences, so a backslash in a title would
     # become a TAB or a NEWLINE. Not perl either: it is past the kit's git-plus-POSIX-shell floor.
     H1="# ${ID} — ${TITLE}" awk 'BEGIN{done=0} done==0 && /^# /{print ENVIRON["H1"]; done=1; next} {print}' \
-      "$DEST" > "$H1_TMP" && mv "$H1_TMP" "$DEST"
+      "$WORK" > "$WORK.h1" && mv "$WORK.h1" "$WORK" || exit 1
 
     # RE-HEAD THE CARD (process/EXTRACTION.md § The marker and graduation): the KIT-CLASS
     # marker goes, its still-in-force FILL instruction stays.
-    kit_rehead_card "$DEST" || exit 1
+    kit_rehead_card "$WORK" || exit 1
 
 
     # Optional --plan. Keyed on the KEY, never on the template's placeholder VALUE, which
@@ -260,7 +264,6 @@ case "$CMD" in
     # awk + ENVIRON (not perl: the floor). `<plan-path>` is replaced by index/substr, because
     # `&` and a backslash are live in gsub's replacement.
     if [ -n "$PLAN" ]; then
-      _PLAN_TMP="$(mktemp)"
       PLAN="$PLAN" awk '
         BEGIN { p = ENVIRON["PLAN"]; tok = "<plan-path>"; tl = length(tok) }
         /^[[:space:]]*[-*][[:space:]]*Plan:[[:space:]]*/ {
@@ -273,8 +276,10 @@ case "$CMD" in
             $0 = substr($0, 1, i - 1) p substr($0, i + tl)
           print
         }
-      ' "$DEST" > "$_PLAN_TMP" && mv "$_PLAN_TMP" "$DEST"
+      ' "$WORK" > "$WORK.plan" && mv "$WORK.plan" "$WORK" || exit 1
     fi
+
+    kit_publish_card "$WORK" "$DEST" || exit 1
 
     git -C "$KWT" add "$DEST"
     MSG="[$ROLE] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
