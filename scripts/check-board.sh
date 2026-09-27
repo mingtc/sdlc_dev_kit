@@ -958,10 +958,10 @@ fi
 #     Cannot see: a row paid by an issue that never claimed it, or a row written for work that
 #     had already landed.
 # ---------------------------------------------------------------------------
-DQ_FILE="${DQ_FILE:-dev/downtime-queue.md}"
+DQ_FILE="${DQ_FILE:-dev/downtime-queue.md}"   # relative to the repository root
 echo
-echo "[j] downtime-queue claim drift ($DQ_FILE; reports only — it never changes the verdict):"
-if [ ! -f "$DQ_FILE" ]; then
+echo "[j] downtime-queue claim drift ($DQ_FILE; reports only — it never changes the verdict) — $(cb_src):"
+if [ ! -f "$CB_TREE/$DQ_FILE" ]; then
   # A READING WHOSE SUBJECT IS ABSENT STILL PRINTS, naming what was absent.
   echo "      – $DQ_FILE not present  (skipped — no queue to read)"
 else
@@ -983,12 +983,12 @@ else
         if (match(cell, /[A-Z][A-Z0-9]*-[0-9]+/)) {
           print substr(cell, RSTART, RLENGTH)
         }
-      }' "$DQ_FILE" | sort -u | while IFS= read -r id; do
+      }' "$CB_TREE/$DQ_FILE" | sort -u | while IFS= read -r id; do
         [ -n "$id" ] || continue
         # Landed columns only. An id in todo/in_progress/blocked is a LIVE claim.
         landed=""
         for col in done qa_complete; do
-          if ls "progress/$col"/${id}-*.md >/dev/null 2>&1; then landed="$col"; fi
+          if ls "$CB_TREE/progress/$col"/${id}-*.md >/dev/null 2>&1; then landed="$col"; fi
         done
         [ -n "$landed" ] || continue
         echo "      – $id claims an OPEN row, but its card is in progress/$landed/ — strike the row or say why it is still open"

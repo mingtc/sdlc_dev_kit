@@ -139,6 +139,38 @@ DQEOF
   teardown
 }
 
+# =============================================================================
+# CASE — [j] reads the tree the report names, from any directory
+#
+#   (a) run from dev/ (the SessionStart hook does not cd), the queue is still found;
+#   (b) with the queue deleted from the checkout only, the trunk's copy is still read —
+#       a fix that reads "$REPO_ROOT/…" passes (a) and reddens here.
+# =============================================================================
+case_check_board_arm_j_reads_the_named_source() {
+  cf_reset
+  make_sandbox
+  local out
+  mkdir -p "$SB_WORK/dev"
+  printf '%s\n' '| Item | Origin | Size | Why deferred | Wake condition | Status |' '|---|---|---|---|---|---|' \
+    '| Landed already | audit | S | — | now | open (claimed by ZZQ-201) |' > "$SB_WORK/dev/downtime-queue.md"
+  : > "$SB_WORK/progress/done/ZZQ-201-a.md"
+  publish_sandbox
+  origin_has_path "dev/downtime-queue.md" || _fixture_die "case_check_board_arm_j_reads_the_named_source: the queue is not on the trunk."
+
+  _j_at() { ( cd "$1" && "$SB_WORK/scripts/check-board.sh" 2>&1 ) | awk '/^\[j\]/{f=1;print;next} f&&/^\[/{f=0} f'; }
+  out="$(_j_at "$SB_WORK/dev")"
+  printf '%s' "$out" | grep 'ZZQ-201' >/dev/null || cf "(a) run from dev/, [j] did not report the landed claim: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s' "$out" | grep 'read from: ' >/dev/null || cf "(a) [j] does not name the source it read: $(printf '%s' "$out" | head -1)"
+
+  rm "$SB_WORK/dev/downtime-queue.md"
+  out="$(_j_at "$SB_WORK")"
+  printf '%s' "$out" | grep 'ZZQ-201' >/dev/null || cf "(b) with the queue absent from the checkout only, [j] did not read the trunk's: $(printf '%s' "$out" | tr '\n' '|')"
+
+  unset -f _j_at
+  finish "check-board [j]: reads the queue and the landed columns from the tree the report names, from any directory, and prints that source"
+  teardown
+}
+
 cb_default() {  # <VAR_NAME>
   sed -n "s/^$1='\(.*\)'/\1/p" "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
 }

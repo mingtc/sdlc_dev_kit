@@ -291,6 +291,7 @@ CASES=(
   case_settings_example_glosses_only_real_placeholders
   case_runner_key_guards_admit_every_field_they_read
   case_downtime_queue_claim_drift
+  case_check_board_arm_j_reads_the_named_source
   case_workflow_briefs_compose_from_a_sparse_payload
   case_runner_refuses_a_prose_payload_by_name
   case_runner_no_verdict_is_not_a_failure

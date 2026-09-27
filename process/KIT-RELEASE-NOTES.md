@@ -736,6 +736,11 @@ columns and never the cards.*
   any set that is a substring of the shipped alternation), `./scripts/test/run.sh` aborted at fixture setup naming
   `_neu_roles`. **Nothing to do** beyond taking the updated `scripts/test/`.
 
+- **`check-board.sh`'s downtime-queue arm [j] reads the same source as the rest of the report.** It read
+  `dev/downtime-queue.md` and `progress/` relative to where you ran it, so from a subdirectory or the SessionStart hook it
+  reported a present queue as absent. It now reads `<remote>/<trunk>` (or the working tree, labelled) and names it.
+  `DQ_FILE` is relative to the repository root — make an absolute value repo-relative.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
