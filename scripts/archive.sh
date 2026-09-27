@@ -5,22 +5,13 @@
 # home for completed stories). Completed stories are PRESERVED — they are never
 # removed, only moved out of the active board into done/.
 # ARCHIVE.md stays the condensed, searchable index; done/ holds the full bodies.
-#
-# IT SWEEPS ONE COLUMN, AND `declined/` IS DELIBERATELY NOT IT. That is a ruling, stated
-# here because a reader meeting a second terminal column will ask. The sweep exists to keep
-# the ACTIVE board shallow; a declined column's entire value is being browsable, and
-# sweeping it into an index is how it becomes the graveyard it is kept in order not to be.
-# It is terminal and nothing moves it.
+# `declined/` is never swept: it is terminal, and its value is being browsable.
 #
 # ALL git ops (the ARCHIVE.md edit, the `git mv`, the commit, the push) happen
 # inside the STANDING detached `.kanban-wt/` worktree pinned to the trunk —
-# NEVER the operator's current checkout. So a sweep run while the checkout sits
-# on a feature branch lands the board change on the TRUNK (and the remote),
-# leaving the feature branch's tree clean. The sweep is self-committing; the
-# commit is attributed with the ARCHIVE_ROLE seat, `[Orchestrator]` by default (a
-# session-close housekeeping action) — see ARCHIVE_ROLE below, which is what the code
-# reads. It is a knob, not a fixed tag; this line used to state it as a flat fact and
-# then restate it as a default ten lines later.
+# NEVER the operator's current checkout — so a sweep run from a feature branch
+# lands on the trunk and leaves the branch's tree clean. The sweep commits as
+# the ARCHIVE_ROLE seat.
 #
 # Defaults to dry-run (prints what would be swept). Pass --apply to prepend
 # one-line entries to ARCHIVE.md, `git mv` the issue files into progress/done/,
@@ -36,40 +27,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# NO `ROOT` HERE, AND ITS ABSENCE IS DELIBERATE. This script carried
-# `ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"` and referenced it nowhere — left behind when the sweep
-# moved to the trunk-pinned kanban worktree, which resolves its own paths. Every sibling that
-# defines ROOT uses it; this was the only one that did not. Re-add it only with a use.
 
-# ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED. ──────────────────
-# process/contracts/issue-creation.md § 3: a request for the usage text is ALWAYS legal and
-# ALWAYS succeeds. This arm used to sit BELOW the seam block, so on a tree with
-# scripts/config.sh missing `archive.sh --help` exited 1 carrying the seam refusal — the
-# contract's one prohibition, fired in the state where an operator most needs the help text.
-# next-id.sh has had this order since it gained an argument parser at all, and its comment
-# carries the reason; this is that order.
-#
-# NOTHING ELSE MOVES, and that is the point: the seam still refuses every OPERATION below,
-# because a guessed prefix is the expensive failure this block exists to prevent. Only the
-# usage request is decided ahead of it.
-#
-# LEADING ARGUMENT ONLY, and that is a stated NARROWING rather than the whole clause.
-# `--help` in a LATER position —
-#     ./scripts/archive.sh --apply --help
-# — is still answered further down, so with the seam missing that spelling still exits 1.
-# Answering help before ANY argument is interpreted would also change what a bad flag
-# FOLLOWED by `--help` returns on a correct tree (`archive.sh --not-a-flag --help`), and that is a
-# separate decision from this one.
-#
-# THE LIBRARY MOVES WITH THE ARM, because the arm needs it: kit_usage renders the help and it
-# reads no configuration at all, so hoisting it above the seam adds no new dependency to the
-# operational path — it only stops the usage path depending on the seam.
-#
-# AND THIS ARM READS NO SEAM, unlike the three creators whose usage LINE renders a prefix and
-# therefore hoist CONFIG and read the seam inside their own arm. This help text is this file's own header block, which
-# derives nothing configurable, so the usage path has no reason to touch scripts/config.sh — and
-# § 3 asks a usage request to do no work. Give this arm the creators' guarded read if this
-# header ever starts rendering a seam value.
+# ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED ─────────────────────
+# (process/contracts/issue-creation.md § 3: a usage request always succeeds). Leading argument
+# only; a later `--help` is answered below the seam. The seam still refuses every operation.
+# This arm reads no seam: if this header ever renders a seam value, give it the creators'
+# guarded read.
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
@@ -80,17 +43,8 @@ case "${1:-}" in
 esac
 
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
-# This script used to carry `: "${ISSUE_PREFIX:=<a literal>}"` here — a SECOND
-# default below config.sh's own, so the sweep still ran with the seam missing.
-# It was well meant, and it replaced something worse (this was once the ONE
-# script that defaulted to a FOREIGN project's prefix, masked only because
-# config.sh is sourced first), so THE REASON SURVIVES: a silently wrong prefix is
-# the expensive failure, not a missing one. The CONCLUSION is superseded, because
-# the literal reproduced that very failure one level down — five scripts each
-# holding their own copy of one project's prefix, so changing the prefix meant
-# changing it in five places, and here the cost is worse than a bad mint: a sweep
-# under the wrong prefix silently finds NOTHING and reports "nothing to sweep" on
-# a full column. So: NO fallback literal anywhere.
+# No fallback literal: under a guessed prefix the sweep finds no issue files and reports
+# "nothing to sweep" on a full column.
 # The same block is in every script that grep returns — change one, change all.
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
@@ -119,16 +73,8 @@ fi
 . "$SCRIPT_DIR/lib/role-set.sh"
 
 DRY_RUN=true
-# A REAL LOOP, BECAUSE THE SINGLE-`$1` FORM SILENTLY DISCARDED EVERY LATER ARGUMENT — and
-# one of the things it discarded was a hedge. Measured: `--apply --dry-run` set DRY_RUN
-# FALSE and swept, committed and pushed to the trunk, with `--dry-run` thrown away; the
-# reverse order previewed and threw `--apply` away. Order-dependent, opposite outcomes,
-# no warning — and `--apply --dry-run` is exactly the belt-and-braces spelling an unsure
-# operator reaches for. The three sibling mutators all loop; this one did not.
-#
-# THE BARE FORM MUST STAY LEGAL AND MUST STAY A PREVIEW: `contracts/archive-sweep.md`
-# § 2 rules preview-by-default for this script, and the manual documents the bare
-# invocation as the dry run. This loop adds a refusal; it changes no default.
+# A loop, so no argument is silently discarded. The bare form stays legal and stays a preview
+# (contracts/archive-sweep.md § 2).
 SAW_APPLY=false; SAW_DRY=false
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -136,10 +82,7 @@ while [ $# -gt 0 ]; do
   --dry-run) DRY_RUN=true; SAW_DRY=true; shift ;;
   "") shift ;;
   -h|--help) usage; exit 0 ;;
-  # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
-  # kit already told them apart in every script that has a `-*)` arm — these did not, so a
-  # mistyped flag was reported with the status a surplus word gets. Named in
-  # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+  # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
   -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
   *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -160,9 +103,8 @@ fi
 # a MEMBER of the role set, not the set itself, so it is a knob and never derived — a
 # derived tag would write whichever role sorts first into history as the actor.
 ROLE="${ARCHIVE_ROLE:-Orchestrator}"
-# CHECKED BEFORE THE LOCK AND BEFORE THE WORKTREE, which is the whole value of it: past
-# this point the git mv and the ARCHIVE.md edit have happened, and a hook that rejects
-# the tag then leaves them uncommitted in a worktree the next board op discards.
+# CHECKED BEFORE THE LOCK AND THE WORKTREE: past this point the git mv and the ARCHIVE.md edit
+# have happened, and a hook that rejects the tag would leave them uncommitted.
 kit_require_role "$SCRIPT_DIR/.." "$ROLE" ARCHIVE_ROLE || exit 1
 
 # Resolve repo root + trunk, take the lock, and route through the standing
@@ -182,15 +124,8 @@ SUBTASKS_DIR="$KWT/progress/subtasks"
 [ -f "$ARCHIVE" ] || { echo "Error: $ARCHIVE does not exist at the repo root." >&2; exit 1; }
 
 if ! grep -q '^## Archived$' "$ARCHIVE"; then
-  # THE REFUSAL LISTS WHAT THE STORE HOLDS, AND THAT LISTING IS THE POINT.
-  # process/contracts/archive-sweep.md § 3: "index missing and the store already holds retired
-  # material ⇒ refuse, LISTING WHAT IT HOLDS AS THE PROOF — that listing is what makes the refusal
-  # checkable rather than asserted, and a backfill recipe is owed with it."
-  # This used to be a bare two-liner: it asserted a problem and handed the operator no way to see
-  # it, which is exactly the asserted-rather-than-checkable shape that clause was narrowed to forbid.
-  # $DONE_DIR, not a hand-built path: the store is inside the KANBAN WORKTREE, not the main
-  # checkout, and the two differ. Declared three lines above; using it is why this reads the
-  # tree the refusal is about.
+  # The refusal lists what the store holds: archive-sweep.md § 3 requires that listing as the
+  # proof. $DONE_DIR, not a hand-built path: the store is inside the kanban worktree.
   _held="$(find "$DONE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | sort || true)"
   _n_held="$(printf '%s' "$_held" | grep -c . || true)"
   echo "Error: '## Archived' heading not found in $ARCHIVE." >&2
@@ -240,10 +175,8 @@ for f in "${FILES[@]}"; do
 done
 parent_reaches_done() {  # $1 = parent id
   local p="$1" s candidate
-  # Already in done/? Test each filename form INDEPENDENTLY — a single `ls a b`
-  # with one missing arg returns non-zero even when the other matched (the bug
-  # that once hid a whole tree). With nullglob off, an unmatched glob stays
-  # literal and `[ -e <literal> ]` is correctly false.
+  # Test each filename form independently: `ls a b` fails when one is missing even if the
+  # other matched. With nullglob off an unmatched glob stays literal, so `[ -e ]` is false.
   for candidate in "$DONE_DIR/${p}-"*.md "$DONE_DIR/${p}.md"; do
     [ -e "$candidate" ] && return 0
   done
@@ -267,37 +200,17 @@ for f in "${FILES[@]}"; do
   TYPE=$(awk '/^type:/{print $2; exit}' "$f")
   # TITLE is free text (it may legitimately contain '#'), so take it verbatim after 'title: '.
   TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$f")
-  # pr / stories are structured fields whose template lines may carry an inline
-  # "# comment"; strip a trailing whitespace-preceded comment + surrounding space so
-  # the archive index isn't polluted. (The forge-agnostic finish-pr.sh does not
-  # rewrite `pr:` unless --set-pr is used, so a template `pr: null   # …` line
-  # survives to archive time — hence this guard.)
+  # pr / stories template lines may carry an inline "# comment" (finish-pr.sh rewrites `pr:`
+  # only with --set-pr); strip it so the index isn't polluted.
   strip_comment() { sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]*$//'; }
   PR=$(awk '/^pr:/{sub(/^pr: */, ""); print; exit}' "$f" | strip_comment)
   PRD=$(awk '/^prd:/{print $2; exit}' "$f")
   STORIES=$(awk '/^stories:/{sub(/^stories: */, ""); print; exit}' "$f" | strip_comment)
 
-  # THE RETIREMENT DATE IS NOT OPTIONAL, and the sheet already said so:
-  # archive-sweep.md § 2 — "Every retired item gains an INDEX entry ... carrying at
-  # least its identifier, its title and its RETIREMENT DATE." The entry carried the
-  # first two. So the index answered *what* was archived and never *when*, which is
-  # the one question a retention policy asks of it.
-  #
-  # PLACEMENT: the id stays the FIRST token because next-id.sh documents this file's
-  # entries as `- <PREFIX>-NNN ...` and reads them to avoid re-minting an archived
-  # id; moving the id off the front would falsify that convention for a cosmetic
-  # gain. So the date is a trailing labelled field, always present and always last,
-  # after the optional PR and reference clauses.
-  #
-  # SPELLING: `retired`, NOT `Rotated`. archive-progress.sh's rotation index uses a
-  # `Rotated` column and it was worth checking whether to reuse it — but § 2 names
-  # these as two facts in two sentences ("its retirement date" for an item, "the
-  # rotation date" for a log chunk), they are different operations on different
-  # objects, and collapsing them into one word would make a grep for either return
-  # both. Deliberately not matched.
-  #
-  # Built ONCE, here, so the preview below and the applied entry cannot disagree
-  # about what was written — the preview prints this same string.
+  # THE RETIREMENT DATE IS REQUIRED (archive-sweep.md § 2). The id stays the FIRST token:
+  # next-id.sh reads entries as `- <PREFIX>-NNN ...` to avoid re-minting an archived id.
+  # Spelled `retired`, not archive-progress.sh's `Rotated`: different facts, and a grep for
+  # either must not return both. Built once, so the preview and the applied entry agree.
   RETIRED_ON="$(date +%Y-%m-%d)"
   ENTRY="- ${ID} [${TYPE}] ${TITLE}"
   if [ -n "$PR" ] && [ "$PR" != "null" ]; then
@@ -362,16 +275,8 @@ rm -f "$ENTRIES_FILE"
 # Move the full files into progress/done/ (preserve, don't remove). Prefer
 # `git mv` (tracks the rename); fall back to plain mv if untracked.
 #
-# THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED. This was `mkdir -p "$DONE_DIR"`,
-# and archive-sweep.md § 3 already forbade it: "The retired store or the index is
-# missing ⇒ refuse; do not create an index on the fly." The index half of that rule
-# was honoured at the top of this script; the store half was not.
-#
-# Creating the column on demand means the tool MANUFACTURES THE BOARD TOPOLOGY IT
-# WAS SUPPOSED TO BE OPERATING WITHIN — and because board-mover.md's first invariant
-# is "the container IS the status", an invented container is an invented status. The
-# concrete cost: a typo'd or renamed column silently becomes a new column holding
-# real retired work, instead of a refusal naming what it expected.
+# THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED (archive-sweep.md § 3): the folder IS the
+# status, so creating it would turn a mistyped column into a new column holding retired work.
 if [ ! -d "$DONE_DIR" ]; then
   {
     echo "Error: the retired store progress/done/ does not exist on the trunk."
@@ -400,11 +305,8 @@ done
 
 # Sweep completed subtask trees into progress/done/subtasks/<parent>/.
 if [ ${#SUBTASK_TREES[@]} -gt 0 ]; then
-  # THIS mkdir STAYS, and the distinction is the point. done/subtasks/ is a
-  # sub-store INSIDE the retired store, not a status column — creating it invents no
-  # status and makes no claim that could be false, whereas creating done/ above
-  # invents a container that IS a status. Create where the claim would be true;
-  # refuse where it would be false.
+  # This mkdir stays: done/subtasks/ is a sub-store inside the retired store, not a status
+  # column, so creating it invents no status.
   mkdir -p "$DONE_DIR/subtasks"
   for p in "${SUBTASK_TREES[@]}"; do
     src="$SUBTASKS_DIR/$p"
@@ -426,12 +328,8 @@ SUBTASK_NOTE=""
 [ ${#SUBTASK_TREES[@]} -gt 0 ] && SUBTASK_NOTE=" + ${#SUBTASK_TREES[@]} subtask tree(s)"
 MSG="[$ROLE] archive: sweep ${#FILES[@]} issue(s) qa_complete/ → done/${SUBTASK_NOTE} + index in ARCHIVE.md"
 git -C "$KWT" commit -m "$MSG" --quiet
-# THE PRINTED SHA IS A READING TAKEN BEFORE THE ACT IT DESCRIBES, unless it is
-# taken twice. This line said "Commit: <sha> on <trunk>" BEFORE the push — and the
-# push goes through the pull-rebase-retry wrapper, so a contested push rebases and
-# the sha printed here is then an ORPHAN that never reached the trunk. A reader
-# checking the line finds nothing, against board-mover.md § 4's "a reader can check
-# each line". Fifth and last site of this shape; the four siblings already carry it.
+# This sha is taken before the push; a contested push rebases, so the landed sha is printed
+# separately below (board-mover.md § 4: a reader can check each line).
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
 
@@ -440,13 +338,10 @@ if ! kwt_finalize; then
   echo "       the kanban worktree but NOT on ${KWT_REMOTE}. See the recovery text above." >&2
   exit 1
 fi
-# KWT_LANDED_SHA is read back AFTER the push and after the ancestry check, so by
-# construction it names a commit that is on the trunk — which is what makes this
-# line checkable and the one above explicitly not a claim about the trunk.
+# KWT_LANDED_SHA is read after the push and the ancestry check, so it names a trunk commit.
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
-# AN `if`, NOT AN `&&` CHAIN — the chain form returns non-zero whenever the shas
-# match (the normal case), and under `set -e` that aborts AFTER a successful
-# landing. Caught on a sibling by its control, not by reading.
+# AN `if`, NOT AN `&&` CHAIN: the chain returns non-zero when the shas match (the normal case),
+# and under `set -e` that aborts after a successful landing.
 if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
   echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
 fi

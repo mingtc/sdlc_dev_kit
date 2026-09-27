@@ -4,12 +4,6 @@
 # scripts/kit-init.sh — initialize THE KIT in a repository that has already
 # received the copy-list (process/EXTRACTION.md § 1, or process/SEED.md step 2).
 #
-# WHY IT EXISTS
-#   A cold-read review of this kit found fifteen defects — two of them silent
-#   corruptions — and closed with the sentence this script answers: "every
-#   finding was found by reading; all would have been found by running."
-#   Reading does not scale and does not repeat. This runs.
-#
 # WHAT IT DOES (in this order — nothing is written until every check passes)
 #   1. PREFLIGHT   — every precondition, all reported at once, then refuse.
 #   2. STAMP       — the prefix / trunk / project name / role set / gate command,
@@ -34,11 +28,7 @@
 #     tree. It initializes the KIT, not an application.
 #   • Not a copier. There is no --from mode: the copy-list is authored in
 #     process/EXTRACTION.md § 1 and a second executable copy of it would drift.
-#     The preflight instead checks a hand-listed MINIMUM of that list — the files
-#     without which nothing else can run — and refuses naming the missing ones. It
-#     is NOT a check against § 1: that list is prose, and this tool may not carry a
-#     second copy of it. A file that travels but is not in the minimum is not
-#     caught here.
+#     The preflight checks only a hand-listed MINIMUM of it (COPY_LIST below).
 #   • Not a remote bootstrapper. See --help § "The remote precondition".
 #
 # USAGE
@@ -51,29 +41,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# LOAD-BEARING, and found by RUNNING this script rather than by reading the kit:
-# the kanban scripts resolve their repository from the CURRENT WORKING DIRECTORY
-# (kanban-worktree.sh's kwt_resolve() calls `git rev-parse --git-common-dir` with
-# no -C), NOT from their own location. Invoked as `/elsewhere/scripts/move-issue.sh`
-# from another repo's directory, they operate on THAT repo. So kit-init works from
-# the root of the repository it is initializing — always.
+# The kanban scripts resolve their repository from the CURRENT WORKING DIRECTORY
+# (kwt_resolve has no -C), so kit-init works from the root of the repository it initializes.
 cd "$ROOT"
 
 # The remote name the kanban worktree uses (kanban-worktree.sh's KWT_REMOTE knob).
 REMOTE="${KWT_REMOTE:-origin}"
 
-# The lifecycle. The status set is a seam WITHOUT a variable: several files carry the
-# column names as literals and they do NOT all carry the same ones — process/EXTRACTION.md
-# § 2.2's table is the list, and THIS FILE IS ONE OF ITS ROWS. It uses the set as it is
-# (it does not parameterise it). Read the table rather than a count written here; this
-# line used to say "across four scripts", which was wrong about the number, wrong about
-# the membership, and excluded the file stating it.
+# The lifecycle. The status set is a seam WITHOUT a variable: process/EXTRACTION.md § 2.2's
+# table lists the files that carry it, and this file is one of its rows.
 STATUS_FOLDERS=(todo in_progress dev_complete qa_complete blocked done declined)
 # + history/ for rotated progress.md sections (archive-progress.sh's destination).
 BOARD_FOLDERS=("${STATUS_FOLDERS[@]}" history)
-# One .gitkeep per board folder; the count is ASSERTED after creation rather than
-# trusted, and the expectation is DERIVED from the folder-set array above — never
-# a hand-typed digit.
+# One .gitkeep per board folder; the count is ASSERTED after creation, against an
+# expectation DERIVED from the folder-set array above.
 GITKEEP_EXPECTED=${#BOARD_FOLDERS[@]}
 
 # The one-line receipt this script writes INTO scripts/config.sh (an existing
@@ -91,32 +72,16 @@ SCRATCH_SLUG='kit-init-self-check'
 # shipped templates say `<PREFIX>-NNN`, while config.sh's own default is a real
 # token so its derivation regex can read it.
 PREFIX_PLACEHOLDER='<PREFIX>'
-# THE CLASSIFICATION MARKER'S KEY, AND WHY IT IS A CONSTANT RATHER THAN A SEAM.
-# `KIT-CLASS:` is the travel classification every shipped file carries
-# (process/EXTRACTION.md). The `KIT` in it is THE CONVENTION'S OWN WORD — it is not
-# the issue prefix, and it does not change when a project stamps one. It only LOOKS
-# like the prefix because the shipped placeholder prefix is also `KIT`, and that
-# collision is exactly the bug this constant exists to prevent: the substitution
-# passes below match `<OLD_PREFIX>-`, which matched the marker's KEY, so every
-# stamped file came out reading `<!-- XYZ-CLASS: KIT — … -->` — the key rewritten,
-# the value left, a line that refutes itself and that nothing reads after day one.
-# Measured: 12 files in .claude/templates + .claude/roles, every card minted
-# afterwards inheriting it, and a grep for KIT-CLASS finding nothing.
+# THE CLASSIFICATION MARKER'S KEY is the convention's own word, not the issue prefix; it only
+# LOOKS like the shipped placeholder prefix `KIT`. The prefix substitutions below match
+# `<OLD_PREFIX>-`, so they hide the key behind the sentinel first, or every stamped file
+# would read `XYZ-CLASS:`.
 CLASS_MARKER_KEY='KIT-CLASS:'
 CLASS_MARKER_SENTINEL='@@KITCLASSKEY@@'
 
-# THE HAT THIS SCRIPT'S OWN COMMITS CARRY — the PRE-ROLE HAT, never a member picked by position.
-# process/contracts/role-gate.md § 2a declares the hat for day one's commits as a setting with a
-# default; this is that default, and KIT_INIT_ROLE is the knob for a project that departs from it
-# (the same knob shape as FINISH_PR_ROLE, ARCHIVE_ROLE and RELEASE_ROLE). The self-test holds this
-# literal equal to § 2a's token, so the seam keeps one value.
-# IT USED TO BE DERIVED — `${ROLES%%|*}`, the first member of the set — which
-# scripts/lib/role-set.sh forbids by name: seat identity is not a position, and a derived tag
-# "writes a FALSE SEAT into git history, permanently". On the shipped set the first member IS the
-# pre-role hat, so every shipped tree looked right; a project whose set lists another role first
-# got its first attributed commits — the initialization and the self-check — in that role's name.
-# The derivation's stated reason, keeping the self-check donor-free whatever the set, still holds:
-# a knob with a refusal (checked in the preflight, before anything is written) is donor-free too.
+# THE HAT THIS SCRIPT'S OWN COMMITS CARRY — the PRE-ROLE HAT, process/contracts/role-gate.md
+# § 2a's default; KIT_INIT_ROLE overrides it. Never derived by position: seat identity is not a
+# position (scripts/lib/role-set.sh). The self-test holds this literal equal to § 2a's token.
 KIT_INIT_ROLE_DEFAULT='PM'
 SELF_ROLE="${KIT_INIT_ROLE:-$KIT_INIT_ROLE_DEFAULT}"
 
@@ -217,17 +182,9 @@ EOF
 # --- arg parsing -------------------------------------------------------------
 # need_val <all remaining args> — refuse an option whose value was not given.
 #
-# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
-# new-refactor.sh, which already had it. It is repeated per script rather than shared
-# because several of these source nothing from scripts/lib/ (release.sh by standing
-# ruling), and the self-test holds the copies identical.
-#
-# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
-# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
-# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
-# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
-# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
-# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+# Repeated per script rather than shared (several of these source nothing from
+# scripts/lib/); the self-test holds the copies identical. It exists because `shift 2` with
+# one argument left aborts under `set -e` with no message (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
@@ -235,50 +192,20 @@ need_val() {
 # validate_project_name <name> — refuse a --project-name that cannot survive being
 # stamped into config.sh. Returns non-zero and names the character AND its position.
 #
-# WHAT BREAKS, AND WHY THE STAMP CANNOT SIMPLY BE QUOTED BETTER. The value is written
-# into scripts/config.sh as the default of a parameter expansion inside double quotes:
-#
-#     PROJECT_NAME="${PROJECT_NAME:-<the value>}"
-#
-# Bash still processes quoting, expansion and escapes inside the `word` of a
-# `${VAR:-word}` even when the whole expansion is double-quoted, and the value ALSO
-# passes through a `sed` replacement on its way there. So a hostile character breaks at
-# one of THREE distinct stages, and the three failures look nothing alike — which is why
-# they are listed apart rather than as one refused set:
-#
-#   • UNSOURCEABLE — config.sh is no longer valid shell, so EVERY script that sources
-#     it dies, not just this one. An apostrophe opens a single-quoted string that runs
-#     to end of file.  '  "  `  and an embedded NEWLINE.
-#   • SILENTLY WRONG — config.sh sources cleanly and PROJECT_NAME holds something the
-#     caller never typed. THIS IS THE DANGEROUS CLASS: the other two announce themselves
-#     on the next command, and this one never announces itself at all.
-#       $   expands at source time — `A$HOME B` becomes the sourcing user's home path
+# The value becomes the default in `PROJECT_NAME="${PROJECT_NAME:-<the value>}"`, through a
+# sed replacement, and a hostile character breaks at one of three stages:
+#   • UNSOURCEABLE — config.sh stops being valid shell and every script sourcing it dies:
+#     '  "  `  and an embedded NEWLINE.
+#   • SILENTLY WRONG — it sources, but PROJECT_NAME is not what was typed (the dangerous class):
+#       $   expands at source time
 #       \   is eaten by the sed replacement
-#       &   is sed's "the whole match", so the ENTIRE config line is spliced into the value
-#       }   closes the expansion early, truncating the name and stranding the remainder
-#
-#   • HALF-STAMPED — `|` is the sed DELIMITER. The substitution does not fail quietly and
-#     it does not write a wrong value: sed ABORTS, config.sh keeps the shipped placeholder,
-#     and under `set -e` the run dies at that line — AFTER the seams above it are already
-#     stamped. That is the half-initialized repository this script's own idempotency note
-#     calls "the worst outcome available", and a second run then REFUSES with no resume
-#     path. A third outcome, listed separately because calling it "silently wrong" would
-#     send the reader looking for a bad value in a file that never changed.
-#
-# THE SET WAS DERIVED BY EXECUTION, NOT FROM MEMORY. Every printable ASCII character was
-# stamped through the real substitution and the result both `bash -n`-parsed and sourced
-# back; the ones listed above are those that failed at one of the three stages, and every
-# other printable character round-tripped byte for byte. scripts/test/run.sh RE-DERIVES
-# the set the same way rather than trusting this comment, and requires this function to
-# agree with the derivation in BOTH directions — refusing everything measured hostile and
-# accepting everything measured safe. A hand-listed set is a claim; the re-derivation is
-# the measurement, and it is what stops the next character nobody listed getting through.
-#
-# IT REFUSES RATHER THAN SANITISING, which is scripts/config.sh's own standing posture
-# (see validate_slug and the paragraph above it): rewriting a bad name into a legal one
-# hands the caller a project called something they did not type and cannot search for.
-# A sanitiser is also a second parser, and it fails silently on whatever the first one
-# missed — which is exactly the failure mode the silent half above already demonstrates.
+#       &   is sed's "the whole match", splicing the config line into the value
+#       }   closes the expansion early, truncating the name
+#   • HALF-STAMPED — `|` is the sed DELIMITER: sed aborts AFTER the seams above it are
+#     stamped, and a second run refuses with no resume path.
+# The self-test re-derives the set by stamping every printable ASCII character and holds this
+# function to it in both directions. It REFUSES rather than sanitising: a rewritten name is one
+# the caller did not type and cannot search for.
 validate_project_name() {
   local name="$1" pos=1 ch what
   if [ -z "$name" ]; then
@@ -324,10 +251,7 @@ validate_project_name() {
 while [ $# -gt 0 ]; do
   case "$1" in
     --prefix)         need_val "$@"; PREFIX="$2"; shift 2 ;;
-    # REFUSED AT PARSE TIME, before anything is written. The value is stamped into a
-    # shell assignment in scripts/config.sh; a character that breaks it there breaks
-    # every script that sources config.sh, and half of them break SILENTLY. Exit 2 is
-    # the illegal-invocation status process/contracts/issue-creation.md § 3 declares.
+    # Refused at parse time, before anything is written (see validate_project_name).
     --project-name)   need_val "$@"; validate_project_name "$2" || exit 2; PROJECT_NAME_NEW="$2"; shift 2 ;;
     --trunk)          need_val "$@"; TRUNK="$2"; shift 2 ;;
     --prd-prefix)     need_val "$@"; PRD_PREFIX_NEW="$2"; shift 2 ;;
@@ -335,10 +259,7 @@ while [ $# -gt 0 ]; do
     --gate-command)   need_val "$@"; GATE_CMD="$2"; shift 2 ;;
     --skip-self-check) RUN_SELFCHECK=false; shift ;;
     -h|--help)        usage; exit 0 ;;
-    # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
-    # kit already told them apart in every script that has a `-*)` arm — these did not, so a
-    # mistyped flag was reported with the status a surplus word gets. Named in
-    # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+    # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; echo "Try --help." >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; echo "Try --help." >&2; exit 1 ;;
   esac
@@ -361,12 +282,8 @@ step "kit-init preflight"
 if [ -n "$PREFIX" ] && ! printf '%s' "$PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prefix '$PREFIX' must be alphanumeric and start with a letter (it becomes ${PREFIX}-001-<slug>.md)."
 fi
-# THE SAME RULE FOR --prd-prefix, which had NONE. It went straight from the argument arm into
-# the sed that rewrites config.sh, so `--prd-prefix REQ-2` was accepted and stamped — and the
-# hygiene instrument's own prefix derivation matches `[A-Za-z0-9]+`, so from then on it silently
-# stopped seeing PRD ids WHILE REPORTING ITSELF FULLY DERIVED. The narrow class in that
-# instrument is not the defect; it and this check are two halves of one contract, and only one
-# half had been written.
+# THE SAME RULE FOR --prd-prefix: the hygiene instruments derive their PRD id pattern
+# (`[A-Za-z0-9]+`) from it, so a prefix outside that class makes them silently miss PRD ids.
 if [ -n "$PRD_PREFIX_NEW" ] && ! printf '%s' "$PRD_PREFIX_NEW" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prd-prefix '$PRD_PREFIX_NEW' must be alphanumeric and start with a letter (it becomes ${PRD_PREFIX_NEW}-001-<slug>.md, and the hygiene instruments derive their id pattern from it)."
 fi
@@ -388,21 +305,10 @@ if [ ${#MISSING[@]} -gt 0 ]; then
 fi
 
 # --- the push helper: LOADED here, deliberately NOT enumerated in COPY_LIST ---
-# kit-init's own publishing pushes go through git_push_with_retry (four sites in
-# steps 5 and 6), so this file is a hard dependency of a successful run. It is
-# NOT added to COPY_LIST above: that list is a hand-typed presence check, and
-# growing it by one entry per dependency somebody trips over leaves it just as
-# silent about the next one. What is asserted here instead is the property this
-# script actually needs — the helper LOADS and the function it calls IS DEFINED.
-#
-# Refusing (rather than pushing once, unretried, when the helper is absent) is
-# what `process/contracts/config-seam.md` § 2 requires: "a DEGRADED path may not
-# carry its own second default … it refuses and names the seam". A bare push that
-# loses a race leaves the initialization commit local — one initializer run ended
-# one commit ahead of its remote with a fatal at its tail, which is the incident
-# this routing exists to close. It is a `pf` rather than an early exit so it is
-# reported alongside every other unmet precondition in one pass, and so it lands
-# inside the refusal that guarantees NOTHING WAS WRITTEN.
+# kit-init's publishing pushes go through git_push_with_retry, so what is asserted is that the
+# helper LOADS and DEFINES it — not one more COPY_LIST entry. It refuses rather than falling
+# back to an unretried push (process/contracts/config-seam.md § 2: a degraded path may not
+# carry its own second default), and as a `pf`, inside the NOTHING WAS WRITTEN refusal.
 # shellcheck source=lib/push-retry.sh
 if [ ! -f "$SCRIPT_DIR/lib/push-retry.sh" ] || ! . "$SCRIPT_DIR/lib/push-retry.sh"; then
   pf "scripts/lib/push-retry.sh is missing — kit-init publishes its initialization commits through that file's git_push_with_retry, and will not fall back to a single unretried push. Restore it:  git checkout -- scripts/lib/push-retry.sh (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
@@ -431,12 +337,8 @@ REMOTE_HEAD=""
 if ! git -C "$ROOT" remote get-url "$REMOTE" >/dev/null 2>&1; then
   pf "no '$REMOTE' remote — the kanban worktree fetches, resets and pushes through it."
 else
-  # A filesystem remote must be ABSOLUTE. The kanban worktree runs git from
-  # .kanban-wt/, one directory down, and git resolves a relative URL against the
-  # working directory it is run from — so `../proj.git` reaches the remote from
-  # this checkout and misses it from the worktree. Unguarded, that surfaced two
-  # steps into the self-check as "does not appear to be a git repository", which
-  # reads as an access problem (measured 2026-08-26). Refuse it here, as a URL.
+  # A filesystem remote must be ABSOLUTE: the kanban worktree runs git from .kanban-wt/,
+  # where a relative URL resolves somewhere else.
   REMOTE_URL="$(git -C "$ROOT" remote get-url "$REMOTE" 2>/dev/null || true)"
   case "$REMOTE_URL" in
     ""|*://*|*@*:*|/*|'~'*) ;;   # a scheme, scp-style ssh, or an absolute path — fine
@@ -463,43 +365,24 @@ if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null ||
 fi
 
 # --- the kit itself must be COMMITTED: no shipped path on disk and untracked ---
-# kit-init's own commit (§ 5) adds an ALLOW-LIST — the paths it writes — and trusts the adopter's
-# first commit to hold the rest of the kit. MEASURED 2026-09-26: the remote + trunk recipe this
-# script printed on refusal made that first commit `--allow-empty`, so an adopter who ran kit-init
-# before committing (README § Day one says the copy is already done) was handed an empty first
-# commit by the tool itself. kit-init then printed COMPLETE and PROVEN with README.md, PROJECT.md,
-# CLAUDE.md, AGENTS.md, setup.sh, .env.example, consumers/ and docs/ untracked — on disk here, absent
-# from the trunk, so the kanban worktree and every clone were a partial kit and an agent session in a
-# fresh clone had no adapter. The recipe is fixed; this refusal catches the adopters who arrive by
-# any other route (an empty commit made by hand, the kit copied into a repository after its first
-# push).
-# THE POPULATION is process/KIT-MANIFEST's path column, plus the manifest itself (it excludes
-# itself) — the build writes it, so this reads the shipped manifest rather than carrying a second
-# copy of it. THE TEST is "ON DISK AND NOT TRACKED", which is two decisions:
-#   * NOT "absent from HEAD": a shipped file the adopter deleted before the first commit is their
-#     decision and is not refused. Deleting is the supported way to not have a shipped file.
-#   * IGNORED COUNTS. The first version asked `git ls-files --others --exclude-standard`, which drops
-#     ignored files — and review measured the hole: CLAUDE.md in a global core.excludesFile (common
-#     among agent users, and meant for OTHER repositories), then README § Day one verbatim, and
-#     kit-init printed COMPLETE and PROVEN over a trunk with no CLAUDE.md, `git status` clean. An
-#     ignored shipped path is refused like any other, because ignoring cannot be how an adopter
-#     declines a shipped file — it leaves the file on disk here and absent everywhere else, which is
-#     this refusal's whole subject — and the likeliest cause is a rule written for some other
-#     repository. `git add -f` is the explicit override; deleting the file is the explicit decline.
-# No manifest (a hand copy that left it behind), or one whose path column yields nothing (a
-# malformed separator), means no check — and either SAYS so. No commits yet means no check: the
-# no-commits refusal above already stands, with the recipe.
-# Measured as a detector at this point in the run: the empty-`init` state holds every shipped path
-# uncommitted; README § Day one's state holds none — the shipped .gitignore ignores no shipped path.
+# kit-init's own commit (§ 5) adds only the paths it writes and trusts the adopter's first
+# commit to hold the rest; a shipped path left uncommitted is on disk here and absent from the
+# trunk and every clone.
+# THE POPULATION is process/KIT-MANIFEST's path column plus the manifest itself (read, never
+# copied). THE TEST is "ON DISK AND NOT TRACKED":
+#   * NOT "absent from HEAD": deleting a shipped file before the first commit is the supported
+#     way to decline it.
+#   * IGNORED COUNTS: ignoring cannot be how a shipped file is declined, and a global excludes
+#     file written for other repositories is the likeliest cause. `git add -f` overrides.
+# No manifest, or one whose path column yields nothing, means no check, and it says so.
 KIT_MANIFEST_FILE="$ROOT/process/KIT-MANIFEST"
 if [ -f "$KIT_MANIFEST_FILE" ] && git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
   _km_paths="$(grep -v '^#' "$KIT_MANIFEST_FILE" | awk -F'  ' 'NF>=2 {print $2}' || true)"
   if [ -z "$_km_paths" ]; then
     say "  ℹ process/KIT-MANIFEST yields no paths (empty, or not '<sha256>  <path>  <class>' with two-space separators) — the uncommitted-kit check is skipped."
   else
-    # -z so a shipped name git would C-quote still compares equal to the manifest's plain path. No
-    # reader here exits early (`sed -n '1,5p'`, not `head`), so pipefail cannot turn a SIGPIPE into
-    # a false refusal; the loop ends on `fi`, so its status is never a failed test's.
+    # -z so a C-quoted name still compares equal. No reader exits early (`sed -n '1,5p'`,
+    # not `head`), so pipefail cannot turn a SIGPIPE into a false refusal.
     UNCOMMITTED_KIT="$(comm -23 \
       <({ printf '%s\n' process/KIT-MANIFEST; printf '%s\n' "$_km_paths"; } | while IFS= read -r _p; do
           if [ -e "$ROOT/$_p" ]; then printf '%s\n' "$_p"; fi
@@ -525,22 +408,12 @@ elif [ ! -f "$KIT_MANIFEST_FILE" ]; then
 fi
 
 # --- every path § 5 will commit must be ADDABLE: none of them ignored ---
-# § 5 commits with `git add -A -- <this list>`, and git refuses an EXPLICIT pathspec that an ignore
-# rule matches — exit 1, "The following paths are ignored" — even when everything beneath it is
-# tracked. MEASURED 2026-09-27: `.claude/` in .git/info/exclude (a global excludes file does the
-# same, and agent users write that rule for other repositories); the refusal above caught the
-# ignored shipped files, its remedy committed them with -f, and the re-run passed this preflight,
-# stamped config.sh, the gate runner, the role docs and core.hooksPath — then died at "Committing the
-# initialized tree". A third run refused as ALREADY LIVED: half-stamped, no resume path, the exact
-# state this preflight's NOTHING WAS WRITTEN exists to prevent.
-# THE TEST IS § 5's OWN COMMAND, dry-run (`--dry-run` stages nothing and leaves the index untouched —
-# measured), not a re-derivation of git's ignore rules: whatever would make that add fail, fails
-# here, before anything is written. The ignored members are named by `git check-ignore --no-index`
-# (which also sees a tracked path an ignore rule matches). The remedy UN-ignores rather than working
-# round it: the kit commits these paths on purpose, and a staging step that skipped an ignored
-# directory would silently drop whatever kit-init later creates inside it.
-# THE LIST IS DECLARED ONCE, here, and § 5 reads it: two copies of it are how the preflight and the
-# commit would disagree about what "will be committed" means.
+# git refuses an EXPLICIT pathspec that an ignore rule matches, even over tracked content, and
+# § 5 runs AFTER stamping — a failure there leaves a half-initialized repository with no resume
+# path. THE TEST IS § 5's OWN COMMAND, dry-run (it stages nothing), not a re-derivation of git's
+# ignore rules. The remedy UN-ignores: skipping an ignored directory would silently drop
+# whatever kit-init later creates inside it.
+# THE LIST IS DECLARED ONCE, here, and § 5 reads it.
 KIT_COMMIT_PATHS=(scripts .claude progress progress.md ARCHIVE.md .gitignore process requirements dev)
 if git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
   _kc_present=()
@@ -566,27 +439,16 @@ fi
 # =============================================================================
 # THE ALREADY-LIVED REFUSAL.
 #
-# The rule, stated once: this script refuses any repository that has ALREADY
-# LIVED — a board carrying issue files, a progress.md § Log with entries, an
-# ARCHIVE.md with an index, or a config.sh already stamped by a previous run.
-# Deliberately GENERIC: naming one repository by a path literal would protect
-# exactly that one, and "a repo with real work on its board" is the class that
-# must never be re-initialized — the kit's own donor is simply its most obvious
-# member.
+# This script refuses any repository that has ALREADY LIVED — a board carrying issue
+# files, a progress.md § Log with entries, an ARCHIVE.md with an index, or a config.sh
+# already stamped by a previous run. Deliberately GENERIC: the class, never one repository
+# named by path.
 # =============================================================================
-# THE PROBES LIVE IN scripts/lib/lived-probe.sh, shared with check-board.sh arm [g].
-# This renders; it does not measure. The two used to measure separately and had already
-# diverged on the receipt probe — see that file's header for the measurement.
-#
-# GUARDED WITH `command -v`, AND THAT IS NOT BELT-AND-BRACES. This script runs
-# `set -euo pipefail` and this block sits BEFORE the refusal flush below, so an undefined
-# function here is exit 127 and kills the run with a bare "command not found" instead of
-# the designed refusal that names the missing library. The push-retry source above can
-# skip its guard only because its function is called AFTER the flush.
-#
-# FILLED THROUGH PROCESS SUBSTITUTION, NEVER A PIPE: `… | while read` runs the loop in a
-# subshell, LIVED is empty afterward, and kit-init then initializes a lived repository
-# silently. That is the worst outcome this whole block exists to prevent.
+# The probes live in scripts/lib/lived-probe.sh, shared with check-board.sh arm [g]; this
+# renders. GUARDED WITH `command -v`: under `set -e` an undefined function here would exit 127
+# before the refusal flush below could name the missing library.
+# FILLED THROUGH PROCESS SUBSTITUTION, NEVER A PIPE: a piped `while read` runs in a subshell,
+# LIVED would be empty afterwards, and a lived repository would be initialized silently.
 LIVED=()
 if command -v kit_lived_signals >/dev/null 2>&1; then
   while IFS= read -r rec; do
@@ -617,15 +479,9 @@ if [ ${#LIVED[@]} -gt 0 ]; then
 fi
 
 # --- THE PRE-KIT BOUNDARY ------------------------------------------------------
-# The last commit that existed BEFORE this script wrote anything. It is captured here,
-# after the already-lived refusal and before the first mutation, because it answers one
-# question the self-check needs: which commits predate the kit's own rules?
-#
-# The attribution rule arrives WITH this script — it is the commit-msg hook this run
-# wires. A commit made before that cannot have violated it, so the drift report's
-# role-prefix finding over pre-kit history is not a defect in the repository; it is the
-# report correctly describing a past the rule never governed. Empty in a repository with
-# no commits yet, which is a real day-one state and is handled by every consumer below.
+# The last commit before this script wrote anything. Commits up to it predate the attribution
+# rule this run wires (the commit-msg hook), so the self-check does not count their findings.
+# Empty in a repository with no commits yet; every consumer handles that.
 KI_BASE_SHA="$(git -C "$ROOT" rev-parse --verify --quiet HEAD 2>/dev/null || true)"
 
 # --- the gate command / verify.sh precondition (finish-pr.sh's landing rule) ---
@@ -633,9 +489,7 @@ KI_BASE_SHA="$(git -C "$ROOT" rev-parse --verify --quiet HEAD 2>/dev/null || tru
 #   • absent                        → WRITE a minimal single-gate runner around <C>
 #   • the shipped frame, GATES=()   → FILL the table with <C> as its first record
 #   • anything else (a declared table, a hand-written runner) → REFUSE; it is yours
-# The fill arm exists because the seed SHIPS the frame: without it the README's
-# own day-one command refused on every fresh seed, while the frame's header told
-# the reader to run the very flag that refused (measured 2026-08-26).
+# The fill arm exists because the seed SHIPS the frame.
 VERIFY="$ROOT/scripts/verify.sh"
 verify_is_empty_frame() {  # true iff verify.sh is the frame and its GATES table holds no record
   grep -q '^GATES=($' "$VERIFY" 2>/dev/null \
@@ -664,13 +518,10 @@ else
 fi
 
 # --- the hat this run's own commits carry must be in the set it will enforce ---
-# Checked HERE, before anything is written, because the commit-msg hook would reject the first
-# commit AFTER the stamping — the refusal lib/role-set.sh's kit_require_role makes for the other
-# scripts that commit under a chosen seat. The set is the one this run will leave in force: the
-# --roles value when given, otherwise the hook's as copied (an unreadable hook is refused below
-# on its own terms, so it is not guessed at here).
-# `|| true` IS LOAD-BEARING: with the hook absent, sed fails, pipefail carries it out of the
-# substitution, and `set -e` would end the preflight before it could NAME the missing file.
+# Checked before anything is written: the commit-msg hook would reject the first commit AFTER
+# the stamping. The set is the one this run leaves in force (--roles, else the hook's).
+# `|| true` IS LOAD-BEARING: with the hook absent, pipefail and `set -e` would end the
+# preflight before it could NAME the missing file.
 PF_ROLES="${ROLES_NEW:-$( { sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$ROOT/scripts/githooks/commit-msg" 2>/dev/null || true; } | head -1)}"
 if [ -n "$PF_ROLES" ]; then
   case "|$PF_ROLES|" in
@@ -724,10 +575,8 @@ CONFIG="$ROOT/scripts/config.sh"
 COMMITMSG="$ROOT/scripts/githooks/commit-msg"
 KWTLIB="$ROOT/scripts/lib/kanban-worktree.sh"
 
-# EVERY OLD VALUE IS DERIVED FROM A SEAM, NEVER TYPED HERE. That is what lets this
-# script rewrite the travelling docs (whose prose spells the old values out)
-# without carrying a single donor literal of its own — and it is what makes the
-# census below a measurement rather than a promise.
+# EVERY OLD VALUE IS DERIVED FROM A SEAM, NEVER TYPED HERE: this script rewrites the
+# travelling docs without carrying a donor literal, and the census below is a measurement.
 OLD_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
 [ -n "$OLD_PREFIX" ] || { echo "Error: could not read the current ISSUE_PREFIX default out of scripts/config.sh." >&2; exit 1; }
 OLD_NAME="$(sed -n 's/^PROJECT_NAME="\${PROJECT_NAME:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
@@ -752,11 +601,9 @@ printf '\n%s on %s — prefix %s, trunk %s (kit-init.sh --help explains the re-r
   "$STAMP_MARK" "$(date +%Y-%m-%d)" "$PREFIX" "$TRUNK" >> "$CONFIG"
 
 # --- the templates ---------------------------------------------------------
-# Their BODY prose spells the prefix out in examples. TWO forms are stamped,
-# because both are in circulation: the angle-bracket placeholder the shipped
-# templates use (<PREFIX>-NNN) and the config default's own token — a knob is
-# only real when something turns it, and a substitution that matches neither form
-# is a silent no-op that leaves every minted card carrying a placeholder id.
+# Their BODY prose spells the prefix out in examples. TWO forms are stamped: the
+# angle-bracket placeholder (<PREFIX>-NNN) and the config default's own token. A
+# substitution that matched neither would leave every minted card with a placeholder id.
 TPL_HITS=0
 if [ -d "$ROOT/.claude/templates" ]; then
   for t in "$ROOT"/.claude/templates/*.md; do
@@ -766,10 +613,8 @@ if [ -d "$ROOT/.claude/templates" ]; then
       sed -i.bak -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" "$t"; rm -f "$t.bak"; hit=1
     fi
     if [ "$PREFIX" != "$OLD_PREFIX" ] && grep -q "${OLD_PREFIX}-" "$t"; then
-      # Three expressions, one invocation, applied in order per line: hide the
-      # marker's key, rewrite the prefix, put the key back. Atomic per file — a
-      # protect/restore pair around SEPARATE commands would leave the sentinel in
-      # the tree if anything failed between them.
+      # Three expressions, one invocation, applied in order per line: hide the marker's
+      # key, rewrite the prefix, put the key back — atomic per file.
       sed -i.bak -E -e "s|${CLASS_MARKER_KEY}|${CLASS_MARKER_SENTINEL}|g" \
                     -e "s|${OLD_PREFIX}-|${PREFIX}-|g" \
                     -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$t"; rm -f "$t.bak"; hit=1
@@ -779,11 +624,8 @@ if [ -d "$ROOT/.claude/templates" ]; then
 fi
 say "  .claude/templates/: prefix (${PREFIX_PLACEHOLDER} and ${OLD_PREFIX}-) → ${PREFIX}- in ${TPL_HITS} template(s)"
 
-# The templates carry the explicit placeholder `<trunk>` rather than any branch
-# name, stamped here. This is the same lesson applied to the second token: a knob
-# is only real when something turns it, and the role-doc substitution below is
-# conditional on .claude/roles/ existing, so a templates-only copy-list was never
-# reached by it.
+# The templates carry the explicit placeholder `<trunk>`, stamped here on its own: the
+# role-doc substitution below runs only when .claude/roles/ exists.
 TRUNK_TPL_HITS=0
 if [ -d "$ROOT/.claude/templates" ]; then
   for t in "$ROOT"/.claude/templates/*.md; do
@@ -797,37 +639,22 @@ fi
 say "  .claude/templates/: <trunk> → ${TRUNK} in ${TRUNK_TPL_HITS} template(s)"
 
 # --- the ROLE DOCS ---------------------------------------------------------
-# Three agents independently logged that transplanted role docs still spoke the
-# donor's dialect, and the contract sheet's "a search returns nothing" had been
-# measured by NOTHING (the run that claimed a clean transplant left 134
-# project-name hits, 110 prefix hits and 54 trunk hits behind). So: substitute
-# here too, then COUNT (below).
-#
-# The tokens, and why each is spelled the way it is:
+# Substituted here, then COUNTED (the census below). The tokens:
 #   • the prefix — the angle-bracket placeholder, plus the config default's token
 #     ONLY in its PLACEHOLDER shape (<TOKEN> followed by a non-digit: -NNN, -XXX).
 #     <TOKEN>-<digits> is a PROVENANCE citation and is deliberately left alone:
-#     rewriting `KIT-374` to `XYZ-374` would invent a citation to an issue the
-#     adopter never had. (The templates above keep their blanket rewrite — a
-#     template carries examples, not provenance.)
+#     rewriting it would invent a citation to an issue the adopter never had.
+#     (The templates above keep their blanket rewrite — a template carries examples.)
 #   • the trunk — whole word only, via a delimiter-guarded pattern run TWICE so
 #     two adjacent occurrences both land. Without the guard, `development`
 #     becomes `<trunk>ment`.
-#   • the project name — blanket; it is a name, and every occurrence is the
-#     donor's.
-# RECURSIVE on purpose: a parked/archived role doc is a file the adopter will one
-# day wake, and a census that skips it measures the easy half.
+#   • the project name — blanket; every occurrence is the donor's.
+# RECURSIVE on purpose: a parked role doc is one the adopter will one day wake.
 md_files() { [ -d "$1" ] && find "$1" -type f -name '*.md' | sort || true; }
 census_count() {  # <dir> <ere> [exclude-line-ere] → occurrences across the dir's .md files
-  # THE OPTIONAL THIRD ARGUMENT EXISTS FOR ONE REASON, and it is the mirror of the
-  # substitution exemption above: `KIT-CLASS:` matches the placeholder-residue
-  # pattern `KIT-[^0-9]`, so protecting the marker from the rewrite would make this
-  # census REFUSE on it — the two have to move together or the fix trades a defaced
-  # marker for a failed self-check. Lines matching the exclusion are not counted.
-  # BLIND SPOT, STATED: the exclusion is per LINE, so a real surviving placeholder
-  # sharing a line with a classification marker would go uncounted. The marker is a
-  # one-line comment at the top of a file by convention, so that line carries nothing
-  # else — but the limit is real and it is here rather than in anyone's memory.
+  # THE THIRD ARGUMENT mirrors the substitution's marker exemption: `KIT-CLASS:` matches the
+  # residue pattern `KIT-[^0-9]`, so the two must move together. The exclusion is per LINE,
+  # so a placeholder sharing a line with a marker would go uncounted.
   local dir="$1" re="$2" excl="${3:-}" n=0 f
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -840,27 +667,11 @@ census_count() {  # <dir> <ere> [exclude-line-ere] → occurrences across the di
   echo "$n"
 }
 PLACEHOLDER_RE="(${PREFIX_PLACEHOLDER}|${OLD_PREFIX}-[^0-9])"
-# THE ALTERNATION `(^|…)` IS AN ERE EXTENSION, NOT POSIX, AND ITS ONE SYMPTOM IS RECORDED
-# HERE RATHER THAN SWEPT. A strict matcher rejects an anchor inside a group, so on a `grep`
-# that is stricter than the system one this expression matches nothing and the CENSUS below
-# under-reports.
-#
-# WHAT THAT COSTS, AND WHY IT IS A COMMENT RATHER THAN A FIX: the SUBSTITUTION is unaffected
-# — `sed -E` handles the same shape correctly, measured — so the tree is rewritten right and
-# only the count printed about it is wrong. **A wrong REPORT, not a wrong TREE.** That
-# asymmetry is the whole reason this can sit here.
-#
-# AND THE FLOOR IS DELIBERATELY NOT WIDENED TO NAME A grep. That was offered as the cheap
-# fix and it is the wrong trade: it would exchange the kit's central claim — REQUIRES git and
-# a POSIX shell — for five regexes in three scripts, and that claim is what makes
-# `process/SEED.md`'s branch B credible (the contract sheets ARE the specification; the shell
-# is one implementation). A floor naming a grep implementation makes the reference
-# implementation a dependency rather than an example.
-#
-# WHEN THIS FILE IS OPEN FOR ANOTHER REASON, replace this occurrence with a portable
-# equivalent and prove it against BOTH a lenient and a strict matcher. Do not open the file
-# solely for that. Severity, stated so nobody re-inflates it: this bites only where a
-# non-conforming `grep` precedes the system one on PATH, and no adopter has reported it.
+# `(^|…)` IS AN ERE EXTENSION: on a `grep` stricter than the system one it matches nothing
+# and the CENSUS under-reports. `sed -E` handles it, so the tree is rewritten right and only
+# the printed count would be wrong. The floor stays git + a POSIX shell rather than naming a
+# grep. When this file is open for another reason, replace it with a portable equivalent
+# proven against a strict and a lenient matcher.
 TRUNK_RE="(^|[^A-Za-z])${OLD_TRUNK}([^A-Za-z]|\$)"
 NAME_RE="${OLD_NAME}"
 
@@ -891,45 +702,24 @@ else
 fi
 
 # --- the role set: every ENFORCING script seam at once ---------------------
-# THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's kit_role_set. This
-# script sources nothing from scripts/lib/, so the EXPRESSION is shared by declaration and
-# the self-test holds the sites identical. FALLBACK POLICY HERE: fatal — an initializer
-# that cannot read the set it is about to rewrite must not guess at it.
+# THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's kit_role_set (this script
+# sources nothing from scripts/lib/; the self-test holds the sites identical). FALLBACK POLICY
+# HERE: fatal — an initializer that cannot read the set it is about to rewrite must not guess.
 OLD_ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$COMMITMSG" | head -1)"
 [ -n "$OLD_ROLES" ] || { echo "Error: could not read ROLE_PREFIXES out of scripts/githooks/commit-msg." >&2; exit 1; }
 if [ -n "$ROLES_NEW" ]; then
   # NOTE the '@' delimiter: the role set is a '|'-separated ERE alternation, so
   # the usual s|…|…| would be cut in half by its own data.
-  # EVERY SEAM THAT REFUSES ON THE SET, not merely the ones that print it. A seam
-  # left unstamped does not go quietly wrong: it REFUSES THE PROJECT'S OWN ROLES,
-  # because its whitelist still names the shipped ones. subtask.sh was outside this
-  # loop while its --role whitelist enforced the shipped set, so a renamed project
-  # got a subtask tool that rejected every role it had just declared.
-  #
-  # The self-test harness under scripts/test/ carries the literal too and is DELIBERATELY NOT HERE: the
-  # harness asserts what the kit SHIPS, so stamping it would rewrite the assertion
-  # to match whatever it was measuring and the case could never fail.
-  # THE SEAM LIST IS DERIVED, NOT TYPED — because the typed one was wrong, and the
-  # paragraph above is the incident report. A hand-maintained list of "every file that
-  # carries the role set" is a second copy of a fact the files themselves already state,
-  # and it goes stale the first time somebody adds a seam without finding this loop.
-  #
-  # NON-RECURSIVE, AND THAT IS THE WHOLE SAFETY OF IT. Measured 2026-09-27 with
-  # /usr/bin/grep: `grep -rlF` over scripts/ returns the four seams plus
-  # scripts/test/lib/fixtures.sh (scripts/test/run.sh, before the harness was split), the
-  # harness file the paragraph above says must never be stamped.
-  # The glob excludes it BY SHAPE, so there is no exclusion list to keep in step with
-  # anything. Widen this to -r and you silently rewrite the harness's own assertion to
-  # match whatever it was measuring.
-  #
-  # THE DERIVATION'S SUBSTRING SAFETY RESTS ON THE ALREADY-LIVED REFUSAL ABOVE, which
-  # guarantees OLD_ROLES is the long shipped alternation. A hand-edited hook declaring
-  # one short token would make `grep -lF` match far more files and the global sed
-  # corrupt substrings. The glob is what bounds the blast radius; keep it.
+  # EVERY SEAM THAT ENFORCES THE SET, DERIVED rather than listed: a seam left unstamped
+  # refuses the project's own roles.
+  # NON-RECURSIVE, AND THAT IS THE WHOLE SAFETY OF IT: a recursive sweep reaches the self-test
+  # under scripts/test/, which asserts what the kit SHIPS, and would rewrite its assertions to
+  # match what they measure. The glob excludes it by shape.
+  # Substring safety rests on the already-lived refusal (OLD_ROLES is the shipped alternation,
+  # not one short token); the glob bounds the blast radius. Keep it.
   STAMPED_SEAMS="$( { grep -lF -- "$OLD_ROLES" "$ROOT"/scripts/*.sh "$ROOT"/scripts/githooks/* 2>/dev/null || true; } )"
-  # ASSERTED, NOT ASSUMED: OLD_ROLES was just read OUT of scripts/githooks/commit-msg, so
-  # that file matches by construction. An empty derivation means the tree moved under
-  # this run, and stamping nothing while reporting success is the failure to avoid.
+  # ASSERTED, NOT ASSUMED: an empty derivation means the tree moved under this run, and
+  # stamping nothing while reporting success is the failure to avoid.
   [ -n "$STAMPED_SEAMS" ] || {
     echo "Error: no shipped script carries the role set that was just read out of scripts/githooks/commit-msg — refusing to report a stamping that did not happen." >&2; exit 1; }
   STAMPED_REL=""
@@ -940,20 +730,15 @@ if [ -n "$ROLES_NEW" ]; then
   done <<STAMP_EOF
 $STAMPED_SEAMS
 STAMP_EOF
-  # NOTHING rewrites the hook's help text: it DERIVES the bracketed list from
-  # ROLE_PREFIXES at print time. An earlier version patched that sentence with a
-  # second sed, which is one more place to drift and one more thing to get wrong.
+  # Nothing rewrites the hook's help text: it derives the list from ROLE_PREFIXES at print time.
   ROLES="$ROLES_NEW"
-  # THE RECEIPT NAMES WHAT WAS ACTUALLY STAMPED. It used to be a typed sentence, which
-  # is a third copy of the seam list and the one an operator would have believed.
+  # The receipt names what was actually stamped.
   say "  role set → '${ROLES}' in ${STAMPED_REL}"
 else
   ROLES="$OLD_ROLES"
   say "  role set left as copied: '${ROLES}' (change it with --roles)"
 fi
-# The role this script uses for its OWN commits is SELF_ROLE, set at the top from the
-# pre-role hat and checked against the effective set in the preflight — no longer derived
-# from the set here (see KIT_INIT_ROLE_DEFAULT for why).
+# This script's own commits use SELF_ROLE (the pre-role hat), not a member picked from ROLES.
 
 # --- the gate command ---
 case "$GATE_MODE" in
@@ -1028,11 +813,8 @@ if [ "\$U" -gt 0 ]; then echo "NOTE: 1 gate(s) could NOT RUN — that is an UNKN
 exit "\$STATUS"
 EOF
   chmod +x "$ROOT/scripts/verify.sh"
-  # THE GENERATED RUNNER SPEAKS THE FRAME'S STATUSES, NOT ITS GATE'S. It used to end in
-  # `exit "$GATE_RC"`, which passed the gate's own code through: a gate that could not start
-  # printed FAIL and exited 127, and a gate that fails with its own 2 or 3 reached the landing
-  # script as the frame's "refused" or "COULD NOT RUN — nothing was measured". The self-test
-  # drives THIS heredoc through kit-init and holds its count line to the frame's shape.
+  # The generated runner speaks the FRAME's statuses, not its gate's; the self-test drives
+  # this heredoc through kit-init and holds its count line to the frame's shape.
   say "  scripts/verify.sh: written around '${GATE_CMD}' (no runner existed)"
   ;;
 *)
@@ -1051,9 +833,8 @@ step "Creating the board"
 
 for d in "${BOARD_FOLDERS[@]}"; do
   mkdir -p "$ROOT/progress/$d"
-  # WHY .gitkeep and not "create them empty": git does not track an empty
-  # directory, so a fresh CLONE has no board — and move-issue.sh ABORTS on a
-  # missing target folder. "Create them empty" does not survive a clone.
+  # .gitkeep, because git does not track an empty directory: a fresh CLONE would have no
+  # board, and move-issue.sh ABORTS on a missing target folder.
   [ -e "$ROOT/progress/$d/.gitkeep" ] || : > "$ROOT/progress/$d/.gitkeep"
 done
 KEEPS="$(find "$ROOT/progress" -name .gitkeep | wc -l | tr -d ' ')"
@@ -1132,12 +913,8 @@ fi
 # The kanban worktree and its lock live at the repo root and are NEVER tracked.
 # Without these entries every board move leaves the tree looking dirty.
 #
-# `.claude/session-role` joins them for a different reason
-# (process/contracts/role-gate.md § 2: "a hat declaration is SESSION STATE, never
-# repository content"). Tracked, it forks per branch, blocks a boundary
-# `git switch` with "local changes would be overwritten", and reaches a landing
-# gate as a merge conflict over a fact nobody was collaborating on. Four agents
-# paid for it in one twelve-hour transplant; one hit the conflict.
+# `.claude/session-role` is SESSION STATE, never repository content (role-gate.md § 2):
+# tracked, it forks per branch and reaches a landing as a merge conflict.
 touch "$ROOT/.gitignore"
 IGN_ADDED=0
 for entry in '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' '.claude/session-role'; do
@@ -1149,15 +926,9 @@ say "  .gitignore: ${IGN_ADDED} entr(y|ies) added (kanban worktree + .claude/ses
 # 4. HOOKS
 # =============================================================================
 step "Wiring the git hooks"
-# THE MODE BIT IS REPAIRED HERE, AND HERE RATHER THAN ONLY IN setup.sh FOR A PROPERTY setup.sh CANNOT
-# HAVE: this runs BEFORE § 5's commit, so a repaired bit reaches the trunk and therefore every future
-# clone. setup.sh repairs only the checkout it runs in — and if the tracked mode were 100644 it would
-# silently dirty the tree on every fresh clone forever.
-#
-# WHY IT CAN BE WRONG AT ALL: `git clone` and a mode-preserving unzip keep 100755, but SEED step 2
-# branch B is a HAND COPY, and a plain `cp` (no -p) or an extraction that drops permissions lands the
-# hook non-executable. git then IGNORES the hook and the commit SUCCEEDS — see the self-check below,
-# which used to blame the wrong thing for exactly this.
+# THE MODE BIT IS REPAIRED HERE, before § 5's commit, so it reaches the trunk and every clone
+# (setup.sh repairs only its own checkout). A hand copy can drop it, and git then IGNORES a
+# non-executable hook and the commit succeeds.
 chmod +x "$ROOT"/scripts/githooks/* 2>/dev/null || true
 git -C "$ROOT" config core.hooksPath scripts/githooks
 say "  core.hooksPath = scripts/githooks  (proven below by a real rejected commit)"
@@ -1180,15 +951,9 @@ if git -C "$ROOT" diff --cached --quiet; then
 else
   git -C "$ROOT" diff --cached --name-only | sed 's/^/    /'
   git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init: initialize the kit — prefix $PREFIX, trunk $TRUNK"
-  # THROUGH THE RETRY HELPER, not a bare push — here and at the three self-check
-  # pushes below. A single `git push` that loses a race against a parallel
-  # landing dies with the commit surviving only locally; one initializer run
-  # ended exactly there, one commit ahead of its remote with a fatal at its tail,
-  # and a by-hand push completed it. The helper's semantics are IDENTICAL to what
-  # stood here (it pushes `HEAD:<branch>`), and its rebase-on-rejection step is
-  # safe in this script specifically because the preflight already refuses unless
-  # this checkout is ON the trunk — so the rebase can only ever be the trunk onto
-  # its own remote tip, which is the same act every board move performs.
+  # THROUGH THE RETRY HELPER, here and at the self-check pushes below: a bare push that loses
+  # a race leaves the commit local. Its rebase-on-rejection is safe because the preflight
+  # guarantees this checkout is ON the trunk.
   git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
   say "  committed + pushed → $REMOTE/$TRUNK"
 fi
@@ -1202,16 +967,11 @@ fi
 # =============================================================================
 # 6. THE SELF-CHECK.
 #
-# It keeps the four things that must work on day one or the board is fiction — a
-# card can be MINTED with the right identity, MOVED between columns, the board
-# REPORTS clean, and the commit-msg hook actually FIRES — plus two invariants that
-# were each paid for in a real transplant (a hat declaration is session state; the
-# census is counted, not promised).
-# Deliberately out of day-one scope: the finish-pr merge cases (they need a code
-# branch and a green gate) and the archive sweep (it needs a full qa_complete
-# column). scripts/test/run.sh covers those in a throwaway sandbox.
-# Every value below is DERIVED: the prefix from --prefix, the trunk from
-# <remote>/HEAD, the role from the effective role set's first token.
+# The four things that must work on day one or the board is fiction — a card can be MINTED
+# with the right identity, MOVED between columns, the board REPORTS clean, and the commit-msg
+# hook FIRES — plus two invariants: a hat declaration is session state, and the census.
+# Out of day-one scope: the finish-pr merge cases and the archive sweep; scripts/test/run.sh
+# covers those in a throwaway sandbox.
 # =============================================================================
 step "Self-check — prefix $PREFIX, trunk $TRUNK, role [$SELF_ROLE]"
 
@@ -1223,12 +983,8 @@ SCRATCH_ID="${PREFIX}-${SCRATCH_NUM}"
 SCRATCH_FILE="${SCRATCH_ID}-${SCRATCH_SLUG}.md"
 
 # --- (1) mint a scratch card through the real creation path -----------------
-# THE MINT'S OUTPUT IS CAPTURED AND REPLAYED ON FAILURE, the same way (2) replays
-# move-issue.sh's. It used to be discarded to /dev/null, and the resulting
-# "✗ could not mint" named the symptom and threw away the one line that identified
-# the cause: an adopter whose config.sh had been stamped unsourceable was told the
-# mint failed and nothing about WHY, so the only way forward was to re-run the
-# failing command by hand. A refusal that hides its cause trains the reader to re-run.
+# The output is captured and REPLAYED on failure, like (2)'s: a refusal that hides its cause
+# trains the reader to re-run.
 MINT_OUT="$("$ROOT/scripts/new-issue.sh" "$SCRATCH_SLUG" --id "$SCRATCH_ID" 2>&1)" && MINT_RC=0 || MINT_RC=$?
 if [ "$MINT_RC" -eq 0 ] && [ -f "$ROOT/progress/todo/$SCRATCH_FILE" ]; then
   sc_ok "minted progress/todo/$SCRATCH_FILE"
@@ -1272,60 +1028,25 @@ fi
 # location, so an inherited value from another repo's session would have it report
 # on THAT board instead of this one.
 BOARD_OUT="$(CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/scripts/check-board.sh" 2>&1 || true)"
-# THE VERDICT LINE DECIDES. Nothing else does.
-#
-# THIS WAS A MEASURED REGRESSION, and the shape is worth more than the fix. An earlier
-# version took the clean branch on the verdict and otherwise RE-SCANNED THE RENDERED ⚠
-# LINES, subtracting the summary and the role-prefix finding and failing on whatever was
-# left. That made this script a second parser of a human-readable format nobody versioned
-# — so the day a report arm was added that prints ADVISORY ⚠ lines (day-one graduation,
-# present on every fresh install by construction), any unrelated finding that flipped the
-# verdict left those advisories as "whatever was left", and kit-init failed the install
-# blaming an arm whose own header says it never changes the verdict.
-#
-# The trigger was this kit's OWN documented recipe: process/GIT-HOSTING.md § 3 step 2
-# printed `git commit --allow-empty -m '<init>'` and notes that wiring the hooks after the
-# first commit "avoids the question entirely" — an unprefixed subject with hooks unwired,
-# which is exactly what makes the attribution arm fire. (The recipe now commits the kit as
-# unzipped rather than an empty commit — see the untracked-kit refusal in the preflight — but
-# its first subject is still unprefixed, so the trigger stands.)
-#
-# scripts/release.sh gate (d) already had this right: it keys on the verdict line and
-# prints ⚠ lines only as context after deciding. This now does the same.
+# THE VERDICT LINE DECIDES. Nothing else does: re-scanning the rendered ⚠ lines would make this
+# a second parser of a human-readable format, and advisory lines would fail installs.
+# (scripts/release.sh gate (d) keys on the verdict line the same way.)
 if printf '%s' "$BOARD_OUT" | grep -q 'board-drift: clean'; then
   sc_ok "check-board.sh: clean"
 else
-  # The verdict is not clean. EXACTLY ONE cause is tolerable here, and it is tolerable
-  # for a reason rather than by convenience: a commit that predates this run predates the
-  # attribution rule this run installs, and a rule cannot be violated before it exists.
+  # The verdict is not clean. EXACTLY ONE cause is tolerable: a commit that predates this
+  # run predates the attribution rule this run installs.
+  # NOT REDUNDANT WITH check-board.sh ARM (e)'s scoping. Arm (e) asks "was the rule in force
+  # when this commit was made" (after the hook FILE arrived); this asks "did THIS RUN cause
+  # the finding" (after KI_BASE_SHA). The boundaries differ on purpose; keep both.
   #
-  # THIS FILTER IS NOT REDUNDANT WITH check-board.sh ARM (e)'s OWN SCOPING, and the
-  # question was measured rather than assumed. Arm (e) now excludes commits at or before
-  # the one that ADDED scripts/githooks/commit-msg. This filter excludes commits that are
-  # ancestors of HEAD-before-this-run. Those boundaries are different on purpose because
-  # the two answer different questions: arm (e) asks "was the rule in force when this
-  # commit was made", this asks "did THIS RUN cause the finding". The second boundary is
-  # the later one, so the gap is real — an adopter who follows README's day-one recipe and
-  # then makes a few more commits before running kit-init lands them AFTER the hook file
-  # arrived (so arm (e) reports them, correctly: the file was there) and BEFORE this run
-  # (so this tolerates them, correctly: this run did not cause them). Delete either and
-  # that adopter gets the wrong answer from whichever you kept.
-  #
-  # Advisory sections are dropped by their OWN DECLARATION, not by a memorised letter or
-  # a matched phrase: an arm that reports without deciding says "reports only" in its
-  # header line, and everything under it is skipped until the next "[x]" section. Keying
-  # on the arm's self-description is what stops this filter going stale the next time an
-  # arm is added — which is the failure being repaired.
-  #
-  # "reports only" IS A MACHINE CONTRACT, NOT A TURN OF PHRASE. It is specified in
-  # process/contracts/drift-report.md § 4 and produced by check-board.sh's advisory arm
-  # headers. THIS IS THE CONSUMER. Change the token in one place and you must change it in
-  # all three, or an advisory arm silently starts failing installs again.
-  # THE HEADER LINE IS NOT SKIPPED, and that is load-bearing: arms [b] and [c] print their
-  # finding ON their header line ("[b] qa_complete/ depth: 11 / 10 threshold ⚠ over"), so an
-  # earlier version of this filter — which `next`ed on every header — discarded them and exited 0
-  # on a real over-threshold board. A header line is only dropped when the arm DECLARED itself
-  # advisory; otherwise it falls through and is read like any other line.
+  # Advisory sections are dropped by their OWN DECLARATION: an arm that reports without
+  # deciding says "reports only" in its header line, and everything under it is skipped until
+  # the next "[x]" section. "reports only" IS A MACHINE CONTRACT: specified in
+  # process/contracts/drift-report.md § 4, produced by check-board.sh's advisory headers,
+  # consumed here. Change it in all three.
+  # THE HEADER LINE IS NOT SKIPPED unless the arm declared itself advisory: arms [b] and [c]
+  # print their finding ON the header line.
   KI_FINDINGS="$(printf '%s\n' "$BOARD_OUT" | awk '
       /^\[[a-z]\]/ { adv = (index($0, "reports only") > 0) }
       adv          { next }
@@ -1337,13 +1058,9 @@ else
     [ -n "$ki_line" ] || continue
     case "$ki_line" in
       *"lacks a [Role] prefix"*|*"carries a generated trailer"*)
-        # BOTH HISTORY ARMS, not just the prefix one. Arm [h] reports commits whose
-        # MESSAGE carries a tool trailer, and it is scoped to the same rule epoch as
-        # arm (e) — but the epoch is the hook FILE's arrival, and a commit made after
-        # that and before THIS RUN wired core.hooksPath carries a trailer legitimately:
-        # nothing was enforcing the rule yet. Same argument as the prefix case, same
-        # tolerance, same boundary. Without this arm a tool-assisted adopter's day one
-        # fails the install on findings this run did not cause and cannot fix.
+        # BOTH HISTORY ARMS: arm [h] (a tool trailer) shares arm (e)'s rule epoch, the hook
+        # FILE's arrival, so a trailer committed before THIS RUN wired core.hooksPath gets
+        # the same tolerance and the same boundary as a missing prefix.
         ki_sha="$(printf '%s' "$ki_line" | sed -n 's/.*⚠[[:space:]]*\([0-9a-f]\{7,\}\)[[:space:]].*/\1/p')"
         if [ -n "$ki_sha" ] && [ -n "$KI_BASE_SHA" ] \
            && git -C "$ROOT" merge-base --is-ancestor "$ki_sha" "$KI_BASE_SHA" >/dev/null 2>&1; then
@@ -1363,14 +1080,8 @@ KI_EOF
   if [ -z "$KI_REAL" ] && [ -n "$KI_PREKIT" ]; then
     sc_ok "check-board.sh: the only findings are commits predating this run, which the attribution rules did not yet bind"
   elif [ -z "$KI_REAL" ]; then
-    # The verdict is dirty and NOTHING this script can attribute explains it. Say exactly
-    # that, rather than borrowing the pre-kit sentence above — a success message that
-    # names a cause it did not observe is the defect this whole arm was repaired for.
-    # STATED LIMIT, named precisely: an arm that sets the verdict while printing NO ⚠ line
-    # at all is invisible here. (An earlier wording blamed "no machine-readable owner per
-    # finding", which mis-names it: arms [b] and [c] DO carry their owner on the line — the
-    # filter was discarding it. That was a filter defect and is fixed above; this branch is
-    # for the genuinely silent case, which no reading of the rendered report can reach.)
+    # The verdict is dirty and nothing this script can attribute explains it: say exactly
+    # that. STATED LIMIT: an arm that sets the verdict while printing NO ⚠ line is invisible here.
     sc_ok "check-board.sh: no finding this run can attribute to itself (the report's verdict is not clean; its lines are below)"
   else
     sc_bad "check-board.sh reported drift:"
@@ -1387,15 +1098,10 @@ KI_EOF
 fi
 
 # --- (4) the commit-msg hook FIRES (this is the core.hooksPath proof) -------
-# GIT'S OWN STDERR IS THE DIAGNOSIS AND IT USED TO BE THROWN AWAY. With the hook present but not
-# executable, git prints "hook was ignored because it's not set as executable" and the commit
-# SUCCEEDS — and this check then reported "core.hooksPath is not in effect", which is FALSE: the
-# config is set and the hook is simply being skipped. Naming the wrong cause sends an adopter to
-# re-run the wiring that already worked.
-# `|| _ki_hook_rc=$?` and NOT `; _ki_hook_rc=$?`: this script runs `set -e`, a bare assignment
-# from a command substitution carries the substitution's status, and the REJECTION — rc=1 — is
-# the healthy outcome here. The first spelling killed the run at this exact point on a HEALTHY
-# tree. Same trap as the MK_OK/MK_BAD grep below; that one cost a run too.
+# git's own stderr is the diagnosis: a non-executable hook is IGNORED ("not set as
+# executable") and the commit succeeds — a mode problem, not a core.hooksPath one.
+# `|| _ki_hook_rc=$?`, NOT `; _ki_hook_rc=$?`: under `set -e` the rejection (rc=1, the
+# healthy outcome) would kill the run at the assignment.
 _ki_hook_rc=0
 _ki_hook_out="$(git -C "$ROOT" commit --allow-empty -q -m "kit-init self-check: this subject has no role tag" 2>&1)" || _ki_hook_rc=$?
 if [ "$_ki_hook_rc" -eq 0 ]; then
@@ -1431,11 +1137,9 @@ fi
 [ "$SR_PRE_EXISTING" = true ] || rm -f "$SR_FILE"
 
 # --- (6) THE CENSUS — asserted rather than promised --------------------------
-# process/contracts/config-seam.md: "A search of the travelling files for the
-# donor's own values returns NOTHING — a count, run by the adopter, not a promise
-# made by the donor." Here is the count. A token whose new value EQUALS the
-# shipped one is skipped: there is nothing to remove, and counting it would fail
-# the adopter for agreeing with the kit.
+# process/contracts/config-seam.md: the donor's values in the travelling files are COUNTED,
+# by the adopter. A token whose new value EQUALS the shipped one is skipped: counting it
+# would fail the adopter for agreeing with the kit.
 CENSUS_TOTAL=0
 census_report() {  # <label> <ere> <changed?> [exclude-line-ere]
   local label="$1" re="$2" changed="$3" excl="${4:-}" n=0 d
@@ -1450,28 +1154,18 @@ census_report() {  # <label> <ere> <changed?> [exclude-line-ere]
   if [ "$n" -eq 0 ]; then sc_ok "census — ${label}: 0 in .claude/roles + .claude/templates"
   else sc_bad "census — ${label}: ${n} occurrence(s) survive in .claude/roles + .claude/templates"; fi
 }
-# NO COLON IN THIS LABEL. The harness asserts on `census — prefix placeholders[^:]*: 0 in`,
-# so a colon anywhere in the label makes that pattern unmatchable — which is what the
-# first spelling of this line did, by interpolating the key WITH its trailing colon.
-# `${CLASS_MARKER_KEY%:}` keeps the name derived from the constant and drops the colon.
+# NO COLON IN THIS LABEL: the harness asserts on `census — prefix placeholders[^:]*: 0 in`.
+# `${CLASS_MARKER_KEY%:}` keeps the name derived and drops the key's colon.
 census_report "prefix placeholders (${PREFIX_PLACEHOLDER} / ${OLD_PREFIX}-, excluding the ${CLASS_MARKER_KEY%:} key)" "$PLACEHOLDER_RE" "true" "$CLASS_MARKER_KEY"
 census_report "trunk '${OLD_TRUNK}'"       "$TRUNK_RE" "$( [ "$TRUNK" != "$OLD_TRUNK" ] && echo true || echo false )"
 census_report "project name '${OLD_NAME}'" "$NAME_RE"  "$( [ "$NEW_NAME" != "$OLD_NAME" ] && echo true || echo false )"
 
-# THE MARKER SURVIVED — asserted, not assumed. The substitutions above are exempted
-# from the classification key and the census is exempted in step with them; this is
-# the assertion that the pair actually held. Two directions, because either alone
-# passes on a tree where the markers were deleted rather than rewritten: the key must
-# still be PRESENT, and the defaced spelling must be ABSENT. `contracts/initializer.md`
-# § 2 — every precondition performed is asserted afterwards, with a count where one
-# exists — and this is the count.
+# THE MARKER SURVIVED — asserted in two directions (contracts/initializer.md § 2): the key is
+# still PRESENT and the defaced spelling ABSENT; either alone passes on deleted markers.
 MK_OK=0; MK_BAD=0
 for d in "$ROOT/.claude/roles" "$ROOT/.claude/templates"; do
-  # `|| true` INSIDE the substitution, and it is load-bearing: this script runs
-  # `set -o pipefail`, a no-match grep exits 1, and the pipeline then carries that 1
-  # out through the command substitution into the assignment — which `set -e` treats
-  # as a failure and aborts on. The first spelling of these two lines killed the run
-  # at this exact point, on a HEALTHY tree, because "no defaced markers" is a no-match.
+  # `|| true` INSIDE the substitution is load-bearing: a no-match grep under pipefail would
+  # abort `set -e` on a healthy tree.
   MK_OK=$((  MK_OK  + $( { grep -rl "$CLASS_MARKER_KEY" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
   MK_BAD=$(( MK_BAD + $( { grep -rl "${PREFIX}-CLASS:" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
 done
@@ -1510,14 +1204,9 @@ if [ "$SC_FAIL" -eq 0 ]; then
     say "  declare your gates in scripts/verify.sh, and mint your first issue:"
   fi
   say ""
-  # THE kit-init × next-id COMPOSITION BUG, replicated TWICE by live agents. The
-  # recipe printed here used to embed $(./scripts/next-id.sh), which on the board
-  # this script has just left EMPTY correctly REFUSES:
-  # process/contracts/id-minting.md makes choosing where numbering starts a
-  # DECISION, not an inference. The contract is right; the composition was wrong.
-  # So the FIRST id is printed as a literal — computed here, where the prefix is
-  # known and the board is known to be empty — and next-id.sh is deferred to the
-  # second mint, where it has something to read. next-id.sh is UNCHANGED.
+  # The FIRST id is printed as a literal: on this empty board next-id.sh correctly refuses
+  # (process/contracts/id-minting.md: where numbering starts is a decision). next-id.sh takes
+  # over from the second mint.
   say "      ./scripts/new-issue.sh <slug> --id ${PREFIX}-001      # the FIRST id: this board is empty,"
   say "                                                    # so next-id.sh correctly refuses"
   say "      ./scripts/new-issue.sh <slug> --id \"\$(./scripts/next-id.sh)\"   # every mint AFTER the first"

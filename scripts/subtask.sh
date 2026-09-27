@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — Orchestrator decomposition into subtask issues. See process/EXTRACTION.md.
 # Orchestrator subtask tooling — mirrors move-issue.sh semantics WITHIN the hidden
-# subtask tree `progress/subtasks/<parent>/<status>/`. Built lazily, on the first
-# decomposition that actually needed it. Subtasks do NOT consume the issue-id
-# integer stream — ids are <PARENT>-sM — and they live OFF the main board so the
-# PM's backlog stays pristine. The parent stays on the main board and advances to
+# subtask tree `progress/subtasks/<parent>/<status>/`. Subtasks do NOT consume the
+# issue-id integer stream — ids are <PARENT>-sM — and they live OFF the main board so
+# the PM's backlog stays pristine. The parent stays on the main board and advances to
 # qa_complete only when every subtask reaches qa_complete. All commits are stamped
 # per --role (default Orchestrator) on the trunk.
 #
@@ -12,9 +11,7 @@
 # scripts/lib/kanban-worktree.sh. Every git op (create / git mv / Activity append /
 # commit / push) happens inside the standing detached `.kanban-wt/` worktree pinned
 # to the trunk — the operator's checkout is NEVER switched and any working-tree
-# state is irrelevant. An older model did `git switch <trunk>` + refuse-on-dirty in
-# the operator's own checkout; that is RETIRED. The subtask tree is just a
-# different path root under the same worktree, so the move logic is now identical.
+# state is irrelevant.
 #
 # Usage:
 #   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S]
@@ -34,89 +31,35 @@
 #
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync. Read move-issue.sh's warning about it first:
-#   the worktree is shared between lanes. (There is deliberately no --no-commit —
-#   batching left the work uncommitted, which the next op's reset --hard then wiped.)
+#   the worktree is shared between lanes. (There is deliberately no --no-commit: the
+#   next op's reset --hard would wipe the uncommitted work.)
 #
 # Examples:
 #   ./scripts/subtask.sh new <PREFIX>-014 s1 anchor-resolver --title "Floor: anchor resolution"
 #   ./scripts/subtask.sh move <PREFIX>-014-s1 in_progress --role Dev --note "Pickup."
 #   ./scripts/subtask.sh move <PREFIX>-014-s1 dev_complete --role Dev --note "Ready for review; gates green."
 #
-#   THE `--role` VALUE IN THE EXAMPLES ABOVE IS AN EXAMPLE VALUE, not a claim that your project
-#   declares it. What this tree accepts is whatever ROLE_PREFIXES declares in
-#   scripts/githooks/commit-msg; the `move` arm validates against that set before it moves
-#   anything. If an example names a role you have withdrawn, it is still showing you the SHAPE of
-#   the command — substitute one of your own. (.claude/roles/pm.md's Definition of Ready: an
-#   example is read as the contract, not as decoration, so it says which it is.)
+#   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered at `<R> =`,
+#   from ROLE_PREFIXES in scripts/githooks/commit-msg. Substitute one of yours.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
-# The mint-time re-head, in one place — scripts/lib/card-head.sh. The block that used to
-# sit in the create arm carried its own comment saying it would move "when that lib exists".
 . "$SCRIPT_DIR/lib/card-head.sh"
 
-# GUARDED, unlike the two libraries above, and for a reason that is not style: usage() now
-# renders the role set THROUGH this library, and process/contracts/issue-creation.md § 3 says a
-# usage request always succeeds. An unguarded source would abort under `set -e` before usage() is
-# even defined, so `--help` would exit non-zero because a library was missing — which is the
-# contract's one prohibition. The operational path still needs it (kit_require_role); that path
-# fails on its own terms, loudly, where the operator asked for an operation.
+# GUARDED: usage() renders the role set through this library, and a usage request must
+# succeed (issue-creation.md § 3). The operational path fails loudly without it.
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
-# ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED. ──────────────────
-# process/contracts/issue-creation.md § 3: a request for the usage text is ALWAYS legal and
-# ALWAYS succeeds. This arm used to sit BELOW the seam block, so on a tree with
-# scripts/config.sh missing `subtask.sh --help` exited 1 carrying the seam refusal — the
-# contract's one prohibition, fired in the state where an operator most needs the help text.
-# next-id.sh has had this order since it gained an argument parser at all, and its comment
-# carries the reason; this is that order.
-#
-# NOTHING ELSE MOVES, and that is the point: the seam still refuses every OPERATION below,
-# because a guessed prefix is the expensive failure this block exists to prevent. Only the
-# usage request is decided ahead of it.
-#
-# LEADING ARGUMENT ONLY, and that is a stated NARROWING rather than the whole clause.
-# `--help` in a LATER position —
-#     ./scripts/subtask.sh new <PARENT-ID> s1 my-slug --help
-# — is still answered further down, so with the seam missing that spelling still exits 1.
-# Answering help before ANY argument is interpreted would also change what a bad flag
-# FOLLOWED by `--help` returns on a correct tree (`subtask.sh --not-a-flag --help`), and that is a
-# separate decision from this one.
-#
-# THE LIBRARY MOVES WITH THE ARM. lib/role-set.sh was already above the seam and already
-# GUARDED, for this same clause — the note beside it says so. lib/usage.sh was below, so the
-# hoisted arm would have called an undefined kit_usage; it is now above too, and it reads no
-# configuration.
-#
-# AND THIS ARM NOW READS THE SEAM, GUARDED — a supersession, not a reversal, and the reason the
-# old line gave is the reason it had to change. It read: "AND THIS ARM READS NO SEAM. The one
-# derived value in this help text is the ROLE SET, and its seam is scripts/githooks/commit-msg
-# rather than scripts/config.sh ... This script consumes no prefix at all, so there is nothing
-# here for config.sh to supply." The first half stands: the role set's seam is still the hook
-# file, still read through role-set.sh, still guarded above.
-#
-# THE SECOND HALF WAS TRUE ABOUT THE OPERATIONAL PATH AND FALSE ABOUT THE HELP TEXT. The `new`
-# arm consumes no prefix — it takes `--prd` as an opaque value and the refusal block below still
-# says so. But the help WINDOW carried a `PRD-` token, typed rather than rendered, which made it
-# a second copy of a seam value in exactly the place process/contracts/issue-creation.md § 3
-# warns about. "There is nothing here for config.sh to supply" was the sentence that let it sit
-# unnoticed: it was a claim about what the script COMPUTES, standing in for a claim about what
-# the script SAYS.
-#
-# SO THE READ IS OPTIONAL HERE AND REQUIRED BELOW, the shape new-prd.sh already carries: sourcing
-# the seam when present keeps the rendered prefix honest, and its absence must not turn a usage
-# request into a refusal (§ 3's one prohibition). usage() does that read itself, at the point of
-# use, rather than a fourth source at the top of the file.
-#
-# THE `case "$CMD"` DISPATCH BELOW KEEPS ITS OWN `-h|--help` ARM. With this arm in front of it
-# a leading `--help` never reaches it, so it is now defence in depth rather than the live path:
-# it is what a reader of the dispatch table learns help from, and it is what would carry the
-# behaviour again if this arm were ever moved. It is not a second implementation — both call
-# the one usage().
+# ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED ─────────────────────
+# (process/contracts/issue-creation.md § 3: a usage request always succeeds). Leading argument
+# only; a later `--help` is answered below the seam. The seam still refuses every operation.
+# usage() reads the seam itself, guarded, to render the prefix: its absence must not turn a
+# usage request into a refusal. The `case "$CMD"` dispatch keeps its own `-h|--help` arm;
+# both call the one usage().
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
@@ -129,51 +72,16 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
   # and wrong about this project is the defect being removed, not a fallback from it.
   [ -n "${roles:-}" ] \
     || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
-  # THE SECOND DERIVED VALUE, and it arrived late: the `--prd` line above typed `PRD-` as a
-  # LITERAL while this file read PRD_PREFIX zero times, so on any project whose prefix is not
-  # the shipped placeholder the help advertised a token the project's own tools will not mint.
-  # It coincided with the truth only because the shipped placeholder happens to be `PRD` —
-  # which is why reading this on a pristine tree can never reveal it, and why the control that
-  # found it was a tree with the prefix RE-STAMPED.
-  #
-  # THE DEGRADATION NAMES THE SEAM, exactly as the role set's does, and for the stronger reason:
-  # this arm is answered ABOVE the seam load, so on a tree with scripts/config.sh missing there
-  # is no value to render and printing the kit's `PRD` would be the defect being removed rather
-  # than a fallback from it. The guarded read below is what keeps a CORRECT tree rendering the
-  # real value from up here; `:-` rather than a bare expansion because `set -u` would otherwise
-  # turn a usage request into an unbound-variable abort — which is issue-creation.md § 3's one
-  # prohibition, reached by the fix instead of by the defect.
+  # The prefix is RENDERED, never typed: a literal in the help window is a second copy of the
+  # seam value. With the seam absent, name it rather than print the kit's placeholder. `:-`
+  # because `set -u` would otherwise turn a usage request into an abort.
   [ -f "$SCRIPT_DIR/config.sh" ] && . "$SCRIPT_DIR/config.sh" || true
   prd="${PRD_PREFIX:-}"
   [ -n "$prd" ] || prd='<PRD_PREFIX from scripts/config.sh>'
-  # SUBSTITUTED BY POSITION, NOT BY PATTERN — the replacements are a `|`-bearing role set and an
-  # operator-chosen prefix, which `sed` would read through its delimiter rules and awk's gsub
-  # would read a `&` in as the whole match. index/substr interprets neither. Same reasoning as
-  # move-issue.sh, which does this first.
-  #
-  # AND A SUBSTITUTED VALUE IS NEVER RE-SCANNED, which is why this is ONE left-to-right pass
-  # rather than one pass per token. THE OBVIOUS SHAPE IS WRONG AND WAS WRITTEN HERE FIRST: two
-  # sequential whole-line substitutions, role set then prefix. A role set is an operator-chosen
-  # seam value, so one containing the OTHER token is a real input rather than a contrived one;
-  # measured on that draft, the second pass rewrote the token the FIRST pass had just emitted as
-  # data, AND the line's own genuine token was left standing — both halves wrong, from a fix
-  # whose whole subject is a value appearing where it should not.
-  #
-  # NO WORKED EXAMPLE IS WRITTEN OUT HERE, and that omission is itself a measured result. The
-  # first draft of this comment illustrated the bug with the wrong OUTPUT spelled in full — a
-  # `|`-separated alternation of role names. The self-test's sandbox refused to start on it:
-  # `_neu_roles` rewrites the declared role set across the tree and then checks that no literal
-  # survived, and an alternation sitting in a comment is indistinguishable from the defect that
-  # guard exists to find. It aborted before any case ran, saying every later case "would assert a
-  # premise that does not exist, and would report PASS while doing it." The guard was right and
-  # the example was the problem: prose that SPELLS a seam value is a copy of it, whatever the
-  # surrounding sentence claims, which is the same lesson as the `--prd` literal this change
-  # removes — one level up, in the fix's own commentary.
-  #
-  # Scanning once and emitting each replacement as it is passed cannot reproduce the bug: `out`
-  # is finished text, `rest` is the only thing still searched. Verified in both directions — a
-  # role set carrying the prefix token and a prefix carrying the role token each survive verbatim
-  # — and with a value containing `&` and a backslash escape, the `sed`/`gsub` trap above.
+  # SUBSTITUTED BY POSITION, in ONE left-to-right pass: `sed` and gsub would interpret `|`, `&`
+  # and backslashes in the values, and a pass per token would re-scan a value the previous pass
+  # emitted. `out` is finished text; only `rest` is searched.
+  # Never spell a role-set alternation in a comment: the self-test reads it as a stray seam copy.
   kit_usage "${BASH_SOURCE[0]}" \
     | ROLE_SET_DISPLAY="$roles" PRD_PREFIX_DISPLAY="$prd" awk '
     { out = ""; rest = $0
@@ -192,53 +100,11 @@ case "${1:-}" in
 esac
 
 # config.sh is loaded HERE for its SHARED VALIDATORS, not for a prefix — no OPERATION below
-# consumes one: `--prd` is carried through as an opaque value and never minted from. The
-# six-script "THE PREFIX HAS ONE AUTHORITY" refusal block is deliberately NOT copied here,
-# because pasting a mint-time guard for a value nothing here mints would add a seventh copy of
-# it while fixing a second-copy defect. Both of those remain true.
-#
-# "THIS SCRIPT CONSUMES NONE" IS NARROWER THAN IT WAS, and the narrowing is the point. usage()
-# above now reads PRD_PREFIX — for DISPLAY, guarded, degrading to the seam's own name — because
-# the help window renders the prefix. So the claim is about this load and about the operational
-# path, not about the file: a reader who takes it as "PRD_PREFIX appears nowhere in this script"
-# will contradict it with one grep. That over-broad reading is what let the help text type `PRD-`
-# as a literal for as long as it did.
-#
-# BUT IT IS GUARDED, AND NOT LIKE THE LIBRARIES ABOVE — a correction to what this comment
-# used to say. It read "Unguarded, like the two libraries above: `set -e` aborts loudly on
-# a missing file." The libraries part was a CLASSIFICATION, and it is the wrong one:
-# scripts/lib/* is sourced unguarded everywhere, including by the six, and nothing demands
-# a named cause of a library. `scripts/config.sh` is not in lib/. It is the CONFIGURATION
-# SEAM, and process/contracts/config-seam.md demands a named cause of anything that reads
-# it — whichever value that is, or none.
-#
-# AND "ABORTS LOUDLY" WAS TRUE ABOUT THE VOLUME AND FALSE ABOUT THE CONTENT. Measured on a
-# tree with the seam removed, this script printed:
-#     ./scripts/subtask.sh: line NN: /abs/path/scripts/config.sh: No such file or directory
-# A path and a line number: no cause, no contract, no remedy — from the one tool in the set
-# that did not say what had happened, while its six siblings explained. That state is
-# reachable by the kit's own documented upgrade, since config.sh is a file an upgrade
-# replaces (process/KIT-RELEASE-NOTES.md § How to upgrade).
-#
-# THE SHAPE IS THE SIX'S ON PURPOSE. It is the contract's discharge, not a house style, and
-# a guard written deliberately unlike its siblings is a worse artefact than the consistency
-# it buys.
-#
-# THE `|| ! . "$CONFIG"` HALF IS KEPT FOR THAT CONSISTENCY AND FOR NOTHING ELSE. This comment
-# used to justify it differently — "it catches a file that is PRESENT and unsourceable, which a
-# bare `[ -f ]` does not" — and THAT WAS MEASURED FALSE, in all seven scripts that carry this
-# idiom. Under `set -euo pipefail` a seam that exists but cannot be sourced aborts the script
-# from INSIDE the `.`, before the `if` can test its status: a failing command in config.sh exits
-# 127 and a syntax error exits 2, and in neither case does any of the seven print its refusal or
-# name the contract. The half costs nothing and would matter under `set +e`, so it stays; what
-# does not stay is the claim about what it covers.
-#
-# SO THE REFUSAL BELOW SAYS WHAT IT ACTUALLY CHECKS, and it did not always. It read
-# "missing or could not be sourced" — a claim about coverage that the code cannot keep, in this
-# file and in twelve others. It now says "is missing" and carries one line naming its own limit:
-# a present-but-unsourceable seam aborts inside the load and reaches you as the shell's own
-# error, never as this message. The half-truth was corrected the same day it was measured, in
-# every site that carried it except check-board.sh, which another lane holds.
+# mints one (`--prd` is carried through opaque), so the "THE PREFIX HAS ONE AUTHORITY" block
+# is not copied here. It is the configuration SEAM, so a missing file still gets a named
+# cause (process/contracts/config-seam.md), in the same shape as the other seam readers.
+# The `|| ! . "$CONFIG"` half is kept for that consistency only: under `set -e` an
+# unsourceable seam aborts inside the `.`, before this refusal can print.
 # shellcheck source=config.sh
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
@@ -264,8 +130,7 @@ STATUSES=(todo in_progress dev_complete qa_complete blocked)
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
 # every POSITIONAL, not just the first — `subtask.sh new --help s1 slug` would
-# otherwise mint a child whose parent is "--help", with a success message.
-# --help exits 0; an unknown option refuses with rc=2.
+# otherwise mint a child whose parent is "--help".
 no_dash() {  # <value> <what it should have been>
   case "$1" in
     -*) echo "Error: '$1' is not a <$2> — a leading '-' is never a name." >&2; usage >&2; exit 2 ;;
@@ -277,17 +142,9 @@ CMD="$1"; shift
 
 # need_val <all remaining args> — refuse an option whose value was not given.
 #
-# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
-# new-refactor.sh, which already had it. It is repeated per script rather than shared
-# because several of these source nothing from scripts/lib/ (release.sh by standing
-# ruling), and the self-test holds the copies identical.
-#
-# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
-# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
-# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
-# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
-# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
-# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+# Repeated per script rather than shared (several of these source nothing from
+# scripts/lib/); the self-test holds the copies identical. It exists because `shift 2` with
+# one argument left aborts under `set -e` with no message (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
@@ -311,27 +168,17 @@ case "$CMD" in
     esac; done
     [ -z "$TITLE" ] && { echo "Error: --title required." >&2; exit 1; }
 
-    # THE SEAT THIS ARM ACTS AS. [Orchestrator] means the decomposer. A knob, never
-    # derived: see the note beside the `move` arm's --role whitelist below — this arm
-    # had the same exposure and none of the validation, committing an unvalidated
-    # hardcoded tag in the same file that spends twelve lines explaining why that is
-    # data loss rather than an error.
+    # THE SEAT THIS ARM ACTS AS: [Orchestrator], the decomposer. A knob, never derived, and
+    # validated before anything moves.
     ROLE="${SUBTASK_ROLE:-Orchestrator}"
     kit_require_role "$SCRIPT_DIR/.." "$ROLE" SUBTASK_ROLE || exit 1
 
-    # THE SHORT NAME'S SHAPE, and here it is not a tidiness rule — it is a git ref.
-    # This arm writes `branch: feature/<ID>-<SLUG>` into the published card, and the
-    # role docs tell Dev and QA to `git switch` that value. Measured: a slug with a
-    # space makes `git check-ref-format` refuse and `git switch -c` exit 128, so the
-    # card is published to the trunk carrying a branch name nobody can check out, and
-    # the id is burned. Declared in process/contracts/issue-creation.md § 5;
-    # validate_slug (scripts/config.sh) implements it. No pattern here — one shape, one site.
+    # THE SLUG IS A GIT REF: it becomes `branch: feature/<ID>-<SLUG>` in the published card,
+    # and one git cannot check out burns the id (issue-creation.md § 5; validate_slug in
+    # scripts/config.sh — one shape, one site).
     validate_slug "$SLUG" || exit 2
-    # THE SUFFIX IS VALIDATED TOO, and shipping without it would be a false claim of
-    # closure: it reaches the same filename and the same ref through the same
-    # concatenation. Its shape is NARROWER than a slug's, and that is load-bearing —
-    # the `move` arm recovers the parent with ${ID%-s*}, so a suffix that is not
-    # s<digits> silently resolves to the wrong parent instead of failing.
+    # The suffix is validated too, and NARROWER than a slug: the `move` arm recovers the parent
+    # with ${ID%-s*}, so a suffix that is not s<digits> resolves to the wrong parent.
     case "$SUFFIX" in
       s[0-9]*) case "${SUFFIX#s}" in *[!0-9]*) SUFFIX_BAD=1 ;; *) SUFFIX_BAD=0 ;; esac ;;
       *) SUFFIX_BAD=1 ;;
@@ -356,21 +203,10 @@ case "$CMD" in
     TEMPLATE="$KWT/.claude/templates/SUBTASK.template.md"
     [ -f "$TEMPLATE" ] || { echo "Error: template not found at ${TEMPLATE#"$KWT"/}." >&2; exit 1; }
 
-    # THE PARENT MUST EXIST. `issue-creation.md` § 3: "a decomposition names a parent
-    # that does not exist ⇒ refuse", and § 2: a child naming an absent parent "is an
-    # orphan the board cannot roll up". Without this, `subtask.sh new BOGUS-999 …`
-    # created AND PUBLISHED a whole subtask tree under an id nothing owns — and
-    # because creation here publishes, the orphan reached the trunk before anyone
-    # could read it.
-    #
-    # SEARCHED ON THE PUBLISHED BOARD, not the operator's checkout: $KWT is pinned to
-    # the trunk, which is the same surface the mover computes against, so "exists"
-    # means the same thing to both tools. An issue that exists only in someone's
-    # workspace is not yet a parent anything can be hung on.
-    # `grep -q` DROPPED, not cosmetically: this producer grows with the board and the
-    # reader matches on the FIRST line, so under `pipefail` a big board returned `find`'s
-    # SIGPIPE instead of the answer and this refused to create a subtask under a parent
-    # that DOES exist. Redirecting drains the input for the identical status.
+    # THE PARENT MUST EXIST (issue-creation.md § 3): creation here publishes, so an orphan would
+    # reach the trunk. Searched on the published board ($KWT), the surface the mover reads.
+    # No `grep -q`: this producer grows with the board, and under `pipefail` an early-exiting
+    # reader returns `find`'s SIGPIPE. Redirecting drains the input.
     if ! find "$KWT/progress" -type f -name "${PARENT}-*.md" 2>/dev/null | grep . >/dev/null; then
       {
         echo "Error: parent '${PARENT}' does not exist on the published board — refusing to create an orphan."
@@ -394,13 +230,8 @@ case "$CMD" in
     # keys on the frontmatter KEY, never on the template's placeholder VALUE, so
     # a template edit cannot make one a silent no-op. This `sed` has no -i, so it
     # is portable (reads TEMPLATE, writes DEST).
-    # EVERY INTERPOLATED VALUE GOES THROUGH sed_repl (scripts/config.sh). This arm takes
-    # more free text than any other creator and had none of the escaping the three
-    # minting scripts carried. Measured: --title 'Fix A & B' published a card whose
-    # frontmatter read "title: Fix A title: <one-line summary…> B" while its H1 was
-    # correct — the two disagreed. --title 'a|b' aborted sed AFTER `> "$DEST"` had
-    # created the file, and since `reset --hard` does not remove untracked files, the
-    # zero-byte husk survived in the SHARED worktree and permanently blocked that id.
+    # EVERY INTERPOLATED VALUE GOES THROUGH sed_repl (scripts/config.sh): `&` and the
+    # delimiter are live in a sed replacement.
     sed -e "s|^id: .*|id: $(sed_repl "$ID")|" \
         -e "s|^type: .*|type: subtask|" \
         -e "s|^parent: .*|parent: $(sed_repl "$PARENT")|" \
@@ -417,57 +248,21 @@ case "$CMD" in
     # `s|^# .* — .*|…|` would rewrite every em-dashed heading in the body, not
     # just the title. The H1 is the first `^# ` line after the frontmatter.
     H1_TMP="$(mktemp)"
-    # ENVIRON, NOT `awk -v` — and this is a SECOND escaping bug in the same twelve lines,
-    # which sed_repl above does NOT fix. `awk -v` performs escape-sequence processing on
-    # the value it assigns: measured, a --title of `path C:\tmp\new` yields a real TAB
-    # and a real NEWLINE, splitting the H1 across two lines. ENVIRON does no such
-    # processing and is POSIX. (perl would also work — do NOT reach for it: that is a
-    # dependency past the kit's declared git-plus-POSIX-shell floor. The --plan path below
-    # used to use it and no longer does; this file is now perl-free.)
+    # ENVIRON, NOT `awk -v`: -v processes escape sequences, so a backslash in a title would
+    # become a TAB or a NEWLINE. Not perl either: it is past the kit's git-plus-POSIX-shell floor.
     H1="# ${ID} — ${TITLE}" awk 'BEGIN{done=0} done==0 && /^# /{print ENVIRON["H1"]; done=1; next} {print}' \
       "$DEST" > "$H1_TMP" && mv "$H1_TMP" "$DEST"
 
-    # RE-HEAD THE CARD: the template's travel classification goes, its still-in-force instruction stays.
-    # process/EXTRACTION.md § The marker and graduation: a minted card's class has become PROJECT at the
-    # moment of minting, so the KIT-CLASS: marker is stripped. But that marker also carried a FILL
-    # instruction still in force while the author fills the card, and the same manifest forbids an
-    # instruction living inside a marker that will be removed — so this REPLACES the block rather than
-    # deleting it. A blind delete would have taken the guidance with the classification, and nowhere
-    # else in the kit states it.
-    #
-    # THE HEAD IS PREPENDED BY THE SHELL, NOT PASSED INTO awk. `awk -v x="$MULTILINE"` fails with
-    # "newline in string" and awk then writes NOTHING — measured: the first version of this block
-    # produced an EMPTY card. awk deletes the old block, printf writes the new head, cat appends the
-    # rest; every step is POSIX and none of them carries a newline through an assignment.
-    #
-    # DUPLICATED ACROSS THE MINTING SCRIPTS ON PURPOSE, FOR NOW: they source no common file, and giving
-    # them one is a structural change owned elsewhere. When that lib exists, this moves into it.
+    # RE-HEAD THE CARD (process/EXTRACTION.md § The marker and graduation): the KIT-CLASS
+    # marker goes, its still-in-force FILL instruction stays.
     kit_rehead_card "$DEST" || exit 1
 
 
-    # Optional --plan. Every substitution is KEYED ON THE KEY, never on the
-    # template's placeholder VALUE — that is the whole lesson: a pattern that
-    # spells out the placeholder path silently no-ops the day the template's
-    # example path changes, and the card then ships with the raw placeholder in
-    # it. Three key shapes are handled because templates legitimately differ: the
-    # kit template's `- Plan: …` bullet, a frontmatter `plan:` key, and a bare
-    # `<plan-path>` token. An earlier version used
-    # `sed -i '' … 2>/dev/null || true`, which was BSD-only (a no-op on GNU sed /
-    # Linux) AND swallowed the error.
-    #
-    # awk + ENVIRON, NOT perl. This was `perl -i -pe` with `$ENV{PLAN}`, and perl is a
-    # dependency past the kit's declared floor — git and a POSIX shell, with the two
-    # optional extras carved out BY NAME so that "what else does this need" has an answer
-    # a reader can trust. The floor's value is not that the list is short; it is that the
-    # list is TRUE, and an undeclared dependency on an optional path is what an adopter
-    # porting to a minimal container finds at the wrong moment. ENVIRON is the same answer
-    # the H1 pass above reaches for, for the same reason: the value never passes through
-    # a layer that interprets it.
-    #
-    # THE `<plan-path>` SUBSTITUTION IS DONE BY index/substr, NOT gsub. A path containing
-    # `&` or a backslash is legal, and both are special in gsub's REPLACEMENT — `&` inserts
-    # the matched text. index/substr has no replacement grammar at all, so there is nothing
-    # to escape and nothing to get wrong.
+    # Optional --plan. Keyed on the KEY, never on the template's placeholder VALUE, which
+    # would silently no-op when the template's example path changes. Three shapes: the
+    # `- Plan: …` bullet, a frontmatter `plan:` key, and a bare `<plan-path>` token.
+    # awk + ENVIRON (not perl: the floor). `<plan-path>` is replaced by index/substr, because
+    # `&` and a backslash are live in gsub's replacement.
     if [ -n "$PLAN" ]; then
       _PLAN_TMP="$(mktemp)"
       PLAN="$PLAN" awk '
@@ -491,12 +286,8 @@ case "$CMD" in
     echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
-    # THE RETURN IS CHECKED. It used to be called bare, so a failed push printed its
-    # own recovery text and the script then exited 0 — a creation reported as done
-    # whose file exists only in a worktree the next operation will `reset --hard`.
-    # The conditional Published: line below was added first and was necessary but not
-    # sufficient: it stopped the script ASSERTING a landing, and left it EXITING as
-    # though one had happened. A caller reading $? still saw success.
+    # THE RETURN IS CHECKED: a failed push must not exit 0 while the card exists only in a
+    # worktree the next operation resets.
     FINALIZE_RC=0
     kwt_finalize || FINALIZE_RC=$?
     if [ -n "${KWT_LANDED_SHA:-}" ]; then
@@ -527,33 +318,13 @@ case "$CMD" in
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
     case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked) ;; *) echo "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." >&2; exit 1 ;; esac
-    # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION — the same whitelist
-    # move-issue.sh carries, and for a sharper reason. An unvalidated role reaches
-    # the commit subject, where the commit-msg hook rejects it MID-OPERATION: the
-    # file has already been git-mv'd and the Activity entry appended inside the
-    # shared kanban worktree, and the commit that would have carried them fails. The
-    # result is uncommitted state in an area the next board operation `reset --hard`s
-    # — so a typo'd role does not produce the error you asked for, it produces an
-    # inconsistent board and a discarded Activity entry in somebody else's lane.
-    # NOT "silent": that word was here and was measured wrong. The next invocation
-    # detects the dirty worktree, names what it found and prints both ways out. The
-    # reason is unchanged — refusing here costs a re-run; refusing at the hook costs
-    # a reconciliation.
-    #
-    # THE ROLE SET IS CARRIED IN SEVERAL FILES; the authoritative list is the TABLE
-    # in process/EXTRACTION.md § 2.4 "The role set". This whitelist is one of its
-    # rows — added there in the same change, so the index and its members move
-    # together. Do not restate the count here: read the table.
-    # THE SET IS DERIVED, ONCE. The literal below is a STAMPED DEFAULT, not another copy of the
-    # set: a literal beside a READABLE authority is a duplicate and drifts from it, one reached
-    # only when the authority is UNREADABLE cannot, because what it would disagree with is gone
-    # at the moment it is used. scripts/lib/role-set.sh's kit_role_resolve carries the argument.
-    #
-    # THE VALUE LIVES HERE, NOT IN THE LIBRARY, BECAUSE IT MUST BE STAMPABLE. `kit-init --roles`
-    # rewrites the set by `grep -lF` over scripts/*.sh and scripts/githooks/* — a glob that does
-    # not reach scripts/lib/, measured with the literal planted there. A default in the library
-    # would never be stamped, and on a narrowed tree whose hook went unreadable it would enforce
-    # the KIT'S set instead of this project's, which is more permissive than what it replaced.
+    # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION: a role the commit-msg hook rejects
+    # would fail mid-operation, leaving the git mv and the Activity entry uncommitted in the
+    # shared kanban worktree. Refusing here costs a re-run; at the hook, a reconciliation.
+    # This whitelist is a row of process/EXTRACTION.md § 2.4 "The role set".
+    # THE SET IS DERIVED, ONCE (scripts/lib/role-set.sh kit_role_resolve). The literal below is
+    # a STAMPED DEFAULT, used only when the authority is unreadable. It lives here, not in the
+    # library, because `kit-init --roles` stamps scripts/*.sh and never reaches scripts/lib/.
     ROLE_SET_DEFAULT='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
     if command -v kit_role_resolve >/dev/null 2>&1; then
       kit_role_resolve "$SCRIPT_DIR/.." "$ROLE_SET_DEFAULT"
@@ -614,8 +385,7 @@ case "$CMD" in
     git -C "$KWT" commit -m "$MSG" --quiet
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit: ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
-    # THE RETURN IS CHECKED — same reason as the `new` arm above: a move that did not
-    # publish is a board change nobody else can see, sitting where the next op wipes it.
+    # THE RETURN IS CHECKED — same reason as the `new` arm above.
     FINALIZE_RC=0
     kwt_finalize || FINALIZE_RC=$?
     if [ -n "${KWT_LANDED_SHA:-}" ]; then

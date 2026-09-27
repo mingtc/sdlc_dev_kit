@@ -6,10 +6,9 @@
 # All kanban git ops happen inside a STANDING worktree pinned to the trunk
 # (`.kanban-wt/`, gitignored, bootstrapped on first use). The operator's
 # current checkout is NEVER switched. The script:
-#   0. Probes the TRUNK REF for the named card BEFORE building anything — a
-#      `git ls-tree` on <remote>/<trunk>, which needs no checkout — so a mistyped
-#      id refuses without leaving a worktree behind. The probe may only REFUSE;
-#      it never accepts, and it falls through whenever it cannot answer.
+#   0. Probes the TRUNK REF for the named card first (`git ls-tree` on <remote>/<trunk>,
+#      no checkout), so a mistyped id refuses without leaving a worktree behind. The
+#      probe may only REFUSE; it falls through whenever it cannot answer.
 #   1. Takes a lock, bootstraps + syncs the kanban worktree to <remote>/<trunk>.
 #   2. Moves the file (git mv) inside the worktree.
 #   3. Appends `- DATE [ROLE] NOTE` to the end of the file.
@@ -31,12 +30,8 @@
 #   did. A NOTE-ONLY APPEND records something on the card and changes no status.
 #   Exactly one of them per invocation.
 #
-#   Why the second exists: doctrine repeatedly requires a card to carry a record
-#   BEFORE the act it authorizes — a budget declared before the first spend, a
-#   ruling cited before it is executed — on a card that is already in the right
-#   column. The move refuses that ("already in progress/…/. Nothing to move"), so
-#   the kit's own safety-critical declarations were being appended BY HAND, four
-#   steps, every one of them skippable and none of them reported.
+#   Use --note-only when a card must carry a record BEFORE the act it authorizes (a budget,
+#   a ruling) while it already sits in the right column; the move refuses that as a no-op.
 #
 # Target folders: todo | in_progress | dev_complete | qa_complete | blocked | done | declined
 #   (done/ is the permanent home for completed stories — normally populated by
@@ -73,8 +68,7 @@
 #                    the dirty state is your own half-applied move. In any run with
 #                    a second lane — a parallel worker, an orchestrated tranche, a
 #                    background job that also moves cards — it can destroy work you
-#                    never saw. (A real kanban-worktree collision is what wrote
-#                    this paragraph.)
+#                    never saw.
 #   --set-pr <val>   Persist <val> into the moved file's `pr:` frontmatter, staged
 #                    into the SAME commit as the rename + Activity append.
 #                    Because the rewrite happens AFTER kwt_sync (in $KWT), it survives
@@ -82,17 +76,12 @@
 #                    is left byte-unchanged (no spurious diff). Any trailing comment on
 #                    the line is dropped.
 #
-#                    WHO CALLS IT: nothing shipped does. The forge-agnostic
-#                    finish-pr.sh this kit ships uses no forge API and has no PR/MR
-#                    reference to pass — a FORGE FLAVOUR would call it, and that is
-#                    an optional extension (process/GIT-HOSTING.md), not the shipped
-#                    path. This comment previously said finish-pr.sh "passes the
-#                    merged PR/MR reference through this flag", in the present tense,
-#                    about a call that does not exist: a claim a reader would have
-#                    gone looking for and not found.
+#                    WHO CALLS IT: nothing shipped does. A FORGE FLAVOUR would pass its
+#                    PR/MR reference here (process/GIT-HOSTING.md); the shipped
+#                    finish-pr.sh has none to pass.
 #
-# (There is deliberately no --no-commit: batching was broken by construction —
-#  the next op's reset --hard wiped the uncommitted batch. Each move commits + pushes.)
+# (There is deliberately no --no-commit: the next op's reset --hard would wipe an
+#  uncommitted batch. Each move commits + pushes.)
 #
 # Examples:
 #   ./scripts/move-issue.sh <PREFIX>-001 in_progress --role Dev \
@@ -104,12 +93,8 @@
 #   ./scripts/move-issue.sh <PREFIX>-014 in_progress --role QA \
 #     --note "Review — FAIL on AC. AC unmet: help text missing the example."
 #
-#   THE `--role` VALUE IN THE EXAMPLES ABOVE IS AN EXAMPLE VALUE, not a claim that your project
-#   declares it. What this tree accepts is the set rendered at `<R> =` near the top of this help,
-#   read from scripts/githooks/commit-msg at the moment you asked. If an example names a role you
-#   have withdrawn, the example is still showing you the SHAPE of the command — substitute one of
-#   your own. (.claude/roles/pm.md's Definition of Ready: an example is read as the contract, not
-#   as decoration, so it says which it is rather than letting you find out by running it.)
+#   The `--role` value above IS AN EXAMPLE VALUE: this tree accepts the set rendered at `<R> =`,
+#   from ROLE_PREFIXES in scripts/githooks/commit-msg. Substitute one of yours.
 
 set -euo pipefail
 
@@ -117,45 +102,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
-# --help renders this file's header block. The window END IS DERIVED, never a
-# literal: a hard-coded `sed -n '3,50p'` silently truncated the tail off --help the
-# first time somebody added a paragraph to a header, and a bigger literal is the
-# same defect with a bigger number. So: everything from line 3 to the last line
-# before the first non-comment line.
-# The header-block --help rule, and why release.sh deliberately uses a different one,
-# are stated once in scripts/lib/usage.sh. Do not restate them here.
+# --help renders this file's header block; scripts/lib/usage.sh states the window rule.
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
-# THE ROLE SET IN THE HEADER IS A TOKEN, EXPANDED HERE FROM THE SEAM.
-# The header used to carry the list literally, SPACE-PADDED, while the enforcement arm below
-# carried it unpadded. `kit-init --roles` finds seams to stamp with `grep -lF` on the unpadded
-# shape, so it rewrote the enforcement and could not see the header: every adopter who narrowed
-# their role set got a `--help` advertising roles this script refuses. One authoring site — the
-# hook — read at print time, so there is no second shape for the matcher to learn and nothing to
-# stamp. `scripts/lib/role-set.sh` owns the read (process/EXTRACTION.md § 2.4).
-#
-# SOURCED UNDER A GUARD, and that is not defensiveness. This file runs `set -euo pipefail`, so an
-# unguarded `.` of a missing library aborts — and it would abort ON THE USAGE PATH, which
-# `contracts/issue-creation.md` § 3 says must ALWAYS succeed. verify.sh's loader carries the same
-# guard for the same reason. A `--help` that dies with rc=1 because a library moved is a worse
-# failure than the one this whole change is about.
+# THE ROLE SET IN THE HEADER IS A TOKEN, expanded at print time from the hook through
+# scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4), so there is no literal copy for
+# `kit-init --roles` to miss. GUARDED: under `set -e` a missing library would abort the
+# usage path, which must always succeed (issue-creation.md § 3).
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
-# ── THE PROGRESS RECORD — OPTIONAL. `process/contracts/progress-record.md` is the sheet.
-#
-#    WHY THIS SCRIPT IS THE ROLE-SIDE CONSUMER AND THE ROLE DOC IS NOT. A role's
-#    lifecycle transition ALREADY passes through here: `--role` names the hat,
-#    the id names the issue, the target names the new state. So the record's
-#    `<role>:<issue-id>` actor is ASSIGNED BY THE CALLER rather than reported by the
-#    agent — which is the only version of this that a tired or adversarial agent
-#    cannot get wrong, and the reason no role doc gains a reporting obligation here.
-#
-#    GUARDED for the same reason role-set.sh above is: this file runs `set -euo
-#    pipefail`, so an unguarded `.` of a missing library would abort — and on the
-#    usage path, which contracts/issue-creation.md § 3 says must always succeed.
-#    Absent the library, the stub makes every call a no-op and the move is unchanged.
+# ── THE PROGRESS RECORD — OPTIONAL (process/contracts/progress-record.md). This script is the
+#    role-side consumer: the caller's --role and id assign the `<role>:<issue-id>` actor, so no
+#    role doc reports it. Guarded like role-set.sh; absent, every call is a no-op.
 # shellcheck source=lib/progress-record.sh
 if [ ! -r "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progress-record.sh" \
    || ! command -v kit_progress >/dev/null 2>&1; then
@@ -171,29 +131,20 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
   # and wrong about this project is the defect being removed, not a fallback from it.
   [ -n "${roles:-}" ] \
     || roles='as declared in scripts/githooks/commit-msg (ROLE_PREFIXES) — scripts/lib/role-set.sh is absent, so not listed'
-  # SUBSTITUTED BY POSITION, NOT BY PATTERN. The replacement is a role set read out of a
-  # project's own hook; `sed` would read a `|`-bearing replacement through its delimiter rules and
-  # awk's gsub would read a `&` as the whole match. index/substr interprets nothing, which is the
-  # same reason the creation scripts hand hostile values to their templates this way.
+  # SUBSTITUTED BY POSITION, NOT BY PATTERN: `sed` would read a `|`-bearing replacement through
+  # its delimiter rules and awk's gsub would read a `&` as the whole match.
   kit_usage "${BASH_SOURCE[0]}" | ROLE_SET_DISPLAY="$roles" awk -v t="$tok" '
     { i = index($0, t)
       if (i) print substr($0, 1, i-1) ENVIRON["ROLE_SET_DISPLAY"] substr($0, i + length(t))
       else   print }'
 }
 
-# --help ALWAYS SUCCEEDS, and has to be answered BEFORE the arity check. A bare
-# `--help` is ONE argument, so the guard below swallowed it and exited 1 with usage
-# on stderr — the opposite of the shape every other script here follows and that
-# the issue-creation contract states: usage on stdout, exit 0. The option handler
-# further down has always had the right arm; it was simply unreachable.
+# --help ALWAYS SUCCEEDS, and is answered BEFORE the arity check: a bare `--help` is one
+# argument, and the check below would take it.
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 
-# A DASH-LEADING FIRST TOKEN IS AN OPTION, NEVER AN ID — and this must be checked BEFORE
-# the arity test, not after. `move-issue.sh --typo` has one argument, so the arity test
-# fired first and refused with the status a MISSING ARGUMENT gets, printing usage and
-# never naming the flag. The contract's words are "never ignored, never treated as a
-# positional value" (issue-creation.md § 3), and being swallowed by an arity check is a
-# third way of not being named.
+# A DASH-LEADING FIRST TOKEN IS AN OPTION, NEVER AN ID, and is refused BEFORE the arity test,
+# which would otherwise report it as a missing argument without naming it (issue-creation.md § 3).
 case "${1:-}" in
   -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
 esac
@@ -216,17 +167,9 @@ esac
 ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0
 # need_val <all remaining args> — refuse an option whose value was not given.
 #
-# THE SAME HELPER, THE SAME NAME, AND THE SAME SHAPE AS new-issue.sh / new-bug.sh /
-# new-refactor.sh, which already had it. It is repeated per script rather than shared
-# because several of these source nothing from scripts/lib/ (release.sh by standing
-# ruling), and the self-test holds the copies identical.
-#
-# WHAT IT REPLACES WAS SILENT AND IT WAS EVERYWHERE ELSE. An arm written
-# `--x) VAR="${2:-}"; shift 2 ;;` looks safe — `${2:-}` cannot be unbound. But `shift 2`
-# with one argument left RETURNS NON-ZERO, and under `set -e` that aborts the script:
-# **exit 1, no message, nothing done.** notify.sh was worse, exiting 0 in silence.
-# process/contracts/issue-creation.md § 3 says an illegal invocation exits 2 and NAMES the
-# option; a missing value is exactly that family, and it was the shape nobody applied it to.
+# Repeated per script rather than shared (several of these source nothing from
+# scripts/lib/); the self-test holds the copies identical. It exists because `shift 2` with
+# one argument left aborts under `set -e` with no message (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
@@ -240,10 +183,7 @@ while [ $# -gt 0 ]; do
     --set-pr) need_val "$@"; SET_PR="$2"; shift 2 ;;
     --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
     -h|--help) usage; exit 0 ;;
-    # AN UNRECOGNISED OPTION EXITS 2; a surplus POSITIONAL exits 1. Two classes, and the
-    # kit already told them apart in every script that has a `-*)` arm — these did not, so a
-    # mistyped flag was reported with the status a surplus word gets. Named in
-    # process/contracts/issue-creation.md § 3: ONE status across the shipped set.
+    # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -270,16 +210,9 @@ if [ "$NOTE_ONLY" -eq 1 ] && [ -z "$NOTE" ]; then
   exit 1
 fi
 
-# A NOTE-ONLY ENTRY MAY NOT EMIT A STATUS DECLARATION, and this refusal is what
-# makes that guarantee real rather than best-effort. check-board's folder-vs-
-# Activity arm reads the LAST structured status token on the last Activity bullet
-# — a transition arrow `→ <folder>` or a backticked `` `<folder>` `` — and treats
-# a bullet with no such token as un-judgeable, which is exactly the behaviour a
-# note-only entry needs. The formatter below emits no such token; this refuses
-# the remaining way one could arrive, which is inside the caller's own note text.
-# Without it the guarantee would hold for the tool and not for its output, and a
-# note reading "unblocked by → in_progress work" would be read as a declaration
-# that the card has moved when it has not.
+# A NOTE-ONLY ENTRY MAY NOT EMIT A STATUS DECLARATION. check-board's folder-vs-Activity arm
+# reads the LAST `→ <folder>` or backticked `<folder>` token on the last Activity bullet as the
+# card's declared status. The formatter below emits none; this refuses one in the note itself.
 if [ "$NOTE_ONLY" -eq 1 ]; then
   if printf '%s' "$NOTE" | grep -qE "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done|declined))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done|declined)/?\`)"; then
     echo "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." >&2
@@ -290,33 +223,17 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
   fi
 fi
 
-# The status folder set. It is a SEAM WITHOUT A VARIABLE: several files carry the
-# column names as literals, and they do NOT all carry the same ones — this script
-# and the drift report hold the full set, subtask.sh omits `done`, and setup.sh
-# adds `history`. So adding or renaming a column means opening each carrier and
-# deciding what it should hold, not applying one edit N times.
-# process/EXTRACTION.md § "the status folder set" is the list and states the cost;
-# read it there rather than trusting an enumeration written here. (This comment
-# used to name four scripts and cost them as one edit each. Two of those four --
-# archive.sh and finish-pr.sh -- do not carry the SET; each performs ONE transition
-# and names its two ends, so a change to a column either of them names touches it.
-# Two earlier attempts at this note were both wrong: the first said they held none
-# of these values, on a grep scoped to in_progress, the one column neither uses;
-# the second said a column added inside the Dev->QA flow touches them and one at
-# either end does not, which is inverted for archive.sh -- it moves qa_complete to
-# done and refuses a missing done/.)
+# The status folder set is a SEAM WITHOUT A VARIABLE: several files carry the column names as
+# literals, and not all the same ones. Adding or renaming a column means opening each carrier;
+# process/EXTRACTION.md § "the status folder set" is the list.
 if [ "$NOTE_ONLY" -eq 0 ]; then
   case "$TARGET" in
     todo|in_progress|dev_complete|qa_complete|blocked|done|declined) ;;
     *) echo "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done|declined (got '$TARGET')" >&2; exit 1 ;;
   esac
 
-  # A PARK WITH NO BLOCKER RECORDED IS NOT A PARK. The board's own legend reads
-  # "parked, WITH THE BLOCKER WRITTEN DOWN", and the default note ("git mv to
-  # blocked/.") satisfies the mover while recording nothing about WHY — so the
-  # one column whose entire purpose is to carry a reason is the one that accepts
-  # a move without one. Reproduced. The other columns' default note is honest
-  # (the move IS the fact); blocked/'s is not.
+  # A PARK WITH NO BLOCKER RECORDED IS NOT A PARK: the default note ("git mv to blocked/.")
+  # records nothing about why, in the one column whose purpose is the reason.
   if [ "$TARGET" = "blocked" ] && [ -z "$NOTE" ]; then
     echo "Error: moving to blocked/ requires --note \"…\" naming the blocker." >&2
     echo "  A parked card whose blocker is not written down cannot be unparked by anyone" >&2
@@ -324,13 +241,8 @@ if [ "$NOTE_ONLY" -eq 0 ]; then
     exit 1
   fi
 
-  # A DECLINE WITH NO RECORDED WHY IS A DELETION WITH EXTRA STEPS. Same shape as
-  # blocked/ above and the same reason, one step stronger: a parked card's blocker
-  # can at least be rediscovered by trying again, but a refusal's REASONING is the
-  # only thing the card still carries once the work is not going to happen. Strip it
-  # and the folder holds a list of titles nobody can act on — and the next person to
-  # propose the same thing starts from zero and pays for the refutation again.
-  # That is the whole case for the column: it is worth keeping BECAUSE it is read.
+  # A DECLINE WITH NO RECORDED WHY IS A DELETION WITH EXTRA STEPS: the reasoning is all a
+  # declined card still carries.
   if [ "$TARGET" = "declined" ] && [ -z "$NOTE" ]; then
     echo "Error: moving to declined/ requires --note \"…\" naming WHY it was refused." >&2
     echo "  The reason is the entire value of a declined card. Without it this is a" >&2
@@ -340,27 +252,12 @@ if [ "$NOTE_ONLY" -eq 0 ]; then
   fi
 fi
 
-# THE ROLE SET IS CARRIED IN SEVERAL FILES — change one, change them all. The
-# authoritative list is the TABLE in process/EXTRACTION.md § 2.4 "The role set";
-# read it there rather than trusting a count written here, which is the sentence
-# that rots (doctrine/staleness.md § C — this comment said "FOUR PLACES" and went
-# false the first time a fifth reader was added).
-# The reason is a measured incident: the commit-msg hook accepted a role this
-# whitelist did not, so the standing seat COULD NOT MOVE A CARD and had to borrow
-# another hat to do it.
-# ── THE SET THIS ARM ENFORCES IS DERIVED, ONCE, and the literal below is a STAMPED DEFAULT and
-#    not a second copy. scripts/lib/role-set.sh's kit_role_resolve carries the whole argument for
-#    why those are different objects; the short form is that a literal beside a READABLE authority
-#    is a duplicate and can drift from it, while one reached only when the authority is UNREADABLE
-#    cannot, because the thing it would disagree with is gone at the moment it is used.
-#
-#    THE VALUE LIVES HERE RATHER THAN IN THE LIBRARY BECAUSE IT MUST BE STAMPABLE.
-#    `kit-init --roles` rewrites the set by `grep -lF` over scripts/*.sh and scripts/githooks/* —
-#    a glob that does NOT reach scripts/lib/ and whose own comment says to keep it narrow.
-#    Measured, with the literal planted into lib/role-set.sh: that derivation does not return it.
-#    A default in the library would therefore never be stamped, and on a narrowed tree whose hook
-#    later went unreadable it would enforce the KIT'S set rather than this project's — strictly
-#    more permissive than the literal it replaced. One mechanism, in the library; one value, here.
+# THE ROLE SET IS CARRIED IN SEVERAL FILES — change one, change them all. The list is the
+# TABLE in process/EXTRACTION.md § 2.4 "The role set".
+# ── THE SET THIS ARM ENFORCES IS DERIVED, ONCE (scripts/lib/role-set.sh kit_role_resolve). The
+#    literal below is a STAMPED DEFAULT, used only when the authority is unreadable. It lives
+#    here, not in the library, because `kit-init --roles` stamps scripts/*.sh and never reaches
+#    scripts/lib/.
 ROLE_SET_DEFAULT='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 if command -v kit_role_resolve >/dev/null 2>&1; then
   kit_role_resolve "$SCRIPT_DIR/.." "$ROLE_SET_DEFAULT"
@@ -370,10 +267,8 @@ else
   KIT_ROLE_SRC="THE KIT'S FALLBACK SET — scripts/lib/role-set.sh is absent, so this project's declared set could not be read"
   KIT_ROLE_DEFAULTED=1
 fi
-# NAMED, NOT SILENT, AND BEFORE ANYTHING IS ENFORCED. A run that fell back says so, because the
-# alternative is an acceptance or a refusal that reads as being about this project's declared set
-# when it is not. check-board.sh's reason for the same announcement, applied to an enforcement
-# rather than to a report.
+# NAMED, NOT SILENT, AND BEFORE ANYTHING IS ENFORCED: otherwise an acceptance or a refusal
+# reads as being about this project's declared set when it is not.
 [ -z "${KIT_ROLE_DEFAULTED:-}" ] \
   || echo "Note: --role is being checked against $KIT_ROLE_SRC" >&2
 if [ -z "$ROLE" ]; then
@@ -386,17 +281,9 @@ if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
   exit 1
 fi
 
-# ONE not-found refusal TEXT, TWO reads that can reach it: the pre-bootstrap probe
-# below and the authoritative lookup after the sync. Factored so the two cannot
-# drift — what an operator is told about a mistyped id must not depend on which
-# read caught it, and the only honest difference is WHICH TREE was read, which is
-# this function's argument.
-#
-# THE PUSH-BEFORE-YOU-MOVE TRAP, replicated three times independently: the message
-# was TRUE and its cause was unfindable. Every board this tool reads is the TRUNK's
-# — the tree object at <remote>/<trunk> for the probe, the reset-to-<remote>/<trunk>
-# worktree for the lookup — so a freshly minted card that has not been committed AND
-# PUSHED does not exist to it, however plainly it sits in the operator's own checkout.
+# ONE not-found refusal TEXT, TWO reads that can reach it (the probe below and the lookup
+# after the sync); the argument names which tree was read. Every board this tool reads is
+# the TRUNK's, so a card minted but not yet pushed does not exist to it.
 issue_not_found() {   # <provenance — which tree was read>
   {
     echo "Error: no file matching ${ISSUE_ID}-*.md found under progress/."
@@ -411,34 +298,16 @@ issue_not_found() {   # <provenance — which tree was read>
 kwt_resolve
 
 # ── THE PRE-BOOTSTRAP EXISTENCE PROBE, AND WHY IT MAY ONLY EVER REFUSE ────────
-# Every refusal above this line is decided from the invocation alone, so it costs
-# nothing. The card lookup is not: the board this tool moves cards on is the
-# TRUNK's, and reading it used to mean MATERIALIZING it — so a syntactically valid
-# invocation naming a card that does not exist was GUARANTEED to bootstrap a
-# registered .kanban-wt/ before it could refuse. Measured: a mistyped id left one
-# behind in a checkout shared with other lanes, untracked and one blanket `git add`
-# from being committed, and it had to be proven safe before it could be removed.
-#
-# So the existence question is asked FIRST, against the trunk's own TREE OBJECT —
-# `git ls-tree` on <remote>/<trunk> — which needs no checkout, no worktree, not
-# even the lock. THREE RULES MAKE THAT HONEST, and each closes a way such a probe
-# lies:
-#   1. IT READS THE TRUNK REF, NEVER THE OPERATOR'S WORKING TREE. The checkout is
-#      a DIFFERENT BOARD — that is the entire push-before-you-move trap above — so
-#      a probe answering from it would refuse cards that exist and pass cards that
-#      do not, which is worse than the state it saves.
-#   2. IT MAY ONLY REFUSE, NEVER ACCEPT. A hit here proves nothing and is not
-#      relied on: the lookup after the sync is untouched and still decides every
+# The lookup below materialises .kanban-wt/, so a mistyped id would leave a worktree behind
+# before refusing. This asks first, against the trunk's TREE OBJECT (`git ls-tree` on
+# <remote>/<trunk>: no checkout, no worktree, no lock). Three rules keep it honest:
+#   1. IT READS THE TRUNK REF, NEVER THE OPERATOR'S WORKING TREE — that is a different board.
+#   2. IT MAY ONLY REFUSE, NEVER ACCEPT. The lookup after the sync still decides every
 #      acceptance, the multiple-match refusal and the already-in-target refusal.
-#   3. A PROBE THAT CANNOT ANSWER FALLS THROUGH SILENTLY. An unreadable ref, a
-#      trunk with no progress/ tree, an id carrying glob metacharacters (which the
-#      `find` below expands and this literal prefix test does not) — each of those
-#      is "I do not know", and "I do not know" is not a refusal.
-# And a miss is CONFIRMED BY A FETCH before it is allowed to refuse.
-# <remote>/<trunk> is a CACHED ref: a card another operator pushed a minute ago is
-# absent from it and present on the trunk, and kwt_sync's own fetch is what would
-# have found it. So a miss costs one single-branch fetch and re-reads; only a miss
-# that survives a successful fetch refuses, and a failed fetch is rule 3 again.
+#   3. A PROBE THAT CANNOT ANSWER FALLS THROUGH SILENTLY: an unreadable ref, a trunk with no
+#      progress/ tree, an id carrying glob metacharacters (which `find` expands and this does not).
+# And a miss is CONFIRMED BY A FETCH before it may refuse: <remote>/<trunk> is a cached ref.
+# A failed fetch is rule 3 again.
 PROBE_REF="refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH"
 PROBE_SEEN=0   # tracked paths seen under progress/ — 0 means "no board here", which is
 PROBE_HIT=0    #   not the same fact as "the card is not on the board"
@@ -489,10 +358,8 @@ while IFS= read -r f; do
 done < <(find "$KWT/progress" -name "${ISSUE_ID}-*.md" -type f 2>/dev/null | sort)
 
 if [ ${#MATCHES[@]} -eq 0 ]; then
-  # THE AUTHORITATIVE READ, and the one the probe above never substitutes for: it
-  # searches the trunk's copy inside .kanban-wt/, reset --hard to <remote>/<trunk>
-  # on every op. Reaching here means the probe fell through (rule 3) or the board
-  # changed under us between the two reads — either way this decides, not it.
+  # THE AUTHORITATIVE READ: reaching here means the probe fell through (rule 3) or the board
+  # changed between the two reads.
   issue_not_found "searched the TRUNK's board inside the kanban worktree, not your checkout"
   exit 1
 fi
@@ -506,20 +373,14 @@ SRC="${MATCHES[0]}"
 SRC_FOLDER=$(basename "$(dirname "$SRC")")
 
 if [ "$NOTE_ONLY" -eq 1 ]; then
-  # THE CARD DOES NOT MOVE, so the destination IS the source. Nothing below
-  # touches the container, which is what keeps "the container IS the status"
-  # true: this operation adds a record and changes no status, so status still
-  # lives in exactly one place (contracts/board-mover.md § 2).
+  # THE CARD DOES NOT MOVE, so the destination IS the source, and status still lives in
+  # exactly one place (contracts/board-mover.md § 2).
   DEST="$SRC"
 else
   DEST_DIR="$KWT/progress/$TARGET"
   DEST="$DEST_DIR/$(basename "$SRC")"
 
-  # THE NO-OP REFUSAL IS SCOPED TO A MOVE, and must stay that way. It exists so a
-  # move that changes nothing does not append a second meaningless entry — but a
-  # note-only append is not a move that changed nothing, it is a record that was
-  # never going to move anything. Applying this refusal to it is what made the
-  # kit's own live-resource declaration unperformable by its named tool.
+  # THE NO-OP REFUSAL IS SCOPED TO A MOVE; a note-only append never moves anything.
   if [ "$SRC_FOLDER" = "$TARGET" ]; then
     echo "Error: ${ISSUE_ID} is already in progress/${TARGET}/. Nothing to move." >&2
     echo "  To record something on this card WITHOUT moving it:" >&2
@@ -532,13 +393,9 @@ else
   # not survive a clone. kit-init.sh writes one .gitkeep per column for exactly this.
   [ -d "$DEST_DIR" ] || { echo "Error: progress/$TARGET/ does not exist in the worktree." >&2; exit 1; }
 
-  # PLACEHOLDER LINT AT THE DEV_COMPLETE BOUNDARY. Unfilled `<angle-bracket>`
-  # template text propagates silently from a minted card into squash subjects and
-  # the archive index, where nobody re-reads it. dev_complete is the last moment
-  # the card's author is still the person holding it. WARNS, never refuses: the
-  # angle bracket is also legal prose ("<1s", "a <slug> is fine"), so a refusal
-  # here would reject valid input for a reason unrelated to correctness — which
-  # trains the operator to ignore it (process/doctrine/instruments.md § A.8).
+  # PLACEHOLDER LINT AT THE DEV_COMPLETE BOUNDARY: unfilled `<angle-bracket>` text travels into
+  # squash subjects and the archive index. WARNS, never refuses: an angle bracket is also legal
+  # prose, and a refusal on valid input trains the operator to ignore it (instruments.md § A.8).
   if [ "$TARGET" = "dev_complete" ]; then
     ph="$(grep -nE '<[a-z][a-z0-9 _|/-]*>' "$SRC" 2>/dev/null | head -5 || true)"
     if [ -n "$ph" ]; then
@@ -560,18 +417,11 @@ else
 fi
 
 # Append Activity entry at EOF (Activity must be the last section in the file).
-#
-# TWO SHAPES, AND THE DIFFERENCE IS LOAD-BEARING, not cosmetic.
+# TWO SHAPES, AND THE DIFFERENCE IS LOAD-BEARING:
 #   move:      - <date> [<role>] → <target>: <note>
 #   note-only: - <date> [<role>] NOTE: <note>
-# A move CARRIES ITS TARGET in the entry, so the drift report can hold the card's
-# folder against what its own log says it should be — previously the target lived
-# only in the commit subject, so a custom-note move was un-judgeable and the
-# detector was blind in exactly the workflow the manual mandates.
-# A note-only entry DELIBERATELY CARRIES NO ARROW AND NO BACKTICKED FOLDER, so
-# the same detector reads it as un-judgeable and skips it, instead of reading a
-# note as a status declaration on a card that has not moved. The refusal above
-# keeps the caller's own note text from reintroducing one.
+# A move carries its target, so the drift report can hold the card's folder against its log.
+# A note-only entry carries no arrow and no backticked folder, so the report skips it.
 TODAY=$(date +%Y-%m-%d)
 if [ "$NOTE_ONLY" -eq 1 ]; then
   ENTRY="- ${TODAY} [${ROLE}] NOTE: ${NOTE}"
@@ -595,13 +445,9 @@ fi
 echo "File:  ${DEST#"$KWT"/}"
 echo "Entry: ${ENTRY}"
 
-# --set-pr: persist the resolved PR/MR reference into the moved file's
-# `pr:` frontmatter. This runs AFTER kwt_sync's reset --hard (which happened at
-# the top of the script) and inside $KWT, so the write is NOT wiped and it gets
-# staged into the SAME commit as the rename + Activity append below.
-# Idempotent: if the `pr:` line is already exactly the desired value, leave it
-# byte-unchanged (no spurious diff). Only the FIRST `^pr:` line (frontmatter) is
-# rewritten; any trailing comment on it is dropped.
+# --set-pr: persist the PR/MR reference into the moved file's `pr:` frontmatter, AFTER
+# kwt_sync's reset --hard and inside $KWT, so it lands in the same commit. Idempotent; only
+# the FIRST `^pr:` line is rewritten, and any trailing comment on it is dropped.
 if [ -n "$SET_PR" ]; then
   if ! grep -qE '^pr:' "$DEST"; then
     echo "Warning: --set-pr '${SET_PR}' given but no 'pr:' frontmatter line in $(basename "$DEST"); skipping write-back." >&2
@@ -631,8 +477,7 @@ else
   MSG="[${ROLE}] ${ISSUE_ID} → ${TARGET}: ${NOTE}"
 fi
 git -C "$KWT" commit -m "$MSG" --quiet
-# Local first, published after the push — the one-line form claimed "on <trunk>"
-# before anything was pushed, and named a sha the push's rebase can replace.
+# Local first; published after the push, whose rebase can replace this sha.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
 
@@ -643,15 +488,8 @@ echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published.
 kwt_finalize || exit 1
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
 
-# THE RECORD, AFTER THE PUSH AND NOT BEFORE. A transition recorded before it is
-# published is a record of an intention — and the push is exactly the step that can
-# fail, which is why the line above it is `|| exit 1`. Placed here, the record can
-# only ever describe something that reached the trunk.
-#
-# THE TWO OPERATIONS KEEP THEIR OWN WORDING but NOT their own SHAPE: a note-only
-# append and a move are different acts, so their descriptions differ and `event`
-# tells them apart — but both are the same four required fields plus optional
-# extras, which is the whole point of the format.
+# THE RECORD, AFTER THE PUSH: it can only describe something that reached the trunk. The two
+# operations differ in wording and `event`, not in shape.
 if [ "$NOTE_ONLY" -eq 1 ]; then
   kit_progress "${ROLE}:${ISSUE_ID}" info "noted on ${ISSUE_ID}: ${NOTE}" \
     "event=note" "issue=${ISSUE_ID}" "role=${ROLE}" "sha=${KWT_LANDED_SHA:-$SHA}"
@@ -659,10 +497,8 @@ else
   kit_progress "${ROLE}:${ISSUE_ID}" status "${ISSUE_ID} → ${TARGET}: ${NOTE}" \
     "event=move" "issue=${ISSUE_ID}" "role=${ROLE}" "to=${TARGET}" "sha=${KWT_LANDED_SHA:-$SHA}"
 fi
-# AN `if`, NOT AN `&&` CHAIN. The chain form returns NON-ZERO whenever the shas
-# match — the normal case — and under `set -e` that is an abort AFTER a successful
-# landing, which is the precise hazard the ungated-landing review found. Caught by the
-# control, not by reading: a green landing exited 1.
+# AN `if`, NOT AN `&&` CHAIN: the chain returns non-zero when the shas match (the normal case),
+# and under `set -e` that aborts after a successful landing.
 if [ -n "${KWT_LANDED_SHA:-}" ] && [ "${KWT_LANDED_SHA}" != "${SHA}" ]; then
   echo "  (the push rebased onto ${KWT_REMOTE}/${DEFAULT_BRANCH}; the landed commit is ${KWT_LANDED_SHA}, not ${SHA})"
 fi
