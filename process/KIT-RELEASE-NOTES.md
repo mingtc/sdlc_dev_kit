@@ -711,6 +711,9 @@ columns and never the cards.*
   place, so a failure part-way left a partial card there; it now builds it aside, moves it in before committing, and
   gets your umask's permissions. **Nothing to do.**
 
+- **The self-test no longer fails on a project that completed day one** because its `README.md` was replaced — a check
+  added this release measured the kit's README even after SEED had you replace it. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

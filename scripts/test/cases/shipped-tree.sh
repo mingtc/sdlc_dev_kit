@@ -1960,13 +1960,14 @@ _rule_registers() {  # <root> <rel>... — "<canonical><TAB><key><TAB><copies>" 
     ' "$@" )
 }
 
-_rule_findings() {  # <root> <fold file> <registers> — one finding per line; none means the tree holds
-  local root="$1" fold="$2" canon key copies lkey c hit
+_rule_findings() {  # <root> <fold file> <registers> [<unmeasured copies>] — one finding per line; none means the tree holds
+  local root="$1" fold="$2" skip=" ${4:-} " canon key copies lkey c hit
   while IFS="$(printf '\t')" read -r canon key copies; do
     [ -n "$canon" ] || continue
     if [ -z "$key" ] || [ -z "$copies" ]; then echo "$canon: a RULE-COPIES block without a 'key:' or 'copies:' line"; continue; fi
     lkey="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')"
     for c in $canon $copies; do
+      case "$skip" in *" $c "*) continue ;; esac
       [ -f "$root/$c" ] || { echo "$canon lists $c, which is not in the tree"; continue; }
       awk -F'\t' -v f="$c" -v k="$lkey" '$1 == f && index($2, k) { h = 1 } END { exit !h }' "$fold" \
         || echo "$c does not carry the key sentence of $canon's rule: '$key'"
@@ -2000,7 +2001,18 @@ RULE_MAN_EOF
 
   _rule_fold "$REAL_REPO_ROOT" "${files[@]}" > "$SB_TMP/fold" \
     || _fixture_die "case_restated_rules_are_registered: could not fold the shipped tree."
-  local found; found="$(_rule_findings "$REAL_REPO_ROOT" "$SB_TMP/fold" "$regs")"
+  # AN ADOPTED ROOT DOCUMENT IS NOT MEASURED: day one replaces README.md and its kind (SEED), so a listed copy at the
+  # root whose line 1 no longer declares the kit is the adopter's, not a lost copy.
+  local lived adopted="" rc_copy
+  lived="$(_tree_has_lived)"
+  if [ -n "$lived" ]; then
+    for rc_copy in $(printf '%s\n' "$regs" | awk -F'\t' '{ print $1; print $3 }' | tr ' ' '\n' | grep -v / | sort -u); do
+      [ -f "$REAL_REPO_ROOT/$rc_copy" ] || continue
+      awk -v m="$KIT_CLASS_MARKER_KEY KIT" 'NR == 1 { exit !index($0, m) }' "$REAL_REPO_ROOT/$rc_copy" \
+        || adopted="$adopted $rc_copy"
+    done
+  fi
+  local found; found="$(_rule_findings "$REAL_REPO_ROOT" "$SB_TMP/fold" "$regs" "$adopted")"
   [ -z "$found" ] || cf "$(printf '%s' "$found" | tr '\n' '|')"
 
   # ── THE REDDENING CONTROL, on a COPY of the first rule's files: empty one listed copy and plant
@@ -2011,7 +2023,7 @@ $regs
 RULE_CTL_EOF
   for c in $canon $copies; do
     mkdir -p "$ctl/$(dirname "$c")" && cp "$REAL_REPO_ROOT/$c" "$ctl/$c" || true
-    [ "$c" = "$canon" ] || [ -n "$victim" ] || victim="$c"
+    [ "$c" = "$canon" ] || [ -n "$victim" ] || case " $adopted " in *" $c "*) ;; *) victim="$c" ;; esac
   done
   if [ -z "$victim" ] || [ ! -f "$ctl/$victim" ]; then
     _control_did_not_run "copy a registered copy to empty"
@@ -2027,6 +2039,6 @@ RULE_CTL_EOF
       || cf "(control) the key planted in an unlisted file was not reported: ${planted:-(nothing)}"
   fi
 
-  finish "$nregs restated rule(s) declared in RULE-COPIES blocks: every listed copy carries its key sentence, no unlisted shipped file does, and an emptied copy and a planted echo are both named"
+  finish "$nregs restated rule(s) declared in RULE-COPIES blocks: every listed copy carries its key sentence, no unlisted shipped file does, and an emptied copy and a planted echo are both named; adopted root documents not measured: ${adopted:- (none)}"
   teardown
 }
