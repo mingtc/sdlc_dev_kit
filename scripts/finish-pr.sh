@@ -35,9 +35,9 @@
 #   1. a main checkout sitting clean ON THE BRANCH BY NAME is switched to the trunk
 #      before the branch is deleted ("Switched the main checkout to <trunk>");
 #   2. after the landing, the post-merge reading DETACHES THE GATE CHECKOUT (the main
-#      one, or --worktree's) to the landed commit — unless it is already on the trunk
-#      containing it (no move), or has uncommitted tracked changes (not moved; a
-#      fresh worktree is read instead).
+#      one, or --worktree's) to the landed commit — before the branch delete, if it holds
+#      the branch — unless it is already on the trunk containing it (no move), or has
+#      uncommitted tracked changes (not moved; a fresh worktree is read instead).
 #
 # Equivalent to running by hand:
 #   git -C .kanban-wt merge --squash feature/<ID>-<slug>
@@ -446,6 +446,16 @@ if [ "$MAIN_HEAD" = "$BRANCH" ]; then
   fi
 fi
 
+# A clean gate checkout ON the branch by name is detached now, where the post-merge reading
+# would leave it anyway, so the branch is free to delete.
+if [ -n "${KWT_LANDED_SHA:-}" ] \
+   && [ "$(git -C "$GATE_WORKTREE" symbolic-ref -q --short HEAD 2>/dev/null || true)" = "$BRANCH" ] \
+   && git -C "$GATE_WORKTREE" diff --quiet 2>/dev/null && git -C "$GATE_WORKTREE" diff --cached --quiet 2>/dev/null \
+   && git -C "$GATE_WORKTREE" checkout --detach --quiet "$KWT_LANDED_SHA" 2>/dev/null; then
+  echo "Detached the gate checkout '${GATE_WORKTREE}' at the landed commit ${KWT_LANDED_SHA} (it was on '${BRANCH}'),"
+  echo "  so the branch can be deleted. It is left there: the post-merge check reads it."
+fi
+
 # ── THE DELETE ARMS REPORT WHAT THEY DID. git's stderr is shown; the remote delete is CONFIRMED
 #    by re-reading the remote (a ref can survive a delete that exited 0); the probe's three
 #    outcomes (present / absent / probe failed) are kept apart; each arm records the outcome the
@@ -633,18 +643,15 @@ else
     PM_HOW="the gate checkout, already on ${DEFAULT_BRANCH} and containing the landed commit"
   elif ! _pm_clean "$GATE_WORKTREE"; then
     _pm_why="has uncommitted tracked changes"
+  elif [ -z "$_pm_ref" ] && [ "$_pm_head" = "$_pm_landed" ]; then
+    PM_TREE="$GATE_WORKTREE"
+    PM_HOW="the gate checkout, detached at the landed commit"
   elif _pm_det_err="$(git -C "$GATE_WORKTREE" checkout --detach --quiet "$_pm_landed" 2>&1)"; then
     PM_TREE="$GATE_WORKTREE"
     PM_HOW="the gate checkout, detached to the landed commit"
     echo "  Detached the gate checkout '${GATE_WORKTREE}' at the landed commit ${KWT_LANDED_SHA} (it was on ${_pm_was}),"
     echo "  so this reading is of ${DEFAULT_BRANCH}, not of the branch. It is left there. Tracked content is the"
     echo "  landed commit's; untracked and ignored files in it (installed dependencies) are part of the reading."
-    # The board note said KEPT because this checkout held the branch; after the detach nothing may.
-    if [ "$_pm_ref" = "$BRANCH" ] && [ "$LOCAL_DELETE_STATE" = "worktree-held" ] \
-       && ! git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch refs/heads/$BRANCH" >/dev/null; then
-      echo "  '${BRANCH}' is no longer checked out anywhere — the board note above says KEPT because it was,"
-      echo "  until this detach. It is merged; delete it now: git -C '${MAIN_ROOT}' branch -D '${BRANCH}'"
-    fi
   else
     _pm_nl=$'\n'
     _pm_why="refused the detach (git said: ${_pm_det_err%%"$_pm_nl"*})"

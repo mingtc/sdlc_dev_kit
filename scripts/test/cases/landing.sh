@@ -298,8 +298,13 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
     line="$(printf '%s\n' "$FPR_PM_OUT" | grep 'post-merge verify --quick:' | head -1)"
     [ -n "$read_sha" ] && printf '%s\n' "$line" | grep -F "${read_sha:0:7}" >/dev/null \
       || cf "(A) the post-merge line does not name the sha the gate recorded reading (${read_sha:0:9}): $line"
-    printf '%s\n' "$FPR_PM_OUT" | grep -F "'$FPR_PM_BR' is no longer checked out anywhere" >/dev/null \
-      || cf "(A) the detach freed the branch the board note calls KEPT, and the run did not say so"
+    # The detach frees the branch, so the landing deletes it rather than naming it as residue.
+    git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$FPR_PM_BR" >/dev/null \
+      && cf "(A) the gate checkout was detached, yet the local branch '$FPR_PM_BR' survived the landing"
+    printf '%s\n' "$FPR_PM_OUT" | grep -F "Residue: the local" >/dev/null \
+      && cf "(A) the Done line names a local branch the landing could delete as residue"
+    [ "$(printf '%s\n' "$FPR_PM_OUT" | grep -cF "Detached the gate checkout '$SB_TMP/wt'")" -eq 1 ] \
+      || cf "(A) the run does not report the detach exactly once"
   fi
   teardown
 
@@ -392,7 +397,7 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
   fi
   teardown
 
-  finish "finish-pr.sh: the post-merge check detaches the existing gate checkout to the landed commit, names the sha it read and says the branch is now unheld (A), uses a fresh worktree only for a dirty checkout and removes it even when the gate leaves it read-only (D), and says COULD NOT RUN / UNRUNNABLE rather than PASS or FAIL when the landed gate cannot run (E) or ran and could not run a gate in the fresh tree (H)"
+  finish "finish-pr.sh: the post-merge check detaches the existing gate checkout to the landed commit, names the sha it read and deletes the branch it freed (A), uses a fresh worktree only for a dirty checkout and removes it even when the gate leaves it read-only (D), and says COULD NOT RUN / UNRUNNABLE rather than PASS or FAIL when the landed gate cannot run (E) or ran and could not run a gate in the fresh tree (H)"
 }
 
 # =============================================================================

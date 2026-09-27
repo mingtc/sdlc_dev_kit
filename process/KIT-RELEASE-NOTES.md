@@ -652,6 +652,10 @@ columns and never the cards.*
   and never resolves it, so a runner that exits 0 on no match reads green; the `SCOPE: NARROWED` line now says so. **If your
   `select` runner exits 0 on no match,** declare one that refuses instead.
 
+- **A `--worktree` landing now deletes its local branch.** When the gate checkout sat on the branch, `finish-pr.sh` left the
+  branch and printed a `branch -D` for you; it now detaches that checkout at the landed commit first (where the post-merge
+  check left it anyway), then deletes the branch. Check a branch out there before working in it again.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped
