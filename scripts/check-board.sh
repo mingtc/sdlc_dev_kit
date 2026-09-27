@@ -698,19 +698,22 @@ else
   echo "      (enabled by: $g_lived)"
   g_find=0
 
-  # (g1) REPLACE class. The population is the files that DECLARE `KIT-DISPOSITION: REPLACE`
-  # (the declaration filters these candidates; it does not discover others). The test is the
-  # WHOLE shipped sentinel line, matched with `grep -qxF`: a token match fires on prose that
-  # mentions it. A file whose marker and sentinel are both gone has graduated. An empty
-  # population is reported, never passed.
+  # (g1) REPLACE class. The population is every tracked file whose HEADER BLOCK (first 12 lines)
+  # declares `KIT-DISPOSITION: REPLACE` — process/EXTRACTION.md's derivation; a manual quoting the
+  # marker further down is not a member. git grep reads the ref this report reads, or the tracked
+  # files of the checkout. The test is the WHOLE shipped sentinel line, matched with `grep -qxF`:
+  # a token match fires on prose that mentions it. A file whose marker and sentinel are both gone
+  # has graduated. An empty population is reported, never passed.
   g_repl=""
   g_repl_pop=""
-  for f in CLAUDE.md README.md PROJECT.md; do
+  g_decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*REPLACE([^A-Za-z0-9_]|$)'
+  while IFS= read -r -d '' f; do
+    [ -n "$CB_REF" ] && f="${f#"$CB_REF":}"
     [ -f "$CB_TREE/$f" ] || continue
-    grep -qE '^[[:space:]]*(#|<!--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*REPLACE\b' "$CB_TREE/$f" 2>/dev/null || continue
+    sed -n '1,12p' "$CB_TREE/$f" | grep -E "$g_decl" >/dev/null || continue
     g_repl_pop="$g_repl_pop $f"
     grep -qxF '<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
-  done
+  done < <(git -C "$REPO_ROOT" grep -lzE "$g_decl" ${CB_REF:+"$CB_REF"} -- 2>/dev/null || true)
   # Both branches name the test. The output never quotes the sentinel string (that would be one
   # more copy of it). The clearing line must NOT contain "still scaffolding": cases assert that
   # phrase only on the complaining branch.

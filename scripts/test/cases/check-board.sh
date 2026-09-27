@@ -1477,6 +1477,39 @@ case_check_board_graduation_reads_the_trunk() {
 }
 
 # =============================================================================
+# CASE — arm [g]'s REPLACE population is DERIVED from the declarations, as its ✓ line says
+#
+# A file declaring REPLACE in its header block is checked wherever it lives. A file that only
+# QUOTES the marker below its header block, as a manual's worked example does, is not a member.
+# =============================================================================
+case_check_board_replace_population_is_derived() {
+  cf_reset
+  make_sandbox
+  seed_scaffolding_tree
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  mkdir -p "$SB_WORK/docs"
+  printf '<!-- KIT-CLASS: KIT — synthetic.\n     %s — replace it. -->\n%s\n# guide\n' \
+    "$KIT_REPLACE_DISPOSITION" "$KIT_SCAFFOLD_MARK" > "$SB_WORK/docs/GUIDE.md"
+  { printf '# quotes the marker\n'; printf 'line\n%.0s' 1 2 3 4 5 6 7 8 9 10 11 12
+    printf '<!-- %s -->\n%s\n' "$KIT_REPLACE_DISPOSITION" "$KIT_SCAFFOLD_MARK"; } > "$SB_WORK/docs/QUOTE.md"
+  publish_sandbox
+
+  local out line
+  out="$(cb_run)"
+  line="$(printf '%s\n' "$out" | _cb_g_section | grep 'still scaffolding' || true)"
+  printf '%s' "$line" | grep -F 'docs/GUIDE.md' >/dev/null \
+    || cf "a file declaring REPLACE outside the root was not checked: ${line:-no REPLACE finding} — $out"
+  printf '%s' "$line" | grep -F 'docs/QUOTE.md' >/dev/null \
+    && cf "a file that only quotes the marker below its header block was counted as declaring it: $line"
+  printf '%s' "$line" | grep -F 'CLAUDE.md' >/dev/null && printf '%s' "$line" | grep -F 'README.md' >/dev/null \
+    || cf "(control) the shipped REPLACE pair left the population: ${line:-no REPLACE finding}"
+
+  finish "check (g): the REPLACE population is every file whose header block declares it, wherever it lives, and not a file that quotes the marker further down"
+  teardown
+}
+
+# =============================================================================
 # CASE — the KIT-FEEDBACK arm REPORTS a missing line and never refuses it.
 #
 # Under `kit-feedback: auto` (PROJECT.md § The kit, upstream — and a missing setting line reads

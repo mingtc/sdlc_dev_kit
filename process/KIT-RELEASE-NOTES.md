@@ -837,6 +837,9 @@ columns and never the cards.*
   missing `<ID>` or a surplus argument under 1; `subtask.sh`'s failed-push message says every later board operation refuses until
   you publish, not that the commit is about to be destroyed; `release.sh`'s step list names gate (g), so its mutate steps are 9–12.
 
+- **`check-board.sh`'s graduation check finds every file that declares `KIT-DISPOSITION: REPLACE`**, not only `CLAUDE.md` and
+  `README.md` (which its output already claimed); a file you marked REPLACE yourself is now checked. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

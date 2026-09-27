@@ -229,10 +229,10 @@ block as its `KIT-CLASS:` marker:
   the `BOOTSTRAP-SCAFFOLDING` line, which is what the reader keys on for that row.
 
 **What is marked so far, and what is not.** The `FILL` and `REPLACE` members are declared, because
-those are the two rows the one shipped reader, `scripts/check-board.sh` arm (g), measures. **The
-marker filters; it does not discover:** arm (g) still walks a literal candidate list (`CLAUDE.md`,
-`README.md` and `PROJECT.md` for REPLACE, `PROJECT.md` for FILL), so a new file declaring REPLACE or
-FILL is not checked until it joins that list. **`KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` members are unmarked**,
+those are the two rows the one shipped reader, `scripts/check-board.sh` arm (g), measures. **For
+REPLACE the marker discovers; for FILL it only filters:** arm (g) checks every tracked file that
+declares REPLACE in its header block (the derivation below), but reads FILL in `PROJECT.md` alone,
+so another file declaring FILL is not checked. **`KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` members are unmarked**,
 and an unmarked file is **not** a file with no disposition — it is a file whose disposition is only
 in the table above. Derive what carries one rather than assuming the set — **and anchor the
 derivation on the file's own header block, because this sheet and the release notes both quote the
