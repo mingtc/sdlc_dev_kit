@@ -1333,6 +1333,104 @@ ROWS
   finish "every record both runners return carries each leg's free text as leg_notes — on LANDED, LAND_READY and PARKED_OK as well as on failures and a thrown leg — in call order, with nothing overwritten and no entry for an empty field ($n drive(s), nothing dispatched)"
 }
 
+# _runner_record_stub <path> — a driver that dispatches nothing and prints each agent() call it
+# receives: `<label> <agentType|-> <model|-> <effort|->`, or, given a label prefix as the third
+# argument, the prompts of the calls under it.
+_runner_record_stub() {
+  cat > "$1" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, want] = process.argv.slice(2)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const seen = []
+const agent = async (prompt, opts) => { seen.push([prompt, opts || {}]); return opts && opts.schema ? stubFor(opts.schema) : 'stub' }
+const parallel = async (t) => Promise.all(t.map((f) => f()))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  for (const [p, o] of seen) {
+    if (want) { if (String(o.label).startsWith(want)) console.log(p) }
+    else console.log([o.label, o.agentType ?? '-', o.model ?? '-', o.effort ?? '-'].join(' '))
+  }
+} catch (e) { console.log('THREW:' + String((e && e.message) || e)) }
+STUBEOF
+}
+
+# CASE — a leg that names a .claude/agents/ type keeps that type's frontmatter pin.
+#
+# Measured before the fix: both runners sent the run default (opus/medium) on every call, so a
+# typed leg never ran on its pin (refactorer-worker's `effort: high`, ui-designer-worker's
+# `model: sonnet`) unless the issue repeated it. The CONTROL rows hold the neighbours: an untyped
+# leg still gets the defaults (never undefined), and a typed leg's explicit value still overrides.
+case_runner_typed_leg_keeps_its_frontmatter_pin() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub f name fields want got args n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_typed_leg_keeps_its_frontmatter_pin: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "a typed leg keeps its frontmatter pin" "node absent"; return; }
+  stub="$(mktemp -d)/drive.mjs"; _runner_record_stub "$stub"
+  # row | issue fields | the first dev call's `<agentType> <model> <effort>`, both runners
+  while IFS='|' read -r name fields want; do
+    [ -n "$name" ] || continue
+    for f in tranche-runner.js wave-runner.js; do
+      case "$f" in
+        tranche-runner.js) args="{\"repo\":\"/tmp/x\",\"issues\":[{\"id\":\"ZZ-1\",\"branch\":\"b\",\"title\":\"t\"$fields}]}" ;;
+        *)                 args="{\"repo\":\"/tmp/x\",\"wave1\":[{\"id\":\"ZZ-1\",\"branch\":\"b\",\"title\":\"t\",\"phase\":\"W\"$fields}]}" ;;
+      esac
+      got="$(node "$stub" "$wf/$f" "$args" 2>&1 | sed -n 's/^dev:ZZ-1 //p' | head -1)"; n=$(( n + 1 ))
+      [ "$got" = "$want" ] || cf "$f [$name]: expected '$want', got '$got'"
+    done
+  done <<'ROWS'
+typed, nothing named: the frontmatter governs|,"devAgentType":"refactorer-worker"|refactorer-worker - -
+typed, effort named: only that is sent|,"devAgentType":"refactorer-worker","devEffort":"medium"|refactorer-worker - medium
+CONTROL: typed, both named|,"devAgentType":"ui-designer-worker","devModel":"opus","devEffort":"high"|ui-designer-worker opus high
+CONTROL: untyped gets the run defaults|,"devEffort":"high"|- opus high
+ROWS
+  rm -rf "$(dirname "$stub")"
+  finish "both runners send a typed leg only the model/effort its issue names, so the type's frontmatter pin governs the rest, while an untyped leg still gets the run defaults ($n drive(s), nothing dispatched)"
+}
+
+# CASE — each wave leg's brief tells it where it may switch branches, and nothing else.
+#
+# Measured before the fix: the brief every wave leg shares said "work in YOUR OWN worktree, never
+# run git checkout or git switch in the shared root", while the main-checkout leg's own steps
+# told it to create its branch and `git switch` there.
+case_wave_brief_matches_the_legs_checkout() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows/wave-runner.js" stub leg out
+  [ -f "$wf" ] || _fixture_die "case_wave_brief_matches_the_legs_checkout: no wave-runner.js in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "each wave leg's brief matches its checkout" "node absent"; return; }
+  stub="$(mktemp -d)/drive.mjs"; _runner_record_stub "$stub"
+  local main='{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","phase":"W"}]}'
+  local wt='{"repo":"/tmp/x","wave1":[{"id":"ZZ-1","branch":"b","title":"t","phase":"W","worktreeMode":"self"}]}'
+  for leg in dev: qa:; do
+    out="$(node "$stub" "$wf" "$main" "$leg" 2>&1)"
+    [ -n "$out" ] || _fixture_die "case_wave_brief_matches_the_legs_checkout: no $leg prompt was composed."
+    printf '%s\n' "$out" | grep -i 'your own worktree' >/dev/null \
+      && cf "the main-checkout leg's $leg brief tells it to work in its own worktree"
+  done
+  out="$(node "$stub" "$wf" "$main" qa: 2>&1)"
+  printf '%s\n' "$out" | grep -F 'git switch' >/dev/null \
+    || cf "(control) the main-checkout QA brief no longer says how to check the branch out"
+  out="$(node "$stub" "$wf" "$wt" dev: 2>&1)"
+  printf '%s\n' "$out" | grep -iE 'never runs? git checkout or git switch in the (main checkout|shared root)' >/dev/null \
+    || cf "(control) the worktree leg's brief no longer forbids switching in the main checkout"
+  rm -rf "$(dirname "$stub")"
+  finish "wave-runner: the main-checkout leg is never told to work in its own worktree, and the worktree leg is still told never to switch in the main checkout"
+}
+
 # CASE — settings.json.example never glosses a placeholder it does not contain.
 #
 # Bidirectional: every glossed <token> appears in the file (a gloss must not outlive its

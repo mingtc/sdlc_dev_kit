@@ -1,7 +1,7 @@
 // KIT-CLASS: KIT — the serial tranche runner. Everything project-specific is in CFG below.
 export const meta = {
   name: 'tranche-runner',
-  description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that FAILS the park halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
+  description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that FAILS the park halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined for an untyped leg; the frontmatter pin of a leaf worker type governs what the issue leaves unset) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
   phases: [
     { title: 'Dev', detail: 'one Dev-hat agent per issue, TDD on a work branch (or direct-to-trunk on the docs path); per-issue devModel + devEffort override', model: 'opus' },
     { title: 'QA', detail: 'separate fresh-eyes QA-hat agent per issue; lands via the landing script; a park takes the same seam as a park-QA leg (the ratified verdict set, landing always not_applicable) instead of closing unreviewed; per-issue qaModel + qaEffort override', model: 'opus' },
@@ -85,14 +85,17 @@ if (!Array.isArray(ARGS.issues) || ARGS.issues.length === 0) {
 
 const DEFAULT_MODEL = CFG.defaultModel
 const DEFAULT_EFFORT = CFG.defaultEffort
-// An omitted effort MUST resolve to a real value: undefined inherits the session default, the
-// biggest burn lever (process/doctrine/model-provisioning.md). The lowest tier and `max` are never
-// used here. opts.agentType names a .claude/agents/ leaf worker (`ls .claude/agents/`); its
-// frontmatter carries the model/effort/tools contract, and the explicit model/effort act as the
-// caller's override. Omitted ⇒ no key, and behaviour is as if types did not exist.
+// An untyped leg's omitted effort MUST resolve to a real value: undefined inherits the session
+// default, the biggest burn lever (process/doctrine/model-provisioning.md). The lowest tier and `max`
+// are never used here. opts.agentType names a .claude/agents/ leaf worker (`ls .claude/agents/`); its
+// frontmatter carries the model/effort/tools contract, so a typed leg sends only the model/effort the
+// issue names, as the caller's override — a default sent here would override the pin (§ B.1).
+// No agentType ⇒ no key, and behaviour is as if types did not exist.
 function provision(label, phase, model, effort, agentType, schema) {
-  const opts = { label, phase, model: model || DEFAULT_MODEL, effort: effort || DEFAULT_EFFORT, schema }
+  const opts = { label, phase, schema }
   if (agentType) opts.agentType = agentType
+  if (model || !agentType) opts.model = model || DEFAULT_MODEL
+  if (effort || !agentType) opts.effort = effort || DEFAULT_EFFORT
   return opts
 }
 

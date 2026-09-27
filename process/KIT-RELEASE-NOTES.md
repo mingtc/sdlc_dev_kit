@@ -656,6 +656,11 @@ columns and never the cards.*
   branch and printed a `branch -D` for you; it now detaches that checkout at the landed commit first (where the post-merge
   check left it anyway), then deletes the branch. Check a branch out there before working in it again.
 
+- **A runner leg that names an agent type now runs on that type's pinned model and effort.** Both runners sent the run default
+  (`opus`/`medium`) on every call, overriding `devAgentType`/`qaAgentType` pins (e.g. `refactorer-worker` ran at `medium`, not
+  `high`); a typed leg now sends only the model/effort its issue names. Expect those legs to cost what their pins say. The
+  wave's shared brief no longer tells the main-checkout leg to work in its own worktree.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

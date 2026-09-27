@@ -82,11 +82,13 @@ if ((ARGS.wave1 ?? []).length === 0 && (ARGS.wave2 ?? []).length === 0) {
 
 const DEFAULT_MODEL = CFG.defaultModel
 const DEFAULT_EFFORT = CFG.defaultEffort
-// See tranche-runner.js for why an omitted effort must resolve to a real value rather than
-// inheriting the session default, and how agentType interacts with the explicit overrides.
+// See tranche-runner.js for why an untyped leg's omitted effort must resolve to a real value, and
+// why a typed leg sends only what the issue names.
 function provision(label, phase, model, effort, agentType, schema) {
-  const opts = { label, phase, model: model || DEFAULT_MODEL, effort: effort || DEFAULT_EFFORT, schema }
+  const opts = { label, phase, schema }
   if (agentType) opts.agentType = agentType
+  if (model || !agentType) opts.model = model || DEFAULT_MODEL
+  if (effort || !agentType) opts.effort = effort || DEFAULT_EFFORT
   return opts
 }
 
@@ -140,7 +142,7 @@ Ground rules (non-negotiable):
 - ZERO-DRIFT discipline unless the issue explicitly consents otherwise: NO change to the project's pinned output. Any golden/snapshot/fixture diff caused by your change is a bug in your change, not a fixture to update.
 - Board moves only via ./scripts/move-issue.sh (never move files by hand), invoked FROM THE MAIN REPO DIR — the scripts commit+push via the kanban worktree and never touch any checkout's branch state.
 - A PARALLEL leg is working the same repo on a DIFFERENT issue with ZERO file overlap with yours. If you find yourself needing to edit a file the other leg owns (its issue names its surfaces), STOP and return blocked with the evidence instead of creating a conflict.
-- FILE DISJOINTNESS IS NOT ISOLATION, and do not read the line above as if it were. These are SHARED and cannot be assigned to an issue: HEAD · the current branch of the shared checkout · the git index · a gitignored build or cache tree · the next free id in any sequence. A peer can move HEAD, switch the branch under you, stage into the index, write the build tree, or take the id you were about to mint — with zero file overlap the whole time. So: work in YOUR OWN worktree, never run git checkout or git switch in the shared root, never git-add a path you do not own, re-read anything you derived from HEAD after any pause, and treat a minted id as taken only once it is committed.${CFG.liveRules ? `
+- FILE DISJOINTNESS IS NOT ISOLATION, and do not read the line above as if it were. These are SHARED and cannot be assigned to an issue: HEAD · the current branch of the shared checkout · the git index · a gitignored build or cache tree · the next free id in any sequence. A peer can move HEAD, switch the branch under you, stage into the index, write the build tree, or take the id you were about to mint — with zero file overlap the whole time. So: work only in the checkout your brief gives you — a WORKTREE MODE leg never runs git checkout or git switch in the main checkout, which is the other leg's — never git-add a path you do not own, re-read anything you derived from HEAD after any pause, and treat a minted id as taken only once it is committed.${CFG.liveRules ? `
 - ${CFG.liveRules}` : ''}
 `
 

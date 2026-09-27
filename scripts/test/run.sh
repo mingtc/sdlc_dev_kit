@@ -304,6 +304,8 @@ CASES=(
   case_runner_throwing_leg_is_named_not_dropped
   case_runner_precondition_failure_has_a_reply
   case_runner_returns_leg_notes_on_every_outcome
+  case_runner_typed_leg_keeps_its_frontmatter_pin
+  case_wave_brief_matches_the_legs_checkout
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set
