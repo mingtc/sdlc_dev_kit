@@ -258,6 +258,78 @@ if [ ! -f "$REAL_REPO_ROOT/process/KIT-MANIFEST" ]; then
   exit 2
 fi
 
+# ── THE HARNESS'S OWN TEXT IS A POPULATION, AUTHORED ONCE. ───────────────────────────────────
+#
+# Several cases census THIS HARNESS's source — its role literals, its minting cases, its piped
+# readers, its landing prologues, its fixture appends. They used to name their subject with
+# `${BASH_SOURCE[0]}`, and inside a function that is NOT "this harness": it is the file the
+# function was DEFINED in. While the harness is one file the two are the same, which is exactly
+# why the difference is invisible. The day a case moves into a sourced file, its census shrinks to
+# that one file, every negative census ("none of them does X") gets TRUER, and nothing reddens.
+#
+# So the population is derived here, once, from the ONE LIST the loader below sources: the entry
+# point, then _harness_sourced. The files a census reads and the files the entry point loads
+# cannot then differ, because there is one author for both.
+#
+# TODAY THAT LIST IS EMPTY, ON PURPOSE, and the population is the entry point alone. The split
+# this prepares for puts its glob — lib/*.sh then cases/*.sh beside the entry point — in
+# _harness_sourced and nowhere else. It is not written in now because a glob would also source
+# whatever a project already keeps under those names, and that is a change the split makes and
+# announces, not one this preparation may make silently.
+#
+# A CONCATENATION, NOT A LIST, for the cases that plant into a copy or excise their own body: they
+# read one probe file. What that costs is stated rather than hidden — a line number a census
+# reports is a line of the CONCATENATION, which equals the entry point's own line only while
+# _harness_sourced is empty.
+#
+# AND EVERY CASE THAT READS IT ASSERTS IT IS WHOLE (_harness_population_is_whole): the case_*()
+# definitions across the population must number exactly what CASES lists. A population that lost
+# a file then reddens instead of shrinking.
+HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS_ENTRY="$HARNESS_DIR/$(basename "${BASH_SOURCE[0]}")"
+
+_harness_sourced() {  # the files the entry point sources, in load order — THE ONE LIST
+  return 0            # none: the harness is one file (see above)
+}
+
+_harness_sources() {  # every file of the harness: the entry point, then what it sources
+  printf '%s\n' "$HARNESS_ENTRY"
+  _harness_sourced
+}
+
+_harness_probe_copy() {  # <dest> — the whole population, concatenated in load order
+  local dest="$1" f
+  : > "$dest" || return 1
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    cat "$f" >> "$dest" || return 1
+  done <<HARNESS_SOURCES_EOF
+$(_harness_sources)
+HARNESS_SOURCES_EOF
+}
+
+# _harness_population_is_whole <probe copy> — the instrument check a census of this harness owes.
+# Counted on the copy BEFORE any excision, so a case that cuts its own body out is still counted.
+_harness_population_is_whole() {
+  local n
+  n="$(grep -c '^case_[a-z_0-9]*() {' "$1" || true)"
+  [ "${n:-0}" -eq "${#CASES[@]}" ] \
+    || cf "(population) the harness text this case read defines ${n:-0} case_*() function(s) and CASES lists ${#CASES[@]} — _harness_sources no longer names every file the entry point loads, so this census has shrunk to part of the harness and would stay green about the rest"
+}
+
+# THE LOADER, over the same list. It sources nothing while the harness is one file.
+_harness_loaded=()
+while IFS= read -r _hs; do
+  [ -n "$_hs" ] && _harness_loaded+=("$_hs")
+done <<HARNESS_SOURCED_EOF
+$(_harness_sourced)
+HARNESS_SOURCED_EOF
+for _hs in ${_harness_loaded[@]+"${_harness_loaded[@]}"}; do
+  # shellcheck source=/dev/null
+  . "$_hs" || { echo "run.sh: REFUSING — could not load $_hs, which the harness sources; every case it defines would be missing from the run." >&2; exit 2; }
+done
+unset _hs _harness_loaded
+
 # ── THE NEUTRAL CONFIG — the kit's SHIPPED value for every seam the sandbox
 #    copies in. Declared here, once, greppably, and DERIVED FROM NOTHING IN THE
 #    ADOPTER'S TREE on purpose: that is the whole point. _kit_neutral_config()
@@ -1307,11 +1379,12 @@ case_role_literals_are_declared() {
   cf_reset
   make_sandbox   # for SB_TMP + teardown; this case reads this file, not the sandbox
 
-  local self="${BASH_SOURCE[0]}" used n t
-  if [ ! -f "$self" ]; then
+  local self="$SB_TMP/rolepop.sh" used n t
+  if ! _harness_probe_copy "$self" || [ ! -s "$self" ]; then
     skp "every role literal this harness writes is one the sandbox declares" "cannot locate this harness's own source"
     teardown; return
   fi
+  _harness_population_is_whole "$self"
 
   used="$(_role_literals_used "$self")"
   n="$(printf '%s\n' "$used" | grep -c . || true)"
@@ -13163,305 +13236,6 @@ PY
 }
 
 # =============================================================================
-# CASE — SHIP STATE. The control the neutralizer costs us.
-#
-# Why this case has to exist. Before _kit_neutral_config, every sandbox inherited
-# the real scripts/ verbatim, so the whole suite was an incidental — and
-# unstated — witness to the SHIPPED defaults: if this repository had ever declared
-# a gate or set RELEASE_PUBLISH=true, cases would have started behaving
-# differently and someone would eventually have noticed. Neutralizing deliberately
-# destroys that coupling, which is the point; it also destroys the witness. After
-# it, every green rests on the harness's OWN assignment of the neutral values, and
-# a kit that shipped `RELEASE_PUBLISH=true` would sail through a fully green run.
-# A SHIPPED DEFAULT IS ITSELF A SHIPPABLE DEFECT, and this is the only case that
-# looks at it. Same argument as the belt-tooling rule one level down: a fixture cannot certify the
-# thing it overwrites.
-#
-# It reads the REAL files and mutates nothing.
-#
-# WHY IT SKIPS RATHER THAN FAILS ON A CONFIGURED TREE. "The frame ships empty" is
-# a claim about the KIT, not about an adopter — a project that has filled its gate
-# table has done exactly what it was told to. So the case states its subject and
-# steps aside when the tree is not the shipped frame, naming the signal that told
-# it so. A SKIP here is a statement about the environment, never a hidden failure.
-# =============================================================================
-# =============================================================================
-# CASE — A REFORMAT OF A DERIVED SEAM DECLARATION IS REFUSED LOUDLY, NEVER ABSORBED.
-#
-# Four names are parsed out of two files by nine anchored expressions in five files.
-# The shape those expressions assume was an undeclared contract between files that never
-# mention each other, until config-seam.md § 2 wrote it down.
-#
-# THE MUTATION HERE IS SEMANTICS-PRESERVING, AND THAT IS THE ENTIRE POINT. Dropping the
-# outer double quotes from `NAME="${NAME:-v}"` is identical to the shell — an assignment
-# RHS is not word-split — and invisible to every anchored sed. So the value keeps working
-# while every derivation of it silently returns nothing. A case that changed the VALUE
-# would be testing the value; this one tests the SHAPE, which is the thing that can break
-# without looking broken.
-#
-# case_ship_state guards the same shape by exact-line comparison, but it SKIPS on an
-# adopted tree — precisely where adopters live. This case does not skip.
-# =============================================================================
-# =============================================================================
-# CASE — THE COPY-LIST MINIMUM IS A REAL MINIMUM, AND IT IS DERIVED, NOT RETYPED.
-#
-# THIS CASE EXISTS BECAUSE OF A DECLINE. It was asked whether this preflight should
-# check the whole manifest instead of a hand-typed minimum, and the answer was no: the
-# manifest is prose in process/EXTRACTION.md, process/contracts/initializer.md § 1
-# forbids the initializer carrying a second copy of it, and a machine-readable manifest
-# is a new shipped artifact bought for one preflight. What a decline owes is a control
-# proving the thing KEPT actually works — otherwise "the minimum is enough" is an
-# assertion, and the wider promise was withdrawn on the strength of it.
-# (Since then the build ships process/KIT-MANIFEST, and the preflight reads it for one
-# question only — shipped paths on disk but uncommitted. Presence is still the
-# hand-listed minimum, which is what this case controls.)
-#
-# The list is DERIVED out of the shipped script. A retyped copy here would be the exact
-# second-hand-typed-list the decline promised not to create, and it would go stale in the
-# one direction that matters: a file added to COPY_LIST and not to this case is a file
-# nobody checks.
-# =============================================================================
-# =============================================================================
-# CASE — THE SCAFFOLDING SENTINEL HAS THREE AUTHORS AND THEY MUST AGREE.
-#
-# The mark is written by two shipped root documents, looked for by check-board.sh's
-# graduation arm, and seeded by this harness. Single-sourcing the FIXTURE (one
-# seed_scaffolding_tree instead of five re-typed pairs) does not make those three agree —
-# it only means a disagreement now shows up once instead of five times. This case is what
-# actually holds them together.
-#
-# WHY NOT JUST DERIVE THE FIXTURE FROM check-board.sh: because then the fixture and the
-# tool agree BY CONSTRUCTION, and a rename in the shipped documents — the thing an adopter
-# deletes, the only place the mark is user-visible — would go unnoticed while every
-# graduation case stayed green. That reason stands, and the fixture is still never derived
-# from the probe. What is superseded is the fixture's other end: it read the DOCUMENTS, and
-# it now reads the harness's own declared KIT_SCAFFOLD_MARK, because the documents are
-# REPLACE-class and a tree that finished day one has replaced both — the derivation made
-# this whole harness refuse to start there, zero cases. The three authors are unchanged.
-# Arm (a) asserts the document author WHERE A SHIPPED COPY IS STILL PRESENT, and names the
-# documents it did not measure when one is not (instruments.md § A.4).
-# =============================================================================
-# =============================================================================
-# CASE — EVERY ANCHORED FIXTURE APPEND HAS A DECLARED AUTHOR.
-#
-# Two anchor families live in this file: the array fence `NAME=(` and the function-body
-# fence `name() {`. Each is a four-step idiom — assert the anchor, plant, assert it
-# landed, and for a sourced library `bash -n` — and the four steps are exactly what a
-# copier drops. Measured when this was written: four call sites had re-typed the plant
-# with no anchor assertion at all, and one of the two library plants omitted the parse
-# check, which is the step that tells "the plant changed the behaviour" apart from "the
-# library no longer loads".
-#
-# THE CENSUS IS THE CONTROL. Consolidating the four helpers did not stop the fifth copy
-# from being typed; this case does. A helper nobody is required to call is a convention,
-# and this file's own history is that conventions here get re-typed.
-#
-# THIS CASE SCANS THE FILE IT LIVES IN, so it is inside its own operand set. The two
-# match strings are held in separate variables on separate lines and comment lines are
-# skipped — otherwise the derivation reddens on its own source and on the comment above.
-# =============================================================================
-# =============================================================================
-# CASE — assert_release_unmutated NAMES THE CUT IT IS GUARDING.
-#
-# The helper's tag arm used to look for the literal `refs/tags/v1.1.0`. Its call sites
-# call it, and while all fourteen happen to cut 1.1.0 today, the coupling is invisible:
-# a leg cutting any other version got a tag check looking for a tag nobody would create,
-# which passes. Of the helper's four arms the tag arm guards the most expensive mutation
-# and was the only one that could be satisfied by looking in the wrong place.
-#
-# THE MUTATION IS A TAG AND NOTHING ELSE. No bump, no push. Every other arm stays clean,
-# so a green here can only come from the arm under test.
-# =============================================================================
-# =============================================================================
-# CASE — VICTIM SELECTION SURVIVES PIPEFAIL.
-#
-# Four control blocks picked their victim with `find … | head -1`, which is the exact
-# shape this file's own header forbids by name: the reader exits early, `find` takes
-# SIGPIPE, and `pipefail` promotes the producer's death to the pipeline's status. The
-# value is still correct — that is what makes it invisible — but the STATUS is wrong, and
-# a caller that ever tested the status would read "no victim" on a probe full of victims.
-#
-# HONEST FRAMING: measured on this machine, the raw pipeline first fails around 300 files
-# and the kit's largest real corpus here is 20. This is a threshold nobody has crossed,
-# fixed for consistency with the header the three origin_* helpers were already rewritten
-# for — not a live bug. The case is built so it cannot pretend otherwise.
-# =============================================================================
-# =============================================================================
-# CASE — EVERY LINK BELOW THE FIRST SAYS SO, IN ALL THREE IMPLEMENTATIONS.
-#
-# The trunk chain — <remote>/HEAD → init.defaultBranch → the kit's last-resort constant
-# — is implemented three times: in kwt_resolve, in check-board.sh and in release.sh.
-# It CANNOT be single-sourced as a function: release.sh sources nothing from scripts/lib/
-# by a standing ruling stated in its own header. So the invariant is what has to be held,
-# and this case is what holds it.
-#
-# WHAT WENT WRONG WITHOUT IT: kwt_resolve warns at steps 2 and 3; release.sh warned at
-# step 3 ONLY, so a cut against init.defaultBranch went out silent — and step 2 is where
-# a real cut lands, because a developer machine usually HAS that config set; check-board
-# warned at NEITHER, while its own comment claimed parity with the library. A report
-# whose every trunk arm is about a branch, printed against a guessed branch name, is the
-# one case where a clean report is worse than none.
-#
-# THE THREE STATES ARE BUILT BY REMOVAL, in order, from a sandbox that starts at step 1.
-# =============================================================================
-# =============================================================================
-# CASE — THE FRONTMATTER SCAN CAP DOES WHAT IT IS FOR.
-#
-# check (d) reads a card's `id:` out of the first `---` fence pair it finds, and only
-# looks for that opening fence within FRONTMATTER_SCAN_LINES. Nothing exercised the cap:
-# the harness derived the value, asserted it non-empty, and never used it — beside a
-# comment describing the control it was not.
-#
-# THE CAP'S ACTUAL BEHAVIOUR IS NARROWER THAN "a body --- breaks parsing", and the
-# distinction is the case. A card with real frontmatter at the top closes its block on
-# line 3, and the parser will not re-enter a closed block, so a body `---` a hundred
-# lines down is already harmless — with or without a cap. What the cap governs is the
-# card with NO frontmatter at the top: without it, the first `---` ANYWHERE in the body
-# opens a block, and whatever follows is read as frontmatter.
-#
-# So this case takes both directions: a normal card with a body rule must parse (the
-# direction the finding asks for), and a fence pair sitting PAST the cap must NOT be
-# read as frontmatter (the direction that can actually go red).
-#
-# THE CAP IS DERIVED AND THE FIXTURE IS SIZED FROM IT. A hardcoded line count goes stale
-# the day the cap is retuned, and the case then asserts nothing while reading green.
-#
-# WHAT THIS DOES NOT COVER: whether the cap's VALUE is right. This proves the cap is
-# enforced in both directions, not that 25 is the correct number.
-# =============================================================================
-# =============================================================================
-# CASE — EVERY CASE THAT MINTS A CARD PROBES FOR THE TEMPLATE FIRST.
-#
-# Measured when this was written: removing .claude/templates/ISSUE.template.md from the
-# built tree gave 2 FAIL alongside 8 clean skips. The two failures were cases that mint
-# a card and never asked whether the template exists — so a capability the TREE lacks
-# was reported as a defect in the SUBJECT.
-#
-# THE POPULATION IS DERIVED, and that is the whole point of the case rather than the two
-# lines it guards. "Which cases mint a card?" is answerable from the file — the ones that
-# invoke a creation script — so case eleven cannot arrive without a probe and go unnoticed
-# until somebody removes the template again. Enumerating the two would have fixed the
-# instances and left the class, which is this board's most-repeated mistake.
-# =============================================================================
-# =============================================================================
-# CASE — AN ADVISORY SECTION SAYS SO IN THE MACHINE'S VOCABULARY, NOT ONLY IN PROSE.
-#
-# kit-init's board self-check drops advisory sections BY THEIR OWN DECLARATION: an awk sets
-# a flag when an `^[a-z]` arm header contains the literal `reports only`, and skips
-# everything under it. That literal is a machine contract (contracts/drift-report.md § 4),
-# not phrasing.
-#
-# A header can therefore say the right thing in the wrong vocabulary. One did: the
-# whole-file reading advertised "(ADVISORY, does not fail the board)" and carried no
-# token, so kit-init would have counted its ⚠ as a real finding and refused the install —
-# the exact regression the verdict-line filter was landed to end, arriving through a
-# header that MEANS advisory and does not SAY it.
-#
-# It was unreachable only by luck (a fresh tree's progress.md is far below the threshold),
-# which is why prose and token being two authoring sites for one fact needs a census
-# rather than a fix at the one site that happened to be found.
-# =============================================================================
-# =============================================================================
-# CASE — ONE READ EXPRESSION, FIVE SITES, AND EVERY SITE DECLARES ITS FALLBACK POLICY.
-#
-# Reading the project's declared role set out of scripts/githooks/commit-msg is ONE act
-# written five times. It cannot be written once: check-board.sh and kit-init.sh source
-# nothing from scripts/lib/, so lib/role-set.sh's kit_role_set reaches its sourcing consumers and
-# not the other two.
-#
-# WHAT ACTUALLY WENT WRONG IS NOT THE COUNT. The copies disagreed and the disagreement was
-# invisible: one carried a trailing `.*`, silently tolerating content after the closing
-# quote that no other reader accepts. Two sites, same file, different answers, nothing in
-# either to show it.
-#
-# AND THE POLICIES DIFFER ON PURPOSE — check-board falls back to a hardcoded set and SAYS
-# so; kit-init treats an unreadable hook as fatal; the library returns empty and makes the
-# caller decide; the harness dies. Each is right for its own caller. So this case pins the
-# EXPRESSION, which must be identical, and requires each site to DECLARE its policy, which
-# must not be guessed at by the next reader.
-# =============================================================================
-# =============================================================================
-# CASE — NO --help OPENS WITH ITS OWN KIT-CLASS MARKER.
-#
-# Every header-derived --help printed from a literal line 3, and that literal encoded a
-# premise: line 1 is the shebang, line 2 is the whole KIT-CLASS marker. The premise is
-# false wherever the marker WRAPS — several shipped files carry one spanning more than one
-# line, and the set is derivable, so do not re-add a count here; the twin of this sentence
-# in scripts/lib/usage.sh carried "three" until it was corrected on 2026-09-03 and THIS one
-# was left, which is what fixing an instance instead of a class looks like from the inside
-# — and help then opens with marker text, which is precisely what the window exists
-# to exclude. The window's END was carefully derived; only its START was assumed.
-#
-# THE ASSERTION IS ABOUT THE OUTPUT, not about the number. A case pinning `start` to a
-# computed value would pass against a renderer that computed it and then ignored it.
-# =============================================================================
-# =============================================================================
-# CASE — NO SHIPPED SCRIPT REACHES PAST THE DECLARED FLOOR.
-#
-# The kit REQUIRES git and a POSIX shell, and carves out its optional extras BY NAME —
-# the hygiene scripts are Python 3 and never a gate; one skill's visual companion wants
-# Node and is opt-in per question. `perl` is not among them, and subtask.sh used it on
-# its --plan path.
-#
-# THE FLOOR'S VALUE IS NOT THAT THE LIST IS SHORT; IT IS THAT THE LIST IS TRUE. perl is on
-# essentially every system the kit will meet, so the practical risk is small — and an
-# undeclared dependency on an optional path is exactly what an adopter porting to a
-# minimal container finds at the wrong moment. A floor nobody checks is a claim.
-#
-# THE CARVE-OUTS ARE DERIVED, not listed here: this case reads the shipped scripts, and
-# the two named extras live in directories it does not walk.
-# =============================================================================
-# =============================================================================
-# CASE — A HOOK REJECTION BETWEEN THE BUMP AND THE COMMIT LEAVES NOTHING BEHIND.
-#
-# release.sh's restore used to live INSIDE the per-file bump loop, so it fired only for a
-# failed bump. Everything after it was unprotected: `git add` stages the rewrite, and
-# `git commit` then runs the project's commit-msg hook. A rejection there left the version
-# files REWRITTEN, STAGED and UNCOMMITTED — and the script never said so, because the
-# "LOCAL ONLY, NOTHING IS PUSHED YET" recovery prints on the success path, after the tag.
-#
-# THE TRIGGER IS THE KIT'S OWN SUPPORTED FLOW, which is why this is not hypothetical:
-# narrowing the role set leaves release.sh's own '[Architect]' outside the hook's
-# alternation, and release.sh is correctly not in kit-init's stamping loop.
-#
-# THE ASSERTION IS THE STATE OF THE TREE, not the message. "It printed an error" is
-# satisfied by a run that errored and left the bump behind.
-# =============================================================================
-# =============================================================================
-# CASE — EVERY TRAVELLING SCRIPT HAS A SHEET OR SITS IN A NAMED EXEMPT CLASS.
-#
-# contracts/README.md states the rule in both directions. THIS one — every travelling script has
-# a sheet — was unguarded, and is what this case closes. The MIRROR direction (every path a sheet
-# cites still exists) is STILL UNGUARDED: this comment claimed it was already covered, and no such
-# case exists anywhere in the suite. contracts/README.md says the same, correctly.
-# contracts/README.md said so in as many words: "nothing checks that a travelling script
-# has a sheet… the guard is the PROJECT's, not the kit's… the contracts travel, a guard
-# over them does not."
-#
-# THAT LAST CLAUSE IS SUPERSEDED BY THIS CASE, and the reason it was written is worth
-# keeping: a guard needs the project's own file set, which the kit does not have. But this
-# harness SHIPS and runs inside the project's tree, so it does have it — the obstacle was
-# never that the guard could not travel, only that nothing carrying it did.
-#
-# THE EXEMPT CLASSES ARE DERIVED FROM THE RULE'S OWN TEXT, not listed here. A second
-# hand-typed list of exemptions is the defect this whole directory is about.
-# =============================================================================
-# =============================================================================
-# CASE — A PARTIAL PREFIX DERIVATION REPORTS ITSELF PARTIAL, AND THE INITIALIZER
-#        REFUSES THE VALUE THAT CAUSES ONE.
-#
-# Two halves of one contract, only one of which had been written. kit-init validated
-# --prefix and not --prd-prefix, so `--prd-prefix REQ-2` was accepted and stamped; the
-# hygiene instrument derives its id pattern with `([A-Za-z0-9]+)` and could not then read
-# that key. Its `_id_prefixes` returned `derived=True` for a list of length one, so the
-# instrument silently stopped seeing PRD ids WHILE REPORTING ITSELF FULLY DERIVED —
-# `id_prefixes_derived_from_seam` is the flag a reader uses to tell a real zero from a
-# blind one, and a partial derivation is the blind case wearing the confident flag.
-#
-# BOTH ARMS ARE NEEDED. Validation closes one route to a half-derivation; only the flag
-# can tell a reader when some other route was taken.
-# =============================================================================
-# =============================================================================
 # CASE — THE AGENT-FACING PROSE THE KIT MOST DEPENDS ON IS READ BY SOMETHING.
 #
 # Measured when this was written: this harness referenced `.claude/agents/` ZERO times and
@@ -13535,6 +13309,21 @@ case_agent_prose_carries_its_riders() {
   teardown
 }
 
+# =============================================================================
+# CASE — A PARTIAL PREFIX DERIVATION REPORTS ITSELF PARTIAL, AND THE INITIALIZER
+#        REFUSES THE VALUE THAT CAUSES ONE.
+#
+# Two halves of one contract, only one of which had been written. kit-init validated
+# --prefix and not --prd-prefix, so `--prd-prefix REQ-2` was accepted and stamped; the
+# hygiene instrument derives its id pattern with `([A-Za-z0-9]+)` and could not then read
+# that key. Its `_id_prefixes` returned `derived=True` for a list of length one, so the
+# instrument silently stopped seeing PRD ids WHILE REPORTING ITSELF FULLY DERIVED —
+# `id_prefixes_derived_from_seam` is the flag a reader uses to tell a real zero from a
+# blind one, and a partial derivation is the blind case wearing the confident flag.
+#
+# BOTH ARMS ARE NEEDED. Validation closes one route to a half-derivation; only the flag
+# can tell a reader when some other route was taken.
+# =============================================================================
 case_partial_prefix_derivation_says_so() {
   cf_reset
   make_sandbox
@@ -13600,6 +13389,25 @@ PRD_PREFIX="${PRD_PREFIX:-REQ-2}"
   teardown
 }
 
+# =============================================================================
+# CASE — EVERY TRAVELLING SCRIPT HAS A SHEET OR SITS IN A NAMED EXEMPT CLASS.
+#
+# contracts/README.md states the rule in both directions. THIS one — every travelling script has
+# a sheet — was unguarded, and is what this case closes. The MIRROR direction (every path a sheet
+# cites still exists) is STILL UNGUARDED: this comment claimed it was already covered, and no such
+# case exists anywhere in the suite. contracts/README.md says the same, correctly.
+# contracts/README.md said so in as many words: "nothing checks that a travelling script
+# has a sheet… the guard is the PROJECT's, not the kit's… the contracts travel, a guard
+# over them does not."
+#
+# THAT LAST CLAUSE IS SUPERSEDED BY THIS CASE, and the reason it was written is worth
+# keeping: a guard needs the project's own file set, which the kit does not have. But this
+# harness SHIPS and runs inside the project's tree, so it does have it — the obstacle was
+# never that the guard could not travel, only that nothing carrying it did.
+#
+# THE EXEMPT CLASSES ARE DERIVED FROM THE RULE'S OWN TEXT, not listed here. A second
+# hand-typed list of exemptions is the defect this whole directory is about.
+# =============================================================================
 case_travelling_scripts_have_a_sheet() {
   cf_reset
   make_sandbox
@@ -13688,6 +13496,22 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — A HOOK REJECTION BETWEEN THE BUMP AND THE COMMIT LEAVES NOTHING BEHIND.
+#
+# release.sh's restore used to live INSIDE the per-file bump loop, so it fired only for a
+# failed bump. Everything after it was unprotected: `git add` stages the rewrite, and
+# `git commit` then runs the project's commit-msg hook. A rejection there left the version
+# files REWRITTEN, STAGED and UNCOMMITTED — and the script never said so, because the
+# "LOCAL ONLY, NOTHING IS PUSHED YET" recovery prints on the success path, after the tag.
+#
+# THE TRIGGER IS THE KIT'S OWN SUPPORTED FLOW, which is why this is not hypothetical:
+# narrowing the role set leaves release.sh's own '[Architect]' outside the hook's
+# alternation, and release.sh is correctly not in kit-init's stamping loop.
+#
+# THE ASSERTION IS THE STATE OF THE TREE, not the message. "It printed an error" is
+# satisfied by a run that errored and left the bump behind.
+# =============================================================================
 case_release_hook_rejection_leaves_no_bump() {
   cf_reset
   if ! has_release; then skp "a hook rejection between bump and commit leaves nothing behind" "scripts/release.sh absent"; return; fi
@@ -13928,6 +13752,22 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — NO SHIPPED SCRIPT REACHES PAST THE DECLARED FLOOR.
+#
+# The kit REQUIRES git and a POSIX shell, and carves out its optional extras BY NAME —
+# the hygiene scripts are Python 3 and never a gate; one skill's visual companion wants
+# Node and is opt-in per question. `perl` is not among them, and subtask.sh used it on
+# its --plan path.
+#
+# THE FLOOR'S VALUE IS NOT THAT THE LIST IS SHORT; IT IS THAT THE LIST IS TRUE. perl is on
+# essentially every system the kit will meet, so the practical risk is small — and an
+# undeclared dependency on an optional path is exactly what an adopter porting to a
+# minimal container finds at the wrong moment. A floor nobody checks is a claim.
+#
+# THE CARVE-OUTS ARE DERIVED, not listed here: this case reads the shipped scripts, and
+# the two named extras live in directories it does not walk.
+# =============================================================================
 case_shipped_scripts_stay_on_the_floor() {
   cf_reset
   # NO SANDBOX. The population is the SHIPPED MANIFEST, which describes the real tree; a sandbox
@@ -14012,6 +13852,21 @@ EOF
   finish "of $n manifest path(s), the $walked that are shipped SHELL programs invoke no interpreter past the kit's floor without checking for it first, and none carries a check for one it no longer invokes — the population is DERIVED FROM THE MANIFEST rather than from a glob, so a file the adopter was told to add is not counted as ours. NOT MEASURED HERE, because this check's pattern reads shell and would report a variable named 'node' as an invocation:${outspan:- (none)}"
 }
 
+# =============================================================================
+# CASE — NO --help OPENS WITH ITS OWN KIT-CLASS MARKER.
+#
+# Every header-derived --help printed from a literal line 3, and that literal encoded a
+# premise: line 1 is the shebang, line 2 is the whole KIT-CLASS marker. The premise is
+# false wherever the marker WRAPS — several shipped files carry one spanning more than one
+# line, and the set is derivable, so do not re-add a count here; the twin of this sentence
+# in scripts/lib/usage.sh carried "three" until it was corrected on 2026-09-03 and THIS one
+# was left, which is what fixing an instance instead of a class looks like from the inside
+# — and help then opens with marker text, which is precisely what the window exists
+# to exclude. The window's END was carefully derived; only its START was assumed.
+#
+# THE ASSERTION IS ABOUT THE OUTPUT, not about the number. A case pinning `start` to a
+# computed value would pass against a renderer that computed it and then ignored it.
+# =============================================================================
 case_help_never_opens_with_the_class_marker() {
   cf_reset
   make_sandbox
@@ -14245,6 +14100,25 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — ONE READ EXPRESSION, FIVE SITES, AND EVERY SITE DECLARES ITS FALLBACK POLICY.
+#
+# Reading the project's declared role set out of scripts/githooks/commit-msg is ONE act
+# written five times. It cannot be written once: check-board.sh and kit-init.sh source
+# nothing from scripts/lib/, so lib/role-set.sh's kit_role_set reaches its sourcing consumers and
+# not the other two.
+#
+# WHAT ACTUALLY WENT WRONG IS NOT THE COUNT. The copies disagreed and the disagreement was
+# invisible: one carried a trailing `.*`, silently tolerating content after the closing
+# quote that no other reader accepts. Two sites, same file, different answers, nothing in
+# either to show it.
+#
+# AND THE POLICIES DIFFER ON PURPOSE — check-board falls back to a hardcoded set and SAYS
+# so; kit-init treats an unreadable hook as fatal; the library returns empty and makes the
+# caller decide; the harness dies. Each is right for its own caller. So this case pins the
+# EXPRESSION, which must be identical, and requires each site to DECLARE its policy, which
+# must not be guessed at by the next reader.
+# =============================================================================
 case_role_set_read_is_one_expression() {
   cf_reset
   make_sandbox
@@ -14350,6 +14224,24 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — AN ADVISORY SECTION SAYS SO IN THE MACHINE'S VOCABULARY, NOT ONLY IN PROSE.
+#
+# kit-init's board self-check drops advisory sections BY THEIR OWN DECLARATION: an awk sets
+# a flag when an `^[a-z]` arm header contains the literal `reports only`, and skips
+# everything under it. That literal is a machine contract (contracts/drift-report.md § 4),
+# not phrasing.
+#
+# A header can therefore say the right thing in the wrong vocabulary. One did: the
+# whole-file reading advertised "(ADVISORY, does not fail the board)" and carried no
+# token, so kit-init would have counted its ⚠ as a real finding and refused the install —
+# the exact regression the verdict-line filter was landed to end, arriving through a
+# header that MEANS advisory and does not SAY it.
+#
+# It was unreachable only by luck (a fresh tree's progress.md is far below the threshold),
+# which is why prose and token being two authoring sites for one fact needs a census
+# rather than a fix at the one site that happened to be found.
+# =============================================================================
 case_advisory_headers_carry_the_machine_token() {
   cf_reset
   make_sandbox
@@ -14382,10 +14274,27 @@ case_advisory_headers_carry_the_machine_token() {
   teardown
 }
 
+# =============================================================================
+# CASE — EVERY CASE THAT MINTS A CARD PROBES FOR THE TEMPLATE FIRST.
+#
+# Measured when this was written: removing .claude/templates/ISSUE.template.md from the
+# built tree gave 2 FAIL alongside 8 clean skips. The two failures were cases that mint
+# a card and never asked whether the template exists — so a capability the TREE lacks
+# was reported as a defect in the SUBJECT.
+#
+# THE POPULATION IS DERIVED, and that is the whole point of the case rather than the two
+# lines it guards. "Which cases mint a card?" is answerable from the file — the ones that
+# invoke a creation script — so case eleven cannot arrive without a probe and go unnoticed
+# until somebody removes the template again. Enumerating the two would have fixed the
+# instances and left the class, which is this board's most-repeated mistake.
+# =============================================================================
 case_minting_cases_probe_for_the_template() {
   cf_reset
   make_sandbox
-  local self="${BASH_SOURCE[0]}" probe="$SB_TMP/mintprobe.sh"
+  local self="$SB_TMP/mintpop.sh" probe="$SB_TMP/mintprobe.sh"
+  _harness_probe_copy "$self" \
+    || _fixture_die "case_minting_cases_probe_for_the_template: could not copy the harness's own source to census."
+  _harness_population_is_whole "$self"
 
   # Excise this case's own body: its derivation names the creation scripts it looks for,
   # so a census over the whole file reports this case as an unguarded minter.
@@ -14441,6 +14350,31 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — THE FRONTMATTER SCAN CAP DOES WHAT IT IS FOR.
+#
+# check (d) reads a card's `id:` out of the first `---` fence pair it finds, and only
+# looks for that opening fence within FRONTMATTER_SCAN_LINES. Nothing exercised the cap:
+# the harness derived the value, asserted it non-empty, and never used it — beside a
+# comment describing the control it was not.
+#
+# THE CAP'S ACTUAL BEHAVIOUR IS NARROWER THAN "a body --- breaks parsing", and the
+# distinction is the case. A card with real frontmatter at the top closes its block on
+# line 3, and the parser will not re-enter a closed block, so a body `---` a hundred
+# lines down is already harmless — with or without a cap. What the cap governs is the
+# card with NO frontmatter at the top: without it, the first `---` ANYWHERE in the body
+# opens a block, and whatever follows is read as frontmatter.
+#
+# So this case takes both directions: a normal card with a body rule must parse (the
+# direction the finding asks for), and a fence pair sitting PAST the cap must NOT be
+# read as frontmatter (the direction that can actually go red).
+#
+# THE CAP IS DERIVED AND THE FIXTURE IS SIZED FROM IT. A hardcoded line count goes stale
+# the day the cap is retuned, and the case then asserts nothing while reading green.
+#
+# WHAT THIS DOES NOT COVER: whether the cap's VALUE is right. This proves the cap is
+# enforced in both directions, not that 25 is the correct number.
+# =============================================================================
 case_frontmatter_scan_cap_is_enforced() {
   cf_reset
   make_sandbox
@@ -14488,6 +14422,24 @@ case_frontmatter_scan_cap_is_enforced() {
   teardown
 }
 
+# =============================================================================
+# CASE — EVERY LINK BELOW THE FIRST SAYS SO, IN ALL THREE IMPLEMENTATIONS.
+#
+# The trunk chain — <remote>/HEAD → init.defaultBranch → the kit's last-resort constant
+# — is implemented three times: in kwt_resolve, in check-board.sh and in release.sh.
+# It CANNOT be single-sourced as a function: release.sh sources nothing from scripts/lib/
+# by a standing ruling stated in its own header. So the invariant is what has to be held,
+# and this case is what holds it.
+#
+# WHAT WENT WRONG WITHOUT IT: kwt_resolve warns at steps 2 and 3; release.sh warned at
+# step 3 ONLY, so a cut against init.defaultBranch went out silent — and step 2 is where
+# a real cut lands, because a developer machine usually HAS that config set; check-board
+# warned at NEITHER, while its own comment claimed parity with the library. A report
+# whose every trunk arm is about a branch, printed against a guessed branch name, is the
+# one case where a clean report is worse than none.
+#
+# THE THREE STATES ARE BUILT BY REMOVAL, in order, from a sandbox that starts at step 1.
+# =============================================================================
 case_trunk_chain_announces_every_fallback() {
   cf_reset
   if ! has_release; then skp "every link of the trunk chain below the first announces itself" "scripts/release.sh absent"; return; fi
@@ -14543,6 +14495,20 @@ case_trunk_chain_announces_every_fallback() {
   teardown
 }
 
+# =============================================================================
+# CASE — VICTIM SELECTION SURVIVES PIPEFAIL.
+#
+# Four control blocks picked their victim with `find … | head -1`, which is the exact
+# shape this file's own header forbids by name: the reader exits early, `find` takes
+# SIGPIPE, and `pipefail` promotes the producer's death to the pipeline's status. The
+# value is still correct — that is what makes it invisible — but the STATUS is wrong, and
+# a caller that ever tested the status would read "no victim" on a probe full of victims.
+#
+# HONEST FRAMING: measured on this machine, the raw pipeline first fails around 300 files
+# and the kit's largest real corpus here is 20. This is a threshold nobody has crossed,
+# fixed for consistency with the header the three origin_* helpers were already rewritten
+# for — not a live bug. The case is built so it cannot pretend otherwise.
+# =============================================================================
 case_probe_victim_selection_survives_pipefail() {
   cf_reset
   make_sandbox
@@ -14579,7 +14545,10 @@ case_probe_victim_selection_survives_pipefail() {
 
   # THE CENSUS — the four sites are the point, not the helper. A fifth `find … | head -1`
   # typed tomorrow puts the hazard straight back.
-  local self="${BASH_SOURCE[0]}" probe="$SB_TMP/pipeprobe.sh" m1='find ' m2='| head -1'
+  local self="$SB_TMP/pipepop.sh" probe="$SB_TMP/pipeprobe.sh" m1='find ' m2='| head -1'
+  _harness_probe_copy "$self" \
+    || _fixture_die "case_probe_victim_selection_survives_pipefail: could not copy the harness's own source to census."
+  _harness_population_is_whole "$self"
   # EXCISE THIS CASE'S OWN BODY. Its instrument check BUILDS the forbidden pipeline on
   # purpose — that is how it proves the hazard exists here — so a census over the whole
   # file reports the very line that makes the case honest.
@@ -14630,10 +14599,15 @@ case_probe_victim_selection_survives_pipefail() {
   #    rewrite would be churn. So this census looks for a producer that CAN grow: a
   #    command that reads the repository, the board or the network. That is the
   #    header's own test, applied to the tree we ship rather than to the tree we test.
+  #
+  #    THE HARNESS IS EXCLUDED AS A POPULATION, NOT BY ITS ENTRY POINT'S PATH. Excluding
+  #    one path left every other file of the harness to be judged by the NARROWER shipped
+  #    rule instead of the harness rule above. The set the harness census reads is the set
+  #    this one leaves out, so each file is judged by exactly one of the two rules.
   local shipped_rows shipped_files
   shipped_files="$(find "$REAL_SCRIPTS" "$REAL_REPO_ROOT/consumers" -type f \
                      \( -name '*.sh' -o -name 'commit-msg' \) 2>/dev/null \
-                   | grep -vF "$REAL_SCRIPTS/test/run.sh" || true)"
+                   | grep -vxF -f <(_harness_sources) || true)"
   [ -n "$shipped_files" ] \
     || _fixture_die "case_probe_victim_selection_survives_pipefail: found no shipped scripts to census — a guard over an empty population passes forever."
   #    THE PRODUCER IS OFTEN ON A DIFFERENT LINE. `lib/kanban-worktree.sh` writes
@@ -14666,6 +14640,18 @@ case_probe_victim_selection_survives_pipefail() {
   teardown
 }
 
+# =============================================================================
+# CASE — assert_release_unmutated NAMES THE CUT IT IS GUARDING.
+#
+# The helper's tag arm used to look for the literal `refs/tags/v1.1.0`. Its call sites
+# call it, and while all fourteen happen to cut 1.1.0 today, the coupling is invisible:
+# a leg cutting any other version got a tag check looking for a tag nobody would create,
+# which passes. Of the helper's four arms the tag arm guards the most expensive mutation
+# and was the only one that could be satisfied by looking in the wrong place.
+#
+# THE MUTATION IS A TAG AND NOTHING ELSE. No bump, no push. Every other arm stays clean,
+# so a green here can only come from the arm under test.
+# =============================================================================
 case_release_unmutated_names_the_cut() {
   cf_reset
   if ! has_release; then skp "assert_release_unmutated names the cut it guards" "scripts/release.sh absent"; return; fi
@@ -14727,7 +14713,10 @@ case_release_unmutated_names_the_cut() {
 case_landing_prologue_is_complete() {
   cf_reset
   make_sandbox
-  local self="${BASH_SOURCE[0]}" probe="$SB_TMP/prologueprobe.sh"
+  local self="$SB_TMP/prologuepop.sh" probe="$SB_TMP/prologueprobe.sh"
+  _harness_probe_copy "$self" \
+    || _fixture_die "case_landing_prologue_is_complete: could not copy the harness's own source to census."
+  _harness_population_is_whole "$self"
 
   # EXCISE THIS CASE'S OWN BODY FROM THE PROBE. It scans the file it lives in, and its
   # own derivation names every token it searches for — so without this it reports itself,
@@ -14794,14 +14783,34 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — EVERY ANCHORED FIXTURE APPEND HAS A DECLARED AUTHOR.
+#
+# Two anchor families live in this file: the array fence `NAME=(` and the function-body
+# fence `name() {`. Each is a four-step idiom — assert the anchor, plant, assert it
+# landed, and for a sourced library `bash -n` — and the four steps are exactly what a
+# copier drops. Measured when this was written: four call sites had re-typed the plant
+# with no anchor assertion at all, and one of the two library plants omitted the parse
+# check, which is the step that tells "the plant changed the behaviour" apart from "the
+# library no longer loads".
+#
+# THE CENSUS IS THE CONTROL. Consolidating the four helpers did not stop the fifth copy
+# from being typed; this case does. A helper nobody is required to call is a convention,
+# and this file's own history is that conventions here get re-typed.
+#
+# THIS CASE SCANS THE FILE IT LIVES IN, so it is inside its own operand set. The two
+# match strings are held in separate variables on separate lines and comment lines are
+# skipped — otherwise the derivation reddens on its own source and on the comment above.
+# =============================================================================
 case_fixture_append_has_one_authoring_site() {
   cf_reset
   make_sandbox
-  local self="${BASH_SOURCE[0]}"
   local m1='perl -i -pe'
   local m2='$_ .='
   local probe="$SB_TMP/appendprobe.sh"
-  cp "$self" "$probe"
+  _harness_probe_copy "$probe" \
+    || _fixture_die "case_fixture_append_has_one_authoring_site: could not copy the harness's own source to census."
+  _harness_population_is_whole "$probe"
 
   # THE DECLARED AUTHORS. Anything else that plants is a bypass.
   local allowed=" _declare_gate _guard_declare _plant_in_function rel_insert "
@@ -14859,6 +14868,26 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — THE SCAFFOLDING SENTINEL HAS THREE AUTHORS AND THEY MUST AGREE.
+#
+# The mark is written by two shipped root documents, looked for by check-board.sh's
+# graduation arm, and seeded by this harness. Single-sourcing the FIXTURE (one
+# seed_scaffolding_tree instead of five re-typed pairs) does not make those three agree —
+# it only means a disagreement now shows up once instead of five times. This case is what
+# actually holds them together.
+#
+# WHY NOT JUST DERIVE THE FIXTURE FROM check-board.sh: because then the fixture and the
+# tool agree BY CONSTRUCTION, and a rename in the shipped documents — the thing an adopter
+# deletes, the only place the mark is user-visible — would go unnoticed while every
+# graduation case stayed green. That reason stands, and the fixture is still never derived
+# from the probe. What is superseded is the fixture's other end: it read the DOCUMENTS, and
+# it now reads the harness's own declared KIT_SCAFFOLD_MARK, because the documents are
+# REPLACE-class and a tree that finished day one has replaced both — the derivation made
+# this whole harness refuse to start there, zero cases. The three authors are unchanged.
+# Arm (a) asserts the document author WHERE A SHIPPED COPY IS STILL PRESENT, and names the
+# documents it did not measure when one is not (instruments.md § A.4).
+# =============================================================================
 case_scaffolding_fixture_matches_the_tree() {
   cf_reset
   make_sandbox
@@ -15019,6 +15048,25 @@ case_scaffolding_fixture_matches_the_tree() {
   teardown
 }
 
+# =============================================================================
+# CASE — THE COPY-LIST MINIMUM IS A REAL MINIMUM, AND IT IS DERIVED, NOT RETYPED.
+#
+# THIS CASE EXISTS BECAUSE OF A DECLINE. It was asked whether this preflight should
+# check the whole manifest instead of a hand-typed minimum, and the answer was no: the
+# manifest is prose in process/EXTRACTION.md, process/contracts/initializer.md § 1
+# forbids the initializer carrying a second copy of it, and a machine-readable manifest
+# is a new shipped artifact bought for one preflight. What a decline owes is a control
+# proving the thing KEPT actually works — otherwise "the minimum is enough" is an
+# assertion, and the wider promise was withdrawn on the strength of it.
+# (Since then the build ships process/KIT-MANIFEST, and the preflight reads it for one
+# question only — shipped paths on disk but uncommitted. Presence is still the
+# hand-listed minimum, which is what this case controls.)
+#
+# The list is DERIVED out of the shipped script. A retyped copy here would be the exact
+# second-hand-typed-list the decline promised not to create, and it would go stale in the
+# one direction that matters: a file added to COPY_LIST and not to this case is a file
+# nobody checks.
+# =============================================================================
 case_kit_init_copy_list_minimum_is_real() {
   cf_reset
   if ! has_issue_template; then skp "kit-init's copy-list minimum is a REAL minimum" "$ISSUE_TEMPLATE_ABSENT"; return; fi
@@ -15069,6 +15117,23 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — A REFORMAT OF A DERIVED SEAM DECLARATION IS REFUSED LOUDLY, NEVER ABSORBED.
+#
+# Four names are parsed out of two files by nine anchored expressions in five files.
+# The shape those expressions assume was an undeclared contract between files that never
+# mention each other, until config-seam.md § 2 wrote it down.
+#
+# THE MUTATION HERE IS SEMANTICS-PRESERVING, AND THAT IS THE ENTIRE POINT. Dropping the
+# outer double quotes from `NAME="${NAME:-v}"` is identical to the shell — an assignment
+# RHS is not word-split — and invisible to every anchored sed. So the value keeps working
+# while every derivation of it silently returns nothing. A case that changed the VALUE
+# would be testing the value; this one tests the SHAPE, which is the thing that can break
+# without looking broken.
+#
+# case_ship_state guards the same shape by exact-line comparison, but it SKIPS on an
+# adopted tree — precisely where adopters live. This case does not skip.
+# =============================================================================
 case_seam_shape_reformat_is_loud() {
   cf_reset
   if ! has_issue_template; then skp "a reformatted seam declaration is refused loudly" "$ISSUE_TEMPLATE_ABSENT"; return; fi
@@ -15627,6 +15692,29 @@ EOF
   finish "process/KIT-MANIFEST names $n shipped path(s), every one of which exists in this tree; it excludes itself; and all $cl entries of kit-init.sh's own COPY_LIST minimum are inside it — both sides of that comparison derived, neither retyped here"
 }
 
+# =============================================================================
+# CASE — SHIP STATE. The control the neutralizer costs us.
+#
+# Why this case has to exist. Before _kit_neutral_config, every sandbox inherited
+# the real scripts/ verbatim, so the whole suite was an incidental — and
+# unstated — witness to the SHIPPED defaults: if this repository had ever declared
+# a gate or set RELEASE_PUBLISH=true, cases would have started behaving
+# differently and someone would eventually have noticed. Neutralizing deliberately
+# destroys that coupling, which is the point; it also destroys the witness. After
+# it, every green rests on the harness's OWN assignment of the neutral values, and
+# a kit that shipped `RELEASE_PUBLISH=true` would sail through a fully green run.
+# A SHIPPED DEFAULT IS ITSELF A SHIPPABLE DEFECT, and this is the only case that
+# looks at it. Same argument as the belt-tooling rule one level down: a fixture cannot certify the
+# thing it overwrites.
+#
+# It reads the REAL files and mutates nothing.
+#
+# WHY IT SKIPS RATHER THAN FAILS ON A CONFIGURED TREE. "The frame ships empty" is
+# a claim about the KIT, not about an adopter — a project that has filled its gate
+# table has done exactly what it was told to. So the case states its subject and
+# steps aside when the tree is not the shipped frame, naming the signal that told
+# it so. A SKIP here is a statement about the environment, never a hidden failure.
+# =============================================================================
 case_ship_state() {
   cf_reset
   local rv="$REAL_SCRIPTS/verify.sh" rr="$REAL_SCRIPTS/release.sh" rc_cfg="$REAL_SCRIPTS/config.sh"
