@@ -271,6 +271,34 @@ columns and never the cards.*
 
 ### Action required
 
+- **The self-test harness is split into files.** `scripts/test/run.sh` is still the one command. It
+  keeps its header, startup guards, `CASES` and the run loop, and sources `scripts/test/lib/*.sh`,
+  then `scripts/test/cases/*.sh`. The case list and every case's verdict are unchanged.
+
+  **What to do:**
+  1. **Before upgrading, run `git diff kit -- scripts/test/run.sh`.** Empty: take the new
+     `scripts/test/` whole. Anything printed will conflict: keep the new `run.sh`, and re-apply each
+     edit in the file its region moved to, which the table after this list gives. To find a function:
+     `grep -n '^<name>()' scripts/test/lib/*.sh scripts/test/cases/*.sh`.
+  2. **`scripts/test/` is one unit** with `process/KIT-MANIFEST`. Copy all of it: a new `run.sh` on
+     its own refuses, because it defines no case.
+  3. **Every `*.sh` under `scripts/test/lib/` or `scripts/test/cases/` is now harness**: loaded, and
+     read by the cases that census the harness's own text. Keep nothing else there.
+
+  | Was in `run.sh` | Now in `scripts/test/` |
+  |---|---|
+  | header, startup guards, `CASES`, registry guard, run loop, summary | `run.sh` |
+  | neutral config (`KIT_NEUTRAL_*`), recorders, `make_sandbox` (the sandbox board's status set), `seed_*`, `_neu_*`, `_kit_neutral_*`, `origin_*`, `_plant_in_function` | `lib/fixtures.sh` |
+  | `move-issue.sh`, `next-id.sh`, `commit-msg`, push failure, trunk chain, config seam, progress record, dirty guard | `cases/board.sh` |
+  | `finish-pr.sh`; `verify.sh` and its guard floor | `cases/landing.sh` |
+  | `archive.sh`, `archive-progress.sh`, rotation day | `cases/archive.sh` |
+  | workflow runners, agent definitions, the settings example | `cases/runners.sh` |
+  | `check-board.sh`'s arms, `cb_*`, `_lived_signals` | `cases/check-board.sh` |
+  | `kit-init.sh`, creation scripts, minted cards, role enforcement, `kit_init_sandbox`, `has_issue_template` | `cases/kit-init.sh` |
+  | `release.sh`, the consumer updater, `rel_*`, `has_release` | `cases/release.sh` |
+  | conformance over the shipped set: skills, CLI shape, help windows, the floor, templates, exit codes, the manifest | `cases/shipped-tree.sh` |
+  | cases that read the harness itself, ship state, isolation | `cases/harness.sh` |
+
 - **`finish-pr.sh`'s post-merge check usually read the branch you had just landed, not the trunk —
   and printed `POST_MERGE_GATE: PASS` naming your trunk.** It ran the gate in the checkout that had
   passed the pre-merge gate, which is required to sit at the branch tip, and nothing moved it after

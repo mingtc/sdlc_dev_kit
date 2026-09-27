@@ -455,7 +455,7 @@ exclusion below the table.
 | `githooks/commit-msg` | write-time enforcement, closed set, instructive refusal — **and its second rule, the refusal of generated co-author trailers and *"Generated with"* lines, which is wholly the kit's**: nothing stamps its marker list and no project edits it | the **membership** of the role set (the initializer stamps it) — **and nothing else in the file**. *The hook enforces two rules; only the first has a project-owned part. A reader who takes this row as describing the whole file will look for a project seam in the second rule and find none, which is the answer, not a gap.* |
 | `verify.sh` | one runner, fixed order, one summary block, the narrowed mode and its unskippable floor | the **declared gate table** and the floor's membership |
 | `release.sh` | preflight → bump → attributed commit → annotated tag → push → publish, and the refusals | which files carry the version, which documents are required, whether anything is published at all |
-| `test/run.sh` | the throwaway sandbox with its own publication target, three-way accounting, capability probes, the test-only marker | any case family that pins **your** facts |
+| `test/run.sh` and what it sources (`test/lib/`, `test/cases/`) | the throwaway sandbox with its own publication target, three-way accounting, capability probes, the test-only marker | any case family that pins **your** facts |
 | `setup.sh` | the shape: environment → install → gate → hooks path | **everything about your language runtime** |
 | `.env.example` | the kit's own entries, complete | the **project block** below them |
 | `.gitignore` | the kit's own entries, complete | the marked **build-artifact section** |
@@ -627,7 +627,7 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 | `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
 | `scripts/subtask.sh` | the set **minus `done` and minus `declined`**, on its `move` arm — both omissions are DECIDED, not inherited. A subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, and a subtask is not independently refusable: what gets declined is the PARENT, and the decomposition goes with it. | a subtask cannot reach the new column |
 | `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (its own comment says *"this is an existence check only"*). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
-| `scripts/test/run.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
+| `scripts/test/lib/fixtures.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
 | `scripts/lib/lived-probe.sh` | **nothing — it is PARAMETERISED**, and is in this table so that a maintainer who derives the carriers and meets it knows it needs no edit. The caller passes the columns, precisely because `kit-init.sh` and `check-board.sh` hold their sets in incompatible types (a bash array and a `\|`-delimited string). | nothing; it grows for free |
 | `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, in **brace-expansion form** (`progress/{todo,…}/`) — a lexical shape no `progress/<name>` path search finds, so a grep for the new column reports both files clean whether or not anyone considered them. **The prediction in this row came true the first time it was tested**: `declined/` was added and both files were missed by the sweep that added it, exactly as written. They now carry the exclusion **in prose** — a terminal column is not runnable — so the next reader meets a decision rather than a silence | the listing silently omits the column, and a reader is told the board is smaller than it is. **The subtler cost, once a terminal column exists:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
@@ -804,7 +804,7 @@ between them is the finding — never a reason to widen one of them until they a
 | `grep -lF -- "$ROLES"` | the set in exactly the shipped spelling | any other spacing, any partial copy, any copy assembled at runtime |
 | the tool's OWN OUTPUT — run `--help` and read what it prints | what the operator is actually told, whatever produced it | a copy that is never printed |
 
-*The second one is why `scripts/test/run.sh` now carries
+*The second one is why the harness (`scripts/test/cases/kit-init.sh`) now carries
 `case_move_issue_help_matches_its_role_enforcement`: it parses the advertised set out of `--help`
 and compares it to what `kit-init` was told on its command line, so neither operand is read through
 an expression the kit ships. **The case that already asserted "no seam keeps the old set" could not
@@ -816,8 +816,8 @@ construction; see [`doctrine/instruments.md`](doctrine/instruments.md) § A.4.*
 rendered from the seam at print time cannot drift and needs no stamping, which is why the usage
 text in the table above is now a renderer rather than a row to keep in step.
 
-**THE GLOB IS NON-RECURSIVE AND THAT IS LOAD-BEARING, not brevity.** Measured 2026-09-02: `grep -rlF`
-over `scripts/` returns the enforcing seams **plus `scripts/test/run.sh`** — the harness, which
+**THE GLOB IS NON-RECURSIVE AND THAT IS LOAD-BEARING, not brevity.** Measured 2026-09-27: `grep -rlF`
+over `scripts/` returns the enforcing seams **plus `scripts/test/lib/fixtures.sh`** — the harness, which
 asserts what the kit SHIPS and must never be stamped, because stamping it rewrites the assertion to
 match whatever it was measuring. The non-recursive glob excludes it **by shape**, so there is no
 exclusion list to keep in step with anything. `kit-init.sh` derives its stamping list with exactly

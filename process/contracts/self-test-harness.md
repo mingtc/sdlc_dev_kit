@@ -111,7 +111,8 @@ a disposable repository, so that the tools that guard the project are themselves
 
 > One implementation, not the definition.
 
-- `scripts/test/run.sh` — KIT-CLASS **MIXED**: this sheet describes the **kit half** (the
+- `scripts/test/run.sh`, the entry point, which sources `scripts/test/lib/<name>.sh` then
+  `scripts/test/cases/<name>.sh` — KIT-CLASS **MIXED**: this sheet describes the **kit half** (the
   disposable sandbox with its own publication target, the three-way accounting, the capability
   probes, the test-only marker). Any case family that pins one installation's own facts is
   marked as such in [`../EXTRACTION.md`](../EXTRACTION.md) § 1.1, whose "Take but EDIT" table carries
@@ -128,13 +129,13 @@ a disposable repository, so that the tools that guard the project are themselves
   here (`doctrine/staleness.md` § C):
 
   ```sh
-  # cases defined
-  grep -cE '^case_[a-z_]*\(\)' scripts/test/run.sh
+  # cases defined — over the whole harness, not its entry point
+  cat scripts/test/run.sh scripts/test/lib/*.sh scripts/test/cases/*.sh | grep -cE '^case_[a-z_]*\(\)'
   # of those, the ones carrying an ablation IN THEIR OWN BODY — the closing-brace reset is
   # load-bearing: without it the last case name carries past the function and mentions in the
   # comments between cases are attributed to whichever case happened to precede them.
   awk '/^case_[a-z_]*\(\)/{n=$1; inb=1} /^}/{inb=0; n=""} /[Aa]blat/{if(inb && n!="")print n}' \
-    scripts/test/run.sh | sort -u | wc -l
+    scripts/test/run.sh scripts/test/lib/*.sh scripts/test/cases/*.sh | sort -u | wc -l
   ```
 
   Run on the reference implementation the day this invariant landed, the second number was a **small

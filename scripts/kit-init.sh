@@ -906,7 +906,7 @@ if [ -n "$ROLES_NEW" ]; then
   # loop while its --role whitelist enforced the shipped set, so a renamed project
   # got a subtask tool that rejected every role it had just declared.
   #
-  # scripts/test/run.sh carries the literal too and is DELIBERATELY NOT HERE: the
+  # The self-test harness under scripts/test/ carries the literal too and is DELIBERATELY NOT HERE: the
   # harness asserts what the kit SHIPS, so stamping it would rewrite the assertion
   # to match whatever it was measuring and the case could never fail.
   # THE SEAM LIST IS DERIVED, NOT TYPED — because the typed one was wrong, and the
@@ -914,9 +914,10 @@ if [ -n "$ROLES_NEW" ]; then
   # carries the role set" is a second copy of a fact the files themselves already state,
   # and it goes stale the first time somebody adds a seam without finding this loop.
   #
-  # NON-RECURSIVE, AND THAT IS THE WHOLE SAFETY OF IT. Measured 2026-09-02 with
-  # /usr/bin/grep: `grep -rlF` over scripts/ returns FIVE — the four seams plus
-  # scripts/test/run.sh, the one file the paragraph above says must never be stamped.
+  # NON-RECURSIVE, AND THAT IS THE WHOLE SAFETY OF IT. Measured 2026-09-27 with
+  # /usr/bin/grep: `grep -rlF` over scripts/ returns the four seams plus
+  # scripts/test/lib/fixtures.sh (scripts/test/run.sh, before the harness was split), the
+  # harness file the paragraph above says must never be stamped.
   # The glob excludes it BY SHAPE, so there is no exclusion list to keep in step with
   # anything. Widen this to -r and you silently rewrite the harness's own assertion to
   # match whatever it was measuring.
