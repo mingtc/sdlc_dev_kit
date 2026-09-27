@@ -840,6 +840,12 @@ columns and never the cards.*
 - **`check-board.sh`'s graduation check finds every file that declares `KIT-DISPOSITION: REPLACE`**, not only `CLAUDE.md` and
   `README.md` (which its output already claimed); a file you marked REPLACE yourself is now checked. **Nothing to do.**
 
+- **Script help and small behaviour fixes.** `--help` succeeds wherever it appears in `subtask.sh`, `notify.sh` and `new-prd.sh`;
+  `verify.sh --help` no longer opens with its KIT-DISPOSITION line; `next-id.sh` ignores id-like directory names above the board;
+  `archive-progress.sh` measures § Log exactly as `check-board.sh` does; `notify.sh` lists only transport adapters;
+  `consumers/install-skills.sh` leaves no empty `.claude/skills/` without a pack; `wave-runner.js`'s park QA walks the same five
+  checks as `tranche-runner.js` and moves a failing park back to `in_progress`; both runners log `LAND_READY`. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

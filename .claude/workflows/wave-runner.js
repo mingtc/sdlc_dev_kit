@@ -331,10 +331,30 @@ Return the structured result only.`
 //
 // Maintainer notes go in `//` comments, never inside a prompt literal: the agent reads the literal
 // as instructions, and a backtick in it ends the literal.
+// THE PARK WALK AND ITS VERDICTS, shared with tranche-runner.js and held identical by the self-test.
+function parkWalk(issue) {
+  return `NOT in scope: whether parking was the right call, or whether the work should be re-planned — that is the PM's decision, and a park you dislike but which is honest is a PASS.
+Walk these, each with concrete evidence (file:line, a command + its result line):
+1. **Placement** — the issue file sits in progress/blocked/ and its Activity log records the move (./scripts/check-board.sh clean; the move-issue.sh commit exists on ${CFG.trunk}).
+2. **Findings** — the write-up's verdict is evidence-backed and honestly scoped: every load-bearing claim is reproducible (re-run the cheap ones yourself), and what is UNMET is stated as unmet rather than smoothed over. A park that overclaims is a FAIL.
+3. **Residue** — nothing half-landed: git status clean, no stray branch left behind${issue.docsPath ? '' : ` (${issue.branch} must not exist unmerged unless the write-up says why)`}, no partial edit to a code path that the park does not own.
+4. **Contradiction** — nothing the park claims is contradicted by the tree as it stands.
+5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${gatesOf(issue)}.
+Verdict:
+- **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
+- **NO VERDICT** — a check you must run COULD NOT RUN: set precondition_failure to name it and omit verdict. That is not a FAIL, and the park is not judged.
+- **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.`
+}
+
+// Beside naming the wave, this differs from tranche-runner's park brief only in having no fix-round
+// line: this runner grants none, and an unverified park halts the wave (meta.description).
 function parkPrompt(issue) {
-  return `Wear the **QA hat** per .claude/roles/qa.md. Issue ${issue.id} was PARKED by its Dev (status=blocked). Verify THE PARK, not the feature: the issue sits in blocked/ with findings; the findings are evidence-backed and honestly scoped; the tree shows no half-landed residue (clean status, no stray branch); nothing in the park's claims is contradicted by the repo. Do not re-litigate whether parking was right — that is the PM's call. ${COMMON}
-If a check you must run COULD NOT RUN, there is no verdict to give: set precondition_failure to name it and omit verdict.
-Return the structured result only: the ratified verdict for whether the PARK is true, and landing=not_applicable — a park lands nothing, so that is the true value rather than an exception you are being granted.`
+  return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). Dev PARKED this issue: it returned status=blocked and moved the issue to progress/blocked/ with a findings write-up. You are the fresh-eyes reviewer of THE PARK ITSELF.
+${COMMON}
+A park is a CLOSE, and every close in this wave is reviewed. Your question is narrow: **is the park TRUE?**
+${parkWalk(issue)}
+${issue.extraQA || ''}
+Return the structured result only.`
 }
 
 const results = []
@@ -389,7 +409,7 @@ async function runIssue(issue) {
     log(`${issue.id}: LANDED`)
     return { id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
   }
-  log(`${issue.id}: LAND-READY (verified; landing deferred)`)
+  log(`${issue.id}: LAND_READY (verified; landing deferred)`)
   return { id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence }
 }
 

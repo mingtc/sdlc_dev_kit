@@ -289,7 +289,8 @@ $(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
 # renders with its own inline copy. So the LIBRARY is made to emit an extra line, and every
 # consumer must show it (arm 1). ARM 2 catches the lift trap: inside a sourced function
 # `${BASH_SOURCE[0]}` names the library, so every tool would print lib/usage.sh's header
-# while arm 1 stays green; each consumer must still render ITS OWN line 3.
+# while arm 1 stays green; each consumer must still render the LAST line of ITS OWN header,
+# which no marker above it can move.
 # =============================================================================
 case_usage_renderer_has_one_authoring_site() {
   cf_reset
@@ -304,7 +305,7 @@ case_usage_renderer_has_one_authoring_site() {
 
   # THE CONSUMER SET IS DERIVED, never listed — a literal list in a guard goes blind the
   # first time a script joins or leaves.
-  local consumers f base out n=0
+  local consumers f base out own n=0
   # Matched WITHOUT a line anchor: verify.sh sources the library inside a guard, and an
   # anchored pattern would leave out the consumer with the most fragile load.
   consumers="$( { grep -lF '. "$SCRIPT_DIR/lib/usage.sh"' "$SB_WORK"/scripts/*.sh 2>/dev/null || true; } )"
@@ -336,8 +337,10 @@ PRE_EOF
     printf '%s\n' "$out" | grep -F "$tok" >/dev/null \
       || cf "(1) $base --help does not carry a line added to lib/usage.sh — it sources the library and then renders with its own inline copy"
     # ARM 2 — …and it still renders ITS OWN header, not the library's.
-    printf '%s\n' "$out" | grep -F "$(sed -n '3p' "$f" | sed 's|^# \{0,1\}||')" >/dev/null \
-      || cf "(2) $base --help no longer contains its OWN line 3 — the renderer is reading \${BASH_SOURCE[0]}, which inside a sourced function names the LIBRARY, so every tool is printing lib/usage.sh's header"
+    own="$(awk 'NR>1 && !/^#/{exit} NR>1{l=$0; sub(/^# ?/, "", l); if (l != "") last=l} END{print last}' "$f")"
+    [ -n "$own" ] || _fixture_die "case_usage_renderer_has_one_authoring_site: $base has no header line to look for."
+    printf '%s\n' "$out" | grep -F -- "$own" >/dev/null \
+      || cf "(2) $base --help no longer contains the last line of its OWN header — the renderer is reading \${BASH_SOURCE[0]}, which inside a sourced function names the LIBRARY, so every tool is printing lib/usage.sh's header"
   done <<POST_EOF
 $consumers
 POST_EOF
@@ -364,13 +367,73 @@ POST_EOF
 }
 
 # =============================================================================
+# CASE — --help DOES NOT PRINT A KIT-DISPOSITION LINE
+#
+# The disposition marker sits under KIT-CLASS for a reader that is a tool, not a person, and it
+# outlives the obligation it states. PLANTED in every consumer of lib/usage.sh, so the case has a
+# subject whether or not a shipped script still carries one: the planted line must not print,
+# and the header line it displaced must open the help.
+# =============================================================================
+case_help_does_not_print_the_disposition_marker() {
+  cf_reset
+  make_sandbox
+  local consumers f base at want out n=0 tok='HELPDISPOSITION-SENTINEL'
+  consumers="$( { grep -lF '. "$SCRIPT_DIR/lib/usage.sh"' "$SB_WORK"/scripts/*.sh 2>/dev/null || true; } )"
+  [ -n "$consumers" ] \
+    || _fixture_die "case_help_does_not_print_the_disposition_marker: no script sources lib/usage.sh — nothing to plant into."
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    base="$(basename "$f")"; n=$((n+1))
+    # Under the marker's last line (the one citing EXTRACTION.md) and any disposition line already there.
+    at="$(awk 'NR<=12 && /EXTRACTION\.md/ && !m {m=NR} m && NR>m && !/^#[[:space:]]*KIT-DISPOSITION:/{print NR; exit}' "$f")"
+    [ -n "$at" ] || _fixture_die "case_help_does_not_print_the_disposition_marker: $base has no marker line to plant under."
+    want="$(sed -n "${at}p" "$f" | sed 's|^# \{0,1\}||')"
+    awk -v ln="$at" -v tok="$tok" 'NR==ln{print "# KIT-DISPOSITION: FILL — " tok} {print}' "$f" > "$f.new" && cat "$f.new" > "$f" && rm -f "$f.new"
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
+    printf '%s\n' "$out" | grep -F "$tok" >/dev/null \
+      && cf "$base --help prints its KIT-DISPOSITION line"
+    [ "$(printf '%s\n' "$out" | sed -n '1p')" = "$want" ] \
+      || cf "$base --help does not open with the header line under its markers ('$want'): $(printf '%s\n' "$out" | sed -n '1p')"
+  done <<CONSUMERS_EOF
+$consumers
+CONSUMERS_EOF
+  finish "--help does not print a KIT-DISPOSITION line: planted under the marker of each of $n lib/usage.sh consumer(s), it is skipped and the header line below it opens the help"
+  teardown
+}
+
+# =============================================================================
+# CASE — notify.sh OFFERS ONLY TRANSPORT ADAPTERS
+#
+# scripts/notify/ also holds stall.sh, the liveness watchdog, which answers no `send` verb: an
+# operator who picks it from the "Available:" list gets its usage dump and exit 2. A planted
+# adapter is the control, so the list is not passing by being empty.
+# =============================================================================
+case_notify_lists_only_adapters() {
+  cf_reset
+  local L="notify.sh's Available: list names the transport adapters and not the stall watchdog"
+  make_sandbox
+  if [ ! -f "$SB_WORK/scripts/notify/stall.sh" ]; then teardown; skp "$L" "scripts/notify/stall.sh absent"; return; fi
+  printf '#!/usr/bin/env bash\ncase "${1:-send}" in\n  send) exit 0 ;;\n  test) exit 0 ;;\nesac\n' \
+    > "$SB_WORK/scripts/notify/zzplant.sh"
+  local out avail
+  out="$( cd "$SB_WORK" && NOTIFY_BACKEND=nope ./scripts/notify.sh test 2>&1 )"
+  avail="$(printf '%s\n' "$out" | sed -n 's/.*Available: //p')"
+  [ -n "$avail" ] || _fixture_die "case_notify_lists_only_adapters: no 'Available:' line to read: $out"
+  printf ',%s,' "$avail" | grep ',stall,' >/dev/null && cf "the Available: list offers stall, which is not a transport adapter: $avail"
+  printf ',%s,' "$avail" | grep ',zzplant,' >/dev/null || cf "(control) a planted adapter with a send verb is not listed: $avail"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — EACH HELP WINDOW ENDS WHERE ITS OWN RULE SAYS, AND THERE ARE TWO RULES.
 #
 # Most tools render `--help` from their header comment block, ending at its LAST COMMENT
 # LINE. `release.sh` ends at its LAST USAGE EXAMPLE instead, because its header carries
 # operator notes below the examples. A hard-coded window is a census in disguise, so the tail
 # is proven with a planted sentinel. THE CORPUS IS DERIVED BY BEHAVIOUR: a script is a header
-# renderer iff its --help succeeds and its first output line is its own line 3, de-hashed.
+# renderer iff its --help succeeds and its first output line is one of its own lines 2-12,
+# de-hashed (the markers above the help are one line or several).
 # =============================================================================
 case_help_window_ends_where_its_rule_says() {
   cf_reset
@@ -382,13 +445,13 @@ case_help_window_ends_where_its_rule_says() {
     || _fixture_die "case_help_window_ends_where_its_rule_says: the sentinel already occurs under scripts/ — every assertion would be satisfiable without the plant."
 
   # ── derive the corpus by BEHAVIOUR.
-  local f base line3 out corpus="" n=0
+  local f base first_out out corpus="" n=0
   for f in "$SB_WORK"/scripts/*.sh; do
     [ -e "$f" ] || continue
     out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )" || continue
-    line3="$(sed -n '3p' "$f" | sed 's|^# \{0,1\}||')"
-    [ -n "$line3" ] || continue
-    [ "$(printf '%s\n' "$out" | sed -n '1p')" = "$line3" ] || continue
+    first_out="$(printf '%s\n' "$out" | sed -n '1p')"
+    [ -n "$first_out" ] || continue
+    sed -n '2,12p' "$f" | sed 's|^# \{0,1\}||' | grep -xF -- "$first_out" >/dev/null || continue
     corpus="${corpus}${f}\n"; n=$((n+1))
   done
   [ "$n" -gt 1 ] \

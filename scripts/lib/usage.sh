@@ -2,8 +2,9 @@
 # KIT-CLASS: KIT — the ONE header-block --help renderer. See process/EXTRACTION.md.
 #
 # THE RULE: a script's `--help` is its own header comment block, from the line after the
-# KIT-CLASS marker to the last comment line before the first code line, `# ` stripped. Write
-# the header once: no second copy to drift, no hard-coded line range.
+# KIT-CLASS marker to the last comment line before the first code line, `# ` stripped. A
+# KIT-DISPOSITION line under the marker is for tools, not readers, and is skipped. Write the
+# header once: no second copy to drift, no hard-coded line range.
 #
 # THE PATH IS AN ARGUMENT, NOT `${BASH_SOURCE[0]}`: inside a sourced function that names THIS
 # file, so every caller would print the library's header. Callers pass their own path:
@@ -36,6 +37,7 @@ kit_usage() {
   start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start=3
+  start="$(awk -v s="$start" 'NR>=s && !/^#[[:space:]]*KIT-DISPOSITION:/{f=1; print NR; exit} END{if (!f) print s}' "$src")"
   first="$(awk -v s="$start" 'NR>=s && !/^#/{print NR; exit}' "$src")"
   # `first` is never below `start`. The floor is for an ALL-COMMENT file, which leaves `first`
   # unset and would otherwise give `3,-1p`, an error.

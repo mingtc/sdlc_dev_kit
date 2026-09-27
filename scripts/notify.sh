@@ -69,22 +69,23 @@ else
 fi
 
 warn() { printf 'notify: %s\n' "$*" >&2; }
+usage() {
+  echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"
+  echo "       notify.sh test [--session <slug>]        # no message: sends a fixed probe"
+  echo "       [--ref <ref>] [--progress <n/m>] [--message <text>]"
+  echo ""
+  echo "  test   probe the configured transport and report; NON-ZERO if it fails."
+  echo "  others deliver a notification. Delivery failure is FAIL-SOFT (exit 0) on"
+  echo "         purpose: a notification is not the work. An illegal INVOCATION is not."
+}
+# A usage request always succeeds, in any position (issue-creation.md § 3).
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 CMD="${1:-}"
 [ -z "$CMD" ] && { warn "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"; warn "       notify.sh test [--session <slug>]   # no message"; exit 2; }
 shift || true
 
 case "$CMD" in
-  # A usage request always succeeds (issue-creation.md § 3).
-  -h|--help)
-    echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"
-    echo "       notify.sh test [--session <slug>]        # no message: sends a fixed probe"
-    echo "       [--ref <ref>] [--progress <n/m>] [--message <text>]"
-    echo ""
-    echo "  test   probe the configured transport and report; NON-ZERO if it fails."
-    echo "  others deliver a notification. Delivery failure is FAIL-SOFT (exit 0) on"
-    echo "         purpose: a notification is not the work. An illegal INVOCATION is not."
-    exit 0 ;;
   test) MODE=test ;;
   attention|blocked|done|milestone|progress) MODE=send; CLASS="$CMD" ;;
   *) warn "unknown class/command '$CMD' (use: attention|blocked|done|milestone|progress|test)"; exit 2 ;;
@@ -129,7 +130,8 @@ if [ "$NOTIFY_BACKEND" = "none" ]; then
 fi
 
 if [ ! -f "$ADAPTER" ]; then
-  avail="$(find "$ROOT/scripts/notify" -maxdepth 1 -name '*.sh' -print0 2>/dev/null | xargs -0 -n1 basename 2>/dev/null | sed 's/\.sh$//' | paste -sd, -)"
+  # An adapter is a script with a `send)` verb arm; stall.sh, the watchdog beside them, has none.
+  avail="$( { grep -lE '^[[:space:]]*send\)' "$ROOT"/scripts/notify/*.sh 2>/dev/null || true; } | sed 's|.*/||; s/\.sh$//' | paste -sd, -)"
   warn "no adapter for NOTIFY_BACKEND='$NOTIFY_BACKEND' (expected scripts/notify/${NOTIFY_BACKEND}.sh). Available: ${avail:-none}"
   [ "$MODE" = "test" ] && exit 1 || exit 0
 fi

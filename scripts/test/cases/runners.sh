@@ -177,6 +177,8 @@ case_runner_outcome_vocabulary_agrees() {
     while IFS= read -r t; do
       [ -n "$t" ] || continue
       grep -qF "OUTCOME.$t" "$f" || { unused=$(( unused + 1 )); cf "$(basename "$f"): declares OUTCOME.$t and never returns it -- a vocabulary member the runner cannot produce is documentation, and it still compares equal to its twin"; }
+      # ...and spells it one way: a log line reading LAND-READY is a token nobody can grep for.
+      case "$t" in *_*) ! grep -qF -- "${t//_/-}" "$f" || cf "$(basename "$f"): spells $t as ${t//_/-}" ;; esac
     done < <(_outcome_tokens "$f")
   done <<EOF
 $(_shipped_runners)
@@ -214,7 +216,7 @@ EOF
     cf "process/MANUAL.md is absent — the ratified table is the authority this case pins to"
   fi
 
-  finish "the two shipped runners' run-outcome vocabularies agree with EACH OTHER and PROJECT the ratified table in process/MANUAL.md ($n token(s) per runner, $na ratified, $unused unused) — both arms, because an authority does not make two hand-copies agree and two hand-copies agreeing does not make either right"
+  finish "the two shipped runners' run-outcome vocabularies agree with EACH OTHER and PROJECT the ratified table in process/MANUAL.md ($n token(s) per runner, $na ratified, $unused unused), and no runner spells a token with a hyphen — both arms, because an authority does not make two hand-copies agree and two hand-copies agreeing does not make either right"
   teardown
 }
 
@@ -232,6 +234,7 @@ EOF
 #     one only that runner reads (the wave's worktree bootstrap).
 # The guarded parse is not held: its message names the runner and its args shape by design.
 _TWIN_BLOCKS='provision()|^const DEFAULT_MODEL =|^}
+parkWalk()|^function parkWalk[(]|^}
 leg() and the leg-notes trail|^const LEG_THREW =|^const legNotes =
 DEV_SCHEMA|^const DEV_SCHEMA =|^}
 the verdict and outcome vocabulary through devAnswered|^const VERDICTS =|^const devAnswered =

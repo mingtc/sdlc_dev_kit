@@ -298,7 +298,8 @@ if [ "$PRE_COUNT" = "0" ]; then
   # checker, never re-declared here (lookup-tables.md § A.1).
   _cb="$(dirname "${BASH_SOURCE[0]}")/check-board.sh"
   THRESH="$(sed -n 's/^PROGRESS_LOG_BYTE_THRESHOLD=\([0-9]*\).*/\1/p' "$_cb" 2>/dev/null | head -1)"
-  LOGBYTES="$(awk '/^## Log[[:space:]]*$/{f=1} f{n+=length($0)+1} END{print n+0}' "$PROGRESS")"
+  # § Log as the board slices it: to the next `## ` heading, in bytes (check-board.sh arm c).
+  LOGBYTES="$(awk '/^##[[:space:]]/ { if (f) exit; if ($0 ~ /^##[[:space:]]+Log/) f=1 } f { print }' "$PROGRESS" | wc -c | tr -d ' ')"
 
   # "Nothing to archive" is printed only under the threshold, so a reader grepping for the
   # green phrase never finds it on a run where a rotation was due.

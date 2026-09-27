@@ -572,7 +572,8 @@ ap_thresh() {
 
 # ap_seed <repo> <n_entries> <date> — a log of N same-day entries, padded so § Log
 # lands OVER the derived threshold. Same-day on purpose: that is the condition a
-# date knife cannot cut.
+# date knife cannot cut. The entries are `### DATE`, the documented form: a `## DATE`
+# heading ends § Log for the board's slice, so the log would measure almost nothing.
 ap_seed() {
   local R="$1" n="$2" d="$3" thresh pad i
   thresh="$(ap_thresh)"; [ -n "$thresh" ] || { cf "(fixture) could not derive PROGRESS_LOG_BYTE_THRESHOLD"; return 1; }
@@ -580,12 +581,12 @@ ap_seed() {
   mkdir -p "$R/progress/history"
   { echo "# progress.md"; echo ""; echo "Preamble."; echo ""; echo "## Log"; echo ""
     for i in $(seq 1 "$n"); do
-      echo "## $d [Dev] session $i"
+      echo "### $d [Dev] session $i"
       head -c "$pad" /dev/zero | tr '\0' 'x'; echo
       echo ""
     done
   } > "$R/progress.md"
-  local got; got="$(awk '/^## Log[[:space:]]*$/{f=1} f{n+=length($0)+1} END{print n+0}' "$R/progress.md")"
+  local got; got="$(awk '/^##[[:space:]]/ { if (f) exit; if ($0 ~ /^##[[:space:]]+Log/) f=1 } f { print }' "$R/progress.md" | wc -c | tr -d ' ')"
   [ "$got" -gt "$thresh" ] || cf "(fixture) § Log is $got bytes, NOT over the $thresh threshold — the case would prove nothing"
 }
 
@@ -655,13 +656,13 @@ case_archive_progress_ordinal_knife() {
   # FIRST rotation of the day.
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone d1 --keep-last 8 --apply 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "first --keep-last run exited $rc (expected 0): $out"
-  local left; left="$(grep -c '^## 2026-08-26' "$R/progress.md" || true)"
+  local left; left="$(grep -c '^### 2026-08-26' "$R/progress.md" || true)"
   [ "$left" = "8" ] || cf "after --keep-last 8 the log holds $left entries, expected 8"
 
   # SECOND rotation, SAME CALENDAR DAY: a date knife has nothing left to cut here.
   out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone d2 --keep-last 3 --apply 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "SECOND same-day --keep-last run exited $rc (expected 0) — the duty cycle is not closed: $out"
-  left="$(grep -c '^## 2026-08-26' "$R/progress.md" || true)"
+  left="$(grep -c '^### 2026-08-26' "$R/progress.md" || true)"
   [ "$left" = "3" ] || cf "after the second cut the log holds $left entries, expected 3"
 
   # THE CONTROL: the date knife on the same fixture cuts NOTHING. Without this the
@@ -703,7 +704,15 @@ case_archive_progress_honest_noop() {
   printf '%s' "$out" | grep 'under threshold' >/dev/null \
     || cf "the under-threshold green did not state the measurement that makes it a green: $out"
 
-  finish "archive-progress.sh: nothing-matched OVER threshold exits 3 without the green phrase; UNDER threshold exits 0 with it"
+  # AND THE SAME SLICE AS THE BOARD: § Log ends at the next `## ` heading, so a large section
+  # after it is not the log. Measured to end of file, this read a rotation due that the board,
+  # which owns the threshold, reports clear.
+  { echo "# progress.md"; echo ""; echo "## Log"; echo ""; echo "### 2026-08-26 [Dev] one small entry"; echo "body"; echo ""
+    echo "## Notes"; head -c "$(( thresh + 1000 ))" /dev/zero | tr '\0' 'x'; echo; } > "$R/progress.md"
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone n3 --before 2026-08-26 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a small § Log followed by a large section exited $rc, expected 0 — § Log was measured past its own end: $out"
+
+  finish "archive-progress.sh: nothing-matched OVER threshold exits 3 without the green phrase; UNDER threshold exits 0 with it; § Log is measured to the next '## ' heading, as the board measures it"
   teardown
 }
 

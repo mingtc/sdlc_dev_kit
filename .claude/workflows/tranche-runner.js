@@ -1,7 +1,7 @@
 // KIT-CLASS: KIT — the serial tranche runner. Everything project-specific is in CFG below.
 export const meta = {
   name: 'tranche-runner',
-  description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that FAILS the park halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined for an untyped leg; the frontmatter pin of a leaf worker type governs what the issue leaves unset) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
+  description: 'Run a minted issue tranche serially: per issue one implementer-hat agent (Dev/Refactorer, code or docs path) then a fresh-eyes QA agent; one bounded fix round on FAIL. EVERY close is reviewed, including a park: a parkable issue that comes back blocked goes through a park-QA leg that verifies the park is TRUE (findings evidence-backed, issue in blocked/, no half-landed residue) — PARKED_OK means "parked AND verified", and a park QA that still FAILS the park after one bounded fix round halts the tranche as PARK_UNVERIFIED. Each leg is explicitly provisioned — per-issue model (devModel/qaModel) and effort (devEffort/qaEffort, never undefined for an untyped leg; the frontmatter pin of a leaf worker type governs what the issue leaves unset) at every call site including the fix round and the second QA pass — and may name a .claude/agents/ leaf worker type via devAgentType/qaAgentType.',
   phases: [
     { title: 'Dev', detail: 'one Dev-hat agent per issue, TDD on a work branch (or direct-to-trunk on the docs path); per-issue devModel + devEffort override', model: 'opus' },
     { title: 'QA', detail: 'separate fresh-eyes QA-hat agent per issue; lands via the landing script; a park takes the same seam as a park-QA leg (the ratified verdict set, landing always not_applicable) instead of closing unreviewed; per-issue qaModel + qaEffort override', model: 'opus' },
@@ -284,15 +284,10 @@ Return the structured result only.`
 //
 // Maintainer notes go in `//` comments, never inside a prompt literal: the agent reads the literal
 // as instructions, and a backtick in it ends the literal.
-function parkPrompt(issue, fixNotes) {
-  const round = fixNotes
-    ? `THIS IS THE SECOND park-QA pass — the first FAILed and Dev was given one bounded fix round on exactly these findings:\n${fixNotes}\nRe-check them first, then the full walk below.`
-    : `This is the first park-QA pass.`
-  return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). Dev PARKED this issue: it returned status=blocked and moved the issue to progress/blocked/ with a findings write-up. You are the fresh-eyes reviewer of THE PARK ITSELF.
-${COMMON}
-${round}
-A park is a CLOSE, and every close in this tranche is reviewed. Your question is narrow: **is the park TRUE?**
-NOT in scope: whether parking was the right call, or whether the work should be re-planned — that is the PM's decision, and a park you dislike but which is honest is a PASS.
+// THE PARK WALK AND ITS VERDICTS, shared with wave-runner.js and held identical by the self-test:
+// what makes a park true does not depend on which runner asked.
+function parkWalk(issue) {
+  return `NOT in scope: whether parking was the right call, or whether the work should be re-planned — that is the PM's decision, and a park you dislike but which is honest is a PASS.
 Walk these, each with concrete evidence (file:line, a command + its result line):
 1. **Placement** — the issue file sits in progress/blocked/ and its Activity log records the move (./scripts/check-board.sh clean; the move-issue.sh commit exists on ${CFG.trunk}).
 2. **Findings** — the write-up's verdict is evidence-backed and honestly scoped: every load-bearing claim is reproducible (re-run the cheap ones yourself), and what is UNMET is stated as unmet rather than smoothed over. A park that overclaims is a FAIL.
@@ -302,7 +297,18 @@ Walk these, each with concrete evidence (file:line, a command + its result line)
 Verdict:
 - **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
 - **NO VERDICT** — a check you must run COULD NOT RUN: set precondition_failure to name it and omit verdict. That is not a FAIL, and the park is not judged.
-- **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.
+- **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.`
+}
+
+function parkPrompt(issue, fixNotes) {
+  const round = fixNotes
+    ? `THIS IS THE SECOND park-QA pass — the first FAILed and Dev was given one bounded fix round on exactly these findings:\n${fixNotes}\nRe-check them first, then the full walk below.`
+    : `This is the first park-QA pass.`
+  return `Wear the **QA hat** per .claude/roles/qa.md for issue ${issue.id} (${issue.title}). Dev PARKED this issue: it returned status=blocked and moved the issue to progress/blocked/ with a findings write-up. You are the fresh-eyes reviewer of THE PARK ITSELF.
+${COMMON}
+${round}
+A park is a CLOSE, and every close in this tranche is reviewed. Your question is narrow: **is the park TRUE?**
+${parkWalk(issue)}
 ${issue.extraQA || ''}
 Return the structured result only.`
 }
@@ -444,7 +450,7 @@ for (const issue of ARGS.issues) {
       log(`${issue.id}: LANDED`)
       results.push({ id: issue.id, outcome: OUTCOME.LANDED, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
     } else {
-      log(`${issue.id}: LAND-READY (verified; landing deferred) — tranche continues`)
+      log(`${issue.id}: LAND_READY (verified; landing deferred) — tranche continues`)
       results.push({ id: issue.id, outcome: OUTCOME.LAND_READY, qa_evidence: qa.ac_walk, gates: qa.gate_evidence })
     }
   } catch (e) {

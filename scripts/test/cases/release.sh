@@ -1054,6 +1054,33 @@ case_release_spaced_path() {
 }
 
 # =============================================================================
+# CASE — install-skills.sh writes nothing into a consumer when there is no pack
+#
+# setup-consumer.sh promises that a project with no pack "skips this step and nothing else
+# changes". The control plants one router file: it is copied, so the empty-pack refusal is not
+# the script failing at everything.
+# =============================================================================
+case_install_skills_writes_nothing_without_a_pack() {
+  cf_reset
+  local L="install-skills.sh leaves a consumer untouched when the pack holds no router, and copies one when it does"
+  make_sandbox
+  local inst="$SB_WORK/consumers/install-skills.sh" pack="$SB_WORK/consumers/skills" cons="$SB_TMP/consumer" rc
+  if [ ! -f "$inst" ]; then teardown; skp "$L" "consumers/install-skills.sh absent"; return; fi
+  # The pack reduced to what the script skips by shape: its README and any EXAMPLE-* skeleton.
+  find "$pack" -mindepth 1 -maxdepth 1 ! -name README.md ! -name 'EXAMPLE-*' -exec rm -rf {} +
+  mkdir -p "$cons"
+  rc=0; bash "$inst" "$cons" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || cf "an empty pack did not refuse (rc=0)"
+  [ ! -e "$cons/.claude" ] || cf "an empty pack still created $(cd "$cons" && find .claude | tr '\n' ' ')in the consumer"
+  mkdir -p "$pack/router-a" && printf 'x\n' > "$pack/router-a/SKILL.md"
+  rc=0; bash "$inst" "$cons" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] && [ -f "$cons/.claude/skills/router-a/SKILL.md" ] \
+    || cf "(control) a one-router pack was not installed (rc=$rc)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE CONSUMER-UPDATER FAMILY. It runs only when CONSUMER_SCRIPT names an
 # executable: a vendoring/updater script is a DISTRIBUTION MODEL, not a kit
 # feature. What the kit asserts is the SHAPE every such script owes

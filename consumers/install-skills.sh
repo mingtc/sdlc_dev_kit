@@ -52,7 +52,6 @@ CONSUMER="${1:-$(pwd)}"
 CONSUMER="$(cd "$CONSUMER" && pwd)" || die "consumer path does not exist: ${1:-$(pwd)}"
 
 DEST="$CONSUMER/.claude/skills"
-mkdir -p "$DEST"
 
 copied=0
 skipped=0

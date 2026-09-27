@@ -14,15 +14,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # This script's seam is PRD_PREFIX. The refusal sits below the usage arm.
 CONFIG="$ROOT/scripts/config.sh"
 
-CARDLIB="$ROOT/scripts/lib/card-head.sh"
-if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
-  echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
-  echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
-  echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
-  echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
-  exit 1
-fi
-
 TEMPLATE="$ROOT/.claude/templates/PRD.template.md"
 DEST_DIR="$ROOT/requirements"
 
@@ -57,6 +48,14 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   } >&2
   exit 1
 fi
+CARDLIB="$ROOT/scripts/lib/card-head.sh"
+if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
+  echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
+  echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
+  echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
+  echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
+  exit 1
+fi
 if [ -z "${PRD_PREFIX:-}" ]; then
   echo "Error: scripts/config.sh was sourced but PRD_PREFIX is empty — set it there." >&2
   exit 1
@@ -72,6 +71,7 @@ esac
 
 if [ $# -gt 1 ]; then
   case "$2" in
+    -h|--help) usage; exit 0 ;;
     -*) echo "Error: unknown option: $2" >&2; usage >&2; exit 2 ;;
     *)  echo "Unknown arg: $2" >&2; usage >&2; exit 1 ;;
   esac

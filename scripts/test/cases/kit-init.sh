@@ -1539,7 +1539,7 @@ case_option_parsing_hygiene() {
     || cf "the no-value refusal did not name the option: $out"
 
   _opt 0 "--help prints usage and SUCCEEDS"        subtask.sh --help
-  _opt 2 "a leading '-' is never a positional"     subtask.sh new --help s1 slug
+  _opt 2 "a leading '-' is never a positional"     subtask.sh new --bogus s1 slug
   _opt 2 "an unknown option refuses"               subtask.sh new "$SB_PREFIX-999" s1 slug --bogus x
   _opt 0 "--help prints usage and SUCCEEDS"        finish-pr.sh --help
   _opt 2 "a leading '-' is never an issue id"      finish-pr.sh --note x
@@ -1552,6 +1552,50 @@ case_option_parsing_hygiene() {
   [ "$minted" = "0" ] || cf "$minted item(s) were created by refused invocations"
 
   finish "option parsing across the creation and board scripts: a leading '-' is never a name, --help rc=0, an unknown option rc=2, a value outside a declared enum refuses, a value-taking option with no value refuses NAMING ITSELF rather than dying on an unbound positional, and no refusal creates anything"
+  teardown
+}
+
+# =============================================================================
+# CASE — A USAGE REQUEST SUCCEEDS WHEREVER IT STANDS (process/contracts/issue-creation.md § 3)
+#
+# "Answered before any argument is interpreted": a `--help` in a positional slot, after a
+# subcommand or a message, or with a library the operation needs missing, still exits 0 with
+# the usage text, and does nothing.
+# =============================================================================
+case_usage_request_succeeds_in_any_position() {
+  cf_reset
+  local L="a usage request exits 0 with its usage text in any position, and with card-head.sh absent"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+
+  local out rc
+  _help_ok() {  # <label> <script> <args…>
+    local label="$1"; shift
+    out="$(cd "$SB_WORK" && "$SB_WORK/scripts/$@" 2>/dev/null)"; rc=$?
+    [ "$rc" = 0 ] || cf "$1 $label → rc=$rc (want 0)"
+    printf '%s' "$out" | grep -i 'usage' >/dev/null || cf "$1 $label printed no usage text on stdout"
+  }
+  _help_ok "after the subcommand"          subtask.sh new --help
+  _help_ok "after the subcommand"          subtask.sh move --help
+  _help_ok "after the id"                  subtask.sh move "$SB_PREFIX-001-s1" --help
+  _help_ok "after the slug"                new-prd.sh someslug --help
+  _help_ok "after the command"             notify.sh test --help
+  _help_ok "in the message slot"           notify.sh done --help
+  _help_ok "after the message"             notify.sh done msg --help
+  mv "$SB_WORK/scripts/lib/card-head.sh" "$SB_TMP/card-head.sh"
+  _help_ok "with scripts/lib/card-head.sh absent" new-prd.sh --help
+  mv "$SB_TMP/card-head.sh" "$SB_WORK/scripts/lib/card-head.sh"
+  unset -f _help_ok
+
+  local made
+  made="$(find "$SB_WORK/progress" "$SB_WORK/requirements" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$made" = "0" ] || cf "$made item(s) were created by usage requests"
+
+  finish "$L"
   teardown
 }
 

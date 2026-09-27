@@ -365,6 +365,7 @@ CASES=(
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
   case_option_parsing_hygiene
+  case_usage_request_succeeds_in_any_position
   case_creation_slug_shape_is_one_rule
   case_new_prd_failure_leaves_nothing
   case_creators_build_beside_and_publish_with_the_umask
@@ -374,6 +375,8 @@ CASES=(
   case_first_mile
   case_release_happy
   case_usage_renderer_has_one_authoring_site
+  case_help_does_not_print_the_disposition_marker
+  case_notify_lists_only_adapters
   case_help_window_ends_where_its_rule_says
   case_project_credential_blank_is_countable
   case_minted_card_is_drift_clean
@@ -401,6 +404,7 @@ CASES=(
   case_release_bash_n
   case_release_spaced_path
   case_consumer_updater
+  case_install_skills_writes_nothing_without_a_pack
   case_hygiene_instruments_declare_blind_spots
   case_cold_signal_reads_non_ascii_paths
   case_agent_prose_carries_its_riders

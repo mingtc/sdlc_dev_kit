@@ -67,13 +67,12 @@ case "$rc" in
 esac
 
 # Highest number seen across live filenames + archived entries.
-# - progress/** : full paths are fine to grep (the prefix-NNN only appears in the
-#   filename, never the directory part), so spaces in the path don't matter.
+# - progress/** : the FILENAME only — a checkout under a directory named like an id is not an id.
 # - ARCHIVE.md  : entries are "- <PREFIX>-NNN ..."; any in-text reference is to an
 #   existing (<= max) issue, so scanning the whole file never over-counts.
 max="$(
   {
-    find "$ROOT/progress" -type f -name "${ISSUE_PREFIX}-*.md" 2>/dev/null
+    find "$ROOT/progress" -type f -name "${ISSUE_PREFIX}-*.md" 2>/dev/null | sed 's|.*/||'
     [ -f "$ROOT/ARCHIVE.md" ] && cat "$ROOT/ARCHIVE.md"
     if [ -n "$TRUNK_REF" ]; then
       git -C "$ROOT" ls-tree -r --name-only "refs/remotes/$TRUNK_REF" -- progress

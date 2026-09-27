@@ -25,7 +25,7 @@
 #   0  moving   — something on the remote is newer than the threshold
 #   3  STALLED  — nothing has moved within the threshold. NOT an error; a finding.
 #   1  unknown  — the remote could not be read. Unknown and alive are different answers.
-#   2  usage error (bad or unknown argument). Nothing was read.
+#   2  usage error: a missing, bad or unknown argument. Nothing was read.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"

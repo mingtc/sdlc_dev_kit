@@ -39,7 +39,7 @@ Files in the repo, reviewable like code — never a description in a chat transc
 
 ## Provisioning contract
 
-Sonnet **high** is the default set above: design work is judgment-dense but pattern-rich —
+Sonnet **high** is the seed default (the frontmatter above): design work is judgment-dense but pattern-rich —
 the community default for this work class, adopted as-is. Escalation to the larger model is
 the caller's, through the mechanisms in `process/doctrine/model-provisioning.md` § B.1, and
 is justified by novel interaction design or accessibility-critical surfaces, not by volume.

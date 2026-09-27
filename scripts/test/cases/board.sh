@@ -829,7 +829,15 @@ case_next_id() {
   printf '%s' "$err" | grep -i 'no existing' >/dev/null || cf "(empty) no explanatory stderr message: '$err'"
   teardown
 
-  finish "next-id.sh: max+1 (filenames + ARCHIVE.md), <PREFIX>-NNN shape, nonzero on an empty board"
+  # (4) only the FILENAME counts: a checkout under a directory named like an id is not an id.
+  make_sandbox "$SB_PREFIX-900"
+  seed_issue todo "$SB_PREFIX-001" one chore "one"
+  publish_sandbox
+  out="$( cd "$SB_WORK" && "$SB_WORK/scripts/next-id.sh" 2>/dev/null )"; rc=$?
+  [ "$out" = "$SB_PREFIX-002" ] || cf "(path) a checkout at .../$SB_PREFIX-900 got '$out', want $SB_PREFIX-002 — the directory part was read as an id"
+  teardown
+
+  finish "next-id.sh: max+1 (filenames + ARCHIVE.md, never the directory part), <PREFIX>-NNN shape, nonzero on an empty board"
 }
 
 # =============================================================================

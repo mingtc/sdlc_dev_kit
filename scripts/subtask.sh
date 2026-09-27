@@ -55,11 +55,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
 # ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED ─────────────────────
-# (process/contracts/issue-creation.md § 3: a usage request always succeeds). Leading argument
-# only; a later `--help` is answered below the seam. The seam still refuses every operation.
-# usage() reads the seam itself, guarded, to render the prefix: its absence must not turn a
-# usage request into a refusal. The `case "$CMD"` dispatch keeps its own `-h|--help` arm;
-# both call the one usage().
+# (process/contracts/issue-creation.md § 3: a usage request always succeeds), in any position,
+# before any argument is interpreted. usage() reads the seam itself, guarded, to render the
+# prefix: its absence must not turn a usage request into a refusal.
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
@@ -95,9 +93,7 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
       print out rest }'
 }
 
-case "${1:-}" in
-  -h|--help) usage; exit 0 ;;
-esac
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 # config.sh is loaded HERE for its SHARED VALIDATORS, not for a prefix — no OPERATION below
 # mints one (`--prd` is carried through opaque), so the "THE PREFIX HAS ONE AUTHORITY" block
@@ -129,8 +125,8 @@ fi
 STATUSES=(todo in_progress dev_complete qa_complete blocked)
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
-# every POSITIONAL, not just the first — `subtask.sh new --help s1 slug` would
-# otherwise mint a child whose parent is "--help".
+# every POSITIONAL, not just the first — `subtask.sh new --bogus s1 slug` would
+# otherwise mint a child whose parent is "--bogus".
 no_dash() {  # <value> <what it should have been>
   case "$1" in
     -*) echo "Error: '$1' is not a <$2> — a leading '-' is never a name." >&2; usage >&2; exit 2 ;;
@@ -158,7 +154,6 @@ case "$CMD" in
       --plan) need_val "$@"; PLAN="$2"; shift 2 ;;
       --size) need_val "$@"; SIZE="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
-      -h|--help) usage; exit 0 ;;
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
@@ -330,7 +325,6 @@ case "$CMD" in
       --role) need_val "$@"; ROLE="$2"; shift 2 ;;
       --note) need_val "$@"; NOTE="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
-      -h|--help) usage; exit 0 ;;
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
@@ -411,7 +405,6 @@ case "$CMD" in
     [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"
     ;;
 
-  -h|--help) usage; exit 0 ;;
   -*) echo "Error: unknown option: $CMD (expected the command 'new' or 'move')" >&2; usage >&2; exit 2 ;;
   *) echo "Unknown command: $CMD" >&2; usage >&2; exit 1 ;;
 esac
