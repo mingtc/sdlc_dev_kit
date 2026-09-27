@@ -487,6 +487,45 @@ case_move_issue_set_pr_on_a_minted_card() {
 }
 
 # =============================================================================
+# CASE — a parent's own subtask cards never collide with the parent's lookup
+#
+# Subtask ids are <PARENT>-sM, so <PARENT>-*.md also names every card under
+# progress/subtasks/<PARENT>/ and, once archived, progress/done/subtasks/<PARENT>/.
+#   (a) a decomposed parent still moves;
+#   (b) a done parent with an archived tree still takes a --note-only (a lookup that
+#       prunes only progress/subtasks/ reddens here);
+#   (c) a subtask id is not the mover's: it refuses, and the card stays in its tree.
+# =============================================================================
+case_move_issue_moves_a_decomposed_parent() {
+  cf_reset
+  make_sandbox
+  local p="$SB_PREFIX-120" d="$SB_PREFIX-121" out rc
+  local st="progress/subtasks/$p/todo/$p-s1-anchor.md"
+  seed_issue in_progress "$p" parent chore "Decomposed parent"
+  mkdir -p "$SB_WORK/progress/subtasks/$p/todo"
+  seed_issue "subtasks/$p/todo" "$p-s1" anchor chore "First slice"
+  seed_issue done "$d" archived chore "Archived parent"
+  mkdir -p "$SB_WORK/progress/done/subtasks/$d/qa_complete"
+  seed_issue "done/subtasks/$d/qa_complete" "$d-s1" slice chore "Archived slice"
+  publish_sandbox
+  origin_has_path "$st" || _fixture_die "case_move_issue_moves_a_decomposed_parent: $st is not on the trunk, so (a) would pass without a subtask to collide with."
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$p" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) moving a parent with a subtask exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
+  origin_has_path "progress/dev_complete/$p-parent.md" || cf "(a) the parent did not reach dev_complete/ on the trunk"
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$d" --note-only --role Dev --note "late note" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a note on a done parent with an archived subtask tree exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$p-s1" in_progress --role Dev --note "wrong tool" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) move-issue.sh moved subtask $p-s1 out of its tree"
+  origin_has_path "$st" || cf "(c) subtask $p-s1 left $st"
+
+  finish "move-issue.sh: a parent with live or archived subtasks moves, and a subtask id is refused"
+  teardown
+}
+
+# =============================================================================
 # CASE — the mover's not-found refusal costs nothing, and cannot lie
 #
 # FOUR ARMS, and (b)–(d) are why this is a case and not a one-line assertion:

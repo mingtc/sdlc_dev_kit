@@ -723,6 +723,11 @@ columns and never the cards.*
   `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, because
   `next-id.sh` reads the local board and a work branch repeats ids minted after it was cut.
 
+- **`move-issue.sh` can move a parent issue that has subtasks.** Once a parent had any subtask, every move refused with
+  "multiple files match", so a decomposed issue could never land. It now looks only at `progress/<column>/`, and
+  `move-issue.sh <PARENT>-sM` refuses instead of moving the subtask off its tree — move subtasks with `subtask.sh`.
+  **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

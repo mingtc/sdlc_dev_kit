@@ -342,11 +342,12 @@ kwt_lock
 kwt_bootstrap
 kwt_sync
 
-# Find file by ID inside the kanban worktree.
+# Find file by ID inside the kanban worktree. Depth 2 is progress/<column>/<card>: a
+# parent's subtasks (<PARENT>-sM, under subtasks/ or done/subtasks/) share its prefix.
 MATCHES=()
 while IFS= read -r f; do
   MATCHES+=("$f")
-done < <(find "$KWT/progress" -name "${ISSUE_ID}-*.md" -type f 2>/dev/null | sort)
+done < <(find "$KWT/progress" -maxdepth 2 -name "${ISSUE_ID}-*.md" -type f 2>/dev/null | sort)
 
 if [ ${#MATCHES[@]} -eq 0 ]; then
   # THE AUTHORITATIVE READ: reaching here means the probe fell through (rule 3) or the board

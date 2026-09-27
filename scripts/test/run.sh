@@ -241,6 +241,7 @@ CASES=(
   case_move_issue_probe
   case_move_issue_declined_requires_a_reason
   case_move_issue_set_pr_on_a_minted_card
+  case_move_issue_moves_a_decomposed_parent
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees
