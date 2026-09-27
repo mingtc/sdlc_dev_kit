@@ -29,7 +29,8 @@
 # tree and say so. NO FETCH: a hang at session start is worse than a dated answer, so the ref is
 # read as it stands and labelled with its sha.
 #
-# Callers: the SessionStart hook (scripts/hooks/session-start.sh), and a human at session close.
+# Callers: the SessionStart hook (scripts/hooks/session-start.sh); release.sh gate (d) and
+# kit-init.sh self-check (3), which both key on its verdict line; a human at session close.
 # Exit 0 ALWAYS: drift is in the output, not the exit status. Read-only; it never mutates.
 set -uo pipefail
 

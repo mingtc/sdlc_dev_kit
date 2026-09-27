@@ -8,8 +8,7 @@
 # ARCHIVE.md with an index.
 #
 # THE STAMP MATCH IS ANCHORED AND LITERAL: `index($0,m)==1`, so the '.' in the mark is not a
-# wildcard and a mid-line mention does not count. Two separate copies once disagreed on this
-# and let the initializer run on a tree the report called started.
+# wildcard and a mid-line mention does not count.
 #
 # IT EMITS RECORDS, NOT SENTENCES: the callers word the same answer differently, and each
 # renders its own.
@@ -32,7 +31,7 @@ kit_lived_signals() {
   local tree="$1" mark="$2"; shift 2
   local c n line
 
-  # (1) THE RECEIPT — anchored and literal, per the adjudication above.
+  # (1) THE RECEIPT — anchored and literal, per the stamp rule above.
   if [ -f "$tree/scripts/config.sh" ]; then
     line="$(awk -v m="$mark" 'index($0,m)==1 { print; exit }' "$tree/scripts/config.sh" 2>/dev/null || true)"
     [ -n "$line" ] && printf 'stamp|%s\n' "$line"

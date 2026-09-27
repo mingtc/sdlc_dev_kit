@@ -29,6 +29,7 @@
 #          which file is missing a section; fail-fast, first-declared first.
 #     7. no declared document's section HEADER DATE is older than the newest date
 #        written inside that section                           (gate f)
+#     8. SHIP_MANIFEST's paths hash as approved                (gate g)
 #
 #   THE SECTION DATE IS THE CUTTER'S — set it, here, at the cut. An un-cut section
 #   carries a PLACEHOLDER date with no authority, and no issue landing into one may
@@ -38,20 +39,20 @@
 #   never the measurement inside the body.
 #
 #   MUTATE (only once every gate above is green)
-#     8. bump the version in every file declared in VERSION_FILES
-#     9. one role-prefixed release commit, then an ANNOTATED tag vX.Y.Z — and then,
+#     9. bump the version in every file declared in VERSION_FILES
+#    10. one role-prefixed release commit, then an ANNOTATED tag vX.Y.Z — and then,
 #        as NORMAL output while the run is healthy, the LOCAL-ONLY state and the
-#        exact commands that finish the job, so a run killed before step 10 is not
+#        exact commands that finish the job, so a run killed before step 11 is not
 #        read as released (`doctrine/fix-execution.md` § A.7).
-#    10. push the commit + the tag to the remote
-#    11. optionally PUBLISH the distribution branch (RELEASE_PUBLISH=true) — only
+#    11. push the commit + the tag to the remote
+#    12. optionally PUBLISH the distribution branch (RELEASE_PUBLISH=true) — only
 #        after BOTH pushes above succeed, so a publish failure can never make a
 #        completed release look failed. A failure there prints that the RELEASE
 #        SUCCEEDED, never rolls back the tag, and names `--publish-only` as the retry.
 #
-# TEST SEAMS (used by scripts/test/run.sh's sandbox cases; leave unset in real use):
+# TEST SEAMS (the self-test's, scripts/test/cases/release.sh; leave unset in real use):
 #   RELEASE_TEST_ALLOW_STUB=1  THE MARKER THE TWO GATE-STUBBING SEAMS BELOW REQUIRE.
-#                        Set by scripts/test/run.sh and by nothing else. Without it,
+#                        Set by the self-test and by nothing else. Without it,
 #                        supplying either command below is REFUSED before any gate runs.
 #   RELEASE_VERIFY_CMD   overrides gate b's command (default: scripts/verify.sh)
 #                        — requires RELEASE_TEST_ALLOW_STUB=1
@@ -147,7 +148,7 @@ PREFLIGHT_GATES=(
 RELEASE_DOCS=(
 )
 
-# ── THE DISTRIBUTION BRANCH (step 11) — OFF by default. ──────────────────────
+# ── THE DISTRIBUTION BRANCH (step 12) — OFF by default. ──────────────────────
 # A consumer-only endpoint: the forge-agnostic equivalent of a releases page. It
 # carries ONLY the current release's artifact, whatever documents you list, and a
 # generated README, so getting the project is
@@ -371,7 +372,7 @@ EOF
   exit 0
 fi
 
-# ── Preflight -1 (gate 0): A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER. ─
+# ── Preflight -1: A TEST-ONLY RELAXATION NEEDS ITS TEST-ONLY MARKER. ───────────
 # (`self-test-harness.md` § 2.) The two seams below override gate b (verify.sh green) and
 # gate d (the board is truthful), so unmarked they remove a gate rather than weaken it.
 # finish-pr.sh carries the same refusal. Checked first, before anything is read or resolved.
@@ -383,7 +384,7 @@ if [ "${RELEASE_TEST_ALLOW_STUB:-}" != "1" ] \
     echo "       whether this cut may happen — the verify gate and the board-truth gate — so"
     echo "       an unmarked override does not weaken a gate, it removes one."
     echo "       They are honored ONLY behind the test-only marker RELEASE_TEST_ALLOW_STUB=1,"
-    echo "       which scripts/test/run.sh sets and no production caller ever sets."
+    echo "       which only the self-test sets."
     echo "       If a gate is genuinely wrong for this project, change what it RUNS"
     echo "       (verify.sh's GATES table, PREFLIGHT_GATES) rather than replacing the runner."
     echo "       NOTHING WAS WRITTEN."
@@ -979,7 +980,7 @@ echo "── annotated tag $TAG created."
   echo "     git push $REMOTE HEAD:$DEFAULT_BRANCH"
   echo "     git push $REMOTE $TAG"
   if [ "$RELEASE_PUBLISH" = "true" ]; then
-    echo "     ./scripts/release.sh $NUM --publish-only     (step 11, the $DIST_BRANCH copy)"
+    echo "     ./scripts/release.sh $NUM --publish-only     (step 12, the $DIST_BRANCH copy)"
   fi
   echo "   Each is safe to re-run. RE-RUNNING THIS SCRIPT IS NOT — it refuses now that"
   echo "   $TAG exists. To abandon the cut instead, undo the two local acts:"

@@ -101,7 +101,7 @@ kit_require_role() {
     echo "         declared: $set_"
     echo "       This script commits under that tag, and the commit-msg hook would reject it"
     echo "       AFTER the board move had already been made — leaving uncommitted state in the"
-    echo "       shared kanban worktree that the next board operation discards. Refusing first."
+    echo "       shared kanban worktree that blocks every later board operation. Refusing first."
     echo "       Set the seat this script acts as:  $knob=<one of the above> $0 ..."
     echo "       NOTHING WAS CHANGED."
   } >&2

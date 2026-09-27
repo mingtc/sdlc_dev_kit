@@ -16,8 +16,9 @@
 #   0  Everything the landing gate calls green: re-check passed, one squash commit,
 #      published, board advanced, and the branch retired or its survivor named as residue.
 #      See contracts/landing-gate.md § 4.
-#   1  Refused or failed WITH NOTHING LANDED. Safe to fix the cause and re-run.
-#   2  Usage error (bad or unknown argument). Nothing was read or touched.
+#   1  Refused or failed WITH NOTHING LANDED (a missing <ID> or a surplus argument
+#      included). Safe to fix the cause and re-run.
+#   2  Usage error: an unknown option or a missing option value. Nothing was read or touched.
 #   3  LANDED BUT NOT FINISHED. The squash IS on the trunk; a follow-up step did
 #      not complete. **Do NOT re-run this script** — run the recovery it printed.
 #
@@ -69,6 +70,9 @@
 #   changes it is not moved, and a fresh worktree is read instead.
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
+#
+# The gate checkout (the main one, or --worktree's) must be at the branch's tip; otherwise
+# this refuses before anything moves.
 #
 # Examples:
 #   ./scripts/finish-pr.sh <PREFIX>-001
@@ -147,7 +151,7 @@ if [ "$ALLOW_STUB" != "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n
   {
     echo "Error: refusing a caller-supplied gate command on the production landing path."
     echo "       FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are honored ONLY behind the"
-    echo "       test-only marker FINISH_PR_TEST_ALLOW_STUB=1 (set by scripts/test/run.sh)."
+    echo "       test-only marker FINISH_PR_TEST_ALLOW_STUB=1 (set by the self-test only)."
     echo "       The pre-merge gate runs a TRACKED scripts/verify.sh that finish-pr.sh chooses;"
     echo "       to gate against a parallel leg's checkout, pass --worktree <path> instead."
   } >&2

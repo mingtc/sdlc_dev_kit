@@ -154,7 +154,7 @@ Options:
 The remote precondition (the silent-corruption class this script exists for):
   kanban-worktree.sh resolves the trunk as <remote>/HEAD → init.defaultBranch →
   a last-resort literal. A fresh repo with no <remote>/HEAD therefore gets a
-  trunk name nobody chose (the fallback now WARNS loudly, but a warning read
+  trunk name nobody chose (the fallback WARNS loudly, but a warning read
   after the fact is not a decision made before it). This script GUIDES rather
   than bootstraps: it refuses when the remote or its HEAD is missing and prints
   the recipe — including the LOCAL BARE-REPO recipe for a project with no forge
@@ -164,7 +164,7 @@ The remote precondition (the silent-corruption class this script exists for):
 The census (a measurement, not a promise):
   process/contracts/config-seam.md says a search of the travelling files for the
   donor's own values must return NOTHING — "a count, run by the adopter, not a
-  promise made by the donor". This script runs that count itself, over
+  promise made by the kit". This script runs that count itself, over
   .claude/roles/ and .claude/templates/, for all three donor tokens — prefix,
   trunk and project name, every one DERIVED from a seam rather than typed in
   here — prints it, and the self-check FAILS when it is non-zero. What the census
@@ -723,7 +723,7 @@ fi
 
 # --- the role set: every ENFORCING script seam at once ---------------------
 # THE CANONICAL READ — byte-identical to scripts/lib/role-set.sh's kit_role_set (this script
-# sources nothing from scripts/lib/; the self-test holds the sites identical). FALLBACK POLICY
+# does not source lib/role-set.sh; the self-test holds the sites identical). FALLBACK POLICY
 # HERE: fatal — an initializer that cannot read the set it is about to rewrite must not guess.
 OLD_ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$COMMITMSG" | head -1)"
 [ -n "$OLD_ROLES" ] || { echo "Error: could not read ROLE_PREFIXES out of scripts/githooks/commit-msg." >&2; exit 1; }

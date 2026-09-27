@@ -8,7 +8,8 @@
 # the agent needs them — automatically, for ANY role/session, no agent effort
 # required.
 #
-# Wired in .claude/settings.json under hooks.Notification (see that file).
+# Wired by hooks.Notification in .claude/settings.json.example, once you activate it
+# (process/EXTRACTION.md § 2.8).
 #
 # Fail-soft: ANY problem exits 0 — a hook must never block the session. If
 # notifications are disabled (NOTIFY_BACKEND unset) notify.sh is a silent no-op,

@@ -11,7 +11,6 @@
 #   send    — deliver NOTIFY_TEXT (exported by notify.sh). Exit 0 ok, non-0 + reason.
 #   test    — diagnose config + connectivity end-to-end (token → chat → delivery).
 #   chatid  — setup helper: print your chat id from the bot's recent messages.
-#   (future: `poll` would read getUpdates for inbound replies — same bot token.)
 #
 # EVERY FAILURE PATH NAMES ITS FIX. That is the copyable part of this adapter, not
 # the vendor: a notification backend that fails with "send failed" teaches the

@@ -80,8 +80,8 @@
 #                    PR/MR reference here (process/GIT-HOSTING.md); the shipped
 #                    finish-pr.sh has none to pass.
 #
-# (There is deliberately no --no-commit: the next op's reset --hard would wipe an
-#  uncommitted batch. Each move commits + pushes.)
+# (There is deliberately no --no-commit: an uncommitted batch blocks every later board
+#  operation. Each move commits + pushes.)
 #
 # Examples:
 #   ./scripts/move-issue.sh <PREFIX>-001 in_progress --role Dev \

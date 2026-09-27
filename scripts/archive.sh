@@ -19,6 +19,7 @@
 #
 # Usage:
 #   ./scripts/archive.sh           # dry run (previews against the trunk)
+#   ./scripts/archive.sh --dry-run # the same preview, spelled out; refused with --apply
 #   ./scripts/archive.sh --apply   # apply: commit + push the sweep
 #
 #   ARCHIVE_ROLE   the seat this sweep commits as (default: Orchestrator). The tag
@@ -42,10 +43,9 @@ case "${1:-}" in
   -h|--help) usage; exit 0 ;;
 esac
 
-# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. ─────────────────────────
+# ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
 # No fallback literal: under a guessed prefix the sweep finds no issue files and reports
 # "nothing to sweep" on a full column.
-# The same block is in every script that grep returns — change one, change all.
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   {
@@ -238,8 +238,8 @@ for f in "${FILES[@]}"; do
   TYPE=$(awk '/^type:/{print $2; exit}' "$f")
   # TITLE is free text (it may legitimately contain '#'), so take it verbatim after 'title: '.
   TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$f")
-  # pr / stories template lines may carry an inline "# comment" (finish-pr.sh rewrites `pr:`
-  # only with --set-pr); strip it so the index isn't polluted.
+  # pr / stories template lines may carry an inline "# comment" (`pr:` is rewritten only by
+  # move-issue.sh --set-pr, which nothing shipped calls); strip it so the index isn't polluted.
   strip_comment() { sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]*$//'; }
   PR=$(awk '/^pr:/{sub(/^pr: */, ""); print; exit}' "$f" | strip_comment)
   PRD=$(awk '/^prd:/{print $2; exit}' "$f")

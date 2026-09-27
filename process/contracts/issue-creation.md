@@ -118,8 +118,8 @@ state — so that every tool and every reader downstream can rely on the shape w
   kit that status is **2**: a caller scripting against the set cannot branch on a status that means
   *unknown option* in one tool and something else in the next.
   **2 is not the majority's value, it is the PUBLISHED one:** `finish-pr.sh`'s exit table declares
-  `2  Usage error (bad or unknown argument). Nothing was read or touched.`, which is the only place
-  the kit writes down what a status MEANS.
+  `2  Usage error: an unknown option or a missing option value. Nothing was read or touched.`,
+  which is the only place the kit writes down what a status MEANS.
   **A surplus POSITIONAL is a different class and keeps its own status** — the two are told apart by
   a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing it would be.
 

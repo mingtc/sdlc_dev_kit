@@ -13,6 +13,7 @@
 #   ./scripts/archive-progress.sh --milestone <name> --keep-last <N>              # dry run
 #   ./scripts/archive-progress.sh --milestone <name> --before <YYYY-MM-DD>        # dry run
 #   …add --apply to rewrite the files, and --tag to git-tag first for revert safety.
+#   --dry-run spells the default preview; with --apply it is refused.
 #
 # --repo-root <path>  relocates EVERY path this script reads and writes — progress.md,
 #                     progress/history/<name>.md, progress/history/INDEX.md — and the tree

@@ -839,6 +839,10 @@ columns and never the cards.*
   `*` crosses `/`, and the `**` form skipped tests directly under `src/`. `using-git-worktrees` sets `WORKTREE_DIR` before checking
   it; `writing-plans` saves to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`.
 
+- **Script help corrected:** `finish-pr.sh --help` says the gate checkout must be at the branch's tip, and its exit table puts a
+  missing `<ID>` or a surplus argument under 1; `subtask.sh`'s failed-push message says every later board operation refuses until
+  you publish, not that the commit is about to be destroyed; `release.sh`'s step list names gate (g), so its mutate steps are 9–12.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

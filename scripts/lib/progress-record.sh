@@ -24,7 +24,7 @@
 #   at least four columns. An extra's value must be ONE token (`step=13/13`, not `step=13 of 13`).
 #
 # TRANSIENT: records older than KIT_PROGRESS_TTL_DAYS (default 2) are unlinked on every write.
-# Wanting to KEEP one means you want a change file.
+# Wanting to KEEP one means you want a card.
 #
 # NOTHING MAY DEPEND ON A RECORD: every function returns 0 and writes nothing to stderr, whatever
 # happens. A new field must help an operator with no watcher but a terminal (kit_progress_tail).

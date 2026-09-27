@@ -4,8 +4,8 @@
 # subtask tree `progress/subtasks/<parent>/<status>/`. Subtasks do NOT consume the
 # issue-id integer stream — ids are <PARENT>-sM — and they live OFF the main board so
 # the PM's backlog stays pristine. The parent stays on the main board and advances to
-# qa_complete only when every subtask reaches qa_complete. All commits are stamped
-# per --role (default Orchestrator) on the trunk.
+# qa_complete only when every subtask reaches qa_complete. Commits carry the seat's tag:
+# SUBTASK_ROLE for `new`, --role for `move` (both default Orchestrator).
 #
 # This shares the SAME machinery as move-issue.sh / finish-pr.sh:
 # scripts/lib/kanban-worktree.sh. Every git op (create / git mv / Activity append /
@@ -16,7 +16,7 @@
 # Usage:
 #   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S]
 #       → creates progress/subtasks/<PARENT-ID>/todo/<PARENT-ID>-<suffix>-<slug>.md
-#         from .claude/templates/SUBTASK.template.md, fills frontmatter, commits [Orchestrator].
+#         from .claude/templates/SUBTASK.template.md, fills frontmatter, commits as SUBTASK_ROLE.
 #   ./scripts/subtask.sh move <PARENT-ID>-<suffix> <target> [--role <R>] [--note "..."] [--discard-dirty]
 #       → git mv within the subtask tree + append Activity + commit "[ROLE] <id> → <target>: NOTE".
 #
@@ -31,8 +31,8 @@
 #
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync. Read move-issue.sh's warning about it first:
-#   the worktree is shared between lanes. (There is deliberately no --no-commit: the
-#   next op's reset --hard would wipe the uncommitted work.)
+#   the worktree is shared between lanes. (There is deliberately no --no-commit:
+#   uncommitted work there blocks every later board operation.)
 #
 # Examples:
 #   ./scripts/subtask.sh new <PREFIX>-014 s1 anchor-resolver --title "Floor: anchor resolution"
@@ -305,8 +305,8 @@ case "$CMD" in
     echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
     echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
-    # THE RETURN IS CHECKED: a failed push must not exit 0 while the card exists only in a
-    # worktree the next operation resets.
+    # THE RETURN IS CHECKED: a failed push must not exit 0 while the card is only a local
+    # commit in the kanban worktree.
     FINALIZE_RC=0
     kwt_finalize || FINALIZE_RC=$?
     if [ -n "${KWT_LANDED_SHA:-}" ]; then
@@ -314,9 +314,7 @@ case "$CMD" in
     else
       {
         echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above."
-        echo "  This subtask lives in the kanban worktree, which the NEXT board operation"
-        echo "  resets --hard. An unpublished commit there is not a draft; it is about to"
-        echo "  be destroyed. Re-run the push before running any other board command."
+        echo "  Every later board operation REFUSES until you publish it (commands above)."
       } >&2
       exit 1
     fi

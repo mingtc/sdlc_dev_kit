@@ -44,15 +44,15 @@
 #
 # PROJECT-SPECIFIC FAMILIES ARE PROBED, NEVER ASSUMED
 #   Two families exist only if this project has the surface they test:
-#     • the CONSUMER-UPDATER family runs only when CONSUMER_SCRIPT (below) names
-#       an executable — a vendoring/updater script is a DISTRIBUTION MODEL, not a
-#       kit feature (see process/doctrine/distribution.md);
+#     • the CONSUMER-UPDATER family runs only when CONSUMER_SCRIPT
+#       (scripts/test/lib/fixtures.sh) names an executable — a vendoring/updater script
+#       is a DISTRIBUTION MODEL, not a kit feature (see process/doctrine/distribution.md);
 #     • the RELEASE family runs against release.sh's declared SEAMS
 #       (VERSION_FILES / RELEASE_DOCS / the publish config), which the harness
 #       fills in inside the sandbox. It never asserts one project's version files.
 #   Anything absent SKIPs loudly. A SKIP is a statement about the environment; it
-#   is never used to hide a missing behaviour (see the notes on the two cases that
-#   deliberately have NO capability probe).
+#   is never used to hide a missing behaviour (`grep -rni 'no capability probe'
+#   scripts/test/cases` finds the cases that deliberately have none).
 #
 # RUN IT FROM A BUILT KIT. It is a witness only when run from an unzipped release given
 # day-one git topology. The repository that maintains the kit stores it DISARMED

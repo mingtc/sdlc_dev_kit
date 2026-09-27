@@ -136,7 +136,7 @@ fi
 
 export NOTIFY_PROJECT_RESOLVED="$PROJECT"
 export NOTIFY_SESSION="$SESSION"
-export NOTIFY_REF="$REF"   # structural correlation key for a future inbound `poll` verb
+export NOTIFY_REF="$REF"   # no shipped adapter reads it
 
 if [ "$MODE" = "test" ]; then
   if bash "$ADAPTER" test; then

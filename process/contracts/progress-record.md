@@ -64,7 +64,7 @@ and widen from the derivation in § 5a rather than from memory.
   files.
   *Why:* a transient record nobody must curate can be written freely; a durable one immediately
   acquires a retention question, a review question and a privacy question, and the value here
-  does not pay for any of them. If you want to keep one of these, what you want is a change file.
+  does not pay for any of them. If you want to keep one of these, what you want is a card.
 - **NEVER A DEPENDENCY, AND THE ABSENCE OF THE WRITER IS A NO-OP.** No producer's verdict, exit
   status or output may change because a record was or was not written. A missing library, an
   unwritable directory or a full disk degrades to silence.
