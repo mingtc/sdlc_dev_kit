@@ -779,6 +779,11 @@ columns and never the cards.*
   words; both are now matched literally, and a non-alphanumeric `ISSUE_PREFIX` default is refused before any write. **If you
   edited one of these before running kit-init,** diff `.claude/roles/` against the kit for words that changed.
 
+- **`finish-pr.sh`'s recovery step 3 works as printed, and "Done." names a branch it could not delete.** The printed step used
+  `git branch -d … && git push --delete …`, which refused a squash-merged branch and skipped the remote delete on a re-run; it
+  is now `git branch -D …; git push <remote> --delete …`. A surviving branch is named on the "Done." line; the exit status
+  stays 0.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

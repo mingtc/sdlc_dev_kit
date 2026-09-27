@@ -74,7 +74,11 @@ proof was produced by the gate itself rather than by whoever wanted the change l
 1. The **pre-merge re-check ran and passed**, and its verdict is shown — not summarised as "ok";
    the **full review gate** has its own evidence, in the item's activity log, from the review.
 2. The branch is **collapsed into exactly one trunk commit**, whose identifier is printed.
-3. The trunk commit is **published**, and the branch is retired everywhere it existed.
+3. The trunk commit is **published**, and the branch is retired everywhere it existed — or, where a
+   delete was refused, did not stick or was withheld from a worktree holding the branch, the survivor
+   is **named** in the output and the activity log as residue, which does not move the status.
+   *Why:* a worktree still on the branch is an ordinary landing, and a status that reddens ordinary
+   landings is one a caller learns to ignore.
 4. The item's **state advanced** and the landing is written into its activity log.
 
 All four, printed. Three of four is a defect, not a partial success.

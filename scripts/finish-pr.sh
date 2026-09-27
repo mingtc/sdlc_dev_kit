@@ -14,7 +14,8 @@
 #
 # ── EXIT CODES: "IS IT SAFE TO RUN ME AGAIN?", NOT "DID IT LAND?" ──────────────
 #   0  Everything the landing gate calls green: re-check passed, one squash commit,
-#      published, branch retired, board advanced. See contracts/landing-gate.md § 4.
+#      published, board advanced, and the branch retired or its survivor named as residue.
+#      See contracts/landing-gate.md § 4.
 #   1  Refused or failed WITH NOTHING LANDED. Safe to fix the cause and re-run.
 #   2  Usage error (bad or unknown argument). Nothing was read or touched.
 #   3  LANDED BUT NOT FINISHED. The squash IS on the trunk; a follow-up step did
@@ -398,10 +399,10 @@ echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUAS
   echo "── LANDED. Steps 1-2 of 4 are DONE and are on ${KWT_REMOTE}/${DEFAULT_BRANCH}."
   echo "   If this run stops here — killed, timed out, disconnected — the landing is"
   echo "   COMPLETE but the cleanup is NOT. Finish it with exactly these two steps:"
-  echo "     3. git -C '$MAIN_ROOT' branch -d '${BRANCH}' && git -C '$MAIN_ROOT' push ${KWT_REMOTE} --delete '${BRANCH}'"
+  echo "     3. git -C '$MAIN_ROOT' branch -D '${BRANCH}'; git -C '$MAIN_ROOT' push ${KWT_REMOTE} --delete '${BRANCH}'"
   echo "     4. $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note '<what the review found>'"
-  echo "   Both are safe to re-run: step 3 reports an already-deleted branch and step"
-  echo "   4 refuses an issue that is no longer in dev_complete/."
+  echo "   Both are safe to re-run: each half of step 3 may report the branch not found, and"
+  echo "   step 4 refuses an issue that is no longer in dev_complete/."
   echo ""
 } 
 # An `if`, not an `&&` chain: the chain returns non-zero when the shas match, and `set -e` would
@@ -570,8 +571,11 @@ if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
 fi
 
 echo ""
+_residue=""
+case "$LOCAL_DELETE_STATE" in deleted|absent) ;; *) _residue="local" ;; esac
+case "$REMOTE_DELETE_STATE" in deleted|absent) ;; *) _residue="${_residue:+$_residue and }${KWT_REMOTE}" ;; esac
 if [ "${LANDED_INCOMPLETE:-0}" -eq 0 ]; then
-  echo "Done. ${ISSUE_ID} landed on '${DEFAULT_BRANCH}' and is now in progress/qa_complete/ (pushed)."
+  echo "Done. ${ISSUE_ID} landed on '${DEFAULT_BRANCH}' and is now in progress/qa_complete/ (pushed).${_residue:+ Residue: the ${_residue} branch '${BRANCH}' is not confirmed gone (see above).}"
 else
   echo "LANDED, NOT FINISHED. ${ISSUE_ID} is on '${DEFAULT_BRANCH}'; one or more follow-up steps did not complete (see above)."
 fi

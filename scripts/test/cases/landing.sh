@@ -433,7 +433,10 @@ case_finish_pr_second_worktree() {
   origin_file_contains "progress/qa_complete/$SB_PREFIX-779-sandbox.md" "local branch deleted" \
     && cf "board note FALSELY claims the local branch was deleted"
 
-  finish "finish-pr.sh with the branch held by a second worktree: local skip preserved, remote still deleted, and the note does NOT claim the local delete"
+  printf '%s\n' "$out" | grep -F "Residue: the local branch 'feature/$SB_PREFIX-779-work' is not confirmed gone" >/dev/null \
+    || cf "the Done line does not name the surviving local branch"
+
+  finish "finish-pr.sh with the branch held by a second worktree: local skip preserved, remote still deleted, and neither the note nor the Done line claims the local delete"
   teardown
 }
 
@@ -472,7 +475,10 @@ case_finish_pr_remote_delete_refused() {
   origin_file_contains "progress/qa_complete/$SB_PREFIX-780-sandbox.md" "branch deleted (confirmed gone)" \
     && cf "board note FALSELY claims a confirmed remote delete"
 
-  finish "finish-pr.sh with a remote that refuses deletes: loud, git's own error surfaced, exit still 0, and the note names the survivor"
+  printf '%s\n' "$out" | grep -F "Residue: the origin branch 'feature/$SB_PREFIX-780-work' is not confirmed gone" >/dev/null \
+    || cf "the Done line does not name the surviving remote branch"
+
+  finish "finish-pr.sh with a remote that refuses deletes: loud, git's own error surfaced, exit still 0, and the note and the Done line name the survivor"
   teardown
 }
 
@@ -520,6 +526,43 @@ HOOK
     && cf "board note FALSELY claims a confirmed remote delete"
 
   finish "finish-pr.sh when the remote accepts a delete then restores the ref: caught by re-measurement, and the note never claims the delete"
+  teardown
+}
+
+# =============================================================================
+# CASE — the printed recovery's step 3 finishes either half of the branch delete, run as printed.
+#
+# Measured before the fix (`branch -d … && push --delete …`): a squash-merged local branch with no
+# upstream is "not fully merged", and an already-deleted one is "not found" — either way `&&`
+# skipped the remote delete.
+# =============================================================================
+case_finish_pr_recovery_step_three_finishes_either_half() {
+  cf_reset
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-782" sandbox chore "Recovery step 3" "feature/$SB_PREFIX-782-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-782" work RECOVER.txt
+  local out rc b tip step3
+  b="feature/$SB_PREFIX-782-work"; tip="$(git -C "$SB_WORK" rev-parse "$b")"
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-782" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "finish-pr exited $rc (expected 0): $out"
+  step3="$(printf '%s\n' "$out" | sed -n 's/^     3\. //p')"
+  [ -n "$step3" ] || _fixture_die "case_finish_pr_recovery_step_three_finishes_either_half: no printed recovery step 3 to run."
+
+  # (a) Both halves left, the local one squash-merged with no upstream.
+  git -C "$SB_WORK" branch -q "$b" "$tip" && git -C "$SB_WORK" push -q origin "$tip:refs/heads/$b" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_recovery_step_three_finishes_either_half: could not restore both halves of '$b'."
+  sh -c "$step3" >/dev/null 2>&1 || true
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/$b" >/dev/null && cf "(a) step 3 left the local branch"
+  [ -z "$(git -C "$SB_WORK" ls-remote --heads origin "$b")" ] || cf "(a) step 3 left the remote branch"
+
+  # (b) A re-run after the local half: only the remote one left.
+  git -C "$SB_WORK" push -q origin "$tip:refs/heads/$b" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_recovery_step_three_finishes_either_half: could not restore the remote half of '$b'."
+  sh -c "$step3" >/dev/null 2>&1 || true
+  [ -z "$(git -C "$SB_WORK" ls-remote --heads origin "$b")" ] || cf "(b) step 3 re-run left the remote branch"
+
+  finish "finish-pr.sh's printed recovery step 3 deletes a squash-merged local branch and still deletes the remote one when the local is already gone"
   teardown
 }
 

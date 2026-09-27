@@ -252,6 +252,7 @@ CASES=(
   case_finish_pr_second_worktree
   case_finish_pr_remote_delete_refused
   case_finish_pr_remote_delete_resurrected
+  case_finish_pr_recovery_step_three_finishes_either_half
   case_finish_pr_premerge_red
   case_finish_pr_premerge_names_an_unrunnable_gate
   case_finish_pr_empty_merge
