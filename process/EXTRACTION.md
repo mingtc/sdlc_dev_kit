@@ -103,17 +103,10 @@ contains; an instrument you can delete is not a requirement.*
 seed *is* the kit: it holds no product. `MIXED` here means *"the frame travels, the contents are
 yours"* — the gate runner, the attribution hook, the release script, the self-test harness. As soon
 as you fill in `PROJECT.md` and `CLAUDE.md`, **those two are `PROJECT`-class by nature**: they are
-the only files in the tree that never travel anywhere. ~~Mark them so~~ — **they LOSE their markers
-at that moment rather than gaining `PROJECT` ones**, which is § The marker and graduation's act and
-is specified there. Re-mark honestly as your own files accrete. A marker that says `KIT` over a file
-carrying your product's law is worse than no marker.
-
-*(The struck instruction stood until 2026-08-31 and **directly contradicted the graduation rule**,
-which names `PROJECT.md` as its own worked example: one section said mark it `PROJECT`, the other said
-strip it, **at the same moment in the file's life**. Both mistakes were made in an adopting project
-before either was noticed. The reason above is kept because it is the reason for **stripping** — a
-marker that misdescribes a file is worse than none, and a `PROJECT` marker on a file that never
-travels is a travel classification for a journey nobody takes.)*
+the only files in the tree that never travel anywhere. **They LOSE their markers at that moment
+rather than gaining `PROJECT` ones**, which is § The marker and graduation's act and is specified
+there. Re-mark honestly as your own files accrete. A marker that says `KIT` over a file carrying your
+product's law is worse than no marker.
 
 
 ## The register of VALUE-KIND markers — what a value IS, recorded beside it
@@ -188,27 +181,21 @@ and a disposition at the same time.
 
 | Disposition | Meaning | Members in this seed |
 |---|---|---|
-| **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** the *your project's instance* section that MOST doctrine sheets carry (not all — a sheet that is pure pattern has none, and **says so in its own header, which is the signal to read**: `grep -LiE '^<!-- KIT-CLASS:.*(fill-in|instance)' process/doctrine/*.md`. *The derivation offered here was `grep -Li "your project's instance" process/doctrine/*.md`, and it returned close to the INVERSE of what this row describes: sheets that do carry a fill-in section word their heading differently and so fell out as "pure pattern", while the one genuinely pure-pattern sheet contained the phrase in passing and was omitted. A derivation matching prose wording anywhere in a file answers a question about wording, not about structure — the KIT-CLASS header is where each sheet DECLARES its split, so that is the line to ask.*), this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty, which is the failure this row caused.* | `process/**`, `.claude/skills/**` |
-| **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh` |
+| **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** the *your project's instance* section that MOST doctrine sheets carry (not all — a sheet that is pure pattern has none, and **says so in its own header, which is the signal to read**: `grep -LiE '^<!-- KIT-CLASS:.*(fill-in|instance)' process/doctrine/*.md` — the header is where each sheet declares its split, so ask the header, not the prose), this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty.* | `process/**`, `.claude/skills/**` |
+| **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh`, and under `--roles` the enforcing seams § 2.4 marks *Stamped* |
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `setup.sh`'s runtime half |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
 | **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
 
-*(The members are a **derivation of this seed**, not a definition of the axis. Re-derive them by
-opening the tree; a project that adds a surface gives it a disposition then, and this table is
-wrong rather than general if a reader treats it as closed.)*
+*(The members are a **derivation of this seed**, not a definition of the axis. **A shipped file no
+row names is `KEEP`.** A project that adds a surface gives it a disposition then.)*
 
 ### The `KIT-DISPOSITION:` marker — the table above says WHICH files, the marker says so ON them
 
 The table is the axis's declaring site and stays that. **But a table of member lists is read by a
-human and by nothing else**, and the one shipped reader of this axis — `scripts/check-board.sh`
-arm (g) — carried its members as literal filenames typed into the script, a second copy of this
-table that nothing kept in step with it. Two lists of the same membership, in two files, is the
-drift this manifest names everywhere else.
-
-So a file may **declare its own disposition**, in the same comment block as its `KIT-CLASS:`
-marker:
+human and by nothing else**, so a file may also **declare its own disposition**, in the same comment
+block as its `KIT-CLASS:` marker:
 
 ```
 # KIT-CLASS: MIXED — <why it travels>
@@ -233,9 +220,7 @@ marker:
 
   **So the rule for a third marker is not "avoid the prefix" — it is: if the marker can ever appear
   in a directory the prefix substitution walks, it MUST be sentinel-protected like `KIT-CLASS:`.**
-  A disposition marker added to a template or a role doc would be silently rewritten today. *(The
-  first draft of this bullet claimed the key "carries no placeholder prefix to be substituted",
-  which is simply false — it was written from the design and corrected by running the initializer.)*
+  A disposition marker added to a template or a role doc would be silently rewritten today.
 - **It is stripped at graduation with everything else in the block**, and that is why **a REPLACE
   file's replace-me instruction still does not live here.** § The marker and graduation states the
   rule: an instruction must not live inside a marker on a file whose marker will be removed. A
@@ -243,9 +228,11 @@ marker:
   `REPLACE` disposition is *declared* in the marker but its **instruction** stays in the body, as
   the `BOOTSTRAP-SCAFFOLDING` line, which is what the reader keys on for that row.
 
-**What is marked so far, and what is not.** The marker was introduced with the `FILL` and `REPLACE`
-members declared, because those are the two rows arm (g) actually measures and the point of the
-marker is to feed a reader. **`KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` members are unmarked**,
+**What is marked so far, and what is not.** The `FILL` and `REPLACE` members are declared, because
+those are the two rows the one shipped reader, `scripts/check-board.sh` arm (g), measures. **The
+marker filters; it does not discover:** arm (g) still walks a literal candidate list (`CLAUDE.md`,
+`README.md` and `PROJECT.md` for REPLACE, `PROJECT.md` for FILL), so a new file declaring REPLACE or
+FILL is not checked until it joins that list. **`KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` members are unmarked**,
 and an unmarked file is **not** a file with no disposition — it is a file whose disposition is only
 in the table above. Derive what carries one rather than assuming the set — **and anchor the
 derivation on the file's own header block, because this sheet and the release notes both quote the
@@ -257,11 +244,8 @@ for f in $(grep -rlE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:' 
 done
 ```
 
-*The unanchored `grep -rl` is the right question for "does anything mention this marker" and the
-wrong one for "which files declare it" — measured on this tree, it returns two files more than
-declare one, and both extras are prose. That is the same occurrence-versus-file confusion the
-classification convention's own § The one rule about counting warns of, met again by the marker
-added to answer a different question.*
+*The unanchored `grep -rl` answers "does anything mention this marker", not "which files declare
+it": it also returns files that only quote the marker.*
 
 **An absent marker therefore means "not yet declared", never "nothing to do"** — and a reader of
 this marker must say which rows it measures, exactly as arm (g) does, rather than reporting silence
@@ -346,7 +330,7 @@ numbers, in the file whose entire job is to be true when read.
 is ever correct:
 
 ```bash
-grep -rl "KIT-CLASS:" scripts setup.sh .claude/roles process | wc -l   # every classified file
+git grep -l "KIT-CLASS:" | wc -l                                      # every classified file, plus any that quote the marker
 find scripts -type f | wc -l                                          # scripts/ (every file marked)
 find .claude/roles -type f | wc -l                                    # role docs
 find process -type f | wc -l                                          # process/ itself
@@ -366,13 +350,14 @@ names the guard whose job is to keep it honest.
 
 | Path | What it is |
 |---|---|
-| `AGENTS.md` | **The harness-neutral entry point**, for any agent that is not Claude Code. Travels unedited, and it says so in its own marker. *Added 2026-09-03: this file shipped, declared itself COPY-class in its own header, and was named in NO section of this manifest — not § 1, not § 2, not § 3, not the disposition table. A file that travels unedited and is invisible to the list of what travels is the manifest's own failure mode.* |
-| `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** *Added 2026-09-03, same omission.* |
+| `AGENTS.md` | **The harness-neutral entry point**, for any agent that is not Claude Code. Travels unedited, and it says so in its own marker. |
+| `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** |
+| `dev/` | The working-records tree. Its index (`dev/README.md`) and folder READMEs travel unedited; `dev/downtime-queue.md` is `MIXED` — the queue's shape travels, every row is yours. Everything you add there is yours. |
 | `process/MANUAL.md` | The transferable operating manual. Adopt unedited. |
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/doctrine/` | Process doctrine. **Every sheet states its own pattern/instance split at the top; obey it** — § A (or the sections it names) travels, and the instance section is a **blank you fill**, not an example to keep. `find process/doctrine -type f` lists them; the doctrine table in `MANUAL.md` is the index, and a new sheet joins that table **in the same change** that creates it. |
-| `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — **a sheet's § 6 is where its implementation pointer belongs, and a citation earlier is a defect to fix rather than a licence to add more.** *This read "no sheet names an IMPLEMENTATION path outside its § 6", with a parenthetical measuring zero such citations. Both were false on the tree that shipped them — several sheets carry one before their § 6 — and the parenthetical is exactly the census-in-prose that `doctrine/staleness.md` § C bans, stated about a population that moves every time a sheet is edited. Derive it instead of believing a number: for each sheet, list the `scripts/` and `.claude/` citations above its § 6 heading and judge them one at a time. The RULE is the thing that travels; the measurement was never the rule.* *Scope stated this precisely because the looser phrasing was raised as a defect in three consecutive sweep rounds and read differently each time.* **Two carve-outs, both deliberate and both outside § 6:** `issue-creation.md` § 3 fixes the meaning of `--dry-run` and `--apply` kit-wide, and `config-seam.md` § 2 mandates the exact shape `NAME="${NAME:-value}"`, which is POSIX-shell syntax — a seam anything must parse textually has to name the syntax it parses. *This sentence said "no language, no flag and no path". The flag half was corrected on 2026-09-04 after being raised twice; the LANGUAGE half was left standing in the same edit, and an independent checker returned it the same day. Fixing the half that was reported is how a sentence gets corrected twice and stays false.* **They DO name flags outside § 6, in one deliberate case:** `issue-creation.md` § 3 fixes the meaning of `--dry-run` and `--apply` kit-wide, because that is a rule about the vocabulary every tool shares rather than a description of one implementation, and it needs a single authoring site. *This sentence said "no flag" and was raised as a defect on 2026-09-03; the seat refuted it by checking whether `issue-creation.md` was wrong — it is not — instead of whether THIS sentence was, which it was. Raised again by an independent checker on 2026-09-04 and fixed.* Some sheets describe no script at all — as of this writing `acceptance-tier.md` and `retention-completeness.md`, each saying so in its own § 6, and the set is derived by reading those sections rather than counted here. A sheet without a shipped implementation is not an omission: the rule still travels. ~~And for `liveness-watchdog.md` the absence is the point ("a discipline, not a program — this kit ships no watchdog binary, which is precisely why its rules had to be written down here").~~ **SUPERSEDED for that sheet, with its reason kept: the DURATION half is still a discipline and still could not be a program — it is armed per run, keyed on whatever that run's own artifacts are, and no shipped binary could know what those are. The ABSENCE half is not, and treating it as one is what cost a coordinated run twenty-four hours: its signal is identical for every project running this process, so it can be a program and now is (`scripts/notify/stall.sh`). The general claim above survives; the example chosen to illustrate it was the one case where a sentence was read, agreed with, correctly scoped out, and therefore did nothing.** |
+| `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — **a sheet's § 6 is where its implementation pointer belongs, and a citation earlier is a defect to fix rather than a licence to add more.** **Two carve-outs, both deliberate and both outside § 6:** `issue-creation.md` § 3 fixes the meaning of `--dry-run` and `--apply` kit-wide, because that is a rule about the vocabulary every tool shares rather than a description of one implementation; and `config-seam.md` § 2 fixes the POSIX-shell declaration shapes (`NAME="${NAME:-value}"` / `NAME='value'`) — a seam anything must parse textually has to name the syntax it parses. Some sheets describe no script at all, and each says so in its own § 6. A sheet without a shipped implementation is not an omission: the rule still travels. |
 | `process/templates/` | Fill-in-the-blank shapes — including `KIT-FEEDBACK.skeleton.md`, the one document that flows OUTWARD, sent only when the project chooses (`doctrine/distribution.md` § A.8): copy it to `process/KIT-FEEDBACK.md` on day one, empty rather than fabricated, and write its About block by hand. **Hand-filled** — the initializer stamps `.claude/templates/`, not these, so they carry no prefix literal. Blanks are `<angle brackets>`. **A FILL file has no template here: it ships as its own blank instance and is filled in place.** *A template nothing stamps drifts from the instance it claims to be — every edit reaches the live sheet and none reaches the copy, and nothing in the tree compares them.* |
 | `process/hygiene-checklist.md` | The shapes a hygiene pass looks for, plus two ratchet rules and the anti-pigeonhole reservation. **The cadence is advisory; the pre-cut sweep is MANDATORY when the slate came from a round.** The shapes travel with their **evidence columns blank**. |
 | `process/EXTRACTION.md` | This file. Update its § 4 as you pay the debts down, and **add the debts you discover** — that is ratchet rule 1 applied to a manifest. |
@@ -380,7 +365,7 @@ names the guard whose job is to keep it honest.
 | `.claude/skills/` | The named practices, one directory each, plus an index. |
 | `.claude/agents/` | Leaf-worker agent definitions — **this is where the model/effort ladder's defaults physically live** ([`doctrine/model-provisioning.md`](doctrine/model-provisioning.md) § B.1). |
 | `.claude/workflows/` | The serial and paired multi-issue runners. |
-| `.claude/templates/` | **COPY — and every file in it is marked `KIT-CLASS: KIT`, which is the authority.** The item templates travel whole; `kit-init.sh` stamps values INTO them, and § 4.6 states exactly how far that stamp reaches. *This row said "MIXED, not COPY" while all five markers said KIT — a class asserted in a table against the in-file markers the classification convention makes definitive.* |
+| `.claude/templates/` | **COPY — and every file in it is marked `KIT-CLASS: KIT`, which is the authority.** The item templates travel whole; `kit-init.sh` stamps values INTO them, and § 4.6 states exactly how far that stamp reaches. |
 | **The kanban script set** — § 1.1 | The executable half of the kit. |
 | `setup.sh` | **MIXED**: the frame is the kit's, the language runtime is yours. See § 1.1. |
 | `consumers/` | **OPTIONAL, and delete it if it does not apply.** The thin machinery for the case where something else vendors your project, governed by [`doctrine/distribution.md`](doctrine/distribution.md). **If your project ships to nobody, remove the directory** — an unused distribution surface reads as a promise. |
@@ -445,10 +430,8 @@ census* — is falsified by any file that belongs to none.
 tree, print a report, and change nothing. Described by
 [`hygiene-checklist.md`](hygiene-checklist.md).
 
-**Take but EDIT** — the files whose **project half you fill on day one**. *The heading used to read
-"the four files", over a table that had five rows, in the file whose § 2.4 forbids exactly that: the
-table is the list and the table is the count.* It is **not** simply the `MIXED` class — see the
-exclusion below the table.
+**Take but EDIT** — the files whose **project half you fill on day one**. It is **not** simply the
+`MIXED` class — see the exclusion below the table.
 
 | File | The kit half | Your half |
 |---|---|---|
@@ -460,10 +443,9 @@ exclusion below the table.
 | `.env.example` | the kit's own entries, complete | the **project block** below them |
 | `.gitignore` | the kit's own entries, complete | the marked **build-artifact section** |
 
-**One file is `MIXED` and deliberately NOT a row: `progress/history/INDEX.md`.** Its project half is
-**accumulated, not filled** — rows arrive as the log rotates — so it is `SEED`-shaped work rather than
-a day-one touch. *Stated rather than omitted, because a table that silently drops a member of the
-class its heading names is the failure mode this file is trying to end.*
+**Two files are `MIXED` and deliberately NOT rows: `progress/history/INDEX.md` and
+`dev/downtime-queue.md`.** Their project half is **accumulated, not filled** — rows arrive as the log
+rotates or the queue grows — so it is `SEED`-shaped work rather than a day-one touch.
 
 **Derive the class rather than trusting this table, and anchor to the FIRST marker per file:**
 
@@ -507,22 +489,24 @@ shape for an adopter not running `kit-init.sh`.
 
 ```bash
 ./scripts/kit-init.sh --prefix XYZ --trunk main            # add --roles / --gate-command as needed
-./scripts/kit-init.sh --help                               # every option + the refusal recipes
+./scripts/kit-init.sh --help                               # every option and the remote precondition
+                                                           # (the recipes print on refusal)
 ```
 
 **Copy the files in § 1 first, then run this.** `kit-init.sh` is **configure-only** — it does not
 copy the kit (there is no `--from` mode: the copy-list is authored here, and a second executable
 copy of it would drift). Its preflight checks a **hand-listed minimum** of that copy-list — the
 files without which nothing else can run — and refuses, naming each one that is missing. **It is
-not a check against § 1's list**, and it cannot be: § 1 is prose, and the contract forbids the tool
-carrying a second copy of it. A file that travels but is not in the minimum is not caught here.
+not a check against § 1's list**: a file an adopter deletes is theirs to delete, and a manifest-wide
+presence check would refuse every legitimate deletion. A file that travels but is not in the minimum
+is not caught here.
 
 It performs every precondition in the table below, then **proves them** with a **self-check** that
 mints a scratch item, moves it through two columns, asserts the drift report clean, and has a real
 commit **rejected** by the attribution hook — the whole point being that *every finding in this
 kit's cold-read review was found by reading, and all of them would have been found by running.*
-The behaviours worth knowing before you run it — *the list is the list; it carried a digit once and
-the digit was already short by one when a reader checked it against the tool's contract:*
+The behaviours worth knowing before you run it — every refusal is in
+[`contracts/initializer.md`](contracts/initializer.md) § 3:
 
 - **The trunk is confirmed, never inferred.** `--trunk` is required and is cross-checked against
   the remote's published default branch; a disagreement refuses. `<trunk>` defaults to `main`.
@@ -539,6 +523,9 @@ the digit was already short by one when a reader checked it against the tool's c
   after the initializing commit, so the tree is already written when it fires — it reports the bad
   result, it does not prevent it.* The promise *"the travelling files are clean"* was believed by
   three readers and checked by nobody, once. Now it is measured.
+- **A shipped path on disk but not committed refuses** — per the shipped `process/KIT-MANIFEST`,
+  naming the command that commits the kit. The initializer commits only the paths it writes, so the
+  rest would never reach the trunk.
 - **A second run refuses.** It names what is already stamped and writes nothing — a half-stamped
   repository is the worst outcome available, so there is no resume path. The same rule protects any
   repository that has already lived.
@@ -568,9 +555,9 @@ you want to know what the initializer is doing to your repository. **A non-shell
 |---|---|
 | `ISSUE_PREFIX` | The prefix in item filenames and headers — `${ISSUE_PREFIX}-001-<slug>.md`. Used by every creating script and by the archive sweep. **Changing it takes effect on the next invocation; existing files are NOT renamed** — history keeps the identifiers it was born with. |
 | `PRD_PREFIX` | The spec prefix. The default is fine for most projects. |
-| `PROJECT_NAME` | The project's own name, stamped by `kit-init.sh` alongside the two prefixes. **This row was missing entirely** — `config.sh`'s own header names three values the initializer stamps and this table listed two, so the third was a knob no manifest reader could discover. |
+| `PROJECT_NAME` | The project's own name, stamped by `kit-init.sh` alongside the two prefixes. |
 | `validate_issue_id()` | The shared read-only guard: requires an id, enforces the declared shape, hard-errors on an id already live, and **warns** when the id appears only in the archive. Creating scripts are deliberately **stateless** — the caller supplies the number, and `next-id.sh` suggests it. |
-| The publication remote *(NOT a `config.sh` knob — it is `KWT_REMOTE`, declared in `scripts/lib/kanban-worktree.sh`; this table is § 2.1's and the row sat here as though `config.sh` carried it)* | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
+| The publication remote *(not a `config.sh` knob: `KWT_REMOTE`, in `scripts/lib/kanban-worktree.sh`)* | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
 | The **trunk** | *not a variable* — **a resolution chain** in `scripts/lib/kanban-worktree.sh`: `<remote>/HEAD`, then `init.defaultBranch`, then the literal `KWT_TRUNK_LAST_RESORT`. Every step after the first **warns** and does not refuse, so a guessed trunk still runs. The initializer therefore **confirms** it up front (§ 1.3, row 1) rather than letting the chain decide. |
 
 Every knob is a `${VAR:-default}`, so a one-off run can override without an edit.
@@ -593,14 +580,11 @@ keep the ACTIVE board shallow; this column's whole value is being browsable), an
 reports its **depth** as a **count only** — a refusal is not work left undone, so the depth never
 changes the verdict.
 
-**"Not counted against the verdict" is not "not checked", and the two were conflated once already.**
+**"Not counted against the verdict" is not "not checked".**
 The drift report's `[a]` arm — folder versus last-Activity entry — **does** read `declined/`, and
 must. A declined card is tracked, published and browsable, which is exactly what
 [`contracts/drift-report.md`](contracts/drift-report.md) invariant 1 means by a *live item*; `[a]` is
-the only arm that can see a **hand-move** at all. *Measured, not hypothetical: while this column was
-being added, `[a]` alone kept walking a hardcoded literal list while the other column-walking arms
-were widened, and a card in `declined/` whose last Activity entry declared `→ todo` was reported
-`clean ✓`.*
+the only arm that can see a **hand-move** at all.
 
 **THE ONLY COLUMN `[a]` EXCLUDES IS `done/`, and the exclusion is written down beside the arm** —
 it is off-board and can be huge, and the arm has a `<2s` budget. That argument does not transfer to
@@ -623,10 +607,10 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 
 | File | What it holds | If it is missed |
 |---|---|---|
-| `scripts/move-issue.sh` | the full set, **five times** — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression. *This row said "four times" while parenthetically admitting the regex carried it twice; the count and its own evidence disagreed.* | a new column cannot be moved to **at all** |
-| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
+| `scripts/move-issue.sh` | the full set, at every site — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression | a new column cannot be moved to **at all** |
+| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name; `[g]` derives from the constant; `[j]` and `[m]` each read the two landed columns (`done`, `qa_complete`) by name. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
 | `scripts/subtask.sh` | the set **minus `done` and minus `declined`**, on its `move` arm — both omissions are DECIDED, not inherited. A subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, and a subtask is not independently refusable: what gets declined is the PARENT, and the decomposition goes with it. | a subtask cannot reach the new column |
-| `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (its own comment says *"this is an existence check only"*). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
+| `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (it only tests `-d` and warns or fails). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
 | `scripts/test/lib/fixtures.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
 | `scripts/lib/lived-probe.sh` | **nothing — it is PARAMETERISED**, and is in this table so that a maintainer who derives the carriers and meets it knows it needs no edit. The caller passes the columns, precisely because `kit-init.sh` and `check-board.sh` hold their sets in incompatible types (a bash array and a `\|`-delimited string). | nothing; it grows for free |
@@ -640,6 +624,9 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
   `scripts/finish-pr.sh` moves `dev_complete` → `qa_complete`. **A change to any column one of them
   names touches it** — which is checkable per column, and is not a question of where in the flow the
   column sits.
+- **They create into one column.** `scripts/new-issue.sh`, `new-bug.sh` and `new-refactor.sh` name
+  `todo` as their creation target and refuse without it — a rename of `todo` breaks every creator,
+  and neither recipe below finds them.
 - **They mention one column in a comment or an example string.** `scripts/verify.sh` names
   `dev_complete` in a comment and an echo; `scripts/githooks/commit-msg` names `qa_complete` inside
   an example subject in its refusal help; `scripts/config.sh` names `in_progress` in an example
@@ -651,9 +638,8 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
   worker definitions name the columns their hat moves between; two skills walk the flow. **Most of them carry
   the set MINUS `done`** — a runner brief and an issue template describe the working lifecycle, and
   nothing there closes an issue — **but not all: `.claude/roles/pm.md` states the COMPLETE set,
-  `done` included, as the mover's legal target list.** *This bullet read "they carry the set minus
-  `done`" without the exception, which is the kind of universal `staleness.md` § C is about: derive
-  the carriers (`grep -rl in_progress .claude/`) rather than trusting the quantifier.* **What a missed column costs here is a WRONG INSTRUCTION rather than a
+  `done` included, as the mover's legal target list.** Derive the carriers
+  (`grep -rl in_progress .claude/`) rather than trusting the quantifier. **What a missed column costs here is a WRONG INSTRUCTION rather than a
   broken script:** the agent is told to move an issue to a column that does not exist, and the failure
   surfaces as the mover refusing mid-run, at whatever hour the run reached that step.
 
@@ -664,28 +650,15 @@ grep -rlE '(todo[|, ]+in_progress|STATUS_FOLDERS)' scripts/ setup.sh .claude/   
 grep -rlE 'in_progress|dev_complete|qa_complete'   scripts/ setup.sh .claude/   # names ANY column
 ```
 
-**THE `.claude/` OPERAND IS NOT DECORATION AND MUST NOT BE DROPPED FOR BREVITY.** Until 2026-09-02 both
-recipes read `scripts/ setup.sh` alone. Measured on the day they were widened: the narrow form found
-**11** files, the widened form **28** — so **more of this seam lived outside the recipe's reach than
-inside it**, and every file in the difference was invisible to the very instrument this section offers
-for finding them. *A derivation whose SPACE is hand-bound answers a smaller question than the one it
-appears to answer, and answers it confidently.*
+**THE `.claude/` OPERAND IS NOT DECORATION AND MUST NOT BE DROPPED FOR BREVITY:** much of this seam
+lives under `.claude/`, and a derivation whose SPACE is hand-bound answers a smaller question than the
+one it appears to answer, and answers it confidently.
 
 *The second pattern deliberately omits `todo` and `done`. `done` is a shell keyword, so it matches
 loop terminators; it is also the tail of `progress/done/`, so most of what a bare `done` finds in
 `archive.sh` is **path literals — the seam itself**. Either way a bare count answers a question about
 the language and the paths rather than about the seam, which is why the pattern uses the three column
 names that are neither.*
-
-*This paragraph has been wrong twice, in opposite directions, about the same files.* First it claimed
-the archive sweep and the landing gate held **none** of these values, on the evidence of
-`grep -c 'in_progress'` over both — the command was true and the claim was false, because
-`in_progress` is the one column neither touches. **A probe scoped to the one operand that exculpates
-the subject is the guard looking slightly to the left of the defect.** Then the correction generalised
-*"endpoints of their own transition"* from those two files onto five, when three of the five only
-mention a column in a comment or an example. **Both errors were a characterisation stretched past its
-measurement**, which is why the list above is now per file and says what each one does with the name
-it holds.
 
 **Check whether your copy makes it a variable** (§ 4.5).
 
@@ -703,21 +676,20 @@ table below is the list, and the table is the count — and naming only the adap
 drifts: one project had the attribution hook accept a role the board mover
 did not, so the seat that held it **could not move a card** and had to borrow another hat.
 
-**THE TABLE HAS TWO REGISTERS AND THEY BEHAVE OPPOSITELY**, which it did not say until 2026-09-02.
-Some rows are seams `kit-init --roles` **stamps**; others are documentation it **deliberately never
-touches**. A reader who could not tell them apart had two ways to go wrong in opposite directions:
+**THE TABLE HAS TWO REGISTERS AND THEY BEHAVE OPPOSITELY.** Some rows are seams `kit-init --roles`
+**stamps**; others are documentation it **deliberately never touches**. A reader who cannot tell them
+apart can go wrong in two opposite directions:
 add a new enforcing seam and assume the initializer would find it, or "fix" the initializer to also
 rewrite the adapter. The `Stamped?` column is the register, and it is mechanical rather than prose.
 
 | File | Register | Stamped? | What it holds | Note |
 |---|---|---|---|---|
 | `scripts/githooks/commit-msg` | **ENFORCING** | yes | The expression the hook enforces | Kept as a named variable **on its own line** so it can be *derived*, never re-hardcoded. **This row is the source the other enforcing rows are stamped FROM** |
-| `scripts/move-issue.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** The whitelist and both error messages now derive from the hook at run time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_resolve`, and the usage text through `kit_role_display` | A role missing here cannot move the board **at all**. **Preserve the derivation**; the default is the part that drifts, so correct IT. **This file held THREE copies until 2026-09-07** — the whitelist and two messages — and a fourth, space-padded, in its usage text until earlier the same day, which `grep -lF` could not see: the whitelist was stamped, the header was not, and the script advertised roles it refused on every narrowed tree. **The remaining literal is reached only when the hook is UNREADABLE, which is why it is a default and not a copy**: a literal beside a readable authority can drift from it, one reached only in the authority's absence cannot. It is still stamped because a default must be right for *this* project, and it lives in this file rather than in `lib/` because `kit-init --roles` stamps `scripts/*.sh` and **does not reach `scripts/lib/`** — measured |
+| `scripts/move-issue.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** The whitelist and both error messages now derive from the hook at run time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_resolve`, and the usage text through `kit_role_display` | A role missing here cannot move the board **at all**. **Preserve the derivation**; the default is the part that drifts, so correct IT. **The remaining literal is reached only when the hook is UNREADABLE, which is why it is a default and not a copy**: a literal beside a readable authority can drift from it, one reached only in the authority's absence cannot. It is still stamped because a default must be right for *this* project, and it lives in this file rather than in `lib/` because `kit-init --roles` stamps `scripts/*.sh` and **does not reach `scripts/lib/`** |
 | `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
-| `scripts/subtask.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `move` arm's whitelist and both error messages derive through `kit_role_resolve`; its usage text derives through `kit_role_display` | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the shared kanban worktree loses the move. **Same shape as `move-issue.sh` above and for the same reasons** — three copies until 2026-09-07, one stamped default now, kept in this file because the initializer's glob cannot reach `lib/`. **Its usage text carried a hand-typed THREE-ROLE SUBSET until 2026-09-07**, narrower than the set the arm enforced, so on an unmodified kit it *under*-advertised and on a narrowed tree it *over*-advertised — a third shape `grep -lF` cannot match, after the full set and the space-padded full set |
-| `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | **This row was missing while the table above called itself "the list", which is the drift this section is about happening to this section.** The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
+| `scripts/subtask.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `move` arm's whitelist and both error messages derive through `kit_role_resolve`; its usage text derives through `kit_role_display` | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the shared kanban worktree loses the move. **Same shape as `move-issue.sh` above, and kept in this file for the same reason:** the initializer's glob cannot reach `lib/` |
+| `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
 | The adapter (`CLAUDE.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
-| ~~`.claude/settings.json.example`~~ | ~~DOCUMENTATION~~ | ~~**no**~~ | ~~The set spelled out in prose, in its `<role-prefix-list>` note~~ — **STRUCK 2026-09-04.** The file holds no role set: the prose that did left with the `autoMode` block, and the `<role-prefix-list>` gloss that outlived it was removed in turn. Row kept struck rather than deleted so a reader who remembers this copy can see it was retired, not overlooked | **Documentation only — nothing enforces it.** Derive from the hook; this is the copy an adopter reads *before* they open the hook, which is what makes a stale one expensive. ~~The file's own `_note` says the initializer does not touch it~~ — there is no `_note` key either; struck with the rest of the row |
 
 **`scripts/lib/role-set.sh` gets no row, deliberately: it holds the POLICY, not the set.**
 `kit_role_set` reads the authority, `kit_role_display` renders it for usage text, `kit_role_resolve`
@@ -729,9 +701,8 @@ initializer's glob cannot stamp.
 
 **A DEFAULT MUST ANNOUNCE ITSELF, and that is what keeps it out of this register.** The moment a
 fallback is presented as *this project's set* it is a false claim about this tree, which
-[`contracts/issue-creation.md`](contracts/issue-creation.md) § 3 forbids. `check-board.sh` has done
-this for two lists since before the library existed — its own words, *"NAMED, NOT SILENT. The
-fallback is the drifting half by construction"* — and the `--role` arms now do the same.
+[`contracts/issue-creation.md`](contracts/issue-creation.md) § 3 forbids. `check-board.sh` names
+its fallback set in its output, and the `--role` arms do the same.
 
 **Derive the ENFORCING register rather than trusting this table to be current** — the table is the
 statement of intent, the recipe is the measurement, and a disagreement between them is a finding:
@@ -771,20 +742,14 @@ the declared set** is what separates a candidate role set from a table, and it n
 the discriminator is the hook.
 
 *What it legitimately reports, and why neither is filtered away: the harness holds the SHIPPED set
-deliberately, as the value it asserts the kit ships, and it holds fixture sets that are nobody's
-project. Read the hits. **Do not add an exclusion list** — that is the shape this whole section is
-about, and the two real defects below were found by reading four lines rather than by trusting a
-filter.*
+deliberately, as the value it asserts the kit ships (`scripts/test/lib/fixtures.sh`, a hit once
+`--roles` has narrowed the tree), and it holds fixture sets that are nobody's project
+(`scripts/test/cases/kit-init.sh`). Read the hits. **Do not add an exclusion list** — that is the
+shape this whole section is about.*
 
-**Measured 2026-09-07 on a tree built by the kit's own tools and narrowed with
-`kit-init --roles`, this recipe returned four lines and two were defects** — one of them the
-`move-issue.sh` row above, and one nobody had looked for:
-
-| hit | verdict |
-|---|---|
-| `scripts/move-issue.sh` — the set **space-padded** in the `--help` header | **Fixed**: the header now renders from the hook, so there is no copy to stamp |
-| `scripts/subtask.sh` — `[--role Orchestrator\|Dev\|QA]` in its usage line | **A SECOND INSTANCE IN A THIRD SHAPE.** Not the padded full set but a **partial subset**, so `grep -lF` could not match it either. **FIXED on 2026-09-07, and this row said "Not fixed" afterwards** while § 2.4's own prose two tables above recorded the same fix — two shipped statements about one file, disagreeing, in one document. The usage line now renders `[--role <R>]` through `kit_role_display`, so there is no subset to drift. *Kept rather than deleted because the SHAPE is the lesson: a hand-typed partial subset is invisible to a `grep -lF` for the full set, which is why the audit that found the other two missed this one.* |
-| `scripts/test/run.sh` × 2 | Correct. The harness holds the shipped set as the value it asserts, and a fixture set that is nobody's project |
+**On a narrowed tree it has found two real defects a `grep -lF` for the set could not:** the set
+space-padded in `move-issue.sh`'s `--help` header, and a hand-typed partial subset in `subtask.sh`'s
+usage line. Both now render from the hook through `kit_role_display`, so there is no copy to drift.
 
 **So the class is not "a padded copy" — it is "a copy in any shape the stamper's matcher does not
 produce",** and there is no reason to think three shapes is the end of the list. That is the
@@ -840,9 +805,8 @@ They are graded by what a wrong tag costs, because the costs are not comparable:
 
 | Class | Members | Cost when the tag is not in the declared set |
 |---|---|---|
-| Carries one member as an **ENFORCED commit tag** | `scripts/archive.sh` (the sweep), `scripts/subtask.sh` (the `create` arm), `scripts/finish-pr.sh` (the squash subject) | The hook rejects it **mid-operation** — the `git mv` and the Activity append have already happened inside the shared kanban worktree, the commit fails, and the next board operation `reset --hard`s them. **Silent data loss in somebody else's lane**, not an error |
-| Carries one member as an **ENFORCED `--role` argument** | `scripts/finish-pr.sh` (the board advance) | `move-issue.sh`'s whitelist rejects it **after the merge has landed** — the branch is merged and the card is not moved |
-| Carries one member as a **KNOB DEFAULT** | `scripts/release.sh` (`RELEASE_ROLE`), and the three above since 2026-09-02 (`ARCHIVE_ROLE`, `SUBTASK_ROLE`, `FINISH_PR_ROLE`), and `scripts/kit-init.sh` (`KIT_INIT_ROLE`, default the pre-role hat of `contracts/role-gate.md` § 2a) since it stopped deriving its tag from the set's first member | **This is the shape the others were converted to.** The project names the seat; the script refuses up front if the tag is not declared, naming the knob |
+| Carries one member as a **KNOB DEFAULT** | `scripts/release.sh` (`RELEASE_ROLE`), `scripts/archive.sh` (`ARCHIVE_ROLE`), `scripts/subtask.sh`'s `create` arm (`SUBTASK_ROLE`), `scripts/finish-pr.sh` (`FINISH_PR_ROLE` — its squash subject and its board advance), `scripts/kit-init.sh` (`KIT_INIT_ROLE`, default the pre-role hat of `contracts/role-gate.md` § 2a) | The project names the seat; the script refuses up front if the tag is not declared, naming the knob. **Every enforced tag takes this shape:** a tag the hook meets mid-operation loses the move inside the shared kanban worktree |
+| Carries one member as a **`--role` DEFAULT, with no knob** | `scripts/subtask.sh`'s `move` arm (`Orchestrator`) | Checked before any mutation, so on a tree that withdrew the role every move without `--role` refuses — pass `--role` |
 | **Mentions** a member in a comment or recovery text | Several, and cheapest — with one exception worth naming: recovery text that tells the operator to re-run with the role that was just **rejected** is a loop, not a remedy | A reader follows advice that cannot work |
 | Names a member in an **EXAMPLE THAT `--help` RENDERS** | Several, and still cheap to fix — but **not deferrable**, see below | The tool prints a **copy-pasteable command that fails**, in the output an operator is most invited to run |
 
@@ -900,9 +864,7 @@ refusal before the first mutation: [`lib/role-set.sh`](../scripts/lib/role-set.s
 implementation of both.
 
 Change one, change them all — **and the row count is this table, never a number in the prose above
-it.** An earlier version of this heading said "FOUR places", which was true when it was written and
-false the first time a fifth reader was added; the sentence that names a count is the one that rots
-(`doctrine/staleness.md` § C). Contract: [`contracts/config-seam.md`](contracts/config-seam.md).
+it** (`doctrine/staleness.md` § C). Contract: [`contracts/config-seam.md`](contracts/config-seam.md).
 
 ### 2.5 The two project files the kit points at
 
@@ -957,9 +919,6 @@ is *due for a sweep* and the sizes at which the running log is *due for rotation
 section and the whole file being separately bounded. The **section**-size one is deliberately
 reused as the index trigger in [`doctrine/lookup-tables.md`](doctrine/lookup-tables.md) § A.1, so
 that one idea does not carry two numbers.
-*This paragraph said "two bounds" while the seam declared three: naming the members is the same
-census the digit is, and it goes stale the same way. Say what the bounds are FOR, and let the file
-say how many.*
 
 ---
 
@@ -1020,11 +979,7 @@ table matches the hook*, *the retained-evidence index is complete in both direct
 are **process enforcement written in the project's own test path**. Most cannot travel, so **an
 adopter receives those rules without their guards.**
 
-**SOME OF THEM NOW DO TRAVEL, and this heading said "do not" while they shipped.** *The count that
-stood here — a bare fraction of an "original six" — is not written down any more, and deliberately:
-the six were never enumerated in this section, so the denominator could not be checked by anyone
-reading it, and the same fraction was repeated in § 4.10 where nothing compared the two. Name the
-guards that ship, which is checkable, and derive the rest.*
+**SOME OF THEM NOW DO TRAVEL.**
 `scripts/release.sh` refuses to tag a version its notes do not document; `scripts/verify.sh`
 reconciles the suite it ran against `GUARD_ENUM` in both directions; and
 `case_travelling_scripts_have_a_sheet` holds every travelling script to a contract sheet in the
@@ -1048,11 +1003,7 @@ same as applying one edit N times, because they do not all hold the same set.
 **Check:** `grep -rn 'qa_complete' scripts/ setup.sh` — a handful of hits in one declared list is a
 seam; a scatter across the files § 2.2 lists is this debt.
 **Cost if unpaid:** every carrier in § 2.2's table edited by hand, per lifecycle change — **and the
-divergent ones decided rather than copied.** *(This line, and the sentence above it, previously named
-"the board mover, the drift report, the archive sweep and the landing gate" and costed it as "four
-scripts". Two of those four do not carry the set — they perform one transition each and name its two
-ends — so the cost depends on **which columns** the change touches, not on where in the flow they
-sit: § 2.2 has both lists and the commands that derive them.)*
+divergent ones decided rather than copied.**
 
 ### 4.6 The initializer's stamping reach is not total
 The initializer stamps the configuration seam, the item templates and the role docs. Whether it
@@ -1080,17 +1031,8 @@ name** — its `TRUNK_RE` is built from the shipped default read out of `lib/kan
 project whose trunk is `<something-else>` gets every literal occurrence rewritten and every `<trunk>`
 symbol left standing. **So on a project whose trunk EQUALS the shipped default the census does not count at all** — it
 reports `census — <label>: not counted (your value is the shipped one)`, because there was no
-rewrite to verify. *This passage claimed the default-trunk case produced `census — <label>: N
-occurrence(s) survive`. That was wrong twice over: that line appears only where a rewrite WAS
-attempted, and it is a FAILURE — the initializer emits it as a bad result, meaning literals the
-rewrite should have caught are still there. Reading it as the expected default-path report inverted
-a refusal into a reassurance. The census is honest about which string it counts; it was read as a
-report about the angle-bracket blanks, which it never was.*
-
-**So the previous version of this check was wrong in one direction only:** it named `<trunk>` and did
-not read `.claude/roles`, which is the STAMP-class directory that actually carries the symbols — so it
-could never have reported them, and widening it naively would have reported every definition as a
-defect.
+rewrite to verify. Where a rewrite WAS attempted, `census — <label>: N occurrence(s) survive` is a
+**failure**: literals the rewrite should have caught are still there.
 **Cost if unpaid:** a search-and-replace pass plus a read of the two runners.
 **Note the honest sub-case:** a *provenance citation* of the form *prefix-number* attributing a
 lesson is a **citation, not a value**, and rewriting it would manufacture a reference your history
@@ -1109,10 +1051,6 @@ The configuration seam's header and several script headers point at `CLAUDE.md` 
 name. These are *tolerated* pointers: § 2.5 names those two files as configuration seams, which is
 the only licence a kit file has to know an installation's filenames.
 **Cost:** rename your adapter and these headers read stale.
-**One related smell, stated rather than hidden:** `MANUAL.md` points at the orchestrator **role
-doc** for the rigor-tier ladder — so one piece of process doctrine lives in a role doc rather than
-in `process/doctrine/`. It is a real inconsistency; promoting it is its own work item, and the
-pointer is correct in the meantime. **PAID 2026-08-21 at the PM's word:** the ladder now lives at `process/doctrine/rigor-tiers.md`; the role doc keeps only the run-plan duties that apply it and points there.
 
 ### 4.9 (PAID) — the degraded-path second default
 Several scripts used to carry their own hard-coded prefix literal as a defensive fallback for the
@@ -1124,13 +1062,7 @@ breaks, and then silently targeting the wrong project. The seam sheet now forbid
 **Check:** `grep -rn '^[^#]*ISSUE_PREFIX:=' scripts/` — **it should find nothing at all.**
 *The `:=` (assign-if-unset) form IS the defect: a script carrying it defines its own default and
 stops reading the seam. The seam's own default is spelled `:-`, so it is deliberately not what this
-matches — and the scripts that do mention `:=` mention it in comments recording the removal, which
-is why the pattern skips comment lines.*
-**This check previously read *"should find the seam's own default and nothing else"*, and was wrong
-on both halves** — it found five things, none of them the seam's default, and a reader who ran it
-saw five hits where the sentence promised one and had no way to tell a false alarm from a real one.
-*A verification command whose expected output is wrong is worse than no check: it trains the reader
-to ignore it.* Prove a check on a planted defect before writing it down.
+matches.*
 **The transferable half of how it was paid:** the fix was **declined once**, deliberately, when it
 was proposed as a one-script edit — because changing one of five would leave four inconsistent, and
 because the existing test asserted the old behaviour on purpose. It was paid as one change across

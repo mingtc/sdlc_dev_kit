@@ -665,6 +665,10 @@ columns and never the cards.*
   so it reaches every harness (only `AGENTS.md` said it). `PROJECT.md`'s configuration-seam row marks `scripts/config.sh` a
   fixed name, like `verify.sh`.
 
+- **`process/EXTRACTION.md` is current.** § 1 lists `dev/` to copy (its index and folder READMEs travel; `dev/downtime-queue.md`'s
+  rows are yours); § 1.3 says `kit-init.sh` refuses while a shipped path is on disk but not committed; § 2.2 names `new-issue.sh`,
+  `new-bug.sh` and `new-refactor.sh` as carriers of `todo` — renaming that column breaks every creator.
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped
