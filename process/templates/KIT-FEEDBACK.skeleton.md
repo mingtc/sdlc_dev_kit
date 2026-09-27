@@ -109,9 +109,7 @@ When you send a snapshot, mark the point and **say how you sent it**:
 <!-- ────────── SNAPSHOT SENT <YYYY-MM-DD> · via <the channel, named> · through K-NN ────────── -->
 ```
 
-**Naming the channel is not bookkeeping.** *(Measured 2026-09-04: an adopter and a kit maintainer
-compared notes and neither could say by what route the previous snapshot had travelled. Both knew
-it had arrived; neither could repeat it.)* A snapshot whose channel nobody recorded cannot be sent
+**Naming the channel is not bookkeeping.** A snapshot whose channel nobody recorded cannot be sent
 the same way twice, and an entry you believe was delivered is worse than one you know was not.
 
 **Where there is a destination, send early and send partial.** The kit would rather have twelve

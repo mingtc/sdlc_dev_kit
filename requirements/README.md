@@ -29,9 +29,8 @@ PRD (id · status · what it covers) and keep it here rather than in the manifes
 PRD is ruled once in [`DECISIONS.md`](DECISIONS.md) under a `D-NN`, and the PRD cites the id with the
 anchored marker `[decision: D-NN]` — **never the ruling's text in both places**, because a second
 copy is the copy that drifts. What separates a **fork** (→ the register) from a **fact** (→ amend the
-PRD) is the one-question diagnostic in
-[`process/templates/DECISIONS.skeleton.md`](../process/templates/DECISIONS.skeleton.md) § *Which
-decisions live HERE*. `./scripts/check-board.sh` joins the two: a citation resolving to no entry, or
+PRD) is the one-question diagnostic in [`DECISIONS.md`](DECISIONS.md) § *Which decisions live
+HERE*. `./scripts/check-board.sh` joins the two: a citation resolving to no entry, or
 to a retired id, is a drift finding.
 
 **A PRD overtaken in part is annotated in the same change** — `superseded_in_part: [<issue-id> →

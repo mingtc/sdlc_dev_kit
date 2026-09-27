@@ -126,7 +126,7 @@ BRANCH="refactor/${ID}-${SLUG}"
 
 # BUILD IT ASIDE, PUBLISH IT WHOLE, and escape every value: as new-issue.sh states.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead"' EXIT
+trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"' EXIT
 
 cp "$TEMPLATE" "$WORK"
 
@@ -154,6 +154,9 @@ fi
 rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1
+# The body's known values: the H1's id, the seed entry's date, the refactor pass.
+kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
+kit_fill_card "$WORK" "dev/refactor/<file>.md" "$PASS" || exit 1
 
 
 kit_publish_card "$WORK" "$DEST" || exit 1
@@ -165,6 +168,5 @@ echo "Next steps:"
 echo "  1. Fill in title, Target & Goal, Behaviors Preserved, Move Sequence."
 echo "  2. Fill in the Safety-Net Assessment (link to the pass doc § target)."
 echo "  3. Fill in the Migration Plan (if any public-surface changes)."
-echo "  4. Date the seed Activity entry (the shapes block above it is examples, not entries)."
-echo "  5. Confirm Definition of Ready (.claude/roles/refactorer.md)."
+echo "  4. Confirm Definition of Ready (.claude/roles/refactorer.md)."
 print_push_before_move "$DEST"

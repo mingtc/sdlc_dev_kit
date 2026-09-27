@@ -132,7 +132,7 @@ BRANCH="fix/${ID}-${SLUG}"
 
 # BUILD IT ASIDE, PUBLISH IT WHOLE, and escape every value: as new-issue.sh states.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead"' EXIT
+trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"' EXIT
 
 cp "$TEMPLATE" "$WORK"
 
@@ -160,6 +160,19 @@ fi
 rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1
+# The body's known values: the H1's id, the seed entry's date, the PRD and the issue that surfaced it.
+kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
+PRD_FILE=""
+if [ -n "$PRD" ]; then
+  for f in "$ROOT/requirements/$PRD"-*.md; do
+    [ -f "$f" ] && [ -z "$PRD_FILE" ] && PRD_FILE="$(basename "$f")"
+  done
+fi
+kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" \
+  "Related issue: <PREFIX>-NNN" "${DISCOVERED:+Related issue: $DISCOVERED}" \
+  "Related issue: ${ISSUE_PREFIX}-NNN" "${DISCOVERED:+Related issue: $DISCOVERED}" \
+  "during review of <PREFIX>-NNN" "${DISCOVERED:+during review of $DISCOVERED}" \
+  "during review of ${ISSUE_PREFIX}-NNN" "${DISCOVERED:+during review of $DISCOVERED}" || exit 1
 
 
 kit_publish_card "$WORK" "$DEST" || exit 1
@@ -170,6 +183,5 @@ echo ""
 echo "Next steps:"
 echo "  1. Fill in title and Bug description."
 echo "  2. Complete the reproduction fields (Reproduction, Expected vs Actual, Impact, Environment, References)."
-echo "  3. Date the seed Activity entry (the shapes block above it is examples, not entries)."
-echo "  4. See .claude/roles/qa.md for the full QA workflow."
+echo "  3. See .claude/roles/qa.md for the full QA workflow."
 print_push_before_move "$DEST"

@@ -12,7 +12,7 @@
   restored) and process/doctrine/negative-claims.md (enumerate, or say "unmeasured").
 -->
 
-<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — NOT to the directory it
+<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/<slug>/ — NOT to the directory it
      sits in. A link written for where the template SITS resolves while you read it here and
      is dead in every copy an adopter makes: it passes a link check run in the kit and fails
      the only reader who matters. The self-test reads this line to know where to resolve from,

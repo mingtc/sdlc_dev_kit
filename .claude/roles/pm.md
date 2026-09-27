@@ -158,8 +158,8 @@ ruling is not done until the predecessor carries its stamp, in the same change
 hat — not only one that overturns a spec — gets its entry in the project's **decision register** in
 that same change. Its single authoring site is
 [`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6; what earns an entry,
-and the shape of one, are in the register's own skeleton
-([`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)).
+and the shape of one, are in the register itself
+([`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)).
 
 **Which rulings go there, and which are PRD content — the fork/fact split.** A **fork** (two
 defensible answers existed and one was chosen) is a `D-NN` in the register. A **fact** (what the

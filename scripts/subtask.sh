@@ -239,7 +239,7 @@ case "$CMD" in
     # BUILT BESIDE THE DESTINATION, PUBLISHED BEFORE THE COMMIT (lib/card-head.sh): a failed step
     # leaves the shared worktree clean. The trap keeps kwt_lock's own EXIT action, kwt_unlock.
     WORK="$(kit_card_work "$DEST_DIR")"
-    trap 'rm -f "$WORK" "$WORK.h1" "$WORK.plan" "$WORK.rehead"; kwt_unlock' EXIT
+    trap 'rm -f "$WORK" "$WORK.h1" "$WORK.plan" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"; kwt_unlock' EXIT
 
     # Fill the template (frontmatter + heading + Activity). Every substitution
     # keys on the frontmatter KEY, never on the template's placeholder VALUE, so
@@ -270,6 +270,10 @@ case "$CMD" in
     # RE-HEAD THE CARD (process/EXTRACTION.md § The marker and graduation): the KIT-CLASS
     # marker goes, its still-in-force FILL instruction stays.
     kit_rehead_card "$WORK" || exit 1
+    # The seed entry's date, and the parent and slice the body names (lib/card-head.sh).
+    kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
+    kit_fill_card "$WORK" "<PREFIX>-NNN" "$PARENT" "${PARENT%-*}-NNN" "$PARENT" \
+      "decomposition slice M." "decomposition slice ${SUFFIX}." || exit 1
 
 
     # Optional --plan. Keyed on the KEY, never on the template's placeholder VALUE, which

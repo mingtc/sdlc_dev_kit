@@ -125,7 +125,7 @@ BRANCH="feature/${ID}-${SLUG}"
 # BUILD IT ASIDE, PUBLISH IT WHOLE: a refusal must change nothing, so the card reaches the
 # board only after every substitution has succeeded.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead"' EXIT
+trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"' EXIT
 
 # Every value goes through sed_repl (scripts/config.sh): `|`, `\` and `&` are not literal in
 # `s|…|REPL|`.
@@ -152,6 +152,15 @@ fi
 rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1
+# What the mint knows goes into the body too: the H1's id, the seed entry's date, the PRD (lib/card-head.sh).
+kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
+PRD_FILE=""
+if [ -n "$PRD" ]; then
+  for f in "$ROOT/requirements/$PRD"-*.md; do
+    [ -f "$f" ] && [ -z "$PRD_FILE" ] && PRD_FILE="$(basename "$f")"
+  done
+fi
+kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" || exit 1
 
 
 kit_publish_card "$WORK" "$DEST" || exit 1
@@ -161,6 +170,5 @@ echo "Branch:  ${BRANCH}"
 echo ""
 echo "Next steps:"
 echo "  1. Fill in title, Problem, AC (copy from the PRD stories), Out of scope, Dependencies."
-echo "  2. Date the seed Activity entry (the shapes block above it is examples, not entries)."
-echo "  3. Confirm Definition of Ready (.claude/roles/pm.md)."
+echo "  2. Confirm Definition of Ready (.claude/roles/pm.md)."
 print_push_before_move "$DEST"

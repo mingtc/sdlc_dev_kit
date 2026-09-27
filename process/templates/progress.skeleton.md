@@ -1,13 +1,9 @@
 <!-- KIT-CLASS: KIT — a blank shape. Travels unedited; two of its headings are read by scripts. -->
 <!--
   HOW TO USE THIS FILE
-  Copy to progress.md at the repository root and delete these HTML comments.
-  IF YOU CAN RUN THE SHIPPED SCRIPTS YOU DO NOT NEED TO: `kit-init.sh` writes this SHAPE for
-  you (process/contracts/initializer.md) — the same headings in the same order, with the
-  <angle-bracket> blanks below already filled in with the shipped script names, since the
-  initializer knows them. It is not a byte-for-byte copy of this file and is not meant to be.
-  This copy is here for the OTHER path — reimplement the initializer in your own toolchain and
-  it must produce this same shape.
+  The kit ships its own progress.md at the repository root, and `kit-init.sh` writes this shape
+  only where that file is absent (process/contracts/initializer.md). This copy is for a project
+  that reimplements the initializer in its own toolchain: it must produce this shape.
   TWO SHAPES BELOW ARE REQUIRED, NOT STYLISTIC — a script reads each one; see "How to write an
   entry". Fill the <angle-bracket> blanks; keep everything else byte-for-byte.
   DROP THE KIT-CLASS MARKER above from your copy.
@@ -44,11 +40,7 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
   § Log size arm and the initializer's already-lived probe. An entry written as
   `## YYYY-MM-DD` therefore *terminates the section it is supposed to be inside*: the size arm
   measures only the preamble and reports healthy forever, and the lived probe counts zero log
-  lines, so a repository with a full history reads as new. Measured 2026-08-27, on this
-  skeleton's own shape: 4 log lines seen under `###`, **0 under `##`**. (The rotation tool also matches a `##` dated entry, so that a
-  project which already wrote one is not stranded; its own header documents `###` and says
-  `##` is not a form to migrate toward. Accepting more than you document is the forgiving
-  direction; writing `##` here is not.)
+  lines, so a repository with a full history reads as new.
 
 ```markdown
 ### YYYY-MM-DD [Role] <session title>

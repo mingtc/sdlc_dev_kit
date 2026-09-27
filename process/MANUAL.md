@@ -178,9 +178,8 @@ version control by the initializer, not left for each actor to discover
    behavior, **and any measured integration-time discovery**, gets its entry in the project's
    **decision register** — or in the corpus home it already has — **in the same change**, not only
    an issue-file note. (This kit's default register is
-   [`../requirements/DECISIONS.md`](../requirements/DECISIONS.md), started from
-   [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md); an installation may name
-   its own.) An issue's Activity log records *that issue*; a reader asking *what is currently
+   [`../requirements/DECISIONS.md`](../requirements/DECISIONS.md), which ships as its own blank; an
+   installation may name its own.) An issue's Activity log records *that issue*; a reader asking *what is currently
    true* reads the register, and a ruling promised to it "later" is a ruling that stays scattered.
    The register is a **projection of current state** — current ruling, one line of why,
    provenance — and the history stays in the ledger, which is what keeps it compatible with item 5
@@ -189,9 +188,9 @@ version control by the initializer, not left for each actor to discover
    **fork** — two defensible answers existed and one was chosen — is a register entry under a `D-NN`;
    a **fact** — what the product does changed, with no fork — amends the PRD. The diagnostic, the
    overlap rule (*cite the id, never inline the text*) and the anchored citation marker are stated
-   once in [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) § *Which decisions
+   once in [`../requirements/DECISIONS.md`](../requirements/DECISIONS.md) § *Which decisions
    live HERE*, and this line points rather than restates: **this item stays the single authoring
-   site for the *when*, the skeleton for the *which*.** Without a boundary the clause is an unbounded
+   site for the *when*, the register for the *which*.** Without a boundary the clause is an unbounded
    escape — every decision has *some* home it could be argued into, and a home argued into after the
    fact is the one nobody thinks to read.
 

@@ -64,7 +64,7 @@ the item, not the report.
 
 ### A.2 — A ruling is recorded before it is executed — verbatim, with its order and the order's consequence
 
-**The pattern is [`templates/DECISIONS.skeleton.md`](../templates/DECISIONS.skeleton.md)** — the
+**The pattern is [`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)** — the
 three-field entry, stable retired-never-reused ids, the register as a projection, and the
 same-commit rule.
 
@@ -449,7 +449,7 @@ and every appearance of it is an independent assertion.
 
 ### A.9 — Mints cite by content anchor, stamped with the tree they were read against
 
-**The pattern is [`templates/DECISIONS.skeleton.md`](../templates/DECISIONS.skeleton.md)'s anchor
+**The pattern is [`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)'s anchor
 convention** (prefer a section anchor over a bare `file:line`; reserve line anchors for append-only
 ledgers) and [`lookup-tables.md`](lookup-tables.md) § A.4.
 

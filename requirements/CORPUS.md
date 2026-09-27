@@ -127,6 +127,9 @@ lessons, in the order they cost the most:
 4. **Undefined behaviour must be written down as undefined**, or the next reader pins it by
    accident and a regression test starts asserting a coin-flip.
 5. **Anchor by section, not by line**, for any target that still changes; reserve line anchors for
-   append-only ledgers.
+   append-only ledgers. *(Doctrine:
+   [`process/doctrine/lookup-tables.md`](../process/doctrine/lookup-tables.md) § A.4.)*
 6. **A guard that pins source *formatting* rather than *value* will redden on a correct
    regeneration.** Know which of yours do; that is a property of the guard, not of the product.
+   *(The tier that answers this question per test:
+   [`process/doctrine/conformance-tier.md`](../process/doctrine/conformance-tier.md).)*

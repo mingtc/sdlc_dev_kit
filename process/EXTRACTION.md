@@ -479,11 +479,9 @@ saying so is what stops them reading as *not part of the kit*:
 | `requirements/CORPUS.md` | The **shape**: a north-star statement, an enumerable manifest, a bucket classification for every root document and top-level directory, and a precedence clause. | Every entry. |
 | `requirements/DECISIONS.md` | The **shape**: permanent ids that are retired rather than reused; each entry exactly *current ruling / one line of why / provenance*; the register as a **projection** of current state, with history in the ledger. | Every ruling. |
 
-You do not have to imitate them by hand: both are shipped as blanks —
-[`templates/CORPUS.skeleton.md`](templates/CORPUS.skeleton.md) and
-[`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) — beside
-[`templates/progress.skeleton.md`](templates/progress.skeleton.md), which is § 1.3's `progress.md`
-shape for an adopter not running `kit-init.sh`.
+Both ship as their own blanks and are filled in place. So does `progress.md`;
+[`templates/progress.skeleton.md`](templates/progress.skeleton.md) is its shape for a project that
+reimplements `kit-init.sh`.
 
 ### 1.3 Day one — RUN THE INITIALIZER
 

@@ -2050,6 +2050,85 @@ case_minted_card_prompts_for_notes() {
 }
 
 # =============================================================================
+# CASE — A MINTED CARD CARRIES WHAT ITS MINT KNEW, AND NONE OF THE TEMPLATE'S OWN NOTES.
+#
+# Every creator was handed the id, the date and its flags; the body must not ask the author for
+# them again. Each card also LANDS where its template's LINKS line declares — the declaration the
+# link-resolution case trusts, compared here with where the creator actually wrote.
+# =============================================================================
+case_minted_card_carries_what_the_mint_knew() {
+  cf_reset
+  if ! has_issue_template; then skp "a minted card carries what its mint knew" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ] || [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then
+    skp "a minted card carries what its mint knew" ".claude/templates (SUBTASK or PRD) absent"; return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  seed_issue todo "$SB_PREFIX-730" parent chore "Decomposition parent"
+  publish_sandbox
+
+  local today prd prdid pass="dev/refactor/2026-01-01-probe-pass.md" out rc=0
+  today="$(date +%Y-%m-%d)"
+  out="$( cd "$SB_WORK" && ./scripts/new-prd.sh stamp-probe 2>&1 )" || rc=$?
+  prd="$(probe_pick "$SB_WORK/requirements" -name '*-stamp-probe.md')" || true
+  [ "$rc" -eq 0 ] && [ -n "$prd" ] || _fixture_die "case_minted_card_carries_what_the_mint_knew: new-prd.sh minted nothing (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  prdid="$(basename "$prd" | sed 's/-stamp-probe\.md$//')"
+  ( cd "$SB_WORK" \
+    && ./scripts/new-issue.sh stamp-issue --id "$SB_PREFIX-731" --prd "$prdid" \
+    && ./scripts/new-bug.sh stamp-bug --id "$SB_PREFIX-732" --discovered-in "$SB_PREFIX-731" \
+    && ./scripts/new-refactor.sh stamp-ref --id "$SB_PREFIX-733" --pass "$pass" \
+    && ./scripts/subtask.sh new "$SB_PREFIX-730" s1 slice --title "Slice" ) >/dev/null 2>&1 \
+    || _fixture_die "case_minted_card_carries_what_the_mint_knew: a creator refused a legal mint — nothing below would be measured."
+  origin_fetch_or_die
+  local st="$SB_TMP/subtask.md"
+  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-730/todo/$SB_PREFIX-730-s1-slice.md" > "$st" 2>/dev/null \
+    || _fixture_die "case_minted_card_carries_what_the_mint_knew: the subtask is not on the trunk."
+
+  # <template> <id> <card> <landed dir> — one row per creator.
+  local rows="PRD.template.md|$prdid|$prd|requirements
+ISSUE.template.md|$SB_PREFIX-731|$SB_WORK/progress/todo/$SB_PREFIX-731-stamp-issue.md|progress/todo
+BUG.template.md|$SB_PREFIX-732|$SB_WORK/progress/todo/$SB_PREFIX-732-stamp-bug.md|progress/todo
+REFACTOR.template.md|$SB_PREFIX-733|$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md|progress/todo
+SUBTASK.template.md|$SB_PREFIX-730-s1|$st|progress/subtasks/$SB_PREFIX-730/todo"
+  local tpl id card dir decl n=0
+  while IFS='|' read -r tpl id card dir; do
+    [ -f "$card" ] || { cf "$tpl: no minted card at $card"; continue; }
+    n=$(( n + 1 ))
+    # CONTROL: the template carries the block, so its absence below is the strip, not a template edit.
+    grep -q '^<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS' "$SB_WORK/.claude/templates/$tpl" \
+      || _fixture_die "case_minted_card_carries_what_the_mint_knew: $tpl has no LINKS block — the strip assertion would be vacuous."
+    grep -q '^<!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS' "$card" \
+      && cf "$tpl: the minted card still carries the template's LINKS block — it is addressed to the template's maintainer"
+    grep -qF "# $id — " "$card" || cf "$tpl: the minted card's H1 does not carry its id $id: $(grep -m1 '^# ' "$card")"
+    if [ "$tpl" != PRD.template.md ]; then
+      grep -q "^- $today " "$card" || cf "$tpl: the seed Activity entry is not dated $today"
+      grep -q '^- YYYY-MM-DD ' "$card" && cf "$tpl: an undated seed Activity entry survived the mint"
+    fi
+    decl="$(sed -n 's|.*RELATIVE TO WHERE IT LANDS — \([^ ]*\) .*|\1|p' "$SB_WORK/.claude/templates/$tpl" | head -1 \
+      | sed -E 's/[A-Za-z0-9_]*<[^>]*>-NNN|[A-Za-z0-9_]+-NNN/*/g; s/<[^>]*>/*/g; s|/$||')"
+    # shellcheck disable=SC2254  # the declaration IS the pattern
+    case "$dir" in $decl) ;; *) cf "$tpl declares it lands in '$decl' and its creator wrote to '$dir' — the link check resolves from the declaration" ;; esac
+  done <<ROWS_EOF
+$rows
+ROWS_EOF
+  [ "$n" -ge 5 ] || _fixture_die "case_minted_card_carries_what_the_mint_knew: only $n card(s) read."
+
+  grep -qF "requirements/$(basename "$prd")" "$SB_WORK/progress/todo/$SB_PREFIX-731-stamp-issue.md" \
+    || cf "new-issue.sh: --prd $prdid did not reach the card's PRD link"
+  grep -qF "during review of $SB_PREFIX-731" "$SB_WORK/progress/todo/$SB_PREFIX-732-stamp-bug.md" \
+    || cf "new-bug.sh: --discovered-in did not reach the seed entry"
+  grep -qF "$pass" "$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md" \
+    && ! grep -qF 'dev/refactor/<file>.md' "$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md" \
+    || cf "new-refactor.sh: --pass did not replace the body's pass path"
+  grep -qF "Created under $SB_PREFIX-730 " "$st" || cf "subtask.sh: the seed entry does not name its parent"
+
+  finish "a minted card carries its id in the H1, a dated seed entry and its flags' values, sheds the LINKS block, and lands where its template declares ($n creators)"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE TEMPLATE HEADER SURVIVES THE STAMP IT DESCRIBES.
 #
 # Each card template's header explains the prefix and trunk substitutions. If it spells the

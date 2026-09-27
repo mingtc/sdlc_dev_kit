@@ -110,7 +110,7 @@ year later; "the biggest file" does not.
   target that still evolves; a line anchor drifts silently on the next edit above it.
 - **Ruled, id side** — a stable id is a **permanent handle**: when a ruling is removed the id is
   **retired, never reused**, so a citation elsewhere can never silently come to mean something
-  else ([`../templates/DECISIONS.skeleton.md`](../templates/DECISIONS.skeleton.md) states this as
+  else ([`../../requirements/DECISIONS.md`](../../requirements/DECISIONS.md) states this as
   format law).
 - **Ruled, code side** — a write engine whose anchors were quote-only was changed to address by
   object id, because round-tripping a verbatim quote copied out of a fresh read is *"needless

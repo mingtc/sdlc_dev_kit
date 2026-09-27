@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
+<!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote. -->
 # Launch pack template — the commissioning contract for one orchestrated run
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/
@@ -6,10 +6,8 @@
      of it is the worst of both: it passes a link check here and is broken for every adopter. -->
 
 > **GUIDANCE — how to use this file.** Copy it to `dev/launch/<YYYY-MM-DD>-<run-name>-pack.md`,
-> fill every `<slot>`, and **delete every `>` blockquote line** before you launch — the guidance in
-> this template is written as blockquotes, not as lines beginning with the word GUIDANCE. *(This
-> said "every line that starts with `GUIDANCE`". No line in any template does; `grep -rn "^GUIDANCE"`
-> over both template trees returns nothing, so the instruction as written deleted nothing.)*
+> fill every `<slot>`, and **delete every blockquote that opens `> **GUIDANCE`** before you launch;
+> the STATUS banner is a blockquote too, and stays.
 > What survives is a paste-ready prompt: a runner reads the pack, wears the Orchestrator hat, and
 > executes it without asking the seat what was meant. The pack is authored by **the seat** (the
 > standing, human-partnered position — see [`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md));
@@ -246,8 +244,8 @@ the two failure modes.**
 
 ## Author's pre-launch checklist (the seat's, before handing the pack over)
 
-- [ ] Every `<slot>` filled; every `>` blockquote line deleted (that is where the GUIDANCE
-      lives, and the header states the same rule).
+- [ ] Every `<slot>` filled; every blockquote that opens `> **GUIDANCE` deleted (the header
+      states the same rule; the STATUS banner is a blockquote too, and stays).
 - [ ] Every issue in the mission list exists on the board, is unblocked (or its unblocker is
       earlier in the order), and **has a rigor line**.
 - [ ] Every load-bearing figure in the pack was **re-derived from the tree at authoring time**,

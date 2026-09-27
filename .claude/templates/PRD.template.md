@@ -7,14 +7,8 @@
      issue. If your initializer has not wired a key, substitute it by hand before first use. -->
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — requirements/ — NOT to the directory it
-     sits in. A link written for where the template SITS resolves while you read it here and
-     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
-     the only reader who matters. The self-test reads this line to know where to resolve from,
-     so keep its shape IN THE TEMPLATE.
-     IT IS GUIDANCE, AND GUIDANCE IS DELETED ONCE THE FILE IS FILLED: this block addresses
-     whoever maintains the template, not whoever reads the card. Delete it from the minted card
-     along with every other comment — a card is read on every session that touches it, so a line
-     that survives here is paid again by every reader, forever. -->
+     sits in: a link written for where the template sits is dead in every card. The self-test
+     reads this line to know where to resolve from, so keep its shape; the mint strips this block. -->
 ---
 id: PRD-NNN
 title: <feature area name>
@@ -37,8 +31,6 @@ superseded_in_part: []  # parts of THIS PRD a later ruling overturned — entrie
 ---
 
 # PRD-NNN — <feature area name>
-
-> Status: <draft | approved | completed | superseded>. Last updated YYYY-MM-DD.
 
 ## Context
 
@@ -120,9 +112,8 @@ hunting — and each row resolves into the register rather than restating it.
 
 **Cite by id; never inline the ruling's text.** A copy here is a second authoring site, and it is the
 copy that drifts. The register's **Why** field is where the reason is written — *capture the reason,
-not only the conclusion* is that field's instruction, stated in
-[`process/templates/DECISIONS.skeleton.md`](../process/templates/DECISIONS.skeleton.md) § *Which
-decisions live HERE*, because a later ruling may supersede the conclusion and the reason is what
+not only the conclusion* is that field's instruction, stated in [`DECISIONS.md`](DECISIONS.md) § *Which decisions live HERE*,
+because a later ruling may supersede the conclusion and the reason is what
 stops the same argument being re-litigated
 ([`process/doctrine/supersession.md`](../process/doctrine/supersession.md)).
 
@@ -139,5 +130,5 @@ citation to an id that does not exist, or to a retired one, is a finding.
 
 ## References
 
-- [PROJECT.md](../PROJECT.md) § <section>   <!-- ../ not ../../ : a PRD lives in requirements/, ONE level down. The ISSUE/BUG/REFACTOR card templates beside this one use ../../ because their cards land in progress/<status>/, which is two. SUBTASK.template.md is the exception and uses ../../../ — its cards land in progress/subtasks/<PREFIX>-NNN/<status>/. Read each template's own destination line rather than this sentence. -->
+- [PROJECT.md](../PROJECT.md) § <section>
 - <linked PRDs, design docs, prior art>

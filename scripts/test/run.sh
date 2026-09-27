@@ -376,6 +376,7 @@ CASES=(
   case_project_credential_blank_is_countable
   case_minted_card_is_drift_clean
   case_minted_card_prompts_for_notes
+  case_minted_card_carries_what_the_mint_knew
   case_template_header_survives_the_stamp
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule

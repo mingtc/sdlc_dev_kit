@@ -1,12 +1,12 @@
-<!-- KIT-CLASS: KIT — the run-report shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
+<!-- KIT-CLASS: KIT — the run-report shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/
      where it sits. A link that resolves while you read the template and dies in every copy of it
      passes a link check run here and is broken for every adopter. -->
 # Run-report template — the close record for one orchestrated run
 
 > **GUIDANCE — how to use this file.** Copy it to
-> `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every line that
-> is a `>` blockquote. The report is written **by the runner that executed the pack**, and it
+> `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every blockquote that
+> opens `> **GUIDANCE` (the STATUS banner and the independence clause stay). The report is written **by the runner that executed the pack**, and it
 > is the deliverable that closes the pack: the pack is stamped `SPENT` **against this file, by
 > name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
 >
@@ -52,7 +52,9 @@
 > **GUIDANCE.** One row per issue, in **execution order** (not pack order — deviations are stated
 > below the table with who authorized them). The **verdict path** column is the point of the
 > table: not "PASS" but *how* it got there, because the shape of the path is the run's most
-> reusable finding. Use the vocabulary consistently:
+> reusable finding. The path ENDS in an outcome from
+> [`process/MANUAL.md`](../../process/MANUAL.md) § The RUN-OUTCOME vocabulary, spelled exactly as it
+> is there — that list is the authoring site; this one shows only the notation:
 >
 > - `work PASS → QA PASS` — clean.
 > - `→ QA FAIL (AC<n>) → 1 fix round → QA #2 PASS` — the normal recovery. Name the AC that failed.
@@ -62,23 +64,11 @@
 >   correction is in § 2.
 > - `→ QA FAIL → fix → QA FAIL → PARKED` — fix budget spent. Parking is a legitimate close.
 > - `PARKED → seat-authorized round 2 → PASS` — name the authorizing commit or message.
-> - `→ QA returned no verdict → NO_VERDICT` (or `→ QA FAIL → fix → QA returned no verdict →
->   NO_VERDICT`, or `PARKED → park review returned no verdict → NO_VERDICT`) — the last review, of
->   the issue or of its park, formed none: **unreviewed, not failed**, and the run halted
->   there. Say how the leg ended (it returned nothing, a value outside the four tokens, or a
->   `precondition_failure` — quote the one it named); never write it as a FAIL.
-> - `→ <leg> threw → LEG_ABORTED` (or `→ Dev returned nothing → LEG_ABORTED`) — a leg's call threw
->   (the run's token budget ran out, or the call was refused), or a Dev leg returned nothing, before
->   the issue reached an outcome: **state unknown, not failed**, and the run
->   halted there. Quote the record's `error`, and say what the issue's branch, board folder and
->   trunk show — the leg may have left work half-done.
-> - `PARKED_OK` — parked **and verified parked**: findings evidence-backed, issue in the blocked
->   folder, no half-landed residue. A park nobody reviewed is not a close.
-> - `LAND-READY` — verified and reviewed but not landed (blocked-push regime; see
->   [`process/GIT-HOSTING.md`](../../process/GIT-HOSTING.md)). Record the branch and its head SHA. **In the ratified
->   vocabulary this is verdict `PASS` with landing `deferred`** — a success, and the runners continue
->   past it. *(This column had a way to say "green but not landed" before the machinery did, which
->   is how the gap was visible in reports and invisible to the schema that halted on it.)*
+> - `→ <what ended it> → <OUTCOME>` for every other outcome — e.g. `→ QA returned no verdict →
+>   NO_VERDICT`, `→ Dev threw → LEG_ABORTED`. Record what the outcome leaves open: how a halting leg
+>   ended (quote its `error` or its `precondition_failure`) and what the issue's branch, board
+>   folder and trunk show; for `LAND_READY`, the branch and its head SHA. **Unreviewed and unknown
+>   are never written as a FAIL.**
 >
 > **One row per DISPATCHED issue — count them against what the run was given.** A runner's
 > `results` shorter than the issues dispatched to it is the signature of a dropped issue, not of a
@@ -273,7 +263,7 @@ matched at open: <list>.
 ## 9. Decisions for the seat — batched, none of them stopped the run
 
 > **GUIDANCE.** The batch. This section is why the run did not pause: everything that needed a
-> human or a seat judgment and was **not one of the four stop events** lands here
+> human or a seat judgment and was **not one of the stop events** lands here
 > ([`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md)). Each item: the question, the
 > evidence, and a **recommendation** — a decision request without a recommendation pushes the work
 > back to the seat. Say who owns each (PM scope / seat ruling / operator action) and whether it
@@ -339,8 +329,8 @@ matched at open: <list>.
 
 ## Closing checklist (the runner's, before the report lands)
 
-- [ ] Every `<slot>` filled; every `>` blockquote line deleted (that is where the GUIDANCE
-      lives, and the header states the same rule).
+- [ ] Every `<slot>` filled; every blockquote that opens `> **GUIDANCE` deleted (the header
+      states the same rule; the STATUS banner is a blockquote too, and stays).
 - [ ] Every figure either **re-measured** by the orchestrator or **labelled inherited**.
 - [ ] Every gate quote is verbatim and unpiped, with its exit code read from the summary.
 - [ ] Every removal of a test identifier or generated artifact is enumerated and justified.

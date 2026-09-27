@@ -1,14 +1,12 @@
-<!-- KIT-CLASS: KIT — the round-report shape. Copy, fill the <slots>, delete every `>` blockquote line. -->
+<!-- KIT-CLASS: KIT — the round-report shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — NOT to process/templates/
      where it sits. A link that resolves while you read the template and dies in every copy of it
      passes a link check run here and is broken for every adopter. -->
 # Round report template — what closes one dogfooding round
 
 > **GUIDANCE — how to use this file.** Copy it to
-> `dev/rounds/<YYYY-MM-DD>-<round-name>/report.md`, fill every `<slot>`, **delete every `>`
-> blockquote line** — the guidance in this template is written as blockquotes, and "delete every
-> GUIDANCE line" taken literally removes each block's header and leaves its body behind — and
-> **index it in `dev/README.md` in the same commit**. The doctrine is
+> `dev/rounds/<YYYY-MM-DD>-<round-name>/report.md`, fill every `<slot>`, **delete every blockquote
+> that opens `> **GUIDANCE`** — and **index it in `dev/README.md` in the same commit**. The doctrine is
 > [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); the pack it grades against is
 > `pack.md` beside it.
 >
@@ -62,9 +60,7 @@ and whether the round's own instruments held. Do not lead with counts.>
   the identifier where the target has one. *Required on EVERY finding, by
   [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md) § A.14b: the target set above is CLOSED, "not mine" is
   not a disposition, and neither is an observation. A finding with no disposition is one nobody owns,
-  and it still counts as coverage to whoever reads the round. This field was absent from this
-  template while the doctrine required it — so the artefact an author actually fills did not ask for
-  the one thing that moves a finding.*
+  and it still counts as coverage to whoever reads the round.*
 
 ---
 

@@ -11,14 +11,8 @@
      RULE-COPIES:END -->
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — progress/todo/ — NOT to the directory it
-     sits in. A link written for where the template SITS resolves while you read it here and
-     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
-     the only reader who matters. The self-test reads this line to know where to resolve from,
-     so keep its shape IN THE TEMPLATE.
-     IT IS GUIDANCE, AND GUIDANCE IS DELETED ONCE THE FILE IS FILLED: this block addresses
-     whoever maintains the template, not whoever reads the card. Delete it from the minted card
-     along with every other comment — a card is read on every session that touches it, so a line
-     that survives here is paid again by every reader, forever. -->
+     sits in: a link written for where the template sits is dead in every card. The self-test
+     reads this line to know where to resolve from, so keep its shape; the mint strips this block. -->
 ---
 id: <PREFIX>-NNN
 type: feature            # feature | spike | chore
@@ -99,19 +93,13 @@ card is **not durable on this card** — an Activity entry records *this issue*,
 in the same change**, and the Activity line here cites the id it was given:
 `[decision: D-NN]`. Which rulings earn an entry, and the one-question diagnostic that separates a
 **fork** (→ the register) from a **fact** (→ amend the PRD), are in
-[`process/templates/DECISIONS.skeleton.md`](../../process/templates/DECISIONS.skeleton.md)
+[`requirements/DECISIONS.md`](../../requirements/DECISIONS.md)
 § *Which decisions live HERE*; *when* is
 [`process/MANUAL.md`](../../process/MANUAL.md) § Execution discipline item 6.
 
-**The entry shapes are the INDENTED BLOCK below, deliberately not bullets** — the block is
-**examples, not entries**, and indenting it is what keeps an author from reading one as a logged
-event. *(An earlier wording said a bulleted example makes a freshly minted card report false drift.
-Measured 2026-09-03 and superseded: the seed entry below the block is the last bullet either way, and
-the shape lines carry an em-dash rather than a transition arrow so the checker treats them as
-un-judgeable. The reason to keep them indented is legibility, which is enough.)* Copy a shape out of the block; do not leave one in place as a bullet.
+**The entry shape is the INDENTED line below, deliberately not a bullet** — it is an example, not
+an entry. Copy it out; do not leave it in place as a bullet.
 
-    YYYY-MM-DD [Dev] Picked up — moved to in_progress via ./scripts/move-issue.sh. Branch: <branch>.
-    YYYY-MM-DD [Dev] Ready for review — moved to dev_complete. Branch pushed; gates green.
-    YYYY-MM-DD [QA] Review — PASS. Squash-merged into `<trunk>` (finish-pr.sh); moved to qa_complete.
+    YYYY-MM-DD [<Role>] <the decision> [decision: D-NN]
 
 - YYYY-MM-DD [PM] Created in `todo/`. PRD-NNN § F1 § S1, S2.

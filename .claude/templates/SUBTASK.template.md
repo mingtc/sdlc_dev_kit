@@ -5,21 +5,14 @@
      header that names them literally is rewritten by the very substitution it is explaining, and
      every initialized tree then carried a sentence with no referent.
      Everything else in angle brackets is for the author to fill in — never leave one in a live
-     issue. If your initializer has not wired a key, substitute it by hand before first use. -->
+     issue. If your initializer has not wired a key, substitute it by hand before first use.
+     NO `blocks:` / `blocked_by:` in this frontmatter, by decision: a dependency outside the parent
+     belongs on the PARENT, the unit the board dispatches; a slice that needs one is its own issue. -->
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — progress/subtasks/<PREFIX>-NNN/<status>/ —
-     FOUR segments deep, not two: scripts/subtask.sh sets DEST_DIR to progress/subtasks/<PARENT>/todo.
-     This line said progress/todo/ when the uniform declaration was stamped across the templates, and
-     nothing caught it because this file's only link carries a <status> placeholder and the link check
-     skipped it — the one template with a wrong destination was the one whose links were exempt. NOT to the directory it
-     sits in. A link written for where the template SITS resolves while you read it here and
-     is dead in every copy an adopter makes: it passes a link check run in the kit and fails
-     the only reader who matters. The self-test reads this line to know where to resolve from,
-     so keep its shape IN THE TEMPLATE.
-     IT IS GUIDANCE, AND GUIDANCE IS DELETED ONCE THE FILE IS FILLED: this block addresses
-     whoever maintains the template, not whoever reads the card. Delete it from the minted card
-     along with every other comment — a card is read on every session that touches it, so a line
-     that survives here is paid again by every reader, forever. -->
+     four segments deep (scripts/subtask.sh's DEST_DIR), NOT the directory it sits in: a link written
+     for where the template sits is dead in every card. The self-test reads this line to know where
+     to resolve from, so keep its shape; the mint strips this block. -->
 ---
 id: <PREFIX>-NNN-sM      # parent <PREFIX>-NNN + subtask index; does NOT consume the id stream
 type: subtask
@@ -33,14 +26,6 @@ pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: Orchestrator
 ---
-
-<!-- NO `blocks:` / `blocked_by:` HERE, AND THAT IS A DECISION, NOT AN OVERSIGHT — recorded so it is
-     not re-raised. A subtask's ordering is already carried by two things the board can read: the `sM`
-     index within its parent, and the `parent:` field itself. A dependency on work OUTSIDE the parent
-     belongs on the PARENT, because the parent is the unit the board dispatches and the unit the
-     orchestrator's chain check walks; putting it on a slice hides it from the level that acts on it.
-     If you find yourself wanting these fields here, the honest reading is usually that the slice is
-     not a slice — re-scope it into its own issue, which does carry them. -->
 
 # <PREFIX>-NNN-sM — <one-line summary>
 

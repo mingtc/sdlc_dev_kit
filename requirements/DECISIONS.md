@@ -22,19 +22,68 @@ re-litigated.
 evidence lives. An entry that needs a paragraph does not get one here: the paragraph belongs in the
 ruling's home document and the entry points at it.
 
+**A ruling sourced from a CONVERSATION may not be its own evidence.** Where the authority is
+something said rather than something written, Provenance carries a pointer to a **primary artifact**
+— a dated record quoting the words, with whatever locator that record supports — minted at ruling
+time, in the same change as the entry. *Why:* circular provenance is indistinguishable from
+fabrication by construction, and afterwards the conversation is gone and nobody can supply it.
+
+**That record lives at your working-records root** — `<YYYY-MM-DD>-<slug>.md` — indexed by
+[`dev/README.md`](../dev/README.md) § *Reports, assessments, and probe findings* **in the same change
+that creates it**: a file reachable from no row is as lost as one never written. **And it is the
+ruling's home document**, which is what makes § *This register is a PROJECTION* safe: the register
+carries the **conclusion**, the record carries the **reasoning**, and a later reader is sent there
+when the conclusion changes.
+
+**A ruling about to be EXECUTED owes more — inside those same three fields, never as a fourth.** A ruling that only describes the world can be tidied later; one that a slate of work is
+about to be built on cannot.
+
+- **Recorded before it is executed**, and *a ruling is not recorded until it is in the file the work
+  will be done from.* The surfaces that do not count — a prompt, a chat, a coordinator's memory, a run
+  log, a message to a peer — are enumerated once in
+  [`process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.2. Record it first;
+  the items then cite this entry as their authority rather than restating it.
+- **Verbatim, in the decider's own words** — in the **Ruling** field. A paraphrase is a second
+  authoring site, and the paraphrase is the copy that drifts. Where the decider hedged, the hedge is
+  part of the ruling: it is what tells a later leg the ruling may be reopened on evidence.
+- **What was explicitly NOT ruled, named in Provenance beside what was.** Otherwise a skipped
+  question is indistinguishable from a settled one, and whoever needs an answer first adopts the
+  default silently. *(§ Findings below is where an unruled question lives if it needs more than a
+  clause.)*
+- **And where the ruling sets an ORDER, the Why states what breaks if the order is reversed** — not
+  the sequence alone. A reader who can see the consequence can also tell when the constraint has
+  stopped applying.
+
 **Ids are stable.** `D-NN` is a permanent handle. When a ruling is removed the id is **retired,
 never reused**, so a citation elsewhere can never silently come to mean something else.
-<!-- ID WIDTH: zero-padded TWO digits (D-01 … D-99) until the register passes 99, then plain
-     (D-100, D-101 …). Do not re-pad the old ids when that happens; the handle is the string.
+<!-- ID WIDTH: zero-padded to TWO digits until the register passes 99, then plain three digits.
+     Do not re-pad the old ids when that happens; the handle is the string.
+     NO LITERAL ID APPEARS IN THIS FILE'S PROSE (ids are written `D-NN`): the drift report reads a
+     register with no entry headings but an id elsewhere as a register whose shape has drifted.
      MINTING IS A READ, NOT A GUESS: a concurrent landing must check the file's actual next-free
      number at landing time — not the last heading above its own insertion point — or cite the
      work-item id alongside the D-NN in the same commit, so a same-day collision stays
-     disambiguable. (Measured in the donor project: two same-day landings both minted the same
-     id.) -->
+     disambiguable: two same-day landings can each read the file correctly and mint the same id.
+     (Contract: process/contracts/id-minting.md § 2.)
+     AND DO NOT DERIVE THE MAXIMUM BY HAND. This register is grouped by SECTION, so the last `### `
+     heading in file order is NOT the highest id. The board's drift report prints the true maximum
+     for every declared register (drift-report.md invariant 4); take it from there. -->
 
 **Anchor convention.** Prefer a **section anchor** (`<doc> § <section>`) over a bare `file:line`
 into anything that still evolves — a line anchor drifts silently on the next edit above it. Reserve
-line anchors for **append-only** ledgers.
+line anchors for **append-only** ledgers. *(Doctrine:
+[`process/doctrine/lookup-tables.md`](../process/doctrine/lookup-tables.md) § A.4.)*
+
+**And STAMP THE TREE the anchors were read against.** A content anchor survives an edit above it; it
+does not survive the section being renamed, split or ruled obsolete. So an entry whose citations were
+gathered at one moment records **which tree state they were read from** — a commit id is enough. The
+stamp makes the rot **detectable rather than discovered**. The same rule for a *work item* is
+[`process/doctrine/fix-execution.md`](../process/doctrine/fix-execution.md) § A.9.
+
+**When this register grows past a screenful, it owes an index.** It is a lookup table by
+construction — stable ids, a fixed three-field entry shape — which makes it the cheapest document
+in any repository to index and the most expensive to read without one. Trigger and budget:
+[`process/doctrine/lookup-tables.md`](../process/doctrine/lookup-tables.md) § A.1–A.2.
 
 ## This register is a PROJECTION — and that is not a licence to erase
 
@@ -48,16 +97,69 @@ governs the **home document**, where the original reasoning stays visible and is
 struck. **Here** the same decision appears only as its current conclusion, because a projection
 carrying two generations of an answer has stopped being a projection.
 
+## The THIRD state — a ruling WITHDRAWN before its replacement exists
+
+**An entry is a current ruling, or its id sits retired below — or it is in the interval between:**
+the answer is revoked on Monday and its replacement arrives on Wednesday. A register that cannot say
+*"nothing is currently true here"* is not answering its own question during that interval.
+
+**So say it — in the same three fields, never as a fourth.**
+
+**Ruling.** `WITHDRAWN <YYYY-MM-DD> — <the condition that discharges it>.` Then, in that same field,
+what was withdrawn, stated so a reader arriving cold learns which question is now unanswered.
+
+**Why.** **The original reason, kept, and what revoked it** —
+[`process/doctrine/supersession.md`](../process/doctrine/supersession.md) § A.1 applied to the
+interval: the conclusion becomes *none yet*, and the reason is what the replacement will be argued
+from.
+
+**Provenance.** Unchanged — where it was withdrawn, and where the evidence lives.
+
+**THE TOKEN IS ANCHORED, and that is format law:** uppercase, at the **head** of the `Ruling` field,
+followed by a date — **never in the `### D-NN` heading**, which is the citable anchor: a token there
+would change every citation to this ruling the moment it discharges. The state moves; the handle must
+not. An entry that *discusses* a withdrawal — this section included — does **not** declare one, so a
+reader matching a bare substring would misread it.
+
+**This is NOT an exception to the projection rule.** A withdrawn ruling is not superseded — it has no
+successor yet, and *"there is no current ruling on X"* **is** the current state. Deleting it would
+hide that the fork exists, and the next reader picks the defensible-and-wrong answer this file exists
+to prevent.
+
+**The discharging condition is a CONDITION, not a date** — the rule
+[`dev/downtime-queue.md`](../dev/downtime-queue.md) § How to write a row states for a wake condition.
+Where the condition carries an **id** — a work item, an open-questions block, a successor ruling —
+**name the id in the token**, because that is the only part a machine can join. Where it has none,
+write the observable condition and **say so**: the entry is then checkable by a reader, not by an
+instrument.
+
+**Discharge.** Answered **in place**, the entry collapses to an ordinary three-field ruling, keeping
+its id and its original reason beside the new conclusion. Answered **elsewhere under a new id**, the
+old id is **retired**, with the one line § Retired ids requires.
+
+### What a checker asks — and it must be answerable with nobody looking
+
+> **Is any entry still `WITHDRAWN` whose named discharger has already landed?**
+
+Write the state so a machine can answer that: in an adopting project the condition fired, the
+successors landed, and the author edited this very file twice more without noticing the stale entry.
+**What such a check cannot see:** a withdrawal nobody declared (a ruling quietly reworded into a
+hedge); a discharging condition carrying no id; and a condition that fired with nothing landing.
+
 <!--
   THE SHAPE OF THE REGISTER — FORMAT LAW, and it is NOT a table.
   Entries are grouped under `## <letter>. <bucket>` headings, and each entry is a
   `### D-NN — <short title>` heading followed by three bold-labelled paragraphs:
   **Ruling.** / **Why.** / **Provenance.**  A three-field table looks tidier and fails on the
   first entry whose provenance is four pointers; the heading shape also gives every ruling a
-  stable anchor to cite. Buckets are separated by a `---` rule.
+  stable anchor to cite. Buckets are separated by a `---` rule. One entry:
 
-  BUCKET NAMES ARE NOT RESERVED. The three below are EXAMPLES; invent your own, drop these,
-  reorder them. `<your-bucket>` stays in your copy as the reminder that the list is yours.
+      ### D-NN — <short title, the ruling in a few words>
+      **Ruling.** <the ruling, present tense, stated as law>
+      **Why.** <the reason, not the history — one line>
+      **Provenance.** <where it was ruled> · <where the evidence lives>
+
+  BUCKET NAMES ARE NOT RESERVED. The buckets below are EXAMPLES; name your own, add or drop them.
   Letter the buckets (A., B., …) so a bucket can be cited without quoting its wording.
 
   A SCRIPT READS THE ENTRY-HEADING SHAPE, and this is where that is said. The heading form
@@ -70,41 +172,17 @@ carrying two generations of an answer has stopped being a projection.
   elsewhere points the seam rather than editing the script.
 
   WHAT THAT READER CANNOT SEE, stated so the quiet case is not mistaken for a clean one: an id
-  written WITHOUT the declared separator — `D01` where the shape says `D-01` — carries neither
+  written WITHOUT the declared separator — `D01` where the shape says `D-NN` — carries neither
   the heading mark nor the id shape, so it is invisible to both. A register spelled that way
   reads as empty. The report's own line says as much where it reports nothing found; the
   remedy is to spell ids as the shape declares.
 -->
 
-## A. Product identity & scope
-
-### D-01 — <short title, the ruling in a few words>
-**Ruling.** <the ruling, present tense, stated as law>
-**Why.** <the reason, not the history — one line>
-**Provenance.** <where it was ruled> · <where the evidence lives>
-
-### D-02 — <short title>
-**Ruling.** <…>
-**Why.** <…>
-**Provenance.** <…>
+## A. <your-bucket — e.g. product identity & scope>
 
 ---
 
 ## B. <your-bucket — e.g. external-system truth, the measurement discipline>
-
-### D-03 — <short title>
-**Ruling.** <…>
-**Why.** <…>
-**Provenance.** <…>
-
----
-
-## C. <your-bucket — e.g. process & workflow>
-
-### D-04 — <short title>
-**Ruling.** <…>
-**Why.** <…>
-**Provenance.** <…>
 
 ---
 
@@ -114,7 +192,7 @@ carrying two generations of an answer has stopped being a projection.
      content. An id lands here when its ruling is removed, with one line saying what it used to
      mean, so a stale citation elsewhere resolves to "retired" instead of to the wrong ruling. -->
 
-`<none yet>` <!-- e.g. `D-07` — retired <date>; the determinism scope it held moved into D-11. -->
+`<none yet>` <!-- e.g. `D-NN` — retired <date>; the scope it held moved into D-NN. -->
 
 ## Findings — what surfaced that is NOT written up as a ruling
 
@@ -186,7 +264,8 @@ The donor rebuilt one module from its corpus alone; the divergences that mattere
    writing it down is what stops a regression test from asserting an accident.
 5. **What must NOT happen.** The negative rulings (*"never <X>"*) are the ones a regenerating or
    newly-onboarded reader has no way to infer, because nothing in the code says *why* the obvious
-   thing was not done.
+   thing was not done. A negative ruling carries its **enumeration or its "unmeasured" label** —
+   [`process/doctrine/negative-claims.md`](../process/doctrine/negative-claims.md).
 
 **Where it does NOT go:** a ruling with a natural home — a capability-matrix row, a guide section, a
 docstring — is authored **there**, and appears here only as its one-line current conclusion with a

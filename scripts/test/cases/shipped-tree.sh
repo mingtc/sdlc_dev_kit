@@ -963,9 +963,10 @@ case_template_links_resolve_from_their_destination() {
     n=$(( n + 1 ))
     local miss
     miss="$(awk -v d="$probe/$dest" '
-      { while (match($0, /\]\([^)#<]+\)/)) {
+      { while (match($0, /\]\([^)<]+\)/)) {
           l = substr($0, RSTART+2, RLENGTH-3); $0 = substr($0, RSTART+RLENGTH)
-          if (l ~ /^http/ || l ~ /</) continue
+          sub(/#.*/, "", l)   # an anchored link is checked for its PATH (the anchor is not read)
+          if (l == "" || l ~ /^http/ || l ~ /</) continue
           cmd = "test -e \"" d "/" l "\""
           if (system(cmd) != 0) printf "%s:%s ", FNR, l
       } }' "$t")"

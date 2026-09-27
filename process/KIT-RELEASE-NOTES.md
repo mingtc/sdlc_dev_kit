@@ -439,6 +439,12 @@ columns and never the cards.*
   changes `verify.sh`:** it must pass the trunk's current gate; the change governs the NEXT landing. To tighten a gate the
   trunk cannot yet pass, land the gate change on its own first. A killed run may leave `scripts/.verify-trunk.*`; delete it.
 
+- **`process/templates/CORPUS.skeleton.md` and `DECISIONS.skeleton.md` are removed**; the shipped `requirements/CORPUS.md` and
+  `requirements/DECISIONS.md` are the shape of record, filled in place. Your registers are unaffected, but the rules only the
+  skeletons carried now live in the shipped register (§ The THIRD state — WITHDRAWN; conversation-sourced provenance; the
+  execution obligations; the anchor stamp): compare yours with it and take what you lack. In a register with no entries yet,
+  write ids in prose as `D-NN` — the drift report reads a literal id in an entry-less register as a drifted shape.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
@@ -462,6 +468,10 @@ columns and never the cards.*
   are marked `reports only`, so `kit-init`'s self-check ignores them. **Nothing to do.**
 
 ### Changed
+
+- **The card creators fill what they were given:** the H1 carries the minted id, the seed Activity entry is dated, and `--prd`,
+  `--discovered-in`, `--pass` and a subtask's parent reach the body; the template's LINKS comment no longer lands in a card.
+  Pack and report templates: delete every blockquote opening `> **GUIDANCE`; the STATUS banner stays.
 
 - **Shipped scripts carry their rules, not their history.** Script comments keep each rule and a one-line
   reason; incident accounts, superseded designs and restated rules are removed, and some `--help` text is shorter
