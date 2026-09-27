@@ -407,6 +407,7 @@ CASES=(
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
   case_fixture_append_has_one_authoring_site
+  case_role_reset_takes_a_narrowed_set
   case_scaffolding_fixture_matches_the_tree
   case_kit_init_copy_list_minimum_is_real
   case_seam_shape_reformat_is_loud

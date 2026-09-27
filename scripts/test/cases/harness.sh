@@ -392,6 +392,41 @@ EOF
 }
 
 # =============================================================================
+# CASE — THE ROLE RESET TAKES ANY ADOPTED SET, INCLUDING A PREFIX OF THE SHIPPED ONE.
+#
+# _neu_roles runs every sandbox on an adopted tree. A narrowed set such as 'PM|Dev|QA' is a
+# substring of the shipped alternation, so a substring matcher finds it again in its own
+# output and aborts the run. Each set is stamped the way kit-init stamps it, then reset in a
+# subshell, because a failed reset exits. Not covered: a one-member set equal to another
+# quoted literal under scripts/ ('PM', kit-init.sh's pre-role hat) is rewritten with it.
+# =============================================================================
+case_role_reset_takes_a_narrowed_set() {
+  cf_reset
+  make_sandbox
+  local cm="$SB_WORK/scripts/githooks/commit-msg" set seams f out rc d
+  cp -R "$SB_WORK/scripts" "$SB_TMP/scripts.shipped"
+  for set in 'PM|Dev|QA' 'Dev' 'QA|Dev|PM'; do
+    rm -rf "$SB_WORK/scripts"; cp -R "$SB_TMP/scripts.shipped" "$SB_WORK/scripts"
+    seams="$(grep -lF -- "'$KIT_NEUTRAL_ROLE_PREFIXES'" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null)"
+    [ -n "$seams" ] || _fixture_die "case_role_reset_takes_a_narrowed_set: no sandbox script carries the shipped role set — nothing to stamp."
+    while IFS= read -r f; do
+      NEU_CUR="$KIT_NEUTRAL_ROLE_PREFIXES" NEU_NEW="$set" perl -i -pe 's@\Q$ENV{NEU_CUR}\E@$ENV{NEU_NEW}@g' "$f"
+    done <<<"$seams"
+    grep -qxF "ROLE_PREFIXES='$set'" "$cm" \
+      || _fixture_die "case_role_reset_takes_a_narrowed_set: the stamp of '$set' did not land in commit-msg."
+    rc=0; out="$( _neu_roles 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || cf "'$set': the reset aborted: $(printf '%s' "$out" | grep '_neu_roles' | cut -c1-200)"
+    # Stamp then reset is the identity: a rewrite that also hit the set's text elsewhere
+    # (the '[Dev]' in an echoed example) passes the reset's own checks.
+    d="$(diff -r "$SB_TMP/scripts.shipped" "$SB_WORK/scripts" 2>&1)" \
+      || cf "'$set': the reset did not restore the shipped scripts: $(printf '%s\n' "$d" | awk '/^[<>]/ && n++ < 2' | tr '\n' '|' | cut -c1-200)"
+  done
+
+  finish "_neu_roles resets an adopted role set to exactly the shipped scripts, including a set that is a substring of the shipped one"
+  teardown
+}
+
+# =============================================================================
 # CASE — SHIP STATE. The control the neutralizer costs us.
 #
 # Every sandbox is reset to the KIT_NEUTRAL_* values, so no other case sees the shipped

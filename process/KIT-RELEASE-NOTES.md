@@ -732,6 +732,10 @@ columns and never the cards.*
   in `.kanban-wt/` and then refused, so every later board command refused as dirty. It now refuses before writing, and
   `--dry-run` refuses the same board. **If you hit it:** `git -C .kanban-wt checkout -- ARCHIVE.md`, then re-run.
 
+- **The self-test runs on a project whose role set is part of the shipped one.** After `kit-init --roles 'PM|Dev|QA'` (or
+  any set that is a substring of the shipped alternation), `./scripts/test/run.sh` aborted at fixture setup naming
+  `_neu_roles`. **Nothing to do** beyond taking the updated `scripts/test/`.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

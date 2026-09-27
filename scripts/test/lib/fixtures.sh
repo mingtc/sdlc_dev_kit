@@ -458,8 +458,9 @@ _neu_roles() {
   local seams=""
   if [ "$cur" != "$KIT_NEUTRAL_ROLE_PREFIXES" ]; then
     # NON-RECURSIVE, for kit-init's reason: a recursive sweep would also rewrite the
-    # harness's own assertions.
-    seams="$( { grep -lF -- "$cur" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } )"
+    # harness's own assertions. QUOTED, unlike kit-init's: an adopted set may be a substring
+    # of the shipped one ('PM|Dev|QA'), and every seam holds it as '<set>'.
+    seams="$( { grep -lF -- "'$cur'" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } )"
     [ -n "$seams" ] \
       || _fixture_die "_neu_roles: the sandbox's commit-msg declares '$cur' but NO file under scripts/ carries it — the derivation found nothing to reset, so the role vocabulary is not neutralized and every --role literal in this harness would be judged against whatever the adopter declared."
     while IFS= read -r f; do
@@ -467,7 +468,7 @@ _neu_roles() {
       # The '@' delimiter is kit-init's, for kit-init's reason: the value is a
       # '|'-separated ERE alternation and would cut an s|…|…| in half with its own data.
       NEU_CUR="$cur" NEU_NEW="$KIT_NEUTRAL_ROLE_PREFIXES" \
-        perl -i -pe 's@\Q$ENV{NEU_CUR}\E@$ENV{NEU_NEW}@g' "$f"
+        perl -i -pe 's@\x27\Q$ENV{NEU_CUR}\E\x27@\x27$ENV{NEU_NEW}\x27@g' "$f"
     done <<NEU_SEAM_EOF
 $seams
 NEU_SEAM_EOF
@@ -481,7 +482,7 @@ NEU_SEAM_EOF
   # could still enforce the adopter's set.
   if [ -n "$seams" ]; then
     local still
-    still="$( { grep -lF -- "$cur" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } )"
+    still="$( { grep -lF -- "'$cur'" "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/githooks/* 2>/dev/null || true; } )"
     [ -z "$still" ] \
       || _fixture_die "_neu_roles: $(printf '%s' "$still" | tr '\n' ' ')still carr(y|ies) the adopter's role set '$cur' after the reset — the neutralization reached some seams and not others, and the cases judging --role literals against the shipped set would redden as though the tools were broken."
   fi
