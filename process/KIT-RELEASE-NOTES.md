@@ -285,8 +285,8 @@ columns and never the cards.*
   one; (4) `git add progress/done/subtasks/<ID>/declined/`, then commit with a role prefix and push.
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
-  squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block, the `Major`/`Minor` paragraph under it and § Severity scale's
-  table with the line under it** with the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
+  squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block, the `Major`/`Minor` paragraph under it, and all of § Severity
+  scale (the table and the line below it)** with the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
 
 - **The self-test harness is split into files.** `scripts/test/run.sh` is still the one command. It
   keeps its header, startup guards, `CASES` and the run loop, and sources `scripts/test/lib/*.sh`,
@@ -724,7 +724,7 @@ columns and never the cards.*
   test broken at any severity (a red gate), or behaviour the suite does not cover broken at `Blocker`/`Critical`
   severity. A `Major`/`Minor` break in uncovered behaviour is filed and the review passes, citing it. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
-  `qa.md` (take its *FAIL on regression* heading and § Severity scale's table), `dev.md` (its *Bug found* bullet) or a runner (port its
+  `qa.md` (take its *FAIL on regression* heading and all of § Severity scale — the table and the line below it), `dev.md` (its *Bug found* bullet) or a runner (port its
   `FAIL_REGRESSION` wording).
 
 - **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
