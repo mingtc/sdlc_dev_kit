@@ -452,6 +452,10 @@ case_notify_message_flag_carries_a_leading_dash() {
   [ "$rc" -eq 0 ] || cf "--message after --session exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
   grep -F -- "— -7 still failing" "$rec" >/dev/null 2>&1 \
     || cf "--message after --session was not delivered whole: $(cat "$rec" 2>/dev/null | tr '\n' '|')"
+  # a message given twice is refused, not silently halved
+  rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=zzrec NOTIFY_WITH_MSG_AND_ALERT=attention \
+    ./scripts/notify.sh attention "first" --session s1 --message "second" 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "a message given both positionally and as --message exited $rc, not 2"
   # the bare form refuses, and its remedy is the one that works
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=zzrec NOTIFY_WITH_MSG_AND_ALERT=attention \
     ./scripts/notify.sh attention "-5 tests fixed" --session s1 2>&1 )" || rc=$?

@@ -230,7 +230,9 @@ block as its `KIT-CLASS:` marker:
   `REPLACE` disposition is *declared* in the marker but its **instruction** stays in the body; the
   `BOOTSTRAP-SCAFFOLDING` line is the sentinel the reader keys on for that row.
 
-**What is marked so far, and what is not.** The `FILL` and `REPLACE` members are declared, because
+**What is marked so far, and what is not.** The `FILL` and `REPLACE` members are declared — except
+`scripts/release.sh`'s config block, a block inside a travelling script whose refusal to run until it
+is filled is its declaration — because
 those are the two rows the one shipped reader, `scripts/check-board.sh` arm (g), measures. **For
 REPLACE the marker discovers; for FILL it only filters:** arm (g) checks every tracked file that
 declares REPLACE in its header block (the derivation below), but reads FILL in `PROJECT.md` alone,
@@ -609,7 +611,7 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 |---|---|---|
 | `scripts/move-issue.sh` | the full set, at every site — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression | a new column cannot be moved to **at all** |
 | `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name; `[g]` derives from the constant; `[j]` and `[m]` each read the two landed columns (`done`, `qa_complete`) by name. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
-| `scripts/subtask.sh` | the set **minus `done` and minus `declined`**, on its `move` arm — both omissions are DECIDED, not inherited. A subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, and a subtask is not independently refusable: what gets declined is the PARENT, and the decomposition goes with it. | a subtask cannot reach the new column |
+| `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm — DECIDED, not inherited: a subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep. **`declined` was omitted too, by an earlier decision** — *a subtask is not independently refusable: what gets declined is the PARENT, and the decomposition goes with it.* **Superseded 2026-09-28:** once the mover, the lander and the sweep all refuse a parent over any open slice, a slice that will not be done had no way out but a false review, so `declined` is a terminal slice target, with its reason required. Declining the parent still takes the decomposition with it. | a subtask cannot reach the new column |
 | `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (it only tests `-d` and warns or fails). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
 | `scripts/test/lib/fixtures.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
@@ -1005,7 +1007,7 @@ seam; a scatter across the files § 2.2 lists is this debt.
 divergent ones decided rather than copied.**
 
 ### 4.6 The initializer's stamping reach is not total
-The initializer stamps the seams its own header lists (`scripts/kit-init.sh --help`), among them the
+The initializer stamps the seams its own file header lists (the comment block atop `scripts/kit-init.sh`), among them the
 item templates, the role docs and `PROJECT.md`'s project-name, prefix and `<trunk>` blanks. Whether it
 reaches `.claude/agents/` and `.claude/workflows/` — which contain illustrative ids, trunk names
 and gate-command examples of their own — is the thing to check, and historically it did not.

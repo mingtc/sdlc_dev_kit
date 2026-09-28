@@ -36,7 +36,7 @@
 #                            Reports what it did in KWT_SYNCED.
 #   kwt_finalize           → push HEAD:<trunk>, then conditionally advance the
 #                            operator's checkout / local branch ref
-#   kwt_open_subtasks <id> → print each card of <id>'s subtask tree not yet in qa_complete/
+#   kwt_open_subtasks <id> → print each card of <id>'s subtask tree neither in qa_complete/ nor declined/
 #
 # The sourcing script owns shell options; this file uses explicit return codes.
 #

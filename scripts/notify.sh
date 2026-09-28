@@ -115,7 +115,9 @@ while [ $# -gt 0 ]; do
     --session) need_val "$@"; SESSION="$2"; shift 2 ;;
     --ref) need_val "$@"; REF="$2"; shift 2 ;;
     --progress) need_val "$@"; PROGRESS="$2"; shift 2 ;;
-    --message) need_val "$@"; MESSAGE="$2"; shift 2 ;;
+    --message) need_val "$@"
+               [ -z "$MESSAGE" ] || { echo "Error: the message is given twice — positionally and as --message. Give it once." >&2; exit 2; }
+               MESSAGE="$2"; shift 2 ;;
     # An illegal invocation refuses with 2; the fail-soft exit 0 is for a failed DELIVERY only.
     -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
     *) echo "Error: unknown argument: $1" >&2; exit 2 ;;

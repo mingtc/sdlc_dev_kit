@@ -2388,6 +2388,7 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qF 'during review of <issue id, or none>' "$c" \
     || cf "new-bug.sh: with no --discovered-in the card names an issue it was not given: $(grep -m1 'during review of' "$c")"
   grep -qE 'during review of [A-Z][A-Z0-9]*-NNN' "$c" && cf "new-bug.sh: the card keeps a filled-looking -NNN reviewer id"
+  grep -q '^discovered_in: <issue id, or none>' "$c" || cf "new-bug.sh: with no --discovered-in the frontmatter claims an issue: $(grep -m1 '^discovered_in:' "$c")"
   for c in "$td/$SB_PREFIX-743-bugged.md" "$td/$SB_PREFIX-744-tidied.md"; do
     grep -qF '(../../requirements/DECISIONS.md)' "$c" || cf "$(basename "$c"): the Activity section does not name the decision register"
   done

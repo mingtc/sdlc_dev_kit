@@ -153,6 +153,8 @@ if [ -n "$STORIES" ]; then
 fi
 if [ -n "$DISCOVERED" ]; then
   sed -i.bak -e "s|^discovered_in: [^ ]*|discovered_in: $(sed_repl "$DISCOVERED")|" "$WORK"
+else
+  sed -i.bak -e "s|^discovered_in: [^ ]*|discovered_in: <issue id, or none>|" "$WORK"
 fi
 if [ -n "$SEVERITY" ]; then
   sed -i.bak -e "s|^severity: .*|severity: $(sed_repl "$SEVERITY")|" "$WORK"

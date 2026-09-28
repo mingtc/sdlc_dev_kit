@@ -4,8 +4,8 @@
 # subtask tree `progress/subtasks/<parent>/<status>/`. Subtasks do NOT consume the
 # issue-id integer stream — ids are <PARENT>-sM — and they live OFF the main board so
 # the PM's backlog stays pristine. The parent stays on the main board and advances to
-# qa_complete only when every subtask reaches qa_complete: move-issue.sh and finish-pr.sh refuse
-# it otherwise, and archive.sh refuses to retire an open slice. Commits carry the seat's tag:
+# qa_complete only when every subtask reaches qa_complete or is declined with its reason:
+# move-issue.sh and finish-pr.sh refuse it otherwise, and archive.sh refuses to retire an open slice. Commits carry the seat's tag:
 # SUBTASK_ROLE for `new`, --role for `move` (both default Orchestrator).
 #
 # This shares the SAME machinery as move-issue.sh / finish-pr.sh:

@@ -272,12 +272,13 @@ columns and never the cards.*
 ### Action required
 
 - **A parent issue now reaches `qa_complete/` or `done/`, and lands, only when every subtask has reached
-  `qa_complete/`.** `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse otherwise, naming the open
-  slices; before, `archive.sh --apply` retired an open slice as completed. **What to do:** look for a card
-  outside a `qa_complete/` folder under `progress/done/subtasks/*/` (retired open, by the old sweep) and
-  under `progress/subtasks/<ID>/` of a parent already in `qa_complete/` or `done/` — `archive.sh` now
-  refuses the whole sweep over one. Finish each, or close one that will not be done with
-  `./scripts/subtask.sh move <id> declined --note "why"` (new: a declined slice no longer holds its parent).
+  `qa_complete/` or been declined with its reason.** `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse otherwise, naming the open
+  slices; before, `archive.sh --apply` retired an open slice as completed. **What to do:** look for a slice
+  outside `qa_complete/` and `declined/` in two places. **Under `progress/subtasks/<ID>/` of a parent already in
+  `qa_complete/` or `done/`** — `archive.sh` now refuses the whole sweep over one: finish it, or close one that
+  will not be done with `./scripts/subtask.sh move <id> declined --note "why"`. **Under
+  `progress/done/subtasks/*/`** (retired open by the old sweep, where no script reaches it): restore it by hand
+  with `git mv` into `progress/subtasks/<ID>/<its column>/` and a role-prefixed commit, then treat it as above.
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
@@ -458,7 +459,8 @@ columns and never the cards.*
 
 - **`finish-pr.sh` now runs only as the trunk's committed copy.** A copy that differs from
   `<remote>/<trunk>:scripts/finish-pr.sh` — a branch's own, or a local edit — refuses before anything
-  moves, with no override. The ordinary landing is unchanged. **A branch that changes `finish-pr.sh`
+  moves, with no override. The ordinary landing is unchanged, except from a branch forked before the trunk's `finish-pr.sh` last changed,
+  which is refused from its own checkout as well. **Such a branch, or one that changes `finish-pr.sh`,
   lands from the main checkout on the trunk**, gating the branch's checkout with `--worktree <path>`.
   **If you edited your `finish-pr.sh` without committing it to the trunk,** land that edit first (by hand, or through a reviewed branch that the trunk's copy lands);
   until then every landing refuses.
@@ -714,9 +716,9 @@ columns and never the cards.*
   `./scripts/finish-pr.sh <ID> --worktree <its absolute path>`. MANUAL step 3 says the same, and adds that a branch
   changing the gate runner is judged by the trunk's copy. **If you edited your `qa.md`,** take the new step 2.
 
-- **`FAIL_REGRESSION` means a `Blocker` or `Critical` regression**, in MANUAL step 6 and the wave runner's QA prompt as in
-  `qa.md`: a `Major`/`Minor` regression in behaviour the suite does not cover is filed and the review passes, citing
-  it; a broken test is a red gate, which fails at any severity. QA's step 5 also treats a diff to
+- **`FAIL_REGRESSION` is stated one way**, in MANUAL step 6, `qa.md` and the wave runner's QA prompt: a previously-green
+  test broken at any severity (a red gate), or behaviour the suite does not cover broken at `Blocker`/`Critical`
+  severity. A `Major`/`Minor` break in uncovered behaviour is filed and the review passes, citing it. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
   `wave-runner.js`: port the one parenthetical.
 
@@ -725,8 +727,8 @@ columns and never the cards.*
 
 - **`process/doctrine/subagent-control.md` § A.15 gains an environment note for prompted peers.** A peer
   can meet its send obligation by nudging and still miss the moment it watches, so make the state check part
-  of every send. An idle peer can be reaped about an hour after its last activity, so liveness is a process
-  listing, never the absence of an idle notice. It was measured on one harness and is stated as a setting to
+  of every send. An idle peer can be reaped about an hour after its last activity, so whether a peer still
+  exists is read from a process listing, never from the absence of an idle notice. It was measured on one harness and is stated as a setting to
   check, not a rule. **Nothing to do.**
 
 - **`subtask.sh move <id> declined --note "why"` closes a slice that will not be done.** A declined slice no
@@ -939,7 +941,7 @@ columns and never the cards.*
 - **`setup.sh` and the `consumers/` scripts answer `--help` in any position**, as every `scripts/` tool now does; before,
   an argument ahead of it made the usage request fail. **Nothing to do.**
 
-- **`notify.sh` sends a message that starts with `-` through `--message <text>`**, wherever `--message` stands. The bare
+- **`notify.sh` sends a message that starts with `-` through `--message <text>`**, wherever `--message` stands, and a message given twice is refused. The bare
   form still refuses, and now says so; its old advice to quote the text could not work. **Nothing to do.**
 
 ## [0.6.0] — 2026-09-18

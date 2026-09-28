@@ -245,9 +245,9 @@ fi
 _open="$(kwt_open_subtasks "$ISSUE_ID")"
 if [ -n "$_open" ]; then
   {
-    echo "Error: ${ISSUE_ID} has subtask(s) not yet in qa_complete/:"
+    echo "Error: ${ISSUE_ID} has subtask(s) neither in qa_complete/ nor declined:"
     printf '%s\n' "$_open" | sed 's/^/    /'
-    echo "       A parent advances to qa_complete/ only when every subtask has, so it does not land"
+    echo "       A parent advances to qa_complete/ only when every subtask has (or is declined), so it does not land"
     echo "       before then. Finish each, or close one that will not be done with"
     echo "         ./scripts/subtask.sh move <id> declined --note \"why\""
     echo "       NOTHING WAS CHANGED."

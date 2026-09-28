@@ -403,11 +403,11 @@ bounces it.
      `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
    - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
      note listing the unmet AC; Dev resumes on the same branch.
-   - **FAIL on regression** — a previously-green test or shipped behavior broke **at `Blocker` or
-     `Critical` severity**. **File a bug** (`./scripts/new-bug.sh`), link it via `discovered_in`,
-     and move the issue back. A `Major`/`Minor` regression in behavior the suite does not cover does not
-     fail the review: file it the same way and PASS, citing it in the landing note; PM decides
-     defer-or-fix. A broken test is a red suite, which fails PASS at any severity.
+   - **FAIL on regression** — a previously-green **test** broke, at any severity (a red suite), or
+     shipped behavior the suite does not cover broke **at `Blocker` or `Critical` severity**. **File a
+     bug** (`./scripts/new-bug.sh`), link it via `discovered_in`, and move the issue back. A
+     `Major`/`Minor` break in uncovered behavior does not fail the review: file it the same way and
+     PASS, citing it in the landing note; PM decides defer-or-fix.
    - **PASS-with-AC-correction — THE THIRD VERDICT.** The implementation is **right** and the
      AC's own **illustration** is **wrong**: the code does the correct thing, and the example
      baked into the acceptance criterion asserts something the source does not support. Three

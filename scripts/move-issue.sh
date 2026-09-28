@@ -40,7 +40,7 @@
 #    requires --note: the reason is the entire reason to keep the card. It is not
 #    swept — its value is being browsable.)
 #   (qa_complete/ and done/ refuse a PARENT while any card under progress/subtasks/<ID>/
-#    is outside qa_complete/: a parent advances only when every subtask has.)
+#    is outside qa_complete/ and declined/: a parent advances only when every subtask has.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the
@@ -387,9 +387,9 @@ else
     _open="$(kwt_open_subtasks "$ISSUE_ID")"
     if [ -n "$_open" ]; then
       {
-        echo "Error: ${ISSUE_ID} has subtask(s) not yet in qa_complete/, so it cannot move to ${TARGET}/:"
+        echo "Error: ${ISSUE_ID} has subtask(s) neither in qa_complete/ nor declined, so it cannot move to ${TARGET}/:"
         printf '%s\n' "$_open" | sed 's/^/    /'
-        echo "  A parent advances only when every subtask has. Finish each, or close one that will not"
+        echo "  A parent advances only when every subtask has, or is declined. Finish each, or close one that will not"
         echo "  be done with  ./scripts/subtask.sh move <id> declined --note \"why\". NOTHING WAS CHANGED."
       } >&2
       exit 1

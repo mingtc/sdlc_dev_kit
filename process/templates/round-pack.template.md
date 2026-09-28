@@ -6,7 +6,7 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/rounds/<YYYY-MM-DD>-<round-name>/pack.md`, fill every `<slot>`, and **delete every blockquote
-> that opens `> **GUIDANCE`** (the STATUS banner stays). The doctrine is
+> that opens `> **GUIDANCE`**, and the line-1 marker (the STATUS banner stays). The doctrine is
 > [`process/doctrine/dogfooding.md`](../../../process/doctrine/dogfooding.md); this file is how a round is *committed
 > to* before it runs.
 >
@@ -217,8 +217,9 @@ itself (§ A.14).
 
 ## Author's pre-launch checklist (before any participant is dispatched)
 
-- [ ] Every `<slot>` filled; every blockquote that opens `> **GUIDANCE` deleted (the header
-      states the same rule; the STATUS banner is a blockquote too, and stays).
+- [ ] Every `<slot>` filled; every blockquote that opens `> **GUIDANCE` deleted, and the line-1
+      `KIT-CLASS` marker with them (the header states the same rule; the STATUS banner is a
+      blockquote too, and stays).
 - [ ] **This file is committed.** A pre-registration that lands after the first dispatch is a
       description.
 - [ ] Every scenario says which of *achieve* / *choose* it measures, and every *choose* scenario

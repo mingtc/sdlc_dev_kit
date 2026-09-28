@@ -83,8 +83,8 @@ state — so that every tool and every reader downstream can rely on the shape w
 - An item with the same name already exists ⇒ refuse rather than overwriting. Overwriting a
   description of work is data loss with no undo in the reader's hands.
 - A decomposition names a parent that does not exist, is itself a child, or is retired (done or
-  declined) ⇒ refuse. A parent already in the reviewed state still takes children, and while any child is short of that
-  state the sweep refuses ([archive-sweep.md](archive-sweep.md) § 3) — the whole sweep, not only that tree.
+  declined) ⇒ refuse. A parent already in the reviewed state still takes children, and while any child is neither in that
+  state nor declined the sweep refuses ([archive-sweep.md](archive-sweep.md) § 3) — the whole sweep, not only that tree.
 - **An argument standing in a NAME's position that carries an option's syntax — a leading dash —
   ⇒ refuse, non-zero, naming the position it was standing in.** A dash-leading token is never a
   name, in any position, however plausible it looks.

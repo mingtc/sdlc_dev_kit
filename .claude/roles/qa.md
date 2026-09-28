@@ -189,7 +189,7 @@ Action on FAIL splits by reason:
 - Record the FAIL verdict in the issue file's **Activity log** (`move-issue.sh`'s `--note` does this) — there is no PR to comment on; the Activity log is the review record.
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — AC unmet.`
 
-**FAIL on regression** (a `Blocker` or `Critical` bug found, whether or not the AC is met):
+**FAIL on regression** (a previously-green test broke — a red gate — at any severity, or a `Blocker` or `Critical` bug found in behavior the suite does not cover, whether or not the AC is met):
 - File each bug **from the trunk, not the work branch** — the card is published there, and `next-id.sh` reads the trunk only as last fetched: in the main checkout (not the Dev's worktree), `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity <Blocker|Critical>`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
 - `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL_REGRESSION. Bugs filed: <PREFIX>-NNN."` Do not merge. The note is the review record.
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — bugs <PREFIX>-NNN, <PREFIX>-NNN filed.`
