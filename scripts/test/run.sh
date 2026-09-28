@@ -364,6 +364,7 @@ CASES=(
   case_kit_init_refuses_lived_board
   case_kit_init_project_name_refusal
   case_kit_init_directory_name_is_validated
+  case_kit_init_refuses_progress_md_without_log_heading
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
   case_option_parsing_hygiene

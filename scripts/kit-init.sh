@@ -338,6 +338,12 @@ elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   pf "scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
 fi
 
+# An existing progress.md keeps its content, so it must already carry § Log's heading (declared in
+# lib/lived-probe.sh). Checked here, not in step 3: by then the seams are stamped.
+if [ -f "$ROOT/progress.md" ] && [ -n "${KIT_LOG_HEADING_ERE:-}" ] && ! grep -qE "$KIT_LOG_HEADING_ERE" "$ROOT/progress.md"; then
+  pf "progress.md has no '## Log' heading — check-board.sh and archive-progress.sh read the log beneath it. Add a '## Log' line where your log starts, then commit and push."
+fi
+
 # --- git repo, born HEAD, identity ---
 if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   pf "$ROOT is not a git repository — run 'git init' first."
@@ -925,8 +931,6 @@ Everything below the next heading is history; nothing above it is.
 EOF
   say "  progress.md: skeleton written (## Log + the dated-heading convention)"
 else
-  grep -qE "$KIT_LOG_HEADING_ERE" "$ROOT/progress.md" || {
-    echo "Error: progress.md exists but has no '## Log' heading (check-board.sh probes for it)." >&2; exit 1; }
   say "  progress.md: already present with a '## Log' heading — left alone"
 fi
 

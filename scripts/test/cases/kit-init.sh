@@ -1421,6 +1421,44 @@ B" ) >/dev/null 2>&1 \
 }
 
 # =============================================================================
+# CASE — a progress.md without § Log's heading is refused in preflight, before anything is written.
+# The check once ran in the create step, after config.sh and the role docs were stamped: kit-init
+# exited 1 with the tree half-stamped, and a re-run refused it as already lived. The control is the
+# same tree with the heading added, which must initialize.
+# =============================================================================
+case_kit_init_refuses_progress_md_without_log_heading() {
+  cf_reset
+  local L="kit-init: a progress.md without a '## Log' heading is refused before anything is written, and the same tree with one initializes"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  printf '# progress.md\n\n## Notes\n' > "$SB_WORK/progress.md"
+  publish_sandbox
+
+  local out rc before
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 1 ] || cf "kit-init over a progress.md with no '## Log' heading exited $rc; a preflight refusal exits 1: $(printf '%s\n' "$out" | tail -3 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep 'NOTHING WAS WRITTEN' >/dev/null \
+    || cf "the refusal was not a preflight refusal: $(printf '%s\n' "$out" | grep -m2 -E 'Error|✗' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep "progress.md has no '## Log' heading" >/dev/null \
+    || cf "the refusal did not name the missing heading: $(printf '%s\n' "$out" | grep -m2 -E 'Error|✗|•' | tr '\n' '|')"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "HEAD moved during the refusal"
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] \
+    || cf "the tree was modified during the refusal (half-stamped): $(git -C "$SB_WORK" status --porcelain | head -3 | tr '\n' '|')"
+
+  printf '# progress.md\n\n## Log\n' > "$SB_WORK/progress.md"
+  git -C "$SB_WORK" add progress.md >/dev/null 2>&1
+  sbcommit -q -m "[PM] give progress.md its Log heading" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the same tree with a '## Log' heading exited $rc: $(printf '%s\n' "$out" | grep -m3 -E '✗|Error|•' | tr '\n' '|')"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — with no --project-name, the directory's name is validated as the flag's value is.
 # The fallback once skipped validate_project_name: a directory named `The Bell & Rota` stamped
 # config.sh with its own PROJECT_NAME line spliced in at the `&`, and kit-init committed and

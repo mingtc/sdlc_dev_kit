@@ -864,6 +864,10 @@ columns and never the cards.*
   into history. `archive-progress.sh` also leaves sections after § Log in place — before, a `## Notes` after it could be rotated
   into `progress/history/`; if a past rotation did that, move the section back by hand.
 
+- **`kit-init.sh` no longer half-initializes a repository whose `progress.md` has no `## Log` heading.** It checked only after
+  stamping `scripts/config.sh` and the role docs, exited uncommitted, and a re-run refused the tree as lived. It now refuses
+  before writing. A tree the old behaviour left half-stamped: `git checkout -- .`, add the heading, re-run.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required
