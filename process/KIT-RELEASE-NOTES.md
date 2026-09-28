@@ -280,8 +280,8 @@ columns and never the cards.*
   `progress/done/subtasks/*/`** (retired open by the old sweep, beside its retired parent): leave it in that
   tree — moving it back splits the parent's tree and every later sweep refuses. Record it where it is, declined:
   `mkdir -p progress/done/subtasks/<ID>/declined && git mv <card> progress/done/subtasks/<ID>/declined/`, append
-  a dated Activity line to the card giving the reason — if its work is still wanted, file that work as a new
-  issue and cite it there — and commit with a role prefix.
+  a dated `[<Role>]` Activity line to the card giving the reason — if its work is still wanted, file that work
+  as a new issue, publish its card, and cite it there — then commit with a role prefix and push.
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
