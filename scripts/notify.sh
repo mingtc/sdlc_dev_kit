@@ -12,7 +12,8 @@
 # whole subsystem is inert until a project configures it.
 #
 # Usage:
-#   ./scripts/notify.sh <class> <message> --session <slug> [--ref X] [--progress k/N] [--message <text>]
+#   ./scripts/notify.sh <class> <message> --session <slug> [--ref X] [--progress k/N]
+#   ./scripts/notify.sh <class> --message <text> --session <slug> [...]   # the message once, either way
 #   ./scripts/notify.sh test [--session <slug>]
 #
 # Classes:  attention | blocked | done | milestone | progress
@@ -70,9 +71,9 @@ fi
 
 warn() { printf 'notify: %s\n' "$*" >&2; }
 usage() {
-  echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"
+  echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message>|--message <text> --session <slug>"
   echo "       notify.sh test [--session <slug>]        # no message: sends a fixed probe"
-  echo "       [--ref <ref>] [--progress <n/m>] [--message <text>]"
+  echo "       [--ref <ref>] [--progress <n/m>]"
   echo ""
   echo "  test   probe the configured transport and report; NON-ZERO if it fails."
   echo "  others deliver a notification. Delivery failure is FAIL-SOFT (exit 0) on"
@@ -116,7 +117,7 @@ while [ $# -gt 0 ]; do
     --ref) need_val "$@"; REF="$2"; shift 2 ;;
     --progress) need_val "$@"; PROGRESS="$2"; shift 2 ;;
     --message) need_val "$@"
-               [ -z "$MESSAGE" ] || { echo "Error: the message is given twice — positionally and as --message. Give it once." >&2; exit 2; }
+               [ -z "$MESSAGE" ] || { echo "Error: the message is given twice. Give it once, positionally or as --message." >&2; exit 2; }
                MESSAGE="$2"; shift 2 ;;
     # An illegal invocation refuses with 2; the fail-soft exit 0 is for a failed DELIVERY only.
     -*) echo "Error: unknown option: $1" >&2; exit 2 ;;

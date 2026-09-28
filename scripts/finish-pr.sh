@@ -74,7 +74,8 @@
 # The gate checkout (the main one, or --worktree's) must be at the branch's tip; a decomposed
 # issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/ or declined/; and this
 # script must be byte-identical to <trunk>'s committed copy, with no override (a branch that
-# changes it lands from the main checkout on <trunk>, with --worktree). Otherwise this refuses
+# changes it, or was forked before <trunk>'s copy last changed, lands from the main checkout on
+# <trunk>, with --worktree). Otherwise this refuses
 # before anything moves.
 #
 # Examples:

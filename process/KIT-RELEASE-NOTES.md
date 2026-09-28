@@ -277,8 +277,10 @@ columns and never the cards.*
   outside `qa_complete/` and `declined/` in two places. **Under `progress/subtasks/<ID>/` of a parent already in
   `qa_complete/` or `done/`** — `archive.sh` now refuses the whole sweep over one: finish it, or close one that
   will not be done with `./scripts/subtask.sh move <id> declined --note "why"`. **Under
-  `progress/done/subtasks/*/`** (retired open by the old sweep, where no script reaches it): restore it by hand
-  with `git mv` into `progress/subtasks/<ID>/<its column>/` and a role-prefixed commit, then treat it as above.
+  `progress/done/subtasks/*/`** (retired open by the old sweep, beside its retired parent): leave it in that
+  tree — moving it back splits the parent's tree and every later sweep refuses. Record it where it is: `git mv`
+  it into `progress/done/subtasks/<ID>/declined/` with a role-prefixed commit saying why, or, if its work is
+  still wanted, file that work as a new issue.
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
@@ -720,7 +722,7 @@ columns and never the cards.*
   test broken at any severity (a red gate), or behaviour the suite does not cover broken at `Blocker`/`Critical`
   severity. A `Major`/`Minor` break in uncovered behaviour is filed and the review passes, citing it. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
-  `wave-runner.js`: port the one parenthetical.
+  `qa.md` (take its *FAIL on regression* heading) or `wave-runner.js` (port the one parenthetical).
 
 - **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
   `next-id.sh`, as `qa.md` did; a stale trunk can hand out an id already taken. **Nothing to do.**
@@ -829,7 +831,8 @@ columns and never the cards.*
   added this release measured the kit's README even after SEED had you replace it. **Nothing to do.**
 
 - **`qa.md`'s regression path could publish "Merged." on a card nothing merged, and let a Critical bug land.** A
-  `Blocker`/`Critical` now always sends the issue back (`FAIL_REGRESSION`); a PASS with `Major`/`Minor` bugs lands with
+  `Blocker`/`Critical`, or any broken test, now always sends the issue back (`FAIL_REGRESSION`); a PASS with
+  `Major`/`Minor` bugs in behaviour the suite does not cover lands with
   `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, where the
   card is published. (An edited `qa.md` needs the replacement under Action required.)
 

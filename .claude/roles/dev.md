@@ -293,7 +293,7 @@ below; that section + the Activity log ARE the review record QA reads:
 
 If QA fails the review:
 - **AC unmet** → QA moves the file back to `progress/in_progress/` (via `move-issue.sh`); you re-enter the workflow at step 4 (re-plan) or step 7 (fix).
-- **Bug found** (regression / behavior outside AC) → QA files a **new** `type: bug` issue in `progress/todo/` via `./scripts/new-bug.sh`. A `Blocker` or `Critical` sends your issue back to `progress/in_progress/`; with a `Major` or `Minor` it may still land if its AC is fully met, and the bug enters the queue independently.
+- **Bug found** (regression / behavior outside AC) → QA files a **new** `type: bug` issue in `progress/todo/` via `./scripts/new-bug.sh`. A `Blocker` or `Critical`, or any broken test, sends your issue back to `progress/in_progress/`; with a `Major` or `Minor` bug in behavior the suite does not cover it may still land if its AC is fully met, and the bug enters the queue independently.
 
 ## Session end checklist
 

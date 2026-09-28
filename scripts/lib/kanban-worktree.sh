@@ -645,7 +645,7 @@ kwt_finalize() {
 
 # kwt_open_subtasks <parent-id> — print, one per line and relative to $KWT, every card under
 # progress/subtasks/<parent-id>/<status>/ whose status is neither qa_complete nor declined. Empty output: no tree,
-# or every slice reviewed. A parent reaches qa_complete (or done) only when this prints nothing.
+# or every slice reviewed or declined. A parent reaches qa_complete (or done) only when this prints nothing.
 # Read after kwt_sync, so it answers for the published board.
 kwt_open_subtasks() {
   local base="$KWT/progress/subtasks/$1" all f

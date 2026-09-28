@@ -136,7 +136,7 @@ DIST_BRANCH="${VENDORED_DIST_BRANCH:-dist}"
 VENDORED_CHECK_NOTES="${VENDORED_CHECK_NOTES:-1}"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SEAM FUNCTIONS. Version-aware code also lives below: ver_gt(), notes_headers(), and the two
+# SEAM FUNCTIONS. Version-aware code also lives below: ver_gt(), notes_headers(), and the
 # `--sort=-v:refname` latest-tag picks (remote_latest_tag() and the clone path).
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -178,7 +178,7 @@ build_artifact() {   # <output dir> <source dir>
 #    The default reads the first digits-and-dots run after `<name>-`, which
 #    covers `<name>-1.2.3-<anything>.<ext>` and `<name>-1.2.3.<ext>`. A project
 #    whose versions are not digits-and-dots replaces THIS FUNCTION ONLY — and
-#    then also replaces ver_gt(), notes_headers() and the two `--sort=-v:refname` tag picks below,
+#    then also replaces ver_gt(), notes_headers() and the `--sort=-v:refname` tag picks below,
 #    which assume digits-and-dots.
 artifact_version() {   # <path or filename>
     local base="${1##*/}" v
@@ -211,7 +211,7 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Below this line: the logic. It travels unedited — except ver_gt(), notes_headers() and the two
+# Below this line: the logic. It travels unedited — except ver_gt(), notes_headers() and the
 # `--sort=-v:refname` tag picks, which a project whose versions are not digits-and-dots replaces
 # together with artifact_version() above.
 # ═════════════════════════════════════════════════════════════════════════════

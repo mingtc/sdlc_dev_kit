@@ -40,7 +40,8 @@
 #    requires --note: the reason is the entire reason to keep the card. It is not
 #    swept — its value is being browsable.)
 #   (qa_complete/ and done/ refuse a PARENT while any card under progress/subtasks/<ID>/
-#    is outside qa_complete/ and declined/: a parent advances only when every subtask has.)
+#    is outside qa_complete/ and declined/: a parent advances only when every subtask is reviewed
+#    or declined.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the

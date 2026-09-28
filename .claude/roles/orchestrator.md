@@ -431,7 +431,7 @@ frontmatter, the sliced-AC rule and the parent's rollup are stated on the slice 
 [.claude/templates/SUBTASK.template.md](../templates/SUBTASK.template.md). The parent advances to
 `qa_complete/` only when every subtask has reached `qa_complete/` or been declined with its reason
 (`subtask.sh move <id> declined --note "why"`); `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse it
-otherwise.
+otherwise. Declining the parent does not sweep its tree: decline its open slices with it.
 
 ## Discovered tech-debt and todos
 
