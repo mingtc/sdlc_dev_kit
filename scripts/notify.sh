@@ -92,15 +92,16 @@ case "$CMD" in
 esac
 
 MESSAGE=""; SESSION=""; REF=""; PROGRESS=""
-# A LEADING '-' IS NEVER A NAME (issue-creation.md § 3): a forgotten message must not send the
-# next flag as its body.
+# A LEADING '-' IS NEVER A POSITIONAL MESSAGE (issue-creation.md § 3): a forgotten message must not
+# send the next flag as its body. Text that starts with '-' travels as --message <text>.
 if [ "$MODE" = "send" ]; then
   case "${1:-}" in
-    -?*) echo "Error: '$1' is not a message — a leading '-' is never a value. Quote it if you meant it literally." >&2
-         echo "       Run  $(basename "$0") --help  for the usage." >&2
+    --message) : ;;
+    -?*) echo "Error: '$1' is not a message — a leading '-' is never a positional value." >&2
+         echo "       To send text that starts with '-', pass it as  --message <text>." >&2
          exit 2 ;;
+    *) MESSAGE="${1:-}"; shift || true ;;
   esac
-  MESSAGE="${1:-}"; shift || true
 fi
 # need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {

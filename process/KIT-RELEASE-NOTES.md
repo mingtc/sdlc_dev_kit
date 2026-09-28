@@ -934,6 +934,9 @@ columns and never the cards.*
 - **`setup.sh` and the `consumers/` scripts answer `--help` in any position**, as every `scripts/` tool now does; before,
   an argument ahead of it made the usage request fail. **Nothing to do.**
 
+- **`notify.sh` sends a message that starts with `-` through `--message <text>`.** The bare form still refuses, and now
+  says so; its old advice to quote the text could not work. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

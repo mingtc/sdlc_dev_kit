@@ -434,6 +434,29 @@ case_notify_lists_only_adapters() {
   teardown
 }
 
+case_notify_message_flag_carries_a_leading_dash() {
+  cf_reset
+  make_sandbox
+  local rec="$SB_TMP/notify-rec.txt" out rc
+  printf '#!/usr/bin/env bash\ncase "${1:-send}" in\n  send) printf "%%s\\n" "$NOTIFY_TEXT" >> "%s"; exit 0 ;;\n  test) exit 0 ;;\nesac\n' "$rec" \
+    > "$SB_WORK/scripts/notify/zzrec.sh"
+  # the form a message starting with '-' has to take: --message, and it is delivered whole
+  rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=zzrec NOTIFY_WITH_MSG_AND_ALERT=attention \
+    ./scripts/notify.sh attention --message "-5 tests fixed" --session s1 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "--message with a dash-leading text exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
+  grep -F -- "— -5 tests fixed" "$rec" >/dev/null 2>&1 \
+    || cf "--message '-5 tests fixed' was not delivered whole: $(cat "$rec" 2>/dev/null | tr '\n' '|')"
+  # the bare form refuses, and its remedy is the one that works
+  rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=zzrec NOTIFY_WITH_MSG_AND_ALERT=attention \
+    ./scripts/notify.sh attention "-5 tests fixed" --session s1 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "a bare dash-leading message exited $rc, not 2"
+  printf '%s\n' "$out" | grep -F -- "--message" >/dev/null \
+    || cf "the refusal of a dash-leading message does not name --message: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F "Quote it" >/dev/null && cf "the refusal still advises quoting, which cannot clear it"
+  finish "notify.sh: a message starting with '-' is sent through --message, and the bare form's refusal names --message"
+  teardown
+}
+
 # =============================================================================
 # CASE — EACH HELP WINDOW ENDS WHERE ITS OWN RULE SAYS, AND THERE ARE TWO RULES.
 #

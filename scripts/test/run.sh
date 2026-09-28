@@ -384,6 +384,7 @@ CASES=(
   case_usage_renderer_has_one_authoring_site
   case_help_does_not_print_the_disposition_marker
   case_notify_lists_only_adapters
+  case_notify_message_flag_carries_a_leading_dash
   case_help_window_ends_where_its_rule_says
   case_project_credential_blank_is_countable
   case_minted_card_is_drift_clean
