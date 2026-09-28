@@ -284,9 +284,11 @@ columns and never the cards.*
   (3) append a dated `[<Role>]` Activity line to the card giving the reason, citing the new issue if there is
   one; (4) `git add progress/done/subtasks/<ID>/declined/`, then commit with a role prefix and push.
 
-- **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
-  squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block, the `Major`/`Minor` paragraph under it, and all of § Severity
-  scale (the table and the line below it)** with the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
+- **If you carry an edited `.claude/roles/qa.md`, replace its *FAIL on regression* block, the `Major`/`Minor` paragraph
+  under it, and in § Severity scale the Major and Minor rows' action cells and the line below the table, with the
+  shipped ones.** It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
+  (search for `NNN. Merged.`) and then squash-merges via `finish-pr.sh`: that order leaves the branch unmerged under a
+  card that says it merged.
 
 - **The self-test harness is split into files.** `scripts/test/run.sh` is still the one command. It
   keeps its header, startup guards, `CASES` and the run loop, and sources `scripts/test/lib/*.sh`,
@@ -724,7 +726,7 @@ columns and never the cards.*
   test broken at any severity (a red gate), or behaviour the suite does not cover broken at `Blocker`/`Critical`
   severity. A `Major`/`Minor` break in uncovered behaviour is filed and the review passes, citing it. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
-  `qa.md` (take its *FAIL on regression* heading and all of § Severity scale — the table and the line below it), `dev.md` (its *Bug found* bullet) or a runner (port its
+  `qa.md` (Action required above names each part to take), `dev.md` (its *Bug found* bullet) or a runner (port its
   `FAIL_REGRESSION` wording).
 
 - **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
