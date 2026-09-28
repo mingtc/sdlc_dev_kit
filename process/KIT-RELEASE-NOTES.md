@@ -931,6 +931,9 @@ columns and never the cards.*
   stamping `scripts/config.sh` and the role docs, exited uncommitted, and a re-run refused the tree as lived. It now refuses
   before writing. A tree the old behaviour left half-stamped: `git checkout -- .`, add the heading, re-run.
 
+- **`setup.sh` and the `consumers/` scripts answer `--help` in any position**, as every `scripts/` tool now does; before,
+  an argument ahead of it made the usage request fail. **Nothing to do.**
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

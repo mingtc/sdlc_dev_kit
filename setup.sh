@@ -43,7 +43,9 @@ EOF
 }
 
 KIT_ONLY=false
-# Every argument is inspected: a mistyped surplus flag must not pass silently with exit 0.
+# --help in any position is answered first; then every argument is inspected: a mistyped surplus
+# flag must not pass silently with exit 0.
+for _a in "$@"; do case "$_a" in -h|--help) set -- --help; break ;; esac; done
 while [ $# -gt 0 ]; do
 case "$1" in
   -h|--help)  usage; exit 0 ;;

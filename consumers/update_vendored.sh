@@ -231,6 +231,8 @@ usage() {
     sed -n "${start},${end}p" "$src" | sed 's|^# \{0,1\}||'
 }
 
+# --help in any position is answered first.
+for _a in "$@"; do case "$_a" in -h|--help) set -- --help; break ;; esac; done
 case "${1:-}" in
     -h|--help) usage; exit 0 ;;
     # An unrecognised option exits 2 and names itself (process/contracts/issue-creation.md

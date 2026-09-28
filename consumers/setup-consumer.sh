@@ -28,7 +28,8 @@
 set -euo pipefail
 
 # Usage and unknown-option arms sit above every preflight and cd
-# (process/contracts/issue-creation.md § 3): --help always succeeds; an unknown option exits 2.
+# (process/contracts/issue-creation.md § 3): --help always succeeds, in any position; an unknown option exits 2.
+for _a in "$@"; do case "$_a" in -h|--help) set -- --help; break ;; esac; done
 case "${1:-}" in
   -h|--help)
     # Start and end derived: the KIT-CLASS marker's last line cites EXTRACTION.md.

@@ -764,7 +764,7 @@ case_usage_request_is_answered_before_any_argument() {
     [ -n "$interp" ] || continue
     skip=0; for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
     [ "$skip" -eq 0 ] || continue
-    case "$rel" in scripts/test/*) continue ;; scripts/*) : ;; *) elsewhere="$elsewhere $rel"; continue ;; esac
+    case "$rel" in scripts/test/*) continue ;; scripts/*|setup.sh|consumers/*) : ;; *) elsewhere="$elsewhere $rel"; continue ;; esac
     f="$SB_WORK/$rel"; [ -f "$f" ] || { cf "$rel is bound and shipped but the sandbox does not carry it"; continue; }
     base="$(basename "$f")"; n=$((n+1))
     for lead in --not-a-real-flag not-a-real-positional; do
@@ -780,11 +780,11 @@ case_usage_request_is_answered_before_any_argument() {
   done <<MANIFEST_EOF
 $(grep -v '^#' "$man" | awk '{print $2}')
 MANIFEST_EOF
-  [ "$n" -gt 0 ] || _fixture_die "case_usage_request_is_answered_before_any_argument: no bound program under scripts/ — the case would pass over nothing."
+  [ "$n" -gt 0 ] || _fixture_die "case_usage_request_is_answered_before_any_argument: no bound program under scripts/, setup.sh or consumers/ — the case would pass over nothing."
   local made
   made="$(find "$SB_WORK/progress" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   [ "$made" = "0" ] || cf "$made card(s) were created by usage requests"
-  finish "a usage request after an unknown option or a surplus positional exits 0 naming the tool, over $n bound program(s) under scripts/ derived from process/KIT-MANIFEST. Bound programs outside scripts/, not judged here:${elsewhere:- (none)}"
+  finish "a usage request after an unknown option or a surplus positional exits 0 naming the tool, over $n bound program(s) under scripts/, setup.sh and consumers/, derived from process/KIT-MANIFEST. Bound programs outside scripts/, not judged here:${elsewhere:- (none)}"
   teardown
 }
 
