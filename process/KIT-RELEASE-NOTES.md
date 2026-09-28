@@ -694,6 +694,12 @@ columns and never the cards.*
 - **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
   `next-id.sh`, as `qa.md` did; a stale trunk can hand out an id already taken. **Nothing to do.**
 
+- **`process/doctrine/subagent-control.md` § A.15 gains an environment note for prompted peers.** A peer
+  can meet its send obligation by nudging and still miss the moment it watches, so make the state check part
+  of every send. An idle peer can be reaped about an hour after its last activity, so liveness is a process
+  listing, never the absence of an idle notice. It was measured on one harness and is stated as a setting to
+  check, not a rule. **Nothing to do.**
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped
