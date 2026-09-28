@@ -284,9 +284,10 @@ columns and never the cards.*
   (3) append a dated `[<Role>]` Activity line to the card giving the reason, citing the new issue if there is
   one; (4) `git add progress/done/subtasks/<ID>/declined/`, then commit with a role prefix and push.
 
-- **If you carry an edited `.claude/roles/qa.md`, replace its *FAIL on regression* block, the `Major`/`Minor` paragraph
-  under it, and in § Severity scale the Major and Minor rows' action cells and the line below the table, with the
-  shipped ones.** It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
+- **If you carry an edited `.claude/roles/qa.md`, merge this release's copy into yours: diff the shipped file against
+  `0.6.0`'s and take every change.** It changed in many places — among them step 2's worktree review, step 5's gate
+  cross-cut, the *FAIL on regression* block and the paragraph under it, the PASS actions, and § Severity scale — and
+  the parts depend on each other (the Major/Minor paragraph lands per step 2), so take them together. It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
   (search for `NNN. Merged.`) and then squash-merges via `finish-pr.sh`: that order leaves the branch unmerged under a
   card that says it merged.
 
@@ -720,13 +721,13 @@ columns and never the cards.*
 - **QA reviews in the Dev's worktree when it still holds the branch.** The Dev keeps `.worktrees/<branch>/` at handoff, so
   `qa.md` step 2's `git switch <branch>` failed there ("already checked out"). QA now gates in that worktree and lands with
   `./scripts/finish-pr.sh <ID> --worktree <its absolute path>`. MANUAL step 3 says the same, and adds that a branch
-  changing the gate runner is judged by the trunk's copy. **If you edited your `qa.md`,** take the new step 2.
+  changing the gate runner is judged by the trunk's copy. **If you edited your `qa.md`,** merge it, per Action required above.
 
 - **`FAIL_REGRESSION` is stated one way**, in MANUAL step 6, `qa.md`, `dev.md` and both runners' QA prompts: a previously-green
   test broken at any severity (a red gate), or behaviour the suite does not cover broken at `Blocker`/`Critical`
   severity. A `Major`/`Minor` break in uncovered behaviour is filed and the review passes, citing it. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
-  `qa.md` (Action required above names each part to take), `dev.md` (its *Bug found* bullet) or a runner (port its
+  `qa.md` (merge it, per Action required above), `dev.md` (its *Bug found* bullet) or a runner (port its
   `FAIL_REGRESSION` wording).
 
 - **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
@@ -839,7 +840,7 @@ columns and never the cards.*
   `Blocker`/`Critical`, or any broken test, now always sends the issue back (`FAIL_REGRESSION`); a PASS with
   `Major`/`Minor` bugs in behaviour the suite does not cover lands with
   `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, where the
-  card is published. (An edited `qa.md` needs the replacement under Action required.)
+  card is published. (An edited `qa.md`: merge it, per Action required.)
 
 - **`move-issue.sh` can move a parent issue that has subtasks.** Once a parent had any subtask, every move refused with
   "multiple files match", so a decomposed issue could never land. It now looks only at `progress/<column>/`, and
