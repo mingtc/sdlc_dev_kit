@@ -286,11 +286,12 @@ columns and never the cards.*
 
 - **If you carry an edited `.claude/roles/qa.md`, merge this release's changes into yours** — the three-way route in § How
   to upgrade does it for you; by hand, diff the copy your `KIT-VERSION` shipped against this release's (both from
-  their zips) and apply every hunk of that difference to your file. It changed in many places — among them step 2's worktree review, step 5's gate
+  their zips) and apply every hunk of that difference to your file, then stamp what you added — the zips are unstamped, so
+  replace each `<PREFIX>` with your prefix (the stamping check under the three-way route's *Before you commit*). It changed in many places — among them step 2's worktree review, step 5's gate
   cross-cut, the *FAIL on regression* block and the paragraph under it, the PASS actions, and § Severity scale — and
   the parts depend on each other (the Major/Minor paragraph lands per step 2), so take them together. One
   exception: if you carry edited runners, hold back the `precondition_failure` sentence until they are ported (the
-  runner entry below says why). It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
+  `precondition_failure` entry below says why). It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
   (search for `NNN. Merged.`) and then squash-merges via `finish-pr.sh`: that order leaves the branch unmerged under a
   card that says it merged.
 
