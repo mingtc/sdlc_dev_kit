@@ -21,6 +21,11 @@
 # STAMP FIRST, on purpose: arm [g] takes the FIRST record as its enabling condition. Empty
 # output means NOT STARTED.
 
+# § Log's HEADING, declared once for every reader: the log signal below, check-board.sh (arms c
+# and n), kit-init.sh, setup.sh and archive-progress.sh. `## Log` or `## Log <more>`, never
+# `## Logistics`.
+KIT_LOG_HEADING_ERE='^##[[:space:]]+Log([[:space:]]|$)'
+
 # kit_lived_signals <tree> <stamp_mark> <status_folder>...
 kit_lived_signals() {
   # A zero-column call is refused: empty output would read as "not started".
@@ -47,7 +52,7 @@ kit_lived_signals() {
 
   # (3) progress.md § Log, and (4) ARCHIVE.md § Archived.
   if [ -f "$tree/progress.md" ]; then
-    n="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) { inlog=1; next } } inlog && NF { print }' "$tree/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
+    n="$(awk -v re="$KIT_LOG_HEADING_ERE" '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ re) { inlog=1; next } } inlog && NF { print }' "$tree/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
     [ "${n:-0}" -gt 0 ] && printf 'log|%s\n' "$n"
   fi
   if [ -f "$tree/ARCHIVE.md" ]; then

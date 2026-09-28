@@ -43,6 +43,9 @@
 # exits 3, because a clean exit 0 there reads as an all-clear that stops you
 # looking. So a re-run after a clean rotation exits 0 only if § Log is under it.
 #
+# § Log ends at the next "## " heading that is not a "## YYYY-MM-DD" entry; that section and
+# everything after it stay in progress.md, where they were.
+#
 # Entry-boundary forms recognized inside "## Log", the documented one first:
 #   * a "### YYYY-MM-DD ..." session heading — THE FORM THE KIT DOCUMENTS. Carries
 #     its whole section, undated sub-bullets included, but only when it is a
@@ -159,6 +162,10 @@ INDEX="$HISTORY_DIR/INDEX.md"
 
 [ -f "$PROGRESS" ]    || { echo "Error: $PROGRESS does not exist." >&2; exit 1; }
 [ -d "$HISTORY_DIR" ] || { echo "Error: $HISTORY_DIR does not exist." >&2; exit 1; }
+# § Log's heading is declared once, in lib/lived-probe.sh. Loaded here, before any write.
+# shellcheck source=lib/lived-probe.sh
+{ [ -f "$SCRIPT_DIR/lib/lived-probe.sh" ] && . "$SCRIPT_DIR/lib/lived-probe.sh" && [ -n "${KIT_LOG_HEADING_ERE:-}" ]; } \
+  || { echo "Error: scripts/lib/lived-probe.sh is missing or declares no KIT_LOG_HEADING_ERE — it declares the '## Log' heading this script splits on. Nothing was written." >&2; exit 1; }
 # A MISSING INDEX (archive-sweep.md § 3: a new empty index reads as "nothing was ever
 # archived"). Chunks present -> REFUSE: the rows carry spans only the adopter can supply.
 # No chunks -> CREATE, loudly: the empty index is then true, and an unconditional refusal
@@ -207,10 +214,12 @@ fi
 PREAMBLE_TMP=$(mktemp)
 PRE_TMP=$(mktemp)
 POST_TMP=$(mktemp)
-trap 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP"' EXIT
+TAIL_TMP=$(mktemp)
+trap 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP" "$TAIL_TMP"' EXIT
 
-# § Log's heading, as the board finds it (check-board.sh arm c); every reader below uses it.
-LOG_RE='^##[[:space:]]+Log'
+# § Log runs from its heading to the next "## " heading that is not a "## YYYY-MM-DD" entry;
+# everything from that heading on is TAIL_TMP, kept in place. Every reader below uses both.
+LOG_RE="$KIT_LOG_HEADING_ERE"
 
 # ORDINAL MODE: convert --keep-last <N> into "the first CUT_AFTER boundaries are
 # pre, the rest are post". The total is counted from the file with the SAME three
@@ -220,6 +229,7 @@ if [ -n "$KEEP_LAST" ]; then
   TOTAL_ENTRIES=$(awk -v log_re="$LOG_RE" '
     $0 ~ log_re && !in_log { in_log = 1; next }
     in_log != 1 { next }
+    /^##[[:space:]]/ && !/^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { exit }
     /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { n++; dh = 1; next }
     /^### [0-9]{4}-[0-9]{2}-[0-9]{2}/ && !dh { n++; next }
     /^(- )?[0-9]{4}-[0-9]{2}-[0-9]{2} / && !dh { n++; next }
@@ -235,7 +245,8 @@ awk -v before="$BEFORE" \
     -v cut_after="$CUT_AFTER" \
     -v preamble_file="$PREAMBLE_TMP" \
     -v pre_file="$PRE_TMP" \
-    -v post_file="$POST_TMP" '
+    -v post_file="$POST_TMP" \
+    -v tail_file="$TAIL_TMP" '
   BEGIN { in_log = 0; bucket = ""; dh_active = 0; ord = 0 }
 
   # ONE DECISION POINT FOR BOTH KNIVES, called from all three boundary arms, so
@@ -255,6 +266,10 @@ awk -v before="$BEFORE" \
     }
     next
   }
+
+  # After § Log: the first "## " heading that is not a dated entry, and all that follows.
+  in_log == 1 && /^##[[:space:]]/ && !/^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { in_log = 2 }
+  in_log == 2 { print > tail_file; next }
 
   # Inside the Log section. THREE entry-boundary forms, most senior first (the
   # header block describes them):
@@ -283,7 +298,7 @@ awk -v before="$BEFORE" \
     # Fail-safe: NEVER drop a Log line (byte-complete pure move). Anything
     # explicitly after the cutoff goes to the retained (post) bucket; everything
     # else — including undated lines before the first entry — goes to pre, which
-    # keeps preamble+pre+post a byte-exact reconstruction of the original.
+    # keeps preamble+pre+post+tail a byte-exact reconstruction of the original.
     if (bucket == "post") print > post_file
     else                  print > pre_file
   }
@@ -456,8 +471,8 @@ fi
   cat "$PRE_TMP"
 } > "$CHUNK"
 
-# Rewrite progress.md: preamble + post entries
-cat "$PREAMBLE_TMP" "$POST_TMP" > "$PROGRESS"
+# Rewrite progress.md: preamble + post entries + whatever followed § Log
+cat "$PREAMBLE_TMP" "$POST_TMP" "$TAIL_TMP" > "$PROGRESS"
 
 # INDEX THE CHUNK (the running log rotates on the same preserve-and-index rules as the board
 # sweep; lookup-tables.md § A.6). The span is DERIVED from the chunk's own content, not from

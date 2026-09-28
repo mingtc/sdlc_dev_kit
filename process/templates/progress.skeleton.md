@@ -32,7 +32,7 @@ to see the board. `declined/` is terminal — a card considered and refused, kep
 Two shapes below are REQUIRED, not stylistic — a script reads each one:
 
 - the `## Log` heading itself: the drift report probes for it
-  (`grep -qE '^##[[:space:]]+Log'`) before it can report this section's size;
+  (`## Log`, or `## Log` and more text, never `## Logistics`) before it can report this section's size;
 - a dated `###` boundary per session: the log rotation splits this file on
   `### YYYY-MM-DD` when it rotates, so each session's entries sit under ONE heading.
   **`###`, not `##`, and that is load-bearing rather than stylistic.** Two tools read the

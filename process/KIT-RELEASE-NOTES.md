@@ -859,6 +859,11 @@ columns and never the cards.*
   `PROJECT_NAME`'s default in `scripts/config.sh` by hand. Also: `next-id.sh` answers a later `--help`; `notify.sh` with no argument
   prints its one usage; `archive-progress.sh` finds § Log under any heading `check-board.sh` reads as § Log.
 
+- **A heading that starts with "Log" is no longer read as `## Log`.** `## Logistics` or `## Login` was taken for § Log: kit-init
+  could refuse a fresh repository as already lived, `check-board.sh` measured the wrong section, `archive-progress.sh` could move it
+  into history. `archive-progress.sh` also leaves sections after § Log in place — before, a `## Notes` after it could be rotated
+  into `progress/history/`; if a past rotation did that, move the section back by hand.
+
 ## [0.6.0] — 2026-09-18
 
 ### Action required

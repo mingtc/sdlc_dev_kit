@@ -99,7 +99,8 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 
 # The shared already-lived probe, resolved from THIS script's location (it ships beside this
-# script; CLAUDE_PROJECT_DIR may name another tree). A load failure is a recorded skip, never an
+# script; CLAUDE_PROJECT_DIR may name another tree). It also declares § Log's heading, which arms
+# c and n read. A load failure is a recorded skip, never an
 # exit: this script always exits 0 and reports what it could not read.
 CB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)/lib"
 CB_LIVED_LIB_ERR=""
@@ -293,9 +294,12 @@ fi
 echo
 pmd="$CB_TREE/progress.md"
 if [ -f "$pmd" ]; then
-  if grep -qE '^##[[:space:]]+Log' "$pmd"; then
-    logbytes="$(awk '
-      /^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) inlog=1 }
+  if [ -z "${KIT_LOG_HEADING_ERE:-}" ]; then
+    # The heading is declared in scripts/lib/lived-probe.sh; without it there is no § Log to find.
+    echo "[c] progress.md § Log SLICE: THIS CHECK DID NOT RUN — ${CB_LIVED_LIB_ERR:-scripts/lib/lived-probe.sh declares no KIT_LOG_HEADING_ERE}, and that file declares the '## Log' heading  (skipped) — $(cb_src)"
+  elif grep -qE "$KIT_LOG_HEADING_ERE" "$pmd"; then
+    logbytes="$(awk -v re="$KIT_LOG_HEADING_ERE" '
+      /^##[[:space:]]/ { if (inlog) exit; if ($0 ~ re) inlog=1 }
       inlog { print }
     ' "$pmd" | wc -c | tr -d ' ')"
     if [ "$logbytes" -gt "$PROGRESS_LOG_BYTE_THRESHOLD" ]; then
@@ -1174,10 +1178,12 @@ case "$n_set" in
     [ -n "$n_set" ] || echo "      kit-feedback: none declared in PROJECT.md — read as auto"
     if [ ! -f "$CB_TREE/progress.md" ]; then
       echo "      no progress.md in this source  (skipped — nothing to check)"
+    elif [ -z "${KIT_LOG_HEADING_ERE:-}" ]; then
+      echo "      THIS CHECK DID NOT RUN — ${CB_LIVED_LIB_ERR:-scripts/lib/lived-probe.sh declares no KIT_LOG_HEADING_ERE}, and that file declares the '## Log' heading  (skipped)"
     else
       # The NEWEST dated entry: the last `### YYYY-MM-DD` block under `## Log` (entries are appended).
-      n_entry="$(awk '
-          /^##[[:space:]]+Log/ { inlog = 1; next }
+      n_entry="$(awk -v re="$KIT_LOG_HEADING_ERE" '
+          $0 ~ re { inlog = 1; next }
           inlog && /^##[[:space:]]/ && !/^###/ { inlog = 0 }
           inlog && /^###[[:space:]]+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/ { buf = ""; have = 1 }
           inlog && have { buf = buf $0 "\n" }

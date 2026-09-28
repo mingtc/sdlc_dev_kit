@@ -327,6 +327,7 @@ CASES=(
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted
   case_setup_warns_on_a_later_added_column
+  case_log_heading_is_one_bounded_declaration
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
   case_check_board_shallow_clone_does_not_narrow

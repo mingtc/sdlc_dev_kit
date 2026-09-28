@@ -416,7 +416,7 @@ case_kit_init_happy() {
     || cf "expected $kg_expected .gitkeep files (STATUS_FOLDERS + history, derived from kit-init.sh), found $keeps"
   leftovers="$(find "$SB_WORK/progress" -type f -name '*.md' | wc -l | tr -d ' ')"
   [ "$leftovers" = "0" ] || cf "the board is not pristine — $leftovers issue file(s) left behind"
-  grep -qE '^##[[:space:]]+Log' "$SB_WORK/progress.md" || cf "progress.md has no '## Log' heading"
+  grep -qE '^##[[:space:]]+Log([[:space:]]|$)' "$SB_WORK/progress.md" || cf "progress.md has no '## Log' heading"
   origin_has_path "progress/todo/.gitkeep" || cf "the board was not pushed to the trunk"
   # A second run must refuse rather than half-stamp.
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?

@@ -108,8 +108,14 @@ for f in $BOARD_FOLDERS; do
 done
 
 if [ -f "$ROOT/progress.md" ]; then
-  grep -qE '^##[[:space:]]+Log' "$ROOT/progress.md" \
-    || note_fail "progress.md has no '## Log' heading — the drift report probes for it."
+  # The heading is declared once, in scripts/lib/lived-probe.sh.
+  # shellcheck source=scripts/lib/lived-probe.sh
+  if [ -f "$ROOT/scripts/lib/lived-probe.sh" ] && . "$ROOT/scripts/lib/lived-probe.sh" && [ -n "${KIT_LOG_HEADING_ERE:-}" ]; then
+    grep -qE "$KIT_LOG_HEADING_ERE" "$ROOT/progress.md" \
+      || note_fail "progress.md has no '## Log' heading — the drift report probes for it."
+  else
+    note_fail "scripts/lib/lived-probe.sh is missing or declares no KIT_LOG_HEADING_ERE — it declares the '## Log' heading, so progress.md was not checked."
+  fi
 else
   note_fail "progress.md is missing."
 fi

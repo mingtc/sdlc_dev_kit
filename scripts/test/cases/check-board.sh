@@ -26,7 +26,7 @@ _lived_signals() {  # prints one line per signal present; empty output means "no
     [ "${n:-0}" -gt 0 ] && echo "progress/$col/ carries $n issue file(s)"
   done
   if [ -f "$SB_WORK/progress.md" ]; then
-    log="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log/) { inlog=1; next } } inlog && NF { print }' "$SB_WORK/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
+    log="$(awk '/^##[[:space:]]/ { if (inlog) exit; if ($0 ~ /^##[[:space:]]+Log([[:space:]]|$)/) { inlog=1; next } } inlog && NF { print }' "$SB_WORK/progress.md" 2>/dev/null | wc -l | tr -d ' ')"
     [ "${log:-0}" -gt 0 ] && echo "progress.md § Log holds ${log} line(s)"
   fi
   if [ -f "$SB_WORK/ARCHIVE.md" ]; then
@@ -795,6 +795,90 @@ case_check_board_declined_is_judged_and_counted() {
     && cf "(ii) a real hand-move in declined/ left the verdict CLEAN — arm (a)'s finding must set drift: $out"
 
   finish "check-board: arm (a) JUDGES declined/ (a hand-move there is a finding and reddens the verdict — ablation-proven) while arm (k) only COUNTS it (two cards reported, 'reports only' in its header, verdict stays clean)"
+  teardown
+}
+
+# =============================================================================
+# CASE — § LOG'S HEADING IS ONE BOUNDED DECLARATION.
+#
+# `^##[[:space:]]+Log` also matched `## Logistics`: kit-init refused a fresh tree as lived, the
+# size arm measured the wrong section, and the rotation moved it into the history chunk. Every
+# shipped reader now reads KIT_LOG_HEADING_ERE from scripts/lib/lived-probe.sh. The census holds
+# the shipped scripts to that one declaration; each reader is then driven over a `## Logistics`
+# section before § Log and a `## Login notes` section after it, each carrying a dated `###`.
+# =============================================================================
+case_log_heading_is_one_bounded_declaration() {
+  cf_reset
+  local L="§ Log's heading is declared once and bounded: kit-init, check-board arms c and n, setup.sh and archive-progress.sh each skip a '## Logistics' and a '## Login notes' section"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+
+  # ── (1) THE CENSUS: no shipped script spells the heading except the declaration.
+  local lib="$SB_WORK/scripts/lib/lived-probe.sh" decl pat='\]\+Log|\^## ?Log' rows
+  decl="$(grep '^KIT_LOG_HEADING_ERE=' "$lib" 2>/dev/null || true)"
+  [ -n "$decl" ] \
+    || _fixture_die "case_log_heading_is_one_bounded_declaration: scripts/lib/lived-probe.sh declares no KIT_LOG_HEADING_ERE — the census would hold the readers to nothing."
+  # INSTRUMENT CHECK: the census pattern finds the declaration, or it is blind.
+  printf '%s\n' "$decl" | grep -E "$pat" >/dev/null \
+    || _fixture_die "case_log_heading_is_one_bounded_declaration: the census pattern does not match the declaration itself — it would pass over every copy."
+  rows="$( { grep -rnE "$pat" "$SB_WORK/scripts" "$SB_WORK/setup.sh" "$SB_WORK/consumers" 2>/dev/null || true; } \
+           | { grep -v '/scripts/lib/lived-probe.sh:[0-9]*:KIT_LOG_HEADING_ERE=' || true; } | sed "s|^$SB_WORK/||")"
+  [ -z "$rows" ] \
+    || cf "(census) a shipped script spells § Log's heading instead of reading KIT_LOG_HEADING_ERE: $(printf '%s' "$rows" | tr '\n' '|' | cut -c1-300)"
+
+  # ── THE FIXTURE: a § Log smaller than the threshold between two sections that are not it.
+  local thresh pad
+  thresh="$(ap_thresh)"
+  [ -n "$thresh" ] || _fixture_die "case_log_heading_is_one_bounded_declaration: could not derive PROGRESS_LOG_BYTE_THRESHOLD."
+  pad="$(head -c "$(( thresh + 1000 ))" /dev/zero | tr '\0' 'x')"
+  { printf '# progress.md\n\n## Logistics\n\n### 2026-09-01 depot schedule\n%s\n\n## Log\n\n' "$pad"
+    printf '## Login notes\n\n### 2026-09-02 badge rota\n- the front desk\n'; } > "$SB_WORK/progress.md"
+  publish_sandbox
+
+  # ── (2) kit-init's lived probe: § Log is empty, so the tree has not lived.
+  local out rc
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  printf '%s\n' "$out" | grep 'already lived' >/dev/null \
+    && cf "(kit-init) a fresh tree was refused as lived — a section beside § Log was read as its history: $(printf '%s\n' "$out" | grep -A3 'already lived' | tr '\n' '|')"
+  [ "$rc" -eq 0 ] || cf "(kit-init) exited $rc: $(printf '%s\n' "$out" | grep -m3 -E '✗|Error' | tr '\n' '|')"
+
+  # ── (3) check-board arms c and n, over one session entry added to § Log.
+  awk '{ print } /^## Log$/ { print ""; print "### 2026-01-02 [Dev] a session"; print "- kit-feedback: none" }' \
+    "$SB_WORK/progress.md" > "$SB_WORK/progress.md.new" && mv "$SB_WORK/progress.md.new" "$SB_WORK/progress.md"
+  git -C "$SB_WORK" add progress.md >/dev/null 2>&1
+  sbcommit -q -m "[PM] log a session" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[c\] progress.md § Log SLICE: .*✓' >/dev/null \
+    || cf "(arm c) § Log was not measured as the small section it is: $(printf '%s\n' "$out" | grep '^\[c\]' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep 'newest entry (2026-01-02 \[Dev\] a session): kit-feedback: none' >/dev/null \
+    || cf "(arm n) the newest § Log entry was not the one read: $(printf '%s\n' "$out" | grep -A3 '^\[n\]' | tr '\n' '|')"
+
+  # ── (4) setup.sh: a progress.md whose only heading is `## Logistics` has no § Log.
+  if [ -f "$SB_WORK/setup.sh" ]; then
+    cp "$SB_WORK/progress.md" "$SB_TMP/progress.keep"
+    printf '# progress.md\n\n## Logistics\n\n- depot\n' > "$SB_WORK/progress.md"
+    out="$( cd "$SB_WORK" && ./setup.sh --kit-only 2>&1 )"
+    printf '%s\n' "$out" | grep "progress.md has no '## Log' heading" >/dev/null \
+      || cf "(setup.sh) '## Logistics' was accepted as the '## Log' heading: $(printf '%s\n' "$out" | grep -i 'progress.md' | tr '\n' '|')"
+    cp "$SB_TMP/progress.keep" "$SB_WORK/progress.md"
+  fi
+
+  # ── (5) archive-progress.sh: the rotation takes only § Log's entries.
+  local R="$SB_TMP/aplh"
+  mkdir -p "$R/progress/history"
+  cp "$SB_WORK/progress.md" "$R/progress.md"
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone lh --before 2026-06-01 --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(archive-progress) exited $rc: $(printf '%s' "$out" | head -3 | tr '\n' '|')"
+  grep -F -- '- kit-feedback: none' "$R/progress/history/lh.md" >/dev/null 2>&1 \
+    || cf "(archive-progress) the § Log entry was not rotated"
+  grep -E 'depot|badge' "$R/progress/history/lh.md" >/dev/null 2>&1 \
+    && cf "(archive-progress) a section beside § Log was moved into the history chunk"
+  grep -qxF '## Logistics' "$R/progress.md" && grep -qxF '## Login notes' "$R/progress.md" \
+    || cf "(archive-progress) progress.md lost a section beside § Log"
+
+  finish "$L"
   teardown
 }
 

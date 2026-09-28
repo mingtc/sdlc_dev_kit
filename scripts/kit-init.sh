@@ -902,7 +902,7 @@ to see the board. \`declined/\` is terminal — a card considered and refused, k
 Two shapes below are REQUIRED, not stylistic — a script reads each one:
 
 - the \`## Log\` heading itself: check-board.sh probes for it
-  (\`grep -qE '^##[[:space:]]+Log'\`) before it can report this section's size;
+  (\`## Log\`, or \`## Log\` and more text, never \`## Logistics\`) before it can report this section's size;
 - a dated \`###\` boundary per session: archive-progress.sh splits this file on
   \`### YYYY-MM-DD\` when it rotates, so each session's entries sit under ONE
   heading. **\`###\`, not \`##\`, and that is load-bearing rather than stylistic.**
@@ -925,7 +925,7 @@ Everything below the next heading is history; nothing above it is.
 EOF
   say "  progress.md: skeleton written (## Log + the dated-heading convention)"
 else
-  grep -qE '^##[[:space:]]+Log' "$ROOT/progress.md" || {
+  grep -qE "$KIT_LOG_HEADING_ERE" "$ROOT/progress.md" || {
     echo "Error: progress.md exists but has no '## Log' heading (check-board.sh probes for it)." >&2; exit 1; }
   say "  progress.md: already present with a '## Log' heading — left alone"
 fi

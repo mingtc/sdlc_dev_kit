@@ -512,7 +512,28 @@ EOF
   printf '%s' "$out" | grep 'Nothing to archive' >/dev/null \
     || cf "the idempotent re-run did not report 'Nothing to archive': $out"
 
-  finish "archive-progress.sh: byte-complete rotation of a mixed-format log (0 lost lines), count mirrors routing, idempotent"
+  # § LOG ENDS AT THE NEXT "## " HEADING THAT IS NOT A DATED ENTRY (the mixed fixture above
+  # proves a dated "## " does not end it): the section after it stays in progress.md, in place,
+  # under both knives. --before rotates every entry, so nothing retained sits between them.
+  local T="$SB_TMP/ap-tail" k
+  for k in "--before 2026-08-01" "--keep-last 1"; do
+    rm -rf "$T"; mkdir -p "$T/progress/history"
+    printf '# progress.md\n\n## Log\n\n### 2026-07-01 [Dev] old\n- a\n\n### 2026-07-02 [Dev] newer\n- b\n\n## Notes\n\n### 2026-09-01 not an entry\n- NOTES-LINE\n' > "$T/progress.md"
+    # shellcheck disable=SC2086 # $k is two words on purpose
+    out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$T" --milestone tail $k --apply 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "($k) a log followed by '## Notes' exited $rc: $(printf '%s' "$out" | head -2 | tr '\n' '|')"
+    grep -F 'NOTES-LINE' "$T/progress/history/tail.md" >/dev/null 2>&1 \
+      && cf "($k) the section after § Log was moved into the history chunk"
+    [ "$(sed -n '/^## Notes$/,$p' "$T/progress.md")" = "$(printf '## Notes\n\n### 2026-09-01 not an entry\n- NOTES-LINE')" ] \
+      || cf "($k) the section after § Log is not intact at the end of progress.md: $(tr '\n' '|' < "$T/progress.md")"
+    grep -qxF '### 2026-07-01 [Dev] old' "$T/progress/history/tail.md" 2>/dev/null \
+      || cf "($k) the oldest entry was not rotated"
+  done
+  # --keep-last 1 counted two entries, not the dated `###` under ## Notes: the newer one stays.
+  grep -qxF '### 2026-07-02 [Dev] newer' "$T/progress.md" \
+    || cf "(--keep-last 1) the newest entry was not kept"
+
+  finish "archive-progress.sh: byte-complete rotation of a mixed-format log (0 lost lines), count mirrors routing, idempotent, and § Log ends at the next heading that is not a dated entry"
   teardown
 }
 
@@ -586,7 +607,7 @@ ap_seed() {
       echo ""
     done
   } > "$R/progress.md"
-  local got; got="$(awk '/^##[[:space:]]/ { if (f) exit; if ($0 ~ /^##[[:space:]]+Log/) f=1 } f { print }' "$R/progress.md" | wc -c | tr -d ' ')"
+  local got; got="$(awk '/^##[[:space:]]/ { if (f) exit; if ($0 ~ /^##[[:space:]]+Log([[:space:]]|$)/) f=1 } f { print }' "$R/progress.md" | wc -c | tr -d ' ')"
   [ "$got" -gt "$thresh" ] || cf "(fixture) § Log is $got bytes, NOT over the $thresh threshold — the case would prove nothing"
 }
 
