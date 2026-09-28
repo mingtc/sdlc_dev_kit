@@ -279,14 +279,14 @@ columns and never the cards.*
   will not be done with `./scripts/subtask.sh move <id> declined --note "why"`. **Under
   `progress/done/subtasks/*/`** (retired open by the old sweep, beside its retired parent): leave it in that
   tree — moving it back splits the parent's tree and every later sweep refuses. Record it where it is, declined, in this order:
-  (1) if its work is still wanted, pull, file that work as a new issue and publish its card first;
-  (2) `mkdir -p progress/done/subtasks/<ID>/declined && git mv <card> progress/done/subtasks/<ID>/declined/`;
+  (1) if its work is still wanted, `git pull --ff-only`, file that work as a new issue and publish its card
+  first; (2) `mkdir -p progress/done/subtasks/<ID>/declined && git mv <card> progress/done/subtasks/<ID>/declined/`;
   (3) append a dated `[<Role>]` Activity line to the card giving the reason, citing the new issue if there is
-  one; (4) commit with a role prefix and push.
+  one; (4) `git add progress/done/subtasks/<ID>/declined/`, then commit with a role prefix and push.
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block, the `Major`/`Minor` paragraph under it and § Severity scale's
-  table** with the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
+  table with the line under it** with the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
 
 - **The self-test harness is split into files.** `scripts/test/run.sh` is still the one command. It
   keeps its header, startup guards, `CASES` and the run loop, and sources `scripts/test/lib/*.sh`,
