@@ -60,7 +60,8 @@ while IFS= read -r TEST_FILE; do
   echo "[$COUNT/$TOTAL] Testing: $TEST_FILE"
 
   # Run the test
-  $TEST_CMD "$TEST_FILE" > /dev/null 2>&1 || true
+  # stdin is the path list; a test that reads stdin must not swallow it.
+  $TEST_CMD "$TEST_FILE" > /dev/null 2>&1 </dev/null || true
 
   # Check if pollution appeared
   if [ -e "$POLLUTION_CHECK" ]; then

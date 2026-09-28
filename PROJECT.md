@@ -79,13 +79,13 @@ implementation of it. Fill the command column; do not edit the sheet column — 
 command yet, write `TODO` rather than deleting the row, so the gap stays visible.
 
 **SOME ROWS ARE NOT BLANKS, AND THEY ARE MARKED SO.** If you run the shipped scripts, the verify
-gate, the board mover and the configuration seam are reached by FIXED paths: `finish-pr.sh`
-preflights and invokes `scripts/verify.sh` by literal name — its own refusal says the executable
+gate, the board mover, the configuration seam and the landing gate itself are reached by FIXED paths:
+`finish-pr.sh` checks itself against the trunk's copy at its own path, preflights and invokes `scripts/verify.sh` by literal name — its own refusal says the executable
 *"is never caller-chosen"* — and calls `move-issue.sh` the same way, and the minting scripts and
 `archive.sh` source `scripts/config.sh`. A rename breaks every script that calls the old name, so these
 rows record what the kit does rather than inviting a substitution. (The shipped scripts call one another
-by name elsewhere too, so renaming any of them means editing its callers; the three marked rows are the
-ones the landing path cannot run without.) What is still yours is what goes INSIDE them: the
+by name elsewhere too, so renaming any of them means editing its callers; the marked rows are the ones
+the landing path or the minting scripts cannot run without.) What is still yours is what goes INSIDE them: the
 gates `verify.sh` runs, the statuses your board carries, and the values `config.sh` holds.
 Reimplementing the kit's scripts in another toolchain is the case where the names are yours again —
 and then the contract sheet, not this row, is what you must satisfy.
@@ -93,7 +93,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | Gate | Your command | The contract it implements |
 |---|---|---|
 | The verify gate — one runner, all gates, deterministic order | `./scripts/verify.sh` — the NAME is fixed, the GATES inside it are yours | [`process/contracts/verify-gate.md`](process/contracts/verify-gate.md) |
-| The landing gate — gate, squash, advance the board | `<e.g. ./scripts/finish-pr.sh ID>` | [`process/contracts/landing-gate.md`](process/contracts/landing-gate.md) |
+| The landing gate — gate, squash, advance the board | `./scripts/finish-pr.sh ID` — the NAME is fixed (it checks itself against the trunk's `scripts/finish-pr.sh`) | [`process/contracts/landing-gate.md`](process/contracts/landing-gate.md) |
 | The board mover — the ONE way status changes | `./scripts/move-issue.sh ID STATUS` — the NAME is fixed | [`process/contracts/board-mover.md`](process/contracts/board-mover.md) |
 | Commit attribution — the write-time role guard | `<e.g. the commit-msg hook>` | [`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md) |
 | Id minting — monotonic, collision-free | `<e.g. ./scripts/next-id.sh>` | [`process/contracts/id-minting.md`](process/contracts/id-minting.md) |

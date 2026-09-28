@@ -238,8 +238,8 @@ if [ -n "$_open_all" ]; then
   {
     echo "Error: a parent being retired has subtask(s) not in qa_complete/ — refusing before any write:"
     printf '%s' "$_open_all" | sed 's/^/    /'
-    echo "       A parent is complete only when every subtask is. Finish or re-slice them with"
-    echo "       ./scripts/subtask.sh, or move the parent back with ./scripts/move-issue.sh, then re-run."
+    echo "       A parent is complete only when every subtask is. Finish each, or close one that will not be"
+    echo "       done with  ./scripts/subtask.sh move <id> declined --note \"why\"  — then re-run."
   } >&2
   exit 1
 fi

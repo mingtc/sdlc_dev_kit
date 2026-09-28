@@ -24,7 +24,8 @@
 #
 #   <R> = @ROLE_SET@
 #
-# Target folders: todo | in_progress | dev_complete | qa_complete | blocked
+# Target folders: todo | in_progress | dev_complete | qa_complete | blocked | declined
+# (declined closes a slice that will not be done; it needs --note, the reason being the record)
 #
 #   SUBTASK_ROLE   the seat this script commits as (default: Orchestrator). The tag
 #                  is CHECKED against your declared role set before anything moves.
@@ -133,7 +134,7 @@ fi
 # The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
 # terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
 # once its PARENT lands — never by a direct move here.
-STATUSES=(todo in_progress dev_complete qa_complete blocked)
+STATUSES=(todo in_progress dev_complete qa_complete blocked declined)
 
 # A leading '-' is never a name (process/contracts/issue-creation.md § 3). Guard
 # every POSITIONAL, not just the first — `subtask.sh new --bogus s1 slug` would
@@ -157,7 +158,7 @@ case "$CMD" in
     [ $# -lt 3 ] && { usage >&2; exit 1; }
     no_dash "$1" "PARENT-ID"; no_dash "$2" "suffix"; no_dash "$3" "slug"
     PARENT="$1"; SUFFIX="$2"; SLUG="$3"; shift 3
-    TITLE=""; PRD=""; STORIES="[]"; PLAN=""; SIZE="S"
+    TITLE=""; PRD=""; STORIES="[<the parent's story ids this slice covers>]"; PLAN=""; SIZE="S"
     while [ $# -gt 0 ]; do case "$1" in
       --title) need_val "$@"; TITLE="$2"; shift 2 ;;
       --prd) need_val "$@"; PRD="$2"; shift 2 ;;
@@ -347,7 +348,9 @@ case "$CMD" in
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
-    case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked) ;; *) echo "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." >&2; exit 1 ;; esac
+    case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked|declined) ;; *) echo "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." >&2; exit 1 ;; esac
+    [ "$TARGET" != declined ] || [ -n "$NOTE" ] \
+      || { echo "Error: declined needs --note \"why\" — the reason is the whole record of a slice that will not be done." >&2; exit 1; }
     # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION: a role the commit-msg hook rejects
     # would fail mid-operation, leaving the git mv and the Activity entry uncommitted in the
     # shared kanban worktree. Refusing here costs a re-run; at the hook, a reconciliation.

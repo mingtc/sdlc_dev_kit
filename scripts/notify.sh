@@ -94,12 +94,14 @@ esac
 MESSAGE=""; SESSION=""; REF=""; PROGRESS=""
 # A LEADING '-' IS NEVER A POSITIONAL MESSAGE (issue-creation.md § 3): a forgotten message must not
 # send the next flag as its body. Text that starts with '-' travels as --message <text>.
+_has_msg=0; for _a in "$@"; do [ "$_a" != --message ] || _has_msg=1; done
 if [ "$MODE" = "send" ]; then
   case "${1:-}" in
-    --message) : ;;
-    -?*) echo "Error: '$1' is not a message — a leading '-' is never a positional value." >&2
-         echo "       To send text that starts with '-', pass it as  --message <text>." >&2
-         exit 2 ;;
+    -?*) if [ "$_has_msg" = 0 ]; then
+           echo "Error: '$1' is not a message — a leading '-' is never a positional value." >&2
+           echo "       To send text that starts with '-', pass it as  --message <text>." >&2
+           exit 2
+         fi ;;
     *) MESSAGE="${1:-}"; shift || true ;;
   esac
 fi

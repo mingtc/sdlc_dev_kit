@@ -183,14 +183,13 @@ and a disposition at the same time.
 |---|---|---|
 | **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** the *your project's instance* section that MOST doctrine sheets carry (not all — a sheet that is pure pattern has none, and **says so in its own header, which is the signal to read**: `grep -LiE '^<!-- KIT-CLASS:.*(fill-in|instance)' process/doctrine/*.md` — the header is where each sheet declares its split, so ask the header, not the prose), this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty.* | `process/**`, `.claude/skills/**` |
 | **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh`, and under `--roles` the enforcing seams § 2.4 marks *Stamped* |
-| **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `setup.sh`'s runtime half |
+| **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
 | **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
 
 *(The members are a **derivation of this seed**, not a definition of the axis. **A shipped file no
-row names is `KEEP`**, except the Take-but-EDIT files of § 1.1, whose project half is `FILL`. A project
-that adds a surface gives it a disposition then.)*
+row names is `KEEP`.** A project that adds a surface gives it a disposition then.)*
 
 ### The `KIT-DISPOSITION:` marker — the table above says WHICH files, the marker says so ON them
 
@@ -228,8 +227,8 @@ block as its `KIT-CLASS:` marker:
   file's replace-me instruction still does not live here.** § The marker and graduation states the
   rule: an instruction must not live inside a marker on a file whose marker will be removed. A
   `FILL` disposition may live in the marker, because filling is discharged before graduation; a
-  `REPLACE` disposition is *declared* in the marker but its **instruction** stays in the body, as
-  the `BOOTSTRAP-SCAFFOLDING` line, which is what the reader keys on for that row.
+  `REPLACE` disposition is *declared* in the marker but its **instruction** stays in the body; the
+  `BOOTSTRAP-SCAFFOLDING` line is the sentinel the reader keys on for that row.
 
 **What is marked so far, and what is not.** The `FILL` and `REPLACE` members are declared, because
 those are the two rows the one shipped reader, `scripts/check-board.sh` arm (g), measures. **For
@@ -507,7 +506,7 @@ mints a scratch item, moves it through two columns, asserts the drift report cle
 commit **rejected** by the attribution hook — the whole point being that *every finding in this
 kit's cold-read review was found by reading, and all of them would have been found by running.*
 The behaviours worth knowing before you run it — the refusal conditions are in
-[`contracts/initializer.md`](contracts/initializer.md) § 3, and an argument-shape refusal prints its own reason:
+[`contracts/initializer.md`](contracts/initializer.md) § 3, and every refusal prints its own reason:
 
 - **The trunk is confirmed, never inferred.** `--trunk` is required and is cross-checked against
   the remote's published default branch; a disagreement refuses. `<trunk>` defaults to `main`.
@@ -1006,8 +1005,8 @@ seam; a scatter across the files § 2.2 lists is this debt.
 divergent ones decided rather than copied.**
 
 ### 4.6 The initializer's stamping reach is not total
-The initializer stamps the configuration seam, the item templates, the role docs and `PROJECT.md`'s
-project-name, prefix and `<trunk>` blanks. Whether it
+The initializer stamps the seams its own header lists (`scripts/kit-init.sh --help`), among them the
+item templates, the role docs and `PROJECT.md`'s project-name, prefix and `<trunk>` blanks. Whether it
 reaches `.claude/agents/` and `.claude/workflows/` — which contain illustrative ids, trunk names
 and gate-command examples of their own — is the thing to check, and historically it did not.
 **Check, after running the initializer** — two commands, because the role docs have a different

@@ -15,7 +15,8 @@ rather than linked because these sheets are the route for an adopter who takes n
 belongs *here* is the fact that **an operation spans two trees at all**, which is the split this
 sheet exists for.
 
-*Why it is stated here:* an operation spanning two trees is otherwise described by neither sheet.
+*Why it is stated here:* otherwise neither this sheet nor [landing-gate.md](landing-gate.md) says that one
+operation spans two trees.
 
 **AND, SAID PLAINLY BECAUSE ITS ABSENCE COST A PROJECT ITS TRUNK: it is FOR BOARD FILES, and it is
 not a spare checkout.** It is the only checkout sitting on the trunk while the main one is on a work

@@ -644,7 +644,7 @@ kwt_finalize() {
 }
 
 # kwt_open_subtasks <parent-id> — print, one per line and relative to $KWT, every card under
-# progress/subtasks/<parent-id>/<status>/ whose status is not qa_complete. Empty output: no tree,
+# progress/subtasks/<parent-id>/<status>/ whose status is neither qa_complete nor declined. Empty output: no tree,
 # or every slice reviewed. A parent reaches qa_complete (or done) only when this prints nothing.
 # Read after kwt_sync, so it answers for the published board.
 kwt_open_subtasks() {
@@ -653,7 +653,7 @@ kwt_open_subtasks() {
   all="$(find "$base" -mindepth 2 -maxdepth 2 -type f -name '*.md' 2>/dev/null | sort)"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    case "$f" in "$base"/qa_complete/*) continue ;; esac
+    case "$f" in "$base"/qa_complete/*|"$base"/declined/*) continue ;; esac
     printf '%s\n' "${f#"$KWT"/}"
   done <<KWT_OPEN_EOF
 $all

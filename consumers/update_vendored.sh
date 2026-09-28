@@ -136,7 +136,7 @@ DIST_BRANCH="${VENDORED_DIST_BRANCH:-dist}"
 VENDORED_CHECK_NOTES="${VENDORED_CHECK_NOTES:-1}"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SEAM FUNCTIONS — three, and they are the only language-aware code here.
+# SEAM FUNCTIONS — three, and with ver_gt() and notes_headers() below, the only version-aware code here.
 # ═════════════════════════════════════════════════════════════════════════════
 
 log()  { printf '%s\n' "$*" >&2; }
@@ -177,7 +177,7 @@ build_artifact() {   # <output dir> <source dir>
 #    The default reads the first digits-and-dots run after `<name>-`, which
 #    covers `<name>-1.2.3-<anything>.<ext>` and `<name>-1.2.3.<ext>`. A project
 #    whose versions are not digits-and-dots replaces THIS FUNCTION ONLY — and
-#    then also replaces ver_gt() below, which compares with `sort -V`.
+#    then also replaces ver_gt() and notes_headers() below, which assume digits-and-dots.
 artifact_version() {   # <path or filename>
     local base="${1##*/}" v
     base="${base#${VENDORED_NAME}-}"
@@ -209,8 +209,8 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Below this line: the logic. It travels unedited — except ver_gt(), which a project whose versions
-# are not digits-and-dots replaces together with artifact_version() above.
+# Below this line: the logic. It travels unedited — except ver_gt() and notes_headers(), which a project
+# whose versions are not digits-and-dots replaces together with artifact_version() above.
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ---- -h/--help: usage, before anything can refuse --------------------------
@@ -461,8 +461,7 @@ if [ "${1:-}" = "--check" ]; then
         exit 0
     fi
     # Is the latest strictly newer than what's vendored?
-    newest=$(printf '%s\n%s\n' "$local_ver" "$latest_ver" | sort -V | tail -1)
-    if [ "$newest" = "$latest_ver" ]; then
+    if ver_gt "$latest_ver" "$local_ver"; then
         echo "UPDATE AVAILABLE: vendored ${local_ver} < latest ${latest_ver}. Run this script (no --check) to update."
         # Which path an update would take: one ls-remote for the branch head, no
         # clone, narration on stderr. `grep .` not `grep -q`: under pipefail a

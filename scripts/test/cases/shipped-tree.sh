@@ -446,6 +446,12 @@ case_notify_message_flag_carries_a_leading_dash() {
   [ "$rc" -eq 0 ] || cf "--message with a dash-leading text exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
   grep -F -- "— -5 tests fixed" "$rec" >/dev/null 2>&1 \
     || cf "--message '-5 tests fixed' was not delivered whole: $(cat "$rec" 2>/dev/null | tr '\n' '|')"
+  # --message after the other options, the order the synopsis teaches, is delivered too
+  rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=zzrec NOTIFY_WITH_MSG_AND_ALERT=attention \
+    ./scripts/notify.sh attention --session s1 --message "-7 still failing" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "--message after --session exited $rc: $(printf '%s' "$out" | tr '\n' '|')"
+  grep -F -- "— -7 still failing" "$rec" >/dev/null 2>&1 \
+    || cf "--message after --session was not delivered whole: $(cat "$rec" 2>/dev/null | tr '\n' '|')"
   # the bare form refuses, and its remedy is the one that works
   rc=0; out="$( cd "$SB_WORK" && NOTIFY_BACKEND=zzrec NOTIFY_WITH_MSG_AND_ALERT=attention \
     ./scripts/notify.sh attention "-5 tests fixed" --session s1 2>&1 )" || rc=$?
@@ -807,7 +813,13 @@ MANIFEST_EOF
   local made
   made="$(find "$SB_WORK/progress" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   [ "$made" = "0" ] || cf "$made card(s) were created by usage requests"
-  finish "a usage request after an unknown option or a surplus positional exits 0 naming the tool, over $n bound program(s) under scripts/, setup.sh and consumers/, derived from process/KIT-MANIFEST. Bound programs outside scripts/, not judged here:${elsewhere:- (none)}"
+  # The harness itself is not in the sandbox; its own copy is driven directly, which the pre-scan makes safe.
+  for lead in --not-a-real-flag not-a-real-positional; do
+    out="$( "$REAL_REPO_ROOT/scripts/test/run.sh" "$lead" --help </dev/null 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -F 'run.sh' >/dev/null \
+      || cf "scripts/test/run.sh $lead --help exited $rc or printed no usage: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
+  done
+  finish "a usage request after an unknown option or a surplus positional exits 0 naming the tool, over $n bound program(s) under scripts/, setup.sh and consumers/ derived from process/KIT-MANIFEST, plus scripts/test/run.sh driven in place. Bound programs elsewhere, not judged here:${elsewhere:- (none)}"
   teardown
 }
 

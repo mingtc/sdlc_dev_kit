@@ -173,10 +173,10 @@ fi
 STORY_IDS=""
 [ -z "$STORIES" ] || STORY_IDS="$(printf '%s' "$STORIES" | sed 's/,/, /g')"
 kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" "<story ids>" "$STORY_IDS" \
-  "Related issue: <PREFIX>-NNN" "${DISCOVERED:+Related issue: $DISCOVERED}" \
-  "Related issue: ${ISSUE_PREFIX}-NNN" "${DISCOVERED:+Related issue: $DISCOVERED}" \
-  "during review of <PREFIX>-NNN" "${DISCOVERED:+during review of $DISCOVERED}" \
-  "during review of ${ISSUE_PREFIX}-NNN" "${DISCOVERED:+during review of $DISCOVERED}" || exit 1
+  "Related issue: <PREFIX>-NNN" "Related issue: ${DISCOVERED:-<issue id, or none>}" \
+  "Related issue: ${ISSUE_PREFIX}-NNN" "Related issue: ${DISCOVERED:-<issue id, or none>}" \
+  "during review of <PREFIX>-NNN" "during review of ${DISCOVERED:-<issue id, or none>}" \
+  "during review of ${ISSUE_PREFIX}-NNN" "during review of ${DISCOVERED:-<issue id, or none>}" || exit 1
 
 
 kit_publish_card "$WORK" "$DEST" || exit 1

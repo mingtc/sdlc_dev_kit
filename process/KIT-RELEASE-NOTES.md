@@ -10,7 +10,7 @@ release notes are whatever your `scripts/release.sh` declares in its `RELEASE_DO
 - **Which version am I on?** [`KIT-VERSION`](KIT-VERSION), one line, beside this file.
 - **The full engineering log** — every change with its reasoning, and the change file behind it —
   lives with whoever maintains the kit (`PROJECT.md` § The kit, upstream names them), not in this copy. A copy of it here would go stale the day
-  you started editing your kit, and it links to files that exist only in that repository.
+  you started editing your kit, and it links to files that exist only where the kit is maintained.
 
 ## How versions work
 
@@ -276,7 +276,8 @@ columns and never the cards.*
   slices; before, `archive.sh --apply` retired an open slice as completed. **What to do:** look for a card
   outside a `qa_complete/` folder under `progress/done/subtasks/*/` (retired open, by the old sweep) and
   under `progress/subtasks/<ID>/` of a parent already in `qa_complete/` or `done/` — `archive.sh` now
-  refuses the whole sweep over one. Finish or re-slice each, or move its parent back.
+  refuses the whole sweep over one. Finish each, or close one that will not be done with
+  `./scripts/subtask.sh move <id> declined --note "why"` (new: a declined slice no longer holds its parent).
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
@@ -457,9 +458,9 @@ columns and never the cards.*
 
 - **`finish-pr.sh` now runs only as the trunk's committed copy.** A copy that differs from
   `<remote>/<trunk>:scripts/finish-pr.sh` — a branch's own, or a local edit — refuses before anything
-  moves, with no override. **Run it from the main checkout on the trunk, freshly pulled**, gating the
-  branch's checkout with `--worktree <path>`. **If you edited your `finish-pr.sh` without committing it
-  to the trunk,** land that edit first (by hand, or through a reviewed branch that the trunk's copy lands);
+  moves, with no override. The ordinary landing is unchanged. **A branch that changes `finish-pr.sh`
+  lands from the main checkout on the trunk**, gating the branch's checkout with `--worktree <path>`.
+  **If you edited your `finish-pr.sh` without committing it to the trunk,** land that edit first (by hand, or through a reviewed branch that the trunk's copy lands);
   until then every landing refuses.
 
 ### Added
@@ -488,11 +489,14 @@ columns and never the cards.*
 - **The card creators render `--stories` instead of copying the template's example stories.** An issue or
   bug card's References, seed entry and AC lines named `§ F1 § S1, S2` whatever `--stories` said; they
   now carry the stories given, or a `<story ids>` / `<story id>` blank. A bug minted without
-  `--severity` carries a `severity: <…>` blank instead of `Critical`, and its body no longer restates
-  severity. An issue's Plan line carries its id; a subtask names its parent's card rather than a
+  `--severity` carries a `severity: <…>` blank instead of `Critical`, one minted without `--discovered-in`
+  carries an `<issue id, or none>` blank, and its body no longer restates severity. A subtask minted without
+  `--stories` carries a `stories:` blank rather than `[]`. An issue's Plan line carries its id; a subtask names its parent's card rather than a
   `<status>` link, and inherits the parent's `prd:` unless `--prd` is given. Bug and refactor cards
   name the decision register. **Take `.claude/templates/` and the creators together**; cards already
-  minted are unchanged.
+  minted are unchanged. The creators also fill what they were given elsewhere: the H1 carries the minted id,
+  the seed Activity entry is dated, `--discovered-in` and `--pass` reach the body, and the template's LINKS
+  comment no longer lands in a card.
 - **`kit-init`'s refusal prints the remote recipe only when a remote or trunk precondition failed**,
   quotes the directory's name in it, and ends with the command as you typed it.
 - **`finish-pr.sh`'s `Pre-merge gate (blocking):` line names the runner that runs** — the trunk's copy,
@@ -507,9 +511,6 @@ columns and never the cards.*
 - **The long-form run report has one home, `dev/launch/`.** `orchestrator.md` sent it to `dev/runs/` while every template put it
   in `dev/launch/`; the kit no longer ships `dev/runs/`. Records already in yours are yours: index the directory in
   `dev/README.md` or move them.
-
-- **The card creators fill what they were given:** the H1 carries the minted id, the seed Activity entry is dated, and `--prd`,
-  `--discovered-in`, `--pass` and a subtask's parent reach the body; the template's LINKS comment no longer lands in a card.
 
 - **The pack and report templates' fill rule deletes only blockquotes that open `> **GUIDANCE`** — it said every `>` line,
   which took the STATUS banner too. **Nothing to do.**
@@ -714,7 +715,8 @@ columns and never the cards.*
   changing the gate runner is judged by the trunk's copy. **If you edited your `qa.md`,** take the new step 2.
 
 - **`FAIL_REGRESSION` means a `Blocker` or `Critical` regression**, in MANUAL step 6 and the wave runner's QA prompt as in
-  `qa.md`: a `Major`/`Minor` regression is filed and the review passes, citing it. QA's step 5 also treats a diff to
+  `qa.md`: a `Major`/`Minor` regression in behaviour the suite does not cover is filed and the review passes, citing
+  it; a broken test is a red gate, which fails at any severity. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
   `wave-runner.js`: port the one parenthetical.
 
@@ -727,9 +729,13 @@ columns and never the cards.*
   listing, never the absence of an idle notice. It was measured on one harness and is stated as a setting to
   check, not a rule. **Nothing to do.**
 
+- **`subtask.sh move <id> declined --note "why"` closes a slice that will not be done.** A declined slice no
+  longer holds its parent at the mover, the lander or the sweep, which refuse a parent over any slice neither
+  reviewed nor declined. The note is required. **Nothing to do**, unless a slice of yours is abandoned: decline it.
+
 ### Fixed
 
-- **`--help` is answered first, in any position, by every command-line script under `scripts/`.** In an option's value
+- **`--help` is answered first, in any position, by every board, release and notification script under `scripts/`.** In an option's value
   slot it was taken as the value — `kit-init.sh --project-name --help` stamped, committed and pushed the
   name `--help`; `move-issue.sh … --note --help` published a move noted `--help` — and after a bad
   argument it failed. `kit-init.sh --project-name` also refuses a value starting with `-`. **If you
@@ -823,7 +829,7 @@ columns and never the cards.*
 - **`qa.md`'s regression path could publish "Merged." on a card nothing merged, and let a Critical bug land.** A
   `Blocker`/`Critical` now always sends the issue back (`FAIL_REGRESSION`); a PASS with `Major`/`Minor` bugs lands with
   `./scripts/finish-pr.sh <ID> --note "Review — PASS. Bugs filed: <ID>."`; bugs are filed from the trunk, where the
-  card is published.
+  card is published. (An edited `qa.md` needs the replacement under Action required.)
 
 - **`move-issue.sh` can move a parent issue that has subtasks.** Once a parent had any subtask, every move refused with
   "multiple files match", so a decomposed issue could never land. It now looks only at `progress/<column>/`, and
@@ -907,8 +913,7 @@ columns and never the cards.*
 - **`check-board.sh`'s graduation check finds every file that declares `KIT-DISPOSITION: REPLACE`**, not only `CLAUDE.md` and
   `README.md` (which its output already claimed); a file you marked REPLACE yourself is now checked. **Nothing to do.**
 
-- **Script help and small behaviour fixes.** `--help` succeeds wherever it appears in `subtask.sh`, `notify.sh`, `new-prd.sh`
-  and `next-id.sh`; `notify.sh` with no argument prints its one usage; `verify.sh --help` no longer opens with its
+- **Script help and small behaviour fixes.** `notify.sh` with no argument prints its one usage; `verify.sh --help` no longer opens with its
   KIT-DISPOSITION line; `finish-pr.sh --help` says the gate checkout must be at the branch's tip, and its exit table puts a
   missing `<ID>` or a surplus argument under 1; `subtask.sh`'s failed-push message says every later board operation refuses
   until you publish, not that the commit is about to be destroyed; `release.sh`'s step list names gate (g), so its mutate steps
@@ -934,8 +939,8 @@ columns and never the cards.*
 - **`setup.sh` and the `consumers/` scripts answer `--help` in any position**, as every `scripts/` tool now does; before,
   an argument ahead of it made the usage request fail. **Nothing to do.**
 
-- **`notify.sh` sends a message that starts with `-` through `--message <text>`.** The bare form still refuses, and now
-  says so; its old advice to quote the text could not work. **Nothing to do.**
+- **`notify.sh` sends a message that starts with `-` through `--message <text>`**, wherever `--message` stands. The bare
+  form still refuses, and now says so; its old advice to quote the text could not work. **Nothing to do.**
 
 ## [0.6.0] — 2026-09-18
 

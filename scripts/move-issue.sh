@@ -389,8 +389,8 @@ else
       {
         echo "Error: ${ISSUE_ID} has subtask(s) not yet in qa_complete/, so it cannot move to ${TARGET}/:"
         printf '%s\n' "$_open" | sed 's/^/    /'
-        echo "  A parent advances only when every subtask has. Move them with ./scripts/subtask.sh"
-        echo "  first. NOTHING WAS CHANGED."
+        echo "  A parent advances only when every subtask has. Finish each, or close one that will not"
+        echo "  be done with  ./scripts/subtask.sh move <id> declined --note \"why\". NOTHING WAS CHANGED."
       } >&2
       exit 1
     fi

@@ -306,9 +306,9 @@ rests on judgment rather than evidence**:
 |  | A pre-existing/flaky red needs a human call |
 
 - **Clear PASS** → check out the branch (`git switch <branch>`, from the issue's `branch:`
-  frontmatter), run the project's gate runner, walk the AC, and run any **binding extra gate**
+  frontmatter, or the Dev's worktree when one holds it — `qa.md` step 2), run the project's gate runner, walk the AC, and run any **binding extra gate**
   the project declares for this change class (§ Project duties). On PASS run
-  `./scripts/finish-pr.sh <PREFIX>-NNN` — forge-agnostic pure git: it squash-merges the branch
+  `./scripts/finish-pr.sh <PREFIX>-NNN` (with `--worktree` when reviewing in one) — forge-agnostic pure git: it squash-merges the branch
   into `<trunk>` locally, pushes, deletes the branch, and advances the issue to `qa_complete/`.
   **No forge approve/merge ceremony, no `git switch <trunk>` + pull.** Then proceed to the next
   issue.
@@ -429,7 +429,8 @@ parent, and are **managed by `scripts/subtask.sh`**, which sources the same kanb
 library as `move-issue.sh` — never by hand and never by `move-issue.sh`. The id scheme, the
 frontmatter, the sliced-AC rule and the parent's rollup are stated on the slice itself:
 [.claude/templates/SUBTASK.template.md](../templates/SUBTASK.template.md). The parent advances to
-`qa_complete/` only when every subtask has; `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse it
+`qa_complete/` only when every subtask has reached `qa_complete/` or been declined with its reason
+(`subtask.sh move <id> declined --note "why"`); `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse it
 otherwise.
 
 ## Discovered tech-debt and todos

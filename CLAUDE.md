@@ -20,7 +20,7 @@ Not features, and not a plan for features. In this order:
    conversation SEED step 6 turns into `PRD-001`. This is the step most likely to be skipped under pressure to look
    productive, and a repository configured before anyone has said what it is for gets configured
    wrong in ways that are expensive to unwind.
-3. **When day one is done, REPLACE THIS FILE** with the adapter you build from
+3. **At `process/SEED.md` step 5, REPLACE THIS FILE** with the adapter you build from
    [`process/templates/CLAUDE-adapter.template.md`](process/templates/CLAUDE-adapter.template.md).
 
 ## Replace this file. Do not edit it into shape

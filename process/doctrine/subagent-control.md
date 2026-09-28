@@ -338,7 +338,7 @@ default and never doctrine.** State your own in § B; the numbered obligations b
 > and the line is ceremony. The cheap test is the one that produced the measurement above: restart a
 > worker mid-queue, hand it nothing, and read the log for a note it owed.
 
-**An environment note, measured on one harness (background agent sessions) — a setting to check on
+**An environment note, measured 2026-09 on one harness (background agent sessions) — a setting to check on
 yours, not a rule** ([`generality.md`](generality.md) § A.1: one environment is not independence):
 
 - **The send must carry the check.** A peer can meet its obligation to send by *nudging* — a message
@@ -347,7 +347,8 @@ yours, not a rule** ([`generality.md`](generality.md) § A.1: one environment is
   Make the state check part of every send, not a separate duty.
 - **An idle prompted peer can be reaped.** Measured: about an hour after its last activity, in
   whatever state it was in, with no log. Item 1's idle notice cannot fire for a peer that is gone, so
-  **liveness is a process listing, never the absence of an idle notice.**
+  **whether a peer still exists is read from a process listing**, never inferred from the absence of an
+  idle notice; whether it is live is still artifact freshness (§ A.15's cited sheet, § 2).
 
 ---
 

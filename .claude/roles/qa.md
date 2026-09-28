@@ -68,7 +68,8 @@ You are acting as the QA Engineer. Before doing anything:
    id, prd, stories, AC.
 6. Read the referenced PRD at requirements/PRD-NNN-*.md.
 7. Check out the work branch locally — git switch <branch> per the
-   issue's branch: frontmatter. The handoff is forge-agnostic pure git:
+   issue's branch: frontmatter, or review in the Dev's worktree when one
+   already holds it (the review workflow's step 2). The handoff is forge-agnostic pure git:
    there is no PR/MR object to fetch, view, or approve.
 8. Read Dev's handoff notes in the issue file (the flow keeps no PR/MR
    description — the issue file IS the handoff record).
@@ -146,8 +147,8 @@ End state: a verdict (PASS or FAIL), the issue file moved to its next folder, an
 - Adjacent features still work (smoke-walk anything previously shipped — in `progress/qa_complete/` or, once swept by `archive.sh`, `progress/done/`).
 
 Action on PASS:
-- **A decomposed issue** (one with `progress/subtasks/<PREFIX>-NNN/`) passes only when every subtask is in `qa_complete/`: `finish-pr.sh` and `move-issue.sh` refuse the parent otherwise, naming the open slices.
-- Run `./scripts/finish-pr.sh <PREFIX>-NNN` **as the trunk's committed copy** — from the main checkout on the trunk, freshly pulled; a copy that differs (the branch's own, or a local edit) refuses, with no override — one forge-agnostic pure-git command (no forge CLI, no approve step) that:
+- **A decomposed issue** (one with `progress/subtasks/<PREFIX>-NNN/`) passes only when every subtask is in `qa_complete/` or declined with its reason: `finish-pr.sh` and `move-issue.sh` refuse the parent otherwise, naming the open slices.
+- Run `./scripts/finish-pr.sh <PREFIX>-NNN` (with `--worktree`, per step 2) — **the copy that runs must be byte-identical to the trunk's committed `scripts/finish-pr.sh`**: a branch's own changed copy, or a local edit, refuses with no override, so land such a branch from the main checkout on the trunk with `--worktree <its checkout>` — one forge-agnostic pure-git command (no forge CLI, no approve step) that:
   1. Squash-merges the work branch into `<trunk>` locally and pushes, then deletes the branch (local + remote).
   2. Advances the issue file `dev_complete/ → qa_complete/` via `move-issue.sh`, inside the standing kanban worktree: commits as `[QA] <PREFIX>-NNN → qa_complete: ...` and pushes. **No commit is made in your checkout** — if it is sitting clean on the trunk it gets fast-forwarded so the board view stays live. It **can be moved**, and the run says so when it is: a clean checkout on the landed branch is switched to the trunk, and the checkout the gate ran in is **detached at the landed commit** for the post-merge reading (left alone if it has uncommitted changes).
 - **Gating another checkout (`--worktree`).** When the branch is held by a worktree (step 2) or the main checkout belongs to a concurrent leg, point the blocking pre-merge gate at your own worktree with `./scripts/finish-pr.sh <PREFIX>-NNN --worktree <path>`. The script runs the gate itself, in that worktree — *the trunk's committed* runner — **you pass a location, not a command.** A caller-supplied gate *command* is refused on the production path, deliberately: a wrapper the caller writes can lie about the gate it ran. `--worktree` must name a genuine git worktree of this repo whose gate runner is committed and unmodified, or it is refused. After the landing, that worktree is **left detached at the landed commit** so the post-merge check reads the trunk there, not your branch tip; check a branch out before you work in it again.
@@ -189,11 +190,11 @@ Action on FAIL splits by reason:
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — AC unmet.`
 
 **FAIL on regression** (a `Blocker` or `Critical` bug found, whether or not the AC is met):
-- File each bug **from the trunk, not the work branch** — the card is published there, and `next-id.sh` reads the trunk only as last fetched: `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity <Blocker|Critical>`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
+- File each bug **from the trunk, not the work branch** — the card is published there, and `next-id.sh` reads the trunk only as last fetched: in the main checkout (not the Dev's worktree), `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity <Blocker|Critical>`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
 - `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL_REGRESSION. Bugs filed: <PREFIX>-NNN."` Do not merge. The note is the review record.
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — bugs <PREFIX>-NNN, <PREFIX>-NNN filed.`
 
-`Major` and `Minor` bugs do **not** fail the review (calibrate to the project's quality bar). File them the same way with `--severity <Major|Minor>`, return to the checkout you reviewed in, and land with `./scripts/finish-pr.sh <PREFIX>-NNN --note "Review — PASS. Bugs filed: <PREFIX>-NNN."` (plus `--worktree`, per step 2); PM decides defer-or-fix.
+`Major` and `Minor` bugs in behavior the suite does not cover do **not** fail the review (calibrate to the project's quality bar); a broken test is a red gate, which fails at any severity. File them the same way with `--severity <Major|Minor>`, and land as in Action on PASS: `./scripts/finish-pr.sh <PREFIX>-NNN --note "Review — PASS. Bugs filed: <PREFIX>-NNN."`, plus `--worktree <the checkout you reviewed in>` per step 2; PM decides defer-or-fix.
 
 ### The third verdict — PASS-with-AC-correction
 

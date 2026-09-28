@@ -82,7 +82,8 @@
 #   has no pipe and is unaffected.
 set -uo pipefail
 
-# A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS (process/contracts/issue-creation.md § 3).
+# A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS, IN ANY POSITION (process/contracts/issue-creation.md § 3).
+for _a in "$@"; do case "$_a" in -h|--help) set -- --help; break ;; esac; done
 case "${1:-}" in
   -h|--help)
     # The window ends at the header's last comment line, derived rather than typed.
@@ -243,6 +244,7 @@ CASES=(
   case_move_issue_set_pr_on_a_minted_card
   case_move_issue_moves_a_decomposed_parent
   case_parent_advances_only_with_every_subtask
+  case_subtask_declined_closes_a_slice
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees

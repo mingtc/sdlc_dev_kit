@@ -71,9 +71,11 @@
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
 #
-# The gate checkout (the main one, or --worktree's) must be at the branch's tip, and a
-# decomposed issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/; otherwise
-# this refuses before anything moves.
+# The gate checkout (the main one, or --worktree's) must be at the branch's tip; a decomposed
+# issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/ or declined/; and this
+# script must be byte-identical to <trunk>'s committed copy, with no override (a branch that
+# changes it lands from the main checkout on <trunk>, with --worktree). Otherwise this refuses
+# before anything moves.
 #
 # Examples:
 #   ./scripts/finish-pr.sh <PREFIX>-001
@@ -206,8 +208,9 @@ if git -C "$KWT" cat-file -e HEAD:scripts/finish-pr.sh 2>/dev/null \
    && ! git -C "$KWT" show HEAD:scripts/finish-pr.sh | cmp -s - "${BASH_SOURCE[0]}"; then
   {
     echo "Error: this scripts/finish-pr.sh is not ${DEFAULT_BRANCH}'s committed copy — it differs from"
-    echo "       ${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/finish-pr.sh. A branch or a local edit may not change"
-    echo "       the script that lands it. NOTHING WAS CHANGED."
+    echo "       ${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/finish-pr.sh (changed on this branch or locally, or older"
+    echo "       than the trunk's). A branch or a local edit may not change the script that lands it."
+    echo "       NOTHING WAS CHANGED."
     echo "       Run the trunk's copy, from the main checkout on ${DEFAULT_BRANCH}, freshly pulled; gate the"
     echo "       branch's checkout with --worktree:"
     echo "         git switch ${DEFAULT_BRANCH} && git pull --ff-only && ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <branch checkout>"
@@ -245,7 +248,9 @@ if [ -n "$_open" ]; then
     echo "Error: ${ISSUE_ID} has subtask(s) not yet in qa_complete/:"
     printf '%s\n' "$_open" | sed 's/^/    /'
     echo "       A parent advances to qa_complete/ only when every subtask has, so it does not land"
-    echo "       before then. Move them with ./scripts/subtask.sh first. NOTHING WAS CHANGED."
+    echo "       before then. Finish each, or close one that will not be done with"
+    echo "         ./scripts/subtask.sh move <id> declined --note \"why\""
+    echo "       NOTHING WAS CHANGED."
   } >&2
   exit 1
 fi
@@ -312,9 +317,10 @@ if [ "$ALLOW_STUB" != "true" ]; then
         echo "      (kit-init REFUSES a repository that has already lived; if yours has, write it.)"
       else
         echo "  Two conforming ways to land ${ISSUE_ID}:"
-        echo "    • check the branch out here:   git -C '$MAIN_ROOT' checkout '$BRANCH'"
-        echo "    • or gate against a worktree that has it:"
+        echo "    • gate against a worktree that has it:"
         echo "        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>"
+        echo "    • or check the branch out here, if its scripts/finish-pr.sh is still ${DEFAULT_BRANCH}'s:"
+        echo "        git -C '$MAIN_ROOT' checkout '$BRANCH'"
         echo "  Either way, the post-merge check then reads ${DEFAULT_BRANCH} at the landed commit: the gate"
         echo "  checkout is switched to ${DEFAULT_BRANCH} or DETACHED there, and one with uncommitted"
         echo "  changes is left alone while a fresh worktree is read instead."

@@ -2385,6 +2385,9 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -q '^- \*\*Severity:\*\*' "$c" && cf "new-bug.sh: the body restates severity beside the frontmatter"
   grep -qF "story $prdid-F2-S3" "$c" || cf "new-bug.sh: --stories did not reach the body"
   grep -qE '§ F1 § S' "$c" && cf "new-bug.sh: the card names the template's example story"
+  grep -qF 'during review of <issue id, or none>' "$c" \
+    || cf "new-bug.sh: with no --discovered-in the card names an issue it was not given: $(grep -m1 'during review of' "$c")"
+  grep -qE 'during review of [A-Z][A-Z0-9]*-NNN' "$c" && cf "new-bug.sh: the card keeps a filled-looking -NNN reviewer id"
   for c in "$td/$SB_PREFIX-743-bugged.md" "$td/$SB_PREFIX-744-tidied.md"; do
     grep -qF '(../../requirements/DECISIONS.md)' "$c" || cf "$(basename "$c"): the Activity section does not name the decision register"
   done
@@ -2403,6 +2406,7 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qF "\`$SB_PREFIX-741-told.md\`" "$st" || cf "subtask.sh: the body does not name its parent's card"
   grep -qF '<status>' "$st" && cf "subtask.sh: the body keeps a <status> blank no mint-time value can fill"
   grep -qE '§ F1 § S' "$st" && cf "subtask.sh: the card names the template's example story"
+  grep -q '^stories: \[<' "$st" || cf "subtask.sh: with no --stories the slice claims a story set: $(grep -m1 '^stories:' "$st")"
 
   finish "$L"
   teardown

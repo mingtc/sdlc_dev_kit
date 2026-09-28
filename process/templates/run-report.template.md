@@ -62,7 +62,8 @@
 >   *requirement*, which is a PM decision rather than a correction —
 >   [`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff, step 6); the
 >   correction is in § 2.
-> - `→ QA FAIL → fix → QA FAIL → park → PARKED_OK` — fix budget spent. Parking is a legitimate close.
+> - `→ QA FAIL → fix → QA FAIL → FAILED_AFTER_FIX_ROUND` — fix budget spent; a park the seat then makes goes on its own line.
+> - `→ Dev blocked → park review PASS → PARKED_OK` — parking is a legitimate close.
 > - `PARKED_OK → seat-authorized round 2 → PASS → LANDED` — name the authorizing commit or message.
 > - `→ <what ended it> → <OUTCOME>` for every other outcome — e.g. `→ QA returned no verdict →
 >   NO_VERDICT`, `→ Dev threw → LEG_ABORTED`. Record what the outcome leaves open: how a halting leg

@@ -244,6 +244,7 @@ In [`update_vendored.sh`](update_vendored.sh) (one block at the top, plus the se
 | `RELEASE_DOCS` | The release documents you ship, and the names they are dropped under. |
 | `build_artifact()` | Your build command, run against the checked-out tag, output to a scratch dir, **all chatter on stderr**. |
 | `artifact_version()` | Version out of an artifact filename. |
+| `ver_gt()`, `notes_headers()` | Only where your versions are not digits-and-dots: the one version comparison (`--check` uses it too) and the release-document header reader. They sit below the seam block; replace them together with `artifact_version()`. |
 | `pin_line()` and `install_hint()` in `update_vendored.sh` — where both are AUTHORED | Your pinning mechanism, and the two install hints (first-install resolves dependencies; refresh does not). `setup-consumer.sh` only CAPTURES the pin line into `PIN_LINE=` and prints one hint; editing it there changes what is displayed, not what is produced. |
 
 Then fill this page's `<angle-brackets>`, and read

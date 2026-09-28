@@ -405,8 +405,9 @@ bounces it.
      note listing the unmet AC; Dev resumes on the same branch.
    - **FAIL on regression** — a previously-green test or shipped behavior broke **at `Blocker` or
      `Critical` severity**. **File a bug** (`./scripts/new-bug.sh`), link it via `discovered_in`,
-     and move the issue back. A `Major`/`Minor` regression does not fail the review: file it the
-     same way and PASS, citing it in the landing note; PM decides defer-or-fix.
+     and move the issue back. A `Major`/`Minor` regression in behavior the suite does not cover does not
+     fail the review: file it the same way and PASS, citing it in the landing note; PM decides
+     defer-or-fix. A broken test is a red suite, which fails PASS at any severity.
    - **PASS-with-AC-correction — THE THIRD VERDICT.** The implementation is **right** and the
      AC's own **illustration** is **wrong**: the code does the correct thing, and the example
      baked into the acceptance criterion asserts something the source does not support. Three
@@ -441,7 +442,7 @@ produces this.
 | `LAND_READY` | verdict PASS · landing `deferred` | reviewed green, landing correctly not attempted — **a SUCCESS** |
 | `PARKED_OK` | — | parked, **and the park itself was verified** |
 | `PARK_UNVERIFIED` | — | parked, park not verifiable as written — the LAST park review returned a FAIL verdict |
-| `FAILED_AFTER_FIX_ROUND` | verdict FAIL · the one fix round did not bring a PASS (a second FAIL, or a fix Dev that answered with a status other than `dev_complete`) | failed, and the one fix round did not cure it |
+| `FAILED_AFTER_FIX_ROUND` | verdict FAIL · the one fix round did not bring a PASS (a second FAIL, or a fix Dev that answered `blocked`) | failed, and the one fix round did not cure it |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
 | `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, a value outside the four tokens, or a named `precondition_failure`: **unreviewed, not failed** — halts |
 | `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — or a Dev leg returned nothing (or a status outside its schema), before the issue reached an outcome: **state unknown, not failed** — halts |
@@ -461,9 +462,9 @@ had only `FAILED_AFTER_FIX_ROUND` — composed from a verdict FAIL — to spend 
 asserted a FAIL verdict that was never formed. So the test above is met rather than waived: the composition is
 *no verdict · no landing*, and the thing it names already exists in step 6.
 
-**A fix Dev that answers with any status other than `dev_complete` leaves the issue
-`FAILED_AFTER_FIX_ROUND`, not `BLOCKED_DEV`** (one that returns nothing is `LEG_ABORTED`, below). The
-issue holds a formed FAIL verdict and has spent its one fix round; there is no third
+**A fix Dev that answers `blocked` leaves the issue `FAILED_AFTER_FIX_ROUND`, not `BLOCKED_DEV`**
+(one that returns nothing, or a status outside its schema, is `LEG_ABORTED`, below). The issue holds a
+formed FAIL verdict and has spent its one fix round; there is no second
 (`process/doctrine/fix-execution.md` § A.5c). `BLOCKED_DEV` says the issue is not parkable, which a
 fix Dev's report cannot make true, and the record already carries that Dev's reply.
 

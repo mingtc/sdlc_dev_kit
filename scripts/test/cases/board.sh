@@ -582,7 +582,33 @@ case_parent_advances_only_with_every_subtask() {
     origin_has_path "progress/qa_complete/$p-parent.md" || cf "(e) the parent did not reach qa_complete/"
   fi
 
-  finish "a parent with an open subtask is refused by move-issue.sh (qa_complete, done), by finish-pr.sh before the merge and by archive.sh before any write, each naming the open slice; with every slice reviewed it moves"
+  finish "a parent with an open subtask is refused by move-issue.sh (qa_complete, done), by finish-pr.sh before the merge and by archive.sh before any write, each naming the open slice; with every slice reviewed, or a slice declined with its reason, it moves"
+  teardown
+}
+
+case_subtask_declined_closes_a_slice() {
+  cf_reset
+  local L="subtask.sh declines a slice that will not be done — only with a reason — and a declined slice no longer holds its parent"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local q="$SB_PREFIX-132" out rc
+  seed_issue qa_complete "$q" parent chore "Parent already reviewed"
+  mkdir -p "$SB_WORK/progress/subtasks/$q/in_progress"
+  seed_issue "subtasks/$q/in_progress" "$q-s1" open chore "Open slice"
+  publish_sandbox
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -F "$q-s1-open.md" >/dev/null \
+    || _fixture_die "case_subtask_declined_closes_a_slice: archive.sh did not refuse over the open slice, so the row tests nothing."
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh move "$q-s1" declined 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "subtask.sh declined a slice with no --note"
+  origin_has_path "progress/subtasks/$q/in_progress/$q-s1-open.md" || cf "the slice moved during the no-note refusal"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh move "$q-s1" declined --note "superseded by the parent's own fix" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "subtask.sh would not decline a slice with a reason (rc=$rc): $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  origin_has_path "progress/subtasks/$q/declined/$q-s1-open.md" || cf "the declined slice is not in declined/"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -F "$q-s1-open.md" >/dev/null \
+    && cf "archive.sh still refuses over a declined slice: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  finish "$L"
   teardown
 }
 
