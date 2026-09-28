@@ -189,7 +189,8 @@ and a disposition at the same time.
 | **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
 
 *(The members are a **derivation of this seed**, not a definition of the axis. **A shipped file no
-row names is `KEEP`.** A project that adds a surface gives it a disposition then.)*
+row names is `KEEP`**, except the Take-but-EDIT files of § 1.1, whose project half is `FILL`. A project
+that adds a surface gives it a disposition then.)*
 
 ### The `KIT-DISPOSITION:` marker — the table above says WHICH files, the marker says so ON them
 
@@ -220,7 +221,9 @@ block as its `KIT-CLASS:` marker:
 
   **So the rule for a third marker is not "avoid the prefix" — it is: if the marker can ever appear
   in a directory the prefix substitution walks, it MUST be sentinel-protected like `KIT-CLASS:`.**
-  A disposition marker added to a template or a role doc would be silently rewritten today.
+  A disposition marker added to a template or a role doc would be silently rewritten today. The
+  initializer also stamps `PROJECT.md`, which does carry one: it survives there because that stamp
+  rewrites only `<PREFIX>`, never `<old-prefix>-`. Widen that stamp and the marker needs the sentinel.
 - **It is stripped at graduation with everything else in the block**, and that is why **a REPLACE
   file's replace-me instruction still does not live here.** § The marker and graduation states the
   rule: an instruction must not live inside a marker on a file whose marker will be removed. A
@@ -239,7 +242,7 @@ derivation on the file's own header block, because this sheet and the release no
 marker as a worked example and a bare grep counts those as declarations:**
 
 ```
-for f in $(grep -rlE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:' .); do
+for f in $(git grep -lE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:'); do
   head -12 "$f" | grep -qE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:' && echo "$f"
 done
 ```
@@ -314,7 +317,7 @@ may carry an instruction that dies before it does.
 ### Day one is done when every row is discharged
 
 That is the same list [`SEED.md`](SEED.md) § Day one is done when already carries, said in terms of
-the axis rather than in terms of five filenames — and the axis is what makes it enumerable instead
+the axis rather than as a list of filenames — and the axis is what makes it enumerable instead
 of remembered. **Until then the repository is a kit wearing a project's name**, which is the state
 this axis exists to make visible and finite.
 
@@ -352,7 +355,7 @@ names the guard whose job is to keep it honest.
 |---|---|
 | `AGENTS.md` | **The harness-neutral entry point**, for any agent that is not Claude Code. Travels unedited, and it says so in its own marker. |
 | `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** |
-| `dev/` | The working-records tree. Its index (`dev/README.md`) and folder READMEs travel unedited; `dev/downtime-queue.md` is `MIXED` — the queue's shape travels, every row is yours. Everything you add there is yours. |
+| `dev/` | The working-records tree. Its index (`dev/README.md`) carries a discipline that travels and rows that are yours — every file you add there gets one; the folder READMEs travel unedited; `dev/downtime-queue.md` is `MIXED` — the queue's shape travels, every row is yours. Everything you add there is yours. |
 | `process/MANUAL.md` | The transferable operating manual. Adopt unedited. |
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
@@ -450,7 +453,7 @@ rotates or the queue grows — so it is `SEED`-shaped work rather than a day-one
 **Derive the class rather than trusting this table, and anchor to the FIRST marker per file:**
 
 ```sh
-for f in $(grep -rl 'KIT-CLASS:' .); do
+for f in $(git grep -l 'KIT-CLASS:'); do
   grep -m1 -o 'KIT-CLASS: [A-Z-]*' "$f" | grep -q MIXED && echo "$f"
 done
 ```
@@ -503,8 +506,8 @@ It performs every precondition in the table below, then **proves them** with a *
 mints a scratch item, moves it through two columns, asserts the drift report clean, and has a real
 commit **rejected** by the attribution hook — the whole point being that *every finding in this
 kit's cold-read review was found by reading, and all of them would have been found by running.*
-The behaviours worth knowing before you run it — every refusal is in
-[`contracts/initializer.md`](contracts/initializer.md) § 3:
+The behaviours worth knowing before you run it — the refusal conditions are in
+[`contracts/initializer.md`](contracts/initializer.md) § 3, and an argument-shape refusal prints its own reason:
 
 - **The trunk is confirmed, never inferred.** `--trunk` is required and is cross-checked against
   the remote's published default branch; a disagreement refuses. `<trunk>` defaults to `main`.
@@ -740,9 +743,8 @@ the declared set** is what separates a candidate role set from a table, and it n
 the discriminator is the hook.
 
 *What it legitimately reports, and why neither is filtered away: the harness holds the SHIPPED set
-deliberately, as the value it asserts the kit ships (`scripts/test/lib/fixtures.sh`, a hit once
-`--roles` has narrowed the tree), and it holds fixture sets that are nobody's project
-(`scripts/test/cases/kit-init.sh`). Read the hits. **Do not add an exclusion list** — that is the
+deliberately, as the value it asserts the kit ships, and it holds fixture sets that are nobody's
+project — its hits under `scripts/test/` are those two kinds. Read the hits. **Do not add an exclusion list** — that is the
 shape this whole section is about.*
 
 **On a narrowed tree it has found two real defects a `grep -lF` for the set could not:** the set
@@ -803,7 +805,7 @@ They are graded by what a wrong tag costs, because the costs are not comparable:
 
 | Class | Members | Cost when the tag is not in the declared set |
 |---|---|---|
-| Carries one member as a **KNOB DEFAULT** | `scripts/release.sh` (`RELEASE_ROLE`), `scripts/archive.sh` (`ARCHIVE_ROLE`), `scripts/subtask.sh`'s `create` arm (`SUBTASK_ROLE`), `scripts/finish-pr.sh` (`FINISH_PR_ROLE` — its squash subject and its board advance), `scripts/kit-init.sh` (`KIT_INIT_ROLE`, default the pre-role hat of `contracts/role-gate.md` § 2a) | The project names the seat; the script refuses up front if the tag is not declared, naming the knob. **Every enforced tag takes this shape:** a tag the hook meets mid-operation loses the move inside the shared kanban worktree |
+| Carries one member as a **KNOB DEFAULT** | `scripts/archive.sh` (`ARCHIVE_ROLE`), `scripts/subtask.sh`'s `create` arm (`SUBTASK_ROLE`), `scripts/finish-pr.sh` (`FINISH_PR_ROLE` — its squash subject and its board advance), `scripts/kit-init.sh` (`KIT_INIT_ROLE`, default the pre-role hat of `contracts/role-gate.md` § 2a) | The project names the seat; the script refuses up front if the tag is not declared, naming the knob. **Except `scripts/release.sh` (`RELEASE_ROLE`)**, which does not check up front: the hook rejects it at the release commit and the script restores the bumped files. **Every other enforced tag takes this shape:** a tag the hook meets mid-operation loses the move inside the shared kanban worktree |
 | Carries one member as a **`--role` DEFAULT, with no knob** | `scripts/subtask.sh`'s `move` arm (`Orchestrator`) | Checked before any mutation, so on a tree that withdrew the role every move without `--role` refuses — pass `--role` |
 | **Mentions** a member in a comment or recovery text | Several, and cheapest — with one exception worth naming: recovery text that tells the operator to re-run with the role that was just **rejected** is a loop, not a remedy | A reader follows advice that cannot work |
 | Names a member in an **EXAMPLE THAT `--help` RENDERS** | Several, and still cheap to fix — but **not deferrable**, see below | The tool prints a **copy-pasteable command that fails**, in the output an operator is most invited to run |
@@ -1004,7 +1006,8 @@ seam; a scatter across the files § 2.2 lists is this debt.
 divergent ones decided rather than copied.**
 
 ### 4.6 The initializer's stamping reach is not total
-The initializer stamps the configuration seam, the item templates and the role docs. Whether it
+The initializer stamps the configuration seam, the item templates, the role docs and `PROJECT.md`'s
+project-name, prefix and `<trunk>` blanks. Whether it
 reaches `.claude/agents/` and `.claude/workflows/` — which contain illustrative ids, trunk names
 and gate-command examples of their own — is the thing to check, and historically it did not.
 **Check, after running the initializer** — two commands, because the role docs have a different
@@ -1024,7 +1027,7 @@ the project's single trunk branch"* — so the angle brackets are a symbol the d
 blank the stamper missed. **Stamping it would delete the referent of a definition the same file
 states.**
 
-**And the initializer never touches it, for any project.** What it rewrites is the **literal trunk
+**And in the role docs the initializer never touches it, for any project.** What it rewrites is the **literal trunk
 name** — its `TRUNK_RE` is built from the shipped default read out of `lib/kanban-worktree.sh`, so a
 project whose trunk is `<something-else>` gets every literal occurrence rewritten and every `<trunk>`
 symbol left standing. **So on a project whose trunk EQUALS the shipped default the census does not count at all** — it

@@ -29,8 +29,8 @@ rather than deleting the row, so the decision is visible.
   *Why:* consumers pin the name; moving it changes what shipped without changing what they pinned.
 - **Naming happens on a clean trunk.** The point being named is the published trunk with no local
   modification — **and it misses nothing that has already been published there.**
-  *Why:* otherwise the named point contains something that exists only on one machine. *And, in the
-  other direction, added once the first half was found to be only half-implemented:* a checkout can
+  *Why:* otherwise the named point contains something that exists only on one machine. *And in the
+  other direction:* a checkout can
   be on the trunk and perfectly clean and still be BEHIND, and a name cut there omits work that
   already landed. Both directions are the same invariant — the named point IS the published trunk —
   so the ritual reads the remote before it names anything, and an operator who cannot reach the

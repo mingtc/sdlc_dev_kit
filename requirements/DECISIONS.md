@@ -5,7 +5,7 @@
 > **retired rather than reused**; every entry exactly three things (the current ruling in the
 > present tense, one line of why, provenance); the register as a **projection of current state**,
 > with history left in the ledger; and one anchor convention. The **instance** — every ruling in
-> the table — is **your project's content**, and travels to nobody. Keep this note in your copy.
+> the register — is **your project's content**, and travels to nobody. Keep this note in your copy.
 > *(The same split is stated in [`process/EXTRACTION.md`](../process/EXTRACTION.md) § 1.2.)*
 
 **What this file is.** The one place that answers **"what is currently true?"** for the rulings that
@@ -241,8 +241,8 @@ field is for, and it is why a PRD citing a `D-NN` loses nothing by not restating
 PRD, an issue card, anywhere outside this file — is written as that bracketed token. It is
 **anchored, not a bare id**: a bare `D-NN` cannot be told apart from prose *about* a ruling, so the
 first honest sentence discussing a retired id would be misread as citing it. Only text that declares
-itself a citation is read as one. `./scripts/check-board.sh` joins the marker to the `### D-NN`
-headings below and reports a citation resolving to no entry, or to a retired id.
+itself a citation is read as one. `./scripts/check-board.sh` joins the marker to this register's
+`### D-NN` headings and reports a citation resolving to no entry, or to a retired id.
 
 ## What earns an entry — the lessons from an actual regeneration
 

@@ -33,7 +33,7 @@ status. `./scripts/check-board.sh` reports board drift. Older entries rotate int
 Two shapes below are REQUIRED, not stylistic — a script reads each one:
 
 - the `## Log` heading itself: the drift report probes for it
-  (`## Log`, or `## Log` and more text, never `## Logistics`) before it can report this section's size;
+  (`## Log` alone, or followed by a space and more text — `## Log:` and `## Logistics` do not count) before it can report this section's size;
 - a dated `###` boundary per session: the log rotation splits this file on
   `### YYYY-MM-DD` when it rotates, so each session's entries sit under ONE
   heading.

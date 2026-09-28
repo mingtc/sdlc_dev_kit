@@ -6,7 +6,7 @@
 To make *"is that long run still alive?"* a **question with evidence behind it**, because a hang
 is silent and therefore indistinguishable from progress to anyone who is only waiting.
 
-**AND A SECOND QUESTION, WHICH THIS SHEET USED TO LEAVE TO THE FIRST ONE'S SCOPE:** *has work
+**AND A SECOND QUESTION:** *has work
 stopped moving?* They are not the same question and they do not have the same scope, and reading
 them as one cost a coordinated run twenty-four hours across three episodes.
 

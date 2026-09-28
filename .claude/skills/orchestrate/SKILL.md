@@ -217,7 +217,7 @@ qa:<PREFIX>-042 — step 4 of 7 (adversarial re-read) · 6m on this step · 23m 
 *"Six minutes on a step that usually takes one"* is actionable; *"57%"* is not.
 
 **A step number is checkable, which is why this is not a role grading itself.** The sequences are
-already published and enumerable — the seven-step Dev → QA boundary in
+already published and enumerable — the Dev → QA boundary's numbered steps in
 [`process/MANUAL.md`](../../../process/MANUAL.md) § The Dev → QA handoff, and each role doc's own
 Definition of Done. A leg claiming *step 9 of 7* is visibly wrong. That is a different class from a
 leg estimating how well it is doing.

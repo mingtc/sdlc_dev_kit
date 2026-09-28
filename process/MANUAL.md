@@ -291,9 +291,11 @@ bounces it.
    `in_progress → dev_complete` with a note.
 2. **QA reads context.** The issue file, its AC, and the linked spec stories. **AC is the
    contract** — anything not in AC is out of scope for this review.
-3. **QA checks out the branch** (`git switch <branch>` from the issue's `branch:` frontmatter)
-   and runs **`./scripts/verify.sh`** — the **full** run, not a narrowed one. Anything red that
-   isn't pre-existing → **FAIL outright**, Dev fixes first.
+3. **QA checks out the branch** (`git switch <branch>` from the issue's `branch:` frontmatter, or
+   the Dev's worktree when it still holds the branch — `.claude/roles/qa.md` step 2) and runs
+   **`./scripts/verify.sh`** — the **full** run, not a narrowed one. Anything red that isn't
+   pre-existing → **FAIL outright**, Dev fixes first. **If the branch changes the gate runner, the
+   trunk's copy is the gate**, as it is at landing; `.claude/roles/qa.md` step 3 has the command.
 
    **QA reads and gates on the branch, and WRITES on the trunk.** The issue file is metadata by
    § The code-vs-metadata rule, and `move-issue.sh` has already edited that same card on the trunk
@@ -394,16 +396,17 @@ bounces it.
 
    The four, in full:
    - **PASS** — *all* of: every AC PASS with evidence; suite green (no new failures vs the
-     trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works. Action:
+     trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works (a `Major`/`Minor`
+     break there is filed, not failed — next bullet but one). Action:
      `./scripts/finish-pr.sh <ID>` (squash-merges the branch into the trunk locally, deletes the
      branch, advances `dev_complete → qa_complete`). Append `progress.md`:
      `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
    - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
      note listing the unmet AC; Dev resumes on the same branch.
-   - **FAIL on regression** — a previously-green test or shipped behavior broke. **File a bug**
-     (`./scripts/new-bug.sh`) with a severity, link it via `discovered_in`, and move the issue
-     back. A `Blocker`/`Critical` blocks the PASS; a `Major`/`Minor` may be filed as a follow-up
-     without blocking (PM's call at the boundary).
+   - **FAIL on regression** — a previously-green test or shipped behavior broke **at `Blocker` or
+     `Critical` severity**. **File a bug** (`./scripts/new-bug.sh`), link it via `discovered_in`,
+     and move the issue back. A `Major`/`Minor` regression does not fail the review: file it the
+     same way and PASS, citing it in the landing note; PM decides defer-or-fix.
    - **PASS-with-AC-correction — THE THIRD VERDICT.** The implementation is **right** and the
      AC's own **illustration** is **wrong**: the code does the correct thing, and the example
      baked into the acceptance criterion asserts something the source does not support. Three
@@ -438,7 +441,7 @@ produces this.
 | `LAND_READY` | verdict PASS · landing `deferred` | reviewed green, landing correctly not attempted — **a SUCCESS** |
 | `PARKED_OK` | — | parked, **and the park itself was verified** |
 | `PARK_UNVERIFIED` | — | parked, park not verifiable as written — the LAST park review returned a FAIL verdict |
-| `FAILED_AFTER_FIX_ROUND` | verdict FAIL · the one fix round did not bring a PASS (a second FAIL, or a fix Dev that did not complete) | failed, and the one fix round did not cure it |
+| `FAILED_AFTER_FIX_ROUND` | verdict FAIL · the one fix round did not bring a PASS (a second FAIL, or a fix Dev that answered with a status other than `dev_complete`) | failed, and the one fix round did not cure it |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
 | `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, a value outside the four tokens, or a named `precondition_failure`: **unreviewed, not failed** — halts |
 | `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — or a Dev leg returned nothing (or a status outside its schema), before the issue reached an outcome: **state unknown, not failed** — halts |
@@ -458,7 +461,8 @@ had only `FAILED_AFTER_FIX_ROUND` — composed from a verdict FAIL — to spend 
 asserted a FAIL verdict that was never formed. So the test above is met rather than waived: the composition is
 *no verdict · no landing*, and the thing it names already exists in step 6.
 
-**A fix Dev that does not complete leaves the issue `FAILED_AFTER_FIX_ROUND`, not `BLOCKED_DEV`.** The
+**A fix Dev that answers with any status other than `dev_complete` leaves the issue
+`FAILED_AFTER_FIX_ROUND`, not `BLOCKED_DEV`** (one that returns nothing is `LEG_ABORTED`, below). The
 issue holds a formed FAIL verdict and has spent its one fix round; there is no third
 (`process/doctrine/fix-execution.md` § A.5c). `BLOCKED_DEV` says the issue is not parkable, which a
 fix Dev's report cannot make true, and the record already carries that Dev's reply.
@@ -508,7 +512,7 @@ check out** and **no `finish-pr.sh`** (nothing to squash-merge) — and lands th
 `./scripts/move-issue.sh <ID> qa_complete --role QA --note "…"`. Steps 2 (read context), 4 (walk
 the AC) and 5 (the binding cross-cut check, where applicable — usually N/A for a metadata
 change) still apply; steps 1/3/6-PASS are the branch-only parts that collapse. Code work keeps
-the full 7-step branch-based boundary.
+the full branch-based boundary.
 
 ### Bug-severity calibration
 

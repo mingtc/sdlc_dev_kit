@@ -231,7 +231,8 @@ Narrow down. Evaluate ideas against what matters.
 ### 5. Capture
 
 Document what matters. A brainstorm with no capture is a brainstorm that never happened. Put it in
-the PRD it feeds (Open Questions, Decision Log); a decision that forecloses alternatives also goes in
+the PRD it feeds (Open Questions). A decision that forecloses alternatives is a fork: rule it in
+`requirements/DECISIONS.md` as a `D-NN`, cite it from the PRD's Decision Log, and log it in
 `progress.md`.
 
 - Key ideas and why they are interesting

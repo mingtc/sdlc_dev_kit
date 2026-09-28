@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the round-report shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote. -->
+<!-- KIT-CLASS: KIT — the round-report shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote and this marker line. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/rounds/<date>-<name>/ — NOT to process/templates/
      where it sits. A link that resolves while you read the template and dies in every copy of it
      passes a link check run here and is broken for every adopter. -->

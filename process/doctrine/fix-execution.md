@@ -139,6 +139,8 @@ and before the cut: **one fresh-context checker per consumer-facing surface**, e
 claim on its surface against the tree **as it stands** — hunting claims that contradict the landed reality, same-change
 duties that missed a surface, dead cross-references, and bare counts or universals with no
 derivation or date. This is the half A.4a structurally cannot reach: **surfaces no diff touched.**
+The findings are saved as an **addressable inventory**, one id per finding, and each fix is verified
+against its row.
 
 *Calibrate expectations by measurement: in the source program a full sweep after a fully-green,
 individually-reviewed program found dozens of defects, a large minority of them false consumer
@@ -146,7 +148,7 @@ claims — several pre-dating the program and visible only because the sweep rea
 diff had touched.*
 
 **Repeated, because fixing a finding is a landing:** a fix round edits the very surfaces the next
-reader meets. Measured across two adopting projects — a round's own fixes introduced claims the round
+reader meets. Measured in adopting projects — a round's own fixes introduced claims the round
 had just finished verifying. So the sweep **re-runs after every fix round, until a round finds
 nothing.** A single pass certifies the tree as it was before the fixes, which is not the tree that
 ships.

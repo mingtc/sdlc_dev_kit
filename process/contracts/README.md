@@ -140,7 +140,7 @@ reading together.*
 
   ```sh
   # every path a § 6 bullet names, with the class the sheet claims for it —
-  # bullets WRAP, so join continuation lines first or five rows in one bullet are missed
+  # bullets WRAP, so join continuation lines first or the wrapped rows are missed
   # THE JOINED BULLET IS PRINTED — each one as the NEXT bullet starts, and the last one at END.
   awk '/^- /{if(b)print b; b=$0; next} /^[[:space:]]+[^[:space:]]/{b=b " " $0} END{if(b)print b}' \
       process/contracts/*.md

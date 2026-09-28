@@ -81,9 +81,11 @@ command yet, write `TODO` rather than deleting the row, so the gap stays visible
 **SOME ROWS ARE NOT BLANKS, AND THEY ARE MARKED SO.** If you run the shipped scripts, the verify
 gate, the board mover and the configuration seam are reached by FIXED paths: `finish-pr.sh`
 preflights and invokes `scripts/verify.sh` by literal name — its own refusal says the executable
-*"is never caller-chosen"* — and calls `move-issue.sh` the same way, and every issue script sources
-`scripts/config.sh`. A rename breaks every script that calls the old name, so these rows record what
-the kit does rather than inviting a substitution. What is still yours is what goes INSIDE them: the
+*"is never caller-chosen"* — and calls `move-issue.sh` the same way, and the minting scripts and
+`archive.sh` source `scripts/config.sh`. A rename breaks every script that calls the old name, so these
+rows record what the kit does rather than inviting a substitution. (The shipped scripts call one another
+by name elsewhere too, so renaming any of them means editing its callers; the three marked rows are the
+ones the landing path cannot run without.) What is still yours is what goes INSIDE them: the
 gates `verify.sh` runs, the statuses your board carries, and the values `config.sh` holds.
 Reimplementing the kit's scripts in another toolchain is the case where the names are yours again —
 and then the contract sheet, not this row, is what you must satisfy.
@@ -196,7 +198,7 @@ leaving it to whoever dispatches.**
 
 ## Branching, trunk, and the board
 
-- **Trunk:** `<trunk>` (default `main`) — a single trunk, **resolved and confirmed, never
+- **Trunk:** `<trunk>` — kit-init stamps the trunk you name (the kit's default is `main`); a single trunk, **resolved and confirmed, never
   inferred**; it must equal `<remote>/HEAD`.
 - **Work branches:** `<feature|fix|refactor>/<PREFIX>-NNN-<slug>` — **one branch per work item,
   never per role.**

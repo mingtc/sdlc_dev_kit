@@ -56,8 +56,8 @@ const CFG = {
   // manifest) and so has no goldenPaths to name. Prose, not a command: the brief must not tell
   // an agent to execute project-supplied text.
   driftRule:   ARGS.driftRule   || '',
-  // Provisioning defaults: the kit's seed, matching the .claude/agents/ pins; replace with your
-  // ratified ladder (process/doctrine/model-provisioning.md § B.2).
+  // Provisioning defaults for an UNTYPED leg (a typed leg takes its .claude/agents/ frontmatter pin):
+  // the kit's seed; replace with your ratified ladder (process/doctrine/model-provisioning.md § B.2).
   defaultModel:  ARGS.defaultModel  || 'opus',
   defaultEffort: ARGS.defaultEffort || 'medium',
 }

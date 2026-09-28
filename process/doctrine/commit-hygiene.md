@@ -277,7 +277,7 @@ run is a detector, and it completes the proof the branch could only half make).
 The donor's remote spent a stretch of days **refusing every push, repo-wide** — a hook on the
 hosting side rejected every ref, including a brand-new throwaway branch; `fetch` still worked.
 Local commits succeeded normally. Several work items were implemented, reviewed and verified
-during that window, and each one closed as **"complete, verified, LAND-READY — local only, no
+during that window, and each one closed as **"complete, verified, `LAND_READY` — local only, no
 board move"**, with the activity entry appended by hand rather than by the pushing script.
 
 That is the rule working. What made it work was not luck: the runs already carried the standing

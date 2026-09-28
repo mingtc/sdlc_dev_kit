@@ -1,7 +1,7 @@
 <!-- KIT-CLASS: KIT — the day-one bootstrap stub. Scaffolding: it is REPLACED, never edited.
      See process/EXTRACTION.md § The second axis: DISPOSITION. -->
-<!-- KIT-DISPOSITION: REPLACE — the instruction is the BOOTSTRAP-SCAFFOLDING line below
-     (EXTRACTION.md § The marker and graduation). -->
+<!-- KIT-DISPOSITION: REPLACE — the replace-me notice is the body; the BOOTSTRAP-SCAFFOLDING line
+     below is the sentinel a tool reads (EXTRACTION.md § The marker and graduation). -->
 <!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->
 # CLAUDE.md — this project has not been set up yet
 

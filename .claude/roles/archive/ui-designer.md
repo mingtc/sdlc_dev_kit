@@ -26,7 +26,7 @@ Waking it means doing all of these **in one change**, so the kit never advertise
 2. **Register them** in `.claude/skills/README.md`'s inventory table, with provenance and
    licence.
 3. **Move this file** from `roles/archive/` to `roles/`, and remove this banner and § What this
-   role needs. Re-point `.claude/agents/ui-designer-worker.md` (its link and its `archive/` test)
+   role needs. Re-point `.claude/agents/ui-designer-worker.md` (its description, its link and its `archive/` test)
    in the same change.
 4. **Register the role** in the adapter's role table and the prefix table (`[UIDesigner]`), and in
    **every file that carries the role set** — `process/EXTRACTION.md` § 2.4 is the list, and that

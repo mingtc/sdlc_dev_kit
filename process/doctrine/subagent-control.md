@@ -185,10 +185,6 @@ same order**, and at the same silent-stop corollary in near-identical words. Two
 same closed list. A rule two parties derive separately from their own incidents is not a convention;
 it is a finding.
 
-**What this sheet adds, for unattended runs: do not ask a question nothing will answer.** If no human
-will read a prompt, an interactive question is not a pause — it is a **hang**. In an unattended run
-the batched-decision list is the only channel, and a run that stops to ask has stopped for good.
-
 ### A.10 — Name a deferred decision INSIDE the work item that touches it
 
 When a decision is held back, the worker who later picks up adjacent work must meet the boundary **in

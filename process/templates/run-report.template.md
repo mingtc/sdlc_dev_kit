@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the run-report shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote. -->
+<!-- KIT-CLASS: KIT — the run-report shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote and this marker line. -->
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/
      where it sits. A link that resolves while you read the template and dies in every copy of it
      passes a link check run here and is broken for every adopter. -->
@@ -56,14 +56,14 @@
 > [`process/MANUAL.md`](../../process/MANUAL.md) § The RUN-OUTCOME vocabulary, spelled exactly as it
 > is there — that list is the authoring site; this one shows only the notation:
 >
-> - `work PASS → QA PASS` — clean.
-> - `→ QA FAIL (AC<n>) → 1 fix round → QA #2 PASS` — the normal recovery. Name the AC that failed.
-> - `QA PASS-with-AC-correction` — passed, and an AC's *illustration* was wrong (never its
+> - `work PASS → QA PASS → LANDED` — clean.
+> - `→ QA FAIL (AC<n>) → 1 fix round → QA #2 PASS → LANDED` — the normal recovery. Name the AC that failed.
+> - `QA PASS-with-AC-correction → LANDED` — passed, and an AC's *illustration* was wrong (never its
 >   *requirement*, which is a PM decision rather than a correction —
 >   [`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff, step 6); the
 >   correction is in § 2.
-> - `→ QA FAIL → fix → QA FAIL → PARKED` — fix budget spent. Parking is a legitimate close.
-> - `PARKED → seat-authorized round 2 → PASS` — name the authorizing commit or message.
+> - `→ QA FAIL → fix → QA FAIL → park → PARKED_OK` — fix budget spent. Parking is a legitimate close.
+> - `PARKED_OK → seat-authorized round 2 → PASS → LANDED` — name the authorizing commit or message.
 > - `→ <what ended it> → <OUTCOME>` for every other outcome — e.g. `→ QA returned no verdict →
 >   NO_VERDICT`, `→ Dev threw → LEG_ABORTED`. Record what the outcome leaves open: how a halting leg
 >   ended (quote its `error` or its `precondition_failure`) and what the issue's branch, board

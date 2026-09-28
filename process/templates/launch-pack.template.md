@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote. -->
+<!-- KIT-CLASS: KIT — the launch-pack shape. Copy, fill the <slots>, delete every `> **GUIDANCE` blockquote and this marker line. -->
 # Launch pack template — the commissioning contract for one orchestrated run
 
 <!-- LINKS IN THIS FILE ARE RELATIVE TO WHERE IT LANDS — dev/launch/ — NOT to process/templates/

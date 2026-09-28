@@ -7,7 +7,9 @@
 
 > **This file is a placeholder for yours.** Replace it with **your project's** README once you are
 > running; to keep these instructions, move them to `docs/KIT-README.md` (`docs/README.md` is
-> taken) — its links are written for the root and need `../` once moved.
+> taken) — its links are written for the root and need `../` once moved — and delete its first five
+> lines: `check-board.sh` reads the REPLACE and BOOTSTRAP-SCAFFOLDING markers anywhere in the tree and
+> would report the kept copy as unreplaced scaffolding.
 
 **What this is.** A generic, language-agnostic **development-process kit**: a
 filesystem-as-kanban board (the folder a file sits in *is* its status), **roles as hats** (one

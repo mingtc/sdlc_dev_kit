@@ -62,7 +62,7 @@ Write into the file `./scripts/new-prd.sh <slug>` creates from `.claude/template
 keeping its sections and its `F<n>` / `F<n>-S<m>` ids — issues cite stories by those ids. The list
 below is content guidance for those sections.
 
-Cover these sections. See **PRD Structure** below for detailed guidance on most of them (it covers all but **Success Metrics**, which has no subsection there) — on what each section should contain.
+Where each item lands in the template: **Problem Statement** → Context; **User Stories** and **Requirements** → each feature's `F<n>-S<m>` story table (its Priority column carries P0/P1/P2) and AC blocks, grouped by feature rather than persona; **Timeline Considerations** → Context or Open Questions; the rest keep their names. **PRD Structure** below has detail on all but **Success Metrics**.
 
 - **Problem Statement**: The user problem, who is affected, and impact of not solving it (2-3 sentences)
 - **Goals**: 3-5 specific, measurable outcomes tied to user or business metrics

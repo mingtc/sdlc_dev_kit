@@ -139,7 +139,7 @@ that no role ever re-derives the check set from prose and no two roles run a dif
    can quote into a review without re-running anything.
 
 *"It passed"* with no count is not green; it is an assertion. A narrowed run's summary
-additionally names the subset it was given, so its output can never be mistaken for the full set.
+additionally states that it is narrowed and how many items it was given, so its output can never be mistaken for the full set.
 
 ## 5. MINIMAL INTERFACE
 
@@ -162,7 +162,8 @@ there is one runner, one order and one summary* is the contract.
   of a subset that resolves to nothing is that runner's: declare one that exits non-zero on no match.
   *Why:* an item is whatever the runner takes — a path, a node id, a name filter — and only it can read one.
 - **Its exit status:** `0` green; `1` at least one check failed (whatever else happened); `2` the
-  runner refused to run its table (empty or malformed, or an unknown argument); `3` nothing failed
+  runner refused to run (its table is empty or malformed, an argument is unknown, or a narrowed run's
+  own preconditions failed); `3` nothing failed
   and at least one check could not run. Anything non-zero is red, so a caller asking only "zero or
   not" is unaffected.
 - The kit's copy keeps the two halves apart: the gate set is a **declared table** near the top of

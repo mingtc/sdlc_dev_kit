@@ -15,13 +15,7 @@ rather than linked because these sheets are the route for an adopter who takes n
 belongs *here* is the fact that **an operation spans two trees at all**, which is the split this
 sheet exists for.
 
-*Why it is stated here and nowhere else, and it is a finding rather than a preference:* measured
-across the sheets that describe operations spanning two trees, **each held exactly half the
-situation** — this one described worktrees and never mentioned a reviewer; the landing sheet
-described the review-to-land transition and never mentioned a worktree. **Neither knew it was
-describing the same moment**, which is why no sheet noticed the question existed. A reimplementer
-working from this sheet alone learned what the standing checkout is for and never learned who was
-reading what while it was used.
+*Why it is stated here:* an operation spanning two trees is otherwise described by neither sheet.
 
 **AND, SAID PLAINLY BECAUSE ITS ABSENCE COST A PROJECT ITS TRUNK: it is FOR BOARD FILES, and it is
 not a spare checkout.** It is the only checkout sitting on the trunk while the main one is on a work

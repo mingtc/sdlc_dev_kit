@@ -681,6 +681,19 @@ columns and never the cards.*
 - **`kit-init.sh` fills PROJECT.md's project name, issue prefix and trunk** with the values you pass it, and commits the sheet; the
   other blanks are still yours. A project already initialized has nothing to do.
 
+- **QA reviews in the Dev's worktree when it still holds the branch.** The Dev keeps `.worktrees/<branch>/` at handoff, so
+  `qa.md` step 2's `git switch <branch>` failed there ("already checked out"). QA now gates in that worktree and lands with
+  `./scripts/finish-pr.sh <ID> --worktree <its absolute path>`. MANUAL step 3 says the same, and adds that a branch
+  changing the gate runner is judged by the trunk's copy. **If you edited your `qa.md`,** take the new step 2.
+
+- **`FAIL_REGRESSION` means a `Blocker` or `Critical` regression**, in MANUAL step 6 and the wave runner's QA prompt as in
+  `qa.md`: a `Major`/`Minor` regression is filed and the review passes, citing it. QA's step 5 also treats a diff to
+  anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
+  `wave-runner.js`: port the one parenthetical.
+
+- **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
+  `next-id.sh`, as `qa.md` did; a stale trunk can hand out an id already taken. **Nothing to do.**
+
 ### Fixed
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped

@@ -209,7 +209,8 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 }
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Below this line: the logic. It travels unedited.
+# Below this line: the logic. It travels unedited — except ver_gt(), which a project whose versions
+# are not digits-and-dots replaces together with artifact_version() above.
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ---- -h/--help: usage, before anything can refuse --------------------------

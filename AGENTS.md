@@ -12,7 +12,7 @@
      the commit prefixes, the gates that are never optional. Read [`PROJECT.md`](PROJECT.md)
      alongside it for the stack, the run commands and the quality bar.
 
-   *(The stub is `REPLACE`-class scaffolding and is replaced, never edited, at the end of day one:
+   *(The stub is `REPLACE`-class scaffolding and is replaced, never edited, at `process/SEED.md` step 5:
    [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.)*
 2. **[`process/MANUAL.md`](process/MANUAL.md)** — the **process itself**: the board, roles as hats,
    the Dev → QA boundary, the session rituals, the execution discipline.
@@ -40,8 +40,8 @@ the contracts they encode** — those are process law and apply to every agent, 
 ## What will get you rejected
 
 1. **A commit subject with no role tag.** Every subject starts `[Role] …` — the set is in the
-   adapter's § "Role-attribution commit prefixes" (until it exists:
-   [`process/MANUAL.md`](process/MANUAL.md) § of the same name, and
+   adapter's § "Role-attribution commit prefixes" (until it exists: the hook's `ROLE_PREFIXES` line in
+   `scripts/githooks/commit-msg`, and
    [`process/contracts/role-gate.md`](process/contracts/role-gate.md) § 2a for day one's hat), and a
    git hook enforces it. The prefix is the audit trail for a one-person-many-hats project.
 2. **Moving an issue file with `mv`.** The folder under `progress/` *is* the status; status changes

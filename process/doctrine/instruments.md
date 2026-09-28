@@ -745,10 +745,10 @@ other than what you asked.
     path holds too few of them.
   **How common zsh is among adopters is UNMEASURED here, and the hazard does not need the figure**:
   one adopter lost a landing check to it, and bracing costs two characters.
-  **The two failures compose in the worst direction.** `git cat-file -e "$REF:absent/path"` exits 0
-  — it silently asked *"does this commit exist?"*, and it does — so the existence assertion above
-  passes for a path in no ref at all. And `git show "$REF:path" | grep -c <needle>` counts matches in
-  the **commit message**, so a string you just deleted reads as still present. *The same trap makes
+  **The two failures compose in the worst direction.** `git cat-file -e "$REF:spath/thing.py"` exits
+  0 — the path vanished, so it silently asked *"does this commit exist?"*, and it does — so the
+  existence assertion above passes for a path in no ref at all. And `git show "$REF:spath/thing.py" |
+  grep -c <needle>` counts matches in the **commit message**, so a string you just deleted reads as still present. *The same trap makes
   an absent thing look clean and a removed thing look PRESENT.*
   **The cure is one character-pair: always `"${REF}:path"`.** Braces end the expansion, so nothing
   after the colon can be read as a modifier.

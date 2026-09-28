@@ -11,18 +11,17 @@ export const meta = {
 // args: { repo, trunk?, remote?, gateCmd?, setupCmd?, codePaths?, goldenPaths?, secretsFile?,
 //         liveRules?, driftRule?, defaultModel?, defaultEffort?, wave1: [...], wave2: [...] }
 // Each issue takes tranche-runner.js's per-issue fields plus worktreeMode, phase, restartNote.
-// The parse error below points at meta.description, which names only the waves; this is the full shape.
 
 // issue.docsPath — as in tranche-runner.js: true for a docs/process-lite issue with no work
 // branch (direct-to-trunk). Such an issue reports `landing: not_applicable`.
 
 // The parse is guarded so a non-JSON payload is refused naming this runner, at 0 agents. The
-// message names the required top-level keys only; the per-issue shape stays in meta.description.
+// message names the required top-level keys only; the full shape is the `// args:` comment above.
 let ARGS
 try {
   ARGS = typeof args === 'string' ? JSON.parse(args) : args
 } catch (e) {
-  throw new Error(`wave-runner: args must be a JSON object, not prose. Got: ${String(args).slice(0, 60)}\nExpected: { repo, wave1: [...], wave2: [...] } — the full shape is in this file's meta.description and the per-issue fields mirror tranche-runner.js\nUnderlying parse error: ${e.message}`)
+  throw new Error(`wave-runner: args must be a JSON object, not prose. Got: ${String(args).slice(0, 60)}\nExpected: { repo, wave1: [...], wave2: [...] } — the full shape is the // args: comment at the top of this file, and the per-issue fields mirror tranche-runner.js\nUnderlying parse error: ${e.message}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -48,8 +47,8 @@ const CFG = {
   // manifest) and so has no goldenPaths to name. Prose, not a command: the brief must not tell
   // an agent to execute project-supplied text.
   driftRule:   ARGS.driftRule   || '',
-  // Provisioning defaults: the kit's seed, matching the .claude/agents/ pins; replace with your
-  // ratified ladder (process/doctrine/model-provisioning.md § B.2).
+  // Provisioning defaults for an UNTYPED leg (a typed leg takes its .claude/agents/ frontmatter pin):
+  // the kit's seed; replace with your ratified ladder (process/doctrine/model-provisioning.md § B.2).
   defaultModel:  ARGS.defaultModel  || 'opus',
   defaultEffort: ARGS.defaultEffort || 'medium',
 }
@@ -320,7 +319,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
 5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 6. Verdict — the four ratified tokens, from process/MANUAL.md § The Dev → QA handoff step 6, which is their one authoring site: PASS · PASS_AC_CORRECTED (the implementation is right and the AC's own illustration was wrong; correct it with the issue — only when you checked the fact yourself against a citable source; the amendment carries the corrected illustration AND its source) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY — they are two different facts and this schema keeps them apart.
    On a pass (all AC + gates) → ${issue.docsPath ? `close it — ./scripts/move-issue.sh ${issue.id} qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is a true statement rather than a workaround.` : `land via ./scripts/finish-pr.sh ${issue.id} FROM THE MAIN REPO DIR, then set landing=landed only if that script COMPLETED. If you verified the change but deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred, and it is a SUCCESS: report it and do not downgrade the verdict to make it look like one.`}
-   Append the progress.md QA line. On a fail → ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC>" and return FAIL_AC (an AC bullet is unmet) or FAIL_REGRESSION (previously-green behaviour broke). Do NOT fix code yourself.
+   Append the progress.md QA line. On a fail → ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC>" and return FAIL_AC (an AC bullet is unmet) or FAIL_REGRESSION (previously-green behaviour broke at Blocker/Critical severity — a Major/Minor one is filed and does not fail the review). Do NOT fix code yourself.
    If ${CFG.gateCmd} reports a gate that COULD NOT RUN — or an AC names a gate this tree does not hold — you have no evidence about the implementation and therefore no verdict to issue: stop, set precondition_failure to name it, OMIT verdict, and send landing=not_applicable. Do not spend FAIL_AC or FAIL_REGRESSION on it — both assert something false about the code.
 ${issue.extraQA || ''}
 Return the structured result only.`
