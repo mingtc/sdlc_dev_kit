@@ -1010,6 +1010,43 @@ case_finish_pr_relative_worktree() {
   teardown
 }
 
+case_finish_pr_runs_only_the_trunks_copy() {
+  cf_reset
+  local out rc br wt
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-784" lander chore "Branch changes the lander" "feature/$SB_PREFIX-784-lander"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-784" lander CHANGE784.txt
+  br="feature/$SB_PREFIX-784-lander"
+  git -C "$SB_WORK" checkout -q "$br" >/dev/null 2>&1 \
+    && printf '\n# the branch changes the script that lands it\n' >> "$SB_WORK/scripts/finish-pr.sh" \
+    && git -C "$SB_WORK" add scripts/finish-pr.sh >/dev/null 2>&1 \
+    && sbcommit -q -m "[Dev] $SB_PREFIX-784: change the lander" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q origin "$br" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_runs_only_the_trunks_copy: could not change finish-pr.sh on the branch."
+  wt="$SB_TMP/wt784"
+  git -C "$SB_WORK" worktree add "$wt" "$br" --quiet >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_runs_only_the_trunks_copy: could not create the branch's worktree."
+
+  # (a) the branch's own copy, run from the branch's checkout: refused before anything moves.
+  rc=0; out="$( cd "$wt" && "$wt/scripts/finish-pr.sh" "$SB_PREFIX-784" --worktree "$wt" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) the branch's own finish-pr.sh landed the branch that changes it"
+  printf '%s\n' "$out" | grep -F "is not $SB_TRUNK's committed copy" >/dev/null \
+    || cf "(a) the refusal does not say this copy is not the trunk's: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  origin_has_path "CHANGE784.txt" && cf "(a) the branch reached the trunk during a refusal"
+  origin_has_path "progress/dev_complete/$SB_PREFIX-784-lander.md" || cf "(a) the issue left dev_complete/ during a refusal"
+
+  # (b) the trunk's copy, from the main checkout, gating the branch's worktree: it lands, and the
+  #     branch's finish-pr.sh reaches the trunk to govern the next landing.
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-784" --worktree "$wt" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the trunk's copy did not land a branch that changes finish-pr.sh (exit $rc): $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  origin_file_contains "scripts/finish-pr.sh" "the branch changes the script that lands it" \
+    || cf "(b) the landed trunk does not carry the branch's finish-pr.sh"
+  finish "finish-pr.sh runs only as the trunk's committed copy: the branch's own copy is refused, the trunk's lands the change"
+  teardown
+}
+
 # =============================================================================
 # CASE — THE GATE-EXECUTABLE HARDENING. One case, four legs:
 #   (a) a caller-supplied FINISH_PR_PREMERGE_CMD is REFUSED on the production

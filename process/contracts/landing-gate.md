@@ -66,6 +66,9 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   locally modified ⇒ refuse **before** any destructive step, saying which of the four it was.
 - A gate command was supplied by the caller without the test-only marker ⇒ refuse, and say that
   the gate chooses its own executable.
+- The landing tool itself differs from the trunk's committed copy — a branch's, or a local edit ⇒
+  refuse before any step, naming the trunk's copy to run. A change to the tool lands when the trunk's
+  copy lands it; there is no override, because a tool that may rewrite its own checks judges nothing.
 - The gate is red ⇒ refuse; report the failure, mutate nothing.
 - The item is decomposed and a child is short of the reviewed state ⇒ refuse before any destructive
   step, naming each such child: the advance after the landing would refuse and leave it landed.

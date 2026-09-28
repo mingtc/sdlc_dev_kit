@@ -455,6 +455,13 @@ columns and never the cards.*
 - **If you set `KWT_REMOTE` or `RELEASE_REMOTE` in `.env`, it was never read.** Only the notification scripts read `.env`; the
   board and release scripts take these from the environment. Export them in your shell. `.env.example` now says so.
 
+- **`finish-pr.sh` now runs only as the trunk's committed copy.** A copy that differs from
+  `<remote>/<trunk>:scripts/finish-pr.sh` — a branch's own, or a local edit — refuses before anything
+  moves, with no override. **Run it from the main checkout on the trunk, freshly pulled**, gating the
+  branch's checkout with `--worktree <path>`. **If you edited your `finish-pr.sh` without committing it
+  to the trunk,** land that edit first (by hand, or through a reviewed branch that the trunk's copy lands);
+  until then every landing refuses.
+
 ### Added
 
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a

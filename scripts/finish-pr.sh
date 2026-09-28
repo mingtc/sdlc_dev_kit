@@ -199,6 +199,23 @@ kwt_lock
 kwt_bootstrap
 kwt_sync
 
+# THE LANDER IS THE TRUNK'S COMMITTED COPY. A branch, or a local edit, may not change the script
+# that lands it — the same rule that makes the trunk's verify.sh the judge. No override: a change to
+# this script lands when the trunk's copy lands it, and anything else is the human's call.
+if git -C "$KWT" cat-file -e HEAD:scripts/finish-pr.sh 2>/dev/null \
+   && ! git -C "$KWT" show HEAD:scripts/finish-pr.sh | cmp -s - "${BASH_SOURCE[0]}"; then
+  {
+    echo "Error: this scripts/finish-pr.sh is not ${DEFAULT_BRANCH}'s committed copy — it differs from"
+    echo "       ${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/finish-pr.sh. A branch or a local edit may not change"
+    echo "       the script that lands it. NOTHING WAS CHANGED."
+    echo "       Run the trunk's copy, from the main checkout on ${DEFAULT_BRANCH}, freshly pulled; gate the"
+    echo "       branch's checkout with --worktree:"
+    echo "         git switch ${DEFAULT_BRANCH} && git pull --ff-only && ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <branch checkout>"
+    echo "       If the trunk's copy cannot land this change, ask the human: there is no override."
+  } >&2
+  exit 1
+fi
+
 # Find the issue file in dev_complete/ inside the kanban worktree.
 SRC=""
 while IFS= read -r f; do
