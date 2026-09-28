@@ -298,7 +298,7 @@ Bugs are work items in the unified `progress/` system — same lifecycle as feat
 | **Blocker** | The product is unusable; the core flow cannot execute. | Auto-FAIL. Original issue back to `in_progress/`. Fix before any merge to the trunk. |
 | **Critical** | A major feature is broken with no workaround; a key flow doesn't work. | Auto-FAIL. Original issue back to `in_progress/`. Fix before the next release. |
 | **Major** | A feature is degraded but a workaround exists. | In behavior the suite does not cover, the original issue may PASS to `qa_complete/` if its AC is met. File the bug in `progress/todo/`; PM decides defer-or-fix. |
-| **Minor** | Cosmetic / edge case / polish. | In behavior the suite does not cover, the original issue PASSES. File the bug in `progress/todo/` for the backlog; do not block. |
+| **Minor** | Cosmetic / edge case / polish. | In behavior the suite does not cover, the original issue PASSES if its AC is met. File the bug in `progress/todo/` for the backlog; do not block. |
 
 **A broken test fails the review at any severity** — it is a red gate, and `FAIL_REGRESSION`.
 
