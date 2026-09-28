@@ -19,10 +19,8 @@
 #     and sources nothing from lib/ by design. Do not sweep it in.
 #   * consumers/ holds TEMPLATES that leave for a consumer repository, where scripts/lib/ does
 #     not exist; each keeps its own copy.
-#   * scripts/notify/stall.sh keeps its own window without the KIT-CLASS fallback, so a header
-#     change the others tolerate can shift what it prints. Not ruled.
-#   * scripts/notify/telegram.sh and scripts/test/run.sh could source this file and do not. No
-#     reason is recorded: debt, not a carve-out.
+#   * scripts/test/run.sh could source this file and does not. No reason is recorded: debt, not
+#     a carve-out.
 
 # kit_usage <path to the CALLER's own file>
 kit_usage() {

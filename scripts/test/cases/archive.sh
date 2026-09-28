@@ -673,7 +673,18 @@ case_archive_progress_ordinal_knife() {
   [ "$rc" -ne 0 ] || cf "(control) --before on an all-today log exited 0 — it should not have found a cut"
   [ -f "$R/progress/history/dc.md" ] && cf "(control) --before wrote a chunk on an all-today log"
 
-  finish "archive-progress.sh: --keep-last cuts a same-day log TWICE (the duty cycle), where --before cuts nothing"
+  # THE BOARD'S HEADING: check-board.sh reads `## Log (older)` as § Log, so the knife must too.
+  ap_seed "$R" 20 2026-08-26 || true
+  rm -f "$R/progress/history"/*.md
+  sed -i.bak 's/^## Log$/## Log (older)/' "$R/progress.md"; rm -f "$R/progress.md.bak"
+  grep -qxF '## Log (older)' "$R/progress.md" \
+    || _fixture_die "case_archive_progress_ordinal_knife: the fixture carries no '## Log (older)' heading — the row below would test the plain one."
+  out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone dh --keep-last 8 --apply 2>&1 )"; rc=$?
+  left="$(grep -c '^### 2026-08-26' "$R/progress.md" || true)"
+  [ "$rc" -eq 0 ] && [ "$left" = "8" ] \
+    || cf "under a '## Log (older)' heading --keep-last 8 exited $rc and left $left entries, expected 0 and 8: $(printf '%s' "$out" | head -2 | tr '\n' '|')"
+
+  finish "archive-progress.sh: --keep-last cuts a same-day log TWICE (the duty cycle), where --before cuts nothing, and finds § Log by the board's heading"
   teardown
 }
 

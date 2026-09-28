@@ -209,13 +209,16 @@ PRE_TMP=$(mktemp)
 POST_TMP=$(mktemp)
 trap 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP"' EXIT
 
+# § Log's heading, as the board finds it (check-board.sh arm c); every reader below uses it.
+LOG_RE='^##[[:space:]]+Log'
+
 # ORDINAL MODE: convert --keep-last <N> into "the first CUT_AFTER boundaries are
 # pre, the rest are post". The total is counted from the file with the SAME three
 # boundary arms the awk uses, so the two cannot disagree about what a boundary is.
 CUT_AFTER=-1
 if [ -n "$KEEP_LAST" ]; then
-  TOTAL_ENTRIES=$(awk '
-    /^## Log[[:space:]]*$/ { in_log = 1; next }
+  TOTAL_ENTRIES=$(awk -v log_re="$LOG_RE" '
+    $0 ~ log_re && !in_log { in_log = 1; next }
     in_log != 1 { next }
     /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { n++; dh = 1; next }
     /^### [0-9]{4}-[0-9]{2}-[0-9]{2}/ && !dh { n++; next }
@@ -228,6 +231,7 @@ if [ -n "$KEEP_LAST" ]; then
 fi
 
 awk -v before="$BEFORE" \
+    -v log_re="$LOG_RE" \
     -v cut_after="$CUT_AFTER" \
     -v preamble_file="$PREAMBLE_TMP" \
     -v pre_file="$PRE_TMP" \
@@ -246,7 +250,7 @@ awk -v before="$BEFORE" \
   # Preamble: everything before the "## Log" heading (inclusive of "## Log" itself)
   in_log == 0 {
     print > preamble_file
-    if ($0 ~ /^## Log[[:space:]]*$/) {
+    if ($0 ~ log_re) {
       in_log = 1
     }
     next
@@ -299,7 +303,7 @@ if [ "$PRE_COUNT" = "0" ]; then
   _cb="$(dirname "${BASH_SOURCE[0]}")/check-board.sh"
   THRESH="$(sed -n 's/^PROGRESS_LOG_BYTE_THRESHOLD=\([0-9]*\).*/\1/p' "$_cb" 2>/dev/null | head -1)"
   # § Log as the board slices it: to the next `## ` heading, in bytes (check-board.sh arm c).
-  LOGBYTES="$(awk '/^##[[:space:]]/ { if (f) exit; if ($0 ~ /^##[[:space:]]+Log/) f=1 } f { print }' "$PROGRESS" | wc -c | tr -d ' ')"
+  LOGBYTES="$(awk -v log_re="$LOG_RE" '/^##[[:space:]]/ { if (f) exit; if ($0 ~ log_re) f=1 } f { print }' "$PROGRESS" | wc -c | tr -d ' ')"
 
   # "Nothing to archive" is printed only under the threshold, so a reader grepping for the
   # green phrase never finds it on a run where a rotation was due.

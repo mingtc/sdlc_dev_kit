@@ -107,20 +107,21 @@ Usage:
   ./scripts/kit-init.sh --prefix XYZ --trunk main [options]
 
 Required:
-  --prefix <P>        The issue-id prefix (e.g. GTFS → GTFS-001-<slug>.md).
-                      Stamped into scripts/config.sh and .claude/templates/.
+  --prefix <P>        The issue-id prefix (e.g. GTFS → GTFS-001-<slug>.md). The
+                      run prints each file it stamps with it.
   --trunk <B>         Your trunk / default branch. REQUIRED and CONFIRMED: it is
                       cross-checked against <remote>/HEAD and the run refuses on
                       disagreement. It is never inferred — see below.
 
 Options:
-  --project-name <N>  Your project's name, as the role docs and templates should
-                      spell it (default: this repository's directory name). The
+  --project-name <N>  Your project's name (default: this repository's directory
+                      name). The run prints each file it stamps with it. The
                       name the docs CURRENTLY carry is read out of config.sh's
                       PROJECT_NAME default, never typed here — see "The census".
                       REFUSED, naming the character and its position, if <N>
-                      contains any of  '  "  `  $  \  &  }  |  or a newline: the
-                      name is stamped into a shell assignment in scripts/config.sh,
+                      (or the directory name it defaults to) contains any of
+                      '  "  `  $  \  &  }  |  or a newline: the name is
+                      stamped into a shell assignment in scripts/config.sh,
                       and those either leave that file unsourceable (so every
                       script that reads it dies) or change the stamped value
                       without saying so. It is not rewritten for you.
@@ -186,8 +187,9 @@ need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
 
-# validate_project_name <name> — refuse a --project-name that cannot survive being
-# stamped into config.sh. Returns non-zero and names the character AND its position.
+# validate_project_name <name> [<source>] — refuse a project name that cannot survive being
+# stamped into config.sh. Returns non-zero and names the character AND its position. <source>
+# says where the name came from (default --project-name).
 #
 # The value becomes the default in `PROJECT_NAME="${PROJECT_NAME:-<the value>}"`, through a
 # sed replacement, and a hostile character breaks at one of three stages:
@@ -204,14 +206,14 @@ need_val() {
 # function to it in both directions. It REFUSES rather than sanitising: a rewritten name is one
 # the caller did not type and cannot search for.
 validate_project_name() {
-  local name="$1" pos=1 ch what
+  local name="$1" src="${2:---project-name}" pos=1 ch what
   if [ -z "$name" ]; then
-    echo "Error: --project-name requires a non-empty value." >&2
+    echo "Error: $src requires a non-empty value." >&2
     return 1
   fi
   case "$name" in
     *"
-"*) echo "Error: --project-name — an embedded newline is not allowed." >&2
+"*) echo "Error: $src — an embedded newline is not allowed." >&2
         echo "       It aborts the substitution that writes scripts/config.sh." >&2
         return 1 ;;
   esac
@@ -229,7 +231,7 @@ validate_project_name() {
       '|')  what="a pipe" ;;
     esac
     if [ -n "$what" ]; then
-      echo "Error: --project-name '$name' — $what at position $pos is not allowed." >&2
+      echo "Error: $src '$name' — $what at position $pos is not allowed." >&2
       echo "       The name is stamped into scripts/config.sh as the default of" >&2
       echo "       PROJECT_NAME=\"\${PROJECT_NAME:-<name>}\", and that character would" >&2
       case "$ch" in
@@ -294,6 +296,11 @@ if [ -n "$ROLES_NEW" ] && ! printf '%s' "$ROLES_NEW" | grep -qE '^[A-Za-z][A-Za-
     _r_why="a name is empty or starts with a digit"
   fi
   pf "--roles '$ROLES_NEW' — $_r_why: the set is role names joined by '|', each alphanumeric and starting with a letter."
+fi
+
+# With no --project-name the directory's name is stamped, so it passes the same validator.
+if [ -z "$PROJECT_NAME_NEW" ] && ! validate_project_name "$(basename "$ROOT")" "this directory's name"; then
+  pf "with no --project-name the project name is this directory's, which cannot be stamped (above) — pass --project-name <N>."
 fi
 
 # --- the copy-list minimum ---

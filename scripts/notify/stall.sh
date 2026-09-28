@@ -29,13 +29,9 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-usage() {
-  local src="${BASH_SOURCE[0]:-$0}" start end
-  start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
-  [ -n "$start" ] || start=3
-  end="$(awk -v s="$start" 'NR>=s && !/^#/{print NR-1; exit}' "$src")"
-  sed -n "${start},${end:-40}p" "$src" | sed 's|^# \{0,1\}||'
-}
+# shellcheck source=../lib/usage.sh
+. "$SCRIPT_DIR/../lib/usage.sh"
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 
 QUIET_MINUTES=""; REMOTE="${KWT_REMOTE:-origin}"; DO_NOTIFY=false; SESSION="stall-watch"

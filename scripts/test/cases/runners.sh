@@ -841,7 +841,7 @@ EOF
 
 # CASE — a QA leg that forms NO verdict is filed as NO_VERDICT, never as FAILED_AFTER_FIX_ROUND.
 #
-# FAILED_AFTER_FIX_ROUND means "verdict FAIL, twice" in the ratified table. A leg that
+# FAILED_AFTER_FIX_ROUND is composed from a verdict FAIL in the ratified table. A leg that
 # returned nothing reviewed nothing (MANUAL step 6's could-not-run rule).
 #
 # THE STUB DOES NOT FILL OPTIONAL FIELDS (not required, description beginning "OPTIONAL."), or
@@ -1228,6 +1228,8 @@ tranche-runner.js|park precondition + PASS|true|{"dev":{"status":"blocked"},"par
 wave-runner.js|park precondition + PASS|true|{"dev":{"status":"blocked"},"park-qa":{"precondition_failure":"check-board.sh could not run","verdict":"PASS"}}|wave1|ZZ-1=NO_VERDICT
 tranche-runner.js|CONTROL: FAIL twice|false|{"qa":{"verdict":"FAIL_AC"},"qa2":{"verdict":"FAIL_REGRESSION"}}|ZZ-1|ZZ-1=FAILED_AFTER_FIX_ROUND
 wave-runner.js|CONTROL: FAIL twice|false|{"qa":{"verdict":"FAIL_AC"},"qa2":{"verdict":"FAIL_REGRESSION"}}|wave1|ZZ-1=FAILED_AFTER_FIX_ROUND
+tranche-runner.js|FAIL, fix Dev blocked, no second QA|true|{"qa":{"verdict":"FAIL_AC"},"dev-fix":{"status":"blocked"}}|ZZ-1|ZZ-1=FAILED_AFTER_FIX_ROUND
+wave-runner.js|FAIL, fix Dev blocked, no second QA|true|{"qa":{"verdict":"FAIL_AC"},"dev-fix":{"status":"blocked"}}|wave1|ZZ-1=FAILED_AFTER_FIX_ROUND
 tranche-runner.js|CONTROL: PASS|false|{}|null|ZZ-1=LANDED
 wave-runner.js|CONTROL: PASS|false|{}|null|ZZ-1=LANDED
 tranche-runner.js|CONTROL: PASS beside an EMPTY precondition_failure|false|{"qa":{"precondition_failure":"","verdict":"PASS"}}|null|ZZ-1=LANDED

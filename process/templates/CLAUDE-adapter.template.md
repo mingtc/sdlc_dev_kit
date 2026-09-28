@@ -19,7 +19,7 @@
      so keep its shape. -->
 # CLAUDE.md — <project name> operating manual
 
-**How this project is developed.** <project> runs a **filesystem-as-kanban** process with **roles
+**How this project is developed.** <project name> runs a **filesystem-as-kanban** process with **roles
 as hats**. The transferable half of that process is [`process/MANUAL.md`](process/MANUAL.md) —
 **read it; this file does not repeat it.** The project-specific facts (stack, run commands, the
 quality bar, the gates, credentials, the active-roles table) live in

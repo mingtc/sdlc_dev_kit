@@ -282,6 +282,14 @@ $(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
   teardown
 }
 
+# _usage_consumers — the scripts that source lib/usage.sh, top-level and under scripts/notify/.
+# Matched WITHOUT a line anchor: verify.sh sources the library inside a guard, and an anchored
+# pattern would leave out the consumer with the most fragile load.
+_usage_consumers() {
+  { grep -lF -e '. "$SCRIPT_DIR/lib/usage.sh"' -e '. "$SCRIPT_DIR/../lib/usage.sh"' \
+      "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/notify/*.sh 2>/dev/null || true; }
+}
+
 # =============================================================================
 # CASE — THE HEADER-BLOCK --help RENDERER HAS ONE AUTHORING SITE.
 #
@@ -306,9 +314,7 @@ case_usage_renderer_has_one_authoring_site() {
   # THE CONSUMER SET IS DERIVED, never listed — a literal list in a guard goes blind the
   # first time a script joins or leaves.
   local consumers f base out own n=0
-  # Matched WITHOUT a line anchor: verify.sh sources the library inside a guard, and an
-  # anchored pattern would leave out the consumer with the most fragile load.
-  consumers="$( { grep -lF '. "$SCRIPT_DIR/lib/usage.sh"' "$SB_WORK"/scripts/*.sh 2>/dev/null || true; } )"
+  consumers="$(_usage_consumers)"
   [ -n "$consumers" ] \
     || _fixture_die "case_usage_renderer_has_one_authoring_site: no script sources lib/usage.sh — the per-consumer loop below would run zero times and report PASS."
 
@@ -378,7 +384,7 @@ case_help_does_not_print_the_disposition_marker() {
   cf_reset
   make_sandbox
   local consumers f base at want out n=0 tok='HELPDISPOSITION-SENTINEL'
-  consumers="$( { grep -lF '. "$SCRIPT_DIR/lib/usage.sh"' "$SB_WORK"/scripts/*.sh 2>/dev/null || true; } )"
+  consumers="$(_usage_consumers)"
   [ -n "$consumers" ] \
     || _fixture_die "case_help_does_not_print_the_disposition_marker: no script sources lib/usage.sh — nothing to plant into."
   while IFS= read -r f; do

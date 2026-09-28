@@ -171,16 +171,17 @@ route.
 - **A line the kit ADDS arrives unstamped**, clean or conflicted: `kit-init.sh` stamped the lines
   that existed when it ran. What it stamps: in `.claude/roles/` and `.claude/templates/`, `<PREFIX>`
   becomes your prefix, and so does `KIT-` (before a non-digit in the role docs, before anything in
-  the templates); `<project-name>` becomes your project name; `<trunk>` (templates) and the word
+  the templates); `<project name>` becomes your project name; `<trunk>` (templates) and the word
   `main` (both, and only if your trunk is something else) become your trunk. In `scripts/`: your
   prefix, PRD prefix and project name in `config.sh`, your gate in `verify.sh`, and — if you passed
-  `--roles` — your role set in every script that enforces the shipped one. **In these checks the
+  `--roles` — your role set in every script that enforces the shipped one. In `PROJECT.md`: your project name, prefix and
+  trunk. **In these checks the
   angle-bracket tokens are literal** — they are what to search for, not blanks to fill. The first two
   lines must print nothing; the third must show **your** prefix (the § Known gaps check):
 
   ```sh
-  git grep -nE '<PREFIX>|<project-name>|KIT-[^0-9]' -- .claude/roles | grep -v 'KIT-CLASS:'
-  git grep -nE '<PREFIX>|<project-name>|<trunk>|KIT-' -- .claude/templates | grep -v 'KIT-CLASS:'
+  git grep -nE '<PREFIX>|<project name>|KIT-[^0-9]' -- .claude/roles | grep -v 'KIT-CLASS:'
+  git grep -nE '<PREFIX>|<project name>|<trunk>|KIT-' -- .claude/templates | grep -v 'KIT-CLASS:'
   ./scripts/new-issue.sh --help | grep -o -- '--id [A-Z]*-NNN'
   ```
 
@@ -469,6 +470,12 @@ columns and never the cards.*
   are marked `reports only`, so `kit-init`'s self-check ignores them. **Nothing to do.**
 
 ### Changed
+
+- **`FAILED_AFTER_FIX_ROUND` also covers a fix Dev that did not complete.** MANUAL's row said "verdict FAIL, twice", but a
+  blocked fix Dev gets no second review and the runners already filed it there; the row now says so. Runner behaviour
+  is unchanged.
+- **The project-name blank is spelled `<project name>` everywhere** (`scripts/config.sh`'s unstamped default was
+  `<project-name>`). If applying this release conflicts on your `PROJECT_NAME` line, keep yours.
 
 - **The long-form run report has one home, `dev/launch/`.** `orchestrator.md` sent it to `dev/runs/` while every template put it
   in `dev/launch/`; the kit no longer ships `dev/runs/`. Records already in yours are yours: index the directory in
@@ -845,6 +852,12 @@ columns and never the cards.*
   `archive-progress.sh` measures § Log exactly as `check-board.sh` does; `notify.sh` lists only transport adapters;
   `consumers/install-skills.sh` leaves no empty `.claude/skills/` without a pack; `wave-runner.js`'s park QA walks the same five
   checks as `tranche-runner.js` and moves a failing park back to `in_progress`; both runners log `LAND_READY`. **Nothing to do.**
+
+- **`kit-init.sh` refuses a directory name it cannot stamp.** With no `--project-name`, the directory's name skipped the check the flag
+  gets; a name containing `' " ` $ \\ & } |` stamped an unparseable `scripts/config.sh`, then committed and pushed it. It now refuses before
+  writing and names the character — pass `--project-name`. If you initialized from such a directory without the flag, fix
+  `PROJECT_NAME`'s default in `scripts/config.sh` by hand. Also: `next-id.sh` answers a later `--help`; `notify.sh` with no argument
+  prints its one usage; `archive-progress.sh` finds § Log under any heading `check-board.sh` reads as § Log.
 
 ## [0.6.0] — 2026-09-18
 

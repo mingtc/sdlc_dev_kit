@@ -21,7 +21,8 @@
 #   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, NOTIFY_TEXT, NOTIFY_PROJECT_RESOLVED.
 
 set -uo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Standalone setup commands (chatid/test run by hand) need credentials loaded.
 if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && [ -f "$ROOT/.env" ]; then
@@ -47,13 +48,10 @@ VERB="${1:-send}"
 # A usage request is answered before the verb is interpreted (issue-creation.md § 3).
 case "${VERB:-}" in
   -h|--help|help)
-    # The window is derived at both ends, as lib/usage.sh derives it.
-    _tg_start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
-    [ -n "$_tg_start" ] || _tg_start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "${BASH_SOURCE[0]:-$0}")"
-    [ -n "$_tg_start" ] || _tg_start=3
-    _tg_end="$(awk -v s="$_tg_start" 'NR>=s && !/^#/{print NR-1; exit}' "${BASH_SOURCE[0]:-$0}")"
-    sed -n "${_tg_start},${_tg_end:-22}p" "${BASH_SOURCE[0]:-$0}" | sed 's|^# \{0,1\}||'
-    exit 0 ;;
+    # Loaded here only: sending does not depend on the help renderer.
+    # shellcheck source=../lib/usage.sh
+    . "$SCRIPT_DIR/../lib/usage.sh" || exit 1
+    kit_usage "${BASH_SOURCE[0]:-$0}"; exit 0 ;;
 esac
 
 case "$VERB" in

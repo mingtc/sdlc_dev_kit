@@ -438,7 +438,7 @@ produces this.
 | `LAND_READY` | verdict PASS · landing `deferred` | reviewed green, landing correctly not attempted — **a SUCCESS** |
 | `PARKED_OK` | — | parked, **and the park itself was verified** |
 | `PARK_UNVERIFIED` | — | parked, park not verifiable as written — the LAST park review returned a FAIL verdict |
-| `FAILED_AFTER_FIX_ROUND` | verdict FAIL, twice | failed again after the fix round |
+| `FAILED_AFTER_FIX_ROUND` | verdict FAIL · the one fix round did not bring a PASS (a second FAIL, or a fix Dev that did not complete) | failed, and the one fix round did not cure it |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
 | `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, a value outside the four tokens, or a named `precondition_failure`: **unreviewed, not failed** — halts |
 | `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — or a Dev leg returned nothing (or a status outside its schema), before the issue reached an outcome: **state unknown, not failed** — halts |
@@ -454,9 +454,14 @@ sentence enforceable:
 **`NO_VERDICT` is composed from the ABSENCE of a verdict, and that is not a second verdict
 vocabulary** — it encodes no verdict at all. It is step 6's precondition failure (*"halts before a
 verdict is formed, reported as itself"*) surfacing at the outcome layer, where a runner otherwise
-had only `FAILED_AFTER_FIX_ROUND` — *verdict FAIL, twice* — to spend on it, and filing it there
-asserted FAIL verdicts that were never formed. So the test above is met rather than waived: the composition is
+had only `FAILED_AFTER_FIX_ROUND` — composed from a verdict FAIL — to spend on it, and filing it there
+asserted a FAIL verdict that was never formed. So the test above is met rather than waived: the composition is
 *no verdict · no landing*, and the thing it names already exists in step 6.
+
+**A fix Dev that does not complete leaves the issue `FAILED_AFTER_FIX_ROUND`, not `BLOCKED_DEV`.** The
+issue holds a formed FAIL verdict and has spent its one fix round; there is no third
+(`process/doctrine/fix-execution.md` § A.5c). `BLOCKED_DEV` says the issue is not parkable, which a
+fix Dev's report cannot make true, and the record already carries that Dev's reply.
 
 **`LEG_ABORTED` is not `NO_VERDICT`, and the difference is what the next move is.** `NO_VERDICT` is
 about the issue: its last review leg came back and graded nothing, so the next move is a review.

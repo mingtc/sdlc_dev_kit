@@ -22,17 +22,21 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
-# Arguments are read first (issue-creation.md § 3): a usage request always succeeds and must
-# never print a mintable id; anything else exits 2.
+# Arguments are read first (issue-creation.md § 3): a usage request always succeeds, in any
+# position, and must never print a mintable id; anything else exits 2.
+for _a in "$@"; do
+  case "$_a" in
+    -h|--help)
+      echo "usage: next-id.sh"
+      echo ""
+      echo "  Prints the next free issue id — max(board, ARCHIVE.md) + 1, over this checkout"
+      echo "  and <remote>/<trunk> as last fetched. READ-ONLY, and"
+      echo "  a SUGGESTION rather than an allocation: the creation scripts take --id."
+      echo "  Takes no options."
+      exit 0 ;;
+  esac
+done
 case "${1:-}" in
-  -h|--help)
-    echo "usage: next-id.sh"
-    echo ""
-    echo "  Prints the next free issue id — max(board, ARCHIVE.md) + 1, over this checkout"
-    echo "  and <remote>/<trunk> as last fetched. READ-ONLY, and"
-    echo "  a SUGGESTION rather than an allocation: the creation scripts take --id."
-    echo "  Takes no options."
-    exit 0 ;;
   "") ;;
   *) echo "Error: unknown option: $1 (next-id.sh takes none)" >&2; exit 2 ;;
 esac

@@ -16,7 +16,7 @@
 #    constant, or the harness certifies its own assumption.
 KIT_NEUTRAL_PREFIX="KIT"
 KIT_NEUTRAL_PRD_PREFIX="PRD"
-KIT_NEUTRAL_PROJECT_NAME="<project-name>"
+KIT_NEUTRAL_PROJECT_NAME="<project name>"
 
 # THE ROLE SET THE KIT SHIPS. DECLARED, not derived: `kit-init --roles` rewrites every copy
 # of the alternation under scripts/, so an adopted tree has no unstamped source left to read.
@@ -395,7 +395,7 @@ _neu_array() {
 # nothing, and case_kit_init_happy reds.
 #
 # WHAT IT RESTORES: only the prefix in its ID SHAPE (`<PREFIX>-`), the one stamp whose reverse
-# is decidable. NOT a bare prefix token in prose, `<trunk>` or `<project-name>`: each was
+# is decidable. NOT a bare prefix token in prose, `<trunk>` or `<project name>`: each was
 # stamped blanket, and reversing it would rewrite ordinary words. No kit-init assertion reads
 # them; one that grows such an assertion needs its own invertible reverse, not a wider sed.
 # =============================================================================

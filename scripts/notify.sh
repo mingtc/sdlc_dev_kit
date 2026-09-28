@@ -82,7 +82,7 @@ usage() {
 for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 CMD="${1:-}"
-[ -z "$CMD" ] && { warn "usage: notify.sh <attention|blocked|done|milestone|progress> <message> --session <slug>"; warn "       notify.sh test [--session <slug>]   # no message"; exit 2; }
+[ -z "$CMD" ] && { usage >&2; exit 2; }
 shift || true
 
 case "$CMD" in

@@ -181,7 +181,7 @@ const OUTCOME = Object.freeze({
   LAND_READY:             'LAND_READY',              // verdict PASS, landing deferred — a SUCCESS
   PARKED_OK:              'PARKED_OK',               // parked AND the park verified
   PARK_UNVERIFIED:        'PARK_UNVERIFIED',         // parked, park not verifiable as written
-  FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA failed again after the fix round
+  FAILED_AFTER_FIX_ROUND: 'FAILED_AFTER_FIX_ROUND',  // QA FAIL, and the fix round brought no PASS (a second FAIL, or the fix Dev did not complete)
   BLOCKED_DEV:            'BLOCKED_DEV',             // Dev could not proceed and the issue is not parkable
   NO_VERDICT:             'NO_VERDICT',              // a QA leg formed no ratified verdict — a precondition failure, NOT a FAIL
   LEG_ABORTED:            'LEG_ABORTED',             // a leg's agent() THREW (budget ceiling, refused call) — state unknown, NOT a FAIL

@@ -347,8 +347,8 @@ _role_rel() {   # -> the agreed ROLE_REL, or empty if the hooks disagree or eith
 
 has_kit_init() { [ -f "$REAL_SCRIPTS/kit-init.sh" ]; }
 
-kit_init_sandbox() {
-  make_sandbox
+kit_init_sandbox() {   # [work_subdir] — passed to make_sandbox
+  make_sandbox "$@"
   mkdir -p "$SB_WORK/.claude"
   if [ -d "$REAL_REPO_ROOT/.claude/templates" ]; then
     cp -R "$REAL_REPO_ROOT/.claude/templates" "$SB_WORK/.claude/templates"
@@ -623,12 +623,13 @@ case_kit_init_stamps_project_md() {
   if [ -n "$lived" ]; then
     skp_lived "$L" "PROJECT.md is this project's own once $lived"; return
   fi
-  for tok in '<project name>' '<PREFIX>' '<trunk>'; do
+  # The name blank is config.sh's shipped default, so the sheet and the seam share one spelling.
+  for tok in "$KIT_NEUTRAL_PROJECT_NAME" '<PREFIX>' '<trunk>'; do
     grep -qF -- "$tok" "$pm" \
       || _fixture_die "case_kit_init_stamps_project_md: the shipped PROJECT.md carries no '$tok' — the blank was respelled, and this case would compare against a sheet with nothing to stamp."
   done
   local name='Wid/get.*' want out rc
-  want="$(N="$name" T="$SB_TRUNK" perl -pe 's/\Q<project name>\E/$ENV{N}/g; s/\Q<PREFIX>\E/SBX/g; s/\Q<trunk>\E/$ENV{T}/g' "$pm")"
+  want="$(B="$KIT_NEUTRAL_PROJECT_NAME" N="$name" T="$SB_TRUNK" perl -pe 's/\Q$ENV{B}\E/$ENV{N}/g; s/\Q<PREFIX>\E/SBX/g; s/\Q<trunk>\E/$ENV{T}/g' "$pm")"
   kit_init_sandbox
   cp "$pm" "$SB_WORK/PROJECT.md"
   publish_sandbox
@@ -1328,7 +1329,7 @@ case_kit_init_project_name_refusal() {
   for code in 32 34 36 38 39 92 96 124 125 45 46 97 65 48 44 40; do
     c="$(printf "\\$(printf '%03o' "$code")")"
     nn="A${c}B"
-    printf 'PROJECT_NAME="${PROJECT_NAME:-<project-name>}"\nX=1\n' > "$probe/config.sh"
+    printf 'PROJECT_NAME="${PROJECT_NAME:-<project name>}"\nX=1\n' > "$probe/config.sh"
     if ! sed -i.bak -e "s|^PROJECT_NAME=.*|PROJECT_NAME=\"\${PROJECT_NAME:-${nn}}\"|" "$probe/config.sh" 2>/dev/null; then
       hostile="$hostile$c"; continue          # the substitution itself aborted
     fi
@@ -1416,6 +1417,40 @@ B" ) >/dev/null 2>&1 \
     || cf "sourcing the stamped config.sh yields PROJECT_NAME='$got', not the name that was asked for"
 
   finish "kit-init --project-name: refuses every character measured hostile, accepts every one measured safe, and a clean name still initializes and mints"
+  teardown
+}
+
+# =============================================================================
+# CASE — with no --project-name, the directory's name is validated as the flag's value is.
+# The fallback once skipped validate_project_name: a directory named `The Bell & Rota` stamped
+# config.sh with its own PROJECT_NAME line spliced in at the `&`, and kit-init committed and
+# pushed it. The control is the same directory with --project-name, which must initialize.
+# =============================================================================
+case_kit_init_directory_name_is_validated() {
+  cf_reset
+  local L="kit-init: with no --project-name, a directory name it cannot stamp is refused before anything is written, and --project-name gets past it"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox "The Bell & Rota"
+  publish_sandbox
+
+  local out rc before
+  before="$(git -C "$SB_WORK" rev-parse HEAD)"
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 1 ] || cf "kit-init in a directory named 'The Bell & Rota', with no --project-name, exited $rc; a preflight refusal exits 1: $out"
+  printf '%s\n' "$out" | grep -F 'ampersand at position 10' >/dev/null \
+    || cf "the refusal did not name the character and its position: $out"
+  printf '%s\n' "$out" | grep -F 'pass --project-name' >/dev/null \
+    || cf "the refusal did not name the flag that gets past it: $out"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "HEAD moved during the refusal"
+  [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "the tree was modified during the refusal"
+
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name "The Bell and Rota" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the same directory with --project-name exited $rc: $out"
+  grep -qF 'PROJECT_NAME:-The Bell and Rota}' "$SB_WORK/scripts/config.sh" \
+    || cf "(control) --project-name was not stamped into scripts/config.sh"
+
+  finish "$L"
   teardown
 }
 
@@ -1560,11 +1595,11 @@ case_option_parsing_hygiene() {
 #
 # "Answered before any argument is interpreted": a `--help` in a positional slot, after a
 # subcommand or a message, or with a library the operation needs missing, still exits 0 with
-# the usage text, and does nothing.
+# the usage text, and does nothing. With no argument, notify.sh refuses with that same text.
 # =============================================================================
 case_usage_request_succeeds_in_any_position() {
   cf_reset
-  local L="a usage request exits 0 with its usage text in any position, and with card-head.sh absent"
+  local L="a usage request exits 0 with its usage text in any position, and with card-head.sh absent; notify.sh with no argument prints that text and exits 2"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
@@ -1586,10 +1621,18 @@ case_usage_request_succeeds_in_any_position() {
   _help_ok "after the command"             notify.sh test --help
   _help_ok "in the message slot"           notify.sh done --help
   _help_ok "after the message"             notify.sh done msg --help
+  _help_ok "after a surplus argument"      next-id.sh x --help
   mv "$SB_WORK/scripts/lib/card-head.sh" "$SB_TMP/card-head.sh"
   _help_ok "with scripts/lib/card-head.sh absent" new-prd.sh --help
   mv "$SB_TMP/card-head.sh" "$SB_WORK/scripts/lib/card-head.sh"
   unset -f _help_ok
+
+  # With no argument notify.sh is refused with the one usage text, not a second copy of it.
+  local want
+  want="$(cd "$SB_WORK" && ./scripts/notify.sh --help 2>/dev/null)"
+  rc=0; out="$(cd "$SB_WORK" && ./scripts/notify.sh 2>&1 >/dev/null)" || rc=$?
+  [ "$rc" = 2 ] || cf "notify.sh with no argument → rc=$rc (want 2)"
+  [ "$out" = "$want" ] || cf "notify.sh with no argument printed a usage that is not its --help text: $(printf '%s' "$out" | head -2 | tr '\n' '|')"
 
   local made
   made="$(find "$SB_WORK/progress" "$SB_WORK/requirements" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"

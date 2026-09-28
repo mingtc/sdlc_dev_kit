@@ -201,10 +201,15 @@ case_probe_victim_selection_survives_pipefail() {
   # ── THE SAME HAZARD, THE OTHER READER: `… | grep -q` behind a pipe. Assert the construct's
   #    ABSENCE, not its symptom: the false red appears only above the 64KB buffer, so a case
   #    waiting for it on a realistic payload stays green forever. A bare `grep -q FILE` is fine.
-  local qrows
-  qrows="$(awk '
+  #    A pipe, not `||`, which is no pipe; the instrument check holds the pattern to both forms.
+  local qrows qre='(^|[^|])[|][[:space:]]*grep -q'
+  printf 'a | grep -q b\n'  | awk -v re="$qre" '$0 ~ re { f=1 } END { exit !f }' \
+    || _fixture_die "case_probe_victim_selection_survives_pipefail: the piped-grep pattern misses 'a | grep -q b' — the census would be green over the hazard."
+  printf 'a || grep -q b\n' | awk -v re="$qre" '$0 ~ re { f=1 } END { exit !f }' \
+    && _fixture_die "case_probe_victim_selection_survives_pipefail: the piped-grep pattern matches 'a || grep -q b', which is no pipe — a false red."
+  qrows="$(awk -v re="$qre" '
     /^[[:space:]]*#/ { next }
-    /\|[[:space:]]*grep -q/ { print NR ": " $0 }
+    $0 ~ re { print NR ": " $0 }
   ' "$probe" | _harness_where)"
   [ -z "$qrows" ] \
     || cf "a 'grep -q' behind a pipe is back, and under pipefail it reports the PRODUCER'S death instead of the reader's answer once the producer clears the pipe buffer — drop the -q and redirect (\`| grep -F pat >/dev/null\`), which drains the input and returns the identical status: $(printf '%s' "$qrows" | tr '\n' ' ' | cut -c1-200)"

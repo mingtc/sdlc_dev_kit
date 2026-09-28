@@ -32,7 +32,7 @@ PRD_PREFIX="${PRD_PREFIX:-PRD}"
 
 # Project name, as the role docs and templates spell it. kit-init.sh reads this default to
 # learn the name the travelling docs carry, rewrites them, and counts what it left behind.
-PROJECT_NAME="${PROJECT_NAME:-<project-name>}"
+PROJECT_NAME="${PROJECT_NAME:-<project name>}"
 
 # sed_repl <value> — escape a free-text value for the replacement half of `s|…|REPL|`, where
 # `|`, `\` and `&` are not literal. The one definition; every minting script uses it.
