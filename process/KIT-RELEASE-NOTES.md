@@ -9,7 +9,7 @@ release notes are whatever your `scripts/release.sh` declares in its `RELEASE_DO
 
 - **Which version am I on?** [`KIT-VERSION`](KIT-VERSION), one line, beside this file.
 - **The full engineering log** — every change with its reasoning, and the change file behind it —
-  lives in the kit's own repository, not in this copy. A copy of it here would go stale the day
+  lives with whoever maintains the kit (`PROJECT.md` § The kit, upstream names them), not in this copy. A copy of it here would go stale the day
   you started editing your kit, and it links to files that exist only in that repository.
 
 ## How versions work
@@ -271,7 +271,7 @@ columns and never the cards.*
 
 ### Action required
 
-- **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <PREFIX>-NNN. Merged."` and then
+- **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
   the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
 
@@ -471,9 +471,9 @@ columns and never the cards.*
 
 ### Changed
 
-- **`FAILED_AFTER_FIX_ROUND` also covers a fix Dev that did not complete.** MANUAL's row said "verdict FAIL, twice", but a
-  blocked fix Dev gets no second review and the runners already filed it there; the row now says so. Runner behaviour
-  is unchanged.
+- **`FAILED_AFTER_FIX_ROUND` also covers a fix Dev that reported `blocked`.** MANUAL's row said "verdict FAIL, twice", but a
+  blocked fix Dev gets no second review and the runners already filed it there; the row now says so. (A fix Dev that
+  returned nothing is `LEG_ABORTED` — below.)
 - **The project-name blank is spelled `<project name>` everywhere** (`scripts/config.sh`'s unstamped default was
   `<project-name>`). If applying this release conflicts on your `PROJECT_NAME` line, keep yours.
 
@@ -483,7 +483,9 @@ columns and never the cards.*
 
 - **The card creators fill what they were given:** the H1 carries the minted id, the seed Activity entry is dated, and `--prd`,
   `--discovered-in`, `--pass` and a subtask's parent reach the body; the template's LINKS comment no longer lands in a card.
-  Pack and report templates: delete every blockquote opening `> **GUIDANCE`; the STATUS banner stays.
+
+- **The pack and report templates' fill rule deletes only blockquotes that open `> **GUIDANCE`** — it said every `>` line,
+  which took the STATUS banner too. **Nothing to do.**
 
 - **Shipped scripts carry their rules, not their history.** Script comments keep each rule and a one-line
   reason; incident accounts, superseded designs and restated rules are removed, and some `--help` text is shorter
@@ -840,28 +842,27 @@ columns and never the cards.*
   `*` crosses `/`, and the `**` form skipped tests directly under `src/`. `using-git-worktrees` sets `WORKTREE_DIR` before checking
   it; `writing-plans` saves to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`.
 
-- **Script help corrected:** `finish-pr.sh --help` says the gate checkout must be at the branch's tip, and its exit table puts a
-  missing `<ID>` or a surplus argument under 1; `subtask.sh`'s failed-push message says every later board operation refuses until
-  you publish, not that the commit is about to be destroyed; `release.sh`'s step list names gate (g), so its mutate steps are 9–12.
-
 - **`check-board.sh`'s graduation check finds every file that declares `KIT-DISPOSITION: REPLACE`**, not only `CLAUDE.md` and
   `README.md` (which its output already claimed); a file you marked REPLACE yourself is now checked. **Nothing to do.**
 
-- **Script help and small behaviour fixes.** `--help` succeeds wherever it appears in `subtask.sh`, `notify.sh` and `new-prd.sh`;
-  `verify.sh --help` no longer opens with its KIT-DISPOSITION line; `next-id.sh` ignores id-like directory names above the board;
-  `archive-progress.sh` measures § Log exactly as `check-board.sh` does; `notify.sh` lists only transport adapters;
+- **Script help and small behaviour fixes.** `--help` succeeds wherever it appears in `subtask.sh`, `notify.sh`, `new-prd.sh`
+  and `next-id.sh`; `notify.sh` with no argument prints its one usage; `verify.sh --help` no longer opens with its
+  KIT-DISPOSITION line; `finish-pr.sh --help` says the gate checkout must be at the branch's tip, and its exit table puts a
+  missing `<ID>` or a surplus argument under 1; `subtask.sh`'s failed-push message says every later board operation refuses
+  until you publish, not that the commit is about to be destroyed; `release.sh`'s step list names gate (g), so its mutate steps
+  are 9–12; `next-id.sh` ignores id-like directory names above the board; `notify.sh` lists only transport adapters;
   `consumers/install-skills.sh` leaves no empty `.claude/skills/` without a pack; `wave-runner.js`'s park QA walks the same five
   checks as `tranche-runner.js` and moves a failing park back to `in_progress`; both runners log `LAND_READY`. **Nothing to do.**
 
 - **`kit-init.sh` refuses a directory name it cannot stamp.** With no `--project-name`, the directory's name skipped the check the flag
-  gets; a name containing `' " ` $ \\ & } |` stamped an unparseable `scripts/config.sh`, then committed and pushed it. It now refuses before
-  writing and names the character — pass `--project-name`. If you initialized from such a directory without the flag, fix
-  `PROJECT_NAME`'s default in `scripts/config.sh` by hand. Also: `next-id.sh` answers a later `--help`; `notify.sh` with no argument
-  prints its one usage; `archive-progress.sh` finds § Log under any heading `check-board.sh` reads as § Log.
+  gets; a name containing an apostrophe, double quote, backtick, dollar, backslash, ampersand, closing brace or pipe stamped an
+  unparseable `scripts/config.sh`, then committed and pushed it. It now refuses before writing and names the character — pass
+  `--project-name`. If you initialized from such a directory without the flag, fix `PROJECT_NAME`'s default in
+  `scripts/config.sh` by hand.
 
-- **A heading that starts with "Log" is no longer read as `## Log`.** `## Logistics` or `## Login` was taken for § Log: kit-init
-  could refuse a fresh repository as already lived, `check-board.sh` measured the wrong section, `archive-progress.sh` could move it
-  into history. `archive-progress.sh` also leaves sections after § Log in place — before, a `## Notes` after it could be rotated
+- **§ Log is one declared heading, `## Log` or `## Log <more>`, read the same way by every script.** `## Logistics` or `## Login`
+  was taken for § Log: kit-init could refuse a fresh repository as already lived, `check-board.sh` measured the wrong section,
+  `archive-progress.sh` could move it into history. `archive-progress.sh` also leaves sections after § Log in place — before, a `## Notes` after it could be rotated
   into `progress/history/`; if a past rotation did that, move the section back by hand.
 
 - **`kit-init.sh` no longer half-initializes a repository whose `progress.md` has no `## Log` heading.** It checked only after
@@ -927,7 +928,7 @@ columns and never the cards.*
   Yes → fork. No → fact. Where a fork **constrains** a requirement it gets both — the ruling in the
   register, the PRD **citing the id** — and **never the text in both places**, because the second copy
   is the one that drifts. The rule is stated once, in
-  [`templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) § *Which decisions live HERE*;
+  [`templates/DECISIONS.skeleton.md`](../requirements/DECISIONS.md) § *Which decisions live HERE*;
   `MANUAL.md` § Execution discipline item 6, `.claude/roles/pm.md`, `.claude/templates/PRD.template.md`,
   `.claude/templates/ISSUE.template.md` and `requirements/README.md` point at it rather than restate it.
 
@@ -2334,7 +2335,7 @@ columns and never the cards.*
   **This is not an exception to the projection rule and needs no carve-out:** *"there is no current
   ruling on X"* is the current state, not archived history. **Nothing checks it yet**, and the sheet
   says so: the state is declared now so the check has a token to read when it ships.
-  ([`process/templates/DECISIONS.skeleton.md`](templates/DECISIONS.skeleton.md) § The THIRD state.)
+  ([`process/templates/DECISIONS.skeleton.md`](../requirements/DECISIONS.md) § The THIRD state.)
 
 - **Action required: your `PROJECT.md` liveness row becomes two, and `N/A` is no longer a legal
   answer to one of them.** The liveness ritual was one thing scoped by duration — *any run expected
