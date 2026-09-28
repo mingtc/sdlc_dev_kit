@@ -30,18 +30,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED ─────────────────────
-# (process/contracts/issue-creation.md § 3: a usage request always succeeds). Leading argument
-# only; a later `--help` is answered below the seam. The seam still refuses every operation.
-# This arm reads no seam: if this header ever renders a seam value, give it the creators'
-# guarded read.
+# (process/contracts/issue-creation.md § 3: a usage request always succeeds), in any position,
+# before any argument is interpreted. The seam still refuses every operation. This arm reads no
+# seam: if this header ever renders a seam value, give it the creators' guarded read.
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
-case "${1:-}" in
-  -h|--help) usage; exit 0 ;;
-esac
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
 # No fallback literal: under a guessed prefix the sweep finds no issue files and reports
@@ -81,7 +78,6 @@ while [ $# -gt 0 ]; do
   --apply) DRY_RUN=false; SAW_APPLY=true; shift ;;
   --dry-run) DRY_RUN=true; SAW_DRY=true; shift ;;
   "") shift ;;
-  -h|--help) usage; exit 0 ;;
   # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
   -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
   *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
@@ -121,7 +117,6 @@ DONE_DIR="$KWT/progress/done"
 SUBTASKS_DIR="$KWT/progress/subtasks"
 
 [ -d "$QA_DIR" ] || { echo "Error: $QA_DIR does not exist." >&2; exit 1; }
-[ -f "$ARCHIVE" ] || { echo "Error: $ARCHIVE does not exist at the repo root." >&2; exit 1; }
 # THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED (archive-sweep.md § 3): the folder IS the
 # status, so creating it would turn a mistyped column into a new column holding retired work.
 # Checked before any write: a refusal after one leaves the board worktree dirty.
@@ -143,13 +138,21 @@ if [ ! -d "$DONE_DIR" ]; then
   exit 1
 fi
 
-if ! grep -q '^## Archived$' "$ARCHIVE"; then
-  # The refusal lists what the store holds: archive-sweep.md § 3 requires that listing as the
-  # proof. $DONE_DIR, not a hand-built path: the store is inside the kanban worktree.
+# A MISSING INDEX — the file, or its heading — refuses with the same listing and recipe: the
+# refusal lists what the store holds, which archive-sweep.md § 3 requires as the proof. $DONE_DIR,
+# not a hand-built path: the store is inside the kanban worktree.
+if [ ! -f "$ARCHIVE" ] || ! grep -q '^## Archived$' "$ARCHIVE"; then
   _held="$(find "$DONE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | sort || true)"
   _n_held="$(printf '%s' "$_held" | grep -c . || true)"
-  echo "Error: '## Archived' heading not found in $ARCHIVE." >&2
-  echo "ARCHIVE.md must have a line containing exactly '## Archived' so this script knows where to insert." >&2
+  if [ -f "$ARCHIVE" ]; then
+    echo "Error: '## Archived' heading not found in $ARCHIVE." >&2
+    echo "ARCHIVE.md must have a line containing exactly '## Archived' so this script knows where to insert." >&2
+    _add="add the line '## Archived' to $ARCHIVE"
+  else
+    echo "Error: the index $ARCHIVE does not exist at the repo root." >&2
+    echo "It must hold a line containing exactly '## Archived' so this script knows where to insert." >&2
+    _add="create $ARCHIVE holding the line '## Archived'"
+  fi
   if [ "${_n_held:-0}" -gt 0 ]; then
     echo "" >&2
     echo "AND THE STORE IS NOT EMPTY — progress/done/ already holds ${_n_held} retired item(s):" >&2
@@ -158,14 +161,14 @@ if ! grep -q '^## Archived$' "$ARCHIVE"; then
     echo "  So this is a MISSING INDEX over real history, not a fresh board. Creating the heading" >&2
     echo "  now would publish an index that silently claims those ${_n_held} were never retired." >&2
     echo "  Backfill instead:" >&2
-    echo "    1. add the line '## Archived' to $ARCHIVE" >&2
+    echo "    1. ${_add}" >&2
     echo "    2. add one entry under it for each item listed above, reading its id, type and" >&2
     echo "       title out of the file itself" >&2
     echo "    3. re-run this script; it will index only what is still on the board" >&2
   else
     echo "" >&2
-    echo "  progress/done/ is empty, so nothing is being hidden: add the line '## Archived' to" >&2
-    echo "  $ARCHIVE and re-run. Note in it that the emptiness was true when written." >&2
+    echo "  progress/done/ is empty, so nothing is being hidden: ${_add} and re-run." >&2
+    echo "  Note in it that the emptiness was true when written." >&2
   fi
   exit 1
 fi
@@ -222,6 +225,23 @@ if [ -d "$SUBTASKS_DIR" ]; then
     parent="$(basename "$ptree")"
     parent_reaches_done "$parent" && SUBTASK_TREES+=("$parent")
   done
+fi
+# A TREE WITH AN OPEN SLICE IS NOT COMPLETED: retiring it would file unreviewed work as done
+# (archive-sweep.md § 3). Refused before any write, naming every open card.
+_open_all=""
+for p in "${SUBTASK_TREES[@]:-}"; do
+  [ -n "$p" ] || continue
+  _open="$(kwt_open_subtasks "$p")"
+  [ -z "$_open" ] || _open_all="${_open_all}${_open}"$'\n'
+done
+if [ -n "$_open_all" ]; then
+  {
+    echo "Error: a parent being retired has subtask(s) not in qa_complete/ — refusing before any write:"
+    printf '%s' "$_open_all" | sed 's/^/    /'
+    echo "       A parent is complete only when every subtask is. Finish or re-slice them with"
+    echo "       ./scripts/subtask.sh, or move the parent back with ./scripts/move-issue.sh, then re-run."
+  } >&2
+  exit 1
 fi
 # Likewise a tree: `git mv` onto an existing directory nests the tree inside it, silently.
 for p in "${SUBTASK_TREES[@]:-}"; do

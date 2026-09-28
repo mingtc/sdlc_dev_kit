@@ -76,14 +76,15 @@ state — so that every tool and every reader downstream can rely on the shape w
 
 - No identifier supplied ⇒ refuse; do not mint one silently. *The specification creator is § 2's
   declared exception and derives its own; every other creator here refuses.*
-- The identifier is malformed, or already in use on the board ⇒ refuse (already-retired ⇒ warn
-  loudly, per [id-minting.md](id-minting.md)).
+- The identifier is malformed, or already in use on the board ⇒ refuse (an id found only in the retired
+  index, with no card left on the board ⇒ warn loudly, per [id-minting.md](id-minting.md)).
 - The template for the requested kind is missing ⇒ refuse; **never** fall back to writing an
   ad-hoc shape, because that shape immediately becomes a second definition.
 - An item with the same name already exists ⇒ refuse rather than overwriting. Overwriting a
   description of work is data loss with no undo in the reader's hands.
 - A decomposition names a parent that does not exist, is itself a child, or is retired (done or
-  declined) ⇒ refuse. A done parent's tree is swept with it, new children included.
+  declined) ⇒ refuse. A parent already in the reviewed state still takes children; its tree is not
+  swept while any child is short of that state ([archive-sweep.md](archive-sweep.md) § 3).
 - **An argument standing in a NAME's position that carries an option's syntax — a leading dash —
   ⇒ refuse, non-zero, naming the position it was standing in.** A dash-leading token is never a
   name, in any position, however plausible it looks.

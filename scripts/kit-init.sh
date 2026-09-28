@@ -124,7 +124,8 @@ Options:
                       stamped into a shell assignment in scripts/config.sh,
                       and those either leave that file unsourceable (so every
                       script that reads it dies) or change the stamped value
-                      without saying so. It is not rewritten for you.
+                      without saying so. It is not rewritten for you. A <N>
+                      starting with '-' is refused too: it is an option.
   --prd-prefix <P>    PRD id prefix (default: left as config.sh has it).
   --roles "A|B|C"     Your role set, as the ERE alternation the commit-msg hook
                       enforces: names of letters and digits, each starting with a
@@ -211,6 +212,14 @@ validate_project_name() {
     echo "Error: $src requires a non-empty value." >&2
     return 1
   fi
+  # A leading '-' is an option, never a name (issue-creation.md § 3). A directory's name is not
+  # an argument, so it is not held to this.
+  if [ "$src" = "--project-name" ]; then
+    case "$name" in
+      -*) echo "Error: '$name' is not a --project-name value — a leading '-' is never a name." >&2
+          return 1 ;;
+    esac
+  fi
   case "$name" in
     *"
 "*) echo "Error: $src — an embedded newline is not allowed." >&2
@@ -238,14 +247,25 @@ validate_project_name() {
         "'"|'"'|'`') echo "       leave config.sh unparseable — every script that sources it dies." >&2 ;;
         *)           echo "       change the stamped value without saying so." >&2 ;;
       esac
-      echo "       It is not rewritten for you: the name you type is the name you get." >&2
-      echo "       Spell it without that character (a hyphen or a space reads fine)." >&2
+      if [ "$src" = "--project-name" ]; then
+        echo "       It is not rewritten for you: the name you type is the name you get." >&2
+        echo "       Spell it without that character (a hyphen or a space reads fine)." >&2
+      else
+        echo "       It is not rewritten for you: pass --project-name <N> to name the project" >&2
+        echo "       without that character (a hyphen or a space reads fine)." >&2
+      fi
       return 1
     fi
     pos=$(( pos + 1 ))
   done
   return 0
 }
+
+# A usage request always succeeds, in any position, before any argument is interpreted
+# (issue-creation.md § 3): in a value slot it would otherwise be stamped, committed and pushed.
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
+# The arguments as typed, for the refusal's re-run line.
+ORIG_ARGS=("$@")
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -257,7 +277,6 @@ while [ $# -gt 0 ]; do
     --roles)          need_val "$@"; ROLES_NEW="$2"; shift 2 ;;
     --gate-command)   need_val "$@"; GATE_CMD="$2"; shift 2 ;;
     --skip-self-check) RUN_SELFCHECK=false; shift ;;
-    -h|--help)        usage; exit 0 ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; echo "Try --help." >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; echo "Try --help." >&2; exit 1 ;;
@@ -270,6 +289,9 @@ step() { printf '\n── %s\n' "$*"; }
 # Preflight failures accumulate so ONE run reports every problem.
 PF=()
 pf() { PF+=("$1"); }
+# A remote/trunk precondition: the refusal prints the topology recipe only when one is unmet.
+PF_TOPOLOGY=0
+pft() { PF+=("$1"); PF_TOPOLOGY=1; }
 
 # =============================================================================
 # 1. PREFLIGHT — refuse before writing anything.
@@ -346,9 +368,9 @@ fi
 
 # --- git repo, born HEAD, identity ---
 if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  pf "$ROOT is not a git repository — run 'git init' first."
+  pft "$ROOT is not a git repository — run 'git init' first."
 elif ! git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
-  pf "this repository has no commits yet — make the first commit on '$TRUNK' and push it (see the recipe below)."
+  pft "this repository has no commits yet — make the first commit on '$TRUNK' and push it (see the recipe below)."
 fi
 git -C "$ROOT" config user.email >/dev/null 2>&1 || pf "git user.email is not set — the board scripts commit."
 git -C "$ROOT" config user.name  >/dev/null 2>&1 || pf "git user.name is not set — the board scripts commit."
@@ -356,7 +378,7 @@ git -C "$ROOT" config user.name  >/dev/null 2>&1 || pf "git user.name is not set
 # --- the remote precondition (posture: GUIDE, never bootstrap) ---
 REMOTE_HEAD=""
 if ! git -C "$ROOT" remote get-url "$REMOTE" >/dev/null 2>&1; then
-  pf "no '$REMOTE' remote — the kanban worktree fetches, resets and pushes through it."
+  pft "no '$REMOTE' remote — the kanban worktree fetches, resets and pushes through it."
 else
   # A filesystem remote must be ABSOLUTE: the kanban worktree runs git from .kanban-wt/,
   # where a relative URL resolves somewhere else.
@@ -367,19 +389,19 @@ else
   esac
   REMOTE_HEAD="$(git -C "$ROOT" symbolic-ref --short "refs/remotes/$REMOTE/HEAD" 2>/dev/null | sed "s|^$REMOTE/||" || true)"
   if [ -z "$REMOTE_HEAD" ]; then
-    pf "$REMOTE/HEAD is not set — WITHOUT IT the trunk is resolved by fallback in kanban-worktree.sh and your first board move may push to a branch nobody chose."
+    pft "$REMOTE/HEAD is not set — WITHOUT IT the trunk is resolved by fallback in kanban-worktree.sh and your first board move may push to a branch nobody chose."
   elif [ -n "$TRUNK" ] && [ "$REMOTE_HEAD" != "$TRUNK" ]; then
-    pf "--trunk '$TRUNK' disagrees with $REMOTE/HEAD → '$REMOTE_HEAD'. One of the two is wrong; fix it rather than let the scripts pick."
+    pft "--trunk '$TRUNK' disagrees with $REMOTE/HEAD → '$REMOTE_HEAD'. One of the two is wrong; fix it rather than let the scripts pick."
   fi
   if [ -n "$TRUNK" ] && ! git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$REMOTE/$TRUNK" >/dev/null 2>&1; then
-    pf "$REMOTE/$TRUNK does not exist locally — push the trunk and fetch before initializing."
+    pft "$REMOTE/$TRUNK does not exist locally — push the trunk and fetch before initializing."
   fi
 fi
 
 # --- the operator's checkout: on the trunk, no uncommitted TRACKED changes ---
 CUR_BRANCH="$(git -C "$ROOT" symbolic-ref --short HEAD 2>/dev/null || echo "")"
 if [ -n "$TRUNK" ] && [ "$CUR_BRANCH" != "$TRUNK" ]; then
-  pf "this checkout is on '${CUR_BRANCH:-a detached HEAD}', not the trunk '$TRUNK' — initialize from the trunk (the board lives there)."
+  pft "this checkout is on '${CUR_BRANCH:-a detached HEAD}', not the trunk '$TRUNK' — initialize from the trunk (the board lives there)."
 fi
 if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null || true)" ]; then
   pf "this checkout has uncommitted changes to TRACKED files — commit or stash them; kit-init commits the tree it initializes."
@@ -558,24 +580,29 @@ if [ ${#PF[@]} -gt 0 ]; then
     echo ""
     for p in "${PF[@]}"; do echo "    • $p"; done
     echo ""
-    echo "  The remote + trunk recipe (do all four; step 1 is the OFFLINE case — a local"
-    echo "  bare repo is a perfectly good '$REMOTE', and needs no forge account):"
-    echo ""
-    echo "    1.  git init --bare /path/to/$(basename "$ROOT").git"
-    echo "        git -C /path/to/$(basename "$ROOT").git symbolic-ref HEAD refs/heads/${TRUNK:-<your-trunk>}   # the bare side's HEAD names the trunk"
-    echo "        git remote add $REMOTE /path/to/$(basename "$ROOT").git"
-    echo "    2.  git switch -c ${TRUNK:-<your-trunk>}          # if the trunk does not exist yet"
-    echo "        git add -A && MSG_OK=1 git commit -m 'init'   # if there are no commits yet: commit the kit AS UNZIPPED"
-    echo "    3.  git push -u $REMOTE ${TRUNK:-<your-trunk>}"
-    echo "    4.  git remote set-head $REMOTE ${TRUNK:-<your-trunk>}   # ← the step whose absence is SILENT"
-    echo ""
-    echo "  Step 4 names the branch EXPLICITLY on purpose: 'set-head $REMOTE -a' asks the"
-    echo "  remote what its own HEAD is, and a freshly created bare repo has none — it fails"
-    echo "  with 'Cannot determine remote HEAD'. Step 1's symbolic-ref line writes the same"
-    echo "  fact on the bare side, at creation — without it the bare repo's HEAD keeps git's"
-    echo "  own default branch name, and a clone of it checks out nothing. Do both."
-    echo ""
-    echo "  Then re-run:  ./scripts/kit-init.sh --prefix <P> --trunk ${TRUNK:-<your-trunk>}"
+    if [ "$PF_TOPOLOGY" -eq 1 ]; then
+      # Quoted for the shell: the directory's name may carry a space or an apostrophe.
+      _bare="$(printf '%q' "$(basename "$ROOT").git")"
+      echo "  The remote + trunk recipe (skip a step already done; step 1 is the OFFLINE case — a local"
+      echo "  bare repo is a perfectly good '$REMOTE', and needs no forge account):"
+      echo ""
+      echo "    1.  git init --bare /path/to/${_bare}"
+      echo "        git -C /path/to/${_bare} symbolic-ref HEAD refs/heads/${TRUNK:-<your-trunk>}   # the bare side's HEAD names the trunk"
+      echo "        git remote add $REMOTE /path/to/${_bare}"
+      echo "    2.  git switch -c ${TRUNK:-<your-trunk>}          # if the trunk does not exist yet"
+      echo "        git add -A && MSG_OK=1 git commit -m 'init'   # if there are no commits yet: commit the kit AS UNZIPPED"
+      echo "    3.  git push -u $REMOTE ${TRUNK:-<your-trunk>}"
+      echo "    4.  git remote set-head $REMOTE ${TRUNK:-<your-trunk>}   # ← the step whose absence is SILENT"
+      echo ""
+      echo "  Step 4 names the branch EXPLICITLY on purpose: 'set-head $REMOTE -a' asks the"
+      echo "  remote what its own HEAD is, and a freshly created bare repo has none — it fails"
+      echo "  with 'Cannot determine remote HEAD'. Step 1's symbolic-ref line writes the same"
+      echo "  fact on the bare side, at creation — without it the bare repo's HEAD keeps git's"
+      echo "  own default branch name, and a clone of it checks out nothing. Do both."
+      echo ""
+    fi
+    echo "  Fix the above, then re-run (adding any option a line above names):"
+    echo "    ./scripts/kit-init.sh$(printf ' %q' ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
   } >&2
   exit 1
 fi

@@ -34,10 +34,11 @@
 # Exit 0 ALWAYS: drift is in the output, not the exit status. Read-only; it never mutates.
 set -uo pipefail
 
-# ── ARGUMENT SHAPE (process/contracts/issue-creation.md § 3): an unknown option exits 2 before
-#    any inspection. The exit-0 convention covers what the report FOUND, not a mis-invocation.
-while [ $# -gt 0 ]; do
-  case "$1" in
+# ── ARGUMENT SHAPE (process/contracts/issue-creation.md § 3): a usage request is answered first,
+#    in any position; an unknown option exits 2 before any inspection. The exit-0 convention
+#    covers what the report FOUND, not a mis-invocation.
+for _a in "$@"; do
+  case "$_a" in
     -h|--help)
       echo "Usage: $(basename "$0")"
       echo ""
@@ -47,12 +48,13 @@ while [ $# -gt 0 ]; do
       echo "because drift belongs in the output and not in the exit status. Read-only —"
       echo "it inspects files and 'git status', and never mutates."
       exit 0 ;;
-    *)
-      echo "Error: unknown option: $1" >&2
-      echo "  $(basename "$0") takes no options; run it with no arguments." >&2
-      exit 2 ;;
   esac
 done
+if [ $# -gt 0 ]; then
+  echo "Error: unknown option: $1" >&2
+  echo "  $(basename "$0") takes no options; run it with no arguments." >&2
+  exit 2
+fi
 
 # ── Greppable defaults: consumers and tests DERIVE these with sed. Never re-type them elsewhere.
 STATUS_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'

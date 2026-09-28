@@ -99,6 +99,9 @@ indexed store — **without ever losing the record it is retiring**.
   contradicts".*
 - The index has no recognisable insertion point ⇒ refuse, saying exactly what heading is expected.
   Appending at a guess corrupts the one document that must stay ordered.
+- A dependent tree due to retire with its parent holds a child that is not in the terminal
+  reviewed state ⇒ refuse, naming each such child. Retiring it would file unreviewed work as
+  completed, and nothing after the sweep reads the difference.
 - Nothing is eligible ⇒ say so plainly and exit successfully. Nothing to do is not an error.
   **But "nothing matched THE SELECTOR I WAS GIVEN" is a different fact from "nothing is due", and
   reporting the first as the second is a false all-clear.** So when nothing is eligible **while the

@@ -71,7 +71,8 @@
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
 #
-# The gate checkout (the main one, or --worktree's) must be at the branch's tip; otherwise
+# The gate checkout (the main one, or --worktree's) must be at the branch's tip, and a
+# decomposed issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/; otherwise
 # this refuses before anything moves.
 #
 # Examples:
@@ -95,11 +96,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
-# Option hygiene (process/contracts/issue-creation.md § 3): --help exits 0, a leading '-' is never
-# an issue id, and an unknown option exits 2 instead of being swallowed.
-case "${1:-}" in
-  -h|--help) usage; exit 0 ;;
-esac
+# Option hygiene (process/contracts/issue-creation.md § 3): --help exits 0 in any position, before
+# any argument is interpreted; a leading '-' is never an issue id; an unknown option exits 2
+# instead of being swallowed.
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 ISSUE_ID="${1:-}"
 [ -z "$ISSUE_ID" ] && { usage >&2; exit 1; }
@@ -122,7 +122,6 @@ while [ $# -gt 0 ]; do
     --note) need_val "$@"; NOTE="$2"; NOTE_GIVEN=true; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --discard-dirty) DISCARD_DIRTY=true; KWT_DISCARD_DIRTY=true; shift ;;
-    -h|--help) usage; exit 0 ;;
     --apply) { echo "Error: finish-pr.sh has no --apply — it MUTATES by default, which is the opposite"
                echo "       of the archive sweeps. Use --dry-run to preview. NOTHING WAS READ OR TOUCHED."; } >&2
              exit 2 ;;
@@ -189,7 +188,9 @@ if [ -n "$WORKTREE" ]; then
     } >&2
     exit 1
   fi
-  GATE_WORKTREE="$WORKTREE"
+  # ABSOLUTE: the post-merge reading runs the gate from inside this checkout, where a relative
+  # spelling names a path that does not exist.
+  GATE_WORKTREE="$(cd "$WORKTREE" && pwd)"
 fi
 
 # Take the lock + bootstrap + sync the worktree to <remote>/<trunk> BEFORE reading
@@ -219,6 +220,19 @@ if [ -z "$SRC" ]; then
   exit 1
 fi
 
+# A DECOMPOSED PARENT LANDS ONLY WHEN EVERY SUBTASK IS REVIEWED: the advance below would refuse
+# after the merge had landed (the mover's rule), so it is refused here, before anything moves.
+_open="$(kwt_open_subtasks "$ISSUE_ID")"
+if [ -n "$_open" ]; then
+  {
+    echo "Error: ${ISSUE_ID} has subtask(s) not yet in qa_complete/:"
+    printf '%s\n' "$_open" | sed 's/^/    /'
+    echo "       A parent advances to qa_complete/ only when every subtask has, so it does not land"
+    echo "       before then. Move them with ./scripts/subtask.sh first. NOTHING WAS CHANGED."
+  } >&2
+  exit 1
+fi
+
 # Resolve the branch to merge (frontmatter unless --branch given).
 if [ -z "$BRANCH" ]; then
   BRANCH=$(awk '/^branch:/{sub(/^branch: */, ""); print; exit}' "$SRC")
@@ -240,7 +254,7 @@ if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/n
   exit 1
 fi
 
-# ── THE GATE MUST BE THE COMMITTED ONE, AT THE REVISION BEING LANDED
+# ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
 #    (§ 3). The test is the REVISION, not the ref name: a detached checkout exactly at the branch
 #    tip is accepted. This binds the PRE-merge tree only; the post-merge block reads the landed
@@ -267,9 +281,10 @@ if [ "$ALLOW_STUB" != "true" ]; then
       echo "Error: the landing gate is $_gate_err."
       echo "       Refusing BEFORE any destructive step: no squash, no push, no branch"
       echo "       deletion, no issue advance."
-      echo "       The gate that runs must be the COMMITTED scripts/verify.sh at the"
-      echo "       revision being landed (process/contracts/landing-gate.md § 2-3) —"
-      echo "       otherwise the run proves something about a tree that is not shipping."
+      echo "       The gate checkout must hold scripts/verify.sh COMMITTED and unmodified at"
+      echo "       the revision being landed; where the branch changes it, the trunk's copy"
+      echo "       judges it (process/contracts/landing-gate.md § 2-3). Otherwise the run"
+      echo "       proves something about a tree that is not shipping."
       echo ""
       if [ -n "$_gate_absent" ]; then
         echo "  There is no usable gate here at all. The gate runner is a HARD landing"
@@ -313,7 +328,6 @@ fi
 # ── BLOCKING pre-merge gate: a RED gate aborts before anything destructive (no squash, push,
 #    branch deletion or issue advance). The lock is held; the EXIT trap releases it.
 echo ""
-echo "Pre-merge gate (blocking): ${GATE_WORKTREE}/scripts/verify.sh --quick"
 # No executability check here, and do not add one: the gate-provenance block above already
 # refuses a missing or non-executable gate, with the advice on what to do about it.
 # THE JUDGE IS THE TRUNK'S RUNNER (contracts/landing-gate.md § 2): where the branch changes
@@ -331,10 +345,16 @@ elif git -C "$KWT" cat-file -e HEAD:scripts/verify.sh 2>/dev/null \
     echo "Error: could not stage ${DEFAULT_BRANCH}'s scripts/verify.sh in '${GATE_WORKTREE}/scripts/' — refusing to merge '${BRANCH}'." >&2
     exit 1
   fi
-  echo "  '${BRANCH}' changes scripts/verify.sh, so ${DEFAULT_BRANCH}'s copy judges it; the branch's governs from the next landing."
   PREMERGE_CMD=("$_trunk_gate" --quick)
 else
   PREMERGE_CMD=("$GATE_WORKTREE/scripts/verify.sh" --quick)
+fi
+# The banner names the runner that actually runs.
+if [ -n "$_trunk_gate" ]; then
+  echo "Pre-merge gate (blocking): ${DEFAULT_BRANCH}'s scripts/verify.sh --quick, run in ${GATE_WORKTREE}"
+  echo "  '${BRANCH}' changes scripts/verify.sh, so ${DEFAULT_BRANCH}'s copy judges it; the branch's governs from the next landing."
+else
+  echo "Pre-merge gate (blocking): ${PREMERGE_CMD[*]}"
 fi
 if "${PREMERGE_CMD[@]}"; then
   [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"

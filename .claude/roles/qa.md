@@ -146,6 +146,7 @@ End state: a verdict (PASS or FAIL), the issue file moved to its next folder, an
 - Adjacent features still work (smoke-walk anything previously shipped — in `progress/qa_complete/` or, once swept by `archive.sh`, `progress/done/`).
 
 Action on PASS:
+- **A decomposed issue** (one with `progress/subtasks/<PREFIX>-NNN/`) passes only when every subtask is in `qa_complete/`: `finish-pr.sh` and `move-issue.sh` refuse the parent otherwise, naming the open slices.
 - Run `./scripts/finish-pr.sh <PREFIX>-NNN` — one forge-agnostic pure-git command (no forge CLI, no approve step) that:
   1. Squash-merges the work branch into `<trunk>` locally and pushes, then deletes the branch (local + remote).
   2. Advances the issue file `dev_complete/ → qa_complete/` via `move-issue.sh`, inside the standing kanban worktree: commits as `[QA] <PREFIX>-NNN → qa_complete: ...` and pushes. **No commit is made in your checkout** — if it is sitting clean on the trunk it gets fast-forwarded so the board view stays live. It **can be moved**, and the run says so when it is: a clean checkout on the landed branch is switched to the trunk, and the checkout the gate ran in is **detached at the landed commit** for the post-merge reading (left alone if it has uncommitted changes).

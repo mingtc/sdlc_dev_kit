@@ -16,8 +16,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── A USAGE REQUEST IS ANSWERED BEFORE THE SEAM IS SOURCED (issue-creation.md § 3: it always
-# succeeds). Leading argument only; a later `--help` is answered below the seam, which still
-# refuses every operation. The arm reads the seam itself, guarded, for the usage text alone.
+# succeeds), in any position, before any argument is interpreted; the seam still refuses every
+# operation. The arm reads the seam itself, guarded, for the usage text alone.
 # This is the creators' canonical statement; the others point here.
 CONFIG="$ROOT/scripts/config.sh"
 
@@ -32,13 +32,15 @@ usage() {
   echo "  -h, --help    this text (exit 0)."
 }
 
-# A LEADING '-' IS NEVER A NAME (issue-creation.md § 3): --help exits 0; a dash-leading <slug>
-# or an unknown option refuses with 2. Decided ahead of the seam so the status is 2 on a tree
-# without one. It needs no option list: the leading token here is always a <slug>.
+# A LEADING '-' IS NEVER A NAME (issue-creation.md § 3): --help anywhere exits 0; a dash-leading
+# <slug> or an unknown option refuses with 2. Decided ahead of the seam so the status is 2 on a
+# tree without one. It needs no option list: the leading token here is always a <slug>.
+for _a in "$@"; do
+  case "$_a" in
+    -h|--help) [ -f "$CONFIG" ] && . "$CONFIG" || true; usage; exit 0 ;;
+  esac
+done
 case "${1:-}" in
-  -h|--help)
-    [ -f "$CONFIG" ] && . "$CONFIG" || true
-    usage; exit 0 ;;
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
       usage >&2
       exit 2 ;;
@@ -107,7 +109,6 @@ while [ $# -gt 0 ]; do
     --id) need_val "$@"; ID="$2"; shift 2 ;;
     --prd) need_val "$@"; PRD="$2"; shift 2 ;;
     --stories) need_val "$@"; STORIES="$2"; shift 2 ;;
-    -h|--help) usage; exit 0 ;;
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -152,7 +153,8 @@ fi
 rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1
-# What the mint knows goes into the body too: the H1's id, the seed entry's date, the PRD (lib/card-head.sh).
+# What the mint knows goes into the body too: the H1's id, the seed entry's date, the PRD, the
+# stories and the plan's id (lib/card-head.sh). An absent flag leaves its blank for the author.
 kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
 PRD_FILE=""
 if [ -n "$PRD" ]; then
@@ -160,7 +162,11 @@ if [ -n "$PRD" ]; then
     [ -f "$f" ] && [ -z "$PRD_FILE" ] && PRD_FILE="$(basename "$f")"
   done
 fi
-kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" || exit 1
+STORY_IDS=""
+[ -z "$STORIES" ] || STORY_IDS="$(printf '%s' "$STORIES" | sed 's/,/, /g')"
+kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" "<story ids>" "$STORY_IDS" \
+  "dev/plans/YYYY-MM-DD-<PREFIX>-NNN-" "dev/plans/YYYY-MM-DD-$ID-" \
+  "dev/plans/YYYY-MM-DD-${ISSUE_PREFIX}-NNN-" "dev/plans/YYYY-MM-DD-$ID-" || exit 1
 
 
 kit_publish_card "$WORK" "$DEST" || exit 1

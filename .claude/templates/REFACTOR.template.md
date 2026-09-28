@@ -108,7 +108,8 @@ What this issue does **not** touch. Often easier to list for refactors than for 
 ## Activity
 
 `./scripts/move-issue.sh` appends a line for you on every move; append one by hand only when a
-significant decision is logged elsewhere.
+significant decision is logged elsewhere. Elsewhere is the decision register,
+[`requirements/DECISIONS.md`](../../requirements/DECISIONS.md); cite its id as `[decision: D-NN]`.
 
 **The entry shape is the INDENTED line below, deliberately not a bullet** — it is an example, not
 an entry. Copy it out; do not leave it in place as a bullet.

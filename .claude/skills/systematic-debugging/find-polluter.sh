@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Bisection script to find which test creates unwanted files/state
-# Usage: TEST_CMD=<your single-file test command> ./find-polluter.sh <path_that_should_not_exist> <test_pattern>
-# Example: TEST_CMD="npm test --" ./find-polluter.sh 'packages/core/.git' './src/*.test.ts'
+# Usage, FROM THE PROJECT ROOT (it searches, and checks the path, relative to where it runs):
+#   TEST_CMD=<your single-file test command> .claude/skills/systematic-debugging/find-polluter.sh <path_that_should_not_exist> <test_pattern>
+# Example: TEST_CMD="npm test --" .claude/skills/systematic-debugging/find-polluter.sh 'packages/core/.git' './src/*.test.ts'
 #   NOTE THE LEADING './'. `find .` emits paths that begin './', and -path matches the WHOLE
 #   emitted path — so a pattern without it matches nothing. In -path, `*` also crosses `/`, so
 #   './src/*.test.ts' already covers nested directories ('./src/**/*.test.ts' would skip src/ itself).
@@ -12,7 +13,7 @@
 set -e
 
 if [ $# -ne 2 ]; then
-  echo "Usage: $0 <path_that_should_not_exist> <test_pattern>"
+  echo "Usage (from the project root): $0 <path_that_should_not_exist> <test_pattern>"
   echo "Example: $0 'packages/core/.git' './src/*.test.ts'   # the leading ./ is required — see header"
   exit 1
 fi
@@ -35,7 +36,8 @@ TEST_FILES=$(find . -path "$TEST_PATTERN" | sort)
 TOTAL=$(printf '%s' "$TEST_FILES" | grep -c '' || true)
 if [ "${TOTAL:-0}" -eq 0 ]; then
   echo "no test files matched $TEST_PATTERN — refusing to report clean over zero files" >&2
-  echo "  the leading './' is required, and -path matches the WHOLE emitted path — see the header" >&2
+  echo "  it searches $(pwd) — run it from the project root. The leading './' is required, and" >&2
+  echo "  -path matches the WHOLE emitted path — see the header" >&2
   exit 2
 fi
 
@@ -50,8 +52,9 @@ fi
 echo "Found $TOTAL test files"
 echo ""
 
+# One path per LINE, never per word: a path with a space is one test, not fragments that never run.
 COUNT=0
-for TEST_FILE in $TEST_FILES; do
+while IFS= read -r TEST_FILE; do
   COUNT=$((COUNT + 1))
 
   echo "[$COUNT/$TOTAL] Testing: $TEST_FILE"
@@ -70,11 +73,13 @@ for TEST_FILE in $TEST_FILES; do
     ls -la "$POLLUTION_CHECK"
     echo ""
     echo "To investigate:"
-    echo "  $TEST_CMD $TEST_FILE    # Run just this test"
-    echo "  cat $TEST_FILE         # Review test code"
+    echo "  $TEST_CMD $(printf '%q' "$TEST_FILE")    # Run just this test"
+    echo "  cat $(printf '%q' "$TEST_FILE")         # Review test code"
     exit 1
   fi
-done
+done <<TEST_FILES_EOF
+$TEST_FILES
+TEST_FILES_EOF
 
 echo ""
 echo "✅ No polluter found - all tests clean!"

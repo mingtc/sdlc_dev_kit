@@ -13,7 +13,7 @@
 id: <PREFIX>-NNN
 type: bug
 title: <one-line summary>
-severity: Critical              # Blocker | Critical | Major | Minor
+severity: <Blocker | Critical | Major | Minor>
 environment: <runtime + OS>     # + dependency versions, live-vs-fixture state
 prd: PRD-NNN                    # PRD whose behavior is regressed; n/a if none
 prd_reason:                     # with prd: n/a only — ONE line: why no PRD covers the broken behaviour
@@ -52,7 +52,7 @@ One paragraph: what is broken, which surface of the project owns it, and which P
 
 ## E — Expected vs Actual
 
-**Expected** (per [PRD-NNN § F1 § S1](../../requirements/PRD-NNN-<slug>.md)):
+**Expected** (per [PRD-NNN](../../requirements/PRD-NNN-<slug>.md), story <story ids>):
 - <what should happen, citing the AC>
 
 **Actual:**
@@ -66,8 +66,7 @@ explicitly dismissed, never absent.
 
 ## I — Impact
 
-- **Severity:** Blocker | Critical | Major | Minor
-- **Why this severity:** <one sentence, mapping to the scale in [qa.md § Severity scale](../../.claude/roles/qa.md#severity-scale)>
+- **Why this severity** (the frontmatter `severity:`): <one sentence, mapping to the scale in [qa.md § Severity scale](../../.claude/roles/qa.md#severity-scale)>
 - **Affected surfaces:** <which modules / commands / endpoints>
 - **Affected features:** <other PRDs or features that depend on this behavior>
 
@@ -85,7 +84,7 @@ explicitly dismissed, never absent.
 - Suspected `file:line`:
   - `<path/to/source>:<line>` — <reason this is suspected>
   - `<path/to/test>:<line>` — <reason>
-- Related PRD: PRD-NNN § F1 § S1
+- Related PRD: PRD-NNN, story <story ids>
 - Related issue: <PREFIX>-NNN (the issue whose QA review surfaced this bug)
 - Root-cause hypothesis: <one paragraph — Dev may overturn it after [systematic-debugging](../../.claude/skills/systematic-debugging/) Phase 1>
 - Suggested fix direction: <one sentence — Dev decides>
@@ -99,7 +98,8 @@ explicitly dismissed, never absent.
 ## Activity
 
 `./scripts/move-issue.sh` appends a line for you on every move; append one by hand only when a
-significant decision is logged elsewhere.
+significant decision is logged elsewhere. Elsewhere is the decision register,
+[`requirements/DECISIONS.md`](../../requirements/DECISIONS.md); cite its id as `[decision: D-NN]`.
 
 **The entry shape is the INDENTED line below, deliberately not a bullet** — it is an example, not
 an entry. Copy it out; do not leave it in place as a bullet.

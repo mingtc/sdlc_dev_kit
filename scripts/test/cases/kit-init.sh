@@ -1482,6 +1482,22 @@ case_kit_init_directory_name_is_validated() {
     || cf "the refusal did not name the flag that gets past it: $out"
   [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$before" ] || cf "HEAD moved during the refusal"
   [ -z "$(git -C "$SB_WORK" status --porcelain)" ] || cf "the tree was modified during the refusal"
+  # Nobody typed the directory's name, and the remote is correct: no typed-name wording, no
+  # remote recipe, and the re-run line carries the arguments as given.
+  printf '%s\n' "$out" | grep -F 'the name you type' >/dev/null \
+    && cf "the directory-name refusal says 'the name you type is the name you get' about a name nobody typed"
+  printf '%s\n' "$out" | grep -F 'remote + trunk recipe' >/dev/null \
+    && cf "the remote recipe was printed with the remote and trunk in order: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F -- "kit-init.sh --prefix SBX --trunk $SB_TRUNK" >/dev/null \
+    || cf "the re-run line does not carry the arguments given: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  # (control) a missing <remote>/HEAD does bring the recipe, with the directory's name quoted.
+  git -C "$SB_WORK" remote set-head origin -d >/dev/null 2>&1
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name "The Bell and Rota" 2>&1)" || rc=$?
+  printf '%s\n' "$out" | grep -F 'remote + trunk recipe' >/dev/null \
+    || cf "(control) origin/HEAD unset, and the remote recipe was not printed: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'git init --bare /path/to/The\ Bell\ \&\ Rota.git' >/dev/null \
+    || cf "(control) the recipe does not shell-quote the directory's name: $(printf '%s\n' "$out" | grep -F 'init --bare')"
+  git -C "$SB_WORK" remote set-head origin "$SB_TRUNK" >/dev/null 2>&1
 
   rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --project-name "The Bell and Rota" 2>&1)" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) the same directory with --project-name exited $rc: $out"
@@ -1614,6 +1630,9 @@ case_option_parsing_hygiene() {
   _opt 0 "--help prints usage and SUCCEEDS"        subtask.sh --help
   _opt 2 "a leading '-' is never a positional"     subtask.sh new --bogus s1 slug
   _opt 2 "an unknown option refuses"               subtask.sh new "$SB_PREFIX-999" s1 slug --bogus x
+  _opt 2 "a leading '-' is never a --project-name" kit-init.sh --prefix SBX --trunk "$SB_TRUNK" --project-name -x
+  printf '%s' "$out" | grep -F -- "'-x' is not a --project-name value" >/dev/null \
+    || cf "kit-init.sh: the refusal did not name the dash-leading value: $out"
   _opt 0 "--help prints usage and SUCCEEDS"        finish-pr.sh --help
   _opt 2 "a leading '-' is never an issue id"      finish-pr.sh --note x
   _opt 2 "an unknown option refuses"               finish-pr.sh "$SB_PREFIX-999" --bogus x
@@ -1632,20 +1651,27 @@ case_option_parsing_hygiene() {
 # CASE — A USAGE REQUEST SUCCEEDS WHEREVER IT STANDS (process/contracts/issue-creation.md § 3)
 #
 # "Answered before any argument is interpreted": a `--help` in a positional slot, after a
-# subcommand or a message, or with a library the operation needs missing, still exits 0 with
-# the usage text, and does nothing. With no argument, notify.sh refuses with that same text.
+# subcommand or a message, in an option's VALUE slot, or with a library the operation needs
+# missing, still exits 0 with the usage text, and does nothing. In a value slot the failure is
+# an acceptance: a card, a stamp or a published move carrying "--help". With no argument,
+# notify.sh refuses with that same text.
 # =============================================================================
 case_usage_request_succeeds_in_any_position() {
   cf_reset
-  local L="a usage request exits 0 with its usage text in any position, and with card-head.sh absent; notify.sh with no argument prints that text and exits 2"
+  local L="a usage request exits 0 with its usage text in any position, in a value slot, and with card-head.sh absent; notify.sh with no argument prints that text and exits 2"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   make_sandbox
   mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
   cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
   _kit_neutral_claude
+  seed_issue todo "$SB_PREFIX-804" vslot chore "Value-slot move probe"
+  seed_issue dev_complete "$SB_PREFIX-805" vslot chore "Value-slot landing probe" "feature/$SB_PREFIX-805-vslot"
   publish_sandbox
+  seed_branch "$SB_PREFIX-805" vslot VSLOT805.txt
 
-  local out rc
+  local out rc before_made head0
+  before_made="$(find "$SB_WORK/progress" "$SB_WORK/requirements" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
+  head0="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK" 2>/dev/null)"
   _help_ok() {  # <label> <script> <args…>
     local label="$1"; shift
     out="$(cd "$SB_WORK" && "$SB_WORK/scripts/$@" 2>/dev/null)"; rc=$?
@@ -1660,10 +1686,25 @@ case_usage_request_succeeds_in_any_position() {
   _help_ok "in the message slot"           notify.sh done --help
   _help_ok "after the message"             notify.sh done msg --help
   _help_ok "after a surplus argument"      next-id.sh x --help
+  _help_ok "in --project-name's value slot"  kit-init.sh --prefix SBX --trunk "$SB_TRUNK" --project-name --help
+  _help_ok "in --target's value slot"        new-refactor.sh vslot --id "$SB_PREFIX-801" --target --help
+  _help_ok "in --pass's value slot"          new-refactor.sh vslot --id "$SB_PREFIX-801" --pass --help
+  _help_ok "in --prd's value slot"           new-issue.sh vslot --id "$SB_PREFIX-802" --prd --help
+  _help_ok "in --stories' value slot"        new-issue.sh vslot --id "$SB_PREFIX-802" --stories --help
+  _help_ok "in --discovered-in's value slot" new-bug.sh vslot --id "$SB_PREFIX-803" --discovered-in --help
+  _help_ok "in --note's value slot"          move-issue.sh "$SB_PREFIX-804" in_progress --role Dev --note --help
+  _help_ok "in --milestone's value slot"     archive-progress.sh --milestone --help --keep-last 2
+  _help_ok "in --note's value slot"          finish-pr.sh "$SB_PREFIX-805" --note --help
+  _help_ok "in --branch's value slot"        finish-pr.sh "$SB_PREFIX-805" --branch --help
   mv "$SB_WORK/scripts/lib/card-head.sh" "$SB_TMP/card-head.sh"
   _help_ok "with scripts/lib/card-head.sh absent" new-prd.sh --help
+  _help_ok "with scripts/lib/card-head.sh absent" subtask.sh --help
   mv "$SB_TMP/card-head.sh" "$SB_WORK/scripts/lib/card-head.sh"
   unset -f _help_ok
+  git -C "$SB_WORK" fetch -q origin "$SB_TRUNK" >/dev/null 2>&1
+  [ "$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK" 2>/dev/null)" = "$head0" ] \
+    || cf "a usage request published to the trunk: $(git -C "$SB_WORK" log --format=%s "$head0..origin/$SB_TRUNK" 2>/dev/null | tr '\n' '|')"
+  grep -q -- '--help' "$SB_WORK/scripts/config.sh" && cf "kit-init stamped '--help' into scripts/config.sh"
 
   # With no argument notify.sh is refused with the one usage text, not a second copy of it.
   local want
@@ -1674,7 +1715,7 @@ case_usage_request_succeeds_in_any_position() {
 
   local made
   made="$(find "$SB_WORK/progress" "$SB_WORK/requirements" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$made" = "0" ] || cf "$made item(s) were created by usage requests"
+  [ "$made" = "$before_made" ] || cf "$(( made - before_made )) item(s) were created by usage requests"
 
   finish "$L"
   teardown
@@ -2293,6 +2334,77 @@ ROWS_EOF
   grep -qF "Created under $SB_PREFIX-730 " "$st" || cf "subtask.sh: the seed entry does not name its parent"
 
   finish "a minted card carries its id in the H1, a dated seed entry and its flags' values, sheds the LINKS block, and lands where its template declares ($n creators)"
+  teardown
+}
+
+# =============================================================================
+# CASE — A MINTED CARD CLAIMS ONLY WHAT ITS MINT WAS GIVEN.
+#
+# A template example that survives the mint is not a blank: it reads as filled, and the card's
+# head cannot flag it. So what a flag supplies is rendered (the stories, the plan's id, the
+# parent's card and PRD), and what no flag supplies stays an <angle-bracket> (a bug's severity,
+# the stories when none were named). Bug and refactor cards name the decision register their
+# Activity entries cite.
+# =============================================================================
+case_minted_card_claims_only_what_it_was_given() {
+  cf_reset
+  local L="a minted card renders its stories, plan id, parent card and inherited PRD, leaves a real blank where no flag spoke, and names the decision register"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ] || [ ! -f "$REAL_REPO_ROOT/.claude/templates/PRD.template.md" ]; then
+    skp "$L" ".claude/templates (SUBTASK or PRD) absent"; return
+  fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+
+  local out rc=0 prd prdid td="$SB_WORK/progress/todo" c
+  out="$( cd "$SB_WORK" && ./scripts/new-prd.sh claim-probe 2>&1 )" || rc=$?
+  prd="$(probe_pick "$SB_WORK/requirements" -name '*-claim-probe.md')" || true
+  [ "$rc" -eq 0 ] && [ -n "$prd" ] || _fixture_die "case_minted_card_claims_only_what_it_was_given: new-prd.sh minted nothing (rc=$rc): $(printf '%s' "$out" | tr '\n' '|')"
+  prdid="$(basename "$prd" | sed 's/-claim-probe\.md$//')"
+  ( cd "$SB_WORK" \
+    && ./scripts/new-issue.sh told --id "$SB_PREFIX-741" --prd "$prdid" --stories "$prdid-F2-S3,$prdid-F2-S4" \
+    && ./scripts/new-issue.sh untold --id "$SB_PREFIX-742" \
+    && ./scripts/new-bug.sh bugged --id "$SB_PREFIX-743" --prd "$prdid" --stories "$prdid-F2-S3" \
+    && ./scripts/new-refactor.sh tidied --id "$SB_PREFIX-744" ) >/dev/null 2>&1 \
+    || _fixture_die "case_minted_card_claims_only_what_it_was_given: a creator refused a legal mint."
+
+  c="$td/$SB_PREFIX-741-told.md"
+  grep -qF "stories $prdid-F2-S3, $prdid-F2-S4." "$c" || cf "new-issue.sh: --stories did not reach the seed entry: $(grep -m1 'Created in' "$c")"
+  grep -qF -- "— stories $prdid-F2-S3, $prdid-F2-S4" "$c" || cf "new-issue.sh: --stories did not reach the References line: $(grep -m1 'PRD:\*\*' "$c")"
+  grep -qE '§ F1 § S|F1-S1' "$c" && cf "new-issue.sh: the card names the template's example stories: $(grep -nE '§ F1 § S|F1-S1' "$c" | tr '\n' '|')"
+  grep -qF "dev/plans/YYYY-MM-DD-$SB_PREFIX-741-<slug>.md" "$c" || cf "new-issue.sh: the Plan line does not carry the card's id: $(grep -m1 'dev/plans/' "$c")"
+  grep -q 'dev/plans/.*-NNN-' "$c" && cf "new-issue.sh: the Plan line still carries an -NNN id"
+  grep -qF 'stories <story ids>.' "$td/$SB_PREFIX-742-untold.md" \
+    || cf "new-issue.sh: with no --stories the seed entry does not keep the <story ids> blank: $(grep -m1 'Created in' "$td/$SB_PREFIX-742-untold.md")"
+
+  c="$td/$SB_PREFIX-743-bugged.md"
+  grep -q '^severity: <' "$c" || cf "new-bug.sh: with no --severity the card claims one: $(grep -m1 '^severity:' "$c")"
+  grep -q '^- \*\*Severity:\*\*' "$c" && cf "new-bug.sh: the body restates severity beside the frontmatter"
+  grep -qF "story $prdid-F2-S3" "$c" || cf "new-bug.sh: --stories did not reach the body"
+  grep -qE '§ F1 § S' "$c" && cf "new-bug.sh: the card names the template's example story"
+  for c in "$td/$SB_PREFIX-743-bugged.md" "$td/$SB_PREFIX-744-tidied.md"; do
+    grep -qF '(../../requirements/DECISIONS.md)' "$c" || cf "$(basename "$c"): the Activity section does not name the decision register"
+  done
+
+  # The subtask: its parent carries a PRD, and the slice is minted without --prd.
+  git -C "$SB_WORK" add -A >/dev/null 2>&1 && sbcommit -q -m "[PM] publish the mints" >/dev/null 2>&1 \
+    && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_minted_card_claims_only_what_it_was_given: could not publish the parent."
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-741" s1 slice --title "Slice" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_minted_card_claims_only_what_it_was_given: subtask.sh refused a legal mint (rc=$rc): $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  origin_fetch_or_die
+  local st="$SB_TMP/subtask.md"
+  git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/subtasks/$SB_PREFIX-741/todo/$SB_PREFIX-741-s1-slice.md" > "$st" 2>/dev/null \
+    || _fixture_die "case_minted_card_claims_only_what_it_was_given: the subtask is not on the trunk."
+  grep -q "^prd: $prdid\$" "$st" || cf "subtask.sh: the slice did not inherit its parent's PRD: $(grep -m1 '^prd:' "$st")"
+  grep -qF "\`$SB_PREFIX-741-told.md\`" "$st" || cf "subtask.sh: the body does not name its parent's card"
+  grep -qF '<status>' "$st" && cf "subtask.sh: the body keeps a <status> blank no mint-time value can fill"
+  grep -qE '§ F1 § S' "$st" && cf "subtask.sh: the card names the template's example story"
+
+  finish "$L"
   teardown
 }
 

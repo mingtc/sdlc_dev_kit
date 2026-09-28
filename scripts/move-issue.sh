@@ -39,6 +39,8 @@
 #   (declined/ is for a card that was considered and REFUSED. Like blocked/, it
 #    requires --note: the reason is the entire reason to keep the card. It is not
 #    swept — its value is being browsable.)
+#   (qa_complete/ and done/ refuse a PARENT while any card under progress/subtasks/<ID>/
+#    is outside qa_complete/: a parent advances only when every subtask has.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the
@@ -139,9 +141,9 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
       else   print }'
 }
 
-# --help ALWAYS SUCCEEDS, and is answered BEFORE the arity check: a bare `--help` is one
-# argument, and the check below would take it.
-case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+# --help ALWAYS SUCCEEDS, in any position, and is answered BEFORE any argument is interpreted:
+# the arity check below would take a bare `--help`, and an option's value slot would publish it.
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 # A DASH-LEADING FIRST TOKEN IS AN OPTION, NEVER AN ID, and is refused BEFORE the arity test,
 # which would otherwise report it as a missing argument without naming it (issue-creation.md § 3).
@@ -178,7 +180,6 @@ while [ $# -gt 0 ]; do
     --note-only) NOTE_ONLY=1; shift ;;
     --set-pr) need_val "$@"; SET_PR="$2"; shift 2 ;;
     --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
-    -h|--help) usage; exit 0 ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
@@ -378,6 +379,21 @@ else
     echo "  To record something on this card WITHOUT moving it:" >&2
     echo "    $0 $ISSUE_ID --note-only --role $ROLE --note \"…\"" >&2
     exit 1
+  fi
+
+  # A PARENT ADVANCES ONLY WHEN EVERY SUBTASK HAS: qa_complete and done both claim the whole
+  # issue reviewed, and archive.sh would retire an open slice with it.
+  if [ "$TARGET" = "qa_complete" ] || [ "$TARGET" = "done" ]; then
+    _open="$(kwt_open_subtasks "$ISSUE_ID")"
+    if [ -n "$_open" ]; then
+      {
+        echo "Error: ${ISSUE_ID} has subtask(s) not yet in qa_complete/, so it cannot move to ${TARGET}/:"
+        printf '%s\n' "$_open" | sed 's/^/    /'
+        echo "  A parent advances only when every subtask has. Move them with ./scripts/subtask.sh"
+        echo "  first. NOTHING WAS CHANGED."
+      } >&2
+      exit 1
+    fi
   fi
 
   # A missing target folder ABORTS rather than being created: git does not track an

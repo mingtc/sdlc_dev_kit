@@ -12,7 +12,7 @@
 # whole subsystem is inert until a project configures it.
 #
 # Usage:
-#   ./scripts/notify.sh <class> <message> --session <slug> [--ref X] [--progress k/N]
+#   ./scripts/notify.sh <class> <message> --session <slug> [--ref X] [--progress k/N] [--message <text>]
 #   ./scripts/notify.sh test [--session <slug>]
 #
 # Classes:  attention | blocked | done | milestone | progress

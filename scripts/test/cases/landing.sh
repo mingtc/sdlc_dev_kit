@@ -861,6 +861,8 @@ case_finish_pr_trunk_gate_judges_the_branch() {
     out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-790" 2>&1 )"; rc=$?
     printf '%s\n' "$out" | grep -F "changes scripts/verify.sh, so $SB_TRUNK's copy judges it" >/dev/null \
       || cf "($row) the run does not say the trunk's runner judged the branch"
+    printf '%s\n' "$out" | grep -F "Pre-merge gate (blocking): $SB_TRUNK's scripts/verify.sh" >/dev/null \
+      || cf "($row) the pre-merge banner does not name the runner that ran: $(printf '%s\n' "$out" | grep -F 'Pre-merge gate')"
     ls "$SB_WORK"/scripts/.verify-trunk.* >/dev/null 2>&1 && cf "($row) the trunk's runner was left in scripts/"
     if [ "$row" = a ]; then
       [ "$rc" -ne 0 ] || cf "(a) a branch that deleted the gate it fails LANDED"
@@ -977,6 +979,34 @@ case_finish_pr_worktree_through_a_symlink() {
   origin_has_path "CHANGE786.txt" || cf "(a) the change did not reach the trunk"
 
   finish "finish-pr --worktree: the main checkout named through a symlink is the same checkout and lands (a); a foreign repository is still refused, named directly (b) or through a symlink (c)"
+  teardown
+}
+
+# =============================================================================
+# CASE — A RELATIVE --worktree READS THE SAME GATE AFTER THE MERGE AS BEFORE IT.
+#
+# The post-merge reading runs the gate from inside the gate checkout. A relative --worktree
+# spelled from the caller's directory names nothing from there, and a green trunk would be
+# reported as POST_MERGE_GATE: FAIL. `../x/wt` is the shape that shows it: `../wt` resolves to
+# itself from inside wt, by coincidence.
+# =============================================================================
+case_finish_pr_relative_worktree() {
+  cf_reset
+  local out rc br
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-787" sandbox chore "Relative worktree" "feature/$SB_PREFIX-787-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-787" work CHANGE787.txt
+  br="feature/$SB_PREFIX-787-work"
+  mkdir -p "$SB_TMP/x"
+  git -C "$SB_WORK" worktree add "$SB_TMP/x/wt" "$br" --quiet >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_relative_worktree: could not create the gate worktree."
+  rc=0; out="$( cd "$SB_WORK" && "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-787" --worktree ../x/wt 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "the landing with --worktree ../x/wt exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  origin_has_path "CHANGE787.txt" || cf "the change did not reach the trunk"
+  printf '%s\n' "$out" | grep -x 'POST_MERGE_GATE: PASS' >/dev/null \
+    || cf "a green trunk read through a relative --worktree was not POST_MERGE_GATE: PASS: $(printf '%s\n' "$out" | grep -E 'POST_MERGE_GATE|post-merge|No such file' | tr '\n' '|')"
+  finish "finish-pr --worktree given as a relative path: the landing completes and the post-merge gate reads PASS on a green trunk"
   teardown
 }
 

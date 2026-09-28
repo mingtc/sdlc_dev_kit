@@ -19,7 +19,7 @@ type: subtask
 parent: <PREFIX>-NNN     # the PM-owned issue this decomposes
 title: <one-line summary of this slice>
 size: S                  # subtasks should be S (≤1 session); if M+, re-slice
-prd: PRD-NNN             # inherited from parent
+prd: PRD-NNN             # the parent's, unless --prd names another
 stories: [PRD-NNN-F1-S1] # the subset of the parent's stories this slice covers
 branch: feature/<PREFIX>-NNN-sM-<slug>
 pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
@@ -29,10 +29,10 @@ created_by: Orchestrator
 
 # <PREFIX>-NNN-sM — <one-line summary>
 
-> A **subtask** of [<PREFIX>-NNN](../../../<status>/<PREFIX>-NNN-<slug>.md). It lives under
-> `progress/subtasks/<PREFIX>-NNN/<status>/`; its folder is its status. The parent stays on
-> the main board and advances to `qa_complete/` only when every subtask reaches
-> `qa_complete/`. Move it with `scripts/subtask.sh`, not `move-issue.sh`.
+> A **subtask** of `<parent card>`, on the main board. It lives under
+> `progress/subtasks/<PREFIX>-NNN/`, in the folder that is its status. The parent advances to
+> `qa_complete/` only when every subtask has reached `qa_complete/`; the mover refuses it
+> otherwise. Move this card with `scripts/subtask.sh`, not `move-issue.sh`.
 
 ## Why this slice exists
 
@@ -44,7 +44,7 @@ PM does not curate subtasks — this is an implementation-level split, not a sco
 The subset of the parent's AC this slice satisfies. Each independently QA-testable. The
 parent's AC set is the **union** of all its subtasks' AC; no AC is dropped or invented here.
 
-- [ ] AC<n> — from PRD-NNN § F1 § S1 (parent AC<n>): <statement>
+- [ ] AC<n> — from <story id> (parent AC<n>): <statement>
 
 ## Out of Scope
 

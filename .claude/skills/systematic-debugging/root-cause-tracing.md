@@ -98,12 +98,13 @@ async function gitInit(directory: string) {
 
 If something appears during tests but you don't know which test:
 
-Use the bisection script `find-polluter.sh` in this directory:
+Use the bisection script `find-polluter.sh` in this directory, run from the project root (it
+searches, and checks the path, relative to where it runs):
 
 ```bash
 # -path matches the WHOLE emitted path (hence the leading ./), and its `*` crosses `/`, so
 # './src/*.test.ts' covers nested directories too.
-TEST_CMD="npm test --" ./find-polluter.sh 'packages/core/.git' './src/*.test.ts'
+TEST_CMD="npm test --" .claude/skills/systematic-debugging/find-polluter.sh 'packages/core/.git' './src/*.test.ts'
 ```
 
 Runs tests one-by-one, stops at first polluter. It refuses rather than report clean when the

@@ -78,6 +78,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/usage.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
+# A usage request always succeeds, in any position, before any argument is interpreted
+# (issue-creation.md § 3).
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 # need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
@@ -94,7 +97,6 @@ while [ $# -gt 0 ]; do
     --dry-run)   DRY_RUN=true; SAW_DRY=true; shift ;;
     --tag)       DO_TAG=true; shift ;;
     --repo-root) need_val "$@"; REPO_ROOT="$2"; shift 2 ;;
-    -h|--help)   usage; exit 0 ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;

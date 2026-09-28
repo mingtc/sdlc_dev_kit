@@ -67,6 +67,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
 - A gate command was supplied by the caller without the test-only marker ⇒ refuse, and say that
   the gate chooses its own executable.
 - The gate is red ⇒ refuse; report the failure, mutate nothing.
+- The item is decomposed and a child is short of the reviewed state ⇒ refuse before any destructive
+  step, naming each such child: the advance after the landing would refuse and leave it landed.
 - The publication of the landed commit fails ⇒ report that the merge exists locally and did not
   reach the trunk, name the recovery, and name the commits that did not land.
 

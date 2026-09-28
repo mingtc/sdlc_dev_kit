@@ -873,6 +873,35 @@ case_release_publish_recovery() {
 }
 
 # =============================================================================
+# CASE — A --publish-only REHEARSAL REFUSES WHERE THE RUN WOULD.
+#
+# With publishing off (the shipped default) the real --publish-only refuses; a dry run that
+# reports the force-push it would make is a green that does not predict the run.
+# =============================================================================
+case_release_publish_only_dry_run_predicts_the_run() {
+  cf_reset
+  local L="release.sh --publish-only --dry-run refuses, as the run does, when publishing is not enabled"
+  if ! has_release; then skp "$L" "scripts/release.sh absent"; return; fi
+  local out rc
+  make_sandbox
+  seed_release_files 1.1.0
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_release_publish_only_dry_run_predicts_the_run: the cut exited $rc, so there is no tag to republish: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  out="$(run_release 1.1.0 --publish-only)"; rc=$?
+  [ "$rc" -ne 0 ] || _fixture_die "case_release_publish_only_dry_run_predicts_the_run: the real --publish-only succeeded with publishing off, so the rehearsal has nothing to predict."
+  out="$(run_release 1.1.0 --publish-only --dry-run)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "the rehearsal exited 0 where the run refuses: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'publishing is not enabled' >/dev/null \
+    || cf "the rehearsal did not name why the run refuses: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'would: rebuild' >/dev/null \
+    && cf "the rehearsal reported a force-push the run will not make"
+  teardown
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — the LOCAL-ONLY state is printed as NORMAL output BEFORE the pushes, and every
 # command it prints WORKS (doctrine/fix-execution.md § A.7, contracts/release-ritual.md
 # § 2). A run killed between the tag and the pushes never reaches the failure branches,

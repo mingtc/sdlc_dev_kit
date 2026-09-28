@@ -37,10 +37,12 @@ usage() {
 }
 
 # A leading '-' is never a name: as new-issue.sh states (issue-creation.md § 3).
+for _a in "$@"; do
+  case "$_a" in
+    -h|--help) [ -f "$CONFIG" ] && . "$CONFIG" || true; usage; exit 0 ;;
+  esac
+done
 case "${1:-}" in
-  -h|--help)
-    [ -f "$CONFIG" ] && . "$CONFIG" || true
-    usage; exit 0 ;;
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
       usage >&2
       exit 2 ;;
@@ -115,7 +117,6 @@ while [ $# -gt 0 ]; do
         *) echo "Error: --severity must be Blocker|Critical|Major|Minor" >&2; exit 1 ;;
       esac
       shift 2 ;;
-    -h|--help) usage; exit 0 ;;
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -160,7 +161,8 @@ fi
 rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
 kit_rehead_card "$WORK" || exit 1
-# The body's known values: the H1's id, the seed entry's date, the PRD and the issue that surfaced it.
+# The body's known values: the H1's id, the seed entry's date, the PRD, the stories and the issue
+# that surfaced it.
 kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
 PRD_FILE=""
 if [ -n "$PRD" ]; then
@@ -168,7 +170,9 @@ if [ -n "$PRD" ]; then
     [ -f "$f" ] && [ -z "$PRD_FILE" ] && PRD_FILE="$(basename "$f")"
   done
 fi
-kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" \
+STORY_IDS=""
+[ -z "$STORIES" ] || STORY_IDS="$(printf '%s' "$STORIES" | sed 's/,/, /g')"
+kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" "<story ids>" "$STORY_IDS" \
   "Related issue: <PREFIX>-NNN" "${DISCOVERED:+Related issue: $DISCOVERED}" \
   "Related issue: ${ISSUE_PREFIX}-NNN" "${DISCOVERED:+Related issue: $DISCOVERED}" \
   "during review of <PREFIX>-NNN" "${DISCOVERED:+during review of $DISCOVERED}" \

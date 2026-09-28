@@ -4,7 +4,8 @@
 # subtask tree `progress/subtasks/<parent>/<status>/`. Subtasks do NOT consume the
 # issue-id integer stream — ids are <PARENT>-sM — and they live OFF the main board so
 # the PM's backlog stays pristine. The parent stays on the main board and advances to
-# qa_complete only when every subtask reaches qa_complete. Commits carry the seat's tag:
+# qa_complete only when every subtask reaches qa_complete: move-issue.sh and finish-pr.sh refuse
+# it otherwise, and archive.sh refuses to retire an open slice. Commits carry the seat's tag:
 # SUBTASK_ROLE for `new`, --role for `move` (both default Orchestrator).
 #
 # This shares the SAME machinery as move-issue.sh / finish-pr.sh:
@@ -16,7 +17,8 @@
 # Usage:
 #   ./scripts/subtask.sh new <PARENT-ID> <suffix> <slug> --title "..." [--prd @PRD_PREFIX@-NNN] [--stories a,b] [--plan path] [--size S]
 #       → creates progress/subtasks/<PARENT-ID>/todo/<PARENT-ID>-<suffix>-<slug>.md
-#         from .claude/templates/SUBTASK.template.md, fills frontmatter, commits as SUBTASK_ROLE.
+#         from .claude/templates/SUBTASK.template.md, fills frontmatter (prd: the parent's
+#         unless --prd is given), commits as SUBTASK_ROLE.
 #   ./scripts/subtask.sh move <PARENT-ID>-<suffix> <target> [--role <R>] [--note "..."] [--discard-dirty]
 #       → git mv within the subtask tree + append Activity + commit "[ROLE] <id> → <target>: NOTE".
 #
@@ -47,7 +49,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
-. "$SCRIPT_DIR/lib/card-head.sh"
 
 # GUARDED: usage() renders the role set through this library, and a usage request must
 # succeed (issue-creation.md § 3). The operational path fails loudly without it.
@@ -119,6 +120,16 @@ if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
   exit 1
 fi
 
+# Loaded below the usage arm: a usage request must not depend on it.
+CARDLIB="$SCRIPT_DIR/lib/card-head.sh"
+if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
+  echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
+  echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
+  echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
+  echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
+  exit 1
+fi
+
 # The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
 # terminal home under progress/done/subtasks/<parent>/ via archive.sh's sweep,
 # once its PARENT lands — never by a direct move here.
@@ -146,7 +157,7 @@ case "$CMD" in
     [ $# -lt 3 ] && { usage >&2; exit 1; }
     no_dash "$1" "PARENT-ID"; no_dash "$2" "suffix"; no_dash "$3" "slug"
     PARENT="$1"; SUFFIX="$2"; SLUG="$3"; shift 3
-    TITLE=""; PRD="n/a"; STORIES="[]"; PLAN=""; SIZE="S"
+    TITLE=""; PRD=""; STORIES="[]"; PLAN=""; SIZE="S"
     while [ $# -gt 0 ]; do case "$1" in
       --title) need_val "$@"; TITLE="$2"; shift 2 ;;
       --prd) need_val "$@"; PRD="$2"; shift 2 ;;
@@ -222,6 +233,13 @@ case "$CMD" in
         exit 1 ;;
     esac
 
+    # prd: INHERITED from the parent unless --prd was given; a parent with none, or with its
+    # template placeholder, gives n/a.
+    if [ -z "$PRD" ]; then
+      PRD="$(awk '/^---$/{n++; next} n==1 && /^prd:/{sub(/^prd:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$PARENT_CARD")"
+      case "$PRD" in ''|*-NNN) PRD="n/a" ;; esac
+    fi
+
     ID="${PARENT}-${SUFFIX}"
     SLUGFILE="${ID}-${SLUG}.md"
     DEST_DIR="$KWT/progress/subtasks/${PARENT}/todo"
@@ -268,7 +286,8 @@ case "$CMD" in
     # The seed entry's date, and the parent and slice the body names (lib/card-head.sh).
     kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
     kit_fill_card "$WORK" "<PREFIX>-NNN" "$PARENT" "${PARENT%-*}-NNN" "$PARENT" \
-      "decomposition slice M." "decomposition slice ${SUFFIX}." || exit 1
+      "decomposition slice M." "decomposition slice ${SUFFIX}." \
+      "<parent card>" "$(basename "$PARENT_CARD")" || exit 1
 
 
     # Optional --plan. Keyed on the KEY, never on the template's placeholder VALUE, which

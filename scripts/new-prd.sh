@@ -25,10 +25,12 @@ usage() {
 
 # A leading '-' is never a name, and usage comes before the seam: as new-issue.sh states
 # (issue-creation.md § 3).
+for _a in "$@"; do
+  case "$_a" in
+    -h|--help) [ -f "$CONFIG" ] && . "$CONFIG" || true; usage; exit 0 ;;
+  esac
+done
 case "${1:-}" in
-  -h|--help)
-    [ -f "$CONFIG" ] && . "$CONFIG" || true
-    usage; exit 0 ;;
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
       usage >&2
       exit 2 ;;
@@ -71,7 +73,6 @@ esac
 
 if [ $# -gt 1 ]; then
   case "$2" in
-    -h|--help) usage; exit 0 ;;
     -*) echo "Error: unknown option: $2" >&2; usage >&2; exit 2 ;;
     *)  echo "Unknown arg: $2" >&2; usage >&2; exit 1 ;;
   esac

@@ -35,7 +35,7 @@ blocked_by: []           # other <PREFIX>-NNN blocking this issue
 
 ## References
 
-- **PRD:** [PRD-NNN § F1 § S1, S2](../../requirements/PRD-NNN-<slug>.md)
+- **PRD:** [PRD-NNN](../../requirements/PRD-NNN-<slug>.md) — stories <story ids>
 - **PROJECT.md:** § <section that gives context>
 
 ## Problem
@@ -46,9 +46,9 @@ One paragraph: what this issue solves and why it exists. Distilled from the PRD 
 
 Copied from the PRD stories listed in frontmatter (or authored here on the lite path). Each must be independently verifiable by QA. The issue is `dev_complete` only when every AC has a passing test, or a documented justification in `progress.md` for why it cannot be automated (e.g. behavior observable only through the project's declared live/manual gate). For an AC whose deliverable is prose describing code behaviour, *"it is a description"* is not such a justification: each behavioural claim it makes needs a test or a `file:line` QA can check it against ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4). An AC whose prose makes no claim about behaviour is unaffected.
 
-- [ ] AC1 — from PRD-NNN § F1 § S1: <statement>
-- [ ] AC2 — from PRD-NNN § F1 § S1: <statement>
-- [ ] AC3 — from PRD-NNN § F1 § S2: <statement>
+- [ ] AC1 — from <story id>: <statement>
+- [ ] AC2 — from <story id>: <statement>
+- [ ] AC3 — from <story id>: <statement>
 
 **Every illustrative example inside an AC cites its source or is labelled approximate.** An AC
 example is read as the contract, not as decoration — so it either names where the fact came
@@ -102,4 +102,4 @@ an entry. Copy it out; do not leave it in place as a bullet.
 
     YYYY-MM-DD [<Role>] <the decision> [decision: D-NN]
 
-- YYYY-MM-DD [PM] Created in `todo/`. PRD-NNN § F1 § S1, S2.
+- YYYY-MM-DD [PM] Created in `todo/`. PRD-NNN, stories <story ids>.

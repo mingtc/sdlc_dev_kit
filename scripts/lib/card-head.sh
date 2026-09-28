@@ -8,7 +8,8 @@
 
 # kit_card_work <dest-dir> — print a new temp file beside the destination, so publishing is a
 # rename on one filesystem. Dot-named, so no board glob sees it. The caller's EXIT trap removes
-# it and its siblings: rm -f "$WORK" "$WORK.bak" "$WORK.rehead".
+# it and the siblings the functions below write, plus any the caller makes itself:
+#   rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"
 kit_card_work() {
   mktemp "$1/.mint.XXXXXX"
 }

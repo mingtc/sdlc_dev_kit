@@ -242,6 +242,7 @@ CASES=(
   case_move_issue_declined_requires_a_reason
   case_move_issue_set_pr_on_a_minted_card
   case_move_issue_moves_a_decomposed_parent
+  case_parent_advances_only_with_every_subtask
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees
@@ -259,6 +260,7 @@ CASES=(
   case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
   case_finish_pr_worktree_through_a_symlink
+  case_finish_pr_relative_worktree
   case_finish_pr_gate_revision
   case_finish_pr_trunk_gate_judges_the_branch
   case_archive_apply
@@ -279,6 +281,7 @@ CASES=(
   case_dev_index_names_its_subdirs
   case_kit_init_markers_intact
   case_archive_requires_the_retired_store
+  case_archive_missing_index_lists_the_store
   case_archive_refuses_a_name_already_retired
   case_archive_feature_branch_clean
   case_config_seam_refusal
@@ -385,6 +388,7 @@ CASES=(
   case_minted_card_is_drift_clean
   case_minted_card_prompts_for_notes
   case_minted_card_carries_what_the_mint_knew
+  case_minted_card_claims_only_what_it_was_given
   case_template_header_survives_the_stamp
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule
@@ -392,6 +396,7 @@ CASES=(
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set
+  case_usage_request_is_answered_before_any_argument
   case_release_gate_c_skip_shape
   case_release_notes_section_is_more_than_a_heading
   case_release_behind_the_remote
@@ -403,11 +408,13 @@ CASES=(
   case_release_ship_manifest_is_driven_against_the_bump
   case_release_publish
   case_release_publish_recovery
+  case_release_publish_only_dry_run_predicts_the_run
   case_release_local_only_recovery
   case_release_bash_n
   case_release_spaced_path
   case_consumer_updater
   case_install_skills_writes_nothing_without_a_pack
+  case_find_polluter_runs_each_path_whole
   case_hygiene_instruments_declare_blind_spots
   case_cold_signal_reads_non_ascii_paths
   case_agent_prose_carries_its_riders

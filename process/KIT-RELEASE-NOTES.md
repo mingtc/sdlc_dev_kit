@@ -271,6 +271,13 @@ columns and never the cards.*
 
 ### Action required
 
+- **A parent issue now reaches `qa_complete/` or `done/`, and lands, only when every subtask has reached
+  `qa_complete/`.** `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse otherwise, naming the open
+  slices; before, `archive.sh --apply` retired an open slice as completed. **What to do:** look for a card
+  outside a `qa_complete/` folder under `progress/done/subtasks/*/` (retired open, by the old sweep) and
+  under `progress/subtasks/<ID>/` of a parent already in `qa_complete/` or `done/` — `archive.sh` now
+  refuses the whole sweep over one. Finish or re-slice each, or move its parent back.
+
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
   the shipped ones. The old order leaves the branch unmerged under a card that says it merged.
@@ -470,6 +477,19 @@ columns and never the cards.*
   are marked `reports only`, so `kit-init`'s self-check ignores them. **Nothing to do.**
 
 ### Changed
+
+- **The card creators render `--stories` instead of copying the template's example stories.** An issue or
+  bug card's References, seed entry and AC lines named `§ F1 § S1, S2` whatever `--stories` said; they
+  now carry the stories given, or a `<story ids>` / `<story id>` blank. A bug minted without
+  `--severity` carries a `severity: <…>` blank instead of `Critical`, and its body no longer restates
+  severity. An issue's Plan line carries its id; a subtask names its parent's card rather than a
+  `<status>` link, and inherits the parent's `prd:` unless `--prd` is given. Bug and refactor cards
+  name the decision register. **Take `.claude/templates/` and the creators together**; cards already
+  minted are unchanged.
+- **`kit-init`'s refusal prints the remote recipe only when a remote or trunk precondition failed**,
+  quotes the directory's name in it, and ends with the command as you typed it.
+- **`finish-pr.sh`'s `Pre-merge gate (blocking):` line names the runner that runs** — the trunk's copy,
+  where the branch changes `scripts/verify.sh`.
 
 - **`FAILED_AFTER_FIX_ROUND` also covers a fix Dev that reported `blocked`.** MANUAL's row said "verdict FAIL, twice", but a
   blocked fix Dev gets no second review and the runners already filed it there; the row now says so. (A fix Dev that
@@ -701,6 +721,22 @@ columns and never the cards.*
   check, not a rule. **Nothing to do.**
 
 ### Fixed
+
+- **`--help` is answered first, in any position, by every command-line script under `scripts/`.** In an option's value
+  slot it was taken as the value — `kit-init.sh --project-name --help` stamped, committed and pushed the
+  name `--help`; `move-issue.sh … --note --help` published a move noted `--help` — and after a bad
+  argument it failed. `kit-init.sh --project-name` also refuses a value starting with `-`. **If you
+  initialized with `--project-name --help`**, set `PROJECT_NAME`'s default in `scripts/config.sh` and the
+  name in `PROJECT.md` by hand.
+- **`finish-pr.sh --worktree <relative path>` no longer reports a green trunk as
+  `POST_MERGE_GATE: FAIL`.** Such a FAIL printed after `No such file or directory` was not a reading of
+  the trunk: run `./scripts/verify.sh` there once.
+- **`release.sh --publish-only --dry-run` refuses when publishing is off**, as the run does; it reported
+  the force-push it would make.
+- **`archive.sh` with `ARCHIVE.md` missing lists what `progress/done/` holds and gives the backfill
+  recipe**, as it did for a missing `## Archived` heading.
+- **`find-polluter.sh` runs a test whose path holds a space as one test**; it split it and reported
+  clean. Its docs now run it from the project root, by path, which is where it searches.
 
 - **The kit zips for `0.4.0`, `0.5.0` and `0.6.0`, as built by the release ritual, probably shipped
   this file un-rolled.** Each was built before its notes were rolled, so in an affected copy the

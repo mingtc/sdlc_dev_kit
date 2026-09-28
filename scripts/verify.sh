@@ -14,7 +14,8 @@
 # EXIT STATUS — the two reds are told apart here as well as in the summary:
 #   0  green: every gate that ran passed, and none could not run
 #   1  RED, MEASURED: at least one gate FAILED (it dominates — whatever else happened)
-#   2  REFUSED: the runner did not run the table (empty or malformed table, unknown argument)
+#   2  REFUSED: the runner did not run (empty or malformed table, unknown argument, or a narrowed
+#      run's own preconditions failed)
 #   3  RED, UNKNOWN: nothing failed, and at least one gate COULD NOT RUN
 # Anything non-zero is red, so a caller that asks only "green or not" is unaffected.
 #
@@ -23,10 +24,11 @@
 # selection without the guard floor.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# THIS FILE SHIPS WITH AN EMPTY GATE TABLE AND REFUSES TO RUN UNTIL YOU FILL IT IN: finish-pr.sh
-# treats a green `verify.sh --quick` as a landing precondition, so an empty-but-green runner
-# would authorise every landing. Declare your gates below, or, ON A FRESH REPO ONLY, let the
-# initializer write the first record (it fills THIS table while it is empty):
+# UNTIL THE GATES TABLE HOLDS A RECORD, THIS RUNNER REFUSES TO RUN. It ships with the table empty:
+# finish-pr.sh treats a green `verify.sh --quick` as a landing precondition, so an empty-but-green
+# runner would authorise every landing. Declare your gates in the GATES table in this file, or, ON
+# A FRESH REPO ONLY, let the initializer write the first record (it fills that table while it is
+# empty):
 #   ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command "<your test command>"
 # kit-init REFUSES a repository that has already lived; there, add the record to GATES by hand.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -140,14 +142,14 @@ SCOPED=0
 LIST=0
 SCOPE=()
 in_scope=0
+# A usage request always succeeds, in any position, before any argument is interpreted
+# (process/contracts/issue-creation.md § 3).
+for arg in "$@"; do case "$arg" in -h|--help) kit_usage "$VERIFY_SRC"; exit 0 ;; esac; done
 for arg in "$@"; do
   case "$arg" in
     --scope) SCOPED=1; in_scope=1 ;;
     --quick) QUICK=1; in_scope=0 ;;
     --list)  LIST=1;  in_scope=0 ;;
-    -h|--help)
-      kit_usage "$VERIFY_SRC"
-      exit 0 ;;
     -*) echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2 ;;
     *)
       # A bare word is a scope item only after --scope; a flag-looking arg is caught by -* above.

@@ -124,6 +124,8 @@ to change and making every change self-recording.
   move does not know which they wanted, and this is the one guess the tool must never make.
 - No actor was given, or the actor is not a declared role ⇒ refuse, listing the legal roles.
 - The target container does not exist ⇒ refuse **before** moving anything.
+- A move of a decomposed item into the reviewed or retired state while any of its children is short of
+  the reviewed state ⇒ refuse, naming each such child.
 - The publication of the move fails ⇒ report loudly that the board changed locally and did **not**
   reach the trunk, and name the recovery. A move that is silently local is a lie to everyone else.
 - The publication area holds uncommitted work ⇒ **refuse and wait**, listing what was found and

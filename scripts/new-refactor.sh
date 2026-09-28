@@ -37,10 +37,12 @@ usage() {
 }
 
 # A leading '-' is never a name: as new-issue.sh states (issue-creation.md § 3).
+for _a in "$@"; do
+  case "$_a" in
+    -h|--help) [ -f "$CONFIG" ] && . "$CONFIG" || true; usage; exit 0 ;;
+  esac
+done
 case "${1:-}" in
-  -h|--help)
-    [ -f "$CONFIG" ] && . "$CONFIG" || true
-    usage; exit 0 ;;
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
       usage >&2
       exit 2 ;;
@@ -109,7 +111,6 @@ while [ $# -gt 0 ]; do
     --target) need_val "$@"; TARGET="$2"; shift 2 ;;
     --prd) need_val "$@"; PRD="$2"; shift 2 ;;
     --stories) need_val "$@"; STORIES="$2"; shift 2 ;;
-    -h|--help) usage; exit 0 ;;
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac

@@ -45,7 +45,9 @@ body_of() { printf '%s' "$1" | sed '$d'; }
 
 VERB="${1:-send}"
 
-# A usage request is answered before the verb is interpreted (issue-creation.md § 3).
+# A usage request is answered before the verb is interpreted, in any position
+# (issue-creation.md § 3).
+for _a in "$@"; do case "$_a" in -h|--help) VERB="$_a" ;; esac; done
 case "${VERB:-}" in
   -h|--help|help)
     # Loaded here only: sending does not depend on the help renderer.

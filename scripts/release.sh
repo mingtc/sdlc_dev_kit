@@ -222,10 +222,14 @@ usage() {
   start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start=3
+  start="$(awk -v s="$start" 'NR>=s && !/^#[[:space:]]*KIT-DISPOSITION:/{f=1; print NR; exit} END{if (!f) print s}' "$src")"
   sed -n "${start},${window_end:-9}p" "$src" | sed 's|^# \{0,1\}||'
 }
 
 # ── Arg parse ────────────────────────────────────────────────────────────────
+# A usage request always succeeds, in any position, before any argument is interpreted
+# (process/contracts/issue-creation.md § 3).
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 RAW_VERSION=""; DRY_RUN=false; PUBLISH_ONLY=false; NO_FETCH=false; APPROVE_SHIPPED=false
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -233,7 +237,6 @@ while [ $# -gt 0 ]; do
     --publish-only) PUBLISH_ONLY=true; shift ;;
     --no-fetch) NO_FETCH=true; shift ;;
     --approve-shipped) APPROVE_SHIPPED=true; shift ;;
-    -h|--help) usage; exit 0 ;;
     --apply) { echo "release.sh: there is no --apply — this script MUTATES by default, which is the"
                echo "            opposite of the archive sweeps. Use --dry-run to run every gate and STOP."
                echo "            NOTHING WAS WRITTEN."; } >&2
@@ -441,8 +444,8 @@ DIST_REMOTE_URL="$(git -C "$REPO_ROOT" remote get-url "$REMOTE" 2>/dev/null || e
 
 # ── The publish step, as a function so both the normal path and --publish-only
 #    call exactly the same code.
-publish_dist() {
-  local work tagtree distdir artifact rec src dst _pd_list
+# The config the publish step needs, checked on its own so a --dry-run refuses as the run would.
+publish_configured() {
   if [ "$RELEASE_PUBLISH" != "true" ]; then
     echo "release.sh: publishing is not enabled for this project (RELEASE_PUBLISH=false in the config block)." >&2
     return 1
@@ -455,6 +458,12 @@ publish_dist() {
     echo "release.sh: RELEASE_PUBLISH is true but neither a build (BUILD_COMMAND + DIST_ARTIFACT_GLOB) nor a SHIP_MANIFEST is declared, so there is nothing this ritual can honestly publish." >&2
     return 1
   fi
+  return 0
+}
+
+publish_dist() {
+  local work tagtree distdir artifact rec src dst _pd_list
+  publish_configured || return 1
   work="$(mktemp -d)" || { echo "release.sh: could not create a temp dir for the publish step." >&2; return 1; }
   # shellcheck disable=SC2064
   trap "rm -rf '$work'; git -C '$REPO_ROOT' worktree prune >/dev/null 2>&1 || true" RETURN
@@ -539,8 +548,10 @@ if [ "$PUBLISH_ONLY" = "true" ]; then
     exit 1
   fi
   # Above the gates means above the dry-run stop point, so this path honours --dry-run
-  # itself; otherwise a rehearsal would force-push, possibly rolling the branch back.
+  # itself; otherwise a rehearsal would force-push, possibly rolling the branch back. The
+  # config is checked first, so the rehearsal refuses where the run would.
   if [ "$DRY_RUN" = "true" ]; then
+    publish_configured || exit 1
     echo "(dry run) would: rebuild at $TAG and force-push $DIST_BRANCH to"
     echo "          $DIST_REMOTE_URL (one commit, REPLACING the current one)."
     echo "(dry run — nothing was pushed.)"

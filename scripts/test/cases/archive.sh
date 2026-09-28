@@ -295,6 +295,39 @@ case_archive_index_carries_the_date() {
 }
 
 # =============================================================================
+# CASE — A MISSING INDEX OVER A NON-EMPTY STORE REFUSES WITH THE LISTING AND THE RECIPE,
+# WHETHER THE FILE OR ONLY ITS HEADING IS MISSING (archive-sweep.md § 3).
+#
+# The listing is what makes the refusal checkable; a one-line "does not exist" leaves the
+# operator to create an index that claims nothing was ever retired.
+# =============================================================================
+case_archive_missing_index_lists_the_store() {
+  cf_reset
+  make_sandbox
+  seed_issue done "$SB_PREFIX-140" retired chore "Already retired"
+  seed_issue qa_complete "$SB_PREFIX-141" waiting chore "Waiting to retire"
+  publish_sandbox
+  local out rc form
+  for form in file heading; do
+    if [ "$form" = file ]; then
+      git -C "$SB_WORK" rm -q ARCHIVE.md >/dev/null 2>&1
+    else
+      printf '# ARCHIVE.md\n\nno heading here\n' > "$SB_WORK/ARCHIVE.md"; git -C "$SB_WORK" add ARCHIVE.md >/dev/null 2>&1
+    fi
+    sbcommit -q -m "[PM] break the index ($form)" >/dev/null 2>&1 && git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 \
+      || _fixture_die "case_archive_missing_index_lists_the_store: could not publish the broken index ($form)."
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "($form) archive.sh --apply exited 0 with the index missing"
+    printf '%s\n' "$out" | grep -F "$SB_PREFIX-140-retired.md" >/dev/null \
+      || cf "($form) the refusal does not list what progress/done/ holds: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    printf '%s\n' "$out" | grep -F 'Backfill' >/dev/null || cf "($form) the refusal gives no backfill recipe"
+    origin_has_path "progress/qa_complete/$SB_PREFIX-141-waiting.md" || cf "($form) the sweep moved a card during a refusal"
+  done
+  finish "archive.sh: a missing index file and a missing '## Archived' heading both refuse, listing what progress/done/ holds and giving the backfill recipe, and nothing moves"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE RETIRED STORE IS REQUIRED, NOT MANUFACTURED (both directions).
 #
 # archive-sweep.md § 3: a missing retired store refuses. Creating it would invent a column,

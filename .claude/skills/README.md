@@ -236,8 +236,10 @@ an instruction in one tool's or one forge's command, this kit keeps the instruct
 command to a named example — the setup commands in `using-git-worktrees`, the review-thread reply
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
 it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
-has repaired citations, `using-git-worktrees` gained an external-directory note, and
-`writing-plans` saves plans under the kit's id-keyed name. (`brainstorming`'s visual companion is
+has repaired citations, `using-git-worktrees` gained an external-directory note,
+`writing-plans` saves plans under the kit's id-keyed name, and `systematic-debugging`'s `find-polluter.sh`
+takes its runner from `TEST_CMD`, refuses a clean result over zero matched files or a pre-existing path,
+and runs each matched path whole. (`brainstorming`'s visual companion is
 upstream's; the kit only declares it an opt-in extra above the floor.) **Read every diff hunk on its
 own** — that class is the one that is easiest to mistake for drift, not the only
 one you will meet. A re-copy that restores the single-command form has not updated the

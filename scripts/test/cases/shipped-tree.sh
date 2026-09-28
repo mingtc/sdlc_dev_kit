@@ -376,9 +376,10 @@ POST_EOF
 # CASE — --help DOES NOT PRINT A KIT-DISPOSITION LINE
 #
 # The disposition marker sits under KIT-CLASS for a reader that is a tool, not a person, and it
-# outlives the obligation it states. PLANTED in every consumer of lib/usage.sh, so the case has a
-# subject whether or not a shipped script still carries one: the planted line must not print,
-# and the header line it displaced must open the help.
+# outlives the obligation it states. PLANTED in every consumer of lib/usage.sh, and in release.sh,
+# which repeats the library's start rule rather than sourcing it, so the case has a subject
+# whether or not a shipped script still carries one: the planted line must not print, and the
+# header line it displaced must open the help.
 # =============================================================================
 case_help_does_not_print_the_disposition_marker() {
   cf_reset
@@ -387,6 +388,8 @@ case_help_does_not_print_the_disposition_marker() {
   consumers="$(_usage_consumers)"
   [ -n "$consumers" ] \
     || _fixture_die "case_help_does_not_print_the_disposition_marker: no script sources lib/usage.sh — nothing to plant into."
+  [ -f "$SB_WORK/scripts/release.sh" ] && consumers="$consumers
+$SB_WORK/scripts/release.sh"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     base="$(basename "$f")"; n=$((n+1))
@@ -403,7 +406,7 @@ case_help_does_not_print_the_disposition_marker() {
   done <<CONSUMERS_EOF
 $consumers
 CONSUMERS_EOF
-  finish "--help does not print a KIT-DISPOSITION line: planted under the marker of each of $n lib/usage.sh consumer(s), it is skipped and the header line below it opens the help"
+  finish "--help does not print a KIT-DISPOSITION line: planted under the marker of each of $n header renderer(s) (the lib/usage.sh consumers and release.sh), it is skipped and the header line below it opens the help"
   teardown
 }
 
@@ -736,6 +739,80 @@ EOF
 
   finish "the CLI shape across the shipped set: every tool's usage request exits 0 and names the tool, and every unrecognised option exits 2 and names the option — asserted over $n tool(s) DERIVED FROM process/KIT-MANIFEST, so a file the adopter was told to add is not judged against our contract. NOT BOUND, and derived from issue-creation.md's own CLI-SHAPE-EXEMPT-CLASSES block rather than typed here — $skipped shipped program(s) in the declared classes (protocol-invoked, sourced, vendored):$skiplist. Every declared prefix was asserted to still match something. NOT EXERCISED, and this is a HOLE rather than an exemption — $unreached bound tool(s) the sandbox does not carry, so nothing here judged them:${unreachedlist:- (none)}. THE POPULATION IS EVERY MANIFEST ENTRY WHOSE SHEBANG NAMES AN INVOCATION FORM THIS CASE KNOWS, invoked by that form — shape(s) walked:${shapes:- (none)}; a shell program is executed directly, an interpreted one that is deliberately non-executable is run through its interpreter. NOT REACHED BY THE PREDICATE AT ALL, named rather than dropped, because a population that under-reaches is silent in a way an exemption never is — shebang-carrying manifest entr(ies) in a language this case cannot invoke:${outspan:- (none)}"
   teardown
+}
+
+# =============================================================================
+# CASE — A USAGE REQUEST IS ANSWERED BEFORE ANY ARGUMENT IS INTERPRETED, OVER scripts/.
+#
+# contracts/issue-creation.md § 3: the request "is answered before any argument is interpreted".
+# A --help that follows an unknown option or a surplus positional must still exit 0 naming the
+# tool; a tool that parses left to right refuses at the first bad argument instead. The
+# population is the bound programs under scripts/ in the manifest, derived as the CLI-shape
+# case derives it; bound programs elsewhere are named in the finish line, not judged here.
+# =============================================================================
+case_usage_request_is_answered_before_any_argument() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" exempt rel e skip interp f base out rc n=0 elsewhere="" lead
+  [ -f "$man" ] || _fixture_die "case_usage_request_is_answered_before_any_argument: process/KIT-MANIFEST is absent."
+  exempt="$(_cli_exempt_prefixes)"
+  [ -n "$exempt" ] || _fixture_die "case_usage_request_is_answered_before_any_argument: no exempt class derived from issue-creation.md — every library would be judged."
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    interp="$(_cli_invocation "$REAL_REPO_ROOT/$rel")"
+    [ -n "$interp" ] || continue
+    skip=0; for e in $exempt; do case "$rel" in "$e"*) skip=1 ;; esac; done
+    [ "$skip" -eq 0 ] || continue
+    case "$rel" in scripts/test/*) continue ;; scripts/*) : ;; *) elsewhere="$elsewhere $rel"; continue ;; esac
+    f="$SB_WORK/$rel"; [ -f "$f" ] || { cf "$rel is bound and shipped but the sandbox does not carry it"; continue; }
+    base="$(basename "$f")"; n=$((n+1))
+    for lead in --not-a-real-flag not-a-real-positional; do
+      if [ "$interp" = "SHELL" ]; then
+        out="$( cd "$SB_WORK" && "$f" "$lead" --help </dev/null 2>&1 )"; rc=$?
+      else
+        out="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 "$interp" "$f" "$lead" --help </dev/null 2>&1 )"; rc=$?
+      fi
+      [ "$rc" -eq 0 ] || cf "$rel $lead --help exited $rc — the argument before it was interpreted first: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
+      printf '%s\n' "$out" | grep -F "$base" >/dev/null \
+        || cf "$rel $lead --help did not print usage naming $base: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-140)"
+    done
+  done <<MANIFEST_EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+MANIFEST_EOF
+  [ "$n" -gt 0 ] || _fixture_die "case_usage_request_is_answered_before_any_argument: no bound program under scripts/ — the case would pass over nothing."
+  local made
+  made="$(find "$SB_WORK/progress" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$made" = "0" ] || cf "$made card(s) were created by usage requests"
+  finish "a usage request after an unknown option or a surplus positional exits 0 naming the tool, over $n bound program(s) under scripts/ derived from process/KIT-MANIFEST. Bound programs outside scripts/, not judged here:${elsewhere:- (none)}"
+  teardown
+}
+
+# =============================================================================
+# CASE — find-polluter.sh RUNS EACH MATCHED PATH WHOLE, INVOKED BY PATH FROM THE PROJECT ROOT.
+#
+# A word-split loop breaks a path holding a space into fragments that never run, and then
+# reports clean over a test that never executed. Invoked the way its docs show: from the project
+# root, by its path under .claude/skills/.
+# =============================================================================
+case_find_polluter_runs_each_path_whole() {
+  cf_reset
+  local L="find-polluter.sh runs a test whose path holds a space as one test, invoked by path from the project root"
+  local rel=".claude/skills/systematic-debugging/find-polluter.sh" out rc
+  if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/$(dirname "$rel")" "$SB_WORK/src/with space"
+  cp "$REAL_REPO_ROOT/$rel" "$SB_WORK/$rel"
+  printf 'true\n' > "$SB_WORK/src/a.test.ts"
+  printf 'mkdir -p polluted/.git\n' > "$SB_WORK/src/with space/p.test.ts"
+  rc=0; out="$( cd "$SB_WORK" && TEST_CMD=sh "$SB_WORK/$rel" 'polluted/.git' './src/*.test.ts' 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "the run exited $rc, want 1 (a polluter found): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'Testing: ./src/with space/p.test.ts' >/dev/null \
+    || cf "the spaced path was not run as one test: $(printf '%s\n' "$out" | grep -F 'Testing:' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F 'FOUND POLLUTER' >/dev/null || cf "the polluter was not found"
+  [ -d "$SB_WORK/polluted/.git" ] || cf "(control) the polluting test never ran"
+  teardown
+  finish "$L"
 }
 
 # =============================================================================

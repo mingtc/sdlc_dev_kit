@@ -526,6 +526,67 @@ case_move_issue_moves_a_decomposed_parent() {
 }
 
 # =============================================================================
+# CASE — A PARENT ADVANCES ONLY WHEN EVERY SUBTASK HAS.
+#
+# qa_complete and done claim the whole issue reviewed, and archive.sh retires the subtask tree
+# with its parent, so a slice still open would be filed as completed. Each tool that can make
+# the claim refuses before it writes:
+#   (a) move-issue.sh to qa_complete, and (b) to done;
+#   (c) finish-pr.sh, before the merge (the advance after it would refuse, leaving it landed);
+#   (d) archive.sh, for a parent already in qa_complete with an open slice;
+#   (e) control: with every slice in qa_complete the parent moves.
+# =============================================================================
+case_parent_advances_only_with_every_subtask() {
+  cf_reset
+  make_sandbox
+  local p="$SB_PREFIX-130" q="$SB_PREFIX-131" out rc
+  seed_issue dev_complete "$p" parent chore "Decomposed parent" "feature/$p-parent"
+  mkdir -p "$SB_WORK/progress/subtasks/$p/todo" "$SB_WORK/progress/subtasks/$p/qa_complete"
+  seed_issue "subtasks/$p/todo" "$p-s1" open chore "Open slice"
+  seed_issue "subtasks/$p/qa_complete" "$p-s2" done chore "Reviewed slice"
+  seed_issue qa_complete "$q" parent chore "Parent already reviewed"
+  mkdir -p "$SB_WORK/progress/subtasks/$q/in_progress"
+  seed_issue "subtasks/$q/in_progress" "$q-s1" open chore "Open slice"
+  publish_sandbox
+  seed_branch "$p" parent CHANGE130.txt
+
+  local tgt
+  for tgt in qa_complete done; do
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$p" "$tgt" --role QA --note "review" 2>&1 )" || rc=$?
+    [ "$rc" -ne 0 ] || cf "($tgt) move-issue.sh moved a parent with an open subtask to $tgt/"
+    printf '%s\n' "$out" | grep -F "progress/subtasks/$p/todo/$p-s1-open.md" >/dev/null \
+      || cf "($tgt) the refusal does not name the open slice: $(printf '%s' "$out" | tr '\n' '|')"
+    printf '%s\n' "$out" | grep -F "$p-s2-done.md" >/dev/null \
+      && cf "($tgt) the refusal names a slice already in qa_complete/"
+    origin_has_path "progress/dev_complete/$p-parent.md" || cf "($tgt) the parent left dev_complete/ during a refusal"
+  done
+
+  rc=0; out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$p" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) finish-pr.sh landed a parent with an open subtask"
+  origin_has_path "CHANGE130.txt" && cf "(c) the parent's branch was merged before the refusal"
+  printf '%s\n' "$out" | grep -F "$p-s1-open.md" >/dev/null || cf "(c) the refusal does not name the open slice: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/archive.sh --apply 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) archive.sh retired a parent whose subtask is open"
+  origin_has_path "progress/subtasks/$q/in_progress/$q-s1-open.md" || cf "(d) the open slice left progress/subtasks/"
+  origin_has_path "progress/qa_complete/$q-parent.md" || cf "(d) the parent left qa_complete/ during a refusal"
+  printf '%s\n' "$out" | grep -F "$q-s1-open.md" >/dev/null || cf "(d) the refusal does not name the open slice: $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
+
+  # The slice is reviewed by a fixture move: the control is about the parent, not subtask.sh.
+  if ! { git -C "$SB_WORK" mv "progress/subtasks/$p/todo/$p-s1-open.md" "progress/subtasks/$p/qa_complete/$p-s1-open.md" \
+         && sbcommit -q -m "[QA] $p-s1: reviewed" && git -C "$SB_WORK" push -q origin "$SB_TRUNK"; } >/dev/null 2>&1; then
+    cf "(e) could not publish $p-s1 in qa_complete/, so the control did not run"
+  else
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$p" qa_complete --role QA --note "review" 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(e) with every slice in qa_complete/ the parent still did not move (rc=$rc): $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+    origin_has_path "progress/qa_complete/$p-parent.md" || cf "(e) the parent did not reach qa_complete/"
+  fi
+
+  finish "a parent with an open subtask is refused by move-issue.sh (qa_complete, done), by finish-pr.sh before the merge and by archive.sh before any write, each naming the open slice; with every slice reviewed it moves"
+  teardown
+}
+
+# =============================================================================
 # CASE — the mover's not-found refusal costs nothing, and cannot lie
 #
 # FOUR ARMS, and (b)–(d) are why this is a case and not a one-line assertion:

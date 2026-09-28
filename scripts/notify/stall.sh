@@ -32,7 +32,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=../lib/usage.sh
 . "$SCRIPT_DIR/../lib/usage.sh"
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
-case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+# A usage request always succeeds, in any position (process/contracts/issue-creation.md § 3).
+for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 QUIET_MINUTES=""; REMOTE="${KWT_REMOTE:-origin}"; DO_NOTIFY=false; SESSION="stall-watch"
 need_val() { [ "$#" -ge 2 ] || { echo "stall.sh: $1 requires a value." >&2; usage >&2; exit 2; }; }
@@ -42,7 +43,6 @@ while [ $# -gt 0 ]; do
     --remote)        need_val "$@"; REMOTE="$2"; shift 2 ;;
     --session)       need_val "$@"; SESSION="$2"; shift 2 ;;
     --notify)        DO_NOTIFY=true; shift ;;
-    -h|--help)       usage; exit 0 ;;
     *) echo "stall.sh: unknown option '$1'" >&2; usage >&2; exit 2 ;;
   esac
 done

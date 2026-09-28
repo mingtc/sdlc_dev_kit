@@ -428,7 +428,9 @@ orchestrator and the Dev hat it wears **must never mint a top-level `<PREFIX>-NN
 parent, and are **managed by `scripts/subtask.sh`**, which sources the same kanban-worktree
 library as `move-issue.sh` — never by hand and never by `move-issue.sh`. The id scheme, the
 frontmatter, the sliced-AC rule and the parent's rollup are stated on the slice itself:
-[.claude/templates/SUBTASK.template.md](../templates/SUBTASK.template.md).
+[.claude/templates/SUBTASK.template.md](../templates/SUBTASK.template.md). The parent advances to
+`qa_complete/` only when every subtask has; `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse it
+otherwise.
 
 ## Discovered tech-debt and todos
 

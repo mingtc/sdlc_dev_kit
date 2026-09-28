@@ -36,6 +36,7 @@
 #                            Reports what it did in KWT_SYNCED.
 #   kwt_finalize           → push HEAD:<trunk>, then conditionally advance the
 #                            operator's checkout / local branch ref
+#   kwt_open_subtasks <id> → print each card of <id>'s subtask tree not yet in qa_complete/
 #
 # The sourcing script owns shell options; this file uses explicit return codes.
 #
@@ -639,5 +640,23 @@ kwt_finalize() {
       git -C "$MAIN_ROOT" update-ref "refs/heads/$DEFAULT_BRANCH" "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" 2>/dev/null || true
     fi
   fi
+  return 0
+}
+
+# kwt_open_subtasks <parent-id> — print, one per line and relative to $KWT, every card under
+# progress/subtasks/<parent-id>/<status>/ whose status is not qa_complete. Empty output: no tree,
+# or every slice reviewed. A parent reaches qa_complete (or done) only when this prints nothing.
+# Read after kwt_sync, so it answers for the published board.
+kwt_open_subtasks() {
+  local base="$KWT/progress/subtasks/$1" all f
+  [ -d "$base" ] || return 0
+  all="$(find "$base" -mindepth 2 -maxdepth 2 -type f -name '*.md' 2>/dev/null | sort)"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in "$base"/qa_complete/*) continue ;; esac
+    printf '%s\n' "${f#"$KWT"/}"
+  done <<KWT_OPEN_EOF
+$all
+KWT_OPEN_EOF
   return 0
 }

@@ -52,7 +52,7 @@ Explicit list of things this PRD does **not** cover. This is what protects Dev f
 
 ## Features
 
-A PRD groups one or more features. Each feature has a number (`F1`, `F2`, …) and one or more stories. Issues in `progress/` reference these IDs as `PRD-NNN § F1 § S1`.
+A PRD groups one or more features. Each feature has a number (`F1`, `F2`, …) and one or more stories. Issues in `progress/` reference a story by its full id, `PRD-NNN-F1-S1`, the form their `stories:` frontmatter carries.
 
 ### F1 — <feature name>
 
