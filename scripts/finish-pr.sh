@@ -241,7 +241,7 @@ if [ -z "$SRC" ]; then
   exit 1
 fi
 
-# A DECOMPOSED PARENT LANDS ONLY WHEN EVERY SUBTASK IS REVIEWED: the advance below would refuse
+# A DECOMPOSED PARENT LANDS ONLY WHEN EVERY SUBTASK IS REVIEWED OR DECLINED: the advance below would refuse
 # after the merge had landed (the mover's rule), so it is refused here, before anything moves.
 _open="$(kwt_open_subtasks "$ISSUE_ID")"
 if [ -n "$_open" ]; then

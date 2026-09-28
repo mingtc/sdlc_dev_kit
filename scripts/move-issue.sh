@@ -382,7 +382,7 @@ else
     exit 1
   fi
 
-  # A PARENT ADVANCES ONLY WHEN EVERY SUBTASK HAS: qa_complete and done both claim the whole
+  # A PARENT ADVANCES ONLY WHEN EVERY SUBTASK IS REVIEWED OR DECLINED: qa_complete and done both claim the whole
   # issue reviewed, and archive.sh would retire an open slice with it.
   if [ "$TARGET" = "qa_complete" ] || [ "$TARGET" = "done" ]; then
     _open="$(kwt_open_subtasks "$ISSUE_ID")"

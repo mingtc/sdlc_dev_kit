@@ -518,7 +518,8 @@ the full branch-based boundary.
 ### Bug-severity calibration
 
 The labels are defined in [`.claude/roles/qa.md`](../.claude/roles/qa.md) § Severity scale.
-A `Blocker` or `Critical` blocks the PASS; a `Major` or `Minor` is filed as a follow-up.
+A `Blocker` or `Critical`, or any broken test, blocks the PASS; a `Major` or `Minor` in behavior the suite
+does not cover is filed as a follow-up.
 
 ---
 

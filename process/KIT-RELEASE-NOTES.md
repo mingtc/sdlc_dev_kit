@@ -278,9 +278,10 @@ columns and never the cards.*
   `qa_complete/` or `done/`** — `archive.sh` now refuses the whole sweep over one: finish it, or close one that
   will not be done with `./scripts/subtask.sh move <id> declined --note "why"`. **Under
   `progress/done/subtasks/*/`** (retired open by the old sweep, beside its retired parent): leave it in that
-  tree — moving it back splits the parent's tree and every later sweep refuses. Record it where it is: `git mv`
-  it into `progress/done/subtasks/<ID>/declined/` with a role-prefixed commit saying why, or, if its work is
-  still wanted, file that work as a new issue.
+  tree — moving it back splits the parent's tree and every later sweep refuses. Record it where it is, declined:
+  `mkdir -p progress/done/subtasks/<ID>/declined && git mv <card> progress/done/subtasks/<ID>/declined/`, append
+  a dated Activity line to the card giving the reason — if its work is still wanted, file that work as a new
+  issue and cite it there — and commit with a role prefix.
 
 - **If your `.claude/roles/qa.md` still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."` (search for `NNN. Merged.`) and then
   squash-merges via `finish-pr.sh`, replace its *FAIL on regression* block and the `Major`/`Minor` paragraph under it** with
@@ -718,11 +719,12 @@ columns and never the cards.*
   `./scripts/finish-pr.sh <ID> --worktree <its absolute path>`. MANUAL step 3 says the same, and adds that a branch
   changing the gate runner is judged by the trunk's copy. **If you edited your `qa.md`,** take the new step 2.
 
-- **`FAIL_REGRESSION` is stated one way**, in MANUAL step 6, `qa.md` and the wave runner's QA prompt: a previously-green
+- **`FAIL_REGRESSION` is stated one way**, in MANUAL step 6, `qa.md`, `dev.md` and both runners' QA prompts: a previously-green
   test broken at any severity (a red gate), or behaviour the suite does not cover broken at `Blocker`/`Critical`
   severity. A `Major`/`Minor` break in uncovered behaviour is filed and the review passes, citing it. QA's step 5 also treats a diff to
   anything `verify.sh`'s `GATES` rows invoke as a gate change. **Nothing to do**, unless you carry an edited
-  `qa.md` (take its *FAIL on regression* heading) or `wave-runner.js` (port the one parenthetical).
+  `qa.md` (take its *FAIL on regression* heading), `dev.md` (its *Bug found* bullet) or a runner (port its
+  `FAIL_REGRESSION` wording).
 
 - **Mint from a freshly pulled trunk.** `dev.md`, `pm.md` and `refactorer.md` now `git pull --ff-only` before
   `next-id.sh`, as `qa.md` did; a stale trunk can hand out an id already taken. **Nothing to do.**
