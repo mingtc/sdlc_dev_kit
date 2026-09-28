@@ -284,10 +284,13 @@ columns and never the cards.*
   (3) append a dated `[<Role>]` Activity line to the card giving the reason, citing the new issue if there is
   one; (4) `git add progress/done/subtasks/<ID>/declined/`, then commit with a role prefix and push.
 
-- **If you carry an edited `.claude/roles/qa.md`, merge this release's copy into yours: diff the shipped file against
-  `0.6.0`'s and take every change.** It changed in many places — among them step 2's worktree review, step 5's gate
+- **If you carry an edited `.claude/roles/qa.md`, merge this release's changes into yours** — the three-way route in § How
+  to upgrade does it for you; by hand, diff the copy your `KIT-VERSION` shipped against this release's (both from
+  their zips) and apply every hunk of that difference to your file. It changed in many places — among them step 2's worktree review, step 5's gate
   cross-cut, the *FAIL on regression* block and the paragraph under it, the PASS actions, and § Severity scale — and
-  the parts depend on each other (the Major/Minor paragraph lands per step 2), so take them together. It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
+  the parts depend on each other (the Major/Minor paragraph lands per step 2), so take them together. One
+  exception: if you carry edited runners, hold back the `precondition_failure` sentence until they are ported (the
+  runner entry below says why). It is urgent if yours still ends a regression bullet with `…Bugs filed: <your prefix>-NNN. Merged."`
   (search for `NNN. Merged.`) and then squash-merges via `finish-pr.sh`: that order leaves the branch unmerged under a
   card that says it merged.
 
@@ -412,7 +415,7 @@ columns and never the cards.*
   the tranche runner, the loop body's `try/catch`.
 
 - **If you carry edited copies of the runners, port `precondition_failure` WITH its routing — or do
-  not take the new review instruction.** `.claude/roles/qa.md` and `process/MANUAL.md` step 6 now tell
+  not take the new review instruction** (the one exception to the `qa.md` merge above). `.claude/roles/qa.md` and `process/MANUAL.md` step 6 now tell
   a reviewer who cannot form a verdict to set `precondition_failure` and omit `verdict`. An edited
   runner without the change sets no `additionalProperties`, so a reviewer can send
   `precondition_failure` beside an invented PASS and the old runner LANDS it on a gate that never ran.
