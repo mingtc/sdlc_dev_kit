@@ -82,7 +82,7 @@ case_ask_refuses_with_no_principal() {
 
 # =============================================================================
 # CASE — ask.sh, DECLARED: ONE FILE, ONE PROVISIONAL DEFAULT, ONE PROGRESS RECORD, EXIT 0.
-# GREEN: the case card 528 asks for — writes exactly one question file in the declared channel,
+# GREEN: writes exactly one question file in the declared channel,
 # records the provisional default ONLY over a WITHDRAWN entry, writes one progress record,
 # exits 0.
 #
