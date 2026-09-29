@@ -436,6 +436,7 @@ CASES=(
   case_template_links_resolve_from_their_destination
   case_missing_option_value_refuses
   case_shipped_scripts_stay_on_the_floor
+  case_gates_command_field_is_excluded_from_the_floor
   case_refusal_sites_are_reported
   case_help_never_opens_with_the_class_marker
   case_role_examples_carry_their_label

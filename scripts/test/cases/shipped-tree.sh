@@ -1250,6 +1250,45 @@ EOF
   teardown
 }
 
+# _gates_blank_commands <file> — <file>'s content with the COMMAND field of every verify.sh
+# `GATES=( … )` record blanked, everything else byte-identical (line count and line numbers
+# untouched, so a hit found elsewhere in the same file still cites its real line). The command
+# is the ADOPTER's; only the array's declared record shape (`"<name>|<class>|<command>"`) is
+# read, bounded by the literal `GATES=(` … `)` lines — never a loose pattern that could also
+# blank kit code outside that array. The command cannot itself contain `"` (kit-init refuses
+# one), so the FIRST `"` after the second `|` closes it; anything past that quote, including a
+# trailing `# comment`, passes through untouched.
+_gates_blank_commands() {  # <file>
+  awk '
+    /^GATES=\($/ { ingates=1; print; next }
+    ingates && /^\)[[:space:]]*$/ { ingates=0; print; next }
+    ingates {
+      if (match($0, /^[[:space:]]*"[^"|]*\|[^"|]*\|/)) {
+        pre = substr($0, 1, RLENGTH); rest = substr($0, RLENGTH + 1)
+        if (match(rest, /"/)) {
+          print pre "<gates-command-excluded>" substr(rest, RSTART); next
+        }
+      }
+      print; next
+    }
+    { print }
+  ' "$1"
+}
+
+# _floor_hits <word> <root> <file>… — command-position hits of <word> across <file>…, one per
+# line as "<file rel to root>:<line>: <text>" when more than one file is given, else "<line>:
+# <text>". ONE DEFINITION, shared by the case below and its own test: COMMAND POSITION, not mere
+# appearance (`echo "… a node id …"` mentions node and does not invoke it); the leading
+# `VAR=value ` group is there because the shipped idiom for passing a value safely is exactly
+# `PLAN="$PLAN" perl …`.
+_floor_hits() {  # <word> <root> <file>…
+  local w="$1" root="$2"; shift 2
+  awk -v w="$w" -v many="$#" -v root="$root" '
+    /^[[:space:]]*#/ { next }
+    $0 ~ ("(^|[;&|(]|\\$\\()[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*" w "([[:space:]]|$)") { print (many > 1 ? substr(FILENAME, length(root) + 2) ":" : "") FNR ": " substr($0,1,70) }
+  ' "$@" 2>/dev/null || true
+}
+
 # =============================================================================
 # CASE — NO SHIPPED SCRIPT REACHES PAST THE DECLARED FLOOR.
 #
@@ -1257,6 +1296,12 @@ EOF
 # Python hygiene tools; one skill's Node companion). A shell program that invokes another
 # interpreter must check for it with `command -v` first, and a check for one it no longer
 # invokes is stale. A floor nobody checks is a claim.
+#
+# AN ADOPTER'S FILLED GATES RECORD IS NOT KIT CODE: a filled `scripts/verify.sh` reads
+# `"unit|core|node --test"`, and the raw file would report that as verify.sh itself invoking
+# node. Every op file is scanned through _gates_blank_commands first, so the array's command
+# field never reaches the interpreter scan while the rest of the file — including a genuine
+# unguarded call outside GATES — is scanned unchanged.
 # =============================================================================
 case_shipped_scripts_stay_on_the_floor() {
   cf_reset
@@ -1272,6 +1317,10 @@ case_shipped_scripts_stay_on_the_floor() {
 
   local rel f sb n=0 walked=0 outspan="" absent=""
   local undeclared="" stale=""
+
+  # A scratch root for the GATES-blanked copies this case scans instead of the real files
+  # (the real tree is still what MEMBERSHIP and the shebang are read from, above and below).
+  local gscratch; gscratch="$(mktemp -d)"
 
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
@@ -1299,19 +1348,26 @@ FLOOR_POP_EOF
       _harness_population_is_whole <(cat "${ops[@]}")
     fi
 
+    # SCAN THROUGH GATES-BLANKED COPIES, never the real files: an adopter's filled GATES
+    # record is not kit code (see _gates_blank_commands above). Membership, the shebang and
+    # everything else above still read the real tree. Each copy keeps ITS OWN real relative
+    # path as its scratch path (mkdir -p, one op per subdirectory) purely so a hit message
+    # below still names the real file, never a scratch index.
+    local scan_ops=() _op _od
+    for _op in "${ops[@]}"; do
+      _od="$gscratch/${_op#$REAL_REPO_ROOT/}"
+      mkdir -p "$(dirname "$_od")"
+      _gates_blank_commands "$_op" > "$_od"
+      scan_ops+=("$_od")
+    done
+
     local w hits guarded
     for w in "$i1" "$i2" "$i3" "$i4" "$i5"; do
-      # COMMAND POSITION, not mere appearance. `echo "… a node id …"` mentions node and does not
-      # invoke it. The leading `VAR=value ` group is there because the shipped idiom for passing a
-      # value safely is exactly `PLAN="$PLAN" perl …`.
-      hits="$(awk -v w="$w" -v many="${#ops[@]}" -v root="$REAL_REPO_ROOT" '
-        /^[[:space:]]*#/ { next }
-        $0 ~ ("(^|[;&|(]|\\$\\()[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*" w "([[:space:]]|$)") { print (many > 1 ? substr(FILENAME, length(root) + 2) ":" : "") FNR ": " substr($0,1,70) }
-      ' "${ops[@]}" 2>/dev/null || true)"
+      hits="$(_floor_hits "$w" "$gscratch" "${scan_ops[@]}")"
       # DECLARED = the file guards the interpreter with `command -v` in its own text. No name
       # list.
       guarded=0
-      grep -qE "command -v ${w}([^0-9A-Za-z_]|\$)" "${ops[@]}" 2>/dev/null && guarded=1
+      grep -qE "command -v ${w}([^0-9A-Za-z_]|\$)" "${scan_ops[@]}" 2>/dev/null && guarded=1
       if [ -n "$hits" ] && [ "$guarded" -eq 0 ]; then
         undeclared="$undeclared
     $rel invokes '$w' and never checks for it: $(printf '%s' "$hits" | head -1)"
@@ -1337,9 +1393,97 @@ EOF
   [ -z "$stale" ] \
     || cf "shipped shell program(s) carry a 'command -v' guard for an interpreter they no longer invoke —$stale. A declaration that outlives its use reads as coverage and is none"
 
+  rm -rf "$gscratch"
+
   # THE SPAN IS PRINTED ON THE CLEARING BRANCH. Non-shell programs are named, not judged: the
   # command-position pattern reads shell, and on Python it would call `node = …` an invocation.
-  finish "of $n manifest path(s), the $walked that are shipped SHELL programs invoke no interpreter past the kit's floor without checking for it first, and none carries a check for one it no longer invokes — the population is DERIVED FROM THE MANIFEST rather than from a glob, so a file the adopter was told to add is not counted as ours; the harness entry point is read as the whole population it loads. NOT MEASURED HERE, because this check's pattern reads shell and would report a variable named 'node' as an invocation:${outspan:- (none)}"
+  finish "of $n manifest path(s), the $walked that are shipped SHELL programs invoke no interpreter past the kit's floor without checking for it first, and none carries a check for one it no longer invokes — the population is DERIVED FROM THE MANIFEST rather than from a glob, so a file the adopter was told to add is not counted as ours; the harness entry point is read as the whole population it loads. An adopter's filled verify.sh GATES record is excluded by its declared array shape, not by name — STILL NOT CAUGHT: the same quoted shape used OUTSIDE a GATES array. NOT MEASURED HERE, because this check's pattern reads shell and would report a variable named 'node' as an invocation:${outspan:- (none)}"
+}
+
+# =============================================================================
+# CASE — THE FLOOR CHECK EXCLUDES A FILLED GATES RECORD, AND NOTHING ELSE.
+#
+# The floor check above reads scripts/verify.sh through _gates_blank_commands. This proves the
+# transform itself, on a COPY (instruments.md § A.2), against the REAL shape a filled GATES
+# table takes: MEMBERSHIP and INJECTABILITY both matter, so the plant is verify.sh's own
+# real header with a real GATES block appended, not a fixture typed fresh here.
+# =============================================================================
+case_gates_command_field_is_excluded_from_the_floor() {
+  cf_reset
+  make_sandbox   # for SB_TMP + teardown only; this case plants into a COPY, never the sandbox's own verify.sh
+  local v="$REAL_SCRIPTS/verify.sh"
+  [ -f "$v" ] \
+    || _fixture_die "case_gates_command_field_is_excluded_from_the_floor: scripts/verify.sh is absent — there is no GATES table to plant into."
+  grep -qF 'GATES=(' "$v" \
+    || _fixture_die "case_gates_command_field_is_excluded_from_the_floor: scripts/verify.sh carries no GATES=( array — the case has no anchor to plant a record beside."
+
+  local probe="$SB_TMP/gatesprobe"; mkdir -p "$probe"
+  local planted="$probe/verify.sh"
+
+  # THE THREE WORDS, BUILT FROM PARTS: written whole, "node"/"python3"/"ruby" would sit in THIS
+  # file's own source at command position (a plant, and every call below that names one as a
+  # bare argument), and the harness-population arm of the case above would read this test's own
+  # fixture as the harness invoking them. Splitting each defeats that without changing what
+  # is planted or asked for at runtime.
+  local wnode="no""de" wpy="python""3" wrb="rub""y"
+
+  # PLANT: replace the shipped (empty, commented-out) table body with three real adopter
+  # records, bounded by the array's own open/close lines — never a hand-typed fixture GATES
+  # block, so a change to the real array's syntax breaks this plant rather than being missed by
+  # it. The third carries a trailing comment, ordinary bash in an array.
+  local r1="  \"unit|core|$wnode --test\""
+  local r2="  \"lint|core|$wpy -m flake8\""
+  local r3="  \"style|core|$wrb -c\"   # fast"
+  awk -v r1="$r1" -v r2="$r2" -v r3="$r3" '
+    /^GATES=\($/ { print; print r1; print r2; print r3; skip=1; next }
+    skip && /^\)[[:space:]]*$/ { print; skip=0; next }
+    skip { next }
+    { print }
+  ' "$v" > "$planted"
+  grep -qF "$r1" "$planted" \
+    || _fixture_die "case_gates_command_field_is_excluded_from_the_floor: the plant did not land — the GATES=( anchor did not match verify.sh's real array open line."
+
+  # CONTROL 1 — UNFILTERED, the plant is found (proves the pattern still matches this shape;
+  # without this the exclusion below could be silently vacuous).
+  local raw_node raw_py raw_rb
+  raw_node="$(_floor_hits "$wnode" "$probe" "$planted")"
+  raw_py="$(_floor_hits "$wpy" "$probe" "$planted")"
+  raw_rb="$(_floor_hits "$wrb" "$probe" "$planted")"
+  [ -n "$raw_node" ] \
+    || cf "(control) _floor_hits does not find the planted node GATES record unfiltered — the reddening control did not run, so the exclusion below is unproven"
+  [ -n "$raw_py" ] \
+    || cf "(control) _floor_hits does not find the planted python3 GATES record unfiltered — the reddening control did not run, so the exclusion below is unproven"
+  [ -n "$raw_rb" ] \
+    || cf "(control) _floor_hits does not find the planted ruby GATES record (trailing comment) unfiltered — the reddening control did not run, so the exclusion below is unproven"
+
+  # THE FIX — filtered through _gates_blank_commands, all three records are gone, including the
+  # one with a trailing comment after its closing quote.
+  local filtered="$probe/verify.filtered.sh"
+  _gates_blank_commands "$planted" > "$filtered"
+  local got_node got_py got_rb
+  got_node="$(_floor_hits "$wnode" "$probe" "$filtered")"
+  got_py="$(_floor_hits "$wpy" "$probe" "$filtered")"
+  got_rb="$(_floor_hits "$wrb" "$probe" "$filtered")"
+  [ -z "$got_node" ] \
+    || cf "the GATES record '$r1' still reads as verify.sh invoking $wnode after _gates_blank_commands — an adopter's filled gate would still false-red: $got_node"
+  [ -z "$got_py" ] \
+    || cf "the GATES record '$r2' still reads as verify.sh invoking $wpy after _gates_blank_commands — an adopter's filled gate would still false-red: $got_py"
+  [ -z "$got_rb" ] \
+    || cf "the GATES record '$r3' (trailing comment) still reads as verify.sh invoking $wrb after _gates_blank_commands — a trailing comment after the closing quote defeats the blanker: $got_rb"
+
+  # THE ABLATION — a genuine unguarded interpreter call OUTSIDE the GATES array, planted into
+  # the SAME file beside the three excluded records, must still be caught: the exclusion is the
+  # array's, not the file's.
+  printf '\n%s -e '"'"'ablation-plant'"'"'\n' "$wnode" >> "$planted"
+  _gates_blank_commands "$planted" > "$filtered"
+  local out_hits; out_hits="$(_floor_hits "$wnode" "$probe" "$filtered")"
+  printf '%s' "$out_hits" | grep -F 'ablation-plant' >/dev/null \
+    || cf "(ablation) a genuine unguarded $wnode call planted OUTSIDE the GATES array is not caught after filtering — the exclusion has widened past the array it is bounded to: $out_hits"
+  printf '%s' "$out_hits" | grep -F -- "--test" >/dev/null \
+    && cf "(ablation) the GATES record reappeared once a second $wnode call was planted — the exclusion is unstable under a second hit"
+
+  finish "the floor check's GATES exclusion is bounded to the array: three planted GATES records ('node', 'python3', and 'ruby' with a trailing comment) are all found unfiltered (control) and all gone after _gates_blank_commands (the fix), while a genuine unguarded 'node' call planted outside the array in the same file is still caught (ablation)"
+  teardown
 }
 
 # ── THE REFUSAL SITES, derived once. ──────────────────────────────────────────

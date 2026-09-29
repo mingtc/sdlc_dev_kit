@@ -812,6 +812,13 @@ columns and never the cards.*
 
 ### Fixed
 
+- **The self-test's interpreter-floor case (`scripts/test/run.sh`) no longer reports a filled
+  `scripts/verify.sh` `GATES` record as an unguarded interpreter call.** A gate declared
+  `"unit|core|node --test"` or `"lint|core|python3 -m flake8"` was read as `verify.sh` itself
+  invoking `node`/`python3`, so the self-test was red on any project whose gate calls node or
+  python — through no act of the adopter's. The command field of a `GATES` record is now excluded
+  from that check; a genuine unguarded interpreter call in `verify.sh` outside the `GATES` array is
+  still caught.
 - **`--help` is answered first, in any position, by every board, release and notification script under `scripts/`.** In an option's value
   slot it was taken as the value — `kit-init.sh --project-name --help` stamped, committed and pushed the
   name `--help`; `move-issue.sh … --note --help` published a move noted `--help` — and after a bad
