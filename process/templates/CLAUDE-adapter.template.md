@@ -145,6 +145,7 @@ Examples: `[<Role>] <PREFIX>-001: <what changed>` ·
 | The archive sweep threshold | <N> | <why> |
 | The acceptance tier (a lens, never a gate) | <on/off> | <why> |
 | Retirement under a ledger (else: park only) | <on/off> | <why> |
+| Unattended launches (`.claude/settings.unattended.json.example`) | <on/off — an opt-in profile passed at launch, never copied into settings.json by default> | <which launch route passes it, or "not used"> |
 | <your own> | <…> | <…> |
 
 ## The binding gates here

@@ -915,6 +915,13 @@ this change will ask, and a deleted table cannot answer it.*
 | ~~The two project filenames (cited as the rules' authority and listed among the pushable paths)~~ | ~~Your two files (§ 2.5)~~ — **STRUCK, same reason.** *The trunk policy's real home is named in that file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key.* |
 | ~~The role-prefix list in its prose~~ | ~~Your role set~~ — gone with `autoMode`; § 2.4 no longer lists this file as holding the set |
 
+**`.claude/settings.unattended.json.example` is COPY too, and it is a SEPARATE file, not a key
+inside the one above.** It denies the harness's interactive-question tool for a launch nobody is
+watching — opt-in, passed at launch rather than copied into `.claude/settings.json` by default,
+because the same deny is wrong for an attended session. Name which profile a launch uses in the
+adapter (`process/templates/CLAUDE-adapter.template.md` § What is ON and what is OFF here); the
+mechanism it pairs with is `scripts/ask.sh` (§ 2.10 below).
+
 ### 2.9 The drift-report thresholds
 
 The bounds the drift report needs are **named constants at the top of the reference
@@ -924,6 +931,15 @@ is *due for a sweep* and the sizes at which the running log is *due for rotation
 section and the whole file being separately bounded. The **section**-size one is deliberately
 reused as the index trigger in [`doctrine/lookup-tables.md`](doctrine/lookup-tables.md) § A.1, so
 that one idea does not carry two numbers.
+
+### 2.10 `scripts/ask.sh` and `PROJECT.md`'s `principal:` — the non-blocking route
+
+`PROJECT.md` § *Who answers when nobody is watching* names the principal and their channel —
+`<angle-bracket>` blanks like every other `PROJECT.md` fact, so they are already inside
+`scripts/check-board.sh`'s existing FILL scan (its `[g]` arm reads the whole file for unfilled
+blanks; nothing there is specific to this pair). `scripts/ask.sh` reads the declaration; it does
+not duplicate it. Fill it on day one alongside the rest of `PROJECT.md` (`process/SEED.md` step
+3) or `ask.sh` refuses.
 
 ---
 

@@ -26,7 +26,12 @@ one project's calibration and is therefore a blank you fill.
 6. **Re-ratify when the model tier under an alias moves.** An alias is a moving target: the same
    configuration silently lands on a new model, and prior-era effort defaults rarely transfer. A
    model-generation change is a **decision point for whoever owns the budget**, not a surprise to
-   absorb.
+   absorb. **Where the budget owner cannot be reached before the work must start, ratification has a
+   provisional state too — the same one a blocking question anywhere else uses:**
+   `./scripts/ask.sh` records the proposed ladder as a working default (`requirements/DECISIONS.md`
+   § The FOURTH state, if the ladder is cited from a register entry there) and the run proceeds under
+   it; an unratified ladder run this way is still unratified, and § B.2's rider below still applies
+   once the owner answers.
 7. **A ladder is only real where a harness knob exists.** Write the ladder's DEFAULTS into the
    harness's agent definitions — the knob it always honors — and name the escalation mechanism
    your harness actually has, in preference order, with what does **NOT** work stated just as

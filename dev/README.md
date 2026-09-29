@@ -67,6 +67,14 @@ date will be read as current no matter what its first paragraph says.
   report** the pack is stamped SPENT against. Neither is ever deleted; the convention is in
   [`launch/README.md`](launch/README.md).
 
+## Questions to the principal (`questions/`)
+
+- **[`questions/`](questions/)** — this project's declared channel for `scripts/ask.sh`, if
+  `PROJECT.md` § *Who answers when nobody is watching* names it. One file per question,
+  `YYYY-MM-DDTHHMMSSZ-<role>-ask.md`, so the name sorts and is unique with no coordination. Never
+  written by hand; never deleted by a script — the principal (or whoever answers on their behalf)
+  clears an answered one, the way a blocked card is unblocked by the person who reads it.
+
 ## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`)
 
 The directories the process writes into **by name**, so that a role doc saying *"output goes to

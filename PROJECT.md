@@ -249,3 +249,18 @@ enforces. *(Authority:
 - **Feedback is sent to:** `<who receives this project's process/KIT-FEEDBACK.md, and by what route — or "nobody: it stays here">`
 - **Kit updates reach this project by:** `<who sends a newer kit version, and how — or "nobody: we check, on a named trigger">`
 - **Taking one:** [`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How to upgrade an adopted project — the new kit's `scripts/kit-upgrade.sh`, whose checklist carries whatever is deferred.
+
+## Who answers when nobody is watching
+
+<!-- The unattended principal. A session that hits a blocking question with no PM/human session
+     reading works from this, not from a guess — `.claude/roles/dev.md` § Getting blocked and
+     `process/doctrine/orchestration.md` § A.5's corollary both point here. Filling it is what
+     makes `scripts/ask.sh` usable; leaving it blank is what `scripts/ask.sh` refuses on. -->
+
+- **`principal:`** `<who answers when no PM/human session is watching — a name or role, not a script, or "nobody">`
+- **Their channel:** `<the directory or file this project's questions go to, e.g. "dev/questions/">`
+
+  *(A name or role, not a script, for `principal:` — or `nobody: an unattended session works
+  from the recorded default and waits for the next human session`. The channel is where
+  `scripts/ask.sh` writes and nowhere else — e.g. `dev/questions/`, one dated file per
+  question.)*

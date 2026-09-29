@@ -46,6 +46,15 @@ saying which, and why.
 | **7** | **Drive the FIRST issue through the FULL Dev → QA boundary.** The boundary is the thing being installed; the first issue is where it is proven. Do not shortcut it because the change is small. | [`MANUAL.md` § The Dev → QA handoff](MANUAL.md) · [`contracts/verify-gate.md`](contracts/verify-gate.md) · [`contracts/board-mover.md`](contracts/board-mover.md) · [`contracts/landing-gate.md`](contracts/landing-gate.md) · [`contracts/commit-attribution.md`](contracts/commit-attribution.md) |
 | **8** | **Run the session close ritual** — board matches reality, `progress.md` written, drift report clean, archive when it accumulates. **Then mint `process/LOCAL-PROCEDURES.md`** — see below; it is the closing step, not an optional extra. | [`MANUAL.md` § Session close ritual](MANUAL.md) · [`contracts/drift-report.md`](contracts/drift-report.md) · [`contracts/archive-sweep.md`](contracts/archive-sweep.md) |
 
+**Steps 3 and 6 read as a live conversation; where the human answers asynchronously, they still
+are one.** "The conversation with the human" (step 3) and "a REAL PM session" (step 6) name who
+must supply the content, not that it must arrive synchronously — an interview conducted by files,
+answered over hours or days, still produces `PROJECT.md`'s facts and `PRD-001`'s scope from the
+human, and satisfies both. What these steps do not have is a **working-default fallback**: day
+one has no `principal:` yet for `scripts/ask.sh` to read, so an unanswered day-one question waits
+for the human's file rather than proceeding on a guess. That is a deliberate difference from
+`.claude/roles/dev.md` § Getting blocked's post-day-one route, not an oversight.
+
 ---
 
 ## Step 2, in full — the stack fork

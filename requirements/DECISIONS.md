@@ -137,6 +137,44 @@ instrument.
 its id and its original reason beside the new conclusion. Answered **elsewhere under a new id**, the
 old id is **retired**, with the one line § Retired ids requires.
 
+## The FOURTH state — a WORKING DEFAULT, chosen so work does not wait for the answer
+
+**Only a WITHDRAWN entry — one with NO current ruling — may take this state.** An entry that
+already has a standing ruling is never touched by it: the standing ruling **is** what work
+proceeds under until the principal answers, and overwriting it would let a question provisionally
+grant its own premise by being asked (`scripts/ask.sh --decision D-NN` refuses to touch a
+standing ruling for exactly this reason). This state exists only for the interval the THIRD state
+already names — an entry withdrawn with no successor yet — and gives that interval a **guessed**
+conclusion to build against, rather than none: minted by `scripts/ask.sh` at the moment the
+principal it asked cannot answer synchronously
+([`process/doctrine/orchestration.md`](../process/doctrine/orchestration.md) § A.5's unattended
+corollary: record and keep working, never stop the session to wait for it).
+
+**So say it — in the same three fields, never as a fourth.**
+
+**Ruling.** `WORKING DEFAULT (provisional, asked <YYYY-MM-DD>, <channel-relative question file>) —
+<the default itself, stated as law, exactly as a settled ruling would be>.` **The question file's
+path is IN the token — this is the ONE place it is written.** A reader of the register alone can
+then find the record without a second lookup, and nothing elsewhere restates the path as a second
+authoring site.
+
+**Why.** The reason the default was picked. Unchanged from before the ruling was withdrawn where
+that reason still applies — per [`process/doctrine/supersession.md`](../process/doctrine/supersession.md)
+§ A.1, a conclusion is superseded, the reason that produced it is not struck.
+
+**Provenance.** Where `ask.sh` was run and by what actor, same as any other entry.
+
+**THE TOKEN IS ANCHORED THE SAME WAY THE THIRD STATE'S IS:** uppercase, at the head of the `Ruling`
+field, followed by the date `ask.sh` ran. An entry that *discusses* a working default does not
+declare one.
+
+**Discharge.** The principal answers **in the channel**, not here: this entry is amended **in
+place** once the answer is read, dropping the token and keeping the id — the default either stands
+(the token comes off, the ruling stays) or is overwritten **by a new ruling that keeps this
+entry's reason and states what changed**, per the same supersession ethic the Why field above
+already applies. A default nobody has overturned is still provisional no matter how long it has
+stood; nothing here ages it into a ruling.
+
 ### What a checker asks — and it must be answerable with nobody looking
 
 > **Is any entry still `WITHDRAWN` whose named discharger has already landed?**

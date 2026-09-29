@@ -315,6 +315,23 @@ columns and never the cards.*
 
 ### Action required
 
+- **`PROJECT.md` gains a new required section, § Who answers when nobody is watching, with two
+  blanks: `principal:` (who answers a blocking question when no PM/human session is watching — a
+  name or role, or "nobody") and Their channel (where those questions go, e.g. `dev/questions/`).
+  Fill both — `scripts/ask.sh`, the new non-blocking route to that principal, refuses without
+  them.** `ask.sh --role <role> "<question>" --default "<working default>" [--decision D-NN]`
+  writes the question to the declared channel, records the default as provisional
+  (`requirements/DECISIONS.md` § The FOURTH state) if `--decision` names a withdrawn entry — a
+  standing ruling is never touched — writes one
+  progress record, and returns 0 — the session keeps working under the default rather than
+  stopping to wait. `.claude/roles/dev.md` § Getting blocked and
+  `process/doctrine/orchestration.md` § A.5's corollary both now say the session does not stop on
+  an unattended blocker, even though the card still does. **Optional, separate file:**
+  `.claude/settings.unattended.json.example` denies the harness's interactive-question tool for a
+  launch nobody is watching — copy it only when you launch that way; it is never the default
+  every project copies, and `.claude/settings.json.example` is unaffected. Name which profile a
+  launch uses in your adapter (§ What is ON and what is OFF here).
+
 - **Take this release with its own `scripts/kit-upgrade.sh`, run from the unzipped release against your
   tree.** A `0.6.0` tree has no copy of its own: `unzip -q project-kit-v<X.Y.Z>.zip -d <scratch> &&
   <scratch>/scripts/kit-upgrade.sh --into <your project>`, then § How to upgrade's steps. It never

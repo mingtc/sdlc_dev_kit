@@ -1,0 +1,14 @@
+{
+  "_KIT_CLASS": "KIT — the opt-in unattended launch profile, as a shape. JSON has no comment syntax, so its classification marker is this KEY, the same carve-out settings.json.example states — process/EXTRACTION.md § The one file classification convention.",
+  "_README": "Kit template — an ADDITIONAL settings file for a session nobody is watching (an overnight run, a scheduled one), passed at launch rather than copied to .claude/settings.json. It does not replace settings.json.example: the two are launched TOGETHER (the harness reads every settings source given to it). Naming which profile a launch uses is the adapter's job — process/templates/CLAUDE-adapter.template.md § What is ON and what is OFF here.",
+
+  "_WHAT_THIS_FILE_MAY_CONTAIN": "ONLY SETTINGS KEYS WHOSE EFFECT THE KIT CAN DEMONSTRATE — the same rule settings.json.example states. This file exists because ONE key clears that bar for an unattended launch: denying the harness's own interactive-question tool, verified to be enforced (not merely a hint) even under a permissive mode, by removing the tool from the model's context before any permission check runs.",
+
+  "_WHY_A_SEPARATE_FILE_AND_NOT_A_KEY_IN_THE_BASE_ONE": "Denying the interactive-question tool is right for an unattended launch and wrong for an attended one — a human session that cannot ask a question is worse off, not safer. settings.json.example is COPY, meant for every project alike; this file is the one launch-time choice the kit ships pre-made, activated only when the operator passes it.",
+
+  "_WHAT_THIS_DOES_NOT_DO": "It does not make a session ask nothing — it removes ONE route back to a blocked wait. The session still needs `scripts/ask.sh` and a declared `principal:` (PROJECT.md § Who answers when nobody is watching) to have anywhere to put a question instead. Denying the tool with neither in place does not create a hang by itself — a model that cannot ask keeps working from a guess — but that guess is undeclared and unrecorded, which is what ask.sh is for.",
+
+  "permissions": {
+    "deny": ["AskUserQuestion"]
+  }
+}

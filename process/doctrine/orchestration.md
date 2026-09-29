@@ -130,8 +130,16 @@ batched decision list, and **dispatch the next leg**. Parking well is success.
 stop a run *for a human*. Where no human is reading — an overnight run, a scheduled one, a leg
 dispatched without a watcher — an interactive question is not a pause, it is a **hang**, and the
 batched decision list is the only channel that still works. So in an unattended run the list is not a
-convenience for the human's morning; it is the sole exit, and a run that stops to ask has stopped for
-good.
+convenience for the human's morning; it is the **sole exit from the interactive prompt**, and **"exit"
+means record and keep working, not record and stop.** A run (or a single session, the same shape at
+one leg's scale — [`../../.claude/roles/dev.md`](../../.claude/roles/dev.md) § Getting blocked) that
+parks the question on the list, picks up a working default, and dispatches or continues has taken the
+exit; one that records the question and then ends anyway has stopped for good with nothing left to
+resume it, which is the failure this corollary exists to name. **The mechanism for a single session's
+own question is [`scripts/ask.sh`](../../scripts/ask.sh)**, which writes the question and a working
+default to the channel `PROJECT.md`'s declared `principal:` reads, then returns — the same
+record-and-continue shape as the run's own batched list, at the scale of one blocking question rather
+than a whole run's report.
 
 **A silent stop is a failure mode equal to improvising, and the most expensive:** stopping without a
 park note and a next dispatch leaves the work neither done nor recorded nor handed on.

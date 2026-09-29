@@ -166,6 +166,16 @@ If you hit something that needs a PM decision (AC ambiguous, architectural fork,
 3. Append a `progress.md` line.
 4. Pick a different issue from `todo/`, or end the session.
 
+**Blocking the card is right either way; whether the SESSION also stops is not the same
+question.** With a PM session watching, step 4's "end the session" is the normal close. **With
+nobody watching** — no PM/human session reading, the shape
+[`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md) § A.5's unattended
+corollary names for a coordinator's dispatched leg and which binds a single session just the
+same — an interactive question is a hang, not a pause: **do not end the session on it.** Ask
+through `./scripts/ask.sh` instead (`PROJECT.md` § *Who answers when nobody is watching* names
+the principal it asks and where the question goes) and **carry on under the working default it
+records** — pick a different issue from `todo/`, same as step 4 says, rather than stopping.
+
 ### Spawning a follow-up issue
 
 If during work you discover a separable tech-debt task, refactor, or spike that shouldn't bloat the current issue: from the main checkout on the trunk (not your worktree or work branch), `git pull --ff-only` — `next-id.sh` reads the trunk only as last fetched — then run `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ...` to create a new `progress/todo/<PREFIX>-NNN-<slug>.md` (`--id` required; `next-id.sh` suggests the next free number — sanity-check it), then commit and push it. Reference it from the current issue's "Out of Scope" and from `progress.md`. Stay focused on the current ticket. **A dispatched Dev worker does not mint:** it records the follow-up in the issue's Out of Scope and its report ([orchestrator.md § Discovered tech-debt and todos](orchestrator.md#discovered-tech-debt-and-todos)).
