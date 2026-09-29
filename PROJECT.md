@@ -112,6 +112,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The acceptance tier (a lens, never a gate — **no shipped implementation**) | `<how membership is marked in your runner — or "not adopted">` | [`process/contracts/acceptance-tier.md`](process/contracts/acceptance-tier.md) |
 | Retention completeness (only if you retire documents under a ledger) | `<e.g. a pre-commit hook you write (the kit ships none) — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
 | The progress record (optional — a no-op when its writer is absent, never a gate) | `<where transient progress records go — e.g. .progress-records/, or "not adopted">` | [`process/contracts/progress-record.md`](process/contracts/progress-record.md) |
+| The kit upgrade — take a newer kit without overwriting local law | `<e.g. the new kit's scripts/kit-upgrade.sh --into .>` | [`process/contracts/kit-upgrade.md`](process/contracts/kit-upgrade.md) |
 
 **One row per contract sheet — the whole of
 [`process/contracts/`](process/contracts/README.md).** **The directory is the authority for the row
@@ -247,3 +248,4 @@ enforces. *(Authority:
 - `kit-feedback: auto` — the kit's default, pre-filled: `auto` records kit findings in `process/KIT-FEEDBACK.md` at the capture moments without being asked; `manual` and `off` fire no capture moment, and `off` also says this project's findings are not meant for the kit; a missing line reads as `auto`, and nothing is ever sent automatically — `process/MANUAL.md` § Kit feedback.
 - **Feedback is sent to:** `<who receives this project's process/KIT-FEEDBACK.md, and by what route — or "nobody: it stays here">`
 - **Kit updates reach this project by:** `<who sends a newer kit version, and how — or "nobody: we check, on a named trigger">`
+- **Taking one:** [`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How to upgrade an adopted project — the new kit's `scripts/kit-upgrade.sh`, whose checklist carries whatever is deferred.

@@ -252,6 +252,7 @@ multiple issues in one feature area>**, and the current example of it is **<name
 | Git hosting — local-only, a bare remote, or a forge | [`process/GIT-HOSTING.md`](process/GIT-HOSTING.md) |
 | Extracting this kit into another repo | [`process/EXTRACTION.md`](process/EXTRACTION.md) |
 | Starting a project from nothing | [`process/SEED.md`](process/SEED.md) |
+| Taking a newer kit, and when | [`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How to upgrade an adopted project |
 | Non-Claude agents | [`AGENTS.md`](AGENTS.md) |
 
 <!-- FILL-IN CHECKLIST — the last thing you do to this file, and then you delete THIS BLOCK too.

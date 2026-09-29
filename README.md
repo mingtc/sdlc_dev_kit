@@ -162,7 +162,7 @@ without one.
 - [`.claude/`](.claude/) — the Claude Code harness: role docs, issue/PRD templates, agent
   definitions.
 - [`scripts/`](scripts/) — the board mover, the id minter, the drift report, the landing gate, the
-  initializer, the archive sweeps, and the process self-test.
+  initializer, the kit upgrade, the archive sweeps, and the process self-test.
 - [`consumers/`](consumers/) — ships as an option: delete it unless this project ships something
   someone else installs;
   the doctrine is [`process/doctrine/distribution.md`](process/doctrine/distribution.md).
@@ -175,8 +175,9 @@ without one.
   **not** your product's version: yours is whatever [`scripts/release.sh`](scripts/release.sh)'s
   `VERSION_FILES` seam declares, and the two must never be the same file.
 - **[`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md)** — what changed in the kit,
-  release by release, and **what an adopted project has to do about it**. Upgrading is a read and
-  a set of deliberate edits, never an overwrite: the kit became yours the day you stamped it.
+  release by release, and **what an adopted project has to do about it**. Upgrading runs the newer
+  kit's `scripts/kit-upgrade.sh`, which never overwrites a file you changed: the kit became yours the
+  day you stamped it.
 
 ## Conventions used throughout
 

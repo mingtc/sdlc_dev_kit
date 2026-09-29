@@ -249,6 +249,12 @@ CASES=(
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees
   case_refusal_leaves_one_countable_record
+  case_kit_upgrade_merges_by_the_shipped_manifest
+  case_kit_upgrade_stamps_only_when_the_checklist_is_done
+  case_kit_upgrade_refuses_with_a_record
+  case_kit_upgrade_reads_a_between_release_version
+  case_kit_upgrade_stages_nothing_live
+  case_kit_upgrade_from_the_built_kit_is_a_no_op
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_post_merge_reads_the_landed_trunk
@@ -350,6 +356,7 @@ CASES=(
   case_check_board_replace_population_is_derived
   case_prd_coverage_counts_only
   case_kit_feedback_line_is_reported_not_refused
+  case_check_board_reports_an_open_upgrade
   case_check_board_names_a_detached_head
   case_check_board_fill_arm_reads_blanks_not_usage
   case_check_board_graduation_verdict_is_not_wired

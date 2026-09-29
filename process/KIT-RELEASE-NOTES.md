@@ -26,22 +26,58 @@ is **Unreleased**, whose entries the next release's section will carry. `X.Y.Z` 
 
 ## How to upgrade an adopted project
 
-**There is no updater, and that is deliberate.** The kit is *copied* into your repository on day
-one and becomes yours — your adapter, your role set, your gates. An automated overwrite would
-discard exactly the local hardening the kit tells you to do. So an upgrade is a read, not a run.
+**The upgrade never overwrites a file you changed, and that is deliberate.** The kit is *copied* into
+your repository on day one and becomes yours — your adapter, your role set, your gates. An automated
+overwrite would discard exactly the local hardening the kit tells you to do. So `scripts/kit-upgrade.sh`
+takes only what you never changed, and turns the rest into a checklist
+([`contracts/kit-upgrade.md`](contracts/kit-upgrade.md)).
 
 **First, how does a newer version reach you, and whose job is that?** The party who gave you the
 kit sends you the next zip; if nobody gave it to you, nobody will, and checking for one is yours to
 schedule. Write down which — and, if it is yours, on what trigger — in
 [`PROJECT.md`](../PROJECT.md) § The kit, upstream.
 
-Once you hold a newer release:
+**When.** With nothing in flight, run it as soon as you hold the release, and apply its **Action
+required** items before starting new work: those are the ones that can break you. With a leg
+mid-card, do not change the scripts under it: record the deferral now as a one-line work item
+([`doctrine/subagent-control.md`](doctrine/subagent-control.md) § A.10), and run the upgrade when the
+board is next quiet. From its first run, the committed checklist carries whatever is still undone,
+and `check-board.sh` reports it until the upgrade is finished.
+
+Once you hold a newer release, **run the NEW release's copy, from outside your tree.** A tree older
+than the script has none of its own, and a copy inside your tree is the release you are leaving:
+
+```sh
+unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/kit-upgrade.sh --into <your project>
+```
+
+1. **It stages the upgrade and commits nothing.** Every file you never changed is replaced by the new
+   copy, and new files are added. A file you changed, or `kit-init.sh` stamped, that the kit changed
+   too is left as it is, with the new copy under `.kit-upgrade/files/`, disarmed: `.kit-new` on every
+   name, `_claude/` for `.claude/`, so no harness or git reads it as live. Nothing is deleted.
+   `process/UPGRADE-CHECKLIST.md` lists what is left: every **Action required** entry newer than your
+   [`KIT-VERSION`](KIT-VERSION) (from a `+` version, § How versions work, the entries your tree may
+   already hold are flagged: diff each before applying it), every file to merge, every file dropped
+   upstream, and the stamping checks for what arrived.
+2. **Commit it through your own board and gates**, the checklist and `.kit-upgrade/` included. The
+   upgrade is ordinary work.
+3. **Work the checklist, marking each item `- [x]`, and commit it as marked.**
+   Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an **Action required** item you could not apply as written is a `K-NN` in `process/KIT-FEEDBACK.md`, with the item named in its *The moment.* block — `process/MANUAL.md` § Kit feedback.
+4. **`./scripts/kit-upgrade.sh --finish --into .`** writes `KIT-VERSION` (the new copy's line exactly,
+   any `+<tree>` included) and `process/KIT-MANIFEST`, and removes the checklist and `.kit-upgrade/`.
+   It refuses while an item is unmarked. Commit that too.
+
+Every refusal names its reason and leaves a progress record; the contract's § 3 lists them.
+
+### Without the script — a release that predates it
+
+An upgrade to `0.6.0` or older has no `kit-upgrade.sh` in its zip, so it is a read:
 
 1. Read every version entry below that is newer than your [`KIT-VERSION`](KIT-VERSION). If yours
    carries a `+` (§ How versions work), the release after its `X.Y.Z` has entries your tree may already
    hold, because they were Unreleased when it was built: diff each against your tree before applying it.
-2. Apply the **Action required** items — those are the only ones that can break you.
-   Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an **Action required** item you could not apply as written is a `K-NN` in `process/KIT-FEEDBACK.md`, with the item named in its *The moment.* block — `process/MANUAL.md` § Kit feedback.
+2. Apply the **Action required** items — those are the only ones that can break you. One you could
+   not apply as written is kit feedback, as in step 3 above.
 3. Adopt whatever else you want from **Changed** / **Added**, file by file, the same way you would
    any other change: through your own board, with your own gates.
 4. Update your `KIT-VERSION` to the version you have reached — the new copy's line exactly, any `+<tree>`
@@ -52,8 +88,8 @@ include your own local law, which is not drift.
 
 ### Or let git do step 3 — a three-way merge against the release you are running
 
-**An option, not the procedure.** The read above stays the default, and it is still how you decide
-every conflict this produces. Nothing here ships: it is plain git over your own history.
+**An option, not the procedure.** The script above stays the default (the read, for a release that
+predates it), and the notes are still how you decide every conflict this produces. Nothing here ships: it is plain git over your own history.
 
 **What it needs is the release you are running, exactly as shipped** — and if you followed the kit's
 `README.md` § Day one, you probably have it: the `init` commit is made *before* `kit-init.sh` stamps
@@ -163,14 +199,14 @@ git worktree add --detach ../kit-upgrade &&
 git worktree remove ../kit-upgrade
 ```
 
-Without either — no first commit that passes ONCE and no zip of your version — the read is the
-route.
+Without either — no first commit that passes ONCE and no zip of your version — the script above is
+the route (the read, for a release that predates it).
 
 **Before you commit — what this does not do for you:**
 
-- **Steps 1 and 2 still apply.** This moves text. An **Action required** item is something to *do*,
-  and applying its release does not do it. Step 4 needs no action unless you edited `KIT-VERSION`
-  yourself: the new release's copy arrives with everything else.
+- **The Action required items still apply.** This moves text. An **Action required** item is
+  something to *do*, and applying its release does not do it. `KIT-VERSION` needs no action unless you
+  edited it yourself: the new release's copy arrives with everything else.
 - **A clean hunk arrives without a question.** That is what makes this cheap, and it is why nothing
   is committed for you: `git diff --cached` is everything you are about to adopt, and it gets the
   review any change gets.
@@ -227,9 +263,11 @@ names what is still entangled, what it costs you, and how to check each one in y
 
 ### UPGRADING CAN UN-CONFIGURE YOUR PROJECT — what to re-check, and why
 
-**The upgrade above is a read, not a run, because an automated overwrite *"would discard exactly the
-local hardening the kit tells you to do."* That reason is right, and the kit does not yet act on it as
-strongly as it warrants: the hardening is ENUMERABLE, and the kit does not enumerate it.**
+**The upgrade above never overwrites a file you changed, because an automated overwrite *"would
+discard exactly the local hardening the kit tells you to do."* The hardening is ENUMERABLE, and
+`kit-upgrade.sh` enumerates it from `process/KIT-MANIFEST`: a file that differs from what your release
+shipped is staged for you to merge, never replaced. What follows is for the file you adopt by hand —
+a merge item, or the read.**
 
 **Several shipped files carry values the initializer wrote for YOUR project** — your issue prefix,
 your role set, your gate commands, your project name. **Adopting a newer copy of one of those files
@@ -276,6 +314,14 @@ columns and never the cards.*
 ## [Unreleased]
 
 ### Action required
+
+- **Take this release with its own `scripts/kit-upgrade.sh`, run from the unzipped release against your
+  tree.** A `0.6.0` tree has no copy of its own: `unzip -q project-kit-v<X.Y.Z>.zip -d <scratch> &&
+  <scratch>/scripts/kit-upgrade.sh --into <your project>`, then § How to upgrade's steps. It never
+  overwrites a file you changed, never commits, and stamps `KIT-VERSION` only when its checklist is done
+  (if you are reading this in that checklist, you already did this: mark it). It brings a contract,
+  `process/contracts/kit-upgrade.md`: add its row to `PROJECT.md` § Quality gates. `check-board.sh`'s new
+  `[o] kit upgrade` reports your `KIT-VERSION`'s form and an open checklist, and never changes the verdict.
 
 - **A parent issue now reaches `qa_complete/` or `done/`, and lands, only when every subtask has reached
   `qa_complete/` or been declined with its reason.** `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse otherwise, naming the open

@@ -195,6 +195,11 @@ runs up against it — the register remains its authority, and the item carries 
 worker cannot wander across the line by accident, and the decider's authority survives contact with
 an eager implementer.
 
+**When no work item exists yet to carry it**, write one at the moment of deferral — a one-line stub
+naming the decision and its reason — rather than carrying the intent in the session until a quiet
+moment. A session's working memory does not survive the handover. For a kit upgrade, the stub holds
+the deferral until `kit-upgrade.sh` can run; from then on, its committed checklist does.
+
 ### A.11 — When order is load-bearing, state the order AND its consequence
 
 **The pattern is [`templates/launch-pack.template.md`](../templates/launch-pack.template.md)**, whose

@@ -736,8 +736,8 @@ open-ended *"whenever something goes wrong"* trigger.
    so a missing line shows as an omission rather than as a silence. A missing line is reported,
    never refused, and the line records that the questions were asked, not that the answers are
    true.
-3. **M3: applying a kit upgrade.** An *Action required* item that could not be applied as written
-   is an entry.
+3. **M3: applying a kit upgrade** ([`KIT-RELEASE-NOTES.md`](KIT-RELEASE-NOTES.md) § How to upgrade
+   an adopted project). An *Action required* item that could not be applied as written is an entry.
 4. **M4: closing an orchestrated run.** During a run **the orchestrator is the only writer**:
    parallel legs would mint the same `K-NN` twice. It collects every `kit-finding:` line from the
    legs' `progress.md` entries, as well as anything a leg's report names — every record a runner

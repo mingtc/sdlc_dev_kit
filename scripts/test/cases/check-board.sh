@@ -885,7 +885,7 @@ case_log_heading_is_one_bounded_declaration() {
 # =============================================================================
 # CASE — setup.sh WARNS ABOUT A LATER-ADDED COLUMN; IT DOES NOT FAIL.
 #
-# An upgrade is a READ, not a run, so every tree on an older kit is missing the newest column.
+# A tree not yet upgraded to the kit that added a column is missing it.
 # Those boards are one `mkdir` behind, not broken, and failing setup.sh on them trains everybody
 # to ignore its output.
 #

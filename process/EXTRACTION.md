@@ -411,6 +411,10 @@ subtotal is stated separately (§ The one rule about counting).
 seams, creates the board, wires the hooks, then **proves** the result with a self-check. § 1.3 is
 written around it.
 
+**Upgrade (KIT):** `kit-upgrade.sh` — run from a NEWER kit's unzipped copy against an adopted tree:
+it takes what the project never changed, stages the rest behind a checklist, and stamps
+`process/KIT-VERSION` only when the checklist is done.
+
 **Board + item lifecycle (KIT):** `config.sh` · `check-board.sh` · `move-issue.sh` ·
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
 `subtask.sh` · `archive.sh` · `archive-progress.sh`

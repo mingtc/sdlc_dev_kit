@@ -17,7 +17,8 @@
 #   (k) declined/ depth, a count (advisory);
 #   (l) declared reference integrity — every cited register id resolves;
 #   (m) how many landed issues carry `prd: n/a`, a count (advisory);
-#   (n) whether the newest session entry ends with its `kit-feedback:` line (advisory).
+#   (n) whether the newest session entry ends with its `kit-feedback:` line (advisory);
+#   (o) the kit upgrade: KIT-VERSION's form, and an open upgrade checklist's unmarked items (advisory).
 # This list and the print order must hold the same letters, in the same order, once each:
 #   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
 #   grep -E '^#   \([a-z]\)' scripts/check-board.sh | sed -E 's/^#   (\([a-z]\)).*/\1/'
@@ -1207,6 +1208,44 @@ case "$n_set" in
     echo "      ⚠ kit-feedback: '$n_set' in PROJECT.md is not auto, manual or off — not checked" ;;
 esac
 # END kit-feedback arm
+
+# BEGIN kit-upgrade arm — `process/KIT-RELEASE-NOTES.md` § How to upgrade an adopted project
+# ---------------------------------------------------------------------------
+# (o) KIT UPGRADE — the tree's process/KIT-VERSION and its form, and, while the upgrade checklist
+#      exists, how many of its items are unmarked. Reported, never refused: deferring an upgrade
+#      while a leg is in flight is legal, and the checklist is the deferral's record. Its path is
+#      read from scripts/kit-upgrade.sh, which writes it.
+#      Removable: delete this block, BEGIN to END, with the rest of that section's lines.
+# ---------------------------------------------------------------------------
+echo
+echo "[o] kit upgrade (reports only — an open upgrade is reported, never refused, and never changes the verdict below) — $(cb_src):"
+o_v="$(sed -n '1{s/[[:space:]]*$//;p;}' "$CB_TREE/process/KIT-VERSION" 2>/dev/null || true)"
+if [ -z "$o_v" ]; then
+  echo "      process/KIT-VERSION absent in this source  (skipped)"
+elif [[ "$o_v" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[0-9a-f]+$ ]]; then
+  echo "      KIT-VERSION: $o_v — a build between releases, after ${o_v%%+*} (process/KIT-RELEASE-NOTES.md § How versions work)"
+elif [[ "$o_v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "      KIT-VERSION: $o_v — a release"
+else
+  echo "      ⚠ KIT-VERSION: '$o_v' is neither X.Y.Z nor X.Y.Z+<tree> (process/KIT-RELEASE-NOTES.md § How versions work)"
+fi
+o_cl="$(sed -n "/^UPGRADE_CHECKLIST='[^']*'\$/{s/^UPGRADE_CHECKLIST='\([^']*\)'\$/\1/p;q;}" "$REPO_ROOT/scripts/kit-upgrade.sh" 2>/dev/null || true)"
+if [ -z "$o_cl" ]; then
+  echo "      THE CHECKLIST PART DID NOT RUN — scripts/kit-upgrade.sh is absent or declares no UPGRADE_CHECKLIST, and that line names the checklist  (skipped)"
+elif [ ! -f "$CB_TREE/$o_cl" ]; then
+  echo "      $o_cl: none — no upgrade in progress"
+else
+  o_t="$(sed -n '/^target:/{s/^target:[[:space:]]*//;p;q;}' "$CB_TREE/$o_cl" 2>/dev/null || true)"
+  o_open="$(grep -c '^- \[ \]' "$CB_TREE/$o_cl" 2>/dev/null || true)"
+  o_done="$(grep -c '^- \[[xX]\]' "$CB_TREE/$o_cl" 2>/dev/null || true)"
+  o_all=$(( ${o_open:-0} + ${o_done:-0} ))
+  if [ "${o_open:-0}" -gt 0 ]; then
+    echo "      ⚠ $o_cl: the upgrade to ${o_t:-<no target line>} is open — ${o_open} of $o_all item(s) unmarked; do each and mark it \`- [x]\`, then ./scripts/kit-upgrade.sh --finish --into ."
+  else
+    echo "      $o_cl: the upgrade to ${o_t:-<no target line>} has every item marked ($o_all) — finish it: ./scripts/kit-upgrade.sh --finish --into ."
+  fi
+fi
+# END kit-upgrade arm
 
 echo
 if [ "$drift" -eq 0 ]; then
