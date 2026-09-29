@@ -21,6 +21,13 @@ means the format proves slightly wrong after its first real run and the migratio
 every role and script rather than over two. **Widen only after a run has exercised these two**,
 and widen from the derivation in § 5a rather than from memory.
 
+**Refusals are the one deliberate widening, and they pass through one helper.** Every refusal
+made through `kit_refuse` ([`scripts/lib/refuse.sh`](../../scripts/lib/refuse.sh)) writes one
+`error` record carrying `refusal=<rule-id>` (§ 5b).
+*Why:* a refusal that only prints to a terminal nobody watched cannot be counted afterwards, and
+counting a mechanism's refusals is how its effect is measured. It widens the producers, not the
+format: one reserved key, written by the one writer.
+
 ## 2. HARD INVARIANTS
 
 - **ONE record shape. Optional FIELDS, never divergent payloads.** Four required fields
@@ -229,6 +236,12 @@ callers inventing the same key with different shapes is a filter that silently u
 | `run=` | a single token — a run or session id | a run id is in scope (below) |
 | `declared-class=` | the offered class, normalised to one token | the class was outside the enum |
 | `declared-actor=` | the offered actor, normalised to one token | the actor was outside § 5b's shape |
+| `refusal=` | a rule id, below | a mechanism refused through `kit_refuse` (§ 1a) |
+
+**A rule id is stable, kebab-case and named for the rule the mechanism enforces**: `card-not-found`,
+never `error-3` or a line number. Readers count refusals by it across releases, so renaming one
+splits one rule's count in two; two sites refusing on one rule share its id. The helper treats any
+other shape as a malformed call and records it as `refusal=kit-refuse-malformed`.
 
 **A preserved value is collapsed to ONE TOKEN.** Extras are read back by splitting the field on
 spaces, so whitespace inside a value would split one key into two and hand a reader a `key=value`
@@ -298,6 +311,9 @@ does not care about runs to learn it, which § 2's four-field envelope exists to
   (the script side — per-gate start and outcome, plus one run summary) and
   [`scripts/move-issue.sh`](../../scripts/move-issue.sh) (the role side — the board transition,
   recorded after the push and never before).
+- **And every refusal made through [`scripts/lib/refuse.sh`](../../scripts/lib/refuse.sh)'s
+  `kit_refuse`** (§ 1a): the helper writes the record, so a script that calls it is a producer with
+  nothing else converted.
 
 Tab-separated rather than JSON deliberately: the four required columns are then split by any
 reader in any language with no quoting rules to agree on first, and `awk -F'\t'` is the floor this

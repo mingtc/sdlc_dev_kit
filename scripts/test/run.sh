@@ -248,6 +248,7 @@ CASES=(
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees
+  case_refusal_leaves_one_countable_record
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_post_merge_reads_the_landed_trunk
@@ -428,6 +429,7 @@ CASES=(
   case_template_links_resolve_from_their_destination
   case_missing_option_value_refuses
   case_shipped_scripts_stay_on_the_floor
+  case_refusal_sites_are_reported
   case_help_never_opens_with_the_class_marker
   case_role_examples_carry_their_label
   case_role_set_read_is_one_expression

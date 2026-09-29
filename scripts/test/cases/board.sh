@@ -440,6 +440,128 @@ case_progress_record_one_place_across_worktrees() {
 }
 
 # =============================================================================
+# CASE — A REFUSAL MADE THROUGH kit_refuse LEAVES ONE COUNTABLE RECORD, AND STILL REFUSES.
+#
+# scripts/lib/refuse.sh, driven from a probe script under `set -euo pipefail`:
+#   (a) the message reaches stderr one argument per line, the exit status is the one given,
+#       and exactly one record is written: class `error`, the probe as actor, `refusal=<id>`;
+#   (b) with the record directory unwritable, and (c) with the writer deleted, stderr and the
+#       status are byte-identical to (a) — the record never decides the refusal;
+#   (d) a malformed call never exits 0, names itself, and is still counted.
+# The helper's ABSENCE is a FAIL, not a SKIP: a script that calls it cannot refuse without it.
+# =============================================================================
+case_refusal_leaves_one_countable_record() {
+  cf_reset
+  make_sandbox
+  local L="kit_refuse prints, exits with the given status and writes exactly one error record carrying refusal=<rule-id>; the record never changes the refusal; a malformed call never exits 0"
+  local lib="$SB_WORK/scripts/lib/refuse.sh" pr="$SB_WORK/scripts/lib/progress-record.sh"
+  local probe="$SB_WORK/scripts/refusal-probe.sh"
+  if [ ! -f "$lib" ]; then
+    cf "scripts/lib/refuse.sh is not in the sandbox — kit_refuse does not exist, so no refusal can leave a record"
+    finish "$L"; teardown; return
+  fi
+  [ -f "$pr" ] \
+    || _fixture_die "case_refusal_leaves_one_countable_record: scripts/lib/progress-record.sh is not in the sandbox, so arm (a) has no writer and arm (c)'s ablation removes nothing."
+
+  cat > "$probe" <<'PROBE'
+#!/usr/bin/env bash
+set -euo pipefail
+. "$(dirname "$0")/lib/refuse.sh"
+kit_refuse "$@"
+echo "kit_refuse returned to its caller"
+PROBE
+  chmod +x "$probe"
+
+  # _rp <tag> <records-dir> <args…> — run the probe; stdout, stderr and status land in $SB_TMP/<tag>.*
+  _rp() {
+    local tag="$1" dir="$2" rc=0; shift 2
+    ( cd "$SB_WORK" && KIT_PROGRESS_DIR="$dir" ./scripts/refusal-probe.sh "$@" ) \
+      >"$SB_TMP/$tag.out" 2>"$SB_TMP/$tag.err" || rc=$?
+    printf '%s' "$rc" > "$SB_TMP/$tag.rc"
+  }
+  _rp_rc()  { cat "$SB_TMP/$1.rc"; }
+  _rp_err() { tr '\n' '|' < "$SB_TMP/$1.err" | cut -c1-200; }
+  _rp_n()   { cat "$1"/*.tsv 2>/dev/null | grep -c . || true; }
+
+  # ── (a) THE REFUSAL AND ITS ONE RECORD.
+  local ra="$SB_TMP/rec-a" n rec
+  _rp a "$ra" 7 probe-rule "Error: probe refused" "  second line"
+  [ "$(_rp_rc a)" = 7 ] || cf "(a) exited $(_rp_rc a), want the status given (7): $(_rp_err a)"
+  [ ! -s "$SB_TMP/a.out" ] \
+    || cf "(a) the probe went on after kit_refuse, or kit_refuse wrote to stdout: $(tr '\n' '|' < "$SB_TMP/a.out")"
+  { grep -qx 'Error: probe refused' "$SB_TMP/a.err" && grep -qx '  second line' "$SB_TMP/a.err"; } \
+    || cf "(a) stderr does not carry the message one argument per line: $(_rp_err a)"
+  n="$(_rp_n "$ra")"
+  if [ "${n:-0}" -ne 1 ]; then
+    cf "(a) $n record(s) written, want exactly 1 — a refusal that leaves no record cannot be counted"
+  else
+    rec="$(cat "$ra"/*.tsv)"
+    [ "$(printf '%s' "$rec" | awk -F'\t' '{print $2}')" = "refusal-probe.sh" ] \
+      || cf "(a) the record's actor is not the calling script, refusal-probe.sh: $rec"
+    [ "$(printf '%s' "$rec" | awk -F'\t' '{print $3}')" = "error" ] \
+      || cf "(a) the record's class is not error: $rec"
+    [ "$(printf '%s' "$rec" | awk -F'\t' '{print $4}')" = "Error: probe refused" ] \
+      || cf "(a) the record's description is not the message's first line: $rec"
+    case " $(printf '%s' "$rec" | awk -F'\t' '{print $5}') " in
+      *" refusal=probe-rule "*) : ;;
+      *) cf "(a) the record carries no refusal=probe-rule extra: $rec" ;;
+    esac
+  fi
+
+  # ── (b) AN UNWRITABLE RECORD DIRECTORY: a path under a regular FILE, which no user can create.
+  local blocker="$SB_TMP/not-a-dir"
+  : > "$blocker"
+  _rp b "$blocker/records" 7 probe-rule "Error: probe refused" "  second line"
+  [ "$(_rp_rc b)" = 7 ] || cf "(b) with the record directory unwritable, exited $(_rp_rc b), want 7: $(_rp_err b)"
+  cmp -s "$SB_TMP/a.err" "$SB_TMP/b.err" \
+    || cf "(b) with the record directory unwritable, stderr differs from (a): $(_rp_err b)"
+  [ -f "$blocker" ] || _control_did_not_run "keep the blocking file in place for arm (b)"
+
+  # ── (c) THE ABLATION: the writer deleted.
+  local rc_dir="$SB_TMP/rec-c"
+  mv "$pr" "$SB_TMP/progress-record.sh.away"
+  if [ -f "$pr" ]; then
+    _control_did_not_run "move scripts/lib/progress-record.sh away for arm (c)"
+  else
+    _rp c "$rc_dir" 7 probe-rule "Error: probe refused" "  second line"
+    mv "$SB_TMP/progress-record.sh.away" "$pr"
+    [ "$(_rp_rc c)" = 7 ] || cf "(c) with the writer deleted, exited $(_rp_rc c), want 7: $(_rp_err c)"
+    cmp -s "$SB_TMP/a.err" "$SB_TMP/c.err" \
+      || cf "(c) with the writer deleted, stderr differs from (a): $(_rp_err c)"
+    [ "$(_rp_n "$rc_dir")" = 0 ] || cf "(c) a record was written with the writer deleted — the ablation did not remove it"
+  fi
+
+  # ── (d) MALFORMED CALLS. Each must exit non-zero and name itself; none may exit 0.
+  local row args tag i=0
+  for row in '0|probe-rule|Error: x' 'abc|probe-rule|Error: x' '256|probe-rule|Error: x' \
+             '7|Probe Rule|Error: x' '7|probe_rule|Error: x' '7|probe-rule|' '||'; do
+    i=$(( i + 1 )); tag="d$i"
+    IFS='|' read -r -a args <<< "$row"
+    [ -n "${args[2]:-}" ] || args=("${args[0]:-}" "${args[1]:-}")
+    [ -n "${args[0]:-}${args[1]:-}" ] || args=()
+    _rp "$tag" "$SB_TMP/rec-$tag" ${args[@]+"${args[@]}"}
+    [ "$(_rp_rc "$tag")" != 0 ] || cf "(d) the malformed call [$row] exited 0 — a refusal that succeeds"
+    grep -q 'kit_refuse: malformed call' "$SB_TMP/$tag.err" \
+      || cf "(d) the malformed call [$row] does not name itself on stderr: $(_rp_err "$tag")"
+  done
+  # The two statuses the helper declares for a malformed call: its own for a bad status, the
+  # caller's for a bad rule id. And the malformed call is still counted.
+  [ "$(_rp_rc d1)" = 70 ] || cf "(d) a status of 0 exited $(_rp_rc d1), want 70"
+  [ "$(_rp_rc d4)" = 7 ] || cf "(d) a malformed rule id with a valid status exited $(_rp_rc d4), want the caller's 7"
+  grep -qx 'Error: x' "$SB_TMP/d1.err" || cf "(d) a malformed call dropped the caller's message: $(_rp_err d1)"
+  if [ "$(_rp_n "$SB_TMP/rec-d1")" = 1 ]; then
+    grep -q 'refusal=kit-refuse-malformed' "$SB_TMP/rec-d1"/*.tsv \
+      || cf "(d) the malformed call's record does not carry refusal=kit-refuse-malformed: $(cat "$SB_TMP/rec-d1"/*.tsv)"
+  else
+    cf "(d) a malformed call wrote $(_rp_n "$SB_TMP/rec-d1") record(s), want 1 — it would vanish from the count"
+  fi
+
+  unset -f _rp _rp_rc _rp_err _rp_n
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — --set-pr WRITES BACK INTO A CARD MINTED FROM THE REAL TEMPLATE
 #
 # `--set-pr` writes only into an EXISTING `pr:` line and otherwise warns "skipping

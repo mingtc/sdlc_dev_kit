@@ -51,7 +51,7 @@ about counting).
 | The process self-test harness | [self-test-harness.md](self-test-harness.md) | the tools tested in a sandbox (MIXED — kit half only) |
 | The acceptance tier | [acceptance-tier.md](acceptance-tier.md) | which tests pin the PRODUCT — **non-travelling reference** |
 | Retention completeness | [retention-completeness.md](retention-completeness.md) | a deletion under the retained area requires a same-change ledger row — **non-travelling reference** |
-| The progress record | [progress-record.md](progress-record.md) | one record shape, one place, transient by construction — **converged on two producers on purpose** (§ 1a) |
+| The progress record | [progress-record.md](progress-record.md) | one record shape, one place, transient by construction — **converged on two producers on purpose**, plus every refusal made through `kit_refuse` (§ 1a) |
 
 **A row named in the additions table below is an addition; every other row is the minimum set** —
 the set the completeness rule treats as a floor. Most additions are justified by the rule that makes

@@ -686,7 +686,9 @@ understands only those four reads every record. `kit_progress_tail` prints the r
   script behaves identically.
 - **Converged on two producers on purpose** — `verify.sh` and `move-issue.sh`. The rest of the
   population is deliberately unconverted until a run has exercised the format; widen from the
-  derivation in the contract sheet's § 5a, not from memory.
+  derivation in the contract sheet's § 5a, not from memory. **Refusals are the one widening:** a
+  mechanism that refuses through `kit_refuse` (`scripts/lib/refuse.sh`) leaves one `error` record
+  carrying `refusal=<rule-id>`, so its refusals can be counted after the terminal has gone.
 
 **No role gains a reporting obligation.** The role-side record is written by the board mover,
 which was already given the hat and the id as arguments — so attribution is assigned by the

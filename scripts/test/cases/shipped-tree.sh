@@ -1342,6 +1342,104 @@ EOF
   finish "of $n manifest path(s), the $walked that are shipped SHELL programs invoke no interpreter past the kit's floor without checking for it first, and none carries a check for one it no longer invokes — the population is DERIVED FROM THE MANIFEST rather than from a glob, so a file the adopter was told to add is not counted as ours; the harness entry point is read as the whole population it loads. NOT MEASURED HERE, because this check's pattern reads shell and would report a variable named 'node' as an invocation:${outspan:- (none)}"
 }
 
+# ── THE REFUSAL SITES, derived once. ──────────────────────────────────────────
+# In each named file whose code (comment lines skipped) prints `Error:`, one line per site:
+#   helper      the line calls kit_refuse (scripts/lib/refuse.sh), which exits for it;
+#   exempt      a literal non-zero `exit N` in command position, carrying `# refusal-exempt: <why>`;
+#   unmigrated  such an exit carrying neither.
+# BLIND SPOTS: `exit "$var"`, a library's `return N`, and exits in a file that prints no `Error:`.
+_refusal_sites() {  # <root> <rel>… — "<kind> <rel>:<line>" per site
+  local root="$1" rel; shift
+  for rel in "$@"; do
+    [ -f "$root/$rel" ] || continue
+    awk -v rel="$rel" '
+      /^[[:space:]]*#/ { next }
+      { L[NR] = $0 }
+      /Error:/ { err = 1 }
+      END {
+        if (!err) exit
+        for (i = 1; i <= NR; i++) {
+          if (!(i in L)) continue
+          s = L[i]
+          if (s ~ /(^|[;&|({[:space:]])kit_refuse[[:space:]]/) { print "helper " rel ":" i; continue }
+          if (s ~ /(^|[;&|({]|then|else|do)[[:space:]]*exit[[:space:]]+[1-9][0-9]*([^0-9A-Za-z_]|$)/) {
+            if (s ~ /#[[:space:]]*refusal-exempt:[[:space:]]*[^[:space:]]/) print "exempt " rel ":" i
+            else print "unmigrated " rel ":" i
+          }
+        }
+      }' "$root/$rel"
+  done
+}
+
+# =============================================================================
+# CASE — EVERY REFUSAL SITE IS REPORTED: THROUGH THE HELPER, DECLARED EXEMPT, OR NOT YET MIGRATED.
+#
+# REPORT-ONLY. A refusal that bypasses kit_refuse leaves no record, so it cannot be counted.
+# Sites migrate as their scripts are touched, so an unmigrated site is printed
+# (`unmigrated-refusal: <path>:<line>`), never failed. The population is every shipped shell
+# program in the manifest; the site rule is _refusal_sites above.
+#
+# It FAILS only when its own enumeration is broken: a planted file with a known site of each kind
+# must come back exactly, and the shipped population must hold at least one program that prints
+# `Error:`. Without both, a zero would be silent.
+# =============================================================================
+case_refusal_sites_are_reported() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_refusal_sites_are_reported: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE CONTROL: a planted file whose sites are known, and one that prints no `Error:`.
+  local tmp; tmp="$(mktemp -d)"
+  cat > "$tmp/planted.sh" <<'PLANT'
+#!/usr/bin/env bash
+echo "Error: planted one" >&2
+exit 1
+[ -n "${x:-}" ] || { echo "Error: planted two" >&2; exit 2; }
+kit_refuse 3 planted-rule "Error: planted three"
+exit 4  # refusal-exempt: a usage request
+exit 5  # refusal-exempt:
+# exit 6
+exit 0
+exit "$rc"
+PLANT
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$tmp/no-error.sh"
+  local got want
+  got="$(_refusal_sites "$tmp" planted.sh no-error.sh)"
+  want="$(printf '%s\n' 'unmigrated planted.sh:3' 'unmigrated planted.sh:4' 'helper planted.sh:5' \
+                        'exempt planted.sh:6' 'unmigrated planted.sh:7')"
+  rm -rf "$tmp"
+  [ "$got" = "$want" ] \
+    || cf "(instrument) the site enumerator misread its planted control — want [$(printf '%s' "$want" | tr '\n' '|')], got [$(printf '%s' "$got" | tr '\n' '|')]; every count below is untrustworthy"
+
+  # ── THE POPULATION: every shipped shell program in the manifest.
+  local rel pop=() nerr=0
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*sh) pop+=("$rel") ;; esac
+  done <<EOF
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF
+  [ "${#pop[@]}" -gt 0 ] \
+    || cf "(instrument) the manifest yielded no shipped shell program — the shebang test stopped matching"
+  for rel in ${pop[@]+"${pop[@]}"}; do
+    grep -v '^[[:space:]]*#' "$REAL_REPO_ROOT/$rel" | grep -F 'Error:' >/dev/null && nerr=$(( nerr + 1 ))
+  done
+  [ "$nerr" -gt 0 ] \
+    || cf "(instrument) not one shipped shell program prints 'Error:' — the population this report reads is empty, so its zero would be silent"
+
+  local sites nh=0 ne=0 nu=0
+  sites="$(_refusal_sites "$REAL_REPO_ROOT" ${pop[@]+"${pop[@]}"})"
+  if [ -n "$sites" ]; then
+    nh="$(printf '%s\n' "$sites" | grep -c '^helper ' || true)"
+    ne="$(printf '%s\n' "$sites" | grep -c '^exempt ' || true)"
+    nu="$(printf '%s\n' "$sites" | grep -c '^unmigrated ' || true)"
+    printf '%s\n' "$sites" | sed -n 's/^unmigrated /        unmigrated-refusal: /p'
+  fi
+
+  finish "refusal sites in the $nerr shipped shell program(s) that print 'Error:': $nh through kit_refuse, $ne declared exempt, $nu not yet migrated (REPORT-ONLY — listed above as unmigrated-refusal: lines; sites migrate as their scripts are touched); the enumerator read its planted control exactly"
+}
+
 # =============================================================================
 # CASE — NO --help OPENS WITH ITS OWN KIT-CLASS MARKER.
 #

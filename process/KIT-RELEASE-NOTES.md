@@ -478,6 +478,12 @@ columns and never the cards.*
 
 ### Added
 
+- **`scripts/lib/refuse.sh`: a refusal that leaves a record.** A script that refuses through its
+  `kit_refuse <status> <rule-id> <message…>` prints the message and exits as before, and also writes
+  one `error` progress record carrying `refusal=<rule-id>`, so refusals can be counted after the
+  terminal has gone (`process/contracts/progress-record.md` § 5b). Existing refusals move to it as
+  their scripts change; the self-test lists the ones that have not yet. **Nothing to do.**
+
 - **A default for which hat signs day one's commits.** `process/contracts/role-gate.md` § 2a
   declares the pre-role hat as a setting: `[PM]` for every commit a seat authors on day one, up to
   and including the first spec. The unpacked kit's first commit, code and tests, and the
