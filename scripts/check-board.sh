@@ -574,8 +574,13 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
     subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
     [ -z "$subj" ] && continue
     role_scanned=$((role_scanned+1))
+    # "Merge commit '" REQUIRES the quote — the literal shape `git merge <sha>` writes
+    # (`Merge commit '<full-hash>'`) — or this exemption also swallows an ordinary,
+    # human-authored subject that happens to start with the same two words
+    # ("Merge commit messages into one doc"), which is never git-generated and would be
+    # silently counted as scanned-and-exempt rather than as a missing [Role] prefix.
     case "$subj" in
-      "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) continue ;;
+      "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit '"*) continue ;;
       "Revert \""*|"Revert '"*) continue ;;
       "Squashed commit of the following:"*) continue ;;   # narrowed with commit-msg's
       "fixup! "*|"squash! "*|"amend! "*) continue ;;

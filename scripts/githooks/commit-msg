@@ -2,8 +2,8 @@
 # KIT-CLASS: MIXED — kit mechanism, PROJECT prefix set (ROLE_PREFIXES below) — configure on adoption. See process/EXTRACTION.md.
 # Commit-message guard — two rules, one hook:
 #   (1) the SUBJECT declares the acting role — process/contracts/commit-attribution.md
-#   (2) the MESSAGE carries no generated co-author trailer and no "Generated with …"
-#       line — process/doctrine/commit-hygiene.md § A.1
+#   (2) the MESSAGE carries no generated-attribution line, in any of its common wordings —
+#       process/doctrine/commit-hygiene.md § A.1
 #
 # Wired via `git config core.hooksPath scripts/githooks`: `kit-init.sh` wires it at adoption and
 # `setup.sh` re-wires it on every fresh clone (contracts/initializer.md § 2). hooksPath lives in
@@ -11,9 +11,13 @@
 # board and squash commits pass by construction.
 #
 # Rule (2) reads the WHOLE message (the trailer lives in the body), so the auto-exempt subjects
-# below are exempt from rule (1) ONLY. It refuses TOOL-naming trailers only: a Co-Authored-By
+# below are exempt from rule (1) ONLY. It refuses TOOL-naming attribution only: a Co-Authored-By
 # naming a HUMAN is legitimate. TOOL_TRAILER_MARKERS is a kit default, not project law; nothing
-# stamps it.
+# stamps it. It matches WORDINGS, not every tool's own name: a harness whose default trailer or
+# banner uses none of these words is not caught, and a harness whose CLI names a model instead of
+# the vendor (a bare "Sonnet", "Opus", "Fable") is not caught either — that is a marker-vocabulary
+# gap, not a wording gap, and adding model names is the adopter's call (§ B below), not this
+# default's.
 #
 # Bypass:  MSG_OK=1 git commit …   (1 / true / yes are truthy; 0 or unset do NOT bypass).
 #          For a genuine one-off that can't carry a tag, or for importing a third party's
@@ -22,6 +26,15 @@
 # Auto-exempt from rule (1): git/host-generated subjects that are never authored by a
 # role — merge commits, revert commits, and rebase autosquash markers.
 set -uo pipefail
+
+# kit_refuse, if this hook can find it from where it runs (a sibling of scripts/githooks/).
+# Sourced, never required: a hook that cannot find its own lib still refuses, it just does not
+# leave a progress record behind. Never let a missing library turn a refusal into an accept.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/refuse.sh" ]; then
+  # shellcheck source=../lib/refuse.sh
+  . "$HOOK_DIR/../lib/refuse.sh" 2>/dev/null || true
+fi
 
 # $1 is the path to the file holding the proposed commit message.
 MSG_FILE="${1:-}"
@@ -37,6 +50,12 @@ ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 # only, no regex metacharacters: the matcher adds the word boundaries.
 TOOL_TRAILER_MARKERS='claude|anthropic|copilot|chatgpt|openai|gpt|gemini|codex|aider|bot'
 
+# THE ATTRIBUTION-TRAILER WORDINGS for rule (2)'s trailer form — one alternation, so a new
+# wording is added here once rather than re-taught to a single hardcoded "co-authored-by:".
+# `generated-by:` lands here too (a colon trailer); "generated with …" and "written with/by …"
+# are PROSE, not trailers, and are their own arm below because they carry no `-by:` shape.
+ATTRIB_TRAILER_WORDS='co-authored-by|co-developed-by|assisted-by|generated-by|signed-off-by'
+
 # Bypass — only the documented truthy values (`0` or unset reads as "off" and must NOT bypass).
 case "${MSG_OK:-}" in
   1|true|yes) exit 0 ;;
@@ -50,36 +69,41 @@ esac
 cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev/null \
              | grep -vE '^[[:space:]]*#' || true)"
 
-# --- RULE (2): no generated co-author trailer, no "Generated with …" line ----------
-# Both arms anchor at a line start: § A.1 forbids such a LINE, and mid-sentence prose is not
-# one. "Generated with" allows leading decoration, since the tooling leads with an emoji.
-# The pre-marker group `(.*[^[:alnum:]])?` is OPTIONAL so the colon itself can be the left
-# boundary (`Co-Authored-By:Claude`). The trailing `([^[:alnum:]]|$)` is REQUIRED, so a human
-# whose name contains a marker's stem (`Claudia`) is accepted.
+# --- RULE (2): no generated-attribution line, in any of its common wordings --------
+# THREE arms, all anchored at a line start: § A.1 forbids such a LINE, and mid-sentence prose is
+# not one.
+#   (a) a `<word>-by:` TRAILER naming a tool — the pre-marker group `(.*[^[:alnum:]])?` is
+#       OPTIONAL so the colon itself can be the left boundary (`Co-Authored-By:Claude`); the
+#       trailing `([^[:alnum:]]|$)` is REQUIRED, so a human whose name contains a marker's stem
+#       (`Claudia`) is accepted, and so is a person whose ROLE-sounding surname is not one of
+#       these words (`Reviewed-by:` is not even in the word list — reviewing is not authorship).
+#   (b) "generated with/by …" PROSE — no marker required, because the phrase itself is the
+#       claim (as before); it allows leading decoration, since the tooling leads with an emoji.
+#   (c) "written with/by …" PROSE — a marker IS required here, unlike (b): "written with" alone
+#       is ordinary body prose ("written with care", "written with tests") and only reads as
+#       machine attribution once it names a tool.
 # No `head`: it exits early, the upstream grep dies of SIGPIPE, and under pipefail that becomes
 # the result. `sed -n '1p'` reads to EOF.
 offender="$(printf '%s\n' "$cleaned" \
-  | grep -iE "^[[:space:]]*co-authored-by:(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
+  | grep -iE "^[[:space:]]*(${ATTRIB_TRAILER_WORDS}):(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
   | sed -n '1p' || true)"
 [ -n "$offender" ] || offender="$(printf '%s\n' "$cleaned" \
-  | grep -iE '^[^[:alnum:]]*generated with[[:space:]]' | sed -n '1p' || true)"
+  | grep -iE '^[^[:alnum:]]*generated[[:space:]-]+(with|by)[[:space:]:]' | sed -n '1p' || true)"
+[ -n "$offender" ] || offender="$(printf '%s\n' "$cleaned" \
+  | grep -iE "^[^[:alnum:]]*written[[:space:]-]+(with|by)(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
+  | sed -n '1p' || true)"
 
 if [ -n "$offender" ]; then
-  {
-    echo "✗ Commit-message guard: no generated co-author trailer, and no \"Generated with …\" line."
-    echo ""
-    echo "  Offending line: $offender"
-    echo ""
-    echo "  process/doctrine/commit-hygiene.md § A.1 — attribution here is by ROLE (the subject"
-    echo "  prefix, rule 1 of this hook). A tool trailer adds a second, unqueryable axis, makes a"
-    echo "  provenance claim that ages badly, and taxes every git log a human reads, forever."
-    echo ""
-    echo "  Fix: delete the line and commit again."
-    echo "  A Co-Authored-By naming a HUMAN is fine; the tool markers rejected are:"
-    echo "    $(printf '%s' "$TOOL_TRAILER_MARKERS" | tr '|' ' ')"
-    echo ""
-    echo "  Importing a third party's commit verbatim?  MSG_OK=1 git commit …"
-  } >&2
+  msg1="✗ Commit-message guard: no generated-attribution line (a tool trailer, a \"Generated with/by …\" or \"Written with/by …\" line)."
+  msg2="  Offending line: $offender"
+  msg3="  process/doctrine/commit-hygiene.md § A.1 — attribution here is by ROLE (the subject prefix, rule 1 of this hook). A tool trailer adds a second, unqueryable axis, makes a provenance claim that ages badly, and taxes every git log a human reads, forever."
+  msg4="  Fix: delete the line, or configure your harness not to add it, and commit again."
+  msg5="  A Co-Authored-By naming a HUMAN is fine; the tool markers rejected are: $(printf '%s' "$TOOL_TRAILER_MARKERS" | tr '|' ' ')"
+  msg6="  Importing a third party's commit verbatim?  MSG_OK=1 git commit …"
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 commit-msg-generated-attribution "$msg1" "" "$msg2" "" "$msg3" "" "$msg4" "$msg5" "" "$msg6"
+  fi
+  printf '%s\n' "$msg1" "" "$msg2" "" "$msg3" "" "$msg4" "$msg5" "" "$msg6" >&2
   exit 1
 fi
 
@@ -90,9 +114,14 @@ subject="$(printf '%s\n' "$cleaned" | grep -vE '^[[:space:]]*$' | head -1 || tru
 # Empty subject → let git handle it (it aborts the commit on its own). Not our job.
 [ -z "$subject" ] && exit 0
 
-# Auto-exempt host/git-generated subjects (never authored under a role).
+# Auto-exempt host/git-generated subjects (never authored under a role). "Merge commit '"
+# REQUIRES the quote: that is the literal shape `git merge <sha>` writes
+# (`Merge commit '<full-hash>'`), and without the quote the glob also matches an ordinary,
+# human-authored subject that happens to start with the same two words
+# ("Merge commit messages into one doc") — never generated by git, and wrongly exempted from
+# the role-tag rule.
 case "$subject" in
-  "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit "*) exit 0 ;;
+  "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit '"*) exit 0 ;;
   "Revert \""*|"Revert '"*) exit 0 ;;
   # Git's own squash template only: a wider "Squash"* glob exempts human subjects, and the
   # kit's own squash subject carries a role prefix.
@@ -107,18 +136,16 @@ fi
 
 # The rejection message lists the accepted tags DERIVED from ROLE_PREFIXES above,
 # so a set change cannot leave the help text lying about what is legal.
-{
-  echo "✗ Commit-message guard: subject must start with a role tag."
-  echo ""
-  echo "  Subject: $subject"
-  echo ""
-  echo "  Expected one of:  $(printf '%s' "$ROLE_PREFIXES" | tr '|' '\n' | sed 's/^/[/; s/$/]/' | tr '\n' ' ')"
-  echo "  (the adapter's § 'Role-attribution commit prefixes' — the prefix is the audit trail)."
-  echo ""
-  echo "  Examples:"
-  echo "    [Dev] <PREFIX>-001: add the download --help usage example"
-  echo "    [QA] <PREFIX>-001 → qa_complete: PASS. Squash-merged into the trunk."
-  echo ""
-  echo "  Genuine one-off that can't carry a tag?  MSG_OK=1 git commit …"
-} >&2
+rmsg1="✗ Commit-message guard: subject must start with a role tag."
+rmsg2="  Subject: $subject"
+rmsg3="  Expected one of:  $(printf '%s' "$ROLE_PREFIXES" | tr '|' '\n' | sed 's/^/[/; s/$/]/' | tr '\n' ' ')"
+rmsg4="  (the adapter's § 'Role-attribution commit prefixes' — the prefix is the audit trail)."
+rmsg5="  Examples:"
+rmsg6="    [Dev] <PREFIX>-001: add the download --help usage example"
+rmsg7="    [QA] <PREFIX>-001 → qa_complete: PASS. Squash-merged into the trunk."
+rmsg8="  Genuine one-off that can't carry a tag?  MSG_OK=1 git commit …"
+if command -v kit_refuse >/dev/null 2>&1; then
+  kit_refuse 1 commit-msg-role-prefix "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" "$rmsg6" "$rmsg7" "" "$rmsg8"
+fi
+printf '%s\n' "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" "$rmsg6" "$rmsg7" "" "$rmsg8" >&2
 exit 1

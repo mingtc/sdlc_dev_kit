@@ -316,6 +316,7 @@ CASES=(
   case_next_id_reads_the_trunk
   case_creation_id_check_reads_the_trunk
   case_commit_msg
+  case_commit_msg_attribution_family
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections
@@ -361,6 +362,7 @@ CASES=(
   case_log_heading_is_one_bounded_declaration
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
+  case_check_board_arm_e_merge_commit_quote_boundary
   case_check_board_shallow_clone_does_not_narrow
   case_check_board_trailer_scan_shares_the_epoch
   case_check_board_dependency_symmetry

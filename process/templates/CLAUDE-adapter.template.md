@@ -181,11 +181,16 @@ Calibrate rigor via the rigor-tier ladder in
 - **<Rule about attribution>** — e.g. *every commit subject declares the role that wrote it, and no
   commit claims a co-author it did not have*. **Name the mechanism that enforces it in the same
   line**, here the `scripts/githooks/commit-msg` hook, which carries **both** halves: it refuses a
-  prefix-less subject (§ Role-attribution commit prefixes above) **and** refuses a generated
-  co-author trailer or a *"Generated with"* line. *A rule of this kind either has a mechanism or it
-  is a preference: write which one yours is, because a stated rule with no enforcement reads to the
-  next reader as enforced. Where your rule and its guard are two things, they move together — change
-  one without the other and the guard starts enforcing a rule nobody wrote down.*
+  prefix-less subject (§ Role-attribution commit prefixes above) **and** refuses the
+  generated-attribution wording family (a tool trailer, a *"Generated with/by"* or *"Written
+  with/by"* line). *A rule of this kind either has a mechanism or it is a preference: write which
+  one yours is, because a stated rule with no enforcement reads to the next reader as enforced.
+  Where your rule and its guard are two things, they move together — change one without the other
+  and the guard starts enforcing a rule nobody wrote down.*
+- **<If your harness adds its own co-author trailer by default>** — say so here, and say what you
+  did about it: this hook refuses it like any other tool trailer, naming the rule in its refusal;
+  the fix is to delete the line, or configure the harness not to add it. A project that says
+  nothing here leaves the next person to discover the refusal by hitting it.
 - **Commit hygiene is doctrine, not taste** —
   [`process/doctrine/commit-hygiene.md`](process/doctrine/commit-hygiene.md). Your own additions
   here are **subject style only** (tense, length, body format); the rules in that sheet are
