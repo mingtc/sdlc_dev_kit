@@ -77,19 +77,32 @@ ISSUE_ID_PATTERN='[A-Za-z]+-[0-9]+'
 # register SKIPS with its reason). Add a record per register you keep.
 REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
 # ─── ARM (l)'s OPERANDS: declared reference integrity ────────────────────────
-# Only text that DECLARES itself a citation is read, on DECLARED surfaces. Never a tree walk plus
-# a comment strip: a bare id grep cannot tell a citation from a mention, and a comment stripper is
-# a second parser that fails silently (a stray `<!--` in a shell string swallows everything up to
-# the next `-->`, and the file then reads clean).
+# Only text that DECLARES itself a citation is read. Never a bare id grep plus a comment strip: a
+# bare id cannot tell a citation from a mention, and a comment stripper is a second parser that
+# fails silently (a stray `<!--` in a shell string swallows everything up to the next `-->`, and
+# the file then reads clean).
 # One extended regex whose ONE capture group is the bare id; the arm strips the literal ends, so
-# the register's id shape is never re-typed here.
-CITATION_MARKER='\[decision: (D-[0-9]+)\]'
-# One record per citation surface:  <dir>|<filename pattern>|<what it is>
-# Resolved with `find <dir> -name <pattern>`, never a glob: without globstar, `**` silently
-# collapses to one level. An absent or empty surface SKIPS with its reason. `scripts/` is not a
-# surface (its ids are comments and fixtures). Add a record per surface that may cite.
-CITATION_SURFACES='requirements|PRD-*.md|PRD
-progress|*.md|issue card'
+# the register's id shape is never re-typed here. The colon's space is OPTIONAL — `[decision:D-01]`
+# and `[decision: D-01]` both cite — but the id itself stays digit-shaped, so the kit's OWN
+# illustrative marker text (`[decision: D-NN]`, a literal `NN`) never matches: the precision comes
+# from the id shape, not from the surface list.
+CITATION_MARKER='\[decision:[[:space:]]*(D-[0-9]+)\]'
+# THE POPULATION: every tracked text file in this source, EXCEPT the paths below — named here so
+# the arm's own printed line states its population, not just its verdict. Widened from a declared
+# surface list (PRDs and cards only): a citation planted outside a declared surface (PROJECT.md, a
+# dev record, a README) read clean, because "every citation resolves" only meant "every citation on
+# a surface we named". Each exclusion below is a directory this project's own tooling ever writes,
+# never the adopting project's own prose:
+#   scripts/        — ids there are comments and fixtures, not a project's own citations.
+#   .git/            — version-control internals, never project prose.
+#   .claude/skills/  — vendored, upstream skill text (process/EXTRACTION.md's provenance table):
+#                      never authored by the adopting project, so a citation inside one is not
+#                      this project's to resolve.
+# Add a path here only for a directory that is SHIPPED MACHINERY, never for a directory merely
+# unlikely to cite — unlikely is not the same as cannot.
+CITATION_EXCLUDE='scripts/
+.git/
+.claude/skills/'
 # How far into a file check (d) looks for the frontmatter's OPENING `---`. Not always line 1: a
 # card minted from a template carries an HTML comment above it. The cap stops a `---` rule deep in
 # a body being read as a fence.
@@ -1039,14 +1052,17 @@ fi
 
 
 # ---------------------------------------------------------------------------
-# (l) DECLARED REFERENCE INTEGRITY (contracts/drift-report.md § 2) — every register id cited on a
-#     declared surface resolves to a live entry, and no RETIRED id is cited. It sets `drift`, so
-#     it carries NO `reports only` token. Two findings, printed separately: a dangling id and a
-#     retired one. Operands: CITATION_SURFACES and CITATION_MARKER at the top of this file.
-#     Counts are printed so "nothing cited" and "all resolve" read differently.
+# (l) DECLARED REFERENCE INTEGRITY (contracts/drift-report.md § 2) — every register id cited
+#     ANYWHERE IN THIS TREE, outside CITATION_EXCLUDE, resolves to a live entry, and no RETIRED id
+#     is cited. It sets `drift`, so it carries NO `reports only` token. Two findings, printed
+#     separately: a dangling id and a retired one. Operands: CITATION_EXCLUDE and CITATION_MARKER
+#     at the top of this file. Counts are printed so "nothing cited" and "all resolve" read
+#     differently, and the POPULATION (files read, files excluded and why) is printed before
+#     either verdict — a widened arm that does not name what it widened TO repeats this defect one
+#     surface at a time.
 # ---------------------------------------------------------------------------
 echo
-l_cites=0; l_surf_read=0; l_surf_skipped=0; l_hits=0
+l_cites=0; l_files_read=0; l_hits=0
 # The live id set and the retired id set, from the SAME declared register records
 # arm (d) reads — one declaration, two readers.
 l_live=""; l_retired=""; l_reg_named=""; l_reg_read=0
@@ -1079,48 +1095,43 @@ elif ! command -v kit_decision_register_live >/dev/null 2>&1; then
 else
   echo "[l] Declared reference integrity — every cited register id resolves to a live entry, and no retired id is cited — $(cb_src):"
   echo "    register(s) read: $l_reg_named — $l_live_n live id(s), $l_retired_n retired id(s)"
-  while IFS='|' read -r csurf_dir csurf_pat csurf_what; do
-    [ -n "$csurf_dir" ] || continue
-    if [ ! -d "$CB_TREE/$csurf_dir" ]; then
-      echo "    $csurf_dir/ ($csurf_what): directory not present in this source  (skipped — this project keeps none)"
-      l_surf_skipped=$((l_surf_skipped+1)); continue
-    fi
-    # A directory walk, not a glob — see CITATION_SURFACES.
-    csurf_files="$(find "$CB_TREE/$csurf_dir" -type f -name "$csurf_pat" 2>/dev/null | sort || true)"
-    if [ -z "$csurf_files" ]; then
-      echo "    $csurf_dir/ ($csurf_what): 0 file(s) matching '$csurf_pat'  (skipped — nothing to read)"
-      l_surf_skipped=$((l_surf_skipped+1)); continue
-    fi
-    csurf_nfiles="$(printf '%s\n' "$csurf_files" | grep -c . || true)"
-    l_surf_read=$((l_surf_read+1))
-    csurf_cites=0
-    while IFS= read -r cfile; do
-      [ -n "$cfile" ] || continue
-      # Only text carrying the marker is read; the id is its capture, recovered by stripping
-      # the marker's literal ends.
-      while IFS= read -r cid; do
-        [ -n "$cid" ] || continue
-        csurf_cites=$((csurf_cites+1)); l_cites=$((l_cites+1))
-        crel="${cfile#"$CB_TREE"/}"
-        if printf '%s\n' "$l_retired" | grep -qx "$cid"; then
-          echo "    ⚠ $crel cites $cid, which is RETIRED — a retired id is never reused, so this citation resolves to nothing; re-point it at the ruling that replaced it, or drop it"
-          l_hits=$((l_hits+1)); drift=1
-        elif ! printf '%s\n' "$l_live" | grep -qx "$cid"; then
-          echo "    ⚠ $crel cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names"
-          l_hits=$((l_hits+1)); drift=1
-        fi
-      done <<< "$(grep -oE "$CITATION_MARKER" "$cfile" 2>/dev/null \
-                   | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' || true)"
-    done <<< "$csurf_files"
-    echo "    $csurf_dir/ ($csurf_what): $csurf_nfiles file(s) read, $csurf_cites citation(s)"
-  done <<< "$(printf '%s\n' "$CITATION_SURFACES")"
+  # THE POPULATION: every tracked file under CB_TREE, less CITATION_EXCLUDE's prefixes. Named here,
+  # not just filtered silently — the printed exclusion list IS the arm's population statement.
+  l_excl_named="$(printf '%s\n' "$CITATION_EXCLUDE" | grep -c . || true)"
+  echo "    population: every file in this source except: $(printf '%s' "$CITATION_EXCLUDE" | tr '\n' ' ')($l_excl_named path(s) excluded — see CITATION_EXCLUDE's header for why each one is)"
+  l_files="$(cd "$CB_TREE" 2>/dev/null && find . -type f 2>/dev/null | sed 's|^\./||' | sort || true)"
+  while IFS= read -r lex; do
+    [ -n "$lex" ] || continue
+    # A literal PREFIX match on the exclusion path (fixed-string, anchored), never a substring or
+    # a regex: "scripts/" must not also drop a "somescripts/" false hit, and the exclusion's own
+    # literal "." must not act as a wildcard.
+    lex_fixed="$(printf '%s' "$lex" | sed 's/[.[\*^$/]/\\&/g')"
+    l_files="$(printf '%s\n' "$l_files" | grep -v -E "^${lex_fixed}" || true)"
+  done <<< "$(printf '%s\n' "$CITATION_EXCLUDE")"
+  while IFS= read -r cfile; do
+    [ -n "$cfile" ] || continue
+    l_files_read=$((l_files_read+1))
+    # Only text carrying the marker is read; the id is its capture, recovered by stripping
+    # the marker's literal ends. `grep -I` skips a binary match without printing "binary file
+    # matches" noise as a false citation line.
+    while IFS= read -r cid; do
+      [ -n "$cid" ] || continue
+      l_cites=$((l_cites+1))
+      if printf '%s\n' "$l_retired" | grep -qx "$cid"; then
+        echo "    ⚠ $cfile cites $cid, which is RETIRED — a retired id is never reused, so this citation resolves to nothing; re-point it at the ruling that replaced it, or drop it"
+        l_hits=$((l_hits+1)); drift=1
+      elif ! printf '%s\n' "$l_live" | grep -qx "$cid"; then
+        echo "    ⚠ $cfile cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names"
+        l_hits=$((l_hits+1)); drift=1
+      fi
+    done <<< "$(grep -IaoE "$CITATION_MARKER" "$CB_TREE/$cfile" 2>/dev/null \
+                 | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' || true)"
+  done <<< "$l_files"
   if [ "$l_hits" -eq 0 ]; then
-    if [ "$l_surf_read" -eq 0 ]; then
-      echo "    NO citation surface was read ($l_surf_skipped skipped) — this pass says nothing about citations"
-    elif [ "$l_cites" -eq 0 ]; then
-      echo "    ✓ none ($l_surf_read surface(s) read, 0 citations found — nothing cites the register yet)"
+    if [ "$l_cites" -eq 0 ]; then
+      echo "    ✓ none ($l_files_read file(s) read, 0 citations found — nothing cites the register yet)"
     else
-      echo "    ✓ none (all $l_cites citation(s) across $l_surf_read surface(s) resolve to a live entry; none cites a retired id)"
+      echo "    ✓ none (all $l_cites citation(s) across $l_files_read file(s) resolve to a live entry; none cites a retired id)"
     fi
   fi
 fi

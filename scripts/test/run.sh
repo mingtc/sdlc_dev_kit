@@ -354,6 +354,7 @@ CASES=(
   case_check_board_registers
   case_check_board_register_absent
   case_check_board_citations
+  case_check_board_citation_population_widened
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted
   case_setup_warns_on_a_later_added_column

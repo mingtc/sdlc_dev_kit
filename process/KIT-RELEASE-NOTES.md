@@ -859,6 +859,13 @@ columns and never the cards.*
 
 ### Fixed
 
+- **`check-board.sh`'s `[l]` (declared reference integrity) now reads every tracked file, not just
+  PRD files and progress cards.** A `[decision: D-NN]` citation anywhere else in your tree — `PROJECT.md`,
+  a dev record, `README.md`, anything not under `scripts/`, `.git/` or `.claude/skills/` — now
+  resolves or reports. The marker also accepts `[decision:D-NN]` with no space after the colon.
+  **Nothing to do**, unless you were relying on a dangling citation outside the old surfaces going
+  unreported.
+
 - **The self-test's interpreter-floor case (`scripts/test/run.sh`) no longer reports a filled
   `scripts/verify.sh` `GATES` record as an unguarded interpreter call.** A gate declared
   `"unit|core|node --test"` or `"lint|core|python3 -m flake8"` was read as `verify.sh` itself

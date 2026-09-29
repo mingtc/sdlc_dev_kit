@@ -48,6 +48,14 @@ _cb_g_section() {  # reads a check-board report on stdin
        f'
 }
 
+# Same shape as _cb_g_section, for arm [l] (declared reference integrity).
+_cb_l_section() {  # reads a check-board report on stdin
+  awk '/^\[l\]/ { f = 1 }
+       f && /^──/ { exit }
+       f && /^\[[a-z]\]/ && !/^\[l\]/ { exit }
+       f'
+}
+
 # cb_set_dep <id> <slug> <folder> <blocks|blocked_by> <target-id>
 # Rewrite one dependency field into a seeded card's frontmatter. seed_issue does NOT emit
 # these keys, so this INSERTS before the CLOSING fence — the second `---`, never the
@@ -572,21 +580,24 @@ case_check_board_citations() {
   cf_reset
   make_sandbox
 
-  local registers reg_path reg_mark marker surfaces prd_dir prd_pat out rc
+  local registers reg_path reg_mark marker exclude prd_dir prd_file out rc
   registers="$(cb_default REGISTERS)"
   marker="$(cb_default CITATION_MARKER)"
-  surfaces="$(sed -n "/^CITATION_SURFACES='/,/'\$/p" "$REAL_SCRIPTS/check-board.sh" | sed "s/^CITATION_SURFACES='//; s/'\$//")"
+  exclude="$(sed -n "/^CITATION_EXCLUDE='/,/'\$/p" "$REAL_SCRIPTS/check-board.sh" | sed "s/^CITATION_EXCLUDE='//; s/'\$//")"
   [ -n "$registers" ] || { cf "could not derive REGISTERS"; finish "arm (l): citations"; teardown; return; }
   [ -n "$marker" ]    || cf "could not derive CITATION_MARKER from check-board.sh"
-  [ -n "$surfaces" ]  || cf "could not derive CITATION_SURFACES from check-board.sh"
+  [ -n "$exclude" ]   || cf "could not derive CITATION_EXCLUDE from check-board.sh"
   reg_path="${registers%%|*}"
   reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
-  # The FIRST declared surface, used as the citing document's home.
-  prd_dir="$(printf '%s\n' "$surfaces" | head -1 | awk -F'|' '{print $1}')"
-  prd_pat="$(printf '%s\n' "$surfaces" | head -1 | awk -F'|' '{print $2}')"
-  [ -n "$prd_dir" ] || cf "the first declared citation surface has no directory ($surfaces)"
-  # Turn the declared filename pattern into one concrete name.
-  local prd_file="${prd_pat/\*/001-cites}"
+  # The citing document's home: requirements/ — a real project surface, and not one of the
+  # declared exclusions (the population is now "everything except CITATION_EXCLUDE").
+  prd_dir="requirements"
+  prd_file="PRD-001-cites.md"
+  while IFS= read -r _excl_line; do
+    case "$_excl_line" in
+      'requirements/') cf "the fixture's own citing directory (requirements/) is one of CITATION_EXCLUDE's entries — this case would then prove nothing" ;;
+    esac
+  done <<< "$exclude"
   mkdir -p "$SB_WORK/$(dirname "$reg_path")" "$SB_WORK/$prd_dir"
 
   # The register the citations resolve against: D-01 and D-02 live, nothing retired.
@@ -675,12 +686,87 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(4) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep -i '1 file(s) read, 0 citation(s)' >/dev/null \
-    || cf "(4) the mention-only card was not READ-with-zero-citations — a real negative must show the file was read, not skipped: $(printf '%s\n' "$out" | grep "$prd_dir")"
+  # A real negative: the file COUNT must be nonzero (it was read, not skipped) and the CITATION
+  # count zero (nothing in it was read as a citation).
+  printf '%s\n' "$out" | _cb_l_section | grep -E '[1-9][0-9]* file\(s\) read, 0 citation' >/dev/null \
+    || cf "(4) the mention-only card was not READ-with-zero-citations — a real negative must show files were read, not skipped: $(printf '%s\n' "$out" | _cb_l_section)"
   printf '%s\n' "$out" | grep '⚠' | grep -E 'D-77|D-99|D-02' >/dev/null \
     && cf "(4) a MENTION was read as a CITATION — this is the hazard the positive marker exists for, and a bare-id reader fails exactly here: $out"
 
   finish "arm (l): a live citation resolves and is counted, a dangling one is a DECIDING finding that survives kit-init's advisory filter, a retired one prints as retired rather than dangling, the LIVE successor named inside a retired row is not itself reported, and a card that merely MENTIONS ids (one of them inside an HTML comment) is READ and yields zero citations"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (l)'s BOUNDARY CONTROL: a citation OUTSIDE the two former surfaces
+# (requirements/PRD-*.md and progress/*.md) is now caught, not just one planted inside them.
+#
+# A CONTROL planted INSIDE a declared surface cannot fail at the boundary its own claim covers.
+# This case plants a dangling id in PROJECT.md and in dev/, neither a declared surface before this
+# fix, and expects both to be reported. It also exercises the widened marker (no space after the
+# colon) and the precision the widened population depends on: the kit's own illustrative
+# `[decision: D-NN]` text (a literal `NN`) is never read as a citation, on any surface.
+# =============================================================================
+case_check_board_citation_population_widened() {
+  cf_reset
+  make_sandbox
+
+  local registers reg_path reg_mark out
+  registers="$(cb_default REGISTERS)"
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  [ -n "$reg_path" ] || { cf "could not derive REGISTERS"; finish "arm (l): population widened"; teardown; return; }
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")"
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-01 — first
+
+## Retired ids
+
+\`<none yet>\`
+
+## Findings
+EOF
+
+  # --- (a) OUTSIDE THE OLD SURFACES: PROJECT.md and dev/, neither requirements/ nor progress/ ---
+  mkdir -p "$SB_WORK/dev"
+  printf '# PROJECT.md\n\nSee the ruling `[decision: D-99]` for context.\n' > "$SB_WORK/PROJECT.md"
+  printf '# a dev record\n\nRuled per `[decision:D-98]` (no space — still a citation).\n' > "$SB_WORK/dev/record.md"
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '⚠' | grep 'PROJECT.md' | grep 'D-99' >/dev/null \
+    || cf "(a) a dangling citation planted in PROJECT.md (outside both former surfaces) was not reported — a boundary a control planted inside the old surfaces could not fail at: $out"
+  printf '%s\n' "$out" | grep '⚠' | grep 'dev/record.md' | grep 'D-98' >/dev/null \
+    || cf "(a) a dangling citation planted in dev/ was not reported, or the no-space marker '[decision:D-98]' was not read as a citation at all: $out"
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
+    || cf "(a) citations outside the old surfaces did not reach the verdict: $out"
+
+  # --- (b) PRECISION: the kit's own illustrative marker, a literal D-NN, is never a citation ---
+  # Planted on the SAME widened surfaces (PROJECT.md, dev/) so precision is proven where breadth
+  # was just proven, not only on a surface that was already narrow.
+  printf '# PROJECT.md\n\nFormat law: the marker is `[decision: D-NN]`. See also `[decision:D-NN]`.\n' \
+    > "$SB_WORK/PROJECT.md"
+  printf '# a dev record\n\nSame illustrative form here too: `[decision: D-NN]`.\n' > "$SB_WORK/dev/record.md"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '⚠' | grep -i 'D-NN' >/dev/null \
+    && cf "(b) the kit's own illustrative marker (a literal D-NN) was read as a dangling citation — an adopted tree must not report the kit's own example text: $out"
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
+    || cf "(b) illustrative-only text (no real id) reddened the board: $out"
+
+  # --- (c) EXCLUDED MACHINERY: a citation inside scripts/ or .claude/skills/ is not read ---
+  mkdir -p "$SB_WORK/.claude/skills/vendored-skill"
+  printf '# a fixture in scripts/ (comments and fixtures, never a project citation)\n[decision: D-97]\n' \
+    > "$SB_WORK/scripts/fixture-citation.md"
+  printf '# vendored skill text\n[decision: D-96]\n' > "$SB_WORK/.claude/skills/vendored-skill/SKILL.md"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '⚠' | grep -E 'D-97|D-96' >/dev/null \
+    && cf "(c) a citation inside an excluded path (scripts/ or .claude/skills/) was read anyway: $out"
+
+  finish "arm (l)'s widened population catches a dangling citation OUTSIDE the two former surfaces (PROJECT.md, dev/) — a boundary a control planted inside the old surfaces could not fail at — accepts the marker with or without its space, never reads the kit's own illustrative 'D-NN' text as a citation, and still excludes scripts/ and .claude/skills/"
   teardown
 }
 
