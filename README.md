@@ -170,9 +170,10 @@ without one.
 ## Which version of the kit is this, and what changed
 
 - **[`process/KIT-VERSION`](process/KIT-VERSION)** — one line, the version of the process kit this
-  tree was cut from. It is **not** your product's version: yours is whatever
-  [`scripts/release.sh`](scripts/release.sh)'s `VERSION_FILES` seam declares, and the two must
-  never be the same file.
+  tree was cut from: `X.Y.Z` for a release, `X.Y.Z+<tree>` for a build between releases
+  ([`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How versions work). It is
+  **not** your product's version: yours is whatever [`scripts/release.sh`](scripts/release.sh)'s
+  `VERSION_FILES` seam declares, and the two must never be the same file.
 - **[`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md)** — what changed in the kit,
   release by release, and **what an adopted project has to do about it**. Upgrading is a read and
   a set of deliberate edits, never an overwrite: the kit became yours the day you stamped it.

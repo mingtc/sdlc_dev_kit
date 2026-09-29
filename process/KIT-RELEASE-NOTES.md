@@ -20,6 +20,10 @@ release notes are whatever your `scripts/release.sh` declares in its `RELEASE_DO
 | **MINOR** | New material or changed guidance you can adopt when you like. Nothing breaks if you ignore it. |
 | **PATCH** | Corrections: wrong paths, broken links, wording, a refusal that should have fired and did not. |
 
+**`X.Y.Z+<tree>` is a build between releases:** the kit after release `X.Y.Z` and before the next,
+`<tree>` (eight hex characters) naming the exact kit tree it was built from. Its newest notes section
+is **Unreleased**, whose entries the next release's section will carry. `X.Y.Z` alone is a release.
+
 ## How to upgrade an adopted project
 
 **There is no updater, and that is deliberate.** The kit is *copied* into your repository on day
@@ -33,13 +37,15 @@ schedule. Write down which — and, if it is yours, on what trigger — in
 
 Once you hold a newer release:
 
-1. Read every version entry below that is newer than your [`KIT-VERSION`](KIT-VERSION).
+1. Read every version entry below that is newer than your [`KIT-VERSION`](KIT-VERSION). If yours
+   carries a `+` (§ How versions work), the release after its `X.Y.Z` has entries your tree may already
+   hold, because they were Unreleased when it was built: diff each against your tree before applying it.
 2. Apply the **Action required** items — those are the only ones that can break you.
    Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an **Action required** item you could not apply as written is a `K-NN` in `process/KIT-FEEDBACK.md`, with the item named in its *The moment.* block — `process/MANUAL.md` § Kit feedback.
 3. Adopt whatever else you want from **Changed** / **Added**, file by file, the same way you would
    any other change: through your own board, with your own gates.
-4. Update your `KIT-VERSION` to the version you have reached, so the next reader knows where you
-   are.
+4. Update your `KIT-VERSION` to the version you have reached — the new copy's line exactly, any `+<tree>`
+   included — so the next reader knows where you are.
 
 Diffing your kit against a newer release is a legitimate way to do step 3 — but expect the diff to
 include your own local law, which is not drift.
@@ -752,6 +758,11 @@ columns and never the cards.*
 - **`subtask.sh move <id> declined --note "why"` closes a slice that will not be done.** A declined slice no
   longer holds its parent at the mover, the lander or the sweep, which refuse a parent over any slice neither
   reviewed nor declined. The note is required. **Nothing to do**, unless a slice of yours is abandoned: decline it.
+
+- **A build between releases says so in `process/KIT-VERSION`: `X.Y.Z+<tree>`, not the last release's
+  `X.Y.Z`.** Upgrade steps 1 and 4 say how to read and write it (§ How versions work). **Nothing to do**,
+  unless you adopted or upgraded from a zip named `project-kit-v<X.Y.Z>+<tree>.zip` before this: your
+  `KIT-VERSION` reads the bare `X.Y.Z`, so read it as `X.Y.Z+<tree>` at your next upgrade's step 1.
 
 ### Fixed
 
