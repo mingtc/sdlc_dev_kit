@@ -2025,6 +2025,111 @@ case_check_board_graduation_verdict_is_not_wired() {
 }
 
 # =============================================================================
+# CASE — arm [g] REFUSES "graduation COMPLETE" over ZERO measured members/classes.
+#
+# A tree "lived" enough to enable the arm (a card on the board) but where every measurable class
+# comes back UNMEASURED (no REPLACE declaration anywhere, no PROJECT.md, and neither non-markdown
+# FILL member present either) must not print "graduation COMPLETE": nothing was checked, and that is
+# not a pass. This case ablates the refusal to show it is the mechanism holding COMPLETE back, not
+# an accident of wording.
+# =============================================================================
+case_check_board_graduation_refuses_complete_over_nothing_measured() {
+  cf_reset
+  make_sandbox
+  # A lived signal (a card on the board) with NO REPLACE-declaring file, NO PROJECT.md, and NO
+  # .gitignore/.env.example in this sandbox at all (make_sandbox does not seed them) — every
+  # measurable class in arm [g] is therefore UNREADABLE, not merely clean.
+  seed_issue todo "$SB_PREFIX-430" nothingtomeasure chore "Nothing here to measure"
+  publish_sandbox
+
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'enabled by:' >/dev/null \
+    || cf "precondition: the arm must be ENABLED for this case to mean anything: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    && cf "the arm printed graduation COMPLETE over a tree where nothing was measured (no REPLACE population, no PROJECT.md, no non-markdown FILL member) — this is the false green the card exists to close: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -iE 'measured: 0 member' >/dev/null \
+    || cf "the arm did not print its measured population as zero: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'CANNOT SAY graduation is complete' >/dev/null \
+    || cf "the arm did not refuse the COMPLETE claim in words a reader would notice: $out"
+
+  # ── THE ABLATION: with the refusal's guard removed, COMPLETE returns on the SAME tree. ────────
+  # Proves the new line is load-bearing, not merely present. `-eq 0` is the guard; forcing it
+  # false (`-eq 999`) restores the pre-fix behaviour without touching anything else.
+  local abl
+  abl="$SB_WORK/scripts/check-board-ablated.sh"
+  sed 's/\[ "\$g_measured" -eq 0 \]/[ "$g_measured" -eq 999 ]/' "$SB_WORK/scripts/check-board.sh" > "$abl"
+  chmod +x "$abl"
+  grep -q '\-eq 999' "$abl" \
+    || _control_did_not_run "the ablation did not change check-board.sh's guard — the sed anchor no longer matches the source"
+  local abl_out
+  abl_out="$(cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board-ablated.sh 2>&1)"
+  rm -f "$abl"
+  printf '%s\n' "$abl_out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || _control_did_not_run "with the zero-measured refusal ablated, COMPLETE did not return on the same tree — the case is not isolating the guard it claims to: $abl_out"
+
+  finish "arm [g] prints its measured population and REFUSES 'graduation COMPLETE' when nothing was measured (no REPLACE population, no PROJECT.md, no FILL member present) — ablating the guard restores the false COMPLETE on the same tree, proving the refusal is load-bearing"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g]'s (g2b): the NON-MARKDOWN FILL members, read by their OWN blank shape.
+#
+# .gitignore's build-artifact section and .env.example's project-credentials block declare
+# KIT-DISPOSITION: FILL but express their instruction as a `FILL ME.` sentinel line, not an
+# <angle-bracket> span — the markdown span reader cannot see them, so an unfilled `.gitignore` or
+# `.env.example` was invisible to graduation COMPLETE.
+# =============================================================================
+case_check_board_graduation_non_markdown_fill_members() {
+  cf_reset
+  make_sandbox
+  printf '# my project\n' > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  printf '<!-- FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' > "$SB_WORK/PROJECT.md"
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+
+  # (1) BOTH members still carry their FILL ME. sentinel — unfilled, and REPORTED as such.
+  printf '# .gitignore\n# ── <your build artifacts> ──\n# FILL ME. one line per generated tree.\n' \
+    > "$SB_WORK/.gitignore"
+  printf '# .env.example\n# ── <your project credentials> ──\n# FILL ME. one block per credential.\n' \
+    > "$SB_WORK/.env.example"
+  publish_sandbox
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep -F '.gitignore' | grep '⚠' >/dev/null \
+    || cf "(1) an unfilled .gitignore build-artifact section (its FILL ME. sentinel still present) was not reported: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | _cb_g_section | grep -F '.env.example' | grep '⚠' >/dev/null \
+    || cf "(1) an unfilled .env.example credentials block (its FILL ME. sentinel still present) was not reported: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    && cf "(1) graduation COMPLETE over a tree where both non-markdown FILL members are still unfilled: $out"
+
+  # (2) BOTH members filled — sentinel removed, as an adopter who filled the section would do.
+  printf '# .gitignore\n# ── build artifacts ──\n# produced by npm run build\ndist/\n' > "$SB_WORK/.gitignore"
+  printf '# .env.example\n# ── project credentials ──\n# READ_TOKEN=   # read-only\n' > "$SB_WORK/.env.example"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep -F '.gitignore' | grep '✓' >/dev/null \
+    || cf "(2) a filled .gitignore (no FILL ME. sentinel remaining) was not read as done: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | _cb_g_section | grep -F '.env.example' | grep '✓' >/dev/null \
+    || cf "(2) a filled .env.example (no FILL ME. sentinel remaining) was not read as done: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(2) a tree with every class filled (PROJECT.md, .gitignore, .env.example) did not reach graduation COMPLETE: $out"
+
+  # (3) ABSENT: neither file exists — UNMEASURED, never counted clean, and named in the population.
+  rm -f "$SB_WORK/.gitignore" "$SB_WORK/.env.example"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep -F '.gitignore' | grep -i 'not present' >/dev/null \
+    || cf "(3) an absent .gitignore was not reported as unmeasured: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'could not measure' | grep -F '.gitignore' >/dev/null \
+    || cf "(3) the population line did not name .gitignore among what could not be measured: $(printf '%s\n' "$out" | _cb_g_section | grep 'measured:')"
+
+  finish "arm [g] reads .gitignore's build-artifact section and .env.example's credentials block by their own 'FILL ME.' sentinel-line shape (not the <angle-bracket> one, which their comment/ignore-file syntax hides from): unfilled is reported, filled clears, and an absent member is named UNMEASURED rather than silently skipped"
+  teardown
+}
+
+# =============================================================================
 # CASE — check (d) reads a frontmatter that does NOT start on line 1.
 #
 # The templates open with an HTML comment, so a minted card carries it ABOVE its frontmatter. A

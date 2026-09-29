@@ -866,6 +866,13 @@ columns and never the cards.*
   **Nothing to do**, unless you were relying on a dangling citation outside the old surfaces going
   unreported.
 
+- **`check-board.sh`'s `[g]` (graduation) no longer reports "graduation COMPLETE" when nothing was
+  measured.** It prints what it measured and what it could not, and refuses the COMPLETE claim over
+  zero. It also now reads `.gitignore`'s build-artifact section and `.env.example`'s credentials
+  block (previously invisible to this arm): each is unfilled while its `FILL ME.` instruction line
+  is still present. **Nothing to do**, unless your `.gitignore` or `.env.example` still carries that
+  line — fill the section and remove it.
+
 - **The self-test's interpreter-floor case (`scripts/test/run.sh`) no longer reports a filled
   `scripts/verify.sh` `GATES` record as an unguarded interpreter call.** A gate declared
   `"unit|core|node --test"` or `"lint|core|python3 -m flake8"` was read as `verify.sh` itself

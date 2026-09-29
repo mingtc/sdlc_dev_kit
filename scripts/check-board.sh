@@ -107,6 +107,12 @@ CITATION_EXCLUDE='scripts/
 # card minted from a template carries an HTML comment above it. The cap stops a `---` rule deep in
 # a body being read as a fence.
 FRONTMATTER_SCAN_LINES=25
+# Arm [g]'s (g2) FILL class, the NON-MARKDOWN members: PROJECT.md's blanks are read by their
+# <angle-bracket> shape (markdown), but these two ship the disposition in comment/ignore-file
+# syntax and write their instruction as a `FILL ME.` sentinel line instead — so they are read by
+# THAT shape, not the angle-bracket one.  One record per member:  <path>|<sentinel prefix>
+GRADUATION_FILL_MEMBERS='.gitignore|# FILL ME.
+.env.example|# FILL ME.'
 
 # Repo root: harness CLAUDE_PROJECT_DIR, else this script's location (scripts/..).
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-}"
@@ -723,6 +729,12 @@ else
   # Name the signal that enabled the check.
   echo "      (enabled by: $g_lived)"
   g_find=0
+  # THE MEASURED POPULATION: incremented once per CLASS OR MEMBER this arm actually read (pass or
+  # fail — an unread member counts as unmeasured, never as measured-and-clean). Printed before the
+  # verdict, and the verdict REFUSES "COMPLETE" over zero: a report of nothing measured is not a
+  # clean tree, and printing COMPLETE over it would be a false green.
+  g_measured=0
+  g_unmeasured=""
 
   # (g1) REPLACE class. The population is every tracked file whose HEADER BLOCK (first 12 lines)
   # declares `KIT-DISPOSITION: REPLACE` — process/EXTRACTION.md's derivation; a manual quoting the
@@ -745,11 +757,13 @@ else
   # phrase only on the complaining branch.
   if [ -z "$g_repl_pop" ]; then
     echo "      REPLACE: no file in this tree declares KIT-DISPOSITION: REPLACE  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }REPLACE (no declaring file in this source)"
   elif [ -n "$g_repl" ]; then
     echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; matched as the exact whole shipped line, so this is the sentinel itself and not a prose mention; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"
-    g_find=1
+    g_find=1; g_measured=$((g_measured+1))
   else
     echo "      REPLACE:$g_repl_pop carry no scaffolding sentinel  ✓ (population derived from KIT-DISPOSITION: REPLACE declarations, not a list typed into this script; exact whole-line match — a mention of the token in prose is not a hit) — $(cb_src)"
+    g_measured=$((g_measured+1))
   fi
 
   # (g2) FILL class — unfilled <angle-bracket> blanks, in PROJECT.md ONLY: the other FILL members
@@ -842,24 +856,66 @@ else
     if [ -z "$g_read" ]; then
       echo "      FILL: NOT COUNTED — the blank reader failed on PROJECT.md, so nothing was counted, and that is not a pass  ⚠ — $(cb_src)"
       g_find=1
+      g_unmeasured="${g_unmeasured:+$g_unmeasured, }PROJECT.md (blank reader failed)"
     elif [ "${g_blanks:-0}" -gt 0 ]; then
       echo "      FILL: ${g_why} still holds ${g_blanks} <angle-bracket> blank(s)  ⚠ a FILL file is not done until no blank remains — $(cb_src)"
-      g_find=1
+      g_find=1; g_measured=$((g_measured+1))
     else
       echo "      FILL: ${g_why} holds 0 <angle-bracket> blanks  ✓ — $(cb_src)"
+      g_measured=$((g_measured+1))
     fi
   elif [ "$g_fill_state" = "other" ]; then
     echo "      FILL: PROJECT.md declares a KIT-DISPOSITION other than FILL  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }PROJECT.md (declares another disposition)"
   else
     echo "      FILL: no PROJECT.md to read  (skipped) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }PROJECT.md (absent)"
   fi
-  echo "      (FILL span: PROJECT.md only — read when it declares KIT-DISPOSITION: FILL or declares nothing (graduated or rewritten), not when it declares another disposition. HTML comments are stripped and code samples are not blanks: a code span counts only when its whole content is one <angle-bracket>, and fenced blocks never — the kit's own instructions and the adopter's command usage are not the adopter's answers. The non-markdown FILL members declare the disposition but express blanks in shell and ignore-file syntax, so they are NOT measured here.)"
+  echo "      (FILL span: PROJECT.md's own blanks are read by <angle-bracket> shape — HTML comments are stripped and code samples are not blanks: a code span counts only when its whole content is one <angle-bracket>, and fenced blocks never, so the kit's own instructions and the adopter's command usage are not the adopter's answers.)"
+
+  # (g2b) FILL class, the NON-MARKDOWN MEMBERS (GRADUATION_FILL_MEMBERS): .gitignore's
+  # build-artifact section and .env.example's project-credentials block declare the same
+  # KIT-DISPOSITION: FILL, but write their instruction as a `FILL ME.` sentinel LINE rather than an
+  # <angle-bracket> span (the span rule above cannot read shell/ignore-file comment syntax, and the
+  # files' own optional settings legitimately keep <angle-bracket> examples that are NOT the
+  # adopter's blank to fill — e.g. .env.example's NOTIFY_* lines). So each member is read by ITS
+  # OWN shape instead: the section is unfilled exactly while its `FILL ME.` sentinel line is still
+  # present (an adopter clears the section by deleting that instruction, the same convention
+  # REPLACE's own sentinel uses). A member the sentinel does not find in this source is UNMEASURED,
+  # never counted clean.
+  while IFS='|' read -r gf_path gf_sentinel; do
+    [ -n "$gf_path" ] || continue
+    gf_file="$CB_TREE/$gf_path"
+    if [ ! -f "$gf_file" ]; then
+      echo "      FILL ($gf_path): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+      g_unmeasured="${g_unmeasured:+$g_unmeasured, }$gf_path (absent)"
+    elif grep -qF "$gf_sentinel" "$gf_file" 2>/dev/null; then
+      echo "      FILL ($gf_path): still carries its '$gf_sentinel' instruction  ⚠ the section is not done until that line and the blank it introduces are replaced with this project's own — $(cb_src)"
+      g_find=1; g_measured=$((g_measured+1))
+    else
+      echo "      FILL ($gf_path): no '$gf_sentinel' instruction remains  ✓ (read by its own sentinel-line shape, never the <angle-bracket> one — this member expresses its blank in comment/ignore-file syntax) — $(cb_src)"
+      g_measured=$((g_measured+1))
+    fi
+  done <<< "$(printf '%s\n' "$GRADUATION_FILL_MEMBERS")"
 
   # (g3) DELETE-IF-UNUSED — not implemented (there is no tracked way to record "kept on
   # purpose"), and said out loud so its absence is not read as a clean result.
   echo "      DELETE-IF-UNUSED: not measured — no tracked way to record \"kept on purpose\" exists yet, so absence of a finding here means nothing was checked  (skipped)"
+  g_unmeasured="${g_unmeasured:+$g_unmeasured, }DELETE-IF-UNUSED (no mechanism exists yet)"
 
-  if [ "$g_find" -eq 0 ]; then
+  # THE POPULATION LINE, always printed, before either verdict below: what this pass measured and
+  # what it could not. "0 measured" is itself a finding, not silence.
+  echo "      measured: $g_measured member(s)/class(es)$( [ -n "$g_unmeasured" ] && printf '; could not measure: %s' "$g_unmeasured" )"
+  # STILL CANNOT CATCH: a blank filled with plausible nonsense reads as measured-and-clean here,
+  # the same as a blank filled with the adopter's real answer — no mechanism here reads MEANING.
+  echo "      (still cannot catch: a blank filled with plausible nonsense — this arm reads SHAPE, not truth)"
+  if [ "$g_measured" -eq 0 ]; then
+    # REFUSING COMPLETE OVER ZERO. A tree that is "lived" enough to
+    # enable this check but where every class above came back unmeasured (an absent PROJECT.md AND
+    # absent .gitignore/.env.example FILL members, say) must not read as graduated — it read as
+    # NOTHING WAS MEASURED, which is not the same claim.
+    echo "      → CANNOT SAY graduation is complete: nothing above was measured ($g_unmeasured) — this is not a clean tree, it is an unmeasured one."
+  elif [ "$g_find" -eq 0 ]; then
     echo "      → graduation COMPLETE over the classes measured above; this arm has nothing further to ask."
   else
     echo "      → day one is not finished. The checklist is process/SEED.md § Day one is done when."

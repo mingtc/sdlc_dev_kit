@@ -378,6 +378,8 @@ CASES=(
   case_check_board_names_a_detached_head
   case_check_board_fill_arm_reads_blanks_not_usage
   case_check_board_graduation_verdict_is_not_wired
+  case_check_board_graduation_refuses_complete_over_nothing_measured
+  case_check_board_graduation_non_markdown_fill_members
   case_kit_init_survives_the_documented_first_commit
   case_kit_init_refuses_an_uncommitted_kit
   case_kit_init_still_fails_on_a_real_finding
