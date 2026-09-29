@@ -114,6 +114,12 @@ elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED"
 fi
 
+# The shared register parser (arm [l] and finish-pr.sh's `forks:` precondition read the SAME
+# register the same way). A load failure degrades arm [l] to its own "no register read" line —
+# it already handles l_reg_read==0 as absence — never an exit.
+# shellcheck source=lib/decision-register.sh
+[ -f "$CB_LIB_DIR/decision-register.sh" ] && . "$CB_LIB_DIR/decision-register.sh" 2>/dev/null || true
+
 # ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
 # Resolved as kwt_resolve does, and the last link is READ from that library, never re-typed.
 CB_REMOTE="${KWT_REMOTE:-origin}"
@@ -1050,29 +1056,16 @@ while IFS='|' read -r lreg_path lreg_mark lreg_shape; do
   [ -f "$lreg_file" ] || continue
   l_reg_read=$((l_reg_read+1))
   l_reg_named="${l_reg_named:+$l_reg_named, }$lreg_path"
-  l_live="$l_live
-$(grep -oE "^${lreg_mark}${lreg_shape}" "$lreg_file" 2>/dev/null | sed "s|^${lreg_mark}||" || true)"
-  # § Retired ids, read through TWO filters:
-  #   1. HTML comment SPANS stripped: the shipped register names example ids inside a comment.
-  #      Correct here because the operand is markdown. NEVER point this stripper at a file that
-  #      can hold a bare `<!--` in a string or heredoc: it swallows everything to the next `-->`.
-  #   2. anchored on the row's FIRST backticked id (format law): a retired row names its live
-  #      successor in the same sentence.
-  # POSIX awk, not perl: the kit's floor is git plus a POSIX shell.
-  l_retired="$l_retired
-$(sed -n '/^## Retired ids/,/^## /{ /^## Retired ids/d; /^## /d; p; }' "$lreg_file" 2>/dev/null \
-    | awk 'BEGIN{c=0} { line=$0
-            while (1) {
-              if (c) { i=index(line,"-->"); if (!i) { line=""; break }
-                       line=substr(line,i+3); c=0; continue }
-              i=index(line,"<!--"); if (!i) break
-              rest=substr(line,i+4); line=substr(line,1,i-1)
-              j=index(rest,"-->")
-              if (j) { line=line substr(rest,j+3); continue }
-              c=1; break }
-            print line }' \
-    | grep -oE "^[[:space:]]*\`${lreg_shape}\`" \
-    | grep -oE "$lreg_shape" || true)"
+  # § Retired ids are read through TWO filters (HTML comment spans stripped — the shipped
+  # register names example ids inside one — then anchored on the row's FIRST backticked id, since
+  # a retired row names its live successor in the same sentence). Both id sets: shared with
+  # finish-pr.sh's `forks:` landing precondition via lib/decision-register.sh, one parser.
+  if command -v kit_decision_register_live >/dev/null 2>&1; then
+    l_live="$l_live
+$(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape")"
+    l_retired="$l_retired
+$(kit_decision_register_retired "$lreg_file" "$lreg_shape")"
+  fi
 done <<< "$(printf '%s\n' "$REGISTERS")"
 l_live="$(printf '%s\n' "$l_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
 l_retired="$(printf '%s\n' "$l_retired" | grep -E '^D-[0-9]+$' | sort -u || true)"
@@ -1081,6 +1074,8 @@ l_retired_n="$(printf '%s\n' "$l_retired" | grep -c . || true)"
 
 if [ "$l_reg_read" -eq 0 ]; then
   echo "[l] Declared reference integrity — every cited register id resolves: no register was read (none of the declared ones is present in this source) — nothing to resolve citations against (skipped) — $(cb_src)"
+elif ! command -v kit_decision_register_live >/dev/null 2>&1; then
+  echo "[l] Declared reference integrity — every cited register id resolves: scripts/lib/decision-register.sh is missing or did not define its readers — cannot resolve citations against $l_reg_named (skipped) — $(cb_src)"
 else
   echo "[l] Declared reference integrity — every cited register id resolves to a live entry, and no retired id is cited — $(cb_src):"
   echo "    register(s) read: $l_reg_named — $l_live_n live id(s), $l_retired_n retired id(s)"

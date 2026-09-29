@@ -274,6 +274,11 @@ CASES=(
   case_finish_pr_empty_merge
   case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
+  case_finish_pr_forks_missing_or_malformed_refuses
+  case_finish_pr_forks_unresolved_id_refuses
+  case_finish_pr_forks_contradicted_by_the_branch_refuses
+  case_finish_pr_forks_correct_field_lands
+  case_finish_pr_forks_derives_a_relocated_register
   case_finish_pr_worktree_through_a_symlink
   case_finish_pr_relative_worktree
   case_finish_pr_runs_only_the_trunks_copy

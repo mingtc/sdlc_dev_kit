@@ -28,6 +28,7 @@ branch: fix/<PREFIX>-NNN-<slug>
 pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: QA
+forks: none                     # or a list of D-NN, one per fork resolved while working this card
 ---
 
 # <PREFIX>-NNN — <one-line summary>

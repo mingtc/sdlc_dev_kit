@@ -315,6 +315,29 @@ columns and never the cards.*
 
 ### Action required
 
+- **Every card template (ISSUE, BUG, REFACTOR, SUBTASK) gains a `forks:` frontmatter field, and
+  `finish-pr.sh` refuses to land a card that lacks one.** State which `D-NN` (if any) this card
+  resolved: `forks: [D-NN, ...]`, or `forks: none` if it resolved none. Every open card on your
+  board predates this field and will be refused at its next landing until you add the line —
+  add `forks: none` to each and check it against the card's own Activity log and commits before
+  landing (a card that in fact resolved a fork, or whose branch adds or changes a `D-NN` register
+  entry, or whose Activity cites `[decision: D-NN]`, needs that id in `forks:`, not `none`). The
+  same landing also refuses `forks:` naming an id that is not a live register entry, or a
+  `forks: none` the branch itself contradicts (a register entry the branch's diff adds or changes,
+  or an Activity `[decision: D-NN]` citation, absent from `forks:`). **The register set is derived
+  from `check-board.sh`'s own `REGISTERS=` declaration (the same one arm `[l]` reads), never
+  hard-coded** — a project whose register lives somewhere other than `requirements/DECISIONS.md` is
+  still caught; a tree whose `check-board.sh` cannot be read, or declares no `REGISTERS=`, refuses
+  rather than guessing. **To add the default to every
+  open card in one pass** (still check each against its own Activity and commits afterward — the
+  command below cannot tell `none` from a fork it missed):
+  ```sh
+  grep -rL '^forks:' progress/todo progress/in_progress progress/dev_complete progress/qa_complete progress/blocked |
+  while IFS= read -r f; do
+    awk '{print} /^created_by:/ && !d {print "forks: none"; d=1}' "$f" > "$f.new" && mv "$f.new" "$f"
+  done
+  ```
+
 - **`PROJECT.md` gains a new required section, § Who answers when nobody is watching, with two
   blanks: `principal:` (who answers a blocking question when no PM/human session is watching — a
   name or role, or "nobody") and Their channel (where those questions go, e.g. `dev/questions/`).

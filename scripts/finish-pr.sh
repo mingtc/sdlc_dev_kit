@@ -97,6 +97,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
+# The `forks:` precondition's register resolution — the SAME parser check-board.sh arm [l] uses:
+# one implementation of "what does the register say", not two that can drift apart.
+# shellcheck source=lib/decision-register.sh
+. "$SCRIPT_DIR/lib/decision-register.sh"
+
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
 # Option hygiene (process/contracts/issue-creation.md § 3): --help exits 0 in any position, before
@@ -275,6 +282,128 @@ TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$SRC")
 if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null 2>&1; then
   echo "Error: local branch '$BRANCH' not found. Pass --branch or check it out first." >&2
   exit 1
+fi
+
+# ── A RULING MADE WHILE WORKING THIS CARD IS NOT DURABLE HERE (MANUAL.md § Execution discipline
+#    item 6): it is promoted to the decision register in the same change, and this card's `forks:`
+#    field is the self-reported claim that it was — or that no fork was resolved.
+#    Refused, before anything destructive, each a stable rule id through kit_refuse
+#    (process/contracts/progress-record.md § 5b): forks-missing (absent), forks-malformed (neither
+#    `none` nor a `[D-NN, ...]` list), forks-register-undeclared (check-board.sh's REGISTERS=
+#    cannot be read — never guess a path), forks-register-unreadable (a branch's register copy
+#    cannot be staged to read), forks-unresolved (a listed id is not a LIVE register entry),
+#    forks-contradicted (the branch's own diff shows a fork `forks:` does not name — see below).
+#    `forks: none` on a branch that shows no fork is the only shape that lands clean.
+#    THE REGISTER SET IS DERIVED, NEVER HARD-CODED: check-board.sh's own REGISTERS= declaration
+#    (arm [l]'s operand) is read the same way arm [o] reads kit-upgrade.sh's UPGRADE_CHECKLIST=,
+#    through lib/decision-register.sh's kit_registers_declared — so a project that moves its
+#    register disagrees with nothing. Every declared record whose id shape is the `D-` shape is
+#    iterated; a project's non-`D-` register (a different id scheme) is not this card's concern.
+#    Each is read from the BRANCH's own copy: the branch may be the one MINTING the id it cites,
+#    so the trunk's copy alone would read a fresh id as unresolved.
+_forks_line="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^forks:/{sub(/^forks:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); sub(/[[:space:]]+$/, ""); print; exit}' "$SRC")"
+if [ -z "$_forks_line" ]; then
+  kit_refuse 2 forks-missing \
+    "Error: ${ISSUE_ID} has no 'forks:' field." \
+    "       State the fork ids this card resolved ('forks: [D-NN, ...]') or 'forks: none' if it resolved none." \
+    "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
+    "       NOTHING WAS CHANGED."
+fi
+_forks_ids=""
+case "$_forks_line" in
+  none) : ;;
+  \[*\])
+    _forks_inner="${_forks_line#\[}"; _forks_inner="${_forks_inner%\]}"
+    _forks_ids="$(printf '%s' "$_forks_inner" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | grep -E '^D-[0-9]+$' || true)"
+    _forks_n_tokens="$(printf '%s' "$_forks_inner" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | grep -c . || true)"
+    _forks_n_ids="$(printf '%s\n' "$_forks_ids" | grep -c . || true)"
+    if [ -z "$_forks_inner" ] || [ "${_forks_n_tokens:-0}" -eq 0 ] || [ "${_forks_n_tokens:-0}" -ne "${_forks_n_ids:-0}" ] 2>/dev/null; then
+      kit_refuse 2 forks-malformed \
+        "Error: ${ISSUE_ID}'s 'forks:' field is not 'none' or a list of D-NN ids: forks: ${_forks_line}" \
+        "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
+        "       NOTHING WAS CHANGED."
+    fi
+    ;;
+  *)
+    kit_refuse 2 forks-malformed \
+      "Error: ${ISSUE_ID}'s 'forks:' field is not 'none' or a list of D-NN ids: forks: ${_forks_line}" \
+      "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
+      "       NOTHING WAS CHANGED."
+    ;;
+esac
+
+# THE DECLARATION, READ ONCE: check-board.sh's own REGISTERS=, never re-typed here. A tree whose
+# check-board.sh cannot be read, or that declares no REGISTERS= line at all, refuses rather than
+# assuming requirements/DECISIONS.md — a guessed path is the one that silently stops matching the
+# project's real register the day it moves.
+_forks_cb="$SCRIPT_DIR/check-board.sh"
+_forks_declared="$(kit_registers_declared "$_forks_cb")" || _forks_declared=""
+if [ -z "$_forks_declared" ]; then
+  kit_refuse 1 forks-register-undeclared \
+    "Error: could not read a 'REGISTERS=' declaration from ${_forks_cb#"$MAIN_ROOT"/}." \
+    "       The 'forks:' check derives its register set from check-board.sh's own declaration" \
+    "       (the same one arm [l] resolves citations against) and never guesses a path." \
+    "       NOTHING WAS CHANGED."
+fi
+# ONLY THE `D-` SHAPE: a project's other declared register (a different id scheme) is not what
+# forks: cites. One record per line: <path>|<heading-mark>|<id-shape>.
+_forks_regs="$(printf '%s\n' "$_forks_declared" | awk -F'|' '$3 == "D-[0-9]+" { print }')"
+_forks_citation_marker='\[decision: (D-[0-9]+)\]'
+_forks_cited="$(grep -oE "$_forks_citation_marker" "$SRC" 2>/dev/null | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' | sort -u || true)"
+
+_forks_live_all=""
+_forks_seen_all=""
+while IFS='|' read -r _freg_path _freg_mark _freg_shape; do
+  [ -n "$_freg_path" ] || continue
+
+  _forks_branch_reg="$(mktemp "${TMPDIR:-/tmp}/finish-pr-forks-reg.XXXXXX" 2>/dev/null || true)"
+  if [ -z "$_forks_branch_reg" ]; then
+    kit_refuse 1 forks-register-unreadable \
+      "Error: could not create a scratch file to read ${BRANCH}'s copy of ${_freg_path} — refusing rather than skipping the 'forks:' check." \
+      "       NOTHING WAS CHANGED."
+  fi
+  git -C "$MAIN_ROOT" show "${BRANCH}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
+
+  _forks_live_all="$_forks_live_all
+$(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+')"
+  _forks_seen_all="$_forks_seen_all
+$(kit_decisions_touched_by_diff "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH" "$_freg_path" "$_freg_mark")"
+
+  rm -f "$_forks_branch_reg"
+done <<< "$(printf '%s\n' "$_forks_regs")"
+_forks_live_all="$(printf '%s\n' "$_forks_live_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
+_forks_seen_all="$(printf '%s\n' "$_forks_seen_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
+
+if [ -n "$_forks_ids" ]; then
+  _forks_bad=""
+  while IFS= read -r _fid; do
+    [ -n "$_fid" ] || continue
+    printf '%s\n' "$_forks_live_all" | grep -qx "$_fid" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
+  done <<< "$(printf '%s\n' "$_forks_ids")"
+  if [ -n "$_forks_bad" ]; then
+    kit_refuse 2 forks-unresolved \
+      "Error: ${ISSUE_ID}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
+      "       Fix the id, or add the ruling it names to the register in this same change." \
+      "       NOTHING WAS CHANGED."
+  fi
+fi
+
+# THE DERIVATION: does the branch show a fork forks: does not name? Two sources — a register
+# D-NN entry the branch's own diff adds or changes, in any declared D- register, and an Activity
+# `[decision: D-NN]` citation — neither is optional, and `forks: none` contradicted by either
+# refuses.
+_forks_derived="$(printf '%s\n%s\n' "$_forks_seen_all" "$_forks_cited" | grep -E '^D-[0-9]+$' | sort -u || true)"
+_forks_missing_ids=""
+while IFS= read -r _fid; do
+  [ -n "$_fid" ] || continue
+  printf '%s\n' "$_forks_ids" | grep -qx "$_fid" || _forks_missing_ids="${_forks_missing_ids}${_forks_missing_ids:+, }$_fid"
+done <<< "$(printf '%s\n' "$_forks_derived")"
+if [ -n "$_forks_missing_ids" ]; then
+  kit_refuse 2 forks-contradicted \
+    "Error: ${ISSUE_ID}'s branch ('${BRANCH}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
+    "       (a register entry the branch's diff adds or changes, or an Activity '[decision: D-NN]' citation)." \
+    "       Add the id(s) to 'forks:' — 'forks: ${_forks_line}' does not account for them." \
+    "       NOTHING WAS CHANGED."
 fi
 
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED

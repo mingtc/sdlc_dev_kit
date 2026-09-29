@@ -130,6 +130,7 @@ branch: ${branch}
 pr: null
 created_at: 2026-01-01
 created_by: PM
+forks: none
 ---
 
 # ${id} — ${title}

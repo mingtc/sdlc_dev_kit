@@ -193,6 +193,11 @@ version control by the initializer, not left for each actor to discover
    site for the *when*, the register for the *which*.** Without a boundary the clause is an unbounded
    escape — every decision has *some* home it could be argued into, and a home argued into after the
    fact is the one nobody thinks to read.
+   **Checked mechanically at landing, not only by judgement:** every card's `forks:` frontmatter
+   states which `D-NN` (if any) this card resolved, and `finish-pr.sh` refuses a landing where it is
+   absent, malformed, names an id that is not a live register entry, or where the branch itself shows
+   a fork — a register entry its own diff adds or changes, or an Activity `[decision: D-NN]` citation
+   — that `forks:` does not name.
 
 ## Session close ritual
 

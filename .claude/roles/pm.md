@@ -171,6 +171,12 @@ places**. The PRD's Decision Log is a **citation list, not an authoring site**: 
 ruling is the copy that drifts, and the board check reports a citation that resolves to nothing or to
 a retired id.
 
+**Every card carries a `forks:` field stating which of these it resolved.** `forks: [D-NN, ...]`, or
+`forks: none` if it resolved none — checked, not merely trusted: `finish-pr.sh` refuses a landing
+where the field is absent, malformed, names an id that is not a live register entry, or where the
+branch itself (a register entry its diff adds or changes, or an Activity `[decision: D-NN]` citation)
+shows a fork `forks:` does not name.
+
 ### Moving an issue (occasional PM use)
 
 PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to `blocked/` if it is answerable, or to `declined/` if the answer is that it should not be built — never to a scratch location, which is how the decision gets silently made again six weeks later. In all cases:

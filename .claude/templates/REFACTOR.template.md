@@ -25,6 +25,7 @@ created_at: YYYY-MM-DD
 created_by: Refactorer
 blocks: []               # other <PREFIX>-NNN this issue blocks
 blocked_by: []           # other <PREFIX>-NNN blocking this issue
+forks: none              # or a list of D-NN, one per fork resolved while working this card
 ---
 
 # <PREFIX>-NNN — <one-line summary>
