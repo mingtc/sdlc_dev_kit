@@ -47,6 +47,15 @@ parent's AC set is the **union** of all its subtasks' AC; no AC is dropped or in
 
 - [ ] AC<n> — from <story id> (parent AC<n>): <statement>
 
+## QA Verdict
+
+Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../../../.claude/roles/qa.md#workflow-review-pass--fail), step 4), one row per AC id above, plus the fixed `shadow-check` row. `evidence kind` is one of `test` · `file:line` · `gate-diff` · `fixture-diff`. `finish-pr.sh` refuses a PASS landing if this table is missing, a row's evidence kind or pointer is empty or still reads `<placeholder>`, any row's verdict is `FAIL_AC` or `FAIL_REGRESSION`, the AC ids here do not match the AC bullets above one for one, or the `shadow-check` row is absent or empty.
+
+| AC id | verdict | evidence kind | evidence pointer |
+|---|---|---|---|
+| AC<n> | `<PASS \| PASS_AC_CORRECTED \| FAIL_AC \| FAIL_REGRESSION>` | `<placeholder>` | `<placeholder>` |
+| shadow-check | — | — | `assertions removed: none` (or each removed/weakened assertion with its replacement) |
+
 ## Out of Scope
 
 - What this slice defers to a sibling subtask (name it, e.g. "the mirror path → <PREFIX>-NNN-s2").

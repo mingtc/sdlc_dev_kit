@@ -279,6 +279,12 @@ CASES=(
   case_finish_pr_forks_contradicted_by_the_branch_refuses
   case_finish_pr_forks_correct_field_lands
   case_finish_pr_forks_derives_a_relocated_register
+  case_finish_pr_qa_verdict_missing_table_refuses
+  case_finish_pr_qa_verdict_evidence_missing_refuses
+  case_finish_pr_qa_verdict_fail_row_on_pass_refuses
+  case_finish_pr_qa_verdict_ac_mismatch_refuses
+  case_finish_pr_qa_verdict_shadow_check_required
+  case_finish_pr_qa_verdict_well_formed_lands
   case_finish_pr_worktree_through_a_symlink
   case_finish_pr_relative_worktree
   case_finish_pr_runs_only_the_trunks_copy

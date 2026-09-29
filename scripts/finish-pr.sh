@@ -406,6 +406,111 @@ if [ -n "$_forks_missing_ids" ]; then
     "       NOTHING WAS CHANGED."
 fi
 
+# ── THE QA VERDICT TABLE (.claude/roles/qa.md step 4): a claim-by-claim walk that FOUND a
+#    mismatch and then filed PASS anyway is the motivating case — an evidence-present row is not
+#    enough, so this also refuses on the row's OWN verdict and on the AC-id set itself.
+#    Refused, before anything destructive, each a stable rule id through kit_refuse
+#    (process/contracts/progress-record.md § 5b): qa-verdict-missing (no '## QA Verdict' table),
+#    qa-verdict-evidence-missing (a row's evidence kind is not in the closed list, or its pointer
+#    is empty or the template's own placeholder), qa-verdict-fail (a row's own verdict is
+#    FAIL_AC/FAIL_REGRESSION on a PASS landing — the row FOUND the problem and the card shipped
+#    anyway), qa-verdict-ac-mismatch (the table's AC ids and the card's own '- [ ] <id> —'
+#    checklist bullets are not the same set), qa-verdict-shadow-missing (the fixed 'shadow-check'
+#    row is absent or its pointer empty/placeholder).
+#    THE CARD'S OWN AC IDS ARE DERIVED, NEVER RE-TYPED: every '- [ ] <id> —' checklist bullet
+#    before the '## QA Verdict' heading is one, across all four templates (ISSUE's 'AC1', BUG's
+#    'AC1' Expected bullet, REFACTOR's 'B1' Behaviors Preserved, SUBTASK's 'AC<n>') — the shape is
+#    the checkbox, not any one template's section heading, so a project's own heading wording
+#    disagrees with nothing here.
+_qav_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$SRC")"
+_qav_ac_ids="$(printf '%s\n' "$_qav_body" | grep -oE '^- \[[ xX]\] [A-Za-z][A-Za-z0-9]* —' | sed -E 's/^- \[[ xX]\] //; s/ —$//' | sort -u || true)"
+
+if ! grep -qE '^## QA Verdict[[:space:]]*$' "$SRC"; then
+  kit_refuse 2 qa-verdict-missing \
+    "Error: ${ISSUE_ID} has no '## QA Verdict' table." \
+    "       QA fills one row per AC id plus the fixed 'shadow-check' row before a PASS lands." \
+    "       (.claude/roles/qa.md step 4.)" \
+    "       NOTHING WAS CHANGED."
+fi
+
+# The table body: from '## QA Verdict' to the next '## ' heading (or EOF).
+_qav_table="$(awk '/^## QA Verdict[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$SRC")"
+# Row lines only: '| id | verdict | kind | pointer |', excluding the header and its '---' separator.
+_qav_rows="$(printf '%s\n' "$_qav_table" | grep -E '^\|' | grep -vE '^\|[[:space:]]*(AC id|-+)[[:space:]]*\|' || true)"
+
+_qav_table_ids=""
+_qav_evidence_bad=""
+_qav_fail_rows=""
+_qav_shadow_seen=""
+_qav_shadow_bad=""
+while IFS= read -r _qrow; do
+  [ -n "$_qrow" ] || continue
+  # Split on '|': fields are (empty, id, verdict, kind, pointer, empty...).
+  _qid="$(printf '%s' "$_qrow"     | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2); print $2}')"
+  _qverdict="$(printf '%s' "$_qrow" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$3); print $3}')"
+  _qkind="$(printf '%s' "$_qrow"    | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$4); print $4}')"
+  _qptr="$(printf '%s' "$_qrow"     | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$5); print $5}')"
+  _qkind="$(printf '%s' "$_qkind" | tr -d '`')"
+  _qptr_stripped="$(printf '%s' "$_qptr" | tr -d '`')"
+
+  if [ "$_qid" = "shadow-check" ]; then
+    _qav_shadow_seen=1
+    case "$_qptr_stripped" in
+      ''|'<placeholder>') _qav_shadow_bad=1 ;;
+    esac
+    continue
+  fi
+
+  [ -n "$_qid" ] || continue
+  _qav_table_ids="${_qav_table_ids}${_qav_table_ids:+$'\n'}${_qid}"
+
+  case "$_qkind" in
+    test|file:line|gate-diff|fixture-diff) : ;;
+    *) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')" ;;
+  esac
+  case "$_qptr_stripped" in
+    ''|'<placeholder>') _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (empty or placeholder pointer)" ;;
+  esac
+  case "$_qverdict" in
+    FAIL_AC|FAIL_REGRESSION) _qav_fail_rows="${_qav_fail_rows}${_qav_fail_rows:+, }${_qid}" ;;
+  esac
+done <<< "$_qav_rows"
+
+if [ -n "$_qav_evidence_bad" ]; then
+  kit_refuse 2 qa-verdict-evidence-missing \
+    "Error: ${ISSUE_ID}'s QA Verdict table has row(s) with no usable evidence: ${_qav_evidence_bad}" \
+    "       A PASS needs an evidence kind from test|file:line|gate-diff|fixture-diff, and a real" \
+    "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
+    "       NOTHING WAS CHANGED."
+fi
+
+if [ -n "$_qav_fail_rows" ]; then
+  kit_refuse 2 qa-verdict-fail \
+    "Error: ${ISSUE_ID}'s QA Verdict table has FAIL row(s) on a PASS landing: ${_qav_fail_rows}" \
+    "       A row whose own verdict is FAIL_AC or FAIL_REGRESSION cannot ship under an overall PASS." \
+    "       (.claude/roles/qa.md step 4, step 6.)" \
+    "       NOTHING WAS CHANGED."
+fi
+
+_qav_table_ids_sorted="$(printf '%s\n' "$_qav_table_ids" | grep -E '.' | sort -u || true)"
+if [ "$_qav_table_ids_sorted" != "$_qav_ac_ids" ]; then
+  _qav_missing="$(comm -23 <(printf '%s\n' "$_qav_ac_ids") <(printf '%s\n' "$_qav_table_ids_sorted") | tr '\n' ' ')"
+  _qav_extra="$(comm -13 <(printf '%s\n' "$_qav_ac_ids") <(printf '%s\n' "$_qav_table_ids_sorted") | tr '\n' ' ')"
+  kit_refuse 2 qa-verdict-ac-mismatch \
+    "Error: ${ISSUE_ID}'s QA Verdict table's AC ids do not match its AC checklist one for one." \
+    "       Missing from the table: ${_qav_missing:-none}. Extra in the table: ${_qav_extra:-none}." \
+    "       (.claude/roles/qa.md step 4.)" \
+    "       NOTHING WAS CHANGED."
+fi
+
+if [ -z "$_qav_shadow_seen" ] || [ -n "$_qav_shadow_bad" ]; then
+  kit_refuse 2 qa-verdict-shadow-missing \
+    "Error: ${ISSUE_ID}'s QA Verdict table has no filled 'shadow-check' row." \
+    "       State 'assertions removed: none', or each removed/weakened assertion with its replacement." \
+    "       (.claude/roles/qa.md step 4.)" \
+    "       NOTHING WAS CHANGED."
+fi
+
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
 #    (§ 3). The test is the REVISION, not the ref name: a detached checkout exactly at the branch

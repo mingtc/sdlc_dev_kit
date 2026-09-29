@@ -315,6 +315,13 @@ columns and never the cards.*
 
 ### Action required
 
+- **Every card template gains a `## QA Verdict` table, and `finish-pr.sh` refuses a PASS landing without a
+  well-formed one.** QA fills it at step 4 (`.claude/roles/qa.md`): a row per AC id, with a verdict, an evidence kind
+  from a closed list and a pointer, plus a `shadow-check` row. The landing refuses a missing table, a row without
+  evidence, a FAIL row, AC ids that do not match the card's checklist, or no shadow check. **What to do:** add the
+  table to every card already in `dev_complete/` or later before it lands; BUG cards' Expected bullets now carry
+  `AC<n>` ids to key it on.
+
 - **Every card template (ISSUE, BUG, REFACTOR, SUBTASK) gains a `forks:` frontmatter field, and
   `finish-pr.sh` refuses to land a card that lacks one.** State which `D-NN` (if any) this card
   resolved: `forks: [D-NN, ...]`, or `forks: none` if it resolved none. Every open card on your

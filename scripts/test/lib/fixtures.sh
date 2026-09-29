@@ -118,6 +118,9 @@ sbcommit() { MSG_OK=1 git -C "$SB_WORK" commit "$@"; }
 # `--set-pr` writes back only into an existing `pr:` line. This hand-written seed is not
 # evidence the templates produce it: case_move_issue_set_pr_on_a_minted_card mints from the
 # real template for that.
+# ONE AC bullet + a matching, well-formed '## QA Verdict' table (a PASS row with real-looking
+# evidence, plus the required 'shadow-check' row): finish-pr.sh's QA-Verdict landing precondition
+# reads both, so every existing landing case keeps working without being touched individually.
 seed_issue() {
   local folder="$1" id="$2" slug="$3" type="$4" title="$5" branch="${6:-n/a}"
   local f="$SB_WORK/progress/$folder/${id}-${slug}.md"
@@ -134,6 +137,17 @@ forks: none
 ---
 
 # ${id} — ${title}
+
+## Acceptance Criteria
+
+- [ ] AC1 — the sandbox's seeded behaviour holds.
+
+## QA Verdict
+
+| AC id | verdict | evidence kind | evidence pointer |
+|---|---|---|---|
+| AC1 | PASS | test | sandbox-gate-green |
+| shadow-check | — | — | assertions removed: none |
 
 ## Activity
 

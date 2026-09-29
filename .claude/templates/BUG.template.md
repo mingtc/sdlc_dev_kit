@@ -53,8 +53,8 @@ One paragraph: what is broken, which surface of the project owns it, and which P
 
 ## E — Expected vs Actual
 
-**Expected** (per [PRD-NNN](../../requirements/PRD-NNN-<slug>.md), story <story ids>):
-- <what should happen, citing the AC>
+**Expected** (per [PRD-NNN](../../requirements/PRD-NNN-<slug>.md), story <story ids>) — this bug's AC, one id per bullet, for QA's `## QA Verdict` table below:
+- [ ] AC1 — <what should happen, citing the AC>
 
 **Actual:**
 - <what happens>
@@ -64,6 +64,15 @@ One paragraph: what is broken, which surface of the project owns it, and which P
 changelog entries in the same change. If it is **not** consumer-visible (an internal-only fix
 with no shipped-surface delta), state that explicitly rather than omitting it — named, or
 explicitly dismissed, never absent.
+
+## QA Verdict
+
+Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4), one row per Expected AC id above, plus the fixed `shadow-check` row. `evidence kind` is one of `test` · `file:line` · `gate-diff` · `fixture-diff`. `finish-pr.sh` refuses a PASS landing if this table is missing, a row's evidence kind or pointer is empty or still reads `<placeholder>`, any row's verdict is `FAIL_AC` or `FAIL_REGRESSION`, the AC ids here do not match the Expected bullets above one for one, or the `shadow-check` row is absent or empty.
+
+| AC id | verdict | evidence kind | evidence pointer |
+|---|---|---|---|
+| AC1 | `<PASS \| PASS_AC_CORRECTED \| FAIL_AC \| FAIL_REGRESSION>` | `<placeholder>` | `<placeholder>` |
+| shadow-check | — | — | `assertions removed: none` (or each removed/weakened assertion with its replacement) |
 
 ## I — Impact
 
