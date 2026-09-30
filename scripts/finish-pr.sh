@@ -580,6 +580,91 @@ if [ -z "$_qav_shadow_seen" ] || [ -n "$_qav_shadow_bad" ]; then
     "       NOTHING WAS CHANGED."
 fi
 
+# ── THE ABLATION RECORD (process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition
+#    of Done): a card whose branch diff touches a DECLARED test path must carry a well-formed
+#    '## Ablation' section — what was broken, and the red line it produced. TEST_GLOBS is the
+#    one project-supplied definition (scripts/config.sh, same shape and convention as
+#    CODE_GLOBS), read as the UNION of the trunk's copy and the branch's: the trunk's so a branch
+#    cannot empty the list it is judged by, the branch's so a first declaration judges its own card.
+#    SHIPPED EMPTY MEANS UNDECLARED, NOT UNENFORCED-SILENTLY: an undeclared TEST_GLOBS makes the
+#    check UNRUNNABLE and this says so on stdout — never a silent pass — rather than refusing
+#    (there is nothing to check the branch against).
+#    Refused, before anything destructive, through kit_refuse (process/contracts/progress-record.md
+#    § 5b): ablation-missing (the diff touches a declared test path and '## Ablation' is absent),
+#    ablation-malformed (the section exists but is not well formed — see below).
+_abl_cfg_branch="$(mktemp "${TMPDIR:-/tmp}/finish-pr-test-globs.XXXXXX" 2>/dev/null || true)"
+if [ -z "$_abl_cfg_branch" ]; then
+  kit_refuse 1 ablation-config-unreadable \
+    "Error: could not create a scratch file to read scripts/config.sh — refusing rather than skipping the ablation check." \
+    "       NOTHING WAS CHANGED."
+fi
+{ git -C "$MAIN_ROOT" show "${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/config.sh" 2>/dev/null || :
+  git -C "$MAIN_ROOT" show "${BRANCH}:scripts/config.sh" 2>/dev/null || :; } > "$_abl_cfg_branch"
+
+# Read TEST_GLOBS WITHOUT sourcing (config.sh is arbitrary branch content) — the same narrow,
+# anchored array parse scripts/githooks/pre-commit already uses for CODE_GLOBS.
+_abl_test_globs=()
+while IFS= read -r _abl_line; do
+  _abl_test_globs+=("$_abl_line")
+done < <(awk '
+  /^TEST_GLOBS=\($/ { in_arr=1; next }
+  in_arr && /^\)/ { in_arr=0; next }
+  in_arr {
+    line=$0
+    sub(/^[[:space:]]*/, "", line)
+    sub(/[[:space:]]*#.*$/, "", line)
+    if (line == "") next
+    gsub(/^"|"$/, "", line)
+    print line
+  }
+' "$_abl_cfg_branch")
+rm -f "$_abl_cfg_branch"
+
+if [ ${#_abl_test_globs[@]} -eq 0 ]; then
+  echo "ABLATION_CHECK: did not run — TEST_GLOBS is undeclared in scripts/config.sh (adopter action required)."
+else
+  _abl_diff_paths="$(git -C "$MAIN_ROOT" diff --name-only "${KWT_REMOTE}/${DEFAULT_BRANCH}...${BRANCH}" 2>/dev/null || true)"
+  _abl_touches_test=""
+  while IFS= read -r _abl_path; do
+    [ -n "$_abl_path" ] || continue
+    for _abl_g in "${_abl_test_globs[@]}"; do
+      case "$_abl_path" in
+        $_abl_g) _abl_touches_test="$_abl_touches_test$_abl_path"$'\n' ;;
+      esac
+    done
+  done <<< "$_abl_diff_paths"
+
+  if [ -n "$_abl_touches_test" ]; then
+    if ! grep -qE '^## Ablation[[:space:]]*$' "$SRC"; then
+      kit_refuse 2 ablation-missing \
+        "Error: ${ISSUE_ID}'s branch ('${BRANCH}') touches a declared test path but has no '## Ablation' section." \
+        "       Touched test path(s): $(printf '%s' "$_abl_touches_test" | tr '\n' ' ')" \
+        "       State what was broken and the red line it produced." \
+        "       (process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.)" \
+        "       NOTHING WAS CHANGED."
+    fi
+    # WELL FORMED, MINIMALLY AND MECHANICALLY: the section's body (to the next '## ' heading or
+    # EOF) carries two non-empty, non-placeholder fields — 'Broken:' and 'Red line:' — the same
+    # shape the shadow-check row already asks for (a claim plus its evidence), read as a fixed
+    # two-line record rather than free prose, so a script can see it without parsing English.
+    _abl_body="$(awk '/^## Ablation[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$SRC")"
+    _abl_broken="$(printf '%s\n' "$_abl_body" | sed -n 's/^Broken:[[:space:]]*//p' | head -1)"
+    _abl_red="$(printf '%s\n' "$_abl_body" | sed -n 's/^Red line:[[:space:]]*//p' | head -1)"
+    case "$_abl_broken" in ''|'<placeholder>') _abl_bad=1 ;; *) _abl_bad="" ;; esac
+    case "$_abl_red" in ''|'<placeholder>') _abl_bad="${_abl_bad}1" ;; esac
+    if [ -n "$_abl_bad" ]; then
+      kit_refuse 2 ablation-malformed \
+        "Error: ${ISSUE_ID}'s '## Ablation' section is not well formed." \
+        "       It needs a non-empty 'Broken: <what>' line and a non-empty 'Red line: <the output>' line." \
+        "       (process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.)" \
+        "       NOTHING WAS CHANGED."
+    fi
+    echo "ABLATION_CHECK: PASS — '## Ablation' present and well formed for a diff touching a declared test path."
+  else
+    echo "ABLATION_CHECK: PASS — the branch diff touches no declared test path."
+  fi
+fi
+
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
 #    (§ 3). The test is the REVISION, not the ref name: a detached checkout exactly at the branch

@@ -63,6 +63,13 @@ If any behavior is intentionally unconstrained (safety-net-check Phase 3 decided
 - <e.g. log line format>
 - <e.g. internal field ordering in private types>
 
+## Ablation
+
+Filled by Dev, only if this branch's diff touches a path the project's `TEST_GLOBS` (`scripts/config.sh`) declares as a test path — `finish-pr.sh` refuses such a landing if this section is absent or not well formed (a non-empty `Broken:` line and a non-empty `Red line:` line). Not required, and left as-is, when the diff touches no declared test path.
+
+Broken: <placeholder>
+Red line: <placeholder>
+
 ## QA Verdict
 
 Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../.claude/roles/qa.md#workflow-review-pass--fail), step 4), one row per Behaviors-Preserved id above (read as this template's AC), plus the fixed `shadow-check` row. `evidence kind` is one of `test` · `file:line` · `gate-diff` · `fixture-diff`. `finish-pr.sh` refuses a PASS landing if this table is missing, a row's evidence kind or pointer is empty or still reads `<placeholder>`, any row's verdict is `FAIL_AC` or `FAIL_REGRESSION`, the ids here do not match the Behaviors-Preserved bullets above one for one, or the `shadow-check` row is absent or empty.

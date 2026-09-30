@@ -315,6 +315,19 @@ columns and never the cards.*
 
 ### Action required
 
+- **Every card template gains an `## Ablation` section, and `finish-pr.sh` refuses a landing whose
+  branch diff touches a declared test path with the section absent or not well formed.** Declare
+  your test paths in the new `TEST_GLOBS` array (`scripts/config.sh`, right beside `CODE_GLOBS`,
+  same shape and convention). **Shipped empty on purpose: undeclared means the check does not run**
+  (reported as `ABLATION_CHECK: did not run` on stdout), not that every landing is unenforced — so
+  nothing breaks until you fill it in, and nothing is silently skipped once you do. Once declared,
+  a branch touching one of those paths needs the section filled: a `Broken:` line (what was broken)
+  and a `Red line:` line (the red it produced), neither empty nor the template's `<placeholder>`.
+  **What to do:** add `TEST_GLOBS` globs for your test tree; fill `## Ablation` on any card already
+  in `dev_complete/` or later whose branch touches one of them, before its next landing. The shadow
+  check for an edited test file is **not** a new field — it is the `shadow-check` row `535`'s
+  `## QA Verdict` table already requires; `.claude/roles/qa.md` step 5 now points QA at it directly.
+
 - **A new git hook, `scripts/githooks/pre-commit`, refuses a metadata-only commit made on a
   branch other than the trunk** — the shape a linked worktree on a branch of its own produces by
   default (`process/MANUAL.md` § The code-vs-metadata rule) — and names the new

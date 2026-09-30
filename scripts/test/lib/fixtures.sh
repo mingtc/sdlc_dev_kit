@@ -538,6 +538,9 @@ _kit_neutral_config() {
   # CODE_GLOBS: this repository's own declared code paths must never leak into a sandbox —
   # every case that wants one declares it itself (case_pre_commit_allows_code_on_a_branch).
   _neu_array "$c" CODE_GLOBS
+  # TEST_GLOBS: same convention — every case that wants one declares it itself
+  # (ablation.sh's _declare_test_globs).
+  _neu_array "$c" TEST_GLOBS
 
   # kit-init's appended stamp receipt: remove it, or every kit-init case meets the
   # ALREADY-LIVED refusal on a sandbox that has not lived. No assertion that a line

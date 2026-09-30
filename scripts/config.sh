@@ -61,6 +61,24 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 CODE_GLOBS=(
 )
 
+# ── TEST_GLOBS — the one project-supplied definition the ablation-record rule needs
+#    (process/MANUAL.md § The ablation-record rule): "which paths are tests." Read by
+#    scripts/finish-pr.sh, which refuses a landing whose branch diff touches a declared test
+#    path with no well-formed `## Ablation` section in the issue file.
+#
+# SHIPPED EMPTY ON PURPOSE: empty means UNDECLARED, and finish-pr.sh treats undeclared as
+# unenforced — it reports that the check did not run rather than silently passing (same
+# convention CODE_GLOBS above and verify.sh's GATES=() use). Fill it with your test tree:
+#
+#   TEST_GLOBS=(
+#     "tests/*"
+#     "src/**/*.test.js"
+#   )
+#
+# Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, same shape as CODE_GLOBS.
+TEST_GLOBS=(
+)
+
 # sed_repl <value> — escape a free-text value for the replacement half of `s|…|REPL|`, where
 # `|`, `\` and `&` are not literal. The one definition; every minting script uses it.
 # NOT COVERED: an embedded newline, which sed rejects in a replacement.

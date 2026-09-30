@@ -102,6 +102,11 @@ every carrier, parking touches none of the scripts.*
        This block is GUIDANCE and goes when you delete the comments. The bullet below is LAW and
        stays: it is the exception the rule needs in order to be followed. -->
 
+- **What counts as a TEST PATH here — `scripts/config.sh`'s `TEST_GLOBS`.** A branch whose diff
+  touches one carries a well-formed `## Ablation` section on its issue file, or `finish-pr.sh`
+  refuses the landing. *(The rule: [`process/doctrine/instruments.md`](process/doctrine/instruments.md)
+  § A.2.)* Left empty, the check does not run — fill it in.
+
 - **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
   matrix row, a doc correction the code change *makes true* belongs in the commit that makes it
   true — splitting it onto `<trunk>` publishes a claim about code that has not landed, and leaves
