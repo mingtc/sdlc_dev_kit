@@ -313,6 +313,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.7.0] — 2026-10-01
+
 ### Action required
 
 - **Add `PROJECT.md` § Quality gates rows for `process/contracts/ask.md` (`scripts/ask.sh`) and
