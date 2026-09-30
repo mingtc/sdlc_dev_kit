@@ -54,6 +54,10 @@ can check, and a step number does not. So any step marker still standing when da
 re-pointed at an id, or its row is removed. **A guard that parses the marker must accept both
 forms, and may reject the step form once day one is done.**
 
+**A row that nothing on day one lands stays out until the item that lands it is minted** — the
+`SEED step <N>` form's scope is exactly *"a row a later step lands"*; a row no step lands is not
+yet a row. [`process/SEED.md`](../process/SEED.md) § Day one is done when says what closes day one.
+
 **A `location` row buys cheapness at a price: nothing inside it is individually reachable.** That is
 usually the right call for a directory that grows with every feature area — but if a reader needs to
 find one member by name, the directory gets its own small index (`<dir>/README.md`) rather than a

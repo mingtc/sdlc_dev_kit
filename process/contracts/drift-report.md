@@ -267,6 +267,17 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   *Deliberately not enumerated here:* which documents are citation surfaces. That is the project's
   axis — the kit's implementation declares the ones it ships — and this sheet would be wrong rather
   than general if it fixed the membership.
+- **Where the corpus manifest marks a forward reference, the marker resolves. It DECIDES the
+  verdict.** A `forward-referenced (<ISSUE-ID>)` marker names an id that exists on the board; a row
+  whose named id has reached a landed column is flipped to `present`, not left marked; and a
+  day-one `SEED step <N>` marker does not survive day one closing. Each is single-ended — the
+  marker or the row is wrong, with one correct fix and no second party — the same bar invariant
+  4-and-a-half's citation check meets, and for the same reason it decides rather than advises.
+  *"Day one has closed" is read from the SAME check that already answers it (invariant 7) — never
+  re-derived a second way, or the two could disagree about what closes day one.*
+  *Cannot see:* a row that carries no marker at all where one belongs; that is a different property
+  (an omission, not an unresolved reference) and is not this invariant's to catch.
+  *Deliberately not enumerated here:* the manifest's path, which a project can move.
 
 ## 3. REFUSAL CONDITIONS
 
@@ -351,7 +362,8 @@ identifier gives and a timestamp does not.*
 - **THE PROJECT FILES AN ARM READS THROUGH A REPOINTABLE SEAM ARE NAMED HERE, because a seam an
   adopter can move is a seam a reimplementation must know exists.** In the shipped implementation
   the deferred-work queue bullet's arm reads `dev/downtime-queue.md`, overridable by `DQ_FILE`, and
-  that file's own entry in `dev/README.md` names this report back. **Derive the current set from the
+  that file's own entry in `dev/README.md` names this report back; the corpus forward-reference
+  bullet's arm reads `requirements/CORPUS.md`, overridable by `CORPUS_FILE`. **Derive the current set from the
   file rather than trusting this list to be complete** —
   `grep -oE '^[A-Z][A-Z0-9_]*_FILE="\$\{[A-Z][A-Z0-9_]*:-[^}"]+\}"' scripts/check-board.sh` — and
   the self-test asserts that every seam it yields is mentioned in this sheet, in that direction. *A

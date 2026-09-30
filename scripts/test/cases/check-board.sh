@@ -183,6 +183,12 @@ cb_default() {  # <VAR_NAME>
   sed -n "s/^$1='\(.*\)'/\1/p" "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
 }
 
+# cb_default_seam <VAR_NAME> — for the OTHER shape a default takes, the repointable-seam form
+# `NAME="${NAME:-path}"` (DQ_FILE, CORPUS_FILE): cb_default's quoting does not match it.
+cb_default_seam() {  # <VAR_NAME>
+  sed -n "s/^$1=\"\\\${$1:-\\([^}\"]*\\)}\".*/\\1/p" "$REAL_SCRIPTS/check-board.sh" 2>/dev/null | head -1
+}
+
 # seed_issue_mismatched <folder> <filename_id> <slug> <frontmatter_id>
 seed_issue_mismatched() {
   local folder="$1" file_id="$2" slug="$3" fm_id="$4"
@@ -767,6 +773,135 @@ EOF
     && cf "(c) a citation inside an excluded path (scripts/ or .claude/skills/) was read anyway: $out"
 
   finish "arm (l)'s widened population catches a dangling citation OUTSIDE the two former surfaces (PROJECT.md, dev/) — a boundary a control planted inside the old surfaces could not fail at — accepts the marker with or without its space, never reads the kit's own illustrative 'D-NN' text as a citation, and still excludes scripts/ and .claude/skills/"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (p): CORPUS.md's forward-reference marker resolves.
+#
+# Three findings, red first against a copy with arm (p) ablated, then green: a marker naming an
+# id no column carries; a marker naming an id that has LANDED while the row is still marked
+# instead of `present`; and a `SEED step <N>` marker still standing once arm [g] itself reads
+# graduation COMPLETE — reusing [g]'s own verdict, not a second "has day one closed" reading.
+# A clean manifest (one resolving id, one still-open id, no SEED-step marker) must read clean, and
+# a SEED-step marker BEFORE graduation must not fire — the scoped half of the same rule.
+# =============================================================================
+case_check_board_corpus_forward_reference() {
+  cf_reset
+  make_sandbox
+  local out corpus_file
+  corpus_file="$(cb_default_seam CORPUS_FILE)"
+  [ -n "$corpus_file" ] || _fixture_die "case_check_board_corpus_forward_reference: could not derive CORPUS_FILE from check-board.sh."
+  mkdir -p "$SB_WORK/$(dirname "$corpus_file")"
+
+  seed_issue todo "$SB_PREFIX-720" open-work chore "Still open, correctly marked"
+  seed_issue done "$SB_PREFIX-721" landed-work chore "Landed, but the row was never flipped"
+
+  cat > "$SB_WORK/$corpus_file" <<EOF
+# CORPUS.md
+
+| Entry | Kind | Status | Why it is corpus |
+|---|---|---|---|
+| \`requirements/one.md\` | file | present | the north star |
+| \`requirements/two.md\` | file | forward-referenced ($SB_PREFIX-720) | lands when work starts |
+| \`requirements/three.md\` | file | forward-referenced ($SB_PREFIX-721) | STILL marked though the item landed |
+| \`requirements/four.md\` | file | forward-referenced ($SB_PREFIX-999) | no such id was ever minted |
+| \`requirements/five.md\` | file | forward-referenced (SEED step 4) | a day-one row, before graduation |
+EOF
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[p\]' >/dev/null \
+    || cf "no [p] section in the report — the arm is absent"
+
+  # --- must fire: the dangling id -------------------------------------------------
+  printf '%s\n' "$out" | grep '⚠' | grep "$SB_PREFIX-999" >/dev/null \
+    || cf "a forward-referenced id minted by nobody was NOT reported: $out"
+
+  # --- must fire: the landed-but-unflipped id -------------------------------------
+  printf '%s\n' "$out" | grep '⚠' | grep "$SB_PREFIX-721" | grep -i 'LANDED' >/dev/null \
+    || cf "a forward-referenced id whose card reached progress/done/ was NOT reported as landed-but-unflipped: $out"
+
+  # --- must NOT fire: the still-open id, correctly marked -------------------------
+  printf '%s\n' "$out" | grep '⚠' | grep "$SB_PREFIX-720" >/dev/null \
+    && cf "an id that is still open (not landed) and correctly marked forward-referenced was reported: $out"
+
+  # --- must NOT fire yet: the SEED-step marker, BEFORE graduation -----------------
+  printf '%s\n' "$out" | grep '⚠' | grep -i 'SEED step' >/dev/null \
+    && cf "a SEED-step marker fired before day one has closed — arm [g] has not read graduation COMPLETE yet on this tree: $out"
+
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
+    || cf "the dangling id and the landed-unflipped id did not reach the verdict — this arm DECIDES: $out"
+
+  # --- ABLATION: strip arm (p) and every finding above must vanish ----------------
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -q '# (p) CORPUS FORWARD-REFERENCE INTEGRITY' "$s" \
+    || cf "(control) no '(p) CORPUS FORWARD-REFERENCE INTEGRITY' seam in check-board.sh — cannot ablate"
+  sed -i.bak '/# (p) CORPUS FORWARD-REFERENCE INTEGRITY/,/# END corpus forward-reference arm/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[p\]' >/dev/null \
+    && cf "(control) the ablation left [p] printing — the case would prove nothing"
+  printf '%s\n' "$out" | grep -E "$SB_PREFIX-999|$SB_PREFIX-721" >/dev/null \
+    && cf "(control) a finding survived arm (p)'s ablation, so it is not attributable to this arm: $out"
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
+    || cf "(control) without arm (p) the board did not read clean, so the findings above are not attributable to it: $out"
+
+  finish "arm (p): a dangling forward-referenced id and a landed-but-unflipped one are reported and DECIDE the verdict; a still-open correctly-marked id is silent; a SEED-step marker is silent before day one closes; ablation-proven"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (p): a SEED-step marker fires once arm [g] itself reads graduation COMPLETE.
+#
+# Reuses the same day-one → graduated transition case_check_board_graduation builds, so this
+# case is asserting arm (p) reading arm (g)'s OWN verdict, not a fixture-local guess at what
+# "day one has closed" means.
+# =============================================================================
+case_check_board_corpus_seed_step_after_graduation() {
+  cf_reset
+  make_sandbox
+  local out corpus_file
+  corpus_file="$(cb_default_seam CORPUS_FILE)"
+  [ -n "$corpus_file" ] || _fixture_die "case_check_board_corpus_seed_step_after_graduation: could not derive CORPUS_FILE."
+  mkdir -p "$SB_WORK/$(dirname "$corpus_file")"
+  cat > "$SB_WORK/$corpus_file" <<EOF
+# CORPUS.md
+
+| Entry | Kind | Status | Why it is corpus |
+|---|---|---|---|
+| \`requirements/one.md\` | file | forward-referenced (SEED step 4) | still standing |
+EOF
+  seed_scaffolding_tree
+  # THE LIVED SIGNAL: a stamp receipt, the same one case_check_board_graduation uses — never a
+  # real issue file, which would also have to be reasoned about by arm (p)'s own id resolution.
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  publish_sandbox
+
+  # ── BEFORE graduation: [g] has not read COMPLETE, so [p] must stay silent on it. ──
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    && _fixture_die "case_check_board_corpus_seed_step_after_graduation: [g] already reads COMPLETE before scaffolding was replaced — the fixture does not test the transition this case needs."
+  printf '%s\n' "$out" | grep '⚠' | grep -i 'SEED step' >/dev/null \
+    && cf "(before) the SEED-step marker fired while [g] has not read graduation COMPLETE: $out"
+
+  # ── AFTER graduation: replace the scaffolding exactly as case_check_board_graduation does. ──
+  printf '# my project\n' > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
+    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || _fixture_die "case_check_board_corpus_seed_step_after_graduation: [g] still does not read COMPLETE after the scaffolding was replaced — this case's premise failed."
+  printf '%s\n' "$out" | grep '⚠' | grep -i 'SEED step' >/dev/null \
+    || cf "(after) [g] reads graduation COMPLETE, but the standing SEED-step marker in $corpus_file was NOT reported: $out"
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
+    || cf "(after) the stale SEED-step marker did not reach the verdict: $out"
+
+  finish "arm (p): a SEED-step marker is silent before arm [g] reads graduation COMPLETE, and reported once [g] does — reusing [g]'s own verdict across the same day-one → graduated transition case_check_board_graduation builds"
   teardown
 }
 

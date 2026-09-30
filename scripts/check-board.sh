@@ -19,6 +19,8 @@
 #   (m) how many landed issues carry `prd: n/a`, a count (advisory);
 #   (n) whether the newest session entry ends with its `kit-feedback:` line (advisory);
 #   (o) the kit upgrade: KIT-VERSION's form, and an open upgrade checklist's unmarked items (advisory).
+#   (p) CORPUS.md forward-reference integrity — a dangling id, a landed id not flipped to present,
+#       and a SEED-step marker once day one has closed.
 # This list and the print order must hold the same letters, in the same order, once each:
 #   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
 #   grep -E '^#   \([a-z]\)' scripts/check-board.sh | sed -E 's/^#   (\([a-z]\)).*/\1/'
@@ -693,6 +695,11 @@ echo "      (span, both homes: commits REACHABLE FROM A REF. A commit reachable 
 # ---------------------------------------------------------------------------
 echo
 
+# G_GRADUATION_COMPLETE: arm [p] below reuses THIS arm's own verdict rather than re-deriving
+# "has day one closed" a second way. Set to 1 only in the COMPLETE branch; every other outcome
+# (not-run, unmeasured, not-finished) leaves it 0, which [p] reads as "cannot say day one closed".
+G_GRADUATION_COMPLETE=0
+
 # The stamp receipt token, DERIVED from kit-init.sh (the fallback is the shipped literal).
 g_stamp="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$CB_TREE/scripts/kit-init.sh" 2>/dev/null | head -1)"
 [ -n "$g_stamp" ] || g_stamp='# Stamped by scripts/kit-init.sh'
@@ -922,6 +929,7 @@ else
     echo "      → CANNOT SAY graduation is complete: nothing above was measured ($g_unmeasured) — this is not a clean tree, it is an unmeasured one."
   elif [ "$g_find" -eq 0 ]; then
     echo "      → graduation COMPLETE over the classes measured above; this arm has nothing further to ask."
+    G_GRADUATION_COMPLETE=1
   else
     echo "      → day one is not finished. The checklist is process/SEED.md § Day one is done when."
   fi
@@ -1313,6 +1321,114 @@ else
   fi
 fi
 # END kit-upgrade arm
+
+# ---------------------------------------------------------------------------
+# (p) CORPUS FORWARD-REFERENCE INTEGRITY — requirements/CORPUS.md's manifest `Status` column.
+#     It DECIDES the verdict, on the same footing as [l]: each finding below is single-ended (the
+#     marker or the row is wrong, no second party), the shape [l]'s own contract entry draws the
+#     decide/advise line on. Three findings, printed separately:
+#       - a `forward-referenced (<ISSUE-ID>)` naming an id that is in NO column of STATUS_FOLDERS
+#         (read the same way arm [d] reads the board: every column, frontmatter id only);
+#       - a `forward-referenced (<ISSUE-ID>)` naming an id that HAS reached a landed column
+#         (progress/done/ or progress/qa_complete/, same test [j] uses) while the row's OWN Status
+#         cell is still the forward-reference marker, not `present` — the rule's own words are
+#         "flip Status to present in the same change";
+#       - any `forward-referenced (SEED step <N>)` marker once day one has closed. "Closed" is NOT
+#         re-derived here: it is arm [g]'s own G_GRADUATION_COMPLETE, set only in [g]'s COMPLETE
+#         branch, so this arm and [g] can never disagree about what "day one is done" means.
+#     Cannot see: a row left with NO marker at all (process/SEED.md § Day one is done when's own
+#     checklist is the only reading of that). Not implemented here on purpose — see the card.
+# ---------------------------------------------------------------------------
+CORPUS_FILE="${CORPUS_FILE:-requirements/CORPUS.md}"   # relative to the repository root
+echo
+echo "[p] CORPUS forward-reference integrity ($CORPUS_FILE) — $(cb_src):"
+if [ ! -f "$CB_TREE/$CORPUS_FILE" ]; then
+  echo "      – $CORPUS_FILE not present  (skipped — no manifest to read)"
+else
+  # Every id known to the board, from the SAME frontmatter reading arm [d] does (every column in
+  # STATUS_FOLDERS, id: only, never a whole-file grep). Reused, not re-derived: d_files is already
+  # every *.md this run found across the columns.
+  p_known=""
+  if [ "${#d_files[@]}" -gt 0 ]; then
+    p_known="$(awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" '
+      FNR == 1 { inf = 0; closed = 0; got = 0 }
+      !closed && !inf && FNR <= scan && /^---[[:space:]]*$/ { inf = 1; next }
+      inf && /^---[[:space:]]*$/ { inf = 0; closed = 1; next }
+      inf && !got && $0 ~ ("^" key ":") {
+        v = $0
+        sub("^" key ":[[:space:]]*", "", v); sub(/[[:space:]]*#.*$/, "", v)
+        gsub(/"/, "", v); gsub(/'"'"'/, "", v); sub(/[[:space:]]+$/, "", v)
+        if (v ~ ("^" pat "$")) print v
+        got = 1
+      }
+    ' "${d_files[@]}" 2>/dev/null)"
+  fi
+  # The landed subset: the same columns [j] and [m] treat as landed, by filename prefix — no
+  # frontmatter re-read needed, a landed card's filename already carries its id.
+  p_landed=""
+  for pcol in done qa_complete; do
+    [ -d "$CB_TREE/progress/$pcol" ] || continue
+    for pf in "$CB_TREE/progress/$pcol"/*.md; do
+      [ -e "$pf" ] || continue
+      pbase="$(basename "$pf")"
+      if [[ "$pbase" =~ ^($ISSUE_ID_PATTERN)- ]]; then
+        p_landed="$p_landed
+${BASH_REMATCH[1]}"
+      fi
+    done
+  done
+
+  # Every manifest row: the Status cell and the marker it carries, if any. A LEADING `|` makes
+  # awk's first -F'|' field an empty string before the row's own first cell, so Status (the
+  # table's 3rd column) is $4, not $3 — the header ("| Entry | Kind | Status | Why |") is read the
+  # same way, so this is not a special case, just the field count a leading pipe always produces.
+  # A table row only — the header and its `|---|` separator are not data.
+  p_rows="$(awk -F'|' '
+    /^\|/ {
+      if ($0 ~ /^\|[[:space:]]*-+/) next
+      if (NF < 5) next
+      status = $4
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+      gsub(/`/, "", status)
+      if (status ~ /^forward-referenced \(/) print status
+    }
+  ' "$CB_TREE/$CORPUS_FILE" 2>/dev/null)"
+
+  p_hits=0; p_seen=0
+  while IFS= read -r prow; do
+    [ -n "$prow" ] || continue
+    p_seen=$((p_seen+1))
+    if [[ "$prow" =~ ^forward-referenced\ \(SEED\ step\ [0-9]+\)$ ]]; then
+      if [ "$G_GRADUATION_COMPLETE" -eq 1 ]; then
+        echo "      ⚠ $prow — day one has closed (arm [g] reads graduation COMPLETE), and this SEED-step marker does not outlive day one (requirements/CORPUS.md's own rule); re-point it at an id, or remove the row"
+        p_hits=$((p_hits+1)); drift=1
+      fi
+      continue
+    fi
+    if [[ "$prow" =~ ^forward-referenced\ \(([A-Za-z]+-[0-9]+)\)$ ]]; then
+      pid="${BASH_REMATCH[1]}"
+      if ! printf '%s\n' "$p_known" | grep -qx "$pid"; then
+        echo "      ⚠ $prow — $pid is not the frontmatter id: of any card in this source (every STATUS_FOLDERS column read) — a dangling forward reference; fix the id, or mint the work item it names"
+        p_hits=$((p_hits+1)); drift=1
+      elif printf '%s\n' "$p_landed" | grep -qx "$pid"; then
+        echo "      ⚠ $prow — $pid has LANDED (progress/done/ or progress/qa_complete/) but its row's Status is still the forward-reference marker, not present — flip Status to present in the same change (requirements/CORPUS.md's own rule)"
+        p_hits=$((p_hits+1)); drift=1
+      fi
+      continue
+    fi
+    # A marker whose parenthesised content is neither shape: reported so a third form does not
+    # pass silently as neither an id nor a step.
+    echo "      ⚠ $prow — neither the <ISSUE-ID> form nor the SEED-step form; this marker's shape has drifted from requirements/CORPUS.md's own rule"
+    p_hits=$((p_hits+1)); drift=1
+  done <<< "$p_rows"
+
+  if [ "$p_seen" -eq 0 ]; then
+    echo "      – 0 forward-referenced row(s) in this manifest  (nothing to resolve)"
+  elif [ "$p_hits" -eq 0 ]; then
+    echo "      ✓ none ($p_seen forward-referenced row(s), every id resolves, none has landed unflipped, no stale SEED-step marker)"
+  fi
+fi
+# END corpus forward-reference arm
 
 echo
 if [ "$drift" -eq 0 ]; then

@@ -607,6 +607,16 @@ columns and never the cards.*
   a missing line is reported with ⚠, never refused; under `manual` or `off` it is not checked. Both
   are marked `reports only`, so `kit-init`'s self-check ignores them. **Nothing to do.**
 
+- **`check-board.sh` gains `[p]`, which resolves `requirements/CORPUS.md`'s forward-reference
+  markers, and it DECIDES the verdict.** It reports a `forward-referenced (<ISSUE-ID>)` naming an
+  id no column of your board carries; the same marker naming an id that has reached `done/` or
+  `qa_complete/` while its row is still not flipped to `present`; and, once `[g]` itself reads
+  graduation COMPLETE, any `forward-referenced (SEED step <N>)` marker still standing. `CORPUS.md`'s
+  own rule gains one line: a row nothing on day one lands stays out until the item that lands it is
+  minted, with a pointer to `process/SEED.md` § Day one is done when. **Nothing to do**, unless your
+  manifest already carries a dangling or unflipped forward reference, or a stale SEED-step marker
+  past day one.
+
 ### Changed
 
 - **The card creators render `--stories` instead of copying the template's example stories.** An issue or
