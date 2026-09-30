@@ -343,6 +343,15 @@ columns and never the cards.*
   check for an edited test file is **not** a new field — it is the `shadow-check` row `535`'s
   `## QA Verdict` table already requires; `.claude/roles/qa.md` step 5 now points QA at it directly.
 
+- **`check-board.sh`'s `[g]` (graduation) arm now measures `scripts/config.sh`'s `CODE_GLOBS` and
+  `TEST_GLOBS`, and `PROJECT.md`'s `principal:`, as day-one FILL obligations** — previously an
+  empty, unfilled `CODE_GLOBS`/`TEST_GLOBS` or a blank `principal:` read as graduated, because
+  nothing checked them. `[g]` still only reports; it never changes the board verdict. **What to
+  do:** run `./scripts/check-board.sh` — if it now reports any of the three unfilled, either fill
+  it (your globs; a name, role, or `nobody` for `principal:`), or, if a glob array has none on
+  purpose, add one `# DECLARED EMPTY — <why>` comment line inside its parens (documented beside
+  each array in `scripts/config.sh`) — the mechanical "none, on purpose" form `[g]` accepts.
+
 - **A new git hook, `scripts/githooks/pre-commit`, refuses a metadata-only commit made on a
   branch other than the trunk** — the shape a linked worktree on a branch of its own produces by
   default (`process/MANUAL.md` § The code-vs-metadata rule) — and names the new

@@ -82,13 +82,17 @@ every carrier, parking touches none of the scripts.*
 - **Work lives on per-work-item branches:** `feature/<PREFIX>-NNN-<slug>`,
   `fix/<PREFIX>-NNN-<slug>`, `refactor/<PREFIX>-NNN-<slug>`. **One branch per work item, never per
   role.**
-- **What counts as CODE here — `<fill: the globs>`.** Only these go through a branch.
+- **What counts as CODE here — `scripts/config.sh`'s `CODE_GLOBS`.** `scripts/githooks/pre-commit`
+  reads it from there, never from this file, and refuses a metadata-only commit made off the
+  trunk once it is filled. Only a path it matches goes through a branch.
   **Everything else is metadata and commits direct to `<trunk>`**: board moves, requirement and
   issue edits, role-doc updates, `process/**`, `dev/**`, the running log, the project-facts sheet
   and this file.
-  *(The rule: [`process/MANUAL.md` § The code-vs-metadata rule](process/MANUAL.md).)*
+  *(The rule: [`process/MANUAL.md` § The code-vs-metadata rule](process/MANUAL.md).)* Left empty,
+  the hook does not run — fill it in, or, if this project genuinely has no branch-gated code path,
+  declare it deliberately empty the way `scripts/config.sh` documents beside the array.
 
-  <!-- THE GLOBS CONVENTION, stated so the fill-in is unambiguous:
+  <!-- THE GLOBS CONVENTION, stated so the fill-in in scripts/config.sh is unambiguous:
        • Write real globs, one per entry, `**`-rooted at the repository root — e.g. `src/**`,
          `tests/**`, and the ONE manifest/build file your language uses.
        • The list is a WHITELIST of what needs a branch, not a description of the tree. If a path
@@ -105,7 +109,8 @@ every carrier, parking touches none of the scripts.*
 - **What counts as a TEST PATH here — `scripts/config.sh`'s `TEST_GLOBS`.** A branch whose diff
   touches one carries a well-formed `## Ablation` section on its issue file, or `finish-pr.sh`
   refuses the landing. *(The rule: [`process/doctrine/instruments.md`](process/doctrine/instruments.md)
-  § A.2.)* Left empty, the check does not run — fill it in.
+  § A.2.)* Left empty, the check does not run — fill it in, or declare it deliberately empty the
+  same way `CODE_GLOBS` above does.
 
 - **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
   matrix row, a doc correction the code change *makes true* belongs in the commit that makes it

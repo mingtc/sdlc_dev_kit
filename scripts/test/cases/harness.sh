@@ -342,7 +342,7 @@ case_fixture_append_has_one_authoring_site() {
   _harness_population_is_whole "$probe"
 
   # THE DECLARED AUTHORS. Anything else that plants is a bypass.
-  local allowed=" _declare_gate _guard_declare _plant_in_function rel_insert "
+  local allowed=" _declare_gate _guard_declare _plant_in_function rel_insert _cb_g_fill_glob_array "
 
   _append_census() {  # <file> — "line|enclosing-function" for every anchored append
     awk -v a="$m1" -v b="$m2" '

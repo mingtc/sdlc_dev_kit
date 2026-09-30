@@ -47,7 +47,8 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 #
 # SHIPPED EMPTY ON PURPOSE: empty means UNDECLARED, and the pre-commit hook that reads this
 # treats undeclared as unenforced — it will not refuse anything until you fill this in (the
-# same convention verify.sh's GUARD_ENUM="" and GATES=() use). Fill it with your source tree,
+# same convention verify.sh's GUARD_ENUM="" and GATES=() use). check-board.sh's [g] arm reports
+# this array as an unfilled day-one obligation until you do. Fill it with your source tree,
 # test tree and build/packaging manifest — e.g.:
 #
 #   CODE_GLOBS=(
@@ -58,6 +59,11 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 #
 # Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, so a trailing `/*` is a
 # directory prefix and an exact string is one file. A path matching no glob here is metadata.
+#
+# LEAVING IT EMPTY ON PURPOSE (not "not yet filled"): add one whole comment line inside the
+# parens, `# DECLARED EMPTY — <why>`, e.g. because this project has no branch-gated code path.
+# [g] then reports it as declared rather than unfilled; the hook's own behaviour does not change
+# — empty is still unenforced.
 CODE_GLOBS=(
 )
 
@@ -68,7 +74,8 @@ CODE_GLOBS=(
 #
 # SHIPPED EMPTY ON PURPOSE: empty means UNDECLARED, and finish-pr.sh treats undeclared as
 # unenforced — it reports that the check did not run rather than silently passing (same
-# convention CODE_GLOBS above and verify.sh's GATES=() use). Fill it with your test tree:
+# convention CODE_GLOBS above and verify.sh's GATES=() use). check-board.sh's [g] arm reports
+# this array as an unfilled day-one obligation until you do. Fill it with your test tree:
 #
 #   TEST_GLOBS=(
 #     "tests/*"
@@ -76,6 +83,9 @@ CODE_GLOBS=(
 #   )
 #
 # Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, same shape as CODE_GLOBS.
+#
+# LEAVING IT EMPTY ON PURPOSE: the same `# DECLARED EMPTY — <why>` comment line, inside the
+# parens, that CODE_GLOBS documents above.
 TEST_GLOBS=(
 )
 

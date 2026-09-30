@@ -182,8 +182,8 @@ and a disposition at the same time.
 | Disposition | Meaning | Members in this seed |
 |---|---|---|
 | **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** the *your project's instance* section that MOST doctrine sheets carry (not all — a sheet that is pure pattern has none, and **says so in its own header, which is the signal to read**: `grep -LiE '^<!-- KIT-CLASS:.*(fill-in|instance)' process/doctrine/*.md` — the header is where each sheet declares its split, so ask the header, not the prose), this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty.* | `process/**`, `.claude/skills/**` |
-| **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh`, and under `--roles` the enforcing seams § 2.4 marks *Stamped* |
-| **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half |
+| **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh`'s `ISSUE_PREFIX`/`PRD_PREFIX`/`PROJECT_NAME`, and under `--roles` the enforcing seams § 2.4 marks *Stamped* |
+| **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half, `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS` — **the initializer never stamps these two**, the same FILL shape as `GATES`, not done until filled or declared deliberately empty |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
 | **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
@@ -570,6 +570,8 @@ you want to know what the initializer is doing to your repository. **A non-shell
 | `PRD_PREFIX` | The spec prefix. The default is fine for most projects. |
 | `PROJECT_NAME` | The project's own name, stamped by `kit-init.sh` alongside the two prefixes. |
 | `validate_issue_id()` | The shared read-only guard: requires an id, enforces the declared shape, hard-errors on an id already live, and **warns** when the id appears only in the archive. Creating scripts are deliberately **stateless** — the caller supplies the number, and `next-id.sh` suggests it. |
+| `CODE_GLOBS` | The code-vs-metadata boundary (§ 2.6) — which paths `scripts/githooks/pre-commit` treats as code, gating the branch-vs-trunk refusal. **Ships empty; `kit-init.sh` never touches it.** Empty means UNDECLARED, which the hook reads as UNENFORCED — not "no code exists" — until you fill it, or add its `# DECLARED EMPTY —` line if that is this project's real answer. `check-board.sh`'s `[g]` arm reports which. |
+| `TEST_GLOBS` | The test-path definition the ablation-record rule needs — which paths `scripts/finish-pr.sh` treats as tests, gating the landing-time refusal for an undocumented ablation. **Ships empty; `kit-init.sh` never touches it.** Same empty-means-unenforced convention and the same `[g]`-measured `# DECLARED EMPTY —` escape as `CODE_GLOBS`. |
 | The publication remote *(not a `config.sh` knob: `KWT_REMOTE`, in `scripts/lib/kanban-worktree.sh`)* | Every fetch / push / remote-ref operation in the auxiliary checkout goes through it. Override for a fork or mirror workflow with a one-off environment value. |
 | The **trunk** | *not a variable* — **a resolution chain** in `scripts/lib/kanban-worktree.sh`: `<remote>/HEAD`, then `init.defaultBranch`, then the literal `KWT_TRUNK_LAST_RESORT`. Every step after the first **warns** and does not refuse, so a guessed trunk still runs. The initializer therefore **confirms** it up front (§ 1.3, row 1) rather than letting the chain decide. |
 
@@ -885,14 +887,18 @@ The manual names no filenames except through these two roles:
 | Role | This kit's default | You supply |
 |---|---|---|
 | **The project doc** — what the project is, stack, quality bar, binding gates, credentials | `PROJECT.md` | Your equivalent. |
-| **The project adapter** — the project's own law, the role set, the prefix table, the code-path definition | `CLAUDE.md` (the harness reads this filename). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/CLAUDE-adapter.template.md` and **overwrite** the stub. |
+| **The project adapter** — the project's own law and the role set | `CLAUDE.md` (the harness reads this filename). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/CLAUDE-adapter.template.md` and **overwrite** the stub. |
 
 ### 2.6 What counts as CODE
 
 The one definition the manual cannot supply: which paths make a change *"code"* (branch + landing
-gate) rather than *"metadata"* (direct to trunk). State yours in the adapter — **mechanically, as
-globs** — because a boundary you can compute with one `git diff --name-only` is a boundary that
-survives a busy session.
+gate) rather than *"metadata"* (direct to trunk). **The mechanically enforced seam is
+`scripts/config.sh`'s `CODE_GLOBS`** — `scripts/githooks/pre-commit` reads it from there, never
+from the adapter, and carries no project-owned part of its own. State yours **as globs**, because a
+boundary you can compute with one `git diff --name-only` is a boundary that survives a busy
+session. The adapter's own CODE row (`process/templates/CLAUDE-adapter.template.md`) points at
+`scripts/config.sh` the same way its TEST_GLOBS row already does; its prose is documentation of
+your answer, not a second place to declare it.
 
 ### 2.7 Notifications
 

@@ -954,6 +954,93 @@ else
     fi
   done <<< "$(printf '%s\n' "$GRADUATION_FILL_MEMBERS")"
 
+  # (g2c) CODE_GLOBS / TEST_GLOBS, in scripts/config.sh — read by THE SAME ANCHORED PARSE
+  # scripts/githooks/pre-commit and scripts/lib/qa-gate.sh already use (the one fixed shape:
+  # `/^VAR=\($/` opens, `/^\)/` closes, each held line un-quoted and stripped of a trailing
+  # comment): never a second, divergent reader of the same array. Both ship EMPTY ON PURPOSE —
+  # config.sh's own comment says so — and empty means UNDECLARED to both consumers, which means
+  # UNENFORCED, not "this project has no code/tests". That is exactly the gap this member closes:
+  # nothing before this arm told the adopter the seam exists, so an empty array read as silence.
+  #
+  # DELIBERATELY EMPTY: an adopter who has decided (not merely not-yet-decided) that a seam stays
+  # empty says so with a `# DECLARED EMPTY —` comment line inside that array's parens — the one
+  # mechanical form, the same shape for both arrays, documented once beside them in config.sh. A
+  # declaring line still reads config.sh's rule (empty means unenforced); it only stops THIS arm
+  # from reporting the emptiness as an oversight.
+  g_cfg="$CB_TREE/scripts/config.sh"
+  if [ ! -f "$g_cfg" ]; then
+    echo "      FILL (scripts/config.sh CODE_GLOBS): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    echo "      FILL (scripts/config.sh TEST_GLOBS): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }CODE_GLOBS (scripts/config.sh absent), TEST_GLOBS (scripts/config.sh absent)"
+  else
+    for g_arr in CODE_GLOBS TEST_GLOBS; do
+      g_arr_n=0
+      g_arr_decl=0
+      # ONE awk pass, TWO tagged output streams on one stdout: an `E|` line per real array entry
+      # (the same anchored shape pre-commit/qa-gate.sh parse — quotes stripped, trailing comment
+      # stripped, blank lines skipped) and a `D` line if, and only if, a held comment line inside
+      # the same parens is the whole-line `# DECLARED EMPTY …` sentinel. The tag is the first
+      # character of the line so the shell loop below can branch on it with a plain `case`.
+      while IFS= read -r g_arr_tagged; do
+        case "$g_arr_tagged" in
+          E\|*) g_arr_n=$((g_arr_n+1)) ;;
+          D) g_arr_decl=1 ;;
+        esac
+      done < <(awk -v arr="$g_arr" '
+        $0 == arr "=(" { in_arr=1; next }
+        in_arr && /^\)/ { in_arr=0; next }
+        in_arr {
+          raw=$0
+          line=raw
+          sub(/^[[:space:]]*/, "", line)
+          if (line ~ /^#[[:space:]]*DECLARED EMPTY([^A-Za-z0-9_]|$)/) { print "D"; next }
+          sub(/[[:space:]]*#.*$/, "", line)
+          gsub(/^"|"$/, "", line)
+          if (line != "") print "E|" line
+        }
+      ' "$g_cfg")
+      if [ "$g_arr_n" -gt 0 ]; then
+        echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries  ✓ (read by the same anchored array parse scripts/githooks/pre-commit and scripts/lib/qa-gate.sh use) — $(cb_src)"
+        g_measured=$((g_measured+1))
+      elif [ "$g_arr_decl" -eq 1 ]; then
+        echo "      FILL (scripts/config.sh $g_arr): empty, and declared DECLARED EMPTY  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
+        g_measured=$((g_measured+1))
+      else
+        echo "      FILL (scripts/config.sh $g_arr): empty, and not declared deliberately empty  ⚠ SHIPPED EMPTY ON PURPOSE means UNDECLARED, which the consumer reads as UNENFORCED — fill it, or add a '# DECLARED EMPTY —' comment line inside its parens if that is this project's real answer — $(cb_src)"
+        g_find=1; g_measured=$((g_measured+1))
+      fi
+    done
+  fi
+
+  # (g2d) `principal:`, in PROJECT.md — read the same way scripts/ask.sh reads it: the backtick
+  # value after the `` `principal:` `` marker, blank exactly when ask.sh's own `_is_blank` would
+  # refuse it (empty, or a whole-content `<angle-bracket>` span). `"nobody"` is PROJECT.md's own
+  # documented mechanical "none, on purpose" for this field (§ Who answers when nobody is
+  # watching) — filling it with that literal already reads as filled here, same as it does to
+  # ask.sh, so no second declared-empty form is needed for this member.
+  if [ ! -f "$g_pm" ]; then
+    echo "      FILL (PROJECT.md principal:): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }principal: (PROJECT.md absent)"
+  else
+    g_principal="$(awk '
+      match($0, "`principal:`") {
+        rest = substr($0, RSTART + RLENGTH)
+        if (match(rest, /`[^`]*`/)) { print substr(rest, RSTART + 1, RLENGTH - 2); exit }
+      }' "$g_pm")"
+    g_principal_blank=0
+    case "$g_principal" in
+      '<'[a-z]*'>') g_principal_blank=1 ;;
+    esac
+    [ -n "$g_principal" ] || g_principal_blank=1
+    if [ "$g_principal_blank" -eq 1 ]; then
+      echo "      FILL (PROJECT.md principal:): missing or unfilled  ⚠ scripts/ask.sh refuses on this — § Who answers when nobody is watching's \`principal:\` line, filled with a name/role or the literal \"nobody\" — $(cb_src)"
+      g_find=1; g_measured=$((g_measured+1))
+    else
+      echo "      FILL (PROJECT.md principal:): declared  ✓ (read the same way scripts/ask.sh reads it) — $(cb_src)"
+      g_measured=$((g_measured+1))
+    fi
+  fi
+
   # (g3) DELETE-IF-UNUSED — not implemented (there is no tracked way to record "kept on
   # purpose"), and said out loud so its absence is not read as a clean result.
   echo "      DELETE-IF-UNUSED: not measured — no tracked way to record \"kept on purpose\" exists yet, so absence of a finding here means nothing was checked  (skipped)"

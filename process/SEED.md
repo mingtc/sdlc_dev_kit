@@ -53,7 +53,9 @@ answered over hours or days, still produces `PROJECT.md`'s facts and `PRD-001`'s
 human, and satisfies both. What these steps do not have is a **working-default fallback**: day
 one has no `principal:` yet for `scripts/ask.sh` to read, so an unanswered day-one question waits
 for the human's file rather than proceeding on a guess. That is a deliberate difference from
-`.claude/roles/dev.md` § Getting blocked's post-day-one route, not an oversight.
+`.claude/roles/dev.md` § Getting blocked's post-day-one route, not an oversight. **Step 3 is where
+that gap closes:** fill `PROJECT.md`'s `principal:` line (§ Who answers when nobody is watching)
+along with the rest of the sheet, or `scripts/ask.sh` still has nothing to read once day one ends.
 
 ---
 
@@ -234,6 +236,17 @@ you want to know how a stranger meets what you shipped.
   decision you record rather than a question you leave open. The axis and its members are
   [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md); this bullet is that list, read as
   a checklist;
+- **`scripts/config.sh`'s `CODE_GLOBS` and `TEST_GLOBS` are filled, or declared deliberately
+  empty.** Both ship empty on purpose, which their own comments in that file read as UNDECLARED —
+  UNENFORCED, not "no code or tests exist" — so `scripts/githooks/pre-commit` and
+  `scripts/finish-pr.sh`'s ablation check stay silently off until you act. Fill either with your
+  globs, or, if a seam genuinely has none, add its one `# DECLARED EMPTY — <why>` comment line
+  inside the array's parens (the mechanical form config.sh documents beside each array) —
+  `./scripts/check-board.sh`'s `[g]` arm measures both and reports which;
+- **`PROJECT.md`'s `principal:`** (§ Who answers when nobody is watching) **is filled** — a name,
+  a role, or the literal `nobody` if no one should answer unattended. Leaving it blank is what
+  `scripts/ask.sh` refuses on the first time a session hits a blocking question with nobody
+  watching; `[g]` reports it unfilled until then;
 - `process/LOCAL-PROCEDURES.md` exists and holds **every kit contradiction day one resolved**
   (step 8's closing act — two lines is a pass; zero means they went into someone's head) — **and,
   if sessions here will ever run in parallel, the standing-obligations line step 8 seeds**, because

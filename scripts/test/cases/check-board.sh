@@ -48,6 +48,34 @@ _cb_g_section() {  # reads a check-board report on stdin
        f'
 }
 
+# _cb_g_declare_empty_seams — declares $SB_WORK/scripts/config.sh's CODE_GLOBS and TEST_GLOBS
+# deliberately empty (the `# DECLARED EMPTY —` mechanical form). Every case that graduates the
+# sandbox (fills PROJECT.md, replaces CLAUDE.md/README.md) needs this too, or [g]'s new
+# CODE_GLOBS/TEST_GLOBS members report unfilled and graduation never reads COMPLETE — the same
+# transition case_check_board_graduation exercises directly; the callers here only need [g]
+# clear, not the glob content itself. ONE caller, not three copies: _fixture_die names which
+# anchor moved if either does not match.
+_cb_g_declare_empty_seams() {
+  local _arr
+  for _arr in CODE_GLOBS TEST_GLOBS; do
+    _cb_g_fill_glob_array "$_arr" "  # DECLARED EMPTY -- fixture ($_arr)."
+  done
+}
+
+# _cb_g_fill_glob_array <array-name> <entry-line> — the ONE authoring site for inserting a line
+# (a real glob entry, or a `# DECLARED EMPTY —` sentinel) right after an array's opening paren in
+# $SB_WORK/scripts/config.sh. Shared by every case exercising CODE_GLOBS/TEST_GLOBS, so a moved
+# anchor is caught once, not per call site.
+_cb_g_fill_glob_array() {
+  local _arr="$1" _entry="$2" _cfg="$SB_WORK/scripts/config.sh"
+  grep -qE "^${_arr}=\($" "$_cfg" \
+    || _fixture_die "_cb_g_fill_glob_array: no '^${_arr}=(' line in the sandbox's scripts/config.sh — the anchor moved."
+  perl -i -pe 'BEGIN{$c=0; $a=shift; $e=shift} if (!$c && /^\Q$a\E=\($/) { $_ .= "$e\n"; $c=1 }' \
+    "$_arr" "$_entry" "$_cfg"
+  grep -qxF "$_entry" "$_cfg" \
+    || _fixture_die "_cb_g_fill_glob_array: ${_arr}'s entry was NOT inserted."
+}
+
 # Same shape as _cb_g_section, for arm [l] (declared reference integrity).
 _cb_l_section() {  # reads a check-board report on stdin
   awk '/^\[l\]/ { f = 1 }
@@ -905,8 +933,11 @@ EOF
   # ── AFTER graduation: replace the scaffolding exactly as case_check_board_graduation does. ──
   printf '# my project\n' > "$SB_WORK/CLAUDE.md"
   printf '# my project\n' > "$SB_WORK/README.md"
-  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  # [g]'s CODE_GLOBS/TEST_GLOBS members must also clear for graduation to read COMPLETE — this
+  # case only needs [g] clear, not either direction's content, so both are declared empty.
+  _cb_g_declare_empty_seams
   publish_sandbox
 
   out="$(cb_run)"
@@ -2059,6 +2090,15 @@ case_check_board_graduation() {
   # own disclaimer, so it could not see this class being omitted.
   printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED: not measured' >/dev/null \
     || cf "(b) DELETE-IF-UNUSED was silently omitted instead of declaring itself unmeasured: $out"
+  # CODE_GLOBS/TEST_GLOBS/principal:. The sandbox's scripts/config.sh and PROJECT.md are still
+  # the shipped, empty/blank shape at this point, so all three must report unfilled, each naming
+  # what it leaves off, exactly as the other FILL members above do.
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh CODE_GLOBS.*empty, and not declared deliberately empty' >/dev/null \
+    || cf "(b) an empty, undeclared CODE_GLOBS was not reported as unfilled: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS.*empty, and not declared deliberately empty' >/dev/null \
+    || cf "(b) an empty, undeclared TEST_GLOBS was not reported as unfilled: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'PROJECT.md principal:.*missing or unfilled' >/dev/null \
+    || cf "(b) an unfilled principal: was not reported: $out"
 
   # ── (c) THE VERDICT CONTROL: graduation findings must never move the verdict, or release.sh's
   #    board gate and kit-init's self-check fail every fresh install.
@@ -2066,10 +2106,18 @@ case_check_board_graduation() {
     || cf "(c) graduation findings changed the board verdict — release.sh gate (d) keys on this line, and a dirty verdict is what sends kit-init's self-check looking for a cause: $out"
 
   # ── (d) GRADUATED: it clears, and it NAMES ITS SOURCE while clearing. ────────
+  # CODE_GLOBS filled, TEST_GLOBS declared deliberately empty (both directions a real adopter
+  # may take), principal: filled with a name — so graduation still reaches COMPLETE only once
+  # every member, old and new, is discharged.
   printf '# my project\n'                 > "$SB_WORK/CLAUDE.md"
   printf '# my project\n'                 > "$SB_WORK/README.md"
-  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  # CODE_GLOBS: a real entry, exercising the "filled" direction. TEST_GLOBS: a DECLARED EMPTY
+  # sentinel, exercising the "declared deliberately empty" direction — both directions a real
+  # adopter may take, both through the one shared authoring site.
+  _cb_g_fill_glob_array CODE_GLOBS '  "src/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  # DECLARED EMPTY -- fixture has no test tree.'
   publish_sandbox
 
   out="$(cb_run)"
@@ -2079,8 +2127,14 @@ case_check_board_graduation() {
     || cf "(d) the CLEARING branch did not name its operand — instruments.md § A.4, the asymmetry that only errs toward false confidence: $out"
   printf '%s\n' "$out" | _cb_g_section | grep -i 'still scaffolding' >/dev/null \
     && cf "(d) a graduated tree still reported scaffolding: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh CODE_GLOBS.*declares 1 entry' >/dev/null \
+    || cf "(d) a filled CODE_GLOBS was not read as clear: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS.*declared DECLARED EMPTY' >/dev/null \
+    || cf "(d) a TEST_GLOBS array declared deliberately empty was not accepted: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'PROJECT.md principal:.*declared' >/dev/null \
+    || cf "(d) a filled principal: was not read as clear: $out"
 
-  finish "check (g): graduation says THIS CHECK DID NOT RUN with no signal, reports and names its files while scaffolding stands, clears once replaced naming its source — and never moves the board verdict"
+  finish "check (g): graduation says THIS CHECK DID NOT RUN with no signal, reports and names its files while scaffolding stands, clears once replaced naming its source (including CODE_GLOBS/TEST_GLOBS/principal:) — and never moves the board verdict"
   teardown
 }
 
@@ -2190,8 +2244,11 @@ case_check_board_graduation_reads_the_trunk() {
   # The arm is one-way: a working-tree read would clear here and never re-open.
   printf '# my project\n'                > "$SB_WORK/CLAUDE.md"
   printf '# my project\n'                > "$SB_WORK/README.md"
-  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' \
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  # [g]'s CODE_GLOBS/TEST_GLOBS members must also clear for graduation to read COMPLETE here —
+  # this case only needs [g] clear, not either direction's content, so both are declared empty.
+  _cb_g_declare_empty_seams
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -q -m "[Architect] graduate, unpublished" >/dev/null 2>&1
   # deliberately NO push
@@ -2526,7 +2583,12 @@ _cb_fill_usage='Run it: `./bin/tool <input.csv> --out <dir>`, and ``see `<x>` he
 ```
 '
 _cb_fill_sheet() {  # <marker line or empty> <body…> — writes, publishes, runs; sets _cb_fill_out
-  { [ -n "$1" ] && printf '%s\n' "$1"; printf '# PROJECT.md\n\n%s\n' "$2"; } > "$SB_WORK/PROJECT.md"
+  # principal: is filled unconditionally here — this helper's callers are testing the FILL arm's
+  # blank-counting over $2's body, not principal:, so it stays a clean, non-varying member and
+  # never the reason graduation COMPLETE does or does not fire in a given scenario.
+  { [ -n "$1" ] && printf '%s\n' "$1"
+    printf '# PROJECT.md\n\n%s\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' "$2"
+  } > "$SB_WORK/PROJECT.md"
   publish_sandbox
   _cb_fill_out="$(cb_run | _cb_g_section)"
 }
@@ -2537,6 +2599,10 @@ case_check_board_fill_arm_reads_blanks_not_usage() {
   printf '# my project\n' > "$SB_WORK/README.md"
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
+  # This case is about PROJECT.md's own FILL reading; CODE_GLOBS/TEST_GLOBS do not vary across
+  # its scenarios, so declare both deliberately empty once so graduation COMPLETE (assertions
+  # (1) and (4) below) turns on PROJECT.md's blanks alone, not on an unrelated member.
+  _cb_g_declare_empty_seams
   local decl="<!-- $KIT_FILL_DISPOSITION — synthetic fill sheet. -->"
 
   # (1) declared, filled, usage only
@@ -2640,7 +2706,11 @@ case_check_board_graduation_refuses_complete_over_nothing_measured() {
   make_sandbox
   # A lived signal (a card on the board) with NO REPLACE-declaring file, NO PROJECT.md, and NO
   # .gitignore/.env.example in this sandbox at all (make_sandbox does not seed them) — every
-  # measurable class in arm [g] is therefore UNREADABLE, not merely clean.
+  # measurable class in arm [g] is therefore UNREADABLE, not merely clean. scripts/config.sh IS
+  # copied by make_sandbox (it ships under scripts/), so CODE_GLOBS/TEST_GLOBS would otherwise be
+  # the one class still readable here — removed too, so the premise stays "nothing to measure",
+  # not "everything but one class".
+  rm -f "$SB_WORK/scripts/config.sh"
   seed_issue todo "$SB_PREFIX-430" nothingtomeasure chore "Nothing here to measure"
   publish_sandbox
 
@@ -2687,9 +2757,13 @@ case_check_board_graduation_non_markdown_fill_members() {
   make_sandbox
   printf '# my project\n' > "$SB_WORK/CLAUDE.md"
   printf '# my project\n' > "$SB_WORK/README.md"
-  printf '<!-- FILLED. -->\n# PROJECT.md\n\nTrunk: main\n' > "$SB_WORK/PROJECT.md"
+  printf '<!-- FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' > "$SB_WORK/PROJECT.md"
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
+  # This case is about the .gitignore/.env.example non-markdown FILL members; CODE_GLOBS/
+  # TEST_GLOBS do not vary across its scenarios, so declare both deliberately empty once, so
+  # assertion (2)'s graduation COMPLETE turns on the members under test, not an unrelated one.
+  _cb_g_declare_empty_seams
 
   # (1) BOTH members still carry their FILL ME. sentinel — unfilled, and REPORTED as such.
   printf '# .gitignore\n# ── <your build artifacts> ──\n# FILL ME. one line per generated tree.\n' \
