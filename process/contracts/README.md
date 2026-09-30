@@ -54,6 +54,7 @@ about counting).
 | The progress record | [progress-record.md](progress-record.md) | one record shape, one place, transient by construction — **converged on two producers on purpose**, plus every refusal made through `kit_refuse` (§ 1a) |
 | The kit upgrade | [kit-upgrade.md](kit-upgrade.md) | a newer kit in, nothing the project changed overwritten, the rest a checklist |
 | The non-blocking ask | [ask.md](ask.md) | a blocking question that records and returns, never waits |
+| The model-provisioning seam | [model-provisioning-seam.md](model-provisioning-seam.md) | one (model, effort) pair per class, written everywhere it is read |
 
 **A row named in the additions table below is an addition; every other row is the minimum set** —
 the set the completeness rule treats as a floor. Most additions are justified by the rule that makes
@@ -73,6 +74,7 @@ reason.**
 | The progress record | One record shape with two producers, contracted so the format has one definition rather than one per producer. |
 | The kit upgrade | The kit is copied and becomes the project's, so taking a newer one is a merge with rules — which files may be replaced, and when the version may move. |
 | The non-blocking ask | A blocking question and an interactive one are two different acts with two different failure modes; this sheet is what keeps the non-blocking route from quietly growing a wait into it. |
+| The model-provisioning seam | A model is set in several places; leaving one unwritten when another changes is how a re-provisioning silently half-happens, including inside the kit's own self-test. |
 
 Nothing in the minimum set was merged or split.
 

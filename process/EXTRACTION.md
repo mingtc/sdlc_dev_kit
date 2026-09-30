@@ -415,6 +415,10 @@ written around it.
 it takes what the project never changed, stages the rest behind a checklist, and stamps
 `process/KIT-VERSION` only when the checklist is done.
 
+**Provisioning (KIT):** `set-models.sh` — writes a work class's `(model, effort)` pair to its
+leaf-worker pin(s), the ladder row and, for the runner default, the workflow runners together, so
+none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree with another.
+
 **Board + item lifecycle (KIT):** `config.sh` · `check-board.sh` · `move-issue.sh` ·
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
 `subtask.sh` · `archive.sh` · `archive-progress.sh`

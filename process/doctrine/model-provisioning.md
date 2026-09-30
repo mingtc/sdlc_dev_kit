@@ -90,13 +90,25 @@ Per-spawn effort on the spawn tool may or may not exist in the harness you are r
 **Do not take this sheet's word for it either way — check the spawn tool's own parameter list, and
 write what you find into your § B.2 with the date you checked.**
 
+5. **Every place a model is actually set, derived rather than counted:**
+   ```sh
+   for f in .claude/agents/*.md; do grep -m1 '^model:\|^effort:' "$f"; done   # the pins
+   grep -A1 '^| \*\*' .claude/roles/orchestrator.md                          # the ladder row
+   grep -n 'defaultModel\|defaultEffort' .claude/workflows/*.js              # the runners' fallback
+   ```
+   **`scripts/set-models.sh` is the one way to change them**: it writes a class's `(model, effort)`
+   pair to its pin(s) and its ladder row together, or to both runners' fallback, so the three never
+   disagree. Editing a pin or the table by hand is how they drift.
+
 ---
 
 ## B.2 Your project's ladder — **fill this in**
 
 > **PROJECT INSTANCE.** The table below is a **shape with blanks**, not a default. Fill it, have it
 > ratified by whoever owns the budget, date the ratification, and cite it from the role docs
-> (§ A.4). An unratified ladder is a habit with a table.
+> (§ A.4). An unratified ladder is a habit with a table. **Fill it with `scripts/set-models.sh
+> --class <class> --model <id> --effort <tier>`** (or `--all` for one pair across every class), so
+> the row you ratify and the pin it governs are written in the same act.
 
 | Role / work class | Model tier | Effort |
 |---|---|---|

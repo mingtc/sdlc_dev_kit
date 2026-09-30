@@ -427,6 +427,11 @@ CASES=(
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule
   case_agent_model_pins_match_their_declaration
+  case_model_pins_vs_own_ladder
+  case_set_models_class_rewrites_pin_and_ladder_only
+  case_set_models_all_rewrites_runners_too
+  case_set_models_unknown_class_refuses
+  case_set_models_list_changes_nothing
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set

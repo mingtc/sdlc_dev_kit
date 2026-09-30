@@ -1579,13 +1579,103 @@ SITES_EOF
 }
 
 # =============================================================================
-# CASE — THE AGENT MODEL PINS MATCH WHAT THE KIT DECLARES ABOUT THEM.
+# _model_ladder_row <orchestrator.md path> <label> — echo the row's Model-column value (the
+# first backticked token after the label), or nothing if the row is absent or still unfilled
+# ("<fill in" prefix, so "<fill in — the cheaper model>" also reads as unfilled). LABEL is
+# matched as a bold-span PREFIX, never the whole span: some rows carry a trailing qualifier
+# inside the same "**...**" ("XS / mechanical (any role)", "Spike / probe (`spike-worker`)").
+# =============================================================================
+_model_ladder_row() {
+  local doc="$1" label="$2" line val
+  line="$(grep -E "^\| \*\*${label}" "$doc" | head -1)"
+  [ -n "$line" ] || return 0
+  val="$(printf '%s\n' "$line" | sed -n 's/^[^|]*|[^|]*|[[:space:]]*`\([^`]*\)`.*/\1/p')"
+  case "$val" in '<fill in'*|'') return 0 ;; esac
+  printf '%s' "$val"
+}
+
+# =============================================================================
+# _model_pins_vs_ladder <agents-dir> <orchestrator.md path> — THE ADOPTED-TREE CHECK, factored
+# to take a tree root so it can be driven against a SANDBOX FIXTURE (case_model_pins_vs_own_ladder
+# below) as well as against REAL_REPO_ROOT (case_agent_model_pins_match_their_declaration's own
+# branch).
 #
-# Every leaf-worker definition pins a `model:`, a vendor's product name — the class
-# EXTRACTION § 4.10 otherwise keeps out of the kit, kept as a declared carve-out with one
-# definition named as the exception. THIS ASSERTS THE DECLARATION, NEVER THE VALUE: a named
-# model here would hard-code the product fact and redden on the vendor's rename. It reads
-# the shape: the pins agree except for exactly one file, the one the declaration names.
+# PRINTS, NEVER CALLS cf() ITSELF: every caller captures this function's output via
+# `$(_model_pins_vs_ladder ...)`, and command substitution runs in a SUBSHELL — a cf() call
+# inside it would mutate a copy of $_cf that vanishes when the subshell exits, so the finding
+# would be silently lost (measured: an earlier version did exactly this, and a genuine mismatch
+# in arm (c) below produced an empty $_cf after a green-looking read). So this prints one
+# "MISMATCH <message>" line per problem found and "SUMMARK <checked> <na>" last; the caller reads
+# the last line for the counts and cf()s every MISMATCH line itself, in its own (non-subshell)
+# context.
+#
+# class-key : ladder label : pin file — the same mapping scripts/set-models.sh uses, kept
+# independent (a shared helper would let one silently drift and still read as agreement).
+# =============================================================================
+_model_pins_vs_ladder() {
+  local ad="$1" orch="$2"
+  local map='
+refactorer:Refactorer:refactorer-worker.md
+pm-mint:PM-hat mint:pm-mint.md
+spike:Spike / probe:spike-worker.md
+dev:Dev:dev-worker.md
+qa:QA:qa-worker.md
+cleanup:Cleanup / classifier:cleanup-worker.md
+'
+  local key label pin got checked=0 na=0 row_val
+  while IFS=: read -r key label pin; do
+    [ -n "$key" ] || continue
+    row_val="$(_model_ladder_row "$orch" "$label")"
+    if [ -z "$row_val" ]; then na=$((na + 1)); continue; fi
+    [ -f "$ad/$pin" ] || { echo "MISMATCH the ladder's '$label' row is filled ($row_val) but $ad/$pin does not exist"; continue; }
+    got="$(sed -n 's/^model:[[:space:]]*//p' "$ad/$pin" | head -1)"
+    checked=$((checked + 1))
+    [ "$got" = "$row_val" ] \
+      || echo "MISMATCH '$label': the ladder says $row_val but $pin is pinned to ${got:-<no model: line>}"
+  done <<MAP_EOF
+$map
+MAP_EOF
+  echo "SUMMARY $checked $na"
+}
+
+# _run_model_pins_vs_ladder <agents-dir> <orchestrator.md path> — the caller-side half. Called as
+# a PLAIN STATEMENT, never wrapped in `$(...)` (that would reintroduce the exact subshell bug this
+# split exists to avoid): captures _model_pins_vs_ladder's own output (that inner capture is fine
+# to subshell — nothing in IT calls cf), then cf()s every MISMATCH line and sets the globals
+# MPL_CHECKED / MPL_NA — in THIS shell, the caller's — for the caller to read immediately after.
+# =============================================================================
+MPL_CHECKED=0; MPL_NA=0
+_run_model_pins_vs_ladder() {
+  local ad="$1" orch="$2" out line
+  out="$(_model_pins_vs_ladder "$ad" "$orch")"
+  MPL_CHECKED=0; MPL_NA=0
+  while IFS= read -r line; do
+    case "$line" in
+      MISMATCH\ *) cf "${line#MISMATCH }" ;;
+      SUMMARY\ *)  set -- $line; MPL_CHECKED="$2"; MPL_NA="$3" ;;
+    esac
+  done <<OUT_EOF
+$out
+OUT_EOF
+}
+
+# =============================================================================
+# CASE — THE AGENT MODEL PINS MATCH WHAT THIS TREE DECLARES ABOUT THEM.
+#
+# TWO DIFFERENT TREES, TWO DIFFERENT ASSERTIONS (doctrine/model-provisioning.md § B.1/B.2):
+# on the SHIPPED tree, the kit's own pristine pattern — every pin agrees except the one
+# declared exception, named BY FILE in EXTRACTION.md. On an ADOPTED tree, that declaration
+# describes the KIT's starting position, not the project's; the project's own ladder
+# (orchestrator.md § Model & effort contract) is the authority instead, and a class whose row
+# is still unfilled has nothing to check — N/A, never a silent pass on a widened rule
+# (_tree_has_lived, shared with case_ship_state so the two cannot disagree about one tree).
+# THIS ASSERTS THE SHAPE, NEVER THE VALUE: a named model here would hard-code the product fact
+# and redden on the vendor's rename.
+#
+# THIS CASE READS REAL_REPO_ROOT — it can only ever exercise whichever branch matches the tree
+# the suite runs from (the shipped branch, on every ordinary run). The adopted branch's own
+# behaviour is exercised by case_model_pins_vs_own_ladder below, against a SANDBOX fixture, via
+# the same _model_pins_vs_ladder this branch calls.
 # =============================================================================
 case_agent_model_pins_match_their_declaration() {
   cf_reset
@@ -1596,8 +1686,33 @@ case_agent_model_pins_match_their_declaration() {
   done
   if [ -z "$ad" ]; then skp "agent model pins match their declaration" "no agents/ directory"; teardown; return; fi
 
+  local orch="" rd
+  for rd in "$REAL_REPO_ROOT/_claude/roles" "$REAL_REPO_ROOT/.claude/roles"; do
+    [ -f "$rd/orchestrator.md" ] && orch="$rd/orchestrator.md"
+  done
+
+  local lived_why; lived_why="$(_tree_has_lived)"
+
+  if [ -n "$lived_why" ]; then
+    # ── ADOPTED TREE: consistency against THIS PROJECT'S ladder, class by class. ──────────
+    [ -n "$orch" ] || { skp_lived "agent model pins match their declaration" "$lived_why"; teardown; return; }
+
+    _run_model_pins_vs_ladder "$ad" "$orch"
+    local checked="$MPL_CHECKED" na="$MPL_NA"
+
+    if [ "$checked" -eq 0 ] && [ "$na" -gt 0 ] && [ -z "$_cf" ]; then
+      skp_lived "agent model pins match their declaration" "orchestrator.md's ladder rows are still '<fill in>' — model-provisioning.md § B.2 is unratified, so there is nothing yet to check the pins against"
+      teardown
+      return
+    fi
+    finish "agent model pins match the project's own ladder: $checked class(es) checked, $na unfilled (N/A)"
+    teardown
+    return
+  fi
+
+  # ── SHIPPED TREE: the kit's own pristine pattern. ──────────────────────────────────────
   # Derive (file, pin) pairs. The VALUES are compared to each other, never to a literal.
-  local pins n f base val minority majority mcount
+  local pins n f val minority majority mcount
   pins="$( for f in "$ad"/*.md; do
              [ -e "$f" ] || continue
              val="$(sed -n 's/^model:[[:space:]]*//p' "$f" | head -1)"
@@ -1638,6 +1753,264 @@ case_agent_model_pins_match_their_declaration() {
     && cf "the declaration WRITES a pin's value — a second copy of a vendor product name, in the document that exists to say the copy is a debt. Derive them instead."
 
   finish "the agent model pins match their declaration: $n pinned definition(s), exactly ${mcount:-0} deliberate exception named by file, and no pin VALUE is copied into the declaration"
+  teardown
+}
+
+# =============================================================================
+# _seed_provisioning_sandbox — the fixture scripts/set-models.sh and the adopted-tree branch of
+# case_agent_model_pins_match_their_declaration both need: .claude/agents/*.md, .claude/roles/
+# orchestrator.md and .claude/workflows/{wave,tranche}-runner.js, copied from the REAL tree (never
+# hand-typed — a hand-typed fixture proves nothing about the shape the real files actually have)
+# into a fresh make_sandbox. Requires SB_WORK to exist (call make_sandbox first). Echoes the
+# absolute paths "AGENTS_DIR ORCH_DOC" on success, or nothing if the real tree carries none of
+# .claude//_claude — the caller SKIPs on empty, exactly as the two callers of _tree_has_lived do.
+# =============================================================================
+_seed_provisioning_sandbox() {
+  local src="" d
+  for d in "$REAL_REPO_ROOT/_claude" "$REAL_REPO_ROOT/.claude"; do
+    [ -d "$d/agents" ] && [ -f "$d/roles/orchestrator.md" ] && src="$d"
+  done
+  [ -n "$src" ] || return 0
+
+  mkdir -p "$SB_WORK/.claude/agents" "$SB_WORK/.claude/roles" "$SB_WORK/.claude/workflows"
+  cp "$src/agents"/*.md "$SB_WORK/.claude/agents/" 2>/dev/null
+  cp "$src/roles/orchestrator.md" "$SB_WORK/.claude/roles/orchestrator.md"
+  local rf
+  for rf in wave-runner.js tranche-runner.js; do
+    [ -f "$src/workflows/$rf" ] && cp "$src/workflows/$rf" "$SB_WORK/.claude/workflows/$rf"
+  done
+  printf '%s %s' "$SB_WORK/.claude/agents" "$SB_WORK/.claude/roles/orchestrator.md"
+}
+
+# _fill_ladder_row <orchestrator.md path> <label> <model> <effort> — a TEST-ONLY filler, deliberately
+# NOT scripts/set-models.sh: a fixture built with the tool under test would make a broken tool build
+# its own passing fixture. Same literal-substring shape as set-models.sh's kit_set_ladder_row, typed
+# fresh here so the two cannot share a bug.
+_fill_ladder_row() {
+  local doc="$1" label="$2" model="$3" effort="$4"
+  awk -v want="| **${label}" -v m="$model" -v e="$effort" '
+    function fill(line, val,    pre, post, p1, p2, tok) {
+      p1 = index(line, "`<fill in")
+      if (p1 == 0) return line
+      p2 = index(substr(line, p1 + 1), "`")
+      tok = substr(line, p1, p2 + 1)
+      pre = substr(line, 1, p1 - 1)
+      post = substr(line, p1 + length(tok))
+      return pre "`" val "`" post
+    }
+    {
+      if (index($0, want) == 1) { $0 = fill($0, m); $0 = fill($0, e) }
+      print
+    }
+  ' "$doc" > "$doc.new" && mv "$doc.new" "$doc"
+}
+
+# =============================================================================
+# CASE — THE ADOPTED-TREE LADDER CHECK, DRIVEN OVER A SANDBOX FIXTURE.
+#
+# case_agent_model_pins_match_their_declaration reads REAL_REPO_ROOT, so its adopted-tree branch
+# is dead code as far as an ordinary suite run (from the shipped tree) is concerned. This drives
+# _model_pins_vs_ladder directly against three sandbox shapes, so the branch's own behaviour is
+# asserted rather than merely reachable:
+#   (a) every pin moved to one model, ladder still unfilled -> nothing checked, na > 0 (N/A upstream)
+#   (b) a ratified ladder matching the pins exactly -> every named class checked, none flagged
+#   (c) one row disagreeing with its pin -> that class is flagged, and only that one
+# =============================================================================
+case_model_pins_vs_own_ladder() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "the adopted-tree ladder check, driven over a sandbox" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+
+  local failures=""
+
+  # (a) UNIFORM PIN, UNFILLED LADDER — the run-5 seal's shape. Every *-worker.md forced to one
+  #     model; orchestrator.md is left exactly as shipped (every row still `<fill in>`).
+  local f
+  for f in "$ad"/*.md; do
+    awk '/^model:/{print "model: sonnet"; next} /^effort:/{print "effort: medium"; next} {print}' "$f" > "$f.new" && mv "$f.new" "$f"
+  done
+  local checked na
+  cf_reset
+  _run_model_pins_vs_ladder "$ad" "$orch"; checked="$MPL_CHECKED"; na="$MPL_NA"
+  { [ "$checked" -eq 0 ] && [ "$na" -gt 0 ] && [ -z "$_cf" ]; } \
+    || failures="$failures (a) uniform-pin/unfilled-ladder: checked=$checked na=$na cf='$_cf', want checked=0 na>0 cf=''."
+
+  # (b) A RATIFIED LADDER MATCHING THE PINS EXACTLY. dev-worker.md is already `sonnet`/`medium`
+  #     from (a); fill the Dev row to match, leave the rest unfilled so this arm's checked/na
+  #     split proves the LOOP, not just one row.
+  _fill_ladder_row "$orch" "Dev" "sonnet" "medium"
+  cf_reset
+  _run_model_pins_vs_ladder "$ad" "$orch"; checked="$MPL_CHECKED"; na="$MPL_NA"
+  { [ "$checked" -eq 1 ] && [ -z "$_cf" ]; } \
+    || failures="$failures (b) ratified-and-matching: checked=$checked cf='$_cf', want checked=1 cf=''."
+
+  # (c) A MISMATCH — move the ladder's QA row to a DIFFERENT model than qa-worker.md's pin
+  #     (still sonnet/medium from (a)); the check must name the class, never pass silently.
+  _fill_ladder_row "$orch" "QA" "opus" "high"
+  cf_reset
+  _run_model_pins_vs_ladder "$ad" "$orch"; checked="$MPL_CHECKED"; na="$MPL_NA"
+  case "$_cf" in
+    *"'QA'"*"opus"*"sonnet"*) : ;;
+    *) failures="$failures (c) a QA row (opus) disagreeing with qa-worker.md's pin (sonnet) was not reported by name: cf='$_cf'." ;;
+  esac
+
+  cf_reset
+  [ -z "$failures" ] || cf "$failures"
+  finish "the adopted-tree ladder check: (a) unfilled ladder reads nothing to check, (b) a matching ratified row is silent, (c) a mismatched row is named"
+  teardown
+}
+
+# =============================================================================
+# CASE — `set-models.sh --class` REWRITES EXACTLY THE NAMED CLASS'S PIN AND ITS LADDER ROW,
+# AND NOTHING ELSE.
+#
+# RED FIRST: fails if the script is absent, if it exits nonzero, if it misses either write, or
+# if it touches ANY other agent pin file, any OTHER ladder row, or either workflow runner. A
+# snapshot of the whole .claude/ tree is taken before the call and diffed after, so "nothing
+# else changed" is a property of the WHOLE TREE, not a re-check of the files this case thought
+# to name.
+# =============================================================================
+case_set_models_class_rewrites_pin_and_ladder_only() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "set-models.sh --class rewrites exactly its pin and ladder row" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "set-models.sh --class rewrites exactly its pin and ladder row"; teardown; return; }
+
+  # THE EXPECTED TREE: a snapshot of .claude/ BEFORE the call, with exactly the two files this
+  # call should touch pre-patched to their expected AFTER values (using this same file's own
+  # test-only _fill_ladder_row / an inline awk, never scripts/set-models.sh itself — a broken
+  # tool must not be able to build its own passing expectation). Diffing the REAL post-call tree
+  # against this expected tree makes "nothing else changed" a property of the whole tree.
+  local expected="$SB_TMP/claude.expected"
+  cp -R "$SB_WORK/.claude" "$expected"
+  awk '/^model:/{print "model: test-model-x"; next} /^effort:/{print "effort: test-effort-y"; next} {print}' \
+    "$expected/agents/dev-worker.md" > "$expected/agents/dev-worker.md.new" && mv "$expected/agents/dev-worker.md.new" "$expected/agents/dev-worker.md"
+  _fill_ladder_row "$expected/roles/orchestrator.md" "Dev" "test-model-x" "test-effort-y"
+
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model test-model-x --effort test-effort-y 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  grep -qx 'model: test-model-x' "$ad/dev-worker.md" && grep -qx 'effort: test-effort-y' "$ad/dev-worker.md" \
+    || cf "dev-worker.md was not rewritten to model=test-model-x effort=test-effort-y: $(grep -E '^model:|^effort:' "$ad/dev-worker.md" 2>/dev/null | tr '\n' ' ')"
+  grep -qF '| **Dev** | `test-model-x` | `test-effort-y`' "$orch" \
+    || cf "orchestrator.md's Dev row was not rewritten: $(grep '^| \*\*Dev\*\*' "$orch" 2>/dev/null)"
+
+  local d; d="$(diff -r "$expected" "$SB_WORK/.claude" 2>&1)"
+  [ -z "$d" ] \
+    || cf "the tree differs from EXACTLY dev-worker.md's pin and orchestrator.md's Dev row changing: $(printf '%s' "$d" | tr '\n' '|' | cut -c1-300)"
+
+  finish "set-models.sh --class dev rewrites dev-worker.md's pin and orchestrator.md's Dev row, and no other file under .claude/"
+  teardown
+}
+
+# =============================================================================
+# CASE — `set-models.sh --all` ALSO REWRITES BOTH WORKFLOW RUNNERS' DEFAULTS, AND LEAVES THE
+# PARKED ROLE (ui-designer-worker.md, off the ladder) ALONE.
+# =============================================================================
+case_set_models_all_rewrites_runners_too() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "set-models.sh --all rewrites the runner defaults too" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "set-models.sh --all rewrites the runner defaults too"; teardown; return; }
+  local wr="$SB_WORK/.claude/workflows/wave-runner.js" tr_="$SB_WORK/.claude/workflows/tranche-runner.js"
+  if [ ! -f "$wr" ] || [ ! -f "$tr_" ]; then skp "set-models.sh --all rewrites the runner defaults too" "no .claude/workflows/{wave,tranche}-runner.js in the real tree"; teardown; return; fi
+
+  local ui_before; ui_before="$(cat "$ad/ui-designer-worker.md" 2>/dev/null)"
+
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --all --model test-all-model --effort test-all-effort 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  grep -q "'test-all-model'" "$wr" && grep -q "'test-all-model'" "$tr_" \
+    || cf "wave-runner.js/tranche-runner.js defaultModel was not rewritten to 'test-all-model': $(grep defaultModel "$wr" "$tr_" 2>/dev/null | tr '\n' '|')"
+  grep -q "'test-all-effort'" "$wr" && grep -q "'test-all-effort'" "$tr_" \
+    || cf "wave-runner.js/tranche-runner.js defaultEffort was not rewritten to 'test-all-effort': $(grep defaultEffort "$wr" "$tr_" 2>/dev/null | tr '\n' '|')"
+  grep -qx 'model: test-all-model' "$ad/dev-worker.md" \
+    || cf "dev-worker.md was not moved to test-all-model by --all"
+  grep -qF '| **QA** | `test-all-model`' "$orch" \
+    || cf "orchestrator.md's QA row was not moved to test-all-model by --all"
+
+  local ui_after; ui_after="$(cat "$ad/ui-designer-worker.md" 2>/dev/null)"
+  [ "$ui_before" = "$ui_after" ] \
+    || cf "ui-designer-worker.md (off the ladder — a parked role) was changed by --all, and it must not be"
+
+  finish "set-models.sh --all rewrites every ladder class's pin and row plus both runners' defaults, and leaves the parked (off-ladder) role alone"
+  teardown
+}
+
+# =============================================================================
+# CASE — `set-models.sh --class <unknown>` REFUSES: nonzero exit, ONE progress record carrying
+# refusal=, and NO FILE under .claude/ changed. RED FIRST: an earlier draft of this script located
+# .claude/ only after parsing had already failed for other reasons, which this case does not
+# reach — but a script that guessed at an unknown class, or wrote partial output before checking,
+# would fail the "no file changed" half.
+# =============================================================================
+case_set_models_unknown_class_refuses() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "set-models.sh refuses an unknown class, countably and without writing" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "set-models.sh refuses an unknown class, countably and without writing"; teardown; return; }
+
+  local snapshot="$SB_TMP/claude.before2"
+  cp -R "$SB_WORK/.claude" "$snapshot"
+
+  local out rc
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-unknown" ./scripts/set-models.sh --class not-a-real-class --model x --effort y 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "an unknown class exited 0"
+  case "$out" in
+    *not-a-real-class*) : ;;
+    *) cf "the refusal does not name the unknown class: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;;
+  esac
+  [ -n "$(cat "$SB_TMP/rec-unknown"/*.tsv 2>/dev/null)" ] \
+    || cf "no progress record was written for the refusal"
+  grep -q 'refusal=' "$SB_TMP/rec-unknown"/*.tsv 2>/dev/null \
+    || cf "the refusal's record carries no refusal= extra: $(cat "$SB_TMP/rec-unknown"/*.tsv 2>/dev/null)"
+
+  local d; d="$(diff -r "$snapshot" "$SB_WORK/.claude" 2>&1)"
+  [ -z "$d" ] \
+    || cf "an unknown class still changed a file under .claude/: $(printf '%s' "$d" | tr '\n' '|' | cut -c1-300)"
+
+  finish "set-models.sh --class <unknown> exits nonzero, names the class, writes one refusal= progress record, and changes no file"
+  teardown
+}
+
+# =============================================================================
+# CASE — `set-models.sh --list` IS READ-ONLY.
+# =============================================================================
+case_set_models_list_changes_nothing() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "set-models.sh --list changes nothing" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "set-models.sh --list changes nothing"; teardown; return; }
+
+  local snapshot="$SB_TMP/claude.before3"
+  cp -R "$SB_WORK/.claude" "$snapshot"
+
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --list 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "--list exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *dev*Dev*) : ;; *) cf "--list output does not appear to list the 'dev' class: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+
+  local d; d="$(diff -r "$snapshot" "$SB_WORK/.claude" 2>&1)"
+  [ -z "$d" ] \
+    || cf "--list changed a file under .claude/: $(printf '%s' "$d" | tr '\n' '|' | cut -c1-300)"
+
+  finish "set-models.sh --list exits 0, names the classes, and changes no file"
   teardown
 }
 

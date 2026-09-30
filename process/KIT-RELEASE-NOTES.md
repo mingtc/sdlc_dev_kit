@@ -577,6 +577,11 @@ columns and never the cards.*
 
 ### Added
 
+- **`scripts/set-models.sh` sets a work class's model and effort everywhere it is read, in one call:** the
+  class's pin under `.claude/agents/` and its row in `.claude/roles/orchestrator.md` § Model & effort contract
+  (`--class`), every class plus the workflow runners' defaults (`--all`), or the runners alone (`--runners`). It
+  refuses a class your ladder has no row for. **Nothing to do**; use it instead of editing pins by hand.
+
 - **`scripts/lib/refuse.sh`: a refusal that leaves a record.** A script that refuses through its
   `kit_refuse <status> <rule-id> <message…>` prints the message and exits as before, and also writes
   one `error` progress record carrying `refusal=<rule-id>`, so refusals can be counted after the
@@ -858,6 +863,10 @@ columns and never the cards.*
   `KIT-VERSION` reads the bare `X.Y.Z`, so read it as `X.Y.Z+<tree>` at your next upgrade's step 1.
 
 ### Fixed
+
+- **The self-test's model-pin case no longer reddens when you provision workers as the doctrine says.** On an
+  adopted tree it checks your pins against your own ladder (`.claude/roles/orchestrator.md` § Model & effort
+  contract), N/A for an unfilled row, instead of the kit's shipped declaration. **Nothing to do.**
 
 - **The commit-msg hook now refuses the whole attribution-trailer wording family, not just
   `Co-Authored-By:` and "Generated with …".** `Assisted-by:`, `Co-developed-by:`, `Signed-off-by:`,
