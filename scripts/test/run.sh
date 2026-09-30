@@ -245,6 +245,11 @@ CASES=(
   case_move_issue_moves_a_decomposed_parent
   case_parent_advances_only_with_every_subtask
   case_subtask_declined_closes_a_slice
+  case_subtask_qa_verdict_missing_table_refuses
+  case_subtask_forks_missing_refuses
+  case_subtask_ablation_missing_section_refuses
+  case_subtask_qa_gate_well_formed_lands
+  case_subtask_no_branch_of_its_own_still_checks_table_and_forks
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees

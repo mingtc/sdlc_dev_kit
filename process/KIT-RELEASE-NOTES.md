@@ -315,6 +315,21 @@ columns and never the cards.*
 
 ### Action required
 
+- **A subtask slice now gets the same landing checks a top-level card does: `subtask.sh move <id>
+  qa_complete` refuses on a missing or malformed `## QA Verdict` table, a missing or malformed
+  `forks:` field, or (when its branch diff touches a declared `TEST_GLOBS` path) a missing or
+  malformed `## Ablation` section — the same rules, same messages, one shared parser
+  (`scripts/lib/qa-gate.sh`) `finish-pr.sh` now calls too.** Previously `subtask.sh` checked none of
+  these: a slice could carry a fully-`<placeholder>` table and still reach `qa_complete/`.
+  **A slice with no branch of its own** (its `branch:` frontmatter names a ref that does not exist
+  locally or on your remote — common for work done directly on the parent's branch) still gets the
+  content-only QA Verdict and `forks:` checks; the diff-derived half (a fork the branch shows but
+  `forks:` does not name; a touched test path) has no diff to read and says so on stderr rather than
+  silently passing or falsely refusing. **What to do:** any slice already sitting in `dev_complete/`
+  needs a real `## QA Verdict` table and a correct `forks:` field before its next `move … qa_complete`
+  — the same audit the QA Verdict / `forks:` release notes below already asked you to do for
+  top-level cards now applies to every open subtask too.
+
 - **Every card template gains an `## Ablation` section, and `finish-pr.sh` refuses a landing whose
   branch diff touches a declared test path with the section absent or not well formed.** Declare
   your test paths in the new `TEST_GLOBS` array (`scripts/config.sh`, right beside `CODE_GLOBS`,

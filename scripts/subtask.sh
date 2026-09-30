@@ -51,6 +51,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/kanban-worktree.sh
 . "$SCRIPT_DIR/lib/kanban-worktree.sh"
 
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
+# The `forks:` precondition's register resolution — the SAME parser finish-pr.sh and
+# check-board.sh arm [l] use.
+# shellcheck source=lib/decision-register.sh
+. "$SCRIPT_DIR/lib/decision-register.sh"
+# The QA Verdict / forks: / Ablation card checks — the SAME parser finish-pr.sh calls for a
+# landing card, called here for a slice's own card before `move <id> qa_complete`.
+# shellcheck source=lib/qa-gate.sh
+. "$SCRIPT_DIR/lib/qa-gate.sh"
+
 # GUARDED: usage() renders the role set through this library, and a usage request must
 # succeed (issue-creation.md § 3). The operational path fails loudly without it.
 # shellcheck source=lib/role-set.sh
@@ -394,6 +405,41 @@ case "$CMD" in
     done
     [ -z "$SRC" ] && { echo "Error: no ${ID}-*.md under progress/subtasks/${PARENT}/." >&2; exit 1; }
     [ "$SRC_FOLDER" = "$TARGET" ] && { echo "Error: ${ID} already in ${TARGET}/." >&2; exit 1; }
+
+    # ── A SLICE MOVING TO qa_complete/ IS CHECKED THE SAME WAY A LANDING CARD IS:
+    #    its own QA Verdict table, its own `forks:`, and — if its diff touches a declared test
+    #    path — its own `## Ablation` section. ONE parser, lib/qa-gate.sh, shared with
+    #    finish-pr.sh; same rule ids, same messages. Refused, before the git mv, so nothing moves.
+    #    THE DIFF BASIS: forks-contradicted and the Ablation touched-path test both need a diff.
+    #    finish-pr.sh has a real feature branch; a slice does NOT necessarily have one of its own
+    #    yet (SUBTASK.template.md's `branch:` may name a branch never created — a slice can be
+    #    worked, and reviewed, on the parent's branch, or before any branch exists). So the new
+    #    revision is the slice's `branch:` frontmatter WHEN that ref resolves locally or on
+    #    $KWT_REMOTE; when it does not, the diff basis is the trunk against itself — a real,
+    #    empty diff, not a skipped check — so forks-contradicted and the Ablation "touches a
+    #    declared test path" test both legitimately find nothing to derive. That is NOT the same
+    #    claim as "no fork was resolved" or "no test path was touched" while working the slice:
+    #    it is what a diff-less check can see, and this comment is that limit stated, not hidden.
+    if [ "$TARGET" = "qa_complete" ]; then
+      _st_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
+      _st_slice_branch="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^branch:/{sub(/^branch:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$SRC")"
+      _st_new_rev="$_st_trunk"
+      if [ -n "$_st_slice_branch" ] \
+         && git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/${_st_slice_branch}" >/dev/null 2>&1; then
+        _st_new_rev="refs/heads/${_st_slice_branch}"
+      elif [ -n "$_st_slice_branch" ] \
+           && git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_REMOTE}/${_st_slice_branch}" >/dev/null 2>&1; then
+        _st_new_rev="${KWT_REMOTE}/${_st_slice_branch}"
+      else
+        echo "Note: ${ID}'s branch ('${_st_slice_branch:-none declared}') is not a local or ${KWT_REMOTE} ref —" >&2
+        echo "      the forks: and Ablation checks read no diff for this slice (a real, empty one," >&2
+        echo "      the trunk against itself), so a fork or a touched test path with no branch to" >&2
+        echo "      carry it is NOT derived. The QA Verdict table check is unaffected." >&2
+      fi
+      kit_forks_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_trunk" "$_st_new_rev" "$SCRIPT_DIR/check-board.sh"
+      kit_qa_verdict_check "$SRC" "$ID"
+      kit_ablation_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_trunk" "$_st_new_rev"
+    fi
 
     mkdir -p "$BASE/$TARGET"
     DEST="$BASE/$TARGET/$(basename "$SRC")"
