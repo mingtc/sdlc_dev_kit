@@ -590,6 +590,12 @@ columns and never the cards.*
 
 ### Added
 
+- **`finish-pr.sh` refuses a branch stacked on another branch that has not landed.** If `$BRANCH`
+  carries another local or remote branch's own commits ahead of the trunk — that branch still
+  unlanded, or already squash-landed and gone — the landing refuses before anything destructive and
+  prints the exact fix: `git rebase --onto <trunk> <old-base> <branch>`. **Nothing to do** unless it
+  fires; it does not catch a stack built by cherry-pick rather than by branching.
+
 - **`scripts/set-models.sh` sets a work class's model and effort everywhere it is read, in one call:** the
   class's pin under `.claude/agents/` and its row in `.claude/roles/orchestrator.md` § Model & effort contract
   (`--class`), every class plus the workflow runners' defaults (`--all`), or the runners alone (`--runners`). It

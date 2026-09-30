@@ -284,6 +284,75 @@ if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/n
   exit 1
 fi
 
+# ── A STACKED BRANCH LOSES ITS BASE WHEN THE BASE SQUASH-LANDS. `$BRANCH` was branched from
+#    another feature branch, not from the trunk directly. Two shapes, detected from git alone,
+#    before anything destructive:
+#      (a) the old base is STILL UNLANDED — some other local/remote branch's tip is one of
+#          `$BRANCH`'s own commits ahead of the trunk (`$KWT_REMOTE/$DEFAULT_BRANCH..$BRANCH`);
+#      (b) the old base has SQUASH-LANDED — a prefix of those same commits, diffed from the
+#          merge-base, has the same patch-id as a commit the trunk gained that `$BRANCH` never
+#          saw (`$BRANCH..$KWT_REMOTE/$DEFAULT_BRANCH`).
+#    Either way this refuses with the exact `git rebase --onto` step, before the branch-existence
+#    gate above runs anything expensive. PRECISION: (a) is exact (a real ref, not a guess); (b) is
+#    a patch-id match, "reasonably unique" per git-patch-id(1) — a coincidental match on an
+#    unrelated commit is possible but not observed. NEITHER CATCHES stacking done by cherry-pick
+#    rather than by branching (the card's stated limit): a cherry-picked commit is a NEW commit,
+#    reachable from no ref and with no patch-id relationship this check derives.
+_stk_trunk="$KWT_REMOTE/$DEFAULT_BRANCH"
+_stk_ahead="$(git -C "$MAIN_ROOT" log --reverse --format=%H "${_stk_trunk}..refs/heads/$BRANCH" 2>/dev/null || true)"
+_stk_branch_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" 2>/dev/null || true)"
+if [ -n "$_stk_ahead" ]; then
+  # (a) STILL UNLANDED: another branch's tip sits inside $BRANCH's own history, ahead of the
+  #     trunk, and STRICTLY BEHIND $BRANCH's own tip — a ref that merely NAMES the same tip
+  #     (e.g. a second local name for the branch being landed) is not a base, it is a synonym.
+  _stk_old_base=""
+  while IFS= read -r _stk_ref; do
+    [ -n "$_stk_ref" ] || continue
+    case "$_stk_ref" in
+      "refs/heads/$BRANCH"|"refs/remotes/$KWT_REMOTE/$BRANCH"|"$_stk_trunk"|"refs/remotes/$KWT_REMOTE/HEAD") continue ;;
+    esac
+    _stk_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "$_stk_ref" 2>/dev/null || true)"
+    [ -n "$_stk_tip" ] || continue
+    [ "$_stk_tip" != "$_stk_branch_tip" ] || continue
+    if printf '%s\n' "$_stk_ahead" | grep -qxF "$_stk_tip"; then
+      _stk_old_base="${_stk_ref#refs/heads/}"; _stk_old_base="${_stk_old_base#refs/remotes/}"
+      break
+    fi
+  done <<< "$(git -C "$MAIN_ROOT" for-each-ref --format='%(refname)' refs/heads/ "refs/remotes/$KWT_REMOTE/")"
+  if [ -n "$_stk_old_base" ]; then
+    kit_refuse 1 stacked-branch-unlanded-base \
+      "Error: '${BRANCH}' is stacked on '${_stk_old_base}', which has not landed on ${DEFAULT_BRANCH}." \
+      "       ${BRANCH} carries ${_stk_old_base}'s commits; landing it now would try to land ${_stk_old_base}'s" \
+      "       work too, unreviewed under this issue. Land or drop '${_stk_old_base}' first, then rebase:" \
+      "         git rebase --onto ${DEFAULT_BRANCH} ${_stk_old_base} ${BRANCH}" \
+      "       NOTHING WAS CHANGED."
+  fi
+  # (b) SQUASH-LANDED: a prefix of $BRANCH's own-trunk-ahead commits matches, by patch-id, a
+  #     commit the trunk gained that $BRANCH does not have — i.e. that prefix's diff already
+  #     landed as somebody's squash commit.
+  _stk_mb="$(git -C "$MAIN_ROOT" merge-base "refs/heads/$BRANCH" "$_stk_trunk" 2>/dev/null || true)"
+  _stk_trunk_only="$(git -C "$MAIN_ROOT" log --format=%H "refs/heads/$BRANCH..${_stk_trunk}" 2>/dev/null || true)"
+  if [ -n "$_stk_mb" ] && [ -n "$_stk_trunk_only" ]; then
+    while IFS= read -r _stk_cand; do
+      [ -n "$_stk_cand" ] || continue
+      _stk_cand_pid="$(git -C "$MAIN_ROOT" diff "$_stk_mb" "$_stk_cand" 2>/dev/null | git patch-id --stable 2>/dev/null | awk '{print $1}')"
+      [ -n "$_stk_cand_pid" ] || continue
+      while IFS= read -r _stk_t; do
+        [ -n "$_stk_t" ] || continue
+        _stk_t_pid="$(git -C "$MAIN_ROOT" show "$_stk_t" 2>/dev/null | git patch-id --stable 2>/dev/null | awk '{print $1}')"
+        if [ -n "$_stk_t_pid" ] && [ "$_stk_cand_pid" = "$_stk_t_pid" ]; then
+          kit_refuse 1 stacked-branch-squashed-base \
+            "Error: '${BRANCH}' is stacked on a base that has already squash-landed on ${DEFAULT_BRANCH} (as ${_stk_t:0:9})." \
+            "       ${BRANCH} still carries that base's own, un-squashed commits up to ${_stk_cand:0:9};" \
+            "       landing '${BRANCH}' as-is would re-apply them and conflict. Rebase past the squash:" \
+            "         git rebase --onto ${DEFAULT_BRANCH} ${_stk_cand} ${BRANCH}" \
+            "       NOTHING WAS CHANGED."
+        fi
+      done <<< "$_stk_trunk_only"
+    done <<< "$_stk_ahead"
+  fi
+fi
+
 # ── A RULING MADE WHILE WORKING THIS CARD IS NOT DURABLE HERE (MANUAL.md § Execution discipline
 #    item 6): it is promoted to the decision register in the same change, and this card's `forks:`
 #    field is the self-reported claim that it was — or that no fork was resolved.

@@ -1518,3 +1518,120 @@ case_verify_exit_status_separates_the_reds() {
   finish "verify.sh's exit status separates the two reds: 0 green, 1 when any gate FAILED (it dominates), 3 when nothing failed and a gate COULD NOT RUN — each row agreeing with the summary's counts"
   teardown
 }
+
+# =============================================================================
+# CASE — A STACKED BRANCH WHOSE BASE IS STILL UNLANDED refuses, naming the exact
+# `git rebase --onto` step, before anything destructive.
+#
+# feature/<A> branches off the trunk; feature/<B> branches off feature/<A>, so B's history
+# carries A's commits. A is never landed. finish-pr.sh on B must refuse rather than squash A's
+# unreviewed work in under B's issue.
+# =============================================================================
+case_finish_pr_stacked_branch_unlanded_base_refuses() {
+  cf_reset
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-820" stacked chore "Stacked on an unlanded base" "feature/$SB_PREFIX-820-b"
+  publish_sandbox
+  git -C "$SB_WORK" branch "feature/$SB_PREFIX-820-a" "$SB_TRUNK" >/dev/null 2>&1
+
+  git -C "$SB_WORK" checkout -q "feature/$SB_PREFIX-820-a" >/dev/null 2>&1
+  echo "a's change" > "$SB_WORK/A.txt"
+  git -C "$SB_WORK" add A.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] $SB_PREFIX-820: base work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-820-a" --quiet >/dev/null 2>&1
+
+  git -C "$SB_WORK" branch "feature/$SB_PREFIX-820-b" "feature/$SB_PREFIX-820-a" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "feature/$SB_PREFIX-820-b" >/dev/null 2>&1
+  echo "b's change" > "$SB_WORK/B.txt"
+  git -C "$SB_WORK" add B.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] $SB_PREFIX-820: stacked work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-820-b" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-820" 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 1 ] || cf "finish-pr exited $rc (expected 1 — refused): $out"
+  printf '%s\n' "$out" | grep -F "stacked on 'feature/$SB_PREFIX-820-a'" >/dev/null \
+    || cf "refusal does not name the unlanded base branch: $out"
+  printf '%s\n' "$out" | grep -F "git rebase --onto $SB_TRUNK feature/$SB_PREFIX-820-a feature/$SB_PREFIX-820-b" >/dev/null \
+    || cf "refusal does not print the exact rebase --onto step: $out"
+  origin_has_path "progress/qa_complete/$SB_PREFIX-820-stacked.md" \
+    && cf "NOTHING WAS CHANGED was violated — the issue advanced anyway"
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-820-b" >/dev/null 2>&1 \
+    || cf "the stacked branch was deleted despite the refusal"
+
+  finish "finish-pr.sh refuses a branch stacked on a still-unlanded base, naming the base and the exact git rebase --onto step"
+  teardown
+}
+
+# =============================================================================
+# CASE — RED FIRST, THEN GREEN, for the squash-landed half of the same defect: once the base
+# is rebased away, the SAME branch lands cleanly.
+#
+# feature/<A> squash-lands to the trunk (as finish-pr.sh itself would do it); feature/<B>,
+# stacked on A's original (now unreachable) commits, still carries them. finish-pr.sh on B
+# must refuse, naming the squash and the rebase step; after `git rebase --onto` it must land.
+# =============================================================================
+case_finish_pr_stacked_branch_squashed_base_refuses() {
+  cf_reset
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-821" astacked chore "Base branch" "feature/$SB_PREFIX-821-a"
+  seed_issue dev_complete "$SB_PREFIX-822" bstacked chore "Stacked on a squash-landed base" "feature/$SB_PREFIX-821-b"
+  publish_sandbox
+  git -C "$SB_WORK" branch "feature/$SB_PREFIX-821-a" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" branch "feature/$SB_PREFIX-821-b" "$SB_TRUNK" >/dev/null 2>&1
+
+  git -C "$SB_WORK" checkout -q "feature/$SB_PREFIX-821-a" >/dev/null 2>&1
+  echo "a1" > "$SB_WORK/A.txt"
+  git -C "$SB_WORK" add A.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] $SB_PREFIX-821: a1" --quiet >/dev/null 2>&1
+  echo "a2" >> "$SB_WORK/A.txt"
+  sbcommit -am "[Dev] $SB_PREFIX-821: a2" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-821-a" --quiet >/dev/null 2>&1
+
+  git -C "$SB_WORK" branch -f "feature/$SB_PREFIX-821-b" "feature/$SB_PREFIX-821-a" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "feature/$SB_PREFIX-821-b" >/dev/null 2>&1
+  echo "b's change" > "$SB_WORK/B.txt"
+  git -C "$SB_WORK" add B.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] $SB_PREFIX-822: stacked work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-821-b" --quiet >/dev/null 2>&1
+
+  # Squash-land the base directly onto the trunk (the same shape finish-pr.sh itself produces),
+  # then retire the base branch — the shape the card's problem statement describes.
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" merge --squash "feature/$SB_PREFIX-821-a" --quiet >/dev/null 2>&1
+  sbcommit -m "[QA] $SB_PREFIX-821: a1+a2 (squash-merge feature/$SB_PREFIX-821-a)" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin --delete "feature/$SB_PREFIX-821-a" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" branch -D "feature/$SB_PREFIX-821-a" --quiet >/dev/null 2>&1
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-822" 2>&1 )"; rc=$?
+
+  # ── RED: the base is gone (no ref left names it), yet the refusal still fires — from the
+  #      patch-id match against the trunk's own squash commit, not from a live ref.
+  [ "$rc" -eq 1 ] || cf "(red) finish-pr exited $rc (expected 1 — refused): $out"
+  printf '%s\n' "$out" | grep -F "already squash-landed on $SB_TRUNK" >/dev/null \
+    || cf "(red) refusal does not say the base already squash-landed: $out"
+  local rebase_cmd
+  rebase_cmd="$(printf '%s\n' "$out" | grep -oE "git rebase --onto $SB_TRUNK [0-9a-f]+ feature/$SB_PREFIX-821-b" | head -1)"
+  [ -n "$rebase_cmd" ] || cf "(red) refusal does not print a git rebase --onto step naming the branch: $out"
+  origin_has_path "progress/qa_complete/$SB_PREFIX-822-bstacked.md" \
+    && cf "(red) NOTHING WAS CHANGED was violated — the issue advanced anyway"
+
+  # ── GREEN: run the printed command, then land.
+  if [ -n "$rebase_cmd" ]; then
+    ( cd "$SB_WORK" && eval "$rebase_cmd" ) >/dev/null 2>&1 \
+      || cf "(green) the printed rebase --onto command itself failed"
+    git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-821-b" --force --quiet >/dev/null 2>&1
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-822" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(green) finish-pr still refused after the rebase (rc=$rc): $out"
+    origin_has_path "progress/qa_complete/$SB_PREFIX-822-bstacked.md" \
+      || cf "(green) issue not advanced to qa_complete/ after the rebase"
+    origin_has_path "B.txt" || cf "(green) the rebased branch's own change did not land"
+  fi
+
+  finish "finish-pr.sh refuses a branch stacked on a since-squash-landed base (detected by patch-id, no live ref needed), names the rebase --onto step, and lands cleanly once it is run"
+  teardown
+}

@@ -290,6 +290,8 @@ CASES=(
   case_finish_pr_runs_only_the_trunks_copy
   case_finish_pr_gate_revision
   case_finish_pr_trunk_gate_judges_the_branch
+  case_finish_pr_stacked_branch_unlanded_base_refuses
+  case_finish_pr_stacked_branch_squashed_base_refuses
   case_archive_apply
   case_archive_hedged_flags_never_mutate
   case_one_member_role_tag_refuses_before_mutating
