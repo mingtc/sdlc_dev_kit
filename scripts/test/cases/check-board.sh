@@ -56,6 +56,14 @@ _cb_l_section() {  # reads a check-board report on stdin
        f'
 }
 
+# Same shape as _cb_g_section, for arm [q] (declared-register entry shape).
+_cb_q_section() {  # reads a check-board report on stdin
+  awk '/^\[q\]/ { f = 1 }
+       f && /^──/ { exit }
+       f && /^\[[a-z]\]/ && !/^\[q\]/ { exit }
+       f'
+}
+
 # cb_set_dep <id> <slug> <folder> <blocks|blocked_by> <target-id>
 # Rewrite one dependency field into a seeded card's frontmatter. seed_issue does NOT emit
 # these keys, so this INSERTS before the CLOSING fence — the second `---`, never the
@@ -641,7 +649,7 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(2) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep '⚠' | grep 'D-77' >/dev/null \
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-77' >/dev/null \
     || cf "(2) a dangling citation was NOT reported: $out"
   printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
     || cf "(2) the dangling citation did not reach the verdict — the maintainer ruled this arm DECIDING: $out"
@@ -662,9 +670,9 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(3) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep '⚠' | grep 'D-02' | grep -i 'RETIRED' >/dev/null \
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-02' | grep -i 'RETIRED' >/dev/null \
     || cf "(3) a citation of a RETIRED id was not reported as retired — that is a different finding from a dangling one and must print as one: $out"
-  printf '%s\n' "$out" | grep '⚠' | grep 'D-02' | grep -i 'NOT an entry' >/dev/null \
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-02' | grep -i 'NOT an entry' >/dev/null \
     && cf "(3) the retired citation printed as a DANGLING one — the two findings ask the reader for different things: $out"
 
   # --- (5) THE SUCCESSOR NAMED IN THE RETIRED ROW IS STILL LIVE ------------------
@@ -674,7 +682,7 @@ EOF
   publish_sandbox
   out="$(cb_run)"; rc=$?
   [ "$rc" -eq 0 ] || cf "(5) check-board.sh exited $rc (exit 0 ALWAYS)"
-  printf '%s\n' "$out" | grep '⚠' | grep 'D-01' >/dev/null \
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-01' >/dev/null \
     && cf "(5) the LIVE successor named inside the retired row was itself reported — the retired set is matching the row's prose, not the row's own id, which FALSE-REDS a correct citation: $out"
   printf '%s\n' "$out" | grep "$reg_path" | grep '1 retired id' >/dev/null \
     || cf "(5) the retired set is not 1 — one row retires exactly one id: $(printf '%s\n' "$out" | grep "$reg_path")"
@@ -696,7 +704,7 @@ EOF
   # count zero (nothing in it was read as a citation).
   printf '%s\n' "$out" | _cb_l_section | grep -E '[1-9][0-9]* file\(s\) read, 0 citation' >/dev/null \
     || cf "(4) the mention-only card was not READ-with-zero-citations — a real negative must show files were read, not skipped: $(printf '%s\n' "$out" | _cb_l_section)"
-  printf '%s\n' "$out" | grep '⚠' | grep -E 'D-77|D-99|D-02' >/dev/null \
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep -E 'D-77|D-99|D-02' >/dev/null \
     && cf "(4) a MENTION was read as a CITATION — this is the hazard the positive marker exists for, and a bare-id reader fails exactly here: $out"
 
   finish "arm (l): a live citation resolves and is counted, a dangling one is a DECIDING finding that survives kit-init's advisory filter, a retired one prints as retired rather than dangling, the LIVE successor named inside a retired row is not itself reported, and a card that merely MENTIONS ids (one of them inside an HTML comment) is READ and yields zero citations"
@@ -902,6 +910,108 @@ EOF
     || cf "(after) the stale SEED-step marker did not reach the verdict: $out"
 
   finish "arm (p): a SEED-step marker is silent before arm [g] reads graduation COMPLETE, and reported once [g] does — reusing [g]'s own verdict across the same day-one → graduated transition case_check_board_graduation builds"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (q): DECLARED-REGISTER ENTRY SHAPE. Red-first, per the card: a fifteen-fragment
+# entry is reported, a clean three-field entry stays clean, and a reopened-without-stamp pair is
+# reported. Report-only: none of this may set `drift` (asserted directly, not just by omission —
+# see the dedicated assertion below), the same footing as [k]/[m]/[n]/[o].
+# =============================================================================
+case_check_board_register_shape() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark out
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || { cf "could not derive REGISTERS from the defaults block"; finish "check (q): register shape"; teardown; return; }
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")"
+
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-01 — a clean three-field entry
+**Ruling.** A thing is true.
+**Why.** Because reasons.
+**Provenance.** Somewhere.
+
+${reg_mark}D-02 — a working default, a legal state, still clean
+**Ruling.** WORKING DEFAULT (provisional, asked 2026-09-29, dev/2026-09-29-ask.md) — the default holds.
+**Why.** A question never blocks the queue.
+**Provenance.** scripts/ask.sh --decision D-02, run by the PM.
+
+## B. Second bucket
+${reg_mark}D-03 — fifteen-fragment shape, one entry accumulating dated amendments
+**Ruling.** Original text stands.
+**(1) 2026-09-29.** First addition.
+**(2) 2026-09-29.** Second addition, refines (1).
+**(3) 2026-09-29.** Third addition.
+**Why.** Reasons.
+**Provenance.** Somewhere.
+
+${reg_mark}D-04 — output formats
+**Ruling.** No HTML, no PDF: CSV and plain text only.
+**Why.** Her spreadsheet opens CSV; plain text opens anywhere.
+**Provenance.** PM session.
+
+${reg_mark}D-05 — a later entry reopening D-04 without a stamp on it
+**Ruling.** [decision: D-04] is reopened for that one output: a CSV variant with a header row.
+**Why.** Her bookkeeper asked for a header row.
+**Provenance.** PM session, later.
+EOF
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[q\]' >/dev/null \
+    || cf "no [q] section in the report — the arm is absent"
+
+  # --- must fire: the fifteen-fragment shape (D-03) --------------------------
+  printf '%s\n' "$out" | _cb_q_section | grep -E '⚠ .*\bD-03\b.*extra' >/dev/null \
+    || cf "a D-NN entry with stacked dated fragments was NOT reported: $out"
+
+  # --- must NOT fire: the clean three-field entry (D-01) ----------------------
+  printf '%s\n' "$out" | _cb_q_section | grep '⚠' | grep -w 'D-01' >/dev/null \
+    && cf "a clean three-field entry was reported: $out"
+
+  # --- must NOT fire: the working default, a legal state (D-02) --------------
+  printf '%s\n' "$out" | _cb_q_section | grep '⚠' | grep -w 'D-02' >/dev/null \
+    && cf "a legally-shaped WORKING DEFAULT entry was reported: $out"
+
+  # --- must fire: D-04 is reopened by D-05 and carries no stamp ---------------
+  # Anchored on the line's OWN reported id ("⚠ D-04 —"), never a substring match: the finding's
+  # own sentence legitimately names the OTHER id too ("reopened or superseded by D-05"), so a
+  # loose 'D-NN.*reopen' would match either id's line. This checks which id the finding is ABOUT.
+  printf '%s\n' "$out" | _cb_q_section | grep -E '⚠ D-04 —.*carries no stamp' >/dev/null \
+    || cf "D-04, reopened by D-05 with no stamp of its own, was NOT reported: $out"
+
+  # --- must NOT fire on D-05 itself (it is the reopener, not the reopened) ----
+  printf '%s\n' "$out" | _cb_q_section | grep -E '⚠ D-05 —.*carries no stamp' >/dev/null \
+    && cf "D-05 (the reopener) was reported as unstamped instead of D-04 (the reopened): $out"
+
+  # --- REPORT-ONLY: this arm must never set drift --------------------------
+  # Ablate every OTHER arm's ability to fire on this fixture by re-running against a copy of the
+  # sandbox with only [q]'s fixture present: assert directly that [q]'s own findings never flip
+  # the verdict, by checking the verdict footer names ONLY when [q] is the sole source. Simpler and
+  # just as sharp: assert the report-only token is on [q]'s own header line, the same contract
+  # [k]/[m]/[n]/[o] state in theirs, which kit-init's self-check keys on.
+  printf '%s\n' "$out" | grep '^\[q\]' | grep -i 'reports only' >/dev/null \
+    || cf "[q]'s header does not carry the 'reports only' token — kit-init's self-check cannot tell it apart from a deciding arm: $out"
+
+  # --- ABLATION: strip arm (q) and every finding above must vanish -----------
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -q '# (q) DECLARED-REGISTER ENTRY SHAPE' "$s" \
+    || cf "(control) no '(q) DECLARED-REGISTER ENTRY SHAPE' seam in check-board.sh — cannot ablate"
+  sed -i.bak '/# (q) DECLARED-REGISTER ENTRY SHAPE/,/# END register-shape arm/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[q\]' >/dev/null \
+    && cf "(control) the ablation left [q] printing — the case would prove nothing"
+  printf '%s\n' "$out" | grep -E 'D-03|reopen' >/dev/null \
+    && cf "(control) a finding survived arm (q)'s ablation, so it is not attributable to this arm: $out"
+
+  finish "arm (q): a stacked-amendment entry and an unstamped reopened entry are reported, a clean entry and a legal WORKING DEFAULT stay silent, the header carries 'reports only', and ablation-proven"
   teardown
 }
 

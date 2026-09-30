@@ -617,6 +617,16 @@ columns and never the cards.*
   manifest already carries a dangling or unflipped forward reference, or a stale SEED-step marker
   past day one.
 
+- **`check-board.sh` gains `[q]`, a declared-register entry SHAPE lint (reports only — it never
+  decides the verdict).** Per `D-NN` entry in every register `REGISTERS` declares: are the three
+  fields `requirements/DECISIONS.md` itself requires (`**Ruling.**`, one-line `**Why.**`,
+  `**Provenance.**`) each present exactly once, in order, with nothing else bold-labelled in the
+  entry (a stacked, dated amendment reads as exactly this); and is an entry reopened or superseded
+  by a later one stamped as such (`Amended`, `CONFIRMED`, `Clarified`, `SUPERSEDED`, `WITHDRAWN`,
+  `WORKING DEFAULT`). A WITHDRAWN or WORKING DEFAULT entry is a legal shape and reads clean.
+  **Nothing to do**, unless your register already holds an entry with more than its three fields or
+  an unstamped reopen.
+
 ### Changed
 
 - **The card creators render `--stories` instead of copying the template's example stories.** An issue or

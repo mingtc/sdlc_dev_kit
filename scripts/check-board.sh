@@ -21,6 +21,8 @@
 #   (o) the kit upgrade: KIT-VERSION's form, and an open upgrade checklist's unmarked items (advisory).
 #   (p) CORPUS.md forward-reference integrity — a dangling id, a landed id not flipped to present,
 #       and a SEED-step marker once day one has closed.
+#   (q) declared-register entry SHAPE — every `D-NN` entry is exactly three fields, and a later
+#       entry that reopens or supersedes an earlier one names a stamp on the earlier entry (advisory).
 # This list and the print order must hold the same letters, in the same order, once each:
 #   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
 #   grep -E '^#   \([a-z]\)' scripts/check-board.sh | sed -E 's/^#   (\([a-z]\)).*/\1/'
@@ -1429,6 +1431,167 @@ ${BASH_REMATCH[1]}"
   fi
 fi
 # END corpus forward-reference arm
+
+# ---------------------------------------------------------------------------
+# (q) DECLARED-REGISTER ENTRY SHAPE (requirements/DECISIONS.md's own rule, "Every entry is exactly
+#     three things"; card's triage: a SHAPE lint, not an amendment-count threshold). Reports only —
+#     it never changes the verdict below, the same footing as [k]/[m]/[n]/[o]: this is a judgement
+#     about wording, and a project may have a good reason for a shape this arm has not seen.
+#
+#     Reads every register REGISTERS declares (the same declaration and the same three-field
+#     `<path>|<heading mark>|<id shape>` record arm (d)/(l) read — one declaration, three readers).
+#     Per `D-NN` entry, bounded the same way lib/decision-register.sh's diff-span reader bounds an
+#     entry (to the next heading of ANY level, or a bucket-separator `---` rule — DECISIONS.md's own
+#     format law, "buckets are separated by a `---` rule"):
+#
+#       - the three canonical field labels — `**Ruling.**`, `**Why.**`, `**Provenance.**`, each at
+#         the START of its own line — are each present exactly once, in that order;
+#       - no OTHER bold-labelled line (`**<anything>.**` at line start) appears anywhere in the
+#         entry — this is what catches a stacked, dated amendment (`**(14) 2026-09-29.**`) and a
+#         fourth field a reader must reconcile by hand, without counting how many there are;
+#       - the Why field is ONE PARAGRAPH — no blank line between `**Why.**` and `**Provenance.**`;
+#       - nothing follows Provenance's own paragraph before the entry ends.
+#
+#     SEPARATELY: an entry cited by a LATER entry with reopen/supersede wording (`reopens D-NN`,
+#     `supersedes D-NN`, `overturns D-NN`, either order, the id in DECISIONS.md's own citation form
+#     or bare) is reported if its OWN body carries no stamp word (`Amended`, `CONFIRMED`,
+#     `Clarified`, `SUPERSEDED`, `WITHDRAWN`, `WORKING DEFAULT`) — pm.md's own rule, "a ruling is
+#     not done until the predecessor carries its stamp, in the same change".
+#
+#     ACCEPTS EVERY LEGAL STATE: a WITHDRAWN or WORKING DEFAULT entry (the THIRD and FOURTH states)
+#     states its token at the head of the Ruling field, in the same three fields, never as a fourth
+#     — so a legally-shaped one of either reads clean here, same as an ordinary ruling.
+#
+#     WHAT THIS CANNOT SEE: an entry that passes this shape and still states the wrong current
+#     ruling (this is a wording judgement, not a shape one — a card's own contract names it); a
+#     reopen/supersede relationship stated in words this arm's vocabulary does not cover; and a
+#     stamp that is present but false (a claimed "Amended" that changed nothing).
+# ---------------------------------------------------------------------------
+echo
+echo "[q] Declared-register entry shape — every D-NN entry is exactly three fields, and a reopened entry is stamped (reports only — it never changes the verdict below) — $(cb_src):"
+q_reg_read=0; q_hits=0; q_entries=0
+q_stamped=""      # newline list of ids carrying a stamp word, across every register read
+q_reopeners=""    # newline list of "<target-id> <reopener-id>" pairs, across every register read
+while IFS='|' read -r qreg_path qreg_mark qreg_shape; do
+  [ -n "$qreg_path" ] || continue
+  qreg_file="$CB_TREE/$qreg_path"
+  [ -f "$qreg_file" ] || continue
+  q_reg_read=$((q_reg_read+1))
+
+  # Entry spans: id, start line, end line — stop at the next entry heading of the SAME shape, at
+  # any OTHER heading (any level: a non-D-NN "### " sub-heading closes the entry too, the same as
+  # a "## " section does), or a bucket-separator "---" rule.
+  q_spans="$(awk -v m="$qreg_mark" -v s="$qreg_shape" '
+    index($0,m)==1 {
+      rest=substr($0,length(m)+1)
+      if (rest ~ ("^" s "([[:space:]]|$)")) {
+        if (cur != "") print cur, start, NR-1
+        id=rest; sub(/[[:space:]].*$/,"",id)
+        cur=id; start=NR; next
+      }
+      if (cur != "") { print cur, start, NR-1; cur="" }
+      next
+    }
+    /^##[[:space:]]/ || /^---[[:space:]]*$/ {
+      if (cur != "") { print cur, start, NR-1; cur="" }
+    }
+    END { if (cur != "") print cur, start, NR }
+  ' "$qreg_file" 2>/dev/null)"
+
+  while read -r qid qstart qend; do
+    [ -n "$qid" ] || continue
+    q_entries=$((q_entries+1))
+    qbody="$(sed -n "${qstart},${qend}p" "$qreg_file")"
+
+    r_line="$(printf '%s\n' "$qbody" | grep -n '^\*\*Ruling\.\*\*' | head -1 | cut -d: -f1)"
+    w_line="$(printf '%s\n' "$qbody" | grep -n '^\*\*Why\.\*\*' | head -1 | cut -d: -f1)"
+    p_line="$(printf '%s\n' "$qbody" | grep -n '^\*\*Provenance\.\*\*' | head -1 | cut -d: -f1)"
+    r_n="$(printf '%s\n' "$qbody" | grep -c '^\*\*Ruling\.\*\*' || true)"
+    w_n="$(printf '%s\n' "$qbody" | grep -c '^\*\*Why\.\*\*' || true)"
+    p_n="$(printf '%s\n' "$qbody" | grep -c '^\*\*Provenance\.\*\*' || true)"
+
+    q_missing=""
+    [ -n "$r_line" ] || q_missing="${q_missing:+$q_missing, }Ruling"
+    [ -n "$w_line" ] || q_missing="${q_missing:+$q_missing, }Why"
+    [ -n "$p_line" ] || q_missing="${q_missing:+$q_missing, }Provenance"
+    if [ -n "$q_missing" ]; then
+      echo "      ⚠ $qreg_path $qid — missing field(s): $q_missing"
+      q_hits=$((q_hits+1))
+    fi
+    if [ "${r_n:-0}" -gt 1 ] || [ "${w_n:-0}" -gt 1 ] || [ "${p_n:-0}" -gt 1 ]; then
+      echo "      ⚠ $qreg_path $qid — a canonical field label appears more than once (Ruling×${r_n:-0}, Why×${w_n:-0}, Provenance×${p_n:-0})"
+      q_hits=$((q_hits+1))
+    fi
+
+    # Any OTHER line-start bold label besides the three canonical ones — a stacked amendment or a
+    # fourth field, uncounted: one is already one too many.
+    q_extra="$(printf '%s\n' "$qbody" | grep -noE '^\*\*[^*]+\.\*\*' \
+                | grep -Ev ':\*\*(Ruling|Why|Provenance)\.\*\*$' || true)"
+    if [ -n "$q_extra" ]; then
+      q_n_extra="$(printf '%s\n' "$q_extra" | grep -c . || true)"
+      echo "      ⚠ $qreg_path $qid — $q_n_extra extra dated/bold fragment(s) beyond the three fields, a running log rather than a single conclusion: $(printf '%s' "$q_extra" | tr '\n' ' ')"
+      q_hits=$((q_hits+1))
+    fi
+
+    # Why is one paragraph: no blank line between its label and Provenance's.
+    if [ -n "$w_line" ] && [ -n "$p_line" ] && [ "$p_line" -gt "$w_line" ]; then
+      q_why_body="$(printf '%s\n' "$qbody" | sed -n "$((w_line+1)),$((p_line-1))p")"
+      if printf '%s\n' "$q_why_body" | grep -qx ''; then
+        echo "      ⚠ $qreg_path $qid — the Why field spans more than one paragraph"
+        q_hits=$((q_hits+1))
+      fi
+    fi
+
+    # Nothing after Provenance's own paragraph before the entry ends.
+    if [ -n "$p_line" ]; then
+      q_after="$(printf '%s\n' "$qbody" | sed -n "$((p_line+1)),\$p")"
+      q_trailing="$(printf '%s\n' "$q_after" | awk 'BEGIN{seen=0} { if ($0 ~ /^[[:space:]]*$/) {seen=1; next} if (seen && NF) {print; exit} }')"
+      if [ -n "$q_trailing" ]; then
+        echo "      ⚠ $qreg_path $qid — content follows Provenance's own paragraph: \"$q_trailing\""
+        q_hits=$((q_hits+1))
+      fi
+    fi
+
+    # Stamp words, for the reopened-without-stamp check below.
+    if printf '%s\n' "$qbody" | grep -qiE '\*\*(Amended|CONFIRMED|Clarified|SUPERSEDED|WITHDRAWN|WORKING DEFAULT)\b'; then
+      q_stamped="$q_stamped
+$qid"
+    fi
+
+    # Reopen/supersede vocabulary naming another id, either order, the id never matched inside a
+    # longer identifier (a preceding letter, as in PRD-NNN, disqualifies it).
+    while read -r qtgt; do
+      [ -n "$qtgt" ] || continue
+      [ "$qtgt" = "$qid" ] && continue
+      q_reopeners="$q_reopeners
+$qtgt $qid"
+    done < <(printf '%s\n' "$qbody" \
+               | grep -oiE "([^A-Za-z]${qreg_shape}.{0,60}(reopen|supersed|overturn)[a-z]*|(reopen|supersed|overturn)[a-z]*.{0,60}[^A-Za-z]${qreg_shape})" \
+               | grep -oE "$qreg_shape" || true)
+  done <<< "$q_spans"
+done <<< "$(printf '%s\n' "$REGISTERS")"
+
+if [ "$q_reg_read" -eq 0 ]; then
+  echo "      – no register was read (none of the declared ones is present in this source)  (skipped)"
+else
+  q_reopen_hits=0
+  while read -r qtgt; do
+    [ -n "$qtgt" ] || continue
+    if ! printf '%s\n' "$q_stamped" | grep -qx "$qtgt"; then
+      q_by="$(printf '%s\n' "$q_reopeners" | awk -v t="$qtgt" '$1==t{print $2}' | sort -u | tr '\n' ' ')"
+      echo "      ⚠ $qtgt — reopened or superseded by ${q_by}but carries no stamp of its own (pm.md: \"a ruling is not done until the predecessor carries its stamp, in the same change\")"
+      q_reopen_hits=$((q_reopen_hits+1))
+    fi
+  done <<< "$(printf '%s\n' "$q_reopeners" | awk 'NF{print $1}' | sort -u)"
+  q_hits=$((q_hits+q_reopen_hits))
+
+  if [ "$q_entries" -eq 0 ]; then
+    echo "      – 0 entr(ies) in the register(s) read  (nothing to check)"
+  elif [ "$q_hits" -eq 0 ]; then
+    echo "      ✓ none ($q_entries entr(ies) read, every one exactly three fields, no unstamped reopen)"
+  fi
+fi
+# END register-shape arm
 
 echo
 if [ "$drift" -eq 0 ]; then
