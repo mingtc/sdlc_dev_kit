@@ -1635,3 +1635,54 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
   finish "finish-pr.sh refuses a branch stacked on a since-squash-landed base (detected by patch-id, no live ref needed), names the rebase --onto step, and lands cleanly once it is run"
   teardown
 }
+
+# =============================================================================
+# CASE — THE GUARD FLOOR IS INERT ON AN ALL-core PROJECT, AND verify.sh NOW SAYS SO.
+#
+# GUARD_SET/GUARD_ENUM are only ever reconciled inside the --scope preflight, and --scope
+# refuses outright when no gate is classed `select`. So a project whose gates are all `core`
+# can declare a guard floor that is never read by anything — and, before this card, nothing
+# printed at runner start to say so. Strip the sandbox's one `select` gate (make_sandbox
+# declares it by default) to reproduce the all-core shape, declare a guard, and check both the
+# NOTE (unfixed: absent) and that a `select` gate makes it go away again.
+# =============================================================================
+case_verify_all_core_guard_floor_is_reported_inert() {
+  cf_reset
+  make_sandbox                     # make_sandbox already declared one select gate
+  local v="$SB_WORK/scripts/verify.sh" out rc
+
+  # All-core: strip the one select gate this sandbox ships with, leaving only core/full.
+  perl -i -ne 'print unless /sandbox gate\|select/' "$v"
+  _declare_gate 'core check|core|/bin/echo ran-core'
+  : > "$SB_WORK/guard-one.txt"
+  _guard_declare "$v" guard-one.txt
+
+  out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a full run with only core/full gates and a declared guard exited $rc, want 0: $out"
+  # Two independent checks against the whole (multi-line) output, never a single-line
+  # co-occurrence: the notice wraps its "NOTE" opener and its "never reconciled or run"
+  # clause onto different echo lines, so a piped `grep NOTE | grep -F …` would see no line
+  # holding both and fail even against a correct notice.
+  printf '%s\n' "$out" | grep -F 'verify.sh: NOTE' >/dev/null \
+    || cf "RED: a declared GUARD_SET on an all-core project prints no NOTE at all — this is the card's own bug: $out"
+  printf '%s\n' "$out" | grep -F 'never reconciled or run' >/dev/null \
+    || cf "RED: a declared GUARD_SET on an all-core project prints no notice that it is inert — this is the card's own bug: $out"
+
+  # A --scope run still refuses outright (no select gate to take a selection) — the case the
+  # notice exists to explain, not a second thing left unfixed.
+  out="$( cd "$SB_WORK" && "$v" --scope some/item 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] || cf "--scope on an all-core project exited $rc, want 2 (REFUSING): $out"
+  printf '%s\n' "$out" | grep 'no gate is classed' >/dev/null \
+    || cf "--scope's own refusal message is missing: $out"
+
+  # ── GREEN control: add a select gate back and the notice must disappear — the floor is now
+  #    reachable, and a notice that never turns off would misreport every project forever.
+  _declare_gate 'sandbox gate|select|/bin/echo sandbox-gate-green'
+  out="$( cd "$SB_WORK" && "$v" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) a full run with a select gate present exited $rc: $out"
+  printf '%s\n' "$out" | grep -F 'never reconciled or run' >/dev/null \
+    && cf "(control) the notice still fires once a select gate exists — it no longer describes this configuration: $out"
+
+  finish "verify.sh: a GUARD_SET/GUARD_ENUM declared on a project with no 'select' gate prints a NOTE at runner start that the floor is never reconciled or run (ablation-proven: the notice is present exactly when there is no select gate, and gone once one is declared); --scope itself still refuses outright, unchanged"
+  teardown
+}

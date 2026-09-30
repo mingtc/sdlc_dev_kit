@@ -352,6 +352,7 @@ CASES=(
   case_guard_floor_unseen_declared_guard
   case_guard_floor_reconciles_and_says_so
   case_guard_floor_wholly_empty_shipped_state
+  case_verify_all_core_guard_floor_is_reported_inert
   case_verdict_enum_projection
   case_verify_unrunnable_vs_fail
   case_verify_exit_status_separates_the_reds

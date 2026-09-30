@@ -216,6 +216,32 @@ if [ "$SCOPED" -eq 1 ] && [ "${#SCOPE[@]}" -eq 0 ]; then
   exit 2
 fi
 
+# (2b) THE GUARD FLOOR IS INERT ON AN ALL-core PROJECT, AND THAT IS SAID HERE, ONCE, AT
+# RUNNER START — on every run, not only --scope. GUARD_SET/GUARD_ENUM are reconciled ONLY
+# inside the --scope preflight below, because that is the one path a floor is FOR: backstopping
+# a run narrower than the full gate table. A project with no gate classed `select` can never
+# take --scope (it refuses at the end of that same preflight), so a GUARD_SET or GUARD_ENUM
+# declared here is never read by anything — not a bug in the reconciliation, a configuration
+# that makes it unreachable. Reconciling it on every run instead was rejected: it would `eval`
+# GUARD_ENUM and walk GUARD_SET's paths on every full run for a floor nothing narrower ever
+# uses, cost for a check whose answer a full run already dominates (every gate runs, guards
+# included). A notice is the cheap, honest alternative: it costs a string compare, and it says
+# so before a single gate runs rather than leaving the declaration to read as active.
+if { [ "${#GUARD_SET[@]}" -ne 0 ] || [ -n "${GUARD_ENUM:-}" ]; }; then
+  has_select_2b=0
+  for rec in "${GATES[@]}"; do
+    rest="${rec#*|}"; [ "${rest%%|*}" = "select" ] && has_select_2b=1
+  done
+  if [ "$has_select_2b" -eq 0 ]; then
+    echo "verify.sh: NOTE — GUARD_SET/GUARD_ENUM are declared, but no gate here is classed" >&2
+    echo "  'select', so --scope always refuses (nothing could take a selection) and this" >&2
+    echo "  floor is never reconciled or run by this script. A full run already runs every" >&2
+    echo "  gate, guards included, so this is not a gap in THIS run — only a declaration" >&2
+    echo "  that stays inert until a gate here is reclassed 'select'." >&2
+  fi
+  unset has_select_2b
+fi
+
 # (3) A vanished guard is a hard stop, never a silent shrink of the floor.
 if [ "$SCOPED" -eq 1 ]; then
   if [ "${#GUARD_SET[@]}" -eq 0 ]; then

@@ -590,6 +590,14 @@ columns and never the cards.*
 
 ### Added
 
+- **`verify.sh` reports when a declared guard floor is inert.** `GUARD_SET`/`GUARD_ENUM` are
+  reconciled only inside a `--scope` run, and `--scope` refuses outright when no gate is classed
+  `select`. If your gates are all `core`/`full` and you have declared either, every run now
+  prints a NOTE at runner start saying the floor is never reconciled or run — before, nothing
+  said so. **Nothing to do** unless you see the notice and want it to stop: either reclass a gate
+  `select` so `--scope` (and the floor) become reachable, or remove the declaration if the guards
+  are not needed.
+
 - **`finish-pr.sh` refuses a branch stacked on another branch that has not landed.** If `$BRANCH`
   carries another local or remote branch's own commits ahead of the trunk — that branch still
   unlanded, or already squash-landed and gone — the landing refuses before anything destructive and
