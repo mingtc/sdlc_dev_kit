@@ -161,7 +161,7 @@ done
 
 **A CONVERTED PRODUCER NEED NOT BE A MEMBER OF EITHER DERIVED SET, and conflating the two counts
 is the first mistake available here.** The board mover appears in neither derivation — it emits no
-phase marker, and it is not a role document — yet it is one of the two converted producers, because
+phase marker, and it is not a role document — yet it is a converted producer (§ 5a derives them), because
 it is where a role's transition already passes. So *"how many producers are converted"* and *"how
 much of the derived population is converted"* are different questions with different answers, and
 adding them reports a narrow change as a broad one.

@@ -43,7 +43,7 @@ const CFG = {
   remote:      ARGS.remote      || 'origin',                // the remote whose trunk a branch is cut from
   gateCmd:     ARGS.gateCmd     || './scripts/verify.sh',   // the one-shot gate runner
   // The paths that count as CODE (must go through a work branch). Prose, not globs —
-  // it is injected into agent prompts. Mirror the adapter's own definition.
+  // it is injected into agent prompts. Mirror scripts/config.sh's CODE_GLOBS.
   codePaths:   ARGS.codePaths   || 'src/**, tests/**, and the build/dependency manifest',
   // Pinned-output paths a behavior-preserving change must not move. '' skips the zero-drift
   // diff (a project with no goldens should pass ''). `??` NOT `||`: with `||`, '' restores the
