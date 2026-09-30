@@ -927,6 +927,11 @@ columns and never the cards.*
 
 ### Fixed
 
+- **`check-board.sh`'s `[n]` (kit-feedback line) no longer reports a dispatched leg's own
+  `kit-finding:`-only entry as a missing `kit-feedback:` line.** A leg's newest `progress.md` entry
+  correctly carries only `kit-finding:` (`process/MANUAL.md` § Kit feedback, M1); either line now
+  satisfies the check. **Nothing to do.**
+
 - **The self-test's model-pin case no longer reddens when you provision workers as the doctrine says.** On an
   adopted tree it checks your pins against your own ladder (`.claude/roles/orchestrator.md` § Model & effort
   contract), N/A for an unfilled row, instead of the kit's shipped declaration. **Nothing to do.**

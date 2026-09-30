@@ -2204,7 +2204,7 @@ case_kit_feedback_line_is_reported_not_refused() {
 
   # (2) + the verdict control
   _kf_board "$auto" "$(printf "$e_without")"
-  printf '%s\n' "$_kf_sec" | grep '⚠' | grep 'no kit-feedback: line' >/dev/null \
+  printf '%s\n' "$_kf_sec" | grep '⚠' | grep -F 'has no kit-feedback:' >/dev/null \
     || cf "(2) a newest entry with no kit-feedback line was not reported: ${_kf_one:-no section}"
   v1="$(printf '%s\n' "$_kf_out" | grep '^── board-drift:')"
   abl="$SB_WORK/scripts/check-board-ablated.sh"
@@ -2266,6 +2266,42 @@ case_kit_feedback_line_is_reported_not_refused() {
   fi
 
   finish "check-board's kit-feedback arm reports the newest entry's line (1), reports a missing one without moving the verdict (2), skips off (3), reads a missing setting as auto out loud (4), has nothing to check before the first entry (5), is dropped by kit-init's own extracted filter (6), and a fresh install still completes (7)"
+}
+
+# =============================================================================
+# CASE — arm [n] accepts a DISPATCHED LEG'S OWN `kit-finding:` line, not only `kit-feedback:`.
+#
+# MANUAL § Kit feedback, M1: "A dispatched leg writes no entry. It puts one `kit-finding: …` line
+# in its progress.md entry, and the orchestrator writes the entry (M4)." A leg's own newest Log
+# entry therefore correctly carries `kit-finding:` and never `kit-feedback:` — that is the
+# documented shape, not an omission. Two directions, both against the SAME newest entry so one
+# assertion cannot mask the other:
+#   (1) a leg's entry carrying ONLY `kit-finding:`        → accepted, no ⚠
+#   (2) an entry carrying NEITHER line                    → still ⚠ (the control this fix must
+#       not weaken: [n] is reported-missing, never silently accepting everything)
+# =============================================================================
+case_check_board_arm_n_accepts_kit_finding() {
+  cf_reset
+  local e_finding e_neither out sec
+
+  e_finding='### 2026-01-03\n\n- [Dev] a dispatched leg'"'"'s own entry.\n- kit-finding: some kit file:line, or "silent"\n'
+  e_neither='### 2026-01-03\n\n- [Dev] a dispatched leg'"'"'s own entry, no line at all.\n'
+
+  # (1)
+  _kf_board '' "$(printf "$e_finding")"
+  printf '%s\n' "$_kf_sec" | grep -F 'newest entry (2026-01-03): kit-finding:' >/dev/null \
+    || cf "(1) a leg's kit-finding:-only entry was not reported as its newest-entry line: ${_kf_one:-no section}"
+  printf '%s\n' "$_kf_sec" | grep '⚠' >/dev/null \
+    && cf "(1) a leg's kit-finding:-only entry was flagged as missing a kit-feedback: line: $_kf_one"
+  teardown
+
+  # (2) — the control: neither line present still warns, so (1) is not just "always accept"
+  _kf_board '' "$(printf "$e_neither")"
+  printf '%s\n' "$_kf_sec" | grep '⚠' | grep -F 'kit-finding' >/dev/null \
+    || cf "(2) an entry with NEITHER line was not reported (or the message dropped the kit-finding: alternative it now documents): ${_kf_one:-no section}"
+  teardown
+
+  finish "check-board arm [n]: a dispatched leg's own kit-finding:-only entry is accepted as its newest-entry line, never reported as a missing kit-feedback: line (1), while an entry with neither line still warns (2, the control)"
 }
 
 # =============================================================================

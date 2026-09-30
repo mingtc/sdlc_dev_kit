@@ -389,6 +389,7 @@ CASES=(
   case_check_board_replace_population_is_derived
   case_prd_coverage_counts_only
   case_kit_feedback_line_is_reported_not_refused
+  case_check_board_arm_n_accepts_kit_finding
   case_check_board_reports_an_open_upgrade
   case_check_board_names_a_detached_head
   case_check_board_fill_arm_reads_blanks_not_usage

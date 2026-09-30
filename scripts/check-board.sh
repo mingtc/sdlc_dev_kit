@@ -1273,9 +1273,11 @@ fi
 # BEGIN kit-feedback arm — `process/MANUAL.md` § Kit feedback
 # ---------------------------------------------------------------------------
 # (n) KIT-FEEDBACK LINE — under `kit-feedback: auto` (a missing setting reads as auto), whether the
-#      NEWEST dated `## Log` entry ends with a `kit-feedback:` line. Reported, never refused: the
-#      line records that the questions were asked, not that the answers are true, so a gate would
-#      only teach seats to write it. `manual` and `off` write no line, so there is nothing to check.
+#      NEWEST dated `## Log` entry ends with a `kit-feedback:` OR a `kit-finding:` line — a
+#      dispatched leg's own entry correctly carries only the latter (MANUAL § Kit feedback, M1;
+#      the orchestrator writes `kit-feedback:` at M4). Reported, never refused: the line records
+#      that the questions were asked, not that the answers are true, so a gate would only teach
+#      seats to write it. `manual` and `off` write no line, so there is nothing to check.
 #      Removable: delete this block, BEGIN to END, with the rest of that section's lines.
 # ---------------------------------------------------------------------------
 echo
@@ -1304,12 +1306,17 @@ case "$n_set" in
         echo "      no session entry yet — nothing to check"
       else
         n_head="$(printf '%s\n' "$n_entry" | sed -n '1s/^###[[:space:]]*//p')"
-        n_line="$(printf '%s\n' "$n_entry" | grep -E '^[[:space:]]*([-*][[:space:]]+)?`?kit-feedback:' | tail -n 1 || true)"
+        # A DISPATCHED LEG'S OWN ENTRY correctly carries `kit-finding:`, never `kit-feedback:`
+        # (MANUAL § Kit feedback, M1: "A dispatched leg writes no entry. It puts one
+        # `kit-finding: …` line…"; the ORCHESTRATOR writes `kit-feedback:` at M4). Either line
+        # shape on the newest entry answers this check — a leg's `kit-finding:`-only entry is not
+        # a missing line, it is the documented shape for that seat.
+        n_line="$(printf '%s\n' "$n_entry" | grep -E '^[[:space:]]*([-*][[:space:]]+)?`?(kit-feedback|kit-finding):' | tail -n 1 || true)"
         if [ -n "$n_line" ]; then
           n_line="$(printf '%s' "$n_line" | sed -E 's/^[[:space:]]*([-*][[:space:]]+)?`?//; s/`[[:space:]]*$//')"
           echo "      newest entry ($n_head): $n_line"
         else
-          echo "      ⚠ the newest session entry ($n_head) has no kit-feedback: line — the session-close questions (MANUAL § Kit feedback, M2) end with one"
+          echo "      ⚠ the newest session entry ($n_head) has no kit-feedback: (or, from a dispatched leg, kit-finding:) line — the session-close questions (MANUAL § Kit feedback, M2) end with one"
         fi
       fi
     fi ;;
