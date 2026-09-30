@@ -1,6 +1,6 @@
 ---
 name: requesting-code-review
-description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
+description: Use when completing tasks, implementing major features, or before handing work to QA to verify it meets requirements
 ---
 
 # Requesting Code Review
@@ -85,7 +85,7 @@ You: [Fix progress indicators]
 - Get feedback, apply, continue
 
 **Ad-Hoc Development:**
-- Review before merge
+- Review before handoff to QA
 - Review when stuck
 
 ## Red Flags

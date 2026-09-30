@@ -168,8 +168,8 @@ None of its own: the seat delegates. Every skill and the role it serves is in
 Everything above is the seat *pattern*. Four things are **project law** and must be written
 here, by the seat and the PM together, before the seat can act on them:
 
-- **What counts as CODE** (and therefore may never be seat-edited) — the exact paths. Mirror the
-  adapter's own definition; do not restate it loosely. (`<fill in>`)
+- **What counts as CODE** (and therefore may never be seat-edited) — the exact paths. Mirror
+  `scripts/config.sh`'s `CODE_GLOBS`; do not restate it loosely. (`<fill in>`)
 - **The binding gates** — the gate runner, and the binding extra gate with its trigger classes,
   its permitted targets, and the authorization it needs. If the project gates a destructive ring
   behind an explicit authorization token, **state the exact invocation** and state that without

@@ -1267,7 +1267,7 @@ step "Result"
 if [ "$SC_FAIL" -eq 0 ]; then
   say "  ✓ kit-init COMPLETE and PROVEN — prefix $PREFIX, trunk $TRUNK, role tag [$SELF_ROLE] …"
   say ""
-  say "  Next: write your project doc + adapter, state your code-vs-metadata globs,"
+  say "  Next: write your project doc + adapter, fill scripts/config.sh's CODE_GLOBS and TEST_GLOBS,"
   if [ -n "$GATE_MODE" ]; then
     say "  extend scripts/verify.sh's gate table as the project grows, and mint your first issue:"
   else

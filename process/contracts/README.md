@@ -51,7 +51,7 @@ about counting).
 | The process self-test harness | [self-test-harness.md](self-test-harness.md) | the tools tested in a sandbox (MIXED — kit half only) |
 | The acceptance tier | [acceptance-tier.md](acceptance-tier.md) | which tests pin the PRODUCT — **non-travelling reference** |
 | Retention completeness | [retention-completeness.md](retention-completeness.md) | a deletion under the retained area requires a same-change ledger row — **non-travelling reference** |
-| The progress record | [progress-record.md](progress-record.md) | one record shape, one place, transient by construction — **converged on two producers on purpose**, plus every refusal made through `kit_refuse` (§ 1a) |
+| The progress record | [progress-record.md](progress-record.md) | one record shape, one place, transient by construction — its producers derived by § 5a's command, never restated, plus every refusal made through `kit_refuse` (§ 1a) |
 | The kit upgrade | [kit-upgrade.md](kit-upgrade.md) | a newer kit in, nothing the project changed overwritten, the rest a checklist |
 | The non-blocking ask | [ask.md](ask.md) | a blocking question that records and returns, never waits |
 | The model-provisioning seam | [model-provisioning-seam.md](model-provisioning-seam.md) | one (model, effort) pair per class, written everywhere it is read |
@@ -71,7 +71,7 @@ reason.**
 | The process self-test harness | It carries the other half of the landing gate's test-only-marker invariant. |
 | The acceptance tier | **The mirror-image case: the only artifact class with no travelling spec at all.** Its reference implementation is deliberately **non-travelling** (one test runner's marker), which is exactly why the invariants had to be written here — the whole *"a rewrite from the corpus is acceptable"* claim rests on a tier an adopter can reimplement. |
 | Retention completeness | The retention doctrine's one venue-change mechanism, contracted so the rule travels even though no implementation does. **Deliberately non-travelling** — its own § 6 says so, and none of the hooks `scripts/githooks/` ships (`applypatch-msg`, `commit-msg`, `pre-commit`) implements it. |
-| The progress record | One record shape with two producers, contracted so the format has one definition rather than one per producer. |
+| The progress record | One record shape, contracted so the format has one definition rather than one per producer. |
 | The kit upgrade | The kit is copied and becomes the project's, so taking a newer one is a merge with rules — which files may be replaced, and when the version may move. |
 | The non-blocking ask | A blocking question and an interactive one are two different acts with two different failure modes; this sheet is what keeps the non-blocking route from quietly growing a wait into it. |
 | The model-provisioning seam | A model is set in several places; leaving one unwritten when another changes is how a re-provisioning silently half-happens, including inside the kit's own self-test. |

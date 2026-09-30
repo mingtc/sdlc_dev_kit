@@ -206,8 +206,8 @@ leaving it to whoever dispatches.**
 - **Work branches:** `<feature|fix|refactor>/<PREFIX>-NNN-<slug>` — **one branch per work item,
   never per role.**
 - **What counts as CODE** (and therefore needs a branch): `<the globs — the same list as
-  the adapter's § "The trunk, the branches, and what counts as code here", which is the authority
-  (built at SEED step 5 from process/templates/CLAUDE-adapter.template.md)>`.
+  scripts/config.sh's CODE_GLOBS, which the pre-commit hook reads and which is the authority
+  (process/EXTRACTION.md § 2.6)>`.
   Everything else — the board, the docs, this file — commits **direct to the trunk**.
   *(The rule: [`process/MANUAL.md` § The code-vs-metadata rule](process/MANUAL.md).)*
 - **The remote may be local-only.** A bare repository on disk is a fully supported `origin`; see
