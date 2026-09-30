@@ -627,6 +627,15 @@ columns and never the cards.*
   **Nothing to do**, unless your register already holds an entry with more than its three fields or
   an unstamped reopen.
 
+- **`check-board.sh` gains `[r]`, a declared reverse-coverage report (reports only — it never
+  decides the verdict).** `[l]` already catches a citation that resolves to nothing; `[r]` looks the
+  other way — a live register entry that constrains a PRD but that PRD never cites, so a reader
+  entering through the PRD alone re-derives the ruling. Cited **by a card** does not count: only a
+  citation from the PRD itself (`requirements/PRD-*.md`) discharges it. Mark an entry that binds the
+  whole project rather than one PRD `[cross-cutting]`, at the head of its `Ruling` field, and it is
+  exempt. **Nothing to do**, unless your register already holds a live, non-exempt entry no PRD
+  cites — either add the citation, or mark the entry `[cross-cutting]`.
+
 ### Changed
 
 - **The card creators render `--stories` instead of copying the template's example stories.** An issue or

@@ -169,7 +169,11 @@ stranger, reading only the PRD, arrive at a different answer and be reasonable?*
 and the PRD **citing the id** as `[decision: D-NN]` in its § Decision Log, **never the text in both
 places**. The PRD's Decision Log is a **citation list, not an authoring site**: a second copy of a
 ruling is the copy that drifts, and the board check reports a citation that resolves to nothing or to
-a retired id.
+a retired id. **A card citing the id is not the PRD citing it** — a fork that constrains a
+requirement is re-derived by anyone entering through the PRD alone until the PRD itself carries the
+citation. A fork that binds the whole project rather than one PRD is marked `[cross-cutting]` instead
+([`requirements/DECISIONS.md`](../../requirements/DECISIONS.md) § *Which decisions live HERE*) so no
+PRD is expected to cite it.
 
 **Every card carries a `forks:` field stating which of these it resolved.** `forks: [D-NN, ...]`, or
 `forks: none` if it resolved none — checked, not merely trusted: `finish-pr.sh` refuses a landing

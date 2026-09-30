@@ -263,7 +263,15 @@ meeting being forgotten.
 
 **Overlap — a fork that CONSTRAINS a requirement gets BOTH:** the ruling here under its `D-NN`, and
 the PRD **citing that id**. **Never the text in both places.** Cite by id, never inline: an inlined
-copy is a second authoring site, and it is the copy that drifts.
+copy is a second authoring site, and it is the copy that drifts. The citation is what a rebuilder
+working from the PRD alone would otherwise have to re-derive — so "constrains" means what it says:
+a card citing the id is not the PRD citing it, and does not discharge this.
+
+**Cross-cutting — a fork NO single PRD should cite.** Some rulings bind the whole project rather
+than one PRD's requirements (the active role set, a repository-wide convention): no PRD constrains
+on them, so none should carry the citation. Mark one **`[cross-cutting]`**, at the head of the
+`Ruling` field, the same place the THIRD and FOURTH states put their own token — in the same three
+fields, never a fourth. An entry without the mark is read as though some PRD constrains on it.
 
 **Ad-hoc — the permanent home.** A decision made in a story, a review or a conversation is **not
 durable where it was made**. The seat that makes it **promotes it to this register in the same

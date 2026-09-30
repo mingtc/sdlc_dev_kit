@@ -23,6 +23,8 @@
 #       and a SEED-step marker once day one has closed.
 #   (q) declared-register entry SHAPE — every `D-NN` entry is exactly three fields, and a later
 #       entry that reopens or supersedes an earlier one names a stamp on the earlier entry (advisory).
+#   (r) declared reverse coverage — a live register entry that CONSTRAINS a PRD but that PRD never
+#       cites; a `[cross-cutting]` entry is exempt (advisory).
 # This list and the print order must hold the same letters, in the same order, once each:
 #   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
 #   grep -E '^#   \([a-z]\)' scripts/check-board.sh | sed -E 's/^#   (\([a-z]\)).*/\1/'
@@ -107,6 +109,15 @@ CITATION_MARKER='\[decision:[[:space:]]*(D-[0-9]+)\]'
 CITATION_EXCLUDE='scripts/
 .git/
 .claude/skills/'
+# ─── ARM (r)'s OPERAND: declared reverse coverage ─────────────────────────────
+# Where a PRD lives — a glob, not a hard-coded prefix: new-prd.sh's PRD_PREFIX is a project seam
+# (scripts/config.sh), and this arm must widen with it rather than go quietly blind under a
+# renamed prefix. A project that renames its prefix repoints this string to match.
+PRD_SURFACE='requirements/PRD-*.md'
+# The exemption token: format law lives in requirements/DECISIONS.md § "Which decisions live HERE"
+# — at the HEAD of an entry's Ruling field, the same place the THIRD/FOURTH states put theirs, in
+# the same three fields, never a fourth.
+CROSS_CUTTING_MARKER='\[cross-cutting\]'
 # How far into a file check (d) looks for the frontmatter's OPENING `---`. Not always line 1: a
 # card minted from a template carries an HTML comment above it. The cap stops a `---` rule deep in
 # a body being read as a fence.
@@ -1592,6 +1603,127 @@ else
   fi
 fi
 # END register-shape arm
+
+# ---------------------------------------------------------------------------
+# (r) DECLARED REVERSE COVERAGE — arm (l) walks FROM a citing surface TO the
+#     register and catches a citation that resolves to nothing or to a retired id. It has no
+#     arm walking the OTHER direction: a LIVE register entry that CONSTRAINS a PRD but that PRD
+#     never cites. `pm.md`'s own fork/fact rule: "where a fork constrains a requirement it gets
+#     both — the ruling in the register, and the PRD citing the id... never the text in both
+#     places." A rebuilder working from the PRD alone re-derives whatever the PRD never routes to.
+#
+#     KEYED AS "cited BY THE PRD it constrains", not "cited anywhere" — a card citing the id is not
+#     the PRD citing it, and does not discharge this: a fork can constrain a PRD, be cited only
+#     from a card, and leave the PRD itself contradicting the ruling.
+#
+#     EXEMPT: an entry marked CROSS_CUTTING_MARKER (`[cross-cutting]`, at the head of its Ruling
+#     field, DECISIONS.md's own format law) binds the whole project rather than one PRD, so no PRD
+#     is expected to cite it.
+#
+#     REPORT ONLY, like (k)/(m)/(n)/(o)/(q): this arm cannot tell "not this PRD's domain" from
+#     "missed" for an entry that is neither cited nor marked exempt — that is a judgement call the
+#     kit cannot make generically, so it is named as a finding, never a refusal, and never sets
+#     `drift`.
+#
+#     WHAT THIS CANNOT SEE: an entry cited by its PRD in words but not the `[decision: D-NN]`
+#     marker (format law is the marker, same as arm (l)); an entry that legitimately belongs to NO
+#     PRD and is also not marked `[cross-cutting]` (this arm cannot distinguish that from a miss,
+#     and says so); and a citation from a PRD that does not live under PRD_SURFACE.
+# ---------------------------------------------------------------------------
+echo
+echo "[r] Declared reverse coverage — every live register entry a PRD constrains is cited BY THAT PRD, or declared \`[cross-cutting]\` (reports only — a judgement call this arm cannot make generically, and it never changes the verdict below) — $(cb_src):"
+r_reg_read=0; r_live=""; r_exempt=""
+while IFS='|' read -r rreg_path rreg_mark rreg_shape; do
+  [ -n "$rreg_path" ] || continue
+  rreg_file="$CB_TREE/$rreg_path"
+  [ -f "$rreg_file" ] || continue
+  r_reg_read=$((r_reg_read+1))
+  if command -v kit_decision_register_live >/dev/null 2>&1; then
+    r_live="$r_live
+$(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape")"
+  fi
+  # Entry spans, bounded the same way arm (q) bounds them: to the next entry heading of the SAME
+  # shape, any OTHER heading, or a bucket-separator "---" rule.
+  r_spans="$(awk -v m="$rreg_mark" -v s="$rreg_shape" '
+    index($0,m)==1 {
+      rest=substr($0,length(m)+1)
+      if (rest ~ ("^" s "([[:space:]]|$)")) {
+        if (cur != "") print cur, start, NR-1
+        id=rest; sub(/[[:space:]].*$/,"",id)
+        cur=id; start=NR; next
+      }
+      if (cur != "") { print cur, start, NR-1; cur="" }
+      next
+    }
+    /^##[[:space:]]/ || /^---[[:space:]]*$/ {
+      if (cur != "") { print cur, start, NR-1; cur="" }
+    }
+    END { if (cur != "") print cur, start, NR }
+  ' "$rreg_file" 2>/dev/null)"
+  while read -r rid rstart rend; do
+    [ -n "$rid" ] || continue
+    rbody="$(sed -n "${rstart},${rend}p" "$rreg_file")"
+    if printf '%s\n' "$rbody" | grep -qE "^\*\*Ruling\.\*\*[[:space:]]*${CROSS_CUTTING_MARKER}"; then
+      r_exempt="$r_exempt
+$rid"
+    fi
+  done <<< "$r_spans"
+done <<< "$(printf '%s\n' "$REGISTERS")"
+r_live="$(printf '%s\n' "$r_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
+r_exempt="$(printf '%s\n' "$r_exempt" | grep -E '^D-[0-9]+$' | sort -u || true)"
+r_live_n="$(printf '%s\n' "$r_live" | grep -c . || true)"
+r_exempt_n="$(printf '%s\n' "$r_exempt" | grep -c . || true)"
+
+if [ "$r_reg_read" -eq 0 ]; then
+  echo "      – no register was read (none of the declared ones is present in this source)  (skipped)"
+elif ! command -v kit_decision_register_live >/dev/null 2>&1; then
+  echo "      – scripts/lib/decision-register.sh is missing or did not define its readers — cannot read the register  (skipped)"
+else
+  # The PRD population: every file matching PRD_SURFACE, named so "no PRD" and "PRDs read but none
+  # cites X" are distinguishable in the output. A local nullglob: with no match the glob must
+  # expand to NOTHING, never stay literal (that would be read as one PRD file named for a pattern)
+  # and never abort under this script's `set -u`.
+  r_prds="$(
+    shopt -s nullglob nocaseglob 2>/dev/null
+    cd "$CB_TREE" 2>/dev/null || exit 0
+    for _g in $PRD_SURFACE; do
+      [ -f "$_g" ] && printf '%s\n' "$_g"
+    done
+  )"
+  r_prd_n="$(printf '%s\n' "$r_prds" | grep -c . || true)"
+
+  # Every id any PRD cites, across the whole PRD population — the SAME marker arm (l) reads.
+  r_cited=""
+  while IFS= read -r rpf; do
+    [ -n "$rpf" ] || continue
+    while IFS= read -r rcid; do
+      [ -n "$rcid" ] || continue
+      r_cited="$r_cited
+$rcid"
+    done <<< "$(grep -IaoE "$CITATION_MARKER" "$CB_TREE/$rpf" 2>/dev/null \
+                 | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' || true)"
+  done <<< "$r_prds"
+  r_cited="$(printf '%s\n' "$r_cited" | grep -E '^D-[0-9]+$' | sort -u || true)"
+
+  echo "      PRDs read ($PRD_SURFACE): $r_prd_n file(s) — $r_live_n live id(s), $r_exempt_n declared [cross-cutting]"
+  r_hits=0
+  while read -r rid; do
+    [ -n "$rid" ] || continue
+    printf '%s\n' "$r_exempt" | grep -qx "$rid" && continue
+    if ! printf '%s\n' "$r_cited" | grep -qx "$rid"; then
+      echo "      ⚠ $rid is not cited by any PRD under $PRD_SURFACE, and is not declared [cross-cutting] — if it constrains a requirement, cite it there; if it is project law no single PRD should cite, mark it [cross-cutting]"
+      r_hits=$((r_hits+1))
+    fi
+  done <<< "$r_live"
+  if [ "$r_hits" -eq 0 ]; then
+    if [ "$r_live_n" -eq 0 ]; then
+      echo "      – 0 live id(s) in the register(s) read  (nothing to check)"
+    else
+      echo "      ✓ none (every live, non-exempt id is cited by a PRD under $PRD_SURFACE)"
+    fi
+  fi
+fi
+# END reverse-coverage arm
 
 echo
 if [ "$drift" -eq 0 ]; then

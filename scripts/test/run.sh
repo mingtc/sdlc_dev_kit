@@ -359,6 +359,7 @@ CASES=(
   case_check_board_corpus_forward_reference
   case_check_board_corpus_seed_step_after_graduation
   case_check_board_register_shape
+  case_check_board_reverse_coverage
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted
   case_setup_warns_on_a_later_added_column

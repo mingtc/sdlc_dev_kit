@@ -64,6 +64,14 @@ _cb_q_section() {  # reads a check-board report on stdin
        f'
 }
 
+# Same shape as _cb_g_section, for arm [r] (declared reverse coverage).
+_cb_r_section() {  # reads a check-board report on stdin
+  awk '/^\[r\]/ { f = 1 }
+       f && /^──/ { exit }
+       f && /^\[[a-z]\]/ && !/^\[r\]/ { exit }
+       f'
+}
+
 # cb_set_dep <id> <slug> <folder> <blocks|blocked_by> <target-id>
 # Rewrite one dependency field into a seeded card's frontmatter. seed_issue does NOT emit
 # these keys, so this INSERTS before the CLOSING fence — the second `---`, never the
@@ -1008,10 +1016,121 @@ EOF
   out="$(cb_run)"
   printf '%s\n' "$out" | grep '^\[q\]' >/dev/null \
     && cf "(control) the ablation left [q] printing — the case would prove nothing"
-  printf '%s\n' "$out" | grep -E 'D-03|reopen' >/dev/null \
+  # Scoped to arm (q)'s OWN finding wording, never a bare 'D-03|reopen' — another arm (r,
+  # declared reverse coverage) also names D-03 on this same fixture (a live id no PRD cites),
+  # legitimately and independently, so a whole-report grep would cross-match its line instead.
+  printf '%s\n' "$out" | grep -E 'extra dated/bold fragment|carries no stamp of its own' >/dev/null \
     && cf "(control) a finding survived arm (q)'s ablation, so it is not attributable to this arm: $out"
 
   finish "arm (q): a stacked-amendment entry and an unstamped reopened entry are reported, a clean entry and a legal WORKING DEFAULT stay silent, the header carries 'reports only', and ablation-proven"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (r): DECLARED REVERSE COVERAGE.
+#
+# Arm (l) walks FROM a citing surface TO the register; this is the OTHER direction — a live
+# register entry that CONSTRAINS a PRD but that PRD never cites. Keyed as "cited BY THE PRD it
+# constrains", not "cited anywhere" — a card citing the id must NOT satisfy this: a fork can
+# constrain a PRD, be cited only from a card, and leave the PRD itself wrong. A `[cross-cutting]`
+# entry (project law no single PRD should cite) is exempt.
+#
+# Three ids, red-first as the brief requires:
+#   D-18 — constraining, cited ONLY by a card  → MUST fire.
+#   D-20 — constraining, cited BY ITS PRD      → must NOT fire.
+#   D-08 — declared [cross-cutting]            → must NOT fire, even though no PRD cites it.
+# =============================================================================
+case_check_board_reverse_coverage() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark marker prd_surface out
+  registers="$(cb_default REGISTERS)"
+  marker="$(cb_default CITATION_MARKER)"
+  prd_surface="$(cb_default PRD_SURFACE)"
+  [ -n "$registers" ]   || { cf "could not derive REGISTERS from the defaults block"; finish "arm (r): reverse coverage"; teardown; return; }
+  [ -n "$marker" ]      || cf "could not derive CITATION_MARKER from check-board.sh"
+  [ -n "$prd_surface" ] || cf "could not derive PRD_SURFACE from check-board.sh"
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")" "$SB_WORK/requirements"
+
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. Bucket
+${reg_mark}D-18 — constraining, cited only by a card
+**Ruling.** Her vocabulary at the boundary; ours behind it.
+**Why.** Consumer-facing text must not leak jargon.
+**Provenance.** PM session.
+
+${reg_mark}D-20 — constraining, cited by its own PRD
+**Ruling.** Anything unusual in a tick box is read as yes.
+**Why.** Silence must not hide a flagged case.
+**Provenance.** PM session.
+
+${reg_mark}D-08 — cross-cutting, no PRD should cite it
+**Ruling.** [cross-cutting] The active role set is PM, Dev, QA.
+**Why.** A repository-wide convention, not one PRD's requirement.
+**Provenance.** SEED step 2.
+EOF
+
+  # The PRD cites D-20 only. D-18 is cited only from a card, never from a PRD.
+  printf '## Decision Log\n- `[decision: D-20]` — tick-box rule\n' > "$SB_WORK/requirements/PRD-001-rota.md"
+  seed_issue dev_complete "$SB_PREFIX-530" boundary-card chore "Boundary wording"
+  printf '\n- <date> [Dev] cites `[decision: D-18]` as the source of this wording.\n' \
+    >> "$SB_WORK/progress/dev_complete/$SB_PREFIX-530-boundary-card.md"
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[r\]' >/dev/null \
+    || cf "no [r] section in the report — the arm is absent"
+
+  # --- must fire: D-18, constraining, cited only by a card --------------------
+  printf '%s\n' "$out" | _cb_r_section | grep -E '⚠ D-18 is not cited by any PRD' >/dev/null \
+    || cf "D-18 (constraining, cited only by a card) was NOT reported: $out"
+
+  # --- must NOT fire: D-20, cited by its own PRD -------------------------------
+  printf '%s\n' "$out" | _cb_r_section | grep '⚠' | grep -w 'D-20' >/dev/null \
+    && cf "D-20, cited by the PRD it constrains, was reported: $out"
+
+  # --- must NOT fire: D-08, declared [cross-cutting] ---------------------------
+  printf '%s\n' "$out" | _cb_r_section | grep '⚠' | grep -w 'D-08' >/dev/null \
+    && cf "D-08, declared [cross-cutting], was reported even though no PRD cites it: $out"
+  printf '%s\n' "$out" | _cb_r_section | grep -E '1 declared \[cross-cutting\]' >/dev/null \
+    || cf "the exempt count does not read 1: $(printf '%s\n' "$out" | _cb_r_section)"
+
+  # --- THE KEYING ITSELF: a card citation is NOT a PRD citation ----------------
+  # Control: if D-18 were cited from its own PRD instead of a card, it must go clean. Proves the
+  # case is not merely failing to find D-18 for an unrelated reason.
+  printf '## Decision Log\n- `[decision: D-20]` — tick-box rule\n- `[decision: D-18]` — now cited by its own PRD\n' \
+    > "$SB_WORK/requirements/PRD-001-rota.md"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_r_section | grep '⚠' | grep -w 'D-18' >/dev/null \
+    && cf "(control) D-18, once cited by its own PRD, was still reported — the arm is not reading PRD_SURFACE citations: $out"
+  printf '%s\n' "$out" | _cb_r_section | grep -E '✓ none' >/dev/null \
+    || cf "(control) with D-18 now PRD-cited and D-08 exempt, the arm did not read clean: $(printf '%s\n' "$out" | _cb_r_section)"
+
+  # --- REPORT-ONLY: this arm must never set drift ------------------------------
+  printf '%s\n' "$out" | grep '^\[r\]' | grep -i 'reports only' >/dev/null \
+    || cf "[r]'s header does not carry the 'reports only' token — kit-init's self-check cannot tell it apart from a deciding arm: $out"
+
+  # --- ABLATION: strip arm (r) and D-18's finding must vanish ------------------
+  printf '## Decision Log\n- `[decision: D-20]` — tick-box rule\n' > "$SB_WORK/requirements/PRD-001-rota.md"
+  publish_sandbox
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -q '# (r) DECLARED REVERSE COVERAGE' "$s" \
+    || cf "(control) no '(r) DECLARED REVERSE COVERAGE' seam in check-board.sh — cannot ablate"
+  sed -i.bak '/# (r) DECLARED REVERSE COVERAGE/,/# END reverse-coverage arm/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[r\]' >/dev/null \
+    && cf "(control) the ablation left [r] printing — the case would prove nothing"
+  # Scoped to (r)'s own section — after a clean ablation the section is gone entirely, so this
+  # also catches the section surviving under a different header by accident.
+  printf '%s\n' "$out" | _cb_r_section | grep -E 'D-18 is not cited' >/dev/null \
+    && cf "(control) a finding survived arm (r)'s ablation, so it is not attributable to this arm: $out"
+
+  finish "arm (r): a live register entry that constrains a PRD but is cited only by a card is reported; one cited by its own PRD, and one declared [cross-cutting], stay silent; a card citation does not satisfy the keying (control); the header carries 'reports only'; ablation-proven"
   teardown
 }
 
