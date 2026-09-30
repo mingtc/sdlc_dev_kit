@@ -340,8 +340,8 @@ columns and never the cards.*
   and a `Red line:` line (the red it produced), neither empty nor the template's `<placeholder>`.
   **What to do:** add `TEST_GLOBS` globs for your test tree; fill `## Ablation` on any card already
   in `dev_complete/` or later whose branch touches one of them, before its next landing. The shadow
-  check for an edited test file is **not** a new field — it is the `shadow-check` row `535`'s
-  `## QA Verdict` table already requires; `.claude/roles/qa.md` step 5 now points QA at it directly.
+  check for an edited test file is **not** a new field — it is the `shadow-check` row the
+  `## QA Verdict` table already requires, filled at `.claude/roles/qa.md` step 4.
 
 - **`check-board.sh`'s `[g]` (graduation) arm now measures `scripts/config.sh`'s `CODE_GLOBS` and
   `TEST_GLOBS`, and `PROJECT.md`'s `principal:`, as day-one FILL obligations** — previously an

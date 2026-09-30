@@ -171,7 +171,7 @@ The census (a measurement, not a promise):
   trunk and project name, every one DERIVED from a seam rather than typed in
   here — prints it, and the self-check FAILS when it is non-zero. What the census
   deliberately does NOT count: an identifier of the shape <PREFIX>-<digits>,
-  which is a PROVENANCE citation ("this rule is issue 374's lesson"). Rewriting
+  which is a PROVENANCE citation ("this rule is the lesson of issue 374"). Rewriting
   those would manufacture a reference to an issue your project never had; they
   are reported separately, as known residue you may delete by hand.
 

@@ -1358,8 +1358,8 @@ case_pre_commit_undeclared_code_globs_is_a_noop() {
 
 # =============================================================================
 # CASE — the pre-commit hook: a metadata-only commit is REFUSED off the trunk, naming
-# register-commit.sh, and ALLOWED on the trunk. RED FIRST: this hook did not exist before card
-# 527; run against a sandbox with scripts/githooks/pre-commit removed to see the refusal vanish.
+# register-commit.sh, and ALLOWED on the trunk. RED FIRST: run against a sandbox with
+# scripts/githooks/pre-commit removed to see the refusal vanish.
 # =============================================================================
 case_pre_commit_refuses_metadata_off_trunk() {
   cf_reset
@@ -1481,10 +1481,9 @@ case_pre_commit_allows_code_on_a_branch() {
 
 # =============================================================================
 # CASE — register-commit.sh lands a hand-made metadata edit made in a LINKED WORKTREE ON A
-# BRANCH OF ITS OWN onto the trunk, without ever committing in that worktree's checkout — card
-# 527's exact shape (a harness's own linked-worktree tool defaults to a fresh branch, not the
-# trunk ref). RED FIRST: before this card, no script existed to route this; a bare `git commit`
-# there was the only option and the pre-commit case above shows it refused.
+# BRANCH OF ITS OWN onto the trunk, without ever committing in that worktree's checkout (a
+# harness's own linked-worktree tool defaults to a fresh branch, not the trunk ref). Without this
+# script, a bare `git commit` there is the only route, and the pre-commit case above refuses it.
 # =============================================================================
 case_register_commit_lands_from_a_linked_worktree() {
   cf_reset
