@@ -1249,6 +1249,49 @@ case_check_board_declined_is_judged_and_counted() {
 }
 
 # =============================================================================
+# CASE — ARM (b) READS THE ARCHIVE THRESHOLD FROM scripts/config.sh, NOT A HARD-CODED 10.
+#
+# The adapter template asks the adopter to declare "the archive sweep threshold" but the script
+# ignored it and always compared against a literal 10. Set QA_COMPLETE_THRESHOLD=3 in the
+# sandbox's config.sh (the one seam, process/contracts/config-seam.md) and expect arm (b) to
+# report the drift at 3, not 10.
+# =============================================================================
+case_check_board_reads_the_configured_archive_threshold() {
+  cf_reset
+  make_sandbox
+  local out
+
+  # Declare the threshold the way an adopter would — the shipped seam shape, a lower number.
+  sed -i.bak 's/^QA_COMPLETE_THRESHOLD="\${QA_COMPLETE_THRESHOLD:-[^}]*}"/QA_COMPLETE_THRESHOLD="\${QA_COMPLETE_THRESHOLD:-3}"/' \
+    "$SB_WORK/scripts/config.sh"
+  rm -f "$SB_WORK/scripts/config.sh.bak"
+  grep -q 'QA_COMPLETE_THRESHOLD:-3' "$SB_WORK/scripts/config.sh" \
+    || cf "(setup) the sandbox's config.sh does not declare the lowered threshold — cannot test the seam: $(grep QA_COMPLETE_THRESHOLD "$SB_WORK/scripts/config.sh")"
+
+  seed_issue qa_complete "$SB_PREFIX-610" first  chore "First"
+  seed_issue qa_complete "$SB_PREFIX-611" second chore "Second"
+  seed_issue qa_complete "$SB_PREFIX-612" third  chore "Third"
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[b\]' | grep -F '3 / 3 threshold' >/dev/null \
+    || cf "arm (b) did not read the 3 declared in scripts/config.sh — reported against the kit's shipped default instead: $(printf '%s\n' "$out" | grep '^\[b\]')"
+  printf '%s\n' "$out" | grep '^\[b\]' | grep -F 'scripts/config.sh in this source' >/dev/null \
+    || cf "arm (b) did not name scripts/config.sh as the threshold's source: $(printf '%s\n' "$out" | grep '^\[b\]')"
+
+  # One more card over the DECLARED threshold (3), still under the kit's shipped default (10):
+  # this is the case the seam exists to catch — a hard-coded 10 would read this as healthy.
+  seed_issue qa_complete "$SB_PREFIX-613" fourth chore "Fourth"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[b\]' | grep '⚠ over' >/dev/null \
+    || cf "arm (b) did not flag 4 cards as over a declared threshold of 3 — it is still comparing against 10: $(printf '%s\n' "$out" | grep '^\[b\]')"
+
+  finish "check-board arm (b) reads QA_COMPLETE_THRESHOLD from scripts/config.sh in the source it inspects, and reports over threshold at the declared value rather than the kit's shipped default"
+  teardown
+}
+
+# =============================================================================
 # CASE — § LOG'S HEADING IS ONE BOUNDED DECLARATION.
 #
 # `^##[[:space:]]+Log` also matched `## Logistics`: kit-init refused a fresh tree as lived, the

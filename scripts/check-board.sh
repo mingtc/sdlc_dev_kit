@@ -65,7 +65,10 @@ fi
 
 # ── Greppable defaults: consumers and tests DERIVE these with sed. Never re-type them elsewhere.
 STATUS_FOLDERS='todo|in_progress|dev_complete|qa_complete|blocked|done|declined'
-QA_COMPLETE_THRESHOLD=10
+# QA_COMPLETE_THRESHOLD is NOT declared here: scripts/config.sh is the one authority
+# (process/contracts/config-seam.md), and arm (b) reads it from $CB_TREE below, so a
+# value an adopter declared there is honoured rather than shadowed by a second default.
+KIT_QA_COMPLETE_THRESHOLD_DEFAULT=10
 # § Log rotation trigger, in BYTES: a few long lines carry real token weight at a small line
 # count. 32 KiB ≈ 8k tokens of session-start budget. Rotate with archive-progress.sh.
 PROGRESS_LOG_BYTE_THRESHOLD=32768
@@ -232,6 +235,24 @@ cb_src() {
   case "$CB_TRUNK_SRC" in GUESSED*) printf '\n   trunk: %s' "$CB_TRUNK_SRC" ;; esac
 }
 
+# ── Arm (b)'s operand: QA_COMPLETE_THRESHOLD, read from THIS SOURCE's scripts/config.sh —
+# never a second default re-typed here (process/contracts/config-seam.md § 2). Extracted by
+# its fixed declaration shape, never sourced: $CB_TREE may be an archived ref, not a tree this
+# process should execute. Absent or unparseable falls back to the kit's own default and says so.
+QA_COMPLETE_THRESHOLD="$KIT_QA_COMPLETE_THRESHOLD_DEFAULT"
+QA_COMPLETE_THRESHOLD_SRC="the kit's own default (scripts/config.sh not found in this source)"
+if [ -f "$CB_TREE/scripts/config.sh" ]; then
+  _qct="$(sed -n 's/^QA_COMPLETE_THRESHOLD="\${QA_COMPLETE_THRESHOLD:-\([^}]*\)}"/\1/p' \
+            "$CB_TREE/scripts/config.sh" | head -1)"
+  if printf '%s' "$_qct" | grep -qE '^[0-9]+$'; then
+    QA_COMPLETE_THRESHOLD="$_qct"
+    QA_COMPLETE_THRESHOLD_SRC="scripts/config.sh in this source"
+  else
+    QA_COMPLETE_THRESHOLD_SRC="the kit's own default (scripts/config.sh in this source does not declare QA_COMPLETE_THRESHOLD in its shipped shape)"
+  fi
+  unset _qct
+fi
+
 drift=0
 echo "── check-board.sh — board-drift report @ $(date +%Y-%m-%dT%H:%M:%S)"
 echo "   repo: $REPO_ROOT"
@@ -322,10 +343,10 @@ else
     [ -e "$f" ] && qc_count=$((qc_count+1))
   done
   if [ "$qc_count" -gt "$QA_COMPLETE_THRESHOLD" ]; then
-    echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ⚠ over — run ./scripts/archive.sh --apply — $(cb_src)"
+    echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ⚠ over — run ./scripts/archive.sh --apply — $(cb_src); threshold: $QA_COMPLETE_THRESHOLD_SRC"
     drift=1
   else
-    echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ✓ — $(cb_src)"
+    echo "[b] qa_complete/ depth: $qc_count / $QA_COMPLETE_THRESHOLD threshold  ✓ — $(cb_src); threshold: $QA_COMPLETE_THRESHOLD_SRC"
   fi
 fi
 

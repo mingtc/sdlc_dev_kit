@@ -588,6 +588,13 @@ columns and never the cards.*
   **If you edited your `finish-pr.sh` without committing it to the trunk,** land that edit first (by hand, or through a reviewed branch that the trunk's copy lands);
   until then every landing refuses.
 
+- **The archive sweep threshold has one seam.** `scripts/config.sh` now declares
+  `QA_COMPLETE_THRESHOLD` (kit default 10), and `check-board.sh` arm (b) reads it from there
+  instead of a hard-coded 10; the adapter's "archive sweep threshold" row now points at
+  `config.sh` instead of asking for a number. **What to do:** if your adapter already states a
+  number for this row, move it into `scripts/config.sh` (`QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-<your number>}"`)
+  and change the adapter row to say so — it was silently ignored before this release.
+
 ### Added
 
 - **`verify.sh` reports when a declared guard floor is inert.** `GUARD_SET`/`GUARD_ENUM` are
