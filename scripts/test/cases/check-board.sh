@@ -1929,6 +1929,38 @@ case_check_board_arm_e_merge_commit_quote_boundary() {
 }
 
 # =============================================================================
+# CASE — arm [e] counts the exempted population APART from the prefixed one: "N subject(s) carry
+# a [Role] prefix; M exempt … not held to it", never "all N+M carry".
+#
+# One prefixed subject, one exempted (git's own `Merge branch '…'`) — the clean-verdict sentence
+# must print 1 and 1, never fold the exempted one into "all 2 carry a [Role] prefix", which is a
+# sentence claiming this arm checked a subject it explicitly skipped.
+# =============================================================================
+case_check_board_arm_e_counts_exempt_apart() {
+  cf_reset
+  make_sandbox
+
+  local hook="$SB_WORK/scripts/githooks/commit-msg"
+  [ -f "$hook" ] \
+    || _fixture_die "case_check_board_arm_e_counts_exempt_apart: the sandbox ships no commit-msg hook, so there is no epoch to derive."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  sbcommit -q --allow-empty -m "[PM] a properly prefixed landing" >/dev/null 2>&1
+  sbcommit -q --allow-empty -m "Merge branch 'feature/x' into main" >/dev/null 2>&1
+  publish_sandbox
+
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -E '✓ all [0-9]+ scanned subject\(s\) carry a \[Role\] prefix' >/dev/null \
+    && cf "ABLATION FAILED — the arm still prints the OLD 'all N carry' sentence, which counts the exempted merge subject toward N: $out"
+  printf '%s\n' "$out" | grep -F '✓ 1 subject(s) carry a [Role] prefix; 1 exempt' >/dev/null \
+    || cf "the two populations were not printed apart as '1 … ; 1 exempt …' — the exempted merge subject was counted toward the prefixed population, or the clean-verdict sentence's shape moved: $out"
+
+  finish "check-board arm [e]: a scan with one prefixed and one exempted (merge) subject prints '1 subject(s) carry a [Role] prefix; 1 exempt … not held to it', never 'all 2 carry' (ablation-proven)"
+  teardown
+}
+
+# =============================================================================
 # CASE — NO LOCATION IS THE ONLY CORRECT ONE.
 #
 # Arm (f)'s publication path is registered against the MAIN worktree, so a report run from a

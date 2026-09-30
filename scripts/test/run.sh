@@ -376,6 +376,7 @@ CASES=(
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime
   case_check_board_arm_e_merge_commit_quote_boundary
+  case_check_board_arm_e_counts_exempt_apart
   case_check_board_shallow_clone_does_not_narrow
   case_check_board_trailer_scan_shares_the_epoch
   case_check_board_arm_h_reads_the_hook_family

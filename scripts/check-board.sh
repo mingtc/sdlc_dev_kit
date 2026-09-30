@@ -598,6 +598,7 @@ cb_rule_scope_lines() {  # <count excluded>
 echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, squash-aware) — prefixes $role_src:"
 role_hits=0
 role_scanned=0
+role_exempt=0
 if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
   while IFS='|' read -r sha parents; do
     [ -z "$sha" ] && continue
@@ -622,10 +623,10 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
     # ("Merge commit messages into one doc"), which is never git-generated and would be
     # silently counted as scanned-and-exempt rather than as a missing [Role] prefix.
     case "$subj" in
-      "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit '"*) continue ;;
-      "Revert \""*|"Revert '"*) continue ;;
-      "Squashed commit of the following:"*) continue ;;   # narrowed with commit-msg's
-      "fixup! "*|"squash! "*|"amend! "*) continue ;;
+      "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit '"*) role_exempt=$((role_exempt+1)); continue ;;
+      "Revert \""*|"Revert '"*) role_exempt=$((role_exempt+1)); continue ;;
+      "Squashed commit of the following:"*) role_exempt=$((role_exempt+1)); continue ;;   # narrowed with commit-msg's
+      "fixup! "*|"squash! "*|"amend! "*) role_exempt=$((role_exempt+1)); continue ;;
     esac
     if ! printf '%s' "$subj" | grep -qE "^\[(${ROLE_PREFIXES})\] "; then
       echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj"
@@ -644,7 +645,10 @@ fi
 if [ "$role_scanned" -eq 0 ]; then
   echo "    – $CB_RULE_REV resolved but yielded no inspectable subject  (skipped)"
 elif [ "$role_scanned" -gt 0 ] && [ "$role_hits" -eq 0 ]; then
-  echo "    ✓ all $role_scanned scanned subject(s) carry a [Role] prefix"
+  # TWO POPULATIONS, printed apart: role_scanned includes every exempted subject (git's own
+  # merge/revert/squash/autosquash shapes), which were never held to the rule — "all N carry"
+  # over a count that INCLUDES them is a sentence that claims more than this arm checked.
+  echo "    ✓ $((role_scanned - role_exempt)) subject(s) carry a [Role] prefix; $role_exempt exempt (merge/revert/squash/autosquash) not held to it"
 fi
 
 # ---------------------------------------------------------------------------
