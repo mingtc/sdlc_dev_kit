@@ -1608,6 +1608,62 @@ case_check_board_trailer_scan_shares_the_epoch() {
 }
 
 # =============================================================================
+# CASE — arm [h] reads the SAME attribution family the hook refuses, and folds the SAME Unicode
+# hyphens the hook folds — one authoring site (lib/attrib-trailer.sh), not two readers that drift.
+#
+# The hook's rule (2) refuses the wording family `co-authored-by|co-developed-by|assisted-by|
+# generated-by|signed-off-by` plus "generated/written (with|by) …" prose; an EARLIER version of
+# [h] matched only a narrower pair (`co-authored-by:` and "generated with" only), so an
+# `Assisted-by:` trailer could read clean in the drift report while the hook — on a tree that had
+# it wired — would already refuse it. Separately, a Unicode hyphen (U+2011 non-breaking hyphen
+# here) spells `Co‑Authored‑By:` in a way neither reader's ASCII-anchored pattern used to see.
+#   (1) `Assisted-by:` (a wording the hook refuses, absent from [h]'s narrower earlier pair) → reported
+#   (2) the SAME family member, hyphens folded, matches what the HOOK itself would refuse — proven
+#       by running the hook (MSG_OK unset) over the identical subject+trailer and reading its exit
+#   (3) a U+2011-hyphenated `Co‑Authored‑By:` → reported by [h] (ablation: without the fix
+#       a byte-literal `-by:` anchor does not see it)
+# =============================================================================
+case_check_board_arm_h_reads_the_hook_family() {
+  cf_reset
+  make_sandbox
+
+  local hook="$SB_WORK/scripts/githooks/commit-msg"
+  [ -f "$hook" ] \
+    || _fixture_die "case_check_board_arm_h_reads_the_hook_family: the sandbox ships no commit-msg hook."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+
+  # (1) a wording the hook refuses but [h]'s narrower earlier pair never matched.
+  sbcommit -q --allow-empty -m "$(printf '[PM] a landing\n\nAssisted-by: Claude Code')" >/dev/null 2>&1
+  local sha_assisted; sha_assisted="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  # (3) the SAME wording family, spelled with U+2011 (non-breaking hyphen) instead of ASCII `-`.
+  sbcommit -q --allow-empty -m "$(printf '[PM] another landing\n\nCo\xe2\x80\x91Authored\xe2\x80\x91By: Claude')" >/dev/null 2>&1
+  local sha_unicode; sha_unicode="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  publish_sandbox
+
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep "$sha_assisted" | grep 'carries a generated trailer' >/dev/null \
+    || cf "(1) 'Assisted-by: Claude Code' ($sha_assisted) was NOT reported — [h] is still matching its own older, narrower pair rather than the hook's declared wording family: $out"
+  printf '%s\n' "$out" | grep "$sha_unicode" | grep 'carries a generated trailer' >/dev/null \
+    || cf "(3) a U+2011-hyphenated 'Co-Authored-By:' ($sha_unicode) was NOT reported — the Unicode hyphen was not folded before matching: $out"
+
+  # (2) THE SAME MESSAGE, put through the hook itself (no MSG_OK): if the hook does not refuse
+  # this exact subject+trailer, (1) proved [h] agrees with nothing and this case is circular.
+  local msgfile rc
+  msgfile="$SB_TMP/msg-assisted.txt"
+  printf '[PM] a landing\n\nAssisted-by: Claude Code\n' > "$msgfile"
+  rc=0; ( cd "$SB_WORK" && ./scripts/githooks/commit-msg "$msgfile" >/dev/null 2>&1 ) || rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(2) the hook itself ACCEPTED 'Assisted-by: Claude Code' — [h] and the hook disagree, or the hook no longer refuses the wording (1) relies on"
+
+  finish "check-board arm [h] reads the hook's own declared attribution-trailer family via lib/attrib-trailer.sh: 'Assisted-by:' is reported (1), agreeing with what the hook itself refuses over the identical message (2), and a U+2011-hyphenated 'Co-Authored-By:' is reported once the Unicode hyphen is folded (3)"
+  teardown
+}
+
+# =============================================================================
 # CASE — arm [i]: blocks/blocked_by symmetry, and the four states it must tell apart.
 #
 # The fields are HAND-MAINTAINED (no script writes them), yet

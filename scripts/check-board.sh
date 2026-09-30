@@ -157,6 +157,12 @@ fi
 # shellcheck source=lib/decision-register.sh
 [ -f "$CB_LIB_DIR/decision-register.sh" ] && . "$CB_LIB_DIR/decision-register.sh" 2>/dev/null || true
 
+# The shared attribution-family reader (arm [h] and scripts/githooks/commit-msg's rule (2) read
+# the SAME wording list and fold the SAME Unicode hyphens the SAME way). A load failure degrades
+# arm [h] to its own narrower, un-normalized pair — never an exit.
+# shellcheck source=lib/attrib-trailer.sh
+[ -f "$CB_LIB_DIR/attrib-trailer.sh" ] && . "$CB_LIB_DIR/attrib-trailer.sh" 2>/dev/null || true
+
 # ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
 # Resolved as kwt_resolve does, and the last link is READ from that library, never re-typed.
 CB_REMOTE="${KWT_REMOTE:-origin}"
@@ -972,17 +978,20 @@ fi
 # ---------------------------------------------------------------------------
 # (h) GENERATED-TRAILER scan of the same window as (e), sharing its epoch (one hook file, one
 #     epoch) and ROLE_SCAN_N. commit-msg's rule (2) stops the next commit; this reads history
-#     (contracts/commit-attribution.md § 4). The markers are derived from the hook, and the
-#     fallback is named. Scope: commit MESSAGES only, not specs, Activity entries or review notes.
+#     (contracts/commit-attribution.md § 4). The wording family and the markers are BOTH derived
+#     from the hook through lib/attrib-trailer.sh's kit_attrib_offender — the same reader the hook
+#     itself calls — so this arm reports exactly what the hook refuses, Unicode hyphens (U+2010
+#     through U+2015, U+2212) folded first in both. The fallback is named. Scope: commit MESSAGES
+#     only, not specs, Activity entries or review notes.
 # ---------------------------------------------------------------------------
 echo
-TOOL_TRAILER_MARKERS="$(sed -n "s/^TOOL_TRAILER_MARKERS='\(.*\)'/\1/p" "$CB_TREE/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
-h_src="derived from scripts/githooks/commit-msg"
-if [ -z "$TOOL_TRAILER_MARKERS" ]; then
-  TOOL_TRAILER_MARKERS='claude|anthropic|copilot|chatgpt|openai|gpt|gemini|codex|aider|bot'
-  h_src="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared marker list"
+h_src="derived from scripts/githooks/commit-msg, via lib/attrib-trailer.sh"
+if ! command -v kit_attrib_offender >/dev/null 2>&1; then
+  h_src="THE KIT'S FALLBACK SET — scripts/lib/attrib-trailer.sh did not load, so this is not your project's declared wording family"
+elif [ -z "$(kit_attrib_trailer_words "$CB_TREE" 2>/dev/null)" ]; then
+  h_src="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared wording family"
 fi
-echo "[h] generated-trailer scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, commit MESSAGES only) — markers $h_src:"
+echo "[h] generated-trailer scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, commit MESSAGES only) — wordings $h_src:"
 h_hits=0
 h_scanned=0
 h_preepoch=0
@@ -993,11 +1002,13 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
       h_preepoch=$((h_preepoch+1)); continue
     fi
     h_scanned=$((h_scanned+1))
-    # The whole message: a trailer lives in the body. Both patterns mirror the hook's anchoring,
-    # so "generated with" mid-sentence is prose, not a provenance line.
+    # The whole message: a trailer lives in the body. kit_attrib_offender mirrors the hook's own
+    # three arms and anchoring, so "generated with" mid-sentence is prose, not a provenance line.
     h_body="$(git -C "$REPO_ROOT" log -1 --format=%B "$h_sha" 2>/dev/null || true)"
-    h_bad="$( { printf '%s\n' "$h_body" | grep -iE "^[[:space:]]*co-authored-by:.*[^[:alnum:]](${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" || true; } | head -1 )"
-    [ -n "$h_bad" ] || h_bad="$( { printf '%s\n' "$h_body" | grep -iE '^[^[:alnum:]]*generated with[[:space:]]' || true; } | head -1 )"
+    h_bad=""
+    if command -v kit_attrib_offender >/dev/null 2>&1; then
+      h_bad="$(printf '%s\n' "$h_body" | kit_attrib_offender "$CB_TREE" 2>/dev/null || true)"
+    fi
     if [ -n "$h_bad" ]; then
       echo "    ⚠ ${h_sha:0:9} carries a generated trailer: $(printf '%s' "$h_bad" | sed 's/^[[:space:]]*//')"
       h_hits=$((h_hits+1)); drift=1

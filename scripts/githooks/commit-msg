@@ -36,6 +36,14 @@ if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/refuse.sh" ]; then
   . "$HOOK_DIR/../lib/refuse.sh" 2>/dev/null || true
 fi
 
+# kit_normalize_hyphens, the SAME optional way: a hook that cannot find it still refuses every
+# ASCII-hyphen wording below, it just does not fold a Unicode hyphen (U+2010-U+2015, U+2212) to
+# `-` first — degraded, never turned into an accept.
+if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/attrib-trailer.sh" ]; then
+  # shellcheck source=../lib/attrib-trailer.sh
+  . "$HOOK_DIR/../lib/attrib-trailer.sh" 2>/dev/null || true
+fi
+
 # $1 is the path to the file holding the proposed commit message.
 MSG_FILE="${1:-}"
 [ -z "$MSG_FILE" ] && exit 0            # no message file → nothing to guard (defensive)
@@ -69,6 +77,15 @@ esac
 cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev/null \
              | grep -vE '^[[:space:]]*#' || true)"
 
+# Rule (2) reads a HYPHEN-NORMALIZED copy only: a Unicode hyphen/dash (U+2010-U+2015, U+2212) —
+# an editor's or a harness's own banner substitution — folds to `-` first, or `Co‑Authored‑By:`
+# does not match a pattern anchored on `-by:` and a refused wording reads as clean. Rule (1)'s
+# role-prefix check keeps reading $cleaned unchanged: `[Role]` carries no hyphen to fold.
+attrib_cleaned="$cleaned"
+if command -v kit_normalize_hyphens >/dev/null 2>&1; then
+  attrib_cleaned="$(printf '%s\n' "$cleaned" | kit_normalize_hyphens)"
+fi
+
 # --- RULE (2): no generated-attribution line, in any of its common wordings --------
 # THREE arms, all anchored at a line start: § A.1 forbids such a LINE, and mid-sentence prose is
 # not one.
@@ -84,12 +101,12 @@ cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev
 #       machine attribution once it names a tool.
 # No `head`: it exits early, the upstream grep dies of SIGPIPE, and under pipefail that becomes
 # the result. `sed -n '1p'` reads to EOF.
-offender="$(printf '%s\n' "$cleaned" \
+offender="$(printf '%s\n' "$attrib_cleaned" \
   | grep -iE "^[[:space:]]*(${ATTRIB_TRAILER_WORDS}):(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
   | sed -n '1p' || true)"
-[ -n "$offender" ] || offender="$(printf '%s\n' "$cleaned" \
+[ -n "$offender" ] || offender="$(printf '%s\n' "$attrib_cleaned" \
   | grep -iE '^[^[:alnum:]]*generated[[:space:]-]+(with|by)[[:space:]:]' | sed -n '1p' || true)"
-[ -n "$offender" ] || offender="$(printf '%s\n' "$cleaned" \
+[ -n "$offender" ] || offender="$(printf '%s\n' "$attrib_cleaned" \
   | grep -iE "^[^[:alnum:]]*written[[:space:]-]+(with|by)(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
   | sed -n '1p' || true)"
 

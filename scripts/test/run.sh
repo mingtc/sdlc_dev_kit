@@ -378,6 +378,7 @@ CASES=(
   case_check_board_arm_e_merge_commit_quote_boundary
   case_check_board_shallow_clone_does_not_narrow
   case_check_board_trailer_scan_shares_the_epoch
+  case_check_board_arm_h_reads_the_hook_family
   case_check_board_dependency_symmetry
   case_kwt_dirty_guard_reports_widely_refuses_narrowly
   case_check_board_main_checkout_unpushed
