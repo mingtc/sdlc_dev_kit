@@ -979,6 +979,11 @@ columns and never the cards.*
 
 ### Fixed
 
+- **The kit's self-test was red on a project that finished day one.** Several cases assumed the
+  shipped, unfilled shape of `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS` and `PROJECT.md`'s
+  `principal:`; their fixtures now set that state explicitly, whatever the tree already holds.
+  **Nothing to do.**
+
 - **SEED's *Day one is done when* now names `.gitignore`'s and `.env.example`'s `# FILL ME.` lines**, which
   check-board `[g]` reads; before, a project following SEED could not reach graduation. **Nothing to do**, unless `[g]`
   reports either line: replace it with your own entries, or a line saying there are none.

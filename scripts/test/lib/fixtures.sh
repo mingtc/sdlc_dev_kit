@@ -397,6 +397,37 @@ _neu_array() {
     || _fixture_die "_neu_array: emptying ${name} in ${f##*/} destroyed its own '${name}=(' fence."
 }
 
+# _array_set_body <file> <ARRAY> <line>...
+#
+# Replace a declared array's ENTIRE body — from `NAME=(` to the matching `)`, whatever it
+# currently holds: empty, a real entry, or a `# DECLARED EMPTY —` comment — with exactly the
+# given lines. STATE-INDEPENDENT ON PURPOSE (card: self-test cases assume a pristine tree): a
+# plant anchored on the array being LITERALLY EMPTY (`s/NAME=\(\n\)/…/`) silently does nothing
+# once a tree past day one leaves a comment inside the parens, and the "plant took" assertion
+# that follows it must then be read against the PARSED array (never a bare string the shipped
+# comments above the array also contain — grepping for `"tests/*"` or `"src/*"` passes on the
+# shipped EXAMPLE line regardless of whether the plant landed).
+#
+# One caller, not one perl expression per case: a moved anchor is caught here once.
+_array_set_body() {
+  local f="$1" name="$2"; shift 2
+  [ -f "$f" ] || _fixture_die "_array_set_body: $f does not exist in the sandbox."
+  grep -qE "^${name}=\($" "$f" \
+    || _fixture_die "_array_set_body: no '^${name}=(' line in ${f##*/} — the array was renamed or reshaped, so nothing was planted and every assertion downstream would be about the unplanted array."
+  local body="" line
+  for line in "$@"; do body="${body}${line}"$'\n'; done
+  BODY="$body" perl -i -0pe 'BEGIN{$a=shift} s/^\Q$a\E=\(\n.*?^\)/$a."=(\n".$ENV{BODY}.")"/mse' "$name" "$f"
+  local got want
+  got="$(awk -v a="$name" '
+    $0 == a "=(" { inb = 1; next }
+    inb && /^\)/ { inb = 0; next }
+    inb { print }
+  ' "$f")"
+  want="${body%$'\n'}"
+  [ "$got" = "$want" ] \
+    || _fixture_die "_array_set_body: ${name} in ${f##*/} does not hold exactly the planted body after the replace — got: $(printf '%s' "$got" | tr '\n' '|')"
+}
+
 # =============================================================================
 # THE SECOND NEUTRALIZER — the .claude/ tree the kit-init cases copy in.
 #

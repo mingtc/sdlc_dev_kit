@@ -9,17 +9,15 @@
 # lands with no '## Ablation' section at all.
 # =============================================================================
 
-# _declare_test_globs <glob> — plant one TEST_GLOBS entry into the sandbox's config.sh, the
-# same perl idiom board.sh's CODE_GLOBS cases use, asserting the plant took.
+# _declare_test_globs <glob> — plant TEST_GLOBS as EXACTLY one entry into the sandbox's
+# config.sh, via _array_set_body (fixtures.sh): a whole-body replace, state-independent of
+# whatever TEST_GLOBS currently holds (empty, a `# DECLARED EMPTY —` comment on a tree past day
+# one, or a stray entry). _array_set_body's own postcondition reads the PARSED array, never a
+# bare string the shipped comments above TEST_GLOBS also carry ("tests/*" appears in config.sh's
+# own example comment).
 _declare_test_globs() {
   local glob="$1" cfg="$SB_WORK/scripts/config.sh"
-  grep -qE '^TEST_GLOBS=\($' "$cfg" \
-    || _fixture_die "_declare_test_globs: no 'TEST_GLOBS=(' line in config.sh — the seam was renamed or removed."
-  # BEGIN{shift}, not $ENV{}: the same convention _declare_gate uses — the record stays out of
-  # a child's environment and the glob is never interpolated into the perl program text.
-  perl -0pi -e 'BEGIN{$g=shift} s/TEST_GLOBS=\(\n\)/TEST_GLOBS=(\n  "$g"\n)/' "$glob" "$cfg"
-  grep -qF "\"$glob\"" "$cfg" \
-    || _fixture_die "_declare_test_globs: the TEST_GLOBS plant ('$glob') did not take."
+  _array_set_body "$cfg" TEST_GLOBS "  \"$glob\""
 }
 
 # =============================================================================
@@ -100,7 +98,7 @@ case_finish_pr_ablation_branch_cannot_undeclare_test_globs() {
   publish_sandbox
   git -C "$SB_WORK" branch "feature/${id}-work" "$SB_TRUNK" >/dev/null 2>&1
   git -C "$SB_WORK" checkout -q "feature/${id}-work" >/dev/null 2>&1
-  perl -0pi -e 's/^TEST_GLOBS=\(\n[^)]*\)/TEST_GLOBS=(\n)/m' "$SB_WORK/scripts/config.sh"
+  _array_set_body "$SB_WORK/scripts/config.sh" TEST_GLOBS
   grep -qxF '  "tests/*"' "$SB_WORK/scripts/config.sh" \
     && _fixture_die "case_finish_pr_ablation_branch_cannot_undeclare_test_globs: the branch's TEST_GLOBS was not emptied"
   mkdir -p "$SB_WORK/tests"

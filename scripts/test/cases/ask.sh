@@ -2,22 +2,37 @@
 # process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/cases/ask.sh — sourced by scripts/test/run.sh, never run on its own.
-# scripts/ask.sh, driven against a sandbox carrying the real shipped PROJECT.md and
-# requirements/DECISIONS.md, plus the two .claude/settings*.json.example files read from the
-# real tree (make_sandbox does not copy .claude/ — see fixtures.sh).
+# scripts/ask.sh, driven against a sandbox carrying a SYNTHETIC minimal PROJECT.md (never a copy
+# of the real one — see _ask_pm_section) and requirements/DECISIONS.md, plus the two
+# .claude/settings*.json.example files read from the real tree (make_sandbox does not copy
+# .claude/ — see fixtures.sh).
 # =============================================================================
 
-# _ask_fill_pm <dir> — the shipped PROJECT.md, with `principal:` and its channel filled.
-# The two blanks are single-line whole-content backtick spans (PROJECT.md § Who answers when
-# nobody is watching); this is the same shape check-board.sh's [g2] FILL scan reads.
+# _ask_pm_section <principal-backtick-span> <channel-backtick-span> — the exact two-line shape
+# ask.sh's _pm_field reads (the KIT-CLASS marker line first, so a tree that DROPS it at
+# graduation — SEED's own rule — is not what these cases are testing), NEVER a copy of a real
+# PROJECT.md: $REAL_REPO_ROOT/PROJECT.md is unfilled only before day one, and a tree that
+# finished day one (the card this family exists for) has already filled it with THAT project's
+# own principal — a plant anchored on the unfilled `<who answers…>` shape then silently no-ops
+# over a real answer. Synthesizing the section is state-independent of whichever tree this
+# harness runs in.
+_ask_pm_section() {
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** `%s`\n- **Their channel:** `%s`\n' "$1" "$2"
+}
+
+# _ask_fill_pm <dir> — a synthetic PROJECT.md with `principal:` and its channel FILLED.
 _ask_fill_pm() {
   local dir="$1"
-  cp "$REAL_REPO_ROOT/PROJECT.md" "$dir/PROJECT.md"
-  awk '
-    /^- \*\*`principal:`\*\* `<who answers/ { print "- **`principal:`** `Nadia, shop manager`"; next }
-    /^- \*\*Their channel:\*\* `<the directory/ { print "- **Their channel:** `dev/questions/`"; next }
-    { print }
-  ' "$dir/PROJECT.md" > "$dir/PROJECT.md.ask.tmp" && mv "$dir/PROJECT.md.ask.tmp" "$dir/PROJECT.md"
+  _ask_pm_section 'Nadia, shop manager' 'dev/questions/' > "$dir/PROJECT.md"
+}
+
+# _ask_unfilled_pm <dir> — a synthetic PROJECT.md with `principal:` and its channel left as the
+# shipped blank shape (`<angle-bracket>`, whole span) — the precondition
+# case_ask_refuses_with_no_principal (b) needs, independent of whether the REAL PROJECT.md in
+# this tree has already been filled.
+_ask_unfilled_pm() {
+  local dir="$1"
+  _ask_pm_section '<who answers when no PM/human session is watching>' '<the directory or file this project'"'"'s questions go to>' > "$dir/PROJECT.md"
 }
 
 # =============================================================================
@@ -67,8 +82,11 @@ case_ask_refuses_with_no_principal() {
   grep -q 'refusal=' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) the refusal's record carries no refusal= extra: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
-  # (b) THE SHIPPED PROJECT.md, UNFILLED — the blank is still `<angle-bracket>`.
-  cp "$REAL_REPO_ROOT/PROJECT.md" "$SB_WORK/PROJECT.md"
+  # (b) AN UNFILLED PROJECT.md — the blank is still `<angle-bracket>`. Synthesized
+  # (_ask_unfilled_pm), never copied from $REAL_REPO_ROOT/PROJECT.md: on a tree that finished
+  # day one that file's principal: is already filled with THIS project's own answer, and this
+  # case's premise (unfilled) would silently not hold.
+  _ask_unfilled_pm "$SB_WORK"
   out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) with PROJECT.md's principal: unfilled, exited 0"
   [ -z "$(find "$SB_WORK/dev" -type f -name '*-ask.md' 2>/dev/null)" ] \

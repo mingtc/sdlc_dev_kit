@@ -838,6 +838,17 @@ case_check_board_corpus_forward_reference() {
   [ -n "$corpus_file" ] || _fixture_die "case_check_board_corpus_forward_reference: could not derive CORPUS_FILE from check-board.sh."
   mkdir -p "$SB_WORK/$(dirname "$corpus_file")"
 
+  # THE NOT-YET-GRADUATED PRECONDITION, FORCED EXPLICITLY: this case needs arm [g] to NOT read
+  # graduation COMPLETE (the SEED-step marker below must stay silent until it does). On a tree
+  # past day one, scripts/config.sh's CODE_GLOBS/TEST_GLOBS already carry a `# DECLARED EMPTY —`
+  # comment that survives make_sandbox's neutralizer (it keeps comments, by contract), which
+  # arm [g] reads as CLEAN — enough by itself to flip G_GRADUATION_COMPLETE, since CLAUDE.md,
+  # README.md and PROJECT.md are never seeded here and read UNMEASURED rather than counting
+  # against it. Force both arrays back to genuinely empty and undeclared so this case's premise
+  # (not graduated) holds regardless of the tree this harness runs in.
+  _array_set_body "$SB_WORK/scripts/config.sh" CODE_GLOBS
+  _array_set_body "$SB_WORK/scripts/config.sh" TEST_GLOBS
+
   seed_issue todo "$SB_PREFIX-720" open-work chore "Still open, correctly marked"
   seed_issue done "$SB_PREFIX-721" landed-work chore "Landed, but the row was never flipped"
 
@@ -2077,6 +2088,14 @@ case_check_board_graduation() {
   # ── (b) RECEIPT + SCAFFOLDING: it reports, and names the files. ──────────────
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
+  # THE UNFILLED PRECONDITION, FORCED EXPLICITLY: this state asserts CODE_GLOBS/TEST_GLOBS
+  # report "empty, and not declared deliberately empty" below. On a tree past day one,
+  # scripts/config.sh's copy of both arrays already carries a `# DECLARED EMPTY —` comment that
+  # survives make_sandbox's neutralizer (it keeps comments, by contract), which would read as
+  # DECLARED rather than unfilled. Reset both to genuinely empty/undeclared so this state's
+  # premise holds regardless of the tree this harness runs in.
+  _array_set_body "$SB_WORK/scripts/config.sh" CODE_GLOBS
+  _array_set_body "$SB_WORK/scripts/config.sh" TEST_GLOBS
   publish_sandbox
 
   out="$(cb_run)"

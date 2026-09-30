@@ -1371,12 +1371,12 @@ case_pre_commit_refuses_metadata_off_trunk() {
 
   # CODE_GLOBS must be DECLARED for this refusal to fire at all (case_pre_commit_undeclared_code_globs_is_a_noop
   # covers the undeclared/fail-open state) — declare something that will never match this
-  # case's metadata paths, so every path below is judged metadata on purpose.
-  grep -qE '^CODE_GLOBS=\($' "$cfg" \
-    || _fixture_die "case_pre_commit_refuses_metadata_off_trunk: no 'CODE_GLOBS=(' line in config.sh."
-  perl -0pi -e 's/CODE_GLOBS=\(\n\)/CODE_GLOBS=(\n  "src\/*"\n)/' "$cfg"
-  grep -qF '"src/*"' "$cfg" \
-    || _fixture_die "case_pre_commit_refuses_metadata_off_trunk: the CODE_GLOBS plant did not take."
+  # case's metadata paths, so every path below is judged metadata on purpose. _array_set_body
+  # (fixtures.sh) replaces the WHOLE array body, so this takes whatever the tree's CODE_GLOBS
+  # currently holds — empty, filled, or a `# DECLARED EMPTY —` comment on a tree past day one —
+  # and its own postcondition reads the parsed array, not a bare '"src/*"' string the shipped
+  # comment above CODE_GLOBS also carries.
+  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
 
   publish_sandbox
 
@@ -1450,13 +1450,10 @@ case_pre_commit_allows_code_on_a_branch() {
   local cfg="$SB_WORK/scripts/config.sh"
   [ -x "$hook" ] \
     || { skp "pre-commit: allows a code commit on a branch" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
-  grep -qE '^CODE_GLOBS=\($' "$cfg" \
-    || _fixture_die "case_pre_commit_allows_code_on_a_branch: no 'CODE_GLOBS=(' line in config.sh — the seam was renamed or removed, so declaring a code path below would do nothing."
 
   # Declare src/* as code, on the trunk, in its own commit (config.sh IS metadata itself).
-  perl -0pi -e 's/CODE_GLOBS=\(\n\)/CODE_GLOBS=(\n  "src\/*"\n)/' "$cfg"
-  grep -qF '"src/*"' "$cfg" \
-    || _fixture_die "case_pre_commit_allows_code_on_a_branch: the CODE_GLOBS plant did not take."
+  # _array_set_body replaces the whole array body, whatever it currently holds.
+  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
   publish_sandbox
 
   ( cd "$SB_WORK" && git checkout -q -b feature/code-change )
@@ -1495,11 +1492,8 @@ case_register_commit_lands_from_a_linked_worktree() {
 
   # CODE_GLOBS must be DECLARED for the pre-commit control below to refuse at all
   # (case_pre_commit_undeclared_code_globs_is_a_noop covers the undeclared state).
-  grep -qE '^CODE_GLOBS=\($' "$cfg" \
-    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: no 'CODE_GLOBS=(' line in config.sh."
-  perl -0pi -e 's/CODE_GLOBS=\(\n\)/CODE_GLOBS=(\n  "src\/*"\n)/' "$cfg"
-  grep -qF '"src/*"' "$cfg" \
-    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: the CODE_GLOBS plant did not take."
+  # _array_set_body replaces the whole array body, whatever it currently holds.
+  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
 
   seed_issue dev_complete "$SB_PREFIX-527" linked-worktree-card chore "Card for the linked-worktree landing case"
   echo "D-01: an existing ruling" > "$SB_WORK/requirements-register.md"
