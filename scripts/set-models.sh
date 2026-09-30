@@ -30,8 +30,9 @@
 # Model ids are written EXACTLY as given — this script never hard-codes one (EXTRACTION.md, "THE
 # MODEL PINS ARE PRODUCT NAMES"). It writes only what you pass.
 #
-# Every refusal leaves a progress record (refusal=<rule-id>) where the project has one to write to;
-# a usage error exits 2, any other refusal 1.
+# Every refusal leaves a progress record (refusal=<rule-id>) where the project has one to write to.
+# Exit 2: an unknown option or a missing option value. Exit 1: any other refusal, including a
+# surplus positional argument — it looks like a usage error but is not one.
 
 set -uo pipefail
 

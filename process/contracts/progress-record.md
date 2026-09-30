@@ -172,6 +172,17 @@ arguments, converting *that script* records the role's lifecycle with **no repor
 the role at all**. Prefer that every time it is available — it is the version an agent cannot get
 wrong.
 
+**Converted producers — every script that calls `kit_progress` directly, on some path other than
+`kit_refuse`'s own (§ 6 names that population separately):**
+
+```sh
+grep -lE '^[[:space:]]*kit_progress[[:space:]]' scripts/*.sh
+```
+
+**Do not restate this list elsewhere.** § 6 and anything outside this sheet name the count only by
+pointing back at this command; a transcribed copy is wrong the first time a script is added, the
+same mistake this section exists to stop happening twice.
+
 ## 5b. THE ACTOR'S SHAPE, AND THE RESERVED EXTRA KEYS
 
 ### The actor
@@ -307,10 +318,12 @@ does not care about runs to learn it, which § 2's four-field envelope exists to
   It validates the class and the
   actor the same way — write, normalise, preserve the offered value — and reads the role
   vocabulary from the seam § 5b names rather than holding a copy of it.
-- Converted producers, and **only** these two: [`scripts/verify.sh`](../../scripts/verify.sh)
-  (the script side — per-gate start and outcome, plus one run summary) and
-  [`scripts/move-issue.sh`](../../scripts/move-issue.sh) (the role side — the board transition,
-  recorded after the push and never before).
+- **Converted producers — § 5a derives the list; do not restate it here.**
+  [`scripts/verify.sh`](../../scripts/verify.sh) (the script side — per-gate start and outcome,
+  plus one run summary) and [`scripts/move-issue.sh`](../../scripts/move-issue.sh) (the role
+  side — the board transition, recorded after the push and never before) are the two this
+  contract's invariants are written against; § 5a's command names every producer, including
+  the others.
 - **And every refusal made through [`scripts/lib/refuse.sh`](../../scripts/lib/refuse.sh)'s
   `kit_refuse`** (§ 1a): the helper writes the record, so a script that calls it is a producer with
   nothing else converted.

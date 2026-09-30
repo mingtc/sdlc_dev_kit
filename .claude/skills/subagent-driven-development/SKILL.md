@@ -197,7 +197,7 @@ Code reviewer: ✅ Approved
 
 [After all tasks]
 [Dispatch final code-reviewer]
-Final reviewer: All requirements met, ready to merge
+Final reviewer: All requirements met, ready to hand off
 
 Done!
 ```

@@ -33,8 +33,9 @@
 # and removes the checklist and .kit-upgrade/.
 #
 # It never commits: the upgrade is ordinary work, committed through the project's own board.
-# Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory;
-# a usage error exits 2, any other refusal 1.
+# Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory.
+# Exit 2: an unknown option or a missing option value. Exit 1: any other refusal, including a
+# surplus positional argument — it looks like a usage error but is not one.
 #
 # Options:
 #   --into <dir>   the project to upgrade: the top level of a git work tree. Required.

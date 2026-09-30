@@ -42,12 +42,14 @@ An absolute is a rule a hook can enforce and a reviewer can check by looking.
 commit-message guard (`scripts/githooks/commit-msg`, delegated to from `applypatch-msg` so the
 patch-application entrance judges the same way) reads the whole message rather than only the
 subject and refuses the attribution-trailer family (`Co-Authored-By:`, `Assisted-by:`,
-`Signed-off-by:`, and siblings) naming a **tool** — the markers are one named line in the hook,
-extended in one place — or a *"Generated with/by …"* or *"Written with/by …"* line; a trailer
-naming a **human** is legitimate practice and is accepted, and the documented bypass exists for
-carrying somebody else's commit verbatim, not for your own. It matches wordings, not every
-harness's own vocabulary (a bare model name with no vendor marker is a gap it does not close) —
-§ B is where a project states what its own harness adds and how the hook is told about it.
+`Signed-off-by:`, and siblings) naming a **tool** — or a *"Generated with/by …"* or *"Written
+with/by …"* line; a trailer naming a **human** is legitimate practice and is accepted, and the
+documented bypass exists for carrying somebody else's commit verbatim, not for your own. The
+wording family has one authoring site, `scripts/lib/attrib-trailer.sh`, so the hook and
+`check-board.sh` arm [h] (which reads history for the same family) derive the same match instead
+of drifting apart. It matches wordings, not every harness's own vocabulary (a bare model name with
+no vendor marker is a gap it does not close) — § B is where a project states what its own harness
+adds and how the hook is told about it.
 
 ### A.2 — **The subject declares the acting role, and the guard runs at write time**
 

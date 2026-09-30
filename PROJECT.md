@@ -113,6 +113,8 @@ and then the contract sheet, not this row, is what you must satisfy.
 | Retention completeness (only if you retire documents under a ledger) | `<e.g. a pre-commit hook you write (the kit ships none) — or "N/A: park only">` | [`process/contracts/retention-completeness.md`](process/contracts/retention-completeness.md) |
 | The progress record (optional — a no-op when its writer is absent, never a gate) | `<where transient progress records go — e.g. .progress-records/, or "not adopted">` | [`process/contracts/progress-record.md`](process/contracts/progress-record.md) |
 | The kit upgrade — take a newer kit without overwriting local law | `<e.g. the new kit's scripts/kit-upgrade.sh --into .>` | [`process/contracts/kit-upgrade.md`](process/contracts/kit-upgrade.md) |
+| The non-blocking ask — a question that returns | `<e.g. ./scripts/ask.sh>` | [`process/contracts/ask.md`](process/contracts/ask.md) |
+| The model-provisioning seam — one pair per work class, everywhere it is written | `<e.g. ./scripts/set-models.sh>` | [`process/contracts/model-provisioning-seam.md`](process/contracts/model-provisioning-seam.md) |
 
 **One row per contract sheet — the whole of
 [`process/contracts/`](process/contracts/README.md).** **The directory is the authority for the row

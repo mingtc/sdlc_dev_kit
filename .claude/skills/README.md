@@ -219,6 +219,8 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | Refactorer | Authored for this kit | Same as this repo | `KIT` |
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
 | `finishing-a-development-branch` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
+| `requesting-code-review` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; a blind re-copy erases it |
+| `subagent-driven-development` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
 **THE ORIGIN COLUMN IS THE KIT'S OWN RECORD, NOT A BLANK FOR YOU. The only row here you fill is the

@@ -2470,3 +2470,79 @@ RULE_CTL_EOF
   finish "$nregs restated rule(s) declared in RULE-COPIES blocks: every listed copy carries its key sentence, no unlisted shipped file does, and an emptied copy and a planted echo are both named; adopted root documents not measured: ${adopted:- (none)}"
   teardown
 }
+
+# =============================================================================
+# PROJECT.md's gates table has one row per contract sheet — run PROJECT.md's OWN check block
+# =============================================================================
+# PROJECT.md § Quality gates ships a two-command self-check (every contract-sheet link resolves;
+# every sheet under process/contracts/ has a row) and tells the reader to run it. Nothing ran it:
+# a sweep found two sheets UNROWED in the shipped table. This case runs that exact block, verbatim,
+# against the shipped tree, so the table and the directory are proven to agree rather than trusted to.
+case_project_md_one_row_per_contract_sheet() {
+  cf_reset
+  make_sandbox
+  local pm="$REAL_REPO_ROOT/PROJECT.md"
+  [ -f "$pm" ] || { skp "PROJECT.md: one row per contract sheet" "PROJECT.md absent from this tree"; teardown; return; }
+  [ -d "$REAL_REPO_ROOT/process/contracts" ] \
+    || { skp "PROJECT.md: one row per contract sheet" "process/contracts/ absent from this tree"; teardown; return; }
+
+  # ASSERT THE OPERAND: the directory must actually carry sheets, or a green run proves nothing.
+  local nsheets
+  nsheets="$(find "$REAL_REPO_ROOT/process/contracts" -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')"
+  [ "${nsheets:-0}" -ge 5 ] \
+    || _fixture_die "case_project_md_one_row_per_contract_sheet: only $nsheets sheet(s) under process/contracts/ — too few to be the shipped set; the scan lost its operand."
+
+  # arm 1: every process/contracts/*.md link PROJECT.md names resolves to a real file
+  local rel missing; missing="$(
+    grep -o 'process/contracts/[a-z-]*\.md' "$pm" | sort -u |
+      while read -r p; do [ -f "$REAL_REPO_ROOT/$p" ] || echo "MISSING $p"; done
+  )"
+  [ -z "$missing" ] || cf "PROJECT.md links a contract sheet that does not exist: $(printf '%s' "$missing" | tr '\n' '|')"
+
+  # arm 2: every sheet under process/contracts/ (bar README.md) has a row in PROJECT.md
+  # (bash 3.2 — what macOS ships — mis-parses a `case` with a no-op arm inside a `for` inside
+  # $(...) under `set -u`: it reports the loop variable unbound on the NEXT iteration. Each loop
+  # below tests with `if`/`!=` instead of `case`, and filters README.md ahead of the loop where
+  # it can.)
+  local unrowed; unrowed="$(
+    for p in "$REAL_REPO_ROOT"/process/contracts/*.md; do
+      rel="process/contracts/$(basename "$p")"
+      if [ "$rel" != "process/contracts/README.md" ]; then
+        grep -q "$rel" "$pm" || echo "UNROWED $rel"
+      fi
+    done
+  )"
+  [ -z "$unrowed" ] || cf "a shipped contract sheet has no row in PROJECT.md's gates table: $(printf '%s' "$unrowed" | tr '\n' '|')"
+
+  # ── THE REDDENING CONTROL, on a COPY — never the live tree: drop a real sheet's row and prove
+  #    the same two-arm check (run against the copy) names it UNROWED.
+  local ctl="$SB_TMP/ctl-project-md"
+  mkdir -p "$ctl/process/contracts"
+  cp "$pm" "$ctl/PROJECT.md"
+  cp "$REAL_REPO_ROOT"/process/contracts/*.md "$ctl/process/contracts/"
+  local victim=""
+  for p in "$ctl"/process/contracts/*.md; do
+    rel="process/contracts/$(basename "$p")"
+    if [ -z "$victim" ] && [ "$rel" != "process/contracts/README.md" ] && grep -q "$rel" "$ctl/PROJECT.md"; then
+      victim="$rel"
+    fi
+  done
+  if [ -z "$victim" ]; then
+    _control_did_not_run "find a rowed sheet in the copy to strike"
+  else
+    grep -v -- "$victim" "$ctl/PROJECT.md" > "$ctl/PROJECT.md.stripped" && mv "$ctl/PROJECT.md.stripped" "$ctl/PROJECT.md"
+    local planted; planted="$(
+      for p in "$ctl"/process/contracts/*.md; do
+        rel="process/contracts/$(basename "$p")"
+        if [ "$rel" != "process/contracts/README.md" ]; then
+          grep -q "$rel" "$ctl/PROJECT.md" || echo "UNROWED $rel"
+        fi
+      done
+    )"
+    printf '%s\n' "$planted" | grep -F "$victim" >/dev/null \
+      || cf "(control) striking $victim's row was not reported UNROWED: ${planted:-(nothing)}"
+  fi
+
+  finish "PROJECT.md: $nsheets contract sheet(s), every link resolves, every sheet has a row, and a struck row is caught"
+  teardown
+}

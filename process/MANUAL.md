@@ -318,8 +318,11 @@ bounces it.
    trunk is **expected** to be ALL-OLD until the merge; both are quoted, separately, and neither
    alone closes the handoff. *(The rule:
    [`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md) § A.5.)*
-4. **QA walks the AC line by line**, recording `PASS`/`FAIL` per bullet with **concrete
-   evidence** (a test name, a diff, a command's output, a payload shape). **An illustrative
+4. **QA walks the AC line by line**, recording the walk in the card's `## QA Verdict` table — one
+   row per AC id, plus a fixed `shadow-check` row — as `PASS`/`FAIL` per bullet with **concrete
+   evidence** (a test name, a diff, a command's output, a payload shape); `finish-pr.sh` refuses a
+   PASS landing with no such table, a row with no usable evidence, or a row whose verdict does not
+   match step 6's token (`.claude/roles/qa.md` step 4). **An illustrative
    example inside an AC must cite its source or be labelled approximate** — an uncited example
    is read as the contract, and when it is wrong the review has no honest verdict left except the
    third one below. Meeting one, check the example against its source before grading the bullet.
@@ -404,7 +407,10 @@ bounces it.
      trunk); no `Blocker`/`Critical` bug; adjacent shipped behavior still works (a `Major`/`Minor`
      break there is filed, not failed — next bullet but one). Action:
      `./scripts/finish-pr.sh <ID>` (squash-merges the branch into the trunk locally, deletes the
-     branch, advances `dev_complete → qa_complete`). Append `progress.md`:
+     branch, advances `dev_complete → qa_complete`). **`finish-pr.sh` also refuses a branch that
+     touches a declared `TEST_GLOBS` path with no well-formed `## Ablation` section** (what was
+     broken, and the red line it produced — `.claude/roles/dev.md`, `doctrine/instruments.md` §
+     A.2); fill it before this step, not after the refusal. Append `progress.md`:
      `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
    - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
      note listing the unmet AC; Dev resumes on the same branch.
@@ -699,11 +705,13 @@ understands only those four reads every record. `kit_progress_tail` prints the r
 - **Never a gate, and never a dependency.** No gate's verdict, no script's exit status and no
   output changes because a record was or was not written. Delete the library and every converted
   script behaves identically.
-- **Converged on two producers on purpose** — `verify.sh` and `move-issue.sh`. The rest of the
-  population is deliberately unconverted until a run has exercised the format; widen from the
-  derivation in the contract sheet's § 5a, not from memory. **Refusals are the one widening:** a
-  mechanism that refuses through `kit_refuse` (`scripts/lib/refuse.sh`) leaves one `error` record
-  carrying `refusal=<rule-id>`, so its refusals can be counted after the terminal has gone.
+- **Converged narrowly on purpose.** The contract's invariants are written against `verify.sh` and
+  `move-issue.sh`; the rest of the population is deliberately unconverted until a run has
+  exercised the format. **The full list of converted producers is derived, not stated — the
+  contract sheet's § 5a has the command; do not restate the count here or anywhere else.**
+  **Refusals are the one deliberate widening:** a mechanism that refuses through `kit_refuse`
+  (`scripts/lib/refuse.sh`) leaves one `error` record carrying `refusal=<rule-id>`, so its
+  refusals can be counted after the terminal has gone.
 
 **No role gains a reporting obligation.** The role-side record is written by the board mover,
 which was already given the hat and the id as arguments — so attribution is assigned by the

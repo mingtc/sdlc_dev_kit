@@ -100,7 +100,7 @@ Task tool (general-purpose):
 
     ### Assessment
 
-    **Ready to merge?** [Yes | No | With fixes]
+    **Ready to hand off?** [Yes | No | With fixes]
 
     **Reasoning:** [1-2 sentence technical assessment]
 

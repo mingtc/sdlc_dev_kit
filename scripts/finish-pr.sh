@@ -487,10 +487,16 @@ if "${PREMERGE_CMD[@]}"; then
 else
   _pre_rc=$?
   [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
-  # Both reds refuse, named apart: verify.sh exits 3 when a gate could not run (nothing was
-  # measured; the fix is in the environment). Any other non-zero status is FAIL.
+  # All three reds refuse, named apart: verify.sh exits 2 when it never ran at all (a
+  # configuration problem — nothing was measured, nothing was even attempted) and 3 when a gate
+  # could not run (nothing was measured either, but the runner did start). Only a plain FAIL
+  # (exit 1, or anything else) means the branch itself measured red.
   {
-    if [ "$_pre_rc" -eq 3 ]; then
+    if [ "$_pre_rc" -eq 2 ]; then
+      echo "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, an unknown argument, or a narrowed run's precondition) — refusing to merge '${BRANCH}'."
+      echo "       No squash, no push, no branch deletion, no issue advance."
+      echo "       Nothing about the branch was measured: this is the gate's own configuration, not the branch. Fix scripts/verify.sh (its own refusal names what it needs), then re-run finish-pr.sh."
+    elif [ "$_pre_rc" -eq 3 ]; then
       echo "Error: pre-merge gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — refusing to merge '${BRANCH}'."
       echo "       No squash, no push, no branch deletion, no issue advance."
       echo "       Nothing about the branch was measured: fix what the gate needs to start (its summary names it), then re-run finish-pr.sh."

@@ -315,6 +315,11 @@ columns and never the cards.*
 
 ### Action required
 
+- **Add `PROJECT.md` § Quality gates rows for `process/contracts/ask.md` (`scripts/ask.sh`) and
+  `process/contracts/model-provisioning-seam.md` (`scripts/set-models.sh`)**, beside the `kit-upgrade.md` row above.
+  The self-test now runs `PROJECT.md`'s own one-row-per-contract-sheet check, and is red until every shipped sheet
+  has its row.
+
 - **A subtask slice now gets the same landing checks a top-level card does: `subtask.sh move <id>
   qa_complete` refuses on a missing or malformed `## QA Verdict` table, a missing or malformed
   `forks:` field, or (when its branch diff touches a declared `TEST_GLOBS` path) a missing or
@@ -973,6 +978,13 @@ columns and never the cards.*
   `KIT-VERSION` reads the bare `X.Y.Z`, so read it as `X.Y.Z+<tree>` at your next upgrade's step 1.
 
 ### Fixed
+
+- **`finish-pr.sh` no longer reads a refused gate run as a failed branch.** When `verify.sh` exits 2 (the runner
+  never ran: an empty or malformed `GATES` table), the pre-merge message points at the gate configuration instead of
+  telling you to fix the branch. **Nothing to do.**
+
+- **The vendored `requesting-code-review` and `subagent-driven-development` skills no longer tell a Dev to merge.**
+  QA lands through `finish-pr.sh`; both skills are now `MIXED` in `.claude/skills/README.md`. **Nothing to do.**
 
 - **`check-board.sh`'s `[e]` ([Role]-prefix scan) now prints the prefixed and exempted subject
   counts apart** — "N subject(s) carry a [Role] prefix; M exempt (merge/revert/squash/autosquash)

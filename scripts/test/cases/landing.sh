@@ -653,6 +653,48 @@ case_finish_pr_premerge_names_an_unrunnable_gate() {
 }
 
 # =============================================================================
+# CASE — a pre-merge gate that REFUSED TO RUN (verify.sh exit 2: the runner itself never
+#        started — an empty/malformed GATES table, an unknown argument, or a narrowed run's
+#        own precondition) is named apart from a FAILED gate (exit 1), not folded into it.
+#
+# Before this case, finish-pr.sh's pre-merge block special-cased only exit 3; exit 2 fell into
+# the same "FAILED — fix the branch" branch as an actual measured red, telling the reader to
+# fix branch content when nothing about the branch was ever measured.
+# =============================================================================
+case_finish_pr_premerge_names_a_refused_gate() {
+  cf_reset
+  local out rc
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-786" sandbox chore "Pre-merge refused" "feature/$SB_PREFIX-786-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-786" work CHANGE.txt
+  printf '#!/usr/bin/env bash\nexit 2\n' > "$SB_TMP/gate-exit-2"; chmod +x "$SB_TMP/gate-exit-2"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$SB_TMP/gate-exit-1b"; chmod +x "$SB_TMP/gate-exit-1b"
+
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-exit-2" \
+            "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-786" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(2) a pre-merge gate that refused to run did not refuse the landing: $out"
+  printf '%s\n' "$out" | grep 'pre-merge gate REFUSED TO RUN' >/dev/null \
+    || cf "(2) the refusal does not say the gate REFUSED TO RUN: $(printf '%s' "$out" | grep -i 'pre-merge' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep 'pre-merge gate FAILED' >/dev/null \
+    && cf "(2) a gate that refused to run was reported as FAILED"
+  printf '%s\n' "$out" | grep 'Fix the branch' >/dev/null \
+    && cf "(2) a gate that refused to run told the reader to fix the branch, not the gate's own configuration"
+  assert_landing_untouched "(2)" "$SB_PREFIX-786" sandbox "feature/$SB_PREFIX-786-work" CHANGE.txt
+
+  # CONTROL: a failing gate (exit 1) is still FAILED, telling the reader to fix the branch.
+  out="$( cd "$SB_WORK" && FINISH_PR_TEST_ALLOW_STUB=1 FINISH_PR_VERIFY_CMD=true FINISH_PR_PREMERGE_CMD="$SB_TMP/gate-exit-1b" \
+            "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-786" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) a failing pre-merge gate did not refuse the landing: $out"
+  printf '%s\n' "$out" | grep 'pre-merge gate FAILED' >/dev/null \
+    || cf "(control) a failing pre-merge gate is no longer reported as FAILED: $(printf '%s' "$out" | grep -i 'pre-merge' | tr '\n' '|')"
+  assert_landing_untouched "(control)" "$SB_PREFIX-786" sandbox "feature/$SB_PREFIX-786-work" CHANGE.txt
+
+  finish "finish-pr.sh: a pre-merge gate that exits 2 (refused to run) refuses naming REFUSED TO RUN and points at the gate's configuration, never 'fix the branch'; exit 1 is still FAILED; neither lands anything"
+  teardown
+}
+
+# =============================================================================
 # CASE — an EMPTY merge aborts, before any branch deletion or advance.
 # =============================================================================
 case_finish_pr_empty_merge() {

@@ -14,7 +14,8 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 **Mandatory:**
 - After each task in subagent-driven development
 - After completing major feature
-- Before merge to main
+- Before handoff to QA — in this kit, landing to the trunk is QA's act via the project's landing
+  script, never the requester's own merge
 
 **Optional but valuable:**
 - When stuck (fresh perspective)

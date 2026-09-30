@@ -276,6 +276,7 @@ CASES=(
   case_finish_pr_recovery_step_three_finishes_either_half
   case_finish_pr_premerge_red
   case_finish_pr_premerge_names_an_unrunnable_gate
+  case_finish_pr_premerge_names_a_refused_gate
   case_finish_pr_empty_merge
   case_finish_pr_gate_absent_says_write_one
   case_finish_pr_gate_hardening
@@ -317,6 +318,7 @@ CASES=(
   case_shipped_runners_parse
   case_skills_carry_no_foreign_namespace
   case_skills_name_no_forge_unconditionally
+  case_project_md_one_row_per_contract_sheet
   case_upstream_name_only_where_kept
   case_dev_index_names_its_subdirs
   case_kit_init_markers_intact
@@ -458,6 +460,7 @@ CASES=(
   case_set_models_class_rewrites_pin_and_ladder_only
   case_set_models_all_rewrites_runners_too
   case_set_models_unknown_class_refuses
+  case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit
   case_set_models_list_changes_nothing
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count

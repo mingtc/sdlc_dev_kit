@@ -1987,6 +1987,48 @@ case_set_models_unknown_class_refuses() {
 }
 
 # =============================================================================
+# CASE — set-models.sh AND kit-upgrade.sh's --help text names the surplus-positional case
+#        under exit 1, apart from exit 2 (an unknown option) — the same distinction
+#        finish-pr.sh's --help already spells out by name.
+#
+# Before this case, both scripts' only exit-status sentence was "a usage error exits 2, any
+# other refusal 1" — a naive reader could not predict that a surplus positional (which LOOKS
+# like a usage error) exits 1, not 2.
+# =============================================================================
+case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit() {
+  cf_reset
+  make_sandbox
+  local sm="$SB_WORK/scripts/set-models.sh" ku="$SB_WORK/scripts/kit-upgrade.sh"
+  [ -x "$sm" ] || cf "scripts/set-models.sh is absent or not executable — the kit ships it"
+  [ -x "$ku" ] || cf "scripts/kit-upgrade.sh is absent or not executable — the kit ships it"
+
+  # arm 1: --help text names the surplus-argument case under exit 1
+  local help_sm help_ku
+  help_sm="$( "$sm" --help 2>&1 )"
+  help_ku="$( "$ku" --help 2>&1 )"
+  printf '%s\n' "$help_sm" | grep -i 'surplus' >/dev/null \
+    || cf "set-models.sh --help does not name a surplus/positional argument case at all: $(printf '%s' "$help_sm" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$help_ku" | grep -i 'surplus' >/dev/null \
+    || cf "kit-upgrade.sh --help does not name a surplus/positional argument case at all: $(printf '%s' "$help_ku" | tr '\n' '|' | cut -c1-300)"
+
+  # arm 2: the ACTUAL exit codes match what the help text now claims — a surplus positional is 1,
+  # an unknown option is 2, for both scripts.
+  local rc
+  ( cd "$SB_WORK" && "$sm" surplus-positional >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 1 ] || cf "set-models.sh with a surplus positional exited $rc, not 1"
+  ( cd "$SB_WORK" && "$sm" --bogus-option >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 2 ] || cf "set-models.sh with an unknown option exited $rc, not 2"
+
+  ( cd "$SB_WORK" && "$ku" --into . surplus-positional >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 1 ] || cf "kit-upgrade.sh with a surplus positional exited $rc, not 1"
+  ( cd "$SB_WORK" && "$ku" --bogus-option >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 2 ] || cf "kit-upgrade.sh with an unknown option exited $rc, not 2"
+
+  finish "set-models.sh and kit-upgrade.sh --help each name the surplus-argument case under exit 1, apart from exit 2 (an unknown option), and the real exit codes match"
+  teardown
+}
+
+# =============================================================================
 # CASE — `set-models.sh --list` IS READ-ONLY.
 # =============================================================================
 case_set_models_list_changes_nothing() {

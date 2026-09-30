@@ -57,7 +57,7 @@ interactive prompt nothing will answer.
 | `ask-channel-unusable` | the declared channel cannot be created, or is not writable |
 | `ask-write-failed` | the question file could not be written |
 | `ask-decisions-write-failed` | `--decision` named a live entry but the register write failed |
-| `unknown-option`, `unexpected-argument` | a mis-invocation |
+| `ask-unknown-option`, `ask-unexpected-argument` | a mis-invocation |
 
 **Not a refusal:** `--decision` naming an id with no live entry in the register, or naming an
 entry that has a standing ruling. Either way the call still writes the question file and says, in
