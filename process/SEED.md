@@ -236,6 +236,9 @@ you want to know how a stranger meets what you shipped.
   decision you record rather than a question you leave open. The axis and its members are
   [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md); this bullet is that list, read as
   a checklist;
+- **`.gitignore`'s build section and `.env.example`'s credential block no longer carry their
+  `# FILL ME.` line**: replace each with this project's own entries, or with one line saying there are
+  none yet. That line, not an `<angle bracket>`, is what check-board `[g]` reads in those two files;
 - **`scripts/config.sh`'s `CODE_GLOBS` and `TEST_GLOBS` are filled, or declared deliberately
   empty.** Both ship empty on purpose, which their own comments in that file read as UNDECLARED —
   UNENFORCED, not "no code or tests exist" — so `scripts/githooks/pre-commit` and

@@ -979,6 +979,10 @@ columns and never the cards.*
 
 ### Fixed
 
+- **SEED's *Day one is done when* now names `.gitignore`'s and `.env.example`'s `# FILL ME.` lines**, which
+  check-board `[g]` reads; before, a project following SEED could not reach graduation. **Nothing to do**, unless `[g]`
+  reports either line: replace it with your own entries, or a line saying there are none.
+
 - **`finish-pr.sh` no longer reads a refused gate run as a failed branch.** When `verify.sh` exits 2 (the runner
   never ran: an empty or malformed `GATES` table), the pre-merge message points at the gate configuration instead of
   telling you to fix the branch. **Nothing to do.**
