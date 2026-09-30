@@ -61,7 +61,11 @@ catching, because they are where behaviour is unconstrained.
 So, before an instrument is believed:
 
 - **Take it to the messiest realistic input you can construct**, and check it still fires. Not a
-  fixture written to satisfy it — a fixture written to defeat it.
+  fixture written to satisfy it — a fixture written to defeat it: one that CONTAINS the violation
+  the instrument exists to catch, shaped for the instrument's likely blind spot (its author's paved
+  path, § A.1 above), not a clean input merely dressed up as messy. One such fixture, observed
+  firing, is enough to believe the instrument on that shape; a shape it has not been shown this way
+  is still unmeasured, however plausible.
 - **Better, take it to real leftovers**: the output a real subject actually produced, from a
   previous run, incident or round. A fixture its author wrote is a fixture shaped by the same
   imagination that shaped the instrument.

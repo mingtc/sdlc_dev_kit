@@ -56,8 +56,11 @@ you could only have discovered by doing the work:
    script's own diagnostic line. Never quote test-runner or gate output, which carries your
    project's test output, and never your source, diffs or file contents; describe what they showed
    instead.
-2. **A rule that could not be obeyed as written** in a conforming project — it contradicts another
-   kit rule, or assumes something your adapter does not declare.
+2. **A rule that could not be obeyed as written** in a conforming project — for example, it
+   contradicts another kit rule, or assumes something your adapter does not declare; those are the
+   two most common shapes, not the only ones a genuine conflict can take. "What belongs here" ranks
+   value, in descending order — it does not make filing an entry mandatory; write one when the
+   finding clears § What does NOT belong here, below.
 3. **A tool or skill that answered confidently and wrongly.** These are the expensive ones: name
    what it reported and what was true.
 4. **A gap you had to fill yourself.** If you invented a convention because the kit had none, say

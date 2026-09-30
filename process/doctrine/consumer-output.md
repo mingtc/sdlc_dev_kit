@@ -1,10 +1,13 @@
 <!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR product's surfaces. The worked incident in A.3 is this kit's own, so nothing here needs anonymizing. -->
 # Consumer-output doctrine — what a tool's output owes a reader who cannot re-measure it
 
-**What this governs.** Any output your product hands to someone who **cannot go and check it**: a
-report, a per-row label, a status line, a summary figure, a verdict. Not the artifact's internals and
-not your own logs — the surface a consumer reads and then **acts on**, having no access to the
-evidence underneath it and, usually, no way to tell a measurement from an inference.
+**What this governs.** Any output handed to someone who **cannot go and check it** — tool-generated
+or **written by a person working on the product**, a closing summary included: a report, a per-row
+label, a status line, a summary figure, a verdict, a characterising word ("fixed", "closed",
+"hardened") in prose. The discriminator is re-measurability, not authorship — a human-written
+sentence a consumer cannot verify carries the same duty a tool's label does. Not the artifact's
+internals and not your own logs — the surface a consumer reads and then **acts on**, having no
+access to the evidence underneath it and, usually, no way to tell a measurement from an inference.
 
 **The one discriminator, and every rule below is a consequence of it: RE-MEASURABILITY.** The rest of
 this kit's doctrine addresses a reader who can go and check — a maintainer with the tree in front of

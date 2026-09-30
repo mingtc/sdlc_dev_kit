@@ -163,23 +163,30 @@ and the shape of one, are in the register itself
 
 **Which rulings go there, and which are PRD content — the fork/fact split.** A **fork** (two
 defensible answers existed and one was chosen) is a `D-NN` in the register. A **fact** (what the
-product does changed, with no fork) amends the PRD. The one-question diagnostic: *could a competent
-stranger, reading only the PRD, arrive at a different answer and be reasonable?* **Yes** → fork.
-**No** → fact. Where a fork **constrains** a requirement it gets both — the ruling in the register,
-and the PRD **citing the id** as `[decision: D-NN]` in its § Decision Log, **never the text in both
-places**. The PRD's Decision Log is a **citation list, not an authoring site**: a second copy of a
-ruling is the copy that drifts, and the board check reports a citation that resolves to nothing or to
-a retired id. **A card citing the id is not the PRD citing it** — a fork that constrains a
-requirement is re-derived by anyone entering through the PRD alone until the PRD itself carries the
-citation. A fork that binds the whole project rather than one PRD is marked `[cross-cutting]` instead
+product does changed, with no fork) amends the PRD. The one-question diagnostic applies to **any
+reading in question, not only PRD text** — a card's acceptance-criterion reading included: *could a
+competent stranger, reading only the source text (PRD, or the card if the reading is the card's
+own), arrive at a different answer and be reasonable?* **Yes** → fork. **No** → fact. Where a fork
+**constrains** a requirement — the PRD's own text would read differently once the fork is settled —
+it gets both: the ruling in the register, and the PRD **citing the id** as `[decision: D-NN]` in
+its § Decision Log, **never the text in both places**. The PRD's Decision Log is a **citation list,
+not an authoring site**: a second copy of a ruling is the copy that drifts, and the board check
+reports a citation that resolves to nothing or to a retired id. **A card citing the id is not the
+PRD citing it** — a fork that constrains a requirement is re-derived by anyone entering through the
+PRD alone until the PRD itself carries the citation. A fork that binds the whole project rather than
+one PRD is marked `[cross-cutting]` instead
 ([`requirements/DECISIONS.md`](../../requirements/DECISIONS.md) § *Which decisions live HERE*) so no
 PRD is expected to cite it.
 
-**Every card carries a `forks:` field stating which of these it resolved.** `forks: [D-NN, ...]`, or
-`forks: none` if it resolved none — checked, not merely trusted: `finish-pr.sh` refuses a landing
-where the field is absent, malformed, names an id that is not a live register entry, or where the
-branch itself (a register entry its diff adds or changes, or an Activity `[decision: D-NN]` citation)
-shows a fork `forks:` does not name.
+**Every card carries a `forks:` field stating which of these it resolved — whoever in the working
+pair makes the ruling, PM or the implementing leg, since routing is checked by what the branch
+itself shows, not by who wrote it.** `forks: [D-NN, ...]`, or `forks: none` if it resolved none —
+checked, not merely trusted: `finish-pr.sh` refuses a landing where the field is absent, malformed,
+names an id that is not a live register entry, or where the branch itself (a register entry its diff
+adds or changes, or an Activity `[decision: D-NN]` citation) shows a fork `forks:` does not name.
+That check catches an unrouted fork; it does not decide whether a given reading is a fork in the
+first place, or whether it constrains a requirement — those are this section's diagnostic, above,
+and still this seat's judgement to apply.
 
 ### Moving an issue (occasional PM use)
 

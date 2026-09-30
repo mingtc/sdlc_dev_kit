@@ -672,6 +672,16 @@ columns and never the cards.*
 
 ### Changed
 
+- **Four texts a cold reader found ambiguous now read clear.** `.claude/roles/pm.md`'s fork/fact
+  diagnostic now says explicitly that it applies to any reading in question (a card's own
+  acceptance-criterion reading included, not only PRD text) and names what the `forks:` check does
+  and does not settle. `process/doctrine/instruments.md`'s "a fixture written to defeat it" is
+  defined (a fixture containing the violation, shaped for the instrument's likely blind spot — not
+  a clean input dressed up as messy). `process/doctrine/consumer-output.md` now states plainly that
+  it covers human-written prose (a closing summary's characterising words included), not only a
+  tool's own labels. `process/templates/KIT-FEEDBACK.skeleton.md`'s rule-conflict entry is marked
+  illustrative rather than an exhaustive list, and "what belongs here" is a value ranking, not a
+  filing requirement.
 - **The card creators render `--stories` instead of copying the template's example stories.** An issue or
   bug card's References, seed entry and AC lines named `§ F1 § S1, S2` whatever `--stories` said; they
   now carry the stories given, or a `<story ids>` / `<story id>` blank. A bug minted without
