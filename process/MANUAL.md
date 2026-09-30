@@ -567,6 +567,15 @@ hold that branch at a time, the checkout that gives it up can simply be detached
 to a branch of its own — though not while a leg is working from that checkout (§ The kanban
 worktree).
 
+**A linked worktree on a branch of its own — not the trunk ref — is a different shape, and needs
+a route rather than a detach.** Tooling that creates a linked worktree commonly puts it on a
+fresh branch by default, not the trunk: a metadata edit made there has nowhere direct to go, and a
+bare `git commit` would land it on that branch instead of the trunk. `scripts/register-commit.sh`
+is the route — it reads the edit out of that checkout and lands it on the trunk through the
+standing kanban worktree, the same machinery `move-issue.sh` uses for a board move, and never
+commits in the linked checkout itself. `scripts/githooks/pre-commit` refuses a metadata-only
+commit made this way and names the route.
+
 **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
 capability matrix row, a doc correction that the code change *makes true* belongs in the commit
 that makes it true — splitting it onto the trunk publishes a claim about code that has not landed
@@ -586,8 +595,9 @@ states what no mechanism can do about it once the two have been split.
 
 ### The kanban worktree (load-bearing)
 
-`move-issue.sh` / `finish-pr.sh` / `subtask.sh` never commit in your checkout (`finish-pr.sh` does
-move one; its header says which, and when). All kanban version-control ops run inside a **standing detached worktree pinned to the trunk** (`.kanban-wt/`,
+`move-issue.sh` / `finish-pr.sh` / `subtask.sh` / `register-commit.sh` never commit in your
+checkout (`finish-pr.sh` does move one; its header says which, and when). All kanban
+version-control ops run inside a **standing detached worktree pinned to the trunk** (`.kanban-wt/`,
 gitignored, auto-bootstrapped, lock-serialized, and it fast-forwards your main checkout when that
 sits clean on the trunk). This is what lets a board move commit to the trunk **while your working
 checkout is on a work branch**. Never delete it mid-op; if an op dies between commit and push,

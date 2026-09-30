@@ -274,6 +274,19 @@ There is **no PR/MR object** — QA reviews the pushed **work branch** and the i
 a `## Handoff to QA` section to the **issue file body** (above `## Activity`) with the content
 below; that section + the Activity log ARE the review record QA reads:
 
+**This section has no commit route of its own — use `register-commit.sh` for it.** The issue
+file is metadata on the trunk; editing it in your own checkout and then calling
+`move-issue.sh` does not carry your edit anywhere; `move-issue.sh` re-derives the file inside the
+kanban worktree and never reads your checkout's copy (same reason as the stranding hazard above).
+Write the section into your checkout's copy of the issue file, wherever it currently sits
+(`in_progress/` before step 13's move, `dev_complete/` after — name the path you actually have),
+then land it with:
+
+```sh
+./scripts/register-commit.sh --role Dev --message "<PREFIX>-NNN: Handoff to QA notes" \
+  progress/in_progress/<PREFIX>-NNN-<slug>.md    # or progress/dev_complete/... if step 13 already ran
+```
+
 ```markdown
 ## Handoff to QA
 

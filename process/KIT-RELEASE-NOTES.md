@@ -315,6 +315,19 @@ columns and never the cards.*
 
 ### Action required
 
+- **A new git hook, `scripts/githooks/pre-commit`, refuses a metadata-only commit made on a
+  branch other than the trunk** — the shape a linked worktree on a branch of its own produces by
+  default (`process/MANUAL.md` § The code-vs-metadata rule) — and names the new
+  `scripts/register-commit.sh` as the route: it lands the same content on the trunk through the
+  kanban worktree, the way `move-issue.sh` lands a board move, and never commits in your checkout.
+  **What to do:** after upgrading, confirm `git config core.hooksPath` still points at
+  `scripts/githooks` (`kit-init.sh`/`setup.sh` already set it and chmod the whole directory, so an
+  upgraded tree needs no separate wiring step); **this refusal does nothing until you declare
+  `CODE_GLOBS` in `scripts/config.sh`** (your source tree, test tree and build/packaging
+  manifest) — shipped empty on purpose, and empty means unenforced, not "everything is
+  metadata," so no existing workflow breaks before you fill it in. `.claude/roles/dev.md`'s
+  *Handoff to QA* section now names `register-commit.sh` as its own commit route.
+
 - **Every card template gains a `## QA Verdict` table, and `finish-pr.sh` refuses a PASS landing without a
   well-formed one.** QA fills it at step 4 (`.claude/roles/qa.md`): a row per AC id, with a verdict, an evidence kind
   from a closed list and a pointer, plus a `shadow-check` row. The landing refuses a missing table, a row without

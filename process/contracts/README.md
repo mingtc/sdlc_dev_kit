@@ -70,7 +70,7 @@ reason.**
 | Outbound notification | Its contract is almost entirely *what it must NOT do* — be a gate, fail a caller, need configuration. |
 | The process self-test harness | It carries the other half of the landing gate's test-only-marker invariant. |
 | The acceptance tier | **The mirror-image case: the only artifact class with no travelling spec at all.** Its reference implementation is deliberately **non-travelling** (one test runner's marker), which is exactly why the invariants had to be written here — the whole *"a rewrite from the corpus is acceptable"* claim rests on a tier an adopter can reimplement. |
-| Retention completeness | The retention doctrine's one venue-change mechanism, contracted so the rule travels even though no implementation does. **Deliberately non-travelling** — its own § 6 says so, and `scripts/githooks/` ships only `applypatch-msg` and `commit-msg`. |
+| Retention completeness | The retention doctrine's one venue-change mechanism, contracted so the rule travels even though no implementation does. **Deliberately non-travelling** — its own § 6 says so, and none of the hooks `scripts/githooks/` ships (`applypatch-msg`, `commit-msg`, `pre-commit`) implements it. |
 | The progress record | One record shape with two producers, contracted so the format has one definition rather than one per producer. |
 | The kit upgrade | The kit is copied and becomes the project's, so taking a newer one is a merge with rules — which files may be replaced, and when the version may move. |
 | The non-blocking ask | A blocking question and an interactive one are two different acts with two different failure modes; this sheet is what keeps the non-blocking route from quietly growing a wait into it. |

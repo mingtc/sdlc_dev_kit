@@ -994,6 +994,9 @@ case_help_advertises_exactly_what_the_role_arm_accepts() {
       # subtask.sh validates --role before resolving the subtask tree, so a nonexistent tree
       # still reaches the whitelist.
       subtask.sh)    probe_cmd=(./scripts/subtask.sh move SBX-001-s1 in_progress --note n --role) ;;
+      # register-commit.sh validates --role BEFORE kwt_resolve/the worktree, so a placeholder
+      # path still reaches the whitelist untouched.
+      register-commit.sh) probe_cmd=(./scripts/register-commit.sh --message n a-placeholder-path.md --role) ;;
       *) _fixture_die "case_help_advertises_exactly_what_the_role_arm_accepts: '$t' joined the derived population and no invocation is declared for it. Add its arm — a case that cannot exercise a member knows nothing about it." ;;
     esac
     probe_out="$( cd "$SB_WORK" && "${probe_cmd[@]}" "$kept" 2>&1 || true )"
@@ -1132,6 +1135,9 @@ case_role_enforcement_derives_and_names_its_fallback() {
       move-issue.sh)  probe=(./scripts/move-issue.sh SBX-001 in_progress --note n --role) ;;
       subtask.sh)     probe=(./scripts/subtask.sh move SBX-001-s1 in_progress --note n --role) ;;
       check-board.sh) probe=() ;;   # declared UNREACHABLE, not forgotten — see the span above.
+      # register-commit.sh validates --role BEFORE kwt_resolve/the worktree, so a placeholder
+      # path still reaches the whitelist untouched.
+      register-commit.sh) probe=(./scripts/register-commit.sh --message n a-placeholder-path.md --role) ;;
       *) _fixture_die "case_role_enforcement_derives_and_names_its_fallback: '$t' declares a named fallback and no invocation is declared for it. Add its arm — a case that cannot exercise a member knows nothing about it." ;;
     esac
     [ "${#probe[@]}" -gt 0 ] || continue

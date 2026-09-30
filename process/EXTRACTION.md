@@ -421,12 +421,15 @@ none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree wi
 
 **Board + item lifecycle (KIT):** `config.sh` · `check-board.sh` · `move-issue.sh` ·
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
-`subtask.sh` · `archive.sh` · `archive-progress.sh`
+`subtask.sh` · `archive.sh` · `archive-progress.sh` · `register-commit.sh` — the ad hoc metadata
+route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
+register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT):** `lib/card-head.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/card-head.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
 `hooks/require-role.sh` · `hooks/session-start.sh` · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
-enforces is stamped)
+enforces is stamped) · `githooks/pre-commit` (KIT — it reads the project's `CODE_GLOBS` out of
+`scripts/config.sh` rather than carrying a stamped part of its own)
 
 **Notifications (KIT, all no-ops until configured):** `notify.sh` · `notify-hook.sh` ·
 `notify/<channel>.sh` — the channel adapters. **Not `notify/stall.sh`** — see

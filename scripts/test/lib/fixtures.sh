@@ -535,6 +535,9 @@ _kit_neutral_config() {
   _neu_scalar "$c" ISSUE_PREFIX "ISSUE_PREFIX=\"\${ISSUE_PREFIX:-${KIT_NEUTRAL_PREFIX}}\""
   _neu_scalar "$c" PRD_PREFIX   "PRD_PREFIX=\"\${PRD_PREFIX:-${KIT_NEUTRAL_PRD_PREFIX}}\""
   _neu_scalar "$c" PROJECT_NAME "PROJECT_NAME=\"\${PROJECT_NAME:-${KIT_NEUTRAL_PROJECT_NAME}}\""
+  # CODE_GLOBS: this repository's own declared code paths must never leak into a sandbox —
+  # every case that wants one declares it itself (case_pre_commit_allows_code_on_a_branch).
+  _neu_array "$c" CODE_GLOBS
 
   # kit-init's appended stamp receipt: remove it, or every kit-init case meets the
   # ALREADY-LIVED refusal on a sandbox that has not lived. No assertion that a line

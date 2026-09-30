@@ -317,6 +317,11 @@ CASES=(
   case_creation_id_check_reads_the_trunk
   case_commit_msg
   case_commit_msg_attribution_family
+  case_pre_commit_undeclared_code_globs_is_a_noop
+  case_pre_commit_refuses_metadata_off_trunk
+  case_pre_commit_allows_metadata_on_trunk
+  case_pre_commit_allows_code_on_a_branch
+  case_register_commit_lands_from_a_linked_worktree
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections

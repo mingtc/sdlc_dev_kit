@@ -1326,6 +1326,231 @@ case_commit_msg_attribution_family() {
 }
 
 # =============================================================================
+# CASE — CODE_GLOBS UNDECLARED (the shipped, empty state) is a NO-OP, not "everything is
+# metadata": a project that has not yet filled the seam in must see every ordinary feature-branch
+# commit go through untouched. This is the fixture that would catch the fail-CLOSED shape of this
+# guard, where an empty array made every ordinary code commit look like metadata and refused it.
+# =============================================================================
+case_pre_commit_undeclared_code_globs_is_a_noop() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  local cfg="$SB_WORK/scripts/config.sh"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: undeclared CODE_GLOBS is a no-op" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+  grep -qxF 'CODE_GLOBS=(' "$cfg" \
+    || _fixture_die "case_pre_commit_undeclared_code_globs_is_a_noop: no 'CODE_GLOBS=(' line in config.sh."
+  [ "$(_neu_array_records "$cfg" CODE_GLOBS)" -eq 0 ] \
+    || _fixture_die "case_pre_commit_undeclared_code_globs_is_a_noop: CODE_GLOBS is not empty in a freshly made sandbox — the neutralizer did not run, or this case's premise (the SHIPPED state) is not what it is testing."
+
+  publish_sandbox
+  ( cd "$SB_WORK" && git checkout -q -b feature/undeclared-globs )
+  echo "a ruling" > "$SB_WORK/a-metadata-file.md"
+  git -C "$SB_WORK" add a-metadata-file.md
+  local out rc
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "a metadata-only commit on a feature branch was REFUSED while CODE_GLOBS is undeclared (shipped empty) — undeclared must mean unenforced, or every adopter who has not yet filled the seam in gets every feature-branch commit refused: $out"
+
+  finish "pre-commit: CODE_GLOBS undeclared (the shipped empty state) is a no-op — an ordinary metadata-only commit on a feature branch is NOT refused until the adapter fills the seam in"
+  teardown
+}
+
+# =============================================================================
+# CASE — the pre-commit hook: a metadata-only commit is REFUSED off the trunk, naming
+# register-commit.sh, and ALLOWED on the trunk. RED FIRST: this hook did not exist before card
+# 527; run against a sandbox with scripts/githooks/pre-commit removed to see the refusal vanish.
+# =============================================================================
+case_pre_commit_refuses_metadata_off_trunk() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  local cfg="$SB_WORK/scripts/config.sh"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: refuses a metadata-only commit off the trunk" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+
+  # CODE_GLOBS must be DECLARED for this refusal to fire at all (case_pre_commit_undeclared_code_globs_is_a_noop
+  # covers the undeclared/fail-open state) — declare something that will never match this
+  # case's metadata paths, so every path below is judged metadata on purpose.
+  grep -qE '^CODE_GLOBS=\($' "$cfg" \
+    || _fixture_die "case_pre_commit_refuses_metadata_off_trunk: no 'CODE_GLOBS=(' line in config.sh."
+  perl -0pi -e 's/CODE_GLOBS=\(\n\)/CODE_GLOBS=(\n  "src\/*"\n)/' "$cfg"
+  grep -qF '"src/*"' "$cfg" \
+    || _fixture_die "case_pre_commit_refuses_metadata_off_trunk: the CODE_GLOBS plant did not take."
+
+  publish_sandbox
+
+  ( cd "$SB_WORK" && git checkout -q -b feature/off-trunk-metadata )
+  echo "a ruling" > "$SB_WORK/a-metadata-file.md"
+  git -C "$SB_WORK" add a-metadata-file.md
+
+  local out rc
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a metadata-only commit on 'feature/off-trunk-metadata' (not the trunk) was ACCEPTED"
+  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null \
+    || cf "the refusal does not name register-commit.sh as the route: $out"
+  printf '%s' "$out" | grep -F 'code-vs-metadata' >/dev/null \
+    || cf "the refusal does not cite the code-vs-metadata rule: $out"
+  printf '%s' "$out" | grep -F 'a-metadata-file.md' >/dev/null \
+    || cf "the refusal does not name the staged path: $out"
+
+  # Nothing committed — the working tree change is still staged, exactly as it was.
+  git -C "$SB_WORK" diff --cached --name-only | grep -F 'a-metadata-file.md' >/dev/null \
+    || cf "the refusal left the change NOT staged — it should be untouched, not partially undone"
+
+  # The documented bypass still works (same escape as commit-msg, deliberately one name).
+  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "MSG_OK=1 did not bypass the pre-commit guard (the documented escape): $out"
+
+  finish "pre-commit: refuses a metadata-only commit made on a branch other than the trunk, naming register-commit.sh and the staged path, and MSG_OK=1 bypasses it"
+  teardown
+}
+
+# =============================================================================
+# CASE — the pre-commit hook allows a metadata-only commit made ON the trunk branch itself, and
+# from a DETACHED HEAD (the kanban worktree's own permanent state) — the two shapes the hook must
+# never touch, or every board-script commit and every .kanban-wt op would start failing.
+# =============================================================================
+case_pre_commit_allows_metadata_on_trunk() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: allows a metadata-only commit on the trunk" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+
+  publish_sandbox
+
+  # On the trunk branch itself.
+  echo "a ruling" > "$SB_WORK/a-metadata-file.md"
+  git -C "$SB_WORK" add a-metadata-file.md
+  local out rc
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a metadata-only commit ON the trunk branch was refused: $out"
+
+  # From a DETACHED HEAD — .kanban-wt/'s own permanent state (kwt__ensure_detached).
+  ( cd "$SB_WORK" && git checkout -q --detach HEAD )
+  echo "another ruling" > "$SB_WORK/another-metadata-file.md"
+  git -C "$SB_WORK" add another-metadata-file.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add another-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a metadata-only commit from a DETACHED HEAD was refused (this is .kanban-wt/'s own state): $out"
+
+  finish "pre-commit: allows a metadata-only commit made on the trunk branch itself, and from a detached HEAD (the kanban worktree's own state)"
+  teardown
+}
+
+# =============================================================================
+# CASE — the pre-commit hook allows a CODE commit on a branch, once the adapter's CODE_GLOBS
+# names the path — the direction that must stay open, or the guard would refuse ordinary
+# feature-branch work.
+# =============================================================================
+case_pre_commit_allows_code_on_a_branch() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  local cfg="$SB_WORK/scripts/config.sh"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: allows a code commit on a branch" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+  grep -qE '^CODE_GLOBS=\($' "$cfg" \
+    || _fixture_die "case_pre_commit_allows_code_on_a_branch: no 'CODE_GLOBS=(' line in config.sh — the seam was renamed or removed, so declaring a code path below would do nothing."
+
+  # Declare src/* as code, on the trunk, in its own commit (config.sh IS metadata itself).
+  perl -0pi -e 's/CODE_GLOBS=\(\n\)/CODE_GLOBS=(\n  "src\/*"\n)/' "$cfg"
+  grep -qF '"src/*"' "$cfg" \
+    || _fixture_die "case_pre_commit_allows_code_on_a_branch: the CODE_GLOBS plant did not take."
+  publish_sandbox
+
+  ( cd "$SB_WORK" && git checkout -q -b feature/code-change )
+  mkdir -p "$SB_WORK/src"
+  echo "code" > "$SB_WORK/src/a.js"
+  git -C "$SB_WORK" add src/a.js
+  local out rc
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add src/a.js" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a CODE commit (matching a declared CODE_GLOBS entry) on a feature branch was refused: $out"
+
+  # And a MIXED commit (code + metadata together) is also allowed — the carve-out
+  # (process/MANUAL.md § The code-vs-metadata rule: "metadata MAY ride its code branch").
+  echo "doc for the code" > "$SB_WORK/src-notes.md"
+  echo "more code" > "$SB_WORK/src/b.js"
+  git -C "$SB_WORK" add src-notes.md src/b.js
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add src/b.js + its note" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a MIXED code+metadata commit on a feature branch was refused: $out"
+
+  finish "pre-commit: allows a code commit (declared via CODE_GLOBS) on a feature branch, and a mixed code+metadata commit alongside it"
+  teardown
+}
+
+# =============================================================================
+# CASE — register-commit.sh lands a hand-made metadata edit made in a LINKED WORKTREE ON A
+# BRANCH OF ITS OWN onto the trunk, without ever committing in that worktree's checkout — card
+# 527's exact shape (a harness's own linked-worktree tool defaults to a fresh branch, not the
+# trunk ref). RED FIRST: before this card, no script existed to route this; a bare `git commit`
+# there was the only option and the pre-commit case above shows it refused.
+# =============================================================================
+case_register_commit_lands_from_a_linked_worktree() {
+  cf_reset
+  make_sandbox
+  local rc_sh="$SB_WORK/scripts/register-commit.sh"
+  local cfg="$SB_WORK/scripts/config.sh"
+  [ -x "$rc_sh" ] \
+    || { skp "register-commit.sh: lands a metadata edit from a linked worktree" "scripts/register-commit.sh is absent from this tree"; teardown; return; }
+
+  # CODE_GLOBS must be DECLARED for the pre-commit control below to refuse at all
+  # (case_pre_commit_undeclared_code_globs_is_a_noop covers the undeclared state).
+  grep -qE '^CODE_GLOBS=\($' "$cfg" \
+    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: no 'CODE_GLOBS=(' line in config.sh."
+  perl -0pi -e 's/CODE_GLOBS=\(\n\)/CODE_GLOBS=(\n  "src\/*"\n)/' "$cfg"
+  grep -qF '"src/*"' "$cfg" \
+    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: the CODE_GLOBS plant did not take."
+
+  seed_issue dev_complete "$SB_PREFIX-527" linked-worktree-card chore "Card for the linked-worktree landing case"
+  echo "D-01: an existing ruling" > "$SB_WORK/requirements-register.md"
+  publish_sandbox
+
+  # Bootstrap .kanban-wt the way an operator would (a real board op).
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-527" qa_complete --role "$SB_ROLE" --note "bootstrap" >/dev/null 2>&1 ) \
+    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: move-issue.sh would not bootstrap .kanban-wt in this sandbox."
+  [ -d "$SB_WORK/.kanban-wt" ] \
+    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: .kanban-wt was not created."
+
+  # A linked worktree ON A BRANCH OF ITS OWN — never the trunk ref — the shape a harness's own
+  # linked-worktree tool hands you by default.
+  local leg="$SB_TMP/leg"
+  git -C "$SB_WORK" worktree add -q -b "worktree-followup" "$leg" "$SB_TRUNK" >/dev/null 2>&1 \
+    || { skp "register-commit.sh: lands a metadata edit from a linked worktree" "git worktree add failed in this sandbox"; teardown; return; }
+  [ -x "$leg/scripts/register-commit.sh" ] \
+    || { cf "(control) the linked worktree has no scripts/register-commit.sh"; finish "register-commit.sh from a linked worktree"; teardown; return; }
+
+  echo "D-01: an existing ruling" > "$leg/requirements-register.md"
+  echo "D-02: a new ruling, answered here" >> "$leg/requirements-register.md"
+
+  # Confirm the hand-made route IS refused first (the premise this helper exists to fix).
+  ( cd "$leg" && git add requirements-register.md \
+      && env -u MSG_OK git commit -q -m "[$SB_ROLE] record D-02" >/dev/null 2>&1 ) \
+    && cf "(control) a hand-made commit in the linked worktree on 'worktree-followup' was ACCEPTED — the pre-commit refusal did not fire, so this case's premise does not hold here"
+  ( cd "$leg" && git reset -q ) 2>/dev/null || true
+
+  # Route it through the helper instead — FROM the linked worktree's own checkout.
+  local out rc
+  out="$( cd "$leg" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "record D-02 as answered" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "register-commit.sh exited $rc from the linked worktree: $out"
+  printf '%s' "$out" | grep -F 'Published:' >/dev/null \
+    || cf "register-commit.sh did not report a Published line: $out"
+
+  # The leg's OWN branch must NOT carry the commit — it never committed in that checkout.
+  git -C "$leg" log --oneline "worktree-followup" 2>/dev/null | grep -F 'record D-02' \
+    && cf "the commit landed on the LEG'S OWN BRANCH ('worktree-followup') instead of the trunk — register-commit.sh must never commit in the caller's checkout"
+
+  # THE TRUNK must carry it — asked of the remote, never the local ref (fix-execution.md § A.5d).
+  origin_log_has_subject 'record D-02 as answered' \
+    || cf "the trunk (origin/$SB_TRUNK) does not carry the commit — it did not actually land"
+  origin_file_contains "requirements-register.md" '^D-02: a new ruling, answered here$' \
+    || cf "the trunk's copy of requirements-register.md does not carry the new content"
+
+  finish "register-commit.sh lands a hand-made metadata edit made in a linked worktree on a branch of its own onto the trunk, through .kanban-wt, never committing in the leg's own checkout or branch"
+  teardown
+}
+
+# =============================================================================
 # CASE — a forced push failure is LOUD and nonzero (never a silent proceed).
 # =============================================================================
 case_push_failure() {

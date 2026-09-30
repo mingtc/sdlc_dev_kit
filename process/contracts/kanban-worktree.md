@@ -126,6 +126,11 @@ refusal above.
   `scripts/subtask.sh` — contracted in [board-mover.md](board-mover.md),
   [landing-gate.md](landing-gate.md), [archive-sweep.md](archive-sweep.md) and
   [issue-creation.md](issue-creation.md).
+- `scripts/register-commit.sh` — KIT-CLASS: KIT. The same machinery, generalized from a board
+  move to ANY metadata path: it reads the caller's checkout (wherever it sits — a linked worktree
+  on a branch of its own included) and writes that content into this worktree, already synced to
+  the trunk, then commits and pushes here. The route `scripts/githooks/pre-commit` names when it
+  refuses a metadata-only commit made off the trunk.
 - `scripts/lib/push-retry.sh` — KIT-CLASS: KIT. The § 2 retry invariant: fetch plus a bounded
   rebase-onto-remote-tip retry instead of a single bare push. Sourced by the worktree library, and
   usable standalone by any other script that publishes a trunk commit outside the auxiliary

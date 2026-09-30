@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+# KIT-CLASS: KIT — reads the project's CODE_GLOBS declaration from scripts/config.sh (itself the
+# configuration seam), and carries no project-owned part of its own. See process/EXTRACTION.md.
+# The code-vs-metadata rule made mechanical at the write-time entrance
+# (process/MANUAL.md § The code-vs-metadata rule): a commit whose staged paths are ALL
+# metadata (none matches CODE_GLOBS) is refused on any branch OTHER THAN the trunk, naming
+# scripts/register-commit.sh as the route.
+#
+# CODE_GLOBS UNDECLARED (the shipped, empty state) MEANS UNENFORCED, NOT "NO CODE EXISTS": this
+# hook is a no-op until the adapter fills it in, the same convention verify.sh's GUARD_ENUM=""
+# and GATES=() already use. Reading empty as "everything is metadata" would refuse ordinary
+# feature-branch commits on every project that has not yet filled the seam in.
+#
+# WHY: "direct to the trunk" names the trunk REF, not a checkout — a commit made ON THE TRUNK
+# BRANCH from a linked worktree lands there just the same, so this hook does not care which
+# checkout you are in. What it catches is a metadata edit committed onto a BRANCH OF ITS OWN —
+# the shape a harness's own linked-worktree tool hands you by default when it puts you on a
+# fresh branch instead of the trunk ref. A DETACHED HEAD (the kanban worktree's own state, and
+# any checkout deliberately given up per that section) is not "a branch of its own" and is never
+# refused here.
+#
+# Wired via `git config core.hooksPath scripts/githooks`, the same as commit-msg: kit-init.sh
+# wires it at adoption and setup.sh re-wires it on every fresh clone. It fires in every
+# worktree sharing that config, .kanban-wt/ included — where HEAD is always detached, so it is
+# never the one refused.
+#
+# Bypass:  MSG_OK=1 git commit …   (the SAME escape commit-msg documents; one bypass knob, not
+#          two names for a caller to remember). Not for your own commits.
+set -uo pipefail
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/refuse.sh" ]; then
+  # shellcheck source=../lib/refuse.sh
+  . "$HOOK_DIR/../lib/refuse.sh" 2>/dev/null || true
+fi
+
+# The documented escape — same variable, same truthy values, as commit-msg.
+case "${MSG_OK:-}" in
+  1|true|yes) exit 0 ;;
+esac
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$ROOT" ] || exit 0   # not inside a work tree at all (defensive; git would already refuse)
+
+# DETACHED HEAD → never refused (see WHY above): the kanban worktree's permanent state, and any
+# checkout deliberately given up per process/MANUAL.md § The code-vs-metadata rule.
+BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+[ -n "$BRANCH" ] || exit 0
+
+# THE TRUNK, resolved the SAME CHAIN kwt_resolve uses (config-seam.md § 2), inlined rather than
+# sourcing the full kanban-worktree.sh library: this hook fires on every commit and must not pay
+# for (or depend on) the push-retry load that library's sourcing requires. Each step below is
+# read-only and never refuses; an unresolved trunk falls through to the last resort, same as
+# there.
+KWT_REMOTE="${KWT_REMOTE:-origin}"
+TRUNK="$(git -C "$ROOT" symbolic-ref --short "refs/remotes/$KWT_REMOTE/HEAD" 2>/dev/null | sed "s|^$KWT_REMOTE/||" || true)"
+[ -n "$TRUNK" ] || TRUNK="$(git -C "$ROOT" config --get init.defaultBranch 2>/dev/null || true)"
+[ -n "$TRUNK" ] || TRUNK="${KWT_TRUNK_LAST_RESORT:-main}"
+
+# On the trunk branch itself → never refused (this hook's whole point is the OFF-trunk case).
+[ "$BRANCH" != "$TRUNK" ] || exit 0
+
+# CODE_GLOBS: the one project-supplied definition (process/MANUAL.md § The code-vs-metadata
+# rule). Read from config.sh WITHOUT sourcing it (config.sh may itself be one of the staged
+# paths mid-edit, and sourcing arbitrary staged content into a hook is not a thing to do) — a
+# narrow, anchored parse of its one array, same shape scripts/test's _neu_array expects to find.
+CODE_GLOBS=()
+CFG="$ROOT/scripts/config.sh"
+if [ -r "$CFG" ]; then
+  while IFS= read -r _line; do
+    CODE_GLOBS+=("$_line")
+  done < <(awk '
+    /^CODE_GLOBS=\($/ { in_arr=1; next }
+    in_arr && /^\)/ { in_arr=0; next }
+    in_arr {
+      line=$0
+      sub(/^[[:space:]]*/, "", line)
+      sub(/[[:space:]]*#.*$/, "", line)
+      if (line == "") next
+      gsub(/^"|"$/, "", line)
+      print line
+    }
+  ' "$CFG")
+fi
+
+# UNDECLARED CODE_GLOBS IS NOT "NO CODE EXISTS" — it is "this project has not said yet," and
+# this hook must not read it as the latter: an empty array would then make every ordinary
+# feature-branch commit read as metadata-only and refuse it, on every project that has not
+# filled the seam in. Same convention verify.sh's GUARD_ENUM="" and GATES=() already use
+# (config-seam.md): empty means unenforced here, not "everything matches the empty rule."
+if [ ${#CODE_GLOBS[@]} -eq 0 ]; then
+  exit 0
+fi
+
+STAGED="$(git -C "$ROOT" diff --cached --name-only 2>/dev/null || true)"
+[ -n "$STAGED" ] || exit 0   # nothing staged (e.g. an empty/allow-empty commit) — nothing to judge
+
+ANY_CODE=0
+while IFS= read -r _path; do
+  [ -n "$_path" ] || continue
+  for _g in "${CODE_GLOBS[@]}"; do
+    case "$_path" in
+      $_g) ANY_CODE=1 ;;
+    esac
+  done
+done <<PC_STAGED
+$STAGED
+PC_STAGED
+
+# Every staged path is metadata (CODE_GLOBS is declared and non-empty, and no entry matched)
+# AND we are on a branch that is not the trunk → refuse, naming the route.
+if [ "$ANY_CODE" -eq 0 ]; then
+  msg1="✗ pre-commit guard: this commit touches only metadata paths, and HEAD is on '$BRANCH' — a branch of its own, not the trunk ('$TRUNK')."
+  msg2="  process/MANUAL.md § The code-vs-metadata rule: metadata commits direct to the TRUNK REF."
+  msg3="  \"Direct to the trunk\" names the ref, not a checkout — a linked worktree on a branch of"
+  msg4="  its own (the shape a harness's own worktree tool hands you by default) is not the trunk"
+  msg5="  ref, so a hand-made commit here is off the rule's one route."
+  msg6="  Route it instead:"
+  msg7="    ./scripts/register-commit.sh --role <R> --message \"...\" <path>..."
+  msg8="  It never commits in this checkout — it lands the same content on the trunk through the"
+  msg9="  standing kanban worktree, the way move-issue.sh lands a board move."
+  msg10="  Staged paths:"
+  msg11="$(printf '%s\n' "$STAGED" | sed 's/^/    /')"
+  msg12="  Genuinely need to commit here anyway (importing a third party's commit verbatim, or a"
+  msg13="  one-off this project has already judged)?  MSG_OK=1 git commit …"
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 pre-commit-metadata-off-trunk "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "" "$msg10" "$msg11" "" "$msg12" "$msg13"
+  fi
+  printf '%s\n' "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "" "$msg10" "$msg11" "" "$msg12" "$msg13" >&2
+  exit 1
+fi
+
+exit 0

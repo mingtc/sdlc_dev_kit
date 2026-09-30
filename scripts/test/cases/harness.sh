@@ -500,6 +500,10 @@ case_ship_state() {
     _ship_line "$rc_cfg" "ISSUE_PREFIX=\"\${ISSUE_PREFIX:-${KIT_NEUTRAL_PREFIX}}\""
     _ship_line "$rc_cfg" "PRD_PREFIX=\"\${PRD_PREFIX:-${KIT_NEUTRAL_PRD_PREFIX}}\""
     _ship_line "$rc_cfg" "PROJECT_NAME=\"\${PROJECT_NAME:-${KIT_NEUTRAL_PROJECT_NAME}}\""
+    # CODE_GLOBS (process/MANUAL.md § The code-vs-metadata rule, read by
+    # scripts/githooks/pre-commit) must ship empty: a populated default would be ONE
+    # project's source tree declared as every adopter's.
+    _ship_array_empty "$rc_cfg" CODE_GLOBS
   else
     cf "scripts/config.sh is absent — it is the configuration seam itself"
   fi

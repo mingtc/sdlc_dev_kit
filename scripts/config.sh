@@ -34,6 +34,27 @@ PRD_PREFIX="${PRD_PREFIX:-PRD}"
 # learn the name the travelling docs carry, rewrites them, and counts what it left behind.
 PROJECT_NAME="${PROJECT_NAME:-<project name>}"
 
+# ── CODE_GLOBS — the one project-supplied definition the code-vs-metadata rule needs
+#    (process/MANUAL.md § The code-vs-metadata rule): "which paths are code." Everything NOT
+#    matched here is metadata and commits direct to the trunk. Read by
+#    scripts/githooks/pre-commit, which refuses a metadata-only commit made off the trunk.
+#
+# SHIPPED EMPTY ON PURPOSE: empty means UNDECLARED, and the pre-commit hook that reads this
+# treats undeclared as unenforced — it will not refuse anything until you fill this in (the
+# same convention verify.sh's GUARD_ENUM="" and GATES=() use). Fill it with your source tree,
+# test tree and build/packaging manifest — e.g.:
+#
+#   CODE_GLOBS=(
+#     "src/*"
+#     "tests/*"
+#     "package.json"
+#   )
+#
+# Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, so a trailing `/*` is a
+# directory prefix and an exact string is one file. A path matching no glob here is metadata.
+CODE_GLOBS=(
+)
+
 # sed_repl <value> — escape a free-text value for the replacement half of `s|…|REPL|`, where
 # `|`, `\` and `&` are not literal. The one definition; every minting script uses it.
 # NOT COVERED: an embedded newline, which sed rejects in a replacement.
