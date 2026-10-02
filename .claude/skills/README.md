@@ -147,6 +147,7 @@ plan and safely schedule behavior-preserving improvements.
 | Skill | Used by | Purpose |
 | --- | --- | --- |
 | [orchestrate](orchestrate/) | Orchestrator | Drive a set of issues through Dev → QA hands-off, wearing the Dev/QA hats in turn. Implements [`.claude/roles/orchestrator.md`](../roles/orchestrator.md). |
+| [start](start/) | Anyone, session open | The front door: checks the environment, looks for prior work, then either walks day one (`process/SEED.md`) or shows status and a menu of what this project's roles and skills can do next. Routes to the kit's own authorities; duplicates none of them. |
 
 ## Not shipped: the UI/design skill family
 
@@ -176,13 +177,21 @@ sheet over this line.
 
 ## Provenance & licensing
 
-**The table below is the record; this paragraph does not restate it.** Origins differ by set,
-and one of them is an open question rather than a fact: the Dev set was adopted from a public
-collection whose terms were **never captured at adoption**, so its licence reads NOT RECORDED and
-must not be assumed permissive. The PM and Refactorer sets were authored for this kit. **Record the
-real provenance of every skill directory you keep, adopt or replace** — origin and license — in
-this section, and update it in the same change as the skill. A skill whose origin nobody can name
-is a skill nobody can safely update.
+**The table below is the record; this paragraph does not restate it.** Origins differ by set: the
+Dev set was adopted from a public collection, MIT-licensed (confirmed 2026-10-02 by reading the
+upstream repository itself, superseding an earlier NOT RECORDED note that stood because the terms
+were never captured at adoption — the lesson the earlier note leaves standing: settle provenance
+by reading the upstream, never by assuming permissive). The PM and Refactorer sets were authored
+for this kit. **Record the real provenance of every skill directory you keep, adopt or replace** —
+origin and license — in this section, and update it in the same change as the skill. A skill whose
+origin nobody can name is a skill nobody can safely update.
+
+**Why this is the thing that constrains the top-level LICENSE.** The kit's own content (PM,
+Refactorer, everything authored here) is free to carry whatever license this repository chooses.
+The Dev set is not: it is upstream MIT code, carried under MIT's own terms, and that is the reason
+the kit's top-level `LICENSE` is MIT rather than something else. **If the Dev set is ever removed
+or replaced with kit-authored skills, this constraint goes with it** — the license choice should be
+reconsidered at that point, not left standing on a reason that no longer applies.
 
 **This table is also where a skill directory's CLASSIFICATION lives**, and that is a derivation, not
 a filing convenience: updating a skill from upstream is a re-fetch that copies the folder over,
@@ -214,13 +223,14 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 
 | Set | Origin | License | Class |
 | --- | --- | --- | --- |
-| Dev | **Adopted from a public collection — the upstream "superpowers" collection, `https://github.com/obra/superpowers`.** Its link also survives in `brainstorming/scripts/frame-template.html`, kept there deliberately as provenance | **NOT RECORDED** — the upstream's terms were never captured at adoption; settle it by reading the upstream repository, and do not assume | `KIT` |
+| Dev | **Adopted from a public collection — the upstream "superpowers" collection, `https://github.com/obra/superpowers`.** Its link also survives in `brainstorming/scripts/frame-template.html`, kept there deliberately as provenance | **MIT, Copyright (c) 2025 Jesse Vincent** — confirmed 2026-10-02 by reading the upstream `LICENSE` file directly | `KIT` |
 | PM | **Authored for this kit** (`write-spec`, `product-brainstorming`) | Same as this repo | `KIT` |
 | Refactorer | Authored for this kit | Same as this repo | `KIT` |
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
-| `finishing-a-development-branch` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
-| `requesting-code-review` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; a blind re-copy erases it |
-| `subagent-driven-development` | Dev set, upstream | NOT RECORDED (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
+| `start` | Authored for this kit | Same as this repo | `KIT` |
+| `finishing-a-development-branch` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
+| `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; a blind re-copy erases it |
+| `subagent-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
 **THE ORIGIN COLUMN IS THE KIT'S OWN RECORD, NOT A BLANK FOR YOU. The only row here you fill is the

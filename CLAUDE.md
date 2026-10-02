@@ -11,7 +11,9 @@ scaffolding.**
 
 ## Your one job this session is day-one setup
 
-Not features, and not a plan for features. In this order:
+Not features, and not a plan for features. **If you are a human opening this project, the quickest
+way in is `/start`** — it checks the environment, looks for prior work, and walks this exact
+sequence with you. What follows is what `/start` runs; read it either way, in this order:
 
 1. **Read [`process/SEED.md`](process/SEED.md).** It is the order of operations, and each step
    names the authority that actually governs it. Do not improvise the order — the sequence exists

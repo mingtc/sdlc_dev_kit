@@ -1,0 +1,25 @@
+Creative Commons CC0 1.0 Universal (Public Domain Dedication)
+
+Full legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+---
+
+**What this covers.** The scaffold content this kit ships to become part of *your* project: the
+templates (`process/templates/`, `.claude/templates/`), the role docs and doctrine sheets under
+`process/` once you have adapted them, `PROJECT.md`, the bootstrap files you are expected to
+replace or delete (`CLAUDE.md`, `AGENTS.md`, `README.md`), and anything else under `kit/` marked
+`REPLACE` or `CONFIGURE` in `process/EXTRACTION.md`'s disposition table — in short, anything this
+kit expects you to copy, edit, rename, or delete as your project grows into its own thing.
+
+**Why CC0 and not MIT, for this content specifically.** MIT requires its notice be preserved "in
+all copies or substantial portions" of the software. That is a reasonable ask for a script someone
+imports unmodified; it is the wrong ask for a template file you are meant to edit into
+unrecognizability and eventually throw away (`process/EXTRACTION.md`'s own REPLACE/KEEP
+disposition axis names exactly this: some files are scaffolding, not permanent fixtures). CC0
+removes that friction by design: once a file under this license is part of your project, it carries
+no notice obligation forward, nothing to track, nothing to strip out later. Use it, change it,
+delete it, and license your own project however you choose — this dedication does not reach
+upward into your work.
+
+**What this does NOT cover:** the kit's own mechanism — its scripts, process doctrine, and the
+vendored Dev skill set — which stays under `LICENSE` (MIT) for the reason stated there.

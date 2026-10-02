@@ -3,15 +3,75 @@
 <!-- KIT-DISPOSITION: REPLACE — the replace-me notice is the body; the BOOTSTRAP-SCAFFOLDING line
      below is the sentinel a tool reads (EXTRACTION.md § The marker and graduation). -->
 <!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->
-# The development-process kit — a seed
+# The SDLC dev kit
 
-> **This file is a placeholder for yours.** Replace it with **your project's** README once you are
-> running; to keep these instructions, move them to `docs/KIT-README.md` (`docs/README.md` is
-> taken) — its links are written for the root and need `../` once moved — and delete its first five
-> lines: `check-board.sh` reads the REPLACE and BOOTSTRAP-SCAFFOLDING markers anywhere in the tree and
-> would report the kept copy as unreplaced scaffolding.
+A development-process kit for software projects: a kanban board that lives in your filesystem, AI
+agent roles (PM, Dev, QA, Refactorer) that follow a disciplined Dev → QA handoff, and the doctrine
+behind why each rule exists. Drop it into a new or existing repository, point your agent at it, and
+it runs the process for you — you run `/start` and answer its questions.
 
-**What this is.** A generic, language-agnostic **development-process kit**: a
+**Language- and stack-agnostic.** Works with any codebase, any test framework, any forge. Requires
+only **git** and a **POSIX shell**. Built for [Claude Code](https://claude.com/claude-code), with a
+harness-neutral path (`AGENTS.md`) for any other coding agent.
+
+## Why
+
+Most "AI coding process" advice lives in someone's head or a wiki page an agent never reads. This
+kit makes the process itself a filesystem an agent can act on: an issue's *folder* is its status, a
+role doc is a worker's actual job description, and a landing gate stands between "Dev says it's
+done" and "it's on the trunk." You get a working Dev → QA discipline on day one, in whatever
+language or stack you're already using.
+
+**What this is not.** Not a template for an application — it holds no product code. It is the
+process a project runs *on*.
+
+## Get it
+
+Download the latest release zip from the [Releases page](../../releases) and unzip it into your
+project:
+
+```sh
+unzip sdlc-dev-kit-vX.Y.Z.zip -d /path/to/your-project
+cd /path/to/your-project
+```
+
+(Or clone this repository and copy its contents — the zip is just this tree, reproducibly built.)
+
+## Run it
+
+Open the project in Claude Code (or your agent of choice) and run:
+
+```
+/start
+```
+
+`/start` checks your environment, looks for any prior work, and either walks you through day one
+(a fresh unpack — see [`process/SEED.md`](process/SEED.md)) or shows you what's already running and
+what you can do next. That's the whole on-ramp; everything past this point is reference material
+for once you're in motion.
+
+## License
+
+Two files, because this kit is two different things at once: [`LICENSE`](LICENSE) (MIT) covers its
+mechanism — the scripts, the process doctrine, the skills; [`LICENSE-CONTENT`](LICENSE-CONTENT)
+(CC0-1.0, public domain) covers the scaffold content you copy, edit and delete as your own project
+replaces it — templates, the bootstrap files, your adapted doctrine. **Your project's own license is
+yours to choose; nothing here reaches into it.**
+
+---
+
+# Reference
+
+Everything below is detail: what `/start` and `process/SEED.md` actually do, file by file, for when
+you want to understand the mechanism rather than just run it.
+
+> **This file is a placeholder for yours.** Once you're running, replace it with **your project's**
+> README; to keep these instructions, move them to `docs/KIT-README.md` (`docs/README.md` is
+> taken) — its links are written for the root and need `../` once moved — and delete this file's
+> first five lines: `check-board.sh` reads the REPLACE and BOOTSTRAP-SCAFFOLDING markers anywhere in
+> the tree and would report the kept copy as unreplaced scaffolding.
+
+**What this is, in full.** A generic, language-agnostic **development-process kit**: a
 filesystem-as-kanban board (the folder a file sits in *is* its status), **roles as hats** (one
 worker wears one role at a time, from a doc that is its workflow), a hard **Dev → QA boundary**
 with a landing gate, a set of **contract sheets** that say what each gate must guarantee, a set of
@@ -25,15 +85,11 @@ per question.)* The primary agent harness is
 those files encode (the roles, the commit prefixes, the board rules) bind every agent regardless of
 harness — see [`AGENTS.md`](AGENTS.md).
 
-**What this is not.** It is not a template for an application, and it holds no product code. It is
-the process a project runs *on*.
-
----
-
-## Day one
+## Day one, the mechanical version
 
 **The copy is already done** — you are looking at the kit, in place. What is left is to *stamp* it
-with your project's values and to prove it works.
+with your project's values and to prove it works. `/start` walks this with you conversationally;
+here is the same sequence as raw commands, for reference or for scripting it yourself:
 
 ```sh
 # 1. Prerequisites the initializer will not do for you (it guides, it never bootstraps):
@@ -200,4 +256,3 @@ without one.
   an instance, **keep the pattern and keep the why** — that is the supersession law
   ([`process/doctrine/supersession.md`](process/doctrine/supersession.md)), and it applies to this
   kit's own documents as much as to your project's.
-

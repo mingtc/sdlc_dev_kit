@@ -354,6 +354,8 @@ names the guard whose job is to keep it honest.
 
 | Path | What it is |
 |---|---|
+| `LICENSE` | MIT — covers the kit's own mechanism (`scripts/`, `process/`, `.claude/`). Travels unedited; see its own text for why MIT specifically (the vendored Dev skill set). |
+| `LICENSE-CONTENT` | CC0-1.0 — covers the scaffold content you copy, edit and eventually delete (templates, the bootstrap files, your adapted doctrine). Travels unedited. |
 | `AGENTS.md` | **The harness-neutral entry point**, for any agent that is not Claude Code. Travels unedited, and it says so in its own marker. |
 | `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** |
 | `dev/` | The working-records tree. Its index (`dev/README.md`) carries a discipline that travels and rows that are yours — every file you add there gets one; the folder READMEs travel unedited; `dev/downtime-queue.md` is `MIXED` — the queue's shape travels, every row is yours. Everything you add there is yours. |
