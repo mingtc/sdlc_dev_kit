@@ -101,7 +101,7 @@ read this doc and follow this flow.)
 
 ### Read order — skip what's already in context
 
-The adapter (`CLAUDE.md`) is **auto-loaded at session start** (its session-start protocol is
+The adapter (`AGENTS.md`) is **auto-loaded at session start** (its session-start protocol is
 what routed you here). **Do not re-read it.** The skill is the single driver of the remaining
 reads, so they happen exactly once — read only what is **not yet in context**:
 
@@ -593,7 +593,7 @@ This role's own skill is [`orchestrate`](../skills/orchestrate/); every skill an
 ## Project duties — the adapter fills this
 
 Everything above is portable. What is **not** portable is the set of cross-cutting duties this
-project binds a run to. **The adapter (`CLAUDE.md`) and `PROJECT.md` own this list; this
+project binds a run to. **The adapter (`AGENTS.md`) and `PROJECT.md` own this list; this
 section is the hook where the orchestrator reads it.** Fill it in with:
 
 - **The gate runner and its parts** — the one command a leg runs, and what it wraps

@@ -65,7 +65,7 @@ hats, each for a reason it can name. So the hat for that window is a **declared 
 - **Nothing checks that the right hat was worn** (§ 5).
 
 **Why this default.** Day one is the PM's session before it is anyone else's. The bootstrap
-`CLAUDE.md` makes the interview about what the project *is* its first act. The project sheet's first
+`AGENTS.md` makes the interview about what the project *is* its first act. The project sheet's first
 blanks are scope decisions: what the project is, what it is not, its public surface and its build
 order. The first spec closes that session. Where day one also records the stack, the gates and the
 house rules, the PM hat is **transcribing the human's answers from that interview**, not making its

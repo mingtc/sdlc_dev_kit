@@ -50,7 +50,7 @@ _cb_g_section() {  # reads a check-board report on stdin
 
 # _cb_g_declare_empty_seams — declares $SB_WORK/scripts/config.sh's CODE_GLOBS and TEST_GLOBS
 # deliberately empty (the `# DECLARED EMPTY —` mechanical form). Every case that graduates the
-# sandbox (fills PROJECT.md, replaces CLAUDE.md/README.md) needs this too, or [g]'s new
+# sandbox (fills PROJECT.md, replaces AGENTS.md/README.md) needs this too, or [g]'s new
 # CODE_GLOBS/TEST_GLOBS members report unfilled and graduation never reads COMPLETE — the same
 # transition case_check_board_graduation exercises directly; the callers here only need [g]
 # clear, not the glob content itself. ONE caller, not three copies: _fixture_die names which
@@ -842,7 +842,7 @@ case_check_board_corpus_forward_reference() {
   # graduation COMPLETE (the SEED-step marker below must stay silent until it does). On a tree
   # past day one, scripts/config.sh's CODE_GLOBS/TEST_GLOBS already carry a `# DECLARED EMPTY —`
   # comment that survives make_sandbox's neutralizer (it keeps comments, by contract), which
-  # arm [g] reads as CLEAN — enough by itself to flip G_GRADUATION_COMPLETE, since CLAUDE.md,
+  # arm [g] reads as CLEAN — enough by itself to flip G_GRADUATION_COMPLETE, since AGENTS.md,
   # README.md and PROJECT.md are never seeded here and read UNMEASURED rather than counting
   # against it. Force both arrays back to genuinely empty and undeclared so this case's premise
   # (not graduated) holds regardless of the tree this harness runs in.
@@ -942,7 +942,7 @@ EOF
     && cf "(before) the SEED-step marker fired while [g] has not read graduation COMPLETE: $out"
 
   # ── AFTER graduation: replace the scaffolding exactly as case_check_board_graduation does. ──
-  printf '# my project\n' > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
   printf '# my project\n' > "$SB_WORK/README.md"
   printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
@@ -2051,7 +2051,7 @@ case_check_board_from_a_worktree() {
 # =============================================================================
 # CASE — arm [g], graduation: its three states, and the verdict control
 #
-# make_sandbox seeds no root documents, so each state below seeds CLAUDE.md / README.md /
+# make_sandbox seeds no root documents, so each state below seeds AGENTS.md / README.md /
 # PROJECT.md itself. The neutralizer deletes the stamp receipt from scripts/config.sh, so a
 # state that wants the arm to run puts it back from KIT_STAMP_MARK: it is the enabling condition.
 # =============================================================================
@@ -2099,8 +2099,8 @@ case_check_board_graduation() {
   publish_sandbox
 
   out="$(cb_run)"
-  printf '%s\n' "$out" | _cb_g_section | grep 'CLAUDE.md' >/dev/null \
-    || cf "(b) the REPLACE finding did not NAME CLAUDE.md — instruments.md § A.4 wants the operand: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'AGENTS.md' >/dev/null \
+    || cf "(b) the REPLACE finding did not NAME AGENTS.md — instruments.md § A.4 wants the operand: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'README.md' >/dev/null \
     || cf "(b) the REPLACE finding did not name README.md: $out"
   printf '%s\n' "$out" | _cb_g_section | grep -i 'PROJECT.md still holds' >/dev/null \
@@ -2128,7 +2128,7 @@ case_check_board_graduation() {
   # CODE_GLOBS filled, TEST_GLOBS declared deliberately empty (both directions a real adopter
   # may take), principal: filled with a name — so graduation still reaches COMPLETE only once
   # every member, old and new, is discharged.
-  printf '# my project\n'                 > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n'                 > "$SB_WORK/AGENTS.md"
   printf '# my project\n'                 > "$SB_WORK/README.md"
   printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
@@ -2261,7 +2261,7 @@ case_check_board_graduation_reads_the_trunk() {
 
   # ── GRADUATE IN THE WORKING TREE ONLY. DO NOT PUBLISH. ──────────────────────
   # The arm is one-way: a working-tree read would clear here and never re-open.
-  printf '# my project\n'                > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n'                > "$SB_WORK/AGENTS.md"
   printf '# my project\n'                > "$SB_WORK/README.md"
   printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
@@ -2314,7 +2314,7 @@ case_check_board_replace_population_is_derived() {
     || cf "a file declaring REPLACE outside the root was not checked: ${line:-no REPLACE finding} — $out"
   printf '%s' "$line" | grep -F 'docs/QUOTE.md' >/dev/null \
     && cf "a file that only quotes the marker below its header block was counted as declaring it: $line"
-  printf '%s' "$line" | grep -F 'CLAUDE.md' >/dev/null && printf '%s' "$line" | grep -F 'README.md' >/dev/null \
+  printf '%s' "$line" | grep -F 'AGENTS.md' >/dev/null && printf '%s' "$line" | grep -F 'README.md' >/dev/null \
     || cf "(control) the shipped REPLACE pair left the population: ${line:-no REPLACE finding}"
 
   finish "check (g): the REPLACE population is every file whose header block declares it, wherever it lives, and not a file that quotes the marker further down"
@@ -2614,7 +2614,7 @@ _cb_fill_sheet() {  # <marker line or empty> <body…> — writes, publishes, ru
 case_check_board_fill_arm_reads_blanks_not_usage() {
   cf_reset
   make_sandbox
-  printf '# my project\n' > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
   printf '# my project\n' > "$SB_WORK/README.md"
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
@@ -2774,7 +2774,7 @@ case_check_board_graduation_refuses_complete_over_nothing_measured() {
 case_check_board_graduation_non_markdown_fill_members() {
   cf_reset
   make_sandbox
-  printf '# my project\n' > "$SB_WORK/CLAUDE.md"
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
   printf '# my project\n' > "$SB_WORK/README.md"
   printf '<!-- FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' > "$SB_WORK/PROJECT.md"
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \

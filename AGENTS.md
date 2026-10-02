@@ -1,27 +1,54 @@
-<!-- KIT-CLASS: KIT — the harness-neutral entry point. Travels unedited. -->
-# AGENTS.md — for any agent that is not Claude Code
+<!-- KIT-CLASS: KIT — the day-one bootstrap stub AND the harness-neutral entry point, now one
+     file. Scaffolding: it is REPLACED, never edited. See process/EXTRACTION.md § The second
+     axis: DISPOSITION. -->
+<!-- KIT-DISPOSITION: REPLACE — the replace-me notice is the body; the BOOTSTRAP-SCAFFOLDING line
+     below is the sentinel a tool reads (EXTRACTION.md § The marker and graduation). -->
+<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->
+# AGENTS.md — this project has not been set up yet
 
-**You are in the right repository and this is not the operating manual.** Read, in this order:
+**This repository is a fresh unpack of a development-process kit.** It is not yet a project:
+nothing here says what you are building, because nobody has said yet. **You are reading
+scaffolding**, and it is the same scaffolding for every agent — Claude Code, or any other harness
+that reads `AGENTS.md`. There is no separate Claude-specific bootstrap file; this is the one file.
 
-1. **[`CLAUDE.md`](CLAUDE.md)** — and **check which of its two states you are in**, because they
-   ask opposite things of you:
-   - **It says the project has not been set up yet.** Then it is the **bootstrap stub**, this
-     project is a fresh unpack, and your one job is day-one setup — follow the stub to
-     [`process/SEED.md`](process/SEED.md) and stop reading this list until day one is done.
-   - **It is the adapter** — this project's own law, its trunk, what counts as code, the role set,
-     the commit prefixes, the gates that are never optional. Read [`PROJECT.md`](PROJECT.md)
-     alongside it for the stack, the run commands and the quality bar.
+## Your one job this session is day-one setup
 
-   *(The stub is `REPLACE`-class scaffolding and is replaced, never edited, at `process/SEED.md` step 5:
-   [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.)*
-2. **[`process/MANUAL.md`](process/MANUAL.md)** — the **process itself**: the board, roles as hats,
-   the Dev → QA boundary, the session rituals, the execution discipline.
-   **True in both states**, and it needs no configuring.
+Not features, and not a plan for features. **If you are a human opening this project, the quickest
+way in is `/start`** — it checks the environment, looks for prior work, and walks this exact
+sequence with you. What follows is what `/start` runs; read it either way, in this order:
 
-The filename says `CLAUDE.md` for one reason only: it is the filename the Claude Code harness reads
-automatically. **Its contents are harness-neutral and bind you exactly as they bind Claude.** If
-your own harness has a conventional instructions filename, point it at these two documents rather
-than copying them — a copy will drift, and the copy will win arguments it should lose.
+1. **Read [`process/SEED.md`](process/SEED.md).** It is the order of operations, and each step
+   names the authority that actually governs it. Do not improvise the order — the sequence exists
+   because each step out of place fails **later and in disguise**.
+2. **Interview the human about what this project IS before writing anything into it** — the
+   conversation SEED step 6 turns into `PRD-001`. This is the step most likely to be skipped under pressure to look
+   productive, and a repository configured before anyone has said what it is for gets configured
+   wrong in ways that are expensive to unwind.
+3. **At `process/SEED.md` step 5, REPLACE THIS FILE** with the adapter you build from
+   [`process/templates/AGENTS-adapter.template.md`](process/templates/AGENTS-adapter.template.md).
+
+## Replace this file. Do not edit it into shape
+
+**This file is `REPLACE`-class** — scaffolding to be thrown away and rewritten, not a draft to be
+corrected: a plausible stub gets edited, and the project never decides its own law
+([`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION).
+
+**Build the adapter from the template in one pass, from the conversation that decides this
+project's law.** If you find yourself writing it with nothing decided, that is the signal to go and
+have the conversation — not to invent the law and move on. `process/SEED.md` § Day one is done when
+is the checklist that says you are finished. **Once day one is done, this file holds the adapter**
+— this project's own law, its trunk, what counts as code, the role set, the commit prefixes, the
+gates that are never optional. Read [`PROJECT.md`](PROJECT.md) alongside it for the stack, the run
+commands and the quality bar.
+
+## What already binds you, before any of that
+
+[`process/MANUAL.md`](process/MANUAL.md) is **the process itself** and is already true — it needs no
+configuring and you do not rewrite it. Read it once. It is the board, roles worn as hats, the
+Dev → QA boundary, and the session rituals. Everything the manual deliberately does not know — the
+trunk, what counts as code here, the role set, which gates bind — is what the adapter you are about
+to write will supply; the gate commands go in [`PROJECT.md`](PROJECT.md). **True whether you are the
+bootstrap stub or the adapter**, and it needs no configuring either way.
 
 ## `.claude/` is Claude-specific machinery. Its CONTRACTS are not.
 
@@ -34,7 +61,7 @@ the contracts they encode** — those are process law and apply to every agent, 
 | `roles/*.md` — one doc per role | **The role set, and each role's workflow.** You wear exactly one hat at a time and you say which one. The doc for that hat is your workflow for the session; the Architect doc binds only the seated architect instance and never a subagent. |
 | `templates/*.md` — the shape of every issue type, PRD and subtask | **The shape of anything you create.** An issue you author by hand must carry the same frontmatter and sections the template does, because the board scripts and the drift report read them. |
 | `agents/*.md` — leaf worker definitions | **The leaf rule:** a dispatched worker does not spawn further workers. Fan-out is the orchestrating seat's job. |
-| `skills/*/SKILL.md` — named procedures | **The ones the manual names are steps you owe.** Read the `SKILL.md` and do it by hand. |
+| `skills/*/SKILL.md` — named procedures | **The ones the manual names are steps you owe.** Read the `SKILL.md` and do it by hand. **If your own harness natively discovers skills by the open [Agent Skills](https://agentskills.io) format** (a folder with `SKILL.md`, as Codex CLI and Gemini CLI do from `.agents/skills/`) — **this kit does not duplicate them there; look in `.claude/skills/` directly.** Claude Code itself only scans `.claude/`, which is why the real files live there rather than at a shared path. |
 | hooks / settings wiring | **The guards this wiring automates still hold** even where your harness cannot run them — the commit-message role prefix (a git hook) and the declared hat (a session hook). The gate before landing is the odd one out: no hook runs it, `finish-pr.sh` does when the landing seat (QA) invokes it — which is precisely why it is the easiest of the three to skip and the one worth naming here. A guard you cannot execute you must satisfy by hand, not skip. |
 
 ## What will get you rejected

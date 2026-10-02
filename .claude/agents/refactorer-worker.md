@@ -14,7 +14,7 @@ this file is only how you are provisioned and the standing riders.
 
 ## Read order (before changing anything)
 
-`PROJECT.md` → `CLAUDE.md` → `.claude/roles/refactorer.md` → the issue file. **The issue's AC
+`PROJECT.md` → `AGENTS.md` → `.claude/roles/refactorer.md` → the issue file. **The issue's AC
 is the contract.** Behavior preservation is the whole point: **zero-drift discipline** — a
 golden / snapshot / fixture diff caused by your move is a **bug in the move**, never a fixture
 to update.

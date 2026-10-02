@@ -322,16 +322,19 @@ case_kit_upgrade_refuses_with_a_record() {
 # CASE — NOTHING STAGED FOR MERGING CAN BE READ AS LIVE CONFIGURATION.
 #
 # A staged copy sits inside the adopter's repository. Under its live name, a staged skill, agent
-# doc, CLAUDE.md or AGENTS.md is loaded by a harness session as instructions, and a staged
+# doc, or AGENTS.md is loaded by a harness session as instructions, and a staged
 # .gitignore or .gitattributes governs the staging tree for git. So merge items are planted at
-# .claude/skills/x/SKILL.md, CLAUDE.md and .gitignore, and under .kit-upgrade/ no path may carry a
+# .claude/skills/x/SKILL.md, AGENTS.md and .gitignore, and under .kit-upgrade/ no path may carry a
 # `.claude` component or one of those basenames; each checklist item must name its staged copy,
-# and that copy must exist and hold the new kit's bytes.
+# and that copy must exist and hold the new kit's bytes. The live-name check below also watches for
+# the legacy CLAUDE.md basename — an adopter upgrading from a kit version that shipped CLAUDE.md
+# may still have one, and staging a merge copy under it would be read as live exactly as AGENTS.md
+# would be, so the protection stays even once nothing still *produces* that name.
 # =============================================================================
 case_kit_upgrade_stages_nothing_live() {
   cf_reset
   make_sandbox
-  local L="kit-upgrade.sh stages merge copies under names no harness or git reads as live: no .claude component, no CLAUDE.md, AGENTS.md, SKILL.md, .gitignore or .gitattributes basename under .kit-upgrade/, and each item names its staged copy exactly"
+  local L="kit-upgrade.sh stages merge copies under names no harness or git reads as live: no .claude component, no AGENTS.md, CLAUDE.md, SKILL.md, .gitignore or .gitattributes basename under .kit-upgrade/, and each item names its staged copy exactly"
   _ku_subject_or_fail "$L" || return
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
   KU_OLD="$SB_TMP/kit-old"; KU_NEW="$SB_TMP/kit-new"; KU_T="$SB_TMP/project"; KU_ELSE="$SB_TMP/elsewhere"
@@ -341,12 +344,12 @@ case_kit_upgrade_stages_nothing_live() {
   for d in "$KU_OLD" "$KU_NEW"; do
     mkdir -p "$d/.claude/skills/x"
     printf 'skill %s\n' "${d##*-}" > "$d/.claude/skills/x/SKILL.md"
-    printf 'claude %s\n' "${d##*-}" > "$d/CLAUDE.md"
+    printf 'agents %s\n' "${d##*-}" > "$d/AGENTS.md"
     printf '# %s\n*\n' "${d##*-}" > "$d/.gitignore"   # live, it would hide every staged sibling
     _ku_manifest "$d"
   done
   _ku_target "$KU_T" "$KU_OLD" >/dev/null 2>&1
-  printf 'skill mine\n' > "$KU_T/.claude/skills/x/SKILL.md"; printf 'claude mine\n' > "$KU_T/CLAUDE.md"
+  printf 'skill mine\n' > "$KU_T/.claude/skills/x/SKILL.md"; printf 'agents mine\n' > "$KU_T/AGENTS.md"
   printf 'ignored-mine\n' > "$KU_T/.gitignore"
   git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "more local law" >/dev/null 2>&1
 
@@ -356,12 +359,12 @@ case_kit_upgrade_stages_nothing_live() {
   while IFS= read -r r; do
     [ -n "$r" ] || continue
     case "/$r" in */.claude/*|*/.claude) live="$live $r" ;; esac
-    case "${r##*/}" in CLAUDE.md|AGENTS.md|SKILL.md|.gitignore|.gitattributes) live="$live $r" ;; esac
+    case "${r##*/}" in AGENTS.md|CLAUDE.md|SKILL.md|.gitignore|.gitattributes) live="$live $r" ;; esac
   done <<KU_LIVE_EOF
 $(cd "$KU_T" && find .kit-upgrade | sed 's|^\./||')
 KU_LIVE_EOF
   [ -z "$live" ] || cf "staged under a name a harness or git reads as live:$live"
-  for r in .claude/skills/x/SKILL.md CLAUDE.md .gitignore; do
+  for r in .claude/skills/x/SKILL.md AGENTS.md .gitignore; do
     staged="$(grep -F "merge $r " "$cl" 2>/dev/null | sed -n 's/.*the new copy is \([^ ]*\)$/\1/p')"
     if [ -z "$staged" ]; then
       cf "no merge item for $r names its staged copy"
@@ -369,7 +372,7 @@ KU_LIVE_EOF
       cf "the item for $r names $staged, which is not the new kit's copy"
     fi
   done
-  [ "$(cat "$KU_T/CLAUDE.md")" = "claude mine" ] || cf "the adopter's CLAUDE.md was overwritten"
+  [ "$(cat "$KU_T/AGENTS.md")" = "agents mine" ] || cf "the adopter's AGENTS.md was overwritten"
   local hidden; hidden="$(cd "$KU_T" && find .kit-upgrade -type f | sed 's|^\./||' | git check-ignore --stdin 2>/dev/null)"
   [ -z "$hidden" ] || cf "git ignores staged file(s), so committing the staging would silently drop them: $(printf '%s' "$hidden" | tr '\n' ' ')"
   finish "$L"

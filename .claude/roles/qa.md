@@ -233,7 +233,7 @@ The verdict, the Activity note and the bug file are billed output; size them del
 ## Project duties — the adapter fills this
 
 Steps 3 and 5 above deliberately do not enumerate this project's cross-cutting checks, because
-those are **project law and do not travel**. The adapter (`CLAUDE.md`) and `PROJECT.md` own the
+those are **project law and do not travel**. The adapter (`AGENTS.md`) and `PROJECT.md` own the
 list; fill it in here as **trigger → check → guard** triples, so a fresh QA agent can tell from
 the diff alone which checks fire:
 

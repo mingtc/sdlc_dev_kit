@@ -28,7 +28,7 @@ a value — see § The three documents and § Seams.
 
 The adapter is the file the agent harness reads at session start, so it is the **entry point**;
 this manual is what it points at. This kit's default names for those two are `PROJECT.md` (the
-project doc) and `CLAUDE.md` (the adapter — *the kit ships a bootstrap stub at that path, which day
+project doc) and `AGENTS.md` (the adapter — *the kit ships a bootstrap stub at that path, which day
 one replaces with the adapter*) — both named as configuration seams in
 [`EXTRACTION.md`](EXTRACTION.md) § CONFIGURE, which is the only place a kit file is allowed to
 know an installation's filenames.

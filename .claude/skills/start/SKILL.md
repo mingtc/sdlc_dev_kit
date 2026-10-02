@@ -30,7 +30,7 @@ Before deciding which path to take, look for what already exists:
 
 - Does `PROJECT.md` still read as the shipped blank (`<project name>`, `<one or two sentences>`,
   other `<angle-bracket>` placeholders), or has it been filled in?
-- Does `CLAUDE.md` still carry the `BOOTSTRAP-SCAFFOLDING` line (`check-board.sh` arm `(g)` already
+- Does `AGENTS.md` still carry the `BOOTSTRAP-SCAFFOLDING` line (`check-board.sh` arm `(g)` already
   checks this — read its verdict rather than grepping for it yourself)?
 - Is there a board at all (`progress/todo/`, `progress/in_progress/`, etc.) with anything in it?
 - Does `process/LOCAL-PROCEDURES.md` exist? Its presence is SEED step 8's closing act, and its

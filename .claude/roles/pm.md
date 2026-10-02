@@ -269,7 +269,7 @@ The PM does not write code, does not write tests, does not pick libraries. Dev o
 ## Project duties — the adapter fills this
 
 The intake funnels above are portable. What is **not** portable is what this project counts as
-a *deliverable* and a *decision record*. The adapter (`CLAUDE.md`) and `PROJECT.md` own this;
+a *deliverable* and a *decision record*. The adapter (`AGENTS.md`) and `PROJECT.md` own this;
 fill it in:
 
 - **The notes deliverable.** Which documents a consumer-visible change must update (release

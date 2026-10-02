@@ -1794,13 +1794,13 @@ case_scaffolding_fixture_matches_the_tree() {
   local doc probe_hits line1 a_shipped="" a_unshipped=""
 
   # (a) EVERY SHIPPED root document carries the mark. "Shipped" is decided by the file's OWN
-  #     line-1 class declaration: CLAUDE.md and README.md are REPLACE-class, so on an adopted
+  #     line-1 class declaration: AGENTS.md and README.md are REPLACE-class, so on an adopted
   #     tree they are the adopter's, and demanding the kit's mark there would be red on every
   #     correct tree. A file declaring the kit class and carrying no sentinel is a true red
   #     either way: an edited shipped stub, or an adapter still carrying the kit's marker.
   #     Read from the REAL tree (make_sandbox does not seed the root documents); line 1 goes
   #     through a variable, not a pipe (run.sh's PIPEFAIL RULE).
-  for doc in CLAUDE.md README.md; do
+  for doc in AGENTS.md README.md; do
     if [ ! -f "$REAL_REPO_ROOT/$doc" ]; then
       a_unshipped="$a_unshipped $doc(absent)"
       continue
@@ -1845,7 +1845,7 @@ case_scaffolding_fixture_matches_the_tree() {
   #     drops it from their own copy.
   local lived_why e_marked=""
   lived_why="$(_tree_has_lived)"
-  for doc in CLAUDE.md README.md; do
+  for doc in AGENTS.md README.md; do
     if [ ! -f "$REAL_REPO_ROOT/$doc" ]; then
       cf "(e) $doc is ABSENT — the kit ships both root documents, SEED's day-one checklist requires both to have been replaced, and check-board.sh's graduation arm iterates this same pair. Arm (a) prints an absent document as not-measured rather than reddening, so nothing else in this suite would say this"
       continue
@@ -1862,30 +1862,30 @@ case_scaffolding_fixture_matches_the_tree() {
   #    harness must not write to. The discriminator is a function so it can be pointed here.
   local ctl="$SB_TMP/rootdocs" ctl_l1
   mkdir -p "$ctl"
-  printf '%s KIT — a fabricated shipped copy\n\n%s\n' "$KIT_CLASS_MARKER_KEY" "$KIT_SCAFFOLD_MARK" > "$ctl/CLAUDE.md"
-  if ! _root_doc_is_shipped_copy "$ctl" CLAUDE.md; then
+  printf '%s KIT — a fabricated shipped copy\n\n%s\n' "$KIT_CLASS_MARKER_KEY" "$KIT_SCAFFOLD_MARK" > "$ctl/AGENTS.md"
+  if ! _root_doc_is_shipped_copy "$ctl" AGENTS.md; then
     # THE POSITIVE CONTROL FIRST. A discriminator that accepts nothing would make both negative
     # controls below pass for the wrong reason (instruments.md § A.2).
     _control_did_not_run "build a fabricated root document the discriminator ACCEPTS"
   else
     # STATE 1 — the marker line removed. THE MUTATION IS ASSERTED TO HAVE APPLIED before its
     # effect is believed: a sed that matched nothing leaves this control silent and green.
-    sed -i.bak '1d' "$ctl/CLAUDE.md"; rm -f "$ctl/CLAUDE.md.bak"
-    ctl_l1="$(sed -n '1p' "$ctl/CLAUDE.md")"
+    sed -i.bak '1d' "$ctl/AGENTS.md"; rm -f "$ctl/AGENTS.md.bak"
+    ctl_l1="$(sed -n '1p' "$ctl/AGENTS.md")"
     case "$ctl_l1" in
       *"$KIT_CLASS_MARKER_KEY"*)
         _control_did_not_run "remove the class marker from the fabricated document (line 1 still carries it)" ;;
       *)
-        if _root_doc_is_shipped_copy "$ctl" CLAUDE.md; then
+        if _root_doc_is_shipped_copy "$ctl" AGENTS.md; then
           cf "(control) the discriminator still calls a document a shipped copy after its $KIT_CLASS_MARKER_KEY line was deleted — arm (e) cannot detect the state it is written for"
         fi ;;
     esac
     # STATE 2 — the document gone. Asserted as its own state because arm (a) treats absent and
     # unmarked identically, printing both as not-measured, while they are different defects.
-    rm -f "$ctl/CLAUDE.md"
-    if [ -f "$ctl/CLAUDE.md" ]; then
+    rm -f "$ctl/AGENTS.md"
+    if [ -f "$ctl/AGENTS.md" ]; then
       _control_did_not_run "delete the fabricated document"
-    elif _root_doc_is_shipped_copy "$ctl" CLAUDE.md; then
+    elif _root_doc_is_shipped_copy "$ctl" AGENTS.md; then
       cf "(control) the discriminator calls an ABSENT document a shipped copy — arm (e)'s absent branch could never fire"
     fi
   fi

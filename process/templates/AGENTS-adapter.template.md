@@ -1,7 +1,10 @@
 <!-- KIT-CLASS: KIT — a blank shape. Travels unedited; every angle-bracket blank is yours to fill. -->
 <!--
   HOW TO USE THIS FILE
-  1. Copy to the repository root as CLAUDE.md (or your agent tool's equivalent).
+  1. Copy to the repository root as AGENTS.md, replacing the bootstrap stub. (If your harness
+     reads a differently-named instructions file instead of or alongside AGENTS.md, point that
+     file at this one rather than duplicating it — a copy drifts and the copy wins arguments it
+     should lose.)
   2. Fill every <angle-bracket> blank; delete every HTML comment.
   3. Keep it SHORT. The adapter's job is to route, not to restate — anything it copies out of
      process/MANUAL.md will drift, and the copy will win arguments it should lose.
@@ -17,7 +20,7 @@
      is dead in every copy an adopter makes: it passes a link check run in the kit and fails
      the only reader who matters. The self-test reads this line to know where to resolve from,
      so keep its shape. -->
-# CLAUDE.md — <project name> operating manual
+# AGENTS.md — <project name> operating manual
 
 **How this project is developed.** <project name> runs a **filesystem-as-kanban** process with **roles
 as hats**. The transferable half of that process is [`process/MANUAL.md`](process/MANUAL.md) —
@@ -269,11 +272,10 @@ multiple issues in one feature area>**, and the current example of it is **<name
 | Extracting this kit into another repo | [`process/EXTRACTION.md`](process/EXTRACTION.md) |
 | Starting a project from nothing | [`process/SEED.md`](process/SEED.md) |
 | Taking a newer kit, and when | [`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How to upgrade an adopted project |
-| Non-Claude agents | [`AGENTS.md`](AGENTS.md) |
 
 <!-- FILL-IN CHECKLIST — the last thing you do to this file, and then you delete THIS BLOCK too.
 
-     WHY IT IS A CHECKLIST AND NOT JUST THE PROSE AT THE TOP: this file becomes CLAUDE.md, which
+     WHY IT IS A CHECKLIST AND NOT JUST THE PROSE AT THE TOP: this file becomes AGENTS.md, which
      is loaded on EVERY session forever. A line that survives here is not paid once — it is paid
      by every session, and guidance addressed to the person filling the template is read by every
      agent that follows as though it were project law.

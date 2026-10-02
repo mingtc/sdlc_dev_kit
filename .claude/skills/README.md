@@ -13,7 +13,7 @@ not state*).
 
 The skill set is **stack-agnostic**. Nothing here assumes a language, a test runner, a build
 tool or a forge. Where a skill needs a concrete command it says
-`<the project's test command>` and expects the **project adapter** (`CLAUDE.md`) and the
+`<the project's test command>` and expects the **project adapter** (`AGENTS.md`) and the
 **project facts** (`PROJECT.md`) to supply the real one. The floor the kit itself **requires** is
 **git + a POSIX shell**.
 
@@ -173,7 +173,7 @@ sheet over this line.
 - **From inside a role session:** the role docs in [`../roles/`](../roles/) say which skills
   auto-trigger for that role and which to invoke manually, alongside the role's session-start
   phrase and file conventions. Start there for an end-to-end PM, Dev, QA or Refactorer
-  workflow; the adapter (`CLAUDE.md`) explains how to pick a hat.
+  workflow; the adapter (`AGENTS.md`) explains how to pick a hat.
 
 ## Provenance & licensing
 

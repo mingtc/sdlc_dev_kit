@@ -14,7 +14,7 @@ provisioned and the standing riders.
 
 ## Read order (before probing anything)
 
-`PROJECT.md` → `CLAUDE.md` → `.claude/roles/dev.md` → the issue file. **The issue's AC is the
+`PROJECT.md` → `AGENTS.md` → `.claude/roles/dev.md` → the issue file. **The issue's AC is the
 contract** — a spike's AC is usually "the question is answered with evidence", not "a feature
 ships". Do not quietly turn a spike into an implementation; if the answer implies work, say so
 and let PM mint it.

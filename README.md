@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the seed's front door. Scaffolding: REPLACE-class, like CLAUDE.md.
+<!-- KIT-CLASS: KIT — the seed's front door. Scaffolding: REPLACE-class, like AGENTS.md.
      See process/EXTRACTION.md § The second axis: DISPOSITION. -->
 <!-- KIT-DISPOSITION: REPLACE — the replace-me notice is the body; the BOOTSTRAP-SCAFFOLDING line
      below is the sentinel a tool reads (EXTRACTION.md § The marker and graduation). -->
@@ -11,8 +11,9 @@ behind why each rule exists. Drop it into a new or existing repository, point yo
 it runs the process for you — you run `/start` and answer its questions.
 
 **Language- and stack-agnostic.** Works with any codebase, any test framework, any forge. Requires
-only **git** and a **POSIX shell**. Built for [Claude Code](https://claude.com/claude-code), with a
-harness-neutral path (`AGENTS.md`) for any other coding agent.
+only **git** and a **POSIX shell**. Bootstraps from a single `AGENTS.md`, the convention
+[Claude Code](https://claude.com/claude-code) and most other coding agents already read — no
+harness-specific config file required to get started.
 
 ## Why
 
@@ -24,6 +25,48 @@ language or stack you're already using.
 
 **What this is not.** Not a template for an application — it holds no product code. It is the
 process a project runs *on*.
+
+## What's in it
+
+**PRDs as code, not prose nobody re-reads.** A PRD isn't a doc you write once and forget — it's a
+structured record with a status (`draft` → `approved` → `completed` → `superseded`) and explicit
+`supersedes` / `superseded_in_part` links, so when a later decision overturns part of an earlier
+spec, that's a recorded edge, not a doc quietly going stale in a drive somewhere. Every feature
+inside a PRD gets an id (`F1`, `F2`, …), and every user story under it gets its own
+(`F1-S1`, `F1-S2`, …) — **issues cite story ids directly**, so "what does this code change satisfy?"
+is a lookup, not an argument. Acceptance criteria live on the story, in the same document the board
+and the QA verdict both read from.
+
+**A standing-rulings register, so decisions don't get re-litigated.** `requirements/DECISIONS.md`
+answers "what is currently true?" for every ruling that governs the project — one line each: the
+decision, one line of why, and its provenance. A ruling is retired, never silently deleted, so the
+history of *why things changed* survives even once the thing itself hasn't been true for months.
+`requirements/CORPUS.md` is the manifest that keeps every requirements document accounted for, so
+nothing just lives in someone's head.
+
+**TDD as the default, not a suggestion.** Write the test, watch it fail, write the minimal code to
+pass. The rule is blunt on purpose: *if you didn't watch the test fail, you don't know if it tests
+the right thing.* It binds for new features, bug fixes, and refactors alike, with narrow, named
+exceptions (throwaway prototypes, generated code) rather than a vague "use your judgment."
+
+**QA verdicts are evidence, not a vibe.** Every issue's QA pass produces a `## QA Verdict` table,
+one row per acceptance criterion, each row naming its own verdict, the *kind* of evidence behind it
+(a test, a `file:line`, a gate diff, a fixture diff), and a pointer to that evidence — so a reviewer
+checks the row's claim against its own proof, not against a paragraph summarizing it. Verdicts are
+one of four stable tokens (`PASS`, `PASS_AC_CORRECTED`, `FAIL_AC`, `FAIL_REGRESSION`), and the table
+carries a dedicated check for the easy-to-miss failure mode: a new check silently shadowing an older
+one's coverage, so the suite stays green while a real gap opens underneath it.
+
+**The kanban board lives in your filesystem — the folder IS the status.** `progress/todo/`,
+`in_progress/`, `dev_complete/`, `qa_complete/`, `blocked/`, `done/`, `declined/` — moving an issue
+between them is the status change, done through one script (never a bare `mv`) so the move, the
+issue's own frontmatter, and the commit that recorded it can never drift apart. A drift report
+(`check-board.sh`) catches it in under two seconds if they ever do.
+
+**Roles worn as hats, not separate people.** One agent (or one human) can be PM, Dev, QA, or
+Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
+boundary is hard**: Dev's own "it's done" is never the landing signal, QA's verdict is, and nothing
+lands on the trunk without passing through it.
 
 ## Get it
 
@@ -165,7 +208,7 @@ operations, and every step there names the authority that holds the law. Wire th
 | 1 | **This file** | What the kit is, and how to stamp it. |
 | 2 | [`process/SEED.md`](process/SEED.md) **or** [`process/EXTRACTION.md`](process/EXTRACTION.md) | **SEED** is the *you-have-nothing* path: an empty directory and a sentence. **EXTRACTION** is the *donor-extraction* path: you have a working repository in front of you and want to know what to copy. Both end in the same place. |
 | 3 | [`process/MANUAL.md`](process/MANUAL.md) | **The operating manual** — roles, the board, the Dev → QA boundary, the rituals, the execution discipline. Read once, in full. Adopt unedited. |
-| 4 | [`CLAUDE.md`](CLAUDE.md) | **On day one, the bootstrap stub** — it says the project is not set up yet and sends you to [`process/SEED.md`](process/SEED.md). **You replace it** at SEED step 5 with **the adapter** — this project's own law, and the values the manual deliberately does not know — built from [`process/templates/CLAUDE-adapter.template.md`](process/templates/CLAUDE-adapter.template.md). From then on, read it every session alongside [`PROJECT.md`](PROJECT.md). |
+| 4 | [`AGENTS.md`](AGENTS.md) | **On day one, the bootstrap stub** — it says the project is not set up yet and sends you to [`process/SEED.md`](process/SEED.md). **You replace it** at SEED step 5 with **the adapter** — this project's own law, and the values the manual deliberately does not know — built from [`process/templates/AGENTS-adapter.template.md`](process/templates/AGENTS-adapter.template.md). From then on, read it every session alongside [`PROJECT.md`](PROJECT.md). |
 
 Then, as needed: [`process/contracts/README.md`](process/contracts/README.md) (one sheet per gate —
 what must be TRUE, independent of how you implement it), [`process/doctrine/`](process/doctrine/)
@@ -248,7 +291,7 @@ without one.
 - **Disposition — what state a file must be in before day one is done.** A second axis, answering
   the question the class does not: **KEEP** · **STAMP** · **FILL** · **REPLACE** · **SEED** ·
   **DELETE-IF-UNUSED**. It matters most for **REPLACE**: this `README.md` and the shipped
-  `CLAUDE.md` are **scaffolding to be thrown away and rewritten**, not files to be edited into
+  `AGENTS.md` are **scaffolding to be thrown away and rewritten**, not files to be edited into
   shape. The axis, its members and what discharges each one are in
   [`process/EXTRACTION.md`](process/EXTRACTION.md) § The second axis: DISPOSITION.
 - **Pattern vs instance.** A doctrine sheet's *pattern* section is law and travels verbatim; its

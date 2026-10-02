@@ -5,7 +5,7 @@
 > **Scope guard: this doc binds ONLY the seated architect instance** — the single
 > standing agent partnered with the PM across sessions. It is **never assigned to a
 > subagent**, never forwarded in spawn instructions, and no other role doc references it.
-> Every other agent in the repo operates purely on the adapter (`CLAUDE.md`) + its own role doc.
+> Every other agent in the repo operates purely on the adapter (`AGENTS.md`) + its own role doc.
 >
 > **This contract is agreed between the PM and the seat, in conversation, and committed with
 > the PM's informed consent.** Fill in the date of that agreement when you adopt it; changes to
@@ -212,7 +212,7 @@ blank.
   with the PM (with recommendations); **verification results already confirmed** (so the
   successor doesn't re-derive them); next actions; open risks.
 - **Successor read order:** this contract → latest handoff → seat memory → `PROJECT.md` →
-  `CLAUDE.md` → the board (`check-board.sh`) → any standing assessment doc the project keeps.
+  `AGENTS.md` → the board (`check-board.sh`) → any standing assessment doc the project keeps.
 - The seat also maintains its persistent memory directory (harness-provided) as a cache of the
   same facts — but **the repo artifact is the record**; memory is a convenience.
 - **Writing a new handoff, or closing a launch pack the seat authored, is not done until the

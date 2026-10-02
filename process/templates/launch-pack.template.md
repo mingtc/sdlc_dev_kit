@@ -121,7 +121,7 @@
 
 Fresh top-level instance, **Orchestrator hat all session**
 ([`.claude/roles/orchestrator.md`](../../.claude/roles/orchestrator.md) — including its
-§ Model & effort contract). Read order: `PROJECT.md` → `CLAUDE.md` → the role doc →
+§ Model & effort contract). Read order: `PROJECT.md` → `AGENTS.md` → the role doc →
 `<dev/handoffs/<date>-standing-handoff.md>` → **all <N> issue files in full** (their AC are the
 law; each issue's own rigor tier binds, wherever the pack records it — there is no § Rigor
 section in the shipped card templates, so do not send a runner looking for one). The repo files

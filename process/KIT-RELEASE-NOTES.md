@@ -241,7 +241,7 @@ the route (the read, for a release that predates it).
 
   Stamp by hand whatever they print.
 - **A file you replaced or deleted conflicts whenever the kit changes it.** A `README.md` or
-  `CLAUDE.md` you made your own is left as a content conflict (`git checkout --ours <file>` keeps
+  `AGENTS.md` you made your own is left as a content conflict (`git checkout --ours <file>` keeps
   yours); a shipped file you deleted is left as modify/delete (`git rm <file>` keeps it gone). Read
   the version entries below first — the kit's change may be one to carry across by hand.
 
@@ -313,7 +313,29 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Action required
+
+- **`CLAUDE.md` is gone. `AGENTS.md` is now the one bootstrap file and the one adapter**, for
+  Claude Code and every other harness alike (Claude Code reads a lone `AGENTS.md` directly when no
+  `CLAUDE.md` exists on the path). If you have already run day one: nothing to do — your adapter is
+  your own file regardless of what the kit calls its template now. If you are upgrading an
+  unfinished day one, or your repository still has the shipped bootstrap stub: delete your
+  `CLAUDE.md`, and finish day one against the shipped `AGENTS.md` instead.
+  `process/templates/CLAUDE-adapter.template.md` is renamed to
+  `process/templates/AGENTS-adapter.template.md` — update any of your own notes that pointed at the
+  old name.
+
+### Added
+
+- **A `/start` skill** — the human-friendly front door for a session: checks the environment, looks
+  for prior work, and either walks a fresh unpack through day one (`process/SEED.md`) or shows
+  status and a menu of what the project's roles and skills can do next. Routes to the kit's own
+  authorities rather than duplicating them.
+- **`LICENSE` (MIT) and `LICENSE-CONTENT` (CC0-1.0)** at the kit's root. `LICENSE` covers the kit's
+  own mechanism (scripts, process doctrine, skills) — MIT specifically because the vendored Dev
+  skill set (`obra/superpowers`) is itself MIT. `LICENSE-CONTENT` covers the scaffold content you
+  copy, edit and delete as your own project replaces it. Corrects `.claude/skills/README.md`'s
+  provenance table, which previously recorded the Dev set's license as NOT RECORDED.
 
 ## [0.7.0] — 2026-10-01
 
@@ -534,9 +556,9 @@ _Nothing yet._
 
 - **If `kit-init` completed on your repository but shipped kit files never reached your trunk,
   commit them.** It happened on the empty-first-commit path the old recipe offered, and when a
-  shipped file was ignored (a global excludes file often ignores `CLAUDE.md`). Run `git status` and
+  shipped file was ignored (a global excludes file often ignores `AGENTS.md`). Run `git status` and
   `git status --ignored`: commit the **kit** paths they name — `README.md`, `PROJECT.md`,
-  `CLAUDE.md`, `AGENTS.md`, `setup.sh`, `.env.example`, `consumers/`, `docs/`, and any other path
+  `AGENTS.md`, `setup.sh`, `.env.example`, `consumers/`, `docs/`, and any other path
   listed in `process/KIT-MANIFEST` — with `git add -f -- <those paths>` (not a blind `git add -A`,
   which would take your own files too), a role-prefixed subject, and a push. Delete a shipped file
   instead if you do not want it. `kit-init` now refuses, writing nothing, while a shipped path is on

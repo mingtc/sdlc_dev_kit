@@ -183,7 +183,7 @@ The cut line: **refactor is *form*. PRD is *meaning*.** When in doubt, kick.
 The audit and the move discipline are portable. What is **not** portable is which parts of this
 project's shape are **load-bearing by decree** rather than by accident — and a refactor that
 "cleans up" a load-bearing division of responsibility is a regression wearing a tidy diff. The
-adapter (`CLAUDE.md`) and `PROJECT.md` own this; fill it in:
+adapter (`AGENTS.md`) and `PROJECT.md` own this; fill it in:
 
 - **Architectural invariants that are decisions, not smells.** Any structure a ruling made
   binding — a registry pattern, a one-module-per-family rule, an enforced layering. The donor's

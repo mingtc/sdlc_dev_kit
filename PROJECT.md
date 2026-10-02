@@ -6,7 +6,7 @@
 **One paragraph, in the present tense: what this project IS.** Not the roadmap, not the pitch —
 the sentence a stranger needs before reading anything else. This file is the **project-specific
 half** of the process: [`process/MANUAL.md`](process/MANUAL.md) holds the transferable half, and
-[`CLAUDE.md`](CLAUDE.md) is the adapter that points at both — *on day one it is still the bootstrap
+[`AGENTS.md`](AGENTS.md) is the adapter that points at both — *on day one it is still the bootstrap
 stub, and you replace it with your adapter at [`process/SEED.md`](process/SEED.md) step 5.* **Read
 this file at the start of every session.**
 
@@ -227,7 +227,7 @@ leaving it to whoever dispatches.**
 | <your own role> | `<doc>` | <yes/no> | — |
 
 **The role set is a configuration seam**, not prose: whatever you decide here must match
-the adapter's roles table ([`CLAUDE.md`](CLAUDE.md), from SEED step 5) and the role alternation your commit-attribution guard
+the adapter's roles table ([`AGENTS.md`](AGENTS.md), from SEED step 5) and the role alternation your commit-attribution guard
 enforces. *(Authority:
 [`process/contracts/config-seam.md`](process/contracts/config-seam.md) and
 [`process/contracts/commit-attribution.md`](process/contracts/commit-attribution.md).)*

@@ -14,7 +14,7 @@ policy from it — follow it.
 
 ## Read order (before changing anything)
 
-`PROJECT.md` → `CLAUDE.md` → `.claude/roles/dev.md` → the issue file. **The issue's AC is the
+`PROJECT.md` → `AGENTS.md` → `.claude/roles/dev.md` → the issue file. **The issue's AC is the
 contract**; anything outside the AC is out of scope for this pickup.
 
 ## Provisioning contract

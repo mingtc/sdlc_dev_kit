@@ -102,7 +102,7 @@ contains; an instrument you can delete is not a requirement.*
 **In this seed almost everything is `KIT`, and that is a fact about the seed, not a boast.** The
 seed *is* the kit: it holds no product. `MIXED` here means *"the frame travels, the contents are
 yours"* — the gate runner, the attribution hook, the release script, the self-test harness. As soon
-as you fill in `PROJECT.md` and `CLAUDE.md`, **those two are `PROJECT`-class by nature**: they are
+as you fill in `PROJECT.md` and `AGENTS.md`, **those two are `PROJECT`-class by nature**: they are
 the only files in the tree that never travel anywhere. **They LOSE their markers at that moment
 rather than gaining `PROJECT` ones**, which is § The marker and graduation's act and is specified
 there. Re-mark honestly as your own files accrete. A marker that says `KIT` over a file carrying your
@@ -184,7 +184,7 @@ and a disposition at the same time.
 | **KEEP** | Travels unedited; stays visibly the kit's. **Some surfaces inside `process/**` are declared blanks and are named here rather than counted:** the *your project's instance* section that MOST doctrine sheets carry (not all — a sheet that is pure pattern has none, and **says so in its own header, which is the signal to read**: `grep -LiE '^<!-- KIT-CLASS:.*(fill-in|instance)' process/doctrine/*.md` — the header is where each sheet declares its split, so ask the header, not the prose), this manifest's § 4 debt list, the hygiene checklist's evidence column, and everything under `process/templates/`, which is hand-filled shapes throughout (see its own row below). *They are still `KEEP`, because what travels unedited is the SHEET — a bounded blank inside it is where the project's own text goes, not an edit to the kit's half. Read "travels unedited" without this and a reader leaves every one of them empty.* | `process/**`, `.claude/skills/**` |
 | **STAMP** | The initializer rewrites values; the structure stays the kit's. | `.claude/templates/`, `.claude/roles/`, `scripts/config.sh`'s `ISSUE_PREFIX`/`PRD_PREFIX`/`PROJECT_NAME`, and under `--roles` the enforcing seams § 2.4 marks *Stamped* |
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half, `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS` — **the initializer never stamps these two**, the same FILL shape as `GATES`, not done until filled or declared deliberately empty |
-| **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `CLAUDE.md`, `README.md` |
+| **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `AGENTS.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
 | **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
 
@@ -309,7 +309,7 @@ that admits one case people keep re-deriving, so it is written here once:
   reader left who needs the instruction — it has already been obeyed.
 - **A replace-me instruction MAY NOT**, because it is **the very act graduation performs**. It is
   still in force at the moment the marker would be removed, so a marker-borne copy is removed by the
-  operation it was there to prompt. That is why `README.md` and the `CLAUDE.md` stub carry their
+  operation it was there to prompt. That is why `README.md` and the `AGENTS.md` stub carry their
   notices in the body.
 
 *So the rule is about the instruction's lifetime, not about where instructions look tidy.* A marker
@@ -356,7 +356,6 @@ names the guard whose job is to keep it honest.
 |---|---|
 | `LICENSE` | MIT — covers the kit's own mechanism (`scripts/`, `process/`, `.claude/`). Travels unedited; see its own text for why MIT specifically (the vendored Dev skill set). |
 | `LICENSE-CONTENT` | CC0-1.0 — covers the scaffold content you copy, edit and eventually delete (templates, the bootstrap files, your adapted doctrine). Travels unedited. |
-| `AGENTS.md` | **The harness-neutral entry point**, for any agent that is not Claude Code. Travels unedited, and it says so in its own marker. |
 | `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** |
 | `dev/` | The working-records tree. Its index (`dev/README.md`) carries a discipline that travels and rows that are yours — every file you add there gets one; the folder READMEs travel unedited; `dev/downtime-queue.md` is `MIXED` — the queue's shape travels, every row is yours. Everything you add there is yours. |
 | `process/MANUAL.md` | The transferable operating manual. Adopt unedited. |
@@ -706,7 +705,7 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 | `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
 | `scripts/subtask.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `move` arm's whitelist and both error messages derive through `kit_role_resolve`; its usage text derives through `kit_role_display` | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the shared kanban worktree loses the move. **Same shape as `move-issue.sh` above, and kept in this file for the same reason:** the initializer's glob cannot reach `lib/` |
 | `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
-| The adapter (`CLAUDE.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
+| The adapter (`AGENTS.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
 
 **`scripts/lib/role-set.sh` gets no row, deliberately: it holds the POLICY, not the set.**
 `kit_role_set` reads the authority, `kit_role_display` renders it for usage text, `kit_role_resolve`
@@ -889,7 +888,7 @@ The manual names no filenames except through these two roles:
 | Role | This kit's default | You supply |
 |---|---|---|
 | **The project doc** — what the project is, stack, quality bar, binding gates, credentials | `PROJECT.md` | Your equivalent. |
-| **The project adapter** — the project's own law and the role set | `CLAUDE.md` (the harness reads this filename). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/CLAUDE-adapter.template.md` and **overwrite** the stub. |
+| **The project adapter** — the project's own law and the role set | `AGENTS.md` (Claude Code and every harness that honors the `AGENTS.md` convention read this filename; see `process/EXTRACTION.md` § 1 for how a harness with its own conventional filename should point at it instead of copying it). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/AGENTS-adapter.template.md` and **overwrite** the stub. |
 
 ### 2.6 What counts as CODE
 
@@ -898,7 +897,7 @@ gate) rather than *"metadata"* (direct to trunk). **The mechanically enforced se
 `scripts/config.sh`'s `CODE_GLOBS`** — `scripts/githooks/pre-commit` reads it from there, never
 from the adapter, and carries no project-owned part of its own. State yours **as globs**, because a
 boundary you can compute with one `git diff --name-only` is a boundary that survives a busy
-session. The adapter's own CODE row (`process/templates/CLAUDE-adapter.template.md`) points at
+session. The adapter's own CODE row (`process/templates/AGENTS-adapter.template.md`) points at
 `scripts/config.sh` the same way its TEST_GLOBS row already does; its prose is documentation of
 your answer, not a second place to declare it.
 
@@ -934,7 +933,7 @@ this change will ask, and a deleted table cannot answer it.*
 inside the one above.** It denies the harness's interactive-question tool for a launch nobody is
 watching — opt-in, passed at launch rather than copied into `.claude/settings.json` by default,
 because the same deny is wrong for an attended session. Name which profile a launch uses in the
-adapter (`process/templates/CLAUDE-adapter.template.md` § What is ON and what is OFF here); the
+adapter (`process/templates/AGENTS-adapter.template.md` § What is ON and what is OFF here); the
 mechanism it pairs with is `scripts/ask.sh` (§ 2.10 below).
 
 ### 2.9 The drift-report thresholds
@@ -1084,7 +1083,7 @@ whose policy is the project's.
 doctrine. Separating them is an improvement on the kit, not a departure from it.
 
 ### 4.8 Kit files still cite an installation's filenames
-The configuration seam's header and several script headers point at `CLAUDE.md` / `PROJECT.md` by
+The configuration seam's header and several script headers point at `AGENTS.md` / `PROJECT.md` by
 name. These are *tolerated* pointers: § 2.5 names those two files as configuration seams, which is
 the only licence a kit file has to know an installation's filenames.
 **Cost:** rename your adapter and these headers read stale.

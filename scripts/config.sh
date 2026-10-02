@@ -13,7 +13,7 @@
 #
 # The TRUNK is deliberately NOT a knob here: it resolves from <remote>/HEAD
 # (scripts/lib/kanban-worktree.sh kwt_resolve), and the project adapter states it
-# (CLAUDE.md § "The trunk").
+# (AGENTS.md § "The trunk").
 
 # Issue / bug prefix. Generated filenames look like ${ISSUE_PREFIX}-001-<slug>.md.
 # Who reads it:  grep -rlF ISSUE_PREFIX scripts --include='*.sh'
@@ -37,7 +37,7 @@ PROJECT_NAME="${PROJECT_NAME:-<project name>}"
 # Archive sweep threshold: how many issues progress/qa_complete/ may hold before
 # check-board.sh's arm (b) flags it as due for a sweep (./scripts/archive.sh --apply).
 # THE ONE AUTHORITY for this number — the adapter's "archive sweep threshold" row
-# (process/templates/CLAUDE-adapter.template.md) points here rather than asking for <N>.
+# (process/templates/AGENTS-adapter.template.md) points here rather than asking for <N>.
 QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 
 # ── CODE_GLOBS — the one project-supplied definition the code-vs-metadata rule needs

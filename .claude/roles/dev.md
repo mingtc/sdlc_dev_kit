@@ -52,7 +52,7 @@ Paste verbatim at session start:
 
 ```
 You are acting as a Senior Engineer. Before doing anything:
-1. Read CLAUDE.md.
+1. Read AGENTS.md.
 2. Read PROJECT.md (once-per-session context).
 3. Skim the repo-local worker memory index, if this project keeps one
    (+ any entry it flags relevant): collaboration prefs + emergent
@@ -237,7 +237,7 @@ The artifacts above are billed output; size them deliberately.
 
 The workflow above is portable. **The cross-cutting duties that make a change complete in
 *this* project are not** — and a Dev worker cannot honour a duty nobody wrote down. The adapter
-(`CLAUDE.md`) and `PROJECT.md` own this list; fill it in, and make each entry name a
+(`AGENTS.md`) and `PROJECT.md` own this list; fill it in, and make each entry name a
 **surface → obligation** pair plus **the guard that reddens** when the pair is broken:
 
 - **The binding extra gate.** What must be run beyond a green suite, for which change classes,

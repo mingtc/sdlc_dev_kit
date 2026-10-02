@@ -17,7 +17,7 @@ and the standing riders.
 
 ## Read order (before changing anything)
 
-`PROJECT.md` → `CLAUDE.md` → the role doc the issue names → the issue file. **The issue's AC
+`PROJECT.md` → `AGENTS.md` → the role doc the issue names → the issue file. **The issue's AC
 is the contract.** If the sweep turns out to need judgement per file rather than one rule,
 **stop and say so** — that is a `dev-worker` job, not this one.
 

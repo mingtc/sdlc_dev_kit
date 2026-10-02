@@ -18,7 +18,7 @@
 #   anything else                       NEVER overwritten: the new one is staged under
 #                                       .kit-upgrade/files/ and the checklist says merge it
 # A STAGED COPY NEVER CARRIES A LIVE NAME: each `.claude` path component is written `_claude`, and
-# every staged file ends in `.kit-new`. Under its own name a staged skill, agent doc, CLAUDE.md or
+# every staged file ends in `.kit-new`. Under its own name a staged skill, agent doc, or
 # AGENTS.md would be loaded by a harness, and a staged .gitignore or .gitattributes would govern
 # the staging tree. Each checklist item names its staged copy exactly.
 # A file the new kit no longer ships is listed, never deleted. With no sha256 tool (shasum or

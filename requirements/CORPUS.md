@@ -84,7 +84,7 @@ the only reliable way to notice is a guard that fails.
 | `dev/` | `ledger` |
 | `docs/` | `<bucket — reference material this project did not write. A vendor's API guide may genuinely be an input to rebuilding and belong in `corpus`; a stakeholder artifact produced to leave the project is neither. Decide per what you actually keep there, and say why>` |
 | `process/` | `<bucket>` |
-| `README.md`, `PROJECT.md`, `CLAUDE.md`, `AGENTS.md` | `<bucket>` each |
+| `README.md`, `PROJECT.md`, `AGENTS.md` | `<bucket>` each |
 | `.claude/`, `scripts/`, `consumers/`, `setup.sh`, `.env.example`, `.gitignore` | `<bucket>` each |
 | `<your file or dir>` | `<bucket>` |
 

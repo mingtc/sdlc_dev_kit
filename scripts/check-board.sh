@@ -815,7 +815,7 @@ else
     echo "      REPLACE: no file in this tree declares KIT-DISPOSITION: REPLACE  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
     g_unmeasured="${g_unmeasured:+$g_unmeasured, }REPLACE (no declaring file in this source)"
   elif [ -n "$g_repl" ]; then
-    echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; matched as the exact whole shipped line, so this is the sentinel itself and not a prose mention; the adapter is built from process/templates/CLAUDE-adapter.template.md — $(cb_src)"
+    echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; matched as the exact whole shipped line, so this is the sentinel itself and not a prose mention; the adapter is built from process/templates/AGENTS-adapter.template.md — $(cb_src)"
     g_find=1; g_measured=$((g_measured+1))
   else
     echo "      REPLACE:$g_repl_pop carry no scaffolding sentinel  ✓ (population derived from KIT-DISPOSITION: REPLACE declarations, not a list typed into this script; exact whole-line match — a mention of the token in prose is not a hit) — $(cb_src)"

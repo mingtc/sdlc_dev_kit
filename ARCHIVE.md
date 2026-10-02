@@ -34,7 +34,7 @@ that triggers the advisory is a **constant declared at the top of
 `scripts/check-board.sh`** — not a value your adapter sets. No script reads a threshold
 from the adapter, so a number written there changes nothing; change it at the constant
 or not at all. What the adapter DOES record is whether this sweep is run here at all —
-[`CLAUDE.md`](CLAUDE.md) § "What is ON and what is OFF here".
+[`AGENTS.md`](AGENTS.md) § "What is ON and what is OFF here".
 
 **The heading below is format law and exists from day one, empty.** The sweep
 inserts directly beneath it, and the initializer's already-lived refusal counts

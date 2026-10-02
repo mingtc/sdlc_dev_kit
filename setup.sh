@@ -235,7 +235,7 @@ Setup complete.   Gate: $GATE
 
 The board:            ls progress/todo/  ;  ./scripts/check-board.sh
 Operating manual:     process/MANUAL.md
-This project's law:   CLAUDE.md      ·      project facts: PROJECT.md
+This project's law:   AGENTS.md      ·      project facts: PROJECT.md
 Credentials:          .env ($ENV_NOTE)
 ────────────────────────────────────────────────────────────────────────────
 EOF

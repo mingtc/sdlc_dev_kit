@@ -14,7 +14,7 @@ you are provisioned and the standing riders.
 
 ## Read order (before judging anything)
 
-`PROJECT.md` → `CLAUDE.md` → `.claude/roles/qa.md` → the issue file. **The issue's AC is the
+`PROJECT.md` → `AGENTS.md` → `.claude/roles/qa.md` → the issue file. **The issue's AC is the
 contract** — judge the AC and the binding gates, nothing else. You are the fresh-eyes
 reviewer: you do **not** fix code; a FAIL bounces the issue back to `in_progress` with the
 unmet AC named.

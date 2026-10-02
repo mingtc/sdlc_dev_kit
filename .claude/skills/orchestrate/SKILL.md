@@ -30,7 +30,7 @@ trunk branch, default `main`.
 
 ### 0. Setup + propose the RUN PLAN (then wait)
 
-1. **Read order — skip what's already in context.** The adapter (`CLAUDE.md`) is auto-loaded
+1. **Read order — skip what's already in context.** The adapter (`AGENTS.md`) is auto-loaded
    at session start; do **not** re-read it. Read only what isn't loaded yet:
    `.claude/roles/orchestrator.md`, `PROJECT.md`, the repo-local worker memory index if the
    project keeps one, `progress.md` (recent entries), then

@@ -241,7 +241,7 @@ is being worked on gets fixed; the same finding arriving after a cut waits for t
 ## B. Project duties — filled by the adapter
 
 The rules above are the pattern. **These are the values and duties one project supplies**; fill
-them in the adapter (`CLAUDE.md` / `PROJECT.md`) and in the seam block at the top of
+them in the adapter (`AGENTS.md` / `PROJECT.md`) and in the seam block at the top of
 [`consumers/update_vendored.sh`](../../consumers/update_vendored.sh). Delete this section
 wholesale if the project ships to nobody.
 

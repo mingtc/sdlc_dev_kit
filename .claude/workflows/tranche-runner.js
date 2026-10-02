@@ -33,7 +33,7 @@ try {
 // ---------------------------------------------------------------------------
 // CFG — the only project-specific values in this file. Override any of them per
 // run via args; the defaults are the kit's, not any one project's. Keep them in
-// sync with the project adapter (CLAUDE.md), scripts/verify.sh and KWT_REMOTE.
+// sync with the project adapter (AGENTS.md), scripts/verify.sh and KWT_REMOTE.
 // ---------------------------------------------------------------------------
 const CFG = {
   repo:        ARGS.repo,                                  // REQUIRED: absolute path to the repo
@@ -145,7 +145,7 @@ HARD CAP — YOU ARE A LEAF WORKER: do NOT spawn subagents, and do not run workf
 this work yourself, in this context. Fan-out is the coordinator's decision, never yours.
 
 Ground rules (non-negotiable):
-- Read PROJECT.md first, then CLAUDE.md, then your role doc, then the issue file. The issue's AC is the contract.
+- Read PROJECT.md first, then AGENTS.md, then your role doc, then the issue file. The issue's AC is the contract.
 - QUOTA-LEAN: targeted reads only; NEVER Read an image or a binary file and never screenshot (verify an artifact by hash / size / listing); no full-suite or repeated-build runs beyond the gates named below.
 - OUTPUT LENGTH: lead with the outcome; final report <= ~30 lines; commit subjects compact (what+why, no transcripts); Activity and progress.md notes carry evidence POINTERS (file:line, command + its result line), not pasted output.
 - No AI co-author trailers in commits. Never commit a secrets file. Role-prefixed commit subjects.
@@ -260,7 +260,7 @@ function devPrompt(issue, fixNotes) {
     ? `DEPENDENCY CHAIN — VERIFY FIRST: this issue depends on ${deps.join(', ')} being LANDED on ${CFG.trunk}. Before any work: git log --oneline --grep to confirm each predecessor's "→ qa_complete" landing commit exists on ${CFG.trunk} AND its issue file sits in progress/qa_complete/ or progress/done/. If any link is missing, STOP immediately: return status=blocked with the evidence. Never work past a missing chain.`
     : `This issue has no dependencies inside the tranche.`
   const workMode = issue.docsPath
-    ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per CLAUDE.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
+    ? `DOCS/PROCESS PATH (the direct-to-trunk lite variant per AGENTS.md — this issue touches NONE of ${CFG.codePaths}): there is NO work branch. Work directly on a fresh-pulled ${CFG.trunk}; commit each logical change straight to ${CFG.trunk} with a [${role}]-prefixed subject and push. If you find yourself needing to touch a code path, STOP and return blocked — that would be mis-scoped.`
     : `CODE PATH: create branch ${issue.branch} from a fresh ${CFG.remote}/${CFG.trunk} and work there.`
   const resume = fixNotes
     ? `THIS IS A FIX ROUND: QA bounced the issue back to in_progress with these unmet AC / notes — address exactly these${issue.docsPath ? ` (docs path: continue direct on ${CFG.trunk})` : ` on the SAME branch (git switch ${issue.branch}, do not recreate it)`}:\n${fixNotes}`

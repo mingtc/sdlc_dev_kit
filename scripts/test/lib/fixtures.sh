@@ -628,7 +628,7 @@ seed_scaffolding_tree() {
   # BOTH HALVES, because arm (g1) needs both: the declaration puts the file in the REPLACE
   # population and the sentinel is the test applied to it (process/EXTRACTION.md § The
   # KIT-DISPOSITION: marker).
-  for _sf in CLAUDE.md README.md; do
+  for _sf in AGENTS.md README.md; do
     {
       printf '<!-- KIT-CLASS: KIT — synthetic scaffolding for the harness.\n'
       printf '     %s — the notice itself is the line below, in the body. -->\n' "$KIT_REPLACE_DISPOSITION"

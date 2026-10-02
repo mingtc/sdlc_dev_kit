@@ -14,7 +14,7 @@ helpers); this file is only how you are provisioned and the standing riders.
 
 ## Read order (before writing anything)
 
-`PROJECT.md` → `CLAUDE.md` → `.claude/roles/pm.md` → the source material (a study, a handoff,
+`PROJECT.md` → `AGENTS.md` → `.claude/roles/pm.md` → the source material (a study, a handoff,
 a bug report). When you are revising an existing issue, **its current AC is the contract** you
 are amending — say what changed and why.
 
