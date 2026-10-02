@@ -11,9 +11,11 @@ behind why each rule exists. Drop it into a new or existing repository, point yo
 it runs the process for you — you run `/start` and answer its questions.
 
 **Language- and stack-agnostic.** Works with any codebase, any test framework, any forge. Requires
-only **git** and a **POSIX shell**. Bootstraps from a single `AGENTS.md`, the convention
-[Claude Code](https://claude.com/claude-code) and most other coding agents already read — no
-harness-specific config file required to get started.
+only **git** and a **POSIX shell**. Built with [Claude Code](https://claude.com/claude-code) in
+mind — that's where the skills, agent definitions and hooks under `.claude/` actually run — with a
+bridge for other agents: day one bootstraps from a single `AGENTS.md`, which Claude Code and most
+other coding agents already read, and the process itself (the roles, the board, the Dev → QA
+boundary) is documented as plain rules any agent can follow even without `.claude/`'s automation.
 
 ## Why
 
@@ -299,3 +301,16 @@ without one.
   an instance, **keep the pattern and keep the why** — that is the supersession law
   ([`process/doctrine/supersession.md`](process/doctrine/supersession.md)), and it applies to this
   kit's own documents as much as to your project's.
+
+## Acknowledgments
+
+The Dev skill set under [`.claude/skills/`](.claude/skills/) — `brainstorming`, `writing-plans`,
+`executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`,
+`test-driven-development`, `systematic-debugging`, `verification-before-completion`,
+`requesting-code-review`, `receiving-code-review`, `finishing-a-development-branch`,
+`using-git-worktrees` and `using-skills` — is adapted from the
+[**superpowers**](https://github.com/obra/superpowers) collection by Jesse Vincent, MIT-licensed.
+Three of these (`finishing-a-development-branch`, `requesting-code-review`,
+`subagent-driven-development`) carry modifications for this kit's own Dev → QA landing discipline;
+the rest are used as published. Full provenance, per skill, is in
+[`.claude/skills/README.md`](.claude/skills/README.md) § Provenance & licensing.

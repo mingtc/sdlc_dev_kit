@@ -336,6 +336,9 @@ columns and never the cards.*
   skill set (`obra/superpowers`) is itself MIT. `LICENSE-CONTENT` covers the scaffold content you
   copy, edit and delete as your own project replaces it. Corrects `.claude/skills/README.md`'s
   provenance table, which previously recorded the Dev set's license as NOT RECORDED.
+- **An Acknowledgments section in `README.md`** crediting the `obra/superpowers` collection the Dev
+  skill set is adapted from, at the top level rather than only in `.claude/skills/README.md`'s
+  provenance table.
 
 ## [0.7.0] — 2026-10-01
 
