@@ -1,4 +1,6 @@
-<!-- KIT-CLASS: KIT — the consumer-onboarding walkthrough. Fill the <seams>; the flow travels. See process/EXTRACTION.md. -->
+<!-- KIT-CLASS: KIT — the consumer-onboarding walkthrough. Fill the <seams>; the flow travels. See process/EXTRACTION.md.
+     KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove consumers/ or
+     record keeping it on purpose in process/LOCAL-PROCEDURES.md. -->
 # Consuming `<vendored-name>` — zero-knowledge onboarding
 
 > **Two audiences, one page.**

@@ -230,17 +230,18 @@ block as its `KIT-CLASS:` marker:
   `REPLACE` disposition is *declared* in the marker but its **instruction** stays in the body; the
   `BOOTSTRAP-SCAFFOLDING` line is the sentinel the reader keys on for that row.
 
-**What is marked so far, and what is not.** The `FILL` and `REPLACE` members are declared — except
-`scripts/release.sh`'s config block, a block inside a travelling script whose refusal to run until it
-is filled is its declaration — because
-those are the two rows the one shipped reader, `scripts/check-board.sh` arm (g), measures. **For
-REPLACE the marker discovers; for FILL it only filters:** arm (g) checks every tracked file that
-declares REPLACE in its header block (the derivation below), but reads FILL in `PROJECT.md` alone,
-so another file declaring FILL is not checked. **`KEEP`, `STAMP`, `SEED` and `DELETE-IF-UNUSED` members are unmarked**,
-and an unmarked file is **not** a file with no disposition — it is a file whose disposition is only
-in the table above. Derive what carries one rather than assuming the set — **and anchor the
-derivation on the file's own header block, because this sheet and the release notes both quote the
-marker as a worked example and a bare grep counts those as declarations:**
+**What is marked so far, and what is not.** The `FILL`, `REPLACE` and `DELETE-IF-UNUSED` members are
+declared — except `scripts/release.sh`'s config block, a block inside a travelling script whose
+refusal to run until it is filled is its declaration — because those are the three rows the one
+shipped reader, `scripts/check-board.sh` arm (g), measures. **For REPLACE and DELETE-IF-UNUSED the
+marker DISCOVERS; for FILL it only FILTERS:** arm (g) checks every tracked file that declares
+REPLACE or DELETE-IF-UNUSED in its header block (the derivation below, the same for both), but
+reads FILL in `PROJECT.md` alone, so another file declaring FILL is not checked. **`KEEP`, `STAMP`
+and `SEED` members are unmarked**, and an unmarked file is **not** a file with no disposition — it
+is a file whose disposition is only in the table above. Derive what carries one rather than
+assuming the set — **and anchor the derivation on the file's own header block, because this sheet
+and the release notes both quote the marker as a worked example and a bare grep counts those as
+declarations:**
 
 ```
 for f in $(git grep -lE '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:'); do
@@ -280,7 +281,9 @@ mistaken for a finished one will be.
   not be judged by the same test as FILL: emptiness is its correct day-one state.
 - **DELETE-IF-UNUSED** — a decision, recorded either way. Removing it and *keeping it on purpose*
   are both discharges; **leaving it undecided is not**, because the next reader cannot tell an
-  option that was weighed from one nobody opened.
+  option that was weighed from one nobody opened. The kept-on-purpose half is recorded in the
+  exact mechanical form [`SEED.md`](SEED.md) step 8 states, and arm (g) reads that form, never a
+  mention of the member by basename or in free prose.
 
 ### The marker and graduation — strip where the class becomes `PROJECT`
 

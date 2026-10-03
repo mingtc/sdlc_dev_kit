@@ -131,6 +131,10 @@ FRONTMATTER_SCAN_LINES=25
 # THAT shape, not the angle-bracket one.  One record per member:  <path>|<sentinel prefix>
 GRADUATION_FILL_MEMBERS='.gitignore|# FILL ME.
 .env.example|# FILL ME.'
+# Arm [g]'s (g3) DELETE-IF-UNUSED class: the one file an adopter records a kept-on-purpose
+# decision in, and the exact mechanical line process/SEED.md's step 8 mints it with (the form
+# travels from there — this is a reader, not a second place that states it).
+GRADUATION_LOCAL_PROCEDURES='process/LOCAL-PROCEDURES.md'
 
 # Repo root: harness CLAUDE_PROJECT_DIR, else this script's location (scripts/..).
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-}"
@@ -812,8 +816,14 @@ else
   # more copy of it). The clearing line must NOT contain "still scaffolding": cases assert that
   # phrase only on the complaining branch.
   if [ -z "$g_repl_pop" ]; then
-    echo "      REPLACE: no file in this tree declares KIT-DISPOSITION: REPLACE  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
-    g_unmeasured="${g_unmeasured:+$g_unmeasured, }REPLACE (no declaring file in this source)"
+    # ZERO IS A READING, NOT A SKIP: the git grep above walked every tracked file (or the named
+    # ref) looking for the declaration, and that walk completing with no match is the same
+    # discharge REPLACE's own rule names — deletion and rewriting, which strips the marker along
+    # with the sentinel (process/EXTRACTION.md § The marker and graduation). A tree that never
+    # shipped a REPLACE-marked file would read identically; this arm cannot tell the two apart,
+    # and says so rather than claiming more than the whole-tree scan supports.
+    echo "      REPLACE: 0 file(s) in this tree declare KIT-DISPOSITION: REPLACE  ✓ (the whole tree was scanned — this is either graduated, with the marker stripped alongside the sentinel, or never shipped one; indistinguishable from here) — $(cb_src)"
+    g_measured=$((g_measured+1))
   elif [ -n "$g_repl" ]; then
     echo "      REPLACE: still scaffolding —$g_repl  ⚠ replace (do not edit) with your own; matched as the exact whole shipped line, so this is the sentinel itself and not a prose mention; the adapter is built from process/templates/AGENTS-adapter.template.md — $(cb_src)"
     g_find=1; g_measured=$((g_measured+1))
@@ -1041,10 +1051,49 @@ else
     fi
   fi
 
-  # (g3) DELETE-IF-UNUSED — not implemented (there is no tracked way to record "kept on
-  # purpose"), and said out loud so its absence is not read as a clean result.
-  echo "      DELETE-IF-UNUSED: not measured — no tracked way to record \"kept on purpose\" exists yet, so absence of a finding here means nothing was checked  (skipped)"
-  g_unmeasured="${g_unmeasured:+$g_unmeasured, }DELETE-IF-UNUSED (no mechanism exists yet)"
+  # (g3) DELETE-IF-UNUSED class. The population is every tracked file whose HEADER BLOCK (first
+  # 12 lines) declares `KIT-DISPOSITION: DELETE-IF-UNUSED` — the SAME derivation g1 uses for
+  # REPLACE, never a list typed into this script (process/EXTRACTION.md § The second axis names
+  # the members; this reads their markers, not that table). A member discharges either way
+  # EXTRACTION.md says it can: REMOVED (it is no longer a declaring file — indistinguishable from
+  # "never shipped one", exactly as g1's zero-population reading above), or KEPT ON PURPOSE, which
+  # is recorded as a real adopter decision in GRADUATION_LOCAL_PROCEDURES — the ONE mechanical
+  # form process/SEED.md's step 8 states, matched EXACTLY (the declaring path inside backticks,
+  # then the literal ` (DELETE-IF-UNUSED) kept, on purpose.`), never a basename grep or a mention
+  # in free prose: a decision recorded under the wrong name is not findable by the next reader
+  # either, which is the same failure this bullet exists to close.
+  g_diu_decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
+  g_diu_pop=""
+  while IFS= read -r -d '' f; do
+    [ -n "$CB_REF" ] && f="${f#"$CB_REF":}"
+    [ -f "$CB_TREE/$f" ] || continue
+    sed -n '1,12p' "$CB_TREE/$f" | grep -E "$g_diu_decl" >/dev/null || continue
+    g_diu_pop="$g_diu_pop $f"
+  done < <(git -C "$REPO_ROOT" grep -lzE "$g_diu_decl" ${CB_REF:+"$CB_REF"} -- 2>/dev/null || true)
+  if [ -z "$g_diu_pop" ]; then
+    # Same reading as g1's zero-population branch: the whole tree was scanned (every declaring
+    # file would have matched), and none remains — removed on purpose or never shipped one,
+    # which this arm cannot tell apart and does not claim to.
+    echo "      DELETE-IF-UNUSED: 0 file(s) in this tree declare KIT-DISPOSITION: DELETE-IF-UNUSED  ✓ (the whole tree was scanned — each member is either removed on purpose or was never shipped here) — $(cb_src)"
+    g_measured=$((g_measured+1))
+  else
+    g_diu_lp="$CB_TREE/$GRADUATION_LOCAL_PROCEDURES"
+    g_diu_unfilled=""
+    for f in $g_diu_pop; do
+      g_diu_line="- **\`$f\` (DELETE-IF-UNUSED) kept, on purpose.**"
+      if [ -f "$g_diu_lp" ] && grep -qF -- "$g_diu_line" "$g_diu_lp" 2>/dev/null; then
+        g_measured=$((g_measured+1))
+      else
+        g_diu_unfilled="$g_diu_unfilled $f"
+        g_find=1; g_measured=$((g_measured+1))
+      fi
+    done
+    if [ -n "$g_diu_unfilled" ]; then
+      echo "      DELETE-IF-UNUSED:$g_diu_unfilled  ⚠ no recorded decision in $GRADUATION_LOCAL_PROCEDURES — remove the member, or record keeping it with the exact line \`- **\`<path>\` (DELETE-IF-UNUSED) kept, on purpose.**\` (process/SEED.md step 8); a mention elsewhere, or by basename only, does not count — $(cb_src)"
+    else
+      echo "      DELETE-IF-UNUSED:$g_diu_pop carry a recorded kept-on-purpose decision in $GRADUATION_LOCAL_PROCEDURES  ✓ (population derived from KIT-DISPOSITION: DELETE-IF-UNUSED declarations, not a list typed into this script) — $(cb_src)"
+    fi
+  fi
 
   # THE POPULATION LINE, always printed, before either verdict below: what this pass measured and
   # what it could not. "0 measured" is itself a finding, not silence.
@@ -1058,6 +1107,13 @@ else
     # absent .gitignore/.env.example FILL members, say) must not read as graduated — it read as
     # NOTHING WAS MEASURED, which is not the same claim.
     echo "      → CANNOT SAY graduation is complete: nothing above was measured ($g_unmeasured) — this is not a clean tree, it is an unmeasured one."
+  elif [ -n "$g_unmeasured" ]; then
+    # COMPLETE REQUIRES EVERY CLASS MEASURED, not merely "something was". REPLACE and
+    # DELETE-IF-UNUSED read as measured even at zero population (the whole-tree scan above is the
+    # measurement); what still lands here is a class this run could not read at all — PROJECT.md
+    # absent, scripts/config.sh absent, and the like — and COMPLETE must not be claimed over a
+    # class nobody read, whether or not anything else came back clean.
+    echo "      → day one is not finished: ${g_unmeasured} could not be measured, so COMPLETE cannot be claimed over it — same refusal as the zero-measured case, scoped to the classes this run could not read at all."
   elif [ "$g_find" -eq 0 ]; then
     echo "      → graduation COMPLETE over the classes measured above; this arm has nothing further to ask."
     G_GRADUATION_COMPLETE=1

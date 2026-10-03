@@ -127,6 +127,20 @@ Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an entry
 - **YYYY-MM-DD — <the contradiction, in one line>.** Resolution: <what is now law>. Ruled by: <role>.
 ```
 
+**The one line a `DELETE-IF-UNUSED` member needs, if you keep it.** [`EXTRACTION.md` § The second
+axis](EXTRACTION.md) lists which files ship as an option rather than a requirement, and removing
+one is a discharge like any other — write nothing for it. Keeping one on purpose needs a recorded
+decision, in this exact form, one line per kept file, `<path>` being the declaring file's path as
+`check-board.sh` arm `[g]` prints it, so `[g]` can read it rather than merely trust a mention:
+
+```markdown
+- **`<path>` (DELETE-IF-UNUSED) kept, on purpose.** <why you kept it rather than removed it.>
+```
+
+**Match it exactly** — the declaring path inside backticks, then the literal
+`(DELETE-IF-UNUSED) kept, on purpose.` — because arm `[g]` matches that line, not the member's
+basename and not a sentence that merely says you kept it.
+
 **Why it is a closing step and not an opening one:** on day zero you have no contradictions yet,
 and a file of invented rules is worse than none. By the end of day one you have several — and you
 will not remember them on day two.
@@ -231,9 +245,10 @@ you want to know how a stranger meets what you shipped.
   and **`AGENTS.md` and `README.md` have been REPLACED, not edited**: neither still carries the
   `BOOTSTRAP-SCAFFOLDING` line the shipped copies ship with;
 - **every file's disposition is discharged** — no `FILL` file still holds an `<angle bracket>` blank
-  (a code sample's usage placeholders, like `tool <file>`, are not blanks), and
-  every `DELETE-IF-UNUSED` directory has been either removed or kept **on purpose**, which is a
-  decision you record rather than a question you leave open. The axis and its members are
+  (a code sample's usage placeholders, like `tool <file>`, are not blanks), and every
+  `DELETE-IF-UNUSED` member has been either removed or kept **on purpose**, recorded in
+  `process/LOCAL-PROCEDURES.md` in step 8's exact form above — a decision you record rather than a
+  question you leave open. The axis and its members are
   [`EXTRACTION.md` § The second axis: DISPOSITION](EXTRACTION.md); this bullet is that list, read as
   a checklist;
 - **`.gitignore`'s build section and `.env.example`'s credential block no longer carry their

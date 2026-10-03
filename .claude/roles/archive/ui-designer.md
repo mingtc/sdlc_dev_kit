@@ -1,5 +1,7 @@
 <!-- KIT-CLASS: KIT — parked role, generic UI workflow. Its skills are NOT shipped with the kit;
-     see § What this role needs before it can be woken. -->
+     see § What this role needs before it can be woken.
+     KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove roles/archive/
+     or record keeping it on purpose in process/LOCAL-PROCEDURES.md. -->
 # UI Designer role
 
 > **PARKED — and its skills are not shipped.** This role lives in `.claude/roles/archive/`

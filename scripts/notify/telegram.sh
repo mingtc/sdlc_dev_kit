@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — one notify backend; add siblings the same way. See process/EXTRACTION.md.
+# KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove it or record
+# keeping it on purpose in process/LOCAL-PROCEDURES.md.
 # telegram.sh — Telegram transport adapter for scripts/notify.sh, the COMMUNICATION-METHOD LAYER.
 #
 # It knows nothing about issue ids, gates or progress — it just delivers a

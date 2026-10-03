@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — transport-agnostic notifier; a no-op unless a backend is set. See process/EXTRACTION.md.
+# KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove it or record
+# keeping it on purpose in process/LOCAL-PROCEDURES.md.
 # Outbound notifications — the INTERACTION LAYER (transport-agnostic).
 #
 # This is the stable API every caller uses. It gates by notification class,

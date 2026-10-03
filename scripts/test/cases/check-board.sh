@@ -76,6 +76,46 @@ _cb_g_fill_glob_array() {
     || _fixture_die "_cb_g_fill_glob_array: ${_arr}'s entry was NOT inserted."
 }
 
+# _cb_g_discharge_gitignore_env — fills $SB_WORK/.gitignore's build-artifact section and
+# $SB_WORK/.env.example's credentials block with a minimal real entry, clearing their `FILL ME.`
+# sentinel. make_sandbox never seeds either (the real kit ships both, filled, on day one), so a
+# case that graduates the sandbox needs this too, or [g]'s FILL (.gitignore)/(.env.example)
+# members read ABSENT — unmeasured, never clean — and graduation never reaches COMPLETE.
+_cb_g_discharge_gitignore_env() {
+  printf '# .gitignore\n# ── build artifacts ──\n# produced by this fixture build\ndist/\n' \
+    > "$SB_WORK/.gitignore"
+  printf '# .env.example\n# ── project credentials ──\n# READ_TOKEN=   # read-only\n' \
+    > "$SB_WORK/.env.example"
+}
+
+# _cb_g_discharge_delete_if_unused — records a KEPT-ON-PURPOSE decision in
+# $SB_WORK/process/LOCAL-PROCEDURES.md for every file the sandbox carries that declares
+# KIT-DISPOSITION: DELETE-IF-UNUSED, in arm [g]'s own exact form. make_sandbox copies the REAL
+# scripts/ tree (so scripts/notify.sh, notify-hook.sh and notify/telegram.sh arrive carrying the
+# marker) and conditionally the real consumers/ tree; every case that graduates the sandbox needs
+# this too, or [g]'s new DELETE-IF-UNUSED class reports unfilled and graduation never reads
+# COMPLETE — the same transition case_check_board_graduation exercises directly, mirroring
+# _cb_g_declare_empty_seams for CODE_GLOBS/TEST_GLOBS above. DERIVED from the sandbox's own
+# markers, never a literal copy of the member list: a member added or dropped from the real kit
+# changes what this discharges without this helper having to change to match.
+_cb_g_discharge_delete_if_unused() {
+  local _decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
+  mkdir -p "$SB_WORK/process"
+  [ -f "$SB_WORK/process/LOCAL-PROCEDURES.md" ] || printf '# LOCAL-PROCEDURES.md\n\n' > "$SB_WORK/process/LOCAL-PROCEDURES.md"
+  local _f _n=0
+  while IFS= read -r -d '' _f; do
+    [ -f "$SB_WORK/$_f" ] || continue
+    sed -n '1,12p' "$SB_WORK/$_f" | grep -E "$_decl" >/dev/null || continue
+    printf -- '- **`%s` (DELETE-IF-UNUSED) kept, on purpose.** Fixture discharge.\n' "$_f" >> "$SB_WORK/process/LOCAL-PROCEDURES.md"
+    _n=$((_n+1))
+  # --untracked: this helper may run before the sandbox's first commit (a case that discharges
+  # before its first publish_sandbox), when the copied scripts/notify*.sh are not yet tracked —
+  # a plain `git grep` sees only tracked files and would find nothing on such a tree.
+  done < <(git -C "$SB_WORK" grep --untracked -lzE "$_decl" -- 2>/dev/null || true)
+  [ "$_n" -gt 0 ] \
+    || _fixture_die "_cb_g_discharge_delete_if_unused: no file in the sandbox declares KIT-DISPOSITION: DELETE-IF-UNUSED — the real scripts/notify*.sh marker this helper relies on has moved or been removed."
+}
+
 # Same shape as _cb_g_section, for arm [l] (declared reference integrity).
 _cb_l_section() {  # reads a check-board report on stdin
   awk '/^\[l\]/ { f = 1 }
@@ -946,9 +986,12 @@ EOF
   printf '# my project\n' > "$SB_WORK/README.md"
   printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
     "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
-  # [g]'s CODE_GLOBS/TEST_GLOBS members must also clear for graduation to read COMPLETE — this
-  # case only needs [g] clear, not either direction's content, so both are declared empty.
+  # [g]'s CODE_GLOBS/TEST_GLOBS/DELETE-IF-UNUSED/.gitignore/.env.example members must also clear
+  # for graduation to read COMPLETE — this case only needs [g] clear, not either direction's
+  # content.
   _cb_g_declare_empty_seams
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
   publish_sandbox
 
   out="$(cb_run)"
@@ -2105,10 +2148,13 @@ case_check_board_graduation() {
     || cf "(b) the REPLACE finding did not name README.md: $out"
   printf '%s\n' "$out" | _cb_g_section | grep -i 'PROJECT.md still holds' >/dev/null \
     || cf "(b) the FILL finding did not fire on a PROJECT.md holding <trunk>: $out"
-  # The class name exactly: a case-insensitive 'not measured' also matches the FILL span line's
-  # own disclaimer, so it could not see this class being omitted.
-  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED: not measured' >/dev/null \
-    || cf "(b) DELETE-IF-UNUSED was silently omitted instead of declaring itself unmeasured: $out"
+  # make_sandbox copies the real scripts/notify*.sh (and, where present, consumers/), which
+  # declare KIT-DISPOSITION: DELETE-IF-UNUSED — with no process/LOCAL-PROCEDURES.md in this
+  # sandbox (process/ is not copied by make_sandbox), every one of them must report unfilled.
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
+    || cf "(b) DELETE-IF-UNUSED was not reported unfilled over a real declaring file with no LOCAL-PROCEDURES.md record: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -F 'scripts/notify.sh' >/dev/null \
+    || cf "(b) the DELETE-IF-UNUSED finding did not name scripts/notify.sh: $out"
   # CODE_GLOBS/TEST_GLOBS/principal:. The sandbox's scripts/config.sh and PROJECT.md are still
   # the shipped, empty/blank shape at this point, so all three must report unfilled, each naming
   # what it leaves off, exactly as the other FILL members above do.
@@ -2137,6 +2183,12 @@ case_check_board_graduation() {
   # adopter may take, both through the one shared authoring site.
   _cb_g_fill_glob_array CODE_GLOBS '  "src/*"'
   _cb_g_fill_glob_array TEST_GLOBS '  # DECLARED EMPTY -- fixture has no test tree.'
+  # DELETE-IF-UNUSED: record the kept-on-purpose decision for every real declaring file the
+  # sandbox carries (scripts/notify*.sh, and consumers/ where present) — graduation reaches
+  # COMPLETE only once this member, too, is discharged. .gitignore/.env.example: make_sandbox
+  # never seeds either (the real kit ships both, filled), so they are filled here too.
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
   publish_sandbox
 
   out="$(cb_run)"
@@ -2152,8 +2204,10 @@ case_check_board_graduation() {
     || cf "(d) a TEST_GLOBS array declared deliberately empty was not accepted: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'PROJECT.md principal:.*declared' >/dev/null \
     || cf "(d) a filled principal: was not read as clear: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*carry a recorded kept-on-purpose decision' >/dev/null \
+    || cf "(d) a recorded DELETE-IF-UNUSED decision was not read as discharged: $out"
 
-  finish "check (g): graduation says THIS CHECK DID NOT RUN with no signal, reports and names its files while scaffolding stands, clears once replaced naming its source (including CODE_GLOBS/TEST_GLOBS/principal:) — and never moves the board verdict"
+  finish "check (g): graduation says THIS CHECK DID NOT RUN with no signal, reports and names its files while scaffolding stands, clears once replaced naming its source (including CODE_GLOBS/TEST_GLOBS/principal:/DELETE-IF-UNUSED) — and never moves the board verdict"
   teardown
 }
 
@@ -2268,6 +2322,8 @@ case_check_board_graduation_reads_the_trunk() {
   # [g]'s CODE_GLOBS/TEST_GLOBS members must also clear for graduation to read COMPLETE here —
   # this case only needs [g] clear, not either direction's content, so both are declared empty.
   _cb_g_declare_empty_seams
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -q -m "[Architect] graduate, unpublished" >/dev/null 2>&1
   # deliberately NO push
@@ -2318,6 +2374,80 @@ case_check_board_replace_population_is_derived() {
     || cf "(control) the shipped REPLACE pair left the population: ${line:-no REPLACE finding}"
 
   finish "check (g): the REPLACE population is every file whose header block declares it, wherever it lives, and not a file that quotes the marker further down"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g]'s (g3) DELETE-IF-UNUSED class: a real recorded decision, exactly matched.
+#
+# make_sandbox copies the real scripts/notify*.sh (and, where present, consumers/), which
+# declare KIT-DISPOSITION: DELETE-IF-UNUSED — an otherwise-graduated tree with none of them
+# discharged must NOT read COMPLETE, and the member must be NAMED as unfilled; the exact kept-
+# on-purpose line clears it; a mention by basename or in free prose does not.
+# =============================================================================
+case_check_board_graduation_delete_if_unused() {
+  cf_reset
+  make_sandbox
+  seed_scaffolding_tree
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  printf '# my project\n'                 > "$SB_WORK/AGENTS.md"
+  printf '# my project\n'                 > "$SB_WORK/README.md"
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
+    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  _cb_g_declare_empty_seams
+  _cb_g_discharge_gitignore_env
+  publish_sandbox
+
+  # ── (a) a DELETE-IF-UNUSED member present, no recorded decision: not COMPLETE, named. ───────
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    && cf "(a) graduation COMPLETE over a tree with an undischarged DELETE-IF-UNUSED member: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
+    || cf "(a) an undischarged DELETE-IF-UNUSED member was not reported: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -F 'scripts/notify.sh' >/dev/null \
+    || cf "(a) the finding did not NAME the declaring file scripts/notify.sh — instruments.md § A.4 wants the operand: $out"
+
+  # ── (b) the exact kept-on-purpose line: COMPLETE. ─────────────────────────────────────────────
+  mkdir -p "$SB_WORK/process"
+  printf -- '- **`scripts/notify.sh` (DELETE-IF-UNUSED) kept, on purpose.** No channel wired.\n- **`scripts/notify-hook.sh` (DELETE-IF-UNUSED) kept, on purpose.** No channel wired.\n- **`scripts/notify/telegram.sh` (DELETE-IF-UNUSED) kept, on purpose.** No channel wired.\n' \
+    > "$SB_WORK/process/LOCAL-PROCEDURES.md"
+  if [ -d "$SB_WORK/consumers" ]; then
+    printf -- '- **`consumers/README.md` (DELETE-IF-UNUSED) kept, on purpose.** Kept as a shipped option.\n' \
+      >> "$SB_WORK/process/LOCAL-PROCEDURES.md"
+  fi
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*carry a recorded kept-on-purpose decision' >/dev/null \
+    || cf "(b) the exact kept-on-purpose line was not read as discharged: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(b) a tree with every DELETE-IF-UNUSED member recorded kept did not reach graduation COMPLETE: $out"
+
+  # ── (c) a basename-only / free-prose mention: still unfilled, not COMPLETE. ──────────────────
+  printf '%s\n' "# LOCAL-PROCEDURES.md
+
+We looked at notify.sh and notify-hook.sh and telegram.sh and decided to keep them, on purpose,
+since nothing uses scripts/notify yet. consumers is also kept on purpose." \
+    > "$SB_WORK/process/LOCAL-PROCEDURES.md"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
+    || cf "(c) a basename-only / free-prose mention was read as a recorded decision — it must match the exact line, not a mention: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    && cf "(c) graduation COMPLETE over a LOCAL-PROCEDURES.md that only mentions the members in free prose: $out"
+
+  # ── (d) the member REMOVED from the tree entirely: discharged, COMPLETE. ─────────────────────
+  rm -rf "$SB_WORK/consumers" "$SB_WORK"/scripts/notify*
+  rm -f "$SB_WORK/process/LOCAL-PROCEDURES.md"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED: 0 file' >/dev/null \
+    || cf "(d) a tree with every DELETE-IF-UNUSED member removed was not read as a measured, empty population: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(d) a tree with every DELETE-IF-UNUSED member removed (a valid discharge) did not reach graduation COMPLETE: $out"
+
+  finish "check (g3): DELETE-IF-UNUSED is measured from the same KIT-DISPOSITION header-block declarations REPLACE uses — an undischarged member blocks COMPLETE and is named, the exact kept-on-purpose line in process/LOCAL-PROCEDURES.md clears it, a basename/prose-only mention does not, and removing the member entirely is an equally valid discharge"
   teardown
 }
 
@@ -2618,10 +2748,13 @@ case_check_board_fill_arm_reads_blanks_not_usage() {
   printf '# my project\n' > "$SB_WORK/README.md"
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
-  # This case is about PROJECT.md's own FILL reading; CODE_GLOBS/TEST_GLOBS do not vary across
-  # its scenarios, so declare both deliberately empty once so graduation COMPLETE (assertions
-  # (1) and (4) below) turns on PROJECT.md's blanks alone, not on an unrelated member.
+  # This case is about PROJECT.md's own FILL reading; CODE_GLOBS/TEST_GLOBS/DELETE-IF-UNUSED/
+  # .gitignore/.env.example do not vary across its scenarios, so each is discharged once so
+  # graduation COMPLETE (assertions (1) and (4) below) turns on PROJECT.md's blanks alone, not on
+  # an unrelated member.
   _cb_g_declare_empty_seams
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
   local decl="<!-- $KIT_FILL_DISPOSITION — synthetic fill sheet. -->"
 
   # (1) declared, filled, usage only
@@ -2715,21 +2848,26 @@ case_check_board_graduation_verdict_is_not_wired() {
 # CASE — arm [g] REFUSES "graduation COMPLETE" over ZERO measured members/classes.
 #
 # A tree "lived" enough to enable the arm (a card on the board) but where every measurable class
-# comes back UNMEASURED (no REPLACE declaration anywhere, no PROJECT.md, and neither non-markdown
-# FILL member present either) must not print "graduation COMPLETE": nothing was checked, and that is
-# not a pass. This case ablates the refusal to show it is the mechanism holding COMPLETE back, not
-# an accident of wording.
+# comes back UNMEASURED must not print "graduation COMPLETE": nothing was checked, and that is
+# not a pass. REPLACE and DELETE-IF-UNUSED both read a zero population as a real measurement (a
+# whole-tree scan that found nothing to discharge), so reaching g_measured == 0 here also needs
+# their declaring files removed — ONLY PROJECT.md/config.sh-dependent classes can go fully
+# unreadable; REPLACE/DELETE-IF-UNUSED's own scan always runs. This case ablates the refusal to
+# show it is the mechanism holding COMPLETE back, not an accident of wording.
 # =============================================================================
 case_check_board_graduation_refuses_complete_over_nothing_measured() {
   cf_reset
   make_sandbox
-  # A lived signal (a card on the board) with NO REPLACE-declaring file, NO PROJECT.md, and NO
-  # .gitignore/.env.example in this sandbox at all (make_sandbox does not seed them) — every
-  # measurable class in arm [g] is therefore UNREADABLE, not merely clean. scripts/config.sh IS
-  # copied by make_sandbox (it ships under scripts/), so CODE_GLOBS/TEST_GLOBS would otherwise be
-  # the one class still readable here — removed too, so the premise stays "nothing to measure",
-  # not "everything but one class".
+  # A lived signal (a card on the board) with NO PROJECT.md and NO .gitignore/.env.example in
+  # this sandbox at all (make_sandbox does not seed them) — those classes are therefore
+  # UNREADABLE, not merely clean. scripts/config.sh IS copied by make_sandbox (it ships under
+  # scripts/), so CODE_GLOBS/TEST_GLOBS would otherwise be readable here — removed too. REPLACE
+  # and DELETE-IF-UNUSED still read 0-and-measured over an empty population (no AGENTS.md/
+  # README.md here, and no consumers/ or scripts/notify*.sh once removed) — g_measured ends up 2,
+  # not 0, which is this case's real premise now: EVERY class the markers alone cannot answer is
+  # unmeasured, while the two whole-tree scans still count.
   rm -f "$SB_WORK/scripts/config.sh"
+  rm -rf "$SB_WORK/consumers" "$SB_WORK"/scripts/notify*
   seed_issue todo "$SB_PREFIX-430" nothingtomeasure chore "Nothing here to measure"
   publish_sandbox
 
@@ -2738,28 +2876,33 @@ case_check_board_graduation_refuses_complete_over_nothing_measured() {
   printf '%s\n' "$out" | _cb_g_section | grep 'enabled by:' >/dev/null \
     || cf "precondition: the arm must be ENABLED for this case to mean anything: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    && cf "the arm printed graduation COMPLETE over a tree where nothing was measured (no REPLACE population, no PROJECT.md, no non-markdown FILL member) — this is the false green the card exists to close: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -iE 'measured: 0 member' >/dev/null \
-    || cf "the arm did not print its measured population as zero: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -i 'CANNOT SAY graduation is complete' >/dev/null \
-    || cf "the arm did not refuse the COMPLETE claim in words a reader would notice: $out"
+    && cf "the arm printed graduation COMPLETE over a tree where PROJECT.md and scripts/config.sh are both absent — this is the false green the card exists to close: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'REPLACE: 0 file' >/dev/null \
+    || cf "(precondition) REPLACE did not read its own zero population as measured: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED: 0 file' >/dev/null \
+    || cf "(precondition) DELETE-IF-UNUSED did not read its own zero population as measured: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -i 'could not be measured, so COMPLETE cannot be claimed' >/dev/null \
+    || cf "the arm did not refuse the COMPLETE claim over the classes it could not read at all, in words a reader would notice: $out"
+  printf '%s\n' "$out" | _cb_g_section | grep -F 'PROJECT.md (absent)' >/dev/null \
+    || cf "the arm's refusal did not name PROJECT.md among what it could not measure: $out"
 
   # ── THE ABLATION: with the refusal's guard removed, COMPLETE returns on the SAME tree. ────────
-  # Proves the new line is load-bearing, not merely present. `-eq 0` is the guard; forcing it
-  # false (`-eq 999`) restores the pre-fix behaviour without touching anything else.
+  # Proves the new line is load-bearing, not merely present. `-n "$g_unmeasured"` is the guard;
+  # forcing it false restores the pre-fix behaviour (COMPLETE over "something measured, nothing
+  # that WAS measured came back dirty") without touching anything else.
   local abl
   abl="$SB_WORK/scripts/check-board-ablated.sh"
-  sed 's/\[ "\$g_measured" -eq 0 \]/[ "$g_measured" -eq 999 ]/' "$SB_WORK/scripts/check-board.sh" > "$abl"
+  sed 's/elif \[ -n "\$g_unmeasured" \]; then/elif false; then/' "$SB_WORK/scripts/check-board.sh" > "$abl"
   chmod +x "$abl"
-  grep -q '\-eq 999' "$abl" \
+  grep -q 'elif false; then' "$abl" \
     || _control_did_not_run "the ablation did not change check-board.sh's guard — the sed anchor no longer matches the source"
   local abl_out
   abl_out="$(cd "$SB_WORK" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board-ablated.sh 2>&1)"
   rm -f "$abl"
   printf '%s\n' "$abl_out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
-    || _control_did_not_run "with the zero-measured refusal ablated, COMPLETE did not return on the same tree — the case is not isolating the guard it claims to: $abl_out"
+    || _control_did_not_run "with the unmeasured-classes refusal ablated, COMPLETE did not return on the same tree — the case is not isolating the guard it claims to: $abl_out"
 
-  finish "arm [g] prints its measured population and REFUSES 'graduation COMPLETE' when nothing was measured (no REPLACE population, no PROJECT.md, no FILL member present) — ablating the guard restores the false COMPLETE on the same tree, proving the refusal is load-bearing"
+  finish "arm [g] prints its measured population and REFUSES 'graduation COMPLETE' when a class could not be measured at all (PROJECT.md and scripts/config.sh both absent), even though REPLACE and DELETE-IF-UNUSED's own whole-tree scans still came back measured-and-clean — ablating the guard restores the false COMPLETE on the same tree, proving the refusal is load-bearing"
   teardown
 }
 
@@ -2802,6 +2945,9 @@ case_check_board_graduation_non_markdown_fill_members() {
   # (2) BOTH members filled — sentinel removed, as an adopter who filled the section would do.
   printf '# .gitignore\n# ── build artifacts ──\n# produced by npm run build\ndist/\n' > "$SB_WORK/.gitignore"
   printf '# .env.example\n# ── project credentials ──\n# READ_TOKEN=   # read-only\n' > "$SB_WORK/.env.example"
+  # DELETE-IF-UNUSED must also clear for graduation to read COMPLETE here — this case is about
+  # the non-markdown FILL members, not this one, so it is discharged once and does not vary.
+  _cb_g_discharge_delete_if_unused
   publish_sandbox
   out="$(cb_run)"
   printf '%s\n' "$out" | _cb_g_section | grep -F '.gitignore' | grep '✓' >/dev/null \

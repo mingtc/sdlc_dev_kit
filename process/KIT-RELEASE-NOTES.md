@@ -328,6 +328,12 @@ columns and never the cards.*
 - **Claude Code v2.1.277 or later**, the first version that reads a lone `AGENTS.md`. On an older
   one, once `CLAUDE.md` is gone, every session starts with no instructions and nothing says so.
   Update it before you upgrade; `/start` now checks it.
+- **If your project already graduated:** `check-board.sh`'s `[g]` now measures `DELETE-IF-UNUSED`,
+  and names each file declaring it (under `consumers/`, `.claude/roles/archive/`, `scripts/notify*`).
+  For each one it names, remove it or record keeping it on purpose in `process/LOCAL-PROCEDURES.md`,
+  one line per file in the exact form `process/SEED.md` step 8 states. `[g]` also withholds COMPLETE
+  while any class could not be read at all (an absent `PROJECT.md`, `scripts/config.sh`,
+  `.gitignore` or `.env.example`), and says which.
 
 ### Added
 
