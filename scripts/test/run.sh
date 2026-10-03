@@ -260,6 +260,9 @@ CASES=(
   case_kit_upgrade_reads_a_between_release_version
   case_kit_upgrade_stages_nothing_live
   case_kit_upgrade_from_the_built_kit_is_a_no_op
+  case_kit_upgrade_blocks_the_stub_over_a_graduated_agents_md
+  case_kit_upgrade_still_replaces_an_ungraduated_stub
+  case_kit_upgrade_removed_upstream_reflects_a_local_edit
   case_ask_help_answers_first
   case_ask_refuses_with_no_principal
   case_ask_writes_one_file_and_returns

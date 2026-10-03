@@ -22,11 +22,18 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   git reads as configuration or instructions.
   *Why:* under its own name a staged skill or instruction file is loaded as live, and a staged ignore
   file governs the staging tree — a staged `*` would silently drop every staged copy from the commit.
-- **Nothing is deleted.** A file the new kit no longer ships is listed.
+- **Nothing is deleted.** A file the new kit no longer ships is listed; where the hashes show the
+  project changed it, the item says it is the project's own now, never a plain "delete it".
   *Why:* the project may depend on it, and a deletion is the one change a reader of the diff can miss.
+- **A new kit file carrying the scaffolding sentinel is never written over a project's own copy of
+  that path that has graduated past it** (no sentinel there): neither replace nor add. The checklist
+  gets one item instead: `git mv -f CLAUDE.md AGENTS.md` when the path is `AGENTS.md` and the
+  project's adapter is still `CLAUDE.md`, otherwise "kept, not replaced".
+  *Why:* scaffolding re-arriving in a finished project tells the next agent to start over, and the
+  sentinel, not the filename, is what marks scaffolding.
 - **Everything left to do is written down before the run ends**: one checklist item per Action
-  required entry newer than the tree's version, and one per merge or removal, each naming where its
-  instruction lives.
+  required entry newer than the tree's version, and one per merge, removal or kept scaffolding path,
+  each naming where its instruction lives.
   *Why:* a deferred upgrade carried in a session's working memory is lost at the next handover.
 - **The tree's version is stamped only when every item is marked done**, never by the first run.
   *Why:* a version that moves before the work does tells the next reader the work is done.

@@ -128,6 +128,28 @@ _ku_pair() {
   _ku_target "$KU_T" "$KU_OLD" >/dev/null 2>&1
 }
 
+# _ku_scaffold_pair <old version> <new version> — like _ku_pair, but the old kit's AGENTS.md
+# carries the harness's own KIT_SCAFFOLD_MARK (process/EXTRACTION.md's sentinel; fixtures.sh
+# declares it, never derived from check-board.sh or kit-upgrade.sh, the two consumers) and the
+# new kit's AGENTS.md carries it too — a day-one tree that has not graduated. The caller then
+# chooses whether to simulate graduation (overwrite the target's AGENTS.md without the mark, add
+# a CLAUDE.md adapter without it) before running the upgrade.
+_ku_scaffold_pair() {
+  _ku_pair "$1" "$2"
+  # BOTH carry the sentinel (neither has graduated at the SOURCE side), but their bodies differ —
+  # as real releases' stub wording has — so the new kit's copy is not byte-identical to the old
+  # one's and the classification cannot take the "kit did not change it" shortcut before reaching
+  # the scaffolding guard.
+  { printf '%s\n' "$KIT_SCAFFOLD_MARK"; printf '# AGENTS.md — this project has not been set up yet (old)\n'; } \
+    > "$KU_OLD/AGENTS.md"
+  _ku_manifest "$KU_OLD"
+  { printf '%s\n' "$KIT_SCAFFOLD_MARK"; printf '# AGENTS.md — this project has not been set up yet (new)\n'; } \
+    > "$KU_NEW/AGENTS.md"
+  _ku_manifest "$KU_NEW"
+  rm -rf "$KU_T"
+  _ku_target "$KU_T" "$KU_OLD" >/dev/null 2>&1
+}
+
 # _ku_run <tag> <args…> — run the NEW kit's copy from KU_ELSE, with no project directory in the
 # environment; stdout+stderr and status land in $SB_TMP/<tag>.out / .rc.
 _ku_run() {
@@ -525,5 +547,127 @@ KU_SAME_EOF
   [ ! -e "$t/.kit-upgrade" ] || cf "files were staged for an upgrade to the same kit: $(find "$t/.kit-upgrade" -type f | tr '\n' ' ' | cut -c1-300)"
   [ -z "$(git -C "$t" status --porcelain)" ] || cf "the tree changed: $(git -C "$t" status --porcelain | tr '\n' '|' | cut -c1-300)"
   finish "$L ($n file(s) from process/KIT-MANIFEST)"
+  teardown
+}
+
+# =============================================================================
+# CASE — A GRADUATED PROJECT'S AGENTS.md NEVER COMES BACK AS THE STUB, AND THE MOVE IS ONE ITEM.
+#
+# The pre-graduation-aware shape: AGENTS.md was the kit-owned pointer, held byte-for-byte, beside
+# the project's own adapter at CLAUDE.md (no scaffolding mark — it is not scaffolding). The new
+# kit's AGENTS.md carries the mark again (it is now the stub). The upgrade must never write that
+# stub over the target's AGENTS.md, must leave CLAUDE.md untouched, must not install any stub
+# content into either file, and the checklist must carry exactly one item that moves the adapter
+# (`git mv -f CLAUDE.md AGENTS.md`) and never an item that says to "delete" CLAUDE.md.
+# =============================================================================
+case_kit_upgrade_blocks_the_stub_over_a_graduated_agents_md() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh never writes the new kit's AGENTS.md stub over a project that has graduated past scaffolding there, and its checklist carries one item moving the CLAUDE.md adapter onto AGENTS.md rather than an item to delete it"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_scaffold_pair 0.1.0 0.2.0
+  local cl="$KU_T/$KU_CHECKLIST_REL"
+
+  # Simulate graduation: the project's own AGENTS.md is the OLD kit-owned pointer (no mark — it
+  # travelled unedited, but it is not scaffolding in this pre-migration shape), and its adapter
+  # lives at CLAUDE.md, also with no mark. The BLOCKED test is the sentinel alone, so the manifest
+  # hash is irrelevant to it; leave the old manifest as _ku_scaffold_pair built it.
+  printf '# AGENTS.md\n\nFor any agent that is not Claude Code: read CLAUDE.md.\n' > "$KU_T/AGENTS.md"
+  printf '# CLAUDE.md\n\nThis project'"'"'s own law. Trunk: main. Role set: PM, Dev, QA.\n' > "$KU_T/CLAUDE.md"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "pre-migration AGENTS.md + CLAUDE.md adapter" >/dev/null 2>&1
+
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "the upgrade exited $(_ku_rc up), want 0: $(_ku_out up)"
+
+  grep -qxF "$KIT_SCAFFOLD_MARK" "$KU_T/AGENTS.md" 2>/dev/null \
+    && cf "AGENTS.md was replaced with the new kit's stub (carries the scaffolding mark): $(cat "$KU_T/AGENTS.md" | tr '\n' '|')"
+  [ "$(cat "$KU_T/AGENTS.md")" = "$(git -C "$KU_T" show HEAD:AGENTS.md)" ] \
+    || cf "AGENTS.md was changed at all: $(cat "$KU_T/AGENTS.md" | tr '\n' '|')"
+  grep -qxF 'This project'"'"'s own law. Trunk: main. Role set: PM, Dev, QA.' "$KU_T/CLAUDE.md" 2>/dev/null \
+    || cf "CLAUDE.md, the adapter, was touched: $(cat "$KU_T/CLAUDE.md" 2>/dev/null | tr '\n' '|')"
+
+  if [ ! -f "$cl" ]; then
+    cf "no $KU_CHECKLIST_REL was written"
+  else
+    grep -F 'git mv -f CLAUDE.md AGENTS.md' "$cl" | grep '^- \[ \] ' >/dev/null \
+      || cf "no unmarked checklist item carries the move instruction 'git mv -f CLAUDE.md AGENTS.md': $(tr '\n' '|' < "$cl" | cut -c1-500)"
+    grep -F 'CLAUDE.md' "$cl" | grep -Fi 'delete' >/dev/null \
+      && cf "a checklist item still tells the adopter to delete CLAUDE.md: $(grep -F 'CLAUDE.md' "$cl" | tr '\n' '|')"
+    [ "$(grep -cF 'AGENTS.md' "$cl")" -le 2 ] \
+      || cf "AGENTS.md is named in more than the one migration item (plus a possible stamping line): $(grep -F 'AGENTS.md' "$cl" | tr '\n' '|')"
+  fi
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — A DAY-ONE TREE THAT NEVER GRADUATED STILL GETS THE STUB REPLACED AS TODAY.
+#
+# The mechanism in the case above must not over-block: a target whose AGENTS.md still carries the
+# scaffolding mark (day one is not finished) is replaced by the new kit's stub exactly as every
+# REPLACE-class file the adopter never touched is, because the old and new copies are both
+# scaffolding and the adopter made no law yet to protect.
+# =============================================================================
+case_kit_upgrade_still_replaces_an_ungraduated_stub() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh still replaces AGENTS.md when the project's own copy is still the unedited scaffolding stub (day one not finished) — the migration guard only blocks a GRADUATED copy"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_scaffold_pair 0.1.0 0.2.0
+  # _ku_scaffold_pair already leaves KU_T's AGENTS.md as the OLD kit's stub, untouched by the
+  # adopter (_ku_target's own edits are to b.txt/d.txt/sub, never AGENTS.md).
+
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "the upgrade exited $(_ku_rc up), want 0: $(_ku_out up)"
+  grep -qxF "$KIT_SCAFFOLD_MARK" "$KU_T/AGENTS.md" 2>/dev/null \
+    || cf "AGENTS.md was NOT replaced by the new kit's stub, though the project's own copy was still scaffolding: $(cat "$KU_T/AGENTS.md" 2>/dev/null | tr '\n' '|')"
+  cmp -s "$KU_T/AGENTS.md" "$KU_NEW/AGENTS.md" \
+    || cf "AGENTS.md does not match the new kit's copy byte for byte"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — "REMOVED UPSTREAM" NEVER SAYS "DELETE IT" ABOUT A FILE THE PROJECT ITSELF CHANGED.
+#
+# c.txt is dropped by the new kit. One target has it unchanged from the old release (today's
+# wording: delete it, or keep it as this project's own, applies); another has edited it (the
+# file is the project's own now — keep it, or delete it if nothing uses it — and "delete it" never
+# appears unqualified).
+# =============================================================================
+case_kit_upgrade_removed_upstream_reflects_a_local_edit() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh's removed-upstream checklist item says a changed file is the project's own now, and reserves plain 'delete it' for a copy that was never edited"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+
+  # (a) c.txt left exactly as the old release shipped it.
+  _ku_pair 0.1.0 0.2.0
+  local cl="$KU_T/$KU_CHECKLIST_REL"
+  _ku_run a --into "$KU_T"
+  [ "$(_ku_rc a)" = 0 ] || cf "(a) exited $(_ku_rc a): $(_ku_out a)"
+  grep -F 'removed upstream: c.txt' "$cl" | grep -Fi 'delete it, or keep it as this project' >/dev/null \
+    || cf "(a) an unedited removed file does not carry today's wording: $(grep -F c.txt "$cl" | tr '\n' '|')"
+
+  # (b) c.txt edited by the adopter before the upgrade runs.
+  _ku_pair 0.1.0 0.2.0
+  cl="$KU_T/$KU_CHECKLIST_REL"
+  printf 'c1 mine\n' > "$KU_T/c.txt"
+  git -C "$KU_T" commit -qam "edit c.txt too" >/dev/null 2>&1
+  _ku_run b --into "$KU_T"
+  [ "$(_ku_rc b)" = 0 ] || cf "(b) exited $(_ku_rc b): $(_ku_out b)"
+  local line; line="$(grep -F 'removed upstream: c.txt' "$cl")"
+  if [ -z "$line" ]; then
+    cf "(b) no removed-upstream item for c.txt: $(tr '\n' '|' < "$cl" | cut -c1-300)"
+  else
+    printf '%s' "$line" | grep -Fi 'this project'"'"'s own now' >/dev/null \
+      || cf "(b) an EDITED removed file is not told it is the project's own now: $line"
+    printf '%s' "$line" | grep -Eiq '^\- \[ \] removed upstream: c\.txt — [^—]*delete it, or keep it as this project' \
+      && cf "(b) an edited removed file still carries today's unqualified wording: $line"
+  fi
+  finish "$L"
   teardown
 }

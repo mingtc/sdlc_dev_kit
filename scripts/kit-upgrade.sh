@@ -15,22 +15,29 @@
 #   the project already has the new one nothing
 #   the project's copy is as shipped    replaced by the new one
 #   new upstream, absent here           added
+#   new copy is day-one scaffolding,    NEVER written: the checklist says so instead (below)
+#   the project's copy no longer is
 #   anything else                       NEVER overwritten: the new one is staged under
 #                                       .kit-upgrade/files/ and the checklist says merge it
 # A STAGED COPY NEVER CARRIES A LIVE NAME: each `.claude` path component is written `_claude`, and
 # every staged file ends in `.kit-new`. Under its own name a staged skill, agent doc, or
 # AGENTS.md would be loaded by a harness, and a staged .gitignore or .gitattributes would govern
 # the staging tree. Each checklist item names its staged copy exactly.
-# A file the new kit no longer ships is listed, never deleted. With no sha256 tool (shasum or
-# sha256sum), or no process/KIT-MANIFEST in the project, every file the kit changed that differs
-# here is a merge item, and the run says why.
+# A file the new kit no longer ships is listed, never deleted; where the hashes show the project
+# changed it, its item says it is the project's own now. With no sha256 tool (shasum or sha256sum), or no process/KIT-MANIFEST in the project, every file the
+# kit changed that differs here is a merge item, and the run says why.
+#
+# THE SCAFFOLDING GUARD: a project past day one no longer carries the sentinel in its copy of a
+# scaffolding path, and the new kit's stub there would tell the next agent to start over. Where the
+# project's adapter is still CLAUDE.md (a kit before AGENTS.md was the adapter), the checklist item
+# is the move `git mv -f CLAUDE.md AGENTS.md`.
 #
 # The checklist gets one item per Action required entry in each process/KIT-RELEASE-NOTES.md
 # section newer than the project's process/KIT-VERSION (an X.Y.Z+<tree> version is read as that
-# file's § How versions work defines it), plus one per merge or removal. The first run never
-# stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or while the marked
-# checklist is uncommitted; then it writes the new process/KIT-VERSION and process/KIT-MANIFEST,
-# and removes the checklist and .kit-upgrade/.
+# file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path.
+# The first run never stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or
+# while the marked checklist is uncommitted; then it writes the new process/KIT-VERSION and
+# process/KIT-MANIFEST, and removes the checklist and .kit-upgrade/.
 #
 # It never commits: the upgrade is ordinary work, committed through the project's own board.
 # Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory.
@@ -62,6 +69,14 @@ need_val() {
 # Greppable defaults: check-board.sh reads UPGRADE_CHECKLIST from this line.
 UPGRADE_CHECKLIST='process/UPGRADE-CHECKLIST.md'
 STAGE_DIR='.kit-upgrade'
+
+# THE SCAFFOLDING SENTINEL — the exact whole line scripts/check-board.sh arm (g1) matches with
+# `grep -qxF` (process/EXTRACTION.md § The marker and graduation). Declared here rather than read
+# from check-board.sh: the two scripts ship separately and neither sources the other. Keep them
+# byte-identical.
+SCAFFOLD_MARK='<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->'
+# is_scaffold <file> — does it still carry the sentinel, the exact whole line? A missing file does not.
+is_scaffold() { [ -f "$1" ] && grep -qxF "$SCAFFOLD_MARK" "$1" 2>/dev/null; }
 
 INTO=""; FINISH=false
 while [ $# -gt 0 ]; do
@@ -203,7 +218,7 @@ JOINED="$(awk -F'  ' '
   END { for (p in old) if (!(p in newseen)) printf "%s\t-\t%s\n", p, old[p] }
 ' "$( [ -f "$OLD_MAN" ] && printf '%s' "$OLD_MAN" || printf '/dev/null' )" "$NEW_MAN")"
 
-WRITE=(); ADDED=(); REPLACED=(); MERGE=(); MERGE_WHY=(); REMOVED=()
+WRITE=(); ADDED=(); REPLACED=(); MERGE=(); MERGE_WHY=(); REMOVED=(); REMOVED_CHANGED=(); BLOCKED=()
 n_current=0; n_kept=0
 while IFS="$(printf '\t')" read -r p nh oh; do
   [ -n "$p" ] || continue
@@ -211,7 +226,13 @@ while IFS="$(printf '\t')" read -r p nh oh; do
   [ "$p" = process/KIT-VERSION ] && continue   # stamped by --finish, never by this pass
   dst="$TGT/$p"
   if [ "$nh" = - ]; then                        # the new kit no longer ships it
-    [ -e "$dst" ] && REMOVED+=("$p")
+    if [ -e "$dst" ]; then
+      REMOVED+=("$p")
+      # Changed here: never told "delete it". With no hash to compare, the plain wording stands.
+      if [ -n "$SHA" ] && [ -n "$oh" ] && [ "$oh" != "?" ] && [ "$(sha_of "$dst")" != "$oh" ]; then
+        REMOVED_CHANGED+=("$p")
+      fi
+    fi
     continue
   fi
   src="$SRC/$p"
@@ -222,6 +243,10 @@ while IFS="$(printf '\t')" read -r p nh oh; do
   fi
   if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
     n_current=$((n_current + 1)); continue
+  fi
+  # The scaffolding guard (header).
+  if is_scaffold "$src" && [ -e "$dst" ] && ! is_scaffold "$dst"; then
+    BLOCKED+=("$p"); continue
   fi
   if [ ! -e "$dst" ]; then
     if [ -f "$OLD_MAN" ] && [ -z "$oh" ]; then   # new upstream
@@ -291,7 +316,7 @@ $ITEMS
 ITEMS_EOF
 fi
 
-total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} ))
+total=$(( ${#ACTION[@]} + ${#MERGE[@]} + ${#REMOVED[@]} + ${#BLOCKED[@]} ))
 if [ "$CUR_V" = "$NEW_V" ] && [ "$total" -eq 0 ] && [ "${#WRITE[@]}" -eq 0 ]; then
   echo "kit-upgrade: $TGT already runs kit $NEW_V, and every file is current. Nothing to do."
   exit 0
@@ -343,7 +368,15 @@ cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFE
     echo; echo "## Action required"; echo
     for l in "${ACTION[@]}"; do echo "- [ ] $l"; done
   fi
-  if [ "$(( ${#MERGE[@]} + ${#REMOVED[@]} + ${#ADDED[@]} + ${#REPLACED[@]} ))" -gt 0 ]; then
+  # AGENTS.md blocked beside a CLAUDE.md adapter: one move item, which absorbs CLAUDE.md's removal.
+  migrate_claude=""
+  for p in ${BLOCKED[@]+"${BLOCKED[@]}"}; do
+    if [ "$p" = AGENTS.md ] && [ -e "$TGT/CLAUDE.md" ] && ! is_scaffold "$TGT/CLAUDE.md"; then
+      migrate_claude=1
+    fi
+  done
+
+  if [ "$(( ${#MERGE[@]} + ${#REMOVED[@]} + ${#ADDED[@]} + ${#REPLACED[@]} + ${#BLOCKED[@]} ))" -gt 0 ]; then
     echo; echo "## Files"; echo
     i=0
     while [ "$i" -lt "${#MERGE[@]}" ]; do
@@ -351,7 +384,23 @@ cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFE
       i=$((i + 1))
     done
     for p in ${REMOVED[@]+"${REMOVED[@]}"}; do
-      echo "- [ ] removed upstream: $p — the new kit no longer ships it; delete it, or keep it as this project's own"
+      if [ "$p" = CLAUDE.md ] && [ -n "$migrate_claude" ]; then
+        continue   # folded into the AGENTS.md migration item below
+      fi
+      changed=""
+      for q in ${REMOVED_CHANGED[@]+"${REMOVED_CHANGED[@]}"}; do [ "$q" = "$p" ] && changed=1; done
+      if [ -n "$changed" ]; then
+        echo "- [ ] removed upstream: $p — the new kit no longer ships it, and this project changed it, so it is this project's own now: keep it, or delete it if nothing uses it"
+      else
+        echo "- [ ] removed upstream: $p — the new kit no longer ships it; delete it, or keep it as this project's own"
+      fi
+    done
+    for p in ${BLOCKED[@]+"${BLOCKED[@]}"}; do
+      if [ "$p" = AGENTS.md ] && [ -n "$migrate_claude" ]; then
+        echo "- [ ] move your adapter onto the new name: \`git mv -f CLAUDE.md AGENTS.md\` — the kit's files now name AGENTS.md as the adapter, and it is the file every harness reads; until then your current AGENTS.md is kept"
+      else
+        echo "- [ ] kept, not replaced: $p — the new kit ships this as day-one scaffolding, and this project is past day one; your own copy is kept"
+      fi
     done
     if [ "$(( ${#ADDED[@]} + ${#REPLACED[@]} ))" -gt 0 ]; then
       echo "- [ ] stamp what arrived: the ${#ADDED[@]} added and ${#REPLACED[@]} replaced file(s) are unstamped — run the checks in process/KIT-RELEASE-NOTES.md § How to upgrade (\"A line the kit ADDS arrives unstamped\")"
@@ -362,6 +411,7 @@ cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFE
 echo "kit-upgrade: $TGT, kit $CUR_V → $NEW_V (staged; process/KIT-VERSION is unchanged)."
 echo "  replaced ${#REPLACED[@]}, added ${#ADDED[@]}, already current $n_current, unchanged upstream (kept as you have them) $n_kept"
 echo "  to merge ${#MERGE[@]} (new copies in $STAGE_DIR/files/), removed upstream ${#REMOVED[@]}, Action required ${#ACTION[@]}"
+[ "${#BLOCKED[@]}" -eq 0 ] || echo "  kept, not replaced (this project is past the kit's day-one scaffolding there) ${#BLOCKED[@]}"
 [ -z "$DEGRADED" ] || echo "  every file the kit changed that differs here is a merge item, because $DEGRADED."
 echo
 echo "Nothing is committed. Next:"

@@ -58,7 +58,8 @@ unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/ki
    `process/UPGRADE-CHECKLIST.md` lists what is left: every **Action required** entry newer than your
    [`KIT-VERSION`](KIT-VERSION) (from a `+` version, § How versions work, the entries your tree may
    already hold are flagged: diff each before applying it), every file to merge, every file dropped
-   upstream, and the stamping checks for what arrived.
+   upstream, every day-one scaffolding file it did not write because your project is past day one,
+   and the stamping checks for what arrived.
 2. **Commit it through your own board and gates**, the checklist and `.kit-upgrade/` included. The
    upgrade is ordinary work.
 3. **Work the checklist, marking each item `- [x]`, and commit it as marked.**
@@ -317,10 +318,10 @@ columns and never the cards.*
 
 - **`CLAUDE.md` is gone. `AGENTS.md` is now the one bootstrap file and the one adapter**, for
   Claude Code and every other harness alike (Claude Code reads a lone `AGENTS.md` directly when no
-  `CLAUDE.md` exists on the path). If you have already run day one: nothing to do — your adapter is
-  your own file regardless of what the kit calls its template now. If you are upgrading an
-  unfinished day one, or your repository still has the shipped bootstrap stub: delete your
-  `CLAUDE.md`, and finish day one against the shipped `AGENTS.md` instead.
+  `CLAUDE.md` exists on the path). **If you have already run day one: the upgrade keeps your
+  `AGENTS.md`, and its checklist has you move your adapter onto it: `git mv -f CLAUDE.md AGENTS.md`.** If you are upgrading an unfinished day one,
+  or your repository still has the shipped bootstrap stub: delete your `CLAUDE.md`, and finish day
+  one against the shipped `AGENTS.md` instead.
   `process/templates/CLAUDE-adapter.template.md` is renamed to
   `process/templates/AGENTS-adapter.template.md` — update any of your own notes that pointed at the
   old name.
