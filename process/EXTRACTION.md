@@ -443,6 +443,10 @@ census* — is falsified by any file that belongs to none.
 tree, print a report, and change nothing. Described by
 [`hygiene-checklist.md`](hygiene-checklist.md).
 
+**The non-blocking question (KIT):** `ask.sh` — writes one question file to the channel
+`PROJECT.md`'s `principal:` section declares, so work records a question for a human who may not
+be watching without waiting on the answer. § 2.10 describes it.
+
 **Take but EDIT** — the files whose **project half you fill on day one**. It is **not** simply the
 `MIXED` class — see the exclusion below the table.
 

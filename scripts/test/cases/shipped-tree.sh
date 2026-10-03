@@ -67,9 +67,9 @@ $(printf '%s' "$hits" | sed 's/^/      /')"
 # A mechanism, not a sentence: the skills are vendored, and an upstream re-copy can restore a
 # single forge's command without anyone reading the merge rule in skills/README.md.
 #
-# PARAGRAPHS, NOT LINES (instruments.md § A.7.1): an "example" marker that wraps onto another
+# PARAGRAPHS, NOT LINES (instruments.md § A.7, item 1): an "example" marker that wraps onto another
 # line than the command still marks its paragraph; control 2 below keeps that executable.
-# The lexicon is an enumeration (§ A.7.4/5): gh|glab|hub|tea × subcommand, markers
+# The lexicon is an enumeration (§ A.7, item 4): gh|glab|hub|tea × subcommand, markers
 # example|illustrative|not exhaustive. "adapter" and "your forge" are deliberately NOT
 # markers: they would excuse a live forge instruction that merely gestures at the adapter.
 # An adopter who writes a forge command into their own skill copy should mark it as an
@@ -149,7 +149,7 @@ $(printf '%s' "$unmarked" | sed "s|^$skills/||" | cut -c1-200 | sed 's/^/      /
       || cf "(control) planting one instruction moved the count from $base to $after, not to $(( base + 1 ))"
 
     # CONTROL 2 — a MARKED instruction whose marker wrapped onto another line is NOT a
-    # finding (§ A.7.1); under a raw-line check this plant is a false positive.
+    # finding (instruments.md § A.7, item 1); under a raw-line check this plant is a false positive.
     printf '\nGitHub the CLI, as one example, is\nnot the requirement: run `gh pr create --fill` here.\n' >> "$probe/victim.md"
     local wrapped; wrapped="$(_forge_unmarked_n "$probe")"
     [ "$wrapped" -eq "$after" ] \

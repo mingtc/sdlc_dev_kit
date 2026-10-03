@@ -183,8 +183,8 @@ QREL="${QFILE#"$ROOT"/}"
 # ── READ THE REGISTER'S STATE FIRST, BEFORE WRITING ANYTHING — the question file's own "how
 #    the answer is recorded" text depends on it, and a STANDING RULING is never touched: it is
 #    what work proceeds under until the principal answers. Overwriting it would let a question
-#    provisionally grant its own premise just by being asked (run 5's own case — "may I lift
-#    D-09?" must not itself lift D-09). Only an entry with NO current ruling — the register's
+#    provisionally grant its own premise just by being asked ("may I lift D-09?" must not itself
+#    lift D-09). Only an entry with NO current ruling — the register's
 #    WITHDRAWN state, § The THIRD state — has anywhere for a working default to go.
 DEC="$ROOT/requirements/DECISIONS.md"
 DECISION_STATE="none"        # none | withdrawn | standing

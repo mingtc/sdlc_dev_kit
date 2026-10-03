@@ -7,7 +7,7 @@ Full legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
 **What this covers.** The scaffold content this kit ships to become part of *your* project: the
 templates (`process/templates/`, `.claude/templates/`), the role docs and doctrine sheets under
 `process/` once you have adapted them, `PROJECT.md`, the bootstrap files you are expected to
-replace or delete (`CLAUDE.md`, `AGENTS.md`, `README.md`), and anything else under `kit/` marked
+replace or delete (`AGENTS.md`, `README.md`), and anything else under `kit/` marked
 `REPLACE` or `CONFIGURE` in `process/EXTRACTION.md`'s disposition table — in short, anything this
 kit expects you to copy, edit, rename, or delete as your project grows into its own thing.
 

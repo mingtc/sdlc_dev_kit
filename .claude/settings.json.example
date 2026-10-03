@@ -6,7 +6,7 @@
 
   "_WHAT_THIS_FILE_MAY_CONTAIN": "ONLY SETTINGS KEYS WHOSE EFFECT THE KIT CAN DEMONSTRATE: if the kit cannot show what a key does, the kit does not ship it. Add a key here only alongside the thing that reads it.",
 
-  "_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES": "The adapter (CLAUDE.md) § 'The trunk, the branches, and what counts as code here', which cites process/MANUAL.md § The code-vs-metadata rule. Both are documents an agent actually reads; the rule is not copied here, because a third copy is what drifts.",
+  "_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES": "The adapter (AGENTS.md) § 'The trunk, the branches, and what counts as code here', which cites process/MANUAL.md § The code-vs-metadata rule. Both are documents an agent actually reads; the rule is not copied here, because a third copy is what drifts.",
 
   "hooks": {
     "PreToolUse": [

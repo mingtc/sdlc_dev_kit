@@ -264,8 +264,8 @@ EOF
 # =============================================================================
 # CASE — ask.sh NEVER OVERWRITES A STANDING RULING.
 # RED FIRST: this case fails on any ask.sh that amends a D-NN entry's Ruling line regardless of
-# its current state — the exact defect run 5's own D-09 case showed: "may I lift D-09?" must not
-# itself lift D-09 by being asked. The entry must come out BYTE-IDENTICAL, and the session
+# its current state — "may I lift D-09?" must not itself lift D-09 by being asked. The entry
+# must come out BYTE-IDENTICAL, and the session
 # proceeds under the STANDING ruling, not the working default.
 # =============================================================================
 case_ask_never_overwrites_a_standing_ruling() {

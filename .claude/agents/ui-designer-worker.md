@@ -16,7 +16,7 @@ definition ships ready so the WORKER is not one of the wake items.
 
 ## Read order (before designing anything)
 
-The project doc → the adapter → the role doc → the issue file. **The issue's AC is the
+`PROJECT.md` → `AGENTS.md` → the role doc the issue names → the issue file. **The issue's AC is the
 contract.** Then the DISCOVERY pass, in the repo before in your head: existing design tokens,
 component library, brand/style guides, accessibility requirements, and the target platforms —
 cite what you found by path; what does not exist you NAME as absent rather than invent

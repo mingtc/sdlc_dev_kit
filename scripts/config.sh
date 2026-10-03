@@ -67,8 +67,8 @@ QA_COMPLETE_THRESHOLD="${QA_COMPLETE_THRESHOLD:-10}"
 CODE_GLOBS=(
 )
 
-# ── TEST_GLOBS — the one project-supplied definition the ablation-record rule needs
-#    (process/MANUAL.md § The ablation-record rule): "which paths are tests." Read by
+# ── TEST_GLOBS — the one project-supplied definition the ablation rule needs
+#    (process/MANUAL.md § The Dev → QA handoff, the PASS action): "which paths are tests." Read by
 #    scripts/finish-pr.sh, which refuses a landing whose branch diff touches a declared test
 #    path with no well-formed `## Ablation` section in the issue file.
 #

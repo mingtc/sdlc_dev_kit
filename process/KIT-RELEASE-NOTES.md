@@ -20,6 +20,9 @@ release notes are whatever your `scripts/release.sh` declares in its `RELEASE_DO
 | **MINOR** | New material or changed guidance you can adopt when you like. Nothing breaks if you ignore it. |
 | **PATCH** | Corrections: wrong paths, broken links, wording, a refusal that should have fired and did not. |
 
+**Before `1.0`, a MAJOR change bumps the middle number** (`0.7.0` → `0.8.0`); MINOR and PATCH
+changes bump the last.
+
 **`X.Y.Z+<tree>` is a build between releases:** the kit after release `X.Y.Z` and before the next,
 `<tree>` (eight hex characters) naming the exact kit tree it was built from. Its newest notes section
 is **Unreleased**, whose entries the next release's section will carry. `X.Y.Z` alone is a release.
@@ -359,6 +362,9 @@ columns and never the cards.*
 - **`PROJECT.md`'s `principal:` and channel lines, filled WITHOUT backticks** (a natural fill, e.g.
   `PM`) read as unfilled: `[g]` withheld graduation and `scripts/ask.sh` refused. Both now read
   either form through one shared function.
+- **Files that still named `CLAUDE.md`** (`LICENSE-CONTENT`, the settings examples, `.env.example`,
+  the hygiene reachability walker, whose `--self-test` failed on it) now name `AGENTS.md`.
+- **The `writing-plans` skill's commit example lacked the `[Role]` tag** the commit hook requires.
 
 ## [0.7.0] — 2026-10-01
 

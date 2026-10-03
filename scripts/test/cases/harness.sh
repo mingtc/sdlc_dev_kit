@@ -504,7 +504,8 @@ case_ship_state() {
     # scripts/githooks/pre-commit) must ship empty: a populated default would be ONE
     # project's source tree declared as every adopter's.
     _ship_array_empty "$rc_cfg" CODE_GLOBS
-    # TEST_GLOBS (the ablation-record rule, read by scripts/finish-pr.sh) — same reasoning.
+    # TEST_GLOBS (process/MANUAL.md § The Dev → QA handoff, the PASS action; read by
+    # scripts/finish-pr.sh) — same reasoning.
     _ship_array_empty "$rc_cfg" TEST_GLOBS
   else
     cf "scripts/config.sh is absent — it is the configuration seam itself"

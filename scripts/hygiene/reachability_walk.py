@@ -50,7 +50,6 @@ from citation_index import REPO_ROOT, Index, print_blind_spots, run_instrument, 
 #    mean anything. Ship-time defaults below are the kit's own front doors; prune the ones your
 #    project does not have (--self-test names them) and add yours.
 STARTER_ROOTS = [
-    "CLAUDE.md",
     "PROJECT.md",
     "README.md",
     "AGENTS.md",

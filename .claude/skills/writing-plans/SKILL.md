@@ -104,7 +104,7 @@ Expected: PASS
 
 ```bash
 git add <test path> <source path>
-git commit -m "<role prefix> <PREFIX>-NNN: add specific feature"
+git commit -m "[<role>] <PREFIX>-NNN: add specific feature"
 ```
 ````
 
