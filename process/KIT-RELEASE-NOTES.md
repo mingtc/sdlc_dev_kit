@@ -319,12 +319,15 @@ columns and never the cards.*
 - **`CLAUDE.md` is gone. `AGENTS.md` is now the one bootstrap file and the one adapter**, for
   Claude Code and every other harness alike (Claude Code reads a lone `AGENTS.md` directly when no
   `CLAUDE.md` exists on the path). **If you have already run day one: the upgrade keeps your
-  `AGENTS.md`, and its checklist has you move your adapter onto it: `git mv -f CLAUDE.md AGENTS.md`.** If you are upgrading an unfinished day one,
-  or your repository still has the shipped bootstrap stub: delete your `CLAUDE.md`, and finish day
-  one against the shipped `AGENTS.md` instead.
+  `AGENTS.md`, and its checklist has you move your adapter onto it: `git mv -f CLAUDE.md AGENTS.md`.**
+  If you are upgrading an unfinished day one, or your repository still has the shipped bootstrap
+  stub: delete your `CLAUDE.md`, and finish day one against the shipped `AGENTS.md` instead.
   `process/templates/CLAUDE-adapter.template.md` is renamed to
   `process/templates/AGENTS-adapter.template.md` — update any of your own notes that pointed at the
   old name.
+- **Claude Code v2.1.277 or later**, the first version that reads a lone `AGENTS.md`. On an older
+  one, once `CLAUDE.md` is gone, every session starts with no instructions and nothing says so.
+  Update it before you upgrade; `/start` now checks it.
 
 ### Added
 

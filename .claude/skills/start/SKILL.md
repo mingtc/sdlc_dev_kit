@@ -15,6 +15,9 @@ rather than trusting your memory of it.
 - **Git and a POSIX shell** are the kit's only hard requirement (`README.md` § What this is).
   Confirm both are on `PATH` (`git --version`, `echo $0` or equivalent). If either is missing, stop
   here and tell the human what to install — nothing else in this skill can run without them.
+- **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older
+  version does not read a lone `AGENTS.md`, so every session there starts with no instructions and
+  nothing says so. If it is older, stop here and tell the human to update Claude Code first.
 - **The two optional extras, only if the project uses them:** `brainstorming`'s visual companion
   needs Node (`node --version`); `scripts/hygiene/` needs Python 3, standard library only
   (`python3 --version`). Check for these only if the adapter (once one exists — see step 3) says
