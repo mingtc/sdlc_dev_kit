@@ -62,6 +62,68 @@ $(printf '%s' "$rewritten" | sed 's/^/      /')"
 }
 
 # =============================================================================
+# POST-INIT, EVERY KIT-DISPOSITION: DECLARATION THE SHIPPED TREE CARRIES SURVIVES UNCHANGED
+# =============================================================================
+# The defect guarded: kit-init.sh's prefix substitution rewrites `KIT-` before a non-digit in
+# .claude/roles, and until this case existed only KIT-CLASS: was sentinel-protected against it —
+# KIT-DISPOSITION: (process/EXTRACTION.md § The KIT-DISPOSITION: marker) was not, so it became
+# <PREFIX>-DISPOSITION: in every initialized project and check-board.sh's [g] silently dropped
+# that member. THE EXPECTED SET IS DERIVED FROM THE SHIPPED TREE BEFORE kit-init.sh RUNS: deriving
+# it from the post-init sandbox is exactly the blind spot that hid the defect (a rewritten key
+# would simply not be found, and the case would report nothing to check).
+case_kit_init_disposition_markers_intact() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: KIT-DISPOSITION markers survive the stamp" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: KIT-DISPOSITION markers survive the stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+
+  # THE EXPECTED SET — from the SHIPPED tree's .claude/roles + .claude/templates, before anything
+  # runs. One line per declaring file: its path relative to .claude/, and the exact declaration
+  # text (so a rewritten KEY, not just a rewritten file list, is caught).
+  local expected="" d f rel line
+  for d in "$REAL_REPO_ROOT/.claude/roles" "$REAL_REPO_ROOT/.claude/templates"; do
+    [ -d "$d" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        rel="${f#"$REAL_REPO_ROOT"/}"
+        expected="${expected}${rel}|${line}
+"
+      done < <(grep -oE 'KIT-DISPOSITION:.*' "$f" 2>/dev/null)
+    done < <(find "$d" -type f -name '*.md' | sort)
+  done
+  [ -n "$expected" ] \
+    || { cf "the shipped tree carries NO KIT-DISPOSITION: declaration under .claude/roles or .claude/templates — the assertion below would have no operand and pass on an empty set"; finish "kit-init: KIT-DISPOSITION markers survive the stamp"; return; }
+
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $out"; finish "kit-init: KIT-DISPOSITION markers survive the stamp"; teardown; return; }
+
+  # EVERY expected declaration — unchanged, at the same relative path, in the sandbox.
+  local got
+  while IFS='|' read -r rel line; do
+    [ -n "$rel" ] || continue
+    got="$(grep -F "$line" "$SB_WORK/$rel" 2>/dev/null || true)"
+    [ -n "$got" ] \
+      || cf "$rel: the shipped declaration '$line' did NOT survive kit-init.sh unchanged (file missing, line missing, or the key/value was rewritten — e.g. to 'SBX-DISPOSITION:')"
+  done <<EOF
+$expected
+EOF
+
+  # DIRECTION 2, same shape as the KIT-CLASS case above: no <PREFIX>-DISPOSITION variant anywhere.
+  local rewritten; rewritten="$(grep -rn 'SBX-DISPOSITION' "$SB_WORK/.claude" 2>/dev/null || true)"
+  [ -z "$rewritten" ] \
+    || cf "the prefix substitution rewrote the KIT-DISPOSITION: marker's KEY:
+$(printf '%s' "$rewritten" | sed 's/^/      /')"
+
+  finish "kit-init: every shipped KIT-DISPOSITION: declaration survives unchanged (expected set derived from the shipped tree BEFORE init, not after)"
+  teardown
+}
+
+# =============================================================================
 # A MINTED CARD IS UNMARKED, AND ITS FILL INSTRUCTION SURVIVES THE STRIP
 # =============================================================================
 # A minted card's class is PROJECT, so it loses the template's KIT-CLASS marker

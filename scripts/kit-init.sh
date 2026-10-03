@@ -72,12 +72,32 @@ SCRATCH_SLUG='kit-init-self-check'
 # shipped templates say `<PREFIX>-NNN`, while config.sh's own default is a real
 # token so its derivation regex can read it.
 PREFIX_PLACEHOLDER='<PREFIX>'
-# THE CLASSIFICATION MARKER'S KEY is the convention's own word, not the issue prefix; it only
-# LOOKS like the shipped placeholder prefix `KIT`. The prefix substitutions below match
-# `<OLD_PREFIX>-`, so they hide the key behind the sentinel first, or every stamped file
-# would read `XYZ-CLASS:`.
-CLASS_MARKER_KEY='KIT-CLASS:'
-CLASS_MARKER_SENTINEL='@@KITCLASSKEY@@'
+# THE MARKER KEYS are the convention's own words, not the issue prefix; they only LOOK like the
+# shipped placeholder prefix `KIT`. The prefix substitutions below match `<OLD_PREFIX>-`, so each
+# key is hidden behind its own sentinel first, or every stamped file would read `XYZ-CLASS:` /
+# `XYZ-DISPOSITION:`. ONE LIST: a later marker key joins this line and nowhere else; the hiding,
+# the census exclusion and the self-check all read it. Space-separated (bash 3.2 has no nameref).
+MARKER_KEYS='KIT-CLASS: KIT-DISPOSITION:'
+# marker_sentinel <key> → that key's own sentinel, derived from the key so no second list of
+# sentinels can drift out of step with MARKER_KEYS.
+marker_sentinel() { printf '@@KITMARKER-%s@@' "$(printf '%s' "$1" | tr -cd 'A-Za-z0-9')"; }
+# MARKER_EXCL_RE — every marker key, alternated, for census's per-line exclusion (3rd argument).
+MARKER_EXCL_RE="$(printf '%s' "$MARKER_KEYS" | sed -E 's/ +/|/g')"
+# marker_hide <file> / marker_restore <file> — hide every marker key behind its own sentinel (or
+# restore it), one `sed -i` per call, each key its own expression inside it so a file carrying
+# more than one key keeps both. The caller runs hide, then its prefix rewrite, then restore, as
+# three sequential calls on the same file — sequential, not one sed invocation, but still nothing
+# else touches the file in between, which is the atomicity the marker protection needs.
+marker_hide() {
+  local f="$1" key args=()
+  for key in $MARKER_KEYS; do args+=(-e "s|${key}|$(marker_sentinel "$key")|g"); done
+  sed -i.bak -E "${args[@]}" "$f"; rm -f "$f.bak"
+}
+marker_restore() {
+  local f="$1" key args=()
+  for key in $MARKER_KEYS; do args+=(-e "s|$(marker_sentinel "$key")|${key}|g"); done
+  sed -i.bak -E "${args[@]}" "$f"; rm -f "$f.bak"
+}
 
 # THE HAT THIS SCRIPT'S OWN COMMITS CARRY — the PRE-ROLE HAT, process/contracts/role-gate.md
 # § 2a's default; KIT_INIT_ROLE overrides it. Never derived by position: seat identity is not a
@@ -663,11 +683,12 @@ if [ -d "$ROOT/.claude/templates" ]; then
       sed -i.bak -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" "$t"; rm -f "$t.bak"; hit=1
     fi
     if [ "$PREFIX" != "$OLD_PREFIX" ] && grep -q "${OLD_PREFIX}-" "$t"; then
-      # Three expressions, one invocation, applied in order per line: hide the marker's
-      # key, rewrite the prefix, put the key back — atomic per file.
-      sed -i.bak -E -e "s|${CLASS_MARKER_KEY}|${CLASS_MARKER_SENTINEL}|g" \
-                    -e "s|${OLD_PREFIX}-|${PREFIX}-|g" \
-                    -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$t"; rm -f "$t.bak"; hit=1
+      # Hide every marker key, rewrite the prefix, put the keys back — nothing else touches
+      # the file between the three, so a file carrying more than one marker key keeps both.
+      marker_hide "$t"
+      sed -i.bak -e "s|${OLD_PREFIX}-|${PREFIX}-|g" "$t"; rm -f "$t.bak"
+      marker_restore "$t"
+      hit=1
     fi
     [ "$hit" -eq 1 ] && TPL_HITS=$((TPL_HITS+1))
   done
@@ -720,9 +741,9 @@ fi
 # RECURSIVE on purpose: a parked role doc is one the adopter will one day wake.
 md_files() { [ -d "$1" ] && find "$1" -type f -name '*.md' | sort || true; }
 census_count() {  # <dir> <ere> [exclude-line-ere] → occurrences across the dir's .md files
-  # THE THIRD ARGUMENT mirrors the substitution's marker exemption: `KIT-CLASS:` matches the
-  # residue pattern `KIT-[^0-9]`, so the two must move together. The exclusion is per LINE,
-  # so a placeholder sharing a line with a marker would go uncounted.
+  # THE THIRD ARGUMENT mirrors the substitution's marker exemption: every key in $MARKER_KEYS
+  # matches the residue pattern `KIT-[^0-9]`, so the two must move together. The exclusion is
+  # per LINE, so a placeholder sharing a line with a marker would go uncounted.
   local dir="$1" re="$2" excl="${3:-}" n=0 f
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -749,17 +770,18 @@ NAME_RE="$(ere_lit "$OLD_NAME")"
 
 ROLES_DIR="$ROOT/.claude/roles"
 if [ -d "$ROLES_DIR" ]; then
-  RD_BEFORE_P="$(census_count "$ROLES_DIR" "$PLACEHOLDER_RE" "$CLASS_MARKER_KEY")"
+  RD_BEFORE_P="$(census_count "$ROLES_DIR" "$PLACEHOLDER_RE" "$MARKER_EXCL_RE")"
   RD_BEFORE_T="$(census_count "$ROLES_DIR" "$TRUNK_RE")"
   RD_BEFORE_N="$(census_count "$ROLES_DIR" "$NAME_RE")"
   for d in "$ROLES_DIR" "$ROOT/.claude/templates"; do
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      sed -i.bak -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" "$f"
-      [ "$PREFIX" = "$OLD_PREFIX" ] || sed -i.bak -E \
-          -e "s|${CLASS_MARKER_KEY}|${CLASS_MARKER_SENTINEL}|g" \
-          -e "s|${OLD_PREFIX}-([^0-9])|${PREFIX}-\1|g" \
-          -e "s|${CLASS_MARKER_SENTINEL}|${CLASS_MARKER_KEY}|g" "$f"
+      sed -i.bak -e "s|${PREFIX_PLACEHOLDER}|${PREFIX}|g" "$f"; rm -f "$f.bak"
+      if [ "$PREFIX" != "$OLD_PREFIX" ]; then
+        marker_hide "$f"
+        sed -i.bak -E -e "s|${OLD_PREFIX}-([^0-9])|${PREFIX}-\1|g" "$f"; rm -f "$f.bak"
+        marker_restore "$f"
+      fi
       if [ "$TRUNK" != "$OLD_TRUNK" ]; then
         sed -i.bak -E "s@(^|[^A-Za-z])${TRUNK_LIT}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
         sed -i.bak -E "s@(^|[^A-Za-z])${TRUNK_LIT}([^A-Za-z]|\$)@\1${TRUNK_R_AT}\2@g" "$f"
@@ -768,7 +790,7 @@ if [ -d "$ROLES_DIR" ]; then
       rm -f "$f.bak"
     done < <(md_files "$d")
   done
-  say "  .claude/roles/: prefix placeholders ${RD_BEFORE_P} → $(census_count "$ROLES_DIR" "$PLACEHOLDER_RE" "$CLASS_MARKER_KEY"), trunk '${OLD_TRUNK}' ${RD_BEFORE_T} → $(census_count "$ROLES_DIR" "$TRUNK_RE"), name '${OLD_NAME}' ${RD_BEFORE_N} → $(census_count "$ROLES_DIR" "$NAME_RE")"
+  say "  .claude/roles/: prefix placeholders ${RD_BEFORE_P} → $(census_count "$ROLES_DIR" "$PLACEHOLDER_RE" "$MARKER_EXCL_RE"), trunk '${OLD_TRUNK}' ${RD_BEFORE_T} → $(census_count "$ROLES_DIR" "$TRUNK_RE"), name '${OLD_NAME}' ${RD_BEFORE_N} → $(census_count "$ROLES_DIR" "$NAME_RE")"
 else
   say "  .claude/roles/: absent — nothing to substitute (copy the role docs if you want them stamped)"
 fi
@@ -1225,27 +1247,32 @@ census_report() {  # <label> <ere> <changed?> [exclude-line-ere]
   else sc_bad "census — ${label}: ${n} occurrence(s) survive in .claude/roles + .claude/templates"; fi
 }
 # NO COLON IN THIS LABEL: the harness asserts on `census — prefix placeholders[^:]*: 0 in`.
-# `${CLASS_MARKER_KEY%:}` keeps the name derived and drops the key's colon.
-census_report "prefix placeholders (${PREFIX_PLACEHOLDER} / ${OLD_PREFIX}-, excluding the ${CLASS_MARKER_KEY%:} key)" "$PLACEHOLDER_RE" "true" "$CLASS_MARKER_KEY"
+# `$MARKER_EXCL_RE` lists every marker key's own word, with no trailing colon of its own.
+census_report "prefix placeholders (${PREFIX_PLACEHOLDER} / ${OLD_PREFIX}-, excluding the marker keys)" "$PLACEHOLDER_RE" "true" "$MARKER_EXCL_RE"
 census_report "trunk '${OLD_TRUNK}'"       "$TRUNK_RE" "$( [ "$TRUNK" != "$OLD_TRUNK" ] && echo true || echo false )"
 census_report "project name '${OLD_NAME}'" "$NAME_RE"  "$( [ "$NEW_NAME" != "$OLD_NAME" ] && echo true || echo false )"
 
-# THE MARKER SURVIVED — asserted in two directions (contracts/initializer.md § 2): the key is
-# still PRESENT and the defaced spelling ABSENT; either alone passes on deleted markers.
-MK_OK=0; MK_BAD=0
-for d in "$ROOT/.claude/roles" "$ROOT/.claude/templates"; do
-  # `|| true` INSIDE the substitution is load-bearing: a no-match grep under pipefail would
-  # abort `set -e` on a healthy tree.
-  MK_OK=$((  MK_OK  + $( { grep -rl "$CLASS_MARKER_KEY" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
-  MK_BAD=$(( MK_BAD + $( { grep -rl "${PREFIX}-CLASS:" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
+# THE MARKERS SURVIVED — one row PER KEY, so a stamped `<PREFIX>-DISPOSITION:` is caught exactly
+# as a stamped `<PREFIX>-CLASS:` is. The defaced spelling must be ABSENT for every key; the key
+# must be PRESENT only for KIT-CLASS: (contracts/initializer.md § 2: either alone passes on deleted
+# markers), because every role doc carries a class while a disposition marker may legitimately be
+# gone (its file removed on purpose).
+for mkey in $MARKER_KEYS; do
+  mk_ok=0; mk_bad=0
+  for d in "$ROOT/.claude/roles" "$ROOT/.claude/templates"; do
+    # `|| true` INSIDE the substitution is load-bearing: a no-match grep under pipefail would
+    # abort `set -e` on a healthy tree.
+    mk_ok=$((  mk_ok  + $( { grep -rl "$mkey" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
+    mk_bad=$(( mk_bad + $( { grep -rl "${PREFIX}-${mkey#KIT-}" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
+  done
+  if [ "$mk_bad" -gt 0 ]; then
+    sc_bad "classification markers: ${mk_bad} file(s) now read '${PREFIX}-${mkey#KIT-}' — the stamper rewrote the convention's KEY, not a value"
+  elif [ "$mk_ok" -eq 0 ] && [ "$mkey" = KIT-CLASS: ]; then
+    sc_bad "classification markers: NONE found carrying '${mkey}' in .claude/roles + .claude/templates — expected the shipped markers to be intact"
+  else
+    sc_ok "classification markers intact — ${mk_ok} file(s) carry '${mkey}', 0 read '${PREFIX}-${mkey#KIT-}'"
+  fi
 done
-if [ "$MK_BAD" -gt 0 ]; then
-  sc_bad "classification markers: ${MK_BAD} file(s) now read '${PREFIX}-CLASS:' — the stamper rewrote the convention's KEY, not a value"
-elif [ "$MK_OK" -eq 0 ]; then
-  sc_bad "classification markers: NONE found carrying '${CLASS_MARKER_KEY}' in .claude/roles + .claude/templates — expected the shipped markers to be intact"
-else
-  sc_ok "classification markers intact — ${MK_OK} file(s) carry '${CLASS_MARKER_KEY}', 0 read '${PREFIX}-CLASS:'"
-fi
 # Reported, never asserted: <TOKEN>-<digits> is a provenance citation, and
 # rewriting it would manufacture a reference the adopter's history never had.
 PROV=0

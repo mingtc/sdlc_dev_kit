@@ -223,8 +223,8 @@ the route (the read, for a release that predates it).
   lines must print nothing; the third must show **your** prefix (the § Known gaps check):
 
   ```sh
-  git grep -nE '<PREFIX>|<project name>|KIT-[^0-9]' -- .claude/roles | grep -v 'KIT-CLASS:'
-  git grep -nE '<PREFIX>|<project name>|<trunk>|KIT-' -- .claude/templates | grep -v 'KIT-CLASS:'
+  git grep -nE '<PREFIX>|<project name>|KIT-[^0-9]' -- .claude/roles | grep -vE 'KIT-CLASS:|KIT-DISPOSITION:'
+  git grep -nE '<PREFIX>|<project name>|<trunk>|KIT-' -- .claude/templates | grep -vE 'KIT-CLASS:|KIT-DISPOSITION:'
   ./scripts/new-issue.sh --help | grep -o -- '--id [A-Z]*-NNN'
   ```
 
@@ -349,6 +349,13 @@ columns and never the cards.*
 - **An Acknowledgments section in `README.md`** crediting the `obra/superpowers` collection the Dev
   skill set is adapted from, at the top level rather than only in `.claude/skills/README.md`'s
   provenance table.
+
+### Fixed
+
+- **`kit-init.sh` stamped the `KIT-DISPOSITION:` marker's key** along with your prefix, so an
+  initialized project lost `check-board.sh` `[g]`'s `DELETE-IF-UNUSED` member under
+  `.claude/roles/archive/`. Every marker key (`KIT-CLASS:`, `KIT-DISPOSITION:`) is now exempt from
+  stamping, from one list.
 
 ## [0.7.0] — 2026-10-01
 

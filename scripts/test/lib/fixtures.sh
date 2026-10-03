@@ -300,7 +300,10 @@ KIT_STAMP_MARK="$(sed -n "s/^STAMP_MARK='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.s
 # kit-init family SKIPs anyway.
 KIT_PREFIX_PLACEHOLDER="$(sed -n "s/^PREFIX_PLACEHOLDER='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
 [ -n "$KIT_PREFIX_PLACEHOLDER" ] || KIT_PREFIX_PLACEHOLDER='<PREFIX>'
-KIT_CLASS_MARKER_KEY="$(sed -n "s/^CLASS_MARKER_KEY='\(.*\)'/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
+# kit-init.sh holds every marker key (not just this one) in its one MARKER_KEYS list,
+# space-separated; this reads that list and takes the first word, which is KIT-CLASS:'s own —
+# the one this fixture library's helpers (below) are written against.
+KIT_CLASS_MARKER_KEY="$(sed -n "s/^MARKER_KEYS='\([^ ']*\).*/\1/p" "$REAL_SCRIPTS/kit-init.sh" 2>/dev/null | head -1)"
 [ -n "$KIT_CLASS_MARKER_KEY" ] || KIT_CLASS_MARKER_KEY='KIT-CLASS:'
 
 # This tree's CURRENT issue prefix, read with kit-init.sh's own anchored sed — the

@@ -209,20 +209,14 @@ block as its `KIT-CLASS:` marker:
   **asserts the marker is gone afterwards**; a disposition in a separate block would survive into live
   cards, where it has no meaning — a minted card is nobody's day-one obligation. Sharing the block
   means the strip takes both, which is the behaviour we want and is already tested.
-- **It survives `kit-init.sh`'s prefix substitution — but NOT for the reason it first appears, and
-  the real reason is narrower and more fragile.** The initializer rewrites `<old-prefix>-` to the
-  adopter's prefix, and sentinel-protects the literal `KIT-CLASS:` across that rewrite so the key is
-  not mangled. **`KIT-DISPOSITION:` begins with `KIT-` and would be mangled by exactly the same
-  substitution** — it escapes only because that rewrite walks `.claude/templates/` and
-  `.claude/roles/`, and **no file carrying a disposition marker lives in either.** Verified by
-  running the initializer against a fresh unpack with `--prefix SBX` and grepping after: every
-  declaration the derivation below returns was intact, and `grep -rn 'SBX-DISPOSITION' .` was empty.
-
-  **So the rule for a third marker is not "avoid the prefix" — it is: if the marker can ever appear
-  in a directory the prefix substitution walks, it MUST be sentinel-protected like `KIT-CLASS:`.**
-  A disposition marker added to a template or a role doc would be silently rewritten today. The
-  initializer also stamps `PROJECT.md`, which does carry one: it survives there because that stamp
-  rewrites only `<PREFIX>`, never `<old-prefix>-`. Widen that stamp and the marker needs the sentinel.
+- **It survives `kit-init.sh`'s prefix substitution because every marker key is sentinel-protected,
+  from one list.** `KIT-DISPOSITION:` begins with `KIT-`, same as `KIT-CLASS:`, and the rewrite of
+  `<old-prefix>-` to the adopter's prefix would mangle either one the same way. The initializer hides
+  every key named in its one marker-key list behind its own sentinel before that rewrite and restores
+  it after, wherever the rewrite walks (`.claude/templates/`, `.claude/roles/`) — so a marker key is
+  exempt because it is on that list, not because of where it lives. A later marker key joins the
+  list once. `PROJECT.md`'s marker survives for a different reason: its stamp rewrites only
+  `<PREFIX>`, never `<old-prefix>-`; widen that stamp and it needs the same hiding.
 - **It is stripped at graduation with everything else in the block**, and that is why **a REPLACE
   file's replace-me instruction still does not live here.** § The marker and graduation states the
   rule: an instruction must not live inside a marker on a file whose marker will be removed. A
