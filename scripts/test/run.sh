@@ -265,6 +265,7 @@ CASES=(
   case_kit_upgrade_removed_upstream_reflects_a_local_edit
   case_ask_help_answers_first
   case_ask_refuses_with_no_principal
+  case_ask_principal_field_reads_either_form
   case_ask_writes_one_file_and_returns
   case_ask_never_overwrites_a_standing_ruling
   case_ask_without_decision_names_the_file_as_the_record

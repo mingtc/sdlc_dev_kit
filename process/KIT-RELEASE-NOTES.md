@@ -356,6 +356,9 @@ columns and never the cards.*
   initialized project lost `check-board.sh` `[g]`'s `DELETE-IF-UNUSED` member under
   `.claude/roles/archive/`. Every marker key (`KIT-CLASS:`, `KIT-DISPOSITION:`) is now exempt from
   stamping, from one list.
+- **`PROJECT.md`'s `principal:` and channel lines, filled WITHOUT backticks** (a natural fill, e.g.
+  `PM`) read as unfilled: `[g]` withheld graduation and `scripts/ask.sh` refused. Both now read
+  either form through one shared function.
 
 ## [0.7.0] — 2026-10-01
 

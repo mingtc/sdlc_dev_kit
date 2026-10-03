@@ -59,6 +59,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$SCRIPT_DIR/lib/usage.sh"
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
+# shellcheck source=lib/pm-field.sh
+. "$SCRIPT_DIR/lib/pm-field.sh"
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
@@ -115,21 +117,12 @@ PM="$ROOT/PROJECT.md"
   "Error: no PROJECT.md at $ROOT — the principal and channel are declared there." \
   "  See PROJECT.md § Who answers when nobody is watching."
 
-# One line each: `**label:**` or `` `label:` ``, then ONE backtick-delimited value — the same
-# whole-span-is-the-blank shape check-board.sh's FILL scan reads (§ g2). First match wins.
-_pm_field() {
-  awk -v marker="$1" '
-    match($0, marker) {
-      rest = substr($0, RSTART + RLENGTH)
-      if (match(rest, /`[^`]*`/)) {
-        v = substr(rest, RSTART + 1, RLENGTH - 2)
-        print v
-        exit
-      }
-    }' "$2"
-}
-PRINCIPAL_LINE="$(_pm_field '`principal:`' "$PM")"
-CHANNEL_LINE="$(_pm_field '\\*\\*Their channel:\\*\\*' "$PM")"
+# One line each: `**label:**` or `` `label:` ``, then its value — read by lib/pm-field.sh's
+# kit_pm_field, the ONE reader check-board.sh's [g2d] arm shares: the first backtick-delimited
+# span after the marker if there is one, else the rest of the line with Markdown emphasis and
+# surrounding whitespace stripped (a bare fill, with no backticks, is not unfilled).
+PRINCIPAL_LINE="$(kit_pm_field '`principal:`' "$PM")"
+CHANNEL_LINE="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$PM")"
 
 # A blank is still `<angle-bracket>`, WHOLE content, in the shipped sheet — that is not a
 # declaration. (check-board.sh's [g2] arm defines "whole content"; this is that same test.)

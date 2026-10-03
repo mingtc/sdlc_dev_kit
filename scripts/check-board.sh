@@ -167,6 +167,12 @@ fi
 # shellcheck source=lib/attrib-trailer.sh
 [ -f "$CB_LIB_DIR/attrib-trailer.sh" ] && . "$CB_LIB_DIR/attrib-trailer.sh" 2>/dev/null || true
 
+# The shared PROJECT.md marker-line reader (arm [g]'s (g2d) and scripts/ask.sh read the SAME
+# `principal:`/channel lines the SAME way — a natural fill with no backticks is not unfilled).
+# A load failure leaves (g2d) unmeasured, never read by a second parser — never an exit.
+# shellcheck source=lib/pm-field.sh
+[ -f "$CB_LIB_DIR/pm-field.sh" ] && . "$CB_LIB_DIR/pm-field.sh" 2>/dev/null || true
+
 # ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
 # Resolved as kwt_resolve does, and the last link is READ from that library, never re-typed.
 CB_REMOTE="${KWT_REMOTE:-origin}"
@@ -1022,21 +1028,22 @@ else
     done
   fi
 
-  # (g2d) `principal:`, in PROJECT.md — read the same way scripts/ask.sh reads it: the backtick
-  # value after the `` `principal:` `` marker, blank exactly when ask.sh's own `_is_blank` would
-  # refuse it (empty, or a whole-content `<angle-bracket>` span). `"nobody"` is PROJECT.md's own
+  # (g2d) `principal:`, in PROJECT.md — read the same way scripts/ask.sh reads it: the ONE
+  # shared reader, lib/pm-field.sh's kit_pm_field (a backtick span after the marker if there is
+  # one, else the rest of the line with Markdown emphasis stripped — a natural fill with no
+  # backticks is not unfilled), blank exactly when ask.sh's own `_is_blank` would refuse it
+  # (empty, or a whole-content `<angle-bracket>` span). `"nobody"` is PROJECT.md's own
   # documented mechanical "none, on purpose" for this field (§ Who answers when nobody is
   # watching) — filling it with that literal already reads as filled here, same as it does to
   # ask.sh, so no second declared-empty form is needed for this member.
   if [ ! -f "$g_pm" ]; then
     echo "      FILL (PROJECT.md principal:): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
     g_unmeasured="${g_unmeasured:+$g_unmeasured, }principal: (PROJECT.md absent)"
+  elif ! command -v kit_pm_field >/dev/null 2>&1; then
+    echo "      FILL (PROJECT.md principal:): not measured — scripts/lib/pm-field.sh, the reader it shares with ask.sh, did not load  (skipped) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }principal: (scripts/lib/pm-field.sh missing)"
   else
-    g_principal="$(awk '
-      match($0, "`principal:`") {
-        rest = substr($0, RSTART + RLENGTH)
-        if (match(rest, /`[^`]*`/)) { print substr(rest, RSTART + 1, RLENGTH - 2); exit }
-      }' "$g_pm")"
+    g_principal="$(kit_pm_field '`principal:`' "$g_pm")"
     g_principal_blank=0
     case "$g_principal" in
       '<'[a-z]*'>') g_principal_blank=1 ;;

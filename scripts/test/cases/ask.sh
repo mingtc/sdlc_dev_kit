@@ -26,6 +26,13 @@ _ask_fill_pm() {
   _ask_pm_section 'Nadia, shop manager' 'dev/questions/' > "$dir/PROJECT.md"
 }
 
+# _ask_pm_section_bare <principal-bare-text> <channel-backtick-span> — the SAME two-line shape,
+# but `principal:` filled WITHOUT backticks — a natural fill (`PM`, `nobody`) the way a person
+# reads the shipped prompt, not the first-backtick-span-only shape _ask_pm_section tests.
+_ask_pm_section_bare() {
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** %s\n- **Their channel:** `%s`\n' "$1" "$2"
+}
+
 # _ask_unfilled_pm <dir> — a synthetic PROJECT.md with `principal:` and its channel left as the
 # shipped blank shape (`<angle-bracket>`, whole span) — the precondition
 # case_ask_refuses_with_no_principal (b) needs, independent of whether the REAL PROJECT.md in
@@ -95,6 +102,84 @@ case_ask_refuses_with_no_principal() {
     || cf "(b) the refusal's record carries no refusal= extra"
 
   finish "ask.sh refuses when principal: is blank/undeclared, with a refusal= record, and writes no question file"
+  teardown
+}
+
+# =============================================================================
+# CASE — A `principal:` FILLED WITHOUT BACKTICKS READS AS FILLED, AND ask.sh/[g] AGREE.
+# RED FIRST: the unfixed scripts take only the first backtick span after the marker, so a bare
+# fill (`PM`) reads as unfilled — [g] withholds graduation and ask.sh refuses.
+# Four rows, each through BOTH readers: backticked (passes today too), bare (red today), bare
+# `nobody` (read as the literal text, same as a backticked `nobody` already is), and the shipped
+# blank (still refused/unfilled in either form). One assertion per row checks the two readers
+# AGREE, not just that each individually passes.
+# =============================================================================
+case_ask_principal_field_reads_either_form() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "a principal: filled without backticks reads as filled, and ask.sh/[g] agree on every row"; teardown; return; }
+
+  # A LIVED signal, or [g] reports "THIS CHECK DID NOT RUN" and never reaches the principal:
+  # row at all (same receipt case_check_board_g's (b) sub-case seeds).
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+
+  # Make every OTHER graduation member discharged, so [g]'s principal: row is the only signal
+  # that varies across the four rows below (same recipe case_check_board_g's (d) sub-case uses).
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  _cb_g_fill_glob_array CODE_GLOBS '  "src/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  # DECLARED EMPTY -- fixture has no test tree.'
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
+
+  # _pm_row <principal-field, as it appears after the marker, backticks included if any>
+  #   Writes PROJECT.md with that EXACT text after `` `principal:` `` (never through
+  #   _ask_pm_section/_ask_pm_section_bare, which each commit to one shape) and drives BOTH
+  #   readers against it, asserting they agree.
+  _pm_row() {
+    local label="$1" field="$2" want_filled="$3"   # want_filled: 1 = both read it as filled, 0 = both refuse/unfilled
+    printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** %s\n- **Their channel:** `dev/questions/`\n' \
+      "$field" > "$SB_WORK/PROJECT.md"
+    publish_sandbox
+
+    local ask_rc g_out g_filled
+    ( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$label" ./scripts/ask.sh --role Dev "q?" --default "d" >/dev/null 2>&1 ); ask_rc=$?
+    g_out="$(cb_run)"
+    if printf '%s\n' "$g_out" | _cb_g_section | grep 'PROJECT.md principal:.*declared' >/dev/null; then g_filled=1; else g_filled=0; fi
+
+    if [ "$want_filled" -eq 1 ]; then
+      [ "$ask_rc" -eq 0 ] || cf "($label) ask.sh refused on field '$field': $ask_rc"
+      [ "$g_filled" -eq 1 ] || cf "($label) [g] read field '$field' as unfilled: $(printf '%s\n' "$g_out" | _cb_g_section | grep principal)"
+    else
+      [ "$ask_rc" -ne 0 ] || cf "($label) ask.sh accepted field '$field', want refusal"
+      [ "$g_filled" -eq 0 ] || cf "($label) [g] read field '$field' as filled, want unfilled"
+    fi
+    # THE AGREEMENT ASSERTION: whatever either reader decided, it must be the SAME decision —
+    # a divergence here is the two-copies-of-one-parser defect even where neither individually
+    # matches want_filled above.
+    local ask_filled=$([ "$ask_rc" -eq 0 ] && echo 1 || echo 0)
+    [ "$ask_filled" = "$g_filled" ] \
+      || cf "($label) ask.sh and [g] DISAGREE on field '$field': ask.sh filled=$ask_filled, [g] filled=$g_filled"
+  }
+
+  _pm_row backticked '`PM`' 1
+  _pm_row bare 'PM' 1
+  _pm_row bare-nobody 'nobody' 1
+  _pm_row shipped-blank '`<who answers when no PM/human session is watching — a name or role, not a script, or "nobody">`' 0
+
+  # The reader's value itself, which neither caller's verdict shows: emphasis around a bare fill
+  # is stripped, and a bare path keeps its own underscores (ask.sh writes to that path).
+  . "$SB_WORK/scripts/lib/pm-field.sh"
+  local v
+  printf -- '- **`principal:`** **PM**\n- **Their channel:** dev/my_questions/\n' > "$SB_TMP/pmf.md"
+  v="$(kit_pm_field '`principal:`' "$SB_TMP/pmf.md")"
+  [ "$v" = PM ] || cf "kit_pm_field read a bold bare principal as '$v', want 'PM'"
+  v="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$SB_TMP/pmf.md")"
+  [ "$v" = dev/my_questions/ ] || cf "kit_pm_field read a bare channel path as '$v', want 'dev/my_questions/'"
+
+  finish "a principal: filled without backticks reads as filled, and ask.sh/[g] agree on every row"
   teardown
 }
 
