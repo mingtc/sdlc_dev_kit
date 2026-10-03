@@ -9,7 +9,7 @@
 # =============================================================================
 
 # _ask_pm_section <principal-backtick-span> <channel-backtick-span> — the exact two-line shape
-# ask.sh's _pm_field reads (the KIT-CLASS marker line first, so a tree that DROPS it at
+# lib/pm-field.sh's kit_pm_field reads (the KIT-CLASS marker line first, so a tree that DROPS it at
 # graduation — SEED's own rule — is not what these cases are testing), NEVER a copy of a real
 # PROJECT.md: $REAL_REPO_ROOT/PROJECT.md is unfilled only before day one, and a tree that
 # finished day one (the card this family exists for) has already filled it with THAT project's
