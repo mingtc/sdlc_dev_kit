@@ -317,6 +317,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.8.0] — 2026-10-03
+
 ### Action required
 
 - **`CLAUDE.md` is gone. `AGENTS.md` is now the one bootstrap file and the one adapter**, for
