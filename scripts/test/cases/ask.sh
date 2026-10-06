@@ -184,6 +184,115 @@ case_ask_principal_field_reads_either_form() {
 }
 
 # =============================================================================
+# CASE — A PLACEHOLDER LEFT IN `principal:` READS AS BLANK, THROUGH BOTH READERS.
+# RED FIRST: the unfixed readers accept any non-empty, non-`<angle-bracket>` text, so each
+# planted form below reads as DECLARED today — [g] reports "declared ✓" and ask.sh proceeds to
+# write a question file — even though none carries a real answer. One row per form, through both
+# callers; a whitespace-only backtick fill is the shape that motivated this case.
+# =============================================================================
+case_ask_principal_placeholder_forms_read_as_blank() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "a placeholder left in principal: reads as blank through both ask.sh and [g]"; teardown; return; }
+
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  _cb_g_fill_glob_array CODE_GLOBS '  "src/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  # DECLARED EMPTY -- fixture has no test tree.'
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
+
+  # _blank_row <label> <principal-field, exactly as it appears after the marker> — both readers
+  # must treat it as UNFILLED: ask.sh refuses, [g] reports missing or unfilled.
+  _blank_row() {
+    local label="$1" field="$2"
+    printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** %s\n- **Their channel:** `dev/questions/`\n' \
+      "$field" > "$SB_WORK/PROJECT.md"
+    publish_sandbox
+
+    local ask_rc g_out
+    ( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$label" ./scripts/ask.sh --role Dev "q?" --default "d" >/dev/null 2>&1 ); ask_rc=$?
+    g_out="$(cb_run)"
+
+    [ "$ask_rc" -ne 0 ] \
+      || cf "($label) ask.sh accepted field '$field' and wrote a question file — want a refusal, nothing was really answered"
+    [ -z "$(find "$SB_WORK/dev" -type f -name '*-ask.md' 2>/dev/null)" ] \
+      || cf "($label) ask.sh wrote a question file for field '$field' despite the placeholder"
+    printf '%s\n' "$g_out" | _cb_g_section | grep 'PROJECT.md principal:.*missing or unfilled' >/dev/null \
+      || cf "($label) [g] did not report field '$field' as missing or unfilled: $(printf '%s\n' "$g_out" | _cb_g_section | grep principal)"
+    rm -rf "$SB_WORK/dev/questions"
+  }
+
+  _blank_row whitespace-backtick '` `'
+  _blank_row tbd-upper '`TBD`'
+  _blank_row tbd-lower 'tbd'
+  _blank_row fill-in '`[fill in: who answers?]`'
+  _blank_row double-brace '`{{ principal }}`'
+  _blank_row underscores '`___`'
+
+  # THE CONTROL: a plausible non-answer is NOT this mechanism's job (run 7 contract) — it must
+  # still read as filled, so the rows above are catching SHAPE, not auditing truth.
+  local ctl_rc
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** the team\n- **Their channel:** `dev/questions/`\n' \
+    > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+  ( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-control" ./scripts/ask.sh --role Dev "q?" --default "d" >/dev/null 2>&1 ); ctl_rc=$?
+  [ "$ctl_rc" -eq 0 ] \
+    || cf "(control) ask.sh refused on 'the team' — a plausible non-answer is out of this mechanism's declared scope"
+
+  finish "a TBD, [fill in…], {{ … }}, or underscores-only principal: reads as blank through both ask.sh and [g], same as a whitespace-only backtick fill; a plausible non-answer still reads as filled"
+  teardown
+}
+
+# =============================================================================
+# CASE — ask.sh REFUSES WHEN THE ASKER IS THE DECLARED PRINCIPAL.
+# RED FIRST: the unfixed ask.sh never compares --role against principal:, so an asker whose own
+# role IS the declared principal gets a question file written and proceeds under its own default
+# — the non-blocking route resolving to the asker answering itself under a different hat.
+# =============================================================================
+case_ask_refuses_when_asker_is_principal() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "ask.sh refuses when --role equals the declared principal"; teardown; return; }
+
+  # (a) principal: PM (bare, no backticks — already proven to read as filled), asker --role PM.
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** PM\n- **Their channel:** `dev/questions/`\n' \
+    > "$SB_WORK/PROJECT.md"
+
+  local out rc
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/ask.sh --role PM "q?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) --role PM asking with principal: PM exited 0 — the asker answered itself"
+  case "$out" in
+    *rincipal*) : ;;
+    *) cf "(a) the refusal does not name the principal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;;
+  esac
+  [ -z "$(find "$SB_WORK/dev" -type f -name '*-ask.md' 2>/dev/null)" ] \
+    || cf "(a) a question file was written despite the asker being the declared principal"
+  grep -q 'refusal=' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) the refusal's record carries no refusal= extra"
+
+  # (b) CASE-INSENSITIVE, trimmed: principal: `  pm  ` (backticked, padded, different case),
+  # asker --role PM — still the same seat.
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** `  pm  `\n- **Their channel:** `dev/questions/`\n' \
+    > "$SB_WORK/PROJECT.md"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/ask.sh --role PM "q?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) case/whitespace-insensitive match: --role PM against principal '  pm  ' exited 0, want refusal"
+
+  # (c) THE CONTROL: a DIFFERENT asker against the same principal: PM still proceeds.
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** PM\n- **Their channel:** `dev/questions/`\n' \
+    > "$SB_WORK/PROJECT.md"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c control) --role Dev asking with principal: PM exited $rc, want 0 — a DIFFERENT asker must still be able to ask: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "ask.sh refuses (naming the principal, with a refusal= record) when --role equals the declared principal, case/whitespace-insensitively, and still lets a different role ask"
+  teardown
+}
+
+# =============================================================================
 # CASE — ask.sh, DECLARED: ONE FILE, ONE PROVISIONAL DEFAULT, ONE PROGRESS RECORD, EXIT 0.
 # GREEN: writes exactly one question file in the declared channel,
 # records the provisional default ONLY over a WITHDRAWN entry, writes one progress record,

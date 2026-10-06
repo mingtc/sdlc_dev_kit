@@ -317,6 +317,13 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Action required
+
+- **`scripts/ask.sh` now refuses when `--role` names the same seat as `PROJECT.md`'s declared `principal:`**
+  (compared case-insensitively, after trimming) — an asker cannot be the one who answers. If a seat of yours
+  asks under the role your `principal:` names, name a principal that seat does not wear, or have another seat
+  ask.
+
 ### Added
 
 - **The unattended launch profile gains a Stop hook.** `.claude/settings.unattended.json.example` now wires
@@ -325,6 +332,14 @@ columns and never the cards.*
   end on a next action or an `ask.sh` filing instead of a menu. **If you already copied this profile into your
   own launch config, re-copy it (or add the `hooks.Stop` and `env` blocks by hand) to pick this up — nothing
   breaks if you do not.**
+
+### Changed
+
+- **`PROJECT.md`'s `principal:` field now reads `TBD`, `[fill in…]`, `{{ … }}`, an underscore-only fill, or a
+  whitespace-only backtick fill as unfilled**, through the one blank test `scripts/ask.sh` and `check-board.sh`
+  `[g]` now share. A project whose `principal:` happens to carry one of these forms today will see `ask.sh`
+  refuse and `[g]` report it unfilled where it previously read as declared — fill it with a real name,
+  role or channel.
 
 ## [0.8.0] — 2026-10-03
 

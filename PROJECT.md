@@ -264,6 +264,8 @@ enforces. *(Authority:
 - **Their channel:** `<the directory or file this project's questions go to, e.g. "dev/questions/">`
 
   *(A name or role, not a script, for `principal:` — or `nobody: an unattended session works
-  from the recorded default and waits for the next human session`. The channel is where
-  `scripts/ask.sh` writes and nowhere else — e.g. `dev/questions/`, one dated file per
-  question. Fill either line inside backticks or not — both are read the same way.)*
+  from the recorded default and waits for the next human session`. A role names the SEAT that
+  wakes to answer, distinct from whichever seat is asking — `scripts/ask.sh` refuses when the
+  two are the same. The channel is where `scripts/ask.sh` writes and nowhere else — e.g.
+  `dev/questions/`, one dated file per question. Fill either line inside backticks or not — both
+  are read the same way.)*

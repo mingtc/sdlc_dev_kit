@@ -120,29 +120,33 @@ PM="$ROOT/PROJECT.md"
 # One line each: `**label:**` or `` `label:` ``, then its value — read by lib/pm-field.sh's
 # kit_pm_field, the ONE reader check-board.sh's [g2d] arm shares: the first backtick-delimited
 # span after the marker if there is one, else the rest of the line with Markdown emphasis and
-# surrounding whitespace stripped (a bare fill, with no backticks, is not unfilled).
+# surrounding whitespace stripped (a bare fill, with no backticks, is not unfilled). Blankness
+# itself is judged by the same file's kit_pm_blank, so this and [g2d] can never disagree.
 PRINCIPAL_LINE="$(kit_pm_field '`principal:`' "$PM")"
 CHANNEL_LINE="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$PM")"
 
-# A blank is still `<angle-bracket>`, WHOLE content, in the shipped sheet — that is not a
-# declaration. (check-board.sh's [g2] arm defines "whole content"; this is that same test.)
-_is_blank() {
-  case "$1" in
-    '<'[a-z]*'>') return 0 ;;
-  esac
-  [ -n "$1" ] || return 0
-  return 1
-}
-
-if [ -z "$PRINCIPAL_LINE" ] || _is_blank "$PRINCIPAL_LINE"; then
+if kit_pm_blank "$PRINCIPAL_LINE"; then
   kit_refuse 1 ask-no-principal \
     "Error: PROJECT.md names no principal — § Who answers when nobody is watching's \`principal:\` line is missing or unfilled." \
     "  Fill it (a name/role, or \"nobody: ...\"), then re-run."
 fi
-if [ -z "$CHANNEL_LINE" ] || _is_blank "$CHANNEL_LINE"; then
+if kit_pm_blank "$CHANNEL_LINE"; then
   kit_refuse 1 ask-no-channel \
     "Error: PROJECT.md names no channel for the principal's questions — § Who answers when nobody is watching's \"Their channel\" line is missing or unfilled." \
     "  Fill it (a directory or file, e.g. \"dev/questions/\"), then re-run."
+fi
+
+# THE ASKER MAY NOT BE THE PRINCIPAL: the non-blocking route exists for a question with no
+# PM/human session watching; if the declared principal IS the hat this session is wearing, an
+# "ask" would resolve to the asker answering itself under a different hat.
+PRINCIPAL_CMP="$(printf '%s' "$PRINCIPAL_LINE" | tr 'A-Z' 'a-z')"
+PRINCIPAL_CMP="${PRINCIPAL_CMP#"${PRINCIPAL_CMP%%[![:space:]]*}"}"
+PRINCIPAL_CMP="${PRINCIPAL_CMP%"${PRINCIPAL_CMP##*[![:space:]]}"}"
+ROLE_CMP="$(printf '%s' "$ROLE" | tr 'A-Z' 'a-z')"
+if [ "$ROLE_CMP" = "$PRINCIPAL_CMP" ]; then
+  kit_refuse 1 ask-role-is-principal \
+    "Error: --role $ROLE is this project's declared principal — § Who answers when nobody is watching's \`principal:\` line names the seat that wakes to answer, not the one asking." \
+    "  Have a different seat ask, or name a principal this session does not itself wear."
 fi
 
 # The channel line is prose ("dev/questions/, one dated file per question"); the FIRST token

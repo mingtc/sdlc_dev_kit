@@ -1031,25 +1031,20 @@ else
   # (g2d) `principal:`, in PROJECT.md — read the same way scripts/ask.sh reads it: the ONE
   # shared reader, lib/pm-field.sh's kit_pm_field (a backtick span after the marker if there is
   # one, else the rest of the line with Markdown emphasis stripped — a natural fill with no
-  # backticks is not unfilled), blank exactly when ask.sh's own `_is_blank` would refuse it
-  # (empty, or a whole-content `<angle-bracket>` span). `"nobody"` is PROJECT.md's own
+  # backticks is not unfilled), and judged blank by that same file's kit_pm_blank — the ONE
+  # blank test, so this arm and ask.sh can never disagree. `"nobody"` is PROJECT.md's own
   # documented mechanical "none, on purpose" for this field (§ Who answers when nobody is
   # watching) — filling it with that literal already reads as filled here, same as it does to
   # ask.sh, so no second declared-empty form is needed for this member.
   if [ ! -f "$g_pm" ]; then
     echo "      FILL (PROJECT.md principal:): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
     g_unmeasured="${g_unmeasured:+$g_unmeasured, }principal: (PROJECT.md absent)"
-  elif ! command -v kit_pm_field >/dev/null 2>&1; then
+  elif ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_blank >/dev/null 2>&1; then
     echo "      FILL (PROJECT.md principal:): not measured — scripts/lib/pm-field.sh, the reader it shares with ask.sh, did not load  (skipped) — $(cb_src)"
     g_unmeasured="${g_unmeasured:+$g_unmeasured, }principal: (scripts/lib/pm-field.sh missing)"
   else
     g_principal="$(kit_pm_field '`principal:`' "$g_pm")"
-    g_principal_blank=0
-    case "$g_principal" in
-      '<'[a-z]*'>') g_principal_blank=1 ;;
-    esac
-    [ -n "$g_principal" ] || g_principal_blank=1
-    if [ "$g_principal_blank" -eq 1 ]; then
+    if kit_pm_blank "$g_principal"; then
       echo "      FILL (PROJECT.md principal:): missing or unfilled  ⚠ scripts/ask.sh refuses on this — § Who answers when nobody is watching's \`principal:\` line, filled with a name/role or the literal \"nobody\" — $(cb_src)"
       g_find=1; g_measured=$((g_measured+1))
     else
