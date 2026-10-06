@@ -270,6 +270,7 @@ CASES=(
   case_ask_never_overwrites_a_standing_ruling
   case_ask_without_decision_names_the_file_as_the_record
   case_unattended_profile_denies_the_tool
+  case_stop_ask_hook_classifies_turn_endings
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_post_merge_reads_the_landed_trunk

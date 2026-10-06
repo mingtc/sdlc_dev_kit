@@ -1,14 +1,14 @@
 ---
 name: start
-description: Use when a session opens in a project built on this kit and the human wants an entry point — checks the environment, looks for prior work, and either walks a fresh unpack through day one or shows what is already running and what can be done next.
+description: Use when a session opens in a project built on this kit — a human wants an entry point, or an unattended launch seated a successor with no prompt beyond /start — checks the environment, looks for prior work, and either walks a fresh unpack through day one or shows what is already running and what can be done next.
 ---
 
 # Start
 
-The front door for a human, not a replacement for the kit's own authorities. This skill drives
-them; it does not restate them. If anything here disagrees with `process/SEED.md`,
-`process/MANUAL.md`, or `./scripts/check-board.sh`'s own output, **they win** — update this skill
-rather than trusting your memory of it.
+The front door, not a replacement for the kit's own authorities. This skill drives them; it does
+not restate them. If anything here disagrees with `process/SEED.md`, `process/MANUAL.md`, or
+`./scripts/check-board.sh`'s own output, **they win** — update this skill rather than trusting
+your memory of it.
 
 ## 1. Check the environment
 
@@ -60,9 +60,9 @@ job is day one, not features. Then:
 This skill does not duplicate SEED's steps here. If SEED and this file ever drift, SEED is correct
 and this paragraph is the bug report.
 
-## 4. Day one is done — show status, then a menu
+## 4. Day one is done — show status, then act
 
-Give the human a short, concrete status, derived live rather than recalled:
+Give whoever (or whatever) is reading a short, concrete status, derived live rather than recalled:
 
 - `./scripts/check-board.sh`'s summary — what it flags, if anything.
 - What is on the board right now and in which column (`ls progress/*/`).
@@ -70,20 +70,39 @@ Give the human a short, concrete status, derived live rather than recalled:
 - Anything `check-board.sh` marks advisory-but-worth-mentioning (an open upgrade checklist, a stale
   `kit-feedback:` line, declined work sitting deep).
 
-Then offer a menu, built from what is actually present in **this** project rather than a fixed
-list — not every project ships every skill or every role:
+**Check whether anyone is watching before deciding how to end this.** `KIT_UNATTENDED=1` in the
+environment (set by `.claude/settings.unattended.json.example` — present only on an unattended
+launch) is the signal; without it, a human just typed `/start` and is waiting for an answer.
 
-- **Roles available** — derive from `.claude/roles/*.md` (the shipped set, plus any this project
-  added or archived). Offer: "start a session as `<role>`."
-- **Skills available** — derive from `.claude/skills/*/SKILL.md` frontmatter (`name` +
-  `description`), the same way the harness's own skill menu would. Do not hand-list these from
-  memory; the set moves as skills are added, archived, or (for the Dev set) departed from
-  (`.claude/skills/README.md`'s own rule: derive, don't recall).
-- **Common next actions**, if evident from the board: resume an `in_progress` item, pick up the
-  next `todo`, or review something sitting in `qa_complete`.
+- **Attended (the default — `KIT_UNATTENDED` unset):** offer a menu, built from what is actually
+  present in **this** project rather than a fixed list — not every project ships every skill or
+  every role:
+  - **Roles available** — derive from `.claude/roles/*.md` (the shipped set, plus any this
+    project added or archived). Offer: "start a session as `<role>`."
+  - **Skills available** — derive from `.claude/skills/*/SKILL.md` frontmatter (`name` +
+    `description`), the same way the harness's own skill menu would. Do not hand-list these from
+    memory; the set moves as skills are added, archived, or (for the Dev set) departed from
+    (`.claude/skills/README.md`'s own rule: derive, don't recall).
+  - **Common next actions**, if evident from the board: resume an `in_progress` item, pick up the
+    next `todo`, or review something sitting in `qa_complete`.
 
-Ask what they want to do, then hand off to the relevant role doc or skill — this skill's job ends
-at the handoff; it does not perform the work itself.
+  Ask what they want to do, then hand off to the relevant role doc or skill — this skill's job
+  ends at the handoff; it does not perform the work itself.
+
+- **Unattended (`KIT_UNATTENDED=1`):** nobody typed `/start` to wait for a menu — a menu question
+  here ends the turn addressed to no one. Instead:
+  1. Read `PROJECT.md`'s declared principal — the same reader `scripts/ask.sh` uses:
+     ```sh
+     . ./scripts/lib/pm-field.sh && kit_pm_field '`principal:`' PROJECT.md
+     ```
+  2. Pick the single most useful next action from the status above — the oldest `in_progress`
+     item, else the first `todo` in board order — and **take it**, under that role's own doc,
+     rather than asking which one to take.
+  3. If no next action is evident, or a real decision is needed first (which role, which item,
+     a fork the status can't settle), **file it through `./scripts/ask.sh`** with a working
+     default and proceed under that default — never end the turn on the open question itself.
+  This skill's job still ends at the handoff; the difference is that the unattended branch hands
+  off to a chosen action instead of to a chosen-by-asking one.
 
 ## What this skill deliberately does not do
 

@@ -424,7 +424,8 @@ route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board mov
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
 **Machinery + hooks (KIT, MIXED where noted):** `lib/attrib-trailer.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
-`hooks/require-role.sh` · `hooks/session-start.sh` · `githooks/applypatch-msg` (it delegates to
+`hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
+unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
 enforces is stamped) · `githooks/pre-commit` (KIT — it reads the project's `CODE_GLOBS` out of
 `scripts/config.sh` rather than carrying a stamped part of its own)
@@ -932,10 +933,14 @@ this change will ask, and a deleted table cannot answer it.*
 
 **`.claude/settings.unattended.json.example` is COPY too, and it is a SEPARATE file, not a key
 inside the one above.** It denies the harness's interactive-question tool for a launch nobody is
-watching — opt-in, passed at launch rather than copied into `.claude/settings.json` by default,
-because the same deny is wrong for an attended session. Name which profile a launch uses in the
-adapter (`process/templates/AGENTS-adapter.template.md` § What is ON and what is OFF here); the
-mechanism it pairs with is `scripts/ask.sh` (§ 2.10 below).
+watching, sets `env.KIT_UNATTENDED=1`, and wires a **Stop hook** (`scripts/hooks/stop-ask.sh`)
+that blocks a turn once when it ends on an unaddressed question, naming `scripts/ask.sh` as the
+route — opt-in, passed at launch rather than copied into `.claude/settings.json` by default,
+because the same deny and the same block are wrong for an attended session. Name which profile a
+launch uses in the adapter (`process/templates/AGENTS-adapter.template.md` § What is ON and what
+is OFF here); the mechanism it pairs with is `scripts/ask.sh` (§ 2.10 below) and, inside `/start`,
+`KIT_UNATTENDED` (`.claude/skills/start/SKILL.md` § 4). See
+[`process/contracts/stop-ask.md`](contracts/stop-ask.md) for the hook's contract.
 
 ### 2.9 The drift-report thresholds
 

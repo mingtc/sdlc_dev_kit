@@ -115,6 +115,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The kit upgrade — take a newer kit without overwriting local law | `<e.g. the new kit's scripts/kit-upgrade.sh --into .>` | [`process/contracts/kit-upgrade.md`](process/contracts/kit-upgrade.md) |
 | The non-blocking ask — a question that returns | `<e.g. ./scripts/ask.sh>` | [`process/contracts/ask.md`](process/contracts/ask.md) |
 | The model-provisioning seam — one pair per work class, everywhere it is written | `<e.g. ./scripts/set-models.sh>` | [`process/contracts/model-provisioning-seam.md`](process/contracts/model-provisioning-seam.md) |
+| The unattended Stop hook (optional — launched only with the unattended profile) | `<e.g. the Stop hook in .claude/settings.unattended.json.example>` | [`process/contracts/stop-ask.md`](process/contracts/stop-ask.md) |
 
 **One row per contract sheet — the whole of
 [`process/contracts/`](process/contracts/README.md).** **The directory is the authority for the row

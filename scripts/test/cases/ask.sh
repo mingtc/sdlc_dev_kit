@@ -414,3 +414,103 @@ case_unattended_profile_denies_the_tool() {
 
   finish "settings.unattended.json.example is brace-balanced and denies AskUserQuestion via permissions.deny (checked with floor tools only, its own instrument proven on a planted control); settings.json.example (the default every project copies) does not"
 }
+
+# =============================================================================
+# CASE — scripts/hooks/stop-ask.sh BLOCKS A TURN ENDING ON A QUESTION, ONCE, AND ALLOWS
+# EVERY OTHER SHAPE: a statement ending, the loop-guarded re-invocation, a question answered
+# later in the same turn (mid-message or inside a code block), and an unparseable/empty payload.
+#
+# RED FIRST against HEAD (no scripts/hooks/stop-ask.sh exists yet): every row below either finds
+# no script to run (hook absent) or, once a placeholder exists, mis-classifies — this case is
+# the registered evidence, not a hand-built driver.
+#
+# Reads scripts/hooks/stop-ask.sh directly from $REAL_REPO_ROOT (own scratch, no sandbox needed:
+# the hook touches no repo state, only its stdin payload).
+# =============================================================================
+case_stop_ask_hook_classifies_turn_endings() {
+  cf_reset
+  local hook="$REAL_REPO_ROOT/scripts/hooks/stop-ask.sh"
+  [ -x "$hook" ] || { cf "scripts/hooks/stop-ask.sh is not in the shipped tree or not executable"; finish "stop-ask.sh blocks a turn ending on a question, once, and allows every other ending shape"; return; }
+
+  local tmp; tmp="$(mktemp -d)" || _fixture_die "case_stop_ask_hook_classifies_turn_endings: mktemp -d failed"
+
+  # _row <label> <payload-json> <want: block|allow> [<substring expected in the reason, block only>]
+  _row() {
+    local label="$1" payload="$2" want="$3" want_substr="${4:-}"
+    local f="$tmp/$label.json" out rc
+    printf '%s\n' "$payload" > "$f"
+    out="$("$hook" < "$f" 2>&1)"; rc=$?
+    [ "$rc" -eq 0 ] || { cf "($label) hook exited $rc, want 0 (a hook must never itself fail the Stop event)"; return; }
+    case "$want" in
+      block)
+        case "$out" in
+          *'"decision":"block"'*) : ;;
+          *) cf "($label) expected a block decision, got: $(printf '%s' "$out" | cut -c1-200)" ;;
+        esac
+        if [ -n "$want_substr" ]; then
+          case "$out" in
+            *"$want_substr"*) : ;;
+            *) cf "($label) block reason does not mention '$want_substr': $(printf '%s' "$out" | cut -c1-200)" ;;
+          esac
+        fi
+        # python3 here is the HARNESS's own verification tool (never shipped by the hook,
+        # which is POSIX-only) — skip the parse check loudly if python3 is absent.
+        if command -v python3 >/dev/null 2>&1; then
+          printf '%s' "$out" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert set(d.keys())=={"decision","reason"}, d' >/dev/null 2>&1 \
+            || cf "($label) block output is not valid JSON with exactly decision+reason keys: $(printf '%s' "$out" | cut -c1-200)"
+        fi
+        ;;
+      allow)
+        [ -z "$out" ] || cf "($label) expected allow (empty stdout), got: $(printf '%s' "$out" | cut -c1-200)"
+        ;;
+    esac
+  }
+
+  # (a) ends on a question, first call (stop_hook_active absent/false) — BLOCK, naming ask.sh.
+  _row question-ending \
+    '{"stop_hook_active":false,"last_assistant_message":"Which colour do you prefer?"}' \
+    block "ask.sh"
+
+  # (b) the SAME message, but the loop-guarded re-invocation (stop_hook_active:true) — ALLOW.
+  _row loop-guard \
+    '{"stop_hook_active":true,"last_assistant_message":"Which colour do you prefer?"}' \
+    allow
+
+  # (c) a statement ending (probe dump 3's shape) — ALLOW.
+  _row statement-ending \
+    '{"stop_hook_active":false,"last_assistant_message":"Done. I created the file.\n\n(That is the sentence you asked for. I did not actually create or change any file in this session.)"}' \
+    allow
+
+  # (d) a question mid-message, answered by a later statement in the same turn — ALLOW (this
+  # hook judges the ENDING, not whether a "?" appears anywhere).
+  _row mid-message-question-then-statement \
+    '{"stop_hook_active":false,"last_assistant_message":"Should I use red or blue? I went with blue since it matched the logo."}' \
+    allow
+
+  # (e) a question inside a code block, followed by a closing statement — ALLOW, same reason.
+  _row code-block-question-then-statement \
+    '{"stop_hook_active":false,"last_assistant_message":"Example:\n```\necho \"pick one?\"\n```\nI used the default value."}' \
+    allow
+
+  # (f) a message ending on a question WRAPPED in Markdown emphasis (probe dump 2's shape,
+  # replayed as a first call) — BLOCK: the emphasis strip must not hide the trailing "?".
+  _row emphasised-question-ending \
+    '{"stop_hook_active":false,"last_assistant_message":"I could not file the question because `scripts/ask.sh` does not exist. I have no default.\n\nNext action: I am ending the turn with the question still open. **Which colour do you prefer?**"}' \
+    block
+
+  # (g) empty last_assistant_message — ALLOW (nothing to judge).
+  _row empty-message '{"stop_hook_active":false,"last_assistant_message":""}' allow
+
+  # (h) no last_assistant_message field at all — ALLOW (fail-open on an unparseable/absent field).
+  _row no-message-field '{"stop_hook_active":false}' allow
+
+  # (i) a message whose OWN text contains an escaped quote right before the field's real
+  # closing quote — proves the extractor tracks escapes rather than stopping at the first
+  # quote-looking byte. Ends on a question, so this also exercises BLOCK with a tricky payload.
+  _row escaped-quote-near-end \
+    '{"stop_hook_active":false,"last_assistant_message":"She said \"maybe\". Which colour do you prefer?"}' \
+    block
+
+  rm -rf "$tmp"
+  finish "scripts/hooks/stop-ask.sh blocks once (valid JSON, naming ask.sh) when a turn ends on a question — including one wrapped in Markdown emphasis or preceded by an escaped quote — allows the loop-guarded re-invocation, a statement ending, a question answered later in the same turn or buried in a code block, and an empty or absent message"
+}

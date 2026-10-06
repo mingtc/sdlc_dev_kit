@@ -317,7 +317,14 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **The unattended launch profile gains a Stop hook.** `.claude/settings.unattended.json.example` now wires
+  `hooks.Stop` to `scripts/hooks/stop-ask.sh`, which blocks a turn once when it ends on a question nobody is
+  there to answer, naming `scripts/ask.sh`; it also sets `env.KIT_UNATTENDED=1`, which `/start` § 4 reads to
+  end on a next action or an `ask.sh` filing instead of a menu. **If you already copied this profile into your
+  own launch config, re-copy it (or add the `hooks.Stop` and `env` blocks by hand) to pick this up — nothing
+  breaks if you do not.**
 
 ## [0.8.0] — 2026-10-03
 

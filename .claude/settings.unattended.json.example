@@ -2,13 +2,27 @@
   "_KIT_CLASS": "KIT — the opt-in unattended launch profile, as a shape. JSON has no comment syntax, so its classification marker is this KEY, the same carve-out settings.json.example states — process/EXTRACTION.md § The one file classification convention.",
   "_README": "Kit template — an ADDITIONAL settings file for a session nobody is watching (an overnight run, a scheduled one), passed at launch rather than copied to .claude/settings.json. It does not replace settings.json.example: the two are launched TOGETHER (the harness reads every settings source given to it). Naming which profile a launch uses is the adapter's job — process/templates/AGENTS-adapter.template.md § What is ON and what is OFF here.",
 
-  "_WHAT_THIS_FILE_MAY_CONTAIN": "ONLY SETTINGS KEYS WHOSE EFFECT THE KIT CAN DEMONSTRATE — the same rule settings.json.example states. This file exists because ONE key clears that bar for an unattended launch: denying the harness's own interactive-question tool, verified to be enforced (not merely a hint) even under a permissive mode, by removing the tool from the model's context before any permission check runs.",
+  "_WHAT_THIS_FILE_MAY_CONTAIN": "ONLY SETTINGS KEYS WHOSE EFFECT THE KIT CAN DEMONSTRATE — the same rule settings.json.example states. This file exists because TWO things clear that bar for an unattended launch: denying the harness's own interactive-question tool, verified to be enforced (not merely a hint) even under a permissive mode, by removing the tool from the model's context before any permission check runs; and a Stop hook that catches a turn ending on an unaddressed question.",
 
-  "_WHY_A_SEPARATE_FILE_AND_NOT_A_KEY_IN_THE_BASE_ONE": "Denying the interactive-question tool is right for an unattended launch and wrong for an attended one — a human session that cannot ask a question is worse off, not safer. settings.json.example is COPY, meant for every project alike; this file is the one launch-time choice the kit ships pre-made, activated only when the operator passes it.",
+  "_WHY_A_SEPARATE_FILE_AND_NOT_A_KEY_IN_THE_BASE_ONE": "Denying the interactive-question tool, and blocking a turn that ends on an unaddressed one, are both right for an unattended launch and wrong for an attended one — a human session that cannot ask, or whose every question-ending turn gets bounced back, is worse off, not safer. settings.json.example is COPY, meant for every project alike; this file is the launch-time choices the kit ships pre-made, activated only when the operator passes it.",
 
-  "_WHAT_THIS_DOES_NOT_DO": "It does not make a session ask nothing — it removes ONE route back to a blocked wait. The session still needs `scripts/ask.sh` and a declared `principal:` (PROJECT.md § Who answers when nobody is watching) to have anywhere to put a question instead. Denying the tool with neither in place does not create a hang by itself — a model that cannot ask keeps working from a guess — but that guess is undeclared and unrecorded, which is what ask.sh is for.",
+  "_WHAT_THIS_DOES_NOT_DO": "It does not make a session ask nothing — it removes ONE route back to a blocked wait and catches ONE shape of stall. The session still needs `scripts/ask.sh` and a declared `principal:` (PROJECT.md § Who answers when nobody is watching) to have anywhere to put a question instead. The Stop hook judges only how the last turn's text ENDS (the last line, after stripping Markdown emphasis, ends in a literal \"?\") — a statement-shaped stall, or a question answered by a later statement in the same turn, is not caught.",
+
+  "env": {
+    "KIT_UNATTENDED": "1"
+  },
 
   "permissions": {
     "deny": ["AskUserQuestion"]
+  },
+
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/stop-ask.sh\"" }
+        ]
+      }
+    ]
   }
 }
