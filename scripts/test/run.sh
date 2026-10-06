@@ -250,6 +250,7 @@ CASES=(
   case_subtask_ablation_missing_section_refuses
   case_subtask_qa_gate_well_formed_lands
   case_subtask_no_branch_of_its_own_still_checks_table_and_forks
+  case_subtask_qa_verdict_pointer_unresolved_refuses
   case_role_literals_are_declared
   case_progress_record_is_one_shape_and_optional
   case_progress_record_one_place_across_worktrees
@@ -298,6 +299,10 @@ CASES=(
   case_finish_pr_qa_verdict_ac_mismatch_refuses
   case_finish_pr_qa_verdict_shadow_check_required
   case_finish_pr_qa_verdict_well_formed_lands
+  case_finish_pr_qa_verdict_pointer_unresolved_refuses
+  case_finish_pr_qa_verdict_quote_checks_refuse
+  case_finish_pr_qa_verdict_placeholder_forms_refuse
+  case_finish_pr_qa_verdict_ac_separator_forms_refuse
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
   case_finish_pr_ablation_missing_section_refuses
   case_finish_pr_ablation_branch_cannot_undeclare_test_globs

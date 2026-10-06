@@ -48,7 +48,7 @@ case_finish_pr_qa_verdict_evidence_missing_refuses() {
   local ida="$SB_PREFIX-652"
   seed_issue dev_complete "$ida" badkind chore "Bad evidence kind" "feature/$ida-work"
   local fa="$SB_WORK/progress/dev_complete/$ida-badkind.md"
-  perl -i -pe 's/\| AC1 \| PASS \| test \| sandbox-gate-green \|/| AC1 | PASS | prose | it looked fine |/' "$fa"
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | prose | it looked fine |/' "$fa"
   grep -qF '| AC1 | PASS | prose | it looked fine |' "$fa" \
     || _fixture_die "case_finish_pr_qa_verdict_evidence_missing_refuses: (a) the bad-kind row was not planted"
   publish_sandbox
@@ -66,7 +66,7 @@ case_finish_pr_qa_verdict_evidence_missing_refuses() {
   local idb="$SB_PREFIX-653"
   seed_issue dev_complete "$idb" placeholder chore "Placeholder pointer" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-placeholder.md"
-  perl -i -pe 's/\| AC1 \| PASS \| test \| sandbox-gate-green \|/| AC1 | PASS | test | <placeholder> |/' "$fb"
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | test | <placeholder> |/' "$fb"
   grep -qF '| AC1 | PASS | test | <placeholder> |' "$fb" \
     || _fixture_die "case_finish_pr_qa_verdict_evidence_missing_refuses: (b) the placeholder row was not planted"
   publish_sandbox
@@ -94,7 +94,9 @@ case_finish_pr_qa_verdict_fail_row_on_pass_refuses() {
   local id="$SB_PREFIX-654"
   seed_issue dev_complete "$id" mismatch chore "A FAIL row that still shipped PASS" "feature/$id-work"
   local f="$SB_WORK/progress/dev_complete/$id-mismatch.md"
-  perl -i -pe 's/\| AC1 \| PASS \| test \| sandbox-gate-green \|/| AC1 | FAIL_AC | file:line | README.txt:12 (quote does not match the tool output) |/' "$f"
+  # Verdict FAIL_AC, but the pointer itself still resolves with a real quote — isolates the row's
+  # OWN-verdict check (qa-verdict-fail) from the pointer/quote checks items 1-2 added.
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/${1}FAIL_AC${2}/' "$f"
   grep -qF 'FAIL_AC' "$f" \
     || _fixture_die "case_finish_pr_qa_verdict_fail_row_on_pass_refuses: the FAIL_AC row was not planted"
   publish_sandbox
@@ -126,7 +128,9 @@ case_finish_pr_qa_verdict_ac_mismatch_refuses() {
   local ida="$SB_PREFIX-655"
   seed_issue dev_complete "$ida" missingrow chore "AC2 has no table row" "feature/$ida-work"
   local fa="$SB_WORK/progress/dev_complete/$ida-missingrow.md"
-  perl -i -pe 's/(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)/$1\n- [ ] AC2 — a second criterion with no QA Verdict row./' "$fa"
+  # ^...$ anchors the match to the bullet's OWN line — seed_issue's QA Verdict row now quotes this
+  # same text verbatim, and an unanchored match would also fire inside that quoted cell.
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a second criterion with no QA Verdict row./' "$fa"
   grep -qF 'AC2' "$fa" || _fixture_die "case_finish_pr_qa_verdict_ac_mismatch_refuses: (a) AC2 bullet was not planted"
   publish_sandbox
   seed_branch "$ida" work CHANGE655A.txt
@@ -139,11 +143,19 @@ case_finish_pr_qa_verdict_ac_mismatch_refuses() {
   /usr/bin/grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-ac-mismatch: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
-  # (b) EXTRA — the table has a row for an id the AC checklist does not carry.
+  # (b) EXTRA — the table has a row for an id the AC checklist does not carry. Its own pointer
+  # still resolves with a real quote (the shadow-check row's own line), so the extra row is
+  # refused for the AC mismatch, not for a pointer/quote problem of its own.
   local idb="$SB_PREFIX-656"
   seed_issue dev_complete "$idb" extrarow chore "Table names AC9, no such AC" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-extrarow.md"
-  perl -i -pe 's/(\| AC1 \| PASS \| test \| sandbox-gate-green \|)/$1\n| AC9 | PASS | test | sandbox-gate-green |/' "$fb"
+  local rel9="progress/dev_complete/$idb-extrarow.md"
+  local shadow_line9
+  shadow_line9="$(grep -nF -- '| shadow-check | — | — | assertions removed: none |' "$fb" | head -1 | cut -d: -f1)"
+  [ -n "$shadow_line9" ] || _fixture_die "case_finish_pr_qa_verdict_ac_mismatch_refuses: (b) shadow-check row not found to anchor AC9's quote"
+  # '#' as the delimiter: the replacement's own path contains '/', which would otherwise close
+  # the s/// early.
+  perl -i -pe "s#^(\\| AC1 \\| PASS \\| test \\|.*\\|)\$#\$1\n| AC9 | PASS | test | ${rel9}:${shadow_line9} \"assertions removed: none\" |#" "$fb"
   grep -qF 'AC9' "$fb" || _fixture_die "case_finish_pr_qa_verdict_ac_mismatch_refuses: (b) AC9 row was not planted"
   publish_sandbox
   seed_branch "$idb" work CHANGE655B.txt
@@ -231,9 +243,13 @@ case_finish_pr_qa_verdict_well_formed_lands() {
   local idb="$SB_PREFIX-660"
   seed_issue dev_complete "$idb" tworow chore "Two AC rows, one PASS_AC_CORRECTED" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-tworow.md"
-  # A checklist bullet that is not an AC (no `<id> —`) is not read as one.
-  perl -i -pe 's/(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)/$1\n- [ ] AC2 — a second, independently graded criterion.\n- [x] Tests pass locally/' "$fb"
-  perl -i -pe 's/\| AC1 \| PASS \| test \| sandbox-gate-green \|/| AC1 | PASS_AC_CORRECTED | file:line | CHANGE659A.txt:1 |\n| AC2 | PASS | gate-diff | sandbox gate ran clean before and after |/' "$fb"
+  # A checklist bullet that is not an AC (no `<id> —`) is not read as one. ^...$ anchors to the
+  # bullet's OWN line, never the QA Verdict row that now quotes this same text verbatim.
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a second, independently graded criterion.\n- [x] Tests pass locally/' "$fb"
+  # AC1's pointer: CHANGE659A.txt:1 — a real file already on $SB_TRUNK (merged by (a)'s landing,
+  # above, before this branch is cut from it), line 1 is "a real change" (seed_branch's own
+  # marker content), quoted verbatim. AC2 is gate-diff, exempt from the quote by item 2.
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS_AC_CORRECTED | file:line | CHANGE659A.txt:1 "a real change" |\n| AC2 | PASS | gate-diff | sandbox gate ran clean before and after |/' "$fb"
   perl -i -pe 's/\| shadow-check \| — \| — \| assertions removed: none \|/| shadow-check | — | — | removed the old smoke-only check; replaced by AC2'"'"'s gate-diff |/' "$fb"
   grep -qF 'PASS_AC_CORRECTED' "$fb" || _fixture_die "case_finish_pr_qa_verdict_well_formed_lands: (b) the two-row table was not planted"
   publish_sandbox
@@ -245,5 +261,167 @@ case_finish_pr_qa_verdict_well_formed_lands() {
   origin_has_path "CHANGE659B.txt" || cf "(b) the squash-merged change is not on the trunk"
 
   finish "finish-pr.sh lands a card whose QA Verdict table is well-formed — every AC id covered exactly once with real evidence, no FAIL row, and a filled shadow-check row — whether the card carries one AC or several, and whether every row is PASS or a mix of PASS/PASS_AC_CORRECTED"
+  teardown
+}
+
+# =============================================================================
+# CASE — A path:line TOKEN THAT DOES NOT RESOLVE AT THE REVISION BEING LANDED REFUSES: (a) the
+# named file does not exist at all; (b) the file exists but the cited line is past its length.
+# Both are "real-looking and wrong" pointers — never exercised against the caller's own working
+# tree, always against $BRANCH (the revision finish-pr.sh is about to land).
+# =============================================================================
+case_finish_pr_qa_verdict_pointer_unresolved_refuses() {
+  cf_reset
+  make_sandbox
+
+  # (a) the file does not exist on the branch at all.
+  local ida="$SB_PREFIX-676"
+  seed_issue dev_complete "$ida" absent chore "Pointer names a file that does not exist" "feature/$ida-work"
+  local fa="$SB_WORK/progress/dev_complete/$ida-absent.md"
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | file:line | test\/does-not-exist.test.js:1 "anything" |/' "$fa"
+  grep -qF 'does-not-exist.test.js' "$fa" \
+    || _fixture_die "case_finish_pr_qa_verdict_pointer_unresolved_refuses: (a) the absent-file row was not planted"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE676A.txt
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a pointer naming a file absent from the branch — finish-pr.sh exited 0"
+  case "$out" in *AC1*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  origin_has_path "CHANGE676A.txt" && cf "(a) the branch was merged before the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=qa-verdict-pointer-unresolved: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+
+  # (b) the file exists but the cited line is past its own length.
+  local idb="$SB_PREFIX-677"
+  seed_issue dev_complete "$idb" pastend chore "Pointer names a line past the file's end" "feature/$idb-work"
+  local fb="$SB_WORK/progress/dev_complete/$idb-pastend.md"
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | file:line | README.md:99999 "anything" |/' "$fb"
+  grep -qF 'README.md:99999' "$fb" \
+    || _fixture_die "case_finish_pr_qa_verdict_pointer_unresolved_refuses: (b) the past-EOF row was not planted"
+  publish_sandbox
+  seed_branch "$idb" work CHANGE677B.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a pointer whose line is past the file's end — finish-pr.sh exited 0"
+  origin_has_path "CHANGE677B.txt" && cf "(b) the branch was merged before the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+    || cf "(b) no progress record carries refusal=qa-verdict-pointer-unresolved: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
+
+  finish "finish-pr.sh refuses a landing whose QA Verdict table has a path:line pointer that does not resolve at the revision being landed — the file absent (a) or the line past the file's length (b) — with a refusal=qa-verdict-pointer-unresolved record"
+  teardown
+}
+
+# =============================================================================
+# CASE — A QUOTE ABSENT FROM A test/file:line ROW REFUSES (qa-verdict-quote-missing); A QUOTE
+# PRESENT BUT NOT ON THE CITED LINE REFUSES (qa-verdict-quote-not-found) — made concrete: a pointer
+# that is real and resolves, but does not show the claim.
+# =============================================================================
+case_finish_pr_qa_verdict_quote_checks_refuse() {
+  cf_reset
+  make_sandbox
+
+  # (a) a file:line pointer that resolves (the card's own frontmatter, line 2 — always present and
+  # the same across every seeded card), with no quote at all.
+  local ida="$SB_PREFIX-678"
+  seed_issue dev_complete "$ida" noquote chore "A resolving pointer with no quote" "feature/$ida-work"
+  local fa="$SB_WORK/progress/dev_complete/$ida-noquote.md"
+  local rela="progress/dev_complete/$ida-noquote.md"
+  perl -i -pe "s#^\\| AC1 \\| PASS \\| test \\|.*\\|\$#| AC1 | PASS | file:line | ${rela}:2 |#" "$fa"
+  grep -qF "| AC1 | PASS | file:line | ${rela}:2 |" "$fa" \
+    || _fixture_die "case_finish_pr_qa_verdict_quote_checks_refuse: (a) the unquoted row was not planted"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE678A.txt
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a resolving pointer with no quote — finish-pr.sh exited 0"
+  origin_has_path "CHANGE678A.txt" && cf "(a) the branch was merged before the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-quote-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=qa-verdict-quote-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+
+  # (b) a resolving pointer whose quote is real text, but not present on the cited line — the
+  # motivating shape: real-looking, resolves, and does not show the claim. Line 2 is "id: <id>";
+  # the quote names a sentence that is not that line's text.
+  local idb="$SB_PREFIX-679"
+  seed_issue dev_complete "$idb" wrongline chore "A quote that is not on the cited line" "feature/$idb-work"
+  local fb="$SB_WORK/progress/dev_complete/$idb-wrongline.md"
+  local relb="progress/dev_complete/$idb-wrongline.md"
+  perl -i -pe "s#^\\| AC1 \\| PASS \\| test \\|.*\\|\$#| AC1 | PASS | file:line | ${relb}:2 \"this exact sentence is not on line 2\" |#" "$fb"
+  grep -qF 'not on line 2' "$fb" \
+    || _fixture_die "case_finish_pr_qa_verdict_quote_checks_refuse: (b) the mismatched-quote row was not planted"
+  publish_sandbox
+  seed_branch "$idb" work CHANGE679B.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a quote not found on the cited line — finish-pr.sh exited 0"
+  origin_has_path "CHANGE679B.txt" && cf "(b) the branch was merged before the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-quote-not-found' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+    || cf "(b) no progress record carries refusal=qa-verdict-quote-not-found: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
+
+  finish "finish-pr.sh refuses a landing whose QA Verdict table has a test/file:line row with no quoted evidence (a, refusal=qa-verdict-quote-missing) or a quote that is not on the cited line (b, refusal=qa-verdict-quote-not-found)"
+  teardown
+}
+
+# =============================================================================
+# CASE — EVERY STOCK NON-ANSWER IS REFUSED AS A PLACEHOLDER, WHOLE-CELL, CASE-INSENSITIVE, NOT
+# JUST THE TEMPLATE'S OWN '<placeholder>' TOKEN.
+# =============================================================================
+case_finish_pr_qa_verdict_placeholder_forms_refuse() {
+  cf_reset
+  make_sandbox
+
+  local forms=('n/a' 'NA' 'None' 'TBD' 'see above' 'SEE BELOW' '-' '—' 'x' '...' '?' '<anything>')
+  local n=680
+  local form id f out rc
+  for form in "${forms[@]}"; do
+    id="$SB_PREFIX-$n"
+    seed_issue dev_complete "$id" "ph$n" chore "Placeholder form '${form}'" "feature/$id-work"
+    f="$SB_WORK/progress/dev_complete/$id-ph$n.md"
+    perl -i -pe "s#^\\| AC1 \\| PASS \\| test \\|.*\\|\$#| AC1 | PASS | test | ${form} |#" "$f"
+    publish_sandbox
+    seed_branch "$id" work "CHANGE${n}.txt"
+
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$n" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "'${form}' — finish-pr.sh exited 0"
+    origin_has_path "CHANGE${n}.txt" && cf "'${form}' — the branch was merged before the refusal"
+    /usr/bin/grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+      || cf "'${form}' — no progress record carries refusal=qa-verdict-evidence-missing"
+    n=$((n+1))
+  done
+
+  finish "finish-pr.sh refuses a landing whose QA Verdict pointer cell is a stock non-answer (n/a, na, none, tbd, see above, see below, -, —, x, ..., ?, or any <...> span — case-insensitive, whole cell) with a refusal=qa-verdict-evidence-missing record"
+  teardown
+}
+
+# =============================================================================
+# CASE — AN AC BULLET USING A HYPHEN OR COLON SEPARATOR (not the em-dash the table's own
+# population used to require) IS READ INTO THE POPULATION, so an AC hiding behind either
+# separator with no table row still refuses, instead of shipping silently.
+# =============================================================================
+case_finish_pr_qa_verdict_ac_separator_forms_refuse() {
+  cf_reset
+  make_sandbox
+
+  # AC7 with a hyphen separator, AC8 with a colon separator — both missing their own table row.
+  local id="$SB_PREFIX-692"
+  seed_issue dev_complete "$id" seps chore "AC7 (hyphen) and AC8 (colon) have no table row" "feature/$id-work"
+  local f="$SB_WORK/progress/dev_complete/$id-seps.md"
+  # ^...$ anchors to the bullet's OWN line, never the QA Verdict row that quotes this text verbatim.
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC7 - a criterion separated by a hyphen, with no QA Verdict row.\n- [ ] AC8: a criterion separated by a colon, with no QA Verdict row./' "$f"
+  grep -qF 'AC7 - a criterion' "$f" && grep -qF 'AC8: a criterion' "$f" \
+    || _fixture_die "case_finish_pr_qa_verdict_ac_separator_forms_refuse: AC7/AC8 bullets were not planted"
+  publish_sandbox
+  seed_branch "$id" work CHANGE692.txt
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "AC7 (hyphen) and AC8 (colon) with no table rows — finish-pr.sh exited 0"
+  case "$out" in *AC7*AC8*|*AC8*AC7*) : ;; *) cf "the refusal does not name both AC7 and AC8: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "CHANGE692.txt" && cf "the branch was merged before the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "no progress record carries refusal=qa-verdict-ac-mismatch: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
+
+  finish "finish-pr.sh reads an AC bullet separated by a hyphen or a colon (not only the em-dash) into the one-for-one population, so AC7 (hyphen) and AC8 (colon) with no QA Verdict row both refuse the landing, naming both, with a refusal=qa-verdict-ac-mismatch record"
   teardown
 }

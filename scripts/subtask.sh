@@ -437,7 +437,10 @@ case "$CMD" in
         echo "      carry it is NOT derived. The QA Verdict table check is unaffected." >&2
       fi
       kit_forks_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_trunk" "$_st_new_rev" "$SCRIPT_DIR/check-board.sh"
-      kit_qa_verdict_check "$SRC" "$ID"
+      # The slice's own code lives at $_st_new_rev (its own branch when one resolves, else the
+      # trunk — derived just above), so evidence pointers are read there, never the caller's
+      # working tree.
+      kit_qa_verdict_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_new_rev"
       kit_ablation_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_trunk" "$_st_new_rev"
     fi
 

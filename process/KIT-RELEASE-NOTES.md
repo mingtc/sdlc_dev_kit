@@ -319,6 +319,16 @@ columns and never the cards.*
 
 ### Action required
 
+- **A `## QA Verdict` row now needs a resolving pointer and, for `test`/`file:line` rows, a quote.**
+  `finish-pr.sh` and `subtask.sh move … qa_complete` refuse a landing if a `path:line`/`path:a-b`
+  token does not resolve at the revision being landed, if a `test`/`file:line` row carries no
+  verbatim quote in double quotes after the pointer (e.g. `src/add.js:12 "return a + b"`) or the
+  quote is not on the cited line, or if the pointer cell is a stock non-answer (`n/a`, `tbd`, `see
+  above`, `-`, `x`, `...`, `?`, any `<...>` span, case-insensitive). An AC bullet separated by `-`
+  or `:` is also now read into the table's one-for-one check (previously only `—`). **Before your
+  next landing, add a quote to every `test`/`file:line` row in any in-flight card's `## QA Verdict`
+  table and fix any pointer that does not resolve.**
+
 - **`scripts/ask.sh` now refuses when `--role` names the same seat as `PROJECT.md`'s declared `principal:`**
   (compared case-insensitively, after trimming) — an asker cannot be the one who answers. If a seat of yours
   asks under the role your `principal:` names, name a principal that seat does not wear, or have another seat

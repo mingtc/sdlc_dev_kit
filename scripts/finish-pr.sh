@@ -369,9 +369,11 @@ kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}
 #    QA Verdict: .claude/roles/qa.md step 4 — a claim-by-claim walk that FOUND a mismatch and
 #    filed PASS anyway is the motivating case, so this also refuses on a row's OWN verdict, not
 #    just on evidence being present. The card's own AC ids are derived, never re-typed: every
-#    '- [ ] <id> —' checklist bullet before the '## QA Verdict' heading is one, across all
-#    templates (ISSUE/BUG/REFACTOR's 'AC1'/'B1', SUBTASK's 'AC<n>').
-kit_qa_verdict_check "$SRC" "$ISSUE_ID"
+#    '- [ ] <id> —'/'- [ ] <id> -'/'- [ ] <id>:' checklist bullet before the '## QA Verdict'
+#    heading is one, across all templates (ISSUE/BUG/REFACTOR's 'AC1'/'B1', SUBTASK's 'AC<n>').
+#    Every evidence pointer is read against $BRANCH — the revision being landed, same as
+#    kit_forks_check's new_rev above — never the caller's own working tree.
+kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$BRANCH"
 
 #    Ablation: process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.
 #    TEST_GLOBS (scripts/config.sh) read as the UNION of the trunk's copy and the branch's.

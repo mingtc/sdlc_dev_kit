@@ -13,12 +13,17 @@
 # one" and plant precisely, so this seeds withOUT an Ablation section — matching what a slice
 # whose diff never touched a test path leaves it, since the template's own instruction says it
 # is filled "only if" the diff touches one).
+# The AC1 row's pointer names THIS SAME FILE at the AC1 bullet's own line, quoting it verbatim,
+# the same derivation seed_issue uses — a real path:line the gate's pointer-resolution and quote
+# checks both pass.
 _seed_subtask() {
   local parent="$1" suffix="$2" status="$3" slug="$4" title="$5" branch="${6:-n/a}"
   local id="${parent}-${suffix}"
   local dir="$SB_WORK/progress/subtasks/${parent}/${status}"
   mkdir -p "$dir"
   local f="$dir/${id}-${slug}.md"
+  local rel="progress/subtasks/${parent}/${status}/${id}-${slug}.md"
+  local ac1_text="- [ ] AC1 — the sandbox's seeded behaviour holds."
   cat > "$f" <<EOF
 ---
 id: ${id}
@@ -43,13 +48,13 @@ Seeded for the sandbox self-test.
 
 ## Acceptance Criteria (sliced from the parent)
 
-- [ ] AC1 — the sandbox's seeded behaviour holds.
+${ac1_text}
 
 ## QA Verdict
 
 | AC id | verdict | evidence kind | evidence pointer |
 |---|---|---|---|
-| AC1 | PASS | test | sandbox-gate-green |
+| AC1 | PASS | test | ${rel}:AC1_LINE "${ac1_text}" |
 | shadow-check | — | — | assertions removed: none |
 
 ## Out of Scope
@@ -64,6 +69,10 @@ Seeded for the sandbox self-test.
 
 - 2026-01-01 [Orchestrator] Created under ${parent} — decomposition slice ${suffix}.
 EOF
+  local ac1_line
+  ac1_line="$(grep -nF -- "$ac1_text" "$f" | head -1 | cut -d: -f1)"
+  [ -n "$ac1_line" ] || _fixture_die "_seed_subtask: AC1 bullet not found in ${f} after writing it"
+  perl -i -pe "s/AC1_LINE/$ac1_line/" "$f"
   printf '%s' "$f"
 }
 
@@ -239,5 +248,42 @@ case_subtask_no_branch_of_its_own_still_checks_table_and_forks() {
     || cf "(negative) no progress record carries refusal=qa-verdict-missing: $(cat "$SB_TMP/rec2"/*.tsv 2>/dev/null)"
 
   finish "subtask.sh move <id> qa_complete: a slice with no branch of its own (branch: n/a) still gets the content-only QA Verdict and forks: checks, and the diff-derived half is reported UNRUNNABLE rather than silently skipped or falsely refused"
+  teardown
+}
+
+# =============================================================================
+# CASE — A SLICE'S QA VERDICT POINTER IS CHECKED AGAINST THE SLICE'S OWN REVISION, THE SAME
+# qa-gate.sh RULE finish-pr.sh APPLIES TO A LANDING CARD. A path:line naming a file absent from
+# the slice's own branch refuses the move, before the git mv.
+# =============================================================================
+case_subtask_qa_verdict_pointer_unresolved_refuses() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh move <id> qa_complete refuses a slice whose QA Verdict pointer does not resolve on its own branch" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+
+  local p="$SB_PREFIX-693"
+  _seed_parent "$p"
+  local slice_branch="feature/${p}-s1-badptr"
+  local f; f="$(_seed_subtask "$p" s1 dev_complete badptr "A pointer that does not resolve on the slice's own branch" "$slice_branch")"
+  perl -i -pe 's#^\| AC1 \| PASS \| test \|.*\|$#| AC1 | PASS | file:line | test/does-not-exist.test.js:1 "anything" |#' "$f"
+  grep -qF 'does-not-exist.test.js' "$f" \
+    || _fixture_die "case_subtask_qa_verdict_pointer_unresolved_refuses: the unresolving-pointer row was not planted"
+  publish_sandbox
+
+  git -C "$SB_WORK" checkout -b "$slice_branch" "$SB_TRUNK" --quiet >/dev/null 2>&1
+  echo "a real change" > "$SB_WORK/CHANGE693.txt"
+  git -C "$SB_WORK" add CHANGE693.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] ${p}-s1: add a real change" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "$slice_branch" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+
+  local out rc
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a pointer naming a file absent from the slice's own branch — subtask.sh move exited 0"
+  origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-badptr.md" && cf "the slice advanced despite the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "no progress record carries refusal=qa-verdict-pointer-unresolved: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
+
+  finish "subtask.sh move <id> qa_complete refuses a slice whose QA Verdict path:line pointer does not resolve on the slice's OWN branch, with a refusal=qa-verdict-pointer-unresolved record"
   teardown
 }
