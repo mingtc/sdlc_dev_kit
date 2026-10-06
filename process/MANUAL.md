@@ -197,7 +197,10 @@ version control by the initializer, not left for each actor to discover
    states which `D-NN` (if any) this card resolved, and `finish-pr.sh` refuses a landing where it is
    absent, malformed, names an id that is not a live register entry, or where the branch itself shows
    a fork — a register entry its own diff adds or changes, or an Activity `[decision: D-NN]` citation
-   — that `forks:` does not name.
+   — that `forks:` does not name. `forks:` names every fork the card **resolved**, not merely cited.
+   A ruling can also be written straight into an AC's own text with no register entry at all: an AC
+   whose text changed after the card left its `todo/` column needs a `[decision: D-NN]` citation
+   somewhere on the card, or the landing refuses.
 
 ## Session close ritual
 

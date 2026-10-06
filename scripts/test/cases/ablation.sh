@@ -20,6 +20,18 @@ _declare_test_globs() {
   _array_set_body "$cfg" TEST_GLOBS "  \"$glob\""
 }
 
+# _ablation_rename_fixture_file <path> — writes 46 assertion lines (45 'assert.ok' plus one
+# 'assert.throws'). A LARGE file with a SMALL later edit: git's rename detection is a similarity
+# threshold (default 50%), not "any content changed" — a 3-line file losing 1 line falls BELOW
+# that threshold and git lists both paths even without --no-renames, proving nothing. 46 lines
+# losing 1 (~98% similarity) is the shape that collapses to one path under git's DEFAULT
+# --name-only, matching the registered rename-bypass boundary case exactly.
+_ablation_rename_fixture_file() {
+  local path="$1" i=1
+  { while [ "$i" -le 45 ]; do echo "assert.ok(true); // line $i"; i=$((i+1)); done
+    echo "assert.throws(() => { throw new Error('x'); });"; } > "$path"
+}
+
 # =============================================================================
 # CASE — UNDECLARED TEST_GLOBS (the shipped empty state): the check does not run, reported,
 # never a silent pass. A branch touching what LOOKS like a test path still lands.
@@ -236,5 +248,44 @@ case_finish_pr_ablation_well_formed_lands() {
   origin_has_path "tests/CHANGE666.txt" || cf "the squash-merged change is not on the trunk"
 
   finish "finish-pr.sh lands a card whose branch touches a declared TEST_GLOBS path and carries a well-formed '## Ablation' section — a real, non-placeholder 'Broken:' and 'Red line:'"
+  teardown
+}
+
+# =============================================================================
+# CASE — A TEST PATH RENAMED OUT OF TEST_GLOBS STILL REFUSES: the diff is read with
+# --no-renames, so the OLD (declared) path surfaces even though the new path does not match.
+# =============================================================================
+case_finish_pr_ablation_rename_out_of_globs_refuses() {
+  cf_reset
+  make_sandbox
+  _declare_test_globs 'tests/*'
+
+  local id="$SB_PREFIX-668"
+  seed_issue dev_complete "$id" renamed chore "A declared test file is renamed out of TEST_GLOBS" "feature/$id-work"
+  mkdir -p "$SB_WORK/tests"
+  _ablation_rename_fixture_file "$SB_WORK/tests/sample.test.js"
+  git -C "$SB_WORK" add tests/sample.test.js >/dev/null 2>&1
+  sbcommit -m "[Dev] ${id}: add the test file the branch will rename" --quiet >/dev/null 2>&1
+  publish_sandbox
+  git -C "$SB_WORK" branch "feature/${id}-work" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "feature/${id}-work" >/dev/null 2>&1
+  mkdir -p "$SB_WORK/src"
+  git -C "$SB_WORK" mv tests/sample.test.js src/sample.test.js >/dev/null 2>&1
+  sed -i.bak '$d' "$SB_WORK/src/sample.test.js"
+  rm -f "$SB_WORK/src/sample.test.js.bak"
+  git -C "$SB_WORK" add src/sample.test.js >/dev/null 2>&1
+  sbcommit -m "[Dev] ${id}: move the test out of tests/ and drop an assertion" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/${id}-work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a declared test path renamed out of TEST_GLOBS, no '## Ablation' section — finish-pr.sh exited 0 ('ABLATION_CHECK: PASS' would mean the rename hid the old path)"
+  case "$out" in *"Ablation"*) : ;; *) cf "the refusal does not name 'Ablation': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$id-renamed.md" && cf "the card advanced despite the refusal"
+  /usr/bin/grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "no progress record carries refusal=ablation-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
+
+  finish "finish-pr.sh's ablation check reads the branch diff with --no-renames, so a declared test path renamed out of TEST_GLOBS still surfaces under its old name and refuses ablation-missing, rather than reading as a diff that 'touches no declared test path'"
   teardown
 }

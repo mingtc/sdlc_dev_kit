@@ -319,6 +319,15 @@ columns and never the cards.*
 
 ### Action required
 
+- **An AC's text changed after a card left `todo/` now needs a `[decision: D-NN]` citation.**
+  `finish-pr.sh` and `subtask.sh move … qa_complete` refuse a landing if an AC checklist bullet's
+  text (separators and whitespace aside) differs from what it was when the card left `todo/`, and
+  the card carries no `[decision: D-NN]` citation anywhere. **Before your next landing, check any
+  in-flight card whose AC wording changed after pickup and add the citation for the ruling that
+  changed it**, or move the citation onto the ruling in `requirements/DECISIONS.md`. A card whose
+  history shows no move out of `todo/` (minted straight into another column) is unaffected — this
+  half of the check reports UNRUNNABLE on stdout and the landing proceeds.
+
 - **A `## QA Verdict` row now needs a resolving pointer and, for `test`/`file:line` rows, a quote.**
   `finish-pr.sh` and `subtask.sh move … qa_complete` refuse a landing if a `path:line`/`path:a-b`
   token does not resolve at the revision being landed, if a `test`/`file:line` row carries no
@@ -350,6 +359,14 @@ columns and never the cards.*
   `[g]` now share. A project whose `principal:` happens to carry one of these forms today will see `ask.sh`
   refuse and `[g]` report it unfilled where it previously read as declared — fill it with a real name,
   role or channel.
+
+### Fixed
+
+- **The ablation landing check now reads the branch diff with `--no-renames`.** A declared
+  `TEST_GLOBS` test file renamed to a path outside `TEST_GLOBS` (e.g. moved out of `tests/`) could
+  carry a weakened assertion and land with no `## Ablation` section, because the diff's default
+  rename-following hid the test's own declared path. No action needed; a card doing this now
+  refuses `ablation-missing` as it already does for an in-place edit.
 
 ## [0.8.0] — 2026-10-03
 

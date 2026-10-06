@@ -293,6 +293,8 @@ CASES=(
   case_finish_pr_forks_contradicted_by_the_branch_refuses
   case_finish_pr_forks_correct_field_lands
   case_finish_pr_forks_derives_a_relocated_register
+  case_finish_pr_forks_ac_changed_after_todo_uncited_refuses
+  case_finish_pr_forks_ac_drift_unrunnable_with_no_todo_history
   case_finish_pr_qa_verdict_missing_table_refuses
   case_finish_pr_qa_verdict_evidence_missing_refuses
   case_finish_pr_qa_verdict_fail_row_on_pass_refuses
@@ -309,6 +311,7 @@ CASES=(
   case_finish_pr_ablation_malformed_section_refuses
   case_finish_pr_ablation_no_test_path_touched_lands_without_section
   case_finish_pr_ablation_well_formed_lands
+  case_finish_pr_ablation_rename_out_of_globs_refuses
   case_finish_pr_worktree_through_a_symlink
   case_finish_pr_relative_worktree
   case_finish_pr_runs_only_the_trunks_copy

@@ -269,3 +269,144 @@ EOF
   finish "finish-pr.sh derives the register set from check-board.sh's own REGISTERS= declaration — a project whose register lives somewhere other than requirements/DECISIONS.md is still caught when its branch adds a D-NN there under a 'forks: none' card"
   teardown
 }
+
+# _forks_refix_qa_pointer <file> <repo-relative-path> — seed_issue's QA Verdict AC1 row points at
+# the file's SEED-TIME path and line. A case that moves the file (move-issue.sh, git mv) and then
+# edits the AC1 bullet must re-point the row at the file's OWN current path and the bullet's new
+# line, with the same text quoted verbatim, or kit_qa_verdict_check's pointer/quote resolution
+# refuses on a stale pointer that has nothing to do with the behaviour under test.
+_forks_refix_qa_pointer() {
+  local f="$1" rel="$2" ac1_line ac1_text
+  ac1_text="$(grep -E '^- \[ \] AC1' "$f" | head -1)"
+  [ -n "$ac1_text" ] || _fixture_die "_forks_refix_qa_pointer: no AC1 bullet in ${f}"
+  ac1_line="$(grep -nF -- "$ac1_text" "$f" | head -1 | cut -d: -f1)"
+  [ -n "$ac1_line" ] || _fixture_die "_forks_refix_qa_pointer: AC1 bullet line not found in ${f}"
+  perl -i -pe "s{^\\| AC1 \\|.*\\|\$}{| AC1 | PASS | test | ${rel}:${ac1_line} \"${ac1_text}\" |}" "$f"
+  grep -qF "${rel}:${ac1_line}" "$f" \
+    || _fixture_die "_forks_refix_qa_pointer: the QA Verdict row was not re-pointed in ${f}"
+}
+
+# =============================================================================
+# CASE — A RULING WRITTEN STRAIGHT INTO AN AC, AFTER THE CARD LEFT 'progress/todo/', WITH NO
+# '[decision: D-NN]' CITATION ANYWHERE ON THE CARD, REFUSES — even though nothing touched the
+# register and 'forks:' is syntactically fine. A pure separator reformat of the same AC (no
+# wording change) is the CONTROL and must still land.
+# =============================================================================
+case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
+  cf_reset
+
+  # (a) THE PLANT: minted into todo/, moved to in_progress/ (the recorded "left todo" commit,
+  #     via move-issue.sh — its own worktree, .kanban-wt/, is why (a) and (b) each get their OWN
+  #     sandbox: a second publish_sandbox's 'git add -A' would commit that untracked worktree).
+  make_sandbox work-a
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local ida="$SB_PREFIX-681"
+  seed_issue todo "$ida" drift chore "AC changed after todo, no citation" "feature/$ida-work"
+  publish_sandbox
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$ida" in_progress --role Dev \
+    --note "picked up" >/dev/null 2>&1 ) \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (a) move to in_progress failed"
+  # The QA Verdict row's pointer is fixed to the card's CURRENT (in_progress) path NOW, before
+  # the branch is cut: kit_qa_verdict_check reads it against the BRANCH tip, and seed_issue's
+  # pointer still names the seed-time todo/ path, which the branch would carry forward verbatim.
+  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$ida-drift.md" "progress/in_progress/$ida-drift.md"
+  git -C "$SB_WORK" add "progress/in_progress/$ida-drift.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${ida}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  # THE REALISTIC ORDER: the branch is cut HERE, right after pickup — BEFORE the AC edit and
+  # BEFORE the in_progress -> dev_complete move, both of which still happen on the TRUNK (as
+  # move-issue.sh always commits them, inside its own kanban worktree, pushed straight to the
+  # trunk — never onto this branch). A branch cut AFTER those moves would carry them too, which
+  # is not what an ordinary Dev/QA journey does and would hide a check that reads the wrong rev.
+  seed_branch "$ida" work CHANGE681.txt
+  local fa="$SB_WORK/progress/in_progress/$ida-drift.md"
+  # Anchored to the CHECKLIST BULLET'S OWN line (^...$), never the QA Verdict row that quotes
+  # this text verbatim: a plain substitution would edit both, and the quote must keep matching
+  # the BRANCH's frozen (unedited) line — this edit is trunk-only, after the branch was cut.
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/- [ ] AC1 — the sandbox'"'"'s seeded behaviour holds, per a ruling folded straight into this line./' "$fa"
+  grep -qF 'folded straight into this line' "$fa" \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (a) the AC rewrite was not planted"
+  git -C "$SB_WORK" add "progress/in_progress/$ida-drift.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${ida}: amend AC1 with a ruling, no decision citation" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  mkdir -p "$SB_WORK/progress/dev_complete"
+  git -C "$SB_WORK" mv "progress/in_progress/$ida-drift.md" "progress/dev_complete/$ida-drift.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${ida}: ready for review" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) AC1 changed after leaving todo/, no citation — finish-pr.sh exited 0"
+  case "$out" in *AC1*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$ida-drift.md" && cf "(a) the card advanced despite the refusal"
+  /usr/bin/grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-ac-changed-uncited: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+  teardown
+
+  # (b) THE CONTROL: the SAME journey, in its own fresh sandbox, but the only edit after leaving
+  #     todo/ is a separator reformat (em-dash -> hyphen) of the identical wording — no ruling,
+  #     no text change. Must land clean. NO cf_reset here: (a)'s failures, if any, must survive
+  #     into the one 'finish' call below, not be silently cleared by starting part (b).
+  make_sandbox work-b
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local idb="$SB_PREFIX-682"
+  seed_issue todo "$idb" reformat chore "AC separator reformat only after todo" "feature/$idb-work"
+  publish_sandbox
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$idb" in_progress --role Dev \
+    --note "picked up" >/dev/null 2>&1 ) \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (b) move to in_progress failed"
+  # Same realistic order as (a): the QA Verdict pointer is re-pointed at the card's CURRENT
+  # path and committed BEFORE the branch is cut (the branch carries that forward verbatim),
+  # then the branch is cut right after pickup, before the reformat and the dev_complete move,
+  # both of which still happen on the trunk.
+  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$idb-reformat.md" "progress/in_progress/$idb-reformat.md"
+  git -C "$SB_WORK" add "progress/in_progress/$idb-reformat.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idb}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  seed_branch "$idb" work CHANGE682.txt
+  local fb="$SB_WORK/progress/in_progress/$idb-reformat.md"
+  # Anchored the same way as (a): the checklist bullet's own line only, never the QA Verdict
+  # row's quote, which must keep matching the branch's frozen (unedited, em-dash) line.
+  perl -i -pe "s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)\$/- [ ] AC1 - the sandbox's seeded behaviour holds./" "$fb"
+  grep -qF "AC1 - the sandbox's seeded behaviour holds." "$fb" \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (b) the separator reformat was not planted"
+  git -C "$SB_WORK" add "progress/in_progress/$idb-reformat.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idb}: AC1 separator reformat only" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  mkdir -p "$SB_WORK/progress/dev_complete"
+  git -C "$SB_WORK" mv "progress/in_progress/$idb-reformat.md" "progress/dev_complete/$idb-reformat.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${idb}: ready for review" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b, control) a separator-only AC reformat after todo/ — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$idb-reformat.md" || cf "(b, control) the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh refuses a landing whose AC text changed after the card left progress/todo/ with no '[decision: D-NN]' citation on the card (refusal=forks-ac-changed-uncited, naming the AC id); a pure separator reformat of the same wording is NOT drift and lands clean"
+  teardown
+}
+
+# =============================================================================
+# CASE — A CARD MINTED STRAIGHT INTO A LATER COLUMN (no 'progress/todo/' in its history) MAKES
+# THE AC-DRIFT HALF OF THE CHECK UNRUNNABLE, NAMED ON STDOUT — never a silent pass, and the
+# landing still proceeds (the same shape as kit_ablation_check's undeclared-TEST_GLOBS report).
+# =============================================================================
+case_finish_pr_forks_ac_drift_unrunnable_with_no_todo_history() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+
+  local id="$SB_PREFIX-683"
+  seed_issue dev_complete "$id" direct chore "Minted straight into dev_complete, no todo/ history" "feature/$id-work"
+  publish_sandbox
+  seed_branch "$id" work CHANGE683.txt
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a card with no todo/ column history — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  case "$out" in *"FORKS_AC_DRIFT_CHECK: did not run"*) : ;; *) cf "no 'FORKS_AC_DRIFT_CHECK: did not run' line on stdout: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$id-direct.md" || cf "the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh reports the AC-drift half of the forks check as UNRUNNABLE on stdout (never a silent pass) for a card whose history shows no move out of a todo/ column, and still lands it"
+  teardown
+}

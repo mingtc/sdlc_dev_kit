@@ -25,9 +25,22 @@
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
 #     branch resolved, or 'none'. <old-rev>/<new-rev> bound the diff a resolved-but-uncited fork
 #     is derived from (finish-pr.sh: the trunk and the feature branch); <card-file> is read for
-#     the field itself and is <new-rev>'s own copy. Refuses through kit_refuse with:
-#     forks-missing, forks-malformed, forks-register-undeclared, forks-register-unreadable,
-#     forks-unresolved, forks-contradicted.
+#     the field itself and is <new-rev>'s own copy.
+#     ALSO: an AC bullet's own TEXT changed (separators/whitespace aside) after the card's own
+#     history shows it leaving a 'todo/' column (a rename whose OLD path ends in '/todo/' —
+#     'progress/todo/' or a subtask's own 'progress/subtasks/<parent>/todo/') needs a
+#     '[decision: D-NN]' citation somewhere on the card — a ruling written straight into an AC,
+#     with no register entry and no citation, is invisible to the derivation above. A card whose
+#     history never shows it leaving a 'todo/' column (minted straight into another one) makes
+#     this half UNRUNNABLE, printed on stdout the same way kit_ablation_check reports an
+#     undeclared TEST_GLOBS. This history is read from <old-rev> (the TRUNK), never <new-rev>:
+#     move-issue.sh/subtask.sh commit every board move on the trunk inside their own kanban
+#     worktree, so a branch cut before a later move never carries the card's later path at all.
+#     <card-file> may be the CALLER's own worktree copy (finish-pr.sh's kanban worktree,
+#     subtask.sh's subtask tree) rather than a path under <repo> — its 'progress/...' suffix is
+#     what is read against <repo>'s history, never its full path.
+#     Refuses through kit_refuse with: forks-missing, forks-malformed, forks-register-undeclared,
+#     forks-register-unreadable, forks-unresolved, forks-contradicted, forks-ac-changed-uncited.
 #
 #   kit_ablation_check <card-file> <card-id> <repo> <old-rev> <new-rev>
 #     process/doctrine/instruments.md § A.2: a diff touching a declared TEST_GLOBS path needs a
@@ -51,6 +64,31 @@
 # stripping backticks and leading/trailing whitespace from the cell. ONE list — qa.md's prose, the
 # templates and any future reader name this constant, not their own copy.
 KIT_QAV_PLACEHOLDER_RE='^(n/a|na|none|tbd|see above|see below|-|—|x|\.\.\.|\?|<[^>]*>)$'
+
+# An AC checklist bullet ('- [ ] AC1 — text.') separates its id from its text with an em-dash,
+# a hyphen or a colon — ONE fragment for every reader that must recognise a bullet, so a
+# separator reformat reads the same way to all of them.
+KIT_AC_SEP='[[:space:]]*(—|-|:)'
+
+# _qav_ac_ids <body> — every AC id a checklist bullet declares, one per line, sorted and
+# de-duplicated. The population kit_qa_verdict_check's table must match one for one.
+_qav_ac_ids() {
+  printf '%s\n' "$1" | grep -oE "^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}" \
+    | sed -E "s/^- \[[ xX]\] //; s/${KIT_AC_SEP}\$//" | sort -u
+}
+
+# _qav_ac_bullet_text <body> <id> — the NORMALISED text of AC <id>'s own checklist bullet (the
+# part after its separator), or empty if <id> has no bullet in <body>. Normalised so a pure
+# separator/whitespace reformat (em-dash <-> hyphen <-> colon, a run of spaces, trailing
+# whitespace) compares equal: kit_forks_check's history comparison asks whether the RULING
+# changed, not whether the punctuation did.
+_qav_ac_bullet_text() {
+  local body="$1" id="$2" _line _text
+  _line="$(printf '%s\n' "$body" | grep -E "^- \\[[ xX]\\] ${id}${KIT_AC_SEP}" | head -1)"
+  [ -n "$_line" ] || return 0
+  _text="$(printf '%s' "$_line" | sed -E "s/^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*${KIT_AC_SEP}[[:space:]]*//")"
+  printf '%s' "$_text" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
+}
 
 # _qav_is_placeholder <normalised-cell> — true if <normalised-cell> (already lower-cased, with
 # backticks and outer whitespace stripped) is empty or one of KIT_QAV_PLACEHOLDER_RE's forms.
@@ -113,7 +151,7 @@ kit_qa_verdict_check() {
   fi
 
   _qav_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
-  _qav_ac_ids="$(printf '%s\n' "$_qav_body" | grep -oE '^- \[[ xX]\] [A-Za-z][A-Za-z0-9]*[[:space:]]*(—|-|:)' | sed -E 's/^- \[[ xX]\] //; s/[[:space:]]*(—|-|:)$//' | sort -u || true)"
+  _qav_ac_ids="$(_qav_ac_ids "$_qav_body" || true)"
 
   if ! grep -qE '^## QA Verdict[[:space:]]*$' "$src"; then
     kit_refuse 2 qa-verdict-missing \
@@ -282,6 +320,9 @@ kit_forks_check() {
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg
   local _forks_bad="" _fid _forks_derived _forks_missing_ids=""
+  local _forks_card_rel _forks_rename_log _forks_leave_commit="" _forks_leave_path=""
+  local _frl_a _frl_b _frl_c _frl_commit=""
+  local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new
 
   _forks_line="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^forks:/{sub(/^forks:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); sub(/[[:space:]]+$/, ""); print; exit}' "$src")"
   if [ -z "$_forks_line" ]; then
@@ -370,6 +411,71 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       "       Add the id(s) to 'forks:' — 'forks: ${_forks_line}' does not account for them." \
       "       NOTHING WAS CHANGED."
   fi
+
+  # A ruling written straight into an AC's own text never touches the register and never adds a
+  # '[decision: D-NN]' citation, so the derivation above cannot see it — the only trace is the AC
+  # TEXT itself changing after the card was already underway. "Underway" is read from the card's
+  # own file history: the commit where a rename moved it OUT of a 'todo/' column (never by
+  # parsing a commit subject — move-issue.sh's own rename is the record, and a hand edit cannot
+  # spoof it the way text can).
+  # <card-file> is read from the CALLER's own worktree (finish-pr.sh's $KWT, subtask.sh's
+  # $KWT/progress/subtasks/<parent>/), never from <repo> directly, so stripping <repo>'s own
+  # prefix would leave a worktree-local prefix (e.g. '.kanban-wt/') still attached. 'progress/'
+  # is the one anchor every caller's path shares with <repo>'s own tracked tree: take from its
+  # LAST occurrence onward.
+  case "$src" in
+    */progress/*) _forks_card_rel="progress/${src##*/progress/}" ;;
+    progress/*) _forks_card_rel="$src" ;;
+    *) _forks_card_rel="${src#"$repo"/}" ;;
+  esac
+  # <old-rev> is the TRUNK, never <new-rev> (the feature branch): move-issue.sh and subtask.sh
+  # commit every board move on the trunk, inside their own kanban worktree, so a branch cut
+  # before a later move (the common case: cut right after todo -> in_progress, worked, then
+  # moved to dev_complete on the trunk while the branch carries only code) never has the card at
+  # its later path at all — 'log --follow <branch> -- <later path>' finds nothing and this half
+  # reads as UNRUNNABLE on every ordinary landing. The trunk, read fresh, already holds the move
+  # that put the card at <card-file>'s own current path (that move is what made it landable).
+  _forks_rename_log="$(git -C "$repo" log --follow --diff-filter=R --name-status \
+    --format='COMMIT %H' "$old_rev" -- "$_forks_card_rel" 2>/dev/null || true)"
+  while IFS=$'\t' read -r _frl_a _frl_b _frl_c; do
+    case "$_frl_a" in
+      COMMIT*) _frl_commit="${_frl_a#COMMIT }"; continue ;;
+      R*) : ;;
+      *) continue ;;
+    esac
+    case "$_frl_b" in
+      progress/todo/*|*/todo/*) _forks_leave_commit="$_frl_commit"; _forks_leave_path="$_frl_c" ;;
+    esac
+  done <<< "$_forks_rename_log"
+  # git logs newest-first: the LAST assignment above (not the first) is the earliest commit —
+  # a card can only leave todo/ once in the ordinary flow, but the loop runs to completion either
+  # way so the oldest wins if it ever happened twice.
+
+  if [ -z "$_forks_leave_commit" ]; then
+    echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
+  else
+    _forks_new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+    _forks_old_body="$(git -C "$repo" show "${_forks_leave_commit}:${_forks_leave_path}" 2>/dev/null \
+      | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
+    _forks_ac_ids="$(_qav_ac_ids "$_forks_new_body")"
+    while IFS= read -r _fac; do
+      [ -n "$_fac" ] || continue
+      _fac_old="$(_qav_ac_bullet_text "$_forks_old_body" "$_fac")"
+      _fac_new="$(_qav_ac_bullet_text "$_forks_new_body" "$_fac")"
+      # A bullet absent from the leave-todo revision (a new AC added after todo) is not a
+      # TEXT CHANGE of an existing ruling — nothing to compare, so it is not drift.
+      [ -n "$_fac_old" ] || continue
+      [ "$_fac_old" = "$_fac_new" ] || _forks_ac_drift="${_forks_ac_drift}${_forks_ac_drift:+, }$_fac"
+    done <<< "$(printf '%s\n' "$_forks_ac_ids")"
+
+    if [ -n "$_forks_ac_drift" ] && [ -z "$_forks_cited" ]; then
+      kit_refuse 2 forks-ac-changed-uncited \
+        "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${_forks_leave_commit:0:9}), with no '[decision: D-NN]' citation on the card: ${_forks_ac_drift}" \
+        "       A ruling written straight into an AC is still a fork — cite the id that decided it." \
+        "       (process/MANUAL.md § Execution discipline item 6.)" \
+        "       NOTHING WAS CHANGED."
+    fi
+  fi
 }
 
 # ── kit_ablation_check <card-file> <card-id> <repo> <old-rev> <new-rev> ────────────────────────
@@ -407,7 +513,10 @@ kit_ablation_check() {
   if [ ${#_abl_test_globs[@]} -eq 0 ]; then
     echo "ABLATION_CHECK: did not run — TEST_GLOBS is undeclared in scripts/config.sh (adopter action required)."
   else
-    _abl_diff_paths="$(git -C "$repo" diff --name-only "${old_rev}...${new_rev}" 2>/dev/null || true)"
+    # --no-renames: a path RENAMED out of a declared glob must still surface under its OLD
+    # name, or a weakened test moved out of TEST_GLOBS (e.g. test/*.test.js -> src/*.test.js)
+    # shows only its new, undeclared path and the touched-test population silently excludes it.
+    _abl_diff_paths="$(git -C "$repo" diff --no-renames --name-only "${old_rev}...${new_rev}" 2>/dev/null || true)"
     while IFS= read -r _abl_path; do
       [ -n "$_abl_path" ] || continue
       for _abl_g in "${_abl_test_globs[@]}"; do
