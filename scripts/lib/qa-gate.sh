@@ -316,7 +316,7 @@ kit_qa_verdict_check() {
 kit_forks_check() {
   local src="$1" issue_id="$2" repo="$3" old_rev="$4" new_rev="$5" check_board="$6"
   local _forks_line _forks_ids="" _forks_inner _forks_n_tokens _forks_n_ids
-  local _forks_declared _forks_regs _forks_citation_marker='\[decision: (D-[0-9]+)\]' _forks_cited
+  local _forks_declared _forks_regs _forks_cited
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg
   local _forks_bad="" _fid _forks_derived _forks_missing_ids=""
@@ -363,7 +363,11 @@ kit_forks_check() {
       "       NOTHING WAS CHANGED."
   fi
   _forks_regs="$(printf '%s\n' "$_forks_declared" | awk -F'|' '$3 == "D-[0-9]+" { print }')"
-  _forks_cited="$(grep -oE "$_forks_citation_marker" "$src" 2>/dev/null | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' | sort -u || true)"
+  # THE ONE READER: kit_decisions_cited (lib/decision-register.sh) — case-insensitive label,
+  # spacing-tolerant, list- and range-aware — the same reader arm (l) and arm (r) read a citation
+  # through. A second regex here would let one caller read a citation another cannot see. Called unconditionally, like kit_decision_register_live below:
+  # both are sourced by every caller before this file, same as this file's own functions are.
+  _forks_cited="$(kit_decisions_cited "$src" 'D-[0-9]+' | sort -u || true)"
 
   while IFS='|' read -r _freg_path _freg_mark _freg_shape; do
     [ -n "$_freg_path" ] || continue

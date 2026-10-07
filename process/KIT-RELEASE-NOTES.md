@@ -343,6 +343,14 @@ columns and never the cards.*
   asks under the role your `principal:` names, name a principal that seat does not wear, or have another seat
   ask.
 
+- **The `[decision: D-NN]` citation a `forks:` landing check reads now recognises a capitalized
+  label, a no-space colon, a comma list, and a `..` range** (`[Decision: D-02]`,
+  `[decision:D-02]`, `[decision: D-02, D-05]`, `[decision: D-02..D-05]` all cite every id named).
+  `finish-pr.sh`/`subtask.sh` previously missed these forms and could let a `forks: none` land
+  uncontradicted; `check-board.sh` arm `[l]` previously read some of these forms as dangling and
+  others not at all. **Before your next landing, check any in-flight card whose `forks:` relied on
+  one of these forms being invisible** — it will now be read, and may now refuse.
+
 ### Added
 
 - **The unattended launch profile gains a Stop hook.** `.claude/settings.unattended.json.example` now wires
@@ -359,6 +367,11 @@ columns and never the cards.*
   `[g]` now share. A project whose `principal:` happens to carry one of these forms today will see `ask.sh`
   refuse and `[g]` report it unfilled where it previously read as declared — fill it with a real name,
   role or channel.
+
+- **`check-board.sh` arm `[l]` now states its own population**: the count of marker-form
+  `[decision: ...]` citations it checked against the count of bare `D-NN` mentions it found
+  outside any marker, instead of a bare `✓ none` that read as having seen every reference to the
+  register.
 
 ### Fixed
 

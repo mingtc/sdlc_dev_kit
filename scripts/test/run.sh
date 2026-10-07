@@ -393,6 +393,7 @@ CASES=(
   case_check_board_register_absent
   case_check_board_citations
   case_check_board_citation_population_widened
+  case_check_board_citation_forms_and_population
   case_check_board_corpus_forward_reference
   case_check_board_corpus_seed_step_after_graduation
   case_check_board_register_shape

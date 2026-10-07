@@ -90,12 +90,9 @@ REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
 # bare id cannot tell a citation from a mention, and a comment stripper is a second parser that
 # fails silently (a stray `<!--` in a shell string swallows everything up to the next `-->`, and
 # the file then reads clean).
-# One extended regex whose ONE capture group is the bare id; the arm strips the literal ends, so
-# the register's id shape is never re-typed here. The colon's space is OPTIONAL — `[decision:D-01]`
-# and `[decision: D-01]` both cite — but the id itself stays digit-shaped, so the kit's OWN
-# illustrative marker text (`[decision: D-NN]`, a literal `NN`) never matches: the precision comes
-# from the id shape, not from the surface list.
-CITATION_MARKER='\[decision:[[:space:]]*(D-[0-9]+)\]'
+# The marker itself — case, spacing, list and range forms — is read by lib/decision-register.sh's
+# kit_decisions_cited, the ONE reader arms (l)/(r) and finish-pr.sh's `forks:` check all call:
+# a second copy of the marker regex here would let one reader see a citation another cannot.
 # THE POPULATION: every tracked text file in this source, EXCEPT the paths below — named here so
 # the arm's own printed line states its population, not just its verdict. Widened from a declared
 # surface list (PRDs and cards only): a citation planted outside a declared surface (PROJECT.md, a
@@ -1318,23 +1315,29 @@ fi
 # (l) DECLARED REFERENCE INTEGRITY (contracts/drift-report.md § 2) — every register id cited
 #     ANYWHERE IN THIS TREE, outside CITATION_EXCLUDE, resolves to a live entry, and no RETIRED id
 #     is cited. It sets `drift`, so it carries NO `reports only` token. Two findings, printed
-#     separately: a dangling id and a retired one. Operands: CITATION_EXCLUDE and CITATION_MARKER
-#     at the top of this file. Counts are printed so "nothing cited" and "all resolve" read
-#     differently, and the POPULATION (files read, files excluded and why) is printed before
-#     either verdict — a widened arm that does not name what it widened TO repeats this defect one
-#     surface at a time.
+#     separately: a dangling id and a retired one. The marker itself is read through
+#     lib/decision-register.sh's kit_decisions_cited; CITATION_EXCLUDE is this file's own operand.
+#     Counts are printed so "nothing cited" and "all resolve" read differently, and the POPULATION
+#     (files read, files excluded and why, marker-form citations against bare mentions outside a
+#     marker) is printed before either verdict — a widened arm that does not name what it widened
+#     TO repeats this defect one surface at a time.
 # ---------------------------------------------------------------------------
 echo
 l_cites=0; l_files_read=0; l_hits=0
 # The live id set and the retired id set, from the SAME declared register records
 # arm (d) reads — one declaration, two readers.
-l_live=""; l_retired=""; l_reg_named=""; l_reg_read=0
+l_live=""; l_retired=""; l_reg_named=""; l_reg_read=0; l_shapes=""
 while IFS='|' read -r lreg_path lreg_mark lreg_shape; do
   [ -n "$lreg_path" ] || continue
   lreg_file="$CB_TREE/$lreg_path"
   [ -f "$lreg_file" ] || continue
   l_reg_read=$((l_reg_read+1))
   l_reg_named="${l_reg_named:+$l_reg_named, }$lreg_path"
+  # Every declared register's own id SHAPE, not just the last one read: a project with two
+  # registers of different id shapes must have citations of BOTH recognised below, the same way
+  # l_live/l_retired accumulate across every register rather than keeping only the last.
+  l_shapes="$l_shapes
+$lreg_shape"
   # § Retired ids are read through TWO filters (HTML comment spans stripped — the shipped
   # register names example ids inside one — then anchored on the row's FIRST backticked id, since
   # a retired row names its live successor in the same sentence). Both id sets: shared with
@@ -1348,6 +1351,7 @@ $(kit_decision_register_retired "$lreg_file" "$lreg_shape")"
 done <<< "$(printf '%s\n' "$REGISTERS")"
 l_live="$(printf '%s\n' "$l_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
 l_retired="$(printf '%s\n' "$l_retired" | grep -E '^D-[0-9]+$' | sort -u || true)"
+l_shapes="$(printf '%s\n' "$l_shapes" | awk 'NF' | sort -u || true)"
 l_live_n="$(printf '%s\n' "$l_live" | grep -c . || true)"
 l_retired_n="$(printf '%s\n' "$l_retired" | grep -c . || true)"
 
@@ -1371,12 +1375,21 @@ else
     lex_fixed="$(printf '%s' "$lex" | sed 's/[.[\*^$/]/\\&/g')"
     l_files="$(printf '%s\n' "$l_files" | grep -v -E "^${lex_fixed}" || true)"
   done <<< "$(printf '%s\n' "$CITATION_EXCLUDE")"
+  l_bare=0
   while IFS= read -r cfile; do
     [ -n "$cfile" ] || continue
     l_files_read=$((l_files_read+1))
-    # Only text carrying the marker is read; the id is its capture, recovered by stripping
-    # the marker's literal ends. `grep -I` skips a binary match without printing "binary file
-    # matches" noise as a false citation line.
+    # Every declared register's own id shape is read against this file — almost always one shape
+    # (one register), read once; a project declaring more than one SHAPE reads each in turn, each
+    # occurrence counted once per shape it matches (a citation matching two shapes at once is the
+    # degenerate case of two registers sharing one id space, which the register declaration itself
+    # should avoid — not silently merged away here).
+    l_cids=""
+    while IFS= read -r lshp; do
+      [ -n "$lshp" ] || continue
+      l_cids="$l_cids
+$(kit_decisions_cited "$CB_TREE/$cfile" "$lshp" || true)"
+    done <<< "$l_shapes"
     while IFS= read -r cid; do
       [ -n "$cid" ] || continue
       l_cites=$((l_cites+1))
@@ -1387,8 +1400,20 @@ else
         echo "    ⚠ $cfile cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names"
         l_hits=$((l_hits+1)); drift=1
       fi
-    done <<< "$(grep -IaoE "$CITATION_MARKER" "$CB_TREE/$cfile" 2>/dev/null \
-                 | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' || true)"
+    done <<< "$(printf '%s\n' "$l_cids" | awk 'NF')"
+    # THE ARM'S OWN POPULATION: a bare id mention OUTSIDE any '[decision: ...]' bracket is never
+    # read as a citation above — a mention is not a citation (a bare-id grep cannot tell one from
+    # the other). Counted here by blanking out every marker SPAN first (so an id already counted
+    # as a citation is not counted twice as a mention), then matching the id shape(s) on what is
+    # left — so "0 citations found" or "all N resolve" never reads as having seen the register's
+    # whole reach in this file when it has only ever seen the marker form.
+    l_stripped="$(grep -IaE . "$CB_TREE/$cfile" 2>/dev/null \
+      | sed -E 's/\[[Dd][Ee][Cc][Ii][Ss][Ii][Oo][Nn][[:space:]]*:[[:space:]]*[^]]*[[:space:]]*\]//g' || true)"
+    [ -n "$l_stripped" ] || continue
+    while IFS= read -r lshp; do
+      [ -n "$lshp" ] || continue
+      l_bare=$((l_bare + $(printf '%s\n' "$l_stripped" | grep -oE "$lshp" 2>/dev/null | grep -c . || true)))
+    done <<< "$l_shapes"
   done <<< "$l_files"
   if [ "$l_hits" -eq 0 ]; then
     if [ "$l_cites" -eq 0 ]; then
@@ -1397,6 +1422,7 @@ else
       echo "    ✓ none (all $l_cites citation(s) across $l_files_read file(s) resolve to a live entry; none cites a retired id)"
     fi
   fi
+  echo "    population checked: $l_cites marker-form citation(s) against $l_bare bare id mention(s) outside a '[decision: ...]' marker, across $l_files_read file(s) — a bare mention is read, never silently counted as a citation"
 fi
 
 # BEGIN prd-coverage arm
@@ -1820,12 +1846,14 @@ fi
 # ---------------------------------------------------------------------------
 echo
 echo "[r] Declared reverse coverage — every live register entry a PRD constrains is cited BY THAT PRD, or declared \`[cross-cutting]\` (reports only — a judgement call this arm cannot make generically, and it never changes the verdict below) — $(cb_src):"
-r_reg_read=0; r_live=""; r_exempt=""
+r_reg_read=0; r_live=""; r_exempt=""; r_shapes=""
 while IFS='|' read -r rreg_path rreg_mark rreg_shape; do
   [ -n "$rreg_path" ] || continue
   rreg_file="$CB_TREE/$rreg_path"
   [ -f "$rreg_file" ] || continue
   r_reg_read=$((r_reg_read+1))
+  r_shapes="$r_shapes
+$rreg_shape"
   if command -v kit_decision_register_live >/dev/null 2>&1; then
     r_live="$r_live
 $(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape")"
@@ -1859,6 +1887,7 @@ $rid"
 done <<< "$(printf '%s\n' "$REGISTERS")"
 r_live="$(printf '%s\n' "$r_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
 r_exempt="$(printf '%s\n' "$r_exempt" | grep -E '^D-[0-9]+$' | sort -u || true)"
+r_shapes="$(printf '%s\n' "$r_shapes" | awk 'NF' | sort -u || true)"
 r_live_n="$(printf '%s\n' "$r_live" | grep -c . || true)"
 r_exempt_n="$(printf '%s\n' "$r_exempt" | grep -c . || true)"
 
@@ -1880,16 +1909,19 @@ else
   )"
   r_prd_n="$(printf '%s\n' "$r_prds" | grep -c . || true)"
 
-  # Every id any PRD cites, across the whole PRD population — the SAME marker arm (l) reads.
+  # Every id any PRD cites, across the whole PRD population — the SAME marker reader arm (l) uses,
+  # against every declared register's own id shape.
   r_cited=""
   while IFS= read -r rpf; do
     [ -n "$rpf" ] || continue
-    while IFS= read -r rcid; do
-      [ -n "$rcid" ] || continue
-      r_cited="$r_cited
+    while IFS= read -r rshp; do
+      [ -n "$rshp" ] || continue
+      while IFS= read -r rcid; do
+        [ -n "$rcid" ] || continue
+        r_cited="$r_cited
 $rcid"
-    done <<< "$(grep -IaoE "$CITATION_MARKER" "$CB_TREE/$rpf" 2>/dev/null \
-                 | sed -E 's/^\[decision:[[:space:]]*//; s/\]$//' || true)"
+      done <<< "$(kit_decisions_cited "$CB_TREE/$rpf" "$rshp" || true)"
+    done <<< "$r_shapes"
   done <<< "$r_prds"
   r_cited="$(printf '%s\n' "$r_cited" | grep -E '^D-[0-9]+$' | sort -u || true)"
 

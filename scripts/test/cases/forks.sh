@@ -171,7 +171,36 @@ EOF
   /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
-  finish "finish-pr.sh refuses a 'forks: none' the branch itself contradicts — a register D-NN entry its own diff adds, or an Activity '[decision: D-NN]' citation — naming the id either way, with a refusal=forks-contradicted record"
+  # (c) THE SAME CITATION, written WITHOUT the colon's space ('[decision:D-01]') — the form two
+  #     readers (this check and arm [l]) could disagree on. Must still refuse: a citation this
+  #     check cannot see is a citation 'forks: none' silently contradicts and never catches.
+  local idc="$SB_PREFIX-623"
+  seed_issue dev_complete "$idc" nospace chore "Cites a decision in Activity, no space after the colon" "feature/$idc-work"
+  printf '%s\n' '- 2026-01-02 [Dev] Resolved per the existing ruling. [decision:D-01]' \
+    >> "$SB_WORK/progress/dev_complete/$idc-nospace.md"
+  publish_sandbox
+  seed_branch "$idc" work CHANGE623.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-c" "$SB_WORK/scripts/finish-pr.sh" "$idc" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a no-space Activity citation '[decision:D-01]' with 'forks: none' — finish-pr.sh exited 0 (a citation this check cannot see never contradicts 'forks: none')"
+  case "$out" in *D-01*) : ;; *) cf "(c) the refusal does not name D-01: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  origin_has_path "CHANGE623.txt" && cf "(c) the branch was merged before the refusal"
+  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
+    || cf "(c) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-c"/*.tsv 2>/dev/null)"
+
+  # (d) A UNICODE-DASH id ('[decision: D<en dash>01]') cites D-01 — the same fold arm [l] applies.
+  local idd="$SB_PREFIX-624"
+  seed_issue dev_complete "$idd" unidash chore "Cites a decision with an en dash in the id" "feature/$idd-work"
+  printf '%s\n' "- 2026-01-02 [Dev] Resolved per the existing ruling. [decision: D$(printf '\xe2\x80\x93')01]" \
+    >> "$SB_WORK/progress/dev_complete/$idd-unidash.md"
+  publish_sandbox
+  seed_branch "$idd" work CHANGE624.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idd" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) an en-dash citation '[decision: D–01]' with 'forks: none' — finish-pr.sh exited 0 (the reader did not fold the dash)"
+  case "$out" in *D-01*) : ;; *) cf "(d) the refusal does not name D-01: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+
+  finish "finish-pr.sh refuses a 'forks: none' the branch itself contradicts — a register D-NN entry its own diff adds, or an Activity '[decision: D-NN]' citation with or without the colon's space, or an en dash in the id — naming the id either way, with a refusal=forks-contradicted record"
   teardown
 }
 
@@ -382,7 +411,46 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   [ "$rc" -eq 0 ] || cf "(b, control) a separator-only AC reformat after todo/ — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   origin_has_path "progress/qa_complete/$idb-reformat.md" || cf "(b, control) the card did not advance to qa_complete/"
 
-  finish "finish-pr.sh refuses a landing whose AC text changed after the card left progress/todo/ with no '[decision: D-NN]' citation on the card (refusal=forks-ac-changed-uncited, naming the AC id); a pure separator reformat of the same wording is NOT drift and lands clean"
+  # (c) THE SAME AC REWRITE AS (a), but the card ALSO carries a '[decision:D-01]' citation (no
+  #     space after the colon) in its Activity — on the OTHER
+  #     caller of the same '_forks_cited' derivation. Must land clean: the citation is real and
+  #     must be SEEN, not silently missed because of its spacing.
+  make_sandbox work-c
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local idcc="$SB_PREFIX-685"
+  seed_issue todo "$idcc" nospace chore "AC changed after todo, cited with no space" "feature/$idcc-work"
+  publish_sandbox
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$idcc" in_progress --role Dev \
+    --note "picked up" >/dev/null 2>&1 ) \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (c) move to in_progress failed"
+  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$idcc-nospace.md" "progress/in_progress/$idcc-nospace.md"
+  git -C "$SB_WORK" add "progress/in_progress/$idcc-nospace.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idcc}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  seed_branch "$idcc" work CHANGE685.txt
+  local fc="$SB_WORK/progress/in_progress/$idcc-nospace.md"
+  perl -i -pe "s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)\$/- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling cited with no space after the colon./" "$fc"
+  grep -qF 'cited with no space after the colon' "$fc" \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (c) the AC rewrite was not planted"
+  # 'forks:' names the cited id, so the contradicted check is satisfied and only the AC-drift
+  # check's own reading of the citation decides.
+  sed -i.bak 's/^forks: none$/forks: [D-01]/' "$fc" && rm -f "$fc.bak"
+  printf '%s\n' '- 2026-01-02 [PM] Ruled per the existing entry. [decision:D-01]' >> "$fc"
+  grep -qF '[decision:D-01]' "$fc" \
+    || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (c) the no-space citation was not planted"
+  git -C "$SB_WORK" add "progress/in_progress/$idcc-nospace.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idcc}: amend AC1 with a ruling, cited with no space" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  mkdir -p "$SB_WORK/progress/dev_complete"
+  git -C "$SB_WORK" mv "progress/in_progress/$idcc-nospace.md" "progress/dev_complete/$idcc-nospace.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${idcc}: ready for review" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idcc" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) AC1 changed after todo/, cited '[decision:D-01]' with no space — finish-pr.sh exited $rc (a real no-space citation must be seen, not missed): $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$idcc-nospace.md" || cf "(c) the card did not advance to qa_complete/ despite a real (no-space) citation"
+
+  finish "finish-pr.sh refuses a landing whose AC text changed after the card left progress/todo/ with no '[decision: D-NN]' citation on the card (refusal=forks-ac-changed-uncited, naming the AC id); a pure separator reformat of the same wording is NOT drift and lands clean; a REAL citation written '[decision:D-NN]' with no space also lands clean — the AC-drift check reads the same shared, spacing-tolerant reader as the forks-contradicted check"
   teardown
 }
 

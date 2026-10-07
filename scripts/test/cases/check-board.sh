@@ -670,12 +670,10 @@ case_check_board_citations() {
   cf_reset
   make_sandbox
 
-  local registers reg_path reg_mark marker exclude prd_dir prd_file out rc
+  local registers reg_path reg_mark exclude prd_dir prd_file out rc
   registers="$(cb_default REGISTERS)"
-  marker="$(cb_default CITATION_MARKER)"
   exclude="$(sed -n "/^CITATION_EXCLUDE='/,/'\$/p" "$REAL_SCRIPTS/check-board.sh" | sed "s/^CITATION_EXCLUDE='//; s/'\$//")"
   [ -n "$registers" ] || { cf "could not derive REGISTERS"; finish "arm (l): citations"; teardown; return; }
-  [ -n "$marker" ]    || cf "could not derive CITATION_MARKER from check-board.sh"
   [ -n "$exclude" ]   || cf "could not derive CITATION_EXCLUDE from check-board.sh"
   reg_path="${registers%%|*}"
   reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
@@ -857,6 +855,95 @@ EOF
     && cf "(c) a citation inside an excluded path (scripts/ or .claude/skills/) was read anyway: $out"
 
   finish "arm (l)'s widened population catches a dangling citation OUTSIDE the two former surfaces (PROJECT.md, dev/) — a boundary a control planted inside the old surfaces could not fail at — accepts the marker with or without its space, never reads the kit's own illustrative 'D-NN' text as a citation, and still excludes scripts/ and .claude/skills/"
+  teardown
+}
+
+# =============================================================================
+# CASE — ARM (l) READS EVERY MARKER FORM THROUGH kit_decisions_cited, NOT JUST THE SINGLE-ID
+# NO-LIST, NO-RANGE, CASE-SENSITIVE FORM: a capitalized label, a comma LIST (the valid id buried
+# inside it), a trailing space before the bracket, and a '..' RANGE all cite. A bare 'per D-NN'
+# mention (no brackets) still does not. Planted exactly as dogfood found them: the live register
+# carries D-05 (so the list and the range both also prove a REAL id inside them resolves, not just
+# that the marker is seen), plus a genuinely dangling id (D-93) so the list's dangling half still
+# decides. The arm's own POPULATION line (marker-form citations against bare mentions) is checked
+# last, on a file this case controls precisely: 9 marker citations, 2 bare mentions (the register's own D-05 heading and 'per D-95').
+# =============================================================================
+case_check_board_citation_forms_and_population() {
+  cf_reset
+  make_sandbox
+
+  local registers reg_path reg_mark out
+  registers="$(cb_default REGISTERS)"
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  [ -n "$reg_path" ] || { cf "could not derive REGISTERS"; finish "arm (l): citation forms"; teardown; return; }
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")"
+  cat > "$SB_WORK/$reg_path" <<EOF
+# DECISIONS
+## A. First bucket
+${reg_mark}D-05 — a live entry a list and a range both cite
+
+## Retired ids
+
+\`<none yet>\`
+
+## Findings
+EOF
+
+  # One file, every form from the dogfood plant, plus the bare-mention control.
+  printf '%s\n' \
+    '[Decision: D-05]' \
+    '[decision: D-93, D-05]' \
+    '[decision: D-94 ]' \
+    'per D-95' \
+    '[decision: D-05..D-07]' \
+    '[decision:D-21]' \
+    "[decision: D$(printf '\xe2\x80\x93')31]" \
+    '[decision: D-NN]' \
+    > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+
+  out="$(cb_run)"
+  # (a) the capitalized label cites the live id — no dangling finding for it.
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep -w 'D-05' >/dev/null \
+    && cf "(a) the live id D-05, cited only via the capitalized '[Decision: ...]' form, was reported dangling: $out"
+  # (b) the list's dangling half (D-93) still decides, even with a live id (D-05) in the same list.
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-93' >/dev/null \
+    || cf "(b) a dangling id inside a comma LIST ('[decision: D-93, D-05]') was not reported: $out"
+  # (c) the trailing-space form cites D-94 (dangling — named so it is also seen, not swallowed).
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-94' >/dev/null \
+    || cf "(c) the trailing-space form '[decision: D-94 ]' was not read as a citation at all: $out"
+  # (d) the RANGE cites D-05 (live, already proven above) through D-07 (dangling) inclusive.
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-06' >/dev/null \
+    || cf "(d) the RANGE '[decision: D-05..D-07]' did not cite D-06, a member with no id of its own in the text: $out"
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-07' >/dev/null \
+    || cf "(d) the RANGE '[decision: D-05..D-07]' did not cite its own upper bound D-07: $out"
+  # (e0) the no-space form cites D-21; the illustrative '[decision: D-NN]' cites nothing.
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-21' >/dev/null \
+    || cf "(e0) '[decision:D-21]' (no space) was not read as a citation: $out"
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep -w 'NN' >/dev/null \
+    && cf "(e0) the illustrative '[decision: D-NN]' was read as a citation: $out"
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-31' >/dev/null \
+    || cf "(e1) an en-dash id '[decision: D–31]' was not read as the citation D-31: $out"
+  # (e) a bare mention ('per D-95') is still not a citation — no dangling finding for D-95.
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep 'D-95' >/dev/null \
+    && cf "(e) a bare mention with no brackets ('per D-95') was read as a citation: $out"
+  printf '%s\n' "$out" | grep 'board-drift: findings above' >/dev/null \
+    || cf "the dangling ids among the planted forms did not reach the verdict: $out"
+
+  # (f) the POPULATION line: marker-form citations checked against bare mentions outside a
+  # marker, both counted and both printed — never a bare '✓ none' alone. 9 marker citations
+  # (D-05, D-93, D-05, D-94, D-05, D-06, D-07, D-21, D-31 — the range's 3 expanded ids all count), 2 bare
+  # mentions (D-95 from 'per D-95', and the register file's own D-05 heading; the word 'Decision'/'decision' inside the OTHER five lines'
+  # own brackets is stripped as marker text, not left behind as a second bare hit).
+  printf '%s\n' "$out" | _cb_l_section | grep -iE 'population checked' >/dev/null \
+    || cf "(f) arm (l) printed no population line (marker-form count vs bare-mention count): $(printf '%s\n' "$out" | _cb_l_section)"
+  printf '%s\n' "$out" | _cb_l_section | grep -iE 'population checked' | grep -E '\b9\b.*marker-form' >/dev/null \
+    || cf "(f) the marker-form count is not 9: $(printf '%s\n' "$out" | _cb_l_section | grep -i 'population checked')"
+  printf '%s\n' "$out" | _cb_l_section | grep -iE 'population checked' | grep -E '\b2\b.*bare' >/dev/null \
+    || cf "(f) the bare-mention count is not 2 (per D-95 and the register heading, outside any marker): $(printf '%s\n' "$out" | _cb_l_section | grep -i 'population checked')"
+
+  finish "arm (l) reads a capitalized label, a comma list (dangling half deciding even beside a live id), a trailing space, and a '..' range as citations — a bare 'per D-NN' mention still is not one — and states its own population (marker-form citations checked against bare mentions outside a marker) rather than a bare '✓ none'"
   teardown
 }
 
@@ -1128,12 +1215,10 @@ EOF
 case_check_board_reverse_coverage() {
   cf_reset
   make_sandbox
-  local registers reg_path reg_mark marker prd_surface out
+  local registers reg_path reg_mark prd_surface out
   registers="$(cb_default REGISTERS)"
-  marker="$(cb_default CITATION_MARKER)"
   prd_surface="$(cb_default PRD_SURFACE)"
   [ -n "$registers" ]   || { cf "could not derive REGISTERS from the defaults block"; finish "arm (r): reverse coverage"; teardown; return; }
-  [ -n "$marker" ]      || cf "could not derive CITATION_MARKER from check-board.sh"
   [ -n "$prd_surface" ] || cf "could not derive PRD_SURFACE from check-board.sh"
   reg_path="${registers%%|*}"
   reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
