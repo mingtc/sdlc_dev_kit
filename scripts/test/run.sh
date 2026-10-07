@@ -264,6 +264,8 @@ CASES=(
   case_kit_upgrade_blocks_the_stub_over_a_graduated_agents_md
   case_kit_upgrade_still_replaces_an_ungraduated_stub
   case_kit_upgrade_removed_upstream_reflects_a_local_edit
+  case_kit_upgrade_checks_open_cards_against_the_new_kit
+  case_kit_upgrade_finish_archives_the_marked_checklist
   case_ask_help_answers_first
   case_ask_refuses_with_no_principal
   case_ask_principal_field_reads_either_form

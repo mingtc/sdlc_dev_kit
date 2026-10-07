@@ -37,6 +37,20 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   *Why:* a deferred upgrade carried in a session's working memory is lost at the next handover.
 - **The tree's version is stamped only when every item is marked done**, never by the first run.
   *Why:* a version that moves before the work does tells the next reader the work is done.
+- **The marked checklist outlives the upgrade, in the tree.** Finishing moves it to
+  `process/upgrades/<from>-to-<to>.md`, and refuses rather than overwrite an archive of that name.
+  *Why:* the branch an upgrade is staged on may be squash-merged, which erases the commits that marked
+  each item; the file is then the only record of what was done.
+- **The new kit's landing checks judge the project's open cards, and are read from the new kit.** The
+  `forks:`, QA Verdict and Ablation checks run over every card in `in_progress/`, `dev_complete/` and
+  `blocked/` that has a branch (the QA Verdict and Ablation only at `dev_complete/`, or where the card
+  already carries a QA Verdict), from a copy of the new kit's `scripts/lib/` staged in `.kit-upgrade/lib/`.
+  A card they would refuse is one checklist item naming the rule id, and finishing refuses while any
+  still would. A card whose branch resolves to no branch, or a project with no trunk branch, gets an item
+  saying the checks did not run; it is never counted as passing.
+  *Why:* a landing check never reads its own rule from the tree it judges, and an upgrade's own landing
+  runs the gates the project had before it, so nothing else ever tests an in-flight card against the
+  rules the project has just adopted. A column left out would be a place to move a card to avoid them.
 - **It runs from the new kit, against a tree it is not inside.** The tree being upgraded is named
   explicitly; the code that runs is the new release's.
   *Why:* a tree older than the upgrade tool has none of its own, and the copy inside a tree is the
@@ -67,6 +81,8 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) Â
 | `upgrade-nothing-to-finish` | finishing was asked for and no upgrade is in progress |
 | `upgrade-staging-missing` | the checklist exists but the staged version and manifest do not |
 | `upgrade-checklist-unmarked` | finishing was asked for with an item still unmarked |
+| `upgrade-open-card-refused` | finishing was asked for while an open card would still be refused by the new kit's landing checks |
+| `upgrade-archive-exists` | finishing was asked for and `process/upgrades/<from>-to-<to>.md` already exists |
 | `upgrade-checklist-uncommitted` | finishing was asked for while the marked checklist is uncommitted: finishing removes it, and the marks are the record |
 | `unknown-option`, `unexpected-argument` | a mis-invocation |
 
@@ -79,8 +95,8 @@ there becomes a merge item, and the run says why. Never a guess.
    file is untouched with its new version staged; the checklist lists each item; the version is
    unchanged; nothing is committed.
 2. Re-running against the same new kit changes nothing; against another version it refuses.
-3. After finishing: the version and the manifest are the new kit's, and the checklist and staging
-   are gone â€” with the marked checklist in the project's history.
+3. After finishing: the version and the manifest are the new kit's, the staging is gone, and the
+   marked checklist is at `process/upgrades/<from>-to-<to>.md`.
 4. Against a tree made from the same kit: nothing is written at all.
 
 ## 5. MINIMAL INTERFACE

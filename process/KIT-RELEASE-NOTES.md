@@ -62,14 +62,17 @@ unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/ki
    [`KIT-VERSION`](KIT-VERSION) (from a `+` version, § How versions work, the entries your tree may
    already hold are flagged: diff each before applying it), every file to merge, every file dropped
    upstream, every day-one scaffolding file it did not write because your project is past day one,
-   and the stamping checks for what arrived.
+   every open card (`in_progress/`, `dev_complete/`, `blocked/`) the new kit's landing checks would
+   refuse, and the stamping checks for what arrived.
 2. **Commit it through your own board and gates**, the checklist and `.kit-upgrade/` included. The
    upgrade is ordinary work.
 3. **Work the checklist, marking each item `- [x]`, and commit it as marked.**
    Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an **Action required** item you could not apply as written is a `K-NN` in `process/KIT-FEEDBACK.md`, with the item named in its *The moment.* block — `process/MANUAL.md` § Kit feedback.
 4. **`./scripts/kit-upgrade.sh --finish --into .`** writes `KIT-VERSION` (the new copy's line exactly,
-   any `+<tree>` included) and `process/KIT-MANIFEST`, and removes the checklist and `.kit-upgrade/`.
-   It refuses while an item is unmarked. Commit that too.
+   any `+<tree>` included) and `process/KIT-MANIFEST`, moves the marked checklist to
+   `process/upgrades/<from>-to-<to>.md` (the record of what was done, whatever merge strategy landed the
+   upgrade) and removes `.kit-upgrade/`. It refuses while an item is unmarked, and while the new
+   kit's landing checks would refuse an open card. Commit that too.
 
 Every refusal names its reason and leaves a progress record; the contract's § 3 lists them.
 
@@ -318,6 +321,19 @@ columns and never the cards.*
 ## [Unreleased]
 
 ### Action required
+
+- **`kit-upgrade.sh --finish` now moves the marked checklist to `process/upgrades/<from>-to-<to>.md` instead of
+  deleting it, so the record survives a squash merge.** The directory is created on demand; a project's
+  `KIT-MANIFEST` does not list it. **Commit the new file with the rest of what `--finish` writes.** `--finish`
+  refuses if that path already exists.
+
+- **An upgrade now checks your open cards against the new kit's landing checks.** At staging,
+  `kit-upgrade.sh` runs `forks:` over every card in `in_progress/`, `dev_complete/` and `blocked/`, and the QA
+  Verdict and Ablation checks over `dev_complete/` cards, from the new kit's own `scripts/lib/` (staged under
+  `.kit-upgrade/lib/`). Each card they would refuse is a checklist item naming the rule id; a card whose `branch:`
+  resolves to no branch is an item saying it could not be checked. `--finish` runs them again and refuses
+  (`upgrade-open-card-refused`) while any would still be refused. **Before `--finish`, fix each listed card as its
+  own landing would require, or check by hand the ones that could not be run.**
 
 - **If you wrote your own script that calls `kwt_lock` or `kit_on_exit` (`scripts/lib/exit-trap.sh`), end it with
   `exit 0`, or a clean run now reports 1.** The cleanup trap cannot tell a crash from a clean end on bash 3.2 any

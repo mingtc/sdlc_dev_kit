@@ -37,7 +37,16 @@
 # file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path.
 # The first run never stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or
 # while the marked checklist is uncommitted; then it writes the new process/KIT-VERSION and
-# process/KIT-MANIFEST, and removes the checklist and .kit-upgrade/.
+# process/KIT-MANIFEST, moves the marked checklist to process/upgrades/<from>-to-<to>.md (the
+# record of what was done, which survives any merge strategy), and removes .kit-upgrade/.
+#
+# THE OPEN CARDS: the new kit's landing checks (forks:, the QA Verdict table, the Ablation section),
+# read from the staged copy of the NEW kit's scripts/lib/ in .kit-upgrade/lib/ and never from the
+# project's own, are run over every card in progress/in_progress, dev_complete and blocked. A card
+# they would refuse gets one checklist item naming the rule; --finish runs them again and refuses
+# while any still would. A card whose branch does not resolve cannot be checked: its item says so.
+# A card in in_progress or blocked is checked for forks: alone; the QA Verdict and the Ablation are
+# owed at dev_complete.
 #
 # It never commits: the upgrade is ordinary work, committed through the project's own board.
 # Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory.
@@ -123,6 +132,102 @@ read_version() {  # <file> — its one line, or nothing
   [ -f "$1" ] && sed -n '1{s/[[:space:]]*$//;p;}' "$1"
 }
 
+
+# ── THE NEW KIT'S LANDING CHECKS over the project's open cards ─────────────────
+# lc_run fills LC_REFUSED ("<id>|<column>|<rule ids>|<first message line>"), LC_UNCHECKED
+# ("<id>|<column>|<why>"), LC_DIDNOT (a check's own "did not run" lines) and LC_NOTE (why no card
+# could be checked at all), and LC_FORKS_ONLY (cards checked for forks: alone).
+# The checks run in a subshell with the progress writer replaced, so a probe refuses without
+# leaving a record; the rule id is what kit_refuse hands that writer.
+LC_REFUSED=(); LC_UNCHECKED=(); LC_DIDNOT=(); LC_NOTE=""; LC_FORKS_ONLY=0; LC_CARDS=0
+lc_trunk() {
+  local r
+  for r in "$(git -C "$TGT" symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null)" \
+           refs/remotes/origin/main refs/remotes/origin/master refs/heads/main refs/heads/master; do
+    [ -n "$r" ] && git -C "$TGT" rev-parse --verify -q "$r^{commit}" >/dev/null 2>&1 && { printf '%s' "$r"; return 0; }
+  done
+  return 1
+}
+lc_branch_rev() {  # <branch> — the ref holding its tip, or nothing
+  local r
+  case "$1" in ''|n/a|null) return 1 ;; esac
+  for r in "refs/heads/$1" $(git -C "$TGT" for-each-ref --format='%(refname)' "refs/remotes/*/$1" 2>/dev/null); do
+    git -C "$TGT" rev-parse --verify -q "$r^{commit}" >/dev/null 2>&1 && { printf '%s' "$r"; return 0; }
+  done
+  return 1
+}
+lc_field() {  # <file> <key> — a frontmatter value
+  awk -v k="$2" '/^---[[:space:]]*$/ { n++; next }
+    n == 1 && index($0, k ":") == 1 { sub(/^[^:]*:[[:space:]]*/, ""); sub(/[[:space:]]+$/, ""); print; exit }' "$1"
+}
+# lc_probe <check function and its arguments…> — sets LC_RULE and LC_MSG; prints the check's own stdout.
+lc_probe() {
+  local rc
+  : > "$LC_TMP/rule"
+  ( . "$LC_DIR/refuse.sh"; . "$LC_DIR/decision-register.sh"; . "$LC_DIR/qa-gate.sh" || exit 70
+    kit_progress() { printf '%s' "$4" > "$LC_TMP/rule"; }
+    "$@" ) >"$LC_TMP/out" 2>"$LC_TMP/err"
+  rc=$?
+  LC_RULE=""; LC_MSG=""
+  if [ "$rc" -ne 0 ]; then
+    LC_RULE="$(sed 's/^refusal=//' "$LC_TMP/rule")"; [ -n "$LC_RULE" ] || LC_RULE="landing-check-failed"
+    LC_MSG="$(sed -n '1s/^Error: //p' "$LC_TMP/err")"; [ -n "$LC_MSG" ] || LC_MSG="the check exited $rc without a message"
+  fi
+}
+lc_run() {
+  LC_REFUSED=(); LC_UNCHECKED=(); LC_DIDNOT=(); LC_NOTE=""; LC_FORKS_ONLY=0; LC_CARDS=0
+  local cards=() col f id br rev trunk cboard rules msg why line
+  for col in in_progress dev_complete blocked; do
+    for f in "$TGT/progress/$col/"*.md; do
+      [ -f "$f" ] && [ "$(sed -n 1p "$f")" = --- ] && cards+=("$col|$f")
+    done
+  done
+  LC_CARDS="${#cards[@]}"
+  [ "$LC_CARDS" -gt 0 ] || return 0
+  LC_TMP="$(mktemp -d "${TMPDIR:-/tmp}/kit-upgrade-checks.XXXXXX")" || { LC_NOTE="could not make a scratch directory"; return 0; }
+  LC_DIR="$LC_TMP/lib"; mkdir -p "$LC_DIR"
+  for f in "$ST/lib/"*.kit-new; do [ -f "$f" ] && cp "$f" "$LC_DIR/$(basename "${f%.kit-new}")"; done
+  if [ ! -f "$LC_DIR/qa-gate.sh" ] || [ ! -f "$LC_DIR/refuse.sh" ] || [ ! -f "$LC_DIR/decision-register.sh" ]; then
+    LC_NOTE="$STAGE_DIR/lib/ does not hold the new kit's landing checks"
+  elif ! trunk="$(lc_trunk)"; then
+    LC_NOTE="no trunk branch (origin/HEAD, main or master) resolves in $TGT"
+  fi
+  cboard="$TGT/scripts/check-board.sh"
+  for line in ${cards[@]+"${cards[@]}"}; do
+    col="${line%%|*}"; f="${line#*|}"
+    id="$(lc_field "$f" id)"; [ -n "$id" ] || id="$(basename "$f" .md)"
+    if [ -n "$LC_NOTE" ]; then LC_UNCHECKED+=("$id|$col|$LC_NOTE"); continue; fi
+    br="$(lc_field "$f" branch)"
+    if ! rev="$(lc_branch_rev "$br")"; then
+      LC_UNCHECKED+=("$id|$col|its branch: ${br:-<none>} resolves to no branch here, and the checks read the code at the branch tip")
+      continue
+    fi
+    rules=""; msg=""
+    lc_probe kit_forks_check "$f" "$id" "$TGT" "$trunk" "$rev" "$cboard"
+    [ -z "$LC_RULE" ] || { rules="$LC_RULE"; msg="$LC_MSG"; }
+    while IFS= read -r why; do [ -z "$why" ] || LC_DIDNOT+=("$id: $why"); done < <(grep 'did not run' "$LC_TMP/out")
+    if [ "$col" = dev_complete ] || grep -q '^## QA Verdict[[:space:]]*$' "$f"; then
+      lc_probe kit_qa_verdict_check "$f" "$id" "$TGT" "$rev"
+      [ -z "$LC_RULE" ] || { rules="${rules:+$rules, }$LC_RULE"; msg="${msg:-$LC_MSG}"; }
+    else
+      LC_FORKS_ONLY=$((LC_FORKS_ONLY + 1))
+    fi
+    if [ "$col" = dev_complete ]; then
+      lc_probe kit_ablation_check "$f" "$id" "$TGT" "$trunk" "$rev"
+      [ -z "$LC_RULE" ] || { rules="${rules:+$rules, }$LC_RULE"; msg="${msg:-$LC_MSG}"; }
+      while IFS= read -r why; do [ -z "$why" ] || LC_DIDNOT+=("$id: $why"); done < <(grep 'did not run' "$LC_TMP/out")
+    fi
+    [ -z "$rules" ] || LC_REFUSED+=("$id|$col|$rules|$msg")
+  done
+  rm -rf "$LC_TMP"
+}
+# lc_report — what the run could not check, said on stdout.
+lc_report() {
+  local l
+  for l in ${LC_DIDNOT[@]+"${LC_DIDNOT[@]}"}; do echo "  not run: $l"; done
+  [ "$LC_FORKS_ONLY" -eq 0 ] || echo "  $LC_FORKS_ONLY open card(s) outside dev_complete were checked for forks: alone; their QA Verdict and Ablation are owed at dev_complete."
+}
+
 # ── --finish ──────────────────────────────────────────────────────────────────
 if [ "$FINISH" = true ]; then
   [ -f "$CL" ] || kit_refuse 1 upgrade-nothing-to-finish \
@@ -147,12 +252,35 @@ if [ "$FINISH" = true ]; then
   [ -z "$dirty" ] || kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths --finish writes:" "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
     "  Commit or stash them first."
+  # The new kit's landing checks, again, over the cards as they are now.
+  lc_run
+  if [ "${#LC_REFUSED[@]}" -gt 0 ]; then
+    refused_lines=()
+    for l in "${LC_REFUSED[@]}"; do
+      IFS='|' read -r r_id r_col r_rules r_msg <<< "$l"
+      refused_lines+=("  $r_id ($r_col): $r_rules — $r_msg")
+    done
+    kit_refuse 1 upgrade-open-card-refused \
+      "Error: ${#LC_REFUSED[@]} open card(s) in $TGT would be refused by the new kit's landing checks; process/KIT-VERSION is stamped only when none would be." \
+      "${refused_lines[@]}" \
+      "  Fix each card (its own landing is refused the same way), then run --finish again."
+  fi
+  [ -z "$LC_NOTE" ] || [ "$LC_CARDS" -eq 0 ] || echo "  open cards were not checked: $LC_NOTE"
+  lc_report
   new_v="$(read_version "$ST/KIT-VERSION")"
+  old_v="$(read_version "$TGT/process/KIT-VERSION")"
+  ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
+  [ ! -e "$TGT/$ARCHIVE_REL" ] || kit_refuse 1 upgrade-archive-exists \
+    "Error: $ARCHIVE_REL already exists; --finish would overwrite the record of an earlier upgrade." \
+    "  Move or rename it (commit that), then run --finish again."
+  mkdir -p "$TGT/process/upgrades" && cp "$CL" "$TGT/$ARCHIVE_REL" \
+    || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT."
   cp "$ST/KIT-VERSION" "$TGT/process/KIT-VERSION" && cp "$ST/KIT-MANIFEST" "$TGT/process/KIT-MANIFEST" \
     || kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT."
   rm -rf "$ST" && rm -f "$CL"
   echo "kit-upgrade: $TGT now records kit $new_v (process/KIT-VERSION, process/KIT-MANIFEST)."
-  echo "  $UPGRADE_CHECKLIST and $STAGE_DIR/ are removed. Nothing is committed: commit this through your own board."
+  echo "  The marked checklist is kept as $ARCHIVE_REL; $UPGRADE_CHECKLIST and $STAGE_DIR/ are removed."
+  echo "  Nothing is committed: commit this through your own board."
   exit 0
 fi
 
@@ -348,6 +476,12 @@ for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p
 mkdir -p "$ST/files" || fail_write "$STAGE_DIR/"
 for p in ${MERGE[@]+"${MERGE[@]}"}; do put "$SRC/$p" "$TGT/$(staged_rel "$p")" || fail_write "$(staged_rel "$p")"; done
 cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFEST" || fail_write "$STAGE_DIR/KIT-VERSION"
+# The new kit's own scripts/lib/, staged so the landing checks are read from it at --finish too.
+for p in "$SRC/scripts/lib/"*.sh; do
+  [ -f "$p" ] || continue
+  put "$p" "$ST/lib/$(basename "$p").kit-new" || fail_write "$STAGE_DIR/lib/$(basename "$p").kit-new"
+done
+lc_run
 
 {
   echo "<!-- Written by scripts/kit-upgrade.sh; it and check-board.sh read this file. One item per line. -->"
@@ -359,7 +493,7 @@ cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFE
   echo "a kit finding (process/MANUAL.md § Kit feedback, M3): record it, then mark the item."
   echo "Until every item is marked, keep this file committed: it is the upgrade's record for whoever"
   echo "comes next. Then \`./scripts/kit-upgrade.sh --finish --into .\` stamps process/KIT-VERSION"
-  echo "and removes this file and \`$STAGE_DIR/\`."
+  echo "moves this file to process/upgrades/ and removes \`$STAGE_DIR/\`."
   if [ -n "$DEGRADED" ]; then
     echo
     echo "Every file the kit changed that differs here is a merge item, because $DEGRADED."
@@ -375,6 +509,18 @@ cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFE
       migrate_claude=1
     fi
   done
+
+  if [ "${#LC_REFUSED[@]}" -gt 0 ] || [ "${#LC_UNCHECKED[@]}" -gt 0 ]; then
+    echo; echo "## Open cards"; echo
+    for l in ${LC_REFUSED[@]+"${LC_REFUSED[@]}"}; do
+      IFS='|' read -r r_id r_col r_rules r_msg <<< "$l"
+      echo "- [ ] open card $r_id ($r_col) — the new kit's landing checks would refuse it: $r_rules ($r_msg); fix the card, then mark this"
+    done
+    for l in ${LC_UNCHECKED[@]+"${LC_UNCHECKED[@]}"}; do
+      IFS='|' read -r r_id r_col r_why <<< "$l"
+      echo "- [ ] open card $r_id ($r_col) — the new kit's landing checks did not run on it: $r_why; check it by hand before it lands, then mark this"
+    done
+  fi
 
   if [ "$(( ${#MERGE[@]} + ${#REMOVED[@]} + ${#ADDED[@]} + ${#REPLACED[@]} + ${#BLOCKED[@]} ))" -gt 0 ]; then
     echo; echo "## Files"; echo
@@ -413,6 +559,10 @@ echo "  replaced ${#REPLACED[@]}, added ${#ADDED[@]}, already current $n_current
 echo "  to merge ${#MERGE[@]} (new copies in $STAGE_DIR/files/), removed upstream ${#REMOVED[@]}, Action required ${#ACTION[@]}"
 [ "${#BLOCKED[@]}" -eq 0 ] || echo "  kept, not replaced (this project is past the kit's day-one scaffolding there) ${#BLOCKED[@]}"
 [ -z "$DEGRADED" ] || echo "  every file the kit changed that differs here is a merge item, because $DEGRADED."
+if [ "$LC_CARDS" -gt 0 ]; then
+  echo "  open cards: $LC_CARDS read, ${#LC_REFUSED[@]} the new kit's landing checks would refuse, ${#LC_UNCHECKED[@]} not checkable"
+  lc_report
+fi
 echo
 echo "Nothing is committed. Next:"
 echo "  1. Review: git -C $TGT status; git -C $TGT diff"

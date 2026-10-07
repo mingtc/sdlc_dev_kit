@@ -671,3 +671,159 @@ case_kit_upgrade_removed_upstream_reflects_a_local_edit() {
   finish "$L"
   teardown
 }
+
+# _ku_card <column> <id> <branch|n/a> <forks line, or empty> <qa|noqa> [test] — one open card in the target,
+# moved the way the roles move it: minted in todo/, its branch cut from the trunk with a code commit
+# on it, then moved to in_progress/ and on to <column> on the trunk. The QA table's one test row
+# names the branch's own code file, which the gate reads at the branch tip; a sixth argument also
+# puts a file under tests/ on the branch.
+_ku_card() {
+  local col="$1" id="$2" br="$3" forks="$4" qa="$5" tst="${6:-}" f="$KU_T/progress" slug="$2-card"
+  mkdir -p "$f/todo" "$f/in_progress" "$f/dev_complete" "$f/blocked"
+  {
+    printf -- '---\nid: %s\ntype: feature\ntitle: card %s\nbranch: %s\n' "$id" "$id" "$br"
+    [ -z "$forks" ] || printf '%s\n' "$forks"
+    printf -- '---\n\n# %s\n\n## Acceptance Criteria\n\n- [ ] AC1 — the card behaves.\n' "$id"
+    if [ "$qa" = qa ]; then
+      printf '\n## QA Verdict\n\n| AC id | verdict | evidence kind | evidence pointer |\n|---|---|---|---|\n'
+      printf '| AC1 | PASS | test | src/%s.txt:1 "behaves %s" |\n| shadow-check | — | — | assertions removed: none |\n' "$id" "$id"
+    fi
+    printf '\n## Activity\n\n- 2026-01-01 [PM] Minted.\n'
+  } > "$f/todo/$slug.md"
+  git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "mint $id" >/dev/null 2>&1
+  if [ "$br" != n/a ]; then
+    git -C "$KU_T" checkout -q -b "$br" main >/dev/null 2>&1
+    mkdir -p "$KU_T/src"; printf 'behaves %s\n' "$id" > "$KU_T/src/$id.txt"
+    [ -z "$tst" ] || { mkdir -p "$KU_T/tests"; printf 'test\n' > "$KU_T/tests/$id.t"; }
+    git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "code for $id" >/dev/null 2>&1
+    git -C "$KU_T" checkout -q main >/dev/null 2>&1
+  fi
+  git -C "$KU_T" mv "progress/todo/$slug.md" "progress/in_progress/$slug.md" >/dev/null 2>&1
+  git -C "$KU_T" commit -qm "$id to in_progress" >/dev/null 2>&1
+  if [ "$col" != in_progress ]; then
+    git -C "$KU_T" mv "progress/in_progress/$slug.md" "progress/$col/$slug.md" >/dev/null 2>&1
+    git -C "$KU_T" commit -qm "$id to $col" >/dev/null 2>&1
+  fi
+}
+
+# _ku_cards_pair — an adopted 0.1.0 tree on `main` with four open cards, and a 0.2.0 kit that
+# carries the real landing checks. The cards: ROTA-001 at dev_complete with a QA table and no
+# forks: field; ROTA-002 blocked with no forks: field; ROTA-003 in_progress with forks: none;
+# ROTA-004 in_progress with no branch; ROTA-005 at dev_complete with no QA Verdict table; ROTA-006
+# at dev_complete whose branch touches a declared test path and has no Ablation section.
+_ku_cards_pair() {
+  KU_OLD="$SB_TMP/kit-old"; KU_NEW="$SB_TMP/kit-new"; KU_T="$SB_TMP/project"; KU_ELSE="$SB_TMP/elsewhere"
+  rm -rf "$KU_OLD" "$KU_NEW" "$KU_T" "$KU_ELSE"
+  mkdir -p "$KU_ELSE"
+  _ku_kit "$KU_OLD" 0.1.0 old
+  _ku_kit "$KU_NEW" 0.2.0 new
+  mkdir -p "$KU_OLD/scripts" && cp "$REAL_SCRIPTS/check-board.sh" "$KU_OLD/scripts/" && _ku_manifest "$KU_OLD"
+  cp "$REAL_SCRIPTS/check-board.sh" "$KU_NEW/scripts/"; cp "$REAL_SCRIPTS/lib/"*.sh "$KU_NEW/scripts/lib/"
+  _ku_manifest "$KU_NEW"
+  _ku_target "$KU_T" "$KU_OLD" >/dev/null 2>&1
+  git -C "$KU_T" branch -M main >/dev/null 2>&1
+  mkdir -p "$KU_T/scripts" && printf 'TEST_GLOBS=(\n  "tests/*"\n)\n' > "$KU_T/scripts/config.sh"
+  git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "declare TEST_GLOBS" >/dev/null 2>&1
+  _ku_card dev_complete ROTA-001 feat/one '' qa
+  _ku_card blocked ROTA-002 feat/two '' noqa
+  _ku_card in_progress ROTA-003 feat/three 'forks: none' noqa
+  _ku_card in_progress ROTA-004 n/a 'forks: none' noqa
+  _ku_card dev_complete ROTA-005 feat/five 'forks: none' noqa
+  _ku_card dev_complete ROTA-006 feat/six 'forks: none' qa test
+}
+
+# =============================================================================
+# CASE — THE NEW KIT'S LANDING CHECKS RUN OVER THE OPEN CARDS, AT STAGING AND AT --finish.
+#
+# An adopted tree on the old kit holds in-flight cards one of the new kit's landing checks would
+# refuse (no forks: field), one of them blocked. Staging writes one checklist item per such card
+# naming the rule and leaves no refusal record of its own; a card with no branch gets an item
+# saying the checks did not run; a clean card gets none. --finish refuses, with a record, until
+# the cards are fixed, then stamps.
+# =============================================================================
+case_kit_upgrade_checks_open_cards_against_the_new_kit() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh runs the new kit's landing checks over open cards: staging lists each refused card by rule (a blocked one too) and each unchecked one, and --finish refuses until none would be refused"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_cards_pair
+  local cl="$KU_T/$KU_CHECKLIST_REL" recs="$KU_T/.progress-records" n
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  grep -F 'open card ROTA-001 (dev_complete)' "$cl" | grep -F 'forks-missing' >/dev/null \
+    || cf "no item names ROTA-001 and forks-missing: $(grep -F ROTA "$cl" | tr '\n' '|')"
+  grep -F 'open card ROTA-002 (blocked)' "$cl" | grep -F 'forks-missing' >/dev/null \
+    || cf "a blocked card was not checked: $(grep -F ROTA "$cl" | tr '\n' '|')"
+  grep -F 'open card ROTA-005 (dev_complete)' "$cl" | grep -F 'qa-verdict-missing' >/dev/null \
+    || cf "no item names ROTA-005 and qa-verdict-missing: $(grep -F ROTA-005 "$cl")"
+  grep -F 'open card ROTA-006 (dev_complete)' "$cl" | grep -F 'ablation-missing' >/dev/null \
+    || cf "no item names ROTA-006 and ablation-missing: $(grep -F ROTA-006 "$cl")"
+  grep -F 'ROTA-003' "$cl" >/dev/null && cf "a card whose forks: is declared got an item: $(grep -F ROTA-003 "$cl")"
+  grep -F 'open card ROTA-004' "$cl" | grep -F 'did not run' >/dev/null \
+    || cf "a card with no branch is not listed as unchecked: $(grep -F ROTA-004 "$cl")"
+  n="$(_ku_recs "$recs" forks-missing)"
+  [ "${n:-0}" -eq 0 ] || cf "a probe left $n refusal=forks-missing record(s) in the target"
+  [ -f "$KU_T/.kit-upgrade/lib/qa-gate.sh.kit-new" ] || cf "the new kit's qa-gate.sh is not staged under .kit-upgrade/lib/"
+
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark the upgrade" >/dev/null 2>&1
+  _ku_run fin1 --finish --into "$KU_T"
+  [ "$(_ku_rc fin1)" != 0 ] || cf "--finish stamped with cards the new checks refuse"
+  [ "$(_ku_recs "$recs" upgrade-open-card-refused)" -eq 1 ] || cf "no refusal=upgrade-open-card-refused record: $(_ku_out fin1)"
+  grep -F 'ROTA-001' "$SB_TMP/fin1.out" >/dev/null || cf "the refusal does not name ROTA-001: $(_ku_out fin1)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "a refused --finish stamped the version"
+  [ -f "$cl" ] || cf "a refused --finish removed the checklist"
+
+  # The cards are fixed as their owners would fix them: --finish then stamps.
+  local c
+  for c in "$KU_T"/progress/dev_complete/ROTA-001-card.md "$KU_T"/progress/blocked/ROTA-002-card.md; do
+    sed -i.bak 's/^branch: \(.*\)$/branch: \1\nforks: none/' "$c" && rm -f "$c.bak"
+  done
+  printf '\n## QA Verdict\n\n| AC id | verdict | evidence kind | evidence pointer |\n|---|---|---|---|\n' >> "$KU_T/progress/dev_complete/ROTA-005-card.md"
+  printf '| AC1 | PASS | test | src/ROTA-005.txt:1 "behaves ROTA-005" |\n| shadow-check | — | — | assertions removed: none |\n' >> "$KU_T/progress/dev_complete/ROTA-005-card.md"
+  printf '\n## Ablation\n\nBroken: the test file\nRed line: it failed\n' >> "$KU_T/progress/dev_complete/ROTA-006-card.md"
+  git -C "$KU_T" commit -qam "declare forks, fill the QA Verdict and the Ablation" >/dev/null 2>&1
+  _ku_run fin2 --finish --into "$KU_T"
+  [ "$(_ku_rc fin2)" = 0 ] || cf "--finish with the cards fixed exited $(_ku_rc fin2): $(_ku_out fin2)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.2.0 ] || cf "--finish did not stamp 0.2.0"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — --finish KEEPS THE MARKED CHECKLIST, UNDER process/upgrades/.
+#
+# The record of what was done must survive any merge strategy, so --finish moves the committed,
+# marked checklist to process/upgrades/<from>-to-<to>.md, byte for byte, creating the directory;
+# it refuses rather than overwrite an archive of the same name.
+# =============================================================================
+case_kit_upgrade_finish_archives_the_marked_checklist() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh --finish moves the marked checklist to process/upgrades/<from>-to-<to>.md byte for byte, and refuses to overwrite an archive of that name"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.2.0
+  local cl="$KU_T/$KU_CHECKLIST_REL" arch="$KU_T/process/upgrades/0.1.0-to-0.2.0.md"
+  _ku_run up --into "$KU_T"
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark" >/dev/null 2>&1
+  cp "$cl" "$SB_TMP/marked"
+  [ ! -d "$KU_T/process/upgrades" ] || cf "process/upgrades/ existed before --finish"
+  mkdir -p "$KU_T/process/upgrades" && printf 'earlier\n' > "$arch"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "an archive in the way" >/dev/null 2>&1
+  _ku_run fin1 --finish --into "$KU_T"
+  [ "$(_ku_rc fin1)" != 0 ] || cf "--finish overwrote an existing archive"
+  [ "$(cat "$arch")" = earlier ] || cf "the existing archive was changed"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "a refused --finish stamped the version"
+  git -C "$KU_T" rm -qf "process/upgrades/0.1.0-to-0.2.0.md" >/dev/null 2>&1; git -C "$KU_T" commit -qm "clear" >/dev/null 2>&1
+  _ku_run fin2 --finish --into "$KU_T"
+  [ "$(_ku_rc fin2)" = 0 ] || cf "--finish exited $(_ku_rc fin2): $(_ku_out fin2)"
+  [ -f "$arch" ] || cf "no archive at process/upgrades/0.1.0-to-0.2.0.md"
+  cmp -s "$arch" "$SB_TMP/marked" || cf "the archive is not the marked checklist, byte for byte"
+  [ ! -e "$cl" ] || cf "the checklist is still at its working location"
+  [ ! -e "$KU_T/.kit-upgrade" ] || cf ".kit-upgrade/ is still there"
+  finish "$L"
+  teardown
+}

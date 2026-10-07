@@ -183,7 +183,7 @@ pair makes the ruling, PM or the implementing leg, since routing is checked by w
 itself shows, not by who wrote it.** `forks: [D-NN, ...]`, or `forks: none` if it resolved none —
 checked, not merely trusted: `finish-pr.sh` refuses a landing where the field is absent, malformed,
 names an id that is not a live register entry, or where the branch itself (a register entry its diff
-adds or changes, or an Activity `[decision: D-NN]` citation) shows a fork `forks:` does not name.
+adds or changes, or a `[decision: D-NN]` citation anywhere on the card) shows a fork `forks:` does not name.
 That check catches an unrouted fork; it does not decide whether a given reading is a fork in the
 first place, or whether it constrains a requirement — those are this section's diagnostic, above,
 and still this seat's judgement to apply.

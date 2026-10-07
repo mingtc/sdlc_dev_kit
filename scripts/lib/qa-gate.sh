@@ -451,7 +451,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   if [ -n "$_forks_missing_ids" ]; then
     kit_refuse 2 forks-contradicted \
       "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
-      "       (a register entry the branch's diff adds or changes, or an Activity '[decision: D-NN]' citation)." \
+      "       (a register entry the branch's diff adds or changes, or a '[decision: D-NN]' citation anywhere on the card)." \
       "       Add the id(s) to 'forks:' — 'forks: ${_forks_line}' does not account for them." \
       "       NOTHING WAS CHANGED."
   fi
