@@ -48,6 +48,10 @@ ladder and tooling still expect. This contract is what "changed" must mean.
 2. A declared carve-out is unchanged unless named explicitly.
 3. For a runner-default set: both workflow runners carry the same pair.
 4. Running the same set again is a no-op: nothing changes on the second call.
+5. A pin edited by hand shows as a disagreement: `check-board.sh` arm `[s]` compares each pin with its
+   ladder cell, and with `set-models.sh`'s record (`.claude/model-pins.record`, written only by that script)
+   where the cell is unfilled. It reports and never refuses, and it cannot see a model set by a launch flag
+   or a session toggle, nor a hand edit on a tree whose ladder is unfilled and where `set-models.sh` never ran.
 
 ## 5. MINIMAL INTERFACE
 
@@ -67,6 +71,8 @@ itself.
   `.claude/roles/orchestrator.md`, writes the matching agent pin(s) under `.claude/agents/`, the
   ladder row, and — for `--all` or `--runners` — `defaultModel`/`defaultEffort` in
   `.claude/workflows/wave-runner.js` and `.claude/workflows/tranche-runner.js`.
+- `scripts/lib/model-pins.sh` — KIT-CLASS: KIT. The class table, the ladder-cell and pin readers and the
+  record, shared by `set-models.sh` and `check-board.sh` arm `[s]`.
 - The self-test's `case_agent_model_pins_match_their_declaration`
   (`scripts/test/cases/runners.sh`) is the consistency check this contract's § 2 invariants are
   measured by, distinguishing the shipped tree (asserts the kit's own declared pattern) from an

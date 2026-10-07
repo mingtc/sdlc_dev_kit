@@ -416,7 +416,8 @@ it takes what the project never changed, stages the rest behind a checklist, and
 
 **Provisioning (KIT):** `set-models.sh` — writes a work class's `(model, effort)` pair to its
 leaf-worker pin(s), the ladder row and, for the runner default, the workflow runners together, so
-none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree with another.
+none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree with another. It
+keeps `.claude/model-pins.record` — what it last wrote to each pin — which `check-board.sh` arm `[s]` reads.
 
 **Board + item lifecycle (KIT):** `config.sh` · `check-board.sh` · `move-issue.sh` ·
 `finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
@@ -424,7 +425,7 @@ none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree wi
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it

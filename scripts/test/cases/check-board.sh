@@ -140,6 +140,14 @@ _cb_r_section() {  # reads a check-board report on stdin
        f'
 }
 
+# Same shape as _cb_g_section, for arm [s] (model pins vs the ladder).
+_cb_s_section() {  # reads a check-board report on stdin
+  awk '/^\[s\]/ { f = 1 }
+       f && /^──/ { exit }
+       f && /^\[[a-z]\]/ && !/^\[s\]/ { exit }
+       f'
+}
+
 # cb_set_dep <id> <slug> <folder> <blocks|blocked_by> <target-id>
 # Rewrite one dependency field into a seeded card's frontmatter. seed_issue does NOT emit
 # these keys, so this INSERTS before the CLOSING fence — the second `---`, never the
@@ -2645,6 +2653,101 @@ case_kit_feedback_line_is_reported_not_refused() {
   fi
 
   finish "check-board's kit-feedback arm reports the newest entry's line (1), reports a missing one without moving the verdict (2), skips off (3), reads a missing setting as auto out loud (4), has nothing to check before the first entry (5), is dropped by kit-init's own extracted filter (6), and a fresh install still completes (7)"
+}
+
+# =============================================================================
+# CASE — ARM (s): MODEL PINS VS THE LADDER, AND VS SET-MODELS.SH'S RECORD WHERE THE LADDER IS BLANK.
+#
+# Two routes to a pin that disagrees, each red-first:
+#   route 1 — a hand edit on a tree whose ladder is FILLED: the pin is compared with the ladder cell.
+#   route 2 — a hand edit on a tree whose ladder is UNFILLED: a ladder cell says nothing to compare
+#             against, so a plain "pin equals ladder" check reads it as agreement. The pin is then
+#             compared with what set-models.sh last wrote (.claude/model-pins.record).
+# The fixture follows the real order: set-models.sh runs, the tree is committed and pushed, the
+# report reads the trunk; then a hand edit is committed and pushed, and the report is read again.
+# Controls: the same tree before the edit and after it is undone reads clean; deleting the record
+# silences route 2 (so the record, not the ladder, is what catches it) and the report then says the
+# field is not checkable; the arm carries the 'reports only' token and never moves the verdict; and
+# stripping the arm from check-board.sh removes the finding.
+# =============================================================================
+case_check_board_model_pins_arm() {
+  cf_reset
+  make_sandbox
+  local ad orch out sec label f
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "arm (s): model pins vs the ladder" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh" rec="$SB_WORK/.claude/model-pins.record"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "arm (s): model pins vs the ladder"; teardown; return; }
+  _set_pin_effort() { awk -v e="$2" '/^effort:/{print "effort: " e; next} {print}' "$1" > "$1.new" && mv "$1.new" "$1"; }
+  _verdict() { printf '%s\n' "$1" | grep '^── board-drift'; }
+
+  # 1. the seam, then the report.
+  ( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-one --effort e-one >/dev/null 2>&1 ) \
+    || _fixture_die "set-models.sh --all refused in the sandbox"
+  [ -f "$rec" ] || cf "set-models.sh --all wrote no .claude/model-pins.record"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  [ -n "$sec" ] || cf "no [s] section in the report — the arm is absent: $out"
+  printf '%s\n' "$sec" | grep -E '^      ⚠ .* pin says' >/dev/null \
+    && cf "(control) a tree the seam just wrote reads as drifted: $sec"
+  printf '%s\n' "$sec" | grep -E '[1-9][0-9]* pin field\(s\) compared with the ladder' >/dev/null \
+    || cf "(control) the arm compared nothing against the filled ladder: $sec"
+  local v_clean; v_clean="$(_verdict "$out")"
+
+  # 2. ROUTE 1 — a hand edit, ladder filled.
+  _set_pin_effort "$ad/dev-worker.md" high
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  printf '%s\n' "$sec" | grep -F "dev-worker.md effort: the pin says 'high', the ladder's Dev row says 'e-one'" >/dev/null \
+    || cf "route 1: a hand-edited effort pin against a filled ladder was NOT reported: $sec"
+  [ "$(printf '%s\n' "$sec" | grep -c '^      ⚠ .* pin says')" -eq 1 ] \
+    || cf "route 1: expected exactly one finding: $sec"
+  printf '%s\n' "$out" | grep '^\[s\]' | grep -i 'reports only' >/dev/null \
+    || cf "[s]'s header does not carry the 'reports only' token"
+  [ "$(_verdict "$out")" = "$v_clean" ] \
+    || cf "[s] moved the verdict: '$v_clean' before, '$(_verdict "$out")' with a finding"
+  _set_pin_effort "$ad/dev-worker.md" e-one
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  printf '%s\n' "$sec" | grep -E '^      ⚠ .* pin says' >/dev/null \
+    && cf "(control) undoing the hand edit left a finding: $sec"
+
+  # 3. ROUTE 2 — the ladder is unfilled (its rows blanked), then a hand edit.
+  for label in "Orchestrator" "Refactorer" "PM-hat mint" "Spike / probe" "Dev" "QA" "XS / mechanical" "Cleanup / classifier"; do
+    _blank_ladder_row "$orch" "$label"
+  done
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  printf '%s\n' "$sec" | grep -E '^      ⚠ .* pin says' >/dev/null \
+    && cf "(control) an unfilled ladder with untouched pins reads as drifted: $sec"
+  printf '%s\n' "$sec" | grep -E '[1-9][0-9]* with set-models.sh.s record' >/dev/null \
+    || cf "(control) with the ladder unfilled the arm did not fall back to the record: $sec"
+  _set_pin_effort "$ad/dev-worker.md" high
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  printf '%s\n' "$sec" | grep -F "dev-worker.md effort: the pin says 'high', set-models.sh last wrote 'e-one' and the ladder's Dev row is unfilled" >/dev/null \
+    || cf "route 2: a hand-edited effort pin against an unfilled ladder was NOT reported: $sec"
+
+  # 4. ABLATION — without the record the same edit is silent, and the report says it cannot check.
+  git -C "$SB_WORK" rm -q -f .claude/model-pins.record
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  printf '%s\n' "$sec" | grep -E '^      ⚠ .* pin says' >/dev/null \
+    && cf "(control) route 2's finding survived the record's removal, so the record is not what caught it: $sec"
+  printf '%s\n' "$sec" | grep -E '[1-9][0-9]* not checkable' >/dev/null \
+    || cf "with no filled cell and no record the arm did not say the fields are not checkable: $sec"
+
+  # 5. ABLATION — strip the arm itself.
+  _set_pin_effort "$ad/dev-worker.md" e-one
+  local s="$SB_WORK/scripts/check-board.sh"
+  /usr/bin/grep -q '# (s) MODEL PINS VS THE LADDER' "$s" || cf "(control) no '(s) MODEL PINS VS THE LADDER' seam in check-board.sh — cannot ablate"
+  sed -i.bak '/# (s) MODEL PINS VS THE LADDER/,/# END model-pins arm/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[s\]' >/dev/null && cf "(control) the ablation left [s] printing"
+
+  finish "arm (s): a hand-edited pin is reported against a filled ladder, and against set-models.sh's record where the ladder is unfilled; an untouched or restored tree reads clean, the record is what route 2 rests on, and the arm only reports"
+  teardown
 }
 
 # =============================================================================

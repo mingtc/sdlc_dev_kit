@@ -1588,6 +1588,12 @@ case_runner_typed_leg_keeps_its_frontmatter_pin() {
   [ -d "$wf" ] || _fixture_die "case_runner_typed_leg_keeps_its_frontmatter_pin: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
   command -v node >/dev/null 2>&1 || { skp "a typed leg keeps its frontmatter pin" "node absent"; return; }
   stub="$(mktemp -d)/drive.mjs"; _runner_record_stub "$stub"
+  # THE RUN DEFAULTS ARE WRITTEN, NOT INHERITED: a tree that used set-models.sh carries other ones.
+  # The runners are driven from a copy whose defaults this case sets, and the CONTROL row reads them.
+  local live="$wf"; wf="$(dirname "$stub")/wf"; mkdir -p "$wf"
+  for f in tranche-runner.js wave-runner.js; do
+    cp "$live/$f" "$wf/$f"; _set_runner_defaults "$wf/$f" ctl-model ctl-effort
+  done
   # row | issue fields | the first dev call's `<agentType> <model> <effort>`, both runners
   while IFS='|' read -r name fields want; do
     [ -n "$name" ] || continue
@@ -1603,7 +1609,7 @@ case_runner_typed_leg_keeps_its_frontmatter_pin() {
 typed, nothing named: the frontmatter governs|,"devAgentType":"refactorer-worker"|refactorer-worker - -
 typed, effort named: only that is sent|,"devAgentType":"refactorer-worker","devEffort":"medium"|refactorer-worker - medium
 CONTROL: typed, both named|,"devAgentType":"ui-designer-worker","devModel":"opus","devEffort":"high"|ui-designer-worker opus high
-CONTROL: untyped gets the run defaults|,"devEffort":"high"|- opus high
+CONTROL: untyped gets the run defaults|,"devEffort":"high"|- ctl-model high
 ROWS
   rm -rf "$(dirname "$stub")"
   finish "both runners send a typed leg only the model/effort its issue names, so the type's frontmatter pin governs the rest, while an untyped leg still gets the run defaults ($n drive(s), nothing dispatched)"
@@ -1966,6 +1972,12 @@ case_agent_model_pins_match_their_declaration() {
 # into a fresh make_sandbox. Requires SB_WORK to exist (call make_sandbox first). Echoes the
 # absolute paths "AGENTS_DIR ORCH_DOC" on success, or nothing if the real tree carries none of
 # .claude//_claude — the caller SKIPs on empty, exactly as the two callers of _tree_has_lived do.
+#
+# THE SHAPE IS COPIED; THE MODEL STATE IS WRITTEN. A tree that used set-models.sh carries a filled
+# ladder, other pins and other runner defaults, and a case that inherited them would test that
+# tree's choices. So the copy is followed by a reset to one known state, asserted to have taken:
+# every ladder row's Model and Effort cells unfilled, every pin `seed-model`/`seed-effort`, both
+# runners' defaults `seed-model`/`seed-effort`. The reset is this file's own, never set-models.sh.
 # =============================================================================
 _seed_provisioning_sandbox() {
   local src="" d
@@ -1977,11 +1989,57 @@ _seed_provisioning_sandbox() {
   mkdir -p "$SB_WORK/.claude/agents" "$SB_WORK/.claude/roles" "$SB_WORK/.claude/workflows"
   cp "$src/agents"/*.md "$SB_WORK/.claude/agents/" 2>/dev/null
   cp "$src/roles/orchestrator.md" "$SB_WORK/.claude/roles/orchestrator.md"
-  local rf
+  local rf f label
   for rf in wave-runner.js tranche-runner.js; do
     [ -f "$src/workflows/$rf" ] && cp "$src/workflows/$rf" "$SB_WORK/.claude/workflows/$rf"
   done
+  _reset_model_state "$SB_WORK/.claude"
   printf '%s %s' "$SB_WORK/.claude/agents" "$SB_WORK/.claude/roles/orchestrator.md"
+}
+
+# _reset_model_state <.claude dir> — write the known model state described above, and die if any
+# of it did not take. The checks read the planted structure: a ladder row's cells, a pin's own
+# line, a runner's own default line.
+_reset_model_state() {
+  local cdir="$1" f label rf row
+  for f in "$cdir"/agents/*.md; do
+    [ -e "$f" ] || continue
+    awk '/^model:/{print "model: seed-model"; next} /^effort:/{print "effort: seed-effort"; next} {print}' "$f" > "$f.new" && mv "$f.new" "$f"
+    /usr/bin/grep -qx 'model: seed-model' "$f" || _fixture_die "_reset_model_state: $f carries no 'model:' line to reset"
+  done
+  for label in "Orchestrator" "Refactorer" "PM-hat mint" "Spike / probe" "Dev" "QA" "XS / mechanical" "Cleanup / classifier"; do
+    _blank_ladder_row "$cdir/roles/orchestrator.md" "$label"
+    row="$(/usr/bin/grep -E "^\| \*\*${label}" "$cdir/roles/orchestrator.md")"
+    [[ "$row" =~ ^[^|]*\|[^|]*\|[[:space:]]*\`\<fill\ in[^\`]*\`[[:space:]]*\|[[:space:]]*\`\<fill\ in ]] \
+      || _fixture_die "_reset_model_state: the ladder's '$label' row did not return to unfilled cells"
+  done
+  for rf in wave-runner.js tranche-runner.js; do
+    [ -f "$cdir/workflows/$rf" ] || continue
+    _set_runner_defaults "$cdir/workflows/$rf" seed-model seed-effort
+  done
+}
+
+# _set_runner_defaults <runner.js> <model> <effort> — a TEST-ONLY writer of the two fallback lines
+# (`defaultModel:  ARGS.defaultModel  || '<value>',`), asserted to have taken.
+_set_runner_defaults() {
+  local rf="$1"
+  sed -e "/defaultModel:.*||/s/||[[:space:]]*'[^']*'/|| '$2'/" -e "/defaultEffort:.*||/s/||[[:space:]]*'[^']*'/|| '$3'/" "$rf" > "$rf.new" && mv "$rf.new" "$rf"
+  /usr/bin/grep -qE "defaultModel:.*\|\| '$2'" "$rf" && /usr/bin/grep -qE "defaultEffort:.*\|\| '$3'" "$rf" \
+    || _fixture_die "_set_runner_defaults: $rf's defaultModel/defaultEffort fallback lines did not take '$2'/'$3'"
+}
+
+# _blank_ladder_row <orchestrator.md path> <label> — the inverse of _fill_ladder_row: the row's
+# Model and Effort cells return to `<fill in>`, whatever they held; the trailing prose is kept.
+_blank_ladder_row() {
+  local doc="$1" label="$2"
+  awk -F'|' -v OFS='|' -v want="| **${label}" '
+    index($0, want) == 1 {
+      for (i = 3; i <= 4; i++) {
+        if (match($i, /`[^`]*`/)) $i = substr($i, 1, RSTART - 1) "`<fill in>`" substr($i, RSTART + RLENGTH)
+      }
+    }
+    { print }
+  ' "$doc" > "$doc.new" && mv "$doc.new" "$doc"
 }
 
 # _fill_ladder_row <orchestrator.md path> <label> <model> <effort> — a TEST-ONLY filler, deliberately
@@ -2103,9 +2161,14 @@ case_set_models_class_rewrites_pin_and_ladder_only() {
   grep -qF '| **Dev** | `test-model-x` | `test-effort-y`' "$orch" \
     || cf "orchestrator.md's Dev row was not rewritten: $(grep '^| \*\*Dev\*\*' "$orch" 2>/dev/null)"
 
-  local d; d="$(diff -r "$expected" "$SB_WORK/.claude" 2>&1)"
+  # The record set-models.sh keeps beside the pins is the one other file the call writes: its body
+  # is asserted by hand here, and the whole-tree diff leaves it out.
+  local d; d="$(diff -r -x model-pins.record "$expected" "$SB_WORK/.claude" 2>&1)"
   [ -z "$d" ] \
     || cf "the tree differs from EXACTLY dev-worker.md's pin and orchestrator.md's Dev row changing: $(printf '%s' "$d" | tr '\n' '|' | cut -c1-300)"
+  local recbody; recbody="$(/usr/bin/grep -v '^#' "$SB_WORK/.claude/model-pins.record" 2>/dev/null)"
+  [ "$recbody" = "$(printf 'dev-worker.md\ttest-model-x\ttest-effort-y')" ] \
+    || cf "model-pins.record does not name exactly dev-worker.md at test-model-x/test-effort-y: $(printf '%s' "$recbody" | tr '\n' '|')"
 
   finish "set-models.sh --class dev rewrites dev-worker.md's pin and orchestrator.md's Dev row, and no other file under .claude/"
   teardown
@@ -2140,6 +2203,10 @@ case_set_models_all_rewrites_runners_too() {
     || cf "dev-worker.md was not moved to test-all-model by --all"
   grep -qF '| **QA** | `test-all-model`' "$orch" \
     || cf "orchestrator.md's QA row was not moved to test-all-model by --all"
+
+  local recbody; recbody="$(/usr/bin/grep -v '^#' "$SB_WORK/.claude/model-pins.record" 2>/dev/null)"
+  case "$recbody" in *dev-worker.md$'\t'test-all-model$'\t'test-all-effort*) : ;; *) cf "model-pins.record does not record dev-worker.md at test-all-model/test-all-effort: $(printf '%s' "$recbody" | tr '\n' '|')" ;; esac
+  case "$recbody" in *ui-designer-worker.md*) cf "model-pins.record names the parked role, which --all does not write" ;; esac
 
   local ui_after; ui_after="$(cat "$ad/ui-designer-worker.md" 2>/dev/null)"
   [ "$ui_before" = "$ui_after" ] \
@@ -2227,6 +2294,51 @@ case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit() {
   [ "$rc" -eq 2 ] || cf "kit-upgrade.sh with an unknown option exited $rc, not 2"
 
   finish "set-models.sh and kit-upgrade.sh --help each name the surplus-argument case under exit 1, apart from exit 2 (an unknown option), and the real exit codes match"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MODEL-SEAM FIXTURE DOES NOT INHERIT THE LIVE TREE'S MODEL STATE.
+#
+# A project that ran set-models.sh carries a filled ladder, other pins and other runner defaults.
+# The cases that test the seam must start from the same sandbox on that tree as on a pristine one,
+# or they test the tree's choices (and an adopter's own self-test turns red after the documented
+# seam). This seeds a sandbox from the real tree, then from a copy of it that set-models.sh --all
+# has been run over, and the two must be identical. THE EXPECTATION IS DERIVED FROM THE FIRST SEED,
+# taken before the seam runs, never from the tree the second seed reads.
+# =============================================================================
+case_model_seam_fixtures_ignore_live_model_state() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "the model-seam fixture ignores the live tree's model state" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local before="$SB_TMP/seed.before" used="$SB_TMP/used-tree" real_root="$REAL_REPO_ROOT" d out rc
+  cp -R "$SB_WORK/.claude" "$before"
+
+  # A copy of the real tree's harness directory, then the seam run over it the way an adopter runs it.
+  mkdir -p "$used"
+  for d in "$real_root/_claude" "$real_root/.claude"; do
+    [ -d "$d/agents" ] && cp -R "$d" "$used/$(basename "$d")"
+  done
+  cp -R "$REAL_SCRIPTS" "$used/scripts"
+  out="$( cd "$used" && ./scripts/set-models.sh --all --model used-model --effort used-effort 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "set-models.sh --all refused over the copy of the real tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  /usr/bin/grep -rq 'used-model' "$used"/.claude "$used"/_claude 2>/dev/null \
+    || _fixture_die "set-models.sh --all left no 'used-model' in the copy — the precondition this case needs did not take"
+
+  # Seed again, from the used tree.
+  rm -rf "$SB_WORK/.claude"
+  REAL_REPO_ROOT="$used"
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  REAL_REPO_ROOT="$real_root"
+  local d2; d2="$(diff -r "$before" "$SB_WORK/.claude" 2>&1)"
+  [ -z "$d2" ] \
+    || cf "the seeded sandbox differs when the real tree ran set-models.sh --all: $(printf '%s' "$d2" | tr '\n' '|' | cut -c1-300)"
+  /usr/bin/grep -rq 'used-model' "$SB_WORK/.claude" 2>/dev/null \
+    && cf "the seeded sandbox carries the used tree's model into the fixture"
+
+  finish "the model-seam fixture seeds the same sandbox from a tree that already ran set-models.sh --all as from one that did not"
   teardown
 }
 

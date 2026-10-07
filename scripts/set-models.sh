@@ -27,6 +27,10 @@
 # --list           print the classes the ladder declares, and exit. Read-only.
 # -h, --help       this text.
 #
+# Each pin file it writes is also recorded in .claude/model-pins.record; check-board.sh [s] compares
+# the pins with the ladder, and with that record where a ladder cell is unfilled, so a pin edited
+# by hand shows up as a disagreement.
+#
 # Model ids are written EXACTLY as given — this script never hard-codes one (EXTRACTION.md, "THE
 # MODEL PINS ARE PRODUCT NAMES"). It writes only what you pass.
 #
@@ -42,6 +46,8 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 . "$SCRIPT_DIR/lib/usage.sh"
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
+# shellcheck source=lib/model-pins.sh
+. "$SCRIPT_DIR/lib/model-pins.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 # A usage request always succeeds, in any position, before any argument is interpreted
@@ -105,39 +111,14 @@ RUNNERS="$CLAUDE_DIR/workflows/wave-runner.js $CLAUDE_DIR/workflows/tranche-runn
   "Error: $ORCH_DOC does not exist." \
   "  The ladder row lives in the Orchestrator's § Model & effort contract; without that file there is nothing to read the ladder from."
 
-# ── THE CLASS TABLE — one row per § B.2 work class: its ladder-row label (as orchestrator.md's
-#    table spells it) and its leaf-worker pin file, where one exists. Orchestrator/coordination and
-#    XS/mechanical have no leaf-worker file of their own, so PIN is empty for them: the ladder row
-#    is still written, the pin step is a no-op named as such.
-#    LABEL is matched as a literal row-opening substring ("| **<label>" or "| **<label>**"), never
-#    reconstructed from the class key, because orchestrator.md's own wording differs from
+# ── THE CLASS TABLE lives in lib/model-pins.sh, which the drift report reads too: one row per
+#    work class — its ladder-row label (as orchestrator.md's table spells it) and its leaf-worker
+#    pin file, where one exists. Orchestrator/coordination and XS/mechanical have no leaf-worker
+#    file of their own, so their pin is empty: the ladder row is still written, the pin step is a
+#    no-op named as such. The label is matched as a literal row-opening substring ("| **<label>"),
+#    never reconstructed from the class key, because orchestrator.md's own wording differs from
 #    model-provisioning.md § B.2's (e.g. "Dev" vs "Implementer (Dev)").
-_class_label() {
-  case "$1" in
-    orchestrator)  echo "Orchestrator" ;;
-    refactorer)    echo "Refactorer" ;;
-    pm-mint)       echo "PM-hat mint" ;;
-    spike)         echo "Spike / probe" ;;
-    dev)           echo "Dev" ;;
-    qa)            echo "QA" ;;
-    xs-mechanical) echo "XS / mechanical" ;;
-    cleanup)       echo "Cleanup / classifier" ;;
-    *) return 1 ;;
-  esac
-}
-_class_pin_file() {
-  case "$1" in
-    refactorer)    echo "refactorer-worker.md" ;;
-    pm-mint)       echo "pm-mint.md" ;;
-    spike)         echo "spike-worker.md" ;;
-    dev)           echo "dev-worker.md" ;;
-    qa)            echo "qa-worker.md" ;;
-    cleanup)       echo "cleanup-worker.md" ;;
-    orchestrator|xs-mechanical) echo "" ;;
-    *) return 1 ;;
-  esac
-}
-ALL_CLASSES="orchestrator refactorer pm-mint spike dev qa xs-mechanical cleanup"
+ALL_CLASSES="$KIT_MODEL_CLASSES"
 
 # kit_ladder_has <class> — does orchestrator.md's table carry a row for this class RIGHT NOW? The
 # refusal reads the LIVE table, never the class list above alone: a project that trimmed its own
@@ -148,13 +129,13 @@ ALL_CLASSES="orchestrator refactorer pm-mint spike dev qa xs-mechanical cleanup"
 # trailing qualifiers inside the same "**...**" ("XS / mechanical (any role)", "Spike / probe
 # (`spike-worker`)"), so anchoring on the bold CLOSE as well would miss them.
 kit_ladder_has() {
-  local label; label="$(_class_label "$1")" || return 1
+  local label; label="$(kit_model_class_label "$1")" || return 1
   grep -qE "^\| \*\*${label}" "$ORCH_DOC"
 }
 
 if [ "$LIST" = true ]; then
   for _c in $ALL_CLASSES; do
-    label="$(_class_label "$_c")"
+    label="$(kit_model_class_label "$_c")"
     if kit_ladder_has "$_c"; then present="(in the ladder)"; else present="(not in this project's ladder)"; fi
     printf '%-14s %-20s %s\n' "$_c" "$label" "$present"
   done
@@ -176,6 +157,8 @@ kit_set_pin() {
     /^effort:/ { print "effort: " e; next }
     { print }
   ' "$f" > "$f.new" && mv "$f.new" "$f"
+  # Record what was written, so check-board.sh [s] can tell a later hand edit from this seam.
+  kit_model_record_set "$CLAUDE_DIR" "$1" "$MODEL" "$EFFORT"
 }
 
 # kit_set_ladder_row <label> — rewrite orchestrator.md's row for <label>, replacing only the
@@ -252,8 +235,8 @@ if [ -n "$CLASS" ]; then
       "  Classes the ladder currently carries:${avail:-  (none — the ladder is unfilled)}" \
       "  Run $(basename "$0") --list for the full mapping."
   }
-  label="$(_class_label "$CLASS")"
-  pin="$(_class_pin_file "$CLASS")"
+  label="$(kit_model_class_label "$CLASS")"
+  pin="$(kit_model_class_pin "$CLASS")"
   kit_set_ladder_row "$label"
   if [ -n "$pin" ]; then
     kit_set_pin "$pin"
@@ -267,14 +250,14 @@ elif [ "$DO_RUNNERS" = true ]; then
 else
   # THE DECLARED CARVE-OUT IS STRUCTURAL, NOT A RUNTIME CHECK: ui-designer-worker.md carries no
   # ladder row (its role is parked — model-provisioning.md § B.2 has no line for it), so it has no
-  # class key in the table above and --all's loop over $ALL_CLASSES never reaches its pin file.
+  # class key in lib/model-pins.sh's table and --all's loop over $ALL_CLASSES never reaches its pin file.
   # --class cannot reach it either, for the same reason: there is no class name that resolves to
   # it. Re-provisioning the parked role is done by hand, editing the pin directly, exactly because
   # it is off the ladder this script reads.
   for _c in $ALL_CLASSES; do
     kit_ladder_has "$_c" || continue
-    label="$(_class_label "$_c")"
-    pin="$(_class_pin_file "$_c")"
+    label="$(kit_model_class_label "$_c")"
+    pin="$(kit_model_class_pin "$_c")"
     kit_set_ladder_row "$label"
     [ -n "$pin" ] && kit_set_pin "$pin"
   done

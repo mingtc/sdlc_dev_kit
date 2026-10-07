@@ -424,6 +424,12 @@ columns and never the cards.*
 
 ### Added
 
+- **`check-board.sh` gains arm `[s]`: a worker pin that disagrees with the ladder.** It compares each leaf-worker
+  pin's model and effort with its ladder cell and, where the cell is still unfilled, with what `set-models.sh` last
+  wrote (new file `.claude/model-pins.record`, written only by `set-models.sh`). Report only. It cannot see a model
+  set by a launch flag or session toggle, or a hand edit on a tree where the ladder is unfilled and `set-models.sh`
+  never ran. Nothing to do.
+
 - **`process/UPGRADE-SEAT.md`: the brief for an upgrade-only agent seat.** Written in the owner's voice, it
   carries the authority for the upgrade (asked once of the human or the `principal:` and recorded, including for the
   agent's own instructions file) through a staged worktree, the checklist, the self-test, your own gates, landing,
@@ -463,6 +469,10 @@ columns and never the cards.*
   register.
 
 ### Fixed
+
+- **The self-test no longer goes red after `set-models.sh`.** Four cases that test the model seam inherited the
+  tree's ladder, pins and runner defaults, so they failed on any project that had run it. Each now writes the
+  state it tests into its own sandbox. No action needed.
 
 - **The AC-drift landing check no longer follows a look-alike card's history.** It could take an earlier,
   similar card's history as a new card's and refuse a landing whose ACs never changed (`forks-ac-changed-uncited`).

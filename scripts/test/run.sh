@@ -419,6 +419,7 @@ CASES=(
   case_check_board_corpus_seed_step_after_graduation
   case_check_board_register_shape
   case_check_board_reverse_coverage
+  case_check_board_model_pins_arm
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted
   case_check_board_reads_the_configured_archive_threshold
@@ -502,6 +503,7 @@ CASES=(
   case_set_models_unknown_class_refuses
   case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit
   case_set_models_list_changes_nothing
+  case_model_seam_fixtures_ignore_live_model_state
   case_move_issue_leaves_a_dirty_checkout_alone
   case_doctrine_states_no_rule_count
   case_cli_shape_across_the_shipped_set

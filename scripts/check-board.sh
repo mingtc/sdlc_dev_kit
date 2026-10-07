@@ -27,6 +27,8 @@
 #   (r) declared reverse coverage — a live register entry that CONSTRAINS a PRD but that PRD never
 #       cites; a `[cross-cutting]` entry is exempt (advisory here; a landing that changes
 #       `requirements/` refuses a finding it introduces).
+#   (s) model pins vs the ladder — a leaf-worker pin that disagrees with its ladder cell, or, where
+#       that cell is unfilled, with what scripts/set-models.sh last wrote (advisory).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -182,6 +184,11 @@ fi
 [ -f "$CB_LIB_DIR/board-properties.sh" ] && . "$CB_LIB_DIR/board-properties.sh" 2>/dev/null || true
 cb_bp_loaded() { command -v kit_bp_ids >/dev/null 2>&1; }
 cb_bp_missing() { echo "      – scripts/lib/board-properties.sh is missing or did not load — this arm did not run  (skipped)"; }
+
+# The shared model-seam reader (arm [s] and scripts/set-models.sh read the SAME class table, ladder
+# cells and pin frontmatter). A load failure leaves [s] printing that it did not run.
+# shellcheck source=lib/model-pins.sh
+[ -f "$CB_LIB_DIR/model-pins.sh" ] && . "$CB_LIB_DIR/model-pins.sh" 2>/dev/null || true
 
 # ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
 # Resolved as kwt_resolve does, and the last link is READ from that library, never re-typed.
@@ -1356,6 +1363,23 @@ else
   cb_bp_missing
 fi
 # END reverse-coverage arm
+
+# ---------------------------------------------------------------------------
+# (s) MODEL PINS VS THE LADDER — each leaf-worker pin's model and effort against its class's
+#     ladder cell, or, where that cell is unfilled, against scripts/set-models.sh's record of what
+#     it last wrote (.claude/model-pins.record). The check is lib/model-pins.sh's kit_model_drift.
+#     Reports only, like [k]/[m]/[n]/[o]/[q]/[r]: a project may pin a class apart from its ladder
+#     row on purpose. Cannot see: a model set by a launch flag or a session toggle, which no file
+#     shows; or a hand edit on a tree where the ladder is unfilled and set-models.sh never ran.
+# ---------------------------------------------------------------------------
+echo
+echo "[s] Model pins vs the ladder — each worker pin against its ladder cell, or set-models.sh's record where the cell is unfilled (reports only — a pin set apart on purpose is legal, and it never changes the verdict below) — $(cb_src):"
+if ! command -v kit_model_drift >/dev/null 2>&1; then
+  echo "      – scripts/lib/model-pins.sh is missing or did not load — this arm did not run  (skipped)"
+elif ! kit_model_drift "$CB_TREE"; then
+  echo "      – no .claude/ with roles/orchestrator.md in this source  (skipped)"
+fi
+# END model-pins arm
 
 echo
 if [ "$drift" -eq 0 ]; then
