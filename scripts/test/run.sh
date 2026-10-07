@@ -278,6 +278,8 @@ CASES=(
   case_finish_pr_refuses_a_verdict_by_the_code_agent
   case_subtask_move_refuses_a_verdict_by_the_code_agent
   case_finish_pr_happy
+  case_finish_pr_crash_under_the_lock_is_not_success
+  case_exit_trap_keeps_the_status_the_script_exits_with
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_post_merge_reads_the_landed_trunk
   case_finish_pr_post_merge_moves_the_gate_checkout

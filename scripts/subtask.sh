@@ -267,7 +267,7 @@ case "$CMD" in
     # BUILT BESIDE THE DESTINATION, PUBLISHED BEFORE THE COMMIT (lib/card-head.sh): a failed step
     # leaves the shared worktree clean. The trap keeps kwt_lock's own EXIT action, kwt_unlock.
     WORK="$(kit_card_work "$DEST_DIR")"
-    trap 'rm -f "$WORK" "$WORK.h1" "$WORK.plan" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"; kwt_unlock' EXIT
+    kit_on_exit 'rm -f "$WORK" "$WORK.h1" "$WORK.plan" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"; kwt_unlock'
 
     # Fill the template (frontmatter + heading + Activity). Every substitution
     # keys on the frontmatter KEY, never on the template's placeholder VALUE, so
@@ -491,3 +491,4 @@ case "$CMD" in
   -*) echo "Error: unknown option: $CMD (expected the command 'new' or 'move')" >&2; usage >&2; exit 2 ;;
   *) echo "Unknown command: $CMD" >&2; usage >&2; exit 1 ;;
 esac
+exit 0

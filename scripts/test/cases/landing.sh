@@ -43,6 +43,92 @@ case_finish_pr_happy() {
 }
 
 # =============================================================================
+# CASE — A CRASH UNDER THE LOCK IS NOT A SUCCESS.
+#
+# bash 3.2 (macOS /bin/bash), under `set -e`, gives an EXIT trap status 0 after an
+# unbound-variable abort and exits with the trap's own status, so a landing that crashed after
+# taking the lock exited 0 and a caller's `&&` read it as landed. The crash is PLANTED in the
+# sandbox's finish-pr.sh (before the trunk copy is published, so the lander-is-the-trunk's-copy
+# check passes) right after kwt_sync, the first statement past the lock. The script runs under
+# /bin/bash where it exists — bash 3.2 on macOS, the shell the defect lives in; on a Linux
+# adopter /bin/bash is a newer bash and the case proves the abort keeps its status there too.
+# Asserted: nonzero exit, no lock left behind, nothing landed on the trunk.
+# =============================================================================
+case_finish_pr_crash_under_the_lock_is_not_success() {
+  cf_reset
+  make_sandbox
+  local fpr="$SB_WORK/scripts/finish-pr.sh"
+  grep -nx 'kwt_sync' "$fpr" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_crash_under_the_lock_is_not_success: finish-pr.sh has no bare 'kwt_sync' line to plant after."
+  perl -i -pe 'print ": \"\$KIT_PLANTED_UNSET_VARIABLE\"\n" if $_ eq "kwt_sync\n"' "$fpr"
+  grep -F 'KIT_PLANTED_UNSET_VARIABLE' "$fpr" >/dev/null 2>&1 \
+    || _fixture_die "case_finish_pr_crash_under_the_lock_is_not_success: the plant did not land."
+  seed_issue dev_complete "$SB_PREFIX-778" sandbox chore "Crash under the lock" "feature/$SB_PREFIX-778-work"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-778" work CHANGE.txt
+
+  local sh=bash
+  [ -x /bin/bash ] && sh=/bin/bash
+  local out rc=0
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$sh" "$fpr" "$SB_PREFIX-778" 2>&1 )" || rc=$?
+
+  printf '%s' "$out" | grep -F 'KIT_PLANTED_UNSET_VARIABLE: unbound variable' >/dev/null \
+    || _control_did_not_run "make finish-pr.sh abort on the planted unbound variable (output: $out)"
+  [ "$rc" -ne 0 ] || cf "finish-pr.sh exited 0 after aborting on an unbound variable under the lock — a crash read as a landing"
+  [ ! -e "$SB_WORK/.kanban-wt.lock" ] || cf "the lock was left behind after the crash"
+  origin_has_path "CHANGE.txt" && cf "the change landed on the trunk although the script crashed"
+  origin_has_path "progress/qa_complete/$SB_PREFIX-778-sandbox.md" && cf "the issue advanced to qa_complete/ although the script crashed"
+
+  finish "finish-pr.sh: an unbound-variable abort after the lock is taken exits nonzero, releases the lock and lands nothing"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE EXIT-TRAP HELPER KEEPS THE STATUS THE SCRIPT IS EXITING WITH.
+#
+# lib/exit-trap.sh's kit_on_exit, run under /bin/bash (see the case above) in a stub that
+# sources the REAL library: each way a script can end, with a cleanup command that itself
+# fails. The cleanup must run every time; the status must be the script's own; a 0 with no
+# `exit 0` (a script that fell off its end after crashing, indistinguishable on bash 3.2) is 1.
+# =============================================================================
+case_exit_trap_keeps_the_status_the_script_exits_with() {
+  cf_reset
+  local lib="$REAL_SCRIPTS/lib/exit-trap.sh"
+  if [ ! -f "$lib" ]; then
+    cf "scripts/lib/exit-trap.sh is absent — nothing keeps an aborting script's status"
+    finish "kit_on_exit: an unbound-variable abort, a set -e failure and an explicit exit keep their status, a clean exit 0 stays 0, and the cleanup runs every time"
+    return
+  fi
+  local sh=bash
+  [ -x /bin/bash ] && sh=/bin/bash
+  local d; d="$(mktemp -d)"
+  local row body want got
+  # <body>|<expected status>
+  for row in \
+    'echo "$KIT_UNSET_PROBE"|1' \
+    'f() { echo "$KIT_UNSET_PROBE"; }; f|1' \
+    'false|1' \
+    'exit 3|3' \
+    'exit 0|0' \
+    'true|1'; do
+    body="${row%|*}"; want="${row##*|}"
+    rm -f "$d/ran"
+    printf 'set -euo pipefail\n. "%s"\nkit_on_exit '"'"'touch "%s/ran"; false'"'"'\n%s\necho reached-the-end\n' "$lib" "$d" "$body" > "$d/stub.sh"
+    got=0; "$sh" "$d/stub.sh" >/dev/null 2>&1 || got=$?
+    [ "$got" -eq "$want" ] || cf "[$body] exited $got, expected $want"
+    [ -e "$d/ran" ] || cf "[$body] the cleanup command did not run"
+  done
+  # A script that ends with `exit 0` and ran clean exits 0 with the cleanup run.
+  rm -f "$d/ran"
+  printf 'set -euo pipefail\n. "%s"\nkit_on_exit '"'"'touch "%s/ran"'"'"'\n: ok\nexit 0\n' "$lib" "$d" > "$d/stub.sh"
+  got=0; "$sh" "$d/stub.sh" >/dev/null 2>&1 || got=$?
+  [ "$got" -eq 0 ] && [ -e "$d/ran" ] || cf "a clean run ending in exit 0 exited $got (cleanup ran: $([ -e "$d/ran" ] && echo yes || echo no))"
+  rm -rf "$d"
+
+  finish "kit_on_exit: an unbound-variable abort, a set -e failure and an explicit exit keep their status, a clean exit 0 stays 0, and the cleanup runs every time"
+}
+
+# =============================================================================
 # CASE — THE POST-MERGE PASS LINE NAMES THE REF IT READ, AND THE MACHINE LINE
 #        DOES NOT.
 #

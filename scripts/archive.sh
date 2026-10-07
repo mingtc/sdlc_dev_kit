@@ -391,3 +391,4 @@ if [ ${#SUBTASK_TREES[@]} -gt 0 ]; then
   echo "  - ${#SUBTASK_TREES[@]} subtask-tree move(s): progress/subtasks/ → progress/done/subtasks/"
 fi
 echo "  - ARCHIVE.md index update"
+exit 0

@@ -76,6 +76,8 @@ REPO_ROOT=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
+# shellcheck source=lib/exit-trap.sh
+. "$SCRIPT_DIR/lib/exit-trap.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 # A usage request always succeeds, in any position, before any argument is interpreted
@@ -217,7 +219,7 @@ PREAMBLE_TMP=$(mktemp)
 PRE_TMP=$(mktemp)
 POST_TMP=$(mktemp)
 TAIL_TMP=$(mktemp)
-trap 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP" "$TAIL_TMP"' EXIT
+kit_on_exit 'rm -f "$PREAMBLE_TMP" "$PRE_TMP" "$POST_TMP" "$TAIL_TMP"'
 
 # § Log runs from its heading to the next "## " heading that is not a "## YYYY-MM-DD" entry;
 # everything from that heading on is TAIL_TMP, kept in place. Every reader below uses both.
@@ -501,3 +503,4 @@ echo "  - ${PROGRESS#"$REPO_ROOT"/} (rewritten — pre-cutoff entries removed)"
 echo ""
 echo "Review with: git status; git diff progress.md; cat ${CHUNK#"$REPO_ROOT"/}"
 echo "Then commit manually."
+exit 0

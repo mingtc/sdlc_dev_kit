@@ -73,6 +73,8 @@ if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
   echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
   exit 1
 fi
+# shellcheck source=lib/exit-trap.sh
+. "$ROOT/scripts/lib/exit-trap.sh"
 if [ -z "${ISSUE_PREFIX:-}" ]; then
   echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
   exit 1
@@ -133,7 +135,7 @@ BRANCH="fix/${ID}-${SLUG}"
 
 # BUILD IT ASIDE, PUBLISH IT WHOLE, and escape every value: as new-issue.sh states.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"' EXIT
+kit_on_exit 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"'
 
 cp "$TEMPLATE" "$WORK"
 
@@ -191,3 +193,4 @@ echo "  1. Fill in title and Bug description."
 echo "  2. Complete the reproduction fields (Reproduction, Expected vs Actual, Impact, Environment, References)."
 echo "  3. See .claude/roles/qa.md for the full QA workflow."
 print_push_before_move "$DEST"
+exit 0

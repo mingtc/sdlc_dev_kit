@@ -58,6 +58,8 @@ if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
   echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
   exit 1
 fi
+# shellcheck source=lib/exit-trap.sh
+. "$ROOT/scripts/lib/exit-trap.sh"
 if [ -z "${PRD_PREFIX:-}" ]; then
   echo "Error: scripts/config.sh was sourced but PRD_PREFIX is empty — set it there." >&2
   exit 1
@@ -110,7 +112,7 @@ fi
 
 # Built aside and moved in last, as new-issue.sh does: a failed step leaves no PRD to spend the id.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp"' EXIT
+kit_on_exit 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp"'
 
 cp "$TEMPLATE" "$WORK"
 
@@ -135,3 +137,4 @@ echo "Next steps:"
 echo "  1. Fill in title, Context, Goals, Non-Goals."
 echo "  2. Add features (F1, F2, ...) and stories (F1-S1, F1-S2, ...)."
 echo "  3. See .claude/roles/pm.md for the full PM workflow."
+exit 0

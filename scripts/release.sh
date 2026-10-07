@@ -76,6 +76,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
+# shellcheck source=lib/exit-trap.sh
+. "$SCRIPT_DIR/lib/exit-trap.sh"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CONFIG BLOCK — everything a project declares lives between here and the END
@@ -206,7 +208,7 @@ SHIP_MANIFEST=""
 # the LAST usage example inside the header block — derived, never a literal range.
 # THIS SCRIPT DOES NOT USE scripts/lib/usage.sh, ON PURPOSE: (1) that library prints to the
 # last COMMENT line, and this header carries operator notes that are not help text; (2) this
-# script sources NOTHING from scripts/lib/ by design. A sweep that unifies the header
+# script sources only lib/exit-trap.sh from scripts/lib/ (for its EXIT handling) and nothing else. A sweep that unifies the header
 # renderers must skip this one.
 # THE SOURCE PATH IS RESOLVED ABSOLUTELY: this script `cd`s to the repo root first.
 RELEASE_SRC="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
@@ -216,8 +218,8 @@ usage() {
   window_end="$(sed -n "1,${header_end}p" "$src" \
     | grep -n '^#[[:space:]]\{1,\}\./scripts/release\.sh[[:space:]]' \
     | tail -1 | cut -d: -f1)"
-  # START DERIVED — scripts/lib/usage.sh's rule, repeated here because this script sources
-  # nothing from scripts/lib/; the self-test holds the two identical in behaviour.
+  # START DERIVED — scripts/lib/usage.sh's rule, repeated here because this script does not
+  # source it; the self-test holds the two identical in behaviour.
   local start
   start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
@@ -927,7 +929,8 @@ _release_mutate_abort() {
   } >&2
   _release_restore_bumped
 }
-trap '_release_mutate_abort' EXIT INT TERM
+kit_on_exit '_release_mutate_abort'
+trap '_release_mutate_abort' INT TERM
 bump_one() {  # <path> <line-prefix> <quote>
   local f="$REPO_ROOT/$1" prefix="$2" q="$3" tmp expr
   [ -f "$f" ] || { echo "release.sh: VERSION_FILES names '$1', which does not exist." >&2; return 1; }
@@ -1029,3 +1032,4 @@ fi
 
 echo
 echo "✓ Cut $TAG: version $NUM committed on $DEFAULT_BRANCH, annotated tag pushed to $REMOTE."
+exit 0

@@ -27,7 +27,8 @@
 #   kwt_resolve            → sets MAIN_ROOT, KWT, KWT_LOCK, DEFAULT_BRANCH
 #   kwt_lock               → acquire the mkdir-atomic lock (timeout + liveness-aware
 #                            serialized reap of an abandoned lock)
-#   kwt_unlock             → release the lock (also armed via trap on EXIT)
+#   kwt_unlock             → release the lock (also armed via trap on EXIT; a script that
+#                            locks ends with `exit 0` — lib/exit-trap.sh says why)
 #   kwt_bootstrap          → ensure $KWT is a registered detached worktree
 #   kwt_sync               → fetch the remote + reset --hard the worktree to the tip;
 #                            ABORTS first if the worktree holds uncommitted tracked
@@ -84,6 +85,13 @@ if [ ! -f "$KWT_LIB_DIR/push-retry.sh" ] || ! . "$KWT_LIB_DIR/push-retry.sh"; th
     echo "       next kwt_finalize report a missing function as a push failure."
     echo "       Restore it:  git checkout -- scripts/lib/push-retry.sh"
   } >&2
+  return 1 2>/dev/null || exit 1
+fi
+# The EXIT-trap helper kwt_lock arms: a script that locks must END with `exit 0` (exit-trap.sh).
+# shellcheck source=exit-trap.sh
+if [ ! -f "$KWT_LIB_DIR/exit-trap.sh" ] || ! . "$KWT_LIB_DIR/exit-trap.sh"; then
+  echo "Error: scripts/lib/kanban-worktree.sh could not load $KWT_LIB_DIR/exit-trap.sh." >&2
+  echo "       Restore it:  git checkout -- scripts/lib/exit-trap.sh" >&2
   return 1 2>/dev/null || exit 1
 fi
 # ...and REACHABLE: a file that sources without defining these is the same outage.
@@ -239,7 +247,7 @@ kwt_lock() {
       back="$(sed -n 's/^token=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
       if [ "$back" = "$tok" ]; then
         KWT_LOCK_HELD=true
-        trap 'kwt_unlock' EXIT
+        kit_on_exit 'kwt_unlock'
         return 0
       fi
       continue

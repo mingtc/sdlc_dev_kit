@@ -319,6 +319,10 @@ columns and never the cards.*
 
 ### Action required
 
+- **If you wrote your own script that calls `kwt_lock` or `kit_on_exit` (`scripts/lib/exit-trap.sh`), end it with
+  `exit 0`, or a clean run now reports 1.** The cleanup trap cannot tell a crash from a clean end on bash 3.2 any
+  other way.
+
 - **`finish-pr.sh` and `subtask.sh move <slice> qa_complete` now refuse when the `## QA Verdict` was committed by
   the same agent, in the same session, as the branch's code** (rule id `qa-verdict-same-agent`). The record comes
   from new Bash hooks (`scripts/hooks/agent-record.sh`), which store which (session, agent) made each commit as
@@ -422,6 +426,11 @@ columns and never the cards.*
   register.
 
 ### Fixed
+
+- **A script that crashed after taking the lock could exit 0 on macOS `/bin/bash` 3.2.** Under `set -e`,
+  an unbound-variable abort reached the cleanup trap with status 0, so `finish-pr.sh`, `move-issue.sh`,
+  `register-commit.sh`, `subtask.sh`, `archive.sh`, `release.sh` and the `new-*` scripts reported success for a
+  landing or card that never completed. They now exit nonzero. No action needed for the shipped scripts.
 
 - **The ablation landing check now reads the branch diff with `--no-renames`.** A declared
   `TEST_GLOBS` test file renamed to a path outside `TEST_GLOBS` (e.g. moved out of `tests/`) could

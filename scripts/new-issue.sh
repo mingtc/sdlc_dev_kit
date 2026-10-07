@@ -73,6 +73,8 @@ if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
   echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
   exit 1
 fi
+# shellcheck source=lib/exit-trap.sh
+. "$ROOT/scripts/lib/exit-trap.sh"
 if [ -z "${ISSUE_PREFIX:-}" ]; then
   echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
   exit 1
@@ -126,7 +128,7 @@ BRANCH="feature/${ID}-${SLUG}"
 # BUILD IT ASIDE, PUBLISH IT WHOLE: a refusal must change nothing, so the card reaches the
 # board only after every substitution has succeeded.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"' EXIT
+kit_on_exit 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"'
 
 # Every value goes through sed_repl (scripts/config.sh): `|`, `\` and `&` are not literal in
 # `s|…|REPL|`.
@@ -178,3 +180,4 @@ echo "Next steps:"
 echo "  1. Fill in title, Problem, AC (copy from the PRD stories), Out of scope, Dependencies."
 echo "  2. Confirm Definition of Ready (.claude/roles/pm.md)."
 print_push_before_move "$DEST"
+exit 0

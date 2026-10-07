@@ -1854,7 +1854,7 @@ PRD_PREFIX="${PRD_PREFIX:-REQ-2}"
 #
 # The trunk chain (<remote>/HEAD → init.defaultBranch → the kit's last-resort constant) is
 # implemented in kwt_resolve, check-board.sh and release.sh, and cannot be one function:
-# release.sh sources nothing from scripts/lib/ (its header states why). So the invariant is
+# release.sh sources only lib/exit-trap.sh from scripts/lib/ (its header says so). So the invariant is
 # held here: every step below the first warns, in each. Step 2 is where a real cut lands,
 # since a developer machine usually has init.defaultBranch set. The states are built by
 # removal, starting from step 1.

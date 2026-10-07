@@ -187,3 +187,4 @@ kit_progress "register-commit.sh" status "landed ${#CHANGED[@]} metadata path(s)
 # than reporting success on a commit that never reached the remote.
 kwt_finalize || exit 1
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MESSAGE}\""
+exit 0

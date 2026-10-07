@@ -73,6 +73,8 @@ if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
   echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
   exit 1
 fi
+# shellcheck source=lib/exit-trap.sh
+. "$ROOT/scripts/lib/exit-trap.sh"
 if [ -z "${ISSUE_PREFIX:-}" ]; then
   echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
   exit 1
@@ -127,7 +129,7 @@ BRANCH="refactor/${ID}-${SLUG}"
 
 # BUILD IT ASIDE, PUBLISH IT WHOLE, and escape every value: as new-issue.sh states.
 WORK="$(kit_card_work "$DEST_DIR")"
-trap 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"' EXIT
+kit_on_exit 'rm -f "$WORK" "$WORK.bak" "$WORK.rehead" "$WORK.stamp" "$WORK.fill"'
 
 cp "$TEMPLATE" "$WORK"
 
@@ -171,3 +173,4 @@ echo "  2. Fill in the Safety-Net Assessment (link to the pass doc § target)."
 echo "  3. Fill in the Migration Plan (if any public-surface changes)."
 echo "  4. Confirm Definition of Ready (.claude/roles/refactorer.md)."
 print_push_before_move "$DEST"
+exit 0
