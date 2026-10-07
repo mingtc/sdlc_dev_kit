@@ -3264,3 +3264,47 @@ case_frontmatter_scan_cap_is_enforced() {
   finish "check (d)'s frontmatter scan cap (derived: $cap lines) is enforced in both directions — a normal card with a horizontal rule far down its body still parses, and a complete fence pair below the cap is NOT accepted as frontmatter; the fixture is sized from the derived cap, so retuning it cannot leave this case asserting nothing. Not covered: whether $cap is the RIGHT value"
   teardown
 }
+
+# =============================================================================
+# CASE — THE SESSIONSTART HOOK'S OUTPUT STAYS UNDER THE SIZE THE HARNESS DELIVERS INTACT.
+# The harness cuts a hook's stdout to a short preview once it passes about 10,000 bytes
+# (measured: a hook printing 9,950 bytes arrived whole, one printing 10,050 did not), so a
+# long drift report would reach the session as a preview and a file pointer.
+# =============================================================================
+HOOK_OUTPUT_BUDGET=9000   # bytes; the measured intact size 9,950 less a margin, never the cut point itself
+case_session_start_hook_output_stays_within_the_delivery_budget() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local hook="$SB_WORK/scripts/hooks/session-start.sh"
+  [ -f "$hook" ] || _fixture_die "case_session_start_hook_output_stays_within_the_delivery_budget: no scripts/hooks/session-start.sh in the sandbox"
+
+  # (a) the real report on a sandbox board is within budget.
+  local out n
+  out="$(CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" 2>&1)" || true
+  n="$(printf '%s\n' "$out" | LC_ALL=C wc -c | tr -d ' ')"
+  [ "$n" -gt 0 ] || cf "(a) the hook printed nothing — the board report did not reach its output"
+  [ "$n" -le "$HOOK_OUTPUT_BUDGET" ] || cf "(a) the hook printed $n bytes on a sandbox board, over the $HOOK_OUTPUT_BUDGET budget"
+
+  # (b) an oversized report (far past the cut) is bounded, and keeps its finding and its verdict.
+  local stub_root="$SB_TMP/stubroot" i=0
+  mkdir -p "$stub_root/scripts"
+  {
+    printf '#!/bin/sh\n'
+    printf 'echo "[a] first arm — read from: origin/main:"\n'
+    while [ "$i" -lt 400 ]; do printf 'echo "      filler line %s that a clean arm prints to explain itself at some length"\n' "$i"; i=$((i + 1)); done
+    printf 'echo "    ⚠ FINDING-SENTINEL card X: in todo/ but last Activity declares in_progress"\n'
+    printf 'echo "[b] second arm — read from: origin/main:"\n'
+    printf 'echo "── board-drift: findings above ⚠ (informational; exit 0 by convention)"\n'
+  } > "$stub_root/scripts/check-board.sh"
+  chmod +x "$stub_root/scripts/check-board.sh"
+  out="$(CLAUDE_PROJECT_DIR="$stub_root" bash "$hook" 2>&1)" || true
+  n="$(printf '%s\n' "$out" | LC_ALL=C wc -c | tr -d ' ')"
+  [ "$n" -le "$HOOK_OUTPUT_BUDGET" ] || cf "(b) the hook printed $n bytes for an oversized report, over the $HOOK_OUTPUT_BUDGET budget"
+  case "$out" in *FINDING-SENTINEL*) : ;; *) cf "(b) the bounded output dropped the report's finding line" ;; esac
+  case "$out" in *"[b] second arm"*) : ;; *) cf "(b) the bounded output dropped a later arm's heading" ;; esac
+  case "${out##*$'\n'}" in "── board-drift:"*) : ;; *) cf "(b) the bounded output does not end on the verdict line: ${out##*$'\n'}" ;; esac
+
+  finish "the SessionStart hook's output stays within $HOOK_OUTPUT_BUDGET bytes (the harness delivers about 10,000 intact): the real report on a sandbox board, and an oversized one cut to its arm headings and finding lines with the verdict last"
+  teardown
+}

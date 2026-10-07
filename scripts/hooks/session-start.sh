@@ -29,8 +29,23 @@ ROLE_REL=".claude/session-role"
 rm -f "$ROOT/$ROLE_REL" 2>/dev/null || true
 
 # 2. Board drift — surface it into context (stdout is added to the session).
+# The harness cuts a hook's stdout to a short preview above roughly 10,000 bytes, so the
+# report is printed whole only up to OUT_BUDGET; past it, the arm headings and every finding
+# line (⚠) are printed, cut at the budget, the verdict last, with the command for the full text.
+OUT_BUDGET=8000
 if [ -x "$ROOT/scripts/check-board.sh" ]; then
-  "$ROOT/scripts/check-board.sh" 2>&1 || true
+  REPORT="$("$ROOT/scripts/check-board.sh" 2>&1 || true)"
+  if [ "$(printf '%s\n' "$REPORT" | LC_ALL=C wc -c | tr -d ' ')" -le "$OUT_BUDGET" ]; then
+    printf '%s\n' "$REPORT"
+  else
+    VERDICT="$(printf '%s\n' "$REPORT" | LC_ALL=C /usr/bin/grep -E '^── board-drift:' | tail -1)"
+    NOTE="── check-board.sh: the full report is over this hook's ${OUT_BUDGET}-byte output budget; run scripts/check-board.sh for all of it. Arm headings and findings:"
+    FIXED="$(printf '%s\n%s\n' "$NOTE" "$VERDICT" | LC_ALL=C wc -c | tr -d ' ')"
+    printf '%s\n' "$NOTE"
+    printf '%s\n' "$REPORT" | LC_ALL=C /usr/bin/grep -vE '^── board-drift:' | LC_ALL=C /usr/bin/grep -E '^\[[a-z][0-9]*\]|⚠' \
+      | LC_ALL=C awk -v room="$((OUT_BUDGET - FIXED))" 'seen[$0]++ {next} {room -= length($0) + 1; if (room < 0) exit; print}' || true
+    printf '%s\n' "$VERDICT"
+  fi
 fi
 
 exit 0

@@ -464,6 +464,14 @@ columns and never the cards.*
 
 ### Fixed
 
+- **The AC-drift landing check no longer follows a look-alike card's history.** It could take an earlier,
+  similar card's history as a new card's and refuse a landing whose ACs never changed (`forks-ac-changed-uncited`).
+  It now reads the card's own `todo/` history by its id. No action needed.
+
+- **The session-start hook's output is bounded.** The harness cuts a hook's output near 10,000 bytes, so a long
+  drift report arrived as a preview. Over 8,000 bytes the hook now prints the arm headings, every finding and the
+  verdict, and names `scripts/check-board.sh` for the full report. No action needed.
+
 - **A script that crashed after taking the lock could exit 0 on macOS `/bin/bash` 3.2.** Under `set -e`,
   an unbound-variable abort reached the cleanup trap with status 0, so `finish-pr.sh`, `move-issue.sh`,
   `register-commit.sh`, `subtask.sh`, `archive.sh`, `release.sh` and the `new-*` scripts reported success for a

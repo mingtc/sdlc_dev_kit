@@ -454,6 +454,86 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   teardown
 }
 
+# _forks_pad_card <file> — append the template boilerplate real cards share (a long fixed section),
+# so two cards differ only in their few lines of own text, as two cards from one template do.
+_forks_pad_card() {
+  local f="$1" i=0
+  printf '\n## Notes\n\n' >> "$f"
+  while [ "$i" -lt 40 ]; do
+    printf -- '- Template guidance line %s: say what changed, why, and how it was checked, in one sentence.\n' "$i" >> "$f"
+    i=$((i + 1))
+  done
+}
+
+# =============================================================================
+# CASE — THE AC-DRIFT CHECK READS THE CARD'S OWN HISTORY BY ID, NEVER BY CONTENT SIMILARITY.
+# A card minted from the same boilerplate as an earlier, already-landed card is not that card:
+# a similarity-following history read (git log --follow) reports the new card as a COPY of the
+# old one and takes the OLD card's leave-todo commit as its own, so every AC reads as changed.
+# The journey: land card A; mint a near-identical card B; move B todo -> in_progress ->
+# dev_complete with NO AC change; B must land clean.
+# =============================================================================
+case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card() {
+  cf_reset
+  make_sandbox work-sim
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+
+  # Card A: the whole ordinary journey, landed.
+  local ida="$SB_PREFIX-686"
+  seed_issue todo "$ida" first chore "Similar card, landed first" "feature/$ida-work"
+  _forks_pad_card "$SB_WORK/progress/todo/$ida-first.md"
+  publish_sandbox
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$ida" in_progress --role Dev \
+    --note "picked up" >/dev/null 2>&1 ) \
+    || _fixture_die "case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card: A's move to in_progress failed"
+  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$ida-first.md" "progress/in_progress/$ida-first.md"
+  git -C "$SB_WORK" add "progress/in_progress/$ida-first.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${ida}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  seed_branch "$ida" work CHANGE686.txt
+  mkdir -p "$SB_WORK/progress/dev_complete"
+  git -C "$SB_WORK" mv "progress/in_progress/$ida-first.md" "progress/dev_complete/$ida-first.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${ida}: ready for review" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card: card A did not land (exit $rc): $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  git -C "$SB_WORK" pull --ff-only --quiet >/dev/null 2>&1 || true
+
+  # Card B: same boilerplate, minted after A reached qa_complete/. Only B's own path is staged
+  # (a second publish_sandbox would commit the kanban worktree).
+  local idb="$SB_PREFIX-687"
+  seed_issue todo "$idb" second chore "Similar card, minted after" "feature/$idb-work"
+  # Its own AC wording (the boilerplate around it stays the same): the wrong card's history
+  # carries A's AC text, so a wrong read shows as an AC that "changed".
+  perl -i -pe "s/the sandbox.s seeded behaviour holds\\./the second card's own behaviour holds./g" "$SB_WORK/progress/todo/$idb-second.md"
+  _forks_pad_card "$SB_WORK/progress/todo/$idb-second.md"
+  grep -qF "the second card's own behaviour holds." "$SB_WORK/progress/todo/$idb-second.md" \
+    || _fixture_die "case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card: B's own AC wording was not planted"
+  git -C "$SB_WORK" add "progress/todo/$idb-second.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idb}: mint" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$idb" in_progress --role Dev \
+    --note "picked up" >/dev/null 2>&1 ) \
+    || _fixture_die "case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card: B's move to in_progress failed"
+  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$idb-second.md" "progress/in_progress/$idb-second.md"
+  git -C "$SB_WORK" add "progress/in_progress/$idb-second.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idb}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  seed_branch "$idb" work CHANGE687.txt
+  git -C "$SB_WORK" mv "progress/in_progress/$idb-second.md" "progress/dev_complete/$idb-second.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${idb}: ready for review" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a card similar to an already-landed one, no AC change after todo/ — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  case "$out" in *forks-ac-changed-uncited*) cf "the AC-drift check refused a card whose ACs never changed" ;; esac
+  origin_has_path "progress/qa_complete/$idb-second.md" || cf "the similar card did not advance to qa_complete/"
+
+  finish "the AC-drift check reads a card's own todo/ history by its id: a card minted from the same boilerplate as an earlier landed card, with no AC change after todo/, lands clean"
+  teardown
+}
+
 # =============================================================================
 # CASE — A CARD MINTED STRAIGHT INTO A LATER COLUMN (no 'progress/todo/' in its history) MAKES
 # THE AC-DRIFT HALF OF THE CHECK UNRUNNABLE, NAMED ON STDOUT — never a silent pass, and the

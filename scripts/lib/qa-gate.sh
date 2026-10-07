@@ -360,8 +360,8 @@ kit_forks_check() {
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg
   local _forks_bad="" _fid _forks_derived _forks_missing_ids=""
-  local _forks_card_rel _forks_rename_log _forks_leave_commit="" _forks_leave_path=""
-  local _frl_a _frl_b _frl_c _frl_commit=""
+  local _forks_del_log _fdl_line _forks_leave_commit="" _forks_leave_path=""
+  local _frl_commit=""
   local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new
 
   _forks_line="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^forks:/{sub(/^forks:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); sub(/[[:space:]]+$/, ""); print; exit}' "$src")"
@@ -462,35 +462,26 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   # own file history: the commit where a rename moved it OUT of a 'todo/' column (never by
   # parsing a commit subject — move-issue.sh's own rename is the record, and a hand edit cannot
   # spoof it the way text can).
-  # <card-file> is read from the CALLER's own worktree (finish-pr.sh's $KWT, subtask.sh's
-  # $KWT/progress/subtasks/<parent>/), never from <repo> directly, so stripping <repo>'s own
-  # prefix would leave a worktree-local prefix (e.g. '.kanban-wt/') still attached. 'progress/'
-  # is the one anchor every caller's path shares with <repo>'s own tracked tree: take from its
-  # LAST occurrence onward.
-  case "$src" in
-    */progress/*) _forks_card_rel="progress/${src##*/progress/}" ;;
-    progress/*) _forks_card_rel="$src" ;;
-    *) _forks_card_rel="${src#"$repo"/}" ;;
-  esac
+  # The card's identity is its ID, never its content: card templates are mostly boilerplate, so a
+  # similarity-following history read (log --follow) can report a new card as a copy of an
+  # earlier, similar one and continue down THAT card's history. So the leave-todo commit is read
+  # by the id-anchored path: the earliest <old-rev> commit that deleted a 'todo/<id>-*' file,
+  # read with --no-renames (a move out of todo/ is then a plain delete there); the card's text
+  # as it stood in todo/ is that commit's parent's copy.
   # <old-rev> is the TRUNK, never <new-rev> (the feature branch): move-issue.sh and subtask.sh
   # commit every board move on the trunk, inside their own kanban worktree, so a branch cut
   # before a later move (the common case: cut right after todo -> in_progress, worked, then
   # moved to dev_complete on the trunk while the branch carries only code) never has the card at
-  # its later path at all — 'log --follow <branch> -- <later path>' finds nothing and this half
-  # reads as UNRUNNABLE on every ordinary landing. The trunk, read fresh, already holds the move
-  # that put the card at <card-file>'s own current path (that move is what made it landable).
-  _forks_rename_log="$(git -C "$repo" log --follow --diff-filter=R --name-status \
-    --format='COMMIT %H' "$old_rev" -- "$_forks_card_rel" 2>/dev/null || true)"
-  while IFS=$'\t' read -r _frl_a _frl_b _frl_c; do
-    case "$_frl_a" in
-      COMMIT*) _frl_commit="${_frl_a#COMMIT }"; continue ;;
-      R*) : ;;
-      *) continue ;;
+  # its later path at all. The trunk, read fresh, already holds the move that put the card at
+  # <card-file>'s own current path (that move is what made it landable).
+  _forks_del_log="$(git -C "$repo" log --no-renames --diff-filter=D --name-only \
+    --format='COMMIT %H' "$old_rev" -- ":(glob)**/todo/${issue_id}-*" 2>/dev/null || true)"
+  while IFS= read -r _fdl_line; do
+    case "$_fdl_line" in
+      COMMIT*) _frl_commit="${_fdl_line#COMMIT }"; continue ;;
+      */todo/"${issue_id}"-*) _forks_leave_commit="$_frl_commit"; _forks_leave_path="$_fdl_line" ;;
     esac
-    case "$_frl_b" in
-      progress/todo/*|*/todo/*) _forks_leave_commit="$_frl_commit"; _forks_leave_path="$_frl_c" ;;
-    esac
-  done <<< "$_forks_rename_log"
+  done <<< "$_forks_del_log"
   # git logs newest-first: the LAST assignment above (not the first) is the earliest commit —
   # a card can only leave todo/ once in the ordinary flow, but the loop runs to completion either
   # way so the oldest wins if it ever happened twice.
@@ -499,7 +490,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
     echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
   else
     _forks_new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
-    _forks_old_body="$(git -C "$repo" show "${_forks_leave_commit}:${_forks_leave_path}" 2>/dev/null \
+    _forks_old_body="$(git -C "$repo" show "${_forks_leave_commit}^:${_forks_leave_path}" 2>/dev/null \
       | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
     _forks_ac_ids="$(_qav_ac_ids "$_forks_new_body")"
     while IFS= read -r _fac; do
