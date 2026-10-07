@@ -319,6 +319,18 @@ columns and never the cards.*
 
 ### Action required
 
+- **`finish-pr.sh` and `subtask.sh move <slice> qa_complete` now refuse when the `## QA Verdict` was committed by
+  the same agent, in the same session, as the branch's code** (rule id `qa-verdict-same-agent`). The record comes
+  from new Bash hooks (`scripts/hooks/agent-record.sh`), which store which (session, agent) made each commit as
+  `refs/kit-agent/<sha>` — the harness's per-agent id for a dispatched agent, `main` for a session's own thread. A
+  dispatched QA agent, or a fresh session, is a different identity and lands; one session's own thread writing
+  both is refused. When either side has no record (hooks not wired, a commit made outside the harness) it prints
+  `AGENT_CHECK: UNRUNNABLE` and lands. **To adopt it: re-copy `.claude/settings.json.example`'s
+  `PreToolUse`/`PostToolUse`/`PostToolUseFailure` Bash entries into your `.claude/settings.json`; review in a
+  different agent or session — `/orchestrate`'s QA leg already is its own agent.** Every trunk push the kit
+  makes now also pushes `refs/kit-agent/*`, and the landing fetches them into `refs/kit-agent-remote/*`
+  ([`contracts/agent-record.md`](contracts/agent-record.md)).
+
 - **`finish-pr.sh` and `subtask.sh move … qa_complete` now refuse a branch that introduces a finding in a
   board property it touches** — the same checks `check-board.sh` reports, read on the tree the landing would
   produce: a card id that disagrees with its filename or repeats (`[d]`), a `blocks:`/`blocked_by:` no card

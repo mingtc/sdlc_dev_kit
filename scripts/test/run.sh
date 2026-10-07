@@ -274,6 +274,9 @@ CASES=(
   case_ask_without_decision_names_the_file_as_the_record
   case_unattended_profile_denies_the_tool
   case_stop_ask_hook_classifies_turn_endings
+  case_agent_record_hook_attributes_created_commits
+  case_finish_pr_refuses_a_verdict_by_the_code_agent
+  case_subtask_move_refuses_a_verdict_by_the_code_agent
   case_finish_pr_happy
   case_finish_pr_post_merge_names_its_ref
   case_finish_pr_post_merge_reads_the_landed_trunk

@@ -61,6 +61,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # landing card, called here for a slice's own card before `move <id> qa_complete`.
 # shellcheck source=lib/qa-gate.sh
 . "$SCRIPT_DIR/lib/qa-gate.sh"
+# The same-agent check finish-pr.sh runs (process/contracts/agent-record.md).
+# shellcheck source=lib/agent-record.sh
+. "$SCRIPT_DIR/lib/agent-record.sh"
 
 # GUARDED: usage() renders the role set through this library, and a usage request must
 # succeed (issue-creation.md § 3). The operational path fails loudly without it.
@@ -447,6 +450,10 @@ case "$CMD" in
       # its own reads the trunk against itself, so only the card's own move is judged.
       kit_board_property_check "$MAIN_ROOT" "$_st_trunk" "$_st_new_rev" \
         "${SRC#"$KWT"/}" "progress/subtasks/${PARENT}/qa_complete/$(basename "$SRC")"
+      # The checker is not the author: the slice's verdict commit against its branch's code commits.
+      # A slice with no branch of its own has no code commits to compare: UNRUNNABLE, printed.
+      kit_agent_records_fetch "$MAIN_ROOT" "$KWT_REMOTE"
+      kit_agent_landing_check "$MAIN_ROOT" "$_st_trunk" "$ID" "$_st_new_rev" "progress/subtasks/${PARENT}"
     fi
 
     mkdir -p "$BASE/$TARGET"

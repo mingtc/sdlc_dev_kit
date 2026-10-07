@@ -56,6 +56,7 @@ about counting).
 | The non-blocking ask | [ask.md](ask.md) | a blocking question that records and returns, never waits |
 | The model-provisioning seam | [model-provisioning-seam.md](model-provisioning-seam.md) | one (model, effort) pair per class, written everywhere it is read |
 | The unattended Stop hook | [stop-ask.md](stop-ask.md) | block once on a turn ending unaddressed, never on an attended launch |
+| The agent record | [agent-record.md](agent-record.md) | which (session, agent) made each commit; the verdict's is not the code's |
 
 **A row named in the additions table below is an addition; every other row is the minimum set** —
 the set the completeness rule treats as a floor. Most additions are justified by the rule that makes
@@ -77,6 +78,7 @@ reason.**
 | The non-blocking ask | A blocking question and an interactive one are two different acts with two different failure modes; this sheet is what keeps the non-blocking route from quietly growing a wait into it. |
 | The model-provisioning seam | A model is set in several places; leaving one unwritten when another changes is how a re-provisioning silently half-happens, including inside the kit's own self-test. |
 | The unattended Stop hook | An unattended launch has a mechanical point where a question with no addressee would otherwise go unanswered forever; the invariant (judge the ending, not the content; fire at most once) is otherwise only prose. |
+| The agent record | "The checker is not the author" is otherwise a role's promise; the record makes it a landing refusal, and its invariants (only a commit the call created, never an overwritten claim, never a blocked call) are what keep that refusal from misattributing. |
 
 Nothing in the minimum set was merged or split.
 

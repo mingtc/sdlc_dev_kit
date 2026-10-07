@@ -8,12 +8,36 @@
 
   "_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES": "The adapter (AGENTS.md) § 'The trunk, the branches, and what counts as code here', which cites process/MANUAL.md § The code-vs-metadata rule. Both are documents an agent actually reads; the rule is not copied here, because a third copy is what drifts.",
 
+  "_WHAT_THE_BASH_HOOKS_RECORD": "agent-record.sh, around every Bash call: which session and agent (the harness's per-agent id, or `main` for the session's own thread) made each commit that call created, as refs/kit-agent/<sha>. finish-pr.sh and subtask.sh read it to refuse a QA verdict committed by the same agent, in the same session, as the code. The demonstration: process/contracts/agent-record.md § 4, and the self-test's agent-record cases. It rewrites no command and blocks nothing.",
+
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Edit|Write|NotebookEdit",
         "hooks": [
           { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/require-role.sh\"" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/agent-record.sh\" pre" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/agent-record.sh\" post" }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR/scripts/hooks/agent-record.sh\" post" }
         ]
       }
     ],

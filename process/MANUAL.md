@@ -421,7 +421,10 @@ bounces it.
      reference dangling or a register entry no PRD cites (and no `[cross-cutting]` marks); a
      register entry that is not exactly three fields. The same code reads the tree the landing
      would produce, and the operands come from the trunk's `check-board.sh`. A finding already on
-     the trunk is not the branch's: it stays `check-board.sh`'s to report. Append `progress.md`:
+     the trunk is not the branch's: it stays `check-board.sh`'s to report. **It also refuses a
+     `## QA Verdict` committed by the same agent, in the same session, as the branch's code** — the record the
+     Bash hooks write ([`contracts/agent-record.md`](contracts/agent-record.md)); when either side has
+     no record it prints `AGENT_CHECK: UNRUNNABLE` and lands. Append `progress.md`:
      `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
    - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
      note listing the unmet AC; Dev resumes on the same branch.
@@ -549,7 +552,9 @@ every PASS, an issue's or a park's; a FAIL promotes nothing and is not held to i
 `## QA Verdict` table says on the trunk, and `finish-pr.sh` checks that table at landing; a leg's reply only
 points at it. A Workflow script has no file access, so a runner receives the reply and cannot read the card:
 the Orchestrator reads the card from the trunk before promoting
-(`.claude/skills/orchestrate/SKILL.md` § 3). The reviewer is never the leg that wrote the change.
+(`.claude/skills/orchestrate/SKILL.md` § 3). The reviewer is never the leg that wrote the change, and
+`finish-pr.sh` refuses a verdict committed by the same agent, in the same session, as the code
+([`contracts/agent-record.md`](contracts/agent-record.md)).
 
 **A leg that dispatches waits for every child.** A structured report carries `children`: `none` (it
 dispatched nothing) or `all_returned` (every child has returned and its answer is in this report). There is

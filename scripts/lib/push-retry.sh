@@ -16,11 +16,17 @@
 #
 # Usage:
 #   git_push_with_retry <repo_dir> <remote> <branch> [max_retries]
+# Once HEAD is pushed it also pushes the agent records (lib/agent-record.sh), and a record the
+# remote refuses never fails the push.
 # <repo_dir> is a working tree (or worktree) with the commit(s) already made on <branch>, which
 # names both the local and remote branch. Returns 0 once pushed; 1 (reason and unlanded commits
 # on stderr) when the bound is exhausted, the initial fetch fails (offline: retrying wastes the
 # bound), or a rebase conflicts.
 GIT_PUSH_RETRY_MAX="${GIT_PUSH_RETRY_MAX:-5}"   # the bound — override only for tests.
+
+# Every trunk push also carries the agent records (refs/kit-agent/*), never fatally.
+# shellcheck source=agent-record.sh
+. "$(dirname "${BASH_SOURCE[0]}")/agent-record.sh"
 
 git_push_with_retry() {
   local repo="$1" remote="$2" branch="$3" max="${4:-$GIT_PUSH_RETRY_MAX}"
@@ -43,6 +49,7 @@ git_push_with_retry() {
 
     if git -C "$repo" push "$remote" "HEAD:$branch" --quiet 2>/dev/null; then
       echo "git_push_with_retry: pushed HEAD -> $remote/$branch (attempt $attempt/$max)."
+      kit_agent_records_push "$repo" "$remote"
       return 0
     fi
 

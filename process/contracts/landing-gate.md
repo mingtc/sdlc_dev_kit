@@ -76,6 +76,11 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   the one the landing would produce, by the same code the board report runs, with the report's
   operands read from the trunk. A finding the trunk already carries is the report's, not the
   branch's: refusing it would hold every landing shut on a defect nobody in the branch made.
+- The identity (session, agent) recorded for the commit that wrote the item's review verdict is
+  one recorded for the branch's own commits ⇒ refuse before any destructive step: the checker must
+  not be the author.
+  When either side has no record, say the check did not run and proceed
+  ([`agent-record.md`](agent-record.md)).
 - The item is decomposed and a child is neither reviewed nor declined ⇒ refuse before any destructive
   step, naming each such child: the advance after the landing would refuse and leave it landed.
 - The publication of the landed commit fails ⇒ report that the merge exists locally and did not

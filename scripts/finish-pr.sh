@@ -107,6 +107,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # slice's own card. See lib/qa-gate.sh's header for each function's contract.
 # shellcheck source=lib/qa-gate.sh
 . "$SCRIPT_DIR/lib/qa-gate.sh"
+# Which agent made each commit — the records the Bash hooks write; read by the same-agent check.
+# shellcheck source=lib/agent-record.sh
+. "$SCRIPT_DIR/lib/agent-record.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
@@ -387,6 +390,13 @@ kit_ablation_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRAN
 #    own check-board.sh.
 kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH" \
   "${SRC#"$KWT"/}" "progress/qa_complete/$(basename "$SRC")"
+
+#    The checker is not the author (process/contracts/agent-record.md): the (session, agent)
+#    recorded for the commit that wrote the card's ## QA Verdict on the trunk must not be one
+#    recorded for the branch's code commits. Read before the squash, which replaces those commits. No record on
+#    either side prints AGENT_CHECK: UNRUNNABLE and lands.
+kit_agent_records_fetch "$MAIN_ROOT" "$KWT_REMOTE"
+kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" "refs/heads/$BRANCH"
 
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
