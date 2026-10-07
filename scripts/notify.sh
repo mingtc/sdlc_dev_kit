@@ -50,6 +50,9 @@
 set -uo pipefail   # NOT -e: a failed send must not abort the caller
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$ROOT/scripts/lib/refuse.sh"
 
 # Load the environment file (best-effort; comments and blank lines are ignored by
 # the shell).
@@ -90,7 +93,7 @@ shift || true
 case "$CMD" in
   test) MODE=test ;;
   attention|blocked|done|milestone|progress) MODE=send; CLASS="$CMD" ;;
-  *) warn "unknown class/command '$CMD' (use: attention|blocked|done|milestone|progress|test)"; exit 2 ;;
+  *) warn "unknown class/command '$CMD' (use: attention|blocked|done|milestone|progress|test)"; exit 2 ;;   # exit-class: usage
 esac
 
 MESSAGE=""; SESSION=""; REF=""; PROGRESS=""
@@ -102,7 +105,7 @@ if [ "$MODE" = "send" ]; then
     -?*) if [ "$_has_msg" = 0 ]; then
            echo "Error: '$1' is not a message — a leading '-' is never a positional value." >&2
            echo "       To send text that starts with '-', pass it as  --message <text>." >&2
-           exit 2
+           exit 2   # exit-class: usage
          fi ;;
     *) MESSAGE="${1:-}"; shift || true ;;
   esac
@@ -118,11 +121,11 @@ while [ $# -gt 0 ]; do
     --ref) need_val "$@"; REF="$2"; shift 2 ;;
     --progress) need_val "$@"; PROGRESS="$2"; shift 2 ;;
     --message) need_val "$@"
-               [ -z "$MESSAGE" ] || { echo "Error: the message is given twice. Give it once, positionally or as --message." >&2; exit 2; }
+               [ -z "$MESSAGE" ] || { echo "Error: the message is given twice. Give it once, positionally or as --message." >&2; exit 2; }   # exit-class: usage
                MESSAGE="$2"; shift 2 ;;
     # An illegal invocation refuses with 2; the fail-soft exit 0 is for a failed DELIVERY only.
-    -*) echo "Error: unknown option: $1" >&2; exit 2 ;;
-    *) echo "Error: unknown argument: $1" >&2; exit 2 ;;
+    -*) echo "Error: unknown option: $1" >&2; exit 2 ;;   # exit-class: usage
+    *) echo "Error: unknown argument: $1" >&2; exit 2 ;;   # exit-class: usage
   esac
 done
 
@@ -139,8 +142,12 @@ fi
 if [ ! -f "$ADAPTER" ]; then
   # An adapter is a script with a `send)` verb arm; stall.sh, the watchdog beside them, has none.
   avail="$( { grep -lE '^[[:space:]]*send\)' "$ROOT"/scripts/notify/*.sh 2>/dev/null || true; } | sed 's|.*/||; s/\.sh$//' | paste -sd, -)"
-  warn "no adapter for NOTIFY_BACKEND='$NOTIFY_BACKEND' (expected scripts/notify/${NOTIFY_BACKEND}.sh). Available: ${avail:-none}"
-  [ "$MODE" = "test" ] && exit 1 || exit 0
+  _na_what="no adapter for NOTIFY_BACKEND='$NOTIFY_BACKEND' (expected scripts/notify/${NOTIFY_BACKEND}.sh). Available: ${avail:-none}"
+  [ "$MODE" != "test" ] || kit_refuse 1 notify-no-adapter \
+    "notify: $_na_what" \
+    "Next: set NOTIFY_BACKEND in your environment file to an available backend (or none), or add scripts/notify/${NOTIFY_BACKEND}.sh."
+  warn "$_na_what"
+  exit 0
 fi
 
 export NOTIFY_PROJECT_RESOLVED="$PROJECT"
@@ -155,7 +162,7 @@ if [ "$MODE" = "test" ]; then
     rc=$?
     # The policy vocabulary is `continue|abort`, as .env.example spells it.
     warn "❌ test FAILED via '$NOTIFY_BACKEND' (see DIAGNOSIS above). Policy NOTIFY_ON_SETUP_FAILURE=$NOTIFY_ON_SETUP_FAILURE — abort: halt + tell the user; continue: warn + proceed. Nothing here enforces it; the caller acts on this exit status."
-    exit "$rc"
+    exit "$rc"   # exit-class: internal
   fi
 fi
 

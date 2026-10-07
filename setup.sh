@@ -25,9 +25,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$ROOT"
 
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=scripts/lib/refuse.sh
+. "$ROOT/scripts/lib/refuse.sh"
+
 log()  { printf '%s\n' "$*" >&2; }
 warn() { printf 'WARN: %s\n' "$*" >&2; }
-die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }   # exit-class: internal
 
 usage() {
   cat <<'EOF'
@@ -52,8 +56,8 @@ case "$1" in
   --kit-only) KIT_ONLY=true ;;
   "")         ;;
   # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
-  -*)         printf 'ERROR: unknown option '"'"'%s'"'"'. See ./setup.sh --help.\n' "$1" >&2; exit 2 ;;
-  *)          die "Unknown argument '$1'. See ./setup.sh --help." ;;
+  -*)         printf 'ERROR: unknown option '"'"'%s'"'"'. See ./setup.sh --help.\n' "$1" >&2; usage >&2; exit 2 ;;
+  *)          printf 'ERROR: Unknown argument '"'"'%s'"'"'. See ./setup.sh --help.\n' "$1" >&2; usage >&2; exit 1 ;;
 esac
 shift
 done
@@ -155,7 +159,9 @@ fi
 if [ "$KIT_ONLY" = true ]; then
   log ""
   log "Kit half done (--kit-only). Runtime bootstrap skipped."
-  [ "$FAILURES" -eq 0 ] || die "$FAILURES kit problem(s) above."
+  [ "$FAILURES" -eq 0 ] || kit_refuse 1 setup-problems \
+    "ERROR: $FAILURES kit problem(s) above." \
+    "Next: fix each problem listed above (each names its fix), then re-run ./setup.sh."
   exit 0
 fi
 
@@ -241,5 +247,7 @@ Credentials:          .env ($ENV_NOTE)
 EOF
 
 if [ "$FAILURES" -gt 0 ]; then
-  die "$FAILURES kit problem(s) reported above — fix them before starting work."
+  kit_refuse 1 setup-problems \
+    "ERROR: $FAILURES kit problem(s) reported above — fix them before starting work." \
+    "Next: fix each problem listed above (each names its fix), then re-run ./setup.sh."
 fi

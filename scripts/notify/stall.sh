@@ -52,7 +52,7 @@ done
 [ -n "$QUIET_MINUTES" ] \
   || { echo "stall.sh: --quiet-minutes is required and has no default — the threshold belongs to your run's declared cadence, not to this script." >&2; usage >&2; exit 2; }
 case "$QUIET_MINUTES" in
-  ''|*[!0-9]*) echo "stall.sh: --quiet-minutes must be a whole number of minutes (got '$QUIET_MINUTES')." >&2; exit 2 ;;
+  ''|*[!0-9]*) echo "stall.sh: --quiet-minutes must be a whole number of minutes (got '$QUIET_MINUTES')." >&2; exit 2 ;;   # exit-class: usage
 esac
 
 # ── THE READ: `git ls-remote`, not a local tracking ref, which is only as fresh as the last
@@ -60,11 +60,11 @@ esac
 #    UNKNOWN, never a stall.
 LS="$(git ls-remote --heads "$REMOTE" 2>&1)" || {
   echo "stall.sh: UNKNOWN — could not read '$REMOTE'. Unknown and alive are different answers, and this is the first: $(printf '%s' "$LS" | tr '\n' ' ' | cut -c1-200)" >&2
-  exit 1
+  exit 1   # exit-class: internal
 }
 [ -n "$LS" ] || {
   echo "stall.sh: UNKNOWN — '$REMOTE' reports no heads at all. That is not a stall; it is a remote with nothing on it." >&2
-  exit 1
+  exit 1   # exit-class: internal
 }
 git fetch --quiet "$REMOTE" 2>/dev/null || true
 
@@ -83,7 +83,7 @@ EOF
 #    refs it could not read.
 if [ "$NEWEST" -eq 0 ]; then
   echo "stall.sh: UNKNOWN — '$REMOTE' has heads but no commit date could be read for any of them:$UNREAD. A fetch may have failed, or these refs are not present locally. Reporting unknown rather than stalled, because a walk that measured nothing is not evidence of silence." >&2
-  exit 1
+  exit 1   # exit-class: internal
 fi
 
 NOW="$(date +%s)"
@@ -107,7 +107,7 @@ if [ "$AGE" -gt "$QUIET_SECONDS" ]; then
       echo "stall.sh: scripts/notify.sh is not executable or not present, so --notify reached nobody. THE FINDING ABOVE STANDS AND WAS NOT DELIVERED." >&2
     fi
   fi
-  exit 3
+  exit 3   # exit-class: internal
 fi
 
 echo "moving: newest commit on '$REMOTE' is ${AGE_MIN}m old (threshold ${QUIET_MINUTES}m) — $SPAN"

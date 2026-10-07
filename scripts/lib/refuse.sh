@@ -28,8 +28,25 @@
 #
 # CALLED INSIDE $( … ) IT EXITS ONLY THE SUBSHELL.
 #
-# An `exit N` a script keeps on purpose, beside an `Error:` line, carries
-# `# refusal-exempt: <why>` on its line; the self-test reports every other one.
+# THE THREE KINDS OF NONZERO EXIT. Every nonzero `exit` in a shipped shell program is one of:
+#
+#   REFUSAL   the state forbids the act, and the same command with well-formed arguments would be
+#             refused again until something is done. It goes through kit_refuse, with a `Next:` line.
+#   USAGE     the arguments are malformed (an unknown option, a missing value, a surplus
+#             positional); the answer is the script's usage text, which is the route. It stays an
+#             `exit`, on a line that calls `usage` before it (`usage >&2; exit 2`), inside the
+#             `need_val` guard, or carrying `# exit-class: usage` where the usage call is on an
+#             earlier line.
+#   INTERNAL  a tool or I/O step failed, or the status is one the script computed or relayed; no
+#             state of the caller's forbids anything. The line carries `# exit-class: internal`
+#             and the message says what failed.
+#
+# A hook that must still block when this helper cannot load keeps its `exit` after a guarded
+# `kit_refuse` call, marked `# exit-class: fallback` within 12 lines below that call.
+#
+# A check that reads the project's state (a card's column, a file, a git ref, a declared value) is a
+# REFUSAL, whatever exit status it uses; do not mark it usage or internal to avoid the helper. The
+# self-test fails any nonzero exit that is none of the three.
 
 if ! command -v kit_progress >/dev/null 2>&1; then
   if [ -r "$(dirname "${BASH_SOURCE[0]}")/progress-record.sh" ]; then

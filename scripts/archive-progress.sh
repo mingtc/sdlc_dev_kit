@@ -78,6 +78,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/usage.sh"
 # shellcheck source=lib/exit-trap.sh
 . "$SCRIPT_DIR/lib/exit-trap.sh"
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 # A usage request always succeeds, in any position, before any argument is interpreted
@@ -101,55 +104,57 @@ while [ $# -gt 0 ]; do
     --repo-root) need_val "$@"; REPO_ROOT="$2"; shift 2 ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
-    *) echo "Unknown arg: $1" >&2; exit 1 ;;
+    *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
 done
 # THE SAME REFUSAL AS archive.sh: two sibling sweeps must not disagree about this pair.
 if [ "$SAW_APPLY" = true ] && [ "$SAW_DRY" = true ]; then
-  {
-    echo "Error: --apply and --dry-run are contradictory — refusing rather than guessing which you meant."
-    echo "       --apply rewrites progress.md and the chunk index; --dry-run previews and changes nothing."
-    echo "       Run one of them. The bare form (no flag) is the preview."
-    echo "       NOTHING WAS CHANGED."
-  } >&2
-  exit 2
+  kit_refuse 2 apply-and-dry-run-contradict \
+    "Error: --apply and --dry-run are contradictory — refusing rather than guessing which you meant." \
+    "       --apply rewrites progress.md and the chunk index; --dry-run previews and changes nothing." \
+    "       NOTHING WAS CHANGED." \
+    "Next: run one of them. The bare form (no flag) is the preview."
 fi
 
-[ -n "$MILESTONE" ] || { echo "Error: --milestone <name> is required." >&2; exit 1; }
+[ -n "$MILESTONE" ] || kit_refuse 1 milestone-required \
+  "Error: --milestone <name> is required." \
+  "Next: re-run with  --milestone <name>  (the chunk's name under progress/history/)."
 
 # EXACTLY ONE KNIFE PER RUN. Both is a caller who has named two different cuts
 # and cannot be given both; neither leaves nothing to cut by.
 if [ -n "$BEFORE" ] && [ -n "$KEEP_LAST" ]; then
-  echo "Error: --before and --keep-last are two different cuts; pass exactly one." >&2
-  exit 1
+  kit_refuse 1 two-cuts \
+    "Error: --before and --keep-last are two different cuts." \
+    "Next: re-run passing exactly one of them."
 fi
 if [ -z "$BEFORE" ] && [ -z "$KEEP_LAST" ]; then
-  {
-    echo "Error: no cut given. Pass exactly one of:"
-    echo "  --keep-last <N>          keep the newest N entries, rotate everything older"
-    echo "  --before <YYYY-MM-DD>    rotate entries dated before that day"
-    echo ""
-    echo "PREFER --keep-last WHEN THE TRIGGER IS A SIZE. The board's log-size threshold is"
-    echo "measured in BYTES and can be crossed more than once in a day; a date can only cut"
-    echo "on a day boundary, so a second rotation on the same day has no expressible cut and"
-    echo "reports 'nothing to archive' while the file is still over. --keep-last cuts at an"
-    echo "ENTRY boundary, so it can be run again the same day and cuts further each time."
-  } >&2
-  exit 1
+  kit_refuse 1 no-cut \
+    "Error: no cut given." \
+    "Next: pass exactly one of:" \
+    "  --keep-last <N>          keep the newest N entries, rotate everything older" \
+    "  --before <YYYY-MM-DD>    rotate entries dated before that day" \
+    "" \
+    "PREFER --keep-last WHEN THE TRIGGER IS A SIZE. The board's log-size threshold is" \
+    "measured in BYTES and can be crossed more than once in a day; a date can only cut" \
+    "on a day boundary, so a second rotation on the same day has no expressible cut and" \
+    "reports 'nothing to archive' while the file is still over. --keep-last cuts at an" \
+    "ENTRY boundary, so it can be run again the same day and cuts further each time."
 fi
 
 if [ -n "$BEFORE" ]; then
   # Validate date format (strict regex, not full calendar validation)
   if ! echo "$BEFORE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
-    echo "Error: --before must be YYYY-MM-DD (got: $BEFORE)" >&2
-    exit 1
+    kit_refuse 1 before-malformed \
+      "Error: --before must be YYYY-MM-DD (got: $BEFORE)" \
+      "Next: re-run with  --before <YYYY-MM-DD>."
   fi
 fi
 
 if [ -n "$KEEP_LAST" ]; then
   if ! echo "$KEEP_LAST" | grep -qE '^[0-9]+$'; then
-    echo "Error: --keep-last must be a non-negative integer (got: $KEEP_LAST)" >&2
-    exit 1
+    kit_refuse 1 keep-last-malformed \
+      "Error: --keep-last must be a non-negative integer (got: $KEEP_LAST)" \
+      "Next: re-run with  --keep-last <N>  where N is a whole number."
   fi
 fi
 
@@ -164,12 +169,18 @@ CHUNK="$HISTORY_DIR/$MILESTONE.md"
 
 INDEX="$HISTORY_DIR/INDEX.md"
 
-[ -f "$PROGRESS" ]    || { echo "Error: $PROGRESS does not exist." >&2; exit 1; }
-[ -d "$HISTORY_DIR" ] || { echo "Error: $HISTORY_DIR does not exist." >&2; exit 1; }
+[ -f "$PROGRESS" ]    || kit_refuse 1 progress-md-missing \
+  "Error: $PROGRESS does not exist." \
+  "Next: run it from a project that has progress.md at its root, or name the tree with --repo-root <path>."
+[ -d "$HISTORY_DIR" ] || kit_refuse 1 history-dir-missing \
+  "Error: $HISTORY_DIR does not exist." \
+  "Next: create it (mkdir -p progress/history && touch progress/history/.gitkeep) or name the tree with --repo-root <path>, then re-run."
 # § Log's heading is declared once, in lib/lived-probe.sh. Loaded here, before any write.
 # shellcheck source=lib/lived-probe.sh
 { [ -f "$SCRIPT_DIR/lib/lived-probe.sh" ] && . "$SCRIPT_DIR/lib/lived-probe.sh" && [ -n "${KIT_LOG_HEADING_ERE:-}" ]; } \
-  || { echo "Error: scripts/lib/lived-probe.sh is missing or declares no KIT_LOG_HEADING_ERE — it declares the '## Log' heading this script splits on. Nothing was written." >&2; exit 1; }
+  || kit_refuse 1 lived-probe-missing \
+       "Error: scripts/lib/lived-probe.sh is missing or declares no KIT_LOG_HEADING_ERE — it declares the '## Log' heading this script splits on. Nothing was written." \
+       "Next: restore scripts/lib/lived-probe.sh (git checkout -- scripts/lib/lived-probe.sh), then re-run."
 # A MISSING INDEX (archive-sweep.md § 3: a new empty index reads as "nothing was ever
 # archived"). Chunks present -> REFUSE: the rows carry spans only the adopter can supply.
 # No chunks -> CREATE, loudly: the empty index is then true, and an unconditional refusal
@@ -177,18 +188,16 @@ INDEX="$HISTORY_DIR/INDEX.md"
 if [ ! -f "$INDEX" ]; then
   EXISTING_CHUNKS="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*.md' ! -name 'INDEX.md' 2>/dev/null | sort)"
   if [ -n "$EXISTING_CHUNKS" ]; then
-    {
-      echo "Error: ${INDEX#"$REPO_ROOT"/} is missing, and this directory already holds rotated chunks:"
-      printf '%s\n' "$EXISTING_CHUNKS" | sed "s|^$HISTORY_DIR/|    |"
-      echo "  An index created now would show ZERO rows, which reads as 'nothing was ever"
-      echo "  archived' — false, and the chunks above are the proof. This tool will not write"
-      echo "  that claim for you (archive-sweep.md § 3)."
-      echo "  Backfill it by hand: create the file with the header row"
-      echo "    | Chunk | Covers | Entries | Rotated | Cut |"
-      echo "    |---|---|---|---|---|"
-      echo "  and one row per chunk above — the date spans are inside each chunk. Then re-run."
-    } >&2
-    exit 1
+    kit_refuse 1 rotation-index-missing \
+      "Error: ${INDEX#"$REPO_ROOT"/} is missing, and this directory already holds rotated chunks:" \
+      "$(printf '%s\n' "$EXISTING_CHUNKS" | sed "s|^$HISTORY_DIR/|    |")" \
+      "  An index created now would show ZERO rows, which reads as 'nothing was ever" \
+      "  archived' — false, and the chunks above are the proof. This tool will not write" \
+      "  that claim for you (archive-sweep.md § 3)." \
+      "Next: backfill it by hand: create the file with the header row" \
+      "    | Chunk | Covers | Entries | Rotated | Cut |" \
+      "    |---|---|---|---|---|" \
+      "  and one row per chunk above — the date spans are inside each chunk. Then re-run."
   fi
   # No chunks: an empty index is the truth. Create it and SAY SO — but not during a dry run,
   # whose summary says nothing was changed. The refusal above stays in both modes.
@@ -327,26 +336,23 @@ if [ "$PRE_COUNT" = "0" ]; then
   # "Nothing to archive" is printed only under the threshold, so a reader grepping for the
   # green phrase never finds it on a run where a rotation was due.
   if [ -n "$THRESH" ] && [ "$LOGBYTES" -gt "$THRESH" ]; then
-    {
-      if [ -n "$BEFORE" ]; then
-        echo "Nothing matched: no entries dated before $BEFORE."
-      else
-        echo "Nothing matched: the log holds $KEEP_LAST or fewer entries, so keeping the newest $KEEP_LAST rotates none."
-      fi
-      echo ""
-      echo "AND A ROTATION IS STILL DUE, so this run did NOT do what you ran it for."
-      echo "  § Log measures $LOGBYTES bytes against the board's threshold of $THRESH."
-      echo "  Nothing matched the cut you gave — that is a statement about YOUR SELECTOR,"
-      echo "  not about the log. Do not read this exit as an all-clear."
-      if [ -n "$BEFORE" ]; then
-        echo "  A date can only cut on a day boundary. If today's entries alone put the log"
-        echo "  over, --before cannot express the cut. Use --keep-last <N> instead, which"
-        echo "  cuts at an ENTRY boundary and can be run again the same day."
-      else
-        echo "  Lower --keep-last until it cuts, or split by milestone."
-      fi
-    } >&2
-    exit 3
+    if [ -n "$BEFORE" ]; then
+      _np_what="Nothing matched: no entries dated before $BEFORE."
+      _np_next="Next: a date can only cut on a day boundary. If today's entries alone put the log
+  over, --before cannot express the cut. Use --keep-last <N> instead, which
+  cuts at an ENTRY boundary and can be run again the same day."
+    else
+      _np_what="Nothing matched: the log holds $KEEP_LAST or fewer entries, so keeping the newest $KEEP_LAST rotates none."
+      _np_next="Next: lower --keep-last until it cuts, or split by milestone."
+    fi
+    kit_refuse 3 rotation-due-nothing-matched \
+      "$_np_what" \
+      "" \
+      "AND A ROTATION IS STILL DUE, so this run did NOT do what you ran it for." \
+      "  § Log measures $LOGBYTES bytes against the board's threshold of $THRESH." \
+      "  Nothing matched the cut you gave — that is a statement about YOUR SELECTOR," \
+      "  not about the log. Do not read this exit as an all-clear." \
+      "$_np_next"
   fi
 
   # Genuinely nothing due (archive-sweep.md § 3 — "nothing to do is not an error").
@@ -367,9 +373,9 @@ fi
 
 # Refuse to overwrite an existing non-empty chunk.
 if [ -s "$CHUNK" ]; then
-  echo "Error: $CHUNK already exists and is non-empty." >&2
-  echo "Choose another --milestone name, or delete the existing chunk first." >&2
-  exit 1
+  kit_refuse 1 chunk-exists \
+    "Error: $CHUNK already exists and is non-empty." \
+    "Next: choose another --milestone name, or delete the existing chunk first."
 fi
 
 # Name the cut that was actually used.
@@ -400,38 +406,34 @@ if [ -f "$INDEX" ]; then
   if [ -z "$_idx_hdr_line" ]; then
     # REFUSE rather than append at a guess: the one document that must stay ordered
     # is the one an append-at-a-guess corrupts (archive-sweep.md § 3).
-    {
-      echo ""
-      echo "Error: ${INDEX#"$REPO_ROOT"/} has no recognisable insertion point."
-      echo "  Expected a table whose header row is exactly:"
-      echo "    $IDX_HEADER"
-      echo "  Nothing was written. Add these two lines, then re-run:"
-      echo "    $IDX_HEADER"
-      echo "    $IDX_SEP"
-    } >&2
-    exit 1
+    kit_refuse 1 rotation-index-no-insertion-point \
+      "Error: ${INDEX#"$REPO_ROOT"/} has no recognisable insertion point." \
+      "  Expected a table whose header row is exactly:" \
+      "    $IDX_HEADER" \
+      "  Nothing was written." \
+      "Next: add these two lines, then re-run:" \
+      "    $IDX_HEADER" \
+      "    $IDX_SEP"
   fi
   _idx_next="$(sed -n "$((_idx_hdr_line + 1))p" "$INDEX")"
   if ! printf '%s' "$_idx_next" | grep -qE '^[[:space:]]*\|[-:| [:space:]]*-[-:| [:space:]]*\|[[:space:]]*$'; then
     # REFUSE, AND DO NOT REPAIR: this file is the adopter's record, and inserting the separator
     # would be the tool rewriting it to suit itself.
-    {
-      echo ""
-      echo "Error: ${INDEX#"$REPO_ROOT"/} is MALFORMED — the header row is not followed by a separator."
-      echo "  Line $((_idx_hdr_line + 1)) is:"
-      echo "    ${_idx_next:-(empty)}"
-      echo "  A markdown table's header owes a separator on the very next line, and this"
-      echo "  insert reads that line and reprints it. Without one, YOUR FIRST DATA ROW"
-      echo "  would be consumed into the separator's place and the new row would land"
-      echo "  second — breaking the newest-first order this index exists to give you."
-      echo "  The file must open its table with exactly these two lines:"
-      echo "    $IDX_HEADER"
-      echo "    $IDX_SEP"
-      echo "  Nothing was written. This tool will not insert the separator for you: this"
-      echo "  file is your record, and a tool that quietly rewrites it to suit itself is"
-      echo "  how an index comes to state things nobody put there. Fix the two lines, then re-run."
-    } >&2
-    exit 1
+    kit_refuse 1 rotation-index-malformed \
+      "Error: ${INDEX#"$REPO_ROOT"/} is MALFORMED — the header row is not followed by a separator." \
+      "  Line $((_idx_hdr_line + 1)) is:" \
+      "    ${_idx_next:-(empty)}" \
+      "  A markdown table's header owes a separator on the very next line, and this" \
+      "  insert reads that line and reprints it. Without one, YOUR FIRST DATA ROW" \
+      "  would be consumed into the separator's place and the new row would land" \
+      "  second — breaking the newest-first order this index exists to give you." \
+      "  The file must open its table with exactly these two lines:" \
+      "    $IDX_HEADER" \
+      "    $IDX_SEP" \
+      "  Nothing was written. This tool will not insert the separator for you: this" \
+      "  file is your record, and a tool that quietly rewrites it to suit itself is" \
+      "  how an index comes to state things nobody put there." \
+      "Next: fix the two lines, then re-run."
   fi
 fi
 

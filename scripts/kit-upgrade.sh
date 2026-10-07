@@ -174,7 +174,7 @@ lc_field() {  # <file> <key> — a frontmatter value
 lc_probe() {
   local rc
   : > "$LC_TMP/rule"
-  ( . "$LC_DIR/refuse.sh"; . "$LC_DIR/decision-register.sh"; . "$LC_DIR/qa-gate.sh" || exit 70
+  ( . "$LC_DIR/refuse.sh"; . "$LC_DIR/decision-register.sh"; . "$LC_DIR/qa-gate.sh" || exit 70   # exit-class: internal
     kit_progress() { printf '%s' "$4" > "$LC_TMP/rule"; }
     "$@" ) >"$LC_TMP/out" 2>"$LC_TMP/err"
   rc=$?

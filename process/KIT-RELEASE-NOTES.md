@@ -470,6 +470,11 @@ columns and never the cards.*
   `set-models.sh`, `kit-upgrade.sh`, the commit hooks) names the step that clears it, or the escalation when none lies
   inside the agent's authority. Only the message text changes; rule ids, exit codes and records are as before. No action.
 
+- **The same now holds for the rest of the scripts.** The board mover and landing scripts (`move-issue.sh`, `finish-pr.sh`,
+  `subtask.sh`), the creators, the archive sweeps, `register-commit.sh`, `next-id.sh`, `notify.sh` and its Telegram adapter,
+  `kit-init.sh`, `release.sh`, `verify.sh`, the role gate and `setup.sh` refuse through `kit_refuse`: a `Next:` line and a `refusal=`
+  progress record. Exit statuses are unchanged; some message wording moved onto the `Next:` line. No action.
+
 - **A dispatched leg's report now types its claims, and a runner promotes only a PASS backed by one.**
   `process/MANUAL.md` § The leg-report contract is the one statement: every claim is OBSERVED (a command
   with its output, or a `path:line` with a verbatim quote), INFERRED (with what it was concluded from) or

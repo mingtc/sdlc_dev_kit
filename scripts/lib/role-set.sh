@@ -15,6 +15,10 @@
 # Its consumers are the files that SOURCE it (a filename grep also returns files that only name it):
 #   grep -rlE '^[^#]*\.[[:space:]]+"\$SCRIPT_DIR/lib/role-set\.sh"' scripts --include='*.sh'
 
+# kit_require_role refuses through the one helper.
+# shellcheck source=refuse.sh
+. "$(dirname "${BASH_SOURCE[0]}")/refuse.sh"
+
 # kit_role_set <repo-root> — echo the project's declared role set, or nothing.
 # Callers MUST treat empty as "could not read", never as "no roles declared".
 kit_role_set() {
@@ -81,8 +85,8 @@ kit_role_member() {
   return 1
 }
 
-# kit_require_role <repo-root> <tag> <knob-name> — refuse, on stderr, with status 1, if
-# <tag> is not a member of the declared set. Silent and 0 when it is.
+# kit_require_role <repo-root> <tag> <knob-name> — refuse (kit_refuse, status 1) if <tag> is not a
+# member of the declared set. Silent and 0 when it is.
 #
 # AN UNREADABLE HOOK IS A NAMED SKIP, not a pass or a failure: refusing every board operation on
 # a tree whose hook was deleted is worse, and the hook still refuses a genuinely wrong tag.
@@ -96,14 +100,12 @@ kit_require_role() {
   case "|$set_|" in
     *"|$tag|"*) return 0 ;;
   esac
-  {
-    echo "Error: the role tag '$tag' is not in this project's declared role set."
-    echo "         declared: $set_"
-    echo "       This script commits under that tag, and the commit-msg hook would reject it"
-    echo "       AFTER the board move had already been made — leaving uncommitted state in the"
-    echo "       shared kanban worktree that blocks every later board operation. Refusing first."
-    echo "       Set the seat this script acts as:  $knob=<one of the above> $0 ..."
-    echo "       NOTHING WAS CHANGED."
-  } >&2
-  return 1
+  kit_refuse 1 role-tag-not-declared \
+    "Error: the role tag '$tag' is not in this project's declared role set." \
+    "         declared: $set_" \
+    "       This script commits under that tag, and the commit-msg hook would reject it" \
+    "       AFTER the board move had already been made — leaving uncommitted state in the" \
+    "       shared kanban worktree that blocks every later board operation. Refusing first." \
+    "Next: set the seat this script acts as, one of the declared tags above:  $knob=<tag> $0 ..." \
+    "       NOTHING WAS CHANGED."
 }

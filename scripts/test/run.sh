@@ -546,8 +546,8 @@ CASES=(
   case_missing_option_value_refuses
   case_shipped_scripts_stay_on_the_floor
   case_gates_command_field_is_excluded_from_the_floor
-  case_refusal_sites_are_reported
   case_every_refusal_names_its_next_action
+  case_every_nonzero_exit_is_classified
   case_help_never_opens_with_the_class_marker
   case_role_examples_carry_their_label
   case_role_set_read_is_one_expression

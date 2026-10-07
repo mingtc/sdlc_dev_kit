@@ -24,6 +24,9 @@
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=../lib/refuse.sh
+. "$SCRIPT_DIR/../lib/refuse.sh"
 
 # Standalone setup commands (chatid/test run by hand) need credentials loaded.
 if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && [ -f "$ROOT/.env" ]; then
@@ -53,14 +56,16 @@ case "${VERB:-}" in
   -h|--help|help)
     # Loaded here only: sending does not depend on the help renderer.
     # shellcheck source=../lib/usage.sh
-    . "$SCRIPT_DIR/../lib/usage.sh" || exit 1
+    . "$SCRIPT_DIR/../lib/usage.sh" || exit 1   # exit-class: internal
     kit_usage "${BASH_SOURCE[0]:-$0}"; exit 0 ;;
 esac
 
 case "$VERB" in
   send)
     if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
-      err "missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in the environment file"; exit 1
+      kit_refuse 1 telegram-credentials-missing \
+        "telegram: missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in the environment file" \
+        "Next: set both in the environment file, then run  ./scripts/notify.sh test  to check them."
     fi
     # NOTIFY_SILENT=true → the message is delivered with no sound/vibration (it
     # still lands in the chat). Set by notify.sh from NOTIFY_WITH_MSG_ONLY.
@@ -68,57 +73,69 @@ case "$VERB" in
       --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
       --data-urlencode "text=${NOTIFY_TEXT:-(no message)}" \
       --data "disable_notification=${NOTIFY_SILENT:-false}" \
-      --data "disable_web_page_preview=true")" || { err "network error reaching the API host"; exit 1; }
+      --data "disable_web_page_preview=true")" || { err "network error reaching the API host"; exit 1; }   # exit-class: internal
     [ "$(code_of "$resp")" = "200" ] && exit 0
     err "send failed (HTTP $(code_of "$resp")): $(body_of "$resp" | tr -d '\n' | cut -c1-200)"
-    exit 1
+    exit 1   # exit-class: internal
     ;;
 
   test)
     # 1) token present?
     if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
-      err "DIAGNOSIS: TELEGRAM_BOT_TOKEN is empty. → Create a bot with the platform's bot-registration flow and paste its token into your environment file."
-      exit 1
+      kit_refuse 1 telegram-token-empty \
+        "telegram: DIAGNOSIS: TELEGRAM_BOT_TOKEN is empty." \
+        "Next: create a bot with the platform's bot-registration flow and paste its token into your environment file."
     fi
     # 2) token valid + reachable?
-    resp="$(tg_get getMe)" || { err "DIAGNOSIS: cannot reach the API host (network / DNS / proxy / firewall). → Check connectivity."; exit 1; }
+    resp="$(tg_get getMe)" || { err "DIAGNOSIS: cannot reach the API host (network / DNS / proxy / firewall). → Check connectivity."; exit 1; }   # exit-class: internal
     code="$(code_of "$resp")"; body="$(body_of "$resp")"
-    if [ -z "$code" ]; then err "DIAGNOSIS: no response from the API host (network). → Check connectivity."; exit 1; fi
-    if [ "$code" = "401" ]; then err "DIAGNOSIS: invalid bot token (401 Unauthorized). → Re-copy the token into TELEGRAM_BOT_TOKEN."; exit 1; fi
-    if [ "$code" != "200" ]; then err "DIAGNOSIS: getMe failed (HTTP $code): $(printf '%s' "$body" | tr -d '\n' | cut -c1-160)"; exit 1; fi
+    if [ -z "$code" ]; then err "DIAGNOSIS: no response from the API host (network). → Check connectivity."; exit 1; fi   # exit-class: internal
+    if [ "$code" = "401" ]; then
+      kit_refuse 1 telegram-token-invalid \
+        "telegram: DIAGNOSIS: invalid bot token (401 Unauthorized)." \
+        "Next: re-copy the token into TELEGRAM_BOT_TOKEN."
+    fi
+    if [ "$code" != "200" ]; then err "DIAGNOSIS: getMe failed (HTTP $code): $(printf '%s' "$body" | tr -d '\n' | cut -c1-160)"; exit 1; fi   # exit-class: internal
     botname="$(printf '%s' "$body" | jq -r '.result.username // "?"' 2>/dev/null || echo '?')"
     # 3) chat id present?
     if [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
-      err "DIAGNOSIS: token OK (bot @$botname) but TELEGRAM_CHAT_ID is empty. → Message your bot once, then run: ./scripts/notify/telegram.sh chatid"
-      exit 1
+      kit_refuse 1 telegram-chat-id-empty \
+        "telegram: DIAGNOSIS: token OK (bot @$botname) but TELEGRAM_CHAT_ID is empty." \
+        "Next: message your bot once, then run: ./scripts/notify/telegram.sh chatid"
     fi
     # 4) end-to-end delivery
     proj="${NOTIFY_PROJECT_RESOLVED:-$(basename "$ROOT")}"
     resp="$(tg_post sendMessage \
       --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-      --data-urlencode "text=✅ notify test OK — [$proj] via @$botname")" || { err "DIAGNOSIS: network error during sendMessage."; exit 1; }
+      --data-urlencode "text=✅ notify test OK — [$proj] via @$botname")" || { err "DIAGNOSIS: network error during sendMessage."; exit 1; }   # exit-class: internal
     code="$(code_of "$resp")"; body="$(body_of "$resp")"
     if [ "$code" = "200" ]; then echo "telegram: test message delivered to chat ${TELEGRAM_CHAT_ID} (bot @$botname)"; exit 0; fi
     if printf '%s' "$body" | grep -qi 'chat not found'; then
-      err "DIAGNOSIS: TELEGRAM_CHAT_ID='${TELEGRAM_CHAT_ID}' is wrong, or you haven't messaged the bot yet. → Send your bot any message, then re-fetch via: ./scripts/notify/telegram.sh chatid"
-      exit 1
+      kit_refuse 1 telegram-chat-id-wrong \
+        "telegram: DIAGNOSIS: TELEGRAM_CHAT_ID='${TELEGRAM_CHAT_ID}' is wrong, or you haven't messaged the bot yet." \
+        "Next: send your bot any message, then re-fetch via: ./scripts/notify/telegram.sh chatid"
     fi
     err "DIAGNOSIS: sendMessage failed (HTTP $code): $(printf '%s' "$body" | tr -d '\n' | cut -c1-200)"
-    exit 1
+    exit 1   # exit-class: internal
     ;;
 
   chatid)
-    if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then err "set TELEGRAM_BOT_TOKEN in your environment file first."; exit 1; fi
-    resp="$(tg_get getUpdates)" || { err "cannot reach the API host."; exit 1; }
-    [ "$(code_of "$resp")" = "200" ] || { err "getUpdates failed (HTTP $(code_of "$resp")). Check the bot token."; exit 1; }
+    if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+      kit_refuse 1 telegram-token-empty \
+        "telegram: TELEGRAM_BOT_TOKEN is empty." \
+        "Next: set TELEGRAM_BOT_TOKEN in your environment file first."
+    fi
+    resp="$(tg_get getUpdates)" || { err "cannot reach the API host."; exit 1; }   # exit-class: internal
+    [ "$(code_of "$resp")" = "200" ] || { err "getUpdates failed (HTTP $(code_of "$resp")). Check the bot token."; exit 1; }   # exit-class: internal
     id="$(body_of "$resp" | jq -r '[.result[].message.chat.id] | last // empty' 2>/dev/null)"
     if [ -z "$id" ]; then
-      err "no recent messages found. → Open the app, send your bot any message (e.g. \"hi\"), then run this again. (getUpdates only sees the last ~24h and won't work if a webhook is set.)"
-      exit 1
+      kit_refuse 1 telegram-no-recent-messages \
+        "telegram: no recent messages found. (getUpdates only sees the last ~24h and won't work if a webhook is set.)" \
+        "Next: open the app, send your bot any message (e.g. \"hi\"), then run this again."
     fi
     echo "Your TELEGRAM_CHAT_ID is: $id"
     echo "Paste it into your environment file →  TELEGRAM_CHAT_ID=\"$id\""
     ;;
 
-  *) err "unknown verb '$VERB' (send|test|chatid)"; exit 2 ;;
+  *) err "unknown verb '$VERB' (send|test|chatid)"; exit 2 ;;   # exit-class: usage
 esac

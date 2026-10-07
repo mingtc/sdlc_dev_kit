@@ -141,7 +141,7 @@ while [ $# -gt 0 ]; do
     --discard-dirty) DISCARD_DIRTY=true; KWT_DISCARD_DIRTY=true; shift ;;
     --apply) { echo "Error: finish-pr.sh has no --apply — it MUTATES by default, which is the opposite"
                echo "       of the archive sweeps. Use --dry-run to preview. NOTHING WAS READ OR TOUCHED."; } >&2
-             exit 2 ;;
+             exit 2 ;;   # exit-class: usage
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -152,7 +152,7 @@ done
 ROLE="${FINISH_PR_ROLE:-QA}"
 # CHECKED BEFORE kwt_resolve: move-issue.sh would reject a withdrawn role only at the advance,
 # after the merge had landed.
-kit_require_role "$SCRIPT_DIR/.." "$ROLE" FINISH_PR_ROLE || exit 1
+kit_require_role "$SCRIPT_DIR/.." "$ROLE" FINISH_PR_ROLE
 
 # Resolve repo root + trunk (works from any worktree, incl. a feature branch).
 kwt_resolve
@@ -164,14 +164,12 @@ kwt_resolve
 ALLOW_STUB=false
 [ "${FINISH_PR_TEST_ALLOW_STUB:-}" = "1" ] && ALLOW_STUB=true
 if [ "$ALLOW_STUB" != "true" ] && { [ -n "${FINISH_PR_PREMERGE_CMD:-}" ] || [ -n "${FINISH_PR_VERIFY_CMD:-}" ]; }; then
-  {
-    echo "Error: refusing a caller-supplied gate command on the production landing path."
-    echo "       FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are honored ONLY behind the"
-    echo "       test-only marker FINISH_PR_TEST_ALLOW_STUB=1 (set by the self-test only)."
-    echo "       The pre-merge gate runs a TRACKED scripts/verify.sh that finish-pr.sh chooses;"
-    echo "       to gate against a parallel leg's checkout, pass --worktree <path> instead."
-  } >&2
-  exit 1
+  kit_refuse 1 gate-command-caller-supplied \
+    "Error: refusing a caller-supplied gate command on the production landing path." \
+    "       FINISH_PR_PREMERGE_CMD / FINISH_PR_VERIFY_CMD are honored ONLY behind the" \
+    "       test-only marker FINISH_PR_TEST_ALLOW_STUB=1 (set by the self-test only)." \
+    "       The pre-merge gate runs a TRACKED scripts/verify.sh that finish-pr.sh chooses." \
+    "Next: unset FINISH_PR_PREMERGE_CMD and FINISH_PR_VERIFY_CMD and re-run; to gate against a parallel leg's checkout, pass --worktree <path>."
 fi
 
 # The checkout whose TRACKED scripts/verify.sh the pre-merge gate runs: the repo root, or
@@ -198,12 +196,11 @@ if [ -n "$WORKTREE" ]; then
     fi
   fi
   if [ -n "$_err" ]; then
-    {
-      echo "Error: $_err — refusing before any destructive step."
-      echo "       --worktree must name a genuine worktree of this repo whose tracked"
-      echo "       scripts/verify.sh is what runs (the executable is never caller-chosen)."
-    } >&2
-    exit 1
+    kit_refuse 1 worktree-not-a-gate-checkout \
+      "Error: $_err — refusing before any destructive step." \
+      "       --worktree must name a genuine worktree of this repo whose tracked" \
+      "       scripts/verify.sh is what runs (the executable is never caller-chosen)." \
+      "Next: pass --worktree <path> naming a worktree of THIS repo (git worktree list) whose scripts/verify.sh is committed and unmodified, or omit --worktree to gate the main checkout."
   fi
   # ABSOLUTE: the post-merge reading runs the gate from inside this checkout, where a relative
   # spelling names a path that does not exist.
@@ -221,17 +218,15 @@ kwt_sync
 # this script lands when the trunk's copy lands it, and anything else is the human's call.
 if git -C "$KWT" cat-file -e HEAD:scripts/finish-pr.sh 2>/dev/null \
    && ! git -C "$KWT" show HEAD:scripts/finish-pr.sh | cmp -s - "${BASH_SOURCE[0]}"; then
-  {
-    echo "Error: this scripts/finish-pr.sh is not ${DEFAULT_BRANCH}'s committed copy — it differs from"
-    echo "       ${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/finish-pr.sh (changed on this branch or locally, or older"
-    echo "       than the trunk's). A branch or a local edit may not change the script that lands it."
-    echo "       NOTHING WAS CHANGED."
-    echo "       Run the trunk's copy, from the main checkout on ${DEFAULT_BRANCH}, freshly pulled; gate the"
-    echo "       branch's checkout with --worktree:"
-    echo "         git switch ${DEFAULT_BRANCH} && git pull --ff-only && ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <branch checkout>"
-    echo "       If the trunk's copy cannot land this change, ask the human: there is no override."
-  } >&2
-  exit 1
+  kit_refuse 1 lander-not-trunk-copy \
+    "Error: this scripts/finish-pr.sh is not ${DEFAULT_BRANCH}'s committed copy — it differs from" \
+    "       ${KWT_REMOTE}/${DEFAULT_BRANCH}:scripts/finish-pr.sh (changed on this branch or locally, or older" \
+    "       than the trunk's). A branch or a local edit may not change the script that lands it." \
+    "       NOTHING WAS CHANGED." \
+    "Next: run the trunk's copy, from the main checkout on ${DEFAULT_BRANCH}, freshly pulled; gate the" \
+    "       branch's checkout with --worktree:" \
+    "         git switch ${DEFAULT_BRANCH} && git pull --ff-only && ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <branch checkout>" \
+    "       If the trunk's copy cannot land this change, ask the human: there is no override."
 fi
 
 # Find the issue file in dev_complete/ inside the kanban worktree.
@@ -245,37 +240,40 @@ if [ -z "$SRC" ]; then
   _fpr_at="$(find "$KWT/progress" -maxdepth 2 -name "${ISSUE_ID}-*.md" 2>/dev/null | head -1)"
   if [ -n "$_fpr_at" ]; then
     _fpr_col="$(basename "$(dirname "$_fpr_at")")"
-    echo "Error: ${ISSUE_ID} is in progress/${_fpr_col}/, not progress/dev_complete/." >&2
-    echo "       finish-pr lands from dev_complete only. Move it there first if QA has handed it back," >&2
-    echo "       or land nothing if it is already in qa_complete/." >&2
-  else
-    echo "Error: ${ISSUE_ID} is in no progress/ folder at all — not dev_complete/, and not anywhere else." >&2
+    kit_refuse 1 card-not-in-dev-complete \
+      "Error: ${ISSUE_ID} is in progress/${_fpr_col}/, not progress/dev_complete/." \
+      "       finish-pr lands from dev_complete only. Move it there first if QA has handed it back," \
+      "       or land nothing if it is already in qa_complete/." \
+      "       finish-pr.sh only lands issues sitting in dev_complete/." \
+      "Next: if ${ISSUE_ID} is ready for review, move it there (./scripts/move-issue.sh ${ISSUE_ID} dev_complete --role <role> --note \"<what is ready>\") and re-run; if it is already in qa_complete/ or done/, there is nothing to land."
   fi
-  echo "       finish-pr.sh only lands issues sitting in dev_complete/." >&2
-  exit 1
+  kit_refuse 1 card-not-found \
+    "Error: ${ISSUE_ID} is in no progress/ folder at all — not dev_complete/, and not anywhere else." \
+    "       finish-pr.sh only lands issues sitting in dev_complete/." \
+    "Next: check the id (ls progress/*/ | grep ${ISSUE_ID}); a card minted but not yet pushed is invisible here until it reaches the trunk."
 fi
 
 # A DECOMPOSED PARENT LANDS ONLY WHEN EVERY SUBTASK IS REVIEWED OR DECLINED: the advance below would refuse
 # after the merge had landed (the mover's rule), so it is refused here, before anything moves.
 _open="$(kwt_open_subtasks "$ISSUE_ID")"
 if [ -n "$_open" ]; then
-  {
-    echo "Error: ${ISSUE_ID} has subtask(s) neither in qa_complete/ nor declined:"
-    printf '%s\n' "$_open" | sed 's/^/    /'
-    echo "       A parent advances to qa_complete/ only when every subtask has (or is declined), so it does not land"
-    echo "       before then. Finish each, or close one that will not be done with"
-    echo "         ./scripts/subtask.sh move <id> declined --note \"why\""
-    echo "       NOTHING WAS CHANGED."
-  } >&2
-  exit 1
+  kit_refuse 1 subtasks-open \
+    "Error: ${ISSUE_ID} has subtask(s) neither in qa_complete/ nor declined:" \
+    "$(printf '%s\n' "$_open" | sed 's/^/    /')" \
+    "       A parent advances to qa_complete/ only when every subtask has (or is declined), so it does not land" \
+    "       before then." \
+    "Next: finish each subtask, or close one that will not be done with" \
+    "         ./scripts/subtask.sh move <id> declined --note \"why\"" \
+    "       NOTHING WAS CHANGED."
 fi
 
 # Resolve the branch to merge (frontmatter unless --branch given).
 if [ -z "$BRANCH" ]; then
   BRANCH=$(awk '/^branch:/{sub(/^branch: */, ""); print; exit}' "$SRC")
   if [ -z "$BRANCH" ]; then
-    echo "Error: no 'branch:' frontmatter in ${SRC#"$KWT"/}; pass --branch <name>." >&2
-    exit 1
+    kit_refuse 1 branch-unnamed \
+      "Error: no 'branch:' frontmatter in ${SRC#"$KWT"/}; pass --branch <name>." \
+      "Next: re-run naming the branch: ./scripts/finish-pr.sh ${ISSUE_ID} --branch <name>."
   fi
 fi
 
@@ -287,8 +285,9 @@ TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$SRC")
 
 # The branch must exist locally (its commits are what we squash).
 if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null 2>&1; then
-  echo "Error: local branch '$BRANCH' not found. Pass --branch or check it out first." >&2
-  exit 1
+  kit_refuse 1 branch-not-found \
+    "Error: local branch '$BRANCH' not found. Pass --branch or check it out first." \
+    "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
 fi
 
 # ── A STACKED BRANCH LOSES ITS BASE WHEN THE BASE SQUASH-LANDS. `$BRANCH` was branched from
@@ -423,34 +422,33 @@ if [ "$ALLOW_STUB" != "true" ]; then
     _gate_err="LOCALLY MODIFIED — $_gate_v differs from the committed copy at ${_gate_head:0:9}"
   fi
   if [ -n "$_gate_err" ]; then
-    {
-      echo "Error: the landing gate is $_gate_err."
-      echo "       Refusing BEFORE any destructive step: no squash, no push, no branch"
-      echo "       deletion, no issue advance."
-      echo "       The gate checkout must hold scripts/verify.sh COMMITTED and unmodified at"
-      echo "       the revision being landed; where the branch changes it, the trunk's copy"
-      echo "       judges it (process/contracts/landing-gate.md § 2-3). Otherwise the run"
-      echo "       proves something about a tree that is not shipping."
-      echo ""
-      if [ -n "$_gate_absent" ]; then
-        echo "  There is no usable gate here at all. The gate runner is a HARD landing"
-        echo "  precondition, not a recommendation (process/contracts/verify-gate.md):"
-        echo "    • write it — scripts/verify.sh ships as a frame with an EMPTY gate table;"
-        echo "      declare your gates in it"
-        echo "    • or, ON A FRESH REPO, generate one:  ./scripts/kit-init.sh --gate-command '<your test command>'"
-        echo "      (kit-init REFUSES a repository that has already lived; if yours has, write it.)"
-      else
-        echo "  Two conforming ways to land ${ISSUE_ID}:"
-        echo "    • gate against a worktree that has it:"
-        echo "        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>"
-        echo "    • or check the branch out here, if its scripts/finish-pr.sh is still ${DEFAULT_BRANCH}'s:"
-        echo "        git -C '$MAIN_ROOT' checkout '$BRANCH'"
-        echo "  Either way, the post-merge check then reads ${DEFAULT_BRANCH} at the landed commit: the gate"
-        echo "  checkout is switched to ${DEFAULT_BRANCH} or DETACHED there, and one with uncommitted"
-        echo "  changes is left alone while a fresh worktree is read instead."
-      fi
-    } >&2
-    exit 1
+    if [ -n "$_gate_absent" ]; then
+      _gate_next="Next: there is no usable gate here at all. The gate runner is a HARD landing
+  precondition, not a recommendation (process/contracts/verify-gate.md):
+    • write it — scripts/verify.sh ships as a frame with an EMPTY gate table;
+      declare your gates in it
+    • or, ON A FRESH REPO, generate one:  ./scripts/kit-init.sh --gate-command '<your test command>'
+      (kit-init REFUSES a repository that has already lived; if yours has, write it.)"
+    else
+      _gate_next="Next: land ${ISSUE_ID} one of two conforming ways:
+    • gate against a worktree that has it:
+        ./scripts/finish-pr.sh ${ISSUE_ID} --worktree <path-to-a-worktree-on-${BRANCH}>
+    • or check the branch out here, if its scripts/finish-pr.sh is still ${DEFAULT_BRANCH}'s:
+        git -C '$MAIN_ROOT' checkout '$BRANCH'
+  Either way, the post-merge check then reads ${DEFAULT_BRANCH} at the landed commit: the gate
+  checkout is switched to ${DEFAULT_BRANCH} or DETACHED there, and one with uncommitted
+  changes is left alone while a fresh worktree is read instead."
+    fi
+    kit_refuse 1 landing-gate-unusable \
+      "Error: the landing gate is $_gate_err." \
+      "       Refusing BEFORE any destructive step: no squash, no push, no branch" \
+      "       deletion, no issue advance." \
+      "       The gate checkout must hold scripts/verify.sh COMMITTED and unmodified at" \
+      "       the revision being landed; where the branch changes it, the trunk's copy" \
+      "       judges it (process/contracts/landing-gate.md § 2-3). Otherwise the run" \
+      "       proves something about a tree that is not shipping." \
+      "" \
+      "$_gate_next"
   fi
 fi
 
@@ -490,7 +488,7 @@ elif git -C "$KWT" cat-file -e HEAD:scripts/verify.sh 2>/dev/null \
          && git -C "$KWT" show HEAD:scripts/verify.sh > "$_trunk_gate" && chmod +x "$_trunk_gate"; }; then
     [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
     echo "Error: could not stage ${DEFAULT_BRANCH}'s scripts/verify.sh in '${GATE_WORKTREE}/scripts/' — refusing to merge '${BRANCH}'." >&2
-    exit 1
+    exit 1   # exit-class: internal
   fi
   PREMERGE_CMD=("$_trunk_gate" --quick)
 else
@@ -513,22 +511,24 @@ else
   # configuration problem — nothing was measured, nothing was even attempted) and 3 when a gate
   # could not run (nothing was measured either, but the runner did start). Only a plain FAIL
   # (exit 1, or anything else) means the branch itself measured red.
-  {
-    if [ "$_pre_rc" -eq 2 ]; then
-      echo "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, an unknown argument, or a narrowed run's precondition) — refusing to merge '${BRANCH}'."
-      echo "       No squash, no push, no branch deletion, no issue advance."
-      echo "       Nothing about the branch was measured: this is the gate's own configuration, not the branch. Fix scripts/verify.sh (its own refusal names what it needs), then re-run finish-pr.sh."
-    elif [ "$_pre_rc" -eq 3 ]; then
-      echo "Error: pre-merge gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — refusing to merge '${BRANCH}'."
-      echo "       No squash, no push, no branch deletion, no issue advance."
-      echo "       Nothing about the branch was measured: fix what the gate needs to start (its summary names it), then re-run finish-pr.sh."
-    else
-      echo "Error: pre-merge gate FAILED — refusing to merge '${BRANCH}'."
-      echo "       No squash, no push, no branch deletion, no issue advance."
-      echo "       Fix the branch so the quick gate is green, then re-run finish-pr.sh."
-    fi
-  } >&2
-  exit 1
+  if [ "$_pre_rc" -eq 2 ]; then
+    kit_refuse 1 premerge-gate-refused-to-run \
+      "Error: pre-merge gate REFUSED TO RUN (verify.sh exit 2: an empty or malformed GATES table, an unknown argument, or a narrowed run's precondition) — refusing to merge '${BRANCH}'." \
+      "       No squash, no push, no branch deletion, no issue advance." \
+      "       Nothing about the branch was measured: this is the gate's own configuration, not the branch." \
+      "Next: fix scripts/verify.sh (its own refusal names what it needs), then re-run finish-pr.sh."
+  elif [ "$_pre_rc" -eq 3 ]; then
+    kit_refuse 1 premerge-gate-could-not-run \
+      "Error: pre-merge gate COULD NOT RUN (verify.sh exit 3: a gate never executed, and none failed) — refusing to merge '${BRANCH}'." \
+      "       No squash, no push, no branch deletion, no issue advance." \
+      "       Nothing about the branch was measured." \
+      "Next: fix what the gate needs to start (its summary names it), then re-run finish-pr.sh."
+  else
+    kit_refuse 1 premerge-gate-failed \
+      "Error: pre-merge gate FAILED — refusing to merge '${BRANCH}'." \
+      "       No squash, no push, no branch deletion, no issue advance." \
+      "Next: fix the branch so the quick gate is green (QA sends it back to Dev:  ./scripts/move-issue.sh ${ISSUE_ID} in_progress --role $ROLE --note \"<what failed>\"), then re-run finish-pr.sh."
+  fi
 fi
 
 # ── Squash-merge inside the detached kanban worktree (already synced to trunk).
@@ -544,30 +544,29 @@ if ! git -C "$KWT" merge --squash "$BRANCH" >/dev/null 2>&1; then
   case "$(printf '%s\n' "$_fpr_conflicted" | sed 's|.*/||')" in
     *"${ISSUE_ID}-"*.md*) _fpr_card_conflict=yes ;;
   esac
-  {
-    echo "Error: squash-merge of '${BRANCH}' hit conflicts (has ${DEFAULT_BRANCH} advanced?)."
-    if [ -n "$_fpr_card_conflict" ]; then
-      echo "       The conflict includes the ISSUE FILE: review evidence was appended on the branch."
-      echo "       The card is metadata and is written on the trunk — the board mover edits it there."
-    fi
-    echo "       Nothing was pushed. Resolve by hand, then push + move:"
-    echo "         cd '$KWT' && git merge --squash '$BRANCH'   # resolve, then:"
-    echo "         git -C '$KWT' commit -m '${SQUASH_MSG}' && git -C '$KWT' push ${KWT_REMOTE} HEAD:${DEFAULT_BRANCH}"
-  } >&2
+  _fpr_card_note=""
+  if [ -n "$_fpr_card_conflict" ]; then
+    _fpr_card_note="       The conflict includes the ISSUE FILE: review evidence was appended on the branch.
+       The card is metadata and is written on the trunk — the board mover edits it there."
+  fi
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>/dev/null || true
-  exit 1
+  kit_refuse 1 squash-conflict \
+    "Error: squash-merge of '${BRANCH}' hit conflicts (has ${DEFAULT_BRANCH} advanced?)." \
+    ${_fpr_card_note:+"$_fpr_card_note"} \
+    "       Nothing was pushed." \
+    "Next: resolve by hand, then push + move:" \
+    "         cd '$KWT' && git merge --squash '$BRANCH'   # resolve, then:" \
+    "         git -C '$KWT' commit -m '${SQUASH_MSG}' && git -C '$KWT' push ${KWT_REMOTE} HEAD:${DEFAULT_BRANCH}"
 fi
 
 # ── Empty merge: the branch has no net change vs the trunk. Abort non-zero WITHOUT deleting the
 #    branch or advancing the issue.
 if git -C "$KWT" diff --cached --quiet 2>/dev/null; then
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>/dev/null || true
-  {
-    echo "Error: '${BRANCH}' has no net changes vs ${DEFAULT_BRANCH} — nothing to merge."
-    echo "       Aborting: the branch is NOT deleted and ${ISSUE_ID} stays in dev_complete/."
-    echo "       (If '${BRANCH}' was already merged, delete the stale branch by hand.)"
-  } >&2
-  exit 1
+  kit_refuse 1 branch-no-net-change \
+    "Error: '${BRANCH}' has no net changes vs ${DEFAULT_BRANCH} — nothing to merge." \
+    "       Aborting: the branch is NOT deleted and ${ISSUE_ID} stays in dev_complete/." \
+    "Next: if '${BRANCH}' was already merged, delete the stale branch by hand (git branch -D '${BRANCH}') and advance the card with ./scripts/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note \"<what the review found>\"; if it should carry changes, send ${ISSUE_ID} back to Dev."
 fi
 
 git -C "$KWT" commit -m "$SQUASH_MSG" --quiet
@@ -580,7 +579,7 @@ echo "Squash commit: ${SHA} — made locally in the kanban worktree, NOT yet pub
 # recovery text; ABORT here rather than proceeding to branch deletion.
 if ! kwt_finalize; then
   echo "Error: push failed after the squash commit — aborting BEFORE branch deletion (${ISSUE_ID} NOT advanced)." >&2
-  exit 1
+  exit 1   # exit-class: internal
 fi
 # The PUBLISHED sha, from the library that read it back off the ref. If the rebase
 # above remade the commit, this is the one on the trunk and ${SHA} is not.
@@ -925,6 +924,6 @@ fi
 #    what an automation reads.
 if [ "${LANDED_INCOMPLETE:-0}" -ne 0 ]; then
   echo "EXIT: 3 (landed, not finished — do NOT re-run this script; run the recovery above)" >&2
-  exit 3
+  exit 3   # exit-class: internal
 fi
 exit 0

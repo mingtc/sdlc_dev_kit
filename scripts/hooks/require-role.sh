@@ -113,18 +113,20 @@ case "$abs" in
   *) exit 0 ;;
 esac
 
-# ── BLOCK — a repo file mutation with no declared hat. exit 2 → stderr to the agent.
-{
-  echo "✗ Role-declaration gate: no $ROLE_REL — refusing to mutate a repo file."
-  echo ""
-  echo "  Target: $abs"
-  echo ""
-  echo "  Confirm your hat BEFORE changing anything (the manual's § Execution discipline):"
-  echo "    write $ROLE_REL with a single line:  <Role> <scope>"
-  echo "      e.g.  Dev <PREFIX>-001"
-  echo "    (or — ONLY when the operator explicitly waived the hat —"
-  echo "     none — operator override: <reason>)"
-  echo ""
-  echo "  Then retry the edit. Read-only work needs no role; paths outside the repo are never gated."
-} >&2
-exit 2
+# ── BLOCK — a repo file mutation with no declared hat. exit 2 → stderr to the agent. The helper is
+#    loaded only here, guarded: a tree without it still blocks, as the fallback below.
+# shellcheck source=../lib/refuse.sh
+[ -r "$REPO_ROOT/scripts/lib/refuse.sh" ] && . "$REPO_ROOT/scripts/lib/refuse.sh"
+msg1="✗ Role-declaration gate: no $ROLE_REL — refusing to mutate a repo file."
+msg2="  Target: $abs"
+msg3="Next: confirm your hat BEFORE changing anything (the manual's § Execution discipline):
+    write $ROLE_REL with a single line:  <Role> <scope>
+      e.g.  Dev <PREFIX>-001
+    (or — ONLY when the operator explicitly waived the hat —
+     none — operator override: <reason>)"
+msg4="  Then retry the edit. Read-only work needs no role; paths outside the repo are never gated."
+if command -v kit_refuse >/dev/null 2>&1; then
+  kit_refuse 2 role-declaration-missing "$msg1" "" "$msg2" "" "$msg3" "" "$msg4"
+fi
+printf '%s\n' "$msg1" "" "$msg2" "" "$msg3" "" "$msg4" >&2
+exit 2   # exit-class: fallback

@@ -109,6 +109,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
+
 # THE ROLE SET IN THE HEADER IS A TOKEN, expanded at print time from the hook through
 # scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4), so there is no literal copy for
 # `kit-init --roles` to miss. GUARDED: under `set -e` a missing library would abort the
@@ -191,9 +195,9 @@ done
 # know which one they wanted — and guessing between "move it" and "do not move
 # it" is the one guess this tool must never make.
 if [ "$NOTE_ONLY" -eq 1 ] && [ -n "$TARGET" ]; then
-  echo "Error: --note-only records WITHOUT moving, so it takes no target (got '$TARGET')." >&2
-  echo "  To move and record in one act:  $0 $ISSUE_ID $TARGET --role <R> --note \"…\"" >&2
-  exit 1
+  kit_refuse 1 note-only-takes-no-target \
+    "Error: --note-only records WITHOUT moving, so it takes no target (got '$TARGET')." \
+    "Next: to move and record in one act:  $0 $ISSUE_ID $TARGET --role <R> --note \"…\"; to record without moving, drop '$TARGET'."
 fi
 if [ "$NOTE_ONLY" -eq 0 ] && [ -z "$TARGET" ]; then
   echo "Error: no target given. Name a target folder to MOVE, or pass --note-only to RECORD without moving." >&2
@@ -204,8 +208,9 @@ fi
 # default note ("git mv to <target>/.") because the move itself is the fact being
 # recorded; a note-only append has no such fact — the note IS the whole content.
 if [ "$NOTE_ONLY" -eq 1 ] && [ -z "$NOTE" ]; then
-  echo "Error: --note-only requires --note \"…\" — the note is the entire content of the entry." >&2
-  exit 1
+  kit_refuse 1 note-only-needs-note \
+    "Error: --note-only requires --note \"…\" — the note is the entire content of the entry." \
+    "Next: re-run with  --note \"<what to record>\"."
 fi
 
 # A NOTE-ONLY ENTRY MAY NOT EMIT A STATUS DECLARATION. check-board's folder-vs-Activity arm
@@ -213,11 +218,11 @@ fi
 # card's declared status. The formatter below emits none; this refuses one in the note itself.
 if [ "$NOTE_ONLY" -eq 1 ]; then
   if printf '%s' "$NOTE" | grep -qE "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done|declined))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done|declined)/?\`)"; then
-    echo "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." >&2
-    echo "  It contains a transition arrow or a backticked status folder, which the drift report" >&2
-    echo "  reads as 'this card's declared status is X' — on a card that has not moved." >&2
-    echo "  Rephrase without '→ <folder>' and without \`<folder>\`, or make it a real move." >&2
-    exit 1
+    kit_refuse 1 note-only-reads-as-status \
+      "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." \
+      "  It contains a transition arrow or a backticked status folder, which the drift report" \
+      "  reads as 'this card's declared status is X' — on a card that has not moved." \
+      "Next: rephrase without '→ <folder>' and without \`<folder>\`, or make it a real move."
   fi
 fi
 
@@ -227,26 +232,30 @@ fi
 if [ "$NOTE_ONLY" -eq 0 ]; then
   case "$TARGET" in
     todo|in_progress|dev_complete|qa_complete|blocked|done|declined) ;;
-    *) echo "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done|declined (got '$TARGET')" >&2; exit 1 ;;
+    *) kit_refuse 1 unknown-target \
+         "Error: target must be one of todo|in_progress|dev_complete|qa_complete|blocked|done|declined (got '$TARGET')" \
+         "Next: re-run with one of those folders as the target." ;;
   esac
 
   # A PARK WITH NO BLOCKER RECORDED IS NOT A PARK: the default note ("git mv to blocked/.")
   # records nothing about why, in the one column whose purpose is the reason.
   if [ "$TARGET" = "blocked" ] && [ -z "$NOTE" ]; then
-    echo "Error: moving to blocked/ requires --note \"…\" naming the blocker." >&2
-    echo "  A parked card whose blocker is not written down cannot be unparked by anyone" >&2
-    echo "  but the person who parked it, and they will not remember either." >&2
-    exit 1
+    kit_refuse 1 blocked-needs-note \
+      "Error: moving to blocked/ requires --note \"…\" naming the blocker." \
+      "  A parked card whose blocker is not written down cannot be unparked by anyone" \
+      "  but the person who parked it, and they will not remember either." \
+      "Next: re-run with  --note \"<what blocks it and who can clear it>\"."
   fi
 
   # A DECLINE WITH NO RECORDED WHY IS A DELETION WITH EXTRA STEPS: the reasoning is all a
   # declined card still carries.
   if [ "$TARGET" = "declined" ] && [ -z "$NOTE" ]; then
-    echo "Error: moving to declined/ requires --note \"…\" naming WHY it was refused." >&2
-    echo "  The reason is the entire value of a declined card. Without it this is a" >&2
-    echo "  deletion with extra steps, and the next person to propose the same thing" >&2
-    echo "  starts from zero." >&2
-    exit 1
+    kit_refuse 1 declined-needs-note \
+      "Error: moving to declined/ requires --note \"…\" naming WHY it was refused." \
+      "  The reason is the entire value of a declined card. Without it this is a" \
+      "  deletion with extra steps, and the next person to propose the same thing" \
+      "  starts from zero." \
+      "Next: re-run with  --note \"<why it was refused>\"."
   fi
 fi
 
@@ -268,23 +277,23 @@ if [ -z "$ROLE" ]; then
   echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 1
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
-  { echo "Error: --role must be $KIT_ROLE_SET (got '$ROLE')."
-    echo "       That set is $KIT_ROLE_SRC."
-  } >&2
-  exit 1
+  kit_refuse 1 role-not-declared \
+    "Error: --role must be $KIT_ROLE_SET (got '$ROLE')." \
+    "       That set is $KIT_ROLE_SRC." \
+    "Next: re-run with --role set to one of: $KIT_ROLE_SET."
 fi
 
 # ONE not-found refusal TEXT, TWO reads that can reach it (the probe below and the lookup
 # after the sync); the argument names which tree was read. Every board this tool reads is
 # the TRUNK's, so a card minted but not yet pushed does not exist to it.
-issue_not_found() {   # <provenance — which tree was read>
-  {
-    echo "Error: no file matching ${ISSUE_ID}-*.md found under progress/."
-    echo "       ($1)"
-    echo "       Minted but not yet pushed? A new card is invisible here until it reaches the trunk:"
-    echo "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[<Role>] ${ISSUE_ID}: mint\" && git push"
-    echo "       Otherwise check the id — ls progress/*/ | grep ${ISSUE_ID}"
-  } >&2
+issue_not_found() {   # <provenance — which tree was read>; refuses, so it does not return
+  kit_refuse 1 card-not-found \
+    "Error: no file matching ${ISSUE_ID}-*.md found under progress/." \
+    "       ($1)" \
+    "       Minted but not yet pushed? A new card is invisible here until it reaches the trunk." \
+    "Next: if so, publish it:" \
+    "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[<Role>] ${ISSUE_ID}: mint\" && git push" \
+    "       Otherwise check the id — ls progress/*/ | grep ${ISSUE_ID}"
 }
 
 # Resolve repo root + trunk (works from any worktree).
@@ -333,7 +342,6 @@ if [ "$PROBE_ID_IS_GLOB" -eq 0 ] \
    && git -C "$MAIN_ROOT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null \
    && probe_board "$PROBE_REF" && [ "$PROBE_SEEN" -gt 0 ] && [ "$PROBE_HIT" -eq 0 ]; then
   issue_not_found "read the TRUNK's board straight out of $KWT_REMOTE/$DEFAULT_BRANCH, freshly fetched — not your checkout; no kanban worktree was created"
-  exit 1
 fi
 
 # Acquire the lock BEFORE touching the worktree (never a half-applied move).
@@ -355,12 +363,12 @@ if [ ${#MATCHES[@]} -eq 0 ]; then
   # THE AUTHORITATIVE READ: reaching here means the probe fell through (rule 3) or the board
   # changed between the two reads.
   issue_not_found "searched the TRUNK's board inside the kanban worktree, not your checkout"
-  exit 1
 fi
 if [ ${#MATCHES[@]} -gt 1 ]; then
-  echo "Error: multiple files match ${ISSUE_ID}-*.md:" >&2
-  printf '  %s\n' "${MATCHES[@]}" >&2
-  exit 1
+  kit_refuse 1 card-id-ambiguous \
+    "Error: multiple files match ${ISSUE_ID}-*.md:" \
+    "$(printf '  %s\n' "${MATCHES[@]}")" \
+    "Next: one id must name one card — keep the real card and renumber or remove the other on the trunk (./scripts/check-board.sh names duplicate ids), then re-run."
 fi
 
 SRC="${MATCHES[0]}"
@@ -376,10 +384,10 @@ else
 
   # THE NO-OP REFUSAL IS SCOPED TO A MOVE; a note-only append never moves anything.
   if [ "$SRC_FOLDER" = "$TARGET" ]; then
-    echo "Error: ${ISSUE_ID} is already in progress/${TARGET}/. Nothing to move." >&2
-    echo "  To record something on this card WITHOUT moving it:" >&2
-    echo "    $0 $ISSUE_ID --note-only --role $ROLE --note \"…\"" >&2
-    exit 1
+    kit_refuse 1 card-already-in-target \
+      "Error: ${ISSUE_ID} is already in progress/${TARGET}/. Nothing to move." \
+      "Next: to record something on this card WITHOUT moving it:" \
+      "    $0 $ISSUE_ID --note-only --role $ROLE --note \"…\""
   fi
 
   # A PARENT ADVANCES ONLY WHEN EVERY SUBTASK IS REVIEWED OR DECLINED: qa_complete and done both claim the whole
@@ -387,20 +395,20 @@ else
   if [ "$TARGET" = "qa_complete" ] || [ "$TARGET" = "done" ]; then
     _open="$(kwt_open_subtasks "$ISSUE_ID")"
     if [ -n "$_open" ]; then
-      {
-        echo "Error: ${ISSUE_ID} has subtask(s) neither in qa_complete/ nor declined, so it cannot move to ${TARGET}/:"
-        printf '%s\n' "$_open" | sed 's/^/    /'
-        echo "  A parent advances only when every subtask has, or is declined. Finish each, or close one that will not"
-        echo "  be done with  ./scripts/subtask.sh move <id> declined --note \"why\". NOTHING WAS CHANGED."
-      } >&2
-      exit 1
+      kit_refuse 1 subtasks-open \
+        "Error: ${ISSUE_ID} has subtask(s) neither in qa_complete/ nor declined, so it cannot move to ${TARGET}/:" \
+        "$(printf '%s\n' "$_open" | sed 's/^/    /')" \
+        "  A parent advances only when every subtask has, or is declined." \
+        "Next: finish each subtask, or close one that will not be done with  ./scripts/subtask.sh move <id> declined --note \"why\". NOTHING WAS CHANGED."
     fi
   fi
 
   # A missing target folder ABORTS rather than being created: git does not track an
   # empty directory, so a board whose columns exist only as .gitkeep-less dirs does
   # not survive a clone. kit-init.sh writes one .gitkeep per column for exactly this.
-  [ -d "$DEST_DIR" ] || { echo "Error: progress/$TARGET/ does not exist in the worktree." >&2; exit 1; }
+  [ -d "$DEST_DIR" ] || kit_refuse 1 target-folder-missing \
+    "Error: progress/$TARGET/ does not exist in the worktree." \
+    "Next: restore the column on the trunk — add progress/$TARGET/.gitkeep, commit and push it — then re-run."
 
   # PLACEHOLDER LINT AT THE DEV_COMPLETE BOUNDARY: unfilled `<angle-bracket>` text travels into
   # squash subjects and the archive index. WARNS, never refuses: an angle bracket is also legal
@@ -494,7 +502,7 @@ echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published.
 # A push failure AFTER the local commit is FATAL — kwt_finalize prints the loud
 # recovery text and returns nonzero; propagate it as a nonzero exit rather than
 # reporting success on a commit that never reached the remote.
-kwt_finalize || exit 1
+kwt_finalize || exit 1   # exit-class: internal
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""
 
 # THE RECORD, AFTER THE PUSH: it can only describe something that reached the trunk. The two

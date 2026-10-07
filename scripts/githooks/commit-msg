@@ -121,7 +121,7 @@ if [ -n "$offender" ]; then
     kit_refuse 1 commit-msg-generated-attribution "$msg1" "" "$msg2" "" "$msg3" "" "$msg4" "$msg5" "" "$msg6"
   fi
   printf '%s\n' "$msg1" "" "$msg2" "" "$msg3" "" "$msg4" "$msg5" "" "$msg6" >&2
-  exit 1
+  exit 1   # exit-class: fallback
 fi
 
 # --- RULE (1): the subject declares the acting role -------------------------------
@@ -165,4 +165,4 @@ if command -v kit_refuse >/dev/null 2>&1; then
   kit_refuse 1 commit-msg-role-prefix "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" "$rmsg6" "$rmsg7" "" "$rmsg8"
 fi
 printf '%s\n' "$rmsg1" "" "$rmsg2" "" "$rmsg3" "$rmsg4" "" "$rmsg5" "$rmsg6" "$rmsg7" "" "$rmsg8" >&2
-exit 1
+exit 1   # exit-class: fallback

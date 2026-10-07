@@ -40,27 +40,30 @@ usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see l
 
 for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
+
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
 # No fallback literal: under a guessed prefix the sweep finds no issue files and reports
 # "nothing to sweep" on a full column.
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
-  {
-    echo "Error: scripts/config.sh is missing."
-    echo "       Looked for: $CONFIG"
-    echo "       It is the ONE authority for ISSUE_PREFIX (process/contracts/config-seam.md)."
-    echo "       This sweep REFUSES to guess: under a guessed prefix it would find no"
-    echo "       issue files at all and report 'nothing to sweep' on a full column."
-    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
-      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
-    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
-    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
-  } >&2
-  exit 1
+  kit_refuse 1 config-seam-missing \
+    "Error: scripts/config.sh is missing." \
+    "       Looked for: $CONFIG" \
+    "       It is the ONE authority for ISSUE_PREFIX (process/contracts/config-seam.md)." \
+    "       This sweep REFUSES to guess: under a guessed prefix it would find no" \
+    "       issue files at all and report 'nothing to sweep' on a full column." \
+    "Next: restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it." \
+    "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):" \
+    "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>" \
+    "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
 fi
 if [ -z "${ISSUE_PREFIX:-}" ]; then
-  echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
-  exit 1
+  kit_refuse 1 prefix-empty \
+    "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." \
+    "Next: set ISSUE_PREFIX in scripts/config.sh to your project's prefix, then re-run."
 fi
 
 # shellcheck source=lib/kanban-worktree.sh
@@ -86,13 +89,11 @@ done
 # A CONTRADICTION IS REFUSED, NOT RESOLVED. Last-flag-wins would still be a guess about
 # which one the operator meant, and the two guesses differ by a push to the trunk.
 if [ "$SAW_APPLY" = true ] && [ "$SAW_DRY" = true ]; then
-  {
-    echo "Error: --apply and --dry-run are contradictory — refusing rather than guessing which you meant."
-    echo "       --apply sweeps, commits and PUSHES to the trunk; --dry-run previews and changes nothing."
-    echo "       Run one of them. The bare form (no flag) is the preview."
-    echo "       NOTHING WAS CHANGED."
-  } >&2
-  exit 2
+  kit_refuse 2 apply-and-dry-run-contradict \
+    "Error: --apply and --dry-run are contradictory — refusing rather than guessing which you meant." \
+    "       --apply sweeps, commits and PUSHES to the trunk; --dry-run previews and changes nothing." \
+    "       NOTHING WAS CHANGED." \
+    "Next: run one of them. The bare form (no flag) is the preview."
 fi
 
 # THE SEAT THIS SCRIPT ACTS AS. [Orchestrator] means session-close housekeeping; it is
@@ -101,7 +102,7 @@ fi
 ROLE="${ARCHIVE_ROLE:-Orchestrator}"
 # CHECKED BEFORE THE LOCK AND THE WORKTREE: past this point the git mv and the ARCHIVE.md edit
 # have happened, and a hook that rejects the tag would leave them uncommitted.
-kit_require_role "$SCRIPT_DIR/.." "$ROLE" ARCHIVE_ROLE || exit 1
+kit_require_role "$SCRIPT_DIR/.." "$ROLE" ARCHIVE_ROLE
 
 # Resolve repo root + trunk, take the lock, and route through the standing
 # detached worktree synced to the trunk. The lock is trap-released on EXIT
@@ -116,26 +117,26 @@ QA_DIR="$KWT/progress/qa_complete"
 DONE_DIR="$KWT/progress/done"
 SUBTASKS_DIR="$KWT/progress/subtasks"
 
-[ -d "$QA_DIR" ] || { echo "Error: $QA_DIR does not exist." >&2; exit 1; }
+[ -d "$QA_DIR" ] || kit_refuse 1 board-folder-missing \
+  "Error: $QA_DIR does not exist." \
+  "Next: restore the column on the trunk — add progress/qa_complete/.gitkeep, commit and push it — then re-run."
 # THE RETIRED STORE IS REQUIRED, NEVER MANUFACTURED (archive-sweep.md § 3): the folder IS the
 # status, so creating it would turn a mistyped column into a new column holding retired work.
 # Checked before any write: a refusal after one leaves the board worktree dirty.
 if [ ! -d "$DONE_DIR" ]; then
-  {
-    echo "Error: the retired store progress/done/ does not exist on the trunk."
-    echo "       Looked for: ${DONE_DIR#"$KWT"/}   (inside the kanban worktree at $KWT)"
-    echo ""
-    echo "  REFUSING rather than creating it. This script would otherwise invent a"
-    echo "  status folder, and the folder IS the status — so a renamed or mistyped"
-    echo "  column would silently become a new column holding retired work."
-    echo ""
-    echo "  If the board genuinely has no done/ column yet, create it deliberately"
-    echo "  and publish it, the way kit-init does — one .gitkeep per column, so it"
-    echo "  survives a clone:"
-    echo "    mkdir -p progress/done && : > progress/done/.gitkeep"
-    echo "    git add progress/done/.gitkeep && git commit -m '[PM] board: add the done/ column' && git push"
-  } >&2
-  exit 1
+  kit_refuse 1 archive-store-missing \
+    "Error: the retired store progress/done/ does not exist on the trunk." \
+    "       Looked for: ${DONE_DIR#"$KWT"/}   (inside the kanban worktree at $KWT)" \
+    "" \
+    "  REFUSING rather than creating it. This script would otherwise invent a" \
+    "  status folder, and the folder IS the status — so a renamed or mistyped" \
+    "  column would silently become a new column holding retired work." \
+    "" \
+    "Next: if the board genuinely has no done/ column yet, create it deliberately" \
+    "  and publish it, the way kit-init does — one .gitkeep per column, so it" \
+    "  survives a clone:" \
+    "    mkdir -p progress/done && : > progress/done/.gitkeep" \
+    "    git add progress/done/.gitkeep && git commit -m '[PM] board: add the done/ column' && git push"
 fi
 
 # A MISSING INDEX — the file, or its heading — refuses with the same listing and recipe: the
@@ -145,32 +146,32 @@ if [ ! -f "$ARCHIVE" ] || ! grep -q '^## Archived$' "$ARCHIVE"; then
   _held="$(find "$DONE_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | sort || true)"
   _n_held="$(printf '%s' "$_held" | grep -c . || true)"
   if [ -f "$ARCHIVE" ]; then
-    echo "Error: '## Archived' heading not found in $ARCHIVE." >&2
-    echo "ARCHIVE.md must have a line containing exactly '## Archived' so this script knows where to insert." >&2
+    _idx_what="Error: '## Archived' heading not found in $ARCHIVE.
+ARCHIVE.md must have a line containing exactly '## Archived' so this script knows where to insert."
     _add="add the line '## Archived' to $ARCHIVE"
   else
-    echo "Error: the index $ARCHIVE does not exist at the repo root." >&2
-    echo "It must hold a line containing exactly '## Archived' so this script knows where to insert." >&2
+    _idx_what="Error: the index $ARCHIVE does not exist at the repo root.
+It must hold a line containing exactly '## Archived' so this script knows where to insert."
     _add="create $ARCHIVE holding the line '## Archived'"
   fi
+  _idx_state=""
   if [ "${_n_held:-0}" -gt 0 ]; then
-    echo "" >&2
-    echo "AND THE STORE IS NOT EMPTY — progress/done/ already holds ${_n_held} retired item(s):" >&2
-    printf '%s\n' "$_held" | sed 's|^.*/|      |' >&2
-    echo "" >&2
-    echo "  So this is a MISSING INDEX over real history, not a fresh board. Creating the heading" >&2
-    echo "  now would publish an index that silently claims those ${_n_held} were never retired." >&2
-    echo "  Backfill instead:" >&2
-    echo "    1. ${_add}" >&2
-    echo "    2. add one entry under it for each item listed above, reading its id, type and" >&2
-    echo "       title out of the file itself" >&2
-    echo "    3. re-run this script; it will index only what is still on the board" >&2
+    _idx_state="
+AND THE STORE IS NOT EMPTY — progress/done/ already holds ${_n_held} retired item(s):
+$(printf '%s\n' "$_held" | sed 's|^.*/|      |')
+
+  So this is a MISSING INDEX over real history, not a fresh board. Creating the heading
+  now would publish an index that silently claims those ${_n_held} were never retired."
+    _idx_next="Next: Backfill instead:
+    1. ${_add}
+    2. add one entry under it for each item listed above, reading its id, type and
+       title out of the file itself
+    3. re-run this script; it will index only what is still on the board"
   else
-    echo "" >&2
-    echo "  progress/done/ is empty, so nothing is being hidden: ${_add} and re-run." >&2
-    echo "  Note in it that the emptiness was true when written." >&2
+    _idx_next="Next: progress/done/ is empty, so nothing is being hidden: ${_add} and re-run.
+  Note in it that the emptiness was true when written."
   fi
-  exit 1
+  kit_refuse 1 archive-index-missing "$_idx_what" ${_idx_state:+"$_idx_state"} "$_idx_next"
 fi
 
 # Collect issue files. Sort descending so the highest IDs (newest) appear
@@ -192,8 +193,9 @@ for f in "${FILES[@]}"; do
   if [ -e "$DONE_DIR/$(basename "$f")" ]; then _taken="$_taken $(basename "$f")"; fi
 done
 if [ -n "$_taken" ]; then
-  echo "Error: progress/done/ already holds:$_taken — refusing before any write. Resolve the duplicate by hand, then re-run." >&2
-  exit 1
+  kit_refuse 1 archive-name-taken \
+    "Error: progress/done/ already holds:$_taken — refusing before any write." \
+    "Next: resolve the duplicate by hand (rename or remove one of the cards), then re-run."
 fi
 
 echo "Found ${#FILES[@]} file(s) to sweep into progress/done/."
@@ -235,19 +237,19 @@ for p in "${SUBTASK_TREES[@]:-}"; do
   [ -z "$_open" ] || _open_all="${_open_all}${_open}"$'\n'
 done
 if [ -n "$_open_all" ]; then
-  {
-    echo "Error: a parent being retired has subtask(s) neither in qa_complete/ nor declined — refusing before any write:"
-    printf '%s' "$_open_all" | sed 's/^/    /'
-    echo "       A parent is complete only when every subtask is reviewed or declined. Finish each, or close one that will not be"
-    echo "       done with  ./scripts/subtask.sh move <id> declined --note \"why\"  — then re-run."
-  } >&2
-  exit 1
+  kit_refuse 1 subtasks-open \
+    "Error: a parent being retired has subtask(s) neither in qa_complete/ nor declined — refusing before any write:" \
+    "$(printf '%s' "$_open_all" | sed 's/^/    /')" \
+    "       A parent is complete only when every subtask is reviewed or declined." \
+    "Next: finish each subtask, or close one that will not be" \
+    "       done with  ./scripts/subtask.sh move <id> declined --note \"why\"  — then re-run."
 fi
 # Likewise a tree: `git mv` onto an existing directory nests the tree inside it, silently.
 for p in "${SUBTASK_TREES[@]:-}"; do
   if [ -n "$p" ] && [ -e "$DONE_DIR/subtasks/$p" ]; then
-    echo "Error: progress/done/subtasks/$p/ already exists — refusing before any write rather than nest progress/subtasks/$p/ inside it. Merge the two trees by hand, then re-run." >&2
-    exit 1
+    kit_refuse 1 archive-subtask-tree-exists \
+      "Error: progress/done/subtasks/$p/ already exists — refusing before any write rather than nest progress/subtasks/$p/ inside it." \
+      "Next: merge the two trees by hand, then re-run."
   fi
 done
 
@@ -374,7 +376,7 @@ echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published.
 if ! kwt_finalize; then
   echo "Error: push failed after the archive commit — the sweep is committed LOCALLY in" >&2
   echo "       the kanban worktree but NOT on ${KWT_REMOTE}. See the recovery text above." >&2
-  exit 1
+  exit 1   # exit-class: internal
 fi
 # KWT_LANDED_SHA is read after the push and the ancestry check, so it names a trunk commit.
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MSG}\""

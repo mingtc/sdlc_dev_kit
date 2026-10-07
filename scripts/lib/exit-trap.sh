@@ -20,7 +20,7 @@ KIT_EXIT_CLEAN=false
 exit() {
   local rc="${1:-$?}"
   [ "$rc" = 0 ] && KIT_EXIT_CLEAN=true
-  builtin exit "$rc"
+  builtin exit "$rc"   # exit-class: internal
 }
 
 _kit_exit_trap() {
@@ -28,7 +28,7 @@ _kit_exit_trap() {
   [ "$rc" -ne 0 ] || [ "$KIT_EXIT_CLEAN" = true ] || rc=1
   # `|| true`: a failing cleanup command must not stop the next one, or change the status.
   eval "$KIT_EXIT_CMD" || true
-  builtin exit "$rc"
+  builtin exit "$rc"   # exit-class: internal
 }
 
 kit_on_exit() {  # <commands>

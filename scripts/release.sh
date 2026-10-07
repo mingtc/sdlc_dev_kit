@@ -79,6 +79,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 # shellcheck source=lib/exit-trap.sh
 . "$SCRIPT_DIR/lib/exit-trap.sh"
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CONFIG BLOCK — everything a project declares lives between here and the END
@@ -209,8 +212,8 @@ SHIP_MANIFEST=""
 # the LAST usage example inside the header block — derived, never a literal range.
 # THIS SCRIPT DOES NOT USE scripts/lib/usage.sh, ON PURPOSE: (1) that library prints to the
 # last COMMENT line, and this header carries operator notes that are not help text; (2) this
-# script sources only lib/exit-trap.sh from scripts/lib/ (for its EXIT handling) and nothing else. A sweep that unifies the header
-# renderers must skip this one.
+# script sources only lib/exit-trap.sh (for its EXIT handling) and lib/refuse.sh (for its refusals) from
+# scripts/lib/. A sweep that unifies the header renderers must skip this one.
 # THE SOURCE PATH IS RESOLVED ABSOLUTELY: this script `cd`s to the repo root first.
 RELEASE_SRC="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 usage() {
@@ -243,10 +246,10 @@ while [ $# -gt 0 ]; do
     --apply) { echo "release.sh: there is no --apply — this script MUTATES by default, which is the"
                echo "            opposite of the archive sweeps. Use --dry-run to run every gate and STOP."
                echo "            NOTHING WAS WRITTEN."; } >&2
-             exit 2 ;;
+             exit 2 ;;   # exit-class: usage
     -*) echo "release.sh: unknown option '$1'" >&2; usage >&2; exit 2 ;;
     *) if [ -z "$RAW_VERSION" ]; then RAW_VERSION="$1"; shift
-       else echo "release.sh: unexpected extra arg '$1'" >&2; exit 2; fi ;;
+       else echo "release.sh: unexpected extra arg '$1'" >&2; exit 2; fi ;;   # exit-class: usage
   esac
 done
 
@@ -345,7 +348,9 @@ EOF
     exit 0
   fi
   [ -f "$REPO_ROOT/$SHIP_MANIFEST" ] \
-    || { echo "release.sh: SHIP_MANIFEST names '$SHIP_MANIFEST', which does not exist." >&2; exit 1; }
+    || kit_refuse 1 ship-manifest-missing \
+         "release.sh: SHIP_MANIFEST names '$SHIP_MANIFEST', which does not exist." \
+         "Next: correct SHIP_MANIFEST in the config block, or clear it and run  ./scripts/release.sh --approve-shipped  to draft a manifest."
   _as_changed=0
   while IFS= read -r _as_f; do
     [ -n "$_as_f" ] || continue
@@ -384,26 +389,24 @@ fi
 # finish-pr.sh carries the same refusal. Checked first, before anything is read or resolved.
 if [ "${RELEASE_TEST_ALLOW_STUB:-}" != "1" ] \
    && { [ -n "${RELEASE_VERIFY_CMD:-}" ] || [ -n "${RELEASE_BOARD_CMD:-}" ]; }; then
-  {
-    echo "release.sh: refusing a caller-supplied gate command on the production release path."
-    echo "       RELEASE_VERIFY_CMD / RELEASE_BOARD_CMD override the two gates that decide"
-    echo "       whether this cut may happen — the verify gate and the board-truth gate — so"
-    echo "       an unmarked override does not weaken a gate, it removes one."
-    echo "       They are honored ONLY behind the test-only marker RELEASE_TEST_ALLOW_STUB=1,"
-    echo "       which only the self-test sets."
-    echo "       If a gate is genuinely wrong for this project, change what it RUNS"
-    echo "       (verify.sh's GATES table, PREFLIGHT_GATES) rather than replacing the runner."
-    echo "       NOTHING WAS WRITTEN."
-  } >&2
-  exit 1
+  kit_refuse 1 gate-command-caller-supplied \
+    "release.sh: refusing a caller-supplied gate command on the production release path." \
+    "       RELEASE_VERIFY_CMD / RELEASE_BOARD_CMD override the two gates that decide" \
+    "       whether this cut may happen — the verify gate and the board-truth gate — so" \
+    "       an unmarked override does not weaken a gate, it removes one." \
+    "       They are honored ONLY behind the test-only marker RELEASE_TEST_ALLOW_STUB=1," \
+    "       which only the self-test sets. NOTHING WAS WRITTEN." \
+    "Next: unset RELEASE_VERIFY_CMD and RELEASE_BOARD_CMD and re-run. If a gate is genuinely wrong for this project," \
+    "       change what it RUNS (verify.sh's GATES table, PREFLIGHT_GATES) rather than replacing the runner."
 fi
 
 # ── Preflight 0: the target parses as X.Y.Z semver ───────────────────────────
 NUM="${RAW_VERSION#v}"                     # strip an optional leading "v"
 TAG="v$NUM"
 if ! printf '%s' "$NUM" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  echo "release.sh: '$RAW_VERSION' is not an X.Y.Z semver version — refusing." >&2
-  exit 1
+  kit_refuse 1 version-not-semver \
+    "release.sh: '$RAW_VERSION' is not an X.Y.Z semver version — refusing." \
+    "Next: re-run with a version of the form X.Y.Z (a leading 'v' is accepted)."
 fi
 NUM_RE="${NUM//./\\.}"                      # dot-escaped for grep -E
 
@@ -439,7 +442,9 @@ if [ -z "$DEFAULT_BRANCH" ]; then
     echo "              git remote set-head $REMOTE <your-trunk>"
   } >&2
 fi
-[ -n "$DEFAULT_BRANCH" ] || { echo "release.sh: could not resolve a trunk name at all — refusing." >&2; exit 1; }
+[ -n "$DEFAULT_BRANCH" ] || kit_refuse 1 trunk-unresolvable \
+  "release.sh: could not resolve a trunk name at all — refusing." \
+  "Next: settle the trunk once:  git remote set-head $REMOTE <your-trunk>"
 
 # Push by URL rather than by remote NAME: the throwaway repo the publish step
 # builds has no remotes of its own.
@@ -547,14 +552,17 @@ EOF
 # version file, and it REQUIRES the tag to already exist (the inverse of preflight 1 below).
 if [ "$PUBLISH_ONLY" = "true" ]; then
   if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
-    echo "release.sh: --publish-only needs tag $TAG to exist already; it does not. Cut the release first." >&2
-    exit 1
+    kit_refuse 1 publish-only-tag-missing \
+      "release.sh: --publish-only needs tag $TAG to exist already; it does not." \
+      "Next: cut the release first (./scripts/release.sh $NUM), or name a version whose tag exists."
   fi
   # Above the gates means above the dry-run stop point, so this path honours --dry-run
   # itself; otherwise a rehearsal would force-push, possibly rolling the branch back. The
   # config is checked first, so the rehearsal refuses where the run would.
   if [ "$DRY_RUN" = "true" ]; then
-    publish_configured || exit 1
+    publish_configured || kit_refuse 1 publish-not-configured \
+      "release.sh: --publish-only cannot run: the publish configuration is incomplete (see above)." \
+      "Next: declare it in the config block as the message above names (RELEASE_PUBLISH=true, plus BUILD_COMMAND and DIST_ARTIFACT_GLOB or a SHIP_MANIFEST), then re-run."
     echo "(dry run) would: rebuild at $TAG and force-push $DIST_BRANCH to"
     echo "          $DIST_REMOTE_URL (one commit, REPLACING the current one)."
     echo "(dry run — nothing was pushed.)"
@@ -565,37 +573,39 @@ if [ "$PUBLISH_ONLY" = "true" ]; then
     exit 0
   fi
   echo "release.sh: re-publishing $DIST_BRANCH from $TAG FAILED. The release itself is unaffected." >&2
-  exit 1
+  exit 1   # exit-class: internal
 fi
 
 # ── Preflight 1: the tag must not already exist (idempotency guard). ─────────
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
-  echo "release.sh: tag $TAG already exists — refusing (a version is cut once)." >&2
-  exit 1
+  kit_refuse 1 tag-exists \
+    "release.sh: tag $TAG already exists — refusing (a version is cut once)." \
+    "Next: cut the next version instead (re-run with a higher X.Y.Z); to republish this one, use --publish-only."
 fi
 
 # ── The version-bump seam must be DECLARED before anything else runs. ────────
 if [ "${#VERSION_FILES[@]}" -eq 0 ] && [ "$VERSION_IN_TAG_ONLY" != "true" ]; then
-  {
-    echo "release.sh: REFUSING — VERSION_FILES is empty and VERSION_IN_TAG_ONLY is not true."
-    echo "  Declare the file(s) that carry your version in the config block at the top of"
-    echo "  this script, or set VERSION_IN_TAG_ONLY=true if the tag is genuinely the only"
-    echo "  place the version lives. Tagging a commit whose declared version nobody moved"
-    echo "  is a silent lie, and this frame will not pretend otherwise."
-  } >&2
-  exit 1
+  kit_refuse 1 version-files-undeclared \
+    "release.sh: REFUSING — VERSION_FILES is empty and VERSION_IN_TAG_ONLY is not true." \
+    "  Tagging a commit whose declared version nobody moved is a silent lie, and this frame" \
+    "  will not pretend otherwise." \
+    "Next: declare the file(s) that carry your version in the config block at the top of" \
+    "  this script, or set VERSION_IN_TAG_ONLY=true if the tag is genuinely the only" \
+    "  place the version lives."
 fi
 
 # ── Preflight 2 (gate a): on the trunk with a clean working tree. ────────────
 CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
 if [ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]; then
-  echo "release.sh: must run on the trunk ('$DEFAULT_BRANCH'); you are on '${CURRENT_BRANCH:-<detached>}'." >&2
-  exit 1
+  kit_refuse 1 not-on-trunk \
+    "release.sh: must run on the trunk ('$DEFAULT_BRANCH'); you are on '${CURRENT_BRANCH:-<detached>}'." \
+    "Next: git switch $DEFAULT_BRANCH, then re-run."
 fi
 if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-  echo "release.sh: working tree is not clean — commit or stash first (a cut must be reproducible)." >&2
-  git status --short >&2
-  exit 1
+  kit_refuse 1 working-tree-dirty \
+    "release.sh: working tree is not clean (a cut must be reproducible)." \
+    "$(git status --short 2>&1)" \
+    "Next: commit or stash the changes above, then re-run."
 fi
 
 echo "── release.sh preflight for $TAG (trunk: $DEFAULT_BRANCH, remote: $REMOTE)"
@@ -622,50 +632,46 @@ else
   # for. A hung remote hangs HERE, which is safe — release-ritual.md § 2 guarantees a red
   # preflight leaves the repository byte-for-byte untouched, so Ctrl-C costs nothing.
   if ! FETCH_ERR="$(git fetch "$REMOTE" "$DEFAULT_BRANCH" 2>&1 >/dev/null)"; then
-    {
-      echo "release.sh: could not fetch '$DEFAULT_BRANCH' from '$REMOTE' — refusing to cut $TAG."
-      echo "            THIS IS A FACT ABOUT THIS MACHINE'S ACCESS TO THE REMOTE, NOT ABOUT YOUR TREE."
-      echo "            It refuses rather than warns because a tag is the one act this ritual never"
-      echo "            rolls back, and an arm that degrades quietly is worth nothing when it matters."
-      echo "            git said:"
-      printf '%s\n' "$FETCH_ERR" | sed 's/^/              /'
-      echo "            Either fix the remote, or DECLARE the offline cut:"
-      echo "              ./scripts/release.sh $NUM --no-fetch"
-      echo "            NOTHING WAS WRITTEN."
-    } >&2
-    exit 1
+    kit_refuse 1 remote-fetch-failed \
+      "release.sh: could not fetch '$DEFAULT_BRANCH' from '$REMOTE' — refusing to cut $TAG." \
+      "            THIS IS A FACT ABOUT THIS MACHINE'S ACCESS TO THE REMOTE, NOT ABOUT YOUR TREE." \
+      "            It refuses rather than warns because a tag is the one act this ritual never" \
+      "            rolls back, and an arm that degrades quietly is worth nothing when it matters." \
+      "            git said:" \
+      "$(printf '%s\n' "$FETCH_ERR" | sed 's/^/              /')" \
+      "            NOTHING WAS WRITTEN." \
+      "Next: either fix the remote, or DECLARE the offline cut:" \
+      "              ./scripts/release.sh $NUM --no-fetch"
   fi
   REMOTE_TIP="$(git rev-parse --verify --quiet FETCH_HEAD || true)"
   LOCAL_TIP="$(git rev-parse HEAD)"
   if [ -z "$REMOTE_TIP" ]; then
-    {
-      echo "release.sh: the fetch of '$DEFAULT_BRANCH' from '$REMOTE' succeeded but named no commit —"
-      echo "            refusing to cut $TAG. Nothing was compared, so nothing is known."
-      echo "            NOTHING WAS WRITTEN."
-    } >&2
-    exit 1
+    kit_refuse 1 remote-fetch-empty \
+      "release.sh: the fetch of '$DEFAULT_BRANCH' from '$REMOTE' succeeded but named no commit —" \
+      "            refusing to cut $TAG. Nothing was compared, so nothing is known." \
+      "            NOTHING WAS WRITTEN." \
+      "Next: check that '$REMOTE' has a '$DEFAULT_BRANCH' branch (git ls-remote $REMOTE $DEFAULT_BRANCH), then re-run."
   fi
   if [ "$LOCAL_TIP" != "$REMOTE_TIP" ]; then
-    {
-      echo "release.sh: HEAD is not $REMOTE/$DEFAULT_BRANCH's tip — refusing to cut $TAG."
-      echo "              HEAD                     $LOCAL_TIP"
-      echo "              $REMOTE/$DEFAULT_BRANCH  $REMOTE_TIP"
-      # THE REMEDY BRANCHES: `git pull --ff-only` is a no-op when you are ahead.
-      if git merge-base --is-ancestor "$LOCAL_TIP" "$REMOTE_TIP" 2>/dev/null; then
-        echo "            BEHIND: the tag would name a tree missing what has already landed. Catch up:"
-        echo "              git pull --ff-only"
-      elif git merge-base --is-ancestor "$REMOTE_TIP" "$LOCAL_TIP" 2>/dev/null; then
-        echo "            AHEAD: the tag would name commits nobody else has — the same state"
-        echo "            check-board.sh's [f1] arm reports. Publish them first:"
-        echo "              git push $REMOTE HEAD:$DEFAULT_BRANCH"
-        echo "            'git pull --ff-only' will NOT clear this; it is a no-op here."
-      else
-        echo "            DIVERGED: neither tip contains the other. Reconcile by hand — this script"
-        echo "            will not choose a history for you — then re-run."
-      fi
-      echo "            NOTHING WAS WRITTEN."
-    } >&2
-    exit 1
+    # THE REMEDY BRANCHES: `git pull --ff-only` is a no-op when you are ahead.
+    if git merge-base --is-ancestor "$LOCAL_TIP" "$REMOTE_TIP" 2>/dev/null; then
+      _tip_next="Next: BEHIND — the tag would name a tree missing what has already landed. Catch up:
+              git pull --ff-only"
+    elif git merge-base --is-ancestor "$REMOTE_TIP" "$LOCAL_TIP" 2>/dev/null; then
+      _tip_next="Next: AHEAD — the tag would name commits nobody else has (the same state
+            check-board.sh's [f1] arm reports). Publish them first:
+              git push $REMOTE HEAD:$DEFAULT_BRANCH
+            'git pull --ff-only' will NOT clear this; it is a no-op here."
+    else
+      _tip_next="Next: DIVERGED — neither tip contains the other. Reconcile by hand (this script
+            will not choose a history for you), then re-run."
+    fi
+    kit_refuse 1 head-not-remote-tip \
+      "release.sh: HEAD is not $REMOTE/$DEFAULT_BRANCH's tip — refusing to cut $TAG." \
+      "              HEAD                     $LOCAL_TIP" \
+      "              $REMOTE/$DEFAULT_BRANCH  $REMOTE_TIP" \
+      "            NOTHING WAS WRITTEN." \
+      "$_tip_next"
   fi
 fi
 
@@ -677,25 +683,30 @@ if ${RELEASE_VERIFY_CMD:-"$SCRIPT_DIR/verify.sh"}; then :; else
   _rel_vrc=$?
   # Both reds refuse; exit 3 is the one whose cause is the environment, not the tree.
   if [ "$_rel_vrc" -eq 3 ]; then
-    echo "release.sh: verify.sh COULD NOT RUN a gate (exit 3; none failed) — refusing to cut $TAG on an unmeasured gate." >&2
+    kit_refuse 1 verify-could-not-run \
+      "release.sh: verify.sh COULD NOT RUN a gate (exit 3; none failed) — refusing to cut $TAG on an unmeasured gate." \
+      "Next: fix what the gate needs to start (verify.sh's summary names it), then re-run."
   else
-    echo "release.sh: verify.sh FAILED — refusing to cut $TAG on a red gate." >&2
+    kit_refuse 1 verify-failed \
+      "release.sh: verify.sh FAILED — refusing to cut $TAG on a red gate." \
+      "Next: fix what ./scripts/verify.sh reports (its summary names the failing gate), then re-run."
   fi
-  exit 1
 fi
 
 # ── Preflight 4 (gate c): the project's own extra gates, in declared order. ──
 for rec in ${PREFLIGHT_GATES[@]+"${PREFLIGHT_GATES[@]}"}; do
   g_name="${rec%%|*}"; g_cmd="${rec#*|}"
   if [ "$g_name" = "$rec" ] || [ -z "$g_cmd" ]; then
-    echo "release.sh: malformed PREFLIGHT_GATES record: '$rec' (expected \"<name>|<command…>\")." >&2
-    exit 1
+    kit_refuse 1 preflight-gate-record-malformed \
+      "release.sh: malformed PREFLIGHT_GATES record: '$rec' (expected \"<name>|<command…>\")." \
+      "Next: rewrite the record in the config block as \"<name>|<command…>\"."
   fi
   echo "[c] $g_name..."
   # shellcheck disable=SC2086  # deliberate word-split of the declared command
   if ! $g_cmd; then
-    echo "release.sh: preflight gate '$g_name' FAILED — refusing to cut $TAG." >&2
-    exit 1
+    kit_refuse 1 preflight-gate-failed \
+      "release.sh: preflight gate '$g_name' FAILED — refusing to cut $TAG." \
+      "Next: fix what '$g_name' reports (its command: $g_cmd), then re-run."
   fi
 done
 
@@ -705,9 +716,10 @@ done
 echo "[d] board-drift (check-board.sh)..."
 board_out="$(${RELEASE_BOARD_CMD:-"$SCRIPT_DIR/check-board.sh"} 2>&1)" || true
 if ! printf '%s\n' "$board_out" | grep -q 'board-drift: clean'; then
-  echo "release.sh: check-board.sh reports drift — resolve it before cutting $TAG." >&2
-  printf '%s\n' "$board_out" | grep -E 'board-drift|⚠' >&2 || true
-  exit 1
+  kit_refuse 1 board-drift \
+    "release.sh: check-board.sh reports drift — resolve it before cutting $TAG." \
+    "$(printf '%s\n' "$board_out" | grep -E 'board-drift|⚠' || true)" \
+    "Next: resolve the drift check-board.sh reports (./scripts/check-board.sh names each finding), then re-run."
 fi
 
 # ── Preflight 6 (gate e): every declared release document covers this version. ─
@@ -719,13 +731,15 @@ fi
 for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
   doc="${rec%%|*}"; what="${rec#*|}"
   if [ "$doc" = "$rec" ]; then
-    echo "release.sh: malformed RELEASE_DOCS record: '$rec' (expected \"<path>|<what to write>\")." >&2
-    exit 1
+    kit_refuse 1 release-docs-record-malformed \
+      "release.sh: malformed RELEASE_DOCS record: '$rec' (expected \"<path>|<what to write>\")." \
+      "Next: rewrite the record in the config block as \"<path>|<what to write>\"."
   fi
   echo "[e] $doc has a ## [$NUM] section..."
   if ! grep -qE "^## \[$NUM_RE\]" "$REPO_ROOT/$doc" 2>/dev/null; then
-    echo "release.sh: $doc has no '## [$NUM]' section — refusing to tag an undocumented version. Write it: ${what}. Then re-run." >&2
-    exit 1
+    kit_refuse 1 release-doc-section-missing \
+      "release.sh: $doc has no '## [$NUM]' section — refusing to tag an undocumented version." \
+      "Next: write it: ${what}. Then re-run."
   fi
   # AND THE SECTION HAS CONTENT: a heading over a placeholder, a TODO or nothing is refused.
   # Placeholders are recognised by shape (<angle brackets>, EXTRACTION.md's blanks convention).
@@ -748,8 +762,9 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
     END { print n+0 }
   ' "$REPO_ROOT/$doc" 2>/dev/null)"
   if [ "${doc_body:-0}" -eq 0 ]; then
-    echo "release.sh: ${doc}'s '## [$NUM]' section is EMPTY — a heading with no content under it, or only placeholders. The heading being there is not the notes being there. Write it: ${what}. Then re-run." >&2
-    exit 1
+    kit_refuse 1 release-doc-section-empty \
+      "release.sh: ${doc}'s '## [$NUM]' section is EMPTY — a heading with no content under it, or only placeholders. The heading being there is not the notes being there." \
+      "Next: write it: ${what}. Then re-run."
   fi
 done
 
@@ -788,12 +803,14 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
   # A MISSING HEADER DATE IS A REFUSAL, NOT A SKIP: nothing in the kit stamps that date, so
   # a dateless heading is the state a real cut reaches.
   if [ -z "$header_date" ]; then
-    echo "release.sh: ${doc}'s '## [$NUM]' heading carries NO DATE, so this gate cannot order it against its own content — and nothing in the kit writes that date for you. Add it to the heading as '## [$NUM] — YYYY-MM-DD' (the day you cut), then re-run." >&2
-    exit 1
+    kit_refuse 1 release-doc-date-missing \
+      "release.sh: ${doc}'s '## [$NUM]' heading carries NO DATE, so this gate cannot order it against its own content — and nothing in the kit writes that date for you." \
+      "Next: add it to the heading as '## [$NUM] — YYYY-MM-DD' (the day you cut), then re-run."
   fi
   if [ -n "$newest_date" ] && [ "$header_date" \< "$newest_date" ]; then
-    echo "release.sh: ${doc}'s '## [$NUM]' header date is $header_date, but the section itself carries $newest_date — a release dated before the changes it contains. The section DATE is the CUTTER'S: set the header to the day you cut (at least $newest_date), then re-run." >&2
-    exit 1
+    kit_refuse 1 release-doc-date-before-content \
+      "release.sh: ${doc}'s '## [$NUM]' header date is $header_date, but the section itself carries $newest_date — a release dated before the changes it contains." \
+      "Next: the section DATE is the CUTTER'S: set the header to the day you cut (at least $newest_date), then re-run."
   fi
 done
 
@@ -807,26 +824,25 @@ if [ -z "$SHIP_MANIFEST" ]; then
   # would ship and nothing says what of it may leave. A build's DIST_ARTIFACT_GLOB is already
   # a positive allowlist.
   if [ "$RELEASE_PUBLISH" = "true" ] && [ -z "$BUILD_COMMAND" ]; then
-    {
-      echo "release.sh: REFUSING — RELEASE_PUBLISH is true, there is no BUILD_COMMAND, and"
-      echo "            SHIP_MANIFEST is empty. In that configuration the only thing this"
-      echo "            ritual can publish is your repository, and nothing declares what of"
-      echo "            it may leave — including progress/, which this process fills with"
-      echo "            candid review notes by design."
-      echo
-      echo "            Declare what ships, in three steps:"
-      echo "              1. draft the list:   ./scripts/release.sh --approve-shipped"
-      echo "              2. read it, and delete every path that must not leave"
-      echo "              3. set SHIP_MANIFEST to that file's path in the config block"
-      echo
-      echo "            Nothing was written."
-    } >&2
-    exit 1
+    kit_refuse 1 ship-manifest-undeclared \
+      "release.sh: REFUSING — RELEASE_PUBLISH is true, there is no BUILD_COMMAND, and" \
+      "            SHIP_MANIFEST is empty. In that configuration the only thing this" \
+      "            ritual can publish is your repository, and nothing declares what of" \
+      "            it may leave — including progress/, which this process fills with" \
+      "            candid review notes by design." \
+      "            Nothing was written." \
+      "" \
+      "Next: declare what ships, in three steps:" \
+      "              1. draft the list:   ./scripts/release.sh --approve-shipped" \
+      "              2. read it, and delete every path that must not leave" \
+      "              3. set SHIP_MANIFEST to that file's path in the config block"
   fi
   echo "  gate (g): no SHIP_MANIFEST declared — NOTHING was checked about what leaves. Publishing is $RELEASE_PUBLISH; the build is ${BUILD_COMMAND:-(none)}."
 else
   [ -f "$REPO_ROOT/$SHIP_MANIFEST" ] \
-    || { echo "release.sh: SHIP_MANIFEST names '$SHIP_MANIFEST', which does not exist. Nothing was written." >&2; exit 1; }
+    || kit_refuse 1 ship-manifest-missing \
+         "release.sh: SHIP_MANIFEST names '$SHIP_MANIFEST', which does not exist. Nothing was written." \
+         "Next: correct SHIP_MANIFEST in the config block, or clear it and run  ./scripts/release.sh --approve-shipped  to draft a manifest."
   _g_n=0; _g_missing=""; _g_changed=""; _g_self=""; _g_docs=""
   while IFS= read -r _g_path; do
     [ -n "$_g_path" ] || continue
@@ -841,11 +857,17 @@ EOF
 
   # ── INSTRUMENT CHECK: a manifest that named nothing would satisfy every arm below.
   [ "$_g_n" -gt 0 ] \
-    || { echo "release.sh: SHIP_MANIFEST '$SHIP_MANIFEST' lists no paths, so gate (g) would certify an empty set. Nothing was written." >&2; exit 1; }
+    || kit_refuse 1 ship-manifest-empty \
+         "release.sh: SHIP_MANIFEST '$SHIP_MANIFEST' lists no paths, so gate (g) would certify an empty set. Nothing was written." \
+         "Next: list the paths that ship (draft them with  ./scripts/release.sh --approve-shipped)."
   [ -z "$_g_self" ] \
-    || { echo "release.sh: the ship manifest lists ITSELF ('$_g_self'). Its own hash cannot be known while it is being written, so the entry is either wrong or a loop. Nothing was written." >&2; exit 1; }
+    || kit_refuse 1 ship-manifest-lists-itself \
+         "release.sh: the ship manifest lists ITSELF ('$_g_self'). Its own hash cannot be known while it is being written, so the entry is either wrong or a loop. Nothing was written." \
+         "Next: delete that line from the manifest."
   [ -z "$_g_missing" ] \
-    || { echo "release.sh: the ship manifest names path(s) that do not exist:$_g_missing. A manifest describing a tree you do not have describes nothing. Nothing was written." >&2; exit 1; }
+    || kit_refuse 1 ship-manifest-path-missing \
+         "release.sh: the ship manifest names path(s) that do not exist:$_g_missing. A manifest describing a tree you do not have describes nothing. Nothing was written." \
+         "Next: delete those lines from the manifest, or restore the files they name."
 
   # DIST_DOCS MUST BE INSIDE THE MANIFEST, or "what ships" has two definitions and they will
   # diverge — the same defect as a second parser, one directory over.
@@ -854,13 +876,16 @@ EOF
     _ship_manifest_paths | grep -xF "$_g_src" >/dev/null || _g_docs="$_g_docs $_g_src"
   done
   [ -z "$_g_docs" ] \
-    || { echo "release.sh: DIST_DOCS names path(s) the ship manifest does not:$_g_docs. Two declarations of what ships is one too many. Nothing was written." >&2; exit 1; }
+    || kit_refuse 1 dist-docs-outside-manifest \
+         "release.sh: DIST_DOCS names path(s) the ship manifest does not:$_g_docs. Two declarations of what ships is one too many. Nothing was written." \
+         "Next: add those paths to the ship manifest (./scripts/release.sh --approve-shipped records them), or remove them from DIST_DOCS."
 
   [ -z "$_g_changed" ] \
-    || { { echo "release.sh: shipped file(s) have changed since the manifest was approved:$_g_changed"
-           echo "            The version bump is NOT the cause — it is normalised out before hashing."
-           echo "            Review the diffs and re-record:  ./scripts/release.sh --approve-shipped"
-           echo "            Nothing was written."; } >&2; exit 1; }
+    || kit_refuse 1 shipped-files-changed \
+         "release.sh: shipped file(s) have changed since the manifest was approved:$_g_changed" \
+         "            The version bump is NOT the cause — it is normalised out before hashing." \
+         "            Nothing was written." \
+         "Next: review the diffs and re-record:  ./scripts/release.sh --approve-shipped"
 
   # ── AND AGAINST THE STATE THE TAG WILL CARRY, not only the one on disk. The bump is applied
   #    to a COPY of each shipped version file and the hash re-taken; if normalisation and the
@@ -875,8 +900,9 @@ EOF
     sed "$(_bump_expr "$_g_pre" "$_g_q" "$NUM")" "$REPO_ROOT/$_g_path" > "$_g_tmp"
     if [ "$(_ship_hash "$_g_tmp" "$_g_path")" != "$(_ship_hash "$REPO_ROOT/$_g_path" "$_g_path")" ]; then
       rm -f "$_g_tmp"
-      echo "release.sh: SIMULATED BUMP MISMATCH on '$_g_path' — normalising the version out of the post-bump file does not reproduce the pre-bump hash, so gate (g) and the bump disagree about what the version IS in that file. This would have wedged the cut at the tag. Nothing was written." >&2
-      exit 1
+      kit_refuse 1 simulated-bump-mismatch \
+        "release.sh: SIMULATED BUMP MISMATCH on '$_g_path' — normalising the version out of the post-bump file does not reproduce the pre-bump hash, so gate (g) and the bump disagree about what the version IS in that file. This would have wedged the cut at the tag. Nothing was written." \
+        "Next: correct the VERSION_FILES record for '$_g_path' so its line-prefix and quote match the line that carries the version, then re-run."
     fi
     rm -f "$_g_tmp"
   done
@@ -947,17 +973,20 @@ if [ "$VERSION_IN_TAG_ONLY" != "true" ]; then
   echo "── bumping version → $NUM in ${#VERSION_FILES[@]} file(s)"
   for rec in "${VERSION_FILES[@]}"; do
     v_path="${rec%%|*}"; v_rest="${rec#*|}"; v_prefix="${v_rest%%|*}"; v_quote="${v_rest#*|}"
-    [ "$v_rest" = "$rec" ] && { echo "release.sh: malformed VERSION_FILES record: '$rec' (expected \"<path>|<line-prefix>|<quote>\")." >&2; exit 1; }
+    [ "$v_rest" != "$rec" ] || kit_refuse 1 version-files-record-malformed \
+      "release.sh: malformed VERSION_FILES record: '$rec' (expected \"<path>|<line-prefix>|<quote>\")." \
+      "Next: rewrite the record in the config block as \"<path>|<line-prefix>|<quote>\"."
     [ "$v_quote" = "$v_rest" ] && v_quote=""
     if bump_one "$v_path" "$v_prefix" "$v_quote"; then
       BUMPED+=("$v_path")
       echo "   ✓ $v_path"
     else
-      echo "release.sh: the bump did not apply cleanly to '$v_path' — restoring every file touched, no commit made." >&2
       _release_restore_bumped
       git -C "$REPO_ROOT" checkout -- "$v_path" >/dev/null 2>&1 || true
       _MUTATE_ARMED=false   # this path prints its own account; do not print the trap's too
-      exit 1
+      kit_refuse 1 version-bump-failed \
+        "release.sh: the bump did not apply cleanly to '$v_path' — every file touched was restored, no commit made." \
+        "Next: correct the VERSION_FILES record for '$v_path' so its line-prefix and quote match the line that carries the version, then re-run."
     fi
   done
   # ARM IT HERE, not earlier: before this point nothing is staged and the loop's own
@@ -1007,12 +1036,12 @@ echo "── pushing commit + tag to $REMOTE/$DEFAULT_BRANCH..."
 if ! git push "$REMOTE" "HEAD:$DEFAULT_BRANCH"; then
   echo "release.sh: pushing the release commit FAILED. The commit + tag exist LOCALLY but are NOT on $REMOTE." >&2
   echo "            Recover: git push $REMOTE HEAD:$DEFAULT_BRANCH && git push $REMOTE $TAG" >&2
-  exit 1
+  exit 1   # exit-class: internal
 fi
 if ! git push "$REMOTE" "refs/tags/$TAG"; then
   echo "release.sh: pushing tag $TAG FAILED. The commit is on $REMOTE but the tag is only LOCAL." >&2
   echo "            Recover: git push $REMOTE $TAG" >&2
-  exit 1
+  exit 1   # exit-class: internal
 fi
 
 # ── PUBLISH the distribution copy. Both pushes are on the remote, so the release

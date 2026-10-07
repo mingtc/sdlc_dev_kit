@@ -16,7 +16,7 @@
 #     grep -rlF 'sed '"'"'s|^# \{0,1\}||'"'"'' scripts consumers setup.sh
 #
 #   * scripts/release.sh renders its SYNOPSIS only (operator notes follow its usage examples)
-#     and sources nothing from lib/ by design. Do not sweep it in.
+#     and sources only lib/exit-trap.sh and lib/refuse.sh from lib/, by design. Do not sweep it in.
 #   * consumers/ holds TEMPLATES that leave for a consumer repository, where scripts/lib/ does
 #     not exist; each keeps its own copy.
 #   * scripts/test/run.sh could source this file and does not. No reason is recorded: debt, not

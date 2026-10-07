@@ -20,6 +20,8 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+# shellcheck source=lib/refuse.sh
+. "$ROOT/scripts/lib/refuse.sh"
 
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh — as new-issue.sh states; change one, change all.
 # Arguments are read first (issue-creation.md § 3): a usage request always succeeds, in any
@@ -38,28 +40,27 @@ for _a in "$@"; do
 done
 case "${1:-}" in
   "") ;;
-  *) echo "Error: unknown option: $1 (next-id.sh takes none)" >&2; exit 2 ;;
+  *) echo "Error: unknown option: $1 (next-id.sh takes none)" >&2; exit 2 ;;   # exit-class: usage
 esac
 
 CONFIG="$ROOT/scripts/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
-  {
-    echo "Error: scripts/config.sh is missing."
-    echo "       Looked for: $CONFIG"
-    echo "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME"
-    echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
-    echo "       prefix: a guessed prefix mints ids under a name nobody chose, and the"
-    echo "       board only finds out at the first move."
-    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
-      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
-    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
-    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
-  } >&2
-  exit 1
+  kit_refuse 1 config-seam-missing \
+    "Error: scripts/config.sh is missing." \
+    "       Looked for: $CONFIG" \
+    "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME" \
+    "       (process/contracts/config-seam.md). This script REFUSES to guess a" \
+    "       prefix: a guessed prefix mints ids under a name nobody chose, and the" \
+    "       board only finds out at the first move." \
+    "Next: restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it." \
+    "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):" \
+    "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>" \
+    "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
 fi
 if [ -z "${ISSUE_PREFIX:-}" ]; then
-  echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
-  exit 1
+  kit_refuse 1 prefix-empty \
+    "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." \
+    "Next: set ISSUE_PREFIX in scripts/config.sh to your project's prefix, then re-run."
 fi
 
 # THE TRUNK (kit_trunk_ref, scripts/config.sh). No ref (day one, local-only): this checkout.
@@ -67,7 +68,9 @@ rc=0; TRUNK_REF="$(kit_trunk_ref "$ROOT")" || rc=$?
 case "$rc" in
   0) echo "next-id: read this checkout and $TRUNK_REF @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2 ;;
   3) echo "next-id: read this checkout only — no $TRUNK_REF ref" >&2; TRUNK_REF="" ;;
-  *) exit 1 ;;
+  *) kit_refuse 1 trunk-unresolvable \
+       "Error: next-id could not resolve the trunk of this repository." \
+       "Next: run it from inside the project's git checkout; if the remote has no HEAD, settle the trunk once:  git remote set-head origin <your-trunk>." ;;
 esac
 
 # Highest number seen across live filenames + archived entries.
@@ -89,9 +92,9 @@ max="$(
 )"
 
 if [ -z "$max" ]; then
-  echo "next-id: no existing ${ISSUE_PREFIX}-NNN found in progress/ or ARCHIVE.md." >&2
-  echo "         Pick a starting id with context (likely ${ISSUE_PREFIX}-001) and pass --id." >&2
-  exit 1
+  kit_refuse 1 no-existing-id \
+    "next-id: no existing ${ISSUE_PREFIX}-NNN found in progress/ or ARCHIVE.md." \
+    "Next: pick a starting id with context (likely ${ISSUE_PREFIX}-001) and pass --id."
 fi
 
 printf "${ISSUE_PREFIX}-%03d\n" "$(( max + 1 ))"

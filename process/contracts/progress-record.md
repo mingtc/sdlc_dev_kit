@@ -34,6 +34,11 @@ the agent's authority, the escalation (`./scripts/ask.sh`, or stop and hand off)
 *Why:* a gate that refuses without a route invites the agent it stopped to invent one, and an
 invented route is a forged operand.
 
+**A nonzero exit that is not a refusal is classed, in the file, as usage or internal.** A malformed
+argument is answered by the script's usage text; a failed tool or I/O step says what failed. The
+rule and its markers are `scripts/lib/refuse.sh`'s header; the self-test fails any nonzero exit that
+is none of the three.
+
 ## 2. HARD INVARIANTS
 
 - **ONE record shape. Optional FIELDS, never divergent payloads.** Four required fields

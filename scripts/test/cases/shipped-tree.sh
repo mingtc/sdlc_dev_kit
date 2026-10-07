@@ -1490,104 +1490,6 @@ case_gates_command_field_is_excluded_from_the_floor() {
   teardown
 }
 
-# ── THE REFUSAL SITES, derived once. ──────────────────────────────────────────
-# In each named file whose code (comment lines skipped) prints `Error:`, one line per site:
-#   helper      the line calls kit_refuse (scripts/lib/refuse.sh), which exits for it;
-#   exempt      a literal non-zero `exit N` in command position, carrying `# refusal-exempt: <why>`;
-#   unmigrated  such an exit carrying neither.
-# BLIND SPOTS: `exit "$var"`, a library's `return N`, and exits in a file that prints no `Error:`.
-_refusal_sites() {  # <root> <rel>… — "<kind> <rel>:<line>" per site
-  local root="$1" rel; shift
-  for rel in "$@"; do
-    [ -f "$root/$rel" ] || continue
-    awk -v rel="$rel" '
-      /^[[:space:]]*#/ { next }
-      { L[NR] = $0 }
-      /Error:/ { err = 1 }
-      END {
-        if (!err) exit
-        for (i = 1; i <= NR; i++) {
-          if (!(i in L)) continue
-          s = L[i]
-          if (s ~ /(^|[;&|({[:space:]])kit_refuse[[:space:]]/) { print "helper " rel ":" i; continue }
-          if (s ~ /(^|[;&|({]|then|else|do)[[:space:]]*exit[[:space:]]+[1-9][0-9]*([^0-9A-Za-z_]|$)/) {
-            if (s ~ /#[[:space:]]*refusal-exempt:[[:space:]]*[^[:space:]]/) print "exempt " rel ":" i
-            else print "unmigrated " rel ":" i
-          }
-        }
-      }' "$root/$rel"
-  done
-}
-
-# =============================================================================
-# CASE — EVERY REFUSAL SITE IS REPORTED: THROUGH THE HELPER, DECLARED EXEMPT, OR NOT YET MIGRATED.
-#
-# REPORT-ONLY. A refusal that bypasses kit_refuse leaves no record, so it cannot be counted.
-# Sites migrate as their scripts are touched, so an unmigrated site is printed
-# (`unmigrated-refusal: <path>:<line>`), never failed. The population is every shipped shell
-# program in the manifest; the site rule is _refusal_sites above.
-#
-# It FAILS only when its own enumeration is broken: a planted file with a known site of each kind
-# must come back exactly, and the shipped population must hold at least one program that prints
-# `Error:`. Without both, a zero would be silent.
-# =============================================================================
-case_refusal_sites_are_reported() {
-  cf_reset
-  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
-  [ -f "$man" ] \
-    || _fixture_die "case_refusal_sites_are_reported: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
-
-  # ── THE CONTROL: a planted file whose sites are known, and one that prints no `Error:`.
-  local tmp; tmp="$(mktemp -d)"
-  cat > "$tmp/planted.sh" <<'PLANT'
-#!/usr/bin/env bash
-echo "Error: planted one" >&2
-exit 1
-[ -n "${x:-}" ] || { echo "Error: planted two" >&2; exit 2; }
-kit_refuse 3 planted-rule "Error: planted three"
-exit 4  # refusal-exempt: a usage request
-exit 5  # refusal-exempt:
-# exit 6
-exit 0
-exit "$rc"
-PLANT
-  printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$tmp/no-error.sh"
-  local got want
-  got="$(_refusal_sites "$tmp" planted.sh no-error.sh)"
-  want="$(printf '%s\n' 'unmigrated planted.sh:3' 'unmigrated planted.sh:4' 'helper planted.sh:5' \
-                        'exempt planted.sh:6' 'unmigrated planted.sh:7')"
-  rm -rf "$tmp"
-  [ "$got" = "$want" ] \
-    || cf "(instrument) the site enumerator misread its planted control — want [$(printf '%s' "$want" | tr '\n' '|')], got [$(printf '%s' "$got" | tr '\n' '|')]; every count below is untrustworthy"
-
-  # ── THE POPULATION: every shipped shell program in the manifest.
-  local rel pop=() nerr=0
-  while IFS= read -r rel; do
-    [ -n "$rel" ] || continue
-    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*sh) pop+=("$rel") ;; esac
-  done <<EOF
-$(grep -v '^#' "$man" | awk '{print $2}')
-EOF
-  [ "${#pop[@]}" -gt 0 ] \
-    || cf "(instrument) the manifest yielded no shipped shell program — the shebang test stopped matching"
-  for rel in ${pop[@]+"${pop[@]}"}; do
-    grep -v '^[[:space:]]*#' "$REAL_REPO_ROOT/$rel" | grep -F 'Error:' >/dev/null && nerr=$(( nerr + 1 ))
-  done
-  [ "$nerr" -gt 0 ] \
-    || cf "(instrument) not one shipped shell program prints 'Error:' — the population this report reads is empty, so its zero would be silent"
-
-  local sites nh=0 ne=0 nu=0
-  sites="$(_refusal_sites "$REAL_REPO_ROOT" ${pop[@]+"${pop[@]}"})"
-  if [ -n "$sites" ]; then
-    nh="$(printf '%s\n' "$sites" | grep -c '^helper ' || true)"
-    ne="$(printf '%s\n' "$sites" | grep -c '^exempt ' || true)"
-    nu="$(printf '%s\n' "$sites" | grep -c '^unmigrated ' || true)"
-    printf '%s\n' "$sites" | sed -n 's/^unmigrated /        unmigrated-refusal: /p'
-  fi
-
-  finish "refusal sites in the $nerr shipped shell program(s) that print 'Error:': $nh through kit_refuse, $ne declared exempt, $nu not yet migrated (REPORT-ONLY — listed above as unmigrated-refusal: lines; sites migrate as their scripts are touched); the enumerator read its planted control exactly"
-}
-
 # ── THE next-action CENSUS. ─────────────────────────────────────────────────────
 # _refusal_next_census <root> <rel>… — one line per `kit_refuse` call, "<kind> <rel>:<line> <rule>":
 #   lit         the call's own statement (its line plus every line continued by a trailing `\`)
@@ -1728,18 +1630,186 @@ EOF2
         { if (NR >= start && !done) { gsub(/"Next: /, "\"Nxt: "); if ($0 !~ /\\[[:space:]]*$/) done = 1 } print }' \
         "$REAL_REPO_ROOT/$prel" > "$abl/$prel"
     else
-      # Spoil the first variable assigned a Next: line in the file.
-      awk '{ if (!done && $0 ~ /^[[:space:]]*(local[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*="Next: /) { sub(/="Next: /, "=\"Nxt: "); done = 1 } print }' \
+      # Spoil every variable assigned a Next: line in the file (a call may pass one of several).
+      awk '{ if ($0 ~ /^[[:space:]]*(local[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*="Next: /) sub(/="Next: /, "=\"Nxt: "); print }' \
         "$REAL_REPO_ROOT/$prel" > "$abl/$prel"
     fi
     ablated="$(_refusal_next_census "$abl" "$prel" | grep -E '^(none|unreadable) ' || true)"
     after="$(printf '%s' "$ablated" | grep -c . || true)"
     rm -rf "$abl"
-    [ "$after" -eq $(( before + 1 )) ] \
-      || cf "(ablation) spoiling the Next: line of one '$kind' call in $prel left $after refusal(s) without a next action (was $before, want $(( before + 1 ))) — the census does not go red when the line is removed: [$(printf '%s' "$ablated" | tr '\n' '|')]"
+    # A literal call is spoiled alone (exactly one more); a variable's spoil reaches every call that passes it.
+    want=$(( before + 1 ))
+    if { [ "$kind" = lit ] && [ "$after" -ne "$want" ]; } || { [ "$kind" = var ] && [ "$after" -lt "$want" ]; }; then
+      cf "(ablation) spoiling the Next: line of '$kind' call(s) in $prel left $after refusal(s) without a next action (was $before, want $( [ "$kind" = lit ] && echo "exactly $want" || echo "at least $want" )) — the census does not go red when the line is removed: [$(printf '%s' "$ablated" | tr '\n' '|')]"
+    fi
   done
 
   finish "all $nsites kit_refuse call site(s) read across ${#pop[@]} shipped shell program(s) carry a 'Next: <action>' message line (directly or through a variable the call passes); the census read its planted control exactly, and spoiling the line in one real call of each form turned it red"
+}
+
+# ── THE nonzero-EXIT CENSUS. ────────────────────────────────────────────────────
+# _exit_census <root> <rel>… — one line per command-position `exit` with a nonzero literal or a
+# variable status, "<kind> <rel>:<line>"; a line counts once. The kinds are the ways an exit may
+# be classified (lib/refuse.sh § THE THREE KINDS OF NONZERO EXIT):
+#   usage-shape   a command-position `usage` call stands before the exit on its own line;
+#   usage-nv      the exit sits inside the `need_val` guard, whose bytes must not change;
+#   usage-marker  the line carries `# exit-class: usage` (the usage call is on an earlier line);
+#   internal      the line carries `# exit-class: internal`;
+#   fallback      the line carries `# exit-class: fallback` and a `kit_refuse` call stands within the
+#                 12 lines above it (the exit a hook keeps for when the helper cannot load);
+#   bare          none of these: a refusal that bypassed kit_refuse, or an exit nobody classified.
+# A refusal is not a kind here: it is a `kit_refuse` call, which the next-action census reads.
+# BLIND SPOTS: a bare `exit` (it relays `$?`), a library's `return N`, an `exit` inside a quoted
+# string that follows `;` or `{`, and a marker that states the wrong class (a reviewer's question).
+_exit_census() {
+  local root="$1" rel; shift
+  for rel in "$@"; do
+    [ -f "$root/$rel" ] || continue
+    awk -v rel="$rel" '
+      /^[[:space:]]*#/ { next }
+      {
+        s = $0
+        if (s ~ /(^|[;&|({[:space:]])kit_refuse[[:space:]]/) lastk = NR
+        if (s ~ /^need_val\(\)/) innv = 1
+        rest = s; off = 0; found = 0
+        while (match(rest, /(^|[;&|{]|[[:space:]]then|[[:space:]]else|[[:space:]]do)[[:space:]]*(builtin[[:space:]]+)?exit[[:space:]]+[^[:space:];&|)}]+/)) {
+          m = substr(rest, RSTART, RLENGTH); at = off + RSTART
+          tok = m; sub(/^.*exit[[:space:]]+/, "", tok)
+          if (tok ~ /^"?\$/ || (tok ~ /^[0-9]+$/ && tok != "0")) { found = 1; pre = substr(s, 1, at); break }
+          off += RSTART + RLENGTH - 1; rest = substr(rest, RSTART + RLENGTH)
+        }
+        if (found) {
+          kind = "bare"
+          if (innv) kind = "usage-nv"
+          else if (pre ~ /(^|[^A-Za-z0-9_-])usage[[:space:]]*(>&2|2>&1)?[[:space:]]*(;|&&|[|][|]|\)|$)/) kind = "usage-shape"
+          else if (s ~ /#[[:space:]]*exit-class:[[:space:]]*usage/) kind = "usage-marker"
+          else if (s ~ /#[[:space:]]*exit-class:[[:space:]]*internal/) kind = "internal"
+          else if (s ~ /#[[:space:]]*exit-class:[[:space:]]*fallback/ && lastk && NR - lastk <= 12) kind = "fallback"
+          print kind " " rel ":" NR
+        }
+        if (innv && s ~ /\}[[:space:]]*$/) innv = 0
+      }' "$root/$rel"
+  done
+}
+
+# =============================================================================
+# CASE — EVERY NONZERO EXIT A SHIPPED SCRIPT MAKES IS A REFUSAL THROUGH kit_refuse, A USAGE EXIT, OR A
+# DECLARED INTERNAL FAILURE.
+#
+# A refusal that bypasses kit_refuse names no way out and leaves no record, and the next-action
+# census above cannot see it. THE POPULATION is every command-position `exit` with a nonzero
+# status in the shipped shell programs (the manifest's), less: the harness, lib/refuse.sh (the
+# helper's own exit), the vendored skills' scripts (upstream's, re-copied whole) and consumers/
+# (templates that leave for a repository with no scripts/lib/). Each must be classified by the
+# rule in lib/refuse.sh; the case fails on any it cannot. PASS/FAIL: the operand is fixed, a
+# planted control has a known answer for every row, and an ablation of one real site of each
+# classification mechanism must turn it red. It checks that a classification is DECLARED, not
+# that it is true: a state refusal marked `usage` is a reviewer's question.
+# =============================================================================
+case_every_nonzero_exit_is_classified() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_every_nonzero_exit_is_classified: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE CONTROL: a planted file whose sites are known, with the lines that must NOT count.
+  local tmp; tmp="$(mktemp -d)"
+  cat > "$tmp/planted.sh" <<'PLANT'
+#!/usr/bin/env bash
+# exit 1 in a comment
+echo "gate exit 2: said so"
+exit 0
+need_val() {
+  [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
+}
+rc=0
+*) echo "Error: unknown option" >&2; usage >&2; exit 2 ;;
+[ -n "${1:-}" ] || { usage; exit 1; }
+exit 2 # exit-class: usage
+exit 3 # exit-class: internal
+exit 4
+[ -z "$v" ] && { echo "Error: refused" >&2; exit 1; }
+exit "$rc"
+exit 5; usage
+kit_refuse 1 planted-rule "Error: x" "Next: y"
+if [ -n "$q" ]; then exit 6; fi
+true || builtin exit 7 # exit-class: internal
+need_valx() { exit 8; }
+exit 12 # exit-class: fallback
+# the next marker stands more than 12 lines below the last kit_refuse call
+# .
+# .
+# .
+# .
+# .
+# .
+# .
+# .
+# .
+# .
+# .
+exit 13 # exit-class: fallback
+PLANT
+  local got want
+  got="$(_exit_census "$tmp" planted.sh)"
+  want="$(printf '%s\n' 'usage-nv planted.sh:6' 'usage-shape planted.sh:9' 'usage-shape planted.sh:10' \
+                        'usage-marker planted.sh:11' 'internal planted.sh:12' 'bare planted.sh:13' \
+                        'bare planted.sh:14' 'bare planted.sh:15' 'bare planted.sh:16' \
+                        'bare planted.sh:18' 'internal planted.sh:19' 'bare planted.sh:20' \
+                        'fallback planted.sh:21' 'bare planted.sh:34')"
+  rm -rf "$tmp"
+  [ "$got" = "$want" ] \
+    || cf "(instrument) the exit census misread its planted control — want [$(printf '%s' "$want" | tr '\n' '|')], got [$(printf '%s' "$got" | tr '\n' '|')]; every verdict below is untrustworthy"
+
+  # ── THE POPULATION.
+  local rel pop=()
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$rel" in scripts/test/*|scripts/lib/refuse.sh|.claude/skills/*|consumers/*) continue ;; esac
+    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*sh) pop+=("$rel") ;; esac
+  done <<EOF3
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF3
+  [ "${#pop[@]}" -gt 0 ] \
+    || cf "(instrument) the manifest yielded no shipped shell program — the shebang test stopped matching"
+
+  local sites nsites=0 bad nbad k
+  sites="$(_exit_census "$REAL_REPO_ROOT" ${pop[@]+"${pop[@]}"})"
+  [ -n "$sites" ] && nsites="$(printf '%s\n' "$sites" | grep -c . || true)"
+  [ "$nsites" -gt 0 ] \
+    || cf "(instrument) not one nonzero exit was found in the shipped programs — the enumeration stopped matching, so 'every exit is classified' is true of nothing"
+  bad="$(printf '%s\n' "$sites" | grep '^bare ' || true)"
+  if [ -n "$bad" ]; then
+    nbad="$(printf '%s\n' "$bad" | grep -c . || true)"
+    printf '%s\n' "$bad" | sed 's/^bare /        unclassified-exit: /'
+    cf "$nbad nonzero exit(s) are neither a kit_refuse refusal, a usage exit nor a declared internal failure — migrate a refusal to kit_refuse with a Next: line, or classify the exit by the rule in lib/refuse.sh: $(printf '%s' "$bad" | sed 's/^[a-z]* //' | tr '\n' ' ' | cut -c1-600)"
+  fi
+
+  # ── THE ABLATION: break each classification mechanism in a scratch copy of one real site and
+  #    require the census to report exactly one more bare exit. Derived from the census, never typed.
+  local pick prel pline abl before after nn
+  for k in usage-shape usage-nv usage-marker internal fallback; do
+    pick="$(printf '%s\n' "$sites" | grep "^$k " | sed -n '1p')"
+    [ -n "$pick" ] || { cf "(instrument) no '$k' exit in the shipped tree to ablate — the ablation for that mechanism did not run"; continue; }
+    prel="$(printf '%s' "$pick" | awk '{print $2}')"; pline="${prel##*:}"; prel="${prel%:*}"
+    abl="$(mktemp -d)"; mkdir -p "$abl/$(dirname "$prel")"
+    before="$(_exit_census "$REAL_REPO_ROOT" "$prel" | grep -c '^bare ' || true)"
+    case "$k" in
+      usage-shape)  awk -v n="$pline" 'NR == n { gsub(/usage/, "usagx") } { print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+      usage-nv)     awk '!d && /^need_val\(\)/ { sub(/need_val/, "need_vax"); d = 1 } { print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+      usage-marker) awk -v n="$pline" 'NR == n { sub(/exit-class:/, "exit-clas:") } { print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+      internal|fallback) awk -v n="$pline" 'NR == n { sub(/exit-class:/, "exit-clas:") } { print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+    esac
+    after="$(_exit_census "$abl" "$prel" | grep -c '^bare ' || true)"
+    rm -rf "$abl"
+    [ "$after" -eq $(( before + 1 )) ] \
+      || cf "(ablation) breaking the '$k' classification of $prel:$pline left $after bare exit(s) in that file (was $before, want $(( before + 1 ))) — the census does not go red when a classification is removed"
+  done
+
+  local nu ni nf
+  nu="$(printf '%s\n' "$sites" | grep -c '^usage-' || true)"; ni="$(printf '%s\n' "$sites" | grep -c '^internal ' || true)"
+  nf="$(printf '%s\n' "$sites" | grep -c '^fallback ' || true)"
+  finish "all $nsites nonzero exit(s) read across ${#pop[@]} shipped shell program(s) (the manifest's, less the harness, lib/refuse.sh, the vendored skills and consumers/) are classified: $nu usage, $ni declared internal, $nf kept as a hook's fallback beside a kit_refuse call, the rest of each program's refusals going through kit_refuse; the census read its planted control exactly, and breaking each of the five classification mechanisms in one real site turned it red"
 }
 
 # =============================================================================
@@ -2720,6 +2790,12 @@ case_shipped_tree_is_citation_clean_after_kit_init() {
   cf_reset
   if ! has_kit_init; then skp "shipped tree is [l]-clean after kit-init" "scripts/kit-init.sh absent"; return; fi
   if ! has_issue_template; then skp "shipped tree is [l]-clean after kit-init" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  # kit-init refuses a repository that has lived, so on an adopted tree the operand (an unstamped
+  # shipped tree) is absent: N/A there, a real check on the pristine zip.
+  local lived; lived="$(_tree_has_lived)"
+  if [ -n "$lived" ]; then
+    skp_lived "shipped tree is [l]-clean after kit-init" "the shipped tree is not an operand once $lived (kit-init refuses it)"; return
+  fi
   kit_init_sandbox
   local e name notes="process/KIT-RELEASE-NOTES.md"
   # Every shipped top-level entry the sandbox does not already have, taken from the real tree

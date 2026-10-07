@@ -43,41 +43,44 @@ done
 case "${1:-}" in
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
       usage >&2
-      exit 2 ;;
+      exit 2 ;;   # exit-class: usage
 esac
+
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$ROOT/scripts/lib/refuse.sh"
 
 # ── THE PREFIX HAS ONE AUTHORITY: scripts/config.sh. No fallback literal anywhere: a guessed
 # prefix mints ids under a name nobody chose, so the seam's absence is a refusal that names it.
 # Every carrier of this block is found by its `if` line; change one, change all.
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
-  {
-    echo "Error: scripts/config.sh is missing."
-    echo "       Looked for: $CONFIG"
-    echo "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME"
-    echo "       (process/contracts/config-seam.md). This script REFUSES to guess a"
-    echo "       prefix: a guessed prefix mints ids under a name nobody chose, and the"
-    echo "       board only finds out at the first move."
-    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it."
-      echo "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):"
-    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
-    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
-  } >&2
-  exit 1
+  kit_refuse 1 config-seam-missing \
+    "Error: scripts/config.sh is missing." \
+    "       Looked for: $CONFIG" \
+    "       It is the ONE authority for ISSUE_PREFIX / PRD_PREFIX / PROJECT_NAME" \
+    "       (process/contracts/config-seam.md). This script REFUSES to guess a" \
+    "       prefix: a guessed prefix mints ids under a name nobody chose, and the" \
+    "       board only finds out at the first move." \
+    "Next: restore it (git checkout -- scripts/config.sh) — the way back on a tree that HAD it." \
+    "       ON A FRESH REPO, initialize the kit instead (it refuses one that has already lived):" \
+    "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>" \
+    "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
 fi
 
 CARDLIB="$ROOT/scripts/lib/card-head.sh"
 if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
-  echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
-  echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
-  echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
-  echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
-  exit 1
+  kit_refuse 1 card-head-lib-missing \
+    "Error: scripts/lib/card-head.sh is missing — it strips the" \
+    "       template's KIT-CLASS marker and writes the live-card head in its place." \
+    "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" \
+    "Next: restore it (git checkout -- scripts/lib/card-head.sh), then re-run."
 fi
 # shellcheck source=lib/exit-trap.sh
 . "$ROOT/scripts/lib/exit-trap.sh"
 if [ -z "${ISSUE_PREFIX:-}" ]; then
-  echo "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." >&2
-  exit 1
+  kit_refuse 1 prefix-empty \
+    "Error: scripts/config.sh was sourced but ISSUE_PREFIX is empty — set it there." \
+    "Next: set ISSUE_PREFIX in scripts/config.sh to your project's prefix, then re-run."
 fi
 
 TEMPLATE="$ROOT/.claude/templates/ISSUE.template.md"
@@ -92,10 +95,14 @@ case "$1" in
 esac
 
 if [ ! -f "$TEMPLATE" ]; then
-  echo "Error: template not found at $TEMPLATE" >&2; exit 1
+  kit_refuse 1 template-missing \
+    "Error: template not found at $TEMPLATE" \
+    "Next: restore ${TEMPLATE#"$ROOT"/} (the kit ships it; git checkout -- <path>), then re-run."
 fi
 if [ ! -d "$DEST_DIR" ]; then
-  echo "Error: progress/todo/ not found at $DEST_DIR" >&2; exit 1
+  kit_refuse 1 board-folder-missing \
+    "Error: progress/todo/ not found at $DEST_DIR" \
+    "Next: create the folder with a .gitkeep (mkdir -p progress/todo && touch progress/todo/.gitkeep; kit-init writes one per column), then re-run."
 fi
 
 SLUG="$1"; shift
@@ -118,8 +125,8 @@ done
 
 # Stateless: the caller passes --id (see ./scripts/next-id.sh). The slug's shape is
 # issue-creation.md § 5, implemented once by validate_slug in scripts/config.sh.
-validate_slug "$SLUG" || exit 2
-validate_issue_id "$ID" "$ROOT" || exit 1
+validate_slug "$SLUG" || exit 2   # exit-class: usage
+validate_issue_id "$ID" "$ROOT" || exit 1   # exit-class: usage
 
 DEST="$DEST_DIR/${ID}-${SLUG}.md"
 TODAY=$(date +%Y-%m-%d)
@@ -154,10 +161,10 @@ fi
 
 rm -f "${WORK}.bak"
 # Replace the template's KIT-CLASS block with the live-card head (lib/card-head.sh).
-kit_rehead_card "$WORK" || exit 1
+kit_rehead_card "$WORK" || exit 1   # exit-class: internal
 # What the mint knows goes into the body too: the H1's id, the seed entry's date, the PRD, the
 # stories and the plan's id (lib/card-head.sh). An absent flag leaves its blank for the author.
-kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
+kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1   # exit-class: internal
 PRD_FILE=""
 if [ -n "$PRD" ]; then
   for f in "$ROOT/requirements/$PRD"-*.md; do
@@ -168,10 +175,10 @@ STORY_IDS=""
 [ -z "$STORIES" ] || STORY_IDS="$(printf '%s' "$STORIES" | sed 's/,/, /g')"
 kit_fill_card "$WORK" "PRD-NNN-<slug>.md" "$PRD_FILE" "PRD-NNN" "$PRD" "<story ids>" "$STORY_IDS" \
   "dev/plans/YYYY-MM-DD-<PREFIX>-NNN-" "dev/plans/YYYY-MM-DD-$ID-" \
-  "dev/plans/YYYY-MM-DD-${ISSUE_PREFIX}-NNN-" "dev/plans/YYYY-MM-DD-$ID-" || exit 1
+  "dev/plans/YYYY-MM-DD-${ISSUE_PREFIX}-NNN-" "dev/plans/YYYY-MM-DD-$ID-" || exit 1   # exit-class: internal
 
 
-kit_publish_card "$WORK" "$DEST" || exit 1
+kit_publish_card "$WORK" "$DEST" || exit 1   # exit-class: internal
 
 echo "Created: $DEST"
 echo "Branch:  ${BRANCH}"

@@ -54,6 +54,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/usage.sh
 . "$SCRIPT_DIR/lib/usage.sh"
 
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
+
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
 
@@ -118,10 +122,10 @@ if [ -z "$ROLE" ]; then
   echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 2
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
-  { echo "Error: --role must be $KIT_ROLE_SET (got '$ROLE')."
-    echo "       That set is $KIT_ROLE_SRC."
-  } >&2
-  exit 1
+  kit_refuse 1 role-not-declared \
+    "Error: --role must be $KIT_ROLE_SET (got '$ROLE')." \
+    "       That set is $KIT_ROLE_SRC." \
+    "Next: re-run with --role set to one of: $KIT_ROLE_SET."
 fi
 
 # Resolve repo root + trunk (works from any worktree, on any branch).
@@ -131,7 +135,9 @@ kwt_resolve
 # way kwt_resolve finds the main root, so this works whether you are in the main checkout, a
 # feature worktree, or .kanban-wt itself.
 CALLER_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-[ -n "$CALLER_ROOT" ] || { echo "Error: not inside a git repository." >&2; exit 1; }
+[ -n "$CALLER_ROOT" ] || kit_refuse 1 not-a-git-repository \
+  "Error: not inside a git repository." \
+  "Next: run it from inside the project's checkout (cd into the project), then re-run."
 
 # Acquire the lock BEFORE touching the worktree (never a half-applied write).
 kwt_lock
@@ -156,8 +162,9 @@ for rel in "${PATHS[@]}"; do
   else
     # Present on neither side → refuse rather than silently doing nothing for it.
     if [ ! -e "$dst" ]; then
-      echo "Error: '$rel' exists in neither your checkout ($CALLER_ROOT) nor the trunk ($KWT) — nothing to commit for it." >&2
-      exit 1
+      kit_refuse 1 path-not-found \
+        "Error: '$rel' exists in neither your checkout ($CALLER_ROOT) nor the trunk ($KWT) — nothing to commit for it." \
+        "Next: check the path (relative to your checkout's root) and write the file there before re-running."
     fi
     # Absent from the caller, present on the trunk → a deletion.
     git -C "$KWT" rm -q -- "$rel"
@@ -166,9 +173,10 @@ for rel in "${PATHS[@]}"; do
 done
 
 if [ ${#CHANGED[@]} -eq 0 ]; then
-  echo "Nothing to commit: every named path already matches the trunk's tip." >&2
-  echo "  Paths checked: ${PATHS[*]}" >&2
-  exit 1
+  kit_refuse 1 nothing-to-commit \
+    "Nothing to commit: every named path already matches the trunk's tip." \
+    "  Paths checked: ${PATHS[*]}" \
+    "Next: edit the files first, or name the paths you actually changed; if the edit already landed, there is nothing to do."
 fi
 
 MESSAGE="[${ROLE}] ${MSG}"
@@ -185,6 +193,6 @@ kit_progress "register-commit.sh" status "landed ${#CHANGED[@]} metadata path(s)
 
 # A push failure AFTER the local commit is FATAL, same as move-issue.sh: propagate it rather
 # than reporting success on a commit that never reached the remote.
-kwt_finalize || exit 1
+kwt_finalize || exit 1   # exit-class: internal
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MESSAGE}\""
 exit 0

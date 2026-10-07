@@ -127,7 +127,7 @@ if [ "$ANY_CODE" -eq 0 ]; then
     kit_refuse 1 pre-commit-metadata-off-trunk "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "" "$msg10" "$msg11" "" "$msg12" "$msg13"
   fi
   printf '%s\n' "$msg1" "$msg2" "$msg3" "$msg4" "$msg5" "" "$msg6" "$msg7" "" "$msg8" "$msg9" "" "$msg10" "$msg11" "" "$msg12" "$msg13" >&2
-  exit 1
+  exit 1   # exit-class: fallback
 fi
 
 exit 0

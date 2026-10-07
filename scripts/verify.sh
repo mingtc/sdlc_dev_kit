@@ -60,6 +60,14 @@ if [ ! -f "$SCRIPT_DIR/lib/progress-record.sh" ] || ! . "$SCRIPT_DIR/lib/progres
    || ! command -v kit_progress >/dev/null 2>&1; then
   kit_progress() { :; }
 fi
+
+# ── THE REFUSAL HELPER (scripts/lib/refuse.sh). Without it a refusal still exits with its status:
+#    a runner that cannot refuse in the declared way must still refuse.
+# shellcheck source=lib/refuse.sh
+if [ ! -f "$SCRIPT_DIR/lib/refuse.sh" ] || ! . "$SCRIPT_DIR/lib/refuse.sh" \
+   || ! command -v kit_refuse >/dev/null 2>&1; then
+  kit_refuse() { local st="$1"; shift 2; printf '%s\n' "$@" >&2; exit "$st"; }   # exit-class: internal
+fi
 cd "$REPO_ROOT"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -150,13 +158,13 @@ for arg in "$@"; do
     --scope) SCOPED=1; in_scope=1 ;;
     --quick) QUICK=1; in_scope=0 ;;
     --list)  LIST=1;  in_scope=0 ;;
-    -*) echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2 ;;
+    -*) echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2 ;;   # exit-class: usage
     *)
       # A bare word is a scope item only after --scope; a flag-looking arg is caught by -* above.
       if [ "$in_scope" -eq 1 ]; then
         SCOPE+=("$arg")
       else
-        echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2
+        echo "verify.sh: unknown arg '$arg' (known: --quick, --scope <items…>, --list, --help)" >&2; exit 2   # exit-class: usage
       fi
       ;;
   esac
@@ -183,37 +191,37 @@ fi
 # (1) The table must not be empty. See the header: an empty-but-green runner
 #     silently authorises every landing in the project.
 if [ "${#GATES[@]}" -eq 0 ]; then
-  {
-    echo "verify.sh: REFUSING — the gate table is EMPTY."
-    echo "  This file ships as a FRAME. Declare your gates in the GATES array at the top"
-    echo "  (one record per gate: \"<name>|<core|select|full>|<command…>\"), or generate a"
-    echo "  starter, ON A FRESH REPO: ./scripts/kit-init.sh --gate-command \"<your test command>\""
-    echo "  (kit-init REFUSES a repository that has already lived — on a tree that has, the"
-    echo "  GATES array above is the only way in.)"
-    echo "  It refuses rather than reporting a green summary with nothing behind it,"
-    echo "  because finish-pr.sh treats a green --quick here as a landing precondition."
-    echo "  ./scripts/verify.sh --list prints the (currently empty) table."
-  } >&2
-  exit 2
+  kit_refuse 2 gate-table-empty \
+    "verify.sh: REFUSING — the gate table is EMPTY." \
+    "  It refuses rather than reporting a green summary with nothing behind it," \
+    "  because finish-pr.sh treats a green --quick here as a landing precondition." \
+    "  ./scripts/verify.sh --list prints the (currently empty) table." \
+    "Next: this file ships as a FRAME. Declare your gates in the GATES array at the top" \
+    "  (one record per gate: \"<name>|<core|select|full>|<command…>\"), or generate a" \
+    "  starter, ON A FRESH REPO: ./scripts/kit-init.sh --gate-command \"<your test command>\"" \
+    "  (kit-init REFUSES a repository that has already lived — on a tree that has, the" \
+    "  GATES array above is the only way in.)"
 fi
 
 # (2) Every record must parse, and its class must be one of the three.
 for rec in "${GATES[@]}"; do
   g_name="${rec%%|*}"; rest="${rec#*|}"; g_class="${rest%%|*}"; g_cmd="${rest#*|}"
   if [ -z "$g_name" ] || [ -z "$g_class" ] || [ -z "$g_cmd" ] || [ "$rest" = "$rec" ]; then
-    echo "verify.sh: REFUSING — malformed gate record: '$rec'" >&2
-    echo "  Expected \"<name>|<core|select|full>|<command…>\"." >&2
-    exit 2
+    kit_refuse 2 gate-record-malformed \
+      "verify.sh: REFUSING — malformed gate record: '$rec'" \
+      "Next: rewrite it in the GATES array as \"<name>|<core|select|full>|<command…>\"."
   fi
   case "$g_class" in
     core|select|full) ;;
-    *) echo "verify.sh: REFUSING — gate '$g_name' has unknown class '$g_class' (core|select|full)." >&2; exit 2 ;;
+    *) kit_refuse 2 gate-class-unknown \
+         "verify.sh: REFUSING — gate '$g_name' has unknown class '$g_class' (one of: core, select, full)." \
+         "Next: set the class of '$g_name' in the GATES array to core, select or full." ;;
   esac
 done
 
 if [ "$SCOPED" -eq 1 ] && [ "${#SCOPE[@]}" -eq 0 ]; then
   echo "verify.sh: --scope needs at least one item (a test path, a node id, whatever your runner takes)" >&2
-  exit 2
+  exit 2   # exit-class: usage
 fi
 
 # (2b) THE GUARD FLOOR IS INERT ON AN ALL-core PROJECT, AND THAT IS SAID HERE, ONCE, AT
@@ -255,9 +263,9 @@ if [ "$SCOPED" -eq 1 ]; then
     missing=()
     for g in "${GUARD_SET[@]}"; do [ -e "$g" ] || missing+=("$g"); done
     if [ "${#missing[@]}" -ne 0 ]; then
-      echo "verify.sh: GUARD_SET names ${#missing[@]} path(s) that no longer exist: ${missing[*]}" >&2
-      echo "verify.sh: fix the list in this script — the guard floor must stay complete." >&2
-      exit 2
+      kit_refuse 2 guard-set-path-missing \
+        "verify.sh: GUARD_SET names ${#missing[@]} path(s) that no longer exist: ${missing[*]}" \
+        "Next: fix the list in this script (restore the guard or remove its entry) — the guard floor must stay complete."
     fi
   fi
 
@@ -273,11 +281,15 @@ if [ "$SCOPED" -eq 1 ]; then
     if [ "$enum_rc" -ne 0 ]; then
       # ANY non-zero is unrunnable, not only 126/127: a mistyped enumerator exits 1 with an empty
       # stdout, which must not read as "no guards". Its stderr is shown.
-      echo "verify.sh: REFUSING — GUARD_ENUM did not run cleanly (exit $enum_rc): $GUARD_ENUM" >&2
-      [ -s "$enum_err" ] && { echo "  it said:" >&2; sed 's/^/    /' "$enum_err" >&2; }
-      echo "  This is the command failing, not an empty answer. Fix or clear GUARD_ENUM." >&2
+      _enum_said=""
+      [ ! -s "$enum_err" ] || _enum_said="  it said:
+$(sed 's/^/    /' "$enum_err")"
       rm -f "$enum_err"
-      exit 2
+      kit_refuse 2 guard-enum-failed \
+        "verify.sh: REFUSING — GUARD_ENUM did not run cleanly (exit $enum_rc): $GUARD_ENUM" \
+        ${_enum_said:+"$_enum_said"} \
+        "  This is the command failing, not an empty answer." \
+        "Next: fix or clear GUARD_ENUM."
     fi
     rm -f "$enum_err"
     unenrolled=()
@@ -313,30 +325,31 @@ SPACE_EOF
       echo "    $GUARD_ENUM" >&2
     elif [ -z "$enum_out" ]; then
       # A declared list the enumerator cannot see diagnoses the ENUMERATOR, not the list.
-      echo "verify.sh: REFUSING — GUARD_ENUM ran cleanly and returned NOTHING, while GUARD_SET holds ${#GUARD_SET[@]} DECLARED item(s)." >&2
-      echo "  The enumeration saw none of the declared guards; a floor the enumerator cannot see is" >&2
-      echo "  not reconciled. Common causes: a glob that matches nothing, or guards not yet tracked" >&2
-      echo "  where the enumerator reads the index (git ls-files sees only tracked paths)." >&2
-      echo "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" >&2
-      echo "  reads the working tree." >&2
-      exit 2
+      kit_refuse 2 guard-enum-empty \
+        "verify.sh: REFUSING — GUARD_ENUM ran cleanly and returned NOTHING, while GUARD_SET holds ${#GUARD_SET[@]} DECLARED item(s)." \
+        "  The enumeration saw none of the declared guards; a floor the enumerator cannot see is" \
+        "  not reconciled. Common causes: a glob that matches nothing, or guards not yet tracked" \
+        "  where the enumerator reads the index (git ls-files sees only tracked paths)." \
+        "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" \
+        "  reads the working tree." \
+        "Next: fix GUARD_ENUM so it sees the declared guards (a matching glob, tracked files), or correct GUARD_SET."
     elif [ "${#unseen[@]}" -ne 0 ]; then
-      echo "verify.sh: ${#unseen[@]} DECLARED guard(s) the enumeration does not see:" >&2
-      printf '  %s\n' "${unseen[@]}" >&2
-      echo "  Either the entry is wrong, or GUARD_ENUM's scope excludes it — a declared guard" >&2
-      echo "  outside the enumeration is not reconciled by it, whatever the other direction says." >&2
-      echo "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" >&2
-      echo "  reads the working tree." >&2
-      exit 2
+      kit_refuse 2 guard-unseen-by-enumeration \
+        "verify.sh: ${#unseen[@]} DECLARED guard(s) the enumeration does not see:" \
+        "$(printf '  %s\n' "${unseen[@]}")" \
+        "  A declared guard outside the enumeration is not reconciled by it, whatever the other" \
+        "  direction says. Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the" \
+        "  existence check reads the working tree." \
+        "Next: either the entry is wrong (correct it in GUARD_SET), or GUARD_ENUM's scope excludes it (widen the enumeration)."
     elif [ "${#unenrolled[@]}" -ne 0 ]; then
-      echo "verify.sh: ${#unenrolled[@]} guard(s) the enumeration lists and GUARD_SET does not:" >&2
-      printf '  %s\n' "${unenrolled[@]}" >&2
-      echo "  The floor is short by that many, and every scoped run has been reporting a floor" >&2
-      echo "  only as complete as the list. Enrol them in GUARD_SET, or narrow GUARD_ENUM if" >&2
-      echo "  they are deliberately not floor guards — either way, say which in this file." >&2
-      echo "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" >&2
-      echo "  reads the working tree." >&2
-      exit 2
+      kit_refuse 2 guard-unenrolled \
+        "verify.sh: ${#unenrolled[@]} guard(s) the enumeration lists and GUARD_SET does not:" \
+        "$(printf '  %s\n' "${unenrolled[@]}")" \
+        "  The floor is short by that many, and every scoped run has been reporting a floor" \
+        "  only as complete as the list." \
+        "  Read via GUARD_ENUM ($GUARD_ENUM) — whatever that command reads; the existence check" \
+        "  reads the working tree." \
+        "Next: enrol them in GUARD_SET, or narrow GUARD_ENUM if they are deliberately not floor guards — either way, say which in this file."
     else
       # The green line says DECLARED and names the command TEXT: it is the line most easily
       # mistaken for a measurement of the tree.
@@ -350,9 +363,10 @@ SPACE_EOF
     rest="${rec#*|}"; [ "${rest%%|*}" = "select" ] && has_select=1
   done
   if [ "$has_select" -eq 0 ]; then
-    echo "verify.sh: REFUSING — --scope was given but no gate is classed 'select'," >&2
-    echo "  so there is nothing that can take a selection. Run the full gate instead." >&2
-    exit 2
+    kit_refuse 2 scope-needs-select-gate \
+      "verify.sh: REFUSING — --scope was given but no gate is classed 'select'," \
+      "  so there is nothing that can take a selection." \
+      "Next: run the full gate instead:  ./scripts/verify.sh"
   fi
 fi
 
@@ -480,4 +494,4 @@ kit_progress "verify.sh" "$([ "$FAILED" -eq 0 ] && echo status || echo error)" \
   "event=summary" "declared=${#GATES[@]}" "passed=$PASSED" "failed=$FAILEDN" \
   "unrunnable=$UNRUNNABLE" "skipped=$SKIPPED" "scoped=$SCOPED" "exit=$EXIT_STATUS"
 
-exit "$EXIT_STATUS"
+exit "$EXIT_STATUS"   # exit-class: internal

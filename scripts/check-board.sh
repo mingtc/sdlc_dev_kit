@@ -70,7 +70,7 @@ done
 if [ $# -gt 0 ]; then
   echo "Error: unknown option: $1" >&2
   echo "  $(basename "$0") takes no options; run it with no arguments." >&2
-  exit 2
+  exit 2   # exit-class: usage
 fi
 
 # ── Greppable defaults: consumers and tests DERIVE these with sed. Never re-type them elsewhere.

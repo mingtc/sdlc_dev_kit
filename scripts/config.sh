@@ -141,14 +141,16 @@ validate_slug() {
 # ref exists, 3 when it does not (day one, local-only), 1 when it cannot be resolved. Read as last
 # fetched, never fetched: the id readers (next-id.sh, validate_issue_id) share this one resolution.
 kit_trunk_ref() {
-  ( . "$1/scripts/lib/kanban-worktree.sh" >/dev/null && cd "$1" && kwt_resolve >/dev/null || exit 1
+  ( . "$1/scripts/lib/kanban-worktree.sh" >/dev/null && cd "$1" && kwt_resolve >/dev/null || exit 1   # exit-class: internal
     printf '%s' "$KWT_REMOTE/$DEFAULT_BRANCH"
-    git rev-parse --verify --quiet "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" >/dev/null || exit 3 )
+    git rev-parse --verify --quiet "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" >/dev/null || exit 3 )   # exit-class: internal
 }
 
 # validate_issue_id "$ID" "$ROOT" — validate a caller-supplied id and check collisions
 # (read-only). The creation scripts are STATELESS: the caller picks the number (typically via
-# ./scripts/next-id.sh) and passes --id. Uses ISSUE_PREFIX; returns non-0 on a hard error.
+# ./scripts/next-id.sh) and passes --id. Uses ISSUE_PREFIX. A malformed id returns non-0 (a usage
+# error); an id already taken refuses through kit_refuse, so the caller must have sourced
+# lib/refuse.sh.
 validate_issue_id() {
   local id="$1" root="$2" existing
   if [ -z "$id" ]; then
@@ -165,16 +167,18 @@ validate_issue_id() {
   # trunk, which a branch cut before a mint there cannot see.
   existing="$(find "$root/progress" -type f -name "${id}-*.md" 2>/dev/null | head -1)"
   if [ -n "$existing" ]; then
-    echo "Error: ${id} already exists at ${existing#"$root"/}." >&2
-    return 1
+    kit_refuse 1 issue-id-taken \
+      "Error: ${id} already exists at ${existing#"$root"/}." \
+      "Next: take a free id:  ./scripts/next-id.sh  (then sanity-check it), and re-run with --id <that id>."
   fi
   local ref rc=0 idre="(^|[^A-Za-z0-9])${id}([^0-9]|\$)"
   ref="$(kit_trunk_ref "$root")" || rc=$?
   if [ "$rc" -eq 0 ]; then
     existing="$(git -C "$root" ls-tree -r --name-only "refs/remotes/$ref" -- progress 2>/dev/null | grep -E "/${id}-[^/]*\.md\$" || true)"
     if [ -n "$existing" ]; then
-      echo "Error: ${id} already exists on $ref (as last fetched) at ${existing%%$'\n'*} — not yet in this checkout." >&2
-      return 1
+      kit_refuse 1 issue-id-taken \
+        "Error: ${id} already exists on $ref (as last fetched) at ${existing%%$'\n'*} — not yet in this checkout." \
+        "Next: take a free id:  ./scripts/next-id.sh  (then sanity-check it), and re-run with --id <that id>."
     fi
   fi
   # Soft collision: this id appears in ARCHIVE.md (an archived issue used it), here or on the trunk.

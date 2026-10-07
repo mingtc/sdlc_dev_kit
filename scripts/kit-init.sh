@@ -41,6 +41,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Refusals go through the one helper: a `refusal=` record and a Next: line.
+# shellcheck source=lib/refuse.sh
+. "$SCRIPT_DIR/lib/refuse.sh"
+
 # The kanban scripts resolve their repository from the CURRENT WORKING DIRECTORY
 # (kwt_resolve has no -C), so kit-init works from the root of the repository it initializes.
 cd "$ROOT"
@@ -291,15 +295,16 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --prefix)         need_val "$@"; PREFIX="$2"; shift 2 ;;
     # Refused at parse time, before anything is written (see validate_project_name).
-    --project-name)   need_val "$@"; validate_project_name "$2" || exit 2; PROJECT_NAME_NEW="$2"; shift 2 ;;
+    --project-name)   need_val "$@"; validate_project_name "$2" || exit 2   # exit-class: usage
+                      PROJECT_NAME_NEW="$2"; shift 2 ;;
     --trunk)          need_val "$@"; TRUNK="$2"; shift 2 ;;
     --prd-prefix)     need_val "$@"; PRD_PREFIX_NEW="$2"; shift 2 ;;
     --roles)          need_val "$@"; ROLES_NEW="$2"; shift 2 ;;
     --gate-command)   need_val "$@"; GATE_CMD="$2"; shift 2 ;;
     --skip-self-check) RUN_SELFCHECK=false; shift ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
-    -*) echo "Error: unknown option: $1" >&2; echo "Try --help." >&2; exit 2 ;;
-    *) echo "Unknown arg: $1" >&2; echo "Try --help." >&2; exit 1 ;;
+    -*) echo "Error: unknown option: $1" >&2; echo "Try --help." >&2; exit 2 ;;   # exit-class: usage
+    *) echo "Unknown arg: $1" >&2; echo "Try --help." >&2; exit 1 ;;   # exit-class: usage
   esac
 done
 
@@ -526,19 +531,19 @@ if command -v kit_lived_signals >/dev/null 2>&1; then
 fi
 
 if [ ${#LIVED[@]} -gt 0 ]; then
-  {
-    echo ""
-    echo "✗ kit-init REFUSES: this repository has already lived."
-    echo ""
-    for l in "${LIVED[@]}"; do echo "    • $l"; done
-    echo ""
-    echo "  NOTHING WAS WRITTEN. An initializer that can overwrite a working board is"
-    echo "  worse than no initializer — and a half-stamped repository is worse still, so"
-    echo "  there is no resume path. If this is a re-run you meant to make, revert the"
-    echo "  initialization commit first; if this is the kit's donor repository, you are"
-    echo "  in the wrong directory."
-  } >&2
-  exit 1
+  _lv_list=""
+  for l in "${LIVED[@]}"; do _lv_list="${_lv_list}    • $l"$'\n'; done
+  kit_refuse 1 repository-already-lived \
+    "✗ kit-init REFUSES: this repository has already lived." \
+    "" \
+    "${_lv_list%$'\n'}" \
+    "" \
+    "  NOTHING WAS WRITTEN. An initializer that can overwrite a working board is" \
+    "  worse than no initializer — and a half-stamped repository is worse still, so" \
+    "  there is no resume path." \
+    "Next: do not initialize this repository. If this is a re-run you meant to make, revert the" \
+    "  initialization commit first; on a repository that has lived, make the changes by hand;" \
+    "  if this is the kit's donor repository, you are in the wrong directory."
 fi
 
 # --- THE PRE-KIT BOUNDARY ------------------------------------------------------
@@ -594,37 +599,38 @@ if [ -n "$PF_ROLES" ]; then
 fi
 
 if [ ${#PF[@]} -gt 0 ]; then
-  {
-    echo ""
-    echo "✗ kit-init REFUSES — $( [ ${#PF[@]} -eq 1 ] && echo "1 precondition" || echo "${#PF[@]} preconditions" ) unmet. NOTHING WAS WRITTEN."
-    echo ""
-    for p in "${PF[@]}"; do echo "    • $p"; done
-    echo ""
-    if [ "$PF_TOPOLOGY" -eq 1 ]; then
-      # Quoted for the shell: the directory's name may carry a space or an apostrophe.
-      _bare="$(printf '%q' "$(basename "$ROOT").git")"
-      echo "  The remote + trunk recipe (skip a step already done; step 1 is the OFFLINE case — a local"
-      echo "  bare repo is a perfectly good '$REMOTE', and needs no forge account):"
-      echo ""
-      echo "    1.  git init --bare /path/to/${_bare}"
-      echo "        git -C /path/to/${_bare} symbolic-ref HEAD refs/heads/${TRUNK:-<your-trunk>}   # the bare side's HEAD names the trunk"
-      echo "        git remote add $REMOTE /path/to/${_bare}"
-      echo "    2.  git switch -c ${TRUNK:-<your-trunk>}          # if the trunk does not exist yet"
-      echo "        git add -A && MSG_OK=1 git commit -m 'init'   # if there are no commits yet: commit the kit AS UNZIPPED"
-      echo "    3.  git push -u $REMOTE ${TRUNK:-<your-trunk>}"
-      echo "    4.  git remote set-head $REMOTE ${TRUNK:-<your-trunk>}   # ← the step whose absence is SILENT"
-      echo ""
-      echo "  Step 4 names the branch EXPLICITLY on purpose: 'set-head $REMOTE -a' asks the"
-      echo "  remote what its own HEAD is, and a freshly created bare repo has none — it fails"
-      echo "  with 'Cannot determine remote HEAD'. Step 1's symbolic-ref line writes the same"
-      echo "  fact on the bare side, at creation — without it the bare repo's HEAD keeps git's"
-      echo "  own default branch name, and a clone of it checks out nothing. Do both."
-      echo ""
-    fi
-    echo "  Fix the above, then re-run (adding any option a line above names):"
-    echo "    ./scripts/kit-init.sh$(printf ' %q' ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
-  } >&2
-  exit 1
+  _pf_list=""
+  for p in "${PF[@]}"; do _pf_list="${_pf_list}    • $p"$'\n'; done
+  _pf_next="Next: fix the above, then re-run (adding any option a line above names):
+    ./scripts/kit-init.sh$(printf ' %q' ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
+  if [ "$PF_TOPOLOGY" -eq 1 ]; then
+    # Quoted for the shell: the directory's name may carry a space or an apostrophe.
+    _bare="$(printf '%q' "$(basename "$ROOT").git")"
+    _pf_next="$_pf_next
+
+  The remote + trunk recipe (skip a step already done; step 1 is the OFFLINE case — a local
+  bare repo is a perfectly good '$REMOTE', and needs no forge account):
+
+    1.  git init --bare /path/to/${_bare}
+        git -C /path/to/${_bare} symbolic-ref HEAD refs/heads/${TRUNK:-<your-trunk>}   # the bare side's HEAD names the trunk
+        git remote add $REMOTE /path/to/${_bare}
+    2.  git switch -c ${TRUNK:-<your-trunk>}          # if the trunk does not exist yet
+        git add -A && MSG_OK=1 git commit -m 'init'   # if there are no commits yet: commit the kit AS UNZIPPED
+    3.  git push -u $REMOTE ${TRUNK:-<your-trunk>}
+    4.  git remote set-head $REMOTE ${TRUNK:-<your-trunk>}   # ← the step whose absence is SILENT
+
+  Step 4 names the branch EXPLICITLY on purpose: 'set-head $REMOTE -a' asks the
+  remote what its own HEAD is, and a freshly created bare repo has none — it fails
+  with 'Cannot determine remote HEAD'. Step 1's symbolic-ref line writes the same
+  fact on the bare side, at creation — without it the bare repo's HEAD keeps git's
+  own default branch name, and a clone of it checks out nothing. Do both."
+  fi
+  kit_refuse 1 preflight-unmet \
+    "✗ kit-init REFUSES — $( [ ${#PF[@]} -eq 1 ] && echo "1 precondition" || echo "${#PF[@]} preconditions" ) unmet. NOTHING WAS WRITTEN." \
+    "" \
+    "${_pf_list%$'\n'}" \
+    "" \
+    "$_pf_next"
 fi
 
 say "  repo:   $ROOT"
@@ -646,16 +652,24 @@ KWTLIB="$ROOT/scripts/lib/kanban-worktree.sh"
 # EVERY OLD VALUE IS DERIVED FROM A SEAM, NEVER TYPED HERE: this script rewrites the
 # travelling docs without carrying a donor literal, and the census below is a measurement.
 OLD_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
-[ -n "$OLD_PREFIX" ] || { echo "Error: could not read the current ISSUE_PREFIX default out of scripts/config.sh." >&2; exit 1; }
+[ -n "$OLD_PREFIX" ] || kit_refuse 1 config-prefix-default-unreadable \
+  "Error: could not read the current ISSUE_PREFIX default out of scripts/config.sh." \
+  "Next: restore scripts/config.sh from the kit's copy (git checkout -- scripts/config.sh) and re-run; nothing was written."
 # It is matched below as a regex, so it keeps --prefix's shape (config.sh says so beside it).
-printf '%s' "$OLD_PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$' || { echo "Error: scripts/config.sh's ISSUE_PREFIX default '$OLD_PREFIX' must be alphanumeric and start with a letter. Nothing was written." >&2; exit 1; }
+printf '%s' "$OLD_PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$' || kit_refuse 1 config-prefix-default-malformed \
+  "Error: scripts/config.sh's ISSUE_PREFIX default '$OLD_PREFIX' must be alphanumeric and start with a letter. Nothing was written." \
+  "Next: restore scripts/config.sh's ISSUE_PREFIX default to an alphanumeric word starting with a letter (git checkout -- scripts/config.sh), then re-run."
 OLD_NAME="$(sed -n 's/^PROJECT_NAME="\${PROJECT_NAME:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
-[ -n "$OLD_NAME" ] || { echo "Error: could not read the current PROJECT_NAME default out of scripts/config.sh." >&2; exit 1; }
+[ -n "$OLD_NAME" ] || kit_refuse 1 config-name-default-unreadable \
+  "Error: could not read the current PROJECT_NAME default out of scripts/config.sh." \
+  "Next: restore scripts/config.sh from the kit's copy (git checkout -- scripts/config.sh) and re-run; nothing was written."
 # The old trunk is the LAST link of kanban-worktree.sh's own resolution chain —
 # the named constant that fires when <remote>/HEAD and init.defaultBranch are both
 # silent.
 OLD_TRUNK="$(sed -n 's/^KWT_TRUNK_LAST_RESORT="\${KWT_TRUNK_LAST_RESORT:-\([^}]*\)}"/\1/p' "$KWTLIB" | head -1)"
-[ -n "$OLD_TRUNK" ] || { echo "Error: could not read KWT_TRUNK_LAST_RESORT out of scripts/lib/kanban-worktree.sh." >&2; exit 1; }
+[ -n "$OLD_TRUNK" ] || kit_refuse 1 trunk-last-resort-unreadable \
+  "Error: could not read KWT_TRUNK_LAST_RESORT out of scripts/lib/kanban-worktree.sh." \
+  "Next: restore scripts/lib/kanban-worktree.sh from the kit's copy (git checkout -- scripts/lib/kanban-worktree.sh) and re-run; nothing was written."
 NEW_NAME="${PROJECT_NAME_NEW:-$(basename "$ROOT")}"
 
 sed -i.bak -e "s|^ISSUE_PREFIX=.*|ISSUE_PREFIX=\"\${ISSUE_PREFIX:-${PREFIX}}\"|" "$CONFIG"
@@ -800,7 +814,7 @@ fi
 # does not source lib/role-set.sh; the self-test holds the sites identical). FALLBACK POLICY
 # HERE: fatal — an initializer that cannot read the set it is about to rewrite must not guess.
 OLD_ROLES="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$COMMITMSG" | head -1)"
-[ -n "$OLD_ROLES" ] || { echo "Error: could not read ROLE_PREFIXES out of scripts/githooks/commit-msg." >&2; exit 1; }
+[ -n "$OLD_ROLES" ] || { echo "Error: could not read ROLE_PREFIXES out of scripts/githooks/commit-msg." >&2; exit 1; }   # exit-class: internal
 if [ -n "$ROLES_NEW" ]; then
   # NOTE the '@' delimiter: the role set is a '|'-separated ERE alternation, so
   # the usual s|…|…| would be cut in half by its own data.
@@ -815,7 +829,7 @@ if [ -n "$ROLES_NEW" ]; then
   # ASSERTED, NOT ASSUMED: an empty derivation means the tree moved under this run, and
   # stamping nothing while reporting success is the failure to avoid.
   [ -n "$STAMPED_SEAMS" ] || {
-    echo "Error: no shipped script carries the role set that was just read out of scripts/githooks/commit-msg — refusing to report a stamping that did not happen." >&2; exit 1; }
+    echo "Error: no shipped script carries the role set that was just read out of scripts/githooks/commit-msg — refusing to report a stamping that did not happen." >&2; exit 1; }   # exit-class: internal
   STAMPED_REL=""
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -846,7 +860,7 @@ fill)
   cat "$VERIFY.tmp" > "$VERIFY"; rm -f "$VERIFY.tmp"
   chmod +x "$VERIFY"
   grep -qF "\"gate|core|${GATE_CMD}\"" "$VERIFY" \
-    || { echo "Error: the gate record did not land in scripts/verify.sh's GATES table." >&2; exit 1; }
+    || { echo "Error: the gate record did not land in scripts/verify.sh's GATES table." >&2; exit 1; }   # exit-class: internal
   say "  scripts/verify.sh: GATES table was empty — filled with \"gate|core|${GATE_CMD}\" (extend the table as you grow)"
   ;;
 write)
@@ -933,7 +947,7 @@ for d in "${BOARD_FOLDERS[@]}"; do
 done
 KEEPS="$(find "$ROOT/progress" -name .gitkeep | wc -l | tr -d ' ')"
 if [ "$KEEPS" -ne "$GITKEEP_EXPECTED" ]; then
-  echo "Error: expected $GITKEEP_EXPECTED .gitkeep files under progress/, found $KEEPS." >&2; exit 1
+  echo "Error: expected $GITKEEP_EXPECTED .gitkeep files under progress/, found $KEEPS." >&2; exit 1   # exit-class: internal
 fi
 say "  progress/: ${#BOARD_FOLDERS[@]} folders, ${KEEPS}/${GITKEEP_EXPECTED} .gitkeep files ✓"
 
@@ -998,7 +1012,7 @@ EOF
   say "  ARCHIVE.md: stub written (with the exact '## Archived' heading archive.sh requires)"
 else
   grep -q '^## Archived$' "$ROOT/ARCHIVE.md" || {
-    echo "Error: ARCHIVE.md exists but has no exact '## Archived' heading (archive.sh refuses without it)." >&2; exit 1; }
+    echo "Error: ARCHIVE.md exists but has no exact '## Archived' heading (archive.sh refuses without it)." >&2; exit 1; }   # exit-class: internal
   say "  ARCHIVE.md: already present with '## Archived' — left alone"
 fi
 
@@ -1314,5 +1328,5 @@ if [ "$SC_FAIL" -eq 0 ]; then
 else
   say "  ✗ kit-init self-check FAILED — $SC_FAIL check(s) above. The tree IS initialized and"
   say "    committed; fix what the failures name and re-run the individual scripts by hand."
-  exit 1
+  exit 1   # exit-class: internal
 fi

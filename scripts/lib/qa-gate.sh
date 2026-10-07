@@ -176,7 +176,7 @@ kit_qa_verdict_check() {
 
   if [ -z "$repo" ] || [ -z "$rev" ]; then
     echo "kit_qa_verdict_check: <repo> and <rev> are required — evidence pointers are read at the revision being landed." >&2
-    exit 2
+    exit 2   # exit-class: internal
   fi
 
   _qav_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"

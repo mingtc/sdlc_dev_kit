@@ -120,29 +120,27 @@ for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 # shellcheck source=config.sh
 CONFIG="$SCRIPT_DIR/config.sh"
 if [ ! -f "$CONFIG" ] || ! . "$CONFIG"; then
-  {
-    echo "Error: scripts/config.sh is missing."
-    echo "       Looked for: $CONFIG"
-    echo "       It is the configuration SEAM, and this script sources it for the shared"
-    echo "       validators (process/contracts/config-seam.md). It reads no prefix from it,"
-    echo "       so there is nothing to guess and nothing to fall back to."
-    echo "       Restore it (git checkout -- scripts/config.sh) — the way back on a tree"
-    echo "       that HAD it. ON A FRESH REPO, initialize the kit instead (it refuses one"
-    echo "       that has already lived):"
-    echo "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
-    echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)"
-  } >&2
-  exit 1
+  kit_refuse 1 config-seam-missing \
+    "Error: scripts/config.sh is missing." \
+    "       Looked for: $CONFIG" \
+    "       It is the configuration SEAM, and this script sources it for the shared" \
+    "       validators (process/contracts/config-seam.md). It reads no prefix from it," \
+    "       so there is nothing to guess and nothing to fall back to." \
+    "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" \
+    "Next: restore it (git checkout -- scripts/config.sh) — the way back on a tree" \
+    "       that HAD it. ON A FRESH REPO, initialize the kit instead (it refuses one" \
+    "       that has already lived):" \
+    "         ./scripts/kit-init.sh --prefix <P> --trunk <trunk>"
 fi
 
 # Loaded below the usage arm: a usage request must not depend on it.
 CARDLIB="$SCRIPT_DIR/lib/card-head.sh"
 if [ ! -f "$CARDLIB" ] || ! . "$CARDLIB"; then
-  echo "Error: scripts/lib/card-head.sh is missing — it strips the" >&2
-  echo "       template's KIT-CLASS marker and writes the live-card head in its place." >&2
-  echo "       Restore it (git checkout -- scripts/lib/card-head.sh)." >&2
-  echo "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" >&2
-  exit 1
+  kit_refuse 1 card-head-lib-missing \
+    "Error: scripts/lib/card-head.sh is missing — it strips the" \
+    "       template's KIT-CLASS marker and writes the live-card head in its place." \
+    "       (This check sees ABSENCE only — an unsourceable file aborts before this message.)" \
+    "Next: restore it (git checkout -- scripts/lib/card-head.sh), then re-run."
 fi
 
 # The subtask lifecycle. done/ is deliberately absent: a subtask tree reaches its
@@ -183,17 +181,19 @@ case "$CMD" in
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
-    [ -z "$TITLE" ] && { echo "Error: --title required." >&2; exit 1; }
+    [ -n "$TITLE" ] || kit_refuse 1 title-required \
+      "Error: --title required." \
+      "Next: re-run with  --title \"<the slice's title>\"."
 
     # THE SEAT THIS ARM ACTS AS: [Orchestrator], the decomposer. A knob, never derived, and
     # validated before anything moves.
     ROLE="${SUBTASK_ROLE:-Orchestrator}"
-    kit_require_role "$SCRIPT_DIR/.." "$ROLE" SUBTASK_ROLE || exit 1
+    kit_require_role "$SCRIPT_DIR/.." "$ROLE" SUBTASK_ROLE
 
     # THE SLUG IS A GIT REF: it becomes `branch: feature/<ID>-<SLUG>` in the published card,
     # and one git cannot check out burns the id (issue-creation.md § 5; validate_slug in
     # scripts/config.sh — one shape, one site).
-    validate_slug "$SLUG" || exit 2
+    validate_slug "$SLUG" || exit 2   # exit-class: usage
     # The suffix is validated too, and NARROWER than a slug: the `move` arm recovers the parent
     # with ${ID%-s*}, so a suffix that is not s<digits> resolves to the wrong parent.
     case "$SUFFIX" in
@@ -201,19 +201,20 @@ case "$CMD" in
       *) SUFFIX_BAD=1 ;;
     esac
     if [ "$SUFFIX_BAD" -ne 0 ]; then
-      {
-        echo "Error: the subtask suffix must be s<digits> — got '$SUFFIX'."
-        echo "       It becomes part of the card's filename AND of the git branch name, and the"
-        echo "       move arm recovers the parent id from it, so a different shape resolves to the"
-        echo "       wrong parent rather than failing. NOTHING WAS CHANGED."
-      } >&2
-      exit 2
+      kit_refuse 2 subtask-suffix-malformed \
+        "Error: the subtask suffix must be s<digits> — got '$SUFFIX'." \
+        "       It becomes part of the card's filename AND of the git branch name, and the" \
+        "       move arm recovers the parent id from it, so a different shape resolves to the" \
+        "       wrong parent rather than failing. NOTHING WAS CHANGED." \
+        "Next: re-run with a suffix of the form s<digits>, e.g. s1."
     fi
 
     # THE PARENT IS AN ISSUE, NEVER A SUBTASK: the move arm recovers a parent with ${ID%-s*}.
     case "${PARENT##*-s}" in
       "$PARENT"|''|*[!0-9]*) ;;
-      *) echo "Error: '$PARENT' is a subtask id — decompose its parent instead. NOTHING WAS CHANGED." >&2; exit 2 ;;
+      *) kit_refuse 2 parent-is-subtask \
+           "Error: '$PARENT' is a subtask id — decompose its parent instead. NOTHING WAS CHANGED." \
+           "Next: re-run naming the issue as the parent: ./scripts/subtask.sh new ${PARENT%-s*} <suffix> <slug> --title \"…\"." ;;
     esac
 
     # Acquire the lock + bootstrap + sync the worktree BEFORE touching anything,
@@ -224,7 +225,9 @@ case "$CMD" in
     kwt_sync
 
     TEMPLATE="$KWT/.claude/templates/SUBTASK.template.md"
-    [ -f "$TEMPLATE" ] || { echo "Error: template not found at ${TEMPLATE#"$KWT"/}." >&2; exit 1; }
+    [ -f "$TEMPLATE" ] || kit_refuse 1 template-missing \
+      "Error: template not found at ${TEMPLATE#"$KWT"/}." \
+      "Next: the trunk has no ${TEMPLATE#"$KWT"/} — restore it there (the kit ships it; git checkout the kit's copy and push), then re-run."
 
     # THE PARENT MUST EXIST (issue-creation.md § 3): creation here publishes, so an orphan would
     # reach the trunk. Searched on the published board ($KWT), the surface the mover reads.
@@ -233,19 +236,18 @@ case "$CMD" in
     PARENT_CARD="$(find "$KWT/progress" -maxdepth 2 -type f -name "${PARENT}-*.md" 2>/dev/null || true)"
     PARENT_CARD="${PARENT_CARD%%$'\n'*}"
     if [ -z "$PARENT_CARD" ]; then
-      {
-        echo "Error: parent '${PARENT}' does not exist on the published board — refusing to create an orphan."
-        echo "  Looked for progress/<column>/${PARENT}-*.md in the trunk-pinned kanban worktree."
-        echo "  If you have just created ${PARENT}, PUBLISH IT FIRST: the board mover and this"
-        echo "  script both read the published board, so an unpushed card is invisible to both."
-      } >&2
-      exit 1
+      kit_refuse 1 parent-not-found \
+        "Error: parent '${PARENT}' does not exist on the published board — refusing to create an orphan." \
+        "  Looked for progress/<column>/${PARENT}-*.md in the trunk-pinned kanban worktree." \
+        "Next: if you have just created ${PARENT}, PUBLISH IT FIRST (git add, commit, push the card): the board mover and this" \
+        "  script both read the published board, so an unpushed card is invisible to both. Otherwise check the id."
     fi
     # A retired parent takes no new work: archive.sh sweeps a done/ parent's tree, todo cards and all.
     case "$(basename "$(dirname "$PARENT_CARD")")" in
       done|declined)
-        echo "Error: parent '${PARENT}' is in progress/$(basename "$(dirname "$PARENT_CARD")")/ — a retired issue takes no new subtasks. Open a new issue." >&2
-        exit 1 ;;
+        kit_refuse 1 parent-retired \
+          "Error: parent '${PARENT}' is in progress/$(basename "$(dirname "$PARENT_CARD")")/ — a retired issue takes no new subtasks. Open a new issue." \
+          "Next: open a new issue for the work (./scripts/new-issue.sh) and decompose that one." ;;
     esac
 
     # prd: INHERITED from the parent unless --prd was given; a parent with none, or with its
@@ -260,7 +262,9 @@ case "$CMD" in
     DEST_DIR="$KWT/progress/subtasks/${PARENT}/todo"
     mkdir -p "$DEST_DIR"
     DEST="$DEST_DIR/$SLUGFILE"
-    [ -e "$DEST" ] && { echo "Error: ${DEST#"$KWT"/} already exists." >&2; exit 1; }
+    [ ! -e "$DEST" ] || kit_refuse 1 subtask-exists \
+      "Error: ${DEST#"$KWT"/} already exists." \
+      "Next: pick a suffix not yet used under progress/subtasks/${PARENT}/, or move the existing card with  ./scripts/subtask.sh move ${ID} <target>."
     TODAY=$(date +%Y-%m-%d)
     BRANCH="feature/${ID}-${SLUG}"
 
@@ -293,16 +297,16 @@ case "$CMD" in
     # ENVIRON, NOT `awk -v`: -v processes escape sequences, so a backslash in a title would
     # become a TAB or a NEWLINE. Not perl either: it is past the kit's git-plus-POSIX-shell floor.
     H1="# ${ID} — ${TITLE}" awk 'BEGIN{done=0} done==0 && /^# /{print ENVIRON["H1"]; done=1; next} {print}' \
-      "$WORK" > "$WORK.h1" && mv "$WORK.h1" "$WORK" || exit 1
+      "$WORK" > "$WORK.h1" && mv "$WORK.h1" "$WORK" || exit 1   # exit-class: internal
 
     # RE-HEAD THE CARD (process/EXTRACTION.md § The marker and graduation): the KIT-CLASS
     # marker goes, its still-in-force FILL instruction stays.
-    kit_rehead_card "$WORK" || exit 1
+    kit_rehead_card "$WORK" || exit 1   # exit-class: internal
     # The seed entry's date, and the parent and slice the body names (lib/card-head.sh).
-    kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1
+    kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1   # exit-class: internal
     kit_fill_card "$WORK" "<PREFIX>-NNN" "$PARENT" "${PARENT%-*}-NNN" "$PARENT" \
       "decomposition slice M." "decomposition slice ${SUFFIX}." \
-      "<parent card>" "$(basename "$PARENT_CARD")" || exit 1
+      "<parent card>" "$(basename "$PARENT_CARD")" || exit 1   # exit-class: internal
 
 
     # Optional --plan. Keyed on the KEY, never on the template's placeholder VALUE, which
@@ -323,10 +327,10 @@ case "$CMD" in
             $0 = substr($0, 1, i - 1) p substr($0, i + tl)
           print
         }
-      ' "$WORK" > "$WORK.plan" && mv "$WORK.plan" "$WORK" || exit 1
+      ' "$WORK" > "$WORK.plan" && mv "$WORK.plan" "$WORK" || exit 1   # exit-class: internal
     fi
 
-    kit_publish_card "$WORK" "$DEST" || exit 1
+    kit_publish_card "$WORK" "$DEST" || exit 1   # exit-class: internal
 
     git -C "$KWT" add "$DEST"
     MSG="[$ROLE] ${ID} created under ${PARENT} — decomposition slice (via subtask.sh)"
@@ -345,9 +349,9 @@ case "$CMD" in
         echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above."
         echo "  Every later board operation REFUSES until you publish it (commands above)."
       } >&2
-      exit 1
+      exit 1   # exit-class: internal
     fi
-    [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"
+    [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"   # exit-class: internal
     ;;
 
   move)
@@ -362,9 +366,13 @@ case "$CMD" in
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
-    case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked|declined) ;; *) echo "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." >&2; exit 1 ;; esac
+    case "$TARGET" in todo|in_progress|dev_complete|qa_complete|blocked|declined) ;; *) kit_refuse 1 unknown-target \
+      "Error: bad target '$TARGET' (one of: ${STATUSES[*]})." \
+      "Next: re-run with one of those folders as the target." ;; esac
     [ "$TARGET" != declined ] || [ -n "$NOTE" ] \
-      || { echo "Error: declined needs --note \"why\" — the reason is the whole record of a slice that will not be done." >&2; exit 1; }
+      || kit_refuse 1 declined-needs-note \
+           "Error: declined needs --note \"why\" — the reason is the whole record of a slice that will not be done." \
+           "Next: re-run with  --note \"<why this slice will not be done>\"."
     # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION: a role the commit-msg hook rejects
     # would fail mid-operation, leaving the git mv and the Activity entry uncommitted in the
     # shared kanban worktree. Refusing here costs a re-run; at the hook, a reconciliation.
@@ -382,13 +390,15 @@ case "$CMD" in
     [ -z "${KIT_ROLE_DEFAULTED:-}" ] \
       || echo "Note: --role is being checked against $KIT_ROLE_SRC" >&2
     if [ -z "$ROLE" ]; then
-      echo "Error: --role cannot be empty ($KIT_ROLE_SET)." >&2; exit 1
+      kit_refuse 1 role-empty \
+        "Error: --role cannot be empty ($KIT_ROLE_SET)." \
+        "Next: re-run with --role set to one of: $KIT_ROLE_SET."
     fi
     if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
-      { echo "Error: --role must be $KIT_ROLE_SET (got '$ROLE')."
-        echo "       That set is $KIT_ROLE_SRC."
-      } >&2
-      exit 1
+      kit_refuse 1 role-not-declared \
+        "Error: --role must be $KIT_ROLE_SET (got '$ROLE')." \
+        "       That set is $KIT_ROLE_SRC." \
+        "Next: re-run with --role set to one of: $KIT_ROLE_SET."
     fi
     PARENT="${ID%-s*}"
 
@@ -398,7 +408,9 @@ case "$CMD" in
     kwt_sync
 
     BASE="$KWT/progress/subtasks/${PARENT}"
-    [ -d "$BASE" ] || { echo "Error: no subtask tree at progress/subtasks/${PARENT}/." >&2; exit 1; }
+    [ -d "$BASE" ] || kit_refuse 1 subtask-tree-not-found \
+      "Error: no subtask tree at progress/subtasks/${PARENT}/." \
+      "Next: check the subtask id (ls progress/subtasks/); a slice exists once  ./scripts/subtask.sh new ${PARENT} s<N> <slug> --title \"…\"  has published it."
 
     # Locate the file across statuses.
     SRC=""; SRC_FOLDER=""
@@ -406,8 +418,12 @@ case "$CMD" in
       m=$(find "$BASE/$s" -name "${ID}-*.md" -type f 2>/dev/null | head -1 || true)
       [ -n "$m" ] && { SRC="$m"; SRC_FOLDER="$s"; break; }
     done
-    [ -z "$SRC" ] && { echo "Error: no ${ID}-*.md under progress/subtasks/${PARENT}/." >&2; exit 1; }
-    [ "$SRC_FOLDER" = "$TARGET" ] && { echo "Error: ${ID} already in ${TARGET}/." >&2; exit 1; }
+    [ -n "$SRC" ] || kit_refuse 1 subtask-not-found \
+      "Error: no ${ID}-*.md under progress/subtasks/${PARENT}/." \
+      "Next: check the subtask id (ls progress/subtasks/${PARENT}/*/); create the slice first with  ./scripts/subtask.sh new ${PARENT} s<N> <slug> --title \"…\"  if it does not exist."
+    [ "$SRC_FOLDER" != "$TARGET" ] || kit_refuse 1 card-already-in-target \
+      "Error: ${ID} already in ${TARGET}/." \
+      "Next: nothing to move; to move it elsewhere name that folder as the target."
 
     # ── A SLICE MOVING TO qa_complete/ IS CHECKED THE SAME WAY A LANDING CARD IS:
     #    its own QA Verdict table, its own `forks:`, and — if its diff touches a declared test
@@ -483,9 +499,9 @@ case "$CMD" in
       echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""
     else
       echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." >&2
-      exit 1
+      exit 1   # exit-class: internal
     fi
-    [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"
+    [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"   # exit-class: internal
     ;;
 
   -*) echo "Error: unknown option: $CMD (expected the command 'new' or 'move')" >&2; usage >&2; exit 2 ;;

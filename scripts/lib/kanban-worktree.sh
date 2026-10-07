@@ -85,14 +85,14 @@ if [ ! -f "$KWT_LIB_DIR/push-retry.sh" ] || ! . "$KWT_LIB_DIR/push-retry.sh"; th
     echo "       next kwt_finalize report a missing function as a push failure."
     echo "       Restore it:  git checkout -- scripts/lib/push-retry.sh"
   } >&2
-  return 1 2>/dev/null || exit 1
+  return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
 # The EXIT-trap helper kwt_lock arms: a script that locks must END with `exit 0` (exit-trap.sh).
 # shellcheck source=exit-trap.sh
 if [ ! -f "$KWT_LIB_DIR/exit-trap.sh" ] || ! . "$KWT_LIB_DIR/exit-trap.sh"; then
   echo "Error: scripts/lib/kanban-worktree.sh could not load $KWT_LIB_DIR/exit-trap.sh." >&2
   echo "       Restore it:  git checkout -- scripts/lib/exit-trap.sh" >&2
-  return 1 2>/dev/null || exit 1
+  return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
 # ...and REACHABLE: a file that sources without defining these is the same outage.
 if ! command -v git_push_with_retry >/dev/null 2>&1 \
@@ -103,7 +103,7 @@ if ! command -v git_push_with_retry >/dev/null 2>&1 \
     echo "       present and loadable; it no longer provides what this library"
     echo "       calls, so kwt_finalize would publish without a retry."
   } >&2
-  return 1 2>/dev/null || exit 1
+  return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
 
 # ---------------------------------------------------------------------------
