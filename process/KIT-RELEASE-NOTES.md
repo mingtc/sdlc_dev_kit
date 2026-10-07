@@ -35,6 +35,11 @@ overwrite would discard exactly the local hardening the kit tells you to do. So 
 takes only what you never changed, and turns the rest into a checklist
 ([`contracts/kit-upgrade.md`](contracts/kit-upgrade.md)).
 
+**A project that dispatches agent seats: hand [`UPGRADE-SEAT.md`](UPGRADE-SEAT.md) to one seat.** It states
+the owner's authority (including for the agent's own instructions file), and carries the staged-worktree
+route below through the self-test, your own gates, landing, `--finish` and a handoff. The steps below are
+what it runs; a person upgrading by hand follows them directly.
+
 **First, how does a newer version reach you, and whose job is that?** The party who gave you the
 kit sends you the next zip; if nobody gave it to you, nobody will, and checking for one is yours to
 schedule. Write down which — and, if it is yours, on what trigger — in
@@ -418,6 +423,11 @@ columns and never the cards.*
   one of these forms being invisible** — it will now be read, and may now refuse.
 
 ### Added
+
+- **`process/UPGRADE-SEAT.md`: the brief for an upgrade-only agent seat.** Written in the owner's voice, it
+  carries the authority for the upgrade (asked once of the human or the `principal:` and recorded, including for the
+  agent's own instructions file) through a staged worktree, the checklist, the self-test, your own gates, landing,
+  `--finish` and a handoff. Nothing to do; hand it to a seat when you next upgrade.
 
 - **The unattended launch profile gains a Stop hook.** `.claude/settings.unattended.json.example` now wires
   `hooks.Stop` to `scripts/hooks/stop-ask.sh`, which blocks a turn once when it ends on a question nobody is

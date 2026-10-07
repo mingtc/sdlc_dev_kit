@@ -939,8 +939,9 @@ that creates it; a table that lags is how a sheet becomes invisible.
 Two neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and
 the instruments that look — **the periodic cadence is advisory; the pre-cut sweep in it is
-MANDATORY when the slate came from a round**) and [`GIT-HOSTING.md`](GIT-HOSTING.md) (the
-local-only-to-hosted spectrum). Neither is doctrine, so neither has a row above.
+MANDATORY when the slate came from a round**), [`GIT-HOSTING.md`](GIT-HOSTING.md) (the
+local-only-to-hosted spectrum) and [`UPGRADE-SEAT.md`](UPGRADE-SEAT.md) (the brief for the seat that
+applies a kit upgrade). None is doctrine, so none has a row above.
 
 The honest inventory of what is copyable, what must be configured, what is pinned in place and
 what is **still entangled** is [`EXTRACTION.md`](EXTRACTION.md). Read it before lifting this kit
