@@ -344,8 +344,9 @@ columns and never the cards.*
   ask.
 
 - **The `[decision: D-NN]` citation a `forks:` landing check reads now recognises a capitalized
-  label, a no-space colon, a comma list, and a `..` range** (`[Decision: D-02]`,
-  `[decision:D-02]`, `[decision: D-02, D-05]`, `[decision: D-02..D-05]` all cite every id named).
+  label, a no-space colon, a comma list, and a `..` range** (`[Decision: D-NN]`,
+  `[decision:D-NN]`, `[decision: D-NN, D-MM]`, `[decision: D-NN..D-MM]`, with real ids in place of the
+  letters, all cite every id named).
   `finish-pr.sh`/`subtask.sh` previously missed these forms and could let a `forks: none` land
   uncontradicted; `check-board.sh` arm `[l]` previously read some of these forms as dangling and
   others not at all. **Before your next landing, check any in-flight card whose `forks:` relied on
