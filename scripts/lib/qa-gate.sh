@@ -436,9 +436,12 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       printf '%s\n' "$_forks_live_all" | grep -qx "$_fid" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
     done <<< "$(printf '%s\n' "$_forks_ids")"
     if [ -n "$_forks_bad" ]; then
+      _forks_prd="$(kit_declared_value "$check_board" PRD_SURFACE || true)"
+      _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
       kit_refuse 2 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
         "       Fix the id, or add the ruling it names to the register in this same change." \
+        "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
         "       NOTHING WAS CHANGED."
     fi
   fi

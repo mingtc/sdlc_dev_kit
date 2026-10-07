@@ -19,10 +19,6 @@
 # `## Findings` section, so an entry a case appends is the only entry its diff reaches.
 _bpf_seed_requirements() {
   mkdir -p "$SB_WORK/requirements" "$SB_WORK/docs"
-  # The landings below run in one sandbox, one after another, and `git add -A` between them must
-  # not sweep the board mover's worktree in as a gitlink: it would leave the main checkout
-  # "dirty", and a dirty checkout is not fast-forwarded after a landing.
-  printf '.kanban-wt/\n' >> "$SB_WORK/.git/info/exclude"
   cat > "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
 # DECISIONS
 

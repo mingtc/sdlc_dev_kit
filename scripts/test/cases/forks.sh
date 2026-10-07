@@ -106,10 +106,17 @@ case_finish_pr_forks_unresolved_id_refuses() {
   publish_sandbox
   seed_branch "$id" work CHANGE611.txt
 
-  local out rc
+  local out rc _need
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "an unresolved 'forks:' id — finish-pr.sh exited 0"
   case "$out" in *D-77*) : ;; *) cf "the refusal does not name D-77: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  # A new register entry also needs a PRD citation or the exemption token, or the landing's corpus
+  # check refuses it: the message names the declared PRD surface, the token and that check.
+  local _prd; _prd="$(sed -n "s/^PRD_SURFACE='\(.*\)'$/\1/p" "$SB_WORK/scripts/check-board.sh")"
+  [ -n "$_prd" ] || _fixture_die "case_finish_pr_forks_unresolved_id_refuses: no PRD_SURFACE declaration in the sandbox's check-board.sh"
+  for _need in "$_prd" '[cross-cutting]' 'board-corpus-coverage'; do
+    case "$out" in *"$_need"*) : ;; *) cf "the forks-unresolved refusal does not name '$_need': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  done
   origin_has_path "CHANGE611.txt" && cf "the branch was merged before the refusal"
   /usr/bin/grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=forks-unresolved: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"

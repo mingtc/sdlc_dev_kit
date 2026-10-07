@@ -460,6 +460,10 @@ columns and never the cards.*
   own launch config, re-copy it (or add the `hooks.Stop` and `env` blocks by hand) to pick this up — nothing
   breaks if you do not.**
 
+- **The self-test gains a case that stamps the shipped tree with `kit-init.sh` and refuses on any `check-board.sh`
+  `[l]` finding.** It reads `process/` and the root documents, so a shipped document that illustrates a citation
+  form with real digits fails there instead of in an adopter's day-one self-check. No action needed.
+
 ### Changed
 
 - **A dispatched leg's report now types its claims, and a runner promotes only a PASS backed by one.**
@@ -536,6 +540,19 @@ columns and never the cards.*
   carry a weakened assertion and land with no `## Ablation` section, because the diff's default
   rename-following hid the test's own declared path. No action needed; a card doing this now
   refuses `ablation-missing` as it already does for an in-place edit.
+
+- **`set-models.sh` now rewrites a ladder row that is already filled.** A second `--class` (or `--all`) with a
+  different pair moved the pins and the runners but left the ladder at the first values, which `check-board.sh`
+  `[s]` then reported as a disagreement. The Model and Effort cells now change together with the pins, and the row's
+  trailing prose is kept. No action needed.
+
+- **The `forks-unresolved` refusal now says a new register entry also needs a PRD citation or `[cross-cutting]`.**
+  Following its advice (add the ruling to the register) landed a branch the `board-corpus-coverage` check then
+  refused. The message names the declared PRD surface and the marker, and `process/MANUAL.md` says the same. No
+  action needed.
+
+- **`notify.sh --help` and `notify/telegram.sh --help` no longer print the second line of their
+  `KIT-DISPOSITION` marker.** The marker is one line now. No action needed.
 
 ## [0.8.0] — 2026-10-03
 

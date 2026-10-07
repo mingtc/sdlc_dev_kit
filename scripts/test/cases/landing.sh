@@ -1814,3 +1814,39 @@ case_verify_all_core_guard_floor_is_reported_inert() {
   finish "verify.sh: a GUARD_SET/GUARD_ENUM declared on a project with no 'select' gate prints a NOTE at runner start that the floor is never reconciled or run (ablation-proven: the notice is present exactly when there is no select gate, and gone once one is declared); --scope itself still refuses outright, unchanged"
   teardown
 }
+
+# =============================================================================
+# CASE — publish_sandbox AFTER A BOARD OP COMMITS NO GITLINK.
+# The board mover leaves .kanban-wt/ behind; the sandbox excludes it, so a later `git add -A` in
+# publish_sandbox leaves it out of the trunk commit. Control: the same publish without the exclude
+# (removed in the case) does commit a mode-160000 entry, so the check has a subject.
+# =============================================================================
+case_publish_after_a_board_op_commits_no_gitlink() {
+  cf_reset
+  make_sandbox
+  local id="$SB_PREFIX-910"
+  seed_issue todo "$id" gl chore "Gitlink control"
+  publish_sandbox
+  if ! ( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress --role "$SB_ROLE" --note "bootstrap the worktree" >/dev/null 2>&1 ) \
+     || [ ! -d "$SB_WORK/.kanban-wt" ]; then
+    skp "publish_sandbox after a board op commits no gitlink" "the board mover would not run here, so .kanban-wt was never created"
+    teardown; return
+  fi
+  printf 'x\n' > "$SB_WORK/after-board-op.txt"
+  publish_sandbox
+  case "$(git -C "$SB_WORK" ls-tree -r HEAD)" in
+    *"160000 "*) cf "publish_sandbox committed a mode-160000 entry (a gitlink) after a board op: $(git -C "$SB_WORK" ls-tree -r HEAD | /usr/bin/grep '^160000' | tr '\n' '|')" ;;
+  esac
+  git -C "$SB_WORK" ls-tree -r --name-only HEAD | /usr/bin/grep -qx 'after-board-op.txt' \
+    || cf "the second publish_sandbox did not commit the new file, so the gitlink check read a commit that is not the publish"
+  # Control: with the exclude gone, the same publish does commit the worktree as a gitlink.
+  : > "$SB_WORK/.git/info/exclude"
+  printf 'y\n' > "$SB_WORK/control.txt"
+  publish_sandbox
+  case "$(git -C "$SB_WORK" ls-tree -r HEAD)" in
+    *"160000 "*) : ;;
+    *) cf "(control) without the exclude, publish_sandbox did not commit .kanban-wt as a gitlink — the check above has no subject" ;;
+  esac
+  finish "publish_sandbox after a board op leaves .kanban-wt out of the trunk commit (no mode-160000 entry); without the sandbox's exclude the same publish commits it, so the check has a subject"
+  teardown
+}

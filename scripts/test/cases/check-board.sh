@@ -2841,6 +2841,62 @@ case_check_board_model_pins_arm() {
 }
 
 # =============================================================================
+# CASE — A SECOND `set-models.sh --class <c>` WITH A DIFFERENT PAIR MOVES THE LADDER ROW TOO.
+#
+# The first call fills the row's blanks; the second meets FILLED cells. Both calls run in the real
+# order (seam, commit, report). After the second, the pin, the ladder row (its trailing prose kept),
+# the seam's record and arm [s] must all show the second value, for a row whose label carries no
+# backtick (Dev) and one whose label does (Spike / probe). Control: a third call with the same pair
+# changes nothing.
+# =============================================================================
+case_set_models_second_call_moves_the_ladder_row() {
+  cf_reset
+  make_sandbox
+  local ad orch out sec cls row
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "a second set-models.sh --class moves the ladder row" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local rec="$SB_WORK/.claude/model-pins.record"
+  [ -x "$SB_WORK/scripts/set-models.sh" ] || { cf "scripts/set-models.sh is absent or not executable"; finish "a second set-models.sh --class moves the ladder row"; teardown; return; }
+  for cls in dev spike; do
+    ( cd "$SB_WORK" && ./scripts/set-models.sh --class "$cls" --model m-one --effort e-one >/dev/null 2>&1 ) \
+      || _fixture_die "first set-models.sh --class $cls refused in the sandbox"
+  done
+  publish_sandbox
+  for cls in dev spike; do
+    ( cd "$SB_WORK" && ./scripts/set-models.sh --class "$cls" --model m-two --effort e-two >/dev/null 2>&1 ) \
+      || cf "the second set-models.sh --class $cls refused"
+  done
+  publish_sandbox
+  /usr/bin/grep -qx 'model: m-two' "$ad/dev-worker.md" && /usr/bin/grep -qx 'effort: e-two' "$ad/dev-worker.md" \
+    || cf "dev-worker.md is not at m-two/e-two after the second call: $(/usr/bin/grep -E '^model:|^effort:' "$ad/dev-worker.md" | tr '\n' ' ')"
+  row="$(/usr/bin/grep -F '| **Dev** |' "$orch")"
+  case "$row" in
+    '| **Dev** | `m-two` | `e-two` default; higher for'*) : ;;
+    *) cf "the Dev ladder row is not at m-two/e-two with its prose kept after the second call: $row" ;;
+  esac
+  row="$(/usr/bin/grep -F '| **Spike / probe**' "$orch")"
+  case "$row" in
+    '| **Spike / probe** (`spike-worker`) | `m-two` | `e-two` |'*) : ;;
+    *) cf "the Spike / probe ladder row is not at m-two/e-two (its label carries backticks) after the second call: $row" ;;
+  esac
+  /usr/bin/grep -v '^#' "$rec" | /usr/bin/grep -F "dev-worker.md$(printf '\t')m-two$(printf '\t')e-two" >/dev/null \
+    || cf "model-pins.record does not name dev-worker.md at m-two/e-two: $(/usr/bin/grep -v '^#' "$rec" | tr '\n' '|')"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  [ -n "$sec" ] || cf "no [s] section in the report: $out"
+  printf '%s\n' "$sec" | /usr/bin/grep -E '^      ⚠ .* pin says' >/dev/null \
+    && cf "arm [s] reports a disagreement after the second call: $sec"
+  # Control: the same pair again is a no-op.
+  local before after
+  before="$(cat "$orch" "$ad/dev-worker.md" "$rec")"
+  ( cd "$SB_WORK" && ./scripts/set-models.sh --class dev --model m-two --effort e-two >/dev/null 2>&1 ) || cf "the repeated set-models.sh --class dev refused"
+  after="$(cat "$orch" "$ad/dev-worker.md" "$rec")"
+  [ "$before" = "$after" ] || cf "(control) repeating the same pair changed the ladder, the pin or the record"
+
+  finish "a second set-models.sh --class with a different pair moves the pin, the ladder row (prose kept; a backticked label too) and the record together, arm [s] is clean, and repeating the pair is a no-op"
+  teardown
+}
+
+# =============================================================================
 # CASE — arm [n] accepts a DISPATCHED LEG'S OWN `kit-finding:` line, not only `kit-feedback:`.
 #
 # MANUAL § Kit feedback, M1: "A dispatched leg writes no entry. It puts one `kit-finding: …` line

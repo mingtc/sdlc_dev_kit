@@ -393,6 +393,10 @@ $SB_WORK/scripts/release.sh"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     base="$(basename "$f")"; n=$((n+1))
+    # A marker is ONE line: the renderer skips lines that begin KIT-DISPOSITION:, so a wrapped
+    # second line would print in --help. A complete marker line ends in a full stop.
+    awk 'NR<=12 && /^#[[:space:]]*KIT-DISPOSITION:/ && !/\.[[:space:]]*$/{bad=1} END{exit bad?0:1}' "$f" \
+      && cf "$base: its KIT-DISPOSITION marker does not end on its own line (wrapped onto a second comment line that --help would print)"
     # Under the marker's last line (the one citing EXTRACTION.md) and any disposition line already there.
     at="$(awk 'NR<=12 && /EXTRACTION\.md/ && !m {m=NR} m && NR>m && !/^#[[:space:]]*KIT-DISPOSITION:/{print NR; exit}' "$f")"
     [ -n "$at" ] || _fixture_die "case_help_does_not_print_the_disposition_marker: $base has no marker line to plant under."
@@ -2544,5 +2548,58 @@ case_project_md_one_row_per_contract_sheet() {
   fi
 
   finish "PROJECT.md: $nsheets contract sheet(s), every link resolves, every sheet has a row, and a struck row is caught"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE SHIPPED TREE IS check-board [l]-CLEAN AFTER kit-init.
+#
+# Arm [l] reads any scanned file's `[decision: D-NN]`-style form as a citation of a register entry,
+# so a shipped document that illustrates the form with real digits reads as dangling in an adopter's
+# day-one self-check. The kit-init sandboxes omit process/ and the root documents, so no other case
+# runs check-board over the files such a form would live in. This one copies every shipped top-level
+# entry the sandbox lacks, stamps it with kit-init, and refuses on any [l] finding. The scanned
+# population is asserted (the release notes are in it), and the control plants a real-digit form in
+# a copy of that file and requires the case to go red.
+# =============================================================================
+case_shipped_tree_is_citation_clean_after_kit_init() {
+  cf_reset
+  if ! has_kit_init; then skp "shipped tree is [l]-clean after kit-init" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "shipped tree is [l]-clean after kit-init" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local e name notes="process/KIT-RELEASE-NOTES.md"
+  # Every shipped top-level entry the sandbox does not already have, taken from the real tree
+  # BEFORE the stamp (process/, docs/, requirements/, dev/ and the root documents).
+  for e in "$REAL_REPO_ROOT"/* "$REAL_REPO_ROOT"/.[!.]*; do
+    [ -e "$e" ] || continue
+    name="$(basename "$e")"
+    case "$name" in .git|.claude) continue ;; esac
+    [ -e "$SB_WORK/$name" ] || cp -R "$e" "$SB_WORK/$name"
+  done
+  [ -f "$SB_WORK/$notes" ] \
+    || { cf "the sandbox carries no $notes — the scan has lost the file this case exists for"; finish "shipped tree is [l]-clean after kit-init"; teardown; return; }
+  publish_sandbox
+
+  local out rc sec
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "kit-init exited $rc on the shipped tree: $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  [ -f "$SB_WORK/$notes" ] || cf "kit-init removed $notes from the tree"
+
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_l_section)"
+  [ -n "$sec" ] || cf "no [l] section in the report: $(printf '%s' "$out" | head -5 | tr '\n' '|')"
+  case "$sec" in *skipped*) cf "arm [l] was skipped on the stamped tree, so it read nothing: $sec" ;; esac
+  printf '%s\n' "$sec" | /usr/bin/grep '⚠' >/dev/null \
+    && cf "arm [l] reports a finding on the shipped tree after kit-init: $(printf '%s\n' "$sec" | /usr/bin/grep '⚠' | head -3 | tr '\n' '|')"
+
+  # CONTROL: a real-digit citation form in the release notes must turn the same report red.
+  printf '\nAn example form: `[decision: D-9999]`.\n' >> "$SB_WORK/$notes"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "plant a real-digit citation form" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_l_section)"
+  printf '%s\n' "$sec" | /usr/bin/grep '⚠' | /usr/bin/grep 'D-9999' >/dev/null \
+    || cf "(control) a real-digit [decision: D-9999] planted in $notes was not reported by arm [l]: $sec"
+
+  finish "the shipped tree, stamped by kit-init with process/ and the root documents present, has no arm [l] finding, and a real-digit citation form planted in the release notes is reported"
   teardown
 }

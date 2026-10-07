@@ -161,32 +161,40 @@ kit_set_pin() {
   kit_model_record_set "$CLAUDE_DIR" "$1" "$MODEL" "$EFFORT"
 }
 
-# kit_set_ladder_row <label> — rewrite orchestrator.md's row for <label>, replacing only the
-# `<fill in...>` blanks in the Model and Effort cells, never the row's trailing prose (the Dev and
-# QA rows carry riders after their blanks that must survive).
+# kit_set_ladder_row <label> — rewrite orchestrator.md's row for <label>: the first backticked token
+# of the Model cell and of the Effort cell, whether it is still a `<fill in...>` blank or already
+# filled, never the row's trailing prose (the Dev and QA rows carry riders after their cells that
+# must survive). The label cell is skipped: it may carry backticks of its own.
 #
 # LABEL, MODEL, EFFORT are matched and substituted as LITERAL STRINGS (awk's index()/substr()),
 # never as a regex: a label containing a metacharacter ("XS / mechanical") or a model id
 # containing one would otherwise need escaping, needlessly, for a floor tool with no \Q...\E.
-# Only the FIRST fill-in on the matched line is Model, the SECOND is Effort.
+# After the label cell, the FIRST backticked token is Model and the SECOND is Effort.
 kit_set_ladder_row() {
   local label="$1"
   grep -qE "^\| \*\*${label}" "$ORCH_DOC" \
     || kit_refuse 1 ladder-row-missing "Error: orchestrator.md has no ladder row for '${label}'."
   awk -v want="| **${label}" -v m="$MODEL" -v e="$EFFORT" '
-    function fill(line, val,    pre, post, p1, p2, tok) {
-      p1 = index(line, "`<fill in")
-      if (p1 == 0) return line
-      p2 = index(substr(line, p1 + 1), "`")     # offset of the CLOSING backtick, within line[p1+1 ..]
-      tok = substr(line, p1, p2 + 1)            # the whole `<fill in...>` token, backticks included
-      pre = substr(line, 1, p1 - 1)
-      post = substr(line, p1 + length(tok))
-      return pre "`" val "`" post
+    # Replace the k-th backtick-delimited token of s, backticks included, with `val`.
+    function nth(s, val, k,    p1, p2, pre) {
+      pre = ""
+      for (;; k--) {
+        p1 = index(s, "`")
+        if (p1 == 0) return pre s
+        p2 = index(substr(s, p1 + 1), "`")
+        if (p2 == 0) return pre s
+        if (k == 1) return pre substr(s, 1, p1 - 1) "`" val "`" substr(s, p1 + p2 + 1)
+        pre = pre substr(s, 1, p1 + p2)
+        s = substr(s, p1 + p2 + 1)
+      }
     }
     {
       if (index($0, want) == 1) {
-        $0 = fill($0, m)
-        $0 = fill($0, e)
+        c = index(substr($0, 2), "|")          # the pipe that closes the label cell
+        head = substr($0, 1, c + 1); rest = substr($0, c + 2)
+        rest = nth(rest, m, 1)
+        rest = nth(rest, e, 2)
+        $0 = head rest
       }
       print
     }

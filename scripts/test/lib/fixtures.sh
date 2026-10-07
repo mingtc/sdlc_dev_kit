@@ -184,6 +184,10 @@ make_sandbox() {
   git -C "$SB_WORK" config user.name  "Sandbox Test"         >/dev/null 2>&1
   git -C "$SB_WORK" config init.defaultBranch "$SB_TRUNK"    >/dev/null 2>&1
   git -C "$SB_WORK" config commit.gpgsign false              >/dev/null 2>&1
+  # The board mover's worktree and its lock directories are never tracked: a later publish_sandbox
+  # (`git add -A`) would otherwise commit them as a gitlink. A shipped project ignores them the
+  # same way; info/exclude keeps the sandbox's tree free of a tracked ignore file.
+  printf '%s\n' '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' >> "$SB_WORK/.git/info/exclude"
 
   # Copy the scripts-under-test in (never symlink — the sandbox must own them so
   # they resolve the sandbox as their root).

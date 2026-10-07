@@ -420,6 +420,7 @@ CASES=(
   case_check_board_register_shape
   case_check_board_reverse_coverage
   case_check_board_model_pins_arm
+  case_set_models_second_call_moves_the_ladder_row
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted
   case_check_board_reads_the_configured_archive_threshold
@@ -557,6 +558,8 @@ CASES=(
   case_probe_victim_selection_survives_pipefail
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
+  case_publish_after_a_board_op_commits_no_gitlink
+  case_shipped_tree_is_citation_clean_after_kit_init
   case_fixture_append_has_one_authoring_site
   case_role_reset_takes_a_narrowed_set
   case_scaffolding_fixture_matches_the_tree
