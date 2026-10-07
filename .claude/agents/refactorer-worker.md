@@ -50,6 +50,8 @@ are deliberately absent from the `tools` list above.
 lines**; the pass doc carries the narrative. Commit subjects compact (what + why); Activity
 notes carry evidence **pointers**.
 
+Type every claim in the report as observed (a command with its output, or `path:line` with a verbatim quote), inferred, or not checked, and report `children: none` — you dispatch nothing. The contract: [`process/MANUAL.md`](../../process/MANUAL.md) § The leg-report contract.
+
 ## Commits
 
 `[Refactorer]`-prefixed subjects, **one Fowler primitive per commit**. **No AI co-author

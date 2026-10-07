@@ -303,6 +303,7 @@ CASES=(
   case_finish_pr_qa_verdict_well_formed_lands
   case_finish_pr_qa_verdict_pointer_unresolved_refuses
   case_finish_pr_qa_verdict_quote_checks_refuse
+  case_finish_pr_qa_verdict_unquoted_kinds_only_refuses
   case_finish_pr_qa_verdict_placeholder_forms_refuse
   case_finish_pr_qa_verdict_ac_separator_forms_refuse
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
@@ -371,6 +372,8 @@ CASES=(
   case_runner_throwing_leg_is_named_not_dropped
   case_runner_precondition_failure_has_a_reply
   case_runner_returns_leg_notes_on_every_outcome
+  case_leg_report_contract_is_in_every_schema
+  case_runner_promotes_only_observed_verdicts
   case_runner_typed_leg_keeps_its_frontmatter_pin
   case_wave_brief_matches_the_legs_checkout
   case_archive_progress_index

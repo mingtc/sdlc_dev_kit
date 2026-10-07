@@ -55,6 +55,8 @@ report **≤ ~30 lines**, commit subjects compact (what + why, no transcripts), 
 `progress.md` notes carry evidence **pointers** (`file:line`, a command + its result line),
 not pasted output.
 
+Type every claim in the report as observed (a command with its output, or `path:line` with a verbatim quote), inferred, or not checked, and report `children: none` — you dispatch nothing. The contract: [`process/MANUAL.md`](../../process/MANUAL.md) § The leg-report contract.
+
 ## Commits
 
 `[Dev]`-prefixed subjects. **No AI co-author trailers, ever.** Never commit a secrets file

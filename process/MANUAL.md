@@ -324,7 +324,7 @@ bounces it.
 4. **QA walks the AC line by line**, recording the walk in the card's `## QA Verdict` table — one
    row per AC id, plus a fixed `shadow-check` row — as `PASS`/`FAIL` per bullet with **concrete
    evidence** (a test name, a diff, a command's output, a payload shape); `finish-pr.sh` refuses a
-   PASS landing with no such table, a row with no usable evidence, or a row whose verdict does not
+   PASS landing with no such table, a row with no usable evidence, a table with no `test`/`file:line` row, or a row whose verdict does not
    match step 6's token (`.claude/roles/qa.md` step 4). **An illustrative
    example inside an AC must cite its source or be labelled approximate** — an uncited example
    is read as the contract, and when it is wrong the review has no honest verdict left except the
@@ -458,7 +458,7 @@ produces this.
 | `PARK_UNVERIFIED` | — | parked, park not verifiable as written — the LAST park review returned a FAIL verdict |
 | `FAILED_AFTER_FIX_ROUND` | verdict FAIL · the one fix round did not bring a PASS (a second FAIL, or a fix Dev that answered `blocked`) | failed, and the one fix round did not cure it |
 | `BLOCKED_DEV` | — | Dev could not proceed and the issue is not parkable |
-| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, a value outside the four tokens, or a named `precondition_failure`: **unreviewed, not failed** — halts |
+| `NO_VERDICT` | no verdict formed — step 6's precondition failure, not a verdict · no landing | the last review leg — of the issue or of its park — returned nothing, a value outside the four tokens, a named `precondition_failure`, a PASS with no OBSERVED claim behind it, or a report still waiting on a child: **unreviewed, not failed** — halts |
 | `LEG_ABORTED` | — | a leg's call THREW — the run's token budget ran out, or the call was refused — or a Dev leg returned nothing (or a status outside its schema), before the issue reached an outcome: **state unknown, not failed** — halts |
 
 **`LANDED` and `LAND_READY` are both verdict PASS** and differ only in whether the landing happened.
@@ -503,7 +503,7 @@ is `{ id, outcome, … }`, plus the fields its outcome needs: `error` on `LEG_AB
 of the legs that decided it on a failure or a park (`dev`, `qa`, `park`), and `qa_evidence` and
 `gates` on `LANDED` and `LAND_READY`. **Every record with an outcome also carries `leg_notes`**: one entry per leg
 that replied, in call order — `{ leg, summary, deviations, notes, premise_refuted,
-precondition_failure }`, each field present only when the leg filled it. It is on the success path
+precondition_failure, observed, inferred, not_checked }`, each field present only when the leg filled it. It is on the success path
 on purpose. A success used to return nothing a leg had written, so a caveat, a surprise or a kit
 finding reported there never reached the orchestrator — and `premise_refuted`, the axis that exists
 so a PASS/landed issue can say what it learned, was lost on the one outcome it was designed for. A
@@ -515,6 +515,43 @@ is **hand-copied** into each one. A guard can
 hold the copies equal to each other, and that is worth having — but two copies agreeing is not the
 same as either being right, and a pair that drifts together drifts silently. An authority outside
 both is the only thing that makes the guard a *pin* rather than a *comparison*.
+
+### The leg-report contract (every dispatched leg's report types its claims)
+
+**THIS SECTION IS THE AUTHORING SITE FOR THE LEG-REPORT CONTRACT.** The runners' schemas, the leaf-worker
+definitions, the orchestrate skill, the orchestrator role doc and the orchestration doctrine project it by
+citation; none restates it. It governs the final report of every leg an Orchestrator dispatches, whether a
+runner's structured result or the free text of a leg started with the Agent tool.
+
+**Every claim in the report is one of three kinds:**
+
+- **OBSERVED** — the leg saw it, and the claim carries its proof: a command with its output, or a path, a
+  line and a verbatim quote of that line (the pointer a `## QA Verdict` row takes, step 4). In a structured
+  report: `observed: [{claim, command, output} | {claim, path, line, quote}]`.
+- **INFERRED** — concluded, not seen: `inferred: [{claim, from}]`, `from` naming what it was concluded from.
+- **NOT CHECKED** — asked for and not done: `not_checked: [<what>]`. Never leave a skipped check out.
+
+**Promotion.** An Orchestrator promotes a verdict to an outcome or a board move only when an OBSERVED claim
+backs it. INFERRED and NOT CHECKED claims go to the run report and decide nothing. A PASS with no well-formed
+OBSERVED claim is not a PASS — step 6 defines PASS as every AC passing *with evidence* — so it is filed
+`NO_VERDICT`, which already means no verdict was formed; no outcome is added. A runner enforces this for
+every PASS, an issue's or a park's; a FAIL promotes nothing and is not held to it.
+
+**A verdict travels by artifact, never by the author's relay.** The verdict is what the card's committed
+`## QA Verdict` table says on the trunk, and `finish-pr.sh` checks that table at landing; a leg's reply only
+points at it. A Workflow script has no file access, so a runner receives the reply and cannot read the card:
+the Orchestrator reads the card from the trunk before promoting
+(`.claude/skills/orchestrate/SKILL.md` § 3). The reviewer is never the leg that wrote the change.
+
+**A leg that dispatches waits for every child.** A structured report carries `children`: `none` (it
+dispatched nothing) or `all_returned` (every child has returned and its answer is in this report). There is
+no waiting value, and a reply without one of the two is a leg that returned nothing: `NO_VERDICT` for a
+review leg, `LEG_ABORTED` for a Dev leg. In a free-text report, "awaiting completion" is not a final report.
+
+**What this does not catch.** The runner checks that a claim is typed and shaped like its proof, not that
+the command ran or the quote is there. For a PASS that reaches the trunk, the landing gate resolves each
+`test`/`file:line` row's pointer and quote at the revision being landed; nothing resolves a claim that never
+reaches a `## QA Verdict` row.
 
 ### The direct-to-trunk lite variant (docs / process / metadata issues)
 

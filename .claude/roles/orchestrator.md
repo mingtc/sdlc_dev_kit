@@ -194,7 +194,8 @@ hash check caught in seconds:
    (summary block + exit code); a claim without its transcript is treated as unverified and
    re-measured. A leg silent past its class's expected budget gets ONE poll, then is declared
    dead → salvage-then-resume. **Never relay a leg's self-report as a measurement** — the
-   belt exists because self-reports miss what instruments catch.
+   belt exists because self-reports miss what instruments catch. A leg's report types its claims
+   and only an OBSERVED one is promoted (`process/MANUAL.md` § The leg-report contract).
    **And the clock for that budget is YOURS.** A prompted leg cannot tell you it has gone idle —
    sending is an act — so arm the wake-ups before you dispatch, require notes from inside the
    work rather than between jobs, and name who pokes whom when one is overdue. The obligations,

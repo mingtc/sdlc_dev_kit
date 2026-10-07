@@ -103,7 +103,9 @@ re-checked between issues.
   FAIL path: a FAIL costs a fix leg *and* a second review leg at the same tier, and forecasts
   routinely miss by half for exactly this reason.
 - **Never relay a leg's self-report as a measurement.** A returned leg's claim without its own
-  gate transcript is unverified and gets re-measured by the runner. This is the cheap half of the
+  gate transcript is unverified and gets re-measured by the runner. A leg's report types each
+  claim as observed, inferred or not checked, and only an observed claim reaches a verdict
+  ([`../MANUAL.md`](../MANUAL.md) § The leg-report contract). This is the cheap half of the
   between-leg belt; the rest is in
   [`live-resources.md`](live-resources.md) § A.5 and the orchestrator role doc.
 

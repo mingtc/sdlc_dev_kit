@@ -240,7 +240,8 @@ DEV_SCHEMA|^const DEV_SCHEMA =|^}
 the verdict and outcome vocabulary through devAnswered|^const VERDICTS =|^const devAnswered =
 QA_SCHEMA|^const QA_SCHEMA =|^}
 PARK_SCHEMA|^const PARK_SCHEMA =|^}
-gatesOf()|^function gatesOf[(]|^}'
+gatesOf()|^function gatesOf[(]|^}
+the leg-report contract helpers|^const CHILDREN =|^const settled ='
 
 # <file> <start ERE> <end ERE>: the start line through the first LATER line matching end.
 # Exits 3 when either anchor is missing, so a lost anchor is never an empty match.
@@ -690,7 +691,7 @@ const stubFor = (schema) => {
   const o = {}
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}
@@ -869,7 +870,7 @@ const stubFor = (schema) => {
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}
@@ -944,7 +945,7 @@ const stubFor = (schema) => {
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}
@@ -1038,7 +1039,7 @@ const stubFor = (schema) => {
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}
@@ -1144,7 +1145,7 @@ const stubFor = (schema) => {
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}
@@ -1273,7 +1274,7 @@ const stubFor = (schema) => {
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}
@@ -1338,6 +1339,207 @@ ROWS
   finish "every record both runners return carries each leg's free text as leg_notes — on LANDED, LAND_READY and PARKED_OK as well as on failures and a thrown leg — in call order, with nothing overwritten and no entry for an empty field ($n drive(s), nothing dispatched)"
 }
 
+# =============================================================================
+# THE LEG-REPORT CONTRACT: ONE AUTHORING SITE, EVERY SCHEMA CARRIES IT, EVERY CONSUMER CITES IT
+# =============================================================================
+# process/MANUAL.md § The leg-report contract types a leg's claims (observed / inferred /
+# not_checked) and bars a waiting report (children). Each runner schema declares the four fields
+# AND requires them, so a leg that omits one is rejected by the schema the Workflow tool enforces;
+# the verdict gate reads them; and everything that dispatches or consumes a leg points at the
+# contract rather than restating it. Read statically, so this runs without Node; the driven
+# arm is case_runner_promotes_only_observed_verdicts.
+#
+# THE OPERAND IS THE CODE, NOT THE FILE: comments are stripped before the gate lookup, because the
+# runners' comments name the guard and a plain grep would still match the prose with the guard
+# ablated. Both arms carry a control that a copy with the guard removed goes red.
+_report_fields_missing() {   # <runner file> -> one "SCHEMA lacks field (prop|required)" per line
+  local ex sch want
+  ex="$(mktemp)"
+  awk -f <(_schema_extract_awk) "$1" > "$ex"
+  for sch in DEV_SCHEMA QA_SCHEMA PARK_SCHEMA; do
+    for want in observed inferred not_checked children; do
+      grep -qxF "$sch|prop|$want" "$ex" || echo "$sch does not declare $want"
+      grep -qxF "$sch|req|$want" "$ex"  || echo "$sch does not require $want"
+    done
+  done
+  rm -f "$ex"
+}
+_promotion_guard_present() {   # <runner file>: 0 when the verdict gate demands an OBSERVED claim and a settled leg
+  local code; code="$(sed 's://.*::' "$1")"
+  printf '%s\n' "$code" | grep -F 'const formedVerdict = r => !!r && settled(r)' >/dev/null \
+    && printf '%s\n' "$code" | grep -F '!(isPass(r.verdict) && !hasObserved(r))' >/dev/null \
+    && printf '%s\n' "$code" | grep -F 'const devAnswered = d => !!d && settled(d)' >/dev/null
+}
+
+case_leg_report_contract_is_in_every_schema() {
+  cf_reset
+  make_sandbox
+
+  local f lab found=0 miss ch abl ctl="$SB_TMP/ctl"
+  mkdir -p "$ctl"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    lab="$(basename "$f")"; found=$(( found + 1 ))
+    miss="$(_report_fields_missing "$f")"
+    [ -z "$miss" ] || cf "$lab: $(printf '%s' "$miss" | tr '\n' ';') — a leg could report without typing its claims or without saying it is done waiting"
+    ch="$(sed -n "s/^const CHILDREN = \[\(.*\)\]/\1/p" "$f")"
+    [ "$ch" = "'none', 'all_returned'" ] \
+      || cf "$lab: CHILDREN is [$ch], not exactly 'none', 'all_returned' — a third value would give a waiting leg a legal report"
+    _promotion_guard_present "$f" \
+      || cf "$lab: the verdict gate no longer requires an OBSERVED claim for a PASS and a settled leg (formedVerdict / devAnswered) — a PASS with nothing observed would be promoted"
+    # CONTROL 1: the field audit must go red on a copy that stops requiring `children`.
+    abl="$ctl/$lab.req"; sed "s/, 'not_checked', 'children'\]/, 'not_checked']/" "$f" > "$abl"
+    if cmp -s "$f" "$abl"; then cf "$lab: (control) the required-list ablation did not take — the field audit proves nothing"
+    else [ -n "$(_report_fields_missing "$abl")" ] || cf "$lab: (control) a copy that no longer requires children passed the field audit"; fi
+    # CONTROL 2: the gate lookup must go red on a copy without the OBSERVED demand.
+    abl="$ctl/$lab.gate"; sed 's/ && !(isPass(r.verdict) && !hasObserved(r))//' "$f" > "$abl"
+    if cmp -s "$f" "$abl"; then cf "$lab: (control) the promotion-guard ablation did not take — the gate lookup proves nothing"
+    else ! _promotion_guard_present "$abl" || cf "$lab: (control) a copy with the OBSERVED demand removed passed the gate lookup"; fi
+  done <<EOF
+$(_shipped_runners)
+EOF
+  [ "$found" -eq 2 ] || cf "expected exactly 2 shipped runners, found $found — the audit needs both"
+
+  # THE AUTHORITY: MANUAL's section names the four fields and the outcome a PASS without evidence takes.
+  local man="$REAL_REPO_ROOT/process/MANUAL.md" sec fld
+  if [ -f "$man" ]; then
+    sec="$(awk '/^### The leg-report contract/ { on = 1; next } on && /^### / { exit } on' "$man")"
+    [ -n "$sec" ] || cf "process/MANUAL.md has no '### The leg-report contract' section — the authoring site every projection cites"
+    for fld in observed inferred not_checked children NO_VERDICT; do
+      printf '%s\n' "$sec" | grep -F "$fld" >/dev/null || cf "MANUAL's leg-report contract section does not mention $fld"
+    done
+  else
+    cf "process/MANUAL.md is absent — the contract's authoring site"
+  fi
+
+  # THE CONSUMERS CITE THE CONTRACT; none restates it. Every leaf-worker definition, the
+  # orchestrate skill, the orchestrator role doc and the orchestration doctrine.
+  local d nd=0 g
+  for d in "$REAL_REPO_ROOT/_claude/agents" "$REAL_REPO_ROOT/.claude/agents"; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*.md; do
+      [ -f "$f" ] || continue
+      nd=$(( nd + 1 ))
+      grep -qF 'leg-report contract' "$f" || cf "$(basename "$f") does not point at the leg-report contract — a worker dispatched on this definition is never told how to type its report"
+    done
+  done
+  [ "$nd" -ge 5 ] || cf "only $nd leaf-worker definition(s) were read — expected at least 5; the glob stopped matching"
+  for g in "_claude/skills/orchestrate/SKILL.md" ".claude/skills/orchestrate/SKILL.md" "_claude/roles/orchestrator.md" ".claude/roles/orchestrator.md" "process/doctrine/orchestration.md"; do
+    [ -f "$REAL_REPO_ROOT/$g" ] || continue
+    grep -qF 'leg-report contract' "$REAL_REPO_ROOT/$g" || cf "$g does not cite the leg-report contract"
+  done
+
+  finish "the leg-report contract has one authoring site (MANUAL) and both runners' DEV/QA/PARK schemas declare AND require observed/inferred/not_checked/children, a PASS needs an OBSERVED claim, a waiting leg is not settled, and $nd leaf-worker definitions plus the orchestrate skill, role doc and doctrine cite it — each lookup ablation-proven"
+  teardown
+}
+
+# CASE — a verdict is promoted only when OBSERVED evidence backs it, and a leg that is still waiting
+# on a child has reported nothing.
+#
+# A PASS whose `observed` list is empty, absent, or holds only claims without their proof is NO_VERDICT
+# (MANUAL step 6: a PASS is every AC passing WITH evidence, so a PASS with none formed no verdict), for
+# the issue review and the park review alike; a FAIL is not held to it (a bounce spends a fix round and
+# promotes nothing). A reply whose `children` is not a settled value is no report at all: NO_VERDICT for
+# a review leg, LEG_ABORTED for a Dev leg. CONTROL rows hold the neighbours still, and one row reads the
+# claim back out of `leg_notes`, where the Orchestrator finds it.
+#
+# THE STUB FILLS `observed` WITH ONE WELL-FORMED CLAIM (the other drive cases rely on it), so a row that
+# wants it empty, absent or malformed says so. NOTHING IS DISPATCHED.
+case_runner_promotes_only_observed_verdicts() {
+  cf_reset
+  local wf="$REAL_REPO_ROOT/.claude/workflows" stub got want f args name park script n=0
+  [ -d "$wf" ] || _fixture_die "case_runner_promotes_only_observed_verdicts: no .claude/workflows/ in the published kit at $REAL_REPO_ROOT"
+  command -v node >/dev/null 2>&1 || { skp "a verdict is promoted only when OBSERVED evidence backs it" "node absent"; return; }
+
+  stub="$(mktemp -d)/drive.mjs"
+  cat > "$stub" <<'STUBEOF'
+import fs from 'node:fs'
+const [file, argsJson, scriptJson] = process.argv.slice(2)
+const script = JSON.parse(scriptJson)
+const src = fs.readFileSync(file, 'utf8').replace(/^export const meta/m, 'const meta')
+const stubFor = (schema) => {
+  const o = {}
+  for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
+    if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
+    if (v.enum) o[k] = v.enum[0]
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
+    else if (v.type === 'integer' || v.type === 'number') o[k] = 0
+    else if (v.type === 'boolean') o[k] = true
+    else if (v.type === 'object') o[k] = {}
+    else o[k] = 'stub'
+  }
+  return o
+}
+const has = (k) => Object.prototype.hasOwnProperty.call(script, k)
+const agent = async (prompt, opts) => {
+  opts = opts || {}
+  const label = String(opts.label || ''), pre = label.split(':')[0]
+  const key = has(label) ? label : (has(pre) ? pre : null)
+  if (key !== null) {
+    const v = script[key]
+    if (v === null) return null
+    const o = Object.assign(stubFor(opts.schema), v)
+    for (const k of (v.__omit || [])) delete o[k]
+    delete o.__omit
+    return o
+  }
+  return opts.schema ? stubFor(opts.schema) : 'stub'
+}
+const parallel = async (t) => Promise.all(t.map(async (f) => { try { return await f() } catch (e) { return null } }))
+const pipeline = async (items, ...stages) => Promise.all(items.map(async (it, i) => { let acc = it; for (const s of stages) acc = await s(acc, it, i); return acc }))
+const body = new Function('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'return (async () => { ' + src + ' })()')
+try {
+  const r = await body(agent, parallel, pipeline, () => {}, () => {}, JSON.parse(argsJson), { total: null, spent: () => 0, remaining: () => Infinity })
+  console.log(((r && r.results) || []).map(x => x.id + '=' + (x.outcome || '?') + (JSON.stringify(x.leg_notes || []).includes('MARK-OBS') ? '+claim' : '')).join(','))
+} catch (e) { console.log('REJECTED:' + String((e && e.message) || e)) }
+STUBEOF
+
+  local base='"id":"ZZ-1","branch":"b","title":"t","devModel":"opus","devEffort":"high","qaModel":"opus","qaEffort":"high"'
+  local wv=',"worktreeMode":"self","phase":"Wave1","restartNote":"n"'
+  _po_args() { case "$1" in
+      tranche-runner.js) printf '{"repo":"/tmp/x","issues":[{%s,"parkable":%s}]}' "$base" "$2" ;;
+      *)                 printf '{"repo":"/tmp/x","wave1":[{%s%s,"parkable":%s}]}' "$base" "$wv" "$2" ;;
+    esac; }
+
+  # row | parkable | agent script | expected outcomes, both runners
+  while IFS='|' read -r name park script want; do
+    [ -n "$name" ] || continue
+    for f in tranche-runner.js wave-runner.js; do
+      [ -f "$wf/$f" ] || { cf "$f not found in $wf"; continue; }
+      got="$(node "$stub" "$wf/$f" "$(_po_args "$f" "$park")" "$script" 2>&1)"; n=$(( n + 1 ))
+      [ "$got" = "$want" ] || cf "$f [$name]: expected '$want', got '$got'"
+    done
+  done <<'ROWS'
+PASS, observed empty|false|{"qa":{"observed":[]}}|ZZ-1=NO_VERDICT
+PASS, observed absent|false|{"qa":{"__omit":["observed"]}}|ZZ-1=NO_VERDICT
+PASS, a claim with no proof|false|{"qa":{"observed":[{"claim":"it works"}]}}|ZZ-1=NO_VERDICT
+PASS, a command with no output|false|{"qa":{"observed":[{"claim":"c","command":"verify.sh"}]}}|ZZ-1=NO_VERDICT
+PASS, blank command and output|false|{"qa":{"observed":[{"claim":"c","command":" ","output":" "}]}}|ZZ-1=NO_VERDICT
+PASS, a path and quote with line 0|false|{"qa":{"observed":[{"claim":"c","path":"a.txt","line":0,"quote":"q"}]}}|ZZ-1=NO_VERDICT
+PASS, only an inferred claim|false|{"qa":{"observed":[],"inferred":[{"claim":"it works","from":"the diff looked right"}]}}|ZZ-1=NO_VERDICT
+PASS_AC_CORRECTED, observed empty|false|{"qa":{"verdict":"PASS_AC_CORRECTED","observed":[]}}|ZZ-1=NO_VERDICT
+FAIL, fix, second QA PASS with observed empty|false|{"qa":{"verdict":"FAIL_AC"},"qa2":{"observed":[]}}|ZZ-1=NO_VERDICT
+park PASS, observed empty|true|{"dev":{"status":"blocked"},"park-qa":{"observed":[]}}|ZZ-1=NO_VERDICT
+QA waiting on a child|false|{"qa":{"children":"awaiting"}}|ZZ-1=NO_VERDICT
+QA children omitted|false|{"qa":{"__omit":["children"]}}|ZZ-1=NO_VERDICT
+park review waiting on a child|true|{"dev":{"status":"blocked"},"park-qa":{"children":"awaiting"}}|ZZ-1=NO_VERDICT
+Dev waiting on a child|false|{"dev":{"children":"awaiting"}}|ZZ-1=LEG_ABORTED
+Dev children omitted|false|{"dev":{"__omit":["children"]}}|ZZ-1=LEG_ABORTED
+CONTROL: PASS, command and output|false|{}|ZZ-1=LANDED
+CONTROL: PASS, path line and quote|false|{"qa":{"observed":[{"claim":"c","path":"a.txt","line":3,"quote":"q"}]}}|ZZ-1=LANDED
+CONTROL: PASS after a leg that dispatched and waited|false|{"qa":{"children":"all_returned"}}|ZZ-1=LANDED
+CONTROL: PASS, deferred landing|false|{"qa":{"landing":"deferred"}}|ZZ-1=LAND_READY
+CONTROL: FAIL twice, observed empty|false|{"qa":{"verdict":"FAIL_AC","observed":[]},"qa2":{"verdict":"FAIL_REGRESSION","observed":[]}}|ZZ-1=FAILED_AFTER_FIX_ROUND
+CONTROL: park PASS|true|{"dev":{"status":"blocked"},"park-qa":{}}|ZZ-1=PARKED_OK
+CONTROL: Dev blocked, unparkable|false|{"dev":{"status":"blocked"}}|ZZ-1=BLOCKED_DEV
+the claim is readable from leg_notes|false|{"qa":{"observed":[{"claim":"MARK-OBS","command":"c","output":"o"}]}}|ZZ-1=LANDED+claim
+ROWS
+  unset -f _po_args
+
+  rm -rf "$(dirname "$stub")"
+  finish "in both runners a PASS (and a park PASS) with no well-formed OBSERVED claim is NO_VERDICT, a leg that reports children other than none/all_returned has reported nothing (NO_VERDICT for a review, LEG_ABORTED for Dev), a FAIL is not held to it, and the claims reach leg_notes — while a PASS with a command and output or a path, line and quote keeps its outcome ($n drive(s), nothing dispatched)"
+}
+
 # _runner_record_stub <path> — a driver that dispatches nothing and prints each agent() call it
 # receives: `<label> <agentType|-> <model|-> <effort|->`, or, given a label prefix as the third
 # argument, the prompts of the calls under it.
@@ -1351,7 +1553,7 @@ const stubFor = (schema) => {
   for (const [k, v] of Object.entries((schema && schema.properties) || {})) {
     if (!((schema.required || []).includes(k)) && /^OPTIONAL\./.test(v.description || '')) continue
     if (v.enum) o[k] = v.enum[0]
-    else if (v.type === 'array') o[k] = []
+    else if (v.type === 'array') o[k] = k === 'observed' ? [{ claim: 'stub', command: 'stub', output: 'stub' }] : []
     else if (v.type === 'integer' || v.type === 'number') o[k] = 0
     else if (v.type === 'boolean') o[k] = true
     else if (v.type === 'object') o[k] = {}

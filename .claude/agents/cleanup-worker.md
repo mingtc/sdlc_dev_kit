@@ -56,6 +56,8 @@ here — **breadth is not a reason to fan out.**
 Final report **≤ ~30 lines**: a list of touched paths and the gate result line, not a per-file
 narrative.
 
+Type every claim in the report as observed (a command with its output, or `path:line` with a verbatim quote), inferred, or not checked, and report `children: none` — you dispatch nothing. The contract: [`process/MANUAL.md`](../../process/MANUAL.md) § The leg-report contract.
+
 ## Commits
 
 The role prefix the issue names (`[Dev]` or `[Refactorer]`). **No AI co-author trailers,

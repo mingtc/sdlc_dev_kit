@@ -115,15 +115,35 @@ doc § The conductor's belt) and record its readings in the run report. Per issu
    After the verdict, **reconcile** QA's evidence against the dev phase's known-limitations
    (which QA never saw) — confirm the fresh review covered the flagged gaps, and follow up if
    it did not (role doc § Conductor reconciliation).
+   **The verdict is read from the card, not from the leg's reply.** A runner hands you the reply
+   and cannot read files, so before promoting a PASS fetch the trunk and read the card there
+   (`git ls-tree -r --name-only <remote>/<trunk> progress/ | grep -F <PREFIX>-NNN-` finds it,
+   `git show <remote>/<trunk>:<that path>` prints it): a landed PASS sits in `progress/qa_complete/`
+   with a `## QA Verdict` table holding no FAIL row, a deferred landing in `dev_complete/`. The
+   committed table is the verdict; where the reply and the card disagree the card wins, and the
+   disagreement goes in the run report.
 4. Discovered tech-debt or todos → file it (a subtask if this is decomposition) and surface
    it; **never halt for it** (role doc § Discovered tech-debt).
+
+**Read every leg's report by its contract** (`process/MANUAL.md` § The leg-report contract). The
+runners' schemas require the typed claims; a leg you dispatch with the Agent tool is briefed to
+return them. Promote a verdict or a board move only on an OBSERVED claim — a command with its
+output, or a file and line with a verbatim quote of that line. INFERRED and NOT CHECKED claims go in the run
+report and decide nothing; a PASS with none observed behind it is no verdict, so re-dispatch the
+review. **A leg that dispatches waits for every child** and never reports "awaiting completion" as
+its final report: the child's answer surfaces elsewhere and the parent has reported nothing. A runner
+treats a reply without `children: none | all_returned` as a leg that returned nothing; with the plain
+Agent tool, refuse an "awaiting" report and wait for the child, or re-dispatch. On the harness
+measured (2026-10-07), subagents nest two spawns deep below the main session, and the third level has
+no Agent tool.
 
 Keep a `progress.md` resume pointer current through long phases (role doc § Quota / resume).
 
 ### 4. Report
 
 Emit a run report: **landed** / **parked for your call** / **bugs filed** / **new scope or
-todos surfaced for PM**, plus the conductor's-belt readings per leg. Then run the role's
+todos surfaced for PM**, plus the conductor's-belt readings per leg. Name the OBSERVED claim behind
+each promoted verdict, and carry every NOT CHECKED item into the report's residue section. Then run the role's
 session-end checklist. A run that closes a launch pack stamps that pack in the same change as
 the report.
 **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** collect every `kit-finding:` line from the legs' `progress.md` entries — the durable record — plus any kit finding a leg's report names or the runner's `leg_notes` carry, and write them as `K-NN` entries — you are the only writer during a run — and give the report its `kit-feedback:` line — `process/MANUAL.md` § Kit feedback.

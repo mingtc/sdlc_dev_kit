@@ -16,10 +16,12 @@
 #     the caller's working tree. A `file:line`/`test` row's pointer must resolve (the file exists
 #     at <rev> and the line, or range, is within its length) and carry a short quote the gate finds
 #     at that line, whitespace-normalised; `gate-diff`/`fixture-diff` are exempt from the quote but
-#     not from a `path:line` token they do carry resolving. Refuses through kit_refuse with:
+#     not from a `path:line` token they do carry resolving. At least one AC row must be a `test`/
+#     `file:line` row, so a table of only gate-diff/fixture-diff rows (nothing the gate can re-read)
+#     is refused. Refuses through kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-fail, qa-verdict-ac-mismatch,
 #     qa-verdict-shadow-missing, qa-verdict-pointer-unresolved, qa-verdict-quote-missing,
-#     qa-verdict-quote-not-found.
+#     qa-verdict-quote-not-found, qa-verdict-no-observed.
 #
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
@@ -142,7 +144,7 @@ kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4"
   local _qav_body _qav_ac_ids _qav_table _qav_rows
   local _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
-  local _qav_unresolved="" _qav_quote_missing="" _qav_quote_not_found=""
+  local _qav_unresolved="" _qav_quote_missing="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
 
   if [ -z "$repo" ] || [ -z "$rev" ]; then
@@ -231,6 +233,7 @@ kit_qa_verdict_check() {
       #    do carry).
       case "$_qkind" in
         file:line|test)
+          _qav_quoted_rows=$((_qav_quoted_rows+1))
           local _qav_quote
           _qav_quote="$(printf '%s' "$_qptr_stripped" | sed -n 's/.*"\([^"]*\)".*/\1/p')"
           if [ -z "$_qav_quote" ]; then
@@ -280,6 +283,15 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has row(s) whose quote is not on the cited line: ${_qav_quote_not_found}" \
       "       The quote (surrounding whitespace normalised) must be a substring of the cited" \
       "       path:line/path:a-b's own lines at the revision being landed. (.claude/roles/qa.md step 4.)" \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  if [ -n "$_qav_table_ids" ] && [ "$_qav_quoted_rows" -eq 0 ]; then
+    kit_refuse 2 qa-verdict-no-observed \
+      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is gate-diff or fixture-diff." \
+      "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
+      "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
+      "       (.claude/roles/qa.md step 4.)" \
       "       NOTHING WAS CHANGED."
   fi
 

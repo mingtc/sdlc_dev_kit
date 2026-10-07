@@ -54,6 +54,8 @@ Per `.claude/roles/qa.md` § "Output-length calibration": **`PASS`/`FAIL` first*
 line per AC bullet with its **pointer** (`file:line`, a test name, a command + its result
 line). Final report **≤ ~30 lines**. The Activity note carries pointers, not transcripts.
 
+Type every claim in the report as observed (a command with its output, or `path:line` with a verbatim quote), inferred, or not checked, and report `children: none` — you dispatch nothing. The contract: [`process/MANUAL.md`](../../process/MANUAL.md) § The leg-report contract.
+
 ## Commits
 
 `[QA]`-prefixed subjects. **No AI co-author trailers, ever.** Never commit a secrets file.

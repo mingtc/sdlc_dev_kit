@@ -58,6 +58,8 @@ prevent. See `.claude/roles/pm.md` § Definition of Ready.
 **≤ ~30 lines**. The issue file itself carries the detail; the report carries **pointers**
 (the issue path, the AC count, the commit subject).
 
+Type every claim in the report as observed (a command with its output, or `path:line` with a verbatim quote), inferred, or not checked, and report `children: none` — you dispatch nothing. The contract: [`process/MANUAL.md`](../../process/MANUAL.md) § The leg-report contract.
+
 ## Commits
 
 `[PM]`-prefixed subjects. **No AI co-author trailers, ever.** Never commit a secrets file.

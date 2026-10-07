@@ -70,6 +70,8 @@ decision, not yours.
 asking you a question. Final report **≤ ~30 lines**: the paths you wrote and what each one decides,
 not a narration of the reasoning that got there.
 
+Type every claim in the report as observed (a command with its output, or `path:line` with a verbatim quote), inferred, or not checked, and report `children: none` — you dispatch nothing. The contract: [`process/MANUAL.md`](../../process/MANUAL.md) § The leg-report contract.
+
 ## Commits
 
 The role prefix the issue names. **No AI co-author trailers, ever.** Never commit a secrets file.

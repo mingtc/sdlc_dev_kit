@@ -364,6 +364,55 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
 }
 
 # =============================================================================
+# CASE — A TABLE OF ONLY gate-diff/fixture-diff ROWS REFUSES (qa-verdict-no-observed): those kinds carry
+# no quote, so a table made only of them gives the gate nothing to re-read. One test/file:line row
+# beside them lands.
+# =============================================================================
+case_finish_pr_qa_verdict_unquoted_kinds_only_refuses() {
+  cf_reset
+  make_sandbox
+
+  # (a) every AC row is gate-diff: a real, non-placeholder pointer, nothing the gate can check.
+  local ida="$SB_PREFIX-690"
+  seed_issue dev_complete "$ida" gateonly chore "Only gate-diff rows" "feature/$ida-work"
+  local fa="$SB_WORK/progress/dev_complete/$ida-gateonly.md"
+  perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/| AC1 | PASS | gate-diff | verify.sh was green before and after |/' "$fa"
+  grep -qF '| AC1 | PASS | gate-diff |' "$fa" \
+    || _fixture_die "case_finish_pr_qa_verdict_unquoted_kinds_only_refuses: (a) the gate-diff-only row was not planted"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE690A.txt
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a table of only gate-diff rows — finish-pr.sh exited 0"
+  origin_has_path "CHANGE690A.txt" && cf "(a) the branch was merged before the refusal"
+  origin_has_path "progress/qa_complete/$ida-gateonly.md" && cf "(a) the card advanced despite the refusal"
+  /usr/bin/grep -q 'refusal=qa-verdict-no-observed' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=qa-verdict-no-observed: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+
+  # (b) CONTROL: the same gate-diff row beside one file:line row that quotes its own line lands.
+  local idb="$SB_PREFIX-691"
+  seed_issue dev_complete "$idb" mixed chore "A gate-diff row beside a quoted row" "feature/$idb-work"
+  local fb="$SB_WORK/progress/dev_complete/$idb-mixed.md"
+  local relb="progress/dev_complete/$idb-mixed.md" ac2="- [ ] AC2 — a second criterion, graded by a quoted line." ac2l
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a second criterion, graded by a quoted line./' "$fb"
+  ac2l="$(grep -nF -- "$ac2" "$fb" | head -1 | cut -d: -f1)"
+  [ -n "$ac2l" ] || _fixture_die "case_finish_pr_qa_verdict_unquoted_kinds_only_refuses: (b) the AC2 bullet was not planted"
+  perl -i -pe 's#^\| AC1 \| PASS \| test \|.*\|$#| AC1 | PASS | gate-diff | verify.sh was green before and after |\n| AC2 | PASS | file:line | '"${relb}:${ac2l}"' "a second criterion" |#' "$fb"
+  grep -qF "| AC2 | PASS | file:line |" "$fb" \
+    || _fixture_die "case_finish_pr_qa_verdict_unquoted_kinds_only_refuses: (b) the mixed table was not planted"
+  publish_sandbox
+  seed_branch "$idb" work CHANGE690B.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a gate-diff row beside a quoted file:line row — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$idb-mixed.md" || cf "(b) the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh refuses a landing whose QA Verdict table has no test/file:line row (a, refusal=qa-verdict-no-observed) and lands one that has a quoted row beside its gate-diff row (b)"
+  teardown
+}
+
+# =============================================================================
 # CASE — EVERY STOCK NON-ANSWER IS REFUSED AS A PLACEHOLDER, WHOLE-CELL, CASE-INSENSITIVE, NOT
 # JUST THE TEMPLATE'S OWN '<placeholder>' TOKEN.
 # =============================================================================

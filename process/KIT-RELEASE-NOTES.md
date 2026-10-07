@@ -319,6 +319,12 @@ columns and never the cards.*
 
 ### Action required
 
+- **A `## QA Verdict` table now needs at least one `test`/`file:line` row.** `finish-pr.sh` and
+  `subtask.sh move … qa_complete` refuse a landing whose AC rows are all `gate-diff` or
+  `fixture-diff`: those kinds carry no quote, so the gate had no line to re-read. **Before your next
+  landing, give any in-flight card with such a table one `test`/`file:line` row** with a `path:line`
+  and a verbatim quote.
+
 - **An AC's text changed after a card left `todo/` now needs a `[decision: D-NN]` citation.**
   `finish-pr.sh` and `subtask.sh move … qa_complete` refuse a landing if an AC checklist bullet's
   text (separators and whitespace aside) differs from what it was when the card left `todo/`, and
@@ -362,6 +368,19 @@ columns and never the cards.*
   breaks if you do not.**
 
 ### Changed
+
+- **A dispatched leg's report now types its claims, and a runner promotes only a PASS backed by one.**
+  `process/MANUAL.md` § The leg-report contract is the one statement: every claim is OBSERVED (a command
+  with its output, or a `path:line` with a verbatim quote), INFERRED (with what it was concluded from) or
+  NOT CHECKED. Both shipped runners' Dev, QA and park schemas now require `observed`, `inferred`,
+  `not_checked` and `children` (`none` or `all_returned`: a leg that dispatches waits for every child and
+  has no way to report "awaiting"). A PASS whose `observed` list holds no claim with its proof, and a
+  reply whose `children` is neither value, are filed `NO_VERDICT` (a Dev reply: `LEG_ABORTED`); every
+  record's `leg_notes` carries the three lists. The leaf-worker definitions, the orchestrate skill (§ 3:
+  read the verdict from the card on the trunk before promoting) and the orchestrator role doc point at
+  the contract. **Nothing to do if you run the shipped runners — the Workflow tool enforces the schema.**
+  **A project that hand-wrote a runner, or a driver or test stub that returns a QA leg's reply to a
+  shipped runner, must add the four fields**; without `observed` a stubbed PASS now reads `NO_VERDICT`.
 
 - **`PROJECT.md`'s `principal:` field now reads `TBD`, `[fill in…]`, `{{ … }}`, an underscore-only fill, or a
   whitespace-only backtick fill as unfilled**, through the one blank test `scripts/ask.sh` and `check-board.sh`

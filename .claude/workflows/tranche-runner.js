@@ -125,6 +125,8 @@ async function leg(prompt, opts) {
 // a success included: one entry per leg that replied, in call order, { leg: <label prefix>,
 // ...the non-empty LEG_TEXT fields }. process/MANUAL.md § The RUN-OUTCOME vocabulary.
 const LEG_TEXT = ['summary', 'deviations', 'notes', 'premise_refuted', 'precondition_failure']
+// The typed claims ride with the text, so a leg's OBSERVED / INFERRED / NOT CHECKED reach the report.
+const LEG_LISTS = ['observed', 'inferred', 'not_checked']
 const legTrail = Object.create(null)   // no prototype: an issue id like `constructor` must not collide
 function recordLeg(label, reply) {
   if (!label || !reply || typeof reply !== 'object') return
@@ -132,6 +134,7 @@ function recordLeg(label, reply) {
   if (at < 0) return
   const entry = { leg: String(label).slice(0, at) }
   for (const k of LEG_TEXT) if (typeof reply[k] === 'string' && reply[k].trim() !== '') entry[k] = reply[k]
+  for (const k of LEG_LISTS) if (Array.isArray(reply[k]) && reply[k].length) entry[k] = reply[k]
   if (Object.keys(entry).length > 1) (legTrail[String(label).slice(at + 1)] ||= []).push(entry)
 }
 const legNotes = id => (legTrail[id] || []).slice()
@@ -148,11 +151,24 @@ Ground rules (non-negotiable):
 - Read PROJECT.md first, then AGENTS.md, then your role doc, then the issue file. The issue's AC is the contract.
 - QUOTA-LEAN: targeted reads only; NEVER Read an image or a binary file and never screenshot (verify an artifact by hash / size / listing); no full-suite or repeated-build runs beyond the gates named below.
 - OUTPUT LENGTH: lead with the outcome; final report <= ~30 lines; commit subjects compact (what+why, no transcripts); Activity and progress.md notes carry evidence POINTERS (file:line, command + its result line), not pasted output.
+- REPORT CONTRACT (process/MANUAL.md § The leg-report contract): type every claim in the structured result — observed (a command with its output, or a path, a line and a verbatim quote of that line), inferred (with what you concluded it from), not_checked (what you did not check). A claim you did not see yourself is not observed. You dispatch nothing, so children is none.
 - No AI co-author trailers in commits. Never commit a secrets file. Role-prefixed commit subjects.
 - ZERO-DRIFT discipline unless the issue explicitly consents otherwise: NO change to the project's pinned output. Any golden/snapshot/fixture diff caused by your change is a bug in your change, not a fixture to update.
 - Board moves only via ./scripts/move-issue.sh (never move files by hand). The scripts commit+push via the kanban worktree.${CFG.liveRules ? `
 - ${CFG.liveRules}` : ''}
 `
+
+// THE LEG-REPORT CONTRACT IS PROJECTED, NEVER RE-STATED. Authoring site: process/MANUAL.md § The
+// leg-report contract. Each schema below carries its four fields (observed, inferred, not_checked,
+// children) and the helpers read them. An observed claim is well-formed when it carries its proof,
+// a command with its output or a path, a line and a verbatim quote; this checks the shape, and the
+// landing gate resolves the quote. `settled` is a leg that is not waiting on a child.
+const CHILDREN = ['none', 'all_returned']
+const filled = s => typeof s === 'string' && s.trim() !== ''
+const observedClaim = o => !!o && typeof o === 'object' && filled(o.claim) &&
+  ((filled(o.command) && filled(o.output)) || (filled(o.path) && Number.isInteger(o.line) && o.line > 0 && filled(o.quote)))
+const hasObserved = r => !!r && Array.isArray(r.observed) && r.observed.some(observedClaim)
+const settled = r => !!r && CHILDREN.includes(r.children)
 
 const DEV_SCHEMA = {
   type: 'object',
@@ -162,8 +178,12 @@ const DEV_SCHEMA = {
     summary: { type: 'string', description: 'what was built + key design choices' },
     test_evidence: { type: 'string', description: 'gate result line(s) actually observed' },
     deviations: { type: 'string' },
+    observed: { type: 'array', description: 'Claims you SAW, each with its proof: {claim, command, output} (the command you ran and its output) or {claim, path, line, quote} (a file, a line number and a verbatim quote of that line). A claim you did not see yourself is not observed. A PASS verdict with no well-formed observed claim is filed NO_VERDICT.', items: { type: 'object', properties: { claim: { type: 'string' }, command: { type: 'string' }, output: { type: 'string' }, path: { type: 'string' }, line: { type: 'integer' }, quote: { type: 'string' } }, required: ['claim'] } },
+    inferred: { type: 'array', description: 'Claims you concluded without seeing them: {claim, from}, where from names what you concluded it from. [] when none.', items: { type: 'object', properties: { claim: { type: 'string' }, from: { type: 'string' } }, required: ['claim', 'from'] } },
+    not_checked: { type: 'array', description: 'What the brief or the AC asked you to check and you did not. [] when none; never leave a skipped check out to look complete.', items: { type: 'string' } },
+    children: { enum: CHILDREN, description: 'none = you dispatched nothing; all_returned = you dispatched and every child has returned and its answer is in this report. There is no waiting value: a leg that dispatches waits for every child and never reports that it is awaiting one.' },
   },
-  required: ['status', 'branch', 'summary', 'test_evidence'],
+  required: ['status', 'branch', 'summary', 'test_evidence', 'observed', 'inferred', 'not_checked', 'children'],
 }
 
 // ── THE VERDICT VOCABULARY IS PROJECTED, NEVER RE-ENUMERATED ─────────────────
@@ -195,14 +215,20 @@ const isVerdict = v => VERDICTS.includes(v)
 // precondition failure is not a verdict. Only a NON-EMPTY string counts: models often fill an
 // optional string with "".
 const preconditionFailed = r => !!r && typeof r.precondition_failure === 'string' && r.precondition_failure.trim() !== ''
-const formedVerdict = r => !!r && !preconditionFailed(r) && isVerdict(r.verdict)
+// A PASS is promoted only when an OBSERVED claim backs it, and a leg still waiting on a child has
+// reported nothing: either way no verdict was formed (process/MANUAL.md § The leg-report contract).
+const formedVerdict = r => !!r && settled(r) && !preconditionFailed(r) && isVerdict(r.verdict) && !(isPass(r.verdict) && !hasObserved(r))
 // Why a review leg formed no verdict, for the log and the record.
-const noVerdictWhy = r => preconditionFailed(r)
-  ? `the reviewer reported a precondition failure (${r.precondition_failure.trim()})`
-  : 'the review leg returned no ratified verdict'
+function noVerdictWhy(r) {
+  if (!r) return 'the review leg returned no ratified verdict'
+  if (!settled(r)) return 'the review leg ended waiting on a child instead of reporting'
+  if (preconditionFailed(r)) return `the reviewer reported a precondition failure (${r.precondition_failure.trim()})`
+  if (isPass(r.verdict) && !hasObserved(r)) return 'the reviewer reported a PASS with no OBSERVED claim behind it'
+  return 'the review leg returned no ratified verdict'
+}
 // A Dev leg that returned no DEV_SCHEMA status produced nothing, and its tree state is unknown:
 // LEG_ABORTED, not BLOCKED_DEV (a status Dev reports).
-const devAnswered = d => !!d && DEV_SCHEMA.properties.status.enum.includes(d.status)
+const devAnswered = d => !!d && settled(d) && DEV_SCHEMA.properties.status.enum.includes(d.status)
 
 const QA_SCHEMA = {
   type: 'object',
@@ -220,8 +246,12 @@ const QA_SCHEMA = {
     unmet_ac: { type: 'array', items: { type: 'string' } },
     gate_evidence: { type: 'string', description: 'gate-runner + binding gate outputs observed' },
     notes: { type: 'string' },
+    observed: { type: 'array', description: 'Claims you SAW, each with its proof: {claim, command, output} (the command you ran and its output) or {claim, path, line, quote} (a file, a line number and a verbatim quote of that line). A claim you did not see yourself is not observed. A PASS verdict with no well-formed observed claim is filed NO_VERDICT.', items: { type: 'object', properties: { claim: { type: 'string' }, command: { type: 'string' }, output: { type: 'string' }, path: { type: 'string' }, line: { type: 'integer' }, quote: { type: 'string' } }, required: ['claim'] } },
+    inferred: { type: 'array', description: 'Claims you concluded without seeing them: {claim, from}, where from names what you concluded it from. [] when none.', items: { type: 'object', properties: { claim: { type: 'string' }, from: { type: 'string' } }, required: ['claim', 'from'] } },
+    not_checked: { type: 'array', description: 'What the brief or the AC asked you to check and you did not. [] when none; never leave a skipped check out to look complete.', items: { type: 'string' } },
+    children: { enum: CHILDREN, description: 'none = you dispatched nothing; all_returned = you dispatched and every child has returned and its answer is in this report. There is no waiting value: a leg that dispatches waits for every child and never reports that it is awaiting one.' },
   },
-  required: ['landing', 'ac_walk', 'gate_evidence'],
+  required: ['landing', 'ac_walk', 'gate_evidence', 'observed', 'inferred', 'not_checked', 'children'],
 }
 
 // PARK_SCHEMA — the park-QA leg's contract. Not QA_SCHEMA: the evidence fields differ. A park
@@ -239,8 +269,12 @@ const PARK_SCHEMA = {
     unmet: { type: 'array', items: { type: 'string' }, description: 'what makes the park unverifiable — the fix-round brief' },
     gate_evidence: { type: 'string', description: 'gate runner / check-board.sh / git state observed' },
     notes: { type: 'string' },
+    observed: { type: 'array', description: 'Claims you SAW, each with its proof: {claim, command, output} (the command you ran and its output) or {claim, path, line, quote} (a file, a line number and a verbatim quote of that line). A claim you did not see yourself is not observed. A PASS verdict with no well-formed observed claim is filed NO_VERDICT.', items: { type: 'object', properties: { claim: { type: 'string' }, command: { type: 'string' }, output: { type: 'string' }, path: { type: 'string' }, line: { type: 'integer' }, quote: { type: 'string' } }, required: ['claim'] } },
+    inferred: { type: 'array', description: 'Claims you concluded without seeing them: {claim, from}, where from names what you concluded it from. [] when none.', items: { type: 'object', properties: { claim: { type: 'string' }, from: { type: 'string' } }, required: ['claim', 'from'] } },
+    not_checked: { type: 'array', description: 'What the brief or the AC asked you to check and you did not. [] when none; never leave a skipped check out to look complete.', items: { type: 'string' } },
+    children: { enum: CHILDREN, description: 'none = you dispatched nothing; all_returned = you dispatched and every child has returned and its answer is in this report. There is no waiting value: a leg that dispatches waits for every child and never reports that it is awaiting one.' },
   },
-  required: ['landing', 'park_walk', 'gate_evidence'],
+  required: ['landing', 'park_walk', 'gate_evidence', 'observed', 'inferred', 'not_checked', 'children'],
 }
 
 // An absent field interpolates as "undefined", which reads as an instruction. Where there is no
@@ -295,7 +329,7 @@ Walk these, each with concrete evidence (file:line, a command + its result line)
 4. **Contradiction** — nothing the park claims is contradicted by the tree as it stands.
 5. **Gates** — ${CFG.gateCmd} green (nothing should have moved), and this issue's binding gates where they apply: ${gatesOf(issue)}.
 Verdict:
-- **PASS** — the park is true. Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
+- **PASS** — the park is true, and at least one OBSERVED claim in observed shows it (a PASS reported with none is filed NO_VERDICT). Leave the issue in blocked/ (do NOT move it, do NOT land anything). Append the progress.md QA line recording the park review. Set landing=not_applicable — a park lands nothing, so that is simply the true value, not an exception you are being granted.
 - **NO VERDICT** — a check you must run COULD NOT RUN: set precondition_failure to name it and omit verdict. That is not a FAIL, and the park is not judged.
 - **A FAILING VERDICT** — ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' or ')}. The park is not verifiable as written. Move the issue back: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<what makes the park unverifiable>", and return the unmet list. Do NOT fix it yourself, and do NOT re-park it yourself.`
 }
@@ -335,7 +369,7 @@ Procedure (the Dev → QA boundary, code-work flavor):
 5. Binding cross-cut gates for this issue: ${gatesOf(issue)}. A green suite alone is NOT a PASS where a binding gate applies.${driftStep}
 6. Verdict:
    - The four ratified verdicts, from process/MANUAL.md § The Dev → QA handoff step 6 — their one authoring site: PASS · PASS_AC_CORRECTED (implementation right, the AC's own illustration wrong; correct it with the issue — only when you checked the fact yourself against a citable source; the amendment carries the corrected illustration AND its source) · FAIL_AC · FAIL_REGRESSION. Report the verdict and the landing SEPARATELY: they are two different facts.
-   - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
+   - On a pass (all AC pass w/ evidence, gates green, no Blocker/Critical, and at least one OBSERVED claim in observed — a PASS reported with none is filed NO_VERDICT): ${issue.docsPath ? 'close it — ./scripts/move-issue.sh ' + issue.id + ' qa_complete --role QA --note "<verdict summary>", then set landing=not_applicable: a docs path has NOTHING to land, which is true rather than a workaround.' : 'land it — ./scripts/finish-pr.sh ' + issue.id + ' (squash-merge into ' + CFG.trunk + ', deletes the branch, advances the board). Set landing=landed only if that script COMPLETED. If you verified the change and deliberately did not land it — a blocked-push regime, a held trunk — that is landing=deferred and it is a SUCCESS: report it, and do not downgrade the verdict to make the outcome look consistent.'} Append the progress.md QA line.
    - If ${CFG.gateCmd} reports a gate that COULD NOT RUN — or an AC names a gate this tree does not hold — you have no evidence about the implementation and so no verdict to issue: stop, set precondition_failure to name it, OMIT verdict, and send landing=not_applicable. Neither FAIL token fits — both assert something false about the code.
    - On a fail: ./scripts/move-issue.sh ${issue.id} in_progress --role QA --note "<unmet AC list>" and return the unmet_ac list with whichever FAILING verdict of ${VERDICTS.filter(v => v.startsWith('FAIL')).join(' / ')} fits — an unmet acceptance criterion vs. a previously-green test this broke (at any severity) or uncovered behaviour it broke at Blocker/Critical severity; a Major/Minor break there is filed and does not fail the review. Do NOT fix code yourself.
 ${issue.extraQA || ''}
