@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — SessionStart hook; clears .claude/session-role. See process/EXTRACTION.md.
+# KIT-CLASS: KIT — SessionStart hook; clears the hat file. See process/EXTRACTION.md.
 # SessionStart hook.
 #
 # Wired in .claude/settings.json under hooks.SessionStart. On every session start
 # the harness runs this and adds our stdout to the new session's context. Two jobs:
-#   1. Clear .claude/session-role so each session must RE-CONFIRM its hat
+#   1. Clear the hat file (path: scripts/lib/hat-file.sh) so each session must RE-CONFIRM its hat
 #      (require-role.sh then blocks repo mutations until the new hat is declared).
 #   2. Run scripts/check-board.sh so the NEW session opens with last session's
 #      board-drift misses (unlogged moves, over-threshold columns, id collisions)
@@ -21,12 +21,13 @@ if [ -z "$ROOT" ]; then
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." 2>/dev/null && pwd || true)"
 fi
 
-# The repo-relative path of the role file, on its OWN line so a test fixture can DERIVE it
-# (sed); same name as require-role.sh's, so the pair can be checked.
-ROLE_REL=".claude/session-role"
-
-# 1. Freshness — clear the declared hat.
-rm -f "$ROOT/$ROLE_REL" 2>/dev/null || true
+# 1. Freshness — clear the declared hat. The path is the one lib's; with no lib there is no path
+#    to clear, and the hook never blocks a session start.
+# shellcheck source=../lib/hat-file.sh
+if [ -r "$ROOT/scripts/lib/hat-file.sh" ]; then
+  . "$ROOT/scripts/lib/hat-file.sh"
+  [ -n "${KIT_HAT_FILE_REL:-}" ] && rm -f "$ROOT/$KIT_HAT_FILE_REL" 2>/dev/null
+fi
 
 # 2. Board drift — surface it into context (stdout is added to the session).
 # The harness cuts a hook's stdout to a short preview above roughly 10,000 bytes, so the

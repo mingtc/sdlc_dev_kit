@@ -330,6 +330,15 @@ columns and never the cards.*
 
 ### Action required
 
+- **The hat file moved from `.claude/session-role` to `.kit/session-role`, defined once in `scripts/lib/hat-file.sh`.** The
+  harness refuses a session's write under `.claude/` in every permission mode but bypass, so an unattended session could
+  never declare a hat. The upgrade replaces the two hooks and adds the lib where you never changed them; do the rest: merge
+  `.gitignore` so it ignores `.kit/session-role` (replace the `.claude/session-role` line), delete a leftover
+  `.claude/session-role`, and change any instruction of yours that tells a session to write the old path. A hook you changed
+  reads the path from the lib: `. scripts/lib/hat-file.sh`, then `$KIT_HAT_FILE_REL`. With the lib unreadable the gate blocks.
+
+  Verify: git check-ignore -q .kit/session-role && [ -f scripts/lib/hat-file.sh ] && [ ! -e .claude/session-role ]
+
 - **The release and refactor routes are now `DELETE-IF-UNUSED`: at graduation, remove each or record keeping it on purpose.**
   `scripts/release.sh`, `scripts/new-refactor.sh`, `.claude/roles/refactorer.md`, `.claude/agents/refactorer-worker.md` and
   `.claude/templates/REFACTOR.template.md` now declare the marker, so `check-board.sh` `[g]` names each until you decide. A project that

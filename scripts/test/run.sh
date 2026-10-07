@@ -465,6 +465,7 @@ CASES=(
   case_kit_init_survives_the_documented_first_commit
   case_kit_init_refuses_an_uncommitted_kit
   case_kit_init_still_fails_on_a_real_finding
+  case_hat_file_lives_outside_the_harness_directory
   case_kit_init_happy
   case_kit_init_repairs_hook_mode
   case_kit_init_roles_leave_no_seam

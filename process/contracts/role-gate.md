@@ -102,11 +102,12 @@ declared, never that it was the right one.
   allow-first, fail-open behaviour above.
 - `scripts/hooks/session-start.sh` — KIT-CLASS: KIT. Clears the declaration at session start,
   which is what makes it per-session.
-- The declaration's location is held as a named value on its own line in both hooks so a test can
-  derive it rather than restate it — the single-definition rule from
-  [config-seam.md](config-seam.md).
-- `scripts/kit-init.sh` — KIT-CLASS: KIT. Writes the declaration's own path — the session-role
-  file under the agent-harness directory — into the new repository's ignore list, which is how the
+- `scripts/lib/hat-file.sh` — KIT-CLASS: KIT. The declaration's location, `KIT_HAT_FILE_REL`, defined
+  once and read by both hooks and the initializer so a test can derive it rather than restate it —
+  the single-definition rule from [config-seam.md](config-seam.md). It lies outside `.claude/`
+  because the harness refuses a session's write there in every permission mode but bypass, and an
+  unattended session could then never declare a hat. With the lib unreadable the gate blocks.
+- `scripts/kit-init.sh` — KIT-CLASS: KIT. Writes the declaration's own path — `KIT_HAT_FILE_REL` — into the new repository's ignore list, which is how the
   session-state invariant in § 2 is *installed* rather than merely stated.
   **Its own commits wear § 2a's hat.** The initializer signs its initialization and self-check
   commits with the pre-role hat — § 2a's default, or the hat named by its `KIT_INIT_ROLE` knob — and

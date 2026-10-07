@@ -11,15 +11,16 @@
 #   • any other non-zero → non-blocking error (the call still proceeds)
 #
 # Behaviour:
-#   • .claude/session-role EXISTS            → allow (the hat is declared).
-#   • target is .claude/session-role itself  → allow (BOOTSTRAP: the agent must be
+#   • the hat file EXISTS                    → allow (the hat is declared).
+#   • target is the hat file itself          → allow (BOOTSTRAP: the agent must be
 #                                              able to CREATE the role file, else the
 #                                              gate is a permanent deadlock).
+# The hat file's path is KIT_HAT_FILE_REL in scripts/lib/hat-file.sh, the one definition.
 #   • target is OUTSIDE the repo (scratchpad)→ allow (not our concern).
 #   • target is UNDER the repo, no role file → BLOCK (exit 2 + instructive stderr).
 #
 # A HAT DECLARATION IS SESSION STATE, NEVER REPOSITORY CONTENT (process/contracts/role-gate.md
-# § 2): kit-init.sh gitignores `.claude/session-role`, because a tracked one forks per branch,
+# § 2): kit-init.sh gitignores the hat file, because a tracked one forks per branch,
 # blocks a `git switch` and reaches the landing gate as a merge conflict.
 #
 # SAFETY: the "role file exists → allow" check runs FIRST and unconditionally, before
@@ -27,10 +28,6 @@
 # its hat. And if we cannot determine the target path at all, we FAIL-OPEN (allow) —
 # never hard-block on a payload we don't understand.
 set -uo pipefail
-
-# The repo-relative path of the role file. Kept as a named var on its OWN line so a
-# test fixture can DERIVE it (sed) instead of re-hardcoding a literal.
-ROLE_REL=".claude/session-role"
 
 # Repo root: the harness exports CLAUDE_PROJECT_DIR for hook commands; prefer it.
 # Fall back to this script's location (scripts/hooks/require-role.sh → repo root is
@@ -41,14 +38,20 @@ if [ -z "$REPO_ROOT" ]; then
   REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../.." 2>/dev/null && pwd -P || true)"
 fi
 REPO_ROOT="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P || printf '%s' "$REPO_ROOT")"
-ROLE_FILE="$REPO_ROOT/$ROLE_REL"
+
+# The hat file's path comes from the one lib that defines it. Without that lib the gate cannot tell a
+# declared hat from none, and a gate that allows on doubt reads as armed while it is not: it blocks.
+ROLE_REL=""
+# shellcheck source=../lib/hat-file.sh
+[ -r "$REPO_ROOT/scripts/lib/hat-file.sh" ] && . "$REPO_ROOT/scripts/lib/hat-file.sh" && ROLE_REL="${KIT_HAT_FILE_REL:-}"
+ROLE_FILE=""; [ -n "$ROLE_REL" ] && ROLE_FILE="$REPO_ROOT/$ROLE_REL"
 
 # Drain the JSON payload the harness feeds on stdin (consume it whether or not we
 # end up parsing, so the harness's write completes cleanly).
 payload="$(cat 2>/dev/null || true)"
 
 # ── ALLOW #1 — the hat is declared. FIRST + unconditional (bulletproof).
-if [ -n "$REPO_ROOT" ] && [ -e "$ROLE_FILE" ]; then
+if [ -n "$REPO_ROOT" ] && [ -n "$ROLE_FILE" ] && [ -e "$ROLE_FILE" ]; then
   exit 0
 fi
 
@@ -103,7 +106,7 @@ canon_base="$(cd "$probe" 2>/dev/null && pwd -P || true)"
 
 # ── ALLOW #2 — bootstrap exemption: writing the role file itself is always allowed
 #    (otherwise the agent could never create it → permanent deadlock).
-if [ "$abs" = "$ROLE_FILE" ]; then
+if [ -n "$ROLE_FILE" ] && [ "$abs" = "$ROLE_FILE" ]; then
   exit 0
 fi
 
@@ -117,14 +120,20 @@ esac
 #    loaded only here, guarded: a tree without it still blocks, as the fallback below.
 # shellcheck source=../lib/refuse.sh
 [ -r "$REPO_ROOT/scripts/lib/refuse.sh" ] && . "$REPO_ROOT/scripts/lib/refuse.sh"
-msg1="✗ Role-declaration gate: no $ROLE_REL — refusing to mutate a repo file."
-msg2="  Target: $abs"
-msg3="Next: confirm your hat BEFORE changing anything (the manual's § Execution discipline):
+if [ -z "$ROLE_REL" ]; then
+  msg1="✗ Role-declaration gate: scripts/lib/hat-file.sh is unreadable, so the hat file's path is unknown — refusing to mutate a repo file."
+  msg3="Next: restore it with  git checkout -- scripts/lib/hat-file.sh  (or from the release zip), then retry the edit."
+  msg4="  Read-only work needs no role; paths outside the repo are never gated."
+else
+  msg1="✗ Role-declaration gate: no $ROLE_REL — refusing to mutate a repo file."
+  msg3="Next: confirm your hat BEFORE changing anything (the manual's § Execution discipline):
     write $ROLE_REL with a single line:  <Role> <scope>
       e.g.  Dev <PREFIX>-001
     (or — ONLY when the operator explicitly waived the hat —
      none — operator override: <reason>)"
-msg4="  Then retry the edit. Read-only work needs no role; paths outside the repo are never gated."
+  msg4="  Then retry the edit. Read-only work needs no role; paths outside the repo are never gated."
+fi
+msg2="  Target: $abs"
 if command -v kit_refuse >/dev/null 2>&1; then
   kit_refuse 2 role-declaration-missing "$msg1" "" "$msg2" "" "$msg3" "" "$msg4"
 fi

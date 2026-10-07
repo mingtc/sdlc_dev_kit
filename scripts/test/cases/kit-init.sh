@@ -398,13 +398,10 @@ ISSUE_TEMPLATE_REL='.claude/templates/ISSUE.template.md'
 ISSUE_TEMPLATE_ABSENT="$ISSUE_TEMPLATE_REL absent (copy-list incomplete)"
 has_issue_template() { [ -f "$REAL_REPO_ROOT/$ISSUE_TEMPLATE_REL" ]; }
 
-# THE ROLE-FILE PATH, derived from BOTH hooks' `ROLE_REL=` lines and required to agree: deriving
-# from one would leave the pair unchecked while looking like a derivation.
-_role_rel() {   # -> the agreed ROLE_REL, or empty if the hooks disagree or either cannot be read
-  local a b
-  a="$(sed -n 's/^ROLE_REL="\(.*\)"$/\1/p' "$REAL_SCRIPTS/hooks/require-role.sh" 2>/dev/null)"
-  b="$(sed -n 's/^ROLE_REL="\(.*\)"$/\1/p' "$REAL_SCRIPTS/hooks/session-start.sh" 2>/dev/null)"
-  [ -n "$a" ] && [ "$a" = "$b" ] && printf '%s' "$a"
+# THE HAT-FILE PATH, derived from the one lib that defines it. An empty derivation is refused by
+# every caller, because an empty path would make a grep match every line and pass on nothing.
+_role_rel() {   # -> KIT_HAT_FILE_REL as lib/hat-file.sh declares it, or empty if it cannot be read
+  sed -n 's/^KIT_HAT_FILE_REL="\(.*\)"$/\1/p' "$REAL_SCRIPTS/lib/hat-file.sh" 2>/dev/null
 }
 
 has_kit_init() { [ -f "$REAL_SCRIPTS/kit-init.sh" ]; }
@@ -423,6 +420,67 @@ kit_init_sandbox() {   # [work_subdir] — passed to make_sandbox
   # copies: the neutralizer walks all of .claude/, so a call between them leaves the role docs
   # stamped.
   _kit_neutral_claude
+}
+
+# =============================================================================
+# CASE — THE HAT FILE LIVES OUTSIDE `.claude/`, IN ONE PLACE.
+# The harness refuses a session's write under `.claude/` in every mode but bypass, so a hat file
+# there can never be declared by an unattended session. The path is defined once
+# (lib/hat-file.sh); the gate reads it, the SessionStart hook clears it, the shipped ignore file
+# carries it, and the old harness-directory literal appears in no shipped file.
+# =============================================================================
+case_hat_file_lives_outside_the_harness_directory() {
+  cf_reset
+  local rel; rel="$(_role_rel)"
+  [ -n "$rel" ] || cf "(control) scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL on its own line"
+  # The old literal is assembled so this file does not itself contain it.
+  local old=".claude""/session-role" f hits="" lits=""
+  case "$rel" in .claude/*) cf "the hat file's path '$rel' is inside the harness directory the harness protects" ;; esac
+  # Population: every shipped file under scripts/ (this harness excluded), the shipped ignore file,
+  # and the process and harness-directory prose, less the release notes (which say what moved).
+  for f in "$REAL_SCRIPTS"/*.sh "$REAL_SCRIPTS"/lib/*.sh "$REAL_SCRIPTS"/hooks/* "$REAL_SCRIPTS"/githooks/* \
+           "$REAL_REPO_ROOT/.gitignore" "$REAL_REPO_ROOT"/process/*.md "$REAL_REPO_ROOT"/process/contracts/*.md; do
+    [ -f "$f" ] || continue
+    case "$f" in */KIT-RELEASE-NOTES.md) continue ;; esac
+    grep -F -- "$old" "$f" >/dev/null 2>&1 && hits="$hits ${f#"$REAL_REPO_ROOT"/}"
+    [ -z "$rel" ] || ! grep -F -- "$rel" "$f" >/dev/null 2>&1 || case "$f" in *.md) : ;; *) lits="$lits ${f#"$REAL_REPO_ROOT"/}" ;; esac
+  done
+  [ -z "$hits" ] || cf "the old harness-directory hat-file literal survives in:$hits"
+  # The new literal is in the lib (the definition) and the shipped ignore file, and in no other code.
+  [ -z "$rel" ] || case " $lits " in *" scripts/lib/hat-file.sh "*) : ;; *) cf "(control) the lib that defines the path does not contain it: $lits" ;; esac
+  [ -z "$rel" ] || case " $lits " in *" .gitignore "*) : ;; *) cf "the shipped .gitignore does not ignore $rel" ;; esac
+  local extra="${lits# }"; extra="${extra//scripts\/lib\/hat-file.sh/}"; extra="${extra//.gitignore/}"; extra="${extra// /}"
+  [ -z "$extra" ] || cf "a second literal of the hat file's path is in shipped code: $lits"
+
+  make_sandbox
+  local hook="$SB_WORK/scripts/hooks/require-role.sh" ss="$SB_WORK/scripts/hooks/session-start.sh" out rc payload
+  payload="{\"tool_input\":{\"file_path\":\"$SB_WORK/notes.txt\"},\"cwd\":\"$SB_WORK\"}"
+  # No declaration: refused, and the refusal names the new path.
+  out="$(printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" 2>&1)"; rc=$?
+  [ "$rc" -eq 2 ] || cf "with no hat declared the gate exited $rc, want 2: $out"
+  case "$out" in *"write $rel with"*) : ;; *) cf "the refusal does not tell the session to write $rel: $out" ;; esac
+  # A declaration at the old location does not satisfy the gate.
+  mkdir -p "$SB_WORK/.claude"; printf 'Dev\n' > "$SB_WORK/$old"
+  printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 2 ] || cf "a declaration at the old harness-directory path satisfied the gate (exit $rc)"
+  # The bootstrap: writing the hat file itself is allowed with no hat, and then the declaration unlocks the gate.
+  printf '%s' "{\"tool_input\":{\"file_path\":\"$SB_WORK/$rel\"},\"cwd\":\"$SB_WORK\"}" \
+    | CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "writing the hat file with no hat declared exited $rc, want 0 (bootstrap)"
+  mkdir -p "$SB_WORK/$(dirname "$rel")"; printf 'Dev T-001\n' > "$SB_WORK/$rel"
+  printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "with $rel present the gate exited $rc, want 0"
+  # The SessionStart hook clears it.
+  CLAUDE_PROJECT_DIR="$SB_WORK" bash "$ss" >/dev/null 2>&1
+  [ ! -e "$SB_WORK/$rel" ] || cf "the SessionStart hook left $rel in place"
+  # Without the lib the gate cannot know the path: it blocks, naming the restore.
+  rm -f "$SB_WORK/scripts/lib/hat-file.sh"
+  out="$(printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$SB_WORK" bash "$hook" 2>&1)"; rc=$?
+  [ "$rc" -eq 2 ] || cf "with scripts/lib/hat-file.sh gone the gate exited $rc, want 2 (a gate that allows on doubt reads as armed)"
+  case "$out" in *"git checkout -- scripts/lib/hat-file.sh"*) : ;; *) cf "the lib-missing refusal names no restore: $out" ;; esac
+
+  finish "the hat file lives outside .claude/ ($rel), is defined once in lib/hat-file.sh, is read by the gate and cleared by SessionStart, and the old literal is in no shipped file"
+  teardown
 }
 
 # =============================================================================
@@ -460,9 +518,9 @@ case_kit_init_happy() {
   # grep below look for an empty string, match every line, and pass while checking nothing.
   local role_rel; role_rel="$(_role_rel)"
   [ -n "$role_rel" ] \
-    || cf "(control) could not derive an AGREED ROLE_REL from the two hooks — either one of them no longer declares it on its own line, or they now name different paths; the .gitignore assertion below would otherwise search for an empty string and pass"
+    || cf "(control) could not derive KIT_HAT_FILE_REL from scripts/lib/hat-file.sh — the .gitignore assertion below would otherwise search for an empty string and pass"
   [ -z "$role_rel" ] || grep -xF "$role_rel" "$SB_WORK/.gitignore" >/dev/null \
-    || cf "$role_rel (derived from the hooks) was not written into the new repo's .gitignore"
+    || cf "$role_rel (derived from lib/hat-file.sh) was not written into the new repo's .gitignore"
   # The board is COMPLETE and left PRISTINE.
   local keeps leftovers
   keeps="$(find "$SB_WORK/progress" -name .gitkeep | wc -l | tr -d ' ')"

@@ -158,7 +158,7 @@ Examples: `[<Role>] <PREFIX>-001: <what changed>` ·
 | The archive sweep threshold | set in `scripts/config.sh` (`QA_COMPLETE_THRESHOLD`) | <why that value> |
 | The acceptance tier (a lens, never a gate) | <on/off> | <why> |
 | Retirement under a ledger (else: park only) | <on/off> | <why> |
-| Unattended launches (`.claude/settings.unattended.json.example`) | <on/off — an opt-in profile passed at launch, never copied into settings.json by default> | <which launch route passes it, or "not used"> |
+| Unattended launches (`.claude/settings.unattended.json.example`) | <on/off — an opt-in profile passed at launch, never copied into settings.json by default> | <which launch route passes it, or "not used"; a headless `claude -p` takes its allow rules from `.claude/settings.local.json`, `--settings` or `--allowedTools`, not from `.claude/settings.json`> |
 | <your own> | <…> | <…> |
 
 ## The binding gates here

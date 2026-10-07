@@ -385,6 +385,11 @@ elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   pf "scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
 fi
 
+# shellcheck source=lib/hat-file.sh
+if [ ! -f "$SCRIPT_DIR/lib/hat-file.sh" ] || ! . "$SCRIPT_DIR/lib/hat-file.sh" || [ -z "${KIT_HAT_FILE_REL:-}" ]; then
+  pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL — kit-init ignores the hat file's path from that file and will not guess it. Restore it:  git checkout -- scripts/lib/hat-file.sh"
+fi
+
 # An existing progress.md keeps its content, so it must already carry § Log's heading (declared in
 # lib/lived-probe.sh). Checked here, not in step 3: by then the seams are stamped.
 if [ -f "$ROOT/progress.md" ] && [ -n "${KIT_LOG_HEADING_ERE:-}" ] && ! grep -qE "$KIT_LOG_HEADING_ERE" "$ROOT/progress.md"; then
@@ -1019,14 +1024,14 @@ fi
 # The kanban worktree and its lock live at the repo root and are NEVER tracked.
 # Without these entries every board move leaves the tree looking dirty.
 #
-# `.claude/session-role` is SESSION STATE, never repository content (role-gate.md § 2):
+# The hat file (lib/hat-file.sh) is SESSION STATE, never repository content (role-gate.md § 2):
 # tracked, it forks per branch and reaches a landing as a merge conflict.
 touch "$ROOT/.gitignore"
 IGN_ADDED=0
-for entry in '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' '.claude/session-role'; do
+for entry in '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' "$KIT_HAT_FILE_REL"; do
   grep -qxF "$entry" "$ROOT/.gitignore" || { printf '%s\n' "$entry" >> "$ROOT/.gitignore"; IGN_ADDED=$((IGN_ADDED+1)); }
 done
-say "  .gitignore: ${IGN_ADDED} entr(y|ies) added (kanban worktree + .claude/session-role)"
+say "  .gitignore: ${IGN_ADDED} entr(y|ies) added (kanban worktree + $KIT_HAT_FILE_REL)"
 
 # =============================================================================
 # 4. HOOKS
@@ -1231,16 +1236,16 @@ fi
 # --- (5) a hat declaration is SESSION STATE, not repository content ----------
 # DECLARE a hat the way an actor would, then assert the repository does not see
 # it. An ignore entry nobody exercised is a promise, not a guarantee.
-SR_DIR="$ROOT/.claude"; SR_FILE="$SR_DIR/session-role"; SR_PRE_EXISTING=false
+SR_FILE="$ROOT/$KIT_HAT_FILE_REL"; SR_DIR="$(dirname "$SR_FILE")"; SR_PRE_EXISTING=false
 [ -f "$SR_FILE" ] && SR_PRE_EXISTING=true
 mkdir -p "$SR_DIR"
 [ "$SR_PRE_EXISTING" = true ] || printf 'Dev\n' > "$SR_FILE"
-if git -C "$ROOT" status --porcelain | grep 'session-role' >/dev/null; then
-  sc_bad "a hat declaration shows up in git status — .claude/session-role is not ignored (role-gate.md § 2)"
+if git -C "$ROOT" status --porcelain --untracked-files=all | grep -F -- "$KIT_HAT_FILE_REL" >/dev/null; then
+  sc_bad "a hat declaration shows up in git status — $KIT_HAT_FILE_REL is not ignored (role-gate.md § 2)"
 else
   sc_ok "a hat declaration is invisible to git status — session state, not repository content"
 fi
-[ "$SR_PRE_EXISTING" = true ] || rm -f "$SR_FILE"
+[ "$SR_PRE_EXISTING" = true ] || { rm -f "$SR_FILE"; rmdir "$SR_DIR" 2>/dev/null || true; }
 
 # --- (6) THE CENSUS — asserted rather than promised --------------------------
 # process/contracts/config-seam.md: the donor's values in the travelling files are COUNTED,

@@ -68,16 +68,16 @@ selection-neutrality — are the whole of what an adopter owes.
    **`./scripts/check-board.sh`** for a drift report.
 3. **Pick a hat.** Say which role you are wearing (see § Roles as hats). The role doc in
    `.claude/roles/` is your workflow. If the `require-role` hook is active (see
-   `.claude/settings.json.example`), declare it by writing `.claude/session-role` first.
+   `.claude/settings.json.example`), declare it by writing `.kit/session-role` first (create `.kit/` if absent; the path is outside `.claude/` because the harness refuses a session's write there in every mode but bypass).
 
-> **What goes in `.claude/session-role`.** **One line:** `<Role> <scope>` — e.g.
+> **What goes in `.kit/session-role`.** **One line:** `<Role> <scope>` — e.g.
 > `Dev <PREFIX>-001`; or, **only** when the operator has explicitly waived the hat,
 > `none — operator override: <reason>`. The gate is **existence, not content**: the
 > `require-role` hook allows any mutation once the file is present, and the line's job is to tell
 > the next reader (and you, an hour later) which hat is on. The `session-start` hook **deletes
 > the file at every session start**, so each session re-confirms its hat rather than inheriting
-> the last one's. The path is a named variable on its own line in both hooks (`ROLE_REL`) so a
-> guard can derive it instead of re-hardcoding it.
+> the last one's. The path is one value, `KIT_HAT_FILE_REL` in `scripts/lib/hat-file.sh`, that both
+> hooks and the initializer read, so a guard can derive it instead of re-hardcoding it.
 
 > First-time setup on a fresh clone: run the project's **bootstrap command** — the project doc
 > names it (typically one script that creates the environment, installs the project, runs the

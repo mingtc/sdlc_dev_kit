@@ -19,7 +19,7 @@
 
 # ── Process kit: the per-session declared role (the hat gate) ───────────────
 # Ephemeral: one line naming the hat this session is wearing. Never committed.
-.claude/session-role
+.kit/session-role
 
 # ── Agent harness: per-checkout, per-person settings ───────────────────────
 # Yours, not the project's: it may carry an env block such as a run id, stale in every clone.
