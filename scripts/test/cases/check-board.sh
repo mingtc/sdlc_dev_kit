@@ -3837,3 +3837,169 @@ case_check_board_fill_arm_flags_a_test_glob_that_matches_no_file() {
   finish "check-board arm [g]: a TEST_GLOBS entry that matches no file is named, a live one is not, a TEST_GLOBS whose entries all match reads clean, and a dead entry on an otherwise-finished tree is reported without holding graduation COMPLETE back"
   teardown
 }
+
+# =============================================================================
+# CASE — arm [c] reports a last progress.md touch that predates the last CODE commit.
+#
+# "Code" is CODE_GLOBS (the code-vs-metadata rule's one definition), so a board move and a
+# register edit made after the last progress.md touch do NOT count; a commit under a code glob
+# does. The fixture follows the workflow's order: the session writes its entry and publishes,
+# a code commit lands on the trunk, then metadata moves, then the entry is written.
+# =============================================================================
+case_check_board_progress_trails_the_last_code_commit() {
+  cf_reset
+  make_sandbox
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  "src/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  # DECLARED EMPTY -- fixture (TEST_GLOBS).'
+  mkdir -p "$SB_WORK/src"
+  printf 'v1\n' > "$SB_WORK/src/app.sh"
+  printf '# progress.md\n\n## Log\n\n### 2026-01-01 [Dev] first session\n\n- built v1\n' > "$SB_WORK/progress.md"
+  publish_sandbox
+  local out line
+  _l() { printf '%s\n' "$1" | grep '^\[c\] progress.md LAST ENTRY' || true; }
+
+  # (a) the entry and the code share a commit: nothing after it.
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F '0 of 0 commit(s)' >/dev/null && printf '%s\n' "$line" | grep -F '✓' >/dev/null \
+    || cf "(a) an entry written with the code was not read clean, with its population: ${line:-no LAST ENTRY line}"
+
+  # (b) a code commit lands on the trunk after the entry.
+  printf 'v2\n' > "$SB_WORK/src/app.sh"
+  git -C "$SB_WORK" add src/app.sh >/dev/null 2>&1
+  sbcommit -m "[Dev] XYZ-901: change app" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F '1 of 1 commit(s)' >/dev/null && printf '%s\n' "$line" | grep -F '⚠' >/dev/null \
+    || cf "(b) a code commit after the last progress.md touch was not reported: ${line:-no LAST ENTRY line}"
+  printf '%s\n' "$line" | grep -F 'XYZ-901: change app' >/dev/null \
+    || cf "(b) the newest code commit was not named: $line"
+  printf '%s\n' "$out" | grep '^── board-drift: clean ✓' >/dev/null \
+    || cf "(b) the report moved the verdict (reports only): $(printf '%s\n' "$out" | grep '^── board-drift:')"
+
+  # (c) metadata commits after it do not change the count: a board move and a register edit.
+  seed_issue todo "$SB_PREFIX-902" meta chore "Board move"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[PM] XYZ-902: file the card" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-902-meta.md" "progress/in_progress/$SB_PREFIX-902-meta.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] XYZ-902 -> in_progress" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F '1 of 3 commit(s)' >/dev/null \
+    || cf "(c) board moves were counted as code, or the span was not printed: ${line:-no LAST ENTRY line}"
+
+  # (d) the entry is written after the code: clean again.
+  printf '\n### 2026-01-02 [Dev] second session\n\n- built v2\n' >> "$SB_WORK/progress.md"
+  git -C "$SB_WORK" add progress.md >/dev/null 2>&1
+  sbcommit -m "[Dev] progress: second session" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F '0 of 0 commit(s)' >/dev/null && printf '%s\n' "$line" | grep -F '✓' >/dev/null \
+    || cf "(d) an entry written after the code did not read clean: ${line:-no LAST ENTRY line}"
+  teardown
+
+  # (e) CODE_GLOBS undeclared: the check says it did not run, and does not read as a pass.
+  make_sandbox
+  printf '# progress.md\n\n## Log\n\n### 2026-01-01 [Dev] first session\n\n- x\n' > "$SB_WORK/progress.md"
+  publish_sandbox
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F 'THIS CHECK DID NOT RUN' >/dev/null \
+    || cf "(e) an undeclared CODE_GLOBS was not reported as not run: ${line:-no LAST ENTRY line}"
+  printf '%s\n' "$line" | grep -F '✓' >/dev/null \
+    && cf "(e) an undeclared CODE_GLOBS read as a pass: $line"
+  finish "check-board arm [c]: a progress.md last touched before a CODE_GLOBS commit is reported with its population, board moves do not count, an entry written after clears it, and an undeclared CODE_GLOBS says the check did not run"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [f] reports a remote branch named for a card that has landed.
+#
+# Order as the roles do it: the card is minted, its branch is cut and pushed, then the card
+# moves; the branch is left behind (a re-cut, or a landing that died before its delete). A card
+# still open keeps its branch unflagged; deleting the stale branch clears the line.
+# =============================================================================
+case_check_board_reports_a_remote_branch_left_by_a_landed_card() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-911" recut chore "Recut"
+  seed_issue todo "$SB_PREFIX-912" live chore "Still open"
+  seed_issue todo "$SB_PREFIX-913" qa chore "Landed to qa_complete"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-911" recut m911
+  seed_branch "$SB_PREFIX-912" live m912
+  seed_branch "$SB_PREFIX-913" qa m913
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-911-recut.md" "progress/done/$SB_PREFIX-911-recut.md" >/dev/null 2>&1
+  git -C "$SB_WORK" mv "progress/todo/$SB_PREFIX-913-qa.md" "progress/qa_complete/$SB_PREFIX-913-qa.md" >/dev/null 2>&1
+  sbcommit -m "[QA] board: 911 and 913 landed" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  local out sec
+  _sec() { printf '%s\n' "$1" | awk '/^\[f\] remote branches/ { f = 1; print; next } f && /^\[[a-z]\]/ { exit } f && /^──/ { exit } f'; }
+  out="$(cb_run)"; sec="$(_sec "$out")"
+  printf '%s\n' "$sec" | grep -F "feature/$SB_PREFIX-911-recut" >/dev/null \
+    || cf "(a) a branch for a card in done/ was not named: ${sec:-no section}"
+  printf '%s\n' "$sec" | grep -F "feature/$SB_PREFIX-913-qa" >/dev/null \
+    || cf "(a) a branch for a card in qa_complete/ was not named: $sec"
+  printf '%s\n' "$sec" | grep -F "feature/$SB_PREFIX-912-live" >/dev/null \
+    && cf "(a) the branch of a card still open was named: $sec"
+  printf '%s\n' "$sec" | grep -F '4 read, 3 named for a card' >/dev/null \
+    || cf "(a) the population was not printed (4 branches read incl. the trunk, 3 named for a card): $sec"
+  printf '%s\n' "$sec" | grep -F 'reports only' >/dev/null \
+    || cf "(a) the section's header does not declare itself advisory (reports only): $(printf '%s\n' "$sec" | head -1)"
+
+  # (b) the stale branches deleted: the same section reads clean, with its population.
+  git -C "$SB_WORK" push origin --delete "feature/$SB_PREFIX-911-recut" "feature/$SB_PREFIX-913-qa" --quiet >/dev/null 2>&1
+  out="$(cb_run)"; sec="$(_sec "$out")"
+  printf '%s\n' "$sec" | grep -F '2 read, 1 named for a card, none for a card in done/' >/dev/null \
+    || cf "(b) with the stale branches deleted the section did not read clean with its population: ${sec:-no section}"
+  finish "check-board arm [f]: a remote branch named for a card in done/ or qa_complete/ is named with its population, a branch of an open card is not, the verdict does not move, and deleting the stale branch clears it"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g] reports a declared TEST_GLOBS that does not cover scripts/test/**.
+#
+# The population is the shipped scripts/test/ tree itself, copied into the sandbox, and its file
+# count is read from the SHIPPED tree before the copy — never from what the sandbox holds.
+# =============================================================================
+case_check_board_fill_arm_reports_test_globs_missing_the_kits_own_tests() {
+  cf_reset
+  local n_shipped=0 _f
+  for _f in $(cd "$REAL_SCRIPTS/test" && find . -type f | sed 's|^\./||'); do n_shipped=$((n_shipped+1)); done
+  [ "$n_shipped" -gt 0 ] || { _control_did_not_run "read the shipped scripts/test/ population"; finish "check-board arm [g]: TEST_GLOBS vs scripts/test/**"; return; }
+  local out line
+  _l() { printf '%s\n' "$1" | _cb_g_section | grep 'TEST_GLOBS vs scripts/test' || true; }
+
+  # (a) a literal fill that misses it: reported, naming a file and the population.
+  make_sandbox
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  # DECLARED EMPTY -- fixture (CODE_GLOBS).'
+  _cb_g_fill_glob_array TEST_GLOBS '  "test/*"'
+  cp -R "$REAL_SCRIPTS/test" "$SB_WORK/scripts/test"
+  mkdir -p "$SB_WORK/test"; printf '# t\n' > "$SB_WORK/test/a.sh"
+  publish_sandbox
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F "$n_shipped of $n_shipped file(s) under scripts/test/ are covered by no declared entry" >/dev/null \
+    && printf '%s\n' "$line" | grep -F '⚠' >/dev/null \
+    || cf "(a) test/* was not reported as missing scripts/test/** with its population ($n_shipped): ${line:-no coverage line}"
+  teardown
+
+  # (b) the same fill plus "scripts/test/*": covered, ✓.
+  make_sandbox
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  # DECLARED EMPTY -- fixture (CODE_GLOBS).'
+  _cb_g_fill_glob_array TEST_GLOBS '  "test/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  "scripts/test/*"'
+  cp -R "$REAL_SCRIPTS/test" "$SB_WORK/scripts/test"
+  publish_sandbox
+  out="$(cb_run)"; line="$(_l "$out")"
+  printf '%s\n' "$line" | grep -F "all $n_shipped file(s) under scripts/test/ are covered" >/dev/null \
+    && printf '%s\n' "$line" | grep -F '✓' >/dev/null \
+    || cf "(b) scripts/test/* in TEST_GLOBS was not read as covering the kit's own tests: ${line:-no coverage line}"
+  printf '%s\n' "$out" | grep '^── board-drift: clean ✓' >/dev/null \
+    || cf "(b) the report moved the verdict: $(printf '%s\n' "$out" | grep '^── board-drift:')"
+  finish "check-board arm [g]: a declared TEST_GLOBS that misses scripts/test/** is reported with the shipped population, one that covers it reads clean, and the verdict does not move"
+  teardown
+}

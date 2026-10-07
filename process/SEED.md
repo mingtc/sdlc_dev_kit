@@ -260,7 +260,10 @@ you want to know how a stranger meets what you shipped.
   `scripts/finish-pr.sh`'s ablation check stay silently off until you act. Fill either with your
   globs, or, if a seam genuinely has none, add its one `# DECLARED EMPTY — <why>` comment line
   inside the array's parens (the mechanical form config.sh documents beside each array) —
-  `./scripts/check-board.sh`'s `[g]` arm measures both and reports which;
+  `./scripts/check-board.sh`'s `[g]` arm measures both and reports which. **Name `scripts/test/**`
+  in `TEST_GLOBS` beside your own test paths** (e.g. `"scripts/test/*"`): it is the kit's own
+  self-test, and an edit to it is ablation-checked only if a glob covers it — `"test/*"` does not,
+  because globs match from the repository root; `[g]` reports a declared `TEST_GLOBS` that misses it;
 - **`PROJECT.md`'s `principal:`** (§ Who answers when nobody is watching) **is filled** — a name,
   a role, or the literal `nobody` if no one should answer unattended. Leaving it blank is what
   `scripts/ask.sh` refuses on the first time a session hits a blocking question with nobody

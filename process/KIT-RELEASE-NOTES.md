@@ -432,6 +432,16 @@ columns and never the cards.*
 
 ### Added
 
+- **`check-board.sh` arm `[c]` reports a `progress.md` that trails the last code commit.** It counts commits after the last one
+  to touch `progress.md` that touch a `CODE_GLOBS` path (board moves and register edits do not), and says so when `CODE_GLOBS` is
+  undeclared. Report only. Nothing to do.
+
+- **`check-board.sh` reports a remote branch left behind by a landed card.** A second `[f]` section names a branch whose card is
+  in `done/` or `qa_complete/`, read from the remote-tracking refs as last fetched. Report only. Nothing to do.
+
+- **`SEED.md` and arm `[g]` name `scripts/test/**` for `TEST_GLOBS`.** `[g]` reports a declared `TEST_GLOBS` that does not cover
+  the kit's own self-test, which a bare `test/*` misses. Report only. To clear it, add `"scripts/test/*"` to `TEST_GLOBS`.
+
 - **`check-board.sh` gains arm `[s]`: a worker pin that disagrees with the ladder.** It compares each leaf-worker
   pin's model and effort with its ladder cell and, where the cell is still unfilled, with what `set-models.sh` last
   wrote (new file `.claude/model-pins.record`, written only by `set-models.sh`). Report only. It cannot see a model

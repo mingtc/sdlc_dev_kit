@@ -6,10 +6,12 @@
 # Contract: process/contracts/drift-report.md. The arms, one line each, in print order:
 #   (a) folder vs last-Activity drift, every column in STATUS_FOLDERS but a named skip list;
 #   (b) qa_complete/ depth vs the archive.sh sweep threshold;
-#   (c) progress.md § Log bytes vs the rotation threshold, plus the whole file (advisory);
+#   (c) progress.md § Log bytes vs the rotation threshold, plus the whole file (advisory), plus
+#       the code commits made since progress.md was last touched (advisory);
 #   (d) frontmatter id integrity across every column, plus the declared registers;
 #   (e) [Role]-prefix scan of recent trunk commits;
 #   (f) unpublished work in both homes the process writes to — [f1] trunk ref, [f2] .kanban-wt;
+#       then, under its own header, a remote branch left by a card already in done/ or qa_complete/ (advisory);
 #   (g) graduation — has day one finished (advisory);
 #   (h) generated-trailer scan of the same commits as (e);
 #   (i) blocks:/blocked_by: symmetry (advisory here; a landing refuses a finding it introduces);
@@ -262,6 +264,26 @@ if [ "$CB_SRC_KIND" = "ref" ]; then
   fi
 fi
 
+# cb_array_stream <array> <config.sh> — the ONE reader of a scripts/config.sh glob array, the
+# anchored shape scripts/githooks/pre-commit and scripts/lib/qa-gate.sh parse: an `E|<entry>` line
+# per real entry (quotes and trailing comment stripped, blanks skipped) and a bare `D` line if a
+# whole-line `# DECLARED EMPTY` comment sits inside the parens.
+cb_array_stream() {
+  awk -v arr="$1" '
+        $0 == arr "=(" { in_arr=1; next }
+        in_arr && /^\)/ { in_arr=0; next }
+        in_arr {
+          raw=$0
+          line=raw
+          sub(/^[[:space:]]*/, "", line)
+          if (line ~ /^#[[:space:]]*DECLARED EMPTY([^A-Za-z0-9_]|$)/) { print "D"; next }
+          sub(/[[:space:]]*#.*$/, "", line)
+          gsub(/^"|"$/, "", line)
+          if (line != "") print "E|" line
+        }
+  ' "$2"
+}
+
 # One helper so no arm can print a verdict without its operand beside it.
 cb_src() {
   printf 'read from: %s' "$CB_SRC_LABEL"
@@ -416,6 +438,38 @@ if [ -f "$pmd" ]; then
     echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ⚠ over (reports only — it never changes the verdict below) — a rotation is due, see ./scripts/archive-progress.sh — $(cb_src)"
   else
     echo "[c] progress.md WHOLE FILE: $wholebytes / $PROGRESS_WHOLE_FILE_BYTE_THRESHOLD bytes  ✓ — $(cb_src)"
+  fi
+  # LAST ENTRY vs the last CODE commit. "Code" is the project's own CODE_GLOBS (the code-vs-metadata
+  # rule's one definition): a board move, a register edit or a progress.md commit touches no code
+  # path, so none counts. Without a declared CODE_GLOBS nothing separates code from metadata, and
+  # the check says it did not run. The entry's time is the commit that last touched progress.md.
+  c_ref="${CB_REF:-HEAD}"
+  c_specs=()
+  c_nglob=0
+  c_decl=0
+  if [ -f "$CB_TREE/scripts/config.sh" ]; then
+    while IFS= read -r c_tag; do
+      case "$c_tag" in
+        E\|*) c_specs+=(":(top)${c_tag#E|}"); c_nglob=$((c_nglob+1)) ;;
+        D) c_decl=1 ;;
+      esac
+    done < <(cb_array_stream CODE_GLOBS "$CB_TREE/scripts/config.sh")
+  fi
+  c_pc="$(git -C "$REPO_ROOT" log -1 --format=%H "$c_ref" -- ':(top)progress.md' 2>/dev/null || true)"
+  if [ "$c_nglob" -eq 0 ]; then
+    echo "[c] progress.md LAST ENTRY: THIS CHECK DID NOT RUN — CODE_GLOBS in scripts/config.sh is $([ "$c_decl" -eq 1 ] && echo 'declared empty' || echo 'undeclared'), so nothing separates a code commit from a metadata one  (skipped) — $(cb_src)"
+  elif [ -z "$c_pc" ]; then
+    echo "[c] progress.md LAST ENTRY: no commit of $c_ref has touched progress.md  (skipped) — $(cb_src)"
+  else
+    c_all="$(git -C "$REPO_ROOT" rev-list --count "$c_pc..$c_ref" 2>/dev/null || echo 0)"
+    c_code="$(git -C "$REPO_ROOT" rev-list --count "$c_pc..$c_ref" -- "${c_specs[@]}" 2>/dev/null || echo 0)"
+    c_when="$(git -C "$REPO_ROOT" log -1 --format='%h %cs' "$c_pc" 2>/dev/null || true)"
+    if [ "${c_code:-0}" -gt 0 ]; then
+      c_newest="$(git -C "$REPO_ROOT" log -1 --format='%h %s' "$c_ref" -- "${c_specs[@]}" 2>/dev/null || true)"
+      echo "[c] progress.md LAST ENTRY: $c_code of $c_all commit(s) since progress.md was last touched ($c_when) touch a CODE_GLOBS path  ⚠ newest: $c_newest — the close ritual's 'progress.md written' step does not cover them; add the entry (reports only — a close with no code change is legal, and it never changes the verdict below) — $(cb_src); code = $c_nglob CODE_GLOBS entry/entries"
+    else
+      echo "[c] progress.md LAST ENTRY: 0 of $c_all commit(s) since progress.md was last touched ($c_when) touch a CODE_GLOBS path  ✓ — $(cb_src); code = $c_nglob CODE_GLOBS entry/entries"
+    fi
   fi
 else
   echo "[c] progress.md: not found in this source  (skipped) — $(cb_src)"
@@ -698,6 +752,45 @@ else
 fi
 echo "      (span, both homes: commits REACHABLE FROM A REF. A commit reachable from no ref at all — an orphaned sibling — is outside this measurement and would need the reflog.)"
 
+# ── [f3] A REMOTE BRANCH LEFT BEHIND BY A CARD THAT HAS LANDED ───────────────
+# Printed under its OWN `[f]` header carrying "reports only": the drift-report contract's machine
+# reading drops an advisory section by that header, and [f]'s own header decides.
+# A card's branch is `<kind>/<ID>-<slug>`; the landing deletes it, so one still on the remote
+# after its card reached done/ or qa_complete/ is a re-cut or an aborted landing's leftover. Read
+# from the remote-tracking refs as last fetched (no fetch), against the cards in THIS source's
+# done/ and qa_complete/. A branch for a card still open or blocked is correctly left alone.
+f3_ids=""
+for f3_col in done qa_complete; do
+  [ -d "$CB_TREE/progress/$f3_col" ] || continue
+  for f3_f in "$CB_TREE/progress/$f3_col"/*.md; do
+    [ -f "$f3_f" ] || continue
+    f3_id="$(basename "$f3_f" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?\.md$/\1/p')"
+    [ -n "$f3_id" ] && f3_ids="$f3_ids $f3_id "
+  done
+done
+echo "[f] remote branches left by a landed card (reports only — never changes the verdict below):"
+f3_refs="$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "refs/remotes/$remote/" 2>/dev/null || true)"
+if [ -z "$f3_refs" ]; then
+  echo "      [f3] remote branches: no $remote/* ref in this checkout  (skipped) — inspected: refs/remotes/$remote/ (as last fetched)"
+else
+  f3_n=0; f3_card=0; f3_stale=""
+  while IFS= read -r f3_r; do
+    f3_b="${f3_r#"$remote"/}"
+    [ "$f3_b" = "HEAD" ] || [ "$f3_b" = "$remote" ] && continue
+    f3_n=$((f3_n+1))
+    f3_seg="${f3_b##*/}"
+    f3_id="$(printf '%s\n' "$f3_seg" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?$/\1/p')"
+    [ -n "$f3_id" ] || continue
+    f3_card=$((f3_card+1))
+    case "$f3_ids" in *" $f3_id "*) f3_stale="${f3_stale}${f3_stale:+, }$f3_b" ;; esac
+  done <<< "$f3_refs"
+  if [ -n "$f3_stale" ]; then
+    echo "      [f3] remote branches: $f3_n read, $f3_card named for a card; these name a card already in done/ or qa_complete/  ⚠ $f3_stale — a leftover of a re-cut or an aborted landing; delete it if nothing needs it: git push $remote --delete <branch> — inspected: refs/remotes/$remote/ as last fetched; cards: $(cb_src)"
+  else
+    echo "      [f3] remote branches: $f3_n read, $f3_card named for a card, none for a card in done/ or qa_complete/  ✓ — inspected: refs/remotes/$remote/ as last fetched; cards: $(cb_src)"
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # (g) GRADUATION — has day one finished, and has the scaffolding been replaced?
 #     Reads the trunk like the other trunk-property arms: its subjects are metadata-lane, and a
@@ -963,19 +1056,7 @@ else
           E\|*) g_arr_n=$((g_arr_n+1)); g_arr_entries="${g_arr_entries}${g_arr_tagged#E|}"$'\n' ;;
           D) g_arr_decl=1 ;;
         esac
-      done < <(awk -v arr="$g_arr" '
-        $0 == arr "=(" { in_arr=1; next }
-        in_arr && /^\)/ { in_arr=0; next }
-        in_arr {
-          raw=$0
-          line=raw
-          sub(/^[[:space:]]*/, "", line)
-          if (line ~ /^#[[:space:]]*DECLARED EMPTY([^A-Za-z0-9_]|$)/) { print "D"; next }
-          sub(/[[:space:]]*#.*$/, "", line)
-          gsub(/^"|"$/, "", line)
-          if (line != "") print "E|" line
-        }
-      ' "$g_cfg")
+      done < <(cb_array_stream "$g_arr" "$g_cfg")
       if [ "$g_arr_n" -gt 0 ]; then
         # A TEST_GLOBS entry no file matches guards nothing: the ablation rule it feeds never
         # sees a test path. Matched with `case` against repository-relative paths, exactly as its
@@ -1005,6 +1086,31 @@ else
         else
           echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries  ✓ (read by the same anchored array parse scripts/githooks/pre-commit and scripts/lib/qa-gate.sh use) — $(cb_src)"
           g_measured=$((g_measured+1))
+        fi
+        # The kit's own self-test lives under scripts/test/, and globs match from the repository
+        # root, so a bare `test/*` misses it. Reported, never a finding: the shape of the
+        # declaration is read, whether the project wants that tree ablation-checked is its call.
+        if [ "$g_arr" = "TEST_GLOBS" ]; then
+          g_st_n=0; g_st_miss=0; g_st_first=""
+          while IFS= read -r g_p; do
+            case "$g_p" in scripts/test/*) ;; *) continue ;; esac
+            g_st_n=$((g_st_n+1)); g_hit=0
+            while IFS= read -r g_glob; do
+              [ -n "$g_glob" ] || continue
+              # shellcheck disable=SC2254  # the entry is a declared glob, matched as one
+              case "$g_p" in $g_glob) g_hit=1; break ;; esac
+            done <<< "$g_arr_entries"
+            if [ "$g_hit" -eq 0 ]; then
+              g_st_miss=$((g_st_miss+1)); [ -n "$g_st_first" ] || g_st_first="$g_p"
+            fi
+          done <<< "$g_paths"
+          if [ "$g_st_n" -eq 0 ]; then
+            echo "      FILL (TEST_GLOBS vs scripts/test/**): no file under scripts/test/ in this source  (nothing to cover) — $(cb_src)"
+          elif [ "$g_st_miss" -gt 0 ]; then
+            echo "      FILL (TEST_GLOBS vs scripts/test/**): $g_st_miss of $g_st_n file(s) under scripts/test/ are covered by no declared entry  ⚠ e.g. $g_st_first — the kit's own self-test is never ablation-checked; add \"scripts/test/*\" (globs match from the repository root) — $(cb_src)"
+          else
+            echo "      FILL (TEST_GLOBS vs scripts/test/**): all $g_st_n file(s) under scripts/test/ are covered by a declared entry  ✓ — $(cb_src)"
+          fi
         fi
       elif [ "$g_arr_decl" -eq 1 ]; then
         echo "      FILL (scripts/config.sh $g_arr): empty, and declared DECLARED EMPTY  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
