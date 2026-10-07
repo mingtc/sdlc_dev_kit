@@ -51,6 +51,12 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   *Why:* a landing check never reads its own rule from the tree it judges, and an upgrade's own landing
   runs the gates the project had before it, so nothing else ever tests an in-flight card against the
   rules the project has just adopted. A column left out would be a place to move a card to avoid them.
+- **A marked Action required item is checked where the new kit can check it, and is recorded as declared
+  where it cannot.** Finishing runs the `Verify:` command (§ 7) of every Action required item and
+  refuses while one fails; the archived checklist names each item as verified, or as declared and
+  unverified. An item never counts as verified without a command that ran.
+  *Why:* a mark says someone said the work is done; only a command reads the tree. Without the check,
+  an item marked and not done stamps the version over the undone work.
 - **It runs from the new kit, against a tree it is not inside.** The tree being upgraded is named
   explicitly; the code that runs is the new release's.
   *Why:* a tree older than the upgrade tool has none of its own, and the copy inside a tree is the
@@ -82,6 +88,7 @@ counted after the terminal is gone ([`progress-record.md`](progress-record.md) �
 | `upgrade-staging-missing` | the checklist exists but the staged version and manifest do not |
 | `upgrade-checklist-unmarked` | finishing was asked for with an item still unmarked |
 | `upgrade-open-card-refused` | finishing was asked for while an open card would still be refused by the new kit's landing checks |
+| `upgrade-verify-failed` | finishing was asked for while a marked Action required item's `Verify:` command exits non-zero |
 | `upgrade-archive-exists` | finishing was asked for and `process/upgrades/<from>-to-<to>.md` already exists |
 | `upgrade-checklist-uncommitted` | finishing was asked for while the marked checklist is uncommitted: finishing removes it, and the marks are the record |
 | `unknown-option`, `unexpected-argument` | a mis-invocation |
@@ -96,7 +103,8 @@ there becomes a merge item, and the run says why. Never a guess.
    unchanged; nothing is committed.
 2. Re-running against the same new kit changes nothing; against another version it refuses.
 3. After finishing: the version and the manifest are the new kit's, the staging is gone, and the
-   marked checklist is at `process/upgrades/<from>-to-<to>.md`.
+   marked checklist is at `process/upgrades/<from>-to-<to>.md`, ending in a section that lists each
+   Action required item as verified or as declared and unverified.
 4. Against a tree made from the same kit: nothing is written at all.
 
 ## 5. MINIMAL INTERFACE
@@ -117,3 +125,23 @@ project's work.
   `.kit-upgrade/files/<path>.kit-new`, with each `.claude` component written `_claude`.
 - `scripts/check-board.sh` arm `[o]` — KIT-CLASS: KIT. Reports the tree's version form and an open
   checklist's unmarked items; it never changes the verdict.
+
+## 7. THE `Verify:` LINE
+
+An Action required entry in `KIT-RELEASE-NOTES.md` may carry one line, indented under its bullet, that
+starts `Verify:` and holds one shell command to the end of the line. The command exits 0 when the
+action is done in an adopted tree, and also exits 0 in a tree the entry does not apply to; it reads the
+tree and changes nothing. The notes' first `Verify:` line of an entry is the one read; the single reader
+is `notes_items` in `scripts/kit-upgrade.sh`.
+
+- **First run:** the item for that entry ends `Verify: <command>`, and the new kit's notes are staged as
+  `.kit-upgrade/KIT-RELEASE-NOTES.md.kit-new`.
+- **Finishing:** each command runs with `bash -c`, in the project's top level, with no input. It is read
+  from the staged copy of the new kit's notes, never from the checklist's text, which whoever marks the
+  item can edit. It runs with the authority of whoever runs the upgrade, so a kit not trusted that far
+  is not upgraded to. A failing command is `upgrade-verify-failed`, naming the item, the command and its
+  exit status; there is no override, because a command that fails where the entry does not apply is a
+  defect in the entry.
+- **No `Verify:` line:** the item is whatever its marker says. The archived checklist's last section
+  lists it as declared and unverified; every item that is not an Action required entry (a merge, a
+  removal, a kept file) is declared the same way.

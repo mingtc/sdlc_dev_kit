@@ -36,7 +36,8 @@
 # section newer than the project's process/KIT-VERSION (an X.Y.Z+<tree> version is read as that
 # file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path.
 # The first run never stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or
-# while the marked checklist is uncommitted; then it writes the new process/KIT-VERSION and
+# while the marked checklist is uncommitted, or while an Action required item that carries a Verify:
+# command fails it (below); then it writes the new process/KIT-VERSION and
 # process/KIT-MANIFEST, moves the marked checklist to process/upgrades/<from>-to-<to>.md (the
 # record of what was done, which survives any merge strategy), and removes .kit-upgrade/.
 #
@@ -47,6 +48,14 @@
 # while any still would. A card whose branch does not resolve cannot be checked: its item says so.
 # A card in in_progress or blocked is checked for forks: alone; the QA Verdict and the Ablation are
 # owed at dev_complete.
+#
+# THE VERIFY: LINES: an Action required entry in the new kit's release notes may carry one
+# `Verify: <shell command>` line (process/contracts/kit-upgrade.md § 7). The first run copies it into
+# that entry's checklist item and stages the notes as .kit-upgrade/KIT-RELEASE-NOTES.md.kit-new;
+# --finish runs each command, in the project's top level, with bash, and refuses while one exits
+# non-zero. The command is read from that staged copy of the NEW kit's notes, never from the
+# checklist's text, which whoever marks the item can edit. An item with no Verify: is declared by
+# whoever marked it: the archived checklist says so, item by item.
 #
 # It never commits: the upgrade is ordinary work, committed through the project's own board.
 # Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory.
@@ -78,6 +87,7 @@ need_val() {
 # Greppable defaults: check-board.sh reads UPGRADE_CHECKLIST from this line.
 UPGRADE_CHECKLIST='process/UPGRADE-CHECKLIST.md'
 STAGE_DIR='.kit-upgrade'
+STAGED_NOTES='KIT-RELEASE-NOTES.md.kit-new'
 
 # THE SCAFFOLDING SENTINEL — the exact whole line scripts/check-board.sh arm (g1) matches with
 # `grep -qxF` (process/EXTRACTION.md § The marker and graduation). Declared here rather than read
@@ -228,6 +238,61 @@ lc_report() {
   [ "$LC_FORKS_ONLY" -eq 0 ] || echo "  $LC_FORKS_ONLY open card(s) outside dev_complete were checked for forks: alone; their QA Verdict and Ablation are owed at dev_complete."
 }
 
+# notes_items <release notes> — the ONE reader of the Action required entries, one row per entry:
+# <section> TAB <n> TAB <title> TAB <its Verify: command, or empty>. The Verify: line is an indented
+# line of the entry that starts `Verify:`; the first one wins.
+notes_items() {
+  awk '
+    function flush() { if (pend) printf "%s\t%d\t%s\t%s\n", psec, pn, pt, pv; pend = 0 }
+    /^## / { flush(); sec = ""; if ($0 ~ /^## \[/) { sec = $0; sub(/^## \[/, "", sec); sub(/\].*$/, "", sec) }
+             inact = 0; n = 0; next }
+    /^###+ Action required/ { flush(); inact = (sec != ""); next }
+    /^##/ { flush(); inact = 0; next }
+    inact && /^- / { flush(); n++; t = substr($0, 3)
+      if (substr(t, 1, 2) == "**") { t = substr(t, 3); i = index(t, "**"); if (i) t = substr(t, 1, i - 1); else t = t "..." }
+      if (length(t) > 110) t = substr(t, 1, 107) "..."
+      pend = 1; psec = sec; pn = n; pt = t; pv = ""; next }
+    inact && pend && pv == "" && /^[[:space:]]+Verify:[[:space:]]/ {
+      v = $0; sub(/^[[:space:]]+Verify:[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); gsub(/\t/, " ", v); pv = v; next }
+    END { flush() }
+  ' "$1" 2>/dev/null
+}
+
+# vf_run — runs the Verify: command of every Action required item in the checklist, read from the
+# staged copy of the new kit's notes. Fills VF_FAILED (three printable lines per failure; VF_NFAIL counts them), VF_PASSED and VF_NONE
+# ("[<section>] item <n>: <title>"), and VF_ABSENT when the staged notes are missing.
+VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
+vf_run() {
+  local rows="" line sec n row title cmd out rc
+  VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
+  if [ -f "$ST/$STAGED_NOTES" ]; then rows="$(notes_items "$ST/$STAGED_NOTES")"; else VF_ABSENT=1; fi
+  while IFS= read -r line; do
+    sec="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\1/p')"
+    n="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\2/p')"
+    [ -n "$sec" ] && [ -n "$n" ] || continue
+    row="$(printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { print; exit }')"
+    title="$(printf '%s' "$row" | cut -f3)"; cmd="$(printf '%s' "$row" | cut -f4)"
+    if [ -z "$cmd" ]; then VF_NONE+=("[$sec] item $n: ${title:-<not in the staged notes>}"); continue; fi
+    out="$(cd "$TGT" && bash -c "$cmd" </dev/null 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ]; then VF_PASSED+=("[$sec] item $n: $title — Verify: $cmd"); continue; fi
+    VF_NFAIL=$((VF_NFAIL + 1))
+    VF_FAILED+=("  [$sec] item $n: $title" "    Verify: $cmd" "    exit $rc${out:+: $(printf '%s' "$out" | sed -n 1p)}")
+  done <<VF_EOF
+$(grep '^- \[.\] Action required, \[' "$CL")
+VF_EOF
+}
+# vf_record — the archived checklist's closing section: what --finish ran, and what it could not.
+vf_record() {
+  local l
+  printf '\n## Verified at --finish\n\n'
+  if [ -n "$VF_ABSENT" ]; then
+    printf 'The staged copy of the new kit'"'"'s release notes is absent, so no Verify: command ran.\n\n'
+  fi
+  for l in ${VF_PASSED[@]+"${VF_PASSED[@]}"}; do printf -- '- verified, exit 0: %s\n' "$l"; done
+  for l in ${VF_NONE[@]+"${VF_NONE[@]}"}; do printf -- '- declared, unverified (no Verify: line): %s\n' "$l"; done
+  printf '\nEvery other item, merge, removal and kept file included, is declared by whoever marked it; --finish verified none of them.\n'
+}
+
 # ── --finish ──────────────────────────────────────────────────────────────────
 if [ "$FINISH" = true ]; then
   [ -f "$CL" ] || kit_refuse 1 upgrade-nothing-to-finish \
@@ -267,6 +332,13 @@ if [ "$FINISH" = true ]; then
   fi
   [ -z "$LC_NOTE" ] || [ "$LC_CARDS" -eq 0 ] || echo "  open cards were not checked: $LC_NOTE"
   lc_report
+  vf_run
+  if [ "${#VF_FAILED[@]}" -gt 0 ]; then
+    kit_refuse 1 upgrade-verify-failed \
+      "Error: $VF_NFAIL Action required item(s) marked done fail their Verify: command; process/KIT-VERSION is stamped only when none does." \
+      "${VF_FAILED[@]}" \
+      "  Do the action each names (the command ran in $TGT), then run --finish again."
+  fi
   new_v="$(read_version "$ST/KIT-VERSION")"
   old_v="$(read_version "$TGT/process/KIT-VERSION")"
   ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
@@ -275,6 +347,7 @@ if [ "$FINISH" = true ]; then
     "  Move or rename it (commit that), then run --finish again."
   mkdir -p "$TGT/process/upgrades" && cp "$CL" "$TGT/$ARCHIVE_REL" \
     || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT."
+  vf_record >> "$TGT/$ARCHIVE_REL" || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT."
   cp "$ST/KIT-VERSION" "$TGT/process/KIT-VERSION" && cp "$ST/KIT-MANIFEST" "$TGT/process/KIT-MANIFEST" \
     || kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT."
   rm -rf "$ST" && rm -f "$CL"
@@ -404,19 +477,10 @@ JOINED_EOF
 # Every section newer than the tree up to the new kit; Unreleased only when the new kit is a build.
 # From a build (X.Y.Z+<tree>), the release after X.Y.Z may already be held — and so may Unreleased,
 # when both are builds after one release.
-ITEMS="$(awk '
-  /^## / { sec = ""; if ($0 ~ /^## \[/) { sec = $0; sub(/^## \[/, "", sec); sub(/\].*$/, "", sec) }
-           inact = 0; n = 0; next }
-  /^###+ Action required/ { inact = (sec != ""); next }
-  /^##/ { inact = 0; next }
-  inact && /^- / { n++; t = substr($0, 3)
-    if (substr(t, 1, 2) == "**") { t = substr(t, 3); i = index(t, "**"); if (i) t = substr(t, 1, i - 1); else t = t "..." }
-    if (length(t) > 110) t = substr(t, 1, 107) "..."
-    printf "%s\t%d\t%s\n", sec, n, t }
-' "$SRC/process/KIT-RELEASE-NOTES.md" 2>/dev/null)"
+ITEMS="$(notes_items "$SRC/process/KIT-RELEASE-NOTES.md")"
 
 NEXT_REL=""   # the smallest released section above the tree's base
-while IFS="$(printf '\t')" read -r sec _ _; do
+while IFS="$(printf '\t')" read -r sec _ _ _; do
   [ -n "$sec" ] && [ "$sec" != Unreleased ] || continue
   [ "$(ver_cmp "$sec" "$CUR_B")" = 1 ] || continue
   if [ -z "$NEXT_REL" ] || [ "$(ver_cmp "$sec" "$NEXT_REL")" = -1 ]; then NEXT_REL="$sec"; fi
@@ -426,7 +490,7 @@ ITEMS_EOF
 
 ACTION=()
 if [ "$CUR_V" != "$NEW_V" ]; then
-  while IFS="$(printf '\t')" read -r sec n t; do
+  while IFS="$(printf '\t')" read -r sec n t vcmd; do
     [ -n "$sec" ] || continue
     held=""
     if [ "$sec" = Unreleased ]; then
@@ -438,6 +502,7 @@ if [ "$CUR_V" != "$NEW_V" ]; then
     fi
     line="Action required, [$sec] item $n: $t — process/KIT-RELEASE-NOTES.md § [$sec]"
     [ -z "$held" ] || line="$line (this tree is a build after $CUR_B, so it may already hold this: diff before applying)"
+    [ -z "$vcmd" ] || line="$line — Verify: $vcmd"
     ACTION+=("$line")
   done <<ITEMS_EOF
 $ITEMS
@@ -476,6 +541,8 @@ for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p
 mkdir -p "$ST/files" || fail_write "$STAGE_DIR/"
 for p in ${MERGE[@]+"${MERGE[@]}"}; do put "$SRC/$p" "$TGT/$(staged_rel "$p")" || fail_write "$(staged_rel "$p")"; done
 cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFEST" || fail_write "$STAGE_DIR/KIT-VERSION"
+# The new kit's notes, staged: --finish reads each Verify: command from this copy.
+cp "$SRC/process/KIT-RELEASE-NOTES.md" "$ST/$STAGED_NOTES" || fail_write "$STAGE_DIR/$STAGED_NOTES"
 # The new kit's own scripts/lib/, staged so the landing checks are read from it at --finish too.
 for p in "$SRC/scripts/lib/"*.sh; do
   [ -f "$p" ] || continue
@@ -491,6 +558,7 @@ lc_run
   echo
   echo "Mark each item \`- [x]\` when it is done. An Action required item you cannot apply as written is"
   echo "a kit finding (process/MANUAL.md § Kit feedback, M3): record it, then mark the item."
+  echo "An item ending \`Verify: <command>\` is checked by --finish: the command runs in this tree and must exit 0."
   echo "Until every item is marked, keep this file committed: it is the upgrade's record for whoever"
   echo "comes next. Then \`./scripts/kit-upgrade.sh --finish --into .\` stamps process/KIT-VERSION"
   echo "moves this file to process/upgrades/ and removes \`$STAGE_DIR/\`."

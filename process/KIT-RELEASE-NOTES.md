@@ -71,8 +71,11 @@ unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/ki
 4. **`./scripts/kit-upgrade.sh --finish --into .`** writes `KIT-VERSION` (the new copy's line exactly,
    any `+<tree>` included) and `process/KIT-MANIFEST`, moves the marked checklist to
    `process/upgrades/<from>-to-<to>.md` (the record of what was done, whatever merge strategy landed the
-   upgrade) and removes `.kit-upgrade/`. It refuses while an item is unmarked, and while the new
-   kit's landing checks would refuse an open card. Commit that too.
+   upgrade) and removes `.kit-upgrade/`. It refuses while an item is unmarked, while the new
+   kit's landing checks would refuse an open card, and while an **Action required** item that ends
+   `Verify: <command>` fails it: the command, from the new kit's notes, runs in your tree and exits 0 when
+   the action is done ([`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) § 7). The archive lists every
+   other item as declared, unverified. Commit that too.
 
 Every refusal names its reason and leaves a progress record; the contract's § 3 lists them.
 
@@ -335,6 +338,14 @@ columns and never the cards.*
   (`upgrade-open-card-refused`) while any would still be refused. **Before `--finish`, fix each listed card as its
   own landing would require, or check by hand the ones that could not be run.**
 
+- **`kit-upgrade.sh --finish` now runs a `Verify:` command for the Action required entries that carry one, and
+  refuses (`upgrade-verify-failed`) while one fails.** The first run copies each command into its checklist item
+  and stages the new notes; `--finish` reads the command from that staged copy, runs it in your tree, and the
+  archive under `process/upgrades/` lists every other item as declared, unverified. Entries of `0.7.0` and
+  `0.8.0` carry one where a command can read the tree (your `CLAUDE.md` gone, `core.hooksPath` set, `TEST_GLOBS`
+  declared, `PROJECT.md`'s `principal:` filled). **When you upgrade from before those releases, do each such item
+  for real before marking it: a mark over undone work no longer stamps the version.**
+
 - **If you wrote your own script that calls `kwt_lock` or `kit_on_exit` (`scripts/lib/exit-trap.sh`), end it with
   `exit 0`, or a clean run now reports 1.** The cleanup trap cannot tell a crash from a clean end on bash 3.2 any
   other way.
@@ -467,6 +478,8 @@ columns and never the cards.*
   `process/templates/CLAUDE-adapter.template.md` is renamed to
   `process/templates/AGENTS-adapter.template.md` — update any of your own notes that pointed at the
   old name.
+
+  Verify: [ ! -e CLAUDE.md ] && [ -f AGENTS.md ] && [ -f process/templates/AGENTS-adapter.template.md ]
 - **Claude Code v2.1.277 or later**, the first version that reads a lone `AGENTS.md`. On an older
   one, once `CLAUDE.md` is gone, every session starts with no instructions and nothing says so.
   Update it before you upgrade; `/start` now checks it.
@@ -514,6 +527,8 @@ columns and never the cards.*
   The self-test now runs `PROJECT.md`'s own one-row-per-contract-sheet check, and is red until every shipped sheet
   has its row.
 
+  Verify: grep -q 'process/contracts/ask.md' PROJECT.md && grep -q 'process/contracts/model-provisioning-seam.md' PROJECT.md
+
 - **A subtask slice now gets the same landing checks a top-level card does: `subtask.sh move <id>
   qa_complete` refuses on a missing or malformed `## QA Verdict` table, a missing or malformed
   `forks:` field, or (when its branch diff touches a declared `TEST_GLOBS` path) a missing or
@@ -542,6 +557,8 @@ columns and never the cards.*
   check for an edited test file is **not** a new field — it is the `shadow-check` row the
   `## QA Verdict` table already requires, filled at `.claude/roles/qa.md` step 4.
 
+  Verify: awk '$0 == "TEST_GLOBS=(" { i = 1; next } i && /^\)/ { i = 0; next } i { l = $0; sub(/^[[:space:]]*/, "", l); if (l ~ /^#[[:space:]]*DECLARED EMPTY([^A-Za-z0-9_]|$)/) { ok = 1; next } sub(/[[:space:]]*#.*$/, "", l); if (l != "") ok = 1 } END { exit !ok }' scripts/config.sh
+
 - **`check-board.sh`'s `[g]` (graduation) arm now measures `scripts/config.sh`'s `CODE_GLOBS` and
   `TEST_GLOBS`, and `PROJECT.md`'s `principal:`, as day-one FILL obligations** — previously an
   empty, unfilled `CODE_GLOBS`/`TEST_GLOBS` or a blank `principal:` read as graduated, because
@@ -550,6 +567,8 @@ columns and never the cards.*
   it (your globs; a name, role, or `nobody` for `principal:`), or, if a glob array has none on
   purpose, add one `# DECLARED EMPTY — <why>` comment line inside its parens (documented beside
   each array in `scripts/config.sh`) — the mechanical "none, on purpose" form `[g]` accepts.
+
+  Verify: for a in CODE_GLOBS TEST_GLOBS; do awk -v a="$a" '$0 == a "=(" { i = 1; next } i && /^\)/ { i = 0; next } i { l = $0; sub(/^[[:space:]]*/, "", l); if (l ~ /^#[[:space:]]*DECLARED EMPTY([^A-Za-z0-9_]|$)/) { ok = 1; next } sub(/[[:space:]]*#.*$/, "", l); if (l != "") ok = 1 } END { exit !ok }' scripts/config.sh || exit 1; done; . scripts/lib/pm-field.sh && ! kit_pm_blank "$(kit_pm_field '`principal:`' PROJECT.md)"
 
 - **A new git hook, `scripts/githooks/pre-commit`, refuses a metadata-only commit made on a
   branch other than the trunk** — the shape a linked worktree on a branch of its own produces by
@@ -563,6 +582,8 @@ columns and never the cards.*
   manifest) — shipped empty on purpose, and empty means unenforced, not "everything is
   metadata," so no existing workflow breaks before you fill it in. `.claude/roles/dev.md`'s
   *Handoff to QA* section now names `register-commit.sh` as its own commit route.
+
+  Verify: case "$(git config core.hooksPath)" in scripts/githooks|*/scripts/githooks) true ;; *) false ;; esac
 
 - **Every card template gains a `## QA Verdict` table, and `finish-pr.sh` refuses a PASS landing without a
   well-formed one.** QA fills it at step 4 (`.claude/roles/qa.md`): a row per AC id, with a verdict, an evidence kind
@@ -611,6 +632,8 @@ columns and never the cards.*
   every project copies, and `.claude/settings.json.example` is unaffected. Name which profile a
   launch uses in your adapter (§ What is ON and what is OFF here).
 
+  Verify: . scripts/lib/pm-field.sh && ! kit_pm_blank "$(kit_pm_field '`principal:`' PROJECT.md)" && ! kit_pm_blank "$(kit_pm_field '\\*\\*Their channel:\\*\\*' PROJECT.md)"
+
 - **Take this release with its own `scripts/kit-upgrade.sh`, run from the unzipped release against your
   tree.** A `0.6.0` tree has no copy of its own: `unzip -q project-kit-v<X.Y.Z>.zip -d <scratch> &&
   <scratch>/scripts/kit-upgrade.sh --into <your project>`, then § How to upgrade's steps. It never
@@ -618,6 +641,8 @@ columns and never the cards.*
   (if you are reading this in that checklist, you already did this: mark it). It brings a contract,
   `process/contracts/kit-upgrade.md`: add its row to `PROJECT.md` § Quality gates. `check-board.sh`'s new
   `[o] kit upgrade` reports your `KIT-VERSION`'s form and an open checklist, and never changes the verdict.
+
+  Verify: grep -q 'process/contracts/kit-upgrade.md' PROJECT.md
 
 - **A parent issue now reaches `qa_complete/` or `done/`, and lands, only when every subtask has reached
   `qa_complete/` or been declined with its reason.** `move-issue.sh`, `finish-pr.sh` and `archive.sh` refuse otherwise, naming the open
@@ -673,6 +698,8 @@ columns and never the cards.*
   | conformance over the shipped set: skills, CLI shape, help windows, the floor, templates, exit codes, the manifest | `cases/shipped-tree.sh` |
   | cases that read the harness itself, ship state, isolation | `cases/harness.sh` |
 
+  Verify: [ -d scripts/test/lib ] && [ -d scripts/test/cases ] && grep -q 'lib/\*\.sh' scripts/test/run.sh
+
 - **`finish-pr.sh`'s post-merge check usually read the branch you had just landed, not the trunk —
   and printed `POST_MERGE_GATE: PASS` naming your trunk.** It ran the gate in the checkout that had
   passed the pre-merge gate, which is required to sit at the branch tip, and nothing moved it after
@@ -722,6 +749,8 @@ columns and never the cards.*
   `scripts/check-board.sh` reports `trunk: GUESSED …`. The recipe
   (`kit-init`'s refusal, README, `process/GIT-HOSTING.md` § 3) now sets it at creation.
 
+  Verify: u="$(git remote get-url origin 2>/dev/null)" || exit 0; u="${u#file://}"; [ -d "$u" ] && [ "$(git -C "$u" rev-parse --is-bare-repository 2>/dev/null)" = true ] || exit 0; h="$(git -C "$u" symbolic-ref -q HEAD)" && git -C "$u" rev-parse -q --verify "$h^{commit}" >/dev/null
+
 - **If `kit-init` completed on your repository but shipped kit files never reached your trunk,
   commit them.** It happened on the empty-first-commit path the old recipe offered, and when a
   shipped file was ignored (a global excludes file often ignores `AGENTS.md`). Run `git status` and
@@ -732,6 +761,8 @@ columns and never the cards.*
   instead if you do not want it. `kit-init` now refuses, writing nothing, while a shipped path is on
   disk but not committed — ignored ones included — and prints the exact command; its recipe's first
   commit now commits the kit as unzipped.
+
+  Verify: awk '!/^#/ && NF >= 2 { print $2 }' process/KIT-MANIFEST | while IFS= read -r p; do [ -e "$p" ] || continue; git ls-files --error-unmatch -- "$p" >/dev/null 2>&1 || { echo "not committed: $p"; exit 1; }; done
 
 - **Kit feedback is now recorded by default — decide whether you want that.** `PROJECT.md` gains
   § The kit, upstream: copy it into yours and choose its `kit-feedback:` line. `auto` (the default,
@@ -800,6 +831,8 @@ columns and never the cards.*
   run: … · skipped: 0`. The quickest way to get the exact text is to run `kit-init.sh --gate-command`
   in a scratch unpack of this version with `scripts/verify.sh` deleted before its first commit, and
   copy its tail.
+
+  Verify: [ ! -f scripts/verify.sh ] || ! grep -q 'exit "\$GATE_RC"' scripts/verify.sh
 
 - **A branch no longer judges itself: the trunk's `scripts/verify.sh` gates any branch that changes it.** `finish-pr.sh` ran
   the branch's own runner, so a branch could weaken or delete the gate that judged it and land green. Now the trunk's copy

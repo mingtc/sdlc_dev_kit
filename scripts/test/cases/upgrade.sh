@@ -795,13 +795,13 @@ case_kit_upgrade_checks_open_cards_against_the_new_kit() {
 # CASE — --finish KEEPS THE MARKED CHECKLIST, UNDER process/upgrades/.
 #
 # The record of what was done must survive any merge strategy, so --finish moves the committed,
-# marked checklist to process/upgrades/<from>-to-<to>.md, byte for byte, creating the directory;
+# marked checklist to process/upgrades/<from>-to-<to>.md, byte for byte as the file's head, creating the directory;
 # it refuses rather than overwrite an archive of the same name.
 # =============================================================================
 case_kit_upgrade_finish_archives_the_marked_checklist() {
   cf_reset
   make_sandbox
-  local L="kit-upgrade.sh --finish moves the marked checklist to process/upgrades/<from>-to-<to>.md byte for byte, and refuses to overwrite an archive of that name"
+  local L="kit-upgrade.sh --finish moves the marked checklist to process/upgrades/<from>-to-<to>.md, byte for byte as its head, and refuses to overwrite an archive of that name"
   _ku_subject_or_fail "$L" || return
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
   _ku_pair 0.1.0 0.2.0
@@ -821,9 +821,70 @@ case_kit_upgrade_finish_archives_the_marked_checklist() {
   _ku_run fin2 --finish --into "$KU_T"
   [ "$(_ku_rc fin2)" = 0 ] || cf "--finish exited $(_ku_rc fin2): $(_ku_out fin2)"
   [ -f "$arch" ] || cf "no archive at process/upgrades/0.1.0-to-0.2.0.md"
-  cmp -s "$arch" "$SB_TMP/marked" || cf "the archive is not the marked checklist, byte for byte"
+  head -c "$(wc -c < "$SB_TMP/marked")" "$arch" | cmp -s - "$SB_TMP/marked" || cf "the archive does not begin with the marked checklist, byte for byte"
+  grep -F -- '- declared, unverified (no Verify: line): [0.2.0] item 1' "$arch" >/dev/null \
+    || cf "an item with no Verify: is not recorded as declared, unverified: $(tail -8 "$arch" | tr '\n' '|')"
   [ ! -e "$cl" ] || cf "the checklist is still at its working location"
   [ ! -e "$KU_T/.kit-upgrade" ] || cf ".kit-upgrade/ is still there"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — --finish RUNS EACH Action required VERIFY: COMMAND, FROM THE NEW KIT'S OWN NOTES.
+#
+# The new kit's notes give three entries: one whose Verify: command passes in the tree, one whose
+# command fails until a file exists, one with no Verify: line. Staging copies the command into the
+# entry's checklist item and stages the notes. The three items are marked, the checklist is
+# committed, and the failing item's Verify: text in the checklist is edited to `true`: --finish
+# still refuses (rule id upgrade-verify-failed, with a record), names the failing item only, and
+# stamps nothing. Once the action is done, --finish stamps, and the archive says which items were
+# verified and which were declared, unverified.
+# =============================================================================
+case_kit_upgrade_finish_runs_verify_commands() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh --finish refuses a marked Action required item whose Verify: command fails (read from the staged new notes, not the checklist's text), and the archive records each item as verified or declared, unverified"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.2.0
+  {
+    printf '# The process kit — release notes\n\n## [0.2.0] — 2026-01-02\n\n### Action required\n\n'
+    printf -- '- **Passing item.** Keep marker.txt.\n  Verify: [ -f marker.txt ]\n\n'
+    printf -- '- **Failing item.** Create done.txt.\n\n  Verify: [ -f done.txt ]\n\n'
+    printf -- '- **Unverifiable item.** Judge it yourself.\n\n### Added\n\n- **Not an item.**\n'
+  } > "$KU_NEW/process/KIT-RELEASE-NOTES.md"
+  _ku_manifest "$KU_NEW"
+  printf 'here\n' > "$KU_T/marker.txt"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  local cl="$KU_T/$KU_CHECKLIST_REL" recs="$KU_T/.progress-records" arch="$KU_T/process/upgrades/0.1.0-to-0.2.0.md"
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  grep -F 'item 1: Passing item' "$cl" | grep -F 'Verify: [ -f marker.txt ]' >/dev/null || cf "item 1 does not carry its Verify: command: $(grep -F 'item 1' "$cl")"
+  grep -F 'item 2: Failing item' "$cl" | grep -F 'Verify: [ -f done.txt ]' >/dev/null || cf "item 2 does not carry its Verify: command: $(grep -F 'item 2' "$cl")"
+  grep -F 'item 3: Unverifiable item' "$cl" | grep -F 'Verify:' >/dev/null && cf "an entry with no Verify: line got one: $(grep -F 'item 3' "$cl")"
+  [ -f "$KU_T/.kit-upgrade/KIT-RELEASE-NOTES.md.kit-new" ] || cf "the new kit's notes are not staged"
+
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  sed -i.bak 's/Verify: \[ -f done.txt \]/Verify: true/' "$cl" && rm -f "$cl.bak"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage, mark and tamper" >/dev/null 2>&1
+  _ku_run fin1 --finish --into "$KU_T"
+  [ "$(_ku_rc fin1)" != 0 ] || cf "--finish stamped over a failing Verify: command (the checklist's own text was edited to true)"
+  [ "$(_ku_recs "$recs" upgrade-verify-failed)" -eq 1 ] || cf "no refusal=upgrade-verify-failed record: $(_ku_out fin1)"
+  grep -F 'item 2: Failing item' "$SB_TMP/fin1.out" >/dev/null || cf "the refusal does not name item 2: $(_ku_out fin1)"
+  grep -F 'Passing item' "$SB_TMP/fin1.out" >/dev/null && cf "the refusal names the passing item: $(_ku_out fin1)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.1.0 ] || cf "a refused --finish stamped the version"
+  [ ! -e "$arch" ] || cf "a refused --finish wrote the archive"
+
+  printf 'done\n' > "$KU_T/done.txt"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "do the action" >/dev/null 2>&1
+  _ku_run fin2 --finish --into "$KU_T"
+  [ "$(_ku_rc fin2)" = 0 ] || cf "--finish with the action done exited $(_ku_rc fin2): $(_ku_out fin2)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.2.0 ] || cf "--finish did not stamp 0.2.0"
+  grep -F -- '- verified, exit 0: [0.2.0] item 1: Passing item' "$arch" >/dev/null || cf "the archive does not record item 1 as verified: $(tail -8 "$arch" | tr '\n' '|')"
+  grep -F -- '- verified, exit 0: [0.2.0] item 2: Failing item' "$arch" >/dev/null || cf "the archive does not record item 2 as verified: $(tail -8 "$arch" | tr '\n' '|')"
+  grep -F -- '- declared, unverified (no Verify: line): [0.2.0] item 3: Unverifiable item' "$arch" >/dev/null \
+    || cf "the archive does not record item 3 as declared, unverified: $(tail -8 "$arch" | tr '\n' '|')"
   finish "$L"
   teardown
 }
