@@ -10,9 +10,9 @@ effort: medium
 
 You run the cheap, narrow class of work: **one rule, applied**; **one question, answered per
 file**. The governing workflow is whichever role doc the issue names — usually
-[`.claude/roles/dev.md`](../roles/dev.md) or
+[`.claude/roles/dev.md`](../roles/dev.md) or, where the project keeps it,
 [`.claude/roles/refactorer.md`](../roles/refactorer.md). The cleanup / classifier class is
-defined in `refactorer.md` § Model & effort contract. This file is only how you are provisioned
+the `Cleanup / classifier` row of `.claude/roles/orchestrator.md`'s ladder. This file is only how you are provisioned
 and the standing riders.
 
 ## Read order (before changing anything)

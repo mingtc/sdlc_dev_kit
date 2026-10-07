@@ -175,8 +175,8 @@ case_minted_card_is_unmarked() {
     awk '!/^[[:space:]]*#/ && /card-head\.sh/ { found=1 } END { exit !found }' "$SB_WORK/scripts/$msh" \
       || cf "scripts/$msh calls kit_rehead_card and never SOURCES scripts/lib/card-head.sh (a comment mentioning it does not count) — it would fail at mint time with 'command not found', after the card is already written"
   done
-  [ "$mfound" -ge 5 ] \
-    || cf "the extractor found only $mfound minting script(s) — expected at least 5. A count this low means the list stopped matching the tree, NOT that the tree is clean."
+  [ "$mfound" -ge 5 ] || { _member_removed scripts/new-refactor.sh && [ "$mfound" -ge 4 ]; } \
+    || cf "the extractor found only $mfound minting script(s) — expected at least 5 (4 where new-refactor.sh was removed). A count this low means the list stopped matching the tree, NOT that the tree is clean."
 
   finish "minted card: no travel marker, fill instruction kept, template untouched ($mfound minting script(s) checked)"
   teardown
@@ -1677,6 +1677,7 @@ case_option_parsing_hygiene() {
   _opt() {  # <expected-rc> <label> <script> <args…>
     local want="$1" label="$2"; shift 2
     local s="$1"; shift
+    _member_removed "scripts/$s" && return 0
     out="$(cd "$SB_WORK" && "$SB_WORK/scripts/$s" "$@" 2>&1)"; rc=$?
     [ "$rc" = "$want" ] || cf "$s: $label → rc=$rc (want $want)"
   }
@@ -1692,7 +1693,7 @@ case_option_parsing_hygiene() {
   _opt 1 "--severity refuses a value outside its enum"  new-bug.sh sl --id "$SB_PREFIX-901" --severity nonsense
   _opt 2 "a value-taking option with NO value refuses, naming it" new-bug.sh sl --id "$SB_PREFIX-902" --severity
   _opt 2 "the same, on a sibling's flag"                new-refactor.sh sl --id "$SB_PREFIX-903" --target
-  printf '%s' "$out" | grep -- '--target requires a value' >/dev/null \
+  _member_removed scripts/new-refactor.sh || printf '%s' "$out" | grep -- '--target requires a value' >/dev/null \
     || cf "the no-value refusal did not name the option: $out"
 
   _opt 0 "--help prints usage and SUCCEEDS"        subtask.sh --help
@@ -1742,6 +1743,7 @@ case_usage_request_succeeds_in_any_position() {
   head0="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK" 2>/dev/null)"
   _help_ok() {  # <label> <script> <args…>
     local label="$1"; shift
+    _member_removed "scripts/$1" && return 0
     out="$(cd "$SB_WORK" && "$SB_WORK/scripts/$@" 2>/dev/null)"; rc=$?
     [ "$rc" = 0 ] || cf "$1 $label → rc=$rc (want 0)"
     printf '%s' "$out" | grep -i 'usage' >/dev/null || cf "$1 $label printed no usage text on stdout"
@@ -1918,6 +1920,7 @@ case_creators_build_beside_and_publish_with_the_umask() {
   cp "$lib" "$SB_TMP/card-head.real"
   # 027, not 022: a hard-coded 644 fails it as surely as mktemp's 0600 does.
   for s in new-issue.sh new-bug.sh new-refactor.sh new-prd.sh; do
+    _member_removed "scripts/$s" && continue
     n=$((n + 1))
     case "$s" in
       new-prd.sh) dir="$SB_WORK/requirements"; args="mode$n" ;;
@@ -2074,11 +2077,13 @@ case_creation_scripts_substitute_hostile_values() {
     || cf "the piped value did not land verbatim: $(grep '^prd:' "$card" 2>/dev/null)"
 
   # An ampersand: sed's "whole match" metacharacter.
-  out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh amped --id "$SB_PREFIX-911" --target 'a & b' 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "a --target containing '&' did not succeed: rc=$rc $out"
-  card="$SB_WORK/progress/todo/$SB_PREFIX-911-amped.md"
-  grep -q '^target_module: a & b$' "$card" 2>/dev/null \
-    || cf "the '&' value was corrupted rather than written: $(grep '^target_module:' "$card" 2>/dev/null)"
+  if ! _member_removed scripts/new-refactor.sh; then
+    out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh amped --id "$SB_PREFIX-911" --target 'a & b' 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "a --target containing '&' did not succeed: rc=$rc $out"
+    card="$SB_WORK/progress/todo/$SB_PREFIX-911-amped.md"
+    grep -q '^target_module: a & b$' "$card" 2>/dev/null \
+      || cf "the '&' value was corrupted rather than written: $(grep '^target_module:' "$card" 2>/dev/null)"
+  fi
 
   # NOTHING PARTIAL IS EVER LEFT. The .bak is the tell: it only exists between the
   # first substitution and the cleanup, so one on the board means a card was being
@@ -2253,7 +2258,7 @@ case_minted_card_is_drift_clean() {
     [ -f "$card" ] || continue
     n=$((n+1)); [ -z "$victim" ] && victim="$card"
   done
-  [ "$n" -ge 3 ] \
+  [ "$n" -ge 3 ] || { _member_removed scripts/new-refactor.sh && [ "$n" -ge 2 ]; } \
     || _fixture_die "case_minted_card_is_drift_clean: only $n card(s) minted — the board would be checked over nothing."
   publish_sandbox
 
@@ -2319,7 +2324,7 @@ case_minted_card_prompts_for_notes() {
       || cf "$base mints a board card with no notes-deliverable prompt — the rule's standard is 'named, or explicitly dismissed, never absent', and this card cannot meet it"
   done
 
-  [ "$n" -ge 3 ] \
+  [ "$n" -ge 3 ] || { _member_removed scripts/new-refactor.sh && [ "$n" -ge 2 ]; } \
     || _fixture_die "case_minted_card_prompts_for_notes: only $n board card(s) were minted — the loop lost its subject and would report PASS over nothing."
 
   finish "every minted board card prompts for its notes deliverable ($n creator(s) exercised; new-prd.sh is correctly excluded — it writes a requirements document, not a board card)"
@@ -2355,7 +2360,7 @@ case_minted_card_carries_what_the_mint_knew() {
   ( cd "$SB_WORK" \
     && ./scripts/new-issue.sh stamp-issue --id "$SB_PREFIX-731" --prd "$prdid" \
     && ./scripts/new-bug.sh stamp-bug --id "$SB_PREFIX-732" --discovered-in "$SB_PREFIX-731" \
-    && ./scripts/new-refactor.sh stamp-ref --id "$SB_PREFIX-733" --pass "$pass" \
+    && { _member_removed scripts/new-refactor.sh || ./scripts/new-refactor.sh stamp-ref --id "$SB_PREFIX-733" --pass "$pass"; } \
     && ./scripts/subtask.sh new "$SB_PREFIX-730" s1 slice --title "Slice" ) >/dev/null 2>&1 \
     || _fixture_die "case_minted_card_carries_what_the_mint_knew: a creator refused a legal mint — nothing below would be measured."
   origin_fetch_or_die
@@ -2367,8 +2372,9 @@ case_minted_card_carries_what_the_mint_knew() {
   local rows="PRD.template.md|$prdid|$prd|requirements
 ISSUE.template.md|$SB_PREFIX-731|$SB_WORK/progress/todo/$SB_PREFIX-731-stamp-issue.md|progress/todo
 BUG.template.md|$SB_PREFIX-732|$SB_WORK/progress/todo/$SB_PREFIX-732-stamp-bug.md|progress/todo
-REFACTOR.template.md|$SB_PREFIX-733|$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md|progress/todo
 SUBTASK.template.md|$SB_PREFIX-730-s1|$st|progress/subtasks/$SB_PREFIX-730/todo"
+  _member_removed scripts/new-refactor.sh || rows="$rows
+REFACTOR.template.md|$SB_PREFIX-733|$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md|progress/todo"
   local tpl id card dir decl n=0
   while IFS='|' read -r tpl id card dir; do
     [ -f "$card" ] || { cf "$tpl: no minted card at $card"; continue; }
@@ -2390,14 +2396,15 @@ SUBTASK.template.md|$SB_PREFIX-730-s1|$st|progress/subtasks/$SB_PREFIX-730/todo"
   done <<ROWS_EOF
 $rows
 ROWS_EOF
-  [ "$n" -ge 5 ] || _fixture_die "case_minted_card_carries_what_the_mint_knew: only $n card(s) read."
+  [ "$n" -ge 5 ] || { _member_removed scripts/new-refactor.sh && [ "$n" -ge 4 ]; } \
+    || _fixture_die "case_minted_card_carries_what_the_mint_knew: only $n card(s) read."
 
   grep -qF "requirements/$(basename "$prd")" "$SB_WORK/progress/todo/$SB_PREFIX-731-stamp-issue.md" \
     || cf "new-issue.sh: --prd $prdid did not reach the card's PRD link"
   grep -qF "during review of $SB_PREFIX-731" "$SB_WORK/progress/todo/$SB_PREFIX-732-stamp-bug.md" \
     || cf "new-bug.sh: --discovered-in did not reach the seed entry"
-  grep -qF "$pass" "$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md" \
-    && ! grep -qF 'dev/refactor/<file>.md' "$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md" \
+  _member_removed scripts/new-refactor.sh || { grep -qF "$pass" "$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md" \
+    && ! grep -qF 'dev/refactor/<file>.md' "$SB_WORK/progress/todo/$SB_PREFIX-733-stamp-ref.md"; } \
     || cf "new-refactor.sh: --pass did not replace the body's pass path"
   grep -qF "Created under $SB_PREFIX-730 " "$st" || cf "subtask.sh: the seed entry does not name its parent"
 
@@ -2436,7 +2443,7 @@ case_minted_card_claims_only_what_it_was_given() {
     && ./scripts/new-issue.sh told --id "$SB_PREFIX-741" --prd "$prdid" --stories "$prdid-F2-S3,$prdid-F2-S4" \
     && ./scripts/new-issue.sh untold --id "$SB_PREFIX-742" \
     && ./scripts/new-bug.sh bugged --id "$SB_PREFIX-743" --prd "$prdid" --stories "$prdid-F2-S3" \
-    && ./scripts/new-refactor.sh tidied --id "$SB_PREFIX-744" ) >/dev/null 2>&1 \
+    && { _member_removed scripts/new-refactor.sh || ./scripts/new-refactor.sh tidied --id "$SB_PREFIX-744"; } ) >/dev/null 2>&1 \
     || _fixture_die "case_minted_card_claims_only_what_it_was_given: a creator refused a legal mint."
 
   c="$td/$SB_PREFIX-741-told.md"
@@ -2458,6 +2465,7 @@ case_minted_card_claims_only_what_it_was_given() {
   grep -qE 'during review of [A-Z][A-Z0-9]*-NNN' "$c" && cf "new-bug.sh: the card keeps a filled-looking -NNN reviewer id"
   grep -q '^discovered_in: <issue id, or none>' "$c" || cf "new-bug.sh: with no --discovered-in the frontmatter claims an issue: $(grep -m1 '^discovered_in:' "$c")"
   for c in "$td/$SB_PREFIX-743-bugged.md" "$td/$SB_PREFIX-744-tidied.md"; do
+    [ -f "$c" ] || { _member_removed scripts/new-refactor.sh && continue; }
     grep -qF '(../../requirements/DECISIONS.md)' "$c" || cf "$(basename "$c"): the Activity section does not name the decision register"
   done
 
@@ -2518,7 +2526,7 @@ case_template_header_survives_the_stamp() {
     printf '%s\n' "$hdr" | grep -i 'never leave' >/dev/null \
       || cf "$base: the post-init header lost its fill instruction"
   done
-  [ "$n" -ge 5 ] \
+  [ "$n" -ge 5 ] || { _member_removed .claude/templates/REFACTOR.template.md && [ "$n" -ge 4 ]; } \
     || cf "only $n template(s) were examined — the glob stopped matching the tree, which is NOT proof the tree is clean"
 
   finish "the template header survives the stamp: across $n template(s), the post-init KIT-CLASS block names neither stamped value and keeps its fill instruction, while the bodies are demonstrably stamped"

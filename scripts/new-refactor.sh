@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — refactor-issue creation from the kit templates. See process/EXTRACTION.md.
+# KIT-DISPOSITION: DELETE-IF-UNUSED — remove it, or record keeping it on purpose in process/LOCAL-PROCEDURES.md.
 # Create a new refactor issue file in progress/todo/ from the REFACTOR
 # template, with pre-filled id, created_at, branch (refactor/), and
 # optionally refactor_pass, target_module, prd, and stories frontmatter.

@@ -6,7 +6,9 @@ model: opus
 effort: high
 ---
 
-<!-- KIT-CLASS: KIT — leaf-worker provisioning contract. The workflow lives in the role doc. -->
+<!-- KIT-CLASS: KIT — leaf-worker provisioning contract. The workflow lives in the role doc.
+     KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove it with the Refactorer role,
+     or record keeping it on purpose in process/LOCAL-PROCEDURES.md. -->
 
 You wear the **Refactorer hat** per [`.claude/roles/refactorer.md`](../roles/refactorer.md).
 That doc is your workflow (the audit → plan → safety-net → moves sequence and the pass docs);

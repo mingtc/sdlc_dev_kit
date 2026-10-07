@@ -530,7 +530,14 @@ case_kit_upgrade_from_the_built_kit_is_a_no_op() {
   local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" t="$SB_TMP/same" e="$SB_TMP/elsewhere" rel n=0 rc out
   mkdir -p "$t/process" "$e"
   while IFS= read -r rel; do
-    [ -n "$rel" ] && [ -f "$REAL_REPO_ROOT/$rel" ] || continue
+    [ -n "$rel" ] || continue
+    # An optional member a project removed is named by the manifest and absent from this tree, so
+    # this tree is not a whole kit to upgrade from: the case has no subject there.
+    if [ ! -f "$REAL_REPO_ROOT/$rel" ] && _member_removed "$rel"; then
+      skp_lived "$L" "$rel is named by process/KIT-MANIFEST and was removed from this project, so it is not a whole kit to upgrade from"
+      teardown; return
+    fi
+    [ -f "$REAL_REPO_ROOT/$rel" ] || continue
     mkdir -p "$t/$(dirname "$rel")" && cp -p "$REAL_REPO_ROOT/$rel" "$t/$rel" && n=$((n+1))
   done <<KU_SAME_EOF
 $(grep -v '^#' "$man" | awk '{print $2}')

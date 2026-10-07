@@ -186,7 +186,7 @@ and a disposition at the same time.
 | **FILL** | Ships as a shape with blanks. **Not done until no blank remains.** | `PROJECT.md`, `.env.example`, `.gitignore`'s build section, `scripts/verify.sh`'s `GATES`, `scripts/release.sh`'s config block, `setup.sh`'s runtime half, `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS` — **the initializer never stamps these two**, the same FILL shape as `GATES`, not done until filled or declared deliberately empty |
 | **REPLACE** | Ships as **scaffolding to be thrown away and rewritten** — never edited into shape. | `AGENTS.md`, `README.md` |
 | **SEED** | Ships empty or skeletal; accumulates this project's own content. | `progress.md`, `ARCHIVE.md`, `progress/**`, `requirements/CORPUS.md`, `requirements/DECISIONS.md`, `dev/**` |
-| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines) |
+| **DELETE-IF-UNUSED** | Ships as an option. An unused option reads as a promise. | `consumers/`, `.claude/roles/archive/`, the notification CHANNEL adapters (`scripts/notify.sh`, `scripts/notify-hook.sh`, `scripts/notify/<channel>.sh` — **not** `scripts/notify/stall.sh`, which is the liveness half and is not an option an adopter declines), and the release and refactor routes: `scripts/release.sh`, and the Refactorer with the files that exist only to serve it (`scripts/new-refactor.sh`, `.claude/roles/refactorer.md`, `.claude/agents/refactorer-worker.md`, `.claude/templates/REFACTOR.template.md`). A project that ships nothing, or never restructures, removes them; one that keeps them says so |
 
 *(The members are a **derivation of this seed**, not a definition of the axis. **A shipped file no
 row names is `KEEP`.** A project that adds a surface gives it a disposition then.)*
@@ -226,7 +226,8 @@ block as its `KIT-CLASS:` marker:
 
 **What is marked so far, and what is not.** The `FILL`, `REPLACE` and `DELETE-IF-UNUSED` members are
 declared — except `scripts/release.sh`'s config block, a block inside a travelling script whose
-refusal to run until it is filled is its declaration — because those are the three rows the one
+refusal to run until it is filled is its declaration (a project that keeps the script fills the block;
+one that removes the script has none) — because those are the three rows the one
 shipped reader, `scripts/check-board.sh` arm (g), measures. **For REPLACE and DELETE-IF-UNUSED the
 marker DISCOVERS; for FILL it only FILTERS:** arm (g) checks every tracked file that declares
 REPLACE or DELETE-IF-UNUSED in its header block (the derivation below, the same for both), but

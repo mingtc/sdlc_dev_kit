@@ -352,7 +352,7 @@ If three fix attempts fail per [systematic-debugging] **Phase 4, step 5** ("If 3
 
 ## Refactor variation
 
-Starts from a `type: refactor` issue in `progress/todo/` (created by the Refactorer per [.claude/roles/refactorer.md](refactorer.md)). Most of the workflow is the same — issue pickup, branch push, kanban moves, QA handoff. The differences:
+Starts from a `type: refactor` issue in `progress/todo/` (created by the Refactorer per [.claude/roles/refactorer.md](refactorer.md), in a project that keeps that role). Most of the workflow is the same — issue pickup, branch push, kanban moves, QA handoff. The differences:
 
 | Step | Feature flow | Refactor flow |
 | --- | --- | --- |

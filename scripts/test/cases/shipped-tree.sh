@@ -1326,7 +1326,7 @@ case_shipped_scripts_stay_on_the_floor() {
     [ -n "$rel" ] || continue
     n=$(( n + 1 ))
     f="$REAL_REPO_ROOT/$rel"
-    [ -f "$f" ] || { absent="$absent $rel"; continue; }
+    [ -f "$f" ] || { _member_removed "$rel" || absent="$absent $rel"; continue; }
     sb="$(head -1 "$f" 2>/dev/null)"
     case "$sb" in
       '#!'*sh) ;;                        # a POSIX-shell program — inside this check's span
@@ -2316,7 +2316,7 @@ case_shipped_manifest_describes_the_tree() {
     [ -n "$rel" ] || continue
     n=$(( n + 1 ))
     [ "$rel" = "process/KIT-MANIFEST" ] && self=1
-    [ -e "$REAL_REPO_ROOT/$rel" ] || missing="$missing $rel"
+    [ -e "$REAL_REPO_ROOT/$rel" ] || _member_removed "$rel" || missing="$missing $rel"
   done <<EOF
 $(grep -v '^#' "$man" | awk '{print $2}')
 EOF

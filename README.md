@@ -6,7 +6,7 @@
 # The SDLC dev kit
 
 A development-process kit for software projects: a kanban board that lives in your filesystem, AI
-agent roles (PM, Dev, QA, Refactorer) that follow a disciplined Dev → QA handoff, and the doctrine
+agent roles (PM, Dev, QA, and an optional Refactorer) that follow a disciplined Dev → QA handoff, and the doctrine
 behind why each rule exists. Drop it into a new or existing repository, point your agent at it, and
 it runs the process for you — you run `/start` and answer its questions.
 
@@ -67,7 +67,7 @@ issue's own frontmatter, and the commit that recorded it can never drift apart. 
 (`check-board.sh`) catches it in under two seconds if they ever do.
 
 **Roles worn as hats, not separate people.** One agent (or one human) can be PM, Dev, QA, or
-Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
+(optionally) Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
 boundary is hard**: Dev's own "it's done" is never the landing signal, QA's verdict is, and nothing
 lands on the trunk without passing through it.
 

@@ -2008,6 +2008,8 @@ _reset_model_state() {
     /usr/bin/grep -qx 'model: seed-model' "$f" || _fixture_die "_reset_model_state: $f carries no 'model:' line to reset"
   done
   for label in "Orchestrator" "Refactorer" "PM-hat mint" "Spike / probe" "Dev" "QA" "XS / mechanical" "Cleanup / classifier"; do
+    # The Refactorer row goes with the role when a project removes it.
+    [ "$label" = Refactorer ] && _member_removed .claude/roles/refactorer.md && continue
     _blank_ladder_row "$cdir/roles/orchestrator.md" "$label"
     row="$(/usr/bin/grep -E "^\| \*\*${label}" "$cdir/roles/orchestrator.md")"
     [[ "$row" =~ ^[^|]*\|[^|]*\|[[:space:]]*\`\<fill\ in[^\`]*\`[[:space:]]*\|[[:space:]]*\`\<fill\ in ]] \

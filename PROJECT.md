@@ -101,7 +101,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The drift report | `<e.g. ./scripts/check-board.sh>` | [`process/contracts/drift-report.md`](process/contracts/drift-report.md) |
 | The archive sweep | `<e.g. ./scripts/archive.sh --apply>` | [`process/contracts/archive-sweep.md`](process/contracts/archive-sweep.md) |
 | The auxiliary trunk checkout | `<e.g. the kanban worktree>` | [`process/contracts/kanban-worktree.md`](process/contracts/kanban-worktree.md) |
-| The release ritual | `<e.g. ./scripts/release.sh>` | [`process/contracts/release-ritual.md`](process/contracts/release-ritual.md) |
+| The release ritual | `<e.g. ./scripts/release.sh — or N/A with the reason if the project ships nothing>` | [`process/contracts/release-ritual.md`](process/contracts/release-ritual.md) |
 | The configuration seam | `scripts/config.sh` — the NAME is fixed, the VALUES are yours | [`process/contracts/config-seam.md`](process/contracts/config-seam.md) |
 | The initializer | `<e.g. ./scripts/kit-init.sh>` | [`process/contracts/initializer.md`](process/contracts/initializer.md) |
 | The role gate | `<how a hat is declared>` | [`process/contracts/role-gate.md`](process/contracts/role-gate.md) |
@@ -227,6 +227,8 @@ leaving it to whoever dispatches.**
 | Architect | `.claude/roles/architect.md` | <yes/no> | <reason> |
 | UI-Designer | `.claude/roles/archive/ui-designer.md` | no (parked) | <reason — waking it is every step in the doc's § What this role needs before it can be woken, not a move> |
 | <your own role> | `<doc>` | <yes/no> | — |
+
+**The Refactorer and the files that serve it are optional** (`process/EXTRACTION.md` § The second axis): a project that removes them writes `no` and the reason on that row, and removes the Refactorer row from the ladder in `.claude/roles/orchestrator.md` (`scripts/set-models.sh` reads the ladder to know which pin files exist).
 
 **The role set is a configuration seam**, not prose: whatever you decide here must match
 the adapter's roles table ([`AGENTS.md`](AGENTS.md), from SEED step 5) and the role alternation your commit-attribution guard

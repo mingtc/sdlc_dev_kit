@@ -1,4 +1,7 @@
-<!-- KIT-CLASS: KIT — refactor-issue template. Two placeholders are STAMPED by the
+<!-- KIT-CLASS: KIT — refactor-issue template.
+     KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove it with the Refactorer role,
+     or record keeping it on purpose in process/LOCAL-PROCEDURES.md.
+     Two placeholders are STAMPED by the
      initializer: the ISSUE-PREFIX token and the TRUNK token, and this directory is one the
      initializer reaches. **The tokens are described rather than spelled here on purpose** — a
      header that names them literally is rewritten by the very substitution it is explaining, and

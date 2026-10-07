@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: MIXED — kit SHAPE (preflight → bump seam → annotated tag → push → optional publish); PROJECT version files, build command and policy (the config block below, shipped EMPTY). See process/EXTRACTION.md.
+# KIT-DISPOSITION: DELETE-IF-UNUSED — remove it, or record keeping it on purpose in process/LOCAL-PROCEDURES.md.
 # scripts/release.sh — cut a release: preflight gates → version bump → annotated tag → push.
 #
 # A release is cut DELIBERATELY, LOCALLY, and with pure git — forge-agnostic, no

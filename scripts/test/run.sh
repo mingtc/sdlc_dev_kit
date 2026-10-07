@@ -447,6 +447,7 @@ CASES=(
   case_check_board_graduation_reads_the_trunk
   case_check_board_replace_population_is_derived
   case_check_board_graduation_delete_if_unused
+  case_release_refactor_routes_are_delete_if_unused
   case_prd_coverage_counts_only
   case_kit_feedback_line_is_reported_not_refused
   case_check_board_arm_n_accepts_kit_finding

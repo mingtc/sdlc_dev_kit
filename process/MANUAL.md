@@ -238,7 +238,7 @@ version control by the initializer, not left for each actor to discover
 - Every move **appends an Activity line** to the issue file and **commits + pushes to the
   trunk** (via the kanban worktree — see § The kanban worktree), so the board is accurate on
   the trunk without a checkout.
-- **Create** issues with `./scripts/new-issue.sh` / `new-bug.sh` / `new-refactor.sh` (id from
+- **Create** issues with `./scripts/new-issue.sh` / `new-bug.sh` / `new-refactor.sh` (the last only where the project kept the Refactorer; id from
   `./scripts/next-id.sh`), specs with `./scripts/new-prd.sh`. Subtasks (Orchestrator
   decomposition) with `./scripts/subtask.sh`.
 - **A newly created issue is not published.** Creation is inert by contract

@@ -116,6 +116,19 @@ _cb_g_discharge_delete_if_unused() {
     || _fixture_die "_cb_g_discharge_delete_if_unused: no file in the sandbox declares KIT-DISPOSITION: DELETE-IF-UNUSED — the real scripts/notify*.sh marker this helper relies on has moved or been removed."
 }
 
+# _cb_g_remove_delete_if_unused_members — removes, from $SB_WORK, every file that declares
+# KIT-DISPOSITION: DELETE-IF-UNUSED (and consumers/), a valid discharge. The population is read
+# from the tree BEFORE the removal, never typed, so a member added to the kit is removed too.
+_cb_g_remove_delete_if_unused_members() {
+  local _decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
+  local _gone _gf
+  _gone="$(git -C "$SB_WORK" grep --untracked -lE "$_decl" -- || true)"
+  while IFS= read -r _gf; do [ -n "$_gf" ] && rm -f "$SB_WORK/$_gf"; done <<GONE_EOF
+$_gone
+GONE_EOF
+  rm -rf "$SB_WORK/consumers"
+}
+
 # Same shape as _cb_g_section, for arm [l] (declared reference integrity).
 _cb_l_section() {  # reads a check-board report on stdin
   awk '/^\[l\]/ { f = 1 }
@@ -2517,12 +2530,8 @@ case_check_board_graduation_delete_if_unused() {
 
   # ── (b) the exact kept-on-purpose line: COMPLETE. ─────────────────────────────────────────────
   mkdir -p "$SB_WORK/process"
-  printf -- '- **`scripts/notify.sh` (DELETE-IF-UNUSED) kept, on purpose.** No channel wired.\n- **`scripts/notify-hook.sh` (DELETE-IF-UNUSED) kept, on purpose.** No channel wired.\n- **`scripts/notify/telegram.sh` (DELETE-IF-UNUSED) kept, on purpose.** No channel wired.\n' \
-    > "$SB_WORK/process/LOCAL-PROCEDURES.md"
-  if [ -d "$SB_WORK/consumers" ]; then
-    printf -- '- **`consumers/README.md` (DELETE-IF-UNUSED) kept, on purpose.** Kept as a shipped option.\n' \
-      >> "$SB_WORK/process/LOCAL-PROCEDURES.md"
-  fi
+  rm -f "$SB_WORK/process/LOCAL-PROCEDURES.md"
+  _cb_g_discharge_delete_if_unused
   publish_sandbox
   out="$(cb_run)"
   printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*carry a recorded kept-on-purpose decision' >/dev/null \
@@ -2544,7 +2553,7 @@ since nothing uses scripts/notify yet. consumers is also kept on purpose." \
     && cf "(c) graduation COMPLETE over a LOCAL-PROCEDURES.md that only mentions the members in free prose: $out"
 
   # ── (d) the member REMOVED from the tree entirely: discharged, COMPLETE. ─────────────────────
-  rm -rf "$SB_WORK/consumers" "$SB_WORK"/scripts/notify*
+  _cb_g_remove_delete_if_unused_members
   rm -f "$SB_WORK/process/LOCAL-PROCEDURES.md"
   publish_sandbox
   out="$(cb_run)"
@@ -2554,6 +2563,74 @@ since nothing uses scripts/notify yet. consumers is also kept on purpose." \
     || cf "(d) a tree with every DELETE-IF-UNUSED member removed (a valid discharge) did not reach graduation COMPLETE: $out"
 
   finish "check (g3): DELETE-IF-UNUSED is measured from the same KIT-DISPOSITION header-block declarations REPLACE uses — an undischarged member blocks COMPLETE and is named, the exact kept-on-purpose line in process/LOCAL-PROCEDURES.md clears it, a basename/prose-only mention does not, and removing the member entirely is an equally valid discharge"
+  teardown
+}
+
+# =============================================================================
+# CASE — the release and refactor routes are DELETE-IF-UNUSED, and graduation reads each.
+#
+# A project that ships nothing, or never restructures, must remove the route or record keeping it
+# on purpose. The five members are a FIXED operand (the decided set, not derived from the tree
+# they judge): each must declare the marker in its header block, arm [g] must NAME each while
+# undischarged, and removing all five (with every other declaring member discharged) reads COMPLETE.
+# =============================================================================
+case_release_refactor_routes_are_delete_if_unused() {
+  cf_reset
+  local why; why="$(_tree_has_lived)"
+  if [ -n "$why" ]; then
+    skp_lived "the release and refactor routes declare KIT-DISPOSITION: DELETE-IF-UNUSED (scripts/release.sh)" "$why"
+    return
+  fi
+  if ! has_issue_template; then skp "the release and refactor routes declare DELETE-IF-UNUSED" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local _decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
+  local routes="scripts/release.sh scripts/new-refactor.sh .claude/roles/refactorer.md .claude/agents/refactorer-worker.md .claude/templates/REFACTOR.template.md"
+  local p out
+  for p in $routes; do
+    if [ ! -f "$REAL_REPO_ROOT/$p" ]; then
+      cf "$p is absent from a tree that has not been adopted"; continue
+    fi
+    sed -n '1,12p' "$REAL_REPO_ROOT/$p" | grep -E "$_decl" >/dev/null \
+      || cf "$p does not declare KIT-DISPOSITION: DELETE-IF-UNUSED in its header block"
+  done
+
+  make_sandbox
+  seed_scaffolding_tree
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  printf '# my project\n'                 > "$SB_WORK/AGENTS.md"
+  printf '# my project\n'                 > "$SB_WORK/README.md"
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
+    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  _cb_g_declare_empty_seams
+  _cb_g_discharge_gitignore_env
+  mkdir -p "$SB_WORK/.claude/roles" "$SB_WORK/.claude/agents" "$SB_WORK/.claude/templates"
+  for p in $routes; do
+    case "$p" in .claude/*) [ -f "$REAL_REPO_ROOT/$p" ] && cp "$REAL_REPO_ROOT/$p" "$SB_WORK/$p" ;; esac
+  done
+  publish_sandbox
+
+  # (a) undischarged: not COMPLETE, and every route is NAMED.
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    && cf "(a) graduation COMPLETE with the release and refactor routes undischarged: $out"
+  for p in $routes; do
+    printf '%s\n' "$out" | _cb_g_section | grep -F "$p" >/dev/null \
+      || cf "(a) the DELETE-IF-UNUSED finding did not name $p: $out"
+  done
+
+  # (b) all five removed, every other declaring member discharged: COMPLETE.
+  for p in $routes; do rm -f "$SB_WORK/$p"; done
+  _cb_g_discharge_delete_if_unused
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(b) removing the release and refactor routes (the other members discharged) did not reach graduation COMPLETE: $out"
+  for p in $routes; do
+    printf '%s\n' "$out" | _cb_g_section | grep -F "$p" >/dev/null \
+      && cf "(b) a removed route $p is still named by [g]: $out"
+  done
+
+  finish "the release and refactor routes (release.sh, new-refactor.sh, the Refactorer role, its leaf worker and its template) each declare DELETE-IF-UNUSED, arm [g] names each while undecided, and removing all five reads graduation COMPLETE"
   teardown
 }
 
@@ -3068,7 +3145,7 @@ case_check_board_graduation_refuses_complete_over_nothing_measured() {
   # not 0, which is this case's real premise now: EVERY class the markers alone cannot answer is
   # unmeasured, while the two whole-tree scans still count.
   rm -f "$SB_WORK/scripts/config.sh"
-  rm -rf "$SB_WORK/consumers" "$SB_WORK"/scripts/notify*
+  _cb_g_remove_delete_if_unused_members
   seed_issue todo "$SB_PREFIX-430" nothingtomeasure chore "Nothing here to measure"
   publish_sandbox
 

@@ -330,6 +330,14 @@ columns and never the cards.*
 
 ### Action required
 
+- **The release and refactor routes are now `DELETE-IF-UNUSED`: at graduation, remove each or record keeping it on purpose.**
+  `scripts/release.sh`, `scripts/new-refactor.sh`, `.claude/roles/refactorer.md`, `.claude/agents/refactorer-worker.md` and
+  `.claude/templates/REFACTOR.template.md` now declare the marker, so `check-board.sh` `[g]` names each until you decide. A project that
+  ships nothing, or never restructures, deletes them (with the `Refactorer` row of the ladder in `.claude/roles/orchestrator.md`, and writes `no` and the reason on the Refactorer row of `PROJECT.md` § Roles,
+  or `N/A` on the release-ritual row of the gates table). One that keeps them adds, per file, the line
+  `- **`<path>` (DELETE-IF-UNUSED) kept, on purpose.** <why>` to `process/LOCAL-PROCEDURES.md` (`process/SEED.md` step 8). The upgrade
+  adds the marker only to a file you never changed; add the decision for the others yourself.
+
 - **`kit-upgrade.sh --finish` now moves the marked checklist to `process/upgrades/<from>-to-<to>.md` instead of
   deleting it, so the record survives a squash merge.** The directory is created on demand; a project's
   `KIT-MANIFEST` does not list it. **Commit the new file with the rest of what `--finish` writes.** `--finish`

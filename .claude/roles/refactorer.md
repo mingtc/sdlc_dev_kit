@@ -1,4 +1,6 @@
-<!-- KIT-CLASS: KIT — role workflow; no project law in it beyond § Project duties. See process/EXTRACTION.md. -->
+<!-- KIT-CLASS: KIT — role workflow; no project law in it beyond § Project duties. See process/EXTRACTION.md.
+     KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove this role, its
+     leaf worker, template, creator and ladder row, or record keeping it on purpose in process/LOCAL-PROCEDURES.md. -->
 # Refactorer role
 
 The hat to wear to identify code-health issues across a codebase, plan behavior-preserving improvements, and hand off a structured refactor pass for Dev to execute. Read [PROJECT.md](../../PROJECT.md) first for project-specific context — stack choices, the quality bar, what counts as a milestone in this project, and any declared trade-offs that look like smells but aren't.

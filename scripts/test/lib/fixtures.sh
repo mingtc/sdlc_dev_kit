@@ -375,6 +375,18 @@ _tree_has_lived() {   # -> the signal that fired, or empty for a tree that has n
   return 0
 }
 
+# _member_removed <path from the tree root> — is this OPTIONAL member (a DELETE-IF-UNUSED route:
+# release.sh, new-refactor.sh, the Refactorer role, its leaf worker, its template) absent from a tree
+# that has been adopted? Only then may a case skip what it would do with the member; on a tree that
+# has not been adopted its absence is a defect and the case must fail on it.
+_member_removed() {
+  case "$1" in
+    scripts/release.sh|scripts/new-refactor.sh|.claude/roles/refactorer.md|.claude/agents/refactorer-worker.md|.claude/templates/REFACTOR.template.md) ;;
+    *) return 1 ;;
+  esac
+  [ ! -e "$REAL_REPO_ROOT/$1" ] && [ -n "$(_tree_has_lived)" ]
+}
+
 # Does <root>'s <doc> declare the kit class on line 1? The discriminator arm (a) narrows itself
 # by, lifted out so it can be run against a FABRICATED root in the control below — the real
 # root documents are never mutated, because this harness must not write outside its sandbox.
