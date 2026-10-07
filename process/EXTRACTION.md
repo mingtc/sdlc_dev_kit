@@ -423,7 +423,7 @@ none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree wi
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/attrib-trailer.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
 `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it

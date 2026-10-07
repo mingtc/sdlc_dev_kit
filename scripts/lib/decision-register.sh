@@ -24,14 +24,23 @@
 #   and returns 1, if no `REGISTERS=` assignment is found — a caller must refuse on that, never
 #   fall back to a guessed path.
 kit_registers_declared() {
-  local file="$1"
+  kit_declared_value "$1" REGISTERS
+}
+
+# kit_declared_value <check-board.sh path> <NAME>
+#   Echoes the value of the single-quoted declaration `NAME='...'` verbatim, even where it spans
+#   several source lines; prints nothing and returns 1 if no such assignment is found. The file is
+#   read, never sourced.
+kit_declared_value() {
+  local file="$1" name="$2"
   [ -f "$file" ] || return 1
-  awk '
-    /^REGISTERS='"'"'/ { f=1 }
+  awk -v n="$name" '
+    BEGIN { head = "^" n "=\047" }
+    $0 ~ head { f=1 }
     f {
       l=$0
-      sub(/^REGISTERS='"'"'/, "", l)
-      if (l ~ /'"'"'/) { sub(/'"'"'.*$/, "", l); buf = (buf=="" ? l : buf "\n" l); print buf; found=1; exit }
+      sub(head, "", l)
+      if (l ~ /\047/) { sub(/\047.*$/, "", l); buf = (buf=="" ? l : buf "\n" l); print buf; found=1; exit }
       buf = (buf=="" ? l : buf "\n" l)
       next
     }

@@ -413,7 +413,15 @@ bounces it.
      branch, advances `dev_complete → qa_complete`). **`finish-pr.sh` also refuses a branch that
      touches a declared `TEST_GLOBS` path with no well-formed `## Ablation` section** (what was
      broken, and the red line it produced — `.claude/roles/dev.md`, `doctrine/instruments.md` §
-     A.2); fill it before this step, not after the refusal. Append `progress.md`:
+     A.2); fill it before this step, not after the refusal. **It also refuses a branch that
+     introduces a finding in a board property the branch touches** — the properties
+     `check-board.sh` arms `[d]` `[i]` `[l]` `[p]` `[r]` `[q]` report: a card id that disagrees with
+     its filename or repeats; a `blocks:`/`blocked_by:` no card answers; a `[decision: D-NN]`
+     citation that resolves to no live entry; a `requirements/` change that leaves a corpus forward
+     reference dangling or a register entry no PRD cites (and no `[cross-cutting]` marks); a
+     register entry that is not exactly three fields. The same code reads the tree the landing
+     would produce, and the operands come from the trunk's `check-board.sh`. A finding already on
+     the trunk is not the branch's: it stays `check-board.sh`'s to report. Append `progress.md`:
      `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
    - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
      note listing the unmet AC; Dev resumes on the same branch.

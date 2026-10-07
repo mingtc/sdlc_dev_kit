@@ -12,7 +12,7 @@
 #   (f) unpublished work in both homes the process writes to — [f1] trunk ref, [f2] .kanban-wt;
 #   (g) graduation — has day one finished (advisory);
 #   (h) generated-trailer scan of the same commits as (e);
-#   (i) blocks:/blocked_by: symmetry (advisory);
+#   (i) blocks:/blocked_by: symmetry (advisory here; a landing refuses a finding it introduces);
 #   (j) downtime-queue claim drift (advisory);
 #   (k) declined/ depth, a count (advisory);
 #   (l) declared reference integrity — every cited register id resolves;
@@ -22,9 +22,14 @@
 #   (p) CORPUS.md forward-reference integrity — a dangling id, a landed id not flipped to present,
 #       and a SEED-step marker once day one has closed.
 #   (q) declared-register entry SHAPE — every `D-NN` entry is exactly three fields, and a later
-#       entry that reopens or supersedes an earlier one names a stamp on the earlier entry (advisory).
+#       entry that reopens or supersedes an earlier one names a stamp on the earlier entry
+#       (advisory here; a landing that changes a register refuses a finding it introduces).
 #   (r) declared reverse coverage — a live register entry that CONSTRAINS a PRD but that PRD never
-#       cites; a `[cross-cutting]` entry is exempt (advisory).
+#       cites; a `[cross-cutting]` entry is exempt (advisory here; a landing that changes
+#       `requirements/` refuses a finding it introduces).
+# Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
+# lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
+# cannot disagree about a property.
 # This list and the print order must hold the same letters, in the same order, once each:
 #   grep -oE '^[[:space:]]*echo "\[[a-z]\]' scripts/check-board.sh | grep -oE '\[[a-z]\]' | uniq
 #   grep -E '^#   \([a-z]\)' scripts/check-board.sh | sed -E 's/^#   (\([a-z]\)).*/\1/'
@@ -169,6 +174,14 @@ fi
 # A load failure leaves (g2d) unmeasured, never read by a second parser — never an exit.
 # shellcheck source=lib/pm-field.sh
 [ -f "$CB_LIB_DIR/pm-field.sh" ] && . "$CB_LIB_DIR/pm-field.sh" 2>/dev/null || true
+
+# The shared board-property checks (arms [d], [i], [l], [p], [q], [r] and the landing in
+# lib/qa-gate.sh run the SAME functions). A load failure leaves each of those arms printing that it
+# did not run, never reading clean — and never an exit.
+# shellcheck source=lib/board-properties.sh
+[ -f "$CB_LIB_DIR/board-properties.sh" ] && . "$CB_LIB_DIR/board-properties.sh" 2>/dev/null || true
+cb_bp_loaded() { command -v kit_bp_ids >/dev/null 2>&1; }
+cb_bp_missing() { echo "      – scripts/lib/board-properties.sh is missing or did not load — this arm did not run  (skipped)"; }
 
 # ── THE SOURCE EVERY TRUNK-PROPERTY ARM ANSWERS ABOUT ────────────────────────
 # Resolved as kwt_resolve does, and the last link is READ from that library, never re-typed.
@@ -403,137 +416,18 @@ fi
 # BEGIN check (d)
 # ---------------------------------------------------------------------------
 # (d) Frontmatter id integrity across EVERY column in STATUS_FOLDERS (done/ included: a new mint
-#     can collide with an archived issue). One awk pass reports:
-#       • a DUPLICATE id;
-#       • an id that DISAGREES with its filename prefix;
-#       • a MISSING or MALFORMED id — a finding, never a crash (this runs at SessionStart).
-#     Read from the frontmatter block only, never a whole-file grep: an id quoted in prose or an
-#     Activity line is not a declaration. It reports; it never renumbers.
+#     can collide with an archived issue), then the same invariant for the declared REGISTERS.
+#     The check is lib/board-properties.sh's kit_bp_ids, the one implementation the landing
+#     (finish-pr.sh, subtask.sh) also calls: this arm reports it and sets `drift`, and a landing
+#     refuses a finding the branch introduces. It reports; it never renumbers.
 # ---------------------------------------------------------------------------
 echo
 echo "[d] Frontmatter id integrity (every column in STATUS_FOLDERS) — $(cb_src):"
-d_files=(); d_hits=0; d_ncols=0
-IFS='|' read -r -a d_cols <<< "$STATUS_FOLDERS"
-for folder in "${d_cols[@]}"; do
-  d_dir="$CB_TREE/progress/$folder"
-  # The PASS line counts the columns actually read; an absent one is not counted.
-  [ -d "$d_dir" ] || continue
-  d_ncols=$((d_ncols+1))
-  for f in "$d_dir"/*.md; do
-    [ -e "$f" ] || continue
-    if [ -s "$f" ]; then
-      d_files+=("$f")
-    else
-      echo "    ⚠ progress/$folder/$(basename "$f"): empty file — it carries no ${ISSUE_ID_KEY}: at all; restore it or remove it"
-      d_hits=$((d_hits+1)); drift=1
-    fi
-  done
-done
-d_out=""
-if [ "${#d_files[@]}" -gt 0 ]; then
-  d_out="$(awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" \
-               -v root="$CB_TREE/" -v dq='"' -v sq="'" '
-    function short(p) { s = p; sub("^" root, "", s); return s }
-    FNR == 1 { n++; path[n] = FILENAME; val[n] = ""; inf = 0; closed = 0; got = 0 }
-    # The OPENING fence: the first bare `---` within the first `scan` lines. It is
-    # deliberately not required on line 1 — see FRONTMATTER_SCAN_LINES above.
-    !closed && !inf && FNR <= scan && /^---[[:space:]]*$/ { inf = 1; next }
-    inf && /^---[[:space:]]*$/ { inf = 0; closed = 1; next }
-    inf && !got && $0 ~ ("^" key ":") {
-      v = $0
-      sub("^" key ":[[:space:]]*", "", v)
-      sub(/[[:space:]]*#.*$/, "", v)        # strip an inline frontmatter comment
-      gsub(dq, "", v); gsub(sq, "", v)      # and any quoting around the value
-      sub(/[[:space:]]+$/, "", v)
-      val[n] = v; got = 1
-      next
-    }
-    END {
-      for (i = 1; i <= n; i++) {
-        base = path[i]; sub(/.*\//, "", base)
-        fid = ""
-        if (match(base, "^" pat)) fid = substr(base, 1, RLENGTH)
-        v = val[i]
-        if (v == "") {
-          printf "    ⚠ %s: no %s: line in its frontmatter block — every id-based lookup (git log --grep, move-issue.sh, the Activity trail) keys on it; add it, matching the filename\n", short(path[i]), key
-          continue
-        }
-        if (v !~ ("^" pat "$")) {
-          printf "    ⚠ %s: malformed %s: %s — expected the %s shape; correct it to match the filename\n", short(path[i]), key, v, pat
-          continue
-        }
-        if (fid != "" && v != fid) {
-          printf "    ⚠ %s: frontmatter %s: %s DISAGREES with its filename prefix %s — one of the two is wrong; make them match (rename the file, or correct the frontmatter — whichever is the stray)\n", short(path[i]), key, v, fid
-        }
-        seen[v] = seen[v] ", " short(path[i])
-        count[v]++
-        order[++m] = v
-      }
-      for (j = 1; j <= m; j++) {
-        v = order[j]
-        if (count[v] > 1 && !reported[v]) {
-          reported[v] = 1
-          files = seen[v]; sub(/^, /, "", files)
-          printf "    ⚠ DUPLICATE %s: %s is carried by %d files: %s — renumber the LATER mint (./scripts/next-id.sh gives the next free number) and rename its file, branch and Activity trail to match\n", key, v, count[v], files
-        }
-      }
-    }
-  ' "${d_files[@]}" 2>/dev/null)"
-fi
-if [ -n "$d_out" ]; then
-  printf '%s\n' "$d_out"
-  d_hits=$((d_hits + $(printf '%s\n' "$d_out" | grep -c '⚠')))
-  drift=1
-fi
-
-# --- (d) continued: the declared REGISTERS ------------------------------------
-#     Same invariant, second id space. Two legs minting one id in different sections of an
-#     append-only register merge with no textual conflict, so only a check sees it.
-#     The highest id is computed ORDER-INDEPENDENTLY (a register grouped by section puts later ids
-#     above earlier ones, so `tail -1` is not the max): mint from the printed value.
-#     An absent register SKIPS with its reason; a finding sets `drift`.
-reg_read=0; reg_skipped=0
-while IFS='|' read -r reg_path reg_mark reg_shape; do
-  [ -n "$reg_path" ] || continue
-  reg_file="$CB_TREE/$reg_path"
-  if [ ! -f "$reg_file" ]; then
-    echo "    $reg_path: not present  (skipped — this project keeps no register there)"
-    reg_skipped=$((reg_skipped+1)); continue
-  fi
-  # Every id in the file, in the order the file happens to hold them.
-  reg_ids="$(grep -oE "^${reg_mark}${reg_shape}" "$reg_file" 2>/dev/null | sed "s|^${reg_mark}||" || true)"
-  if [ -z "$reg_ids" ]; then
-    # "0 entry headings" must be falsifiable: look for the id shape anywhere and say which.
-    if grep -qE "$reg_shape" "$reg_file" 2>/dev/null; then
-      echo "    ⚠ $reg_path: 0 '${reg_mark}${reg_shape}' entry headings, but the file DOES carry '${reg_shape}' elsewhere — the entry SHAPE has drifted off its declared form, so every reading below (duplicates, the highest id) covers nothing while reporting nothing wrong"
-      d_hits=$((d_hits+1)); drift=1
-    else
-      # Stated limit: an id written without its declared separator (D01 for D-NN) matches
-      # neither look; closing it needs an id-prefix field in REGISTERS.
-      echo "    $reg_path: 0 '${reg_mark}${reg_shape}' entry headings, and no line anywhere in the file carries '${reg_shape}' either  (nothing to check yet — an id written without its declared separator would still be invisible here)"
-    fi
-    continue
-  fi
-  reg_total="$(printf '%s\n' "$reg_ids" | grep -c .)"
-  reg_distinct="$(printf '%s\n' "$reg_ids" | sort -u | grep -c .)"
-  # ORDER-INDEPENDENT max: a numeric sort on the digits. `sed -E`, not a BSD-hostile `\+`.
-  reg_max="$(printf '%s\n' "$reg_ids" | sed -E 's/[^0-9]*([0-9]+)$/\1/' | sort -n | tail -1)"
-  reg_dupes="$(printf '%s\n' "$reg_ids" | sort | uniq -d | tr '\n' ' ' | sed 's/ $//')"
-  if [ -n "$reg_dupes" ]; then
-    echo "    ⚠ $reg_path: DUPLICATE id(s): $reg_dupes  — every reference to them is ambiguous; renumber the later one and its citations"
-    d_hits=$((d_hits+1)); drift=1
-  fi
-  reg_read=$((reg_read+1))
-  echo "    $reg_path: $reg_total entry heading(s), $reg_distinct distinct, highest id number $reg_max (max over ALL headings, not the file's last line)"
-done <<< "$(printf '%s\n' "$REGISTERS")"
-# The clearance names what it covered: a skipped register is never reported as distinct.
-if [ "$d_hits" -eq 0 ]; then
-  d_reg_note=""
-  if   [ "$reg_read" -gt 0 ] && [ "$reg_skipped" -gt 0 ]; then d_reg_note="; ids distinct in the $reg_read register(s) read, $reg_skipped skipped"
-  elif [ "$reg_read" -gt 0 ];                            then d_reg_note="; ids distinct in every declared register"
-  elif [ "$reg_skipped" -gt 0 ];                         then d_reg_note="; NO register was read ($reg_skipped skipped) — this pass says nothing about them"
-  fi
-  echo "    ✓ none (every ${ISSUE_ID_KEY}: unique across the $d_ncols column(s) read and matching its filename${d_reg_note})"
+if cb_bp_loaded; then
+  kit_bp_ids "$CB_TREE"
+  [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
+else
+  cb_bp_missing
 fi
 # END check (d)
 
@@ -1176,67 +1070,21 @@ fi
 # ---------------------------------------------------------------------------
 # (i) blocks: / blocked_by: SYMMETRY, in both directions; each asymmetric pair fires once and
 #     names both cards (either may be the stray). Hand-maintained fields that
-#     .claude/roles/orchestrator.md gates dispatch on.
-#     REPORTS ONLY, because no mechanism writes or clears these fields: a deciding finding would
-#     hold release.sh gate (d) shut on a hand-edit. Revisit when such a mechanism exists.
+#     .claude/roles/orchestrator.md gates dispatch on. The check is lib/board-properties.sh's
+#     kit_bp_blocks, the one implementation a landing also calls.
+#     REPORTS ONLY here, because no mechanism writes or clears these fields: a deciding finding
+#     would hold release.sh gate (d) shut on a hand-edit. The landing refuses a finding the
+#     branch introduces, which is a different act on a different operand.
 #     The header carries the literal `reports only` and the findings are indented
-#     (contracts/drift-report.md § 4). Reuses arm (d)'s file list, d_files.
+#     (contracts/drift-report.md § 4).
 # ---------------------------------------------------------------------------
 echo
-echo "[i] blocks:/blocked_by: symmetry (every column in STATUS_FOLDERS; reports only — it never changes the verdict below) — $(cb_src):"
-if [ "${#d_files[@]}" -eq 0 ]; then
-  echo "      – no issue file on the board  (skipped)"
+echo "[i] blocks:/blocked_by: symmetry (every column in STATUS_FOLDERS; reports only — it never changes the verdict below; a landing refuses a finding it introduces) — $(cb_src):"
+if cb_bp_loaded; then
+  kit_bp_blocks "$CB_TREE"
+  # NO `drift=1` HERE, DELIBERATELY, AND DO NOT ADD ONE. See the ruling above.
 else
-  i_out="$(awk -v scan="$FRONTMATTER_SCAN_LINES" '
-    function flush_list(   n, i, parts) {
-      # A flow list: [A, B] — or a single bare scalar.
-      if (curval ~ /^\[/) {
-        gsub(/^\[|\]$/, "", curval)
-        n = split(curval, parts, /[[:space:]]*,[[:space:]]*/)
-        for (i = 1; i <= n; i++) if (parts[i] != "") add(parts[i])
-      } else if (curval != "") add(curval)
-    }
-    function add(t) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", t); if (t == "") return
-                      DECL++; if (curkey == "blocks") B[id "\x1f" t] = 1; else BB[id "\x1f" t] = 1 }
-    FNR == 1 { if (id != "") { flush_list(); CARD[id] = 1 }
-               id = ""; curkey = ""; curval = ""; inlist = 0 }
-    FNR > scan { next }
-    {
-      line = $0
-      sub(/[[:space:]]*#.*$/, "", line)          # the templates END these lines with a # comment
-      if (line ~ /^[[:space:]]*id:[[:space:]]*/) { v = line; sub(/^[[:space:]]*id:[[:space:]]*/, "", v)
-                                                   gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); id = v }
-      if (line ~ /^[[:space:]]*(blocks|blocked_by):/) {
-        flush_list()
-        curkey = (line ~ /^[[:space:]]*blocks:/) ? "blocks" : "blocked_by"
-        curval = line; sub(/^[[:space:]]*(blocks|blocked_by):[[:space:]]*/, "", curval)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", curval)
-        inlist = (curval == "")                  # empty value ⇒ a BLOCK-style list may follow
-        if (!inlist) { flush_list(); curval = ""; curkey = "" }
-        next
-      }
-      # A fence is not a list item: YAML requires a space after the dash.
-      if (line ~ /^---[[:space:]]*$/) { inlist = 0; curkey = ""; curval = ""; next }
-      if (inlist && line ~ /^[[:space:]]*-[[:space:]]+[^[:space:]]/) {
-        v = line; sub(/^[[:space:]]*-[[:space:]]*/, "", v); add(v); next
-      }
-      if (inlist && line !~ /^[[:space:]]*$/) { inlist = 0; curkey = ""; curval = "" }
-    }
-    END {
-      if (id != "") { flush_list(); CARD[id] = 1 }
-      for (k in B)  { split(k, p, "\x1f")
-                      if (!(p[2] in CARD))            print "    ⚠ " p[1] " declares blocks: [" p[2] "] — " p[2] " is not on this board (a DANGLING reference, not an asymmetry: check the id)"
-                      else if (!((p[2] "\x1f" p[1]) in BB)) print "    ⚠ " p[1] " declares blocks: [" p[2] "] and " p[2] " does not declare blocked_by: [" p[1] "] — either card may be the stray one" }
-      for (k in BB) { split(k, p, "\x1f")
-                      if (!(p[2] in CARD))            print "    ⚠ " p[1] " declares blocked_by: [" p[2] "] — " p[2] " is not on this board (a DANGLING reference, not an asymmetry: check the id)"
-                      else if (!((p[2] "\x1f" p[1]) in B))  print "    ⚠ " p[1] " declares blocked_by: [" p[2] "] and " p[2] " does not declare blocks: [" p[1] "] — either card may be the stray one" }
-      n = 0; for (c in CARD) n++
-      printf "    %d card(s) read, %d dependency declaration(s)\n", n, DECL
-    }
-  ' "${d_files[@]}" 2>/dev/null || true)"
-  # The count line separates "nothing to check" from "checked, nothing wrong".
-  printf '%s\n' "$i_out" | sed '/^$/d'
-  # NO `drift=1` HERE, DELIBERATELY, AND DO NOT ADD ONE. See the ruling in the header.
+  cb_bp_missing
 fi
 
 # ---------------------------------------------------------------------------
@@ -1314,115 +1162,19 @@ fi
 # ---------------------------------------------------------------------------
 # (l) DECLARED REFERENCE INTEGRITY (contracts/drift-report.md § 2) — every register id cited
 #     ANYWHERE IN THIS TREE, outside CITATION_EXCLUDE, resolves to a live entry, and no RETIRED id
-#     is cited. It sets `drift`, so it carries NO `reports only` token. Two findings, printed
-#     separately: a dangling id and a retired one. The marker itself is read through
-#     lib/decision-register.sh's kit_decisions_cited; CITATION_EXCLUDE is this file's own operand.
-#     Counts are printed so "nothing cited" and "all resolve" read differently, and the POPULATION
-#     (files read, files excluded and why, marker-form citations against bare mentions outside a
-#     marker) is printed before either verdict — a widened arm that does not name what it widened
-#     TO repeats this defect one surface at a time.
+#     is cited. It sets `drift`, so it carries NO `reports only` token. The check is
+#     lib/board-properties.sh's kit_bp_citations (the marker itself is read through
+#     lib/decision-register.sh's kit_decisions_cited); CITATION_EXCLUDE is this file's own operand.
 # ---------------------------------------------------------------------------
 echo
-l_cites=0; l_files_read=0; l_hits=0
-# The live id set and the retired id set, from the SAME declared register records
-# arm (d) reads — one declaration, two readers.
-l_live=""; l_retired=""; l_reg_named=""; l_reg_read=0; l_shapes=""
-while IFS='|' read -r lreg_path lreg_mark lreg_shape; do
-  [ -n "$lreg_path" ] || continue
-  lreg_file="$CB_TREE/$lreg_path"
-  [ -f "$lreg_file" ] || continue
-  l_reg_read=$((l_reg_read+1))
-  l_reg_named="${l_reg_named:+$l_reg_named, }$lreg_path"
-  # Every declared register's own id SHAPE, not just the last one read: a project with two
-  # registers of different id shapes must have citations of BOTH recognised below, the same way
-  # l_live/l_retired accumulate across every register rather than keeping only the last.
-  l_shapes="$l_shapes
-$lreg_shape"
-  # § Retired ids are read through TWO filters (HTML comment spans stripped — the shipped
-  # register names example ids inside one — then anchored on the row's FIRST backticked id, since
-  # a retired row names its live successor in the same sentence). Both id sets: shared with
-  # finish-pr.sh's `forks:` landing precondition via lib/decision-register.sh, one parser.
-  if command -v kit_decision_register_live >/dev/null 2>&1; then
-    l_live="$l_live
-$(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape")"
-    l_retired="$l_retired
-$(kit_decision_register_retired "$lreg_file" "$lreg_shape")"
-  fi
-done <<< "$(printf '%s\n' "$REGISTERS")"
-l_live="$(printf '%s\n' "$l_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
-l_retired="$(printf '%s\n' "$l_retired" | grep -E '^D-[0-9]+$' | sort -u || true)"
-l_shapes="$(printf '%s\n' "$l_shapes" | awk 'NF' | sort -u || true)"
-l_live_n="$(printf '%s\n' "$l_live" | grep -c . || true)"
-l_retired_n="$(printf '%s\n' "$l_retired" | grep -c . || true)"
-
-if [ "$l_reg_read" -eq 0 ]; then
+if ! cb_bp_loaded; then
+  echo "[l] Declared reference integrity — every cited register id resolves: scripts/lib/board-properties.sh is missing or did not load — cannot resolve citations (skipped) — $(cb_src)"
+elif [ -z "$(kit_bp_registers_present "$CB_TREE")" ]; then
   echo "[l] Declared reference integrity — every cited register id resolves: no register was read (none of the declared ones is present in this source) — nothing to resolve citations against (skipped) — $(cb_src)"
-elif ! command -v kit_decision_register_live >/dev/null 2>&1; then
-  echo "[l] Declared reference integrity — every cited register id resolves: scripts/lib/decision-register.sh is missing or did not define its readers — cannot resolve citations against $l_reg_named (skipped) — $(cb_src)"
 else
   echo "[l] Declared reference integrity — every cited register id resolves to a live entry, and no retired id is cited — $(cb_src):"
-  echo "    register(s) read: $l_reg_named — $l_live_n live id(s), $l_retired_n retired id(s)"
-  # THE POPULATION: every tracked file under CB_TREE, less CITATION_EXCLUDE's prefixes. Named here,
-  # not just filtered silently — the printed exclusion list IS the arm's population statement.
-  l_excl_named="$(printf '%s\n' "$CITATION_EXCLUDE" | grep -c . || true)"
-  echo "    population: every file in this source except: $(printf '%s' "$CITATION_EXCLUDE" | tr '\n' ' ')($l_excl_named path(s) excluded — see CITATION_EXCLUDE's header for why each one is)"
-  l_files="$(cd "$CB_TREE" 2>/dev/null && find . -type f 2>/dev/null | sed 's|^\./||' | sort || true)"
-  while IFS= read -r lex; do
-    [ -n "$lex" ] || continue
-    # A literal PREFIX match on the exclusion path (fixed-string, anchored), never a substring or
-    # a regex: "scripts/" must not also drop a "somescripts/" false hit, and the exclusion's own
-    # literal "." must not act as a wildcard.
-    lex_fixed="$(printf '%s' "$lex" | sed 's/[.[\*^$/]/\\&/g')"
-    l_files="$(printf '%s\n' "$l_files" | grep -v -E "^${lex_fixed}" || true)"
-  done <<< "$(printf '%s\n' "$CITATION_EXCLUDE")"
-  l_bare=0
-  while IFS= read -r cfile; do
-    [ -n "$cfile" ] || continue
-    l_files_read=$((l_files_read+1))
-    # Every declared register's own id shape is read against this file — almost always one shape
-    # (one register), read once; a project declaring more than one SHAPE reads each in turn, each
-    # occurrence counted once per shape it matches (a citation matching two shapes at once is the
-    # degenerate case of two registers sharing one id space, which the register declaration itself
-    # should avoid — not silently merged away here).
-    l_cids=""
-    while IFS= read -r lshp; do
-      [ -n "$lshp" ] || continue
-      l_cids="$l_cids
-$(kit_decisions_cited "$CB_TREE/$cfile" "$lshp" || true)"
-    done <<< "$l_shapes"
-    while IFS= read -r cid; do
-      [ -n "$cid" ] || continue
-      l_cites=$((l_cites+1))
-      if printf '%s\n' "$l_retired" | grep -qx "$cid"; then
-        echo "    ⚠ $cfile cites $cid, which is RETIRED — a retired id is never reused, so this citation resolves to nothing; re-point it at the ruling that replaced it, or drop it"
-        l_hits=$((l_hits+1)); drift=1
-      elif ! printf '%s\n' "$l_live" | grep -qx "$cid"; then
-        echo "    ⚠ $cfile cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names"
-        l_hits=$((l_hits+1)); drift=1
-      fi
-    done <<< "$(printf '%s\n' "$l_cids" | awk 'NF')"
-    # THE ARM'S OWN POPULATION: a bare id mention OUTSIDE any '[decision: ...]' bracket is never
-    # read as a citation above — a mention is not a citation (a bare-id grep cannot tell one from
-    # the other). Counted here by blanking out every marker SPAN first (so an id already counted
-    # as a citation is not counted twice as a mention), then matching the id shape(s) on what is
-    # left — so "0 citations found" or "all N resolve" never reads as having seen the register's
-    # whole reach in this file when it has only ever seen the marker form.
-    l_stripped="$(grep -IaE . "$CB_TREE/$cfile" 2>/dev/null \
-      | sed -E 's/\[[Dd][Ee][Cc][Ii][Ss][Ii][Oo][Nn][[:space:]]*:[[:space:]]*[^]]*[[:space:]]*\]//g' || true)"
-    [ -n "$l_stripped" ] || continue
-    while IFS= read -r lshp; do
-      [ -n "$lshp" ] || continue
-      l_bare=$((l_bare + $(printf '%s\n' "$l_stripped" | grep -oE "$lshp" 2>/dev/null | grep -c . || true)))
-    done <<< "$l_shapes"
-  done <<< "$l_files"
-  if [ "$l_hits" -eq 0 ]; then
-    if [ "$l_cites" -eq 0 ]; then
-      echo "    ✓ none ($l_files_read file(s) read, 0 citations found — nothing cites the register yet)"
-    else
-      echo "    ✓ none (all $l_cites citation(s) across $l_files_read file(s) resolve to a live entry; none cites a retired id)"
-    fi
-  fi
-  echo "    population checked: $l_cites marker-form citation(s) against $l_bare bare id mention(s) outside a '[decision: ...]' marker, across $l_files_read file(s) — a bare mention is read, never silently counted as a citation"
+  kit_bp_citations "$CB_TREE"
+  [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
 fi
 
 # BEGIN prd-coverage arm
@@ -1551,397 +1303,57 @@ fi
 
 # ---------------------------------------------------------------------------
 # (p) CORPUS FORWARD-REFERENCE INTEGRITY — requirements/CORPUS.md's manifest `Status` column.
-#     It DECIDES the verdict, on the same footing as [l]: each finding below is single-ended (the
-#     marker or the row is wrong, no second party), the shape [l]'s own contract entry draws the
-#     decide/advise line on. Three findings, printed separately:
-#       - a `forward-referenced (<ISSUE-ID>)` naming an id that is in NO column of STATUS_FOLDERS
-#         (read the same way arm [d] reads the board: every column, frontmatter id only);
-#       - a `forward-referenced (<ISSUE-ID>)` naming an id that HAS reached a landed column
-#         (progress/done/ or progress/qa_complete/, same test [j] uses) while the row's OWN Status
-#         cell is still the forward-reference marker, not `present` — the rule's own words are
-#         "flip Status to present in the same change";
-#       - any `forward-referenced (SEED step <N>)` marker once day one has closed. "Closed" is NOT
-#         re-derived here: it is arm [g]'s own G_GRADUATION_COMPLETE, set only in [g]'s COMPLETE
-#         branch, so this arm and [g] can never disagree about what "day one is done" means.
-#     Cannot see: a row left with NO marker at all (process/SEED.md § Day one is done when's own
-#     checklist is the only reading of that). Not implemented here on purpose — see the card.
+#     It DECIDES the verdict, on the same footing as [l]: each finding is single-ended (the
+#     marker or the row is wrong, no second party). The check is lib/board-properties.sh's
+#     kit_bp_corpus, the one implementation a landing also calls; it names its three findings.
+#     "Day one has closed" is NOT re-derived: it is arm [g]'s own G_GRADUATION_COMPLETE, set only
+#     in [g]'s COMPLETE branch, passed in so this arm and [g] can never disagree.
 # ---------------------------------------------------------------------------
 CORPUS_FILE="${CORPUS_FILE:-requirements/CORPUS.md}"   # relative to the repository root
 echo
 echo "[p] CORPUS forward-reference integrity ($CORPUS_FILE) — $(cb_src):"
-if [ ! -f "$CB_TREE/$CORPUS_FILE" ]; then
-  echo "      – $CORPUS_FILE not present  (skipped — no manifest to read)"
+if cb_bp_loaded; then
+  kit_bp_corpus "$CB_TREE" "$G_GRADUATION_COMPLETE"
+  [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
 else
-  # Every id known to the board, from the SAME frontmatter reading arm [d] does (every column in
-  # STATUS_FOLDERS, id: only, never a whole-file grep). Reused, not re-derived: d_files is already
-  # every *.md this run found across the columns.
-  p_known=""
-  if [ "${#d_files[@]}" -gt 0 ]; then
-    p_known="$(awk -v key="$ISSUE_ID_KEY" -v pat="$ISSUE_ID_PATTERN" -v scan="$FRONTMATTER_SCAN_LINES" '
-      FNR == 1 { inf = 0; closed = 0; got = 0 }
-      !closed && !inf && FNR <= scan && /^---[[:space:]]*$/ { inf = 1; next }
-      inf && /^---[[:space:]]*$/ { inf = 0; closed = 1; next }
-      inf && !got && $0 ~ ("^" key ":") {
-        v = $0
-        sub("^" key ":[[:space:]]*", "", v); sub(/[[:space:]]*#.*$/, "", v)
-        gsub(/"/, "", v); gsub(/'"'"'/, "", v); sub(/[[:space:]]+$/, "", v)
-        if (v ~ ("^" pat "$")) print v
-        got = 1
-      }
-    ' "${d_files[@]}" 2>/dev/null)"
-  fi
-  # The landed subset: the same columns [j] and [m] treat as landed, by filename prefix — no
-  # frontmatter re-read needed, a landed card's filename already carries its id.
-  p_landed=""
-  for pcol in done qa_complete; do
-    [ -d "$CB_TREE/progress/$pcol" ] || continue
-    for pf in "$CB_TREE/progress/$pcol"/*.md; do
-      [ -e "$pf" ] || continue
-      pbase="$(basename "$pf")"
-      if [[ "$pbase" =~ ^($ISSUE_ID_PATTERN)- ]]; then
-        p_landed="$p_landed
-${BASH_REMATCH[1]}"
-      fi
-    done
-  done
-
-  # Every manifest row: the Status cell and the marker it carries, if any. A LEADING `|` makes
-  # awk's first -F'|' field an empty string before the row's own first cell, so Status (the
-  # table's 3rd column) is $4, not $3 — the header ("| Entry | Kind | Status | Why |") is read the
-  # same way, so this is not a special case, just the field count a leading pipe always produces.
-  # A table row only — the header and its `|---|` separator are not data.
-  p_rows="$(awk -F'|' '
-    /^\|/ {
-      if ($0 ~ /^\|[[:space:]]*-+/) next
-      if (NF < 5) next
-      status = $4
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
-      gsub(/`/, "", status)
-      if (status ~ /^forward-referenced \(/) print status
-    }
-  ' "$CB_TREE/$CORPUS_FILE" 2>/dev/null)"
-
-  p_hits=0; p_seen=0
-  while IFS= read -r prow; do
-    [ -n "$prow" ] || continue
-    p_seen=$((p_seen+1))
-    if [[ "$prow" =~ ^forward-referenced\ \(SEED\ step\ [0-9]+\)$ ]]; then
-      if [ "$G_GRADUATION_COMPLETE" -eq 1 ]; then
-        echo "      ⚠ $prow — day one has closed (arm [g] reads graduation COMPLETE), and this SEED-step marker does not outlive day one (requirements/CORPUS.md's own rule); re-point it at an id, or remove the row"
-        p_hits=$((p_hits+1)); drift=1
-      fi
-      continue
-    fi
-    if [[ "$prow" =~ ^forward-referenced\ \(([A-Za-z]+-[0-9]+)\)$ ]]; then
-      pid="${BASH_REMATCH[1]}"
-      if ! printf '%s\n' "$p_known" | grep -qx "$pid"; then
-        echo "      ⚠ $prow — $pid is not the frontmatter id: of any card in this source (every STATUS_FOLDERS column read) — a dangling forward reference; fix the id, or mint the work item it names"
-        p_hits=$((p_hits+1)); drift=1
-      elif printf '%s\n' "$p_landed" | grep -qx "$pid"; then
-        echo "      ⚠ $prow — $pid has LANDED (progress/done/ or progress/qa_complete/) but its row's Status is still the forward-reference marker, not present — flip Status to present in the same change (requirements/CORPUS.md's own rule)"
-        p_hits=$((p_hits+1)); drift=1
-      fi
-      continue
-    fi
-    # A marker whose parenthesised content is neither shape: reported so a third form does not
-    # pass silently as neither an id nor a step.
-    echo "      ⚠ $prow — neither the <ISSUE-ID> form nor the SEED-step form; this marker's shape has drifted from requirements/CORPUS.md's own rule"
-    p_hits=$((p_hits+1)); drift=1
-  done <<< "$p_rows"
-
-  if [ "$p_seen" -eq 0 ]; then
-    echo "      – 0 forward-referenced row(s) in this manifest  (nothing to resolve)"
-  elif [ "$p_hits" -eq 0 ]; then
-    echo "      ✓ none ($p_seen forward-referenced row(s), every id resolves, none has landed unflipped, no stale SEED-step marker)"
-  fi
+  cb_bp_missing
 fi
 # END corpus forward-reference arm
 
 # ---------------------------------------------------------------------------
 # (q) DECLARED-REGISTER ENTRY SHAPE (requirements/DECISIONS.md's own rule, "Every entry is exactly
-#     three things"; card's triage: a SHAPE lint, not an amendment-count threshold). Reports only —
-#     it never changes the verdict below, the same footing as [k]/[m]/[n]/[o]: this is a judgement
-#     about wording, and a project may have a good reason for a shape this arm has not seen.
-#
-#     Reads every register REGISTERS declares (the same declaration and the same three-field
-#     `<path>|<heading mark>|<id shape>` record arm (d)/(l) read — one declaration, three readers).
-#     Per `D-NN` entry, bounded the same way lib/decision-register.sh's diff-span reader bounds an
-#     entry (to the next heading of ANY level, or a bucket-separator `---` rule — DECISIONS.md's own
-#     format law, "buckets are separated by a `---` rule"):
-#
-#       - the three canonical field labels — `**Ruling.**`, `**Why.**`, `**Provenance.**`, each at
-#         the START of its own line — are each present exactly once, in that order;
-#       - no OTHER bold-labelled line (`**<anything>.**` at line start) appears anywhere in the
-#         entry — this is what catches a stacked, dated amendment (`**(14) 2026-09-29.**`) and a
-#         fourth field a reader must reconcile by hand, without counting how many there are;
-#       - the Why field is ONE PARAGRAPH — no blank line between `**Why.**` and `**Provenance.**`;
-#       - nothing follows Provenance's own paragraph before the entry ends.
-#
-#     SEPARATELY: an entry cited by a LATER entry with reopen/supersede wording (`reopens D-NN`,
-#     `supersedes D-NN`, `overturns D-NN`, either order, the id in DECISIONS.md's own citation form
-#     or bare) is reported if its OWN body carries no stamp word (`Amended`, `CONFIRMED`,
-#     `Clarified`, `SUPERSEDED`, `WITHDRAWN`, `WORKING DEFAULT`) — pm.md's own rule, "a ruling is
-#     not done until the predecessor carries its stamp, in the same change".
-#
-#     ACCEPTS EVERY LEGAL STATE: a WITHDRAWN or WORKING DEFAULT entry (the THIRD and FOURTH states)
-#     states its token at the head of the Ruling field, in the same three fields, never as a fourth
-#     — so a legally-shaped one of either reads clean here, same as an ordinary ruling.
-#
-#     WHAT THIS CANNOT SEE: an entry that passes this shape and still states the wrong current
-#     ruling (this is a wording judgement, not a shape one — a card's own contract names it); a
-#     reopen/supersede relationship stated in words this arm's vocabulary does not cover; and a
-#     stamp that is present but false (a claimed "Amended" that changed nothing).
+#     three things"): a SHAPE lint, not an amendment-count threshold. The check is
+#     lib/board-properties.sh's kit_bp_register_shape, the one implementation a landing also
+#     calls. Reports only here — it never changes the verdict below, the same footing as
+#     [k]/[m]/[n]/[o]: a judgement about wording, and a project may have a good reason for a shape
+#     this arm has not seen. A landing that changes a register refuses a finding it introduces.
 # ---------------------------------------------------------------------------
 echo
-echo "[q] Declared-register entry shape — every D-NN entry is exactly three fields, and a reopened entry is stamped (reports only — it never changes the verdict below) — $(cb_src):"
-q_reg_read=0; q_hits=0; q_entries=0
-q_stamped=""      # newline list of ids carrying a stamp word, across every register read
-q_reopeners=""    # newline list of "<target-id> <reopener-id>" pairs, across every register read
-while IFS='|' read -r qreg_path qreg_mark qreg_shape; do
-  [ -n "$qreg_path" ] || continue
-  qreg_file="$CB_TREE/$qreg_path"
-  [ -f "$qreg_file" ] || continue
-  q_reg_read=$((q_reg_read+1))
-
-  # Entry spans: id, start line, end line — stop at the next entry heading of the SAME shape, at
-  # any OTHER heading (any level: a non-D-NN "### " sub-heading closes the entry too, the same as
-  # a "## " section does), or a bucket-separator "---" rule.
-  q_spans="$(awk -v m="$qreg_mark" -v s="$qreg_shape" '
-    index($0,m)==1 {
-      rest=substr($0,length(m)+1)
-      if (rest ~ ("^" s "([[:space:]]|$)")) {
-        if (cur != "") print cur, start, NR-1
-        id=rest; sub(/[[:space:]].*$/,"",id)
-        cur=id; start=NR; next
-      }
-      if (cur != "") { print cur, start, NR-1; cur="" }
-      next
-    }
-    /^##[[:space:]]/ || /^---[[:space:]]*$/ {
-      if (cur != "") { print cur, start, NR-1; cur="" }
-    }
-    END { if (cur != "") print cur, start, NR }
-  ' "$qreg_file" 2>/dev/null)"
-
-  while read -r qid qstart qend; do
-    [ -n "$qid" ] || continue
-    q_entries=$((q_entries+1))
-    qbody="$(sed -n "${qstart},${qend}p" "$qreg_file")"
-
-    r_line="$(printf '%s\n' "$qbody" | grep -n '^\*\*Ruling\.\*\*' | head -1 | cut -d: -f1)"
-    w_line="$(printf '%s\n' "$qbody" | grep -n '^\*\*Why\.\*\*' | head -1 | cut -d: -f1)"
-    p_line="$(printf '%s\n' "$qbody" | grep -n '^\*\*Provenance\.\*\*' | head -1 | cut -d: -f1)"
-    r_n="$(printf '%s\n' "$qbody" | grep -c '^\*\*Ruling\.\*\*' || true)"
-    w_n="$(printf '%s\n' "$qbody" | grep -c '^\*\*Why\.\*\*' || true)"
-    p_n="$(printf '%s\n' "$qbody" | grep -c '^\*\*Provenance\.\*\*' || true)"
-
-    q_missing=""
-    [ -n "$r_line" ] || q_missing="${q_missing:+$q_missing, }Ruling"
-    [ -n "$w_line" ] || q_missing="${q_missing:+$q_missing, }Why"
-    [ -n "$p_line" ] || q_missing="${q_missing:+$q_missing, }Provenance"
-    if [ -n "$q_missing" ]; then
-      echo "      ⚠ $qreg_path $qid — missing field(s): $q_missing"
-      q_hits=$((q_hits+1))
-    fi
-    if [ "${r_n:-0}" -gt 1 ] || [ "${w_n:-0}" -gt 1 ] || [ "${p_n:-0}" -gt 1 ]; then
-      echo "      ⚠ $qreg_path $qid — a canonical field label appears more than once (Ruling×${r_n:-0}, Why×${w_n:-0}, Provenance×${p_n:-0})"
-      q_hits=$((q_hits+1))
-    fi
-
-    # Any OTHER line-start bold label besides the three canonical ones — a stacked amendment or a
-    # fourth field, uncounted: one is already one too many.
-    q_extra="$(printf '%s\n' "$qbody" | grep -noE '^\*\*[^*]+\.\*\*' \
-                | grep -Ev ':\*\*(Ruling|Why|Provenance)\.\*\*$' || true)"
-    if [ -n "$q_extra" ]; then
-      q_n_extra="$(printf '%s\n' "$q_extra" | grep -c . || true)"
-      echo "      ⚠ $qreg_path $qid — $q_n_extra extra dated/bold fragment(s) beyond the three fields, a running log rather than a single conclusion: $(printf '%s' "$q_extra" | tr '\n' ' ')"
-      q_hits=$((q_hits+1))
-    fi
-
-    # Why is one paragraph: no blank line between its label and Provenance's.
-    if [ -n "$w_line" ] && [ -n "$p_line" ] && [ "$p_line" -gt "$w_line" ]; then
-      q_why_body="$(printf '%s\n' "$qbody" | sed -n "$((w_line+1)),$((p_line-1))p")"
-      if printf '%s\n' "$q_why_body" | grep -qx ''; then
-        echo "      ⚠ $qreg_path $qid — the Why field spans more than one paragraph"
-        q_hits=$((q_hits+1))
-      fi
-    fi
-
-    # Nothing after Provenance's own paragraph before the entry ends.
-    if [ -n "$p_line" ]; then
-      q_after="$(printf '%s\n' "$qbody" | sed -n "$((p_line+1)),\$p")"
-      q_trailing="$(printf '%s\n' "$q_after" | awk 'BEGIN{seen=0} { if ($0 ~ /^[[:space:]]*$/) {seen=1; next} if (seen && NF) {print; exit} }')"
-      if [ -n "$q_trailing" ]; then
-        echo "      ⚠ $qreg_path $qid — content follows Provenance's own paragraph: \"$q_trailing\""
-        q_hits=$((q_hits+1))
-      fi
-    fi
-
-    # Stamp words, for the reopened-without-stamp check below.
-    if printf '%s\n' "$qbody" | grep -qiE '\*\*(Amended|CONFIRMED|Clarified|SUPERSEDED|WITHDRAWN|WORKING DEFAULT)\b'; then
-      q_stamped="$q_stamped
-$qid"
-    fi
-
-    # Reopen/supersede vocabulary naming another id, either order, the id never matched inside a
-    # longer identifier (a preceding letter, as in PRD-NNN, disqualifies it).
-    while read -r qtgt; do
-      [ -n "$qtgt" ] || continue
-      [ "$qtgt" = "$qid" ] && continue
-      q_reopeners="$q_reopeners
-$qtgt $qid"
-    done < <(printf '%s\n' "$qbody" \
-               | grep -oiE "([^A-Za-z]${qreg_shape}.{0,60}(reopen|supersed|overturn)[a-z]*|(reopen|supersed|overturn)[a-z]*.{0,60}[^A-Za-z]${qreg_shape})" \
-               | grep -oE "$qreg_shape" || true)
-  done <<< "$q_spans"
-done <<< "$(printf '%s\n' "$REGISTERS")"
-
-if [ "$q_reg_read" -eq 0 ]; then
-  echo "      – no register was read (none of the declared ones is present in this source)  (skipped)"
+echo "[q] Declared-register entry shape — every D-NN entry is exactly three fields, and a reopened entry is stamped (reports only — it never changes the verdict below; a landing refuses a finding it introduces) — $(cb_src):"
+if cb_bp_loaded; then
+  kit_bp_register_shape "$CB_TREE"
 else
-  q_reopen_hits=0
-  while read -r qtgt; do
-    [ -n "$qtgt" ] || continue
-    if ! printf '%s\n' "$q_stamped" | grep -qx "$qtgt"; then
-      q_by="$(printf '%s\n' "$q_reopeners" | awk -v t="$qtgt" '$1==t{print $2}' | sort -u | tr '\n' ' ')"
-      echo "      ⚠ $qtgt — reopened or superseded by ${q_by}but carries no stamp of its own (pm.md: \"a ruling is not done until the predecessor carries its stamp, in the same change\")"
-      q_reopen_hits=$((q_reopen_hits+1))
-    fi
-  done <<< "$(printf '%s\n' "$q_reopeners" | awk 'NF{print $1}' | sort -u)"
-  q_hits=$((q_hits+q_reopen_hits))
-
-  if [ "$q_entries" -eq 0 ]; then
-    echo "      – 0 entr(ies) in the register(s) read  (nothing to check)"
-  elif [ "$q_hits" -eq 0 ]; then
-    echo "      ✓ none ($q_entries entr(ies) read, every one exactly three fields, no unstamped reopen)"
-  fi
+  cb_bp_missing
 fi
 # END register-shape arm
 
 # ---------------------------------------------------------------------------
-# (r) DECLARED REVERSE COVERAGE — arm (l) walks FROM a citing surface TO the
-#     register and catches a citation that resolves to nothing or to a retired id. It has no
-#     arm walking the OTHER direction: a LIVE register entry that CONSTRAINS a PRD but that PRD
-#     never cites. `pm.md`'s own fork/fact rule: "where a fork constrains a requirement it gets
-#     both — the ruling in the register, and the PRD citing the id... never the text in both
-#     places." A rebuilder working from the PRD alone re-derives whatever the PRD never routes to.
-#
-#     KEYED AS "cited BY THE PRD it constrains", not "cited anywhere" — a card citing the id is not
-#     the PRD citing it, and does not discharge this: a fork can constrain a PRD, be cited only
-#     from a card, and leave the PRD itself contradicting the ruling.
-#
-#     EXEMPT: an entry marked CROSS_CUTTING_MARKER (`[cross-cutting]`, at the head of its Ruling
-#     field, DECISIONS.md's own format law) binds the whole project rather than one PRD, so no PRD
-#     is expected to cite it.
-#
-#     REPORT ONLY, like (k)/(m)/(n)/(o)/(q): this arm cannot tell "not this PRD's domain" from
-#     "missed" for an entry that is neither cited nor marked exempt — that is a judgement call the
-#     kit cannot make generically, so it is named as a finding, never a refusal, and never sets
-#     `drift`.
-#
-#     WHAT THIS CANNOT SEE: an entry cited by its PRD in words but not the `[decision: D-NN]`
-#     marker (format law is the marker, same as arm (l)); an entry that legitimately belongs to NO
-#     PRD and is also not marked `[cross-cutting]` (this arm cannot distinguish that from a miss,
-#     and says so); and a citation from a PRD that does not live under PRD_SURFACE.
+# (r) DECLARED REVERSE COVERAGE — arm (l) walks FROM a citing surface TO the register; this walks
+#     the other way: a LIVE register entry that CONSTRAINS a PRD but that PRD never cites
+#     (`pm.md`'s fork/fact rule). Keyed as "cited BY THE PRD it constrains", not "cited anywhere".
+#     An entry marked CROSS_CUTTING_MARKER (`[cross-cutting]`, at the head of its Ruling field) is
+#     exempt. The check is lib/board-properties.sh's kit_bp_reverse_coverage, the one
+#     implementation a landing also calls.
+#     REPORT ONLY here, like (k)/(m)/(n)/(o)/(q): this arm cannot tell "not this PRD's domain"
+#     from "missed" for an entry that is neither cited nor marked exempt, so it never sets
+#     `drift`. A landing that changes `requirements/` refuses an entry it newly leaves uncited.
 # ---------------------------------------------------------------------------
 echo
-echo "[r] Declared reverse coverage — every live register entry a PRD constrains is cited BY THAT PRD, or declared \`[cross-cutting]\` (reports only — a judgement call this arm cannot make generically, and it never changes the verdict below) — $(cb_src):"
-r_reg_read=0; r_live=""; r_exempt=""; r_shapes=""
-while IFS='|' read -r rreg_path rreg_mark rreg_shape; do
-  [ -n "$rreg_path" ] || continue
-  rreg_file="$CB_TREE/$rreg_path"
-  [ -f "$rreg_file" ] || continue
-  r_reg_read=$((r_reg_read+1))
-  r_shapes="$r_shapes
-$rreg_shape"
-  if command -v kit_decision_register_live >/dev/null 2>&1; then
-    r_live="$r_live
-$(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape")"
-  fi
-  # Entry spans, bounded the same way arm (q) bounds them: to the next entry heading of the SAME
-  # shape, any OTHER heading, or a bucket-separator "---" rule.
-  r_spans="$(awk -v m="$rreg_mark" -v s="$rreg_shape" '
-    index($0,m)==1 {
-      rest=substr($0,length(m)+1)
-      if (rest ~ ("^" s "([[:space:]]|$)")) {
-        if (cur != "") print cur, start, NR-1
-        id=rest; sub(/[[:space:]].*$/,"",id)
-        cur=id; start=NR; next
-      }
-      if (cur != "") { print cur, start, NR-1; cur="" }
-      next
-    }
-    /^##[[:space:]]/ || /^---[[:space:]]*$/ {
-      if (cur != "") { print cur, start, NR-1; cur="" }
-    }
-    END { if (cur != "") print cur, start, NR }
-  ' "$rreg_file" 2>/dev/null)"
-  while read -r rid rstart rend; do
-    [ -n "$rid" ] || continue
-    rbody="$(sed -n "${rstart},${rend}p" "$rreg_file")"
-    if printf '%s\n' "$rbody" | grep -qE "^\*\*Ruling\.\*\*[[:space:]]*${CROSS_CUTTING_MARKER}"; then
-      r_exempt="$r_exempt
-$rid"
-    fi
-  done <<< "$r_spans"
-done <<< "$(printf '%s\n' "$REGISTERS")"
-r_live="$(printf '%s\n' "$r_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
-r_exempt="$(printf '%s\n' "$r_exempt" | grep -E '^D-[0-9]+$' | sort -u || true)"
-r_shapes="$(printf '%s\n' "$r_shapes" | awk 'NF' | sort -u || true)"
-r_live_n="$(printf '%s\n' "$r_live" | grep -c . || true)"
-r_exempt_n="$(printf '%s\n' "$r_exempt" | grep -c . || true)"
-
-if [ "$r_reg_read" -eq 0 ]; then
-  echo "      – no register was read (none of the declared ones is present in this source)  (skipped)"
-elif ! command -v kit_decision_register_live >/dev/null 2>&1; then
-  echo "      – scripts/lib/decision-register.sh is missing or did not define its readers — cannot read the register  (skipped)"
+echo "[r] Declared reverse coverage — every live register entry a PRD constrains is cited BY THAT PRD, or declared \`[cross-cutting]\` (reports only — a judgement call this arm cannot make generically, and it never changes the verdict below; a landing refuses a finding it introduces) — $(cb_src):"
+if cb_bp_loaded; then
+  kit_bp_reverse_coverage "$CB_TREE"
 else
-  # The PRD population: every file matching PRD_SURFACE, named so "no PRD" and "PRDs read but none
-  # cites X" are distinguishable in the output. A local nullglob: with no match the glob must
-  # expand to NOTHING, never stay literal (that would be read as one PRD file named for a pattern)
-  # and never abort under this script's `set -u`.
-  r_prds="$(
-    shopt -s nullglob nocaseglob 2>/dev/null
-    cd "$CB_TREE" 2>/dev/null || exit 0
-    for _g in $PRD_SURFACE; do
-      [ -f "$_g" ] && printf '%s\n' "$_g"
-    done
-  )"
-  r_prd_n="$(printf '%s\n' "$r_prds" | grep -c . || true)"
-
-  # Every id any PRD cites, across the whole PRD population — the SAME marker reader arm (l) uses,
-  # against every declared register's own id shape.
-  r_cited=""
-  while IFS= read -r rpf; do
-    [ -n "$rpf" ] || continue
-    while IFS= read -r rshp; do
-      [ -n "$rshp" ] || continue
-      while IFS= read -r rcid; do
-        [ -n "$rcid" ] || continue
-        r_cited="$r_cited
-$rcid"
-      done <<< "$(kit_decisions_cited "$CB_TREE/$rpf" "$rshp" || true)"
-    done <<< "$r_shapes"
-  done <<< "$r_prds"
-  r_cited="$(printf '%s\n' "$r_cited" | grep -E '^D-[0-9]+$' | sort -u || true)"
-
-  echo "      PRDs read ($PRD_SURFACE): $r_prd_n file(s) — $r_live_n live id(s), $r_exempt_n declared [cross-cutting]"
-  r_hits=0
-  while read -r rid; do
-    [ -n "$rid" ] || continue
-    printf '%s\n' "$r_exempt" | grep -qx "$rid" && continue
-    if ! printf '%s\n' "$r_cited" | grep -qx "$rid"; then
-      echo "      ⚠ $rid is not cited by any PRD under $PRD_SURFACE, and is not declared [cross-cutting] — if it constrains a requirement, cite it there; if it is project law no single PRD should cite, mark it [cross-cutting]"
-      r_hits=$((r_hits+1))
-    fi
-  done <<< "$r_live"
-  if [ "$r_hits" -eq 0 ]; then
-    if [ "$r_live_n" -eq 0 ]; then
-      echo "      – 0 live id(s) in the register(s) read  (nothing to check)"
-    else
-      echo "      ✓ none (every live, non-exempt id is cited by a PRD under $PRD_SURFACE)"
-    fi
-  fi
+  cb_bp_missing
 fi
 # END reverse-coverage arm
 

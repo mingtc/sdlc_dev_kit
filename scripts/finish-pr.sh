@@ -357,7 +357,7 @@ if [ -n "$_stk_ahead" ]; then
   fi
 fi
 
-# ── THE forks: / QA VERDICT TABLE / ABLATION CHECKS — lib/qa-gate.sh, the ONE parser subtask.sh
+# ── THE forks: / QA VERDICT TABLE / ABLATION / BOARD-PROPERTY CHECKS — lib/qa-gate.sh, the ONE parser subtask.sh
 #    also calls for a slice's own card before it moves to qa_complete/. Each refuses, before
 #    anything destructive, through kit_refuse (process/contracts/progress-record.md § 5b); the
 #    rule ids and message text are the lib's, documented in its header.
@@ -379,6 +379,14 @@ kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$BRANCH"
 #    TEST_GLOBS (scripts/config.sh) read as the UNION of the trunk's copy and the branch's.
 #    Undeclared TEST_GLOBS makes the check UNRUNNABLE, reported on stdout, never a silent pass.
 kit_ablation_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH"
+
+#    Board properties: check-board.sh's arms [d] [i] [l] [p] [r] [q] — the same functions, run on the
+#    tree this landing would produce (the trunk with the branch squash-merged and the card moved to
+#    qa_complete/). A finding the branch INTRODUCES refuses; one already on the trunk does not. An
+#    arm whose property the branch does not touch does not run. The operands come from the trunk's
+#    own check-board.sh.
+kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH" \
+  "${SRC#"$KWT"/}" "progress/qa_complete/$(basename "$SRC")"
 
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed

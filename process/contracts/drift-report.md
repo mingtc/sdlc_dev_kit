@@ -371,6 +371,12 @@ identifier gives and a timestamp does not.*
   confirms each invariant has a line, so an arm carrying no invariant is structurally invisible to
   it — the arm ships, runs and prints findings, and a report rebuilt from this sheet does not contain
   it.*
+- **The checks behind arms `[d]` `[i]` `[l]` `[p]` `[q]` `[r]` live in `scripts/lib/board-properties.sh`,
+  and the landing calls the same functions** (`scripts/lib/qa-gate.sh`'s `kit_board_property_check`,
+  from `finish-pr.sh` and `subtask.sh`). The landing refuses a finding its branch introduces in a
+  property the branch touches; an arm that only reports here still only reports — the refusal rests
+  on the landing's own operand, the diff, and never on this report's verdict. One implementation per
+  property is the obligation: a second reader of any of them is the one that disagrees.
 - Its thresholds are named constants at the top of that file — **a seam, not a contract term.**
   They bound the depth at which the reviewed-and-done column is due for a sweep, and the sizes at
   which the running log is due for rotation — its current section and the whole file being

@@ -70,6 +70,12 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   refuse before any destructive step, naming the trunk's copy to run. A change to the tool lands when the trunk's
   copy lands it; there is no override, because a tool that may rewrite its own checks judges nothing.
 - The gate is red ⇒ refuse; report the failure, mutate nothing.
+- The branch **introduces** a finding in a board property it touches — a card id, a dependency
+  declaration, a register citation, a corpus or register change (`check-board.sh`'s arms `[d]` `[i]`
+  `[l]` `[p]` `[r]` `[q]`) ⇒ refuse before any destructive step, naming the finding. The tree read is
+  the one the landing would produce, by the same code the board report runs, with the report's
+  operands read from the trunk. A finding the trunk already carries is the report's, not the
+  branch's: refusing it would hold every landing shut on a defect nobody in the branch made.
 - The item is decomposed and a child is neither reviewed nor declined ⇒ refuse before any destructive
   step, naming each such child: the advance after the landing would refuse and leave it landed.
 - The publication of the landed commit fails ⇒ report that the merge exists locally and did not

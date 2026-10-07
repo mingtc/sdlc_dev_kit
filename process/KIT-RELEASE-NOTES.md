@@ -319,6 +319,22 @@ columns and never the cards.*
 
 ### Action required
 
+- **`finish-pr.sh` and `subtask.sh move … qa_complete` now refuse a branch that introduces a finding in a
+  board property it touches** — the same checks `check-board.sh` reports, read on the tree the landing would
+  produce: a card id that disagrees with its filename or repeats (`[d]`), a `blocks:`/`blocked_by:` no card
+  answers (`[i]`), a `[decision: D-NN]` citation that resolves to no live or to a retired entry (`[l]`), a
+  `requirements/` change that leaves a CORPUS forward reference dangling or landed-but-unflipped, or a register
+  entry no PRD cites and no `[cross-cutting]` marks (`[p]`, `[r]`), a register change that leaves an entry not
+  exactly three fields or a reopened one unstamped (`[q]`). Only a finding the branch **adds** is refused; one
+  the trunk already carries stays `check-board.sh`'s to report. The rule ids are `board-id-integrity`,
+  `board-blocks-asymmetric`, `board-citation-unresolved`, `board-corpus-coverage`, `board-register-shape`.
+  **Before your next landing, run `./scripts/check-board.sh` over any in-flight branch that adds a register
+  entry (it needs a PRD citing it, or `[cross-cutting]` at the head of its Ruling) or touches a card, a
+  citation or `requirements/`.** The landing reads its operands by shape from the trunk's `scripts/check-board.sh`
+  (`STATUS_FOLDERS`, `ISSUE_ID_KEY`, `ISSUE_ID_PATTERN`, `FRONTMATTER_SCAN_LINES`, `REGISTERS`,
+  `CITATION_EXCLUDE`, `PRD_SURFACE`, `CROSS_CUTTING_MARKER`, `CORPUS_FILE`): **if you edited one of those
+  lines, keep its declared form**, or the landing refuses (`board-property-unreadable`) naming it.
+
 - **A `## QA Verdict` table now needs at least one `test`/`file:line` row.** `finish-pr.sh` and
   `subtask.sh move … qa_complete` refuse a landing whose AC rows are all `gate-diff` or
   `fixture-diff`: those kinds carry no quote, so the gate had no line to re-read. **Before your next

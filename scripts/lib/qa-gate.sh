@@ -53,12 +53,40 @@
 #     line rather than treated as "touches nothing". Refuses through kit_refuse with:
 #     ablation-config-unreadable, ablation-missing, ablation-malformed.
 #
+#   kit_board_property_check <repo> <old-rev> <new-rev> [<card-rel> <card-dest-rel>]
+#     The board properties check-board.sh reports as arms [d] (frontmatter id integrity), [i]
+#     (blocks:/blocked_by: symmetry), [l] (register citations resolve), [p]/[r] (CORPUS forward
+#     and reverse coverage) and [q] (register entry shape), refused at the landing when THIS
+#     branch introduces a finding. The checks are lib/board-properties.sh's — the same functions
+#     check-board.sh runs — so the report and the refusal cannot disagree. THE RULES are read from
+#     <old-rev>'s scripts/check-board.sh (the trunk), never the branch's.
+#     WHICH TREE: <old-rev> with <new-rev> squash-merged into it in a scratch worktree (the tree
+#     the landing produces), then <card-rel> moved to <card-dest-rel> when both are given (the
+#     landing's own board move). A merge that conflicts leaves the check UNRUNNABLE, printed on
+#     stdout as 'BOARD_PROPERTY_CHECK: did not run' — the squash itself refuses a conflict.
+#     WHICH ARMS RUN, from `git diff --no-renames --name-only <old-rev>...<new-rev>` plus the card
+#     paths: [d] and [i] when a path is a card directly in a STATUS_FOLDERS column or a declared
+#     register (for [d]); [l] when a path is a citing surface outside CITATION_EXCLUDE or a
+#     register (a register change reads the whole tree, otherwise only the touched files); [p]
+#     and [r] when a path is under requirements/, is CORPUS_FILE, matches PRD_SURFACE or is a
+#     register; [q] when a path is a register. An arm whose property is untouched does not run.
+#     WHAT IS REFUSED: a finding whose key the same arm does not already report on <old-rev>. A
+#     defect already on the trunk is check-board.sh's to report, so a branch is never refused for
+#     a defect it did not introduce. [p] does not read the SEED-step marker (it needs the
+#     graduation arm, which a landing does not run).
+#     Refuses through kit_refuse with: board-property-unreadable, board-id-integrity,
+#     board-blocks-asymmetric, board-citation-unresolved, board-corpus-coverage,
+#     board-register-shape.
+#
 # Every refusal is unchanged from finish-pr.sh's own inline text before this extraction — the
 # self-test's finish-pr.sh cases are the regression proof for that. A caller with no branch of its
 # own for the card (a subtask slice not yet its own branch) passes <old-rev>/<new-rev> such that
 # they resolve to the SAME revision (e.g. the trunk twice): the forks/ablation DIFF derivation
 # then legitimately finds nothing, which is not the same claim as "no fork exists" or "no test
 # path touched" — state that in the caller's own words, this file does not.
+
+# shellcheck source=board-properties.sh
+. "$(dirname "${BASH_SOURCE[0]}")/board-properties.sh" || return 1
 
 # The whole-cell placeholder forms (an EMPTY cell is checked separately, with a plain shell
 # string test — a leading empty alternative in the regex itself makes some greps refuse the
@@ -568,4 +596,180 @@ kit_ablation_check() {
       echo "ABLATION_CHECK: PASS — the branch diff touches no declared test path."
     fi
   fi
+}
+
+# ── kit_board_property_check <repo> <old-rev> <new-rev> [<card-rel> <card-dest-rel>] ───────────
+# _bpc_run_arm <hits-file> <only-list> <function> <tree> [<arg>] — one arm, in a subshell with
+# `set -e` off (the arms are written for a caller without it), its findings appended to <hits-file>.
+_bpc_run_arm() {
+  local out="$1" only="$2"
+  shift 2
+  : > "$out"
+  ( set +e; KIT_BP_HITS_FILE="$out"; KIT_BP_ONLY="$only"; "$@" >/dev/null 2>&1 ) || true
+}
+
+# _bpc_new_findings <base-hits> <new-hits> — the text of each finding in <new-hits> that carries a
+# key <base-hits> does not.
+_bpc_new_findings() {
+  awk -F'\t' -v US="$KIT_BP_US" -v bf="$1" '
+    FILENAME == bf { n = split($1, k, US); for (i = 1; i <= n; i++) base[k[i]] = 1; next }
+    { n = split($1, k, US); for (i = 1; i <= n; i++) if (!(k[i] in base)) { print $2; break } }
+  ' "$1" "$2"
+}
+
+kit_board_property_check() {
+  local repo="$1" old_rev="$2" new_rev="$3" card_rel="${4:-}" card_dest="${5:-}"
+  local scratch tree decl missing touched p col rest ex rpath rmark rshape reg_hit ex_hit
+  local g_d=0 g_l=0 g_p=0 g_q=0 only="" reg_touched=0 cite_touched=0
+  local old_sha new_sha arm base new first_rule="" msg=() ran="" skipped="" kept=0 n
+  local -a cols
+
+  scratch="$(mktemp -d "${TMPDIR:-/tmp}/board-props.XXXXXX" 2>/dev/null || true)"
+  if [ -z "$scratch" ]; then
+    kit_refuse 1 board-property-unreadable \
+      "Error: could not create a scratch directory for the board-property check — refusing rather than skipping it." \
+      "       NOTHING WAS CHANGED."
+  fi
+  tree="$scratch/tree"
+  _bpc_cleanup() {
+    git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || true
+    rm -rf "$scratch" 2>/dev/null || true
+    git -C "$repo" worktree prune >/dev/null 2>&1 || true
+  }
+
+  # THE RULES, from the trunk's own copy of check-board.sh.
+  decl="$scratch/check-board.sh"
+  if ! git -C "$repo" show "${old_rev}:scripts/check-board.sh" > "$decl" 2>/dev/null; then
+    _bpc_cleanup
+    kit_refuse 1 board-property-unreadable \
+      "Error: could not read ${old_rev}:scripts/check-board.sh — the board-property check takes its operands from the trunk's own declarations and never guesses them." \
+      "       NOTHING WAS CHANGED."
+  fi
+  if ! kit_bp_load_declarations "$decl"; then
+    missing="$KIT_BP_MISSING"
+    _bpc_cleanup
+    kit_refuse 1 board-property-unreadable \
+      "Error: ${old_rev}:scripts/check-board.sh does not declare: ${missing}" \
+      "       The board-property check reads those operands from that file and never guesses them." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  old_sha="$(git -C "$repo" rev-parse --verify --quiet "${old_rev}^{commit}" 2>/dev/null || true)"
+  new_sha="$(git -C "$repo" rev-parse --verify --quiet "${new_rev}^{commit}" 2>/dev/null || true)"
+  if [ -z "$old_sha" ] || [ -z "$new_sha" ]; then
+    _bpc_cleanup
+    echo "BOARD_PROPERTY_CHECK: did not run — ${old_rev} or ${new_rev} does not resolve to a commit, so there is no diff to read."
+    return 0
+  fi
+
+  # WHICH PROPERTIES THE BRANCH TOUCHES.
+  touched="$(git -C "$repo" diff --no-renames --name-only "${old_rev}...${new_rev}" 2>/dev/null || true)"
+  [ -z "$card_rel" ] || touched="${touched}"$'\n'"${card_rel}"
+  [ -z "$card_dest" ] || touched="${touched}"$'\n'"${card_dest}"
+  IFS='|' read -r -a cols <<< "$STATUS_FOLDERS"
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    for col in "${cols[@]}"; do
+      case "$p" in
+        progress/"$col"/*.md) rest="${p#progress/"$col"/}"; case "$rest" in */*) ;; *) g_d=1 ;; esac ;;
+      esac
+    done
+    reg_hit=0
+    while IFS='|' read -r rpath rmark rshape; do
+      [ -n "$rpath" ] || continue
+      if [ "$p" = "$rpath" ]; then reg_hit=1; fi
+    done <<< "$(printf '%s\n' "$REGISTERS")"
+    if [ "$reg_hit" -eq 1 ]; then g_d=1; g_q=1; g_p=1; reg_touched=1; fi
+    case "$p" in requirements/*|"$CORPUS_FILE") g_p=1 ;; esac
+    # shellcheck disable=SC2254  # PRD_SURFACE is a declared glob, matched as one
+    case "$p" in $PRD_SURFACE) g_p=1 ;; esac
+    ex_hit=0
+    while IFS= read -r ex; do
+      [ -n "$ex" ] || continue
+      case "$p" in "$ex"*) ex_hit=1 ;; esac
+    done <<< "$(printf '%s\n' "$CITATION_EXCLUDE")"
+    if [ "$ex_hit" -eq 0 ]; then cite_touched=1; only="${only}${p}"$'\n'; fi
+  done <<< "$touched"
+  [ "$cite_touched" -eq 0 ] || g_l=1
+  [ "$reg_touched" -eq 0 ] || { g_l=1; only=""; }
+
+  # THE TREE THE LANDING PRODUCES, and the trunk's own tree beside it as the baseline.
+  if ! git -C "$repo" -c core.hooksPath=/dev/null worktree add --detach --quiet "$tree" "$old_sha" >/dev/null 2>&1; then
+    _bpc_cleanup
+    echo "BOARD_PROPERTY_CHECK: did not run — a scratch worktree of ${old_rev} could not be made."
+    return 0
+  fi
+  for arm in d i l p r q; do
+    case "$arm" in
+      d|i) [ "$g_d" -eq 1 ] || continue ;;
+      l)   [ "$g_l" -eq 1 ] || continue ;;
+      p|r) [ "$g_p" -eq 1 ] || continue ;;
+      q)   [ "$g_q" -eq 1 ] || continue ;;
+    esac
+    case "$arm" in
+      d) _bpc_run_arm "$scratch/base.d" "" kit_bp_ids "$tree" ;;
+      i) _bpc_run_arm "$scratch/base.i" "" kit_bp_blocks "$tree" ;;
+      l) _bpc_run_arm "$scratch/base.l" "$only" kit_bp_citations "$tree" ;;
+      p) _bpc_run_arm "$scratch/base.p" "" kit_bp_corpus "$tree" "" ;;
+      r) _bpc_run_arm "$scratch/base.r" "" kit_bp_reverse_coverage "$tree" ;;
+      q) _bpc_run_arm "$scratch/base.q" "" kit_bp_register_shape "$tree" ;;
+    esac
+  done
+  if [ "$old_sha" != "$new_sha" ] && ! git -C "$tree" merge --squash "$new_sha" >/dev/null 2>&1; then
+    _bpc_cleanup
+    echo "BOARD_PROPERTY_CHECK: did not run — ${new_rev} does not merge cleanly into ${old_rev}, so there is no landed tree to read (the squash below refuses a conflict)."
+    return 0
+  fi
+  if [ -n "$card_rel" ] && [ -n "$card_dest" ] && [ -f "$tree/$card_rel" ]; then
+    if mkdir -p "$(dirname "$tree/$card_dest")"; then mv "$tree/$card_rel" "$tree/$card_dest" || true; fi
+  fi
+
+  for arm in d i l p r q; do
+    case "$arm" in
+      d|i) [ "$g_d" -eq 1 ] || { skipped="${skipped}${skipped:+ }$arm"; continue; } ;;
+      l)   [ "$g_l" -eq 1 ] || { skipped="${skipped}${skipped:+ }$arm"; continue; } ;;
+      p|r) [ "$g_p" -eq 1 ] || { skipped="${skipped}${skipped:+ }$arm"; continue; } ;;
+      q)   [ "$g_q" -eq 1 ] || { skipped="${skipped}${skipped:+ }$arm"; continue; } ;;
+    esac
+    ran="${ran}${ran:+ }$arm"
+    case "$arm" in
+      d) _bpc_run_arm "$scratch/new.d" "" kit_bp_ids "$tree" ;;
+      i) _bpc_run_arm "$scratch/new.i" "" kit_bp_blocks "$tree" ;;
+      l) _bpc_run_arm "$scratch/new.l" "$only" kit_bp_citations "$tree" ;;
+      p) _bpc_run_arm "$scratch/new.p" "" kit_bp_corpus "$tree" "" ;;
+      r) _bpc_run_arm "$scratch/new.r" "" kit_bp_reverse_coverage "$tree" ;;
+      q) _bpc_run_arm "$scratch/new.q" "" kit_bp_register_shape "$tree" ;;
+    esac
+    base="$scratch/base.$arm"; new="$scratch/new.$arm"
+    n="$(_bpc_new_findings "$base" "$new")"
+    if [ -n "$n" ]; then
+      local rule label
+      case "$arm" in
+        d) rule=board-id-integrity;          label="frontmatter id integrity (check-board.sh [d])" ;;
+        i) rule=board-blocks-asymmetric;     label="blocks:/blocked_by: symmetry (check-board.sh [i])" ;;
+        l) rule=board-citation-unresolved;   label="register citations resolving (check-board.sh [l])" ;;
+        p) rule=board-corpus-coverage;       label="CORPUS forward references (check-board.sh [p])" ;;
+        r) rule=board-corpus-coverage;       label="reverse coverage of register entries by their PRD (check-board.sh [r])" ;;
+        q) rule=board-register-shape;        label="register entry shape (check-board.sh [q])" ;;
+      esac
+      [ -n "$first_rule" ] || first_rule="$rule"
+      msg+=("       ${label}:")
+      while IFS= read -r p; do
+        if [ -n "$p" ]; then msg+=("  $p"); fi
+      done <<< "$n"
+    fi
+    kept=$((kept + $(wc -l < "$base" | tr -d ' ')))
+  done
+  _bpc_cleanup
+
+  if [ -n "$first_rule" ]; then
+    kit_refuse 2 "$first_rule" \
+      "Error: landing '${new_rev}' onto ${old_rev} introduces a board-property finding that ${old_rev} does not have." \
+      "${msg[@]}" \
+      "       check-board.sh reports the same property; only a finding this landing introduces is refused," \
+      "       and one already on ${old_rev} is not. Fix it in the branch (or the card/register it names)." \
+      "       NOTHING WAS CHANGED."
+  fi
+  echo "BOARD_PROPERTY_CHECK: PASS — ran: ${ran:-none}; property untouched, not run: ${skipped:-none}; finding(s) already on ${old_rev} and not refused: ${kept}."
+  return 0
 }
