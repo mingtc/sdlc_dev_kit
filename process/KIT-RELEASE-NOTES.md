@@ -466,6 +466,10 @@ columns and never the cards.*
 
 ### Changed
 
+- **Refusal messages now carry a `Next:` line.** Every refusal made through `kit_refuse` (the landing checks, `ask.sh`,
+  `set-models.sh`, `kit-upgrade.sh`, the commit hooks) names the step that clears it, or the escalation when none lies
+  inside the agent's authority. Only the message text changes; rule ids, exit codes and records are as before. No action.
+
 - **A dispatched leg's report now types its claims, and a runner promotes only a PASS backed by one.**
   `process/MANUAL.md` § The leg-report contract is the one statement: every claim is OBSERVED (a command
   with its output, or a `path:line` with a verbatim quote), INFERRED (with what it was concluded from) or

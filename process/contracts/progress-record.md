@@ -28,6 +28,12 @@ made through `kit_refuse` ([`scripts/lib/refuse.sh`](../../scripts/lib/refuse.sh
 counting a mechanism's refusals is how its effect is measured. It widens the producers, not the
 format: one reserved key, written by the one writer.
 
+**Every refusal's message names its way out.** One message argument opens `Next: ` and gives the
+concrete command or step that clears the refusal honestly — or, where no honest route lies inside
+the agent's authority, the escalation (`./scripts/ask.sh`, or stop and hand off).
+*Why:* a gate that refuses without a route invites the agent it stopped to invent one, and an
+invented route is a forged operand.
+
 ## 2. HARD INVARIANTS
 
 - **ONE record shape. Optional FIELDS, never divergent payloads.** Four required fields

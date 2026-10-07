@@ -45,6 +45,8 @@ anything moves, through `kit_refuse` with rule id `qa-verdict-same-agent`, when 
 for the QA-verdict commit is one of the identities recorded for the branch's code commits. The
 QA-verdict commit is the newest trunk commit that changed the card's `## QA Verdict` section.
 `main` in one session on both sides is a refusal: one undispatched seat wore both hats.
+The refusal's `Next:` line names the way out: a different agent or session re-walks the AC and
+commits a changed table on the trunk, and the landing is re-run.
 
 ## 4. WHAT GREEN MEANS
 

@@ -330,7 +330,8 @@ if [ -n "$_stk_ahead" ]; then
     kit_refuse 1 stacked-branch-unlanded-base \
       "Error: '${BRANCH}' is stacked on '${_stk_old_base}', which has not landed on ${DEFAULT_BRANCH}." \
       "       ${BRANCH} carries ${_stk_old_base}'s commits; landing it now would try to land ${_stk_old_base}'s" \
-      "       work too, unreviewed under this issue. Land or drop '${_stk_old_base}' first, then rebase:" \
+      "       work too, unreviewed under this issue." \
+      "Next: land or drop '${_stk_old_base}', then rebase this branch and re-run:" \
       "         git rebase --onto ${DEFAULT_BRANCH} ${_stk_old_base} ${BRANCH}" \
       "       NOTHING WAS CHANGED."
   fi
@@ -351,7 +352,8 @@ if [ -n "$_stk_ahead" ]; then
           kit_refuse 1 stacked-branch-squashed-base \
             "Error: '${BRANCH}' is stacked on a base that has already squash-landed on ${DEFAULT_BRANCH} (as ${_stk_t:0:9})." \
             "       ${BRANCH} still carries that base's own, un-squashed commits up to ${_stk_cand:0:9};" \
-            "       landing '${BRANCH}' as-is would re-apply them and conflict. Rebase past the squash:" \
+            "       landing '${BRANCH}' as-is would re-apply them and conflict." \
+            "Next: rebase past the squash, then re-run:" \
             "         git rebase --onto ${DEFAULT_BRANCH} ${_stk_cand} ${BRANCH}" \
             "       NOTHING WAS CHANGED."
         fi

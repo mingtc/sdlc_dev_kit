@@ -1588,6 +1588,160 @@ EOF
   finish "refusal sites in the $nerr shipped shell program(s) that print 'Error:': $nh through kit_refuse, $ne declared exempt, $nu not yet migrated (REPORT-ONLY — listed above as unmigrated-refusal: lines; sites migrate as their scripts are touched); the enumerator read its planted control exactly"
 }
 
+# ── THE next-action CENSUS. ─────────────────────────────────────────────────────
+# _refusal_next_census <root> <rel>… — one line per `kit_refuse` call, "<kind> <rel>:<line> <rule>":
+#   lit         the call's own statement (its line plus every line continued by a trailing `\`)
+#               carries a message argument opening `"Next: <text>`;
+#   var         it does not, but a variable the call passes (`"$msg4"`) is assigned `="Next: …`
+#               in the same file;
+#   none        neither: the refusal states what is wrong and no way out;
+#   unreadable  the call is a command-position `kit_refuse` whose status is not a literal
+#               integer, so its message cannot be judged here.
+# The population is the calls themselves — every non-comment command-position `kit_refuse`
+# followed by an argument, enumerated BEFORE and apart from any judgement of its message, so a
+# call whose message the rule cannot read still counts. `command -v kit_refuse >/dev/null`
+# probes are not calls.
+# BLIND SPOTS: a message assembled in a function the call reaches only by name; a `Next:` that is
+# present but empty of guidance (the form is checked, the route is a reviewer's).
+_refusal_next_census() {
+  local root="$1" rel; shift
+  for rel in "$@"; do
+    [ -f "$root/$rel" ] || continue
+    awk -v rel="$rel" '
+      { L[NR] = $0 }
+      END {
+        for (i = 1; i <= NR; i++) {
+          s = L[i]
+          if (s ~ /^[[:space:]]*#/) continue
+          if (s ~ /^[[:space:]]*(local[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*="Next: [^"]/) {
+            v = s; sub(/^[[:space:]]*(local[[:space:]]+)?/, "", v); sub(/=.*/, "", v); NV[v] = 1
+          }
+        }
+        for (i = 1; i <= NR; i++) {
+          s = L[i]
+          if (s ~ /^[[:space:]]*#/) continue
+          if (s !~ /(^|[;&|({[:space:]])kit_refuse[[:space:]]+[^[:space:]>]/) continue
+          if (!match(s, /kit_refuse[[:space:]]+[0-9]+[[:space:]]+[^[:space:]]+/)) {
+            print "unreadable " rel ":" i " -"; continue
+          }
+          tok = substr(s, RSTART, RLENGTH); split(tok, P, /[[:space:]]+/); rule = P[3]; gsub(/"/, "", rule)
+          stmt = s; j = i
+          while (L[j] ~ /\\[[:space:]]*$/ && j < NR) { j++; stmt = stmt "\n" L[j] }
+          if (stmt ~ /"Next: [^"]/) { print "lit " rel ":" i " " rule; continue }
+          kind = "none"; rest = stmt
+          while (match(rest, /\$\{?[A-Za-z_][A-Za-z0-9_]*/)) {
+            v = substr(rest, RSTART, RLENGTH); gsub(/[${]/, "", v); rest = substr(rest, RSTART + RLENGTH)
+            if (v in NV) { kind = "var"; break }
+          }
+          print kind " " rel ":" i " " rule
+        }
+      }' "$root/$rel"
+  done
+}
+
+# =============================================================================
+# CASE — EVERY REFUSAL A SHIPPED SCRIPT MAKES THROUGH kit_refuse NAMES ITS NEXT LEGITIMATE ACTION.
+#
+# A refusal that says only what is wrong leaves the agent that hit it to invent a way out, and an
+# invented way out is a forged operand. The form is a message argument opening `Next: ` (see
+# lib/refuse.sh); this case reads it mechanically. THE POPULATION is every command-position
+# `kit_refuse` call in the shipped shell programs (the manifest's, minus scripts/test/), enumerated
+# apart from the judgement of any message. PASS/FAIL, not a report: the operand is fixed, the
+# answer for every row is known (a planted control), and an ablation of a real call must go red.
+#
+# It checks the FORM, not the route: whether the stated action is the honest one is a reviewer's
+# question, and _refusal_next_census's header says so.
+# =============================================================================
+case_every_refusal_names_its_next_action() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_every_refusal_names_its_next_action: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE CONTROL: a planted file whose calls are known, one of every kind, plus the lines that
+  #    must NOT be counted (a comment, a probe, the definition).
+  local tmp; tmp="$(mktemp -d)"
+  cat > "$tmp/planted.sh" <<'PLANT'
+#!/usr/bin/env bash
+# kit_refuse 1 in-a-comment "Error: never counted"
+if command -v kit_refuse >/dev/null 2>&1; then :; fi
+kit_refuse() { :; }
+notice="Next: a variable that is not passed to any call"
+m1="Next: a variable carried into the call"
+m2="a variable with no next action"
+kit_refuse 1 planted-lit "Error: one" "Next: do the thing"
+kit_refuse 2 planted-continued \
+  "Error: two" \
+  "Next: do the other thing"
+kit_refuse 3 planted-var "Error: three" "$m1"
+kit_refuse 4 planted-none "Error: four" "  Fix it."
+kit_refuse 5 planted-var-none "Error: five" "$m2"
+kit_refuse 6 planted-empty-next "Error: six" "Next:"
+kit_refuse "$st" planted-unreadable "Error: seven" "Next: do it"
+PLANT
+  local got want
+  got="$(_refusal_next_census "$tmp" planted.sh)"
+  want="$(printf '%s\n' 'lit planted.sh:8 planted-lit' 'lit planted.sh:9 planted-continued' \
+                        'var planted.sh:12 planted-var' 'none planted.sh:13 planted-none' \
+                        'none planted.sh:14 planted-var-none' 'none planted.sh:15 planted-empty-next' \
+                        'unreadable planted.sh:16 -')"
+  rm -rf "$tmp"
+  [ "$got" = "$want" ] \
+    || cf "(instrument) the census misread its planted control — want [$(printf '%s' "$want" | tr '\n' '|')], got [$(printf '%s' "$got" | tr '\n' '|')]; every verdict below is untrustworthy"
+
+  # ── THE POPULATION: every shipped shell program in the manifest, except the harness itself.
+  local rel pop=()
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$rel" in scripts/test/*) continue ;; esac
+    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*sh) pop+=("$rel") ;; esac
+  done <<EOF2
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF2
+  [ "${#pop[@]}" -gt 0 ] \
+    || cf "(instrument) the manifest yielded no shipped shell program — the shebang test stopped matching"
+
+  local sites nsites=0 bad
+  sites="$(_refusal_next_census "$REAL_REPO_ROOT" ${pop[@]+"${pop[@]}"})"
+  [ -n "$sites" ] && nsites="$(printf '%s\n' "$sites" | grep -c . || true)"
+  [ "$nsites" -gt 0 ] \
+    || cf "(instrument) not one kit_refuse call was found in the shipped programs — the enumeration stopped matching, so 'every refusal names its next action' is true of nothing"
+  bad="$(printf '%s\n' "$sites" | grep -E '^(none|unreadable) ' || true)"
+  if [ -n "$bad" ]; then
+    printf '%s\n' "$bad" | sed 's/^none /        no-next-action: /; s/^unreadable /        unreadable-refusal: /'
+    cf "$(printf '%s\n' "$bad" | grep -c . || true) kit_refuse call(s) carry no 'Next: <action>' message line (or are not judgeable) — a refusal must name the legitimate way out: $(printf '%s' "$bad" | sed 's/^[a-z]* //' | tr '\n' ' ' | cut -c1-600)"
+  fi
+
+  # ── THE ABLATION: break the form in a scratch copy of one real call of each kind and require the
+  #    census to go red on exactly that call. Derived from the census itself, never typed.
+  local kind pick prel pline abl ablated before after
+  for kind in lit var; do
+    pick="$(printf '%s\n' "$sites" | grep "^$kind " | sed -n '1p')"
+    [ -n "$pick" ] || { cf "(instrument) no '$kind' call in the shipped tree to ablate — the ablation for that form did not run"; continue; }
+    prel="$(printf '%s' "$pick" | awk '{print $2}')"; pline="${prel##*:}"; prel="${prel%:*}"
+    abl="$(mktemp -d)"
+    mkdir -p "$abl/$(dirname "$prel")"
+    before="$(_refusal_next_census "$REAL_REPO_ROOT" "$prel" | grep -cE '^(none|unreadable) ' || true)"
+    if [ "$kind" = lit ]; then
+      # Spoil the Next: opening on the call's own statement lines (line .. end of its `\` chain).
+      awk -v start="$pline" '
+        { if (NR >= start && !done) { gsub(/"Next: /, "\"Nxt: "); if ($0 !~ /\\[[:space:]]*$/) done = 1 } print }' \
+        "$REAL_REPO_ROOT/$prel" > "$abl/$prel"
+    else
+      # Spoil the first variable assigned a Next: line in the file.
+      awk '{ if (!done && $0 ~ /^[[:space:]]*(local[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*="Next: /) { sub(/="Next: /, "=\"Nxt: "); done = 1 } print }' \
+        "$REAL_REPO_ROOT/$prel" > "$abl/$prel"
+    fi
+    ablated="$(_refusal_next_census "$abl" "$prel" | grep -E '^(none|unreadable) ' || true)"
+    after="$(printf '%s' "$ablated" | grep -c . || true)"
+    rm -rf "$abl"
+    [ "$after" -eq $(( before + 1 )) ] \
+      || cf "(ablation) spoiling the Next: line of one '$kind' call in $prel left $after refusal(s) without a next action (was $before, want $(( before + 1 ))) — the census does not go red when the line is removed: [$(printf '%s' "$ablated" | tr '\n' '|')]"
+  done
+
+  finish "all $nsites kit_refuse call site(s) read across ${#pop[@]} shipped shell program(s) carry a 'Next: <action>' message line (directly or through a variable the call passes); the census read its planted control exactly, and spoiling the line in one real call of each form turned it red"
+}
+
 # =============================================================================
 # CASE — NO --help OPENS WITH ITS OWN KIT-CLASS MARKER.
 #

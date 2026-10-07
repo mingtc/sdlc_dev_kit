@@ -81,23 +81,24 @@ while [ $# -gt 0 ]; do
     --role)     need_val "$@"; ROLE="$2"; shift 2 ;;
     --default)  need_val "$@"; DEFAULT_TXT="$2"; shift 2 ;;
     --decision) need_val "$@"; DECISION="$2"; shift 2 ;;
-    -*) kit_refuse 2 ask-unknown-option "Error: unknown option: $1" "  Run $(basename "$0") --help for its options." ;;
+    -*) kit_refuse 2 ask-unknown-option "Error: unknown option: $1" "Next: run $(basename "$0") --help, then re-run with one of the options it lists." ;;
     *)
       if [ -z "$QUESTION" ]; then QUESTION="$1"; shift
-      else kit_refuse 2 ask-unexpected-argument "Error: unexpected argument: $1" "  The question is ONE quoted positional argument."; fi
+      else kit_refuse 2 ask-unexpected-argument "Error: unexpected argument: $1" "Next: quote the question as ONE argument, e.g. ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"."; fi
       ;;
   esac
 done
 
 [ -n "$ROLE" ] || kit_refuse 2 ask-no-role \
   "Error: no --role <role>: who is asking?" \
-  "  Run $(basename "$0") --help for its options."
+  "Next: re-run with --role <role> naming the seat that is asking — one of this project's declared roles ($(basename "$0") --help)."
 [ -n "$QUESTION" ] || kit_refuse 2 ask-no-question \
   "Error: no question given." \
-  "  The question is a quoted positional argument, e.g. ./scripts/ask.sh --role Dev \"...\" --default \"...\""
+  "Next: re-run with the question as a quoted argument, e.g. ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"."
 [ -n "$DEFAULT_TXT" ] || kit_refuse 2 ask-no-default \
   "Error: no --default \"<working default>\": what does the session proceed under while it waits?" \
-  "  A question with no working default is a blocked session, not an ask."
+  "Next: re-run with --default \"<what this session proceeds under while it waits>\"." \
+  "      A question with no working default is a blocked session, not an ask: if nothing can be done under any default, stop and hand off with the question in your report."
 
 # THE ROLE'S SHAPE, checked the same way an operator-supplied role is checked everywhere else
 # (lib/role-set.sh's own doc). An unreadable set is a named ACCEPT of membership, never a refusal
@@ -107,7 +108,7 @@ if command -v kit_role_set >/dev/null 2>&1; then
   if [ -n "$_set" ] && command -v kit_role_member >/dev/null 2>&1 && ! kit_role_member "$_set" "$ROLE"; then
     kit_refuse 2 ask-role-not-declared \
       "Error: --role $ROLE is not one of this project's declared roles ($_set)." \
-      "  Run $(basename "$0") --help, or check scripts/githooks/commit-msg's ROLE_PREFIXES."
+      "Next: re-run with --role set to one of the declared roles above. The set is the project's declaration (scripts/githooks/commit-msg's ROLE_PREFIXES) and the owner's to change: if no declared role fits, stop and hand off."
   fi
 fi
 
@@ -115,7 +116,7 @@ fi
 PM="$ROOT/PROJECT.md"
 [ -f "$PM" ] || kit_refuse 1 ask-no-project-md \
   "Error: no PROJECT.md at $ROOT — the principal and channel are declared there." \
-  "  See PROJECT.md § Who answers when nobody is watching."
+  "Next: run this from the project root, where PROJECT.md lives. A project with no PROJECT.md has declared no principal and no channel: stop and hand off — the owner declares them (PROJECT.md § Who answers when nobody is watching)."
 
 # One line each: `**label:**` or `` `label:` ``, then its value — read by lib/pm-field.sh's
 # kit_pm_field, the ONE reader check-board.sh's [g2d] arm shares: the first backtick-delimited
@@ -128,12 +129,12 @@ CHANNEL_LINE="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$PM")"
 if kit_pm_blank "$PRINCIPAL_LINE"; then
   kit_refuse 1 ask-no-principal \
     "Error: PROJECT.md names no principal — § Who answers when nobody is watching's \`principal:\` line is missing or unfilled." \
-    "  Fill it (a name/role, or \"nobody: ...\"), then re-run."
+    "Next: the project's owner fills that line (a name/role, or \"nobody: ...\"), then re-run. A principal named by the asker is not a declaration: if you are not the owner, stop and hand off, naming this refusal."
 fi
 if kit_pm_blank "$CHANNEL_LINE"; then
   kit_refuse 1 ask-no-channel \
     "Error: PROJECT.md names no channel for the principal's questions — § Who answers when nobody is watching's \"Their channel\" line is missing or unfilled." \
-    "  Fill it (a directory or file, e.g. \"dev/questions/\"), then re-run."
+    "Next: the project's owner fills that line (a directory or file, e.g. \"dev/questions/\"), then re-run. A channel named by the asker is not a declaration: if you are not the owner, stop and hand off, naming this refusal."
 fi
 
 # THE ASKER MAY NOT BE THE PRINCIPAL: the non-blocking route exists for a question with no
@@ -146,7 +147,7 @@ ROLE_CMP="$(printf '%s' "$ROLE" | tr 'A-Z' 'a-z')"
 if [ "$ROLE_CMP" = "$PRINCIPAL_CMP" ]; then
   kit_refuse 1 ask-role-is-principal \
     "Error: --role $ROLE is this project's declared principal — § Who answers when nobody is watching's \`principal:\` line names the seat that wakes to answer, not the one asking." \
-    "  Have a different seat ask, or name a principal this session does not itself wear."
+    "Next: if the seat asking is not the principal, re-run with --role naming it. If you ARE the principal's seat, nobody else answers this: decide it yourself and record the ruling in requirements/DECISIONS.md, or stop and hand off to a human."
 fi
 
 # The channel line is prose ("dev/questions/, one dated file per question"); the FIRST token
@@ -165,7 +166,7 @@ esac
 if ! mkdir -p "$CHANNEL_DIR" 2>/dev/null || [ ! -w "$CHANNEL_DIR" ]; then
   kit_refuse 1 ask-channel-unusable \
     "Error: the declared channel ($CHANNEL_TOKEN → $CHANNEL_DIR) cannot be created or is not writable." \
-    "  Fix PROJECT.md's \"Their channel\" line, or the directory's permissions, then re-run."
+    "Next: make ${CHANNEL_DIR} creatable and writable (its permissions, its parent directory), then re-run. If the channel line names the wrong place, the project's owner corrects PROJECT.md's \"Their channel\" line; otherwise stop and hand off."
 fi
 
 TS="$(date -u +%Y-%m-%dT%H%M%SZ)"
@@ -239,7 +240,7 @@ esac
   printf '\n**How the answer is recorded:** %s\n' "$ANSWER_ROUTE"
 } >> "$QFILE" || kit_refuse 1 ask-write-failed \
   "Error: could not write the question to $QFILE." \
-  "  Check the channel's permissions, then re-run."
+  "Next: check that the channel's directory is writable and the disk has room, then re-run. If it still fails, stop and hand off with the question in your report."
 
 DECISION_NOTE="$ANSWER_ROUTE"
 if [ "$DECISION_STATE" = "withdrawn" ]; then
@@ -259,7 +260,7 @@ if [ "$DECISION_STATE" = "withdrawn" ]; then
   ' "$DEC" > "$DEC.ask.tmp" && mv "$DEC.ask.tmp" "$DEC" \
     || kit_refuse 1 ask-decisions-write-failed \
          "Error: could not write the provisional default into requirements/DECISIONS.md." \
-         "  The question file at $QFILE still records it; fix DECISIONS.md by hand."
+         "Next: do not re-run (that writes a second question file). The question file at $QFILE already records the default; write it into requirements/DECISIONS.md by hand under the marker requirements/DECISIONS.md § The FOURTH state gives."
 fi
 
 kit_progress "$ROLE" info "asked: ${QUESTION}" "asked=$(printf '%s' "$ROLE" | tr 'A-Z' 'a-z')-blocking-question" "file=$QFILE"

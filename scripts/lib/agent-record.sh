@@ -135,8 +135,9 @@ kit_agent_landing_check() {
   case $'\n'"$code_agents" in *$'\n'"$v_agents"$'\n'*)
     kit_refuse 1 qa-verdict-same-agent \
       "Error: ${id}'s QA verdict (commit ${verdict:0:9}) was committed by the same agent, in the same session, that committed code on '$branch': $v_agents." \
-      "       The checker must not be the author. Have a different agent (a dispatched QA agent, or a fresh" \
-      "       session) review the branch and commit the ## QA Verdict table on the trunk, then re-run." \
+      "       The checker must not be the author." \
+      "Next: have a different agent — a dispatched QA agent, or a fresh session — re-walk the AC on the branch and commit a changed ## QA Verdict table on the trunk (the check reads the NEWEST commit that changed that section), then re-run the command that refused." \
+      "      Re-committing this table under the same agent and session changes nothing; if no other agent is available, stop and hand off." \
       "       NOTHING WAS CHANGED." ;;
   esac
   return 0

@@ -78,8 +78,7 @@
 #     board-blocks-asymmetric, board-citation-unresolved, board-corpus-coverage,
 #     board-register-shape.
 #
-# Every refusal is unchanged from finish-pr.sh's own inline text before this extraction — the
-# self-test's finish-pr.sh cases are the regression proof for that. A caller with no branch of its
+# Every refusal's message carries a `Next:` line (lib/refuse.sh). A caller with no branch of its
 # own for the card (a subtask slice not yet its own branch) passes <old-rev>/<new-rev> such that
 # they resolve to the SAME revision (e.g. the trunk twice): the forks/ablation DIFF derivation
 # then legitimately finds nothing, which is not the same claim as "no fork exists" or "no test
@@ -188,6 +187,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id} has no '## QA Verdict' table." \
       "       QA fills one row per AC id plus the fixed 'shadow-check' row before a PASS lands." \
       "       (.claude/roles/qa.md step 4.)" \
+      "Next: walk the AC (.claude/roles/qa.md step 4) and add the table to the card — one row per AC id plus the shadow-check row, each carrying the evidence you observed; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -287,6 +287,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has row(s) with no usable evidence: ${_qav_evidence_bad}" \
       "       A PASS needs an evidence kind from test|file:line|gate-diff|fixture-diff, and a real" \
       "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
+      "Next: re-walk the row(s) named above and record what you actually observed for each (a test you ran, a line you read, a diff) — a stock non-answer is not evidence; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -295,6 +296,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer does not resolve in the tree being landed: ${_qav_unresolved}" \
       "       A file:line/path:a-b token must name a file that exists at the revision being" \
       "       landed, at a line (or range) within its length. (.claude/roles/qa.md step 4.)" \
+      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -303,6 +305,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has test/file:line row(s) with no quoted evidence: ${_qav_quote_missing}" \
       "       A test or file:line row's evidence pointer carries a short verbatim quote in double" \
       "       quotes after the pointer, e.g. 'src/add.js:12 \"return a + b\"'. (.claude/roles/qa.md step 4.)" \
+      "Next: add the short verbatim quote you read at each cited line, after its pointer; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -311,6 +314,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has row(s) whose quote is not on the cited line: ${_qav_quote_not_found}" \
       "       The quote (surrounding whitespace normalised) must be a substring of the cited" \
       "       path:line/path:a-b's own lines at the revision being landed. (.claude/roles/qa.md step 4.)" \
+      "Next: re-read the cited line at the revision being landed and quote what it says, or cite where the code now is. If the code no longer shows what the AC needs, the row is a FAIL (.claude/roles/qa.md step 6), not a re-quote. Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -320,6 +324,7 @@ kit_qa_verdict_check() {
       "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
       "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \
+      "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -328,6 +333,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has FAIL row(s) on a PASS landing: ${_qav_fail_rows}" \
       "       A row whose own verdict is FAIL_AC or FAIL_REGRESSION cannot ship under an overall PASS." \
       "       (.claude/roles/qa.md step 4, step 6.)" \
+      "Next: this is not a PASS landing. Record the card's verdict as FAIL_AC or FAIL_REGRESSION and send it back to Dev (.claude/roles/qa.md step 6); do not change a row's verdict to make it land." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -340,6 +346,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table's AC ids do not match its AC checklist one for one." \
       "       Missing from the table: ${_qav_missing:-none}. Extra in the table: ${_qav_extra:-none}." \
       "       (.claude/roles/qa.md step 4.)" \
+      "Next: walk each missing AC and add its row, remove each extra row; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -348,6 +355,7 @@ kit_qa_verdict_check() {
       "Error: ${issue_id}'s QA Verdict table has no filled 'shadow-check' row." \
       "       State 'assertions removed: none', or each removed/weakened assertion with its replacement." \
       "       (.claude/roles/qa.md step 4.)" \
+      "Next: read the diff for removed or weakened assertions, fill the shadow-check row with what you found; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 }
@@ -370,6 +378,7 @@ kit_forks_check() {
       "Error: ${issue_id} has no 'forks:' field." \
       "       State the fork ids this card resolved ('forks: [D-NN, ...]') or 'forks: none' if it resolved none." \
       "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
+      "Next: add the 'forks:' field to the card — the D-NN ids of the register entries this card added or changed, or 'none' only if it resolved no fork — and commit the card, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
   case "$_forks_line" in
@@ -383,6 +392,7 @@ kit_forks_check() {
         kit_refuse 2 forks-malformed \
           "Error: ${issue_id}'s 'forks:' field is not 'none' or a list of D-NN ids: forks: ${_forks_line}" \
           "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
+          "Next: rewrite the field as 'forks: none' or 'forks: [D-NN, ...]' and commit the card, then re-run the command that refused." \
           "       NOTHING WAS CHANGED."
       fi
       ;;
@@ -390,6 +400,7 @@ kit_forks_check() {
       kit_refuse 2 forks-malformed \
         "Error: ${issue_id}'s 'forks:' field is not 'none' or a list of D-NN ids: forks: ${_forks_line}" \
         "       (process/MANUAL.md § Execution discipline item 6; requirements/DECISIONS.md § Which decisions live HERE.)" \
+        "Next: rewrite the field as 'forks: none' or 'forks: [D-NN, ...]' and commit the card, then re-run the command that refused." \
         "       NOTHING WAS CHANGED."
       ;;
   esac
@@ -400,6 +411,7 @@ kit_forks_check() {
       "Error: could not read a 'REGISTERS=' declaration from ${check_board#"$repo"/}." \
       "       The 'forks:' check derives its register set from check-board.sh's own declaration" \
       "       (the same one arm [l] resolves citations against) and never guesses a path." \
+      "Next: restore the REGISTERS= declaration in scripts/check-board.sh from version control or the release zip; do not hard-code a register path anywhere else. If the file was not yours to change, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
   _forks_regs="$(printf '%s\n' "$_forks_declared" | awk -F'|' '$3 == "D-[0-9]+" { print }')"
@@ -416,6 +428,7 @@ kit_forks_check() {
     if [ -z "$_forks_branch_reg" ]; then
       kit_refuse 1 forks-register-unreadable \
         "Error: could not create a scratch file to read ${new_rev}'s copy of ${_freg_path} — refusing rather than skipping the 'forks:' check." \
+        "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
         "       NOTHING WAS CHANGED."
     fi
     git -C "$repo" show "${new_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
@@ -440,8 +453,8 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
       kit_refuse 2 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
-        "       Fix the id, or add the ruling it names to the register in this same change." \
         "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
+        "Next: fix the id on the card, or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
         "       NOTHING WAS CHANGED."
     fi
   fi
@@ -455,7 +468,8 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
     kit_refuse 2 forks-contradicted \
       "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
       "       (a register entry the branch's diff adds or changes, or a '[decision: D-NN]' citation anywhere on the card)." \
-      "       Add the id(s) to 'forks:' — 'forks: ${_forks_line}' does not account for them." \
+      "       'forks: ${_forks_line}' does not account for them." \
+      "Next: add the id(s) to 'forks:' on the card and commit it, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -511,6 +525,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
         "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${_forks_leave_commit:0:9}), with no '[decision: D-NN]' citation on the card: ${_forks_ac_drift}" \
         "       A ruling written straight into an AC is still a fork — cite the id that decided it." \
         "       (process/MANUAL.md § Execution discipline item 6.)" \
+        "Next: cite the register id that decided the change as '[decision: D-NN]' on the card. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC's earlier text." \
         "       NOTHING WAS CHANGED."
     fi
   fi
@@ -527,6 +542,7 @@ kit_ablation_check() {
   if [ -z "$_abl_cfg_branch" ]; then
     kit_refuse 1 ablation-config-unreadable \
       "Error: could not create a scratch file to read scripts/config.sh — refusing rather than skipping the ablation check." \
+      "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
   { git -C "$repo" show "${old_rev}:scripts/config.sh" 2>/dev/null || :
@@ -571,6 +587,7 @@ kit_ablation_check() {
           "       Touched test path(s): $(printf '%s' "$_abl_touches_test" | tr '\n' ' ')" \
           "       State what was broken and the red line it produced." \
           "       (process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.)" \
+          "Next: break the behaviour the changed test covers, run the test and see it go red, restore it, then add the '## Ablation' section to the card with 'Broken:' and 'Red line:' from that run; commit the card and re-run the command that refused." \
           "       NOTHING WAS CHANGED."
       fi
       _abl_body="$(awk '/^## Ablation[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$src")"
@@ -583,6 +600,7 @@ kit_ablation_check() {
           "Error: ${issue_id}'s '## Ablation' section is not well formed." \
           "       It needs a non-empty 'Broken: <what>' line and a non-empty 'Red line: <the output>' line." \
           "       (process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.)" \
+          "Next: fill both lines from an ablation you actually ran (what you broke, the red output it produced), commit the card, then re-run the command that refused." \
           "       NOTHING WAS CHANGED."
       fi
       echo "ABLATION_CHECK: PASS — '## Ablation' present and well formed for a diff touching a declared test path."
@@ -622,6 +640,7 @@ kit_board_property_check() {
   if [ -z "$scratch" ]; then
     kit_refuse 1 board-property-unreadable \
       "Error: could not create a scratch directory for the board-property check — refusing rather than skipping it." \
+      "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
   tree="$scratch/tree"
@@ -637,6 +656,7 @@ kit_board_property_check() {
     _bpc_cleanup
     kit_refuse 1 board-property-unreadable \
       "Error: could not read ${old_rev}:scripts/check-board.sh — the board-property check takes its operands from the trunk's own declarations and never guesses them." \
+      "Next: fetch the trunk (git fetch <remote>) and confirm ${old_rev} resolves and holds scripts/check-board.sh; then re-run the command that refused. If the file is not on the trunk, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
   if ! kit_bp_load_declarations "$decl"; then
@@ -645,6 +665,7 @@ kit_board_property_check() {
     kit_refuse 1 board-property-unreadable \
       "Error: ${old_rev}:scripts/check-board.sh does not declare: ${missing}" \
       "       The board-property check reads those operands from that file and never guesses them." \
+      "Next: restore each missing declaration in the trunk's scripts/check-board.sh (version control or the release zip hold the original) and land that on the trunk, then re-run the command that refused. If that file was not yours to change, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -761,7 +782,8 @@ kit_board_property_check() {
       "Error: landing '${new_rev}' onto ${old_rev} introduces a board-property finding that ${old_rev} does not have." \
       "${msg[@]}" \
       "       check-board.sh reports the same property; only a finding this landing introduces is refused," \
-      "       and one already on ${old_rev} is not. Fix it in the branch (or the card/register it names)." \
+      "       and one already on ${old_rev} is not." \
+      "Next: correct each finding above in the branch's change (the card, register or PRD it names), commit and push, then re-run the command that refused. A finding that is a ruling nobody has made is not yours to invent: ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
       "       NOTHING WAS CHANGED."
   fi
   echo "BOARD_PROPERTY_CHECK: PASS — ran: ${ran:-none}; property untouched, not run: ${skipped:-none}; finding(s) already on ${old_rev} and not refused: ${kept}."

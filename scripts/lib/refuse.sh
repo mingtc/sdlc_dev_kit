@@ -8,7 +8,13 @@
 #      was run as actor (`<name>.sh`), the first message line as description, `refusal=<rule-id>`;
 #   3. exits <status>.
 #
-#   kit_refuse 1 card-not-found "Error: <id> is in no progress/ folder." "  <what to do instead>"
+#   kit_refuse 1 card-not-found "Error: <id> is in no progress/ folder." "Next: <the step that clears it>"
+#
+# THE NEXT LINE. Every message carries one argument opening `Next: `: the concrete command or
+# step that clears the refusal honestly, or, where no honest route lies inside the caller's
+# authority, the escalation — `./scripts/ask.sh --role <role> "<question>" --default "<working
+# default>"`, or stop and hand off. A refusal that names only what is wrong leaves the agent that
+# hit it to invent a way out. The self-test reads that line from every call.
 #
 # <status> is an integer 1-255. <rule-id> follows the convention in
 # process/contracts/progress-record.md § 5b (stable, kebab-case, named for the rule).

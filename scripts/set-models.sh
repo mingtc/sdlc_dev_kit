@@ -72,8 +72,8 @@ while [ $# -gt 0 ]; do
     --effort)  need_val "$@"; EFFORT="$2"; shift 2 ;;
     --all)     DO_ALL=true; shift ;;
     --runners) DO_RUNNERS=true; shift ;;
-    -*) kit_refuse 2 unknown-option "Error: unknown option: $1" "  Run $(basename "$0") --help for its options." ;;
-    *)  kit_refuse 1 unexpected-argument "Error: unexpected argument: $1" "  Name a target with --class, --all or --runners." ;;
+    -*) kit_refuse 2 unknown-option "Error: unknown option: $1" "Next: run $(basename "$0") --help, then re-run with one of the options it lists." ;;
+    *)  kit_refuse 1 unexpected-argument "Error: unexpected argument: $1" "Next: re-run naming a target with --class <class>, --all or --runners." ;;
   esac
 done
 
@@ -84,10 +84,10 @@ if [ "$LIST" = false ]; then
   [ -n "$CLASS" ] && _n_targets=$((_n_targets + 1))
   [ "$_n_targets" -eq 1 ] || kit_refuse 2 exactly-one-target \
     "Error: name exactly one of --class <class>, --all or --runners (or --list)." \
-    "  Run $(basename "$0") --list to see the classes the ladder declares."
+    "Next: re-run naming exactly one target; $(basename "$0") --list shows the classes the ladder declares."
 
-  [ -n "$MODEL" ]  || kit_refuse 2 no-model  "Error: --model <id> is required." "  Model ids are product names, written exactly as given — never guessed here."
-  [ -n "$EFFORT" ] || kit_refuse 2 no-effort "Error: --effort <tier> is required."
+  [ -n "$MODEL" ]  || kit_refuse 2 no-model  "Error: --model <id> is required." "Next: re-run with --model <id>, the product name exactly as you were given it — never guessed here. If you were not given one, the choice is the owner's: stop and hand off."
+  [ -n "$EFFORT" ] || kit_refuse 2 no-effort "Error: --effort <tier> is required." "Next: re-run with --effort <tier>, spelled as the ladder in the Orchestrator's § Model & effort contract spells its tiers. If you were not given one, the choice is the owner's: stop and hand off."
 fi
 
 # ── NOW THE ENVIRONMENT: every argument is well-formed, so a refusal past this point is about
@@ -101,7 +101,7 @@ for _d in "$ROOT/.claude" "$ROOT/_claude"; do
 done
 [ -n "$CLAUDE_DIR" ] || kit_refuse 1 no-claude-dir \
   "Error: neither .claude/ nor _claude/ exists under $ROOT." \
-  "  Run this from a kit-initialized project (./scripts/kit-init.sh) or the kit's own tree."
+  "Next: run this from the root of a kit-initialized project (./scripts/kit-init.sh makes one) or the kit's own tree."
 
 AGENTS_DIR="$CLAUDE_DIR/agents"
 ORCH_DOC="$CLAUDE_DIR/roles/orchestrator.md"
@@ -109,7 +109,7 @@ RUNNERS="$CLAUDE_DIR/workflows/wave-runner.js $CLAUDE_DIR/workflows/tranche-runn
 
 [ -f "$ORCH_DOC" ] || kit_refuse 1 no-orchestrator-doc \
   "Error: $ORCH_DOC does not exist." \
-  "  The ladder row lives in the Orchestrator's § Model & effort contract; without that file there is nothing to read the ladder from."
+  "Next: restore $ORCH_DOC from version control or the release zip, then re-run. The ladder row lives in the Orchestrator's § Model & effort contract; without that file there is nothing to read the ladder from."
 
 # ── THE CLASS TABLE lives in lib/model-pins.sh, which the drift report reads too: one row per
 #    work class — its ladder-row label (as orchestrator.md's table spells it) and its leaf-worker
@@ -149,9 +149,9 @@ fi
 # metacharacter in a model id needs no escaping — it is printed, never matched.
 kit_set_pin() {
   local f="$AGENTS_DIR/$1"
-  [ -f "$f" ] || kit_refuse 1 pin-file-missing "Error: $f does not exist." "  The class's leaf-worker definition is expected under .claude/agents/."
+  [ -f "$f" ] || kit_refuse 1 pin-file-missing "Error: $f does not exist." "Next: restore $f (the class's leaf-worker definition under .claude/agents/) from version control or the release zip, then re-run."
   grep -qE '^model:' "$f" && grep -qE '^effort:' "$f" \
-    || kit_refuse 1 pin-shape-unrecognised "Error: $f has no 'model:'/'effort:' frontmatter pair to rewrite."
+    || kit_refuse 1 pin-shape-unrecognised "Error: $f has no 'model:'/'effort:' frontmatter pair to rewrite." "Next: restore the 'model:' and 'effort:' frontmatter lines in $f from version control or the release zip, then re-run."
   awk -v m="$MODEL" -v e="$EFFORT" '
     /^model:/  { print "model: " m;  next }
     /^effort:/ { print "effort: " e; next }
@@ -173,7 +173,7 @@ kit_set_pin() {
 kit_set_ladder_row() {
   local label="$1"
   grep -qE "^\| \*\*${label}" "$ORCH_DOC" \
-    || kit_refuse 1 ladder-row-missing "Error: orchestrator.md has no ladder row for '${label}'."
+    || kit_refuse 1 ladder-row-missing "Error: orchestrator.md has no ladder row for '${label}'." "Next: restore that row in $ORCH_DOC's § Model & effort contract table from version control or the release zip, then re-run."
   awk -v want="| **${label}" -v m="$MODEL" -v e="$EFFORT" '
     # Replace the k-th backtick-delimited token of s, backticks included, with `val`.
     function nth(s, val, k,    p1, p2, pre) {
@@ -211,9 +211,9 @@ kit_set_ladder_row() {
 kit_set_runners() {
   local rf
   for rf in $RUNNERS; do
-    [ -f "$rf" ] || kit_refuse 1 runner-file-missing "Error: $rf does not exist."
+    [ -f "$rf" ] || kit_refuse 1 runner-file-missing "Error: $rf does not exist." "Next: restore $rf from version control or the release zip, then re-run."
     grep -qE "defaultModel:.*\|\|" "$rf" && grep -qE "defaultEffort:.*\|\|" "$rf" \
-      || kit_refuse 1 runner-shape-unrecognised "Error: $rf has no defaultModel/defaultEffort fallback of the recognised shape."
+      || kit_refuse 1 runner-shape-unrecognised "Error: $rf has no defaultModel/defaultEffort fallback of the recognised shape." "Next: restore its 'defaultModel:' and 'defaultEffort:' fallback lines from version control or the release zip, then re-run."
     awk -v m="$MODEL" -v e="$EFFORT" -v q="'" '
       function last_quoted_replace(line, val,    n, i, q1, q2) {
         n = length(line)
@@ -241,7 +241,7 @@ if [ -n "$CLASS" ]; then
     kit_refuse 1 class-not-in-ladder \
       "Error: '${CLASS}' is not a class this project's ladder declares a row for." \
       "  Classes the ladder currently carries:${avail:-  (none — the ladder is unfilled)}" \
-      "  Run $(basename "$0") --list for the full mapping."
+      "Next: re-run with one of the classes listed above ($(basename "$0") --list shows the full mapping). A class the ladder has no row for is the owner's to add: stop and hand off."
   }
   label="$(kit_model_class_label "$CLASS")"
   pin="$(kit_model_class_pin "$CLASS")"

@@ -102,14 +102,14 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --into)   need_val "$@"; INTO="$2"; shift 2 ;;
     --finish) FINISH=true; shift ;;
-    -*) kit_refuse 2 unknown-option "Error: unknown option: $1" "  Run $(basename "$0") --help for its options." ;;
-    *)  kit_refuse 1 unexpected-argument "Error: unexpected argument: $1" "  The project is named with --into <dir>." ;;
+    -*) kit_refuse 2 unknown-option "Error: unknown option: $1" "Next: run $(basename "$0") --help, then re-run with one of the options it lists." ;;
+    *)  kit_refuse 1 unexpected-argument "Error: unexpected argument: $1" "Next: re-run naming the project with --into <dir>." ;;
   esac
 done
 
 [ -n "$INTO" ] || kit_refuse 2 upgrade-no-target \
   "Error: no --into <dir>: name the project to upgrade." \
-  "  Run the NEW kit's copy against it: <scratch>/scripts/kit-upgrade.sh --into <your project>"
+  "Next: run the NEW kit's copy against the project: <scratch>/scripts/kit-upgrade.sh --into <your project>"
 
 # ── THE TARGET: the top level of a git work tree. ─────────────────────────────
 TGT="$(cd "$INTO" 2>/dev/null && pwd -P)" || TGT=""
@@ -118,7 +118,7 @@ TOP=""
 if [ -z "$TGT" ] || [ -z "$TOP" ] || [ "$TOP" != "$TGT" ]; then
   kit_refuse 1 upgrade-target-not-a-repo \
     "Error: --into $INTO is not the top level of a git work tree${TOP:+ (its top level is $TOP)}." \
-    "  Name the project's root: the upgrade writes paths relative to it."
+    "Next: re-run with --into naming the project's root (the top level of its git work tree): the upgrade writes paths relative to it."
 fi
 # Records land with the project's own, wherever this was run from.
 if [ -z "${KIT_PROGRESS_DIR:-}" ] && command -v kit_progress_dir >/dev/null 2>&1; then
@@ -297,26 +297,26 @@ vf_record() {
 if [ "$FINISH" = true ]; then
   [ -f "$CL" ] || kit_refuse 1 upgrade-nothing-to-finish \
     "Error: no upgrade is in progress in $TGT: $UPGRADE_CHECKLIST is absent." \
-    "  Start one with the NEW kit's copy: <scratch>/scripts/kit-upgrade.sh --into $TGT"
+    "Next: start one with the NEW kit's copy: <scratch>/scripts/kit-upgrade.sh --into $TGT"
   { [ -f "$ST/KIT-VERSION" ] && [ -f "$ST/KIT-MANIFEST" ]; } || kit_refuse 1 upgrade-staging-missing \
     "Error: $UPGRADE_CHECKLIST exists but $STAGE_DIR/ does not hold the new KIT-VERSION and KIT-MANIFEST." \
-    "  Delete $UPGRADE_CHECKLIST and $STAGE_DIR/, then run the NEW kit's copy again: its first run is safe to repeat."
+    "Next: delete $UPGRADE_CHECKLIST and $STAGE_DIR/, then run the NEW kit's copy again: its first run is safe to repeat."
   open_n="$(grep -c '^- \[ \]' "$CL" || true)"
   if [ "${open_n:-0}" -gt 0 ]; then
     kit_refuse 1 upgrade-checklist-unmarked \
       "Error: $open_n checklist item(s) in $UPGRADE_CHECKLIST are unmarked; process/KIT-VERSION is stamped only when none is." \
       "$(grep '^- \[ \]' "$CL" | sed 's/^/  /')" \
-      "  Do each one and mark it \"- [x]\", then run --finish again."
+      "Next: do each item above and mark it \"- [x]\" once it is done, then run --finish again."
   fi
   # The marks are the upgrade's record: removing an uncommitted checklist would leave history
   # without them.
   [ -z "$(cd "$TGT" && git status --porcelain -- "$UPGRADE_CHECKLIST" 2>/dev/null)" ] || kit_refuse 1 upgrade-checklist-uncommitted \
     "Error: $UPGRADE_CHECKLIST has uncommitted changes; --finish removes it." \
-    "  Commit it as marked first, so the record of what was done survives, then run --finish again."
+    "Next: commit it as marked first, so the record of what was done survives, then run --finish again."
   dirty="$(cd "$TGT" && git status --porcelain -- process/KIT-VERSION process/KIT-MANIFEST 2>/dev/null)"
   [ -z "$dirty" ] || kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths --finish writes:" "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
-    "  Commit or stash them first."
+    "Next: commit or stash them first, then run --finish again."
   # The new kit's landing checks, again, over the cards as they are now.
   lc_run
   if [ "${#LC_REFUSED[@]}" -gt 0 ]; then
@@ -328,7 +328,7 @@ if [ "$FINISH" = true ]; then
     kit_refuse 1 upgrade-open-card-refused \
       "Error: ${#LC_REFUSED[@]} open card(s) in $TGT would be refused by the new kit's landing checks; process/KIT-VERSION is stamped only when none would be." \
       "${refused_lines[@]}" \
-      "  Fix each card (its own landing is refused the same way), then run --finish again."
+      "Next: fix each card above (its own landing is refused the same way), then run --finish again."
   fi
   [ -z "$LC_NOTE" ] || [ "$LC_CARDS" -eq 0 ] || echo "  open cards were not checked: $LC_NOTE"
   lc_report
@@ -337,19 +337,19 @@ if [ "$FINISH" = true ]; then
     kit_refuse 1 upgrade-verify-failed \
       "Error: $VF_NFAIL Action required item(s) marked done fail their Verify: command; process/KIT-VERSION is stamped only when none does." \
       "${VF_FAILED[@]}" \
-      "  Do the action each names (the command ran in $TGT), then run --finish again."
+      "Next: do the action each names (the command ran in $TGT), then run --finish again."
   fi
   new_v="$(read_version "$ST/KIT-VERSION")"
   old_v="$(read_version "$TGT/process/KIT-VERSION")"
   ARCHIVE_REL="process/upgrades/$(printf '%s-to-%s' "${old_v:-unknown}" "$new_v" | tr -c 'A-Za-z0-9.+_\n-' '_').md"
   [ ! -e "$TGT/$ARCHIVE_REL" ] || kit_refuse 1 upgrade-archive-exists \
     "Error: $ARCHIVE_REL already exists; --finish would overwrite the record of an earlier upgrade." \
-    "  Move or rename it (commit that), then run --finish again."
+    "Next: move or rename it (commit that), then run --finish again."
   mkdir -p "$TGT/process/upgrades" && cp "$CL" "$TGT/$ARCHIVE_REL" \
-    || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT."
-  vf_record >> "$TGT/$ARCHIVE_REL" || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT."
+    || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete any partial $ARCHIVE_REL, then run --finish again."
+  vf_record >> "$TGT/$ARCHIVE_REL" || kit_refuse 1 upgrade-write-failed "Error: could not write $ARCHIVE_REL in $TGT." "Next: fix the write permission or free space under $TGT/process/upgrades/, delete the partial $ARCHIVE_REL, then run --finish again."
   cp "$ST/KIT-VERSION" "$TGT/process/KIT-VERSION" && cp "$ST/KIT-MANIFEST" "$TGT/process/KIT-MANIFEST" \
-    || kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT."
+    || kit_refuse 1 upgrade-write-failed "Error: could not write process/KIT-VERSION or process/KIT-MANIFEST in $TGT." "Next: fix the write permission or free space under $TGT/process/, delete $ARCHIVE_REL (written just before this step), then run --finish again."
   rm -rf "$ST" && rm -f "$CL"
   echo "kit-upgrade: $TGT now records kit $new_v (process/KIT-VERSION, process/KIT-MANIFEST)."
   echo "  The marked checklist is kept as $ARCHIVE_REL; $UPGRADE_CHECKLIST and $STAGE_DIR/ are removed."
@@ -363,19 +363,20 @@ NEW_MAN="$SRC/process/KIT-MANIFEST"
 if [ ! -f "$NEW_MAN" ] || [ ! -f "$SRC/process/KIT-VERSION" ]; then
   kit_refuse 1 upgrade-source-not-a-kit \
     "Error: $SRC is not an unpacked kit: it has no process/KIT-MANIFEST and process/KIT-VERSION." \
-    "  Run the copy inside the unzipped release: unzip -q project-kit-v<X.Y.Z>.zip -d <scratch>"
+    "Next: run the copy inside the unzipped release: unzip -q project-kit-v<X.Y.Z>.zip -d <scratch>"
 fi
 [ "$SRC" != "$TGT" ] || kit_refuse 1 upgrade-source-is-target \
   "Error: this is the project's own copy of kit-upgrade.sh, so it would upgrade $TGT to itself." \
-  "  Run the NEW release's copy: unzip -q project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/kit-upgrade.sh --into $TGT"
+  "Next: run the NEW release's copy: unzip -q project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/kit-upgrade.sh --into $TGT"
 
 NEW_V="$(read_version "$SRC/process/KIT-VERSION")"
 CUR_V="$(read_version "$TGT/process/KIT-VERSION")"
 ver_ok "$NEW_V" || kit_refuse 1 upgrade-version-unreadable \
-  "Error: the new kit's process/KIT-VERSION reads '$NEW_V', not X.Y.Z or X.Y.Z+<tree>."
+  "Error: the new kit's process/KIT-VERSION reads '$NEW_V', not X.Y.Z or X.Y.Z+<tree>." \
+  "Next: unzip the release again from the original zip (a damaged or edited copy is not this kit) and run its copy; if the fresh copy refuses the same way, stop and hand off."
 ver_ok "$CUR_V" || kit_refuse 1 upgrade-version-unreadable \
   "Error: $TGT/process/KIT-VERSION reads '${CUR_V:-<absent>}', not X.Y.Z or X.Y.Z+<tree>." \
-  "  Write the version this project runs there, as its release shipped it, and commit it first."
+  "Next: write the version this project runs there, as its release shipped it, commit it, then run this again."
 
 # ── AN UPGRADE ALREADY IN PROGRESS ────────────────────────────────────────────
 if [ -f "$CL" ] || [ -e "$ST" ]; then
@@ -384,7 +385,7 @@ if [ -f "$CL" ] || [ -e "$ST" ]; then
   if [ "$prog_v" != "$NEW_V" ]; then
     kit_refuse 1 upgrade-checklist-other-version \
       "Error: an upgrade to ${prog_v:-<unknown>} is in progress in $TGT ($UPGRADE_CHECKLIST, $STAGE_DIR/), and this kit is $NEW_V." \
-      "  Finish it (--finish), or delete both and commit that, then run this again."
+      "Next: finish it (--finish), or delete both and commit that, then run this again."
   fi
   echo "kit-upgrade: the upgrade to $NEW_V is already staged in $TGT; nothing was changed."
   open_n="$(grep -c '^- \[ \]' "$CL" 2>/dev/null)"
@@ -397,7 +398,8 @@ CUR_B="$(ver_base "$CUR_V")"; NEW_B="$(ver_base "$NEW_V")"
 c="$(ver_cmp "$NEW_B" "$CUR_B")"
 if [ "$c" = -1 ] || { [ "$c" = 0 ] && ver_is_build "$CUR_V" && ! ver_is_build "$NEW_V"; }; then
   kit_refuse 1 upgrade-target-older \
-    "Error: this kit is $NEW_V, older than the $CUR_V that $TGT records. Nothing was changed."
+    "Error: this kit is $NEW_V, older than the $CUR_V that $TGT records. Nothing was changed." \
+    "Next: unzip a release at least as new as $CUR_V and run its copy: <scratch>/scripts/kit-upgrade.sh --into $TGT. Going back to an older kit is the owner's decision: stop and hand off."
 fi
 
 # ── THE FILE PASS: classify every path, write nothing yet. ────────────────────
@@ -423,7 +425,7 @@ WRITE=(); ADDED=(); REPLACED=(); MERGE=(); MERGE_WHY=(); REMOVED=(); REMOVED_CHA
 n_current=0; n_kept=0
 while IFS="$(printf '\t')" read -r p nh oh; do
   [ -n "$p" ] || continue
-  case "$p" in /*|../*|*/../*|*/..) kit_refuse 1 upgrade-source-not-a-kit "Error: the new kit's manifest names an unsafe path: $p" ;; esac
+  case "$p" in /*|../*|*/../*|*/..) kit_refuse 1 upgrade-source-not-a-kit "Error: the new kit's manifest names an unsafe path: $p" "Next: unzip the release again from the original zip and run its copy; if the fresh copy refuses the same way, stop and hand off." ;; esac
   [ "$p" = process/KIT-VERSION ] && continue   # stamped by --finish, never by this pass
   dst="$TGT/$p"
   if [ "$nh" = - ]; then                        # the new kit no longer ships it
@@ -437,7 +439,7 @@ while IFS="$(printf '\t')" read -r p nh oh; do
     continue
   fi
   src="$SRC/$p"
-  [ -f "$src" ] || kit_refuse 1 upgrade-source-not-a-kit "Error: the new kit's manifest names $p, which the kit does not hold."
+  [ -f "$src" ] || kit_refuse 1 upgrade-source-not-a-kit "Error: the new kit's manifest names $p, which the kit does not hold." "Next: unzip the release again from the original zip and run its copy; if the fresh copy refuses the same way, stop and hand off."
   known_old=""; [ -n "$oh" ] && [ "$oh" != "?" ] && known_old=1
   if [ -n "$known_old" ] && [ "$oh" = "$nh" ]; then
     n_kept=$((n_kept + 1)); continue            # the kit did not change it: whatever is here stays
@@ -521,7 +523,7 @@ if [ -n "$dirty" ]; then
   kit_refuse 1 upgrade-target-dirty \
     "Error: $TGT has uncommitted changes under paths this upgrade would write:" \
     "$(printf '%s\n' "$dirty" | sed 's/^/  /')" \
-    "  Commit or stash them first, so that undoing the upgrade can never discard work of yours."
+    "Next: commit or stash them first, so that undoing the upgrade can never discard work of yours, then run this again."
 fi
 
 # ── WRITE ─────────────────────────────────────────────────────────────────────
@@ -535,7 +537,7 @@ put() {  # <src> <dst> — copy, carrying the executable bit
 }
 fail_write() {
   kit_refuse 1 upgrade-write-failed "Error: could not write $1." \
-    "  The tree is part-written: 'git -C $TGT status' shows what changed, and 'git -C $TGT checkout -- .' plus removing $STAGE_DIR/ and $UPGRADE_CHECKLIST undoes it."
+    "Next: the tree is part-written — 'git -C $TGT status' shows what changed, and 'git -C $TGT checkout -- .' plus removing $STAGE_DIR/ and $UPGRADE_CHECKLIST undoes it; fix the write failure, then run this again."
 }
 for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p"; done
 mkdir -p "$ST/files" || fail_write "$STAGE_DIR/"
