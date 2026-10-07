@@ -47,7 +47,7 @@ kit_attrib_offender() {
   [ -n "$words" ] && [ -n "$markers" ] || return 1
   body="$(cat | kit_normalize_hyphens)"
   found="$(printf '%s\n' "$body" \
-      | grep -iE "^[[:space:]]*([-*][[:space:]]+)?\`?(${words}):(.*[^[:alnum:]])?(${markers})([^[:alnum:]]|\$)" \
+      | grep -iE "^[[:space:]]*([-*][[:space:]]+)?\`?(${words})[[:space:]]*:(.*[^[:alnum:]])?(${markers})([^[:alnum:]]|\$)" \
       | sed -n '1p')"
   [ -n "$found" ] || found="$(printf '%s\n' "$body" \
       | grep -iE '^[[:space:]]*([-*][[:space:]]+)?`?[^[:alnum:]]*generated[[:space:]-]+(with|by)[[:space:]:]' \

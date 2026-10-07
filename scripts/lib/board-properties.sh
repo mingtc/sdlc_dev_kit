@@ -37,6 +37,13 @@ KIT_BP_CARD_EMPTY=""
 KIT_BP_COLS_READ=0
 # When non-empty, kit_bp_citations reads only these tree-relative paths (one per line).
 KIT_BP_ONLY=""
+# When BOTH are set, kit_bp_register_shape also reads a register's git history: KIT_BP_HIST_REPO is
+# the repository, KIT_BP_HIST_RANGE the revision range to walk. A landing sets neither.
+KIT_BP_HIST_REPO=""
+KIT_BP_HIST_RANGE=""
+_BP_HIST_N=0
+# The stamp words a reopened, amended or withdrawn entry carries, as a bold label.
+_BP_STAMP_WORDS='Amended|CONFIRMED|Clarified|SUPERSEDED|WITHDRAWN|WORKING DEFAULT'
 
 _bp_reset() { KIT_BP_NHITS=0; }
 
@@ -51,6 +58,10 @@ _bp_hit() {
   if [ -n "${KIT_BP_HITS_FILE:-}" ]; then printf '%s\t%s\n' "$keys" "$text" >> "$KIT_BP_HITS_FILE"; fi
   printf '%s\n' "$text"
 }
+
+# _bp_note <text> — print one finding line and count it, but never record it: a landing reads
+# findings from KIT_BP_HITS_FILE only, so a note is report-only by construction.
+_bp_note() { KIT_BP_NHITS=$((KIT_BP_NHITS+1)); printf '%s\n' "$1"; }
 
 # kit_bp_load_declarations <check-board.sh text file>
 #   Sets every operand above from the file's own declarations, read by their fixed shapes and never
@@ -519,8 +530,14 @@ _bp_entry_spans() {
 # entry with reopen/supersede wording is reported if its own body carries no stamp word.
 # A WITHDRAWN or WORKING DEFAULT entry states its token at the head of the Ruling field, in the
 # same three fields, so a legally-shaped one reads clean.
+# REPORT-ONLY, and only where the caller names a git history (KIT_BP_HIST_*): a commit that changed
+# an existing entry's Ruling text with no stamp among the lines it added; and a numbered item that
+# restarts or collides after `## Findings`, which is how findings end up outside that section.
+# Neither is recorded for a landing.
 # CANNOT SEE: an entry whose shape passes and whose current ruling is wrong; a reopen relationship
-# in words the vocabulary does not cover; a stamp that is present but false.
+# in words the vocabulary does not cover; a stamp that is present but false; a Ruling change whose
+# added lines carry a stamp word the change does not honour; a Why field that gained ruling-shaped
+# text.
 kit_bp_register_shape() {
   local tree="$1" q_reg_read=0 q_entries=0 q_stamped="" q_reopeners=""
   local qreg_path qreg_mark qreg_shape qreg_file q_spans qid qstart qend qbody
@@ -560,7 +577,7 @@ kit_bp_register_shape() {
 
       # Any OTHER line-start bold label besides the three canonical ones — a stacked amendment or
       # a fourth field, uncounted: one is already one too many.
-      q_extra="$(printf '%s\n' "$qbody" | grep -noE '^\*\*[^*]+\.\*\*' \
+      q_extra="$(printf '%s\n' "$qbody" | grep -noE '^\*\*[^*]+[.:]\*\*' \
                   | grep -Ev ':\*\*(Ruling|Why|Provenance)\.\*\*$' || true)"
       if [ -n "$q_extra" ]; then
         q_n_extra="$(printf '%s\n' "$q_extra" | grep -c . || true)"
@@ -593,7 +610,7 @@ kit_bp_register_shape() {
       fi
 
       # Stamp words, for the reopened-without-stamp check below.
-      if printf '%s\n' "$qbody" | grep -qiE '\*\*(Amended|CONFIRMED|Clarified|SUPERSEDED|WITHDRAWN|WORKING DEFAULT)\b'; then
+      if printf '%s\n' "$qbody" | grep -qiE "\*\*(${_BP_STAMP_WORDS})\b"; then
         q_stamped="$q_stamped
 $qid"
       fi
@@ -615,6 +632,19 @@ $qtgt $qid"
     echo "      – no register was read (none of the declared ones is present in this source)  (skipped)"
     return 0
   fi
+  local q_hist_n=-1
+  _BP_HIST_N=0
+  if [ -n "$KIT_BP_HIST_REPO" ] && [ -n "$KIT_BP_HIST_RANGE" ]; then
+    while IFS='|' read -r qreg_path qreg_mark qreg_shape; do
+      [ -n "$qreg_path" ] || continue
+      _bp_ruling_history "$qreg_path" "$qreg_mark" "$qreg_shape"
+    done <<< "$(printf '%s\n' "$REGISTERS")"
+    q_hist_n="$_BP_HIST_N"
+  fi
+  while IFS='|' read -r qreg_path qreg_mark qreg_shape; do
+    [ -n "$qreg_path" ] || continue
+    [ -f "$tree/$qreg_path" ] && _bp_findings_numbering "$tree/$qreg_path" "$qreg_path"
+  done <<< "$(printf '%s\n' "$REGISTERS")"
   while read -r qtgt; do
     [ -n "$qtgt" ] || continue
     if ! printf '%s\n' "$q_stamped" | grep -qx "$qtgt"; then
@@ -628,9 +658,96 @@ $qtgt $qid"
   if [ "$q_entries" -eq 0 ]; then
     echo "      – 0 entr(ies) in the register(s) read  (nothing to check)"
   elif [ "$KIT_BP_NHITS" -eq 0 ]; then
-    echo "      ✓ none ($q_entries entr(ies) read, every one exactly three fields, no unstamped reopen)"
+    if [ "$q_hist_n" -ge 0 ]; then
+      echo "      ✓ none ($q_entries entr(ies) read, every one exactly three fields, no unstamped reopen, no Ruling change without a stamp in $q_hist_n commit(s) of history, Findings numbered cleanly)"
+    else
+      echo "      ✓ none ($q_entries entr(ies) read, every one exactly three fields, no unstamped reopen; no git history was named, so Ruling changes were not read)"
+    fi
   fi
   return 0
+}
+
+# _bp_rulings <file> <spans-file> — "<id><TAB><Ruling field>" per entry listed in <spans-file> ("<id>
+# <start> <end>" lines): the Ruling field runs from its label to the line before Why's, its lines
+# joined by \001.
+_bp_rulings() {
+  awk '
+    NR == FNR { if ($1 != "") { k++; id[k]=$1; s[k]=$2; e[k]=$3 } next }
+    {
+      for (i = 1; i <= k; i++) if (FNR >= s[i] && FNR <= e[i]) {
+        if ($0 ~ /^\*\*Ruling\.\*\*/) on[i] = 1
+        if ($0 ~ /^\*\*Why\.\*\*/) on[i] = 0
+        if (on[i]) txt[i] = txt[i] $0 "\001"
+      }
+    }
+    END { for (i = 1; i <= k; i++) printf "%s\t%s\n", id[i], txt[i] }
+  ' "$2" "$1"
+}
+
+# _bp_ruling_history <register-path> <heading-mark> <id-shape> — over KIT_BP_HIST_RANGE, every
+# non-merge commit that touched the register: for each entry present before and after, a changed
+# Ruling field with no stamp among the lines the commit ADDED to that entry is one finding.
+# Adds the commits read to _BP_HIST_N and prints each finding through _bp_note.
+_bp_ruling_history() {
+  local rpath="$1" rmark="$2" rshape="$3" scratch sha par n=0 subj
+  local oldf newf id os oe ns ne added ospans nspans oid ostart oend
+  scratch="$(mktemp -d 2>/dev/null)" || return 0
+  oldf="$scratch/old"; newf="$scratch/new"
+  while read -r sha; do
+    [ -n "$sha" ] || continue
+    par="$(git -C "$KIT_BP_HIST_REPO" rev-parse --verify --quiet "$sha^1" 2>/dev/null)" || continue
+    git -C "$KIT_BP_HIST_REPO" show "$par:$rpath" > "$oldf" 2>/dev/null || continue
+    git -C "$KIT_BP_HIST_REPO" show "$sha:$rpath" > "$newf" 2>/dev/null || continue
+    n=$((n+1))
+    ospans="$(_bp_entry_spans "$oldf" "$rmark" "$rshape")"
+    nspans="$(_bp_entry_spans "$newf" "$rmark" "$rshape")"
+    # Each entry's Ruling field, one line per id, from the SAME spans; only ids whose line differs
+    # between the two versions are examined further.
+    printf '%s\n' "$ospans" > "$scratch/old.s"; printf '%s\n' "$nspans" > "$scratch/new.s"
+    _bp_rulings "$oldf" "$scratch/old.s" | sort > "$scratch/old.r"
+    _bp_rulings "$newf" "$scratch/new.s" | sort > "$scratch/new.r"
+    while read -r id; do
+      [ -n "$id" ] || continue
+      os=""; oe=""; ns=""; ne=""
+      while read -r oid ostart oend; do
+        if [ "$oid" = "$id" ]; then os="$ostart"; oe="$oend"; break; fi
+      done <<< "$ospans"
+      while read -r oid ostart oend; do
+        if [ "$oid" = "$id" ]; then ns="$ostart"; ne="$oend"; break; fi
+      done <<< "$nspans"
+      [ -n "$os" ] && [ -n "$ns" ] || continue
+      added="$(diff <(sed -n "${os},${oe}p" "$oldf") <(sed -n "${ns},${ne}p" "$newf") | sed -n 's/^> //p')"
+      if printf '%s\n' "$added" | grep -qiE "\*\*(${_BP_STAMP_WORDS})\b|^\*\*Ruling\.\*\*[[:space:]]*(WITHDRAWN|WORKING DEFAULT)"; then
+        continue
+      fi
+      subj="$(git -C "$KIT_BP_HIST_REPO" log -1 --format=%s "$sha" 2>/dev/null)"
+      _bp_note "      ⚠ $rpath $id — its Ruling text changed in ${sha:0:9} (\"$subj\") and no stamp (${_BP_STAMP_WORDS//|/, }) is among the lines that commit added; a changed ruling is stamped, in the same change, so a reader of the register can tell a reopen from a first writing"
+    done <<< "$(diff "$scratch/old.r" "$scratch/new.r" | awk -F'\t' '/^< /{o[substr($1,3)]=1} /^> /{w[substr($1,3)]=1} END{for (i in w) if (i in o) print i}' | sort)"
+  done <<< "$(git -C "$KIT_BP_HIST_REPO" log --no-merges --format=%H "$KIT_BP_HIST_RANGE" -- "$rpath" 2>/dev/null)"
+  rm -rf "$scratch"
+  _BP_HIST_N=$((_BP_HIST_N + n))
+  return 0
+}
+
+# _bp_findings_numbering <file> <label> — a register's `## Findings` section ends at the next
+# heading or `---` rule. A numbered item after the heading that neither restarts at 1 nor follows
+# its predecessor by one is a list that collided with another: items written under such a
+# collision land outside the section a reader checks. Reported through _bp_note.
+_bp_findings_numbering() {
+  local out line n prev
+  out="$(awk '
+    /^##[[:space:]]+Findings/ { f=1; fl=NR; next }
+    f && !ended && (/^##/ || /^---[[:space:]]*$/) { ended=1; el=NR }
+    f && /^[0-9]+\.[[:space:]]/ {
+      n=$0; sub(/\..*$/, "", n); n=n+0
+      if (prev != "" && n != 1 && n != prev+1) print NR, n, prev, (ended ? el : "the end of the file")
+      prev=n
+    }
+  ' "$1" 2>/dev/null)"
+  [ -n "$out" ] || return 0
+  while read -r line n prev el; do
+    _bp_note "      ⚠ $2:$line — numbered item $n follows $prev after \`## Findings\` (which ends at ${el}): a list that collides with another is how findings land outside the section; renumber it, or give the other list its own heading"
+  done <<< "$out"
 }
 
 # ── [r] Declared reverse coverage ────────────────────────────────────────────

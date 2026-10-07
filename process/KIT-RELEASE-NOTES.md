@@ -463,6 +463,32 @@ columns and never the cards.*
   refuse and `[g]` report it unfilled where it previously read as declared — fill it with a real name,
   role or channel.
 
+- **`check-board.sh` arm `[q]` reads a register's history** (report only; a landing never refuses on it). It names an
+  entry whose Ruling text a commit changed with no stamp (`**Amended…**`, `**CONFIRMED…**`, `**Clarified…**`,
+  `**SUPERSEDED…**`, `**WITHDRAWN…**`, or a `WORKING DEFAULT`/`WITHDRAWN` head) among the lines it added, over the
+  commits since the commit hook arrived; a numbered list that collides after `## Findings` (how findings land outside
+  that section); and a colon-labelled amendment (`**Amended 2026-10-05:**`) as an extra fragment, like its period form.
+  Nothing to do; stamp a changed ruling in the same change, as the register's own rules already say.
+
+- **`check-board.sh` arms `[e]` and `[h]` scan every commit since the commit hook arrived, not the last 20.** A commit that
+  bypassed the hook is no longer forgiven by 20 later ones. A `Revert "…"` is exempt from the `[Role]` prefix only when its
+  diff undoes the commit its body names, and a `fixup!`/`squash!`/`amend!` only when it names an earlier commit and touches
+  nothing that commit did not; the same subject over any other diff is reported. In a clone with no derivable start the
+  window stays the last 20. Nothing to do; a commit reported now needs its `[Role]` prefix, which cannot be added to
+  published history, so expect old bypasses to stay listed.
+
+- **`check-board.sh` arm `[m]` names a landed card with neither a `prd:` value nor a `prd_reason:`**, instead of leaving it
+  out of its count. Report only; give such a card a PRD, or `prd: n/a` with a one-line reason.
+
+- **`check-board.sh` arm `[g]` flags a `TEST_GLOBS` entry that matches no file** (matched with `case` against repository
+  paths, as the ablation rule does), and reports it with a `⚠` until it matches; it never holds graduation back. Fix the glob, or
+  add the first test file it should match.
+
+- **The commit hook and `check-board.sh` `[h]` refuse more generated trailers:** `TOOL_TRAILER_MARKERS` gains model-family
+  words (`opus`, `sonnet`, `haiku`, `fable`, `llama`, `mistral`, `grok`, `deepseek`, `qwen`), and a blank before the
+  colon (`Co-authored-by : …`) no longer slips past. A project whose harness adds such a trailer must configure the
+  harness not to, or extend the list in the hook, in one place.
+
 - **`check-board.sh` arm `[l]` now states its own population**: the count of marker-form
   `[decision: ...]` citations it checked against the count of bare `D-NN` mentions it found
   outside any marker, instead of a bare `✓ none` that read as having seen every reference to the

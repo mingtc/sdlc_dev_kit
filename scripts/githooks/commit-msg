@@ -56,7 +56,7 @@ ROLE_PREFIXES='PM|Dev|QA|Refactorer|UIDesigner|Orchestrator|Architect'
 # THE TOOL MARKERS for rule (2) — likewise a named var on its own line, so the
 # refusal text and any test DERIVE the list instead of restating it. Plain words
 # only, no regex metacharacters: the matcher adds the word boundaries.
-TOOL_TRAILER_MARKERS='claude|anthropic|copilot|chatgpt|openai|gpt|gemini|codex|aider|bot'
+TOOL_TRAILER_MARKERS='claude|anthropic|copilot|chatgpt|openai|gpt|gemini|codex|aider|bot|opus|sonnet|haiku|fable|llama|mistral|grok|deepseek|qwen'
 
 # THE ATTRIBUTION-TRAILER WORDINGS for rule (2)'s trailer form — one alternation, so a new
 # wording is added here once rather than re-taught to a single hardcoded "co-authored-by:".
@@ -89,7 +89,7 @@ fi
 # --- RULE (2): no generated-attribution line, in any of its common wordings --------
 # THREE arms, all anchored at a line start: § A.1 forbids such a LINE, and mid-sentence prose is
 # not one.
-#   (a) a `<word>-by:` TRAILER naming a tool — the pre-marker group `(.*[^[:alnum:]])?` is
+#   (a) a `<word>-by:` TRAILER (blanks before the colon tolerated) naming a tool — the pre-marker group `(.*[^[:alnum:]])?` is
 #       OPTIONAL so the colon itself can be the left boundary (`Co-Authored-By:Claude`); the
 #       trailing `([^[:alnum:]]|$)` is REQUIRED, so a human whose name contains a marker's stem
 #       (`Claudia`) is accepted, and so is a person whose ROLE-sounding surname is not one of
@@ -102,7 +102,7 @@ fi
 # No `head`: it exits early, the upstream grep dies of SIGPIPE, and under pipefail that becomes
 # the result. `sed -n '1p'` reads to EOF.
 offender="$(printf '%s\n' "$attrib_cleaned" \
-  | grep -iE "^[[:space:]]*(${ATTRIB_TRAILER_WORDS}):(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
+  | grep -iE "^[[:space:]]*(${ATTRIB_TRAILER_WORDS})[[:space:]]*:(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
   | sed -n '1p' || true)"
 [ -n "$offender" ] || offender="$(printf '%s\n' "$attrib_cleaned" \
   | grep -iE '^[^[:alnum:]]*generated[[:space:]-]+(with|by)[[:space:]:]' | sed -n '1p' || true)"

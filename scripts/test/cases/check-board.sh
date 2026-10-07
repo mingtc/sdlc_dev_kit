@@ -1032,7 +1032,9 @@ EOF
   out="$(cb_run)"
   printf '%s\n' "$out" | grep '^\[p\]' >/dev/null \
     && cf "(control) the ablation left [p] printing — the case would prove nothing"
-  printf '%s\n' "$out" | grep -E "$SB_PREFIX-999|$SB_PREFIX-721" >/dev/null \
+  # Arm [m] names a landed card that carries no PRD by its id, and these fixture cards carry none:
+  # that line is not arm (p)'s finding, so it is set aside before the id is searched for.
+  printf '%s\n' "$out" | grep -v 'name no PRD' | grep -E "$SB_PREFIX-999|$SB_PREFIX-721" >/dev/null \
     && cf "(control) a finding survived arm (p)'s ablation, so it is not attributable to this arm: $out"
   printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
     || cf "(control) without arm (p) the board did not read clean, so the findings above are not attributable to it: $out"
@@ -1691,7 +1693,7 @@ case_check_board_shallow_clone_does_not_narrow() {
   out="$( cd "$sh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"
   printf '%s\n' "$out" | grep 'THIS IS A SHALLOW CLONE' >/dev/null \
     || cf "the report does not say the history is shallow — the arms narrowed against a graft boundary and presented it as a derived epoch: $out"
-  printf '%s\n' "$out" | grep "scope: commits after ${grafted:0:9}" >/dev/null \
+  printf '%s\n' "$out" | grep "scope: every commit after ${grafted:0:9}" >/dev/null \
     && cf "the report narrowed to the GRAFT BOUNDARY and named it as the rule's start — that commit is an artefact of the clone depth, not of the kit's arrival: $out"
 
   finish "a shallow clone gets no derived-looking narrowing: the arms say the history is shallow, exclude nothing, and never present the graft boundary as the rule's epoch"
@@ -1760,17 +1762,17 @@ case_check_board_trailer_scan_shares_the_epoch() {
   # THE COMPOSITION, compared as TEXT out of the two arms' OWN scope lines. This case
   # deliberately does NOT recompute the epoch: a third derivation would agree with
   # neither arm and would answer a question nobody asked.
-  scopes="$(printf '%s\n' "$out" | grep -o 'scope: commits after [0-9a-f]\{9\}' || true)"
+  scopes="$(printf '%s\n' "$out" | grep -o 'scope: every commit after [0-9a-f]\{9\}' || true)"
   e_scope="$(printf '%s\n' "$scopes" | sed -n '1p')"
   h_scope="$(printf '%s\n' "$scopes" | sed -n '2p')"
   { [ -n "$e_scope" ] && [ -n "$h_scope" ]; } \
-    || cf "fewer than two 'scope: commits after <sha>' lines — one of the two history arms does not name its narrowing where its result is printed: $out"
+    || cf "fewer than two 'scope: every commit after <sha>' lines — one of the two history arms does not name its narrowing where its result is printed: $out"
   [ "$e_scope" = "$h_scope" ] \
     || cf "arms [e] and [h] name DIFFERENT epochs ('$e_scope' vs '$h_scope') — one rule, one file, two boundaries: the later one is silently hiding findings"
 
   # INSTRUMENT AGAINST A VACUOUS PASS: if nothing was out of scope, the two exclusions
   # above are satisfied by an arm that narrowed nothing.
-  printf '%s\n' "$out" | grep -E "scope: commits after ${sha_epoch}[^—]*— [1-9][0-9]* of the last" >/dev/null \
+  printf '%s\n' "$out" | grep -E "scope: every commit after ${sha_epoch}[^—]*— [1-9][0-9]* earlier commit\(s\) not read" >/dev/null \
     || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so the exclusions above would pass vacuously: $out"
 
   # A HUMAN CO-AUTHOR IS NOT A FINDING. Without this the arm could be a bare
@@ -1819,10 +1821,21 @@ case_check_board_arm_h_reads_the_hook_family() {
   sbcommit -q --allow-empty -m "$(printf '[PM] another landing\n\nCo\xe2\x80\x91Authored\xe2\x80\x91By: Claude')" >/dev/null 2>&1
   local sha_unicode; sha_unicode="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
 
+  # (4) a bare model-family name, and (5) a blank before the colon: the hook refuses both, so [h]
+  # must name them — one list and one anchoring, read from the hook.
+  sbcommit -q --allow-empty -m "$(printf '[PM] a third landing\n\nCo-Authored-By: Opus 5.5 <noreply@example.com>')" >/dev/null 2>&1
+  local sha_model; sha_model="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  sbcommit -q --allow-empty -m "$(printf '[PM] a fourth landing\n\nCo-authored-by : Claude <x@y>')" >/dev/null 2>&1
+  local sha_space; sha_space="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
   publish_sandbox
 
   local out
   out="$(cb_run)"
+  printf '%s\n' "$out" | grep "$sha_model" | grep 'carries a generated trailer' >/dev/null \
+    || cf "(4) 'Co-Authored-By: Opus 5.5' ($sha_model) was NOT reported — a model-family word is not in the marker list [h] reads from the hook: $out"
+  printf '%s\n' "$out" | grep "$sha_space" | grep 'carries a generated trailer' >/dev/null \
+    || cf "(5) 'Co-authored-by : Claude' ($sha_space) was NOT reported — a blank before the colon defeats the anchor: $out"
   printf '%s\n' "$out" | grep "$sha_assisted" | grep 'carries a generated trailer' >/dev/null \
     || cf "(1) 'Assisted-by: Claude Code' ($sha_assisted) was NOT reported — [h] is still matching its own older, narrower pair rather than the hook's declared wording family: $out"
   printf '%s\n' "$out" | grep "$sha_unicode" | grep 'carries a generated trailer' >/dev/null \
@@ -1837,7 +1850,7 @@ case_check_board_arm_h_reads_the_hook_family() {
   [ "$rc" -ne 0 ] \
     || cf "(2) the hook itself ACCEPTED 'Assisted-by: Claude Code' — [h] and the hook disagree, or the hook no longer refuses the wording (1) relies on"
 
-  finish "check-board arm [h] reads the hook's own declared attribution-trailer family via lib/attrib-trailer.sh: 'Assisted-by:' is reported (1), agreeing with what the hook itself refuses over the identical message (2), and a U+2011-hyphenated 'Co-Authored-By:' is reported once the Unicode hyphen is folded (3)"
+  finish "check-board arm [h] reads the hook's own declared attribution-trailer family via lib/attrib-trailer.sh: 'Assisted-by:' is reported (1), agreeing with what the hook itself refuses over the identical message (2), a U+2011-hyphenated 'Co-Authored-By:' is reported once the Unicode hyphen is folded (3), and so are a model-family name (4) and a blank before the colon (5)"
   teardown
 }
 
@@ -1990,9 +2003,9 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
     || cf "ABLATION FAILED — the post-epoch unprefixed commit $sha_after was NOT reported, so the arm cannot go red and every exclusion asserted above proves nothing: $out"
 
   # The narrowing is NAMED, with a non-zero count: a silent narrowing is itself a defect.
-  printf '%s\n' "$out" | grep "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg" >/dev/null \
+  printf '%s\n' "$out" | grep "scope: every commit after $sha_epoch, which ADDED scripts/githooks/commit-msg" >/dev/null \
     || cf "the scope line does not name the epoch it derived: $out"
-  printf '%s\n' "$out" | grep -E "scope: commits after $sha_epoch, which ADDED scripts/githooks/commit-msg — [1-9][0-9]* of the last" >/dev/null \
+  printf '%s\n' "$out" | grep -E "scope: every commit after $sha_epoch, which ADDED scripts/githooks/commit-msg — [1-9][0-9]* earlier commit\(s\) not read" >/dev/null \
     || cf "the scope line reports ZERO commits excluded — nothing was narrowed, so this case would pass vacuously: $out"
   # The accepted residual is stated where the result is printed.
   printf '%s\n' "$out" | grep "the epoch is the hook FILE's arrival" >/dev/null \
@@ -2028,7 +2041,7 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
     || cf "(root) ABLATION FAILED — with the epoch at the ROOT commit the arm reported NOTHING, so it went blind rather than scoping: $rout"
   printf '%s\n' "$rhits" | grep "$sha_root" >/dev/null \
     && cf "(root) the ROOT epoch commit was itself reported — strictly-after does not hold when the epoch has no parent: $rhits1"
-  printf '%s\n' "$rout" | grep "scope: commits after $sha_root" >/dev/null \
+  printf '%s\n' "$rout" | grep "scope: every commit after $sha_root" >/dev/null \
     || cf "(root) the scope line does not name the root epoch: $rout"
 
   finish "check-board arm (e): pre-adoption commits and the epoch commit ITSELF are excluded, a post-epoch unprefixed commit is still reported (ablation-proven), the narrowing is named with its count — and the same holds when the epoch is the ROOT commit, which is what the day-one recipe produces"
@@ -3409,5 +3422,341 @@ case_session_start_hook_output_stays_within_the_delivery_budget() {
   case "${out##*$'\n'}" in "── board-drift:"*) : ;; *) cf "(b) the bounded output does not end on the verdict line: ${out##*$'\n'}" ;; esac
 
   finish "the SessionStart hook's output stays within $HOOK_OUTPUT_BUDGET bytes (the harness delivers about 10,000 intact): the real report on a sandbox board, and an oversized one cut to its arm headings and finding lines with the verdict last"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [q] reads a register's HISTORY: a commit that changed an existing entry's Ruling
+# text with no stamp among the lines it added is named; a Findings list that collides with
+# another after `## Findings` is named; a colon-labelled amendment is an extra fragment; and
+# none of the history/Findings readings reaches a landing's refusal file.
+#
+# The register is built in the order a project builds it: the kit arrives (the epoch), the
+# register is written, then each entry is edited in its own commit. Five edits, one of which is
+# the defect:
+#   D-01 Ruling text changed, nothing stamped           -> NAMED (the only history finding)
+#   D-02 Ruling becomes a WORKING DEFAULT               -> clean (a legal state, stated at its head)
+#   D-03 Why changed, Ruling untouched                  -> clean (a reopen is a Ruling change)
+#   D-04 Ruling changed AND a colon-labelled Amended    -> no history finding (stamped), but the
+#        line added                                        colon label is an extra fragment
+# =============================================================================
+case_check_board_register_ruling_changes_need_a_stamp() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark reg="" out q hist_n
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || _fixture_die "case_check_board_register_ruling_changes_need_a_stamp: could not derive REGISTERS from the defaults block."
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  reg="$SB_WORK/$reg_path"
+  [ -f "$SB_WORK/scripts/githooks/commit-msg" ] \
+    || _fixture_die "case_check_board_register_ruling_changes_need_a_stamp: the sandbox ships no commit-msg hook, so there is no epoch."
+  # THE EPOCH, first: the kit's hook file arrives in its own commit.
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+
+  mkdir -p "$(dirname "$reg")"
+  cat > "$reg" <<EOT
+# DECISIONS
+## A. Bucket
+${reg_mark}D-01 — first
+**Ruling.** Alpha holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-02 — second
+**Ruling.** Beta holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-03 — third
+**Ruling.** Gamma holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-04 — fourth
+**Ruling.** Delta holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+## Findings — what surfaced
+1. one
+2. two
+
+---
+
+## What earns an entry
+1. a
+2. b
+3. c
+3. collided with c
+EOT
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "[PM] register v1" >/dev/null 2>&1
+
+  # D-01: the defect — a content change to a Ruling, nothing stamped.
+  sed -i.bak 's/^\*\*Ruling\.\*\* Alpha holds\./**Ruling.** Alpha holds, except for one case./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-01 gains an exception" >/dev/null 2>&1
+  local sha_d01; sha_d01="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  # D-02: becomes a WORKING DEFAULT, the token at the head of the Ruling.
+  sed -i.bak 's/^\*\*Ruling\.\*\* Beta holds\./**Ruling.** WORKING DEFAULT (provisional) — Beta holds./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-02 becomes a working default" >/dev/null 2>&1
+  # D-03: only the Why changes.
+  awk '/^### D-03|^D-03|D-03 — third/{f=1} f && /^\*\*Why\.\*\*/{sub(/Reasons\./, "Reasons, restated."); f=0} {print}' "$reg" > "$reg.new" && mv "$reg.new" "$reg"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-03 Why restated" >/dev/null 2>&1
+  # D-04: a Ruling change WITH a colon-labelled stamp line added before Provenance.
+  awk '/D-04 — fourth/{f=1} f && /^\*\*Ruling\./{sub(/Delta holds\./, "Delta holds twice.")} f && /^\*\*Provenance\./{print "**Amended 2026-10-07:** Delta now holds twice."; f=0} {print}' "$reg" > "$reg.new" && mv "$reg.new" "$reg"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-04 amended" >/dev/null 2>&1
+  publish_sandbox
+
+  grep -q 'Alpha holds, except' "$reg" && grep -q 'Delta holds twice' "$reg" && grep -q 'WORKING DEFAULT (provisional)' "$reg" && grep -q 'Reasons, restated' "$reg" \
+    || _fixture_die "case_check_board_register_ruling_changes_need_a_stamp: the planted edits are not all in the register."
+
+  out="$(cb_run)"
+  q="$(printf '%s\n' "$out" | _cb_q_section)"
+  printf '%s\n' "$q" | grep -E "⚠ .* D-01 — its Ruling text changed in ${sha_d01}" >/dev/null \
+    || cf "D-01's unstamped Ruling change ($sha_d01) was NOT named: $q"
+  printf '%s\n' "$q" | grep 'Ruling text changed' | grep -E 'D-0[234]' >/dev/null \
+    && cf "a stamped, WORKING DEFAULT or Why-only change was named as an unstamped Ruling change: $q"
+  printf '%s\n' "$q" | grep -E '⚠ .* D-04 —.*extra dated/bold fragment' >/dev/null \
+    || cf "D-04's colon-labelled amendment (**Amended 2026-10-07:**) was NOT read as an extra fragment: $q"
+  printf '%s\n' "$q" | grep -E 'numbered item 3 follows 3 after `## Findings`' >/dev/null \
+    || cf "the colliding numbered list after ## Findings was not named: $q"
+  printf '%s\n' "$q" | grep -E 'numbered item [12] ' >/dev/null \
+    && cf "a list restart or a clean step was named as a collision: $q"
+  printf '%s\n' "$out" | grep 'board-drift: clean ✓' >/dev/null \
+    || cf "arm [q]'s history findings moved the verdict (reports only): $(printf '%s\n' "$out" | grep '^── board-drift:')"
+
+  # NOT REFUSED AT A LANDING: the function a landing runs, with no history named, records neither
+  # reading in the findings file a landing reads; with history named, they print but still record
+  # nothing.
+  local hits="$SB_TMP/q-hits"
+  : > "$hits"
+  ( set +e
+    . "$SB_WORK/scripts/lib/board-properties.sh" || exit 3
+    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" || exit 4
+    KIT_BP_HITS_FILE="$hits"; KIT_BP_HIST_REPO="$SB_WORK"; KIT_BP_HIST_RANGE="HEAD"
+    kit_bp_register_shape "$SB_WORK" > "$SB_TMP/q-direct.txt" 2>&1 ) \
+    || _fixture_die "case_check_board_register_ruling_changes_need_a_stamp: could not drive kit_bp_register_shape directly."
+  grep 'Ruling text changed' "$SB_TMP/q-direct.txt" >/dev/null \
+    || cf "(direct) with history named the function did not print the Ruling finding it is meant to report"
+  grep -E 'Ruling text changed|numbered item' "$hits" >/dev/null \
+    && cf "(landing) a history or Findings finding reached the findings file a landing refuses on: $(cat "$hits")"
+  grep -F 'extra' "$hits" >/dev/null \
+    || cf "(landing) control: the colon-labelled shape finding was not recorded, so the findings file is not being written at all: $(cat "$hits")"
+
+  # ABLATION: the comparison of the two Ruling tables, made to compare a table with itself, and the report goes quiet.
+  local lib="$SB_WORK/scripts/lib/board-properties.sh"
+  /usr/bin/grep -q 'diff "\$scratch/old.r" "\$scratch/new.r"' "$lib" \
+    || _control_did_not_run "find the comparison of the two Ruling tables in lib/board-properties.sh"
+  sed -i.bak 's#diff "\$scratch/old.r" "\$scratch/new.r"#diff "$scratch/old.r" "$scratch/old.r"#' "$lib"; rm -f "$lib.bak"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_q_section | grep 'Ruling text changed' >/dev/null \
+    && cf "ABLATION FAILED — with the Ruling comparison removed the finding still printed, so it is not attributable to it"
+
+  finish "arm [q]: a Ruling changed with no stamp is named from the register's own history (a stamped one, a WORKING DEFAULT head and a Why-only edit are not), a colon-labelled amendment is an extra fragment, a colliding Findings list is named, none of it moves the verdict or reaches a landing's findings file, and the comparison is ablation-proven"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [e] reads EVERY commit since the rule's epoch, not a fixed 20.
+#
+# The epoch commit, then ONE unprefixed commit that bypassed the hook, then more prefixed
+# commits than the old window held. The offender is the 26th from the tip.
+# =============================================================================
+case_check_board_arm_e_reads_every_commit_since_the_epoch() {
+  cf_reset
+  make_sandbox
+  [ -f "$SB_WORK/scripts/githooks/commit-msg" ] \
+    || _fixture_die "case_check_board_arm_e_reads_every_commit_since_the_epoch: the sandbox ships no commit-msg hook, so there is no epoch."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  sbcommit -q --allow-empty -m "an unprefixed commit that bypassed the hook" >/dev/null 2>&1
+  local sha_off i; sha_off="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  for i in $(seq 1 25); do
+    sbcommit -q --allow-empty -m "[Dev] filler $i" >/dev/null 2>&1
+  done
+  publish_sandbox
+  # INSTRUMENT: the offender really is further back than the old window.
+  local depth
+  depth="$(git -C "$SB_WORK" rev-list --count "$sha_off..HEAD")"
+  [ "$depth" -gt 21 ] || _fixture_die "case_check_board_arm_e_reads_every_commit_since_the_epoch: the offender is only $depth commits back — inside the old window, so this case proves nothing."
+  local out; out="$(cb_run)"
+  printf '%s\n' "$out" | grep "$sha_off" | grep 'lacks a \[Role\] prefix' >/dev/null \
+    || cf "the unprefixed commit $sha_off, $depth commits back, was not reported — the window is still a fixed count: $out"
+  finish "check-board arm [e]: an unprefixed commit more than 20 commits behind the tip is still reported, because the scan runs from the rule's epoch"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [e] exempts a Revert, or a fixup!/squash!/amend!, ONLY when its diff matches.
+#
+# Six commits, one verdict each. The exempt ones are real git output (`git revert`,
+# `git commit --fixup`); the others carry the same subject shape over a diff that is neither.
+# =============================================================================
+case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches() {
+  cf_reset
+  make_sandbox
+  [ -f "$SB_WORK/scripts/githooks/commit-msg" ] \
+    || _fixture_die "case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches: the sandbox ships no commit-msg hook, so there is no epoch."
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  local sha_feat sha_real_revert sha_fake_revert sha_wrong_revert sha_real_fixup sha_fake_fixup sha_far_fixup
+
+  # A real revert: a commit, then git's own `git revert` of it.
+  printf 'a\n' > "$SB_WORK/a.txt"; git -C "$SB_WORK" add a.txt; sbcommit -q -m "[Dev] add a" >/dev/null 2>&1
+  MSG_OK=1 git -C "$SB_WORK" revert --no-edit HEAD >/dev/null 2>&1 \
+    || _fixture_die "case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches: git revert failed in the sandbox."
+  sha_real_revert="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  case "$(git -C "$SB_WORK" log -1 --format=%s)" in 'Revert "'*) : ;; *) _fixture_die "case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches: git revert did not write a Revert subject." ;; esac
+
+  # A fake revert: the subject shape over an unrelated change, naming nothing.
+  printf 'wholesale\n' > "$SB_WORK/allocate.js"; git -C "$SB_WORK" add allocate.js
+  sbcommit -q -m 'Revert "nothing"; rewrote allocate.js wholesale' >/dev/null 2>&1
+  sha_fake_revert="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  # A revert that names a real commit but whose diff is not its inverse.
+  printf 'b\n' > "$SB_WORK/b.txt"; git -C "$SB_WORK" add b.txt; sbcommit -q -m "[Dev] add b" >/dev/null 2>&1
+  sha_feat="$(git -C "$SB_WORK" rev-parse HEAD)"
+  printf 'c\n' > "$SB_WORK/c.txt"; git -C "$SB_WORK" add c.txt
+  sbcommit -q -m "$(printf 'Revert "[Dev] add b"\n\nThis reverts commit %s.' "$sha_feat")" >/dev/null 2>&1
+  sha_wrong_revert="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  # A real fixup of an earlier commit, touching only that commit's file.
+  printf 'b2\n' >> "$SB_WORK/b.txt"; git -C "$SB_WORK" add b.txt
+  MSG_OK=1 git -C "$SB_WORK" commit -q --fixup="$sha_feat" >/dev/null 2>&1 \
+    || _fixture_die "case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches: git commit --fixup failed."
+  sha_real_fixup="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+
+  # A fixup! naming nothing, and one naming a real commit but touching another file.
+  printf 'g\n' > "$SB_WORK/g.txt"; git -C "$SB_WORK" add g.txt
+  sbcommit -q -m "fixup! anything at all" >/dev/null 2>&1
+  sha_fake_fixup="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  printf 'z\n' > "$SB_WORK/z.txt"; git -C "$SB_WORK" add z.txt
+  sbcommit -q -m "fixup! [Dev] add b" >/dev/null 2>&1
+  sha_far_fixup="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  publish_sandbox
+
+  local out hits
+  out="$(cb_run)"
+  hits="$(printf '%s\n' "$out" | grep 'lacks a \[Role\] prefix' || true)"
+  printf '%s\n' "$hits" | grep "$sha_fake_revert" >/dev/null || cf "a Revert naming no commit ($sha_fake_revert) was exempted: $hits"
+  printf '%s\n' "$hits" | grep "$sha_wrong_revert" >/dev/null || cf "a Revert whose diff is not its named commit's inverse ($sha_wrong_revert) was exempted: $hits"
+  printf '%s\n' "$hits" | grep "$sha_fake_fixup" >/dev/null || cf "a fixup! naming no commit ($sha_fake_fixup) was exempted: $hits"
+  printf '%s\n' "$hits" | grep "$sha_far_fixup" >/dev/null || cf "a fixup! touching a file its target did not ($sha_far_fixup) was exempted: $hits"
+  printf '%s\n' "$hits" | grep "$sha_real_revert" >/dev/null && cf "git's own revert ($sha_real_revert) was reported — the exemption over-narrowed: $hits"
+  printf '%s\n' "$hits" | grep "$sha_real_fixup" >/dev/null && cf "git's own fixup ($sha_real_fixup) was reported — the exemption over-narrowed: $hits"
+
+  finish "check-board arm [e]: a Revert is exempt only when its diff inverts the commit its body names, a fixup! only when it names an earlier commit and touches nothing that commit did not — git's own revert and --fixup stay exempt, the same subjects over any other diff are reported"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [m] counts a landed card that names NO PRD and gives NO reason, and names it.
+#
+# Four landed cards: one with a PRD, one `prd:` blank with no reason, one `prd: none` with no
+# reason, one `prd:` blank WITH a reason. The two bare cards are counted and named; the reasoned
+# one and the PRD-covered one are not.
+# =============================================================================
+case_prd_coverage_names_a_card_with_neither() {
+  cf_reset
+  if ! has_issue_template; then skp "check-board PRD coverage names a card with neither" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local out line id c f
+  for id in 971:covered:PRD-001 972:bare-blank:PRD-001 973:bare-none:PRD-001 974:reasoned-blank:PRD-001; do
+    ( cd "$SB_WORK" && ./scripts/new-issue.sh "$(printf '%s' "$id" | cut -d: -f2)" --id "$SB_PREFIX-${id%%:*}" --prd "${id##*:}" >/dev/null 2>&1 ) \
+      || _fixture_die "case_prd_coverage_names_a_card_with_neither: new-issue.sh could not mint $SB_PREFIX-${id%%:*}"
+  done
+  f="$SB_WORK/progress/todo/$SB_PREFIX"
+  sed -i.bak 's/^prd:.*/prd:/' "${f}-972-bare-blank.md"
+  sed -i.bak 's/^prd:.*/prd: none/' "${f}-973-bare-none.md"
+  sed -i.bak -e 's/^prd:.*/prd:/' -e 's/^prd_reason:.*/prd_reason: a one-off chore/' "${f}-974-reasoned-blank.md"
+  rm -f "${f}"-97?-*.md.bak
+  grep -q '^prd:$' "${f}-972-bare-blank.md" && grep -q '^prd: none$' "${f}-973-bare-none.md" && grep -q '^prd_reason: a one-off' "${f}-974-reasoned-blank.md" \
+    || _fixture_die "case_prd_coverage_names_a_card_with_neither: the planted frontmatter did not take."
+  mkdir -p "$SB_WORK/progress/qa_complete"
+  mv "${f}"-97?-*.md "$SB_WORK/progress/qa_complete/" \
+    || _fixture_die "case_prd_coverage_names_a_card_with_neither: could not move the minted cards to qa_complete/"
+  for c in "$SB_WORK/progress/qa_complete/$SB_PREFIX"-97?-*.md; do
+    printf -- '- 2026-01-01 [%s] → qa_complete: landed (fixture)\n' "$SB_ROLE" >> "$c"
+  done
+  publish_sandbox
+  out="$(cb_run)"
+  line="$(printf '%s\n' "$out" | grep -E '^\[[a-z]\] PRD coverage' | head -1)"
+  printf '%s\n' "$line" | grep -F '2 give neither a prd: nor a prd_reason' >/dev/null \
+    || cf "the two bare cards were not counted as 2 giving neither: ${line:-none}"
+  printf '%s\n' "$out" | grep -E "⚠ 2 landed issue\(s\) name no PRD and give no reason: .*972-bare-blank.*973-bare-none|⚠ 2 landed issue\(s\) name no PRD and give no reason: .*973-bare-none.*972-bare-blank" >/dev/null \
+    || cf "the two bare cards were not named: $(printf '%s\n' "$out" | grep 'name no PRD')"
+  printf '%s\n' "$out" | grep 'name no PRD' | grep -E '971-covered|974-reasoned' >/dev/null \
+    && cf "a PRD-covered card or a reasoned one was named as bare: $(printf '%s\n' "$out" | grep 'name no PRD')"
+  printf '%s\n' "$out" | grep '^── board-drift: clean ✓' >/dev/null \
+    || cf "the arm moved the verdict (reports only): $(printf '%s\n' "$out" | grep '^── board-drift:')"
+  finish "check-board arm [m]: a landed card with neither a PRD nor a prd_reason is counted and named, a PRD-covered card and a reasoned one are not, and the verdict does not move"
+  teardown
+}
+
+# =============================================================================
+# CASE — arm [g] flags a TEST_GLOBS entry that matches no file.
+#
+# The consumers (the ablation rule) match each entry with `case` against repository paths; an
+# entry nothing matches enforces nothing. One live entry and one dead one: the dead one is
+# named, the live one is not; with only the live one the line reads clean.
+# =============================================================================
+case_check_board_fill_arm_flags_a_test_glob_that_matches_no_file() {
+  cf_reset
+  make_sandbox
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  # DECLARED EMPTY -- fixture (CODE_GLOBS).'
+  mkdir -p "$SB_WORK/tests"
+  printf '# a test\n' > "$SB_WORK/tests/a.test.sh"
+  _cb_g_fill_glob_array TEST_GLOBS '  "tests/*"'
+  _cb_g_fill_glob_array TEST_GLOBS '  "nothing-matches-this/*"'
+  publish_sandbox
+  local out line
+  out="$(cb_run)"
+  line="$(printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' || true)"
+  printf '%s\n' "$line" | grep -F 'match no file' >/dev/null \
+    || cf "a TEST_GLOBS entry matching no file was not flagged: ${line:-no TEST_GLOBS line}"
+  printf '%s\n' "$line" | grep -F 'nothing-matches-this/*' >/dev/null \
+    || cf "the dead entry was not named: $line"
+  printf '%s\n' "$line" | grep -E 'match no file.*⚠ [^—]*tests/\*' >/dev/null \
+    && cf "the live entry tests/* was named as matching nothing: $line"
+  teardown
+
+  # CONTROL: only the live entry — the same line reads clean, so the arm is not always-warn.
+  # No cf_reset: the first half's findings must reach the one finish below.
+  make_sandbox
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  # DECLARED EMPTY -- fixture (CODE_GLOBS).'
+  mkdir -p "$SB_WORK/tests"; printf '# a test\n' > "$SB_WORK/tests/a.test.sh"
+  _cb_g_fill_glob_array TEST_GLOBS '  "tests/*"'
+  publish_sandbox
+  out="$(cb_run)"
+  line="$(printf '%s\n' "$out" | _cb_g_section | grep 'scripts/config.sh TEST_GLOBS' || true)"
+  printf '%s\n' "$line" | grep -F 'declares 1 entry/entries  ✓' >/dev/null \
+    || cf "(control) a TEST_GLOBS whose only entry matches a tracked file did not read clean: ${line:-none}"
+
+  teardown
+
+  # NOT A GATE ON DAY ONE: an otherwise-finished tree whose only TEST_GLOBS entry matches no file
+  # (a greenfield project has no test yet) still reads graduation COMPLETE, with the line visible.
+  make_sandbox
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
+    >> "$SB_WORK/scripts/config.sh"
+  _cb_g_fill_glob_array CODE_GLOBS '  # DECLARED EMPTY -- fixture (CODE_GLOBS).'
+  _cb_g_fill_glob_array TEST_GLOBS '  "tests/*"'
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
+  _cb_fill_sheet "<!-- $KIT_FILL_DISPOSITION — synthetic fill sheet. -->" "$_cb_fill_usage"
+  printf '%s\n' "$_cb_fill_out" | grep 'TEST_GLOBS.*match no file' >/dev/null \
+    || cf "(day one) the dead TEST_GLOBS entry was not reported on a finished tree: $_cb_fill_out"
+  printf '%s\n' "$_cb_fill_out" | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(day one) a TEST_GLOBS entry with no file yet held graduation back — the report must not wait for a first test: $_cb_fill_out"
+
+  finish "check-board arm [g]: a TEST_GLOBS entry that matches no file is named, a live one is not, a TEST_GLOBS whose entries all match reads clean, and a dead entry on an otherwise-finished tree is reported without holding graduation COMPLETE back"
   teardown
 }

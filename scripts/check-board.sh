@@ -16,14 +16,15 @@
 #   (j) downtime-queue claim drift (advisory);
 #   (k) declined/ depth, a count (advisory);
 #   (l) declared reference integrity — every cited register id resolves;
-#   (m) how many landed issues carry `prd: n/a`, a count (advisory);
+#   (m) how many landed issues carry `prd: n/a`, and how many name neither a PRD nor a reason (advisory);
 #   (n) whether the newest session entry ends with its `kit-feedback:` line (advisory);
 #   (o) the kit upgrade: KIT-VERSION's form, and an open upgrade checklist's unmarked items (advisory).
 #   (p) CORPUS.md forward-reference integrity — a dangling id, a landed id not flipped to present,
 #       and a SEED-step marker once day one has closed.
 #   (q) declared-register entry SHAPE — every `D-NN` entry is exactly three fields, and a later
-#       entry that reopens or supersedes an earlier one names a stamp on the earlier entry
-#       (advisory here; a landing that changes a register refuses a finding it introduces).
+#       entry that reopens or supersedes an earlier one names a stamp on the earlier entry; a
+#       commit that changed a Ruling carries a stamp; `## Findings` numbering does not collide
+#       (advisory here; a landing that changes a register refuses a shape finding it introduces).
 #   (r) declared reverse coverage — a live register entry that CONSTRAINS a PRD but that PRD never
 #       cites; a `[cross-cutting]` entry is exempt (advisory here; a landing that changes
 #       `requirements/` refuses a finding it introduces).
@@ -83,7 +84,7 @@ PROGRESS_LOG_BYTE_THRESHOLD=32768
 # next "## " heading and cannot see the rest of the file. Reusing the § Log number would make this
 # arm red forever, and so ignored. It never sets `drift`.
 PROGRESS_WHOLE_FILE_BYTE_THRESHOLD=327680
-ROLE_SCAN_N=20        # how many recent trunk commits the HISTORY ARMS scan — (e) and (h) share it: one idea, one number
+ROLE_SCAN_N=20        # how many recent trunk commits the HISTORY ARMS scan when the rule's epoch cannot be derived — (e) and (h) share it: one idea, one number
 # Check (d): the frontmatter key holding an issue's id, and the id SHAPE (a pattern, not the
 # configured prefix, so a board mid-rename still parses).
 ISSUE_ID_KEY='id'
@@ -439,7 +440,8 @@ fi
 # END check (d)
 
 # ---------------------------------------------------------------------------
-# (e) [Role]-prefix scan of the last ROLE_SCAN_N commits of the trunk. Plain history, never
+# (e) [Role]-prefix scan of every trunk commit since the rule's epoch (the last ROLE_SCAN_N when no
+#     epoch can be derived). Plain history, never
 #     --first-parent: a forge squash-merge puts the real `[Role] <ID> …` subject on PARENT 2 of a
 #     merge commit, so a merge is judged by parent 2 and a non-merge by its own subject.
 #     Git/host subjects (Merge/Revert/Squash/autosquash) are exempt, mirroring commit-msg's list
@@ -471,7 +473,7 @@ fi
 # kit-init's attribution filter uses a later boundary on purpose (see its board self-check).
 # On a SHALLOW clone the add resolves to the graft boundary, so no epoch is derived and nothing is
 # excluded: it errs toward reporting.
-CB_RULE_EPOCH=""; CB_RULE_SHALLOW=""; role_preepoch=0
+CB_RULE_EPOCH=""; CB_RULE_SHALLOW=""; role_why=""
 if [ "$(git -C "$REPO_ROOT" rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
   CB_RULE_SHALLOW="yes"
 elif git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
@@ -483,10 +485,18 @@ CB_RULE_INSCOPE=""
 if [ -n "$CB_RULE_EPOCH" ]; then
   CB_RULE_INSCOPE="$(git -C "$REPO_ROOT" rev-list --ancestry-path "$CB_RULE_EPOCH..$CB_RULE_REV" 2>/dev/null || true)"
 fi
+# THE WINDOW the history arms walk, derived once: every commit after the epoch — a bypass is not
+# forgiven because later commits followed it — else the last ROLE_SCAN_N. CB_RULE_PRE counts the
+# commits at or before the epoch, which are not read.
+CB_RULE_LOG_ARGS=(-n "$ROLE_SCAN_N" "$CB_RULE_REV"); CB_RULE_PRE=0
+if [ -n "$CB_RULE_EPOCH" ]; then
+  CB_RULE_LOG_ARGS=("$CB_RULE_EPOCH..$CB_RULE_REV")
+  CB_RULE_PRE="$(git -C "$REPO_ROOT" rev-list --count "$CB_RULE_EPOCH" 2>/dev/null || echo 0)"
+fi
 # One renderer for the scope lines, used by every history arm.
-cb_rule_scope_lines() {  # <count excluded>
+cb_rule_scope_lines() {
   if [ -n "$CB_RULE_EPOCH" ]; then
-    echo "    scope: commits after ${CB_RULE_EPOCH:0:9}, which ADDED scripts/githooks/commit-msg — $1 of the last $ROLE_SCAN_N excluded as predating the rule"
+    echo "    scope: every commit after ${CB_RULE_EPOCH:0:9}, which ADDED scripts/githooks/commit-msg — $CB_RULE_PRE earlier commit(s) not read, as predating the rule"
     echo "      caveat: the epoch is the hook FILE's arrival, not the moment core.hooksPath was set — a"
     echo "      clone that never wired it is not enforcing the rule, yet this arm treats it as binding from"
     echo "      that commit. Erring toward reporting drift, not hiding it. This arm's findings flip the"
@@ -503,26 +513,71 @@ cb_rule_scope_lines() {  # <count excluded>
   fi
 }
 
-echo "[e] [Role]-prefix scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, squash-aware) — prefixes $role_src:"
+# cb_revert_matches <sha> — true when <sha>'s own diff is the reverse of the commit its body names
+# ("This reverts commit <sha>."), compared by patch-id so moved line numbers do not matter.
+cb_revert_matches() {
+  local sha="$1" named empty a b
+  named="$(git -C "$REPO_ROOT" log -1 --format=%B "$sha" 2>/dev/null | sed -n 's/^This reverts commit \([0-9a-f]\{7,40\}\).*/\1/p' | sed -n '1p')"
+  [ -n "$named" ] || return 1
+  git -C "$REPO_ROOT" rev-parse --verify --quiet "$sha^1" >/dev/null 2>&1 || return 1
+  git -C "$REPO_ROOT" rev-parse --verify --quiet "$named^{commit}" >/dev/null 2>&1 || return 1
+  empty="$(git -C "$REPO_ROOT" hash-object -t tree /dev/null)"
+  a="$(git -C "$REPO_ROOT" diff "$sha^1" "$sha" 2>/dev/null | git -C "$REPO_ROOT" patch-id --stable | cut -d' ' -f1)"
+  if git -C "$REPO_ROOT" rev-parse --verify --quiet "$named^1" >/dev/null 2>&1; then
+    b="$(git -C "$REPO_ROOT" diff "$named" "$named^1" 2>/dev/null | git -C "$REPO_ROOT" patch-id --stable | cut -d' ' -f1)"
+  else
+    b="$(git -C "$REPO_ROOT" diff "$named" "$empty" 2>/dev/null | git -C "$REPO_ROOT" patch-id --stable | cut -d' ' -f1)"
+  fi
+  [ -n "$a" ] && [ "$a" = "$b" ]
+}
+# cb_fixup_matches <sha> <subject> — true when the subject's `fixup! `/`squash! `/`amend! ` chain
+# names an EARLIER commit by its subject and <sha> touches only files that commit touched.
+cb_fixup_matches() {
+  local sha="$1" tsubj="$2" cand cfiles ffiles f
+  while :; do
+    case "$tsubj" in
+      "fixup! "*) tsubj="${tsubj#fixup! }" ;;
+      "squash! "*) tsubj="${tsubj#squash! }" ;;
+      "amend! "*) tsubj="${tsubj#amend! }" ;;
+      *) break ;;
+    esac
+  done
+  [ -n "$tsubj" ] || return 1
+  git -C "$REPO_ROOT" rev-parse --verify --quiet "$sha^1" >/dev/null 2>&1 || return 1
+  cand="$(git -C "$REPO_ROOT" log --no-color --format='%H|%s' --fixed-strings --grep="$tsubj" "$sha^1" 2>/dev/null \
+            | awk -F'|' -v t="$tsubj" '{ s=$0; sub(/^[^|]*\|/, "", s); if (s == t) { print $1; exit } }')"
+  [ -n "$cand" ] || return 1
+  cfiles="$(git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r --root "$cand" 2>/dev/null)"
+  ffiles="$(git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r "$sha" 2>/dev/null)"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    printf '%s\n' "$cfiles" | grep -xF -- "$f" >/dev/null || return 1
+  done <<< "$ffiles"
+  return 0
+}
+
+echo "[e] [Role]-prefix scan (commits of $CB_RULE_REV since the rule began, squash-aware) — prefixes $role_src:"
 role_hits=0
 role_scanned=0
 role_exempt=0
 if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
-  while IFS='|' read -r sha parents; do
+  while IFS='|' read -r sha parents subj; do
     [ -z "$sha" ] && continue
     # shellcheck disable=SC2086
     set -- $parents                       # word-split the space-separated parent list
     if [ "$#" -ge 2 ]; then
       target="$2"                         # merge commit → parent 2 carries the squashed [Role] subject
+      subj=""
     else
       target="$sha"                       # non-merge → its own subject
     fi
-    # Out of scope is counted, not scanned. Tested on $sha (the walked commit), not $target: a
-    # merge's parent 2 lives on a side branch.
-    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -xF "$sha" >/dev/null; then
-      role_preepoch=$((role_preepoch+1)); continue
+    # Out of scope is skipped, not scanned: a side-branch commit the epoch's range reaches but
+    # that is not a descendant of it. Tested on $sha (the walked commit), not $target: a merge's
+    # parent 2 lives on a side branch.
+    if [ -n "$CB_RULE_EPOCH" ]; then
+      case $'\n'"$CB_RULE_INSCOPE"$'\n' in *$'\n'"$sha"$'\n'*) ;; *) continue ;; esac
     fi
-    subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
+    [ -n "$subj" ] || subj="$(git -C "$REPO_ROOT" log -1 --format=%s "$target" 2>/dev/null || true)"
     [ -z "$subj" ] && continue
     role_scanned=$((role_scanned+1))
     # "Merge commit '" REQUIRES the quote — the literal shape `git merge <sha>` writes
@@ -532,15 +587,22 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
     # silently counted as scanned-and-exempt rather than as a missing [Role] prefix.
     case "$subj" in
       "Merge branch "*|"Merge remote-tracking branch "*|"Merge pull request "*|"Merge tag "*|"Merge commit '"*) role_exempt=$((role_exempt+1)); continue ;;
-      "Revert \""*|"Revert '"*) role_exempt=$((role_exempt+1)); continue ;;
       "Squashed commit of the following:"*) role_exempt=$((role_exempt+1)); continue ;;   # narrowed with commit-msg's
-      "fixup! "*|"squash! "*|"amend! "*) role_exempt=$((role_exempt+1)); continue ;;
+      "Revert \""*|"Revert '"*)
+        # Exempt only when the diff undoes the commit the body names; the subject alone proves nothing.
+        if cb_revert_matches "$target"; then role_exempt=$((role_exempt+1)); continue; fi
+        role_why=" (a Revert whose diff does not undo a commit it names)" ;;
+      "fixup! "*|"squash! "*|"amend! "*)
+        # Exempt only when it names an earlier commit and touches nothing that commit did not.
+        if cb_fixup_matches "$target" "$subj"; then role_exempt=$((role_exempt+1)); continue; fi
+        role_why=" (a fixup!/squash!/amend! whose target is missing or whose diff leaves the target's files)" ;;
     esac
     if ! printf '%s' "$subj" | grep -qE "^\[(${ROLE_PREFIXES})\] "; then
-      echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj"
+      echo "    ⚠ ${target:0:9} subject lacks a [Role] prefix: $subj${role_why:-}"
       role_hits=$((role_hits+1)); drift=1
     fi
-  done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P' -n "$ROLE_SCAN_N" "$CB_RULE_REV" 2>/dev/null)
+    role_why=""
+  done < <(git -C "$REPO_ROOT" log --no-color --format='%H|%P|%s' "${CB_RULE_LOG_ARGS[@]}" 2>/dev/null)
 else
   # No history is a SKIP, never a ✓ over zero subjects.
   echo "    – $CB_RULE_REV does not resolve — no history to scan  (skipped)"
@@ -548,7 +610,7 @@ else
 fi
 # The scope lines print on the clearing branch too (doctrine/instruments.md § A.4).
 if [ "$role_scanned" -ge 0 ]; then
-  cb_rule_scope_lines "$role_preepoch"
+  cb_rule_scope_lines
 fi
 if [ "$role_scanned" -eq 0 ]; then
   echo "    – $CB_RULE_REV resolved but yielded no inspectable subject  (skipped)"
@@ -890,6 +952,7 @@ else
     for g_arr in CODE_GLOBS TEST_GLOBS; do
       g_arr_n=0
       g_arr_decl=0
+      g_arr_entries=""
       # ONE awk pass, TWO tagged output streams on one stdout: an `E|` line per real array entry
       # (the same anchored shape pre-commit/qa-gate.sh parse — quotes stripped, trailing comment
       # stripped, blank lines skipped) and a `D` line if, and only if, a held comment line inside
@@ -897,7 +960,7 @@ else
       # character of the line so the shell loop below can branch on it with a plain `case`.
       while IFS= read -r g_arr_tagged; do
         case "$g_arr_tagged" in
-          E\|*) g_arr_n=$((g_arr_n+1)) ;;
+          E\|*) g_arr_n=$((g_arr_n+1)); g_arr_entries="${g_arr_entries}${g_arr_tagged#E|}"$'\n' ;;
           D) g_arr_decl=1 ;;
         esac
       done < <(awk -v arr="$g_arr" '
@@ -914,8 +977,35 @@ else
         }
       ' "$g_cfg")
       if [ "$g_arr_n" -gt 0 ]; then
-        echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries  ✓ (read by the same anchored array parse scripts/githooks/pre-commit and scripts/lib/qa-gate.sh use) — $(cb_src)"
-        g_measured=$((g_measured+1))
+        # A TEST_GLOBS entry no file matches guards nothing: the ablation rule it feeds never
+        # sees a test path. Matched with `case` against repository-relative paths, exactly as its
+        # consumers do; the path list is the source's own (the ref's tree, else tracked files).
+        g_arr_dead=""
+        if [ "$g_arr" = "TEST_GLOBS" ]; then
+          if [ -z "${g_paths+x}" ]; then
+            if [ -n "$CB_REF" ]; then
+              g_paths="$(git -C "$REPO_ROOT" ls-tree -r --name-only "$CB_REF" 2>/dev/null || true)"
+            else
+              g_paths="$(git -C "$REPO_ROOT" ls-files --cached --others --exclude-standard 2>/dev/null || true)"
+            fi
+          fi
+          while IFS= read -r g_glob; do
+            [ -n "$g_glob" ] || continue
+            g_hit=0
+            while IFS= read -r g_p; do
+              # shellcheck disable=SC2254  # the entry is a declared glob, matched as one
+              case "$g_p" in $g_glob) g_hit=1; break ;; esac
+            done <<< "$g_paths"
+            [ "$g_hit" -eq 1 ] || g_arr_dead="${g_arr_dead}${g_arr_dead:+, }$g_glob"
+          done <<< "$g_arr_entries"
+        fi
+        if [ -n "$g_arr_dead" ]; then
+          echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries, and these match no file  ⚠ $g_arr_dead — a glob nothing matches enforces nothing; correct it, or add the first file it should match — $(cb_src)"
+          g_measured=$((g_measured+1))   # reported, never a finding: a first day has no test file yet
+        else
+          echo "      FILL (scripts/config.sh $g_arr): declares $g_arr_n entry/entries  ✓ (read by the same anchored array parse scripts/githooks/pre-commit and scripts/lib/qa-gate.sh use) — $(cb_src)"
+          g_measured=$((g_measured+1))
+        fi
       elif [ "$g_arr_decl" -eq 1 ]; then
         echo "      FILL (scripts/config.sh $g_arr): empty, and declared DECLARED EMPTY  ✓ (an adopter's mechanical \"none, on purpose\" — the seam stays unenforced, on record rather than by omission) — $(cb_src)"
         g_measured=$((g_measured+1))
@@ -1038,17 +1128,22 @@ if ! command -v kit_attrib_offender >/dev/null 2>&1; then
 elif [ -z "$(kit_attrib_trailer_words "$CB_TREE" 2>/dev/null)" ]; then
   h_src="THE KIT'S FALLBACK SET — commit-msg was not readable in this source, so this is not your project's declared wording family"
 fi
-echo "[h] generated-trailer scan (last $ROLE_SCAN_N commits of $CB_RULE_REV, commit MESSAGES only) — wordings $h_src:"
+echo "[h] generated-trailer scan (commits of $CB_RULE_REV since the rule began, commit MESSAGES only) — wordings $h_src:"
 h_hits=0
 h_scanned=0
-h_preepoch=0
 if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1; then
+  # Every in-scope commit is COUNTED; only a message that could hold a trailer or a "generated/written"
+  # line (a `by:` word or either verb, anywhere in it) is READ. The filter only narrows what the
+  # anchored reader below sees: it never decides a hit.
+  h_all="$(git -C "$REPO_ROOT" log --no-color --format='%H' "${CB_RULE_LOG_ARGS[@]}" 2>/dev/null || true)"
+  h_cand="$(git -C "$REPO_ROOT" log --no-color --format='%H' -i -E --grep='by[[:space:]]*:|generated|written' "${CB_RULE_LOG_ARGS[@]}" 2>/dev/null || true)"
+  if [ -n "$CB_RULE_EPOCH" ]; then
+    h_all="$(printf '%s\n' "$h_all" | grep -xFf <(printf '%s\n' "$CB_RULE_INSCOPE") || true)"
+    h_cand="$(printf '%s\n' "$h_cand" | grep -xFf <(printf '%s\n' "$CB_RULE_INSCOPE") || true)"
+  fi
+  h_scanned="$(printf '%s\n' "$h_all" | awk 'NF' | wc -l | tr -d ' ')"
   while IFS= read -r h_sha; do
     [ -z "$h_sha" ] && continue
-    if [ -n "$CB_RULE_EPOCH" ] && ! printf '%s\n' "$CB_RULE_INSCOPE" | grep -xF "$h_sha" >/dev/null; then
-      h_preepoch=$((h_preepoch+1)); continue
-    fi
-    h_scanned=$((h_scanned+1))
     # The whole message: a trailer lives in the body. kit_attrib_offender mirrors the hook's own
     # three arms and anchoring, so "generated with" mid-sentence is prose, not a provenance line.
     h_body="$(git -C "$REPO_ROOT" log -1 --format=%B "$h_sha" 2>/dev/null || true)"
@@ -1060,13 +1155,13 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
       echo "    ⚠ ${h_sha:0:9} carries a generated trailer: $(printf '%s' "$h_bad" | sed 's/^[[:space:]]*//')"
       h_hits=$((h_hits+1)); drift=1
     fi
-  done < <(git -C "$REPO_ROOT" log --no-color --format='%H' -n "$ROLE_SCAN_N" "$CB_RULE_REV" 2>/dev/null)
+  done <<< "$h_cand"
 else
   echo "    – $CB_RULE_REV does not resolve — no history to scan  (skipped)"
   h_scanned=-1
 fi
 if [ "$h_scanned" -ge 0 ]; then
-  cb_rule_scope_lines "$h_preepoch"
+  cb_rule_scope_lines
 fi
 if [ "$h_scanned" -eq 0 ]; then
   echo "    – $CB_RULE_REV resolved but yielded no in-scope commit  (skipped)"
@@ -1191,27 +1286,42 @@ fi
 #      `prd: n/a` is legal, and a gate would be satisfied by PRDs written to satisfy it.
 #      To read the reasons:  grep -h '^prd_reason:' progress/qa_complete/*.md progress/done/*.md
 #      An empty reason (the template's unfilled line, or a card minted before the field) counts
-#      as none. The BEGIN/END markers let the self-test remove the arm from a copy.
+#      as none. A card that names no PRD at all (no `prd:` value, or `none`) AND gives no reason is
+#      counted and named separately: it is neither a PRD-covered card nor a reasoned n/a, and
+#      would otherwise leave the count unseen. The BEGIN/END markers let the self-test remove the
+#      arm from a copy.
 # ---------------------------------------------------------------------------
 echo
-m_total=0; m_na=0; m_noreason=0; m_cols=""
+m_total=0; m_na=0; m_noreason=0; m_cols=""; m_neither=0; m_neither_ids=""
 for col in qa_complete done; do
   [ -d "$CB_TREE/progress/$col" ] || continue
   m_cols="${m_cols}${m_cols:+ + }$col"
   for f in "$CB_TREE/progress/$col"/*.md; do
     [ -e "$f" ] || continue
     m_total=$((m_total+1))
-    m_prd=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd:/{print $2; exit}' "$f")
+    m_prd=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd:/{sub(/^prd:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); print; exit}' "$f")
+    m_why=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd_reason:/{sub(/^prd_reason:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); print; exit}' "$f")
+    # A card naming no PRD (no value, or `none`) and giving no reason is in neither population
+    # below — it is counted on its own so it cannot drop out of the denominator unseen.
+    case "$m_prd" in
+      ""|none|None|NONE)
+        if [ -z "$m_why" ]; then
+          m_neither=$((m_neither+1)); m_neither_ids="${m_neither_ids}${m_neither_ids:+ }$(basename "$f" .md)"
+        fi
+        continue ;;
+    esac
     [ "$m_prd" = "n/a" ] || continue
     m_na=$((m_na+1))
-    m_why=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd_reason:/{sub(/^prd_reason:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); print; exit}' "$f")
     [ -n "$m_why" ] || m_noreason=$((m_noreason+1))
   done
 done
 if [ -z "$m_cols" ]; then
   echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): no landed column in this source  (skipped) — $(cb_src)"
 else
-  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): $m_na of $m_total landed issue(s) carry prd: n/a; $m_noreason of those give no prd_reason ($m_cols) — $(cb_src)"
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): $m_na of $m_total landed issue(s) carry prd: n/a; $m_noreason of those give no prd_reason; $m_neither give neither a prd: nor a prd_reason: ($m_cols) — $(cb_src)"
+  if [ "$m_neither" -gt 0 ]; then
+    echo "      ⚠ $m_neither landed issue(s) name no PRD and give no reason: $m_neither_ids"
+  fi
 fi
 # END prd-coverage arm
 
@@ -1333,12 +1443,19 @@ fi
 #     lib/board-properties.sh's kit_bp_register_shape, the one implementation a landing also
 #     calls. Reports only here — it never changes the verdict below, the same footing as
 #     [k]/[m]/[n]/[o]: a judgement about wording, and a project may have a good reason for a shape
-#     this arm has not seen. A landing that changes a register refuses a finding it introduces.
+#     this arm has not seen. A landing that changes a register refuses a SHAPE finding it
+#     introduces. The two readings that need history or judgement — a Ruling changed with no stamp,
+#     a Findings list that collided — are named here, over the same window as [e], and are never
+#     refused at a landing: a changed ruling is not a defect until a reader says the change was
+#     substantive, and nothing keys such a finding to a line a branch introduced.
 # ---------------------------------------------------------------------------
 echo
-echo "[q] Declared-register entry shape — every D-NN entry is exactly three fields, and a reopened entry is stamped (reports only — it never changes the verdict below; a landing refuses a finding it introduces) — $(cb_src):"
+echo "[q] Declared-register entry shape — every D-NN entry is exactly three fields, a reopened entry is stamped, and a changed Ruling carries a stamp (reports only — it never changes the verdict below; a landing refuses a shape finding it introduces) — $(cb_src):"
 if cb_bp_loaded; then
+  KIT_BP_HIST_REPO="$REPO_ROOT"
+  if [ -n "$CB_RULE_EPOCH" ]; then KIT_BP_HIST_RANGE="$CB_RULE_EPOCH..$CB_RULE_REV"; else KIT_BP_HIST_RANGE="$CB_RULE_REV"; fi
   kit_bp_register_shape "$CB_TREE"
+  KIT_BP_HIST_REPO=""; KIT_BP_HIST_RANGE=""
 else
   cb_bp_missing
 fi
