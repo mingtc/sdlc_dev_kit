@@ -27,7 +27,7 @@
 # If decision-register.sh cannot load, this file stops defining anything: a caller sees its own
 # "did not load" path rather than a reader that silently reads differently.
 # shellcheck source=decision-register.sh
-. "$(dirname "${BASH_SOURCE[0]}")/decision-register.sh" || return 1
+. "$(dirname "${BASH_SOURCE[0]}")/decision-register.sh" || return 1   # return-class: internal
 
 KIT_BP_US=$'\037'
 KIT_BP_NHITS=0
@@ -71,7 +71,7 @@ KIT_BP_MISSING=""
 kit_bp_load_declarations() {
   local f="$1" n v missing=""
   KIT_BP_MISSING=""
-  [ -f "$f" ] || { KIT_BP_MISSING="the declarations file"; return 1; }
+  [ -f "$f" ] || { KIT_BP_MISSING="the declarations file"; return 1; }   # return-class: predicate
   for n in STATUS_FOLDERS ISSUE_ID_KEY ISSUE_ID_PATTERN REGISTERS CITATION_EXCLUDE PRD_SURFACE CROSS_CUTTING_MARKER; do
     v="$(kit_declared_value "$f" "$n")" || v=""
     [ -n "$v" ] || { missing="${missing:+$missing }$n"; continue; }
@@ -81,7 +81,7 @@ kit_bp_load_declarations() {
   [ -n "$FRONTMATTER_SCAN_LINES" ] || missing="${missing:+$missing }FRONTMATTER_SCAN_LINES"
   CORPUS_FILE="$(sed -n 's/^CORPUS_FILE="\${CORPUS_FILE:-\([^}]*\)}".*/\1/p' "$f" | head -1)"
   [ -n "$CORPUS_FILE" ] || missing="${missing:+$missing }CORPUS_FILE"
-  if [ -n "$missing" ]; then KIT_BP_MISSING="$missing"; return 1; fi
+  if [ -n "$missing" ]; then KIT_BP_MISSING="$missing"; return 1; fi   # return-class: predicate
   return 0
 }
 

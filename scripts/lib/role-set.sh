@@ -82,7 +82,7 @@ kit_role_member() {
   case "|$1|" in
     *"|$2|"*) return 0 ;;
   esac
-  return 1
+  return 1   # return-class: predicate
 }
 
 # kit_require_role <repo-root> <tag> <knob-name> — refuse (kit_refuse, status 1) if <tag> is not a

@@ -603,6 +603,12 @@ if [ -n "$PF_ROLES" ]; then
   esac
 fi
 
+# --- an ARCHIVE.md that already exists must carry the heading archive.sh inserts beneath ---
+# Checked before anything is written; the stamping leaves an existing file alone.
+if [ -f "$ROOT/ARCHIVE.md" ] && ! grep -q '^## Archived$' "$ROOT/ARCHIVE.md"; then
+  pf "ARCHIVE.md exists but has no exact '## Archived' heading (archive.sh refuses to sweep without it) — add a line reading exactly '## Archived' to it, or move the file aside so kit-init writes the stub."
+fi
+
 if [ ${#PF[@]} -gt 0 ]; then
   _pf_list=""
   for p in "${PF[@]}"; do _pf_list="${_pf_list}    • $p"$'\n'; done
@@ -1016,8 +1022,6 @@ sweep without it, and inserts each new line immediately beneath it.
 EOF
   say "  ARCHIVE.md: stub written (with the exact '## Archived' heading archive.sh requires)"
 else
-  grep -q '^## Archived$' "$ROOT/ARCHIVE.md" || {
-    echo "Error: ARCHIVE.md exists but has no exact '## Archived' heading (archive.sh refuses without it)." >&2; exit 1; }   # exit-class: internal
   say "  ARCHIVE.md: already present with '## Archived' — left alone"
 fi
 

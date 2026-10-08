@@ -82,7 +82,7 @@ kit_model_drift() {
   KIT_MODEL_NHITS=0
   cdir="$(kit_model_claude_dir "$1")"
   orch="$cdir/roles/orchestrator.md"
-  [ -n "$cdir" ] && [ -f "$orch" ] || return 1
+  [ -n "$cdir" ] && [ -f "$orch" ] || return 1   # return-class: predicate
   for class in $KIT_MODEL_CLASSES; do
     pin="$(kit_model_class_pin "$class")"
     [ -n "$pin" ] && [ -f "$cdir/agents/$pin" ] || continue

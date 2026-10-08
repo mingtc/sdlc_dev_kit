@@ -39,7 +39,9 @@
 #                            operator's checkout / local branch ref
 #   kwt_open_subtasks <id> → print each card of <id>'s subtask tree neither in qa_complete/ nor declined/
 #
-# The sourcing script owns shell options; this file uses explicit return codes.
+# The sourcing script owns shell options. A refusal on STATE goes through kit_refuse and ends the op;
+# a function returns nonzero only where its caller must keep control (kwt_finalize, whose callers
+# report what was and was not published), and the return is marked by lib/refuse.sh's rule.
 #
 # CALLER CONTRACT: the push-helper load below refuses with a non-zero return, which stops only a
 # caller that runs `set -e` or checks the status of its `. lib/kanban-worktree.sh`. Do one. The
@@ -94,6 +96,13 @@ if [ ! -f "$KWT_LIB_DIR/exit-trap.sh" ] || ! . "$KWT_LIB_DIR/exit-trap.sh"; then
   echo "       Restore it:  git checkout -- scripts/lib/exit-trap.sh" >&2
   return 1 2>/dev/null || exit 1   # exit-class: internal
 fi
+# The state refusals below go through kit_refuse (refuse.sh), so each leaves a record and a route.
+# shellcheck source=refuse.sh
+if [ ! -f "$KWT_LIB_DIR/refuse.sh" ] || ! . "$KWT_LIB_DIR/refuse.sh"; then
+  echo "Error: scripts/lib/kanban-worktree.sh could not load $KWT_LIB_DIR/refuse.sh." >&2
+  echo "       Restore it:  git checkout -- scripts/lib/refuse.sh" >&2
+  return 1 2>/dev/null || exit 1   # exit-class: internal
+fi
 # ...and REACHABLE: a file that sources without defining these is the same outage.
 if ! command -v git_push_with_retry >/dev/null 2>&1 \
    || ! command -v git_report_ahead_behind >/dev/null 2>&1; then
@@ -127,14 +136,13 @@ kwt_resolve() {
   local cdup named common_dir
   cdup="$(git rev-parse --show-cdup 2>/dev/null)" &&
     named="$(CDPATH= cd "./$cdup" && git rev-parse --git-common-dir 2>/dev/null)" &&
-    [ -n "$named" ] || {
-    echo "Error: not inside a git repository." >&2
-    return 1
-  }
+    [ -n "$named" ] || kit_refuse 1 not-in-git-repository \
+    "Error: not inside a git repository." \
+    "Next: cd into the project's repository (the directory holding scripts/ and progress/), then re-run."
   common_dir="$(CDPATH= cd "./$cdup" 2>/dev/null && CDPATH= cd "$named" 2>/dev/null && pwd -P)" || {
     echo "Error: git names '$named' as this repository's common git directory, and it" >&2
     echo "       could not be entered from '$PWD/$cdup'." >&2
-    return 1
+    return 1   # return-class: internal
   }
   MAIN_ROOT="$(dirname "$common_dir")"
   KWT="$MAIN_ROOT/.kanban-wt"
@@ -282,12 +290,11 @@ kwt_lock() {
     if [ "$waited" -ge "$KWT_LOCK_WAIT" ]; then
       # NAME THE HOLDER from the info file (contracts/kanban-worktree.md § 3). An absent or
       # unreadable info file is reported as that, not as blanks.
-      local h_pid h_host h_epoch h_age
+      local h_pid h_host h_epoch h_age h_detail
       h_pid="$(sed -n 's/^pid=//p'   "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
       h_host="$(sed -n 's/^host=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
       h_epoch="$(sed -n 's/^epoch=//p' "$KWT_LOCK/info" 2>/dev/null | head -1 || true)"
-      {
-        echo "Error: another kanban op holds the lock at $KWT_LOCK (waited ${KWT_LOCK_WAIT}s)."
+      h_detail="$(
         if [ -n "$h_pid" ] || [ -n "$h_host" ]; then
           if [ -n "$h_epoch" ] && [ -z "${h_epoch//[0-9]/}" ]; then
             h_age=$(( $(date +%s) - h_epoch ))
@@ -301,10 +308,11 @@ kwt_lock() {
           echo "       holder died between creating the lock and stamping it. The staleness reaper clears"
           echo "       such a lock only by AGE (${KWT_LOCK_STALE}s), because there is no pid to probe."
         fi
-        echo "       It will clear when that op finishes; retry then."
-        echo "       If you are sure no other op is running, remove it: rm -rf '$KWT_LOCK'"
-      } >&2
-      return 1
+      )"
+      kit_refuse 1 kanban-lock-held \
+        "Error: another kanban op holds the lock at $KWT_LOCK (waited ${KWT_LOCK_WAIT}s)." \
+        "$h_detail" \
+        "Next: wait for the holder's op to finish, then re-run this same command. A holder that has died is reaped by the next attempt (an unrecorded or other-host lock after ${KWT_LOCK_STALE}s), so leave $KWT_LOCK alone. If it is still held after several attempts, the holder is a live op: ask whose it is and how long it runs (./scripts/ask.sh --role <role> \"<question>\" --default \"wait for the holder, then re-run\")."
     fi
     sleep 1
     waited=$(( waited + 1 ))
@@ -327,7 +335,7 @@ kwt_bootstrap() {
   if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
        | grep -xF "worktree $KWT" >/dev/null; then
     kwt__ensure_detached  # detach-by-construction, not assumed.
-    return $?
+    return $?   # return-class: relay
   fi
 
   # A leftover directory with no registration (e.g. partial create) blocks
@@ -337,21 +345,21 @@ kwt_bootstrap() {
   if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null \
        | grep -xF "worktree $KWT" >/dev/null; then
     kwt__ensure_detached
-    return $?
+    return $?   # return-class: relay
   fi
   if [ -e "$KWT" ]; then
-    echo "Error: $KWT exists but is not a registered worktree." >&2
-    echo "       Remove it (rm -rf '$KWT') and re-run, or register it manually." >&2
-    return 1
+    kit_refuse 1 kanban-wt-unregistered \
+      "Error: $KWT exists but is not a registered worktree." \
+      "Next: look at what it holds (ls -a '$KWT'), then move it aside, which loses nothing, and re-run, which recreates it as the board worktree:  mv '$KWT' '$KWT.stale-$(date +%Y%m%d%H%M%S)'"
   fi
 
   if ! git -C "$MAIN_ROOT" worktree add --detach "$KWT" "$DEFAULT_BRANCH" --quiet 2>/dev/null; then
     # Fallback: the trunk may not exist locally yet; try <remote>/<trunk>.
     if ! git -C "$MAIN_ROOT" worktree add --detach "$KWT" "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>/dev/null; then
-      echo "Error: failed to bootstrap kanban worktree at $KWT." >&2
-      echo "       Neither '$DEFAULT_BRANCH' nor '$KWT_REMOTE/$DEFAULT_BRANCH' could be checked out." >&2
-      echo "       If the trunk name above is not yours, see the trunk warning earlier in this run." >&2
-      return 1
+      kit_refuse 1 kanban-wt-bootstrap-failed \
+        "Error: failed to bootstrap kanban worktree at $KWT." \
+        "       Neither '$DEFAULT_BRANCH' nor '$KWT_REMOTE/$DEFAULT_BRANCH' could be checked out." \
+        "Next: fetch the trunk (git -C '$MAIN_ROOT' fetch $KWT_REMOTE) and re-run. If '$DEFAULT_BRANCH' is not your trunk, the trunk warning earlier in this run says how it was chosen; set it with  git -C '$MAIN_ROOT' remote set-head $KWT_REMOTE -a  and re-run."
     fi
   fi
   return 0
@@ -373,11 +381,10 @@ kwt__ensure_detached() {
     return 0  # already detached
   fi
 
-  local dirty untracked
+  local dirty untracked detail
   dirty="$(git -C "$KWT" status --porcelain --untracked-files=no 2>/dev/null || true)"
   if [ -n "$dirty" ] && [ "$KWT_DISCARD_DIRTY" != "true" ]; then
-    {
-      echo "Error: the kanban worktree ($KWT) is ATTACHED to '$branch' (not detached) AND holds"
+    detail="$(
       echo "       uncommitted tracked changes — refusing to repair it while they're there."
       echo "       Worktree: $KWT"
       echo ""
@@ -394,17 +401,16 @@ kwt__ensure_detached() {
         echo "  them to the trunk:"
         echo "$untracked" | sed 's/^/    /'
       fi
-      echo ""
-      echo "  Resolve by hand, then re-run:"
-      echo "    • Keep them — commit AND push:"
-      echo "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$branch"
-      echo "        (SCOPED TO progress/ ON PURPOSE. This worktree sits ON the trunk and pushes TO the"
-      echo "         trunk, so 'add -A' here commits everything in it — including anything you or a"
-      echo "         command materialised in it — straight to $branch with nothing in between.)"
-      echo "    • Discard them — git -C '$KWT' reset --hard, then re-run (it will detach cleanly)"
-      echo "    • Or re-run with --discard-dirty (mirrors kwt_sync's own opt-out)"
-    } >&2
-    return 1
+    )"
+    kit_refuse 1 kanban-wt-attached-dirty \
+      "Error: the kanban worktree ($KWT) is ATTACHED to '$branch' (not detached) AND holds" \
+      "$detail" \
+      "Next: resolve by hand, then re-run — keep the changes (commit AND push) or discard them:" \
+      "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$branch" \
+      "        (SCOPED TO progress/ ON PURPOSE. This worktree sits ON the trunk and pushes TO the" \
+      "         trunk, so 'add -A' here commits everything in it, including anything you or a" \
+      "         command materialised in it, straight to $branch with nothing in between.)" \
+      "        or set them aside, recoverable with  git -C '$KWT' stash pop:  git -C '$KWT' stash push. If they are not yours to keep or set aside, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
   fi
 
   # ── BEFORE DETACHING: commits on the attached branch that the remote lacks would be left
@@ -412,8 +418,7 @@ kwt__ensure_detached() {
   #    refuse separately when the branch has no remote counterpart: "there are unpublished
   #    commits" and "I cannot tell" are different claims.
   if ! git -C "$KWT" rev-parse --verify --quiet "$KWT_REMOTE/$branch" >/dev/null 2>&1; then
-    {
-      echo "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and $KWT_REMOTE/$branch does"
+    detail="$(
       echo "       not exist — so whether '$branch' holds anything unpublished CANNOT BE DETERMINED."
       echo "       Detaching would land HEAD on the same commit, but this repair will not report"
       echo "       'nothing else changed' on a state it could not read."
@@ -421,19 +426,19 @@ kwt__ensure_detached() {
       echo ""
       echo "  Its last commits, for you to judge:"
       git -C "$KWT" log --oneline -n 5 "refs/heads/$branch" 2>/dev/null | sed 's/^/    /'
-      echo ""
-      echo "  Give the branch a remote counterpart, or detach deliberately by hand:"
-      echo "        git -C '$KWT' push -u $KWT_REMOTE '$branch'      # then re-run"
-      echo "        git -C '$KWT' switch --detach                    # abandon the attachment as-is"
-    } >&2
-    return 1
+    )"
+    kit_refuse 1 kanban-wt-attached-no-remote \
+      "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and $KWT_REMOTE/$branch does" \
+      "$detail" \
+      "Next: give the branch a remote counterpart, or detach deliberately by hand, then re-run:" \
+      "        git -C '$KWT' push -u $KWT_REMOTE '$branch'      # then re-run" \
+      "        git -C '$KWT' switch --detach                    # abandon the attachment as-is"
   fi
 
   local unpub
   unpub="$(git -C "$KWT" log --oneline "$KWT_REMOTE/$branch..refs/heads/$branch" 2>/dev/null || true)"
   if [ -n "$unpub" ]; then
-    {
-      echo "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and '$branch' carries commit(s)"
+    detail="$(
       echo "       that $KWT_REMOTE does not have. Detaching would leave them reachable only from a"
       echo "       local branch ref that no board check reads and the next sync does not update —"
       echo "       the orphaned-sibling state, recoverable afterwards only from 'git reflog --all'."
@@ -441,13 +446,13 @@ kwt__ensure_detached() {
       echo ""
       echo "  Unpublished on '$branch':"
       echo "$unpub" | sed 's/^/    /'
-      echo ""
-      echo "  Publish them first (this is almost always what you want):"
-      echo "        git -C '$KWT' push $KWT_REMOTE '$branch':$branch"
-      echo "  …then re-run. To abandon them instead, do it deliberately and by hand:"
-      echo "        git -C '$KWT' switch --detach && git -C '$KWT' branch -D '$branch'"
-    } >&2
-    return 1
+    )"
+    kit_refuse 1 kanban-wt-attached-unpublished \
+      "Error: the kanban worktree ($KWT) is ATTACHED to '$branch', and '$branch' carries commit(s)" \
+      "$detail" \
+      "Next: publish them first (this is almost always what you want), then re-run:" \
+      "        git -C '$KWT' push $KWT_REMOTE '$branch':$branch" \
+      "      If they should be abandoned, that is not yours to decide alone: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"publish them\")."
   fi
 
   # With no target, `git switch --detach` detaches at the current commit: it moves no commits
@@ -458,7 +463,7 @@ kwt__ensure_detached() {
   fi
 
   echo "Error: the kanban worktree ($KWT) is attached to '$branch' and could not be detached." >&2
-  return 1
+  return 1   # return-class: internal
 }
 
 # ---------------------------------------------------------------------------
@@ -469,13 +474,13 @@ kwt__ensure_detached() {
 #   - commits not on <remote>/<trunk>. No opt-out: discarding a commit is a hand command.
 # ---------------------------------------------------------------------------
 kwt_sync() {
+  local detail
   # Dirty guard FIRST: it is local, so it must run even when the fetch below fails.
   if [ "$KWT_DISCARD_DIRTY" != "true" ]; then
     local dirty untracked
     dirty="$(git -C "$KWT" status --porcelain --untracked-files=no 2>/dev/null || true)"
     if [ -n "$dirty" ]; then
-      {
-        echo "Error: the kanban worktree has uncommitted tracked changes — refusing to sync."
+      detail="$(
         echo "       Syncing would 'git reset --hard $KWT_REMOTE/$DEFAULT_BRANCH' and DESTROY them."
         echo "       Worktree: $KWT"
         echo ""
@@ -492,21 +497,21 @@ kwt_sync() {
           echo "  them to the trunk:"
           echo "$untracked" | sed 's/^/    /'
         fi
-        echo ""
-        echo "  Resolve one of two ways:"
-        echo "    • Keep them — commit AND push (an unpushed commit BLOCKS the next sync until it lands):"
-        echo "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
-        echo "        (SCOPED TO progress/ ON PURPOSE — 'add -A' in this worktree commits everything in"
-        echo "         it straight to $DEFAULT_BRANCH, with no branch and no gate in between.)"
-        echo "    • Discard them — re-run the command with --discard-dirty"
-        echo "        (or by hand: git -C '$KWT' reset --hard $KWT_REMOTE/$DEFAULT_BRANCH)"
-      } >&2
-      return 1
+      )"
+      kit_refuse 1 kanban-sync-dirty \
+        "Error: the kanban worktree has uncommitted tracked changes — refusing to sync." \
+        "$detail" \
+        "Next: resolve one of two ways, then re-run. Keep them — commit AND push (an unpushed commit BLOCKS the next sync until it lands):" \
+        "        git -C '$KWT' add -- progress/ && git -C '$KWT' commit -m '…' && git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
+        "        (SCOPED TO progress/ ON PURPOSE — 'add -A' in this worktree commits everything in" \
+        "         it straight to $DEFAULT_BRANCH, with no branch and no gate in between.)" \
+        "      Or set them aside, recoverable with  git -C '$KWT' stash pop:  git -C '$KWT' stash push" \
+        "      If they are not yours to keep or set aside, ask (./scripts/ask.sh --role <role> \"<question>\" --default \"leave them and stop\")."
     fi
   fi
 
   # Checked again at sync time; the tree is known clean (or opted out) by here.
-  kwt__ensure_detached || return 1
+  kwt__ensure_detached || return 1   # return-class: relay
 
   if ! git -C "$KWT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null; then
     # OFFLINE: proceed (a board move is a local file move) but say what state this acts on and
@@ -533,8 +538,7 @@ kwt_sync() {
   local unpushed
   unpushed="$(git -C "$KWT" log --oneline "$KWT_REMOTE/$DEFAULT_BRANCH..HEAD" 2>/dev/null || true)"
   if [ -n "$unpushed" ]; then
-    {
-      echo "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync."
+    detail="$(
       echo "       Syncing would 'git reset --hard $KWT_REMOTE/$DEFAULT_BRANCH' and make them UNREACHABLE"
       echo "       from any ref — recoverable only from 'git reflog --all', and invisible to"
       echo "       check-board.sh once that has happened."
@@ -542,15 +546,14 @@ kwt_sync() {
       echo ""
       echo "  Unpushed:"
       echo "$unpushed" | sed 's/^/    /'
-      echo ""
-      echo "  Resolve one of two ways:"
-      echo "    • Publish them (almost always right — an op made them and its push did not land):"
-      echo "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH"
-      echo "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH"
-      echo "    • Discard them — BY HAND, so the choice is on the record:"
-      echo "        git -C '$KWT' reset --hard $KWT_REMOTE/$DEFAULT_BRANCH"
-    } >&2
-    return 1
+    )"
+    kit_refuse 1 kanban-sync-unpushed \
+      "Error: the kanban worktree holds commit(s) that are NOT on $KWT_REMOTE/$DEFAULT_BRANCH — refusing to sync." \
+      "$detail" \
+      "Next: publish them (almost always right — an op made them and its push did not land), then re-run:" \
+      "        git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" \
+      "        git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" \
+      "      If they should not be published, do not discard them: ask (./scripts/ask.sh --role <role> \"<question>\" --default \"publish them\")."
   fi
 
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet
@@ -579,10 +582,11 @@ kwt_finalize() {
     echo "Error: push of HEAD → $KWT_REMOTE/$DEFAULT_BRANCH failed (remote likely advanced concurrently, or offline)." >&2
     echo "       The commit was made LOCALLY in the kanban worktree but is NOT on $KWT_REMOTE." >&2
     echo "       The next kanban op's sync now REFUSES rather than resetting over it (see kwt_sync)," >&2
-    echo "       so it is not about to be destroyed — but nothing else will publish it either:" >&2
+    echo "       so it is not about to be destroyed — but nothing else will publish it either." >&2
+    echo "Next: publish it once $KWT_REMOTE answers (a rebase that conflicts: resolve, git rebase --continue), then push:" >&2
     echo "         git -C '$KWT' fetch $KWT_REMOTE $DEFAULT_BRANCH && git -C '$KWT' rebase $KWT_REMOTE/$DEFAULT_BRANCH" >&2
     echo "         git -C '$KWT' push $KWT_REMOTE HEAD:$DEFAULT_BRANCH" >&2
-    return 1
+    return 1   # return-class: refusal
   fi
 
   # ── READ THE REF BACK: a push's exit status is not the commit being on the ref (a mirror can
@@ -599,18 +603,18 @@ kwt_finalize() {
       {
         echo "Error: the push reported success, but $(git -C "$KWT" rev-parse --short "$post_head" 2>/dev/null || echo "$post_head") is NOT an ancestor of $KWT_REMOTE/$DEFAULT_BRANCH."
         echo "       The commit this op made is not on the trunk. It is not lost — it is"
-        echo "       UNREFERENCED, which is the state no board check can see:"
+        echo "       UNREFERENCED, which is the state no board check can see."
+        echo "Next: confirm what it carried, then replay it onto the trunk, before the next kanban op (reflog expiry is the only clock on it):"
         echo "         git -C '$KWT' log -1 $post_head          # confirm what it carried"
         echo "         git -C '$MAIN_ROOT' cherry-pick $post_head   # replay it onto the trunk"
         echo "       (cherry-pick preserves the original author and [Role]-prefixed subject.)"
-        echo "       Do this before the next kanban op; reflog expiry is the only clock on it."
         # Only $pre_head tells a rebased commit from a lost one.
         if [ -n "$pre_head" ] && [ "$pre_head" != "$post_head" ]; then
           echo "       Note: a push retry rebased this op's commit, so it began life as"
           echo "       $(git -C "$KWT" rev-parse --short "$pre_head" 2>/dev/null) — that sha is orphaned BY THE REBASE, not the one to replay."
         fi
       } >&2
-      return 1
+      return 1   # return-class: refusal
     fi
   fi
 

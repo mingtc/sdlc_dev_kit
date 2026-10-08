@@ -484,6 +484,12 @@ columns and never the cards.*
   `kit-init.sh`, `release.sh`, `verify.sh`, the role gate and `setup.sh` refuse through `kit_refuse`: a `Next:` line and a `refusal=`
   progress record. Exit statuses are unchanged; some message wording moved onto the `Next:` line. No action.
 
+- **The board lock and the worktree refusals do too.** A held lock, an unregistered or failed `.kanban-wt/` bootstrap, a sync or detach over
+  uncommitted or unpublished board work, and "not inside a git repository" now refuse through `kit_refuse` (rules `kanban-lock-held`,
+  `kanban-sync-dirty`, `kanban-sync-unpushed`, `kanban-wt-*`, `not-in-git-repository`): a `Next:` line and a `refusal=` record, same exit
+  status. A failed push after a landing or a subtask commit says how to publish it. `kit-init.sh` now refuses an `ARCHIVE.md` without the
+  exact `## Archived` heading in its preflight, before anything is written. No action.
+
 - **A dispatched leg's report now types its claims, and a runner promotes only a PASS backed by one.**
   `process/MANUAL.md` § The leg-report contract is the one statement: every claim is OBSERVED (a command
   with its output, or a `path:line` with a verbatim quote), INFERRED (with what it was concluded from) or

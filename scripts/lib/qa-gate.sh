@@ -85,7 +85,7 @@
 # path touched" — state that in the caller's own words, this file does not.
 
 # shellcheck source=board-properties.sh
-. "$(dirname "${BASH_SOURCE[0]}")/board-properties.sh" || return 1
+. "$(dirname "${BASH_SOURCE[0]}")/board-properties.sh" || return 1   # return-class: internal
 
 # The whole-cell placeholder forms (an EMPTY cell is checked separately, with a plain shell
 # string test — a leading empty alternative in the regex itself makes some greps refuse the
@@ -163,7 +163,7 @@ _qav_quote_in_range() {
   _hay="$(printf '%s' "$_hay" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//')"
   _needle="$(printf '%s' "$quote" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//')"
   [ -n "$_needle" ] && case "$_hay" in *"$_needle"*) return 0 ;; esac
-  return 1
+  return 1   # return-class: predicate
 }
 
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> ────────────────────────────────────

@@ -345,11 +345,10 @@ case "$CMD" in
     if [ -n "${KWT_LANDED_SHA:-}" ]; then
       echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH}"
     else
-      {
-        echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above."
-        echo "  Every later board operation REFUSES until you publish it (commands above)."
-      } >&2
-      exit 1   # exit-class: internal
+      kit_refuse 1 subtask-not-published \
+        "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." \
+        "  Every later board operation REFUSES until you publish it." \
+        "Next: publish ${LOCAL_SHA} as the Next: line above says; the slice's card is already in that commit, so do not re-run this command."
     fi
     [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"   # exit-class: internal
     ;;
@@ -498,8 +497,10 @@ case "$CMD" in
     if [ -n "${KWT_LANDED_SHA:-}" ]; then
       echo "Published: ${KWT_LANDED_SHA} on ${DEFAULT_BRANCH} — \"${MSG}\""
     else
-      echo "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." >&2
-      exit 1   # exit-class: internal
+      kit_refuse 1 subtask-not-published \
+        "NOT PUBLISHED: ${LOCAL_SHA} is local only — see the push error above." \
+        "  Every later board operation REFUSES until you publish it." \
+        "Next: publish ${LOCAL_SHA} as the Next: line above says; the move is already in that commit, so do not re-run this command."
     fi
     [ "$FINALIZE_RC" -eq 0 ] || exit "$FINALIZE_RC"   # exit-class: internal
     ;;

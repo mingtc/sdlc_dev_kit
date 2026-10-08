@@ -58,5 +58,5 @@ kit_pm_blank() {
     tbd) return 0 ;;
     '[fill in'*']') return 0 ;;
   esac
-  return 1
+  return 1   # return-class: predicate
 }

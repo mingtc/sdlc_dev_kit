@@ -44,7 +44,7 @@ kit_attrib_offender() {
   local root="$1" words markers body found
   words="$(kit_attrib_trailer_words "$root")"
   markers="$(sed -n "s/^TOOL_TRAILER_MARKERS='\(.*\)'/\1/p" "$root/scripts/githooks/commit-msg" 2>/dev/null | head -1)"
-  [ -n "$words" ] && [ -n "$markers" ] || return 1
+  [ -n "$words" ] && [ -n "$markers" ] || return 1   # return-class: predicate
   body="$(cat | kit_normalize_hyphens)"
   found="$(printf '%s\n' "$body" \
       | grep -iE "^[[:space:]]*([-*][[:space:]]+)?\`?(${words})[[:space:]]*:(.*[^[:alnum:]])?(${markers})([^[:alnum:]]|\$)" \
@@ -55,7 +55,7 @@ kit_attrib_offender() {
   [ -n "$found" ] || found="$(printf '%s\n' "$body" \
       | grep -iE "^[[:space:]]*([-*][[:space:]]+)?\`?[^[:alnum:]]*written[[:space:]-]+(with|by)(.*[^[:alnum:]])?(${markers})([^[:alnum:]]|\$)" \
       | sed -n '1p')"
-  [ -n "$found" ] || return 1
+  [ -n "$found" ] || return 1   # return-class: predicate
   printf '%s\n' "$found"
   return 0
 }

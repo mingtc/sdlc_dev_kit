@@ -34,14 +34,14 @@ git_push_with_retry() {
 
   pre_head="$(git -C "$repo" rev-parse HEAD 2>/dev/null)" || {
     echo "Error: git_push_with_retry: '$repo' is not a valid git checkout." >&2
-    return 1
+    return 1   # return-class: internal
   }
 
   # Initial fetch: if the remote is flat-out unreachable, no amount of retrying
   # fixes that — fail fast rather than burning the bound on a dead network.
   if ! git -C "$repo" fetch "$remote" "$branch" --quiet; then
     echo "Error: git_push_with_retry: fetch of $remote/$branch failed — remote unreachable or offline." >&2
-    return 1
+    return 1   # return-class: internal
   fi
 
   while [ "$attempt" -lt "$max" ]; do
@@ -57,7 +57,7 @@ git_push_with_retry() {
 
     if ! git -C "$repo" fetch "$remote" "$branch" --quiet; then
       echo "Error: git_push_with_retry: re-fetch of $remote/$branch failed mid-retry." >&2
-      return 1
+      return 1   # return-class: internal
     fi
 
     if ! git -C "$repo" rebase "$remote/$branch" --quiet 2>/dev/null; then
@@ -75,7 +75,7 @@ git_push_with_retry() {
         echo "         git -C '$repo' rebase $remote/$branch   # fix conflicts, git rebase --continue"
         echo "         git -C '$repo' push $remote HEAD:$branch"
       } >&2
-      return 1
+      return 1   # return-class: internal
     fi
     # Rebase succeeded (or was a no-op) — loop back and retry the push.
   done
@@ -87,7 +87,7 @@ git_push_with_retry() {
     echo "       Push by hand after resolving whatever kept losing the race:"
     echo "         git -C '$repo' push $remote HEAD:$branch"
   } >&2
-  return 1
+  return 1   # return-class: internal
 }
 
 # git_report_ahead_behind <dir> <remote> <branch> — the "looks-pushed" check. A board move

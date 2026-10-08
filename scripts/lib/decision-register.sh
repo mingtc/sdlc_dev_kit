@@ -13,7 +13,7 @@
 # so every caller reads identically. If it cannot load, this file stops defining anything: callers
 # see their own "readers did not load" path rather than a reader that silently reads differently.
 # shellcheck source=attrib-trailer.sh
-. "$(dirname "${BASH_SOURCE[0]}")/attrib-trailer.sh" || return 1
+. "$(dirname "${BASH_SOURCE[0]}")/attrib-trailer.sh" || return 1   # return-class: internal
 
 # kit_registers_declared <check-board.sh path>
 #   Echoes check-board.sh's declared `REGISTERS=` value verbatim — one `<path>|<mark>|<shape>`
@@ -33,7 +33,7 @@ kit_registers_declared() {
 #   read, never sourced.
 kit_declared_value() {
   local file="$1" name="$2"
-  [ -f "$file" ] || return 1
+  [ -f "$file" ] || return 1   # return-class: predicate
   awk -v n="$name" '
     BEGIN { head = "^" n "=\047" }
     $0 ~ head { f=1 }

@@ -578,8 +578,12 @@ echo "Squash commit: ${SHA} — made locally in the kanban worktree, NOT yet pub
 # A push failure AFTER the local commit is fatal — kwt_finalize prints the loud
 # recovery text; ABORT here rather than proceeding to branch deletion.
 if ! kwt_finalize; then
-  echo "Error: push failed after the squash commit — aborting BEFORE branch deletion (${ISSUE_ID} NOT advanced)." >&2
-  exit 1   # exit-class: internal
+  kit_refuse 1 landing-push-failed \
+    "Error: push failed after the squash commit — aborting BEFORE branch deletion (${ISSUE_ID} NOT advanced)." \
+    "       The squash commit is local in '$KWT'; every later board command refuses until it is published." \
+    "Next: publish the squash commit as the Next: line above says, then finish the landing by hand (re-running finish-pr.sh would find nothing left to merge):" \
+    "         git -C '$MAIN_ROOT' branch -D '${BRANCH}'; git -C '$MAIN_ROOT' push ${KWT_REMOTE} --delete '${BRANCH}'" \
+    "         $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note '<what the review found>'"
 fi
 # The PUBLISHED sha, from the library that read it back off the ref. If the rebase
 # above remade the commit, this is the one on the trunk and ${SHA} is not.

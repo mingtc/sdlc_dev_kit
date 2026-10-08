@@ -35,7 +35,7 @@ kit_rehead_card() {
   local card="$1" body head
   [ -n "$card" ] && [ -f "$card" ] || {
     echo "kit_rehead_card: called without a readable card path — the caller must pass the file it is minting." >&2
-    return 1
+    return 1   # return-class: usage
   }
   head='<!-- A live card, not a template. It carries NO travel-classification marker, by design:
      this file was born in this repository and never travels, and process/EXTRACTION.md § The one
@@ -54,9 +54,9 @@ kit_rehead_card() {
   rm -f "$body"
   # The postcondition is asserted because every failure mode here is silent.
   [ -s "$card" ] \
-    || { echo "kit_rehead_card: '$card' is EMPTY after the re-head — the card was destroyed, not minted." >&2; return 1; }
+    || { echo "kit_rehead_card: '$card' is EMPTY after the re-head — the card was destroyed, not minted." >&2; return 1; }   # return-class: internal
   grep -q '^<!-- KIT-CLASS:' "$card" \
-    && { echo "kit_rehead_card: '$card' still carries a KIT-CLASS: marker after the re-head — a live card must not." >&2; return 1; }
+    && { echo "kit_rehead_card: '$card' still carries a KIT-CLASS: marker after the re-head — a live card must not." >&2; return 1; }   # return-class: internal
   return 0
 }
 

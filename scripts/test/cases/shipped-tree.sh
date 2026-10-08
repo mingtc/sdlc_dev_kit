@@ -1659,7 +1659,7 @@ EOF2
 #                 12 lines above it (the exit a hook keeps for when the helper cannot load);
 #   bare          none of these: a refusal that bypassed kit_refuse, or an exit nobody classified.
 # A refusal is not a kind here: it is a `kit_refuse` call, which the next-action census reads.
-# BLIND SPOTS: a bare `exit` (it relays `$?`), a library's `return N`, an `exit` inside a quoted
+# BLIND SPOTS: a bare `exit` (it relays `$?`), a library's `return N` (the return census below reads it), an `exit` inside a quoted
 # string that follows `;` or `{`, and a marker that states the wrong class (a reviewer's question).
 _exit_census() {
   local root="$1" rel; shift
@@ -1810,6 +1810,166 @@ EOF3
   nu="$(printf '%s\n' "$sites" | grep -c '^usage-' || true)"; ni="$(printf '%s\n' "$sites" | grep -c '^internal ' || true)"
   nf="$(printf '%s\n' "$sites" | grep -c '^fallback ' || true)"
   finish "all $nsites nonzero exit(s) read across ${#pop[@]} shipped shell program(s) (the manifest's, less the harness, lib/refuse.sh, the vendored skills and consumers/) are classified: $nu usage, $ni declared internal, $nf kept as a hook's fallback beside a kit_refuse call, the rest of each program's refusals going through kit_refuse; the census read its planted control exactly, and breaking each of the five classification mechanisms in one real site turned it red"
+}
+
+# ── THE nonzero-RETURN CENSUS. ──────────────────────────────────────────────────
+# _return_census <root> <rel>… — one line per command-position `return` with a nonzero literal or a
+# variable status, "<kind> <rel>:<line>"; a line counts once. The kinds are the ways a return may be
+# classified (lib/refuse.sh § THE KINDS OF NONZERO RETURN):
+#   predicate / usage / internal / relay   the line carries `# return-class: <kind>`;
+#   internal-exit  the line carries `# exit-class: internal` (a load failure that returns when
+#                  sourced and exits when not);
+#   refusal        the line carries `# return-class: refusal` and a line containing `Next: ` stands
+#                  within the 25 lines above it in the same function;
+#   bare           none of these: a refusal by return that names no route, or a return nobody classified.
+# A refusal that ends the op is not a kind here: it is a `kit_refuse` call, which the next-action
+# census reads. `(` is not a lead-in (a quoted `(return 1)` in a message is not a return); `)` is
+# (a case arm).
+# BLIND SPOTS: a bare `return` (it relays `$?`), a return inside a quoted string after `;` or `{`,
+# and a marker that states the wrong class (a reviewer's question).
+_return_census() {
+  local root="$1" rel; shift
+  for rel in "$@"; do
+    [ -f "$root/$rel" ] || continue
+    awk -v rel="$rel" '
+      /^[[:space:]]*#/ { next }
+      /^[A-Za-z_][A-Za-z0-9_]*\(\)/ { lastn = 0 }
+      {
+        s = $0
+        rest = s; found = 0
+        while (match(rest, /(^|[;&|{)]|[[:space:]]then|[[:space:]]else|[[:space:]]do)[[:space:]]*return[[:space:]]+[^[:space:];&|)}]+/)) {
+          m = substr(rest, RSTART, RLENGTH); tok = m; sub(/^.*return[[:space:]]+/, "", tok)
+          if (tok ~ /^"?\$/ || (tok ~ /^[0-9]+$/ && tok != "0")) { found = 1; break }
+          rest = substr(rest, RSTART + RLENGTH)
+        }
+        if (found) {
+          kind = "bare"
+          if (match(s, /#[[:space:]]*return-class:[[:space:]]*[a-z]+/)) {
+            k = substr(s, RSTART, RLENGTH); sub(/^.*:[[:space:]]*/, "", k)
+            if (k == "predicate" || k == "usage" || k == "internal" || k == "relay") kind = k
+            else if (k == "refusal" && lastn && NR - lastn <= 25) kind = "refusal"
+          } else if (s ~ /#[[:space:]]*exit-class:[[:space:]]*internal/) kind = "internal-exit"
+          print kind " " rel ":" NR
+        }
+        if (s ~ /Next: /) lastn = NR
+      }' "$root/$rel"
+  done
+}
+
+# =============================================================================
+# CASE — EVERY NONZERO `return` A SHIPPED LIBRARY MAKES IS CLASSIFIED.
+#
+# `kit_refuse` and the exit census cover a refusal that ends the op; a library function that refuses
+# by `return N` was outside both, and the board lock's refusals were of that kind. THE POPULATION is
+# every command-position `return` with a nonzero status in the manifest's scripts/lib/ shell files.
+# Each must be a predicate, a usage return, an internal failure, a relayed status, or a refusal by
+# return that has a `Next:` line in its function (the rule is in lib/refuse.sh). PASS/FAIL: a planted
+# control with a known answer for every kind and for the non-sites, and an ablation of one real site
+# of each mechanism, which must add exactly one unclassified return. It checks that a classification
+# is DECLARED, not that it is true.
+# =============================================================================
+case_every_library_return_is_classified() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_every_library_return_is_classified: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE CONTROL.
+  local tmp; tmp="$(mktemp -d)"
+  {
+    cat <<'PLANT'
+#!/usr/bin/env bash
+# return 1 in a comment
+echo "x return 2 said"
+return 0
+f() {
+  [ -n "$a" ] || return 1   # return-class: predicate
+  return 2   # return-class: usage
+  return 3   # return-class: internal
+  return $rc   # return-class: relay
+  return 4
+  x || return 1 # exit-class: internal
+  case "$a" in *x*) return 1 ;; esac
+  case "$a" in *x*) return 1 ;; esac   # return-class: predicate
+}
+g() {
+  echo "Next: do the thing" >&2
+  return 1   # return-class: refusal
+}
+h() {
+  return 1   # return-class: refusal
+}
+k() {
+  echo "Next: x" >&2
+PLANT
+    local i=0; while [ "$i" -lt 25 ]; do echo "  # ."; i=$((i + 1)); done
+    cat <<'PLANT'
+  return 1   # return-class: refusal
+  return 1   # return-class: nonsense
+  if x; then return 5; fi   # return-class: predicate
+  echo "(return 6)"
+  return "$rc"
+}
+PLANT
+  } > "$tmp/planted.sh"
+  local got want
+  got="$(_return_census "$tmp" planted.sh)"
+  want="$(printf '%s\n' 'predicate planted.sh:6' 'usage planted.sh:7' 'internal planted.sh:8' 'relay planted.sh:9' \
+                        'bare planted.sh:10' 'internal-exit planted.sh:11' 'bare planted.sh:12' 'predicate planted.sh:13' \
+                        'refusal planted.sh:17' 'bare planted.sh:20' 'bare planted.sh:49' 'bare planted.sh:50' \
+                        'predicate planted.sh:51' 'bare planted.sh:53')"
+  rm -rf "$tmp"
+  [ "$got" = "$want" ] \
+    || cf "(instrument) the return census misread its planted control — want [$(printf '%s' "$want" | tr '\n' '|')], got [$(printf '%s' "$got" | tr '\n' '|')]; every verdict below is untrustworthy"
+
+  # ── THE POPULATION.
+  local rel pop=()
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$rel" in scripts/lib/*.sh) ;; *) continue ;; esac
+    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*sh) pop+=("$rel") ;; esac
+  done <<EOF4
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF4
+  [ "${#pop[@]}" -gt 0 ] \
+    || cf "(instrument) the manifest yielded no scripts/lib/ shell file — the path or shebang test stopped matching"
+
+  local sites nsites=0 bad nbad k
+  sites="$(_return_census "$REAL_REPO_ROOT" ${pop[@]+"${pop[@]}"})"
+  [ -n "$sites" ] && nsites="$(printf '%s\n' "$sites" | grep -c . || true)"
+  [ "$nsites" -gt 0 ] \
+    || cf "(instrument) not one nonzero return was found in the shipped libraries — the enumeration stopped matching, so 'every return is classified' is true of nothing"
+  bad="$(printf '%s\n' "$sites" | grep '^bare ' || true)"
+  if [ -n "$bad" ]; then
+    nbad="$(printf '%s\n' "$bad" | grep -c . || true)"
+    printf '%s\n' "$bad" | sed 's/^bare /        unclassified-return: /'
+    cf "$nbad nonzero return(s) in a shipped library are unclassified — refuse through kit_refuse with a Next: line, or classify the return by the rule in lib/refuse.sh: $(printf '%s' "$bad" | sed 's/^[a-z]* //' | tr '\n' ' ' | cut -c1-600)"
+  fi
+
+  # ── THE ABLATION: break each mechanism in a scratch copy of one real site; the census must report
+  #    exactly one more bare return (the Next: spoil may add more, never fewer).
+  local pick prel pline abl before after
+  for k in predicate usage internal relay internal-exit refusal refusal-next; do
+    case "$k" in refusal-next) pick="$(printf '%s\n' "$sites" | grep '^refusal ' | sed -n '1p')" ;; *) pick="$(printf '%s\n' "$sites" | grep "^$k " | sed -n '1p')" ;; esac
+    [ -n "$pick" ] || { cf "(instrument) no '$k' return in the shipped libraries to ablate — the ablation for that mechanism did not run"; continue; }
+    prel="$(printf '%s' "$pick" | awk '{print $2}')"; pline="${prel##*:}"; prel="${prel%:*}"
+    abl="$(mktemp -d)"; mkdir -p "$abl/$(dirname "$prel")"
+    before="$(_return_census "$REAL_REPO_ROOT" "$prel" | grep -c '^bare ' || true)"
+    case "$k" in
+      refusal-next)  awk '{ gsub(/Next: /, "Nxt: "); print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+      internal-exit) awk -v n="$pline" 'NR == n { sub(/exit-class:/, "exit-clas:") } { print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+      *)             awk -v n="$pline" 'NR == n { sub(/return-class:/, "return-clas:") } { print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel" ;;
+    esac
+    after="$(_return_census "$abl" "$prel" | grep -c '^bare ' || true)"
+    rm -rf "$abl"
+    if { [ "$k" = refusal-next ] && [ "$after" -lt $(( before + 1 )) ]; } || { [ "$k" != refusal-next ] && [ "$after" -ne $(( before + 1 )) ]; }; then
+      cf "(ablation) breaking the '$k' classification of $prel left $after bare return(s) in that file (was $before, want $( [ "$k" = refusal-next ] && echo "at least" || echo "exactly" ) $(( before + 1 ))) — the census does not go red when a classification is removed"
+    fi
+  done
+
+  local nr
+  nr="$(printf '%s\n' "$sites" | grep -c '^refusal ' || true)"
+  finish "all $nsites nonzero return(s) read across ${#pop[@]} shipped scripts/lib/ file(s) are classified, $nr of them refusals by return that carry a Next: line in their function; the census read its planted control exactly, and breaking each of its seven mechanisms in one real site turned it red"
 }
 
 # =============================================================================

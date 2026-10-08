@@ -51,11 +51,11 @@ kit_agent_claim() {
     old="$(git -C "$repo" rev-parse -q --verify "$ref" 2>/dev/null || true)"
     body="$( { [ -z "$old" ] || git -C "$repo" cat-file blob "$old" 2>/dev/null
                printf 'agent=%s session=%s\n' "$agent" "$session"; } | sort -u )"
-    blob="$(printf '%s\n' "$body" | git -C "$repo" hash-object -w --stdin 2>/dev/null)" || return 1
+    blob="$(printf '%s\n' "$body" | git -C "$repo" hash-object -w --stdin 2>/dev/null)" || return 1   # return-class: internal
     [ "$blob" != "$old" ] || return 0
     git -C "$repo" update-ref "$ref" "$blob" "$old" 2>/dev/null && return 0
   done
-  return 1
+  return 1   # return-class: internal
 }
 
 kit_agent_of() {

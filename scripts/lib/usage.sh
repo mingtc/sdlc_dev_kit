@@ -27,7 +27,7 @@ kit_usage() {
   local src="$1" first end
   [ -n "$src" ] && [ -f "$src" ] || {
     echo "kit_usage: called without a readable source path — the caller must pass its own \"\${BASH_SOURCE[0]}\"." >&2
-    return 1
+    return 1   # return-class: internal
   }
   # The window starts after the marker's LAST line, which cites EXTRACTION.md (a marker may
   # wrap). Falls back to the KIT-CLASS line, then to line 3.

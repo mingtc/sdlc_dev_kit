@@ -31,7 +31,7 @@ kit_lived_signals() {
   # A zero-column call is refused: empty output would read as "not started".
   if [ "$#" -lt 3 ]; then
     echo "kit_lived_signals: need <tree> <stamp_mark> <status_folder>... — got $# argument(s). Refusing to report 'not started' about a tree whose board columns were never named." >&2
-    return 1
+    return 1   # return-class: usage
   fi
   local tree="$1" mark="$2"; shift 2
   local c n line

@@ -108,7 +108,7 @@ _pr_actor_ok() {
   local a="$1" role set_
   # The script side: `<name>.sh`, not a role (contracts/progress-record.md § 5a).
   case "$a" in
-    *.sh) case "$a" in *[!A-Za-z0-9._-]*) return 1 ;; *) return 0 ;; esac ;;
+    *.sh) case "$a" in *[!A-Za-z0-9._-]*) return 1 ;; *) return 0 ;; esac ;;   # return-class: predicate
   esac
   # The role side: `<role>` or `<role>:<id>`. Split on the FIRST colon only — an issue id
   # may legally contain one.
@@ -116,16 +116,16 @@ _pr_actor_ok() {
   # The STRUCTURAL half — non-empty role, non-empty id after any colon, no whitespace — holds on
   # every tree, so it is checked first and unconditionally, even when the set is unreadable.
   case "$a" in
-    *[[:space:]]*) return 1 ;;
+    *[[:space:]]*) return 1 ;;   # return-class: predicate
   esac
   role="${a%%:*}"
-  [ -n "$role" ] || return 1
-  case "$a" in *:*) [ -n "${a#*:}" ] || return 1 ;; esac
+  [ -n "$role" ] || return 1   # return-class: predicate
+  case "$a" in *:*) [ -n "${a#*:}" ] || return 1 ;; esac   # return-class: predicate
   # The MEMBERSHIP half. Empty set = could not read = accept; see _pr_role_set's policy.
   set_="$(_pr_role_set)"
   [ -n "$set_" ] || return 0
   case "|$set_|" in *"|$role|"*) return 0 ;; esac
-  return 1
+  return 1   # return-class: predicate
 }
 
 # kit_progress <actor> <class> <description> [key=value …]

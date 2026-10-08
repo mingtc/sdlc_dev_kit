@@ -47,6 +47,21 @@
 # A check that reads the project's state (a card's column, a file, a git ref, a declared value) is a
 # REFUSAL, whatever exit status it uses; do not mark it usage or internal to avoid the helper. The
 # self-test fails any nonzero exit that is none of the three.
+#
+# THE KINDS OF NONZERO RETURN. A function in a shipped lib/ file returns nonzero as one of:
+#
+#   REFUSAL   the state forbids the act. If the op ends there, the function calls kit_refuse
+#             itself (a lock held, a worktree that holds unpublished work). Only where the
+#             caller must keep control to report what was and was not done does it `return`;
+#             that line carries `# return-class: refusal` and a `Next: ` line printed in the
+#             same function, within the 25 lines above it.
+#   PREDICATE the function answers a question or reports what it found, and its caller decides
+#             (a lookup, a membership test, a load that names what was missing): `# return-class: predicate`.
+#   USAGE     the call is malformed; the message names the signature: `# return-class: usage`.
+#   INTERNAL  a tool or I/O step failed, or the library could not load: `# return-class: internal`
+#             (or, on a load check that also exits when not sourced, `# exit-class: internal`).
+#   RELAY     the status is another classified function's own, passed on: `# return-class: relay`.
+
 
 if ! command -v kit_progress >/dev/null 2>&1; then
   if [ -r "$(dirname "${BASH_SOURCE[0]}")/progress-record.sh" ]; then
