@@ -82,6 +82,10 @@ cd "$REPO_ROOT"
 # Refusals go through the one helper: a `refusal=` record and a Next: line.
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
+# The release commit declares its hat ($ROLE) for that commit alone: the commit guard refuses a
+# commit with no declared hat.
+# shellcheck source=lib/hat-file.sh
+. "$SCRIPT_DIR/lib/hat-file.sh"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CONFIG BLOCK — everything a project declares lives between here and the END
@@ -998,9 +1002,9 @@ fi
 COMMIT_MSG="[$ROLE] release: $TAG — bump version to $NUM + annotated tag"
 if [ "$VERSION_IN_TAG_ONLY" = "true" ]; then
   COMMIT_MSG="[$ROLE] release: $TAG — annotated tag (the version lives in the tag)"
-  git commit --allow-empty -m "$COMMIT_MSG" --quiet
+  env "$KIT_HAT_ENV=$ROLE" git commit --allow-empty -m "$COMMIT_MSG" --quiet
 else
-  git commit -m "$COMMIT_MSG" --quiet
+  env "$KIT_HAT_ENV=$ROLE" git commit -m "$COMMIT_MSG" --quiet
 fi
 # THE COMMIT EXISTS: disarm. From here the recovery block below is the correct account,
 # and undoing a real commit is the operator's decision rather than a trap's.

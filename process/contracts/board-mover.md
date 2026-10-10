@@ -124,6 +124,9 @@ to change and making every change self-recording.
   move does not know which they wanted, and this is the one guess the tool must never make.
 - No actor was given, or the actor is not a declared role ⇒ refuse, listing the legal roles.
 - The target container does not exist ⇒ refuse **before** moving anything.
+- A move into the hand-off state (`dev_complete`) of a card whose `forks:` field the landing's own check
+  would refuse ⇒ refuse with that check's refusal, from the same reader, before moving anything. The
+  author meets the rule at hand-off, not the reviewer at the landing; the landing keeps its check.
 - A move of a decomposed item into the reviewed state or the completed store while any of its children
   is neither reviewed nor declined ⇒ refuse, naming each such child. (Declining the item itself claims no
   completion and is not refused.) A child that will not be done is closed by declining it, with its reason.

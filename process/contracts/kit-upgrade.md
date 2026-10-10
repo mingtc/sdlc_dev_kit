@@ -8,6 +8,15 @@ made its own**, and without the upgrade's unfinished part living only in somebod
 
 ## 2. HARD INVARIANTS
 
+- **The upgrade runs when the release is held; a deferral is recorded, never asked in the reply.**
+  With no leg mid-card, run it when you hold the release and apply its Action required items before
+  starting new work. With a leg mid-card, do not change the scripts under it: record the deferral
+  now as a one-line work item naming what it waits on, and run the upgrade when the board is next
+  quiet; where no session is reading, file it through `scripts/ask.sh` with that as the working
+  default. A principal's "eventually" does not override this; it permits a deferral only by those
+  routes. A question put in the session's reply never stands in for the record.
+  *Why:* a deferral nobody can find is a deferral nobody ends. A recorded item or a filed question
+  is read by the next session; a reply, when nobody is watching, is read by no one.
 - **A file the project changed is never overwritten.** The merge base is the project's own record of
   every kit file as its release shipped it; a file whose bytes differ from that record is left alone
   and its new version staged beside the tree for a person to merge.

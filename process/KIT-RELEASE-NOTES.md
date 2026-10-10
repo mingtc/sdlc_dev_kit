@@ -45,11 +45,10 @@ kit sends you the next zip; if nobody gave it to you, nobody will, and checking 
 schedule. Write down which — and, if it is yours, on what trigger — in
 [`PROJECT.md`](../PROJECT.md) § The kit, upstream.
 
-**When.** With nothing in flight, run it as soon as you hold the release, and apply its **Action
-required** items before starting new work: those are the ones that can break you. With a leg
-mid-card, do not change the scripts under it: record the deferral now as a one-line work item
-([`doctrine/subagent-control.md`](doctrine/subagent-control.md) § A.10), and run the upgrade when the
-board is next quiet. From its first run, the committed checklist carries whatever is still undone,
+**When.** [`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) § 2 rules it: run it when you hold
+the release unless a leg is mid-card, and record a deferral as a work item
+([`doctrine/subagent-control.md`](doctrine/subagent-control.md) § A.10) or file it through
+`scripts/ask.sh`. From its first run, the committed checklist carries whatever is still undone,
 and `check-board.sh` reports it until the upgrade is finished.
 
 Once you hold a newer release, **run the NEW release's copy, from outside your tree.** A tree older
@@ -439,6 +438,27 @@ columns and never the cards.*
   others not at all. **Before your next landing, check any in-flight card whose `forks:` relied on
   one of these forms being invisible** — it will now be read, and may now refuse.
 
+- **A commit is now refused while no hat is declared.** `scripts/githooks/pre-commit` reads the hat file
+  (`.kit/session-role`, one line `<Role> <scope>`) and refuses a commit when it is absent from the checkout and from
+  the repository's main checkout, with a `Next:` line naming the file and its form. The editor-tool gate never saw a
+  change made by `sed -i`, a redirect or a script; every such change must pass a commit. Write the file before your
+  first change in a session (the operator waiver form works too). Commits made in `.kanban-wt/` (the board scripts) need
+  no file, and `kit-init.sh` and `release.sh` declare their role for their own commits. **A script of yours that runs
+  `git commit` in your checkout needs the same:** `. scripts/lib/hat-file.sh`, then `env "$KIT_HAT_ENV=<Role>" git commit …`
+  (nothing is left behind). The upgrade replaces the hook, the lib, `kit-init.sh` and `release.sh` where you never changed
+  them; merge the rest. `MSG_OK=1` still bypasses the hook, as for its other guards.
+
+  Verify: [ -f scripts/lib/hat-file.sh ] && grep -q KIT_HAT_ENV scripts/lib/hat-file.sh && grep -q hat-file scripts/githooks/pre-commit
+
+- **`move-issue.sh <id> dev_complete` now runs the `forks:` check the landing runs, and refuses with its `Next:` line.** A card
+  whose `forks:` is missing, malformed, names an id that is not live, or contradicts what its branch tip shows (a register
+  entry the diff touches, or a `[decision: D-NN]` citation on the card) stays in `in_progress/` until `forks:` is fixed; the
+  landing keeps the same check. A card whose `branch:` resolves to no local or remote branch is read against the trunk twice
+  and the move says so. **Before handing off an in-flight card, check its `forks:`.** A `move-issue.sh` you changed needs the
+  call to `kit_forks_check` merged in (`scripts/lib/qa-gate.sh`).
+
+  Verify: grep -q kit_forks_check scripts/move-issue.sh
+
 ### Added
 
 - **`check-board.sh` arm `[c]` reports a `progress.md` that trails the last code commit.** It counts commits after the last one
@@ -474,6 +494,16 @@ columns and never the cards.*
   form with real digits fails there instead of in an adopter's day-one self-check. No action needed.
 
 ### Changed
+
+- **The session-start step now says to write the hat file, not only to say the hat.** The adapter template's step 4 and
+  `process/MANUAL.md` § Session start name `.kit/session-role` and its form before any change by any tool, whether or not
+  the `require-role` hook is wired. An adapter you already have keeps its older wording: copy the step across if you want
+  it. No action.
+
+- **The upgrade timing rule has one home: `process/contracts/kit-upgrade.md` § 2.** Run the upgrade when you hold the release
+  unless a leg is mid-card; otherwise record the deferral as a work item, or file it through `scripts/ask.sh` when unattended,
+  never a question in the reply. A principal's "eventually" does not override it. The adapter template's upgrade row,
+  `PROJECT.md` § The kit, upstream and this file's § How to upgrade cite it. No action.
 
 - **Refusal messages now carry a `Next:` line.** Every refusal made through `kit_refuse` (the landing checks, `ask.sh`,
   `set-models.sh`, `kit-upgrade.sh`, the commit hooks) names the step that clears it, or the escalation when none lies

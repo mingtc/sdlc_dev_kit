@@ -41,8 +41,11 @@ quality bar, the gates, credentials, the active-roles table) live in
 1. Read [`PROJECT.md`](PROJECT.md).
 2. Check the board: `<the command that lists the status folders>` — the folder IS the status.
 3. Run the drift report: `<your check-board command>`.
-4. **Pick a hat** and say which one. The role doc in `.claude/roles/` is your workflow.
-   *(Rule: [`process/contracts/role-gate.md`](process/contracts/role-gate.md).)*
+4. **Pick a hat, declare it, then say which one — before you change anything, by any tool**
+   (an editor, a shell command, a commit): write `.kit/session-role`, one line `<Role> <scope>`
+   (create `.kit/` if absent). A commit is refused without it. The role doc in `.claude/roles/` is
+   your workflow. *(Form and the operator waiver: [`process/MANUAL.md`](process/MANUAL.md) § Session
+   start. Rule: [`process/contracts/role-gate.md`](process/contracts/role-gate.md).)*
 5. Read `process/LOCAL-PROCEDURES.md` — **this project's resolved kit contradictions, as law.**
    Minted at SEED step 8; short by design. Reading it is what stops the next worker paying again
    for a question already answered — and when you resolve a new one, **you append to it in the
@@ -271,7 +274,7 @@ multiple issues in one feature area>**, and the current example of it is **<name
 | Git hosting — local-only, a bare remote, or a forge | [`process/GIT-HOSTING.md`](process/GIT-HOSTING.md) |
 | Extracting this kit into another repo | [`process/EXTRACTION.md`](process/EXTRACTION.md) |
 | Starting a project from nothing | [`process/SEED.md`](process/SEED.md) |
-| Taking a newer kit, and when | [`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How to upgrade an adopted project |
+| Taking a newer kit, and when | **Run it when you hold the release, unless a leg is mid-card; then record the deferral as a work item, or `./scripts/ask.sh` when unattended — never a question in your reply** ([`process/contracts/kit-upgrade.md`](process/contracts/kit-upgrade.md) § 2). How: [`process/KIT-RELEASE-NOTES.md`](process/KIT-RELEASE-NOTES.md) § How to upgrade an adopted project |
 
 <!-- FILL-IN CHECKLIST — the last thing you do to this file, and then you delete THIS BLOCK too.
 

@@ -6,6 +6,9 @@
 # metadata (none matches CODE_GLOBS) is refused on any branch OTHER THAN the trunk, naming
 # scripts/register-commit.sh as the route.
 #
+# It also refuses ANY commit while no hat is declared (process/contracts/role-gate.md § 2), whatever
+# the paths; the HAT GATE block below says what counts as declared and what is exempt.
+#
 # CODE_GLOBS UNDECLARED (the shipped, empty state) MEANS UNENFORCED, NOT "NO CODE EXISTS": this
 # hook is a no-op until the adapter fills it in, the same convention verify.sh's GUARD_ENUM=""
 # and GATES=() already use. Reading empty as "everything is metadata" would refuse ordinary
@@ -41,6 +44,61 @@ esac
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$ROOT" ] || exit 0   # not inside a work tree at all (defensive; git would already refuse)
+
+# ── THE HAT GATE: a commit needs a declared hat (process/contracts/role-gate.md § 2). The editor-tool
+# gate does not see a mutation made through a shell, and every such mutation must pass a commit to
+# count, so the commit refuses when no hat is declared. Declared means one of:
+#   • the hat file exists in this checkout or in the repository's main checkout (existence only —
+#     the same test the editor-tool gate makes; the operator waiver is a line in it);
+#   • the committing script set the variable lib/hat-file.sh names, for this one commit.
+# Exempt by one rule: a commit in the standing kanban worktree (`.kanban-wt`, detached, linked). It
+# is no session's checkout and holds no hat file; every board script that commits there names a role,
+# checked against the declared role set, in the subject the commit-msg hook holds.
+# Not seen: a change left uncommitted, and a commit made under MSG_OK (the escape above).
+_hat_exempt=0
+case "$ROOT" in
+  */.kanban-wt)
+    if ! git symbolic-ref -q HEAD >/dev/null 2>&1 \
+       && [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
+      _hat_exempt=1
+    fi ;;
+esac
+if [ "$_hat_exempt" -eq 0 ]; then
+  KIT_HAT_FILE_REL=""; KIT_HAT_ENV=""
+  # shellcheck source=../lib/hat-file.sh
+  if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/hat-file.sh" ]; then
+    . "$HOOK_DIR/../lib/hat-file.sh" 2>/dev/null || true
+  fi
+  hm1=""; hm2=""; hm4=""; hm5=""
+  if [ -z "$KIT_HAT_FILE_REL" ] || [ -z "$KIT_HAT_ENV" ]; then
+    # Without the lib the hat file's path is unknown, and a gate that allows on doubt reads as armed.
+    hm1="✗ pre-commit guard: scripts/lib/hat-file.sh is unreadable, so the hat file's path is unknown — refusing the commit."
+    hm4="Next: restore it with  git checkout -- scripts/lib/hat-file.sh  (or from the release zip), then commit again."
+  else
+    _hat_main=""
+    _hat_common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+    if [ -n "$_hat_common" ] && [ "$(basename "$_hat_common")" = ".git" ]; then
+      _hat_main="$(cd "$_hat_common/.." 2>/dev/null && pwd -P || true)"
+    fi
+    if [ ! -e "$ROOT/$KIT_HAT_FILE_REL" ] \
+       && { [ -z "$_hat_main" ] || [ ! -e "$_hat_main/$KIT_HAT_FILE_REL" ]; } \
+       && [ -z "${!KIT_HAT_ENV:-}" ]; then
+      hm1="✗ pre-commit guard: no hat is declared ($KIT_HAT_FILE_REL does not exist) — refusing a commit that changes the repository with no role behind it."
+      hm2="  process/contracts/role-gate.md § 2: changing the repository needs a hat, through any tool; a shell command or a script is not exempt."
+      hm4="Next: declare your hat, then commit again. Write $KIT_HAT_FILE_REL (create .kit/ if absent) with a single line:  <Role> <scope>"
+      hm5="      e.g.  Dev <PREFIX>-001
+    or — ONLY when the operator explicitly waived the hat —  none — operator override: <reason>
+  A hat file is session state and is never committed. Read-only work needs no hat."
+    fi
+  fi
+  if [ -n "$hm1" ]; then
+    if command -v kit_refuse >/dev/null 2>&1; then
+      kit_refuse 1 pre-commit-hat-missing "$hm1" "$hm2" "" "$hm4" "$hm5"
+    fi
+    printf '%s\n' "$hm1" "$hm2" "" "$hm4" "$hm5" >&2
+    exit 1   # exit-class: fallback
+  fi
+fi
 
 # DETACHED HEAD → never refused (see WHY above): the kanban worktree's permanent state, and any
 # checkout deliberately given up per process/MANUAL.md § The code-vs-metadata rule.

@@ -241,6 +241,35 @@ EOF
   # Activate the role-prefix hook in the sandbox (this also applies to .kanban-wt,
   # which shares this repo's config).
   git -C "$SB_WORK" config core.hooksPath "$SB_WORK/scripts/githooks" >/dev/null 2>&1
+
+  # A session that has declared its hat: the commit guard refuses a commit with none, and the
+  # sandbox models a working session. Ignored as the shipped .gitignore ignores it, so
+  # publish_sandbox's `git add -A` cannot commit it. A case about the missing hat, or about a
+  # fresh day-one tree (kit_init_sandbox), calls sandbox_hat_clear.
+  local hat_rel; hat_rel="$(_sandbox_hat_file)"
+  printf '%s\n' "$hat_rel" >> "$SB_WORK/.git/info/exclude"
+  sandbox_hat_declare
+}
+
+# sandbox_hat_declare / sandbox_hat_clear — the session's hat file in the sandbox, at the path the
+# sandbox's own scripts/lib/hat-file.sh declares. A path it cannot read is a fixture failure: every
+# commit below would be refused for a reason that is not the subject's.
+sandbox_hat_declare() {
+  local rel; rel="$(_sandbox_hat_file)"
+  [ -n "$rel" ] || _fixture_die "sandbox_hat_declare: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL on its own line."
+  mkdir -p "$SB_WORK/$(dirname "$rel")"
+  printf 'Dev sandbox\n' > "$SB_WORK/$rel"
+}
+sandbox_hat_clear() {
+  local rel; rel="$(_sandbox_hat_file)"
+  [ -n "$rel" ] || _fixture_die "sandbox_hat_clear: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL on its own line."
+  rm -f "$SB_WORK/$rel"
+}
+
+# _sandbox_hat_file — the hat file's path (relative to the sandbox root) as the sandbox's own
+# scripts/lib/hat-file.sh declares it, or empty if that line cannot be read.
+_sandbox_hat_file() {
+  sed -n 's/^KIT_HAT_FILE_REL="\(.*\)"$/\1/p' "$SB_WORK/scripts/lib/hat-file.sh" 2>/dev/null
 }
 
 # =============================================================================

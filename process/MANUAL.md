@@ -67,8 +67,12 @@ selection-neutrality — are the whole of what an adopter owes.
    because a refusal you do not see is a refusal you re-argue. Run
    **`./scripts/check-board.sh`** for a drift report.
 3. **Pick a hat.** Say which role you are wearing (see § Roles as hats). The role doc in
-   `.claude/roles/` is your workflow. If the `require-role` hook is active (see
-   `.claude/settings.json.example`), declare it by writing `.kit/session-role` first (create `.kit/` if absent; the path is outside `.claude/` because the harness refuses a session's write there in every mode but bypass).
+   `.claude/roles/` is your workflow. **Declare it before you change anything, by any tool** — an
+   editor, a shell command, a commit — by writing `.kit/session-role` (create `.kit/` if absent; the
+   path is outside `.claude/` because the harness refuses a session's write there in every mode but
+   bypass). The declaration is made whether or not any hook is wired; the `require-role` hook (see
+   `.claude/settings.json.example`) refuses an editor-tool change without it, and the pre-commit
+   guard refuses a commit without it.
 
 > **What goes in `.kit/session-role`.** **One line:** `<Role> <scope>` — e.g.
 > `Dev <PREFIX>-001`; or, **only** when the operator has explicitly waived the hat,
@@ -77,7 +81,7 @@ selection-neutrality — are the whole of what an adopter owes.
 > the next reader (and you, an hour later) which hat is on. The `session-start` hook **deletes
 > the file at every session start**, so each session re-confirms its hat rather than inheriting
 > the last one's. The path is one value, `KIT_HAT_FILE_REL` in `scripts/lib/hat-file.sh`, that both
-> hooks and the initializer read, so a guard can derive it instead of re-hardcoding it.
+> hooks, the commit guard and the initializer read, so a guard can derive it instead of re-hardcoding it.
 
 > First-time setup on a fresh clone: run the project's **bootstrap command** — the project doc
 > names it (typically one script that creates the environment, installs the project, runs the
@@ -193,9 +197,9 @@ version control by the initializer, not left for each actor to discover
    site for the *when*, the register for the *which*.** Without a boundary the clause is an unbounded
    escape — every decision has *some* home it could be argued into, and a home argued into after the
    fact is the one nobody thinks to read.
-   **Checked mechanically at landing, not only by judgement:** every card's `forks:` frontmatter
-   states which `D-NN` (if any) this card resolved, and `finish-pr.sh` refuses a landing where it is
-   absent, malformed, names an id that is not a live register entry, or where the branch itself shows
+   **Checked mechanically at hand-off and at landing, not only by judgement:** every card's `forks:` frontmatter
+   states which `D-NN` (if any) this card resolved, and `move-issue.sh … dev_complete` and `finish-pr.sh`
+   (the same check) refuse where it is absent, malformed, names an id that is not a live register entry, or where the branch itself shows
    a fork — a register entry its own diff adds or changes, or a `[decision: D-NN]` citation anywhere
    on the card — that `forks:` does not name. `forks:` names every fork the card **resolved**, not merely cited.
    A register entry the branch adds must also be cited by a PRD or marked `[cross-cutting]`, or the landing's

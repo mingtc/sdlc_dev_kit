@@ -386,9 +386,13 @@ elif ! command -v kit_lived_signals >/dev/null 2>&1; then
 fi
 
 # shellcheck source=lib/hat-file.sh
-if [ ! -f "$SCRIPT_DIR/lib/hat-file.sh" ] || ! . "$SCRIPT_DIR/lib/hat-file.sh" || [ -z "${KIT_HAT_FILE_REL:-}" ]; then
-  pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL — kit-init ignores the hat file's path from that file and will not guess it. Restore it:  git checkout -- scripts/lib/hat-file.sh"
+if [ ! -f "$SCRIPT_DIR/lib/hat-file.sh" ] || ! . "$SCRIPT_DIR/lib/hat-file.sh" || [ -z "${KIT_HAT_FILE_REL:-}" ] || [ -z "${KIT_HAT_ENV:-}" ]; then
+  pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL or KIT_HAT_ENV — kit-init ignores the hat file's path, and declares its commits' hat, from that file and will not guess either. Restore it:  git checkout -- scripts/lib/hat-file.sh"
 fi
+
+# Every commit kit-init makes wears the pre-role hat (SELF_ROLE), declared for that commit alone:
+# the commit guard refuses a commit with no declared hat, and no session has declared one yet.
+ki_commit() { env "$KIT_HAT_ENV=$SELF_ROLE" git -C "$ROOT" commit "$@"; }
 
 # An existing progress.md keeps its content, so it must already carry § Log's heading (declared in
 # lib/lived-probe.sh). Checked here, not in step 3: by then the seams are stamped.
@@ -1065,7 +1069,7 @@ if git -C "$ROOT" diff --cached --quiet; then
   say "  nothing to commit (tree already matches)"
 else
   git -C "$ROOT" diff --cached --name-only | sed 's/^/    /'
-  git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init: initialize the kit — prefix $PREFIX, trunk $TRUNK"
+  ki_commit -q -m "[$SELF_ROLE] kit-init: initialize the kit — prefix $PREFIX, trunk $TRUNK"
   # THROUGH THE RETRY HELPER, here and at the self-check pushes below: a bare push that loses
   # a race leaves the commit local. Its rebase-on-rejection is safe because the preflight
   # guarantees this checkout is ON the trunk.
@@ -1111,7 +1115,7 @@ if [ "$MINT_RC" -eq 0 ] && [ -f "$ROOT/progress/todo/$SCRATCH_FILE" ]; then
     sc_bad "frontmatter id is '$(grep -m1 '^id:' "$ROOT/progress/todo/$SCRATCH_FILE" || echo '<none>')', expected 'id: ${SCRATCH_ID}'"
   fi
   git -C "$ROOT" add "progress/todo/$SCRATCH_FILE"
-  git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init self-check: mint scratch card $SCRATCH_ID"
+  ki_commit -q -m "[$SELF_ROLE] kit-init self-check: mint scratch card $SCRATCH_ID"
   git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
 else
   sc_bad "could not mint $SCRATCH_ID via scripts/new-issue.sh (exit $MINT_RC):"
@@ -1218,7 +1222,7 @@ fi
 # `|| _ki_hook_rc=$?`, NOT `; _ki_hook_rc=$?`: under `set -e` the rejection (rc=1, the
 # healthy outcome) would kill the run at the assignment.
 _ki_hook_rc=0
-_ki_hook_out="$(git -C "$ROOT" commit --allow-empty -q -m "kit-init self-check: this subject has no role tag" 2>&1)" || _ki_hook_rc=$?
+_ki_hook_out="$(ki_commit --allow-empty -q -m "kit-init self-check: this subject has no role tag" 2>&1)" || _ki_hook_rc=$?
 if [ "$_ki_hook_rc" -eq 0 ]; then
   case "$_ki_hook_out" in
     *"not set as executable"*|*"hook was ignored"*)
@@ -1229,7 +1233,7 @@ if [ "$_ki_hook_rc" -eq 0 ]; then
   git -C "$ROOT" reset -q --hard HEAD~1
 else
   sc_ok "commit-msg hook REJECTED a prefix-less subject (core.hooksPath is live)"
-  if git -C "$ROOT" commit --allow-empty -q -m "[$SELF_ROLE] kit-init self-check: commit-msg hook accepts a role-tagged subject"; then
+  if ki_commit --allow-empty -q -m "[$SELF_ROLE] kit-init self-check: commit-msg hook accepts a role-tagged subject"; then
     sc_ok "…and ACCEPTED '[$SELF_ROLE] …'"
     git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
   else
@@ -1308,7 +1312,7 @@ say "  ℹ ${PROV} provenance citation(s) of the shape ${OLD_PREFIX}-<digits> re
 LEFTOVER="$(find "$ROOT/progress" -type f -name "${SCRATCH_ID}-*.md" 2>/dev/null | head -1)"
 if [ -n "$LEFTOVER" ]; then
   git -C "$ROOT" rm -q "$LEFTOVER"
-  git -C "$ROOT" commit -q -m "[$SELF_ROLE] kit-init self-check: remove the scratch card — the board is yours, empty"
+  ki_commit -q -m "[$SELF_ROLE] kit-init self-check: remove the scratch card — the board is yours, empty"
   git_push_with_retry "$ROOT" "$REMOTE" "$TRUNK"
   sc_ok "scratch card removed — the board is empty (its life stays in the trunk history)"
 fi
@@ -1331,6 +1335,8 @@ if [ "$SC_FAIL" -eq 0 ]; then
   say "                                                    # so next-id.sh correctly refuses"
   say "      ./scripts/new-issue.sh <slug> --id \"\$(./scripts/next-id.sh)\"   # every mint AFTER the first"
   say ""
+  say "  Declare your hat before you commit anything: write $KIT_HAT_FILE_REL, one line  <Role> <scope>"
+  say "  (a commit is refused without it — process/contracts/role-gate.md)."
   say "  Then commit and PUSH the new card before moving it — ./scripts/move-issue.sh"
   say "  reads the trunk's board, not your checkout (new-issue.sh prints the exact commands)."
   exit 0

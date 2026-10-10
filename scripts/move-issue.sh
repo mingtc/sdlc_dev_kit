@@ -39,6 +39,8 @@
 #   (declined/ is for a card that was considered and REFUSED. Like blocked/, it
 #    requires --note: the reason is the entire reason to keep the card. It is not
 #    swept — its value is being browsable.)
+#   (dev_complete/ refuses a card whose `forks:` field the landing's own check would refuse, so
+#    the author meets it at hand-off; the card's `branch:` tip is read when it resolves.)
 #   (qa_complete/ and done/ refuse a PARENT while any card under progress/subtasks/<ID>/
 #    is outside qa_complete/ and declined/: a parent advances only when every subtask is reviewed
 #    or declined.)
@@ -112,6 +114,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Refusals go through the one helper: a `refusal=` record and a Next: line.
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
+
+# The `forks:` check a move to dev_complete runs: lib/qa-gate.sh's kit_forks_check, the one reader
+# finish-pr.sh also calls at the landing.
+# shellcheck source=lib/decision-register.sh
+. "$SCRIPT_DIR/lib/decision-register.sh"
+# shellcheck source=lib/qa-gate.sh
+. "$SCRIPT_DIR/lib/qa-gate.sh"
 
 # THE ROLE SET IN THE HEADER IS A TOKEN, expanded at print time from the hook through
 # scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4), so there is no literal copy for
@@ -409,6 +418,28 @@ else
   [ -d "$DEST_DIR" ] || kit_refuse 1 target-folder-missing \
     "Error: progress/$TARGET/ does not exist in the worktree." \
     "Next: restore the column on the trunk — add progress/$TARGET/.gitkeep, commit and push it — then re-run."
+
+  # THE forks: CHECK AT HAND-OFF. The seat that can fix a missing fork cheaply is Dev, here, not QA at
+  # the landing. It is the landing's own check (lib/qa-gate.sh kit_forks_check, no copy), read
+  # against the same two revisions the landing reads: the trunk as just synced (the old side) and
+  # the card's `branch:` tip (the new side), local ref first, then the remote's. The card is read
+  # from the trunk, where it sits in in_progress/. A card whose branch resolves to neither is read
+  # against the trunk twice, so the field and the citations on the card are checked and a fork
+  # only the branch's diff would show is not; the landing's check still reads it.
+  if [ "$TARGET" = "dev_complete" ]; then
+    _mv_branch="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^branch:/{sub(/^branch:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$SRC")"
+    _mv_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
+    _mv_new_rev="$_mv_trunk"
+    if [ -n "$_mv_branch" ] && git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/${_mv_branch}" >/dev/null 2>&1; then
+      _mv_new_rev="refs/heads/${_mv_branch}"
+    elif [ -n "$_mv_branch" ] && git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_REMOTE}/${_mv_branch}" >/dev/null 2>&1; then
+      _mv_new_rev="${KWT_REMOTE}/${_mv_branch}"
+    else
+      echo "Note: ${ISSUE_ID}'s branch ('${_mv_branch:-none declared}') is not a local or ${KWT_REMOTE} ref, so the forks: check" >&2
+      echo "      read no branch diff: a fork only the branch shows is not derived here (the landing derives it)." >&2
+    fi
+    kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk" "$_mv_new_rev" "$SCRIPT_DIR/check-board.sh"
+  fi
 
   # PLACEHOLDER LINT AT THE DEV_COMPLETE BOUNDARY: unfilled `<angle-bracket>` text travels into
   # squash subjects and the archive index. WARNS, never refuses: an angle bracket is also legal

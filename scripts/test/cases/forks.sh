@@ -306,6 +306,86 @@ EOF
   teardown
 }
 
+# =============================================================================
+# CASE — THE MOVE TO dev_complete RUNS THE LANDING'S forks: CHECK, so Dev meets the refusal at
+# hand-off, not QA at the landing. Built in the real order: the card sits in in_progress/ on the
+# trunk, the branch is cut from the trunk with the code, and only then does Dev move the card.
+#   (a) a card citing '[decision: D-01]' that says 'forks: none' is refused, naming D-01 with a
+#       Next: line and a refusal=forks-contradicted record, and stays in in_progress/ on the
+#       trunk; with 'forks: [D-01]' the same move lands the card in dev_complete/;
+#   (b) a branch whose diff adds D-02 under 'forks: none' is refused naming D-02 (the branch's
+#       own diff is read, not only the card), and moves once 'forks:' names it;
+#   (c) CONTROL: a card with no branch of its own and 'forks: none' still moves, and the move
+#       says the branch diff was not read.
+# RED FIRST: every refusal row fails on a move-issue.sh that does not run kit_forks_check.
+# =============================================================================
+case_move_issue_dev_complete_runs_the_forks_check() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local ida="$SB_PREFIX-831" idb="$SB_PREFIX-832" idc="$SB_PREFIX-833" out rc
+
+  seed_issue in_progress "$ida" cites chore "Cites a decision, says forks none" "feature/$ida-work"
+  printf '%s\n' '- 2026-01-02 [Dev] Resolved per the existing ruling. [decision: D-01]' \
+    >> "$SB_WORK/progress/in_progress/$ida-cites.md"
+  seed_issue in_progress "$idb" newreg chore "Adds a register entry, says forks none" "feature/$idb-work"
+  seed_issue in_progress "$idc" nobranch chore "No branch of its own, says forks none"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE831.txt
+  git -C "$SB_WORK" checkout -q -b "feature/$idb-work" "$SB_TRUNK" >/dev/null 2>&1
+  cat >> "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
+
+### D-02
+
+**Ruling.** A brand new fork, resolved on this branch.
+EOF
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[Dev] $idb: add D-02" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q -u origin "feature/$idb-work" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+
+  # (a) the citation contradicts 'forks: none'.
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/move-issue.sh "$ida" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) 'forks: none' on a card citing [decision: D-01] moved to dev_complete (exit 0)"
+  case "$out" in *D-01*) : ;; *) cf "(a) the refusal does not name D-01: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  case "$out" in *"Next:"*) : ;; *) cf "(a) the refusal carries no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  origin_has_path "progress/dev_complete/$ida-cites.md" && cf "(a) the card reached dev_complete/ despite the refusal"
+  origin_has_path "progress/in_progress/$ida-cites.md" || cf "(a) the card is no longer in in_progress/ on the trunk"
+  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+  sed -i.bak 's/^forks: none$/forks: [D-01]/' "$SB_WORK/progress/in_progress/$ida-cites.md"
+  rm -f "$SB_WORK/progress/in_progress/$ida-cites.md.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[Dev] $ida: name the fork" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ida" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) with 'forks: [D-01]' the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$ida-cites.md" || cf "(a) with 'forks: [D-01]' the card did not reach dev_complete/"
+
+  # (b) the branch's own diff adds D-02.
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idb" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a branch adding D-02 under 'forks: none' moved to dev_complete (exit 0)"
+  case "$out" in *D-02*) : ;; *) cf "(b) the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  origin_has_path "progress/dev_complete/$idb-newreg.md" && cf "(b) the card reached dev_complete/ despite the refusal"
+  sed -i.bak 's/^forks: none$/forks: [D-02]/' "$SB_WORK/progress/in_progress/$idb-newreg.md"
+  rm -f "$SB_WORK/progress/in_progress/$idb-newreg.md.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[Dev] $idb: name the fork" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idb" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) with 'forks: [D-02]' the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$idb-newreg.md" || cf "(b) with 'forks: [D-02]' the card did not reach dev_complete/"
+
+  # (c) control: no branch of its own.
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idc" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a card with no branch and 'forks: none' did not move (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"read no branch diff"*) : ;; *) cf "(c) the move does not say the branch diff was not read: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/dev_complete/$idc-nobranch.md" || cf "(c) the card did not reach dev_complete/"
+
+  finish "move-issue.sh to dev_complete runs the landing's forks: check: a card citing [decision: D-01] under 'forks: none' and a branch adding D-02 under 'forks: none' are refused with a Next: line and a refusal=forks-contradicted record, stay in in_progress/, and move once 'forks:' names the id; a card with no branch still moves and says the diff was not read"
+  teardown
+}
+
 # _forks_refix_qa_pointer <file> <repo-relative-path> — seed_issue's QA Verdict AC1 row points at
 # the file's SEED-TIME path and line. A case that moves the file (move-issue.sh, git mv) and then
 # edits the AC1 bullet must re-point the row at the file's OWN current path and the bullet's new

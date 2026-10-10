@@ -124,6 +124,40 @@ $(printf '%s' "$rewritten" | sed 's/^/      /')"
 }
 
 # =============================================================================
+# kit-init's OWN COMMITS DECLARE THE PRE-ROLE HAT. A day-one tree has no session hat and the
+# commit guard refuses a commit with none, so the initializer declares its hat (the pre-role hat
+# the subject names) for each commit it makes: the initialization commit and the self-check's.
+# The sandbox is a day-one tree (kit_init_sandbox clears the hat); a raw commit afterwards is the
+# control that the tree really had none, so the initializer's success is not an artefact.
+# RED FIRST: with the declaration removed from kit-init.sh, its first commit is refused.
+# =============================================================================
+case_kit_init_commits_under_the_pre_role_hat() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: its own commits declare the pre-role hat" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: its own commits declare the pre-role hat" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local rel; rel="$(_sandbox_hat_file)"
+  [ -n "$rel" ] && [ ! -e "$SB_WORK/$rel" ] \
+    || _fixture_die "case_kit_init_commits_under_the_pre_role_hat: the day-one sandbox holds a hat file (or none could be named), so kit-init's success below would prove nothing."
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "kit-init with no hat file declared exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_log_has_subject 'kit-init: initialize the kit' || cf "the initialization commit is not on the trunk"
+  origin_log_has_subject 'kit-init self-check: mint scratch card' || cf "the self-check's mint commit is not on the trunk"
+  [ ! -e "$SB_WORK/$rel" ] || cf "kit-init left a hat file declared for the session"
+
+  # (control) the tree really had no hat: a raw commit is refused now.
+  printf 'x\n' > "$SB_WORK/after-init.txt"; git -C "$SB_WORK" add after-init.txt
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[PM] after init" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) a raw commit after kit-init with no hat was ACCEPTED, so the success above was not a declaration's work"
+
+  finish "kit-init: its initialization and self-check commits declare the pre-role hat, so a day-one tree with no session hat initializes; a raw commit there is refused"
+  teardown
+}
+
+# =============================================================================
 # A MINTED CARD IS UNMARKED, AND ITS FILL INSTRUCTION SURVIVES THE STRIP
 # =============================================================================
 # A minted card's class is PROJECT, so it loses the template's KIT-CLASS marker
@@ -420,6 +454,8 @@ kit_init_sandbox() {   # [work_subdir] — passed to make_sandbox
   # copies: the neutralizer walks all of .claude/, so a call between them leaves the role docs
   # stamped.
   _kit_neutral_claude
+  # A day-one tree has no session hat: kit-init's own commits must declare theirs.
+  sandbox_hat_clear
 }
 
 # =============================================================================
@@ -453,6 +489,7 @@ case_hat_file_lives_outside_the_harness_directory() {
   [ -z "$extra" ] || cf "a second literal of the hat file's path is in shipped code: $lits"
 
   make_sandbox
+  sandbox_hat_clear
   local hook="$SB_WORK/scripts/hooks/require-role.sh" ss="$SB_WORK/scripts/hooks/session-start.sh" out rc payload
   payload="{\"tool_input\":{\"file_path\":\"$SB_WORK/notes.txt\"},\"cwd\":\"$SB_WORK\"}"
   # No declaration: refused, and the refusal names the new path.
@@ -2260,6 +2297,10 @@ case_first_mile() {
   out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] || cf "kit-init exited $rc: $out"
 
+  # The printed steps open with the hat: a commit is refused without one.
+  printf '%s\n' "$out" | grep -F 'Declare your hat' >/dev/null \
+    || cf "kit-init's closing steps do not say to declare a hat before the first commit: $out"
+
   # The COMPOSITION: the printed recipe names the literal first id…
   printf '%s\n' "$out" | grep -- '--id SBX-001' >/dev/null \
     || cf "the printed next-step recipe does not name the literal first id 'SBX-001': $out"
@@ -2289,6 +2330,9 @@ case_first_mile() {
     || cf "the not-found error does not name 'minted but not yet pushed?': $out"
   # No "the refusal created no worktree" assertion here: kit-init's self-check has already
   # bootstrapped .kanban-wt, so it would be a false red. case_move_issue_probe asserts it.
+
+  # The commit below is refused without a declared hat, as the printed steps (checked above) say.
+  sandbox_hat_declare
 
   # Push, then the move composes.
   git -C "$SB_WORK" add "progress/todo/SBX-001-first-mile.md" >/dev/null 2>&1

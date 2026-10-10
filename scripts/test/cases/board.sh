@@ -1480,6 +1480,143 @@ case_pre_commit_allows_code_on_a_branch() {
 }
 
 # =============================================================================
+# CASE — the pre-commit hook refuses a commit when no hat is declared. The editor-tool gate does
+# not see a mutation made through a shell, and every such mutation must pass a commit to count.
+# Built in the real order: the change is made by a shell command (`sed -i`'s effect, here an
+# append), staged, and only then committed.
+#   (a) no hat file: refused, naming the hat file's path and its form, with a Next: line and a
+#       refusal=pre-commit-hat-missing record; the commit does not happen and the change stays staged;
+#   (b) the hat file declared (the form, then the operator waiver): the same commit passes;
+#   (c) a script's per-commit declaration (the variable lib/hat-file.sh names) passes with no file;
+#   (d) the main checkout's hat file covers a linked worktree of the same repository;
+#   (e) a DETACHED HEAD in the session's own checkout is not exempt (only the kanban worktree is);
+#   (f) with lib/hat-file.sh unreadable the hook refuses, naming the restore (allow-on-doubt reads
+#       as armed); MSG_OK=1, the documented escape, still bypasses.
+# RED FIRST: every refusal row fails on a pre-commit that does not read the hat.
+# =============================================================================
+case_pre_commit_refuses_a_commit_with_no_hat() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: refuses a commit with no declared hat" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+  publish_sandbox
+  local rel env_name out rc head0
+  rel="$(_sandbox_hat_file)"
+  env_name="$(sed -n 's/^KIT_HAT_ENV="\(.*\)"$/\1/p' "$SB_WORK/scripts/lib/hat-file.sh")"
+  [ -n "$rel" ] || _fixture_die "case_pre_commit_refuses_a_commit_with_no_hat: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL on its own line."
+  if [ -z "$env_name" ]; then
+    cf "scripts/lib/hat-file.sh declares no KIT_HAT_ENV on its own line, so a script has no per-commit declaration to make and the hook has none to read"
+    env_name="KIT_HAT_ENV_UNDECLARED"   # a name nothing sets: the rows below still run and fail on what they find
+  fi
+  sandbox_hat_clear
+  [ ! -e "$SB_WORK/$rel" ] || _fixture_die "case_pre_commit_refuses_a_commit_with_no_hat: the hat file is still there after sandbox_hat_clear."
+
+  # (a) the mutation is made by the shell, then committed, with no hat.
+  printf 'a typo fixed from the shell\n' >> "$SB_WORK/ARCHIVE.md"
+  git -C "$SB_WORK" add ARCHIVE.md
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" KIT_PROGRESS_DIR="$SB_TMP/rec-a" git commit -q -m "[$SB_ROLE] fix a typo" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a commit with no hat declared was ACCEPTED"
+  case "$out" in *"$rel"*) : ;; *) cf "(a) the refusal does not name the hat file '$rel': $out" ;; esac
+  case "$out" in *"<Role> <scope>"*) : ;; *) cf "(a) the refusal does not give the file's form '<Role> <scope>': $out" ;; esac
+  case "$out" in *"Next:"*) : ;; *) cf "(a) the refusal carries no Next: line: $out" ;; esac
+  /usr/bin/grep -q 'refusal=pre-commit-hat-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=pre-commit-hat-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved although the commit was refused"
+  git -C "$SB_WORK" diff --cached --name-only | grep -F 'ARCHIVE.md' >/dev/null \
+    || cf "(a) the refusal left the change NOT staged — it should be untouched"
+
+  # (b) declared: the form, then the operator waiver (existence is what the gate reads).
+  mkdir -p "$SB_WORK/$(dirname "$rel")"; printf 'Dev SBX-001\n' > "$SB_WORK/$rel"
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] fix a typo" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the same commit with the hat file declared was refused: $out"
+  rm -f "$SB_WORK/$rel"
+  printf 'more\n' >> "$SB_WORK/ARCHIVE.md"; git -C "$SB_WORK" add ARCHIVE.md
+  printf 'none — operator override: the operator waived the hat\n' > "$SB_WORK/$rel"
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] more" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a commit under the operator waiver form was refused: $out"
+  rm -f "$SB_WORK/$rel"
+
+  # (c) a script declares its hat for one commit, with no file.
+  printf 'again\n' >> "$SB_WORK/ARCHIVE.md"; git -C "$SB_WORK" add ARCHIVE.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK "$env_name=PM" git commit -q -m "[PM] again" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a commit that sets $env_name was refused: $out"
+  [ ! -e "$SB_WORK/$rel" ] || cf "(c) the per-commit declaration left a hat file behind"
+
+  # (d) the main checkout's hat covers a linked worktree of the same repository.
+  local leg="$SB_TMP/leg"
+  if git -C "$SB_WORK" worktree add -q -b hat-leg "$leg" "$SB_TRUNK" >/dev/null 2>&1; then
+    printf 'leg\n' >> "$leg/ARCHIVE.md"; git -C "$leg" add ARCHIVE.md
+    out="$( cd "$leg" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] leg" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "(d) a linked worktree commit with no hat anywhere was ACCEPTED"
+    mkdir -p "$SB_WORK/$(dirname "$rel")"; printf 'Dev SBX-001\n' > "$SB_WORK/$rel"
+    out="$( cd "$leg" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] leg" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(d) the main checkout's hat file did not cover its linked worktree: $out"
+    rm -f "$SB_WORK/$rel"
+  else
+    _control_did_not_run "add a linked worktree to the sandbox"
+  fi
+
+  # (e) a detached HEAD in the session's own checkout is not the kanban worktree.
+  ( cd "$SB_WORK" && git checkout -q --detach HEAD )
+  printf 'detached\n' >> "$SB_WORK/ARCHIVE.md"; git -C "$SB_WORK" add ARCHIVE.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] detached" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(e) a commit from a detached HEAD in the session's own checkout, with no hat, was ACCEPTED"
+
+  # (f) the lib unreadable refuses; MSG_OK=1 still bypasses.
+  mv "$SB_WORK/scripts/lib/hat-file.sh" "$SB_TMP/hat-file.held"
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] no lib" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) with scripts/lib/hat-file.sh unreadable the commit was ACCEPTED (allow-on-doubt)"
+  case "$out" in *"git checkout -- scripts/lib/hat-file.sh"*) : ;; *) cf "(f) the lib-missing refusal names no restore: $out" ;; esac
+  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] escape" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(f) MSG_OK=1 did not bypass the guard (the documented escape): $out"
+  mv "$SB_TMP/hat-file.held" "$SB_WORK/scripts/lib/hat-file.sh"
+
+  finish "pre-commit: a commit with no declared hat is refused naming the hat file, its form and a Next: line, with a refusal=pre-commit-hat-missing record and nothing committed; the hat file (form or waiver), a script's per-commit declaration and the main checkout's hat for a linked worktree pass; a detached HEAD in the session's checkout and an unreadable lib do not; MSG_OK=1 still bypasses"
+  teardown
+}
+
+# =============================================================================
+# CASE — the board scripts' commits need no hat file: they commit in the standing kanban worktree,
+# which is no session's checkout, and each takes a --role the commit-msg hook holds to the subject.
+# Driven with NO hat declared, through the real entry points and in the real order (card on the
+# trunk, branch cut, hand-off, landing): move-issue.sh to in_progress and dev_complete,
+# register-commit.sh, and finish-pr.sh's squash. Each commit is asked of the remote.
+# RED FIRST: with the exemption removed from pre-commit, every board commit below is refused.
+# =============================================================================
+case_board_scripts_commit_with_no_hat_file() {
+  cf_reset
+  make_sandbox
+  local id="$SB_PREFIX-834" out rc
+  seed_issue todo "$id" nohat chore "Board commits with no hat file" "feature/$id-nohat"
+  publish_sandbox
+  seed_branch "$id" nohat CHANGE834.txt
+  sandbox_hat_clear
+
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" in_progress --role Dev --note "picked up" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "move-issue.sh to in_progress with no hat file exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/in_progress/$id-nohat.md" || cf "the card did not reach in_progress/ on the trunk"
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/move-issue.sh "$id" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "move-issue.sh to dev_complete with no hat file exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-nohat.md" || cf "the card did not reach dev_complete/ on the trunk"
+
+  printf 'a ruling\n' > "$SB_WORK/hat-notes.md"
+  out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record a ruling" hat-notes.md 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "register-commit.sh with no hat file exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_log_has_subject 'record a ruling' || cf "the register-commit.sh commit is not on the trunk"
+
+  out="$( cd "$SB_WORK" && env -u MSG_OK "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "finish-pr.sh with no hat file exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-nohat.md" || cf "the card did not reach qa_complete/ on the trunk"
+  origin_has_path "CHANGE834.txt" || cf "the squash commit's content is not on the trunk"
+  [ ! -e "$SB_WORK/$(_sandbox_hat_file)" ] || cf "a board script left a hat file behind"
+
+  finish "the board scripts commit with no hat file declared: move-issue.sh (in_progress, dev_complete), register-commit.sh and finish-pr.sh's squash land on the trunk, because their commits are made in the kanban worktree"
+  teardown
+}
+
+# =============================================================================
 # CASE — register-commit.sh lands a hand-made metadata edit made in a LINKED WORKTREE ON A
 # BRANCH OF ITS OWN onto the trunk, without ever committing in that worktree's checkout (a
 # harness's own linked-worktree tool defaults to a fresh branch, not the trunk ref). Without this

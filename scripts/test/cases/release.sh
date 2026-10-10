@@ -436,6 +436,30 @@ case_release_happy() {
   finish "release.sh happy path: preflight → bump every declared version file (bare + quoted) → annotated tag pushed (X.Y.Z and vX.Y.Z)"
 }
 
+# =============================================================================
+# CASE — THE RELEASE COMMIT DECLARES ITS OWN HAT. The commit guard refuses a commit with no
+# declared hat, and a cut is made by a script that names its role (RELEASE_ROLE) in the subject.
+# Driven with NO hat file declared: the cut commits, tags and pushes. RED FIRST: with the
+# declaration removed from release.sh, the release commit is refused and the bump is restored.
+# =============================================================================
+case_release_commits_under_its_own_hat() {
+  cf_reset
+  if ! has_release; then skp "release.sh commits under its own hat" "scripts/release.sh absent"; return; fi
+  make_sandbox
+  seed_release_files 1.1.0
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  sandbox_hat_clear
+  local out rc
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "release.sh 1.1.0 with no hat file declared exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(git -C "$SB_WORK" cat-file -t v1.1.0 2>/dev/null)" = "tag" ] || cf "v1.1.0 is not an annotated tag after the cut"
+  origin_log_has_subject '^\[[A-Za-z]*\] release: v1.1.0' || cf "the release commit is not on the trunk"
+  [ ! -e "$SB_WORK/$(_sandbox_hat_file)" ] || cf "release.sh left a hat file behind"
+  finish "release.sh commits the release under its own hat: a cut with no hat file declared bumps, commits, tags and pushes"
+  teardown
+}
+
 case_release_guards() {
   cf_reset
   if ! has_release; then skp "release.sh guards" "scripts/release.sh absent"; return; fi

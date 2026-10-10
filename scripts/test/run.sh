@@ -299,6 +299,7 @@ CASES=(
   case_finish_pr_forks_missing_or_malformed_refuses
   case_finish_pr_forks_unresolved_id_refuses
   case_finish_pr_forks_contradicted_by_the_branch_refuses
+  case_move_issue_dev_complete_runs_the_forks_check
   case_finish_pr_forks_correct_field_lands
   case_finish_pr_forks_derives_a_relocated_register
   case_finish_pr_forks_ac_changed_after_todo_uncited_refuses
@@ -356,6 +357,7 @@ CASES=(
   case_upstream_name_only_where_kept
   case_dev_index_names_its_subdirs
   case_kit_init_markers_intact
+  case_kit_init_commits_under_the_pre_role_hat
   case_kit_init_disposition_markers_intact
   case_archive_requires_the_retired_store
   case_archive_missing_index_lists_the_store
@@ -371,6 +373,8 @@ CASES=(
   case_pre_commit_refuses_metadata_off_trunk
   case_pre_commit_allows_metadata_on_trunk
   case_pre_commit_allows_code_on_a_branch
+  case_pre_commit_refuses_a_commit_with_no_hat
+  case_board_scripts_commit_with_no_hat_file
   case_register_commit_lands_from_a_linked_worktree
   case_push_failure
   case_trunk_fallback_warns
@@ -524,6 +528,7 @@ CASES=(
   case_release_notes_section_is_more_than_a_heading
   case_release_behind_the_remote
   case_release_honours_the_one_remote_name
+  case_release_commits_under_its_own_hat
   case_release_guards
   case_release_preflight_gates
   case_release_stub_marker
