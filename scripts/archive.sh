@@ -71,6 +71,8 @@ fi
 
 # shellcheck source=lib/role-set.sh
 . "$SCRIPT_DIR/lib/role-set.sh"
+# shellcheck source=lib/card-field.sh
+. "$SCRIPT_DIR/lib/card-field.sh"
 
 DRY_RUN=true
 # A loop, so no argument is silently discarded. The bare form stays legal and stays a preview
@@ -207,7 +209,7 @@ echo ""
 # The parent reaches done/ either by already living there OR via THIS sweep (FILES).
 SWEEP_PARENT_IDS=()
 for f in "${FILES[@]}"; do
-  SWEEP_PARENT_IDS+=("$(awk '/^id:/{print $2; exit}' "$f")")
+  SWEEP_PARENT_IDS+=("$(kit_card_field "$f" id)")
 done
 parent_reaches_done() {  # $1 = parent id
   local p="$1" s candidate
@@ -256,16 +258,15 @@ done
 # Build entries.
 ENTRIES=""
 for f in "${FILES[@]}"; do
-  ID=$(awk '/^id:/{print $2; exit}' "$f")
-  TYPE=$(awk '/^type:/{print $2; exit}' "$f")
-  # TITLE is free text (it may legitimately contain '#'), so take it verbatim after 'title: '.
-  TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$f")
-  # pr / stories template lines may carry an inline "# comment" (`pr:` is rewritten only by
-  # move-issue.sh --set-pr, which nothing shipped calls); strip it so the index isn't polluted.
-  strip_comment() { sed -E 's/[[:space:]]+#.*$//; s/[[:space:]]*$//'; }
-  PR=$(awk '/^pr:/{sub(/^pr: */, ""); print; exit}' "$f" | strip_comment)
-  PRD=$(awk '/^prd:/{print $2; exit}' "$f")
-  STORIES=$(awk '/^stories:/{sub(/^stories: */, ""); print; exit}' "$f" | strip_comment)
+  ID="$(kit_card_field "$f" id)"
+  TYPE="$(kit_card_field "$f" type)"
+  # TITLE is free text (it may legitimately contain '#'), so take it verbatim.
+  TITLE="$(kit_card_field "$f" title --raw)"
+  # pr / stories template lines may carry an inline "# comment"; kit_card_field strips it so the
+  # index isn't polluted.
+  PR="$(kit_card_field "$f" pr)"
+  PRD="$(kit_card_field "$f" prd)"
+  STORIES="$(kit_card_field "$f" stories)"
 
   # THE RETIREMENT DATE IS REQUIRED (archive-sweep.md § 2). The id stays the FIRST token:
   # next-id.sh reads entries as `- <PREFIX>-NNN ...` to avoid re-minting an archived id.

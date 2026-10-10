@@ -185,6 +185,10 @@ fi
 # did not run, never reading clean — and never an exit.
 # shellcheck source=lib/board-properties.sh
 [ -f "$CB_LIB_DIR/board-properties.sh" ] && . "$CB_LIB_DIR/board-properties.sh" 2>/dev/null || true
+# The shared card-field reader (arm [m] and every script that reads a card's frontmatter key use
+# it). A load failure leaves [m] printing that it did not run.
+# shellcheck source=lib/card-field.sh
+[ -f "$CB_LIB_DIR/card-field.sh" ] && . "$CB_LIB_DIR/card-field.sh" 2>/dev/null || true
 cb_bp_loaded() { command -v kit_bp_ids >/dev/null 2>&1; }
 cb_bp_missing() { echo "      – scripts/lib/board-properties.sh is missing or did not load — this arm did not run  (skipped)"; }
 
@@ -229,7 +233,7 @@ CB_REF=""
 CB_SRC_KIND="worktree"
 CB_SRC_LABEL=""
 if [ -n "$CB_TRUNK" ] \
-   && git -C "$REPO_ROOT" rev-parse --verify --quiet "refs/remotes/$CB_REMOTE/$CB_TRUNK" >/dev/null 2>&1; then
+   && git -C "$REPO_ROOT" rev-parse --verify --quiet "refs/remotes/$CB_REMOTE/$CB_TRUNK" >/dev/null 2>&1; then  # card-read-exempt: the trunk, not a card branch
   CB_REF="$CB_REMOTE/$CB_TRUNK"
   CB_SRC_KIND="ref"
   CB_SRC_LABEL="$CB_REF @ $(git -C "$REPO_ROOT" rev-parse --short "$CB_REF" 2>/dev/null || echo '?')"
@@ -715,7 +719,7 @@ if [ -z "$def" ]; then
   echo "      [f1] main checkout: trunk unresolved, so there is no ref to compare  (skipped) — inspected: $kwt_main"
 elif ! git -C "$kwt_main" rev-parse --verify --quiet "$f_main_ref" >/dev/null 2>&1; then
   echo "      [f1] main checkout: no local '$def' branch exists yet  (skipped) — inspected: $kwt_main"
-elif ! git -C "$kwt_main" rev-parse --verify --quiet "refs/remotes/$remote/$def" >/dev/null 2>&1; then
+elif ! git -C "$kwt_main" rev-parse --verify --quiet "refs/remotes/$remote/$def" >/dev/null 2>&1; then  # card-read-exempt: the trunk, not a card branch
   echo "      [f1] main checkout: $remote/$def unavailable (never pushed? offline?)  (skipped) — inspected: $kwt_main"
 else
   f_head="$(cb_head_label "$kwt_main")"
@@ -769,7 +773,7 @@ for f3_col in done qa_complete; do
   done
 done
 echo "[f] remote branches left by a landed card (reports only — never changes the verdict below):"
-f3_refs="$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "refs/remotes/$remote/" 2>/dev/null || true)"
+f3_refs="$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "refs/remotes/$remote/" 2>/dev/null || true)"  # card-read-exempt: lists every remote branch to name leftovers; resolves none
 if [ -z "$f3_refs" ]; then
   echo "      [f3] remote branches: no $remote/* ref in this checkout  (skipped) — inspected: refs/remotes/$remote/ (as last fetched)"
 else
@@ -1399,14 +1403,15 @@ fi
 # ---------------------------------------------------------------------------
 echo
 m_total=0; m_na=0; m_noreason=0; m_cols=""; m_neither=0; m_neither_ids=""
-for col in qa_complete done; do
+m_read=""; command -v kit_card_field >/dev/null 2>&1 && m_read="qa_complete done"   # no reader loaded, no columns read
+for col in $m_read; do
   [ -d "$CB_TREE/progress/$col" ] || continue
   m_cols="${m_cols}${m_cols:+ + }$col"
   for f in "$CB_TREE/progress/$col"/*.md; do
     [ -e "$f" ] || continue
     m_total=$((m_total+1))
-    m_prd=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd:/{sub(/^prd:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); print; exit}' "$f")
-    m_why=$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^prd_reason:/{sub(/^prd_reason:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); print; exit}' "$f")
+    m_prd="$(kit_card_field "$f" prd)"
+    m_why="$(kit_card_field "$f" prd_reason)"
     # A card naming no PRD (no value, or `none`) and giving no reason is in neither population
     # below — it is counted on its own so it cannot drop out of the denominator unseen.
     case "$m_prd" in
@@ -1421,7 +1426,9 @@ for col in qa_complete done; do
     [ -n "$m_why" ] || m_noreason=$((m_noreason+1))
   done
 done
-if [ -z "$m_cols" ]; then
+if ! command -v kit_card_field >/dev/null 2>&1; then
+  echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
+elif [ -z "$m_cols" ]; then
   echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): no landed column in this source  (skipped) — $(cb_src)"
 else
   echo "[m] PRD coverage (reports only — a card without a PRD is legal and never changes the verdict below): $m_na of $m_total landed issue(s) carry prd: n/a; $m_noreason of those give no prd_reason; $m_neither give neither a prd: nor a prd_reason: ($m_cols) — $(cb_src)"

@@ -147,9 +147,9 @@ kit_bp_ids() {
       # comment above it.
       !closed && !inf && FNR <= scan && /^---[[:space:]]*$/ { inf = 1; next }
       inf && /^---[[:space:]]*$/ { inf = 0; closed = 1; next }
-      inf && !got && $0 ~ ("^" key ":") {
+      inf && !got && $0 ~ ("^" key ":") {  # card-read-exempt: id: of every card, read with a tolerant fence and quotes stripped so a malformed id is diagnosed
         v = $0
-        sub("^" key ":[[:space:]]*", "", v)
+        sub("^" key ":[[:space:]]*", "", v)  # card-read-exempt: the same read
         sub(/[[:space:]]*#.*$/, "", v)        # strip an inline frontmatter comment
         gsub(dq, "", v); gsub(sq, "", v)      # and any quoting around the value
         sub(/[[:space:]]+$/, "", v)
@@ -272,11 +272,11 @@ kit_bp_blocks() {
     {
       line = $0
       sub(/[[:space:]]*#.*$/, "", line)          # the templates END these lines with a # comment
-      if (line ~ /^[[:space:]]*id:[[:space:]]*/) { v = line; sub(/^[[:space:]]*id:[[:space:]]*/, "", v)
+      if (line ~ /^[[:space:]]*id:[[:space:]]*/) { v = line; sub(/^[[:space:]]*id:[[:space:]]*/, "", v)  # card-read-exempt: id: of each card for the blocks symmetry check
                                                    gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); id = v }
-      if (line ~ /^[[:space:]]*(blocks|blocked_by):/) {
+      if (line ~ /^[[:space:]]*(blocks|blocked_by):/) {  # card-read-exempt: blocks and blocked_by are lists, a shape kit_card_field does not read
         flush_list()
-        curkey = (line ~ /^[[:space:]]*blocks:/) ? "blocks" : "blocked_by"
+        curkey = (line ~ /^[[:space:]]*blocks:/) ? "blocks" : "blocked_by"  # card-read-exempt: the same lists
         curval = line; sub(/^[[:space:]]*(blocks|blocked_by):[[:space:]]*/, "", curval)
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", curval)
         inlist = (curval == "")                  # empty value ⇒ a BLOCK-style list may follow
@@ -433,9 +433,9 @@ kit_bp_corpus() {
       FNR == 1 { inf = 0; closed = 0; got = 0 }
       !closed && !inf && FNR <= scan && /^---[[:space:]]*$/ { inf = 1; next }
       inf && /^---[[:space:]]*$/ { inf = 0; closed = 1; next }
-      inf && !got && $0 ~ ("^" key ":") {
+      inf && !got && $0 ~ ("^" key ":") {  # card-read-exempt: id: of every card on the board, the same tolerant read as above
         v = $0
-        sub("^" key ":[[:space:]]*", "", v); sub(/[[:space:]]*#.*$/, "", v)
+        sub("^" key ":[[:space:]]*", "", v); sub(/[[:space:]]*#.*$/, "", v)  # card-read-exempt: the same read
         gsub(/"/, "", v); gsub(/'"'"'/, "", v); sub(/[[:space:]]+$/, "", v)
         if (v ~ ("^" pat "$")) print v
         got = 1

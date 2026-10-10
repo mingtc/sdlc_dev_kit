@@ -66,7 +66,7 @@ fi
 # THE TRUNK (kit_trunk_ref, scripts/config.sh). No ref (day one, local-only): this checkout.
 rc=0; TRUNK_REF="$(kit_trunk_ref "$ROOT")" || rc=$?
 case "$rc" in
-  0) echo "next-id: read this checkout and $TRUNK_REF @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2 ;;
+  0) echo "next-id: read this checkout and $TRUNK_REF @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2 ;;  # card-read-exempt: the trunk, not a card branch
   3) echo "next-id: read this checkout only — no $TRUNK_REF ref" >&2; TRUNK_REF="" ;;
   *) kit_refuse 1 trunk-unresolvable \
        "Error: next-id could not resolve the trunk of this repository." \

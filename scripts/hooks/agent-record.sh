@@ -36,7 +36,7 @@ dir="$gitdir/kit-agent-pending"
 marker="$dir/$id"
 
 _tips() {
-  { git for-each-ref --format='%(objectname)' refs/heads refs/remotes
+  { git for-each-ref --format='%(objectname)' refs/heads refs/remotes  # card-read-exempt: collects every ref tip; resolves no card branch
     git worktree list --porcelain | sed -n 's/^HEAD //p'; } 2>/dev/null | sort -u
 }
 

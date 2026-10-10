@@ -112,6 +112,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/agent-record.sh"
 # shellcheck source=lib/card-field.sh
 . "$SCRIPT_DIR/lib/card-field.sh"
+# shellcheck source=lib/branch-rev.sh
+. "$SCRIPT_DIR/lib/branch-rev.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
@@ -280,13 +282,13 @@ if [ -z "$BRANCH" ]; then
 fi
 
 # A title for the squash commit subject.
-TITLE=$(awk '/^title:/{sub(/^title: */, ""); print; exit}' "$SRC")
+TITLE="$(kit_card_field "$SRC" title --raw)"   # a title is free text: a '#' in it is not a comment
 [ -z "$TITLE" ] && TITLE="$ISSUE_ID"
 # The default Activity note is composed AFTER the delete arms, from what they did (the NOTE_GIVEN
 # block below them). An operator-supplied --note is used verbatim.
 
 # The branch must exist locally (its commits are what we squash).
-if ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null 2>&1; then
+if ! BRANCH_REF="$(kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" -)"; then
   kit_refuse 1 branch-not-found \
     "Error: local branch '$BRANCH' not found. Pass --branch or check it out first." \
     "Next: pass --branch <name> naming the local branch, or create it from the remote with  git fetch ${KWT_REMOTE} ${BRANCH}:${BRANCH}  and re-run."
@@ -307,8 +309,8 @@ fi
 #    rather than by branching (the card's stated limit): a cherry-picked commit is a NEW commit,
 #    reachable from no ref and with no patch-id relationship this check derives.
 _stk_trunk="$KWT_REMOTE/$DEFAULT_BRANCH"
-_stk_ahead="$(git -C "$MAIN_ROOT" log --reverse --format=%H "${_stk_trunk}..refs/heads/$BRANCH" 2>/dev/null || true)"
-_stk_branch_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" 2>/dev/null || true)"
+_stk_ahead="$(git -C "$MAIN_ROOT" log --reverse --format=%H "${_stk_trunk}..${BRANCH_REF}" 2>/dev/null || true)"
+_stk_branch_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "$BRANCH_REF" 2>/dev/null || true)"
 if [ -n "$_stk_ahead" ]; then
   # (a) STILL UNLANDED: another branch's tip sits inside $BRANCH's own history, ahead of the
   #     trunk, and STRICTLY BEHIND $BRANCH's own tip — a ref that merely NAMES the same tip
@@ -326,7 +328,7 @@ if [ -n "$_stk_ahead" ]; then
       _stk_old_base="${_stk_ref#refs/heads/}"; _stk_old_base="${_stk_old_base#refs/remotes/}"
       break
     fi
-  done <<< "$(git -C "$MAIN_ROOT" for-each-ref --format='%(refname)' refs/heads/ "refs/remotes/$KWT_REMOTE/")"
+  done <<< "$(git -C "$MAIN_ROOT" for-each-ref --format='%(refname)' refs/heads/ "refs/remotes/$KWT_REMOTE/")"  # card-read-exempt: lists every branch to find a stacked base; resolves none
   if [ -n "$_stk_old_base" ]; then
     kit_refuse 1 stacked-branch-unlanded-base \
       "Error: '${BRANCH}' is stacked on '${_stk_old_base}', which has not landed on ${DEFAULT_BRANCH}." \
@@ -339,8 +341,8 @@ if [ -n "$_stk_ahead" ]; then
   # (b) SQUASH-LANDED: a prefix of $BRANCH's own-trunk-ahead commits matches, by patch-id, a
   #     commit the trunk gained that $BRANCH does not have — i.e. that prefix's diff already
   #     landed as somebody's squash commit.
-  _stk_mb="$(git -C "$MAIN_ROOT" merge-base "refs/heads/$BRANCH" "$_stk_trunk" 2>/dev/null || true)"
-  _stk_trunk_only="$(git -C "$MAIN_ROOT" log --format=%H "refs/heads/$BRANCH..${_stk_trunk}" 2>/dev/null || true)"
+  _stk_mb="$(git -C "$MAIN_ROOT" merge-base "$BRANCH_REF" "$_stk_trunk" 2>/dev/null || true)"
+  _stk_trunk_only="$(git -C "$MAIN_ROOT" log --format=%H "${BRANCH_REF}..${_stk_trunk}" 2>/dev/null || true)"
   if [ -n "$_stk_mb" ] && [ -n "$_stk_trunk_only" ]; then
     while IFS= read -r _stk_cand; do
       [ -n "$_stk_cand" ] || continue
@@ -399,7 +401,7 @@ kit_board_property_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$BRANCH
 #    recorded for the branch's code commits. Read before the squash, which replaces those commits. No record on
 #    either side prints AGENT_CHECK: UNRUNNABLE and lands.
 kit_agent_records_fetch "$MAIN_ROOT" "$KWT_REMOTE"
-kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" "refs/heads/$BRANCH"
+kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_ID" "$BRANCH_REF"
 
 # ── THE GATE CHECKOUT MUST HOLD THE COMMITTED verify.sh, AT THE REVISION BEING LANDED
 #    (contracts/landing-gate.md § 2), on both paths, and the refusal names which check failed
@@ -409,7 +411,7 @@ kit_agent_landing_check "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}" "$ISSUE_I
 #    the contract protects has been touched yet.
 if [ "$ALLOW_STUB" != "true" ]; then
   _gate_v="$GATE_WORKTREE/scripts/verify.sh"
-  _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "refs/heads/$BRANCH" 2>/dev/null || true)"
+  _branch_tip="$(git -C "$MAIN_ROOT" rev-parse "$BRANCH_REF" 2>/dev/null || true)"
   _gate_head="$(git -C "$GATE_WORKTREE" rev-parse HEAD 2>/dev/null || true)"
   _gate_err=""
   # _gate_absent: no usable gate at all, as opposed to one at the wrong revision; the advice differs.
@@ -485,7 +487,7 @@ if [ "$ALLOW_STUB" = "true" ] && [ -n "${FINISH_PR_PREMERGE_CMD:-}" ]; then
   # shellcheck disable=SC2086  # intentional word-split of the test-only stub
   PREMERGE_CMD=(${FINISH_PR_PREMERGE_CMD})
 elif git -C "$KWT" cat-file -e HEAD:scripts/verify.sh 2>/dev/null \
-     && ! git -C "$KWT" diff --quiet HEAD "refs/heads/$BRANCH" -- scripts/verify.sh 2>/dev/null; then
+     && ! git -C "$KWT" diff --quiet HEAD "$BRANCH_REF" -- scripts/verify.sh 2>/dev/null; then
   if ! { _trunk_gate="$(mktemp "$GATE_WORKTREE/scripts/.verify-trunk.XXXXXX")" \
          && git -C "$KWT" show HEAD:scripts/verify.sh > "$_trunk_gate" && chmod +x "$_trunk_gate"; }; then
     [ -z "$_trunk_gate" ] || rm -f "$_trunk_gate"
@@ -655,7 +657,7 @@ if git -C "$MAIN_ROOT" worktree list --porcelain 2>/dev/null | grep -xF "branch 
     echo "      Force-deleting a branch another worktree holds is not a fix. When that"
     echo "      worktree is done: git -C '${MAIN_ROOT}' branch -D '${BRANCH}'"
   } >&2
-elif ! git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/$BRANCH" >/dev/null 2>&1; then
+elif ! kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" - >/dev/null; then
   LOCAL_DELETE_STATE="absent"
   echo "Local branch '${BRANCH}' is already gone — nothing to delete."
 else

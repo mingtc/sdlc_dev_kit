@@ -2993,3 +2993,164 @@ case_shipped_tree_is_citation_clean_after_kit_init() {
   finish "the shipped tree, stamped by kit-init with process/ and the root documents present, has no arm [l] finding, and a real-digit citation form planted in the release notes is reported"
   teardown
 }
+
+# ── THE CARD-READ CENSUS. ───────────────────────────────────────────────────────
+# _card_read_census <root> <keys> <rel>… — one line per read of a card's frontmatter key or
+# resolution of a card's branch, "<kind> <rel>:<line>"; a line counts once. <keys> is the
+# `|`-joined key set of the shipped card templates. The kinds:
+#   field     a line, not a comment, with `^<key>:` (alone, in a `^(k|k):` alternation, or after
+#             `^[[:space:]]*`) or the dynamic `"^" key ":` — the shapes an awk/grep/sed READ takes;
+#             a `s|^<key>:` substitution is a write and is not a read;
+#   branch    a line with rev-parse, show-ref or for-each-ref and refs/heads or refs/remotes;
+#   exempt    either of those carrying `# card-read-exempt: <reason>` on the line or the line above,
+#             with a non-empty reason (the reads and resolutions that are not a card's).
+# The two libraries that hold the readers are left out of the population by the caller.
+# BLIND SPOTS: a read spread over two physical lines, a key spelled by a variable the line does
+# not show, a branch resolved with another git command (`ls-remote`, `log`), and a reason that
+# does not say why (a reviewer's question).
+_card_read_census() {
+  local root="$1" keys="$2" rel; shift 2
+  for rel in "$@"; do
+    [ -f "$root/$rel" ] || continue
+    awk -v rel="$rel" -v keys="$keys" '
+      BEGIN {
+        fre = "\\^(\\[\\[:space:\\]\\]\\*)?\\(?(" keys ")(\\|[A-Za-z_]+)*\\)?:"
+        dre = "\"\\^\" +[A-Za-z_]+ +\":"
+        bre = "(rev-parse|show-ref|for-each-ref)"
+        rre = "refs/(heads|remotes)"
+        ere = "card-read-exempt:[[:space:]]*[^[:space:]]"
+      }
+      {
+        s = $0; ex = (prev ~ ere) || (s ~ ere); p = prev; prev = s
+        if (s ~ /^[[:space:]]*#/) next
+        t = s; gsub(/s[|\/,#]\^/, "", t)
+        kind = ""
+        if (t ~ fre || t ~ dre) kind = "field"
+        else if (t ~ bre && t ~ rre) kind = "branch"
+        if (kind != "") print (ex ? "exempt" : kind) " " rel ":" NR
+      }' "$root/$rel"
+  done
+}
+
+# =============================================================================
+# CASE — EVERY READ OF A CARD'S FRONTMATTER KEY OR BRANCH GOES THROUGH THE TWO LIBRARIES.
+#
+# lib/card-field.sh and lib/branch-rev.sh are the one reader of a card's key and the one
+# resolution of a card's branch; a script that reads a key or resolves a branch itself is a second
+# reader that agrees until a card shapes a value differently. THE POPULATION is every line, in the
+# manifest's shell programs less the harness, the two libraries, the vendored skills and consumers/,
+# that `_card_read_census` reads as a card's key or branch; THE KEYS are those of the shipped card
+# templates, derived here, never typed. Each must carry `# card-read-exempt: <reason>` (a read that
+# is not a card's, or a card read that is genuinely another shape). PASS/FAIL: the operand is
+# fixed, a planted control has a known answer for every row, and an ablation of each mechanism must
+# turn it red. It checks the exemption is DECLARED with a reason, not that the reason is true.
+# =============================================================================
+case_card_reads_go_through_the_two_libraries() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST"
+  [ -f "$man" ] \
+    || _fixture_die "case_card_reads_go_through_the_two_libraries: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+
+  # ── THE KEYS: the frontmatter keys of the shipped card templates.
+  local keys="" tf
+  for tf in "$REAL_REPO_ROOT"/.claude/templates/*.template.md; do
+    [ -f "$tf" ] || continue
+    keys="$keys
+$(awk '/^---[[:space:]]*$/ { n++; next } n == 1 && /^[A-Za-z_]+:/ { sub(/:.*/, ""); print }' "$tf")"
+  done
+  keys="$(printf '%s\n' "$keys" | sort -u | grep . | tr '\n' '|' | sed 's/|$//')"
+  local kk
+  for kk in branch prd id; do
+    case "|$keys|" in *"|$kk|"*) ;; *) _fixture_die "case_card_reads_go_through_the_two_libraries: the templates' keys read [$keys], which lack '$kk' — the templates moved." ;; esac
+  done
+
+  # ── THE CONTROL: a planted file whose sites are known, with the lines that must NOT count.
+  local tmp; tmp="$(mktemp -d)"
+  cat > "$tmp/planted.sh" <<'PLANT'
+#!/usr/bin/env bash
+# awk '/^branch:/{print}' in a comment
+x=$(awk '/^prd:/{print $2; exit}' "$f")
+echo "Next: set prd: in the card"
+x=$(grep -m1 '^id:' "$f")
+sed -e "s|^id: .*|id: $ID|" "$f"
+x=$(sed -n '/^branch:/p' "$f")
+x=$(awk '/^(forks|prd):/{print}' "$f")
+x=$(awk '/^[[:space:]]*blocks:/{print}' "$f")
+x=$(awk -v key=id '$0 ~ ("^" key ":") {print}' "$f")
+x=$(awk '/^target:/{print}' "$f")
+x=$(awk '/^prd:/{print}' "$f")   # card-read-exempt: a PRD file, not a card
+# card-read-exempt: the line below is a template
+x=$(awk '/^prd:/{print}' "$f")
+x=$(awk '/^prd:/{print}' "$f")   # card-read-exempt:
+x=$(awk '/^prd:/{print}' "$f")   # card-read-exempt:   
+git rev-parse --verify "refs/heads/$b"
+git for-each-ref refs/remotes/origin/
+git rev-parse HEAD
+git log refs/heads/$b
+git rev-parse "refs/remotes/$r/$t"   # card-read-exempt: the trunk
+PLANT
+  local got want
+  got="$(_card_read_census "$tmp" "$keys" planted.sh)"
+  want="$(printf '%s\n' 'field planted.sh:3' 'field planted.sh:5' 'field planted.sh:7' 'field planted.sh:8' \
+                        'field planted.sh:9' 'field planted.sh:10' 'exempt planted.sh:12' 'exempt planted.sh:14' \
+                        'field planted.sh:15' 'field planted.sh:16' 'branch planted.sh:17' 'branch planted.sh:18' \
+                        'exempt planted.sh:21')"
+  rm -rf "$tmp"
+  [ "$got" = "$want" ] \
+    || cf "(instrument) the card-read census misread its planted control — want [$(printf '%s' "$want" | tr '\n' '|')], got [$(printf '%s' "$got" | tr '\n' '|')]; every verdict below is untrustworthy"
+
+  # ── THE POPULATION.
+  local rel pop=()
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    case "$rel" in scripts/test/*|scripts/lib/card-field.sh|scripts/lib/branch-rev.sh|.claude/skills/*|consumers/*) continue ;; esac
+    case "$(head -1 "$REAL_REPO_ROOT/$rel" 2>/dev/null)" in '#!'*sh) pop+=("$rel") ;; esac
+  done <<EOF5
+$(grep -v '^#' "$man" | awk '{print $2}')
+EOF5
+  [ "${#pop[@]}" -gt 0 ] \
+    || cf "(instrument) the manifest yielded no shipped shell program — the shebang test stopped matching"
+
+  local sites nex bad nbad
+  sites="$(_card_read_census "$REAL_REPO_ROOT" "$keys" ${pop[@]+"${pop[@]}"})"
+  nex="$(printf '%s\n' "$sites" | grep -c '^exempt ' || true)"
+  [ "$nex" -gt 0 ] \
+    || cf "(instrument) not one exempt read was found in the shipped programs — the census stopped matching, so 'every read is exempt or moved' is true of nothing"
+  bad="$(printf '%s\n' "$sites" | grep -E '^(field|branch) ' || true)"
+  if [ -n "$bad" ]; then
+    nbad="$(printf '%s\n' "$bad" | grep -c . || true)"
+    printf '%s\n' "$bad" | sed 's/^/        card-read-outside-the-libraries: /'
+    cf "$nbad read(s) of a card's key or branch sit outside lib/card-field.sh and lib/branch-rev.sh — call kit_card_field / kit_card_has_field / kit_card_branch_rev, or mark a read that is not a card's with  # card-read-exempt: <reason>: $(printf '%s' "$bad" | sed 's/^[a-z]* //' | tr '\n' ' ' | cut -c1-600)"
+  fi
+
+  # ── THE ABLATION: in a scratch copy of a real file, (a) append a reader of each kind, (b) strip a
+  #    real exemption; the census must report exactly one more read in each case.
+  local pick prel pline abl before after k line
+  for k in field-awk field-grep branch dynamic; do
+    case "$k" in
+      field-awk)  line="x=\$(awk '/^prd:/{print \$2; exit}' \"\$f\")" ;;
+      field-grep) line="x=\$(grep -m1 '^branch:' \"\$f\")" ;;
+      branch)     line="git rev-parse --verify \"refs/heads/\$b\"" ;;
+      dynamic)    line="x=\$(awk -v key=id '\$0 ~ (\"^\" key \":\") {print}' \"\$f\")" ;;
+    esac
+    prel="${pop[0]}"
+    abl="$(mktemp -d)"; mkdir -p "$abl/$(dirname "$prel")"
+    { cat "$REAL_REPO_ROOT/$prel"; printf '%s\n' "$line"; } > "$abl/$prel"
+    before="$(_card_read_census "$REAL_REPO_ROOT" "$keys" "$prel" | grep -cE '^(field|branch) ' || true)"
+    after="$(_card_read_census "$abl" "$keys" "$prel" | grep -cE '^(field|branch) ' || true)"
+    rm -rf "$abl"
+    [ "$after" -eq $(( before + 1 )) ] \
+      || cf "(ablation) appending a '$k' read to $prel left $after unexempt read(s) in that file (was $before, want $(( before + 1 ))) — the census does not go red on that shape"
+  done
+  pick="$(printf '%s\n' "$sites" | grep '^exempt ' | sed -n '1p')"
+  prel="$(printf '%s' "$pick" | awk '{print $2}')"; pline="${prel##*:}"; prel="${prel%:*}"
+  abl="$(mktemp -d)"; mkdir -p "$abl/$(dirname "$prel")"
+  before="$(_card_read_census "$REAL_REPO_ROOT" "$keys" "$prel" | grep -cE '^(field|branch) ' || true)"
+  awk '{ gsub(/card-read-exempt:/, "card-read-exemp:"); print }' "$REAL_REPO_ROOT/$prel" > "$abl/$prel"
+  after="$(_card_read_census "$abl" "$keys" "$prel" | grep -cE '^(field|branch) ' || true)"
+  rm -rf "$abl"
+  [ "$after" -gt "$before" ] \
+    || cf "(ablation) breaking every exemption tag in $prel left $after unexempt read(s) (was $before) — the census does not go red when an exemption is removed"
+
+  finish "all reads of a card's frontmatter key and resolutions of a card's branch in ${#pop[@]} shipped shell program(s) go through lib/card-field.sh and lib/branch-rev.sh or carry a reasoned card-read-exempt marker ($nex exempt); the census read its planted control exactly, and appending each kind of reader, or removing the exemptions, turned it red"
+}

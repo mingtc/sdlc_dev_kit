@@ -385,6 +385,11 @@ elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   pf "scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED — the file is present and loadable and no longer provides what kit-init calls."
 fi
 
+# shellcheck source=lib/card-field.sh
+if [ ! -f "$SCRIPT_DIR/lib/card-field.sh" ] || ! . "$SCRIPT_DIR/lib/card-field.sh"; then
+  pf "scripts/lib/card-field.sh is missing or did not load — kit-init reads the scratch card's id through it and will not read it another way. Restore it:  git checkout -- scripts/lib/card-field.sh"
+fi
+
 # shellcheck source=lib/hat-file.sh
 if [ ! -f "$SCRIPT_DIR/lib/hat-file.sh" ] || ! . "$SCRIPT_DIR/lib/hat-file.sh" || [ -z "${KIT_HAT_FILE_REL:-}" ] || [ -z "${KIT_HAT_ENV:-}" ]; then
   pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL or KIT_HAT_ENV — kit-init ignores the hat file's path, and declares its commits' hat, from that file and will not guess either. Restore it:  git checkout -- scripts/lib/hat-file.sh"
@@ -427,7 +432,7 @@ else
   elif [ -n "$TRUNK" ] && [ "$REMOTE_HEAD" != "$TRUNK" ]; then
     pft "--trunk '$TRUNK' disagrees with $REMOTE/HEAD → '$REMOTE_HEAD'. One of the two is wrong; fix it rather than let the scripts pick."
   fi
-  if [ -n "$TRUNK" ] && ! git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$REMOTE/$TRUNK" >/dev/null 2>&1; then
+  if [ -n "$TRUNK" ] && ! git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$REMOTE/$TRUNK" >/dev/null 2>&1; then  # card-read-exempt: the trunk, not a card branch
     pft "$REMOTE/$TRUNK does not exist locally — push the trunk and fetch before initializing."
   fi
 fi
@@ -1109,10 +1114,10 @@ if [ "$MINT_RC" -eq 0 ] && [ -f "$ROOT/progress/todo/$SCRATCH_FILE" ]; then
   sc_ok "minted progress/todo/$SCRATCH_FILE"
   # The identity check a silent substitution no-op would fail: the frontmatter id
   # must carry the REAL prefix, not the template's placeholder.
-  if grep -qE "^id: ${SCRATCH_ID}$" "$ROOT/progress/todo/$SCRATCH_FILE"; then
+  if [ "$(kit_card_field "$ROOT/progress/todo/$SCRATCH_FILE" id)" = "$SCRATCH_ID" ]; then
     sc_ok "frontmatter carries 'id: ${SCRATCH_ID}' — the prefix reached the template body"
   else
-    sc_bad "frontmatter id is '$(grep -m1 '^id:' "$ROOT/progress/todo/$SCRATCH_FILE" || echo '<none>')', expected 'id: ${SCRATCH_ID}'"
+    sc_bad "frontmatter id is '$(kit_card_field "$ROOT/progress/todo/$SCRATCH_FILE" id)', expected '${SCRATCH_ID}'"
   fi
   git -C "$ROOT" add "progress/todo/$SCRATCH_FILE"
   ki_commit -q -m "[$SELF_ROLE] kit-init self-check: mint scratch card $SCRATCH_ID"

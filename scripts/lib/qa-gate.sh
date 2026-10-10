@@ -86,6 +86,8 @@
 
 # shellcheck source=board-properties.sh
 . "$(dirname "${BASH_SOURCE[0]}")/board-properties.sh" || return 1   # return-class: internal
+# shellcheck source=card-field.sh
+. "$(dirname "${BASH_SOURCE[0]}")/card-field.sh" || return 1   # return-class: internal
 
 # The whole-cell placeholder forms (an EMPTY cell is checked separately, with a plain shell
 # string test — a leading empty alternative in the regex itself makes some greps refuse the
@@ -372,7 +374,7 @@ kit_forks_check() {
   local _frl_commit=""
   local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new
 
-  _forks_line="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^forks:/{sub(/^forks:[[:space:]]*/, ""); sub(/(^|[[:space:]]+)#.*$/, ""); sub(/[[:space:]]+$/, ""); print; exit}' "$src")"
+  _forks_line="$(kit_card_field "$src" forks)"
   if [ -z "$_forks_line" ]; then
     kit_refuse 2 forks-missing \
       "Error: ${issue_id} has no 'forks:' field." \

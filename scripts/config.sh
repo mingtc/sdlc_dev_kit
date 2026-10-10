@@ -143,7 +143,7 @@ validate_slug() {
 kit_trunk_ref() {
   ( . "$1/scripts/lib/kanban-worktree.sh" >/dev/null && cd "$1" && kwt_resolve >/dev/null || exit 1   # exit-class: internal
     printf '%s' "$KWT_REMOTE/$DEFAULT_BRANCH"
-    git rev-parse --verify --quiet "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" >/dev/null || exit 3 )   # exit-class: internal
+    git rev-parse --verify --quiet "refs/remotes/$KWT_REMOTE/$DEFAULT_BRANCH" >/dev/null || exit 3 )   # exit-class: internal  # card-read-exempt: the trunk, not a card branch
 }
 
 # validate_issue_id "$ID" "$ROOT" — validate a caller-supplied id and check collisions

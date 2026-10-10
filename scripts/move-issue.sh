@@ -498,18 +498,18 @@ echo "Entry: ${ENTRY}"
 # kwt_sync's reset --hard and inside $KWT, so it lands in the same commit. Idempotent; only
 # the FIRST `^pr:` line is rewritten, and any trailing comment on it is dropped.
 if [ -n "$SET_PR" ]; then
-  if ! grep -qE '^pr:' "$DEST"; then
+  if ! kit_card_has_field "$DEST" pr; then
     echo "Warning: --set-pr '${SET_PR}' given but no 'pr:' frontmatter line in $(basename "$DEST"); skipping write-back." >&2
   else
     DESIRED_LINE="pr: ${SET_PR}"
-    CUR_PR_LINE=$(awk '/^pr:/{print; exit}' "$DEST")
-    if [ "$CUR_PR_LINE" = "$DESIRED_LINE" ]; then
+    CUR_PR="$(kit_card_field "$DEST" pr --raw)"   # raw: a trailing comment makes the line differ, and the rewrite drops it
+    if [ "$CUR_PR" = "$SET_PR" ]; then
       echo "pr:    already '${SET_PR}' — left unchanged (idempotent)."
     else
       PR_TMP="$(mktemp)"
-      awk -v repl="$DESIRED_LINE" 'BEGIN{done=0} done==0 && /^pr:/{print repl; done=1; next} {print}' "$DEST" > "$PR_TMP"
+      awk -v repl="$DESIRED_LINE" 'BEGIN{done=0} done==0 && /^pr:/{print repl; done=1; next} {print}' "$DEST" > "$PR_TMP"  # card-read-exempt: writes the pr: line; the read above goes through kit_card_field
       mv "$PR_TMP" "$DEST"
-      echo "pr:    set to '${SET_PR}' (was: '${CUR_PR_LINE}')"
+      echo "pr:    set to '${SET_PR}' (was: '${CUR_PR}')"
     fi
   fi
 fi

@@ -558,6 +558,7 @@ CASES=(
   case_every_refusal_names_its_next_action
   case_every_nonzero_exit_is_classified
   case_every_library_return_is_classified
+  case_card_reads_go_through_the_two_libraries
   case_help_never_opens_with_the_class_marker
   case_role_examples_carry_their_label
   case_role_set_read_is_one_expression
