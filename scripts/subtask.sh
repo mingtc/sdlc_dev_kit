@@ -63,6 +63,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/qa-gate.sh"
 # shellcheck source=lib/branch-rev.sh
 . "$SCRIPT_DIR/lib/branch-rev.sh"
+# shellcheck source=lib/card-field.sh
+. "$SCRIPT_DIR/lib/card-field.sh"
 # The same-agent check finish-pr.sh runs (process/contracts/agent-record.md).
 # shellcheck source=lib/agent-record.sh
 . "$SCRIPT_DIR/lib/agent-record.sh"
@@ -255,7 +257,7 @@ case "$CMD" in
     # prd: INHERITED from the parent unless --prd was given; a parent with none, or with its
     # template placeholder, gives n/a.
     if [ -z "$PRD" ]; then
-      PRD="$(awk '/^---$/{n++; next} n==1 && /^prd:/{sub(/^prd:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$PARENT_CARD")"
+      PRD="$(kit_card_field "$PARENT_CARD" prd)"
       case "$PRD" in ''|*-NNN) PRD="n/a" ;; esac
     fi
 
@@ -442,7 +444,7 @@ case "$CMD" in
     #    it is what a diff-less check can see, and this comment is that limit stated, not hidden.
     if [ "$TARGET" = "qa_complete" ]; then
       _st_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
-      _st_slice_branch="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^branch:/{sub(/^branch:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$SRC")"
+      _st_slice_branch="$(kit_card_field "$SRC" branch)"
       _st_new_rev="$_st_trunk"
       if _st_rev="$(kit_card_branch_rev "$MAIN_ROOT" "$_st_slice_branch" "$KWT_REMOTE")"; then
         _st_new_rev="$_st_rev"

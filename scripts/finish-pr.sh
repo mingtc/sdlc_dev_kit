@@ -110,6 +110,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Which agent made each commit — the records the Bash hooks write; read by the same-agent check.
 # shellcheck source=lib/agent-record.sh
 . "$SCRIPT_DIR/lib/agent-record.sh"
+# shellcheck source=lib/card-field.sh
+. "$SCRIPT_DIR/lib/card-field.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 
@@ -269,7 +271,7 @@ fi
 
 # Resolve the branch to merge (frontmatter unless --branch given).
 if [ -z "$BRANCH" ]; then
-  BRANCH=$(awk '/^branch:/{sub(/^branch: */, ""); print; exit}' "$SRC")
+  BRANCH="$(kit_card_field "$SRC" branch)"
   if [ -z "$BRANCH" ]; then
     kit_refuse 1 branch-unnamed \
       "Error: no 'branch:' frontmatter in ${SRC#"$KWT"/}; pass --branch <name>." \

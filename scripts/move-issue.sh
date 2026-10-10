@@ -123,7 +123,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/qa-gate.sh"
 # shellcheck source=lib/branch-rev.sh
 . "$SCRIPT_DIR/lib/branch-rev.sh"
-
+# shellcheck source=lib/card-field.sh
+. "$SCRIPT_DIR/lib/card-field.sh"
 # THE ROLE SET IN THE HEADER IS A TOKEN, expanded at print time from the hook through
 # scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4), so there is no literal copy for
 # `kit-init --roles` to miss. GUARDED: under `set -e` a missing library would abort the
@@ -429,7 +430,7 @@ else
   # against the trunk twice, so the field and the citations on the card are checked and a fork
   # only the branch's diff would show is not; the landing's check still reads it.
   if [ "$TARGET" = "dev_complete" ]; then
-    _mv_branch="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^branch:/{sub(/^branch:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$SRC")"
+    _mv_branch="$(kit_card_field "$SRC" branch)"
     _mv_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
     _mv_new_rev="$_mv_trunk"
     if _mv_rev="$(kit_card_branch_rev "$MAIN_ROOT" "$_mv_branch" "$KWT_REMOTE")"; then

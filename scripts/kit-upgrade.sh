@@ -76,6 +76,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$SCRIPT_DIR/lib/refuse.sh"
 # shellcheck source=lib/branch-rev.sh
 . "$SCRIPT_DIR/lib/branch-rev.sh"
+# shellcheck source=lib/card-field.sh
+. "$SCRIPT_DIR/lib/card-field.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 # A usage request always succeeds, in any position, before any argument is interpreted
@@ -160,10 +162,6 @@ lc_trunk() {
   done
   return 1
 }
-lc_field() {  # <file> <key> — a frontmatter value
-  awk -v k="$2" '/^---[[:space:]]*$/ { n++; next }
-    n == 1 && index($0, k ":") == 1 { sub(/^[^:]*:[[:space:]]*/, ""); sub(/[[:space:]]+$/, ""); print; exit }' "$1"
-}
 # lc_probe <check function and its arguments…> — sets LC_RULE and LC_MSG; prints the check's own stdout.
 lc_probe() {
   local rc
@@ -199,9 +197,9 @@ lc_run() {
   cboard="$TGT/scripts/check-board.sh"
   for line in ${cards[@]+"${cards[@]}"}; do
     col="${line%%|*}"; f="${line#*|}"
-    id="$(lc_field "$f" id)"; [ -n "$id" ] || id="$(basename "$f" .md)"
+    id="$(kit_card_field "$f" id)"; [ -n "$id" ] || id="$(basename "$f" .md)"
     if [ -n "$LC_NOTE" ]; then LC_UNCHECKED+=("$id|$col|$LC_NOTE"); continue; fi
-    br="$(lc_field "$f" branch)"
+    br="$(kit_card_field "$f" branch)"
     if ! rev="$(kit_card_branch_rev "$TGT" "$br")"; then
       LC_UNCHECKED+=("$id|$col|its branch: ${br:-<none>} resolves to no branch here, and the checks read the code at the branch tip")
       continue

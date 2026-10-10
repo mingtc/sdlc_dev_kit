@@ -572,6 +572,10 @@ columns and never the cards.*
 
 ### Fixed
 
+- **A card's `branch:` line with a trailing `# comment` now lands and re-checks.** `finish-pr.sh` and `kit-upgrade.sh` read the
+  comment as part of the branch name (`branch-unnamed`, or "resolves to no branch"); all four scripts now read the field
+  through `scripts/lib/card-field.sh`, comment stripped. No action needed.
+
 - **The self-test no longer goes red after `set-models.sh`.** Four cases that test the model seam inherited the
   tree's ladder, pins and runner defaults, so they failed on any project that had run it. Each now writes the
   state it tests into its own sandbox. No action needed.

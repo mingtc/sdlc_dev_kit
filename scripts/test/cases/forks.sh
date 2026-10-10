@@ -691,3 +691,50 @@ case_card_branch_resolves_through_one_function() {
   finish "a card's branch: resolves through lib/branch-rev.sh for local-only, remote-only and absent shapes, and the hand-off, slice and upgrade callers each call it and carry no reader of their own"
   teardown
 }
+
+# =============================================================================
+# CASE — A CARD'S FRONTMATTER FIELD IS READ BY ONE FUNCTION, FOR EVERY CALLER.
+# subtask.sh, move-issue.sh, finish-pr.sh and kit-upgrade.sh read `branch:` from a card. The shapes
+# are planted and read through lib/card-field.sh; each caller is proved to call it and carry no
+# awk reader of its own; and finish-pr.sh LANDS a card whose branch: carries a trailing comment.
+# RED FIRST: fails while the library is absent or a caller still holds its own copy.
+# =============================================================================
+case_card_field_is_read_by_one_function() {
+  cf_reset
+  make_sandbox
+
+  local lib="$REAL_SCRIPTS/lib/card-field.sh" c="$SB_TMP/field-card.md"
+  if [ ! -f "$lib" ]; then
+    cf "scripts/lib/card-field.sh is absent: the card-field reader has no single home"
+  else
+    rd() { ( . "$lib"; kit_card_field "$c" "$1" ) 2>/dev/null; }
+    printf '%s\n' '---' 'id: X-1' 'branch: feature/x-1   # reviewed' 'prd:    PRD-7  ' '---' 'branch: feature/body' > "$c"
+    [ "$(rd branch)" = feature/x-1 ] || cf "trailing comment: branch read as '$(rd branch)'"
+    [ "$(rd prd)" = PRD-7 ] || cf "extra spaces: prd read as '$(rd prd)'"
+    [ "$(rd id)" = X-1 ] || cf "plain value: id read as '$(rd id)'"
+    printf '%s\n' '---' 'id: X-1' 'branch: # none yet' '---' 'branch: feature/body' > "$c"
+    [ -z "$(rd branch)" ] || cf "a comment-only value read as '$(rd branch)'"
+    printf '%s\n' '---' 'id: X-1' '---' 'branch: feature/body' > "$c"
+    [ -z "$(rd branch)" ] || cf "an absent field read the body line: '$(rd branch)'"
+  fi
+
+  local s txt
+  for s in subtask move-issue finish-pr kit-upgrade; do
+    s="$s.sh"; txt="$(<"$REAL_SCRIPTS/$s")"
+    [[ "$txt" == *'lib/card-field.sh'* && "$txt" == *'kit_card_field '* ]] || cf "$s does not source card-field.sh and call kit_card_field"
+    [[ "$txt" == *"/^branch:/"* || "$txt" == *'lc_field'* ]] && cf "$s still holds its own branch: reader"
+  done
+
+  # finish-pr.sh lands the branch a commented 'branch:' names — not the comment's words with it.
+  local id="$SB_PREFIX-641"
+  seed_issue dev_complete "$id" commented chore "Branch carries a comment" "feature/$id-work   # reviewed by QA"
+  publish_sandbox
+  seed_branch "$id" work CHANGE641.txt
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "finish-pr.sh exited $rc on a commented branch: $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  origin_has_path "CHANGE641.txt" || cf "the commented branch was not the one landed"
+
+  finish "a card's frontmatter field reads the same through lib/card-field.sh (trailing comment, extra spaces, absent, never the body), the four callers each call it with no reader of their own, and finish-pr.sh lands a commented branch:"
+  teardown
+}
