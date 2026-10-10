@@ -74,6 +74,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$SCRIPT_DIR/lib/usage.sh"
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
+# shellcheck source=lib/branch-rev.sh
+. "$SCRIPT_DIR/lib/branch-rev.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 # A usage request always succeeds, in any position, before any argument is interpreted
@@ -158,14 +160,6 @@ lc_trunk() {
   done
   return 1
 }
-lc_branch_rev() {  # <branch> — the ref holding its tip, or nothing
-  local r
-  case "$1" in ''|n/a|null) return 1 ;; esac
-  for r in "refs/heads/$1" $(git -C "$TGT" for-each-ref --format='%(refname)' "refs/remotes/*/$1" 2>/dev/null); do
-    git -C "$TGT" rev-parse --verify -q "$r^{commit}" >/dev/null 2>&1 && { printf '%s' "$r"; return 0; }
-  done
-  return 1
-}
 lc_field() {  # <file> <key> — a frontmatter value
   awk -v k="$2" '/^---[[:space:]]*$/ { n++; next }
     n == 1 && index($0, k ":") == 1 { sub(/^[^:]*:[[:space:]]*/, ""); sub(/[[:space:]]+$/, ""); print; exit }' "$1"
@@ -208,7 +202,7 @@ lc_run() {
     id="$(lc_field "$f" id)"; [ -n "$id" ] || id="$(basename "$f" .md)"
     if [ -n "$LC_NOTE" ]; then LC_UNCHECKED+=("$id|$col|$LC_NOTE"); continue; fi
     br="$(lc_field "$f" branch)"
-    if ! rev="$(lc_branch_rev "$br")"; then
+    if ! rev="$(kit_card_branch_rev "$TGT" "$br")"; then
       LC_UNCHECKED+=("$id|$col|its branch: ${br:-<none>} resolves to no branch here, and the checks read the code at the branch tip")
       continue
     fi

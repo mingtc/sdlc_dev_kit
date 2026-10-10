@@ -645,3 +645,49 @@ case_finish_pr_forks_ac_drift_unrunnable_with_no_todo_history() {
   finish "finish-pr.sh reports the AC-drift half of the forks check as UNRUNNABLE on stdout (never a silent pass) for a card whose history shows no move out of a todo/ column, and still lands it"
   teardown
 }
+
+# =============================================================================
+# CASE — A CARD'S `branch:` RESOLVES THROUGH ONE FUNCTION, FOR EVERY CALLER.
+# subtask.sh, move-issue.sh and kit-upgrade.sh read the card's code at its branch tip. Shapes are
+# planted in a throwaway repo and resolved by lib/branch-rev.sh; each caller is then proved to
+# call that function and to carry no reader of its own.
+# RED FIRST: fails while the library is absent or a caller still holds its own copy.
+# =============================================================================
+case_card_branch_resolves_through_one_function() {
+  cf_reset
+  make_sandbox
+
+  local lib="$REAL_SCRIPTS/lib/branch-rev.sh" w="$SB_TMP/brw" o="$SB_TMP/bro.git" x="$SB_TMP/brx.git"
+  if [ ! -f "$lib" ]; then
+    cf "scripts/lib/branch-rev.sh is absent: the card-branch reader has no single home"
+  else
+    git init -q "$w" && git init -q --bare "$o" && git init -q --bare "$x"
+    git -C "$w" -c user.name=t -c user.email=t@t commit -q --allow-empty -m base
+    git -C "$w" remote add origin "$o" && git -C "$w" remote add other "$x"
+    local b
+    for b in local-only origin-only other-only; do git -C "$w" branch "$b"; done
+    git -C "$w" push -q origin origin-only && git -C "$w" push -q other other-only
+    git -C "$w" fetch -q origin && git -C "$w" fetch -q other
+    git -C "$w" branch -D origin-only other-only >/dev/null 2>&1
+    got() { ( . "$lib"; kit_card_branch_rev "$w" "$@" ) 2>/dev/null; }
+    [ "$(got local-only origin)" = refs/heads/local-only ] || cf "local-only (remote origin) resolved to '$(got local-only origin)'"
+    [ "$(got local-only)" = refs/heads/local-only ] || cf "local-only (any remote) resolved to '$(got local-only)'"
+    [ "$(got origin-only origin)" = refs/remotes/origin/origin-only ] || cf "origin-only resolved to '$(got origin-only origin)'"
+    [ "$(got origin-only)" = refs/remotes/origin/origin-only ] || cf "origin-only (any remote) resolved to '$(got origin-only)'"
+    [ -z "$(got other-only origin)" ] || cf "a branch only on 'other' resolved when origin was named: '$(got other-only origin)'"
+    [ "$(got other-only)" = refs/remotes/other/other-only ] || cf "other-only (any remote) resolved to '$(got other-only)'"
+    [ -z "$(got nowhere origin)" ] || cf "a branch nowhere resolved to '$(got nowhere origin)'"
+    [ -z "$(got n/a origin)" ] && [ -z "$(got null origin)" ] && [ -z "$(got '' origin)" ] || cf "n/a, null or an empty branch resolved"
+  fi
+
+  local s txt
+  for s in subtask move-issue kit-upgrade; do
+    s="$s.sh"; txt="$(<"$REAL_SCRIPTS/$s")"
+    [[ "$txt" == *'lib/branch-rev.sh'* && "$txt" == *'kit_card_branch_rev '* ]] || cf "$s does not source branch-rev.sh and call kit_card_branch_rev"
+    [[ "$txt" == *'rev-parse --verify'*'refs/heads/'* || "$txt" == *lc_branch_rev* ]] && cf "$s still holds its own branch-to-revision reader"
+    [[ "$txt" == *'refs/remotes/*/'* ]] && cf "$s still holds its own remote-tracking lookup"
+  done
+
+  finish "a card's branch: resolves through lib/branch-rev.sh for local-only, remote-only and absent shapes, and the hand-off, slice and upgrade callers each call it and carry no reader of their own"
+  teardown
+}

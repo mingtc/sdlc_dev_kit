@@ -121,6 +121,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/decision-register.sh"
 # shellcheck source=lib/qa-gate.sh
 . "$SCRIPT_DIR/lib/qa-gate.sh"
+# shellcheck source=lib/branch-rev.sh
+. "$SCRIPT_DIR/lib/branch-rev.sh"
 
 # THE ROLE SET IN THE HEADER IS A TOKEN, expanded at print time from the hook through
 # scripts/lib/role-set.sh (process/EXTRACTION.md § 2.4), so there is no literal copy for
@@ -430,10 +432,8 @@ else
     _mv_branch="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^branch:/{sub(/^branch:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$SRC")"
     _mv_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
     _mv_new_rev="$_mv_trunk"
-    if [ -n "$_mv_branch" ] && git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/${_mv_branch}" >/dev/null 2>&1; then
-      _mv_new_rev="refs/heads/${_mv_branch}"
-    elif [ -n "$_mv_branch" ] && git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_REMOTE}/${_mv_branch}" >/dev/null 2>&1; then
-      _mv_new_rev="${KWT_REMOTE}/${_mv_branch}"
+    if _mv_rev="$(kit_card_branch_rev "$MAIN_ROOT" "$_mv_branch" "$KWT_REMOTE")"; then
+      _mv_new_rev="$_mv_rev"
     else
       echo "Note: ${ISSUE_ID}'s branch ('${_mv_branch:-none declared}') is not a local or ${KWT_REMOTE} ref, so the forks: check" >&2
       echo "      read no branch diff: a fork only the branch shows is not derived here (the landing derives it)." >&2

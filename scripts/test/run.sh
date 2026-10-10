@@ -301,6 +301,7 @@ CASES=(
   case_finish_pr_forks_contradicted_by_the_branch_refuses
   case_move_issue_dev_complete_runs_the_forks_check
   case_finish_pr_forks_correct_field_lands
+  case_card_branch_resolves_through_one_function
   case_finish_pr_forks_derives_a_relocated_register
   case_finish_pr_forks_ac_changed_after_todo_uncited_refuses
   case_finish_pr_forks_ac_drift_unrunnable_with_no_todo_history

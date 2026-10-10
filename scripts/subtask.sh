@@ -61,6 +61,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # landing card, called here for a slice's own card before `move <id> qa_complete`.
 # shellcheck source=lib/qa-gate.sh
 . "$SCRIPT_DIR/lib/qa-gate.sh"
+# shellcheck source=lib/branch-rev.sh
+. "$SCRIPT_DIR/lib/branch-rev.sh"
 # The same-agent check finish-pr.sh runs (process/contracts/agent-record.md).
 # shellcheck source=lib/agent-record.sh
 . "$SCRIPT_DIR/lib/agent-record.sh"
@@ -442,12 +444,8 @@ case "$CMD" in
       _st_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
       _st_slice_branch="$(awk '/^---[[:space:]]*$/{n++; next} n==1 && /^branch:/{sub(/^branch:[[:space:]]*/, ""); sub(/[[:space:]]+#.*$/, ""); print; exit}' "$SRC")"
       _st_new_rev="$_st_trunk"
-      if [ -n "$_st_slice_branch" ] \
-         && git -C "$MAIN_ROOT" rev-parse --verify --quiet "refs/heads/${_st_slice_branch}" >/dev/null 2>&1; then
-        _st_new_rev="refs/heads/${_st_slice_branch}"
-      elif [ -n "$_st_slice_branch" ] \
-           && git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_REMOTE}/${_st_slice_branch}" >/dev/null 2>&1; then
-        _st_new_rev="${KWT_REMOTE}/${_st_slice_branch}"
+      if _st_rev="$(kit_card_branch_rev "$MAIN_ROOT" "$_st_slice_branch" "$KWT_REMOTE")"; then
+        _st_new_rev="$_st_rev"
       else
         echo "Note: ${ID}'s branch ('${_st_slice_branch:-none declared}') is not a local or ${KWT_REMOTE} ref —" >&2
         echo "      the forks: and Ablation checks read no diff for this slice (a real, empty one," >&2
