@@ -63,6 +63,23 @@ case_progress_record_is_one_shape_and_optional() {
     teardown; return
   fi
 
+  # ── THE CLOCK IS AN OPERAND. The writer files a record under its UTC day (`<day>.tsv`), so a
+  #    run that straddles 00:00Z leaves one directory holding two files. The sections that count
+  #    or grep across a directory run under a `date` that crosses midnight after its second
+  #    record stamp, so every run meets the two-file shape instead of one run in a day.
+  local clockdir="$SB_TMP/clock" _f _ndays
+  mkdir -p "$clockdir"
+  cat > "$clockdir/date" <<'SHIM'
+#!/bin/sh
+if [ "$*" = "-u +%Y-%m-%dT%H:%M:%SZ" ] && [ -n "${CLOCK_COUNT:-}" ]; then
+  n=$(cat "$CLOCK_COUNT" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$CLOCK_COUNT"
+  if [ "$n" -le 2 ]; then echo 2026-01-01T23:59:59Z; else echo 2026-01-02T00:00:00Z; fi
+  exit 0
+fi
+exec /bin/date "$@"
+SHIM
+  chmod +x "$clockdir/date"
+
   # ── SHAPE. Four records: two carrying optional fields, two carrying none, and one
   #    whose description holds a tab and a newline — the only inputs that could split
   #    a record into the wrong number of columns or into two lines.
@@ -160,7 +177,7 @@ case_progress_record_is_one_shape_and_optional() {
     . ./scripts/lib/role-set.sh
     # shellcheck source=/dev/null
     . ./scripts/lib/progress-record.sh
-    export KIT_PROGRESS_DIR="$bogusdir"
+    export KIT_PROGRESS_DIR="$bogusdir" CLOCK_COUNT="$SB_TMP/clock.bogus" PATH="$clockdir:$PATH"
     kit_progress "orchestrator/sub-3" status "structurally fine but NOT a member — the membership half"
     kit_progress ""                   info   "no actor at all"
     # THE STRUCTURAL HALF must hold whether or not the role set is readable: an actor with a
@@ -171,14 +188,17 @@ case_progress_record_is_one_shape_and_optional() {
 
   local nbog=0
   [ -d "$bogusdir" ] && nbog="$(cat "$bogusdir"/*.tsv 2>/dev/null | grep -c . || true)"
-  if [ "${nbog:-0}" -ne 4 ]; then
+  _ndays=0; for _f in "$bogusdir"/*.tsv; do [ -f "$_f" ] && _ndays=$(( _ndays + 1 )); done
+  if [ "$_ndays" -ne 2 ]; then
+    _control_did_not_run "cross midnight while writing the actor records ($_ndays day file(s), expected 2) — the two-file shape was not exercised"
+  elif [ "${nbog:-0}" -ne 4 ]; then
     cf "an actor outside § 5b's shape produced $nbog record(s), not 4 — the validator DROPPED a record, and § 3 says a malformed field must never make work look like it never happened"
   else
     [ "$(awk -F'\t' '{print NF}' "$bogusdir"/*.tsv | sort -u | tr -d '\n')" = "5" ] \
       || cf "a tagged record does not carry the four required columns plus extras — § 2's envelope must survive normalisation"
     awk -F'\t' '$2!="unknown" {bad=1} END{exit bad?1:0}' "$bogusdir"/*.tsv 2>/dev/null \
       || cf "an actor outside § 5b's shape was written through unnormalised — the column is still best-effort"
-    [ "$(grep -c 'declared-actor=' "$bogusdir"/*.tsv 2>/dev/null || echo 0)" -eq 4 ] \
+    [ "$(cat "$bogusdir"/*.tsv 2>/dev/null | grep -c 'declared-actor=' || true)" -eq 4 ] \
       || cf "a normalised actor was not preserved in declared-actor= — § 5b requires the offered value be carried, or the typo is silent"
     # ...AND AS ONE TOKEN. A space inside the preserved value splits one extra into two,
     # so a reader tokenising the extras field sees a key nobody wrote.
@@ -254,7 +274,7 @@ case_progress_record_is_one_shape_and_optional() {
     . ./scripts/lib/role-set.sh
     # shellcheck source=/dev/null
     . ./scripts/lib/progress-record.sh
-    export KIT_PROGRESS_DIR="$rundir"
+    export KIT_PROGRESS_DIR="$rundir" CLOCK_COUNT="$SB_TMP/clock.run" PATH="$clockdir:$PATH"
     unset KIT_PROGRESS_RUN
     kit_progress "Dev:ID-1" status "no run id in scope"
     KIT_PROGRESS_RUN="" kit_progress "Dev:ID-1" status "run id declared but EMPTY"
@@ -264,12 +284,15 @@ case_progress_record_is_one_shape_and_optional() {
 
   local nrun=0
   [ -d "$rundir" ] && nrun="$(cat "$rundir"/*.tsv 2>/dev/null | grep -c . || true)"
-  if [ "${nrun:-0}" -ne 4 ]; then
+  _ndays=0; for _f in "$rundir"/*.tsv; do [ -f "$_f" ] && _ndays=$(( _ndays + 1 )); done
+  if [ "$_ndays" -ne 2 ]; then
+    _control_did_not_run "cross midnight while writing the run-id records ($_ndays day file(s), expected 2) — the two-file shape was not exercised"
+  elif [ "${nrun:-0}" -ne 4 ]; then
     _control_did_not_run "write the four run-id records ($nrun produced) — nothing below was measured"
   else
     # UNSET AND EMPTY WRITE NO KEY. An empty key is a column that looks answered and is
     # not, and it would make a reader filtering on `run=` collect unrelated records.
-    [ "$(grep -c 'run=' "$rundir"/*.tsv 2>/dev/null || echo 0)" -eq 2 ] \
+    [ "$(cat "$rundir"/*.tsv 2>/dev/null | grep -c 'run=' || true)" -eq 2 ] \
       || cf "an unset or empty run-id seam still wrote a run= key (or a set one did not) — § 5b says empty or unset writes NO key at all"
     # EXACTLY ONE `run=` PER RECORD THAT HAS ONE — the environment must not add a second.
     awk -F'\t' '{n=gsub(/(^| )run=/,"",$5); if (n>1) bad=1} END{exit bad?1:0}' "$rundir"/*.tsv 2>/dev/null \

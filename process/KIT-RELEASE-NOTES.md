@@ -582,6 +582,9 @@ columns and never the cards.*
 
 ### Fixed
 
+- **The self-test's progress-record case no longer fails when a run straddles 00:00 UTC.** Two of its counts read a
+  directory that then held two day files; it now crosses midnight on purpose and counts correctly. No action needed.
+
 - **A card's `branch:` line with a trailing `# comment` now lands and re-checks.** `finish-pr.sh` and `kit-upgrade.sh` read the
   comment as part of the branch name (`branch-unnamed`, or "resolves to no branch"); all four scripts now read the field
   through `scripts/lib/card-field.sh`, comment stripped. No action needed.
