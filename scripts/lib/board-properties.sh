@@ -717,7 +717,7 @@ _bp_ruling_history() {
       done <<< "$nspans"
       [ -n "$os" ] && [ -n "$ns" ] || continue
       added="$(diff <(sed -n "${os},${oe}p" "$oldf") <(sed -n "${ns},${ne}p" "$newf") | sed -n 's/^> //p')"
-      if printf '%s\n' "$added" | grep -qiE "\*\*(${_BP_STAMP_WORDS})\b|^\*\*Ruling\.\*\*[[:space:]]*(WITHDRAWN|WORKING DEFAULT)"; then
+      if printf '%s\n' "$added" | grep -qiE "\*\*(${_BP_STAMP_WORDS})\b" || _bp_added_state_head "$added"; then
         continue
       fi
       subj="$(git -C "$KIT_BP_HIST_REPO" log -1 --format=%s "$sha" 2>/dev/null)"
@@ -727,6 +727,18 @@ _bp_ruling_history() {
   rm -rf "$scratch"
   _BP_HIST_N=$((_BP_HIST_N + n))
   return 0
+}
+
+# _bp_added_state_head <added lines> — true when one of them is a `**Ruling.**` line whose field
+# starts with a state token, in any case (lib/decision-register.sh's kit_ruling_state reads the head).
+_bp_added_state_head() {
+  local l
+  while IFS= read -r l; do
+    case "$l" in
+      '**Ruling.**'*) [ -z "$(kit_ruling_state "$(printf '%s' "${l#'**Ruling.**'}" | tr 'a-z' 'A-Z')")" ] || return 0 ;;
+    esac
+  done <<< "$1"
+  return 1   # return-class: predicate
 }
 
 # _bp_findings_numbering <file> <label> — a register's `## Findings` section ends at the next

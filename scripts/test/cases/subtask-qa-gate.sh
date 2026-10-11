@@ -287,3 +287,31 @@ case_subtask_qa_verdict_pointer_unresolved_refuses() {
   finish "subtask.sh move <id> qa_complete refuses a slice whose QA Verdict path:line pointer does not resolve on the slice's OWN branch, with a refusal=qa-verdict-pointer-unresolved record"
   teardown
 }
+
+# =============================================================================
+# CASE — A SLICE WHOSE VERDICT IS WRITTEN IN BACKTICKS, AS THE SLICE TEMPLATE SHOWS IT, IS STILL
+# REFUSED WHEN THAT VERDICT IS A FAIL. The shared check strips the backticks from the verdict cell.
+# =============================================================================
+case_subtask_qa_verdict_fail_in_backticks_refuses() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh move <id> qa_complete refuses a slice whose verdict cell is \`FAIL_AC\` in backticks" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+
+  local p="$SB_PREFIX-816"
+  _seed_parent "$p"
+  local f; f="$(_seed_subtask "$p" s1 dev_complete tick "Verdict in backticks")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1`FAIL_AC`$2/' "$f"
+  grep -qF -- '| AC1 | `FAIL_AC` |' "$f" \
+    || _fixture_die "case_subtask_qa_verdict_fail_in_backticks_refuses: the backticked FAIL_AC row was not planted"
+  publish_sandbox
+
+  local out rc
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a slice whose AC1 verdict is \`FAIL_AC\` — subtask.sh move exited 0"
+  origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-tick.md" && cf "the slice advanced despite the FAIL row"
+  /usr/bin/grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "no progress record carries refusal=qa-verdict-fail: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "subtask.sh move <id> qa_complete refuses a slice whose verdict cell is FAIL_AC written in backticks, with a refusal=qa-verdict-fail record"
+  teardown
+}

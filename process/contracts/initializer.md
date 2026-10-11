@@ -47,9 +47,10 @@ precondition the process depends on and then demonstrating each one working.
 - **A substitution NAMES THE SPACE IT REWRITES, and a convention's KEY is not in it.** The stamper
   rewrites **values** — an identifier prefix, a trunk name, a project name. It never rewrites the
   **key** of a convention, even where that key is spelled with the same characters as the
-  placeholder being replaced. **And any census of surviving placeholder residue exempts those keys
-  in the same change**, or protecting the key from the rewrite merely moves the failure into the
-  census.
+  placeholder being replaced, **nor the name of a file the kit ships and cites** (a role doc's
+  `KIT-FEEDBACK.md`) for the same reason. **And any census of surviving placeholder residue exempts
+  those keys and names in the same change**, or protecting the key from the rewrite merely moves the
+  failure into the census.
   *Why:* measured. The shipped classification marker's key begins with the same literal as the
   shipped placeholder prefix, so a prefix substitution rewrote the **key** and left the **value** —
   every stamped file carrying the marker came out with a line that refutes itself, and every work

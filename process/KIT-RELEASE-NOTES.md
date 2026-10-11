@@ -353,10 +353,12 @@ columns and never the cards.*
   refuses if that path already exists.
 
 - **An upgrade now checks your open cards against the new kit's landing checks.** At staging,
-  `kit-upgrade.sh` runs `forks:` over every card in `in_progress/`, `dev_complete/` and `blocked/`, and the QA
-  Verdict and Ablation checks over `dev_complete/` cards, from the new kit's own `scripts/lib/` (staged under
-  `.kit-upgrade/lib/`). Each card they would refuse is a checklist item naming the rule id; a card whose `branch:`
-  resolves to no branch is an item saying it could not be checked. `--finish` runs them again and refuses
+  `kit-upgrade.sh` runs `forks:` over every `.md` file in `in_progress/`, `dev_complete/` and `blocked/` (a card headed
+  by the creators' comment included), the QA Verdict check over `dev_complete/` cards and any other open card that
+  already has a `## QA Verdict`, and the Ablation check over `dev_complete/` cards, from the new kit's own
+  `scripts/lib/` (staged under `.kit-upgrade/lib/`). Each card they would refuse is a checklist item naming the rule
+  id; a card whose `branch:` resolves to no branch, or a file with no frontmatter, is an item saying it could not be
+  checked. `--finish` runs them again and refuses
   (`upgrade-open-card-refused`) while any would still be refused. **Before `--finish`, fix each listed card as its
   own landing would require, or check by hand the ones that could not be run.**
 
@@ -581,6 +583,23 @@ columns and never the cards.*
   register.
 
 ### Fixed
+
+- **A QA Verdict row whose verdict is written in backticks or bold now counts.** The card templates show the verdict
+  token in backticks; `finish-pr.sh` and `subtask.sh` read `` `FAIL_AC` `` and `` `FAIL_REGRESSION` `` as no verdict and
+  let a failing row land. They now refuse it (`qa-verdict-fail`). No action needed.
+
+- **`kit-init.sh --prefix` no longer rewrites `KIT-FEEDBACK.md` in `.claude/roles/orchestrator.md`.** The orchestrator
+  checklist named `process/<PREFIX>-FEEDBACK.md`, a file nothing else reads. A project initialised before this
+  keeps the wrong name: change that one word back to `KIT-FEEDBACK` by hand.
+
+- **A decision-register entry written as the format shows it is now read.** `requirements/DECISIONS.md` shows the
+  `WITHDRAWN` and `WORKING DEFAULT` tokens in backticks; `ask.sh --decision` read a backticked `WITHDRAWN` as a
+  standing ruling and left it untouched, and `check-board.sh` arm [q] missed a backticked head. Both now read the
+  token bare, in backticks or in bold. No action needed.
+
+- **`PASS_AC_CORRECTED` now says what it needs.** An AC changed after its card left `todo/` is refused at landing
+  without a `[decision: D-NN]` citation; the third verdict's steps in `process/MANUAL.md` and `qa.md`, and the card
+  templates, now say to cite the register entry that records the correction. No action needed.
 
 - **The self-test's progress-record case no longer fails when a run straddles 00:00 UTC.** Two of its counts read a
   directory that then held two day files; it now crosses midnight on purpose and counts correctly. No action needed.

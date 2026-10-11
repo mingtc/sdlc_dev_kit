@@ -76,12 +76,13 @@ SCRATCH_SLUG='kit-init-self-check'
 # shipped templates say `<PREFIX>-NNN`, while config.sh's own default is a real
 # token so its derivation regex can read it.
 PREFIX_PLACEHOLDER='<PREFIX>'
-# THE MARKER KEYS are the convention's own words, not the issue prefix; they only LOOK like the
-# shipped placeholder prefix `KIT`. The prefix substitutions below match `<OLD_PREFIX>-`, so each
-# key is hidden behind its own sentinel first, or every stamped file would read `XYZ-CLASS:` /
-# `XYZ-DISPOSITION:`. ONE LIST: a later marker key joins this line and nowhere else; the hiding,
-# the census exclusion and the self-check all read it. Space-separated (bash 3.2 has no nameref).
-MARKER_KEYS='KIT-CLASS: KIT-DISPOSITION:'
+# THE MARKER KEYS, and the file name the role docs cite (KIT-FEEDBACK), are the kit's own words, not
+# the issue prefix; they only LOOK like the shipped placeholder prefix `KIT`. The prefix substitutions
+# below match `<OLD_PREFIX>-`, so each is hidden behind its own sentinel first, or every stamped file
+# would read `XYZ-CLASS:` / `XYZ-DISPOSITION:` / `XYZ-FEEDBACK.md`. ONE LIST: a later key or shipped
+# name joins this line and nowhere else; the hiding, the census exclusion and the self-check all
+# read it. Space-separated (bash 3.2 has no nameref). KIT-CLASS: stays first: the harness reads it.
+MARKER_KEYS='KIT-CLASS: KIT-DISPOSITION: KIT-FEEDBACK'
 # marker_sentinel <key> → that key's own sentinel, derived from the key so no second list of
 # sentinels can drift out of step with MARKER_KEYS.
 marker_sentinel() { printf '@@KITMARKER-%s@@' "$(printf '%s' "$1" | tr -cd 'A-Za-z0-9')"; }
@@ -1284,8 +1285,8 @@ census_report "prefix placeholders (${PREFIX_PLACEHOLDER} / ${OLD_PREFIX}-, excl
 census_report "trunk '${OLD_TRUNK}'"       "$TRUNK_RE" "$( [ "$TRUNK" != "$OLD_TRUNK" ] && echo true || echo false )"
 census_report "project name '${OLD_NAME}'" "$NAME_RE"  "$( [ "$NEW_NAME" != "$OLD_NAME" ] && echo true || echo false )"
 
-# THE MARKERS SURVIVED — one row PER KEY, so a stamped `<PREFIX>-DISPOSITION:` is caught exactly
-# as a stamped `<PREFIX>-CLASS:` is. The defaced spelling must be ABSENT for every key; the key
+# THE MARKERS SURVIVED — one row PER KEY, so a stamped `<PREFIX>-DISPOSITION:` or `<PREFIX>-FEEDBACK`
+# is caught exactly as a stamped `<PREFIX>-CLASS:` is. The defaced spelling must be ABSENT for every key; the key
 # must be PRESENT only for KIT-CLASS: (contracts/initializer.md § 2: either alone passes on deleted
 # markers), because every role doc carries a class while a disposition marker may legitimately be
 # gone (its file removed on purpose).
@@ -1298,11 +1299,11 @@ for mkey in $MARKER_KEYS; do
     mk_bad=$(( mk_bad + $( { grep -rl "${PREFIX}-${mkey#KIT-}" "$d" 2>/dev/null || true; } | wc -l | tr -d ' ') ))
   done
   if [ "$mk_bad" -gt 0 ]; then
-    sc_bad "classification markers: ${mk_bad} file(s) now read '${PREFIX}-${mkey#KIT-}' — the stamper rewrote the convention's KEY, not a value"
+    sc_bad "protected names: ${mk_bad} file(s) now read '${PREFIX}-${mkey#KIT-}' — the stamper rewrote a convention's KEY or a shipped name, not a value"
   elif [ "$mk_ok" -eq 0 ] && [ "$mkey" = KIT-CLASS: ]; then
-    sc_bad "classification markers: NONE found carrying '${mkey}' in .claude/roles + .claude/templates — expected the shipped markers to be intact"
+    sc_bad "protected names: NONE found carrying '${mkey}' in .claude/roles + .claude/templates — expected the shipped markers to be intact"
   else
-    sc_ok "classification markers intact — ${mk_ok} file(s) carry '${mkey}', 0 read '${PREFIX}-${mkey#KIT-}'"
+    sc_ok "protected names intact — ${mk_ok} file(s) carry '${mkey}', 0 read '${PREFIX}-${mkey#KIT-}'"
   fi
 done
 # Reported, never asserted: <TOKEN>-<digits> is a provenance citation, and

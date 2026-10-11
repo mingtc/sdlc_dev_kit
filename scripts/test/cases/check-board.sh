@@ -3572,6 +3572,8 @@ case_session_start_hook_output_stays_within_the_delivery_budget() {
 #   D-03 Why changed, Ruling untouched                  -> clean (a reopen is a Ruling change)
 #   D-04 Ruling changed AND a colon-labelled Amended    -> no history finding (stamped), but the
 #        line added                                        colon label is an extra fragment
+#   D-05 / D-06 Ruling becomes a backticked WORKING     -> clean (the register's own format text
+#        DEFAULT / WITHDRAWN, as the format shows them     writes the token in backticks)
 # =============================================================================
 case_check_board_register_ruling_changes_need_a_stamp() {
   cf_reset
@@ -3612,6 +3614,16 @@ ${reg_mark}D-04 — fourth
 **Why.** Reasons.
 **Provenance.** PM.
 
+${reg_mark}D-05 — fifth
+**Ruling.** Echo holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
+${reg_mark}D-06 — sixth
+**Ruling.** Foxtrot holds.
+**Why.** Reasons.
+**Provenance.** PM.
+
 ## Findings — what surfaced
 1. one
 2. two
@@ -3640,16 +3652,22 @@ EOT
   # D-04: a Ruling change WITH a colon-labelled stamp line added before Provenance.
   awk '/D-04 — fourth/{f=1} f && /^\*\*Ruling\./{sub(/Delta holds\./, "Delta holds twice.")} f && /^\*\*Provenance\./{print "**Amended 2026-10-07:** Delta now holds twice."; f=0} {print}' "$reg" > "$reg.new" && mv "$reg.new" "$reg"
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-04 amended" >/dev/null 2>&1
+  # D-05, D-06: the token at the head of the Ruling, in backticks, as DECISIONS.md's format text shows it.
+  sed -i.bak 's/^\*\*Ruling\.\*\* Echo holds\./**Ruling.** `WORKING DEFAULT (provisional) — Echo holds.`/' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-05 becomes a working default" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* Foxtrot holds\./**Ruling.** `WITHDRAWN 2026-10-08 — until the owner answers.`/' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-06 withdrawn" >/dev/null 2>&1
   publish_sandbox
 
   grep -q 'Alpha holds, except' "$reg" && grep -q 'Delta holds twice' "$reg" && grep -q 'WORKING DEFAULT (provisional)' "$reg" && grep -q 'Reasons, restated' "$reg" \
+    && grep -qF '`WORKING DEFAULT (provisional) — Echo' "$reg" && grep -qF '`WITHDRAWN 2026-10-08' "$reg" \
     || _fixture_die "case_check_board_register_ruling_changes_need_a_stamp: the planted edits are not all in the register."
 
   out="$(cb_run)"
   q="$(printf '%s\n' "$out" | _cb_q_section)"
   printf '%s\n' "$q" | grep -E "⚠ .* D-01 — its Ruling text changed in ${sha_d01}" >/dev/null \
     || cf "D-01's unstamped Ruling change ($sha_d01) was NOT named: $q"
-  printf '%s\n' "$q" | grep 'Ruling text changed' | grep -E 'D-0[234]' >/dev/null \
+  printf '%s\n' "$q" | grep 'Ruling text changed' | grep -E 'D-0[23456]' >/dev/null \
     && cf "a stamped, WORKING DEFAULT or Why-only change was named as an unstamped Ruling change: $q"
   printf '%s\n' "$q" | grep -E '⚠ .* D-04 —.*extra dated/bold fragment' >/dev/null \
     || cf "D-04's colon-labelled amendment (**Amended 2026-10-07:**) was NOT read as an extra fragment: $q"

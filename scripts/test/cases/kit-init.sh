@@ -124,6 +124,54 @@ $(printf '%s' "$rewritten" | sed 's/^/      /')"
 }
 
 # =============================================================================
+# POST-INIT, EVERY SHIPPED FILE NAME OF THE SHAPE KIT-<WORD>.md SURVIVES THE PREFIX STAMP
+# =============================================================================
+# A role doc names process/KIT-FEEDBACK.md; the prefix substitution matches `KIT-` before any
+# non-digit, so unprotected it names a file <PREFIX>-FEEDBACK.md that does not exist, and the
+# census (which excludes the same protected list) reads zero. THE EXPECTED SET IS DERIVED FROM
+# THE SHIPPED TREE BEFORE kit-init.sh RUNS: derived afterwards, a rewritten name is simply not
+# found and the case has nothing to check.
+case_kit_init_prefix_stamp_keeps_shipped_file_names() {
+  cf_reset
+  if ! has_kit_init; then skp "kit-init: shipped KIT-<WORD>.md file names survive the stamp" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "kit-init: shipped KIT-<WORD>.md file names survive the stamp" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+
+  local expected="" d f rel tok
+  for d in "$REAL_REPO_ROOT/.claude/roles" "$REAL_REPO_ROOT/.claude/templates"; do
+    [ -d "$d" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      rel="${f#"$REAL_REPO_ROOT"/}"
+      while IFS= read -r tok; do
+        [ -n "$tok" ] || continue
+        expected="${expected}${rel}|${tok}
+"
+      done < <(grep -oE 'KIT-[A-Z]+\.md' "$f" 2>/dev/null | sort -u)
+    done < <(find "$d" -type f -name '*.md' | sort)
+  done
+  [ -n "$expected" ] \
+    || { cf "the shipped tree names NO KIT-<WORD>.md file under .claude/roles or .claude/templates — the assertion below would have no operand and pass on an empty set"; finish "kit-init: shipped KIT-<WORD>.md file names survive the stamp"; return; }
+
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $out"; finish "kit-init: shipped KIT-<WORD>.md file names survive the stamp"; teardown; return; }
+
+  while IFS='|' read -r rel tok; do
+    [ -n "$rel" ] || continue
+    grep -qF -- "$tok" "$SB_WORK/$rel" 2>/dev/null \
+      || cf "$rel: the shipped file name '$tok' did NOT survive kit-init.sh (it now reads '$(grep -oE "SBX-${tok#KIT-}" "$SB_WORK/$rel" 2>/dev/null | head -1)')"
+  done <<EOF
+$expected
+EOF
+
+  finish "kit-init: every shipped KIT-<WORD>.md file name under .claude/{roles,templates} survives the prefix stamp (expected set derived from the shipped tree BEFORE init)"
+  teardown
+}
+
+# =============================================================================
 # kit-init's OWN COMMITS DECLARE THE PRE-ROLE HAT. A day-one tree has no session hat and the
 # commit guard refuses a commit with none, so the initializer declares its hat (the pre-role hat
 # the subject names) for each commit it makes: the initialization commit and the self-check's.

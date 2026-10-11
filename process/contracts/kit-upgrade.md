@@ -51,12 +51,12 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   *Why:* the branch an upgrade is staged on may be squash-merged, which erases the commits that marked
   each item; the file is then the only record of what was done.
 - **The new kit's landing checks judge the project's open cards, and are read from the new kit.** The
-  `forks:`, QA Verdict and Ablation checks run over every card in `in_progress/`, `dev_complete/` and
-  `blocked/` that has a branch (the QA Verdict and Ablation only at `dev_complete/`, or where the card
-  already carries a QA Verdict), from a copy of the new kit's `scripts/lib/` staged in `.kit-upgrade/lib/`.
-  A card they would refuse is one checklist item naming the rule id, and finishing refuses while any
-  still would. A card whose branch resolves to no branch, or a project with no trunk branch, gets an item
-  saying the checks did not run; it is never counted as passing.
+  `forks:`, QA Verdict and Ablation checks run over every `.md` file in `in_progress/`, `dev_complete/` and
+  `blocked/` that has a branch, headed by a comment or not (the QA Verdict at `dev_complete/` or where the
+  card already carries a QA Verdict, the Ablation only at `dev_complete/`), from a copy of the new kit's `scripts/lib/`
+  staged in `.kit-upgrade/lib/`. A card they would refuse is one checklist item naming the rule id, and finishing refuses while any
+  still would. A card whose branch resolves to no branch, a file with no frontmatter, or a project with no
+  trunk branch, gets an item saying the checks did not run; it is never counted as passing.
   *Why:* a landing check never reads its own rule from the tree it judges, and an upgrade's own landing
   runs the gates the project had before it, so nothing else ever tests an in-flight card against the
   rules the project has just adopted. A column left out would be a place to move a card to avoid them.

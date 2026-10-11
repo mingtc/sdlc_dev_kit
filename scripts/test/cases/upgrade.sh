@@ -697,6 +697,10 @@ _ku_card() {
     fi
     printf '\n## Activity\n\n- 2026-01-01 [PM] Minted.\n'
   } > "$f/todo/$slug.md"
+  # The creators head every minted card with a comment, so line 1 is never the frontmatter's `---`;
+  # the fixture takes the head from the shipped function, not from a retyped copy.
+  ( . "$REAL_SCRIPTS/lib/card-head.sh" && kit_rehead_card "$f/todo/$slug.md" ) >/dev/null 2>&1 \
+    || _fixture_die "_ku_card: could not head $id as the creators do"
   git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "mint $id" >/dev/null 2>&1
   if [ "$br" != n/a ]; then
     git -C "$KU_T" checkout -q -b "$br" main >/dev/null 2>&1
@@ -717,7 +721,8 @@ _ku_card() {
 # carries the real landing checks. The cards: ROTA-001 at dev_complete with a QA table and no
 # forks: field; ROTA-002 blocked with no forks: field; ROTA-003 in_progress with forks: none;
 # ROTA-004 in_progress with no branch; ROTA-005 at dev_complete with no QA Verdict table; ROTA-006
-# at dev_complete whose branch touches a declared test path and has no Ablation section.
+# at dev_complete whose branch touches a declared test path and has no Ablation section. Every card
+# is headed as the creators head it. A seventh file, in_progress/notes.md, has no frontmatter.
 _ku_cards_pair() {
   KU_OLD="$SB_TMP/kit-old"; KU_NEW="$SB_TMP/kit-new"; KU_T="$SB_TMP/project"; KU_ELSE="$SB_TMP/elsewhere"
   rm -rf "$KU_OLD" "$KU_NEW" "$KU_T" "$KU_ELSE"
@@ -737,6 +742,8 @@ _ku_cards_pair() {
   _ku_card in_progress ROTA-004 n/a 'forks: none' noqa
   _ku_card dev_complete ROTA-005 feat/five 'forks: none' noqa
   _ku_card dev_complete ROTA-006 feat/six 'forks: none' qa test
+  printf 'scratch notes, no frontmatter\n' > "$KU_T/progress/in_progress/notes.md"
+  git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "a file with no frontmatter in in_progress" >/dev/null 2>&1
 }
 
 # =============================================================================
@@ -769,6 +776,10 @@ case_kit_upgrade_checks_open_cards_against_the_new_kit() {
   grep -F 'ROTA-003' "$cl" >/dev/null && cf "a card whose forks: is declared got an item: $(grep -F ROTA-003 "$cl")"
   grep -F 'open card ROTA-004' "$cl" | grep -F 'did not run' >/dev/null \
     || cf "a card with no branch is not listed as unchecked: $(grep -F ROTA-004 "$cl")"
+  grep -F 'open cards: 7 read, 4 ' "$SB_TMP/up.out" >/dev/null \
+    || cf "the summary does not say seven cards were read and four refused (every card is headed by a comment): $(grep -F 'open cards' "$SB_TMP/up.out")"
+  grep -F 'open card notes (in_progress)' "$cl" | grep -F 'did not run' >/dev/null \
+    || cf "a file in an open column with no frontmatter was skipped silently instead of listed as unchecked: $(grep -F notes "$cl" | tr '\n' '|')"
   n="$(_ku_recs "$recs" forks-missing)"
   [ "${n:-0}" -eq 0 ] || cf "a probe left $n refusal=forks-missing record(s) in the target"
   [ -f "$KU_T/.kit-upgrade/lib/qa-gate.sh.kit-new" ] || cf "the new kit's qa-gate.sh is not staged under .kit-upgrade/lib/"

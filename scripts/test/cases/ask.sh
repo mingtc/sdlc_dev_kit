@@ -432,6 +432,73 @@ EOF
 }
 
 # =============================================================================
+# CASE — ask.sh READS THE WITHDRAWN TOKEN THE WAY THE REGISTER'S FORMAT TEXT WRITES IT.
+# DECISIONS.md shows the token wrapped in backticks; an entry written as shown has no current
+# ruling just as a bare one has none. Bare, backticked and bold heads each take the working
+# default, and a ruling that merely MENTIONS withdrawal further along its line is still standing.
+# =============================================================================
+case_ask_reads_the_withdrawn_token_as_the_format_shows_it() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "ask.sh reads a backticked or bold WITHDRAWN head as a withdrawn entry"; teardown; return; }
+
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  cat > "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
+# DECISIONS.md
+
+## A. test bucket
+
+### D-01 — bare head
+
+**Ruling.** WITHDRAWN 2026-09-20 — until the owner answers.
+**Why.** w1.
+**Provenance.** p1.
+
+### D-02 — backticked head
+
+**Ruling.** `WITHDRAWN 2026-09-20 — until the owner answers.`
+**Why.** w2.
+**Provenance.** p2.
+
+### D-03 — bold head
+
+**Ruling.** **WITHDRAWN** 2026-09-20 — until the owner answers.
+**Why.** w3.
+**Provenance.** p3.
+
+### D-04 — a standing ruling that mentions the word
+
+**Ruling.** The folder stays read-only; a WITHDRAWN token is never written here.
+**Why.** w4.
+**Provenance.** p4.
+
+---
+EOF
+
+  local out rc d
+  for d in D-01 D-02 D-03 D-04; do
+    out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/ask.sh --role Dev "Settle $d?" --default "Hold $d." --decision "$d" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "$d: exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    case "$d" in
+      D-04)
+        case "$out" in *"STANDING"*) : ;; *) cf "$d: a ruling that only mentions WITHDRAWN was not left standing: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+        grep -qF 'The folder stays read-only' "$SB_WORK/requirements/DECISIONS.md" || cf "$d: the standing ruling was overwritten"
+        ;;
+      *)
+        case "$out" in *"was WITHDRAWN"*) : ;; *) cf "$d: the entry was not read as WITHDRAWN: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+        awk -v id="$d" '/^### /{e=($2==id)} e && /^\*\*Ruling\.\*\*/{print; exit}' "$SB_WORK/requirements/DECISIONS.md" \
+          | grep -F 'WORKING DEFAULT (provisional, asked' >/dev/null || cf "$d: its Ruling line did not become a WORKING DEFAULT"
+        ;;
+    esac
+  done
+
+  finish "ask.sh gives a WITHDRAWN entry its working default whether the token heads the Ruling bare, in backticks or in bold, and leaves a ruling that only mentions the word standing"
+  teardown
+}
+
+# =============================================================================
 # CASE — WITHOUT --decision, ask.sh SAYS WHERE THE DEFAULT IS RECORDED INSTEAD.
 # =============================================================================
 case_ask_without_decision_names_the_file_as_the_record() {

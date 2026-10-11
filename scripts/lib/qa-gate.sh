@@ -202,6 +202,7 @@ kit_qa_verdict_check() {
     _qverdict="$(printf '%s' "$_qrow" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$3); print $3}')"
     _qkind="$(printf '%s' "$_qrow"    | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$4); print $4}')"
     _qptr="$(printf '%s' "$_qrow"     | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$5); print $5}')"
+    _qverdict="$(printf '%s' "$_qverdict" | tr -d '`*')"   # the templates write the token in backticks
     _qkind="$(printf '%s' "$_qkind" | tr -d '`')"
     _qptr_stripped="$(printf '%s' "$_qptr" | tr -d '`')"
 

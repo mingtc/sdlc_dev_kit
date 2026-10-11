@@ -199,3 +199,18 @@ kit_decisions_cited() {
   )
   return 0
 }
+
+# kit_ruling_state <text of a Ruling field, after its `**Ruling.**` label>
+#   Prints WITHDRAWN or WORKING DEFAULT when that token heads the field, nothing otherwise. A
+#   leading backtick, `*`, `_` or space is skipped, so the token reads the same bare as in the
+#   backticks the register's format text shows it in. The ONE reader of that head: ask.sh and the
+#   register-shape report both ask it, so they cannot disagree about which entries have a ruling.
+kit_ruling_state() {
+  local _krs_head
+  _krs_head="$(printf '%s' "$1" | sed 's/^[`*_[:space:]]*//')"
+  case "$_krs_head" in
+    WITHDRAWN*)         printf 'WITHDRAWN\n' ;;
+    "WORKING DEFAULT"*) printf 'WORKING DEFAULT\n' ;;
+  esac
+  return 0
+}

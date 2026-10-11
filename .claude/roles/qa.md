@@ -209,9 +209,11 @@ the illustration, never the requirement** — if the AC asks for the wrong *beha
 decision, not a reviewer's correction
 ([MANUAL § The Dev → QA handoff, step 6](../../process/MANUAL.md)). **Do not FAIL the
 implementation for matching reality.** PASS it, **land the AC amendment with the issue** —
-replacing the wrong illustration with the corrected one **and its source** — and send the note to
-PM: an AC illustration that was wrong once is a signal about where this project's facts are being
-guessed.
+replacing the wrong illustration with the corrected one **and its source**, and cite the register entry that
+records the correction as `[decision: D-NN]` on the card (an AC changed after the card left `todo/` is
+refused at landing without it; [MANUAL § Execution discipline, item 6](../../process/MANUAL.md)) — and send
+the note to PM, who keeps the ruling and records that entry: an AC illustration that was wrong once is a
+signal about where this project's facts are being guessed.
 
 **Verify before you invoke it.** The verdict is only available when you have **checked the fact
 yourself** against a citable source. *"The AC looks off to me"* is a FAIL or a question, never

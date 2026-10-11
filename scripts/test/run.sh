@@ -246,6 +246,7 @@ CASES=(
   case_parent_advances_only_with_every_subtask
   case_subtask_declined_closes_a_slice
   case_subtask_qa_verdict_missing_table_refuses
+  case_subtask_qa_verdict_fail_in_backticks_refuses
   case_subtask_forks_missing_refuses
   case_subtask_ablation_missing_section_refuses
   case_subtask_qa_gate_well_formed_lands
@@ -275,6 +276,7 @@ CASES=(
   case_ask_refuses_when_asker_is_principal
   case_ask_writes_one_file_and_returns
   case_ask_never_overwrites_a_standing_ruling
+  case_ask_reads_the_withdrawn_token_as_the_format_shows_it
   case_ask_without_decision_names_the_file_as_the_record
   case_unattended_profile_denies_the_tool
   case_stop_ask_hook_classifies_turn_endings
@@ -328,6 +330,7 @@ CASES=(
   case_finish_pr_qa_verdict_unquoted_kinds_only_refuses
   case_finish_pr_qa_verdict_placeholder_forms_refuse
   case_finish_pr_qa_verdict_ac_separator_forms_refuse
+  case_finish_pr_qa_verdict_fail_token_formatting_refuses
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
   case_finish_pr_ablation_missing_section_refuses
   case_finish_pr_ablation_branch_cannot_undeclare_test_globs
@@ -362,6 +365,7 @@ CASES=(
   case_kit_init_markers_intact
   case_kit_init_commits_under_the_pre_role_hat
   case_kit_init_disposition_markers_intact
+  case_kit_init_prefix_stamp_keeps_shipped_file_names
   case_archive_requires_the_retired_store
   case_archive_missing_index_lists_the_store
   case_archive_refuses_a_name_already_retired

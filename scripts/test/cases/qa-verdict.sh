@@ -474,3 +474,51 @@ case_finish_pr_qa_verdict_ac_separator_forms_refuse() {
   finish "finish-pr.sh reads an AC bullet separated by a hyphen or a colon (not only the em-dash) into the one-for-one population, so AC7 (hyphen) and AC8 (colon) with no QA Verdict row both refuse the landing, naming both, with a refusal=qa-verdict-ac-mismatch record"
   teardown
 }
+
+# _fmt_token <card number> — the verdict-cell spelling planted in that card.
+_fmt_token() {
+  case "$1" in
+    811) printf '%s' '`FAIL_AC`' ;;
+    812) printf '%s' '`FAIL_REGRESSION`' ;;
+    813) printf '%s' '**FAIL_AC**' ;;
+    814) printf '%s' 'FAIL_REGRESSION' ;;
+    *)   printf '%s' '`PASS`' ;;
+  esac
+}
+
+# =============================================================================
+# CASE — A FAIL VERDICT WRITTEN THE WAY THE CARD TEMPLATES SHOW IT IS STILL A FAIL. The templates
+# and the QA role doc write the verdict tokens in backticks; the gate strips them from the other
+# cells, so it strips them here: `FAIL_AC`, `FAIL_REGRESSION` and **FAIL_AC** each refuse a PASS
+# landing exactly as the bare token does, and a backticked `PASS` still lands. One sandbox per
+# spelling, each in the roles' order: card seeded and planted, published, branch cut, landing run.
+# =============================================================================
+case_finish_pr_qa_verdict_fail_token_formatting_refuses() {
+  cf_reset
+  local n tok f out rc
+  for n in 811 812 813 814 815; do
+    tok="$(_fmt_token "$n")"
+    make_sandbox
+    seed_issue dev_complete "$SB_PREFIX-$n" fmt chore "Verdict spelling $n" "feature/$SB_PREFIX-$n-work"
+    f="$SB_WORK/progress/dev_complete/$SB_PREFIX-$n-fmt.md"
+    TOK="$tok" perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1.$ENV{TOK}.$2/e' "$f"
+    grep -qF -- "| AC1 | ${tok} |" "$f" \
+      || _fixture_die "case_finish_pr_qa_verdict_fail_token_formatting_refuses: the verdict ${tok} was not planted in $SB_PREFIX-$n"
+    publish_sandbox
+    seed_branch "$SB_PREFIX-$n" work "CHANGE$n.txt"
+
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-$n" 2>&1 )"; rc=$?
+    if [ "$n" = 815 ]; then
+      [ "$rc" -eq 0 ] || cf "a backticked PASS verdict — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+      origin_has_path "progress/qa_complete/$SB_PREFIX-$n-fmt.md" || cf "the card with a backticked PASS did not advance to qa_complete/"
+    else
+      [ "$rc" -ne 0 ] || cf "a verdict written ${tok} on a PASS landing — finish-pr.sh exited 0"
+      /usr/bin/grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+        || cf "the verdict ${tok} left no refusal=qa-verdict-fail record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+      origin_has_path "CHANGE$n.txt" && cf "the verdict ${tok}: the branch was merged before the refusal"
+    fi
+    teardown
+  done
+
+  finish "finish-pr.sh reads a verdict written in backticks or bold as the token it spells: \`FAIL_AC\`, \`FAIL_REGRESSION\` and **FAIL_AC** refuse a PASS landing with a refusal=qa-verdict-fail record, and a backticked \`PASS\` lands"
+}

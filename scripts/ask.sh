@@ -63,6 +63,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$SCRIPT_DIR/lib/pm-field.sh"
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
+# shellcheck source=lib/decision-register.sh
+. "$SCRIPT_DIR/lib/decision-register.sh"
 
 usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the path is an ARGUMENT — see lib/usage.sh
 # A usage request always succeeds, in any position, before any argument is interpreted
@@ -199,9 +201,9 @@ if [ -n "$DECISION" ] && [ -f "$DEC" ] && grep -qE "^### ${DECISION}( |—|$)" "
     /^### / { in_entry = ($0 ~ ("^### " id "( |—|$)")) }
     in_entry && /^\*\*Ruling\.\*\*/ { sub(/^\*\*Ruling\.\*\* /, ""); print; exit }
   ' "$DEC")"
-  case "$CUR_RULING" in
-    WITHDRAWN*) DECISION_STATE="withdrawn" ;;
-    *)          DECISION_STATE="standing" ;;
+  case "$(kit_ruling_state "$CUR_RULING")" in
+    WITHDRAWN) DECISION_STATE="withdrawn" ;;
+    *)         DECISION_STATE="standing" ;;
   esac
 fi
 

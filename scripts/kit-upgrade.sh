@@ -43,11 +43,13 @@
 #
 # THE OPEN CARDS: the new kit's landing checks (forks:, the QA Verdict table, the Ablation section),
 # read from the staged copy of the NEW kit's scripts/lib/ in .kit-upgrade/lib/ and never from the
-# project's own, are run over every card in progress/in_progress, dev_complete and blocked. A card
+# project's own, are run over every *.md file in progress/in_progress, dev_complete and blocked
+# (the board's own definition of a card, a leading comment above the frontmatter included). A card
 # they would refuse gets one checklist item naming the rule; --finish runs them again and refuses
-# while any still would. A card whose branch does not resolve cannot be checked: its item says so.
-# A card in in_progress or blocked is checked for forks: alone; the QA Verdict and the Ablation are
-# owed at dev_complete.
+# while any still would. A card whose branch does not resolve, or a file with no frontmatter,
+# cannot be checked: its item says so. The forks: check runs on every such card; the QA Verdict
+# check runs at dev_complete, or on a card in any of the three that already has a "## QA Verdict"
+# heading; the Ablation check runs at dev_complete alone.
 #
 # THE VERIFY: LINES: an Action required entry in the new kit's release notes may carry one
 # `Verify: <shell command>` line (process/contracts/kit-upgrade.md § 7). The first run copies it into
@@ -183,7 +185,7 @@ lc_run() {
   local cards=() col f id br rev trunk cboard rules msg why line
   for col in in_progress dev_complete blocked; do
     for f in "$TGT/progress/$col/"*.md; do
-      [ -f "$f" ] && [ "$(sed -n 1p "$f")" = --- ] && cards+=("$col|$f")
+      [ -f "$f" ] && cards+=("$col|$f")
     done
   done
   LC_CARDS="${#cards[@]}"
