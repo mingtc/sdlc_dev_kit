@@ -642,7 +642,7 @@ columns and never the cards.*
 
 ### Fixed
 
-- **`new-issue.sh --help` and `new-bug.sh --help` show `--prd n/a`.** The usage line reads `--prd <PRD_PREFIX>-NNN|n/a`, with one line saying `n/a` is the lite path: no PRD, `stories: []`, and you fill `prd_reason:`. No action.
+- **`new-issue.sh --help` and `new-bug.sh --help` show `--prd n/a`.** The usage line reads `--prd <PRD_PREFIX>-NNN|n/a`, with one line saying `n/a` is the lite path: no PRD, `stories: []` unless `--stories` is given, and you fill `prd_reason:`. No action.
 
 - **Two prose corrections.** QA's AC-illustration step (`qa.md`, MANUAL step 6) now says a register entry added on the branch is also named in
   `forks:` and cited by a PRD or marked `[cross-cutting]`; `safety-net-check` tells a PRD-free chore to mint with `--prd n/a` and fill `prd_reason:`. No action.
