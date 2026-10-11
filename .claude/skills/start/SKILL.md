@@ -18,11 +18,19 @@ your memory of it.
 - **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older
   version does not read a lone `AGENTS.md`, so every session there starts with no instructions and
   nothing says so. If it is older, stop here and tell the human to update Claude Code first.
+- **The Claude Code hooks are opt-in.** Until someone copies `.claude/settings.json.example` to
+  `.claude/settings.json`, the hat gate and the agent record are off (`process/MANUAL.md` § The
+  default path is lite says what it wires). Tell the human; activating hooks is their decision,
+  not yours. An unattended launch also passes `.claude/settings.unattended.json.example`.
 - **The two optional extras, only if the project uses them:** `brainstorming`'s visual companion
   needs Node (`node --version`); `scripts/hygiene/` needs Python 3, standard library only
   (`python3 --version`). Check for these only if the adapter (once one exists — see step 3) says
   the project actually uses them. Neither is required; say so rather than treating an absence as a
   problem.
+- **Declare your hat before the first change or commit:** write `.kit/session-role`, one line
+  `<Role> <scope>` (`process/MANUAL.md` § Session start; the rule is
+  `process/contracts/role-gate.md`). The SessionStart hook clears it each session, and the commit
+  guard refuses a commit without it.
 - **Run `./scripts/check-board.sh`** if it exists at the repo root. It is the kit's own drift
   report and graduation check — read its output rather than re-deriving any of what it already
   answers. If the script is missing entirely, the kit has not been copied in yet; say so and stop.
@@ -56,6 +64,11 @@ job is day one, not features. Then:
 3. Do not skip ahead to "what can this project do" territory (step 4 below) until
    `check-board.sh` arm `(g)` reports graduation complete, or SEED's own "Day one is done when"
    checklist is satisfied.
+4. **Unattended (`KIT_UNATTENDED=1`) before day one:** there is no `principal:` yet, so
+   `scripts/ask.sh` refuses, and day one has no working-default fallback (`process/SEED.md`, the
+   note under the steps). Put the step 3 interview and any open question in a file for the human, say
+   in a statement (not a question) where it is and what is waiting, write the handoff, and stop. Do
+   not proceed on a guess.
 
 This skill does not duplicate SEED's steps here. If SEED and this file ever drift, SEED is correct
 and this paragraph is the bug report.
@@ -95,6 +108,8 @@ launch) is the signal; without it, a human just typed `/start` and is waiting fo
      ```sh
      . ./scripts/lib/pm-field.sh && kit_pm_field '`principal:`' PROJECT.md
      ```
+     It is who your questions go to, and `scripts/ask.sh` refuses a `--role` equal to it: file
+     under the role you are acting as, never the principal's.
   2. Pick the single most useful next action from the status above — the oldest `in_progress`
      item, else the first `todo` in board order — and **take it**, under that role's own doc,
      rather than asking which one to take.

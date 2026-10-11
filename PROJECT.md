@@ -104,7 +104,7 @@ and then the contract sheet, not this row, is what you must satisfy.
 | The release ritual | `<e.g. ./scripts/release.sh — or N/A with the reason if the project ships nothing>` | [`process/contracts/release-ritual.md`](process/contracts/release-ritual.md) |
 | The configuration seam | `scripts/config.sh` — the NAME is fixed, the VALUES are yours | [`process/contracts/config-seam.md`](process/contracts/config-seam.md) |
 | The initializer | `<e.g. ./scripts/kit-init.sh>` | [`process/contracts/initializer.md`](process/contracts/initializer.md) |
-| The role gate | `<how a hat is declared>` | [`process/contracts/role-gate.md`](process/contracts/role-gate.md) |
+| The role gate | `<e.g. write .kit/session-role — one line, the role then its scope>` | [`process/contracts/role-gate.md`](process/contracts/role-gate.md) |
 | Outbound notification (optional — silent when unconfigured) | `<e.g. ./scripts/notify.sh>` | [`process/contracts/notification.md`](process/contracts/notification.md) |
 | The process self-test harness | `<e.g. ./scripts/test/run.sh>` | [`process/contracts/self-test-harness.md`](process/contracts/self-test-harness.md) |
 | Liveness (i) — DURATION: is a long run still alive? | `<how a long run is watched, or N/A with the reason>` | [`process/contracts/liveness-watchdog.md`](process/contracts/liveness-watchdog.md) § 1a |
@@ -269,6 +269,7 @@ enforces. *(Authority:
   *(A name or role, not a script, for `principal:` — or `nobody: an unattended session works
   from the recorded default and waits for the next human session`. A role names the SEAT that
   wakes to answer, distinct from whichever seat is asking — `scripts/ask.sh` refuses when the
-  two are the same. The channel is where `scripts/ask.sh` writes and nowhere else — e.g.
-  `dev/questions/`, one dated file per question. Fill either line inside backticks or not — both
+  two are the same (`PM`, `the PM role` and `The PM seat` all name the PM seat). The channel is where
+  `scripts/ask.sh` writes and nowhere else, a path inside the repository — e.g. `dev/questions/`,
+  one dated file per question, or a file, which each question is appended to. Fill either line inside backticks or not — both
   are read the same way.)*

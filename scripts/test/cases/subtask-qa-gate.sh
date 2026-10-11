@@ -106,7 +106,7 @@ case_subtask_qa_verdict_missing_table_refuses() {
   case "$out" in *"QA Verdict"*) : ;; *) cf "the refusal does not name 'QA Verdict': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-notable.md" && cf "the slice advanced despite the refusal"
   origin_has_path "progress/subtasks/${p}/dev_complete/${p}-s1-notable.md" || cf "the slice left dev_complete/ despite the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=qa-verdict-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "subtask.sh move <id> qa_complete refuses a slice with no '## QA Verdict' table — before the git mv, with a countable refusal=qa-verdict-missing record"
@@ -125,7 +125,7 @@ case_subtask_forks_missing_refuses() {
   _seed_parent "$p"
   local f; f="$(_seed_subtask "$p" s1 dev_complete noforks "No forks field")"
   sed -i.bak '/^forks: none$/d' "$f"; rm -f "$f.bak"
-  /usr/bin/grep -q '^forks:' "$f" \
+  grep -q '^forks:' "$f" \
     && _fixture_die "case_subtask_forks_missing_refuses: the forks: line survived the strip"
   publish_sandbox
 
@@ -134,7 +134,7 @@ case_subtask_forks_missing_refuses() {
   [ "$rc" -ne 0 ] || cf "no 'forks:' field — subtask.sh move exited 0"
   case "$out" in *"forks:"*) : ;; *) cf "the refusal does not name 'forks:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-noforks.md" && cf "the slice advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=forks-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=forks-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "subtask.sh move <id> qa_complete refuses a slice with no 'forks:' field, with a countable refusal=forks-missing record"
@@ -171,7 +171,7 @@ case_subtask_ablation_missing_section_refuses() {
   [ "$rc" -ne 0 ] || cf "a declared test path touched on the slice's own branch, no '## Ablation' section — subtask.sh move exited 0"
   case "$out" in *"Ablation"*) : ;; *) cf "the refusal does not name 'Ablation': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-noablation.md" && cf "the slice advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=ablation-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "subtask.sh move <id> qa_complete refuses a slice whose OWN branch diff touches a declared TEST_GLOBS path with no '## Ablation' section, with a countable refusal=ablation-missing record"
@@ -244,7 +244,7 @@ case_subtask_no_branch_of_its_own_still_checks_table_and_forks() {
 
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec2" "$SB_WORK/scripts/subtask.sh" move "${q}-s1" qa_complete 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(negative) a branchless slice with no QA Verdict table — subtask.sh move exited 0"
-  /usr/bin/grep -q 'refusal=qa-verdict-missing' "$SB_TMP/rec2"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-missing' "$SB_TMP/rec2"/*.tsv 2>/dev/null \
     || cf "(negative) no progress record carries refusal=qa-verdict-missing: $(cat "$SB_TMP/rec2"/*.tsv 2>/dev/null)"
 
   finish "subtask.sh move <id> qa_complete: a slice with no branch of its own (branch: n/a) still gets the content-only QA Verdict and forks: checks, and the diff-derived half is reported UNRUNNABLE rather than silently skipped or falsely refused"
@@ -281,7 +281,7 @@ case_subtask_qa_verdict_pointer_unresolved_refuses() {
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "a pointer naming a file absent from the slice's own branch — subtask.sh move exited 0"
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-badptr.md" && cf "the slice advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=qa-verdict-pointer-unresolved: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "subtask.sh move <id> qa_complete refuses a slice whose QA Verdict path:line pointer does not resolve on the slice's OWN branch, with a refusal=qa-verdict-pointer-unresolved record"
@@ -309,9 +309,37 @@ case_subtask_qa_verdict_fail_in_backticks_refuses() {
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "a slice whose AC1 verdict is \`FAIL_AC\` — subtask.sh move exited 0"
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-tick.md" && cf "the slice advanced despite the FAIL row"
-  /usr/bin/grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=qa-verdict-fail: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 
   finish "subtask.sh move <id> qa_complete refuses a slice whose verdict cell is FAIL_AC written in backticks, with a refusal=qa-verdict-fail record"
+  teardown
+}
+
+# =============================================================================
+# CASE — A SLICE WHOSE VERDICT CELL IS NOT ONE OF THE FOUR TOKENS IS REFUSED. The shared check refuses
+# a mistyped FAIL (FAILED here) as qa-verdict-token-invalid instead of reading it as a pass.
+# =============================================================================
+case_subtask_qa_verdict_token_invalid_refuses() {
+  cf_reset
+  if ! has_issue_template; then skp "subtask.sh move <id> qa_complete refuses a slice whose verdict cell is FAILED" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+
+  local p="$SB_PREFIX-846"
+  _seed_parent "$p"
+  local f; f="$(_seed_subtask "$p" s1 dev_complete tok "Mistyped verdict")"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1FAILED$2/' "$f"
+  grep -qF -- '| AC1 | FAILED |' "$f" \
+    || _fixture_die "case_subtask_qa_verdict_token_invalid_refuses: the FAILED row was not planted"
+  publish_sandbox
+
+  local out rc
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a slice whose AC1 verdict is FAILED — subtask.sh move exited 0"
+  origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-tok.md" && cf "the slice advanced despite the mistyped verdict"
+  grep -q 'refusal=qa-verdict-token-invalid' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "no progress record carries refusal=qa-verdict-token-invalid: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "subtask.sh move <id> qa_complete refuses a slice whose verdict cell is FAILED, with a refusal=qa-verdict-token-invalid record"
   teardown
 }

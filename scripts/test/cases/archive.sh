@@ -645,6 +645,32 @@ ap_seed() {
 }
 
 # =============================================================================
+# CASE — archive-progress.sh --before TAKES ONLY A REAL CALENDAR DATE. A date that does not exist is a
+# typo, not a cut: month 13, day 45, 30 February and 29 February of a common year each refuse with
+# before-malformed and write nothing; a leap day and an ordinary date pass the check (the run then
+# reports its own nothing-to-do status, 0 or 3, never the date refusal).
+# =============================================================================
+case_archive_progress_before_must_be_a_calendar_date() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/apd" out rc d
+  ap_seed "$R" 20 2026-08-26 || { finish "archive-progress.sh: --before must be a calendar date"; teardown; return; }
+  cp "$R/progress.md" "$SB_TMP/progress.before"
+  for d in 2026-13-45 2026-02-30 2026-02-29 2026-00-10 2026-04-31 2026-06-00; do
+    out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone cal --before "$d" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "--before $d (not a calendar date) exited 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+    case "$out" in *"--before must be"*) : ;; *) cf "--before $d: the refusal does not say what --before must be: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)" ;; esac
+  done
+  cmp -s "$SB_TMP/progress.before" "$R/progress.md" || cf "progress.md was rewritten by a refused --before"
+  for d in 2024-02-29 2026-08-26 2000-02-29; do
+    out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone cal --before "$d" 2>&1 )"; rc=$?
+    case "$out" in *"--before must be"*) cf "(control) --before $d is a real date and was refused: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)" ;; esac
+  done
+  finish "archive-progress.sh refuses a --before that is not a calendar date (month 13, day 45, 30 February, 29 February of a common year) and still accepts a leap day and an ordinary date"
+  teardown
+}
+
+# =============================================================================
 # CASE — ONE GENERATED ROW, ONE CLOCK.
 #
 # archive-sweep.md § 2: a calendar day is local; an instant is UTC and says Z. `Covers`

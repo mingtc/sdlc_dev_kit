@@ -3,9 +3,10 @@
 # Role-declaration gate (PreToolUse: Edit|Write|NotebookEdit).
 #
 # The manual's § Execution discipline rule 1: "Confirm the hat before changing
-# anything." This hook is the mechanical enforcement. Wired in .claude/settings.json
-# under hooks.PreToolUse (matcher "Edit|Write|NotebookEdit"); the harness feeds the
-# tool-call payload as JSON on stdin and interprets our exit code:
+# anything." This hook is the mechanical enforcement. Wired in .claude/settings.json.example
+# under hooks.PreToolUse (matcher "Edit|Write|NotebookEdit"; active once copied to
+# .claude/settings.json); the harness feeds the tool-call payload as JSON on stdin and
+# interprets our exit code:
 #   • exit 0 → allow the tool call
 #   • exit 2 → BLOCK the tool call; our stderr is fed back to the agent
 #   • any other non-zero → non-blocking error (the call still proceeds)

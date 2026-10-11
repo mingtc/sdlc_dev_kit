@@ -2,8 +2,9 @@
 # KIT-CLASS: KIT — SessionStart hook; clears the hat file. See process/EXTRACTION.md.
 # SessionStart hook.
 #
-# Wired in .claude/settings.json under hooks.SessionStart. On every session start
-# the harness runs this and adds our stdout to the new session's context. Two jobs:
+# Wired in .claude/settings.json.example under hooks.SessionStart (active once copied to
+# .claude/settings.json). On every session start the harness runs this and adds our stdout to the
+# new session's context. Two jobs:
 #   1. Clear the hat file (path: scripts/lib/hat-file.sh) so each session must RE-CONFIRM its hat
 #      (require-role.sh then blocks repo mutations until the new hat is declared).
 #   2. Run scripts/check-board.sh so the NEW session opens with last session's
@@ -39,11 +40,11 @@ if [ -x "$ROOT/scripts/check-board.sh" ]; then
   if [ "$(printf '%s\n' "$REPORT" | LC_ALL=C wc -c | tr -d ' ')" -le "$OUT_BUDGET" ]; then
     printf '%s\n' "$REPORT"
   else
-    VERDICT="$(printf '%s\n' "$REPORT" | LC_ALL=C /usr/bin/grep -E '^── board-drift:' | tail -1)"
+    VERDICT="$(printf '%s\n' "$REPORT" | LC_ALL=C grep -E '^── board-drift:' | tail -1)"
     NOTE="── check-board.sh: the full report is over this hook's ${OUT_BUDGET}-byte output budget; run scripts/check-board.sh for all of it. Arm headings and findings:"
     FIXED="$(printf '%s\n%s\n' "$NOTE" "$VERDICT" | LC_ALL=C wc -c | tr -d ' ')"
     printf '%s\n' "$NOTE"
-    printf '%s\n' "$REPORT" | LC_ALL=C /usr/bin/grep -vE '^── board-drift:' | LC_ALL=C /usr/bin/grep -E '^\[[a-z][0-9]*\]|⚠' \
+    printf '%s\n' "$REPORT" | LC_ALL=C grep -vE '^── board-drift:' | LC_ALL=C grep -E '^\[[a-z][0-9]*\]|⚠' \
       | LC_ALL=C awk -v room="$((OUT_BUDGET - FIXED))" 'seen[$0]++ {next} {room -= length($0) + 1; if (room < 0) exit; print}' || true
     printf '%s\n' "$VERDICT"
   fi

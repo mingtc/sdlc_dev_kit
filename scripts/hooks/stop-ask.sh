@@ -104,6 +104,6 @@ case "$last_line" in
 esac
 
 # ── BLOCK ONCE. The reason is embedded in JSON unescaped, so it must hold no double quote.
-reason="This turn ended on a question with no one here to answer it (an unattended launch). File it with scripts/ask.sh --role <role> then the question, --default <working default>, and continue under that default, or state the next action and take it. Do not end the turn on an unaddressed question again."
+reason="This turn ended on a question with no one here to answer it (an unattended launch). File it with scripts/ask.sh --role <the role you are acting as, never the principal's> then the question, --default <working default>, and continue under that default, or state the next action and take it. Do not end the turn on an unaddressed question again."
 printf '{"decision":"block","reason":"%s"}' "$reason"
 exit 0

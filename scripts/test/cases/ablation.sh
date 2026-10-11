@@ -63,6 +63,43 @@ case_finish_pr_ablation_undeclared_test_globs_does_not_run() {
 }
 
 # =============================================================================
+# CASE — A DECLARED-EMPTY TEST_GLOBS IS A DECISION, AND THE LINE SAYS SO. `# DECLARED EMPTY — <why>` inside
+# the parens is the project's own "none, on purpose" (check-board.sh [g] reads it as declared). The
+# ablation check does not run there either, but it must not tell that project it owes an action: its line
+# says the array is declared empty, and does not say "undeclared" or "adopter action required". The
+# undeclared state keeps its line (the case above); both states reach the landing, which proceeds.
+# =============================================================================
+case_finish_pr_ablation_declared_empty_test_globs_says_so() {
+  cf_reset
+  make_sandbox
+  _array_set_body "$SB_WORK/scripts/config.sh" TEST_GLOBS '  # DECLARED EMPTY — this project has no tests to guard yet'
+
+  local id="$SB_PREFIX-847"
+  seed_issue dev_complete "$id" declempty chore "TEST_GLOBS declared empty" "feature/$id-work"
+  publish_sandbox
+  git -C "$SB_WORK" branch "feature/${id}-work" "$SB_TRUNK" >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "feature/${id}-work" >/dev/null 2>&1
+  mkdir -p "$SB_WORK/tests"
+  echo "a real change" > "$SB_WORK/tests/CHANGE847.txt"
+  git -C "$SB_WORK" add tests/CHANGE847.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] ${id}: add a real change" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/${id}-work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "declared-empty TEST_GLOBS — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  case "$out" in *"ABLATION_CHECK: did not run"*) : ;; *) cf "no 'ABLATION_CHECK: did not run' line on stdout: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"declared empty"*) : ;; *) cf "the line does not say TEST_GLOBS is declared empty: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"adopter action required"*) cf "a project that declared TEST_GLOBS empty on purpose is told adopter action is required" ;; esac
+  case "$out" in *"undeclared"*) cf "a declared-empty TEST_GLOBS is called undeclared" ;; esac
+  origin_has_path "progress/qa_complete/$id-declempty.md" || cf "the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh: a TEST_GLOBS declared empty on purpose makes the ablation check not run with a line that says it is declared empty, not 'undeclared ... adopter action required', and the landing proceeds"
+  teardown
+}
+
+# =============================================================================
 # CASE — A DECLARED TEST PATH TOUCHED, NO '## Ablation' SECTION AT ALL: refuses, named, with a
 # countable record.
 # =============================================================================
@@ -89,7 +126,7 @@ case_finish_pr_ablation_missing_section_refuses() {
   case "$out" in *"Ablation"*) : ;; *) cf "the refusal does not name 'Ablation': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "tests/CHANGE662.txt" && cf "the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$id-nosection.md" && cf "the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=ablation-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose branch diff touches a declared TEST_GLOBS path with no '## Ablation' section, before the merge, with a countable refusal=ablation-missing record"
@@ -124,7 +161,7 @@ case_finish_pr_ablation_branch_cannot_undeclare_test_globs() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "a branch that emptied TEST_GLOBS and touched a declared test path landed — finish-pr.sh exited 0"
   origin_has_path "tests/CHANGE667.txt" && cf "the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=ablation-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh still requires '## Ablation' when a branch empties TEST_GLOBS in its own config.sh: the trunk's declaration is read too"
@@ -161,7 +198,7 @@ case_finish_pr_ablation_malformed_section_refuses() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) a placeholder Ablation section — finish-pr.sh exited 0"
   origin_has_path "tests/CHANGE663A.txt" && cf "(a) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=ablation-malformed' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=ablation-malformed' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=ablation-malformed: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) 'Red line:' present but empty.
@@ -184,7 +221,7 @@ case_finish_pr_ablation_malformed_section_refuses() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) an empty 'Red line:' field — finish-pr.sh exited 0"
   origin_has_path "tests/CHANGE663B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=ablation-malformed' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=ablation-malformed' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=ablation-malformed: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose '## Ablation' section is present but not well formed — a placeholder or empty 'Broken:'/'Red line:' field — with a refusal=ablation-malformed record"
@@ -283,7 +320,7 @@ case_finish_pr_ablation_rename_out_of_globs_refuses() {
   [ "$rc" -ne 0 ] || cf "a declared test path renamed out of TEST_GLOBS, no '## Ablation' section — finish-pr.sh exited 0 ('ABLATION_CHECK: PASS' would mean the rename hid the old path)"
   case "$out" in *"Ablation"*) : ;; *) cf "the refusal does not name 'Ablation': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "progress/qa_complete/$id-renamed.md" && cf "the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=ablation-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=ablation-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh's ablation check reads the branch diff with --no-renames, so a declared test path renamed out of TEST_GLOBS still surfaces under its old name and refuses ablation-missing, rather than reading as a diff that 'touches no declared test path'"

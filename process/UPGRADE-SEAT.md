@@ -35,7 +35,9 @@ it. Do not stop to confirm that part.
 2. **Run the new release's copy, from outside the project:**
    `unzip -q <zip> -d <scratch outside the project> && <scratch>/scripts/kit-upgrade.sh --into <the worktree>`.
    It takes what the project never changed, stages the rest, writes `process/UPGRADE-CHECKLIST.md` and
-   commits nothing. Commit its output through the project's own conventions.
+   commits nothing. Declare your hat first (`.kit/session-role`, one line `<Role> <scope>`, in the
+   worktree or the main checkout; [`contracts/role-gate.md`](contracts/role-gate.md)), then commit its
+   output through the project's own conventions.
 3. **Work the checklist item by item**, mark each `- [x]` as it is done, and commit the marks as you go.
    An item that tells you to rename or replace a file that governs you is covered by the authority above.
    An **Action required** item ending `Verify: <command>` is run by `--finish` against the tree: mark it

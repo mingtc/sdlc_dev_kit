@@ -10,7 +10,13 @@ export const meta = {
 
 // args: { repo, trunk?, remote?, gateCmd?, setupCmd?, codePaths?, goldenPaths?, secretsFile?,
 //         liveRules?, driftRule?, defaultModel?, defaultEffort?, wave1: [...], wave2: [...] }
-// Each issue takes tranche-runner.js's per-issue fields plus worktreeMode, phase, restartNote.
+// Each issue takes tranche-runner.js's per-issue fields plus these three:
+//   worktreeMode — truthy: the leg works in a worktree it creates itself (WORKTREE_MODE, below) and
+//                  never touches the main checkout. Set it on ONE leg of each pair.
+//   phase        — the phase group the issue's legs are provisioned under: 'Wave1' or 'Wave2' (the
+//                  meta.phases titles), the wave the issue belongs to.
+//   restartNote  — optional text appended to the Dev brief's fresh-pickup line: what a restarted leg
+//                  must know about what the stopped attempt left behind. Ignored on a fix round.
 
 // issue.docsPath — as in tranche-runner.js: true for a docs/process-lite issue with no work
 // branch (direct-to-trunk). Such an issue reports `landing: not_applicable`.

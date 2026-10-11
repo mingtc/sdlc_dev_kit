@@ -80,7 +80,7 @@ _bpf_begin() {
   f="$SB_WORK/progress/in_progress/$id-$slug.md"
   if [ "$forks" != "none" ]; then
     sed -i.bak "s/^forks: none\$/forks: $forks/" "$f"; rm -f "$f.bak"
-    /usr/bin/grep -qxF "forks: $forks" "$f" || _fixture_die "_bpf_begin: the forks: line of $id did not take"
+    grep -qxF "forks: $forks" "$f" || _fixture_die "_bpf_begin: the forks: line of $id did not take"
   fi
   publish_sandbox
   git -C "$SB_WORK" checkout -q -b "feature/$id-$slug" "$SB_TRUNK" >/dev/null 2>&1 \
@@ -113,7 +113,7 @@ _bpf_expect_refused() {
   local label="$1" id="$2" slug="$3" rule="$4" mention="$5"
   _bpf_land "$id"
   [ "$_BPF_RC" -ne 0 ] || cf "$label: finish-pr.sh exited 0 — the branch's defect landed"
-  /usr/bin/grep -q "refusal=$rule" "$SB_TMP/rec-$id"/*.tsv 2>/dev/null \
+  grep -q "refusal=$rule" "$SB_TMP/rec-$id"/*.tsv 2>/dev/null \
     || cf "$label: no progress record carries refusal=$rule: $(cat "$SB_TMP/rec-$id"/*.tsv 2>/dev/null | cut -c1-200) / output: $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-300)"
   case "$_BPF_OUT" in *"$mention"*) : ;; *) cf "$label: the refusal does not carry '$mention': $(printf '%s' "$_BPF_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "BP-$id.txt" && cf "$label: the branch was merged before the refusal"
@@ -132,7 +132,7 @@ _bpf_expect_landed() {
   # would print neither list.
   case "$_BPF_OUT" in
     *"BOARD_PROPERTY_CHECK: PASS — ran: ${ran}; property untouched, not run: ${skipped};"*) : ;;
-    *) cf "$label: expected 'BOARD_PROPERTY_CHECK: PASS — ran: ${ran}; property untouched, not run: ${skipped};' in the output: $(printf '%s' "$_BPF_OUT" | /usr/bin/grep 'BOARD_PROPERTY_CHECK' | head -3 | tr '\n' '|')" ;;
+    *) cf "$label: expected 'BOARD_PROPERTY_CHECK: PASS — ran: ${ran}; property untouched, not run: ${skipped};' in the output: $(printf '%s' "$_BPF_OUT" | grep 'BOARD_PROPERTY_CHECK' | head -3 | tr '\n' '|')" ;;
   esac
   return 0
 }
@@ -142,8 +142,8 @@ _bpf_expect_landed() {
 _bpf_control() {
   local out
   out="$(cb_run)"
-  printf '%s\n' "$out" | /usr/bin/grep -F -- "$1" >/dev/null \
-    || cf "(control) check-board.sh does not report the planted pre-existing defect ($2) — the landing that passes over it would prove nothing: $(printf '%s' "$out" | /usr/bin/grep '⚠' | head -5 | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F -- "$1" >/dev/null \
+    || cf "(control) check-board.sh does not report the planted pre-existing defect ($2) — the landing that passes over it would prove nothing: $(printf '%s' "$out" | grep '⚠' | head -5 | tr '\n' '|')"
 }
 
 # =============================================================================
@@ -275,7 +275,7 @@ EOF
   local idd="$SB_PREFIX-744"
   _bpf_begin "$idd" rename "[D-11]"
   sed -i.bak 's/^### D-01$/### D-11/' "$SB_WORK/requirements/DECISIONS.md"; rm -f "$SB_WORK/requirements/DECISIONS.md.bak"
-  /usr/bin/grep -qxF '### D-11' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_finish_pr_refuses_a_branch_that_breaks_a_register_citation: the rename did not take"
+  grep -qxF '### D-11' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_finish_pr_refuses_a_branch_that_breaks_a_register_citation: the rename did not take"
   _bpf_end "$idd" rename
   _bpf_expect_refused "(d) a register change that leaves an untouched PRD citing a missing entry" "$idd" rename board-citation-unresolved "requirements/PRD-001-scope.md cites D-01"
 
@@ -285,7 +285,7 @@ EOF
   local ide="$SB_PREFIX-745"
   _bpf_begin "$ide" hides
   perl -0pi -e "s{\\.claude/skills/'}{.claude/skills/\\ndocs/'}" "$SB_WORK/scripts/check-board.sh"
-  /usr/bin/grep -qx "docs/'" "$SB_WORK/scripts/check-board.sh" || _fixture_die "case_finish_pr_refuses_a_branch_that_breaks_a_register_citation: the CITATION_EXCLUDE edit did not take"
+  grep -qx "docs/'" "$SB_WORK/scripts/check-board.sh" || _fixture_die "case_finish_pr_refuses_a_branch_that_breaks_a_register_citation: the CITATION_EXCLUDE edit did not take"
   printf 'Hidden. [decision: D-66]\n' > "$SB_WORK/docs/hidden.md"
   _bpf_end "$ide" hides
   _bpf_expect_refused "(e) a branch that excludes the directory of its own dangling citation" "$ide" hides board-citation-unresolved "D-66"
@@ -417,7 +417,7 @@ EOF
   local idb="$SB_PREFIX-762"
   _bpf_begin "$idb" stack "[D-08]"
   perl -0pi -e 's/(\*\*\(14\) 2026-09-29\.\*\* A first stacked amendment\.\n)/$1**(15) 2026-10-01.** A second one.\n/' "$SB_WORK/requirements/DECISIONS.md"
-  /usr/bin/grep -qF '(15) 2026-10-01' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_finish_pr_refuses_a_branch_that_breaks_register_shape: the second amendment did not take"
+  grep -qF '(15) 2026-10-01' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_finish_pr_refuses_a_branch_that_breaks_register_shape: the second amendment did not take"
   _bpf_end "$idb" stack
   _bpf_expect_refused "(b) a branch stacking a second amendment onto an entry that already has one" "$idb" stack board-register-shape "D-08"
 
@@ -455,7 +455,7 @@ case_finish_pr_board_property_check_refuses_without_the_trunks_declarations() {
   make_sandbox
   _bpf_seed_requirements
   sed -i.bak '/^PRD_SURFACE=/d' "$SB_WORK/scripts/check-board.sh"; rm -f "$SB_WORK/scripts/check-board.sh.bak"
-  /usr/bin/grep -q '^PRD_SURFACE=' "$SB_WORK/scripts/check-board.sh" && _fixture_die "case_finish_pr_board_property_check_refuses_without_the_trunks_declarations: the PRD_SURFACE declaration survived the strip"
+  grep -q '^PRD_SURFACE=' "$SB_WORK/scripts/check-board.sh" && _fixture_die "case_finish_pr_board_property_check_refuses_without_the_trunks_declarations: the PRD_SURFACE declaration survived the strip"
   publish_sandbox
 
   local id="$SB_PREFIX-771"
@@ -494,7 +494,7 @@ case_subtask_move_refuses_a_slice_branch_that_breaks_a_register_citation() {
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/subtask.sh" move "${p}-s1" qa_complete 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) a slice whose branch cites D-77 — subtask.sh move exited 0"
   case "$out" in *D-77*) : ;; *) cf "(a) the refusal does not name D-77: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
-  /usr/bin/grep -q 'refusal=board-citation-unresolved' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=board-citation-unresolved' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=board-citation-unresolved: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | cut -c1-200)"
   origin_has_path "progress/subtasks/${p}/qa_complete/${p}-s1-branchy.md" && cf "(a) the slice advanced despite the refusal"
 
@@ -541,7 +541,7 @@ case_board_property_report_and_refusal_share_one_implementation() {
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[Dev] $ida: carry the citation onto the trunk by hand" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
-  cb_run | /usr/bin/grep -F 'docs/plant.md cites D-55' >/dev/null \
+  cb_run | grep -F 'docs/plant.md cites D-55' >/dev/null \
     || cf "(unplanted) check-board.sh [l] does not report docs/plant.md citing D-55"
 
   # PLANTED: one early return in the one function.
@@ -549,7 +549,7 @@ case_board_property_report_and_refusal_share_one_implementation() {
   git -C "$SB_WORK" add -A >/dev/null 2>&1
   sbcommit -m "[PM] plant: the citations check returns early" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
-  cb_run | /usr/bin/grep -F 'cites D-55' >/dev/null \
+  cb_run | grep -F 'cites D-55' >/dev/null \
     && cf "(planted) check-board.sh [l] still reports the citation — the report has a reader of its own"
   local idb="$SB_PREFIX-792"
   _bpf_begin "$idb" after

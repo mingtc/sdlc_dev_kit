@@ -74,8 +74,9 @@ verification-before-completion, using-git-worktrees, requesting-code-review,
 receiving-code-review, finishing-a-development-branch as appropriate. Invoke
 them via the Skill tool — don't skip the skill, follow its workflow.
 
-Tell me which issue you intend to pick up and wait for confirmation before
-starting work.
+Tell me which issue you intend to pick up. Attended: wait for my confirmation
+before starting work. With nobody watching (KIT_UNATTENDED=1): say which in one
+statement and start (Getting blocked, below).
 ```
 
 ## Skills used in this role and how they chain

@@ -97,7 +97,8 @@ install the artifact into your environment.
 | **Later refresh** | **No** | Only the artifact moved. Re-resolving every transitive dependency on a working environment is slow and can silently move versions you did not ask to move. |
 
 `update_vendored.sh` prints the **refresh** form when it finishes; `setup-consumer.sh` prints
-the **first-install** form. Use the one you were handed.
+the **first-install** form (both come from `install_hint()` in `update_vendored.sh`). Use the one
+you were handed.
 
 ## Step 3 — Provide configuration / credentials
 
@@ -247,9 +248,12 @@ In [`update_vendored.sh`](update_vendored.sh) (one block at the top, plus the se
 | `build_artifact()` | Your build command, run against the checked-out tag, output to a scratch dir, **all chatter on stderr**. |
 | `artifact_version()` | Version out of an artifact filename. |
 | `ver_gt()`, `notes_headers()`, the `--sort=-v:refname` tag picks | Only where your versions are not digits-and-dots: the one version comparison (`--check` uses it too), the release-document header reader, and how the latest tag is chosen. They sit below the seam block; replace them together with `artifact_version()`. |
-| `pin_line()` and `install_hint()` in `update_vendored.sh` — where both are AUTHORED | Your pinning mechanism, and the two install hints (first-install resolves dependencies; refresh does not). `setup-consumer.sh` only CAPTURES the pin line into `PIN_LINE=` and prints one hint; editing it there changes what is displayed, not what is produced. |
+| `pin_line()` and `install_hint()` in `update_vendored.sh` — where both are AUTHORED | Your pinning mechanism, and the two install hints (first-install resolves dependencies; refresh does not). `setup-consumer.sh` holds no hint of its own: it asks `update_vendored.sh` for the first-install form and captures the pin line into `PIN_LINE=`, so what you fill is what a consumer sees. |
+| `CONSUMER_CONFIG` | The configuration or credentials a consumer must provide, as `NAME\|what it is, and which surface needs it` (an empty list if none). `setup-consumer.sh` prints one `NAME=...` line per entry. |
 
-Then fill this page's `<angle-brackets>`, and read
+Both scripts refuse to run while a seam, the pin line, either install hint or `CONSUMER_CONFIG` still
+holds a `<blank>` (`update_vendored.sh --print-unfilled` lists them), so no consumer is ever handed
+one. Then fill this page's `<angle-brackets>`, and read
 [`process/doctrine/distribution.md`](../process/doctrine/distribution.md) for the rules the
 script encodes: the tag is authoritative, the distribution branch is a fast path and never a
 requirement, `--check` never mutates, exactly one vendored artifact, and a template change is

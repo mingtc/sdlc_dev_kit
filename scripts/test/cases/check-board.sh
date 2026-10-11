@@ -2830,7 +2830,7 @@ case_check_board_model_pins_arm() {
   # 5. ABLATION — strip the arm itself.
   _set_pin_effort "$ad/dev-worker.md" e-one
   local s="$SB_WORK/scripts/check-board.sh"
-  /usr/bin/grep -q '# (s) MODEL PINS VS THE LADDER' "$s" || cf "(control) no '(s) MODEL PINS VS THE LADDER' seam in check-board.sh — cannot ablate"
+  grep -q '# (s) MODEL PINS VS THE LADDER' "$s" || cf "(control) no '(s) MODEL PINS VS THE LADDER' seam in check-board.sh — cannot ablate"
   sed -i.bak '/# (s) MODEL PINS VS THE LADDER/,/# END model-pins arm/d' "$s"; rm -f "$s.bak"
   bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
   out="$(cb_run)"
@@ -2867,23 +2867,23 @@ case_set_models_second_call_moves_the_ladder_row() {
       || cf "the second set-models.sh --class $cls refused"
   done
   publish_sandbox
-  /usr/bin/grep -qx 'model: m-two' "$ad/dev-worker.md" && /usr/bin/grep -qx 'effort: e-two' "$ad/dev-worker.md" \
-    || cf "dev-worker.md is not at m-two/e-two after the second call: $(/usr/bin/grep -E '^model:|^effort:' "$ad/dev-worker.md" | tr '\n' ' ')"
-  row="$(/usr/bin/grep -F '| **Dev** |' "$orch")"
+  grep -qx 'model: m-two' "$ad/dev-worker.md" && grep -qx 'effort: e-two' "$ad/dev-worker.md" \
+    || cf "dev-worker.md is not at m-two/e-two after the second call: $(grep -E '^model:|^effort:' "$ad/dev-worker.md" | tr '\n' ' ')"
+  row="$(grep -F '| **Dev** |' "$orch")"
   case "$row" in
     '| **Dev** | `m-two` | `e-two` default; higher for'*) : ;;
     *) cf "the Dev ladder row is not at m-two/e-two with its prose kept after the second call: $row" ;;
   esac
-  row="$(/usr/bin/grep -F '| **Spike / probe**' "$orch")"
+  row="$(grep -F '| **Spike / probe**' "$orch")"
   case "$row" in
     '| **Spike / probe** (`spike-worker`) | `m-two` | `e-two` |'*) : ;;
     *) cf "the Spike / probe ladder row is not at m-two/e-two (its label carries backticks) after the second call: $row" ;;
   esac
-  /usr/bin/grep -v '^#' "$rec" | /usr/bin/grep -F "dev-worker.md$(printf '\t')m-two$(printf '\t')e-two" >/dev/null \
-    || cf "model-pins.record does not name dev-worker.md at m-two/e-two: $(/usr/bin/grep -v '^#' "$rec" | tr '\n' '|')"
+  grep -v '^#' "$rec" | grep -F "dev-worker.md$(printf '\t')m-two$(printf '\t')e-two" >/dev/null \
+    || cf "model-pins.record does not name dev-worker.md at m-two/e-two: $(grep -v '^#' "$rec" | tr '\n' '|')"
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
   [ -n "$sec" ] || cf "no [s] section in the report: $out"
-  printf '%s\n' "$sec" | /usr/bin/grep -E '^      ⚠ .* pin says' >/dev/null \
+  printf '%s\n' "$sec" | grep -E '^      ⚠ .* pin says' >/dev/null \
     && cf "arm [s] reports a disagreement after the second call: $sec"
   # Control: the same pair again is a no-op.
   local before after
@@ -3698,7 +3698,7 @@ EOT
 
   # ABLATION: the comparison of the two Ruling tables, made to compare a table with itself, and the report goes quiet.
   local lib="$SB_WORK/scripts/lib/board-properties.sh"
-  /usr/bin/grep -q 'diff "\$scratch/old.r" "\$scratch/new.r"' "$lib" \
+  grep -q 'diff "\$scratch/old.r" "\$scratch/new.r"' "$lib" \
     || _control_did_not_run "find the comparison of the two Ruling tables in lib/board-properties.sh"
   sed -i.bak 's#diff "\$scratch/old.r" "\$scratch/new.r"#diff "$scratch/old.r" "$scratch/old.r"#' "$lib"; rm -f "$lib.bak"
   out="$(cb_run)"

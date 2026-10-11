@@ -520,17 +520,31 @@ case_hat_file_lives_outside_the_harness_directory() {
   # The old literal is assembled so this file does not itself contain it.
   local old=".claude""/session-role" f hits="" lits=""
   case "$rel" in .claude/*) cf "the hat file's path '$rel' is inside the harness directory the harness protects" ;; esac
-  # Population: every shipped file under scripts/ (this harness excluded), the shipped ignore file,
-  # and the process and harness-directory prose, less the release notes and their history (which say what moved).
+  # The old literal's population is every file the shipped manifest lists, less the release notes and
+  # their history (which say what moved): the role docs, skills, templates and the stub are where an
+  # instruction to write the hat file lives. The manifest is read from the tree, not restated here.
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" n_man=0 mrel
+  [ -f "$man" ] || _fixture_die "case_hat_file_lives_outside_the_harness_directory: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  while IFS= read -r mrel; do
+    [ -n "$mrel" ] || continue
+    n_man=$((n_man+1))
+    f="$REAL_REPO_ROOT/$mrel"
+    [ -f "$f" ] || continue
+    case "$f" in */KIT-RELEASE-NOTES.md|*/KIT-RELEASE-HISTORY.md) continue ;; esac
+    grep -F -- "$old" "$f" >/dev/null 2>&1 && hits="$hits $mrel"
+  done <<EOF_MAN
+$(awk '!/^#/ && NF >= 2 { print $2 }' "$man")
+EOF_MAN
+  [ "$n_man" -gt 0 ] || cf "(control) no path was read from process/KIT-MANIFEST, so the old-literal scan covered nothing"
+  # The new literal: in the lib (the definition) and the shipped ignore file, and in no other code. The
+  # population is the scripts and the ignore file.
   for f in "$REAL_SCRIPTS"/*.sh "$REAL_SCRIPTS"/lib/*.sh "$REAL_SCRIPTS"/hooks/* "$REAL_SCRIPTS"/githooks/* \
            "$REAL_REPO_ROOT/.gitignore" "$REAL_REPO_ROOT"/process/*.md "$REAL_REPO_ROOT"/process/contracts/*.md; do
     [ -f "$f" ] || continue
     case "$f" in */KIT-RELEASE-NOTES.md|*/KIT-RELEASE-HISTORY.md) continue ;; esac
-    grep -F -- "$old" "$f" >/dev/null 2>&1 && hits="$hits ${f#"$REAL_REPO_ROOT"/}"
     [ -z "$rel" ] || ! grep -F -- "$rel" "$f" >/dev/null 2>&1 || case "$f" in *.md) : ;; *) lits="$lits ${f#"$REAL_REPO_ROOT"/}" ;; esac
   done
   [ -z "$hits" ] || cf "the old harness-directory hat-file literal survives in:$hits"
-  # The new literal is in the lib (the definition) and the shipped ignore file, and in no other code.
   [ -z "$rel" ] || case " $lits " in *" scripts/lib/hat-file.sh "*) : ;; *) cf "(control) the lib that defines the path does not contain it: $lits" ;; esac
   [ -z "$rel" ] || case " $lits " in *" .gitignore "*) : ;; *) cf "the shipped .gitignore does not ignore $rel" ;; esac
   local extra="${lits# }"; extra="${extra//scripts\/lib\/hat-file.sh/}"; extra="${extra//.gitignore/}"; extra="${extra// /}"

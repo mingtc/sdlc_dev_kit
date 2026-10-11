@@ -116,7 +116,7 @@ if [ "$SAW_APPLY" = true ] && [ "$SAW_DRY" = true ]; then
     "Next: run one of them. The bare form (no flag) is the preview."
 fi
 
-[ -n "$MILESTONE" ] || kit_refuse 1 milestone-required \
+[ -n "$MILESTONE" ] || kit_refuse 2 milestone-required \
   "Error: --milestone <name> is required." \
   "Next: re-run with  --milestone <name>  (the chunk's name under progress/history/)."
 
@@ -142,11 +142,23 @@ if [ -z "$BEFORE" ] && [ -z "$KEEP_LAST" ]; then
 fi
 
 if [ -n "$BEFORE" ]; then
-  # Validate date format (strict regex, not full calendar validation)
-  if ! echo "$BEFORE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+  # A real calendar date: the shape, then the month and the day within that month (leap years
+  # included). An impossible date is a typo that would otherwise cut at nothing, silently.
+  _bd_ok=0
+  if echo "$BEFORE" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+    _bd_y=$((10#${BEFORE%%-*})); _bd_rest="${BEFORE#*-}"; _bd_m=$((10#${_bd_rest%%-*})); _bd_d=$((10#${_bd_rest#*-}))
+    case "$_bd_m" in
+      1|3|5|7|8|10|12) _bd_max=31 ;;
+      4|6|9|11)        _bd_max=30 ;;
+      2) if [ $((_bd_y % 400)) -eq 0 ] || { [ $((_bd_y % 4)) -eq 0 ] && [ $((_bd_y % 100)) -ne 0 ]; }; then _bd_max=29; else _bd_max=28; fi ;;
+      *) _bd_max=0 ;;
+    esac
+    [ "$_bd_d" -ge 1 ] && [ "$_bd_d" -le "$_bd_max" ] && _bd_ok=1
+  fi
+  if [ "$_bd_ok" -ne 1 ]; then
     kit_refuse 1 before-malformed \
-      "Error: --before must be YYYY-MM-DD (got: $BEFORE)" \
-      "Next: re-run with  --before <YYYY-MM-DD>."
+      "Error: --before must be a calendar date, YYYY-MM-DD (got: $BEFORE)" \
+      "Next: re-run with  --before <YYYY-MM-DD>  naming a day that exists."
   fi
 fi
 

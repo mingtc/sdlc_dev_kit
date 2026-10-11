@@ -121,8 +121,11 @@ state — so that every tool and every reader downstream can rely on the shape w
   **2 is not the majority's value, it is the PUBLISHED one:** `finish-pr.sh`'s exit table declares
   `2  Usage error: an unknown option or a missing option value. Nothing was read or touched.`,
   which is the only place the kit writes down what a status MEANS.
-  **A surplus POSITIONAL is a different class and keeps its own status** — the two are told apart by
-  a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing it would be.
+  **A required OPTION left out is the same class and exits 2 too** (`--id`, `--role`, `--title` and
+  the like): the caller got the arguments wrong, and nothing was read or touched. A required
+  POSITIONAL left out, or a surplus one, is a different class and keeps its own status — the two are
+  told apart by a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing
+  it would be.
 
 - **`--dry-run` names PREVIEW, everywhere, and nothing else.** Wherever a tool can preview, that word
   is legal and means *change nothing* — including where previewing is already the default, in which

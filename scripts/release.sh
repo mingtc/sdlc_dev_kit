@@ -12,7 +12,7 @@
 #   ./scripts/release.sh 1.1.0 --publish-only            # re-publish the dist branch for an ALREADY-CUT tag
 #   ./scripts/release.sh 1.1.0 --publish-only --dry-run  # report that republish, push NOTHING
 #   ./scripts/release.sh 1.1.0 --no-fetch  # DECLARE an offline cut: the remote is NOT consulted
-#   ./scripts/release.sh --approve-shipped # review what SHIP_MANIFEST covers and re-record it (cuts nothing)
+#   ./scripts/release.sh --approve-shipped # re-record SHIP_MANIFEST (cuts nothing; with none declared it WRITES a draft: release/shipped.sha256)
 #
 # WHAT IT DOES, in order (it ABORTS NONZERO on the first failure, BEFORE mutating
 # anything — a red preflight leaves the repo byte-for-byte untouched):

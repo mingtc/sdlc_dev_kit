@@ -148,8 +148,9 @@ summary block, **watched-red proofs are transcripts of tests actually watched fa
 > If the run is under a blocked-push regime or a stacking order, say which branch each issue
 > branches *from* — that is the single most expensive thing to leave implicit.
 
-ONE worktree: `git -C <main> worktree add <path> <trunk>` → `./setup.sh`. Per issue: branch from
-**current** `<trunk>`; land before the next starts; no stacking. **Never touch** `<older
+ONE worktree: `git -C <main> worktree add --detach <path> <trunk>` (detached: the main checkout
+already holds `<trunk>`, and git refuses to check a branch out twice) → `./setup.sh`. Per issue:
+branch from **current** `<trunk>`; land before the next starts; no stacking. **Never touch** `<older
 worktrees, by name>` — provenance until the seat sweeps them. The main checkout is the seat's:
 never commit from it.
 

@@ -8,11 +8,12 @@
 # ./scripts/ask.sh --role <role> "<question>" --default "<working default>" [--decision D-NN]
 #
 # It, in order:
-#   1. writes the question as ONE FILE in the channel PROJECT.md declares — one file per
-#      question, named so it sorts and is unique: dev/questions/<UTC-timestamp>-<role>-ask.md.
-#      The file carries the asker, the time, the question, the working default, and how the
-#      answer is recorded (the register entry, if --decision named one; the file itself,
-#      cleared in place, if not).
+#   1. writes the question in the channel PROJECT.md declares, a path inside the repository:
+#      a directory gets ONE FILE per question, named so it sorts and is unique
+#      (dev/questions/<UTC-timestamp>-<role>-ask.md); a channel that names a file has each
+#      question appended to it. An absolute or `..` channel is refused. Each question carries
+#      the asker, the time, the question, the working default, and how the answer is recorded
+#      (the register entry, if --decision named one; the file itself, cleared in place, if not).
 #   2. with --decision D-NN naming a WITHDRAWN entry (no current ruling — DECISIONS.md
 #      § The THIRD state): records the working default as PROVISIONAL, amending that entry's
 #      Ruling field to `WORKING DEFAULT (provisional, asked <date>, <question file>)` (§ The
@@ -142,10 +143,15 @@ fi
 # THE ASKER MAY NOT BE THE PRINCIPAL: the non-blocking route exists for a question with no
 # PM/human session watching; if the declared principal IS the hat this session is wearing, an
 # "ask" would resolve to the asker answering itself under a different hat.
-PRINCIPAL_CMP="$(printf '%s' "$PRINCIPAL_LINE" | tr 'A-Z' 'a-z')"
-PRINCIPAL_CMP="${PRINCIPAL_CMP#"${PRINCIPAL_CMP%%[![:space:]]*}"}"
-PRINCIPAL_CMP="${PRINCIPAL_CMP%"${PRINCIPAL_CMP##*[![:space:]]}"}"
-ROLE_CMP="$(printf '%s' "$ROLE" | tr 'A-Z' 'a-z')"
+# The principal line is prose a person wrote ("a name or role"), so both sides are put in one form
+# before they are compared: lower-cased, Markdown emphasis and backticks dropped, edge punctuation and
+# a leading article dropped, and a trailing "role"/"seat"/"hat" dropped — "the PM role" is PM.
+_ask_norm() {
+  printf '%s' "$1" | tr 'A-Z' 'a-z' | tr -d '`*' \
+    | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[.,;:]+$//; s/^(the|a|an)[[:space:]]+//; s/[[:space:]]+(role|seat|hat)$//'
+}
+PRINCIPAL_CMP="$(_ask_norm "$PRINCIPAL_LINE")"
+ROLE_CMP="$(_ask_norm "$ROLE")"
 if [ "$ROLE_CMP" = "$PRINCIPAL_CMP" ]; then
   kit_refuse 1 ask-role-is-principal \
     "Error: --role $ROLE is this project's declared principal — § Who answers when nobody is watching's \`principal:\` line names the seat that wakes to answer, not the one asking." \
@@ -158,6 +164,15 @@ fi
 CHANNEL_TOKEN="$(printf '%s' "$CHANNEL_LINE" | awk '{ for (i=1;i<=NF;i++) if ($i ~ /^[A-Za-z0-9._-]+\/?([A-Za-z0-9._\/-]*)?$/ && $i ~ /\//) { print $i; exit } }')"
 [ -n "$CHANNEL_TOKEN" ] || CHANNEL_TOKEN="$(printf '%s' "$CHANNEL_LINE" | awk '{print $1}')"
 CHANNEL_TOKEN="${CHANNEL_TOKEN%,}"
+
+# The channel is a path INSIDE the repository: an absolute one would be re-rooted under it, and a
+# `..` one would write beside it. Neither is what the line meant.
+case "$CHANNEL_TOKEN" in
+  /*|..|../*|*/../*|*/..)
+    kit_refuse 1 ask-channel-unusable \
+      "Error: the declared channel ($CHANNEL_TOKEN) is not a path inside this repository." \
+      "Next: the project's owner corrects PROJECT.md's \"Their channel\" line to a repo-relative path (e.g. \"dev/questions/\"), then re-run. Nothing was written; if you are not the owner, stop and hand off." ;;
+esac
 
 case "$CHANNEL_TOKEN" in
   */) CHANNEL_DIR="$ROOT/${CHANNEL_TOKEN%/}"; CHANNEL_IS_DIR=1 ;;

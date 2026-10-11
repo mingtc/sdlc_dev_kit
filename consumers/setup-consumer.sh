@@ -58,9 +58,12 @@ VENDORED_NAME="${SEAM_VENDORED_NAME:?--print-seams gave no VENDORED_NAME}"
 ARTIFACT_GLOB="${SEAM_ARTIFACT_GLOB:?--print-seams gave no ARTIFACT_GLOB}"
 VENDOR_DIR="${SEAM_VENDOR_DIR:-./vendor}"
 
-case "$VENDORED_NAME$ARTIFACT_GLOB${SEAM_UPSTREAM_REPO_URL:-}" in
-    *"<"*) die "$UPDATE_SRC still has unfilled <placeholder> seams. Fill its SEAMS block before onboarding anyone." ;;
-esac
+# The updater is the one reader of "is every seam filled" — seams, pin line, both install
+# hints, the configuration list. Nothing is copied until it answers empty.
+UNFILLED="$(bash "$UPDATE_SRC" --print-unfilled 2>/dev/null)" \
+    || die "$UPDATE_SRC does not answer --print-unfilled — merge the kit's current consumers/update_vendored.sh into it (your seams stay yours)."
+[ -z "$UNFILLED" ] || die "$UPDATE_SRC still has unfilled <placeholder> seams. Fill them before onboarding anyone:
+$(printf '%s\n' "$UNFILLED" | sed 's/^/    /')"
 
 CONSUMER="${1:-$(pwd)}"
 CONSUMER="$(cd "$CONSUMER" && pwd)" || die "consumer path does not exist: ${1:-$(pwd)}"
@@ -118,6 +121,12 @@ ARTIFACT_COUNT=$(printf '%s\n' "$ARTIFACTS" | grep -c '.' || true)
 $ARTIFACTS"
 ARTIFACT_PATH="$ARTIFACTS"
 
+# What the consumer is told to run and provide is authored in update_vendored.sh
+# (install_hint(), CONSUMER_CONFIG); this script holds no copy of either.
+FIRST_INSTALL_HINT="$(bash "$UPDATE_SRC" --print-install-hint "$ARTIFACT_PATH")"
+CONFIG_LINES="$(bash "$UPDATE_SRC" --print-config | sed 's/^/     /')"
+[ -n "$CONFIG_LINES" ] || CONFIG_LINES="     (none — this project needs no configuration of its own)"
+
 # 5. Tell the human/agent what remains.
 cat >&2 <<EOF
 
@@ -141,13 +150,12 @@ Three things remain for you:
    refresh command that update_vendored.sh prints when it finishes (that one
    deliberately skips resolution, which is right for a refresh and wrong here):
 
-     <first-install command for ${ARTIFACT_PATH} — resolve dependencies>
+${FIRST_INSTALL_HINT}
 
 2) Provide whatever CONFIGURATION or CREDENTIALS this project needs, in the
    consumer's own untracked config (never committed):
 
-     <ENV_VAR_NAME>=...        # <what it is, and which surface needs it>
-     <ENV_VAR_NAME_2>=...
+${CONFIG_LINES}
 
    The authoritative, per-operation list is the one the vendored documents
    carry — read ${VENDOR_DIR}/${VENDORED_NAME}-GUIDE.md rather than this note,

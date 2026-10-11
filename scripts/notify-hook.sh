@@ -20,6 +20,19 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 
+# A usage request answers before stdin is read, so a person who types it at a terminal is not left
+# waiting for an EOF that never comes. Anything wrong still exits 0 (fail-soft, above).
+for _a in "$@"; do
+  case "$_a" in
+    -h|--help)
+      # shellcheck source=lib/usage.sh
+      if [ -r "$ROOT/scripts/lib/usage.sh" ] && . "$ROOT/scripts/lib/usage.sh" 2>/dev/null; then
+        kit_usage "${BASH_SOURCE[0]:-$0}" || true
+      fi
+      exit 0 ;;
+  esac
+done
+
 payload="$(cat 2>/dev/null || true)"
 sid="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null || true)"
 msg="$(printf '%s' "$payload" | jq -r '.message // empty' 2>/dev/null || true)"

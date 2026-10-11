@@ -19,6 +19,10 @@
 #   3  RED, UNKNOWN: nothing failed, and at least one gate COULD NOT RUN
 # Anything non-zero is red, so a caller that asks only "green or not" is unaffected.
 #
+# --scope needs a gate declared with class `select` in the GATES table (below) and the always-on
+# floor in GUARD_SET; with no `select` gate it refuses (exit 2). A gate record written by
+# kit-init is class `core`, so declare a `select` gate before using it.
+#
 # --scope is for the TDD INNER LOOP ONLY. The FULL run stays mandatory at the dev_complete
 # handoff, at QA, and at release. No flag, env var or argument combination runs a scoped
 # selection without the guard floor.

@@ -17,10 +17,15 @@ interactive prompt nothing will answer.
   hard-coded.** `PROJECT.md` § *Who answers when nobody is watching* names both; an undeclared or
   unfilled principal or channel is a refusal, not a default channel invented on the spot.
   *Why:* a question sent somewhere nobody declared is a question nobody will find.
-- **One question, one file.** Each call writes exactly one file, named so it sorts by time and
-  never collides with another question from the same or a different role.
+- **One question, one file.** Each call into a directory channel writes exactly one file, named so it
+  sorts by time and never collides with another question from the same or a different role. A
+  channel that names a file is the declared exception: each question is appended to it, which is
+  why PROJECT.md leads with the directory form.
   *Why:* a question folded into an existing file is a question a later reader can miss; a
   collision silently drops one question's record.
+- **The channel is a path inside the repository.** An absolute channel or one with a `..` component is
+  refused (`ask-channel-unusable`), never re-rooted under the repository or written beside it.
+  *Why:* a question filed outside the tree is one no later session of this project will find.
 - **A STANDING RULING IS NEVER TOUCHED.** `--decision D-NN` writes the register only when that
   entry has NO current ruling (`requirements/DECISIONS.md` § The THIRD state, WITHDRAWN); an
   entry with a standing ruling is left byte-identical, and that ruling — not the working default
@@ -54,7 +59,7 @@ interactive prompt nothing will answer.
 | `ask-no-project-md` | no `PROJECT.md` to read the principal and channel from |
 | `ask-no-principal` | `PROJECT.md`'s `principal:` is missing or still `<angle-bracket>` |
 | `ask-no-channel` | `PROJECT.md`'s channel line is missing or still `<angle-bracket>` |
-| `ask-channel-unusable` | the declared channel cannot be created, or is not writable |
+| `ask-channel-unusable` | the declared channel is not a path inside the repository, or cannot be created, or is not writable |
 | `ask-write-failed` | the question file could not be written |
 | `ask-decisions-write-failed` | `--decision` named a live entry but the register write failed |
 | `ask-unknown-option`, `ask-unexpected-argument` | a mis-invocation |

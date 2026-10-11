@@ -2005,13 +2005,13 @@ _reset_model_state() {
   for f in "$cdir"/agents/*.md; do
     [ -e "$f" ] || continue
     awk '/^model:/{print "model: seed-model"; next} /^effort:/{print "effort: seed-effort"; next} {print}' "$f" > "$f.new" && mv "$f.new" "$f"
-    /usr/bin/grep -qx 'model: seed-model' "$f" || _fixture_die "_reset_model_state: $f carries no 'model:' line to reset"
+    grep -qx 'model: seed-model' "$f" || _fixture_die "_reset_model_state: $f carries no 'model:' line to reset"
   done
   for label in "Orchestrator" "Refactorer" "PM-hat mint" "Spike / probe" "Dev" "QA" "XS / mechanical" "Cleanup / classifier"; do
     # The Refactorer row goes with the role when a project removes it.
     [ "$label" = Refactorer ] && _member_removed .claude/roles/refactorer.md && continue
     _blank_ladder_row "$cdir/roles/orchestrator.md" "$label"
-    row="$(/usr/bin/grep -E "^\| \*\*${label}" "$cdir/roles/orchestrator.md")"
+    row="$(grep -E "^\| \*\*${label}" "$cdir/roles/orchestrator.md")"
     [[ "$row" =~ ^[^|]*\|[^|]*\|[[:space:]]*\`\<fill\ in[^\`]*\`[[:space:]]*\|[[:space:]]*\`\<fill\ in ]] \
       || _fixture_die "_reset_model_state: the ladder's '$label' row did not return to unfilled cells"
   done
@@ -2026,7 +2026,7 @@ _reset_model_state() {
 _set_runner_defaults() {
   local rf="$1"
   sed -e "/defaultModel:.*||/s/||[[:space:]]*'[^']*'/|| '$2'/" -e "/defaultEffort:.*||/s/||[[:space:]]*'[^']*'/|| '$3'/" "$rf" > "$rf.new" && mv "$rf.new" "$rf"
-  /usr/bin/grep -qE "defaultModel:.*\|\| '$2'" "$rf" && /usr/bin/grep -qE "defaultEffort:.*\|\| '$3'" "$rf" \
+  grep -qE "defaultModel:.*\|\| '$2'" "$rf" && grep -qE "defaultEffort:.*\|\| '$3'" "$rf" \
     || _fixture_die "_set_runner_defaults: $rf's defaultModel/defaultEffort fallback lines did not take '$2'/'$3'"
 }
 
@@ -2168,7 +2168,7 @@ case_set_models_class_rewrites_pin_and_ladder_only() {
   local d; d="$(diff -r -x model-pins.record "$expected" "$SB_WORK/.claude" 2>&1)"
   [ -z "$d" ] \
     || cf "the tree differs from EXACTLY dev-worker.md's pin and orchestrator.md's Dev row changing: $(printf '%s' "$d" | tr '\n' '|' | cut -c1-300)"
-  local recbody; recbody="$(/usr/bin/grep -v '^#' "$SB_WORK/.claude/model-pins.record" 2>/dev/null)"
+  local recbody; recbody="$(grep -v '^#' "$SB_WORK/.claude/model-pins.record" 2>/dev/null)"
   [ "$recbody" = "$(printf 'dev-worker.md\ttest-model-x\ttest-effort-y')" ] \
     || cf "model-pins.record does not name exactly dev-worker.md at test-model-x/test-effort-y: $(printf '%s' "$recbody" | tr '\n' '|')"
 
@@ -2206,7 +2206,7 @@ case_set_models_all_rewrites_runners_too() {
   grep -qF '| **QA** | `test-all-model`' "$orch" \
     || cf "orchestrator.md's QA row was not moved to test-all-model by --all"
 
-  local recbody; recbody="$(/usr/bin/grep -v '^#' "$SB_WORK/.claude/model-pins.record" 2>/dev/null)"
+  local recbody; recbody="$(grep -v '^#' "$SB_WORK/.claude/model-pins.record" 2>/dev/null)"
   case "$recbody" in *dev-worker.md$'\t'test-all-model$'\t'test-all-effort*) : ;; *) cf "model-pins.record does not record dev-worker.md at test-all-model/test-all-effort: $(printf '%s' "$recbody" | tr '\n' '|')" ;; esac
   case "$recbody" in *ui-designer-worker.md*) cf "model-pins.record names the parked role, which --all does not write" ;; esac
 
@@ -2326,7 +2326,7 @@ case_model_seam_fixtures_ignore_live_model_state() {
   cp -R "$REAL_SCRIPTS" "$used/scripts"
   out="$( cd "$used" && ./scripts/set-models.sh --all --model used-model --effort used-effort 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || _fixture_die "set-models.sh --all refused over the copy of the real tree: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
-  /usr/bin/grep -rq 'used-model' "$used"/.claude "$used"/_claude 2>/dev/null \
+  grep -rq 'used-model' "$used"/.claude "$used"/_claude 2>/dev/null \
     || _fixture_die "set-models.sh --all left no 'used-model' in the copy — the precondition this case needs did not take"
 
   # Seed again, from the used tree.
@@ -2337,7 +2337,7 @@ case_model_seam_fixtures_ignore_live_model_state() {
   local d2; d2="$(diff -r "$before" "$SB_WORK/.claude" 2>&1)"
   [ -z "$d2" ] \
     || cf "the seeded sandbox differs when the real tree ran set-models.sh --all: $(printf '%s' "$d2" | tr '\n' '|' | cut -c1-300)"
-  /usr/bin/grep -rq 'used-model' "$SB_WORK/.claude" 2>/dev/null \
+  grep -rq 'used-model' "$SB_WORK/.claude" 2>/dev/null \
     && cf "the seeded sandbox carries the used tree's model into the fixture"
 
   finish "the model-seam fixture seeds the same sandbox from a tree that already ran set-models.sh --all as from one that did not"

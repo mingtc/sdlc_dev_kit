@@ -1133,6 +1133,137 @@ case_install_skills_writes_nothing_without_a_pack() {
   teardown
 }
 
+# _consumer_fill <updater> <seam…> — fill the named seams of a COPY of the shipped update_vendored.sh the
+# way a maintainer would: pin, first, refresh, config, docs. Each substitution is asserted to have
+# matched, so a renamed seam in the shipped file fails the fixture instead of passing it empty.
+_consumer_fill() {
+  local f="$1" seam
+  shift
+  for seam in "$@"; do
+    case "$seam" in
+      pin)     perl -i -pe 's/^(\s*printf .%s\\n. )"<your dependency pinning mechanism>: \$\{VENDORED_NAME\} <- \$1"/$1"thing \@ file:\$1"/' "$f" ;;
+      first)   perl -i -pe 's/<install command for \$1 — RESOLVE dependencies>/pip install --with-deps \$1/' "$f" ;;
+      refresh) perl -i -pe 's/<install command for \$1 — artifact only, skip dependency re-resolution>/pip install --no-deps \$1/' "$f" ;;
+      config)  perl -i -pe 's/^\s*"<ENV_VAR_NAME>\|<what it is, and which surface needs it>"$/    "THING_TOKEN|API token for the write surface"/' "$f" ;;
+      docs)    perl -i -ne 'print unless /^\s*"<path\/to\/GUIDE\.md>\|GUIDE"$/' "$f" ;;
+    esac
+  done
+  for seam in "$@"; do
+    case "$seam" in
+      pin)     grep -qF 'thing @ file:' "$f" ;;
+      first)   grep -qF 'pip install --with-deps' "$f" ;;
+      refresh) grep -qF 'pip install --no-deps' "$f" ;;
+      config)  grep -qF 'CONSUMER_CONFIG=(' "$f" || return 0   # no such seam: the case says so
+               grep -qF 'THING_TOKEN|' "$f" ;;
+      docs)    ! grep -qF '<path/to/GUIDE.md>' "$f" ;;
+    esac || _fixture_die "_consumer_fill: the '$seam' seam of the shipped update_vendored.sh was not filled"
+  done
+}
+
+# _has_text <text> <fixed string> — a `case` test, not `printf | grep -q` (run.sh's PIPEFAIL RULE).
+_has_text() {
+  case "$1" in *"$2"*) return 0 ;; esac
+  return 1   # return-class: predicate
+}
+
+# _consumer_setup <dir> — run the project's setup-consumer.sh against its consumer repository; sets the
+# caller's `out` and `rc`.
+_consumer_setup() {
+  out="$( cd "$1/consumer" && env VENDORED_NAME=thing ARTIFACT_GLOB='thing-*.tgz' VENDORED_REPO_URL="file://$1/upstream" \
+            bash "$1/consumers/setup-consumer.sh" 2>&1 )"; rc=$?
+}
+
+# _consumer_project <dir> — a throwaway upstream (a dist branch carrying one artifact, tagged v1.0.0) and a
+# copy of the shipped consumers/ with the values the script reads from the environment filled.
+_consumer_project() {
+  local d="$1" up="$1/upstream"
+  mkdir -p "$up" "$d/consumer"
+  git -C "$up" init -q -b dist
+  printf 'artifact\n' > "$up/thing-1.0.0.tgz"
+  git -C "$up" add thing-1.0.0.tgz
+  git -C "$up" -c user.email=t@t.invalid -c user.name=t commit -q -m "release 1.0.0"
+  git -C "$up" tag v1.0.0
+  cp -R "$SB_WORK/consumers" "$d/consumers"
+  git -C "$d/consumer" init -q -b main
+}
+
+# _consumer_reset <dir> — the shipped updater back as shipped, and the consumer repository empty again.
+_consumer_reset() {
+  cp "$SB_WORK/consumers/update_vendored.sh" "$1/consumers/update_vendored.sh"
+  rm -rf "$1/consumer/scripts" "$1/consumer/vendor" "$1/consumer/.claude"
+}
+
+# =============================================================================
+# CASE — THE CONSUMER'S TO-DO LIST CARRIES NO <BLANK>. setup-consumer.sh prints the first-install
+# hint and the configuration names it is given by update_vendored.sh, and refuses before it copies a
+# thing while any seam, the pin line, either install hint or the configuration list still holds a
+# blank. The control is the fully filled project, whose output is read for blanks with the same
+# pattern the refusal uses: it prints the maintainer's hint and name, and no blank.
+# =============================================================================
+case_setup_consumer_prints_no_unfilled_blank() {
+  cf_reset
+  local L="setup-consumer.sh refuses while a seam still holds a blank, and prints the maintainer's own first-install hint and configuration names once none does"
+  make_sandbox
+  if [ ! -f "$SB_WORK/consumers/setup-consumer.sh" ] || [ ! -f "$SB_WORK/consumers/update_vendored.sh" ]; then
+    teardown; skp "$L" "consumers/ absent"; return
+  fi
+  local P="$SB_TMP/cp" out rc seam
+  mkdir -p "$P"
+  _consumer_project "$P"
+  local upd="$P/consumers/update_vendored.sh"
+  grep -qF 'CONSUMER_CONFIG=(' "$upd" \
+    || cf "the shipped update_vendored.sh has no CONSUMER_CONFIG seam — the configuration names setup-consumer.sh prints have no home a maintainer fills"
+
+  # (a) the template as shipped: nothing filled but the three environment values — refused, nothing copied.
+  _consumer_setup "$P"
+  [ "$rc" -ne 0 ] || cf "(a) the unfilled template onboarded a consumer (rc=0): $(printf '%s' "$out" | tail -5 | tr '\n' '|')"
+  [ ! -e "$P/consumer/scripts" ] || cf "(a) the refused onboarding still copied $(ls "$P/consumer/scripts" | tr '\n' ' ')into the consumer"
+  for seam in 'pin_line()' 'install_hint() first-install' 'install_hint() refresh' 'CONSUMER_CONFIG' 'RELEASE_DOCS'; do
+    _has_text "$out" "$seam" || cf "(a) the refusal does not name '$seam': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  done
+
+  # (b) one seam still blank at a time — each refuses, naming it, and copies nothing.
+  local want others all="pin first refresh config docs"
+  for seam in $all; do
+    others=""; for want in $all; do [ "$want" = "$seam" ] || others="$others $want"; done
+    _consumer_reset "$P"
+    # shellcheck disable=SC2086
+    _consumer_fill "$upd" $others
+    case "$seam" in
+      pin)     want='pin_line()' ;;
+      first)   want='install_hint() first-install' ;;
+      refresh) want='install_hint() refresh' ;;
+      config)  want='CONSUMER_CONFIG' ;;
+      docs)    want='RELEASE_DOCS' ;;
+    esac
+    _consumer_setup "$P"
+    [ "$rc" -ne 0 ] || cf "(b) with only '$seam' blank, setup-consumer.sh onboarded (rc=0)"
+    _has_text "$out" "$want" || cf "(b) with only '$seam' blank the refusal does not name '$want': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+    [ ! -e "$P/consumer/scripts" ] || cf "(b) with only '$seam' blank, a refused onboarding still copied files into the consumer"
+  done
+
+  # (c) the control: everything filled — onboarded, and the to-do list is the maintainer's own.
+  _consumer_reset "$P"
+  _consumer_fill "$upd" pin first refresh config docs
+  _consumer_setup "$P"
+  [ "$rc" -eq 0 ] || cf "(c) (control) a fully filled project did not onboard (rc=$rc): $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  _has_text "$out" 'pip install --with-deps ./vendor/thing-1.0.0.tgz' \
+    || cf "(c) the printed first-install command is not the maintainer's install_hint(): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-500)"
+  _has_text "$out" 'THING_TOKEN=...' || cf "(c) the printed configuration list is not the maintainer's CONSUMER_CONFIG"
+  local blank_re='<[A-Za-z][^<>]*>'
+  [[ "$out" =~ $blank_re ]] && cf "(c) the onboarding output still carries a <blank>: ${BASH_REMATCH[0]}"
+
+  # (d) the updater refuses on its own while its refresh hint is blank (the consumer's copy is what runs later).
+  _consumer_reset "$P"
+  _consumer_fill "$upd" pin first config docs
+  out="$( cd "$P/consumer" && env VENDORED_NAME=thing ARTIFACT_GLOB='thing-*.tgz' VENDORED_REPO_URL="file://$P/upstream" bash "$upd" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) update_vendored.sh ran with a blank refresh hint (rc=0)"
+  _has_text "$out" 'install_hint() refresh' || cf "(d) the updater's refusal does not name the blank refresh hint: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  finish "$L"
+  teardown
+}
+
 # =============================================================================
 # CASE — THE CONSUMER-UPDATER FAMILY. It runs only when CONSUMER_SCRIPT names an
 # executable: a vendoring/updater script is a DISTRIBUTION MODEL, not a kit

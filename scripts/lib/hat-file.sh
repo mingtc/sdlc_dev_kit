@@ -1,7 +1,8 @@
 # KIT-CLASS: KIT — the one definition of where a session declares its hat. See process/contracts/role-gate.md.
 #   Sourced by scripts/hooks/require-role.sh (reads it), scripts/hooks/session-start.sh (clears it),
-#   scripts/githooks/pre-commit (reads it at the commit) and scripts/kit-init.sh (ignores it, then
-#   proves the ignore). Nothing else names the path.
+#   scripts/githooks/pre-commit (reads it at the commit) and scripts/kit-init.sh (writes the
+#   gitignore entry for it and proves the entry, and takes the commit variable below from this file).
+#   Nothing else names the path.
 #
 # The file is outside `.claude/`: the agent harness treats that directory as sensitive and refuses a
 # session's write to it under every permission mode but bypass, so a hat file there can never be

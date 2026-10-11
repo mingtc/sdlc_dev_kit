@@ -427,7 +427,7 @@ keeps `.claude/model-pins.record` — what it last wrote to each pin — which `
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
 
-**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
+**Machinery + hooks (KIT, MIXED where noted):** `lib/agent-record.sh` · `lib/attrib-trailer.sh` · `lib/board-properties.sh` · `lib/branch-rev.sh` · `lib/card-field.sh` · `lib/card-head.sh` · `lib/decision-register.sh` · `lib/exit-trap.sh` · `lib/glob-array.sh` · `lib/hat-file.sh` · `lib/kanban-worktree.sh` · `lib/lived-probe.sh` · `lib/model-pins.sh` · `lib/pm-field.sh` · `lib/progress-record.sh` · `lib/push-retry.sh` · `lib/qa-gate.sh` · `lib/refuse.sh` · `lib/role-set.sh` · `lib/usage.sh` ·
 `hooks/agent-record.sh` · `hooks/require-role.sh` · `hooks/session-start.sh` · `hooks/stop-ask.sh` (wired only in the
 unattended launch profile — § 2.8) · `githooks/applypatch-msg` (it delegates to
 `githooks/commit-msg`, which is MIXED — the table below — because the role-set membership it
@@ -915,9 +915,10 @@ example channel adapter.
 
 ### 2.8 `.claude/settings.json.example` — COPY, and activating it is the decision
 
-It is the opt-in harness hook wiring (the role gate, the session-start clear, notifications,
-and the agent record around every Bash call that `finish-pr.sh` reads to refuse a QA verdict
-committed by the same agent, in the same session, as the code — [`process/contracts/agent-record.md`](contracts/agent-record.md)).
+It is the opt-in harness hook wiring; the command in [`MANUAL.md` § The default path is lite](MANUAL.md) lists what it wires, so
+no second list is kept here. One of those hooks records, around every Bash call, the agent that made each commit, which
+`finish-pr.sh` reads to refuse a QA verdict committed by the same agent, in the same session, as the code
+([`process/contracts/agent-record.md`](contracts/agent-record.md)).
 **Copy it as it stands.** The decision it asks of you is *whether to activate the hooks at all* —
 they execute shell on tool use and at session start — not what to put inside it.
 

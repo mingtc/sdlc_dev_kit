@@ -247,6 +247,7 @@ CASES=(
   case_subtask_declined_closes_a_slice
   case_subtask_qa_verdict_missing_table_refuses
   case_subtask_qa_verdict_fail_in_backticks_refuses
+  case_subtask_qa_verdict_token_invalid_refuses
   case_subtask_forks_missing_refuses
   case_subtask_ablation_missing_section_refuses
   case_subtask_qa_gate_well_formed_lands
@@ -274,6 +275,8 @@ CASES=(
   case_ask_principal_field_reads_either_form
   case_ask_principal_placeholder_forms_read_as_blank
   case_ask_refuses_when_asker_is_principal
+  case_ask_principal_phrase_is_normalised
+  case_ask_channel_stays_inside_the_repository
   case_ask_writes_one_file_and_returns
   case_ask_never_overwrites_a_standing_ruling
   case_ask_reads_the_withdrawn_token_as_the_format_shows_it
@@ -331,7 +334,10 @@ CASES=(
   case_finish_pr_qa_verdict_placeholder_forms_refuse
   case_finish_pr_qa_verdict_ac_separator_forms_refuse
   case_finish_pr_qa_verdict_fail_token_formatting_refuses
+  case_finish_pr_qa_verdict_token_invalid_refuses
+  case_qa_gate_verdict_set_is_the_ratified_set
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
+  case_finish_pr_ablation_declared_empty_test_globs_says_so
   case_finish_pr_ablation_missing_section_refuses
   case_finish_pr_ablation_branch_cannot_undeclare_test_globs
   case_finish_pr_ablation_malformed_section_refuses
@@ -405,6 +411,7 @@ CASES=(
   case_runner_promotes_only_observed_verdicts
   case_runner_typed_leg_keeps_its_frontmatter_pin
   case_wave_brief_matches_the_legs_checkout
+  case_archive_progress_before_must_be_a_calendar_date
   case_archive_progress_index
   case_verify_frame
   case_guard_floor_unenrolled_from_shipped_empty_set
@@ -510,6 +517,11 @@ CASES=(
   case_help_does_not_print_the_disposition_marker
   case_notify_lists_only_adapters
   case_notify_message_flag_carries_a_leading_dash
+  case_notify_help_is_the_header_and_the_hook_answers_without_stdin
+  case_creator_usage_prints_one_form_on_every_path
+  case_a_required_option_left_out_exits_2
+  case_usage_text_states_what_scope_and_approve_shipped_do
+  case_no_shipped_file_hard_codes_the_grep_path
   case_help_window_ends_where_its_rule_says
   case_project_credential_blank_is_countable
   case_minted_card_is_drift_clean
@@ -549,6 +561,7 @@ CASES=(
   case_release_spaced_path
   case_consumer_updater
   case_install_skills_writes_nothing_without_a_pack
+  case_setup_consumer_prints_no_unfilled_blank
   case_find_polluter_runs_each_path_whole
   case_hygiene_instruments_declare_blind_spots
   case_cold_signal_reads_non_ascii_paths

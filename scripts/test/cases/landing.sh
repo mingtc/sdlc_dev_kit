@@ -1835,9 +1835,9 @@ case_publish_after_a_board_op_commits_no_gitlink() {
   printf 'x\n' > "$SB_WORK/after-board-op.txt"
   publish_sandbox
   case "$(git -C "$SB_WORK" ls-tree -r HEAD)" in
-    *"160000 "*) cf "publish_sandbox committed a mode-160000 entry (a gitlink) after a board op: $(git -C "$SB_WORK" ls-tree -r HEAD | /usr/bin/grep '^160000' | tr '\n' '|')" ;;
+    *"160000 "*) cf "publish_sandbox committed a mode-160000 entry (a gitlink) after a board op: $(git -C "$SB_WORK" ls-tree -r HEAD | grep '^160000' | tr '\n' '|')" ;;
   esac
-  git -C "$SB_WORK" ls-tree -r --name-only HEAD | /usr/bin/grep -qx 'after-board-op.txt' \
+  git -C "$SB_WORK" ls-tree -r --name-only HEAD | grep -x 'after-board-op.txt' >/dev/null \
     || cf "the second publish_sandbox did not commit the new file, so the gitlink check read a commit that is not the publish"
   # Control: with the exclude gone, the same publish does commit the worktree as a gitlink.
   : > "$SB_WORK/.git/info/exclude"

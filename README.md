@@ -12,7 +12,9 @@ it runs the process for you — you run `/start` and answer its questions.
 
 **Language- and stack-agnostic.** Works with any codebase, any test framework, any forge. Requires
 only **git** and a **POSIX shell**. Built with [Claude Code](https://claude.com/claude-code) in
-mind — that's where the skills, agent definitions and hooks under `.claude/` actually run — with a
+mind — that's where the skills, agent definitions and hooks under `.claude/` actually run (the hooks stay
+inactive until you copy `.claude/settings.json.example` to `.claude/settings.json`; `process/MANUAL.md` § The
+default path is lite says what it wires) — with a
 bridge for other agents: day one bootstraps from a single `AGENTS.md`, which Claude Code (**v2.1.277
 or later**; an older version silently reads no instructions at all, and `/start` checks this) and most
 other coding agents already read, and the process itself (the roles, the board, the Dev → QA

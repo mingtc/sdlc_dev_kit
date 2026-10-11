@@ -9,8 +9,8 @@
 #
 #   kit_qa_verdict_check <card-file> <card-id> <repo> <rev>
 #     The QA Verdict table (.claude/roles/qa.md step 4): a '## QA Verdict' heading exists, every
-#     row has usable evidence, no row is itself FAIL_AC/FAIL_REGRESSION, the table's AC ids match
-#     the card's own '- [ ] <id> —'/'- [ ] <id> -'/'- [ ] <id>:' checklist bullets one for one, and
+#     row has usable evidence, every row's verdict is one of KIT_QAV_VERDICTS, no row is itself
+#     FAIL_AC/FAIL_REGRESSION, the table's AC ids match the card's own '- [ ] <id> —'/'- [ ] <id> -'/'- [ ] <id>:' checklist bullets one for one, and
 #     the fixed 'shadow-check' row is present and filled. <rev> is the revision being landed (read
 #     in <repo> with `git cat-file`/`git show`) — every evidence pointer is checked against IT, not
 #     the caller's working tree. A `file:line`/`test` row's pointer must resolve (the file exists
@@ -19,9 +19,9 @@
 #     not from a `path:line` token they do carry resolving. At least one AC row must be a `test`/
 #     `file:line` row, so a table of only gate-diff/fixture-diff rows (nothing the gate can re-read)
 #     is refused. Refuses through kit_refuse with:
-#     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-fail, qa-verdict-ac-mismatch,
-#     qa-verdict-shadow-missing, qa-verdict-pointer-unresolved, qa-verdict-quote-missing,
-#     qa-verdict-quote-not-found, qa-verdict-no-observed.
+#     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
+#     qa-verdict-ac-mismatch, qa-verdict-shadow-missing, qa-verdict-pointer-unresolved,
+#     qa-verdict-quote-missing, qa-verdict-quote-not-found, qa-verdict-no-observed.
 #
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
@@ -47,8 +47,9 @@
 #   kit_ablation_check <card-file> <card-id> <repo> <old-rev> <new-rev>
 #     process/doctrine/instruments.md § A.2: a diff touching a declared TEST_GLOBS path needs a
 #     well-formed '## Ablation' section. TEST_GLOBS is read as the UNION of <old-rev>'s and
-#     <new-rev>'s scripts/config.sh. UNDECLARED makes the check UNRUNNABLE — printed on stdout as
-#     'ABLATION_CHECK: did not run', never a silent pass — same as an <old-rev>==<new-rev> (no
+#     <new-rev>'s scripts/config.sh, by glob-array.sh's reader. UNDECLARED makes the check UNRUNNABLE —
+#     printed on stdout as 'ABLATION_CHECK: did not run', never a silent pass; a `# DECLARED EMPTY`
+#     array does too, but its line says the project chose that — same as an <old-rev>==<new-rev> (no
 #     diff to read) or a <new-rev> that does not resolve, both printed as UNRUNNABLE by the same
 #     line rather than treated as "touches nothing". Refuses through kit_refuse with:
 #     ablation-config-unreadable, ablation-missing, ablation-malformed.
@@ -88,6 +89,8 @@
 . "$(dirname "${BASH_SOURCE[0]}")/board-properties.sh" || return 1   # return-class: internal
 # shellcheck source=card-field.sh
 . "$(dirname "${BASH_SOURCE[0]}")/card-field.sh" || return 1   # return-class: internal
+# shellcheck source=glob-array.sh
+. "$(dirname "${BASH_SOURCE[0]}")/glob-array.sh" || return 1   # return-class: internal
 
 # The whole-cell placeholder forms (an EMPTY cell is checked separately, with a plain shell
 # string test — a leading empty alternative in the regex itself makes some greps refuse the
@@ -95,6 +98,10 @@
 # stripping backticks and leading/trailing whitespace from the cell. ONE list — qa.md's prose, the
 # templates and any future reader name this constant, not their own copy.
 KIT_QAV_PLACEHOLDER_RE='^(n/a|na|none|tbd|see above|see below|-|—|x|\.\.\.|\?|<[^>]*>)$'
+
+# The verdict tokens a QA Verdict row may carry, exactly and case-sensitively — the set process/MANUAL.md
+# step 6 ratifies. A cell outside it is refused (qa-verdict-token-invalid), never read as a pass.
+KIT_QAV_VERDICTS='PASS PASS_AC_CORRECTED FAIL_AC FAIL_REGRESSION'
 
 # An AC checklist bullet ('- [ ] AC1 — text.') separates its id from its text with an em-dash,
 # a hyphen or a colon — ONE fragment for every reader that must recognise a bullet, so a
@@ -173,7 +180,7 @@ kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4"
   local _qav_body _qav_ac_ids _qav_table _qav_rows
   local _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
-  local _qav_unresolved="" _qav_quote_missing="" _qav_quote_not_found="" _qav_quoted_rows=0
+  local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
 
   if [ -z "$repo" ] || [ -z "$rev" ]; then
@@ -280,6 +287,10 @@ kit_qa_verdict_check() {
           ;;
       esac
     fi
+    case " $KIT_QAV_VERDICTS " in
+      *" $_qverdict "*) : ;;
+      *) _qav_token_bad="${_qav_token_bad}${_qav_token_bad:+, }${_qid} (verdict '${_qverdict}')" ;;
+    esac
     case "$_qverdict" in
       FAIL_AC|FAIL_REGRESSION) _qav_fail_rows="${_qav_fail_rows}${_qav_fail_rows:+, }${_qid}" ;;
     esac
@@ -328,6 +339,15 @@ kit_qa_verdict_check() {
       "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \
       "Next: for at least one AC row, read the line that shows the behaviour and cite it as a test or file:line pointer with the verbatim quote; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  if [ -n "$_qav_token_bad" ]; then
+    kit_refuse 2 qa-verdict-token-invalid \
+      "Error: ${issue_id}'s QA Verdict table has row(s) whose verdict is not one of the four tokens: ${_qav_token_bad}" \
+      "       A row's verdict is exactly one of ${KIT_QAV_VERDICTS// / | }," \
+      "       spelled so (case-sensitive) and nothing else. (.claude/roles/qa.md step 6.)" \
+      "Next: set each row named above to the token its own evidence shows (a failing row is FAIL_AC or FAIL_REGRESSION, and then this is not a PASS landing — .claude/roles/qa.md step 6); commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -551,23 +571,18 @@ kit_ablation_check() {
   { git -C "$repo" show "${old_rev}:scripts/config.sh" 2>/dev/null || :
     git -C "$repo" show "${new_rev}:scripts/config.sh" 2>/dev/null || :; } > "$_abl_cfg_branch"
 
+  local _abl_declared_empty=""
   while IFS= read -r _abl_line; do
-    _abl_test_globs+=("$_abl_line")
-  done < <(awk '
-    /^TEST_GLOBS=\($/ { in_arr=1; next }
-    in_arr && /^\)/ { in_arr=0; next }
-    in_arr {
-      line=$0
-      sub(/^[[:space:]]*/, "", line)
-      sub(/[[:space:]]*#.*$/, "", line)
-      if (line == "") next
-      gsub(/^"|"$/, "", line)
-      print line
-    }
-  ' "$_abl_cfg_branch")
+    case "$_abl_line" in
+      E\|*) _abl_test_globs+=("${_abl_line#E|}") ;;
+      D)    _abl_declared_empty=1 ;;
+    esac
+  done < <(kit_glob_array TEST_GLOBS "$_abl_cfg_branch")
   rm -f "$_abl_cfg_branch"
 
-  if [ ${#_abl_test_globs[@]} -eq 0 ]; then
+  if [ ${#_abl_test_globs[@]} -eq 0 ] && [ -n "$_abl_declared_empty" ]; then
+    echo "ABLATION_CHECK: did not run — TEST_GLOBS is declared empty in scripts/config.sh (a project's own \"none, on purpose\"): the ablation rule stays unenforced."
+  elif [ ${#_abl_test_globs[@]} -eq 0 ]; then
     echo "ABLATION_CHECK: did not run — TEST_GLOBS is undeclared in scripts/config.sh (adopter action required)."
   else
     # --no-renames: a path RENAMED out of a declared glob must still surface under its OLD

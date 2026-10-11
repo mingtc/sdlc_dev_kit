@@ -31,6 +31,7 @@
 #   scripts/update_vendored.sh v1.2.0       # build + vendor a specific tag
 #   scripts/update_vendored.sh --check      # report-only: is a newer tag available?
 #   scripts/update_vendored.sh --print-seams  # this file's configured seams (for tooling)
+#   scripts/update_vendored.sh --print-unfilled  # the seams still holding a <blank>, one per line
 #
 # TWO PATHS, and you never have to choose. It first tries the DISTRIBUTION-BRANCH
 # FAST PATH — a shallow clone of the upstream's consumer-only branch, which
@@ -122,6 +123,14 @@ RELEASE_DOCS=(
 NOTES_DOC_PATH="${NOTES_DOC_PATH:-RELEASE_NOTES.md}"
 CHANGELOG_DOC_PATH="${CHANGELOG_DOC_PATH:-CHANGELOG.md}"
 
+# THE CONFIGURATION OR CREDENTIALS A CONSUMER MUST PROVIDE, as `<NAME>|<what it is,
+# and which surface needs it>`. setup-consumer.sh prints one `NAME=...` line per
+# entry in the consumer's to-do list. An empty array is supported: the project
+# needs none.
+CONSUMER_CONFIG=(
+    "<ENV_VAR_NAME>|<what it is, and which surface needs it>"
+)
+
 # Where the vendored artifact lives inside the consumer.
 VENDOR_DIR="${VENDOR_DIR:-./vendor}"
 
@@ -210,6 +219,37 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
     esac
 }
 
+# A seam is UNFILLED while its value still carries a `<blank>`: an angle-bracket span
+# that opens with a letter (so the `<-` of a pin line is not one). A bash test, not a
+# `printf | grep -q` pipe: under `pipefail` a reader that exits early reports the
+# producer's SIGPIPE as a miss.
+UNFILLED_RE='<[A-Za-z][^<>]*>'
+is_unfilled() {   # <value>
+    [[ "$1" =~ $UNFILLED_RE ]]
+}
+
+# The seams still holding a blank, one line each: the three the logic reads, every
+# RELEASE_DOCS path, every CONSUMER_CONFIG entry, and what pin_line() and both
+# install_hint() forms print. The ONE reader of "is this filled": the preflight below
+# and setup-consumer.sh (through --print-unfilled) both use it. The `[@]+…` expansions
+# keep an empty array safe under `set -u` on bash 3.2.
+unfilled_seams() {
+    local _v _e
+    for _v in VENDORED_NAME UPSTREAM_REPO_URL ARTIFACT_GLOB; do
+        if is_unfilled "${!_v}"; then printf '%s is still a placeholder (%s)\n' "$_v" "${!_v}"; fi
+    done
+    for _e in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
+        if is_unfilled "${_e%%|*}"; then printf "RELEASE_DOCS still carries the placeholder '%s'\n" "${_e%%|*}"; fi
+    done
+    for _e in ${CONSUMER_CONFIG[@]+"${CONSUMER_CONFIG[@]}"}; do
+        if is_unfilled "$_e"; then printf "CONSUMER_CONFIG still carries the placeholder '%s'\n" "$_e"; fi
+    done
+    if is_unfilled "$(pin_line ./vendor/x)"; then echo "pin_line() still prints a placeholder"; fi
+    if is_unfilled "$(install_hint ./vendor/x first-install 2>&1)"; then echo "install_hint() first-install still prints a placeholder"; fi
+    if is_unfilled "$(install_hint ./vendor/x refresh 2>&1)"; then echo "install_hint() refresh still prints a placeholder"; fi
+    return 0
+}
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Below this line: the logic. It travels unedited — except ver_gt(), notes_headers() and the
 # `--sort=-v:refname` tag picks, which a project whose versions are not digits-and-dots replaces
@@ -240,7 +280,7 @@ case "${1:-}" in
     -h|--help) usage; exit 0 ;;
     # An unrecognised option exits 2 and names itself (process/contracts/issue-creation.md
     # § 3). The known flags are matched first.
-    --check|--print-seams) : ;;
+    --check|--print-seams|--print-unfilled|--print-config|--print-install-hint) : ;;
     -?*) printf '%s: unknown option %s\n' "$(basename "$0")" "$1" >&2
          printf '       Run  %s --help  for the usage.\n' "$(basename "$0")" >&2
          exit 2 ;;
@@ -263,28 +303,37 @@ if [ "${1:-}" = "--print-seams" ]; then
     exit 0
 fi
 
+# The other three print modes serve setup-consumer.sh the same way, and also run before
+# the preflight: the unfilled list IS the answer a half-configured template gives.
+if [ "${1:-}" = "--print-unfilled" ]; then
+    unfilled_seams
+    exit 0
+fi
+if [ "${1:-}" = "--print-config" ]; then   # one `NAME=...  # what` line per CONSUMER_CONFIG entry
+    for _e in ${CONSUMER_CONFIG[@]+"${CONSUMER_CONFIG[@]}"}; do
+        printf '%-24s # %s\n' "${_e%%|*}=..." "${_e#*|}"
+    done
+    exit 0
+fi
+if [ "${1:-}" = "--print-install-hint" ]; then   # <vendored artifact path>: the FIRST-install form
+    install_hint "${2:?--print-install-hint needs the vendored artifact path}" first-install 2>&1
+    exit 0
+fi
+
 command -v git >/dev/null 2>&1 || die "git not found."
 
 # Preflight: refuse to run half-configured. An unfilled seam otherwise fails
 # somewhere far from its cause (a glob that matches nothing, a clone of a
-# literal placeholder), and the message you get would not name the real problem.
-for seam in "VENDORED_NAME=$VENDORED_NAME" "UPSTREAM_REPO_URL=$UPSTREAM_REPO_URL" \
-            "ARTIFACT_GLOB=$ARTIFACT_GLOB"; do
-    case "$seam" in
-        *"<"*) die "unfilled seam in $(basename "$0"): ${seam%%=*} is still a placeholder ($seam). Fill the SEAMS block at the top of this file." ;;
-    esac
-done
-
-# RELEASE_DOCS is a seam too: an unfilled entry would otherwise be reported as
-# "this release carries no …", the message for an old tag. `${RELEASE_DOCS[@]+…}`
-# because an empty array is a supported configuration, and a bare expansion of an
-# empty array under `set -u` dies on bash 3.2.
-for _rd in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
-    case "${_rd%%|*}" in
-        *"<"*) die "unfilled seam in $(basename "$0"): RELEASE_DOCS still carries the placeholder '${_rd%%|*}'. Fill it with the path that document has IN THE RELEASE, or delete that entry if you do not vendor one. Leaving it would report the drop as 'this release carries no …', which is the message for a tag that predates the document." ;;
-    esac
-done
-unset _rd
+# literal placeholder, an install hint that is itself a blank), and the message
+# you get would not name the real problem. A RELEASE_DOCS placeholder left in
+# would be reported as "this release carries no …", the message for a tag that
+# predates the document.
+_unfilled="$(unfilled_seams)"
+if [ -n "$_unfilled" ]; then
+    die "unfilled seam(s) in $(basename "$0"). Fill the SEAMS block and the seam functions at the top of this file (or delete a RELEASE_DOCS entry you do not vendor):
+$(printf '%s\n' "$_unfilled" | sed 's/^/    /')"
+fi
+unset _unfilled
 
 # ---- helpers ---------------------------------------------------------------
 

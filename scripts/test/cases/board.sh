@@ -1544,7 +1544,7 @@ case_pre_commit_refuses_a_commit_with_no_hat() {
   case "$out" in *"$rel"*) : ;; *) cf "(a) the refusal does not name the hat file '$rel': $out" ;; esac
   case "$out" in *"<Role> <scope>"*) : ;; *) cf "(a) the refusal does not give the file's form '<Role> <scope>': $out" ;; esac
   case "$out" in *"Next:"*) : ;; *) cf "(a) the refusal carries no Next: line: $out" ;; esac
-  /usr/bin/grep -q 'refusal=pre-commit-hat-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=pre-commit-hat-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=pre-commit-hat-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
   [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved although the commit was refused"
   git -C "$SB_WORK" diff --cached --name-only | grep -F 'ARCHIVE.md' >/dev/null \

@@ -293,6 +293,77 @@ case_ask_refuses_when_asker_is_principal() {
 }
 
 # =============================================================================
+# CASE — A PRINCIPAL WRITTEN AS A PHRASE IS STILL THE PRINCIPAL. PROJECT.md invites "a name or role", so
+# `the PM role` / `The PM Seat` / `PM role.` name the PM seat: --role PM refuses against each, and a
+# different asker still asks. A `nobody: …` principal names no seat and refuses no one. Every row runs
+# in the same sandbox; a compare of the whole line against the role would let the phrase through.
+# =============================================================================
+case_ask_principal_phrase_is_normalised() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || _fixture_die "case_ask_principal_phrase_is_normalised: scripts/ask.sh is not in the sandbox or not executable"
+  local out rc phrase n=0
+  for phrase in 'the PM role' 'The PM Seat' 'PM role.' 'a PM hat'; do
+    n=$((n+1))
+    _ask_pm_section "$phrase" 'dev/questions/' > "$SB_WORK/PROJECT.md"
+    out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$n" ./scripts/ask.sh --role PM "q?" --default "d" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "--role PM against principal '$phrase' exited 0 — the asker answered itself"
+    grep -q 'refusal=ask-role-is-principal' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+      || cf "principal '$phrase': no refusal=ask-role-is-principal record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+  done
+  [ -z "$(find "$SB_WORK/dev" -type f -name '*-ask.md' 2>/dev/null)" ] || cf "a question file was written by a refused ask"
+
+  # THE CONTROLS: a different asker against the phrase, and a principal that names no seat.
+  _ask_pm_section 'the PM role' 'dev/questions/' > "$SB_WORK/PROJECT.md"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c1" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) --role Dev against principal 'the PM role' exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  _ask_pm_section 'nobody: Dev works from the recorded default' 'dev/questions/' > "$SB_WORK/PROJECT.md"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c2" ./scripts/ask.sh --role Dev "q2?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) --role Dev against a 'nobody: …' principal exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "ask.sh reads a principal written as a phrase ('the PM role', 'The PM Seat', 'PM role.') as the PM seat and refuses --role PM, and a different asker, or a 'nobody: …' principal, still asks"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE CHANNEL IS A PATH INSIDE THE REPOSITORY. An absolute channel (which would be re-rooted under
+# the repository) and a `..` channel (which would write beside it) refuse with ask-channel-unusable and
+# write nothing anywhere. The file form PROJECT.md offers ("the directory or file") is real and --help
+# says so. The control is the ordinary directory channel, which files one question.
+# =============================================================================
+case_ask_channel_stays_inside_the_repository() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || _fixture_die "case_ask_channel_stays_inside_the_repository: scripts/ask.sh is not in the sandbox or not executable"
+  local out rc chan n=0 outside_parent; outside_parent="$(dirname "$SB_WORK")"
+  for chan in "$SB_TMP/abs-chan/" "../escape-chan/"; do
+    n=$((n+1))
+    _ask_pm_section 'Nadia, shop manager' "$chan" > "$SB_WORK/PROJECT.md"
+    out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$n" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "channel '$chan': ask.sh exited 0 — a question was filed outside the repository's own tree"
+    grep -q 'refusal=ask-channel-unusable' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+      || cf "channel '$chan': no refusal=ask-channel-unusable record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  done
+  [ ! -e "$SB_WORK$SB_TMP" ] || cf "an absolute channel was re-rooted under the repository ($SB_WORK$SB_TMP)"
+  [ ! -e "$SB_TMP/abs-chan" ] || cf "an absolute channel was written to"
+  [ ! -e "$outside_parent/escape-chan" ] || cf "a '..' channel wrote a directory beside the repository"
+
+  # THE CONTROL: the ordinary directory channel files one question.
+  _ask_fill_pm "$SB_WORK"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c" ./scripts/ask.sh --role Dev "q?" --default "d" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the directory channel dev/questions/ exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  # --help names the file form.
+  out="$( cd "$SB_WORK" && ./scripts/ask.sh --help </dev/null 2>&1 )"
+  case "$out" in *appended*) : ;; *) cf "--help does not say a channel that names a file has each question appended" ;; esac
+
+  finish "ask.sh refuses an absolute or '..' channel (ask-channel-unusable) without writing anywhere, still files into dev/questions/, and --help says a channel naming a file has each question appended"
+  teardown
+}
+
+# =============================================================================
 # CASE — ask.sh, DECLARED: ONE FILE, ONE PROVISIONAL DEFAULT, ONE PROGRESS RECORD, EXIT 0.
 # GREEN: writes exactly one question file in the declared channel,
 # records the provisional default ONLY over a WITHDRAWN entry, writes one progress record,

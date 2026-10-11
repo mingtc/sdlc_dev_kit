@@ -185,7 +185,7 @@ case "$CMD" in
       -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
       *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac; done
-    [ -n "$TITLE" ] || kit_refuse 1 title-required \
+    [ -n "$TITLE" ] || kit_refuse 2 title-required \
       "Error: --title required." \
       "Next: re-run with  --title \"<the slice's title>\"."
 

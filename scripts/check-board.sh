@@ -162,6 +162,17 @@ elif ! command -v kit_lived_signals >/dev/null 2>&1; then
   CB_LIVED_LIB_ERR="scripts/lib/lived-probe.sh sourced, but kit_lived_signals is NOT DEFINED"
 fi
 
+# The one reader of a config.sh glob array (CODE_GLOBS, TEST_GLOBS), shared with the ablation
+# check. Without it the arms that read those arrays cannot run: a recorded skip, never an exit
+# and never a verdict read off an empty answer.
+CB_GLOB_LIB_ERR=""
+# shellcheck source=lib/glob-array.sh
+if [ ! -f "$CB_LIB_DIR/glob-array.sh" ] || ! . "$CB_LIB_DIR/glob-array.sh" 2>/dev/null; then
+  CB_GLOB_LIB_ERR="scripts/lib/glob-array.sh is missing or does not load"
+elif ! command -v kit_glob_array >/dev/null 2>&1; then
+  CB_GLOB_LIB_ERR="scripts/lib/glob-array.sh sourced, but kit_glob_array is NOT DEFINED"
+fi
+
 # The shared register parser (arm [l] and finish-pr.sh's `forks:` precondition read the SAME
 # register the same way). A load failure degrades arm [l] to its own "no register read" line —
 # it already handles l_reg_read==0 as absence — never an exit.
@@ -267,26 +278,6 @@ if [ "$CB_SRC_KIND" = "ref" ]; then
     CB_TREE="$REPO_ROOT"
   fi
 fi
-
-# cb_array_stream <array> <config.sh> — the ONE reader of a scripts/config.sh glob array, the
-# anchored shape scripts/githooks/pre-commit and scripts/lib/qa-gate.sh parse: an `E|<entry>` line
-# per real entry (quotes and trailing comment stripped, blanks skipped) and a bare `D` line if a
-# whole-line `# DECLARED EMPTY` comment sits inside the parens.
-cb_array_stream() {
-  awk -v arr="$1" '
-        $0 == arr "=(" { in_arr=1; next }
-        in_arr && /^\)/ { in_arr=0; next }
-        in_arr {
-          raw=$0
-          line=raw
-          sub(/^[[:space:]]*/, "", line)
-          if (line ~ /^#[[:space:]]*DECLARED EMPTY([^A-Za-z0-9_]|$)/) { print "D"; next }
-          sub(/[[:space:]]*#.*$/, "", line)
-          gsub(/^"|"$/, "", line)
-          if (line != "") print "E|" line
-        }
-  ' "$2"
-}
 
 # One helper so no arm can print a verdict without its operand beside it.
 cb_src() {
@@ -451,16 +442,18 @@ if [ -f "$pmd" ]; then
   c_specs=()
   c_nglob=0
   c_decl=0
-  if [ -f "$CB_TREE/scripts/config.sh" ]; then
+  if [ -f "$CB_TREE/scripts/config.sh" ] && [ -z "$CB_GLOB_LIB_ERR" ]; then
     while IFS= read -r c_tag; do
       case "$c_tag" in
         E\|*) c_specs+=(":(top)${c_tag#E|}"); c_nglob=$((c_nglob+1)) ;;
         D) c_decl=1 ;;
       esac
-    done < <(cb_array_stream CODE_GLOBS "$CB_TREE/scripts/config.sh")
+    done < <(kit_glob_array CODE_GLOBS "$CB_TREE/scripts/config.sh")
   fi
   c_pc="$(git -C "$REPO_ROOT" log -1 --format=%H "$c_ref" -- ':(top)progress.md' 2>/dev/null || true)"
-  if [ "$c_nglob" -eq 0 ]; then
+  if [ -n "$CB_GLOB_LIB_ERR" ]; then
+    echo "[c] progress.md LAST ENTRY: THIS CHECK DID NOT RUN — $CB_GLOB_LIB_ERR, and CODE_GLOBS cannot be read without it  (skipped) — $(cb_src)"
+  elif [ "$c_nglob" -eq 0 ]; then
     echo "[c] progress.md LAST ENTRY: THIS CHECK DID NOT RUN — CODE_GLOBS in scripts/config.sh is $([ "$c_decl" -eq 1 ] && echo 'declared empty' || echo 'undeclared'), so nothing separates a code commit from a metadata one  (skipped) — $(cb_src)"
   elif [ -z "$c_pc" ]; then
     echo "[c] progress.md LAST ENTRY: no commit of $c_ref has touched progress.md  (skipped) — $(cb_src)"
@@ -1027,10 +1020,10 @@ else
     fi
   done <<< "$(printf '%s\n' "$GRADUATION_FILL_MEMBERS")"
 
-  # (g2c) CODE_GLOBS / TEST_GLOBS, in scripts/config.sh — read by THE SAME ANCHORED PARSE
-  # scripts/githooks/pre-commit and scripts/lib/qa-gate.sh already use (the one fixed shape:
-  # `/^VAR=\($/` opens, `/^\)/` closes, each held line un-quoted and stripped of a trailing
-  # comment): never a second, divergent reader of the same array. Both ship EMPTY ON PURPOSE —
+  # (g2c) CODE_GLOBS / TEST_GLOBS, in scripts/config.sh — read by lib/glob-array.sh's kit_glob_array,
+  # the reader the ablation check in scripts/lib/qa-gate.sh uses too (the one fixed shape:
+  # `VAR=(` opens, `)` closes, each held line un-quoted and stripped of a trailing comment):
+  # never a second, divergent reader of the same array. Both ship EMPTY ON PURPOSE —
   # config.sh's own comment says so — and empty means UNDECLARED to both consumers, which means
   # UNENFORCED, not "this project has no code/tests". That is exactly the gap this member closes:
   # nothing before this arm told the adopter the seam exists, so an empty array read as silence.
@@ -1041,7 +1034,11 @@ else
   # declaring line still reads config.sh's rule (empty means unenforced); it only stops THIS arm
   # from reporting the emptiness as an oversight.
   g_cfg="$CB_TREE/scripts/config.sh"
-  if [ ! -f "$g_cfg" ]; then
+  if [ -n "$CB_GLOB_LIB_ERR" ]; then
+    echo "      FILL (scripts/config.sh CODE_GLOBS): THIS CHECK DID NOT RUN — $CB_GLOB_LIB_ERR  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    echo "      FILL (scripts/config.sh TEST_GLOBS): THIS CHECK DID NOT RUN — $CB_GLOB_LIB_ERR  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }CODE_GLOBS ($CB_GLOB_LIB_ERR), TEST_GLOBS ($CB_GLOB_LIB_ERR)"
+  elif [ ! -f "$g_cfg" ]; then
     echo "      FILL (scripts/config.sh CODE_GLOBS): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
     echo "      FILL (scripts/config.sh TEST_GLOBS): not present in this source  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
     g_unmeasured="${g_unmeasured:+$g_unmeasured, }CODE_GLOBS (scripts/config.sh absent), TEST_GLOBS (scripts/config.sh absent)"
@@ -1050,17 +1047,16 @@ else
       g_arr_n=0
       g_arr_decl=0
       g_arr_entries=""
-      # ONE awk pass, TWO tagged output streams on one stdout: an `E|` line per real array entry
-      # (the same anchored shape pre-commit/qa-gate.sh parse — quotes stripped, trailing comment
-      # stripped, blank lines skipped) and a `D` line if, and only if, a held comment line inside
-      # the same parens is the whole-line `# DECLARED EMPTY …` sentinel. The tag is the first
-      # character of the line so the shell loop below can branch on it with a plain `case`.
+      # lib/glob-array.sh's kit_glob_array, the reader the ablation check uses too: an `E|` line per
+      # real array entry and a `D` line if, and only if, a comment line inside the same parens is
+      # the whole-line `# DECLARED EMPTY …` sentinel. The tag is the first character of the line so
+      # the shell loop below can branch on it with a plain `case`.
       while IFS= read -r g_arr_tagged; do
         case "$g_arr_tagged" in
           E\|*) g_arr_n=$((g_arr_n+1)); g_arr_entries="${g_arr_entries}${g_arr_tagged#E|}"$'\n' ;;
           D) g_arr_decl=1 ;;
         esac
-      done < <(cb_array_stream "$g_arr" "$g_cfg")
+      done < <(kit_glob_array "$g_arr" "$g_cfg")
       if [ "$g_arr_n" -gt 0 ]; then
         # A TEST_GLOBS entry no file matches guards nothing: the ablation rule it feeds never
         # sees a test path. Matched with `case` against repository-relative paths, exactly as its

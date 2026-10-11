@@ -472,6 +472,161 @@ case_notify_message_flag_carries_a_leading_dash() {
 }
 
 # =============================================================================
+# CASE — A CREATOR'S USAGE TEXT IS ONE TEXT. new-issue.sh, new-bug.sh and new-refactor.sh render the
+# configured prefixes into their usage, on every path that prints it. The Usage line of a refused
+# `--bogus-flag` equals the Usage line of `--help`, names the prefix the seam declares, and carries no
+# `<ISSUE_PREFIX from scripts/config.sh>` placeholder. The prefix is read from the sandbox's own seam.
+# =============================================================================
+case_creator_usage_prints_one_form_on_every_path() {
+  cf_reset
+  if ! has_issue_template; then skp "a creator's usage text is one text on every path" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local t help_out bad_out help_line bad_line rc
+  for t in new-issue.sh new-bug.sh new-refactor.sh; do
+    if [ ! -x "$SB_WORK/scripts/$t" ]; then
+      # new-refactor.sh is DELETE-IF-UNUSED and may be gone from a finished project; the other two are not.
+      [ "$t" = new-refactor.sh ] && continue
+      _fixture_die "case_creator_usage_prints_one_form_on_every_path: scripts/$t is not in the sandbox"
+    fi
+    help_out="$( cd "$SB_WORK" && ./scripts/$t --help 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "$t --help exited $rc"
+    bad_out="$( cd "$SB_WORK" && ./scripts/$t --bogus-flag 2>&1 )"; rc=$?
+    [ "$rc" -eq 2 ] || cf "$t --bogus-flag exited $rc, want 2"
+    help_line="$(printf '%s\n' "$help_out" | awk '/^Usage:/{print; exit}')"
+    bad_line="$(printf '%s\n' "$bad_out" | awk '/^Usage:/{print; exit}')"
+    [ -n "$help_line" ] || cf "$t --help prints no Usage line"
+    [ "$bad_line" = "$help_line" ] || cf "$t prints two synopses: --help '$help_line' against a refused option '$bad_line'"
+    case "$bad_line" in *"<ISSUE_PREFIX"*|*"<PRD_PREFIX"*) cf "$t's refused-option usage still carries a placeholder: $bad_line" ;; esac
+    case "$bad_line" in *"$SB_PREFIX-NNN"*) : ;; *) cf "$t's refused-option usage does not name the seam's prefix $SB_PREFIX: $bad_line" ;; esac
+  done
+  finish "new-issue.sh, new-bug.sh and new-refactor.sh print the same Usage line, with the seam's own prefix, for --help and for a refused leading option"
+  teardown
+}
+
+# =============================================================================
+# CASE — A REQUIRED OPTION LEFT OUT EXITS 2, LIKE AN UNKNOWN OPTION (issue-creation.md § 3), so a caller can
+# branch on "I called it wrongly" across the set. Each call below omits exactly one required option and
+# nothing else, and must exit 2 and name the option. The list is the population known to check one; a tool that grows a
+# required option joins it here. A tool a finished project may have deleted is skipped by name.
+# =============================================================================
+case_a_required_option_left_out_exits_2() {
+  cf_reset
+  if ! has_issue_template; then skp "a required option left out exits 2" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox   # the creators read their templates before they read --id
+  local row t arg want out rc n=0
+  # <script>|<args…>|<the option the refusal must name>
+  for row in \
+    "move-issue.sh|$SB_PREFIX-001 in_progress|--role" \
+    "new-issue.sh|some-slug|--id" \
+    "new-bug.sh|some-slug|--id" \
+    "new-refactor.sh|some-slug|--id" \
+    "archive-progress.sh|--keep-last 2|--milestone" \
+    "subtask.sh|new $SB_PREFIX-001 s1 some-slug|--title" \
+    "kit-init.sh||--prefix"; do
+    t="${row%%|*}"; arg="${row#*|}"; want="${arg##*|}"; arg="${arg%|*}"
+    if [ ! -x "$SB_WORK/scripts/$t" ]; then
+      case "$t" in new-refactor.sh|kit-init.sh) continue ;; esac
+      _fixture_die "case_a_required_option_left_out_exits_2: scripts/$t is not in the sandbox"
+    fi
+    n=$((n+1))
+    # shellcheck disable=SC2086
+    out="$( cd "$SB_WORK" && perl -e 'alarm 20; exec @ARGV' ./scripts/$t $arg </dev/null 2>&1 )"; rc=$?
+    [ "$rc" -eq 2 ] || cf "$t with $want left out exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+    case "$out" in *"$want"*) : ;; *) cf "$t with $want left out does not name $want: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)" ;; esac
+  done
+  [ "$n" -ge 5 ] || cf "(control) only $n of the listed tools were in the sandbox, so the exit status was judged on too few"
+  finish "a required option left out (--role, --id, --milestone, --title, --prefix) exits 2 and names the option, in every tool that checks one"
+  teardown
+}
+
+# =============================================================================
+# CASE — TWO USAGE TEXTS STATE WHAT A SYNOPSIS WOULD HIDE. `verify.sh --scope` refuses (exit 2) until a gate
+# is classed `select`, and a freshly written gate record is `core`; `release.sh --approve-shipped` cuts
+# nothing but writes a draft manifest and leaves the tree dirty. Each text says so.
+# =============================================================================
+case_usage_text_states_what_scope_and_approve_shipped_do() {
+  cf_reset
+  make_sandbox
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/verify.sh --help 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "verify.sh --help exited $rc"
+  case "$out" in *'class `select`'*) : ;; *) cf "verify.sh --help does not say --scope needs a gate of class select" ;; esac
+  if [ -x "$SB_WORK/scripts/release.sh" ]; then
+    out="$( cd "$SB_WORK" && ./scripts/release.sh --help 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "release.sh --help exited $rc"
+    case "$out" in *"WRITES a draft"*"release/shipped.sha256"*) : ;; *) cf "release.sh --help does not say --approve-shipped writes a draft to release/shipped.sha256" ;; esac
+  fi
+  finish "verify.sh --help says --scope needs a gate of class select, and release.sh --help says --approve-shipped writes a draft manifest"
+  teardown
+}
+
+# =============================================================================
+# CASE — NO SHIPPED FILE NAMES A GREP BINARY BY ITS PATH. A script runs under a non-interactive shell,
+# where `grep` is the file on PATH and never an interactive function, so a hard-coded path protects
+# nothing and fails on a system that keeps grep elsewhere (the runtime hook then returned an empty
+# report). The population is every path the shipped manifest lists, read from the tree; the pattern is
+# assembled so this file does not match itself, and a control proves the scan sees a planted hit.
+# =============================================================================
+case_no_shipped_file_hard_codes_the_grep_path() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" needle="/usr/bin/""grep" rel f hits="" n=0 ctl
+  [ -f "$man" ] || _fixture_die "case_no_shipped_file_hard_codes_the_grep_path: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  ctl="$(mktemp)"; printf 'x=$(%s -c y z)\n' "$needle" > "$ctl"
+  grep -F -- "$needle" "$ctl" >/dev/null || _fixture_die "case_no_shipped_file_hard_codes_the_grep_path: the scan did not see a planted hit, so a clean result would prove nothing."
+  rm -f "$ctl"
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    f="$REAL_REPO_ROOT/$rel"
+    [ -f "$f" ] || continue
+    n=$((n+1))
+    case "$rel" in */KIT-RELEASE-NOTES.md|*/KIT-RELEASE-HISTORY.md|process/KIT-RELEASE-NOTES.md|process/KIT-RELEASE-HISTORY.md) continue ;; esac
+    grep -F -- "$needle" "$f" >/dev/null 2>&1 && hits="$hits $rel"
+  done <<EOF_MAN
+$(awk '!/^#/ && NF >= 2 { print $2 }' "$man")
+EOF_MAN
+  [ "$n" -gt 0 ] || cf "(control) no path was read from process/KIT-MANIFEST, so the scan covered nothing"
+  [ -z "$hits" ] || cf "a shipped file names a grep binary by its path — use plain grep (a non-interactive shell resolves it from PATH), or move the reason beside the one test that needs a specific binary:$hits"
+  finish "no file in the shipped manifest hard-codes a grep binary's path"
+}
+
+# =============================================================================
+# CASE — notify.sh --help IS ITS HEADER, AND notify-hook.sh --help DOES NOT WAIT FOR STDIN.
+# notify.sh prints its header like its siblings, and that header says a send without --session is a
+# silent no-op. notify-hook.sh answers an argument before it reads stdin, so a person typing `--help` at
+# a terminal is not left waiting: its stdin here is a pipe held open and never written, and a five-second
+# alarm turns a hang into a status (142) instead of a stalled run.
+# =============================================================================
+case_notify_help_is_the_header_and_the_hook_answers_without_stdin() {
+  cf_reset
+  make_sandbox
+  local out rc hold="$SB_TMP/hold.fifo"
+  out="$( cd "$SB_WORK" && ./scripts/notify.sh --help 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "notify.sh --help exited $rc"
+  case "$out" in *NOTIFY_WITH_MSG_AND_ALERT*) : ;; *) cf "notify.sh --help does not print the header's routing text: $(printf '%s' "$out" | head -3 | tr '\n' '|')" ;; esac
+  case "$out" in *"Without --session a send is a silent no-op"*) : ;; *) cf "notify.sh --help does not say a send without --session is a no-op" ;; esac
+
+  mkfifo "$hold" || _fixture_die "case_notify_help_is_the_header_and_the_hook_answers_without_stdin: mkfifo failed"
+  exec 9<>"$hold"
+  # The hook runs in its own process group and its output goes to a file, never a pipe: on the alarm the
+  # whole group is killed (the `cat` the hook starts included), so a regression cannot leave an orphan
+  # holding the run open. 142 is the alarm's status.
+  local hout="$SB_TMP/hook.out"
+  ( cd "$SB_WORK" && perl -e '
+      my $pid = fork();
+      if (!$pid) { setpgrp(0, 0); exec(@ARGV) or exit 127 }
+      $SIG{ALRM} = sub { kill "KILL", -$pid; waitpid($pid, 0); exit 142 };
+      alarm 5; waitpid($pid, 0); exit($? >> 8);' bash ./scripts/notify-hook.sh --help <&9 >"$hout" 2>&1 ); rc=$?
+  exec 9>&-
+  out="$(cat "$hout" 2>/dev/null)"
+  [ "$rc" -ne 142 ] || cf "notify-hook.sh --help was still waiting on stdin after 5 seconds (stopped by the alarm)"
+  [ "$rc" -eq 0 ] || cf "notify-hook.sh --help exited $rc, want 0"
+  case "$out" in *Notification*) : ;; *) cf "notify-hook.sh --help printed no usage text: $(printf '%s' "$out" | head -3 | tr '\n' '|')" ;; esac
+
+  finish "notify.sh --help prints its header (routing, and 'without --session a send is a silent no-op'), and notify-hook.sh --help prints its header at once without reading stdin"
+  teardown
+}
+
+# =============================================================================
 # CASE — EACH HELP WINDOW ENDS WHERE ITS OWN RULE SAYS, AND THERE ARE TWO RULES.
 #
 # Most tools render `--help` from their header comment block, ending at its LAST COMMENT
@@ -992,7 +1147,7 @@ case_cold_signal_reads_non_ascii_paths() {
   [ -f "$SB_WORK/$probe_name" ] \
     || _fixture_die "case_cold_signal_reads_non_ascii_paths: could not create '$probe_name' in the sandbox — this filesystem did not keep the name, so there is no subject to measure."
   publish_sandbox   # the walk reads git history, so the path must be COMMITTED, not just present
-  git -C "$SB_WORK" log --name-only --format= -- "$probe_name" | /usr/bin/grep -q . \
+  git -C "$SB_WORK" log --name-only --format= -- "$probe_name" | grep . >/dev/null \
     || _fixture_die "case_cold_signal_reads_non_ascii_paths: '$probe_name' is not in the sandbox's history after publish_sandbox — the walk would correctly report nothing and this case would assert it."
 
   # THE PROBE, written once and run against two trees: the shipped instrument and the
@@ -1022,7 +1177,7 @@ PY
     _control_did_not_run "copy scripts/hygiene/ for the ablation"
   else
     perl -0777 -i -pe 's/"-c", "core\.quotePath=false",\n\s*//' "$ab/cold_signal.py"
-    if /usr/bin/grep -q '"-c", "core.quotePath=false"' "$ab/cold_signal.py"; then
+    if grep -q '"-c", "core.quotePath=false"' "$ab/cold_signal.py"; then
       cf "(control) the ablation did not take on the copy — the invocation's arguments did not match the anchor, so nothing above establishes that the assertion can fire"
     else
       local ab_seen
@@ -2978,8 +3133,8 @@ case_shipped_tree_is_citation_clean_after_kit_init() {
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_l_section)"
   [ -n "$sec" ] || cf "no [l] section in the report: $(printf '%s' "$out" | head -5 | tr '\n' '|')"
   case "$sec" in *skipped*) cf "arm [l] was skipped on the stamped tree, so it read nothing: $sec" ;; esac
-  printf '%s\n' "$sec" | /usr/bin/grep '⚠' >/dev/null \
-    && cf "arm [l] reports a finding on the shipped tree after kit-init: $(printf '%s\n' "$sec" | /usr/bin/grep '⚠' | head -3 | tr '\n' '|')"
+  printf '%s\n' "$sec" | grep '⚠' >/dev/null \
+    && cf "arm [l] reports a finding on the shipped tree after kit-init: $(printf '%s\n' "$sec" | grep '⚠' | head -3 | tr '\n' '|')"
 
   # CONTROL: a real-digit citation form in the release notes must turn the same report red.
   printf '\nAn example form: `[decision: D-9999]`.\n' >> "$SB_WORK/$notes"
@@ -2987,7 +3142,7 @@ case_shipped_tree_is_citation_clean_after_kit_init() {
   sbcommit -m "plant a real-digit citation form" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push origin "$SB_TRUNK" >/dev/null 2>&1
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_l_section)"
-  printf '%s\n' "$sec" | /usr/bin/grep '⚠' | /usr/bin/grep 'D-9999' >/dev/null \
+  printf '%s\n' "$sec" | grep '⚠' | grep 'D-9999' >/dev/null \
     || cf "(control) a real-digit [decision: D-9999] planted in $notes was not reported by arm [l]: $sec"
 
   finish "the shipped tree, stamped by kit-init with process/ and the root documents present, has no arm [l] finding, and a real-digit citation form planted in the release notes is reported"

@@ -30,7 +30,7 @@ case_finish_pr_qa_verdict_missing_table_refuses() {
   case "$out" in *"QA Verdict"*) : ;; *) cf "the refusal does not name 'QA Verdict': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE651.txt" && cf "the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$id-notable.md" && cf "the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-missing' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=qa-verdict-missing: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose card has no '## QA Verdict' table, before the merge, with a countable refusal=qa-verdict-missing record"
@@ -59,7 +59,7 @@ case_finish_pr_qa_verdict_evidence_missing_refuses() {
   [ "$rc" -ne 0 ] || cf "(a) evidence kind 'prose' — finish-pr.sh exited 0"
   case "$out" in *AC1*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE652A.txt" && cf "(a) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-evidence-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) pointer is the template's own placeholder text.
@@ -75,7 +75,7 @@ case_finish_pr_qa_verdict_evidence_missing_refuses() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) placeholder evidence pointer — finish-pr.sh exited 0"
   origin_has_path "CHANGE652B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=qa-verdict-evidence-missing: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose QA Verdict table has a row with no usable evidence — an evidence kind outside test|file:line|gate-diff|fixture-diff, or an empty/placeholder pointer — naming the row, with a refusal=qa-verdict-evidence-missing record"
@@ -108,7 +108,7 @@ case_finish_pr_qa_verdict_fail_row_on_pass_refuses() {
   case "$out" in *AC1*) : ;; *) cf "the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE654.txt" && cf "the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$id-mismatch.md" && cf "the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=qa-verdict-fail: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a PASS landing whose QA Verdict table has a row that is itself FAIL_AC or FAIL_REGRESSION — evidence alone is not enough, the row's own verdict is checked too — naming the row, with a refusal=qa-verdict-fail record"
@@ -140,7 +140,7 @@ case_finish_pr_qa_verdict_ac_mismatch_refuses() {
   [ "$rc" -ne 0 ] || cf "(a) an AC bullet with no table row — finish-pr.sh exited 0"
   case "$out" in *AC2*) : ;; *) cf "(a) the refusal does not name AC2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE655A.txt" && cf "(a) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-ac-mismatch: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) EXTRA — the table has a row for an id the AC checklist does not carry. Its own pointer
@@ -164,7 +164,7 @@ case_finish_pr_qa_verdict_ac_mismatch_refuses() {
   [ "$rc" -ne 0 ] || cf "(b) an extra table row with no matching AC bullet — finish-pr.sh exited 0"
   case "$out" in *AC9*) : ;; *) cf "(b) the refusal does not name AC9: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE655B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=qa-verdict-ac-mismatch: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose QA Verdict table's AC ids do not match the card's own AC checklist one for one — missing (a) or extra (b) — naming the mismatch, with a refusal=qa-verdict-ac-mismatch record"
@@ -193,7 +193,7 @@ case_finish_pr_qa_verdict_shadow_check_required() {
   [ "$rc" -ne 0 ] || cf "(a) no shadow-check row — finish-pr.sh exited 0"
   case "$out" in *shadow-check*) : ;; *) cf "(a) the refusal does not name 'shadow-check': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE657A.txt" && cf "(a) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-shadow-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) EMPTY — the row exists but its pointer is blank.
@@ -209,7 +209,7 @@ case_finish_pr_qa_verdict_shadow_check_required() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) an empty shadow-check pointer — finish-pr.sh exited 0"
   origin_has_path "CHANGE657B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=qa-verdict-shadow-missing: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose QA Verdict table has no 'shadow-check' row, or one with an empty pointer — the required non-AC shadow-check row — with a refusal=qa-verdict-shadow-missing record"
@@ -289,7 +289,7 @@ case_finish_pr_qa_verdict_pointer_unresolved_refuses() {
   [ "$rc" -ne 0 ] || cf "(a) a pointer naming a file absent from the branch — finish-pr.sh exited 0"
   case "$out" in *AC1*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE676A.txt" && cf "(a) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-pointer-unresolved: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) the file exists but the cited line is past its own length.
@@ -305,7 +305,7 @@ case_finish_pr_qa_verdict_pointer_unresolved_refuses() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) a pointer whose line is past the file's end — finish-pr.sh exited 0"
   origin_has_path "CHANGE677B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-pointer-unresolved' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=qa-verdict-pointer-unresolved: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose QA Verdict table has a path:line pointer that does not resolve at the revision being landed — the file absent (a) or the line past the file's length (b) — with a refusal=qa-verdict-pointer-unresolved record"
@@ -337,7 +337,7 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) a resolving pointer with no quote — finish-pr.sh exited 0"
   origin_has_path "CHANGE678A.txt" && cf "(a) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-quote-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-quote-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-quote-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) a resolving pointer whose quote is real text, but not present on the cited line — the
@@ -356,7 +356,7 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(b) a quote not found on the cited line — finish-pr.sh exited 0"
   origin_has_path "CHANGE679B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-quote-not-found' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-quote-not-found' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=qa-verdict-quote-not-found: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose QA Verdict table has a test/file:line row with no quoted evidence (a, refusal=qa-verdict-quote-missing) or a quote that is not on the cited line (b, refusal=qa-verdict-quote-not-found)"
@@ -387,7 +387,7 @@ case_finish_pr_qa_verdict_unquoted_kinds_only_refuses() {
   [ "$rc" -ne 0 ] || cf "(a) a table of only gate-diff rows — finish-pr.sh exited 0"
   origin_has_path "CHANGE690A.txt" && cf "(a) the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$ida-gateonly.md" && cf "(a) the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-no-observed' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-no-observed' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-no-observed: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) CONTROL: the same gate-diff row beside one file:line row that quotes its own line lands.
@@ -434,7 +434,7 @@ case_finish_pr_qa_verdict_placeholder_forms_refuse() {
     out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$n" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
     [ "$rc" -ne 0 ] || cf "'${form}' — finish-pr.sh exited 0"
     origin_has_path "CHANGE${n}.txt" && cf "'${form}' — the branch was merged before the refusal"
-    /usr/bin/grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+    grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
       || cf "'${form}' — no progress record carries refusal=qa-verdict-evidence-missing"
     n=$((n+1))
   done
@@ -468,7 +468,7 @@ case_finish_pr_qa_verdict_ac_separator_forms_refuse() {
   [ "$rc" -ne 0 ] || cf "AC7 (hyphen) and AC8 (colon) with no table rows — finish-pr.sh exited 0"
   case "$out" in *AC7*AC8*|*AC8*AC7*) : ;; *) cf "the refusal does not name both AC7 and AC8: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "CHANGE692.txt" && cf "the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=qa-verdict-ac-mismatch' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=qa-verdict-ac-mismatch: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh reads an AC bullet separated by a hyphen or a colon (not only the em-dash) into the one-for-one population, so AC7 (hyphen) and AC8 (colon) with no QA Verdict row both refuse the landing, naming both, with a refusal=qa-verdict-ac-mismatch record"
@@ -513,7 +513,7 @@ case_finish_pr_qa_verdict_fail_token_formatting_refuses() {
       origin_has_path "progress/qa_complete/$SB_PREFIX-$n-fmt.md" || cf "the card with a backticked PASS did not advance to qa_complete/"
     else
       [ "$rc" -ne 0 ] || cf "a verdict written ${tok} on a PASS landing — finish-pr.sh exited 0"
-      /usr/bin/grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+      grep -q 'refusal=qa-verdict-fail' "$SB_TMP/rec"/*.tsv 2>/dev/null \
         || cf "the verdict ${tok} left no refusal=qa-verdict-fail record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
       origin_has_path "CHANGE$n.txt" && cf "the verdict ${tok}: the branch was merged before the refusal"
     fi
@@ -521,4 +521,77 @@ case_finish_pr_qa_verdict_fail_token_formatting_refuses() {
   done
 
   finish "finish-pr.sh reads a verdict written in backticks or bold as the token it spells: \`FAIL_AC\`, \`FAIL_REGRESSION\` and **FAIL_AC** refuse a PASS landing with a refusal=qa-verdict-fail record, and a backticked \`PASS\` lands"
+}
+
+# _tok_token <card number> — the verdict-cell spelling planted in that card.
+_tok_token() {
+  case "$1" in
+    841) printf '%s' 'FAIL' ;;
+    842) printf '%s' 'Fail_AC' ;;
+    843) printf '%s' 'FAILED' ;;
+    844) printf '%s' '<placeholder>' ;;
+    *)   printf '%s' '`PASS_AC_CORRECTED`' ;;
+  esac
+}
+
+# =============================================================================
+# CASE — A VERDICT CELL THAT IS NOT ONE OF THE FOUR TOKENS REFUSES (qa-verdict-token-invalid). The gate
+# compares the cell with the four tokens exactly; a mistyped FAIL would otherwise read as a pass. FAIL,
+# Fail_AC, FAILED and an unfilled placeholder each refuse a PASS landing with a record and leave the
+# trunk untouched; a backticked PASS_AC_CORRECTED lands. One sandbox per spelling, each in the roles'
+# order: card seeded and planted, published, branch cut, landing run.
+# =============================================================================
+case_finish_pr_qa_verdict_token_invalid_refuses() {
+  cf_reset
+  local n tok f out rc
+  for n in 841 842 843 844 845; do
+    tok="$(_tok_token "$n")"
+    make_sandbox
+    seed_issue dev_complete "$SB_PREFIX-$n" tok chore "Verdict token $n" "feature/$SB_PREFIX-$n-work"
+    f="$SB_WORK/progress/dev_complete/$SB_PREFIX-$n-tok.md"
+    TOK="$tok" perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1.$ENV{TOK}.$2/e' "$f"
+    grep -qF -- "| AC1 | ${tok} |" "$f" \
+      || _fixture_die "case_finish_pr_qa_verdict_token_invalid_refuses: the verdict ${tok} was not planted in $SB_PREFIX-$n"
+    publish_sandbox
+    seed_branch "$SB_PREFIX-$n" work "CHANGE$n.txt"
+
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$SB_PREFIX-$n" 2>&1 )"; rc=$?
+    if [ "$n" = 845 ]; then
+      [ "$rc" -eq 0 ] || cf "a backticked PASS_AC_CORRECTED verdict — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+      origin_has_path "progress/qa_complete/$SB_PREFIX-$n-tok.md" || cf "the card with a backticked PASS_AC_CORRECTED did not advance to qa_complete/"
+    else
+      [ "$rc" -ne 0 ] || cf "a verdict cell ${tok} on a PASS landing — finish-pr.sh exited 0"
+      grep -q 'refusal=qa-verdict-token-invalid' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+        || cf "the verdict cell ${tok} left no refusal=qa-verdict-token-invalid record: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+      case "$out" in
+        *PASS_AC_CORRECTED*) : ;;
+        *) cf "the refusal for ${tok} does not name the four tokens: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;;
+      esac
+      origin_has_path "CHANGE$n.txt" && cf "the verdict cell ${tok}: the branch was merged before the refusal"
+    fi
+    teardown
+  done
+
+  finish "finish-pr.sh refuses a verdict cell outside PASS / PASS_AC_CORRECTED / FAIL_AC / FAIL_REGRESSION (FAIL, Fail_AC, FAILED, an unfilled placeholder) with a refusal=qa-verdict-token-invalid record naming the four, and lands a backticked PASS_AC_CORRECTED"
+}
+
+# =============================================================================
+# CASE — THE GATE'S TOKEN SET IS THE SET MANUAL.md STEP 6 RATIFIES. qa-gate.sh holds KIT_QAV_VERDICTS;
+# the ratifying table in process/MANUAL.md is the authoring site. Both are re-read from the shipped
+# files (never restated here); the instrument is controlled first: an empty extraction on either side
+# would make the comparison vacuous.
+# =============================================================================
+case_qa_gate_verdict_set_is_the_ratified_set() {
+  cf_reset
+  local manual="$REAL_REPO_ROOT/process/MANUAL.md" lib="$REAL_SCRIPTS/lib/qa-gate.sh" ratified gate n_ratified n_gate
+  [ -f "$manual" ] || { skp "qa-gate.sh's verdict set is the set MANUAL step 6 ratifies" "process/MANUAL.md absent"; return; }
+  ratified="$(_verdict_tokens_manual "$manual")"
+  gate="$(sed -n "s/^KIT_QAV_VERDICTS='\\(.*\\)'\$/\\1/p" "$lib" | tr ' ' '\n' | grep . | sort || true)"
+  n_ratified="$(printf '%s\n' "$ratified" | grep -c . || true)"
+  n_gate="$(printf '%s\n' "$gate" | grep -c . || true)"
+  [ "$n_ratified" -gt 0 ] || cf "no ratified verdict tokens were extracted from MANUAL.md — the comparison would be vacuous"
+  [ "$n_gate" -gt 0 ] || cf "no KIT_QAV_VERDICTS declaration was found in qa-gate.sh — the comparison would be vacuous"
+  [ "$gate" = "$ratified" ] \
+    || cf "qa-gate.sh's KIT_QAV_VERDICTS [$(printf '%s' "$gate" | tr '\n' ' ')] is not the ratified set [$(printf '%s' "$ratified" | tr '\n' ' ')]"
+  finish "qa-gate.sh's KIT_QAV_VERDICTS is exactly the verdict set process/MANUAL.md step 6 ratifies"
 }

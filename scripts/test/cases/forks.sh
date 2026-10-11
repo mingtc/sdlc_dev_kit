@@ -44,7 +44,7 @@ case_finish_pr_forks_missing_or_malformed_refuses() {
   seed_issue dev_complete "$ida" absent chore "No forks field" "feature/$ida-work"
   sed -i.bak '/^forks: none$/d' "$SB_WORK/progress/dev_complete/$ida-absent.md"
   rm -f "$SB_WORK/progress/dev_complete/$ida-absent.md.bak"
-  /usr/bin/grep -q '^forks:' "$SB_WORK/progress/dev_complete/$ida-absent.md" \
+  grep -q '^forks:' "$SB_WORK/progress/dev_complete/$ida-absent.md" \
     && _fixture_die "case_finish_pr_forks_missing_or_malformed_refuses: (a) the forks: line survived the strip"
   publish_sandbox
   seed_branch "$ida" work CHANGE601A.txt
@@ -55,7 +55,7 @@ case_finish_pr_forks_missing_or_malformed_refuses() {
   case "$out" in *"forks:"*) : ;; *) cf "(a) the refusal does not name 'forks:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE601A.txt" && cf "(a) the branch was merged before the refusal"
   origin_has_path "progress/qa_complete/$ida-absent.md" && cf "(a) the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=forks-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=forks-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) MALFORMED — neither 'none' nor a '[D-NN, ...]' list.
@@ -70,7 +70,7 @@ case_finish_pr_forks_missing_or_malformed_refuses() {
   [ "$rc" -ne 0 ] || cf "(b) malformed 'forks:' — finish-pr.sh exited 0"
   case "$out" in *"forks:"*) : ;; *) cf "(b) the refusal does not name 'forks:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE601B.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=forks-malformed' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-malformed' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=forks-malformed: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   # (c) MALFORMED — an empty list is not 'none'.
@@ -83,7 +83,7 @@ case_finish_pr_forks_missing_or_malformed_refuses() {
 
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-c" "$SB_WORK/scripts/finish-pr.sh" "$idc" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(c) empty-list 'forks: []' — finish-pr.sh exited 0"
-  /usr/bin/grep -q 'refusal=forks-malformed' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-malformed' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
     || cf "(c) no progress record carries refusal=forks-malformed: $(cat "$SB_TMP/rec-c"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose card's 'forks:' is absent, or malformed (neither 'none' nor a non-empty '[D-NN, ...]' list), before the merge, each leaving a countable refusal= record"
@@ -118,7 +118,7 @@ case_finish_pr_forks_unresolved_id_refuses() {
     case "$out" in *"$_need"*) : ;; *) cf "the forks-unresolved refusal does not name '$_need': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
   done
   origin_has_path "CHANGE611.txt" && cf "the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-unresolved' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=forks-unresolved: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh refuses a landing whose 'forks:' names an id that is not a LIVE entry in the branch's own copy of the register, naming the id, with a refusal=forks-unresolved record"
@@ -159,7 +159,7 @@ EOF
   [ "$rc" -ne 0 ] || cf "(a) a branch adding D-02 with 'forks: none' — finish-pr.sh exited 0"
   case "$out" in *D-02*) : ;; *) cf "(a) the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "progress/qa_complete/$ida-newreg.md" && cf "(a) the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) THE CARD'S OWN ACTIVITY CITES '[decision: D-01]', absent from 'forks:'. No register
@@ -175,7 +175,7 @@ EOF
   [ "$rc" -ne 0 ] || cf "(b) an Activity citation of D-01 with 'forks: none' — finish-pr.sh exited 0"
   case "$out" in *D-01*) : ;; *) cf "(b) the refusal does not name D-01: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE622.txt" && cf "(b) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
   # (c) THE SAME CITATION, written WITHOUT the colon's space ('[decision:D-01]') — the form two
@@ -192,7 +192,7 @@ EOF
   [ "$rc" -ne 0 ] || cf "(c) a no-space Activity citation '[decision:D-01]' with 'forks: none' — finish-pr.sh exited 0 (a citation this check cannot see never contradicts 'forks: none')"
   case "$out" in *D-01*) : ;; *) cf "(c) the refusal does not name D-01: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "CHANGE623.txt" && cf "(c) the branch was merged before the refusal"
-  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
     || cf "(c) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-c"/*.tsv 2>/dev/null)"
 
   # (d) A UNICODE-DASH id ('[decision: D<en dash>01]') cites D-01 — the same fold arm [l] applies.
@@ -299,7 +299,7 @@ EOF
   [ "$rc" -ne 0 ] || cf "a branch adding D-02 to the RELOCATED register with 'forks: none' — finish-pr.sh exited 0"
   case "$out" in *D-02*) : ;; *) cf "the refusal does not name D-02: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "progress/qa_complete/$id-relocated.md" && cf "the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null \
     || cf "no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null)"
 
   finish "finish-pr.sh derives the register set from check-board.sh's own REGISTERS= declaration — a project whose register lives somewhere other than requirements/DECISIONS.md is still caught when its branch adds a D-NN there under a 'forks: none' card"
@@ -351,7 +351,7 @@ EOF
   case "$out" in *"Next:"*) : ;; *) cf "(a) the refusal carries no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   origin_has_path "progress/dev_complete/$ida-cites.md" && cf "(a) the card reached dev_complete/ despite the refusal"
   origin_has_path "progress/in_progress/$ida-cites.md" || cf "(a) the card is no longer in in_progress/ on the trunk"
-  /usr/bin/grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=forks-contradicted: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
   sed -i.bak 's/^forks: none$/forks: [D-01]/' "$SB_WORK/progress/in_progress/$ida-cites.md"
   rm -f "$SB_WORK/progress/in_progress/$ida-cites.md.bak"
@@ -455,7 +455,7 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   [ "$rc" -ne 0 ] || cf "(a) AC1 changed after leaving todo/, no citation — finish-pr.sh exited 0"
   case "$out" in *AC1*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
   origin_has_path "progress/qa_complete/$ida-drift.md" && cf "(a) the card advanced despite the refusal"
-  /usr/bin/grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+  grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=forks-ac-changed-uncited: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
   teardown
 

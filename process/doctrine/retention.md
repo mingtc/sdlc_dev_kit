@@ -199,7 +199,9 @@ really sits in the blocked queue, and no half-landed residue remains — and `PA
 retirement is a strictly stronger claim on irreversible-looking bytes, so it gets the same
 discipline with a longer checklist. **`RETIRED_OK` means retired and verified; a retirement QA
 cannot verify halts the run as `RETIREMENT_UNVERIFIED`, and the correct remedy for an
-unverifiable retirement is always to park instead.** A fresh-eyes reviewer, **not the retiring
+unverifiable retirement is always to park instead.** The shipped runners implement the park pair
+only: these two tokens are this sheet's vocabulary for a retirement leg the project builds, and no
+runner, role doc or verdict table carries them. A fresh-eyes reviewer, **not the retiring
 worker**, confirms:
 
 1. **The fetch-back RAN.** The reviewer executes the row's verbatim command itself and confirms the

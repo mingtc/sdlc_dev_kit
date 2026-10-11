@@ -286,7 +286,7 @@ fi
 [ -z "${KIT_ROLE_DEFAULTED:-}" ] \
   || echo "Note: --role is being checked against $KIT_ROLE_SRC" >&2
 if [ -z "$ROLE" ]; then
-  echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 1
+  echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 2
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
   kit_refuse 1 role-not-declared \

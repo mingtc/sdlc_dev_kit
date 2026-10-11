@@ -70,7 +70,8 @@ unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/ki
    every open card (`in_progress/`, `dev_complete/`, `blocked/`) the new kit's landing checks would
    refuse, and the stamping checks for what arrived.
 2. **Commit it through your own board and gates**, the checklist and `.kit-upgrade/` included. The
-   upgrade is ordinary work.
+   upgrade is ordinary work: declare your hat first (`.kit/session-role`, one line `<Role> <scope>`;
+   [`contracts/role-gate.md`](contracts/role-gate.md)), or the commit guard refuses the commit.
 3. **Work the checklist, marking each item `- [x]`, and commit it as marked.**
    Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`: an **Action required** item you could not apply as written is a `K-NN` in `process/KIT-FEEDBACK.md`, with the item named in its *The moment.* block — `process/MANUAL.md` § Kit feedback.
 4. **`./scripts/kit-upgrade.sh --finish --into .`** writes `KIT-VERSION` (the new copy's line exactly,
@@ -462,6 +463,23 @@ columns and never the cards.*
 
   Verify: grep -q kit_forks_check scripts/move-issue.sh
 
+- **A `## QA Verdict` row's verdict must now be exactly `PASS`, `PASS_AC_CORRECTED`, `FAIL_AC` or `FAIL_REGRESSION`.**
+  `finish-pr.sh` and `subtask.sh move … qa_complete` refuse any other spelling (`FAIL`, `Fail_AC`, `FAILED`, a blank or the
+  template's unfilled `<…>` cell) with `qa-verdict-token-invalid`; before, only the two exact FAIL tokens were read, so a mistyped
+  FAIL landed. **Before your next landing, read the verdict column of any in-flight card's table** (backticks and bold are
+  still stripped). An upgrade's open-card re-check lists a `dev_complete/` card that would now refuse.
+
+- **`setup-consumer.sh` no longer prints blanks to a consumer, and `consumers/update_vendored.sh` gained a seam and three flags it
+  needs.** The to-do list carried an unfilled first-install command and `<ENV_VAR_NAME>` lines no maintainer was told to
+  fill. It now asks `update_vendored.sh` for them: the first-install form is `install_hint()`, the configuration names are
+  the new `CONSUMER_CONFIG` seam, and `--print-unfilled` lists every seam, the pin line, either install hint and
+  `CONSUMER_CONFIG` still holding a `<blank>` (both scripts refuse while it lists any). **A project that distributes
+  through `consumers/`: merge `CONSUMER_CONFIG`, `--print-unfilled`, `--print-config` and `--print-install-hint` into your
+  filled `update_vendored.sh` and list your configuration names in `CONSUMER_CONFIG`; the new `setup-consumer.sh` refuses
+  against an updater that lacks the flag.** Nothing to do if you have no `consumers/`.
+
+  Verify: [ ! -f consumers/update_vendored.sh ] || grep -q -- --print-unfilled consumers/update_vendored.sh
+
 ### Added
 
 - **`check-board.sh` arm `[c]` reports a `progress.md` that trails the last code commit.** It counts commits after the last one
@@ -497,6 +515,27 @@ columns and never the cards.*
   form with real digits fails there instead of in an adopter's day-one self-check. No action needed.
 
 ### Changed
+
+- **A required option left out now exits 2 in every script, like an unknown option.** Five exited 1: `move-issue.sh` without `--role`,
+  `new-issue.sh` / `new-bug.sh` / `new-refactor.sh` without a valid `--id`, `archive-progress.sh` without `--milestone`,
+  `subtask.sh new` without `--title`, and `kit-init.sh` without `--prefix` or `--trunk` (its other unmet preconditions stay 1).
+  A missing or surplus positional keeps its status. **A script of yours that branches on exit 1 from any of these: branch on 2.**
+
+- **`ask.sh` reads a principal written as a phrase, and refuses a channel outside the repository.** A `principal:` of `the PM role`
+  or `The PM seat` now names the PM seat, so `--role PM` is refused (before, only the bare word was); a `nobody: …` principal still
+  refuses no one. An absolute or `..` channel is refused (`ask-channel-unusable`) instead of being re-rooted or written beside the
+  repository; a channel that names a file still has each question appended. No action unless your channel line is absolute.
+
+- **The front door now says the Claude Code hooks are opt-in, and `MANUAL.md` lists them by a command, not a list.** `README.md`,
+  `process/SEED.md` and `/start` say the hooks stay inactive until `.claude/settings.json.example` is copied to
+  `.claude/settings.json`; `process/MANUAL.md` § The default path is lite gives the one command that lists what it wires and
+  names the unattended profile. `role-gate.md` scopes "no matcher for shell commands" to gating matchers; the Dev session
+  phrase has an unattended ending; `/start` says what the principal is for and what an unattended launch does before day one. No action.
+
+- **The entry points a reader meets before a first commit now say how to declare the hat.** The `AGENTS.md` stub, the
+  `PROJECT.md` role-gate row, `/start`, How to upgrade step 2 and `UPGRADE-SEAT.md` each say to write `.kit/session-role`
+  (one line, `<Role> <scope>`) first; the stub no longer calls the hat "a session hook" only (the commit guard reads it
+  too). The self-test's old-path scan now covers every file the manifest lists. No action.
 
 - **Older releases' notes moved to `process/KIT-RELEASE-HISTORY.md`, unchanged.** This file keeps § How to upgrade, § How
   versions work, § Unreleased and the newest release; `kit-upgrade.sh` reads both files, and stages the history beside the
@@ -583,6 +622,18 @@ columns and never the cards.*
   register.
 
 ### Fixed
+
+- **The session-start hook and the self-test no longer require a grep at a fixed path.** The hook's over-budget summary and
+  the harness named a grep binary by its path; on a system that keeps `grep` elsewhere the summary came back empty and the
+  harness reddened with no defect behind it. They call `grep` from `PATH`, as every other shipped script does. No action.
+
+- **Usage text and refusals now say what the code does.** `notify-hook.sh --help` answers without waiting for stdin, and
+  `notify.sh --help` prints its header (a send without `--session` is a silent no-op); a creator's usage prints the same text
+  whichever path reached it; `verify.sh --help` says `--scope` needs a `select` gate; `release.sh --help` says
+  `--approve-shipped` writes a draft manifest; `archive-progress.sh --before` refuses a date that does not exist; the ablation
+  check says a `TEST_GLOBS` declared empty on purpose is declared, not "undeclared ... adopter action required". The array
+  read for that check and for `check-board.sh` is one function in the new `scripts/lib/glob-array.sh`. No action unless you
+  edited `check-board.sh` or `lib/qa-gate.sh` (take the new file with the upgrade).
 
 - **A QA Verdict row whose verdict is written in backticks or bold now counts.** The card templates show the verdict
   token in backticks; `finish-pr.sh` and `subtask.sh` read `` `FAIL_AC` `` and `` `FAIL_REGRESSION` `` as no verdict and

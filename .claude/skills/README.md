@@ -147,7 +147,7 @@ plan and safely schedule behavior-preserving improvements.
 | Skill | Used by | Purpose |
 | --- | --- | --- |
 | [orchestrate](orchestrate/) | Orchestrator | Drive a set of issues through Dev → QA hands-off, wearing the Dev/QA hats in turn. Implements [`.claude/roles/orchestrator.md`](../roles/orchestrator.md). |
-| [start](start/) | Anyone, session open | The front door: checks the environment, looks for prior work, then either walks day one (`process/SEED.md`) or shows status and a menu of what this project's roles and skills can do next. Routes to the kit's own authorities; duplicates none of them. |
+| [start](start/) | Anyone, session open | The front door: checks the environment, looks for prior work, then either walks day one (`process/SEED.md`) or shows status and a menu of what this project's roles and skills can do next (an unattended launch, `KIT_UNATTENDED=1`, takes the next action or files the question through `scripts/ask.sh` instead of showing a menu). Routes to the kit's own authorities; duplicates none of them. |
 
 ## Not shipped: the UI/design skill family
 

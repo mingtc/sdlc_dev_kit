@@ -54,7 +54,8 @@ is acting as.
   *Limit, stated rather than implied:* a change left uncommitted is not seen, and a commit made
   under the git hooks' documented escape is not refused. The commit gate bounds what lands; it
   does not record who changed what.
-- **No harness matcher is added for shell commands.** A matcher cannot tell a command that
+- **No gating matcher is added for shell commands.** (The shipped `Bash` matchers only record which
+  agent made a commit — [`agent-record.md`](agent-record.md) — and block nothing.) A matcher cannot tell a command that
   changes the repository from one that reads it (`sed -i`, a redirect, `tee`, a script that
   writes, against `ls` and `git status`), so any rule it applied would cover some forms and read
   as covering all, or would refuse the reads the first invariant exempts.

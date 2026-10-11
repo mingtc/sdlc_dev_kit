@@ -324,8 +324,12 @@ pft() { PF+=("$1"); PF_TOPOLOGY=1; }
 # =============================================================================
 step "kit-init preflight"
 
-[ -n "$PREFIX" ] || pf "--prefix is required (e.g. --prefix GTFS)."
-[ -n "$TRUNK"  ] || pf "--trunk is required (e.g. --trunk main) — the trunk is confirmed, never inferred."
+# A required option not given is a usage error (status 2, as everywhere); every other unmet
+# precondition is a state refusal (status 1). The refusal lists them all and exits 2 if any is a
+# missing required option, else 1.
+PF_STATUS=1
+[ -n "$PREFIX" ] || { pf "--prefix is required (e.g. --prefix GTFS)."; PF_STATUS=2; }
+[ -n "$TRUNK"  ] || { pf "--trunk is required (e.g. --trunk main) — the trunk is confirmed, never inferred."; PF_STATUS=2; }
 if [ -n "$PREFIX" ] && ! printf '%s' "$PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prefix '$PREFIX' must be alphanumeric and start with a letter (it becomes ${PREFIX}-001-<slug>.md)."
 fi
@@ -393,7 +397,7 @@ fi
 
 # shellcheck source=lib/hat-file.sh
 if [ ! -f "$SCRIPT_DIR/lib/hat-file.sh" ] || ! . "$SCRIPT_DIR/lib/hat-file.sh" || [ -z "${KIT_HAT_FILE_REL:-}" ] || [ -z "${KIT_HAT_ENV:-}" ]; then
-  pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL or KIT_HAT_ENV — kit-init ignores the hat file's path, and declares its commits' hat, from that file and will not guess either. Restore it:  git checkout -- scripts/lib/hat-file.sh"
+  pf "scripts/lib/hat-file.sh is missing or declares no KIT_HAT_FILE_REL or KIT_HAT_ENV — kit-init gitignores the hat file and declares its commits' hat from the names in that file and will not guess either. Restore it:  git checkout -- scripts/lib/hat-file.sh"
 fi
 
 # Every commit kit-init makes wears the pre-role hat (SELF_ROLE), declared for that commit alone:
@@ -646,12 +650,12 @@ if [ ${#PF[@]} -gt 0 ]; then
   fact on the bare side, at creation — without it the bare repo's HEAD keeps git's
   own default branch name, and a clone of it checks out nothing. Do both."
   fi
-  kit_refuse 1 preflight-unmet \
-    "✗ kit-init REFUSES — $( [ ${#PF[@]} -eq 1 ] && echo "1 precondition" || echo "${#PF[@]} preconditions" ) unmet. NOTHING WAS WRITTEN." \
-    "" \
-    "${_pf_list%$'\n'}" \
-    "" \
-    "$_pf_next"
+  _pf_head="✗ kit-init REFUSES — $( [ ${#PF[@]} -eq 1 ] && echo "1 precondition" || echo "${#PF[@]} preconditions" ) unmet. NOTHING WAS WRITTEN."
+  # A required option left out is a usage error (2); any other unmet precondition is a state refusal (1).
+  if [ "$PF_STATUS" -eq 2 ]; then
+    kit_refuse 2 preflight-unmet "$_pf_head" "" "${_pf_list%$'\n'}" "" "$_pf_next"
+  fi
+  kit_refuse 1 preflight-unmet "$_pf_head" "" "${_pf_list%$'\n'}" "" "$_pf_next"
 fi
 
 say "  repo:   $ROOT"

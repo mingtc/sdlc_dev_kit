@@ -252,8 +252,10 @@ story→issue decomposition, and subtask trees are reserved for a **feature area
 issues**. Reaching for that machinery on a small fix is **visible over-process**.
 
 **Opt-in — off unless you turn it on:** notifications (`notify.sh`; with the backend unset it is
-a silent no-op), the harness `require-role` / `session-start` hooks (shipped as
-`.claude/settings.json.example`), and specs / subtasks (above).
+a silent no-op), the Claude Code hooks (shipped as `.claude/settings.json.example`: copy it to
+`.claude/settings.json` to turn them on; `grep '"command"' .claude/settings.json.example | grep -o 'scripts/[a-z/.-]*\.sh' | sort -u`
+lists what it wires), the unattended launch profile (`.claude/settings.unattended.json.example`, passed at
+launch with `--settings`), and specs / subtasks (above).
 
 **Never optional — the binding gates.** Every project has a small set of gates that are run on
 **every** change and are never traded away; **the project doc names them**, and the project's

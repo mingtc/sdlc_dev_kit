@@ -45,6 +45,7 @@ for _a in "$@"; do
 done
 case "${1:-}" in
   -*) echo "Error: '$1' is not a <slug> — a leading '-' is never a name." >&2
+      [ -f "$CONFIG" ] && . "$CONFIG" || true   # the seam, for the usage text alone: one usage() prints one form
       usage >&2
       exit 2 ;;   # exit-class: usage
 esac
@@ -129,7 +130,7 @@ done
 # Stateless: the caller passes --id (see ./scripts/next-id.sh). The slug's shape is
 # issue-creation.md § 5, implemented once by validate_slug in scripts/config.sh.
 validate_slug "$SLUG" || exit 2   # exit-class: usage
-validate_issue_id "$ID" "$ROOT" || exit 1   # exit-class: usage
+validate_issue_id "$ID" "$ROOT" || exit 2   # exit-class: usage
 
 DEST="$DEST_DIR/${ID}-${SLUG}.md"
 TODAY=$(date +%Y-%m-%d)

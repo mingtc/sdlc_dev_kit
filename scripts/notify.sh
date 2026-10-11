@@ -16,6 +16,7 @@
 #   ./scripts/notify.sh <class> <message> --session <slug> [--ref X] [--progress k/N]
 #   ./scripts/notify.sh <class> --message <text> --session <slug> [...]   # the message once, either way
 #   ./scripts/notify.sh test [--session <slug>]
+#   Without --session a send is a silent no-op that exits 0 (SESSION SLUG, below); `test` is the exception.
 #
 # Classes:  attention | blocked | done | milestone | progress
 #   attention = needs your input (gate / permission / approval)
@@ -53,6 +54,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 # Refusals go through the one helper: a `refusal=` record and a Next: line.
 # shellcheck source=lib/refuse.sh
 . "$ROOT/scripts/lib/refuse.sh"
+# shellcheck source=lib/usage.sh
+. "$ROOT/scripts/lib/usage.sh"
 
 # Load the environment file (best-effort; comments and blank lines are ignored by
 # the shell).
@@ -74,15 +77,7 @@ else
 fi
 
 warn() { printf 'notify: %s\n' "$*" >&2; }
-usage() {
-  echo "usage: notify.sh <attention|blocked|done|milestone|progress> <message>|--message <text> --session <slug>"
-  echo "       notify.sh test [--session <slug>]        # no message: sends a fixed probe"
-  echo "       [--ref <ref>] [--progress <n/m>]"
-  echo ""
-  echo "  test   probe the configured transport and report; NON-ZERO if it fails."
-  echo "  others deliver a notification. Delivery failure is FAIL-SOFT (exit 0) on"
-  echo "         purpose: a notification is not the work. An illegal INVOCATION is not."
-}
+usage() { kit_usage "${BASH_SOURCE[0]}"; }   # the header above: one text, no hand-kept copy
 # A usage request always succeeds, in any position (issue-creation.md § 3).
 for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 

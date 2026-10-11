@@ -73,8 +73,9 @@ along with the rest of the sheet, or `scripts/ask.sh` still has nothing to read 
                                                       # refusal, not from --help)
 ```
 
-It stamps the seams, creates the board, wires the hooks and then **proves the result with a
-self-check**. A second run **refuses**; so does a run against a repository that has already lived.
+It stamps the seams, creates the board, wires the git hooks path and then **proves the result with a
+self-check**. (The Claude Code hooks are separate and opt-in: copy `.claude/settings.json.example` to
+`.claude/settings.json` to turn them on — `process/MANUAL.md` § The default path is lite.) A second run **refuses**; so does a run against a repository that has already lived.
 
 **`--gate-command` is for this run only, and that matters HERE because of the order of operations.**
 A re-run refuses and there is no resume path, so a project extracting an existing tool — which may
