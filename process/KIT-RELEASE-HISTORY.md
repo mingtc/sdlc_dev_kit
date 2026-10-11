@@ -8,6 +8,59 @@
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.
 
+## [0.8.0] — 2026-10-03
+
+### Action required
+
+- **`CLAUDE.md` is gone. `AGENTS.md` is now the one bootstrap file and the one adapter**, for
+  Claude Code and every other harness alike (Claude Code reads a lone `AGENTS.md` directly when no
+  `CLAUDE.md` exists on the path). **If you have already run day one: the upgrade keeps your
+  `AGENTS.md`, and its checklist has you move your adapter onto it: `git mv -f CLAUDE.md AGENTS.md`.**
+  If you are upgrading an unfinished day one, or your repository still has the shipped bootstrap
+  stub: delete your `CLAUDE.md`, and finish day one against the shipped `AGENTS.md` instead.
+  `process/templates/CLAUDE-adapter.template.md` is renamed to
+  `process/templates/AGENTS-adapter.template.md` — update any of your own notes that pointed at the
+  old name.
+
+  Verify: [ ! -e CLAUDE.md ] && [ -f AGENTS.md ] && [ -f process/templates/AGENTS-adapter.template.md ]
+- **Claude Code v2.1.277 or later**, the first version that reads a lone `AGENTS.md`. On an older
+  one, once `CLAUDE.md` is gone, every session starts with no instructions and nothing says so.
+  Update it before you upgrade; `/start` now checks it.
+- **If your project already graduated:** `check-board.sh`'s `[g]` now measures `DELETE-IF-UNUSED`,
+  and names each file declaring it (under `consumers/`, `.claude/roles/archive/`, `scripts/notify*`).
+  For each one it names, remove it or record keeping it on purpose in `process/LOCAL-PROCEDURES.md`,
+  one line per file in the exact form `process/SEED.md` step 8 states. `[g]` also withholds COMPLETE
+  while any class could not be read at all (an absent `PROJECT.md`, `scripts/config.sh`,
+  `.gitignore` or `.env.example`), and says which.
+
+### Added
+
+- **A `/start` skill** — the human-friendly front door for a session: checks the environment, looks
+  for prior work, and either walks a fresh unpack through day one (`process/SEED.md`) or shows
+  status and a menu of what the project's roles and skills can do next. Routes to the kit's own
+  authorities rather than duplicating them.
+- **`LICENSE` (MIT) and `LICENSE-CONTENT` (CC0-1.0)** at the kit's root. `LICENSE` covers the kit's
+  own mechanism (scripts, process doctrine, skills) — MIT specifically because the vendored Dev
+  skill set (`obra/superpowers`) is itself MIT. `LICENSE-CONTENT` covers the scaffold content you
+  copy, edit and delete as your own project replaces it. Corrects `.claude/skills/README.md`'s
+  provenance table, which previously recorded the Dev set's license as NOT RECORDED.
+- **An Acknowledgments section in `README.md`** crediting the `obra/superpowers` collection the Dev
+  skill set is adapted from, at the top level rather than only in `.claude/skills/README.md`'s
+  provenance table.
+
+### Fixed
+
+- **`kit-init.sh` stamped the `KIT-DISPOSITION:` marker's key** along with your prefix, so an
+  initialized project lost `check-board.sh` `[g]`'s `DELETE-IF-UNUSED` member under
+  `.claude/roles/archive/`. Every marker key (`KIT-CLASS:`, `KIT-DISPOSITION:`) is now exempt from
+  stamping, from one list.
+- **`PROJECT.md`'s `principal:` and channel lines, filled WITHOUT backticks** (a natural fill, e.g.
+  `PM`) read as unfilled: `[g]` withheld graduation and `scripts/ask.sh` refused. Both now read
+  either form through one shared function.
+- **Files that still named `CLAUDE.md`** (`LICENSE-CONTENT`, the settings examples, `.env.example`,
+  the hygiene reachability walker, whose `--self-test` failed on it) now name `AGENTS.md`.
+- **The `writing-plans` skill's commit example lacked the `[Role]` tag** the commit hook requires.
+
 ## [0.7.0] — 2026-10-01
 
 ### Action required
