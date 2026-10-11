@@ -51,7 +51,7 @@ process is an edit rather than an excavation.
   environment may supply it; the declared default applies otherwise.
   *Why:* trying a change should not require a commit, and a sandbox must be able to run the real
   tooling with different values.
-- **NO donor-specific value is baked into anything that travels.** A file that travels unedited
+- **NO project-specific value is baked into anything that travels.** A file that travels unedited
   contains no adopter's name, prefix, trunk or paths.
   *Why:* every such literal is a trap the next adopter finds by failure rather than by reading.
 - **Changing a configured value takes effect at the next invocation and NEVER rewrites existing

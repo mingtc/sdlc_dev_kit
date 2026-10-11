@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the project instance (<fill-in>); § C is an anonymized worked example from the donor project. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the project instance (<fill-in>); § C is an anonymized worked example from the project the pattern came from. -->
 # Live-resource doctrine — consent, budget and evidence for anything created outside the repo
 
 **KIT-CLASS: KIT, with one project-bound section.** § A (the pattern) travels verbatim; § B is
@@ -126,7 +126,7 @@ The consent variable's value is **the id of the issue that authorized the work**
 
 **Why an id and not a flag: this is the earned part.** A boolean is typed by muscle memory and
 means nothing when read back. An id cannot be typed without knowing which issue is being invoked,
-and it converts an untraceable act into an attributable one. In the donor project the incident that
+and it converts an untraceable act into an attributable one. In the project this pattern came from, the incident that
 produced this fence (§ C.2) involved a *typed flag* on a run whose author was thinking about
 something else entirely. The fence's teeth are that the flag now has to be a
 sentence about authority.
@@ -141,7 +141,7 @@ was never written for the suite.
   gets one ring; the consent id is not a site licence.
 - **Run the full suite at phase boundaries as its own budgeted, recorded decision** — declared like
   any other spend (§ A.1), with its own ceiling and its own authorizing record.
-- **And if a run overspends, state it rather than absorb it.** The donor project's one budget overrun
+- **And if a run overspends, state it rather than absorb it.** That project's one budget overrun
   came precisely from full-suite runs under single-item ids; it was disclosed and fully reclaimed, and
   **the disclosure is why it stayed a footnote instead of becoming an incident.** An overrun quietly
   absorbed is a ceiling that has stopped meaning anything.
@@ -159,7 +159,7 @@ Any movement outside a leg that **declared** live work is a breach: stop the leg
 record. A hash that did not move is also a reading, and worth recording — an unmoved hash at
 twenty boundaries is what makes a single movement legible.
 
-**The asymmetry is the lesson, and it generalizes far past live resources.** In the donor's worst
+**The asymmetry is the lesson, and it generalizes far past live resources.** In that project's worst
 case, three legs' self-reports and two complete independent reviews all missed a breach that a
 two-line hash check found (§ C.2). Reviews check the work that was described to them; instruments
 check the world. Both are needed, and only one of them notices work nobody described.
@@ -242,8 +242,8 @@ a dangerous feature.
 
 ### A.10 — The structural cure beats the instruction, and it lands in the same run
 
-When an incident shows a fence is missing, the fence is **built** — and the best evidence in the
-donor's history is that the run which breached a fence also **landed the fence** (§ C.2). An
+When an incident shows a fence is missing, the fence is **built** — and the best evidence in that
+project's history is that the run which breached a fence also **landed the fence** (§ C.2). An
 instruction that every brief quotes and that fires anyway has already told you it is the wrong
 instrument.
 
@@ -328,9 +328,9 @@ instruction is what is left, and it should say so rather than implying a fence e
 
 ---
 
-## § C — Worked example from the donor project (anonymized)
+## § C — Worked example from the project this pattern came from (anonymized)
 
-> Kept because the reasons transfer even though the platform does not. The donor was a library
+> Kept because the reasons transfer even though the platform does not. That project was a library
 > talking to a third-party hosted-document service; substitute your own external system.
 
 ### C.1 — The permanent class, and a budget that worked

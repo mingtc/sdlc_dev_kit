@@ -19,12 +19,10 @@ critical path, and there is no pull request. **The review record is the issue fi
 log**, which is a file in the repository, so the audit trail travels with the code and does not
 live in someone's account.
 
-**Anonymous evidence that this pays for itself.** The project this kit was extracted from
-migrated between two different hosted forges partway through its life — new host, new protocol,
-new authentication model, new organization. **The landing script needed zero changes.** So did
-the board scripts, the worktree machinery, and every role doc. The only thing that changed was
-one remote URL and one line in a consumer-facing updater script. A kit built on a forge's API
-would have paid for that migration in every script it owned.
+**Why this pays for itself.** Moving to a different hosted forge — new host, protocol, authentication
+model — changes one remote URL and nothing in the landing script, the board scripts, the worktree
+machinery or the role docs. A kit built on a forge's API would pay for that move in every script it
+owned.
 
 **The optional forge flavor, and why it is not the default.** A team that wants PR/MR ceremony can
 add a branch to the landing script that opens and merges through its forge's CLI instead of the
@@ -254,8 +252,7 @@ not a work problem.**
   *reviewed, gates green, not landed*. The verdict is a real close; only the merge is deferred.
 - **State the regime at preflight and re-check between issues.** Which regime a run is in changes
   what "done" means, so it belongs in the run's standing facts and in the between-leg readings.
-  A blocker that lifts mid-run is a normal event — the donor discovered a three-day blocker had
-  quietly lifted only because a run re-checked.
+  A blocker that lifts mid-run is a normal event, noticed only if a run re-checks.
 - **Branches accumulate, and that is fine, provided they are enumerated.** Every land-ready
   branch is named in the run report with its head SHA, and the board reflects the verdict.
 - **No stacking unless you say so.** Independent branches each cut from the trunk are far cheaper
@@ -272,8 +269,8 @@ When the route reopens, land deliberately, as its own piece of work:
    quick gate per landing and the full gate at milestones. If something is wrong, you find it
    with nothing pushed.
 2. **Then push once**, and re-verify: remote trunk equals local head, tags present, board clean.
-3. **Never blind-union a conflict in a source file.** A mechanical union once glued a truncated
-   statement together in the donor project. Rebuild the region from both sides, deliberately.
+3. **Never blind-union a conflict in a source file.** A mechanical union can glue a truncated
+   statement together. Rebuild the region from both sides, deliberately.
 4. **Re-derive generated artifacts after each merge, not once at the end** — and if your project
    annotates predicted sizes, note that these predictions **compose additively** across merges,
    which makes each landing's prediction independently checkable against measurement. Confirmed

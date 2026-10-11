@@ -703,9 +703,9 @@ case_kit_init_repairs_hook_mode() {
 # =============================================================================
 # CASE — kit-init --roles refuses a set it cannot stamp, and writes nothing
 #
-# The set goes into a sed replacement and a single-quoted shell line. Measured before the
-# guard: '&' stamped ROLE_PREFIXES='PM|APM|Dev|…|ArchitectB' and exited 0; '@' killed the sed
-# with the tree half-stamped; a quote broke the commit-msg hook. The control stamps.
+# The set goes into a sed replacement and a single-quoted shell line, so '&' would stamp a
+# garbled ROLE_PREFIXES, '@' would kill the sed with the tree half-stamped, and a quote would
+# break the commit-msg hook. Each is refused before anything is written. The control stamps.
 # =============================================================================
 case_kit_init_roles_refuses_what_it_cannot_stamp() {
   cf_reset
@@ -736,8 +736,8 @@ case_kit_init_roles_refuses_what_it_cannot_stamp() {
 # =============================================================================
 # CASE — kit-init stamps a legal trunk name that is a sed metacharacter, verbatim
 #
-# git accepts '&', '|' and '@' in a branch name. Measured before the fix: 'a&b' committed role
-# docs reading a`main`b and failed the census; '|' and '@' killed a sed with the tree
+# git accepts '&', '|' and '@' in a branch name, and each is a sed metacharacter: unescaped,
+# 'a&b' would stamp role docs reading a`main`b and '|' or '@' would kill the sed with the tree
 # half-stamped. The name is legal, so it is escaped, never refused.
 # =============================================================================
 case_kit_init_stamps_any_legal_trunk() {
@@ -780,9 +780,9 @@ case_kit_init_stamps_any_legal_trunk() {
 # CASE — kit-init matches the seams' current defaults literally, or refuses them
 #
 # The old name, prefix and trunk are read from the seams, not typed, so a hand-edited default
-# reaches the stamp's pattern side. Measured before the fix: a name default 'o.e' rewrote 'role'
-# as 'rFoo' in 911 places and committed it; a prefix default '.I.' rewrote 'JIT-' as 'ABC-'; a
-# last-resort trunk 'rel.1' rewrote 'relx1'.
+# reaches the stamp's pattern side. Matched as a regular expression, a name default 'o.e' would
+# rewrite 'role', a prefix default '.I.' would rewrite 'JIT-', and a last-resort trunk 'rel.1'
+# would rewrite 'relx1'.
 # =============================================================================
 case_kit_init_matches_old_values_literally() {
   cf_reset
@@ -1642,6 +1642,36 @@ B" ) >/dev/null 2>&1 \
     || cf "sourcing the stamped config.sh yields PROJECT_NAME='$got', not the name that was asked for"
 
   finish "kit-init --project-name: refuses every character measured hostile, accepts every one measured safe, and a clean name still initializes and mints"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE PREFLIGHT'S `Next:` RE-RUN LINE REPEATS THE ARGUMENTS IT WAS GIVEN, AND NO ARGUMENT
+# IT WAS NOT. A run with no arguments prints the bare command; a run with some prints them quoted,
+# so the line can be pasted. The control is the same refusal reached WITH an argument.
+# =============================================================================
+case_kit_init_next_line_repeats_only_the_arguments_given() {
+  cf_reset
+  local L="kit-init: the preflight's Next: re-run line is the bare command after a no-argument run, and carries the arguments after a run that had some"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc line
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/kit-init.sh 2>&1 </dev/null )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "kit-init with no arguments exited $rc; a missing required option exits 2: $(printf '%s\n' "$out" | tail -3 | tr '\n' '|')"
+  line="$(printf '%s\n' "$out" | grep -A1 'Next: fix the above' | tail -n 1 | sed -E 's/^[[:space:]]+//')"
+  [ -n "$line" ] || cf "(control) no 'Next: fix the above' line was printed, so the re-run line could not be judged: $(printf '%s\n' "$out" | tail -5 | tr '\n' '|')"
+  [ "$line" = "./scripts/kit-init.sh" ] \
+    || cf "after a no-argument run the re-run line is '$line', want the bare ./scripts/kit-init.sh — an empty quoted argument is one the person never gave"
+
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/kit-init.sh --prefix SBX 2>&1 </dev/null )" || rc=$?
+  line="$(printf '%s\n' "$out" | grep -A1 'Next: fix the above' | tail -n 1 | sed -E 's/^[[:space:]]+//')"
+  [ "$line" = "./scripts/kit-init.sh --prefix SBX" ] \
+    || cf "(control) after a run given --prefix SBX the re-run line is '$line', want ./scripts/kit-init.sh --prefix SBX"
+
+  finish "$L"
   teardown
 }
 

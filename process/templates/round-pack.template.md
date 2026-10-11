@@ -138,7 +138,7 @@ them means the participant handled it well.**
 > registry — in a round the resources are created by *participants*, who forget, improvise and
 > abandon (§ A.10).
 >
-> And rule the tension deliberately: § A.2 wants the previous round's leftovers as instrument test
+> And rule the tension deliberately: [`dogfooding.md`](../../../process/doctrine/dogfooding.md) § A.2 wants the previous round's leftovers as instrument test
 > material, while the sweep wants them gone. Decide **per class, here, before the round.**
 
 | Class | Ceiling | Intent | What each is for | Reclaimable? | How reclaimed (enumeration target) |

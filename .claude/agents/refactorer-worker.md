@@ -23,12 +23,13 @@ to update.
 
 ## Provisioning contract
 
-Opus **high** is the seed default (the frontmatter above); `.claude/roles/refactorer.md` § "Model
-& effort contract" is filled to match it. The audit reads widely and holds the whole codebase in view. A narrow **cleanup /
+Opus **high** is the seed default (the frontmatter above); fill `.claude/roles/refactorer.md` § "Model
+& effort contract" to match it (`scripts/set-models.sh` writes the pin and the orchestrator's
+ladder row together). The audit reads widely and holds the whole codebase in view. A narrow **cleanup /
 classifier** pass is the cheaper class — the caller runs that as `cleanup-worker`. Effort
-escalations travel only through
+escalations travel through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
-two mechanisms, never on the spawn call. The lowest effort tier is **never used**; **never
+mechanisms, or on the spawn call where the spawn tool's own parameter list carries `effort`. The lowest effort tier is **never used**; **never
 `max` effort**; **never spawn above the project's sanctioned ceiling**
 (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
 seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a

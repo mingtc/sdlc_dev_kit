@@ -35,8 +35,8 @@
 # MODEL PINS ARE PRODUCT NAMES"). It writes only what you pass.
 #
 # Every refusal leaves a progress record (refusal=<rule-id>) where the project has one to write to.
-# Exit 2: an unknown option or a missing option value. Exit 1: any other refusal, including a
-# surplus positional argument — it looks like a usage error but is not one.
+# Exit 2: a usage error, as scripts/finish-pr.sh's exit table defines it. Exit 1: any other
+# refusal, including a surplus positional argument — it looks like a usage error but is not one.
 
 set -uo pipefail
 
@@ -91,10 +91,10 @@ if [ "$LIST" = false ]; then
 fi
 
 # ── NOW THE ENVIRONMENT: every argument is well-formed, so a refusal past this point is about
-#    THIS TREE, never about the command line. LOCATE THE PROJECT'S HARNESS DIRECTORY. Shipped
-#    disarmed (_claude/) inside the kit's own maintaining repository; live (.claude/) on every
-#    adopted tree. Both are checked, as scripts/test/cases/runners.sh's own case does, so this
-#    script runs against either.
+#    THIS TREE, never about the command line. LOCATE THE PROJECT'S HARNESS DIRECTORY: _claude/
+#    in a tree where it is still disarmed (the unarmed kit), .claude/ on every adopted tree.
+#    Both are checked, as scripts/test/cases/runners.sh's own case does, so this script runs
+#    against either.
 CLAUDE_DIR=""
 for _d in "$ROOT/.claude" "$ROOT/_claude"; do
   [ -d "$_d" ] && CLAUDE_DIR="$_d"

@@ -76,6 +76,19 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   the one the landing would produce, by the same code the board report runs, with the report's
   operands read from the trunk. A finding the trunk already carries is the report's, not the
   branch's: refusing it would hold every landing shut on a defect nobody in the branch made.
+- The item's `## QA Verdict` table is missing, has a row whose verdict is not one of the four
+  tokens, a FAIL row, evidence of the wrong kind, a `path:line` that does not resolve or whose
+  quote is not on that line, no `path:line` row at all (every row `gate-diff` or `fixture-diff`),
+  no filled `shadow-check` row, or AC ids that do not match the AC checklist one for one ⇒ refuse
+  before any destructive step, naming each row.
+- The item's `forks:` field is missing, is neither `none` nor a bracketed list of register ids,
+  names an id that is no live register entry, omits a fork the branch's own diff shows, or the
+  item's AC text changed after it left `todo/` with no `[decision: D-NN]` citation ⇒ refuse.
+- The branch touches a declared test path and the item has no well-formed `## Ablation` section ⇒
+  refuse, naming what the section lacks.
+- The branch is stacked on a base that has not landed, or has already squash-landed, or the squash
+  hits conflicts, or leaves no net change against the trunk ⇒ refuse before any destructive step.
+  Each condition's rule id is named where the reference implementation raises it (§ 6).
 - The identity (session, agent) recorded for the commit that wrote the item's review verdict is
   one recorded for the branch's own commits ⇒ refuse before any destructive step: the checker must
   not be the author.
@@ -167,6 +180,9 @@ code-review object — the item's activity log **is** the review record.
   [`../GIT-HOSTING.md`](../GIT-HOSTING.md).
 - The caller-supplied-gate-command invariant in § 2 is written as a refusal at the top of that
   file, before any state is read.
+- `scripts/lib/qa-gate.sh` — the QA-verdict, `forks:`, ablation and board-property checks of § 3, each a
+  `kit_refuse` call with its own rule id; the stacking, squash and no-net-change refusals are
+  `scripts/finish-pr.sh`'s own.
 - `scripts/verify.sh` — the gate this kit hands it; contracted in
   [verify-gate.md](verify-gate.md), whose sheet describes the **kit half** of that MIXED file.
 - **The two layers, named concretely in the shipped implementation (§ 2's first invariant):** the

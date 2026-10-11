@@ -91,8 +91,7 @@ _cb_g_discharge_gitignore_env() {
 # _cb_g_discharge_delete_if_unused — records a KEPT-ON-PURPOSE decision in
 # $SB_WORK/process/LOCAL-PROCEDURES.md for every file the sandbox carries that declares
 # KIT-DISPOSITION: DELETE-IF-UNUSED, in arm [g]'s own exact form. make_sandbox copies the REAL
-# scripts/ tree (so scripts/notify.sh, notify-hook.sh and notify/telegram.sh arrive carrying the
-# marker) and conditionally the real consumers/ tree; every case that graduates the sandbox needs
+# scripts/ tree (so every script that declares the marker arrives carrying it) and conditionally the real consumers/ tree; every case that graduates the sandbox needs
 # this too, or [g]'s new DELETE-IF-UNUSED class reports unfilled and graduation never reads
 # COMPLETE — the same transition case_check_board_graduation exercises directly, mirroring
 # _cb_g_declare_empty_seams for CODE_GLOBS/TEST_GLOBS above. DERIVED from the sandbox's own
@@ -883,7 +882,7 @@ EOF
 # CASE — ARM (l) READS EVERY MARKER FORM THROUGH kit_decisions_cited, NOT JUST THE SINGLE-ID
 # NO-LIST, NO-RANGE, CASE-SENSITIVE FORM: a capitalized label, a comma LIST (the valid id buried
 # inside it), a trailing space before the bracket, and a '..' RANGE all cite. A bare 'per D-NN'
-# mention (no brackets) still does not. Planted exactly as dogfood found them: the live register
+# mention (no brackets) still does not. Planted in the forms an earlier audit fed it: the live register
 # carries D-05 (so the list and the range both also prove a REAL id inside them resolves, not just
 # that the marker is seen), plus a genuinely dangling id (D-93) so the list's dangling half still
 # decides. The arm's own POPULATION line (marker-form citations against bare mentions) is checked
@@ -911,7 +910,7 @@ ${reg_mark}D-05 — a live entry a list and a range both cite
 ## Findings
 EOF
 
-  # One file, every form from the dogfood plant, plus the bare-mention control.
+  # One file, every form the earlier audit planted, plus the bare-mention control.
   printf '%s\n' \
     '[Decision: D-05]' \
     '[decision: D-93, D-05]' \

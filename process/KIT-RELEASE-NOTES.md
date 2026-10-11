@@ -8,7 +8,7 @@ This file describes the development-process kit you are running — not your pro
 release notes are whatever your `scripts/release.sh` declares in its `RELEASE_DOCS` seam.
 
 - **Which version am I on?** [`KIT-VERSION`](KIT-VERSION), one line, beside this file.
-- **Older releases** are in [`KIT-RELEASE-HISTORY.md`](KIT-RELEASE-HISTORY.md), unchanged; `kit-upgrade.sh` reads both files.
+- **Older releases** are in [`KIT-RELEASE-HISTORY.md`](KIT-RELEASE-HISTORY.md), unchanged but for added `Verify:` lines; `kit-upgrade.sh` reads both files.
 - **The full engineering log** — every change with its reasoning, and the change file behind it —
   lives with whoever maintains the kit (`PROJECT.md` § The kit, upstream names them), not in this copy. A copy of it here would go stale the day
   you started editing your kit, and it links to files that exist only where the kit is maintained.
@@ -37,8 +37,8 @@ takes only what you never changed, and turns the rest into a checklist
 ([`contracts/kit-upgrade.md`](contracts/kit-upgrade.md)).
 
 **A project that dispatches agent seats: hand [`UPGRADE-SEAT.md`](UPGRADE-SEAT.md) to one seat.** It states
-the owner's authority (including for the agent's own instructions file), and carries the staged-worktree
-route below through the self-test, your own gates, landing, `--finish` and a handoff. The steps below are
+the owner's authority (including for the agent's own instructions file), and carries the upgrade in a
+staged worktree through the self-test, your own gates, landing, `--finish` and a handoff. The steps below are
 what it runs; a person upgrading by hand follows them directly.
 
 **First, how does a newer version reach you, and whose job is that?** The party who gave you the
@@ -104,8 +104,8 @@ include your own local law, which is not drift.
 
 ### Or let git do step 3 — a three-way merge against the release you are running
 
-**An option, not the procedure.** The script above stays the default (the read, for a release that
-predates it), and the notes are still how you decide every conflict this produces. Nothing here ships: it is plain git over your own history.
+**An option, not the procedure.** `kit-upgrade.sh`, above, stays the default (for a release that
+predates it, the read in § Without the script), and the notes are still how you decide every conflict this produces. Nothing here ships: it is plain git over your own history.
 
 **What it needs is the release you are running, exactly as shipped** — and if you followed the kit's
 `README.md` § Day one, you probably have it: the `init` commit is made *before* `kit-init.sh` stamps
@@ -215,8 +215,8 @@ git worktree add --detach ../kit-upgrade &&
 git worktree remove ../kit-upgrade
 ```
 
-Without either — no first commit that passes ONCE and no zip of your version — the script above is
-the route (the read, for a release that predates it).
+Without either — no first commit that passes ONCE and no zip of your version — `kit-upgrade.sh` is
+the route (or, for a release that predates it, the read in § Without the script).
 
 **Before you commit — what this does not do for you:**
 
@@ -499,7 +499,7 @@ columns and never the cards.*
   never ran. Nothing to do.
 
 - **`process/UPGRADE-SEAT.md`: the brief for an upgrade-only agent seat.** Written in the owner's voice, it
-  carries the authority for the upgrade (asked once of the human or the `principal:` and recorded, including for the
+  carries the authority for the upgrade (recorded, and asked of the human or the `principal:` only when the brief reached the seat second-hand, including for the
   agent's own instructions file) through a staged worktree, the checklist, the self-test, your own gates, landing,
   `--finish` and a handoff. Nothing to do; hand it to a seat when you next upgrade.
 
@@ -515,6 +515,23 @@ columns and never the cards.*
   form with real digits fails there instead of in an adopter's day-one self-check. No action needed.
 
 ### Changed
+
+- **Contract sheets, role docs, templates and script headers now list what the code does.** `ask.md` and `ask.sh --help` name the refusal of a
+  `--role` equal to the principal; `landing-gate.md` and `release-ritual.md` list the QA-verdict, `forks:`, ablation, stacking and approved-ship-manifest
+  refusals; the card templates show the bracketed `forks: [D-NN, ...]` form, say any `word:number` in a pointer is read as a `path:line`, and name the
+  refusal of a table with no `test`/`file:line` row; `qa.md` says `board-property-unreadable` is not the branch's fault; the manifest's lists were
+  re-derived; `UPGRADE-SEAT.md` step 7 writes its handoff to `dev/handoffs/<date>-upgrade.md`; `config.sh` and the adapter template say glob entries are
+  `case` patterns (`src/**/*.js` misses `src/main.js`). Dangling pointers, stale counts and incident narrative were cut. No action.
+
+- **Shipped text no longer uses a maintainer-only word for the project the kit was cut from, and the card templates ship the `shadow-check` row as a
+  prompt.** The wording is "the project the pattern came from", or the clause is cut; `register-commit.sh --help` examples use `<PREFIX>-014`. A card minted from the new templates carries
+  `<assertions removed: …>` in that row, which the landing already refused as a placeholder: QA replaces it with `assertions removed: none` or
+  each removed or weakened assertion. Cards already minted are unaffected. The ladder tables in the role docs now name `set-models.sh` as writing the
+  pins and the orchestrator's row, not their own table. No action.
+
+- **Skill text corrections.** `orchestrate` and the orchestrator role list the board with plain words instead of brace expansion (which fails under
+  `dash`); `using-skills` names its implementation skills; two worked examples use the id-keyed plan filename; `safety-net-check` says the characterization
+  tests land under a chore card minted first. No action.
 
 - **A required option left out now exits 2 in every script, like an unknown option.** Five exited 1: `move-issue.sh` without `--role`,
   `new-issue.sh` / `new-bug.sh` / `new-refactor.sh` without a valid `--id`, `archive-progress.sh` without `--milestone`,
@@ -537,14 +554,10 @@ columns and never the cards.*
   (one line, `<Role> <scope>`) first; the stub no longer calls the hat "a session hook" only (the commit guard reads it
   too). The self-test's old-path scan now covers every file the manifest lists. No action.
 
-- **Older releases' notes moved to `process/KIT-RELEASE-HISTORY.md`, unchanged.** This file keeps § How to upgrade, § How
+- **Older releases' notes moved to `process/KIT-RELEASE-HISTORY.md`, unchanged but for added `Verify:` lines.** This file keeps § How to upgrade, § How
   versions work, § Unreleased and the newest release; `kit-upgrade.sh` reads both files, and stages the history beside the
   notes so `--finish` runs `Verify:` lines from it. Upgrading by hand from an older tree: read the history file's sections
-  newer than your `KIT-VERSION` too. The release ritual shelves each cut's predecessor there. No action.
-
-- **Doctrine, contract and manual prose lost incident narrative and restated rules.** The manual's doctrine index rows
-  are one pattern each; its liveness and landing-refusal text cite the contracts that own them; worked examples keep
-  the rule and its reason, not the story. No rule changed. No action.
+  newer than your `KIT-VERSION` too. No action.
 
 - **The session-start step now says to write the hat file, not only to say the hat.** The adapter template's step 4 and
   `process/MANUAL.md` § Session start name `.kit/session-role` and its form before any change by any tool, whether or not
@@ -623,6 +636,11 @@ columns and never the cards.*
 
 ### Fixed
 
+- **`kit-init.sh` with no arguments printed its re-run line as `./scripts/kit-init.sh ''`; `move-issue.sh` without `--role` printed its whole help.** The
+  first now prints the bare command, the second the error and one synopsis line. The `pre-commit` hook reads `CODE_GLOBS` through
+  `scripts/lib/glob-array.sh` and refuses an off-trunk commit while that file is unreadable (it arrives with the upgrade). Exit status 2 is documented once
+  as "a usage error" (a required option left out is one). No action.
+
 - **The session-start hook and the self-test no longer require a grep at a fixed path.** The hook's over-budget summary and
   the harness named a grep binary by its path; on a system that keeps `grep` elsewhere the summary came back empty and the
   harness reddened with no defect behind it. They call `grep` from `PATH`, as every other shipped script does. No action.
@@ -656,10 +674,10 @@ columns and never the cards.*
   directory that then held two day files; it now crosses midnight on purpose and counts correctly. No action needed.
 
 - **A card's `branch:` line with a trailing `# comment` now lands and re-checks.** `finish-pr.sh` and `kit-upgrade.sh` read the
-  comment as part of the branch name (`branch-unnamed`, or "resolves to no branch"); all four scripts now read the field
-  through `scripts/lib/card-field.sh`, comment stripped. No action needed.
+  comment as part of the branch name (`branch-unnamed`, or "resolves to no branch"); every script that reads the field
+  now does so through `scripts/lib/card-field.sh`, comment stripped. No action needed.
 
-- **The self-test no longer goes red after `set-models.sh`.** Four cases that test the model seam inherited the
+- **The self-test no longer goes red after `set-models.sh`.** The cases that test the model seam inherited the
   tree's ladder, pins and runner defaults, so they failed on any project that had run it. Each now writes the
   state it tests into its own sandbox. No action needed.
 
@@ -668,7 +686,7 @@ columns and never the cards.*
   It now reads the card's own `todo/` history by its id. No action needed.
 
 - **The session-start hook's output is bounded.** The harness cuts a hook's output near 10,000 bytes, so a long
-  drift report arrived as a preview. Over 8,000 bytes the hook now prints the arm headings, every finding and the
+  drift report arrived as a preview. Over 8,000 bytes the hook now prints the arm headings, as many findings as fit and the
   verdict, and names `scripts/check-board.sh` for the full report. No action needed.
 
 - **A script that crashed after taking the lock could exit 0 on macOS `/bin/bash` 3.2.** Under `set -e`,

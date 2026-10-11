@@ -134,7 +134,7 @@ what later readers cite.
 ## 6. What was NOT measured
 
 > **GUIDANCE.** The section that keeps the rest honest. **Unmeasured is not passed** — the rule
-> [`process/doctrine/calibration.md`](../../../process/doctrine/calibration.md) § A.3 applies to unexercised scope and
+> [`process/doctrine/calibration.md`](../../../process/doctrine/calibration.md) § A.2 applies to unexercised scope and
 > [`process/doctrine/negative-claims.md`](../../../process/doctrine/negative-claims.md) § A.1 to any claim of absence.
 > A halted scenario (§ A.17) is exactly where a round is most tempted to report a green it did not
 > earn.

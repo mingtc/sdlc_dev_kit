@@ -25,7 +25,7 @@ _declare_test_globs() {
 # threshold (default 50%), not "any content changed" — a 3-line file losing 1 line falls BELOW
 # that threshold and git lists both paths even without --no-renames, proving nothing. 46 lines
 # losing 1 (~98% similarity) is the shape that collapses to one path under git's DEFAULT
-# --name-only, matching the registered rename-bypass boundary case exactly.
+# --name-only — the shape of a rename that hides a changed test path.
 _ablation_rename_fixture_file() {
   local path="$1" i=1
   { while [ "$i" -le 45 ]; do echo "assert.ok(true); // line $i"; i=$((i+1)); done

@@ -196,7 +196,7 @@ can wait, nor the reverse.**
    with an origin, a size, a deferral reason and a wake condition. A guard that would be **red on
    arrival by design** (because the diet it demands has not happened) is *queued*, not landed.
 
-### A worked example from the donor project (anonymized) — five measurements, five lessons
+### A worked example from the project this pattern came from (anonymized) — five measurements, five lessons
 
 Each lesson was measured on one tree; **none of the figures are yours**, and each is kept because it is the
 evidence for a rule in § A.
@@ -231,7 +231,7 @@ evidence for a rule in § A.
 **Two cross-reference lessons from writing that instance, worth keeping.** First: when a sheet cites
 a *neighbour sheet* for a constant's lineage, check that the neighbour actually contains it — a
 sheet citing a section that does not exist is the same defect as a bare `file:line`, and both were
-found in the donor's own copy of this document. Second: **an entry that a test reads verbatim must
+found in an earlier copy of this document. Second: **an entry that a test reads verbatim must
 not be reshaped by a diet pass.** Where a guard pins specific words *inside* an index row, say so in
 § B by name; a future worker shortening rows will otherwise move those words into a child index one
 hop away and redden a guard they never knew existed.

@@ -371,7 +371,7 @@ case_fixture_append_has_one_authoring_site() {
     ln="${row%%|*}"; fn="${row#*|}"
     case "$allowed" in
       *" $fn "*) ;;
-      *) cf "$ln plants through an anchored perl append inside '$fn', which is not one of the declared authors ($allowed) — a fifth copy of the four-step idiom, and the steps it drops are the ones that make a failed plant visible" ;;
+      *) cf "$ln plants through an anchored perl append inside '$fn', which is not one of the declared authors ($allowed) — a further copy of the four-step idiom, and the steps it drops are the ones that make a failed plant visible" ;;
     esac
   done <<EOF
 $rows
@@ -392,7 +392,7 @@ EOF
   printf '%s' "$out" | grep -F 'wanted-gate' >/dev/null \
     || cf "(arm 2) the abort does not name the record it failed to declare: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
 
-  finish "every anchored fixture append in this harness ($n of them) sits inside one of four declared authors — no fifth copy of the four-step plant idiom — and a plant whose anchor has moved aborts naming the record it failed to declare rather than returning 0 on a file it did not change"
+  finish "every anchored fixture append in this harness ($n of them) sits inside a declared author — no further copy of the four-step plant idiom — and a plant whose anchor has moved aborts naming the record it failed to declare rather than returning 0 on a file it did not change"
   teardown
 }
 
@@ -504,7 +504,7 @@ case_ship_state() {
     # scripts/githooks/pre-commit) must ship empty: a populated default would be ONE
     # project's source tree declared as every adopter's.
     _ship_array_empty "$rc_cfg" CODE_GLOBS
-    # TEST_GLOBS (process/MANUAL.md § The Dev → QA handoff, the PASS action; read by
+    # TEST_GLOBS (process/MANUAL.md § The Dev → QA handoff, step 6, the PASS verdict; read by
     # scripts/finish-pr.sh) — same reasoning.
     _ship_array_empty "$rc_cfg" TEST_GLOBS
   else

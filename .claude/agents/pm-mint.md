@@ -20,13 +20,14 @@ are amending — say what changed and why.
 
 ## Provisioning contract
 
-Opus **high** is the seed default (the frontmatter above); `.claude/roles/pm.md` § "Model & effort
-contract" is filled to match it. Minting is `high` because a wrong AC is paid for downstream by every Dev and QA worker that
+Opus **high** is the seed default (the frontmatter above); fill `.claude/roles/pm.md` § "Model & effort
+contract" to match it (`scripts/set-models.sh` writes the pin and the orchestrator's ladder row
+together). Minting is `high` because a wrong AC is paid for downstream by every Dev and QA worker that
 reads it. An **XS / mechanical** PM chore (a one-field edit, a board relabel) is the caller's
 call to run on the cheaper model at **high** effort — the model half travels on the spawn
 call, the effort half through
 [`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1's
-mechanisms (the spawn call has no effort parameter). The lowest effort tier is **never used**;
+mechanisms, or on the spawn call where the spawn tool's own parameter list carries `effort` (item 2). The lowest effort tier is **never used**;
 **never `max` effort**; **never spawn above the project's sanctioned ceiling**
 (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
 seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a

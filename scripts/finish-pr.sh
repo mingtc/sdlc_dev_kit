@@ -18,7 +18,8 @@
 #      See contracts/landing-gate.md § 4.
 #   1  Refused or failed WITH NOTHING LANDED (a missing <ID> or a surplus argument
 #      included). Safe to fix the cause and re-run.
-#   2  Usage error: an unknown option or a missing option value. Nothing was read or touched.
+#   2  Usage error: an unknown option, a missing option value, or a required option left out.
+#      Nothing was read or touched.
 #   3  LANDED BUT NOT FINISHED. The squash IS on the trunk; a follow-up step did
 #      not complete. **Do NOT re-run this script** — run the recovery it printed.
 #

@@ -621,9 +621,7 @@ capability matrix row, a doc correction that the code change *makes true* belong
 that makes it true — splitting it onto the trunk publishes a claim about code that has not landed
 yet, and leaves the branch's own reviewer reading a diff with its explanation missing. The
 direct-to-trunk rule governs metadata changed **on its own**; it was never a ban on a code change
-carrying its own documentation. *(Measured in the seed acceptance test: a worker with a register
-update inside a feature branch read the rule as a prohibition and split a coherent change in
-two.)*
+carrying its own documentation.
 
 **And the carve-out is not limited to documentation.** An **executable declaration** the same change
 makes true rides with it too — a guard's enrolment in the gate runner's always-on set, a new check's
@@ -650,8 +648,7 @@ need the reflog. The contract is
 **A COORDINATOR WRITING THE TRUNK WHILE A WORKER HOLDS A BRANCH IS EXPECTED, NOT A RACE.** Board
 moves, rulings, PRDs and `dev/` evidence are metadata by the code-vs-metadata rule above, so they
 commit direct to the trunk — *while* a dispatched leg is working on its own branch. That is the rule
-operating as designed, and two independent projects have reported it as a defect because nothing said
-so. **What is protected is the shared working tree, not the trunk**; the board scripts route through
+operating as designed. **What is protected is the shared working tree, not the trunk**; the board scripts route through
 `.kanban-wt/` precisely so both can proceed.
 
 **The coordinator's own by-hand writes are the part that needs discipline**, because they do not go
@@ -917,7 +914,7 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | [`consumer-output.md`](doctrine/consumer-output.md) | **What a tool's output owes a reader who cannot RE-MEASURE it** — a label's scope may not exceed its evidence's; **read and derived are distinguished per item**; where every candidate value is wrong, synthesise none and record the absence as a decision; a non-decidable predicate hands back a **census that says so**; and **a limit recorded where the affected party does not look has not been disclosed**. | Here |
 | [`generality.md`](doctrine/generality.md) | **When one consumer's request may become everyone's rule** — four questions asked before a request changes shipped behaviour; the load-bearing one is the **flip-flop test**: *would the opposite request be equally reasonable from a different consumer?* If yes it is a **setting**, answered by a declared seam with a default. § A.6 forbids wiring any of it as a gate. | Here |
 
-Two neighbours of the doctrine directory, deliberately outside it:
+Neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and
 the instruments that look — **the periodic cadence is advisory; the pre-cut sweep in it is
 MANDATORY when the slate came from a round**), [`GIT-HOSTING.md`](GIT-HOSTING.md) (the

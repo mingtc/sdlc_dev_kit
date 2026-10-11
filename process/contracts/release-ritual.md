@@ -86,6 +86,14 @@ rather than deleting the row, so the decision is visible.
 - Any required release document lacks the version's section ⇒ refuse, naming **that** document
   and what to write in it.
 - The board is not clean ⇒ refuse. A release cut over a drifting board mislabels what shipped.
+- **What leaves the building is a declared, approved list.** Where the project publishes from its
+  own repository (no build step), it declares a ship manifest: the paths that may leave, each
+  hashed when a person approved it. A manifest that is missing or lists no paths, a publish with
+  no build and no manifest, a release document outside it, or a listed path whose content changed
+  since it was approved ⇒ refuse, before anything is written, naming the paths. The version bump
+  is normalised out of the hash, so it is never the cause. The way out is a person reviewing the
+  diffs and re-recording the approval, which cuts nothing.
+  A project with a build declares its artifact glob instead, which is already an allowlist.
 - The slate came from a round and the pre-cut sweep **has not run**, or has run with **no named
   owner** ⇒ refuse, naming which of the two is missing.
   *Whose refusal this is:* the ritual's, not necessarily the script's. Every other condition here is
@@ -122,6 +130,8 @@ the publication result — and a dry mode that prints all of it and mutates noth
   bump → attributed commit → annotated tag → push → publish, and the refusals). Which files carry
   the version, which documents are required, what the number means, and whether anything is
   published at all are the project's law.
+- `release.sh --approve-shipped` is the re-record route for the ship manifest that `SHIP_MANIFEST` in its
+  config block names; with none declared it writes a draft to review.
 - The required-documents refusal wants a regression test of its own in the project's suite; it is
   the refusal most likely to be softened by whoever is mid-release at the time.
 - Version literals in these contract sheets use the deliberately fictional `42.x`, so no example

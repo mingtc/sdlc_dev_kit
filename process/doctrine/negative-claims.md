@@ -422,7 +422,7 @@ survived a review.
    census finds already-overtaken promises, **label them and leave them standing** under their
    dated headings — a labelled measurement is the opposite of a silent rewrite.
 
-### Two worked examples from the donor project (anonymized) — the reasons, not the ids
+### Two worked examples from the project this pattern came from (anonymized) — the reasons, not the ids
 
 **1. The scope failure, not a rigour failure.** A shipped constant declared that one flavour of
 deep link into a document was UI-only: neither constructible nor fetchable. **The evidence behind

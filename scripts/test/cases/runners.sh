@@ -1578,9 +1578,8 @@ STUBEOF
 
 # CASE — a leg that names a .claude/agents/ type keeps that type's frontmatter pin.
 #
-# Measured before the fix: both runners sent the run default (opus/medium) on every call, so a
-# typed leg never ran on its pin (refactorer-worker's `effort: high`, ui-designer-worker's
-# `model: sonnet`) unless the issue repeated it. The CONTROL rows hold the neighbours: an untyped
+# A runner that sends the run default on every call would leave a typed leg never running on its
+# pin (a worker definition's `effort:` or `model:`) unless the issue repeated it. The CONTROL rows hold the neighbours: an untyped
 # leg still gets the defaults (never undefined), and a typed leg's explicit value still overrides.
 case_runner_typed_leg_keeps_its_frontmatter_pin() {
   cf_reset
@@ -1617,9 +1616,8 @@ ROWS
 
 # CASE — each wave leg's brief tells it where it may switch branches, and nothing else.
 #
-# Measured before the fix: the brief every wave leg shares said "work in YOUR OWN worktree, never
-# run git checkout or git switch in the shared root", while the main-checkout leg's own steps
-# told it to create its branch and `git switch` there.
+# The brief every wave leg shares must not say "never run git checkout or git switch in the
+# shared root" while the main-checkout leg's own steps create its branch and `git switch` there.
 case_wave_brief_matches_the_legs_checkout() {
   cf_reset
   local wf="$REAL_REPO_ROOT/.claude/workflows/wave-runner.js" stub leg out
@@ -1811,8 +1809,7 @@ _model_ladder_row() {
 # PRINTS, NEVER CALLS cf() ITSELF: every caller captures this function's output via
 # `$(_model_pins_vs_ladder ...)`, and command substitution runs in a SUBSHELL — a cf() call
 # inside it would mutate a copy of $_cf that vanishes when the subshell exits, so the finding
-# would be silently lost (measured: an earlier version did exactly this, and a genuine mismatch
-# in arm (c) below produced an empty $_cf after a green-looking read). So this prints one
+# would be silently lost, and a genuine mismatch in arm (c) below would read green. So this prints one
 # "MISMATCH <message>" line per problem found and "SUMMARK <checked> <na>" last; the caller reads
 # the last line for the counts and cf()s every MISMATCH line itself, in its own (non-subshell)
 # context.
@@ -2220,10 +2217,8 @@ case_set_models_all_rewrites_runners_too() {
 
 # =============================================================================
 # CASE — `set-models.sh --class <unknown>` REFUSES: nonzero exit, ONE progress record carrying
-# refusal=, and NO FILE under .claude/ changed. RED FIRST: an earlier draft of this script located
-# .claude/ only after parsing had already failed for other reasons, which this case does not
-# reach — but a script that guessed at an unknown class, or wrote partial output before checking,
-# would fail the "no file changed" half.
+# refusal=, and NO FILE under .claude/ changed. A script that guessed at an unknown class, or wrote
+# partial output before checking, would fail the "no file changed" half.
 # =============================================================================
 case_set_models_unknown_class_refuses() {
   cf_reset

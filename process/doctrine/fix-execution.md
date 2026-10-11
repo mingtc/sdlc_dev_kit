@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR program; § C is the donor project's catalogue, anonymized. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR program; § C is the catalogue of the project the pattern came from, anonymized. -->
 # Fix-execution doctrine — landing what a round found, without minting what it warned about
 
 > **Size note, owed by [`lookup-tables.md`](lookup-tables.md) § A.1.** This sheet is over that
@@ -164,8 +164,9 @@ So:
   cheaper to certify than one assembled across several, and the doctrine should say so rather than
   pretending the two are equivalent.
 
-*Why this is stated rather than left to the gate: a gate cannot enforce a span rule its doctrine has
-not chosen.*
+*Why this is stated rather than left to a gate: the sweep is a required step with a named owner,
+not a script arm ([`../contracts/release-ritual.md`](../contracts/release-ritual.md) § 2), so the
+span rule is the doctrine's alone.*
 
 **VERIFY BY EXECUTION WHERE THE SURFACE CAN BE EXECUTED, not only by reading.** A claim about what a
 command prints, what a refusal says, or what a flag does is checkable by running it, and reading is
@@ -239,7 +240,7 @@ discharged.
 
 **The worked instance, and it is the added half's first payment.** A board mover's sync could leave a
 metadata commit reachable from no ref at all. **Nothing about it is irreversible** — the commit is
-recoverable from the reflog, and the donor project recovered one that way. Under an
+recoverable from the reflog, and the project this pattern came from recovered one that way. Under an
 *irreversible-only* boundary, every guard for it would have been a sentence. What earned the
 mechanism was the second test: the tree is clean after the commit, so the dirty check cannot see it;
 the commit is not an ancestor of the ref, so the divergence arm reports **in sync ✓**; and the leg's
@@ -591,7 +592,7 @@ answer.** The bullets above cover the coordinator; these cover the topology.
 
 ---
 
-## § C — Worked example: the donor project's catalogue (anonymized)
+## § C — Worked example: the originating project's catalogue (anonymized)
 
 > Shapes, not incidents. Each happened **under the practices above** during one fix program, and each
 > names the amendment — a sentence where a sentence carries it, a seam fix where it cannot.

@@ -68,7 +68,7 @@ is not tidiness, it is a duplicate issue minted for work that already shipped.
 **And when you count this queue, classify each row's own last cell** — strip markdown emphasis
 first, accept any `open…` prefix, and let a trailing `Status:` declaration win over the cell's
 opening words. **Then reconcile against a second instrument.** A naive `grep -c "| open |"`
-under-reported one adopter's queue by 8 rows of 37.
+under-reports such a queue.
 
 **The reader.** `scripts/check-board.sh` reads this file — the path is a seam, `DQ_FILE` — and
 reports a row claiming to be open against an item that has already landed. **It reports only and

@@ -93,8 +93,8 @@ UPSTREAM_REPO_URL="${VENDORED_REPO_URL:-<upstream-repo-url>}"
 # and inside a build output directory. It must match ONLY artifacts — never the
 # dropped release documents — and must not need word-splitting (no spaces).
 #
-#   ┌ a worked example from the donor project (anonymized) ──────────────────┐
-#   │ The donor shipped one installable single-file package per release,      │
+#   ┌ a worked example (anonymized) ─────────────────────────────────────────┐
+#   │ A project shipped one installable single-file package per release,      │
 #   │ named `<name>-<version>-<platform-tags>.<ext>`, so its glob was         │
 #   │ `${VENDORED_NAME}-*.<ext>` and its dropped documents were named         │
 #   │ `${VENDORED_NAME}-GUIDE.md` etc. — deliberately a different shape, so   │
@@ -160,8 +160,8 @@ die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 #    consumer's own environment.
 build_artifact() {   # <output dir> <source dir>
     local outdir="$1" src="$2"
-    # ┌ a worked example from the donor project (anonymized) ────────────────┐
-    # │ The donor shipped one installable package per release, and its build │
+    # ┌ a worked example (anonymized) ───────────────────────────────────────┐
+    # │ A project shipped one installable package per release, and its build │
     # │ was four lines with this SHAPE — the shape is what travels, not the  │
     # │ tool:                                                               │
     # │                                                                     │
@@ -199,8 +199,8 @@ artifact_version() {   # <path or filename>
 # 3. THE PIN LINE + THE INSTALL HINT. The pin line is this script's ONLY stdout
 #    in build mode; it is what the consumer records in its dependency manifest.
 pin_line() {   # <vendored artifact path, consumer-relative>
-    # ┌ a worked example from the donor project (anonymized) ────────────────┐
-    # │ The donor's consumers pinned a LOCAL-FILE requirement in a plain     │
+    # ┌ a worked example (anonymized) ───────────────────────────────────────┐
+    # │ A project's consumers pinned a LOCAL-FILE requirement in a plain     │
     # │ requirements manifest — one line, `<name> @ file:<path>` — so a      │
     # │ fresh clone rebuilt its environment from the vendored file with no   │
     # │ upstream remote in the loop. Substitute your own mechanism: a lock-  │

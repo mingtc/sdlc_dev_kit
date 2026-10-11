@@ -540,6 +540,34 @@ case_a_required_option_left_out_exits_2() {
 }
 
 # =============================================================================
+# CASE — move-issue.sh WITH --role LEFT OUT PRINTS THE ERROR AND THE ONE SYNOPSIS LINE, NOT THE
+# WHOLE HELP TEXT. The error is the answer; a screenful of header above it buries it. The synopsis
+# line is read from the script's own --help, so the case holds no copy of it.
+# =============================================================================
+case_move_issue_without_role_prints_one_usage_line() {
+  cf_reset
+  if ! has_issue_template; then skp "move-issue.sh without --role prints one usage line" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local mv="$SB_WORK/scripts/move-issue.sh" help line out rc n
+  [ -x "$mv" ] || _fixture_die "case_move_issue_without_role_prints_one_usage_line: scripts/move-issue.sh is not in the sandbox"
+  help="$( cd "$SB_WORK" && ./scripts/move-issue.sh --help 2>&1 )"
+  line="$(printf '%s\n' "$help" | awk '/^Usage:/ { f = 1; next } f && !d { sub(/^ +/, ""); print; d = 1 }')"
+  [ -n "$line" ] || _fixture_die "case_move_issue_without_role_prints_one_usage_line: --help carries no 'Usage:' block to take the synopsis from"
+  n="$(printf '%s\n' "$help" | grep -c .)"
+  [ "$n" -gt 10 ] || _fixture_die "case_move_issue_without_role_prints_one_usage_line: --help is only $n lines — too short for 'not the whole help' to mean anything"
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$SB_PREFIX-001" in_progress 2>&1 </dev/null )"; rc=$?
+  [ "$rc" -eq 2 ] || cf "move-issue.sh without --role exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *"--role is required"*) : ;; *) cf "the refusal does not say --role is required: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  case "$out" in *"$line"*) : ;; *) cf "the output does not carry the synopsis line '$line': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  [ "$(printf '%s\n' "$out" | grep -c .)" -le 4 ] \
+    || cf "move-issue.sh without --role printed $(printf '%s\n' "$out" | grep -c .) lines ($n in its whole help) — the error and one synopsis line are the answer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-160)"
+
+  finish "move-issue.sh without --role exits 2 printing the error and the one synopsis line its own --help carries, not the $n-line help text"
+  teardown
+}
+
+# =============================================================================
 # CASE — TWO USAGE TEXTS STATE WHAT A SYNOPSIS WOULD HIDE. `verify.sh --scope` refuses (exit 2) until a gate
 # is classed `select`, and a freshly written gate record is `core`; `release.sh --approve-shipped` cuts
 # nothing but writes a draft manifest and leaves the tree dirty. Each text says so.
@@ -3018,9 +3046,9 @@ RULE_CTL_EOF
 # PROJECT.md's gates table has one row per contract sheet — run PROJECT.md's OWN check block
 # =============================================================================
 # PROJECT.md § Quality gates ships a two-command self-check (every contract-sheet link resolves;
-# every sheet under process/contracts/ has a row) and tells the reader to run it. Nothing ran it:
-# a sweep found two sheets UNROWED in the shipped table. This case runs that exact block, verbatim,
-# against the shipped tree, so the table and the directory are proven to agree rather than trusted to.
+# every sheet under process/contracts/ has a row) and tells the reader to run it. This case runs
+# that exact block, verbatim, against the shipped tree, so the table and the directory are proven
+# to agree rather than trusted to.
 case_project_md_one_row_per_contract_sheet() {
   cf_reset
   make_sandbox
@@ -3308,4 +3336,115 @@ EOF5
     || cf "(ablation) breaking every exemption tag in $prel left $after unexempt read(s) (was $before) — the census does not go red when an exemption is removed"
 
   finish "all reads of a card's frontmatter key and resolutions of a card's branch in ${#pop[@]} shipped shell program(s) go through lib/card-field.sh and lib/branch-rev.sh or carry a reasoned card-read-exempt marker ($nex exempt); the census read its planted control exactly, and appending each kind of reader, or removing the exemptions, turned it red"
+}
+
+# =============================================================================
+# CASE — EVERY case_* NAME THE SHIPPED PROSE CITES IS A CASE THAT EXISTS.
+# A comment or a doc that sends the reader to a case by name is a pointer; a pointer to a name
+# nothing defines sends them nowhere. The population is every path process/KIT-MANIFEST lists
+# (the release notes and their history cite cases by the names they had when they shipped, so
+# they are not read); the defined set is every `case_<name>()` under scripts/test/cases/. A cited
+# name ending in `*` is a prefix and must match at least one defined name. A control proves the
+# resolver reports a planted name nothing defines.
+# =============================================================================
+_case_names_missing() {   # <defined-names, one per line> <cited token>... — the tokens nothing defines
+  local defined="$1" tok pre; shift
+  for tok in "$@"; do
+    case "$tok" in
+      *\*) pre="${tok%\*}"; [ "$(printf '%s\n' "$defined" | grep -c "^$pre")" -gt 0 ] || printf '%s\n' "$tok" ;;
+      *)   [ "$(printf '%s\n' "$defined" | grep -cx -- "$tok")" -gt 0 ] || printf '%s\n' "$tok" ;;
+    esac
+  done
+}
+
+case_cited_case_names_exist() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" cdir="$REAL_SCRIPTS/test/cases" defined rel f n=0 ncited=0 miss="" got
+  [ -f "$man" ] || _fixture_die "case_cited_case_names_exist: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  if [ ! -d "$cdir" ]; then
+    skp "cited case names exist" "scripts/test/cases/ is absent from this tree"
+    return
+  fi
+  defined="$(grep -h '^case_[A-Za-z0-9_]*()' "$cdir"/*.sh | sed 's/().*$//' | sort -u)"
+  [ "$(printf '%s\n' "$defined" | grep -c .)" -gt 20 ] \
+    || _fixture_die "case_cited_case_names_exist: only $(printf '%s\n' "$defined" | grep -c .) case definition(s) were read — the derivation stopped matching, and 'every cited case exists' would be true of nothing."
+
+  # CONTROL: the resolver reports a name nothing defines, and accepts a defined one and a prefix.
+  local ghost="case_""zz_defined_nowhere" ghostpre="case_""zz*"
+  got="$(_case_names_missing "$defined" "$ghost" "$(printf '%s\n' "$defined" | sed -n '1p')" "$ghostpre")"
+  [ "$got" = "$ghost
+$ghostpre" ] || cf "(control) the resolver did not report exactly the two undefined tokens: $(printf '%s' "$got" | tr '\n' '|')"
+
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    f="$REAL_REPO_ROOT/$rel"
+    [ -f "$f" ] || continue
+    case "$rel" in process/KIT-RELEASE-NOTES.md|process/KIT-RELEASE-HISTORY.md) continue ;; esac
+    n=$((n+1))
+    got="$(grep -IhoE '(^|[^A-Za-z0-9_])case_[A-Za-z0-9_]+\*?' "$f" 2>/dev/null | sed -E 's/^[^A-Za-z0-9_]//' | sort -u || true)"
+    [ -n "$got" ] || continue
+    ncited=$((ncited + $(printf '%s\n' "$got" | grep -c .)))
+    # shellcheck disable=SC2046
+    got="$(_case_names_missing "$defined" $(printf '%s\n' "$got" | tr '\n' ' '))"
+    [ -z "$got" ] || miss="$miss $rel:$(printf '%s' "$got" | tr '\n' ',')"
+  done <<EOF_MAN
+$(awk '!/^#/ && NF >= 2 { print $2 }' "$man")
+EOF_MAN
+  [ "$n" -gt 0 ] || cf "(control) no path was read from process/KIT-MANIFEST, so the scan covered nothing"
+  [ "$ncited" -gt 20 ] || cf "(control) only $ncited case name(s) were found cited across $n file(s) — the pattern stopped matching"
+  [ -z "$miss" ] || cf "shipped prose cites a case that no file under scripts/test/cases/ defines:$miss"
+  finish "every case_* name cited in the $n shipped file(s) the manifest lists is defined under scripts/test/cases/ (or, for a trailing-star prefix, matches a defined name) — $ncited citation(s) read; the resolver was shown to report a planted undefined name"
+}
+
+# =============================================================================
+# CASE — A CONTRACT SHEET'S RULE-ID TABLE LISTS EXACTLY THE IDS ITS SCRIPT RAISES.
+# A sheet that tabulates refusals under a `| Rule id |` header is the reimplementer's list of what
+# the mechanism refuses; an id the script raises and the table lacks is a refusal the sheet does not
+# know, and one the table names that the script never raises is a promise nothing keeps. The
+# population is every contract sheet carrying that header, paired by name with scripts/<name>.sh.
+# A sheet that lists its refusals another way is not judged here, and neither is a script whose
+# sheet has no table.
+# =============================================================================
+_rule_id_table_diff() {   # <sheet> <script> — "SHEET-ONLY <id>" / "SCRIPT-ONLY <id>", one per difference
+  local sheet="$1" script="$2" listed raised
+  listed="$(awk '/^\| Rule id \|/ {t=1; next} t && /^\|/ {print; next} t {t=0}' "$sheet" \
+              | awk -F'|' '{print $2}' | grep -oE '`[a-z][a-z0-9]*(-[a-z0-9]+)+`' | tr -d '`' | sort -u)"
+  raised="$(grep -hoE 'kit_refuse +[0-9]+ +[a-z][a-z0-9]*(-[a-z0-9]+)+' "$script" | awk '{print $3}' | sort -u)"
+  comm -23 <(printf '%s\n' "$listed") <(printf '%s\n' "$raised") | sed '/^$/d; s/^/SHEET-ONLY /'
+  comm -13 <(printf '%s\n' "$listed") <(printf '%s\n' "$raised") | sed '/^$/d; s/^/SCRIPT-ONLY /'
+}
+
+case_contract_rule_id_tables_match_the_ids_raised() {
+  cf_reset
+  local cdir="$REAL_REPO_ROOT/process/contracts" sheet name script diff n=0 bad="" ctl
+  if [ ! -d "$cdir" ]; then
+    skp "contract rule-id tables match the ids raised" "process/contracts/ is absent from this tree"
+    return
+  fi
+  for sheet in "$cdir"/*.md; do
+    [ -f "$sheet" ] || continue
+    [ "$(grep -c '^| Rule id |' "$sheet")" -gt 0 ] || continue
+    name="$(basename "$sheet" .md)"; script="$REAL_SCRIPTS/$name.sh"
+    [ -f "$script" ] || { bad="$bad $name(no scripts/$name.sh to pair with)"; continue; }
+    n=$((n+1))
+    diff="$(_rule_id_table_diff "$sheet" "$script")"
+    [ -z "$diff" ] || bad="$bad $name:$(printf '%s' "$diff" | tr '\n' ',' | tr ' ' '=')"
+  done
+  [ "$n" -ge 2 ] || _fixture_die "case_contract_rule_id_tables_match_the_ids_raised: only $n contract sheet(s) carry a '| Rule id |' table — the derivation stopped matching, and 'the tables match' would be true of nothing."
+
+  # CONTROL, both directions, on copies — never the shipped files: drop one row from a sheet, and
+  # add a row for an id nothing raises; the diff must name exactly those two.
+  ctl="$(mktemp -d)"
+  sheet="$(grep -l '^| Rule id |' "$cdir"/*.md | sed -n '1p')"; name="$(basename "$sheet" .md)"
+  local base_n; base_n="$(_rule_id_table_diff "$sheet" "$REAL_SCRIPTS/$name.sh" | grep -c '^SCRIPT-ONLY ')"
+  awk '/^\| Rule id \|/ {t=1} t && /^\| `/ && !d {d=1; next} {print} t && /^\|---/ && !p {p=1; print "| `zz-phantom-rule` | planted |"}' "$sheet" > "$ctl/sheet.md"
+  diff="$(_rule_id_table_diff "$ctl/sheet.md" "$REAL_SCRIPTS/$name.sh")"
+  rm -rf "$ctl"
+  [ "$(printf '%s\n' "$diff" | grep -c '^SHEET-ONLY zz-phantom-rule$')" -eq 1 ] \
+    || cf "(control) a planted row for an id nothing raises was not reported SHEET-ONLY: $(printf '%s' "$diff" | tr '\n' '|')"
+  [ "$(printf '%s\n' "$diff" | grep -c '^SCRIPT-ONLY ')" -eq $((base_n + 1)) ] \
+    || cf "(control) a row dropped from the table did not add exactly one SCRIPT-ONLY line to the $base_n already reported: $(printf '%s' "$diff" | tr '\n' '|')"
+
+  [ -z "$bad" ] || cf "a contract sheet's '| Rule id |' table and the ids its script raises through kit_refuse differ (SHEET-ONLY: listed, never raised; SCRIPT-ONLY: raised, not listed):$bad"
+  finish "the '| Rule id |' table of each of the $n contract sheet(s) that carries one lists exactly the rule ids its script raises through kit_refuse, in both directions — the diff was shown to report a planted phantom row and a dropped row"
 }

@@ -6,6 +6,9 @@
 # removed, only moved out of the active board into done/.
 # ARCHIVE.md stays the condensed, searchable index; done/ holds the full bodies.
 # `declined/` is never swept: it is terminal, and its value is being browsable.
+# A swept parent that was decomposed takes its whole subtask tree with it
+# (progress/subtasks/<ID>/ -> progress/done/subtasks/); the sweep REFUSES, before any
+# write, while such a parent has a subtask that is neither in qa_complete/ nor declined/.
 #
 # ALL git ops (the ARCHIVE.md edit, the `git mv`, the commit, the push) happen
 # inside the STANDING detached `.kanban-wt/` worktree pinned to the trunk —

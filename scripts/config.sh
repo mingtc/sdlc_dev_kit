@@ -4,9 +4,9 @@
 # A consumer needing a value this seam lacks is a GAP IN THE SEAM, fixed by adding it here,
 # never by hard-coding it at the call site (process/contracts/config-seam.md § 3).
 #
-# `scripts/kit-init.sh` stamps ISSUE_PREFIX, PRD_PREFIX and PROJECT_NAME on day one; after
-# that, edit them here. A change takes effect on the next invocation; existing files are NOT
-# renamed.
+# `scripts/kit-init.sh` stamps ISSUE_PREFIX and PROJECT_NAME on day one, and PRD_PREFIX when
+# given --prd-prefix; after that, edit them here. A change takes effect on the next invocation;
+# existing files are NOT renamed.
 #
 # Override at runtime via env var, e.g.:
 #   ISSUE_PREFIX=TEST ./scripts/new-issue.sh foo --id TEST-001
@@ -68,9 +68,9 @@ CODE_GLOBS=(
 )
 
 # ── TEST_GLOBS — the one project-supplied definition the ablation rule needs
-#    (process/MANUAL.md § The Dev → QA handoff, the PASS action): "which paths are tests." Read by
-#    scripts/finish-pr.sh, which refuses a landing whose branch diff touches a declared test
-#    path with no well-formed `## Ablation` section in the issue file.
+#    (process/MANUAL.md § The Dev → QA handoff, step 6, the PASS verdict): "which paths are tests."
+#    Read by scripts/finish-pr.sh, which refuses a landing whose branch diff touches a declared
+#    test path with no well-formed `## Ablation` section in the issue file.
 #
 # SHIPPED EMPTY ON PURPOSE: empty means UNDECLARED, and finish-pr.sh treats undeclared as
 # unenforced — it reports that the check did not run rather than silently passing (same
@@ -79,10 +79,13 @@ CODE_GLOBS=(
 #
 #   TEST_GLOBS=(
 #     "tests/*"
-#     "src/**/*.test.js"
+#     "src/*.test.js"
 #   )
 #
 # Matched with `case` against a path RELATIVE TO THE REPOSITORY ROOT, same shape as CODE_GLOBS.
+# In a `case` pattern `*` already matches across `/`, so "src/*.test.js" covers a test directly
+# under src/ and any depth below it; `**` is not special, and "src/**/*.test.js" would miss
+# src/a.test.js.
 #
 # LEAVING IT EMPTY ON PURPOSE: the same `# DECLARED EMPTY — <why>` comment line, inside the
 # parens, that CODE_GLOBS documents above.

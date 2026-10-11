@@ -98,7 +98,7 @@ exactly the hole the reverse-direction guard closes (§ B).
 
 ### A.4 — The scoping law: a declared domain with a stated exemption, or do not build it
 
-*(Stated in the donor's own enforcement section as "the general rule this doctrine states";
+*(Stated in the originating project's own enforcement section as "the general rule this doctrine states";
 it is a pattern, so it lives here.)*
 
 **No repository-wide freshness or dead-pointer crawler.** This is refuted by measurement, not by
@@ -113,7 +113,7 @@ in six weeks as *"why is this only on handoffs?"*.
 
 ### A.5 — A stamp guard over a heterogeneous corpus keys on STRUCTURE, never on a word
 
-*(Also stated in the donor's enforcement section as a general rule.)*
+*(Also stated in the originating project's enforcement section as a general rule.)*
 
 A bare-substring check (*does this file contain "retired" or "superseded" anywhere?*) is sound over
 a **homogeneous** corpus where that vocabulary is rare in the bodies — a directory of handoffs, say.
@@ -165,7 +165,7 @@ Three guards are worth building, in this order, and the third is usually the che
 3. **The reverse index leg** — every link in your retained area's index must **resolve on disk**.
    This is the direction a retirement sweep breaks (§ A.3's corollary), and it is a few lines.
 
-**Say plainly what you did NOT build, and why.** The donor's list, each refuted or deferred with its
+**Say plainly what you did NOT build, and why.** The originating project's list, each refuted or deferred with its
 reason, is worth reusing as a starting point: a repository-wide cited-path-exists guard (refuted by
 measurement — § A.4); a **wall-clock** staleness guard (*"a plan still live after N days"*) —
 time-dependent redness is flaky and punishes long-running work, and the citation-graph form catches
@@ -212,8 +212,8 @@ in a document claiming to be current** — is a defect.
   *Where it bites hardest, and this is the half worth remembering:* **in a record that becomes law.**
   A figure in a run report is read once and discarded. A figure in a doctrine sheet, a contract or a
   charter is **quoted onward** — so a mis-resolved population is not one wrong sentence, it is the
-  seed of several, each of them now carrying a number nobody can re-derive. *Measured in the donor
-  project: one unqualified count in one sheet reached three downstream documents before anyone asked
+  seed of several, each of them now carrying a number nobody can re-derive. *Measured in the project this
+  pattern came from: one unqualified count in one sheet reached three downstream documents before anyone asked
   which population it named.*
 - **A re-measurement PREPENDS; it does not overwrite.** The old figure keeps its date
   ([`supersession.md`](supersession.md) § A.1), because two dated figures are how a reader sees the
@@ -297,7 +297,7 @@ gate, no arm of the gate runner.
 Gating adoption on sweeping every existing file would make the doctrine wait on the exact activity
 it abolishes. § D's rule is what collects the remainder — each file gets its stamp the next time it
 is touched, with the guards' redness standing as the visible debt in the meantime. When you measure
-the backlog, **date the figure** (§ C): the donor's own count moved within a day of being taken,
+the backlog, **date the figure** (§ C): the originating project's own count moved within a day of being taken,
 which is precisely the drift § C exists to stop being asserted as a bare fact.
 
 ## § E — Three claim classes a document audit does not look at (the pattern)

@@ -17,7 +17,7 @@ from memory, which is the exact failure it exists to prevent.
 
 > **<one sentence: what this corpus is FOR>**
 
-<!-- One example of the shape, from the donor project this kit was cut from — not law for you:
+<!-- One example of the shape, from the project this kit was cut from — not law for you:
      "the requirements corpus should be able to regenerate the product — not deterministically,
       but each artifact class narrows the variance."
      Whatever you write, everything below must be downstream of it. -->
@@ -85,7 +85,7 @@ the only reliable way to notice is a guard that fails.
 | `docs/` | `<bucket — reference material this project did not write. A vendor's API guide may genuinely be an input to rebuilding and belong in `corpus`; a stakeholder artifact produced to leave the project is neither. Decide per what you actually keep there, and say why>` |
 | `process/` | `<bucket>` |
 | `README.md`, `PROJECT.md`, `AGENTS.md` | `<bucket>` each |
-| `.claude/`, `scripts/`, `consumers/`, `setup.sh`, `.env.example`, `.gitignore` | `<bucket>` each |
+| `.claude/`, `scripts/`, `consumers/`, `setup.sh`, `.env.example`, `.gitignore`, `LICENSE`, `LICENSE-CONTENT` | `<bucket>` each |
 | `<your file or dir>` | `<bucket>` |
 
 ## Precedence — when two corpus members disagree
@@ -107,7 +107,7 @@ Until that guard exists, say so here in one line rather than leaving the heading
 
 ## What belongs in a corpus entry — the lessons from an actual regeneration
 
-The donor regenerated one module from its corpus alone and classified every divergence. The format
+That project regenerated one module from its corpus alone and classified every divergence. The format
 lessons, in the order they cost the most:
 
 1. **A corpus gap is a MISSING SENTENCE with a HOME.** Record each gap as the exact sentence that

@@ -77,8 +77,7 @@ to change and making every change self-recording.
   item, rather than reporting only that nothing matched.
   *Why:* the move is published to the trunk (invariant above) and is therefore computed against
   the trunk's copy of the board. "Not found" is then a **true statement with an unfindable
-  cause** — and it was hit **three times independently**, in three unrelated runs, before anyone
-  wrote it down. The counterpart obligation is on creation: see
+  cause**. The counterpart obligation is on creation: see
   [issue-creation.md](issue-creation.md) § 2.
 - **A REFUSAL LEAVES NOTHING BEHIND — and where it cannot promise that outright, it tries.**
   Every refusal decided from the invocation alone — argument shape, which of the two operations,

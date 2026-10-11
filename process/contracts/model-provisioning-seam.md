@@ -13,7 +13,7 @@ ladder and tooling still expect. This contract is what "changed" must mean.
   agrees.** Where a leaf-worker definition exists for the class, its frontmatter pin; where the
   ladder documents the class, its row.
   *Why:* a class set in one place and read from another is how a re-provisioning silently
-  half-happens — measured directly (§ B below).
+  half-happens.
 - **The ladder is the authority; the pins and the runner default follow it, never the reverse.**
   Setting a class writes the ladder's row and the pin(s) together, in the same act.
   *Why:* a pin edited without its row, or a row filled without its pin, is exactly the

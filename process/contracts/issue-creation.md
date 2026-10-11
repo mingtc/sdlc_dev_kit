@@ -29,8 +29,8 @@ state — so that every tool and every reader downstream can rely on the shape w
   *Why:* creation is stateless and therefore repeatable and testable; the one place numbers are
   chosen stays the one place (see [id-minting.md](id-minting.md)).
 - **The identifier in the header and the identifier in the item's own name AGREE.** The
-  substitution that stamps the identifier keys on the header's *key*, never on a donor-shaped
-  value, so it cannot silently match nothing.
+  substitution that stamps the identifier keys on the header's *key*, never on a value shaped like the template's
+  example, so it cannot silently match nothing.
   *Why:* a substitution that matches nothing fails silently and every created item carries the
   template's example identifier — which is exactly how one project produced a whole board of
   items whose header said one thing and whose name said another, and whose drift report then
@@ -44,9 +44,7 @@ state — so that every tool and every reader downstream can rely on the shape w
   operator's workspace, and the board mover — which computes against the **published** board —
   cannot see it. Creation therefore prints the publication step as an unmissable next step, and
   does not perform it.
-  *Why:* the two invariants together are a trap, and it caught **three independent agents** in
-  three unrelated runs, each losing the same twenty minutes to a mover saying only that nothing
-  matched. The fix belongs to the **prose and the error message**, not to inertness: a creation
+  *Why:* the two invariants together are a trap: the mover says only that nothing matched. The fix belongs to the **prose and the error message**, not to inertness: a creation
   script that commits and pushes would publish drafts nobody has read and would break § 4.3's
   *"nothing else changed"*. The mover's half of this obligation is in
   [board-mover.md](board-mover.md) § 2.
@@ -119,10 +117,10 @@ state — so that every tool and every reader downstream can rely on the shape w
   kit that status is **2**: a caller scripting against the set cannot branch on a status that means
   *unknown option* in one tool and something else in the next.
   **2 is not the majority's value, it is the PUBLISHED one:** `finish-pr.sh`'s exit table declares
-  `2  Usage error: an unknown option or a missing option value. Nothing was read or touched.`,
-  which is the only place the kit writes down what a status MEANS.
-  **A required OPTION left out is the same class and exits 2 too** (`--id`, `--role`, `--title` and
-  the like): the caller got the arguments wrong, and nothing was read or touched. A required
+  it as the usage-error status — an unknown option, a missing option value, or a required option left
+  out (`--id`, `--role`, `--title` and the like): the caller got the arguments wrong, and nothing was
+  read or touched. That table is the only place the kit writes down what a status MEANS; the other
+  scripts' exit tables cite it. A required
   POSITIONAL left out, or a surplus one, is a different class and keeps its own status — the two are
   told apart by a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing
   it would be.

@@ -120,25 +120,30 @@ TRUNK="$(git -C "$ROOT" symbolic-ref --short "refs/remotes/$KWT_REMOTE/HEAD" 2>/
 
 # CODE_GLOBS: the one project-supplied definition (process/MANUAL.md § The code-vs-metadata
 # rule). Read from config.sh WITHOUT sourcing it (config.sh may itself be one of the staged
-# paths mid-edit, and sourcing arbitrary staged content into a hook is not a thing to do) — a
-# narrow, anchored parse of its one array, same shape scripts/test's _neu_array expects to find.
+# paths mid-edit, and sourcing arbitrary staged content into a hook is not a thing to do) — by
+# lib/glob-array.sh's kit_glob_array, the one reader of that array. Without the library the
+# declaration cannot be read, and a gate that allows on doubt reads as armed, so the commit is refused.
 CODE_GLOBS=()
 CFG="$ROOT/scripts/config.sh"
 if [ -r "$CFG" ]; then
+  KIT_GLOB_LIB_OK=0
+  # shellcheck source=../lib/glob-array.sh
+  if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/glob-array.sh" ] \
+     && . "$HOOK_DIR/../lib/glob-array.sh" 2>/dev/null && command -v kit_glob_array >/dev/null 2>&1; then
+    KIT_GLOB_LIB_OK=1
+  fi
+  if [ "$KIT_GLOB_LIB_OK" -eq 0 ]; then
+    gm1="✗ pre-commit guard: scripts/lib/glob-array.sh is unreadable, so CODE_GLOBS cannot be read — refusing the commit."
+    gm2="Next: restore it with  git checkout -- scripts/lib/glob-array.sh  (or from the release zip), then commit again."
+    if command -v kit_refuse >/dev/null 2>&1; then
+      kit_refuse 1 pre-commit-glob-lib-missing "$gm1" "$gm2"
+    fi
+    printf '%s\n' "$gm1" "$gm2" >&2
+    exit 1   # exit-class: fallback
+  fi
   while IFS= read -r _line; do
-    CODE_GLOBS+=("$_line")
-  done < <(awk '
-    /^CODE_GLOBS=\($/ { in_arr=1; next }
-    in_arr && /^\)/ { in_arr=0; next }
-    in_arr {
-      line=$0
-      sub(/^[[:space:]]*/, "", line)
-      sub(/[[:space:]]*#.*$/, "", line)
-      if (line == "") next
-      gsub(/^"|"$/, "", line)
-      print line
-    }
-  ' "$CFG")
+    case "$_line" in E\|*) CODE_GLOBS+=("${_line#E|}") ;; esac
+  done < <(kit_glob_array CODE_GLOBS "$CFG")
 fi
 
 # UNDECLARED CODE_GLOBS IS NOT "NO CODE EXISTS" — it is "this project has not said yet," and

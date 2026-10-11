@@ -135,7 +135,7 @@ reason survives the answer is still owed the setting question.
 missed is right. If it is itself defective, the dissent may have been the better call, and the finding
 is a defect in your answer rather than a missing pointer.
 
-### A.3 — Does the argument survive the donor being anonymous?
+### A.3 — Does the argument survive the originating project being anonymous?
 
 > Strip every identifier — the project, the product, the person, the tree, the incident — and read the
 > argument back. **If it stops being persuasive, it had not generalised; it was borrowing.**
@@ -282,7 +282,7 @@ is this kit's test for a sheet boundary.
 - **[`negative-claims.md`](negative-claims.md)** and **[`consumer-output.md`](consumer-output.md)**
   govern what a *claim* or an *output* may say. Nothing here is about a claim's wording; it is about a
   disposition taken before anything is written.
-- **The pattern-vs-instance rule in the extraction manifest** is the nearest relative and it is about
+- **The pattern-vs-instance rule in the extraction manifest** (`process/EXTRACTION.md`, its "Prior art" paragraph: the kit keeps the lessons and none of the source project's identifiers, paths or product facts) is the nearest relative and it is about
   the wrong object: it keeps one project's **facts** out of what ships. This sheet keeps one project's
   **preferences** out of what ships. A preference is harder to catch precisely because it arrives as an
   argument rather than as a name, which A.3 is the answer to.

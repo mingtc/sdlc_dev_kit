@@ -175,7 +175,7 @@ here, by the seat and the PM together, before the seat can act on them:
   behind an explicit authorization token, **state the exact invocation** and state that without
   it every such test is loud-skipped. (`<fill in>`)
 - **The release contract** — what a cut ships, who authors what, and what the release script
-  refuses. Two donor rules worth copying:
+  refuses. Two rules worth copying:
   1. **A consumer-facing notes document is not a paste of the changelog.** It carries its own
      relevance filter (public symbols and flags, observable behavior changes, new refusals,
      credential/privilege requirements, every dependency add or pin move, known limitations —
@@ -196,7 +196,7 @@ Two rules bind how this section is written, and they come from the supersession 
    enforcing the old conclusion is **transformed, never deleted**. A rationale-free strike is
    what gets a settled argument re-litigated
    ([`process/doctrine/supersession.md`](../../process/doctrine/supersession.md)).
-2. **Every bullet says when and with whose consent it was added or changed.** The donor's habit
+2. **Every bullet says when and with whose consent it was added or changed.** A habit worth copying
    — a parenthetical *(added YYYY-MM-DD with the seat's consent, per the PM's ruling that …)* —
    is what makes a contract auditable rather than merely present.
 

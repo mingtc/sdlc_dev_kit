@@ -6,8 +6,8 @@ ships *to its consumers*, alongside the vendored artifact. A router fires on a *
 shape** and answers with an **address** — the name of a section in the vendored
 documents, or the console command to run. It carries **no content of its own**.
 
-**What this directory is not.** It is not a copy of the donor project's pack. The donor's
-routers cited that project's own document sections, and porting them would have shipped
+**What this directory is not.** It is not a copy of any one project's pack. Such a pack's
+routers cite that project's own document sections, and porting them would have shipped
 dozens of dead addresses. What travels is the **pattern below** plus one skeleton
 (`EXAMPLE-start-here/`) showing the shape. `install-skills.sh` skips this README and any
 `EXAMPLE-*` directory, so a project that has not authored a pack installs nothing.
@@ -98,7 +98,7 @@ often, or faster, than one given the documents alone."* Hypotheses get measured.
   `process/templates/run-report.template.md`), so the next session inherits the
   measurement instead of re-deciding on taste.
 
-> Worked example from the donor project (anonymized): its pack was deliberately built to be
+> Worked example (anonymized): one project's pack was deliberately built to be
 > A/B measured, with the design for the comparison written down as its own work item before
 > the pack shipped — and the design said, in as many words, that thinness was the variable.
 > The lesson kept here is the sequence: **decide the measure, then ship the pack**, because

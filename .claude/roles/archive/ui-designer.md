@@ -113,9 +113,7 @@ not a property of the role:
    **drive the RUNNING app yourself**: navigate real routes, exercise real interactions and
    theme/lens states, measure computed styles + contrast on the live DOM, and capture your own
    screenshots as artifacts. This is the strongest mode: **static review structurally misses
-   interaction states, theme variants, and composited-contrast failures.** (A real project
-   learned this the hard way — an entire feedback round's misses traced back to
-   static-screenshot review.)
+   interaction states, theme variants, and composited-contrast failures.**
 2. **Screenshot mode.** When no live harness exists for the stack (native mobile/TV, no
    automation tooling, or the tool isn't installed), the user provides the eyes via screenshots —
    **request them explicitly, per surface and per state.** Don't audit a single happy-path frame.

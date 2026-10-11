@@ -10,7 +10,6 @@
      process/MANUAL.md will drift, and the copy will win arguments it should lose.
   LINKS are written for this file's DESTINATION (the repository root) and resolve once copied
   there; while it sits in process/templates/, `process/…` targets are one level up at `../…`.
-  Any version shown in an example is the deliberately fictional 42.x.
   DROP THE KIT-CLASS MARKER above from your copy: it classifies this file for the kit, not for
   your project. (Your adapter is PROJECT-class by nature — it is the one file that never travels.)
 -->
@@ -99,8 +98,10 @@ every carrier, parking touches none of the scripts.*
   declare it deliberately empty the way `scripts/config.sh` documents beside the array.
 
   <!-- THE GLOBS CONVENTION, stated so the fill-in in scripts/config.sh is unambiguous:
-       • Write real globs, one per entry, `**`-rooted at the repository root — e.g. `src/**`,
-         `tests/**`, and the ONE manifest/build file your language uses.
+       • Write real globs, one per entry, rooted at the repository root — e.g. `src/*`, `tests/*`,
+         and the ONE manifest/build file your language uses. Entries are shell `case` patterns:
+         `*` already matches across `/`, `**` is not special, and `src/**/*.js` would miss
+         `src/main.js`.
        • The list is a WHITELIST of what needs a branch, not a description of the tree. If a path
          is not named, a worker may commit it straight to the trunk — so an omission is a licence,
          not a gap.

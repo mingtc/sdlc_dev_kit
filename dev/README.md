@@ -36,10 +36,8 @@ own `dev/<dir>/README.md` and leave a one-line row here pointing at it.** **That
 per-file rows for its members — the split-out directory's README is their index, and this is the
 exception the opening sentence names.** *A split-out directory owes its members an index of its own;
 where their filenames already carry one (a dated convention that `ls` sorts), that is it, and a table
-restating it would be a second copy.* *(Measured lesson from the
-donor project this kit was cut from: its `dev/README.md` grew until most rows were over any
-defensible size cap and one single row was several thousand bytes — the index had become the thing
-it was supposed to make unnecessary to read.)*
+restating it would be a second copy.* *(An index whose rows grow
+past any defensible size has become the thing it was supposed to make unnecessary to read.)*
 
 **Dated filenames, `YYYY-MM-DD-<slug>.md`.** The date is part of the claim. A file whose name has no
 date will be read as current no matter what its first paragraph says.

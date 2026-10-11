@@ -8,7 +8,8 @@
 # blanket `git add -A` here. The checkout route stages its payload, so a plain `git commit`
 # carries it past every guard below (process/contracts/kanban-worktree.md § 1).
 #
-# Sourced by move-issue.sh, finish-pr.sh, subtask.sh and archive.sh. Every kanban git operation
+# Sourced by every script that touches the board (derive them: grep -l kanban-worktree.sh
+# scripts/*.sh). Every kanban git operation
 # (the `git mv`, the Activity append, the commit, the push) happens in a STANDING worktree,
 # `.kanban-wt/` at the repo root, gitignored. The operator's checkout is NEVER switched: on the
 # trunk with a clean tree it is fast-forwarded after a successful op, otherwise left untouched.

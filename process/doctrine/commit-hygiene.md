@@ -19,7 +19,9 @@ the *reasoning*, and the rules the contract deliberately leaves out.
 ### A.1 — **No generated co-author trailers, ever**
 
 > No `Co-Authored-By:` line naming a tool, and no *"Generated with …"* line, in any commit
-> message. The same rule covers a spec, an issue file's activity entry, and a review note.
+> message. The same rule covers a spec, an issue file's activity entry, and a review note — for
+> those files the hook and the drift report's trailer arm read commit messages only, so a
+> reviewer is the check.
 
 **Why, and it is not modesty.** Three independent reasons, and dropping any one still leaves the
 rule standing:
@@ -47,8 +49,9 @@ documented bypass exists for carrying somebody else's commit verbatim, not for y
 wording family has one authoring site, the hook itself (`scripts/githooks/commit-msg`), and
 `scripts/lib/attrib-trailer.sh` reads it from there, so the hook and `check-board.sh` arm [h] (which
 reads history for the same family) derive the same match instead of drifting apart. It matches wordings and a list of vendor and model-family words, not every harness's own
-vocabulary (a model name the list lacks is a gap it does not close) — § B is where a project states what its own harness
-adds and how the hook is told about it.
+vocabulary (a word the list lacks is a gap it does not close): a project whose harness uses another
+word adds it to `TOOL_TRAILER_MARKERS` (or the wording to `ATTRIB_TRAILER_WORDS`) in that hook, the one
+authoring site.
 
 ### A.2 — **The subject declares the acting role, and the guard runs at write time**
 
@@ -174,7 +177,7 @@ guarding*:
 
 **The tell that you are in this case rather than outside the rule: you are about to write a comment
 explaining why your situation is really covered.** A site that has to argue the general rule applies to
-it is reporting that the general rule does not look like it does. *Every instance the donor met
+it is reporting that the general rule does not look like it does. *Every instance met
 shipped the same apologetic comment at the enrolment site — independent readings of this section, none
 of which recognised its own case in it. The comment was not wrong. It should not have had to exist.*
 
@@ -275,9 +278,9 @@ run is a detector, and it completes the proof the branch could only half make).
    "we have none": it is "nobody has looked", and the first prospective instance is where you find
    out.*
 
-### A worked example from the donor project (anonymized)
+### A worked example from the project this pattern came from (anonymized)
 
-The donor's remote spent a stretch of days **refusing every push, repo-wide** — a hook on the
+That project's remote spent a stretch of days **refusing every push, repo-wide** — a hook on the
 hosting side rejected every ref, including a brand-new throwaway branch; `fetch` still worked.
 Local commits succeeded normally. Several work items were implemented, reviewed and verified
 during that window, and each one closed as **"complete, verified, `LAND_READY` — local only, no

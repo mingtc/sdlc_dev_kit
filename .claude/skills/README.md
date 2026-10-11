@@ -2,8 +2,8 @@
 # Project Skills
 
 This directory contains the **Claude Code skills the kit ships**, version-controlled with the
-repo and organized into four role-based skill sets — **PM**, **Dev**, **QA**, **Refactorer** —
-plus one standalone skill (`orchestrate`). Anyone who clones the repo gets them automatically:
+repo and organized into role-based skill sets — **PM**, **Dev**, **Refactorer** (QA ships none:
+see below) — plus the standalone skills (`orchestrate`, `start`). Anyone who clones the repo gets them automatically:
 Claude Code discovers skills in `.claude/skills/` and exposes them to the session.
 
 How many? The directory listing is the count — `find .claude/skills -name SKILL.md | wc -l` —
@@ -248,7 +248,8 @@ an instruction in one tool's or one forge's command, this kit keeps the instruct
 command to a named example — the setup commands in `using-git-worktrees`, the review-thread reply
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
 it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
-has repaired citations, `using-git-worktrees` gained an external-directory note,
+has repaired citations and names its implementation skills, `requesting-code-review` and
+`subagent-driven-development` show the kit's plan filename in their worked examples, `using-git-worktrees` gained an external-directory note,
 `writing-plans` saves plans under the kit's id-keyed name, and `systematic-debugging`'s `find-polluter.sh`
 takes its runner from `TEST_CMD`, refuses a clean result over zero matched files or a pre-existing path,
 and runs each matched path whole. (`brainstorming`'s visual companion is

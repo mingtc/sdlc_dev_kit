@@ -19,13 +19,15 @@ contract**; anything outside the AC is out of scope for this pickup.
 
 ## Provisioning contract
 
-Opus **medium** is the seed default (the frontmatter above); `.claude/roles/dev.md`
-§ "Model & effort contract" is filled to match it. Deviations are the **caller's** to make,
-never yours to assume — and the caller **cannot set effort on the spawn call** (the spawn tool
-carries `model` only): an escalation reaches you through one of the two mechanisms in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
-(the Workflow tool's per-call `effort`, or the serial frontmatter toggle on this file). **You
-never raise your own effort; there is no self-knob.**
+Opus **medium** is the seed default (the frontmatter above); fill `.claude/roles/dev.md`
+§ "Model & effort contract" to match it (`scripts/set-models.sh` writes the pin and the
+orchestrator's ladder row together). Deviations are the **caller's** to make, never yours to
+assume. Whether the spawn call can carry an effort is the harness's to say: the caller checks the
+spawn tool's own parameter list
+([`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
+item 2), and otherwise an escalation reaches you through the Workflow tool's per-call `effort` or
+the serial frontmatter toggle on this file (§ B.1 item 3). **You never raise your own effort;
+there is no self-knob.**
 
 - **high** — work on a declared risk surface, or genuinely hard work.
 - **xhigh** — beast-class problems, **only by PM sign-off**.

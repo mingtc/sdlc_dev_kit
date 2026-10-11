@@ -6,8 +6,10 @@
 # HOW TO RUN
 #   ./scripts/test/run.sh          # run every case; exit 0 iff none FAILed
 #
-# It exits 0 when all cases PASS (or SKIP), and NONZERO when any case FAILs,
-# printing a per-case PASS / FAIL / SKIP summary at the end.
+# It exits 0 when no case FAILs, and NONZERO when any does, printing a summary at the end of four
+# outcomes: PASS, FAIL, SKIP, and N/A-on-lived-tree — a case whose subject (a shipped file) is
+# gone from a tree that finished day one. N/A is expected only on an adopted tree, and the
+# four add up to the number of cases defined.
 #
 # WHAT IT IS — and IS NOT
 #   • Pure bash + git, plus `perl`, which rewrites sandbox fixtures and is PROBED AT
@@ -35,12 +37,12 @@
 #   passes when repeated alone. The cause is not known. Re-run alone before debugging such
 #   a red. (case_isolation is a different property: the real repository is unchanged.)
 #
-# NOTHING HERE HARD-CODES A PREFIX OR A TRUNK NAME
-#   Both are DERIVED from the seams (scripts/config.sh's ISSUE_PREFIX,
-#   kanban-worktree.sh's KWT_TRUNK_LAST_RESORT, this repo's own <remote>/HEAD), so
-#   a project that changed either still gets a green harness. A harness that
-#   asserts one project's literals is a harness that reddens on adoption and
-#   teaches the adopter to ignore it.
+# THE TRUNK IS DERIVED; THE PREFIX AND THE ROLE SET ARE THE KIT'S SHIPPED VALUES
+#   The trunk comes from this repo's own <remote>/HEAD, else kanban-worktree.sh's
+#   KWT_TRUNK_LAST_RESORT. The prefix and the role set are the neutral values lib/fixtures.sh
+#   declares, which every sandbox is reset to, so a project that changed any of the three still
+#   gets a green harness. A harness that asserts one project's literals is a harness that
+#   reddens on adoption and teaches the adopter to ignore it.
 #
 # PROJECT-SPECIFIC FAMILIES ARE PROBED, NEVER ASSUMED
 #   Two families exist only if this project has the surface they test:
@@ -226,7 +228,7 @@ unset _hs _harness_loaded
 # =============================================================================
 echo "kit self-test harness — sandboxed board-script cases"
 echo "real repo: $REAL_REPO_ROOT"
-echo "derived seams: prefix=$SB_PREFIX  trunk=$SB_TRUNK  first role=$SB_ROLE"
+echo "sandbox seams: prefix=$SB_PREFIX (kit neutral)  trunk=$SB_TRUNK (derived)  first role=$SB_ROLE (kit neutral)"
 echo "consumer seam: ${CONSUMER_SCRIPT:-(unset — that family will SKIP)}"
 echo
 isolation_snapshot
@@ -327,6 +329,7 @@ CASES=(
   case_finish_pr_qa_verdict_fail_row_on_pass_refuses
   case_finish_pr_qa_verdict_ac_mismatch_refuses
   case_finish_pr_qa_verdict_shadow_check_required
+  case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched
   case_finish_pr_qa_verdict_well_formed_lands
   case_finish_pr_qa_verdict_pointer_unresolved_refuses
   case_finish_pr_qa_verdict_quote_checks_refuse
@@ -384,6 +387,7 @@ CASES=(
   case_commit_msg_attribution_family
   case_pre_commit_undeclared_code_globs_is_a_noop
   case_pre_commit_refuses_metadata_off_trunk
+  case_pre_commit_reads_code_globs_through_the_shared_reader
   case_pre_commit_allows_metadata_on_trunk
   case_pre_commit_allows_code_on_a_branch
   case_pre_commit_refuses_a_commit_with_no_hat
@@ -500,6 +504,7 @@ CASES=(
   case_kit_init_project_name_refusal
   case_kit_init_directory_name_is_validated
   case_kit_init_refuses_progress_md_without_log_heading
+  case_kit_init_next_line_repeats_only_the_arguments_given
   case_kit_init_refuses_archive_md_without_archived_heading
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
@@ -520,8 +525,11 @@ CASES=(
   case_notify_help_is_the_header_and_the_hook_answers_without_stdin
   case_creator_usage_prints_one_form_on_every_path
   case_a_required_option_left_out_exits_2
+  case_move_issue_without_role_prints_one_usage_line
   case_usage_text_states_what_scope_and_approve_shipped_do
   case_no_shipped_file_hard_codes_the_grep_path
+  case_cited_case_names_exist
+  case_contract_rule_id_tables_match_the_ids_raised
   case_help_window_ends_where_its_rule_says
   case_project_credential_blank_is_countable
   case_minted_card_is_drift_clean

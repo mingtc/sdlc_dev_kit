@@ -1433,6 +1433,52 @@ case_pre_commit_refuses_metadata_off_trunk() {
 }
 
 # =============================================================================
+# CASE — the pre-commit hook reads CODE_GLOBS through the shared reader, and refuses when it cannot.
+# lib/glob-array.sh is the one reader of that array; the hook carries no parser of its own. So with the
+# library gone the declaration is unreadable, and a gate that allows on doubt reads as armed: the commit
+# is refused, naming the library — and the same commit with the library present is refused for the
+# REAL reason (a metadata-only commit off the trunk), which proves the two arms are different.
+# =============================================================================
+case_pre_commit_reads_code_globs_through_the_shared_reader() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit" cfg="$SB_WORK/scripts/config.sh" lib="$SB_WORK/scripts/lib/glob-array.sh"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: reads CODE_GLOBS through the shared reader" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+  [ -f "$lib" ] || _fixture_die "case_pre_commit_reads_code_globs_through_the_shared_reader: scripts/lib/glob-array.sh is not in the sandbox"
+
+  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
+  publish_sandbox
+
+  ( cd "$SB_WORK" && git checkout -q -b feature/reader-check )
+  echo "a ruling" > "$SB_WORK/a-metadata-file.md"
+  git -C "$SB_WORK" add a-metadata-file.md
+
+  local out rc
+  # (control) with the library present: refused, and for the metadata reason.
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(control) a metadata-only commit off the trunk was ACCEPTED with the reader present"
+  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null \
+    || cf "(control) the refusal with the reader present does not name register-commit.sh: $out"
+
+  # With the library gone: refused, naming the library — not silently allowed, and not by a private parser.
+  rm -f "$lib"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "with scripts/lib/glob-array.sh gone the commit was ACCEPTED — a gate that allows on doubt reads as armed"
+  printf '%s' "$out" | grep -F 'glob-array.sh' >/dev/null \
+    || cf "with the reader gone the refusal does not name scripts/lib/glob-array.sh: $out"
+  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null \
+    && cf "with the reader gone the hook still judged the paths itself — it carries a parser of its own"
+  git -C "$SB_WORK" diff --cached --name-only | grep -F 'a-metadata-file.md' >/dev/null \
+    || cf "the refusal left the change NOT staged"
+  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] add a-metadata-file.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "MSG_OK=1 did not bypass the guard with the reader gone: $out"
+
+  finish "pre-commit: reads CODE_GLOBS through lib/glob-array.sh and carries no parser of its own — with the library gone a metadata-only commit off the trunk is refused naming the library, and with it present the same commit is refused for the code-vs-metadata reason"
+  teardown
+}
+
+# =============================================================================
 # CASE — the pre-commit hook allows a metadata-only commit made ON the trunk branch itself, and
 # from a DETACHED HEAD (the kanban worktree's own permanent state) — the two shapes the hook must
 # never touch, or every board-script commit and every .kanban-wt op would start failing.
@@ -2017,7 +2063,7 @@ PRD_PREFIX="${PRD_PREFIX:-REQ-2}"
 #
 # The trunk chain (<remote>/HEAD → init.defaultBranch → the kit's last-resort constant) is
 # implemented in kwt_resolve, check-board.sh and release.sh, and cannot be one function:
-# release.sh sources only lib/exit-trap.sh and lib/refuse.sh from scripts/lib/ (its header says so). So the invariant is
+# release.sh sources only the few libraries its top names from scripts/lib/ (its header says so). So the invariant is
 # held here: every step below the first warns, in each. Step 2 is where a real cut lands,
 # since a developer machine usually has init.defaultBranch set. The states are built by
 # removal, starting from step 1.

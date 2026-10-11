@@ -69,9 +69,7 @@ If PROJECT.md declares the stack, recommend the matching deterministic tools. Ex
 
 **BEFORE YOU BELIEVE A TOOL'S OUTPUT, PROVE IT SAW THE SUBJECT.** Every tool above has an
 exclusion list, a default glob and a config file, and **a scan that reached none of your code
-reports clean** — indistinguishable, in the output pane, from a codebase with no smells. (Measured at an adopter:
-a scanner whose own exclusion list held `src/` reported clean and buried the audit's two
-highest-priority findings.)
+reports clean** — indistinguishable, in the output pane, from a codebase with no smells.
 
 So for each tool you run, before recording anything from it:
 

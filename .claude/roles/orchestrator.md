@@ -8,9 +8,9 @@ the gates the human actually values. Read [PROJECT.md](../../PROJECT.md) first f
 project-specific context (stack, quality bar, build order, run commands).
 
 This role exists to remove the *inter-stage human relay* that the per-session,
-paste-a-session-start-phrase model imposes — three cold-start agents and ~9 relays per
-issue collapse to **one conversation that carries state across stages and stops at two
-decisions**. It sits *above* PM/Dev/QA; it invokes their workflows, it does not replace
+paste-a-session-start-phrase model imposes — a cold-start agent and a human relay at every
+stage collapse to **one conversation that carries state across stages and stops only at the
+events in § The pause law**, batching the rest into the run report. It sits *above* PM/Dev/QA; it invokes their workflows, it does not replace
 them.
 
 Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<trunk>` is the
@@ -38,6 +38,8 @@ mechanisms that carry an escalation) lives in
 table below is this project's **instance**, and **ratifying it is the adapter's PM's job — it
 ships blank and is not ratified until they do it.** *An unratified ladder is a habit with a table*
 (`model-provisioning.md` § B.2).
+Fill it with `scripts/set-models.sh`, which writes a class's `(model, effort)` to its row here and to its
+leaf-worker pin together; the per-role tables in the role docs are hand-kept to match.
 
 | Role / work class | Model | Effort |
 | --- | --- | --- |
@@ -111,7 +113,7 @@ reads, so they happen exactly once — read only what is **not yet in context**:
    index flags as relevant). Repo-local by design, so it resolves on a fresh clone; the
    architect seat's own memory is a SEPARATE, harness-provided store and is not a worker read.
 4. `progress.md` — recent entries; honor any resume pointer.
-5. `ls progress/{todo,in_progress,dev_complete,qa_complete,blocked}/` and
+5. `ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/` and
    `ls progress/subtasks/ 2>/dev/null` — the board, including any in-flight decomposition.
    **`done/` and `declined/` are left out deliberately — both are terminal, and nothing in
    either is runnable.** You land PASSes in `qa_complete/` via the landing script as usual;
@@ -177,8 +179,7 @@ prohibition alone is not* is § A.5.
 ### The conductor's belt (between EVERY leg)
 
 Run all five, ~30 seconds total, and record the readings in the run report. **Instruments beat
-testimony** — on one run, three agent self-reports and two QA reviews all missed what a two-line
-hash check caught in seconds:
+testimony** — a self-report and a review can both miss what a hash check catches in seconds:
 
 1. **The destructive-resource ledgers**: for each ledger the **project's adapter declares**
    (a disposables manifest, a live-target list, a fixtures-with-side-effects registry), take
@@ -320,7 +321,7 @@ rests on judgment rather than evidence**:
   report's "needs your call" section, continue.
 
 The rule in one line: **verdict rests on evidence → act; verdict rests on judgment →
-park.** This honours the QA role doc's "'looks good' is not evidence" bar — `.claude/roles/qa.md` § Definition of Pass vs Fail is its authoring site, not the adapter — and never auto-merges
+park.** This honours the QA role doc's "'looks good' is not evidence" bar — `.claude/roles/qa.md` § Workflow: review pass / fail, step 4, is its authoring site, not the adapter — and never auto-merges
 a judgment call.
 
 **The discriminator — what needs operator sign-off vs what the orchestrator self-serves:**

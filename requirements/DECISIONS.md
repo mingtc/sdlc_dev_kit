@@ -293,7 +293,7 @@ itself a citation is read as one. `./scripts/check-board.sh` joins the marker to
 
 ## What earns an entry — the lessons from an actual regeneration
 
-The donor rebuilt one module from its corpus alone; the divergences that mattered were almost all
+The project this kit was cut from rebuilt one module from its corpus alone; the divergences that mattered were almost all
 **unrecorded arbitrary choices**. Each of the following earns a row here:
 
 1. **A fork where two answers are both defensible.** That is the definition of an entry. If either

@@ -13,11 +13,10 @@
 # Rule (2) reads the WHOLE message (the trailer lives in the body), so the auto-exempt subjects
 # below are exempt from rule (1) ONLY. It refuses TOOL-naming attribution only: a Co-Authored-By
 # naming a HUMAN is legitimate. TOOL_TRAILER_MARKERS is a kit default, not project law; nothing
-# stamps it. It matches WORDINGS, not every tool's own name: a harness whose default trailer or
-# banner uses none of these words is not caught, and a harness whose CLI names a model instead of
-# the vendor (a bare "Sonnet", "Opus", "Fable") is not caught either — that is a marker-vocabulary
-# gap, not a wording gap, and adding model names is the adopter's call (§ B below), not this
-# default's.
+# stamps it. It matches WORDINGS and a list of vendor and model-family words, not every tool's own
+# name: a harness whose default trailer or banner uses none of those words is not caught. Add
+# its word to TOOL_TRAILER_MARKERS (or its wording to ATTRIB_TRAILER_WORDS) below — this file is
+# the one place either is authored.
 #
 # Bypass:  MSG_OK=1 git commit …   (1 / true / yes are truthy; 0 or unset do NOT bypass).
 #          For a genuine one-off that can't carry a tag, or for importing a third party's

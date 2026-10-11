@@ -20,12 +20,14 @@
 #   anything else                       NEVER overwritten: the new one is staged under
 #                                       .kit-upgrade/files/ and the checklist says merge it
 # A STAGED COPY NEVER CARRIES A LIVE NAME: each `.claude` path component is written `_claude`, and
-# every staged file ends in `.kit-new`. Under its own name a staged skill, agent doc, or
-# AGENTS.md would be loaded by a harness, and a staged .gitignore or .gitattributes would govern
-# the staging tree. Each checklist item names its staged copy exactly.
+# every staged copy of a file the project may already have ends in `.kit-new`. Under its own
+# name a staged skill, agent doc, or AGENTS.md would be loaded by a harness, and a staged
+# .gitignore or .gitattributes would govern the staging tree. Each checklist item names its
+# staged copy exactly.
 # A file the new kit no longer ships is listed, never deleted; where the hashes show the project
-# changed it, its item says it is the project's own now. With no sha256 tool (shasum or sha256sum), or no process/KIT-MANIFEST in the project, every file the
-# kit changed that differs here is a merge item, and the run says why.
+# changed it, its item says it is the project's own now. With no sha256 tool (shasum or
+# sha256sum), or no process/KIT-MANIFEST in the project, every file the kit changed that differs
+# here is a merge item, and the run says why.
 #
 # THE SCAFFOLDING GUARD: a project past day one no longer carries the sentinel in its copy of a
 # scaffolding path, and the new kit's stub there would tell the next agent to start over. Where the
@@ -62,8 +64,8 @@
 #
 # It never commits: the upgrade is ordinary work, committed through the project's own board.
 # Every refusal leaves a progress record (refusal=<rule-id>) in the project's record directory.
-# Exit 2: an unknown option or a missing option value. Exit 1: any other refusal, including a
-# surplus positional argument — it looks like a usage error but is not one.
+# Exit 2: a usage error, as scripts/finish-pr.sh's exit table defines it. Exit 1: any other
+# refusal, including a surplus positional argument — it looks like a usage error but is not one.
 #
 # Options:
 #   --into <dir>   the project to upgrade: the top level of a git work tree. Required.

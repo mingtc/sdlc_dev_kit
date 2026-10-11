@@ -1,7 +1,7 @@
 # KIT-CLASS: KIT — the ONE reader of a scripts/config.sh glob array (CODE_GLOBS, TEST_GLOBS). See process/EXTRACTION.md.
 #
-# Sourced by scripts/check-board.sh (arm [g] and the code-path read) and scripts/lib/qa-gate.sh
-# (the ablation check), so the two can never read the same array two ways.
+# Sourced by every program that reads one of these arrays (derive them: grep -l glob-array.sh
+# across scripts/), so none can read the same array a different way.
 #
 # kit_glob_array <ARRAY> <config.sh>
 #   Reads the anchored shape `ARRAY=(` … `)` and echoes one line per item, never sourcing the file:

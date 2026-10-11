@@ -65,7 +65,7 @@ guessed?
 2. **Count the bootstrap steps executed versus guessed.** A step that had to be guessed is a defect
    in the instructions, and its count is the headline number.
 3. **Then load the process, not just the bootstrap:** at least two work items driven through the
-   full implement-then-review boundary with **genuinely fresh reviewers**, and the donor project
+   full implement-then-review boundary with **genuinely fresh reviewers**, and the project it was extracted from
    off-limits (needing to consult it is itself a finding about the copy list).
 4. **Audit from artifacts.** An independent pass reads only the outputs — history, the board, the
    registers, the gate runs — never the workers' transcripts. What the artifacts cannot show did
@@ -117,7 +117,7 @@ summarising them here would create a second copy that drifts.
 | Regeneration spike (§ A.1) | `<work item>` | `<path>` |
 | Seed acceptance test (§ A.2) | `<work item>` | `<path>` |
 
-### Two worked examples from the donor project (anonymized) — what each ritual actually produced
+### Two worked examples from the project this was extracted from (anonymized) — what each ritual actually produced
 
 **The regeneration spike.** One decision-dense module was hidden together with its dedicated
 tests and regenerated from the corpus alone. Output: divergences in the three classes of § A.1

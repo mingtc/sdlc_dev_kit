@@ -26,8 +26,9 @@ KIT_MODEL_RECORD_NAME="model-pins.record"
 kit_model_class_label() { printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: -v c="$1" '$1==c { print $2; f=1; exit } END { exit !f }'; }
 kit_model_class_pin()   { printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: -v c="$1" '$1==c { print $3; f=1; exit } END { exit !f }'; }
 
-# kit_model_claude_dir <root> — the harness directory under <root>: _claude/ in the kit's own
-# maintaining repository, .claude/ on an adopted tree. Prints nothing when neither exists.
+# kit_model_claude_dir <root> — the harness directory under <root>: _claude/ in a tree where it
+# is still disarmed (the unarmed kit), .claude/ on an adopted tree. Prints nothing when neither
+# exists.
 kit_model_claude_dir() {
   local d out=""
   for d in "$1/.claude" "$1/_claude"; do [ -d "$d" ] && out="$d"; done

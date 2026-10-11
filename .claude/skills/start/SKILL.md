@@ -12,7 +12,7 @@ your memory of it.
 
 ## 1. Check the environment
 
-- **Git and a POSIX shell** are the kit's only hard requirement (`README.md` § What this is).
+- **Git and a POSIX shell** are the kit's only hard requirement (`README.md`, "What this is, in full").
   Confirm both are on `PATH` (`git --version`, `echo $0` or equivalent). If either is missing, stop
   here and tell the human what to install — nothing else in this skill can run without them.
 - **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older
@@ -97,7 +97,7 @@ launch) is the signal; without it, a human just typed `/start` and is waiting fo
     memory; the set moves as skills are added, archived, or (for the Dev set) departed from
     (`.claude/skills/README.md`'s own rule: derive, don't recall).
   - **Common next actions**, if evident from the board: resume an `in_progress` item, pick up the
-    next `todo`, or review something sitting in `qa_complete`.
+    next `todo`, or review something sitting in `dev_complete`.
 
   Ask what they want to do, then hand off to the relevant role doc or skill — this skill's job
   ends at the handoff; it does not perform the work itself.

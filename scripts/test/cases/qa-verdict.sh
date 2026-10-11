@@ -217,6 +217,52 @@ case_finish_pr_qa_verdict_shadow_check_required() {
 }
 
 # =============================================================================
+# CASE — THE SHIPPED 'shadow-check' ROW, LEFT UNTOUCHED BY QA, IS REFUSED.
+# The row each card template ships is the operand the gate judges: a row that ships already
+# answered ("assertions removed: none") passes untouched, so a QA who never read the diff lands.
+# The route is the real one — a card carrying the template's row byte for byte, a branch, and
+# finish-pr.sh — for every card template the kit ships, the row read from the SHIPPED templates.
+# NOT COVERED: whether a QA's filled-in answer is true; the gate reads that a cell was written.
+# =============================================================================
+case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched() {
+  cf_reset
+  make_sandbox
+
+  local tdir="$REAL_REPO_ROOT/.claude/templates" t row n=0 id=880 f out rc
+  if [ ! -d "$tdir" ]; then
+    skp "the shipped shadow-check row is refused untouched" ".claude/templates/ is absent from this tree"
+    teardown; return
+  fi
+
+  for t in ISSUE BUG REFACTOR SUBTASK; do
+    [ -f "$tdir/$t.template.md" ] || { cf "$t.template.md is not in $tdir — the shipped card templates are the population"; continue; }
+    row="$(grep -E '^\| shadow-check \|' "$tdir/$t.template.md" || true)"
+    # INSTRUMENT CHECK: exactly one row, or the loop below judges nothing.
+    [ "$(printf '%s\n' "$row" | grep -c .)" -eq 1 ] \
+      || { cf "$t.template.md carries $(printf '%s\n' "$row" | grep -c .) shadow-check rows, expected exactly one"; continue; }
+    n=$((n + 1)); id=$((id + 1))
+    local cid="$SB_PREFIX-$id" slug; slug="untouched-$(printf '%s' "$t" | tr 'A-Z' 'a-z')"
+    seed_issue dev_complete "$cid" "$slug" chore "Shadow row left as shipped ($t)" "feature/$cid-work"
+    f="$SB_WORK/progress/dev_complete/$cid-$slug.md"
+    ROW="$row" perl -i -pe 'BEGIN { $r = $ENV{ROW} } $_ = "$r\n" if /^\| shadow-check \|/' "$f"
+    grep -qxF -- "$row" "$f" \
+      || _fixture_die "case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched: the $t row was not planted verbatim"
+    publish_sandbox
+    seed_branch "$cid" work "CHANGE$id.txt"
+
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$t" "$SB_WORK/scripts/finish-pr.sh" "$cid" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "$t: a card whose shadow-check row is the template's, untouched, landed (exit 0)"
+    origin_has_path "CHANGE$id.txt" && cf "$t: the branch was merged although the shadow-check row was never filled"
+    grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-$t"/*.tsv 2>/dev/null \
+      || cf "$t: no progress record carries refusal=qa-verdict-shadow-missing (output: $(printf '%s' "$out" | tail -3 | tr '\n' '|' | cut -c1-200))"
+  done
+  [ "$n" -eq 4 ] || cf "expected 4 shipped card templates, judged $n"
+
+  finish "finish-pr.sh refuses a landing whose shadow-check row is still the one the card template ships — for each of the $n shipped card templates, the row read from the template itself, so an unread row cannot pass"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE GREEN PATH: A WELL-FORMED TABLE LANDS.
 # seed_issue's own default table (one AC row, PASS, real evidence, plus a filled shadow-check
 # row) is the happy path every other landing case already exercises; this leg names it directly

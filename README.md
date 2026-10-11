@@ -66,7 +66,7 @@ one's coverage, so the suite stays green while a real gap opens underneath it.
 `in_progress/`, `dev_complete/`, `qa_complete/`, `blocked/`, `done/`, `declined/` — moving an issue
 between them is the status change, done through one script (never a bare `mv`) so the move, the
 issue's own frontmatter, and the commit that recorded it can never drift apart. A drift report
-(`check-board.sh`) catches it in under two seconds if they ever do.
+(`check-board.sh`) catches it, quickly, if they ever do.
 
 **Roles worn as hats, not separate people.** One agent (or one human) can be PM, Dev, QA, or
 (optionally) Refactorer — each a real doc describing that role's actual workflow, not a persona. The **Dev → QA
@@ -79,7 +79,7 @@ Download the latest release zip from the [Releases page](../../releases) and unz
 project:
 
 ```sh
-unzip sdlc-dev-kit-vX.Y.Z.zip -d /path/to/your-project
+unzip project-kit-vX.Y.Z.zip -d /path/to/your-project
 cd /path/to/your-project
 ```
 
@@ -211,7 +211,7 @@ operations, and every step there names the authority that holds the law. Wire th
 | # | Read | Why |
 |---|---|---|
 | 1 | **This file** | What the kit is, and how to stamp it. |
-| 2 | [`process/SEED.md`](process/SEED.md) **or** [`process/EXTRACTION.md`](process/EXTRACTION.md) | **SEED** is the *you-have-nothing* path: an empty directory and a sentence. **EXTRACTION** is the *donor-extraction* path: you have a working repository in front of you and want to know what to copy. Both end in the same place. |
+| 2 | [`process/SEED.md`](process/SEED.md) **or** [`process/EXTRACTION.md`](process/EXTRACTION.md) | **SEED** is the *you-have-nothing* path: an empty directory and a sentence. **EXTRACTION** is the *extract-from-a-working-project* path: you have a working repository in front of you and want to know what to copy. Both end in the same place. |
 | 3 | [`process/MANUAL.md`](process/MANUAL.md) | **The operating manual** — roles, the board, the Dev → QA boundary, the rituals, the execution discipline. Read once, in full. Adopt unedited. |
 | 4 | [`AGENTS.md`](AGENTS.md) | **On day one, the bootstrap stub** — it says the project is not set up yet and sends you to [`process/SEED.md`](process/SEED.md). **You replace it** at SEED step 5 with **the adapter** — this project's own law, and the values the manual deliberately does not know — built from [`process/templates/AGENTS-adapter.template.md`](process/templates/AGENTS-adapter.template.md). From then on, read it every session alongside [`PROJECT.md`](PROJECT.md). |
 

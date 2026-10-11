@@ -4,8 +4,7 @@
   Copy next to the capture artifacts it describes — the LEDGER, not the corpus (see the class
   line below). Name it for the probe and the date, e.g. `<area>-probe-<YYYY-MM-DD>.md`.
   Fill every <angle-bracket> blank, delete the HTML comments.
-  Any version shown in an example is the deliberately fictional 42.x; ids are shown as
-  <ISSUE-ID> (your prefix, e.g. <PREFIX>-042).
+  Ids are shown as <ISSUE-ID> (your prefix, e.g. <PREFIX>-042).
   DROP THE KIT-CLASS MARKER above from your copy — it classifies this file for the kit, not for
   your project.
   THE DISCIPLINE THIS SHAPE SERVES: process/doctrine/live-resources.md (a disposable target,

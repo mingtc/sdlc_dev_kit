@@ -25,7 +25,7 @@ branch: feature/<PREFIX>-NNN-sM-<slug>
 pr: null   # forge PR/MR reference; stays null on the forge-agnostic path
 created_at: YYYY-MM-DD
 created_by: Orchestrator
-forks: none              # or a list of D-NN, one per fork resolved while working this slice
+forks: none              # or a bracketed list [D-NN, ...], one id per fork resolved while working this slice
 ---
 
 # <PREFIX>-NNN-sM — <one-line summary>
@@ -56,12 +56,12 @@ Red line: <placeholder>
 
 ## QA Verdict
 
-Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../../../.claude/roles/qa.md#workflow-review-pass--fail), step 4), one row per AC id above, plus the fixed `shadow-check` row. `evidence kind` is one of `test` · `file:line` · `gate-diff` · `fixture-diff`. A `test`/`file:line` row's pointer carries a `path:line` (or `path:a-b`) and a short verbatim quote in double quotes, e.g. `src/add.js:12 "return a + b"` — `subtask.sh` reads the quote at that line in the revision being landed, whitespace normalised; `gate-diff`/`fixture-diff` rows are exempt from the quote. `subtask.sh move <id> qa_complete` refuses the move if this table is missing, a row's evidence kind is wrong, a `path:line` does not resolve or its line is past the file's length, a required quote is missing or not found on the cited line, the pointer is empty or a placeholder (`<placeholder>`, `n/a`, `tbd`, `see above`, `-`, `x`, … — case-insensitive), any row's verdict is `FAIL_AC` or `FAIL_REGRESSION`, or is not exactly one of the four tokens, the AC ids here do not match the AC bullets above one for one, or the `shadow-check` row is absent or empty. `PASS_AC_CORRECTED` amends the bullet text above, which is frozen once the card leaves `todo/`: cite the register entry that records the correction as `[decision: D-NN]` on the card, or the landing is refused (`process/MANUAL.md` § Execution discipline, item 6).
+Filled by QA at review time ([qa.md § Workflow: review pass / fail](../../../../.claude/roles/qa.md#workflow-review-pass--fail), step 4), one row per AC id above, plus the fixed `shadow-check` row, whose bracketed prompt you replace with `assertions removed: none` or each removed or weakened assertion with its replacement (the landing refuses the row while it is still the prompt). `evidence kind` is one of `test` · `file:line` · `gate-diff` · `fixture-diff`. A `test`/`file:line` row's pointer carries a `path:line` (or `path:a-b`) and a short verbatim quote in double quotes, e.g. `src/add.js:12 "return a + b"` — `subtask.sh` reads the quote at that line in the revision being landed, whitespace normalised; `gate-diff`/`fixture-diff` rows are exempt from the quote, but not from the pointer check: every `word:number` in a pointer cell is read as a `path:line` and must resolve, so write a time or a host and port without the colon-number form. `subtask.sh move <id> qa_complete` refuses the move if this table is missing, a row's evidence kind is wrong, a `path:line` does not resolve or its line is past the file's length, a required quote is missing or not found on the cited line, the pointer is empty or a placeholder (`<placeholder>`, `n/a`, `tbd`, `see above`, `-`, `x`, … — case-insensitive), any row's verdict is `FAIL_AC` or `FAIL_REGRESSION`, or is not exactly one of the four tokens, the AC ids here do not match the AC bullets above one for one, the table has no `test`/`file:line` row (every AC row is `gate-diff` or `fixture-diff`), or the `shadow-check` row is absent or empty. `PASS_AC_CORRECTED` amends the bullet text above, which is frozen once the card leaves `todo/`: cite the register entry that records the correction as `[decision: D-NN]` on the card, or the landing is refused (`process/MANUAL.md` § Execution discipline, item 6).
 
 | AC id | verdict | evidence kind | evidence pointer |
 |---|---|---|---|
 | AC<n> | `<PASS \| PASS_AC_CORRECTED \| FAIL_AC \| FAIL_REGRESSION>` | `<placeholder>` | `<placeholder>` |
-| shadow-check | — | — | `assertions removed: none` (or each removed/weakened assertion with its replacement) |
+| shadow-check | — | — | `<assertions removed: none — or each removed or weakened assertion, with its replacement>` |
 
 ## Out of Scope
 

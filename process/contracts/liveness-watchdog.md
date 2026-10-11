@@ -8,7 +8,7 @@ is silent and therefore indistinguishable from progress to anyone who is only wa
 
 **AND A SECOND QUESTION:** *has work
 stopped moving?* They are not the same question and they do not have the same scope, and reading
-them as one cost a coordinated run twenty-four hours across three episodes.
+them as one costs a run the time it takes to notice.
 
 ## 1a. TWO RITUALS, AND ONLY ONE OF THEM CAN EVER BE N/A
 

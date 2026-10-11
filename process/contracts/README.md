@@ -80,8 +80,6 @@ reason.**
 | The unattended Stop hook | An unattended launch has a mechanical point where a question with no addressee would otherwise go unanswered forever; the invariant (judge the ending, not the content; fire at most once) is otherwise only prose. |
 | The agent record | "The checker is not the author" is otherwise a role's promise; the record makes it a landing refusal, and its invariants (only a commit the call created, never an overwritten claim, never a blocked call) are what keep that refusal from misattributing. |
 
-Nothing in the minimum set was merged or split.
-
 ## The rules that hold this directory honest
 
 - **Both directions want guarding**, and the guard is the **project's**, not the kit's: every

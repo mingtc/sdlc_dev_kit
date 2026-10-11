@@ -59,6 +59,7 @@ interactive prompt nothing will answer.
 | `ask-no-project-md` | no `PROJECT.md` to read the principal and channel from |
 | `ask-no-principal` | `PROJECT.md`'s `principal:` is missing or still `<angle-bracket>` |
 | `ask-no-channel` | `PROJECT.md`'s channel line is missing or still `<angle-bracket>` |
+| `ask-role-is-principal` | `--role` names the seat `PROJECT.md` declares as principal — the asker may not be the seat that answers; `Next:` re-run with the asking seat's own role, or decide it and record the ruling |
 | `ask-channel-unusable` | the declared channel is not a path inside the repository, or cannot be created, or is not writable |
 | `ask-write-failed` | the question file could not be written |
 | `ask-decisions-write-failed` | `--decision` named a live entry but the register write failed |

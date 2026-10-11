@@ -72,18 +72,18 @@ checklist, no shape list, no suspect list, told only the charter and *"find what
 **Its findings feed ratchet rule 1.** A pass that spends its whole budget on the list below can
 only ever find last time's problems.
 
-Its basis is measured, and here are the three measurements rather than the assertion — each from
-one project, each anonymized, none of them yours:
+Its basis is measured, and here are the three findings rather than the assertion — each from a
+project that is not yours; the counts behind them are not carried here, because an undated count
+is the thing this checklist's own rules ban:
 
-1. **17 of 41** risky proposals were **refuted** when an independent skeptic was pointed at a
-   reasoned list. Directed reasoning generates plausible targets faster than it validates them.
+1. **A skeptic refuted a large share of the risky proposals** when an independent one was pointed at
+   a reasoned list. Directed reasoning generates plausible targets faster than it validates them.
 2. **Two blind modalities converged on one file** that the directory-walking fan-out had missed
-   entirely — described in that census as its best evidence that the prose corpus was not hiding
-   more. Blind scanning found what directed reasoning did not.
-3. **Twin audits, counted rather than asserted.** Across two adjudicated sections, the **unguided**
-   lane contributed four unique finds of which **three survived adjudication**; the
-   **checklist-guided** lane contributed five of which **one** did. The unguided lane's finds
-   survived at the higher rate — *that*, not the raw total, is the reservation's warrant.
+   entirely — the best evidence in that census that the prose corpus was not hiding more. Blind
+   scanning found what directed reasoning did not.
+3. **Twin audits, counted rather than asserted.** Across two adjudicated sections the **unguided**
+   lane's unique finds survived adjudication at the higher rate than the **checklist-guided**
+   lane's — *that*, not the raw total, is the reservation's warrant.
 
 ## The cadence — ADVISORY, and here is the negative stated
 
@@ -179,9 +179,7 @@ that produced it**, and a re-measurement **PREPENDS** rather than replaces
   directory added in one commit and never read again.
 - **Instrument:** the **cold-signal scan**.
 - **Evidence date + source:** `<date>` — `<the tree, its file count and byte size, and whether it
-  was added in a single commit>`. *(Origin of the shape, anonymized: one capture tree of ~350
-  files / ~6.5 MB, added whole in one commit and never amended. A later sweep thinned it rather
-  than removing it, which is why the shape stayed live.)*
+  was added in a single commit>`.
 - **Retire condition:** retire when evidence trees stop being committed wholesale — i.e. when a
   probe's raw captures land summarized, with the raw set out of the repository.
 
@@ -224,9 +222,6 @@ that produced it**, and a re-measurement **PREPENDS** rather than replaces
   **This row is the one that makes the checklist police itself** — without it the list inherits
   any blindness its instruments have, silently.
 - **Evidence date + source:** `<date>` — `<which instruments were plant-verified this pass>`.
-  *(Origin of the shape, anonymized: a log-size threshold reported a comfortable pass — under
-  20 KB against a 32 KB bound — while ~98% of the file it was named after sat outside the span its
-  parser actually read. The verdict alone could never have revealed it.)*
 - **Retire condition:** retire only if every instrument here is replaced by a guard that is itself
   red-proved in place inside your test suite, at which point the suite owns this row.
 
@@ -239,9 +234,7 @@ that produced it**, and a re-measurement **PREPENDS** rather than replaces
   [`doctrine/supersession.md`](doctrine/supersession.md) § A.1 — preserve the reason, supersede
   only the conclusion, prepend rather than replace — plus
   [`doctrine/staleness.md`](doctrine/staleness.md) § A.2's fifth field, the **residue clause**.
-- **Evidence date + source:** `<date>` — `<how many banners were reviewed, and by whom>`. *(Origin
-  of the shape, anonymized: a stamping sweep of ~78 archive rows met no skeptic at all, and where
-  a verifier did review rows, its recurring complaint was a banner over-claiming closure.)*
+- **Evidence date + source:** `<date>` — `<how many banners were reviewed, and by whom>`.
 - **Retire condition:** retire if a guard is ever built that compares a banner's claim against the
   artifact it claims about. None is proposed; until then this row stays in the hand lane and says
   so.

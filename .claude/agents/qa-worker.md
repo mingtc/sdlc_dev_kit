@@ -21,12 +21,13 @@ unmet AC named.
 
 ## Provisioning contract
 
-Opus **medium** is the seed default (the frontmatter above); `.claude/roles/qa.md` § "Model &
-effort contract" is filled to match it. **high** is the caller's setting for a `Major` review or a review on a declared
-risk surface — set through one of the two mechanisms in
-[`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
-(the Workflow tool's per-call `effort`, or the serial frontmatter toggle on this file), never
-on the spawn call, which carries `model` only. The lowest effort tier is **never used**;
+Opus **medium** is the seed default (the frontmatter above); fill `.claude/roles/qa.md` § "Model &
+effort contract" to match it (`scripts/set-models.sh` writes the pin and the orchestrator's ladder
+row together). **high** is the caller's setting for a `Major` review or a review on a declared
+risk surface — set through the Workflow tool's per-call `effort`, the serial frontmatter toggle on
+this file, or the spawn call where the spawn tool's own parameter list carries `effort`
+([`process/doctrine/model-provisioning.md`](../../process/doctrine/model-provisioning.md) § B.1
+items 2–3). The lowest effort tier is **never used**;
 **never `max` effort**; **never spawn above the project's sanctioned ceiling**
 (`process/doctrine/model-provisioning.md` § B.2 — until that ceiling is written, it is the tier the
 seat is running). The seat is human-partnered, not a provisionable worker, and its class is not a

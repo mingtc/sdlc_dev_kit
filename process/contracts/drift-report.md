@@ -247,12 +247,11 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   exist, which is a typo or a deleted entry, one correct fix, no second party — and that is the bar
   the deciding checks meet. **The consequence is chosen, not inherited: a dangling citation holds the
   release gate shut wherever the release ritual matches the verdict line.**
-  *Why a DECLARED SCOPE and a POSITIVE MARKER, and this half is measured:* a bare token grep over the
+  *Why a DECLARED SCOPE and a POSITIVE MARKER:* a bare token grep over the
   tree cannot tell a **citation** from a **mention**, and the per-syntax comment strips needed to
-  rescue it are a second parser that can be wrong silently. Measured on this kit's own tree: an
-  HTML-comment strip applied to a **shell** file paired a `<!--` inside a shell string with a `-->`
-  thousands of lines later and deleted thousands of lines between them — the file then read as
-  containing no identifiers at all, and a checker built on it would have reported clean **for the
+  rescue it are a second parser that can be wrong silently: an HTML-comment strip applied to a
+  **shell** file can pair a `<!--` inside a shell string with a `-->` far below it and delete
+  everything between them — the file then reads as containing no identifiers at all, and a checker built on it would have reported clean **for the
   wrong reason, with nothing in its output revealing it**. So the arm reads only declared surfaces,
   and only text carrying an **anchored** citation marker; prose *about* an identifier is invisible by
   construction rather than by being stripped. That is the same argument the register's own withdrawn
@@ -267,8 +266,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   verdict.** A `forward-referenced (<ISSUE-ID>)` marker names an id that exists on the board; a row
   whose named id has reached a landed column is flipped to `present`, not left marked; and a
   day-one `SEED step <N>` marker does not survive day one closing. Each is single-ended — the
-  marker or the row is wrong, with one correct fix and no second party — the same bar invariant
-  4-and-a-half's citation check meets, and for the same reason it decides rather than advises.
+  marker or the row is wrong, with one correct fix and no second party — the same bar the declared
+  reference integrity bullet above meets, and for the same reason it decides rather than advises.
   *"Day one has closed" is read from the SAME check that already answers it (invariant 7) — never
   re-derived a second way, or the two could disagree about what closes day one.*
   *Cannot see:* a row that carries no marker at all where one belongs; that is a different property

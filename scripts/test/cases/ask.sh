@@ -121,12 +121,12 @@ case_ask_principal_field_reads_either_form() {
   [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "a principal: filled without backticks reads as filled, and ask.sh/[g] agree on every row"; teardown; return; }
 
   # A LIVED signal, or [g] reports "THIS CHECK DID NOT RUN" and never reaches the principal:
-  # row at all (same receipt case_check_board_g's (b) sub-case seeds).
+  # row at all (same receipt case_check_board_graduation's (b) sub-case seeds).
   printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" \
     >> "$SB_WORK/scripts/config.sh"
 
   # Make every OTHER graduation member discharged, so [g]'s principal: row is the only signal
-  # that varies across the four rows below (same recipe case_check_board_g's (d) sub-case uses).
+  # that varies across the four rows below (same recipe case_check_board_graduation's (d) sub-case uses).
   printf '# my project\n' > "$SB_WORK/AGENTS.md"
   printf '# my project\n' > "$SB_WORK/README.md"
   _cb_g_fill_glob_array CODE_GLOBS '  "src/*"'

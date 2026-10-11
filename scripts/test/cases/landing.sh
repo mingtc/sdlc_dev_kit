@@ -623,9 +623,9 @@ HOOK
 # =============================================================================
 # CASE — the printed recovery's step 3 finishes either half of the branch delete, run as printed.
 #
-# Measured before the fix (`branch -d … && push --delete …`): a squash-merged local branch with no
-# upstream is "not fully merged", and an already-deleted one is "not found" — either way `&&`
-# skipped the remote delete.
+# A squash-merged local branch with no upstream is "not fully merged", and an already-deleted one
+# is "not found": chained with `&&`, either would skip the remote delete, so the step runs both
+# halves independently.
 # =============================================================================
 case_finish_pr_recovery_step_three_finishes_either_half() {
   cf_reset
@@ -954,8 +954,8 @@ case_finish_pr_gate_revision() {
 # =============================================================================
 # CASE — THE TRUNK'S verify.sh JUDGES THE BRANCH. Unmarked, like the case above.
 #
-# Measured before the fix: a branch that added what the trunk's gate refuses AND deleted that
-# gate from its own verify.sh landed green, and its weakened runner became the trunk's.
+# A branch that added what the trunk's gate refuses AND deleted that gate from its own verify.sh
+# would otherwise land green, and its weakened runner would become the trunk's.
 #   (a) such a branch is REFUSED, the trunk's runner named, and nothing lands or is left behind;
 #   (b) a branch that changes verify.sh and passes the trunk's runner LANDS, and its copy is then
 #       the trunk's (it governs the next landing).
@@ -1765,14 +1765,13 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
 }
 
 # =============================================================================
-# CASE — THE GUARD FLOOR IS INERT ON AN ALL-core PROJECT, AND verify.sh NOW SAYS SO.
+# CASE — verify.sh PRINTS A NOTE AT START WHEN A GUARD FLOOR IS DECLARED AND NO GATE IS `select`.
 #
 # GUARD_SET/GUARD_ENUM are only ever reconciled inside the --scope preflight, and --scope
 # refuses outright when no gate is classed `select`. So a project whose gates are all `core`
-# can declare a guard floor that is never read by anything — and, before this card, nothing
-# printed at runner start to say so. Strip the sandbox's one `select` gate (make_sandbox
-# declares it by default) to reproduce the all-core shape, declare a guard, and check both the
-# NOTE (unfixed: absent) and that a `select` gate makes it go away again.
+# can declare a guard floor that nothing reads; the NOTE says so. Strip the sandbox's one
+# `select` gate (make_sandbox declares it by default) to reproduce the all-core shape, declare
+# a guard, and check the NOTE is printed and that a `select` gate makes it go away.
 # =============================================================================
 case_verify_all_core_guard_floor_is_reported_inert() {
   cf_reset

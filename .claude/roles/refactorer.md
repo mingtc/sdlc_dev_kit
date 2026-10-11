@@ -49,6 +49,7 @@ table below is this project's **instance**, and the full ladder lives in
 > [`.claude/agents/refactorer-worker.md`](../agents/refactorer-worker.md) already pins a model
 > and an effort in frontmatter. That pin is the seed default — fill this table to match it, and
 > change both in the same commit if you change either.
+> `scripts/set-models.sh` writes that pin and the orchestrator's ladder row together but not this table, which stays hand-kept.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
 effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
@@ -188,8 +189,8 @@ project's shape are **load-bearing by decree** rather than by accident — and a
 adapter (`AGENTS.md`) and `PROJECT.md` own this; fill it in:
 
 - **Architectural invariants that are decisions, not smells.** Any structure a ruling made
-  binding — a registry pattern, a one-module-per-family rule, an enforced layering. The donor's
-  formulation is worth copying: *a rewrite may change everything about an implementation's
+  binding — a registry pattern, a one-module-per-family rule, an enforced layering. A formulation
+  worth copying: *a rewrite may change everything about an implementation's
   internals — never the division of responsibility itself.* Name each invariant and the
   document that records it. (`<fill in>`)
 - **Declared trade-offs that look like smells.** The things the audit must NOT flag, and where

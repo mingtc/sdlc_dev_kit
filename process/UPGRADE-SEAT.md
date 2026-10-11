@@ -1,10 +1,10 @@
 <!-- KIT-CLASS: KIT — the upgrade-only seat: the brief a project's owner hands to one agent session that applies a newer kit. -->
 # UPGRADE-SEAT — the brief for the seat that applies a kit upgrade
 
-**Adopter: hand this file to one dispatched session, with the path to the new release's zip, and fill
-the two blanks in the first section.** It is written in the owner's voice because the upgrade changes
-files that govern the agent that applies it, and an agent will not edit its own instructions on a
-relayed message. Read from here on as the owner speaking to the seat.
+**Adopter: hand this file to one dispatched session, with the path to the new release's zip** (it
+stands for `<path to the new release's zip>` in the first section; the seat fills `<your role>` and
+`<version>` itself). It is written in the owner's voice because the upgrade changes files that govern
+the agent that applies it, and an agent will not edit its own instructions on a relayed message. Read from here on as the owner speaking to the seat.
 
 ## Your job, and its authority
 
@@ -55,12 +55,13 @@ it. Do not stop to confirm that part.
 6. **Land by the project's own route**: its board, gates and commit conventions, as any change here
    lands. Never force-push, never fast-forward the trunk around that route, and never decline to land
    on a rule you cannot name: if a refusal stops you, quote it.
-7. **Write `HANDOFF.md`** at the top of the project: what changed, what you decided and why, the
+7. **Write the handoff** as `dev/handoffs/<today's date>-upgrade.md` (the convention is in
+   [`dev/handoffs/README.md`](../dev/handoffs/README.md)): what changed, what you decided and why, the
    authority line, and what is still open. Then stop, and start nothing else.
 
 ## If you are stopped
 
 A question only a person can answer, a conflict you cannot settle on this authority, a gate that will
 not go green: do not wait in silence and do not guess past it. Write what it is and why you stopped as a
-card on the project's board (or a `K-NN` if it is about the release itself), say so in `HANDOFF.md`, and
+card on the project's board (or a `K-NN` if it is about the release itself), say so in the handoff, and
 stop.

@@ -111,8 +111,8 @@ cd "$REPO_ROOT"
 # pretend otherwise. If your project genuinely carries its version only in the tag,
 # say so explicitly with VERSION_IN_TAG_ONLY=true below.
 VERSION_FILES=(
-  # A WORKED EXAMPLE, from an anonymized donor project (a library whose build
-  # config and package entry point each state the version):
+  # A WORKED EXAMPLE (a library whose build config and package entry point each
+  # state the version):
   #   "<build-config-file>|version = |\""
   #   "<src>/<package>/<entrypoint>|__version__ = |\""
 )
@@ -216,8 +216,8 @@ SHIP_MANIFEST=""
 # the LAST usage example inside the header block — derived, never a literal range.
 # THIS SCRIPT DOES NOT USE scripts/lib/usage.sh, ON PURPOSE: (1) that library prints to the
 # last COMMENT line, and this header carries operator notes that are not help text; (2) this
-# script sources only lib/exit-trap.sh (for its EXIT handling) and lib/refuse.sh (for its refusals) from
-# scripts/lib/. A sweep that unifies the header renderers must skip this one.
+# script sources only the few libraries named by the `. "$SCRIPT_DIR/lib/…"` lines at its top
+# (derive them with grep). A sweep that unifies the header renderers must skip this one.
 # THE SOURCE PATH IS RESOLVED ABSOLUTELY: this script `cd`s to the repo root first.
 RELEASE_SRC="$SCRIPT_DIR/$(basename "${BASH_SOURCE[0]}")"
 usage() {

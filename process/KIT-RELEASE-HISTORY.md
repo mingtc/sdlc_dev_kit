@@ -1,9 +1,9 @@
-<!-- KIT-CLASS: KIT — the release-notes sections older than the newest release, moved here verbatim to keep the
+<!-- KIT-CLASS: KIT — the release-notes sections older than the newest release, moved here at each cut to keep the
      notes short. `scripts/kit-upgrade.sh` reads it with the notes, to find every Action required entry between
      your version and the new kit's. It travels unedited. -->
 # The process kit — release history
 
-**The release-notes sections older than the newest release, unchanged.** The current notes
+**The release-notes sections older than the newest release, unchanged but for `Verify:` lines added to some Action required entries.** The current notes
 ([`KIT-RELEASE-NOTES.md`](KIT-RELEASE-NOTES.md)) hold § How to upgrade, § How versions work, § Unreleased and the
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.

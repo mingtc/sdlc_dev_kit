@@ -190,9 +190,9 @@ The remote precondition (the silent-corruption class this script exists for):
 
 The census (a measurement, not a promise):
   process/contracts/config-seam.md says a search of the travelling files for the
-  donor's own values must return NOTHING — "a count, run by the adopter, not a
+  kit's shipped placeholder values must return NOTHING — "a count, run by the adopter, not a
   promise made by the kit". This script runs that count itself, over
-  .claude/roles/ and .claude/templates/, for all three donor tokens — prefix,
+  .claude/roles/ and .claude/templates/, for all three shipped tokens — prefix,
   trunk and project name, every one DERIVED from a seam rather than typed in
   here — prints it, and the self-check FAILS when it is non-zero. What the census
   deliberately does NOT count: an identifier of the shape <PREFIX>-<digits>,
@@ -561,8 +561,7 @@ if [ ${#LIVED[@]} -gt 0 ]; then
     "  worse than no initializer — and a half-stamped repository is worse still, so" \
     "  there is no resume path." \
     "Next: do not initialize this repository. If this is a re-run you meant to make, revert the" \
-    "  initialization commit first; on a repository that has lived, make the changes by hand;" \
-    "  if this is the kit's donor repository, you are in the wrong directory."
+    "  initialization commit first; on a repository that has lived, make the changes by hand."
 fi
 
 # --- THE PRE-KIT BOUNDARY ------------------------------------------------------
@@ -626,8 +625,10 @@ fi
 if [ ${#PF[@]} -gt 0 ]; then
   _pf_list=""
   for p in "${PF[@]}"; do _pf_list="${_pf_list}    • $p"$'\n'; done
+  _pf_args=""
+  [ ${#ORIG_ARGS[@]} -eq 0 ] || _pf_args="$(printf ' %q' "${ORIG_ARGS[@]}")"
   _pf_next="Next: fix the above, then re-run (adding any option a line above names):
-    ./scripts/kit-init.sh$(printf ' %q' ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"})"
+    ./scripts/kit-init.sh${_pf_args}"
   if [ "$PF_TOPOLOGY" -eq 1 ]; then
     # Quoted for the shell: the directory's name may carry a space or an apostrophe.
     _bare="$(printf '%q' "$(basename "$ROOT").git")"
@@ -675,7 +676,7 @@ COMMITMSG="$ROOT/scripts/githooks/commit-msg"
 KWTLIB="$ROOT/scripts/lib/kanban-worktree.sh"
 
 # EVERY OLD VALUE IS DERIVED FROM A SEAM, NEVER TYPED HERE: this script rewrites the
-# travelling docs without carrying a donor literal, and the census below is a measurement.
+# travelling docs without carrying a literal of the shipped values, and the census below is a measurement.
 OLD_PREFIX="$(sed -n 's/^ISSUE_PREFIX="\${ISSUE_PREFIX:-\([^}]*\)}"/\1/p' "$CONFIG" | head -1)"
 [ -n "$OLD_PREFIX" ] || kit_refuse 1 config-prefix-default-unreadable \
   "Error: could not read the current ISSUE_PREFIX default out of scripts/config.sh." \
@@ -776,7 +777,7 @@ fi
 #   • the trunk — whole word only, via a delimiter-guarded pattern run TWICE so
 #     two adjacent occurrences both land. Without the guard, `development`
 #     becomes `<trunk>ment`.
-#   • the project name — blanket; every occurrence is the donor's.
+#   • the project name — blanket; every occurrence is the shipped placeholder.
 # RECURSIVE on purpose: a parked role doc is one the adopter will one day wake.
 md_files() { [ -d "$1" ] && find "$1" -type f -name '*.md' | sort || true; }
 census_count() {  # <dir> <ere> [exclude-line-ere] → occurrences across the dir's .md files
@@ -1266,7 +1267,7 @@ fi
 [ "$SR_PRE_EXISTING" = true ] || { rm -f "$SR_FILE"; rmdir "$SR_DIR" 2>/dev/null || true; }
 
 # --- (6) THE CENSUS — asserted rather than promised --------------------------
-# process/contracts/config-seam.md: the donor's values in the travelling files are COUNTED,
+# process/contracts/config-seam.md: the shipped values in the travelling files are COUNTED,
 # by the adopter. A token whose new value EQUALS the shipped one is skipped: counting it
 # would fail the adopter for agreeing with the kit.
 CENSUS_TOTAL=0

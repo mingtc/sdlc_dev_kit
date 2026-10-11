@@ -15,14 +15,10 @@ operations where every step points at its authority. **`scripts/kit-init.sh` ser
 are the manifest; **section 4 is the debt**, and it is the most useful part of this file — a
 manifest that claims a separation it does not have costs the next extractor a day of confusion.
 
-**Prior art: this kit has now moved twice.** It was first cut out of one project into a second,
-where it grew the contracts, the doctrine sheets and the initializer. This tree is the **third**
-installation and the first one cut deliberately as a **seed** rather than as a donor copy: the
-project it came from is referred to throughout as *the donor project*, anonymously, and every
-lesson it paid for is kept while every one of its identifiers, paths and product facts is gone.
-That is the transferable lesson of a second move, and it is worth stating before section 4: **the
-debts that survived the first move were, almost without exception, the ones nobody had written
-down as debts.**
+**Prior art.** This kit was cut out of a working project, anonymously, keeping every lesson that
+project paid for and none of its identifiers, paths or product facts. The lesson of that move is
+worth stating before section 4: **the debts that survived it were, almost without exception, the
+ones nobody had written down as debts.**
 
 ---
 
@@ -227,11 +223,14 @@ block as its `KIT-CLASS:` marker:
 **What is marked so far, and what is not.** The `FILL`, `REPLACE` and `DELETE-IF-UNUSED` members are
 declared — except `scripts/release.sh`'s config block, a block inside a travelling script whose
 refusal to run until it is filled is its declaration (a project that keeps the script fills the block;
-one that removes the script has none) — because those are the three rows the one
+one that removes the script has none), and `scripts/config.sh`'s `CODE_GLOBS`/`TEST_GLOBS`, which
+carry no marker and which arm (g) reads by name — because those are the three rows the one
 shipped reader, `scripts/check-board.sh` arm (g), measures. **For REPLACE and DELETE-IF-UNUSED the
 marker DISCOVERS; for FILL it only FILTERS:** arm (g) checks every tracked file that declares
 REPLACE or DELETE-IF-UNUSED in its header block (the derivation below, the same for both), but
-reads FILL in `PROJECT.md` alone, so another file declaring FILL is not checked. **`KEEP`, `STAMP`
+reads FILL **by name**: `PROJECT.md`'s blanks and its `principal:` line, the `FILL ME.` sentinel in
+`.gitignore` and `.env.example`, and `scripts/config.sh`'s two glob arrays. `scripts/verify.sh` and
+`setup.sh` declare FILL and nothing reads them, so a blank left there is not checked. **`KEEP`, `STAMP`
 and `SEED` members are unmarked**, and an unmarked file is **not** a file with no disposition — it
 is a file whose disposition is only in the table above. Derive what carries one rather than
 assuming the set — **and anchor the derivation on the file's own header block, because this sheet
@@ -322,11 +321,9 @@ this axis exists to make visible and finite.
 
 ## The one rule about counting
 
-**A census number written in prose is exactly the kind of claim that rots.** The donor project
-proved it twice in the same file: a row of this very manifest said *"61 today"* over a component
-list that itself summed to **62**, while two sections below, a harness's own case count had
-*already* drifted from the **35** stated there to the **39** a fresh count returned. Three wrong
-numbers, in the file whose entire job is to be true when read.
+**A census number written in prose is exactly the kind of claim that rots.** In an earlier copy of
+this very manifest a component total and a harness's case count each disagreed with a fresh count,
+in the file whose entire job is to be true when read.
 
 **So this manifest carries no census numbers.** Run the command; its output is the only digit that
 is ever correct:
@@ -360,6 +357,9 @@ names the guard whose job is to keep it honest.
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/UPGRADE-SEAT.md` | The brief an owner hands to one dispatched seat to apply a newer kit: authority recorded once, staged in a worktree, checklist, self-test, the project's own gates, land, finish, handoff. Adopt unedited; it names no project. |
+| `process/KIT-RELEASE-NOTES.md` | The adopter-facing notes: § How to upgrade, then the newest release's section and an unreleased section. Adopt unedited; `scripts/kit-upgrade.sh` reads it. |
+| `process/KIT-VERSION` | The one version literal of the kit you adopted, and nothing else. Adopt unedited; it is what an upgrade compares against. |
+| `process/KIT-MANIFEST` | Generated when the zip is built, never tracked in the kit's own source: one row per shipped file (hash, path, `KIT-CLASS`). Adopt unedited; the initializer and the upgrade script read it. |
 | `process/KIT-RELEASE-HISTORY.md` | The release notes' sections older than the newest release, moved verbatim at each cut. `scripts/kit-upgrade.sh` reads it with `KIT-RELEASE-NOTES.md`. Adopt unedited. |
 | `process/doctrine/` | Process doctrine. **Every sheet states its own pattern/instance split at the top; obey it** — § A (or the sections it names) travels, and the instance section is a **blank you fill**, not an example to keep. `find process/doctrine -type f` lists them; the doctrine table in `MANUAL.md` is the index, and a new sheet joins that table **in the same change** that creates it. |
 | `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — **a sheet's § 6 is where its implementation pointer belongs, and a citation earlier is a defect to fix rather than a licence to add more.** **Two carve-outs, both deliberate and both outside § 6:** `issue-creation.md` § 3 fixes the meaning of `--dry-run` and `--apply` kit-wide, because that is a rule about the vocabulary every tool shares rather than a description of one implementation; and `config-seam.md` § 2 fixes the POSIX-shell declaration shapes (`NAME="${NAME:-value}"` / `NAME='value'`) — a seam anything must parse textually has to name the syntax it parses. Some sheets describe no script at all, and each says so in its own § 6. A sheet without a shipped implementation is not an omission: the rule still travels. |
@@ -483,7 +483,8 @@ inside a heredoc. **A generator that emits a classified file contains that file'
 census that does not read the first marker per file counts the generator as its own output.
 
 **Run `./scripts/test/run.sh` right after extraction.** Its own summary prints its
-passed/failed/skipped counts; an independent count of its defined cases must agree. The families
+passed, failed, skipped and N/A-on-lived-tree counts (the last is expected only on an adopted tree);
+their total must equal an independent count of its defined cases. The families
 that pin an installation's own facts are the ones expected to redden first — that is the harness
 working, not a broken extraction.
 
@@ -584,7 +585,7 @@ you want to know what the initializer is doing to your repository. **A non-shell
 
 Every knob is a `${VAR:-default}`, so a one-off run can override without an edit.
 
-**The substitution keys on the HEADER KEY, never on a donor-shaped value.** A substitution that
+**The substitution keys on the HEADER KEY, never on a value shaped like the template's example.** A substitution that
 matches nothing fails *silently*, and every created item then carries the template's example
 identifier under a real-prefix filename — which is how one project produced a whole board its own
 drift report flagged. This is contracted in
@@ -630,13 +631,15 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 | File | What it holds | If it is missed |
 |---|---|---|
 | `scripts/move-issue.sh` | the full set, at every site — the target whitelist, the usage text, the error message that lists legal targets, and the note-scan regex, which carries it **twice** in one expression | a new column cannot be moved to **at all** |
-| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name; `[g]` derives from the constant; `[j]` and `[m]` each read the two landed columns (`done`, `qa_complete`) by name. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
-| `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm — DECIDED, not inherited: a subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep. **`declined` was omitted too, by an earlier decision** — *a subtask is not independently refusable: what gets declined is the PARENT, and the decomposition goes with it.* **Superseded 2026-09-28:** once the mover, the lander and the sweep all refuse a parent over any open slice, a slice that will not be done had no way out but a false review, so `declined` is a terminal slice target, with its reason required. A declined parent's tree is not swept: its slices stay under `progress/subtasks/<ID>/`, so decline the open ones with it. | a subtask cannot reach the new column |
+| `scripts/check-board.sh` | the full set, as `STATUS_FOLDERS` — **and its arms do not all read all of it.** `[d]`, `[i]` and `[a]` derive from the constant; `[a]` subtracts a named skip list (`done/` only, for the budget); `[b]` and `[k]` each read ONE column by name; `[g]` derives from the constant; `[j]` and `[m]` each read the two landed columns (`done`, `qa_complete`) by name; `[f]` (its `[f3]` check) builds its card population from `done` and `qa_complete` by name; `[l]` `[p]` `[q]` `[r]` read the constant through `lib/board-properties.sh`. *So widening the constant is necessary and is not sufficient: an arm holding a literal goes on answering about the old set while the constant beside it reads correctly.* | the new column is invisible to the drift report — or, worse, invisible to one arm while the others see it, which reads as a clean board rather than as a gap |
+| `scripts/subtask.sh` | the set **minus `done`**, on its `move` arm — a subtask tree reaches its terminal home under `progress/done/subtasks/<parent>/` via the sweep, not by a move. `declined` is a terminal slice target and needs its reason; a declined parent's tree is not swept, so its slices stay under `progress/subtasks/<ID>/` and the open ones are declined with it | a subtask cannot reach the new column |
 | `setup.sh` | the set **plus `history/`**, as the directories it CHECKS FOR — it creates nothing (it only tests `-d` and warns or fails). **A bare `grep -c mkdir setup.sh` is NOT the derivation and stopped being one**: the file now PRINTS a `mkdir` inside a warning's remedy text, so the grep returns hits for a script that still executes none. Read the hits, do not count them. **It carries a SECOND list**, of the columns added since the kit's original board, which downgrade from failure to a warning naming the remedy | **setup.sh stops noticing.** A tree missing the new column passes its check silently, because the column it would have failed on is not in the list it walks. **And the mirror error costs more:** adding it to the first list alone hard-fails every existing adopter's fresh clone on an upgrade they have not read yet. *Neither is "a fresh clone is missing the directory" — that is `kit-init.sh`'s row below, which is the file that creates the board* |
 | `scripts/test/lib/fixtures.sh` | the set **plus `history/`**, iterated to build its sandbox board | the harness builds a board the project no longer has |
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
 | `scripts/lib/lived-probe.sh` | **nothing — it is PARAMETERISED**, and is in this table so that a maintainer who derives the carriers and meets it knows it needs no edit. The caller passes the columns, precisely because `kit-init.sh` and `check-board.sh` hold their sets in incompatible types (a bash array and a `\|`-delimited string). | nothing; it grows for free |
-| `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, in **brace-expansion form** (`progress/{todo,…}/`) — a lexical shape no `progress/<name>` path search finds, so a grep for the new column reports both files clean whether or not anyone considered them. **The prediction in this row came true the first time it was tested**: `declined/` was added and both files were missed by the sweep that added it, exactly as written. They now carry the exclusion **in prose** — a terminal column is not runnable — so the next reader meets a decision rather than a silence | the listing silently omits the column, and a reader is told the board is smaller than it is. **The subtler cost, once a terminal column exists:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
+| `scripts/lib/kanban-worktree.sh` | `qa_complete` and `declined` **by name**, in `kwt_open_subtasks` — the one reader of "which slices of a parent are still open", shared by the mover, the lander and the sweep | a slice that reaches a new terminal column reads as open, and its parent is refused over it |
+| `scripts/lib/qa-gate.sh` and `scripts/lib/board-properties.sh` | **nothing of their own** — both read `STATUS_FOLDERS` as the trunk's `check-board.sh` declares it, so they are in this table for the maintainer who derives the carriers (the first command below) and meets them | nothing; they follow the constant |
+| `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, spelled out as one `progress/<column>/` argument each to an `ls` — not the terminal ones. They carry that exclusion **in prose** (a terminal column is not runnable), so the next reader meets a decision rather than a silence | the listing silently omits the column, and a reader is told the board is smaller than it is. **The subtler cost, once a terminal column exists:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
 
 **Other files name columns without carrying the set, and they are not all the same kind.** None is a
 row above; none is safe to ignore; and what a lifecycle change costs each one differs:
@@ -710,6 +713,7 @@ rewrite the adapter. The `Stamped?` column is the register, and it is mechanical
 | `scripts/move-issue.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** The whitelist and both error messages now derive from the hook at run time through [`lib/role-set.sh`](../scripts/lib/role-set.sh)'s `kit_role_resolve`, and the usage text through `kit_role_display` | A role missing here cannot move the board **at all**. **Preserve the derivation**; the default is the part that drifts, so correct IT. **The remaining literal is reached only when the hook is UNREADABLE, which is why it is a default and not a copy**: a literal beside a readable authority can drift from it, one reached only in the authority's absence cannot. It is still stamped because a default must be right for *this* project, and it lives in this file rather than in `lib/` because `kit-init --roles` stamps `scripts/*.sh` and **does not reach `scripts/lib/`** |
 | `scripts/check-board.sh` | **ENFORCING** | yes | The attribution scan — it **derives** the set from the hook, with a literal fallback | **Preserve the derivation**; the fallback is the part that drifts, so correct *it* |
 | `scripts/subtask.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `move` arm's whitelist and both error messages derive through `kit_role_resolve`; its usage text derives through `kit_role_display` | Validated **before** any mutation: an unvalidated role reaches the commit subject, the hook rejects it mid-operation, and the shared kanban worktree loses the move. **Same shape as `move-issue.sh` above, and kept in this file for the same reason:** the initializer's glob cannot reach `lib/` |
+| `scripts/register-commit.sh` | **ENFORCING** | yes — **of a DEFAULT, not of the whitelist** | **One value: `ROLE_SET_DEFAULT`.** Its `--role` check derives through `kit_role_resolve` before the kanban worktree is touched | **Same shape as `move-issue.sh` above, and kept in this file for the same reason:** the initializer's glob cannot reach `lib/` |
 | `PROJECT.md` | DOCUMENTATION | **no** | The *Roles — active vs parked* table, one row per role doc | The project-facts sheet requires the table and the initializer does not touch it, so it goes stale by hand like the adapter's. |
 | The adapter (`AGENTS.md`) | DOCUMENTATION | **no** | The human-readable role table + the commit-prefix table | The source of truth a reader consults. Never stamped: it is `REPLACE`-class and the project writes it |
 
@@ -894,7 +898,7 @@ The manual names no filenames except through these two roles:
 | Role | This kit's default | You supply |
 |---|---|---|
 | **The project doc** — what the project is, stack, quality bar, binding gates, credentials | `PROJECT.md` | Your equivalent. |
-| **The project adapter** — the project's own law and the role set | `AGENTS.md` (Claude Code and every harness that honors the `AGENTS.md` convention read this filename; see `process/EXTRACTION.md` § 1 for how a harness with its own conventional filename should point at it instead of copying it). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/AGENTS-adapter.template.md` and **overwrite** the stub. |
+| **The project adapter** — the project's own law and the role set | `AGENTS.md` (Claude Code and every harness that honors the `AGENTS.md` convention read this filename). **The kit ships a bootstrap stub at that path, not a default adapter** — `REPLACE`-class, see § The second axis: DISPOSITION. | Your adapter, pointing at `process/MANUAL.md` in its first paragraph. Build it from `process/templates/AGENTS-adapter.template.md` and **overwrite** the stub. |
 
 ### 2.6 What counts as CODE
 
@@ -922,18 +926,9 @@ no second list is kept here. One of those hooks records, around every Bash call,
 **Copy it as it stands.** The decision it asks of you is *whether to activate the hooks at all* —
 they execute shell on tool use and at session start — not what to put inside it.
 
-**It is no longer CONFIGURE.** The file carried an `autoMode` block whose prose restated the trunk, the
-code-path globs, the two project filenames and the role-prefix list; it was deleted as a third copy of a
-rule that already had two authoring sites. Every row of the table below is struck. *Kept rather than
-deleted because the question "where did the trunk name in the settings file go" is one an adopter
-upgrading across this change will ask, and a deleted table cannot answer it.*
-
-| Value inside the file | Replace with |
-|---|---|
-| ~~The trunk name~~ | ~~Your `<trunk>`~~ — gone with `autoMode`; the trunk policy lives in the adapter, and the file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key says so |
-| ~~The code-path globs (in both the *allowed metadata* list and the *forbidden direct-push* list)~~ | ~~Your § 2.6 answer, verbatim~~ — **STRUCK: no such list ships.** The `autoMode` block that held them was removed. These rows told an adopter to go and edit three lists that are not in the file they were opening. |
-| ~~The two project filenames (cited as the rules' authority and listed among the pushable paths)~~ | ~~Your two files (§ 2.5)~~ — **STRUCK, same reason.** *The trunk policy's real home is named in that file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key.* |
-| ~~The role-prefix list in its prose~~ | ~~Your role set~~ — gone with `autoMode`; § 2.4 no longer lists this file as holding the set |
+**It is not CONFIGURE:** it holds no trunk name, code-path glob, project filename or role-prefix list
+to replace. The trunk policy lives in the adapter, and the file's own
+`_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key says so.
 
 **`.claude/settings.unattended.json.example` is COPY too, and it is a SEPARATE file, not a key
 inside the one above.** It denies the harness's interactive-question tool for a launch nobody is
@@ -948,21 +943,23 @@ is OFF here); the mechanism it pairs with is `scripts/ask.sh` (§ 2.10 below) an
 
 ### 2.9 The drift-report thresholds
 
-The bounds the drift report needs are **named constants at the top of the reference
-implementation** — a seam, not a contract term — and **are neither repeated here as digits nor
-counted here.** Read them from the file. They cover the depth at which the reviewed-and-done column
-is *due for a sweep* and the sizes at which the running log is *due for rotation*, its current
-section and the whole file being separately bounded. The **section**-size one is deliberately
+The bounds the drift report needs are seams, not contract terms, and **are neither repeated here as
+digits nor counted here.** Read them from where they are declared: the depth at which the
+reviewed-and-done column is *due for a sweep* is `scripts/config.sh`'s `QA_COMPLETE_THRESHOLD`
+(`check-board.sh` holds only a fallback default), and the sizes at which the running log is *due for
+rotation* — its current section and the whole file, separately bounded — are named constants at the
+top of `scripts/check-board.sh`. The **section**-size one is deliberately
 reused as the index trigger in [`doctrine/lookup-tables.md`](doctrine/lookup-tables.md) § A.1, so
 that one idea does not carry two numbers.
 
 ### 2.10 `scripts/ask.sh` and `PROJECT.md`'s `principal:` — the non-blocking route
 
 `PROJECT.md` § *Who answers when nobody is watching* names the principal and their channel —
-`<angle-bracket>` blanks like every other `PROJECT.md` fact, so they are already inside
-`scripts/check-board.sh`'s existing FILL scan (its `[g]` arm reads the whole file for unfilled
-blanks; nothing there is specific to this pair). `scripts/ask.sh` reads the declaration; it does
-not duplicate it. Fill it on day one alongside the rest of `PROJECT.md` (`process/SEED.md` step
+`<angle-bracket>` blanks like every other `PROJECT.md` fact, so they are inside
+`scripts/check-board.sh`'s FILL scan (its `[g]` arm reads the whole file for unfilled blanks), and
+the arm also reads `principal:` on its own line through the same reader `ask.sh` uses
+(`scripts/lib/pm-field.sh`), accepting the literal `nobody` as filled. `scripts/ask.sh` reads the
+declaration; it does not duplicate it. Fill it on day one alongside the rest of `PROJECT.md` (`process/SEED.md` step
 3) or `ask.sh` refuses.
 
 ---
@@ -1043,8 +1040,11 @@ The configuration seam parameterises the *prefixes*; whether it parameterises th
 the thing to check. If it does not, renaming or adding a state (say, a `review` column) means
 **opening every carrier in § 2.2's table and deciding what each one should hold** — which is not the
 same as applying one edit N times, because they do not all hold the same set.
-**Check:** `grep -rn 'qa_complete' scripts/ setup.sh` — a handful of hits in one declared list is a
-seam; a scatter across the files § 2.2 lists is this debt.
+**Check:** `grep -rl 'qa_complete' scripts/ setup.sh | grep -v '^scripts/test/'` lists the files that
+name the column outside the self-test's fixtures. Each is a row of § 2.2's table or one of the files
+named under it as naming a column without carrying the set; a file that is neither is a carrier the
+table has not met. The seam has no variable, so the debt is present: the probe says what to open,
+not whether to.
 **Cost if unpaid:** every carrier in § 2.2's table edited by hand, per lifecycle change — **and the
 divergent ones decided rather than copied.**
 
@@ -1111,7 +1111,7 @@ so it lands as one change across all of them, with the guard **transformed** rat
 ([`doctrine/supersession.md`](doctrine/supersession.md) § A.1).
 
 ### 4.10 What this extraction deliberately did NOT do
-- **No rule's meaning was changed.** Where a donor rule could not generalize, it was replaced by a
+- **No rule's meaning was changed.** Where a rule from the source project could not generalize, it was replaced by a
   clearly-marked *"Project duties — filled by the adapter"* placeholder stating what **kind** of
   duty goes there — never by an invented rule.
 - **No doctrine instance was silently dropped.** Every § B was replaced by fill-in instructions
@@ -1125,11 +1125,6 @@ so it lands as one change across all of them, with the guard **transformed** rat
   pin breaks that. **Declared as a carve-out in § 1's COPY table**, in a table homed outside the directory it
   describes so a re-copy cannot erase it, with the staleness debt named. *An exception that is not
   written down is indistinguishable from an oversight, and this one had been both.*
-- **No guard was written IN THAT CHANGE.** § 4.4 remains the largest live debt — partly paid since
-  (that section names the guards that now ship; read it rather than a fraction repeated here) and
-  still the biggest one, named rather than half-paid by a guard nobody can run.
-- **Two cross-references in the donor's own doctrine were found broken while writing this** — a
-  sheet citing a neighbour for a constant the neighbour does not contain, and a citation to a
-  section heading that does not exist. Both are corrected in this copy. They are recorded here
-  because they are the *shape* of defect a manifest cannot catch: both links resolved to a real
-  file, and only reading the target revealed that the claim about it was false.
+- **A cross-reference can resolve to a real file and still make a false claim about it** — a sheet
+  citing a neighbour for a constant the neighbour does not contain, a citation to a heading that
+  does not exist. A manifest's link check cannot catch the shape; only reading the target does.

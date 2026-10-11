@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the adapter's fill-in, with anonymized worked examples from the donor project. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the adapter's fill-in, with anonymized worked examples from the project the pattern came from. -->
 # Distribution doctrine — shipping a project into other repositories
 
 **KIT-CLASS: KIT.** Rules for the case where your project is not the end of the line:
@@ -117,7 +117,7 @@ What keeps that from becoming a trap:
 > A consumer's vendored directory holds **exactly one** pinned artifact. When it holds more,
 > the tooling **refuses and says what it found** — it never picks one.
 
-**The incident (worked example from the donor project, anonymized).** The updater answered
+**The incident (worked example from the project this pattern came from, anonymized).** The updater answered
 "which version is vendored?" by listing the artifact glob and taking the first entry. That
 directory is **long-lived**: a stale artifact can sit beside the current one, from a
 half-finished refresh, a bad merge, or a hand copy. Sort order then decides the answer — and
@@ -258,10 +258,10 @@ wholesale if the project ships to nobody.
 | **Release-notes criteria** | `<what earns a note>` — so A.6's "placed by the notes' own criteria" has criteria to obey. |
 | **Consumer register** | `<none — self-service>` *(the default: consumers are not tracked, and the update loop is pull-based)*, or `<where consumers are listed and who tells them>`. |
 
-**Worked examples from the donor project, anonymized** — kept because each carries a reason
+**Worked examples from the project this pattern came from, anonymized** — kept because each carries a reason
 that generalizes, and a reason removed is a reason re-learned:
 
-1. **The one-line migration point.** The donor kept its upstream URL on a single line in a
+1. **The one-line migration point.** That project kept its upstream URL on a single line in a
    single file, with a comment saying *why* it was alone there. It then migrated forges once,
    mid-life: because the value lived on one line, each consumer's migration was a one-line edit
    plus one re-vendor. **Keep the seam, keep the comment.**
@@ -269,11 +269,11 @@ that generalizes, and a reason removed is a reason re-learned:
    outage, which is the only cheap way to find it. The fix shipped **both** the refusal and the
    nuance comment explaining where the fast idiom stays correct, so the next reader does not
    "simplify" it back.
-3. **The advisory nag that opted out of its own extras.** The donor's `--check` gained a
+3. **The advisory nag that opted out of its own extras.** That project's `--check` gained a
    what-changed report that costs a shallow clone. The nag hook, which runs on every pull,
    sets the environment flag that skips it — because *a nag slower than the thing it nags about
    gets uninstalled*. Cheap by default, detailed on demand.
-4. **The pack that had to earn its keep.** The donor shipped a consumer-side router skill pack
+4. **The pack that had to earn its keep.** That project shipped a consumer-side router skill pack
    built to be **A/B measured** — the comparison designed and written down *before* the pack
    was called valuable, with thinness as the variable under test. The rule that travels is in
    [`consumers/skills/README.md`](../../consumers/skills/README.md): a pack that does not win on

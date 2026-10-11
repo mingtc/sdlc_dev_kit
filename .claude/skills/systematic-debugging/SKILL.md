@@ -51,7 +51,7 @@ You MUST complete each phase before proceeding to the next.
 
 **BEFORE attempting ANY fix:**
 
-**Environment-behavior findings are HYPOTHESES until an off-environment control has run** — a claim that something hangs/flakes/times out *because of this machine, mount, or CI* is unconfirmed until you reproduce (or fail to reproduce) it in a controlled run elsewhere (a real incident: a teardown-hang investigation carried two wrong environment root-causes for days, and a single cheap control run OFF the suspected environment — different machine, different mount, plain local disk — reversed both in minutes).
+**Environment-behavior findings are HYPOTHESES until an off-environment control has run** — a claim that something hangs/flakes/times out *because of this machine, mount, or CI* is unconfirmed until you reproduce (or fail to reproduce) it in a controlled run elsewhere: run a cheap control OFF the suspected environment — a different machine, a different mount, plain local disk.
 
 1. **Read Error Messages Carefully**
    - Don't skip past errors or warnings

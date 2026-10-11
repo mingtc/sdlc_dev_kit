@@ -28,8 +28,11 @@
 #   4. RETURNS 0. The session carries on — under the working default, or under the entry's
 #      standing ruling where one exists; nothing here blocks it.
 #
-# It refuses through kit_refuse — principal-undeclared, channel-unusable, or a required
-# argument missing — never asking is not a silent success.
+# It refuses through kit_refuse — never asking is not a silent success: a required argument
+# missing (exit 2), --role not among the declared roles (exit 2), no principal or channel
+# declared in PROJECT.md, an unusable channel, or --role equal to the declared principal
+# (exit 1; the asker may not be the seat that answers). Every rule id is in
+# process/contracts/ask.md § 3.
 #
 # IT DOES NOT COMMIT. The question file and any DECISIONS.md edit are metadata
 # (process/MANUAL.md § The code-vs-metadata rule) — commit them direct to the trunk through your
@@ -37,7 +40,8 @@
 # through whatever the pack's dispatch site names.)
 #
 # Options:
-#   --role <role>        who is asking — one of this project's declared roles. Required.
+#   --role <role>        who is asking — one of this project's declared roles, and not the
+#                         declared principal (PROJECT.md `principal:`). Required.
 #   --default "<text>"   the working default to proceed under. Required.
 #   --decision <D-NN>    the requirements/DECISIONS.md entry this question could overturn.
 #                         Optional; without it the question file alone carries the default.

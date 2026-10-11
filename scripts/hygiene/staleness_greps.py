@@ -46,7 +46,7 @@ from citation_index import REPO_ROOT, iter_files, print_blind_spots, run_instrum
 #    THREE with your own measurements, each with its own date and source, the first time you run
 #    this and adjudicate the output. Until you do, they are labelled as another project's.
 BASE_RATE = [
-    ("a donor project's staleness sweep, as of its run date",
+    ("another project's staleness sweep, as of its run date",
      "24 flags raised, 9 actively wrong — a ~38% true-positive rate on a hand-run of these "
      "two shapes"),
     ("the same sweep's CLEAN NEGATIVES section",

@@ -34,7 +34,7 @@ trunk branch, default `main`.
    at session start; do **not** re-read it. Read only what isn't loaded yet:
    `.claude/roles/orchestrator.md`, `PROJECT.md`, the repo-local worker memory index if the
    project keeps one, `progress.md` (recent entries), then
-   `ls progress/{todo,in_progress,dev_complete,qa_complete,blocked}/` and
+   `ls progress/todo/ progress/in_progress/ progress/dev_complete/ progress/qa_complete/ progress/blocked/` and
    `ls progress/subtasks/ 2>/dev/null`. **That is the RUNNABLE board and omits the two terminal
    columns on purpose** — `done/` (shipped) and `declined/` (considered and refused, with the
    reason); neither holds work you can pick up, and declining is PM's call, not yours.

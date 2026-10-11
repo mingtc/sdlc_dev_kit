@@ -74,7 +74,7 @@ modes in order:
   does not exist.
 - Failure mode 2 is about **irrecoverable cost**. It assumed removal means loss. On a trunk
   whose history is never rewritten that assumption is false for *content* — and this is
-  measurable, not assertable: in the donor project a ~155 KB source module deleted in one commit
+  measurable, not assertable: in the project this pattern came from, a ~155 KB source module deleted in one commit
   came back **byte-identical** from its content-addressed object roughly a hundred commits later.
   What deletion destroys is not the content but the **address** — nobody six months on knows the
   object's hash. The ledger line restores the address; it is the thing that makes the reason
@@ -84,7 +84,7 @@ modes in order:
   enumeration is not spent, and one whose claims are all restated elsewhere carries no orphaned
   claim.
 
-**The test is not invented here.** The donor had already applied it once, under authorization, to
+**The test is not invented here.** That project had already applied it once, under authorization, to
 three abandoned branch refs — deleted under a table whose columns are precisely the ledger shape
 (name, last commit, landing evidence, verdict). The test it stated was § A.2's almost verbatim: *a
 branch ref is not citable from a file; its content is on the trunk; and no document references the
@@ -258,7 +258,7 @@ thing you MAY do, never a thing you OWE.**
   work items) is *not* the retirement-under-ledger mechanism § A.2 defines, and this doctrine does
   not touch it.
 
-### A worked example from the donor project (anonymized)
+### A worked example from the project this pattern came from (anonymized)
 
 *Park beats delete was observed perfectly for the whole of that project's life* — a search for
 deletions under the retained-evidence area returned nothing, across the entire history, and the

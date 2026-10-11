@@ -92,8 +92,8 @@ write what you find into your § B.2 with the date you checked.**
 
 5. **Every place a model is actually set, derived rather than counted:**
    ```sh
-   for f in .claude/agents/*.md; do grep -m1 '^model:\|^effort:' "$f"; done   # the pins
-   grep -A1 '^| \*\*' .claude/roles/orchestrator.md                          # the ladder row
+   grep -n '^model:\|^effort:' .claude/agents/*.md                           # the pins
+   sed -n '/^## Model & effort contract/,/^## [^M]/p' .claude/roles/orchestrator.md | grep '^| \*\*'   # the ladder rows
    grep -n 'defaultModel\|defaultEffort' .claude/workflows/*.js              # the runners' fallback
    ```
    **`scripts/set-models.sh` is the one way to change them**: it writes a class's `(model, effort)`
@@ -147,7 +147,7 @@ is the thing that goes stale while still reading as authoritative. The seat's ow
 
 ---
 
-## Appendix — the originating study (a worked example from the donor project, anonymized)
+## Appendix — the originating study (a worked example from the project this pattern came from, anonymized)
 
 > **This appendix is EVIDENCE, not law:** one project's evaluation, on one date, of one
 > model-generation change. What travels is the *shape* of the reasoning and the *kind* of

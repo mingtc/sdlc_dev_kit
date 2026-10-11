@@ -10,7 +10,7 @@ second format, and without any producer depending on being read.
 **The beneficiary is the operator first, and that is the test this contract must pass.** A record
 that only makes sense to a watching process fails it.
 
-## 1a. THE SCOPE IS TWO CONSUMERS, DELIBERATELY
+## 1a. THE SCOPE IS NARROW, DELIBERATELY
 
 This contract is **converged narrowly on purpose**. The population of shipped scripts that
 announce phases, and of roles whose lifecycle is enumerable in advance, is derivable — both
@@ -18,8 +18,9 @@ derivations are in § 5a — and **most of it is deliberately unconverted.**
 
 *Why:* a format is specified from conviction until a run has used it. Converting everything first
 means the format proves slightly wrong after its first real run and the migration is then over
-every role and script rather than over two. **Widen only after a run has exercised these two**,
-and widen from the derivation in § 5a rather than from memory.
+every role and script rather than over the two this contract's invariants were written against
+(§ 6). **Widen only after a run has exercised a producer**, and widen from the derivation in § 5a
+rather than from memory.
 
 **Refusals are the one deliberate widening, and they pass through one helper.** Every refusal
 made through `kit_refuse` ([`scripts/lib/refuse.sh`](../../scripts/lib/refuse.sh)) writes one
@@ -333,8 +334,8 @@ does not care about runs to learn it, which § 2's four-field envelope exists to
   [`scripts/verify.sh`](../../scripts/verify.sh) (the script side — per-gate start and outcome,
   plus one run summary) and [`scripts/move-issue.sh`](../../scripts/move-issue.sh) (the role
   side — the board transition, recorded after the push and never before) are the two this
-  contract's invariants are written against; § 5a's command names every producer, including
-  the others.
+  contract's invariants are written against; § 5a's command names every producer, the others
+  included.
 - **And every refusal made through [`scripts/lib/refuse.sh`](../../scripts/lib/refuse.sh)'s
   `kit_refuse`** (§ 1a): the helper writes the record, so a script that calls it is a producer with
   nothing else converted.

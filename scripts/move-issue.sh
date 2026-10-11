@@ -286,7 +286,11 @@ fi
 [ -z "${KIT_ROLE_DEFAULTED:-}" ] \
   || echo "Note: --role is being checked against $KIT_ROLE_SRC" >&2
 if [ -z "$ROLE" ]; then
-  echo "Error: --role is required ($KIT_ROLE_SET)." >&2; usage >&2; exit 2
+  # The error and the ONE synopsis line (read from the header, so there is no second copy), not
+  # the whole help text.
+  echo "Error: --role is required ($KIT_ROLE_SET)." >&2
+  usage | awk '/^Usage:/ { f = 1; next } f && !d { sub(/^ +/, ""); print "Usage: " $0 "   (--help lists the rest)"; d = 1 }' >&2
+  exit 2   # exit-class: usage
 fi
 if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
   kit_refuse 1 role-not-declared \

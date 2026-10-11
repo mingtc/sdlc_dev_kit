@@ -40,6 +40,7 @@ table below is this project's **instance**, and the full ladder lives in
 > The shipped `pm-mint` definition in [`.claude/agents/pm-mint.md`](../agents/pm-mint.md)
 > already pins a model and an effort in frontmatter. That pin is the seed default — fill this
 > table to match it, and change both in the same commit if you change either.
+> `scripts/set-models.sh` writes that pin and the orchestrator's ladder row together but not this table, which stays hand-kept.
 
 **Standing riders, binding here:** the lowest effort tier is **never used**; **never `max`
 effort, anywhere**; **never spawn above the project's sanctioned ceiling**, and `max_tokens` is
@@ -99,8 +100,10 @@ Start: a vague ask, an open question in PROJECT.md, or stakeholder feedback. End
 > **Not every issue needs a PRD.** The **default for small, well-understood work is the lite
 > path**: mint one `progress/todo/` issue directly — real AC, `prd: n/a` with a one-line `prd_reason:`, `stories: []`, no
 > subtask tree — and hand it to Dev for `issue → branch → TDD → land` (see the adapter § "The
-> default path is lite"). The two heavier intake shapes below are for **feature-area-scale**
-> work only. **PRD-first** (the numbered steps) starts from a feature area and writes the spec.
+> default path is lite"). Mint it with `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd n/a`,
+> then edit the card by hand: the script fills the PRD-first shape, so set `stories: []`, fill
+> `prd_reason:`, and rewrite the first Activity line to `Created in todo/. Standalone fix, no PRD.`
+> The two heavier intake shapes below are for **feature-area-scale** work only. **PRD-first** (the numbered steps) starts from a feature area and writes the spec.
 > **Feedback-round** (next subsection) starts from a raw batch of operator complaints. Pick the
 > matching path; all three end at vetted `progress/todo/` issues.
 
@@ -237,7 +240,7 @@ A card is published to `progress/todo/` only when every box is checked. If anyth
 - [ ] **Open questions at P0** — none remaining (P1/P2 stay in the PRD)
 - [ ] **Success metric** named when applicable — most are binary (works / doesn't); strategic ones get a metric
 - [ ] **Activity log seeded** — first entry: `YYYY-MM-DD [PM] Created in todo/. PRD-NNN § ...` (lite path: `... Created in todo/. Standalone fix, no PRD.`)
-- [ ] **Notes deliverable named** — a consumer-visible issue's AC list names its release-notes / changelog entries, or the issue states it has none. **The lesson behind this box:** a fully landed feature shipped **invisible** because the mint omitted the notes and three faithful QA legs never checked — QA grades the AC list, so a deliverable that is not an AC is a deliverable nobody grades.
+- [ ] **Notes deliverable named** — a consumer-visible issue's AC list names its release-notes / changelog entries, or the issue states it has none. QA grades the AC list, so a deliverable that is not an AC is a deliverable nobody grades.
 - [ ] **Every illustrative example inside an AC CITES ITS SOURCE or is labelled approximate.** An AC that says *"e.g. `0 9 * * 1-5` fires at 09:00 on weekdays"* is asserting a fact the implementer will be graded against — so it either names where that fact came from (a spec section, a manual page, a measured probe) or says plainly that it is illustrative and unverified. **Never a bare confident example.**
 
 > **Why the illustration rule exists.** An AC's example is read as the contract, not as

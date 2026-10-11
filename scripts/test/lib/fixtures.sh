@@ -1,8 +1,8 @@
 # KIT-CLASS: MIXED — self-test harness, the shared fixtures. See process/EXTRACTION.md.
 # =============================================================================
 # scripts/test/lib/fixtures.sh — sourced by scripts/test/run.sh, never run on its own.
-# The fixtures every case family builds on: the neutral config, the PASS/FAIL/SKIP
-# recorders, make_sandbox and the seeders, the seam neutralizers (_neu_*, _kit_neutral_*), the
+# The fixtures every case family builds on: the neutral config, the outcome recorders
+# (PASS, FAIL, SKIP and N/A-on-lived-tree), make_sandbox and the seeders, the seam neutralizers (_neu_*, _kit_neutral_*), the
 # origin_* readers, and the anchored plant helpers.
 # =============================================================================
 

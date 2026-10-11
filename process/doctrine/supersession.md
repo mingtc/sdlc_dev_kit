@@ -46,8 +46,8 @@ Both halves are load-bearing, and each fails differently when dropped:
   as historical, date it, keep the reason it was chosen to demonstrate, and re-point at a live
   instance if one exists. Do **not** delete it: an unillustrated rule is the weaker artifact, and
   deleting the spent case removes the only evidence the rule was ever needed.
-  **Anonymized donor examples are historical BY CONSTRUCTION and are never re-measured** — the
-  project they came from is not named and cannot be re-read (`EXTRACTION.md` § 4.10). That is said
+  **Anonymized examples from the project a pattern came from are historical BY CONSTRUCTION and are never re-measured** — that
+  project is not named and cannot be re-read (`EXTRACTION.md`, its "Prior art" paragraph). That is said
   once, here, rather than as a per-sheet disclaimer on every worked example in the corpus. The
   obligation to re-point binds only examples drawn from **this** repository, which are the ones that
   can go stale silently and the ones a reader can check.
@@ -113,11 +113,11 @@ same defect as a retirement stamp owed later; the trigger list and the who-holds
    retro-annotation means re-reading every past ruling and is its own work item with its own
    verification burden. Announcing a sweep you will not run is worse than declaring the boundary.
 
-### A worked example from the donor project (anonymized) — keep the reason, not the ids
+### A worked example from the project this pattern came from (anonymized) — keep the reason, not the ids
 
 *One instance, preserved because the pattern above is only credible with a case behind it.*
 
-The donor had a recorded decision covering a data-creation call with two halves. New measurement
+That project had a recorded decision covering a data-creation call with two halves. New measurement
 overturned **one** half. The amendment kept the original reason on the record verbatim, replaced
 only that half's conclusion, and **transformed** the guard test that had enforced the old
 conclusion — the assertion moved to the new truth instead of being deleted. Two later rulings

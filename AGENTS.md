@@ -96,5 +96,5 @@ Your project states its own precedence in [`requirements/CORPUS.md`](requirement
 before you fill anything: where a contract sheet and any prose disagree, **the sheet wins**
 ([`process/MANUAL.md`](process/MANUAL.md) § The three documents). Do not resolve a contradiction
 silently: record it (`requirements/DECISIONS.md` § Findings) and name who decides. A contradiction
-inside the kit itself is resolved in `process/LOCAL-PROCEDURES.md`
-([`process/MANUAL.md`](process/MANUAL.md) § Kit feedback).
+inside the kit itself is resolved in `process/LOCAL-PROCEDURES.md`, which day one mints at step 8
+([`process/SEED.md`](process/SEED.md) § Step 8's closing act).

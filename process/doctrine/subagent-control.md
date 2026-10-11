@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR fleet. § C is the donor project's failure catalogue, anonymized. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR fleet. § C is the failure catalogue of the project the pattern came from, anonymized. -->
 # Subagent doctrine — commissioning work you cannot watch, and believing the result
 
 An agent that dispatches other agents has two hard problems. The first is **commissioning**: saying
@@ -180,7 +180,7 @@ four events that may stop a run, everything else parked and passed, and a silent
 failure equal to improvising.
 
 **Worth recording, because it is evidence about the rule rather than a restatement of it:** the
-donor's independently-written version of this rule arrived at **the same four halting events, in the
+originating project's independently-written version of this rule arrived at **the same four halting events, in the
 same order**, and at the same silent-stop corollary in near-identical words. Two authors, no contact,
 same closed list. A rule two parties derive separately from their own incidents is not a convention;
 it is a finding.
@@ -377,7 +377,7 @@ yours, not a rule** ([`generality.md`](generality.md) § A.1: one environment is
 
 ---
 
-## § C — Worked example: the donor project's failure catalogue (anonymized)
+## § C — Worked example: the originating project's failure catalogue (anonymized)
 
 > Shapes, not incidents, so they transfer. Every one happened **while following the practices above**,
 > and each is why a rule above reads the way it does.
