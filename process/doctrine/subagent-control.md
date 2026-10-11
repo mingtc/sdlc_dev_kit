@@ -297,9 +297,8 @@ default and never doctrine.** State your own in § B; the numbered obligations b
    **And the arming obliges a retirement:** the act that ends the run walks **an enumeration of
    what it armed**, not a list of handles it happens to hold. A scheduled wake-up has no pid and no
    session directory, so a teardown made of handles cannot reach it. That invariant is
-   [`../contracts/liveness-watchdog.md`](../contracts/liveness-watchdog.md) § 2 and § 3 — it is
-   cited here rather than restated because **arming without retiring is how this item was first
-   drafted**, and a sheet that tells you to arm and stops has shipped the asymmetry.
+   [`../contracts/liveness-watchdog.md`](../contracts/liveness-watchdog.md) § 2 and § 3 — cited, not
+   restated: a sheet that tells you to arm and stops has shipped the asymmetry.
 2. **Every worker owes notes from INSIDE its work** — at each job boundary and at a stated
    interval, whichever comes first. *Why:* the only signal a prompted worker can produce unasked is
    one it produces **while acting**, so the note must ride on the work rather than wait for a gap.
@@ -326,11 +325,8 @@ default and never doctrine.** State your own in § B; the numbered obligations b
 > received it and **evaporates at the next restart**, because the successor inherits the queue, the
 > repository and the board, and does not inherit the prompt.
 >
-> **Measured, on one pair across one restart boundary:** eight unprompted progress notes before the
-> restart and **none** after, from a successor that was neither idle nor failing — it landed work,
-> bounced a review, closed board asymmetries. It simply never knew it owed anyone a note, and
-> **nothing in the repository told it.** The two notes that eventually arrived came only after a
-> human poked it by hand, which is the spawner's clock covering for a contract that had lapsed.
+> *Why it fails silently:* a successor that is neither idle nor failing simply never knew it owed anyone
+> a note, and **nothing in the repository told it** — only the spawner's clock covers a lapsed contract.
 >
 > **So the cadence obligation is written into the project's own working agreement** —
 > `process/LOCAL-PROCEDURES.md`, minted on day one ([`../SEED.md`](../SEED.md) step 8) — as a line
@@ -340,18 +336,17 @@ default and never doctrine.** State your own in § B; the numbered obligations b
 >
 > **What would falsify this:** a project whose workers reliably keep the cadence across restarts
 > **without** the working-agreement line — which would mean the prompt was never the only carrier
-> and the line is ceremony. The cheap test is the one that produced the measurement above: restart a
-> worker mid-queue, hand it nothing, and read the log for a note it owed.
+> and the line is ceremony. The cheap test: restart a worker mid-queue, hand it nothing, and read the
+> log for a note it owed.
 
-**An environment note, measured 2026-09 on one harness (background agent sessions) — a setting to check on
+**An environment note, from one harness (background agent sessions) — a setting to check on
 yours, not a rule** ([`generality.md`](generality.md) § A.1: one environment is not independence):
 
 - **The send must carry the check.** A peer can meet its obligation to send by *nudging* — a message
-  with no state check behind it — and still miss the moment it exists to see. Measured: ready moments
-  sat unseen for 17–47 minutes with both sides healthy, and the healthier the other side, the longer.
-  Make the state check part of every send, not a separate duty.
-- **An idle prompted peer can be reaped.** Measured: about an hour after its last activity, in
-  whatever state it was in, with no log. Item 1's idle notice cannot fire for a peer that is gone, so
+  with no state check behind it — and still miss the moment it exists to see: ready moments can sit
+  unseen for tens of minutes with both sides healthy. Make the state check part of every send, not a separate duty.
+- **An idle prompted peer can be reaped:** after about an hour idle, in whatever state it was in, with
+  no log. Item 1's idle notice cannot fire for a peer that is gone, so
   **whether a peer still exists is read from a process listing**, never inferred from the absence of an
   idle notice; whether it is live is still artifact freshness (§ A.15's cited sheet, § 2).
 

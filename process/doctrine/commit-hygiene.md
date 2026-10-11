@@ -1,11 +1,10 @@
 <!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR conventions. -->
 # Commit-hygiene doctrine — what a commit owes beyond its content
 
-**KIT-CLASS: KIT.** Rules that used to live in one project's adapter as *"house rules"* and
-were re-derived, at cost, by every adopter who did not inherit them. They are **kit doctrine**, not
-project taste: each one exists because a specific, silent failure happened, and each one's remedy
-is cheap enough that no project has a reason to opt out. *(The § A headings are the list. A number
-written here instead would go false the first time this sheet grew — and it did.)*
+**KIT-CLASS: KIT.** Rules every adopter would otherwise re-derive, at cost. They are **kit doctrine**,
+not project taste: each one exists because a specific, silent failure happened, and each one's remedy
+is cheap enough that no project has a reason to opt out. *(The § A headings are the list; a number
+written here would go false when the sheet grows.)*
 
 **What this sheet is NOT.** It does not govern subject *style* — tense, length, body format,
 whether a body is required. That genuinely is the adapter's, and stacking it here would make the
@@ -175,10 +174,9 @@ guarding*:
 
 **The tell that you are in this case rather than outside the rule: you are about to write a comment
 explaining why your situation is really covered.** A site that has to argue the general rule applies to
-it is reporting that the general rule does not look like it does. *Measured in the donor project: nine
-instances across five work items, and every one shipped the same apologetic comment at the enrolment
-site — nine independent readings of this section, none of which recognised its own case in it. The
-comment was not wrong. It should not have had to exist.*
+it is reporting that the general rule does not look like it does. *Every instance the donor met
+shipped the same apologetic comment at the enrolment site — independent readings of this section, none
+of which recognised its own case in it. The comment was not wrong. It should not have had to exist.*
 
 **Nothing about the handling changes** — every numbered point above holds identically, and the
 set is still the unit. What changes is only that the executable-declaration case is now named here, so the

@@ -29,8 +29,7 @@ is acting as.
   discover.
   *Why:* versioned session state forks per branch, blocks a branch switch with "local changes
   would be overwritten", and reaches a landing gate as a merge conflict over a fact nobody was
-  collaborating on — measured, four actors paying for it and one conflict, in the first twelve
-  hours of one adoption.
+  collaborating on.
 - **The act of DECLARING is always permitted.** Writing the declaration can never itself require a
   declaration.
   *Why:* otherwise the gate is a deadlock on its first use, and the only escape is disabling it.

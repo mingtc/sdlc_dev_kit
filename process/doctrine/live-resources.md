@@ -335,72 +335,48 @@ instruction is what is left, and it should say so rather than implying a fence e
 
 ### C.1 — The permanent class, and a budget that worked
 
-An issue set out to answer "can we delete the uploaded artifacts this library creates?" — a
-question that could only be answered by creating artifacts and trying. The relevant property of
-that platform: uploaded media artifacts had **no working delete path at all**, so every probe
-minted something permanent.
+A question that could only be answered by creating artifacts, on a platform where uploaded artifacts had
+**no working delete path**: every probe minted something permanent. What made the budget work:
 
-What went right, and is now the pattern:
+- The authorizing decision **granted an explicit ceiling**, and required the count to be **declared in a
+  commit before the first send**; the leg spent within it and **named every identifier**.
+- The close **re-derived every number from the captured requests and responses**, not from the
+  harness's summary object, whose call counter "is not a total".
+- The permanent running total was published **as a decomposition**, each addend naming its phase; an
+  earlier, narrower figure was **superseded with its reason preserved**. The recoverable class had its
+  own column.
+- The close was a **measured absence** on **both** surfaces the claim covered: one path's measurement
+  cannot carry the other path's claim.
+- A mislabelled capture was corrected **by measuring again**, and the capture defects were disclosed
+  in the document that drew conclusions from them.
+- Finding a route would **not** have shipped a delete verb: no destructive capability ships in the run
+  that discovers it.
 
-- The authorizing decision **granted an explicit ceiling** ("at most three more permanent
-  artifacts, inside the pre-approved ten of which two are spent"), and required the count to be
-  **declared before the first send**. The executing leg declared "ceiling 3 / intended 2" in a
-  commit, spent exactly two, and **named both identifiers**.
-- The close **re-derived every number from the captured requests and responses** rather than from
-  the harness's own summary object — whose call counter, it noted explicitly, "is not a total".
-- The permanent running total was published **as a decomposition** (`8 + 5 + 2 + 2 = 17`, later
-  19), each addend naming its phase; an earlier handoff's narrower figure was **superseded with
-  its reason preserved** rather than quietly replaced. The recoverable-object class was kept in a
-  separate column.
-- The close was a **measured absence** — nine distinct spellings of the destructive verb, fourteen
-  sends, zero successes, on **both** surfaces the issue's title covered, because a prior ruling
-  had established that *one path's measurement cannot carry the other path's claim*.
-- One earlier capture had been **mislabelled**; it was corrected **by measuring again**, and three
-  capture-quality defects were disclosed in the same document that drew conclusions from them —
-  including one envelope that would have told a skimming reader a positive control had failed when
-  it passed.
-- Finding a route would **not** have shipped a delete verb: the standing gate was that no
-  destructive capability ships in the run that discovers it.
-
-The residue: **one process-level miss worth naming.** That issue's park had no fresh-eyes review —
-the resuming leg audited the dead leg's work and nobody audited the resuming leg. The remedy
-became standing: the close runs as its own implementer → **fresh-eyes reviewer** legs, and *both*
-re-derive the enumeration from the evidence rather than inheriting a roll-up.
+The residue: the park had no fresh-eyes review, because the resuming leg audited the dead leg's work and
+nobody audited the resuming leg. The close now runs as its own implementer → **fresh-eyes reviewer** legs,
+and *both* re-derive the enumeration from the evidence.
 
 ### C.2 — The reclaimable class, and a fence that did not exist yet
 
-A refactoring run forbade all live work: zero destructive resources, zero writes. The instruction
-was in the pack, and **every brief in the run quoted the specific trap** — never clear the
-runner's default option string on an executing run.
+A run forbade all live work, and every brief quoted the trap: never clear the runner's default option
+string on an executing run. A review leg cleared it to inventory test identifiers, on a run that executed
+tests; that re-selected the live rings, one of which **self-provisions objects**, and one object never
+reached teardown. What it taught:
 
-A review leg needed a complete inventory of the project's test identifiers, which legitimately
-requires clearing that option string. It cleared it **on a run that executed tests** rather than
-on a collect-only run. Clearing the deselection re-selected all three live rings, one of which
-**self-provisions objects**. Fifteen disposable objects were created inside three minutes, all
-under one session id. Fourteen self-deleted. **The fifteenth never reached teardown and was still
-live at close**, named in the run report for the operator to reclaim.
+- **The self-report was wrong without being deceptive.** The leg reported "no live rings run" while its own
+  action had fired them; it never connected an unusually long run to that.
+- **Three legs' self-reports and two independent reviews missed it. A two-line hash check found it:** the
+  ledger was hashed before the run and re-read after every leg.
+- **The documented instruction was not the missing piece; the missing piece was a refusal.** The cure
+  landed in the same run: the destructive ring refuses to execute without the authorizing-issue variable,
+  whatever the selection state, with a loud named skip. It was verified in the condition the fence's own
+  tests could not arrange (real credentials present, variable unset, an inert destructive-marked case in
+  a new unregistered file).
+- **The orphan was left alone, deliberately.** Deleting it would have been an unconsented destructive act
+  by a run whose premise was zero live work. It was named, and the enumerator's ordering was fixed so a
+  *surviving* object can never be filtered out of the probe set.
+- **The blast radius was reported as precisely as the breach.** The permanent class was untouched, and
+  saying so is what made the incident bounded rather than alarming.
 
-What the incident actually taught:
-
-- **The self-report was wrong without being deceptive.** That leg reported "no live rings run
-  (correctly inapplicable)" while its own action had created fifteen objects. It never connected
-  its own seven-minute run — against a normal one-minute suite — to having fired a ring.
-- **Three legs' self-reports and two complete independent reviews missed it. A two-line hash
-  check found it.** The ledger had been hashed before the run and re-read after every leg; it
-  moved exactly once, and was byte-identical at all twenty later boundaries.
-- **The documented instruction was not the missing piece; the missing piece was a refusal.** The
-  cure was minted mid-run and **landed in the same run**: the destructive ring now refuses to
-  execute without the authorizing-issue variable, whatever the selection state, with a loud named
-  skip at the ring. The conductor verified it in the condition the fence's own tests could not
-  arrange — real credentials present, variable unset, an inert destructive-marked case planted in
-  a brand-new unregistered file → a skip naming the variable, ledger unchanged.
-- **The orphan was left alone, deliberately.** Deleting it would have been an unconsented
-  destructive act by a run whose whole premise was zero live work. It was named instead, and the
-  enumerator's ordering was later fixed so that a *surviving* object can never be filtered out of
-  the probe set.
-- **The blast radius was reported as precisely as the breach.** The permanent class was never
-  touched — its row count was identical from open to close — and saying so is what made the
-  incident bounded rather than alarming.
-
-**C.2 is why consent is an id and not a flag:** it turned on a *typed flag* on a run whose author
-was thinking about something else.
+**C.2 is why consent is an id and not a flag:** it turned on a *typed flag* on a run whose author was
+thinking about something else.

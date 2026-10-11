@@ -60,8 +60,7 @@ that no role ever re-derives the check set from prose and no two roles run a dif
   *Why:* with nothing on either side both differences are **vacuously** empty, so an implementation
   that reports NO DIFFERENCE without first checking that a difference was possible prints its
   strongest claim exactly where it measured least — over a tree that may hold unenrolled guards it
-  never saw. Measured in the reference implementation one edit from the shipped state,
-  before this clause existed.
+  never saw.
 - **A CHECK ABOUT DEPLOYED BEHAVIOUR PROBES THE DEPLOYED ARTIFACT, never the working copy.** Where
   a check's claim is about something *running* or *installed* — a service is up, a command is
   usable, the published copy carries the fix — reading the file in the tree does not establish it.

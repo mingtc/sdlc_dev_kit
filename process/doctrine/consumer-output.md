@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR product's surfaces. The worked incident in A.3 is this kit's own, so nothing here needs anonymizing. -->
+<!-- KIT-CLASS: KIT — transferable doctrine. § A is the pattern; § B is the fill-in for YOUR product's surfaces. -->
 # Consumer-output doctrine — what a tool's output owes a reader who cannot re-measure it
 
 **What this governs.** Any output handed to someone who **cannot go and check it** — tool-generated
@@ -26,7 +26,7 @@ its own right and obeys the same rules as any other claim.
 |---|---|---|
 | [`instruments.md`](instruments.md) | someone who **can re-run the check** — a guard-builder, a seat reading a green | Instruments governs whether the check can see anything and how its own blind spot is named. This sheet governs what the **product** says to someone who will never run the check. An instrument's output is in scope **here too** when it is handed to a consumer in that position — the two sheets overlap deliberately at that one point. |
 | [`negative-claims.md`](negative-claims.md) | an implementer writing a sentence, a reviewer reading one | That sheet's wiring gates on a **lexicon** — *cannot*, *impossible*, *not supported*, *does not exist*. **The failures below ship none of those words.** A one-word status label carrying a negative inference is affirmative in form, so a reviewer executing the lexicon check correctly answers *no* and passes it. Same family of error, unreachable by that route. |
-| [`distribution.md`](distribution.md) | a consumer holding a pinned copy | § A.4 is this sheet's worked incident at distribution scale, and it is the kit's own. |
+| [`distribution.md`](distribution.md) | a consumer holding a pinned copy | § A.4 is this sheet's worked case at distribution scale. |
 | [`staleness.md`](staleness.md) § C | anyone reading a number in prose | *Derive, date, or do not state* is that section's rule for **maintained prose**, whose reader can open the source. A.2 and A.6 below are the same concern where the reader cannot: the number arrives in a generated artifact, so tracing it has to be built into the artifact. |
 
 ---
@@ -96,18 +96,9 @@ would be wrong, and **the observable event that would discharge it** — a new i
 agreed — never a date. (Same shape as [`generality.md`](generality.md) § A.5: the condition names an
 event, not a calendar.)
 
-**The kit's own incident, and it is exactly this clause failing.**
-[`distribution.md`](distribution.md) § A.4 records an updater that answered *"which version is
-vendored?"* by listing a glob and taking the first entry, in a long-lived directory that can hold a
-stale artifact beside the current one:
-
-> *"Sort order then decides the answer — and when it picks the older file, a perfectly healthy
-> checkout reports **UPDATE AVAILABLE** and offers, as the remedy, a **downgrade**. The remedy is
-> worse than the disease, and everything about the report looks correct."*
-
-Two candidates, each wrong in its own direction, one picked by an accident of ordering, and the
-consumer handed a confident instruction to make their checkout worse. **The fix that shipped is this
-clause's shape**: *"the tooling refuses, lists the candidates, and says what to delete."*
+**The shape that discharges it** ([`distribution.md`](distribution.md) § A.4 holds the worked case): when two
+candidates exist and picking either is a guess, *the tooling refuses, lists the candidates, and says what to
+delete* — it does not pick by an accident of ordering.
 
 ### A.4 — Where the predicate is not mechanically decidable, hand back a CENSUS, and say in the output that that is what it is
 

@@ -175,7 +175,7 @@ here, by the seat and the PM together, before the seat can act on them:
   behind an explicit authorization token, **state the exact invocation** and state that without
   it every such test is loud-skipped. (`<fill in>`)
 - **The release contract** — what a cut ships, who authors what, and what the release script
-  refuses. Two donor lessons worth copying because they were paid for:
+  refuses. Two donor rules worth copying:
   1. **A consumer-facing notes document is not a paste of the changelog.** It carries its own
      relevance filter (public symbols and flags, observable behavior changes, new refusals,
      credential/privilege requirements, every dependency add or pin move, known limitations —

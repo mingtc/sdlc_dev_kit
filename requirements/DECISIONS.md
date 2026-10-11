@@ -292,10 +292,6 @@ itself a citation is read as one. `./scripts/check-board.sh` joins the marker to
 
 ## What earns an entry — the lessons from an actual regeneration
 
-<!-- FOLDED IN from a regeneration spike in the donor project this kit was cut from, whose whole
-     output was "what the corpus failed to capture" — a lesson about the SHAPE of this file. The
-     lessons travel; the donor's own examples do not, and are paraphrased. -->
-
 The donor rebuilt one module from its corpus alone; the divergences that mattered were almost all
 **unrecorded arbitrary choices**. Each of the following earns a row here:
 

@@ -274,7 +274,7 @@ fill it in:
 
 - **The notes deliverable.** Which documents a consumer-visible change must update (release
   notes, a changelog, a consumer guide), and — if they are distinct documents — **what
-  distinguishes them.** The donor's hard-won rule, worth copying: a consumer-facing notes file
+  distinguishes them.** A rule worth copying: a consumer-facing notes file
   is **not** a paste of the changelog; it carries its own relevance filter (include: public
   symbols and flags, observable behavior changes, new refusals, credential/privilege
   requirements, every dependency add or pin move, known limitations; exclude: internal

@@ -29,10 +29,8 @@
 
 ## Why this file exists at all
 
-A repository-wide hygiene census ran once in the project this kit came from and produced a few
-hundred dispositions, a couple of dozen staleness flags and a list of orphans. Every one of those
-findings came from an instrument built in a throwaway worktree and **thrown away with it**, so
-nothing in the repository could reproduce a single number in the report.
+A hygiene census whose instruments are built in a throwaway worktree and **thrown away with it** leaves
+nothing in the repository that can reproduce a single number in its report.
 
 **The design principle, and it is the whole file: SYSTEMIZE THE INSTRUMENTS, NOT THE SUSPECTS.**
 An instrument scans everything on every run and cannot pigeonhole. A suspect list — *"check the
@@ -128,8 +126,8 @@ that is trivially satisfiable makes the gate self-certifying — which is the de
 surface list is machine-readable; it is the worse answer before that.**
 
 **The honest counter-argument, recorded rather than hidden:** a checklist item is only as good as the
-person who runs it, and *the kit's own maintainer repository shipped two false statements in its notes
-documents that were both checklist items nobody ran.* **If you skip this twice, build the gate.**
+person who runs it, and a checklist item nobody runs ships the false statement it exists to catch.
+**If you skip this twice, build the gate.**
 
 ## The instruments
 

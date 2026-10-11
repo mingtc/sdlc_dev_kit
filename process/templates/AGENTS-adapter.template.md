@@ -75,7 +75,7 @@ in `.claude/roles/archive/`, so the next reader can see the choice was made.
 **Adding a role means editing this table, `.claude/roles/`, and every file that carries the role
 set** — [`process/EXTRACTION.md`](process/EXTRACTION.md) § 2.4 is the list, and **that table is the
 count**. Register it in only some of them and the role commits fine and **cannot move a card**: that
-is a measured incident, not a hypothetical, and it is why § 2.4 exists.
+is why § 2.4 exists.
 
 **Parking one costs no script edit, and that is deliberate** — the prefix stays accepted, so an
 un-park costs no hook change. *The asymmetry is worth knowing in both directions: adding touches

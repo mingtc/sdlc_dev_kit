@@ -46,7 +46,7 @@ broken on its first day.**
    version-control tool writes for you. *Why:* nobody authored them under a role, so there is no
    role to declare; a hook without this rejects every merge commit. **Match the tool's own generated
    forms and nothing wider** — a glob loose enough to catch a human sentence that merely opens with
-   the same word is a hole, and that is not hypothetical: it was measured in this kit's own hook.
+   the same word is a hole.
 2. **A documented environment escape is exempt**, for importing a third party's commit verbatim,
    where rewriting the subject would falsify the record. *Why:* the alternative is that an
    unattributable import cannot be committed at all. **Only explicit truthy values enable it** —

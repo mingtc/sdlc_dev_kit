@@ -20,12 +20,10 @@ them as one cost a coordinated run twenty-four hours across three episodes.
 | **retired** | **by the act that ends that run, in the same step** — § 2 | **never — the project has no end** |
 | **N/A for** | **a project with no long runs — legitimately** | **nobody** |
 
-**THE SPLIT IS THE FINDING, and it was paid for in full.** This sheet's scope test was invariant 1
-below — *"any run expected to outlast a human's attention"* — restated in the transferable manual
-as *"~30 minutes"*. A project reading that honestly, having no runs of that length, declared the
-whole ritual **not applicable**. Its reasoning was correct and the conclusion was a hole: **the
-failure that then arrived was not a run hanging. It was work stopping.** Three times, and nobody
-was watching, because the only ritual on this page was scoped by a duration the project did not
+**THE SPLIT IS THE POINT.** A duration scope (*"any run expected to outlast a human's attention"*,
+about 30 minutes in the manual) read honestly by a project with no runs of that length declares the
+whole ritual **not applicable** — and the failure that then arrives is not a run hanging but **work
+stopping**, with nobody watching, because the only ritual was scoped by a duration the project did not
 have.
 
 **So: a duration scope may exempt a project from the duration ritual and from nothing else.** If
@@ -47,12 +45,8 @@ your answer to the absence half is *N/A*, the answer is wrong — there is no pr
   this one are the two halves of one lifecycle.
   *Why:* a teardown written as a list of handles — pids, session directories, process names —
   **cannot retire a thing that has neither**, and the party most likely to hold such a thing is
-  the party running the teardown. Measured: a coordinated run's own recurring wake-up fired
-  eleven and a half minutes after that run's `CLOSE`, having never been eligible for either of
-  the two stop mechanisms the close ritual had. Nothing was harmed that time. The previous run's
-  strays were not so cheap — two samplers still running **six days** after its close, both
-  pointed at deleted paths, one appending rows to a tracked file every five minutes, and clearing
-  them became the next run's blocking precondition.
+  the party running the teardown. A recurring wake-up outlives the run's close and keeps firing; a
+  stray sampler keeps writing to a tracked file for days.
   *And the check that would have caught it must be read back, not assumed:* a process listing
   cannot see a scheduled wake-up. Confirming retirement means **reading the scheduler back** —
   the same gesture arming it already made.
@@ -64,10 +58,9 @@ your answer to the absence half is *N/A*, the answer is wrong — there is no pr
   never the checkout.** Read it with `git ls-remote` and take the newest committer date across
   every head.
   *Why:* `HEAD` is one branch in one worktree. In a process that moves work between refs
-  constantly, a probe on the checked-out tip measures one lane of a road. Measured, at one
-  instant, in a project of exactly this shape: **697 minutes since HEAD moved, 1 minute since
-  anything moved.** A monitor keyed on `HEAD` reported a dead project that was working normally,
-  and its next reading will be believed less.
+  constantly, a probe on the checked-out tip measures one lane of a road: hours since `HEAD`
+  moved can be a minute since anything moved. A monitor keyed on `HEAD` reports a dead project that
+  is working normally, and its next reading will be believed less.
   *And the remote rather than a clone is a POLICY, said as one:* the process publishes to the
   remote, so a leg working longer than the threshold **without pushing** is, from the process's
   point of view, stalled. Reading every clone would need access the process does not have.
@@ -197,5 +190,3 @@ observations.
   sentence can be replaced by one.*
 - [`../MANUAL.md`](../MANUAL.md) § Execution discipline, item 4 — the same discipline in the
   transferable manual; the adapter may restate it as project law.
-- Provenance: ratified after a run was reported healthy for hours on the strength of no news,
-  and hardened again over the seats that followed.

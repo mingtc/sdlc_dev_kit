@@ -267,6 +267,7 @@ CASES=(
   case_kit_upgrade_checks_open_cards_against_the_new_kit
   case_kit_upgrade_finish_archives_the_marked_checklist
   case_kit_upgrade_finish_runs_verify_commands
+  case_kit_upgrade_reads_the_release_history_for_skipped_releases
   case_ask_help_answers_first
   case_ask_refuses_with_no_principal
   case_ask_principal_field_reads_either_form

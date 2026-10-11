@@ -121,22 +121,17 @@ summarising them here would create a second copy that drifts.
 
 **The regeneration spike.** One decision-dense module was hidden together with its dedicated
 tests and regenerated from the corpus alone. Output: divergences in the three classes of § A.1
-step 5, **including acceptance-class items that nothing in the suite caught** — which is the whole
-point of the ritual, and the only kind of finding that cannot be produced any other way. A second,
-unplanned finding came out of the setup itself: the hidden module's own tests carried **no tier
-mark at all**, so the corpus was measured *more purely* than intended. The spike's own
-recommendation — **mark tier membership per assertion where a file mixes the two tiers, rather than
-per file** — became convention and lives in [`conformance-tier.md`](conformance-tier.md) § A.4.
+step 5, **including acceptance-class items that nothing in the suite caught** — the only kind of
+finding that cannot be produced any other way. The spike's own recommendation — **mark tier
+membership per assertion where a file mixes the two tiers, rather than per file** — became
+convention and lives in [`conformance-tier.md`](conformance-tier.md) § A.4.
 
 **The seed acceptance test.** A cold bootstrap of a throwaway project from the seed document plus a
 one-sentence goal, then two work items under multi-agent load, then an artifacts-only adherence
-audit. Output: the headline executed-versus-guessed count, **the review boundary biting three times
-for real** (which is the strongest available evidence that the boundary is not ceremony), a fix
-program addressed to the kit rather than to the throwaway project, and **five contract sheets
-listed as unproven, not passed** because the run never touched them. Several of the fixes it
-produced are load-bearing text in this kit today: the landing gate's two-layer correction, the
-session-state-is-not-repository-content rule, the metadata-may-ride-its-code-branch clarification,
-and the mandate to mint a local-procedures file at the close of day one.
+audit. Output: the headline executed-versus-guessed count, **the review boundary biting for real**
+(the strongest available evidence that the boundary is not ceremony), a fix program addressed to the
+kit rather than to the throwaway project, and the contract sheets the run never touched **listed as
+unproven, not passed**.
 
 **A later external run** exercised § A.2 on a different surface — an interactive terminal
 application — and contributed the UI half of the tier's doctrine

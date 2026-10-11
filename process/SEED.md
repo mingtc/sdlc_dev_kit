@@ -277,5 +277,4 @@ you want to know how a stranger meets what you shipped.
   own Activity log.
 
 Anything less and the process is installed but unproven — which is the state this kit is written
-against. *Every finding in this kit's own cold-read review was found by reading; all of them would
-have been found by running.*
+against.

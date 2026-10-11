@@ -107,11 +107,6 @@ Until that guard exists, say so here in one line rather than leaving the heading
 
 ## What belongs in a corpus entry — the lessons from an actual regeneration
 
-<!-- FOLDED IN from a regeneration spike in the donor project this kit was cut from: one module was
-     rebuilt from the corpus alone and every divergence classified. The whole output was "what the
-     corpus failed to capture", which is a lesson about the SHAPE of this file. The lessons travel;
-     the donor's own examples do not, and are paraphrased. -->
-
 The donor regenerated one module from its corpus alone and classified every divergence. The format
 lessons, in the order they cost the most:
 

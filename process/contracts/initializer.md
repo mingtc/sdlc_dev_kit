@@ -18,8 +18,8 @@ precondition the process depends on and then demonstrating each one working.
 - **It PROVES what it claims, by exercising it.** After configuring, it creates a throwaway work
   item, moves it, asks the drift report for a verdict, and forces a deliberately-invalid commit to
   be rejected.
-  *Why:* every finding in this kit's own cold-read review was found by reading, and every one of
-  them would have been found by running.
+  *Why:* a defect a reader can find by reading, running finds too, and running also finds what
+  reading cannot.
 - **The proof cleans up after itself.** The throwaway artifacts of the self-check do not survive
   it.
   *Why:* a first day that ends with a fake item on the board teaches that the board holds noise.
@@ -43,8 +43,7 @@ precondition the process depends on and then demonstrating each one working.
   hat declaration's own path, and the auxiliary checkout's, are written into the ignore list as
   part of installation.
   *Why:* measured — versioned session state forks per branch, blocks a branch switch, and reaches
-  a landing gate as a merge conflict over a fact nobody was collaborating on. Four actors paid for
-  it in the first twelve hours of one adoption.
+  a landing gate as a merge conflict over a fact nobody was collaborating on.
 - **A substitution NAMES THE SPACE IT REWRITES, and a convention's KEY is not in it.** The stamper
   rewrites **values** — an identifier prefix, a trunk name, a project name. It never rewrites the
   **key** of a convention, even where that key is spelled with the same characters as the
@@ -112,7 +111,7 @@ the only thing that can, because a clone starts with neither.
 - The remote is a filesystem path that is not absolute ⇒ refuse, with the one-line fix. *Why:* the
   auxiliary checkout runs version-control operations from a different working directory, where a
   relative path resolves to nothing — and the failure otherwise surfaces mid-proof, disguised as an
-  access error (measured 2026-08-26).
+  access error (measured).
 - A gate command is supplied but the gate definition already declares its gates, or is not the
   shipped frame ⇒ refuse; a declared gate table is never overwritten or appended to. (A supplied
   command **fills** the shipped frame's empty table, or writes a minimal runner where none exists —
@@ -159,4 +158,4 @@ one completion statement — or a refusal that names every blocking fact at once
   the write arm is why it contains a second class marker, belonging to the file it emits rather
   than to itself. The fill arm exists because the kit ships the runner: an initializer that
   refused on "the runner already exists" made the front door's own first command refuse on every
-  fresh copy (measured 2026-08-26).
+  fresh copy.

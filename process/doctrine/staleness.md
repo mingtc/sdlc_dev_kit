@@ -88,9 +88,8 @@ literal words "kept because", which other stamps use verbatim); and the residue 
 
 The stamp goes **in the stamped file**. An index entry marking it retired is a **second,
 separate** obligation that does **not** discharge the first: a reader arriving by search, or by
-following a citation out of the code paths, never sees the index. This was learned the expensive
-way — an index line read "RETIRED, superseded by the standing handoff" while the handoff file
-itself carried nothing, and only a guard caught it.
+following a citation out of the code paths, never sees the index. An index line reading "RETIRED,
+superseded by the standing handoff" over a handoff file that carries nothing is the failure.
 
 **Corollary, binding on all retirement work: de-indexing is a MOVE, not a delete.** Move the
 index entry under a retired heading and **keep the link.** Removing the link reddens the guard that
@@ -350,7 +349,7 @@ for a reader to resolve it from inside.
 **So: when a correction pass removes a defective claim, census the exact string tree-wide before
 declaring the class swept** — including the lanes you were not auditing.
 
-**Two riders, both learned the same day:**
+**Two riders:**
 
 1. **Census on whitespace-FLATTENED text.** The same paragraph read `0` for a line-anchored needle
    and `1` flattened, because the phrase wrapped a line break. A line-anchored grep is right for a

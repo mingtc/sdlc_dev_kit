@@ -360,6 +360,7 @@ names the guard whose job is to keep it honest.
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
 | `process/UPGRADE-SEAT.md` | The brief an owner hands to one dispatched seat to apply a newer kit: authority recorded once, staged in a worktree, checklist, self-test, the project's own gates, land, finish, handoff. Adopt unedited; it names no project. |
+| `process/KIT-RELEASE-HISTORY.md` | The release notes' sections older than the newest release, moved verbatim at each cut. `scripts/kit-upgrade.sh` reads it with `KIT-RELEASE-NOTES.md`. Adopt unedited. |
 | `process/doctrine/` | Process doctrine. **Every sheet states its own pattern/instance split at the top; obey it** — § A (or the sections it names) travels, and the instance section is a **blank you fill**, not an example to keep. `find process/doctrine -type f` lists them; the doctrine table in `MANUAL.md` is the index, and a new sheet joins that table **in the same change** that creates it. |
 | `process/contracts/` | **The gate contracts — one sheet per gate plus an index.** Per gate: purpose, hard invariants, refusal conditions, what green means, minimal interface, and a pointer to *one* implementation. **This is the route for an adopter who takes NONE of the scripts:** you still owe every invariant in these sheets. Adopt unedited — **a sheet's § 6 is where its implementation pointer belongs, and a citation earlier is a defect to fix rather than a licence to add more.** **Two carve-outs, both deliberate and both outside § 6:** `issue-creation.md` § 3 fixes the meaning of `--dry-run` and `--apply` kit-wide, because that is a rule about the vocabulary every tool shares rather than a description of one implementation; and `config-seam.md` § 2 fixes the POSIX-shell declaration shapes (`NAME="${NAME:-value}"` / `NAME='value'`) — a seam anything must parse textually has to name the syntax it parses. Some sheets describe no script at all, and each says so in its own § 6. A sheet without a shipped implementation is not an omission: the rule still travels. |
 | `process/templates/` | Fill-in-the-blank shapes — including `KIT-FEEDBACK.skeleton.md`, the one document that flows OUTWARD, sent only when the project chooses (`doctrine/distribution.md` § A.8): copy it to `process/KIT-FEEDBACK.md` on day one, empty rather than fabricated, and write its About block by hand. **Hand-filled** — the initializer stamps `.claude/templates/`, not these, so they carry no prefix literal. Blanks are `<angle brackets>`. **A FILL file has no template here: it ships as its own blank instance and is filled in place.** *A template nothing stamps drifts from the instance it claims to be — every edit reaches the live sheet and none reaches the copy, and nothing in the tree compares them.* |
@@ -920,19 +921,16 @@ committed by the same agent, in the same session, as the code — [`process/cont
 **Copy it as it stands.** The decision it asks of you is *whether to activate the hooks at all* —
 they execute shell on tool use and at session start — not what to put inside it.
 
-**It used to be CONFIGURE, and this section is the record of why it stopped.** The file carried an
-`autoMode` block whose prose restated the trunk, the code-path globs, the two project filenames and
-the role-prefix list. That block was deleted as a third copy of a rule that already had two
-authoring sites; the table below is what described its contents. Every row is now struck, and the
-last two were struck on 2026-09-04 by a fresh-context checker that read the table against the
-shipped file and found nothing in it left to replace. *Kept rather than deleted because the
-question "where did the trunk name in the settings file go" is one an adopter upgrading across
-this change will ask, and a deleted table cannot answer it.*
+**It is no longer CONFIGURE.** The file carried an `autoMode` block whose prose restated the trunk, the
+code-path globs, the two project filenames and the role-prefix list; it was deleted as a third copy of a
+rule that already had two authoring sites. Every row of the table below is struck. *Kept rather than
+deleted because the question "where did the trunk name in the settings file go" is one an adopter
+upgrading across this change will ask, and a deleted table cannot answer it.*
 
 | Value inside the file | Replace with |
 |---|---|
 | ~~The trunk name~~ | ~~Your `<trunk>`~~ — gone with `autoMode`; the trunk policy lives in the adapter, and the file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key says so |
-| ~~The code-path globs (in both the *allowed metadata* list and the *forbidden direct-push* list)~~ | ~~Your § 2.6 answer, verbatim~~ — **STRUCK 2026-09-03: no such list ships.** The `autoMode` block that held them was removed. These rows told an adopter to go and edit three lists that are not in the file they were opening. |
+| ~~The code-path globs (in both the *allowed metadata* list and the *forbidden direct-push* list)~~ | ~~Your § 2.6 answer, verbatim~~ — **STRUCK: no such list ships.** The `autoMode` block that held them was removed. These rows told an adopter to go and edit three lists that are not in the file they were opening. |
 | ~~The two project filenames (cited as the rules' authority and listed among the pushable paths)~~ | ~~Your two files (§ 2.5)~~ — **STRUCK, same reason.** *The trunk policy's real home is named in that file's own `_WHERE_THE_TRUNK_POLICY_ACTUALLY_LIVES` key.* |
 | ~~The role-prefix list in its prose~~ | ~~Your role set~~ — gone with `autoMode`; § 2.4 no longer lists this file as holding the set |
 
@@ -987,11 +985,10 @@ copy**, because a debt list that describes somebody else's tree is the same defe
 census.
 
 ### 4.1 (PAID) — commit hygiene is doctrine now
-The adapter's house rules used to hold *"no generated co-author trailers"* and the
-hand-commit-then-read-the-status ritual, which meant **rules every adopter wanted lived only in the
-one file that never travels**. They are now
-[`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md). **What remains yours:** subject *style*
-only. **Check:** your adapter's house rules should *point* at that sheet, not restate it.
+*"No generated co-author trailers"* and the hand-commit-then-read-the-status ritual are
+[`doctrine/commit-hygiene.md`](doctrine/commit-hygiene.md), not adapter house rules: **rules every
+adopter wants cannot live only in the one file that never travels**. **What remains yours:** subject
+*style* only. **Check:** your adapter's house rules should *point* at that sheet, not restate it.
 
 ### 4.2 Role docs are kit workflow that accretes project law — the class question is settled, the residual is not
 An implementer/reviewer role doc naturally accretes project-specific duties **inside** its
@@ -1013,9 +1010,8 @@ names a file your project does not have.
 
 ### 4.3 (PAID) — the gate runner's seam
 The kit shape (one runner, uniform invocation, one summary block, a narrowed mode with an
-unskippable floor) and the concrete gates used to be interleaved in one file with **no seam**.
-The gate set is now a **declared table**, separate from the frame that runs it, and the separation
-is a hard invariant on the sheet
+unskippable floor) and the concrete gates are separated by a seam: the gate set is a **declared
+table**, separate from the frame that runs it, and the separation is a hard invariant on the sheet
 ([`contracts/verify-gate.md`](contracts/verify-gate.md) § 2).
 **Check:** you should be able to replace every row of that table without reading the frame below it.
 
@@ -1100,20 +1096,17 @@ the only licence a kit file has to know an installation's filenames.
 **Cost:** rename your adapter and these headers read stale.
 
 ### 4.9 (PAID) — the degraded-path second default
-Several scripts used to carry their own hard-coded prefix literal as a defensive fallback for the
-case where the configuration seam could not be sourced — five scripts, one of them with a dedicated
-test asserting the fallback *succeeds*. That is a value defined twice, invisible until the seam
-breaks, and then silently targeting the wrong project. The seam sheet now forbids it outright:
+A script carrying its own hard-coded prefix literal as a defensive fallback for the case where the
+configuration seam cannot be sourced is a value defined twice, invisible until the seam breaks, and then
+silently targeting the wrong project. The seam sheet forbids it outright:
 **a degraded path refuses and names the seam** rather than inventing a literal
 ([`contracts/config-seam.md`](contracts/config-seam.md) § 2).
 **Check:** `grep -rn '^[^#]*ISSUE_PREFIX:=' scripts/` — **it should find nothing at all.**
 *The `:=` (assign-if-unset) form IS the defect: a script carrying it defines its own default and
 stops reading the seam. The seam's own default is spelled `:-`, so it is deliberately not what this
 matches.*
-**The transferable half of how it was paid:** the fix was **declined once**, deliberately, when it
-was proposed as a one-script edit — because changing one of five would leave four inconsistent, and
-because the existing test asserted the old behaviour on purpose. It was paid as one change across
-all five, with the guard **transformed** rather than deleted
+**The transferable half:** a fix to one copy of a value defined five times leaves four inconsistent,
+so it lands as one change across all of them, with the guard **transformed** rather than deleted
 ([`doctrine/supersession.md`](doctrine/supersession.md) § A.1).
 
 ### 4.10 What this extraction deliberately did NOT do

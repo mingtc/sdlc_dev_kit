@@ -33,7 +33,7 @@
 # is the move `git mv -f CLAUDE.md AGENTS.md`.
 #
 # The checklist gets one item per Action required entry in each process/KIT-RELEASE-NOTES.md
-# section newer than the project's process/KIT-VERSION (an X.Y.Z+<tree> version is read as that
+# (and process/KIT-RELEASE-HISTORY.md, which holds the older releases) section newer than the project's process/KIT-VERSION (an X.Y.Z+<tree> version is read as that
 # file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path.
 # The first run never stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or
 # while the marked checklist is uncommitted, or while an Action required item that carries a Verify:
@@ -51,7 +51,8 @@
 #
 # THE VERIFY: LINES: an Action required entry in the new kit's release notes may carry one
 # `Verify: <shell command>` line (process/contracts/kit-upgrade.md § 7). The first run copies it into
-# that entry's checklist item and stages the notes as .kit-upgrade/KIT-RELEASE-NOTES.md.kit-new;
+# that entry's checklist item and stages the notes and the history beside them as
+# .kit-upgrade/KIT-RELEASE-NOTES.md.kit-new and .kit-upgrade/KIT-RELEASE-HISTORY.md.kit-new;
 # --finish runs each command, in the project's top level, with bash, and refuses while one exits
 # non-zero. The command is read from that staged copy of the NEW kit's notes, never from the
 # checklist's text, which whoever marks the item can edit. An item with no Verify: is declared by
@@ -92,6 +93,7 @@ need_val() {
 UPGRADE_CHECKLIST='process/UPGRADE-CHECKLIST.md'
 STAGE_DIR='.kit-upgrade'
 STAGED_NOTES='KIT-RELEASE-NOTES.md.kit-new'
+STAGED_HISTORY='KIT-RELEASE-HISTORY.md.kit-new'
 
 # THE SCAFFOLDING SENTINEL — the exact whole line scripts/check-board.sh arm (g1) matches with
 # `grep -qxF` (process/EXTRACTION.md § The marker and graduation). Declared here rather than read
@@ -230,11 +232,12 @@ lc_report() {
   [ "$LC_FORKS_ONLY" -eq 0 ] || echo "  $LC_FORKS_ONLY open card(s) outside dev_complete were checked for forks: alone; their QA Verdict and Ablation are owed at dev_complete."
 }
 
-# notes_items <release notes> — the ONE reader of the Action required entries, one row per entry:
+# notes_items <release notes> [<release history>] — the ONE reader of the Action required entries, one row per entry:
 # <section> TAB <n> TAB <title> TAB <its Verify: command, or empty>. The Verify: line is an indented
 # line of the entry that starts `Verify:`; the first one wins.
 notes_items() {
   awk '
+    FNR == 1 { flush(); sec = ""; inact = 0; n = 0 }
     function flush() { if (pend) printf "%s\t%d\t%s\t%s\n", psec, pn, pt, pv; pend = 0 }
     /^## / { flush(); sec = ""; if ($0 ~ /^## \[/) { sec = $0; sub(/^## \[/, "", sec); sub(/\].*$/, "", sec) }
              inact = 0; n = 0; next }
@@ -247,7 +250,7 @@ notes_items() {
     inact && pend && pv == "" && /^[[:space:]]+Verify:[[:space:]]/ {
       v = $0; sub(/^[[:space:]]+Verify:[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); gsub(/\t/, " ", v); pv = v; next }
     END { flush() }
-  ' "$1" 2>/dev/null
+  ' "$@" 2>/dev/null
 }
 
 # vf_run — runs the Verify: command of every Action required item in the checklist, read from the
@@ -257,7 +260,10 @@ VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
 vf_run() {
   local rows="" line sec n row title cmd out rc
   VF_FAILED=(); VF_NFAIL=0; VF_PASSED=(); VF_NONE=(); VF_ABSENT=""
-  if [ -f "$ST/$STAGED_NOTES" ]; then rows="$(notes_items "$ST/$STAGED_NOTES")"; else VF_ABSENT=1; fi
+  if [ -f "$ST/$STAGED_NOTES" ]; then
+    if [ -f "$ST/$STAGED_HISTORY" ]; then rows="$(notes_items "$ST/$STAGED_NOTES" "$ST/$STAGED_HISTORY")"
+    else rows="$(notes_items "$ST/$STAGED_NOTES")"; fi
+  else VF_ABSENT=1; fi
   while IFS= read -r line; do
     sec="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\1/p')"
     n="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\2/p')"
@@ -471,7 +477,11 @@ JOINED_EOF
 # Every section newer than the tree up to the new kit; Unreleased only when the new kit is a build.
 # From a build (X.Y.Z+<tree>), the release after X.Y.Z may already be held — and so may Unreleased,
 # when both are builds after one release.
-ITEMS="$(notes_items "$SRC/process/KIT-RELEASE-NOTES.md")"
+if [ -f "$SRC/process/KIT-RELEASE-HISTORY.md" ]; then
+  ITEMS="$(notes_items "$SRC/process/KIT-RELEASE-NOTES.md" "$SRC/process/KIT-RELEASE-HISTORY.md")"
+else
+  ITEMS="$(notes_items "$SRC/process/KIT-RELEASE-NOTES.md")"
+fi
 
 NEXT_REL=""   # the smallest released section above the tree's base
 while IFS="$(printf '\t')" read -r sec _ _ _; do
@@ -535,8 +545,11 @@ for p in ${WRITE[@]+"${WRITE[@]}"}; do put "$SRC/$p" "$TGT/$p" || fail_write "$p
 mkdir -p "$ST/files" || fail_write "$STAGE_DIR/"
 for p in ${MERGE[@]+"${MERGE[@]}"}; do put "$SRC/$p" "$TGT/$(staged_rel "$p")" || fail_write "$(staged_rel "$p")"; done
 cp "$SRC/process/KIT-VERSION" "$ST/KIT-VERSION" && cp "$NEW_MAN" "$ST/KIT-MANIFEST" || fail_write "$STAGE_DIR/KIT-VERSION"
-# The new kit's notes, staged: --finish reads each Verify: command from this copy.
+# The new kit's notes and history, staged: --finish reads each Verify: command from these copies.
 cp "$SRC/process/KIT-RELEASE-NOTES.md" "$ST/$STAGED_NOTES" || fail_write "$STAGE_DIR/$STAGED_NOTES"
+if [ -f "$SRC/process/KIT-RELEASE-HISTORY.md" ]; then
+  cp "$SRC/process/KIT-RELEASE-HISTORY.md" "$ST/$STAGED_HISTORY" || fail_write "$STAGE_DIR/$STAGED_HISTORY"
+fi
 # The new kit's own scripts/lib/, staged so the landing checks are read from it at --finish too.
 for p in "$SRC/scripts/lib/"*.sh; do
   [ -f "$p" ] || continue

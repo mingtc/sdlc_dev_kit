@@ -280,6 +280,8 @@ without one.
   release by release, and **what an adopted project has to do about it**. Upgrading runs the newer
   kit's `scripts/kit-upgrade.sh`, which never overwrites a file you changed: the kit became yours the
   day you stamped it.
+- **[`process/KIT-RELEASE-HISTORY.md`](process/KIT-RELEASE-HISTORY.md)** — the older releases' sections
+  of those notes, unchanged. `kit-upgrade.sh` reads it with them.
 
 ## Conventions used throughout
 

@@ -109,9 +109,6 @@ that code and docs project from, under a bidirectional guard; any helper calls t
 with a test that reddens on divergence; any *"derived"* label is backed by a mechanism a **planted
 new member** can prove.
 
-*In the source program the only two implementation defects that survived to review were exactly these
-classes, and both were caught by fresh-eyes review briefed to look for them.*
-
 ### A.4 — Truth is corpus-wide, review is per-item — and that owes TWO obligations, not one
 
 Every landed change outruns some sibling statement of the same fact. Per-item review judges the
@@ -142,14 +139,8 @@ derivation or date. This is the half A.4a structurally cannot reach: **surfaces 
 The findings are saved as an **addressable inventory**, one id per finding, and each fix is verified
 against its row.
 
-*Calibrate expectations by measurement: in the source program a full sweep after a fully-green,
-individually-reviewed program found dozens of defects, a large minority of them false consumer
-claims — several pre-dating the program and visible only because the sweep read surfaces nobody's
-diff had touched.*
-
 **Repeated, because fixing a finding is a landing:** a fix round edits the very surfaces the next
-reader meets. Measured in adopting projects — a round's own fixes introduced claims the round
-had just finished verifying. So the sweep **re-runs after every fix round, until a round finds
+reader meets, and can introduce claims the round had just finished verifying. So the sweep **re-runs after every fix round, until a round finds
 nothing.** A single pass certifies the tree as it was before the fixes, which is not the tree that
 ships.
 
@@ -463,9 +454,8 @@ phases.**
 - **When a slate is executed in phases, mint each phase's items AFTER the prior phase lands**,
   against the tree they will actually meet. Minting the whole slate up front produces citations that
   were never true at the moment they were used.
-- **A count inherited from a mint is re-derived on the branch.** *In the source program the count had
-  moved between mint and implementation, and the reason nothing broke is that the mint had made the
-  count re-derivable rather than load-bearing.*
+- **A count inherited from a mint is re-derived on the branch.** The mint makes it re-derivable
+  rather than load-bearing, so a count that moved between mint and implementation breaks nothing.
 
 **And the operand has to be in the repository doing the citing. A citation into a document you do not
 control is not a citation, it is a hope.**
@@ -510,18 +500,16 @@ append-only and newest-first, a fix arrives as a line about the fix, and no line
   which travels to somebody it would confuse.
 - **The cost runs BOTH ways, which is the argument for making this a duty rather than a courtesy.**
   Without a disposition the supplier cannot tell fixed from ignored — and **you cannot either.**
-  *Measured: two findings were re-read as live months after being fixed and shipped, because nothing
-  in any document connected a fix to the report that caused it. The re-reading cost more than the
-  acknowledgement would have.*
+  A fixed finding gets re-read as live when nothing connects the fix to the report that caused it, and
+  the re-reading costs more than the acknowledgement would have.
 
 **The failure is quiet and it compounds** (§ A.5b's second half), which is why this is a step rather
 than a caution: nothing breaks at mint time, every citation still looks fine in review, and the
 program only discovers the gap when an implementer opens a path that is not there — by which time the
 citing items number in the dozens. **Watch for the sharper version: fixing the instance without
-fixing the class.** *In the source program two attachments were transcribed after a leg reported them
-as a blocker — and the largest supplied document of all, carrying most of the ids the backlog was
-built on, was left sitting in another project's tree for the rest of the crunch. The instance was
-closed; the class was not, and nobody noticed until the supplier asked.*
+fixing the class.** An attachment transcribed after a leg reported it
+as a blocker closes the instance, not the class: the largest supplied document can stay in another
+project's tree unnoticed until the supplier asks.
 
 ### A.10 — A consent id authorizes a spend, and a full-suite run is its own spend
 

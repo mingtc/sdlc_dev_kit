@@ -232,5 +232,3 @@ edits.
   `scripts/new-prd.sh`, `scripts/subtask.sh` — KIT-CLASS: KIT, one per item kind.
 - The templates themselves live under the agent-harness directory (`.claude/templates/`), which is
   path-pinned; the manifest names them, and the initializer stamps them.
-- The identifier-substitution invariant in § 2 is a real incident's lesson, recorded in
-  [`../EXTRACTION.md`](../EXTRACTION.md) § 2.

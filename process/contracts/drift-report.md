@@ -77,8 +77,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   statement about all of them.** Measured: an implementation watched only the auxiliary publication
   mechanism and never asked the primary checkout the same question — so the one home carrying the
   process's own memory, its rulings and its requirements, was the one home nothing watched, and the
-  report said *clean* with a day of unpublished rulings beside it. The recovery cost a successor an
-  hour, looking for an authority its own instructions cited. The span matters for the same reason
+  report said *clean* with a day of unpublished rulings beside it. The span matters for the same reason
   one level down: the two kinds of stranding need different instruments — the first is a count
   against a ref, the second needs the local history of positions — and a pass naming neither
   invites the reader to conclude nothing is stranded anywhere. Measured there too: an orphaned
@@ -137,8 +136,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   checkout. A dispatched leg
   legitimately moves that checkout to its own branch, so each check returned a stale answer that
   looked authoritative — **nobody chose the operand, and nothing in the output revealed it had
-  changed.** Costs measured: a board state certified two changes out of date; a log-size check
-  frozen at an identical byte count across four consecutive readings; and, worst,
+  changed.** Worst of the costs measured:
   **an identifier-uniqueness check reporting "N distinct, clean" while the trunk held N+1.** That
   last one is not a degraded check: duplicate identifiers can only *arise* on the published trunk,
   and a branch contains at most one of the colliding pair, so read from a branch the check is
@@ -148,7 +146,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
 - **A threshold check states WHAT IT MEASURED, not only its verdict.** A check reporting a size or
   a depth names the span it read.
   *Why:* measured — one implementation's log-size check read only the running log's own section
-  while the file around it grew to thirty times that span, and reported a comfortable pass the
+  while the file around it grew far past that span, and reported a comfortable pass the
   whole time. *The measuring device reported OK while blind*, and the verdict alone could not
   reveal it. **The span and the source are the same lesson twice:** this invariant asks *how much
   of the thing* was read, the one above asks *which copy of the thing* — and a verdict missing
@@ -159,8 +157,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   worked around by "run the report from a clean checkout of the trunk", the one legitimately-local
   check then reported *"no publication path (skipped)"* — because that path is registered against
   the primary copy, not the one the report was run from. So there was **no location from which the
-  whole report was correct**: the primary copy gave one correct check and five stale ones, and a
-  trunk copy gave five correct and one blind. A fix that only relocates the caller trades one blind
+  whole report was correct**. A fix that only relocates the caller trades one blind
   check for another.
 - **Where the project enforces the no-generated-trailer rule mechanically, the report states what a
   recent window of trunk history holds, over a named window, scoped to a named epoch.**
@@ -205,10 +202,9 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   *Why the destination is part of the contract and not a matter of habit:* ruling a finding advisory
   settles what the check does to the **verdict** and settles nothing about what the reader does with
   the **finding**, and a reading nobody is obliged to act on is a reading that stops being read. The
-  measured case is this arm's own: real declaration defects sat under a headline reading `clean` for
-  days, and what eventually cleared them was one reader happening to be in the file. That worked, and
-  it worked by luck. **What is NOT claimed here is that advisory findings are ignored** — they were
-  acted on; the defect is that whether they are read is unmanaged. *A project that keeps no deferred-work
+  measured case is this arm's own: real declaration defects sat under a headline reading `clean`
+  until a reader happened to be in the file. **What is NOT claimed here is that advisory findings are
+  ignored** — the defect is that whether they are read is unmanaged. *A project that keeps no deferred-work
   queue owes nothing here* — the destination is the queue it already has, not a queue this sheet mints.
 - **Where the project keeps a DEFERRED-WORK QUEUE whose rows name items, the report states which
   rows claim to be open against items that have already landed. It reports only.**
@@ -255,7 +251,7 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   tree cannot tell a **citation** from a **mention**, and the per-syntax comment strips needed to
   rescue it are a second parser that can be wrong silently. Measured on this kit's own tree: an
   HTML-comment strip applied to a **shell** file paired a `<!--` inside a shell string with a `-->`
-  thousands of lines later and deleted **226,350 characters** between them — the file then read as
+  thousands of lines later and deleted thousands of lines between them — the file then read as
   containing no identifiers at all, and a checker built on it would have reported clean **for the
   wrong reason, with nothing in its output revealing it**. So the arm reads only declared surfaces,
   and only text carrying an **anchored** citation marker; prose *about* an identifier is invisible by

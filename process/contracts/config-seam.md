@@ -98,9 +98,8 @@ process is an edit rather than an excavation.
    change or neither holds. *(Authoring site:
    [`../EXTRACTION.md`](../EXTRACTION.md) § The one file classification convention; the obligation
    on the tool is [`initializer.md`](initializer.md) § 2.)*
-   *Why this line earned an implementation:* one adoption measured **hundreds** of surviving foreign
-   values in files this very sheet promised were clean — the promise was believed by three readers
-   and checked by nobody.
+   *Why this line earned an implementation:* a promise that files are clean, checked by nobody, is
+   believed by every reader.
 
 ## 5. MINIMAL INTERFACE
 

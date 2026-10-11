@@ -150,6 +150,8 @@ ordinary gate) and a **boundary ring** (the real installed entry point, real chi
 delivered as bytes at the real terminal boundary, frames parsed by hand) — binding for any change
 that touches that seam, **run fresh by the reviewer and never discharged by the implementer's own
 evidence**.
+*Why:* the boundary ring catches what a fully green in-process suite cannot, such as a child-process
+hang.
 
 **The locator rule** — the boundary case the contributing run recorded rather than resolved:
 **the assertion decides the tier; the locator should prefer semantics but may not always be able
@@ -160,21 +162,6 @@ pretend the locator pins the product.
 **Nothing here changes § A.3 or § A.4.** One mark in whatever the runner offers, two tiers only,
 regression by default, marked at write time by the test's author — and every count published with the
 measurement that produced it.
-
-<!-- EXAMPLE BOX — the contributing run's incident, genericized at the PM's word
-     (2026-08-21): the run's framework names and counts are meaningless outside their own
-     project; the LESSON is what travels. -->
-> **The contributing run's incident (an interactive terminal application, 2026-08-10).** The
-> run marked a deliberate MINORITY of its suite as conformance-tier — the rendered state
-> words, the closed key surface (every key driven as a real input event, off-surface keys
-> proven inert), and the exit-status policy verified from a real shell. It ran BOTH rings:
-> the framework's in-process driver, and a real-PTY boundary ring driving the actual
-> installed entry point. **The boundary ring earned its keep on day one: it caught a
-> child-process hang that the entire green in-process suite sailed past.** That incident —
-> not any count — is why the two-ring rule above is stated as binding rather than advisory,
-> and why the boundary ring is run fresh by the reviewer, never discharged by the
-> implementer's own evidence. The snapshot-regeneration switch appeared in no gate, ever.
-<!-- /EXAMPLE BOX -->
 
 ---
 

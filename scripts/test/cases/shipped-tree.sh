@@ -2751,7 +2751,7 @@ EOF
 # A RULE-COPIES block at a rule's canonical site names its key sentence and its deliberate copies.
 # Each listed file must carry the key; no unlisted shipped file may. Matching is on folded text:
 # lines joined, comment leaders, `*` and backticks dropped, whitespace collapsed, case ignored.
-# Not scanned: process/KIT-RELEASE-NOTES.md (a dated record) and scripts/test/ (it asserts rules).
+# Not scanned: process/KIT-RELEASE-NOTES.md and KIT-RELEASE-HISTORY.md (dated records) and scripts/test/ (it asserts rules).
 _rule_copies_begin='^[[:space:]]*(<!--[[:space:]]*|#[[:space:]]*)?RULE-COPIES:BEGIN'
 
 _rule_fold() {  # <root> <rel>... — "<rel><TAB><folded text>" per file, RULE-COPIES blocks dropped
@@ -2804,7 +2804,7 @@ case_restated_rules_are_registered() {
   make_sandbox
   local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" rel files=()
   while IFS= read -r rel; do
-    case "$rel" in ''|process/KIT-RELEASE-NOTES.md|scripts/test/*) continue ;; esac
+    case "$rel" in ''|process/KIT-RELEASE-NOTES.md|process/KIT-RELEASE-HISTORY.md|scripts/test/*) continue ;; esac
     [ -f "$REAL_REPO_ROOT/$rel" ] && files+=("$rel")
   done <<RULE_MAN_EOF
 $(grep -v '^#' "$man" | awk '{print $2}')

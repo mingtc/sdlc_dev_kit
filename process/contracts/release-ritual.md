@@ -15,8 +15,7 @@ rather than deleting the row, so the decision is visible.
 - **EVERY gate runs BEFORE the version is written.** The version bump is the first mutation of
   the ritual, and it happens only after the last read-only check has passed.
   *Why:* a red gate discovered after the bump leaves a repository that claims a version it never
-  earned, and the cleanup is a rewrite of published history — this order was learned the expensive
-  way.
+  earned, and the cleanup is a rewrite of published history.
 - **A red preflight leaves the repository byte-for-byte untouched.** Not rolled back; never
   touched.
   *Why:* rollback is a second thing that can fail, at the worst moment.

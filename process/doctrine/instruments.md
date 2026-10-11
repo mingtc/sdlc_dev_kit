@@ -99,27 +99,21 @@ predicate. § A.4 governs what else that same output line owes — the blind spo
 the span — and the control field is an obligation of the same kind, for the same reason: it is only
 worth anything where the reader already is.
 
-*Measured, and the measurement is what makes this a separate rule rather than a restatement.* In one
-run's instruments, a group of defects all had the same shape — a plausible value where an error
-belonged — and **several were in instruments whose positive and negative controls were on the record
-before arming, for the very predicate that failed**. Recording was done; it did not carry: those
-controls had been taken against a *simulated* subject, and the instruments failed at first contact
-with a real one — this section's own rule, re-proved against instruments that had satisfied it once.
-**A second group failed for a different reason, and it is what fixes the UNIT this rule binds.**
-Those defects were in predicates added *after* their instrument's arming row was signed — a new
-feature of a file that had already passed. An arming record kept per FILE cannot see them, and will
-credit a later-written predicate with a control taken for a different one. **So the unit is the
-predicate, not the file**, and re-arming is owed whenever an instrument meets a new subject, new
-paths, or gains a new feature. The one instrument in that run carrying an every-run control field
-was the one that reported a true zero as visibly distinct from a broken one.
+*Measured, and it is what makes this a separate rule rather than a restatement.* A group of instruments
+shared one defect shape — a plausible value where an error belonged — and **several had positive and
+negative controls on the record before arming, for the very predicate that failed**. Recording did not
+carry: those controls had been taken against a *simulated* subject, and the instruments failed at first
+contact with a real one. **A second group fixes the UNIT this rule binds:** their defects were in
+predicates added *after* the instrument's arming row was signed, and an arming record kept per FILE credits
+a later-written predicate with a control taken for a different one. **So the unit is the predicate, not
+the file**, and re-arming is owed whenever an instrument meets a new subject, new paths, or a new feature.
 
 **This is doctrine, and deliberately not a gate.** The reason is
 [`../contracts/self-test-harness.md`](../contracts/self-test-harness.md) § 6's, preserved here rather
 than re-argued: a gate whose cost is a wall gets disabled, and **a disabled gate reads as armed** —
 the exact failure this sheet exists to prevent, committed by the enforcement. What is NOT established
-is that the every-run form would have caught all of them: the one instrument that carried it caught
-one of its own two defects, so the demonstrated claim is the narrow one — *recording is not
-sufficient* — and sufficiency of the every-run form is unmeasured.
+is that the every-run form catches all of them: the demonstrated claim is the narrow one — *recording is
+not sufficient* — and sufficiency of the every-run form is unmeasured.
 
 ### A.2 — A negative check is not verification: every green owes an ablation
 
@@ -165,13 +159,12 @@ have each been paid for; the list is the bullets, not a number in this sentence.
   real edit manufactures findings; a reflow harness that also merges list items is testing a
   mutation nobody would ever make.
 - **Application — prove the plant TOOK, and that the subject is the subject.** The three controls
-  above ask whether the plant is in the right *place*; this asks whether it exists at all. Measured,
-  as a chain in which every link was individually correct and every link was silent: a substitution
-  whose pattern matched nothing, so nothing changed and nothing was said; a commit that therefore
-  had nothing to commit, and said nothing; a one-commit rewind meant to undo that commit, which
-  instead **rewound past the change under test**, and said nothing. The run then refused for a
-  plausible-looking reason. **Every line of that output was true and the whole run was meaningless —
-  an instrument exercised against a tree with the subject absent from it.** So: assert the mutation
+  above ask whether the plant is in the right *place*; this asks whether it exists at all. A chain in
+  which every link is individually correct and silent: a substitution whose pattern matched nothing; a
+  commit that therefore had nothing to commit; a one-commit rewind meant to undo it, which instead
+  **rewinds past the change under test**. The run then refuses for a plausible-looking reason. **Every
+  line of that output is true and the whole run is meaningless — an instrument exercised against a tree
+  with the subject absent from it.** So: assert the mutation
   is present after making it, and assert the artifact under test is the one you meant, by comparing
   an identifier before and after rather than by trusting that a command that printed nothing did
   something. A plant you have not asserted took is not an ablation; it is a hope.
@@ -876,14 +869,12 @@ turn the check being deleted into a SKIP instead of a FAIL"* — the exact regre
 cases exist to catch. The decision and its reason are recorded **in the harness**, next to the cases
 they govern. That comment is where this sheet's § A.3 came from.
 
-**A neutralizing fixture, which is § A.1 learned the hard way.** The harness copies the real
-repository's scripts into a sandbox — and therefore, at first, copied the *adopter's own
-configuration* along with them, so a run inside a configured project asserted that project's setup
-instead of the kit's frame. Initializer cases failed rather than skipped, because the fixture handed
-them an already-stamped configuration. The fix is now structural: a neutralizing step takes the
-adopter's config back out before any case runs, and **refuses loudly if a stamp survives it** rather
-than proceeding with a fixture that would grade the wrong thing. It was found by running the harness
-somewhere its author had not, which is § A.1's whole instruction.
+**A neutralizing fixture (§ A.1).** The harness copies the real repository's scripts into a sandbox, and
+with them an adopter's own configuration, so a run inside a configured project asserted that project's
+setup instead of the kit's frame. A neutralizing step now takes the adopter's config back out before any
+case runs, and **refuses loudly if a stamp survives it** rather than proceeding with a fixture that would
+grade the wrong thing. Running the harness somewhere its author had not is how it was found, which is
+§ A.1's whole instruction.
 
 **A vacuous green, and the shape of its repair (§ A.2, § A.4).** The drift report once printed *"every
 scanned subject carries a role prefix"* on a repository with **no history at all** — a green whose
@@ -891,14 +882,11 @@ honest reading is *nothing was scanned*. The repair is the one this sheet prescr
 copy: the arm now reports **skipped, with the reason**, and the code keeps the old behaviour's
 description beside it so nobody re-introduces the fall-through.
 
-**And one historical instance, kept because it is the clearest § A.9 case we have.** The harness's isolation
-case verifies that the real repository's board surfaces are untouched by a run. During a multi-session
-run it reported: *"the harness added a mutation to a board surface during the run."* **The detection
-was exactly correct** — a board surface had changed between the run's start and its end. **The harness
-had not done it**; a concurrent session was editing that file while the run was in flight. The case
-measured a **fact** (the tree changed) and reported an **attribution** (the harness changed it), which
-a before/after comparison cannot establish over a tree it does not own exclusively. The first reading
-it produced was that the phase's landing had broken the witness — materially more alarming, and wrong.
-**Nothing in the instrument was broken; the sentence it printed was the defect.** The repair is in the
-case: it now reports that a board surface CHANGED, names both candidates (the harness broke its
-isolation, or something else wrote to the checkout) and says it cannot tell them apart.
+**And the clearest § A.9 case we have.** The harness's isolation case verifies that the real repository's
+board surfaces are untouched by a run. During a multi-session run it reported *"the harness added a
+mutation to a board surface during the run"*: **the detection was exactly correct** (a surface had changed)
+and **the attribution was wrong** (a concurrent session had edited the file). The case measured a **fact**
+and reported an **attribution**, which a before/after comparison cannot establish over a tree it does not
+own exclusively. **Nothing in the instrument was broken; the sentence it printed was the defect.** The
+case now reports that a board surface CHANGED, names both candidates (the harness broke its isolation, or
+something else wrote to the checkout) and says it cannot tell them apart.

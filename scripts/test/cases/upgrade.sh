@@ -895,3 +895,53 @@ case_kit_upgrade_finish_runs_verify_commands() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE OLDER RELEASES' ACTION REQUIRED ENTRIES LIVE IN KIT-RELEASE-HISTORY.md, AND ARE STILL READ.
+#
+# A project on 0.1.0 upgrades to 0.3.0. The new kit's notes hold only 0.3.0; the entry of the release
+# it skips, 0.2.0 (with a Verify: command), is in the history file. The checklist must carry both
+# entries, the history's with its Verify:, and --finish must run that command from the STAGED history
+# copy: refusing while the action is undone, stamping once it is done.
+# =============================================================================
+case_kit_upgrade_reads_the_release_history_for_skipped_releases() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh reads the Action required entries of skipped releases from KIT-RELEASE-HISTORY.md as well as the notes, and --finish runs their Verify: commands from the staged history"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.3.0
+  {
+    printf '# The process kit — release notes\n\n## [Unreleased]\n\n_Nothing yet._\n\n## [0.3.0] — 2026-01-03\n\n### Action required\n\n'
+    printf -- '- **Newest item.** Keep marker.txt.\n  Verify: [ -f marker.txt ]\n'
+  } > "$KU_NEW/process/KIT-RELEASE-NOTES.md"
+  {
+    printf '# The process kit — release history\n\nA preamble.\n\n## [0.2.0] — 2026-01-02\n\n### Action required\n\n'
+    printf -- '- **Skipped item.** Create done.txt.\n  Verify: [ -f done.txt ]\n\n'
+    printf '## [0.1.0] — 2026-01-01\n\n### Action required\n\n- **Old item.** Already applied by any 0.1.0 tree.\n'
+  } > "$KU_NEW/process/KIT-RELEASE-HISTORY.md"
+  _ku_manifest "$KU_NEW"
+  printf 'here\n' > "$KU_T/marker.txt"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "marker" >/dev/null 2>&1
+  local cl="$KU_T/$KU_CHECKLIST_REL" arch="$KU_T/process/upgrades/0.1.0-to-0.3.0.md"
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  grep -F 'Action required, [0.3.0] item 1: Newest item' "$cl" >/dev/null || cf "the notes' entry is not in the checklist: $(grep -F 'Action required' "$cl" | tr '\n' '|')"
+  grep -F 'Action required, [0.2.0] item 1: Skipped item' "$cl" | grep -F 'Verify: [ -f done.txt ]' >/dev/null \
+    || cf "the history's entry (or its Verify:) is not in the checklist: $(grep -F 'Action required' "$cl" | tr '\n' '|')"
+  grep -F 'Old item' "$cl" >/dev/null && cf "an entry of the release the tree already runs is in the checklist"
+  [ -f "$KU_T/.kit-upgrade/KIT-RELEASE-HISTORY.md.kit-new" ] || cf "the new kit's history is not staged"
+
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark" >/dev/null 2>&1
+  _ku_run fin1 --finish --into "$KU_T"
+  [ "$(_ku_rc fin1)" != 0 ] || cf "--finish stamped over a failing Verify: command read from the history"
+  grep -F 'item 1: Skipped item' "$SB_TMP/fin1.out" >/dev/null || cf "the refusal does not name the history's item: $(_ku_out fin1)"
+  printf 'done\n' > "$KU_T/done.txt"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "do the action" >/dev/null 2>&1
+  _ku_run fin2 --finish --into "$KU_T"
+  [ "$(_ku_rc fin2)" = 0 ] || cf "--finish with the action done exited $(_ku_rc fin2): $(_ku_out fin2)"
+  grep -F -- '- verified, exit 0: [0.2.0] item 1: Skipped item' "$arch" >/dev/null || cf "the archive does not record the history's item as verified: $(tail -8 "$arch" | tr '\n' '|')"
+  finish "$L"
+  teardown
+}

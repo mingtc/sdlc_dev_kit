@@ -138,40 +138,20 @@ version control by the initializer, not left for each actor to discover
    > this role"* section); `.claude/skills/README.md` is the index. **Which skills exist is a
    > project decision** — when this manual names one it is naming a *practice*, and a project without that skill
    > directory still owes the practice.
-4. **Liveness discipline, and it is TWO rituals with different scopes.** **(i) DURATION —
-   *is this long run still alive?*** Any background run expected to exceed ~30 minutes gets a
-   **watchdog armed at launch**, and liveness = **artifact freshness, never absence-of-news** —
-   a hang is silent, so only growth proves life. Key the watchdog on a signal that actually
-   moves mid-run: a workflow's transcript-file mtimes (**resolve symlinks first — `stat -L`**; a
-   symlink's own mtime never moves, so an unresolved probe false-alarms forever), or the worker
-   **process itself** (CPU-time deltas across ~10-minute samples, plus
-   exited-without-completion-marker). **Never key on a pipe-buffered output file** — `… | tail
-   -1` cannot grow mid-run, so it false-alarms by construction. An alert is a trigger to
-   **probe, not to conclude**: a zero-CPU sample a few seconds long can be a throttle/settle
-   sleep — distinguish sleep from hang (a longer CPU-delta window, open connections, a stack
-   sample) before reporting anything. Every status statement about an unfinished run rests on a
-   fresh probe: *"no news sometimes is not good news."*
-   **And the run that armed it retires it, in the act that ends the run** — by **enumerating what
-   this run armed** and walking that list, never by walking the handles you happen to hold. A
-   teardown made of pids and session directories cannot retire a scheduled wake-up, which has
-   neither, and the party likeliest to hold one is the party running the teardown; `ps` cannot see
-   it, so confirming retirement means **reading the scheduler back**. Walking an empty enumeration
-   is a normal close. (**The ~30-minute scope and this retirement are both the DURATION half only**;
-   the absence watchdog below is armed once and never disarmed, because the project has no end.)
-   **(ii) ABSENCE — *has work stopped moving?* This one is N/A for nobody, and the ~30 minutes
-   above does not scope it.** Its signal is the **newest committer date across every head on the
-   remote** — never `HEAD`, never the checkout: `HEAD` is one branch in one worktree, and this
-   process moves work between refs constantly. The signal must be a
-   **by-product of work** — an empty commit or a heartbeat line moves it, and a check you can
-   satisfy by editing the answer is not one. The threshold is **relative to the run's declared
-   cadence**, never a fixed number. **And it needs a reader that is not the party being watched**:
-   a signal nobody reads is absence-of-news one level up, which is what the discipline it replaces
-   already forbade. `scripts/notify/stall.sh` is the shipped one.
-   *Why two:* a project read the ~30-minute scope honestly, had no runs that long, declared the
-   ritual not applicable — and the failure that arrived was not a hang but work stopping, three
-   times, with nobody watching.
-   (The contract sheet is [`contracts/liveness-watchdog.md`](contracts/liveness-watchdog.md), and
-   its § 1a is the split.)
+4. **Liveness discipline, and it is TWO rituals with different scopes** — the authoring site is
+   [`contracts/liveness-watchdog.md`](contracts/liveness-watchdog.md), whose § 1a is the split.
+   **(i) DURATION — *is this long run still alive?*** Any background run expected to exceed ~30 minutes
+   gets a **watchdog armed at launch**; liveness is **artifact freshness, never absence-of-news**, keyed
+   on a signal that actually moves mid-run (a workflow's transcript-file mtimes, symlinks resolved first,
+   or the worker **process itself**: CPU-time deltas across samples, plus exited-without-completion-marker); an alert is a trigger to **probe, not to conclude**; and the
+   run that armed it **retires it in the act that ends the run**, by enumerating what it armed and
+   reading the scheduler back, never by walking the handles it happens to hold.
+   **(ii) ABSENCE — *has work stopped moving?* This one is N/A for nobody, and the ~30 minutes above
+   does not scope it.** Its signal is the **newest committer date across every head on the remote**
+   — never `HEAD`, never the checkout — a **by-product of work** (a check you can satisfy by editing
+   the answer is not one), judged against the run's declared cadence, and read by a reader that is not
+   the party being watched. `scripts/notify/stall.sh` is the shipped one. It is armed once and never
+   disarmed, because the project has no end.
 5. **Preserve the reason, supersede only the conclusion.** When new evidence overturns a
    recorded decision, amend it — do not erase it — per
    [`doctrine/supersession.md`](doctrine/supersession.md), which is the **single statement** of
@@ -375,12 +355,11 @@ bounces it.
    happened to the issue* with *what the run learned*, which is exactly the conflation this step
    avoided when it split verdict from landing. The same argument, one axis further out.
 
-   **Why the two are separate, stated because collapsing them has already cost a run.** *Did the
-   review pass* and *did the change reach the trunk* are two different facts, and a machinery schema
-   that carried `verdict: PASS|FAIL` plus `landed: boolean` **could not represent a green review
-   whose landing was correctly deferred** — so it read one as a failure and **halted a run that had
-   succeeded.** `not_applicable` is the third value because a docs-path issue has no landing script
-   to complete: a boolean forces that case to lie in one direction or the other.
+   **Why the two are separate.** *Did the review pass* and *did the change reach the trunk* are two
+   different facts; a schema carrying `verdict: PASS|FAIL` plus `landed: boolean` **cannot represent a
+   green review whose landing was correctly deferred**, and reads it as a failure that halts a run that
+   succeeded. `not_applicable` is the third value because a docs-path issue has no landing script to
+   complete: a boolean forces that case to lie in one direction or the other.
 
    **A gate that could not RUN produces no verdict at all.** If the gate runner reports that a gate
    never executed, there is no evidence about the implementation, so there is nothing for any of the
@@ -419,18 +398,10 @@ bounces it.
      branch, advances `dev_complete → qa_complete`). **`finish-pr.sh` also refuses a branch that
      touches a declared `TEST_GLOBS` path with no well-formed `## Ablation` section** (what was
      broken, and the red line it produced — `.claude/roles/dev.md`, `doctrine/instruments.md` §
-     A.2); fill it before this step, not after the refusal. **It also refuses a branch that
-     introduces a finding in a board property the branch touches** — the properties
-     `check-board.sh` arms `[d]` `[i]` `[l]` `[p]` `[r]` `[q]` report: a card id that disagrees with
-     its filename or repeats; a `blocks:`/`blocked_by:` no card answers; a `[decision: D-NN]`
-     citation that resolves to no live entry; a `requirements/` change that leaves a corpus forward
-     reference dangling or a register entry no PRD cites (and no `[cross-cutting]` marks); a
-     register entry that is not exactly three fields. The same code reads the tree the landing
-     would produce, and the operands come from the trunk's `check-board.sh`. A finding already on
-     the trunk is not the branch's: it stays `check-board.sh`'s to report. **It also refuses a
-     `## QA Verdict` committed by the same agent, in the same session, as the branch's code** — the record the
-     Bash hooks write ([`contracts/agent-record.md`](contracts/agent-record.md)); when either side has
-     no record it prints `AGENT_CHECK: UNRUNNABLE` and lands. Append `progress.md`:
+     A.2); fill it before this step, not after the refusal. Its other refusals (a board-property
+     finding the branch introduces, a `## QA Verdict` committed by the same agent and session as the
+     code) are listed in [`contracts/landing-gate.md`](contracts/landing-gate.md) § 3, and
+     `.claude/roles/qa.md` § Definition of Pass vs Fail says what to do on each. Append `progress.md`:
      `YYYY-MM-DD [QA] review of <ID>: PASS — landed.`
    - **FAIL on AC** — one or more AC bullets unmet. Move the issue back to `in_progress` with a
      note listing the unmet AC; Dev resumes on the same branch.
@@ -512,8 +483,8 @@ the runner, and the run fails loudly rather than filing it as an outcome. (What 
 at the agent call itself — a budget ceiling, a refused call, or a schema it cannot satisfy — is
 filed as `LEG_ABORTED`, since it surfaces there; the record's `error` says which.) **Both halt, and no
 runner ever drops an issue:** one outcome per dispatched issue is the invariant a run report stands
-on. A runner that loses an issue — a wave runner once filtered a thrown leg out of its results, and
-then judged the wave by what was left — reports green over work nobody finished.
+on. A runner that loses an issue (a thrown leg filtered out of its results) judges the wave by what
+was left, and reports green over work nobody finished.
 
 **What a runner returns for each issue, and why the free text rides on every outcome.** Each record
 is `{ id, outcome, … }`, plus the fields its outcome needs: `error` on `LEG_ABORTED`, the replies
@@ -521,9 +492,9 @@ of the legs that decided it on a failure or a park (`dev`, `qa`, `park`), and `q
 `gates` on `LANDED` and `LAND_READY`. **Every record with an outcome also carries `leg_notes`**: one entry per leg
 that replied, in call order — `{ leg, summary, deviations, notes, premise_refuted,
 precondition_failure, observed, inferred, not_checked }`, each field present only when the leg filled it. It is on the success path
-on purpose. A success used to return nothing a leg had written, so a caveat, a surprise or a kit
-finding reported there never reached the orchestrator — and `premise_refuted`, the axis that exists
-so a PASS/landed issue can say what it learned, was lost on the one outcome it was designed for. A
+on purpose: a caveat, a surprise or a kit finding reported on a success must reach the orchestrator,
+and `premise_refuted`, the axis that exists so a PASS/landed issue can say what it learned, belongs on
+the one outcome it was designed for. A
 leg that threw or returned nothing adds no entry; the legs before it keep theirs.
 
 **Why this needed ratifying rather than living in the runners.** The orchestration runtime grants
@@ -923,24 +894,24 @@ that creates it; a table that lags is how a sheet becomes invisible.
 | File | The pattern it states | Where this manual points at it |
 |---|---|---|
 | [`supersession.md`](doctrine/supersession.md) | Preserve the reason, supersede only the conclusion — and the `superseded_in_part` annotation that follows from it. | § Execution discipline, item 5 |
-| [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried, and its scope may not exceed its evidence's scope. § A.5 generalises that past negatives: **a claim names the route that produced it, in the same sentence** — and two readers on one route is one measurement read twice. Naming the route is universal; a **second route** is owed where the claim is **load-bearing**, sorted by *if this is wrong, what happens?* The authoring-time neighbour of `supersession.md`. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
+| [`negative-claims.md`](doctrine/negative-claims.md) | **Enumerate the attempts, or say "unmeasured"** — a shipped *cannot / impossible / not supported / does not exist* lists the forms actually tried; a claim names the route that produced it, and a **second route** is owed where it is load-bearing. | The implementer role doc's *Definition of Done* and the reviewer role doc's cross-cut checks |
 | [`commit-hygiene.md`](doctrine/commit-hygiene.md) | What a commit owes beyond its content: no generated co-author trailers, a role-prefixed subject enforced at write time, hand the commit then read `git status -sb`, never end a landing on an unpushed looks-pushed state, and — where a change's operands straddle the two commit lanes — the gate's unit is the **set**, not the file. | § Branching and role attribution |
 | [`model-provisioning.md`](doctrine/model-provisioning.md) | How a dispatched worker is provisioned (model + effort per work class), the leaf rule (a worker does not spawn workers), and the rule that a ladder is only real where a harness knob exists. | The role docs that carry a *"Model & effort contract"* section |
-| [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. Its marking convention is runner-agnostic: one mark in whatever the runner offers, at file or test granularity. | Here |
-| [`calibration.md`](doctrine/calibration.md) | **The two AVAILABLE rituals that measure the kit's own claims** — a regeneration spike (hide a decision-dense module; rebuild it from the corpus with the acceptance tier as the criterion) and a seed acceptance test (bootstrap a fresh project from the seed document and count the steps guessed). Both must declare their honest-worker limits, and the **findings list is the deliverable**. **Available, never an obligation.** | § The measurement rituals |
-| [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. The reason (deletion silences guards; evidence is not re-derivable; a negative claim dies with its enumeration) is preserved in full; only this one conclusion narrows. | The project doc's § Retained evidence |
-| [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers (a successor lands, a plan closes, a ruling overturns a conclusion, a number/universal stops being true), each owed in the same commit as its cause, never a sweep. Five stamp fields (the "kept because" surviving-value clause is the one authors drop); "derive, date, or do not state" for numbers in prose. | The implementer role doc's *Definition of Done* |
-| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a two-number trigger (in the consulted corpus, ≥ 32,768 bytes), one index budget that derives both the entry cap and the 409-entry split point, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a five-rank preference order. An index is not a diet — orthogonal to rotation, mutually reinforcing. | Pointed at from several sheets — derive with `grep -rl lookup-tables process/` |
-| [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape (no-behavior-change / internal behavior / schema-API-risk-surface), each implying a lifecycle weight and a worker provisioning; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier follows the CHANGE SHAPE and is stated per issue at run-plan time so the human can veto the placement. | § The default path is lite — and the orchestrator role doc's run-plan duties |
+| [`conformance-tier.md`](doctrine/conformance-tier.md) | **Which tests pin the PRODUCT rather than this implementation** — one question (*"if this fails after a rewrite, is the product wrong, or merely different?"*), two tiers, marked by whoever writes the test. | Here |
+| [`calibration.md`](doctrine/calibration.md) | **The two available rituals that measure the kit's own claims** — a regeneration spike and a seed acceptance test; the **findings list is the deliverable**. Available, never an obligation. | § The measurement rituals |
+| [`retention.md`](doctrine/retention.md) | **Park beats delete, and the one narrow class that may be retired** — a SPENT, unreferenced prose document, ledgered under a seven-field contract and verified by a retirement-QA leg that runs the fetch-back. | The project doc's § Retained evidence |
+| [`staleness.md`](doctrine/staleness.md) | **Retirement is paid by the change that causes it** — four triggers, each owed in the same commit as its cause, never a sweep; five stamp fields; "derive, date, or do not state" for numbers in prose. | The implementer role doc's *Definition of Done* |
+| [`lookup-tables.md`](doctrine/lookup-tables.md) | **A large consulted document is addressed, not read** — a size trigger, one index budget, a stable-address requirement (never a bare `file:line`), and generated-over-hand-kept as a preference order. | Pointed at from several sheets — derive with `grep -rl lookup-tables process/` |
+| [`rigor-tiers.md`](doctrine/rigor-tiers.md) | **Ceremony weight AND provisioning follow the issue's tier** — three tiers by change shape; the binding-gate decision rule (run it iff a declared risk surface moved; when in doubt, run it); the tier is stated per issue at run-plan time so the human can veto it. | § The default path is lite — and the orchestrator role doc's run-plan duties |
 | [`live-resources.md`](doctrine/live-resources.md) | **Consent, budget and evidence for anything created outside the repository** — a check against a real external system runs against a **disposable** target, never a real one, restores it, and records what it spent. | § The default path is lite, "a green unit suite is a floor" |
 | [`orchestration.md`](doctrine/orchestration.md) | **The seat, the runner, and the pack between them** — the rationale behind the delegation patterns, the pause law and the run-plan gates. The role docs are the enforcement; where the two differ, **the role doc binds**. | Here — and `doctrine/subagent-control.md`, which item 2 names |
-| [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one and it is not close; contradictory demands return *nothing* rather than a compromise; a returned report is a claim that carries its own evidence or is re-measured; a resume is only safe for work without side effects; a deferred decision is named inside every item whose scope touches it; hand off while sharp, not while failing — **and at the stop you did not choose, where what a handoff owes is an enumeration of what is HELD**; and **a file that means two things has no correct writer**, so a second consumer earns a second artifact rather than a cleverer query. **And the cadence a spawner owes PROMPTED peers** — an idle prompted session cannot emit anything, so silence from it is indistinguishable from work: only the spawner has a clock, notes come from inside the work, age is read from artifacts and never asked, overdue has a named act and a named owner, pause and done are files — **and the obligation is written into the project's working agreement, because one delivered only at session start is a conversation citing itself and dies at the next restart.** | § Execution discipline, item 2 |
+| [`subagent-control.md`](doctrine/subagent-control.md) | **How to brief a worker that has none of your context, and what to believe from work you did not watch** — an adversarial brief outperforms a confirmatory one; a returned report is a claim that carries its own evidence or is re-measured; a handoff owes an enumeration of what is HELD; a file that means two things has no correct writer; and the cadence a spawner owes PROMPTED peers, written into the project's working agreement. | § Execution discipline, item 2 |
 | [`distribution.md`](doctrine/distribution.md) | **Shipping a project into other repositories** — what an artifact owes a consumer that pins it, and the thin machinery that keeps the two in step. **If your project ships to nobody, none of it binds you except § A.8 (kit feedback).** | Here |
-| [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — so most of its findings are about words. Its instruments are built by the builders, so they must be checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; grade cold then reconcile, auditably; and a Blocker halts its scenario, not the round. | § The measurement rituals |
-| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation** (absence of the wrong thing is not presence of the right one); sometimes a capability probe is itself the defect, and that choice is recorded; and each instrument's blind spot is named **in its own output** — where naming the operand set stops one step short, so it must be **derived from the subject, derived a second time by a looser reading, and the two compared**, with the remainder named rather than dropped. And a value the instrument compares against is derived or does not exist: **a check you can satisfy by editing the answer is not one**. For an instrument that only REPORTS — one that always exits 0, so there is no red to ablate — **the control must execute on every run and appear in the instrument's own output**, and the unit it binds is the predicate, not the file. And on the declaration side: **readerless is fine; UNDECLARED readerless is not** — a document stating a format, a marker or a shape names the program that reads it, or says that none does and why, because the silent case reads exactly like an enforced rule. | § Execution discipline, item 3 |
-| [`fix-execution.md`](doctrine/fix-execution.md) | **Landing what a round found, without minting what it warned about** — the span between findings and implementation, and between the last landing and the cut. A minted item is a hypothesis, so the slate is scrutinized before a line moves and **holding an item is a success**; a ruling is recorded **before** it is executed, verbatim and with what was *not* ruled beside it; the round's traps travel as acceptance criteria; truth is corpus-wide in two obligations, one per change and one before the cut; a gate budgets a **property**, never a machine; and one authoring site per vocabulary, with a guard that bites when a projection parts from it. | § The fix-execution phase |
-| [`consumer-output.md`](doctrine/consumer-output.md) | **What a tool's output owes a reader who cannot RE-MEASURE it** — the discriminator is re-measurability, not honesty. A label's scope may not exceed its evidence's, said in the label itself; **read and derived are distinguished per item**, because a wrong inference usually makes the result look *better*; where every candidate value is wrong in a different direction, synthesise none and record the absence as a decision with its discharging event; a non-decidable predicate hands back a **census that says so in its own output**; an inference whose error leaves no trace is demoted from a decision to a proposal; prefer the longer form the consumer can check, and pay the new emptiness boundary a split creates; and **a limit recorded where the affected party does not look has not been disclosed** — placement separates detection from remedy. | Here |
-| [`generality.md`](doctrine/generality.md) | **When one consumer's request may become everyone's rule** — four questions asked before a request changes shipped behaviour. The load-bearing one is the **flip-flop test**: *would the opposite request be equally reasonable from a different consumer?* If yes it is a **setting**, answered by a declared seam with a default, never by changing behaviour — and the consumer who wants the opposite is **named**, because "someone might disagree" refuses nothing. Also: strip the donor's identifiers and re-read the argument; name what would falsify the rule; **record a HELD request and the event that would release it**. The counter-case has equal weight — **the test is not *how many consumers*, it is *does the argument need this consumer*** — and § A.6 forbids wiring any of it as a gate. | Here |
+| [`dogfooding.md`](doctrine/dogfooding.md) | **A round grades how the shipped thing is MET, not whether it works** — its instruments are checked against the shape a participant actually *produces*; a self-report is never a measurement; whatever *delivers* a provocation may never *judge* the response; a Blocker halts its scenario, not the round. | § The measurement rituals |
+| [`instruments.md`](doctrine/instruments.md) | **An instrument is believed only when it has been watched failing.** Measure it against the shape it will meet, not the fixture its author wrote; **every green owes an ablation**; each instrument's blind spot is named **in its own output**; a value the instrument compares against is derived or does not exist; and **readerless is fine; UNDECLARED readerless is not**. | § Execution discipline, item 3 |
+| [`fix-execution.md`](doctrine/fix-execution.md) | **Landing what a round found, without minting what it warned about** — a minted item is a hypothesis, so the slate is scrutinized before a line moves and **holding an item is a success**; a ruling is recorded **before** it is executed; truth is corpus-wide in two obligations, one per change and one before the cut; a gate budgets a **property**, never a machine; one authoring site per vocabulary. | § The fix-execution phase |
+| [`consumer-output.md`](doctrine/consumer-output.md) | **What a tool's output owes a reader who cannot RE-MEASURE it** — a label's scope may not exceed its evidence's; **read and derived are distinguished per item**; where every candidate value is wrong, synthesise none and record the absence as a decision; a non-decidable predicate hands back a **census that says so**; and **a limit recorded where the affected party does not look has not been disclosed**. | Here |
+| [`generality.md`](doctrine/generality.md) | **When one consumer's request may become everyone's rule** — four questions asked before a request changes shipped behaviour; the load-bearing one is the **flip-flop test**: *would the opposite request be equally reasonable from a different consumer?* If yes it is a **setting**, answered by a declared seam with a default. § A.6 forbids wiring any of it as a gate. | Here |
 
 Two neighbours of the doctrine directory, deliberately outside it:
 [`hygiene-checklist.md`](hygiene-checklist.md) (the shapes a periodic hygiene pass looks for, and

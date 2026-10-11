@@ -473,11 +473,11 @@ case_hat_file_lives_outside_the_harness_directory() {
   local old=".claude""/session-role" f hits="" lits=""
   case "$rel" in .claude/*) cf "the hat file's path '$rel' is inside the harness directory the harness protects" ;; esac
   # Population: every shipped file under scripts/ (this harness excluded), the shipped ignore file,
-  # and the process and harness-directory prose, less the release notes (which say what moved).
+  # and the process and harness-directory prose, less the release notes and their history (which say what moved).
   for f in "$REAL_SCRIPTS"/*.sh "$REAL_SCRIPTS"/lib/*.sh "$REAL_SCRIPTS"/hooks/* "$REAL_SCRIPTS"/githooks/* \
            "$REAL_REPO_ROOT/.gitignore" "$REAL_REPO_ROOT"/process/*.md "$REAL_REPO_ROOT"/process/contracts/*.md; do
     [ -f "$f" ] || continue
-    case "$f" in */KIT-RELEASE-NOTES.md) continue ;; esac
+    case "$f" in */KIT-RELEASE-NOTES.md|*/KIT-RELEASE-HISTORY.md) continue ;; esac
     grep -F -- "$old" "$f" >/dev/null 2>&1 && hits="$hits ${f#"$REAL_REPO_ROOT"/}"
     [ -z "$rel" ] || ! grep -F -- "$rel" "$f" >/dev/null 2>&1 || case "$f" in *.md) : ;; *) lits="$lits ${f#"$REAL_REPO_ROOT"/}" ;; esac
   done

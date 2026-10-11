@@ -137,16 +137,17 @@ project's work.
 
 ## 7. THE `Verify:` LINE
 
-An Action required entry in `KIT-RELEASE-NOTES.md` may carry one line, indented under its bullet, that
+An Action required entry in `KIT-RELEASE-NOTES.md` (or `KIT-RELEASE-HISTORY.md`, which holds the older
+releases; both are read by the one reader) may carry one line, indented under its bullet, that
 starts `Verify:` and holds one shell command to the end of the line. The command exits 0 when the
 action is done in an adopted tree, and also exits 0 in a tree the entry does not apply to; it reads the
 tree and changes nothing. The notes' first `Verify:` line of an entry is the one read; the single reader
 is `notes_items` in `scripts/kit-upgrade.sh`.
 
-- **First run:** the item for that entry ends `Verify: <command>`, and the new kit's notes are staged as
-  `.kit-upgrade/KIT-RELEASE-NOTES.md.kit-new`.
+- **First run:** the item for that entry ends `Verify: <command>`, and the new kit's notes and history are staged as
+  `.kit-upgrade/KIT-RELEASE-NOTES.md.kit-new` and `.kit-upgrade/KIT-RELEASE-HISTORY.md.kit-new`.
 - **Finishing:** each command runs with `bash -c`, in the project's top level, with no input. It is read
-  from the staged copy of the new kit's notes, never from the checklist's text, which whoever marks the
+  from the staged copies of the new kit's notes and history, never from the checklist's text, which whoever marks the
   item can edit. It runs with the authority of whoever runs the upgrade, so a kit not trusted that far
   is not upgraded to. A failing command is `upgrade-verify-failed`, naming the item, the command and its
   exit status; there is no override, because a command that fails where the entry does not apply is a

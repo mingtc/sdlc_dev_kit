@@ -32,7 +32,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   an explicit test-only marker that no production caller sets.
   *Why:* a landing gate that accepts an arbitrary command from its caller can be handed a
   command that always succeeds, which turns the strongest control in the process into a
-  formality — this was learned by incident, not by design review.
+  formality.
 - **The gate that runs is the COMMITTED one.** The gate definition must be tracked at the
   revision being landed and free of uncommitted modification, or landing refuses.
   *Why:* an edited-but-uncommitted gate means the proof came from a definition that will not
@@ -166,7 +166,7 @@ code-review object — the item's activity log **is** the review record.
   push, the branch deletion and the state advance. Forge-native flavours are an optional extra —
   [`../GIT-HOSTING.md`](../GIT-HOSTING.md).
 - The caller-supplied-gate-command invariant in § 2 is written as a refusal at the top of that
-  file, before any state is read, because it is the invariant an incident produced.
+  file, before any state is read.
 - `scripts/verify.sh` — the gate this kit hands it; contracted in
   [verify-gate.md](verify-gate.md), whose sheet describes the **kit half** of that MIXED file.
 - **The two layers, named concretely in the shipped implementation (§ 2's first invariant):** the

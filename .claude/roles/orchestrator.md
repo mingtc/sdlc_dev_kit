@@ -231,8 +231,8 @@ The orchestrator runs an issue set as **plan → gate → execute-loop**. The pl
   pre-answer the GATE-A forks at the run-plan proposal anyway, so a mid-run batch gate never
   fires. Under JIT, the plan commits with the first Dev slice of that issue.
 
-**Commit Phase-1 plan artifacts immediately** (a hard-won lesson — batch plans left
-uncommitted in the working tree were nearly lost): under batch-plan, commit every plan right
+**Commit Phase-1 plan artifacts immediately** (batch plans left
+uncommitted in the working tree can be lost): under batch-plan, commit every plan right
 after GATE A; under JIT, the plan commits with the issue's first Dev slice so it can't be
 stranded.
 
@@ -376,8 +376,8 @@ handoff — forge-agnostic pure git; there is no PR/MR object to record).
 
 - **Mechanical post-merge check.** The merge is gated mechanically: `finish-pr.sh` runs the
   project's **quick** gate BEFORE the merge and REFUSES to merge on a red result, then reads the landed commit and
-  SURFACES the result without gating (its header says how). The hard-won lesson (a close-out that
-  merged on a partial check and left the trunk's test gate red across two merges) is caught
+  SURFACES the result without gating (its header says how). A close-out that
+  merges on a partial check leaves the trunk's test gate red; that is caught
   mechanically instead of by discipline — **but only by a line that names a trunk commit**: read
   the commit on the line, and treat an UNRUNNABLE as no reading. Still: **if the post-merge check
   shows the trunk is red, fix it ON the trunk — do not park the fix.** When PARKING an issue,

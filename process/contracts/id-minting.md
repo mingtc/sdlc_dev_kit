@@ -94,7 +94,7 @@ order-independently.
 
 *Why the exception is safe where the general rule is not, and this is the part that travels:* work
 items are created by several roles in parallel lanes, so a tool that mints at creation time hands
-two lanes the same number — the concurrency hazard § 2 names, learned from a real collision.
+two lanes the same number — the concurrency hazard § 2 names.
 Specifications are few and authored by one role, so nobody else's landing falls between the read and
 the write. **The carve-out is about who else is minting at that moment — not about specifications
 being special.** If a project puts a second author on that stream, the exception stops being safe

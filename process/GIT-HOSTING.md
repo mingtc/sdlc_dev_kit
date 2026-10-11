@@ -191,9 +191,8 @@ is **read-only**, and something must enforce that, not merely intend it.
 periodically force-pushes A → B) *plus* **a writable B**. Work committed to B lives until the next
 sync fires and then ceases to exist. Nothing in git protects you: the sync's force-push is doing
 exactly what it was told. And it is a **state that cannot be verified by observation** — a sync
-fire is an *event*, not a steady state, so a hundred quiet readings prove nothing. The donor
-project sat in this state for days and accumulated exactly that kind of evidence: monotonic remote
-readings at every leg boundary, no regression ever seen, question still open, because "we have not
+fire is an *event*, not a steady state, so a hundred quiet readings prove nothing. Monotonic
+remote readings with no regression ever seen are exactly the evidence it produces, and "we have not
 been bitten yet" is not a safety argument.
 
 **The corollaries.**

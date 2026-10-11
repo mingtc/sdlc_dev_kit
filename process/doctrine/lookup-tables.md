@@ -198,38 +198,35 @@ can wait, nor the reverse.**
 
 ### A worked example from the donor project (anonymized) — five measurements, five lessons
 
-Each figure below was measured on one tree on one date; **none of them are yours**, and each is kept
-because it is the evidence for a rule in § A.
+Each lesson was measured on one tree; **none of the figures are yours**, and each is kept because it is the
+evidence for a rule in § A.
 
 1. **The tax is per-session, and it was already being paid wrong.** The largest document in the
-   repository — a running activity log of ~1.16 MB, about 290k tokens — had **no index** and was a
-   **mandated read** in the implementer's role doc. Nobody read it, so the coping strategy was a
-   fixed-size tail — and `tail -50 | grep -c '^## '` returned **0**: the tail did not contain a
-   single section heading, so a reader had no way to tell which session anything belonged to. The
+   repository — a running activity log of over a megabyte — had **no index** and was a **mandated read**
+   in the implementer's role doc. Nobody read it, so the coping strategy was a fixed-size tail, and the
+   tail held no section heading at all: a reader could not tell which session anything belonged to. The
    role trigger in § A.1 exists because of this row.
-2. **Larger and cheaper, together, is the whole argument.** The second-largest file in the same
-   tree — a ~758 KB shipped guide — was the **cheapest to consult**, because its accessor answered
-   with a derived index of about 10 KB: a **~70:1** ratio, rows named after the failure each
-   section cures, collisions refusing at build time. It became the accessor's **default** by ruling
-   after eight independent dogfood runs asked for it.
-3. **The two failure modes are different, and one division diagnoses both.** The retained-evidence
-   index was the **entry-size** case: 94 top-level rows holding 97% of a 120 KB file, mean row 1,245
-   B against a derived cap of 348 B — **79 of 94 rows over cap**, and the largest single row ~12 KB.
-   The board's archive index was the **entry-count** case: **493 entries against the 409 ceiling**,
-   i.e. 66 B/entry, below the 80 B floor — so no amount of shortening saves it and it must split.
-   Fixing the first by deleting entries would destroy the evidence index for no gain; fixing the
-   second by shortening rows to 66 B would destroy the hooks.
-4. **Rot is structural, not a discipline failure.** In the same window a retirement sweep removed
-   fifteen rows from that index, it **grew by ~6.4 KB** — because every surviving row accreted
-   closure-stamp prose. The person who writes an index row is the person who just finished the work
-   and knows the most about it, writing into the file everyone reads. Rows grow. That is the
-   argument for § A.5's preference order, not an argument for trying harder.
-5. **Stable addressing is what makes the rest of the cleanup machinery safe.** **54 bare
-   `<file>:<line>` citations** into the running log existed across 22 files, every one resolving,
-   every one due to die at the next log rotation, with no guard watching. Seven of them sat inside
-   the decision register itself and **three had already drifted by 14 lines** — the exact failure
-   § A.4 names — and were re-pointed at the register's own stable ids instead. The index does not
-   make rotation cheaper; it makes it **safe to run** rather than cheap to skip.
+2. **Larger and cheaper, together, is the whole argument.** The second-largest file — a shipped guide
+   several times the size of a typical sheet — was the **cheapest to consult**, because its accessor
+   answered with a derived index about seventy times smaller: rows named after the failure each section
+   cures, collisions refusing at build time. It became the accessor's **default** by ruling after
+   independent dogfood runs asked for it.
+3. **The two failure modes are different, and one division diagnoses both.** The retained-evidence index
+   was the **entry-size** case: most rows over the derived cap, the largest many times it. The board's
+   archive index was the **entry-count** case: more entries than the ceiling, with rows already below the
+   floor, so no amount of shortening saves it and it must split. Fixing the first by deleting entries
+   would destroy the evidence index for no gain; fixing the second by shortening rows would destroy the
+   hooks.
+4. **Rot is structural, not a discipline failure.** A retirement sweep removed rows from that index and
+   it **grew** — every surviving row accreted closure-stamp prose. The person who writes an index row
+   is the person who just finished the work and knows the most about it, writing into the file everyone
+   reads. Rows grow. That is the argument for § A.5's preference order, not an argument for trying harder.
+5. **Stable addressing is what makes the rest of the cleanup machinery safe.** Dozens of bare
+   `<file>:<line>` citations into the running log existed across many files, every one resolving, every
+   one due to die at the next log rotation, with no guard watching; several inside the decision register
+   itself had already drifted — the exact failure § A.4 names — and were re-pointed at the register's own
+   stable ids. The index does not make rotation cheaper; it makes it **safe to run** rather than cheap to
+   skip.
 
 **Two cross-reference lessons from writing that instance, worth keeping.** First: when a sheet cites
 a *neighbour sheet* for a constant's lineage, check that the neighbour actually contains it — a
