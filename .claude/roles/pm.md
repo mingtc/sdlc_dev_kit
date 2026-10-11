@@ -101,8 +101,7 @@ Start: a vague ask, an open question in PROJECT.md, or stakeholder feedback. End
 > path**: mint one `progress/todo/` issue directly — real AC, `prd: n/a` with a one-line `prd_reason:`, `stories: []`, no
 > subtask tree — and hand it to Dev for `issue → branch → TDD → land` (see the adapter § "The
 > default path is lite"). Mint it with `./scripts/new-issue.sh <slug> --id "$(./scripts/next-id.sh)" --prd n/a`,
-> then edit the card by hand: the script fills the PRD-first shape, so set `stories: []`, fill
-> `prd_reason:`, and rewrite the first Activity line to `Created in todo/. Standalone fix, no PRD.`
+> then fill `prd_reason:` by hand: the script writes `stories: []` and an Activity line that says there is no PRD.
 > The two heavier intake shapes below are for **feature-area-scale** work only. **PRD-first** (the numbered steps) starts from a feature area and writes the spec.
 > **Feedback-round** (next subsection) starts from a raw batch of operator complaints. Pick the
 > matching path; all three end at vetted `progress/todo/` issues.

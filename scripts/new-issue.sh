@@ -166,6 +166,11 @@ kit_rehead_card "$WORK" || exit 1   # exit-class: internal
 # What the mint knows goes into the body too: the H1's id, the seed entry's date, the PRD, the
 # stories and the plan's id (lib/card-head.sh). An absent flag leaves its blank for the author.
 kit_stamp_card "$WORK" "$ID" "$TODAY" || exit 1   # exit-class: internal
+# --prd n/a is the lite path: the card names no PRD and no stories, and the PRD fills below skip.
+if [ "$PRD" = "n/a" ]; then
+  kit_prd_free_card "$WORK" "$STORIES" || exit 1   # exit-class: internal
+  PRD=""
+fi
 PRD_FILE=""
 if [ -n "$PRD" ]; then
   for f in "$ROOT/requirements/$PRD"-*.md; do

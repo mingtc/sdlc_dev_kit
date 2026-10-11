@@ -100,3 +100,18 @@ kit_fill_card() {
       }
       print }' "$card" > "$card.fill" && mv "$card.fill" "$card"
 }
+
+# kit_prd_free_card <card-file> <stories-given> — a card minted with `--prd n/a` is on the lite
+# path: no PRD, no stories. Rewrite the PRD-shaped lines the template ships (the issue's References
+# line and seed entry, the bug's Expected and Related PRD lines) to say so, and set `stories: []`
+# unless the caller named stories (<stories-given> non-empty). A line the card does not carry is
+# left alone. Run it before the PRD fills; the caller then passes no PRD value to them.
+kit_prd_free_card() {
+  local card="$1"
+  [ -z "${2:-}" ] && { sed -i.bak -e 's|^stories: .*|stories: []|' "$card" && rm -f "$card.bak"; }
+  kit_fill_card "$card" \
+    '- **PRD:** [PRD-NNN](../../requirements/PRD-NNN-<slug>.md) — stories <story ids>' '- **PRD:** none — lite path; `prd_reason:` says why' \
+    'PRD-NNN, stories <story ids>.' 'No PRD (lite path).' \
+    '(per [PRD-NNN](../../requirements/PRD-NNN-<slug>.md), story <story ids>)' '(no PRD covers this; `prd_reason:` says why)' \
+    '- Related PRD: PRD-NNN, story <story ids>' '- Related PRD: none'
+}

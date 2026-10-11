@@ -636,6 +636,11 @@ columns and never the cards.*
 
 ### Fixed
 
+- **`--prd n/a` mints a PRD-free card; an unattended `/start` reviews `dev_complete`.** `new-issue.sh` and `new-bug.sh` with `--prd n/a` write
+  `stories: []` and no PRD link or `<story ids>` blank (fill `prd_reason:`); a mint without the flag is unchanged. The unattended pick is the
+  oldest `in_progress`, else the oldest `dev_complete` (taken as QA), else the first `todo`. Needs `scripts/lib/card-head.sh` (arrives with
+  the upgrade). No action.
+
 - **`kit-init.sh` with no arguments printed its re-run line as `./scripts/kit-init.sh ''`; `move-issue.sh` without `--role` printed its whole help.** The
   first now prints the bare command, the second the error and one synopsis line. The `pre-commit` hook reads `CODE_GLOBS` through
   `scripts/lib/glob-array.sh` and refuses an off-trunk commit while that file is unreadable (it arrives with the upgrade). Exit status 2 is documented once

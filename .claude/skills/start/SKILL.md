@@ -111,8 +111,11 @@ launch) is the signal; without it, a human just typed `/start` and is waiting fo
      It is who your questions go to, and `scripts/ask.sh` refuses a `--role` equal to it: file
      under the role you are acting as, never the principal's.
   2. Pick the single most useful next action from the status above — the oldest `in_progress`
-     item, else the first `todo` in board order — and **take it**, under that role's own doc,
-     rather than asking which one to take.
+     item, else the oldest `dev_complete` card, else the first `todo` in board order — and
+     **take it**, under that role's own doc, rather than asking which one to take. A fresh
+     session wrote none of a `dev_complete` card's code, so it may wear QA on it
+     (`.claude/roles/qa.md`); a `qa-verdict-same-agent` refusal means a different session must
+     review.
   3. If no next action is evident, or a real decision is needed first (which role, which item,
      a fork the status can't settle), **file it through `./scripts/ask.sh`** with a working
      default and proceed under that default — never end the turn on the open question itself.

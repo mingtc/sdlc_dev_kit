@@ -2724,6 +2724,55 @@ case_minted_card_claims_only_what_it_was_given() {
 }
 
 # =============================================================================
+# CASE — A CARD MINTED WITH --prd n/a CARRIES NO PRD-SHAPED PLACEHOLDER.
+#
+# `--prd n/a` declares the lite path. The card it mints says so: `stories: []`, no PRD link, no
+# story blank in the References line or the seed entry. A PRD-shaped example left behind reads as
+# a PRD the card cites. The card must still be drift-clean on the first board check.
+# =============================================================================
+case_minted_prd_free_card_names_no_prd() {
+  cf_reset
+  local L="a card minted with --prd n/a carries stories: [], no PRD link and no story blank, and is drift-clean"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+
+  local td="$SB_WORK/progress/todo" c n=0
+  ( cd "$SB_WORK" \
+    && ./scripts/new-issue.sh lite --id "$SB_PREFIX-781" --prd n/a \
+    && ./scripts/new-bug.sh litebug --id "$SB_PREFIX-782" --prd n/a ) >/dev/null 2>&1 \
+    || _fixture_die "case_minted_prd_free_card_names_no_prd: a creator refused a legal --prd n/a mint."
+  for c in "$td/$SB_PREFIX-781-lite.md" "$td/$SB_PREFIX-782-litebug.md"; do
+    [ -f "$c" ] || _fixture_die "case_minted_prd_free_card_names_no_prd: no minted card at $c."
+    n=$((n+1))
+    grep -q '^prd: n/a' "$c" || cf "$(basename "$c"): --prd n/a did not reach the frontmatter: $(grep -m1 '^prd:' "$c")"
+    grep -q '^stories: \[\]' "$c" || cf "$(basename "$c"): a PRD-free card does not say stories: []: $(grep -m1 '^stories:' "$c")"
+    grep -qE 'PRD-NNN|F1-S1|<story ids>' "$c" \
+      && cf "$(basename "$c"): a PRD-free card keeps a PRD-shaped placeholder: $(grep -nE 'PRD-NNN|F1-S1|<story ids>' "$c" | tr '\n' '|')"
+  done
+  # CONTROL: a card minted without the flag keeps its blank, so the absence above is the lite path's doing.
+  ( cd "$SB_WORK" && ./scripts/new-issue.sh plain --id "$SB_PREFIX-783" ) >/dev/null 2>&1 \
+    || _fixture_die "case_minted_prd_free_card_names_no_prd: the control mint refused."
+  grep -qF '<story ids>' "$td/$SB_PREFIX-783-plain.md" \
+    || cf "(control) a card minted without --prd lost its story blank — the assertion above would not distinguish the lite path"
+  publish_sandbox
+
+  local out rc=0
+  out="$(cb_run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "check-board.sh exited $rc (exit 0 ALWAYS)"
+  printf '%s\n' "$out" | grep 'no active column exists' >/dev/null \
+    && cf "(instrument) arm [a] found no active column — the assertion below is vacuous"
+  printf '%s\n' "$out" | grep 'last Activity declares' >/dev/null \
+    && cf "a freshly minted PRD-free card reports folder-vs-Activity drift: $out"
+  [ "$n" -ge 2 ] || _fixture_die "case_minted_prd_free_card_names_no_prd: only $n card(s) read."
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE TEMPLATE HEADER SURVIVES THE STAMP IT DESCRIBES.
 #
 # Each card template's header explains the prefix and trunk substitutions. If it spells the

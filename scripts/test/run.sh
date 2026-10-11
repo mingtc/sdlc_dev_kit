@@ -536,6 +536,7 @@ CASES=(
   case_minted_card_prompts_for_notes
   case_minted_card_carries_what_the_mint_knew
   case_minted_card_claims_only_what_it_was_given
+  case_minted_prd_free_card_names_no_prd
   case_template_header_survives_the_stamp
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule
