@@ -32,6 +32,8 @@
 #   scripts/update_vendored.sh --check      # report-only: is a newer tag available?
 #   scripts/update_vendored.sh --print-seams  # this file's configured seams (for tooling)
 #   scripts/update_vendored.sh --print-unfilled  # the seams still holding a <blank>, one per line
+#   scripts/update_vendored.sh --print-config    # CONSUMER_CONFIG, one NAME=... line each (for setup-consumer.sh)
+#   scripts/update_vendored.sh --print-install-hint <artifact path>  # the first-install hint (for setup-consumer.sh)
 #
 # TWO PATHS, and you never have to choose. It first tries the DISTRIBUTION-BRANCH
 # FAST PATH — a shallow clone of the upstream's consumer-only branch, which
@@ -220,9 +222,10 @@ install_hint() {   # <vendored artifact path> <first-install|refresh>
 }
 
 # A seam is UNFILLED while its value still carries a `<blank>`: an angle-bracket span
-# that opens with a letter (so the `<-` of a pin line is not one). A bash test, not a
-# `printf | grep -q` pipe: under `pipefail` a reader that exits early reports the
-# producer's SIGPIPE as a miss.
+# that opens with a letter (so the `<-` of a pin line is not one). A filled value must
+# not contain such a span either: a shell redirect like `<req.txt >` reads as a blank.
+# A bash test, not a `printf | grep -q` pipe: under `pipefail` a reader that exits early
+# reports the producer's SIGPIPE as a miss.
 UNFILLED_RE='<[A-Za-z][^<>]*>'
 is_unfilled() {   # <value>
     [[ "$1" =~ $UNFILLED_RE ]]

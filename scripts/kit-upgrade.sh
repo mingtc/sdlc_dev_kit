@@ -48,10 +48,10 @@
 # project's own, are run over every *.md file in progress/in_progress, dev_complete and blocked
 # (the board's own definition of a card, a leading comment above the frontmatter included). A card
 # they would refuse gets one checklist item naming the rule; --finish runs them again and refuses
-# while any still would. A card whose branch does not resolve, or a file with no frontmatter,
-# cannot be checked: its item says so. The forks: check runs on every such card; the QA Verdict
-# check runs at dev_complete, or on a card in any of the three that already has a "## QA Verdict"
-# heading; the Ablation check runs at dev_complete alone.
+# while any still would. A card whose branch does not resolve (a file with no frontmatter has no
+# branch, and reads as `<none>`) cannot be checked: its item says so. The forks: check runs on
+# every such card; the QA Verdict check runs at dev_complete, or on a card in any of the three
+# that already has a "## QA Verdict" heading; the Ablation check runs at dev_complete alone.
 #
 # THE VERIFY: LINES: an Action required entry in the new kit's release notes may carry one
 # `Verify: <shell command>` line (process/contracts/kit-upgrade.md § 7). The first run copies it into

@@ -204,7 +204,9 @@ kit_decisions_cited() {
 #   Prints WITHDRAWN or WORKING DEFAULT when that token heads the field, nothing otherwise. A
 #   leading backtick, `*`, `_` or space is skipped, so the token reads the same bare as in the
 #   backticks the register's format text shows it in. The ONE reader of that head: ask.sh and the
-#   register-shape report both ask it, so they cannot disagree about which entries have a ruling.
+#   register-shape report both ask it, so they cannot disagree about the spelling it accepts. The
+#   report upper-cases the field first so a lower-case token still counts there; ask.sh passes the
+#   text as written, so a lower-case token is no state to it.
 kit_ruling_state() {
   local _krs_head
   _krs_head="$(printf '%s' "$1" | sed 's/^[`*_[:space:]]*//')"

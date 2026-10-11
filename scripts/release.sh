@@ -232,7 +232,9 @@ usage() {
   start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start=3
-  start="$(awk -v s="$start" 'NR>=s && !/^#[[:space:]]*KIT-DISPOSITION:/{f=1; print NR; exit} END{if (!f) print s}' "$src")"
+  # A KIT-DISPOSITION line is skipped; one that does not end in a full stop continues onto the comment
+  # lines below it, up to and including the first that does.
+  start="$(awk -v s="$start" 'NR<s{next} skip && !/^#/{skip=0} skip{if (/\.[[:space:]]*$/) skip=0; next} /^#[[:space:]]*KIT-DISPOSITION:/{if (!/\.[[:space:]]*$/) skip=1; next} {f=1; print NR; exit} END{if (!f) print s}' "$src")"
   sed -n "${start},${window_end:-9}p" "$src" | sed 's|^# \{0,1\}||'
 }
 

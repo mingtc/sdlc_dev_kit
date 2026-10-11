@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — the executable bootstrap: stamp the seams, create the board, wire the hooks, self-check. See process/EXTRACTION.md.
+# KIT-CLASS: KIT — the executable bootstrap: stamp the seams, create the board, wire the git hooks path, self-check. See process/EXTRACTION.md.
 # =============================================================================
 # scripts/kit-init.sh — initialize THE KIT in a repository that has already
 # received the copy-list (process/EXTRACTION.md § 1, or process/SEED.md step 2).
@@ -189,9 +189,9 @@ The remote precondition (the silent-corruption class this script exists for):
   must not make on your behalf.
 
 The census (a measurement, not a promise):
-  process/contracts/config-seam.md says a search of the travelling files for the
-  kit's shipped placeholder values must return NOTHING — "a count, run by the adopter, not a
-  promise made by the kit". This script runs that count itself, over
+  process/contracts/config-seam.md says a search of the travelling files for another
+  project's values (here, the shipped placeholders) must return NOTHING — "a count, run by
+  the adopter, not a promise made by the kit". This script runs that count itself, over
   .claude/roles/ and .claude/templates/, for all three shipped tokens — prefix,
   trunk and project name, every one DERIVED from a seam rather than typed in
   here — prints it, and the self-check FAILS when it is non-zero. What the census
@@ -1001,12 +1001,18 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
 - a dated \`###\` boundary per session: archive-progress.sh splits this file on
   \`### YYYY-MM-DD\` when it rotates, so each session's entries sit under ONE
   heading. **\`###\`, not \`##\`, and that is load-bearing rather than stylistic.**
-  Two tools read the \`## Log\` *section* by scanning from its heading to the next
-  \`##\`: check-board.sh's § Log size arm and this initializer's already-lived
-  probe. An entry written as \`## YYYY-MM-DD\` therefore *terminates the section it
+  The tools that read the \`## Log\` *section* scan from its heading to the next
+  \`##\`: check-board.sh's § Log size arm and its [n] kit-feedback-line arm, and
+  this initializer's already-lived probe. An entry written as \`## YYYY-MM-DD\` therefore *terminates the section it
   is supposed to be inside* — the size arm measures only the preamble and reports
   healthy forever, and the lived probe counts zero log lines, so a repository with a
   full history reads as new.
+
+One more line is read, as a warning only, when \`PROJECT.md\`'s \`kit-feedback:\` is
+\`auto\` (the default): check-board.sh's [n] kit-feedback-line arm looks in the newest
+entry for a closing \`kit-feedback: none\` or \`kit-feedback: K-NN[, K-NN…]\` line (a
+dispatched leg's \`kit-finding:\` line answers it too; \`process/MANUAL.md\` § Kit
+feedback) and warns when it is absent.
 
 \`\`\`markdown
 ### YYYY-MM-DD [Role] <session title>

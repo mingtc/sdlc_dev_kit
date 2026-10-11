@@ -228,15 +228,23 @@ case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched() {
   cf_reset
   make_sandbox
 
-  local tdir="$REAL_REPO_ROOT/.claude/templates" t row n=0 id=880 f out rc
+  local tdir="$REAL_REPO_ROOT/.claude/templates" t tf row n=0 cards=0 id=880 f out rc
   if [ ! -d "$tdir" ]; then
     skp "the shipped shadow-check row is refused untouched" ".claude/templates/ is absent from this tree"
     teardown; return
   fi
 
-  for t in ISSUE BUG REFACTOR SUBTASK; do
-    [ -f "$tdir/$t.template.md" ] || { cf "$t.template.md is not in $tdir — the shipped card templates are the population"; continue; }
-    row="$(grep -E '^\| shadow-check \|' "$tdir/$t.template.md" || true)"
+  # The population is derived: every shipped card template, told from the PRD template by the `type:` line a card's
+  # frontmatter carries and a PRD's does not, never by the row under test (a template that lost its row must be
+  # judged and fail, not drop out). The Refactorer's template is optional: absent from a tree that finished day one
+  # it is skipped, absent from one that did not it is a defect.
+  [ -f "$tdir/REFACTOR.template.md" ] || _member_removed .claude/templates/REFACTOR.template.md \
+    || cf "REFACTOR.template.md is not in $tdir and this tree has not removed the Refactorer"
+  for tf in "$tdir"/*.template.md; do
+    [ -f "$tf" ] || continue
+    grep -qE '^type:[[:space:]]' "$tf" || continue
+    t="${tf##*/}"; t="${t%.template.md}"; cards=$((cards + 1))
+    row="$(grep -E '^\| shadow-check \|' "$tf" || true)"
     # INSTRUMENT CHECK: exactly one row, or the loop below judges nothing.
     [ "$(printf '%s\n' "$row" | grep -c .)" -eq 1 ] \
       || { cf "$t.template.md carries $(printf '%s\n' "$row" | grep -c .) shadow-check rows, expected exactly one"; continue; }
@@ -256,7 +264,8 @@ case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched() {
     grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-$t"/*.tsv 2>/dev/null \
       || cf "$t: no progress record carries refusal=qa-verdict-shadow-missing (output: $(printf '%s' "$out" | tail -3 | tr '\n' '|' | cut -c1-200))"
   done
-  [ "$n" -eq 4 ] || cf "expected 4 shipped card templates, judged $n"
+  [ "$cards" -ge 1 ] || cf "no shipped card template was found (a card template carries a frontmatter type: line), so nothing was judged"
+  [ "$n" -eq "$cards" ] || cf "judged $n of the $cards shipped card templates"
 
   finish "finish-pr.sh refuses a landing whose shadow-check row is still the one the card template ships — for each of the $n shipped card templates, the row read from the template itself, so an unread row cannot pass"
   teardown

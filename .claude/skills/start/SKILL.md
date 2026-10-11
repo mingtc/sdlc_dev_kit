@@ -66,7 +66,7 @@ job is day one, not features. Then:
    checklist is satisfied.
 4. **Unattended (`KIT_UNATTENDED=1`) before day one:** there is no `principal:` yet, so
    `scripts/ask.sh` refuses, and day one has no working-default fallback (`process/SEED.md`, the
-   note under the steps). Put the step 3 interview and any open question in a file for the human, say
+   note under the steps). Put the SEED step 3 interview and any open question in a file for the human, say
    in a statement (not a question) where it is and what is waiting, write the handoff, and stop. Do
    not proceed on a guess.
 

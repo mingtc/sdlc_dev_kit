@@ -1153,8 +1153,8 @@ _consumer_fill() {
       pin)     grep -qF 'thing @ file:' "$f" ;;
       first)   grep -qF 'pip install --with-deps' "$f" ;;
       refresh) grep -qF 'pip install --no-deps' "$f" ;;
-      config)  grep -qF 'CONSUMER_CONFIG=(' "$f" || return 0   # no such seam: the case says so
-               grep -qF 'THING_TOKEN|' "$f" ;;
+      config)  # a tree without the seam has nothing to verify: the case says so
+               { ! grep -qF 'CONSUMER_CONFIG=(' "$f"; } || grep -qF 'THING_TOKEN|' "$f" ;;
       docs)    ! grep -qF '<path/to/GUIDE.md>' "$f" ;;
     esac || _fixture_die "_consumer_fill: the '$seam' seam of the shipped update_vendored.sh was not filled"
   done

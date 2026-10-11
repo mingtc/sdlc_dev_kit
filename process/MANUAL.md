@@ -419,9 +419,10 @@ bounces it.
      the process to argue the product into the plausible-wrong answer the specification exists to
      prevent; **(2) amend the AC** in the issue file, replacing the wrong illustration with the
      corrected one **and its source**, and cite on the card the register entry that records the correction
-     (`[decision: D-NN]`) — an AC changed after the card left `todo/` is refused at landing without one
-     (§ Execution discipline, item 6); **(3) leave a PM note** — the ruling is the PM's to keep and to
-     record as the entry you cite, and a silently-corrected AC teaches nobody.
+     (`[decision: D-NN]`; record it first — yours in the same change, or the PM's already on trunk) — an AC
+     changed after the card left `todo/` is refused at landing without one (§ Execution discipline,
+     item 6); **(3) leave a PM note** — the ruling is the PM's to keep or revise, and a silently-corrected
+     AC teaches nobody.
      **Verify before you invoke it.** This verdict is only available when you have
      **checked the fact yourself** against a citable source; "the AC looks off to me" is a FAIL
      or a question, never this. And it applies to an AC's *illustration*, never to its

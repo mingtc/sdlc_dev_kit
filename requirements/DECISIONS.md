@@ -116,7 +116,7 @@ from.
 **Provenance.** Unchanged — where it was withdrawn, and where the evidence lives.
 
 **THE TOKEN IS ANCHORED, and that is format law:** uppercase, at the **head** of the `Ruling` field
-(bare, or inside backticks as the Ruling line above shows it — both are read; `scripts/ask.sh` writes it bare),
+(bare, or inside backticks as the Ruling line above shows it — both are read; `scripts/ask.sh` writes its `WORKING DEFAULT` token bare),
 followed by a date — **never in the `### D-NN` heading**, which is the citable anchor: a token there
 would change every citation to this ruling the moment it discharges. The state moves; the handle must
 not. An entry that *discusses* a withdrawal — this section included — does **not** declare one, so a

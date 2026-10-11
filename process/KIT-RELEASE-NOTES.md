@@ -464,8 +464,8 @@ columns and never the cards.*
   Verify: grep -q kit_forks_check scripts/move-issue.sh
 
 - **A `## QA Verdict` row's verdict must now be exactly `PASS`, `PASS_AC_CORRECTED`, `FAIL_AC` or `FAIL_REGRESSION`.**
-  `finish-pr.sh` and `subtask.sh move … qa_complete` refuse any other spelling (`FAIL`, `Fail_AC`, `FAILED`, a blank or the
-  template's unfilled `<…>` cell) with `qa-verdict-token-invalid`; before, only the two exact FAIL tokens were read, so a mistyped
+  `finish-pr.sh` and `subtask.sh move … qa_complete` refuse any other spelling (`FAIL`, `Fail_AC`, `FAILED`, a blank or an
+  unfilled `<…>` cell) with `qa-verdict-token-invalid`; before, only the two exact FAIL tokens were read, so a mistyped
   FAIL landed. **Before your next landing, read the verdict column of any in-flight card's table** (backticks and bold are
   still stripped). An upgrade's open-card re-check lists a `dev_complete/` card that would now refuse.
 
@@ -479,6 +479,12 @@ columns and never the cards.*
   against an updater that lacks the flag.** Nothing to do if you have no `consumers/`.
 
   Verify: [ ! -f consumers/update_vendored.sh ] || grep -q -- --print-unfilled consumers/update_vendored.sh
+
+- **`kit-init.sh --prefix` no longer rewrites `KIT-FEEDBACK.md` in `.claude/roles/orchestrator.md`.** The orchestrator
+  checklist named `process/<PREFIX>-FEEDBACK.md`, a file nothing else reads. A project initialised with `--prefix` before
+  this has the prefix in that name: change that one word back to `KIT-FEEDBACK` in the orchestrator's checklist.
+
+  Verify: grep -q 'process/KIT-FEEDBACK.md' .claude/roles/orchestrator.md
 
 ### Added
 
@@ -533,7 +539,7 @@ columns and never the cards.*
   `dash`); `using-skills` names its implementation skills; two worked examples use the id-keyed plan filename; `safety-net-check` says the characterization
   tests land under a chore card minted first. No action.
 
-- **A required option left out now exits 2 in every script, like an unknown option.** Five exited 1: `move-issue.sh` without `--role`,
+- **A required option left out now exits 2 in every script, like an unknown option.** These exited 1: `move-issue.sh` without `--role`,
   `new-issue.sh` / `new-bug.sh` / `new-refactor.sh` without a valid `--id`, `archive-progress.sh` without `--milestone`,
   `subtask.sh new` without `--title`, and `kit-init.sh` without `--prefix` or `--trunk` (its other unmet preconditions stay 1).
   A missing or surplus positional keeps its status. **A script of yours that branches on exit 1 from any of these: branch on 2.**
@@ -662,10 +668,6 @@ columns and never the cards.*
   token in backticks; `finish-pr.sh` and `subtask.sh` read `` `FAIL_AC` `` and `` `FAIL_REGRESSION` `` as no verdict and
   let a failing row land. They now refuse it (`qa-verdict-fail`). No action needed.
 
-- **`kit-init.sh --prefix` no longer rewrites `KIT-FEEDBACK.md` in `.claude/roles/orchestrator.md`.** The orchestrator
-  checklist named `process/<PREFIX>-FEEDBACK.md`, a file nothing else reads. A project initialised before this
-  keeps the wrong name: change that one word back to `KIT-FEEDBACK` by hand.
-
 - **A decision-register entry written as the format shows it is now read.** `requirements/DECISIONS.md` shows the
   `WITHDRAWN` and `WORKING DEFAULT` tokens in backticks; `ask.sh --decision` read a backticked `WITHDRAWN` as a
   standing ruling and left it untouched, and `check-board.sh` arm [q] missed a backticked head. Both now read the
@@ -717,6 +719,17 @@ columns and never the cards.*
 
 - **`notify.sh --help` and `notify/telegram.sh --help` no longer print the second line of their
   `KIT-DISPOSITION` marker.** The marker is one line now. No action needed.
+
+- **`--help` skips a `KIT-DISPOSITION` marker that wraps, and `notify-hook.sh --help` no longer opens with its second line.**
+  `scripts/lib/usage.sh` (and `release.sh`'s own copy of the rule) skip a marker whose first line does not end in a full stop
+  up to the first line that does. Keep a marker of your own on one line ending in a full stop. No action needed.
+
+- **The self-test no longer fails a project that removed the Refactorer.** The shadow-check landing case judged four named card
+  templates; it now judges every card template (told from the PRD template by its frontmatter `type:` line) and skips an absent
+  `REFACTOR.template.md` in a project that finished day one. No action unless you edited that case.
+
+- **`qa.md` and `MANUAL.md` now say a PASS-with-AC-correction records its register entry before the card cites it.** The entry is
+  yours in the same change, or the PM's already on trunk; the PM keeps or revises the ruling afterwards. No action needed.
 
 ## [0.8.0] — 2026-10-03
 

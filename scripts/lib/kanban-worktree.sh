@@ -9,10 +9,10 @@
 # carries it past every guard below (process/contracts/kanban-worktree.md § 1).
 #
 # Sourced by every script that touches the board (derive them: grep -l kanban-worktree.sh
-# scripts/*.sh). Every kanban git operation
-# (the `git mv`, the Activity append, the commit, the push) happens in a STANDING worktree,
-# `.kanban-wt/` at the repo root, gitignored. The operator's checkout is NEVER switched: on the
-# trunk with a clean tree it is fast-forwarded after a successful op, otherwise left untouched.
+# scripts/*.sh). Every kanban git operation (the `git mv`, the Activity append, the commit, the
+# push) happens in a STANDING worktree, `.kanban-wt/` at the repo root, gitignored. The operator's
+# checkout is NEVER switched: on the trunk with a clean tree it is fast-forwarded after a
+# successful op, otherwise left untouched.
 #
 # DETACHED, because `git worktree add .kanban-wt <trunk>` fails while the trunk is checked out in
 # the main worktree. Every op fetches and resets to <remote>/<trunk>, commits, and pushes

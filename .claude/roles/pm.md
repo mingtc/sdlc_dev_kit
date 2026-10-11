@@ -238,7 +238,7 @@ A card is published to `progress/todo/` only when every box is checked. If anyth
 - [ ] **Branch name** in frontmatter — `feature/<PREFIX>-NNN-<slug>` for features/spikes/chores, `fix/<PREFIX>-NNN-<slug>` for bugs
 - [ ] **Open questions at P0** — none remaining (P1/P2 stay in the PRD)
 - [ ] **Success metric** named when applicable — most are binary (works / doesn't); strategic ones get a metric
-- [ ] **Activity log seeded** — first entry: `YYYY-MM-DD [PM] Created in todo/. PRD-NNN § ...` (lite path: `... Created in todo/. Standalone fix, no PRD.`)
+- [ ] **Activity log seeded** — first entry: `YYYY-MM-DD [PM] Created in todo/. PRD-NNN § ...` (lite path: `... Created in todo/. No PRD (lite path).`)
 - [ ] **Notes deliverable named** — a consumer-visible issue's AC list names its release-notes / changelog entries, or the issue states it has none. QA grades the AC list, so a deliverable that is not an AC is a deliverable nobody grades.
 - [ ] **Every illustrative example inside an AC CITES ITS SOURCE or is labelled approximate.** An AC that says *"e.g. `0 9 * * 1-5` fires at 09:00 on weekdays"* is asserting a fact the implementer will be graded against — so it either names where that fact came from (a spec section, a manual page, a measured probe) or says plainly that it is illustrative and unverified. **Never a bare confident example.**
 

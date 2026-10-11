@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — harness Notification hook adapter. See process/EXTRACTION.md.
-# KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove it or record
-# keeping it on purpose in process/LOCAL-PROCEDURES.md.
+# KIT-DISPOSITION: DELETE-IF-UNUSED — an unused option reads as a promise; remove it, or record keeping it in process/LOCAL-PROCEDURES.md.
 # The harness `Notification` hook → an `attention` ping.
 #
 # The harness fires the Notification hook when the session is waiting on the

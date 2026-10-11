@@ -520,6 +520,7 @@ CASES=(
   case_release_happy
   case_usage_renderer_has_one_authoring_site
   case_help_does_not_print_the_disposition_marker
+  case_help_skips_a_wrapped_disposition_marker
   case_notify_lists_only_adapters
   case_notify_message_flag_carries_a_leading_dash
   case_notify_help_is_the_header_and_the_hook_answers_without_stdin

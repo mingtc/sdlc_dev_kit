@@ -3,8 +3,9 @@
 #
 # THE RULE: a script's `--help` is its own header comment block, from the line after the
 # KIT-CLASS marker to the last comment line before the first code line, `# ` stripped. A
-# KIT-DISPOSITION line under the marker is for tools, not readers, and is skipped. Write the
-# header once: no second copy to drift, no hard-coded line range.
+# KIT-DISPOSITION line under the marker is for tools, not readers, and is skipped: keep it on one
+# line ending in a full stop (a wrapped one is skipped only up to the first line that ends in one).
+# Write the header once: no second copy to drift, no hard-coded line range.
 #
 # THE PATH IS AN ARGUMENT, NOT `${BASH_SOURCE[0]}`: inside a sourced function that names THIS
 # file, so every caller would print the library's header. Callers pass their own path:
@@ -35,7 +36,9 @@ kit_usage() {
   start="$(awk 'NR<=12 && /EXTRACTION\.md/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start="$(awk 'NR<=12 && /KIT-CLASS:/{print NR+1; exit}' "$src")"
   [ -n "$start" ] || start=3
-  start="$(awk -v s="$start" 'NR>=s && !/^#[[:space:]]*KIT-DISPOSITION:/{f=1; print NR; exit} END{if (!f) print s}' "$src")"
+  # A KIT-DISPOSITION line is skipped; one that does not end in a full stop continues onto the comment
+  # lines below it, up to and including the first that does.
+  start="$(awk -v s="$start" 'NR<s{next} skip && !/^#/{skip=0} skip{if (/\.[[:space:]]*$/) skip=0; next} /^#[[:space:]]*KIT-DISPOSITION:/{if (!/\.[[:space:]]*$/) skip=1; next} {f=1; print NR; exit} END{if (!f) print s}' "$src")"
   first="$(awk -v s="$start" 'NR>=s && !/^#/{print NR; exit}' "$src")"
   # `first` is never below `start`. The floor is for an ALL-COMMENT file, which leaves `first`
   # unset and would otherwise give `3,-1p`, an error.

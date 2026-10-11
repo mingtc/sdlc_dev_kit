@@ -282,11 +282,11 @@ $(printf '%s' "$missing" | sed 's|^|      dev/|;s|$|/|')"
   teardown
 }
 
-# _usage_consumers — the scripts that source lib/usage.sh, top-level and under scripts/notify/.
-# Matched WITHOUT a line anchor: verify.sh sources the library inside a guard, and an anchored
-# pattern would leave out the consumer with the most fragile load.
+# _usage_consumers — the scripts that call kit_usage, top-level and under scripts/notify/.
+# Derived from the call, not from how a script sources the library: a script that locates it
+# another way (notify.sh and notify-hook.sh do) would otherwise fall outside every case below.
 _usage_consumers() {
-  { grep -lF -e '. "$SCRIPT_DIR/lib/usage.sh"' -e '. "$SCRIPT_DIR/../lib/usage.sh"' \
+  { grep -lE '(^|[^_[:alnum:]])kit_usage "' \
       "$SB_WORK"/scripts/*.sh "$SB_WORK"/scripts/notify/*.sh 2>/dev/null || true; }
 }
 
@@ -401,7 +401,7 @@ $SB_WORK/scripts/release.sh"
     at="$(awk 'NR<=12 && /EXTRACTION\.md/ && !m {m=NR} m && NR>m && !/^#[[:space:]]*KIT-DISPOSITION:/{print NR; exit}' "$f")"
     [ -n "$at" ] || _fixture_die "case_help_does_not_print_the_disposition_marker: $base has no marker line to plant under."
     want="$(sed -n "${at}p" "$f" | sed 's|^# \{0,1\}||')"
-    awk -v ln="$at" -v tok="$tok" 'NR==ln{print "# KIT-DISPOSITION: FILL — " tok} {print}' "$f" > "$f.new" && cat "$f.new" > "$f" && rm -f "$f.new"
+    awk -v ln="$at" -v tok="$tok" 'NR==ln{print "# KIT-DISPOSITION: FILL — " tok "."} {print}' "$f" > "$f.new" && cat "$f.new" > "$f" && rm -f "$f.new"
     out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
     printf '%s\n' "$out" | grep -F "$tok" >/dev/null \
       && cf "$base --help prints its KIT-DISPOSITION line"
@@ -411,6 +411,43 @@ $SB_WORK/scripts/release.sh"
 $consumers
 CONSUMERS_EOF
   finish "--help does not print a KIT-DISPOSITION line: planted under the marker of each of $n header renderer(s) (the lib/usage.sh consumers and release.sh), it is skipped and the header line below it opens the help"
+  teardown
+}
+
+# =============================================================================
+# CASE — --help SKIPS A WRAPPED KIT-DISPOSITION MARKER WHOLE
+#
+# A marker that wraps onto a second comment line must not leak that line into --help: the
+# renderer skips the marker up to the first of its lines that ends in a full stop. PLANTED, in
+# every header renderer, as a two-line marker under the KIT-CLASS block; neither line may print and
+# the header line it displaced must open the help.
+# =============================================================================
+case_help_skips_a_wrapped_disposition_marker() {
+  cf_reset
+  make_sandbox
+  local consumers f base at want out n=0 tok1='WRAPPEDMARKER-FIRST-HALF' tok2='WRAPPEDMARKER-SECOND-HALF'
+  consumers="$(_usage_consumers)"
+  [ -n "$consumers" ] \
+    || _fixture_die "case_help_skips_a_wrapped_disposition_marker: no script calls kit_usage — nothing to plant into."
+  [ -f "$SB_WORK/scripts/release.sh" ] && consumers="$consumers
+$SB_WORK/scripts/release.sh"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    base="$(basename "$f")"; n=$((n+1))
+    # Under the marker's last line (the one citing EXTRACTION.md) and any disposition line already there.
+    at="$(awk 'NR<=12 && /EXTRACTION\.md/ && !m {m=NR} m && NR>m && !/^#[[:space:]]*KIT-DISPOSITION:/{print NR; exit}' "$f")"
+    [ -n "$at" ] || _fixture_die "case_help_skips_a_wrapped_disposition_marker: $base has no marker line to plant under."
+    want="$(sed -n "${at}p" "$f" | sed 's|^# \{0,1\}||')"
+    awk -v ln="$at" -v t1="$tok1" -v t2="$tok2" 'NR==ln{print "# KIT-DISPOSITION: FILL — " t1; print "# " t2 "."} {print}' "$f" > "$f.new" && cat "$f.new" > "$f" && rm -f "$f.new"
+    out="$( cd "$SB_WORK" && "$f" --help </dev/null 2>&1 )"
+    printf '%s\n' "$out" | grep -F -e "$tok1" -e "$tok2" >/dev/null \
+      && cf "$base --help prints a line of its wrapped KIT-DISPOSITION marker"
+    [ "$(printf '%s\n' "$out" | sed -n '1p')" = "$want" ] \
+      || cf "$base --help does not open with the header line under its markers ('$want'): $(printf '%s\n' "$out" | sed -n '1p')"
+  done <<CONSUMERS_EOF
+$consumers
+CONSUMERS_EOF
+  finish "--help skips a wrapped KIT-DISPOSITION marker whole: planted as two lines under the marker of each of $n header renderer(s), neither prints and the header line below opens the help"
   teardown
 }
 
@@ -591,8 +628,7 @@ case_usage_text_states_what_scope_and_approve_shipped_do() {
 # =============================================================================
 # CASE — NO SHIPPED FILE NAMES A GREP BINARY BY ITS PATH. A script runs under a non-interactive shell,
 # where `grep` is the file on PATH and never an interactive function, so a hard-coded path protects
-# nothing and fails on a system that keeps grep elsewhere (the runtime hook then returned an empty
-# report). The population is every path the shipped manifest lists, read from the tree; the pattern is
+# nothing and fails on a system that keeps grep elsewhere. The population is every path the shipped manifest lists, read from the tree; the pattern is
 # assembled so this file does not match itself, and a control proves the scan sees a planted hit.
 # =============================================================================
 case_no_shipped_file_hard_codes_the_grep_path() {
