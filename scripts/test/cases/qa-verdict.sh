@@ -234,15 +234,30 @@ case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched() {
     teardown; return
   fi
 
-  # The population is derived: every shipped card template, told from the PRD template by the `type:` line a card's
-  # frontmatter carries and a PRD's does not, never by the row under test (a template that lost its row must be
-  # judged and fail, not drop out). The Refactorer's template is optional: absent from a tree that finished day one
-  # it is skipped, absent from one that did not it is a defect.
-  [ -f "$tdir/REFACTOR.template.md" ] || _member_removed .claude/templates/REFACTOR.template.md \
-    || cf "REFACTOR.template.md is not in $tdir and this tree has not removed the Refactorer"
+  # The population is derived from the scripts, never from the templates: every template a present script reads must
+  # exist, and each one except the template a creator mints into requirements/ is a card template, which must carry a
+  # frontmatter `type:` line and be judged. A deleted or typeless template stays in the population and fails; the
+  # Refactorer's template leaves it exactly when new-refactor.sh is removed with the Refactorer.
+  local sc tn tlist=""
+  for sc in "$REAL_REPO_ROOT"/scripts/*.sh; do
+    [ -f "$sc" ] || continue
+    grep -q 'DEST_DIR="\$ROOT/requirements"' "$sc" && continue
+    for tn in $(sed -n 's|.*TEMPLATE="\$[A-Za-z_]*/\.claude/templates/\([A-Z]*\)\.template\.md".*|\1|p' "$sc"); do
+      case " $tlist " in *" $tn "*) ;; *) tlist="$tlist $tn" ;; esac
+    done
+  done
+  # The other direction: a card template (one with a `type:` line) that no script reads means a creator stopped
+  # matching the read above, or a template outlived its creator.
   for tf in "$tdir"/*.template.md; do
     [ -f "$tf" ] || continue
+    tn="${tf##*/}"; tn="${tn%.template.md}"
     grep -qE '^type:[[:space:]]' "$tf" || continue
+    case " $tlist " in *" $tn "*) ;; *) cf "$tn.template.md is a card template no shipped script reads" ;; esac
+  done
+  for tn in $tlist; do
+    tf="$tdir/$tn.template.md"
+    [ -f "$tf" ] || { cf "$tn.template.md is read by a shipped script but is not in $tdir"; cards=$((cards + 1)); continue; }
+    grep -qE '^type:[[:space:]]' "$tf" || { cf "$tn.template.md has no frontmatter type: line"; cards=$((cards + 1)); continue; }
     t="${tf##*/}"; t="${t%.template.md}"; cards=$((cards + 1))
     row="$(grep -E '^\| shadow-check \|' "$tf" || true)"
     # INSTRUMENT CHECK: exactly one row, or the loop below judges nothing.
@@ -264,7 +279,7 @@ case_finish_pr_qa_verdict_shipped_shadow_row_refuses_untouched() {
     grep -q 'refusal=qa-verdict-shadow-missing' "$SB_TMP/rec-$t"/*.tsv 2>/dev/null \
       || cf "$t: no progress record carries refusal=qa-verdict-shadow-missing (output: $(printf '%s' "$out" | tail -3 | tr '\n' '|' | cut -c1-200))"
   done
-  [ "$cards" -ge 1 ] || cf "no shipped card template was found (a card template carries a frontmatter type: line), so nothing was judged"
+  [ "$cards" -ge 1 ] || cf "no card template is read by a shipped script, so nothing was judged"
   [ "$n" -eq "$cards" ] || cf "judged $n of the $cards shipped card templates"
 
   finish "finish-pr.sh refuses a landing whose shadow-check row is still the one the card template ships — for each of the $n shipped card templates, the row read from the template itself, so an unread row cannot pass"

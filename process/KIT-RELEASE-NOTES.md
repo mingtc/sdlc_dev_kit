@@ -642,6 +642,9 @@ columns and never the cards.*
 
 ### Fixed
 
+- **Two prose corrections.** QA's AC-illustration step (`qa.md`, MANUAL step 6) now says a register entry added on the branch is also named in
+  `forks:` and cited by a PRD or marked `[cross-cutting]`; `safety-net-check` tells a PRD-free chore to mint with `--prd n/a` and fill `prd_reason:`. No action.
+
 - **`--prd n/a` mints a PRD-free card; an unattended `/start` reviews `dev_complete`.** `new-issue.sh` and `new-bug.sh` with `--prd n/a` write
   `stories: []` and no PRD link or `<story ids>` blank (fill `prd_reason:`); a mint without the flag is unchanged. The unattended pick is the
   oldest `in_progress`, else the oldest `dev_complete` (taken as QA), else the first `todo`. Needs `scripts/lib/card-head.sh` (arrives with

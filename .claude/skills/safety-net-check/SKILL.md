@@ -135,8 +135,8 @@ For each gap on Option A:
    code path**, so that means its own branch and the landing gate, not a direct-to-trunk commit.
    Check your adapter before choosing the route. **The landing gate lands a card, and the pass's
    refactor cards are not minted until later**, so mint a `chore` card for the tests first, the
-   way a seated hat spawns a follow-up (`.claude/roles/dev.md` § Spawning a follow-up issue; a chore
-   needs no `--prd` or `--stories`); a
+   way a seated hat spawns a follow-up (`.claude/roles/dev.md` § Spawning a follow-up issue; mint it
+   with `--prd n/a` and fill `prd_reason:`); a
    dispatched worker does not mint, so it reports the need and the seat mints. Prefix `[Refactorer]`,
    matching the role tag, and a message like `[Refactorer] <PREFIX>-NNN: characterization test for <behavior>`,
    where `<PREFIX>-NNN` is that chore card.

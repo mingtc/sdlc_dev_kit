@@ -316,7 +316,7 @@ case_usage_renderer_has_one_authoring_site() {
   local consumers f base out own n=0
   consumers="$(_usage_consumers)"
   [ -n "$consumers" ] \
-    || _fixture_die "case_usage_renderer_has_one_authoring_site: no script sources lib/usage.sh — the per-consumer loop below would run zero times and report PASS."
+    || _fixture_die "case_usage_renderer_has_one_authoring_site: no script calls kit_usage — the per-consumer loop below would run zero times and report PASS."
 
   # PRE-PLANT: every consumer's --help must already work, or the post-plant grep fails
   # for a reason that has nothing to do with the library.
@@ -387,7 +387,7 @@ case_help_does_not_print_the_disposition_marker() {
   local consumers f base at want out n=0 tok='HELPDISPOSITION-SENTINEL'
   consumers="$(_usage_consumers)"
   [ -n "$consumers" ] \
-    || _fixture_die "case_help_does_not_print_the_disposition_marker: no script sources lib/usage.sh — nothing to plant into."
+    || _fixture_die "case_help_does_not_print_the_disposition_marker: no script calls kit_usage — nothing to plant into."
   [ -f "$SB_WORK/scripts/release.sh" ] && consumers="$consumers
 $SB_WORK/scripts/release.sh"
   while IFS= read -r f; do

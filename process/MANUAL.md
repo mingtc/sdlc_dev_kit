@@ -419,7 +419,8 @@ bounces it.
      the process to argue the product into the plausible-wrong answer the specification exists to
      prevent; **(2) amend the AC** in the issue file, replacing the wrong illustration with the
      corrected one **and its source**, and cite on the card the register entry that records the correction
-     (`[decision: D-NN]`; record it first — yours in the same change, or the PM's already on trunk) — an AC
+     (`[decision: D-NN]`; record it first — yours in the same change, or the PM's already on trunk; one added
+     on the branch is also named in `forks:` and cited by a PRD or marked `[cross-cutting]`) — an AC
      changed after the card left `todo/` is refused at landing without one (§ Execution discipline,
      item 6); **(3) leave a PM note** — the ruling is the PM's to keep or revise, and a silently-corrected
      AC teaches nobody.
