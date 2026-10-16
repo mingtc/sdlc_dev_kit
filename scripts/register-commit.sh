@@ -147,6 +147,34 @@ kwt_lock
 kwt_bootstrap
 kwt_sync
 
+# STALE-CHECKOUT GUARD: the overlay below lands your WHOLE file, so a checkout cut before the trunk
+# changed a path would silently delete what the trunk gained. Before touching the worktree, 3-way merge
+# the trunk's copy into yours from the common ancestor: if that adds anything your file lacks, your copy
+# does not descend from the trunk's. (A merge, not a comparison of entry headings: a deliberate removal,
+# or a retirement that moves an id into a Retired table, is not a loss and must still land.)
+TIP="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
+CALLER_HEAD="$(git -C "$CALLER_ROOT" rev-parse HEAD 2>/dev/null || true)"
+BASE=""
+[ -z "$TIP" ] || [ -z "$CALLER_HEAD" ] || BASE="$(git -C "$KWT" merge-base "$CALLER_HEAD" "$TIP" 2>/dev/null || true)"
+_stale_path() {   # $1 = rel; 0 when the trunk's copy has changes the caller's file lacks
+  local rel="$1" d="$KWT/$1" tmp rc=0
+  [ -n "$BASE" ] && [ -f "$CALLER_ROOT/$rel" ] && [ -f "$d" ] || return 1
+  tmp="$(mktemp -d)"
+  git -C "$KWT" show "$BASE:$rel" >"$tmp/base" 2>/dev/null || : >"$tmp/base"
+  cp "$CALLER_ROOT/$rel" "$tmp/ours"; cp "$d" "$tmp/theirs"
+  git merge-file -p "$tmp/ours" "$tmp/base" "$tmp/theirs" >"$tmp/merged" 2>/dev/null || rc=$?
+  if [ "$rc" -eq 0 ] && cmp -s "$tmp/merged" "$tmp/ours"; then rc=1; else rc=0; fi
+  rm -rf "$tmp"; return "$rc"
+}
+for rel in "${PATHS[@]}"; do
+  if _stale_path "$rel" && ! cmp -s "$CALLER_ROOT/$rel" "$KWT/$rel"; then
+    kit_refuse 1 register-checkout-stale \
+      "Error: your copy of '$rel' does not include what the trunk gained since your checkout was cut — landing it would delete that work." \
+      "       Nothing was changed on the trunk." \
+      "Next: bring the trunk's '$rel' into your checkout (or run from a checkout at the trunk tip), re-apply your edit on top of it, re-run."
+  fi
+done
+
 CHANGED=()
 for rel in "${PATHS[@]}"; do
   src="$CALLER_ROOT/$rel"

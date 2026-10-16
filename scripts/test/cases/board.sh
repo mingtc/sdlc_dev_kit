@@ -1748,7 +1748,47 @@ case_register_commit_lands_from_a_linked_worktree() {
   origin_file_contains "requirements-register.md" '^D-02: a new ruling, answered here$' \
     || cf "the trunk's copy of requirements-register.md does not carry the new content"
 
-  finish "register-commit.sh lands a hand-made metadata edit made in a linked worktree on a branch of its own onto the trunk, through .kanban-wt, never committing in the leg's own checkout or branch"
+  # THE STALE CHECKOUT (R13-2's shape), in the real workflow's order. Another lane, up to date, lands D-03.
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  local lane="$SB_TMP/lane" fresh="$SB_TMP/fresh"
+  git -C "$SB_WORK" worktree add -q -b "lane-b" "$lane" "origin/$SB_TRUNK" >/dev/null 2>&1     || _fixture_die "case_register_commit_lands_from_a_linked_worktree: could not make the second lane's worktree."
+  echo "D-03: another lane's ruling" >> "$lane/requirements-register.md"
+  out="$( cd "$lane" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "record D-03" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the up-to-date second lane could not land D-03 (exit $rc): $out"
+
+  # The first leg was cut before D-03 and never took it in: its edit must be REFUSED, the trunk untouched.
+  echo "D-04: written from the stale checkout" >> "$leg/requirements-register.md"
+  out="$( cd "$leg" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "record D-04 from stale" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a stale checkout's register landed with no refusal (exit 0): $out"
+  printf '%s' "$out" | grep -F 'Next:' | grep -F 'trunk' >/dev/null \
+    || cf "the stale-checkout refusal has no Next: line naming the trunk: $out"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  origin_file_contains "requirements-register.md" '^D-03: another lane.s ruling$' \
+    || cf "the stale checkout's landing deleted D-03 from the trunk"
+  origin_file_contains "requirements-register.md" '^D-04' \
+    && cf "the refused stale edit reached the trunk anyway"
+
+  # The same edit from an up-to-date checkout lands, and D-03 survives it.
+  git -C "$SB_WORK" worktree add -q -b "fresh-c" "$fresh" "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_register_commit_lands_from_a_linked_worktree: could not make the fresh worktree."
+  echo "D-04: written from an up-to-date checkout" >> "$fresh/requirements-register.md"
+  out="$( cd "$fresh" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "record D-04" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "the up-to-date checkout's D-04 edit was refused (exit $rc): $out"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  origin_file_contains "requirements-register.md" '^D-04: written from an up-to-date checkout$' \
+    || cf "the up-to-date edit did not land"
+  origin_file_contains "requirements-register.md" '^D-03: another lane.s ruling$' \
+    || cf "D-03 did not survive the up-to-date landing"
+
+  # A legitimate removal, from the checkout that just landed (its HEAD is behind its own landing): lands.
+  grep -v '^D-02' "$fresh/requirements-register.md" > "$fresh/r.tmp" && mv "$fresh/r.tmp" "$fresh/requirements-register.md"
+  out="$( cd "$fresh" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "retire D-02" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a legitimate removal of D-02 was refused (exit $rc): $out"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  origin_file_contains "requirements-register.md" '^D-02' \
+    && cf "the legitimate removal did not land"
+
+  finish "register-commit.sh lands a hand-made metadata edit made in a linked worktree on a branch of its own onto the trunk, through .kanban-wt, never committing in the leg's own checkout or branch; and refuses a stale checkout's copy that would delete what the trunk gained, while an up-to-date edit and a deliberate removal land"
   teardown
 }
 

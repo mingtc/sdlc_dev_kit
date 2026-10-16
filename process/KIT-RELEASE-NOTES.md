@@ -331,6 +331,11 @@ columns and never the cards.*
 
 ### Changed (no action)
 
+- **`register-commit.sh` now refuses a checkout cut before the trunk changed the file.** It lands your whole file, so a branch
+  cut before another lane's register entry reached the trunk deleted that entry without a word. It now merges the trunk's copy
+  into yours first and refuses (`register-checkout-stale`) when yours lacks what the trunk gained; nothing is changed on the
+  trunk. The `Next:` names the exit: bring the trunk's file into your checkout, re-apply your edit, re-run. A deliberate removal
+  from an up-to-date copy still lands.
 - **The `forks:` check now sees a register entry the trunk already holds.** A register entry is committed to the trunk before the
   branch is cut, so the branch diff never showed it and a card could hand off `forks: none` over it. Both `move-issue.sh … dev_complete`
   and the landing now attribute each entry the trunk changed since the card left `todo/` by the work-item id in its Provenance paragraph,
