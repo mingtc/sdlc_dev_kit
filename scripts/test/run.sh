@@ -308,6 +308,7 @@ CASES=(
   case_finish_pr_forks_unresolved_id_refuses
   case_finish_pr_forks_contradicted_by_the_branch_refuses
   case_move_issue_dev_complete_runs_the_forks_check
+  case_move_issue_forks_check_attributes_the_trunk_register
   case_finish_pr_forks_correct_field_lands
   case_card_branch_resolves_through_one_function
   case_card_field_is_read_by_one_function

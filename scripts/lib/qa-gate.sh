@@ -41,8 +41,17 @@
 #     <card-file> may be the CALLER's own worktree copy (finish-pr.sh's kanban worktree,
 #     subtask.sh's subtask tree) rather than a path under <repo> — its 'progress/...' suffix is
 #     what is read against <repo>'s history, never its full path.
+#     ALSO: a register entry is metadata, committed to the trunk and published BEFORE the branch is
+#     cut, so the branch diff never shows it. The entries changed on <old-rev> from the commit where
+#     the card left 'todo/' to the window's end are attributed by work-item id: the entry's
+#     Provenance paragraph if it names one, else the subjects of the commits that changed it. An
+#     entry attributed to this card must be in 'forks:' (forks-contradicted); one no id attributes
+#     is forks-attribution-unclear. The window ends at the trunk tip, or — where the card already
+#     sits in 'dev_complete/' (the landing) — at the commit that put it there; stdout says which.
+#     A card with no 'todo/' departure makes this half UNRUNNABLE, printed on stdout.
 #     Refuses through kit_refuse with: forks-missing, forks-malformed, forks-register-undeclared,
-#     forks-register-unreadable, forks-unresolved, forks-contradicted, forks-ac-changed-uncited.
+#     forks-register-unreadable, forks-unresolved, forks-contradicted, forks-attribution-unclear,
+#     forks-ac-changed-uncited.
 #
 #   kit_ablation_check <card-file> <card-id> <repo> <old-rev> <new-rev>
 #     process/doctrine/instruments.md § A.2: a diff touching a declared TEST_GLOBS path needs a
@@ -383,6 +392,56 @@ kit_qa_verdict_check() {
   fi
 }
 
+# ── _forks_window_entries <repo> <card-id> <register-path> <heading-mark> <lo-commit> <hi-rev> ─
+#   The attribution half of kit_forks_check: which register entries changed on the trunk between
+#   <lo-commit> (where the card left 'todo/') and <hi-rev> belong to THIS card. One line per
+#   entry changed in the window, tab-separated:
+#     MINE <TAB> <id>
+#     UNATTRIBUTED <TAB> <id> <TAB> <sha> <TAB> <subject of the last commit that changed it>
+#   An entry whose Provenance paragraph (read from <hi-rev>) names a work-item id is attributed by
+#   that alone; otherwise by the subjects of the window commits that changed it; an entry neither
+#   attributes is UNATTRIBUTED, never silently skipped. Work-item ids are '<PREFIX>-N' or a slice's
+#   '<PREFIX>-N-sM', the prefix taken from the card's own id, and match EXACTLY: a slice id is not
+#   its parent. An entry attributed only to other cards prints nothing.
+_forks_window_entries() {
+  local repo="$1" issue_id="$2" path="$3" mark="$4" lo="$5" hi="$6"
+  local pre tokre touched hicopy ctable="" c cids d prov toks prov_toks last_c last_s sha_c cd
+  pre="${issue_id%%-[0-9]*}"
+  [ "$pre" != "$issue_id" ] || return 0
+  git -C "$repo" rev-parse -q --verify "${lo}^" >/dev/null 2>&1 || return 0
+  tokre="\\b${pre}-[0-9]+(-s[0-9]+)?\\b"
+  touched="$(kit_decisions_touched_by_diff "$repo" "${lo}^" "$hi" "$path" "$mark")"
+  [ -n "$touched" ] || return 0
+  hicopy="$(git -C "$repo" show "${hi}:${path}" 2>/dev/null || true)"
+  for c in $(git -C "$repo" log --no-renames --reverse --format=%H "${lo}^..${hi}" -- "$path" 2>/dev/null || true); do
+    cids="$(kit_decisions_touched_by_diff "$repo" "${c}^" "$c" "$path" "$mark")"
+    for d in $cids; do ctable="${ctable}${c} ${d}"$'\n'; done
+  done
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    prov="$(printf '%s\n' "$hicopy" | awk -v m="$mark" -v d="$d" '
+      index($0,m)==1 { id=substr($0,length(m)+1); sub(/[[:space:]].*$/,"",id); if (f) exit; f=(id==d); next }
+      f && /^## / { exit }
+      f && !p && /^\*\*Provenance\.\*\*/ { p=1; print; next }
+      f && p { if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^\*\*[^*]+\*\*/) exit; print }')"
+    toks="$(printf '%s' "$prov" | grep -oE "$tokre" || true)"; prov_toks="$toks"
+    last_c=""; last_s=""
+    while read -r sha_c cd; do
+      [ "$cd" = "$d" ] || continue
+      last_c="$sha_c"; last_s="$(git -C "$repo" log -1 --format=%s "$sha_c" 2>/dev/null || true)"
+      [ -n "$prov_toks" ] || toks="${toks}"$'\n'"$(printf '%s' "$last_s" | grep -oE "$tokre" || true)"
+    done <<< "$ctable"
+    toks="$(printf '%s\n' "$toks" | grep . | sort -u || true)"
+    if [ -z "$toks" ]; then
+      [ -n "$last_c" ] || { last_c="$hi"; last_s="$(git -C "$repo" log -1 --format=%s "$hi" 2>/dev/null || true)"; }
+      printf 'UNATTRIBUTED\t%s\t%s\t%s\n' "$d" "$last_c" "$last_s"
+    elif printf '%s\n' "$toks" | grep -qx "$issue_id"; then
+      printf 'MINE\t%s\n' "$d"
+    fi
+  done <<< "$touched"
+  return 0
+}
+
 # ── kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path> ────────
 kit_forks_check() {
   local src="$1" issue_id="$2" repo="$3" old_rev="$4" new_rev="$5" check_board="$6"
@@ -394,6 +453,9 @@ kit_forks_check() {
   local _forks_del_log _fdl_line _forks_leave_commit="" _forks_leave_path=""
   local _frl_commit=""
   local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new
+  local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
+  local _forks_win_mine="" _forks_win_unattr="" _fwk _fwi _fws _fwp _fwj _forks_win_out _forks_unattr_msg=""
+  local _forks_unattr_first="" _forks_unattr_reg=""
 
   _forks_line="$(kit_card_field "$src" forks)"
   if [ -z "$_forks_line" ]; then
@@ -444,64 +506,7 @@ kit_forks_check() {
   # both are sourced by every caller before this file, same as this file's own functions are.
   _forks_cited="$(kit_decisions_cited "$src" 'D-[0-9]+' | sort -u || true)"
 
-  while IFS='|' read -r _freg_path _freg_mark _freg_shape; do
-    [ -n "$_freg_path" ] || continue
-
-    _forks_branch_reg="$(mktemp "${TMPDIR:-/tmp}/finish-pr-forks-reg.XXXXXX" 2>/dev/null || true)"
-    if [ -z "$_forks_branch_reg" ]; then
-      kit_refuse 1 forks-register-unreadable \
-        "Error: could not create a scratch file to read ${new_rev}'s copy of ${_freg_path} — refusing rather than skipping the 'forks:' check." \
-        "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
-        "       NOTHING WAS CHANGED."
-    fi
-    git -C "$repo" show "${new_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
-
-    _forks_live_all="$_forks_live_all
-$(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+')"
-    _forks_seen_all="$_forks_seen_all
-$(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_freg_mark")"
-
-    rm -f "$_forks_branch_reg"
-  done <<< "$(printf '%s\n' "$_forks_regs")"
-  _forks_live_all="$(printf '%s\n' "$_forks_live_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
-  _forks_seen_all="$(printf '%s\n' "$_forks_seen_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
-
-  if [ -n "$_forks_ids" ]; then
-    while IFS= read -r _fid; do
-      [ -n "$_fid" ] || continue
-      printf '%s\n' "$_forks_live_all" | grep -qx "$_fid" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
-    done <<< "$(printf '%s\n' "$_forks_ids")"
-    if [ -n "$_forks_bad" ]; then
-      _forks_prd="$(kit_declared_value "$check_board" PRD_SURFACE || true)"
-      _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
-      kit_refuse 2 forks-unresolved \
-        "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
-        "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
-        "Next: fix the id on the card, or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
-        "       NOTHING WAS CHANGED."
-    fi
-  fi
-
-  _forks_derived="$(printf '%s\n%s\n' "$_forks_seen_all" "$_forks_cited" | grep -E '^D-[0-9]+$' | sort -u || true)"
-  while IFS= read -r _fid; do
-    [ -n "$_fid" ] || continue
-    printf '%s\n' "$_forks_ids" | grep -qx "$_fid" || _forks_missing_ids="${_forks_missing_ids}${_forks_missing_ids:+, }$_fid"
-  done <<< "$(printf '%s\n' "$_forks_derived")"
-  if [ -n "$_forks_missing_ids" ]; then
-    kit_refuse 2 forks-contradicted \
-      "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
-      "       (a register entry the branch's diff adds or changes, or a '[decision: D-NN]' citation anywhere on the card)." \
-      "       'forks: ${_forks_line}' does not account for them." \
-      "Next: add the id(s) to 'forks:' on the card and commit it, then re-run the command that refused." \
-      "       NOTHING WAS CHANGED."
-  fi
-
-  # A ruling written straight into an AC's own text never touches the register and never adds a
-  # '[decision: D-NN]' citation, so the derivation above cannot see it — the only trace is the AC
-  # TEXT itself changing after the card was already underway. "Underway" is read from the card's
-  # own file history: the commit where a rename moved it OUT of a 'todo/' column (never by
-  # parsing a commit subject — move-issue.sh's own rename is the record, and a hand edit cannot
-  # spoof it the way text can).
+  # The leave-todo commit starts two reads: the register window below and the AC-drift half after it.
   # The card's identity is its ID, never its content: card templates are mostly boilerplate, so a
   # similarity-following history read (log --follow) can report a new card as a copy of an
   # earlier, similar one and continue down THAT card's history. So the leave-todo commit is read
@@ -525,6 +530,116 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   # git logs newest-first: the LAST assignment above (not the first) is the earliest commit —
   # a card can only leave todo/ once in the ordinary flow, but the loop runs to completion either
   # way so the oldest wins if it ever happened twice.
+
+  # THE REGISTER WINDOW'S END. A register entry is metadata, so it is committed to the trunk and
+  # published BEFORE the branch is cut: it is in <old-rev> already, and the branch diff above shows
+  # nothing. The window is therefore the trunk's own register changes from the leave-todo commit to
+  # here. Where the card already sits in dev_complete/ (the landing), the window ends at the commit
+  # that put it there, so an entry another card adds while this one waits for QA stays out; at the
+  # hand-off, or after a bounce back out of dev_complete/, it ends at the trunk tip.
+  _forks_win_end="$old_rev"; _forks_win_bound="the trunk tip"
+  _forks_win_log="$(git -C "$repo" log --no-renames --diff-filter=AD --name-status \
+    --format='COMMIT %H' "$old_rev" -- ":(glob)**/dev_complete/${issue_id}-*" 2>/dev/null || true)"
+  while IFS= read -r _fwe_line; do
+    case "$_fwe_line" in
+      COMMIT*) _fwe_commit="${_fwe_line#COMMIT }" ;;
+      A[[:space:]]*|D[[:space:]]*) _fwe_state="${_fwe_line%%[[:space:]]*}"; break ;;
+    esac
+  done <<< "$_forks_win_log"
+  if [ "$_fwe_state" = A ] && [ -n "$_fwe_commit" ]; then
+    _forks_win_end="$_fwe_commit"; _forks_win_bound="the commit that moved the card to dev_complete/"
+  fi
+
+  while IFS='|' read -r _freg_path _freg_mark _freg_shape; do
+    [ -n "$_freg_path" ] || continue
+
+    _forks_branch_reg="$(mktemp "${TMPDIR:-/tmp}/finish-pr-forks-reg.XXXXXX" 2>/dev/null || true)"
+    if [ -z "$_forks_branch_reg" ]; then
+      kit_refuse 1 forks-register-unreadable \
+        "Error: could not create a scratch file to read ${new_rev}'s copy of ${_freg_path} — refusing rather than skipping the 'forks:' check." \
+        "Next: free disk space or make \$TMPDIR writable, then re-run the command that refused; if it still refuses, stop and hand off." \
+        "       NOTHING WAS CHANGED."
+    fi
+    git -C "$repo" show "${new_rev}:${_freg_path}" > "$_forks_branch_reg" 2>/dev/null || : > "$_forks_branch_reg"
+
+    _forks_live_all="$_forks_live_all
+$(kit_decision_register_live "$_forks_branch_reg" "$_freg_mark" 'D-[0-9]+')"
+    _forks_seen_all="$_forks_seen_all
+$(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_freg_mark")"
+
+    rm -f "$_forks_branch_reg"
+    if [ -n "$_forks_leave_commit" ]; then
+      _forks_win_out="$(_forks_window_entries "$repo" "$issue_id" "$_freg_path" "$_freg_mark" "$_forks_leave_commit" "$_forks_win_end")"
+      while IFS=$'\t' read -r _fwk _fwi _fws _fwj; do
+        case "$_fwk" in
+          MINE) _forks_win_mine="${_forks_win_mine}${_fwi}"$'\n' ;;
+          UNATTRIBUTED) _forks_win_unattr="${_forks_win_unattr}${_fwi}"$'\t'"${_fws}"$'\t'"${_freg_path}"$'\t'"${_fwj}"$'\n' ;;
+        esac
+      done <<< "$_forks_win_out"
+    fi
+  done <<< "$(printf '%s\n' "$_forks_regs")"
+  _forks_live_all="$(printf '%s\n' "$_forks_live_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  _forks_seen_all="$(printf '%s\n' "$_forks_seen_all" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  _forks_win_mine="$(printf '%s\n' "$_forks_win_mine" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  if [ -z "$_forks_leave_commit" ]; then
+    echo "FORKS_ATTRIBUTION_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column), so the register window has no start."
+  else
+    echo "FORKS_ATTRIBUTION_CHECK: ran over ${_forks_leave_commit:0:9}..$(git -C "$repo" rev-parse --short=9 "$_forks_win_end" 2>/dev/null || echo "$_forks_win_end") (the window ends at ${_forks_win_bound}); register entries attributed to ${issue_id}: $(printf '%s' "$_forks_win_mine" | tr '\n' ' ' | sed -E 's/ +$//; s/^$/none/')."
+  fi
+
+  if [ -n "$_forks_ids" ]; then
+    while IFS= read -r _fid; do
+      [ -n "$_fid" ] || continue
+      printf '%s\n' "$_forks_live_all" | grep -qx "$_fid" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
+    done <<< "$(printf '%s\n' "$_forks_ids")"
+    if [ -n "$_forks_bad" ]; then
+      _forks_prd="$(kit_declared_value "$check_board" PRD_SURFACE || true)"
+      _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
+      kit_refuse 2 forks-unresolved \
+        "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
+        "       A NEW entry must also be cited by a PRD under ${_forks_prd:-the declared PRD surface} or marked ${_forks_xc//\\/}, or the landing's board-corpus-coverage check refuses it." \
+        "Next: fix the id on the card, or add the ruling it names to the register in this same change. If that ruling is not yours to make, ask for it (./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\") and land under the recorded default." \
+        "       NOTHING WAS CHANGED."
+    fi
+  fi
+
+  _forks_derived="$(printf '%s\n%s\n%s\n' "$_forks_seen_all" "$_forks_cited" "$_forks_win_mine" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  while IFS= read -r _fid; do
+    [ -n "$_fid" ] || continue
+    printf '%s\n' "$_forks_ids" | grep -qx "$_fid" || _forks_missing_ids="${_forks_missing_ids}${_forks_missing_ids:+, }$_fid"
+  done <<< "$(printf '%s\n' "$_forks_derived")"
+  if [ -n "$_forks_missing_ids" ]; then
+    kit_refuse 2 forks-contradicted \
+      "Error: ${issue_id}'s branch ('${new_rev}') shows a fork 'forks:' does not name: ${_forks_missing_ids}" \
+      "       (a register entry the branch's diff adds or changes, a '[decision: D-NN]' citation anywhere on the card, or an entry changed on the trunk since the card left 'todo/' whose Provenance or commit subject names ${issue_id})." \
+      "       'forks: ${_forks_line}' does not account for them." \
+      "Next: add the id(s) to 'forks:' on the card and commit it, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  # An entry changed in the window that no work-item id attributes cannot be told from this card's
+  # own, and a silent pass is how a fork reaches QA unnamed. 'forks:' naming it is one way out;
+  # naming the owning card in its Provenance is the other.
+  while IFS=$'\t' read -r _fwi _fws _fwp _fwj; do
+    [ -n "$_fwi" ] || continue
+    printf '%s\n' "$_forks_ids" | grep -qx "$_fwi" && continue
+    _forks_unattr_msg="${_forks_unattr_msg}${_forks_unattr_msg:+; }${_fwi} (${_fws:0:9} \"${_fwj}\")"
+    _forks_unattr_first="${_forks_unattr_first:-$_fwi}"; _forks_unattr_reg="${_forks_unattr_reg:-$_fwp}"
+  done <<< "$_forks_win_unattr"
+  if [ -n "$_forks_unattr_msg" ]; then
+    kit_refuse 2 forks-attribution-unclear \
+      "Error: ${issue_id}: a register entry changed on the trunk since this card left 'todo/', and neither its Provenance nor the subject of a commit that changed it names a work item: ${_forks_unattr_msg}" \
+      "       'forks: ${_forks_line}' cannot say whether this card resolved it." \
+      "Next: if ${issue_id} resolved it, add the id to 'forks:' on the card and commit it; if another card did, name that card's id in the entry's Provenance paragraph (./scripts/register-commit.sh --role <role> --message \"attribute ${_forks_unattr_first} to <card id>\" ${_forks_unattr_reg}). Then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  # A ruling written straight into an AC's own text never touches the register and never adds a
+  # '[decision: D-NN]' citation, so the derivation above cannot see it — the only trace is the AC
+  # TEXT itself changing after the card was already underway. "Underway" is read from the card's
+  # own file history: the commit where a rename moved it OUT of a 'todo/' column (never by
+  # parsing a commit subject — move-issue.sh's own rename is the record, and a hand edit cannot
+  # spoof it the way text can).
 
   if [ -z "$_forks_leave_commit" ]; then
     echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."

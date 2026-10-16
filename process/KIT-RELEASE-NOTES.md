@@ -331,6 +331,14 @@ columns and never the cards.*
 
 ### Changed (no action)
 
+- **The `forks:` check now sees a register entry the trunk already holds.** A register entry is committed to the trunk before the
+  branch is cut, so the branch diff never showed it and a card could hand off `forks: none` over it. Both `move-issue.sh … dev_complete`
+  and the landing now attribute each entry the trunk changed since the card left `todo/` by the work-item id in its Provenance paragraph,
+  else in the subject of the commit that changed it; an entry attributed to the card must be in `forks:` (`forks-contradicted`), and one
+  no work-item id attributes refuses with `forks-attribution-unclear`. The `Next:` names both exits: add the id to `forks:`, or name the
+  owning card in the entry's Provenance (`scripts/register-commit.sh`). At the landing the window ends at the commit that moved the card to
+  `dev_complete/`. stdout prints a `FORKS_ATTRIBUTION_CHECK:` line saying which bound ended it, or that it did not run (a card with no
+  `todo/` departure). Name the work item in each entry's Provenance; nothing else is required.
 - **The adapter's supersession row now names the stamp rule.** When a document you write replaces another, the replaced one is
   stamped in the same commit and kept, not deleted (`process/doctrine/staleness.md` § A.1). Merge the clause into your `AGENTS.md`
   if you want sessions to see it; nothing refuses.
