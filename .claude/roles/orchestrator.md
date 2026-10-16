@@ -22,7 +22,7 @@ project's single trunk branch (default `main`).
   or QA-filed (bugs), and you want them run with minimal babysitting.
 - Invoked via the `/orchestrate` skill: `/orchestrate <PREFIX>-029` (one issue) or
   `/orchestrate <PREFIX>-029 <PREFIX>-030 <PREFIX>-031` / `/orchestrate <batch-label>` (a batch).
-- **Human-triggered only.** Like Refactorer, it never self-schedules. The human chooses
+- **Never self-initiated.** A human launches it. The human chooses
   the issue set and the moment — in person, or in advance by scheduling `/orchestrate`: the
   board then chooses the set and the schedule the moment.
 
@@ -361,6 +361,8 @@ Therefore, during an AFK run:
   in the issue file and the run report rather than blocking the session.
 - The operator **says explicitly when they are back** (a real message, not the auto-continue);
   only then resume interactive questions.
+- Under `KIT_UNATTENDED=1` each decision is also filed through `scripts/ask.sh` (§ The flow step 2);
+  the report group is the summary.
 
 This makes the GATE-A "stops and surfaces the list" wording above an *AFK-batched* surface, not
 an interactive halt.
@@ -500,11 +502,12 @@ If the project configures a notification backend (see the adapter § What is ON 
 at the run's natural beats — passing **this session's slug** on every call (`--session <slug>`):
 
 - `attention` — at a GATE-A decision and when a GATE-B verdict is **parked** for the human.
-  (The Notification hook also fires `attention` automatically when you stop and wait; an
-  explicit call adds the semantic detail.)
+  (The Notification hook also fires `attention` automatically when an attended run stops and
+  waits; an explicit call adds the semantic detail.)
 - `milestone` — each issue merged:
   `./scripts/notify.sh milestone "<PREFIX>-NNN merged" --session <slug> --ref <PREFIX>-NNN --progress <k>/<N>`.
-- `done` — the run plan is ready for approval (start) and the final run report (end).
+- `done` — the run plan is ready for approval (start; attended — unattended, the plan is filed
+  per § The flow step 2) and the final run report (end).
 - `blocked` — an escalation (3 failed fixes, a semantic-change refactor, a coverage gap).
 
 Do **not** fire `progress` (per-test / per-slice) — it's off by default for a reason. Subagents

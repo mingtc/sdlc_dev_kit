@@ -668,16 +668,18 @@ case_unattended_profile_denies_the_tool() {
 # The skill's RUN PLAN step and the role doc's approval step each end the turn on a question
 # nobody answers unless they carry a KIT_UNATTENDED branch that files through scripts/ask.sh and
 # goes on. The branch must sit INSIDE those sections — a mention elsewhere in the file is not
-# where the session is when it decides to stop. The role doc's "Human-triggered only" line must
+# where the session is when it decides to stop. The role doc's launch bullet must
 # also admit a scheduled launch, or the two documents contradict each other.
 # =============================================================================
 # _orch_between <file> <start-prefix> <end-prefix> — the lines from the first line starting with
-# <start-prefix> up to (not including) the next line starting with <end-prefix>.
+# <start-prefix> up to (not including) the next line starting with <end-prefix>. Prints nothing and
+# returns 1 when the start OR the end prefix is absent (an absent end must not widen the section to EOF).
 _orch_between() {
   awk -v s="$2" -v e="$3" '
-    !on { if (index($0, s) == 1) { on = 1; print } ; next }
-    index($0, e) == 1 { exit }
-    { print }
+    !on { if (index($0, s) == 1) { on = 1; buf = $0 } ; next }
+    index($0, e) == 1 { done = 1; exit }
+    { buf = buf "\n" $0 }
+    END { if (!done) exit 1; print buf }
   ' "$1"
 }
 # _orch_branch_present <text> — status 0 iff the text names KIT_UNATTENDED=1 AND scripts/ask.sh.
@@ -697,33 +699,39 @@ case_orchestrate_has_an_unattended_branch_where_it_is_read() {
 
   # ── THE CONTROL: the section extractor and the presence check, over a planted file.
   local ctl; ctl="$(mktemp -d)" || _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: mktemp -d failed"
+  # every control failure removes the temp dir before dying
+  _ctl_die() { rm -rf "$ctl"; _fixture_die "$@"; }
   printf 'intro KIT_UNATTENDED=1 scripts/ask.sh\n4. Propose.\n   plain stop\n5. Next.\n' > "$ctl/without.md"
   printf '4. Propose.\n   KIT_UNATTENDED=1 scripts/ask.sh\n5. Next.\n' > "$ctl/within.md"
   local cs; cs="$(_orch_between "$ctl/without.md" '4. ' '5. ')"
   _orch_branch_present "$cs" \
-    && _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the check accepted a branch that sits OUTSIDE the section"
+    && _ctl_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the check accepted a branch that sits OUTSIDE the section"
   cs="$(_orch_between "$ctl/within.md" '4. ' '5. ')"
   _orch_branch_present "$cs" \
-    || _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the check rejected a branch that sits INSIDE the section"
+    || _ctl_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the check rejected a branch that sits INSIDE the section"
+  printf '4. Propose.\n   KIT_UNATTENDED=1 scripts/ask.sh\n' > "$ctl/noend.md"
+  cs="$(_orch_between "$ctl/noend.md" '4. ' '5. ')" && _ctl_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the extractor exited 0 for a section whose END marker is absent"
+  [ -z "$cs" ] || _ctl_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the extractor returned text for a section whose END marker is absent"
   rm -rf "$ctl"
 
   # ── THE SUBJECT.
   local sec
   sec="$(_orch_between "$skill" '4. **Propose a RUN PLAN' '> **Notifications')"
-  [ -n "$sec" ] || cf "orchestrate/SKILL.md has no '4. **Propose a RUN PLAN' step — the lookup found nothing to read"
+  [ -n "$sec" ] || cf "orchestrate/SKILL.md has no '4. **Propose a RUN PLAN' step ending at '> **Notifications' — the lookup found nothing to read"
   _orch_branch_present "$sec" \
     || cf "orchestrate/SKILL.md's RUN PLAN step has no KIT_UNATTENDED=1 branch filing through scripts/ask.sh — an unattended run ends its turn on the plan"
   sec="$(_orch_between "$role" '2. **Wait for approval' '3. **Run continuously')"
-  [ -n "$sec" ] || cf "orchestrator.md has no '2. **Wait for approval' step — the lookup found nothing to read"
+  [ -n "$sec" ] || cf "orchestrator.md has no '2. **Wait for approval' step ending at '3. **Run continuously' — the lookup found nothing to read"
   _orch_branch_present "$sec" \
     || cf "orchestrator.md's approval step has no KIT_UNATTENDED=1 branch filing through scripts/ask.sh — the role doc still says wait"
-  sec="$(_orch_between "$role" '- **Human-triggered only.**' 'It is *not* the hat')"
+  sec="$(_orch_between "$role" '- **Never self-initiated.**' 'It is *not* the hat')"
+  [ -n "$sec" ] || cf "orchestrator.md has no launch-bullet section from '- **Never self-initiated.**' to 'It is *not* the hat' — the lookup found nothing to read"
   case "$sec" in
-    *scheduling*) : ;;
-    *) cf "orchestrator.md's 'Human-triggered only' line does not admit a scheduled launch — it contradicts the unattended branch" ;;
+    *'by scheduling `/orchestrate`'*) : ;;
+    *) cf "orchestrator.md's launch bullet does not admit a scheduled launch — it contradicts the unattended branch" ;;
   esac
 
-  finish "the orchestrate skill's RUN PLAN step and the role doc's approval step each carry a KIT_UNATTENDED=1 branch that files through scripts/ask.sh, and the role doc's 'Human-triggered only' line admits a scheduled launch (section extractor proven on a planted pair)"
+  finish "the orchestrate skill's RUN PLAN step and the role doc's approval step each carry a KIT_UNATTENDED=1 branch that files through scripts/ask.sh, and the role doc's launch bullet admits a scheduled launch (section extractor proven on a planted pair)"
 }
 
 # =============================================================================
