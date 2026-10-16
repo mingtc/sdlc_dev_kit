@@ -1072,6 +1072,7 @@ case_forks_check_unattributed_exits_and_window() {
   [ "$rc" -ne 0 ] || cf "(f) an id-less entry edited under $idf's subject moved with 'forks: none' (exit 0)"
   grep -q 'refusal=forks-attribution-unclear' "$SB_TMP/rec-f"/*.tsv 2>/dev/null \
     || cf "(f) the editor's subject attributed the entry instead of leaving it unattributed: $(cat "$SB_TMP/rec-f"/*.tsv 2>/dev/null | cut -c1-300)"
+  case "$out" in *'"[PM] record D-06"'*) : ;; *) cf "(f) the refusal does not name the commit that ADDED the entry ('[PM] record D-06'): $(printf '%s' "$out" | grep -F 'Error:' | cut -c1-300)" ;; esac
   _forks_sync
 
   # (g) a Provenance that names the card and also says 'no work item'.

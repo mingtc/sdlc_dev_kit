@@ -439,7 +439,7 @@ _forks_cards_on() {
 #   to other cards prints nothing.
 _forks_window_entries() {
   local repo="$1" issue_id="$2" path="$3" mark="$4" shape="$5" lo="$6" hi="$7" tip="$8"
-  local pre tokre added files tipcopy ctable="" c cids d prov last_c last_s sha_c cd kept subjects
+  local pre tokre added files tipcopy ctable="" c cids d prov last_c last_s add_c add_s sha_c cd kept subjects
   pre="${issue_id%%-[0-9]*}"
   if [ "$pre" = "$issue_id" ]; then
     printf 'SKIPPED\t%s\n' "${issue_id} is not a <PREFIX>-N work-item id, so no entry can be matched to it"
@@ -467,18 +467,20 @@ _forks_window_entries() {
       f && p { if ($0 ~ /^[[:space:]]*$/ || $0 ~ /^\*\*[^*]+\*\*/) exit; print }')"
     kept="$(_forks_cards_on "$files" "$(grep -oE "$tokre" <<< "$prov" || true)")"
     if [ -z "$kept" ] && [ "$(grep -ciE 'no work item' <<< "$prov" || true)" -gt 0 ]; then continue; fi
-    last_c=""; last_s=""; subjects=""
+    last_c=""; last_s=""; add_c=""; add_s=""; subjects=""
     while read -r sha_c cd; do
       [ "$cd" = "$d" ] || continue
       last_c="$sha_c"; last_s="$(git -C "$repo" log -1 --format=%s "$sha_c" 2>/dev/null || true)"
       if ! _forks_entry_ids "$repo" "${sha_c}^" "$path" "$mark" "$shape" | grep -qx "$d" \
          && _forks_entry_ids "$repo" "$sha_c" "$path" "$mark" "$shape" | grep -qx "$d"; then
-        subjects="${last_s}"$'\n'
+        subjects="${last_s}"$'\n'; add_c="$sha_c"; add_s="$last_s"
       fi
     done <<< "$ctable"
     if [ -z "$kept" ]; then kept="$(_forks_cards_on "$files" "$(grep -oE "$tokre" <<< "$subjects" || true)")"; fi
     if [ -z "$kept" ]; then
       if [ -z "$last_c" ]; then last_c="$hi"; last_s="$(git -C "$repo" log -1 --format=%s "$hi" 2>/dev/null || true)"; fi
+      # Name the commit that added the entry (the one whose subject was read); else the last that touched it.
+      if [ -n "$add_c" ]; then last_c="$add_c"; last_s="$add_s"; fi
       printf 'UNATTRIBUTED\t%s\t%s\t%s\n' "$d" "$last_c" "$last_s"
     elif grep -qx "$issue_id" <<< "$kept"; then
       printf 'MINE\t%s\n' "$d"

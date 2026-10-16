@@ -284,8 +284,8 @@ file is metadata on the trunk; editing it in your own checkout and then calling
 kanban worktree and never reads your checkout's copy (same reason as the stranding hazard above).
 Write the section into your checkout's copy of the issue file, wherever it currently sits
 (`in_progress/` before step 13's move, `dev_complete/` after — name the path you actually have),
-then land it with the command below, from a checkout at the trunk tip: it refuses a copy that lacks a
-line the trunk gained (`register-checkout-stale`), so bring the trunk's copy of the file in, re-apply
+then land it with the command below. It refuses a copy that lacks a line the trunk gained since your
+checkout was cut (`register-checkout-stale`); then bring the trunk's copy of the file in, re-apply
 your section, and re-run.
 
 ```sh

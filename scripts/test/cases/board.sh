@@ -1789,6 +1789,13 @@ case_register_commit_lands_from_a_linked_worktree() {
     || cf "the stale checkout's landing deleted D-03 from the trunk"
   origin_file_contains "requirements-register.md" '^D-04' \
     && cf "the refused stale edit reached the trunk anyway"
+  # An EMPTIED copy from the same stale checkout lacks every line the trunk gained: refused, D-03 survives.
+  : > "$leg/requirements-register.md"
+  out="$( cd "$leg" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "empty from stale" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a stale checkout's EMPTIED register landed with no refusal (exit 0): $out"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  origin_file_contains "requirements-register.md" '^D-03: another lane.s ruling$' \
+    || cf "the stale checkout's emptied file deleted D-03 from the trunk"
 
   # The same edit from an up-to-date checkout lands, and D-03 survives it.
   git -C "$SB_WORK" worktree add -q -b "fresh-c" "$fresh" "origin/$SB_TRUNK" >/dev/null 2>&1 \

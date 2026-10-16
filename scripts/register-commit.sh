@@ -183,7 +183,7 @@ _stale_path() {   # $1 = rel; 0 when the trunk added a line your file lacks (the
     GUARD_SKIPPED="${GUARD_SKIPPED}${GUARD_SKIPPED:+ }$rel"; rm -rf "$tmp"; return 1
   fi
   { diff "$tmp/base" "$d" || true; } | sed -n 's/^> //p' >"$tmp/added"
-  STALE_LINE="$(awk 'NR==FNR { s[$0]=1; next } !($0 in s) { print; exit }' "$CALLER_ROOT/$rel" "$tmp/added")"
+  STALE_LINE="$(awk 'FILENAME == ARGV[1] { s[$0]=1; next } !($0 in s) { print; exit }' "$CALLER_ROOT/$rel" "$tmp/added")"
   rm -rf "$tmp"
   [ -n "$STALE_LINE" ]
 }

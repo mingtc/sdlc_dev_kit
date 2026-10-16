@@ -352,7 +352,7 @@ columns and never the cards.*
   cut before another lane's register entry reached the trunk deleted that entry without a word. It now compares against a base,
   the trunk's copy when your checkout was cut or what that checkout last landed for the file, and refuses
   (`register-checkout-stale`) when the trunk added a line since that base that yours lacks; nothing is changed on the trunk. The
-  `Next:` names the first missing line and the exit: bring the trunk's file into your checkout, re-apply your edit, re-run. A second
+  refusal names the first missing line, and its `Next:` the exit: bring the trunk's file into your checkout, re-apply your edit, re-run. A second
   landing from the checkout that made the first, a deliberate removal and a retirement from an up-to-date copy still land. Not
   checked: a line the trunk removed that your copy keeps, and a file you delete whole; a checkout with no history shared with the
   trunk that has landed nothing gets a stderr note that the guard did not run.
