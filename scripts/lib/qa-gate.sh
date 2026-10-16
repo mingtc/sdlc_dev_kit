@@ -425,7 +425,7 @@ _forks_cards_on() {
 #   heading is absent at <lo-commit>'s parent and present at <hi-rev>; an edit to an existing
 #   entry is not attributed here. One line per added entry, tab-separated:
 #     MINE <TAB> <id>
-#     UNATTRIBUTED <TAB> <id> <TAB> <sha> <TAB> <subject of the last commit that changed it>
+#     UNATTRIBUTED <TAB> <id> <TAB> <sha> <TAB> <subject> (the commit that added it, else the last that touched it)
 #   or, when the half could not run, the one line: SKIPPED <TAB> <reason>.
 #   Attribution reads the entry's Provenance paragraph at <tip-rev> (the trunk tip), whatever
 #   <hi-rev> is: a Provenance fix committed after the window's end still counts. The work-item ids

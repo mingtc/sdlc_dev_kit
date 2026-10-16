@@ -1772,7 +1772,9 @@ case_register_commit_lands_from_a_linked_worktree() {
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   local lane="$SB_TMP/lane" fresh="$SB_TMP/fresh"
   git -C "$SB_WORK" worktree add -q -b "lane-b" "$lane" "origin/$SB_TRUNK" >/dev/null 2>&1     || _fixture_die "case_register_commit_lands_from_a_linked_worktree: could not make the second lane's worktree."
-  echo "D-03: another lane's ruling" >> "$lane/requirements-register.md"
+  # A blank line before the entry, as a real register separates its entries: the first line the
+  # trunk gained is then blank, which must not read as "nothing missing".
+  printf '\n%s\n' "D-03: another lane's ruling" >> "$lane/requirements-register.md"
   out="$( cd "$lane" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "record D-03" requirements-register.md 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(control) the up-to-date second lane could not land D-03 (exit $rc): $out"
 
