@@ -57,7 +57,7 @@ trunk branch, default `main`.
      order>" --default "run it as planned"`, then one call per pre-surfaced decision — the
      decision as the question, your recommendation as `--default` (add `--decision <D-NN>` when
      a register entry is at stake) — and enter Phase 1 on the plan as the recorded default.
-     `ask.sh` does not commit its question files: commit them with the run's own records. A
+     `ask.sh` does not commit its question files: commit them to the trunk as metadata. A
      decision whose default you cannot run under parks the cards it blocks, never the run. If
      `ask.sh` refuses, put the same lines in the run report and carry on.
 
@@ -335,7 +335,7 @@ record is not where you looked.
 - Never create a top-level issue id.
 - Never batch past the TDD red-green gate.
 - Never end a turn on a stated intention — a turn ends with a dispatch in flight, the run
-  report written, or a named batched decision awaiting the operator (unattended: the principal, via
-  `ask.sh`).
+  report written, or a named batched decision awaiting the operator (unattended, a filed decision
+  does not end the turn: the run goes on under its default).
 - Route every escalation to the operator (unattended: the principal, via `ask.sh`); never paper
   over one.
