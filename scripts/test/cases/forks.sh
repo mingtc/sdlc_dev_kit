@@ -941,7 +941,13 @@ case_card_field_is_read_by_one_function() {
 #   (c) an EDIT to an old entry that carries no work-item id moves: only added entries count;
 #   (d) the landing: the Provenance fix committed after the card moved to dev_complete/ clears the
 #       refusal, because Provenance is read at the trunk tip, not at the window's end;
-#   (e) a slice's file leaving todo/ before the parent does not start the parent's window.
+#   (e) a slice's file leaving todo/ before the parent does not start the parent's window;
+#   (f) an entry added with no id, then edited by a commit whose subject names the card, is NOT
+#       attributed by that edit: only the commit that added the heading is read;
+#   (g) a Provenance that names a card on the trunk AND says 'no work item' is attributed to the card;
+#   (h) a prose heading ('### Notes') added to the register is no entry.
+#       A fenced example heading ('### D-99') is not covered: no shared fence reader exists, so it
+#       still counts as an entry.
 # RED FIRST: (a), (c), (d), (e) fail on a check that counts edits, reads Provenance at the window's
 # end, has no 'no work item' exit and matches the parent's globs against its slices' files; (b)
 # fails on one that lets an id naming no card attribute.
@@ -951,7 +957,11 @@ case_forks_check_unattributed_exits_and_window() {
   make_sandbox
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
   local ida="$SB_PREFIX-881" idb="$SB_PREFIX-882" idc="$SB_PREFIX-883" idd="$SB_PREFIX-884" ide="$SB_PREFIX-885"
+  local idf="$SB_PREFIX-886" idg="$SB_PREFIX-887" idh="$SB_PREFIX-888"
   local out rc f
+  seed_issue todo "$idf" tweak chore "An id-less entry is later edited under its subject" "feature/$idf-work"
+  seed_issue todo "$idg" both chore "Its Provenance names it and says no work item" "feature/$idg-work"
+  seed_issue todo "$idh" notes chore "A prose heading is added to the register" "feature/$idh-work"
   seed_issue todo "$ida" nowork chore "Its window holds a card-less entry that says so" "feature/$ida-work"
   seed_issue todo "$idb" ghost chore "Its window holds an entry naming no card" "feature/$idb-work"
   seed_issue todo "$idc" edit chore "An old entry is edited in its window" "feature/$idc-work"
@@ -1048,6 +1058,49 @@ case_forks_check_unattributed_exits_and_window() {
   out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ide" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(e) a slice's file leaving todo/ started the parent's window (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
 
-  finish "the forks: unattributed-entry half: an added entry whose Provenance says 'no work item' moves; an id naming no card on the trunk attributes nothing and the refusal's Next: names three exits and the trunk-tip checkout; an edit to an old entry moves; at the landing a Provenance fix committed after the dev_complete move clears the refusal; a slice's departure from todo/ does not start the parent's window"
+  # (f) an entry added with no id, then edited by a commit whose subject names the card.
+  _forks_sync
+  _forks_pickup "$idf" tweak
+  _forks_add_entry D-06 "Product owner message, 2026-10-16." "[PM] record D-06"
+  sed -i.bak 's/^\*\*Ruling\.\*\* A ruling for D-06\.$/**Ruling.** A ruling for D-06, tweaked./' "$SB_WORK/requirements/DECISIONS.md" && rm -f "$SB_WORK/requirements/DECISIONS.md.bak"
+  grep -q 'D-06, tweaked' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_forks_check_unattributed_exits_and_window: (f) the edit was not planted"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[PM] $idf: tweak D-06" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_forks_check_unattributed_exits_and_window: (f) not published"
+  seed_branch "$idf" work CHANGE886.txt
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-f" ./scripts/move-issue.sh "$idf" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(f) an id-less entry edited under $idf's subject moved with 'forks: none' (exit 0)"
+  grep -q 'refusal=forks-attribution-unclear' "$SB_TMP/rec-f"/*.tsv 2>/dev/null \
+    || cf "(f) the editor's subject attributed the entry instead of leaving it unattributed: $(cat "$SB_TMP/rec-f"/*.tsv 2>/dev/null | cut -c1-300)"
+  _forks_sync
+
+  # (g) a Provenance that names the card and also says 'no work item'.
+  _forks_pickup "$idg" both
+  _forks_add_entry D-07 "Resolved by $idg, since there is no work item yet for the rest." "[PM] record D-07"
+  seed_branch "$idg" work CHANGE887.txt
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-g" ./scripts/move-issue.sh "$idg" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(g) an entry whose Provenance names $idg was voided by 'no work item' and moved with 'forks: none' (exit 0)"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec-g"/*.tsv 2>/dev/null \
+    || cf "(g) the refusal is not forks-contradicted: $(cat "$SB_TMP/rec-g"/*.tsv 2>/dev/null | cut -c1-300)"
+  _forks_set_forks "$idg" both "[D-07]"
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idg" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(g) with 'forks: [D-07]' the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _forks_sync
+
+  # (h) a prose heading added to the register is no entry.
+  _forks_pickup "$idh" notes
+  printf '### Notes on the register\n\nProse, not a ruling.\n\n' > "$SB_TMP/notes.blk"
+  awk -v f="$SB_TMP/notes.blk" '/^## Retired ids/ && !d { while ((getline l < f) > 0) print l; d=1 } { print }' \
+    "$SB_WORK/requirements/DECISIONS.md" > "$SB_WORK/requirements/DECISIONS.md.new" \
+    && mv "$SB_WORK/requirements/DECISIONS.md.new" "$SB_WORK/requirements/DECISIONS.md"
+  grep -q '^### Notes on the register' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_forks_check_unattributed_exits_and_window: (h) the heading was not planted"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[PM] add a notes heading to the register" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_forks_check_unattributed_exits_and_window: (h) not published"
+  seed_branch "$idh" work CHANGE888.txt
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idh" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(h) a prose heading in the register was read as an entry (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+
+  finish "the forks: unattributed-entry half: an added entry whose Provenance says 'no work item' moves; an id naming no card on the trunk attributes nothing and the refusal's Next: names three exits and the trunk-tip checkout; an edit to an old entry moves; at the landing a Provenance fix committed after the dev_complete move clears the refusal; a slice's departure from todo/ does not start the parent's window; a later edit under a card's subject does not attribute an id-less entry to it; a Provenance naming a card on the trunk attributes the entry to it even where it also says 'no work item'; a prose heading in the register is no entry"
   teardown
 }

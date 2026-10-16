@@ -34,6 +34,12 @@
 #     metadata-only paths off the trunk. This script is the route that refusal names.
 #   - It will not invent content: a path that does not exist ANYWHERE (not in your checkout, not
 #     on the trunk) is refused rather than silently skipped.
+#   - It will not land a STALE copy (exit 1, refusal register-checkout-stale, nothing changed on the
+#     trunk): a path whose trunk copy gained a line since your checkout was cut, or since this
+#     checkout last landed it, that your file lacks. Run it from a checkout at the trunk tip, or bring
+#     the trunk's copy in and re-apply your edit. It does not catch a line the trunk REMOVED that
+#     your copy keeps, or a path you delete whole; where your checkout shares no history with the
+#     trunk and has landed nothing, it says on stderr that the guard did not run.
 #
 # Examples:
 #   ./scripts/register-commit.sh --role PM --message "<PREFIX>-014: record D-NN answered" \
@@ -148,32 +154,50 @@ kwt_bootstrap
 kwt_sync
 
 # STALE-CHECKOUT GUARD: the overlay below lands your WHOLE file, so a checkout cut before the trunk
-# changed a path would silently delete what the trunk gained. Before touching the worktree, 3-way merge
-# the trunk's copy into yours from the common ancestor: if that adds anything your file lacks, your copy
-# does not descend from the trunk's. (A merge, not a comparison of entry headings: a deliberate removal,
-# or a retirement that moves an id into a Retired table, is not a loss and must still land.)
+# changed a path would silently delete what the trunk gained. It is stale when some line the trunk
+# ADDED since the base is absent from your file. The base is the content this checkout last landed
+# for the path when it landed one (a first landing leaves the edit uncommitted here, so the merge-base
+# stays old and a second edit would otherwise read as conflicting with its own first), else the
+# merge-base's copy. A deliberate removal, or a retirement that moves an id into a Retired table,
+# adds nothing to the trunk's side and still lands. Not checked: a line the trunk REMOVED that your
+# copy keeps, and a path you delete whole.
 TIP="$(git -C "$KWT" rev-parse HEAD 2>/dev/null || true)"
 CALLER_HEAD="$(git -C "$CALLER_ROOT" rev-parse HEAD 2>/dev/null || true)"
 BASE=""
 [ -z "$TIP" ] || [ -z "$CALLER_HEAD" ] || BASE="$(git -C "$KWT" merge-base "$CALLER_HEAD" "$TIP" 2>/dev/null || true)"
-_stale_path() {   # $1 = rel; 0 when the trunk's copy has changes the caller's file lacks
-  local rel="$1" d="$KWT/$1" tmp rc=0
-  [ -n "$BASE" ] && [ -f "$CALLER_ROOT/$rel" ] && [ -f "$d" ] || return 1
+LANDED_LOG="$(git -C "$CALLER_ROOT" rev-parse --git-path register-commit-landed 2>/dev/null || true)"
+case "$LANDED_LOG" in /*|"") ;; *) LANDED_LOG="$CALLER_ROOT/$LANDED_LOG" ;; esac
+STALE_LINE=""; GUARD_SKIPPED=""
+_stale_path() {   # $1 = rel; 0 when the trunk added a line your file lacks (the first is left in STALE_LINE)
+  local rel="$1" d="$KWT/$1" tmp lb="" have=""
+  [ -f "$CALLER_ROOT/$rel" ] && [ -f "$d" ] || return 1
   tmp="$(mktemp -d)"
-  git -C "$KWT" show "$BASE:$rel" >"$tmp/base" 2>/dev/null || : >"$tmp/base"
-  cp "$CALLER_ROOT/$rel" "$tmp/ours"; cp "$d" "$tmp/theirs"
-  git merge-file -p "$tmp/ours" "$tmp/base" "$tmp/theirs" >"$tmp/merged" 2>/dev/null || rc=$?
-  if [ "$rc" -eq 0 ] && cmp -s "$tmp/merged" "$tmp/ours"; then rc=1; else rc=0; fi
-  rm -rf "$tmp"; return "$rc"
+  if [ -n "$LANDED_LOG" ] && [ -f "$LANDED_LOG" ]; then
+    lb="$(awk -F'\t' -v p="$rel" '$2==p { b=$1 } END { print b }' "$LANDED_LOG" 2>/dev/null || true)"
+    if [ -n "$lb" ] && git -C "$KWT" cat-file blob "$lb" >"$tmp/base" 2>/dev/null; then have=1; fi
+  fi
+  if [ -z "$have" ] && [ -n "$BASE" ]; then
+    git -C "$KWT" show "$BASE:$rel" >"$tmp/base" 2>/dev/null || : >"$tmp/base"; have=1
+  fi
+  if [ -z "$have" ]; then
+    GUARD_SKIPPED="${GUARD_SKIPPED}${GUARD_SKIPPED:+ }$rel"; rm -rf "$tmp"; return 1
+  fi
+  { diff "$tmp/base" "$d" || true; } | sed -n 's/^> //p' >"$tmp/added"
+  STALE_LINE="$(awk 'NR==FNR { s[$0]=1; next } !($0 in s) { print; exit }' "$CALLER_ROOT/$rel" "$tmp/added")"
+  rm -rf "$tmp"
+  [ -n "$STALE_LINE" ]
 }
 for rel in "${PATHS[@]}"; do
   if _stale_path "$rel" && ! cmp -s "$CALLER_ROOT/$rel" "$KWT/$rel"; then
     kit_refuse 1 register-checkout-stale \
-      "Error: your copy of '$rel' does not include what the trunk gained since your checkout was cut — landing it would delete that work." \
+      "Error: your copy of '$rel' lacks a line the trunk gained since your checkout was cut — landing it would delete that work." \
+      "       The first such line: ${STALE_LINE:0:160}" \
       "       Nothing was changed on the trunk." \
       "Next: bring the trunk's '$rel' into your checkout (or run from a checkout at the trunk tip), re-apply your edit on top of it, re-run."
   fi
 done
+[ -z "$GUARD_SKIPPED" ] \
+  || echo "Note: the stale-checkout guard did not run for: $GUARD_SKIPPED (your checkout shares no history with the trunk and has landed nothing)." >&2
 
 CHANGED=()
 for rel in "${PATHS[@]}"; do
@@ -223,4 +247,13 @@ kit_progress "register-commit.sh" status "landed ${#CHANGED[@]} metadata path(s)
 # than reporting success on a commit that never reached the remote.
 kwt_finalize || exit 1   # exit-class: internal
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MESSAGE}\""
+# Remember what this checkout landed, per path: the base of its next stale check.
+if [ -n "$LANDED_LOG" ]; then
+  for rel in "${CHANGED[@]}"; do
+    if [ -f "$CALLER_ROOT/$rel" ]; then
+      _b="$(git -C "$KWT" hash-object -- "$rel" 2>/dev/null || true)"
+      [ -z "$_b" ] || printf '%s\t%s\n' "$_b" "$rel" >>"$LANDED_LOG" 2>/dev/null || true
+    fi
+  done
+fi
 exit 0

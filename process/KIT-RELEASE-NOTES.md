@@ -335,21 +335,27 @@ columns and never the cards.*
   the trunk before the branch is cut, so the branch diff never showed it and a card could hand off `forks: none` over it. Both
   `move-issue.sh … dev_complete` and the landing now take each entry ADDED to a D- register since the card left `todo/` (an edit to an
   existing entry is not attributed) and attribute it from its Provenance paragraph, read at the trunk tip: a work-item id that names a
-  card on the trunk (any column) attributes it, else the subject of the commit that added it does, and `no work item` attributes it to
-  nobody. An entry attributed to the card must be in `forks:` (`forks-contradicted`); an entry attributed to no card refuses with
+  card on the trunk (any column) attributes it (even where the paragraph also says `no work item`); else `no work item` attributes it to
+  nobody; else the subject of the commit that added it does (a later commit that edits it does not). Only a heading that matches the
+  register's id pattern counts as an entry, so a `### Notes` heading is none. An entry attributed to the card must be in `forks:` (`forks-contradicted`); an entry attributed to no card refuses with
   `forks-attribution-unclear`, whose `Next:` names three exits: add the id to `forks:`, name the owning card's id in the Provenance, or
   end the Provenance with `no work item` (for the last two, run `scripts/register-commit.sh` from a checkout at the trunk tip). At the
   landing the window ends at the commit that moved the card to `dev_complete/`, but Provenance is still read at the tip, so a fix
   committed after that move clears it. stdout prints a `FORKS_ATTRIBUTION_CHECK:` line saying which bound ended the window, or that the
-  check did not run and why. Entries already in your register are unaffected.
+  check did not run and why. A card already in flight when you upgrade is checked over the entries added since it left `todo/`, so an
+  entry whose Provenance has neither an id nor `no work item` refuses it: fix that Provenance as the `Next:` says, or name the id in
+  the card's `forks:`.
 
 ### Changed
 
 - **`register-commit.sh` now refuses a checkout cut before the trunk changed the file.** It lands your whole file, so a branch
-  cut before another lane's register entry reached the trunk deleted that entry without a word. It now merges the trunk's copy
-  into yours first and refuses (`register-checkout-stale`) when yours lacks what the trunk gained; nothing is changed on the
-  trunk. The `Next:` names the exit: bring the trunk's file into your checkout, re-apply your edit, re-run. A deliberate removal
-  from an up-to-date copy still lands.
+  cut before another lane's register entry reached the trunk deleted that entry without a word. It now compares against a base,
+  the trunk's copy when your checkout was cut or what that checkout last landed for the file, and refuses
+  (`register-checkout-stale`) when the trunk added a line since that base that yours lacks; nothing is changed on the trunk. The
+  `Next:` names the first missing line and the exit: bring the trunk's file into your checkout, re-apply your edit, re-run. A second
+  landing from the checkout that made the first, a deliberate removal and a retirement from an up-to-date copy still land. Not
+  checked: a line the trunk removed that your copy keeps, and a file you delete whole; a checkout with no history shared with the
+  trunk that has landed nothing gets a stderr note that the guard did not run.
 - **The adapter's supersession bullet now names the stamp rule.** When a document you write replaces another, the replaced one
   is stamped in the same commit (`process/doctrine/staleness.md` § A.1) and kept, not deleted (`process/doctrine/retention.md`
   § A.1). Merge the clause into your `AGENTS.md` if you want sessions to see it; nothing refuses.

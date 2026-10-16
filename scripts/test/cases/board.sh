@@ -1748,6 +1748,26 @@ case_register_commit_lands_from_a_linked_worktree() {
   origin_file_contains "requirements-register.md" '^D-02: a new ruling, answered here$' \
     || cf "the trunk's copy of requirements-register.md does not carry the new content"
 
+  # SECOND LANDINGS FROM THE SAME CHECKOUT. The first landing left its edit uncommitted here, so the
+  # merge-base is still old and a second edit beside it conflicts with the first; that is not staleness.
+  # (a) an entry added right after the one just landed.
+  echo "D-05: added right after the entry just landed" >> "$leg/requirements-register.md"
+  out="$( cd "$leg" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "record D-05" requirements-register.md 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) a second landing from the same checkout, an entry added right after the first, was refused (exit $rc): $out"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  origin_file_contains "requirements-register.md" '^D-05: added right after the entry just landed$' \
+    || cf "(a) the second landing's entry did not reach the trunk"
+  # (b) the same line reworded twice.
+  local _w
+  for _w in once twice; do
+    sed -i.bak "s/^D-02: .*/D-02: reworded $_w/" "$leg/requirements-register.md" && rm -f "$leg/requirements-register.md.bak"
+    out="$( cd "$leg" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "reword D-02 $_w" requirements-register.md 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(b) rewording the same line '$_w' from the checkout that landed it before was refused (exit $rc): $out"
+  done
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  origin_file_contains "requirements-register.md" '^D-02: reworded twice$' \
+    || cf "(b) the line reworded twice did not reach the trunk"
+
   # THE STALE CHECKOUT (R13-2's shape), in the real workflow's order. Another lane, up to date, lands D-03.
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   local lane="$SB_TMP/lane" fresh="$SB_TMP/fresh"
@@ -1762,6 +1782,8 @@ case_register_commit_lands_from_a_linked_worktree() {
   [ "$rc" -ne 0 ] || cf "a stale checkout's register landed with no refusal (exit 0): $out"
   printf '%s' "$out" | grep -F 'Next:' | grep -F 'trunk' >/dev/null \
     || cf "the stale-checkout refusal has no Next: line naming the trunk: $out"
+  printf '%s' "$out" | grep -F 'D-03: another lane' >/dev/null \
+    || cf "the stale-checkout refusal does not name the trunk line the checkout lacks: $out"
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   origin_file_contains "requirements-register.md" '^D-03: another lane.s ruling$' \
     || cf "the stale checkout's landing deleted D-03 from the trunk"
@@ -1788,7 +1810,7 @@ case_register_commit_lands_from_a_linked_worktree() {
   origin_file_contains "requirements-register.md" '^D-02' \
     && cf "the legitimate removal did not land"
 
-  finish "register-commit.sh lands a hand-made metadata edit made in a linked worktree on a branch of its own onto the trunk, through .kanban-wt, never committing in the leg's own checkout or branch; and refuses a stale checkout's copy that would delete what the trunk gained, while an up-to-date edit and a deliberate removal land"
+  finish "register-commit.sh lands a hand-made metadata edit made in a linked worktree on a branch of its own onto the trunk, through .kanban-wt, never committing in the leg's own checkout or branch; and refuses a stale checkout's copy that would delete what the trunk gained, while an up-to-date edit, a deliberate removal, and a second landing from the checkout that made the first (an adjacent entry; one line reworded twice) land"
   teardown
 }
 
