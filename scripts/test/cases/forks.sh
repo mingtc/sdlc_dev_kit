@@ -456,7 +456,8 @@ _forks_set_forks() {
 #   (d) an unattributed entry (a bare Provenance, a bare commit subject): refused with
 #       forks-attribution-unclear and a Next: naming both exits; 'forks: [D-NN]' moves it;
 #   (e) the other exit: naming the owning card in the entry's Provenance, through a commit whose
-#       subject names THIS card, clears it, because Provenance is read first;
+#       subject names THIS card, clears it, because Provenance is read first; an owner that is a
+#       card on the trunk (the cases seed it), never an id that names none;
 #   (f) the landing's window ends at the commit that moved the card to dev_complete/: an
 #       unattributed entry another card registers while this one waits for QA does not refuse it;
 #   (g) ids match exactly: an entry whose Provenance names the card's SLICE is the slice's, not
@@ -476,6 +477,9 @@ case_move_issue_forks_check_attributes_the_trunk_register() {
   seed_issue todo "$ide" landing chore "Lands after another card registers a bare entry" "feature/$ide-work"
   seed_issue todo "$idf" reattr chore "Attributes the bare entry to its owner" "feature/$idf-work"
   seed_issue todo "$idg" parent chore "Its slice owns the entry" "feature/$idg-work"
+  seed_issue todo "$other" owner chore "Owns the entries that name it" "feature/$other-work"
+  mkdir -p "$SB_WORK/progress/subtasks/$idg/todo"
+  seed_issue "subtasks/$idg/todo" "$idg-s1" slice chore "The parent's slice" "feature/$idg-s1-work"
   publish_sandbox
 
   # (a) the entry's Provenance names the card; the commit that adds it is on the trunk, published,
@@ -924,5 +928,126 @@ case_card_field_is_read_by_one_function() {
   origin_has_path "CHANGE641.txt" || cf "the commented branch was not the one landed"
 
   finish "a card's frontmatter field reads the same through lib/card-field.sh (trailing comment, extra spaces, absent, never the body), the four callers each call it with no reader of their own, and finish-pr.sh lands a commented branch:"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE UNATTRIBUTED-ENTRY HALF HAS AN HONEST EXIT, COUNTS ONLY ADDED ENTRIES, READS
+# PROVENANCE AT THE TRUNK TIP, AND ITS WINDOW STARTS AT THE CARD'S OWN PICKUP. In the real order:
+# the card is picked up, the entry is registered and published, then the branch is cut.
+#   (a) an added entry whose Provenance says 'no work item' (any case) moves;
+#   (b) an id that names no card on the trunk attributes nothing, so the entry refuses with a
+#       Next: naming all three exits and the trunk-tip checkout;
+#   (c) an EDIT to an old entry that carries no work-item id moves: only added entries count;
+#   (d) the landing: the Provenance fix committed after the card moved to dev_complete/ clears the
+#       refusal, because Provenance is read at the trunk tip, not at the window's end;
+#   (e) a slice's file leaving todo/ before the parent does not start the parent's window.
+# RED FIRST: (a), (c), (d), (e) fail on a check that counts edits, reads Provenance at the window's
+# end, has no 'no work item' exit and matches the parent's globs against its slices' files; (b)
+# fails on one that lets an id naming no card attribute.
+# =============================================================================
+case_forks_check_unattributed_exits_and_window() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local ida="$SB_PREFIX-881" idb="$SB_PREFIX-882" idc="$SB_PREFIX-883" idd="$SB_PREFIX-884" ide="$SB_PREFIX-885"
+  local out rc f
+  seed_issue todo "$ida" nowork chore "Its window holds a card-less entry that says so" "feature/$ida-work"
+  seed_issue todo "$idb" ghost chore "Its window holds an entry naming no card" "feature/$idb-work"
+  seed_issue todo "$idc" edit chore "An old entry is edited in its window" "feature/$idc-work"
+  seed_issue todo "$idd" landing chore "Lands after the Provenance fix" "feature/$idd-work"
+  seed_issue todo "$ide" parent chore "Its slice leaves todo first" "feature/$ide-work"
+  mkdir -p "$SB_WORK/progress/subtasks/$ide/todo"
+  seed_issue "subtasks/$ide/todo" "$ide-s1" slice chore "The parent's slice" "feature/$ide-s1-work"
+  publish_sandbox
+
+  # (a) a card-less entry that says so.
+  _forks_pickup "$ida" nowork
+  _forks_add_entry D-02 "Answered by the product owner through ask.sh, 2026-10-16; No Work Item." "[PM] record D-02 answered"
+  seed_branch "$ida" work CHANGE881.txt
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ida" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) an added entry whose Provenance says 'no work item' refused the move (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/dev_complete/$ida-nowork.md" || cf "(a) the card did not reach dev_complete/"
+  case "$out" in *"attributed to $ida: none."*) : ;; *) cf "(a) the hand-off does not print 'none' for an empty attribution: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  _forks_sync
+
+  # (b) an id that names no card on the trunk attributes nothing.
+  _forks_pickup "$idb" ghost
+  _forks_add_entry D-03 "Product owner message, 2026-10-16; owned by $SB_PREFIX-1." "[PM] record D-03"
+  seed_branch "$idb" work CHANGE882.txt
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/move-issue.sh "$idb" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) an id naming no card on the trunk attributed the entry (exit 0)"
+  grep -q 'refusal=forks-attribution-unclear' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+    || cf "(b) no progress record carries refusal=forks-attribution-unclear: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
+  case "$out" in *"Next:"*"'forks:'"*"Provenance"*"no work item"*"trunk tip"*"register-commit.sh"*) : ;; *) cf "(b) the Next: line does not name the three exits and the trunk-tip checkout: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-700)" ;; esac
+  _forks_set_forks "$idb" ghost "[D-03]"
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idb" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) with 'forks: [D-03]' the move exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _forks_sync
+
+  # (c) an edit to an old entry that names no work item is not attributed by this half.
+  _forks_pickup "$idc" edit
+  _forks_sync
+  sed -i.bak 's/^\*\*Ruling\.\*\* Old text\.$/**Ruling.** Reworded text./' "$SB_WORK/requirements/DECISIONS.md" && rm -f "$SB_WORK/requirements/DECISIONS.md.bak"
+  grep -q 'Reworded text' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_forks_check_unattributed_exits_and_window: (c) the edit was not planted"
+  git -C "$SB_WORK" add requirements/DECISIONS.md >/dev/null 2>&1
+  sbcommit -m "[PM] reword D-01" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_forks_check_unattributed_exits_and_window: (c) not published"
+  seed_branch "$idc" work CHANGE883.txt
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idc" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) an edit to an old entry refused the move (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  _forks_sync
+
+  # (d) the landing: the entry is bare when the card moves to dev_complete/ ('forks:' names it); the
+  #     card then drops it from 'forks:'; the Provenance fix lands AFTER the move, through the real
+  #     route, and clears the landing.
+  _forks_pickup "$idd" landing
+  f="$SB_WORK/progress/in_progress/$idd-landing.md"
+  _forks_refix_qa_pointer "$f" "progress/in_progress/$idd-landing.md"
+  git -C "$SB_WORK" add "progress/in_progress/$idd-landing.md" >/dev/null 2>&1
+  sbcommit -m "[PM] ${idd}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  _forks_add_entry D-04 "Product owner message, 2026-10-16." "[PM] record the owner's ruling"
+  seed_branch "$idd" work CHANGE884.txt
+  _forks_set_forks "$idd" landing "[D-04]"
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idd" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the hand-off exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  _forks_sync
+  f="$SB_WORK/progress/dev_complete/$idd-landing.md"
+  sed -i.bak 's/^forks: .*$/forks: none/' "$f" && rm -f "$f.bak"
+  git -C "$SB_WORK" add "progress/dev_complete/$idd-landing.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] $idd: forks none" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_forks_check_unattributed_exits_and_window: (d) not published"
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-d" "$SB_WORK/scripts/finish-pr.sh" "$idd" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) the bare entry did not refuse the landing before its Provenance was fixed (exit 0)"
+  grep -q 'refusal=forks-attribution-unclear' "$SB_TMP/rec-d"/*.tsv 2>/dev/null \
+    || cf "(d) no progress record carries refusal=forks-attribution-unclear: $(cat "$SB_TMP/rec-d"/*.tsv 2>/dev/null)"
+  _forks_sync
+  sed -i.bak 's/^\(\*\*Provenance\.\*\* Product owner message, 2026-10-16\.\)$/\1 No work item./' "$SB_WORK/requirements/DECISIONS.md" \
+    && rm -f "$SB_WORK/requirements/DECISIONS.md.bak"
+  grep -q 'No work item' "$SB_WORK/requirements/DECISIONS.md" || _fixture_die "case_forks_check_unattributed_exits_and_window: (d) the Provenance edit was not planted"
+  ( cd "$SB_WORK" && ./scripts/register-commit.sh --role PM --message "attribute D-04" requirements/DECISIONS.md >/dev/null 2>&1 ) \
+    || _fixture_die "case_forks_check_unattributed_exits_and_window: (d) register-commit.sh refused"
+  git -C "$SB_WORK" checkout -q -- requirements/DECISIONS.md >/dev/null 2>&1
+  _forks_sync
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idd" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) the Provenance fix committed after the dev_complete move did not clear the landing (exit $rc): $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$idd-landing.md" || cf "(d) the card did not advance to qa_complete/"
+
+  # (e) the slice leaves todo/ first; the entry is registered after that and before the parent's
+  #     pickup, so it is outside the parent's window.
+  _forks_sync
+  mkdir -p "$SB_WORK/progress/subtasks/$ide/in_progress"
+  git -C "$SB_WORK" mv "progress/subtasks/$ide/todo/$ide-s1-slice.md" "progress/subtasks/$ide/in_progress/$ide-s1-slice.md" >/dev/null 2>&1 \
+    || _fixture_die "case_forks_check_unattributed_exits_and_window: (e) the slice was not moved out of todo/"
+  sbcommit -m "[Dev] $ide-s1: picked up" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_forks_check_unattributed_exits_and_window: (e) not published"
+  _forks_add_entry D-05 "Product owner message, 2026-10-16." "[PM] record the owner's ruling"
+  _forks_pickup "$ide" parent
+  seed_branch "$ide" work CHANGE885.txt
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ide" dev_complete --role Dev --note "ready" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) a slice's file leaving todo/ started the parent's window (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+
+  finish "the forks: unattributed-entry half: an added entry whose Provenance says 'no work item' moves; an id naming no card on the trunk attributes nothing and the refusal's Next: names three exits and the trunk-tip checkout; an edit to an old entry moves; at the landing a Provenance fix committed after the dev_complete move clears the refusal; a slice's departure from todo/ does not start the parent's window"
   teardown
 }

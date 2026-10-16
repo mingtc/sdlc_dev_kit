@@ -329,25 +329,30 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-### Changed (no action)
+### Action required
+
+- **End each register entry's Provenance with the work item that resolved it, or `no work item`.** A register entry is committed to
+  the trunk before the branch is cut, so the branch diff never showed it and a card could hand off `forks: none` over it. Both
+  `move-issue.sh … dev_complete` and the landing now take each entry ADDED to a D- register since the card left `todo/` (an edit to an
+  existing entry is not attributed) and attribute it from its Provenance paragraph, read at the trunk tip: a work-item id that names a
+  card on the trunk (any column) attributes it, else the subject of the commit that added it does, and `no work item` attributes it to
+  nobody. An entry attributed to the card must be in `forks:` (`forks-contradicted`); an entry attributed to no card refuses with
+  `forks-attribution-unclear`, whose `Next:` names three exits: add the id to `forks:`, name the owning card's id in the Provenance, or
+  end the Provenance with `no work item` (for the last two, run `scripts/register-commit.sh` from a checkout at the trunk tip). At the
+  landing the window ends at the commit that moved the card to `dev_complete/`, but Provenance is still read at the tip, so a fix
+  committed after that move clears it. stdout prints a `FORKS_ATTRIBUTION_CHECK:` line saying which bound ended the window, or that the
+  check did not run and why. Entries already in your register are unaffected.
+
+### Changed
 
 - **`register-commit.sh` now refuses a checkout cut before the trunk changed the file.** It lands your whole file, so a branch
   cut before another lane's register entry reached the trunk deleted that entry without a word. It now merges the trunk's copy
   into yours first and refuses (`register-checkout-stale`) when yours lacks what the trunk gained; nothing is changed on the
   trunk. The `Next:` names the exit: bring the trunk's file into your checkout, re-apply your edit, re-run. A deliberate removal
   from an up-to-date copy still lands.
-- **The `forks:` check now sees a register entry the trunk already holds.** A register entry is committed to the trunk before the
-  branch is cut, so the branch diff never showed it and a card could hand off `forks: none` over it. Both `move-issue.sh … dev_complete`
-  and the landing now attribute each entry the trunk changed since the card left `todo/` by the work-item id in its Provenance paragraph,
-  else in the subject of the commit that changed it; an entry attributed to the card must be in `forks:` (`forks-contradicted`), and one
-  no work-item id attributes refuses with `forks-attribution-unclear`. The `Next:` names both exits: add the id to `forks:`, or name the
-  owning card in the entry's Provenance (`scripts/register-commit.sh`). At the landing the window ends at the commit that moved the card to
-  `dev_complete/`. stdout prints a `FORKS_ATTRIBUTION_CHECK:` line saying which bound ended it, or that it did not run (a card with no
-  `todo/` departure). Name the work item in each entry's Provenance; nothing else is required.
 - **The adapter's supersession bullet now names the stamp rule.** When a document you write replaces another, the replaced one
   is stamped in the same commit (`process/doctrine/staleness.md` § A.1) and kept, not deleted (`process/doctrine/retention.md`
-  § A.1). Merge the clause into your `AGENTS.md`
-  if you want sessions to see it; nothing refuses.
+  § A.1). Merge the clause into your `AGENTS.md` if you want sessions to see it; nothing refuses.
 
 ## [0.9.0] — 2026-10-12
 

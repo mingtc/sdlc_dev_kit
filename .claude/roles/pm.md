@@ -185,7 +185,8 @@ pair makes the ruling, PM or the implementing leg, since routing is checked by w
 itself shows, not by who wrote it.** `forks: [D-NN, ...]`, or `forks: none` if it resolved none —
 checked, not merely trusted: `finish-pr.sh` refuses a landing where the field is absent, malformed,
 names an id that is not a live register entry, or where the branch itself (a register entry its diff
-adds or changes, or a `[decision: D-NN]` citation anywhere on the card) shows a fork `forks:` does not name.
+adds or changes, a `[decision: D-NN]` citation anywhere on the card, or an entry added to the register on the trunk since the card left `todo/` whose Provenance names the card) shows a fork `forks:` does not name — or an added entry attributes to no card.
+**So end each entry's Provenance with the work item that resolved it, or `no work item` where no card owns it (a recorded answer)**; commit it with `./scripts/register-commit.sh` from a checkout at the trunk tip.
 That check catches an unrouted fork; it does not decide whether a given reading is a fork in the
 first place, or whether it constrains a requirement — those are this section's diagnostic, above,
 and still this seat's judgement to apply.

@@ -82,7 +82,10 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   no filled `shadow-check` row, or AC ids that do not match the AC checklist one for one ⇒ refuse
   before any destructive step, naming each row.
 - The item's `forks:` field is missing, is neither `none` nor a bracketed list of register ids,
-  names an id that is no live register entry, omits a fork the branch's own diff shows, or the
+  names an id that is no live register entry, omits a fork the branch's own diff shows or that a
+  register entry added to the trunk since the item left `todo/` attributes to it (its Provenance
+  paragraph, else the commit subject, names the item), leaves such an added entry attributed to no
+  work item (its Provenance names no card on the trunk and does not say `no work item`), or the
   item's AC text changed after it left `todo/` with no `[decision: D-NN]` citation ⇒ refuse.
 - The branch touches a declared test path and the item has no well-formed `## Ablation` section ⇒
   refuse, naming what the section lacks.

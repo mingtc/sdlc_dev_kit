@@ -36,7 +36,7 @@
 #     on the trunk) is refused rather than silently skipped.
 #
 # Examples:
-#   ./scripts/register-commit.sh --role PM --message "record D-NN answered" \
+#   ./scripts/register-commit.sh --role PM --message "<PREFIX>-014: record D-NN answered" \
 #     requirements/DECISIONS.md
 #   ./scripts/register-commit.sh --role Dev --message "<PREFIX>-014: Handoff to QA notes" \
 #     progress/dev_complete/<PREFIX>-014-slug.md

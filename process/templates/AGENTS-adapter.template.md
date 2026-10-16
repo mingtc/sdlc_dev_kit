@@ -226,7 +226,7 @@ Calibrate rigor via the rigor-tier ladder in
 A ruling that changes behaviour goes in [`requirements/DECISIONS.md`](requirements/DECISIONS.md)
 **in the same change** — not only in an issue's Activity log. An Activity line records *this
 issue*; the next reader is asking *what is currently true*, and only the register answers that.
-The entry's Provenance paragraph names the work item that resolved it, and that work item's card
+The entry's Provenance paragraph names the work item that resolved it (or says `no work item`), and that work item's card
 names the id in `forks:` (`.claude/roles/dev.md` Definition of Done).
 
 ## The default path is lite

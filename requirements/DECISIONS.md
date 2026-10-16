@@ -18,8 +18,9 @@ defensible and wrong.
 re-litigated.
 
 **Every entry is exactly three things.** The **current ruling**, present tense, stated as law.
-**One line of why** — the reason, not the history. **Provenance** — where it was ruled and where the
-evidence lives. An entry that needs a paragraph does not get one here: the paragraph belongs in the
+**One line of why** — the reason, not the history. **Provenance** — where it was ruled, where the
+evidence lives, and the work item that resolved it, or `no work item` where no card owns it (a recorded
+answer). The landing checks read it for that. An entry that needs a paragraph does not get one here: the paragraph belongs in the
 ruling's home document and the entry points at it.
 
 **A ruling sourced from a CONVERSATION may not be its own evidence.** Where the authority is
@@ -196,7 +197,7 @@ hedge); a discharging condition carrying no id; and a condition that fired with 
       ### D-NN — <short title, the ruling in a few words>
       **Ruling.** <the ruling, present tense, stated as law>
       **Why.** <the reason, not the history — one line>
-      **Provenance.** <where it was ruled> · <where the evidence lives>
+      **Provenance.** <where it was ruled> · <where the evidence lives> · <the work item that resolved it, or `no work item`>
 
   BUCKET NAMES ARE NOT RESERVED. The buckets below are EXAMPLES; name your own, add or drop them.
   Letter the buckets (A., B., …) so a bucket can be cited without quoting its wording.
