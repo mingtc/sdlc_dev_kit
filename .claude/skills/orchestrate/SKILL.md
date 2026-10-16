@@ -20,7 +20,7 @@ trunk branch, default `main`.
 ## Invocation
 
 ```
-/orchestrate                          # bare: study the board, propose a run plan, wait for approval
+/orchestrate                          # bare: study the board, propose a run plan (attended: wait for approval)
 /orchestrate <PREFIX>-029
 /orchestrate <PREFIX>-031 <PREFIX>-032
 /orchestrate <batch-label>            # resolve the set from progress/todo/ for that PRD or batch
@@ -28,7 +28,7 @@ trunk branch, default `main`.
 
 ## Procedure
 
-### 0. Setup + propose the RUN PLAN (then wait)
+### 0. Setup + propose the RUN PLAN (attended: then wait)
 
 1. **Read order — skip what's already in context.** The adapter (`AGENTS.md`) is auto-loaded
    at session start; do **not** re-read it. Read only what isn't loaded yet:
@@ -46,11 +46,19 @@ trunk branch, default `main`.
 3. Read each issue file plus its PRD stories; build the **dependency order** from
    `blocks`/`blocked_by`; mark mutually-independent issues as parallel candidates (default
    serial).
-4. **Propose a RUN PLAN and STOP for sign-off** (role doc § Session start): scope, order,
-   per-issue rigor tier, decomposition, and a **GATE FORECAST** — the GATE-A decisions you
-   already expect, surfaced *now* so the operator pre-answers them, plus the GATE-B policy
-   confirmed. Flag any item that is really new PM scope. Do not enter Phase 1 until the
-   operator signs off and answers the pre-surfaced decisions.
+4. **Propose a RUN PLAN** (role doc § Session start): scope, order, per-issue rigor tier,
+   decomposition, and a **GATE FORECAST** — the GATE-A decisions you already expect, surfaced
+   *now* so the operator pre-answers them, plus the GATE-B policy confirmed. Flag any item that
+   is really new PM scope.
+   - **Attended (`KIT_UNATTENDED` unset):** STOP for sign-off. Do not enter Phase 1 until the
+     operator signs off and answers the pre-surfaced decisions.
+   - **Unattended (`KIT_UNATTENDED=1`):** nobody will sign off, so do not stop and do not ask in
+     chat. File the plan through `./scripts/ask.sh --role Orchestrator "<run plan: scope and
+     order>" --default "run it as planned"`, then one call per pre-surfaced decision — the
+     decision as the question, your recommendation as `--default` (add `--decision <D-NN>` when
+     a register entry is at stake) — and enter Phase 1 on the plan as the recorded default. A
+     decision whose default you cannot run under parks the cards it blocks, never the run. If
+     `ask.sh` refuses, put the same lines in the run report and carry on.
 
 > **Notifications (optional):** if the project configures a notification backend, pick this
 > session's slug, send a test ping, and fire `attention` / `milestone [k/N]` / `done` /
@@ -80,9 +88,11 @@ per-issue refresh step instead, and the standalone gate below does not fire.
 
 - Consolidated list empty → proceed to Phase 2 (announce it, don't stop).
 - Non-empty → **stop**, present the decisions, resolve with the operator, then proceed.
-- **First-run exception:** on the very first orchestrated run in a repo, present the plan(s)
-  and stop even with an empty list, for trust calibration. Steady-state, honor the
-  conditional rule.
+  Unattended, step 0.4's filing applies instead: file the list, park the cards it blocks,
+  proceed with the rest.
+- **First-run exception (attended only):** on the very first orchestrated run in a repo,
+  present the plan(s) and stop even with an empty list, for trust calibration. Steady-state,
+  honor the conditional rule.
 
 ### 3. Phase 2 — Execute Loop (a Workflow, dependency-ordered)
 

@@ -663,6 +663,70 @@ case_unattended_profile_denies_the_tool() {
 }
 
 # =============================================================================
+# CASE — A SCHEDULED /orchestrate HAS AN UNATTENDED BRANCH WHERE THE SESSION READS IT.
+#
+# The skill's RUN PLAN step and the role doc's approval step each end the turn on a question
+# nobody answers unless they carry a KIT_UNATTENDED branch that files through scripts/ask.sh and
+# goes on. The branch must sit INSIDE those sections — a mention elsewhere in the file is not
+# where the session is when it decides to stop. The role doc's "Human-triggered only" line must
+# also admit a scheduled launch, or the two documents contradict each other.
+# =============================================================================
+# _orch_between <file> <start-prefix> <end-prefix> — the lines from the first line starting with
+# <start-prefix> up to (not including) the next line starting with <end-prefix>.
+_orch_between() {
+  awk -v s="$2" -v e="$3" '
+    !on { if (index($0, s) == 1) { on = 1; print } ; next }
+    index($0, e) == 1 { exit }
+    { print }
+  ' "$1"
+}
+# _orch_branch_present <text> — status 0 iff the text names KIT_UNATTENDED=1 AND scripts/ask.sh.
+_orch_branch_present() {
+  case "$1" in
+    *'KIT_UNATTENDED=1'*) case "$1" in *'scripts/ask.sh'*) return 0 ;; esac ;;
+  esac
+  return 1
+}
+
+case_orchestrate_has_an_unattended_branch_where_it_is_read() {
+  cf_reset
+  local skill="$REAL_REPO_ROOT/.claude/skills/orchestrate/SKILL.md"
+  local role="$REAL_REPO_ROOT/.claude/roles/orchestrator.md"
+  [ -f "$skill" ] || _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: no .claude/skills/orchestrate/SKILL.md in the published kit at $REAL_REPO_ROOT"
+  [ -f "$role" ]  || _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: no .claude/roles/orchestrator.md in the published kit at $REAL_REPO_ROOT"
+
+  # ── THE CONTROL: the section extractor and the presence check, over a planted file.
+  local ctl; ctl="$(mktemp -d)" || _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: mktemp -d failed"
+  printf 'intro KIT_UNATTENDED=1 scripts/ask.sh\n4. Propose.\n   plain stop\n5. Next.\n' > "$ctl/without.md"
+  printf '4. Propose.\n   KIT_UNATTENDED=1 scripts/ask.sh\n5. Next.\n' > "$ctl/within.md"
+  local cs; cs="$(_orch_between "$ctl/without.md" '4. ' '5. ')"
+  _orch_branch_present "$cs" \
+    && _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the check accepted a branch that sits OUTSIDE the section"
+  cs="$(_orch_between "$ctl/within.md" '4. ' '5. ')"
+  _orch_branch_present "$cs" \
+    || _fixture_die "case_orchestrate_has_an_unattended_branch_where_it_is_read: the check rejected a branch that sits INSIDE the section"
+  rm -rf "$ctl"
+
+  # ── THE SUBJECT.
+  local sec
+  sec="$(_orch_between "$skill" '4. **Propose a RUN PLAN' '> **Notifications')"
+  [ -n "$sec" ] || cf "orchestrate/SKILL.md has no '4. **Propose a RUN PLAN' step — the lookup found nothing to read"
+  _orch_branch_present "$sec" \
+    || cf "orchestrate/SKILL.md's RUN PLAN step has no KIT_UNATTENDED=1 branch filing through scripts/ask.sh — an unattended run ends its turn on the plan"
+  sec="$(_orch_between "$role" '2. **Wait for approval' '3. **Run continuously')"
+  [ -n "$sec" ] || cf "orchestrator.md has no '2. **Wait for approval' step — the lookup found nothing to read"
+  _orch_branch_present "$sec" \
+    || cf "orchestrator.md's approval step has no KIT_UNATTENDED=1 branch filing through scripts/ask.sh — the role doc still says wait"
+  sec="$(_orch_between "$role" '- **Human-triggered only.**' 'It is *not* the hat')"
+  case "$sec" in
+    *scheduling*) : ;;
+    *) cf "orchestrator.md's 'Human-triggered only' line does not admit a scheduled launch — it contradicts the unattended branch" ;;
+  esac
+
+  finish "the orchestrate skill's RUN PLAN step and the role doc's approval step each carry a KIT_UNATTENDED=1 branch that files through scripts/ask.sh, and the role doc's 'Human-triggered only' line admits a scheduled launch (section extractor proven on a planted pair)"
+}
+
+# =============================================================================
 # CASE — scripts/hooks/stop-ask.sh BLOCKS A TURN ENDING ON A QUESTION, ONCE, AND ALLOWS
 # EVERY OTHER SHAPE: a statement ending, the loop-guarded re-invocation, a question answered
 # later in the same turn (mid-message or inside a code block), and an unparseable/empty payload.

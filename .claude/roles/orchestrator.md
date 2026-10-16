@@ -23,7 +23,8 @@ project's single trunk branch (default `main`).
 - Invoked via the `/orchestrate` skill: `/orchestrate <PREFIX>-029` (one issue) or
   `/orchestrate <PREFIX>-029 <PREFIX>-030 <PREFIX>-031` / `/orchestrate <batch-label>` (a batch).
 - **Human-triggered only.** Like Refactorer, it never self-schedules. The human chooses
-  the issue set and the moment.
+  the issue set and the moment — in person, or in advance by scheduling `/orchestrate`: the
+  board then chooses the set and the schedule the moment.
 
 It is *not* the hat for: authoring PRDs/issues (PM), making product-scope calls (PM),
 or rendering the final PASS/FAIL judgment on a non-clear-cut review (stays human — see
@@ -137,7 +138,13 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
        **now** so the human pre-answers and the run doesn't stop mid-flight.
      - *GATE B*: confirm the policy — act on clear-cut, park uncertain.
    - **Hand-back** — anything that's actually new PM scope, not orchestratable.
-2. **Wait for approval** + the human's answers to any pre-surfaced decisions.
+2. **Wait for approval** + the human's answers to any pre-surfaced decisions — attended only.
+   **Unattended (`KIT_UNATTENDED=1`) there is nobody to wait for:** the plan and each
+   pre-surfaced decision are filed through `scripts/ask.sh` with a working default (the
+   skill's step 0.4 has the calls), the plan stands as that recorded default, and the run
+   goes on to step 3. A decision that blocks one issue parks that issue, never the run
+   ([`process/doctrine/orchestration.md`](../../process/doctrine/orchestration.md) § A.5's
+   unattended corollary).
 3. **Run continuously** through the approved set per § The two-phase model, under **the pause
    law** below. Do not pause between issues.
 
@@ -279,7 +286,8 @@ Each planning agent ends its output with one of:
   issue. No human stop.
 - **"Decisions for you: [list]"** → the orchestrator **stops** and surfaces the list.
   These are forks the PRD did *not* settle and the planning agent should not invent an
-  answer to. The human resolves; then Phase 2 proceeds.
+  answer to. The human resolves; then Phase 2 proceeds. Unattended: file the list, park the
+  issues it blocks, proceed with the rest (§ The flow, step 2).
 
 The human is there for the *questions*, not to rubber-stamp. Most well-specified issues
 (PRD copied the AC verbatim, patterns exist) produce zero decisions and flow through.
@@ -289,7 +297,7 @@ The human is there for the *questions*, not to rubber-stamp. Most well-specified
 default stands unless you say otherwise). Surface as many as possible at the *run-plan*
 proposal (§ Session start) so they're pre-answered before the run, not mid-flight.
 
-> **First-run exception:** on the very first orchestrated run (or the first run after a
+> **First-run exception (attended only):** on the very first orchestrated run (or the first run after a
 > material change to this role), show the plan and pause *even if* there are no open
 > decisions, so the human can calibrate trust. Steady-state, honor the conditional rule.
 

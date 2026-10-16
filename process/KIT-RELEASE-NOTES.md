@@ -329,7 +329,13 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **A scheduled `/orchestrate` now proceeds instead of ending on its plan.** With `KIT_UNATTENDED=1` the Orchestrator files
+  its run plan and each pre-surfaced decision through `scripts/ask.sh` (role `Orchestrator`, your plan as the default) and
+  runs on the plan; a decision it cannot run under parks the cards it blocks, never the run. Attended runs still stop for
+  sign-off. It needs `PROJECT.md`'s `principal:` and channel declared (as for any `ask.sh` call) and a principal other than
+  the Orchestrator; if `ask.sh` refuses, the plan goes in the run report and the run carries on.
 
 ## [0.10.0] — 2026-10-17
 
