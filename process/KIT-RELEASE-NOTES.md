@@ -329,7 +329,11 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed (no action)
+
+- **The adapter's supersession row now names the stamp rule.** When a document you write replaces another, the replaced one is
+  stamped in the same commit and kept, not deleted (`process/doctrine/staleness.md` § A.1). Merge the clause into your `AGENTS.md`
+  if you want sessions to see it; nothing refuses.
 
 ## [0.9.0] — 2026-10-12
 
