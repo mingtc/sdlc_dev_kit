@@ -217,8 +217,9 @@ Calibrate rigor via the rigor-tier ladder in
   is **your** ratified table. State the one-line summary here and point at it.
 - **Preserve the reason, supersede only the conclusion** —
   [`process/doctrine/supersession.md`](process/doctrine/supersession.md). **When a document you write
-  replaces another, the replaced one is stamped in the same commit, not deleted**
-  ([`process/doctrine/staleness.md`](process/doctrine/staleness.md) § A.1). Pointer, not a copy.
+  replaces another, the replaced one is stamped in the same commit**
+  ([`process/doctrine/staleness.md`](process/doctrine/staleness.md) § A.1) **and kept, not deleted**
+  ([`process/doctrine/retention.md`](process/doctrine/retention.md) § A.1). Pointer, not a copy.
 
 ## Where a ruling is recorded
 

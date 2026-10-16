@@ -339,8 +339,9 @@ columns and never the cards.*
   owning card in the entry's Provenance (`scripts/register-commit.sh`). At the landing the window ends at the commit that moved the card to
   `dev_complete/`. stdout prints a `FORKS_ATTRIBUTION_CHECK:` line saying which bound ended it, or that it did not run (a card with no
   `todo/` departure). Name the work item in each entry's Provenance; nothing else is required.
-- **The adapter's supersession row now names the stamp rule.** When a document you write replaces another, the replaced one is
-  stamped in the same commit and kept, not deleted (`process/doctrine/staleness.md` § A.1). Merge the clause into your `AGENTS.md`
+- **The adapter's supersession bullet now names the stamp rule.** When a document you write replaces another, the replaced one
+  is stamped in the same commit (`process/doctrine/staleness.md` § A.1) and kept, not deleted (`process/doctrine/retention.md`
+  § A.1). Merge the clause into your `AGENTS.md`
   if you want sessions to see it; nothing refuses.
 
 ## [0.9.0] — 2026-10-12
