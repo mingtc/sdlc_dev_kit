@@ -329,6 +329,14 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Changed
+
+- **A QA Verdict row is checked pointer by pointer.** Each quote is read against the `path:line` it follows, so a row that cites
+  two places lists both, each followed by its own quote (`README.md:2 "first"; src/a.js:8 "second"`). The landing check now refuses
+  a pointer with no quote of its own (naming the pointer), a quote shorter than 8 characters (unless it is the cited line's whole
+  text), and two rows for one AC id (write one row that lists every pointer). No action unless an in-flight card carries a row of
+  those shapes; its next landing says which.
+
 ### Fixed
 
 - **A QA Verdict cell may contain a pipe written `\|`.** The landing check reads `\|` as part of its cell (as `|`, so a quote

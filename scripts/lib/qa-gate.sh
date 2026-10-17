@@ -16,12 +16,16 @@
 #     the caller's working tree. A `file:line`/`test` row's pointer must resolve (the file exists
 #     at <rev> and the line, or range, is within its length) and carry a short quote the gate finds
 #     at that line, whitespace-normalised; `gate-diff`/`fixture-diff` are exempt from the quote but
-#     not from a `path:line` token they do carry resolving. At least one AC row must be a `test`/
-#     `file:line` row, so a table of only gate-diff/fixture-diff rows (nothing the gate can re-read)
-#     is refused. Refuses through kit_refuse with:
+#     not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
+#     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
+#     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
+#     per AC id. At least one AC row must be a `test`/`file:line` row, so a table of only
+#     gate-diff/fixture-diff rows (nothing the gate can re-read) is refused. Refuses through
+#     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
-#     qa-verdict-ac-mismatch, qa-verdict-shadow-missing, qa-verdict-pointer-unresolved,
-#     qa-verdict-quote-missing, qa-verdict-quote-not-found, qa-verdict-no-observed.
+#     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
+#     qa-verdict-pointer-unresolved, qa-verdict-quote-missing, qa-verdict-quote-too-short,
+#     qa-verdict-quote-not-found, qa-verdict-no-observed.
 #     A cell may contain a pipe written `\|` (kit_md_row_cell).
 #
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
@@ -117,6 +121,11 @@ KIT_QAV_PLACEHOLDER_RE='^(n/a|na|none|tbd|see above|see below|-|—|x|\.\.\.|\?|
 # step 6 ratifies. A cell outside it is refused (qa-verdict-token-invalid), never read as a pass.
 KIT_QAV_VERDICTS='PASS PASS_AC_CORRECTED FAIL_AC FAIL_REGRESSION'
 
+# The shortest quote a pointer may carry, in characters after whitespace is normalised: a shorter
+# fragment is on almost any line, so finding it there shows nothing. A quote that is the cited
+# range's whole text is exempt (a version stamp is a short line). qa.md states it in prose.
+KIT_QAV_MIN_QUOTE=8
+
 # An AC checklist bullet ('- [ ] AC1 — text.') separates its id from its text with an em-dash,
 # a hyphen or a colon — ONE fragment for every reader that must recognise a bullet, so a
 # separator reformat reads the same way to all of them.
@@ -149,13 +158,25 @@ _qav_is_placeholder() {
   printf '%s' "$1" | grep -qE "$KIT_QAV_PLACEHOLDER_RE"
 }
 
-# _qav_resolve_pointers <repo> <rev> <cell> — every `path:line`/`path:a-b` token found in <cell>,
-# checked against <rev> (git cat-file for existence, a line count for range). Echoes one
-# "path:line:TOKEN_OK" or "path:line:TOKEN_BAD <why>" per token found; nothing if none is found.
-_qav_resolve_pointers() {
-  local repo="$1" rev="$2" cell="$3" _tok _path _range _lo _hi _nlines
-  while IFS= read -r _tok; do
-    [ -n "$_tok" ] || continue
+# _qav_squeeze <text> — <text> whitespace-normalised: runs of whitespace collapsed to one space,
+# outer whitespace trimmed. The one normalisation a quote is measured and matched under.
+_qav_squeeze() {
+  printf '%s' "$1" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//'
+}
+
+# _qav_cell_events <repo> <rev> <cell> — <cell> read left to right, one event per line, in the order
+# written: `P <path:line> OK <lo> <hi>` or `P <path:line> BAD <why>` for each path:line/path:a-b
+# token outside double quotes (checked against <rev>: git cat-file for existence, a line count for
+# range), and `Q <text>` for each non-blank double-quoted string. A quote belongs to the pointer
+# before it.
+_qav_cell_events() {
+  local repo="$1" rev="$2" cell="$3" _kind _tok _path _range _lo _hi _nlines
+  while IFS=' ' read -r _kind _tok; do
+    [ -n "$_kind" ] || continue
+    if [ "$_kind" = Q ]; then
+      printf 'Q %s\n' "$_tok"
+      continue
+    fi
     _path="${_tok%%:*}"
     _range="${_tok#*:}"
     case "$_range" in
@@ -163,28 +184,45 @@ _qav_resolve_pointers() {
       *)   _lo="$_range"; _hi="$_range" ;;
     esac
     if ! git -C "$repo" cat-file -e "${rev}:${_path}" 2>/dev/null; then
-      printf '%s\n' "${_tok}:BAD does not exist at ${rev}"
+      printf 'P %s BAD %s\n' "$_tok" "does not exist at ${rev}"
       continue
     fi
     _nlines="$(git -C "$repo" show "${rev}:${_path}" 2>/dev/null | wc -l | tr -d ' ')"
     if [ -z "$_lo" ] || [ -z "$_hi" ] || ! [ "$_lo" -ge 1 ] 2>/dev/null || ! [ "$_hi" -ge "$_lo" ] 2>/dev/null; then
-      printf '%s\n' "${_tok}:BAD malformed line range"
+      printf 'P %s BAD %s\n' "$_tok" "malformed line range"
     elif [ "$_hi" -gt "$_nlines" ]; then
-      printf '%s\n' "${_tok}:BAD line ${_hi} is past ${_path}'s ${_nlines} line(s) at ${rev}"
+      printf 'P %s BAD %s\n' "$_tok" "line ${_hi} is past ${_path}'s ${_nlines} line(s) at ${rev}"
     else
-      printf '%s\n' "${_tok}:OK ${_lo} ${_hi}"
+      printf 'P %s OK %s %s\n' "$_tok" "$_lo" "$_hi"
     fi
-  done <<< "$(printf '%s\n' "$cell" | sed 's/"[^"]*"//g' | grep -oE '[^[:space:]`"(),]+:[0-9]+(-[0-9]+)?' || true)"
+  done <<< "$(printf '%s\n' "$cell" | awk '{
+    n = split($0, part, "\"")
+    for (i = 1; i <= n; i++) {
+      if (i % 2 == 0 && i < n) {
+        q = part[i]; gsub(/^[ \t]+|[ \t]+$/, "", q)
+        if (q != "") print "Q " q
+      } else {
+        s = part[i]
+        while (match(s, /[^[:space:]`"(),]+:[0-9]+(-[0-9]+)?/)) {
+          print "P " substr(s, RSTART, RLENGTH)
+          s = substr(s, RSTART + RLENGTH)
+        }
+      }
+    }
+  }')"
+}
+
+# _qav_range_text <repo> <rev> <path> <lo> <hi> — <path>'s lines <lo>-<hi> at <rev>, whitespace-normalised.
+_qav_range_text() {
+  _qav_squeeze "$(git -C "$1" show "${2}:${3}" 2>/dev/null | sed -n "${4},${5}p" | tr '\n' ' ')"
 }
 
 # _qav_quote_in_range <repo> <rev> <path> <lo> <hi> <quote> — true if <quote>, whitespace-
-# normalised (runs of whitespace collapsed to one space, outer whitespace trimmed), is a
-# substring of <path>'s lines <lo>-<hi> at <rev>, normalised the same way.
+# normalised, is a substring of <path>'s lines <lo>-<hi> at <rev>, normalised the same way.
 _qav_quote_in_range() {
-  local repo="$1" rev="$2" path="$3" lo="$4" hi="$5" quote="$6" _hay _needle
-  _hay="$(git -C "$repo" show "${rev}:${path}" 2>/dev/null | sed -n "${lo},${hi}p" | tr '\n' ' ')"
-  _hay="$(printf '%s' "$_hay" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//')"
-  _needle="$(printf '%s' "$quote" | tr -s '[:space:]' ' ' | sed -E 's/^ //; s/ $//')"
+  local _hay _needle
+  _hay="$(_qav_range_text "$1" "$2" "$3" "$4" "$5")"
+  _needle="$(_qav_squeeze "$6")"
   [ -n "$_needle" ] && case "$_hay" in *"$_needle"*) return 0 ;; esac
   return 1   # return-class: predicate
 }
@@ -211,7 +249,7 @@ kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4"
   local _qav_body _qav_ac_ids _qav_table _qav_rows
   local _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
-  local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_not_found="" _qav_quoted_rows=0
+  local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
 
   if [ -z "$repo" ] || [ -z "$rev" ]; then
@@ -266,57 +304,80 @@ kit_qa_verdict_check() {
     if _qav_is_placeholder "$_qav_ptr_norm"; then
       _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (empty or placeholder pointer)"
     else
-      # Every path:line/path:a-b token in the cell must resolve AT $rev. A `file:line`
-      #    row needs at least one such token; the other kinds are checked only on the tokens they
-      #    do carry (a gate-diff/fixture-diff row naming a file:line is held to it; one naming none
-      #    is not asked to invent one).
-      local _qav_tok_results _qav_tok_line _qav_tok _qav_tok_rest
-      local _qav_first_ok_path="" _qav_first_ok_lo="" _qav_first_ok_hi="" _qav_tok_count=0
-      _qav_tok_results="$(_qav_resolve_pointers "$repo" "$rev" "$_qptr_stripped")"
-      while IFS= read -r _qav_tok_line; do
-        [ -n "$_qav_tok_line" ] || continue
-        _qav_tok_count=$((_qav_tok_count+1))
-        _qav_tok="${_qav_tok_line%%:*}"
-        _qav_tok_rest="${_qav_tok_line#*:}"
-        case "$_qav_tok_rest" in
-          *:BAD\ *)
-            _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_tok_line#*:BAD }: ${_qav_tok})"
+      # Every path:line/path:a-b token in the cell must resolve AT $rev. A `file:line` row needs
+      #    at least one such token; the other kinds are checked only on the tokens they do carry
+      #    (a gate-diff/fixture-diff row naming a file:line is held to it; one naming none is not
+      #    asked to invent one).
+      # In a file:line/test row every pointer carries a quote of its own, checked against the line
+      #    range it follows. gate-diff/fixture-diff are exempt from the quote (there is no single
+      #    line to quote), but the token rule above still binds any path:line they carry.
+      local _qav_events _qav_ev _qav_ev_kind _qav_ev_rest _qav_ev_detail
+      local _qav_cur="" _qav_cur_state="" _qav_cur_lo="" _qav_cur_hi="" _qav_cur_quotes=0
+      local _qav_tok_count=0 _qav_quote_count=0 _qav_orphans="" _qav_quote _qav_wants_quote=""
+      case "$_qkind" in
+        file:line|test) _qav_wants_quote=1; _qav_quoted_rows=$((_qav_quoted_rows+1)) ;;
+      esac
+      _qav_events="$(_qav_cell_events "$repo" "$rev" "$_qptr_stripped")"
+      while IFS= read -r _qav_ev; do
+        [ -n "$_qav_ev" ] || continue
+        _qav_ev_kind="${_qav_ev%% *}"
+        _qav_ev_rest="${_qav_ev#* }"
+        # A new pointer (or the end of the cell) closes the one before it: a resolving pointer in a
+        # file:line/test row that no quote followed has no quote of its own.
+        if [ "$_qav_ev_kind" != Q ] && [ -n "$_qav_cur" ] && [ -n "$_qav_wants_quote" ] \
+           && [ "$_qav_cur_state" = OK ] && [ "$_qav_cur_quotes" -eq 0 ]; then
+          _qav_quote_missing="${_qav_quote_missing}${_qav_quote_missing:+, }${_qid} (${_qav_cur})"
+        fi
+        case "$_qav_ev_kind" in
+          P)
+            _qav_tok_count=$((_qav_tok_count+1))
+            _qav_cur="${_qav_ev_rest%% *}"
+            _qav_ev_rest="${_qav_ev_rest#* }"
+            _qav_cur_state="${_qav_ev_rest%% *}"
+            _qav_ev_detail="${_qav_ev_rest#* }"
+            _qav_cur_quotes=0
+            if [ "$_qav_cur_state" = OK ]; then
+              _qav_cur_lo="${_qav_ev_detail% *}"
+              _qav_cur_hi="${_qav_ev_detail#* }"
+            else
+              _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_ev_detail}: ${_qav_cur})"
+            fi
             ;;
-          *:OK\ *)
-            if [ -z "$_qav_first_ok_path" ]; then
-              _qav_first_ok_path="${_qav_tok%%:*}"
-              _qav_first_ok_lo="$(printf '%s' "${_qav_tok_rest#*:OK }" | awk '{print $1}')"
-              _qav_first_ok_hi="$(printf '%s' "${_qav_tok_rest#*:OK }" | awk '{print $2}')"
+          Q)
+            [ -n "$_qav_wants_quote" ] || continue
+            _qav_quote_count=$((_qav_quote_count+1))
+            _qav_quote="$(_qav_squeeze "$_qav_ev_rest")"
+            if [ -z "$_qav_cur" ]; then
+              _qav_orphans="${_qav_orphans}${_qav_orphans:+, }\"${_qav_quote}\""
+            else
+              _qav_cur_quotes=$((_qav_cur_quotes+1))
+              # A pointer that did not resolve is already reported; its quote is not read again.
+              if [ "$_qav_cur_state" != OK ]; then
+                :
+              elif [ "${#_qav_quote}" -lt "$KIT_QAV_MIN_QUOTE" ] \
+                   && [ "$(_qav_range_text "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi")" != "$_qav_quote" ]; then
+                _qav_quote_short="${_qav_quote_short}${_qav_quote_short:+, }${_qid} (${_qav_cur} \"${_qav_quote}\")"
+              elif ! _qav_quote_in_range "$repo" "$rev" "${_qav_cur%%:*}" "$_qav_cur_lo" "$_qav_cur_hi" "$_qav_quote"; then
+                _qav_quote_not_found="${_qav_quote_not_found}${_qav_quote_not_found:+, }${_qid} (\"${_qav_quote}\" not found at ${_qav_cur%%:*}:${_qav_cur_lo}-${_qav_cur_hi})"
+              fi
             fi
             ;;
         esac
-      done <<< "$_qav_tok_results"
+      done <<< "${_qav_events}${_qav_events:+$'\n'}END"
       if [ "$_qkind" = "file:line" ] && [ "$_qav_tok_count" -eq 0 ]; then
         _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (no path:line token in a file:line row)"
       fi
-
-      # file:line/test rows carry a short double-quoted verbatim quote, checked against
-      #    the first resolving path:line token's line range — so a `test` row's pointer needs that
-      #    token too, the same as `file:line`, or there is nothing to check the quote against.
-      #    gate-diff/fixture-diff are exempt from the quote (but item 1 still binds any token they
-      #    do carry).
-      case "$_qkind" in
-        file:line|test)
-          _qav_quoted_rows=$((_qav_quoted_rows+1))
-          local _qav_quote
-          _qav_quote="$(printf '%s' "$_qptr_stripped" | sed -n 's/.*"\([^"]*\)".*/\1/p')"
-          if [ -z "$_qav_quote" ]; then
+      if [ -n "$_qav_wants_quote" ]; then
+        if [ "$_qav_tok_count" -eq 0 ]; then
+          if [ "$_qav_quote_count" -eq 0 ]; then
             _qav_quote_missing="${_qav_quote_missing}${_qav_quote_missing:+, }${_qid}"
-          elif [ -z "$_qav_first_ok_path" ]; then
-            if [ "$_qav_tok_count" -eq 0 ]; then
-              _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (no path:line token to check the quote against)"
-            fi
-            # else: a token was present but it already failed above (qa-verdict-pointer-unresolved).
-          elif ! _qav_quote_in_range "$repo" "$rev" "$_qav_first_ok_path" "$_qav_first_ok_lo" "$_qav_first_ok_hi" "$_qav_quote"; then
-            _qav_quote_not_found="${_qav_quote_not_found}${_qav_quote_not_found:+, }${_qid} (\"${_qav_quote}\" not found at ${_qav_first_ok_path}:${_qav_first_ok_lo}-${_qav_first_ok_hi})"
+          else
+            _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (no path:line token to check the quote against)"
           fi
-          ;;
-      esac
+        elif [ -n "$_qav_orphans" ]; then
+          _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_orphans} comes before any path:line)"
+        fi
+      fi
     fi
     case " $KIT_QAV_VERDICTS " in
       *" $_qverdict "*) : ;;
@@ -347,18 +408,29 @@ kit_qa_verdict_check() {
 
   if [ -n "$_qav_quote_missing" ]; then
     kit_refuse 2 qa-verdict-quote-missing \
-      "Error: ${issue_id}'s QA Verdict table has test/file:line row(s) with no quoted evidence: ${_qav_quote_missing}" \
-      "       A test or file:line row's evidence pointer carries a short verbatim quote in double" \
-      "       quotes after the pointer, e.g. 'src/add.js:12 \"return a + b\"'. (.claude/roles/qa.md step 4.)" \
-      "Next: add the short verbatim quote you read at each cited line, after its pointer; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Error: ${issue_id}'s QA Verdict table has test/file:line row(s) with a pointer that has no quote of its own: ${_qav_quote_missing}" \
+      "       Each path:line (or path:a-b) in a test or file:line row is followed by its own short verbatim" \
+      "       quote in double quotes, e.g. 'src/add.js:12 \"return a + b\"'; a quote is checked only against" \
+      "       the pointer it follows. (.claude/roles/qa.md step 4.)" \
+      "Next: read the line of each pointer named above and put the short verbatim quote you read there right after it. A line you cannot quote does not show the claim: cite the line that does, or the AC is not met (FAIL_AC, .claude/roles/qa.md step 6) — do not drop the pointer or its quote to pass. Commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  if [ -n "$_qav_quote_short" ]; then
+    kit_refuse 2 qa-verdict-quote-too-short \
+      "Error: ${issue_id}'s QA Verdict table has quote(s) shorter than ${KIT_QAV_MIN_QUOTE} characters: ${_qav_quote_short}" \
+      "       A quote is at least ${KIT_QAV_MIN_QUOTE} characters once whitespace is normalised: a shorter fragment" \
+      "       is on almost any line, so finding it there shows nothing about the claim; a quote that is the" \
+      "       cited line's whole text is exempt. (.claude/roles/qa.md step 4.)" \
+      "Next: quote the part of each cited line that shows the claim, at least ${KIT_QAV_MIN_QUOTE} characters of it, verbatim (a cited line shorter than that is quoted whole). If no ${KIT_QAV_MIN_QUOTE} characters of that line show the claim, it does not support it: cite the line that does, or the AC is not met (FAIL_AC, .claude/roles/qa.md step 6). Commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
   if [ -n "$_qav_quote_not_found" ]; then
     kit_refuse 2 qa-verdict-quote-not-found \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose quote is not on the cited line: ${_qav_quote_not_found}" \
-      "       The quote (surrounding whitespace normalised) must be a substring of the cited" \
-      "       path:line/path:a-b's own lines at the revision being landed. (.claude/roles/qa.md step 4.)" \
+      "       The quote (surrounding whitespace normalised) must be a substring of the lines of the" \
+      "       path:line/path:a-b it follows, at the revision being landed. (.claude/roles/qa.md step 4.)" \
       "Next: re-read the cited line at the revision being landed and quote what it says, or cite where the code now is. If the code no longer shows what the AC needs, the row is a FAIL (.claude/roles/qa.md step 6), not a re-quote. Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
@@ -391,7 +463,16 @@ kit_qa_verdict_check() {
       "       NOTHING WAS CHANGED."
   fi
 
-  local _qav_table_ids_sorted _qav_missing _qav_extra
+  local _qav_table_ids_sorted _qav_missing _qav_extra _qav_dups
+  _qav_dups="$(printf '%s\n' "$_qav_table_ids" | grep -E '.' | sort | uniq -d | tr '\n' ' ' || true)"
+  if [ -n "$_qav_dups" ]; then
+    kit_refuse 2 qa-verdict-ac-duplicate \
+      "Error: ${issue_id}'s QA Verdict table has more than one row for the same AC id: ${_qav_dups% }" \
+      "       The table has exactly one row per AC id. An AC with several pieces of evidence is ONE row" \
+      "       whose pointer cell lists them all, each pointer followed by its own quote. (.claude/roles/qa.md step 4.)" \
+      "Next: merge the rows of each id named above into one row — the verdict its evidence shows, and every pointer with its own quote in the pointer cell, e.g. 'README.md:2 \"first quote\"; src/a.js:8 \"second quote\"'. Commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
   _qav_table_ids_sorted="$(printf '%s\n' "$_qav_table_ids" | grep -E '.' | sort -u || true)"
   if [ "$_qav_table_ids_sorted" != "$_qav_ac_ids" ]; then
     _qav_missing="$(comm -23 <(printf '%s\n' "$_qav_ac_ids") <(printf '%s\n' "$_qav_table_ids_sorted") | tr '\n' ' ')"

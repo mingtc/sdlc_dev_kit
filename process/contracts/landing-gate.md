@@ -77,10 +77,12 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   operands read from the trunk. A finding the trunk already carries is the report's, not the
   branch's: refusing it would hold every landing shut on a defect nobody in the branch made.
 - The item's `## QA Verdict` table is missing, has a row whose verdict is not one of the four
-  tokens, a FAIL row, evidence of the wrong kind, a `path:line` that does not resolve or whose
-  quote is not on that line, no `path:line` row at all (every row `gate-diff` or `fixture-diff`),
-  no filled `shadow-check` row, or AC ids that do not match the AC checklist one for one ⇒ refuse
-  before any destructive step, naming each row.
+  tokens, a FAIL row, evidence of the wrong kind, a `path:line` that does not resolve, a pointer
+  with no quote of its own, a quote shorter than eight characters (unless it is the cited line's
+  whole text) or not on the line its own pointer cites, no `path:line` row at all (every row
+  `gate-diff` or `fixture-diff`), no filled `shadow-check` row, two rows for one AC id, or AC ids
+  that do not match the AC checklist one for one ⇒ refuse before any destructive step, naming each
+  row and, for a quote, its pointer.
 - The item's `forks:` field is missing, is neither `none` nor a bracketed list of register ids,
   names an id that is no live register entry, omits a fork the branch's own diff shows or that a
   register entry added to the trunk since the item left `todo/` attributes to it (its Provenance

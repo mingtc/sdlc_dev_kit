@@ -699,15 +699,123 @@ case_finish_pr_qa_verdict_escaped_pipe_is_one_cell() {
   printf '%s\n' '- 2026-01-02 [PM] use a | b to pipe' >> "$fb"
   pl="$(grep -nF -- 'use a | b to pipe' "$fb" | head -1 | cut -d: -f1)"
   [ -n "$pl" ] || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the pipe line was not planted"
-  KIT_ROW="| AC1 | PASS | file:line | ${relb}:${pl} \"a \\| b\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$fb"
-  grep -qF -- '"a \| b"' "$fb" || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the escaped-pipe quote row was not planted"
+  KIT_ROW="| AC1 | PASS | file:line | ${relb}:${pl} \"use a \\| b to pipe\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$fb"
+  grep -qF -- '"use a \| b to pipe"' "$fb" || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the escaped-pipe quote row was not planted"
   publish_sandbox
   seed_branch "$idb" work CHANGE971B.txt
 
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "(b) a quote written \"a \\| b\" on a line holding 'a | b' — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  [ "$rc" -eq 0 ] || cf "(b) a quote written \"use a \\| b to pipe\" on a line holding 'use a | b to pipe' — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   origin_has_path "progress/qa_complete/$idb-pipequote.md" || cf "(b) the card did not advance to qa_complete/"
 
   finish "finish-pr.sh reads a markdown-escaped pipe as part of its cell: the template's unfilled row is refused for its placeholder kind and pointer (a), and a quote written with \\| lands when the cited line holds the pipe (b)"
+  teardown
+}
+
+# =============================================================================
+# _qvp_land <id> <slug> <row template>  — land a card whose AC1 row is the template, and leave the
+# result in _QVP_OUT / _QVP_RC. In the template @CHG@ is the branch's own marker file (its line 1
+# is "a real change") and @CARD@ / @L@ are the card's path and the line of its AC1 bullet (which
+# holds "seeded behaviour holds"), so a quote is true or false on a line the fixture controls.
+# The card is cut, published and landed in the order the roles do it: seeded in dev_complete/,
+# published to the trunk, the branch cut from it, finish-pr.sh run.
+# =============================================================================
+_QVP_OUT=""; _QVP_RC=0
+_qvp_land() {
+  local id="$1" slug="$2" tpl="$3" f="$SB_WORK/progress/dev_complete/$1-$2.md" rel="progress/dev_complete/$1-$2.md" l row chg
+  chg="CHANGE${id##*-}.txt"
+  seed_issue dev_complete "$id" "$slug" chore "Pointer-by-pointer row $id" "feature/$id-work"
+  l="$(grep -nF -- '- [ ] AC1 —' "$f" | head -1 | cut -d: -f1)"
+  [ -n "$l" ] || _fixture_die "_qvp_land: the AC1 bullet of $id was not found"
+  row="${tpl//@CHG@/$chg}"; row="${row//@CARD@/$rel}"; row="${row//@L@/$l}"
+  KIT_ROW="$row" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$f"
+  grep -qF -- "$(printf '%s' "$row" | head -1)" "$f" || _fixture_die "_qvp_land: the row of $id was not planted"
+  publish_sandbox
+  seed_branch "$id" work "$chg"
+  _QVP_OUT="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$id" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; _QVP_RC=$?
+}
+
+# _qvp_refused <label> <id> <slug> <rule> — the last _qvp_land was refused with <rule> and left the card where it was.
+_qvp_refused() {
+  [ "$_QVP_RC" -ne 0 ] || cf "$1: finish-pr.sh exited 0"
+  grep -q "refusal=$4" "$SB_TMP/rec-$2"/*.tsv 2>/dev/null \
+    || cf "$1: no progress record carries refusal=$4: $(cat "$SB_TMP/rec-$2"/*.tsv 2>/dev/null | cut -c1-200)"
+  origin_has_path "progress/qa_complete/$2-$3.md" && cf "$1: the card advanced despite the refusal"
+  return 0
+}
+
+# =============================================================================
+# CASE — A ROW THAT CITES SEVERAL LOCATIONS IS CHECKED POINTER BY POINTER.
+# Each quote is read against the path:line it follows: (a)/(b) two true pointers land in either
+# order; (c) a false quote on the second pointer is refused naming THAT pointer; (d) a fabricated
+# quote on the FIRST pointer is refused naming the first pointer (the last quote being true does not
+# carry it); (e) a pointer with no quote of its own is qa-verdict-quote-missing, naming it.
+# =============================================================================
+case_finish_pr_qa_verdict_pointers_are_checked_one_by_one() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-980" idb="$SB_PREFIX-981" idc="$SB_PREFIX-982" idd="$SB_PREFIX-983" ide="$SB_PREFIX-984"
+
+  _qvp_land "$ida" truefirst '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @CARD@:@L@ "seeded behaviour holds" |'
+  [ "$_QVP_RC" -eq 0 ] || cf "(a) two true pointers, each with its own true quote — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$ida-truefirst.md" || cf "(a) the card did not advance to qa_complete/"
+
+  _qvp_land "$idb" swapped '| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds"; @CHG@:1 "a real change" |'
+  [ "$_QVP_RC" -eq 0 ] || cf "(b) the same two true pointers in the other order — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idb-swapped.md" || cf "(b) the card did not advance to qa_complete/"
+
+  _qvp_land "$idc" falsesecond '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @CARD@:@L@ "this sentence is on no line of the card" |'
+  _qvp_refused "(c) a false quote on the second pointer" "$idc" falsesecond qa-verdict-quote-not-found
+  case "$_QVP_OUT" in *'"this sentence is on no line of the card" not found at progress/dev_complete/'"$idc"'-falsesecond.md:'*) : ;; *) cf "(c) the refusal does not name the second pointer for its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *"not found at CHANGE982.txt"*) cf "(c) the refusal names the first pointer, which holds its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  _qvp_land "$idd" fabricatedfirst '| AC1 | PASS | file:line | @CHG@:1 "kit-init refuses a blank principal"; @CARD@:@L@ "seeded behaviour holds" |'
+  _qvp_refused "(d) a fabricated quote on the first pointer, the last quote true" "$idd" fabricatedfirst qa-verdict-quote-not-found
+  case "$_QVP_OUT" in *'"kit-init refuses a blank principal" not found at CHANGE983.txt:1-1'*) : ;; *) cf "(d) the refusal does not name the first pointer for its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  _qvp_land "$ide" noquote '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @CARD@:@L@ (same claim, no quote) |'
+  _qvp_refused "(e) a second pointer whose quote was deleted" "$ide" noquote qa-verdict-quote-missing
+  case "$_QVP_OUT" in *"AC1 (progress/dev_complete/$ide-noquote.md:"*) : ;; *) cf "(e) the refusal does not name the pointer that has no quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *"AC1 (CHANGE984.txt"*) cf "(e) the refusal names the first pointer, which has its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  finish "finish-pr.sh reads each quote of a multi-pointer row against the path:line it follows: two true pointers land in either order (a, b); a false quote is refused naming its own pointer, whichever pointer holds it (c, d); a pointer with no quote of its own is qa-verdict-quote-missing naming that pointer (e)"
+  teardown
+}
+
+# =============================================================================
+# CASE — ONE ROW PER AC ID, AND A QUOTE OF AT LEAST EIGHT CHARACTERS.
+# (a) two rows for one AC id are refused (qa-verdict-ac-duplicate) with the id named and the legitimate
+#     shape (one row, several pointers) in the Next line; (b) a seven-character quote that is on its
+#     line is refused (qa-verdict-quote-too-short) naming its pointer; (c) the same line quoted at
+#     eight characters lands; (d) a quote shorter than eight that is the cited line's whole text lands
+#     (a version stamp is a short line).
+# =============================================================================
+case_finish_pr_qa_verdict_one_row_per_ac_and_quote_floor() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-985" idb="$SB_PREFIX-986" idc="$SB_PREFIX-987" idd="$SB_PREFIX-988"
+
+  _qvp_land "$ida" duplicate '| AC1 | PASS | file:line | @CHG@:1 "a real change" |
+| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds" |'
+  _qvp_refused "(a) two rows for AC1" "$ida" duplicate qa-verdict-ac-duplicate
+  case "$_QVP_OUT" in *"more than one row"*AC1*) : ;; *) cf "(a) the refusal does not name AC1 as repeated: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *"Next:"*"one row"*"every pointer"*) : ;; *) cf "(a) the Next line does not name the one-row shape: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+
+  _qvp_land "$idb" sevenchars '| AC1 | PASS | file:line | @CHG@:1 "real ch" |'
+  _qvp_refused "(b) a seven-character quote" "$idb" sevenchars qa-verdict-quote-too-short
+  case "$_QVP_OUT" in *'AC1 (CHANGE986.txt:1 "real ch")'*) : ;; *) cf "(b) the refusal does not name the short quote and its pointer: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+
+  _qvp_land "$idc" eightchars '| AC1 | PASS | file:line | @CHG@:1 "real cha" |'
+  [ "$_QVP_RC" -eq 0 ] || cf "(c) an eight-character quote on its line — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idc-eightchars.md" || cf "(c) the card did not advance to qa_complete/"
+
+  # The card's own line 1 is the frontmatter fence: three characters, and the whole line.
+  _qvp_land "$idd" wholeline '| AC1 | PASS | file:line | @CARD@:1 "---" |'
+  [ "$_QVP_RC" -eq 0 ] || cf "(d) a short quote that is the cited line's whole text — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idd-wholeline.md" || cf "(d) the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh refuses a table with two rows for one AC id (a, qa-verdict-ac-duplicate) and a quote shorter than eight characters (b, qa-verdict-quote-too-short), lands the same line quoted at eight (c) and lands a shorter quote that is the cited line's whole text (d)"
   teardown
 }
