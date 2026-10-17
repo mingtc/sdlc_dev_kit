@@ -382,7 +382,11 @@ kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}
 #    heading is one, across all templates (ISSUE/BUG/REFACTOR's 'AC1'/'B1', SUBTASK's 'AC<n>').
 #    Every evidence pointer is read against $BRANCH — the revision being landed, same as
 #    kit_forks_check's new_rev above — never the caller's own working tree.
-kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$BRANCH"
+#    The branch tip is resolved once: the gate reads that commit and the Activity note names it.
+QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH}^{commit}" 2>/dev/null || true)"
+QA_READ_SHORT=""
+[ -z "$QA_READ_FULL" ] || QA_READ_SHORT="$(git -C "$MAIN_ROOT" rev-parse --short "$QA_READ_FULL" 2>/dev/null || true)"
+kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${QA_READ_FULL:-$BRANCH}"
 
 #    Ablation: process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.
 #    TEST_GLOBS (scripts/config.sh) read as the UNION of the trunk's copy and the branch's.
@@ -757,7 +761,13 @@ if [ "$NOTE_GIVEN" != "true" ]; then
     probe-failed) _remote_clause="${KWT_REMOTE} NOT PROBED, no delete attempted" ;;
     *)           _remote_clause="${KWT_REMOTE} branch state UNKNOWN" ;;
   esac
-  NOTE="Review — PASS. Squash-merged '${BRANCH}' into ${DEFAULT_BRANCH}; ${_local_clause}; ${_remote_clause}."
+  # The note names the branch tip the QA Verdict was read at and the squash commit, so a later
+  # reader re-resolves the table's pointers at that revision.
+  _rev_clause=""
+  [ -z "$QA_READ_SHORT" ] || _rev_clause=" (verdict read at ${QA_READ_SHORT})"
+  _squash_clause=""
+  [ -z "${KWT_LANDED_SHA:-}" ] || _squash_clause=" as ${KWT_LANDED_SHA}"
+  NOTE="Review — PASS. Squash-merged '${BRANCH}'${_rev_clause} into ${DEFAULT_BRANCH}${_squash_clause}; ${_local_clause}; ${_remote_clause}."
 fi
 
 # ── Advance the issue dev_complete/ → qa_complete/. move-issue.sh inherits the

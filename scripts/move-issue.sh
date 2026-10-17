@@ -193,7 +193,7 @@ case "${1:-}" in
                                       # into a board column that does not exist.
   *)   TARGET="$1"; shift ;;
 esac
-ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0; LANDED_AT=""
+ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0; LANDED_AT=""; QA_READ_NOTE=""
 # need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
@@ -474,7 +474,10 @@ else
     _mv_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
     _mv_qa_check="verdict-checked"
     if [ -z "$LANDED_AT" ]; then
-      kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk"
+      # The tip is resolved once: the check reads that commit and the Activity entry names it.
+      _mv_read="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${_mv_trunk}^{commit}" 2>/dev/null || true)"
+      kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${_mv_read:-$_mv_trunk}"
+      [ -z "$_mv_read" ] || QA_READ_NOTE=" (QA Verdict read at ${DEFAULT_BRANCH} $(git -C "$MAIN_ROOT" rev-parse --short "$_mv_read" 2>/dev/null))"
     else
       _mv_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${LANDED_AT}^{commit}" 2>/dev/null || true)"
       _mv_subj=""
@@ -526,7 +529,7 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
   ENTRY="- ${TODAY} [${ROLE}] NOTE: ${NOTE}"
 else
   [ -z "$NOTE" ] && NOTE="git mv to ${TARGET}/."
-  ENTRY="- ${TODAY} [${ROLE}] → ${TARGET}: ${NOTE}"
+  ENTRY="- ${TODAY} [${ROLE}] → ${TARGET}: ${NOTE}${QA_READ_NOTE:-}"
 fi
 
 if [ -n "$(tail -c1 "$DEST" 2>/dev/null)" ]; then

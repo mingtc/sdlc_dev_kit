@@ -339,6 +339,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **A landing's Activity entry names the revisions the QA Verdict was read at.** `finish-pr.sh`'s `Review — PASS` entry carries the
+  branch tip the check read and the squash commit it landed; a direct-to-trunk `move-issue.sh <ID> qa_complete` carries the trunk
+  tip it read. Re-resolve a landed row's `path:line` at that revision, not at today's code. No action.
 - **A QA Verdict row is checked pointer by pointer.** Each quote is read against the `path:line` it follows, so a row that cites
   two places lists both, each followed by its own quote (`README.md:2 "first"; src/a.js:8 "second"`). The landing check now refuses
   a pointer with no quote of its own (naming the pointer), a quote shorter than 8 characters (unless it is the cited line's whole

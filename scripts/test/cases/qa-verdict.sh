@@ -916,3 +916,62 @@ case_move_issue_qa_complete_runs_the_verdict_check() {
   finish "move-issue.sh <ID> qa_complete refuses a card whose QA Verdict table is the template on the trunk (a), including the table filled in a commit not yet published (b, which lands once published); finish-pr.sh's own landing of a filled card still succeeds and the mover says it skipped the check (c); --landed-at is verified against the card's squash on the trunk and a hand-passed value is refused (d)"
   teardown
 }
+
+# =============================================================================
+# CASE — THE LANDING'S ACTIVITY ENTRY NAMES THE REVISIONS IT READ. A pointer is a coordinate in a
+# tree that moves, so the card records which tree the QA Verdict was read in:
+# (a) finish-pr.sh's entry names the branch tip the verdict gate read and the squash commit it
+#     landed — both resolve in the repository, and the read one is the branch tip (the squash is not);
+# (b) a direct-to-trunk move-issue.sh ... qa_complete names the trunk tip it read, and it resolves
+#     to the commit the trunk stood at before the move.
+# =============================================================================
+case_qa_landing_activity_names_the_revision_read() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-698" idb="$SB_PREFIX-699"
+  seed_issue dev_complete "$ida" landed chore "Landed by finish-pr.sh" "feature/$ida-work"
+  seed_issue dev_complete "$idb" direct chore "Direct to trunk"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE698.txt
+  local tip entry out rc fa fb
+  tip="$(git -C "$SB_WORK" rev-parse "feature/$ida-work")"
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  fa="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$ida-landed.md" 2>/dev/null)"
+  entry="$(printf '%s\n' "$fa" | grep -F 'Review — PASS. Squash-merged' | tail -1)"
+  [ -n "$entry" ] || cf "(a) the card carries no 'Review — PASS. Squash-merged' entry"
+  # every 7+ hex token on the entry's line must resolve; the branch tip must be one, and the squash another
+  local tok seen_tip=0 seen_other=0 n=0
+  for tok in $(printf '%s\n' "$entry" | grep -oE "[0-9a-f]{7,40}"); do
+    n=$((n + 1))
+    git -C "$SB_WORK" cat-file -e "${tok}^{commit}" 2>/dev/null || { cf "(a) '$tok' on the entry does not resolve to a commit"; continue; }
+    if [ "$(git -C "$SB_WORK" rev-parse "${tok}^{commit}")" = "$tip" ]; then seen_tip=1; else seen_other=1; fi
+  done
+  [ "$seen_tip" -eq 1 ] || cf "(a) the entry does not name the branch tip the gate read ($tip): $entry"
+  [ "$seen_other" -eq 1 ] || cf "(a) the entry names no squash commit besides the branch tip: $entry"
+  [ "$n" -ge 2 ] || cf "(a) the entry names fewer than two revisions: $entry"
+  case "$entry" in *$'\n'*) cf "(a) the entry is not one line" ;; esac
+
+  # (b) the trunk tip the move reads
+  local before
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  before="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK")"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/move-issue.sh "$idb" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) move-issue.sh qa_complete exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  fb="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$idb-direct.md" 2>/dev/null)"
+  entry="$(printf '%s\n' "$fb" | grep -F 'direct to trunk' | tail -1)"
+  [ -n "$entry" ] || cf "(b) the card carries no entry for the move"
+  seen_tip=0
+  for tok in $(printf '%s\n' "$entry" | grep -oE "[0-9a-f]{7,40}"); do
+    git -C "$SB_WORK" cat-file -e "${tok}^{commit}" 2>/dev/null || { cf "(b) '$tok' on the entry does not resolve to a commit"; continue; }
+    [ "$(git -C "$SB_WORK" rev-parse "${tok}^{commit}")" = "$before" ] && seen_tip=1
+  done
+  [ "$seen_tip" -eq 1 ] || cf "(b) the entry does not name the trunk tip the move read ($before): $entry"
+
+  finish "finish-pr.sh's Activity entry names the branch tip the verdict gate read and the squash commit it landed (a), and a direct-to-trunk move to qa_complete names the trunk tip it read (b); every revision named resolves in the repository"
+  teardown
+}
