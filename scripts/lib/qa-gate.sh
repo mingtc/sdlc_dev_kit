@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # KIT-CLASS: KIT — the QA Verdict / forks: / Ablation landing checks, ONE parser shared by
-# finish-pr.sh (a card in progress/dev_complete/) and subtask.sh (a slice's own card, moving to
-# qa_complete/ within progress/subtasks/<parent>/). See process/EXTRACTION.md.
+# finish-pr.sh (a card in progress/dev_complete/), move-issue.sh (a move to qa_complete/, read at the
+# trunk tip) and subtask.sh (a slice's own card, moving to qa_complete/ within
+# progress/subtasks/<parent>/). See process/EXTRACTION.md.
 #
 # Extracted from finish-pr.sh so the same rules, the same rule ids and the same messages apply to
 # a subtask's own card. A caller sources this, then calls, each against ONE card file, before any

@@ -819,3 +819,100 @@ case_finish_pr_qa_verdict_one_row_per_ac_and_quote_floor() {
   finish "finish-pr.sh refuses a table with two rows for one AC id (a, qa-verdict-ac-duplicate) and a quote shorter than eight characters (b, qa-verdict-quote-too-short), lands the same line quoted at eight (c) and lands a shorter quote that is the cited line's whole text (d)"
   teardown
 }
+
+# =============================================================================
+# CASE — move-issue.sh <ID> qa_complete READS THE QA VERDICT TABLE AT THE TRUNK TIP.
+# The direct-to-trunk route (no branch, no finish-pr.sh) and the by-hand landing both end in this
+# move, so it runs the landing's own check. Each card is the real workflow's order: seeded in
+# dev_complete/, the table either left as the template or filled, then moved as QA.
+# (a) the template table, committed to the trunk: refused, naming register-commit.sh, nothing moved;
+# (b) the Subject's own sequence — the table filled in a LOCAL commit that was not pushed — is
+#     refused (the mover reads the trunk), and lands once that commit is on the trunk;
+# (c) finish-pr.sh's own landing of a filled card still succeeds and says it skipped the check;
+# (d) the skip cannot be passed by hand: --landed-at with a commit that is not that card's
+#     squash on the trunk is refused, and the card stays put.
+# =============================================================================
+_mvq_template_table() {  # <card file> — the QA Verdict rows as the card templates ship them
+  KIT_ROW='| AC1 | `<PASS \| PASS_AC_CORRECTED \| FAIL_AC \| FAIL_REGRESSION>` | `<placeholder>` | `<placeholder>` |' \
+    perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$1"
+  KIT_ROW='| shadow-check | — | — | `<assertions removed: none — or each removed or weakened assertion, with its replacement>` |' \
+    perl -i -pe 's/^\| shadow-check \|.*\|$/$ENV{KIT_ROW}/' "$1"
+  grep -qF '`<placeholder>`' "$1" && grep -qF '<assertions removed: none' "$1" \
+    || _fixture_die "_mvq_template_table: the template rows were not planted in $1"
+}
+
+_mvq_seed_template() {  # <id> <slug> <title> [<path to keep the filled card at>] — a dev_complete card whose table is the template
+  seed_issue dev_complete "$1" "$2" chore "$3"
+  [ -z "${4:-}" ] || cp "$SB_WORK/progress/dev_complete/$1-$2.md" "$4"
+  _mvq_template_table "$SB_WORK/progress/dev_complete/$1-$2.md"
+}
+
+case_move_issue_qa_complete_runs_the_verdict_check() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-694" idb="$SB_PREFIX-695" idc="$SB_PREFIX-696" idd="$SB_PREFIX-697"
+  local out rc fb="$SB_WORK/progress/dev_complete/$SB_PREFIX-695-subject.md"
+
+  # (c) a filled card with a branch, for finish-pr.sh.
+  seed_issue dev_complete "$idc" landed chore "Filled card, landed by finish-pr.sh" "feature/$idc-work"
+  # (a) a direct-to-trunk card whose table is the template, on the trunk; (b) the Subject's card,
+  # its filled table kept aside for the local commit; (d) a template card for the forged-flag rows.
+  _mvq_seed_template "$ida" direct "Direct to trunk, template table"
+  _mvq_seed_template "$idb" subject "Table filled locally, not pushed" "$SB_TMP/$idb.filled"
+  _mvq_seed_template "$idd" forged "Template table, forged skip"
+  publish_sandbox
+  seed_branch "$idc" work CHANGE696.txt
+
+  # The card cites its own pre-move path (progress/dev_complete/…), the shape a metadata card does:
+  # the pointer is read before the move, where that path still exists.
+  grep -qF "progress/dev_complete/$idc-landed.md:" "$SB_WORK/progress/dev_complete/$idc-landed.md" \
+    || _fixture_die "case_move_issue_qa_complete_runs_the_verdict_check: the filled card does not cite its own dev_complete path"
+
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a template table — move-issue.sh qa_complete exited 0"
+  case "$out" in *register-commit.sh*) : ;; *) cf "(a) the refusal's Next does not name register-commit.sh: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=qa-verdict-evidence-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | cut -c1-200)"
+  origin_has_path "progress/qa_complete/$ida-direct.md" && cf "(a) the card reached qa_complete/ despite the refusal"
+  origin_has_path "progress/dev_complete/$ida-direct.md" || cf "(a) the card left dev_complete/ during the refusal"
+
+  # (b) filled in a local commit, NOT published.
+  cp "$SB_TMP/$idb.filled" "$fb"
+  git -C "$SB_WORK" add "progress/dev_complete/$idb-subject.md" >/dev/null 2>&1
+  sbcommit -m "[QA] $idb: fill the verdict" --quiet >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/move-issue.sh "$idb" qa_complete --role QA --note "Review PASS" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) the table filled in an unpublished commit — the move exited 0"
+  origin_has_path "progress/qa_complete/$idb-subject.md" && cf "(b) the card reached qa_complete/ with the template table on the trunk"
+  grep -q 'refusal=qa-verdict-' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
+    || cf "(b) no progress record carries a qa-verdict refusal: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null | cut -c1-200)"
+  # (a failed push here means the trunk moved on, which only an unrefused move above can cause)
+  if git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1; then
+    out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-b2" ./scripts/move-issue.sh "$idb" qa_complete --role QA --note "Review PASS" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(b) the same move after publishing the table exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+    origin_has_path "progress/qa_complete/$idb-subject.md" || cf "(b) the card did not reach qa_complete/ once its table was on the trunk"
+  else
+    cf "(b) the filled table could not be published: the trunk had moved on"
+  fi
+
+  # (c) finish-pr.sh lands a filled card and the mover it calls skips the check, saying so.
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-c" "$SB_WORK/scripts/finish-pr.sh" "$idc" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) finish-pr.sh on a filled card exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idc-landed.md" || cf "(c) the card did not reach qa_complete/"
+  case "$out" in *"QA Verdict check skipped"*) : ;; *) cf "(c) the move did not say it skipped the check: $(printf '%s' "$out" | tail -8 | tr '\n' '|' | cut -c1-300)" ;; esac
+
+  # (d) the skip is not a flag a seat can pass by hand: a trunk commit that is not this card's squash.
+  local other
+  other="$(git -C "$SB_WORK" rev-parse "origin/$SB_TRUNK~1")"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-d" ./scripts/move-issue.sh "$idd" qa_complete --role QA --note "Review PASS" --landed-at "$other" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) --landed-at naming a commit that is not the card's squash — the move exited 0"
+  grep -q 'refusal=landed-at-unverified' "$SB_TMP/rec-d"/*.tsv 2>/dev/null \
+    || cf "(d) no progress record carries refusal=landed-at-unverified: $(cat "$SB_TMP/rec-d"/*.tsv 2>/dev/null | cut -c1-200)"
+  case "$out" in *"Next:"*) : ;; *) cf "(d) the refusal names no next action: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-d2" ./scripts/move-issue.sh "$idd" qa_complete --role QA --note "Review PASS" --landed-at not-a-commit 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(d) --landed-at naming no commit — the move exited 0"
+  origin_has_path "progress/qa_complete/$idd-forged.md" && cf "(d) the template card reached qa_complete/ through a forged --landed-at"
+
+  finish "move-issue.sh <ID> qa_complete refuses a card whose QA Verdict table is the template on the trunk (a), including the table filled in a commit not yet published (b, which lands once published); finish-pr.sh's own landing of a filled card still succeeds and the mover says it skipped the check (c); --landed-at is verified against the card's squash on the trunk and a hand-passed value is refused (d)"
+  teardown
+}

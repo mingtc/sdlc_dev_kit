@@ -20,7 +20,7 @@
 # irrelevant. Run this from anywhere (the trunk, a feature worktree, or .kanban-wt).
 #
 # Usage:
-#   ./scripts/move-issue.sh <ID> <target> --role <R> [--note "..."] [--discard-dirty] [--set-pr <val>]
+#   ./scripts/move-issue.sh <ID> <target> --role <R> [--note "..."] [--discard-dirty] [--set-pr <val>] [--landed-at <sha>]
 #   ./scripts/move-issue.sh <ID> --note-only --role <R> --note "..."   # record WITHOUT moving
 #
 #   <R> = @ROLE_SET@
@@ -44,6 +44,11 @@
 #   (qa_complete/ and done/ refuse a PARENT while any card under progress/subtasks/<ID>/
 #    is outside qa_complete/ and declined/: a parent advances only when every subtask is reviewed
 #    or declined.)
+#   (qa_complete/ also refuses a card whose `## QA Verdict` table the landing would refuse, read on the
+#    trunk's copy of the card and its pointers at the trunk tip: the direct-to-trunk route and a
+#    by-hand landing meet the same check finish-pr.sh runs. A table filled in a local commit that is
+#    not on the trunk is the template to this check; commit it to the trunk with
+#    ./scripts/register-commit.sh first.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the
@@ -74,6 +79,11 @@
 #                    a second lane — a parallel worker, an orchestrated tranche, a
 #                    background job that also moves cards — it can destroy work you
 #                    never saw.
+#   --landed-at <sha>  For finish-pr.sh only, on a move to qa_complete: the squash commit it just
+#                    landed after checking the branch. The `## QA Verdict` check is skipped for that
+#                    move (a refusal after the squash would leave the code merged with the card still
+#                    in dev_complete/). <sha> must be that card's own squash commit on the trunk, or
+#                    the move is refused; the skip is printed and recorded.
 #   --set-pr <val>   Persist <val> into the moved file's `pr:` frontmatter, staged
 #                    into the SAME commit as the rename + Activity append.
 #                    Because the rewrite happens AFTER kwt_sync (in $KWT), it survives
@@ -183,7 +193,7 @@ case "${1:-}" in
                                       # into a board column that does not exist.
   *)   TARGET="$1"; shift ;;
 esac
-ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0
+ROLE=""; NOTE=""; SET_PR=""; NOTE_ONLY=0; LANDED_AT=""
 # need_val — refuse an option whose value is missing: exit 2, naming it (issue-creation.md § 3).
 need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
@@ -196,6 +206,7 @@ while [ $# -gt 0 ]; do
     --note) need_val "$@"; NOTE="$2"; shift 2 ;;
     --note-only) NOTE_ONLY=1; shift ;;
     --set-pr) need_val "$@"; SET_PR="$2"; shift 2 ;;
+    --landed-at) need_val "$@"; LANDED_AT="$2"; shift 2 ;;
     --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -214,6 +225,12 @@ fi
 if [ "$NOTE_ONLY" -eq 0 ] && [ -z "$TARGET" ]; then
   echo "Error: no target given. Name a target folder to MOVE, or pass --note-only to RECORD without moving." >&2
   usage >&2; exit 1
+fi
+
+if [ -n "$LANDED_AT" ] && { [ "$NOTE_ONLY" -eq 1 ] || [ "$TARGET" != "qa_complete" ]; }; then
+  kit_refuse 1 landed-at-wrong-target \
+    "Error: --landed-at belongs to a move to qa_complete (got '${TARGET:-no target}')." \
+    "Next: re-run without --landed-at."
 fi
 
 # A NOTE-ONLY APPEND WITHOUT A NOTE IS AN EMPTY RECORD. The move has a defensible
@@ -446,6 +463,35 @@ else
     kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk" "$_mv_new_rev" "$SCRIPT_DIR/check-board.sh"
   fi
 
+  # THE QA VERDICT CHECK AT qa_complete: the landing's own reader (lib/qa-gate.sh), read on the
+  # trunk's copy of the card and at the trunk tip — a direct-to-trunk card has no branch, and a code
+  # card landed by hand is on the trunk already. A table that exists only in a local commit is the
+  # template here. The one caller exempt is finish-pr.sh, which checked the BRANCH before its squash
+  # and passes the squash commit; a refusal now would leave the code merged and the card in
+  # dev_complete/. The exemption is verified, not trusted: --landed-at must name this card's squash
+  # commit on the trunk, and the skip is printed and recorded.
+  if [ "$TARGET" = "qa_complete" ]; then
+    _mv_trunk="${KWT_REMOTE}/${DEFAULT_BRANCH}"
+    _mv_qa_check="verdict-checked"
+    if [ -z "$LANDED_AT" ]; then
+      kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk"
+    else
+      _mv_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${LANDED_AT}^{commit}" 2>/dev/null || true)"
+      _mv_subj=""
+      [ -z "$_mv_landed" ] || _mv_subj="$(git -C "$MAIN_ROOT" log -1 --format=%s "$_mv_landed" 2>/dev/null || true)"
+      if [ -z "$_mv_landed" ] \
+         || ! git -C "$MAIN_ROOT" merge-base --is-ancestor "$_mv_landed" "$_mv_trunk" 2>/dev/null \
+         || { case "$_mv_subj" in "["*"] ${ISSUE_ID}: "*" (squash-merge "*")") false ;; *) true ;; esac; }; then
+        kit_refuse 1 landed-at-unverified \
+          "Error: --landed-at '${LANDED_AT}' is not ${ISSUE_ID}'s squash commit on ${_mv_trunk}, so the QA Verdict check was not skipped." \
+          "       finish-pr.sh passes the commit it landed; nothing else is exempt." \
+          "Next: drop --landed-at — the move then reads the card's table on the trunk — and, if the table is not filled yet, fill it and commit it to the trunk with ./scripts/register-commit.sh first. NOTHING WAS CHANGED."
+      fi
+      _mv_qa_check="skipped-landed-at:${_mv_landed:0:12}"
+      echo "QA Verdict check skipped — finish-pr.sh checked ${ISSUE_ID}'s branch before landing ${_mv_landed:0:12}."
+    fi
+  fi
+
   # PLACEHOLDER LINT AT THE DEV_COMPLETE BOUNDARY: unfilled `<angle-bracket>` text travels into
   # squash subjects and the archive index. WARNS, never refuses: an angle bracket is also legal
   # prose, and a refusal on valid input trains the operator to ignore it (instruments.md § A.8).
@@ -548,7 +594,8 @@ if [ "$NOTE_ONLY" -eq 1 ]; then
     "event=note" "issue=${ISSUE_ID}" "role=${ROLE}" "sha=${KWT_LANDED_SHA:-$SHA}"
 else
   kit_progress "${ROLE}:${ISSUE_ID}" status "${ISSUE_ID} → ${TARGET}: ${NOTE}" \
-    "event=move" "issue=${ISSUE_ID}" "role=${ROLE}" "to=${TARGET}" "sha=${KWT_LANDED_SHA:-$SHA}"
+    "event=move" "issue=${ISSUE_ID}" "role=${ROLE}" "to=${TARGET}" "sha=${KWT_LANDED_SHA:-$SHA}" \
+    ${_mv_qa_check:+"qa_check=${_mv_qa_check}"}
 fi
 # AN `if`, NOT AN `&&` CHAIN: the chain returns non-zero when the shas match (the normal case),
 # and under `set -e` that aborts after a successful landing.

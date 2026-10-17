@@ -329,6 +329,14 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Action required
+
+- **A card moved to `qa_complete/` by `move-issue.sh` is checked for its `## QA Verdict` table.** That is every
+  direct-to-trunk card and every landing done by hand; `finish-pr.sh` already checked its card. An in-flight card whose table
+  is unfilled now refuses the move, naming the rule and the fix. Fill the table and commit it to the trunk first
+  (`./scripts/register-commit.sh`): the move reads the trunk's copy, so a table in a local commit that was not pushed counts as
+  unfilled.
+
 ### Changed
 
 - **A QA Verdict row is checked pointer by pointer.** Each quote is read against the `path:line` it follows, so a row that cites

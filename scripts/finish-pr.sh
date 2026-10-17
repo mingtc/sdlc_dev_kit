@@ -601,7 +601,7 @@ echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${SQUAS
   echo "   If this run stops here — killed, timed out, disconnected — the landing is"
   echo "   COMPLETE but the cleanup is NOT. Finish it with exactly these two steps:"
   echo "     3. git -C '$MAIN_ROOT' branch -D '${BRANCH}'; git -C '$MAIN_ROOT' push ${KWT_REMOTE} --delete '${BRANCH}'"
-  echo "     4. $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note '<what the review found>'"
+  echo "     4. $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --landed-at ${KWT_LANDED_SHA:-<the published sha>} --note '<what the review found>'"
   echo "   Both are safe to re-run: each half of step 3 may report the branch not found, and"
   echo "   step 4 refuses an issue that is no longer in dev_complete/."
   echo ""
@@ -766,6 +766,9 @@ echo ""
 echo "Advancing ${ISSUE_ID} → qa_complete/..."
 MOVE_ARGS=("$ISSUE_ID" qa_complete --role "$ROLE" --note "$NOTE")
 [ "$DISCARD_DIRTY" = "true" ] && MOVE_ARGS+=(--discard-dirty)
+# The mover re-reads the QA Verdict table on the trunk; this landing checked the branch before the
+# squash, so it passes the squash commit and the mover verifies it (an unset sha means no skip).
+[ -z "${KWT_LANDED_SHA:-}" ] || MOVE_ARGS+=(--landed-at "$KWT_LANDED_SHA")
 # An `if`, not a bare call: under `set -e` a failed move would exit 1 ("nothing landed") after
 # the squash landed. This is where exit 3 comes from.
 if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
@@ -777,7 +780,7 @@ if ! "$SCRIPT_DIR/move-issue.sh" "${MOVE_ARGS[@]}"; then
     echo "         dev_complete/ → qa_complete/ move, so the board still shows it in review."
     echo "         DO NOT re-run this script: the branch is merged and the squash would have"
     echo "         nothing to do. Finish with just the move:"
-    echo "           $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --note '<what the review found>'"
+    echo "           $SCRIPT_DIR/move-issue.sh ${ISSUE_ID} qa_complete --role $ROLE --landed-at ${KWT_LANDED_SHA:-<the published sha>} --note '<what the review found>'"
   } >&2
 fi
 

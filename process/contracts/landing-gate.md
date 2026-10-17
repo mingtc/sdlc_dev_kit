@@ -82,7 +82,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   whole text) or not on the line its own pointer cites, no `path:line` row at all (every row
   `gate-diff` or `fixture-diff`), no filled `shadow-check` row, two rows for one AC id, or AC ids
   that do not match the AC checklist one for one ⇒ refuse before any destructive step, naming each
-  row and, for a quote, its pointer.
+  row and, for a quote, its pointer. The board move into the reviewed state runs the same check on an
+  item that did not land through this gate (direct to the trunk, or squash-merged by hand).
 - The item's `forks:` field is missing, is neither `none` nor a bracketed list of register ids,
   names an id that is no live register entry, omits a fork the branch's own diff shows or that a
   register entry added to the trunk since the item left `todo/` attributes to it (its Provenance

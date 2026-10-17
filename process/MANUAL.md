@@ -559,7 +559,8 @@ code-vs-metadata rule) — a docs, process, role-doc, script, or other metadata 
 **direct on the trunk**: Dev commits the change straight to the trunk with a Dev prefix, then
 `move-issue.sh <ID> dev_complete`. **QA verifies on the trunk itself** — there is **no branch to
 check out** and **no `finish-pr.sh`** (nothing to squash-merge) — and lands the issue with
-`./scripts/move-issue.sh <ID> qa_complete --role QA --note "…"`. Steps 2 (read context), 4 (walk
+`./scripts/move-issue.sh <ID> qa_complete --role QA --note "…"`, which refuses a card whose `## QA
+Verdict` table is not filled on the trunk — commit it first (`./scripts/register-commit.sh`). Steps 2 (read context), 4 (walk
 the AC) and 5 (the binding cross-cut check, where applicable — usually N/A for a metadata
 change) still apply; steps 1/3/6-PASS are the branch-only parts that collapse. Code work keeps
 the full branch-based boundary.

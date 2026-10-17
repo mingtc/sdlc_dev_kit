@@ -126,6 +126,13 @@ to change and making every change self-recording.
 - A move into the hand-off state (`dev_complete`) of a card whose `forks:` field the landing's own check
   would refuse ⇒ refuse with that check's refusal, from the same reader, before moving anything. The
   author meets the rule at hand-off, not the reviewer at the landing; the landing keeps its check.
+- A move into the reviewed state (`qa_complete`) of a card whose `## QA Verdict` table the landing's own
+  check would refuse ⇒ refuse with that check's refusal, from the same reader, read on the publication
+  area's copy of the card at the trunk tip, before moving anything. A card that skips the landing script
+  (direct to the trunk, or squash-merged by hand) is judged here; a table that exists only in an
+  unpublished commit is, to this check, not there. The one move exempt is the landing script's own, which
+  has just checked the branch: it names the squash commit it landed, the mover verifies that commit is
+  the item's squash on the trunk, and the skip is printed and recorded. Any other value is refused.
 - A move of a decomposed item into the reviewed state or the completed store while any of its children
   is neither reviewed nor declined ⇒ refuse, naming each such child. (Declining the item itself claims no
   completion and is not refused.) A child that will not be done is closed by declining it, with its reason.

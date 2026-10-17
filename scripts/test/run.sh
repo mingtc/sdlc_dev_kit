@@ -344,6 +344,7 @@ CASES=(
   case_finish_pr_qa_verdict_escaped_pipe_is_one_cell
   case_finish_pr_qa_verdict_pointers_are_checked_one_by_one
   case_finish_pr_qa_verdict_one_row_per_ac_and_quote_floor
+  case_move_issue_qa_complete_runs_the_verdict_check
   case_qa_gate_verdict_set_is_the_ratified_set
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
   case_finish_pr_ablation_declared_empty_test_globs_says_so
