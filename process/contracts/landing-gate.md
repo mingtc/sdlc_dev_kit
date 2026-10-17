@@ -89,7 +89,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   register entry added to the trunk since the item left `todo/` attributes to it (its Provenance
   paragraph, else the subject of the commit that added it, names the item), leaves such an added entry attributed to no
   work item (its Provenance names no card on the trunk and does not say `no work item`), or the
-  item's AC text changed after it left `todo/` with no `[decision: D-NN]` citation ⇒ refuse.
+  item's AC text changed after it left `todo/` and the changed bullet carries no `[decision: D-NN]` of its own (a citation elsewhere
+  on the item does not cover it) ⇒ refuse, naming the bullet's AC id.
 - The branch touches a declared test path and the item has no well-formed `## Ablation` section ⇒
   refuse, naming what the section lacks.
 - The branch is stacked on a base that has not landed, or has already squash-landed, or the squash

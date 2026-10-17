@@ -690,10 +690,9 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   [ "$rc" -eq 0 ] || cf "(b, control) a separator-only AC reformat after todo/ — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   origin_has_path "progress/qa_complete/$idb-reformat.md" || cf "(b, control) the card did not advance to qa_complete/"
 
-  # (c) THE SAME AC REWRITE AS (a), but the card ALSO carries a '[decision:D-01]' citation (no
-  #     space after the colon) in its Activity — on the OTHER
-  #     caller of the same '_forks_cited' derivation. Must land clean: the citation is real and
-  #     must be SEEN, not silently missed because of its spacing.
+  # (c) THE SAME AC REWRITE AS (a), but the changed bullet itself carries a '[decision:D-01]'
+  #     citation (no space after the colon). Must land clean: the citation is real and must be
+  #     SEEN on the bullet, not silently missed because of its spacing.
   make_sandbox work-c
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
   local idcc="$SB_PREFIX-685"
@@ -708,14 +707,13 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   seed_branch "$idcc" work CHANGE685.txt
   local fc="$SB_WORK/progress/in_progress/$idcc-nospace.md"
-  perl -i -pe "s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)\$/- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling cited with no space after the colon./" "$fc"
+  perl -i -pe "s/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)\$/- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling cited with no space after the colon [decision:D-01]./" "$fc"
   grep -qF 'cited with no space after the colon' "$fc" \
     || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (c) the AC rewrite was not planted"
   # 'forks:' names the cited id, so the contradicted check is satisfied and only the AC-drift
   # check's own reading of the citation decides.
   sed -i.bak 's/^forks: none$/forks: [D-01]/' "$fc" && rm -f "$fc.bak"
-  printf '%s\n' '- 2026-01-02 [PM] Ruled per the existing entry. [decision:D-01]' >> "$fc"
-  grep -qF '[decision:D-01]' "$fc" \
+  grep -qF 'colon [decision:D-01].' "$fc" \
     || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (c) the no-space citation was not planted"
   git -C "$SB_WORK" add "progress/in_progress/$idcc-nospace.md" >/dev/null 2>&1
   sbcommit -m "[PM] ${idcc}: amend AC1 with a ruling, cited with no space" --quiet >/dev/null 2>&1
@@ -729,8 +727,107 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   [ "$rc" -eq 0 ] || cf "(c) AC1 changed after todo/, cited '[decision:D-01]' with no space — finish-pr.sh exited $rc (a real no-space citation must be seen, not missed): $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
   origin_has_path "progress/qa_complete/$idcc-nospace.md" || cf "(c) the card did not advance to qa_complete/ despite a real (no-space) citation"
 
-  finish "finish-pr.sh refuses a landing whose AC text changed after the card left progress/todo/ with no '[decision: D-NN]' citation on the card (refusal=forks-ac-changed-uncited, naming the AC id); a pure separator reformat of the same wording is NOT drift and lands clean; a REAL citation written '[decision:D-NN]' with no space also lands clean — the AC-drift check reads the same shared, spacing-tolerant reader as the forks-contradicted check"
+  finish "finish-pr.sh refuses a landing whose AC text changed after the card left progress/todo/ with no '[decision: D-NN]' citation on the changed bullet (refusal=forks-ac-changed-uncited, naming the AC id); a pure separator reformat of the same wording is NOT drift and lands clean; a REAL citation written '[decision:D-NN]' with no space on the changed bullet also lands clean — the AC-drift check reads the same shared, spacing-tolerant reader as the forks-contradicted check"
   teardown
+}
+
+# _forks_drift_land <sandbox> <id> <slug> <ac2:0|1> <new-AC1-bullet> <extra-activity-line> <forks-value>
+# The real journey for an AC rewritten after pickup, in the kit's own order: minted into todo/ (with a
+# second AC that already cites [decision: D-01] when <ac2> is 1), moved out by the mover, the branch
+# cut, AC1's bullet then rewritten on the trunk, the card moved to dev_complete/, then finish-pr.sh.
+# Leaves the run in _FDL_OUT/_FDL_RC and the progress records in $SB_TMP/rec.
+_forks_drift_land() {
+  local sb="$1" id="$2" slug="$3" ac2="$4" newac="$5" extra="$6" forksv="$7"
+  local rel f
+  make_sandbox "$sb"
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  seed_issue todo "$id" "$slug" chore "AC rewritten after pickup" "feature/$id-work"
+  f="$SB_WORK/progress/todo/$id-$slug.md"
+  if [ "$ac2" = 1 ]; then
+    perl -i -pe 's/^(- \[ \] AC1 — .*)$/$1\n- [ ] AC2 — the second seeded behaviour holds, per [decision: D-01]./' "$f"
+    grep -qF 'AC2 — the second seeded behaviour holds, per [decision: D-01].' "$f" \
+      || _fixture_die "_forks_drift_land: the AC2 bullet was not planted"
+  fi
+  publish_sandbox
+  _forks_pickup "$id" "$slug"
+  rel="progress/in_progress/$id-$slug.md"
+  f="$SB_WORK/$rel"
+  if [ "$ac2" = 1 ]; then
+    perl -i -pe 's/^(\| AC1 \|.*)$/$1\n| AC2 | PASS | test | RELPATH:AC2LINE "the second seeded behaviour holds" |/' "$f"
+    perl -i -pe "s{RELPATH}{$rel}; s{AC2LINE}{$(grep -nF -- '- [ ] AC2 —' "$f" | head -1 | cut -d: -f1)}" "$f"
+  fi
+  _forks_refix_qa_pointer "$f" "$rel"
+  git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
+  sbcommit -m "[PM] ${id}: re-point the QA Verdict rows at the current path" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  seed_branch "$id" work "CHANGE-$id.txt"
+  NEWAC="$newac" perl -i -pe 'BEGIN { $n = $ENV{NEWAC} } s/^- \[ \] AC1 — the sandbox.s seeded behaviour holds\.$/$n/' "$f"
+  grep -qF -- "$(printf '%s' "$newac" | head -1)" "$f" \
+    || _fixture_die "_forks_drift_land: the AC1 rewrite was not planted"
+  [ -z "$extra" ] || printf '%s\n' "$extra" >> "$f"
+  sed -i.bak "s/^forks: .*\$/forks: $forksv/" "$f" && rm -f "$f.bak"
+  git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
+  sbcommit -m "[PM] ${id}: rewrite AC1" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  mkdir -p "$SB_WORK/progress/dev_complete"
+  git -C "$SB_WORK" mv "$rel" "progress/dev_complete/$id-$slug.md" >/dev/null 2>&1
+  sbcommit -m "[Dev] ${id}: ready for review" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  _FDL_OUT="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; _FDL_RC=$?
+}
+
+# =============================================================================
+# CASE — THE '[decision: D-NN]' CITATION THAT ANSWERS A CHANGED AC BULLET IS ON THAT BULLET.
+# A citation elsewhere on the card — in another AC, in the Activity — does not satisfy it, so the
+# check can fire on a card that already cites a ruling. The control (the same edit with the
+# citation on the changed bullet) lands; a citation on a continuation line below the bullet is not
+# on the bullet.
+# RED FIRST: fails while any citation anywhere on the card satisfies the check.
+# =============================================================================
+case_finish_pr_forks_ac_drift_citation_binds_to_the_bullet() {
+  cf_reset
+  local id out rc
+
+  # (a) the card already cites D-01 on AC2; AC1 gains new text with no citation on AC1.
+  id="$SB_PREFIX-688"
+  _forks_drift_land work-a "$id" other-ac 1 \
+    "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too." "" "[D-01]"
+  [ "$_FDL_RC" -ne 0 ] || cf "(a) AC1 changed with a citation only on AC2 — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *forks-ac-changed-uncited*|*"AC text changed"*) : ;; *) cf "(a) the refusal is not the AC-drift one: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(a) the refusal does not name AC1 as the uncited bullet: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$_FDL_OUT" in *"Next:"*"AC1"*"[decision: D-NN]"*) : ;; *) cf "(a) the Next: line does not tell the author to cite the ruling on AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  origin_has_path "progress/qa_complete/$id-other-ac.md" && cf "(a) the card advanced despite the refusal"
+  grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-ac-changed-uncited"
+  teardown
+
+  # (b) an unrelated '[decision: D-01]' is appended to the Activity, and 'forks:' names it.
+  id="$SB_PREFIX-689"
+  _forks_drift_land work-b "$id" activity 0 \
+    "- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling folded into this line." \
+    "- 2026-01-02 [PM] Unrelated note. [decision: D-01]" "[D-01]"
+  [ "$_FDL_RC" -ne 0 ] || cf "(b) AC1 changed with a citation only in the Activity — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(b) the refusal does not name AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "progress/qa_complete/$id-activity.md" && cf "(b) the card advanced despite the refusal"
+  teardown
+
+  # (c) THE CONTROL: the same edit, the citation on the changed bullet.
+  id="$SB_PREFIX-800"
+  _forks_drift_land work-c "$id" onbullet 1 \
+    "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too [decision: D-01]." "" "[D-01]"
+  [ "$_FDL_RC" -eq 0 ] || cf "(c, control) the changed bullet carries its own citation — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$id-onbullet.md" || cf "(c, control) the card did not advance to qa_complete/"
+  teardown
+
+  # (d) a citation on a continuation line below the bullet is not on the bullet.
+  id="$SB_PREFIX-806"
+  _forks_drift_land work-d "$id" continuation 0 \
+    "$(printf '%s\n%s' "- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling written below." "  Continuation line. [decision: D-01]")" "" "[D-01]"
+  [ "$_FDL_RC" -ne 0 ] || cf "(d) a citation on a continuation line satisfied the check — finish-pr.sh exited 0"
+  case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(d) the refusal does not name AC1: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
+  teardown
+
+  finish "the citation that answers a changed AC bullet is on that bullet: a card that already cites a ruling on another AC, or in its Activity, is still refused (refusal=forks-ac-changed-uncited, the Next: naming the bullet's AC id); the same edit with the citation on the bullet lands; a citation on a continuation line below the bullet is not on the bullet"
 }
 
 # _forks_pad_card <file> — append the template boilerplate real cards share (a long fixed section),

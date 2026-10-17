@@ -213,7 +213,7 @@ implementation for matching reality.** PASS it, **land the AC amendment with the
 replacing the wrong illustration with the corrected one **and its source**. Record the register entry
 for the correction first (yours in the same change, or the PM's already on trunk with this card's id in its Provenance, which `forks:` then names; one added on the branch
 is named in `forks:` and cited by a PRD or marked `[cross-cutting]`) and cite it as
-`[decision: D-NN]` on the card (an AC changed after the card left `todo/` is refused at landing without it;
+`[decision: D-NN]` on the amended AC bullet (an AC changed after the card left `todo/` is refused at landing without a citation on that bullet;
 [MANUAL § Execution discipline, item 6](../../process/MANUAL.md)) — then send the note to PM, who keeps or
 revises the ruling: an AC illustration that was wrong once is a signal about where this project's facts
 are being guessed.

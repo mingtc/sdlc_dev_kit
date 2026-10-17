@@ -37,8 +37,11 @@
 #     ALSO: an AC bullet's own TEXT changed (separators/whitespace aside) after the card's own
 #     history shows it leaving a 'todo/' column (a rename whose OLD path ends in '/todo/' —
 #     'progress/todo/' or a subtask's own 'progress/subtasks/<parent>/todo/') needs a
-#     '[decision: D-NN]' citation somewhere on the card — a ruling written straight into an AC,
-#     with no register entry and no citation, is invisible to the derivation above. A card whose
+#     '[decision: D-NN]' citation ON THAT BULLET — a ruling written straight into an AC, with no
+#     register entry and no citation, is invisible to the derivation above. The bullet is its one
+#     checklist line ('- [ ] <id> — …'); a continuation line below it is neither compared nor read for
+#     a citation, and a citation elsewhere on the card (another AC, the Activity) never covers it.
+#     The refusal names each changed, uncited bullet by AC id. A card whose
 #     history never shows it leaving a 'todo/' column (minted straight into another one) makes
 #     this half UNRUNNABLE, printed on stdout the same way kit_ablation_check reports an
 #     undeclared TEST_GLOBS. This history is read from <old-rev> (the TRUNK), never <new-rev>:
@@ -593,13 +596,13 @@ _forks_window_entries() {
 kit_forks_check() {
   local src="$1" issue_id="$2" repo="$3" old_rev="$4" new_rev="$5" check_board="$6"
   local _forks_line _forks_ids="" _forks_inner _forks_n_tokens _forks_n_ids
-  local _forks_declared _forks_regs _forks_cited
+  local _forks_declared _forks_regs _forks_cited _forks_id_shape
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg
   local _forks_bad="" _fid _forks_derived _forks_missing_ids=""
   local _forks_del_log _fdl_line _forks_leave_commit="" _forks_leave_path=""
   local _frl_commit=""
-  local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new
+  local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new _fac_scratch
   local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
   local _forks_win_mine="" _forks_win_unattr="" _fwk _fwi _fws _fwp _fwj _forks_win_out _forks_unattr_msg=""
   local _forks_unattr_first="" _forks_unattr_reg="" _forks_sub_excl=() _forks_win_skip="" _forks_win_mine_txt=""
@@ -651,7 +654,8 @@ kit_forks_check() {
   # spacing-tolerant, list- and range-aware — the same reader arm (l) and arm (r) read a citation
   # through. A second regex here would let one caller read a citation another cannot see. Called unconditionally, like kit_decision_register_live below:
   # both are sourced by every caller before this file, same as this file's own functions are.
-  _forks_cited="$(kit_decisions_cited "$src" 'D-[0-9]+' | sort -u || true)"
+  _forks_id_shape='D-[0-9]+'
+  _forks_cited="$(kit_decisions_cited "$src" "$_forks_id_shape" | sort -u || true)"
 
   # The leave-todo commit starts two reads: the register window below and the AC-drift half after it.
   # The card's identity is its ID, never its content: card templates are mostly boilerplate, so a
@@ -805,6 +809,12 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
     _forks_new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
     _forks_old_body="$(git -C "$repo" show "${_forks_leave_commit}^:${_forks_leave_path}" 2>/dev/null \
       | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
+    # A changed bullet answers for itself: the citation must be ON that bullet (its one checklist
+    # line, the same text _qav_ac_bullet_text compares), so a citation elsewhere on the card — in
+    # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
+    # bullet goes through a scratch file (with none, every changed bullet reads uncited: the landing
+    # refuses, never passes).
+    _fac_scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || _fac_scratch=""
     _forks_ac_ids="$(_qav_ac_ids "$_forks_new_body")"
     while IFS= read -r _fac; do
       [ -n "$_fac" ] || continue
@@ -813,15 +823,21 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       # A bullet absent from the leave-todo revision (a new AC added after todo) is not a
       # TEXT CHANGE of an existing ruling — nothing to compare, so it is not drift.
       [ -n "$_fac_old" ] || continue
-      [ "$_fac_old" = "$_fac_new" ] || _forks_ac_drift="${_forks_ac_drift}${_forks_ac_drift:+, }$_fac"
+      [ "$_fac_old" != "$_fac_new" ] || continue
+      if [ -n "$_fac_scratch" ]; then
+        printf '%s\n' "$_fac_new" > "$_fac_scratch"
+        [ -z "$(kit_decisions_cited "$_fac_scratch" "$_forks_id_shape")" ] || continue
+      fi
+      _forks_ac_drift="${_forks_ac_drift}${_forks_ac_drift:+, }$_fac"
     done <<< "$(printf '%s\n' "$_forks_ac_ids")"
+    [ -z "$_fac_scratch" ] || rm -f "$_fac_scratch"
 
-    if [ -n "$_forks_ac_drift" ] && [ -z "$_forks_cited" ]; then
+    if [ -n "$_forks_ac_drift" ]; then
       kit_refuse 2 forks-ac-changed-uncited \
-        "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${_forks_leave_commit:0:9}), with no '[decision: D-NN]' citation on the card: ${_forks_ac_drift}" \
-        "       A ruling written straight into an AC is still a fork — cite the id that decided it." \
+        "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${_forks_leave_commit:0:9}), and the changed bullet carries no '[decision: D-NN]' citation of its own: ${_forks_ac_drift}" \
+        "       A ruling written straight into an AC is still a fork — cite the id that decided it on the bullet that changed; a citation elsewhere on the card does not cover it." \
         "       (process/MANUAL.md § Execution discipline item 6.)" \
-        "Next: cite the register id that decided the change as '[decision: D-NN]' on the card. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC's earlier text." \
+        "Next: put the register id that decided the change on the changed bullet itself (${_forks_ac_drift}) as '[decision: D-NN]', on its checklist line. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC's earlier text." \
         "       NOTHING WAS CHANGED."
     fi
   fi

@@ -331,6 +331,11 @@ columns and never the cards.*
 
 ### Action required
 
+- **A changed AC bullet needs its own `[decision: D-NN]` citation.** The check that refuses a landing whose AC text changed after
+  the card left `todo/` (`forks-ac-changed-uncited`) now reads the citation on the changed bullet's own checklist line; a
+  citation in another AC or in the Activity does not cover it. An in-flight card whose changed AC bullet carries no citation of
+  its own now refuses at landing, naming the bullet: put the `[decision: D-NN]` on the bullet that changed. (This supersedes
+  "anywhere on the card" in the 0.9.0 entry in `KIT-RELEASE-HISTORY.md`.)
 - **A card moved to `qa_complete/` by `move-issue.sh` is checked for its `## QA Verdict` table.** That is every
   direct-to-trunk card and every landing done by hand; `finish-pr.sh` already checked its card. An in-flight card whose table
   is unfilled now refuses the move, naming the rule and the fix. Fill the table and commit it to the trunk first
