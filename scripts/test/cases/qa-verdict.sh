@@ -665,3 +665,49 @@ case_qa_gate_verdict_set_is_the_ratified_set() {
     || cf "qa-gate.sh's KIT_QAV_VERDICTS [$(printf '%s' "$gate" | tr '\n' ' ')] is not the ratified set [$(printf '%s' "$ratified" | tr '\n' ' ')]"
   finish "qa-gate.sh's KIT_QAV_VERDICTS is exactly the verdict set process/MANUAL.md step 6 ratifies"
 }
+
+# =============================================================================
+# CASE — A MARKDOWN-ESCAPED PIPE (\|) INSIDE A VERDICT-TABLE CELL IS PART OF THE CELL.
+# (a) the shipped template's own unfilled row refuses for the cells that are actually wrong — the
+#     evidence kind and the pointer are '<placeholder>', and no cell reads 'PASS_AC_CORRECTED \';
+# (b) a filled row whose quote contains \| lands when the cited line holds the pipe.
+# =============================================================================
+case_finish_pr_qa_verdict_escaped_pipe_is_one_cell() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-970" tpl='| AC1 | `<PASS \| PASS_AC_CORRECTED \| FAIL_AC \| FAIL_REGRESSION>` | `<placeholder>` | `<placeholder>` |'
+  seed_issue dev_complete "$ida" tplrow chore "The template's unfilled row" "feature/$ida-work"
+  local fa="$SB_WORK/progress/dev_complete/$ida-tplrow.md"
+  KIT_ROW="$tpl" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$fa"
+  grep -qF -- "$tpl" "$fa" || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (a) the template row was not planted"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE970A.txt
+
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) the template's unfilled row — finish-pr.sh exited 0"
+  case "$out" in *"AC1 (evidence kind '<placeholder>')"*) : ;; *) cf "(a) the refusal does not name the evidence kind '<placeholder>': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"AC1 (empty or placeholder pointer)"*) : ;; *) cf "(a) the refusal does not name AC1's placeholder pointer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *'PASS_AC_CORRECTED \'*) cf "(a) the refusal still reports a cell cut at the escaped pipe: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "CHANGE970A.txt" && cf "(a) the branch was merged before the refusal"
+
+  # (b) a quote with an escaped pipe, on a cited line that holds the pipe.
+  local idb="$SB_PREFIX-971"
+  seed_issue dev_complete "$idb" pipequote chore "A quote containing a pipe" "feature/$idb-work"
+  local fb="$SB_WORK/progress/dev_complete/$idb-pipequote.md" relb="progress/dev_complete/$idb-pipequote.md" pl
+  printf '%s\n' '- 2026-01-02 [PM] use a | b to pipe' >> "$fb"
+  pl="$(grep -nF -- 'use a | b to pipe' "$fb" | head -1 | cut -d: -f1)"
+  [ -n "$pl" ] || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the pipe line was not planted"
+  KIT_ROW="| AC1 | PASS | file:line | ${relb}:${pl} \"a \\| b\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$fb"
+  grep -qF -- '"a \| b"' "$fb" || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the escaped-pipe quote row was not planted"
+  publish_sandbox
+  seed_branch "$idb" work CHANGE971B.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a quote written \"a \\| b\" on a line holding 'a | b' — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|')"
+  origin_has_path "progress/qa_complete/$idb-pipequote.md" || cf "(b) the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh reads a markdown-escaped pipe as part of its cell: the template's unfilled row is refused for its placeholder kind and pointer (a), and a quote written with \\| lands when the cited line holds the pipe (b)"
+  teardown
+}

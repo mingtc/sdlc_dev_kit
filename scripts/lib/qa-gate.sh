@@ -22,6 +22,7 @@
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
 #     qa-verdict-ac-mismatch, qa-verdict-shadow-missing, qa-verdict-pointer-unresolved,
 #     qa-verdict-quote-missing, qa-verdict-quote-not-found, qa-verdict-no-observed.
+#     A cell may contain a pipe written `\|` (kit_md_row_cell).
 #
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
@@ -188,6 +189,23 @@ _qav_quote_in_range() {
   return 1   # return-class: predicate
 }
 
+# kit_md_row_cell <row> <n> — the <n>th cell (1-based) of a markdown table row, outer whitespace
+# trimmed. A pipe splits cells unless it is written `\|`, which is part of the cell and is
+# returned as a plain `|`. The one reader of a verdict-table row's cells.
+kit_md_row_cell() {
+  printf '%s\n' "$1" | awk -v n="$2" '{
+    k = 0; cur = ""; s = $0
+    for (i = 1; i <= length(s); i++) {
+      c = substr(s, i, 1)
+      if (c == "\\" && substr(s, i + 1, 1) == "|") { cur = cur "|"; i++ }
+      else if (c == "|") { cell[k++] = cur; cur = "" }
+      else cur = cur c
+    }
+    cell[k] = cur
+    v = cell[n]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); print v
+  }'
+}
+
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> ────────────────────────────────────
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4"
@@ -218,10 +236,10 @@ kit_qa_verdict_check() {
 
   while IFS= read -r _qrow; do
     [ -n "$_qrow" ] || continue
-    _qid="$(printf '%s' "$_qrow"     | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$2); print $2}')"
-    _qverdict="$(printf '%s' "$_qrow" | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$3); print $3}')"
-    _qkind="$(printf '%s' "$_qrow"    | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$4); print $4}')"
-    _qptr="$(printf '%s' "$_qrow"     | awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/,"",$5); print $5}')"
+    _qid="$(kit_md_row_cell "$_qrow" 1)"
+    _qverdict="$(kit_md_row_cell "$_qrow" 2)"
+    _qkind="$(kit_md_row_cell "$_qrow" 3)"
+    _qptr="$(kit_md_row_cell "$_qrow" 4)"
     _qverdict="$(printf '%s' "$_qverdict" | tr -d '`*')"   # the templates write the token in backticks
     _qkind="$(printf '%s' "$_qkind" | tr -d '`')"
     _qptr_stripped="$(printf '%s' "$_qptr" | tr -d '`')"

@@ -341,6 +341,7 @@ CASES=(
   case_finish_pr_qa_verdict_ac_separator_forms_refuse
   case_finish_pr_qa_verdict_fail_token_formatting_refuses
   case_finish_pr_qa_verdict_token_invalid_refuses
+  case_finish_pr_qa_verdict_escaped_pipe_is_one_cell
   case_qa_gate_verdict_set_is_the_ratified_set
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
   case_finish_pr_ablation_declared_empty_test_globs_says_so

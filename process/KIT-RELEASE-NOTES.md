@@ -329,7 +329,11 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **A QA Verdict cell may contain a pipe written `\|`.** The landing check reads `\|` as part of its cell (as `|`, so a quote
+  containing a pipe matches its cited line) and refuses an unfilled template row for the cells that are actually unfilled. An
+  unescaped `|` still starts a new cell.
 
 ## [0.10.1] — 2026-10-17
 
