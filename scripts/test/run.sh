@@ -392,6 +392,7 @@ CASES=(
   case_kit_init_commits_under_the_pre_role_hat
   case_kit_init_disposition_markers_intact
   case_kit_init_prefix_stamp_keeps_shipped_file_names
+  case_release_notes_stamp_checks_print_nothing_on_an_adopted_tree
   case_archive_requires_the_retired_store
   case_archive_missing_index_lists_the_store
   case_archive_refuses_a_name_already_retired

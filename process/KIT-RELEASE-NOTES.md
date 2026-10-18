@@ -239,8 +239,8 @@ the route (or, for a release that predates it, the read in § Without the script
   lines must print nothing; the third must show **your** prefix (the § Known gaps check):
 
   ```sh
-  git grep -nE '<PREFIX>|<project name>|KIT-[^0-9]' -- .claude/roles | grep -vE 'KIT-CLASS:|KIT-DISPOSITION:'
-  git grep -nE '<PREFIX>|<project name>|<trunk>|KIT-' -- .claude/templates | grep -vE 'KIT-CLASS:|KIT-DISPOSITION:'
+  git grep -nE '<PREFIX>|<project name>|KIT-[^0-9]' -- .claude/roles | grep -vE 'KIT-CLASS:|KIT-DISPOSITION:|KIT-FEEDBACK'
+  git grep -nE '<PREFIX>|<project name>|<trunk>|KIT-' -- .claude/templates | grep -vE 'KIT-CLASS:|KIT-DISPOSITION:|KIT-FEEDBACK'
   ./scripts/new-issue.sh --help | grep -o -- '--id [A-Z]*-NNN'
   ```
 
@@ -403,6 +403,8 @@ columns and never the cards.*
 - **A QA Verdict cell may contain a pipe written `\|`.** The landing check reads `\|` as part of its cell (as `|`, so a quote
   containing a pipe matches its cited line) and refuses an unfilled template row for the cells that are actually unfilled. An
   unescaped `|` still starts a new cell.
+- **The "stamp what arrived" checks print nothing on a correctly stamped tree.** Their `grep -v` now also exempts `KIT-FEEDBACK`, the
+  protected file name a role doc legitimately cites, so the first check no longer prints `orchestrator.md`'s line. No action.
 
 ## [0.10.1] — 2026-10-17
 

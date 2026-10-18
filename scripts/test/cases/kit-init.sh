@@ -172,6 +172,53 @@ EOF
 }
 
 # =============================================================================
+# THE UPGRADE NOTES' "MUST PRINT NOTHING" STAMP CHECKS PRINT NOTHING ON A FRESH ADOPTED TREE
+# =============================================================================
+# The notes tell an upgrade seat to run two `git grep` lines and expect no output. A role doc
+# legitimately names process/KIT-FEEDBACK.md, so a check that does not exempt that protected name
+# prints on every correctly stamped tree and the seat learns to ignore it. THE COMMANDS ARE READ
+# FROM THE NOTES FILE AT RUN TIME, never typed here: a copy stays green through any edit to the real
+# text. Each is the notes' own line that searches .claude/roles or .claude/templates.
+case_release_notes_stamp_checks_print_nothing_on_an_adopted_tree() {
+  cf_reset
+  local title="release notes: the printed stamp checks print nothing on a fresh adopted tree"
+  if ! has_kit_init; then skp "$title" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$title" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  local notes="$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md"
+  [ -f "$notes" ] || { skp "$title" "process/KIT-RELEASE-NOTES.md absent"; return; }
+
+  # THE OPERAND — the printed lines, extracted before anything runs.
+  local cmds=() c
+  while IFS= read -r c; do
+    [ -n "$c" ] && cmds+=("$c")
+  done < <(sed -n -E 's/^[[:space:]]+(git grep -nE .* -- \.claude\/(roles|templates) .*)$/\1/p' "$notes")
+  [ "${#cmds[@]}" -eq 2 ] \
+    || { cf "expected exactly 2 printed stamp-check commands in process/KIT-RELEASE-NOTES.md (one over .claude/roles, one over .claude/templates), found ${#cmds[@]} — the extraction no longer reads the notes' shape, so the assertion has no operand"; finish "$title"; return; }
+
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init exited $rc: $out"; finish "$title"; teardown; return; }
+
+  # The tree must hold what the checks search, or silence proves nothing.
+  [ -n "$(git -C "$SB_WORK" ls-files -- .claude/roles)" ] \
+    || cf "the adopted tree tracks no file under .claude/roles — the checks have nothing to search"
+
+  local got
+  for c in "${cmds[@]}"; do
+    got="$(cd "$SB_WORK" && eval "$c" 2>&1 || true)"
+    [ -z "$got" ] \
+      || cf "the notes' printed check '$c' printed on a correctly stamped tree:
+$(printf '%s' "$got" | sed 's/^/      /')"
+  done
+
+  finish "$title (commands read from the notes at run time)"
+  teardown
+}
+
+# =============================================================================
 # kit-init's OWN COMMITS DECLARE THE PRE-ROLE HAT. A day-one tree has no session hat and the
 # commit guard refuses a commit with none, so the initializer declares its hat (the pre-role hat
 # the subject names) for each commit it makes: the initialization commit and the self-check's.
