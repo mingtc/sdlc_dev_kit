@@ -1357,7 +1357,7 @@ KU_STAGED_EOF
 # =============================================================================
 case_upgrade_seat_brief_names_the_trunk_route() {
   cf_reset
-  local L="process/UPGRADE-SEAT.md lands by scripts/register-commit.sh, puts the hat in the main checkout the session started in, and gives a stopped seat's finish card the closing steps"
+  local L="process/UPGRADE-SEAT.md lands by scripts/register-commit.sh, puts the hat in the main checkout the session started in, and gives a stopped seat's finish card the closing steps; step 4 waits for the self-test inside the turn and records its tally"
   local doc="$REAL_REPO_ROOT/process/UPGRADE-SEAT.md" flat
   if [ ! -f "$doc" ]; then
     if [ -n "$(_tree_has_lived)" ]; then skp_lived "$L" "process/UPGRADE-SEAT.md is not in this project"
@@ -1368,6 +1368,8 @@ case_upgrade_seat_brief_names_the_trunk_route() {
   case "$flat" in *"./scripts/register-commit.sh --role"*) : ;; *) cf "the brief does not give the register-commit.sh landing command" ;; esac
   case "$flat" in *"hat in the main checkout this session started in"*) : ;; *) cf "the brief does not put the hat in the main checkout the session started in" ;; esac
   case "$flat" in *"that card carries the closing steps"*"newer handoff"*) : ;; *) cf "the stopped section does not put the closing steps, newer handoff included, in the card it mints" ;; esac
+  case "$flat" in *"longer than one tool call"*"wait for it to finish inside the same turn"*"ever end the turn on a statement"*) : ;; *) cf "step 4 does not say the self-test outlives one tool call, to wait for it inside the same turn, and not to end the turn on a statement" ;; esac
+  case "$flat" in *"tally"*"handoff"*) : ;; *) cf "the brief does not put the self-test's tally in the handoff" ;; esac
   case "$flat" in *"worktree or the main checkout"*) cf "the brief still offers the hat in either the worktree or the main checkout" ;; esac
   finish "$L"
 }

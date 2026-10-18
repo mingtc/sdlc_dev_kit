@@ -350,6 +350,8 @@ columns and never the cards.*
 
 ### Changed
 
+- **The upgrade seat's brief says how to wait for the self-test.** `process/UPGRADE-SEAT.md` step 4: `./scripts/test/run.sh` runs longer than one tool call, so run it in the background and wait for it inside the same turn (a headless session's exit stops background work), and put its tally in the handoff. No action.
+
 - **The board's `[g]` and `[l]` arms skip the committed upgrade staging directory.** While `.kit-upgrade/` is committed, its copies of the new kit's files no
   longer show as undecided DELETE-IF-UNUSED members in `[g]` or as dangling citations in `[l]`; each arm says `skipped N staged file(s)` in its line while any
   are there. No action.

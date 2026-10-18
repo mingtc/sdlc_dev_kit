@@ -64,7 +64,10 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
    only when the work is done, never to get past it. An item you cannot apply as written is a `K-NN` in
    `process/KIT-FEEDBACK.md` (kit feedback is off if `PROJECT.md` says so); an item blocked on the
    project's own decision is a card on its board.
-4. **Verify the kit's side, in the worktree:** `./scripts/test/run.sh`, then
+4. **Verify the kit's side, in the worktree:** `./scripts/test/run.sh`. It runs longer than one tool call:
+   run it in the background and wait for it to finish inside the same turn. Never end the turn on a
+   statement while it runs, since a headless session's exit stops its background work. Put its tally in
+   the handoff. Then
    `<worktree>/scripts/kit-upgrade.sh --finish --into <worktree>` once every item is marked and the marked
    checklist is landed. Finishing refuses on an unmarked item, a failing `Verify:` command, or an open
    card the new kit's landing checks would refuse; fix what it names, never route around it. It writes
