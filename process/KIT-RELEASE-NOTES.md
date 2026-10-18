@@ -350,6 +350,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **`check-board.sh`'s upgrade line no longer says "no upgrade in progress".** With no `process/UPGRADE-CHECKLIST.md` on the trunk it says a
+  release you hold newer than `KIT-VERSION` is run now (`process/contracts/kit-upgrade.md` § 2), and that the arm reads the trunk, so an upgrade staged or
+  committed locally and not yet landed shows as none; `[f1]` lists those commits. No action.
 - **The commit hook refuses a commit that stages the hat file.** `scripts/githooks/pre-commit` refuses a staged
   `.kit/session-role` in any checkout (`pre-commit-hat-file-staged`; `Next:` is `git rm --cached .kit/session-role` and an
   ignore entry); a staged deletion passes. A project that edited the hook gets it as a merge item; until merged, a staging

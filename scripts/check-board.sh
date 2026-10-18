@@ -1497,11 +1497,13 @@ esac
 # (o) KIT UPGRADE — the tree's process/KIT-VERSION and its form, and, while the upgrade checklist
 #      exists, how many of its items are unmarked. Reported, never refused: deferring an upgrade
 #      while a leg is in flight is legal, and the checklist is the deferral's record. Its path is
-#      read from scripts/kit-upgrade.sh, which writes it.
+#      read from scripts/kit-upgrade.sh, which writes it. With none on the trunk it says an absent
+#      checklist is not an absent duty, and that it reads the trunk, so an upgrade not yet landed is
+#      unseen here ([f1] lists it).
 #      Removable: delete this block, BEGIN to END, with the rest of that section's lines.
 # ---------------------------------------------------------------------------
 echo
-echo "[o] kit upgrade (reports only — an open upgrade is reported, never refused, and never changes the verdict below) — $(cb_src):"
+echo "[o] kit upgrade (reports only; never changes the verdict below) — $(cb_src):"
 o_v="$(sed -n '1{s/[[:space:]]*$//;p;}' "$CB_TREE/process/KIT-VERSION" 2>/dev/null || true)"
 if [ -z "$o_v" ]; then
   echo "      process/KIT-VERSION absent in this source  (skipped)"
@@ -1516,7 +1518,7 @@ o_cl="$(sed -n "/^UPGRADE_CHECKLIST='[^']*'\$/{s/^UPGRADE_CHECKLIST='\([^']*\)'\
 if [ -z "$o_cl" ]; then
   echo "      THE CHECKLIST PART DID NOT RUN — scripts/kit-upgrade.sh is absent or declares no UPGRADE_CHECKLIST, and that line names the checklist  (skipped)"
 elif [ ! -f "$CB_TREE/$o_cl" ]; then
-  echo "      $o_cl: none — no upgrade in progress"
+  echo "      $o_cl: none on the trunk — no checklist does not mean no duty: a release you hold that is newer than KIT-VERSION is applied now (process/contracts/kit-upgrade.md § 2). An upgrade staged or committed locally is not seen here; [f1] lists it."
 else
   o_t="$(sed -n '/^target:/{s/^target:[[:space:]]*//;p;q;}' "$CB_TREE/$o_cl" 2>/dev/null || true)"
   o_open="$(grep -c '^- \[ \]' "$CB_TREE/$o_cl" 2>/dev/null || true)"

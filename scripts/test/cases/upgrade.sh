@@ -510,7 +510,43 @@ case_check_board_reports_an_open_upgrade() {
   git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] finish" >/dev/null 2>&1; git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   sec="$(cb_run | awk '/^\[[a-z]\] kit upgrade/{f=1; print; next} f && /^(\[[a-z]\]|──)/{exit} f')"
   printf '%s\n' "$sec" | grep -F '0.2.0' | grep -Fi 'a release' >/dev/null || cf "a bare KIT-VERSION is not reported as a release: $(printf '%s' "$sec" | tr '\n' '|')"
-  printf '%s\n' "$sec" | grep -Fi 'no upgrade in progress' >/dev/null || cf "no checklist is not reported as none in progress: $(printf '%s' "$sec" | tr '\n' '|')"
+  printf '%s\n' "$sec" | grep -F "$KU_CHECKLIST_REL: none" >/dev/null || cf "no checklist is not reported as none: $(printf '%s' "$sec" | tr '\n' '|')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — check-board.sh's upgrade arm, WITH NO CHECKLIST ON THE TRUNK, NAMES THE DUTY AND WHAT IT READS.
+#
+# An absent checklist is the state of a project that never ran the upgrade, and of one whose upgrade is
+# staged and committed but not yet landed. The arm reads the trunk, so both print "none"; the line must
+# not read as "no upgrade due", must cite the rule that says a held release is run now, and must say
+# that it reads the trunk and where the unlanded work is listed.
+# =============================================================================
+case_check_board_upgrade_line_names_the_duty_and_its_source() {
+  cf_reset
+  make_sandbox
+  local L="check-board.sh's upgrade arm, with no checklist on the trunk, cites the upgrade rule's section and says it reads the trunk and that [f1] lists unlanded work, also while a checklist is committed locally"
+  mkdir -p "$SB_WORK/process"
+  printf '0.1.0\n' > "$SB_WORK/process/KIT-VERSION"
+  publish_sandbox
+  local sec one
+  _ku_sec() { cb_run | awk '/^\[[a-z]\] kit upgrade/{f=1; print; next} f && /^(\[[a-z]\]|──)/{exit} f'; }
+  _ku_check() {   # <state>
+    sec="$(_ku_sec)"; one="$(printf '%s' "$sec" | tr '\n' '|')"
+    printf '%s\n' "$sec" | grep -F "$KU_CHECKLIST_REL: none" >/dev/null || cf "$1: the checklist is not reported as none: $one"
+    printf '%s\n' "$sec" | grep -F 'process/contracts/kit-upgrade.md § 2' | grep -F 'newer than KIT-VERSION' >/dev/null \
+      || cf "$1: the line does not cite the rule's section for a release newer than KIT-VERSION: $one"
+    printf '%s\n' "$sec" | grep -F 'trunk' | grep -F '[f1]' >/dev/null || cf "$1: the line does not say it reads the trunk and point at [f1]: $one"
+    printf '%s\n' "$sec" | grep -Fi 'no upgrade in progress' >/dev/null && cf "$1: the line still says no upgrade is in progress: $one"
+  }
+  _ku_check "no checklist anywhere"
+
+  # Mid-upgrade: the checklist is committed locally and not on the trunk.
+  printf 'target: 0.2.0\n\n- [ ] one\n' > "$SB_WORK/$KU_CHECKLIST_REL"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] stage the upgrade" >/dev/null 2>&1
+  [ -n "$(git -C "$SB_WORK" log "origin/$SB_TRUNK..HEAD" --format=%h 2>/dev/null)" ] || _control_did_not_run "commit the checklist locally without pushing it"
+  _ku_check "checklist committed locally, not on the trunk"
   finish "$L"
   teardown
 }
