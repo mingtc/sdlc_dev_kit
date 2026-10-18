@@ -356,7 +356,7 @@ names the guard whose job is to keep it honest.
 | `process/MANUAL.md` | The transferable operating manual. Adopt unedited. |
 | `process/SEED.md` | The you-have-nothing front door. Adopt unedited; it names no project. |
 | `process/GIT-HOSTING.md` | Local-only, bare-repo and hosted-forge options. The kit assumes **git**, not a forge. |
-| `process/UPGRADE-SEAT.md` | The brief an owner hands to one dispatched seat to apply a newer kit: authority recorded once, staged in a worktree, checklist, self-test, the project's own gates, land, finish, handoff. Adopt unedited; it names no project. |
+| `process/UPGRADE-SEAT.md` | The brief an owner hands to one dispatched seat to apply a newer kit: authority recorded once, staged in a worktree and landed on the trunk by `register-commit.sh`, checklist, self-test, the project's own gates, finish, handoff. Adopt unedited; it names no project. |
 | `process/KIT-RELEASE-NOTES.md` | The adopter-facing notes: § How to upgrade, then the newest release's section and an unreleased section. Adopt unedited; `scripts/kit-upgrade.sh` reads it. |
 | `process/KIT-VERSION` | The one version literal of the kit you adopted, and nothing else. Adopt unedited; it is what an upgrade compares against. |
 | `process/KIT-MANIFEST` | Generated when the zip is built, never tracked in the kit's own source: one row per shipped file (hash, path, `KIT-CLASS`). Adopt unedited; the initializer and the upgrade script read it. |

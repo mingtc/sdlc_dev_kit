@@ -7,7 +7,8 @@
 # scripts/register-commit.sh as the route.
 #
 # It also refuses ANY commit while no hat is declared (process/contracts/role-gate.md § 2), whatever
-# the paths; the HAT GATE block below says what counts as declared and what is exempt.
+# the paths; the HAT GATE block below says what counts as declared and what is exempt. It refuses
+# a commit that stages the hat file itself (a staged deletion passes), in every checkout.
 #
 # CODE_GLOBS UNDECLARED (the shipped, empty state) MEANS UNENFORCED, NOT "NO CODE EXISTS": this
 # hook is a no-op until the adapter fills it in, the same convention verify.sh's GUARD_ENUM=""
@@ -55,6 +56,11 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 # is no session's checkout and holds no hat file; every board script that commits there names a role,
 # checked against the declared role set, in the subject the commit-msg hook holds.
 # Not seen: a change left uncommitted, and a commit made under MSG_OK (the escape above).
+KIT_HAT_FILE_REL=""; KIT_HAT_ENV=""
+# shellcheck source=../lib/hat-file.sh
+if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/hat-file.sh" ]; then
+  . "$HOOK_DIR/../lib/hat-file.sh" 2>/dev/null || true
+fi
 _hat_exempt=0
 case "$ROOT" in
   */.kanban-wt)
@@ -64,11 +70,6 @@ case "$ROOT" in
     fi ;;
 esac
 if [ "$_hat_exempt" -eq 0 ]; then
-  KIT_HAT_FILE_REL=""; KIT_HAT_ENV=""
-  # shellcheck source=../lib/hat-file.sh
-  if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/hat-file.sh" ]; then
-    . "$HOOK_DIR/../lib/hat-file.sh" 2>/dev/null || true
-  fi
   hm1=""; hm2=""; hm4=""; hm5=""
   if [ -z "$KIT_HAT_FILE_REL" ] || [ -z "$KIT_HAT_ENV" ]; then
     # Without the lib the hat file's path is unknown, and a gate that allows on doubt reads as armed.
@@ -98,6 +99,21 @@ if [ "$_hat_exempt" -eq 0 ]; then
     printf '%s\n' "$hm1" "$hm2" "" "$hm4" "$hm5" >&2
     exit 1   # exit-class: fallback
   fi
+fi
+
+# THE HAT FILE IS NEVER COMMITTED: it is session state, and a tracked one forks per branch and
+# blocks a `git switch`. Refused in every checkout, the kanban worktree included, so every route
+# is covered. A staged DELETION passes: it is the fix the Next: line names.
+if [ -n "$KIT_HAT_FILE_REL" ] \
+   && [ -n "$(git -C "$ROOT" diff --cached --name-only --diff-filter=d -- "$KIT_HAT_FILE_REL" 2>/dev/null || true)" ]; then
+  hf1="✗ pre-commit guard: $KIT_HAT_FILE_REL is staged — a hat file is session state and is never committed."
+  hf2="Next: unstage it and keep it out of the tree:  git rm --cached $KIT_HAT_FILE_REL  and ignore it (add $KIT_HAT_FILE_REL to .gitignore), then commit again."
+  hf3="  Stage paths by name rather than with  git add -A  when a staging commit may sweep it in."
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 pre-commit-hat-file-staged "$hf1" "$hf2" "$hf3"
+  fi
+  printf '%s\n' "$hf1" "$hf2" "$hf3" >&2
+  exit 1   # exit-class: fallback
 fi
 
 # DETACHED HEAD → never refused (see WHY above): the kanban worktree's permanent state, and any

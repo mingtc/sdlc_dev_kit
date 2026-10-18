@@ -275,6 +275,8 @@ CASES=(
   case_kit_upgrade_finish_archives_the_marked_checklist
   case_kit_upgrade_finish_runs_verify_commands
   case_kit_upgrade_reads_the_release_history_for_skipped_releases
+  case_upgrade_seat_lands_on_the_trunk_with_code_globs_declared
+  case_upgrade_seat_brief_names_the_trunk_route
   case_ask_help_answers_first
   case_ask_refuses_with_no_principal
   case_ask_principal_field_reads_either_form
@@ -403,6 +405,7 @@ CASES=(
   case_pre_commit_allows_metadata_on_trunk
   case_pre_commit_allows_code_on_a_branch
   case_pre_commit_refuses_a_commit_with_no_hat
+  case_pre_commit_refuses_a_staged_hat_file
   case_board_scripts_commit_with_no_hat_file
   case_register_commit_lands_from_a_linked_worktree
   case_register_commit_refuses_a_second_copy_of_a_card

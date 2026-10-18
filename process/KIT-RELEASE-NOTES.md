@@ -38,7 +38,8 @@ takes only what you never changed, and turns the rest into a checklist
 
 **A project that dispatches agent seats: hand [`UPGRADE-SEAT.md`](UPGRADE-SEAT.md) to one seat.** It states
 the owner's authority (including for the agent's own instructions file), and carries the upgrade in a
-staged worktree through the self-test, your own gates, landing, `--finish` and a handoff. The steps below are
+staged worktree, landing each batch on the trunk through `register-commit.sh`, through the self-test,
+your own gates, `--finish` and a handoff. The steps below are
 what it runs; a person upgrading by hand follows them directly.
 
 **First, how does a newer version reach you, and whose job is that?** The party who gave you the
@@ -341,9 +342,18 @@ columns and never the cards.*
   is unfilled now refuses the move, naming the rule and the fix. Fill the table and commit it to the trunk first
   (`./scripts/register-commit.sh`): the move reads the trunk's copy, so a table in a local commit that was not pushed counts as
   unfilled.
+- **An upgrade seat mid-flight follows the new steps in `UPGRADE-SEAT.md`.** It commits nothing in the staging worktree (a
+  metadata-only commit on a branch of its own is refused once `CODE_GLOBS` is declared) and lands each batch on the trunk with
+  `register-commit.sh` from the worktree, then `git reset -q origin/<trunk>`. The hat is declared in the main checkout the
+  session started in: the editor gate reads only that checkout. A seat that has staged and not landed lands what is staged
+  that way.
 
 ### Changed
 
+- **The commit hook refuses a commit that stages the hat file.** `scripts/githooks/pre-commit` refuses a staged
+  `.kit/session-role` in any checkout (`pre-commit-hat-file-staged`; `Next:` is `git rm --cached .kit/session-role` and an
+  ignore entry); a staged deletion passes. A project that edited the hook gets it as a merge item; until merged, a staging
+  commit that sweeps the hat file in is not refused. No action otherwise.
 - **QA's evidence line must show the AC's observable.** `qa.md` step 4: the cited line is the assertion that shows it, not a test's title, a declaration or a call site; an AC covering work the card does not deliver is `FAIL_AC` (or goes back to the PM), never `PASS`. No action.
 - **`./scripts/read-verdict.sh <id>` reads a card's verdict on the trunk.** It prints the card's column on `<remote>/<trunk>`, each
   QA Verdict row's verdict, and whether the landing gate would accept the table; it writes nothing. The Orchestrator runs it before

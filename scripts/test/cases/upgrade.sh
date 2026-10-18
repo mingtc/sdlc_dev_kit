@@ -1080,3 +1080,122 @@ case_kit_upgrade_reads_the_release_history_for_skipped_releases() {
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — THE UPGRADE SEAT'S STEPS RUN, LAND AND FINISH IN A TREE THAT DECLARES CODE_GLOBS.
+#
+# process/UPGRADE-SEAT.md stages in a linked worktree on a branch of its own and lands each batch on
+# the trunk with scripts/register-commit.sh. Built in the seat's order, against an adopted tree
+# (hooks wired, hat in the main checkout, CODE_GLOBS declared, a bare remote): the worktree is cut,
+# the NEW kit's kit-upgrade.sh stages into it, and
+#   (a) a bare commit of that output in the worktree is REFUSED as a metadata-only commit off the
+#       trunk (this is why the steps land by register-commit.sh);
+#   (b) the staged tree and the checklist, the marks, and the --finish archive each land on the
+#       trunk through register-commit.sh, naming the paths git status lists, with the worktree
+#       reset to the trunk tip after each, and --finish accepts the marked checklist;
+#   (c) the trunk holds the upgrade and no hat file, in three landings.
+# =============================================================================
+case_upgrade_seat_lands_on_the_trunk_with_code_globs_declared() {
+  cf_reset
+  make_sandbox
+  local L="the upgrade seat's route in a tree that declares CODE_GLOBS: a bare commit in the staging worktree is refused as metadata off the trunk; the staged tree, the marks and the --finish archive land on the trunk through register-commit.sh in three landings, with no hat file, and --finish accepts the marked checklist"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  [ -x "$SB_WORK/scripts/register-commit.sh" ] && [ -x "$SB_WORK/scripts/githooks/pre-commit" ] \
+    || { skp "$L" "scripts/register-commit.sh or scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+
+  # The adopted tree: the old kit's files and manifest, one file the project edited, CODE_GLOBS declared.
+  KU_OLD="$SB_TMP/kit-old"; KU_NEW="$SB_TMP/kit-new"; KU_ELSE="$SB_TMP/elsewhere"
+  mkdir -p "$KU_ELSE"
+  _ku_kit "$KU_OLD" 0.1.0 old
+  _ku_kit "$KU_NEW" 0.2.0 new
+  cp -R "$KU_OLD/." "$SB_WORK/"
+  printf 'b1 mine\n' > "$SB_WORK/b.txt"
+  _array_set_body "$SB_WORK/scripts/config.sh" CODE_GLOBS '  "src/*"' '  "bin/*"' '  "test/*"'
+  publish_sandbox
+  local base; base="$(git -C "$SB_ORIGIN" rev-parse "$SB_TRUNK")"
+
+  # Step 1: the worktree, inside the project, on a branch of its own.
+  local wt="$SB_WORK/.claude/worktrees/kit-upgrade" rec="$SB_TMP/recs" out rc cl
+  git -C "$SB_WORK" worktree add -q -b chore/kit-upgrade-0.2.0 "$wt" "$SB_TRUNK" >/dev/null 2>&1 \
+    || { _control_did_not_run "add the staging worktree"; finish "$L"; teardown; return; }
+  cl="$wt/$KU_CHECKLIST_REL"
+
+  # Step 2: stage into it from the new kit's copy.
+  _ku_run up --into "$wt"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  [ -f "$cl" ] || { cf "no checklist was staged in the worktree"; finish "$L"; teardown; return; }
+
+  # (a) the commit the old steps asked for.
+  git -C "$wt" add -A >/dev/null 2>&1
+  out="$( cd "$wt" && env -u MSG_OK KIT_PROGRESS_DIR="$rec" git commit -q -m "[$SB_ROLE] Stage the kit 0.2.0 upgrade" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a bare commit of the staged upgrade in the worktree was ACCEPTED with CODE_GLOBS declared"
+  case "$out" in *"only metadata paths"*) : ;; *) cf "(a) the refusal is not the metadata-off-trunk one: $out" ;; esac
+  cat "$rec"/*.tsv 2>/dev/null | grep -E 'refusal=pre-commit-metadata-off-trunk([[:space:]]|$)' >/dev/null \
+    || cf "(a) no progress record carries refusal=pre-commit-metadata-off-trunk"
+  git -C "$wt" reset -q
+
+  # The seat's landing: exactly the paths git status lists, then the worktree back to the trunk tip.
+  _ku_land() {   # <message> — prints register-commit.sh's output; leaves the status in $_ku_land_left
+    local m="$1" list
+    list="$( cd "$wt" && git status --porcelain --untracked-files=all --no-renames | cut -c4- )"
+    _ku_land_out="$( cd "$wt" && env -u MSG_OK KIT_PROGRESS_DIR="$rec" ./scripts/register-commit.sh --role "$SB_ROLE" --message "$m" $list 2>&1 )"; _ku_land_rc=$?
+    git -C "$wt" reset -q "origin/$SB_TRUNK" >/dev/null 2>&1
+    _ku_land_left="$(git -C "$wt" status --porcelain --untracked-files=all)"
+  }
+  local tree
+  _ku_land "Stage the kit 0.2.0 upgrade"
+  [ "$_ku_land_rc" -eq 0 ] || cf "(b) the staging landing failed ($_ku_land_rc): $_ku_land_out"
+  [ -z "$_ku_land_left" ] || cf "(b) the worktree is not clean after the staging landing: $(printf '%s' "$_ku_land_left" | tr '\n' '|' | cut -c1-300)"
+  tree="$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK")"
+  case "$tree" in *"$KU_CHECKLIST_REL"*) : ;; *) cf "(b) the trunk does not hold the checklist after the staging landing" ;; esac
+  case "$tree" in *".kit-upgrade/KIT-VERSION"*) : ;; *) cf "(b) the trunk does not hold the staged .kit-upgrade/ after the staging landing" ;; esac
+  [ "$(git -C "$SB_ORIGIN" show "$SB_TRUNK:a.txt" 2>/dev/null)" = a2 ] || cf "(b) the trunk's a.txt is not the new kit's after the staging landing"
+
+  # Step 3: mark every item, land the marks, then --finish accepts the checklist as committed.
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  _ku_land "Mark the kit 0.2.0 upgrade checklist"
+  [ "$_ku_land_rc" -eq 0 ] || cf "(b) the marks landing failed ($_ku_land_rc): $_ku_land_out"
+  [ -z "$_ku_land_left" ] || cf "(b) the worktree is not clean after the marks landing: $(printf '%s' "$_ku_land_left" | tr '\n' '|' | cut -c1-300)"
+  _ku_run fin --finish --into "$wt"
+  [ "$(_ku_rc fin)" = 0 ] || cf "(b) --finish refused the landed, marked checklist: $(_ku_out fin)"
+
+  # Step 6: the archive and the stamped version land.
+  _ku_land "Archive the kit 0.2.0 upgrade"
+  [ "$_ku_land_rc" -eq 0 ] || cf "(b) the archive landing failed ($_ku_land_rc): $_ku_land_out"
+  [ -z "$_ku_land_left" ] || cf "(b) the worktree is not clean after the archive landing: $(printf '%s' "$_ku_land_left" | tr '\n' '|' | cut -c1-300)"
+
+  # (c) the trunk holds the upgrade, no hat file, and exactly three landings.
+  tree="$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK")"
+  case "$tree" in *"process/upgrades/0.1.0-to-0.2.0.md"*) : ;; *) cf "(c) the trunk holds no archive at process/upgrades/0.1.0-to-0.2.0.md" ;; esac
+  case "$tree" in *".kit-upgrade/"*|*"$KU_CHECKLIST_REL"*) cf "(c) the trunk still holds the staging directory or the checklist" ;; esac
+  case "$tree" in *"$(_sandbox_hat_file)"*) cf "(c) the hat file reached the trunk" ;; esac
+  [ "$(git -C "$SB_ORIGIN" show "$SB_TRUNK:process/KIT-VERSION" 2>/dev/null)" = 0.2.0 ] || cf "(c) the trunk's process/KIT-VERSION is not 0.2.0"
+  [ "$(git -C "$SB_ORIGIN" rev-list --count "$base..$SB_TRUNK")" = 3 ] \
+    || cf "(c) the upgrade did not land in three commits: $(git -C "$SB_ORIGIN" log --format=%s "$base..$SB_TRUNK" | tr '\n' '|')"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — process/UPGRADE-SEAT.md NAMES THE ROUTE THE CASE ABOVE WALKS.
+#
+# A step the mechanism supports but the brief does not say is a step no seat takes: the brief names
+# register-commit.sh as the landing, and puts the hat in the main checkout the session started in
+# (the editor gate reads only that checkout). The old sentence offering either place is absent.
+# =============================================================================
+case_upgrade_seat_brief_names_the_trunk_route() {
+  cf_reset
+  local L="process/UPGRADE-SEAT.md lands by scripts/register-commit.sh and puts the hat in the main checkout the session started in"
+  local doc="$REAL_REPO_ROOT/process/UPGRADE-SEAT.md" flat
+  if [ ! -f "$doc" ]; then
+    if [ -n "$(_tree_has_lived)" ]; then skp_lived "$L" "process/UPGRADE-SEAT.md is not in this project"
+    else cf "process/UPGRADE-SEAT.md is not in this kit"; finish "$L"; fi
+    return
+  fi
+  flat="$(tr '\n' ' ' < "$doc" | tr -s ' ')"
+  case "$flat" in *"./scripts/register-commit.sh --role"*) : ;; *) cf "the brief does not give the register-commit.sh landing command" ;; esac
+  case "$flat" in *"hat in the main checkout this session started in"*) : ;; *) cf "the brief does not put the hat in the main checkout the session started in" ;; esac
+  case "$flat" in *"worktree or the main checkout"*) cf "the brief still offers the hat in either the worktree or the main checkout" ;; esac
+  finish "$L"
+}

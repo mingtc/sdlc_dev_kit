@@ -1647,6 +1647,81 @@ case_pre_commit_refuses_a_commit_with_no_hat() {
 }
 
 # =============================================================================
+# CASE — the pre-commit hook refuses a commit that STAGES the hat file. The hat is session state
+# and is never committed; a staging commit that sweeps it in (`git add -A` before the project's
+# ignore file names it) would fork it per branch. Built in the real order: the hat is declared,
+# the change is made, and the hat is force-added beside it (what a sweep does) before the commit.
+#   (a) hat file staged: refused, naming the file, the `git rm --cached` fix and a Next: line, with a
+#       refusal=pre-commit-hat-file-staged record; nothing is committed and the change stays staged;
+#   (b) the same commit without it, the hat file present on disk and unstaged: unaffected;
+#   (c) the fix the refusal names — the staged deletion of a hat file that already rode a commit
+#       under the documented escape — is accepted, and the hat leaves the tree;
+#   (d) a linked worktree is covered too (the guard keys on the staged path, not the checkout).
+# RED FIRST: on a pre-commit that does not read the staged paths, (a) and (d) are ACCEPTED.
+# =============================================================================
+case_pre_commit_refuses_a_staged_hat_file() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: refuses a commit that stages the hat file" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+  publish_sandbox
+  local rel env_name out rc head0
+  rel="$(_sandbox_hat_file)"
+  env_name="$(sed -n 's/^KIT_HAT_ENV="\(.*\)"$/\1/p' "$SB_WORK/scripts/lib/hat-file.sh")"
+  [ -n "$rel" ] || _fixture_die "case_pre_commit_refuses_a_staged_hat_file: scripts/lib/hat-file.sh declares no KIT_HAT_FILE_REL on its own line."
+  [ -e "$SB_WORK/$rel" ] || _fixture_die "case_pre_commit_refuses_a_staged_hat_file: the sandbox declared no hat."
+
+  # (a) the hat is swept into a commit with a real change.
+  printf 'a change\n' >> "$SB_WORK/ARCHIVE.md"
+  git -C "$SB_WORK" add ARCHIVE.md
+  git -C "$SB_WORK" add -f "$rel"
+  head0="$(git -C "$SB_WORK" rev-parse HEAD)"
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" KIT_PROGRESS_DIR="$SB_TMP/rec-a" git commit -q -m "[$SB_ROLE] stage everything" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a commit that stages the hat file was ACCEPTED"
+  case "$out" in *"$rel"*) : ;; *) cf "(a) the refusal does not name the hat file '$rel': $out" ;; esac
+  case "$out" in *"git rm --cached $rel"*) : ;; *) cf "(a) the refusal does not name the fix 'git rm --cached $rel': $out" ;; esac
+  case "$out" in *"Next:"*) : ;; *) cf "(a) the refusal carries no Next: line: $out" ;; esac
+  cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | grep -E 'refusal=pre-commit-hat-file-staged([[:space:]]|$)' >/dev/null \
+    || cf "(a) no progress record carries refusal=pre-commit-hat-file-staged: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
+  [ "$(git -C "$SB_WORK" rev-parse HEAD)" = "$head0" ] || cf "(a) HEAD moved although the commit was refused"
+  git -C "$SB_WORK" diff --cached --name-only | grep -F 'ARCHIVE.md' >/dev/null \
+    || cf "(a) the refusal left the change NOT staged — it should be untouched"
+
+  # (b) the fix the refusal names, then the commit without the hat: unaffected, hat still on disk.
+  git -C "$SB_WORK" rm -q --cached "$rel" >/dev/null 2>&1 \
+    || cf "(b) 'git rm --cached $rel', the fix the refusal names, failed"
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] the change alone" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the same commit without the hat file staged was refused: $out"
+  [ -e "$SB_WORK/$rel" ] || cf "(b) the fix removed the hat file from disk — it should only leave the index"
+  [ -z "$(git -C "$SB_WORK" ls-tree -r --name-only HEAD -- "$rel")" ] || cf "(b) the hat file is in HEAD's tree"
+
+  # (c) a hat file that already rode a commit (the documented escape): its staged deletion is accepted.
+  git -C "$SB_WORK" add -f "$rel"
+  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] hat rides under the escape" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) MSG_OK=1 did not bypass the guard to plant a tracked hat file: $out"
+  git -C "$SB_WORK" rm -q --cached "$rel" >/dev/null 2>&1
+  out="$( cd "$SB_WORK" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] untrack the hat" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) the staged DELETION of a tracked hat file was refused — the guard blocks its own fix: $out"
+  [ -z "$(git -C "$SB_WORK" ls-tree -r --name-only HEAD -- "$rel")" ] || cf "(c) the hat file is still in HEAD's tree after its deletion committed"
+
+  # (d) a linked worktree: the main checkout's hat covers the hat gate, and the staged hat is still refused.
+  local leg="$SB_TMP/leg"
+  if git -C "$SB_WORK" worktree add -q -b staged-hat-leg "$leg" "$SB_TRUNK" >/dev/null 2>&1; then
+    mkdir -p "$leg/$(dirname "$rel")"; printf 'Dev SBX-001\n' > "$leg/$rel"
+    printf 'leg\n' >> "$leg/ARCHIVE.md"; git -C "$leg" add ARCHIVE.md; git -C "$leg" add -f "$rel"
+    out="$( cd "$leg" && env -u MSG_OK -u "$env_name" git commit -q -m "[$SB_ROLE] leg" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cf "(d) a commit in a linked worktree that stages the hat file was ACCEPTED"
+    case "$out" in *"git rm --cached $rel"*) : ;; *) cf "(d) the linked-worktree refusal does not name the fix: $out" ;; esac
+  else
+    _control_did_not_run "add a linked worktree to the sandbox"
+  fi
+
+  finish "pre-commit: a commit that stages the hat file is refused naming the file, 'git rm --cached' and a Next: line, with a refusal=pre-commit-hat-file-staged record, in the main checkout and a linked worktree; the same commit without it, and the staged deletion of a tracked hat file, pass"
+  teardown
+}
+
+# =============================================================================
 # CASE — the board scripts' commits need no hat file: they commit in the standing kanban worktree,
 # which is no session's checkout, and each takes a --role the commit-msg hook holds to the subject.
 # Driven with NO hat declared, through the real entry points and in the real order (card on the

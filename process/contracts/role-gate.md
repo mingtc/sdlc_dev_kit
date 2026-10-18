@@ -26,7 +26,8 @@ is acting as.
   inherits an assertion nobody made.
 - **A hat declaration is SESSION STATE, never repository content.** Whatever holds the
   declaration is excluded from version control by the initializer, not left for each actor to
-  discover.
+  discover, and the commit gate refuses a commit that stages it (a staged deletion passes), whatever
+  the route.
   *Why:* versioned session state forks per branch, blocks a branch switch with "local changes
   would be overwritten", and reaches a landing gate as a merge conflict over a fact nobody was
   collaborating on.
@@ -121,10 +122,13 @@ declared, never that it was the right one.
 > One implementation, not the definition.
 
 - `scripts/hooks/require-role.sh` — KIT-CLASS: KIT. The pre-mutation gate, with the
-  allow-first, fail-open behaviour above.
+  allow-first, fail-open behaviour above. It reads the declaration only in the checkout the session
+  started in (`CLAUDE_PROJECT_DIR`): a session started in the main checkout declares there, even to
+  edit a linked worktree.
 - `scripts/githooks/pre-commit` — KIT-CLASS: KIT. The commit gate: it refuses a commit while the
   declaration is absent from this checkout and from the repository's main checkout (so a linked
-  worktree of the same session is covered), with a `Next:` line naming the file and its form.
+  worktree of the same session is covered), with a `Next:` line naming the file and its form, and
+  while the declaration file itself is staged for commit, with a `Next:` line that unstages it.
   **A committer that runs with no hat file is decided by a rule, never by a bypass.** A script that commits on its own account and names its role in the subject —
   the initializer, the release script — declares that role for the one commit through
   `KIT_HAT_ENV` (`scripts/lib/hat-file.sh`), which the hook reads beside the file and which
