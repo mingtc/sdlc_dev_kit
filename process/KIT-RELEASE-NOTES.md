@@ -344,6 +344,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **QA's evidence line must show the AC's observable.** `qa.md` step 4: the cited line is the assertion that shows it, not a test's title, a declaration or a call site; an AC covering work the card does not deliver is `FAIL_AC` (or goes back to the PM), never `PASS`. No action.
 - **`./scripts/read-verdict.sh <id>` reads a card's verdict on the trunk.** It prints the card's column on `<remote>/<trunk>`, each
   QA Verdict row's verdict, and whether the landing gate would accept the table; it writes nothing. The Orchestrator runs it before
   promoting any QA reply to a board move, direct-to-trunk cards included (`orchestrate/SKILL.md` § 3). No action.
