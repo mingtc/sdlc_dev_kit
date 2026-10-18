@@ -350,6 +350,10 @@ columns and never the cards.*
 
 ### Changed
 
+- **The upgrade checklist names the file that holds each Action required entry.** A release the notes no longer hold is read from
+  `process/KIT-RELEASE-HISTORY.md`, and its line now says so (`— process/KIT-RELEASE-HISTORY.md § [x]`), so the `§` pointer resolves. The merge items
+  for `scripts/config.sh` and `scripts/verify.sh` say the file holds your own stamped values and gates, that the new copy merges into it, and what to
+  keep. No action.
 - **`check-board.sh`'s upgrade line no longer says "no upgrade in progress".** With no `process/UPGRADE-CHECKLIST.md` on the trunk it says a
   release you hold newer than `KIT-VERSION` is run now (`process/contracts/kit-upgrade.md` § 2), and that the arm reads the trunk, so an upgrade staged or
   committed locally and not yet landed shows as none; `[f1]` lists those commits. No action.

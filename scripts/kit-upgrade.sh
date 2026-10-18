@@ -261,12 +261,13 @@ lc_report() {
 }
 
 # notes_items <release notes> [<release history>] — the ONE reader of the Action required entries, one row per entry:
-# <section> TAB <n> TAB <title> TAB <its Verify: command, or empty>. The Verify: line is an indented
-# line of the entry that starts `Verify:`; the first one wins.
+# <section> TAB <n> TAB <title> TAB <the file it was read from, as the zip writes it:
+# process/<name>> TAB <its Verify: command, or empty>. The Verify: line is an indented line of the entry that
+# starts `Verify:`; the first one wins.
 notes_items() {
   awk '
-    FNR == 1 { flush(); sec = ""; inact = 0; n = 0 }
-    function flush() { if (pend) printf "%s\t%d\t%s\t%s\n", psec, pn, pt, pv; pend = 0 }
+    FNR == 1 { flush(); sec = ""; inact = 0; n = 0; src = FILENAME; sub(/^.*\//, "", src); sub(/\.kit-new$/, "", src); src = "process/" src }
+    function flush() { if (pend) printf "%s\t%d\t%s\t%s\t%s\n", psec, pn, pt, psrc, pv; pend = 0 }
     /^## / { flush(); sec = ""; if ($0 ~ /^## \[/) { sec = $0; sub(/^## \[/, "", sec); sub(/\].*$/, "", sec) }
              inact = 0; n = 0; next }
     /^###+ Action required/ { flush(); inact = (sec != ""); next }
@@ -274,7 +275,7 @@ notes_items() {
     inact && /^- / { flush(); n++; t = substr($0, 3)
       if (substr(t, 1, 2) == "**") { t = substr(t, 3); i = index(t, "**"); if (i) t = substr(t, 1, i - 1); else t = t "..." }
       if (length(t) > 110) t = substr(t, 1, 107) "..."
-      pend = 1; psec = sec; pn = n; pt = t; pv = ""; next }
+      pend = 1; psec = sec; psrc = src; pn = n; pt = t; pv = ""; next }
     inact && pend && pv == "" && /^[[:space:]]+Verify:[[:space:]]/ {
       v = $0; sub(/^[[:space:]]+Verify:[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); gsub(/\t/, " ", v); pv = v; next }
     END { flush() }
@@ -297,7 +298,7 @@ vf_run() {
     n="$(printf '%s' "$line" | sed -n 's/^- \[.\] Action required, \[\([^]]*\)\] item \([0-9][0-9]*\):.*$/\2/p')"
     [ -n "$sec" ] && [ -n "$n" ] || continue
     row="$(printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" -v n="$n" '$1 == s && $2 == n { print; exit }')"
-    title="$(printf '%s' "$row" | cut -f3)"; cmd="$(printf '%s' "$row" | cut -f4)"
+    title="$(printf '%s' "$row" | cut -f3)"; cmd="$(printf '%s' "$row" | cut -f5)"
     if [ -z "$cmd" ]; then VF_NONE+=("[$sec] item $n: ${title:-<not in the staged notes>}"); continue; fi
     out="$(cd "$TGT" && bash -c "$cmd" </dev/null 2>&1)"; rc=$?
     if [ "$rc" -eq 0 ]; then VF_PASSED+=("[$sec] item $n: $title — Verify: $cmd"); continue; fi
@@ -522,7 +523,7 @@ ITEMS_EOF
 
 ACTION=()
 if [ "$CUR_V" != "$NEW_V" ]; then
-  while IFS="$(printf '\t')" read -r sec n t vcmd; do
+  while IFS="$(printf '\t')" read -r sec n t srcf vcmd; do
     [ -n "$sec" ] || continue
     held=""
     if [ "$sec" = Unreleased ]; then
@@ -532,7 +533,7 @@ if [ "$CUR_V" != "$NEW_V" ]; then
       [ "$(ver_cmp "$sec" "$CUR_B")" = 1 ] && [ "$(ver_cmp "$sec" "$NEW_B")" != 1 ] || continue
       ver_is_build "$CUR_V" && [ "$sec" = "$NEXT_REL" ] && held=1
     fi
-    line="Action required, [$sec] item $n: $t — process/KIT-RELEASE-NOTES.md § [$sec]"
+    line="Action required, [$sec] item $n: $t — $srcf § [$sec]"
     [ -z "$held" ] || line="$line (this tree is a build after $CUR_B, so it may already hold this: diff before applying)"
     [ -z "$vcmd" ] || line="$line — Verify: $vcmd"
     ACTION+=("$line")
@@ -558,6 +559,13 @@ fi
 
 # ── WRITE ─────────────────────────────────────────────────────────────────────
 # staged_rel <path> — where a merge item's new copy goes: disarmed, never under a live name.
+# merge_keep <path> — what a merge item for a file holding the project's own stamped values must keep.
+merge_keep() {
+  case "$1" in
+    scripts/config.sh) printf '%s' "; this file holds the project's own stamped values, so merge the new copy into it and keep ISSUE_PREFIX, PROJECT_NAME, CODE_GLOBS and TEST_GLOBS (with their # DECLARED EMPTY comments) and kit-init's stamp receipt line" ;;
+    scripts/verify.sh) printf '%s' "; this file holds the project's own gates, so merge the new copy into it and keep the project's GATES table" ;;
+  esac
+}
 staged_rel() {
   printf '%s/files/%s.kit-new' "$STAGE_DIR" "$(printf '%s' "$1" | sed 's#^\.claude/#_claude/#; s#/\.claude/#/_claude/#g')"
 }
@@ -595,7 +603,7 @@ lc_run
   echo "a kit finding (process/MANUAL.md § Kit feedback, M3): record it, then mark the item."
   echo "An item ending \`Verify: <command>\` is checked by --finish: the command runs in this tree and must exit 0."
   echo "Until every item is marked, keep this file committed: it is the upgrade's record for whoever"
-  echo "comes next. Then \`./scripts/kit-upgrade.sh --finish --into .\` stamps process/KIT-VERSION"
+  echo "comes next. Then \`./scripts/kit-upgrade.sh --finish --into .\` stamps process/KIT-VERSION,"
   echo "moves this file to process/upgrades/ and removes \`$STAGE_DIR/\`."
   if [ -n "$DEGRADED" ]; then
     echo
@@ -633,7 +641,7 @@ lc_run
     echo; echo "## Files"; echo
     i=0
     while [ "$i" -lt "${#MERGE[@]}" ]; do
-      echo "- [ ] merge ${MERGE[$i]} — ${MERGE_WHY[$i]}; the new copy is $(staged_rel "${MERGE[$i]}")"
+      echo "- [ ] merge ${MERGE[$i]} — ${MERGE_WHY[$i]}$(merge_keep "${MERGE[$i]}"); the new copy is $(staged_rel "${MERGE[$i]}")"
       i=$((i + 1))
     done
     for p in ${REMOVED[@]+"${REMOVED[@]}"}; do

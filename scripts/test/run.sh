@@ -276,6 +276,7 @@ CASES=(
   case_kit_upgrade_finish_archives_the_marked_checklist
   case_kit_upgrade_finish_runs_verify_commands
   case_kit_upgrade_reads_the_release_history_for_skipped_releases
+  case_kit_upgrade_pointers_name_the_file_that_holds_the_entry
   case_upgrade_seat_lands_on_the_trunk_with_code_globs_declared
   case_upgrade_seat_brief_names_the_trunk_route
   case_ask_help_answers_first

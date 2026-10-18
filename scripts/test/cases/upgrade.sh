@@ -1118,6 +1118,63 @@ case_kit_upgrade_reads_the_release_history_for_skipped_releases() {
 }
 
 # =============================================================================
+# CASE — EVERY ACTION REQUIRED LINE POINTS AT THE FILE THAT HOLDS ITS ENTRY, AND THE TWO FILES THAT
+# HOLD THE PROJECT'S OWN VALUES SAY WHAT TO KEEP.
+#
+# A tree two releases behind: the newest release is in the notes, the one before it only in the history.
+# Every `§ [x]` pointer must resolve with grep in the file it names (a pointer that does not is a defect,
+# counted), and the merge items for scripts/config.sh and scripts/verify.sh, which the project edited,
+# carry their own wording while an ordinary merge item does not.
+case_kit_upgrade_pointers_name_the_file_that_holds_the_entry() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh names, on each Action required line, the file the entry was read from (notes or history), and its merge items for scripts/config.sh and scripts/verify.sh say what the project keeps"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  _ku_pair 0.1.0 0.3.0
+  mkdir -p "$KU_OLD/scripts" "$KU_NEW/scripts"
+  printf 'ISSUE_PREFIX=KIT\n' > "$KU_OLD/scripts/config.sh"; printf 'ISSUE_PREFIX=KIT\n# new\n' > "$KU_NEW/scripts/config.sh"
+  printf 'GATES=()\n' > "$KU_OLD/scripts/verify.sh"; printf 'GATES=()\n# new\n' > "$KU_NEW/scripts/verify.sh"
+  {
+    printf '# The process kit — release notes\n\n## [Unreleased]\n\n_Nothing yet._\n\n## [0.3.0] — 2026-01-03\n\n### Action required\n\n'
+    printf -- '- **Newest item.** Keep marker.txt.\n'
+  } > "$KU_NEW/process/KIT-RELEASE-NOTES.md"
+  {
+    printf '# The process kit — release history\n\nA preamble.\n\n## [0.2.0] — 2026-01-02\n\n### Action required\n\n'
+    printf -- '- **Skipped item.** Create done.txt.\n  Verify: [ -f done.txt ]\n\n- **Second skipped item.** No verify.\n\n'
+    printf '## [0.1.0] — 2026-01-01\n\n### Action required\n\n- **Old item.** Already applied by any 0.1.0 tree.\n'
+  } > "$KU_NEW/process/KIT-RELEASE-HISTORY.md"
+  _ku_manifest "$KU_OLD"; _ku_manifest "$KU_NEW"
+  rm -rf "$KU_T"; _ku_target "$KU_T" "$KU_OLD" >/dev/null 2>&1
+  printf 'ISSUE_PREFIX=ACME\n' > "$KU_T/scripts/config.sh"; printf 'GATES=(mine)\n' > "$KU_T/scripts/verify.sh"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "project values" >/dev/null 2>&1
+  local cl="$KU_T/$KU_CHECKLIST_REL" line file sec bad=0 seen=0
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  while IFS= read -r line; do
+    sec="$(printf '%s' "$line" | sed -n 's/^.*— \(process\/[A-Z-]*\.md\) § \[\([^]]*\)\].*$/\2/p')"
+    file="$(printf '%s' "$line" | sed -n 's/^.*— \(process\/[A-Z-]*\.md\) § \[\([^]]*\)\].*$/\1/p')"
+    seen=$((seen + 1))
+    if [ -z "$file" ] || ! [ -f "$KU_NEW/$file" ] || ! grep -n "^## \[$sec\]" "$KU_NEW/$file" >/dev/null; then
+      bad=$((bad + 1)); cf "a pointer does not resolve (file '$file', section '$sec'): $line"
+    fi
+  done <<KU_PTR_EOF
+$(grep -F 'Action required, [' "$cl")
+KU_PTR_EOF
+  [ "$seen" -eq 3 ] || cf "expected three Action required lines, saw $seen: $(grep -F 'Action required' "$cl" | tr '\n' '|')"
+  [ "$bad" -eq 0 ] || cf "$bad of $seen pointers do not resolve"
+  grep -F 'Action required, [0.2.0] item 2:' "$cl" | grep -F 'process/KIT-RELEASE-HISTORY.md § [0.2.0]' >/dev/null \
+    || cf "a skipped release's item does not name the history: $(grep -F 'Action required' "$cl" | tr '\n' '|')"
+  grep -F 'merge scripts/config.sh' "$cl" | grep -F 'ISSUE_PREFIX' | grep -F 'stamp receipt' >/dev/null \
+    || cf "the config.sh merge item does not say what to keep: $(grep -F 'merge scripts/' "$cl" | tr '\n' '|')"
+  grep -F 'merge scripts/verify.sh' "$cl" | grep -F 'GATES' >/dev/null \
+    || cf "the verify.sh merge item does not say what to keep: $(grep -F 'merge scripts/' "$cl" | tr '\n' '|')"
+  grep -F 'merge b.txt' "$cl" | grep -F 'GATES' >/dev/null && cf "an ordinary merge item carries the verify.sh wording"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE UPGRADE SEAT'S STEPS RUN, LAND AND FINISH IN A TREE THAT DECLARES CODE_GLOBS.
 #
 # process/UPGRADE-SEAT.md stages in a linked worktree on a branch of its own and lands each batch on
