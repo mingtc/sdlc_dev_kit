@@ -679,11 +679,12 @@ case_kit_upgrade_removed_upstream_reflects_a_local_edit() {
   teardown
 }
 
-# _ku_card <column> <id> <branch|n/a> <forks line, or empty> <qa|noqa> [test] — one open card in the target,
+# _ku_card <column> <id> <branch|n/a> <forks line, or empty> <qa|noqa|tmpl|tbd> [test] — one open card in the target,
 # moved the way the roles move it: minted in todo/, its branch cut from the trunk with a code commit
 # on it, then moved to in_progress/ and on to <column> on the trunk. The QA table's one test row
 # names the branch's own code file, which the gate reads at the branch tip; a sixth argument also
-# puts a file under tests/ on the branch.
+# puts a file under tests/ on the branch. `tmpl` carries the shipped template's own unfilled QA Verdict
+# section (KU_TMPL names the template); `tbd` a table whose one verdict is filled and whose pointer is not.
 _ku_card() {
   local col="$1" id="$2" br="$3" forks="$4" qa="$5" tst="${6:-}" f="$KU_T/progress" slug="$2-card"
   mkdir -p "$f/todo" "$f/in_progress" "$f/dev_complete" "$f/blocked"
@@ -694,6 +695,13 @@ _ku_card() {
     if [ "$qa" = qa ]; then
       printf '\n## QA Verdict\n\n| AC id | verdict | evidence kind | evidence pointer |\n|---|---|---|---|\n'
       printf '| AC1 | PASS | test | src/%s.txt:1 "behaves %s" |\n| shadow-check | — | — | assertions removed: none |\n' "$id" "$id"
+    fi
+    if [ "$qa" = tbd ]; then
+      printf '\n## QA Verdict\n\n| AC id | verdict | evidence kind | evidence pointer |\n|---|---|---|---|\n'
+      printf '| AC1 | PASS | test | tbd |\n| shadow-check | — | — | assertions removed: none |\n'
+    fi
+    if [ "$qa" = tmpl ]; then
+      printf '\n'; awk '/^## QA Verdict[[:space:]]*$/ { f = 1 } f && /^## / && !/^## QA Verdict/ { exit } f' "$KU_TMPL"
     fi
     printf '\n## Activity\n\n- 2026-01-01 [PM] Minted.\n'
   } > "$f/todo/$slug.md"
@@ -720,10 +728,11 @@ _ku_card() {
 # _ku_cards_pair — an adopted 0.1.0 tree on `main` with four open cards, and a 0.2.0 kit that
 # carries the real landing checks. The cards: ROTA-001 at dev_complete with a QA table and no
 # forks: field; ROTA-002 blocked with no forks: field; ROTA-003 in_progress with forks: none;
-# ROTA-004 in_progress with no branch; ROTA-005 at dev_complete with no QA Verdict table; ROTA-006
+# ROTA-004 in_progress with no branch; ROTA-005 at dev_complete with no QA Verdict table (no verdict
+# to judge yet, so the re-check skips it); ROTA-006
 # at dev_complete whose branch touches a declared test path and has no Ablation section. Every card
 # is headed as the creators head it. A seventh file, in_progress/notes.md, has no frontmatter.
-_ku_cards_pair() {
+_ku_cards_base() {
   KU_OLD="$SB_TMP/kit-old"; KU_NEW="$SB_TMP/kit-new"; KU_T="$SB_TMP/project"; KU_ELSE="$SB_TMP/elsewhere"
   rm -rf "$KU_OLD" "$KU_NEW" "$KU_T" "$KU_ELSE"
   mkdir -p "$KU_ELSE"
@@ -736,6 +745,9 @@ _ku_cards_pair() {
   git -C "$KU_T" branch -M main >/dev/null 2>&1
   mkdir -p "$KU_T/scripts" && printf 'TEST_GLOBS=(\n  "tests/*"\n)\n' > "$KU_T/scripts/config.sh"
   git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "declare TEST_GLOBS" >/dev/null 2>&1
+}
+_ku_cards_pair() {
+  _ku_cards_base
   _ku_card dev_complete ROTA-001 feat/one '' qa
   _ku_card blocked ROTA-002 feat/two '' noqa
   _ku_card in_progress ROTA-003 feat/three 'forks: none' noqa
@@ -769,15 +781,15 @@ case_kit_upgrade_checks_open_cards_against_the_new_kit() {
     || cf "no item names ROTA-001 and forks-missing: $(grep -F ROTA "$cl" | tr '\n' '|')"
   grep -F 'open card ROTA-002 (blocked)' "$cl" | grep -F 'forks-missing' >/dev/null \
     || cf "a blocked card was not checked: $(grep -F ROTA "$cl" | tr '\n' '|')"
-  grep -F 'open card ROTA-005 (dev_complete)' "$cl" | grep -F 'qa-verdict-missing' >/dev/null \
-    || cf "no item names ROTA-005 and qa-verdict-missing: $(grep -F ROTA-005 "$cl")"
+  grep -F 'open card ROTA-005 (dev_complete)' "$cl" | grep -F 'would refuse' >/dev/null \
+    && cf "a dev_complete card with no QA Verdict table (no verdict to judge) got a refusal item: $(grep -F ROTA-005 "$cl")"
   grep -F 'open card ROTA-006 (dev_complete)' "$cl" | grep -F 'ablation-missing' >/dev/null \
     || cf "no item names ROTA-006 and ablation-missing: $(grep -F ROTA-006 "$cl")"
-  grep -F 'ROTA-003' "$cl" >/dev/null && cf "a card whose forks: is declared got an item: $(grep -F ROTA-003 "$cl")"
+  grep -F 'ROTA-003' "$cl" | grep -F 'would refuse' >/dev/null && cf "a card whose forks: is declared got a refusal item: $(grep -F ROTA-003 "$cl")"
   grep -F 'open card ROTA-004' "$cl" | grep -F 'did not run' >/dev/null \
     || cf "a card with no branch is not listed as unchecked: $(grep -F ROTA-004 "$cl")"
-  grep -F 'open cards: 7 read, 4 ' "$SB_TMP/up.out" >/dev/null \
-    || cf "the summary does not say seven cards were read and four refused (every card is headed by a comment): $(grep -F 'open cards' "$SB_TMP/up.out")"
+  grep -F 'open cards: 7 read, 3 ' "$SB_TMP/up.out" >/dev/null \
+    || cf "the summary does not say seven cards were read and three refused (every card is headed by a comment): $(grep -F 'open cards' "$SB_TMP/up.out")"
   grep -F 'open card notes (in_progress)' "$cl" | grep -F 'did not run' >/dev/null \
     || cf "a file in an open column with no frontmatter was skipped silently instead of listed as unchecked: $(grep -F notes "$cl" | tr '\n' '|')"
   n="$(_ku_recs "$recs" forks-missing)"
@@ -805,6 +817,118 @@ case_kit_upgrade_checks_open_cards_against_the_new_kit() {
   _ku_run fin2 --finish --into "$KU_T"
   [ "$(_ku_rc fin2)" = 0 ] || cf "--finish with the cards fixed exited $(_ku_rc fin2): $(_ku_out fin2)"
   [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.2.0 ] || cf "--finish did not stamp 0.2.0"
+  finish "$L"
+  teardown
+}
+
+# _ku_todo_card <id> — a card minted and left in todo/: no branch, and no forks: line, which the new
+# kit's landing would refuse if it were read.
+_ku_todo_card() {
+  mkdir -p "$KU_T/progress/todo"
+  printf -- '---\nid: %s\ntype: feature\ntitle: card %s\nbranch: n/a\n---\n\n# %s\n\n## Acceptance Criteria\n\n- [ ] AC1 — the card behaves.\n' "$1" "$1" "$1" > "$KU_T/progress/todo/$1-card.md"
+  git -C "$KU_T" add -A >/dev/null 2>&1; git -C "$KU_T" commit -qm "mint $1" >/dev/null 2>&1
+}
+
+# =============================================================================
+# CASE — THE RE-CHECK OF OPEN CARDS JUDGES ONLY A QA VERDICT TABLE THAT HAS BEGUN TO BE FILLED.
+#
+# Cards minted from the shipped template, one in each of in_progress/, blocked/ and dev_complete/,
+# carry its unfilled QA Verdict table; another has no table; one dev_complete card's table has a verdict
+# and no usable pointer; a card sits in todo/. Staging lists only the wrongly filled card as refused,
+# counts the cards it did not judge and the todo/ card it did not read; --finish refuses for the wrongly
+# filled card alone, and finishes once that table is fixed with the template cards untouched.
+# =============================================================================
+case_kit_upgrade_judges_only_a_qa_verdict_that_is_begun() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh skips an open card whose QA Verdict is still the template's, in any column, counts the skips and the todo/ cards it did not read, and still refuses a table with a verdict filled wrongly"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  KU_TMPL="$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md"
+  [ -f "$KU_TMPL" ] || { skp "$L" "no .claude/templates/ISSUE.template.md to take the unfilled QA Verdict table from"; teardown; return; }
+  _ku_cards_base
+  _ku_card in_progress KUQ-001 feat/q1 'forks: none' tmpl
+  _ku_card blocked KUQ-002 feat/q2 'forks: none' tmpl
+  _ku_card dev_complete KUQ-003 feat/q3 'forks: none' tmpl
+  _ku_card dev_complete KUQ-004 feat/q4 'forks: none' tbd
+  _ku_card in_progress KUQ-005 feat/q5 'forks: none' noqa
+  _ku_todo_card KUQ-006
+  grep -F '<placeholder>' "$KU_T/progress/in_progress/KUQ-001-card.md" >/dev/null \
+    || _fixture_die "case_kit_upgrade_judges_only_a_qa_verdict_that_is_begun: the card minted from the template carries no placeholder cell, so it is not the shipped unfilled table"
+  local cl="$KU_T/$KU_CHECKLIST_REL" recs="$KU_T/.progress-records" id
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  for id in KUQ-001 KUQ-002 KUQ-003 KUQ-005; do
+    grep -F "open card $id" "$cl" | grep -F 'would refuse' >/dev/null \
+      && cf "$id has no verdict filled yet and got a refusal item: $(grep -F "$id" "$cl" | tr '\n' '|')"
+  done
+  grep -F 'open card KUQ-004 (dev_complete)' "$cl" | grep -F 'qa-verdict-evidence-missing' >/dev/null \
+    || cf "the wrongly filled table was not refused: $(grep -F KUQ-004 "$cl" | tr '\n' '|')"
+  grep -F 'open cards: 5 read, 1 ' "$SB_TMP/up.out" >/dev/null \
+    || cf "the summary does not say five cards were read and one refused: $(grep -F 'open cards' "$SB_TMP/up.out")"
+  grep -F '4 open card(s) carry no verdict yet; each is judged at its own landing' "$SB_TMP/up.out" >/dev/null \
+    || cf "the summary does not count the four cards with no verdict yet: $(tr '\n' '|' < "$SB_TMP/up.out" | cut -c1-600)"
+  grep -F 'todo/ cards not read: 1' "$SB_TMP/up.out" >/dev/null \
+    || cf "the summary does not count the todo/ card it left unread: $(tr '\n' '|' < "$SB_TMP/up.out" | cut -c1-600)"
+  grep -F 'KUQ-006' "$cl" >/dev/null && cf "a todo/ card got a checklist item: $(grep -F KUQ-006 "$cl")"
+
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark the upgrade" >/dev/null 2>&1
+  _ku_run fin1 --finish --into "$KU_T"
+  [ "$(_ku_rc fin1)" != 0 ] || cf "--finish stamped with a wrongly filled QA Verdict table"
+  [ "$(_ku_recs "$recs" upgrade-open-card-refused)" -eq 1 ] || cf "no refusal=upgrade-open-card-refused record: $(_ku_out fin1)"
+  grep -F 'KUQ-004 (dev_complete)' "$SB_TMP/fin1.out" >/dev/null || cf "the refusal does not name KUQ-004: $(_ku_out fin1)"
+  for id in KUQ-001 KUQ-002 KUQ-003 KUQ-005; do
+    grep -F "$id" "$SB_TMP/fin1.out" >/dev/null && cf "--finish named $id, whose table has no verdict yet: $(_ku_out fin1)"
+  done
+  sed -i.bak 's/| tbd |/| src\/KUQ-004.txt:1 "behaves KUQ-004" |/' "$KU_T/progress/dev_complete/KUQ-004-card.md" && rm -f "$KU_T/progress/dev_complete/KUQ-004-card.md.bak"
+  git -C "$KU_T" commit -qam "QA fills the pointer" >/dev/null 2>&1
+  _ku_run fin2 --finish --into "$KU_T"
+  [ "$(_ku_rc fin2)" = 0 ] || cf "--finish with the one table fixed exited $(_ku_rc fin2): $(_ku_out fin2)"
+  [ "$(cat "$KU_T/process/KIT-VERSION")" = 0.2.0 ] || cf "--finish did not stamp 0.2.0"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — AN OPEN CARD WHOSE BRANCH DOES NOT CONTAIN THE TRUNK GETS AN ITEM SAYING SO.
+#
+# Two dev_complete cards, minted in order and moved the way the roles move them. The first card's branch
+# was cut before the trunk moved on, so it carries the scripts and hooks the project had before the
+# upgrade; its owner has brought the trunk into the second. Staging writes an item for the first alone,
+# naming its branch and the two ways out (bring the trunk in, or review from a worktree); it does not
+# touch the branch, and --finish stamps once the item is marked.
+# =============================================================================
+case_kit_upgrade_names_a_branch_that_predates_the_upgrade() {
+  cf_reset
+  make_sandbox
+  local L="kit-upgrade.sh writes an item naming an open card's branch that does not contain the trunk (bring the trunk in, or review from a worktree), writes none for a branch that does, and leaves the branch alone"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  KU_TMPL="$REAL_REPO_ROOT/.claude/templates/ISSUE.template.md"
+  [ -f "$KU_TMPL" ] || { skp "$L" "no .claude/templates/ISSUE.template.md to take the unfilled QA Verdict table from"; teardown; return; }
+  _ku_cards_base
+  _ku_card dev_complete KUQ-011 feat/q11 'forks: none' tmpl
+  _ku_card dev_complete KUQ-012 feat/q12 'forks: none' tmpl
+  git -C "$KU_T" checkout -q feat/q12 >/dev/null 2>&1 && git -C "$KU_T" merge -q --no-edit main >/dev/null 2>&1
+  git -C "$KU_T" checkout -q main >/dev/null 2>&1
+  local cl="$KU_T/$KU_CHECKLIST_REL" tip
+  git -C "$KU_T" merge-base --is-ancestor main feat/q11 >/dev/null 2>&1 \
+    && _fixture_die "case_kit_upgrade_names_a_branch_that_predates_the_upgrade: the first branch already contains the trunk, so it does not predate anything"
+  tip="$(git -C "$KU_T" rev-parse feat/q11)"
+  _ku_run up --into "$KU_T"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  grep -F 'open card KUQ-011 (dev_complete)' "$cl" | grep -F 'feat/q11 does not contain the trunk' >/dev/null \
+    || cf "no item names KUQ-011 and its branch as not containing the trunk: $(grep -F KUQ-011 "$cl" | tr '\n' '|')"
+  grep -F 'open card KUQ-011' "$cl" | grep -F 'brings the trunk into it' | grep -F 'worktree' >/dev/null \
+    || cf "KUQ-011's item does not name both ways out (bring the trunk in; review from a worktree): $(grep -F KUQ-011 "$cl" | tr '\n' '|')"
+  grep -F 'KUQ-012' "$cl" >/dev/null && cf "a branch that contains the trunk got an item: $(grep -F KUQ-012 "$cl")"
+  grep -F 'KUQ-011' "$cl" | grep -F 'would refuse' >/dev/null && cf "an unfilled-table card was refused beside its branch item: $(grep -F KUQ-011 "$cl")"
+  sed 's/^- \[ \] /- [x] /' "$cl" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$cl"
+  git -C "$KU_T" add -A >/dev/null 2>&1 && git -C "$KU_T" commit -qm "stage and mark the upgrade" >/dev/null 2>&1
+  _ku_run fin --finish --into "$KU_T"
+  [ "$(_ku_rc fin)" = 0 ] || cf "--finish with the item marked exited $(_ku_rc fin): $(_ku_out fin)"
+  [ "$(git -C "$KU_T" rev-parse feat/q11)" = "$tip" ] || cf "the upgrade moved the card's branch: it is the owner's act"
   finish "$L"
   teardown
 }

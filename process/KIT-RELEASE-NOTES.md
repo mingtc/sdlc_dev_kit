@@ -68,7 +68,7 @@ unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/ki
    already hold are flagged: diff each before applying it), every file to merge, every file dropped
    upstream, every day-one scaffolding file it did not write because your project is past day one,
    every open card (`in_progress/`, `dev_complete/`, `blocked/`) the new kit's landing checks would
-   refuse, and the stamping checks for what arrived.
+   refuse, every open card whose branch does not contain the trunk, and the stamping checks for what arrived.
 2. **Commit it through your own board and gates**, the checklist and `.kit-upgrade/` included. The
    upgrade is ordinary work: declare your hat first (`.kit/session-role`, one line `<Role> <scope>`;
    [`contracts/role-gate.md`](contracts/role-gate.md)), or the commit guard refuses the commit.
@@ -78,7 +78,7 @@ unzip -q <path-to>/project-kit-v<X.Y.Z>.zip -d <scratch> && <scratch>/scripts/ki
    any `+<tree>` included) and `process/KIT-MANIFEST`, moves the marked checklist to
    `process/upgrades/<from>-to-<to>.md` (the record of what was done, whatever merge strategy landed the
    upgrade) and removes `.kit-upgrade/`. It refuses while an item is unmarked, while the new
-   kit's landing checks would refuse an open card, and while an **Action required** item that ends
+   kit's landing checks would refuse an open card (a QA Verdict table with no verdict filled is skipped), and while an **Action required** item that ends
    `Verify: <command>` fails it: the command, from the new kit's notes, runs in your tree and exits 0 when
    the action is done ([`contracts/kit-upgrade.md`](contracts/kit-upgrade.md) § 7). The archive lists every
    other item as declared, unverified. Commit that too.
@@ -360,6 +360,18 @@ columns and never the cards.*
   holds that card at another path (a Dev's checkout still has the `in_progress/` copy after the card moved to `dev_complete/`) is
   refused as `register-card-moved`, naming the trunk's path. Bring that file into your checkout, edit it there and land it. A
   landing that also deletes the old path is a move and lands. No action.
+
+- **An upgrade's open-card check judges only a QA Verdict table that has a verdict filled.** A card whose table is still the
+  template's (or absent) is skipped, whatever its column, so `--finish` no longer waits on a review by another hat; the staging
+  summary counts the skipped cards, and each is judged at its own landing. A table with any verdict cell filled is judged
+  whole, and a wrongly filled one still refuses the finish. This supersedes "any other open card that already has a
+  `## QA Verdict`" in the entry in `KIT-RELEASE-HISTORY.md` that introduced the check. No action.
+- **The upgrade's staging summary counts the `todo/` cards it did not read.** `todo/` stays outside the open-card check (no
+  branch to check); the summary says how many it left, and that each is judged at its own landing. No action.
+- **A checklist item names an open card whose branch predates the upgrade.** A branch that does not contain the trunk carries
+  the older hooks and scripts, which govern a checkout it is switched to: its owner brings the trunk into it before it is
+  switched to where the hooks run, or it is reviewed from a worktree (`qa.md` review step 2 says so). The upgrade seat does
+  not merge it: tell the owner, then mark the item.
 
 ### Fixed
 

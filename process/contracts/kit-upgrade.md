@@ -52,14 +52,23 @@ made its own**, and without the upgrade's unfinished part living only in somebod
   each item; the file is then the only record of what was done.
 - **The new kit's landing checks judge the project's open cards, and are read from the new kit.** The
   `forks:`, QA Verdict and Ablation checks run over every `.md` file in `in_progress/`, `dev_complete/` and
-  `blocked/` that has a branch, headed by a comment or not (the QA Verdict at `dev_complete/` or where the
-  card already carries a QA Verdict, the Ablation only at `dev_complete/`), from a copy of the new kit's `scripts/lib/`
-  staged in `.kit-upgrade/lib/`. A card they would refuse is one checklist item naming the rule id, and finishing refuses while any
+  `blocked/` that has a branch, headed by a comment or not (the QA Verdict where QA has filled a verdict
+  cell, the Ablation only at `dev_complete/`), from a copy of the new kit's `scripts/lib/`
+  staged in `.kit-upgrade/lib/`. A QA Verdict table with no verdict cell filled (the template's, or none) has nothing to judge: the
+  check skips it, the staging summary counts the cards it skipped, and each is judged at its own landing.
+  A table with any verdict cell filled is judged whole. `todo/` is not read (no branch, no work),
+  and the staging summary counts the cards it left unread. A card they would refuse is one checklist item naming the rule id, and finishing refuses while any
   still would. A card whose branch resolves to no branch, a file with no frontmatter, or a project with no
-  trunk branch, gets an item saying the checks did not run; it is never counted as passing.
+  trunk branch, gets an item saying the checks did not run; it is never counted as passing. A card whose branch
+  does not contain the trunk gets an item saying so: its owner brings the trunk into it before it is switched to
+  where the hooks run, or it is reviewed from a worktree; the seat does neither.
   *Why:* a landing check never reads its own rule from the tree it judges, and an upgrade's own landing
   runs the gates the project had before it, so nothing else ever tests an in-flight card against the
-  rules the project has just adopted. A column left out would be a place to move a card to avoid them.
+  rules the project has just adopted. An unreviewed table has no verdict to judge, and the landing
+  that reviews it runs the same checks, so skipping it loses no rule and an upgrade need not wait on a
+  review by another hat. A column left out would be a place to move a card to avoid the checks; `todo/` can stay
+  out because a card skipped there is judged by the same checks at its landing, so moving one gains nothing. A branch that predates the upgrade runs its own older hooks wherever it is
+  switched to.
 - **A marked Action required item is checked where the new kit can check it, and is recorded as declared
   where it cannot.** Finishing runs the `Verify:` command (§ 7) of every Action required item and
   refuses while one fails; the archived checklist names each item as verified, or as declared and

@@ -49,9 +49,12 @@
 # (the board's own definition of a card, a leading comment above the frontmatter included). A card
 # they would refuse gets one checklist item naming the rule; --finish runs them again and refuses
 # while any still would. A card whose branch does not resolve (a file with no frontmatter has no
-# branch, and reads as `<none>`) cannot be checked: its item says so. The forks: check runs on
-# every such card; the QA Verdict check runs at dev_complete, or on a card in any of the three
-# that already has a "## QA Verdict" heading; the Ablation check runs at dev_complete alone.
+# branch, and reads as `<none>`) cannot be checked: its item says so. A card whose branch does not
+# contain the trunk gets an item naming the branch: it carries the scripts the project had before the
+# upgrade. The forks: check runs on every such card; the QA Verdict check runs on a card in any of
+# the three whose table QA has begun to fill (a verdict cell that is no longer a placeholder),
+# and a card with no verdict yet is counted, to be judged at its own landing; the Ablation check
+# runs at dev_complete alone. progress/todo is not read, and the summary counts what it skipped.
 #
 # THE VERIFY: LINES: an Action required entry in the new kit's release notes may carry one
 # `Verify: <shell command>` line (process/contracts/kit-upgrade.md § 7). The first run copies it into
@@ -156,10 +159,13 @@ read_version() {  # <file> — its one line, or nothing
 # ── THE NEW KIT'S LANDING CHECKS over the project's open cards ─────────────────
 # lc_run fills LC_REFUSED ("<id>|<column>|<rule ids>|<first message line>"), LC_UNCHECKED
 # ("<id>|<column>|<why>"), LC_DIDNOT (a check's own "did not run" lines) and LC_NOTE (why no card
-# could be checked at all), and LC_FORKS_ONLY (cards checked for forks: alone).
+# could be checked at all), LC_NO_VERDICT (cards whose QA Verdict was not judged: no verdict cell is
+# filled yet), LC_NOT_DEVCOMPLETE (cards outside dev_complete, whose Ablation is not judged),
+# LC_BEHIND ("<id>|<column>|<branch>": a branch that does not contain the trunk) and LC_TODO
+# (todo/ cards, which are never read: no branch, so no check has anything to read).
 # The checks run in a subshell with the progress writer replaced, so a probe refuses without
 # leaving a record; the rule id is what kit_refuse hands that writer.
-LC_REFUSED=(); LC_UNCHECKED=(); LC_DIDNOT=(); LC_NOTE=""; LC_FORKS_ONLY=0; LC_CARDS=0
+LC_REFUSED=(); LC_UNCHECKED=(); LC_DIDNOT=(); LC_NOTE=""; LC_NO_VERDICT=0; LC_NOT_DEVCOMPLETE=0; LC_BEHIND=(); LC_TODO=0; LC_CARDS=0
 lc_trunk() {
   local r
   for r in "$(git -C "$TGT" symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null)" \
@@ -182,9 +188,21 @@ lc_probe() {
     LC_MSG="$(sed -n '1s/^Error: //p' "$LC_TMP/err")"; [ -n "$LC_MSG" ] || LC_MSG="the check exited $rc without a message"
   fi
 }
+# lc_begun <card> — whether QA has begun to fill the card's QA Verdict table, by the new kit's own reader.
+# Only the reader's own "not begun" (1) skips the table: a library that would not load judges it, so the
+# probe that follows reports the failure instead of every table passing unread.
+lc_begun() {
+  local rc=0
+  ( . "$LC_DIR/refuse.sh"; . "$LC_DIR/decision-register.sh"; . "$LC_DIR/qa-gate.sh" || exit 70   # exit-class: internal
+    kit_qa_verdict_begun "$1" ) >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 1 ]
+}
 lc_run() {
-  LC_REFUSED=(); LC_UNCHECKED=(); LC_DIDNOT=(); LC_NOTE=""; LC_FORKS_ONLY=0; LC_CARDS=0
-  local cards=() col f id br rev trunk cboard rules msg why line
+  LC_REFUSED=(); LC_UNCHECKED=(); LC_DIDNOT=(); LC_NOTE=""; LC_NO_VERDICT=0; LC_NOT_DEVCOMPLETE=0; LC_BEHIND=(); LC_TODO=0; LC_CARDS=0
+  local cards=() col f id br rev trunk cboard rules msg why line behind
+  for f in "$TGT/progress/todo/"*.md; do
+    [ -f "$f" ] && LC_TODO=$((LC_TODO + 1))
+  done
   for col in in_progress dev_complete blocked; do
     for f in "$TGT/progress/$col/"*.md; do
       [ -f "$f" ] && cards+=("$col|$f")
@@ -211,19 +229,24 @@ lc_run() {
       continue
     fi
     rules=""; msg=""
+    # A branch that does not contain the trunk carries the scripts and hooks the project had before the upgrade.
+    behind=0; git -C "$TGT" merge-base --is-ancestor "$trunk" "$rev" 2>/dev/null || behind=$?
+    [ "$behind" -ne 1 ] || LC_BEHIND+=("$id|$col|$br")
     lc_probe kit_forks_check "$f" "$id" "$TGT" "$trunk" "$rev" "$cboard"
     [ -z "$LC_RULE" ] || { rules="$LC_RULE"; msg="$LC_MSG"; }
     while IFS= read -r why; do [ -z "$why" ] || LC_DIDNOT+=("$id: $why"); done < <(grep 'did not run' "$LC_TMP/out")
-    if [ "$col" = dev_complete ] || grep -q '^## QA Verdict[[:space:]]*$' "$f"; then
+    if lc_begun "$f"; then
       lc_probe kit_qa_verdict_check "$f" "$id" "$TGT" "$rev"
       [ -z "$LC_RULE" ] || { rules="${rules:+$rules, }$LC_RULE"; msg="${msg:-$LC_MSG}"; }
     else
-      LC_FORKS_ONLY=$((LC_FORKS_ONLY + 1))
+      LC_NO_VERDICT=$((LC_NO_VERDICT + 1))
     fi
     if [ "$col" = dev_complete ]; then
       lc_probe kit_ablation_check "$f" "$id" "$TGT" "$trunk" "$rev"
       [ -z "$LC_RULE" ] || { rules="${rules:+$rules, }$LC_RULE"; msg="${msg:-$LC_MSG}"; }
       while IFS= read -r why; do [ -z "$why" ] || LC_DIDNOT+=("$id: $why"); done < <(grep 'did not run' "$LC_TMP/out")
+    else
+      LC_NOT_DEVCOMPLETE=$((LC_NOT_DEVCOMPLETE + 1))
     fi
     [ -z "$rules" ] || LC_REFUSED+=("$id|$col|$rules|$msg")
   done
@@ -233,7 +256,8 @@ lc_run() {
 lc_report() {
   local l
   for l in ${LC_DIDNOT[@]+"${LC_DIDNOT[@]}"}; do echo "  not run: $l"; done
-  [ "$LC_FORKS_ONLY" -eq 0 ] || echo "  $LC_FORKS_ONLY open card(s) outside dev_complete were checked for forks: alone; their QA Verdict and Ablation are owed at dev_complete."
+  [ "$LC_NO_VERDICT" -eq 0 ] || echo "  $LC_NO_VERDICT open card(s) carry no verdict yet; each is judged at its own landing."
+  [ "$LC_NOT_DEVCOMPLETE" -eq 0 ] || echo "  $LC_NOT_DEVCOMPLETE open card(s) outside dev_complete were not checked for the Ablation, which is owed at dev_complete."
 }
 
 # notes_items <release notes> [<release history>] — the ONE reader of the Action required entries, one row per entry:
@@ -589,7 +613,7 @@ lc_run
     fi
   done
 
-  if [ "${#LC_REFUSED[@]}" -gt 0 ] || [ "${#LC_UNCHECKED[@]}" -gt 0 ]; then
+  if [ "${#LC_REFUSED[@]}" -gt 0 ] || [ "${#LC_UNCHECKED[@]}" -gt 0 ] || [ "${#LC_BEHIND[@]}" -gt 0 ]; then
     echo; echo "## Open cards"; echo
     for l in ${LC_REFUSED[@]+"${LC_REFUSED[@]}"}; do
       IFS='|' read -r r_id r_col r_rules r_msg <<< "$l"
@@ -598,6 +622,10 @@ lc_run
     for l in ${LC_UNCHECKED[@]+"${LC_UNCHECKED[@]}"}; do
       IFS='|' read -r r_id r_col r_why <<< "$l"
       echo "- [ ] open card $r_id ($r_col) — the new kit's landing checks did not run on it: $r_why; check it by hand before it lands, then mark this"
+    done
+    for l in ${LC_BEHIND[@]+"${LC_BEHIND[@]}"}; do
+      IFS='|' read -r r_id r_col r_br <<< "$l"
+      echo "- [ ] open card $r_id ($r_col) — its branch $r_br does not contain the trunk, so it carries the scripts and hooks this project had before the upgrade; its owner brings the trunk into it before it is switched to where the hooks run, or it is reviewed from a worktree (the merge is the owner's, not this upgrade's); tell the owner, then mark this"
     done
   fi
 
@@ -642,6 +670,7 @@ if [ "$LC_CARDS" -gt 0 ]; then
   echo "  open cards: $LC_CARDS read, ${#LC_REFUSED[@]} the new kit's landing checks would refuse, ${#LC_UNCHECKED[@]} not checkable"
   lc_report
 fi
+[ "$LC_TODO" -eq 0 ] || echo "  todo/ cards not read: $LC_TODO (no branch to check; each is judged at its own landing)"
 echo
 echo "Nothing is committed. Next:"
 echo "  1. Review: git -C $TGT status; git -C $TGT diff"

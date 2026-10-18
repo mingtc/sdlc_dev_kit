@@ -29,6 +29,11 @@
 #     qa-verdict-quote-not-found, qa-verdict-no-observed.
 #     A cell may contain a pipe written `\|` (kit_md_row_cell).
 #
+#   kit_qa_verdict_begun <card-file>
+#     Whether QA has begun to fill the card's QA Verdict table: some row's verdict cell is not a
+#     placeholder. Returns 0 or 1 and prints nothing; a caller that has no landing to judge (the
+#     kit upgrade's re-check of open cards) judges the table only when it is begun.
+#
 #   kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path>
 #     process/MANUAL.md § Execution discipline item 6: 'forks:' names every fork ruling the
 #     branch resolved, or 'none'. <old-rev>/<new-rev> bound the diff a resolved-but-uncited fork
@@ -254,6 +259,20 @@ kit_md_row_cell() {
 kit_qa_verdict_rows() {
   awk '/^## QA Verdict[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$1" \
     | { grep -E '^\|' || true; } | { grep -vE '^\|[[:space:]]*(AC id|-+)[[:space:]]*\|' || true; }
+}
+
+# kit_qa_verdict_begun <card-file> — true if QA has begun to fill the card's '## QA Verdict' table: some
+# row's verdict cell is no longer empty or a placeholder (KIT_QAV_PLACEHOLDER_RE, as the tokens'
+# backticks and bold are stripped). A card with no table, or the template's table, is not begun, so
+# no verdict exists yet for kit_qa_verdict_check to judge. The one reader of that question.
+kit_qa_verdict_begun() {
+  local _row _cell
+  while IFS= read -r _row; do
+    [ -n "$_row" ] || continue
+    _cell="$(kit_md_row_cell "$_row" 2 | tr -d '`*' | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    _qav_is_placeholder "$_cell" || return 0
+  done <<< "$(kit_qa_verdict_rows "$1")"
+  return 1   # return-class: predicate
 }
 
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> ────────────────────────────────────
