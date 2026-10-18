@@ -279,6 +279,7 @@ CASES=(
   case_kit_upgrade_pointers_name_the_file_that_holds_the_entry
   case_upgrade_seat_lands_on_the_trunk_with_code_globs_declared
   case_upgrade_seat_brief_names_the_trunk_route
+  case_check_board_skips_the_committed_staging_directory
   case_ask_help_answers_first
   case_ask_refuses_with_no_principal
   case_ask_principal_field_reads_either_form

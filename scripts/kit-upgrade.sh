@@ -96,7 +96,7 @@ need_val() {
   [ "$#" -ge 2 ] || { echo "Error: $1 requires a value." >&2; exit 2; }
 }
 
-# Greppable defaults: check-board.sh reads UPGRADE_CHECKLIST from this line.
+# Greppable defaults: check-board.sh reads UPGRADE_CHECKLIST and STAGE_DIR from these lines.
 UPGRADE_CHECKLIST='process/UPGRADE-CHECKLIST.md'
 STAGE_DIR='.kit-upgrade'
 STAGED_NOTES='KIT-RELEASE-NOTES.md.kit-new'

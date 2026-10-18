@@ -149,6 +149,12 @@ if [ -z "$REPO_ROOT" ]; then
   REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." 2>/dev/null && pwd || true)"
 fi
 
+# The upgrade staging directory, read from the one line that declares it (kit-upgrade.sh's
+# STAGE_DIR). Its files are the NEW kit's copies awaiting a merge, not the project's own: arms [g]
+# and [l] skip them and print how many. Empty when kit-upgrade.sh is absent: nothing is skipped.
+CB_STAGE_DIR="$(sed -n "s/^STAGE_DIR='\([^']*\)'\$/\1/p" "$REPO_ROOT/scripts/kit-upgrade.sh" 2>/dev/null | sed -n '1p' || true)"
+cb_staged() { [ -n "$CB_STAGE_DIR" ] || return 1; case "$1" in "$CB_STAGE_DIR"/*) return 0 ;; esac; return 1; }   # return-class: predicate
+
 # The shared already-lived probe, resolved from THIS script's location (it ships beside this
 # script; CLAUDE_PROJECT_DIR may name another tree). It also declares § Log's heading, which arms
 # c and n read. A load failure is a recorded skip, never an
@@ -854,6 +860,7 @@ else
   # clean tree, and printing COMPLETE over it would be a false green.
   g_measured=0
   g_unmeasured=""
+  g_skip=0
 
   # (g1) REPLACE class. The population is every tracked file whose HEADER BLOCK (first 12 lines)
   # declares `KIT-DISPOSITION: REPLACE` — process/EXTRACTION.md's derivation; a manual quoting the
@@ -868,6 +875,7 @@ else
     [ -n "$CB_REF" ] && f="${f#"$CB_REF":}"
     [ -f "$CB_TREE/$f" ] || continue
     sed -n '1,12p' "$CB_TREE/$f" | grep -E "$g_decl" >/dev/null || continue
+    if cb_staged "$f"; then g_skip=$((g_skip+1)); continue; fi
     g_repl_pop="$g_repl_pop $f"
     grep -qxF '<!-- BOOTSTRAP-SCAFFOLDING — a tool reads this line. It goes when this file goes. -->' "$CB_TREE/$f" 2>/dev/null && g_repl="$g_repl $f"
   done < <(git -C "$REPO_ROOT" grep -lzE "$g_decl" ${CB_REF:+"$CB_REF"} -- 2>/dev/null || true)
@@ -1167,6 +1175,7 @@ else
     [ -n "$CB_REF" ] && f="${f#"$CB_REF":}"
     [ -f "$CB_TREE/$f" ] || continue
     sed -n '1,12p' "$CB_TREE/$f" | grep -E "$g_diu_decl" >/dev/null || continue
+    if cb_staged "$f"; then g_skip=$((g_skip+1)); continue; fi
     g_diu_pop="$g_diu_pop $f"
   done < <(git -C "$REPO_ROOT" grep -lzE "$g_diu_decl" ${CB_REF:+"$CB_REF"} -- 2>/dev/null || true)
   if [ -z "$g_diu_pop" ]; then
@@ -1196,7 +1205,7 @@ else
 
   # THE POPULATION LINE, always printed, before either verdict below: what this pass measured and
   # what it could not. "0 measured" is itself a finding, not silence.
-  echo "      measured: $g_measured member(s)/class(es)$( [ -n "$g_unmeasured" ] && printf '; could not measure: %s' "$g_unmeasured" )"
+  echo "      measured: $g_measured member(s)/class(es)$( [ -n "$g_unmeasured" ] && printf '; could not measure: %s' "$g_unmeasured" )$( [ "$g_skip" -gt 0 ] && printf '; skipped %s staged file(s) in %s/' "$g_skip" "$CB_STAGE_DIR" )"
   # STILL CANNOT CATCH: a blank filled with plausible nonsense reads as measured-and-clean here,
   # the same as a blank filled with the adopter's real answer — no mechanism here reads MEANING.
   echo "      (still cannot catch: a blank filled with plausible nonsense — this arm reads SHAPE, not truth)"
@@ -1384,6 +1393,7 @@ elif [ -z "$(kit_bp_registers_present "$CB_TREE")" ]; then
   echo "[l] Declared reference integrity — every cited register id resolves: no register was read (none of the declared ones is present in this source) — nothing to resolve citations against (skipped) — $(cb_src)"
 else
   echo "[l] Declared reference integrity — every cited register id resolves to a live entry, and no retired id is cited — $(cb_src):"
+  KIT_BP_SKIP_DIR="$CB_STAGE_DIR"
   kit_bp_citations "$CB_TREE"
   [ "$KIT_BP_NHITS" -eq 0 ] || drift=1
 fi

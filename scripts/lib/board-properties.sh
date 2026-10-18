@@ -37,6 +37,9 @@ KIT_BP_CARD_EMPTY=""
 KIT_BP_COLS_READ=0
 # When non-empty, kit_bp_citations reads only these tree-relative paths (one per line).
 KIT_BP_ONLY=""
+# When non-empty, kit_bp_citations skips the files under this tree-relative directory (the upgrade
+# staging directory) and says how many.
+KIT_BP_SKIP_DIR=""
 # When BOTH are set, kit_bp_register_shape also reads a register's git history: KIT_BP_HIST_REPO is
 # the repository, KIT_BP_HIST_RANGE the revision range to walk. A landing sets neither.
 KIT_BP_HIST_REPO=""
@@ -323,7 +326,7 @@ kit_bp_blocks() {
 kit_bp_citations() {
   local tree="$1" l_cites=0 l_files_read=0 l_live="" l_retired="" l_reg_named="" l_reg_read=0 l_shapes=""
   local lreg_path lreg_mark lreg_shape lreg_file l_live_n l_retired_n l_excl_named l_files lex lex_fixed
-  local l_bare=0 cfile l_cids lshp cid l_stripped only
+  local l_bare=0 cfile l_cids lshp cid l_stripped only l_skip
   _bp_reset
   while IFS='|' read -r lreg_path lreg_mark lreg_shape; do
     [ -n "$lreg_path" ] || continue
@@ -352,7 +355,6 @@ $(kit_decision_register_retired "$lreg_file" "$lreg_shape")"
   # THE POPULATION: every file under the tree, less CITATION_EXCLUDE's prefixes. Named here, not
   # just filtered silently — the printed exclusion list IS the arm's population statement.
   l_excl_named="$(printf '%s\n' "$CITATION_EXCLUDE" | grep -c . || true)"
-  echo "    population: every file in this source except: $(printf '%s' "$CITATION_EXCLUDE" | tr '\n' ' ')($l_excl_named path(s) excluded — see CITATION_EXCLUDE's header for why each one is)"
   l_files="$(cd "$tree" 2>/dev/null && find . -type f 2>/dev/null | sed 's|^\./||' | sort || true)"
   while IFS= read -r lex; do
     [ -n "$lex" ] || continue
@@ -362,6 +364,12 @@ $(kit_decision_register_retired "$lreg_file" "$lreg_shape")"
     lex_fixed="$(printf '%s' "$lex" | sed 's/[.[\*^$/]/\\&/g')"
     l_files="$(printf '%s\n' "$l_files" | grep -v -E "^${lex_fixed}" || true)"
   done <<< "$(printf '%s\n' "$CITATION_EXCLUDE")"
+  l_skip=0
+  if [ -n "$KIT_BP_SKIP_DIR" ]; then
+    l_skip="$(printf '%s\n' "$l_files" | grep -c -F -e "$KIT_BP_SKIP_DIR/" || true)"
+    l_files="$(printf '%s\n' "$l_files" | grep -v -F -e "$KIT_BP_SKIP_DIR/" || true)"
+  fi
+  echo "    population: every file in this source except: $(printf '%s' "$CITATION_EXCLUDE" | tr '\n' ' ')($l_excl_named path(s) excluded — see CITATION_EXCLUDE's header for why each one is)$( [ "$l_skip" -gt 0 ] && printf '; skipped %s staged file(s) in %s/' "$l_skip" "$KIT_BP_SKIP_DIR" )"
   if [ -n "$KIT_BP_ONLY" ]; then
     only="$KIT_BP_ONLY"
     l_files="$(printf '%s\n' "$l_files" | grep -Fxf <(printf '%s\n' "$only") || true)"

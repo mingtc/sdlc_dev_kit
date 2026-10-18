@@ -350,6 +350,10 @@ columns and never the cards.*
 
 ### Changed
 
+- **The board's `[g]` and `[l]` arms skip the committed upgrade staging directory.** While `.kit-upgrade/` is committed, its copies of the new kit's files no
+  longer show as undecided DELETE-IF-UNUSED members in `[g]` or as dangling citations in `[l]`; each arm says `skipped N staged file(s)` in its line while any
+  are there. No action.
+
 - **`--finish` asks for a newer handoff.** Its closing output ends: if a handoff in `dev/handoffs/` describes the upgrade as unfinished, write a newer one
   pointing at the archive in `process/upgrades/`. A seat that stops short of `--finish` puts that step in the card for whoever finishes (`process/UPGRADE-SEAT.md`
   § If you are stopped). No action.

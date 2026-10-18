@@ -1274,6 +1274,81 @@ case_upgrade_seat_lands_on_the_trunk_with_code_globs_declared() {
 }
 
 # =============================================================================
+# CASE — check-board.sh's [g] AND [l] SKIP THE COMMITTED STAGING DIRECTORY AND SAY HOW MANY FILES.
+#
+# Built in the seat's order: an adopted tree, the upgrade staged into it and its .kit-upgrade/
+# committed on the trunk, then the board; then the checklist marked, --finish run, the removal
+# committed, the board again. While the directory is committed its staged copies carry a citation
+# with no entry in the register ([l]) and a DELETE-IF-UNUSED header ([g]); neither belongs to the
+# project yet. Each arm names the staged files it skipped, only while there are some.
+# =============================================================================
+case_check_board_skips_the_committed_staging_directory() {
+  cf_reset
+  make_sandbox
+  local L="check-board.sh arms [g] and [l] skip the committed staging directory, say how many staged files each skipped, and say nothing once --finish has removed it"
+  _ku_subject_or_fail "$L" || return
+  _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
+  KU_OLD="$SB_TMP/kit-old"; KU_NEW="$SB_TMP/kit-new"; KU_ELSE="$SB_TMP/elsewhere"
+  mkdir -p "$KU_ELSE"
+  _ku_kit "$KU_OLD" 0.1.0 old
+  _ku_kit "$KU_NEW" 0.2.0 new
+  # The new kit's copies of the two files the project edited: one a DELETE-IF-UNUSED member citing
+  # an id the register lacks, one a REPLACE member.
+  printf '<!-- KIT-DISPOSITION: DELETE-IF-UNUSED -->\nb2 [decision: D-9999]\n' > "$KU_NEW/b.txt"
+  printf '<!-- KIT-DISPOSITION: REPLACE -->\nd2\n' > "$KU_NEW/d.txt"
+  cp "$REAL_SCRIPTS/lib/"*.sh "$KU_NEW/scripts/lib/"
+  _ku_manifest "$KU_NEW"
+  cp -R "$KU_OLD/." "$SB_WORK/"
+  printf 'b1 mine\n' > "$SB_WORK/b.txt"; printf 'd1 mine\n' > "$SB_WORK/d.txt"
+  # A lived project with a register: [g] runs only on a tree that has started, [l] needs an entry to resolve against.
+  printf '\n%s on 2026-01-01 — prefix XYZ, trunk %s.\n' "$KIT_STAMP_MARK" "$SB_TRUNK" >> "$SB_WORK/scripts/config.sh"
+  local reg regpath regmark
+  reg="$(cb_default REGISTERS)"; regpath="${reg%%|*}"; regmark="$(printf '%s' "$reg" | awk -F'|' '{print $2}')"
+  mkdir -p "$SB_WORK/$(dirname "$regpath")"
+  printf '# DECISIONS\n## A. First bucket\n%sD-01 — first\n\n## Retired ids\n\n`<none yet>`\n\n## Findings\n' "$regmark" > "$SB_WORK/$regpath"
+  publish_sandbox
+  local out gsec lsec want members f
+  _ku_arm() { printf '%s\n' "$out" | awk -v a="$1" 'index($0, "[" a "] ")==1{f=1; print; next} f && /^(\[[a-z0-9]+\]|──)/{exit} f'; }
+
+  _ku_run up --into "$SB_WORK"
+  [ "$(_ku_rc up)" = 0 ] || cf "staging exited $(_ku_rc up): $(_ku_out up)"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] stage the upgrade" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  want="$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" | grep -c '^\.kit-upgrade/' || true)"
+  members=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    git -C "$SB_ORIGIN" show "$SB_TRUNK:$f" | sed -n '1,12p' | grep -E 'KIT-DISPOSITION:[[:space:]]*(REPLACE|DELETE-IF-UNUSED)' >/dev/null && members=$((members + 1))
+  done <<KU_STAGED_EOF
+$(git -C "$SB_ORIGIN" ls-tree -r --name-only "$SB_TRUNK" | grep '^\.kit-upgrade/' || true)
+KU_STAGED_EOF
+  [ "${want:-0}" -gt "$members" ] && [ "$members" -gt 1 ] || _control_did_not_run "commit the staged .kit-upgrade/ to the trunk"
+  out="$(cb_run)"
+  gsec="$(_ku_arm g)"; lsec="$(_ku_arm l)"
+  [ -n "$gsec" ] && [ -n "$lsec" ] || _control_did_not_run "find arms [g] and [l] in the board's output"
+  printf '%s\n' "$gsec" | grep -F '.kit-upgrade/files' >/dev/null \
+    && cf "[g] lists a staged copy: $(printf '%s\n' "$gsec" | grep -F '.kit-upgrade/files' | tr '\n' '|' | cut -c1-250)"
+  printf '%s\n' "$lsec" | grep -F 'D-9999' >/dev/null \
+    && cf "[l] reports the staged copy's citation: $(printf '%s\n' "$lsec" | grep -F 'D-9999' | tr '\n' '|' | cut -c1-250)"
+  printf '%s\n' "$gsec" | grep -F "skipped $members staged file(s) in .kit-upgrade/" >/dev/null \
+    || cf "[g] does not name its $members skipped staged members: $(printf '%s\n' "$gsec" | grep -E 'measured:|DID NOT RUN' | tr '\n' '|' | rev | cut -c1-250 | rev)"
+  printf '%s\n' "$lsec" | grep -F "skipped $want staged file(s) in .kit-upgrade/" >/dev/null \
+    || cf "[l] does not name its $want skipped staged files: $(printf '%s\n' "$lsec" | grep -E 'population:|no register' | tr '\n' '|' | rev | cut -c1-250 | rev)"
+
+  # Marked, finished and the removal committed: no directory, no count.
+  sed 's/^- \[ \] /- [x] /' "$SB_WORK/$KU_CHECKLIST_REL" > "$SB_TMP/cl" && cp "$SB_TMP/cl" "$SB_WORK/$KU_CHECKLIST_REL"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] mark the upgrade" >/dev/null 2>&1
+  _ku_run fin --finish --into "$SB_WORK"
+  [ "$(_ku_rc fin)" = 0 ] || cf "--finish refused the marked checklist: $(_ku_out fin)"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -qm "[PM] finish the upgrade" >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -F 'staged file(s)' >/dev/null && cf "a skip count survives --finish: $(printf '%s\n' "$out" | grep -F 'staged file(s)' | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — process/UPGRADE-SEAT.md NAMES THE ROUTE THE CASE ABOVE WALKS.
 #
 # A step the mechanism supports but the brief does not say is a step no seat takes: the brief names
