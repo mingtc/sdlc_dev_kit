@@ -40,6 +40,9 @@
 #     the trunk's copy in and re-apply your edit. It does not catch a line the trunk REMOVED that
 #     your copy keeps, or a path you delete whole; where your checkout shares no history with the
 #     trunk and has landed nothing, it says on stderr that the guard did not run.
+#   - It will not land a second copy of a card (exit 1, refusal register-card-moved): a new
+#     `progress/**/<ID>-*.md` path while the trunk holds that id at another path. Make the edit in the
+#     trunk's copy. A landing that also deletes the old path is a move and lands.
 #
 # Examples:
 #   ./scripts/register-commit.sh --role PM --message "<PREFIX>-014: record D-NN answered" \
@@ -63,6 +66,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Refusals go through the one helper: a `refusal=` record and a Next: line.
 # shellcheck source=lib/refuse.sh
 . "$SCRIPT_DIR/lib/refuse.sh"
+
+# shellcheck source=lib/card-field.sh
+. "$SCRIPT_DIR/lib/card-field.sh"
 
 # shellcheck source=lib/role-set.sh
 [ -r "$SCRIPT_DIR/lib/role-set.sh" ] && . "$SCRIPT_DIR/lib/role-set.sh"
@@ -188,6 +194,31 @@ _stale_path() {   # $1 = rel; 0 when the trunk added a line your file lacks (the
   rm -rf "$tmp"
   [ -n "$STALE_LINE" ]
 }
+# A CARD IS ITS ID, NOT ITS PATH: creating a `progress/**/<ID>-*.md` file while the trunk already holds
+# that id at another path would put the card in two columns. A path the same landing deletes is a move,
+# not a second copy. The trunk's path is where the edit belongs.
+_card_elsewhere() {   # $1 = rel; prints the trunk's path for the id when the landing would duplicate it
+  local rel="$1" id f other p gone
+  case "$rel" in progress/*.md) ;; *) return 1 ;; esac
+  [ -f "$CALLER_ROOT/$rel" ] && [ ! -e "$KWT/$rel" ] || return 1
+  id="$(kit_card_id_of_path "$rel")"; [ -n "$id" ] || return 1
+  while IFS= read -r f; do
+    other="${f#"$KWT"/}"
+    [ "$(kit_card_id_of_path "$other")" = "$id" ] || continue
+    gone=""
+    for p in "${PATHS[@]}"; do [ "$p" = "$other" ] && [ ! -e "$CALLER_ROOT/$p" ] && gone=1; done
+    [ -n "$gone" ] || { printf '%s\n' "$other"; return 0; }
+  done < <(find "$KWT/progress" -type f \( -name "${id}.md" -o -name "${id}-*.md" \) 2>/dev/null | sort)
+  return 1
+}
+for rel in "${PATHS[@]}"; do
+  if _trunk_path="$(_card_elsewhere "$rel")"; then
+    kit_refuse 1 register-card-moved \
+      "Error: '$rel' would create a second copy of a card the trunk already holds at '$_trunk_path'." \
+      "       Nothing was changed on the trunk." \
+      "Next: make the edit in the trunk's copy — bring '$_trunk_path' into your checkout, re-apply your edit there, and land that path."
+  fi
+done
 for rel in "${PATHS[@]}"; do
   if _stale_path "$rel" && ! cmp -s "$CALLER_ROOT/$rel" "$KWT/$rel"; then
     kit_refuse 1 register-checkout-stale \

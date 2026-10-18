@@ -352,6 +352,10 @@ columns and never the cards.*
   a pointer with no quote of its own (naming the pointer), a quote shorter than 8 characters (unless it is the cited line's whole
   text), and two rows for one AC id (write one row that lists every pointer). No action unless an in-flight card carries a row of
   those shapes; its next landing says which.
+- **`register-commit.sh` refuses a second copy of a card.** A landing that creates a `progress/**/<ID>-*.md` file while the trunk
+  holds that card at another path (a Dev's checkout still has the `in_progress/` copy after the card moved to `dev_complete/`) is
+  refused as `register-card-moved`, naming the trunk's path. Bring that file into your checkout, edit it there and land it. A
+  landing that also deletes the old path is a move and lands. No action.
 
 ### Fixed
 

@@ -402,6 +402,7 @@ CASES=(
   case_pre_commit_refuses_a_commit_with_no_hat
   case_board_scripts_commit_with_no_hat_file
   case_register_commit_lands_from_a_linked_worktree
+  case_register_commit_refuses_a_second_copy_of_a_card
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections

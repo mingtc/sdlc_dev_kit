@@ -285,8 +285,9 @@ kanban worktree and never reads your checkout's copy (same reason as the strandi
 Write the section into your checkout's copy of the issue file, wherever it currently sits
 (`in_progress/` before step 13's move, `dev_complete/` after — name the path you actually have),
 then land it with the command below. It refuses a copy that lacks a line the trunk gained since your
-checkout was cut (`register-checkout-stale`); then bring the trunk's copy of the file in, re-apply
-your section, and re-run.
+checkout was cut (`register-checkout-stale`), and a copy at a column the card has left
+(`register-card-moved`, which names the trunk's path); then bring the trunk's copy of the file in,
+re-apply your section there, and re-run with that path.
 
 ```sh
 ./scripts/register-commit.sh --role Dev --message "<PREFIX>-NNN: Handoff to QA notes" \

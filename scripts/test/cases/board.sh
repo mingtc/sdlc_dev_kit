@@ -1824,6 +1824,72 @@ case_register_commit_lands_from_a_linked_worktree() {
 }
 
 # =============================================================================
+# CASE — register-commit.sh will not land a second copy of a card the trunk holds at another path.
+# The real order: the card is in_progress, the Dev's linked worktree is cut, the card is then moved to
+# dev_complete on the trunk (the hand-off's move), and the Dev, whose checkout still has the in_progress
+# copy, edits it and lands it. Control: the same edit made at the trunk's path lands. A landing that
+# deletes the old path and creates the new one is a move, and lands.
+# =============================================================================
+case_register_commit_refuses_a_second_copy_of_a_card() {
+  cf_reset
+  make_sandbox
+  local rc_sh="$SB_WORK/scripts/register-commit.sh"
+  [ -x "$rc_sh" ] \
+    || { skp "register-commit.sh: refuses a second copy of a card" "scripts/register-commit.sh is absent from this tree"; teardown; return; }
+  local id="$SB_PREFIX-836" out rc
+  seed_issue todo "$id" second-copy chore "A card edited at a column it has left" "feature/$id-second-copy"
+  publish_sandbox
+  seed_branch "$id" second-copy CHANGE836.txt
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" in_progress --role Dev --note "picked up" >/dev/null 2>&1 ) \
+    || _fixture_die "case_register_commit_refuses_a_second_copy_of_a_card: the card would not move to in_progress."
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+
+  local leg="$SB_TMP/leg836" fresh="$SB_TMP/fresh836" mover="$SB_TMP/mover836"
+  git -C "$SB_WORK" worktree add -q -b "leg-836" "$leg" "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || { skp "register-commit.sh: refuses a second copy of a card" "git worktree add failed in this sandbox"; teardown; return; }
+  [ -f "$leg/progress/in_progress/$id-second-copy.md" ] \
+    || _fixture_die "case_register_commit_refuses_a_second_copy_of_a_card: the leg has no in_progress copy."
+
+  # The hand-off's move lands on the trunk; the leg is not updated.
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" dev_complete --role Dev --note "ready" >/dev/null 2>&1 ) \
+    || _fixture_die "case_register_commit_refuses_a_second_copy_of_a_card: the card would not move to dev_complete."
+  origin_has_path "progress/dev_complete/$id-second-copy.md" \
+    || _fixture_die "case_register_commit_refuses_a_second_copy_of_a_card: the card is not in dev_complete/ on the trunk."
+
+  printf '\n## Handoff to QA\n\nwritten at the column the card left\n' >> "$leg/progress/in_progress/$id-second-copy.md"
+  out="$( cd "$leg" && ./scripts/register-commit.sh --role Dev --message "$id: Handoff to QA notes" "progress/in_progress/$id-second-copy.md" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a copy of the card at its old column landed with no refusal (exit 0): $out"
+  printf '%s' "$out" | grep -F "progress/dev_complete/$id-second-copy.md" >/dev/null \
+    || cf "the refusal does not name the trunk's dev_complete path: $out"
+  printf '%s' "$out" | grep -F 'Next:' >/dev/null || cf "the refusal has no Next: line: $out"
+  origin_has_path "progress/in_progress/$id-second-copy.md" \
+    && cf "the refused copy reached the trunk: the card is in two columns"
+
+  # Control: the same edit, made at the trunk's path in an up-to-date checkout, lands.
+  git -C "$SB_WORK" worktree add -q -b "fresh-836" "$fresh" "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_register_commit_refuses_a_second_copy_of_a_card: could not make the fresh worktree."
+  printf '\n## Handoff to QA\n\nwritten at the trunk path\n' >> "$fresh/progress/dev_complete/$id-second-copy.md"
+  out="$( cd "$fresh" && ./scripts/register-commit.sh --role Dev --message "$id: Handoff to QA notes" "progress/dev_complete/$id-second-copy.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) the same edit at the trunk's path was refused (exit $rc): $out"
+  origin_file_contains "progress/dev_complete/$id-second-copy.md" '^written at the trunk path$' \
+    || cf "(control) the edit at the trunk's path did not reach the trunk"
+
+  # A move (the old path deleted, the new one created, in one landing) is not a second copy.
+  git -C "$SB_WORK" worktree add -q -b "mover-836" "$mover" "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "case_register_commit_refuses_a_second_copy_of_a_card: could not make the mover worktree."
+  mkdir -p "$mover/progress/qa_complete"
+  mv "$mover/progress/dev_complete/$id-second-copy.md" "$mover/progress/qa_complete/$id-second-copy.md"
+  out="$( cd "$mover" && ./scripts/register-commit.sh --role Dev --message "$id: move by hand" \
+            "progress/dev_complete/$id-second-copy.md" "progress/qa_complete/$id-second-copy.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "a landing that deletes the old path and creates the new one was refused (exit $rc): $out"
+  origin_has_path "progress/qa_complete/$id-second-copy.md" || cf "the moved card did not reach qa_complete/"
+  origin_has_path "progress/dev_complete/$id-second-copy.md" && cf "the old path survived the move"
+
+  finish "register-commit.sh refuses a landing that creates a card file while the trunk holds that card at another path, naming the trunk's path; the same edit at the trunk's path lands, and so does a landing that deletes the old path as it creates the new"
+  teardown
+}
+
+# =============================================================================
 # CASE — a forced push failure is LOUD and nonzero (never a silent proceed).
 # =============================================================================
 case_push_failure() {

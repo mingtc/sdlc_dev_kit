@@ -35,3 +35,11 @@ kit_card_field() {
 kit_card_has_field() {
   _kit_card_scan "$1" "$2" has
 }
+
+# kit_card_id_of_path <path>
+#   Prints the card id (`<PREFIX>-NNN`) a card file's name begins with: `<id>-<slug>.md` or `<id>.md`,
+#   in any folder. Prints nothing for any other name, and always returns 0.
+kit_card_id_of_path() {
+  basename "$1" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?\.md$/\1/p'
+  return 0
+}

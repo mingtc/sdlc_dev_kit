@@ -756,18 +756,21 @@ echo "      (span, both homes: commits REACHABLE FROM A REF. A commit reachable 
 # after its card reached done/ or qa_complete/ is a re-cut or an aborted landing's leftover. Read
 # from the remote-tracking refs as last fetched (no fetch), against the cards in THIS source's
 # done/ and qa_complete/. A branch for a card still open or blocked is correctly left alone.
-f3_ids=""
+f3_ids=""; f3_ran=1
+command -v kit_card_id_of_path >/dev/null 2>&1 || f3_ran=""
 for f3_col in done qa_complete; do
   [ -d "$CB_TREE/progress/$f3_col" ] || continue
   for f3_f in "$CB_TREE/progress/$f3_col"/*.md; do
     [ -f "$f3_f" ] || continue
-    f3_id="$(basename "$f3_f" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?\.md$/\1/p')"
+    f3_id="$(kit_card_id_of_path "$f3_f" 2>/dev/null || true)"
     [ -n "$f3_id" ] && f3_ids="$f3_ids $f3_id "
   done
 done
 echo "[f] remote branches left by a landed card (reports only — never changes the verdict below):"
 f3_refs="$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' "refs/remotes/$remote/" 2>/dev/null || true)"  # card-read-exempt: lists every remote branch to name leftovers; resolves none
-if [ -z "$f3_refs" ]; then
+if [ -z "$f3_ran" ]; then
+  echo "      [f3] remote branches: THIS CHECK DID NOT RUN — scripts/lib/card-field.sh is missing or did not load  (skipped) — $(cb_src)"
+elif [ -z "$f3_refs" ]; then
   echo "      [f3] remote branches: no $remote/* ref in this checkout  (skipped) — inspected: refs/remotes/$remote/ (as last fetched)"
 else
   f3_n=0; f3_card=0; f3_stale=""
