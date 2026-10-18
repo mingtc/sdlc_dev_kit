@@ -381,6 +381,7 @@ if [ "$FINISH" = true ]; then
   echo "kit-upgrade: $TGT now records kit $new_v (process/KIT-VERSION, process/KIT-MANIFEST)."
   echo "  The marked checklist is kept as $ARCHIVE_REL; $UPGRADE_CHECKLIST and $STAGE_DIR/ are removed."
   echo "  Nothing is committed: commit this through your own board."
+  echo "  If a handoff in dev/handoffs/ describes this upgrade as unfinished, write a newer one pointing at $ARCHIVE_REL."
   exit 0
 fi
 

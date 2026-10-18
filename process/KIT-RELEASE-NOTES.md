@@ -350,6 +350,10 @@ columns and never the cards.*
 
 ### Changed
 
+- **`--finish` asks for a newer handoff.** Its closing output ends: if a handoff in `dev/handoffs/` describes the upgrade as unfinished, write a newer one
+  pointing at the archive in `process/upgrades/`. A seat that stops short of `--finish` puts that step in the card for whoever finishes (`process/UPGRADE-SEAT.md`
+  § If you are stopped). No action.
+
 - **The upgrade checklist names the file that holds each Action required entry.** A release the notes no longer hold is read from
   `process/KIT-RELEASE-HISTORY.md`, and its line now says so (`— process/KIT-RELEASE-HISTORY.md § [x]`), so the `§` pointer resolves. The merge items
   for `scripts/config.sh` and `scripts/verify.sh` say the file holds your own stamped values and gates, that the new copy merges into it, and what to

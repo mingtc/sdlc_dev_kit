@@ -979,7 +979,7 @@ case_kit_upgrade_names_a_branch_that_predates_the_upgrade() {
 case_kit_upgrade_finish_archives_the_marked_checklist() {
   cf_reset
   make_sandbox
-  local L="kit-upgrade.sh --finish moves the marked checklist to process/upgrades/<from>-to-<to>.md, byte for byte as its head, and refuses to overwrite an archive of that name"
+  local L="kit-upgrade.sh --finish moves the marked checklist to process/upgrades/<from>-to-<to>.md, byte for byte as its head, refuses to overwrite an archive of that name, and ends by naming that archive in the line asking for a newer handoff"
   _ku_subject_or_fail "$L" || return
   _ku_have_sha || { skp "$L" "no sha256 tool (shasum or sha256sum) to build the fixture manifests with"; teardown; return; }
   _ku_pair 0.1.0 0.2.0
@@ -999,6 +999,9 @@ case_kit_upgrade_finish_archives_the_marked_checklist() {
   _ku_run fin2 --finish --into "$KU_T"
   [ "$(_ku_rc fin2)" = 0 ] || cf "--finish exited $(_ku_rc fin2): $(_ku_out fin2)"
   [ -f "$arch" ] || cf "no archive at process/upgrades/0.1.0-to-0.2.0.md"
+  grep -F -- 'newer one pointing at process/upgrades/0.1.0-to-0.2.0.md' "$SB_TMP/fin2.out" >/dev/null \
+    && grep -F -- 'dev/handoffs/' "$SB_TMP/fin2.out" >/dev/null \
+    || cf "--finish's output does not ask for a newer handoff pointing at the archive: $(_ku_out fin2)"
   head -c "$(wc -c < "$SB_TMP/marked")" "$arch" | cmp -s - "$SB_TMP/marked" || cf "the archive does not begin with the marked checklist, byte for byte"
   grep -F -- '- declared, unverified (no Verify: line): [0.2.0] item 1' "$arch" >/dev/null \
     || cf "an item with no Verify: is not recorded as declared, unverified: $(tail -8 "$arch" | tr '\n' '|')"
@@ -1279,7 +1282,7 @@ case_upgrade_seat_lands_on_the_trunk_with_code_globs_declared() {
 # =============================================================================
 case_upgrade_seat_brief_names_the_trunk_route() {
   cf_reset
-  local L="process/UPGRADE-SEAT.md lands by scripts/register-commit.sh and puts the hat in the main checkout the session started in"
+  local L="process/UPGRADE-SEAT.md lands by scripts/register-commit.sh, puts the hat in the main checkout the session started in, and gives a stopped seat's finish card the closing steps"
   local doc="$REAL_REPO_ROOT/process/UPGRADE-SEAT.md" flat
   if [ ! -f "$doc" ]; then
     if [ -n "$(_tree_has_lived)" ]; then skp_lived "$L" "process/UPGRADE-SEAT.md is not in this project"
@@ -1289,6 +1292,7 @@ case_upgrade_seat_brief_names_the_trunk_route() {
   flat="$(tr '\n' ' ' < "$doc" | tr -s ' ')"
   case "$flat" in *"./scripts/register-commit.sh --role"*) : ;; *) cf "the brief does not give the register-commit.sh landing command" ;; esac
   case "$flat" in *"hat in the main checkout this session started in"*) : ;; *) cf "the brief does not put the hat in the main checkout the session started in" ;; esac
+  case "$flat" in *"that card carries the closing steps"*"newer handoff"*) : ;; *) cf "the stopped section does not put the closing steps, newer handoff included, in the card it mints" ;; esac
   case "$flat" in *"worktree or the main checkout"*) cf "the brief still offers the hat in either the worktree or the main checkout" ;; esac
   finish "$L"
 }

@@ -84,4 +84,6 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
 A question only a person can answer, a conflict you cannot settle on this authority, a gate that will
 not go green: do not wait in silence and do not guess past it. Write what it is and why you stopped as a
 card on the project's board (or a `K-NN` if it is about the release itself), say so in the handoff, and
-stop.
+stop. If you stop short of `--finish` and mint a card for whoever finishes (blocked on the review it
+waits for, say), that card carries the closing steps: run `--finish`, land the archive by the route
+above, and write a newer handoff, since yours says the upgrade is not finished.
