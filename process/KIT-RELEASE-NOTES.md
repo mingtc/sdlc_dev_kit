@@ -344,6 +344,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **`./scripts/read-verdict.sh <id>` reads a card's verdict on the trunk.** It prints the card's column on `<remote>/<trunk>`, each
+  QA Verdict row's verdict, and whether the landing gate would accept the table; it writes nothing. The Orchestrator runs it before
+  promoting any QA reply to a board move, direct-to-trunk cards included (`orchestrate/SKILL.md` § 3). No action.
 - **A landing's Activity entry names the revisions the QA Verdict was read at.** `finish-pr.sh`'s `Review — PASS` entry carries the
   branch tip the check read and the squash commit it landed; a direct-to-trunk `move-issue.sh <ID> qa_complete` carries the trunk
   tip it read. Re-resolve a landed row's `path:line` at that revision, not at today's code. No action.

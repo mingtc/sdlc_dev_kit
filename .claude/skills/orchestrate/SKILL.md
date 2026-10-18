@@ -127,10 +127,10 @@ doc § The conductor's belt) and record its readings in the run report. Per issu
    (which QA never saw) — confirm the fresh review covered the flagged gaps, and follow up if
    it did not (role doc § Conductor reconciliation).
    **The verdict is read from the card, not from the leg's reply.** A runner hands you the reply
-   and cannot read files, so before promoting a PASS fetch the trunk and read the card there
-   (`git ls-tree -r --name-only <remote>/<trunk> progress/ | grep -F <PREFIX>-NNN-` finds it,
-   `git show <remote>/<trunk>:<that path>` prints it): a landed PASS sits in `progress/qa_complete/`
-   with a `## QA Verdict` table holding no FAIL row, a deferred landing in `dev_complete/`. The
+   and cannot read files, so before promoting any QA reply to a board move, direct-to-trunk cards
+   included, fetch the trunk and run `./scripts/read-verdict.sh <PREFIX>-NNN`: it prints the card's
+   column on the trunk, each row's verdict, and whether the landing gate would accept the table. A
+   landed PASS sits in `qa_complete/` with no FAIL row, a deferred landing in `dev_complete/`. The
    committed table is the verdict; where the reply and the card disagree the card wins, and the
    disagreement goes in the run report.
 4. Discovered tech-debt or todos → file it (a subtask if this is decomposition) and surface

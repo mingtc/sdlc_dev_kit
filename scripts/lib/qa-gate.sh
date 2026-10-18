@@ -248,10 +248,18 @@ kit_md_row_cell() {
   }'
 }
 
+# kit_qa_verdict_rows <card-file> — the '## QA Verdict' table's data rows, one per line: the
+# section's '|' lines without the header and separator rows. Empty when the card has no such
+# section. The one extraction of those rows: the landing check and read-verdict.sh both read them here.
+kit_qa_verdict_rows() {
+  awk '/^## QA Verdict[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$1" \
+    | { grep -E '^\|' || true; } | { grep -vE '^\|[[:space:]]*(AC id|-+)[[:space:]]*\|' || true; }
+}
+
 # ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> ────────────────────────────────────
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4"
-  local _qav_body _qav_ac_ids _qav_table _qav_rows
+  local _qav_body _qav_ac_ids _qav_rows
   local _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
@@ -273,8 +281,7 @@ kit_qa_verdict_check() {
       "       NOTHING WAS CHANGED."
   fi
 
-  _qav_table="$(awk '/^## QA Verdict[[:space:]]*$/{f=1; next} f && /^## /{exit} f{print}' "$src")"
-  _qav_rows="$(printf '%s\n' "$_qav_table" | grep -E '^\|' | grep -vE '^\|[[:space:]]*(AC id|-+)[[:space:]]*\|' || true)"
+  _qav_rows="$(kit_qa_verdict_rows "$src")"
 
   while IFS= read -r _qrow; do
     [ -n "$_qrow" ] || continue

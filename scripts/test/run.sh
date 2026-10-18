@@ -253,6 +253,7 @@ CASES=(
   case_subtask_forks_missing_refuses
   case_subtask_ablation_missing_section_refuses
   case_subtask_qa_gate_well_formed_lands
+  case_read_verdict_reads_the_trunk_and_writes_nothing
   case_subtask_no_branch_of_its_own_still_checks_table_and_forks
   case_subtask_qa_verdict_pointer_unresolved_refuses
   case_role_literals_are_declared

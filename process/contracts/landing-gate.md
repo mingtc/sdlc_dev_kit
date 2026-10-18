@@ -190,6 +190,8 @@ code-review object — the item's activity log **is** the review record.
 - `scripts/lib/qa-gate.sh` — the QA-verdict, `forks:`, ablation and board-property checks of § 3, each a
   `kit_refuse` call with its own rule id; the stacking, squash and no-net-change refusals are
   `scripts/finish-pr.sh`'s own.
+- `scripts/read-verdict.sh` — read-only: a card's column on the trunk, its QA-verdict rows through the same
+  reader, and the § 3 check's own accept-or-refuse on that table at the trunk tip; it writes nothing.
 - `scripts/verify.sh` — the gate this kit hands it; contracted in
   [verify-gate.md](verify-gate.md), whose sheet describes the **kit half** of that MIXED file.
 - **The two layers, named concretely in the shipped implementation (§ 2's first invariant):** the

@@ -422,7 +422,7 @@ none of the places `doctrine/model-provisioning.md` § B.1 lists can disagree wi
 keeps `.claude/model-pins.record` — what it last wrote to each pin — which `check-board.sh` arm `[s]` reads.
 
 **Board + item lifecycle (KIT):** `config.sh` · `check-board.sh` · `move-issue.sh` ·
-`finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` ·
+`finish-pr.sh` · `new-issue.sh` · `new-bug.sh` · `new-refactor.sh` · `new-prd.sh` · `next-id.sh` · `read-verdict.sh` ·
 `subtask.sh` · `archive.sh` · `archive-progress.sh` · `register-commit.sh` — the ad hoc metadata
 route: `move-issue.sh`'s kanban-worktree machinery, generalized from a board move to any
 register/PRD/`dev/` path, for a caller sitting in a linked worktree on a branch of its own.
