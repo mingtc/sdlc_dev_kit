@@ -331,6 +331,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.11.0] — 2026-10-20
+
 ### Action required
 
 - **`subtask.sh move <slice> blocked` now needs `--note`,** as `move-issue.sh` already did: a parked slice whose blocker is not written down is refused (`blocked-needs-note`). Add
@@ -467,14 +471,4 @@ columns and never the cards.*
   `declared-actor=`. The writer now loads `role-set.sh` itself. No action.
 - **The note after a landing names why the main checkout was not fast-forwarded.** An untracked file the trunk now tracks (what `register-commit.sh` leaves after landing a new
   file) and a checkout holding commits the trunk lacks each get their own note, where both read "diverged". No action.
-
-## [0.10.1] — 2026-10-17
-
-### Changed
-
-- **A scheduled `/orchestrate` now proceeds instead of ending on its plan.** With `KIT_UNATTENDED=1` the Orchestrator files
-  its run plan and each pre-surfaced decision through `scripts/ask.sh` (role `Orchestrator`, your plan as the default) and
-  runs on the plan; a decision it cannot run under parks the cards it blocks, never the run. Attended runs still stop for
-  sign-off. It needs `PROJECT.md`'s `principal:` and channel declared (as for any `ask.sh` call) and a principal other than
-  the Orchestrator; if `ask.sh` refuses, the plan goes in the run report and the run carries on.
 
