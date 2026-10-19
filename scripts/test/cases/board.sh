@@ -758,6 +758,139 @@ case_subtask_declined_closes_a_slice() {
 }
 
 # =============================================================================
+# CASE — subtask.sh REFUSES A MOVE TO blocked/ WITHOUT A --note, as move-issue.sh does.
+#
+# A park whose blocker is not written down cannot be unparked by anyone but the seat that parked
+# it; the default note ("git mv to blocked/.") records nothing in the one column whose purpose is
+# the reason. The slice must not move on the refused call, and moves with a note.
+# =============================================================================
+case_subtask_blocked_needs_a_note() {
+  cf_reset
+  local L="subtask.sh refuses a move to blocked/ with no --note and leaves the slice where it was; with a note it parks"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local q="$SB_PREFIX-867" out rc
+  seed_issue in_progress "$q" parent chore "Parent in progress"
+  mkdir -p "$SB_WORK/progress/subtasks/$q/in_progress"
+  seed_issue "subtasks/$q/in_progress" "$q-s1" open chore "Open slice"
+  publish_sandbox
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh move "$q-s1" blocked 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "subtask.sh parked a slice in blocked/ with no --note"
+  printf '%s\n' "$out" | grep -F -e '--note' >/dev/null \
+    || cf "the refusal does not name --note as the way on: $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  origin_has_path "progress/subtasks/$q/in_progress/$q-s1-open.md" || cf "the slice moved during the no-note refusal"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh move "$q-s1" blocked --note "waiting on the parent's schema decision" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) subtask.sh would not park a slice WITH a note (rc=$rc): $(printf '%s' "$out" | tail -3 | tr '\n' '|')"
+  origin_has_path "progress/subtasks/$q/blocked/$q-s1-open.md" || cf "(control) the parked slice is not in blocked/"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE COMMIT LINE A CREATOR PRINTS PASSES THE COMMIT-MSG HOOK AS PRINTED.
+#
+# print_push_before_move tells the operator to commit the new card before moving it. The line must
+# carry the card's own id and a role tag from the DECLARED set (the creator's seat when the set holds
+# it, else the set's first tag); a literal [<Role>] <ID> is refused by the hook. Two arms: the
+# shipped set, and a narrowed set that lacks the creator's seat.
+# =============================================================================
+_printed_commit_subject() {   # <creator output> -> the -m subject of the printed commit line
+  printf '%s\n' "$1" | grep -F 'git commit -m' | head -1 | sed -n 's/.*git commit -m "\(.*\)" && git push.*/\1/p'
+}
+case_creator_prints_a_commit_line_the_hook_accepts() {
+  cf_reset
+  local L="new-issue.sh's printed commit line carries the card's id and a declared role, and the commit-msg hook accepts it as printed"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  local id="$SB_PREFIX-878" id2="$SB_PREFIX-889" out rc subject msgfile="$SB_TMP/printed-subject.txt"
+  local cm="$SB_WORK/scripts/githooks/commit-msg"
+  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh printed-line --id "$id" 2>&1 )" || _fixture_die "case_creator_prints_a_commit_line_the_hook_accepts: new-issue.sh refused: $out"
+  subject="$(_printed_commit_subject "$out")"
+  [ -n "$subject" ] || _fixture_die "case_creator_prints_a_commit_line_the_hook_accepts: no commit line found in the creator's output, so there is nothing to test: $out"
+  case "$subject" in
+    *"$id"*) : ;;
+    *) cf "(a) the printed commit subject does not carry the card's id $id: $subject" ;;
+  esac
+  printf '%s\n' "$subject" > "$msgfile"
+  rc=0; ( cd "$SB_WORK" && env -u MSG_OK "$cm" "$msgfile" >/dev/null 2>&1 ) || rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the commit-msg hook refuses the line the creator printed: $subject"
+
+  # (b) A set without the creator's seat: the line must use a tag the set holds.
+  NEU_NEW='Dev|QA' perl -i -pe "s@^ROLE_PREFIXES='.*'\$@ROLE_PREFIXES='\$ENV{NEU_NEW}'@" "$cm"
+  grep -qxF "ROLE_PREFIXES='Dev|QA'" "$cm" \
+    || _fixture_die "case_creator_prints_a_commit_line_the_hook_accepts: the narrowed role set did not land in the sandbox's commit-msg."
+  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh printed-line-two --id "$id2" 2>&1 )" || _fixture_die "case_creator_prints_a_commit_line_the_hook_accepts: new-issue.sh refused under the narrowed set: $out"
+  subject="$(_printed_commit_subject "$out")"
+  printf '%s\n' "$subject" > "$msgfile"
+  rc=0; ( cd "$SB_WORK" && env -u MSG_OK "$cm" "$msgfile" >/dev/null 2>&1 ) || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) under a role set without PM the printed line is refused by the hook: $subject"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE MAIN CHECKOUT'S FAST-FORWARD NOTE NAMES THE CAUSE IT CAN TELL.
+#
+# After a landing the mover fast-forwards a clean main checkout that is on the trunk. It fails for
+# two reasons that need different actions: the checkout holds commits the trunk lacks (diverged),
+# or it holds an UNTRACKED file the trunk now tracks (the state register-commit.sh leaves when it
+# lands a new file from the working tree). Each gets its own note; a landing that fast-forwards
+# says so.
+# =============================================================================
+case_main_checkout_fast_forward_note_names_its_cause() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local out rc
+
+  # (a) untracked in the main checkout, landed by register-commit.sh from the working tree.
+  mkdir -p "$SB_WORK/progress/todo"
+  printf 'a new card\n' > "$SB_WORK/progress/todo/$SB_PREFIX-892-ff-untracked.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$SB_PREFIX-892: mint" "progress/todo/$SB_PREFIX-892-ff-untracked.md" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_main_checkout_fast_forward_note_names_its_cause: register-commit.sh exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/todo/$SB_PREFIX-892-ff-untracked.md" || _fixture_die "case_main_checkout_fast_forward_note_names_its_cause: the file did not reach the trunk, so the premise of arm (a) is gone."
+  printf '%s\n' "$out" | grep -i 'untracked' >/dev/null \
+    || cf "(a) the note does not name the untracked file as the cause: $(printf '%s' "$out" | grep -i 'fast-forward' | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -F '(diverged)' >/dev/null \
+    && cf "(a) the note still calls an untracked-file collision 'diverged': $(printf '%s' "$out" | grep -i 'fast-forward' | tr '\n' '|')"
+
+  # (b) a local commit the trunk lacks: diverged, and counted.
+  rm -f "$SB_WORK/progress/todo/$SB_PREFIX-892-ff-untracked.md"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  printf 'local only\n' > "$SB_WORK/local-only.txt"
+  git -C "$SB_WORK" add local-only.txt >/dev/null 2>&1
+  sbcommit -m "[PM] a local commit nobody pushed" --quiet >/dev/null 2>&1
+  printf 'another\n' > "$SB_WORK/progress/todo/$SB_PREFIX-894-ff-diverged.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$SB_PREFIX-894: mint" "progress/todo/$SB_PREFIX-894-ff-diverged.md" 2>&1 )" || rc=$?
+  printf '%s\n' "$out" | grep -E 'diverged: it has [0-9]+ commit' >/dev/null \
+    || cf "(b) a main checkout holding a commit the trunk lacks is not reported as diverged with a count (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  finish "the fast-forward note after a landing names an untracked-file collision as such, and a checkout holding commits the trunk lacks as diverged"
+  teardown
+}
+
+# =============================================================================
+# CASE — A PRODUCER THAT SOURCES ONLY progress-record.sh IS CHECKED AGAINST THE DECLARED ROLE SET.
+#
+# The writer's membership check reads the declared set through role-set.sh. A script that sources
+# the writer alone must still get a role outside the set tagged unknown rather than accepted.
+# =============================================================================
+case_progress_record_alone_checks_the_declared_role_set() {
+  cf_reset
+  make_sandbox
+  local pr="$SB_WORK/scripts/lib/progress-record.sh" out
+  [ -f "$pr" ] || _fixture_die "case_progress_record_alone_checks_the_declared_role_set: the sandbox carries no scripts/lib/progress-record.sh."
+  out="$( cd "$SB_WORK" && bash -c ". '$pr'; if _pr_actor_ok Zebra; then echo zebra=ok; else echo zebra=bad; fi; if _pr_actor_ok Dev:XYZ-001; then echo dev=ok; else echo dev=bad; fi" 2>&1 )"
+  printf '%s\n' "$out" | grep -x 'dev=ok' >/dev/null \
+    || cf "(control) a declared role with an issue id was rejected: $(printf '%s' "$out" | tr '\n' '|')"
+  printf '%s\n' "$out" | grep -x 'zebra=bad' >/dev/null \
+    || cf "a role outside the declared set was accepted by a producer that sources only progress-record.sh: $(printf '%s' "$out" | tr '\n' '|')"
+  finish "progress-record.sh sourced alone rejects an actor whose role is not in the declared set and accepts one that is"
+  teardown
+}
+
+# =============================================================================
 # CASE — the mover's not-found refusal costs nothing, and cannot lie
 #
 # FOUR ARMS, and (b)–(d) are why this is a case and not a one-line assertion:
@@ -1287,9 +1420,8 @@ case_commit_msg() {
 }
 
 # =============================================================================
-# CASE — the commit-msg hook's ATTRIBUTION WORDING FAMILY, one fixture row per variant a cold
-# audit fed it. Rule (2) used to know only "co-authored-by:" and "generated with …"; every other
-# spelling of the same claim walked through. Each row is REFUSED or, with a reason, PASSED — never
+# CASE — the commit-msg hook's ATTRIBUTION WORDING FAMILY, one fixture row per variant of the
+# claim. Rule (2) must refuse every spelling, not only "co-authored-by:" and "generated with …". Each row is REFUSED or, with a reason, PASSED — never
 # silently skipped.
 # =============================================================================
 case_commit_msg_attribution_family() {
@@ -1898,7 +2030,7 @@ case_register_commit_lands_from_a_linked_worktree() {
   origin_file_contains "requirements-register.md" '^D-02: reworded twice$' \
     || cf "(b) the line reworded twice did not reach the trunk"
 
-  # THE STALE CHECKOUT (R13-2's shape), in the real workflow's order. Another lane, up to date, lands D-03.
+  # THE STALE CHECKOUT — a main checkout behind the trunk — in the real workflow's order. Another lane, up to date, lands D-03.
   git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
   local lane="$SB_TMP/lane" fresh="$SB_TMP/fresh"
   git -C "$SB_WORK" worktree add -q -b "lane-b" "$lane" "origin/$SB_TRUNK" >/dev/null 2>&1     || _fixture_die "case_register_commit_lands_from_a_linked_worktree: could not make the second lane's worktree."

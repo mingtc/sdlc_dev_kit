@@ -25,7 +25,8 @@
 #   <R> = @ROLE_SET@
 #
 # Target folders: todo | in_progress | dev_complete | qa_complete | blocked | declined
-# (declined closes a slice that will not be done; it needs --note, the reason being the record)
+# (blocked and declined each need --note, as in move-issue.sh: the blocker, or the reason a slice
+# will not be done, is the record)
 #
 #   SUBTASK_ROLE   the seat this script commits as (default: Orchestrator). The tag
 #                  is CHECKED against your declared role set before anything moves.
@@ -376,6 +377,12 @@ case "$CMD" in
       || kit_refuse 1 declined-needs-note \
            "Error: declined needs --note \"why\" — the reason is the whole record of a slice that will not be done." \
            "Next: re-run with  --note \"<why this slice will not be done>\"."
+    # The same rule as move-issue.sh: a park whose blocker is not written down cannot be unparked
+    # by anyone but the seat that parked it.
+    [ "$TARGET" != blocked ] || [ -n "$NOTE" ] \
+      || kit_refuse 1 blocked-needs-note \
+           "Error: moving a slice to blocked/ requires --note \"…\" naming the blocker." \
+           "Next: re-run with  --note \"<what blocks it and who can clear it>\"."
     # THE ROLE IS VALIDATED HERE, BEFORE ANY MUTATION: a role the commit-msg hook rejects
     # would fail mid-operation, leaving the git mv and the Activity entry uncommitted in the
     # shared kanban worktree. Refusing here costs a re-run; at the hook, a reconciliation.

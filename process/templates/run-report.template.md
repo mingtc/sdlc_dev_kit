@@ -7,8 +7,8 @@
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every blockquote that
 > opens `> **GUIDANCE`, and the line-1 marker (the STATUS banner and the independence clause stay). The report is written **by the runner that executed the pack**, and it
-> is the deliverable that closes the pack: the pack is stamped `SPENT` **against this file, by
-> name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
+> is the deliverable that closes the pack: **when a launch pack commissioned the run,** the pack is
+> stamped `SPENT` **against this file, by name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
 >
 > **What a run report is for.** Not a diary. It is (a) the evidence that the run's claims are
 > measurements, (b) the ledger of everything the run left behind, and (c) the batch of questions
@@ -333,7 +333,7 @@ matched at open: <list>.
 > is a rule that survives its author.
 
 **Board:** `todo` <n> · `in_progress` <n> · `dev_complete` <n> · `qa_complete` <n> · `blocked`
-<n> (<which, and whether pre-existing>). `./scripts/check-board.sh`: **<clean ✓ | findings>**.
+<n> (<which, and whether pre-existing>) · `done` <n> · `declined` <n>. `./scripts/check-board.sh`: **<clean ✓ | findings>**.
 **Worktrees:** <removed at close | left standing, named, and why>.
 
 **The orchestrator's own misses, recorded because a report that only grades others is worthless:**
@@ -355,8 +355,8 @@ matched at open: <list>.
 - [ ] The decision batch has a recommendation and an owner per item.
 - [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** § 9 carries the `kit-feedback:` line, and every leg's `kit-finding:` line (read from its `progress.md` entry, not only its report) is an entry in `process/KIT-FEEDBACK.md` — `process/MANUAL.md` § Kit feedback.
 - [ ] The orchestrator's own misses section is non-empty or explicitly says why.
-- [ ] The commissioning pack is stamped **SPENT against this file by name, in this commit**; any
-      mid-run consult document is stamped **SUPERSEDED by this file**.
+- [ ] If a launch pack commissioned the run, it is stamped **SPENT against this file by name, in this
+      commit**; any mid-run consult document is stamped **SUPERSEDED by this file**.
 - [ ] `dev/launch/` has its row in `dev/README.md` (the **directory's** row, added when the
       directory was created — not a row per report), and this report is named to that directory's
       dated convention so its own README and an `ls` place it. *Per-file rows are not owed for a

@@ -255,6 +255,10 @@ CASES=(
   case_move_issue_moves_a_decomposed_parent
   case_parent_advances_only_with_every_subtask
   case_subtask_declined_closes_a_slice
+  case_subtask_blocked_needs_a_note
+  case_creator_prints_a_commit_line_the_hook_accepts
+  case_main_checkout_fast_forward_note_names_its_cause
+  case_progress_record_alone_checks_the_declared_role_set
   case_subtask_qa_verdict_missing_table_refuses
   case_subtask_qa_verdict_fail_in_backticks_refuses
   case_subtask_qa_verdict_token_invalid_refuses
@@ -579,6 +583,7 @@ CASES=(
   case_leaf_workers_carry_the_common_sections
   case_provisioning_ceiling_keeps_the_seat_rule
   case_agent_model_pins_match_their_declaration
+  case_optional_model_classes_match_the_pin_files_declaring_delete_if_unused
   case_model_pins_vs_own_ladder
   case_set_models_class_rewrites_pin_and_ladder_only
   case_set_models_all_rewrites_runners_too

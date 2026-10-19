@@ -190,3 +190,11 @@ kit_progress_tail() {
     | awk -F'\t' '{printf "%s  %-22s %-7s %s%s\n", $1, $2, $3, $4, ($5 != "" ? "  [" $5 "]" : "")}'
   return 0
 }
+
+# The membership half of _pr_actor_ok reads the declared set through role-set.sh, so this library
+# loads it itself rather than depending on its caller to. LOADED LAST, once kit_progress exists:
+# role-set.sh sources refuse.sh, and refuse.sh loads this file whenever kit_progress is undefined.
+if ! command -v kit_role_set >/dev/null 2>&1 && [ -r "$(dirname "${BASH_SOURCE[0]}")/role-set.sh" ]; then
+  # shellcheck source=role-set.sh
+  . "$(dirname "${BASH_SOURCE[0]}")/role-set.sh" 2>/dev/null || true
+fi

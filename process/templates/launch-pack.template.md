@@ -66,7 +66,7 @@
 
 ```
 > **STATUS: SPENT <date> — RUN AND CLOSED.** Superseded by its own run record
-> [`<date>-<name>-run-report.md>`](<date>-<name>-run-report.md): **<X> of <N> landed, <Y> parked
+> [`<date>-<name>-run-report.md`](<date>-<name>-run-report.md): **<X> of <N> landed, <Y> parked
 > at close**. Kept as the commissioning record — what was asked for and on what terms — not as
 > instruction. <M> of its own expectations were overtaken by measurement and are corrected in
 > the report: <name them>.
@@ -180,8 +180,7 @@ never commit from it.
 1. **<PREFIX>-<a>** — <identity> (<branch type>; <binding clauses / corrected premise>).
    **<Dev|Refactorer> <model> <effort> / QA <model> <effort>.**
 2. **<PREFIX>-<b>** — <identity>. **… / QA <model> <effort>.**
-3. **<PREFIX>-<c>** — <identity> (<hazard: names the plumbing it touches>). **… / QA <model>
-   **<effort — escalated, and say why here>**.
+3. **<PREFIX>-<c>** — <identity> (<hazard: names the plumbing it touches>). **… / QA <model> <effort — escalated, and say why here>.**
 4. **<PREFIX>-<d>** — <identity> (<measure-first gate: the number the issue must derive rather
    than inherit>). **… / QA <model> <effort>.**
 

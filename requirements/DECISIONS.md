@@ -292,9 +292,9 @@ first honest sentence discussing a retired id would be misread as citing it. Onl
 itself a citation is read as one. `./scripts/check-board.sh` joins the marker to this register's
 `### D-NN` headings and reports a citation resolving to no entry, or to a retired id.
 
-## What earns an entry — the lessons from an actual regeneration
+## What earns an entry
 
-The project this kit was cut from rebuilt one module from its corpus alone; the divergences that mattered were almost all
+When a module is rebuilt from its corpus alone, the divergences that matter are almost all
 **unrecorded arbitrary choices**. Each of the following earns a row here:
 
 1. **A fork where two answers are both defensible.** That is the definition of an entry. If either

@@ -16,7 +16,8 @@
 #   ./scripts/notify.sh <class> <message> --session <slug> [--ref X] [--progress k/N]
 #   ./scripts/notify.sh <class> --message <text> --session <slug> [...]   # the message once, either way
 #   ./scripts/notify.sh test [--session <slug>]
-#   Without --session a send is a silent no-op that exits 0 (SESSION SLUG, below); `test` is the exception.
+#   Without --session a send is a no-op that exits 0 (SESSION SLUG, below): silent when the backend is
+#   off or the class unrouted, else a one-line stderr warning. `test` is the exception.
 #
 # Classes:  attention | blocked | done | milestone | progress
 #   attention = needs your input (gate / permission / approval)

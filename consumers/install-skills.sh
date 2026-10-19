@@ -77,10 +77,9 @@ while IFS= read -r source; do
 done < <(find "$PACK_SRC" -type f | sort)
 
 if [ "$copied" -eq 0 ]; then
-    log "No router skills to install: $PACK_SRC holds only its README and the"
-    log "EXAMPLE-* skeleton ($skipped file(s) skipped). That is the state of a"
-    log "project that has not authored a pack yet — author one (see"
-    log "$PACK_SRC/README.md) or drop this step from onboarding."
+    log "This project ships no router skill pack: $PACK_SRC holds only its README and the"
+    log "EXAMPLE-* skeleton ($skipped file(s) skipped), so there is nothing to install."
+    log "(Whoever maintains the project's pack: see $PACK_SRC/README.md.)"
     exit 1
 fi
 

@@ -20,8 +20,6 @@
 #     and sources only the few libraries its top names, by design. Do not sweep it in.
 #   * consumers/ holds TEMPLATES that leave for a consumer repository, where scripts/lib/ does
 #     not exist; each keeps its own copy.
-#   * scripts/test/run.sh could source this file and does not. No reason is recorded: debt, not
-#     a carve-out.
 
 # kit_usage <path to the CALLER's own file>
 kit_usage() {

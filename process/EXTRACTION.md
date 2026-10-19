@@ -114,8 +114,8 @@ listed. A **value-kind marker** answers a question no amount of reading the valu
 <!-- VALUE-KIND-MARKERS:BEGIN — the register. A marker in use and absent from this table is the
      defect this register exists to make findable; the markers delimit it so that a check CAN derive
      the registered set without parsing prose. Anchored on the MARKERS, never on the wording around
-     them — prose is not an anchor, and this repository has emptied two derivations by rewording
-     the sentence they keyed on. Move them if the block moves; never delete one without the other.
+     them — prose is not an anchor, and a derivation that keys on a sentence goes empty when the
+     sentence is reworded. Move them if the block moves; never delete one without the other.
 
      NO SHIPPED PROGRAM READS THIS BLOCK, and that is stated here rather than left to be
      discovered. EVERY OTHER MARKER PAIR THIS KIT SHIPS IS READ by the self-test —
@@ -125,8 +125,7 @@ listed. A **value-kind marker** answers a question no amount of reading the valu
      that inference is in the same document. Derive the set rather than trusting this sentence:
      `grep -rhoE '[A-Z][A-Z0-9-]*:BEGIN' . | sort -u`, then ask which names appear in a
      shipped program. The delimiters are worth keeping WITHOUT one: they make the register derivable by
-     anyone who wants the set, and they hold the block's boundary against the reword that has
-     emptied two derivations already. What they do not do is enforce the obligation stated below
+     anyone who wants the set, and they hold the block's boundary against a reword. What they do not do is enforce the obligation stated below
      the table, which remains a discipline a person keeps.
      THE SECOND DIRECTION IS ALSO UNCHECKED: nothing asserts that a marker in USE appears in this
      table, which is the defect the register exists to make findable and is exactly what a reader
@@ -321,9 +320,7 @@ this axis exists to make visible and finite.
 
 ## The one rule about counting
 
-**A census number written in prose is exactly the kind of claim that rots.** In an earlier copy of
-this very manifest a component total and a harness's case count each disagreed with a fresh count,
-in the file whose entire job is to be true when read.
+**A census number written in prose is exactly the kind of claim that rots,** and this manifest's entire job is to be true when read.
 
 **So this manifest carries no census numbers.** Run the command; its output is the only digit that
 is ever correct:
@@ -462,6 +459,7 @@ be watching without waiting on the answer. § 2.10 describes it.
 | `release.sh` | preflight → bump → attributed commit → annotated tag → push → publish, and the refusals | which files carry the version, which documents are required, whether anything is published at all |
 | `test/run.sh` and what it sources (`test/lib/`, `test/cases/`) | the throwaway sandbox with its own publication target, three-way accounting, capability probes, the test-only marker | any case family that pins **your** facts |
 | `setup.sh` | the shape: environment → install → gate → hooks path | **everything about your language runtime** |
+| `config.sh` | every other knob, taken as-is | `CODE_GLOBS` and `TEST_GLOBS`, which ship empty and which the initializer never stamps (§ 2.1); `check-board.sh` arm `[g]` reports them unfilled |
 | `.env.example` | the kit's own entries, complete | the **project block** below them |
 | `.gitignore` | the kit's own entries, complete | the marked **build-artifact section** |
 
@@ -524,8 +522,7 @@ is not caught here.
 
 It performs every precondition in the table below, then **proves them** with a **self-check** that
 mints a scratch item, moves it through two columns, asserts the drift report clean, and has a real
-commit **rejected** by the attribution hook — the whole point being that *every finding in this
-kit's cold-read review was found by reading, and all of them would have been found by running.*
+commit **rejected** by the attribution hook — the whole point being that *running finds what reading does not.*
 The behaviours worth knowing before you run it — the refusal conditions are in
 [`contracts/initializer.md`](contracts/initializer.md) § 3, and every refusal prints its own reason:
 
@@ -542,8 +539,7 @@ The behaviours worth knowing before you run it — the refusal conditions are in
 - **It runs a placeholder census on its own output and fails loudly on a non-zero result**
   ([`contracts/config-seam.md`](contracts/config-seam.md) § 4.3). *Not "refuses": the census runs
   after the initializing commit, so the tree is already written when it fires — it reports the bad
-  result, it does not prevent it.* The promise *"the travelling files are clean"* was believed by
-  three readers and checked by nobody, once. Now it is measured.
+  result, it does not prevent it.* The promise *"the travelling files are clean"* is measured, not asserted.
 - **A shipped path on disk but not committed refuses** — per the shipped `process/KIT-MANIFEST`,
   naming the command that commits the kit. The initializer commits only the paths it writes, so the
   rest would never reach the trunk.
@@ -610,7 +606,7 @@ must. A declined card is tracked, published and browsable, which is exactly what
 the only arm that can see a **hand-move** at all.
 
 **THE ONLY COLUMN `[a]` EXCLUDES IS `done/`, and the exclusion is written down beside the arm** —
-it is off-board and can be huge, and the arm has a `<2s` budget. That argument does not transfer to
+it is off-board and can be huge, and the arm has a time budget. That argument does not transfer to
 `declined/`, which is small and whose whole purpose is being read. **An exclusion with no written
 reason is indistinguishable from an oversight**, so `[a]` derives its columns from `STATUS_FOLDERS`
 minus a **named** skip list: a column added later is checked by default, and leaving one out costs
@@ -638,7 +634,11 @@ part that matters, because *"apply one edit N times"* is the wrong model for thi
 | `scripts/kit-init.sh` | the set as the board it declares and creates (`STATUS_FOLDERS`) | the board is created without the column |
 | `scripts/lib/lived-probe.sh` | **nothing — it is PARAMETERISED**, and is in this table so that a maintainer who derives the carriers and meets it knows it needs no edit. The caller passes the columns, precisely because `kit-init.sh` and `check-board.sh` hold their sets in incompatible types (a bash array and a `\|`-delimited string). | nothing; it grows for free |
 | `scripts/lib/kanban-worktree.sh` | `qa_complete` and `declined` **by name**, in `kwt_open_subtasks` — the one reader of "which slices of a parent are still open", shared by the mover, the lander and the sweep | a slice that reaches a new terminal column reads as open, and its parent is refused over it |
-| `scripts/lib/qa-gate.sh` and `scripts/lib/board-properties.sh` | **nothing of their own** — both read `STATUS_FOLDERS` as the trunk's `check-board.sh` declares it, so they are in this table for the maintainer who derives the carriers (the first command below) and meets them | nothing; they follow the constant |
+| `scripts/lib/qa-gate.sh` | `STATUS_FOLDERS` as the trunk's `check-board.sh` declares it — **and the columns `todo` and `dev_complete` as literals in executing code**, as the git-history pathspecs `:(glob)**/todo/<id>-*` and `:(glob)**/dev_complete/<id>-*` that find the commit a card left `todo/` and the commit that put it in `dev_complete/` (the `forks:` drift and attribution windows), and again in the refusal text | a renamed `todo` or `dev_complete` finds no departure commit, so the window has no start and the check reports itself unrunnable while the constant beside it reads correctly |
+| `scripts/lib/board-properties.sh` | `STATUS_FOLDERS` as the trunk's `check-board.sh` declares it — **and the landed columns, `done` and `qa_complete`, by name** in its `for pcol in …` loop (arm `[p]`'s landed subset) | the arm answers about the old landed set: a card in a new landed column is not counted as landed |
+| `scripts/kit-upgrade.sh` | `in_progress`, `dev_complete` and `blocked` **by name** in the loop that re-checks open cards, and `todo` for the cards it only counts | a renamed or added open column is never re-checked, and the upgrade reports the cards it did not read as fine |
+| `scripts/read-verdict.sh` | `dev_complete` **by name**, in the comparison that decides whether a REFUSE is expected because the landing has not merged | the note that explains an expected REFUSE stops appearing |
+| `scripts/hygiene/staleness_greps.py` (optional, Python) | `progress/done/` as a path literal, in the test for "this card has landed" | a landed card is not recognised, and a stale claim about it goes unflagged |
 | `.claude/roles/orchestrator.md` and `.claude/skills/orchestrate/SKILL.md` | the **RUNNABLE** columns, spelled out as one `progress/<column>/` argument each to an `ls` — not the terminal ones. They carry that exclusion **in prose** (a terminal column is not runnable), so the next reader meets a decision rather than a silence | the listing silently omits the column, and a reader is told the board is smaller than it is. **The subtler cost, once a terminal column exists:** an omission that is correct and an omission that is a miss look identical, so an exclusion here must be WRITTEN or it will be re-litigated every time |
 
 **Other files name columns without carrying the set, and they are not all the same kind.** None is a
@@ -655,12 +655,12 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
 - **They mention one column in a comment or an example string.** `scripts/verify.sh` names
   `dev_complete` in a comment and an echo; `scripts/githooks/commit-msg` names `qa_complete` inside
   an example subject in its refusal help; `scripts/config.sh` names `in_progress` in an example
-  command; `scripts/read-verdict.sh` names `qa_complete` and `dev_complete` in its header comment. **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
+  command; `scripts/read-verdict.sh` names both in its header comment (it also compares `dev_complete` in code — its row above). **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
   class here and the easiest to leave for years.
 - **THE AGENT-FACING TREE UNDER `.claude/` NAMES COLUMNS TOO, AND IT IS THE LARGEST CARRIER OF THEM.**
   The workflow runners emit `move-issue.sh <id> <column>` invocations and describe the board in the
   briefs they hand agents; the item templates state where a card sits at each stage; the role docs and
-  worker definitions name the columns their hat moves between; two skills walk the flow. **Most of them carry
+  worker definitions name the columns their hat moves between; the skills that walk the flow are the ones `grep -rlE 'in_progress|qa_complete' .claude/skills/` returns. **Most of them carry
   the set MINUS `done`** — a runner brief and an issue template describe the working lifecycle, and
   nothing there closes an issue — **but not all: `.claude/roles/pm.md` states the COMPLETE set,
   `done` included, as the mover's legal target list.** Derive the carriers
@@ -668,7 +668,7 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
   broken script:** the agent is told to move an issue to a column that does not exist, and the failure
   surfaces as the mover refusing mid-run, at whatever hour the run reached that step.
 
-Derive all three sets, and do not trust a single-column probe:
+Derive both populations, and do not trust a single-column probe:
 
 ```sh
 grep -rlE '(todo[|, ]+in_progress|STATUS_FOLDERS)' scripts/ setup.sh .claude/   # carries the SET
@@ -698,8 +698,8 @@ keep the frame, including the always-on floor that a narrowed run cannot switch 
 Two tables live in the **adapter** and must agree with reality: the role set (one row per role doc)
 and the commit prefixes (one row per legal tag). But **several files carry the role set** — the
 table below is the list, and the table is the count — and naming only the adapter's two is how a set
-drifts: one project had the attribution hook accept a role the board mover
-did not, so the seat that held it **could not move a card** and had to borrow another hat.
+drifts: a hook that accepts a role the board mover does not leaves the seat that holds it
+unable to move a card, borrowing another hat.
 
 **THE TABLE HAS TWO REGISTERS AND THEY BEHAVE OPPOSITELY.** Some rows are seams `kit-init --roles`
 **stamps**; others are documentation it **deliberately never touches**. A reader who cannot tell them
@@ -772,18 +772,17 @@ deliberately, as the value it asserts the kit ships, and it holds fixture sets t
 project — its hits under `scripts/test/` are those two kinds. Read the hits. **Do not add an exclusion list** — that is the
 shape this whole section is about.*
 
-**On a narrowed tree it has found two real defects a `grep -lF` for the set could not:** the set
-space-padded in `move-issue.sh`'s `--help` header, and a hand-typed partial subset in `subtask.sh`'s
-usage line. Both now render from the hook through `kit_role_display`, so there is no copy to drift.
+**On a narrowed tree it finds what a `grep -lF` for the set cannot:** the set space-padded in a
+`--help` header, and a hand-typed partial subset in a usage line. Usage and help text render from the
+hook through `kit_role_display`, so there is no copy to drift.
 
 **So the class is not "a padded copy" — it is "a copy in any shape the stamper's matcher does not
-produce",** and there is no reason to think three shapes is the end of the list. That is the
+produce",** and there is no reason to think the known shapes are the end of the list. That is the
 argument for rendering from the seam instead of matching harder.
 
 **And a literal search is SHAPE-SENSITIVE, which is how the class survives a green run.**
-`grep -lF -- "$ROLES"` matches one spelling of the set. The `move-issue.sh` defect was a second copy of the same
-list written `PM | Dev | QA | …` — space-padded, in the same file as a copy that matched — so the
-file appeared in the register, was stamped, and kept a stale list anyway. **A derivation cannot
+`grep -lF -- "$ROLES"` matches one spelling of the set. A second copy of the same list written `PM | Dev | QA | …` — space-padded, in the same file as a
+copy that matched — gets the file into the register and stamped while it keeps a stale list. **A derivation cannot
 detect a copy in a shape it does not match, and it reports the file as handled either way.**
 
 So the register is checked by **two derivations that do not share a matcher**, and a disagreement
@@ -971,7 +970,7 @@ declaration; it does not duplicate it. Fill it on day one alongside the rest of 
 | `.claude/**` (roles, skills, agents, workflows, templates, the settings example) | **Harness-mandated.** The agent harness reads this path: hooks are wired from its settings file, skills and agents are discovered by directory. Moving any of it under `process/` **breaks the harness**, so the kit classifies it in place rather than by location — **with an in-file marker for the role docs, agents, workflows and templates, and by the `Class` column of `.claude/skills/README.md`'s provenance table for the skill directories** (see § The one file classification convention for why the skills differ). |
 | `scripts/**` | **Reference stability.** Every role doc, every hook, every template and the manual itself cite `./scripts/…` — hundreds of pointers whose only job is to be typeable and searchable, and the hooks path is configured relative to it in every worktree. Relocating the tree buys a tidier listing and invalidates every citation. **Do not "tidy" this.** |
 | `progress/`, `progress.md`, `ARCHIVE.md` at the repository root | The board is meant to be seen on a plain listing and rendered by a forge at the root; the scripts resolve it from the root. Root placement is the feature. |
-| `requirements/` at the repository root | The **directory** is path-pinned project content, for the same root-placement reason — but the two documents it holds define **formats that travel** (§ 1.2). Path-pinned and partly-COPY are not in tension once said in one place; they were in tension when said twice, separately, in a previous copy of this manifest. |
+| `requirements/` at the repository root | The **directory** is path-pinned project content, for the same root-placement reason — but the two documents it holds define **formats that travel** (§ 1.2). Path-pinned and partly-COPY are not in tension once said in one place. |
 
 ---
 

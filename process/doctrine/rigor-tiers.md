@@ -1,4 +1,4 @@
-<!-- KIT-CLASS: KIT — the rigor-tier ladder: ceremony weight AND provisioning follow the issue's tier. -->
+<!-- KIT-CLASS: KIT — the rigor-tier ladder: ceremony weight AND provisioning follow the issue's tier. Pure pattern: no project section to write. -->
 # Rigor tiers — calibrate ceremony and provisioning to the change, not the habit
 
 **The ladder is process law that binds every dispatching role**, not one role's private heuristic.

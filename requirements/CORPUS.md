@@ -17,7 +17,7 @@ from memory, which is the exact failure it exists to prevent.
 
 > **<one sentence: what this corpus is FOR>**
 
-<!-- One example of the shape, from the project this kit was cut from — not law for you:
+<!-- One example of the shape — not law for you:
      "the requirements corpus should be able to regenerate the product — not deterministically,
       but each artifact class narrows the variance."
      Whatever you write, everything below must be downstream of it. -->
@@ -105,10 +105,10 @@ Until that guard exists, say so here in one line rather than leaving the heading
 
 ---
 
-## What belongs in a corpus entry — the lessons from an actual regeneration
+## What belongs in a corpus entry
 
-That project regenerated one module from its corpus alone and classified every divergence. The format
-lessons, in the order they cost the most:
+Regenerating a module from its corpus alone and classifying every divergence is the test of a corpus. The format
+rules, in the order they cost the most:
 
 1. **A corpus gap is a MISSING SENTENCE with a HOME.** Record each gap as the exact sentence that
    was absent *and* the document that should have carried it. *"The corpus is thin here"* is not

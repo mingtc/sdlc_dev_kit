@@ -38,7 +38,7 @@ Report with branch state:
 
 **If `GIT_DIR == GIT_COMMON` (or in a submodule):** You are in a normal repo checkout.
 
-Has the user already indicated their worktree preference in your instructions? If not, ask for consent before creating a worktree:
+Has the user already indicated their worktree preference in your instructions? **In this kit the Dev role's worktree table (`.claude/roles/dev.md` § Worktree decision) is that declared preference**: where it says yes, create the worktree without asking, and where it says no, work in place. A leg nobody is watching (an orchestrated or unattended one) has nobody to ask, so it follows the table. Only when the table does not cover the situation and a person is present, ask for consent before creating a worktree:
 
 > "Would you like me to set up an isolated worktree? It protects your current branch from changes."
 
@@ -50,9 +50,9 @@ Honor any existing declared preference without asking. If the user declines cons
 
 ### 1a. Native Worktree Tools (preferred)
 
-The user has asked for an isolated workspace (Step 0 consent). Do you already have a way to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to Step 3.
+The isolated workspace is wanted (Step 0). Do you already have a way to create a worktree? It might be a tool with a name like `EnterWorktree`, `WorktreeCreate`, a `/worktree` command, or a `--worktree` flag. If you do, use it and skip to Step 3.
 
-Native tools handle directory placement, branch creation, and cleanup automatically. Using `git worktree add` when you have a native tool creates phantom state your harness can't see or manage.
+Native tools handle directory placement, branch creation, and cleanup automatically. **Give the tool the branch the card's `branch:` frontmatter names** (see Create the Worktree) rather than letting it invent one. Using `git worktree add` when you have a native tool creates phantom state your harness can't see or manage.
 
 Only proceed to Step 1b if you have no native worktree tool available.
 
@@ -119,6 +119,8 @@ project=$(basename "$(git rev-parse --show-toplevel)")
 # Determine path based on chosen location
 # For project-local: path="$WORKTREE_DIR/$BRANCH_NAME"
 # For global: path="$HOME/.config/superpowers/worktrees/$project/$BRANCH_NAME"
+# BRANCH_NAME is the value of the card's `branch:` frontmatter (`.claude/roles/dev.md` § Workflow, step 5):
+# the landing script looks for that branch, so no other name will do.
 
 git worktree add "$path" -b "$BRANCH_NAME"
 cd "$path"

@@ -18,11 +18,9 @@ sheet exists for.
 *Why it is stated here:* otherwise neither this sheet nor [landing-gate.md](landing-gate.md) says that one
 operation spans two trees.
 
-**AND, SAID PLAINLY BECAUSE THE SCRIPTS' OWN DOCUMENTATION NEVER SAID IT: it is FOR BOARD FILES, and it is
-not a spare checkout.** It is the only checkout sitting on the trunk while the main one is on a work
-branch, which makes it look like a convenient clean tree — and everything written about it described
-how the *scripts* use it, never what an operator may not do in it. **An operator may not use it as a
-workspace.** Do not build in it, do not materialise files in it, do not `git checkout <ref> -- .`
+**IT IS FOR BOARD FILES, and it is not a spare checkout.** It is the only checkout sitting on the
+trunk while the main one is on a work branch, which makes it look like a convenient clean tree.
+**An operator may not use it as a workspace.** Do not build in it, do not materialise files in it, do not `git checkout <ref> -- .`
 into it, and do not run a blanket `git add -A` there. Its HEAD **is** the trunk and its push target
 **is** the trunk, so anything present in that directory is one ordinary commit away from `main`, with
 no branch and no landing gate in between. `git checkout <ref> -- .` is the route to know: it writes

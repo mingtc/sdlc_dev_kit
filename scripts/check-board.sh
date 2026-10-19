@@ -2,7 +2,7 @@
 # KIT-CLASS: KIT — board drift report, plus one day-one completeness arm; reads the status folders,
 #   the log, recent history, the publication homes and the root scaffolding, each FROM A NAMED
 #   SOURCE it prints. See process/EXTRACTION.md.
-# Board-drift report: the mechanical checks of MANUAL § "Session close ritual", read-only, <2s.
+# Board-drift report: the mechanical checks of MANUAL § "Session close ritual", read-only.
 # Contract: process/contracts/drift-report.md. The arms, one line each, in print order:
 #   (a) folder vs last-Activity drift, every column in STATUS_FOLDERS but a named skip list;
 #   (b) qa_complete/ depth vs the archive.sh sweep threshold;
@@ -50,7 +50,8 @@
 #
 # Callers: the SessionStart hook (scripts/hooks/session-start.sh); release.sh gate (d) and
 # kit-init.sh self-check (3), which both key on its verdict line; a human at session close.
-# Exit 0 ALWAYS: drift is in the output, not the exit status. Read-only; it never mutates.
+# Exit 0 whatever it finds (drift is in the output, not the exit status); 2 on a usage error.
+# Read-only; it never mutates.
 set -uo pipefail
 
 # ── ARGUMENT SHAPE (process/contracts/issue-creation.md § 3): a usage request is answered first,
@@ -261,7 +262,7 @@ else
 fi
 
 # CB_TREE is the directory the board-reading arms walk. For a ref, one `git archive` into a temp
-# dir: a `git show` per file would break the <2s budget on a large board.
+# dir: a `git show` per file would break the time budget on a large board.
 CB_TREE="$REPO_ROOT"
 CB_TMP=""
 cb_cleanup() { [ -n "$CB_TMP" ] && rm -rf "$CB_TMP" 2>/dev/null; }
@@ -325,7 +326,7 @@ fi
 
 # ---------------------------------------------------------------------------
 # (a) Folder vs last-Activity drift, across every column in STATUS_FOLDERS except the skip list
-#     (done/ only, for the <2s budget). The column list is DERIVED, so a new column is in by
+#     (done/ only, for the time budget). The column list is DERIVED, so a new column is in by
 #     default and a skip owes a reason here. declined/ is walked: a hand-move there is as
 #     invisible as anywhere, and this is the only arm that can see one.
 #     The declared status comes from the last Activity bullet in TWO ORDERED PASSES: a transition

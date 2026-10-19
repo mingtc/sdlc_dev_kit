@@ -207,7 +207,8 @@ version control by the initializer, not left for each actor to discover
   checkout on a work branch, so a HEAD-vs-trunk comparison would redden on every orchestrated
   run — and `behind` is a stale view rather than a finding.
 - If `progress/qa_complete/` is over the threshold, run `./scripts/archive.sh --apply` and
-  the sweep commits and pushes itself.
+  the sweep commits and pushes itself. It commits as the `ARCHIVE_ROLE` seat (default
+  `Orchestrator`); a role set without that tag needs `ARCHIVE_ROLE=<tag>` on the command.
 - **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** answer the session-close questions and end your `progress.md` entry with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — `process/MANUAL.md` § Kit feedback.
 
 ## Kanban rules
@@ -438,6 +439,8 @@ bounces it.
      RULE-COPIES:END -->
 7. **Archive.** When `qa_complete/` accumulates, `./scripts/archive.sh --apply` sweeps issues
    into `progress/done/` and indexes them in `ARCHIVE.md`. **It commits and pushes itself** — do not look for a staged diff.
+   It commits as the `ARCHIVE_ROLE` seat (default `Orchestrator`); a role set without that tag needs
+   `ARCHIVE_ROLE=<tag>` on the command.
 
 ### The RUN-OUTCOME vocabulary (an orchestrated run's summary of one leg)
 

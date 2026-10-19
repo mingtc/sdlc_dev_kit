@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — the six board-property checks, ONE implementation each, called by
+# KIT-CLASS: KIT — the board-property checks, ONE implementation each, called by
 # check-board.sh (a report) and by lib/qa-gate.sh's kit_board_property_check (a landing refusal).
 # See process/EXTRACTION.md.
 #

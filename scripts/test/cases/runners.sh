@@ -1962,6 +1962,76 @@ case_agent_model_pins_match_their_declaration() {
 }
 
 # =============================================================================
+# CASE — model-pins.sh's `optional` flag and the pin files' own DELETE-IF-UNUSED header are ONE fact.
+#
+# model-pins.sh's KIT_MODEL_CLASS_MAP flags a class `optional` so a project that deleted its pin
+# file is not reported as damage; a pin file declares the same fact in its header as
+# KIT-DISPOSITION: DELETE-IF-UNUSED. Two declarations of one fact drift, so the set of pin files
+# whose header declares it must EQUAL the set of classes flagged `optional`.
+#
+# Both sets are derived from the SHIPPED tree before anything is transformed (a sandbox copy or an
+# adopted tree may have deleted the very file whose absence is legitimate), by the declaration form
+# check-board.sh arm [g] reads. The comparison is run three times: on the shipped tree (equal), on a
+# copy of the agents directory with the marker added to one more pin (the header side moved alone),
+# and with the flag stripped from the map (the map side moved alone) — each of the last two must
+# be reported, or the comparison has no power.
+# =============================================================================
+_optional_pin_tie() {   # <agents dir> [strip] -> differences between the two sets, or nothing
+  local ad="$1" strip="${2:-}" f declared="" optional=""
+  local decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
+  for f in "$ad"/*.md; do
+    [ -e "$f" ] || continue
+    if grep -E "$decl" "$f" >/dev/null 2>&1; then declared="${declared}$(basename "$f")"$'\n'; fi
+  done
+  optional="$( . "$REAL_SCRIPTS/lib/model-pins.sh"
+    [ -z "$strip" ] || KIT_MODEL_CLASS_MAP="$(printf '%s\n' "$KIT_MODEL_CLASS_MAP" | sed 's/:optional$/:/')"
+    for c in $KIT_MODEL_CLASSES; do
+      if kit_model_class_optional "$c"; then kit_model_class_pin "$c"; fi
+    done )"
+  diff <(printf '%s' "$declared" | sort) <(printf '%s\n' "$optional" | sed '/^$/d' | sort) 2>&1 || true
+}
+
+case_optional_model_classes_match_the_pin_files_declaring_delete_if_unused() {
+  cf_reset
+  make_sandbox
+  local ad="" d lived_why got
+  for d in "$REAL_REPO_ROOT/_claude/agents" "$REAL_REPO_ROOT/.claude/agents"; do
+    [ -d "$d" ] && ad="$d"
+  done
+  if [ -z "$ad" ]; then skp "optional model classes match the DELETE-IF-UNUSED pin files" "no agents/ directory"; teardown; return; fi
+  lived_why="$(_tree_has_lived)"
+  if [ -n "$lived_why" ]; then
+    skp_lived "optional model classes match the DELETE-IF-UNUSED pin files" "$lived_why"; teardown; return
+  fi
+
+  # (a) THE SHIPPED TREE: the two sets are equal.
+  got="$(_optional_pin_tie "$ad")"
+  [ -z "$got" ] \
+    || cf "(a) the pin files that declare DELETE-IF-UNUSED and the classes model-pins.sh flags optional differ: $(printf '%s' "$got" | tr '\n' '|')"
+
+  # (b) THE HEADER SIDE MOVES ALONE: another pin file gains the declaration.
+  local scratch="$SB_TMP/agents-b" other=""
+  cp -R "$ad" "$scratch"
+  for d in "$scratch"/*.md; do
+    grep -E '^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:' "$d" >/dev/null 2>&1 && continue
+    other="$d"; break
+  done
+  [ -n "$other" ] || _fixture_die "case_optional_model_classes_match_the_pin_files_declaring_delete_if_unused: every pin file already declares a disposition, so there is none to add the marker to."
+  printf '<!-- KIT-DISPOSITION: DELETE-IF-UNUSED — test marker -->\n' >> "$other"
+  got="$(_optional_pin_tie "$scratch")"
+  [ -n "$got" ] \
+    || cf "(b) a pin file gained the DELETE-IF-UNUSED header and the class map did not, and the comparison reported nothing — it cannot tell the two declarations apart"
+
+  # (c) THE MAP SIDE MOVES ALONE: the flag is dropped from the map.
+  got="$(_optional_pin_tie "$ad" strip)"
+  [ -n "$got" ] \
+    || cf "(c) the optional flag was dropped from the class map while the pin file still declares DELETE-IF-UNUSED, and the comparison reported nothing"
+
+  finish "the pin files that declare DELETE-IF-UNUSED are exactly the classes model-pins.sh flags optional; adding the header to another pin, or dropping the flag, is reported"
+  teardown
+}
+
+# =============================================================================
 # _seed_provisioning_sandbox — the fixture scripts/set-models.sh and the adopted-tree branch of
 # case_agent_model_pins_match_their_declaration both need: .claude/agents/*.md, .claude/roles/
 # orchestrator.md and .claude/workflows/{wave,tranche}-runner.js, copied from the REAL tree (never
@@ -2084,7 +2154,7 @@ case_model_pins_vs_own_ladder() {
 
   local failures=""
 
-  # (a) UNIFORM PIN, UNFILLED LADDER — the run-5 seal's shape. Every *-worker.md forced to one
+  # (a) UNIFORM PIN, UNFILLED LADDER — every worker pinned to one model, the ladder left unfilled. Every *-worker.md forced to one
   #     model; orchestrator.md is left exactly as shipped (every row still `<fill in>`).
   local f
   for f in "$ad"/*.md; do

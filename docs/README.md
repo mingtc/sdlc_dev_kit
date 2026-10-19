@@ -10,7 +10,8 @@ the working records of building itself.
 engineering design spec, a refactor pass, a design pass, a run report — those are *how this project
 got here*, they are dated snapshots, and they are governed by `dev/`'s bidirectional index. Putting
 them here instead would mix two things with opposite reading rules: `dev/` is read to learn how
-something came about and is **never** maintained, while a vendor's API guide is read to learn what
+something came about and its dated snapshots are **never** maintained (the exceptions are
+`dev/downtime-queue.md` and a LIVING standing handoff, both edited in place), while a vendor's API guide is read to learn what
 is true right now and is replaced wholesale when the vendor changes it.
 
 **The one test, when you are unsure:** *did this project's own work produce it?* If yes it is

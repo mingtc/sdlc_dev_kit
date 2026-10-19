@@ -48,11 +48,10 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   rename or a copy — both of which look innocent at the time. **In a register it is created by
   concurrency, and it arrives with no witness at all:** two authors minting the same id under
   *different section headings* of an append-only file produce **no textual conflict**, so the
-  merge is clean and the duplicate lands unremarked. Measured in a project running this process:
-  two sessions minted the same register id within an hour, and the only defence was an instruction
-  in the register's own header asking the author to re-read first — an instruction where the rest
-  of this process uses a fence. The order-independence half is measured too: a section-grouped
-  register put a later id *above* an earlier one, so reading the last heading in file order
+  merge is clean and the duplicate lands unremarked. An instruction in the register's own header
+  asking the author to re-read first is an instruction where the rest of this process uses a
+  fence. The order-independence half matters too: a section-grouped
+  register can put a later id *above* an earlier one, so reading the last heading in file order
   returned a number that was not the maximum, and a checklist keyed on it would have proposed an
   id that already existed — **and would have halted on a healthy register**, which is a guard
   nobody re-arms.

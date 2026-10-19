@@ -209,5 +209,5 @@ echo "Next steps:"
 echo "  1. Fill in title and Bug description."
 echo "  2. Complete the reproduction fields (Reproduction, Expected vs Actual, Impact, Environment, References)."
 echo "  3. See .claude/roles/qa.md for the full QA workflow."
-print_push_before_move "$DEST"
+print_push_before_move "$DEST" QA
 exit 0

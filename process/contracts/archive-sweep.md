@@ -112,6 +112,9 @@ indexed store — **without ever losing the record it is retiring**.
   reports nothing to do — **and the one that reports success is the one whose job was to act.** This
   is the read-time half of [`../doctrine/instruments.md`](../doctrine/instruments.md) § A.9: the tool
   answered its own question correctly, and the reader heard an answer to a different one.
+- The sweep commits as one seat (`ARCHIVE_ROLE`, default `Orchestrator`) and the declared role set
+  does not hold that tag ⇒ refuse **before anything moves**, naming `ARCHIVE_ROLE` as the knob to set.
+  *Why:* a tag the commit hook rejects would leave the moved files uncommitted.
 - The publication of the sweep fails ⇒ report that the sweep is committed locally and did **not**
   reach the trunk, and name the recovery.
 
@@ -137,8 +140,8 @@ identifier — and in preview mode, all of that with nothing changed.
 - `scripts/archive-progress.sh` — KIT-CLASS: KIT. The running log's rotation into its dated
   store, on the same preserve-and-index rules.
 - The depth threshold that signals a due sweep is reported by `scripts/check-board.sh`, contracted
-  in [drift-report.md](drift-report.md); it is a named constant there — a seam, not a contract
-  term.
+  in [drift-report.md](drift-report.md); its value is `QA_COMPLETE_THRESHOLD` in `scripts/config.sh` —
+  a seam, not a contract term.
 - **This sweep is NOT the retirement mechanism** of
   [`../doctrine/retention.md`](../doctrine/retention.md): it moves a record into a directory that
   still exists, over the corpus of closed work items, and removes no bytes. The two are separate on

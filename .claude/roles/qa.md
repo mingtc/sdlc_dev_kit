@@ -171,8 +171,7 @@ Action on PASS:
 >
 > **Report the two separately, and never trade one for the other.** A green review whose landing was
 > deliberately deferred — a blocked-push regime, a held trunk — is `PASS` + `deferred`, and it is a
-> **success**. Downgrading the verdict to make the outcome look consistent is the thing that once
-> halted a completed run. And a docs-path issue has nothing to land at all: that is
+> **success**. A docs-path issue has nothing to land at all: that is
 > `not_applicable`, which is why the field is not a boolean.
 >
 > **If the gate runner reports a gate that could not RUN, you have no verdict to issue.** There is no

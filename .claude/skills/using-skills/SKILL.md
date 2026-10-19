@@ -37,7 +37,7 @@ If CLAUDE.md, GEMINI.md, or AGENTS.md says "don't use TDD" and a skill says "alw
 
 ## Platform Adaptation
 
-Skills use Claude Code tool names. Non-CC platforms: see `references/copilot-tools.md`
+Skills use Claude Code tool names. **The subagent-dispatch tool is called `Task` in some skills and `Agent` in others; they are the same tool**, so use whichever name your harness exposes. Non-CC platforms: see `references/copilot-tools.md`
 (Copilot CLI), `references/codex-tools.md` (Codex) and `references/gemini-tools.md`
 (Gemini CLI) for tool equivalents.
 

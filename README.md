@@ -6,7 +6,7 @@
 # The SDLC dev kit
 
 A development-process kit for software projects: a kanban board that lives in your filesystem, AI
-agent roles (PM, Dev, QA, and an optional Refactorer) that follow a disciplined Dev → QA handoff, and the doctrine
+agent roles (see `.claude/roles/`) that follow a disciplined Dev → QA handoff, and the doctrine
 behind why each rule exists. Drop it into a new or existing repository, point your agent at it, and
 it runs the process for you — you run `/start` and answer its questions.
 
@@ -39,8 +39,8 @@ structured record with a status (`draft` → `approved` → `completed` → `sup
 spec, that's a recorded edge, not a doc quietly going stale in a drive somewhere. Every feature
 inside a PRD gets an id (`F1`, `F2`, …), and every user story under it gets its own
 (`F1-S1`, `F1-S2`, …) — **issues cite story ids directly**, so "what does this code change satisfy?"
-is a lookup, not an argument. Acceptance criteria live on the story, in the same document the board
-and the QA verdict both read from.
+is a lookup, not an argument. Acceptance criteria are authored on the story and copied onto each card; the card's copy is what
+the board and the QA verdict check.
 
 **A standing-rulings register, so decisions don't get re-litigated.** `requirements/DECISIONS.md`
 answers "what is currently true?" for every ruling that governs the project — one line each: the

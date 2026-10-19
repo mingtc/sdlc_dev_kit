@@ -215,7 +215,8 @@ sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" scripts/githooks/commit-msg | head -1
 
 That is the same seam `scripts/lib/role-set.sh` reads and the same one the commit-msg hook
 enforces, so a project that narrows its role set narrows this column with it and nothing needs
-re-typing. *A list written here would be a second declaration of a fact that already has an
+re-typing. The writer loads `role-set.sh` itself, so a producer that sources only the writer is
+checked against the declared set too. *A list written here would be a second declaration of a fact that already has an
 authoring site, and the second one drifts.*
 
 **The role is matched CASE-SENSITIVELY.** The hook matches its tags case-sensitively, so `dev` is

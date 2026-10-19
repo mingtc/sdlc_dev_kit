@@ -326,7 +326,7 @@ issue_not_found() {   # <provenance — which tree was read>; refuses, so it doe
     "       ($1)" \
     "       Minted but not yet pushed? A new card is invisible here until it reaches the trunk." \
     "Next: if so, publish it:" \
-    "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[<Role>] ${ISSUE_ID}: mint\" && git push" \
+    "         git add progress/todo/${ISSUE_ID}-*.md && git commit -m \"[${ROLE:-<Role>}] ${ISSUE_ID}: mint\" && git push" \
     "       Otherwise check the id — ls progress/*/ | grep ${ISSUE_ID}"
 }
 

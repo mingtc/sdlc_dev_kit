@@ -276,7 +276,8 @@ If `$STATE_DIR/events` doesn't exist, the user didn't interact with the browser 
 ## Cleaning Up
 
 ```bash
-.claude/skills/brainstorming/scripts/stop-server.sh $SESSION_DIR
+SESSION_DIR=<the directory holding content/ and state/ — the parent of screen_dir and state_dir>
+.claude/skills/brainstorming/scripts/stop-server.sh "$SESSION_DIR"
 ```
 
 If the session used `--project-dir`, mockup files persist in `.brainstorm/` for later reference. Only `/tmp` sessions get deleted on stop.

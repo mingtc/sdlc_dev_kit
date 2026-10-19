@@ -890,7 +890,7 @@ EOF
 # CASE — ARM (l) READS EVERY MARKER FORM THROUGH kit_decisions_cited, NOT JUST THE SINGLE-ID
 # NO-LIST, NO-RANGE, CASE-SENSITIVE FORM: a capitalized label, a comma LIST (the valid id buried
 # inside it), a trailing space before the bracket, and a '..' RANGE all cite. A bare 'per D-NN'
-# mention (no brackets) still does not. Planted in the forms an earlier audit fed it: the live register
+# mention (no brackets) still does not. Planted in each of those forms: the live register
 # carries D-05 (so the list and the range both also prove a REAL id inside them resolves, not just
 # that the marker is seen), plus a genuinely dangling id (D-93) so the list's dangling half still
 # decides. The arm's own POPULATION line (marker-form citations against bare mentions) is checked
@@ -918,7 +918,7 @@ ${reg_mark}D-05 — a live entry a list and a range both cite
 ## Findings
 EOF
 
-  # One file, every form the earlier audit planted, plus the bare-mention control.
+  # One file, every form planted, plus the bare-mention control.
   printf '%s\n' \
     '[Decision: D-05]' \
     '[decision: D-93, D-05]' \
@@ -1812,12 +1812,11 @@ case_check_board_trailer_scan_shares_the_epoch() {
 # hyphens the hook folds — one authoring site (lib/attrib-trailer.sh), not two readers that drift.
 #
 # The hook's rule (2) refuses the wording family `co-authored-by|co-developed-by|assisted-by|
-# generated-by|signed-off-by` plus "generated/written (with|by) …" prose; an EARLIER version of
-# [h] matched only a narrower pair (`co-authored-by:` and "generated with" only), so an
-# `Assisted-by:` trailer could read clean in the drift report while the hook — on a tree that had
-# it wired — would already refuse it. Separately, a Unicode hyphen (U+2011 non-breaking hyphen
-# here) spells `Co‑Authored‑By:` in a way neither reader's ASCII-anchored pattern used to see.
-#   (1) `Assisted-by:` (a wording the hook refuses, absent from [h]'s narrower earlier pair) → reported
+# generated-by|signed-off-by` plus "generated/written (with|by) …" prose; [h] must match all of it, or an
+# `Assisted-by:` trailer reads clean in the drift report while the hook — on a tree that had
+# it wired — would refuse it. Separately, a Unicode hyphen (U+2011 non-breaking hyphen
+# here) spells `Co‑Authored‑By:` in a way an ASCII-anchored pattern does not see.
+#   (1) `Assisted-by:` (a wording the hook refuses and a narrower pair would miss) → reported
 #   (2) the SAME family member, hyphens folded, matches what the HOOK itself would refuse — proven
 #       by running the hook (MSG_OK unset) over the identical subject+trailer and reading its exit
 #   (3) a U+2011-hyphenated `Co‑Authored‑By:` → reported by [h] (ablation: without the fix
@@ -2071,12 +2070,10 @@ case_check_board_arm_e_scopes_to_the_rules_lifetime() {
 # =============================================================================
 # CASE — ARM (e)'s "Merge commit " EXEMPTION REQUIRES THE QUOTE.
 #
-# A cold audit fed check-board a subject that starts with the same two words as git's own
-# generated merge subject (`Merge commit '<sha>'`) but is not one: "Merge commit messages into
-# one doc". At HEAD the exemption glob was a bare prefix match with no quote, so this ordinary,
-# unprefixed, human-authored subject was silently exempted and the arm printed "all N scanned
-# subject(s) carry a [Role] prefix" — a false sentence about a subject it never actually held to
-# the rule.
+# A subject that starts with the same two words as git's own generated merge subject
+# (`Merge commit '<sha>'`) but is not one — "Merge commit messages into one doc" — must not be
+# exempted by a bare prefix match: the arm would print "all N scanned subject(s) carry a [Role]
+# prefix", a false sentence about a subject it never held to the rule.
 # =============================================================================
 case_check_board_arm_e_merge_commit_quote_boundary() {
   cf_reset
@@ -3638,10 +3635,10 @@ case_frontmatter_scan_cap_is_enforced() {
 # =============================================================================
 # CASE — THE SESSIONSTART HOOK'S OUTPUT STAYS UNDER THE SIZE THE HARNESS DELIVERS INTACT.
 # The harness cuts a hook's stdout to a short preview once it passes about 10,000 bytes
-# (measured: a hook printing 9,950 bytes arrived whole, one printing 10,050 did not), so a
+# (the cut point is the harness's, not the kit's), so a
 # long drift report would reach the session as a preview and a file pointer.
 # =============================================================================
-HOOK_OUTPUT_BUDGET=9000   # bytes; the measured intact size 9,950 less a margin, never the cut point itself
+HOOK_OUTPUT_BUDGET=9000   # bytes; a margin under the ~10,000-byte cut, never the cut point itself
 case_session_start_hook_output_stays_within_the_delivery_budget() {
   cf_reset
   make_sandbox

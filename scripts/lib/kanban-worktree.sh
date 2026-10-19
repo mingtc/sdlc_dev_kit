@@ -631,10 +631,21 @@ kwt_finalize() {
     if git -C "$MAIN_ROOT" diff --quiet 2>/dev/null && git -C "$MAIN_ROOT" diff --cached --quiet 2>/dev/null; then
       # Clean → fast-forward the live board view.
       git -C "$MAIN_ROOT" fetch "$KWT_REMOTE" "$DEFAULT_BRANCH" --quiet 2>/dev/null || true
-      if git -C "$MAIN_ROOT" merge --ff-only "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>/dev/null; then
+      local ff_err ff_ahead
+      if ff_err="$(git -C "$MAIN_ROOT" merge --ff-only "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>&1)"; then
         echo "Fast-forwarded the main checkout ($DEFAULT_BRANCH) to keep the board view live."
       else
-        echo "Note: main checkout could not be fast-forwarded (diverged); pull manually." >&2
+        # Two causes, told apart by what git says: commits here the trunk lacks (diverged), or an
+        # untracked file here that the trunk now tracks (a card just landed from this checkout's
+        # working tree).
+        ff_ahead="$(git -C "$MAIN_ROOT" rev-list --count "$KWT_REMOTE/$DEFAULT_BRANCH..HEAD" 2>/dev/null || echo 0)"
+        if [ "$ff_ahead" != 0 ]; then
+          echo "Note: main checkout could not be fast-forwarded (diverged: it has $ff_ahead commit(s) the trunk lacks); pull manually." >&2
+        elif printf '%s' "$ff_err" | grep -qi 'untracked working tree files'; then
+          echo "Note: main checkout could not be fast-forwarded: an untracked file in it is now tracked on the trunk and would be overwritten. Move or remove that file, then run  git pull --ff-only." >&2
+        else
+          echo "Note: main checkout could not be fast-forwarded (not diverged; git said: $(printf '%s' "$ff_err" | head -1)); pull manually." >&2
+        fi
       fi
     else
       echo "Note: main checkout is on $DEFAULT_BRANCH with local changes — left untouched (pull when ready)."

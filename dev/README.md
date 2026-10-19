@@ -6,7 +6,8 @@ development.
 
 **No file in `dev/` is a living plan.** The plan-of-record is the **current handoff** — the newest
 file in [`handoffs/`](handoffs/) — **plus the board (`progress/`)**. Everything else here is a
-**dated snapshot**: accurate as of its date, kept as background, **not maintained**. That is the
+**dated snapshot**: accurate as of its date, kept as background, **not maintained** — except the
+standing queue below and a LIVING standing handoff, which are edited in place. That is the
 whole reason this directory can hold hundreds of files without any of them lying: a snapshot with a
 date in its name makes no claim about today.
 

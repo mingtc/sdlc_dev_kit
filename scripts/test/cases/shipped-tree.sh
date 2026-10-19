@@ -656,7 +656,7 @@ EOF_MAN
 # =============================================================================
 # CASE — notify.sh --help IS ITS HEADER, AND notify-hook.sh --help DOES NOT WAIT FOR STDIN.
 # notify.sh prints its header like its siblings, and that header says a send without --session is a
-# silent no-op. notify-hook.sh answers an argument before it reads stdin, so a person typing `--help` at
+# no-op. notify-hook.sh answers an argument before it reads stdin, so a person typing `--help` at
 # a terminal is not left waiting: its stdin here is a pipe held open and never written, and a five-second
 # alarm turns a hang into a status (142) instead of a stalled run.
 # =============================================================================
@@ -667,7 +667,7 @@ case_notify_help_is_the_header_and_the_hook_answers_without_stdin() {
   out="$( cd "$SB_WORK" && ./scripts/notify.sh --help 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "notify.sh --help exited $rc"
   case "$out" in *NOTIFY_WITH_MSG_AND_ALERT*) : ;; *) cf "notify.sh --help does not print the header's routing text: $(printf '%s' "$out" | head -3 | tr '\n' '|')" ;; esac
-  case "$out" in *"Without --session a send is a silent no-op"*) : ;; *) cf "notify.sh --help does not say a send without --session is a no-op" ;; esac
+  case "$out" in *"Without --session a send is a no-op"*) : ;; *) cf "notify.sh --help does not say a send without --session is a no-op" ;; esac
 
   mkfifo "$hold" || _fixture_die "case_notify_help_is_the_header_and_the_hook_answers_without_stdin: mkfifo failed"
   exec 9<>"$hold"
@@ -686,7 +686,7 @@ case_notify_help_is_the_header_and_the_hook_answers_without_stdin() {
   [ "$rc" -eq 0 ] || cf "notify-hook.sh --help exited $rc, want 0"
   case "$out" in *Notification*) : ;; *) cf "notify-hook.sh --help printed no usage text: $(printf '%s' "$out" | head -3 | tr '\n' '|')" ;; esac
 
-  finish "notify.sh --help prints its header (routing, and 'without --session a send is a silent no-op'), and notify-hook.sh --help prints its header at once without reading stdin"
+  finish "notify.sh --help prints its header (routing, and 'without --session a send is a no-op'), and notify-hook.sh --help prints its header at once without reading stdin"
   teardown
 }
 

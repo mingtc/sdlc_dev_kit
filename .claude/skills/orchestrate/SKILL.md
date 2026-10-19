@@ -127,7 +127,7 @@ doc § The conductor's belt) and record its readings in the run report. Per issu
      report's batched decisions, and continue.
    After the verdict, **reconcile** QA's evidence against the dev phase's known-limitations
    (which QA never saw) — confirm the fresh review covered the flagged gaps, and follow up if
-   it did not (role doc § Conductor reconciliation).
+   it did not (role doc, the *Conductor reconciliation* paragraph).
    **The verdict is read from the card, not from the leg's reply.** A runner hands you the reply
    and cannot read files, so before promoting any QA reply to a board move, direct-to-trunk cards
    included, fetch the trunk and run `./scripts/read-verdict.sh <PREFIX>-NNN`: it prints the card's

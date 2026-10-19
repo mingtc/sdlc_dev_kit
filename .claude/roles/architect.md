@@ -53,9 +53,7 @@ conversation with the PM. One person per side; the architect is a **succession o
   shared root.** Not *confirm the branch first*, not *wait your turn*: **a worktree of your own**
   (the kanban-worktree pattern). The shared root's branch is not yours to depend on while something
   else can move it, and there is no ordering of checks that makes it yours.
-  *This supersedes a "confirm the branch, and wait if a run holds it" instruction that was violated
-  repeatedly by the very seat that wrote it — an instruction a careful actor keeps breaking is not
-  an instruction problem, so the cure is structural* (`process/doctrine/fix-execution.md` § A.5d).
+  *The reason is structural, not a matter of care* (`process/doctrine/fix-execution.md` § A.5d).
   *After a cherry-pick repair:* verify with blob hashes or a simulated squash-merge — a three-dot
   diff false-positives.
 
@@ -84,8 +82,11 @@ conversation with the PM. One person per side; the architect is a **succession o
 
 ## Delegation patterns
 
-> **Nesting constraint:** agents the seat spawns **cannot spawn subagents of their own** —
-> nesting is one level deep from the seat. Fresh-eyes isolation therefore comes either from the
+> **Nesting constraint:** how deep agents nest is the harness's limit; on the harness measured
+> (2026-10-07, `.claude/skills/orchestrate/SKILL.md`), subagents nest two spawns deep below the main
+> session and the third level has no Agent tool. So plan as if agents the seat spawns **cannot spawn
+> subagents of their own** — one level deep from the seat — unless the seat has measured otherwise
+> on its own harness. Fresh-eyes isolation therefore comes either from the
 > seat's own level (Pattern B) or from an operator-launched top-level instance (Pattern C). The
 > seat **drives pattern selection by complexity** and states the choice (and why) in the plan it
 > presents.

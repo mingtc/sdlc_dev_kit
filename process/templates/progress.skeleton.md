@@ -36,7 +36,7 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
 - a dated `###` boundary per session: the log rotation splits this file on
   `### YYYY-MM-DD` when it rotates, so each session's entries sit under ONE heading.
   **`###`, not `##`, and that is load-bearing rather than stylistic.** The tools that read the
-  `## Log` *section* scan from its heading to the **next `##`** — the drift report's § Log size
+  `## Log` *section* scan from its heading to the **next `##`** — the drift report's `[c]` log
   arm and its `[n]` kit-feedback-line arm, and the initializer's already-lived probe. An entry written as
   `## YYYY-MM-DD` therefore *terminates the section it is supposed to be inside*: the size arm
   measures only the preamble and reports healthy forever, and the lived probe counts zero log

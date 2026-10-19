@@ -43,7 +43,9 @@ so that the checklist item "fire a ping" costs nothing when no channel is config
   a class breaks routing for everyone.
 - A configured channel with missing credentials ⇒ report locally and continue; do not fail the
   caller.
-- A message with no source identity ⇒ refuse to send. Unattributed alerts are the failure mode.
+- A message with no source identity ⇒ **do not send**: skip it, warn in one line on the local output
+  and exit 0 — a subagent's call carries no identity and must no-op, not fail. Unattributed alerts
+  are the failure mode.
 
 ## 4. WHAT GREEN MEANS
 

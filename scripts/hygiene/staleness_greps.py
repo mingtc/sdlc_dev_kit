@@ -15,8 +15,9 @@
 #              "does not exist yet" claim whose named verdict artifact or issue HAS since landed.
 #
 # THE BASE RATE IS PRINTED WITH EVERY REPORT: an instrument that does not say how often it cries
-# wolf gets wired into a gate. Each figure carries its date and source. THE SHIPPED FIGURES ARE
-# ANOTHER PROJECT'S; replace them with yours the first time you run this and adjudicate the output.
+# wolf gets wired into a gate. Each figure carries its source. THE SHIPPED FIGURES ARE ANOTHER
+# PROJECT'S AND UNDATED; replace them with yours, each with its date, the first time you run this
+# and adjudicate the output.
 #
 # THE SCOPE IS THE LIVE READING PATH: root-level prose, `process/**`, the role docs,
 # `requirements/*`, and the top level of `dev/` plus its handoffs — the files a fresh agent is
@@ -41,7 +42,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from citation_index import REPO_ROOT, iter_files, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
 
-# ── PARAMETER: THE BASE RATE. Carried with date + source, NOT re-measured here — quoting one of
+# ── PARAMETER: THE BASE RATE. Carried with its source, NOT re-measured here — quoting one of
 #    these as present tense is the exact defect this instrument exists to find. REPLACE THESE
 #    THREE with your own measurements, each with its own date and source, the first time you run
 #    this and adjudicate the output. Until you do, they are labelled as another project's.

@@ -514,8 +514,7 @@ case_finish_pr_qa_verdict_placeholder_forms_refuse() {
 }
 
 # =============================================================================
-# CASE — AN AC BULLET USING A HYPHEN OR COLON SEPARATOR (not the em-dash the table's own
-# population used to require) IS READ INTO THE POPULATION, so an AC hiding behind either
+# CASE — AN AC BULLET USING A HYPHEN OR COLON SEPARATOR (not only the em-dash separator) IS READ INTO THE POPULATION, so an AC hiding behind either
 # separator with no table row still refuses, instead of shipping silently.
 # =============================================================================
 case_finish_pr_qa_verdict_ac_separator_forms_refuse() {

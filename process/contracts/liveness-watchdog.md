@@ -110,7 +110,7 @@ your answer to the absence half is *N/A*, the answer is wrong — there is no pr
 - **Exit without the run's own completion marker is a FAILURE**, however clean the exit looked.
   *Why:* a worker that dies quietly is the exact case every other signal misses.
 
-## 2a. THE READER — the half this sheet did not have
+## 2a. THE READER
 
 **A SIGNAL NOBODY READS IS ABSENCE-OF-NEWS ONE LEVEL UP.** Every invariant above is about choosing
 and sampling a signal. None of them says who looks, and that omission is what the measured failure
@@ -127,7 +127,7 @@ would have noticed the stall was the party that had stalled.
   status line nobody is looking at are all the same artifact.
 
 *The kit ships one:* [`scripts/notify/stall.sh`](../../scripts/notify/stall.sh) reads the remote's
-freshest ref against a threshold and reports through the notification hook. It is the smallest
+freshest ref against a threshold and reports through `scripts/notify.sh` (the notification contract's calling surface). It is the smallest
 thing that answers *who looks*, and it exists because the discipline alone did not.
 
 ## 3. REFUSAL CONDITIONS

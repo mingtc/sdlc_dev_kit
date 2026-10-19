@@ -181,5 +181,5 @@ echo "  1. Fill in title, Target & Goal, Behaviors Preserved, Move Sequence."
 echo "  2. Fill in the Safety-Net Assessment (link to the pass doc § target)."
 echo "  3. Fill in the Migration Plan (if any public-surface changes)."
 echo "  4. Confirm Definition of Ready (.claude/roles/refactorer.md)."
-print_push_before_move "$DEST"
+print_push_before_move "$DEST" Refactorer
 exit 0

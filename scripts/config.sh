@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KIT-CLASS: KIT — the configuration seam itself — edit the prefixes, take the rest as-is. See process/EXTRACTION.md.
+# KIT-CLASS: KIT — the configuration seam itself — edit the prefixes and fill CODE_GLOBS / TEST_GLOBS; take the rest as-is. See process/EXTRACTION.md.
 # THE CONFIGURATION SEAM: every value a script needs but cannot derive is declared here, once.
 # A consumer needing a value this seam lacks is a GAP IN THE SEAM, fixed by adding it here,
 # never by hard-coding it at the call site (process/contracts/config-seam.md § 3).
@@ -13,7 +13,7 @@
 #
 # The TRUNK is deliberately NOT a knob here: it resolves from <remote>/HEAD
 # (scripts/lib/kanban-worktree.sh kwt_resolve), and the project adapter states it
-# (AGENTS.md § "The trunk").
+# (the adapter's "The trunk, the branches, and what counts as code here" section).
 
 # Issue / bug prefix. Generated filenames look like ${ISSUE_PREFIX}-001-<slug>.md.
 # Who reads it:  grep -rlF ISSUE_PREFIX scripts --include='*.sh'
@@ -205,19 +205,35 @@ validate_issue_id() {
 # PRINT, NOT PERFORM, for every creation script: creation is INERT
 # (process/contracts/issue-creation.md § 2), so the step is made unmissable, not automatic.
 #
-#   Usage:  print_push_before_move "<path/to/created/file.md>"
+# The commit line it prints must pass the commit-msg hook as printed: the card's own id, and a role
+# tag from the declared set (the creator's seat when the set holds it, else the set's first tag).
+#
+#   Usage:  print_push_before_move "<path/to/created/file.md>" [<creator's role tag>]
 print_push_before_move() {
-  local path="${1:-}" rel
+  local path="${1:-}" hint="${2:-}" rel root base id role set_
   # `${BASH_SOURCE[0]:-$0}`, never the bare form: this file is sourced, and under `set -u` an
   # unset BASH_SOURCE would abort before the warning prints.
-  rel="${path#"$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)/"}"
+  root="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+  rel="${path#"$root/"}"
+  base="${rel##*/}"
+  id="$(printf '%s' "$base" | sed -n "s/^\(${ISSUE_PREFIX}-[0-9][0-9]*\)-.*/\1/p")"
+  [ -n "$id" ] || id='<ID>'
+  role="${hint:-<Role>}"
+  if [ -r "$root/scripts/lib/role-set.sh" ]; then
+    # shellcheck source=lib/role-set.sh
+    . "$root/scripts/lib/role-set.sh"
+    set_="$(kit_role_set "$root" 2>/dev/null || true)"
+    if [ -n "$set_" ]; then
+      if [ -n "$hint" ] && kit_role_member "$set_" "$hint"; then role="$hint"; else role="${set_%%|*}"; fi
+    fi
+  fi
   echo ""
   echo "  ⚠ PUSH IT BEFORE YOU MOVE IT. ./scripts/move-issue.sh reads the board from the"
   echo "    trunk — the .kanban-wt worktree for the move itself, and the freshly-fetched"
   echo "    remote ref when it reports a miss — so a file that exists only in this"
   echo "    checkout is invisible to it — the move fails with 'no file matching'."
   echo ""
-  echo "      git add \"${rel}\" && git commit -m \"[<Role>] <ID>: mint\" && git push"
+  echo "      git add \"${rel}\" && git commit -m \"[${role}] ${id}: mint\" && git push"
   echo ""
-  echo "    Then, and only then:  ./scripts/move-issue.sh <ID> in_progress --role <Role> --note \"…\""
+  echo "    Then, and only then:  ./scripts/move-issue.sh ${id} in_progress --role <Role> --note \"…\""
 }

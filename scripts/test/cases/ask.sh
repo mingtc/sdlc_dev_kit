@@ -233,7 +233,7 @@ case_ask_principal_placeholder_forms_read_as_blank() {
   _blank_row double-brace '`{{ principal }}`'
   _blank_row underscores '`___`'
 
-  # THE CONTROL: a plausible non-answer is NOT this mechanism's job (run 7 contract) — it must
+  # THE CONTROL: a plausible non-answer is NOT this mechanism's job — it must
   # still read as filled, so the rows above are catching SHAPE, not auditing truth.
   local ctl_rc
   printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** the team\n- **Their channel:** `dev/questions/`\n' \

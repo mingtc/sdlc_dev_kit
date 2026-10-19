@@ -418,6 +418,20 @@ columns and never the cards.*
   the same note. No action.
 - **`read-verdict.sh` says why a deferred PASS reads `would REFUSE`.** For a card in `dev_complete/` the output ends with a note that a deferred landing's evidence is on its
   branch, not the trunk. The `orchestrate` skill's Procedure steps are headed `### Step 0.` to `### Step 4.`; cite the verdict step as `orchestrate/SKILL.md` § Procedure, step 3. No action.
+- **`subtask.sh move <slice> blocked` now needs `--note`,** as `move-issue.sh` already did: a parked slice whose blocker is not written down is refused (`blocked-needs-note`). A
+  runner brief or script that parks a slice without a note must add one.
+- **The commit line a creator prints is one the hook accepts.** `new-issue.sh`, `new-bug.sh` and `new-refactor.sh` print `git commit -m "[<tag>] <ID>: mint"` with the card's own
+  id and a tag from your declared role set, where it printed a literal `[<Role>] <ID>` that the commit-msg hook refused. No action.
+- **The upgrade seat resets to `<remote>/<trunk>`,** `<remote>` being `KWT_REMOTE` (default `origin`), where `UPGRADE-SEAT.md` said `origin`. No action.
+- **`EXTRACTION.md` § 2.2 lists every file that names a lifecycle column in code** (`qa-gate.sh`, `board-properties.sh`, `kit-upgrade.sh`, `read-verdict.sh`, the optional
+  `staleness_greps.py`, with the columns each reads), its Take-but-EDIT table gains `config.sh` (`CODE_GLOBS`/`TEST_GLOBS` are day-one fills), and `config.sh`'s header says so.
+  A project that renames or adds a column edits those files too. No action otherwise.
+- **Wording and pointers corrected across the shipped text.** The `architect.md` nesting claim states the measured depth with its date; `orchestrate` and the role doc cite the
+  Conductor reconciliation paragraph without a `§`; `using-git-worktrees` takes the branch from the card's `branch:` and treats `dev.md`'s worktree table as the declared
+  preference (its row, and the other hardened Dev-set skills', are in the skills README table); the PM sets a PRD `completed` when its last story reaches `qa_complete/`;
+  `prd_reason` is "expected" (`check-board.sh` `[m]` counts omissions); the run-report and launch-pack templates are conditional on a pack and balanced; the `Log size` arm is
+  named `[c]`; `install-skills.sh` tells a consumer there is nothing to install; the README's role list and acceptance-criteria sentence match the tree. Incident narratives and
+  maintainer-side debt notes are removed from `EXTRACTION.md`, the contract sheets, the role docs and the requirements templates. No action.
 - **`PROJECT.md`'s setup note puts the test gate in `scripts/verify.sh`, and its surface list asks for a path expression per row.** `setup.sh` only invokes the gate. No action.
 
 ### Fixed
@@ -444,6 +458,15 @@ columns and never the cards.*
   its own scratch directory instead of `.progress-records/`, and its isolation case fails if that directory changes during a run. No action.
 - **The self-test no longer fails on a project's own words about the retired hat-file path.** Its old-path scan judges only files that
   still match their shipped hash in `process/KIT-MANIFEST`, so a log or document you edited that quotes the path is not a finding. No action.
+- **`ARCHIVE.md` names where the archive threshold lives and what the sweep commits as.** The depth is `QA_COMPLETE_THRESHOLD` in `scripts/config.sh` (it said a constant in
+  `check-board.sh`, which edits nothing). `archive.sh --apply` commits as `ARCHIVE_ROLE` (default `Orchestrator`) and refuses before moving anything when your role set lacks that
+  tag: run it with `ARCHIVE_ROLE=<tag>`. `MANUAL.md` and the archive-sweep contract say so. No action.
+- **`notification.md` and `notify.sh` say a send with no `--session` is skipped, not refused:** one stderr warning (silent when the backend is off), exit 0.
+  `liveness-watchdog.md` names `scripts/notify.sh` as what `stall.sh` calls. `check-board.sh`'s header says it exits 2 on a usage error. No action.
+- **A producer that sources only `lib/progress-record.sh` has its actor checked against the declared role set;** a role outside it is written `unknown` with the offered value in
+  `declared-actor=`. The writer now loads `role-set.sh` itself. No action.
+- **The note after a landing names why the main checkout was not fast-forwarded.** An untracked file the trunk now tracks (what `register-commit.sh` leaves after landing a new
+  file) and a checkout holding commits the trunk lacks each get their own note, where both read "diverged". No action.
 
 ## [0.10.1] — 2026-10-17
 

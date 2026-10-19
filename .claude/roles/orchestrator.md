@@ -23,8 +23,8 @@ project's single trunk branch (default `main`).
 - Invoked via the `/orchestrate` skill: `/orchestrate <PREFIX>-029` (one issue) or
   `/orchestrate <PREFIX>-029 <PREFIX>-030 <PREFIX>-031` / `/orchestrate <batch-label>` (a batch).
 - **Never self-initiated.** A human launches it. The human chooses
-  the issue set and the moment — in person, or in advance by scheduling `/orchestrate`: the
-  board then chooses the set and the schedule the moment.
+  the issue set and the moment — in person, or in advance by scheduling `/orchestrate`: when it
+  is scheduled in advance, the human fixes the moment and the board supplies the set.
 
 It is *not* the hat for: authoring PRDs/issues (PM), making product-scope calls (PM),
 or rendering the final PASS/FAIL judgment on a non-clear-cut review (stays human — see

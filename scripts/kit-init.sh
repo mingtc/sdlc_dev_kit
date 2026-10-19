@@ -132,7 +132,7 @@ Usage:
   ./scripts/kit-init.sh --prefix XYZ --trunk main [options]
 
 Required:
-  --prefix <P>        The issue-id prefix (e.g. GTFS → GTFS-001-<slug>.md). The
+  --prefix <P>        The issue-id prefix (e.g. XYZ → XYZ-001-<slug>.md). The
                       run prints each file it stamps with it.
   --trunk <B>         Your trunk / default branch. REQUIRED and CONFIRMED: it is
                       cross-checked against <remote>/HEAD and the run refuses on
@@ -328,7 +328,7 @@ step "kit-init preflight"
 # precondition is a state refusal (status 1). The refusal lists them all and exits 2 if any is a
 # missing required option, else 1.
 PF_STATUS=1
-[ -n "$PREFIX" ] || { pf "--prefix is required (e.g. --prefix GTFS)."; PF_STATUS=2; }
+[ -n "$PREFIX" ] || { pf "--prefix is required (e.g. --prefix XYZ)."; PF_STATUS=2; }
 [ -n "$TRUNK"  ] || { pf "--trunk is required (e.g. --trunk main) — the trunk is confirmed, never inferred."; PF_STATUS=2; }
 if [ -n "$PREFIX" ] && ! printf '%s' "$PREFIX" | grep -qE '^[A-Za-z][A-Za-z0-9]*$'; then
   pf "--prefix '$PREFIX' must be alphanumeric and start with a letter (it becomes ${PREFIX}-001-<slug>.md)."
@@ -1002,7 +1002,7 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
   \`### YYYY-MM-DD\` when it rotates, so each session's entries sit under ONE
   heading. **\`###\`, not \`##\`, and that is load-bearing rather than stylistic.**
   The tools that read the \`## Log\` *section* scan from its heading to the next
-  \`##\`: check-board.sh's § Log size arm and its [n] kit-feedback-line arm, and
+  \`##\`: check-board.sh's [c] log arm and its [n] kit-feedback-line arm, and
   this initializer's already-lived probe. An entry written as \`## YYYY-MM-DD\` therefore *terminates the section it
   is supposed to be inside* — the size arm measures only the preamble and reports
   healthy forever, and the lived probe counts zero log lines, so a repository with a

@@ -53,7 +53,7 @@
 #     section's bucket instead.
 #   * a "## YYYY-MM-DD ..." session heading — accepted so a log that already uses it
 #     is not stranded, but NOT documented and NOT to be migrated toward: check-board.sh's
-#     § Log size arm, its [n] kit-feedback-line arm and kit-init.sh's already-lived probe all
+#     [c] log arm, its [n] kit-feedback-line arm and kit-init.sh's already-lived probe all
 #     stop at the next "##", so a "##" dated entry ends § Log for them. It carries every line up to the next
 #     "## " heading, which is why the other two forms are not boundaries beneath it.
 #   * a bare/bulleted "YYYY-MM-DD ..." or "- YYYY-MM-DD ..." line — the oldest,

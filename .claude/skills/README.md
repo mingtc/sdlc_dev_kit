@@ -231,6 +231,11 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | `finishing-a-development-branch` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
 | `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; a blind re-copy erases it |
 | `subagent-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
+| `using-skills` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries repaired citations and names this kit's implementation skills; a blind re-copy erases it |
+| `using-git-worktrees` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — setup commands demoted to named examples, an external-directory note, the branch taken from the card's `branch:` and the Dev role's worktree table as the declared preference; a blind re-copy erases it |
+| `writing-plans` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — saves plans under this kit's id-keyed name; a blind re-copy erases it |
+| `systematic-debugging` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its `find-polluter.sh` takes its runner from `TEST_CMD` and refuses a clean result it cannot vouch for; a blind re-copy erases it |
+| `receiving-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — the review-thread reply command is demoted to a named example; a blind re-copy erases it |
 | `<a skill that departs from its set>` | `<fill in>` | `<fill in>` | `<MIXED\|PROJECT, and why>` |
 
 **THE ORIGIN COLUMN IS THE KIT'S OWN RECORD, NOT A BLANK FOR YOU. The only row here you fill is the
@@ -249,11 +254,11 @@ command to a named example — the setup commands in `using-git-worktrees`, the 
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
 it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
 has repaired citations and names its implementation skills, `requesting-code-review` and
-`subagent-driven-development` show the kit's plan filename in their worked examples, `using-git-worktrees` gained an external-directory note,
+`subagent-driven-development` show the kit's plan filename in their worked examples, `using-git-worktrees` gained an external-directory note, the card's `branch:` as its branch name and the Dev role's worktree table as its declared preference,
 `writing-plans` saves plans under the kit's id-keyed name, and `systematic-debugging`'s `find-polluter.sh`
 takes its runner from `TEST_CMD`, refuses a clean result over zero matched files, a pre-existing path or a
 `TEST_CMD` that is not a runnable command, and runs each matched path whole. (`brainstorming`'s visual companion is
-upstream's; the kit only declares it an opt-in extra above the floor.) **Read every diff hunk on its
+upstream's apart from the stop command's defined `$SESSION_DIR`; the kit also declares it an opt-in extra above the floor.) **Read every diff hunk on its
 own** — that class is the one that is easiest to mistake for drift, not the only
 one you will meet. A re-copy that restores the single-command form has not updated the
 skill, it has re-narrowed it, and it breaks the claim this file opens with: *nothing here assumes a

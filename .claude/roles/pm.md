@@ -300,6 +300,7 @@ Before closing a PM session:
 
 - [ ] Every new issue file lives in `progress/todo/` (or `progress/blocked/` if blocked at creation), committed and pushed to the trunk
 - [ ] Every new/changed PRD file committed under `requirements/`
+- [ ] A PRD whose every story has reached `progress/qa_complete/` is set to `status: completed` — the PM does it, in the first session that sees the last story land
 - [ ] Issue file frontmatter and Activity logs are current
 - [ ] `progress.md` updated **only** if a strategic decision was made
 - [ ] PROJECT.md updated if the decision is foundational (architecture, scope, philosophy)

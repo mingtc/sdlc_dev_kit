@@ -30,10 +30,11 @@ diff left for you to review, so review the run's output and the resulting commit
 
 The contract this implements is
 [`process/contracts/archive-sweep.md`](process/contracts/archive-sweep.md). The depth
-that triggers the advisory is a **constant declared at the top of
-`scripts/check-board.sh`** — not a value your adapter sets. No script reads a threshold
-from the adapter, so a number written there changes nothing; change it at the constant
-or not at all. What the adapter DOES record is whether this sweep is run here at all —
+that triggers the advisory is `QA_COMPLETE_THRESHOLD` in **`scripts/config.sh`**, the one
+place `scripts/check-board.sh` reads it from; a number written in your adapter changes
+nothing. The sweep commits as the `ARCHIVE_ROLE` seat (default `Orchestrator`): on a
+project whose declared role set lacks that tag, run
+`ARCHIVE_ROLE=<tag> ./scripts/archive.sh --apply` with a tag the set holds. What the adapter DOES record is whether this sweep is run here at all —
 [`AGENTS.md`](AGENTS.md) § "What is ON and what is OFF here".
 
 **The heading below is format law and exists from day one, empty.** The sweep

@@ -194,5 +194,5 @@ echo ""
 echo "Next steps:"
 echo "  1. Fill in title, Problem, AC (copy from the PRD stories), Out of scope, Dependencies."
 echo "  2. Confirm Definition of Ready (.claude/roles/pm.md)."
-print_push_before_move "$DEST"
+print_push_before_move "$DEST" PM
 exit 0

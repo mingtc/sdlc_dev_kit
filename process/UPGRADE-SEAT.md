@@ -37,8 +37,10 @@ trunk tip:
 ```sh
 ./scripts/register-commit.sh --role <your role> --message "<what this landing is>" \
   $(git status --porcelain --untracked-files=all --no-renames | cut -c4-)
-git reset -q origin/<trunk>
+git reset -q <remote>/<trunk>
 ```
+
+`<remote>` is the project's publication remote: `KWT_REMOTE`, default `origin`.
 
 The first command lands exactly the paths `git status` lists, and never `.kit/`: a hat file is never
 committed, and at the first landing the project's own commit hook may be the old copy, which does not
