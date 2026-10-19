@@ -716,7 +716,7 @@ for rec in ${PREFLIGHT_GATES[@]+"${PREFLIGHT_GATES[@]}"}; do
   fi
 done
 
-# ── Preflight 5 (gate d): the board is clean. check-board.sh exits 0 always, so
+# ── Preflight 5 (gate d): the board is clean. check-board.sh exits 0 whatever it finds (2 only on a usage error), so
 #    judge by its 'board-drift: clean' MARKER, not its exit code. Same quoted-
 #    default invocation form as gate b, for the same spaced-path reason.
 echo "[d] board-drift (check-board.sh)..."
