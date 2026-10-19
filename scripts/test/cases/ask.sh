@@ -735,9 +735,9 @@ case_orchestrate_has_an_unattended_branch_where_it_is_read() {
 }
 
 # =============================================================================
-# CASE — scripts/hooks/stop-ask.sh BLOCKS A TURN ENDING ON A QUESTION, ONCE, AND ALLOWS
-# EVERY OTHER SHAPE: a statement ending, the loop-guarded re-invocation, a question answered
-# later in the same turn (mid-message or inside a code block), and an unparseable/empty payload.
+# CASE — scripts/hooks/stop-ask.sh BLOCKS A TURN WHOSE FINAL PARAGRAPH ASKS, ONCE, AND ALLOWS
+# EVERY OTHER SHAPE: a statement ending, the loop-guarded re-invocation, a question in an earlier
+# paragraph, a "?" in code or a URL, and an unparseable/empty payload.
 #
 # RED FIRST against HEAD (no scripts/hooks/stop-ask.sh exists yet): every row below either finds
 # no script to run (hook absent) or, once a placeholder exists, mis-classifies — this case is
@@ -800,10 +800,10 @@ case_stop_ask_hook_classifies_turn_endings() {
     '{"stop_hook_active":false,"last_assistant_message":"Done. I created the file.\n\n(That is the sentence you asked for. I did not actually create or change any file in this session.)"}' \
     allow
 
-  # (d) a question mid-message, answered by a later statement in the same turn — ALLOW (this
-  # hook judges the ENDING, not whether a "?" appears anywhere).
-  _row mid-message-question-then-statement \
-    '{"stop_hook_active":false,"last_assistant_message":"Should I use red or blue? I went with blue since it matched the logo."}' \
+  # (d) a question in an EARLIER paragraph, answered by a later statement — ALLOW: this hook
+  # judges the final paragraph, not whether a "?" appears anywhere.
+  _row earlier-paragraph-question-then-statement \
+    '{"stop_hook_active":false,"last_assistant_message":"Should I use red or blue?\n\nI went with blue since it matched the logo."}' \
     allow
 
   # (e) a question inside a code block, followed by a closing statement — ALLOW, same reason.
@@ -830,6 +830,47 @@ case_stop_ask_hook_classifies_turn_endings() {
     '{"stop_hook_active":false,"last_assistant_message":"She said \"maybe\". Which colour do you prefer?"}' \
     block
 
+  # (j) the final paragraph asks and then offers a default in a LATER LINE — BLOCK (the shape a
+  # last-line-only judge lets through).
+  _row question-then-offer-later-line \
+    '{"stop_hook_active":false,"last_assistant_message":"The card is ready.\n\nDo you want me to start the upgrade now?\nIf not, I will leave it parked."}' \
+    block "ask.sh"
+
+  # (k) the question and the offer share ONE line, so the "?" is mid-line — BLOCK.
+  _row question-then-offer-same-line \
+    '{"stop_hook_active":false,"last_assistant_message":"Should I commit it? I would commit straight to main."}' \
+    block
+
+  # (l) a menu under a question: the final paragraph is the question plus its numbered options — BLOCK.
+  _row question-then-menu \
+    '{"stop_hook_active":false,"last_assistant_message":"Which of these do you want?\n1. Commit without the trailer.\n2. Stop here."}' \
+    block
+
+  # (m) the "?" sits inside a fenced block that ends the reply — ALLOW (code is not read).
+  _row fenced-question-ends-reply \
+    '{"stop_hook_active":false,"last_assistant_message":"The prompt it prints is:\n\n```\nContinue? [y/N]\n```"}' \
+    allow
+
+  # (n) the "?" sits inside an inline code span, and the sentence is a statement — ALLOW.
+  _row inline-code-question \
+    '{"stop_hook_active":false,"last_assistant_message":"I changed the pattern to `^a?b` and re-ran the tests."}' \
+    allow
+
+  # (o) a "?" inside a URL's query string (no whitespace after it) — ALLOW.
+  _row url-query-string \
+    '{"stop_hook_active":false,"last_assistant_message":"Raise the limit at example.org/settings?from=cli and retry."}' \
+    allow
+
+  # (p) a request with no "?" — ALLOW: the documented limit; a phrase list is brittle.
+  _row request-without-question-mark \
+    '{"stop_hook_active":false,"last_assistant_message":"Please confirm which option you want, and I will go ahead."}' \
+    allow
+
+  # (q) the loop guard still wins over a question-then-offer final paragraph — ALLOW.
+  _row loop-guard-question-then-offer \
+    '{"stop_hook_active":true,"last_assistant_message":"Do you want me to start now?\nIf not, I will leave it parked."}' \
+    allow
+
   rm -rf "$tmp"
-  finish "scripts/hooks/stop-ask.sh blocks once (valid JSON, naming ask.sh) when a turn ends on a question — including one wrapped in Markdown emphasis or preceded by an escaped quote — allows the loop-guarded re-invocation, a statement ending, a question answered later in the same turn or buried in a code block, and an empty or absent message"
+  finish "scripts/hooks/stop-ask.sh blocks once (valid JSON, naming ask.sh) when a turn ends on a question — including one wrapped in Markdown emphasis or preceded by an escaped quote — blocks a question followed by an offer in the final paragraph, and allows the loop-guarded re-invocation, a statement ending, a question in an earlier paragraph, a \"?\" in code or a URL, and an empty or absent message"
 }

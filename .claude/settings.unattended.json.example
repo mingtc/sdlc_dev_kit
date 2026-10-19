@@ -8,7 +8,7 @@
 
   "_HOW_A_HEADLESS_SESSION_GETS_ITS_ALLOW_RULES": "A headless `claude -p` session does not apply the `permissions.allow` rules in a project's `.claude/settings.json` (its hooks do load, and a rule in the same file is not applied whether the file is tracked or not); it does apply rules from `.claude/settings.local.json`, from a `--settings <file>` and from `--allowedTools`. Give an unattended launch its allow rules through one of those three; the session must be able to Write the hat file (process/contracts/role-gate.md) or the role gate refuses every mutation.",
 
-  "_WHAT_THIS_DOES_NOT_DO": "It does not make a session ask nothing — it removes ONE route back to a blocked wait and catches ONE shape of stall. The session still needs `scripts/ask.sh` and a declared `principal:` (PROJECT.md § Who answers when nobody is watching) to have anywhere to put a question instead. The Stop hook judges only how the last turn's text ENDS (the last line, after stripping Markdown emphasis, ends in a literal \"?\") — a statement-shaped stall, or a question answered by a later statement in the same turn, is not caught.",
+  "_WHAT_THIS_DOES_NOT_DO": "It does not make a session ask nothing — it removes ONE route back to a blocked wait and catches ONE shape of stall. The session still needs `scripts/ask.sh` and a declared `principal:` (PROJECT.md § Who answers when nobody is watching) to have anywhere to put a question instead. The Stop hook judges only how the last turn's text ENDS (its final paragraph, with code removed, holds a sentence ending in a literal \"?\") — a statement-shaped stall or a request with no \"?\", and a question in an earlier paragraph, are not caught.",
 
   "env": {
     "KIT_UNATTENDED": "1"

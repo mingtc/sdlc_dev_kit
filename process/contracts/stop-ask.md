@@ -10,11 +10,15 @@ than relying on a role or skill to remember to route the question through
 
 ## 2. HARD INVARIANTS
 
-- **It judges the turn's ENDING, not its content.** Whether the turn's last line — after Markdown
-  emphasis is stripped — closes on a question mark decides the outcome; a question earlier in the
-  turn, inside a code block, or followed by a later statement, is not what this gate reads.
-  *Why:* a gate that scans the whole turn for any question mark blocks on a question the model
-  already answered itself in the same breath.
+- **It judges the turn's ENDING, not its content.** The ending is the final paragraph: the last run
+  of non-blank lines, with fenced code blocks and inline code spans removed. A sentence in it that
+  ends on a question mark (the mark followed by closing emphasis, quotes or brackets, then
+  whitespace or the end) decides the outcome; a question in an earlier paragraph, inside code, or in
+  a URL's query string is not what this gate reads, and neither is a request with no question mark
+  ("say so if you want it", "please confirm"). *Why:* a gate that scans the whole turn for any
+  question mark blocks on a question the model already answered itself in the same breath; and a
+  gate that reads only the last line lets through a question followed by its default on the next
+  line, which is how a closing question is ordinarily written.
 - **It fires at most once per turn.** The harness re-invokes a blocked turn's own stop event, and
   that second call must be let through, or the session is stuck re-asking itself forever.
   *Why:* a hook with no loop guard turns "catch it once" into "catch it forever."
@@ -36,11 +40,11 @@ than relying on a role or skill to remember to route the question through
 Not applicable in the usual sense — this is a Stop-event hook, not a command that refuses a call.
 Its two outcomes:
 
-- The turn's last line ends on a question (after stripping Markdown emphasis) AND this is not the
+- A sentence in the turn's final paragraph ends on a question mark AND this is not the
   loop-guarded re-invocation ⇒ **block once**, naming `scripts/ask.sh` and the working-default
   shape.
-- Anything else — a statement ending, no message, an unparseable payload, or the loop-guarded
-  re-invocation ⇒ **allow**, silently.
+- Anything else — a statement ending, a question only in an earlier paragraph or in code, no
+  message, an unparseable payload, or the loop-guarded re-invocation ⇒ **allow**, silently.
 
 ## 4. WHAT GREEN MEANS
 
@@ -49,8 +53,8 @@ Its two outcomes:
 2. The same turn's next ending — whether it files the question, states a next action, or ends on
    a statement for any other reason — is allowed; the session is never held a second time over
    the same stop event.
-3. A turn that ends on a statement, or whose question is answered within the same turn, is
-   allowed on the first try.
+3. A turn whose final paragraph holds no question, or whose question sits in an earlier paragraph
+   or in code, is allowed on the first try.
 4. A malformed or partial payload never blocks.
 
 ## 5. MINIMAL INTERFACE
@@ -69,7 +73,7 @@ default — those are the role's and `scripts/ask.sh`'s.
   tools (no `jq`): a small hand-written scanner reads `stop_hook_active` and
   `last_assistant_message` out of the single-line payload, tracking JSON escape sequences so an
   escaped quote inside the message is never mistaken for the string's end, and un-escaping `\n`
-  before deciding which line is last. Wired only in
+  before deciding which paragraph is last. Wired only in
   [`.claude/settings.unattended.json.example`](../../.claude/settings.unattended.json.example)'s
   `hooks.Stop`, alongside `env.KIT_UNATTENDED=1`, which `.claude/skills/start/SKILL.md` § 4 reads
   as the signal that nobody is watching.

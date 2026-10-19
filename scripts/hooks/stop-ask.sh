@@ -8,14 +8,16 @@
 # stdout lets the stop proceed, and exit 0 with {"decision":"block","reason":"<text>"} on stdout
 # blocks it once — <text> becomes the session's next prompt.
 #
-#   stop_hook_active true             → allow (the loop guard: this stop was already blocked once).
-#   last_assistant_message ends on ?  → block once, naming scripts/ask.sh.
-#   anything else                     → allow.
+#   stop_hook_active true                          → allow (the loop guard: this stop was already blocked once).
+#   a sentence in the final paragraph ends on ?    → block once, naming scripts/ask.sh.
+#   anything else                                  → allow.
 #
-# Only the ENDING is judged: the last non-blank line, after un-escaping and stripping trailing
-# Markdown emphasis. A question answered later in the same turn does not block, and a stall
-# phrased as a statement ("I'll wait for your call") is not caught. POSIX tools only (no jq); a
-# payload it cannot parse reads as allow, so a parsing defect never holds a session open.
+# Only the ENDING is judged: the final paragraph (the last run of non-blank lines), after un-escaping
+# and with fenced code blocks and inline code spans removed. A sentence ends on "?" when the mark is
+# followed by closing emphasis, quotes or brackets and then whitespace or the paragraph's end, so a
+# "?" in a URL or in code never counts. A question in an earlier paragraph does not block, and a
+# request with no "?" ("say so if you want it", "please confirm") is not caught. POSIX tools only
+# (no jq); a payload it cannot parse reads as allow, so a parsing defect never holds a session open.
 set -uo pipefail
 
 payload="$(cat 2>/dev/null || true)"
@@ -73,10 +75,10 @@ if [ -z "$last_msg" ]; then
   exit 0
 fi
 
-# Un-escape \n, \t, \", \\ so the last LINE (not the last JSON-escaped fragment) is what the
-# ending check sees, then take the last non-blank line and strip trailing Markdown emphasis
-# (*, _) and whitespace before testing for a trailing "?".
-last_line="$(
+# Un-escape \n, \t, \", \\ so the message reads as the lines the model wrote, drop fenced code
+# blocks and inline code spans (a "?" inside code is not a question), then take the final
+# paragraph: the last run of non-blank lines.
+final_para="$(
   printf '%s' "$last_msg" | awk '
     {
       s = $0; out = ""; i = 1; n = length(s)
@@ -94,14 +96,23 @@ last_line="$(
       }
       print out
     }
-  ' | awk 'NF > 0 { last = $0 } END { print last }'
+  ' | awk '
+    /^[ \t]*(```|~~~)/ { infence = !infence; if (para != "") { last = para; para = "" }; next }
+    infence            { next }
+    {
+      gsub(/`[^`]*`/, "")
+      if ($0 ~ /^[ \t]*$/) { if (para != "") { last = para; para = "" }; next }
+      para = (para == "" ? $0 : para "\n" $0)
+    }
+    END { if (para != "") last = para; print last }
+  '
 )"
-last_line="$(printf '%s' "$last_line" | sed -E 's/[*_ \t]+$//')"
 
-case "$last_line" in
-  *'?') : ;;             # ends on a question — fall through to BLOCK
-  *) exit 0 ;;           # ends on a statement — ALLOW
-esac
+# A sentence ends on "?" when the mark is followed by closing emphasis, quote or bracket
+# characters and then whitespace or the end of the paragraph.
+if ! printf '%s\n' "$final_para" | grep -Eq '\?[])*_"'"'"']*([[:space:]]|$)'; then
+  exit 0                 # no sentence in the final paragraph asks — ALLOW
+fi
 
 # ── BLOCK ONCE. The reason is embedded in JSON unescaped, so it must hold no double quote.
 reason="This turn ended on a question with no one here to answer it (an unattended launch). File it with scripts/ask.sh --role <the role you are acting as, never the principal's> then the question, --default <working default>, and continue under that default, or state the next action and take it. Do not end the turn on an unaddressed question again."
