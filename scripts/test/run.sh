@@ -233,6 +233,14 @@ echo "consumer seam: ${CONSUMER_SCRIPT:-(unset — that family will SKIP)}"
 echo
 isolation_snapshot
 
+# The run's own progress-record directory. Every refusal a fixture provokes is recorded
+# here, so the project's real .progress-records/ is left as the run found it
+# (case_isolation compares the two). A case that asserts where a script writes its
+# record unsets or overrides it.
+RUN_PROGRESS_SCRATCH="$(mktemp -d)" || { echo "run.sh: REFUSING — could not create a scratch directory for the run's progress records." >&2; exit 2; }
+export KIT_PROGRESS_DIR="$RUN_PROGRESS_SCRATCH"
+trap 'teardown; rm -rf "$RUN_PROGRESS_SCRATCH"' EXIT
+
 # ── THE CASE LIST. Explicit for ORDER, derived for COMPLETENESS. ─────────────
 # The order cannot be generated: case_isolation must run last (it compares the real
 # repo against the snapshot taken above), case_ship_state reads the real tree, and the

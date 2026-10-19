@@ -47,7 +47,7 @@ case_read_verdict_reads_the_trunk_and_writes_nothing() {
   after="$(git -C "$SB_WORK" status --porcelain 2>&1)|$(find "$SB_WORK/progress" "$SB_WORK/.progress-records" -type f 2>/dev/null | sort | tr '\n' ' ')|$(git -C "$SB_WORK" rev-parse HEAD)"
   [ "$before" = "$after" ] || cf "reading changed the tree, the board, .progress-records/ or HEAD: before [$before] after [$after]"
 
-  out="$( cd "$SB_WORK" && ./scripts/read-verdict.sh "$off" 2>&1 )"; rc=$?
+  out="$( cd "$SB_WORK" && env -u KIT_PROGRESS_DIR ./scripts/read-verdict.sh "$off" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(c) a card only in a local commit: exit 0, want non-zero — it has no verdict on the trunk"
   case "$out" in *"Next:"*) : ;; *) cf "(c) the refusal names no next step: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   grep -q 'refusal=card-not-on-trunk' "$SB_WORK/.progress-records"/*.tsv 2>/dev/null \

@@ -154,7 +154,7 @@ _ku_scaffold_pair() {
 # environment; stdout+stderr and status land in $SB_TMP/<tag>.out / .rc.
 _ku_run() {
   local tag="$1" rc=0; shift
-  ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR "$KU_NEW/scripts/kit-upgrade.sh" "$@" ) \
+  ( cd "$KU_ELSE" && env -u CLAUDE_PROJECT_DIR -u KIT_PROGRESS_DIR ${KU_RECDIR:+KIT_PROGRESS_DIR="$KU_RECDIR"} "$KU_NEW/scripts/kit-upgrade.sh" "$@" ) \
     >"$SB_TMP/$tag.out" 2>&1 || rc=$?
   printf '%s' "$rc" > "$SB_TMP/$tag.rc"
 }
@@ -296,7 +296,7 @@ case_kit_upgrade_refuses_with_a_record() {
     [ "$(_ku_recs "$R" "$2")" -eq 1 ] || cf "($1) no single refusal=$2 record in $R: $(cat "$R"/*.tsv 2>/dev/null | tr '\n' '|' | cut -c1-200)"
     rm -rf "$R"
   }
-  _ku_krun() { local t="$1"; shift; KIT_PROGRESS_DIR="$R" _ku_run "$t" "$@"; }
+  _ku_krun() { local t="$1"; shift; KU_RECDIR="$R" _ku_run "$t" "$@"; }
 
   _ku_krun a;                               _ku_refused a upgrade-no-target 2
   mkdir -p "$SB_TMP/plain";  _ku_krun b --into "$SB_TMP/plain";  _ku_refused b upgrade-target-not-a-repo nz

@@ -407,6 +407,8 @@ columns and never the cards.*
   unescaped `|` still starts a new cell.
 - **The "stamp what arrived" checks print nothing on a correctly stamped tree.** Their `grep -v` now also exempts `KIT-FEEDBACK`, the
   protected file name a role doc legitimately cites, so the first check no longer prints `orchestrator.md`'s line. No action.
+- **The self-test leaves the project's progress records as it found them.** `./scripts/test/run.sh` keeps its fixtures' refusal records in
+  its own scratch directory instead of `.progress-records/`, and its isolation case fails if that directory changes during a run. No action.
 
 ## [0.10.1] — 2026-10-17
 

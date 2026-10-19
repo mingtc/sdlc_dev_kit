@@ -546,7 +546,7 @@ case_ship_state() {
 # (Belt-and-suspenders: every case above deliberately mutates its sandbox; we
 #  then assert the real repo's HEAD + board surfaces are unchanged.)
 # =============================================================================
-REAL_HEAD_BEFORE=""; REAL_STATUS_BEFORE=""
+REAL_HEAD_BEFORE=""; REAL_STATUS_BEFORE=""; REAL_RECORDS_BEFORE=""
 # THE SPAN IS THE WHOLE TREE, minus the harness's own directory: the harness reads far more
 # of the real tree than scripts/ and progress/, and a narrower span cannot see a write to
 # what it reads. scripts/test/ is excluded as the harness's own home. The comparison is a
@@ -555,7 +555,20 @@ _board_status() {
   git -C "$REAL_REPO_ROOT" status --porcelain 2>/dev/null \
     | grep -v ' scripts/test/' || true
 }
+# The real project's progress records: names and bytes, from the directory the kit's own
+# resolver names with no override. The directory is gitignored, so git cannot see a write there.
+_real_records() {
+  local d f
+  d="$( cd "$REAL_REPO_ROOT" && unset KIT_PROGRESS_DIR && . "$REAL_SCRIPTS/lib/progress-record.sh" && kit_progress_dir )" || d=""
+  [ -n "$d" ] || { printf '(records directory not resolved)'; return 0; }
+  for f in "$d"/*; do
+    [ -f "$f" ] || continue
+    printf '== %s\n' "$f"; cat "$f"
+  done
+  return 0
+}
 isolation_snapshot() {
+  REAL_RECORDS_BEFORE="$(_real_records)"
   REAL_HEAD_BEFORE="$(git -C "$REAL_REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "(no HEAD yet)")"
   REAL_STATUS_BEFORE="$(_board_status)"
 }
@@ -564,7 +577,7 @@ isolation_snapshot() {
 # no snapshot can tell them apart, so the output names both (instruments.md § A.4).
 case_isolation() {
   cf_reset
-  local after status_after
+  local after status_after records_after
   after="$(git -C "$REAL_REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "(no HEAD yet)")"
   [ "$after" = "$REAL_HEAD_BEFORE" ] \
     || cf "the real repo's HEAD MOVED during the run ($REAL_HEAD_BEFORE → $after). This harness never commits, so the likely cause is a concurrent session landing work in this checkout; a harness that somehow committed is the other, far less likely, candidate"
@@ -575,5 +588,10 @@ case_isolation() {
   if [ "$status_after" != "$REAL_STATUS_BEFORE" ]; then
     cf "a board surface CHANGED during the run — two candidates, and this case cannot tell them apart: (1) the harness broke its own isolation and wrote outside its sandbox, or (2) something else wrote to this checkout while the run was in flight (a concurrent session, an editor, a watcher). Before/after status follows. If a peer holds this checkout, (2) is the likely one and the run's SKIP profile is also unreliable — re-measure on a quiet tree or a built kit. BEFORE: [${REAL_STATUS_BEFORE:-clean}] AFTER: [${status_after:-clean}]"
   fi
-  finish "isolation: the real repo's HEAD and its WHOLE WORKING TREE — every path git reports, not a named subset — are unchanged across the run, with scripts/test/ excluded as the harness's own home. The span is the whole tree because this harness READS far more of it than any list of surfaces named in advance; a narrower span reports the absence of findings it could not have made. Attribution is out of scope: a path that differs between t0 and t1 does not say who wrote it (see the case's note)"
+  # .progress-records/ is gitignored, so the comparison above cannot see it.
+  records_after="$(_real_records)"
+  if [ "$records_after" != "$REAL_RECORDS_BEFORE" ]; then
+    cf "the project's .progress-records/ CHANGED during the run — the harness writes its records to its own scratch (KIT_PROGRESS_DIR), so either a fixture's script ran with that override cleared, or something else wrote a record while the run was in flight (a seat working in this checkout). Lines before: $(printf '%s' "$REAL_RECORDS_BEFORE" | wc -l | tr -d ' ') after: $(printf '%s' "$records_after" | wc -l | tr -d ' ')"
+  fi
+  finish "isolation: the real repo's HEAD and its WHOLE WORKING TREE — every path git reports, not a named subset — are unchanged across the run, as is the project's .progress-records/ (names and bytes), with scripts/test/ excluded as the harness's own home. The span is the whole tree because this harness READS far more of it than any list of surfaces named in advance; a narrower span reports the absence of findings it could not have made. Attribution is out of scope: a path that differs between t0 and t1 does not say who wrote it (see the case's note)"
 }
