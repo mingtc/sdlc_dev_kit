@@ -409,6 +409,8 @@ columns and never the cards.*
   protected file name a role doc legitimately cites, so the first check no longer prints `orchestrator.md`'s line. No action.
 - **The self-test leaves the project's progress records as it found them.** `./scripts/test/run.sh` keeps its fixtures' refusal records in
   its own scratch directory instead of `.progress-records/`, and its isolation case fails if that directory changes during a run. No action.
+- **The self-test no longer fails on a project's own words about the retired hat-file path.** Its old-path scan judges only files that
+  still match their shipped hash in `process/KIT-MANIFEST`, so a log or document you edited that quotes the path is not a finding. No action.
 
 ## [0.10.1] — 2026-10-17
 

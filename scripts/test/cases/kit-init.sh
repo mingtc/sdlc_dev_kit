@@ -553,6 +553,66 @@ kit_init_sandbox() {   # [work_subdir] — passed to make_sandbox
   sandbox_hat_clear
 }
 
+# THE OLD-LITERAL SCAN, over the kit's own files only. Operand: the shipped sha256 in process/KIT-MANIFEST.
+# A path whose bytes still equal it is the kit's copy and is judged; a path that differs is the project's,
+# whether it appended to a seeded document or kit-init stamped a template, and is not. The class column
+# cannot decide this: the seeded progress log is marked KIT. Sets _OLD_HITS to the paths that carry the
+# literal, space-led, and _OLD_N_MAN (rows read) and _OLD_N_JUDGED (rows judged); called without a subshell. With no sha256 tool every
+# path is judged, because nothing can tell edited from shipped.
+_OLD_N_MAN=0; _OLD_N_JUDGED=0; _OLD_HITS=""
+_old_sha() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" 2>/dev/null | awk '{print $1}'; fi
+}
+_old_literal_hits() {   # <tree root> <literal>
+  local root="$1" lit="$2" h mrel f got out=""
+  _OLD_N_MAN=0; _OLD_N_JUDGED=0
+  while IFS=' ' read -r h mrel; do
+    [ -n "$mrel" ] || continue
+    _OLD_N_MAN=$((_OLD_N_MAN+1))
+    f="$root/$mrel"
+    [ -f "$f" ] || continue
+    case "$f" in */KIT-RELEASE-NOTES.md|*/KIT-RELEASE-HISTORY.md) continue ;; esac
+    got="$(_old_sha "$f")"
+    [ -z "$got" ] || [ "$got" = "$h" ] || continue
+    _OLD_N_JUDGED=$((_OLD_N_JUDGED+1))
+    grep -F -- "$lit" "$f" >/dev/null 2>&1 && out="$out $mrel"
+  done <<EOF_MAN
+$(awk '!/^#/ && NF >= 2 { print $1 " " $2 }' "$root/process/KIT-MANIFEST")
+EOF_MAN
+  _OLD_HITS="$out"
+}
+# Known-correct rows on a fabricated tree, so the narrowed scan is shown to still fail on a real finding and
+# to pass on a project's own words. Skipped where there is no sha256 tool (the scan then judges everything).
+_old_literal_ablation() {   # <literal>
+  local lit="$1" t f r1 r2 r3
+  [ -n "$(_old_sha /dev/null)" ] || return 0
+  t="$(mktemp -d "${TMPDIR:-/tmp}/oldlit.XXXXXX")" || _fixture_die "_old_literal_ablation: no scratch directory"
+  mkdir -p "$t/process" "$t/scripts"
+  printf 'clean\n' > "$t/scripts/clean.sh"
+  printf 'write %s\n' "$lit" > "$t/scripts/planted.sh"
+  printf '## Log\nfirst\n' > "$t/progress.md"
+  _old_write_manifest "$t"
+  _old_literal_hits "$t" "$lit"; r1="$_OLD_HITS"                  # a kit file as shipped, carrying the literal
+  printf 'the retired path was %s\n' "$lit" >> "$t/progress.md"
+  _old_literal_hits "$t" "$lit"; r2="$_OLD_HITS"                  # the project appended it to its own log
+  _old_write_manifest "$t"
+  _old_literal_hits "$t" "$lit"; r3="$_OLD_HITS"                  # the same document, still as shipped
+  rm -rf "$t"
+  case " $r1 " in *" scripts/planted.sh "*) : ;; *) cf "(ablation) the literal planted in a file still as shipped was not found: '$r1'" ;; esac
+  case " $r1 " in *" scripts/clean.sh "*) cf "(ablation) a clean shipped file was flagged: '$r1'" ;; esac
+  case " $r2 " in *" progress.md "*) cf "(ablation) a project's own log quoting the literal was flagged: '$r2'" ;; esac
+  case " $r2 " in *" scripts/planted.sh "*) : ;; *) cf "(ablation) with the log edited the planted shipped file was no longer found: '$r2'" ;; esac
+  case " $r3 " in *" progress.md "*) : ;; *) cf "(ablation) a shipped document carrying the literal was not found: '$r3'" ;; esac
+}
+_old_write_manifest() {   # <fabricated root> — one row per file in it, as the build writes them
+  local t="$1" f
+  : > "$t/process/KIT-MANIFEST"
+  for f in scripts/clean.sh scripts/planted.sh progress.md; do
+    printf '%s  %s  KIT\n' "$(_old_sha "$t/$f")" "$f" >> "$t/process/KIT-MANIFEST"
+  done
+}
+
 # =============================================================================
 # CASE — THE HAT FILE LIVES OUTSIDE `.claude/`, IN ONE PLACE.
 # The harness refuses a session's write under `.claude/` in every mode but bypass, so a hat file
@@ -567,22 +627,12 @@ case_hat_file_lives_outside_the_harness_directory() {
   # The old literal is assembled so this file does not itself contain it.
   local old=".claude""/session-role" f hits="" lits=""
   case "$rel" in .claude/*) cf "the hat file's path '$rel' is inside the harness directory the harness protects" ;; esac
-  # The old literal's population is every file the shipped manifest lists, less the release notes and
-  # their history (which say what moved): the role docs, skills, templates and the stub are where an
-  # instruction to write the hat file lives. The manifest is read from the tree, not restated here.
-  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" n_man=0 mrel
-  [ -f "$man" ] || _fixture_die "case_hat_file_lives_outside_the_harness_directory: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
-  while IFS= read -r mrel; do
-    [ -n "$mrel" ] || continue
-    n_man=$((n_man+1))
-    f="$REAL_REPO_ROOT/$mrel"
-    [ -f "$f" ] || continue
-    case "$f" in */KIT-RELEASE-NOTES.md|*/KIT-RELEASE-HISTORY.md) continue ;; esac
-    grep -F -- "$old" "$f" >/dev/null 2>&1 && hits="$hits $mrel"
-  done <<EOF_MAN
-$(awk '!/^#/ && NF >= 2 { print $2 }' "$man")
-EOF_MAN
-  [ "$n_man" -gt 0 ] || cf "(control) no path was read from process/KIT-MANIFEST, so the old-literal scan covered nothing"
+  # The old literal's population is the kit's own files among those the shipped manifest lists, less the
+  # release notes and their history (which say what moved): the role docs, skills, templates and the stub
+  # are where an instruction to write the hat file lives. A project's own words about the move are not.
+  _old_literal_hits "$REAL_REPO_ROOT" "$old"; hits="$_OLD_HITS"
+  [ "$_OLD_N_MAN" -gt 0 ] || cf "(control) no path was read from process/KIT-MANIFEST, so the old-literal scan covered nothing"
+  [ "$_OLD_N_JUDGED" -gt 0 ] || cf "(control) every manifest path was set aside as the project's own, so the old-literal scan judged nothing"
   # The new literal: in the lib (the definition) and the shipped ignore file, and in no other code. The
   # population is the scripts and the ignore file.
   for f in "$REAL_SCRIPTS"/*.sh "$REAL_SCRIPTS"/lib/*.sh "$REAL_SCRIPTS"/hooks/* "$REAL_SCRIPTS"/githooks/* \
@@ -592,6 +642,7 @@ EOF_MAN
     [ -z "$rel" ] || ! grep -F -- "$rel" "$f" >/dev/null 2>&1 || case "$f" in *.md) : ;; *) lits="$lits ${f#"$REAL_REPO_ROOT"/}" ;; esac
   done
   [ -z "$hits" ] || cf "the old harness-directory hat-file literal survives in:$hits"
+  _old_literal_ablation "$old"
   [ -z "$rel" ] || case " $lits " in *" scripts/lib/hat-file.sh "*) : ;; *) cf "(control) the lib that defines the path does not contain it: $lits" ;; esac
   [ -z "$rel" ] || case " $lits " in *" .gitignore "*) : ;; *) cf "the shipped .gitignore does not ignore $rel" ;; esac
   local extra="${lits# }"; extra="${extra//scripts\/lib\/hat-file.sh/}"; extra="${extra//.gitignore/}"; extra="${extra// /}"
@@ -625,7 +676,7 @@ EOF_MAN
   [ "$rc" -eq 2 ] || cf "with scripts/lib/hat-file.sh gone the gate exited $rc, want 2 (a gate that allows on doubt reads as armed)"
   case "$out" in *"git checkout -- scripts/lib/hat-file.sh"*) : ;; *) cf "the lib-missing refusal names no restore: $out" ;; esac
 
-  finish "the hat file lives outside .claude/ ($rel), is defined once in lib/hat-file.sh, is read by the gate and cleared by SessionStart, and the old literal is in no shipped file"
+  finish "the hat file lives outside .claude/ ($rel), is defined once in lib/hat-file.sh, is read by the gate and cleared by SessionStart, and the old literal is in no file the kit owns (a path edited since it shipped is the project's and is not judged; the scan is shown on a fabricated tree to flag a shipped file and spare an edited log)"
   teardown
 }
 
