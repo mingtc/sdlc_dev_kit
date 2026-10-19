@@ -28,7 +28,8 @@ project's single trunk branch (default `main`).
 
 It is *not* the hat for: authoring PRDs/issues (PM), making product-scope calls (PM),
 or rendering the final PASS/FAIL judgment on a non-clear-cut review (stays human — see
-Gates).
+Gates). Recording a principal's answer as given is none of these: see
+[§ An answered question is ready work](#an-answered-question-is-ready-work).
 
 ## Model & effort contract
 
@@ -147,6 +148,35 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
    unattended corollary).
 3. **Run continuously** through the approved set per § The two-phase model, under **the pause
    law** below. Do not pause between issues.
+
+### An answered question is ready work
+
+A question filed through `scripts/ask.sh` is **answered** when its file carries an `**Answer` block
+and **reconciled** when a `requirements/DECISIONS.md` entry cites the file's path.
+`./scripts/check-board.sh` lists the ones answered and not reconciled, each with the card it
+parks. A card sits in `blocked/` on the question, the principal's answer sits in the file, and
+no other seat is woken to connect them: **you do, at session start and between legs, before any
+new `todo/` card.**
+
+Dispatch the **PM-hat leg** (the `pm-mint` worker; its row is **PM-hat mint** in § Model & effort
+contract) once per question. You dispatch it rather than doing the acts yourself: the register
+and a card's acceptance text are PM's surfaces. The leg is **bounded to three acts**, in this order:
+
+1. Record the answer's literal words as a `D-NN` in `requirements/DECISIONS.md` whose Provenance
+   cites the question file's path and ends `no work item` (the register has the entry's shape;
+   commit it with `./scripts/register-commit.sh`).
+2. Edit the card the question parks to cite it: `[decision: D-NN]` on the bullet it settles, and the
+   id in the card's `forks:`.
+3. Move that card out of `blocked/` to the folder it came from
+   (`./scripts/move-issue.sh <PREFIX>-NNN <folder> --role PM --note "Unblocked: <D-NN>."`).
+
+**Anything the answer leaves unruled the leg never rules.** It files that part again through
+`scripts/ask.sh` — `--card` on the same card, a working default — and the card still leaves
+`blocked/`, now working under that default.
+
+**Recording an answer is not a product-scope call.** The principal made the call; the leg writes down
+what was said, in their words, and decides nothing the answer does not state. That is why this
+leg is not covered by "not the hat for … product-scope calls" above.
 
 ### The pause law
 

@@ -177,6 +177,8 @@ same — an interactive question is a hang, not a pause: **do not end the sessio
 through `./scripts/ask.sh` instead (`PROJECT.md` § *Who answers when nobody is watching* names
 the principal it asks and where the question goes) and **carry on under the working default it
 records** — pick a different issue from `todo/`, same as step 4 says, rather than stopping.
+Pass `--card <PREFIX>-NNN` so the question names the card it parks, and name the question file's
+path in step 1's `--note`: that pair is how the answer, once it arrives, finds the card.
 
 ### Spawning a follow-up issue
 

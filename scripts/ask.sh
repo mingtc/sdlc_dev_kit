@@ -5,15 +5,18 @@
 # nobody is watching names the principal and the channel; `.claude/roles/dev.md` § Getting
 # blocked and `process/doctrine/orchestration.md` § A.5's unattended corollary both point here.
 #
-# ./scripts/ask.sh --role <role> "<question>" --default "<working default>" [--decision D-NN]
+# ./scripts/ask.sh --role <role> "<question>" --default "<working default>" [--decision D-NN] [--card <ID>]
 #
 # It, in order:
 #   1. writes the question in the channel PROJECT.md declares, a path inside the repository:
 #      a directory gets ONE FILE per question, named so it sorts and is unique
 #      (dev/questions/<UTC-timestamp>-<role>-ask.md); a channel that names a file has each
 #      question appended to it. An absolute or `..` channel is refused. Each question carries
-#      the asker, the time, the question, the working default, and how the answer is recorded
-#      (the register entry, if --decision named one; the file itself, cleared in place, if not).
+#      the asker, the time, the card it parks (if --card named one), the question, the working
+#      default, how the answer is recorded (the register entry, if --decision named one; the file
+#      itself, cleared in place, if not) and how to answer in this file: one `**Answer (...)**` block
+#      at its end. An answer in this file is reconciled only when a register entry cites this file's
+#      path (check-board.sh's answered-question arm lists the ones none cites).
 #   2. with --decision D-NN naming a WITHDRAWN entry (no current ruling — DECISIONS.md
 #      § The THIRD state): records the working default as PROVISIONAL, amending that entry's
 #      Ruling field to `WORKING DEFAULT (provisional, asked <date>, <question file>)` (§ The
@@ -29,10 +32,10 @@
 #      standing ruling where one exists; nothing here blocks it.
 #
 # It refuses through kit_refuse — never asking is not a silent success: a required argument
-# missing (exit 2), --role not among the declared roles (exit 2), no principal or channel
-# declared in PROJECT.md, an unusable channel, or --role equal to the declared principal
-# (exit 1; the asker may not be the seat that answers). Every rule id is in
-# process/contracts/ask.md § 3.
+# missing (exit 2), --role not among the declared roles (exit 2), --card not shaped like a card id
+# (exit 2) or naming no card on the board (exit 1), no principal or channel declared in
+# PROJECT.md, an unusable channel, or --role equal to the declared principal (exit 1; the asker
+# may not be the seat that answers). Every rule id is in process/contracts/ask.md § 3.
 #
 # IT DOES NOT COMMIT. The question file and any DECISIONS.md edit are metadata
 # (process/MANUAL.md § The code-vs-metadata rule) — commit them direct to the trunk through your
@@ -45,6 +48,10 @@
 #   --default "<text>"   the working default to proceed under. Required.
 #   --decision <D-NN>    the requirements/DECISIONS.md entry this question could overturn.
 #                         Optional; without it the question file alone carries the default.
+#   --card <ID>          the card this question parks (a card in `blocked/` on it, or about to be):
+#                         recorded in the question file so a later reader can tie the answer to the
+#                         card. Optional; a question that parks no card is legal. Name the question
+#                         file in the move's `--note` too.
 #   -h, --help            this text.
 #
 # The question, quoted, is the one required positional argument.
@@ -82,12 +89,13 @@ need_val() {
 
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 
-ROLE=""; DEFAULT_TXT=""; DECISION=""; QUESTION=""
+ROLE=""; DEFAULT_TXT=""; DECISION=""; QUESTION=""; CARD=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --role)     need_val "$@"; ROLE="$2"; shift 2 ;;
     --default)  need_val "$@"; DEFAULT_TXT="$2"; shift 2 ;;
     --decision) need_val "$@"; DECISION="$2"; shift 2 ;;
+    --card)     need_val "$@"; CARD="$2"; shift 2 ;;
     -*) kit_refuse 2 ask-unknown-option "Error: unknown option: $1" "Next: run $(basename "$0") --help, then re-run with one of the options it lists." ;;
     *)
       if [ -z "$QUESTION" ]; then QUESTION="$1"; shift
@@ -106,6 +114,25 @@ done
   "Error: no --default \"<working default>\": what does the session proceed under while it waits?" \
   "Next: re-run with --default \"<what this session proceeds under while it waits>\"." \
   "      A question with no working default is a blocked session, not an ask: if nothing can be done under any default, stop and hand off with the question in your report."
+
+# THE PARKED CARD, when named, is an id shaped like a card's (`<PREFIX>-N`, or a slice's
+# `<PREFIX>-N-sM`) and a card file the board holds: in the working tree, or in the board mover's
+# worktree, which can be ahead of this checkout.
+if [ -n "$CARD" ]; then
+  [[ "$CARD" =~ ^[A-Za-z][A-Za-z0-9]*-[0-9]+(-s[0-9]+)?$ ]] || kit_refuse 2 ask-card-malformed \
+    "Error: --card $CARD is not a card id (<PREFIX>-N, or <PREFIX>-N-sM for a slice)." \
+    "Next: re-run with --card set to the id of the card this question parks (ls progress/*/), or leave --card off when the question parks no card."
+  _card_found=0
+  for _cf in "$ROOT"/progress/*/"$CARD"-*.md "$ROOT"/progress/*/"$CARD".md \
+             "$ROOT"/progress/subtasks/*/"$CARD"-*.md "$ROOT"/progress/subtasks/*/"$CARD".md \
+             "$ROOT"/.kanban-wt/progress/*/"$CARD"-*.md "$ROOT"/.kanban-wt/progress/*/"$CARD".md \
+             "$ROOT"/.kanban-wt/progress/subtasks/*/"$CARD"-*.md "$ROOT"/.kanban-wt/progress/subtasks/*/"$CARD".md; do
+    [ -f "$_cf" ] && { _card_found=1; break; }
+  done
+  [ "$_card_found" -eq 1 ] || kit_refuse 1 ask-card-not-found \
+    "Error: --card $CARD names no card under progress/ in this checkout." \
+    "Next: check the id (ls progress/*/), pull the trunk if the card is newer than this checkout, then re-run; or leave --card off when the question parks no card."
+fi
 
 # THE ROLE'S SHAPE, checked the same way an operator-supplied role is checked everywhere else
 # (lib/role-set.sh's own doc). An unreadable set is a named ACCEPT of membership, never a refusal
@@ -162,12 +189,10 @@ if [ "$ROLE_CMP" = "$PRINCIPAL_CMP" ]; then
     "Next: if the seat asking is not the principal, re-run with --role naming it. If you ARE the principal's seat, nobody else answers this: decide it yourself and record the ruling in requirements/DECISIONS.md, or stop and hand off to a human."
 fi
 
-# The channel line is prose ("dev/questions/, one dated file per question"); the FIRST token
-# that looks like a repo-relative path is the channel. A channel this project chose to write
+# The channel line is prose; lib/pm-field.sh's kit_pm_channel_token reads the path out of it (the
+# same reader check-board.sh's answered-question arm uses). A channel this project chose to write
 # as a bare filename (no trailing slash) is a FILE, not a directory: append to it.
-CHANNEL_TOKEN="$(printf '%s' "$CHANNEL_LINE" | awk '{ for (i=1;i<=NF;i++) if ($i ~ /^[A-Za-z0-9._-]+\/?([A-Za-z0-9._\/-]*)?$/ && $i ~ /\//) { print $i; exit } }')"
-[ -n "$CHANNEL_TOKEN" ] || CHANNEL_TOKEN="$(printf '%s' "$CHANNEL_LINE" | awk '{print $1}')"
-CHANNEL_TOKEN="${CHANNEL_TOKEN%,}"
+CHANNEL_TOKEN="$(kit_pm_channel_token "$CHANNEL_LINE")"
 
 # The channel is a path INSIDE the repository: an absolute one would be re-rooted under it, and a
 # `..` one would write beside it. Neither is what the line meant.
@@ -248,6 +273,7 @@ esac
   printf '# Question from %s, %s\n\n' "$ROLE" "$TS"
   printf '**Asker:** %s\n' "$ROLE"
   printf '**Time:** %s\n' "$TS"
+  [ -z "$CARD" ] || printf '**Parks card:** %s\n' "$CARD"
   printf '**Question:** %s\n\n' "$QUESTION"
   printf '**Working default (provisional):** %s\n\n' "$DEFAULT_TXT"
   if [ "$DECISION_STATE" = "standing" ]; then
@@ -259,6 +285,7 @@ esac
     printf 'file — %s.\n' "process/doctrine/orchestration.md § A.5's unattended corollary: record and keep working"
   fi
   printf '\n**How the answer is recorded:** %s\n' "$ANSWER_ROUTE"
+  printf '\n**To answer:** add one block at the very end of this file, `**Answer (<YYYY-MM-DD>, <who>):** <the answer>`. It is reconciled when a requirements/DECISIONS.md entry cites this file'"'"'s path.\n'
 } >> "$QFILE" || kit_refuse 1 ask-write-failed \
   "Error: could not write the question to $QFILE." \
   "Next: check that the channel's directory is writable and the disk has room, then re-run. If it still fails, stop and hand off with the question in your report."

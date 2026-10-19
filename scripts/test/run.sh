@@ -299,6 +299,8 @@ CASES=(
   case_ask_never_overwrites_a_standing_ruling
   case_ask_reads_the_withdrawn_token_as_the_format_shows_it
   case_ask_without_decision_names_the_file_as_the_record
+  case_ask_card_option_records_the_parked_card
+  case_answered_question_reconcile_is_named_where_it_is_read
   case_unattended_profile_denies_the_tool
   case_orchestrate_has_an_unattended_branch_where_it_is_read
   case_run_report_template_has_a_no_pack_banner_and_runners_name_it
@@ -471,6 +473,7 @@ CASES=(
   case_check_board_register_shape
   case_check_board_reverse_coverage
   case_check_board_model_pins_arm
+  case_check_board_answered_question_arm
   case_set_models_second_call_moves_the_ladder_row
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted

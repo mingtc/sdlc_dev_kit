@@ -4,7 +4,8 @@
 #
 # scripts/ask.sh and check-board.sh arm [g] both read the `principal:` and channel lines through
 # kit_pm_field, and both judge whether a value is filled through kit_pm_blank, so the two can
-# never disagree about either.
+# never disagree about either. The channel's path is read from that line by kit_pm_channel_token,
+# which ask.sh and check-board.sh's answered-question arm share.
 #
 # kit_pm_field <marker-regex> <file>
 #   Reads the FIRST line in <file> matching <marker-regex> (an awk ERE, the same shape both
@@ -29,6 +30,20 @@ kit_pm_field() {
       print v
       exit
     }' "$2"
+}
+
+# kit_pm_channel_token <channel-line-value>
+#   Echoes the channel PATH a channel line (as kit_pm_field extracted it) names. The channel line is
+#   prose ("dev/questions/, one dated file per question"): the FIRST token that looks like a
+#   repo-relative path is the channel, else the line's first word; a trailing comma is dropped. A
+#   trailing `/` means a directory; a bare filename is a file. scripts/ask.sh (which writes there)
+#   and check-board.sh's answered-question arm (which reads there) both call this, so the two
+#   cannot name different places.
+kit_pm_channel_token() {
+  local tok
+  tok="$(printf '%s' "$1" | awk '{ for (i=1;i<=NF;i++) if ($i ~ /^[A-Za-z0-9._-]+\/?([A-Za-z0-9._\/-]*)?$/ && $i ~ /\//) { print $i; exit } }')"
+  [ -n "$tok" ] || tok="$(printf '%s' "$1" | awk '{print $1}')"
+  printf '%s\n' "${tok%,}"
 }
 
 # kit_pm_blank <value> — status 0 if <value> (as kit_pm_field extracted it) carries no usable

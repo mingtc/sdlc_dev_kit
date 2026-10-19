@@ -193,7 +193,7 @@ and still this seat's judgement to apply.
 
 ### Moving an issue (occasional PM use)
 
-PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to `blocked/` if it is answerable, or to `declined/` if the answer is that it should not be built — never to a scratch location, which is how the decision gets silently made again six weeks later. In all cases:
+PM rarely moves files — Dev and QA handle most transitions. The exception is triaging `progress/blocked/`: after answering the blocker, send the issue back to its prior folder. Also: if you realize a `todo/` file fails Definition of Ready after all, move it to `blocked/` if it is answerable, or to `declined/` if the answer is that it should not be built — never to a scratch location, which is how the decision gets silently made again six weeks later. **A card parked on a `scripts/ask.sh` question** takes `--card <PREFIX>-NNN` on the ask, and the move's `--note` names the question file's path: the pair is how a later session ties the principal's answer to the card. In all cases:
 
 ```
 ./scripts/move-issue.sh <PREFIX>-NNN <target> --role PM --note "Unblocked: <answer>."

@@ -61,6 +61,8 @@ interactive prompt nothing will answer.
 | `ask-no-channel` | `PROJECT.md`'s channel line is missing or still `<angle-bracket>` |
 | `ask-role-is-principal` | `--role` names the seat `PROJECT.md` declares as principal — the asker may not be the seat that answers; `Next:` re-run with the asking seat's own role, or decide it and record the ruling |
 | `ask-channel-unusable` | the declared channel is not a path inside the repository, or cannot be created, or is not writable |
+| `ask-card-malformed` | `--card` names something that is not a card id (`<PREFIX>-N`, or a slice's `<PREFIX>-N-sM`); `Next:` re-run with the parked card's id (`ls progress/*/`), or leave `--card` off |
+| `ask-card-not-found` | `--card` is shaped like a card id but names no card under `progress/` in this checkout; `Next:` check the id, pull the trunk if the card is newer, or leave `--card` off |
 | `ask-write-failed` | the question file could not be written |
 | `ask-decisions-write-failed` | `--decision` named a live entry but the register write failed |
 | `ask-unknown-option`, `ask-unexpected-argument` | a mis-invocation |
@@ -73,7 +75,8 @@ question does not stop the session either.
 ## 4. WHAT GREEN MEANS
 
 1. Exactly one question file exists in the declared channel after the call, naming the asker, the
-   time, the question, the working default, and how the answer is recorded.
+   time, the card it parks (when `--card` named one), the question, the working default, how the
+   answer is recorded, and how to answer in the file (one `**Answer` block at its end).
 2. With `--decision` naming a WITHDRAWN register entry (no current ruling): that entry's ruling
    now carries the working default in the provisional form, with the question file's path in the
    token, and nothing else in the entry changed.
@@ -85,17 +88,29 @@ question does not stop the session either.
 ## 5. MINIMAL INTERFACE
 
 **In:** who is asking, the question, a working default, and (optionally) a register entry the
-default could overturn.
+default could overturn and the card the question parks.
 **Out:** one question file's path; where the default is recorded; exit 0.
 **Not in:** waiting for or reading an answer, committing, or judging whether the working default
 was the right one. Those are the principal's and the project's.
+
+**The project's half: who reads an answer, and what reconciling it means.** A question file is
+*answered, not reconciled* while it carries an `**Answer` block and no `requirements/DECISIONS.md`
+entry cites its path. `scripts/check-board.sh` lists those files, each with the card the question
+parks. The Orchestrator is the reader: at session start it dispatches the PM-hat leg for each, and
+reconciling means exactly three acts — record the literal answer as a `D-NN` that cites the question
+file; edit the parked card to cite it (`[decision: D-NN]` on the bullet it settles); move the card
+out of `blocked/`. Anything the answer leaves unruled is filed again through `ask.sh` under a working
+default, never ruled by the leg
+(`.claude/roles/orchestrator.md` § An answered question is ready work).
+*Why:* an answer nothing is woken to act on leaves its card parked in a column no session reads, with
+the principal's decision in a file nobody opens.
 
 ## 6. REFERENCE IMPLEMENTATION
 
 > One implementation, not the definition.
 
 - `scripts/ask.sh` — KIT-CLASS: KIT. `./scripts/ask.sh --role <role> "<question>" --default
-  "<text>" [--decision D-NN]`. The channel and principal come from `PROJECT.md`; the provisional
+  "<text>" [--decision D-NN] [--card <ID>]`. The channel and principal come from `PROJECT.md`; the provisional
   marker's format, including the question-file pointer, is `requirements/DECISIONS.md` § The
   FOURTH state; it never fires over an entry `requirements/DECISIONS.md` § The THIRD state does
   not name WITHDRAWN.

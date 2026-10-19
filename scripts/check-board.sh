@@ -32,6 +32,8 @@
 #       `requirements/` refuses a finding it introduces).
 #   (s) model pins vs the ladder — a leaf-worker pin that disagrees with its ladder cell, or, where
 #       that cell is unfilled, with what scripts/set-models.sh last wrote (advisory).
+#   (t) answered, not reconciled — a question file in the project's question channel that carries an
+#       `**Answer` block and that no register entry cites, with the card it parks (advisory).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -1621,6 +1623,77 @@ elif ! kit_model_drift "$CB_TREE"; then
   echo "      – no .claude/ with roles/orchestrator.md in this source  (skipped)"
 fi
 # END model-pins arm
+
+# ---------------------------------------------------------------------------
+# (t) ANSWERED QUESTIONS NOT RECONCILED — a question file in the channel PROJECT.md declares
+#     (lib/pm-field.sh's kit_pm_channel_token, the reader scripts/ask.sh writes through) that carries
+#     an `**Answer` block and whose path appears in NO register file (the REGISTERS records above).
+#     The operand is that one fact: the path is cited, or it is not. Each finding names the card the
+#     question parks (its `**Parks card:**` line), else says none is named. Reports only, like
+#     [k]/[m]/[n]/[o]/[q]/[r]/[s]: the owner is the Orchestrator's PM-hat leg, not this report. A
+#     channel that is one file holds several questions and no answer can be tied to one of them: the
+#     arm says so and lists nothing. Findings are single `⚠` lines so they survive the session-start
+#     hook's byte budget.
+#     Removable: delete this block, BEGIN to END.
+# ---------------------------------------------------------------------------
+echo
+echo "[t] Answered, not reconciled (reports only; never changes the verdict below) — $(cb_src):"
+t_pm="$CB_TREE/PROJECT.md"
+t_line=""; t_tok=""; t_dir=""; t_skip=""
+if ! command -v kit_pm_field >/dev/null 2>&1 || ! command -v kit_pm_channel_token >/dev/null 2>&1; then
+  t_skip="scripts/lib/pm-field.sh, the reader it shares with ask.sh, did not load"
+elif [ ! -f "$t_pm" ]; then
+  t_skip="no PROJECT.md in this source, so no channel is declared"
+else
+  t_line="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$t_pm")"
+  if kit_pm_blank "$t_line"; then
+    t_skip="PROJECT.md declares no channel"
+  else
+    t_tok="$(kit_pm_channel_token "$t_line")"
+    case "$t_tok" in
+      /*|..|../*|*/../*|*/..) t_skip="the declared channel ($t_tok) is not a path inside the repository" ;;
+      */) t_dir="${t_tok%/}" ;;
+      *)  if [ -d "$CB_TREE/$t_tok" ]; then t_dir="$t_tok"
+          else t_skip="the channel ($t_tok) is one file: it holds several questions, so no answer in it can be tied to one"; fi ;;
+    esac
+  fi
+fi
+if [ -n "$t_skip" ]; then
+  echo "      – $t_skip  (skipped)"
+else
+  t_regs=""; t_reg_names=""
+  while IFS='|' read -r t_rpath _t_mark _t_shape; do
+    [ -n "$t_rpath" ] || continue
+    t_reg_names="${t_reg_names:+$t_reg_names, }$t_rpath"
+    [ -f "$CB_TREE/$t_rpath" ] && t_regs="${t_regs:+$t_regs$'\n'}$t_rpath"
+  done <<T_REGS
+$REGISTERS
+T_REGS
+  t_read=0; t_found=0
+  for t_f in "$CB_TREE/$t_dir"/*-ask.md; do
+    [ -f "$t_f" ] || continue
+    t_read=$((t_read + 1))
+    grep -qE '^\*\*Answer' "$t_f" 2>/dev/null || continue
+    t_rel="$t_dir/${t_f##*/}"
+    t_cited=0
+    while IFS= read -r t_rpath; do
+      [ -n "$t_rpath" ] || continue
+      if grep -qF -- "$t_rel" "$CB_TREE/$t_rpath" 2>/dev/null; then t_cited=1; break; fi
+    done <<T_CITES
+$t_regs
+T_CITES
+    [ "$t_cited" -eq 0 ] || continue
+    t_card="$(awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' "$t_f" 2>/dev/null || true)"
+    echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered, ${t_reg_names} does not cite it"
+    t_found=$((t_found + 1))
+  done
+  if [ "$t_found" -gt 0 ]; then
+    echo "      The Orchestrator dispatches the PM-hat leg for each (.claude/roles/orchestrator.md § An answered question is ready work)."
+  else
+    echo "      ✓ none: $t_read question file(s) read in $t_dir/"
+  fi
+fi
+# END answered-question arm
 
 echo
 if [ "$drift" -eq 0 ]; then

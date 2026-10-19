@@ -160,6 +160,14 @@ _cb_s_section() {  # reads a check-board report on stdin
        f'
 }
 
+# Same shape as _cb_g_section, for arm [t] (answered questions the register has not cited).
+_cb_t_section() {  # reads a check-board report on stdin
+  awk '/^\[t\]/ { f = 1 }
+       f && /^──/ { exit }
+       f && /^\[[a-z]\]/ && !/^\[t\]/ { exit }
+       f'
+}
+
 # cb_set_dep <id> <slug> <folder> <blocks|blocked_by> <target-id>
 # Rewrite one dependency field into a seeded card's frontmatter. seed_issue does NOT emit
 # these keys, so this INSERTS before the CLOSING fence — the second `---`, never the
@@ -2836,6 +2844,120 @@ case_check_board_model_pins_arm() {
   printf '%s\n' "$out" | grep '^\[s\]' >/dev/null && cf "(control) the ablation left [s] printing"
 
   finish "arm (s): a hand-edited pin is reported against a filled ladder, and against set-models.sh's record where the ladder is unfilled; an untouched or restored tree reads clean, the record is what route 2 rests on, and the arm only reports"
+  teardown
+}
+
+# =============================================================================
+# CASE — check-board's [t] arm lists a question file that CARRIES AN ANSWER and that NO REGISTER
+# ENTRY CITES (answered, not reconciled), each with the card it parks.
+#
+# RED FIRST: the unfixed script has no [t]. The fixture follows the real order: the card is on the
+# board, the PM files the question parking it (ask.sh --card), the question file is committed to the
+# trunk; LATER the principal appends an Answer block and that is committed; LATER a register entry
+# citing the question file lands. The operand is the question file's path appearing in
+# requirements/DECISIONS.md, or not.
+# Rows: no answer -> not listed; answer, nothing cites it -> a finding line carrying the path and the card;
+# answer with no --card -> "no card named"; the entry added -> no longer listed (the others stay);
+# a file channel -> the arm says it cannot attribute and lists nothing; the arm only reports (header
+# token, verdict unchanged); stripping the arm removes the finding.
+# =============================================================================
+case_check_board_answered_question_arm() {
+  cf_reset
+  make_sandbox
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  cat > "$SB_WORK/requirements/DECISIONS.md" <<'REG'
+# DECISIONS.md
+
+## A. test bucket
+
+### D-01 — an unrelated ruling
+
+**Ruling.** Keep it small.
+**Why.** Because.
+**Provenance.** 2026-01-01, no work item.
+
+---
+REG
+  seed_issue blocked "$SB_PREFIX-860" clear-out chore "Clear-out waits on a period"
+  seed_issue blocked "$SB_PREFIX-861" digest chore "Digest waits on a day"
+  publish_sandbox
+  _verdict() { printf '%s\n' "$1" | grep '^── board-drift'; }
+  _qpath() { local q="$1"; printf 'dev/questions/%s' "${q#*/dev/questions/}"; }
+
+  # The PM files the questions. The first two park a card; the third parks none.
+  local o1 o2 o3 q1 q2 q3 r1 r2 r3
+  o1="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec1" ./scripts/ask.sh --role PM "How long to keep details?" --default "Hold." --card "$SB_PREFIX-860" 2>&1 )" \
+    || _fixture_die "ask.sh --card refused in the sandbox: $o1"
+  o2="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec2" ./scripts/ask.sh --role PM "Which weekday?" --default "Monday." --card "$SB_PREFIX-861" 2>&1 )" \
+    || _fixture_die "second ask.sh --card refused in the sandbox: $o2"
+  o3="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec3" ./scripts/ask.sh --role PM "Any colour?" --default "Blue." 2>&1 )" \
+    || _fixture_die "ask.sh with no --card refused in the sandbox: $o3"
+  q1="$(printf '%s\n' "$o1" | sed -n 's/^ask.sh: question written to //p')"; r1="$(_qpath "$q1")"
+  q2="$(printf '%s\n' "$o2" | sed -n 's/^ask.sh: question written to //p')"; r2="$(_qpath "$q2")"
+  q3="$(printf '%s\n' "$o3" | sed -n 's/^ask.sh: question written to //p')"; r3="$(_qpath "$q3")"
+  [ -f "$q1" ] && [ -f "$q2" ] && [ -f "$q3" ] || _fixture_die "case_check_board_answered_question_arm: ask.sh wrote no question file(s): '$q1' '$q2' '$q3'"
+  publish_sandbox
+
+  local out sec v_clean
+  # 1. NOTHING ANSWERED: not listed; the arm still says what it read.
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  [ -n "$sec" ] || cf "no [t] section in the report — the arm is absent: $out"
+  printf '%s\n' "$sec" | grep '⚠' >/dev/null && cf "1: an unanswered question is listed: $sec"
+  printf '%s\n' "$sec" | grep -E '3 question file' >/dev/null \
+    || cf "1: the arm does not say how many question files it read (an arm that prints nothing when clean is indistinguishable from one that broke): $sec"
+  printf '%s\n' "$out" | grep '^\[t\]' | grep -i 'reports only' >/dev/null \
+    || cf "1: [t]'s header does not carry the 'reports only' token"
+  v_clean="$(_verdict "$out")"
+
+  # 2. THE PRINCIPAL ANSWERS two of them (a later act, appended to the committed files).
+  printf '\n**Answer (2026-10-17, Ros):** Eighteen months.\n' >> "$q1"
+  printf '\n**Answer (2026-10-17, Ros):** Fridays.\n' >> "$q2"
+  printf '\n**Answer (2026-10-17, Ros):** Green.\n' >> "$q3"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" | grep -F "$SB_PREFIX-860" >/dev/null \
+    || cf "2: the answered question $r1 is not listed with a ⚠ naming the card $SB_PREFIX-860: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" | grep -F "$SB_PREFIX-861" >/dev/null \
+    || cf "2: the answered question $r2 is not listed with a ⚠ naming the card $SB_PREFIX-861: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r3" | grep -F 'no card named' >/dev/null \
+    || cf "2: the answered question with no --card is not listed as 'no card named': $sec"
+  [ "$(_verdict "$out")" = "$v_clean" ] || cf "2: [t] moved the verdict: '$v_clean' before, '$(_verdict "$out")' with findings"
+
+  # 3. A REGISTER ENTRY CITING THE FIRST QUESTION FILE LANDS: it is no longer listed; the others stay.
+  cat >> "$SB_WORK/requirements/DECISIONS.md" <<REG
+
+### D-02 — the retention period
+
+**Ruling.** Eighteen months after the last confirmation.
+**Why.** The principal's answer, recorded as given.
+**Provenance.** 2026-10-17, the principal's answer in $r1; no work item.
+
+---
+REG
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" >/dev/null \
+    && cf "3: $r1 is still listed after a register entry cites it: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null \
+    || cf "3: $r2 stopped being listed although no entry cites it: $sec"
+
+  # 4. A FILE CHANNEL: the arm cannot attribute an answer to a question and says so.
+  printf '<!-- KIT-CLASS: KIT -->\n# PROJECT.md\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Nadia, shop manager`\n- **Their channel:** `dev/questions.md`\n' > "$SB_WORK/PROJECT.md"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' >/dev/null && cf "4: a file channel produced a finding: $sec"
+  printf '%s\n' "$sec" | grep -i 'skipped' >/dev/null || cf "4: a file channel did not say the arm was skipped: $sec"
+
+  # 5. ABLATION — strip the arm.
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -q '# (t) ANSWERED QUESTIONS' "$s" || cf "(control) no '(t) ANSWERED QUESTIONS' seam in check-board.sh — cannot ablate"
+  sed -i.bak '/# (t) ANSWERED QUESTIONS/,/# END answered-question arm/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep '^\[t\]' >/dev/null && cf "(control) the ablation left [t] printing"
+
+  finish "arm (t): an answered question no register entry cites is listed with a ⚠ naming its path and the card it parks ('no card named' when none), an unanswered one is not, a citing register entry removes it, a file channel is skipped with the reason, the arm only reports, and stripping it removes the finding"
   teardown
 }
 

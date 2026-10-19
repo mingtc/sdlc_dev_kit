@@ -909,3 +909,133 @@ case_stop_ask_hook_classifies_turn_endings() {
   rm -rf "$tmp"
   finish "scripts/hooks/stop-ask.sh blocks once (valid JSON, naming ask.sh) when a turn ends on a question — including one wrapped in Markdown emphasis or preceded by an escaped quote — blocks a question followed by an offer in the final paragraph, and allows the loop-guarded re-invocation, a statement ending, a question in an earlier paragraph, a \"?\" in code or a URL, and an empty or absent message"
 }
+
+# =============================================================================
+# CASE — `--card <ID>` WRITES THE PARKED CARD INTO THE QUESTION FILE, AND A BAD ID IS REFUSED WITH A WAY OUT.
+# RED FIRST: the unfixed ask.sh has no --card (it refuses it as an unknown option).
+# The question file carries `**Parks card:** <ID>` in the asker/time field style, which is what
+# check-board's answered-question arm reads. --card is optional: a question that parks nothing is legal.
+# A malformed id and a well-formed id with no card on the board each refuse with a Next: line, a
+# refusal= record, and no question file written.
+# =============================================================================
+case_ask_card_option_records_the_parked_card() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || _fixture_die "case_ask_card_option_records_the_parked_card: scripts/ask.sh is not in the sandbox or not executable"
+  _ask_fill_pm "$SB_WORK"
+  seed_issue blocked "$SB_PREFIX-850" parked chore "A parked card"
+  seed_issue todo    "$SB_PREFIX-851" waiting chore "A card still in todo"
+
+  local out rc qf n_files
+  _ask_nfiles() { local c=0 f; for f in "$SB_WORK/dev/questions"/*-ask.md; do [ -f "$f" ] && c=$((c+1)); done; printf '%s' "$c"; }
+
+  # (a) the card named is written into the question file.
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/ask.sh --role Dev "How long?" --default "Hold." --card "$SB_PREFIX-850" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) --card $SB_PREFIX-850 exited $rc, want 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+  qf="$(printf '%s\n' "$out" | sed -n 's/^ask.sh: question written to //p')"
+  if [ -f "$qf" ]; then
+    grep -qxF "**Parks card:** $SB_PREFIX-850" "$qf" \
+      || cf "(a) the question file has no '**Parks card:** $SB_PREFIX-850' line: $(tr '\n' '|' < "$qf" | cut -c1-300)"
+  else
+    cf "(a) no question file was written (output: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200))"
+  fi
+
+  # (b) a card in another column is found too; and with no --card the line is absent (a question that parks nothing is legal).
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-b" ./scripts/ask.sh --role Dev "Which?" --default "A." --card "$SB_PREFIX-851" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) --card for a card in todo/ exited $rc, want 0"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-b2" ./scripts/ask.sh --role Dev "No card?" --default "A." 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b control) an ask with no --card exited $rc, want 0"
+  qf="$(printf '%s\n' "$out" | sed -n 's/^ask.sh: question written to //p')"
+  if [ -f "$qf" ]; then
+    grep -q 'Parks card' "$qf" && cf "(b control) a question with no --card carries a Parks card line"
+  fi
+
+  # (c) a malformed id refuses: exit 2, a Next:, a refusal= record, no file written.
+  n_files="$(_ask_nfiles)"
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-c" ./scripts/ask.sh --role Dev "q?" --default "d" --card "not an id" 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] || cf "(c) --card 'not an id' exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *'Next:'*) : ;; *) cf "(c) the malformed-id refusal has no Next: line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
+  grep -q 'refusal=ask-card-malformed' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
+    || cf "(c) no refusal=ask-card-malformed record: $(cat "$SB_TMP/rec-c"/*.tsv 2>/dev/null | cut -c1-200)"
+  [ "$(_ask_nfiles)" = "$n_files" ] || cf "(c) a question file was written by a refused ask"
+
+  # (d) a well-formed id that names no card refuses: exit 1, a Next:, a refusal= record, no file written.
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-d" ./scripts/ask.sh --role Dev "q?" --default "d" --card "$SB_PREFIX-999" 2>&1 )"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(d) --card for a card that does not exist exited $rc, want 1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  case "$out" in *'Next:'*) : ;; *) cf "(d) the card-not-found refusal has no Next: line" ;; esac
+  grep -q 'refusal=ask-card-not-found' "$SB_TMP/rec-d"/*.tsv 2>/dev/null \
+    || cf "(d) no refusal=ask-card-not-found record: $(cat "$SB_TMP/rec-d"/*.tsv 2>/dev/null | cut -c1-200)"
+  [ "$(_ask_nfiles)" = "$n_files" ] || cf "(d) a question file was written by a refused ask"
+
+  # (e) --card with no value is the shared need_val refusal, exit 2.
+  out="$( cd "$SB_WORK" && ./scripts/ask.sh --role Dev "q?" --default "d" --card 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] || cf "(e) --card with no value exited $rc, want 2"
+
+  finish "ask.sh --card <ID> writes '**Parks card:** <ID>' into the question file for a card in any column; an ask with no --card is still legal and writes no such line; a malformed id (exit 2) and an id naming no card (exit 1) each refuse with a Next: line and a refusal= record and write no file"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE ANSWERED-QUESTION RECONCILE IS NAMED WHERE EACH READER WILL MEET IT.
+# RED FIRST: none of these texts names it. Section-bounded, the way the unattended-branch case reads
+# its sections: a mention elsewhere in a file is not where the reader is when it decides.
+#   - orchestrator.md: a section making an answered, unreconciled question ready work, the PM-hat leg
+#     bounded to three acts, anything unruled filed again through ask.sh, and a plain statement that
+#     recording a principal's answer is not a product-scope call (the "not the hat for" paragraph points at it);
+#   - orchestrate/SKILL.md: step 0 names it;
+#   - start/SKILL.md § 4: the unattended pick order puts it BEFORE the oldest in_progress item;
+#   - process/contracts/ask.md § 5: names the project's half;
+#   - pm.md and dev.md: a card parked on a question passes --card, and the move's --note names the question file.
+# =============================================================================
+case_answered_question_reconcile_is_named_where_it_is_read() {
+  cf_reset
+  local role="$REAL_REPO_ROOT/.claude/roles/orchestrator.md"
+  local skill="$REAL_REPO_ROOT/.claude/skills/orchestrate/SKILL.md"
+  local start="$REAL_REPO_ROOT/.claude/skills/start/SKILL.md"
+  local contract="$REAL_REPO_ROOT/process/contracts/ask.md"
+  local pm="$REAL_REPO_ROOT/.claude/roles/pm.md"
+  local dev="$REAL_REPO_ROOT/.claude/roles/dev.md"
+  local f
+  for f in "$role" "$skill" "$start" "$contract" "$pm" "$dev"; do
+    [ -f "$f" ] || _fixture_die "case_answered_question_reconcile_is_named_where_it_is_read: no $f in the published kit at $REAL_REPO_ROOT"
+  done
+
+  # _need <label> <text> <fragment>… — each fragment must appear in the text.
+  _need() {
+    local label="$1" text="$2" frag; shift 2
+    for frag in "$@"; do
+      case "$text" in *"$frag"*) : ;; *) cf "$label does not say: $frag" ;; esac
+    done
+  }
+
+  local sec
+  sec="$(_orch_between "$role" '### An answered question is ready work' '### ')"
+  [ -n "$sec" ] || cf "orchestrator.md has no '### An answered question is ready work' section"
+  _need "orchestrator.md § An answered question is ready work" "$sec" \
+    'PM-hat' 'Record the answer' '`[decision: D-NN]`' 'blocked/' '`scripts/ask.sh`' \
+    'not a product-scope call' 'check-board.sh' 'never rules'
+  sec="$(_orch_between "$role" 'It is *not* the hat for' '## Model & effort contract')"
+  [ -n "$sec" ] || cf "orchestrator.md has no 'It is *not* the hat for' paragraph before '## Model & effort contract'"
+  _need "orchestrator.md's 'not the hat for' paragraph" "$sec" 'An answered question is ready work'
+
+  sec="$(_orch_between "$skill" '### 0. Setup' '### 1. Phase 1')"
+  [ -n "$sec" ] || cf "orchestrate/SKILL.md has no step 0 section ending at '### 1. Phase 1'"
+  _need "orchestrate/SKILL.md step 0" "$sec" 'answered, unreconciled question' 'PM-hat' 'An answered question is ready work'
+
+  sec="$(_orch_between "$start" '- **Unattended (`KIT_UNATTENDED=1`):**' '## What this skill deliberately does not do')"
+  [ -n "$sec" ] || cf "start/SKILL.md has no unattended branch ending at '## What this skill deliberately does not do'"
+  _need "start/SKILL.md § 4's unattended branch" "$sec" 'answered' 'unreconciled'
+  local before_answered="${sec%%answered*}" before_inprog="${sec%%oldest \`in_progress\`*}"
+  [ "${#before_answered}" -lt "${#before_inprog}" ] \
+    || cf "start/SKILL.md § 4's unattended pick order names the answered question AFTER the oldest in_progress item — it must come first"
+
+  sec="$(_orch_between "$contract" '## 5. MINIMAL INTERFACE' '## 6. REFERENCE IMPLEMENTATION')"
+  [ -n "$sec" ] || cf "contracts/ask.md has no § 5 ending at § 6"
+  _need "contracts/ask.md § 5" "$sec" 'answered, not reconciled' 'Orchestrator' '`D-NN`' 'blocked/'
+
+  _need "pm.md" "$(cat "$pm")" '--card' 'question file'
+  _need "dev.md" "$(cat "$dev")" '--card' 'question file'
+
+  finish "orchestrator.md (a section and the 'not the hat for' paragraph), orchestrate/SKILL.md step 0, start/SKILL.md § 4's unattended order (answered question before the oldest in_progress item), contracts/ask.md § 5, pm.md and dev.md each name the answered-question reconcile"
+}

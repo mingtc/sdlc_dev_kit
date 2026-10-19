@@ -272,4 +272,5 @@ enforces. *(Authority:
   two are the same (`PM`, `the PM role` and `The PM seat` all name the PM seat). The channel is where
   `scripts/ask.sh` writes and nowhere else, a path inside the repository — e.g. `dev/questions/`,
   one dated file per question, or a file, which each question is appended to. Fill either line inside backticks or not — both
-  are read the same way.)*
+  are read the same way. The principal answers by adding an `**Answer` block at the end of the question file; the
+  Orchestrator reconciles it — [`process/contracts/ask.md`](process/contracts/ask.md) § 5.)*

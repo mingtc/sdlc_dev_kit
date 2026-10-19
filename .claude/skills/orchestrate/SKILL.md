@@ -42,7 +42,9 @@ trunk branch, default `main`.
    yourself; with args → that set. Each must already exist in `progress/todo/` (PM-created
    feature/spike/chore, or QA-filed bug) and be unblocked (`blocked_by` all landed).
    **Never create top-level issue ids** — that stream belongs to PM and QA. Drop or flag
-   anything not ready.
+   anything not ready. **An answered, unreconciled question comes first:** `./scripts/check-board.sh`
+   lists them, each is ready work, and you dispatch the PM-hat leg for it before the set above,
+   bounded as the role doc's § An answered question is ready work says.
 3. Read each issue file plus its PRD stories; build the **dependency order** from
    `blocks`/`blocked_by`; mark mutually-independent issues as parallel candidates (default
    serial).

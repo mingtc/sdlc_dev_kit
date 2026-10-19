@@ -366,6 +366,12 @@ identifier gives and a timestamp does not.*
   confirms each invariant has a line, so an arm carrying no invariant is structurally invisible to
   it — the arm ships, runs and prints findings, and a report rebuilt from this sheet does not contain
   it.*
+- **An arm that reads the project's question channel is `[t]`:** question files that carry an
+  `**Answer` block and that no register file cites, each with the card it parks. It reads the
+  channel `PROJECT.md` declares (the reader `scripts/ask.sh` writes through) and the register
+  paths the implementation declares as `REGISTERS`; the operand is that the question file's path
+  appears in the register, or does not. It reports only. It prints one line naming what it read
+  when there is nothing to list, and one `⚠` line per finding so a truncated copy keeps them.
 - **The checks behind arms `[d]` `[i]` `[l]` `[p]` `[q]` `[r]` live in `scripts/lib/board-properties.sh`,
   and the landing calls the same functions** (`scripts/lib/qa-gate.sh`'s `kit_board_property_check`,
   from `finish-pr.sh` and `subtask.sh`). The landing refuses a finding its branch introduces in a
