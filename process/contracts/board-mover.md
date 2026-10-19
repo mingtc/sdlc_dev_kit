@@ -128,7 +128,9 @@ to change and making every change self-recording.
   author meets the rule at hand-off, not the reviewer at the landing; the landing keeps its check.
 - A move into the reviewed state (`qa_complete`) of a card whose `## QA Verdict` table the landing's own
   check would refuse ⇒ refuse with that check's refusal, from the same reader, read on the publication
-  area's copy of the card at the trunk tip, before moving anything. A card that skips the landing script
+  area's copy of the card at the trunk tip, before moving anything. The move also runs the landing's
+  AC-drift check: an AC bullet whose text changed after the card left `todo/` needs `[decision: D-NN]`
+  on that bullet (skipped for the landing script's own move, below). A card that skips the landing script
   (direct to the trunk, or squash-merged by hand) is judged here; a table that exists only in an
   unpublished commit is, to this check, not there. The one move exempt is the landing script's own, which
   has just checked the branch: it names the squash commit it landed, the mover verifies that commit is

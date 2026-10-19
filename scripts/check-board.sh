@@ -161,7 +161,7 @@ cb_staged() { [ -n "$CB_STAGE_DIR" ] || return 1; case "$1" in "$CB_STAGE_DIR"/*
 # The shared already-lived probe, resolved from THIS script's location (it ships beside this
 # script; CLAUDE_PROJECT_DIR may name another tree). It also declares § Log's heading, which arms
 # c and n read. A load failure is a recorded skip, never an
-# exit: this script always exits 0 and reports what it could not read.
+# exit (the one exit 2 is the usage error above).
 CB_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)/lib"
 CB_LIVED_LIB_ERR=""
 # shellcheck source=lib/lived-probe.sh
@@ -1265,8 +1265,8 @@ if git -C "$REPO_ROOT" rev-parse --verify --quiet "$CB_RULE_REV" >/dev/null 2>&1
   h_scanned="$(printf '%s\n' "$h_all" | awk 'NF' | wc -l | tr -d ' ')"
   while IFS= read -r h_sha; do
     [ -z "$h_sha" ] && continue
-    # The whole message: a trailer lives in the body. kit_attrib_offender mirrors the hook's own
-    # three arms and anchoring, so "generated with" mid-sentence is prose, not a provenance line.
+    # The whole message: a trailer lives in the body. kit_attrib_offender is the reader the hook
+    # calls, so "generated with" mid-sentence is prose, not a provenance line.
     h_body="$(git -C "$REPO_ROOT" log -1 --format=%B "$h_sha" 2>/dev/null || true)"
     h_bad=""
     if command -v kit_attrib_offender >/dev/null 2>&1; then

@@ -333,6 +333,8 @@ columns and never the cards.*
 
 ### Action required
 
+- **`subtask.sh move <slice> blocked` now needs `--note`,** as `move-issue.sh` already did: a parked slice whose blocker is not written down is refused (`blocked-needs-note`). Add
+  `--note "<blocker>"` to any runner brief or script of your own that parks a slice.
 - **A direct-to-trunk `qa_complete/` move now checks a corrected AC for its citation.** `move-issue.sh <ID> qa_complete` (a card that did not land
   through `finish-pr.sh`) refuses an AC bullet whose text changed after the card left `todo/`, such as a `PASS_AC_CORRECTED` correction, unless that bullet
   carries `[decision: D-NN]` on its own checklist line. A project that moves cards this way records the register entry that decided the change, cites
@@ -416,10 +418,8 @@ columns and never the cards.*
 - **The QA Verdict note and `qa.md` step 4 state the rules the gate enforces.** A `|` in a quoted line is written `\|`; in a `gate-diff`/`fixture-diff` pointer any `word:number`
   is read as a `path:line`; the shadow-check text goes in the pointer cell. The day-one checklist and both workflow runners' QA brief name the table, and the card templates carry
   the same note. No action.
-- **`read-verdict.sh` says why a deferred PASS reads `would REFUSE`.** For a card in `dev_complete/` the output ends with a note that a deferred landing's evidence is on its
+- **`read-verdict.sh` says why a deferred PASS reads `would REFUSE`.** For a card in `dev_complete/` whose evidence pointer or quote does not resolve on the trunk, the output ends with a note that a deferred landing's evidence is on its
   branch, not the trunk. The `orchestrate` skill's Procedure steps are headed `### Step 0.` to `### Step 4.`; cite the verdict step as `orchestrate/SKILL.md` § Procedure, step 3. No action.
-- **`subtask.sh move <slice> blocked` now needs `--note`,** as `move-issue.sh` already did: a parked slice whose blocker is not written down is refused (`blocked-needs-note`). A
-  runner brief or script that parks a slice without a note must add one.
 - **The commit line a creator prints is one the hook accepts.** `new-issue.sh`, `new-bug.sh` and `new-refactor.sh` print `git commit -m "[<tag>] <ID>: mint"` with the card's own
   id and a tag from your declared role set, where it printed a literal `[<Role>] <ID>` that the commit-msg hook refused. No action.
 - **The upgrade seat resets to `<remote>/<trunk>`,** `<remote>` being `KWT_REMOTE` (default `origin`), where `UPGRADE-SEAT.md` said `origin`. No action.

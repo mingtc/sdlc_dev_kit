@@ -330,6 +330,6 @@ else
   done
   kit_set_runners
   kit_say_skipped
-  echo "set-models: every ladder class -> model=${MODEL} effort=${EFFORT}, and the runner default"
+  echo "set-models: ladder classes set (${PLANNED# }) -> model=${MODEL} effort=${EFFORT}, and the runner default"
   echo "set-models: ui-designer-worker.md is off the ladder (parked role) and was not touched — edit it directly if you mean to re-provision it too."
 fi

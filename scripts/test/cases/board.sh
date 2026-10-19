@@ -1434,7 +1434,7 @@ case_commit_msg_attribution_family() {
   [ -n "$prefixes" ] || cf "could not derive ROLE_PREFIXES from the hook"
   role="${prefixes%%|*}"
 
-  # REFUSED — every wording U's table found accepted at HEAD, now widened for.
+  # REFUSED — each wording the hook must refuse (the family in the case header).
   local -a refused=(
     "Signed-off-by: Claude <noreply@anthropic.com>"
     "Assisted-by: Claude Code"

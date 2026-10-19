@@ -108,7 +108,7 @@ TEST_CMD="npm test --" .claude/skills/systematic-debugging/find-polluter.sh 'pac
 ```
 
 Runs tests one-by-one, stops at first polluter. It refuses rather than report clean when the
-pattern matches nothing or the path already exists before the first test. `TEST_CMD` is required — the script refuses
+pattern matches nothing, the path already exists before the first test, or `TEST_CMD` is not a runnable command. `TEST_CMD` is required — the script refuses
 rather than guess your runner. See script for usage.
 
 ## Real Example: Empty projectDir

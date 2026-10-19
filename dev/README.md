@@ -43,7 +43,7 @@ past any defensible size has become the thing it was supposed to make unnecessar
 **Dated filenames, `YYYY-MM-DD-<slug>.md`.** The date is part of the claim. A file whose name has no
 date will be read as current no matter what its first paragraph says.
 
-## Standing queues — the one living list here
+## Standing queues — the living list (besides a living standing handoff)
 
 - **[`downtime-queue.md`](downtime-queue.md)** — deferred-but-genuine improvements: things
   deliberately **not** done now, kept as a table rather than lost to audit footnotes. Re-assessed at
