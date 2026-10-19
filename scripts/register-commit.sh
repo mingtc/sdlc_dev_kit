@@ -12,6 +12,10 @@
 # trunk tip), and commits + pushes there — exactly the machinery move-issue.sh already uses for a
 # board move, generalized to any metadata path instead of only progress/.
 #
+# YOUR CHECKOUT AFTER A LANDING is left as it was: a path you edited stays modified (or untracked)
+# there although the trunk now holds it, and a later `git pull --ff-only` is refused for it until you
+# discard your copy — `git checkout -- <path>`, or delete the file if it was untracked.
+#
 # Usage:
 #   ./scripts/register-commit.sh --role <R> --message "..." <path>... [--discard-dirty]
 #
@@ -33,7 +37,8 @@
 #     pre-commit hook (scripts/githooks/pre-commit), which catches a bare `git commit` of
 #     metadata-only paths off the trunk. This script is the route that refusal names.
 #   - It will not invent content: a path that does not exist ANYWHERE (not in your checkout, not
-#     on the trunk) is refused rather than silently skipped.
+#     on the trunk) is refused rather than silently skipped. Every path is checked before any is
+#     staged, so a refusal leaves the kanban worktree as it found it.
 #   - It will not land a STALE copy (exit 1, refusal register-checkout-stale, nothing changed on the
 #     trunk): a path whose trunk copy gained a line since your checkout was cut, or since this
 #     checkout last landed it, that your file lacks. Run it from a checkout at the trunk tip, or bring
@@ -231,6 +236,16 @@ done
 [ -z "$GUARD_SKIPPED" ] \
   || echo "Note: the stale-checkout guard did not run for: $GUARD_SKIPPED (your checkout shares no history with the trunk and has landed nothing)." >&2
 
+# Every path must exist on one side BEFORE any is staged: a refusal part-way would leave the earlier
+# paths staged in the kanban worktree, which every other board op then refuses to touch.
+for rel in "${PATHS[@]}"; do
+  if [ ! -e "$CALLER_ROOT/$rel" ] && [ ! -e "$KWT/$rel" ]; then
+    kit_refuse 1 path-not-found \
+      "Error: '$rel' exists in neither your checkout ($CALLER_ROOT) nor the trunk ($KWT) — nothing to commit for it." \
+      "Next: check the path (relative to your checkout's root) and write the file there before re-running."
+  fi
+done
+
 CHANGED=()
 for rel in "${PATHS[@]}"; do
   src="$CALLER_ROOT/$rel"
@@ -244,12 +259,6 @@ for rel in "${PATHS[@]}"; do
     git -C "$KWT" add -- "$rel"
     CHANGED+=("$rel")
   else
-    # Present on neither side → refuse rather than silently doing nothing for it.
-    if [ ! -e "$dst" ]; then
-      kit_refuse 1 path-not-found \
-        "Error: '$rel' exists in neither your checkout ($CALLER_ROOT) nor the trunk ($KWT) — nothing to commit for it." \
-        "Next: check the path (relative to your checkout's root) and write the file there before re-running."
-    fi
     # Absent from the caller, present on the trunk → a deletion.
     git -C "$KWT" rm -q -- "$rel"
     CHANGED+=("$rel")

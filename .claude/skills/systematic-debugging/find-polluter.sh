@@ -6,8 +6,9 @@
 #   NOTE THE LEADING './'. `find .` emits paths that begin './', and -path matches the WHOLE
 #   emitted path — so a pattern without it matches nothing. In -path, `*` also crosses `/`, so
 #   './src/*.test.ts' already covers nested directories ('./src/**/*.test.ts' would skip src/ itself).
-# The path must not exist when the run starts, and the script refuses on zero matched test files:
-#   either way a "clean" would be a verdict over tests that never ran.
+# The path must not exist when the run starts, the script refuses on zero matched test files, and it
+#   refuses when TEST_CMD is not a runnable command (not found, or a run that exits 126/127):
+#   in each case a "clean" would be a verdict over tests that never ran.
 # TEST_CMD is REQUIRED and has no default: the script refuses rather than guess your runner.
 
 set -e
@@ -23,6 +24,15 @@ TEST_PATTERN="$2"
 # The runner is a knob, not an assumption: export TEST_CMD to match your stack
 # (e.g. TEST_CMD="npm test --", TEST_CMD="cargo test", TEST_CMD="go test").
 TEST_CMD="${TEST_CMD:?set it to the single-file test command for this stack, e.g. npm test --}"
+
+# The runner's first word must resolve to a command: a missing runner runs nothing for every file,
+# and the loop below would still end "all tests clean".
+read -r TEST_CMD_WORD _ <<< "$TEST_CMD"
+if ! command -v "$TEST_CMD_WORD" >/dev/null 2>&1; then
+  echo "TEST_CMD '$TEST_CMD' is not a runnable command ('$TEST_CMD_WORD' was not found) — refusing to report clean over tests that never ran" >&2
+  echo "  set TEST_CMD to the single-file test command for this stack, e.g. TEST_CMD=\"npm test --\"" >&2
+  exit 2
+fi
 
 echo "🔍 Searching for test that creates: $POLLUTION_CHECK"
 echo "Test pattern: $TEST_PATTERN"
@@ -61,7 +71,14 @@ while IFS= read -r TEST_FILE; do
 
   # Run the test
   # stdin is the path list; a test that reads stdin must not swallow it.
-  $TEST_CMD "$TEST_FILE" > /dev/null 2>&1 </dev/null || true
+  RC=0
+  $TEST_CMD "$TEST_FILE" > /dev/null 2>&1 </dev/null || RC=$?
+  # 126/127 is the shell saying the runner could not be run at all (a wrapper such as `sh -c`
+  # or `npm run` can start and still fail this way), not a test failing: no verdict follows.
+  if [ "$RC" -eq 126 ] || [ "$RC" -eq 127 ]; then
+    echo "TEST_CMD '$TEST_CMD' could not run $TEST_FILE (exit $RC) — refusing to report clean over tests that never ran" >&2
+    exit 2
+  fi
 
   # Check if pollution appeared
   if [ -e "$POLLUTION_CHECK" ]; then

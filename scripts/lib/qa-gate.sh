@@ -70,6 +70,9 @@
 #     Refuses through kit_refuse with: forks-missing, forks-malformed, forks-register-undeclared,
 #     forks-register-unreadable, forks-unresolved, forks-contradicted, forks-attribution-unclear,
 #     forks-ac-changed-uncited.
+#     The AC-drift half is kit_ac_drift_check <card-file> <card-id> <repo> <leave-commit>
+#     <leave-path>, callable alone (move-issue.sh calls it at qa_complete); kit_card_leave_todo
+#     <card-id> <repo> <old-rev> prints its last two operands, tab-separated, or nothing.
 #
 #   kit_ablation_check <card-file> <card-id> <repo> <old-rev> <new-rev>
 #     process/doctrine/instruments.md § A.2: a diff touching a declared TEST_GLOBS path needs a
@@ -618,6 +621,97 @@ _forks_window_entries() {
   return 0
 }
 
+# ── _forks_sub_excl_for <card-id> ──────────────────────────────────────────────────────────────
+#   The pathspec that keeps a PARENT card's globs off its slices' files (subtasks/<parent>/...),
+#   whose names start with the parent's id; a slice's own card lives there, so its globs keep that
+#   folder. Prints nothing for a slice.
+_forks_sub_excl_for() {
+  case "$1" in
+    *-s[0-9]*) : ;;
+    *) printf '%s\n' ":(exclude,glob)**/subtasks/**" ;;
+  esac
+}
+
+# ── kit_card_leave_todo <card-id> <repo> <old-rev> ─────────────────────────────────────────────
+#   Where the card's own history shows it leaving a 'todo/' column: prints "<commit><TAB><old path>"
+#   or nothing (minted straight into another column). The card's identity is its ID, never its
+#   content: card templates are mostly boilerplate, so a similarity-following history read
+#   (log --follow) can report a new card as a copy of an earlier, similar one and continue down THAT
+#   card's history. So this reads by the id-anchored path: the earliest <old-rev> commit that deleted
+#   a 'todo/<id>-*' file, with --no-renames (a move out of todo/ is then a plain delete there); the
+#   card's text as it stood in todo/ is that commit's parent's copy.
+kit_card_leave_todo() {
+  local issue_id="$1" repo="$2" old_rev="$3" log line commit="" lc="" lp="" excl
+  local -a sub_excl=()
+  excl="$(_forks_sub_excl_for "$issue_id")"
+  [ -z "$excl" ] || sub_excl=("$excl")
+  log="$(git -C "$repo" log --no-renames --diff-filter=D --name-only \
+    --format='COMMIT %H' "$old_rev" -- ":(glob)**/todo/${issue_id}-*" ${sub_excl[@]+"${sub_excl[@]}"} 2>/dev/null || true)"
+  while IFS= read -r line; do
+    case "$line" in
+      COMMIT*) commit="${line#COMMIT }"; continue ;;
+      */todo/"${issue_id}"-*) lc="$commit"; lp="$line" ;;
+    esac
+  done <<< "$log"
+  # git logs newest-first: the LAST assignment above (not the first) is the earliest commit —
+  # a card can only leave todo/ once in the ordinary flow, but the loop runs to completion either
+  # way so the oldest wins if it ever happened twice.
+  [ -z "$lc" ] || printf '%s\t%s\n' "$lc" "$lp"
+}
+
+# ── kit_ac_drift_check <card-file> <card-id> <repo> <leave-commit> <leave-path> ────────────────
+#   The AC-drift half of the forks check, callable on its own: move-issue.sh calls it at qa_complete
+#   so a direct-to-trunk card is held to the rule the landing holds. <leave-commit> and <leave-path>
+#   are kit_card_leave_todo's two fields (empty when the card never left a 'todo/' column, which
+#   prints FORKS_AC_DRIFT_CHECK: did not run). A ruling written straight into an AC's own text never
+#   touches the register and never adds a '[decision: D-NN]' citation, so the register derivation
+#   cannot see it; the only trace is the AC TEXT itself changing after the card was underway, and
+#   "underway" is the card's own file history, never a commit subject a hand edit could spoof.
+#   Refuses through kit_refuse with forks-ac-changed-uncited.
+kit_ac_drift_check() {
+  local src="$1" issue_id="$2" repo="$3" leave_commit="$4" leave_path="$5"
+  local new_body old_body ac_ids ac ac_old ac_new scratch drift="" id_shape='D-[0-9]+'
+
+  if [ -z "$leave_commit" ]; then
+    echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
+    return 0
+  fi
+  new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
+  old_body="$(git -C "$repo" show "${leave_commit}^:${leave_path}" 2>/dev/null \
+    | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
+  # A changed bullet answers for itself: the citation must be ON that bullet (its one checklist
+  # line, the same text _qav_ac_bullet_text compares), so a citation elsewhere on the card — in
+  # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
+  # bullet goes through a scratch file (with none, every changed bullet reads uncited: the landing
+  # refuses, never passes).
+  scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || scratch=""
+  ac_ids="$(_qav_ac_ids "$new_body")"
+  while IFS= read -r ac; do
+    [ -n "$ac" ] || continue
+    ac_old="$(_qav_ac_bullet_text "$old_body" "$ac")"
+    ac_new="$(_qav_ac_bullet_text "$new_body" "$ac")"
+    # A bullet absent from the leave-todo revision (a new AC added after todo) is not a
+    # TEXT CHANGE of an existing ruling — nothing to compare, so it is not drift.
+    [ -n "$ac_old" ] || continue
+    [ "$ac_old" != "$ac_new" ] || continue
+    if [ -n "$scratch" ]; then
+      printf '%s\n' "$ac_new" > "$scratch"
+      [ -z "$(kit_decisions_cited "$scratch" "$id_shape")" ] || continue
+    fi
+    drift="${drift}${drift:+, }$ac"
+  done <<< "$(printf '%s\n' "$ac_ids")"
+  [ -z "$scratch" ] || rm -f "$scratch"
+
+  if [ -n "$drift" ]; then
+    kit_refuse 2 forks-ac-changed-uncited \
+      "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${leave_commit:0:9}), and the changed bullet carries no '[decision: D-NN]' citation of its own: ${drift}" \
+      "       A ruling written straight into an AC is still a fork — cite the id that decided it on the bullet that changed; a citation elsewhere on the card does not cover it." \
+      "       (process/MANUAL.md § Execution discipline item 6.)" \
+      "Next: put the register id that decided the change on the changed bullet itself (${drift}) as '[decision: D-NN]', on its checklist line. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC's earlier text." \
+      "       NOTHING WAS CHANGED."
+  fi
+}
+
 # ── kit_forks_check <card-file> <card-id> <repo> <old-rev> <new-rev> <check-board-path> ────────
 kit_forks_check() {
   local src="$1" issue_id="$2" repo="$3" old_rev="$4" new_rev="$5" check_board="$6"
@@ -626,9 +720,7 @@ kit_forks_check() {
   local _forks_live_all="" _forks_seen_all=""
   local _freg_path _freg_mark _freg_shape _forks_branch_reg
   local _forks_bad="" _fid _forks_derived _forks_missing_ids=""
-  local _forks_del_log _fdl_line _forks_leave_commit="" _forks_leave_path=""
-  local _frl_commit=""
-  local _forks_new_body _forks_old_body _forks_ac_ids _forks_ac_drift="" _fac _fac_old _fac_new _fac_scratch
+  local _forks_leave_commit="" _forks_leave_path="" _forks_excl
   local _forks_win_end="" _forks_win_bound="" _fwe_line _fwe_commit="" _fwe_state="" _forks_win_log
   local _forks_win_mine="" _forks_win_unattr="" _fwk _fwi _fws _fwp _fwj _forks_win_out _forks_unattr_msg=""
   local _forks_unattr_first="" _forks_unattr_reg="" _forks_sub_excl=() _forks_win_skip="" _forks_win_mine_txt=""
@@ -683,36 +775,17 @@ kit_forks_check() {
   _forks_id_shape='D-[0-9]+'
   _forks_cited="$(kit_decisions_cited "$src" "$_forks_id_shape" | sort -u || true)"
 
-  # The leave-todo commit starts two reads: the register window below and the AC-drift half after it.
-  # The card's identity is its ID, never its content: card templates are mostly boilerplate, so a
-  # similarity-following history read (log --follow) can report a new card as a copy of an
-  # earlier, similar one and continue down THAT card's history. So the leave-todo commit is read
-  # by the id-anchored path: the earliest <old-rev> commit that deleted a 'todo/<id>-*' file,
-  # read with --no-renames (a move out of todo/ is then a plain delete there); the card's text
-  # as it stood in todo/ is that commit's parent's copy.
+  # The leave-todo commit (kit_card_leave_todo) starts two reads: the register window below and
+  # the AC-drift half after it.
   # <old-rev> is the TRUNK, never <new-rev> (the feature branch): move-issue.sh and subtask.sh
   # commit every board move on the trunk, inside their own kanban worktree, so a branch cut
   # before a later move (the common case: cut right after todo -> in_progress, worked, then
   # moved to dev_complete on the trunk while the branch carries only code) never has the card at
   # its later path at all. The trunk, read fresh, already holds the move that put the card at
   # <card-file>'s own current path (that move is what made it landable).
-  # A parent card's globs must not match its slices' files (subtasks/<parent>/...), whose names
-  # start with the parent's id; a slice's own card lives there, so its globs keep that folder.
-  case "$issue_id" in
-    *-s[0-9]*) : ;;
-    *) _forks_sub_excl=(":(exclude,glob)**/subtasks/**") ;;
-  esac
-  _forks_del_log="$(git -C "$repo" log --no-renames --diff-filter=D --name-only \
-    --format='COMMIT %H' "$old_rev" -- ":(glob)**/todo/${issue_id}-*" ${_forks_sub_excl[@]+"${_forks_sub_excl[@]}"} 2>/dev/null || true)"
-  while IFS= read -r _fdl_line; do
-    case "$_fdl_line" in
-      COMMIT*) _frl_commit="${_fdl_line#COMMIT }"; continue ;;
-      */todo/"${issue_id}"-*) _forks_leave_commit="$_frl_commit"; _forks_leave_path="$_fdl_line" ;;
-    esac
-  done <<< "$_forks_del_log"
-  # git logs newest-first: the LAST assignment above (not the first) is the earliest commit —
-  # a card can only leave todo/ once in the ordinary flow, but the loop runs to completion either
-  # way so the oldest wins if it ever happened twice.
+  IFS=$'\t' read -r _forks_leave_commit _forks_leave_path <<< "$(kit_card_leave_todo "$issue_id" "$repo" "$old_rev")"
+  _forks_excl="$(_forks_sub_excl_for "$issue_id")"
+  [ -z "$_forks_excl" ] || _forks_sub_excl=("$_forks_excl")
 
   # THE REGISTER WINDOW'S END. A register entry is metadata, so it is committed to the trunk and
   # published BEFORE the branch is cut: it is in <old-rev> already, and the branch diff above shows
@@ -822,51 +895,8 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       "       NOTHING WAS CHANGED."
   fi
 
-  # A ruling written straight into an AC's own text never touches the register and never adds a
-  # '[decision: D-NN]' citation, so the derivation above cannot see it — the only trace is the AC
-  # TEXT itself changing after the card was already underway. "Underway" is read from the card's
-  # own file history: the commit where a rename moved it OUT of a 'todo/' column (never by
-  # parsing a commit subject — move-issue.sh's own rename is the record, and a hand edit cannot
-  # spoof it the way text can).
-
-  if [ -z "$_forks_leave_commit" ]; then
-    echo "FORKS_AC_DRIFT_CHECK: did not run — ${issue_id}'s history shows no move out of a todo/ column (minted straight into another column)."
-  else
-    _forks_new_body="$(awk '/^## QA Verdict[[:space:]]*$/{exit} {print}' "$src")"
-    _forks_old_body="$(git -C "$repo" show "${_forks_leave_commit}^:${_forks_leave_path}" 2>/dev/null \
-      | awk '/^## QA Verdict[[:space:]]*$/{exit} {print}')"
-    # A changed bullet answers for itself: the citation must be ON that bullet (its one checklist
-    # line, the same text _qav_ac_bullet_text compares), so a citation elsewhere on the card — in
-    # another AC, in the Activity — never covers it. kit_decisions_cited reads a file, so the
-    # bullet goes through a scratch file (with none, every changed bullet reads uncited: the landing
-    # refuses, never passes).
-    _fac_scratch="$(mktemp "${TMPDIR:-/tmp}/forks-ac-bullet.XXXXXX")" || _fac_scratch=""
-    _forks_ac_ids="$(_qav_ac_ids "$_forks_new_body")"
-    while IFS= read -r _fac; do
-      [ -n "$_fac" ] || continue
-      _fac_old="$(_qav_ac_bullet_text "$_forks_old_body" "$_fac")"
-      _fac_new="$(_qav_ac_bullet_text "$_forks_new_body" "$_fac")"
-      # A bullet absent from the leave-todo revision (a new AC added after todo) is not a
-      # TEXT CHANGE of an existing ruling — nothing to compare, so it is not drift.
-      [ -n "$_fac_old" ] || continue
-      [ "$_fac_old" != "$_fac_new" ] || continue
-      if [ -n "$_fac_scratch" ]; then
-        printf '%s\n' "$_fac_new" > "$_fac_scratch"
-        [ -z "$(kit_decisions_cited "$_fac_scratch" "$_forks_id_shape")" ] || continue
-      fi
-      _forks_ac_drift="${_forks_ac_drift}${_forks_ac_drift:+, }$_fac"
-    done <<< "$(printf '%s\n' "$_forks_ac_ids")"
-    [ -z "$_fac_scratch" ] || rm -f "$_fac_scratch"
-
-    if [ -n "$_forks_ac_drift" ]; then
-      kit_refuse 2 forks-ac-changed-uncited \
-        "Error: ${issue_id}'s AC text changed after the card left its 'todo/' column (${_forks_leave_commit:0:9}), and the changed bullet carries no '[decision: D-NN]' citation of its own: ${_forks_ac_drift}" \
-        "       A ruling written straight into an AC is still a fork — cite the id that decided it on the bullet that changed; a citation elsewhere on the card does not cover it." \
-        "       (process/MANUAL.md § Execution discipline item 6.)" \
-        "Next: put the register id that decided the change on the changed bullet itself (${_forks_ac_drift}) as '[decision: D-NN]', on its checklist line. If no entry decided it, record the ruling in the register first (or ask for it: ./scripts/ask.sh --role <role> \"<question>\" --default \"<working default>\"), or restore the AC's earlier text." \
-        "       NOTHING WAS CHANGED."
-    fi
-  fi
+  # The AC-drift half, over the same leave-todo commit.
+  kit_ac_drift_check "$src" "$issue_id" "$repo" "$_forks_leave_commit" "$_forks_leave_path"
 }
 
 # ── kit_ablation_check <card-file> <card-id> <repo> <old-rev> <new-rev> ────────────────────────

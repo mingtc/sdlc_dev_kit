@@ -48,7 +48,8 @@
 #    trunk's copy of the card and its pointers at the trunk tip: the direct-to-trunk route and a
 #    by-hand landing meet the same check finish-pr.sh runs. A table filled in a local commit that is
 #    not on the trunk is the template to this check; commit it to the trunk with
-#    ./scripts/register-commit.sh first.)
+#    ./scripts/register-commit.sh first. It also refuses an AC bullet whose text changed after the
+#    card left todo/ without a `[decision: D-NN]` on that bullet: the landing's AC-drift check.)
 #
 # Flags:
 #   --note-only      Append an Activity entry and publish it WITHOUT moving the
@@ -80,8 +81,8 @@
 #                    background job that also moves cards — it can destroy work you
 #                    never saw.
 #   --landed-at <sha>  For finish-pr.sh only, on a move to qa_complete: the squash commit it just
-#                    landed after checking the branch. The `## QA Verdict` check is skipped for that
-#                    move (a refusal after the squash would leave the code merged with the card still
+#                    landed after checking the branch. The `## QA Verdict` and AC-drift checks are skipped for
+#                    that move (a refusal after the squash would leave the code merged with the card still
 #                    in dev_complete/). <sha> must be that card's own squash commit on the trunk, or
 #                    the move is refused; the skip is printed and recorded.
 #   --set-pr <val>   Persist <val> into the moved file's `pr:` frontmatter, staged
@@ -463,9 +464,9 @@ else
     kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk" "$_mv_new_rev" "$SCRIPT_DIR/check-board.sh"
   fi
 
-  # THE QA VERDICT CHECK AT qa_complete: the landing's own reader (lib/qa-gate.sh), read on the
-  # trunk's copy of the card and at the trunk tip — a direct-to-trunk card has no branch, and a code
-  # card landed by hand is on the trunk already. A table that exists only in a local commit is the
+  # THE QA VERDICT CHECK AND THE AC-DRIFT CHECK AT qa_complete: the landing's own readers
+  # (lib/qa-gate.sh), read on the trunk's copy of the card and at the trunk tip — a direct-to-trunk
+  # card has no branch, and a code card landed by hand is on the trunk already. A table that exists only in a local commit is the
   # template here. The one caller exempt is finish-pr.sh, which checked the BRANCH before its squash
   # and passes the squash commit; a refusal now would leave the code merged and the card in
   # dev_complete/. The exemption is verified, not trusted: --landed-at must name this card's squash
@@ -477,6 +478,10 @@ else
       # The tip is resolved once: the check reads that commit and the Activity entry names it.
       _mv_read="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${_mv_trunk}^{commit}" 2>/dev/null || true)"
       kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${_mv_read:-$_mv_trunk}"
+      # The AC-drift half of the landing's forks: check: an AC amended after the card left todo/
+      # (a PASS_AC_CORRECTED correction) needs [decision: D-NN] on its bullet on this route too.
+      IFS=$'\t' read -r _mv_leave_c _mv_leave_p <<< "$(kit_card_leave_todo "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk")"
+      kit_ac_drift_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${_mv_leave_c:-}" "${_mv_leave_p:-}"
       [ -z "$_mv_read" ] || QA_READ_NOTE=" (QA Verdict read at ${DEFAULT_BRANCH} $(git -C "$MAIN_ROOT" rev-parse --short "$_mv_read" 2>/dev/null))"
     else
       _mv_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${LANDED_AT}^{commit}" 2>/dev/null || true)"

@@ -658,8 +658,9 @@ operating as designed. **What is protected is the shared working tree, not the t
 `.kanban-wt/` precisely so both can proceed.
 
 **The coordinator's own by-hand writes are the part that needs discipline**, because they do not go
-through that worktree: while any leg is dispatched, make them from **a worktree of your own** rather
-than a `git switch` in the shared root, and keep the multi-session habits — `pull --rebase`, and
+through that worktree: while any leg is dispatched, land a metadata edit with `register-commit.sh`
+(it writes through that worktree from wherever you sit), or make the write from **a worktree of
+your own** rather than a `git switch` in the shared root, and keep the multi-session habits — `pull --rebase`, and
 `progress.md` append-only so two sessions' entries merge instead of colliding.
 
 **And know what your detector cannot see.** A commit dropped by somebody's rebase is reachable from

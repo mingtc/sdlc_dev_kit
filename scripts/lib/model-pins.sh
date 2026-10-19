@@ -9,15 +9,17 @@
 # cell when that cell is filled, and with set-models.sh's record when it is not — an unfilled
 # cell says nothing to compare against. With neither, the field is counted as not checkable.
 
-# One row per work class: <class>:<ladder label>:<pin file, empty when the class has none>.
-KIT_MODEL_CLASS_MAP='orchestrator:Orchestrator:
-refactorer:Refactorer:refactorer-worker.md
-pm-mint:PM-hat mint:pm-mint.md
-spike:Spike / probe:spike-worker.md
-dev:Dev:dev-worker.md
-qa:QA:qa-worker.md
-xs-mechanical:XS / mechanical:
-cleanup:Cleanup / classifier:cleanup-worker.md'
+# One row per work class: <class>:<ladder label>:<pin file, empty when the class has none>[:optional].
+# `optional` marks a pin file whose header declares KIT-DISPOSITION: DELETE-IF-UNUSED: a project that
+# removed it has dropped the class, and its absence is not damage.
+KIT_MODEL_CLASS_MAP='orchestrator:Orchestrator::
+refactorer:Refactorer:refactorer-worker.md:optional
+pm-mint:PM-hat mint:pm-mint.md:
+spike:Spike / probe:spike-worker.md:
+dev:Dev:dev-worker.md:
+qa:QA:qa-worker.md:
+xs-mechanical:XS / mechanical::
+cleanup:Cleanup / classifier:cleanup-worker.md:'
 KIT_MODEL_CLASSES="orchestrator refactorer pm-mint spike dev qa xs-mechanical cleanup"
 KIT_MODEL_RECORD_NAME="model-pins.record"
 
@@ -25,6 +27,8 @@ KIT_MODEL_RECORD_NAME="model-pins.record"
 # a class this table does not carry returns 1.
 kit_model_class_label() { printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: -v c="$1" '$1==c { print $2; f=1; exit } END { exit !f }'; }
 kit_model_class_pin()   { printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: -v c="$1" '$1==c { print $3; f=1; exit } END { exit !f }'; }
+# kit_model_class_optional <class> — succeeds when the class's pin file may be absent by design.
+kit_model_class_optional() { printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: -v c="$1" '$1==c && $4=="optional" { f=1 } END { exit !f }'; }
 
 # kit_model_claude_dir <root> — the harness directory under <root>: _claude/ in a tree where it
 # is still disarmed (the unarmed kit), .claude/ on an adopted tree. Prints nothing when neither

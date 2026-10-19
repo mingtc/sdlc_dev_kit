@@ -337,6 +337,7 @@ CASES=(
   case_finish_pr_forks_ac_changed_after_todo_uncited_refuses
   case_finish_pr_forks_ac_drift_citation_binds_to_the_bullet
   case_finish_pr_forks_ac_drift_unrunnable_with_no_todo_history
+  case_move_issue_qa_complete_runs_the_ac_drift_check
   case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card
   case_finish_pr_refuses_a_branch_that_breaks_frontmatter_ids
   case_finish_pr_refuses_a_branch_that_breaks_blocks_symmetry
@@ -414,6 +415,7 @@ CASES=(
   case_creation_id_check_reads_the_trunk
   case_commit_msg
   case_commit_msg_attribution_family
+  case_commit_msg_reads_trailers_through_the_one_reader
   case_pre_commit_undeclared_code_globs_is_a_noop
   case_pre_commit_refuses_metadata_off_trunk
   case_pre_commit_reads_code_globs_through_the_shared_reader
@@ -424,6 +426,7 @@ CASES=(
   case_board_scripts_commit_with_no_hat_file
   case_register_commit_lands_from_a_linked_worktree
   case_register_commit_refuses_a_second_copy_of_a_card
+  case_register_commit_refusal_leaves_the_kanban_worktree_clean
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections
@@ -578,6 +581,7 @@ CASES=(
   case_set_models_class_rewrites_pin_and_ladder_only
   case_set_models_all_rewrites_runners_too
   case_set_models_unknown_class_refuses
+  case_set_models_all_skips_a_removed_role_and_writes_nothing_on_refusal
   case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit
   case_set_models_list_changes_nothing
   case_model_seam_fixtures_ignore_live_model_state
@@ -605,6 +609,7 @@ CASES=(
   case_install_skills_writes_nothing_without_a_pack
   case_setup_consumer_prints_no_unfilled_blank
   case_find_polluter_runs_each_path_whole
+  case_find_polluter_refuses_an_unrunnable_test_command
   case_hygiene_instruments_declare_blind_spots
   case_cold_signal_reads_non_ascii_paths
   case_agent_prose_carries_its_riders

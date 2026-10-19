@@ -936,6 +936,76 @@ case_finish_pr_forks_ac_drift_unrunnable_with_no_todo_history() {
 }
 
 # =============================================================================
+# CASE — move-issue.sh <ID> qa_complete (the direct-to-trunk route, no --landed-at) RUNS THE AC-DRIFT
+# CHECK. The real order: the card leaves todo/ through the mover, Dev hands it off (the hand-off
+# check passes: nothing has changed yet), and QA then corrects an AC bullet in dev_complete/
+# (PASS_AC_CORRECTED), committing to the trunk. The correction is a ruling written into an AC:
+#   (a) no '[decision: D-NN]' on the corrected bullet: the move is refused, naming AC1, with a Next:
+#       line and a refusal=forks-ac-changed-uncited record, and the card stays in dev_complete/;
+#   (b) CONTROL: the same correction with the citation on that bullet moves;
+#   (c) CONTROL: a card the mover never saw leave todo/ (minted into dev_complete/) is not blocked.
+# RED FIRST: (a) fails on a mover that checks the verdict table and nothing else.
+# =============================================================================
+case_move_issue_qa_complete_runs_the_ac_drift_check() {
+  cf_reset
+  make_sandbox
+  _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
+  local ida="$SB_PREFIX-891" idc="$SB_PREFIX-893" out rc f rel
+  seed_issue todo "$ida" corrected chore "AC corrected by QA after hand-off"
+  seed_issue dev_complete "$idc" minted chore "Minted into dev_complete, no todo history"
+  publish_sandbox
+  _forks_pickup "$ida" corrected
+  ( cd "$SB_WORK" && ./scripts/move-issue.sh "$ida" dev_complete --role Dev --note "ready" >/dev/null 2>&1 ) \
+    || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the hand-off move to dev_complete failed"
+  _forks_sync
+  rel="progress/dev_complete/$ida-corrected.md"
+  f="$SB_WORK/$rel"
+  [ -f "$f" ] || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the card is not in dev_complete/"
+
+  # QA's correction: the bullet text changes, the row says PASS_AC_CORRECTED and re-points at the new line.
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds)\.$/$1, as the owner clarified in review./' "$f"
+  perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1PASS_AC_CORRECTED$2/' "$f"
+  grep -qF 'as the owner clarified in review.' "$f" && grep -qF '| AC1 | PASS_AC_CORRECTED |' "$f" \
+    || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the correction was not planted"
+  _forks_refix_qa_pointer "$f" "$rel"
+  git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
+  sbcommit -m "[QA] $ida: correct AC1 (PASS_AC_CORRECTED)" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the correction was not published"
+
+  # (a) uncited correction.
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) an AC corrected after todo/ with no citation moved to qa_complete directly (exit 0)"
+  case "$out" in *"citation of its own: AC1"*) : ;; *) cf "(a) the refusal does not name AC1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  case "$out" in *"Next:"*) : ;; *) cf "(a) the refusal carries no Next: line" ;; esac
+  grep -q 'refusal=forks-ac-changed-uncited' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=forks-ac-changed-uncited: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | cut -c1-200)"
+  origin_has_path "progress/qa_complete/$ida-corrected.md" && cf "(a) the card reached qa_complete/ despite the refusal"
+  origin_has_path "$rel" || cf "(a) the card left dev_complete/ during the refusal"
+
+  # (b) the citation on the corrected bullet. A mover that let (a) through has already moved the card.
+  [ -f "$f" ] || { finish "move-issue.sh <ID> qa_complete (direct to trunk) runs the AC-drift check"; teardown; return; }
+  _forks_sync
+  perl -i -pe 's/^(- \[ \] AC1 — .*as the owner clarified in review\.)$/$1 [decision: D-01]/' "$f"
+  grep -qF 'clarified in review. [decision: D-01]' "$f" \
+    || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the citation was not planted"
+  _forks_refix_qa_pointer "$f" "$rel"
+  git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
+  sbcommit -m "[QA] $ida: cite the ruling on AC1" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the citation was not published"
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the correction with its citation on the bullet exited $rc: $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$ida-corrected.md" || cf "(b) the cited correction did not reach qa_complete/"
+
+  # (c) no todo/ history: the check says it did not run and the move lands.
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$idc" qa_complete --role QA --note "Review PASS" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a card with no todo/ history was refused at qa_complete (exit $rc): $(printf '%s' "$out" | tail -6 | tr '\n' '|' | cut -c1-300)"
+  case "$out" in *"FORKS_AC_DRIFT_CHECK: did not run"*) : ;; *) cf "(c) the move does not say the AC-drift check did not run: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+
+  finish "move-issue.sh <ID> qa_complete (direct to trunk) runs the AC-drift check: an AC corrected after the card left todo/ with no '[decision: D-NN]' on its bullet is refused, naming the AC with a Next: line and a refusal=forks-ac-changed-uncited record, and the card stays in dev_complete/; the same correction cited on the bullet moves, and a card with no todo/ history says the check did not run and moves"
+  teardown
+}
+
+# =============================================================================
 # CASE — A CARD'S `branch:` RESOLVES THROUGH ONE FUNCTION, FOR EVERY CALLER.
 # subtask.sh, move-issue.sh and kit-upgrade.sh read the card's code at its branch tip. Shapes are
 # planted in a throwaway repo and resolved by lib/branch-rev.sh; each caller is then proved to

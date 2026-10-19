@@ -332,6 +332,10 @@ columns and never the cards.*
 
 ### Action required
 
+- **A direct-to-trunk `qa_complete/` move now checks a corrected AC for its citation.** `move-issue.sh <ID> qa_complete` (a card that did not land
+  through `finish-pr.sh`) refuses an AC bullet whose text changed after the card left `todo/`, such as a `PASS_AC_CORRECTED` correction, unless that bullet
+  carries `[decision: D-NN]` on its own checklist line. A project that moves cards this way records the register entry that decided the change, cites
+  it on the bullet and commits that to the trunk (`./scripts/register-commit.sh`) before the move.
 - **A changed AC bullet needs its own `[decision: D-NN]` citation.** The check that refuses a landing whose AC text changed after
   the card left `todo/` (`forks-ac-changed-uncited`) now reads the citation on the changed bullet's own checklist line; a
   citation in another AC or in the Activity does not cover it. An in-flight card whose changed AC bullet carries no citation of
@@ -408,6 +412,15 @@ columns and never the cards.*
 
 ### Fixed
 
+- **A refused `register-commit.sh` leaves the kanban worktree clean.** It checks that every named path exists (in your checkout or on the trunk) before
+  staging any, so a missing later path no longer strands the earlier ones staged for the next board move to trip over. After a landing your own
+  checkout still holds the edited file: `git checkout -- <path>` (or delete it, if it was untracked) before you pull the trunk. No action.
+- **`set-models.sh` writes all or nothing, and tolerates a removed Refactorer.** It checks every pin, ladder row and runner before the first write. A
+  project that deleted `.claude/agents/refactorer-worker.md` gets that class skipped, with a line saying so, instead of a half-applied `--all`. No action.
+- **The commit-msg hook refuses a bulleted or backticked tool trailer** (`- Co-Authored-By: Claude …`), the form `check-board.sh` arm `[h]` already
+  reported, because both now use one reader (`scripts/lib/attrib-trailer.sh`). A hook copy that cannot find that file refuses the commit and names it.
+  No action.
+- **`find-polluter.sh` refuses a `TEST_CMD` that cannot run** (not found, or exit 126/127) instead of printing "all tests clean". No action.
 - **A QA Verdict cell may contain a pipe written `\|`.** The landing check reads `\|` as part of its cell (as `|`, so a quote
   containing a pipe matches its cited line) and refuses an unfilled template row for the cells that are actually unfilled. An
   unescaped `|` still starts a new cell.

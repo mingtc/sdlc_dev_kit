@@ -47,8 +47,9 @@ subject and refuses the attribution-trailer family (`Co-Authored-By:`, `Assisted
 with/by …"* line; a trailer naming a **human** is legitimate practice and is accepted, and the
 documented bypass exists for carrying somebody else's commit verbatim, not for your own. The
 wording family has one authoring site, the hook itself (`scripts/githooks/commit-msg`), and
-`scripts/lib/attrib-trailer.sh` reads it from there, so the hook and `check-board.sh` arm [h] (which
-reads history for the same family) derive the same match instead of drifting apart. It matches wordings and a list of vendor and model-family words, not every harness's own
+`scripts/lib/attrib-trailer.sh` reads it from there and is the one reader both the hook and
+`check-board.sh` arm [h] (which reads history for the same family) call, so they cannot drift apart;
+a hook that cannot load it refuses the commit rather than accepting. It matches wordings and a list of vendor and model-family words, not every harness's own
 vocabulary (a word the list lacks is a gap it does not close): a project whose harness uses another
 word adds it to `TOOL_TRAILER_MARKERS` (or the wording to `ATTRIB_TRAILER_WORDS`) in that hook, the one
 authoring site.

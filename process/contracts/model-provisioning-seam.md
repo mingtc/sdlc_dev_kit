@@ -40,7 +40,10 @@ ladder and tooling still expect. This contract is what "changed" must mean.
 - The model or effort value is empty ⇒ refuse; a blank pin is worse than the placeholder it
   replaces.
 - A target file the mechanism must edit is missing or unreadable ⇒ refuse naming the path, rather
-  than silently touching only the files that do exist.
+  than silently touching only the files that do exist. Every target is checked before the first
+  write, so a refusal leaves every file as it was. The one exception is a class whose pin file is an
+  optional role's (`KIT-DISPOSITION: DELETE-IF-UNUSED`) and was removed: that class is skipped, with a
+  line saying so, and its ladder row is left alone.
 
 ## 4. WHAT GREEN MEANS
 

@@ -35,9 +35,8 @@ if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/refuse.sh" ]; then
   . "$HOOK_DIR/../lib/refuse.sh" 2>/dev/null || true
 fi
 
-# kit_normalize_hyphens, the SAME optional way: a hook that cannot find it still refuses every
-# ASCII-hyphen wording below, it just does not fold a Unicode hyphen (U+2010-U+2015, U+2212) to
-# `-` first — degraded, never turned into an accept.
+# lib/attrib-trailer.sh holds rule (2)'s one reader (kit_attrib_offender), the reader check-board.sh
+# arm [h] calls on history. Rule (2) below refuses when it cannot be loaded; only kit_refuse is optional.
 if [ -n "$HOOK_DIR" ] && [ -r "$HOOK_DIR/../lib/attrib-trailer.sh" ]; then
   # shellcheck source=../lib/attrib-trailer.sh
   . "$HOOK_DIR/../lib/attrib-trailer.sh" 2>/dev/null || true
@@ -60,7 +59,8 @@ TOOL_TRAILER_MARKERS='claude|anthropic|copilot|chatgpt|openai|gpt|gemini|codex|a
 # THE ATTRIBUTION-TRAILER WORDINGS for rule (2)'s trailer form — one alternation, so a new
 # wording is added here once rather than re-taught to a single hardcoded "co-authored-by:".
 # `generated-by:` lands here too (a colon trailer); "generated with …" and "written with/by …"
-# are PROSE, not trailers, and are their own arm below because they carry no `-by:` shape.
+# are PROSE, not trailers, and are their own arms in the reader because they carry no `-by:` shape.
+# lib/attrib-trailer.sh reads this line and the one above by their text: keep each on a line of its own.
 ATTRIB_TRAILER_WORDS='co-authored-by|co-developed-by|assisted-by|generated-by|signed-off-by'
 
 # Bypass — only the documented truthy values (`0` or unset reads as "off" and must NOT bypass).
@@ -76,38 +76,32 @@ esac
 cleaned="$(sed -E '/-{5,}[[:space:]]*>8[[:space:]]*-{5,}/,$d' "$MSG_FILE" 2>/dev/null \
              | grep -vE '^[[:space:]]*#' || true)"
 
-# Rule (2) reads a HYPHEN-NORMALIZED copy only: a Unicode hyphen/dash (U+2010-U+2015, U+2212) —
-# an editor's or a harness's own banner substitution — folds to `-` first, or `Co‑Authored‑By:`
-# does not match a pattern anchored on `-by:` and a refused wording reads as clean. Rule (1)'s
-# role-prefix check keeps reading $cleaned unchanged: `[Role]` carries no hyphen to fold.
-attrib_cleaned="$cleaned"
-if command -v kit_normalize_hyphens >/dev/null 2>&1; then
-  attrib_cleaned="$(printf '%s\n' "$cleaned" | kit_normalize_hyphens)"
-fi
-
 # --- RULE (2): no generated-attribution line, in any of its common wordings --------
-# THREE arms, all anchored at a line start: § A.1 forbids such a LINE, and mid-sentence prose is
-# not one.
-#   (a) a `<word>-by:` TRAILER (blanks before the colon tolerated) naming a tool — the pre-marker group `(.*[^[:alnum:]])?` is
-#       OPTIONAL so the colon itself can be the left boundary (`Co-Authored-By:Claude`); the
-#       trailing `([^[:alnum:]]|$)` is REQUIRED, so a human whose name contains a marker's stem
-#       (`Claudia`) is accepted, and so is a person whose ROLE-sounding surname is not one of
-#       these words (`Reviewed-by:` is not even in the word list — reviewing is not authorship).
-#   (b) "generated with/by …" PROSE — no marker required, because the phrase itself is the
-#       claim (as before); it allows leading decoration, since the tooling leads with an emoji.
-#   (c) "written with/by …" PROSE — a marker IS required here, unlike (b): "written with" alone
-#       is ordinary body prose ("written with care", "written with tests") and only reads as
-#       machine attribution once it names a tool.
-# No `head`: it exits early, the upstream grep dies of SIGPIPE, and under pipefail that becomes
-# the result. `sed -n '1p'` reads to EOF.
-offender="$(printf '%s\n' "$attrib_cleaned" \
-  | grep -iE "^[[:space:]]*(${ATTRIB_TRAILER_WORDS})[[:space:]]*:(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
-  | sed -n '1p' || true)"
-[ -n "$offender" ] || offender="$(printf '%s\n' "$attrib_cleaned" \
-  | grep -iE '^[^[:alnum:]]*generated[[:space:]-]+(with|by)[[:space:]:]' | sed -n '1p' || true)"
-[ -n "$offender" ] || offender="$(printf '%s\n' "$attrib_cleaned" \
-  | grep -iE "^[^[:alnum:]]*written[[:space:]-]+(with|by)(.*[^[:alnum:]])?(${TOOL_TRAILER_MARKERS})([^[:alnum:]]|\$)" \
-  | sed -n '1p' || true)"
+# ONE READER, kit_attrib_offender (lib/attrib-trailer.sh), reading the declarations above from this
+# file: three arms, all anchored at a line start, because § A.1 forbids such a LINE and mid-sentence
+# prose is not one.
+#   (a) a `<word>-by:` TRAILER naming a tool, optionally behind a list bullet or a backtick, blanks
+#       before the colon tolerated; a human whose name merely begins with a marker (`Claudia`) is
+#       accepted, and `Reviewed-by:` is not in the word list — reviewing is not authorship.
+#   (b) "generated with/by …" PROSE — no marker required, because the phrase itself is the claim.
+#   (c) "written with/by …" PROSE — a marker IS required: "written with care" is ordinary prose.
+# Unicode hyphens are folded first. A reader that did not load, or that does not read this file's
+# own wording list, is a refusal, never an accept.
+ATTRIB_ROOT="$HOOK_DIR/../.."
+offender=""
+if [ -n "$HOOK_DIR" ] && command -v kit_attrib_offender >/dev/null 2>&1 \
+   && [ "$(kit_attrib_trailer_words "$ATTRIB_ROOT")" = "$ATTRIB_TRAILER_WORDS" ]; then
+  offender="$(printf '%s\n' "$cleaned" | kit_attrib_offender "$ATTRIB_ROOT" || true)"
+else
+  rm1="✗ Commit-message guard: rule (2) cannot run — scripts/lib/attrib-trailer.sh did not load, or does not read this hook's ATTRIB_TRAILER_WORDS."
+  rm2="Next: restore scripts/lib/attrib-trailer.sh from version control or the release zip, then commit again."
+  rm3="  Importing a third party's commit verbatim?  MSG_OK=1 git commit …"
+  if command -v kit_refuse >/dev/null 2>&1; then
+    kit_refuse 1 commit-msg-attribution-reader-missing "$rm1" "" "$rm2" "" "$rm3"
+  fi
+  printf '%s\n' "$rm1" "" "$rm2" "" "$rm3" >&2
+  exit 1   # exit-class: fallback
+fi
 
 if [ -n "$offender" ]; then
   msg1="✗ Commit-message guard: no generated-attribution line (a tool trailer, a \"Generated with/by …\" or \"Written with/by …\" line)."

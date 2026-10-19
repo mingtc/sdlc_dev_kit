@@ -2253,6 +2253,54 @@ case_set_models_unknown_class_refuses() {
 }
 
 # =============================================================================
+# CASE — `set-models.sh --all` ON A PROJECT THAT REMOVED THE REFACTORER (a DELETE-IF-UNUSED member)
+# succeeds and leaves the ladder and the remaining pins agreeing; and it is ALL-OR-NOTHING: one
+# unwritable target (a pin with no model:/effort: pair) refuses before any file changes.
+#   (a) refactorer-worker.md deleted: --all exits 0, says the Refactorer was skipped, leaves its
+#       ladder row as it was, and every remaining class's pin matches its ladder row;
+#   (b) dev-worker.md stripped of its pair: --all refuses and the whole .claude/ tree is unchanged.
+# RED FIRST: (a) exits nonzero at the missing pin after rewriting the ladder rows; (b) leaves the
+# ladder rows rewritten.
+# =============================================================================
+case_set_models_all_skips_a_removed_role_and_writes_nothing_on_refusal() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "set-models.sh --all skips a removed role and is all-or-nothing" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  local sm="$SB_WORK/scripts/set-models.sh"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "set-models.sh --all skips a removed role and is all-or-nothing"; teardown; return; }
+  [ -f "$ad/refactorer-worker.md" ] || { skp "set-models.sh --all skips a removed role and is all-or-nothing" "this tree ships no refactorer-worker.md"; teardown; return; }
+  local out rc
+  # (b) first, on the full tree: a pin the script cannot rewrite refuses before ANY write.
+  local snapshot="$SB_TMP/claude.before-b"
+  cp "$ad/dev-worker.md" "$SB_TMP/dev-worker.orig"
+  awk '!/^model:/' "$ad/dev-worker.md" > "$ad/dev-worker.md.new" && mv "$ad/dev-worker.md.new" "$ad/dev-worker.md"
+  cp -R "$SB_WORK/.claude" "$snapshot"
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-b --effort e-b 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) --all over a pin with no model: line exited 0"
+  local d; d="$(diff -r "$snapshot" "$SB_WORK/.claude" 2>&1)"
+  [ -z "$d" ] || cf "(b) the refused --all still changed files: $(printf '%s' "$d" | tr '\n' '|' | cut -c1-300)"
+  cp "$SB_TMP/dev-worker.orig" "$ad/dev-worker.md"
+
+  # (a) the project removed the Refactorer role.
+  rm -f "$ad/refactorer-worker.md"
+  local refrow; refrow="$(grep -E '^\| \*\*Refactorer' "$orch")"
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-a --effort e-a 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) --all exited $rc with the Refactorer removed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -i 'refactorer' | grep -i 'skipped' >/dev/null \
+    || cf "(a) --all does not say it skipped the removed Refactorer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  [ "$(grep -E '^\| \*\*Refactorer' "$orch")" = "$refrow" ] || cf "(a) the removed role's ladder row was rewritten"
+  grep -qx 'model: m-a' "$ad/dev-worker.md" || cf "(a) dev-worker.md was not moved to m-a"
+  _run_model_pins_vs_ladder "$ad" "$orch"
+  [ "${MPL_CHECKED:-0}" -ge 1 ] || cf "(a) the ladder/pin comparison checked no class"
+  [ -f "$ad/refactorer-worker.md" ] && cf "(a) --all recreated the removed pin file"
+
+  finish "set-models.sh --all with the Refactorer removed exits 0, says it skipped the Refactorer, leaves its ladder row alone and leaves the ladder and every remaining pin agreeing; a pin it cannot rewrite refuses before any file changes"
+  teardown
+}
+
+# =============================================================================
 # CASE — set-models.sh AND kit-upgrade.sh's --help text names the surplus-positional case
 #        under exit 1, apart from exit 2 (an unknown option) — the same distinction
 #        finish-pr.sh's --help already spells out by name.

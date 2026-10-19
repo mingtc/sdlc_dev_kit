@@ -4,9 +4,9 @@
 #
 # WHY THIS EXISTS: scripts/githooks/commit-msg's rule (2) refuses the attribution-trailer family
 # (doctrine/commit-hygiene.md § A.1) at write time; check-board.sh arm [h] reads history for the
-# same family. Two readers of one rule drift when the wording list is typed twice — the hook grew
-# `co-developed-by`/`signed-off-by`/`written (with|by)` and arm [h] stayed on its own older pair.
-# This file is the ONE place the wording lives; both callers derive their match from it.
+# same family. Two readers of one rule drift, so there is one: kit_attrib_offender below is what
+# the hook and arm [h] both call, and the wording list and tool markers it reads are authored once,
+# in the hook.
 #
 # kit_attrib_trailer_words <repo-root>
 #   Echoes the hook's declared `ATTRIB_TRAILER_WORDS` value (the `<word>-by` alternation, no
@@ -34,12 +34,12 @@ kit_normalize_hyphens() {
 
 # kit_attrib_offender <repo-root> <message-text-on-stdin>
 #   Echoes the first line of stdin that carries a generated-attribution line, normalized (Unicode
-#   hyphens folded) and with its leading whitespace/bullet/backtick decoration stripped, or nothing
-#   if none does. Mirrors the hook's own three arms (a) a `<word>-by:` trailer naming a tool, (b)
-#   "generated (with|by) …" prose, (c) "written (with|by) …" prose naming a tool — anchored the
-#   same way, against the SAME wording list and the same TOOL_TRAILER_MARKERS the hook reads. A
-#   caller that cannot read either declaration from the hook gets no match here and must say so
-#   itself; this function does not degrade to a guessed list.
+#   hyphens folded), or nothing if none does. Three arms, each anchored at a line start behind
+#   optional whitespace, a list bullet and a backtick: (a) a `<word>-by:` trailer naming a tool,
+#   (b) "generated (with|by) …" prose, (c) "written (with|by) …" prose naming a tool. The wording
+#   list and the markers are the ones the hook declares. Returns 1 for no match AND when either
+#   declaration cannot be read: a caller that must not accept on an unreadable declaration checks
+#   kit_attrib_trailer_words first.
 kit_attrib_offender() {
   local root="$1" words markers body found
   words="$(kit_attrib_trailer_words "$root")"

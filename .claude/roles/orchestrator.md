@@ -604,7 +604,8 @@ the main checkout when Dev→QA is sequential.**
 before each move and **pushes after each commit** — the orchestrator never pushes the trunk by
 hand after a board move, and the remote board stays current for fresh QA agents and for a
 quota-resume. **The narration commits you make BY HAND are the exception**: they do not go through
-the kanban worktree, so make them from a worktree of your own while any leg is dispatched.
+the kanban worktree, so land a metadata edit with `register-commit.sh`, or make them from a worktree
+of your own, while any leg is dispatched.
 *That discipline, why a coordinator writing the trunk during a run is expected rather than a race,
 and what `check-board.sh` cannot see, are stated once in*
 [`process/MANUAL.md`](../../process/MANUAL.md) *§ The kanban worktree.*

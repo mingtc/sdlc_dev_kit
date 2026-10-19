@@ -1078,6 +1078,41 @@ case_find_polluter_runs_each_path_whole() {
 }
 
 # =============================================================================
+# CASE — find-polluter.sh REFUSES, before any verdict, when TEST_CMD is not a runnable command.
+# A runner that does not exist runs nothing for every file; reporting "all tests clean" over that
+# is a verdict over an unseen population.
+#   (a) TEST_CMD=nonexistent-runner: nonzero, a message naming the runner, no "clean" line;
+#   (b) a runner that exists but cannot run the file (exit 127) refuses the same way;
+#   (c) CONTROL: a real runner over the same files reports clean.
+# =============================================================================
+case_find_polluter_refuses_an_unrunnable_test_command() {
+  cf_reset
+  local L="find-polluter.sh refuses a TEST_CMD that is not runnable instead of reporting clean"
+  local rel=".claude/skills/systematic-debugging/find-polluter.sh" out rc
+  if [ ! -f "$REAL_REPO_ROOT/$rel" ]; then skp "$L" "$rel absent"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/$(dirname "$rel")" "$SB_WORK/src"
+  cp "$REAL_REPO_ROOT/$rel" "$SB_WORK/$rel"
+  printf 'true\n' > "$SB_WORK/src/a.test.ts"
+  printf 'true\n' > "$SB_WORK/src/b.test.ts"
+
+  rc=0; out="$( cd "$SB_WORK" && TEST_CMD=nonexistent-runner "$SB_WORK/$rel" 'polluted/.git' './src/*.test.ts' 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a nonexistent TEST_CMD exited 0: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -F 'nonexistent-runner' >/dev/null || cf "(a) the refusal does not name the runner: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -F 'all tests clean' >/dev/null && cf "(a) a clean verdict was printed over a runner that never ran"
+
+  rc=0; out="$( cd "$SB_WORK" && TEST_CMD="sh -c exit127-no-such-command --" "$SB_WORK/$rel" 'polluted/.git' './src/*.test.ts' 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(b) a runner that exits 127 on every file exited 0"
+  printf '%s' "$out" | grep -F 'all tests clean' >/dev/null && cf "(b) a clean verdict was printed over a runner that exited 127"
+
+  rc=0; out="$( cd "$SB_WORK" && TEST_CMD=sh "$SB_WORK/$rel" 'polluted/.git' './src/*.test.ts' 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) control: a real runner over clean files exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep -F 'all tests clean' >/dev/null || cf "(c) control: no clean verdict from a real runner"
+  teardown
+  finish "$L"
+}
+
+# =============================================================================
 # CASE — EVERY HYGIENE INSTRUMENT DECLARES ITS BLIND SPOTS, AND THE LIST IS NOT EMPTY
 #
 # A consumer reads `"blind_spots": []` as "this walk has no blind spots", which is false: the

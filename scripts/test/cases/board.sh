@@ -1352,6 +1352,61 @@ case_commit_msg_attribution_family() {
 }
 
 # =============================================================================
+# CASE — the commit-msg hook reads a generated trailer through the ONE reader (lib/attrib-trailer.sh's
+# kit_attrib_offender), the reader check-board.sh arm [h] calls, so the two cannot disagree.
+#   (a) a bulleted trailer and a backticked one naming a tool are refused at commit, as the
+#       reader reports them;
+#   (b) a bulleted trailer naming a HUMAN is accepted, as the reader reports it clean;
+#   (c) a hook that cannot load the reader REFUSES (rule (2) cannot run) rather than accepting,
+#       and the documented MSG_OK bypass still works.
+# RED FIRST: (a) is accepted by a hook that anchors its own `^<word>:` pattern.
+# =============================================================================
+case_commit_msg_reads_trailers_through_the_one_reader() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/commit-msg"
+  local msg="$SB_TMP/msg3.txt" role prefixes rc out line
+  prefixes="$(sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p" "$hook" | head -1)"
+  [ -n "$prefixes" ] || _fixture_die "case_commit_msg_reads_trailers_through_the_one_reader: no ROLE_PREFIXES in the hook"
+  role="${prefixes%%|*}"
+  [ -r "$SB_WORK/scripts/lib/attrib-trailer.sh" ] \
+    || { skp "commit-msg reads trailers through the one reader" "scripts/lib/attrib-trailer.sh is absent from this tree"; teardown; return; }
+
+  local -a refused=(
+    "- Co-Authored-By: Claude <a@b.c>"
+    '`Co-Authored-By: Claude <a@b.c>`'
+    "* Assisted-by: Claude Code"
+  )
+  for line in "${refused[@]}"; do
+    printf '[%s] a valid subject\n\n%s\n' "$role" "$line" > "$msg"
+    ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+    [ "$rc" -ne 0 ] || cf "(a) the hook accepted '$line'"
+    # The reader reports the same line: the two cannot disagree.
+    out="$( . "$SB_WORK/scripts/lib/attrib-trailer.sh"; printf '[%s] a valid subject\n\n%s\n' "$role" "$line" | kit_attrib_offender "$SB_WORK" )"
+    [ -n "$out" ] || cf "(a) the reader (check-board arm [h]) does not report '$line', which the hook refuses"
+  done
+
+  printf '[%s] a valid subject\n\n- Co-Authored-By: A Person <p@x.y>\n' "$role" > "$msg"
+  ( env -u MSG_OK "$hook" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) a bulleted trailer naming a human was refused (exit $rc)"
+
+  # (c) the same hook, run from a copy of the tree with the reader removed.
+  local bare="$SB_TMP/no-reader"
+  mkdir -p "$bare/scripts"
+  cp -R "$SB_WORK/scripts/githooks" "$SB_WORK/scripts/lib" "$bare/scripts/"
+  rm -f "$bare/scripts/lib/attrib-trailer.sh"
+  printf '[%s] a valid subject\n\nCo-Authored-By: Claude <a@b.c>\n' "$role" > "$msg"
+  out="$( env -u MSG_OK "$bare/scripts/githooks/commit-msg" "$msg" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a hook that cannot load the reader accepted a tool trailer"
+  printf '%s' "$out" | grep -F 'Next:' >/dev/null || cf "(c) the refusal names no next action: $out"
+  ( MSG_OK=1 "$bare/scripts/githooks/commit-msg" "$msg" ) >/dev/null 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) MSG_OK=1 did not bypass the hook without the reader (exit $rc)"
+
+  finish "commit-msg refuses a bulleted and a backticked tool trailer exactly as the shared reader reports them, accepts a bulleted human one, and refuses (never accepts) when the reader cannot be loaded, MSG_OK=1 still bypassing"
+  teardown
+}
+
+# =============================================================================
 # CASE — CODE_GLOBS UNDECLARED (the shipped, empty state) is a NO-OP, not "everything is
 # metadata": a project that has not yet filled the seam in must see every ordinary feature-branch
 # commit go through untouched. This is the fixture that would catch the fail-CLOSED shape of this
@@ -1961,6 +2016,48 @@ case_register_commit_refuses_a_second_copy_of_a_card() {
   origin_has_path "progress/dev_complete/$id-second-copy.md" && cf "the old path survived the move"
 
   finish "register-commit.sh refuses a landing that creates a card file while the trunk holds that card at another path, naming the trunk's path; the same edit at the trunk's path lands, and so does a landing that deletes the old path as it creates the new"
+  teardown
+}
+
+# =============================================================================
+# CASE — a register-commit.sh refusal part-way through its paths leaves the shared kanban worktree
+# CLEAN. The real order: the caller names a path that exists and a second that does not; the
+# refusal for the second must not leave the first staged, or the next board op refuses on a worktree
+# that holds a stranger's half-landing and its Next says to commit it.
+#   (a) refusal, nothing landed, and `git -C .kanban-wt status --short` prints nothing;
+#   (b) the board op that follows (a note on a card) succeeds;
+#   (c) the same two paths with the missing one named FIRST refuse the same way, still clean.
+# RED FIRST: (a) fails with 'A  dev/zz-a.md' staged, and (b) with the worktree-dirty refusal.
+# =============================================================================
+case_register_commit_refusal_leaves_the_kanban_worktree_clean() {
+  cf_reset
+  make_sandbox
+  local rc_sh="$SB_WORK/scripts/register-commit.sh"
+  [ -x "$rc_sh" ] \
+    || { skp "register-commit.sh: a refusal leaves the kanban worktree clean" "scripts/register-commit.sh is absent from this tree"; teardown; return; }
+  local id="$SB_PREFIX-838" out rc st
+  seed_issue todo "$id" after-refusal chore "A board op after a refused landing"
+  publish_sandbox
+  mkdir -p "$SB_WORK/dev"
+  printf 'a hand-made record\n' > "$SB_WORK/dev/zz-a.md"
+
+  out="$( cd "$SB_WORK" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "land two paths" dev/zz-a.md dev/zz-missing.md 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a missing second path did not refuse (exit 0): $out"
+  printf '%s' "$out" | grep -F 'dev/zz-missing.md' >/dev/null || cf "(a) the refusal does not name the missing path: $out"
+  [ -d "$SB_WORK/.kanban-wt" ] || _fixture_die "case_register_commit_refusal_leaves_the_kanban_worktree_clean: the call never made the kanban worktree"
+  st="$(git -C "$SB_WORK/.kanban-wt" status --short 2>&1)"
+  [ -z "$st" ] || cf "(a) the refusal left the kanban worktree dirty: $(printf '%s' "$st" | tr '\n' '|')"
+  origin_has_path "dev/zz-a.md" && cf "(a) the refused landing reached the trunk"
+
+  out="$( cd "$SB_WORK" && ./scripts/move-issue.sh "$id" --note-only --role "$SB_ROLE" --note "after the refused landing" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the board op after the refusal exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  out="$( cd "$SB_WORK" && ./scripts/register-commit.sh --role "$SB_ROLE" --message "land two paths" dev/zz-missing.md dev/zz-a.md 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a missing first path did not refuse (exit 0): $out"
+  st="$(git -C "$SB_WORK/.kanban-wt" status --short 2>&1)"
+  [ -z "$st" ] || cf "(c) the refusal left the kanban worktree dirty: $(printf '%s' "$st" | tr '\n' '|')"
+
+  finish "register-commit.sh refuses a missing path named after an existing one without staging the existing one: the kanban worktree is clean, nothing reached the trunk, and the next board op succeeds; the order of the two paths does not matter"
   teardown
 }
 

@@ -19,13 +19,17 @@
 #                  row. Refuses a class the ladder does not carry a row for.
 # --all            every class the ladder declares, to the SAME (model, effort) pair, and the
 #                  runner defaults with it — the whole-fleet re-provisioning that leaves the ladder,
-#                  the pins and the runners agreeing. A role the ladder carries no row for (a parked
+#                  the pins and the runners agreeing. A class whose optional pin file the project
+#                  removed (the Refactorer's) is skipped, its ladder row left as it is, and a line
+#                  says so. A role the ladder carries no row for (a parked
 #                  role, e.g. ui-designer-worker.md) is off this script's ladder entirely and is
 #                  never touched by --all or --class; re-provision it by editing its pin by hand.
 # --runners        only defaultModel/defaultEffort in both workflow runners — the fallback for a
 #                  leg with no leaf-worker type, which the ladder has no row of its own for.
 # --list           print the classes the ladder declares, and exit. Read-only.
 # -h, --help       this text.
+#
+# Every file it will write is checked before the first write, so a refusal changes nothing.
 #
 # Each pin file it writes is also recorded in .claude/model-pins.record; check-board.sh [s] compares
 # the pins with the ladder, and with that record where a ladder cell is unfilled, so a pin edited
@@ -142,16 +146,21 @@ if [ "$LIST" = true ]; then
   exit 0
 fi
 
-# kit_set_pin <file> — rewrite an existing model:/effort: frontmatter pair. Refuses a pin file that
-# does not already carry both keys, rather than inventing frontmatter shape. THE KIT'S FLOOR IS
-# GIT + A POSIX SHELL (no perl, no python, no node, no ruby — scripts/test/cases/shipped-tree.sh's
-# interpreter-floor case): awk, never perl, does the rewrite, one whole line at a time so a
-# metacharacter in a model id needs no escaping — it is printed, never matched.
-kit_set_pin() {
+# kit_check_pin <file> — refuse a pin file that is missing or does not already carry both keys,
+# rather than inventing frontmatter shape. Writes nothing.
+kit_check_pin() {
   local f="$AGENTS_DIR/$1"
   [ -f "$f" ] || kit_refuse 1 pin-file-missing "Error: $f does not exist." "Next: restore $f (the class's leaf-worker definition under .claude/agents/) from version control or the release zip, then re-run."
   grep -qE '^model:' "$f" && grep -qE '^effort:' "$f" \
     || kit_refuse 1 pin-shape-unrecognised "Error: $f has no 'model:'/'effort:' frontmatter pair to rewrite." "Next: restore the 'model:' and 'effort:' frontmatter lines in $f from version control or the release zip, then re-run."
+}
+
+# kit_set_pin <file> — rewrite the model:/effort: frontmatter pair kit_check_pin accepted. THE KIT'S
+# FLOOR IS GIT + A POSIX SHELL (no perl, no python, no node, no ruby — scripts/test/cases/shipped-tree.sh's
+# interpreter-floor case): awk, never perl, does the rewrite, one whole line at a time so a
+# metacharacter in a model id needs no escaping — it is printed, never matched.
+kit_set_pin() {
+  local f="$AGENTS_DIR/$1"
   awk -v m="$MODEL" -v e="$EFFORT" '
     /^model:/  { print "model: " m;  next }
     /^effort:/ { print "effort: " e; next }
@@ -159,6 +168,12 @@ kit_set_pin() {
   ' "$f" > "$f.new" && mv "$f.new" "$f"
   # Record what was written, so check-board.sh [s] can tell a later hand edit from this seam.
   kit_model_record_set "$CLAUDE_DIR" "$1" "$MODEL" "$EFFORT"
+}
+
+# kit_check_ladder_row <label> — refuse a ladder with no row for <label>. Writes nothing.
+kit_check_ladder_row() {
+  grep -qE "^\| \*\*${1}" "$ORCH_DOC" \
+    || kit_refuse 1 ladder-row-missing "Error: orchestrator.md has no ladder row for '${1}'." "Next: restore that row in $ORCH_DOC's § Model & effort contract table from version control or the release zip, then re-run."
 }
 
 # kit_set_ladder_row <label> — rewrite orchestrator.md's row for <label>: the first backticked token
@@ -172,8 +187,6 @@ kit_set_pin() {
 # After the label cell, the FIRST backticked token is Model and the SECOND is Effort.
 kit_set_ladder_row() {
   local label="$1"
-  grep -qE "^\| \*\*${label}" "$ORCH_DOC" \
-    || kit_refuse 1 ladder-row-missing "Error: orchestrator.md has no ladder row for '${label}'." "Next: restore that row in $ORCH_DOC's § Model & effort contract table from version control or the release zip, then re-run."
   awk -v want="| **${label}" -v m="$MODEL" -v e="$EFFORT" '
     # Replace the k-th backtick-delimited token of s, backticks included, with `val`.
     function nth(s, val, k,    p1, p2, pre) {
@@ -201,6 +214,17 @@ kit_set_ladder_row() {
   ' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC"
 }
 
+# kit_check_runners — refuse a runner that is missing or has no fallback of the recognised shape.
+# Writes nothing.
+kit_check_runners() {
+  local rf
+  for rf in $RUNNERS; do
+    [ -f "$rf" ] || kit_refuse 1 runner-file-missing "Error: $rf does not exist." "Next: restore $rf from version control or the release zip, then re-run."
+    grep -qE "defaultModel:.*\|\|" "$rf" && grep -qE "defaultEffort:.*\|\|" "$rf" \
+      || kit_refuse 1 runner-shape-unrecognised "Error: $rf has no defaultModel/defaultEffort fallback of the recognised shape." "Next: restore its 'defaultModel:' and 'defaultEffort:' fallback lines from version control or the release zip, then re-run."
+  done
+}
+
 # kit_set_runners — defaultModel/defaultEffort in both workflow runners. `'…'` is the shape both
 # runners already use (ARGS.defaultModel || 'opus'); rewritten as single-quoted JS string literals,
 # by LITERAL substring replacement (awk: the kit's floor is git + a POSIX shell, no perl), never a
@@ -211,9 +235,6 @@ kit_set_ladder_row() {
 kit_set_runners() {
   local rf
   for rf in $RUNNERS; do
-    [ -f "$rf" ] || kit_refuse 1 runner-file-missing "Error: $rf does not exist." "Next: restore $rf from version control or the release zip, then re-run."
-    grep -qE "defaultModel:.*\|\|" "$rf" && grep -qE "defaultEffort:.*\|\|" "$rf" \
-      || kit_refuse 1 runner-shape-unrecognised "Error: $rf has no defaultModel/defaultEffort fallback of the recognised shape." "Next: restore its 'defaultModel:' and 'defaultEffort:' fallback lines from version control or the release zip, then re-run."
     awk -v m="$MODEL" -v e="$EFFORT" -v q="'" '
       function last_quoted_replace(line, val,    n, i, q1, q2) {
         n = length(line)
@@ -234,6 +255,34 @@ kit_set_runners() {
   done
 }
 
+# kit_class_removed <class> — succeeds when the class's pin file is optional and absent: the project
+# removed that role, so the class is off its ladder by design. Any other missing pin is damage and
+# kit_check_pin refuses it.
+kit_class_removed() {
+  local pin; pin="$(kit_model_class_pin "$1")"
+  [ -n "$pin" ] && kit_model_class_optional "$1" && [ ! -e "$AGENTS_DIR/$pin" ]
+}
+
+# kit_plan <class>... — the classes to write, in order, in PLANNED; the removed ones in SKIPPED. Every
+# ladder row and pin file a planned class will write is checked here, before anything is written.
+PLANNED=""; SKIPPED=""
+kit_plan() {
+  local c pin
+  for c in "$@"; do
+    if kit_class_removed "$c"; then SKIPPED="$SKIPPED $c"; continue; fi
+    kit_check_ladder_row "$(kit_model_class_label "$c")"
+    pin="$(kit_model_class_pin "$c")"
+    [ -z "$pin" ] || kit_check_pin "$pin"
+    PLANNED="$PLANNED $c"
+  done
+}
+kit_say_skipped() {
+  local c
+  for c in $SKIPPED; do
+    echo "set-models: ${c} skipped — $(kit_model_class_pin "$c") was removed from this project, so its ladder row and pin are left as they are."
+  done
+}
+
 if [ -n "$CLASS" ]; then
   kit_ladder_has "$CLASS" || {
     avail=""
@@ -243,6 +292,9 @@ if [ -n "$CLASS" ]; then
       "  Classes the ladder currently carries:${avail:-  (none — the ladder is unfilled)}" \
       "Next: re-run with one of the classes listed above ($(basename "$0") --list shows the full mapping). A class the ladder has no row for is the owner's to add: stop and hand off."
   }
+  kit_plan "$CLASS"
+  kit_say_skipped
+  [ -n "$PLANNED" ] || exit 0
   label="$(kit_model_class_label "$CLASS")"
   pin="$(kit_model_class_pin "$CLASS")"
   kit_set_ladder_row "$label"
@@ -253,6 +305,7 @@ if [ -n "$CLASS" ]; then
   fi
   echo "set-models: ${CLASS} -> model=${MODEL} effort=${EFFORT} (ladder row, and pin file $( [ -n "$pin" ] && echo "$pin" || echo "n/a" ))"
 elif [ "$DO_RUNNERS" = true ]; then
+  kit_check_runners
   kit_set_runners
   echo "set-models: runner default -> model=${MODEL} effort=${EFFORT} (both workflow runners)"
 else
@@ -262,14 +315,21 @@ else
   # --class cannot reach it either, for the same reason: there is no class name that resolves to
   # it. Re-provisioning the parked role is done by hand, editing the pin directly, exactly because
   # it is off the ladder this script reads.
+  _in_ladder=""
   for _c in $ALL_CLASSES; do
-    kit_ladder_has "$_c" || continue
+    kit_ladder_has "$_c" && _in_ladder="$_in_ladder $_c"
+  done
+  # shellcheck disable=SC2086
+  kit_plan $_in_ladder
+  kit_check_runners
+  for _c in $PLANNED; do
     label="$(kit_model_class_label "$_c")"
     pin="$(kit_model_class_pin "$_c")"
     kit_set_ladder_row "$label"
-    [ -n "$pin" ] && kit_set_pin "$pin"
+    [ -z "$pin" ] || kit_set_pin "$pin"
   done
   kit_set_runners
+  kit_say_skipped
   echo "set-models: every ladder class -> model=${MODEL} effort=${EFFORT}, and the runner default"
   echo "set-models: ui-designer-worker.md is off the ladder (parked role) and was not touched — edit it directly if you mean to re-provision it too."
 fi
