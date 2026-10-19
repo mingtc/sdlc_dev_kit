@@ -350,6 +350,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **The run-report template has a banner for a run with no launch pack.** An unattended run planned from the board and `scripts/ask.sh` names its filed plan where the
+  pack-form banner names the pack, with nothing to stamp `SPENT`; the independence clause stays. The orchestrator role doc and the `orchestrate` skill now point at
+  `process/templates/run-report.template.md`. No action.
 - **The unattended Stop hook reads the final paragraph, not the last line.** `scripts/hooks/stop-ask.sh` blocks once when any sentence in the turn's final paragraph ends on `?` (fenced code, inline code and a `?` inside a URL are not read), so a question followed by an offer or a menu is no longer let through. A question in an earlier paragraph and a request with no `?` are still allowed. No action.
 
 - **The upgrade seat's brief says how to wait for the self-test.** `process/UPGRADE-SEAT.md` step 4: `./scripts/test/run.sh` runs longer than one tool call, so run it in the background and wait for it inside the same turn (a headless session's exit stops background work), and put its tally in the handoff. No action.

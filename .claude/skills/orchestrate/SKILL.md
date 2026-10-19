@@ -152,7 +152,7 @@ Keep a `progress.md` resume pointer current through long phases (role doc § Quo
 
 ### 4. Report
 
-Emit a run report: **landed** / **parked for your call** / **bugs filed** / **new scope or
+Emit a run report from `process/templates/run-report.template.md` (its no-launch-pack banner when no pack commissioned the run): **landed** / **parked for your call** / **bugs filed** / **new scope or
 todos surfaced for PM**, plus the conductor's-belt readings per leg. Name the OBSERVED claim behind
 each promoted verdict, and carry every NOT CHECKED item into the report's residue section. Then run the role's
 session-end checklist. A run that closes a launch pack stamps that pack in the same change as

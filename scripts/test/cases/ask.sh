@@ -735,6 +735,41 @@ case_orchestrate_has_an_unattended_branch_where_it_is_read() {
 }
 
 # =============================================================================
+# CASE — THE RUN-REPORT TEMPLATE CARRIES A NO-LAUNCH-PACK BANNER WITH THE INDEPENDENCE CLAUSE,
+# AND BOTH TEXTS AN UNATTENDED RUNNER FOLLOWS NAME THE TEMPLATE
+# =============================================================================
+# An unattended run commissions no pack, so the pack-shaped banner has nothing to name. The
+# clause is checked on the banner form's own fenced block, not anywhere in the file, so the
+# pack-form copy cannot satisfy it.
+case_run_report_template_has_a_no_pack_banner_and_runners_name_it() {
+  cf_reset
+  local tpl="$REAL_REPO_ROOT/process/templates/run-report.template.md"
+  local skill="$REAL_REPO_ROOT/.claude/skills/orchestrate/SKILL.md"
+  local role="$REAL_REPO_ROOT/.claude/roles/orchestrator.md"
+  local f
+  for f in "$tpl" "$skill" "$role"; do
+    [ -f "$f" ] || _fixture_die "case_run_report_template_has_a_no_pack_banner_and_runners_name_it: no $f in the published kit at $REAL_REPO_ROOT"
+  done
+  local clause='Every figure below was measured by the orchestrator independently of the leg that claimed'
+  local form
+  form="$(awk '/^\*\*No launch pack\*\*/ { on = 1 } on' "$tpl")"
+  [ -n "$form" ] || cf "run-report.template.md has no '**No launch pack**' banner form"
+  case "$form" in
+    *"$clause"*) : ;;
+    *) cf "run-report.template.md's no-launch-pack banner form drops the independence clause" ;;
+  esac
+  case "$form" in
+    *'STATUS: CLOSED.'*) : ;;
+    *) cf "run-report.template.md's no-launch-pack banner form has no STATUS line" ;;
+  esac
+  grep -q 'run-report.template.md' "$skill" \
+    || cf "orchestrate/SKILL.md does not name process/templates/run-report.template.md where it tells the runner to write its report"
+  grep -q 'run-report.template.md' "$role" \
+    || cf "orchestrator.md does not name process/templates/run-report.template.md in its closing checklist"
+  finish "run-report.template.md carries a no-launch-pack banner form with the independence clause, and the orchestrate skill and the orchestrator role doc both name the template"
+}
+
+# =============================================================================
 # CASE — scripts/hooks/stop-ask.sh BLOCKS A TURN WHOSE FINAL PARAGRAPH ASKS, ONCE, AND ALLOWS
 # EVERY OTHER SHAPE: a statement ending, the loop-guarded re-invocation, a question in an earlier
 # paragraph, a "?" in code or a URL, and an unparseable/empty payload.

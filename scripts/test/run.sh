@@ -301,6 +301,7 @@ CASES=(
   case_ask_without_decision_names_the_file_as_the_record
   case_unattended_profile_denies_the_tool
   case_orchestrate_has_an_unattended_branch_where_it_is_read
+  case_run_report_template_has_a_no_pack_banner_and_runners_name_it
   case_stop_ask_hook_classifies_turn_endings
   case_agent_record_hook_attributes_created_commits
   case_finish_pr_refuses_a_verdict_by_the_code_agent

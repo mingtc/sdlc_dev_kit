@@ -638,7 +638,7 @@ the bullet blank.
       line per issue reviewed.
 - [ ] The run report lists: merged, parked-for-your-call, bugs filed, todos/new-scope
       surfaced for PM, and the conductor's-belt readings. Long-form report →
-      `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`; the `progress.md` entries stay SHORT pointers
+      `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, from `process/templates/run-report.template.md` (its no-launch-pack banner when no pack commissioned the run); the `progress.md` entries stay SHORT pointers
       (≤ ~4 lines each), never the narration.
 - [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** every `kit-finding:` line in the legs' `progress.md` entries, and every kit finding their reports name, is a `K-NN` in `process/KIT-FEEDBACK.md`, written by you alone, and the run report and your `progress.md` entry carry the `kit-feedback:` line — `process/MANUAL.md` § Kit feedback.
 - [ ] `progress.md` resume pointer cleared or updated.

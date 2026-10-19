@@ -45,6 +45,21 @@
 > inherited rather than re-measured are labelled as such.
 ```
 
+**No launch pack** (an unattended run planned just-in-time from the board and `scripts/ask.sh`):
+there is no pack to name or stamp `SPENT`. Replace the first block with what commissioned the run, and
+keep the independence clause word for word.
+
+```
+# <RUN NAME> — RUN REPORT (unattended, no launch pack; opened <date>, closed <date>)
+
+> **STATUS: CLOSED. <X> of <N> landed, <Y> parked at close.** No launch pack commissioned this run;
+> its plan is [`<the filed plan under dev/questions/>`](../questions/<file>.md). Nothing to stamp `SPENT`.
+>
+> **Every figure below was measured by the orchestrator independently of the leg that claimed
+> it.** Where the two disagreed, the measurement wins and the disagreement is stated. Figures
+> inherited rather than re-measured are labelled as such.
+```
+
 ---
 
 ## 1. The landing table
