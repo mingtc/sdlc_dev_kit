@@ -1019,8 +1019,8 @@ case_answered_question_reconcile_is_named_where_it_is_read() {
   [ -n "$sec" ] || cf "orchestrator.md has no 'It is *not* the hat for' paragraph before '## Model & effort contract'"
   _need "orchestrator.md's 'not the hat for' paragraph" "$sec" 'An answered question is ready work'
 
-  sec="$(_orch_between "$skill" '### 0. Setup' '### 1. Phase 1')"
-  [ -n "$sec" ] || cf "orchestrate/SKILL.md has no step 0 section ending at '### 1. Phase 1'"
+  sec="$(_orch_between "$skill" '### Step 0. Setup' '### Step 1. Phase 1')"
+  [ -n "$sec" ] || cf "orchestrate/SKILL.md has no step 0 section ending at '### Step 1. Phase 1'"
   _need "orchestrate/SKILL.md step 0" "$sec" 'answered, unreconciled question' 'PM-hat' 'An answered question is ready work'
 
   sec="$(_orch_between "$start" '- **Unattended (`KIT_UNATTENDED=1`):**' '## What this skill deliberately does not do')"

@@ -655,7 +655,7 @@ row above; none is safe to ignore; and what a lifecycle change costs each one di
 - **They mention one column in a comment or an example string.** `scripts/verify.sh` names
   `dev_complete` in a comment and an echo; `scripts/githooks/commit-msg` names `qa_complete` inside
   an example subject in its refusal help; `scripts/config.sh` names `in_progress` in an example
-  command. **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
+  command; `scripts/read-verdict.sh` names `qa_complete` and `dev_complete` in its header comment. **Nothing breaks if these are missed — the text simply goes stale**, which is the cheapest
   class here and the easiest to leave for years.
 - **THE AGENT-FACING TREE UNDER `.claude/` NAMES COLUMNS TOO, AND IT IS THE LARGEST CARRIER OF THEM.**
   The workflow runners emit `move-issue.sh <id> <column>` invocations and describe the board in the

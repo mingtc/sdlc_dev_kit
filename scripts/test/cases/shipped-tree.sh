@@ -3117,9 +3117,11 @@ RULE_CTL_EOF
 # PROJECT.md's gates table has one row per contract sheet — run PROJECT.md's OWN check block
 # =============================================================================
 # PROJECT.md § Quality gates ships a two-command self-check (every contract-sheet link resolves;
-# every sheet under process/contracts/ has a row) and tells the reader to run it. This case runs
-# that exact block, verbatim, against the shipped tree, so the table and the directory are proven
-# to agree rather than trusted to.
+# every sheet under process/contracts/ has a row in the gates table) and tells the reader to run
+# it. THE BLOCK IS READ FROM PROJECT.md AT RUN TIME and run as printed, never typed here: a copy
+# stays green through any edit to the real command. Run on the shipped tree it prints nothing.
+# The control strikes one sheet's table row in a copy that still cites the sheet elsewhere in the
+# file, which is the shape an unbounded search passes.
 case_project_md_one_row_per_contract_sheet() {
   cf_reset
   make_sandbox
@@ -3134,58 +3136,44 @@ case_project_md_one_row_per_contract_sheet() {
   [ "${nsheets:-0}" -ge 5 ] \
     || _fixture_die "case_project_md_one_row_per_contract_sheet: only $nsheets sheet(s) under process/contracts/ — too few to be the shipped set; the scan lost its operand."
 
-  # arm 1: every process/contracts/*.md link PROJECT.md names resolves to a real file
-  local rel missing; missing="$(
-    grep -o 'process/contracts/[a-z-]*\.md' "$pm" | sort -u |
-      while read -r p; do [ -f "$REAL_REPO_ROOT/$p" ] || echo "MISSING $p"; done
-  )"
-  [ -z "$missing" ] || cf "PROJECT.md links a contract sheet that does not exist: $(printf '%s' "$missing" | tr '\n' '|')"
+  # THE OPERAND: the printed block, the first fenced sh block after the sentence that introduces it.
+  local block
+  block="$(awk '/^To prove every \*\*contract-sheet\*\* reference/ { seen=1; next }
+                seen && /^```sh$/ { inblk=1; next }
+                inblk && /^```$/ { exit }
+                inblk { print }' "$pm")"
+  case "$block" in *"process/contracts/"*"UNROWED"*) : ;; *) cf "PROJECT.md's printed contract-sheet check was not found — the extraction no longer reads its shape, so the assertions below have no operand"; finish "PROJECT.md: one row per contract sheet"; teardown; return ;; esac
 
-  # arm 2: every sheet under process/contracts/ (bar README.md) has a row in PROJECT.md
-  # (bash 3.2 — what macOS ships — mis-parses a `case` with a no-op arm inside a `for` inside
-  # $(...) under `set -u`: it reports the loop variable unbound on the NEXT iteration. Each loop
-  # below tests with `if`/`!=` instead of `case`, and filters README.md ahead of the loop where
-  # it can.)
-  local unrowed; unrowed="$(
-    for p in "$REAL_REPO_ROOT"/process/contracts/*.md; do
-      rel="process/contracts/$(basename "$p")"
-      if [ "$rel" != "process/contracts/README.md" ]; then
-        grep -q "$rel" "$pm" || echo "UNROWED $rel"
-      fi
-    done
-  )"
-  [ -z "$unrowed" ] || cf "a shipped contract sheet has no row in PROJECT.md's gates table: $(printf '%s' "$unrowed" | tr '\n' '|')"
+  local got
+  got="$( cd "$REAL_REPO_ROOT" && sh -c "$block" 2>&1 )"
+  [ -z "$got" ] || cf "PROJECT.md's own check printed on the shipped tree: $(printf '%s' "$got" | tr '\n' '|')"
 
-  # ── THE REDDENING CONTROL, on a COPY — never the live tree: drop a real sheet's row and prove
-  #    the same two-arm check (run against the copy) names it UNROWED.
-  local ctl="$SB_TMP/ctl-project-md"
+  # ── THE REDDENING CONTROL, on a COPY — never the live tree: strike ONE sheet's row from the
+  #    gates table, keep the sheet cited elsewhere in the file, and run the same printed block.
+  local ctl="$SB_TMP/ctl-project-md" p rel victim=""
   mkdir -p "$ctl/process/contracts"
   cp "$pm" "$ctl/PROJECT.md"
   cp "$REAL_REPO_ROOT"/process/contracts/*.md "$ctl/process/contracts/"
-  local victim=""
   for p in "$ctl"/process/contracts/*.md; do
     rel="process/contracts/$(basename "$p")"
-    if [ -z "$victim" ] && [ "$rel" != "process/contracts/README.md" ] && grep -q "$rel" "$ctl/PROJECT.md"; then
+    if [ -z "$victim" ] && [ "$rel" != "process/contracts/README.md" ] && grep -E "^\|.*[(]$rel[)]" "$ctl/PROJECT.md" >/dev/null; then
       victim="$rel"
     fi
   done
   if [ -z "$victim" ]; then
     _control_did_not_run "find a rowed sheet in the copy to strike"
   else
-    grep -v -- "$victim" "$ctl/PROJECT.md" > "$ctl/PROJECT.md.stripped" && mv "$ctl/PROJECT.md.stripped" "$ctl/PROJECT.md"
-    local planted; planted="$(
-      for p in "$ctl"/process/contracts/*.md; do
-        rel="process/contracts/$(basename "$p")"
-        if [ "$rel" != "process/contracts/README.md" ]; then
-          grep -q "$rel" "$ctl/PROJECT.md" || echo "UNROWED $rel"
-        fi
-      done
-    )"
-    printf '%s\n' "$planted" | grep -F "$victim" >/dev/null \
-      || cf "(control) striking $victim's row was not reported UNROWED: ${planted:-(nothing)}"
+    grep -vE "^\|.*[(]$victim[)]" "$ctl/PROJECT.md" > "$ctl/PROJECT.md.stripped" && mv "$ctl/PROJECT.md.stripped" "$ctl/PROJECT.md"
+    printf '\nSee [`%s`](%s) for the sheet itself.\n' "$victim" "$victim" >> "$ctl/PROJECT.md"
+    grep -F "$victim" "$ctl/PROJECT.md" >/dev/null || _fixture_die "case_project_md_one_row_per_contract_sheet: the sheet is not cited outside the table, so the control is not the shape under test"
+    grep -E "^\|.*[(]$victim[)]" "$ctl/PROJECT.md" >/dev/null && _fixture_die "case_project_md_one_row_per_contract_sheet: the table row was not struck"
+    local planted
+    planted="$( cd "$ctl" && sh -c "$block" 2>&1 )"
+    [ "$planted" = "UNROWED $victim" ] \
+      || cf "(control) striking $victim's table row, with the sheet still cited elsewhere in the file, was not reported as exactly 'UNROWED $victim': ${planted:-(nothing)}"
   fi
 
-  finish "PROJECT.md: $nsheets contract sheet(s), every link resolves, every sheet has a row, and a struck row is caught"
+  finish "PROJECT.md: $nsheets contract sheet(s), the printed check (read at run time) is silent on the shipped tree, and a struck table row is reported although the sheet is cited elsewhere"
   teardown
 }
 

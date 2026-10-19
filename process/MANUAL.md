@@ -538,7 +538,7 @@ every PASS, an issue's or a park's; a FAIL promotes nothing and is not held to i
 `## QA Verdict` table says on the trunk, and `finish-pr.sh` checks that table at landing; a leg's reply only
 points at it. A Workflow script has no file access, so a runner receives the reply and cannot read the card:
 the Orchestrator reads the card from the trunk before promoting, with `./scripts/read-verdict.sh <id>`
-(`.claude/skills/orchestrate/SKILL.md` § 3). The reviewer is never the leg that wrote the change, and
+(`.claude/skills/orchestrate/SKILL.md` § Procedure, step 3). The reviewer is never the leg that wrote the change, and
 `finish-pr.sh` refuses a verdict committed by the same agent, in the same session, as the code
 ([`contracts/agent-record.md`](contracts/agent-record.md)).
 

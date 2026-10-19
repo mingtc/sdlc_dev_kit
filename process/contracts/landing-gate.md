@@ -79,8 +79,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
 - The item's `## QA Verdict` table is missing, has a row whose verdict is not one of the four
   tokens, a FAIL row, evidence of the wrong kind, a `path:line` that does not resolve, a pointer
   with no quote of its own, a quote shorter than eight characters (unless it is the cited line's
-  whole text) or not on the line its own pointer cites, no `path:line` row at all (every row
-  `gate-diff` or `fixture-diff`), no filled `shadow-check` row, two rows for one AC id, or AC ids
+  whole text) or not on the line its own pointer cites, no `test` or `file:line` row at all (every
+  row `gate-diff` or `fixture-diff`), no filled `shadow-check` row, two rows for one AC id, or AC ids
   that do not match the AC checklist one for one ⇒ refuse before any destructive step, naming each
   row and, for a quote, its pointer. The board move into the reviewed state runs the same check on an
   item that did not land through this gate (direct to the trunk, or squash-merged by hand).

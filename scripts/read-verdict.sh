@@ -8,9 +8,13 @@
 # 'qa_complete/' with no FAIL row; a deferred landing sits in 'dev_complete/'.
 #
 # It reads the trunk ref as last fetched (never fetches; `git fetch <remote> <trunk>` first for
-# the live tip). The rows come from lib/qa-gate.sh's own reader, and the last line is
+# the live tip). The rows come from lib/qa-gate.sh's own reader, then comes
 # kit_qa_verdict_check's own verdict on that card at that tip — the check a move to qa_complete/
-# runs. It writes nothing: no board change, no progress record.
+# runs: one 'landing gate:' line, and on a REFUSE up to three lines of the gate's message. A card in
+# 'dev_complete/' that would be refused also gets a note: a deferred landing's evidence lives on its
+# branch, which this never reads, so the REFUSE is expected until the landing merges.
+# On success it writes nothing: no board change, no progress record. A refusal leaves the usual
+# refusal record.
 #
 # Exit 0 when it printed. It refuses (exit 1) when it cannot read: the card is on no trunk
 # column, more than one file claims the id, or the card has no '## QA Verdict' table.
@@ -106,5 +110,8 @@ else
   rule="$(sed -n 's/.*refusal=\([a-z0-9-]*\).*/\1/p' "$SCRATCH"/rec/*.tsv 2>/dev/null | sed -n '1p')"
   echo "landing gate: would REFUSE this table (${rule:-exit $GATE_RC})"
   printf '%s\n' "$GATE_OUT" | sed -n '1,3p' | sed 's/^/  /'
+  if [ "$COLUMN" = "dev_complete" ]; then
+    echo "note: ${ID} is in dev_complete/. A deferred landing's evidence is on its branch, not on ${TRUNK_REF}, so this REFUSE is expected until the landing merges."
+  fi
 fi
 exit 0

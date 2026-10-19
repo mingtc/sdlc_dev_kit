@@ -171,8 +171,13 @@ and a card's acceptance text are PM's surfaces. The leg is **bounded to three ac
    (`./scripts/move-issue.sh <PREFIX>-NNN <folder> --role PM --note "Unblocked: <D-NN>."`).
 
 **Anything the answer leaves unruled the leg never rules.** It files that part again through
-`scripts/ask.sh` — `--card` on the same card, a working default — and the card still leaves
-`blocked/`, now working under that default.
+`scripts/ask.sh` — `--card` on the same card, a working default, `--role Orchestrator` (the
+dispatching seat; never the declared principal's role, which `ask.sh` refuses) — and the card still
+leaves `blocked/`, now working under that default.
+
+**`check-board.sh` arm `[r]` may warn that the recorded entry is cited by no PRD.** The warning is
+expected and changes no verdict: the leg leaves the entry's words as the principal said them, and the
+PM later cites the entry from the PRD it constrains or marks it `[cross-cutting]`.
 
 **Recording an answer is not a product-scope call.** The principal made the call; the leg writes down
 what was said, in their words, and decides nothing the answer does not state. That is why this

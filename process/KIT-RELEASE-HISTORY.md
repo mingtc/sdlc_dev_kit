@@ -4459,7 +4459,7 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   plan to carry the namespaced header, so the bad references grew with every plan written. **One
   skill's option set changed as a result: if you have anything reading its old option numbers, re-read
   it.** A harness case now finds a planted namespace reference, so the class cannot come back quietly.
-- **[`templates/CLAUDE-adapter.template.md`](templates/CLAUDE-adapter.template.md) gains the three
+- **`templates/CLAUDE-adapter.template.md` (now [`templates/AGENTS-adapter.template.md`](templates/AGENTS-adapter.template.md)) gains the three
   tables the rest of the kit binds on** — roles, role-attribution commit prefixes, and the
   code-vs-metadata glob declaration with its carve-out. **Which shape is law is per disposition**: for
   REPLACE-class files (`CLAUDE.md`, `README.md`) the template is law and the shipped root file is

@@ -70,8 +70,10 @@ date will be read as current no matter what its first paragraph says.
 - **[`questions/`](questions/)** — this project's declared channel for `scripts/ask.sh`, if
   `PROJECT.md` § *Who answers when nobody is watching* names it. One file per question,
   `YYYY-MM-DDTHHMMSSZ-<role>-ask.md`, so the name sorts and is unique with no coordination. Never
-  written by hand; never deleted by a script — the principal (or whoever answers on their behalf)
-  clears an answered one, the way a blocked card is unblocked by the person who reads it.
+  written by hand; never deleted by a script or by anyone: the principal (or whoever answers on
+  their behalf) adds an `**Answer` block at the end of the file, and the Orchestrator's PM-hat leg
+  reconciles it by recording a register entry that cites the file's path and unblocking the card it
+  parks. The file stays as the answer's record.
 
 ## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`)
 

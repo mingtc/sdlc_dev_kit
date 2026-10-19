@@ -36,8 +36,9 @@ this file at the start of every session.**
 
 > `./setup.sh`'s **kit half is real and working** in a fresh seed (git hooks, the board sanity
 > check, the `.env` seed). Its **runtime half is a marked fill-in** — wire your language
-> bootstrap and your test gate there before the first issue, because `./scripts/finish-pr.sh`
-> refuses to land without an executable, committed gate runner.
+> bootstrap there before the first issue, and put your test gate in `./scripts/verify.sh`, which
+> `./scripts/finish-pr.sh` refuses to land without (an executable, committed runner); `setup.sh`
+> only invokes it, so the gate has one definition.
 
 ## Build order — what is being built now, and what is deliberately not yet
 
@@ -134,10 +135,11 @@ role docs — are outside it. Say what a check covers, or its green is read as c
 # 1. every link points at a real sheet
 grep -o 'process/contracts/[a-z-]*\.md' PROJECT.md | sort -u |
   while read -r p; do [ -f "$p" ] || echo "MISSING $p"; done
-# 2. every sheet has a row here
+# 2. every sheet has a row in the gates table (a mention elsewhere in this file is not a row)
+rows=$(awk '/^\| Gate \|/ { t=1 } t && !/^\|/ { t=0 } t' PROJECT.md)
 for p in process/contracts/*.md; do
   case "$p" in */README.md) continue ;; esac
-  grep -q "$p" PROJECT.md || echo "UNROWED $p"
+  printf '%s\n' "$rows" | grep -qF "$p)" || echo "UNROWED $p"
 done
 ```
 
@@ -170,9 +172,13 @@ because the edited set fills up with your highest-traffic documents and only eve
 
 | # | Surface | What a checker reads |
 |---|---|---|
-| 1 | `<your front door>` | `<fill: the files a newcomer opens first>` |
-| 2 | `<your auto-loaded files>` | `<fill: whatever the harness reads at session start>` |
-| 3 | `<add one row per surface>` | `<fill>` |
+| 1 | `<your front door>` | `<fill: a path or glob for the files a newcomer opens first>` |
+| 2 | `<your auto-loaded files>` | `<fill: a path or glob for whatever the harness reads at session start>` |
+| 3 | `<add one row per surface>` | `<fill: a path or glob>` |
+
+**Give each row a path expression, not a description.** A verdict is carried forward only while no file
+its surface claims has changed; a row that names no paths cannot say which files those are, and its
+surface is re-read in full on every sweep.
 
 **Say, per row, whether it is one surface or one-per-file.** A directory of many small documents may be
 one checker's job or many; the count changes the leg count, so **record which you chose rather than
@@ -271,6 +277,8 @@ enforces. *(Authority:
   wakes to answer, distinct from whichever seat is asking — `scripts/ask.sh` refuses when the
   two are the same (`PM`, `the PM role` and `The PM seat` all name the PM seat). The channel is where
   `scripts/ask.sh` writes and nowhere else, a path inside the repository — e.g. `dev/questions/`,
-  one dated file per question, or a file, which each question is appended to. Fill either line inside backticks or not — both
+  one dated file per question, or a file, which each question is appended to; a file channel is
+  not reconciled by `./scripts/check-board.sh`, which cannot tie an answer in it to one question,
+  so prefer the directory. Fill either line inside backticks or not — both
   are read the same way. The principal answers by adding an `**Answer` block at the end of the question file; the
   Orchestrator reconciles it — [`process/contracts/ask.md`](process/contracts/ask.md) § 5.)*

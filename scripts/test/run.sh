@@ -262,6 +262,7 @@ CASES=(
   case_subtask_ablation_missing_section_refuses
   case_subtask_qa_gate_well_formed_lands
   case_read_verdict_reads_the_trunk_and_writes_nothing
+  case_read_verdict_names_the_deferred_landing
   case_subtask_no_branch_of_its_own_still_checks_table_and_forks
   case_subtask_qa_verdict_pointer_unresolved_refuses
   case_role_literals_are_declared
@@ -405,6 +406,7 @@ CASES=(
   case_kit_init_disposition_markers_intact
   case_kit_init_prefix_stamp_keeps_shipped_file_names
   case_release_notes_stamp_checks_print_nothing_on_an_adopted_tree
+  case_release_notes_roles_stamp_check_works_on_both_routes
   case_archive_requires_the_retired_store
   case_archive_missing_index_lists_the_store
   case_archive_refuses_a_name_already_retired

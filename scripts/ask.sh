@@ -14,7 +14,7 @@
 #      question appended to it. An absolute or `..` channel is refused. Each question carries
 #      the asker, the time, the card it parks (if --card named one), the question, the working
 #      default, how the answer is recorded (the register entry, if --decision named one; the file
-#      itself, cleared in place, if not) and how to answer in this file: one `**Answer (...)**` block
+#      itself, if not) and how to answer in this file: one `**Answer (...)**` block
 #      at its end. An answer in this file is reconciled only when a register entry cites this file's
 #      path (check-board.sh's answered-question arm lists the ones none cites).
 #   2. with --decision D-NN naming a WITHDRAWN entry (no current ruling — DECISIONS.md
@@ -25,7 +25,7 @@
 #      standing ruling: that ruling is NEVER touched — it is what work proceeds under until the
 #      principal answers, and this call only records the question. Without --decision, or with
 #      an id naming no live entry: records nothing in the register — the question file itself IS
-#      where the default is recorded, and the principal answers by editing or clearing it.
+#      where the default is recorded, and the principal answers by adding an `**Answer` block to it.
 #   3. writes ONE progress record (class=info, actor <role>, `asked=<rule-id-shaped slug>`) so
 #      every ask is countable.
 #   4. RETURNS 0. The session carries on — under the working default, or under the entry's
@@ -264,7 +264,7 @@ case "$DECISION_STATE" in
     if [ -n "$DECISION" ]; then
       ANSWER_ROUTE="--decision $DECISION does not name a live entry in requirements/DECISIONS.md (no '### $DECISION' heading) — this file is where the default is recorded instead"
     else
-      ANSWER_ROUTE="this file — the principal (or whoever answers on their behalf) edits or clears it in place"
+      ANSWER_ROUTE="this file — the principal (or whoever answers on their behalf) adds an Answer block to it; the file is never cleared, and a register entry citing its path records the answer"
     fi
     ;;
 esac

@@ -60,3 +60,42 @@ case_read_verdict_reads_the_trunk_and_writes_nothing() {
   finish "read-verdict.sh prints a landed card's column and PASS rows, a direct-to-trunk FAIL card's column, row and the gate's would-REFUSE line, exits 0 for both and non-zero for a card not on the trunk, and leaves the tree, the board and .progress-records/ unchanged"
   teardown
 }
+
+# =============================================================================
+# CASE — read-verdict.sh SAYS WHY A DEFERRED PASS READS REFUSE.
+# A card in dev_complete/ whose evidence is a file that exists only on its (unlanded) branch is
+# refused by the gate, which reads the trunk; the output names that as expected. The same table in
+# qa_complete/ is a plain REFUSE with no such note, so the note is not printed for every refusal.
+# RED FIRST: fails on a read-verdict.sh that prints no note.
+# =============================================================================
+case_read_verdict_names_the_deferred_landing() {
+  cf_reset
+  make_sandbox
+
+  local def="$SB_PREFIX-684" landed="$SB_PREFIX-702" f
+  seed_issue dev_complete "$def" deferred chore "Deferred landing, evidence on its branch" "feature/$def-work"
+  seed_issue qa_complete "$landed" bad chore "Landed, evidence missing" "n/a"
+  for f in "$SB_WORK/progress/dev_complete/$def-deferred.md" "$SB_WORK/progress/qa_complete/$landed-bad.md"; do
+    perl -i -pe 's/^(\| AC1 \| PASS \| test \| ).*$/${1}src\/feature.js:3 "return value + 1" |/' "$f"
+    grep -qF 'src/feature.js:3 "return value + 1"' "$f" \
+      || _fixture_die "case_read_verdict_names_the_deferred_landing: the branch-only pointer was not planted in $f"
+  done
+  publish_sandbox
+
+  [ -x "$SB_WORK/scripts/read-verdict.sh" ] \
+    || { cf "scripts/read-verdict.sh does not exist or is not executable"; finish "read-verdict.sh names a deferred landing"; teardown; return; }
+
+  local out rc
+  out="$( cd "$SB_WORK" && ./scripts/read-verdict.sh "$def" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the deferred card: exit $rc, want 0"
+  case "$out" in *"column: dev_complete"*"would REFUSE"*) : ;; *) cf "(a) no dev_complete column with a would-REFUSE line: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
+  case "$out" in *"note: "*"dev_complete/"*"on its branch"*"expected"*) : ;; *) cf "(a) a dev_complete REFUSE carries no note that a deferred landing's evidence is on its branch: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
+
+  out="$( cd "$SB_WORK" && ./scripts/read-verdict.sh "$landed" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the landed card: exit $rc, want 0"
+  case "$out" in *"would REFUSE"*) : ;; *) cf "(b) no would-REFUSE line for the unresolved pointer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; esac
+  case "$out" in *"note: "*) cf "(b) a qa_complete REFUSE carries the deferred-landing note: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;; *) : ;; esac
+
+  finish "read-verdict.sh notes, on a would-REFUSE for a card in dev_complete/, that a deferred landing's evidence is on its branch, and prints no such note for a card in qa_complete/"
+  teardown
+}

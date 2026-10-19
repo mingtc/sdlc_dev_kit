@@ -141,7 +141,9 @@ resume it, which is the failure this corollary exists to name. **The mechanism f
 own question is [`scripts/ask.sh`](../../scripts/ask.sh)**, which writes the question and a working
 default to the channel `PROJECT.md`'s declared `principal:` reads, then returns — the same
 record-and-continue shape as the run's own batched list, at the scale of one blocking question rather
-than a whole run's report.
+than a whole run's report. The answer comes back to the Orchestrator's PM-hat leg, which reconciles
+it ([`../../.claude/roles/orchestrator.md`](../../.claude/roles/orchestrator.md) § An answered
+question is ready work).
 
 **A silent stop is a failure mode equal to improvising, and the most expensive:** stopping without a
 park note and a next dispatch leaves the work neither done nor recorded nor handed on.

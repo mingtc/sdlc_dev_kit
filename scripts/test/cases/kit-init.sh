@@ -219,6 +219,67 @@ $(printf '%s' "$got" | sed 's/^/      /')"
 }
 
 # =============================================================================
+# THE NOTES' `--roles` STAMP CHECK WORKS ON BOTH UPGRADE ROUTES
+# =============================================================================
+# The check lists scripts that still carry the release's SHIPPED role set. It must name that set
+# from something both routes hold. The git route has a `kit` branch; the default route
+# (kit-upgrade.sh) has none, so a check that reads one collapses to an empty pattern and lists every
+# script. THE COMMAND IS READ FROM THE NOTES FILE AT RUN TIME; the zip it names is the one operand
+# substituted, and only if the notes name it.
+case_release_notes_roles_stamp_check_works_on_both_routes() {
+  cf_reset
+  local title="release notes: the --roles stamp check prints nothing on a stamped tree on either upgrade route and names an unstamped script"
+  if ! has_kit_init; then skp "$title" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$title" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  command -v zip >/dev/null 2>&1 || { skp "$title" "zip absent"; return; }
+  local notes="$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md"
+  [ -f "$notes" ] || { skp "$title" "process/KIT-RELEASE-NOTES.md absent"; return; }
+
+  # THE OPERAND, extracted before anything runs.
+  local cmds=() c
+  while IFS= read -r c; do
+    [ -n "$c" ] && cmds+=("$c")
+  done < <(sed -n -E 's/^[[:space:]]+(grep -lF -- .* scripts\/\*\.sh scripts\/githooks\/\*)$/\1/p' "$notes")
+  [ "${#cmds[@]}" -eq 1 ] \
+    || { cf "expected exactly 1 printed --roles stamp check in process/KIT-RELEASE-NOTES.md, found ${#cmds[@]} — the extraction no longer reads the notes' shape, so the assertion has no operand"; finish "$title"; return; }
+
+  kit_init_sandbox
+  publish_sandbox
+
+  # The release as shipped: a zip holding the hook before kit-init stamps it.
+  local zip="$SB_TMP/project-kit-vX.zip" placeholder='<path-to>/project-kit-v<X.Y.Z>.zip'
+  ( cd "$SB_WORK" && zip -q "$zip" scripts/githooks/commit-msg ) \
+    || _fixture_die "case_release_notes_roles_stamp_check_works_on_both_routes: could not zip the shipped hook"
+  c="${cmds[0]//"$placeholder"/$zip}"
+
+  local new='Alpha|Beta|Gamma' out rc=0 got
+  out="$(KIT_INIT_ROLE="$(printf '%s' "$new" | cut -d'|' -f1)" "$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --roles "$new" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || { cf "kit-init --roles exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"; finish "$title"; teardown; return; }
+
+  # (a) the kit-upgrade.sh route: no `kit` branch exists.
+  git -C "$SB_WORK" rev-parse -q --verify refs/heads/kit >/dev/null 2>&1 \
+    && _fixture_die "case_release_notes_roles_stamp_check_works_on_both_routes: the sandbox already has a kit branch, so route (a) is not the default route"
+  got="$(cd "$SB_WORK" && eval "$c" 2>/dev/null || true)"
+  [ -z "$got" ] || cf "(a) default route (no kit branch): the notes' --roles check printed on a correctly stamped tree: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"
+
+  # (b) the git route: the kit branch exists.
+  git -C "$SB_WORK" branch kit >/dev/null 2>&1 || _fixture_die "case_release_notes_roles_stamp_check_works_on_both_routes: could not make the kit branch"
+  got="$(cd "$SB_WORK" && eval "$c" 2>/dev/null || true)"
+  [ -z "$got" ] || cf "(b) git route (kit branch present): the notes' --roles check printed on a correctly stamped tree: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"
+
+  # (control) the check is not silent for want of a pattern: one script carrying the shipped set again is named.
+  perl -i -pe "s/^ROLE_PREFIXES='.*'\$/ROLE_PREFIXES='$KIT_NEUTRAL_ROLE_PREFIXES'/" "$SB_WORK/scripts/githooks/commit-msg"
+  grep -qF -- "'$KIT_NEUTRAL_ROLE_PREFIXES'" "$SB_WORK/scripts/githooks/commit-msg" \
+    || _fixture_die "case_release_notes_roles_stamp_check_works_on_both_routes: the shipped set was not planted back"
+  got="$(cd "$SB_WORK" && eval "$c" 2>/dev/null || true)"
+  [ "$got" = "scripts/githooks/commit-msg" ] \
+    || cf "(control) the check did not name exactly the script that carries the shipped set again: $(printf '%s' "$got" | tr '\n' ' ' | cut -c1-200)"
+
+  finish "$title (command read from the notes at run time)"
+  teardown
+}
+
+# =============================================================================
 # kit-init's OWN COMMITS DECLARE THE PRE-ROLE HAT. A day-one tree has no session hat and the
 # commit guard refuses a commit with none, so the initializer declares its hat (the pre-role hat
 # the subject names) for each commit it makes: the initialization commit and the self-check's.

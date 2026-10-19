@@ -250,10 +250,11 @@ the route (or, for a release that predates it, the read in § Without the script
   git grep -nw main -- .claude/roles .claude/templates
   ```
 
-  And if you passed `--roles`, so must this:
+  And if you passed `--roles`, so must this. It reads the release's shipped role set from the zip you
+  upgraded to, so it runs the same after `kit-upgrade.sh` and after the git route:
 
   ```sh
-  grep -lF -- "'$(git show kit:scripts/githooks/commit-msg | sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p")'" scripts/*.sh scripts/githooks/*
+  grep -lF -- "'$(unzip -p <path-to>/project-kit-v<X.Y.Z>.zip scripts/githooks/commit-msg | sed -n "s/^ROLE_PREFIXES='\(.*\)'/\1/p")'" scripts/*.sh scripts/githooks/*
   ```
 
   Stamp by hand whatever they print.
@@ -340,7 +341,7 @@ columns and never the cards.*
   the card left `todo/` (`forks-ac-changed-uncited`) now reads the citation on the changed bullet's own checklist line; a
   citation in another AC or in the Activity does not cover it. An in-flight card whose changed AC bullet carries no citation of
   its own now refuses at landing, naming the bullet: put the `[decision: D-NN]` on the bullet that changed. (This supersedes
-  "anywhere on the card" in the 0.9.0 entry in `KIT-RELEASE-HISTORY.md`.)
+  "citation anywhere" in the 0.9.0 entry in `KIT-RELEASE-HISTORY.md`.)
 - **A card moved to `qa_complete/` by `move-issue.sh` is checked for its `## QA Verdict` table.** That is every
   direct-to-trunk card and every landing done by hand; `finish-pr.sh` already checked its card. An in-flight card whose table
   is unfilled now refuses the move, naming the rule and the fix. Fill the table and commit it to the trunk first
@@ -383,13 +384,13 @@ columns and never the cards.*
   commit that sweeps the hat file in is not refused. No action otherwise.
 - **QA's evidence line must show the AC's observable.** `qa.md` step 4: the cited line is the assertion that shows it, not a test's title, a declaration or a call site; an AC covering work the card does not deliver is `FAIL_AC` (or goes back to the PM), never `PASS`. No action.
 - **`./scripts/read-verdict.sh <id>` reads a card's verdict on the trunk.** It prints the card's column on `<remote>/<trunk>`, each
-  QA Verdict row's verdict, and whether the landing gate would accept the table; it writes nothing. The Orchestrator runs it before
-  promoting any QA reply to a board move, direct-to-trunk cards included (`orchestrate/SKILL.md` § 3). No action.
+  QA Verdict row's verdict, and whether the landing gate would accept the table; on success it writes nothing. The Orchestrator runs it before
+  promoting any QA reply to a board move, direct-to-trunk cards included (`orchestrate/SKILL.md` § Procedure, step 3). No action.
 - **A landing's Activity entry names the revisions the QA Verdict was read at.** `finish-pr.sh`'s `Review — PASS` entry carries the
   branch tip the check read and the squash commit it landed; a direct-to-trunk `move-issue.sh <ID> qa_complete` carries the trunk
   tip it read. Re-resolve a landed row's `path:line` at that revision, not at today's code. No action.
 - **A QA Verdict row is checked pointer by pointer.** Each quote is read against the `path:line` it follows, so a row that cites
-  two places lists both, each followed by its own quote (`README.md:2 "first"; src/a.js:8 "second"`). The landing check now refuses
+  two places lists both, each followed by its own quote (`README.md:2 "first quote"; src/a.js:8 "second quote"`). The landing check now refuses
   a pointer with no quote of its own (naming the pointer), a quote shorter than 8 characters (unless it is the cited line's whole
   text), and two rows for one AC id (write one row that lists every pointer). No action unless an in-flight card carries a row of
   those shapes; its next landing says which.
@@ -409,9 +410,22 @@ columns and never the cards.*
   the older hooks and scripts, which govern a checkout it is switched to: its owner brings the trunk into it before it is
   switched to where the hooks run, or it is reviewed from a worktree (`qa.md` review step 2 says so). The upgrade seat does
   not merge it: tell the owner, then mark the item.
+- **An answered question is answered by adding a block; nothing clears it.** `dev/README.md`, `doctrine/orchestration.md` § A.5, the question file `ask.sh` writes and the
+  orchestrator role say the principal adds an `**Answer` block and the Orchestrator's PM-hat leg reconciles it (its re-ask passes `--role Orchestrator`, which `ask.sh` accepts
+  where the principal's own role is refused). `PROJECT.md` says a one-file channel is not reconciled by `check-board.sh`, so prefer the directory. No action.
+- **The QA Verdict note and `qa.md` step 4 state the rules the gate enforces.** A `|` in a quoted line is written `\|`; in a `gate-diff`/`fixture-diff` pointer any `word:number`
+  is read as a `path:line`; the shadow-check text goes in the pointer cell. The day-one checklist and both workflow runners' QA brief name the table, and the card templates carry
+  the same note. No action.
+- **`read-verdict.sh` says why a deferred PASS reads `would REFUSE`.** For a card in `dev_complete/` the output ends with a note that a deferred landing's evidence is on its
+  branch, not the trunk. The `orchestrate` skill's Procedure steps are headed `### Step 0.` to `### Step 4.`; cite the verdict step as `orchestrate/SKILL.md` § Procedure, step 3. No action.
+- **`PROJECT.md`'s setup note puts the test gate in `scripts/verify.sh`, and its surface list asks for a path expression per row.** `setup.sh` only invokes the gate. No action.
 
 ### Fixed
 
+- **The "stamp what arrived" `--roles` check works after `kit-upgrade.sh`.** It read the shipped role set from a `kit` branch only the git route creates, so on the default route
+  it listed every script. It now reads the set from the release's zip (`unzip -p <path-to>/project-kit-v<X.Y.Z>.zip scripts/githooks/commit-msg`), the same on both routes. No action.
+- **`PROJECT.md`'s contract-sheet check reports a removed gates-table row.** Its second command matched a sheet's path anywhere in the file; it now searches the table only. Re-run it
+  from the repository root after merging the new `PROJECT.md`. No action.
 - **A refused `register-commit.sh` leaves the kanban worktree clean.** It checks that every named path exists (in your checkout or on the trunk) before
   staging any, so a missing later path no longer strands the earlier ones staged for the next board move to trip over. After a landing your own
   checkout still holds the edited file: `git checkout -- <path>` (or delete it, if it was untracked) before you pull the trunk. No action.

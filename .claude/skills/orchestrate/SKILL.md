@@ -28,7 +28,7 @@ trunk branch, default `main`.
 
 ## Procedure
 
-### 0. Setup + propose the RUN PLAN (attended: then wait)
+### Step 0. Setup + propose the RUN PLAN (attended: then wait)
 
 1. **Read order — skip what's already in context.** The adapter (`AGENTS.md`) is auto-loaded
    at session start; do **not** re-read it. Read only what isn't loaded yet:
@@ -68,7 +68,7 @@ trunk branch, default `main`.
 > `blocked` pings through the run per role doc § Notifications. Subagents never notify; track
 > any delivery failure and report it at the end.
 
-### 1. Phase 1 — Batch Plan (a Workflow)
+### Step 1. Phase 1 — Batch Plan (a Workflow)
 
 Author and run a Workflow that fans out **one planning agent per issue** (N=1 → a single
 agent). Each planning agent:
@@ -87,7 +87,7 @@ file paths it reuses — against the codebase before trusting it. Consolidate ev
 Under the JIT-plan-per-issue model (role doc § The two-phase model) this phase folds into the
 per-issue refresh step instead, and the standalone gate below does not fire.
 
-### 2. GATE A — Plan review (conditional)
+### Step 2. GATE A — Plan review (conditional)
 
 - Consolidated list empty → proceed to Phase 2 (announce it, don't stop).
 - Non-empty → **stop**, present the decisions, resolve with the operator, then proceed.
@@ -97,7 +97,7 @@ per-issue refresh step instead, and the standalone gate below does not fire.
   present the plan(s) and stop even with an empty list, for trust calibration. Steady-state,
   honor the conditional rule.
 
-### 3. Phase 2 — Execute Loop (a Workflow, dependency-ordered)
+### Step 3. Phase 2 — Execute Loop (a Workflow, dependency-ordered)
 
 A pipeline over the ordered issue set. **Run the conductor's belt between every leg** (role
 doc § The conductor's belt) and record its readings in the run report. Per issue:
@@ -132,7 +132,9 @@ doc § The conductor's belt) and record its readings in the run report. Per issu
    and cannot read files, so before promoting any QA reply to a board move, direct-to-trunk cards
    included, fetch the trunk and run `./scripts/read-verdict.sh <PREFIX>-NNN`: it prints the card's
    column on the trunk, each row's verdict, and whether the landing gate would accept the table. A
-   landed PASS sits in `qa_complete/` with no FAIL row, a deferred landing in `dev_complete/`. The
+   landed PASS sits in `qa_complete/` with no FAIL row, a deferred landing in `dev_complete/`; a
+   deferred PASS reads `would REFUSE` there, because its evidence is on its branch and the gate reads
+   the trunk — that is expected until the landing merges. The
    committed table is the verdict; where the reply and the card disagree the card wins, and the
    disagreement goes in the run report.
 4. Discovered tech-debt or todos → file it (a subtask if this is decomposition) and surface
@@ -152,7 +154,7 @@ no Agent tool.
 
 Keep a `progress.md` resume pointer current through long phases (role doc § Quota / resume).
 
-### 4. Report
+### Step 4. Report
 
 Emit a run report from `process/templates/run-report.template.md` (its no-launch-pack banner when no pack commissioned the run): **landed** / **parked for your call** / **bugs filed** / **new scope or
 todos surfaced for PM**, plus the conductor's-belt readings per leg. Name the OBSERVED claim behind
