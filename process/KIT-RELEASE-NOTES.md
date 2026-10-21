@@ -331,7 +331,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`check-board.sh` `[t]` can list an answered question it formerly hid.** A register entry that names the question file only counts once it was committed at or after the answer; a ruling written before the answer no longer clears it. Where the source has no readable history the arm keeps the old test and prints a note. No action required.
 
 ## [0.11.0] — 2026-10-20
 

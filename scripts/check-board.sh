@@ -33,7 +33,8 @@
 #   (s) model pins vs the ladder — a leaf-worker pin that disagrees with its ladder cell, or, where
 #       that cell is unfilled, with what scripts/set-models.sh last wrote (advisory).
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
-#       `**Answer` block and that no register entry cites, with the card it parks (advisory).
+#       `**Answer` block and that no register entry has cited since the answer, with the card it
+#       parks (advisory).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -1628,8 +1629,12 @@ fi
 # ---------------------------------------------------------------------------
 # (t) ANSWERED QUESTIONS NOT RECONCILED — a question file in the channel PROJECT.md declares
 #     (lib/pm-field.sh's kit_pm_channel_token, the reader scripts/ask.sh writes through) that carries
-#     an `**Answer` block and whose path appears in NO register file (the REGISTERS records above).
-#     The operand is that one fact: the path is cited, or it is not. Each finding names the card the
+#     an `**Answer` block and whose path no register file cites AFTER the answer: a register commit
+#     that introduced the path must descend from (or be) the commit that added the `**Answer` block,
+#     compared by ancestry, never by timestamp. A ruling that named the file before it was answered
+#     does not reconcile it, and an answer whose commit is not in history counts as unreconciled.
+#     History is read from the same ref as the rest of the arm; where none is readable (a tree with no
+#     commit, or the ref missing) any citation counts and the arm says so. Each finding names the card the
 #     question parks (its `**Parks card:**` line), else says none is named. Reports only, like
 #     [k]/[m]/[n]/[o]/[q]/[r]/[s]: the owner is the Orchestrator's PM-hat leg, not this report. A
 #     channel that is one file holds several questions and no answer can be tied to one of them: the
@@ -1670,22 +1675,36 @@ else
   done <<T_REGS
 $REGISTERS
 T_REGS
+  t_href=""
+  if [ -n "$CB_REF" ]; then t_href="$CB_REF"
+  elif git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then t_href="HEAD"; fi
+  [ -n "$t_href" ] || echo "      – no commit history is readable in this source: a register citation counts wherever it sits, including one written before the answer"
   t_read=0; t_found=0
   for t_f in "$CB_TREE/$t_dir"/*-ask.md; do
     [ -f "$t_f" ] || continue
     t_read=$((t_read + 1))
     grep -qE '^\*\*Answer' "$t_f" 2>/dev/null || continue
     t_rel="$t_dir/${t_f##*/}"
-    t_cited=0
+    t_cited=0; t_ans=""
+    [ -z "$t_href" ] || t_ans="$(git -C "$REPO_ROOT" log --reverse -G'^\*\*Answer' --format=%H "$t_href" -- "$t_rel" 2>/dev/null | head -1)"
     while IFS= read -r t_rpath; do
       [ -n "$t_rpath" ] || continue
-      if grep -qF -- "$t_rel" "$CB_TREE/$t_rpath" 2>/dev/null; then t_cited=1; break; fi
+      grep -qF -- "$t_rel" "$CB_TREE/$t_rpath" 2>/dev/null || continue
+      if [ -z "$t_href" ]; then t_cited=1; break; fi
+      [ -n "$t_ans" ] || continue
+      while IFS= read -r t_c; do
+        [ -n "$t_c" ] || continue
+        if git -C "$REPO_ROOT" merge-base --is-ancestor "$t_ans" "$t_c" 2>/dev/null; then t_cited=1; break; fi
+      done <<T_COMMITS
+$(git -C "$REPO_ROOT" log -S"$t_rel" --format=%H "$t_href" -- "$t_rpath" 2>/dev/null)
+T_COMMITS
+      [ "$t_cited" -eq 0 ] || break
     done <<T_CITES
 $t_regs
 T_CITES
     [ "$t_cited" -eq 0 ] || continue
     t_card="$(awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }' "$t_f" 2>/dev/null || true)"
-    echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered, ${t_reg_names} does not cite it"
+    echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered, ${t_reg_names} does not cite it since the answer"
     t_found=$((t_found + 1))
   done
   if [ "$t_found" -gt 0 ]; then

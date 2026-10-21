@@ -483,6 +483,7 @@ CASES=(
   case_check_board_reverse_coverage
   case_check_board_model_pins_arm
   case_check_board_answered_question_arm
+  case_check_board_answered_question_cited_before_the_answer
   case_set_models_second_call_moves_the_ladder_row
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted

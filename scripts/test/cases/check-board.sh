@@ -2959,6 +2959,72 @@ REG
 }
 
 # =============================================================================
+# CASE — check-board's [t] counts a register citation of an answered question file only when the
+# commit that introduced it descends from (or is) the commit that added the `**Answer` block.
+#
+# The fixture follows the real order: three questions are filed and committed; a ruling that names
+# the second is committed BEFORE any answer; the first two are answered and committed; a ruling
+# citing the first lands AFTER; the third is answered in the SAME commit as the ruling that cites it.
+# Rows: (i) cited after the answer -> not listed; (ii) cited only before it -> listed;
+# (iii) cited in the answer's own commit -> not listed; (iv) no history readable -> any citation
+# counts and the arm prints a note; ablation: with the ordering test disabled, (ii) goes unlisted.
+# =============================================================================
+case_check_board_answered_question_cited_before_the_answer() {
+  cf_reset
+  make_sandbox
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  printf '# DECISIONS.md\n\n## A. test bucket\n\n### D-01 — an unrelated ruling\n\n**Ruling.** Keep it small.\n**Why.** Because.\n**Provenance.** 2026-01-01, no work item.\n\n---\n' > "$SB_WORK/requirements/DECISIONS.md"
+  publish_sandbox
+  _qpath() { local q="$1"; printf 'dev/questions/%s' "${q#*/dev/questions/}"; }
+  _ruling() {  # <D-id> <path>
+    printf '\n### %s — a ruling\n\n**Ruling.** As asked.\n**Why.** Because.\n**Provenance.** 2026-10-17, asked in %s; no work item.\n\n---\n' "$1" "$2" >> "$SB_WORK/requirements/DECISIONS.md"
+  }
+  local o1 o2 o3 q1 q2 q3 r1 r2 r3 out sec
+  o1="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec1" ./scripts/ask.sh --role PM "Question one?" --default "A." 2>&1 )" || _fixture_die "ask.sh refused: $o1"
+  o2="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec2" ./scripts/ask.sh --role PM "Question two?" --default "B." 2>&1 )" || _fixture_die "ask.sh refused: $o2"
+  o3="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec3" ./scripts/ask.sh --role PM "Question three?" --default "C." 2>&1 )" || _fixture_die "ask.sh refused: $o3"
+  q1="$(printf '%s\n' "$o1" | sed -n 's/^ask.sh: question written to //p')"; r1="$(_qpath "$q1")"
+  q2="$(printf '%s\n' "$o2" | sed -n 's/^ask.sh: question written to //p')"; r2="$(_qpath "$q2")"
+  q3="$(printf '%s\n' "$o3" | sed -n 's/^ask.sh: question written to //p')"; r3="$(_qpath "$q3")"
+  [ -f "$q1" ] && [ -f "$q2" ] && [ -f "$q3" ] || _fixture_die "case_check_board_answered_question_cited_before_the_answer: ask.sh wrote no question file(s)"
+  publish_sandbox
+  _ruling D-02 "$r2"; publish_sandbox                                  # cites question two BEFORE any answer
+  printf '\n**Answer (2026-10-17, Ros):** One.\n' >> "$q1"
+  printf '\n**Answer (2026-10-17, Ros):** Two.\n' >> "$q2"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" >/dev/null || cf "pre: $r1 (answered, not yet cited) is not listed: $sec"
+  _ruling D-03 "$r1"; publish_sandbox                                  # cites question one AFTER its answer
+  printf '\n**Answer (2026-10-17, Ros):** Three.\n' >> "$q3"; _ruling D-04 "$r3"; publish_sandbox   # same commit
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" >/dev/null && cf "i: $r1 is listed although a ruling cites it after the answer: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null || cf "ii: $r2 is not listed although it was cited only before the answer: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r3" >/dev/null && cf "iii: $r3 is listed although a ruling cites it in the answer's own commit: $sec"
+  printf '%s\n' "$sec" | grep -i 'no commit history' >/dev/null && cf "history is readable here, yet the arm printed the no-history note: $sec"
+
+  # (iv) the same files in a tree with no commit: today's behaviour (any citation counts), and the note.
+  local nh="$SB_TMP/nohist"
+  rm -rf "$nh"; mkdir -p "$nh"
+  ( cd "$SB_WORK" && tar -cf - --exclude=.git . ) | ( cd "$nh" && tar -xf - ) || _fixture_die "could not copy the sandbox tree"
+  git -C "$nh" init -q >/dev/null 2>&1 || _fixture_die "git init failed in the copy"
+  out="$( cd "$nh" && env -u CLAUDE_PROJECT_DIR ./scripts/check-board.sh 2>&1 )"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep -i 'no commit history' >/dev/null || cf "iv: the arm did not say it could read no history: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null && cf "iv: $r2 is listed without history, where any citation counts: $sec"
+
+  # ABLATION — disable the ordering test; (ii) must stop being listed.
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -q 'merge-base --is-ancestor "$t_ans" "$t_c"' "$s" || cf "(control) no ordering test in check-board.sh — cannot ablate"
+  sed -i.bak 's/git -C "\$REPO_ROOT" merge-base --is-ancestor "\$t_ans" "\$t_c" 2>\/dev\/null/true/' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null && cf "(control) the ablation left (ii) listed — the row does not depend on the ordering test: $sec"
+
+  finish "arm (t): a register citation counts only from a commit that is, or descends from, the answer's commit: cited after -> not listed, cited only before -> listed, same commit -> not listed, no history -> any citation counts with a note, and disabling the ordering test unlists the before-only row"
+  teardown
+}
+
+# =============================================================================
 # CASE — A SECOND `set-models.sh --class <c>` WITH A DIFFERENT PAIR MOVES THE LADDER ROW TOO.
 #
 # The first call fills the row's blanks; the second meets FILLED cells. Both calls run in the real
