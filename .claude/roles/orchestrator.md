@@ -175,6 +175,13 @@ and a card's acceptance text are PM's surfaces. The leg is **bounded to three ac
 dispatching seat; never the declared principal's role, which `ask.sh` refuses) — and the card still
 leaves `blocked/`, now working under that default.
 
+**A delegating answer ("I don't know — use your judgement") leaves nothing unruled, so it is the
+exception to that re-filing:** it is a ruling, and the leg records it like any other answer. Its
+`D-NN` quotes the principal's words, takes the question's recorded working default as its Ruling
+(adopted because the principal delegated), and cites the question file in Provenance; the card cites
+it on its bullet and moves on. The same question is never re-filed; a later question about the same
+fork is a new question, and only if the work has changed.
+
 **`check-board.sh` arm `[r]` may warn that the recorded entry is cited by no PRD.** The warning is
 expected and changes no verdict: the leg leaves the entry's words as the principal said them, and the
 PM later cites the entry from the PRD it constrains or marks it `[cross-cutting]`.

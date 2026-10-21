@@ -101,7 +101,9 @@ reconciling means exactly three acts — record the literal answer as a `D-NN` t
 file; edit the parked card to cite it (`[decision: D-NN]` on the bullet it settles); move the card
 out of `blocked/`. Anything the answer leaves unruled is filed again through `ask.sh` under a working
 default, never ruled by the leg
-(`.claude/roles/orchestrator.md` § An answered question is ready work).
+(`.claude/roles/orchestrator.md` § An answered question is ready work). An answer that delegates the
+decision back is itself a ruling: the `D-NN` adopts the question's working default, and the same
+question is never filed again.
 *Why:* an answer nothing is woken to act on leaves its card parked in a column no session reads, with
 the principal's decision in a file nobody opens.
 
