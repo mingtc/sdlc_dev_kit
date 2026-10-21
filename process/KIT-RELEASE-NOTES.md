@@ -343,6 +343,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **`register-commit.sh` no longer tags a subject twice.** A `--message` that already begins with the `--role` tag (`[PM] Record D-12`) keeps it once; one that begins with another declared role's tag is refused (`register-message-tag-mismatch`), and its `Next:` line says to drop the tag or switch the hat. No action.
 - **A landing's Activity entry always names the revision the QA Verdict was read at.** `finish-pr.sh` appends `(verdict read at <sha>)` to a `--note` you pass, as it already wrote it in the default note; the direct-to-trunk `move-issue.sh <ID> qa_complete` writes the same string. No action.
 - **A verbatim quote of a backticked line now passes the QA gate.** The evidence cell was already read with its backticks removed; the cited line now is too, so a line quoted exactly as the file has it matches. No action.
 - **A quoted phrase in an evidence cell's prose is no longer checked as a quote.** A pointer's quote is the first double-quoted string after it, and each next one only when it follows the previous quote with whitespace or `;` alone between; any other double-quoted phrase is prose. A row that listed several quotes for one pointer separated by a comma or a word needs `;` or whitespace between them to keep each checked. No action for a row that already passed.

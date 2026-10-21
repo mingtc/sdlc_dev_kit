@@ -21,6 +21,9 @@
 #
 #   <R> = @ROLE_SET@
 #
+#   --message   The commit subject. The script prefixes [<R>] unless the message already begins with
+#               it; a message beginning with another role's tag is refused.
+#
 #   <path>...   One or more paths, relative to your checkout's root, whose CURRENT ON-DISK
 #               CONTENT (tracked or not, staged or not — this reads the working tree, not the
 #               index) is what lands. A path absent from your checkout but present on the trunk
@@ -144,6 +147,22 @@ if ! kit_role_member "$KIT_ROLE_SET" "$ROLE"; then
     "       That set is $KIT_ROLE_SRC." \
     "Next: re-run with --role set to one of: $KIT_ROLE_SET."
 fi
+
+# THE SUBJECT'S TAG: the script adds [<ROLE>]; a message that already begins with that tag keeps it
+# once, and one that begins with another declared role's tag is refused before the worktree is touched
+# (the commit would otherwise carry two seats' tags, or the wrong one).
+case "$MSG" in
+  "[${ROLE}]"|"[${ROLE}] "*) TAGGED=1 ;;
+  "["*"]"*)
+    _lead="${MSG#\[}"; _lead="${_lead%%]*}"
+    if [ "$_lead" != "$ROLE" ] && kit_role_member "$KIT_ROLE_SET" "$_lead"; then
+      kit_refuse 1 register-message-tag-mismatch \
+        "Error: --message begins with [$_lead] but --role is $ROLE; the subject would carry another seat's tag." \
+        "Next: drop the tag from --message and let the script add [$ROLE], or re-run with --role $_lead if that is the hat you are wearing."
+    fi
+    TAGGED="" ;;
+  *) TAGGED="" ;;
+esac
 
 # Resolve repo root + trunk (works from any worktree, on any branch).
 kwt_resolve
@@ -272,7 +291,7 @@ if [ ${#CHANGED[@]} -eq 0 ]; then
     "Next: edit the files first, or name the paths you actually changed; if the edit already landed, there is nothing to do."
 fi
 
-MESSAGE="[${ROLE}] ${MSG}"
+if [ -n "$TAGGED" ]; then MESSAGE="$MSG"; else MESSAGE="[${ROLE}] ${MSG}"; fi
 git -C "$KWT" commit -m "$MESSAGE" --quiet
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
 echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."

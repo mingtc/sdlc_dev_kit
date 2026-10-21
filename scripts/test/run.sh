@@ -439,6 +439,7 @@ CASES=(
   case_register_commit_lands_from_a_linked_worktree
   case_register_commit_refuses_a_second_copy_of_a_card
   case_register_commit_refusal_leaves_the_kanban_worktree_clean
+  case_register_commit_tags_the_subject_once
   case_push_failure
   case_trunk_fallback_warns
   case_archive_progress_sections

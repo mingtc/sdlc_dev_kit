@@ -2194,6 +2194,56 @@ case_register_commit_refusal_leaves_the_kanban_worktree_clean() {
 }
 
 # =============================================================================
+# CASE — register-commit.sh tags the subject once.
+#   (a) a message that already begins with the --role tag is landed with one tag;
+#   (b) an untagged message gets the tag;
+#   (c) a message beginning with ANOTHER declared role's tag is refused: the rule id, a Next: line and
+#       one refusal record; nothing reaches the trunk;
+#   (d) a message that only mentions the tag later in its text is tagged once, at the front.
+# RED FIRST: (a) lands '[R] [R] ...', (c) lands.
+# =============================================================================
+case_register_commit_tags_the_subject_once() {
+  cf_reset
+  make_sandbox
+  local rc_sh="$SB_WORK/scripts/register-commit.sh"
+  [ -x "$rc_sh" ] \
+    || { skp "register-commit.sh: tags the subject once" "scripts/register-commit.sh is absent from this tree"; teardown; return; }
+  local other out rc subj
+  other="$(printf '%s' "$KIT_NEUTRAL_ROLE_PREFIXES" | cut -d'|' -f2)"
+  [ -n "$other" ] && [ "$other" != "$SB_ROLE" ] || _fixture_die "case_register_commit_tags_the_subject_once: the neutral role set has no second member."
+  publish_sandbox
+  mkdir -p "$SB_WORK/dev"
+  _land() {   # $1 = file, $2 = message
+    printf 'record %s\n' "$1" > "$SB_WORK/dev/$1.md"
+    out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec-$1" ./scripts/register-commit.sh --role "$SB_ROLE" --message "$2" "dev/$1.md" 2>&1 )"; rc=$?
+  }
+  _subjects() { git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1; git -C "$SB_WORK" log "origin/$SB_TRUNK" --format=%s; }
+
+  _land a "[$SB_ROLE] Record D-99 tagged"
+  [ "$rc" -eq 0 ] || cf "(a) a message carrying the --role tag was refused (exit $rc): $out"
+  _subjects | grep -Fx "[$SB_ROLE] Record D-99 tagged" >/dev/null || cf "(a) the trunk has no subject '[$SB_ROLE] Record D-99 tagged': $(_subjects | head -3 | tr '\n' '|')"
+
+  _land b "Record D-98 untagged"
+  [ "$rc" -eq 0 ] || cf "(b) an untagged message was refused (exit $rc): $out"
+  _subjects | grep -Fx "[$SB_ROLE] Record D-98 untagged" >/dev/null || cf "(b) the trunk has no subject '[$SB_ROLE] Record D-98 untagged'"
+
+  _land d "Record D-96, as [$SB_ROLE] said"
+  [ "$rc" -eq 0 ] || cf "(d) a message mentioning the tag later was refused (exit $rc): $out"
+  _subjects | grep -Fx "[$SB_ROLE] Record D-96, as [$SB_ROLE] said" >/dev/null || cf "(d) the trunk has no subject tagged once at the front"
+
+  local before; before="$(_subjects | wc -l | tr -d ' ')"
+  _land c "[$other] Record D-97 under the wrong hat"
+  [ "$rc" -ne 0 ] || cf "(c) a message tagged [$other] under --role $SB_ROLE landed (exit 0): $out"
+  printf '%s' "$out" | grep -F 'Next:' >/dev/null || cf "(c) the refusal carries no Next: line: $out"
+  grep -q 'refusal=register-message-tag-mismatch' "$SB_TMP/rec-c"/*.tsv 2>/dev/null \
+    || cf "(c) no progress record carries refusal=register-message-tag-mismatch: $(cat "$SB_TMP/rec-c"/*.tsv 2>/dev/null)"
+  [ "$(_subjects | wc -l | tr -d ' ')" = "$before" ] || cf "(c) the refused message reached the trunk"
+
+  finish "register-commit.sh adds the --role tag once: a message already carrying it, an untagged one and one that mentions it later each land with a single leading tag; a message beginning with another declared role's tag is refused with register-message-tag-mismatch, a Next: line and a record, and nothing lands"
+  teardown
+}
+
+# =============================================================================
 # CASE — a forced push failure is LOUD and nonzero (never a silent proceed).
 # =============================================================================
 case_push_failure() {
