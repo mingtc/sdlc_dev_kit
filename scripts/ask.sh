@@ -15,8 +15,9 @@
 #      the asker, the time, the card it parks (if --card named one), the question, the working
 #      default, how the answer is recorded (the register entry, if --decision named one; the file
 #      itself, if not) and how to answer in this file: one `**Answer (...)**` block
-#      at its end. An answer in this file is reconciled only when a register entry cites this file's
-#      path (check-board.sh's answered-question arm lists the ones none cites).
+#      at its end. An answer in this file is reconciled only when a register line naming this file's
+#      path is written or edited at or after the answer (check-board.sh's answered-question arm
+#      lists the ones with none).
 #   2. with --decision D-NN naming a WITHDRAWN entry (no current ruling — DECISIONS.md
 #      § The THIRD state): records the working default as PROVISIONAL, amending that entry's
 #      Ruling field to `WORKING DEFAULT (provisional, asked <date>, <question file>)` (§ The
@@ -264,7 +265,7 @@ case "$DECISION_STATE" in
     if [ -n "$DECISION" ]; then
       ANSWER_ROUTE="--decision $DECISION does not name a live entry in requirements/DECISIONS.md (no '### $DECISION' heading) — this file is where the default is recorded instead"
     else
-      ANSWER_ROUTE="this file — the principal (or whoever answers on their behalf) adds an Answer block to it; the file is never cleared, and a register entry citing its path records the answer"
+      ANSWER_ROUTE="this file — the principal (or whoever answers on their behalf) adds an Answer block to it; the file is never cleared, and a register line naming its path, written at or after the answer, records it"
     fi
     ;;
 esac
@@ -285,7 +286,7 @@ esac
     printf 'file — %s.\n' "process/doctrine/orchestration.md § A.5's unattended corollary: record and keep working"
   fi
   printf '\n**How the answer is recorded:** %s\n' "$ANSWER_ROUTE"
-  printf '\n**To answer:** add one block at the very end of this file, `**Answer (<YYYY-MM-DD>, <who>):** <the answer>`. It is reconciled when a requirements/DECISIONS.md entry cites this file'"'"'s path.\n'
+  printf '\n**To answer:** add one block at the very end of this file, `**Answer (<YYYY-MM-DD>, <who>):** <the answer>`. An answer that hands the decision back ("use your judgement") adopts the working default above as the ruling. It is reconciled when a requirements/DECISIONS.md line naming this file'"'"'s path is written or edited at or after the answer.\n'
 } >> "$QFILE" || kit_refuse 1 ask-write-failed \
   "Error: could not write the question to $QFILE." \
   "Next: check that the channel's directory is writable and the disk has room, then re-run. If it still fails, stop and hand off with the question in your report."

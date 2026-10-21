@@ -27,7 +27,7 @@
 #     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
 #     qa-verdict-self-pointer, qa-verdict-pointer-unresolved, qa-verdict-quote-missing,
 #     qa-verdict-quote-too-short, qa-verdict-quote-not-found, qa-verdict-no-observed.
-#     A pointer to the card's own file (in any column) is qa-verdict-self-pointer: the card records
+#     A pointer to the card's own file (in any board column) is qa-verdict-self-pointer: the card records
 #     the review, it is not the content reviewed, and its path changes at every board move.
 #     A cell may contain a pipe written `\|` (kit_md_row_cell).
 #
@@ -250,7 +250,7 @@ _qav_quote_in_range() {
   return 1   # return-class: predicate
 }
 
-# _qav_is_own_card <path> <card-id> — true if <path> is the card's own file in any column: a file
+# _qav_is_own_card <path> <card-id> — true if <path> is the card's own file in any board column: a file
 # under a progress/ directory named <card-id>-*.md. The card is found by its id, not by the caller's
 # path, so a pointer is caught whichever column it was written in and whichever column the card is
 # read from. A parent's id does not claim its slices' files.
@@ -803,6 +803,7 @@ kit_forks_check() {
       "Next: restore the REGISTERS= declaration in scripts/check-board.sh from version control or the release zip; do not hard-code a register path anywhere else. If the file was not yours to change, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
+  # Only registers declared with the D-NN shape are read here; arm [l] reads each declared register's own shape.
   _forks_regs="$(printf '%s\n' "$_forks_declared" | awk -F'|' '$3 == "D-[0-9]+" { print }')"
   # THE ONE READER: kit_decisions_cited (lib/decision-register.sh) — case-insensitive label,
   # spacing-tolerant, list- and range-aware — the same reader arm (l) and arm (r) read a citation

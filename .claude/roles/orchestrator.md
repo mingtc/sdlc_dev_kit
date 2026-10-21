@@ -152,7 +152,7 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
 ### An answered question is ready work
 
 A question filed through `scripts/ask.sh` is **answered** when its file carries an `**Answer` block
-and **reconciled** when a `requirements/DECISIONS.md` entry cites the file's path.
+and **reconciled** when a `requirements/DECISIONS.md` line naming the file's path is written or edited at or after the answer.
 `./scripts/check-board.sh` lists the ones answered and not reconciled, each with the card it
 parks. A card sits in `blocked/` on the question, the principal's answer sits in the file, and
 no other seat is woken to connect them: **you do, at session start and between legs, before any
@@ -162,11 +162,18 @@ Dispatch the **PM-hat leg** (the `pm-mint` worker; its row is **PM-hat mint** in
 contract) once per question. You dispatch it rather than doing the acts yourself: the register
 and a card's acceptance text are PM's surfaces. The leg is **bounded to three acts**, in this order:
 
-1. Record the answer's literal words as a `D-NN` in `requirements/DECISIONS.md` whose Provenance
-   cites the question file's path and ends `no work item` (the register has the entry's shape;
-   commit it with `./scripts/register-commit.sh`).
-2. Edit the card the question parks to cite it: `[decision: D-NN]` on the bullet it settles, and the
-   id in the card's `forks:`.
+1. Record the answer's literal words in `requirements/DECISIONS.md`, committed with
+   `./scripts/register-commit.sh`: as a new `D-NN` whose Provenance cites the question file's path
+   and ends `no work item` (the register has the entry's shape). **A question asked with
+   `--decision D-NN` is the exception:** that entry's Ruling reads `WORKING DEFAULT (provisional,
+   …, <question file>)`, so discharge THAT entry in place (`requirements/DECISIONS.md` § The FOURTH
+   state) — the Ruling takes the answer's words and the token comes off, the Provenance cites the
+   question file's path — and mint no second `D-NN` beside it.
+2. Edit the card the question parks to cite it: `[decision: D-NN]` on the bullet it settles (the
+   new id, or the discharged one), and the id in the card's `forks:`. Land the edit with
+   `./scripts/register-commit.sh --role PM --message "<PREFIX>-NNN: cite <D-NN>" progress/blocked/<PREFIX>-NNN-<slug>.md`
+   before act 3: the card is metadata on the trunk and the move re-derives the file there, so an
+   edit left in your own checkout is stranded.
 3. Move that card out of `blocked/` to the folder it came from
    (`./scripts/move-issue.sh <PREFIX>-NNN <folder> --role PM --note "Unblocked: <D-NN>."`).
 
@@ -178,8 +185,8 @@ leaves `blocked/`, now working under that default.
 **A delegating answer ("I don't know — use your judgement") leaves nothing unruled, so it is the
 exception to that re-filing:** it is a ruling, and the leg records it like any other answer. Its
 `D-NN` quotes the principal's words, takes the question's recorded working default as its Ruling
-(adopted because the principal delegated), and cites the question file in Provenance; the card cites
-it on its bullet and moves on. The same question is never re-filed; a later question about the same
+(adopted because the principal delegated; an entry discharged in place drops its token and keeps the
+default), and cites the question file in Provenance; the card cites it on its bullet and moves on. The same question is never re-filed; a later question about the same
 fork is a new question, and only if the work has changed.
 
 **`check-board.sh` arm `[r]` may warn that the recorded entry is cited by no PRD.** The warning is

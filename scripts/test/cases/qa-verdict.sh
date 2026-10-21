@@ -1215,6 +1215,63 @@ case_qa_verdict_self_pointer_refuses_at_the_move_and_the_reader() {
 }
 
 # =============================================================================
+# CASE — THE RELEASE NOTES' SELF-POINTER `Verify:` LINE JUDGES WHAT THE GATE JUDGES.
+# The line is read out of the shipped notes the way `kit-upgrade.sh --finish` reads it (that script's
+# own notes_items reader, extracted at run time) and run under `bash -c` in the project root.
+# Rows, in the real order (cards seeded, published to the trunk, then the line run):
+#   (a) a clean tree: an in-flight card whose TABLE points at ordinary content            -> exit 0;
+#   (b) an in-flight card whose PROSE names its own file plus `:` (a table that does not)   -> exit 0;
+#   (c) a card in qa_complete/ whose table names its own file (not in flight)               -> exit 0;
+#   (d) a planted self-pointer row on an in-flight card                                     -> exit 1;
+#   (e) a project with no progress/ at all                                                  -> exit 0.
+# =============================================================================
+case_release_notes_self_pointer_verify_judges_what_the_gate_judges() {
+  cf_reset
+  make_sandbox
+  local notes="$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" hist="$REAL_REPO_ROOT/process/KIT-RELEASE-HISTORY.md" ku="$SB_WORK/scripts/kit-upgrade.sh"
+  [ -f "$notes" ] && [ -f "$ku" ] \
+    || { skp "the self-pointer Verify: line judges what the gate judges" "process/KIT-RELEASE-NOTES.md or scripts/kit-upgrade.sh is absent from this tree"; teardown; return; }
+  local fn="$SB_TMP/notes-items.sh" rows cmd
+  sed -n '/^notes_items() {/,/^}/p' "$ku" > "$fn"
+  [ -s "$fn" ] || _fixture_die "case_release_notes_self_pointer_verify_judges_what_the_gate_judges: scripts/kit-upgrade.sh has no notes_items reader to extract"
+  rows="$( . "$fn"; if [ -f "$hist" ]; then notes_items "$notes" "$hist"; else notes_items "$notes"; fi )"
+  cmd="$(printf '%s\n' "$rows" | awk -F'\t' '$3 ~ /points at its own card/ { print $5; exit }')"
+  if [ -z "$cmd" ]; then
+    skp "the self-pointer Verify: line judges what the gate judges" "no Action required item about a QA Verdict row pointing at its own card carries a Verify: line in the shipped notes"
+    teardown; return
+  fi
+
+  local ida="$SB_PREFIX-781" idb="$SB_PREFIX-782" idc="$SB_PREFIX-783" idd="$SB_PREFIX-784" out rc
+  seed_issue dev_complete "$ida" plain chore "Table points at ordinary content" "n/a"
+  seed_issue in_progress "$idb" prose chore "Prose names its own file" "n/a"
+  printf '\nSee progress/in_progress/%s-prose.md:12 for the earlier note.\n' "$idb" >> "$SB_WORK/progress/in_progress/$idb-prose.md"
+  seed_issue qa_complete "$idc" landed chore "Landed card, table names its own file" "n/a"
+  KIT_ROW="| AC1 | PASS | file:line | progress/qa_complete/$idc-landed.md:1 \"---\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$SB_WORK/progress/qa_complete/$idc-landed.md"
+  grep -qF "progress/qa_complete/$idc-landed.md:1" "$SB_WORK/progress/qa_complete/$idc-landed.md" \
+    || _fixture_die "case_release_notes_self_pointer_verify_judges_what_the_gate_judges: the qa_complete row was not planted"
+  publish_sandbox
+  _run() { ( cd "$1" && env -u KIT_PROGRESS_DIR bash -c "$cmd" </dev/null >"$SB_TMP/verify.out" 2>&1 ); }
+
+  _run "$SB_WORK"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a,b,c) the line exited $rc on a tree with no in-flight self-pointer (a clean table, a card whose prose names its own file, a landed card): $(tr '\n' '|' < "$SB_TMP/verify.out" | cut -c1-300)"
+
+  seed_issue dev_complete "$idd" planted chore "Table points at its own card" "n/a"
+  _qsp_point "$SB_WORK/progress/dev_complete/$idd-planted.md" "progress/dev_complete/$idd-planted.md"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[QA] $idd: plant a self-pointer" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_release_notes_self_pointer_verify_judges_what_the_gate_judges: the planted card could not be published"
+  _run "$SB_WORK"; rc=$?
+  [ "$rc" -eq 1 ] || cf "(d) the line exited $rc, want 1, on an in-flight card whose QA Verdict row points at its own file: $(tr '\n' '|' < "$SB_TMP/verify.out" | cut -c1-300)"
+
+  mkdir -p "$SB_TMP/bare-project"
+  _run "$SB_TMP/bare-project"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) the line exited $rc in a project with no progress/: $(tr '\n' '|' < "$SB_TMP/verify.out" | cut -c1-300)"
+
+  finish "the release notes' self-pointer Verify: line, run as kit-upgrade.sh --finish runs it, exits 0 on a clean tree, on an in-flight card whose prose names its own file and on a landed card, 1 on an in-flight card whose QA Verdict row points at its own file, and 0 where there is no progress/"
+  teardown
+}
+
+# =============================================================================
 # CASE — WHAT COUNTS AS THE CARD'S OWN FILE. The gate finds the card by its id under a progress/
 # directory, not by the path of the file it was handed (read-verdict.sh hands it a scratch copy):
 # every column's spelling, a leading ./, a slice's subtasks/ column and a different slug are the

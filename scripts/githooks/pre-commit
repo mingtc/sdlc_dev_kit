@@ -225,7 +225,7 @@ if [ "$ANY_CODE" -eq 0 ]; then
   msg8="  (it never commits in this checkout — it lands the same content on the trunk through the"
   msg9="  standing kanban worktree, the way move-issue.sh lands a board move), or, when this branch's"
   msg9b="  code is what makes the change true, add it to the code commit it describes:"
-  msg9c="    git commit --amend   (with the path staged)"
+  msg9c="    git commit --amend   (with the path staged; put --amend before any -m/-F/-c/-C, the hook reads it only there)"
   msg10="  Staged paths:"
   msg11="$(printf '%s\n' "$STAGED" | sed 's/^/    /')"
   msg12="  Genuinely need to commit here anyway (importing a third party's commit verbatim, or a"

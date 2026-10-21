@@ -33,7 +33,7 @@
 #   (s) model pins vs the ladder — a leaf-worker pin that disagrees with its ladder cell, or, where
 #       that cell is unfilled, with what scripts/set-models.sh last wrote (advisory).
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
-#       `**Answer` block and that no register entry has cited since the answer, with the card it
+#       `**Answer` block and that no register line has named since the answer, with the card it
 #       parks (advisory).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
@@ -97,7 +97,8 @@ ISSUE_ID_KEY='id'
 ISSUE_ID_PATTERN='[A-Za-z]+-[0-9]+'
 # Check (d)'s second identifier space, the registers (contracts/drift-report.md invariant 4).
 # One record per register:  <path>|<heading mark>|<id shape>   (path repo-relative; an absent
-# register SKIPS with its reason). Add a record per register you keep.
+# register SKIPS with its reason). Add a record per register you keep. Arm (l) resolves a citation
+# against each record's own id shape; the landing's `forks:` check reads the `D-[0-9]+` records only.
 REGISTERS='requirements/DECISIONS.md|### |D-[0-9]+'
 # ─── ARM (l)'s OPERANDS: declared reference integrity ────────────────────────
 # Only text that DECLARES itself a citation is read. Never a bare id grep plus a comment strip: a
@@ -1630,9 +1631,11 @@ fi
 # (t) ANSWERED QUESTIONS NOT RECONCILED — a question file in the channel PROJECT.md declares
 #     (lib/pm-field.sh's kit_pm_channel_token, the reader scripts/ask.sh writes through) that carries
 #     an `**Answer` block and whose path no register file cites AFTER the answer: a register commit
-#     that introduced the path must descend from (or be) the commit that added the `**Answer` block,
-#     compared by ancestry, never by timestamp. A ruling that named the file before it was answered
-#     does not reconcile it, and an answer whose commit is not in history counts as unreconciled.
+#     that wrote a line naming the path (a line it ADDED, so moving the path between fields of one
+#     entry counts and only deleting it does not) must descend from (or be) the commit that added the
+#     `**Answer` block, compared by ancestry, never by timestamp. A ruling that named the file before it
+#     was answered does not reconcile it, and an answer whose commit is not in history counts as
+#     unreconciled.
 #     History is read from the same ref as the rest of the arm; where none is readable (a tree with no
 #     commit, or the ref missing) any citation counts and the arm says so. Each finding names the card the
 #     question parks (its `**Parks card:**` line), else says none is named. Reports only, like
@@ -1686,6 +1689,7 @@ T_REGS
     grep -qE '^\*\*Answer' "$t_f" 2>/dev/null || continue
     t_rel="$t_dir/${t_f##*/}"
     t_cited=0; t_ans=""
+    t_re="$(printf '%s' "$t_rel" | sed 's/[][\\.*^$]/\\&/g')"
     [ -z "$t_href" ] || t_ans="$(git -C "$REPO_ROOT" log --reverse -G'^\*\*Answer' --format=%H "$t_href" -- "$t_rel" 2>/dev/null | head -1)"
     while IFS= read -r t_rpath; do
       [ -n "$t_rpath" ] || continue
@@ -1696,7 +1700,8 @@ T_REGS
         [ -n "$t_c" ] || continue
         if git -C "$REPO_ROOT" merge-base --is-ancestor "$t_ans" "$t_c" 2>/dev/null; then t_cited=1; break; fi
       done <<T_COMMITS
-$(git -C "$REPO_ROOT" log -S"$t_rel" --format=%H "$t_href" -- "$t_rpath" 2>/dev/null)
+$(git -C "$REPO_ROOT" log -G"$t_re" -p -U0 --no-color --format='commit %H' "$t_href" -- "$t_rpath" 2>/dev/null \
+    | awk -v p="$t_rel" -v hdr="+++ b/$t_rpath" '/^commit [0-9a-f]+$/ { h = $2; next } $0 == hdr { next } /^\+/ && index($0, p) { print h }' | sort -u)
 T_COMMITS
       [ "$t_cited" -eq 0 ] || break
     done <<T_CITES

@@ -347,6 +347,7 @@ CASES=(
   case_finish_pr_refuses_a_branch_that_breaks_frontmatter_ids
   case_finish_pr_refuses_a_branch_that_breaks_blocks_symmetry
   case_finish_pr_refuses_a_branch_that_breaks_a_register_citation
+  case_register_citations_read_each_registers_own_id_shape
   case_finish_pr_refuses_a_branch_that_breaks_corpus_coverage
   case_finish_pr_refuses_a_branch_that_breaks_register_shape
   case_finish_pr_board_property_check_refuses_without_the_trunks_declarations
@@ -375,6 +376,7 @@ CASES=(
   case_move_issue_qa_complete_runs_the_verdict_check
   case_finish_pr_qa_verdict_self_pointer_refuses
   case_qa_verdict_self_pointer_refuses_at_the_move_and_the_reader
+  case_release_notes_self_pointer_verify_judges_what_the_gate_judges
   case_qa_gate_self_pointer_spellings
   case_qa_landing_activity_names_the_revision_read
   case_landing_note_always_carries_the_revision_clause
@@ -492,6 +494,7 @@ CASES=(
   case_check_board_model_pins_arm
   case_check_board_answered_question_arm
   case_check_board_answered_question_cited_before_the_answer
+  case_check_board_answered_question_discharged_in_place
   case_set_models_second_call_moves_the_ladder_row
   case_check_board_arrow_beats_mention
   case_check_board_declined_is_judged_and_counted

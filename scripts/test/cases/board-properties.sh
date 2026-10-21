@@ -295,6 +295,83 @@ EOF
 }
 
 # =============================================================================
+# CASE — [l] READS EACH DECLARED REGISTER'S OWN ID SHAPE, not only D-NN.
+# A second register, `requirements/RULINGS.md|### |R-[0-9]+`, is declared next to the first. Its live
+# R-01 is cited `[decision: R-01]`. Every row is in the real order (the register is committed, the
+# cards minted, the branch cut, the trunk moved).
+# Rows: (a) the report counts R-01 as live and does not flag the citation; (b) a citation of R-77 is
+# still a dangling finding; (c) a landing whose branch cites R-01 and ADDS `### R-02` to the second
+# register under `forks: none` lands: the citation resolves, and the forks check stays D-NN-only
+# (it would refuse a D-NN added under `forks: none`); (d) a landing citing R-77 is refused.
+# =============================================================================
+case_register_citations_read_each_registers_own_id_shape() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  local cb="$SB_WORK/scripts/check-board.sh"
+  perl -i -pe "s{^(REGISTERS='requirements/DECISIONS\\.md\\|### \\|D-\\[0-9\\]\\+)'\$}{\$1\\nrequirements/RULINGS.md|### |R-[0-9]+'}" "$cb"
+  grep -qxF "requirements/RULINGS.md|### |R-[0-9]+'" "$cb" \
+    || _fixture_die "case_register_citations_read_each_registers_own_id_shape: the second register was not declared in check-board.sh"
+  cat > "$SB_WORK/requirements/RULINGS.md" <<'EOF'
+# RULINGS
+
+## A. Bucket
+
+### R-01
+
+**Ruling.** One, in the second register.
+**Why.** Because.
+**Provenance.** Here.
+
+## Findings
+
+Nothing yet. Rows below are appended after the last entry.
+EOF
+  printf 'Per [decision: R-01].\n' > "$SB_WORK/docs/cites-r01.md"
+  printf 'Per [decision: R-77].\n' > "$SB_WORK/docs/cites-r77.md"
+  publish_sandbox
+
+  local out
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_l_section | grep -F 'RULINGS.md' | grep -F '3 live id(s)' >/dev/null \
+    || cf "(a) the report does not count the second register's R-01 among the live ids: $(printf '%s\n' "$out" | _cb_l_section | head -4 | tr '\n' '|')"
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep -F 'docs/cites-r01.md' >/dev/null \
+    && cf "(a) a citation of the second register's live R-01 is reported: $(printf '%s\n' "$out" | _cb_l_section | grep '⚠' | tr '\n' '|')"
+  printf '%s\n' "$out" | _cb_l_section | grep '⚠' | grep -F 'docs/cites-r77.md cites R-77' | grep -F 'NOT an entry' >/dev/null \
+    || cf "(b) a citation of R-77, which no register holds, is not reported as dangling: $(printf '%s\n' "$out" | _cb_l_section | tr '\n' '|')"
+
+  # (c) the branch cites R-01 and adds R-02 to the second register, 'forks: none'.
+  local idc="$SB_PREFIX-751"
+  git -C "$SB_WORK" rm -q docs/cites-r77.md >/dev/null 2>&1 || _fixture_die "case_register_citations_read_each_registers_own_id_shape: could not drop docs/cites-r77.md"
+  sbcommit -m "[PM] drop the dangling note" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  _bpf_begin "$idc" second
+  printf 'Also per [decision: R-01].\n' > "$SB_WORK/docs/also-r01.md"
+  cat >> "$SB_WORK/requirements/RULINGS.md" <<'EOF'
+
+### R-02
+
+**Ruling.** Two, decided on this branch.
+**Why.** Because.
+**Provenance.** Here.
+EOF
+  _bpf_end "$idc" second
+  _bpf_land "$idc"
+  [ "$_BPF_RC" -eq 0 ] || cf "(c) a branch citing the second register's R-01 and adding R-02 there under 'forks: none' — finish-pr.sh exited $_BPF_RC: $(printf '%s' "$_BPF_OUT" | tail -6 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$idc-second.md" || cf "(c) the card did not advance to qa_complete/"
+
+  # (d) the branch cites R-77.
+  local idd="$SB_PREFIX-752"
+  _bpf_begin "$idd" dangling
+  printf 'See [decision: R-77].\n' > "$SB_WORK/docs/new-r77.md"
+  _bpf_end "$idd" dangling
+  _bpf_expect_refused "(d) a branch citing an R-NN no register holds" "$idd" dangling board-citation-unresolved "R-77"
+
+  finish "arm [l] and the landing's citation check read each declared register's own id shape: a second register's live R-01 is counted and its citation resolves, a citation of an R-NN no register holds is still dangling, a landing citing R-01 and adding R-02 there under 'forks: none' lands (the forks check stays D-NN-only), and one citing R-77 is refused with refusal=board-citation-unresolved"
+  teardown
+}
+
+# =============================================================================
 # CASE — [p] / [r] CORPUS FORWARD AND REVERSE COVERAGE, when the branch touches requirements/.
 # =============================================================================
 case_finish_pr_refuses_a_branch_that_breaks_corpus_coverage() {

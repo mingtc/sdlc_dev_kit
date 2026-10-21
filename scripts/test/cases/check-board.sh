@@ -3025,6 +3025,103 @@ case_check_board_answered_question_cited_before_the_answer() {
 }
 
 # =============================================================================
+# CASE — check-board's [t] counts a WORKING DEFAULT DISCHARGED IN PLACE as a citation made after the
+# answer, and does not count a post-answer commit that only REMOVES a line naming the path.
+#
+# The fixture follows the real order: two WITHDRAWN register entries; two questions asked with
+# `ask.sh --decision` (each Ruling now carries its question file's path) and committed; a note naming
+# the second question file lands in an unrelated entry (before any answer); both questions are
+# answered and committed; the first entry is discharged IN PLACE (the path moves from Ruling to
+# Provenance, so the file holds it the same number of times); the second entry's Ruling is replaced
+# by words without the path (a commit that only removes a line naming it, while the earlier note
+# keeps the path in the file).
+# Rows: (i) before the discharge both are listed; (ii) after it the first is not listed;
+# (iii) the second is still listed; ablation: counting a removed line as a citation unlists (iii).
+# =============================================================================
+case_check_board_answered_question_discharged_in_place() {
+  cf_reset
+  make_sandbox
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  cat > "$SB_WORK/requirements/DECISIONS.md" <<'REG'
+# DECISIONS.md
+
+## A. test bucket
+
+### D-01 — an unrelated ruling
+
+**Ruling.** Keep it small.
+**Why.** Because.
+**Provenance.** 2026-01-01, no work item.
+
+### D-02 — the retention period
+
+**Ruling.** WITHDRAWN 2026-09-20 — the prior period was revoked pending a new one.
+**Why.** The shop manager asked for a review.
+**Provenance.** withdrawn 2026-09-20, project log.
+
+### D-03 — the weekday
+
+**Ruling.** WITHDRAWN 2026-09-20 — the prior weekday was revoked pending a new one.
+**Why.** The rota changed.
+**Provenance.** withdrawn 2026-09-20, project log.
+
+---
+REG
+  publish_sandbox
+  _qpath() { local q="$1"; printf 'dev/questions/%s' "${q#*/dev/questions/}"; }
+  local o1 o2 q1 q2 r1 r2 out sec dec="$SB_WORK/requirements/DECISIONS.md"
+  o1="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec1" ./scripts/ask.sh --role PM "How long to keep details?" --default "Hold." --decision D-02 2>&1 )" \
+    || _fixture_die "ask.sh --decision refused in the sandbox: $o1"
+  o2="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec2" ./scripts/ask.sh --role PM "Which weekday?" --default "Monday." --decision D-03 2>&1 )" \
+    || _fixture_die "second ask.sh --decision refused in the sandbox: $o2"
+  q1="$(printf '%s\n' "$o1" | sed -n 's/^ask.sh: question written to //p')"; r1="$(_qpath "$q1")"
+  q2="$(printf '%s\n' "$o2" | sed -n 's/^ask.sh: question written to //p')"; r2="$(_qpath "$q2")"
+  [ -f "$q1" ] && [ -f "$q2" ] || _fixture_die "case_check_board_answered_question_discharged_in_place: ask.sh wrote no question file(s): '$q1' '$q2'"
+  grep -qF "WORKING DEFAULT (provisional, asked" "$dec" && grep -qF "$r1" "$dec" && grep -qF "$r2" "$dec" \
+    || _fixture_die "case_check_board_answered_question_discharged_in_place: ask.sh did not put both question paths in the Ruling lines"
+  publish_sandbox                                                      # the asks, committed
+  sed 's|^\*\*Why\.\*\* Because\.$|**Why.** Because; see '"$r2"'.|' "$dec" > "$dec.new" && mv "$dec.new" "$dec"
+  grep -qF "see $r2" "$dec" || _fixture_die "case_check_board_answered_question_discharged_in_place: the earlier note did not land"
+  publish_sandbox                                                      # names question two BEFORE any answer
+  printf '\n**Answer (2026-10-17, Ros):** Eighteen months.\n' >> "$q1"
+  printf '\n**Answer (2026-10-17, Ros):** Fridays.\n' >> "$q2"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" >/dev/null || cf "i: $r1 (answered, not yet discharged) is not listed: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null || cf "i: $r2 (answered, not yet discharged) is not listed: $sec"
+
+  # DISCHARGE D-02 IN PLACE: the Ruling takes the answer, the Provenance takes the question file's path.
+  awk -v p="$r1" '
+    /^### / { e = ($0 ~ /^### D-02 /) }
+    e && /^\*\*Ruling\.\*\*/ { print "**Ruling.** Eighteen months after the last confirmation."; next }
+    e && /^\*\*Provenance\.\*\*/ { print "**Provenance.** 2026-10-17, the principal'"'"'s answer in " p "; no work item."; next }
+    { print }' "$dec" > "$dec.new" && mv "$dec.new" "$dec"
+  grep -qF "answer in $r1" "$dec" || _fixture_die "case_check_board_answered_question_discharged_in_place: the in-place discharge did not take"
+  # D-03: the Ruling loses the path and nothing names it anew.
+  awk '
+    /^### / { e = ($0 ~ /^### D-03 /) }
+    e && /^\*\*Ruling\.\*\*/ { print "**Ruling.** Fridays."; next }
+    { print }' "$dec" > "$dec.new" && mv "$dec.new" "$dec"
+  grep -qF "$r2" "$dec" || _fixture_die "case_check_board_answered_question_discharged_in_place: the earlier note no longer names $r2, so the removal row proves nothing"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" >/dev/null && cf "ii: $r1 is listed although its entry was discharged in place after the answer, citing the path: $sec"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null || cf "iii: $r2 is not listed although the only commit after the answer REMOVED a line naming it: $sec"
+
+  # ABLATION — count a removed line as a citation; (iii) must stop being listed.
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -qF '/^\+/ && index($0, ' "$s" || cf "(control) no added-line test in check-board.sh — cannot ablate"
+  sed -i.bak 's|/^\\+/ && index(\$0, |/^[-+]/ \&\& index($0, |' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r2" >/dev/null && cf "(control) the ablation left (iii) listed — the row does not depend on the added-line test: $sec"
+
+  finish "arm (t): a WITHDRAWN entry discharged in place after the answer (the path moves from Ruling to Provenance) is a citation and is not listed, a commit after the answer that only removes a line naming the path is not, and counting removed lines as citations unlists the second"
+  teardown
+}
+
+# =============================================================================
 # CASE — A SECOND `set-models.sh --class <c>` WITH A DIFFERENT PAIR MOVES THE LADDER ROW TOO.
 #
 # The first call fills the row's blanks; the second meets FILLED cells. Both calls run in the real

@@ -61,6 +61,9 @@
 #
 # Without --branch, the branch is read from the issue file's `branch:`
 # frontmatter in progress/dev_complete/.
+# --note "...": the Activity entry's body; omitted, it is composed from what the run did. A note you
+#   pass keeps its words and gets ` (verdict read at <sha>)` appended, the revision the QA Verdict
+#   was read at, unless it already says "verdict read at".
 # --worktree <path>: run the BLOCKING pre-merge gate against a genuine git worktree of THIS
 #   repo (QA's own checkout of the branch) instead of the main checkout — needed when the main
 #   checkout belongs to a parallel leg. The gate ALWAYS runs the trunk's committed
@@ -286,7 +289,7 @@ fi
 TITLE="$(kit_card_field "$SRC" title --raw)"   # a title is free text: a '#' in it is not a comment
 [ -z "$TITLE" ] && TITLE="$ISSUE_ID"
 # The default Activity note is composed AFTER the delete arms, from what they did (the NOTE_GIVEN
-# block below them). An operator-supplied --note is used verbatim.
+# block below them). An operator-supplied --note keeps its words; the revision clause is appended.
 
 # The branch must exist locally (its commits are what we squash).
 if ! BRANCH_REF="$(kit_card_branch_rev "$MAIN_ROOT" "$BRANCH" -)"; then

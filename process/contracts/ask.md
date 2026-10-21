@@ -95,7 +95,7 @@ was the right one. Those are the principal's and the project's.
 
 **The project's half: who reads an answer, and what reconciling it means.** A question file is
 *answered, not reconciled* while it carries an `**Answer` block and no `requirements/DECISIONS.md`
-entry cites its path. `scripts/check-board.sh` lists those files, each with the card the question
+line naming its path was written or edited at or after the answer. `scripts/check-board.sh` lists those files, each with the card the question
 parks. The Orchestrator is the reader: at session start it dispatches the PM-hat leg for each, and
 reconciling means exactly three acts — record the literal answer as a `D-NN` that cites the question
 file; edit the parked card to cite it (`[decision: D-NN]` on the bullet it settles); move the card

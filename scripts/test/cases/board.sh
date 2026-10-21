@@ -2262,7 +2262,10 @@ case_register_commit_refusal_leaves_the_kanban_worktree_clean() {
 #   (b) an untagged message gets the tag;
 #   (c) a message beginning with ANOTHER declared role's tag is refused: the rule id, a Next: line and
 #       one refusal record; nothing reaches the trunk;
-#   (d) a message that only mentions the tag later in its text is tagged once, at the front.
+#   (d) a message that only mentions the tag later in its text is tagged once, at the front;
+#   (e) a message beginning with the tag and a colon (`[R]: x`), or with the tag and no space, lands
+#       with ONE tag followed by a space;
+#   (g) the successful run's first line does not read as a failure, and --help carries no origin story.
 # RED FIRST: (a) lands '[R] [R] ...', (c) lands.
 # =============================================================================
 case_register_commit_tags_the_subject_once() {
@@ -2285,6 +2288,8 @@ case_register_commit_tags_the_subject_once() {
   _land a "[$SB_ROLE] Record D-99 tagged"
   [ "$rc" -eq 0 ] || cf "(a) a message carrying the --role tag was refused (exit $rc): $out"
   _subjects | grep -Fx "[$SB_ROLE] Record D-99 tagged" >/dev/null || cf "(a) the trunk has no subject '[$SB_ROLE] Record D-99 tagged': $(_subjects | head -3 | tr '\n' '|')"
+  printf '%s' "$out" | grep -F 'NOT yet published' >/dev/null \
+    && cf "(a) a run that went on to publish printed a line reading as a failure ('NOT yet published'): $out"
 
   _land b "Record D-98 untagged"
   [ "$rc" -eq 0 ] || cf "(b) an untagged message was refused (exit $rc): $out"
@@ -2294,6 +2299,16 @@ case_register_commit_tags_the_subject_once() {
   [ "$rc" -eq 0 ] || cf "(d) a message mentioning the tag later was refused (exit $rc): $out"
   _subjects | grep -Fx "[$SB_ROLE] Record D-96, as [$SB_ROLE] said" >/dev/null || cf "(d) the trunk has no subject tagged once at the front"
 
+  _land e "[$SB_ROLE]: Record D-95 with a colon"
+  [ "$rc" -eq 0 ] || cf "(e) a message carrying the --role tag and a colon was refused (exit $rc): $out"
+  _subjects | grep -Fx "[$SB_ROLE] Record D-95 with a colon" >/dev/null || cf "(e) the trunk has no subject '[$SB_ROLE] Record D-95 with a colon' (tagged once): $(_subjects | head -3 | tr '\n' '|')"
+  _land f "[$SB_ROLE]Record D-94 tight"
+  [ "$rc" -eq 0 ] || cf "(f) a message carrying the --role tag with no space after it was refused (exit $rc): $out"
+  _subjects | grep -Fx "[$SB_ROLE] Record D-94 tight" >/dev/null || cf "(f) the trunk has no subject '[$SB_ROLE] Record D-94 tight' (tagged once): $(_subjects | head -3 | tr '\n' '|')"
+  out="$( cd "$SB_WORK" && ./scripts/register-commit.sh --help 2>&1 )"
+  printf '%s' "$out" | grep -F 'WHY THIS EXISTS' >/dev/null && cf "(g) --help still carries the origin-story paragraph"
+  printf '%s' "$out" | grep -F -- '--message' >/dev/null || cf "(g) --help does not describe --message"
+
   local before; before="$(_subjects | wc -l | tr -d ' ')"
   _land c "[$other] Record D-97 under the wrong hat"
   [ "$rc" -ne 0 ] || cf "(c) a message tagged [$other] under --role $SB_ROLE landed (exit 0): $out"
@@ -2302,7 +2317,7 @@ case_register_commit_tags_the_subject_once() {
     || cf "(c) no progress record carries refusal=register-message-tag-mismatch: $(cat "$SB_TMP/rec-c"/*.tsv 2>/dev/null)"
   [ "$(_subjects | wc -l | tr -d ' ')" = "$before" ] || cf "(c) the refused message reached the trunk"
 
-  finish "register-commit.sh adds the --role tag once: a message already carrying it, an untagged one and one that mentions it later each land with a single leading tag; a message beginning with another declared role's tag is refused with register-message-tag-mismatch, a Next: line and a record, and nothing lands"
+  finish "register-commit.sh adds the --role tag once: a message already carrying it, an untagged one and one that mentions it later each land with a single leading tag; the tag followed by a colon or by no space lands as one tag and a space; a message beginning with another declared role's tag is refused with register-message-tag-mismatch, a Next: line and a record, and nothing lands; a run that publishes does not print 'NOT yet published', and --help carries no origin story"
   teardown
 }
 

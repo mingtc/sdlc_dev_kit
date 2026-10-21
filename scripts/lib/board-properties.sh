@@ -340,13 +340,14 @@ kit_bp_citations() {
 $lreg_shape"
     # § Retired ids are read through two filters (HTML comment spans stripped, then anchored on the
     # row's FIRST backticked id): lib/decision-register.sh, one parser shared with the forks check.
+    # Each register's ids are kept only if they match THAT register's own declared shape.
     l_live="$l_live
-$(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape")"
+$(kit_decision_register_live "$lreg_file" "$lreg_mark" "$lreg_shape" | { grep -E "^(${lreg_shape})\$" || true; })"
     l_retired="$l_retired
-$(kit_decision_register_retired "$lreg_file" "$lreg_shape")"
+$(kit_decision_register_retired "$lreg_file" "$lreg_shape" | { grep -E "^(${lreg_shape})\$" || true; })"
   done <<< "$(printf '%s\n' "$REGISTERS")"
-  l_live="$(printf '%s\n' "$l_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
-  l_retired="$(printf '%s\n' "$l_retired" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  l_live="$(printf '%s\n' "$l_live" | awk 'NF' | sort -u || true)"
+  l_retired="$(printf '%s\n' "$l_retired" | awk 'NF' | sort -u || true)"
   l_shapes="$(printf '%s\n' "$l_shapes" | awk 'NF' | sort -u || true)"
   l_live_n="$(printf '%s\n' "$l_live" | grep -c . || true)"
   l_retired_n="$(printf '%s\n' "$l_retired" | grep -c . || true)"
@@ -777,7 +778,7 @@ _bp_findings_numbering() {
 # Ruling field opens with CROSS_CUTTING_MARKER binds the whole project, so no PRD is expected to
 # cite it. CANNOT SEE: an entry cited by its PRD in words but not the marker; an entry that
 # legitimately belongs to NO PRD and is not marked exempt (it cannot tell that from a miss); a
-# citation from a PRD outside PRD_SURFACE.
+# citation from a PRD outside PRD_SURFACE. It reads D-NN ids only; another register's ids are not checked here.
 kit_bp_reverse_coverage() {
   local tree="$1" r_reg_read=0 r_live="" r_exempt="" r_shapes="" r_cited="" r_hits=0
   local rreg_path rreg_mark rreg_shape rreg_file r_spans rid rstart rend rbody

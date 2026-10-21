@@ -4,13 +4,11 @@
 # Handoff-to-QA section — on the trunk from WHEREVER your checkout sits, including a linked
 # worktree on a branch of its own. It never commits in your checkout.
 #
-# WHY THIS EXISTS: the code-vs-metadata rule (process/MANUAL.md § The code-vs-metadata rule) is
-# mechanical — metadata commits direct to the trunk — but nothing gave a coordinator sitting in a
-# linked worktree that is NOT on the trunk ref a way to obey it short of a bare `git commit` on
-# the wrong branch. This script is that route: it reads the named paths' CURRENT CONTENT out of
-# your checkout, writes that content into the standing kanban worktree (already synced to the
-# trunk tip), and commits + pushes there — exactly the machinery move-issue.sh already uses for a
-# board move, generalized to any metadata path instead of only progress/.
+# The code-vs-metadata rule (process/MANUAL.md § The code-vs-metadata rule) sends metadata
+# commits direct to the trunk. This script is that route from a linked worktree that is NOT on the
+# trunk ref: it reads the named paths' CURRENT CONTENT out of your checkout, writes that content
+# into the standing kanban worktree (already synced to the trunk tip), and commits + pushes there,
+# the machinery move-issue.sh uses for a board move, for any metadata path instead of only progress/.
 #
 # YOUR CHECKOUT AFTER A LANDING is left as it was: a path you edited stays modified (or untracked)
 # there although the trunk now holds it, and a later `git pull --ff-only` is refused for it until you
@@ -21,8 +19,10 @@
 #
 #   <R> = @ROLE_SET@
 #
-#   --message   The commit subject. The script prefixes [<R>] unless the message already begins with
-#               it; a message beginning with another role's tag is refused.
+#   --message   The commit subject. The script prefixes `[<R>] ` unless the message already begins
+#               with the tag `[<R>]`; a tag followed by `:` or by no space is still that tag, and the
+#               subject lands with it once and a space after it (`[PM]: x` lands as `[PM] x`). A
+#               message beginning with another role's tag is refused.
 #
 #   <path>...   One or more paths, relative to your checkout's root, whose CURRENT ON-DISK
 #               CONTENT (tracked or not, staged or not — this reads the working tree, not the
@@ -153,6 +153,10 @@ fi
 # (the commit would otherwise carry two seats' tags, or the wrong one).
 case "$MSG" in
   "[${ROLE}]"|"[${ROLE}] "*) TAGGED=1 ;;
+  "[${ROLE}]"*)
+    # The tag with a delimiter other than a space: keep it once, followed by the space the commit-msg hook requires.
+    _rest="${MSG#"[${ROLE}]"}"; _rest="${_rest#:}"; _rest="${_rest#"${_rest%%[! ]*}"}"
+    MSG="[${ROLE}] ${_rest}"; TAGGED=1 ;;
   "["*"]"*)
     _lead="${MSG#\[}"; _lead="${_lead%%]*}"
     if [ "$_lead" != "$ROLE" ] && kit_role_member "$KIT_ROLE_SET" "$_lead"; then
@@ -294,7 +298,7 @@ fi
 if [ -n "$TAGGED" ]; then MESSAGE="$MSG"; else MESSAGE="[${ROLE}] ${MSG}"; fi
 git -C "$KWT" commit -m "$MESSAGE" --quiet
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
-echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
+echo "Commit: ${SHA} — made locally in the kanban worktree; publishing to the trunk next."
 echo "Paths:  ${CHANGED[*]}"
 
 # paths= must be ONE TOKEN (progress-record.md § Reserved extra keys' "collapsed to one token"

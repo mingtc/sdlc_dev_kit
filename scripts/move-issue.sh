@@ -60,7 +60,9 @@
 #   --note "..."     Activity-log body. On a move it defaults to "git mv to
 #                    <target>/." — except for blocked/, which requires a real one:
 #                    a parked card whose blocker is not written down cannot be
-#                    unparked by anyone but whoever parked it.
+#                    unparked by anyone but whoever parked it. A move to qa_complete/
+#                    that checks the verdict itself ends the entry with
+#                    " (verdict read at <sha>)", the revision the QA Verdict was read at.
 #   --discard-dirty  If the kanban worktree holds uncommitted tracked changes (a
 #                    half-applied move, a loose pr: edit), discard them instead of
 #                    aborting. Without it, such state ABORTS the op rather than

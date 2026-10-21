@@ -316,7 +316,7 @@ bounces it.
 4. **QA walks the AC line by line**, recording the walk in the card's `## QA Verdict` table — one
    row per AC id, plus a fixed `shadow-check` row — as `PASS`/`FAIL` per bullet with **concrete
    evidence** (a test name, a diff, a command's output, a payload shape); `finish-pr.sh` refuses a
-   PASS landing with no such table, a row with no usable evidence, a table with no `test`/`file:line` row, or a row whose verdict does not
+   PASS landing with no such table, a row with no usable evidence, a pointer to the card's own file (`qa-verdict-self-pointer`), a table with no `test`/`file:line` row, or a row whose verdict does not
    match step 6's token (`.claude/roles/qa.md` step 4). **An illustrative
    example inside an AC must cite its source or be labelled approximate** — an uncited example
    is read as the contract, and when it is wrong the review has no honest verdict left except the
@@ -622,11 +622,14 @@ fresh branch by default, not the trunk: a metadata edit made there has nowhere d
 bare `git commit` would land it on that branch instead of the trunk. `scripts/register-commit.sh`
 is the route — it reads the edit out of that checkout and lands it on the trunk through the
 standing kanban worktree, the same machinery `move-issue.sh` uses for a board move, and never
-commits in the linked checkout itself. `scripts/githooks/pre-commit` refuses a metadata-only
+commits in the linked checkout itself. Once `scripts/config.sh`'s `CODE_GLOBS` is declared (empty means
+unenforced, and nothing is refused), `scripts/githooks/pre-commit` refuses a metadata-only
 commit made this way and names both routes: the trunk, or the code commit the metadata describes
 (next paragraph). An amend is judged on the commit being made, HEAD's paths plus the staged ones, so a
 README added to a code commit by `git commit --amend` passes; a metadata-only amend of a metadata-only
-commit is refused as a fresh one is.
+commit is refused as a fresh one is. The hook reads `--amend` only before any `-m`, `-F`, `-c` or `-C`
+(`git commit --amend -m "…"`); after one, or from a tool that does not run `git commit`, the amend is
+judged as a fresh commit.
 
 **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
 capability matrix row, a doc correction that the code change *makes true* belongs in the commit
