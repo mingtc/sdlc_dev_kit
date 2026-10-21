@@ -430,6 +430,7 @@ CASES=(
   case_commit_msg_reads_trailers_through_the_one_reader
   case_pre_commit_undeclared_code_globs_is_a_noop
   case_pre_commit_refuses_metadata_off_trunk
+  case_pre_commit_judges_an_amend_on_the_commit_being_made
   case_pre_commit_reads_code_globs_through_the_shared_reader
   case_pre_commit_allows_metadata_on_trunk
   case_pre_commit_allows_code_on_a_branch

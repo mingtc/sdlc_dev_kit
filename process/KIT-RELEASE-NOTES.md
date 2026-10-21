@@ -343,6 +343,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **The metadata guard names both routes and no longer refuses an amend that adds a README to a code commit.** A metadata-only commit on a branch is still refused; its `Next:` now offers `register-commit.sh` or adding the path to the code commit it describes (`git commit --amend`). An amend is judged on HEAD's paths plus the staged ones, so it passes when HEAD carries code. Put `--amend` before any `-m`. No action.
 - **`register-commit.sh` no longer tags a subject twice.** A `--message` that already begins with the `--role` tag (`[PM] Record D-12`) keeps it once; one that begins with another declared role's tag is refused (`register-message-tag-mismatch`), and its `Next:` line says to drop the tag or switch the hat. No action.
 - **A landing's Activity entry always names the revision the QA Verdict was read at.** `finish-pr.sh` appends `(verdict read at <sha>)` to a `--note` you pass, as it already wrote it in the default note; the direct-to-trunk `move-issue.sh <ID> qa_complete` writes the same string. No action.
 - **A verbatim quote of a backticked line now passes the QA gate.** The evidence cell was already read with its backticks removed; the cited line now is too, so a line quoted exactly as the file has it matches. No action.

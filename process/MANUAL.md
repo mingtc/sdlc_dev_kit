@@ -623,7 +623,10 @@ bare `git commit` would land it on that branch instead of the trunk. `scripts/re
 is the route — it reads the edit out of that checkout and lands it on the trunk through the
 standing kanban worktree, the same machinery `move-issue.sh` uses for a board move, and never
 commits in the linked checkout itself. `scripts/githooks/pre-commit` refuses a metadata-only
-commit made this way and names the route.
+commit made this way and names both routes: the trunk, or the code commit the metadata describes
+(next paragraph). An amend is judged on the commit being made, HEAD's paths plus the staged ones, so a
+README added to a code commit by `git commit --amend` passes; a metadata-only amend of a metadata-only
+commit is refused as a fresh one is.
 
 **Metadata MAY ride its code branch when it is part of the same change.** A register entry, a
 capability matrix row, a doc correction that the code change *makes true* belongs in the commit

@@ -1620,6 +1620,69 @@ case_pre_commit_refuses_metadata_off_trunk() {
 }
 
 # =============================================================================
+# CASE — the metadata guard judges the commit being made. The registered order is the real one: a code
+# commit on a branch, THEN metadata added to it by `git commit --amend`. A fresh metadata-only commit is
+# still refused and its Next: names both routes; a metadata-only amend of a metadata-only commit is
+# judged as before; and a message that merely contains the text --amend does not read as an amend.
+# =============================================================================
+case_pre_commit_judges_an_amend_on_the_commit_being_made() {
+  cf_reset
+  make_sandbox
+  local hook="$SB_WORK/scripts/githooks/pre-commit"
+  local cfg="$SB_WORK/scripts/config.sh"
+  [ -x "$hook" ] \
+    || { skp "pre-commit: judges an amend on the commit being made" "scripts/githooks/pre-commit is absent from this tree"; teardown; return; }
+
+  _array_set_body "$cfg" CODE_GLOBS '  "src/*"'
+  publish_sandbox
+
+  ( cd "$SB_WORK" && git checkout -q -b feature/code-then-readme )
+  mkdir -p "$SB_WORK/src"
+  echo "code" > "$SB_WORK/src/a.js"
+  git -C "$SB_WORK" add src/a.js
+  local out rc
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add src/a.js" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "setup: the code commit on the feature branch was refused: $out"
+
+  # Row 1: the README joins the code commit it describes, by amend.
+  echo "docs for a.js" > "$SB_WORK/README.md"
+  git -C "$SB_WORK" add README.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q --amend --no-edit 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "an amend that adds a README to a code commit was refused: $out"
+  git -C "$SB_WORK" show --name-only --format= HEAD | grep -Fx 'README.md' >/dev/null \
+    || cf "the amend reported success but README.md is not in HEAD"
+
+  # Row 2: a fresh metadata-only commit on the code branch is still refused, and Next: names both routes.
+  echo "a ruling" > "$SB_WORK/notes.md"
+  git -C "$SB_WORK" add notes.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] add notes.md" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a fresh metadata-only commit on a branch that carries code was ACCEPTED"
+  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null \
+    || cf "the refusal does not name the trunk route (register-commit.sh): $out"
+  printf '%s' "$out" | grep -F 'commit --amend' >/dev/null \
+    || cf "the refusal does not name adding the file to the code commit it describes (git commit --amend): $out"
+
+  # Row 4: a message containing the text --amend is not an amend: still refused.
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] notes, not an --amend of anything" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a fresh metadata-only commit whose -m text contains --amend was ACCEPTED"
+  git -C "$SB_WORK" reset -q notes.md
+
+  # Row 3: a metadata-only amend of a metadata-only commit is judged as before (staged paths only).
+  ( cd "$SB_WORK" && git checkout -q -b feature/meta-only feature/code-then-readme~1 )
+  echo "m1" > "$SB_WORK/m1.md"
+  git -C "$SB_WORK" add m1.md
+  out="$( cd "$SB_WORK" && MSG_OK=1 git commit -q -m "[$SB_ROLE] add m1.md" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "setup: the MSG_OK metadata-only commit was refused: $out"
+  echo "m2" > "$SB_WORK/m2.md"
+  git -C "$SB_WORK" add m2.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q --amend --no-edit 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a metadata-only amend of a metadata-only commit was ACCEPTED"
+
+  finish "pre-commit: an amend is judged on HEAD's paths plus the staged ones; a fresh metadata-only commit is refused naming both routes; a metadata-only amend of a metadata-only commit and an -m text containing --amend are still refused"
+  teardown
+}
+
+# =============================================================================
 # CASE — the pre-commit hook reads CODE_GLOBS through the shared reader, and refuses when it cannot.
 # lib/glob-array.sh is the one reader of that array; the hook carries no parser of its own. So with the
 # library gone the declaration is unreadable, and a gate that allows on doubt reads as armed: the commit
