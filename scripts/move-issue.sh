@@ -482,7 +482,7 @@ else
       # (a PASS_AC_CORRECTED correction) needs [decision: D-NN] on its bullet on this route too.
       IFS=$'\t' read -r _mv_leave_c _mv_leave_p <<< "$(kit_card_leave_todo "$ISSUE_ID" "$MAIN_ROOT" "$_mv_trunk")"
       kit_ac_drift_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${_mv_leave_c:-}" "${_mv_leave_p:-}"
-      [ -z "$_mv_read" ] || QA_READ_NOTE=" (QA Verdict read at ${DEFAULT_BRANCH} $(git -C "$MAIN_ROOT" rev-parse --short "$_mv_read" 2>/dev/null))"
+      [ -z "$_mv_read" ] || QA_READ_NOTE=" (verdict read at $(git -C "$MAIN_ROOT" rev-parse --short "$_mv_read" 2>/dev/null))"
     else
       _mv_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${LANDED_AT}^{commit}" 2>/dev/null || true)"
       _mv_subj=""

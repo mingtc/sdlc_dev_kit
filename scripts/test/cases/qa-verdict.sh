@@ -1048,6 +1048,56 @@ case_qa_landing_activity_names_the_revision_read() {
 }
 
 # =============================================================================
+# CASE — EVERY LANDING WRITES THE REVISION CLAUSE, ONE STRING ON BOTH ROUTES.
+# The clause is "(verdict read at <short sha>)": finish-pr.sh appends it to an operator's --note
+# instead of letting the note replace it, writes it alone when there is no note, and the direct-to-
+# trunk move writes the same string. Each card is the real workflow's order: seeded in dev_complete/,
+# published, the branch cut from the trunk where there is one, then the route run.
+# (a) finish-pr.sh with --note: the entry holds the note's words and the clause, with the branch tip;
+# (b) finish-pr.sh without --note: the clause is there, as the default note composes it;
+# (c) move-issue.sh ... qa_complete, no branch: the same clause, with the trunk tip it read.
+# =============================================================================
+case_landing_note_always_carries_the_revision_clause() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-940" idb="$SB_PREFIX-941" idc="$SB_PREFIX-942"
+  seed_issue dev_complete "$ida" withnote chore "Landed with an operator note" "feature/$ida-work"
+  seed_issue dev_complete "$idb" nonote chore "Landed without a note" "feature/$idb-work"
+  seed_issue dev_complete "$idc" direct chore "Direct to trunk"
+  publish_sandbox
+  seed_branch "$ida" work CHANGE940.txt
+  seed_branch "$idb" work CHANGE941.txt
+  local tipa tipb before out rc entry
+  tipa="$(git -C "$SB_WORK" rev-parse --short "feature/$ida-work")"
+  tipb="$(git -C "$SB_WORK" rev-parse --short "feature/$idb-work")"
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" --note "Reviewed by hand, all rows hold." 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) finish-pr.sh --note exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  entry="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$ida-withnote.md" 2>/dev/null | grep -F '→ qa_complete' | tail -1)"
+  case "$entry" in *"Reviewed by hand, all rows hold."*) : ;; *) cf "(a) the operator's words are not on the entry: $entry" ;; esac
+  case "$entry" in *"(verdict read at $tipa)"*) : ;; *) cf "(a) the entry does not hold '(verdict read at $tipa)': $entry" ;; esac
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) finish-pr.sh without --note exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  entry="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$idb-nonote.md" 2>/dev/null | grep -F '→ qa_complete' | tail -1)"
+  case "$entry" in *"Squash-merged"*"(verdict read at $tipb)"*) : ;; *) cf "(b) the default entry does not hold '(verdict read at $tipb)': $entry" ;; esac
+
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  before="$(git -C "$SB_WORK" rev-parse --short "origin/$SB_TRUNK")"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-c" ./scripts/move-issue.sh "$idc" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) move-issue.sh qa_complete exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
+  entry="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$idc-direct.md" 2>/dev/null | grep -F '→ qa_complete' | tail -1)"
+  case "$entry" in *"Review PASS, direct to trunk (verdict read at $before)"*) : ;; *) cf "(c) the direct move does not end '(verdict read at $before)': $entry" ;; esac
+
+  finish "a landing's Activity entry carries '(verdict read at <sha>)' on both routes: finish-pr.sh appends it to an operator --note (a) and writes it in the default note (b), and the direct-to-trunk move writes the same string (c)"
+  teardown
+}
+
+# =============================================================================
 # CASE — A QA VERDICT ROW WHOSE EVIDENCE POINTER IS THE CARD'S OWN FILE REFUSES, ON EVERY ROUTE.
 # The card records the review; it is not the content reviewed, and its path changes at every board
 # move: a pointer written at progress/dev_complete/<card>.md resolves before the move and not after.

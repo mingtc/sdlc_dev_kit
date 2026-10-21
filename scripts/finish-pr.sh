@@ -744,7 +744,12 @@ case "$_probe_rc" in
 esac
 
 # ── Compose the Activity note from the two outcome variables, so the board never records a
-#    deletion the run did not perform. An operator-supplied --note wins, unchanged.
+#    deletion the run did not perform. An operator-supplied --note keeps its words; the revision
+#    clause below is appended to it.
+# The clause names the branch tip the QA Verdict was read at, so a later reader re-resolves the
+# table's pointers at that revision.
+_rev_clause=""
+[ -z "$QA_READ_SHORT" ] || _rev_clause=" (verdict read at ${QA_READ_SHORT})"
 if [ "$NOTE_GIVEN" != "true" ]; then
   case "$LOCAL_DELETE_STATE" in
     deleted)       _local_clause="local branch deleted" ;;
@@ -761,13 +766,15 @@ if [ "$NOTE_GIVEN" != "true" ]; then
     probe-failed) _remote_clause="${KWT_REMOTE} NOT PROBED, no delete attempted" ;;
     *)           _remote_clause="${KWT_REMOTE} branch state UNKNOWN" ;;
   esac
-  # The note names the branch tip the QA Verdict was read at and the squash commit, so a later
-  # reader re-resolves the table's pointers at that revision.
-  _rev_clause=""
-  [ -z "$QA_READ_SHORT" ] || _rev_clause=" (verdict read at ${QA_READ_SHORT})"
   _squash_clause=""
   [ -z "${KWT_LANDED_SHA:-}" ] || _squash_clause=" as ${KWT_LANDED_SHA}"
   NOTE="Review — PASS. Squash-merged '${BRANCH}'${_rev_clause} into ${DEFAULT_BRANCH}${_squash_clause}; ${_local_clause}; ${_remote_clause}."
+else
+  # A note that already carries the clause is left as written.
+  case "$NOTE" in
+    *"verdict read at"*) : ;;
+    *) NOTE="${NOTE}${_rev_clause}" ;;
+  esac
 fi
 
 # ── Advance the issue dev_complete/ → qa_complete/. move-issue.sh inherits the

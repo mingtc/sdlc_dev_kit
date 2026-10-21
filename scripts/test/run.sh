@@ -377,6 +377,7 @@ CASES=(
   case_qa_verdict_self_pointer_refuses_at_the_move_and_the_reader
   case_qa_gate_self_pointer_spellings
   case_qa_landing_activity_names_the_revision_read
+  case_landing_note_always_carries_the_revision_clause
   case_qa_gate_verdict_set_is_the_ratified_set
   case_finish_pr_ablation_undeclared_test_globs_does_not_run
   case_finish_pr_ablation_declared_empty_test_globs_says_so
