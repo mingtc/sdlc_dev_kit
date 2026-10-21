@@ -331,6 +331,16 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+### Action required
+
+- **A QA Verdict row that points at its own card now refuses the landing.** The gate (`finish-pr.sh`, `move-issue.sh <ID> qa_complete`,
+  `read-verdict.sh`) refuses an evidence pointer that names the card's own file in any `progress/` column (`qa-verdict-self-pointer`):
+  the card records the review, and its path changes when it moves, so such a pointer stops resolving after the move. An in-flight card
+  whose table does this is refused at its landing. Before it lands, re-point each such row at the content the AC is about (a source,
+  test, document or fixture line, with its quote) and commit the card to the trunk (`./scripts/register-commit.sh`).
+
+  Verify: for f in progress/*/*.md progress/subtasks/*/*/*.md; do case "$f" in */qa_complete/*|*/done/*|*/declined/*|*/history/*) continue ;; esac; [ -f "$f" ] || continue; ! grep -qF "${f##*/}:" "$f" || exit 1; done
+
 ### Changed
 
 - **A verbatim quote of a backticked line now passes the QA gate.** The evidence cell was already read with its backticks removed; the cited line now is too, so a line quoted exactly as the file has it matches. No action.

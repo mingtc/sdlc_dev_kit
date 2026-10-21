@@ -387,22 +387,6 @@ EOF
   teardown
 }
 
-# _forks_refix_qa_pointer <file> <repo-relative-path> — seed_issue's QA Verdict AC1 row points at
-# the file's SEED-TIME path and line. A case that moves the file (move-issue.sh, git mv) and then
-# edits the AC1 bullet must re-point the row at the file's OWN current path and the bullet's new
-# line, with the same text quoted verbatim, or kit_qa_verdict_check's pointer/quote resolution
-# refuses on a stale pointer that has nothing to do with the behaviour under test.
-_forks_refix_qa_pointer() {
-  local f="$1" rel="$2" ac1_line ac1_text
-  ac1_text="$(grep -E '^- \[ \] AC1' "$f" | head -1)"
-  [ -n "$ac1_text" ] || _fixture_die "_forks_refix_qa_pointer: no AC1 bullet in ${f}"
-  ac1_line="$(grep -nF -- "$ac1_text" "$f" | head -1 | cut -d: -f1)"
-  [ -n "$ac1_line" ] || _fixture_die "_forks_refix_qa_pointer: AC1 bullet line not found in ${f}"
-  perl -i -pe "s{^\\| AC1 \\|.*\\|\$}{| AC1 | PASS | test | ${rel}:${ac1_line} \"${ac1_text}\" |}" "$f"
-  grep -qF "${rel}:${ac1_line}" "$f" \
-    || _fixture_die "_forks_refix_qa_pointer: the QA Verdict row was not re-pointed in ${f}"
-}
-
 # _forks_sync — bring the work checkout's trunk up to the remote's (a board move pushes from its own
 # worktree, so the checkout is behind after one).
 _forks_sync() {
@@ -567,9 +551,6 @@ case_move_issue_forks_check_attributes_the_trunk_register() {
   #     bare entry registered afterwards (another card's, while this one waits for QA) is outside it.
   _forks_pickup "$ide" landing
   f="$SB_WORK/progress/in_progress/$ide-landing.md"
-  _forks_refix_qa_pointer "$f" "progress/in_progress/$ide-landing.md"
-  git -C "$SB_WORK" add "progress/in_progress/$ide-landing.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${ide}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   _forks_add_entry D-08 "Product owner message, 2026-10-16; $ide." "[PM] $ide: record D-08"
   seed_branch "$ide" work CHANGE875.txt
@@ -614,12 +595,6 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$ida" in_progress --role Dev \
     --note "picked up" >/dev/null 2>&1 ) \
     || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (a) move to in_progress failed"
-  # The QA Verdict row's pointer is fixed to the card's CURRENT (in_progress) path NOW, before
-  # the branch is cut: kit_qa_verdict_check reads it against the BRANCH tip, and seed_issue's
-  # pointer still names the seed-time todo/ path, which the branch would carry forward verbatim.
-  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$ida-drift.md" "progress/in_progress/$ida-drift.md"
-  git -C "$SB_WORK" add "progress/in_progress/$ida-drift.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${ida}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   # THE REALISTIC ORDER: the branch is cut HERE, right after pickup — BEFORE the AC edit and
   # BEFORE the in_progress -> dev_complete move, both of which still happen on the TRUNK (as
@@ -663,13 +638,8 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$idb" in_progress --role Dev \
     --note "picked up" >/dev/null 2>&1 ) \
     || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (b) move to in_progress failed"
-  # Same realistic order as (a): the QA Verdict pointer is re-pointed at the card's CURRENT
-  # path and committed BEFORE the branch is cut (the branch carries that forward verbatim),
-  # then the branch is cut right after pickup, before the reformat and the dev_complete move,
-  # both of which still happen on the trunk.
-  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$idb-reformat.md" "progress/in_progress/$idb-reformat.md"
-  git -C "$SB_WORK" add "progress/in_progress/$idb-reformat.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${idb}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
+  # Same realistic order as (a): the branch is cut right after pickup, before the reformat and the
+  # dev_complete move, both of which still happen on the trunk.
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   seed_branch "$idb" work CHANGE682.txt
   local fb="$SB_WORK/progress/in_progress/$idb-reformat.md"
@@ -701,9 +671,6 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$idcc" in_progress --role Dev \
     --note "picked up" >/dev/null 2>&1 ) \
     || _fixture_die "case_finish_pr_forks_ac_changed_after_todo_uncited_refuses: (c) move to in_progress failed"
-  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$idcc-nospace.md" "progress/in_progress/$idcc-nospace.md"
-  git -C "$SB_WORK" add "progress/in_progress/$idcc-nospace.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${idcc}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   seed_branch "$idcc" work CHANGE685.txt
   local fc="$SB_WORK/progress/in_progress/$idcc-nospace.md"
@@ -753,12 +720,10 @@ _forks_drift_land() {
   rel="progress/in_progress/$id-$slug.md"
   f="$SB_WORK/$rel"
   if [ "$ac2" = 1 ]; then
-    perl -i -pe 's/^(\| AC1 \|.*)$/$1\n| AC2 | PASS | test | RELPATH:AC2LINE "the second seeded behaviour holds" |/' "$f"
-    perl -i -pe "s{RELPATH}{$rel}; s{AC2LINE}{$(grep -nF -- '- [ ] AC2 —' "$f" | head -1 | cut -d: -f1)}" "$f"
+    perl -i -pe 's/^(\| AC1 \|.*)$/$1\n| AC2 | PASS | test | ARCHIVE.md:1 "condensed index of completed issues" |/' "$f"
+    git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
+    sbcommit -m "[PM] ${id}: add the AC2 row to the QA Verdict table" --quiet >/dev/null 2>&1
   fi
-  _forks_refix_qa_pointer "$f" "$rel"
-  git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
-  sbcommit -m "[PM] ${id}: re-point the QA Verdict rows at the current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   seed_branch "$id" work "CHANGE-$id.txt"
   NEWAC="$newac" perl -i -pe 'BEGIN { $n = $ENV{NEWAC} } s/^- \[ \] AC1 — the sandbox.s seeded behaviour holds\.$/$n/' "$f"
@@ -862,9 +827,6 @@ case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card() {
   ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$ida" in_progress --role Dev \
     --note "picked up" >/dev/null 2>&1 ) \
     || _fixture_die "case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card: A's move to in_progress failed"
-  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$ida-first.md" "progress/in_progress/$ida-first.md"
-  git -C "$SB_WORK" add "progress/in_progress/$ida-first.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${ida}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   seed_branch "$ida" work CHANGE686.txt
   mkdir -p "$SB_WORK/progress/dev_complete"
@@ -892,9 +854,6 @@ case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card() {
   ( cd "$SB_WORK" && "$SB_WORK/scripts/move-issue.sh" "$idb" in_progress --role Dev \
     --note "picked up" >/dev/null 2>&1 ) \
     || _fixture_die "case_finish_pr_forks_ac_drift_ignores_a_similar_earlier_card: B's move to in_progress failed"
-  _forks_refix_qa_pointer "$SB_WORK/progress/in_progress/$idb-second.md" "progress/in_progress/$idb-second.md"
-  git -C "$SB_WORK" add "progress/in_progress/$idb-second.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${idb}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
   seed_branch "$idb" work CHANGE687.txt
   git -C "$SB_WORK" mv "progress/in_progress/$idb-second.md" "progress/dev_complete/$idb-second.md" >/dev/null 2>&1
@@ -962,12 +921,11 @@ case_move_issue_qa_complete_runs_the_ac_drift_check() {
   f="$SB_WORK/$rel"
   [ -f "$f" ] || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the card is not in dev_complete/"
 
-  # QA's correction: the bullet text changes, the row says PASS_AC_CORRECTED and re-points at the new line.
+  # QA's correction: the bullet text changes, the row says PASS_AC_CORRECTED.
   perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds)\.$/$1, as the owner clarified in review./' "$f"
   perl -i -pe 's/^(\| AC1 \| )PASS( \| test \|.*\|)$/$1PASS_AC_CORRECTED$2/' "$f"
   grep -qF 'as the owner clarified in review.' "$f" && grep -qF '| AC1 | PASS_AC_CORRECTED |' "$f" \
     || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the correction was not planted"
-  _forks_refix_qa_pointer "$f" "$rel"
   git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
   sbcommit -m "[QA] $ida: correct AC1 (PASS_AC_CORRECTED)" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the correction was not published"
@@ -988,7 +946,6 @@ case_move_issue_qa_complete_runs_the_ac_drift_check() {
   perl -i -pe 's/^(- \[ \] AC1 — .*as the owner clarified in review\.)$/$1 [decision: D-01]/' "$f"
   grep -qF 'clarified in review. [decision: D-01]' "$f" \
     || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the citation was not planted"
-  _forks_refix_qa_pointer "$f" "$rel"
   git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
   sbcommit -m "[QA] $ida: cite the ruling on AC1" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_move_issue_qa_complete_runs_the_ac_drift_check: the citation was not published"
@@ -1180,9 +1137,6 @@ case_forks_check_unattributed_exits_and_window() {
   #     route, and clears the landing.
   _forks_pickup "$idd" landing
   f="$SB_WORK/progress/in_progress/$idd-landing.md"
-  _forks_refix_qa_pointer "$f" "progress/in_progress/$idd-landing.md"
-  git -C "$SB_WORK" add "progress/in_progress/$idd-landing.md" >/dev/null 2>&1
-  sbcommit -m "[PM] ${idd}: re-point the QA Verdict row at its current path" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
   _forks_add_entry D-04 "Product owner message, 2026-10-16." "[PM] record the owner's ruling"
   seed_branch "$idd" work CHANGE884.txt

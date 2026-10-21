@@ -25,8 +25,10 @@
 #     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
 #     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
-#     qa-verdict-pointer-unresolved, qa-verdict-quote-missing, qa-verdict-quote-too-short,
-#     qa-verdict-quote-not-found, qa-verdict-no-observed.
+#     qa-verdict-self-pointer, qa-verdict-pointer-unresolved, qa-verdict-quote-missing,
+#     qa-verdict-quote-too-short, qa-verdict-quote-not-found, qa-verdict-no-observed.
+#     A pointer to the card's own file (in any column) is qa-verdict-self-pointer: the card records
+#     the review, it is not the content reviewed, and its path changes at every board move.
 #     A cell may contain a pipe written `\|` (kit_md_row_cell).
 #
 #   kit_qa_verdict_begun <card-file>
@@ -248,6 +250,19 @@ _qav_quote_in_range() {
   return 1   # return-class: predicate
 }
 
+# _qav_is_own_card <path> <card-id> — true if <path> is the card's own file in any column: a file
+# under a progress/ directory named <card-id>-*.md. The card is found by its id, not by the caller's
+# path, so a pointer is caught whichever column it was written in and whichever column the card is
+# read from. A parent's id does not claim its slices' files.
+_qav_is_own_card() {
+  local _b="${1##*/}"
+  case "$1" in progress/*|*/progress/*) : ;; *) return 1 ;; esac   # return-class: predicate
+  case "$_b" in "${2}-"*.md) : ;; *) return 1 ;; esac   # return-class: predicate
+  case "$2" in *-s[0-9]*) return 0 ;; esac
+  case "$_b" in "${2}-s"[0-9]*-*) return 1 ;; esac   # return-class: predicate
+  return 0
+}
+
 # kit_md_row_cell <row> <n> — the <n>th cell (1-based) of a markdown table row, outer whitespace
 # trimmed. A pipe splits cells unless it is written `\|`, which is part of the cell and is
 # returned as a plain `|`. The one reader of a verdict-table row's cells.
@@ -291,7 +306,7 @@ kit_qa_verdict_begun() {
 kit_qa_verdict_check() {
   local src="$1" issue_id="$2" repo="$3" rev="$4"
   local _qav_body _qav_ac_ids _qav_rows
-  local _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
+  local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
   local _qrow _qid _qverdict _qkind _qptr _qptr_stripped
 
@@ -378,7 +393,10 @@ kit_qa_verdict_check() {
             _qav_cur_state="${_qav_ev_rest%% *}"
             _qav_ev_detail="${_qav_ev_rest#* }"
             _qav_cur_quotes=0
-            if [ "$_qav_cur_state" = OK ]; then
+            if _qav_is_own_card "${_qav_cur%%:*}" "$issue_id"; then
+              _qav_cur_state=SELF
+              _qav_self="${_qav_self}${_qav_self:+, }${_qid} (${_qav_cur})"
+            elif [ "$_qav_cur_state" = OK ]; then
               _qav_cur_lo="${_qav_ev_detail% *}"
               _qav_cur_hi="${_qav_ev_detail#* }"
             else
@@ -436,6 +454,15 @@ kit_qa_verdict_check() {
       "       A PASS needs an evidence kind from test|file:line|gate-diff|fixture-diff, and a real" \
       "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
       "Next: re-walk the row(s) named above and record what you actually observed for each (a test you ran, a line you read, a diff) — a stock non-answer is not evidence; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       NOTHING WAS CHANGED."
+  fi
+
+  if [ -n "$_qav_self" ]; then
+    kit_refuse 2 qa-verdict-self-pointer \
+      "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer is the card itself: ${_qav_self}" \
+      "       The card records the review; it is not the content under review, and its path changes at" \
+      "       every board move. (.claude/roles/qa.md step 4.)" \
+      "Next: cite the content the AC is about, not the card — the source, test, document or fixture line that shows the AC met, with a short verbatim quote of it; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 

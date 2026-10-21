@@ -121,14 +121,13 @@ sbcommit() { MSG_OK=1 git -C "$SB_WORK" commit "$@"; }
 # ONE AC bullet + a matching, well-formed '## QA Verdict' table (a PASS row with real-looking
 # evidence, plus the required 'shadow-check' row): finish-pr.sh's QA-Verdict landing precondition
 # reads both, so every existing landing case keeps working without being touched individually.
-# The AC1 row's pointer names THIS SAME FILE at the AC1 bullet's own line, quoting it verbatim —
-# a real path:line the gate's pointer-resolution and quote checks both pass, derived from the
-# file's own content rather than a number typed beside it (a change to the bullet's line here
-# moves AC1_LINE with it).
+# The AC1 row's pointer names the sandbox's ARCHIVE.md at line 1, quoting it verbatim — a real
+# path:line the gate's pointer-resolution and quote checks both pass. It is NEVER the card's own
+# file: the gate refuses that (qa-verdict-self-pointer), and a card moves, so its own path would
+# not resolve after the move either. make_sandbox writes ARCHIVE.md; the line is held there.
 seed_issue() {
   local folder="$1" id="$2" slug="$3" type="$4" title="$5" branch="${6:-n/a}"
   local f="$SB_WORK/progress/$folder/${id}-${slug}.md"
-  local rel="progress/$folder/${id}-${slug}.md"
   local ac1_text="- [ ] AC1 — the sandbox's seeded behaviour holds."
   cat > "$f" <<EOF
 ---
@@ -152,17 +151,13 @@ ${ac1_text}
 
 | AC id | verdict | evidence kind | evidence pointer |
 |---|---|---|---|
-| AC1 | PASS | test | ${rel}:AC1_LINE "${ac1_text}" |
+| AC1 | PASS | test | ARCHIVE.md:1 "condensed index of completed issues" |
 | shadow-check | — | — | assertions removed: none |
 
 ## Activity
 
 - 2026-01-01 [PM] Seeded for the sandbox self-test.
 EOF
-  local ac1_line
-  ac1_line="$(grep -nF -- "$ac1_text" "$f" | head -1 | cut -d: -f1)"
-  [ -n "$ac1_line" ] || _fixture_die "seed_issue: AC1 bullet not found in ${f} after writing it"
-  perl -i -pe "s/AC1_LINE/$ac1_line/" "$f"
 }
 
 # make_sandbox [work_subdir]

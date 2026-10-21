@@ -78,7 +78,8 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   branch's: refusing it would hold every landing shut on a defect nobody in the branch made.
 - The item's `## QA Verdict` table is missing, has a row whose verdict is not one of the four
   tokens, a FAIL row, evidence of the wrong kind, a `path:line` that does not resolve, a pointer
-  with no quote of its own, a quote shorter than eight characters (unless it is the cited line's
+  to the card's own file (any column: the card records the review, it is not the content reviewed),
+  a pointer with no quote of its own, a quote shorter than eight characters (unless it is the cited line's
   whole text) or not on the line its own pointer cites (backticks ignored on both sides; a pointer's
   quotes are the first after it and each that follows the previous with only whitespace or `;`
   between), no `test` or `file:line` row at all (every row `gate-diff` or `fixture-diff`), no

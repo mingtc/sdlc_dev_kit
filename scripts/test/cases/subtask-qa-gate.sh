@@ -13,16 +13,14 @@
 # one" and plant precisely, so this seeds withOUT an Ablation section — matching what a slice
 # whose diff never touched a test path leaves it, since the template's own instruction says it
 # is filled "only if" the diff touches one).
-# The AC1 row's pointer names THIS SAME FILE at the AC1 bullet's own line, quoting it verbatim,
-# the same derivation seed_issue uses — a real path:line the gate's pointer-resolution and quote
-# checks both pass.
+# The AC1 row's pointer names the sandbox's ARCHIVE.md at line 1, as seed_issue does — a real
+# path:line the gate's pointer-resolution and quote checks both pass, and never the slice's own file.
 _seed_subtask() {
   local parent="$1" suffix="$2" status="$3" slug="$4" title="$5" branch="${6:-n/a}"
   local id="${parent}-${suffix}"
   local dir="$SB_WORK/progress/subtasks/${parent}/${status}"
   mkdir -p "$dir"
   local f="$dir/${id}-${slug}.md"
-  local rel="progress/subtasks/${parent}/${status}/${id}-${slug}.md"
   local ac1_text="- [ ] AC1 — the sandbox's seeded behaviour holds."
   cat > "$f" <<EOF
 ---
@@ -54,7 +52,7 @@ ${ac1_text}
 
 | AC id | verdict | evidence kind | evidence pointer |
 |---|---|---|---|
-| AC1 | PASS | test | ${rel}:AC1_LINE "${ac1_text}" |
+| AC1 | PASS | test | ARCHIVE.md:1 "condensed index of completed issues" |
 | shadow-check | — | — | assertions removed: none |
 
 ## Out of Scope
@@ -69,10 +67,6 @@ ${ac1_text}
 
 - 2026-01-01 [Orchestrator] Created under ${parent} — decomposition slice ${suffix}.
 EOF
-  local ac1_line
-  ac1_line="$(grep -nF -- "$ac1_text" "$f" | head -1 | cut -d: -f1)"
-  [ -n "$ac1_line" ] || _fixture_die "_seed_subtask: AC1 bullet not found in ${f} after writing it"
-  perl -i -pe "s/AC1_LINE/$ac1_line/" "$f"
   printf '%s' "$f"
 }
 

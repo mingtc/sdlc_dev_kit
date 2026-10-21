@@ -144,18 +144,12 @@ case_finish_pr_qa_verdict_ac_mismatch_refuses() {
     || cf "(a) no progress record carries refusal=qa-verdict-ac-mismatch: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) EXTRA — the table has a row for an id the AC checklist does not carry. Its own pointer
-  # still resolves with a real quote (the shadow-check row's own line), so the extra row is
-  # refused for the AC mismatch, not for a pointer/quote problem of its own.
+  # still resolves with a real quote (ARCHIVE.md's first line), so the extra row is refused for
+  # the AC mismatch, not for a pointer/quote problem of its own.
   local idb="$SB_PREFIX-656"
   seed_issue dev_complete "$idb" extrarow chore "Table names AC9, no such AC" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-extrarow.md"
-  local rel9="progress/dev_complete/$idb-extrarow.md"
-  local shadow_line9
-  shadow_line9="$(grep -nF -- '| shadow-check | — | — | assertions removed: none |' "$fb" | head -1 | cut -d: -f1)"
-  [ -n "$shadow_line9" ] || _fixture_die "case_finish_pr_qa_verdict_ac_mismatch_refuses: (b) shadow-check row not found to anchor AC9's quote"
-  # '#' as the delimiter: the replacement's own path contains '/', which would otherwise close
-  # the s/// early.
-  perl -i -pe "s#^(\\| AC1 \\| PASS \\| test \\|.*\\|)\$#\$1\n| AC9 | PASS | test | ${rel9}:${shadow_line9} \"assertions removed: none\" |#" "$fb"
+  perl -i -pe 's#^(\| AC1 \| PASS \| test \|.*\|)$#$1\n| AC9 | PASS | test | ARCHIVE.md:1 "condensed index of completed issues" |#' "$fb"
   grep -qF 'AC9' "$fb" || _fixture_die "case_finish_pr_qa_verdict_ac_mismatch_refuses: (b) AC9 row was not planted"
   publish_sandbox
   seed_branch "$idb" work CHANGE655B.txt
@@ -391,14 +385,13 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
   cf_reset
   make_sandbox
 
-  # (a) a file:line pointer that resolves (the card's own frontmatter, line 2 — always present and
-  # the same across every seeded card), with no quote at all.
+  # (a) a file:line pointer that resolves (ARCHIVE.md line 1 — always present in the sandbox), with
+  # no quote at all.
   local ida="$SB_PREFIX-678"
   seed_issue dev_complete "$ida" noquote chore "A resolving pointer with no quote" "feature/$ida-work"
   local fa="$SB_WORK/progress/dev_complete/$ida-noquote.md"
-  local rela="progress/dev_complete/$ida-noquote.md"
-  perl -i -pe "s#^\\| AC1 \\| PASS \\| test \\|.*\\|\$#| AC1 | PASS | file:line | ${rela}:2 |#" "$fa"
-  grep -qF "| AC1 | PASS | file:line | ${rela}:2 |" "$fa" \
+  perl -i -pe 's#^\| AC1 \| PASS \| test \|.*\|$#| AC1 | PASS | file:line | ARCHIVE.md:1 |#' "$fa"
+  grep -qF '| AC1 | PASS | file:line | ARCHIVE.md:1 |' "$fa" \
     || _fixture_die "case_finish_pr_qa_verdict_quote_checks_refuse: (a) the unquoted row was not planted"
   publish_sandbox
   seed_branch "$ida" work CHANGE678A.txt
@@ -411,14 +404,13 @@ case_finish_pr_qa_verdict_quote_checks_refuse() {
     || cf "(a) no progress record carries refusal=qa-verdict-quote-missing: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
   # (b) a resolving pointer whose quote is real text, but not present on the cited line — the
-  # motivating shape: real-looking, resolves, and does not show the claim. Line 2 is "id: <id>";
-  # the quote names a sentence that is not that line's text.
+  # motivating shape: real-looking, resolves, and does not show the claim. Line 1 is the archive's
+  # heading; the quote names a sentence that is not that line's text.
   local idb="$SB_PREFIX-679"
   seed_issue dev_complete "$idb" wrongline chore "A quote that is not on the cited line" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-wrongline.md"
-  local relb="progress/dev_complete/$idb-wrongline.md"
-  perl -i -pe "s#^\\| AC1 \\| PASS \\| test \\|.*\\|\$#| AC1 | PASS | file:line | ${relb}:2 \"this exact sentence is not on line 2\" |#" "$fb"
-  grep -qF 'not on line 2' "$fb" \
+  perl -i -pe 's#^\| AC1 \| PASS \| test \|.*\|$#| AC1 | PASS | file:line | ARCHIVE.md:1 "this exact sentence is not on line 1" |#' "$fb"
+  grep -qF 'not on line 1' "$fb" \
     || _fixture_die "case_finish_pr_qa_verdict_quote_checks_refuse: (b) the mismatched-quote row was not planted"
   publish_sandbox
   seed_branch "$idb" work CHANGE679B.txt
@@ -460,15 +452,15 @@ case_finish_pr_qa_verdict_unquoted_kinds_only_refuses() {
   grep -q 'refusal=qa-verdict-no-observed' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
     || cf "(a) no progress record carries refusal=qa-verdict-no-observed: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null)"
 
-  # (b) CONTROL: the same gate-diff row beside one file:line row that quotes its own line lands.
+  # (b) CONTROL: the same gate-diff row beside one file:line row that quotes the cited line lands.
   local idb="$SB_PREFIX-691"
   seed_issue dev_complete "$idb" mixed chore "A gate-diff row beside a quoted row" "feature/$idb-work"
   local fb="$SB_WORK/progress/dev_complete/$idb-mixed.md"
-  local relb="progress/dev_complete/$idb-mixed.md" ac2="- [ ] AC2 — a second criterion, graded by a quoted line." ac2l
+  local ac2="- [ ] AC2 — a second criterion, graded by a quoted line." ac2l
   perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a second criterion, graded by a quoted line./' "$fb"
   ac2l="$(grep -nF -- "$ac2" "$fb" | head -1 | cut -d: -f1)"
   [ -n "$ac2l" ] || _fixture_die "case_finish_pr_qa_verdict_unquoted_kinds_only_refuses: (b) the AC2 bullet was not planted"
-  perl -i -pe 's#^\| AC1 \| PASS \| test \|.*\|$#| AC1 | PASS | gate-diff | verify.sh was green before and after |\n| AC2 | PASS | file:line | '"${relb}:${ac2l}"' "a second criterion" |#' "$fb"
+  perl -i -pe 's#^\| AC1 \| PASS \| test \|.*\|$#| AC1 | PASS | gate-diff | verify.sh was green before and after |\n| AC2 | PASS | file:line | ARCHIVE.md:1 "condensed index of completed issues" |#' "$fb"
   grep -qF "| AC2 | PASS | file:line |" "$fb" \
     || _fixture_die "case_finish_pr_qa_verdict_unquoted_kinds_only_refuses: (b) the mixed table was not planted"
   publish_sandbox
@@ -694,11 +686,10 @@ case_finish_pr_qa_verdict_escaped_pipe_is_one_cell() {
   # (b) a quote with an escaped pipe, on a cited line that holds the pipe.
   local idb="$SB_PREFIX-971"
   seed_issue dev_complete "$idb" pipequote chore "A quote containing a pipe" "feature/$idb-work"
-  local fb="$SB_WORK/progress/dev_complete/$idb-pipequote.md" relb="progress/dev_complete/$idb-pipequote.md" pl
-  printf '%s\n' '- 2026-01-02 [PM] use a | b to pipe' >> "$fb"
-  pl="$(grep -nF -- 'use a | b to pipe' "$fb" | head -1 | cut -d: -f1)"
-  [ -n "$pl" ] || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the pipe line was not planted"
-  KIT_ROW="| AC1 | PASS | file:line | ${relb}:${pl} \"use a \\| b to pipe\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$fb"
+  local fb="$SB_WORK/progress/dev_complete/$idb-pipequote.md"
+  printf '%s\n' 'use a | b to pipe' > "$SB_WORK/EVIDENCE971.txt"
+  grep -qF -- 'use a | b to pipe' "$SB_WORK/EVIDENCE971.txt" || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the pipe line was not planted"
+  KIT_ROW="| AC1 | PASS | file:line | EVIDENCE971.txt:1 \"use a \\| b to pipe\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$fb"
   grep -qF -- '"use a \| b to pipe"' "$fb" || _fixture_die "case_finish_pr_qa_verdict_escaped_pipe_is_one_cell: (b) the escaped-pipe quote row was not planted"
   publish_sandbox
   seed_branch "$idb" work CHANGE971B.txt
@@ -714,26 +705,28 @@ case_finish_pr_qa_verdict_escaped_pipe_is_one_cell() {
 # =============================================================================
 # _qvp_land <id> <slug> <row template>  — land a card whose AC1 row is the template, and leave the
 # result in _QVP_OUT / _QVP_RC. In the template @CHG@ is the branch's own marker file (its line 1
-# is "a real change") and @CARD@ / @L@ are the card's path and the line of its AC1 bullet (which
-# holds "seeded behaviour holds"), so a quote is true or false on a line the fixture controls.
-# An optional 4th argument is appended to the card as a line of its own, @X@ being its line number.
+# is "a real change") and @EV@ / @L@ are an evidence file (a copy of the card's text, never the card
+# itself: the gate refuses a pointer to the card) and the line of its AC1 bullet (which holds
+# "seeded behaviour holds"), so a quote is true or false on a line the fixture controls.
+# An optional 4th argument is appended to the evidence file as a line of its own, @X@ being its line number.
 # The card is cut, published and landed in the order the roles do it: seeded in dev_complete/,
 # published to the trunk, the branch cut from it, finish-pr.sh run.
 # =============================================================================
 _QVP_OUT=""; _QVP_RC=0
 _qvp_land() {
-  local id="$1" slug="$2" tpl="$3" f="$SB_WORK/progress/dev_complete/$1-$2.md" rel="progress/dev_complete/$1-$2.md" l x="" row chg
+  local id="$1" slug="$2" tpl="$3" f="$SB_WORK/progress/dev_complete/$1-$2.md" ev="EVIDENCE${1##*-}.md" l x="" row chg
   chg="CHANGE${id##*-}.txt"
   seed_issue dev_complete "$id" "$slug" chore "Pointer-by-pointer row $id" "feature/$id-work"
-  l="$(grep -nF -- '- [ ] AC1 —' "$f" | head -1 | cut -d: -f1)"
+  cp "$f" "$SB_WORK/$ev"
+  l="$(grep -nF -- '- [ ] AC1 —' "$SB_WORK/$ev" | head -1 | cut -d: -f1)"
   [ -n "$l" ] || _fixture_die "_qvp_land: the AC1 bullet of $id was not found"
-  # An optional 4th argument is a line appended to the card; @X@ is its line number (so the row
-  # template must be a single line).
+  # An optional 4th argument is a line appended to the evidence file; @X@ is its line number (so the
+  # row template must be a single line).
   if [ -n "${4:-}" ]; then
-    printf '%s\n' "$4" >> "$f"
-    x="$(wc -l < "$f" | tr -d ' ')"
+    printf '%s\n' "$4" >> "$SB_WORK/$ev"
+    x="$(wc -l < "$SB_WORK/$ev" | tr -d ' ')"
   fi
-  row="${tpl//@CHG@/$chg}"; row="${row//@CARD@/$rel}"; row="${row//@L@/$l}"; row="${row//@X@/$x}"
+  row="${tpl//@CHG@/$chg}"; row="${row//@EV@/$ev}"; row="${row//@L@/$l}"; row="${row//@X@/$x}"
   KIT_ROW="$row" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$f"
   grep -qF -- "$(printf '%s' "$row" | head -1)" "$f" || _fixture_die "_qvp_land: the row of $id was not planted"
   publish_sandbox
@@ -763,26 +756,26 @@ case_finish_pr_qa_verdict_pointers_are_checked_one_by_one() {
 
   local ida="$SB_PREFIX-980" idb="$SB_PREFIX-981" idc="$SB_PREFIX-982" idd="$SB_PREFIX-983" ide="$SB_PREFIX-984"
 
-  _qvp_land "$ida" truefirst '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @CARD@:@L@ "seeded behaviour holds" |'
+  _qvp_land "$ida" truefirst '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @EV@:@L@ "seeded behaviour holds" |'
   [ "$_QVP_RC" -eq 0 ] || cf "(a) two true pointers, each with its own true quote — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$ida-truefirst.md" || cf "(a) the card did not advance to qa_complete/"
 
-  _qvp_land "$idb" swapped '| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds"; @CHG@:1 "a real change" |'
+  _qvp_land "$idb" swapped '| AC1 | PASS | file:line | @EV@:@L@ "seeded behaviour holds"; @CHG@:1 "a real change" |'
   [ "$_QVP_RC" -eq 0 ] || cf "(b) the same two true pointers in the other order — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$idb-swapped.md" || cf "(b) the card did not advance to qa_complete/"
 
-  _qvp_land "$idc" falsesecond '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @CARD@:@L@ "this sentence is on no line of the card" |'
+  _qvp_land "$idc" falsesecond '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @EV@:@L@ "this sentence is on no line of the card" |'
   _qvp_refused "(c) a false quote on the second pointer" "$idc" falsesecond qa-verdict-quote-not-found
-  case "$_QVP_OUT" in *'"this sentence is on no line of the card" not found at progress/dev_complete/'"$idc"'-falsesecond.md:'*) : ;; *) cf "(c) the refusal does not name the second pointer for its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *'"this sentence is on no line of the card" not found at EVIDENCE'"${idc##*-}"'.md:'*) : ;; *) cf "(c) the refusal does not name the second pointer for its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$_QVP_OUT" in *"not found at CHANGE982.txt"*) cf "(c) the refusal names the first pointer, which holds its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
-  _qvp_land "$idd" fabricatedfirst '| AC1 | PASS | file:line | @CHG@:1 "kit-init refuses a blank principal"; @CARD@:@L@ "seeded behaviour holds" |'
+  _qvp_land "$idd" fabricatedfirst '| AC1 | PASS | file:line | @CHG@:1 "kit-init refuses a blank principal"; @EV@:@L@ "seeded behaviour holds" |'
   _qvp_refused "(d) a fabricated quote on the first pointer, the last quote true" "$idd" fabricatedfirst qa-verdict-quote-not-found
   case "$_QVP_OUT" in *'"kit-init refuses a blank principal" not found at CHANGE983.txt:1-1'*) : ;; *) cf "(d) the refusal does not name the first pointer for its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
-  _qvp_land "$ide" noquote '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @CARD@:@L@ (same claim, no quote) |'
+  _qvp_land "$ide" noquote '| AC1 | PASS | file:line | @CHG@:1 "a real change"; @EV@:@L@ (same claim, no quote) |'
   _qvp_refused "(e) a second pointer whose quote was deleted" "$ide" noquote qa-verdict-quote-missing
-  case "$_QVP_OUT" in *"AC1 (progress/dev_complete/$ide-noquote.md:"*) : ;; *) cf "(e) the refusal does not name the pointer that has no quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *"AC1 (EVIDENCE${ide##*-}.md:"*) : ;; *) cf "(e) the refusal does not name the pointer that has no quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$_QVP_OUT" in *"AC1 (CHANGE984.txt"*) cf "(e) the refusal names the first pointer, which has its quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
   finish "finish-pr.sh reads each quote of a multi-pointer row against the path:line it follows: two true pointers land in either order (a, b); a false quote is refused naming its own pointer, whichever pointer holds it (c, d); a pointer with no quote of its own is qa-verdict-quote-missing naming that pointer (e)"
@@ -804,7 +797,7 @@ case_finish_pr_qa_verdict_one_row_per_ac_and_quote_floor() {
   local ida="$SB_PREFIX-985" idb="$SB_PREFIX-986" idc="$SB_PREFIX-987" idd="$SB_PREFIX-988"
 
   _qvp_land "$ida" duplicate '| AC1 | PASS | file:line | @CHG@:1 "a real change" |
-| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds" |'
+| AC1 | PASS | file:line | @EV@:@L@ "seeded behaviour holds" |'
   _qvp_refused "(a) two rows for AC1" "$ida" duplicate qa-verdict-ac-duplicate
   case "$_QVP_OUT" in *"more than one row"*AC1*) : ;; *) cf "(a) the refusal does not name AC1 as repeated: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$_QVP_OUT" in *"Next:"*"one row"*"every pointer"*) : ;; *) cf "(a) the Next line does not name the one-row shape: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
@@ -818,7 +811,7 @@ case_finish_pr_qa_verdict_one_row_per_ac_and_quote_floor() {
   origin_has_path "progress/qa_complete/$idc-eightchars.md" || cf "(c) the card did not advance to qa_complete/"
 
   # The card's own line 1 is the frontmatter fence: three characters, and the whole line.
-  _qvp_land "$idd" wholeline '| AC1 | PASS | file:line | @CARD@:1 "---" |'
+  _qvp_land "$idd" wholeline '| AC1 | PASS | file:line | @EV@:1 "---" |'
   [ "$_QVP_RC" -eq 0 ] || cf "(d) a short quote that is the cited line's whole text — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$idd-wholeline.md" || cf "(d) the card did not advance to qa_complete/"
 
@@ -840,19 +833,19 @@ case_finish_pr_qa_verdict_quote_of_a_backticked_line() {
   local ida="$SB_PREFIX-990" idb="$SB_PREFIX-991" idc="$SB_PREFIX-992" idd="$SB_PREFIX-993"
   local line='- 2026-01-02 [PM] the `statement`, `offer-notes` and `tenure` are listed:'
 
-  _qvp_land "$ida" verbatim '| AC1 | PASS | file:line | @CARD@:@X@ "the `statement`, `offer-notes` and `tenure` are listed:" |' "$line"
+  _qvp_land "$ida" verbatim '| AC1 | PASS | file:line | @EV@:@X@ "the `statement`, `offer-notes` and `tenure` are listed:" |' "$line"
   [ "$_QVP_RC" -eq 0 ] || cf "(a) a quote of a backticked line, written verbatim — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$ida-verbatim.md" || cf "(a) the card did not advance to qa_complete/"
 
-  _qvp_land "$idb" stripped '| AC1 | PASS | file:line | @CARD@:@X@ "the statement, offer-notes and tenure are listed:" |' "$line"
+  _qvp_land "$idb" stripped '| AC1 | PASS | file:line | @EV@:@X@ "the statement, offer-notes and tenure are listed:" |' "$line"
   [ "$_QVP_RC" -eq 0 ] || cf "(b) the same quote written without its backticks — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$idb-stripped.md" || cf "(b) the card did not advance to qa_complete/"
 
-  _qvp_land "$idc" otherword '| AC1 | PASS | file:line | @CARD@:@X@ "the `statement`, `offer-notes` and `lease` are listed:" |' "$line"
+  _qvp_land "$idc" otherword '| AC1 | PASS | file:line | @EV@:@X@ "the `statement`, `offer-notes` and `lease` are listed:" |' "$line"
   _qvp_refused "(c) a quote that differs from the backticked line by a word" "$idc" otherword qa-verdict-quote-not-found
-  case "$_QVP_OUT" in *'"the statement, offer-notes and lease are listed:" not found at progress/dev_complete/'"$idc"'-otherword.md:'*) : ;; *) cf "(c) the refusal does not name the quote and its pointer: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *'"the statement, offer-notes and lease are listed:" not found at EVIDENCE'"${idc##*-}"'.md:'*) : ;; *) cf "(c) the refusal does not name the quote and its pointer: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
-  _qvp_land "$idd" wholeline '| AC1 | PASS | file:line | @CARD@:@X@ "`tag-1`" |' '`tag-1`'
+  _qvp_land "$idd" wholeline '| AC1 | PASS | file:line | @EV@:@X@ "`tag-1`" |' '`tag-1`'
   [ "$_QVP_RC" -eq 0 ] || cf "(d) a short quote that is a backticked line's whole text — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$idd-wholeline.md" || cf "(d) the card did not advance to qa_complete/"
 
@@ -875,27 +868,27 @@ case_finish_pr_qa_verdict_prose_quotes_are_not_read() {
 
   local ida="$SB_PREFIX-920" idb="$SB_PREFIX-921" idc="$SB_PREFIX-922" idd="$SB_PREFIX-923" ide="$SB_PREFIX-924" idf="$SB_PREFIX-925"
 
-  _qvp_land "$ida" proseafter '| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds" and grep finds no "not available" anywhere |'
+  _qvp_land "$ida" proseafter '| AC1 | PASS | file:line | @EV@:@L@ "seeded behaviour holds" and grep finds no "not available" anywhere |'
   [ "$_QVP_RC" -eq 0 ] || cf "(a) a pointer, its true quote, then prose quoting a phrase the line lacks — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$ida-proseafter.md" || cf "(a) the card did not advance to qa_complete/"
 
-  _qvp_land "$idb" wordbefore '| AC1 | PASS | file:line | @CARD@:@L@ says "seeded behaviour holds" |'
+  _qvp_land "$idb" wordbefore '| AC1 | PASS | file:line | @EV@:@L@ says "seeded behaviour holds" |'
   [ "$_QVP_RC" -eq 0 ] || cf "(b) a word between the pointer and its quote — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$idb-wordbefore.md" || cf "(b) the card did not advance to qa_complete/"
 
-  _qvp_land "$idc" adjacent '| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds" "a sentence on no line of the card" |'
+  _qvp_land "$idc" adjacent '| AC1 | PASS | file:line | @EV@:@L@ "seeded behaviour holds" "a sentence on no line of the card" |'
   _qvp_refused "(c) an adjacent second quote the line lacks" "$idc" adjacent qa-verdict-quote-not-found
-  case "$_QVP_OUT" in *'"a sentence on no line of the card" not found at progress/dev_complete/'"$idc"'-adjacent.md:'*) : ;; *) cf "(c) the refusal does not name the second quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *'"a sentence on no line of the card" not found at EVIDENCE'"${idc##*-}"'.md:'*) : ;; *) cf "(c) the refusal does not name the second quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
-  _qvp_land "$idd" semicolon '| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds"; "a sentence on no line of the card" |'
+  _qvp_land "$idd" semicolon '| AC1 | PASS | file:line | @EV@:@L@ "seeded behaviour holds"; "a sentence on no line of the card" |'
   _qvp_refused "(d) a second quote after a semicolon, the line lacks it" "$idd" semicolon qa-verdict-quote-not-found
-  case "$_QVP_OUT" in *'"a sentence on no line of the card" not found at progress/dev_complete/'"$idd"'-semicolon.md:'*) : ;; *) cf "(d) the refusal does not name the second quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_QVP_OUT" in *'"a sentence on no line of the card" not found at EVIDENCE'"${idd##*-}"'.md:'*) : ;; *) cf "(d) the refusal does not name the second quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
   _qvp_land "$ide" fabricatedfirst '| AC1 | PASS | file:line | @CHG@:1 "kit-init refuses a blank principal" and also "a real change" |'
   _qvp_refused "(e) a fabricated first quote with a true phrase after it" "$ide" fabricatedfirst qa-verdict-quote-not-found
   case "$_QVP_OUT" in *'"kit-init refuses a blank principal" not found at CHANGE924.txt:1-1'*) : ;; *) cf "(e) the refusal does not name the first quote: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
 
-  _qvp_land "$idf" pairthenprose '| AC1 | PASS | file:line | @CARD@:@L@ "seeded behaviour holds" "the sandbox" then "not available" |'
+  _qvp_land "$idf" pairthenprose '| AC1 | PASS | file:line | @EV@:@L@ "seeded behaviour holds" "the sandbox" then "not available" |'
   [ "$_QVP_RC" -eq 0 ] || cf "(f) an adjacent true pair, then a quoted phrase after prose — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
   origin_has_path "progress/qa_complete/$idf-pairthenprose.md" || cf "(f) the card did not advance to qa_complete/"
 
@@ -946,11 +939,6 @@ case_move_issue_qa_complete_runs_the_verdict_check() {
   _mvq_seed_template "$idd" forged "Template table, forged skip"
   publish_sandbox
   seed_branch "$idc" work CHANGE696.txt
-
-  # The card cites its own pre-move path (progress/dev_complete/…), the shape a metadata card does:
-  # the pointer is read before the move, where that path still exists.
-  grep -qF "progress/dev_complete/$idc-landed.md:" "$SB_WORK/progress/dev_complete/$idc-landed.md" \
-    || _fixture_die "case_move_issue_qa_complete_runs_the_verdict_check: the filled card does not cite its own dev_complete path"
 
   out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "(a) a template table — move-issue.sh qa_complete exited 0"
@@ -1056,5 +1044,177 @@ case_qa_landing_activity_names_the_revision_read() {
   [ "$seen_tip" -eq 1 ] || cf "(b) the entry does not name the trunk tip the move read ($before): $entry"
 
   finish "finish-pr.sh's Activity entry names the branch tip the verdict gate read and the squash commit it landed (a), and a direct-to-trunk move to qa_complete names the trunk tip it read (b); every revision named resolves in the repository"
+  teardown
+}
+
+# =============================================================================
+# CASE — A QA VERDICT ROW WHOSE EVIDENCE POINTER IS THE CARD'S OWN FILE REFUSES, ON EVERY ROUTE.
+# The card records the review; it is not the content reviewed, and its path changes at every board
+# move: a pointer written at progress/dev_complete/<card>.md resolves before the move and not after.
+# Each card is the real workflow's order: seeded in dev_complete/, its table pointing at the card,
+# published to the trunk, the branch cut from it where there is one, then the route run.
+# This case is the landing route; the next is the direct-to-trunk mover and the reader.
+# =============================================================================
+_qsp_point() {  # <card file> <repo-relative target> — the AC1 row quotes the target's first line
+  local f="$1" target="$2" l
+  l="$(sed -n 1p "$SB_WORK/$target" 2>/dev/null)"
+  [ -n "$l" ] || _fixture_die "_qsp_point: $target has no first line to quote"
+  KIT_ROW="| AC1 | PASS | file:line | ${target}:1 \"${l}\" |" perl -i -pe 's/^\| AC1 \| PASS \| (?:test|file:line) \|.*\|$/$ENV{KIT_ROW}/' "$f"
+  grep -qF -- "| AC1 | PASS | file:line | ${target}:1 " "$f" || _fixture_die "_qsp_point: the row was not planted in $f"
+}
+
+case_finish_pr_qa_verdict_self_pointer_refuses() {
+  cf_reset
+  make_sandbox
+
+  local id="$SB_PREFIX-792" out rc
+  seed_issue dev_complete "$id" landed chore "Landed by the script, row points at the card" "feature/$id-work"
+  _qsp_point "$SB_WORK/progress/dev_complete/$id-landed.md" "progress/dev_complete/$id-landed.md"
+  publish_sandbox
+  seed_branch "$id" work CHANGE792.txt
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "a row naming the card's own file — finish-pr.sh exited 0"
+  case "$out" in *"cite the content the AC is about, not the card"*) : ;; *) cf "the refusal's Next: does not say to cite the content, not the card: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$out" in *"progress/dev_complete/$id-landed.md:"*) : ;; *) cf "the refusal does not name the pointer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  grep -q 'refusal=qa-verdict-self-pointer' "$SB_TMP/rec"/*.tsv 2>/dev/null \
+    || cf "no progress record carries refusal=qa-verdict-self-pointer: $(cat "$SB_TMP/rec"/*.tsv 2>/dev/null | cut -c1-200)"
+  origin_has_path "CHANGE792.txt" && cf "the branch was merged before the refusal"
+  origin_has_path "progress/qa_complete/$id-landed.md" && cf "the card advanced despite the refusal"
+
+  finish "the landing script refuses a QA Verdict row whose evidence pointer is the card's own file, before the merge, naming the pointer and the Next: line (cite the content, not the card), with a countable refusal=qa-verdict-self-pointer record"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE SAME ROW REFUSES AT THE DIRECT-TO-TRUNK MOVE AND IN THE READER, AND ONLY THAT ROW.
+# (a) move-issue.sh <ID> qa_complete, the pointer at the card's pre-move path (the shape of the run
+#     that found it): refused with a record and a Next: line, the card stays in dev_complete/;
+# (b) read-verdict.sh on a card already in qa_complete/ whose row names its old dev_complete/ path
+#     (also unresolved there) and on one naming its current path: the gate's would-REFUSE line
+#     names qa-verdict-self-pointer for both;
+# (c) CONTROLS: a row pointing at another card's file lands, one pointing at ordinary content lands,
+#     and the refused card lands once re-pointed at the content its AC is about.
+# =============================================================================
+case_qa_verdict_self_pointer_refuses_at_the_move_and_the_reader() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-791" idc="$SB_PREFIX-793" idc2="$SB_PREFIX-794" idd="$SB_PREFIX-795" ide="$SB_PREFIX-796" idf="$SB_PREFIX-797"
+  local out rc id
+
+  seed_issue dev_complete "$ida" direct chore "Direct to trunk, row points at the card" "n/a"
+  _qsp_point "$SB_WORK/progress/dev_complete/$ida-direct.md" "progress/dev_complete/$ida-direct.md"
+  # (b) cards already in qa_complete/: one names its old path, one its current path.
+  seed_issue qa_complete "$idc" moved chore "In qa_complete/, row names the old path" "n/a"
+  KIT_ROW="| AC1 | PASS | file:line | progress/dev_complete/$idc-moved.md:1 \"---\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$SB_WORK/progress/qa_complete/$idc-moved.md"
+  seed_issue qa_complete "$idc2" here chore "In qa_complete/, row names the current path" "n/a"
+  KIT_ROW="| AC1 | PASS | file:line | progress/qa_complete/$idc2-here.md:1 \"---\" |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROW}/' "$SB_WORK/progress/qa_complete/$idc2-here.md"
+  grep -qF "progress/dev_complete/$idc-moved.md:1" "$SB_WORK/progress/qa_complete/$idc-moved.md" \
+    && grep -qF "progress/qa_complete/$idc2-here.md:1" "$SB_WORK/progress/qa_complete/$idc2-here.md" \
+    || _fixture_die "case_qa_verdict_self_pointer_refuses_at_the_move_and_the_reader: the (b) rows were not planted"
+  # (c) controls: another card's file, ordinary content (the seed's default).
+  seed_issue dev_complete "$idd" other chore "The card another card's row points at" "n/a"
+  seed_issue dev_complete "$ide" cites chore "Row points at another card's file" "n/a"
+  _qsp_point "$SB_WORK/progress/dev_complete/$ide-cites.md" "progress/dev_complete/$idd-other.md"
+  seed_issue dev_complete "$idf" plain chore "Row points at ordinary content" "n/a"
+  publish_sandbox
+
+  # (a) the direct-to-trunk mover, at the pre-move path.
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-a" ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a row naming the card's own pre-move path — move-issue.sh qa_complete exited 0"
+  case "$out" in *"cite the content the AC is about, not the card"*) : ;; *) cf "(a) the refusal's Next: does not say to cite the content, not the card: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$out" in *"progress/dev_complete/$ida-direct.md:"*) : ;; *) cf "(a) the refusal does not name the pointer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  grep -q 'refusal=qa-verdict-self-pointer' "$SB_TMP/rec-a"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=qa-verdict-self-pointer: $(cat "$SB_TMP/rec-a"/*.tsv 2>/dev/null | cut -c1-200)"
+  origin_has_path "progress/qa_complete/$ida-direct.md" && cf "(a) the card reached qa_complete/ despite the refusal"
+  origin_has_path "progress/dev_complete/$ida-direct.md" || cf "(a) the card left dev_complete/ during the refusal"
+
+  # (b) read-verdict.sh names the rule for both spellings.
+  for id in "$idc" "$idc2"; do
+    out="$( cd "$SB_WORK" && ./scripts/read-verdict.sh "$id" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(b) $id: read-verdict.sh exited $rc, want 0"
+    case "$out" in *"would REFUSE this table (qa-verdict-self-pointer)"*) : ;; *) cf "(b) $id: the would-REFUSE line does not name qa-verdict-self-pointer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+  done
+
+  # (c) controls.
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-c1" ./scripts/move-issue.sh "$ide" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a row pointing at another card's file — move-issue.sh qa_complete exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$ide-cites.md" || cf "(c) the card pointing at another card's file did not reach qa_complete/"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-c2" ./scripts/move-issue.sh "$idf" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a row pointing at ordinary content — move-issue.sh qa_complete exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idf-plain.md" || cf "(c) the card pointing at ordinary content did not reach qa_complete/"
+
+  # (c, last) the refused card, re-pointed at content and published, lands. A mover that let (a)
+  # through has already moved it, which (a) reports.
+  git -C "$SB_WORK" pull --ff-only --quiet >/dev/null 2>&1 || _fixture_die "case_qa_verdict_self_pointer_refuses_at_the_move_and_the_reader: the work checkout could not fast-forward to the trunk"
+  if [ -f "$SB_WORK/progress/dev_complete/$ida-direct.md" ]; then
+    _qsp_point "$SB_WORK/progress/dev_complete/$ida-direct.md" "ARCHIVE.md"
+    git -C "$SB_WORK" add "progress/dev_complete/$ida-direct.md" >/dev/null 2>&1
+    sbcommit -m "[QA] $ida: cite the content the AC is about" --quiet >/dev/null 2>&1
+    git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || cf "(c) the re-pointed row could not be published"
+    out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-c3" ./scripts/move-issue.sh "$ida" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "(c) the card re-pointed at content — move-issue.sh qa_complete exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+    origin_has_path "progress/qa_complete/$ida-direct.md" || cf "(c) the re-pointed card did not reach qa_complete/"
+  else
+    cf "(c) the refused card is not in dev_complete/ to be re-pointed"
+  fi
+
+  finish "a QA Verdict row whose evidence pointer is the card's own file is refused at the direct-to-trunk move to qa_complete/ at the card's pre-move path (a), with the Next: line and a countable record, and read-verdict.sh's would-REFUSE line names qa-verdict-self-pointer for the old path and the current path (b); a row pointing at another card's file or at ordinary content, and the refused card once re-pointed, still lands (c)"
+  teardown
+}
+
+# =============================================================================
+# CASE — WHAT COUNTS AS THE CARD'S OWN FILE. The gate finds the card by its id under a progress/
+# directory, not by the path of the file it was handed (read-verdict.sh hands it a scratch copy):
+# every column's spelling, a leading ./, a slice's subtasks/ column and a different slug are the
+# card; another card's id (including one that begins with this id's digits), a parent's slice, and a
+# file outside progress/ that happens to share the card's name are not. The rows are checked through
+# the gate itself, handed a copy of the card under another name.
+# =============================================================================
+case_qa_gate_self_pointer_spellings() {
+  cf_reset
+  make_sandbox
+
+  local id="$SB_PREFIX-798" near="$SB_PREFIX-7980" other="$SB_PREFIX-799" col n=0 out rc q card="$SB_TMP/card.md"
+  seed_issue dev_complete "$id" subject chore "The card under test" "n/a"
+  seed_issue dev_complete "$near" nearid chore "Another id that begins with this id" "n/a"
+  seed_issue dev_complete "$other" another chore "Another card" "n/a"
+  mkdir -p "$SB_WORK/progress/subtasks/$id/dev_complete" "$SB_WORK/docs"
+  printf '%s\n' '---' > "$SB_WORK/progress/subtasks/$id/dev_complete/$id-s1-slice.md"
+  printf '%s\n' '---' > "$SB_WORK/docs/$id-subject.md"
+  publish_sandbox
+  cp "$SB_WORK/progress/dev_complete/$id-subject.md" "$card"
+
+  _qsg_check() {  # <label> <pointer path> <self|notself>
+    n=$((n + 1))
+    q="$(git -C "$SB_WORK" show "HEAD:${2#./}" 2>/dev/null | sed -n 1p)"; [ -n "$q" ] || q='---'
+    KIT_ROW="| AC1 | PASS | file:line | ${2}:1 \"${q}\" |" perl -i -pe 's/^\| AC1 \| PASS \| (?:test|file:line) \|.*\|$/$ENV{KIT_ROW}/' "$card"
+    grep -qF -- "| AC1 | PASS | file:line | ${2}:1 " "$card" || _fixture_die "_qsg_check: the row for $1 was not planted"
+    out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-$n" bash -c '. scripts/lib/refuse.sh; . scripts/config.sh; . scripts/lib/qa-gate.sh; kit_qa_verdict_check "$@"' _ "$card" "$id" "$SB_WORK" HEAD 2>&1 )"; rc=$?
+    case "$3" in
+      self)
+        [ "$rc" -ne 0 ] || cf "$1: $2 is the card's own file — the gate exited 0"
+        grep -q 'refusal=qa-verdict-self-pointer' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+          || cf "$1: $2 — no record carries refusal=qa-verdict-self-pointer (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)" ;;
+      *)
+        [ "$rc" -eq 0 ] || cf "$1: $2 is not the card's own file — the gate exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+        grep -q 'refusal=qa-verdict-self-pointer' "$SB_TMP/rec-$n"/*.tsv 2>/dev/null \
+          && cf "$1: $2 is not the card's own file — it was refused as a self-pointer" ;;
+    esac
+  }
+
+  for col in todo in_progress dev_complete qa_complete blocked done declined; do
+    _qsg_check "(a) $col" "progress/$col/$id-subject.md" self
+  done
+  _qsg_check "(b) leading ./" "./progress/dev_complete/$id-subject.md" self
+  _qsg_check "(c) a slice's own column" "progress/subtasks/$id/dev_complete/$id-s1-slice.md" notself
+  _qsg_check "(d) another slug" "progress/qa_complete/$id-renamed-slug.md" self
+  _qsg_check "(e) another card" "progress/dev_complete/$other-another.md" notself
+  _qsg_check "(f) an id that begins with this id" "progress/dev_complete/$near-nearid.md" notself
+  _qsg_check "(g) outside progress/" "docs/$id-subject.md" notself
+  _qsg_check "(h) ordinary content" "ARCHIVE.md" notself
+
+  finish "the gate takes the card's own file to be any file named <card id>-*.md under a progress/ directory — every column, a leading ./, a different slug — found by id and not by the path it was handed (a scratch copy here), and takes another card, an id that merely begins with this id, a parent's slice and a same-named file outside progress/ to be content"
   teardown
 }
