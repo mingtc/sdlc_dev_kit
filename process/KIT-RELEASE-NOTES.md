@@ -333,6 +333,8 @@ columns and never the cards.*
 
 ### Changed
 
+- **A verbatim quote of a backticked line now passes the QA gate.** The evidence cell was already read with its backticks removed; the cited line now is too, so a line quoted exactly as the file has it matches. No action.
+- **A quoted phrase in an evidence cell's prose is no longer checked as a quote.** A pointer's quote is the first double-quoted string after it, and each next one only when it follows the previous quote with whitespace or `;` alone between; any other double-quoted phrase is prose. A row that listed several quotes for one pointer separated by a comma or a word needs `;` or whitespace between them to keep each checked. No action for a row that already passed.
 - **`check-board.sh` `[t]` can list an answered question it formerly hid.** A register entry that names the question file only counts once it was committed at or after the answer; a ruling written before the answer no longer clears it. Where the source has no readable history the arm keeps the old test and prints a note. No action required.
 - **A delegating answer is a ruling.** When a principal answers a question "I don't know — use your judgement", the Orchestrator's PM-hat leg records it as a `D-NN` whose Ruling is the question's working default, quoting the answer and citing the question file, and does not file the question again. Role text only (`orchestrator.md`, `orchestrate/SKILL.md`, `contracts/ask.md`); no action required.
 

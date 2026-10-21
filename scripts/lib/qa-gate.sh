@@ -179,8 +179,10 @@ _qav_squeeze() {
 # _qav_cell_events <repo> <rev> <cell> — <cell> read left to right, one event per line, in the order
 # written: `P <path:line> OK <lo> <hi>` or `P <path:line> BAD <why>` for each path:line/path:a-b
 # token outside double quotes (checked against <rev>: git cat-file for existence, a line count for
-# range), and `Q <text>` for each non-blank double-quoted string. A quote belongs to the pointer
-# before it.
+# range), and `Q <text>` for each non-blank double-quoted string that is a pointer's quote: the first
+# one after the pointer, then each that follows the previous quote with only whitespace or `;` between
+# (`"a" "b"`, `"a"; "b"`). Any other double-quoted string is prose and is not read. A quote belongs to
+# the pointer before it; one before every pointer is kept, for the caller to refuse.
 _qav_cell_events() {
   local repo="$1" rev="$2" cell="$3" _kind _tok _path _range _lo _hi _nlines
   while IFS=' ' read -r _kind _tok; do
@@ -209,24 +211,31 @@ _qav_cell_events() {
     fi
   done <<< "$(printf '%s\n' "$cell" | awk '{
     n = split($0, part, "\"")
+    ptr = 0; state = "fresh"
     for (i = 1; i <= n; i++) {
       if (i % 2 == 0 && i < n) {
         q = part[i]; gsub(/^[ \t]+|[ \t]+$/, "", q)
-        if (q != "") print "Q " q
+        if (!ptr) { if (q != "") print "Q " q; continue }
+        if (state == "prose") continue
+        if (q != "") { print "Q " q; state = "quoted" }
       } else {
-        s = part[i]
+        s = part[i]; found = 0
         while (match(s, /[^[:space:]`"(),]+:[0-9]+(-[0-9]+)?/)) {
           print "P " substr(s, RSTART, RLENGTH)
           s = substr(s, RSTART + RLENGTH)
+          found = 1
         }
+        if (found) { ptr = 1; state = "fresh" }
+        else if (state == "quoted" && part[i] !~ /^[ \t;]*$/) state = "prose"
       }
     }
   }')"
 }
 
-# _qav_range_text <repo> <rev> <path> <lo> <hi> — <path>'s lines <lo>-<hi> at <rev>, whitespace-normalised.
+# _qav_range_text <repo> <rev> <path> <lo> <hi> — <path>'s lines <lo>-<hi> at <rev>, whitespace-normalised
+# and with backticks removed: the evidence cell is read without them, so the line must be too.
 _qav_range_text() {
-  _qav_squeeze "$(git -C "$1" show "${2}:${3}" 2>/dev/null | sed -n "${4},${5}p" | tr '\n' ' ')"
+  _qav_squeeze "$(git -C "$1" show "${2}:${3}" 2>/dev/null | sed -n "${4},${5}p" | tr -d '`' | tr '\n' ' ')"
 }
 
 # _qav_quote_in_range <repo> <rev> <path> <lo> <hi> <quote> — true if <quote>, whitespace-
