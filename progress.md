@@ -36,7 +36,17 @@ Two shapes below are REQUIRED, not stylistic — a script reads each one:
   (`## Log` alone, or followed by a space and more text — `## Log:` and `## Logistics` do not count) before it can report this section's size;
 - a dated `###` boundary per session: the log rotation splits this file on
   `### YYYY-MM-DD` when it rotates, so each session's entries sit under ONE
-  heading.
+  heading. **`###`, not `##`, and that is load-bearing rather than stylistic.** The tools that read
+  the `## Log` *section* scan from its heading to the **next `##`** — the drift report's `[c]` log
+  arm and its `[n]` kit-feedback-line arm, and the initializer's already-lived probe. An entry
+  written as `## YYYY-MM-DD` therefore *terminates the section it is supposed to be inside*: the
+  size arm measures only the preamble and reports healthy forever, and the lived probe counts zero
+  log lines, so a repository with a full history reads as new.
+
+One more line is read, as a warning only, when `PROJECT.md`'s `kit-feedback:` is `auto` (the
+default): the drift report's `[n]` kit-feedback-line arm looks in the newest entry for a closing
+`kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` line (a dispatched leg's `kit-finding:` line
+answers it too; `process/MANUAL.md` § Kit feedback) and warns when it is absent.
 
 ```markdown
 ### YYYY-MM-DD [Role] <session title>

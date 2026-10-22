@@ -8,15 +8,6 @@
 # THIS consumer repo. Canonical template shipped by the upstream project; each
 # consumer keeps its own copy at scripts/update_vendored.sh.
 #
-# ─────────────────────────────────────────────────────────────────────────────
-# IS THIS FILE FOR YOU?
-# Only a project that SHIPS something into other repositories needs it. If your
-# project has no downstream consumers, delete consumers/ — an unused template
-# that looks configured is worse than an absent one. The doctrine behind every
-# rule below is process/doctrine/distribution.md; read that first if you are
-# deciding *whether* to distribute this way.
-# ─────────────────────────────────────────────────────────────────────────────
-#
 # DISTRIBUTION MODEL (the one this script implements): consumers VENDOR a built
 # artifact into ./vendor/ and PIN it through their own dependency mechanism.
 # THIS script builds/refreshes that artifact, so it DOES clone the upstream
@@ -24,7 +15,8 @@
 # What needs NO reachable remote is a downstream clone of the CONSUMER: it
 # reproduces its environment from the already-vendored local artifact. Refresh
 # is pull-based and DELIBERATE: this script touches the network ONLY when you
-# run it. Nothing here runs on `git pull`.
+# run it. Nothing here runs on `git pull` unless you wire the optional post-merge
+# nag hook, which makes one `git ls-remote` per pull.
 #
 # Usage (run from the consumer repo root):
 #   scripts/update_vendored.sh              # build + vendor the LATEST release tag
@@ -158,6 +150,7 @@ die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 #    $2. Everything it prints MUST go to stderr — this script's STDOUT is
 #    reserved for the pin line (setup-consumer.sh captures it verbatim) and for
 #    --check's single verdict line, and most build tools are chatty on stdout.
+#    $1 does not exist yet: create it (`mkdir -p "$outdir"`) before writing into it.
 #    Build in an ISOLATED environment: never install build tooling into the
 #    consumer's own environment.
 build_artifact() {   # <output dir> <source dir>

@@ -501,6 +501,7 @@ CASES=(
   case_check_board_declined_is_judged_and_counted
   case_check_board_reads_the_configured_archive_threshold
   case_setup_warns_on_a_later_added_column
+  case_setup_reads_the_archived_heading_exactly
   case_log_heading_is_one_bounded_declaration
   case_check_board_reads_the_ref
   case_check_board_arm_e_scopes_to_the_rules_lifetime

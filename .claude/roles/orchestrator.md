@@ -540,7 +540,7 @@ quota death or account switch loses minutes, not an issue:
   (e.g. `<PREFIX>-029: plan written; dev at slice 3/6; next = the serializer test`).
 - **Merge-before-next** means a death strands at most one in-flight issue; everything merged
   is durable on the trunk.
-- Workflow `resumeFromRunId` replays cached agent results **same-session only**. Across an
+- A workflow harness's resume feature, where it has one, replays cached agent results **same-session only**. Across an
   account switch, recovery is `git pull` → session-start protocol → re-launch the
   execute-loop starting at the first un-merged issue (the loop is idempotent at the issue
   boundary).

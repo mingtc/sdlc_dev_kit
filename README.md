@@ -146,7 +146,7 @@ git add -A && MSG_OK=1 git commit -m 'init'      # the first commit
 # (a LOCAL bare remote? create it first, per process/GIT-HOSTING.md § 3:
 #    git init --bare /abs/path/to/<project>.git
 #    git -C /abs/path/to/<project>.git symbolic-ref HEAD refs/heads/main   # the bare side's HEAD names the trunk )
-git remote add origin <url-or-path-to-a-bare-repo>
+git remote add origin <url-or-ABSOLUTE-path-to-a-bare-repo>
 git push -u origin main
 git remote set-head origin main                  # ← the step whose absence is SILENT
 
@@ -255,7 +255,8 @@ without one.
 
 - [`dev/`](dev/) — dated working notes, assessments, and **handoffs**; every file and split-out
   directory reachable from exactly one row in
-  [`dev/README.md`](dev/README.md). No file in `dev/` is a living plan except the newest handoff.
+  [`dev/README.md`](dev/README.md). No file in `dev/` is a living plan except the newest handoff, the standing queue and a LIVING
+  standing handoff (see [`dev/README.md`](dev/README.md)).
   It also holds the directories the process writes into by name — `specs/`, `plans/`, `refactor/`,
   `design/`, `launch/` — so a role doc's stated output path lands somewhere that exists.
 - [`docs/`](docs/) — reference material **this project did not write**: a vendor's API guide, a spec

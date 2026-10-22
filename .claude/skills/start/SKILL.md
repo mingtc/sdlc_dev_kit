@@ -24,7 +24,7 @@ your memory of it.
   not yours. An unattended launch also passes `.claude/settings.unattended.json.example`.
 - **The two optional extras, only if the project uses them:** `brainstorming`'s visual companion
   needs Node (`node --version`); `scripts/hygiene/` needs Python 3, standard library only
-  (`python3 --version`). Check for these only if the adapter (once one exists — see step 3) says
+  (`python3 --version`). Check for these only if the adapter (once one exists — see section 3 of this skill) says
   the project actually uses them. Neither is required; say so rather than treating an absence as a
   problem.
 - **Declare your hat before the first change or commit:** write `.kit/session-role`, one line
@@ -58,10 +58,10 @@ job is day one, not features. Then:
 
 1. Read `process/SEED.md` in full before doing anything — it is the order of operations and names
    its own authorities per step. Do not improvise the order.
-2. Walk the eight steps **with** the human, conversationally, in the order SEED gives — this means
-   actually having the step 3 interview (what is this project?) and the step 6 PM session (mint
+2. Walk SEED's steps **with** the human, conversationally, in the order SEED gives — this means
+   actually having SEED's step 3 interview (what is this project?) and its step 6 PM session (mint
    `PRD-001`) as real conversations, not placeholders you fill from a guess.
-3. Do not skip ahead to "what can this project do" territory (step 4 below) until
+3. Do not skip ahead to "what can this project do" territory (section 4 below) until
    `check-board.sh` arm `(g)` reports graduation complete, or SEED's own "Day one is done when"
    checklist is satisfied.
 4. **Unattended (`KIT_UNATTENDED=1`) before day one:** there is no `principal:` yet, so
@@ -80,8 +80,8 @@ Give whoever (or whatever) is reading a short, concrete status, derived live rat
 - `./scripts/check-board.sh`'s summary — what it flags, if anything.
 - What is on the board right now and in which column (`ls progress/*/`).
 - The project's one-line identity, read from `PROJECT.md` § What `<project name>` is.
-- Anything `check-board.sh` marks advisory-but-worth-mentioning (an open upgrade checklist, a stale
-  `kit-feedback:` line, declined work sitting deep).
+- Anything `check-board.sh` marks advisory-but-worth-mentioning (an open upgrade checklist, a newest
+  session entry that does not end with its `kit-feedback:` line, the count of declined work).
 
 **Check whether anyone is watching before deciding how to end this.** `KIT_UNATTENDED=1` in the
 environment (set by `.claude/settings.unattended.json.example` — present only on an unattended

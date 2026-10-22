@@ -9,7 +9,7 @@
 # Two halves, in this order:
 #
 #   1. THE KIT HALF (real, working, idempotent, language-agnostic)
-#        - wire the commit-message role-prefix guard (core.hooksPath)
+#        - wire the git hooks (core.hooksPath): the commit-message role-prefix guard and the pre-commit guards
 #        - sanity-check the board: the status folders, progress.md § Log, ARCHIVE.md § Archived,
 #          the configuration seam
 #        - seed .env from .env.example on first run (never overwrites; .env is gitignored)
@@ -71,14 +71,14 @@ note_fail() { warn "$*"; FAILURES=$((FAILURES + 1)); }
 
 log "── Kit setup ────────────────────────────────────────────────────────────"
 
-# --- 1a. The commit-message role-prefix guard -------------------------------
+# --- 1a. The git hooks (commit-message role-prefix guard, pre-commit guards) -
 # hooksPath lives in the shared .git/config, so the guard is active from EVERY
 # worktree — including the auxiliary trunk checkout the board scripts commit from.
 if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   if [ -f "$ROOT/scripts/githooks/commit-msg" ]; then
     chmod +x "$ROOT/scripts/githooks"/* 2>/dev/null || true
     git -C "$ROOT" config core.hooksPath scripts/githooks
-    log "✓ git hooks wired: core.hooksPath = scripts/githooks (commit-message role-prefix guard)."
+    log "✓ git hooks wired: core.hooksPath = scripts/githooks (every hook in it: commit-message prefix guard, pre-commit hat/metadata guard)."
   else
     note_fail "scripts/githooks/commit-msg is missing — the role-prefix guard cannot be wired."
   fi
@@ -127,7 +127,7 @@ else
 fi
 
 if [ -f "$ROOT/ARCHIVE.md" ]; then
-  grep -qE '^##[[:space:]]+Archived[[:space:]]*$' "$ROOT/ARCHIVE.md" \
+  grep -qE '^## Archived$' "$ROOT/ARCHIVE.md" \
     || note_fail "ARCHIVE.md has no '## Archived' heading — the archive sweep inserts beneath it."
 else
   note_fail "ARCHIVE.md is missing."

@@ -23,7 +23,8 @@ distribution machinery that looks configured is worse than none: somebody eventu
 
 **The vendored artifact is never auto-updated.** Refreshing it is always a deliberate command
 a human runs. The optional nag (git hook, CI job) only *tells you* an update exists — it never
-applies one. Nothing in this directory phones home, and nothing installed by it updates itself.
+applies one. Nothing in this directory phones home on its own, and nothing installed by it
+updates itself; the one network call outside a refresh is the optional hook's `git ls-remote`.
 
 ---
 
@@ -37,7 +38,7 @@ only for ordinary transitive dependencies, if your ecosystem has them).
 
 The **only** step that ever contacts the upstream remote is building or refreshing the
 artifact (`update_vendored.sh`). A normal `git pull` in your repo touches no upstream network
-at all.
+at all, unless you wire the optional nag hook, which makes one `git ls-remote` per pull.
 
 The upstream remote can be anything git can clone — a forge, or a **local bare repository** on
 a shared disk. See [`process/GIT-HOSTING.md`](../process/GIT-HOSTING.md); nothing in this flow
@@ -245,9 +246,10 @@ In [`update_vendored.sh`](update_vendored.sh) (one block at the top, plus the se
 | `ARTIFACT_GLOB` | Which files in `./vendor/` are the artifact — must never match a dropped document. |
 | `TAG_PREFIX` / `RELEASE_TAG_RE` | Your release-tag convention. Non-release tags must never be picked as "latest". |
 | `RELEASE_DOCS` | The release documents you ship, and the names they are dropped under. |
+| `NOTES_DOC_PATH` / `CHANGELOG_DOC_PATH` | The two documents `--check`'s what-changed delta reads. `NOTES_DOC_PATH` must name the same path as your `RELEASE_DOCS` notes row, or the delta is skipped with a logged note. |
 | `build_artifact()` | Your build command, run against the checked-out tag, output to a scratch dir, **all chatter on stderr**. |
 | `artifact_version()` | Version out of an artifact filename. |
-| `ver_gt()`, `notes_headers()`, the `--sort=-v:refname` tag picks | Only where your versions are not digits-and-dots: the one version comparison (`--check` uses it too), the release-document header reader, and how the latest tag is chosen. They sit below the seam block; replace them together with `artifact_version()`. |
+| `ver_gt()`, `notes_headers()`, `notes_subsections()`, the `--sort=-v:refname` tag picks | Only where your versions are not digits-and-dots: the one version comparison (`--check` uses it too), the release-document header and subsection readers, and how the latest tag is chosen. They sit below the seam block; replace them together with `artifact_version()`. |
 | `pin_line()` and `install_hint()` in `update_vendored.sh` — where both are AUTHORED | Your pinning mechanism, and the two install hints (first-install resolves dependencies; refresh does not). `setup-consumer.sh` holds no hint of its own: it asks `update_vendored.sh` for the first-install form and captures the pin line into `PIN_LINE=`, so what you fill is what a consumer sees. |
 | `CONSUMER_CONFIG` | The configuration or credentials a consumer must provide, as `NAME\|what it is, and which surface needs it` (an empty list if none). `setup-consumer.sh` prints one `NAME=...` line per entry. |
 

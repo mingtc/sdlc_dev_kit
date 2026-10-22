@@ -181,8 +181,7 @@ stood; nothing here ages it into a ruling.
 
 > **Is any entry still `WITHDRAWN` whose named discharger has already landed?**
 
-Write the state so a machine can answer that: in an adopting project the condition fired, the
-successors landed, and the author edited this very file twice more without noticing the stale entry.
+Write the state so a machine can answer that: a condition that fires unnoticed leaves the entry stale.
 **What such a check cannot see:** a withdrawal nobody declared (a ruling quietly reworded into a
 hedge); a discharging condition carrying no id; and a condition that fired with nothing landing.
 

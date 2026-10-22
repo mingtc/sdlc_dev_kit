@@ -350,6 +350,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **`setup.sh` reads the `## Archived` heading as `archive.sh` and `kit-init.sh` do.** A heading with trailing whitespace or extra spaces is now reported missing. The skills, the launch-pack and run-report templates, the shipped `progress.md`, `consumers/`, `UPGRADE-SEAT.md` step 7 and a few front-door sentences are corrected or clarified; a vendored skill copy you have not edited can be re-copied, and an upgrade seat now re-dates a living standing handoff after its own. No action.
 - **`kit-upgrade.sh` now lists the `[0.4.0]` obligations.** `process/KIT-RELEASE-HISTORY.md` groups them under `### Action required`, which the checklist reader needs; a project older than 0.4.0 gets those items instead of a checklist without them. Upgrading by hand: read that heading.
 - **`reachability_walk.py --self-test` proves the `$VAR/` edge on a fixture.** It ends `SELF-TEST FAIL` if a script's `"$VAR/dir/file"` citation no longer resolves; the line about your own tree's probe file stays as a fact about your tree. `staleness_greps.py` labels its shipped base-rate figures undated and not yours.
 - **`release.sh` prints "all gates green" after gate (g)**, not before it, so a refused ship manifest no longer follows that line. `new-refactor.sh --help` shows `--prd PRD-NNN|n/a`; `read-verdict.sh --help` shows `<PREFIX>-012`; `archive-progress.sh --apply` lists `progress/history/INDEX.md` among the files it wrote, and its review line includes it.

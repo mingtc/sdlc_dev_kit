@@ -26,7 +26,7 @@
 # The check clones (or at minimum queries) the upstream repo, so a private
 # upstream needs a credential the runner can use — a deploy key or a token in
 # repository secrets, exported the way your remote URL expects. Without one the
-# job reports its allowed failure and the pipeline still passes, which is the
+# step stays green and prints no verdict, which is the
 # designed degradation: a nag that cannot run must never look like a defect in
 # the consumer's own code.
 # ─────────────────────────────────────────────────────────────────────────────

@@ -6,7 +6,9 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every blockquote that
-> opens `> **GUIDANCE`, and the line-1 marker (the STATUS banner and the independence clause stay). The report is written **by the runner that executed the pack**, and it
+> opens `> **GUIDANCE`, the line-1 marker and the `LINKS IN THIS FILE` comment under it (the STATUS banner and the
+> independence clause stay). Of the two opening blocks below keep the one that fits the run, without
+> its code fence, and delete the other. The report is written **by the runner that executed the pack**, and it
 > is the deliverable that closes the pack: **when a launch pack commissioned the run,** the pack is
 > stamped `SPENT` **against this file, by name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
 >
@@ -346,8 +348,8 @@ matched at open: <list>.
 ## Closing checklist (the runner's, before the report lands)
 
 - [ ] Every `<slot>` filled; every blockquote that opens `> **GUIDANCE` deleted, and the line-1
-      `KIT-CLASS` marker with them (the header states the same rule; the STATUS banner is a
-      blockquote too, and stays).
+      `KIT-CLASS` marker and the `LINKS IN THIS FILE` comment with them (the header states the same
+      rule); of the two opening blocks one is kept, unfenced, and the other deleted.
 - [ ] Every figure either **re-measured** by the orchestrator or **labelled inherited**.
 - [ ] Every gate quote is verbatim and unpiped, with its exit code read from the summary.
 - [ ] Every removal of a test identifier or generated artifact is enumerated and justified.

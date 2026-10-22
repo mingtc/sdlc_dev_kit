@@ -97,7 +97,12 @@ never wins.>`
 
 ## The guard
 
-`<your guard's path>` holds this file true **in both directions**: (1) every manifest entry
+The kit ships a partial guard: `check-board.sh` arm `[p]` reads this file's Status column (the
+`CORPUS_FILE` seam) and flags a dangling forward-reference id, a landed id not yet flipped to
+present, and a SEED-step marker left after day one. It does not resolve manifest paths or classify
+root documents.
+
+`<your guard's path>` holds the rest true **in both directions**: (1) every manifest entry
 resolves to a real path unless it is a marked forward reference; (2) every root document and
 top-level directory is classified. **A guard in only one direction rots in the other.**
 

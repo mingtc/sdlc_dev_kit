@@ -191,8 +191,7 @@ that produced it**, and a re-measurement **PREPENDS** rather than replaces
 - **Instrument:** the **reachability walk**, with its convention exemptions named in it.
 - **Evidence date + source:** `<date>` — `<nodes, orphans, and how many of the orphans fall inside
   the convention exemptions>`. **Measure it on the tree AS IT WILL STAND**, including any file the
-  same change adds — an earlier reading taken before this very file existed was falsified by
-  landing it, which is exactly what shape 5 exists to catch.
+  same change adds, which is exactly what shape 5 exists to catch.
 - **Retire condition:** retire if a link-completeness guard ever owns **both** directions of your
   retained-evidence index and the same for `requirements/` — at which point the walk becomes
   redundant rather than merely quiet.

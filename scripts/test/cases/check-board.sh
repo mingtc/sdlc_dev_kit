@@ -1632,6 +1632,33 @@ case_setup_warns_on_a_later_added_column() {
 }
 
 # =============================================================================
+# CASE — setup.sh READS THE `## Archived` HEADING THE WAY ITS SIBLINGS DO.
+#
+# lived-probe.sh, archive.sh and kit-init.sh all require the exact line `## Archived`. A heading
+# with trailing whitespace passes a looser check in setup.sh and is then refused downstream, so
+# the board check must report it. The control is the exact heading, which must pass silently.
+# =============================================================================
+case_setup_reads_the_archived_heading_exactly() {
+  cf_reset
+  make_sandbox
+  if [ ! -f "$SB_WORK/setup.sh" ]; then
+    skp "setup.sh: an '## Archived ' heading with trailing whitespace is reported, the exact heading is not" "the sandbox carries no setup.sh"
+    teardown; return
+  fi
+  local out
+  printf '# ARCHIVE.md\n\n## Archived \n' > "$SB_WORK/ARCHIVE.md"
+  out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )" || true
+  printf '%s\n' "$out" | grep "ARCHIVE.md has no '## Archived' heading" >/dev/null \
+    || cf "(trailing space) an '## Archived ' heading was accepted, though archive.sh and kit-init.sh refuse it: $(printf '%s\n' "$out" | grep -i 'ARCHIVE' | tr '\n' '|')"
+  printf '# ARCHIVE.md\n\n## Archived\n' > "$SB_WORK/ARCHIVE.md"
+  out="$( cd "$SB_WORK" && ./setup.sh 2>&1 )" || true
+  printf '%s\n' "$out" | grep "ARCHIVE.md has no '## Archived' heading" >/dev/null \
+    && cf "(control) the exact '## Archived' heading was reported missing: $(printf '%s\n' "$out" | grep -i 'ARCHIVE' | tr '\n' '|')"
+  finish "setup.sh: an '## Archived ' heading with trailing whitespace is reported missing, as the sibling readers treat it, and the exact heading is not"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE ARMS ANSWER ABOUT THE NAMED REF, NOT ABOUT THE CHECKOUT.
 #
 # Board cases that publish before running cannot tell a checkout read from a ref read, so this

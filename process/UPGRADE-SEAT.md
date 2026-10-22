@@ -23,7 +23,7 @@ it. Do not stop to confirm that part.
   `principal:` in [`PROJECT.md`](../PROJECT.md) § Who answers when nobody is watching. Attended, ask in
   the session. Unattended:
   `./scripts/ask.sh --role <your role> "Authorise the upgrade to <version>, including the instructions file?" --default "stage and verify only: do not land and do not touch the instructions file"`.
-  Under that default, land only the handoff: stage in the worktree (step 2's first command), work the
+  Under that default, land only the handoff: stage in the worktree (step 1 creates it, step 2 stages), work the
   checklist except moving the instructions file, run the self-test, then write the handoff, land it so
   the next session reads it, and stop. Do not land the upgrade on the default.
 
@@ -82,7 +82,11 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
    refusal stops you, quote it.
 7. **Write the handoff** as `dev/handoffs/<today's date>-upgrade.md` (the convention is in
    [`dev/handoffs/README.md`](../dev/handoffs/README.md)): what changed, what you decided and why, the
-   authority line, and what is still open. Land it. Then stop, and start nothing else.
+   authority line, and what is still open. If `dev/handoffs/` holds a LIVING standing handoff, re-date it
+   in the same landing so it still sorts newest, after your upgrade handoff, and add one line to it
+   saying that an upgrade handoff landed during the arc and why it was re-dated
+   ([`dev/handoffs/README.md`](../dev/handoffs/README.md) § The standing-handoff pattern). Land it. Then
+   stop, and start nothing else.
 
 ## If you are stopped
 
