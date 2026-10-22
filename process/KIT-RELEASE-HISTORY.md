@@ -8,6 +8,145 @@
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.
 
+## [0.11.0] — 2026-10-20
+
+### Action required
+
+- **`subtask.sh move <slice> blocked` now needs `--note`,** as `move-issue.sh` already did: a parked slice whose blocker is not written down is refused (`blocked-needs-note`). Add
+  `--note "<blocker>"` to any runner brief or script of your own that parks a slice.
+- **A direct-to-trunk `qa_complete/` move now checks a corrected AC for its citation.** `move-issue.sh <ID> qa_complete` (a card that did not land
+  through `finish-pr.sh`) refuses an AC bullet whose text changed after the card left `todo/`, such as a `PASS_AC_CORRECTED` correction, unless that bullet
+  carries `[decision: D-NN]` on its own checklist line. A project that moves cards this way records the register entry that decided the change, cites
+  it on the bullet and commits that to the trunk (`./scripts/register-commit.sh`) before the move.
+- **A changed AC bullet needs its own `[decision: D-NN]` citation.** The check that refuses a landing whose AC text changed after
+  the card left `todo/` (`forks-ac-changed-uncited`) now reads the citation on the changed bullet's own checklist line; a
+  citation in another AC or in the Activity does not cover it. An in-flight card whose changed AC bullet carries no citation of
+  its own now refuses at landing, naming the bullet: put the `[decision: D-NN]` on the bullet that changed. (This supersedes
+  "citation anywhere" in the 0.9.0 entry in `KIT-RELEASE-HISTORY.md`.)
+- **A card moved to `qa_complete/` by `move-issue.sh` is checked for its `## QA Verdict` table.** That is every
+  direct-to-trunk card and every landing done by hand; `finish-pr.sh` already checked its card. An in-flight card whose table
+  is unfilled now refuses the move, naming the rule and the fix. Fill the table and commit it to the trunk first
+  (`./scripts/register-commit.sh`): the move reads the trunk's copy, so a table in a local commit that was not pushed counts as
+  unfilled.
+- **An upgrade seat mid-flight follows the new steps in `UPGRADE-SEAT.md`.** It commits nothing in the staging worktree (a
+  metadata-only commit on a branch of its own is refused once `CODE_GLOBS` is declared) and lands each batch on the trunk with
+  `register-commit.sh` from the worktree, then `git reset -q origin/<trunk>`. The hat is declared in the main checkout the
+  session started in: the editor gate reads only that checkout. A seat that has staged and not landed lands what is staged
+  that way.
+
+### Changed
+
+- **An answered principal question now has an owner.** `scripts/ask.sh` takes `--card <ID>` and writes the card the question parks into the question file (an id that is not a card id, or names no card, is refused with a `Next:`); the file also says how to answer: one `**Answer (<date>, <who>):**` block at its end. `check-board.sh` has a new report-only arm `[t]` listing each question file that carries an answer and that no `requirements/DECISIONS.md` entry cites, with the card it parks. The Orchestrator treats each as ready work before any new card and dispatches the PM-hat leg, bounded to three acts: record the literal answer as a `D-NN` citing the question file, cite it on the parked card (`[decision: D-NN]` on the bullet it settles, and `forks:`), and move the card out of `blocked/`; what the answer leaves unruled is filed again through `ask.sh` under a working default. `/start`'s unattended pick order takes it first. `pm.md` and `dev.md` say to pass `--card` and name the question file in the `blocked/` move's `--note`. **No action** unless questions are already answered and waiting: `./scripts/check-board.sh` lists them under `[t]` (a question filed before this release shows `no card named`), and the next Orchestrator session reconciles them, or do the three acts by hand.
+- **The run-report template has a banner for a run with no launch pack.** An unattended run planned from the board and `scripts/ask.sh` names its filed plan where the
+  pack-form banner names the pack, with nothing to stamp `SPENT`; the independence clause stays. The orchestrator role doc and the `orchestrate` skill now point at
+  `process/templates/run-report.template.md`. No action.
+- **The unattended Stop hook reads the final paragraph, not the last line.** `scripts/hooks/stop-ask.sh` blocks once when any sentence in the turn's final paragraph ends on `?` (fenced code, inline code and a `?` inside a URL are not read), so a question followed by an offer or a menu is no longer let through. A question in an earlier paragraph and a request with no `?` are still allowed. No action.
+
+- **The upgrade seat's brief says how to wait for the self-test.** `process/UPGRADE-SEAT.md` step 4: `./scripts/test/run.sh` runs longer than one tool call, so run it in the background and wait for it inside the same turn (a headless session's exit stops background work), and put its tally in the handoff. No action.
+
+- **The board's `[g]` and `[l]` arms skip the committed upgrade staging directory.** While `.kit-upgrade/` is committed, its copies of the new kit's files no
+  longer show as undecided DELETE-IF-UNUSED members in `[g]` or as dangling citations in `[l]`; each arm says `skipped N staged file(s)` in its line while any
+  are there. No action.
+
+- **`--finish` asks for a newer handoff.** Its closing output ends: if a handoff in `dev/handoffs/` describes the upgrade as unfinished, write a newer one
+  pointing at the archive in `process/upgrades/`. A seat that stops short of `--finish` puts that step in the card for whoever finishes (`process/UPGRADE-SEAT.md`
+  § If you are stopped). No action.
+
+- **The upgrade checklist names the file that holds each Action required entry.** A release the notes no longer hold is read from
+  `process/KIT-RELEASE-HISTORY.md`, and its line now says so (`— process/KIT-RELEASE-HISTORY.md § [x]`), so the `§` pointer resolves. The merge items
+  for `scripts/config.sh` and `scripts/verify.sh` say the file holds your own stamped values and gates, that the new copy merges into it, and what to
+  keep. No action.
+- **`check-board.sh`'s upgrade line no longer says "no upgrade in progress".** With no `process/UPGRADE-CHECKLIST.md` on the trunk it says a
+  release you hold newer than `KIT-VERSION` is run now (`process/contracts/kit-upgrade.md` § 2), and that the arm reads the trunk, so an upgrade staged or
+  committed locally and not yet landed shows as none; `[f1]` lists those commits. No action.
+- **The commit hook refuses a commit that stages the hat file.** `scripts/githooks/pre-commit` refuses a staged
+  `.kit/session-role` in any checkout (`pre-commit-hat-file-staged`; `Next:` is `git rm --cached .kit/session-role` and an
+  ignore entry); a staged deletion passes. A project that edited the hook gets it as a merge item; until merged, a staging
+  commit that sweeps the hat file in is not refused. No action otherwise.
+- **QA's evidence line must show the AC's observable.** `qa.md` step 4: the cited line is the assertion that shows it, not a test's title, a declaration or a call site; an AC covering work the card does not deliver is `FAIL_AC` (or goes back to the PM), never `PASS`. No action.
+- **`./scripts/read-verdict.sh <id>` reads a card's verdict on the trunk.** It prints the card's column on `<remote>/<trunk>`, each
+  QA Verdict row's verdict, and whether the landing gate would accept the table; on success it writes nothing. The Orchestrator runs it before
+  promoting any QA reply to a board move, direct-to-trunk cards included (`orchestrate/SKILL.md` § Procedure, step 3). No action.
+- **A landing's Activity entry names the revisions the QA Verdict was read at.** `finish-pr.sh`'s `Review — PASS` entry carries the
+  branch tip the check read and the squash commit it landed; a direct-to-trunk `move-issue.sh <ID> qa_complete` carries the trunk
+  tip it read. Re-resolve a landed row's `path:line` at that revision, not at today's code. No action.
+- **A QA Verdict row is checked pointer by pointer.** Each quote is read against the `path:line` it follows, so a row that cites
+  two places lists both, each followed by its own quote (`README.md:2 "first quote"; src/a.js:8 "second quote"`). The landing check now refuses
+  a pointer with no quote of its own (naming the pointer), a quote shorter than 8 characters (unless it is the cited line's whole
+  text), and two rows for one AC id (write one row that lists every pointer). No action unless an in-flight card carries a row of
+  those shapes; its next landing says which.
+- **`register-commit.sh` refuses a second copy of a card.** A landing that creates a `progress/**/<ID>-*.md` file while the trunk
+  holds that card at another path (a Dev's checkout still has the `in_progress/` copy after the card moved to `dev_complete/`) is
+  refused as `register-card-moved`, naming the trunk's path. Bring that file into your checkout, edit it there and land it. A
+  landing that also deletes the old path is a move and lands. No action.
+
+- **An upgrade's open-card check judges only a QA Verdict table that has a verdict filled.** A card whose table is still the
+  template's (or absent) is skipped, whatever its column, so `--finish` no longer waits on a review by another hat; the staging
+  summary counts the skipped cards, and each is judged at its own landing. A table with any verdict cell filled is judged
+  whole, and a wrongly filled one still refuses the finish. This supersedes "any other open card that already has a
+  `## QA Verdict`" in the entry in `KIT-RELEASE-HISTORY.md` that introduced the check. No action.
+- **The upgrade's staging summary counts the `todo/` cards it did not read.** `todo/` stays outside the open-card check (no
+  branch to check); the summary says how many it left, and that each is judged at its own landing. No action.
+- **A checklist item names an open card whose branch predates the upgrade.** A branch that does not contain the trunk carries
+  the older hooks and scripts, which govern a checkout it is switched to: its owner brings the trunk into it before it is
+  switched to where the hooks run, or it is reviewed from a worktree (`qa.md` review step 2 says so). The upgrade seat does
+  not merge it: tell the owner, then mark the item.
+- **An answered question is answered by adding a block; nothing clears it.** `dev/README.md`, `doctrine/orchestration.md` § A.5, the question file `ask.sh` writes and the
+  orchestrator role say the principal adds an `**Answer` block and the Orchestrator's PM-hat leg reconciles it (its re-ask passes `--role Orchestrator`, which `ask.sh` accepts
+  where the principal's own role is refused). `PROJECT.md` says a one-file channel is not reconciled by `check-board.sh`, so prefer the directory. No action.
+- **The QA Verdict note and `qa.md` step 4 state the rules the gate enforces.** A `|` in a quoted line is written `\|`; in a `gate-diff`/`fixture-diff` pointer any `word:number`
+  is read as a `path:line`; the shadow-check text goes in the pointer cell. The day-one checklist and both workflow runners' QA brief name the table, and the card templates carry
+  the same note. No action.
+- **`read-verdict.sh` says why a deferred PASS reads `would REFUSE`.** For a card in `dev_complete/` whose evidence pointer or quote does not resolve on the trunk, the output ends with a note that a deferred landing's evidence is on its
+  branch, not the trunk. The `orchestrate` skill's Procedure steps are headed `### Step 0.` to `### Step 4.`; cite the verdict step as `orchestrate/SKILL.md` § Procedure, step 3. No action.
+- **The commit line a creator prints is one the hook accepts.** `new-issue.sh`, `new-bug.sh` and `new-refactor.sh` print `git commit -m "[<tag>] <ID>: mint"` with the card's own
+  id and a tag from your declared role set, where it printed a literal `[<Role>] <ID>` that the commit-msg hook refused. No action.
+- **The upgrade seat resets to `<remote>/<trunk>`,** `<remote>` being `KWT_REMOTE` (default `origin`), where `UPGRADE-SEAT.md` said `origin`. No action.
+- **`EXTRACTION.md` § 2.2 lists every file that names a lifecycle column in code** (`qa-gate.sh`, `board-properties.sh`, `kit-upgrade.sh`, `read-verdict.sh`, the optional
+  `staleness_greps.py`, with the columns each reads), its Take-but-EDIT table gains `config.sh` (`CODE_GLOBS`/`TEST_GLOBS` are day-one fills), and `config.sh`'s header says so.
+  A project that renames or adds a column edits those files too. No action otherwise.
+- **Wording and pointers corrected across the shipped text.** The `architect.md` nesting claim states the measured depth with its date; `orchestrate` and the role doc cite the
+  Conductor reconciliation paragraph without a `§`; `using-git-worktrees` takes the branch from the card's `branch:` and treats `dev.md`'s worktree table as the declared
+  preference (its row, and the other hardened Dev-set skills', are in the skills README table); the PM sets a PRD `completed` when its last story reaches `qa_complete/`;
+  `prd_reason` is "expected" (`check-board.sh` `[m]` counts omissions); the run-report and launch-pack templates are conditional on a pack and balanced; the `Log size` arm is
+  named `[c]`; `install-skills.sh` tells a consumer there is nothing to install; the README's role list and acceptance-criteria sentence match the tree. Incident narratives and
+  maintainer-side debt notes are removed from `EXTRACTION.md`, the contract sheets, the role docs and the requirements templates. No action.
+- **`PROJECT.md`'s setup note puts the test gate in `scripts/verify.sh`, and its surface list asks for a path expression per row.** `setup.sh` only invokes the gate. No action.
+
+### Fixed
+
+- **The "stamp what arrived" `--roles` check works after `kit-upgrade.sh`.** It read the shipped role set from a `kit` branch only the git route creates, so on the default route
+  it listed every script. It now reads the set from the release's zip (`unzip -p <path-to>/project-kit-v<X.Y.Z>.zip scripts/githooks/commit-msg`), the same on both routes. No action.
+- **`PROJECT.md`'s contract-sheet check reports a removed gates-table row.** Its second command matched a sheet's path anywhere in the file; it now searches the table only. Re-run it
+  from the repository root after merging the new `PROJECT.md`. No action.
+- **A refused `register-commit.sh` leaves the kanban worktree clean.** It checks that every named path exists (in your checkout or on the trunk) before
+  staging any, so a missing later path no longer strands the earlier ones staged for the next board move to trip over. After a landing your own
+  checkout still holds the edited file: `git checkout -- <path>` (or delete it, if it was untracked) before you pull the trunk. No action.
+- **`set-models.sh` writes all or nothing, and tolerates a removed Refactorer.** It checks every pin, ladder row and runner before the first write. A
+  project that deleted `.claude/agents/refactorer-worker.md` gets that class skipped, with a line saying so, instead of a half-applied `--all`. No action.
+- **The commit-msg hook refuses a bulleted or backticked tool trailer** (`- Co-Authored-By: Claude …`), the form `check-board.sh` arm `[h]` already
+  reported, because both now use one reader (`scripts/lib/attrib-trailer.sh`). A hook copy that cannot find that file refuses the commit and names it.
+  No action.
+- **`find-polluter.sh` refuses a `TEST_CMD` that cannot run** (not found, or exit 126/127) instead of printing "all tests clean". No action.
+- **A QA Verdict cell may contain a pipe written `\|`.** The landing check reads `\|` as part of its cell (as `|`, so a quote
+  containing a pipe matches its cited line) and refuses an unfilled template row for the cells that are actually unfilled. An
+  unescaped `|` still starts a new cell.
+- **The "stamp what arrived" checks print nothing on a correctly stamped tree.** Their `grep -v` now also exempts `KIT-FEEDBACK`, the
+  protected file name a role doc legitimately cites, so the first check no longer prints `orchestrator.md`'s line. No action.
+- **The self-test leaves the project's progress records as it found them.** `./scripts/test/run.sh` keeps its fixtures' refusal records in
+  its own scratch directory instead of `.progress-records/`, and its isolation case fails if that directory changes during a run. No action.
+- **The self-test no longer fails on a project's own words about the retired hat-file path.** Its old-path scan judges only files that
+  still match their shipped hash in `process/KIT-MANIFEST`, so a log or document you edited that quotes the path is not a finding. No action.
+- **`ARCHIVE.md` names where the archive threshold lives and what the sweep commits as.** The depth is `QA_COMPLETE_THRESHOLD` in `scripts/config.sh` (it said a constant in
+  `check-board.sh`, which edits nothing). `archive.sh --apply` commits as `ARCHIVE_ROLE` (default `Orchestrator`) and refuses before moving anything when your role set lacks that
+  tag: run it with `ARCHIVE_ROLE=<tag>`. `MANUAL.md` and the archive-sweep contract say so. No action.
+- **`notification.md` and `notify.sh` say a send with no `--session` is skipped, not refused:** one stderr warning (silent when the backend is off), exit 0.
+  `liveness-watchdog.md` names `scripts/notify.sh` as what `stall.sh` calls. `check-board.sh`'s header says it exits 2 on a usage error. No action.
+- **A producer that sources only `lib/progress-record.sh` has its actor checked against the declared role set;** a role outside it is written `unknown` with the offered value in
+  `declared-actor=`. The writer now loads `role-set.sh` itself. No action.
+- **The note after a landing names why the main checkout was not fast-forwarded.** An untracked file the trunk now tracks (what `register-commit.sh` leaves after landing a new
+  file) and a checkout holding commits the trunk lacks each get their own note, where both read "diverged". No action.
+
 ## [0.10.1] — 2026-10-17
 
 ### Changed
