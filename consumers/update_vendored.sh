@@ -16,7 +16,7 @@
 # reproduces its environment from the already-vendored local artifact. Refresh
 # is pull-based and DELIBERATE: this script touches the network ONLY when you
 # run it. Nothing here runs on `git pull` unless you wire the optional post-merge
-# nag hook, which makes one `git ls-remote` per pull.
+# nag hook, which makes one `git ls-remote` per pull (two when an update is available).
 #
 # Usage (run from the consumer repo root):
 #   scripts/update_vendored.sh              # build + vendor the LATEST release tag

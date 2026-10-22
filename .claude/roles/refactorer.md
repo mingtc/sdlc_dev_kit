@@ -129,7 +129,7 @@ End state: one refactor pass doc at `dev/refactor/<YYYY-MM-DD>-<scope>-pass.md`,
 6. **Create kanban issues.** For each HIGH/MED target with verdict SAFE TO PROCEED or PROCEED WITH CARVEOUT:
    ```
    ./scripts/new-refactor.sh <slug> --id "$(./scripts/next-id.sh)" --pass dev/refactor/<file>.md \
-     --target "<short target name>" [--prd PRD-NNN] [--stories ...]
+     --target "<short target name>" [--prd PRD-NNN|n/a] [--stories ...]
    ```
    Run it on the trunk after `git pull --ff-only` (`next-id.sh` reads the trunk only as last fetched). `--id` is **required** (`next-id.sh` suggests the next free number across the board + the archive — sanity-check it; re-run before each issue so it increments). The script copies [.claude/templates/REFACTOR.template.md](../templates/REFACTOR.template.md) to `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: refactor`, branch `refactor/<PREFIX>-NNN-<slug>`, and frontmatter linking back to the refactor pass doc. Then fill in: title, Target & Goal, Behaviors Preserved (from safety-net-check), Move Sequence (from refactor-planning), Safety-Net Assessment (link to the doc's per-target block), Migration Plan (if applicable), and Out of Scope; the script writes the first Activity entry, dated and naming the refactor pass.
 7. **Map issues to targets.** Fill the doc's Issue Map section: a one-line entry per issue tying `<PREFIX>-NNN` to the target it covers.

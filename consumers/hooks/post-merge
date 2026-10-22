@@ -13,7 +13,7 @@
 # Updating stays a deliberate, human-run `scripts/update_vendored.sh [tag]`.
 #
 # Git runs this hook after `git pull` / `git merge`. The check touches the
-# network (one lightweight `git ls-remote`) only then — never on other git
+# network (one lightweight `git ls-remote`, two when an update is available) only then — never on other git
 # operations.
 #
 # That is why the hook sets VENDORED_CHECK_NOTES=0 below: the what-changed report

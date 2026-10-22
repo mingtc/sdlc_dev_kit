@@ -83,7 +83,8 @@ tree and checklist (step 2), the marked checklist (step 3), the archive (step 6)
 7. **Write the handoff** as `dev/handoffs/<today's date>-upgrade.md` (the convention is in
    [`dev/handoffs/README.md`](../dev/handoffs/README.md)): what changed, what you decided and why, the
    authority line, and what is still open. If `dev/handoffs/` holds a LIVING standing handoff, re-date it
-   in the same landing so it still sorts newest, after your upgrade handoff, and add one line to it
+   in the same landing to the day after today, so it still sorts newest (today's `-standing-handoff.md`
+   would sort before today's `-upgrade.md`), and add one line to it
    saying that an upgrade handoff landed during the arc and why it was re-dated
    ([`dev/handoffs/README.md`](../dev/handoffs/README.md) § The standing-handoff pattern). Land it. Then
    stop, and start nothing else.

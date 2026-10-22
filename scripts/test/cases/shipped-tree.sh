@@ -3559,10 +3559,11 @@ case_reachability_self_test_fails_when_edge_d_is_ablated() {
 # =============================================================================
 # CASE — EVERY RELEASE-HISTORY SECTION'S ACTION REQUIRED BULLETS ARE READ BY THE UPGRADE READER.
 # `kit-upgrade.sh`'s notes_items (extracted at run time) lists only entries under an
-# `### Action required` heading. The sections that carry a line-start `- **Action required`
-# bullet are DERIVED from the shipped history file before the reader runs, and each must yield at
-# least that many rows: a section whose obligations sit under no such heading gives its reader an
-# empty checklist and a clean --finish.
+# `### Action required` heading. The bullets that carry an obligation (a lead `**Action required`,
+# in any capitalisation, at the start of the bullet or of a paragraph in it) are DERIVED from the
+# shipped history file before the reader runs: each section must yield at least that many rows, and
+# no such bullet may sit outside the heading, which is the only place the reader looks. A section
+# whose obligations sit under no such heading gives its reader an empty checklist and a clean --finish.
 # =============================================================================
 case_release_history_action_required_entries_are_read() {
   cf_reset
@@ -3575,20 +3576,26 @@ case_release_history_action_required_entries_are_read() {
   local fn="$SB_TMP/notes-items.sh" want rows sec n got bad=""
   sed -n '/^notes_items() {/,/^}/p' "$ku" > "$fn"
   [ -s "$fn" ] || _fixture_die "case_release_history_action_required_entries_are_read: scripts/kit-upgrade.sh has no notes_items reader to extract"
-  # Derived from the file as shipped: <section> TAB <count of line-start Action required bullets>.
-  want="$(awk '/^## \[/ { s = $0; sub(/^## \[/, "", s); sub(/\].*$/, "", s); next }
-               /^- \*\*Action required/ { c[s]++ }
-               END { for (k in c) printf "%s\t%d\n", k, c[k] }' "$hist")"
-  [ -n "$want" ] || _fixture_die "case_release_history_action_required_entries_are_read: no history section holds a line-start Action required bullet — the derivation lost its operand"
+  # Derived from the file as shipped: <section> TAB <count of obligation bullets>, and the bullets that
+  # sit outside every Action required heading (the reader's own rule: a heading, then bullets).
+  local outside
+  want="$(awk 'function flush() { if (inb && hit) { c[s]++; if (!inact) o[s]++ } inb = 0; hit = 0 }
+               /^## / { flush(); s = ""; inact = 0; if ($0 ~ /^## \[/) { s = $0; sub(/^## \[/, "", s); sub(/\].*$/, "", s) } next }
+               /^###+ / { flush(); inact = ($0 ~ /^###+ Action required/); next }
+               /^- / { flush(); inb = (s != "") }
+               inb && tolower($0) ~ /^[ \t-]*\*\*action required/ { hit = 1 }
+               END { flush(); for (k in c) printf "%s\t%d\t%d\n", k, c[k], o[k] + 0 }' "$hist")"
+  [ -n "$want" ] || _fixture_die "case_release_history_action_required_entries_are_read: no history section holds an Action required bullet — the derivation lost its operand"
   rows="$( . "$fn"; notes_items "$notes" "$hist" )"
-  while IFS="$(printf '\t')" read -r sec n; do
+  while IFS="$(printf '\t')" read -r sec n outside; do
     [ -n "$sec" ] || continue
     got="$(printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" '$1 == s { c++ } END { print c + 0 }')"
-    [ "$got" -ge "$n" ] || bad="$bad [$sec]: $n line-start bullet(s), reader lists $got;"
+    [ "$got" -ge "$n" ] || bad="$bad [$sec]: $n obligation bullet(s), reader lists $got;"
+    [ "$outside" -eq 0 ] || bad="$bad [$sec]: $outside obligation bullet(s) outside the Action required heading;"
   done <<KITEOF
 $want
 KITEOF
   [ -z "$bad" ] || cf "sections whose Action required bullets the upgrade reader does not list:$bad"
-  finish "every release-history section with line-start Action required bullets yields at least that many rows from kit-upgrade.sh's own notes_items reader"
+  finish "every release-history section with Action required bullets yields at least that many rows, and none sits outside the heading, from kit-upgrade.sh's own notes_items reader"
   teardown
 }

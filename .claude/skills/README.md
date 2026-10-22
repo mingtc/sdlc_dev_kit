@@ -229,7 +229,7 @@ which of them carry one rather than trusting this paragraph: `grep -rl 'KIT-CLAS
 | `orchestrate` | Authored for this kit | Same as this repo | `KIT` — and marked in-file |
 | `start` | Authored for this kit | Same as this repo | `KIT` |
 | `finishing-a-development-branch` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries THIS kit's landing law (the landing script, the Dev role doc); a blind re-copy erases it |
-| `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; a blind re-copy erases it |
+| `requesting-code-review` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its mandatory-review trigger and the reviewer's verdict field say "hand off", not "merge": in this kit a Dev never merges, QA lands through `finish-pr.sh`; and a leaf worker self-reviews and reports an independent review owed; a blind re-copy erases it |
 | `subagent-driven-development` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — its worked example says "ready to hand off", not "ready to merge", for the same reason; a blind re-copy erases it |
 | `using-skills` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — carries repaired citations and names this kit's implementation skills; a blind re-copy erases it |
 | `using-git-worktrees` | Dev set, upstream | MIT (as the Dev set) | `MIXED` — setup commands demoted to named examples, an external-directory note, the branch taken from the card's `branch:` and the Dev role's worktree table as the declared preference, and its steps numbered consecutively (setup is Step 2); a blind re-copy erases it |
@@ -256,7 +256,7 @@ command to a named example — the setup commands in `using-git-worktrees`, the 
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
 it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
 has repaired citations and names its implementation skills, `requesting-code-review` and
-`subagent-driven-development` show the kit's plan filename in their worked examples, `using-git-worktrees` gained an external-directory note, the card's `branch:` as its branch name and the Dev role's worktree table as its declared preference,
+`subagent-driven-development` show the kit's plan filename in their worked examples, `requesting-code-review` also tells a leaf worker to self-review and report an independent review owed, `using-git-worktrees` gained an external-directory note, the card's `branch:` as its branch name and the Dev role's worktree table as its declared preference,
 `brainstorming` saves its design under `dev/specs/` and `executing-plans` carries the kit's INLINE description, `writing-plans` saves plans under the kit's id-keyed name, and `systematic-debugging`'s `find-polluter.sh`
 takes its runner from `TEST_CMD`, refuses a clean result over zero matched files, a pre-existing path or a
 `TEST_CMD` that is not a runnable command, and runs each matched path whole. (`brainstorming`'s visual companion is

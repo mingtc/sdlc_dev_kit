@@ -17,7 +17,7 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 - Before handoff to QA — in this kit, landing to the trunk is QA's act via the project's landing
   script, never the requester's own merge
 
-A dispatched leaf worker has no tool to spawn a reviewer: it self-reviews against the acceptance
+A dispatched leaf worker does not spawn a reviewer (the leaf rule): it self-reviews against the acceptance
 criteria and reports in its handoff that an independent review is still owed; its dispatcher
 requests it.
 

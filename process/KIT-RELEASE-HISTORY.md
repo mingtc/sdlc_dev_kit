@@ -3,7 +3,7 @@
      your version and the new kit's. It travels unedited. -->
 # The process kit — release history
 
-**The release-notes sections older than the newest release, unchanged but for `Verify:` lines added to some Action required entries and the [0.4.0] obligations grouped under an Action required heading.** The current notes
+**The release-notes sections older than the newest release, unchanged but for `Verify:` lines added to some Action required entries and the [0.3.0] and [0.4.0] obligations grouped under an Action required heading.** The current notes
 ([`KIT-RELEASE-NOTES.md`](KIT-RELEASE-NOTES.md)) hold § How to upgrade, § How versions work, § Unreleased and the
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.
@@ -2835,6 +2835,61 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   why. If anything of yours depended on the old silence, it will start failing loudly — which is the
   point, but check it. Nothing changes for a correct invocation.
 
+- **`--role` now checks against the role set your hook declares, read at the moment you run it.**
+  Both `scripts/move-issue.sh` and `scripts/subtask.sh` validated `--role` against a list written
+  into the script and rewritten once, by `kit-init.sh --roles`. Their `--help` already read your hook
+  directly, so the two halves had different authorities: **on a tree where the hook changed without
+  the initializer — which upgrading file by file produces, because that list lived in a file an
+  upgrade replaces — the usage text and the refusal message disagreed with each other**, and the
+  check was wrong in the direction that costs you something. It accepted a role you had **removed**,
+  which is the case the check exists to prevent: the board move happens, the commit-msg hook then
+  refuses the commit, and the work is left uncommitted in the shared `.kanban-wt/` worktree, where
+  the next board operation discards it.
+
+  **ACTION REQUIRED — one check, and only if your hook and your tooling can disagree.**
+
+  1. **If anything you automate passes a fixed `--role` value, confirm your hook still declares it.**
+     Run `./scripts/move-issue.sh --help` and read the `<R> = ` line — that is your set, read from
+     your hook. A role that is **not** on that line is now refused, where before it may have been
+     accepted. This is the fix doing its job, but it can turn a silently-wrong script into a loudly
+     failing one, which is worth finding on your terms rather than mid-move.
+  2. **Nothing to change if your hook and your role set were already in step** — which is every tree
+     that has only ever used `kit-init.sh --roles`.
+
+  **And when the hook cannot be read, it now tells you.** The check falls back to a default stamped
+  into the script for your project, still refuses a role that default does not contain, and prints
+  one line to stderr saying the set it used is a fallback and **not** your project's declared set. It
+  will not silently accept anything, and it will not silently present the kit's own list as yours.
+  **If you parse stderr**, that `Note:` line is new and appears only on a tree whose
+  `scripts/githooks/commit-msg` is unreadable.
+
+- **`scripts/subtask.sh --help` was telling you the wrong roles — and on an unmodified kit it was
+  telling you too FEW.** Its `move` usage line named three roles by hand. The `move` arm has always
+  validated `--role` against **the whole set your project declares** in
+  `scripts/githooks/commit-msg`, so on a stock kit the tool accepted seven and advertised three:
+  nothing ever told you `--role Architect` was legal on a subtask, and it always was. If you ran
+  `kit-init.sh --roles` to narrow your set, it went wrong the other way — the hand-typed line was
+  written in a shape the initializer cannot rewrite, so it kept advertising a role your tree now
+  refuses. **It now renders your own declared set**, the same way `move-issue.sh` does, and the two
+  tools cannot drift apart from each other again.
+
+  **ACTION REQUIRED — two things, and the first one is worth a minute even if you touch nothing.**
+
+  1. **Re-check what your team believes it can pass to `subtask.sh move --role`.** If anyone learned
+     the legal values from that usage line, they learned a wrong list. Run
+     `./scripts/subtask.sh --help` and read the `<R> = ` line; that is now your project's set,
+     read from your hook at the moment you ask.
+  2. **If you parse this help text, the shape changed.** The `move` line now reads
+     `[--role <R>]`, and the set moved to its own legend line of the form `<R> = A | B | C`
+     — identical in form to `move-issue.sh`'s, which has looked like this since the previous
+     release. Nothing else in the header moved, the `move` arm's flags and exit codes are
+     unchanged, and `--help` still exits 0.
+
+  **And it stays honest when the seam is gone:** with `scripts/lib/role-set.sh` or
+  `scripts/githooks/commit-msg` missing, `--help` still exits 0 and **names the file the set comes
+  from** rather than printing the kit's shipped default — a list that is right about the kit and
+  wrong about your project is the bug being removed, not a fallback from it.
+
 ### Other changes
 
 - **Every refusal that could not load its configuration or one of its libraries claimed to cover
@@ -2892,61 +2947,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   remote, not your kit. The message carries git's reason; the usual causes are a bare repository that
   moved and a `origin` URL that no longer resolves. Previously that condition produced a confusing
   red about a shipped script instead.
-
-- **`--role` now checks against the role set your hook declares, read at the moment you run it.**
-  Both `scripts/move-issue.sh` and `scripts/subtask.sh` validated `--role` against a list written
-  into the script and rewritten once, by `kit-init.sh --roles`. Their `--help` already read your hook
-  directly, so the two halves had different authorities: **on a tree where the hook changed without
-  the initializer — which upgrading file by file produces, because that list lived in a file an
-  upgrade replaces — the usage text and the refusal message disagreed with each other**, and the
-  check was wrong in the direction that costs you something. It accepted a role you had **removed**,
-  which is the case the check exists to prevent: the board move happens, the commit-msg hook then
-  refuses the commit, and the work is left uncommitted in the shared `.kanban-wt/` worktree, where
-  the next board operation discards it.
-
-  **ACTION REQUIRED — one check, and only if your hook and your tooling can disagree.**
-
-  1. **If anything you automate passes a fixed `--role` value, confirm your hook still declares it.**
-     Run `./scripts/move-issue.sh --help` and read the `<R> = ` line — that is your set, read from
-     your hook. A role that is **not** on that line is now refused, where before it may have been
-     accepted. This is the fix doing its job, but it can turn a silently-wrong script into a loudly
-     failing one, which is worth finding on your terms rather than mid-move.
-  2. **Nothing to change if your hook and your role set were already in step** — which is every tree
-     that has only ever used `kit-init.sh --roles`.
-
-  **And when the hook cannot be read, it now tells you.** The check falls back to a default stamped
-  into the script for your project, still refuses a role that default does not contain, and prints
-  one line to stderr saying the set it used is a fallback and **not** your project's declared set. It
-  will not silently accept anything, and it will not silently present the kit's own list as yours.
-  **If you parse stderr**, that `Note:` line is new and appears only on a tree whose
-  `scripts/githooks/commit-msg` is unreadable.
-
-- **`scripts/subtask.sh --help` was telling you the wrong roles — and on an unmodified kit it was
-  telling you too FEW.** Its `move` usage line named three roles by hand. The `move` arm has always
-  validated `--role` against **the whole set your project declares** in
-  `scripts/githooks/commit-msg`, so on a stock kit the tool accepted seven and advertised three:
-  nothing ever told you `--role Architect` was legal on a subtask, and it always was. If you ran
-  `kit-init.sh --roles` to narrow your set, it went wrong the other way — the hand-typed line was
-  written in a shape the initializer cannot rewrite, so it kept advertising a role your tree now
-  refuses. **It now renders your own declared set**, the same way `move-issue.sh` does, and the two
-  tools cannot drift apart from each other again.
-
-  **ACTION REQUIRED — two things, and the first one is worth a minute even if you touch nothing.**
-
-  1. **Re-check what your team believes it can pass to `subtask.sh move --role`.** If anyone learned
-     the legal values from that usage line, they learned a wrong list. Run
-     `./scripts/subtask.sh --help` and read the `<R> = ` line; that is now your project's set,
-     read from your hook at the moment you ask.
-  2. **If you parse this help text, the shape changed.** The `move` line now reads
-     `[--role <R>]`, and the set moved to its own legend line of the form `<R> = A | B | C`
-     — identical in form to `move-issue.sh`'s, which has looked like this since the previous
-     release. Nothing else in the header moved, the `move` arm's flags and exit codes are
-     unchanged, and `--help` still exits 0.
-
-  **And it stays honest when the seam is gone:** with `scripts/lib/role-set.sh` or
-  `scripts/githooks/commit-msg` missing, `--help` still exits 0 and **names the file the set comes
-  from** rather than printing the kit's shipped default — a list that is right about the kit and
-  wrong about your project is the bug being removed, not a fallback from it.
 
 - **`scripts/subtask.sh` now tells you what happened when `scripts/config.sh` cannot be read.**
   Every other script that reads the configuration seam already refused with a named cause; this one
@@ -3425,14 +3425,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   only once it is committed. **No action required** — but if you wrote your own leg briefs from
   this one, they carry the same false reassurance.
 
-- **`architect.md`'s shared-checkout rule changed from a procedure to a structure.** It used to say:
-  before any seat commit, confirm the current branch is the trunk and, if an active run holds the
-  checkout, wait. It now says: **while any leg is dispatched, commit from a worktree of your own.**
-  **Action required if your seat follows the old bullet:** stop relying on checking the branch
-  first — there is no ordering of checks that makes a shared root's branch yours while something
-  else can move it. Use the kanban-worktree pattern. The reason is recorded at the site and is
-  worth reading once: the old instruction was violated repeatedly *by the seat that wrote it*.
-
 - **If you run `wave-runner.js` on docs-path issues, its QA brief was skipping the gate.** The gate
   instruction was attached to *check out the branch and run the gate* — and a docs-path issue has
   no branch, so it took the other half of that sentence and got no gate instruction at all, while
@@ -3666,16 +3658,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   then have used. A failed *delivery* from `notify.sh` still exits 0 on purpose, and
   `check-board.sh` still always exits 0 with its verdict on a line — neither of those changed.
 
-- **One name now sets the remote for everything, releases included: `KWT_REMOTE`.** It already
-  controlled the board mover, the archive sweep, the subtask mover, the PR landing, the drift report
-  and the initializer — but `release.sh` read only its own `RELEASE_REMOTE`, so a fork that set
-  `KWT_REMOTE=upstream` published its board to the fork and its **releases to `origin`**, silently.
-  **Action required if you are on a fork:** your release push and tag now follow `KWT_REMOTE`. If you
-  genuinely want releases somewhere else, set `RELEASE_REMOTE` — it still overrides, for the release
-  push only, and it is the one place a URL is accepted. `KWT_REMOTE` must be a remote **name**: the
-  worktree machinery resolves your trunk through `refs/remotes/<remote>/HEAD`, and a URL there fails
-  that quietly. Both are now documented in `.env.example`, which listed neither.
-
 - **`subtask.sh new` no longer corrupts a `--title` (or any other value) containing `&`, `|` or a
   backslash.** Three creation scripts escaped these; `subtask.sh` — the one that takes the most free
   text and the only one that **publishes to your trunk** — did not. A `&` was silently corrupted
@@ -3749,34 +3731,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   `config.sh` carries an indented or mid-line stamp receipt, the graduation arm will no longer treat
   it as a receipt; a board with issue files, a `progress.md` § Log with entries, or an `ARCHIVE.md`
   index all still enable the arm exactly as before.
-
-- **Three scripts that commit under a fixed role tag now check it against your declared role set,
-  and refuse before they touch anything.** `archive.sh`'s sweep, `subtask.sh`'s `create` arm and
-  `finish-pr.sh`'s squash each hardcoded a seat — `[Orchestrator]`, `[Orchestrator]`, `[QA]`. If you
-  ran `kit-init --roles` and dropped one of those roles, the tool would move the card **and then**
-  have its commit rejected by your own hook, leaving uncommitted changes in the shared kanban
-  worktree that the next board operation discards — and the operation after that would fail with an
-  error naming neither the role nor the sweep. They now refuse up front, naming the knob.
-  **Action required only if you have narrowed your role set:** export the seat you want each to act
-  as — `ARCHIVE_ROLE`, `SUBTASK_ROLE`, `FINISH_PR_ROLE` — each documented in its script's header and
-  each defaulting to what was previously hardcoded, so **projects that kept the shipped role set
-  need do nothing.** Related, in the same change: `finish-pr.sh`'s recovery text used to tell you to
-  re-run with the very `--role` that had just been rejected; it now names the knob.
-
-- **`release.sh` now refuses to cut a tag from a checkout that is not the published trunk's tip.**
-  Gate (a) read only your own machine: on the trunk, tree clean. A checkout that passes both can
-  still be **behind**, and the tag then names a tree missing what already landed. The branch push
-  would have rejected it — but the script's own printed recovery then walks you into publishing an
-  annotated tag on a pre-rebase commit that is on no branch. Gate (a) now fetches and compares.
-  **Action required, both directions.** *Behind:* `git pull --ff-only`, then cut. *Ahead:* push
-  first — this was already refused by gate (d) via the board report's unpublished-trunk arm, and is
-  now caught earlier with a clearer message, so **the pre-cut ritual now includes pushing your
-  release-notes commit before you cut.** If the fetch itself fails, the cut **refuses** rather than
-  warning, because a tag is the one act the ritual never rolls back; the message says plainly that
-  this is about reaching the remote and not about your tree. For a genuinely offline cut, declare
-  it: `./scripts/release.sh X.Y.Z --no-fetch`, which is recorded loudly in the run's output. A
-  local bare repository as `origin` — the kit's own day-one topology — fetches fine and needs no
-  flag.
 
 - **`check-board.sh`'s `[Role]`-prefix arm no longer reports commits that predate your adoption
   of the kit.** A rule cannot be violated before it exists, and this one reported every
@@ -4003,6 +3957,52 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   reason and `git check-ignore -q` beside them. **Action required if you filled that block by
   following the examples:** move each comment to its own line and verify every entry with
   `git check-ignore -q <path>` — reading them cannot tell you which are dead.
+
+- **`architect.md`'s shared-checkout rule changed from a procedure to a structure.** It used to say:
+  before any seat commit, confirm the current branch is the trunk and, if an active run holds the
+  checkout, wait. It now says: **while any leg is dispatched, commit from a worktree of your own.**
+  **Action required if your seat follows the old bullet:** stop relying on checking the branch
+  first — there is no ordering of checks that makes a shared root's branch yours while something
+  else can move it. Use the kanban-worktree pattern. The reason is recorded at the site and is
+  worth reading once: the old instruction was violated repeatedly *by the seat that wrote it*.
+
+- **One name now sets the remote for everything, releases included: `KWT_REMOTE`.** It already
+  controlled the board mover, the archive sweep, the subtask mover, the PR landing, the drift report
+  and the initializer — but `release.sh` read only its own `RELEASE_REMOTE`, so a fork that set
+  `KWT_REMOTE=upstream` published its board to the fork and its **releases to `origin`**, silently.
+  **Action required if you are on a fork:** your release push and tag now follow `KWT_REMOTE`. If you
+  genuinely want releases somewhere else, set `RELEASE_REMOTE` — it still overrides, for the release
+  push only, and it is the one place a URL is accepted. `KWT_REMOTE` must be a remote **name**: the
+  worktree machinery resolves your trunk through `refs/remotes/<remote>/HEAD`, and a URL there fails
+  that quietly. Both are now documented in `.env.example`, which listed neither.
+
+- **Three scripts that commit under a fixed role tag now check it against your declared role set,
+  and refuse before they touch anything.** `archive.sh`'s sweep, `subtask.sh`'s `create` arm and
+  `finish-pr.sh`'s squash each hardcoded a seat — `[Orchestrator]`, `[Orchestrator]`, `[QA]`. If you
+  ran `kit-init --roles` and dropped one of those roles, the tool would move the card **and then**
+  have its commit rejected by your own hook, leaving uncommitted changes in the shared kanban
+  worktree that the next board operation discards — and the operation after that would fail with an
+  error naming neither the role nor the sweep. They now refuse up front, naming the knob.
+  **Action required only if you have narrowed your role set:** export the seat you want each to act
+  as — `ARCHIVE_ROLE`, `SUBTASK_ROLE`, `FINISH_PR_ROLE` — each documented in its script's header and
+  each defaulting to what was previously hardcoded, so **projects that kept the shipped role set
+  need do nothing.** Related, in the same change: `finish-pr.sh`'s recovery text used to tell you to
+  re-run with the very `--role` that had just been rejected; it now names the knob.
+
+- **`release.sh` now refuses to cut a tag from a checkout that is not the published trunk's tip.**
+  Gate (a) read only your own machine: on the trunk, tree clean. A checkout that passes both can
+  still be **behind**, and the tag then names a tree missing what already landed. The branch push
+  would have rejected it — but the script's own printed recovery then walks you into publishing an
+  annotated tag on a pre-rebase commit that is on no branch. Gate (a) now fetches and compares.
+  **Action required, both directions.** *Behind:* `git pull --ff-only`, then cut. *Ahead:* push
+  first — this was already refused by gate (d) via the board report's unpublished-trunk arm, and is
+  now caught earlier with a clearer message, so **the pre-cut ritual now includes pushing your
+  release-notes commit before you cut.** If the fetch itself fails, the cut **refuses** rather than
+  warning, because a tag is the one act the ritual never rolls back; the message says plainly that
+  this is about reaching the remote and not about your tree. For a genuinely offline cut, declare
+  it: `./scripts/release.sh X.Y.Z --no-fetch`, which is recorded loudly in the run's output. A
+  local bare repository as `origin` — the kit's own day-one topology — fetches fine and needs no
+  flag.
 
 ## [0.2.0] — 2026-08-31
 

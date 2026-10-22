@@ -11,9 +11,9 @@ section is pure statement with no repository-specific mechanics to separate out.
 
 **Why this sheet exists.** Nothing is kept fresh by being revisited. A file goes stale only in the
 gap between the event that spent it and the commit that says so — and the census that motivated
-this sheet exists **because the sweeps did not happen**. Its sharpest number: of thirteen plan
-documents in one directory, eleven had closed, nine carried a closure stamp, and the two that did
-not were **the two most recent closures**. The convention does not decay randomly. It decays
+this sheet exists **because the sweeps did not happen**. Its sharpest finding: in a directory of
+plan documents, most of the closed ones carried a closure stamp, and the ones that did not were
+**the most recent closures**. The convention does not decay randomly. It decays
 exactly at closure time, which is exactly where a guard has to stand.
 
 ---

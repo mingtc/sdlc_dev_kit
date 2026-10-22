@@ -98,12 +98,13 @@ was the right one. Those are the principal's and the project's.
 line naming its path was written or edited at or after the answer. `scripts/check-board.sh` lists those files, each with the card the question
 parks. The Orchestrator is the reader: at session start it dispatches the PM-hat leg for each, and
 reconciling means exactly three acts — record the literal answer as a `D-NN` that cites the question
-file; edit the parked card to cite it (`[decision: D-NN]` on the bullet it settles); move the card
+file (for a question asked with `--decision`, discharge that working-default entry in place instead,
+minting no second `D-NN`); edit the parked card to cite it (`[decision: D-NN]` on the bullet it settles); move the card
 out of `blocked/`. Anything the answer leaves unruled is filed again through `ask.sh` under a working
 default, never ruled by the leg
 (`.claude/roles/orchestrator.md` § An answered question is ready work). An answer that delegates the
-decision back is itself a ruling: the `D-NN` adopts the question's working default, and the same
-question is never filed again.
+decision back is itself a ruling: the `D-NN` adopts the question's working default (a question asked
+with `--decision` discharges that entry in place), and the same question is never filed again.
 *Why:* an answer nothing is woken to act on leaves its card parked in a column no session reads, with
 the principal's decision in a file nobody opens.
 

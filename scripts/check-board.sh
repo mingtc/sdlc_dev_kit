@@ -1689,7 +1689,7 @@ T_REGS
     grep -qE '^\*\*Answer' "$t_f" 2>/dev/null || continue
     t_rel="$t_dir/${t_f##*/}"
     t_cited=0; t_ans=""
-    t_re="$(printf '%s' "$t_rel" | sed 's/[][\\.*^$]/\\&/g')"
+    t_re="$(printf '%s' "$t_rel" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"
     [ -z "$t_href" ] || t_ans="$(git -C "$REPO_ROOT" log --reverse -G'^\*\*Answer' --format=%H "$t_href" -- "$t_rel" 2>/dev/null | head -1)"
     while IFS= read -r t_rpath; do
       [ -n "$t_rpath" ] || continue

@@ -73,7 +73,7 @@ date will be read as current no matter what its first paragraph says.
   `YYYY-MM-DDTHHMMSSZ-<role>-ask.md`, so the name sorts and is unique with no coordination. Never
   written by hand; never deleted by a script or by anyone: the principal (or whoever answers on
   their behalf) adds an `**Answer` block at the end of the file, and the Orchestrator's PM-hat leg
-  reconciles it by recording a register entry that cites the file's path and unblocking the card it
+  reconciles it by recording a register entry that cites the file's path (for a question asked with `--decision`, discharging that working-default entry in place) and unblocking the card it
   parks. The file stays as the answer's record.
 
 ## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`)

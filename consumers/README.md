@@ -24,7 +24,9 @@ distribution machinery that looks configured is worse than none: somebody eventu
 **The vendored artifact is never auto-updated.** Refreshing it is always a deliberate command
 a human runs. The optional nag (git hook, CI job) only *tells you* an update exists — it never
 applies one. Nothing in this directory phones home on its own, and nothing installed by it
-updates itself; the one network call outside a refresh is the optional hook's `git ls-remote`.
+updates itself. Outside a refresh, the network is used only by the optional hook and by a `--check`
+run (by hand, in CI or from the hook). The hook makes one or two `git ls-remote` calls and never
+clones; a `--check` run by hand or in CI may also take a throwaway shallow clone for the what-changed delta.
 
 ---
 
@@ -38,7 +40,7 @@ only for ordinary transitive dependencies, if your ecosystem has them).
 
 The **only** step that ever contacts the upstream remote is building or refreshing the
 artifact (`update_vendored.sh`). A normal `git pull` in your repo touches no upstream network
-at all, unless you wire the optional nag hook, which makes one `git ls-remote` per pull.
+at all, unless you wire the optional nag hook, which makes one `git ls-remote` per pull (two when an update is available).
 
 The upstream remote can be anything git can clone — a forge, or a **local bare repository** on
 a shared disk. See [`process/GIT-HOSTING.md`](../process/GIT-HOSTING.md); nothing in this flow
