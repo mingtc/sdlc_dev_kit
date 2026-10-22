@@ -3507,3 +3507,88 @@ case_contract_rule_id_tables_match_the_ids_raised() {
   [ -z "$bad" ] || cf "a contract sheet's '| Rule id |' table and the ids its script raises through kit_refuse differ (SHEET-ONLY: listed, never raised; SCRIPT-ONLY: raised, not listed):$bad"
   finish "the '| Rule id |' table of each of the $n contract sheet(s) that carries one lists exactly the rule ids its script raises through kit_refuse, in both directions — the diff was shown to report a planted phantom row and a dropped row"
 }
+
+# =============================================================================
+# CASE — THE REACHABILITY WALK'S SELF-TEST FAILS WHEN EDGE (d) IS ABLATED.
+# `--self-test` claims to re-prove the leading-`$VAR/` strip. The claim holds only if the
+# self-test goes red when the strip is gone, so it is run twice over copies of the instruments:
+# as shipped (the fixture must report edge (d) resolving) and with the strip loop replaced by
+# `pass` (it must report edge (d) unresolved and end in SELF-TEST FAIL). The tree under --root is
+# the sandbox, which has no kit starter roots, so the verdict line alone is not the signal: the
+# `edge (d)` line is.
+# Python is the declared carve-out: no interpreter SKIPs.
+# =============================================================================
+case_reachability_self_test_fails_when_edge_d_is_ablated() {
+  cf_reset
+  if ! command -v python3 >/dev/null 2>&1; then
+    skp "the reachability self-test fails when edge (d) is ablated" "python3 absent — these are advisory instruments and Python is their declared carve-out"
+    return
+  fi
+  make_sandbox
+  local hy="$SB_WORK/scripts/hygiene"
+  if [ ! -f "$hy/reachability_walk.py" ]; then
+    skp "the reachability self-test fails when edge (d) is ablated" "scripts/hygiene/reachability_walk.py absent — this kit ships no advisory instruments"
+    teardown; return
+  fi
+  local probe="$SB_TMP/edge-d-probe" out_ok out_ablated line_ok line_ablated
+  rm -rf "$probe"; mkdir -p "$probe"
+  cp -R "$hy" "$probe/hygiene" 2>/dev/null
+  out_ok="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 python3 "$probe/hygiene/reachability_walk.py" --self-test --root "$SB_WORK" 2>&1 )"
+  line_ok="$(printf '%s\n' "$out_ok" | grep '^edge (d)')"
+  case "$line_ok" in
+    *resolves) ;;
+    *) cf "(control) the shipped self-test does not report edge (d) resolving: ${line_ok:-no 'edge (d)' line at all in: $(printf '%s' "$out_ok" | tr '\n' '|' | cut -c1-200)}" ;;
+  esac
+  perl -0777 -i -pe 's{    while segments and _VAR_SEG\.match\(segments\[0\]\):\n        segments = segments\[1:\]\n}{    pass\n}' "$probe/hygiene/citation_index.py"
+  if grep -q 'while segments and _VAR_SEG' "$probe/hygiene/citation_index.py"; then
+    cf "(control) the ablation did not take on the copy — the anchor moved, so nothing below shows the self-test can go red"
+  else
+    out_ablated="$( cd "$SB_WORK" && PYTHONDONTWRITEBYTECODE=1 python3 "$probe/hygiene/reachability_walk.py" --self-test --root "$SB_WORK" 2>&1 )"
+    line_ablated="$(printf '%s\n' "$out_ablated" | grep '^edge (d)')"
+    case "$line_ablated" in
+      *"DOES NOT RESOLVE") ;;
+      *) cf "edge (d) ablated, the self-test still does not report it unresolved: ${line_ablated:-no 'edge (d)' line at all in: $(printf '%s' "$out_ablated" | tr '\n' '|' | cut -c1-200)}" ;;
+    esac
+    printf '%s\n' "$out_ablated" | grep '^SELF-TEST FAIL' >/dev/null \
+      || cf "edge (d) ablated, the self-test did not end in SELF-TEST FAIL: $(printf '%s' "$out_ablated" | tail -3 | tr '\n' '|')"
+  fi
+  finish "the reachability walk's --self-test reports edge (d) resolving on a fixture only that edge can resolve, and with the leading-\$VAR/ strip ablated reports it unresolved and ends in SELF-TEST FAIL"
+  teardown
+}
+
+# =============================================================================
+# CASE — EVERY RELEASE-HISTORY SECTION'S ACTION REQUIRED BULLETS ARE READ BY THE UPGRADE READER.
+# `kit-upgrade.sh`'s notes_items (extracted at run time) lists only entries under an
+# `### Action required` heading. The sections that carry a line-start `- **Action required`
+# bullet are DERIVED from the shipped history file before the reader runs, and each must yield at
+# least that many rows: a section whose obligations sit under no such heading gives its reader an
+# empty checklist and a clean --finish.
+# =============================================================================
+case_release_history_action_required_entries_are_read() {
+  cf_reset
+  make_sandbox
+  local hist="$REAL_REPO_ROOT/process/KIT-RELEASE-HISTORY.md" notes="$REAL_REPO_ROOT/process/KIT-RELEASE-NOTES.md" ku="$SB_WORK/scripts/kit-upgrade.sh"
+  if [ ! -f "$hist" ] || [ ! -f "$notes" ] || [ ! -f "$ku" ]; then
+    skp "the history's Action required entries are read" "process/KIT-RELEASE-HISTORY.md, process/KIT-RELEASE-NOTES.md or scripts/kit-upgrade.sh is absent from this tree"
+    teardown; return
+  fi
+  local fn="$SB_TMP/notes-items.sh" want rows sec n got bad=""
+  sed -n '/^notes_items() {/,/^}/p' "$ku" > "$fn"
+  [ -s "$fn" ] || _fixture_die "case_release_history_action_required_entries_are_read: scripts/kit-upgrade.sh has no notes_items reader to extract"
+  # Derived from the file as shipped: <section> TAB <count of line-start Action required bullets>.
+  want="$(awk '/^## \[/ { s = $0; sub(/^## \[/, "", s); sub(/\].*$/, "", s); next }
+               /^- \*\*Action required/ { c[s]++ }
+               END { for (k in c) printf "%s\t%d\n", k, c[k] }' "$hist")"
+  [ -n "$want" ] || _fixture_die "case_release_history_action_required_entries_are_read: no history section holds a line-start Action required bullet — the derivation lost its operand"
+  rows="$( . "$fn"; notes_items "$notes" "$hist" )"
+  while IFS="$(printf '\t')" read -r sec n; do
+    [ -n "$sec" ] || continue
+    got="$(printf '%s\n' "$rows" | awk -F'\t' -v s="$sec" '$1 == s { c++ } END { print c + 0 }')"
+    [ "$got" -ge "$n" ] || bad="$bad [$sec]: $n line-start bullet(s), reader lists $got;"
+  done <<KITEOF
+$want
+KITEOF
+  [ -z "$bad" ] || cf "sections whose Action required bullets the upgrade reader does not list:$bad"
+  finish "every release-history section with line-start Action required bullets yields at least that many rows from kit-upgrade.sh's own notes_items reader"
+  teardown
+}

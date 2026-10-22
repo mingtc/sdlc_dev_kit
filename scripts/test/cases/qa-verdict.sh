@@ -1078,6 +1078,12 @@ case_landing_note_always_carries_the_revision_clause() {
   entry="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$ida-withnote.md" 2>/dev/null | grep -F '→ qa_complete' | tail -1)"
   case "$entry" in *"Reviewed by hand, all rows hold."*) : ;; *) cf "(a) the operator's words are not on the entry: $entry" ;; esac
   case "$entry" in *"(verdict read at $tipa)"*) : ;; *) cf "(a) the entry does not hold '(verdict read at $tipa)': $entry" ;; esac
+  # The plan shows the note as it will be written, clause included; the run's local-commit line does
+  # not read as a failure on a run that then publishes.
+  printf '%s\n' "$out" | grep -F 'Activity: "Reviewed by hand, all rows hold. (verdict read at '"$tipa"')"' >/dev/null \
+    || cf "(a) the Plan: line does not show the note with its revision clause: $(printf '%s\n' "$out" | grep -F 'Activity:' | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F 'NOT yet published' >/dev/null \
+    && cf "(a) finish-pr.sh's local-commit line still says NOT yet published on a run that publishes: $(printf '%s\n' "$out" | grep -F 'NOT yet published' | tr '\n' '|')"
 
   out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-b" "$SB_WORK/scripts/finish-pr.sh" "$idb" 2>&1 )"; rc=$?
   [ "$rc" -eq 0 ] || cf "(b) finish-pr.sh without --note exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
@@ -1092,6 +1098,8 @@ case_landing_note_always_carries_the_revision_clause() {
   git -C "$SB_WORK" fetch origin --quiet >/dev/null 2>&1
   entry="$(git -C "$SB_WORK" show "origin/$SB_TRUNK:progress/qa_complete/$idc-direct.md" 2>/dev/null | grep -F '→ qa_complete' | tail -1)"
   case "$entry" in *"Review PASS, direct to trunk (verdict read at $before)"*) : ;; *) cf "(c) the direct move does not end '(verdict read at $before)': $entry" ;; esac
+  printf '%s\n' "$out" | grep -F 'NOT yet published' >/dev/null \
+    && cf "(c) move-issue.sh's local-commit line still says NOT yet published on a run that publishes: $(printf '%s\n' "$out" | grep -F 'NOT yet published' | tr '\n' '|')"
 
   finish "a landing's Activity entry carries '(verdict read at <sha>)' on both routes: finish-pr.sh appends it to an operator --note (a) and writes it in the default note (b), and the direct-to-trunk move writes the same string (c)"
   teardown

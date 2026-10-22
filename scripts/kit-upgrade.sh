@@ -36,7 +36,8 @@
 #
 # The checklist gets one item per Action required entry in each process/KIT-RELEASE-NOTES.md
 # (and process/KIT-RELEASE-HISTORY.md, which holds the older releases) section newer than the project's process/KIT-VERSION (an X.Y.Z+<tree> version is read as that
-# file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path.
+# file's § How versions work defines it), plus one per merge, removal or blocked scaffolding path,
+# and one "stamp what arrived" item whenever any file was added or replaced.
 # The first run never stamps process/KIT-VERSION. --finish refuses while any item is "- [ ]", or
 # while the marked checklist is uncommitted, or while an Action required item that carries a Verify:
 # command fails it (below); then it writes the new process/KIT-VERSION and

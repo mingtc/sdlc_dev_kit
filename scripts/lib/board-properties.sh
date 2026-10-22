@@ -778,10 +778,11 @@ _bp_findings_numbering() {
 # Ruling field opens with CROSS_CUTTING_MARKER binds the whole project, so no PRD is expected to
 # cite it. CANNOT SEE: an entry cited by its PRD in words but not the marker; an entry that
 # legitimately belongs to NO PRD and is not marked exempt (it cannot tell that from a miss); a
-# citation from a PRD outside PRD_SURFACE. It reads D-NN ids only; another register's ids are not checked here.
+# citation from a PRD outside PRD_SURFACE. Each declared register is read by its OWN id shape, as arm [l] reads it, and a PRD
+# can cite any of them; the arm's line names the registers it read.
 kit_bp_reverse_coverage() {
   local tree="$1" r_reg_read=0 r_live="" r_exempt="" r_shapes="" r_cited="" r_hits=0
-  local rreg_path rreg_mark rreg_shape rreg_file r_spans rid rstart rend rbody
+  local rreg_path rreg_mark rreg_shape rreg_file r_spans rid rstart rend rbody r_reg_named=""
   local r_live_n r_exempt_n r_prds r_prd_n rpf rshp rcid _g
   _bp_reset
   while IFS='|' read -r rreg_path rreg_mark rreg_shape; do
@@ -789,22 +790,24 @@ kit_bp_reverse_coverage() {
     rreg_file="$tree/$rreg_path"
     [ -f "$rreg_file" ] || continue
     r_reg_read=$((r_reg_read+1))
+    r_reg_named="${r_reg_named:+$r_reg_named, }$rreg_path"
     r_shapes="$r_shapes
 $rreg_shape"
     r_live="$r_live
-$(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape")"
+$(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape" | { grep -E "^(${rreg_shape})\$" || true; })"
     r_spans="$(_bp_entry_spans "$rreg_file" "$rreg_mark" "$rreg_shape")"
     while read -r rid rstart rend; do
       [ -n "$rid" ] || continue
       rbody="$(sed -n "${rstart},${rend}p" "$rreg_file")"
-      if printf '%s\n' "$rbody" | grep -qE "^\*\*Ruling\.\*\*[[:space:]]*${CROSS_CUTTING_MARKER}"; then
+      if printf '%s\n' "$rbody" | grep -qE "^\*\*Ruling\.\*\*[[:space:]]*${CROSS_CUTTING_MARKER}" \
+         && printf '%s\n' "$rid" | grep -qE "^(${rreg_shape})\$"; then
         r_exempt="$r_exempt
 $rid"
       fi
     done <<< "$r_spans"
   done <<< "$(printf '%s\n' "$REGISTERS")"
-  r_live="$(printf '%s\n' "$r_live" | grep -E '^D-[0-9]+$' | sort -u || true)"
-  r_exempt="$(printf '%s\n' "$r_exempt" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  r_live="$(printf '%s\n' "$r_live" | awk 'NF' | sort -u || true)"
+  r_exempt="$(printf '%s\n' "$r_exempt" | awk 'NF' | sort -u || true)"
   r_shapes="$(printf '%s\n' "$r_shapes" | awk 'NF' | sort -u || true)"
   r_live_n="$(printf '%s\n' "$r_live" | grep -c . || true)"
   r_exempt_n="$(printf '%s\n' "$r_exempt" | grep -c . || true)"
@@ -838,9 +841,9 @@ $rcid"
       done <<< "$(kit_decisions_cited "$tree/$rpf" "$rshp" || true)"
     done <<< "$r_shapes"
   done <<< "$r_prds"
-  r_cited="$(printf '%s\n' "$r_cited" | grep -E '^D-[0-9]+$' | sort -u || true)"
+  r_cited="$(printf '%s\n' "$r_cited" | awk 'NF' | sort -u || true)"
 
-  echo "      PRDs read ($PRD_SURFACE): $r_prd_n file(s) — $r_live_n live id(s), $r_exempt_n declared [cross-cutting]"
+  echo "      PRDs read ($PRD_SURFACE): $r_prd_n file(s) — $r_live_n live id(s), $r_exempt_n declared [cross-cutting]; registers read: $r_reg_named"
   while read -r rid; do
     [ -n "$rid" ] || continue
     printf '%s\n' "$r_exempt" | grep -qx "$rid" && continue

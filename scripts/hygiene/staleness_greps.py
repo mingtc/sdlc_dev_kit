@@ -47,14 +47,14 @@ from citation_index import REPO_ROOT, iter_files, print_blind_spots, run_instrum
 #    THREE with your own measurements, each with its own date and source, the first time you run
 #    this and adjudicate the output. Until you do, they are labelled as another project's.
 BASE_RATE = [
-    ("another project's staleness sweep, as of its run date",
+    ("another project's staleness sweep, UNDATED",
      "24 flags raised, 9 actively wrong — a ~38% true-positive rate on a hand-run of these "
      "two shapes"),
-    ("the same sweep's CLEAN NEGATIVES section",
+    ("the same sweep's CLEAN NEGATIVES section, UNDATED",
      "four named precedent chains traced forward found ZERO stale conclusions, and the one "
      "MEASURE-FIRST item in the charter was CORRECTLY unmeasured — these greps produce "
      "suspicions, not findings"),
-    ("the same project's census, on cited-but-missing paths",
+    ("the same project's census, on cited-but-missing paths, UNDATED",
      "of 192 cited-but-missing paths, ~185 were by design and about 7 genuinely dead — a "
      "blanket dead-pointer guard would have reddened the front door"),
 ]
@@ -179,8 +179,8 @@ def main(argv=None) -> int:
     if not derived:
         print("NOTE: the issue-id prefixes could NOT be read from scripts/config.sh — falling")
         print("      back to a generic shape. Fix the seam or this arm under-reports silently.")
-    print("BASE RATE — carried with date and source, not re-measured here, and NOT this")
-    print("project's until you replace it with your own:")
+    print("BASE RATE — another project's figures, UNDATED and not re-measured here; NOT this")
+    print("project's until you replace them with your own, each with its date and source:")
     for source, figure in BASE_RATE:
         print(f"  · {figure}  [{source}]")
     print()

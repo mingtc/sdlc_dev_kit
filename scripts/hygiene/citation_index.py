@@ -30,7 +30,7 @@
 #   (c) referrer-relative tokens — `./file.md`, `../x/y.md`, and a bare sibling name;
 #   (d) EXTENSION-LESS SCRIPT PATHS such as `HOOK_SRC="$SCRIPT_DIR/hooks/post-merge"`: a leading
 #       `$VAR/` segment is stripped and the rest resolved referrer-relative;
-#       `reachability_walk.py --self-test` re-proves the edge on YOUR tree.
+#       `reachability_walk.py --self-test` re-proves the edge on a fixture and fails if it regresses.
 #
 # THE CHECKLIST THESE INSTRUMENTS SERVE: `process/hygiene-checklist.md`.
 # =============================================================================

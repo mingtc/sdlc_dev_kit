@@ -86,6 +86,19 @@ guard can see a commit the operator makes by hand.
 - A version-control error is swallowed ⇒ that is a defect in the implementation. No quiet pull, no
   discarded exit status: a diverged pull fails *silently* unless it is fast-forward-only and
   checked.
+- **`scripts/register-commit.sh`'s refusals**, each through `kit_refuse` with a stable rule id, all
+  before anything is written to the trunk: `role-not-declared` (`--role` is not in the declared
+  role set), `register-message-tag-mismatch` (`--message` begins with another seat's `[Role]` tag),
+  `not-a-git-repository` (the caller's checkout is not a repository), `path-not-found` (a named path
+  exists in neither the caller's checkout nor the trunk), `register-card-moved` (the path would
+  create a second copy of a card the trunk holds elsewhere), `register-checkout-stale` (the caller's
+  copy lacks a line the trunk gained, so landing it would delete that work) and `nothing-to-commit`
+  (every named path already matches the trunk's tip).
+- **The code-vs-metadata rule**, raised by `scripts/githooks/pre-commit` as
+  `pre-commit-metadata-off-trunk`: a commit made off the trunk that stages no path the project
+  declares as code ⇒ refuse, naming `scripts/register-commit.sh` as the route
+  that lands the same content on the trunk, and the code commit to amend when the branch's code is
+  what makes the change true. `MSG_OK=1` is the declared bypass.
 
 ## 4. WHAT GREEN MEANS
 

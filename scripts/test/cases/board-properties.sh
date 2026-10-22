@@ -351,7 +351,7 @@ EOF
 
 ### R-02
 
-**Ruling.** Two, decided on this branch.
+**Ruling.** [cross-cutting] Two, decided on this branch.
 **Why.** Because.
 **Provenance.** Here.
 EOF
@@ -667,5 +667,64 @@ case_finish_pr_board_property_check_says_so_when_the_merge_conflicts() {
   origin_has_path "progress/qa_complete/$id-clash.md" && cf "the card advanced despite the conflict"
 
   finish "when the branch does not merge cleanly the board-property check prints that it did not run (never a pass), and the squash refuses the landing"
+  teardown
+}
+
+# =============================================================================
+# CASE — [r] READS EACH DECLARED REGISTER'S OWN ID SHAPE, not only D-NN.
+# A second register, `requirements/RULINGS.md|### |R-[0-9]+`, is declared next to the first. Its
+# live R-01 is cited by no PRD, R-02 is `[cross-cutting]`, R-03 is cited by a PRD. Every row is in
+# the real order (the registers and the PRD are committed, then the report runs).
+# Rows: (a) R-01 is reported as cited by no PRD, naming its remedy; (b) R-02 and R-03 are not
+# reported; (c) the arm's line names both registers it read.
+# =============================================================================
+case_reverse_coverage_reads_each_registers_own_id_shape() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  local cb="$SB_WORK/scripts/check-board.sh" out arm
+  perl -i -pe "s{^(REGISTERS='requirements/DECISIONS\\.md\\|### \\|D-\\[0-9\\]\\+)'\$}{\$1\\nrequirements/RULINGS.md|### |R-[0-9]+'}" "$cb"
+  grep -qxF "requirements/RULINGS.md|### |R-[0-9]+'" "$cb" \
+    || _fixture_die "case_reverse_coverage_reads_each_registers_own_id_shape: the second register was not declared in check-board.sh"
+  cat > "$SB_WORK/requirements/RULINGS.md" <<'KITEOF'
+# RULINGS
+
+## A. Bucket
+
+### R-01
+
+**Ruling.** One, cited by no PRD.
+**Why.** Because.
+**Provenance.** Here.
+
+### R-02
+
+**Ruling.** [cross-cutting] Two, binding the whole project.
+**Why.** Because.
+**Provenance.** Here.
+
+### R-03
+
+**Ruling.** Three, cited by a PRD.
+**Why.** Because.
+**Provenance.** Here.
+
+## Findings
+
+Nothing yet. Rows below are appended after the last entry.
+KITEOF
+  printf 'Also constrained by [decision: R-03].\n' >> "$SB_WORK/requirements/PRD-001-scope.md"
+  publish_sandbox
+
+  out="$(cb_run)"
+  arm="$(printf '%s\n' "$out" | awk '/^\[r\]/ { f = 1 } f && /^\[[a-z]\]/ && !/^\[r\]/ { exit } f')"
+  [ -n "$arm" ] || _fixture_die "case_reverse_coverage_reads_each_registers_own_id_shape: the report carries no [r] section, so no row below is about arm [r]"
+  printf '%s\n' "$arm" | grep -F 'R-01 is not cited by any PRD' >/dev/null \
+    || cf "(a) the second register's uncited live R-01 is not reported: $(printf '%s' "$arm" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$arm" | grep -E 'R-0[23] is not cited' >/dev/null \
+    && cf "(b) a cross-cutting R-02 or a PRD-cited R-03 is reported as uncited: $(printf '%s' "$arm" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$arm" | grep -F 'registers read:' | grep -F 'DECISIONS.md' | grep -F 'RULINGS.md' >/dev/null \
+    || cf "(c) the arm's line does not name both registers it read: $(printf '%s' "$arm" | tr '\n' '|' | cut -c1-300)"
+  finish "arm [r] reads each declared register's own id shape: a second register's uncited live R-01 is reported with the arm's remedy, its cross-cutting R-02 and PRD-cited R-03 are not, and the arm's line names both registers it read"
   teardown
 }

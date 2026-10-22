@@ -24,7 +24,9 @@
 # is also what tells you on day one that the shipped list needs pruning to the files you have.
 #
 # THE EXTENSION-LESS BLIND SPOT IS HANDLED — see citation_index.py (d). `--self-test` re-proves
-# that edge on YOUR tree and names the probe path it used.
+# that edge on a fixture only that edge can resolve (a script citing `$VAR/<dir>/<file>`), so it
+# fails if the strip regresses. It also reports the probe path below on YOUR tree, as a fact about
+# your tree, not as proof of the edge.
 #
 # THE CHECKLIST THIS INSTRUMENT SERVES: `process/hygiene-checklist.md` (the "Orphans" shape).
 # =============================================================================
@@ -34,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tempfile
 from pathlib import Path
 
 # NO BYTECODE CACHE, DELIBERATELY — see citation_index.py's header for the full statement and
@@ -193,6 +196,21 @@ def walk(root: Path = REPO_ROOT):
     return index, nodes, seen, orphans, graph
 
 
+def edge_d_resolves() -> bool:
+    """True when a leading `$VAR/` path in a script resolves to the extension-less file it names.
+
+    The fixture is one script and one extension-less file, and nothing else cites the file, so only
+    edge (d) can produce the referrer.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / "scripts" / "hooks").mkdir(parents=True)
+        (base / "scripts" / "run.sh").write_text('HOOK_SRC="$SCRIPT_DIR/hooks/post-merge"\n', encoding="utf-8")
+        (base / "scripts" / "hooks" / "post-merge").write_text("#!/bin/sh\n", encoding="utf-8")
+        exact, _ = Index(base).referrers("scripts/hooks/post-merge")
+    return exact == {"scripts/run.sh"}
+
+
 def self_test(root: Path = REPO_ROOT) -> int:
     """Re-verify the facts this instrument's honesty rests on."""
     # Called FIRST, its return value discarded: what is wanted is the REFUSAL (an empty derivation
@@ -202,10 +220,12 @@ def self_test(root: Path = REPO_ROOT) -> int:
     # An EMPTY starter list is a failure, not a vacuous pass: `missing` would be [] and the walk
     # would report every document unreachable under SELF-TEST PASS.
     empty_roots = not STARTER_ROOTS
+    # Before the tree's own Index, so the walk tallies that Index leaves are the tree's.
+    edge_d = edge_d_resolves()
     index = Index(root)
     probe_present = (root / BLIND_SPOT_PROBE).exists()
     exact, _ = index.referrers(BLIND_SPOT_PROBE)
-    ok = not empty_roots and not missing and (not probe_present or bool(exact))
+    ok = not empty_roots and not missing and edge_d and (not probe_present or bool(exact))
     if empty_roots:
         print("STARTER_ROOTS is EMPTY — the walk has no front door and would report every")
         print("  document unreachable. Populate it with the entry points a reader actually")
@@ -215,6 +235,10 @@ def self_test(root: Path = REPO_ROOT) -> int:
         print(f"  MISSING: {missing}")
         print("  → PRUNE THE LIST to the files this project actually has. A starter root that")
         print("    does not exist is not a walk from the front door; it is a hole in the graph.")
+    print(f"edge (d), a leading $VAR/ path on a fixture: {'resolves' if edge_d else 'DOES NOT RESOLVE'}")
+    if not edge_d:
+        print("  → the strip in citation_index.py resolve() has regressed; extension-less script")
+        print("    paths cited through a shell variable are reported as orphans.")
     if probe_present:
         print(f"extension-less blind spot: {BLIND_SPOT_PROBE} exact referrers = "
               f"{len(exact)} {sorted(exact)} (must be > 0)")

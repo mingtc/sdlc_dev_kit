@@ -820,8 +820,6 @@ for rec in ${RELEASE_DOCS[@]+"${RELEASE_DOCS[@]}"}; do
   fi
 done
 
-echo "── preflight: all gates green ✓"
-
 # ── Preflight 8 (gate g): WHAT LEAVES THE BUILDING. ──────────────────────────
 # Runs BEFORE any mutation, against the state the ritual WILL produce (the bump is simulated):
 # a check at the tag could only report an irreversible step already taken.
@@ -914,6 +912,8 @@ EOF
   done
   echo "  gate (g): $_g_n shipped path(s) match the manifest — normalised against VERSION_FILES with the bump's own expression, and re-checked against a simulated post-bump tree"
 fi
+
+echo "── preflight: all gates green ✓"
 
 # ── Dry run stops here — mutate NOTHING. ─────────────────────────────────────
 if [ "$DRY_RUN" = "true" ]; then

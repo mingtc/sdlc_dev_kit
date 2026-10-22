@@ -348,6 +348,7 @@ CASES=(
   case_finish_pr_refuses_a_branch_that_breaks_blocks_symmetry
   case_finish_pr_refuses_a_branch_that_breaks_a_register_citation
   case_register_citations_read_each_registers_own_id_shape
+  case_reverse_coverage_reads_each_registers_own_id_shape
   case_finish_pr_refuses_a_branch_that_breaks_corpus_coverage
   case_finish_pr_refuses_a_branch_that_breaks_register_shape
   case_finish_pr_board_property_check_refuses_without_the_trunks_declarations
@@ -618,6 +619,7 @@ CASES=(
   case_release_stub_marker
   case_release_doc_arms
   case_release_ship_manifest_is_driven_against_the_bump
+  case_release_all_gates_green_follows_the_last_gate
   case_release_publish
   case_release_publish_recovery
   case_release_publish_only_dry_run_predicts_the_run
@@ -630,6 +632,8 @@ CASES=(
   case_find_polluter_runs_each_path_whole
   case_find_polluter_refuses_an_unrunnable_test_command
   case_hygiene_instruments_declare_blind_spots
+  case_reachability_self_test_fails_when_edge_d_is_ablated
+  case_release_history_action_required_entries_are_read
   case_cold_signal_reads_non_ascii_paths
   case_agent_prose_carries_its_riders
   case_partial_prefix_derivation_says_so

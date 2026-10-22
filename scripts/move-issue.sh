@@ -588,7 +588,7 @@ fi
 git -C "$KWT" commit -m "$MSG" --quiet
 # Local first; published after the push, whose rebase can replace this sha.
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
-echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
+echo "Commit: ${SHA} — made locally in the kanban worktree; publishing to the trunk next."
 
 # Push HEAD → <trunk> and keep the operator's view / local ref current.
 # A push failure AFTER the local commit is FATAL — kwt_finalize prints the loud

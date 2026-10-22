@@ -126,8 +126,8 @@ ALL_CLASSES="$KIT_MODEL_CLASSES"
 
 # kit_ladder_has <class> — does orchestrator.md's table carry a row for this class RIGHT NOW? The
 # refusal reads the LIVE table, never the class list above alone: a project that trimmed its own
-# ladder to fewer classes has thereby un-named the rest (model-provisioning.md § A.2 — the ladder is
-# the project's own calibration).
+# ladder to fewer classes has thereby un-named the rest (model-provisioning.md § A, How to adopt — the ladder
+# is the project's own calibration).
 #
 # THE LABEL IS MATCHED AS A PREFIX inside the bold span, not the whole span: some rows carry
 # trailing qualifiers inside the same "**...**" ("XS / mechanical (any role)", "Spike / probe

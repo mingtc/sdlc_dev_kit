@@ -22,7 +22,7 @@
 # column, more than one file claims the id, or the card has no '## QA Verdict' table.
 #
 # Usage:   ./scripts/read-verdict.sh <id>
-# Example: ./scripts/read-verdict.sh KIT-012
+# Example: ./scripts/read-verdict.sh <PREFIX>-012
 
 set -uo pipefail
 

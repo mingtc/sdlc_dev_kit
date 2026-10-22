@@ -342,7 +342,7 @@ case "$CMD" in
     git -C "$KWT" commit -m "$MSG" --quiet
     echo "Created: ${DEST#"$KWT"/}  (branch: ${BRANCH})"
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
-    echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
+    echo "Commit:  ${LOCAL_SHA} — made locally in the kanban worktree; publishing to the trunk next."
     # THE RETURN IS CHECKED: a failed push must not exit 0 while the card is only a local
     # commit in the kanban worktree.
     FINALIZE_RC=0
@@ -497,7 +497,7 @@ case "$CMD" in
     MSG="[${ROLE}] ${ID} → ${TARGET}: ${NOTE}"
     git -C "$KWT" commit -m "$MSG" --quiet
     LOCAL_SHA="$(git -C "$KWT" rev-parse --short HEAD)"
-    echo "Commit: ${LOCAL_SHA} — made locally in the kanban worktree, NOT yet published."
+    echo "Commit: ${LOCAL_SHA} — made locally in the kanban worktree; publishing to the trunk next."
     # THE RETURN IS CHECKED — same reason as the `new` arm above.
     FINALIZE_RC=0
     kwt_finalize || FINALIZE_RC=$?

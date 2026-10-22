@@ -24,8 +24,8 @@ type; the harness's identity is not, so the bar rises from switching hats to for
   during the call and some worktree's HEAD reflog shows this repository making it (a commit,
   cherry-pick, revert, `am`, or a rebase's pick). A fetched, pulled or fast-forwarded commit is not.
   *Why:* without that filter, the agent that pulls another's work is recorded as its author.
-- **A claim is added, never overwritten.** Two calls that both see one commit appear both stay on
-  its record, and such a commit is ambiguous: the landing treats it as unrecorded.
+- **A claim is added, never overwritten.** Two calls that both see one commit both leave a claim
+  on its record, and such a commit is ambiguous: the landing treats it as unrecorded.
   *Why:* overlapping calls cannot tell whose the commit is; a guess could refuse a correct landing.
 - **The hook rewrites nothing, blocks nothing and prints nothing.** It always exits 0 and discards
   its own output; a payload it cannot read records nothing.
@@ -52,7 +52,7 @@ commits a changed table on the trunk, and the landing is re-run.
 
 1. A commit made by the session's own thread is recorded `main`; one made by a dispatched agent is
    recorded with that agent's id; a commit pulled in by a call is not recorded.
-2. Two overlapping calls that both see one commit appear leave both claims on its record.
+2. Two overlapping calls that both see one commit both leave a claim on its record.
 3. A landing whose verdict and code were committed by one identity — one agent, or `main`, in one
    session — is refused with nothing moved; one where they differ (two agents of one session, or
    `main` in two sessions) lands, and the records reach the remote. A slice's move is refused the

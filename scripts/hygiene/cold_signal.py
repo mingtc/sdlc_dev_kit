@@ -68,8 +68,8 @@ DEFAULT_DAYS = 14
 class HistoryUnavailable(RuntimeError):
     """`git log` could not run on this tree — so NOTHING was measured.
 
-    Deliberately NOT raised for an empty history: a repository with no commits is a measured
-    answer, and this exception means the measurement never happened. That distinction is
+    Also raised for a repository with no commits: `git log` exits 128 there, so nothing was
+    measured and the instrument says so rather than reporting a clean tree. That distinction is
     `contracts/verify-gate.md` § 3's, and the vocabulary below is `verify.sh`'s: UNRUNNABLE is
     not FAIL, and a report that spells them the same way sends the reader to debug a tree that
     may be perfectly healthy.
@@ -101,7 +101,8 @@ def git_history(root: Path):
         raise HistoryUnavailable(
             root, exc.returncode, (exc.stderr or "").strip(),
             "this instrument reads THIS working copy's own history (see the header). An unpacked "
-            "release or an export is not a repository — run it inside a clone, or `git init` first.",
+            "release or an export is not a repository — run it inside a clone, or `git init` first; "
+            "a repository with no commits needs a first commit.",
         ) from None
     except FileNotFoundError:
         # git absent entirely: refuse, as for a missing repository, rather than a traceback.

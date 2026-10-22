@@ -375,7 +375,7 @@ git -C "$KWT" commit -m "$MSG" --quiet
 # This sha is taken before the push; a contested push rebases, so the landed sha is printed
 # separately below (board-mover.md § 4: a reader can check each line).
 SHA=$(git -C "$KWT" rev-parse --short HEAD)
-echo "Commit: ${SHA} — made locally in the kanban worktree, NOT yet published."
+echo "Commit: ${SHA} — made locally in the kanban worktree; publishing to the trunk next."
 
 if ! kwt_finalize; then
   echo "Error: push failed after the archive commit — the sweep is committed LOCALLY in" >&2

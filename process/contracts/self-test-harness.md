@@ -147,8 +147,8 @@ a disposable repository, so that the tools that guard the project are themselves
   **a check that is mechanically decidable may be a gate; a check that is heuristic must be
   advisory, and must publish its own precision.** Shipping a heuristic as a gate is the same error
   as an over-promising test name — a claim wider than the predicate — committed by the guard
-  instead of the test. *Measured:* a detector for checks whose name promises a population flagged
-  thirteen, of which **one** was a defect. At that precision a gate is disabled inside a week; a
+  instead of the test. *Measured, on one project's tree:* a detector for checks
+  whose name promises a population flagged candidates of which only a small minority were defects. At that precision a gate is disabled inside a week; a
   list beside its own hit rate is a useful artifact at the same accuracy, because the reader can
   spend attention where it pays. **The output half of this — that the artifact must itself say
   whether it is a judgement or a pile of candidates — is

@@ -1425,3 +1425,55 @@ case_release_unmutated_names_the_cut() {
   finish "assert_release_unmutated checks the tag at the cut version it is HANDED — naming it when present, staying silent for a cut it was not handed — and its other arms still name their own subjects; the pre-release version comes from the seeder rather than a second literal"
   teardown
 }
+
+# =============================================================================
+# CASE — "ALL GATES GREEN" IS PRINTED AFTER THE LAST GATE, NOT BEFORE IT.
+# Rows, in the real order (seed, point SHIP_MANIFEST at a path, publish, run):
+#   (a) SHIP_MANIFEST names a file that does not exist -> the cut refuses, and the transcript
+#       never says all gates are green;
+#   (b) SHIP_MANIFEST names a real manifest, --dry-run -> exit 0, and the green line comes AFTER
+#       the `gate (g)` line.
+# =============================================================================
+case_release_all_gates_green_follows_the_last_gate() {
+  cf_reset
+  if ! has_release; then skp "release.sh prints all gates green after the last gate" "scripts/release.sh absent"; return; fi
+  local out rc man="release/shipped.sha256" g_line green_line
+
+  make_sandbox
+  seed_release_files 1.1.0
+  perl -i -pe 's/^SHIP_MANIFEST=""$/SHIP_MANIFEST="release\/missing.sha256"/' "$SB_WORK/scripts/release.sh"
+  grep -q 'SHIP_MANIFEST="release/missing.sha256"' "$SB_WORK/scripts/release.sh" \
+    || _fixture_die "case_release_all_gates_green_follows_the_last_gate: the SHIP_MANIFEST seam was not set, so gate (g) would not run and arm (a) would pass vacuously."
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  out="$(run_release 1.1.0)"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(a) a SHIP_MANIFEST naming a missing file did not refuse (rc=0), so the arm does not reach gate (g): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s' "$out" | grep 'does not exist' >/dev/null \
+    || cf "(a) the refusal is not gate (g)'s missing-manifest refusal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s' "$out" | grep 'all gates green' >/dev/null \
+    && cf "(a) the transcript says all gates green above gate (g)'s refusal: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-260)"
+  teardown
+
+  make_sandbox
+  seed_release_files 1.1.0
+  mkdir -p "$SB_WORK/release"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1 || true
+  ( cd "$SB_WORK" && ./scripts/release.sh --approve-shipped >/dev/null 2>&1 ) || true
+  [ -f "$SB_WORK/$man" ] \
+    || _fixture_die "case_release_all_gates_green_follows_the_last_gate: --approve-shipped wrote no draft manifest."
+  grep -E '^[0-9a-f]+  (VERSION|pkg\.conf)$' "$SB_WORK/$man" > "$SB_WORK/$man.keep" 2>/dev/null || true
+  mv "$SB_WORK/$man.keep" "$SB_WORK/$man"
+  perl -i -pe 's/^SHIP_MANIFEST=""$/SHIP_MANIFEST="release\/shipped.sha256"/' "$SB_WORK/scripts/release.sh"
+  publish_sandbox
+  write_board_stub "$SB_TMP/board-clean.sh" clean
+  out="$(run_release 1.1.0 --dry-run)"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the dry run with a real manifest did not exit 0 (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  g_line="$(printf '%s\n' "$out" | awk '/gate \(g\)/ { print NR; exit }')"
+  green_line="$(printf '%s\n' "$out" | awk '/all gates green/ { print NR; exit }')"
+  { [ -n "$g_line" ] && [ -n "$green_line" ]; } || cf "(b) the transcript lacks the gate (g) line ('${g_line}') or the all-gates-green line ('${green_line}')"
+  { [ -z "$g_line" ] || [ -z "$green_line" ] || [ "$green_line" -gt "$g_line" ]; } \
+    || cf "(b) 'all gates green' (line $green_line) is printed before gate (g) reports (line $g_line)"
+  teardown
+
+  finish "release.sh prints 'all gates green' only after gate (g) has run: a missing SHIP_MANIFEST refuses with no such line in the transcript, and a clean dry run prints it after the gate (g) line"
+}

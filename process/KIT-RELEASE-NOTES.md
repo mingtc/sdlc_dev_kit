@@ -341,8 +341,19 @@ columns and never the cards.*
 
   Verify: d="$(mktemp -d)"; r=0; for f in progress/*/*.md progress/subtasks/*/*/*.md; do case "$f" in */qa_complete/*|*/done/*|*/declined/*|*/history/*) continue ;; esac; [ -f "$f" ] || continue; id="$(basename "$f" | grep -oE '^[A-Za-z0-9]+-[0-9]+(-s[0-9]+)?')"; [ -n "$id" ] || continue; if KIT_PROGRESS_DIR="$d" ./scripts/read-verdict.sh "$id" 2>/dev/null | grep -q 'would REFUSE this table (qa-verdict-self-pointer)'; then r=1; fi; done; rm -rf "$d"; exit $r
 
+- **A project that declares a second register: arm `[r]` now reads its ids too, and a landing refuses one its branch introduces
+  that no PRD cites.** Arm `[r]` reads every register in `REGISTERS` by its own id shape, as arm `[l]` does, and its line names the
+  registers it read. A second register's live id that no PRD cites and is not marked `[cross-cutting]` is now listed, and a branch that
+  introduces one is refused at landing, as for a `D-NN`. Before your next landing, run `./scripts/check-board.sh`: cite each listed id
+  from the PRD it serves, or mark the entry `[cross-cutting]` if no PRD should cite it. A project with only `requirements/DECISIONS.md`
+  has nothing to do.
+
 ### Changed
 
+- **`kit-upgrade.sh` now lists the `[0.4.0]` obligations.** `process/KIT-RELEASE-HISTORY.md` groups them under `### Action required`, which the checklist reader needs; a project older than 0.4.0 gets those items instead of a checklist without them. Upgrading by hand: read that heading.
+- **`reachability_walk.py --self-test` proves the `$VAR/` edge on a fixture.** It ends `SELF-TEST FAIL` if a script's `"$VAR/dir/file"` citation no longer resolves; the line about your own tree's probe file stays as a fact about your tree. `staleness_greps.py` labels its shipped base-rate figures undated and not yours.
+- **`release.sh` prints "all gates green" after gate (g)**, not before it, so a refused ship manifest no longer follows that line. `new-refactor.sh --help` shows `--prd PRD-NNN|n/a`; `read-verdict.sh --help` shows `<PREFIX>-012`; `archive-progress.sh --apply` lists `progress/history/INDEX.md` among the files it wrote, and its review line includes it.
+- **`finish-pr.sh`'s `Plan:` shows the `--note` with its `(verdict read at <sha>)` clause; the local-commit line in `move-issue.sh`, `finish-pr.sh`, `archive.sh` and `subtask.sh` reads "publishing to the trunk next".
 - **The metadata guard names both routes and no longer refuses an amend that adds a README to a code commit.** A metadata-only commit on a branch is still refused; its `Next:` now offers `register-commit.sh` or adding the path to the code commit it describes (`git commit --amend`). An amend is judged on HEAD's paths plus the staged ones, so it passes when HEAD carries code. Put `--amend` before any `-m`: the refusal's `Next:` says so, and `process/MANUAL.md` states that the guard runs only once `CODE_GLOBS` is declared. No action.
 - **`register-commit.sh` no longer tags a subject twice.** A `--message` that already begins with the `--role` tag (`[PM] Record D-12`) keeps it once; a tag followed by `:` or by no space (`[PM]: Record D-12`) is also kept once, written with a space after it; one that begins with another declared role's tag is refused (`register-message-tag-mismatch`), and its `Next:` line says to drop the tag or switch the hat. The first line it prints now says it is publishing next. No action.
 - **A landing's Activity entry always names the revision the QA Verdict was read at.** `finish-pr.sh` appends `(verdict read at <sha>)` to a `--note` you pass, as it already wrote it in the default note; the direct-to-trunk `move-issue.sh <ID> qa_complete` writes the same string, and both scripts' `--help` say so. No action.

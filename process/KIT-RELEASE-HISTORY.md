@@ -3,7 +3,7 @@
      your version and the new kit's. It travels unedited. -->
 # The process kit — release history
 
-**The release-notes sections older than the newest release, unchanged but for `Verify:` lines added to some Action required entries.** The current notes
+**The release-notes sections older than the newest release, unchanged but for `Verify:` lines added to some Action required entries and the [0.4.0] obligations grouped under an Action required heading.** The current notes
 ([`KIT-RELEASE-NOTES.md`](KIT-RELEASE-NOTES.md)) hold § How to upgrade, § How versions work, § Unreleased and the
 newest release. Upgrading by hand from an older tree: read this file's sections newer than your
 [`KIT-VERSION`](KIT-VERSION) too, newest first, applying each **Action required** entry.
@@ -2607,6 +2607,236 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
 
 ## [0.4.0] — 2026-09-08
 
+### Action required
+
+- **Action required if you have ever run `kit-init --roles`: your `move-issue.sh --help` has been
+  lying to you, and the fix is a re-copy.** The usage header named the role set literally, written
+  **space-padded** — `<R> = PM | Dev | QA | …` — while the `--role` arm that enforces it held the
+  same list unpadded. `kit-init --roles` finds the places to rewrite by matching the unpadded
+  spelling, so it stamped the enforcement and **could not see the header**. On every project that
+  narrowed its role set, the board mover advertised roles it then refused:
+
+  ```
+  $ ./scripts/move-issue.sh --help
+    <R> = PM | Dev | QA | Refactorer | UIDesigner | Orchestrator | Architect
+  $ ./scripts/move-issue.sh XYZ-001 qa_complete --role UIDesigner --note x
+  Error: --role must be PM|Dev|QA|Architect (got 'UIDesigner')
+  ```
+
+  **Nothing in your repository is broken and no board state is wrong** — the enforcement was always
+  the correct list, so nothing illegal ever got through. What was wrong is the one place an operator
+  looks to find out what is legal. **To fix it, re-copy `scripts/move-issue.sh` and
+  `scripts/lib/role-set.sh` together** (the header now expands a token using a new `kit_role_display`
+  in that library, so the two travel as a pair). You do **not** re-run `kit-init`, and you should
+  not: the header no longer carries a copy to stamp, which is the point of the change. After the
+  re-copy, `--help` reads your `ROLE_PREFIXES` at print time and cannot disagree with your hook
+  again.
+
+  **If you cannot re-copy right now:** your `--role` arm is authoritative, and
+  `grep 'ROLE_PREFIXES=' scripts/githooks/commit-msg` is the honest answer to *which roles are
+  legal here*.
+
+- **Action required: your `PROJECT.md` liveness row becomes two, and `N/A` is no longer a legal
+  answer to one of them.** The liveness ritual was one thing scoped by duration — *any run expected
+  to outlast a human's attention* — so a project with no long runs could read that honestly and
+  declare the whole thing not applicable. One did. **What then went wrong was not a run hanging; it
+  was work stopping, three times, with nobody watching.** So the contract now names two rituals:
+  **duration** (is this long run alive?), which you may legitimately mark N/A, and **absence** (has
+  work stopped moving?), which no project can. Fill both rows. The absence signal is the **newest
+  commit across every head on your remote** — not `HEAD`, which is one branch in one worktree and
+  reported *697 minutes since anything moved* in a project where the true answer was one minute. And
+  it needs **a reader that is not the party being watched**: `scripts/notify/stall.sh` ships as the
+  smallest one, opt-in, with no default threshold — the threshold belongs to your run's declared
+  cadence, and an alarm on a borrowed number gets muted, which is worse than none because it reads
+  as armed.
+
+- **Action required if you publish without a build: declare what ships.** `scripts/release.sh` has a
+  new `SHIP_MANIFEST` seam — a file of `<sha256>  <path>` lines naming what your project intends to
+  hand out — and a new preflight gate (g) that checks it before anything is written. **If
+  `RELEASE_PUBLISH` is true and you have no `BUILD_COMMAND`, the cut now refuses until the seam is
+  set.** That combination used to mean the only thing the ritual could publish was your repository,
+  and a repository built by this process contains `progress/` — the board, the review notes, the
+  running log, all written to be candid. Start with `./scripts/release.sh --approve-shipped`, which
+  drafts a manifest from every tracked file and tells you to delete what must not leave; then set the
+  seam. **With no build, the manifest becomes the build**: the publish step tars exactly those paths
+  out of the tag. If you have a `BUILD_COMMAND`, your artifact glob is already an allowlist and
+  nothing changes — but declare the seam and gate (g) will check it. The version bump is normalised
+  out of the hashes using the bump's own expression, so bumping a file you ship does not wedge the
+  cut; `--approve-shipped` re-records after you have read the diffs it prints.
+
+- **Action required (maintainers of the kit itself, not adopters): a release cut now takes about
+  twice as long — roughly 7 minutes instead of 3.5.** `scripts/release-kit.sh` gained a second
+  acceptance arm that takes the built zip through day one with the kit's own tools and then runs the
+  self-test on the result, comparing it case-for-case against the run on the unadopted tree. This is
+  why the two entries above exist: until now every green the kit recorded was measured on a tree in
+  a state the kit tells you not to remain in, so a defect that only appears after day one could not
+  be seen from here. **Nothing changes for a project running the kit** — `release-kit.sh` does not
+  ship, and your own `scripts/release.sh` is untouched.
+
+- **Action required — `scripts/test/run.sh` and `process/KIT-MANIFEST` are now one unit.** The
+  self-test REFUSES to start (exit 2) in a tree that has no `process/KIT-MANIFEST`, instead of
+  running with a skip. If you re-copy `run.sh` from a new zip, copy the manifest across too; if you
+  adopted before the manifest existed and take the new `run.sh` on its own, you will get a refusal
+  that names all three ways this happens and what to do about each. The reason is not bookkeeping:
+  the checks that ask about *the shipped population* derive that population from the manifest, so
+  without it they would assert nothing and print a green while doing it.
+
+- **The self-test would not START on a project that had finished day one. It does now.** SEED step 5
+  tells you to REPLACE the `CLAUDE.md` bootstrap stub, and § *Day one is done when* requires that
+  neither root document still carry the `BOOTSTRAP-SCAFFOLDING` line — while `scripts/test/run.sh`
+  read that line out of your `CLAUDE.md` to build its own fixture, with no fallback. Doing day one
+  correctly was therefore the thing that killed the harness: it exited before running a single case,
+  with `FIXTURE: could not read the scaffolding sentinel out of CLAUDE.md.` The constant is now
+  declared in the harness and derived from nothing in your tree. **Action required: re-copy
+  `scripts/test/run.sh` — and `scripts/check-board.sh` with it, for the reason the next entry gives —
+  then run it.** You have almost certainly never seen it run on your own tree,
+  and it may be red there — the kit's own baseline was measured on an unadopted blank, which is a
+  state you were told not to remain in. What it reports on your tree is worth sending back through
+  `process/KIT-FEEDBACK.md`.
+
+- **The graduation arm now matches the sentinel's WHOLE line, not the token inside it.**
+  `check-board.sh`'s `[g] REPLACE` check asked whether `CLAUDE.md` or `README.md` *contained* the
+  string `BOOTSTRAP-SCAFFOLDING`. A document that merely **described** the sentinel satisfied that —
+  a backticked mention in your adapter, or a template that grew one — and the arm then reported
+  *still scaffolding* against a correctly replaced file, with nothing you could delete to clear it
+  except the sentence. It now requires a line equal to the whole shipped comment. Two consequences,
+  both intended: writing about the sentinel no longer trips the arm, and a stub whose sentinel line
+  was **edited** rather than replaced now clears — editing a REPLACE-class file was never legal, and
+  the arm was punishing the wrong readers for it. **Action required: re-copy `scripts/check-board.sh`
+  and `scripts/test/run.sh` TOGETHER.** The two are coupled by this change and the harness proves it:
+  one of its cases asserts that `check-board.sh` probes for exactly the line the harness declares, so
+  a tree that took the new harness and kept the old drift report goes red there — correctly, and
+  bewilderingly if you did not know the two moved as one.
+
+- **New: `process/KIT-FEEDBACK.md`, the one document that flows back to whoever gave you this kit.**
+  Copy `process/templates/KIT-FEEDBACK.skeleton.md` to `process/KIT-FEEDBACK.md` and leave it empty —
+  it is now part of "day one is done when". **Action required for existing adopters:** create it now.
+  You have already had the findings worth sending; write down the ones you can still reconstruct, and
+  catch the rest as they happen. What the kit most needs is what you can only learn by RUNNING it — a
+  script that died, a rule that could not be obeyed on your stack, a tool that reported clean over
+  something it could not see. Those are invisible to the kit's own audits, which read rather than run.
+  When you send a snapshot, **record the channel by name** in the divider; the rule says why.
+
+- **`scripts/check-board.sh` gains a new arm `[j]`: downtime-queue claim drift.** If you keep a
+  `dev/downtime-queue.md`, mark a row `open (claimed by <PREFIX>-NNN)` when you mint the issue —
+  the arm then tells you when such a row is still open after its issue has landed. **Informational;
+  it never changes the verdict or the exit status.** Without the claim marker there is no join and a
+  stale row is indistinguishable from a live one. **Action required only if you want the check:**
+  re-copy `check-board.sh` and start writing the claim marker. No queue file means the arm skips and
+  says so.
+
+- **`.claude/skills/safety-net-check/` told you to commit characterization tests straight to the
+  trunk.** Where your adapter declares the test tree as a code path — the normal case — that
+  contradicts the code-vs-metadata rule and asks a Refactorer to bypass your landing gate. The step
+  now says to LAND them before the refactor branch exists, by whatever route your code paths require.
+  **Action required if you followed it:** nothing to undo, but check whether any characterization
+  test reached your trunk without passing your gate.
+
+- **The refactor baseline tag now carries a UTC instant, not a date.** `refactor-baseline-<YYYY-MM-DD>`
+  collides on the second refactor of the same day: `git tag` refuses and the run continues **with no
+  revert point** — so the case with no safety net was exactly the case where two refactors were in
+  flight. **Action required if you have a `refactor-baseline-<date>` tag:** it is fine, but a second
+  refactor today would not have created one. Re-copy the skill, the Refactorer role doc and
+  `REFACTOR.template.md`, which all named the old form.
+
+- **`.claude/skills/writing-plans/` — an earlier [Unreleased] build named the wrong execution skill.**
+  Its "Inline Execution" option was changed to `subagent-driven-development`, which made it identical
+  to option 1. Reverted: option 2 is `executing-plans`, as the same file states six lines below.
+  **Action required if you took the earlier build:** re-copy the skill.
+
+  **And the confusion behind it is fixed at its source.** The two skills' `description:` lines
+  described DIFFERENT AXES and so read as contradicting each other: `executing-plans` said "in a
+  separate session", meaning the plan was authored elsewhere — the tasks run INLINE, here; and
+  `subagent-driven-development` said "in the current session", meaning you orchestrate from here
+  while each task goes to a fresh subagent. Both now say which they mean and name the other as the
+  alternative. **Re-copy both skills and `.claude/skills/README.md`**, which carried the same
+  ambiguity. No behaviour changed — the routing was always right; only the summaries were unclear.
+
+- **`.claude/workflows/wave-runner.js` would have thrown on every run.** The per-issue key guard added
+  in this same [Unreleased] section was copied from `tranche-runner.js` and omitted the three
+  wave-only fields — `worktreeMode`, `phase`, `restartNote` — that this runner reads and that its own
+  description advertises. **Action required if you took the earlier [Unreleased] build:** re-copy
+  `.claude/workflows/wave-runner.js`. Any wave dispatch passing those fields refused before starting.
+
+- **Both workflow runners now refuse an unrecognised per-issue key.** `depends_on` was already
+  defaulted, but a caller who wrote `depends_ons` would have got a **silent solo run** — a broken
+  dependency chain being exactly what the field prevents. **Action required if you script these
+  runners:** a misspelled per-issue key now throws by name before any agent starts. That is
+  deliberate; correct the key rather than removing it. The arg contract also now marks per-issue
+  keys with `?`, so you can see which are optional — previously only the top-level keys were marked.
+
+- **`dev/downtime-queue.md` gains a claim marker.** The Status vocabulary now reads
+  `open / open (claimed by <PREFIX>-NNN) / STRUCK — …`. Write the claim when the item is minted onto
+  the board, not at landing — it is the only link between the queue and the board. **Action required
+  if you keep a downtime queue:** your existing `open` rows carry no claim, so nothing can tell a
+  stale row from a live one; one pass measuring each row's subject against the trunk is the only way
+  to reconcile them once. The file now also states what the marker cannot see, and warns that
+  counting with `grep -c "| open |"` under-reported one adopter's queue by 8 rows of 37.
+
+- **`.claude/skills/using-git-worktrees/` — the ignore check tested the wrong directory.** It ran
+  `git check-ignore -q .worktrees || git check-ignore -q worktrees`: two hard-coded names, ORed. Where
+  `.worktrees/` is ignored and the directory actually chosen is `worktrees/`, it short-circuits on the
+  first and reports the second safe. **Action required if you vendored this skill:** re-copy it. The
+  check now tests the directory § Directory Selection chose. If you have been running with a
+  `worktrees/` directory, confirm it is in your `.gitignore`.
+
+- **`.claude/workflows/wave-runner.js` told a Refactorer to commit as `[Dev]`.** On the docs path the
+  brief hard-coded a `[Dev]`-prefixed subject while the role was derived and used everywhere else in
+  the same brief. **Action required if you run wave-runner with `issue.role: "Refactorer"`:** re-copy
+  the file; commits from those runs carry the wrong attribution and your commit-msg hook accepted them.
+
+- **`.claude/workflows/tranche-runner.js`'s park brief named a verdict its schema rejects.** The park-QA
+  fail bullet was labelled bare `FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` / `FAIL_AC` /
+  `FAIL_REGRESSION`. Same defect as the QA-prompt bullet in the same file, in the other
+  prompt. **Re-copy the file if you run park legs.**
+
+- **`process/templates/CORPUS.skeleton.md` and `DECISIONS.skeleton.md` rendered their instructions as
+  body text.** Both embedded a literal `<!-- KIT-CLASS: … -->` inside an HTML comment; comments do not
+  nest, so the inner `-->` closed the block early and roughly eighteen lines appeared above the heading.
+  **Action required if you copied either skeleton:** open your `requirements/CORPUS.md` and
+  `requirements/DECISIONS.md` and delete any stray instruction text above the `#` heading.
+
+- **`.claude/templates/SUBTASK.template.md` declared the wrong landing directory.** It said its links
+  are relative to `progress/todo/`; subtask cards land in `progress/subtasks/<PREFIX>-NNN/<status>/`.
+  The links themselves were always right — only the declaration was wrong — so nothing you generated is
+  broken. Re-copy the template if you have vendored it.
+
+- **`archive-progress.sh`'s dry run no longer writes anything.** Its DEFAULT mode (no `--apply`)
+  created `progress/history/INDEX.md` when that file was absent, then closed by printing
+  *"(dry run — no changes made. Re-run with `--apply` to rewrite the files.)"*. **Action required if you have ever run it without `--apply`
+  on a board with no rotation index:** you may have an empty `INDEX.md` you did not ask for. It is
+  harmless — the header is what `--apply` would have written — but if you would rather it were not
+  there, delete it. The dry run now names the file it would create instead of creating it.
+
+- **`.claude/workflows/tranche-runner.js` told the QA agent to return a verdict its own schema
+  rejects.** The fail branch said `return verdict=FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` /
+  `FAIL_AC` / `FAIL_REGRESSION`. **Action required if you run this workflow:** a QA leg that failed
+  an issue could error at the structured-output call rather than reporting the failure. Re-copy the
+  file. The instruction is now derived from the enum, so the two cannot part again.
+
+- **`PROJECT.md` gains a `Build order` section — and shipped role docs have been pointing at it all
+  along.** `pm.md` prioritises *"against the build order in PROJECT.md"*, and `dev.md` and
+  `orchestrator.md` name it as project context; the sheet had no such section. The opening line *"not the
+  roadmap"* is true of that **paragraph** and was read as true of the **file**. **Action required:
+  write one or two lines in the new section** — what is in scope now, and what is deliberately not
+  yet. *If your project genuinely has no ordering yet, write that sentence rather than leaving it
+  blank: a blank reads as unanswered, a sentence reads as answered.* Nothing breaks if you skip it,
+  but the PM hat's prioritisation step has nothing to read.
+
+- **An option you forgot to give a value to now refuses, instead of silently doing nothing.**
+  `--note`, `--role`, `--trunk`, `--prefix` and every other value-taking option: given
+  as the last word with no value, these used to **exit 1 with no output at all** — the script died
+  on `shift 2` under `set -e` before it could say anything. They now exit **2** and name the option.
+  **`notify.sh` was the sharp one:** `notify.sh attention --message` took `--message` as the message
+  **body**, sent a notification reading `--message`, and reported success. It now refuses a
+  positional beginning with `-`. **`consumers/update_vendored.sh` had no unknown-option arm at all**
+  and now has one. **Action required if a wrapper, alias or CI step calls these scripts:** an
+  invocation that used to fail quietly (or, for `notify.sh`, appear to succeed) now exits 2 and says
+  why. If anything of yours depended on the old silence, it will start failing loudly — which is the
+  point, but check it. Nothing changes for a correct invocation.
+
+### Other changes
+
 - **Every refusal that could not load its configuration or one of its libraries claimed to cover
   something it cannot, and they now say what they actually check.** When a shipped script cannot
   load `scripts/config.sh` or one of the three
@@ -2846,33 +3076,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   it now needs a path expression per surface** — without one, nothing can compute which verdicts
   survive and the honest fallback is re-reading everything.
 
-- **Action required if you have ever run `kit-init --roles`: your `move-issue.sh --help` has been
-  lying to you, and the fix is a re-copy.** The usage header named the role set literally, written
-  **space-padded** — `<R> = PM | Dev | QA | …` — while the `--role` arm that enforces it held the
-  same list unpadded. `kit-init --roles` finds the places to rewrite by matching the unpadded
-  spelling, so it stamped the enforcement and **could not see the header**. On every project that
-  narrowed its role set, the board mover advertised roles it then refused:
-
-  ```
-  $ ./scripts/move-issue.sh --help
-    <R> = PM | Dev | QA | Refactorer | UIDesigner | Orchestrator | Architect
-  $ ./scripts/move-issue.sh XYZ-001 qa_complete --role UIDesigner --note x
-  Error: --role must be PM|Dev|QA|Architect (got 'UIDesigner')
-  ```
-
-  **Nothing in your repository is broken and no board state is wrong** — the enforcement was always
-  the correct list, so nothing illegal ever got through. What was wrong is the one place an operator
-  looks to find out what is legal. **To fix it, re-copy `scripts/move-issue.sh` and
-  `scripts/lib/role-set.sh` together** (the header now expands a token using a new `kit_role_display`
-  in that library, so the two travel as a pair). You do **not** re-run `kit-init`, and you should
-  not: the header no longer carries a copy to stamp, which is the point of the change. After the
-  re-copy, `--help` reads your `ROLE_PREFIXES` at print time and cannot disagree with your hook
-  again.
-
-  **If you cannot re-copy right now:** your `--role` arm is authoritative, and
-  `grep 'ROLE_PREFIXES=' scripts/githooks/commit-msg` is the honest answer to *which roles are
-  legal here*.
-
 - **A usage request that renders one of your configured values now has a stated fallback, and it
   will never guess.** `contracts/issue-creation.md` § 3 gained the rule behind the fix above: help
   text that renders a project value (your role set, your status folders, your trunk) reads it from
@@ -2945,34 +3148,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   says so: the state is declared now so the check has a token to read when it ships.
   ([`process/templates/DECISIONS.skeleton.md`](../requirements/DECISIONS.md) § The THIRD state.)
 
-- **Action required: your `PROJECT.md` liveness row becomes two, and `N/A` is no longer a legal
-  answer to one of them.** The liveness ritual was one thing scoped by duration — *any run expected
-  to outlast a human's attention* — so a project with no long runs could read that honestly and
-  declare the whole thing not applicable. One did. **What then went wrong was not a run hanging; it
-  was work stopping, three times, with nobody watching.** So the contract now names two rituals:
-  **duration** (is this long run alive?), which you may legitimately mark N/A, and **absence** (has
-  work stopped moving?), which no project can. Fill both rows. The absence signal is the **newest
-  commit across every head on your remote** — not `HEAD`, which is one branch in one worktree and
-  reported *697 minutes since anything moved* in a project where the true answer was one minute. And
-  it needs **a reader that is not the party being watched**: `scripts/notify/stall.sh` ships as the
-  smallest one, opt-in, with no default threshold — the threshold belongs to your run's declared
-  cadence, and an alarm on a borrowed number gets muted, which is worse than none because it reads
-  as armed.
-
-- **Action required if you publish without a build: declare what ships.** `scripts/release.sh` has a
-  new `SHIP_MANIFEST` seam — a file of `<sha256>  <path>` lines naming what your project intends to
-  hand out — and a new preflight gate (g) that checks it before anything is written. **If
-  `RELEASE_PUBLISH` is true and you have no `BUILD_COMMAND`, the cut now refuses until the seam is
-  set.** That combination used to mean the only thing the ritual could publish was your repository,
-  and a repository built by this process contains `progress/` — the board, the review notes, the
-  running log, all written to be candid. Start with `./scripts/release.sh --approve-shipped`, which
-  drafts a manifest from every tracked file and tells you to delete what must not leave; then set the
-  seam. **With no build, the manifest becomes the build**: the publish step tars exactly those paths
-  out of the tag. If you have a `BUILD_COMMAND`, your artifact glob is already an allowlist and
-  nothing changes — but declare the seam and gate (g) will check it. The version bump is normalised
-  out of the hashes using the bump's own expression, so bumping a file you ship does not wedge the
-  cut; `--approve-shipped` re-records after you have read the diffs it prints.
-
 - **`doctrine/instruments.md` gained the rule the rest of this release was built to earn.** Naming
   what your instrument measured — which § A.4 already required — makes its verdict honest about what
   it *claims*, and says nothing about whether the claim is right. So the operand set must now be
@@ -2984,15 +3159,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   thing also requires deleting its excuse. § A.2 gains two probe controls: break the member *least*
   likely to be covered, and prove your plant actually took. **Every entry in this release's notes is
   an instance of the defect that rule describes**, which is why it is written last.
-
-- **Action required (maintainers of the kit itself, not adopters): a release cut now takes about
-  twice as long — roughly 7 minutes instead of 3.5.** `scripts/release-kit.sh` gained a second
-  acceptance arm that takes the built zip through day one with the kit's own tools and then runs the
-  self-test on the result, comparing it case-for-case against the run on the unadopted tree. This is
-  why the two entries above exist: until now every green the kit recorded was measured on a tree in
-  a state the kit tells you not to remain in, so a defect that only appears after day one could not
-  be seen from here. **Nothing changes for a project running the kit** — `release-kit.sh` does not
-  ship, and your own `scripts/release.sh` is untouched.
 
 - **`check-board.sh` can now report `graduation COMPLETE`. Until this release it could not.** Its
   FILL check counted every `<angle-bracket>` in `PROJECT.md` — including the one inside that file's
@@ -3030,14 +3196,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   a property rather than a list — a shipped shell program may call an off-floor interpreter only if
   the same file guards it with `command -v`.
 
-- **Action required — `scripts/test/run.sh` and `process/KIT-MANIFEST` are now one unit.** The
-  self-test REFUSES to start (exit 2) in a tree that has no `process/KIT-MANIFEST`, instead of
-  running with a skip. If you re-copy `run.sh` from a new zip, copy the manifest across too; if you
-  adopted before the manifest existed and take the new `run.sh` on its own, you will get a refusal
-  that names all three ways this happens and what to do about each. The reason is not bookkeeping:
-  the checks that ask about *the shipped population* derive that population from the manifest, so
-  without it they would assert nothing and print a green while doing it.
-
 - **The zip now carries `process/KIT-MANIFEST` — a list of which files are the kit's.** One row per
   shipped file: `<sha256>  <path>  <KIT-CLASS, or - if the file declares none>`. **It is generated
   by the build and is not tracked anywhere** — editing it means nothing, and it is regenerated whole
@@ -3064,95 +3222,25 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   is not. The new refusal (exit 2) fires when a case records no outcome at all or more than one:
   a case recording none is invisible in every count the harness prints. Nothing you do changes.
 
-- **The self-test would not START on a project that had finished day one. It does now.** SEED step 5
-  tells you to REPLACE the `CLAUDE.md` bootstrap stub, and § *Day one is done when* requires that
-  neither root document still carry the `BOOTSTRAP-SCAFFOLDING` line — while `scripts/test/run.sh`
-  read that line out of your `CLAUDE.md` to build its own fixture, with no fallback. Doing day one
-  correctly was therefore the thing that killed the harness: it exited before running a single case,
-  with `FIXTURE: could not read the scaffolding sentinel out of CLAUDE.md.` The constant is now
-  declared in the harness and derived from nothing in your tree. **Action required: re-copy
-  `scripts/test/run.sh` — and `scripts/check-board.sh` with it, for the reason the next entry gives —
-  then run it.** You have almost certainly never seen it run on your own tree,
-  and it may be red there — the kit's own baseline was measured on an unadopted blank, which is a
-  state you were told not to remain in. What it reports on your tree is worth sending back through
-  `process/KIT-FEEDBACK.md`.
-- **The graduation arm now matches the sentinel's WHOLE line, not the token inside it.**
-  `check-board.sh`'s `[g] REPLACE` check asked whether `CLAUDE.md` or `README.md` *contained* the
-  string `BOOTSTRAP-SCAFFOLDING`. A document that merely **described** the sentinel satisfied that —
-  a backticked mention in your adapter, or a template that grew one — and the arm then reported
-  *still scaffolding* against a correctly replaced file, with nothing you could delete to clear it
-  except the sentence. It now requires a line equal to the whole shipped comment. Two consequences,
-  both intended: writing about the sentinel no longer trips the arm, and a stub whose sentinel line
-  was **edited** rather than replaced now clears — editing a REPLACE-class file was never legal, and
-  the arm was punishing the wrong readers for it. **Action required: re-copy `scripts/check-board.sh`
-  and `scripts/test/run.sh` TOGETHER.** The two are coupled by this change and the harness proves it:
-  one of its cases asserts that `check-board.sh` probes for exactly the line the harness declares, so
-  a tree that took the new harness and kept the old drift report goes red there — correctly, and
-  bewilderingly if you did not know the two moved as one.
-
-- **New: `process/KIT-FEEDBACK.md`, the one document that flows back to whoever gave you this kit.**
-  Copy `process/templates/KIT-FEEDBACK.skeleton.md` to `process/KIT-FEEDBACK.md` and leave it empty —
-  it is now part of "day one is done when". **Action required for existing adopters:** create it now.
-  You have already had the findings worth sending; write down the ones you can still reconstruct, and
-  catch the rest as they happen. What the kit most needs is what you can only learn by RUNNING it — a
-  script that died, a rule that could not be obeyed on your stack, a tool that reported clean over
-  something it could not see. Those are invisible to the kit's own audits, which read rather than run.
-  When you send a snapshot, **record the channel by name** in the divider; the rule says why.
-
-- **`scripts/check-board.sh` gains a new arm `[j]`: downtime-queue claim drift.** If you keep a
-  `dev/downtime-queue.md`, mark a row `open (claimed by <PREFIX>-NNN)` when you mint the issue —
-  the arm then tells you when such a row is still open after its issue has landed. **Informational;
-  it never changes the verdict or the exit status.** Without the claim marker there is no join and a
-  stale row is indistinguishable from a live one. **Action required only if you want the check:**
-  re-copy `check-board.sh` and start writing the claim marker. No queue file means the arm skips and
-  says so.
-
-- **`.claude/skills/safety-net-check/` told you to commit characterization tests straight to the
-  trunk.** Where your adapter declares the test tree as a code path — the normal case — that
-  contradicts the code-vs-metadata rule and asks a Refactorer to bypass your landing gate. The step
-  now says to LAND them before the refactor branch exists, by whatever route your code paths require.
-  **Action required if you followed it:** nothing to undo, but check whether any characterization
-  test reached your trunk without passing your gate.
-- **The refactor baseline tag now carries a UTC instant, not a date.** `refactor-baseline-<YYYY-MM-DD>`
-  collides on the second refactor of the same day: `git tag` refuses and the run continues **with no
-  revert point** — so the case with no safety net was exactly the case where two refactors were in
-  flight. **Action required if you have a `refactor-baseline-<date>` tag:** it is fine, but a second
-  refactor today would not have created one. Re-copy the skill, the Refactorer role doc and
-  `REFACTOR.template.md`, which all named the old form.
 - **`.claude/skills/refactor-audit/` now makes you prove a tool saw your code before believing it.**
   Every deterministic tool it recommends has an exclusion list and a default glob, and **a scan that
   reached none of your code reports clean.** Measured at an adopter: 28 Python modules invisible to
   a scanner because `src/` sat in its exclusion list. The skill now requires the tool's file COUNT
   (not its finding count) checked against `git ls-files`. **Re-run any audit whose tools you did not
   verify this way** — a clean tool result in a past audit may have been a tool that saw nothing.
+
 - **`refactor-audit` also now asks whether each candidate defect can actually fire today.** Live
   versus latent, per candidate, before scoring — because "likelihood of future pain" measures how
   often an area is *touched*, and a defect can sit in a hot file and be unreachable. In an adopter's
   controlled comparison this changed three of four priorities.
 
-- **`.claude/skills/writing-plans/` — an earlier [Unreleased] build named the wrong execution skill.**
-  Its "Inline Execution" option was changed to `subagent-driven-development`, which made it identical
-  to option 1. Reverted: option 2 is `executing-plans`, as the same file states six lines below.
-  **Action required if you took the earlier build:** re-copy the skill.
-
-  **And the confusion behind it is fixed at its source.** The two skills' `description:` lines
-  described DIFFERENT AXES and so read as contradicting each other: `executing-plans` said "in a
-  separate session", meaning the plan was authored elsewhere — the tasks run INLINE, here; and
-  `subagent-driven-development` said "in the current session", meaning you orchestrate from here
-  while each task goes to a fresh subagent. Both now say which they mean and name the other as the
-  alternative. **Re-copy both skills and `.claude/skills/README.md`**, which carried the same
-  ambiguity. No behaviour changed — the routing was always right; only the summaries were unclear.
 - **`scripts/check-board.sh --help` no longer enumerates the drift classes.** It named five; nine
   arms run. The arms print their own letters as the tool runs. No behaviour change.
+
 - **`.claude/roles/dev.md` overstated what `move-issue.sh` leaves alone.** It said "your current
   checkout and branch are never touched". Your *branch* never is; your *checkout* is fast-forwarded
   when it is already clean and on the trunk. No behaviour changed — the sentence did.
 
-- **`.claude/workflows/wave-runner.js` would have thrown on every run.** The per-issue key guard added
-  in this same [Unreleased] section was copied from `tranche-runner.js` and omitted the three
-  wave-only fields — `worktreeMode`, `phase`, `restartNote` — that this runner reads and that its own
-  description advertises. **Action required if you took the earlier [Unreleased] build:** re-copy
-  `.claude/workflows/wave-runner.js`. Any wave dispatch passing those fields refused before starting.
 - **Four pack and report templates displayed link labels that resolve nowhere.** `launch-pack`,
   `round-pack`, `round-report` and `run-report` showed `../doctrine/…` labels against hrefs that had
   been corrected for the landing directory. The links always worked; the visible text was dead. All
@@ -3164,29 +3252,18 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   message** carried the same pattern, which matches zero files and then reports success. All three
   now carry the required leading `./`. **If you ran the tool from either of those and it found no
   polluter, run it again.**
+
 - **`.claude/workflows/` briefs no longer carry maintainer narration.** Three prompt literals had
   explanatory changelog text inside them, which agents received as instruction text to read and
   discard. No behaviour change; the briefs are shorter and say only what the agent must do.
 
-- **Both workflow runners now refuse an unrecognised per-issue key.** `depends_on` was already
-  defaulted, but a caller who wrote `depends_ons` would have got a **silent solo run** — a broken
-  dependency chain being exactly what the field prevents. **Action required if you script these
-  runners:** a misspelled per-issue key now throws by name before any agent starts. That is
-  deliberate; correct the key rather than removing it. The arg contract also now marks per-issue
-  keys with `?`, so you can see which are optional — previously only the top-level keys were marked.
 - **`process/doctrine/instruments.md` § A: brace the ref in every `<ref>:<path>` recipe.** On zsh —
   the default login shell on macOS — an unbraced `"$REF:path"` is parsed as a history modifier and
   **the path is silently dropped, exit 0**. `git cat-file -e "$REF:absent"` then exits 0 for a path
   in no ref, and `git show "$REF:path" | grep` counts matches in the *commit message*. **Action
   required if you copied either recipe:** rewrite as `"${REF}:path"`. Any landing or tag check you
   built on the unbraced form could not fail, in either direction.
-- **`dev/downtime-queue.md` gains a claim marker.** The Status vocabulary now reads
-  `open / open (claimed by <PREFIX>-NNN) / STRUCK — …`. Write the claim when the item is minted onto
-  the board, not at landing — it is the only link between the queue and the board. **Action required
-  if you keep a downtime queue:** your existing `open` rows carry no claim, so nothing can tell a
-  stale row from a live one; one pass measuring each row's subject against the trunk is the only way
-  to reconcile them once. The file now also states what the marker cannot see, and warns that
-  counting with `grep -c "| open |"` under-reported one adopter's queue by 8 rows of 37.
+
 - **`process/doctrine/staleness.md` gains § E — three claim classes a document audit does not look
   at.** A quotation is a promise about bytes (run a misquote census and report three numbers); a
   correction pass must census the defect **string** tree-wide, not the document it was found in,
@@ -3195,58 +3272,27 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   No action required — but if you run document audits, § E.1's census is a numbered deliverable and
   is meant to replace *"I checked the quotes"*.
 
-- **`.claude/skills/using-git-worktrees/` — the ignore check tested the wrong directory.** It ran
-  `git check-ignore -q .worktrees || git check-ignore -q worktrees`: two hard-coded names, ORed. Where
-  `.worktrees/` is ignored and the directory actually chosen is `worktrees/`, it short-circuits on the
-  first and reports the second safe. **Action required if you vendored this skill:** re-copy it. The
-  check now tests the directory § Directory Selection chose. If you have been running with a
-  `worktrees/` directory, confirm it is in your `.gitignore`.
-- **`.claude/workflows/wave-runner.js` told a Refactorer to commit as `[Dev]`.** On the docs path the
-  brief hard-coded a `[Dev]`-prefixed subject while the role was derived and used everywhere else in
-  the same brief. **Action required if you run wave-runner with `issue.role: "Refactorer"`:** re-copy
-  the file; commits from those runs carry the wrong attribution and your commit-msg hook accepted them.
-- **`.claude/workflows/tranche-runner.js`'s park brief named a verdict its schema rejects.** The park-QA
-  fail bullet was labelled bare `FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` / `FAIL_AC` /
-  `FAIL_REGRESSION`. Same defect as the QA-prompt bullet in the same file, in the other
-  prompt. **Re-copy the file if you run park legs.**
-- **`process/templates/CORPUS.skeleton.md` and `DECISIONS.skeleton.md` rendered their instructions as
-  body text.** Both embedded a literal `<!-- KIT-CLASS: … -->` inside an HTML comment; comments do not
-  nest, so the inner `-->` closed the block early and roughly eighteen lines appeared above the heading.
-  **Action required if you copied either skeleton:** open your `requirements/CORPUS.md` and
-  `requirements/DECISIONS.md` and delete any stray instruction text above the `#` heading.
-- **`.claude/templates/SUBTASK.template.md` declared the wrong landing directory.** It said its links
-  are relative to `progress/todo/`; subtask cards land in `progress/subtasks/<PREFIX>-NNN/<status>/`.
-  The links themselves were always right — only the declaration was wrong — so nothing you generated is
-  broken. Re-copy the template if you have vendored it.
 - **`scripts/notify.sh --help` showed `test` as taking a required message.** It does not.
   `notify.sh test` sends a fixed probe and takes no message argument; the usage line now says so on
   both of its sites. No behaviour changed.
+
 - **`.claude/skills/systematic-debugging/find-polluter.sh`'s usage example matched nothing.** The
   example pattern `'src/**/*.test.ts'` cannot match, because `find .` emits paths beginning `./` and
   `-path` matches the whole string — so the script reported success over zero test files. The example
   now carries the leading `./`. **If you ran it and it found no polluter, run it again.**
+
 - **`process/EXTRACTION.md` § 2.8 is now COPY, not CONFIGURE.** `.claude/settings.json.example` has
   nothing inside it for you to fill in — the values that table listed left with the deleted `autoMode`
   block. The decision it asks of you is only whether to activate the hooks at all. No action required
   beyond ignoring the old instruction to substitute a trunk name and a role-prefix list into it.
 
-- **`archive-progress.sh`'s dry run no longer writes anything.** Its DEFAULT mode (no `--apply`)
-  created `progress/history/INDEX.md` when that file was absent, then closed by printing
-  *"(dry run — no changes made. Re-run with `--apply` to rewrite the files.)"*. **Action required if you have ever run it without `--apply`
-  on a board with no rotation index:** you may have an empty `INDEX.md` you did not ask for. It is
-  harmless — the header is what `--apply` would have written — but if you would rather it were not
-  there, delete it. The dry run now names the file it would create instead of creating it.
 - **`.claude/settings.json.example` no longer carries a `_PLACEHOLDERS` map.** The map glossed seven
   `<angle-bracket>` tokens (`<trunk>`, `<PREFIX>`, `<code-path-globs>`, `<metadata-path-globs>`,
   `<adapter>`, `<project-facts>`, `<role-prefix-list>`) and told you to replace "every token below".
   All seven had already left with the deleted `autoMode` block. **There is nothing in this file to
   fill in; copy it as it stands.** Those values are real and are declared where they are used — the
   adapter, `scripts/config.sh`, and the commit-msg hook.
-- **`.claude/workflows/tranche-runner.js` told the QA agent to return a verdict its own schema
-  rejects.** The fail branch said `return verdict=FAIL`; the enum is `PASS` / `PASS_AC_CORRECTED` /
-  `FAIL_AC` / `FAIL_REGRESSION`. **Action required if you run this workflow:** a QA leg that failed
-  an issue could error at the structured-output call rather than reporting the failure. Re-copy the
-  file. The instruction is now derived from the enum, so the two cannot part again.
+
 - **Three documentation pointers were wrong in ways that change what you would do.**
   `.claude/roles/dev.md` cited `finishing-a-development-branch` **Option 2** for preserving a
   `dev_complete/` worktree — Option 2 is the *no-handoff* path; **Option 1** is the handoff.
@@ -3256,30 +3302,6 @@ newest release. Upgrading by hand from an older tree: read this file's sections 
   init.defaultBranch` fallback was **unreachable** — `||` binds to the pipeline, and a pipeline
   ending in `sed` exits 0 even when it produced nothing, so an unset `origin/HEAD` yielded an empty
   trunk name rather than the fallback.
-
-- **`PROJECT.md` gains a `Build order` section — and shipped role docs have been pointing at it all
-  along.** `pm.md` prioritises *"against the build order in PROJECT.md"*, and `dev.md` and
-  `orchestrator.md` name it as project context; the sheet had no such section. The opening line *"not the
-  roadmap"* is true of that **paragraph** and was read as true of the **file**. **Action required:
-  write one or two lines in the new section** — what is in scope now, and what is deliberately not
-  yet. *If your project genuinely has no ordering yet, write that sentence rather than leaving it
-  blank: a blank reads as unanswered, a sentence reads as answered.* Nothing breaks if you skip it,
-  but the PM hat's prioritisation step has nothing to read.
-
-
-- **An option you forgot to give a value to now refuses, instead of silently doing nothing.**
-  `--note`, `--role`, `--trunk`, `--prefix` and every other value-taking option: given
-  as the last word with no value, these used to **exit 1 with no output at all** — the script died
-  on `shift 2` under `set -e` before it could say anything. They now exit **2** and name the option.
-  **`notify.sh` was the sharp one:** `notify.sh attention --message` took `--message` as the message
-  **body**, sent a notification reading `--message`, and reported success. It now refuses a
-  positional beginning with `-`. **`consumers/update_vendored.sh` had no unknown-option arm at all**
-  and now has one. **Action required if a wrapper, alias or CI step calls these scripts:** an
-  invocation that used to fail quietly (or, for `notify.sh`, appear to succeed) now exits 2 and says
-  why. If anything of yours depended on the old silence, it will start failing loudly — which is the
-  point, but check it. Nothing changes for a correct invocation.
-
-
 
 ## [0.3.0] — 2026-09-03
 
