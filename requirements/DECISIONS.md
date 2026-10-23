@@ -55,6 +55,13 @@ about to be built on cannot.
   the sequence alone. A reader who can see the consequence can also tell when the constraint has
   stopped applying.
 
+**A changed ruling carries a stamp, in the commit that changes it.** The stamp is **bold** and dated, written inside the Ruling
+field after the changed text, not on a line of its own (a line that opens with a bold label reads as a fourth field):
+`**Amended <YYYY-MM-DD>.**`. The words the checker reads are `Amended`, `CONFIRMED`, `Clarified`, `SUPERSEDED`, `WITHDRAWN` and
+`WORKING DEFAULT`; the same words as plain text are not read, and neither is a stamp in a later commit. A Ruling that now opens with a
+state token (the THIRD and FOURTH states below) needs no further stamp. *Why:* the stamp is what lets a reader tell a reopen from a
+first writing. A change committed without it stays reported, because history is not rewritten; stamp the next change in the entry.
+
 **Ids are stable.** `D-NN` is a permanent handle. When a ruling is removed the id is **retired,
 never reused**, so a citation elsewhere can never silently come to mean something else.
 <!-- ID WIDTH: zero-padded to TWO digits until the register passes 99, then plain three digits.

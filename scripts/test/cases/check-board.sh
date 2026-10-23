@@ -4251,6 +4251,113 @@ case_check_board_arm_e_exempts_revert_and_fixup_only_when_the_diff_matches() {
   teardown
 }
 
+# Builds the stamp fixture the next two cases read: an unstamped Ruling change (D-01, plain "Clarified"), then a later
+# commit that adds the bold stamp for the same entry. Sets STAMP_FIX_UNSTAMPED and STAMP_FIX_LATER (short shas).
+_cb_stamp_fixture() {
+  local registers reg_path reg_mark reg
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || _fixture_die "_cb_stamp_fixture: could not derive REGISTERS from the defaults block."
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  reg="$SB_WORK/$reg_path"
+  mkdir -p "$(dirname "$reg")"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "init" >/dev/null 2>&1
+  cat > "$reg" <<EOT
+# DECISIONS
+## A. Bucket
+${reg_mark}D-01 — first
+**Ruling.** Alpha holds.
+**Why.** Reasons.
+**Provenance.** PM.
+EOT
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -q -m "[PM] register v1" >/dev/null 2>&1
+  sed -i.bak 's/^\*\*Ruling\.\*\* Alpha holds\./**Ruling.** Alpha holds in every case. Clarified 2026-10-20./' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-01 clarified, plain" >/dev/null 2>&1
+  STAMP_FIX_UNSTAMPED="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  sed -i.bak 's/Clarified 2026-10-20\./Clarified 2026-10-20. **Clarified 2026-10-21.**/' "$reg"; rm -f "$reg.bak"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -q -m "[PM] D-01 stamped, later" >/dev/null 2>&1
+  STAMP_FIX_LATER="$(git -C "$SB_WORK" rev-parse --short=9 HEAD)"
+  grep -qF '**Clarified 2026-10-21.**' "$reg" \
+    || _fixture_die "_cb_stamp_fixture: the later stamp is not in the register."
+  publish_sandbox
+}
+
+# =============================================================================
+# CASE — the unstamped-change warning names the bold shape and the route, and the register's
+# format text states the same shape and every word the checker reads (the words derived from the
+# shipped lib, the document read before the fixture replaces it).
+# =============================================================================
+case_check_board_ruling_warning_names_the_bold_stamp_and_the_route() {
+  cf_reset
+  make_sandbox
+  local out q line
+  _cb_stamp_fixture
+  out="$(cb_run)"
+  q="$(printf '%s\n' "$out" | _cb_q_section)"
+  line="$(printf '%s\n' "$q" | grep "D-01 — its Ruling text changed in ${STAMP_FIX_UNSTAMPED}")"
+  [ -n "$line" ] || cf "the unstamped change ($STAMP_FIX_UNSTAMPED) was not named at all: $q"
+  printf '%s\n' "$line" | grep -F '**<word> <YYYY-MM-DD>.**' >/dev/null \
+    || cf "the warning does not show the bold stamp shape **<word> <YYYY-MM-DD>.**: $line"
+  printf '%s\n' "$line" | grep -F "inside the entry's Ruling" >/dev/null \
+    || cf "the warning does not name where the stamp goes: $line"
+  printf '%s\n' "$line" | grep -F 'this history stays as it is' >/dev/null \
+    || cf "the warning does not say the history stays and the next change is stamped: $line"
+  finish "the unstamped-change warning shows the bold dated shape, where it goes and that history stays"
+  teardown
+}
+
+# =============================================================================
+# CASE — the shipped register's format text states the bold dated stamp and every word [q] reads.
+# The register is SEED class: past day one it is the project's own, so on a lived tree this case has
+# no subject (N/A), and the warning half above still runs.
+# =============================================================================
+case_register_format_text_states_the_bold_stamp() {
+  cf_reset
+  local L="the register format text states the bold dated stamp shape and every word the checker reads"
+  local lib="$REAL_REPO_ROOT/scripts/lib/board-properties.sh" registers reg_path doc words w lived
+  registers="$(cb_default REGISTERS)"
+  [ -n "$registers" ] || _fixture_die "case_register_format_text_states_the_bold_stamp: could not derive REGISTERS from the defaults block."
+  reg_path="${registers%%|*}"; doc="$REAL_REPO_ROOT/$reg_path"
+  lived="$(_tree_has_lived)"
+  if [ -n "$lived" ]; then
+    skp_lived "$L" "$reg_path is this project's own once $lived"; return
+  fi
+  [ -f "$doc" ] || _fixture_die "case_register_format_text_states_the_bold_stamp: the shipped tree has no register at $reg_path."
+  words="$(sed -n "s/^_BP_STAMP_WORDS='\(.*\)'$/\1/p" "$lib")"
+  [ -n "$words" ] || _fixture_die "case_register_format_text_states_the_bold_stamp: could not derive _BP_STAMP_WORDS."
+  grep -F '**Amended <YYYY-MM-DD>.**' "$doc" >/dev/null \
+    || cf "$reg_path does not show the bold dated stamp **Amended <YYYY-MM-DD>.**"
+  grep -F 'later commit' "$doc" >/dev/null \
+    || cf "$reg_path does not say a stamp in a later commit is not read"
+  for w in $(printf '%s' "$words" | tr ' |' '_ '); do
+    w="$(printf '%s' "$w" | tr '_' ' ')"
+    grep -F "\`$w\`" "$doc" >/dev/null \
+      || cf "$reg_path does not name the stamp word \`$w\` the checker reads"
+  done
+  finish "$L"
+}
+
+# =============================================================================
+# CASE — a stamp added in a LATER commit does not clear the earlier commit's warning (positive
+# control: this is the behaviour that already holds, and the warning's text says so).
+# =============================================================================
+case_check_board_a_later_stamp_leaves_the_earlier_warning_in_place() {
+  cf_reset
+  make_sandbox
+  local out q
+  _cb_stamp_fixture
+  out="$(cb_run)"
+  q="$(printf '%s\n' "$out" | _cb_q_section)"
+  printf '%s\n' "$q" | grep "D-01 — its Ruling text changed in ${STAMP_FIX_UNSTAMPED}" >/dev/null \
+    || cf "the later stamp ($STAMP_FIX_LATER) cleared the earlier unstamped change's warning: $q"
+  printf '%s\n' "$q" | grep "D-01 — its Ruling text changed in ${STAMP_FIX_LATER}" >/dev/null \
+    && cf "the stamped commit itself was named as unstamped: $q"
+  finish "a stamp added in a later commit leaves the earlier unstamped change named, and the stamped commit itself is not"
+  teardown
+}
+
 # =============================================================================
 # CASE — arm [m] counts a landed card that names NO PRD and gives NO reason, and names it.
 #

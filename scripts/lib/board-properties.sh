@@ -730,7 +730,7 @@ _bp_ruling_history() {
         continue
       fi
       subj="$(git -C "$KIT_BP_HIST_REPO" log -1 --format=%s "$sha" 2>/dev/null)"
-      _bp_note "      ⚠ $rpath $id — its Ruling text changed in ${sha:0:9} (\"$subj\") and no stamp (${_BP_STAMP_WORDS//|/, }) is among the lines that commit added; a changed ruling is stamped, in the same change, so a reader of the register can tell a reopen from a first writing"
+      _bp_note "      ⚠ $rpath $id — its Ruling text changed in ${sha:0:9} (\"$subj\") and no bold stamp is among the lines that commit added; a changed ruling is stamped, in the same change, so a reader of the register can tell a reopen from a first writing. Write **<word> <YYYY-MM-DD>.** inside the entry's Ruling, <word> one of ${_BP_STAMP_WORDS//|/, }; plain text and a stamp in a later commit are not read, and this history stays as it is, so stamp the next change this way"
     done <<< "$(diff "$scratch/old.r" "$scratch/new.r" | awk -F'\t' '/^< /{o[substr($1,3)]=1} /^> /{w[substr($1,3)]=1} END{for (i in w) if (i in o) print i}' | sort)"
   done <<< "$(git -C "$KIT_BP_HIST_REPO" log --no-merges --format=%H "$KIT_BP_HIST_RANGE" -- "$rpath" 2>/dev/null)"
   rm -rf "$scratch"

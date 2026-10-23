@@ -333,6 +333,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **The decision register states how a changed ruling is stamped, and the warning shows it.** A stamp is bold and dated, inside the Ruling (`**Amended <YYYY-MM-DD>.**`);
+  plain text and a stamp in a later commit are not read, so an unstamped change stays reported until its history is gone. `check-board.sh`'s warning now names that shape. No action.
+
 - **`check-board.sh` and the landing checks no longer read an id that IS in a long list as absent.** A run on an unchanged tree could report a correctly cited
   decision id as "NOT an entry" (with `printf: write error: Broken pipe`), and the next run would not. The same early close could make `release.sh` refuse a clean
   board, or `stop-ask.sh` miss a question. Every such test now reads its list without a pipe the reader can close. No action.
