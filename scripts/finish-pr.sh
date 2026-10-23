@@ -570,8 +570,9 @@ if ! git -C "$KWT" merge --squash "$BRANCH" >/dev/null 2>&1; then
   esac
   _fpr_card_note=""
   if [ -n "$_fpr_card_conflict" ]; then
-    _fpr_card_note="       The conflict includes the ISSUE FILE: review evidence was appended on the branch.
-       The card is metadata and is written on the trunk — the board mover edits it there."
+    _fpr_card_note="       The conflict includes the ISSUE FILE: the branch edits the card, and the card is the trunk's, never a work branch's.
+       For the card: drop its edit from the branch (git checkout ${DEFAULT_BRANCH} -- <the card's path>, commit, push) and re-run;
+       land the edit itself on the trunk with ./scripts/register-commit.sh --role <role> --message \"<what changed>\" <the card's path>."
   fi
   git -C "$KWT" reset --hard "$KWT_REMOTE/$DEFAULT_BRANCH" --quiet 2>/dev/null || true
   kit_refuse 1 squash-conflict \

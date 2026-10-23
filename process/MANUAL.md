@@ -636,7 +636,9 @@ capability matrix row, a doc correction that the code change *makes true* belong
 that makes it true — splitting it onto the trunk publishes a claim about code that has not landed
 yet, and leaves the branch's own reviewer reading a diff with its explanation missing. The
 direct-to-trunk rule governs metadata changed **on its own**; it was never a ban on a code change
-carrying its own documentation.
+carrying its own documentation. **The card is the trunk's: never commit it on a work branch.** Its
+edits go through `register-commit.sh` and the board movers, so the landing's squash never meets two
+edits to one card.
 
 **And the carve-out is not limited to documentation.** An **executable declaration** the same change
 makes true rides with it too — a guard's enrolment in the gate runner's always-on set, a new check's

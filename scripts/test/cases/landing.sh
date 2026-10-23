@@ -1849,3 +1849,63 @@ case_publish_after_a_board_op_commits_no_gitlink() {
   finish "publish_sandbox after a board op leaves .kanban-wt out of the trunk commit (no mode-160000 entry); without the sandbox's exclude the same publish commits it, so the check has a subject"
   teardown
 }
+
+# =============================================================================
+# CASE — A CARD EDITED ON THE WORK BRANCH: the overlapping edit is refused with the route named,
+# the non-overlapping one still lands.
+# Real order: the card is in_progress on the trunk, the branch is cut and edits the card, then the
+# mover moves the card to dev_complete on the trunk with an Activity line, then QA lands.
+# Rows: (a) the branch appends to the Activity the mover also appended to — the squash conflicts,
+# the refusal (rule squash-conflict) names the ISSUE FILE, the trunk's ownership of the card and
+# register-commit.sh, and nothing merges; (b) control — the branch edits the AC line, far from the
+# Activity the mover appended to — the landing succeeds and the card advances.
+# =============================================================================
+_fpr_card_edit_land() {  # <id> <slug> <overlap|apart> — sets _FCE_OUT, _FCE_RC
+  local id="$1" slug="$2" mode="$3" f
+  seed_issue in_progress "$id" "$slug" chore "Card edited on the branch" "feature/$id-$slug"
+  publish_sandbox
+  git -C "$SB_WORK" checkout -q -b "feature/$id-$slug" "$SB_TRUNK" >/dev/null 2>&1 \
+    || _fixture_die "_fpr_card_edit_land: could not cut feature/$id-$slug"
+  f="$SB_WORK/progress/in_progress/$id-$slug.md"
+  if [ "$mode" = overlap ]; then
+    printf '%s\n' "- 2026-01-02 [Dev] Branch-side Activity line." >> "$f"
+  else
+    sed -i.bak 's/^- \[ \] AC1 .*/- [x] AC1 — the sandbox'"'"'s seeded behaviour holds./' "$f"; rm -f "$f.bak"
+  fi
+  echo "a real change" > "$SB_WORK/CE-$id.txt"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[Dev] $id: the branch work and the card" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$id-$slug" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout "$SB_TRUNK" --quiet >/dev/null 2>&1
+  printf '%s\n' "- 2026-01-02 [Dev] Moved to dev_complete on the trunk." >> "$SB_WORK/progress/in_progress/$id-$slug.md"
+  git -C "$SB_WORK" mv "progress/in_progress/$id-$slug.md" "progress/dev_complete/$id-$slug.md" >/dev/null 2>&1 \
+    || _fixture_die "_fpr_card_edit_land: could not move $id to dev_complete on the trunk"
+  git -C "$SB_WORK" add -A >/dev/null 2>&1
+  sbcommit -m "[Dev] $id: to dev_complete" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" --quiet >/dev/null 2>&1
+  _FCE_OUT="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$id" "$SB_WORK/scripts/finish-pr.sh" "$id" 2>&1 )"; _FCE_RC=$?
+}
+
+case_finish_pr_card_edited_on_the_branch_names_the_route() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-951"
+  _fpr_card_edit_land "$ida" clash overlap
+  [ "$_FCE_RC" -ne 0 ] || cf "(a) a branch and the mover both appending to the card's Activity — finish-pr.sh exited 0"
+  grep -q "refusal=squash-conflict" "$SB_TMP/rec-$ida"/*.tsv 2>/dev/null \
+    || cf "(a) no progress record carries refusal=squash-conflict: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-300)"
+  case "$_FCE_OUT" in *"ISSUE FILE"*) : ;; *) cf "(a) the refusal does not name the ISSUE FILE: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_FCE_OUT" in *"register-commit.sh"*) : ;; *) cf "(a) the refusal does not name register-commit.sh as the route for the card: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_FCE_OUT" in *"the trunk's"*) : ;; *) cf "(a) the refusal does not say the card is the trunk's: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  origin_has_path "CE-$ida.txt" && cf "(a) the branch was merged despite the conflict"
+
+  local idb="$SB_PREFIX-952"
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+  _fpr_card_edit_land "$idb" apart apart
+  [ "$_FCE_RC" -eq 0 ] || cf "(b) control: a non-overlapping card edit on the branch did not land: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$idb-apart.md" || cf "(b) control: the card did not advance to qa_complete/ — the refusal in (a) has no clean case beside it"
+
+  finish "a branch that edits the card's Activity against the mover's append is refused naming the ISSUE FILE, the trunk's ownership of the card and register-commit.sh; a non-overlapping card edit on a branch still lands"
+  teardown
+}

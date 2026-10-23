@@ -333,6 +333,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **The card is the trunk's; never commit it on a work branch.** `MANUAL.md` § The code-vs-metadata rule and `dev.md`'s hand-off step say so, and the landing's squash-conflict refusal, when the
+  conflict includes the card, names the route: drop the card edit from the branch and re-run, and land it on the trunk with `register-commit.sh`. A non-overlapping card edit on a branch still lands. No action.
+
 - **`check-board.sh` arm `[s]` names the role docs whose own model table is still blank.** `set-models.sh` writes the ladder row and the leaf-worker pin; the per-role tables under each role doc's
   `## Model & effort contract` are kept by hand, and a `<fill in>` left there now prints one line with the count and the files. It only reports. No action.
 
