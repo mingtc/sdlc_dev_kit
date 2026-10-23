@@ -333,6 +333,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **`check-board.sh` arm `[s]` names the role docs whose own model table is still blank.** `set-models.sh` writes the ladder row and the leaf-worker pin; the per-role tables under each role doc's
+  `## Model & effort contract` are kept by hand, and a `<fill in>` left there now prints one line with the count and the files. It only reports. No action.
+
 - **A QA Verdict quote may contain a double quote, written `\"`.** A line of string literals (`{"a", 1}`) is quoted whole as `"{\"a\", 1}"`; the quote is also still any quote-free substring of the line, 8 characters or more,
   and the too-short refusal names both. No action.
 

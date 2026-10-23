@@ -1624,6 +1624,8 @@ if ! command -v kit_model_drift >/dev/null 2>&1; then
   echo "      – scripts/lib/model-pins.sh is missing or did not load — this arm did not run  (skipped)"
 elif ! kit_model_drift "$CB_TREE"; then
   echo "      – no .claude/ with roles/orchestrator.md in this source  (skipped)"
+else
+  kit_model_blank_rows "$CB_TREE"
 fi
 # END model-pins arm
 

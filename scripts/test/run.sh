@@ -498,6 +498,7 @@ CASES=(
   case_check_board_register_shape
   case_check_board_reverse_coverage
   case_check_board_model_pins_arm
+  case_check_board_model_pins_arm_names_blank_role_doc_tables
   case_check_board_answered_question_arm
   case_check_board_answered_question_cited_before_the_answer
   case_check_board_answered_question_discharged_in_place

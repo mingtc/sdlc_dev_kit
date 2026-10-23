@@ -2995,6 +2995,89 @@ case_check_board_model_pins_arm() {
 }
 
 # =============================================================================
+# CASE — ARM (s) NAMES THE ROLE DOCS' MODEL TABLES THAT STILL HOLD `<fill in>`.
+#
+# set-models.sh writes the ladder row and the pin; the per-role tables are kept by hand, so a tree
+# whose seam ran can still carry blank tables. The role docs are copied from the real tree and their
+# table rows then set to a known state by this case's own writers (the real docs may be filled,
+# on a lived tree). Order as in use: blank tables, the seam, the report; then the hand fill, the report.
+# Controls: the seam fills orchestrator.md's table and so removes only that file from the line;
+# a hand-filled tree prints no line; the line carries 'reports only' and never moves the verdict;
+# and without the arm's call the line is gone.
+# =============================================================================
+case_check_board_model_pins_arm_names_blank_role_doc_tables() {
+  cf_reset
+  make_sandbox
+  local ad orch out sec src d f line n want total=0 s v_blank
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "arm (s): blank role-doc model tables" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  src=""
+  for d in "$REAL_REPO_ROOT/_claude" "$REAL_REPO_ROOT/.claude"; do [ -d "$d/roles" ] && src="$d"; done
+  _rows_in_table() {  # the table data rows (a backticked cell) of the doc's Model & effort section
+    awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) } s && /^\|/ && /`/ { c++ } END { print c + 0 }' "$1"
+  }
+  _set_table_cells() {  # <doc> <text> — every backticked cell of the section's rows becomes `<text>`
+    awk -v t="$2" '/^## /{ s = ($0 ~ /^## Model & effort contract/) }
+      s && /^\|/ && /`/ { n = split($0, p, "|"); o = p[1]
+        for (i = 2; i <= n; i++) { c = p[i]
+          if (i >= 3 && i <= 4 && match(c, /`[^`]*`/)) c = substr(c, 1, RSTART - 1) "`" t "`" substr(c, RSTART + RLENGTH)
+          o = o "|" c }
+        print o; next }
+      { print }' "$1" > "$1.new" && mv "$1.new" "$1"
+  }
+  for f in dev qa pm refactorer; do
+    [ -f "$src/roles/$f.md" ] && cp "$src/roles/$f.md" "$SB_WORK/.claude/roles/$f.md"
+  done
+  for f in "$SB_WORK"/.claude/roles/*.md; do
+    _set_table_cells "$f" "<fill in>"
+    n="$(_rows_in_table "$f")"
+    [ "$n" -gt 0 ] || _fixture_die "$f has no model-table rows to blank"
+    total=$((total + n))
+  done
+  local sm="$SB_WORK/scripts/set-models.sh"
+  [ -x "$sm" ] || { cf "scripts/set-models.sh is absent or not executable — the kit ships it"; finish "arm (s): blank role-doc model tables"; teardown; return; }
+  ( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-one --effort e-one >/dev/null 2>&1 ) \
+    || _fixture_die "set-models.sh --all refused in the sandbox"
+  # The seam filled the ladder rows, so those rows no longer count; derive that population from the doc.
+  want="$(awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) } s && /^\|/ && /<fill in/ { c++ } END { print c + 0 }' "$orch")"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  v_blank="$(printf '%s\n' "$out" | grep '^── board-drift')"
+  line="$(printf '%s\n' "$sec" | grep 'role-doc model row')"
+  [ -n "$line" ] || cf "blank per-role tables after set-models.sh --all: no role-doc line in [s]: $sec"
+  for f in dev qa pm; do
+    [ -f "$SB_WORK/.claude/roles/$f.md" ] && { printf '%s\n' "$line" | grep -F "$f.md (" >/dev/null || cf "the line does not name $f.md: $line"; }
+  done
+  printf '%s\n' "$line" | grep -F "orchestrator.md" >/dev/null && [ "$want" -eq 0 ] \
+    && cf "the line names orchestrator.md though the seam filled its table: $line"
+  n="$(printf '%s\n' "$line" | sed -n 's/^ *⚠ \([0-9]*\) role-doc.*/\1/p')"
+  [ "$n" = "$((total - $(_rows_in_table "$orch") + want))" ] \
+    || cf "the count is '$n', not the blank rows left ($((total - $(_rows_in_table "$orch") + want))): $line"
+  printf '%s\n' "$line" | grep -i 'reports only' >/dev/null || cf "the line does not say it only reports: $line"
+
+  # Hand-filled: no line, and the verdict is the same as with the blanks.
+  for f in "$SB_WORK"/.claude/roles/*.md; do _set_table_cells "$f" "m-two"; done
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  printf '%s\n' "$sec" | grep 'role-doc model row' >/dev/null && cf "(control) filled tables still print the line: $sec"
+  [ "$(printf '%s\n' "$out" | grep '^── board-drift')" = "$v_blank" ] \
+    || cf "the line moved the verdict: '$v_blank' with blanks, '$(printf '%s\n' "$out" | grep '^── board-drift')' filled"
+
+  # Ablation: blank again, strip the arm's call, the line is gone.
+  _set_table_cells "$SB_WORK/.claude/roles/dev.md" "<fill in>"
+  s="$SB_WORK/scripts/check-board.sh"
+  grep -q 'kit_model_blank_rows' "$s" || cf "(control) check-board.sh never calls kit_model_blank_rows — cannot ablate"
+  sed -i.bak 's/^  kit_model_blank_rows "\$CB_TREE"$/  :/' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep 'role-doc model row' >/dev/null && cf "(control) the ablation left the line printing"
+
+  finish "arm (s) names the role docs whose own model table still holds <fill in> (count and files), skips the one the seam filled, prints nothing once they are filled, never moves the verdict, and goes silent without its call"
+  teardown
+}
+
+# =============================================================================
 # CASE — check-board's [t] arm lists a question file that CARRIES AN ANSWER and that NO REGISTER
 # ENTRY CITES (answered, not reconciled), each with the card it parks.
 #
