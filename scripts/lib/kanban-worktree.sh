@@ -641,7 +641,7 @@ kwt_finalize() {
         ff_ahead="$(git -C "$MAIN_ROOT" rev-list --count "$KWT_REMOTE/$DEFAULT_BRANCH..HEAD" 2>/dev/null || echo 0)"
         if [ "$ff_ahead" != 0 ]; then
           echo "Note: main checkout could not be fast-forwarded (diverged: it has $ff_ahead commit(s) the trunk lacks); pull manually." >&2
-        elif printf '%s' "$ff_err" | grep -qi 'untracked working tree files'; then
+        elif grep -qi -- 'untracked working tree files' <<< "$ff_err"; then
           echo "Note: main checkout could not be fast-forwarded: an untracked file in it is now tracked on the trunk and would be overwritten. Move or remove that file, then run  git pull --ff-only." >&2
         else
           echo "Note: main checkout could not be fast-forwarded (not diverged; git said: $(printf '%s' "$ff_err" | head -1)); pull manually." >&2

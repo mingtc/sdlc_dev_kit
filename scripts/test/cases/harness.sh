@@ -249,6 +249,72 @@ case_probe_victim_selection_survives_pipefail() {
 }
 
 # =============================================================================
+# CASE — NO SHIPPED SCRIPT PIPES A LIST INTO A MEMBERSHIP TEST.
+#
+# `printf '%s\n' "$list" | grep -qx "$id"` returns the writer's SIGPIPE instead of the reader's
+# answer once the list outgrows the pipe buffer and the reader leaves at its first match: under
+# pipefail a present id reads as absent. The cure is `grep -qx -- "$id" <<< "$list"`, which the
+# shell feeds from a file or a buffer it finishes writing first. Whether a variable can grow cannot
+# be derived, so the variables that hold ONE short value (an id, a prefix, a subject line) are
+# declared below; any other variable piped into a quiet grep is a finding.
+# =============================================================================
+_pipes_a_list_rows() {  # <declared single-value names, space-separated> <file>… — file:line: text
+  local allow="$1"; shift
+  awk -v allow=" $allow " '
+    /^[[:space:]]*#/ { next }
+    {
+      rest = $0
+      while (match(rest, /(printf|echo)[^|]*"\$\{?[A-Za-z_0-9]+\}?"[[:space:]]*\|[[:space:]]*grep[[:space:]]+(-[A-Za-z]+[[:space:]]+)*-[A-Za-z]*q/)) {
+        s = substr(rest, RSTART, RLENGTH)
+        rest = substr(rest, RSTART + RLENGTH)
+        sub(/\}?"[[:space:]]*\|.*$/, "", s)
+        sub(/^.*"\$\{?/, "", s)
+        if (index(allow, " " s " ") == 0) { print FILENAME ":" FNR ": " $0; break }
+      }
+    }
+  ' "$@"
+}
+
+case_shipped_membership_tests_do_not_pipe_a_list() {
+  cf_reset
+  local single='_qct subj PREFIX PRD_PREFIX_NEW ROLES_NEW OLD_PREFIX NUM slug ch id ID subject _dc_lo _dc_hi _dc_tok _idx_next rid STORIES BEFORE KEEP_LAST 1'
+  local pipe='|' sample="$(mktemp "${TMPDIR:-/tmp}/pipes-a-list.XXXXXX")" rows files total
+
+  # INSTRUMENT: the census must flag the hazard in each spelling and pass the cure, a declared
+  # single value, and a pipe it does not govern.
+  {
+    printf '%s\n' "if printf '%s\\n' \"\$l_live\" $pipe grep -qx \"\$cid\"; then"
+    printf '%s\n' "if echo \"\$list\" $pipe grep -qE 'x'; then"
+    printf '%s\n' "if printf '%s' \"\${body}\" $pipe grep -qi 'x'; then"
+    printf '%s\n' "if printf '%s' \"\$NUM\" $pipe grep -qE '^[0-9]+\$'; then"
+    printf '%s\n' "if grep -qx -- \"\$cid\" <<< \"\$l_live\"; then"
+    printf '%s\n' "printf '%s\\n' \"\$list\" $pipe grep -c ."
+    printf '%s\n' "# printf '%s\\n' \"\$list\" $pipe grep -qx \"\$cid\""
+  } > "$sample"
+  rows="$(_pipes_a_list_rows "$single" "$sample")"
+  [ "$(printf '%s\n' "$rows" | grep -c .)" -eq 3 ] \
+    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: the census flagged $(printf '%s\n' "$rows" | grep -c .) of the 3 hazardous spellings (printf with a newline, echo, a braced name) and none of the 4 lines it must pass — it would be green over the hazard or red over the cure. Rows: $rows"
+  rm -f "$sample"
+
+  files="$(find "$REAL_SCRIPTS" "$REAL_REPO_ROOT/consumers" -type f 2>/dev/null \
+             | grep -vxF -f <(_harness_sources) || true)"
+  [ -n "$files" ] \
+    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: found no shipped scripts to census — a guard over an empty population passes forever."
+  # INSTRUMENT: with nothing declared the census must find the single-value pipes the shipped
+  # scripts do carry, or it is not reading them.
+  # shellcheck disable=SC2086
+  total="$(_pipes_a_list_rows '' $files | grep -c . || true)"
+  [ "${total:-0}" -ge 1 ] \
+    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: with no names declared the census found no piped membership test anywhere in the shipped scripts, which carry single-value ones — its pattern no longer reads them."
+  # shellcheck disable=SC2086
+  rows="$(_pipes_a_list_rows "$single" $files)"
+  [ -z "$rows" ] \
+    || cf "a shipped script pipes a variable that can hold a list into a quiet grep; once the list outgrows the pipe buffer and the reader leaves at its first match, pipefail reports the writer's death and a present item reads as absent. Read the variable through a here-string (grep -qx -- \"\$id\" <<< \"\$list\"), or declare the name single-valued in this case: $(printf '%s' "$rows" | sed "s|$REAL_REPO_ROOT/||" | tr '\n' ' ' | cut -c1-400)"
+
+  finish "no shipped script pipes a variable that can hold a list into a quiet grep; the census flags printf, echo and braced spellings, passes the here-string cure and the declared single-value variables, and reads the single-value pipes the shipped scripts do carry"
+}
+
+# =============================================================================
 # CASE — EVERY LANDING PROLOGUE IS THE WHOLE FOUR-STEP.
 #
 # The prologues are deliberately not one helper: most use a CARD slug that differs from the

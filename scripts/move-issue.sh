@@ -249,7 +249,7 @@ fi
 # reads the LAST `→ <folder>` or backticked `<folder>` token on the last Activity bullet as the
 # card's declared status. The formatter below emits none; this refuses one in the note itself.
 if [ "$NOTE_ONLY" -eq 1 ]; then
-  if printf '%s' "$NOTE" | grep -qE "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done|declined))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done|declined)/?\`)"; then
+  if grep -qE -- "(→[[:space:]]*(todo|in_progress|dev_complete|qa_complete|blocked|done|declined))|(\`(todo|in_progress|dev_complete|qa_complete|blocked|done|declined)/?\`)" <<< "$NOTE"; then
     kit_refuse 1 note-only-reads-as-status \
       "Error: this note would read as a STATUS DECLARATION, and a note-only entry declares no status." \
       "  It contains a transition arrow or a backticked status folder, which the drift report" \

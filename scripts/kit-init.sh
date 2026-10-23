@@ -1167,7 +1167,7 @@ BOARD_OUT="$(CLAUDE_PROJECT_DIR="$ROOT" "$ROOT/scripts/check-board.sh" 2>&1 || t
 # THE VERDICT LINE DECIDES. Nothing else does: re-scanning the rendered ⚠ lines would make this
 # a second parser of a human-readable format, and advisory lines would fail installs.
 # (scripts/release.sh gate (d) keys on the verdict line the same way.)
-if printf '%s' "$BOARD_OUT" | grep -q 'board-drift: clean'; then
+if grep -q -- 'board-drift: clean' <<< "$BOARD_OUT"; then
   sc_ok "check-board.sh: clean"
 else
   # The verdict is not clean. EXACTLY ONE cause is tolerable: a commit that predates this

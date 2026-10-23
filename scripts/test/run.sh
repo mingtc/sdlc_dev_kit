@@ -81,7 +81,9 @@
 #   case_probe_victim_selection_survives_pipefail enforces both. The fix: drop the `-q`
 #   and redirect (`| grep -F pat >/dev/null` drains the input and returns the same
 #   status), or test the string with `[[ "$out" == *pat* ]]`. A bare `grep -q FILE`
-#   has no pipe and is unaffected.
+#   has no pipe and is unaffected. A variable that holds a list is read through a
+#   here-string (`grep -qx -- "$id" <<< "$list"`), never piped from `printf`;
+#   case_shipped_membership_tests_do_not_pipe_a_list enforces that in the shipped scripts.
 set -uo pipefail
 
 # A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS, IN ANY POSITION (process/contracts/issue-creation.md § 3).
@@ -486,6 +488,8 @@ CASES=(
   case_check_board_registers
   case_check_board_register_absent
   case_check_board_citations
+  case_check_board_membership_survives_an_early_close
+  case_check_board_concurrent_runs_report_no_false_dangling
   case_check_board_citation_population_widened
   case_check_board_citation_forms_and_population
   case_check_board_corpus_forward_reference
@@ -617,6 +621,7 @@ CASES=(
   case_release_commits_under_its_own_hat
   case_release_guards
   case_release_preflight_gates
+  case_release_board_gate_reads_the_whole_report
   case_release_stub_marker
   case_release_doc_arms
   case_release_ship_manifest_is_driven_against_the_bump
@@ -657,6 +662,7 @@ CASES=(
   case_frontmatter_scan_cap_is_enforced
   case_trunk_chain_announces_every_fallback
   case_probe_victim_selection_survives_pipefail
+  case_shipped_membership_tests_do_not_pipe_a_list
   case_release_unmutated_names_the_cut
   case_landing_prologue_is_complete
   case_publish_after_a_board_op_commits_no_gitlink

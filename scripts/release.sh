@@ -721,7 +721,7 @@ done
 #    default invocation form as gate b, for the same spaced-path reason.
 echo "[d] board-drift (check-board.sh)..."
 board_out="$(${RELEASE_BOARD_CMD:-"$SCRIPT_DIR/check-board.sh"} 2>&1)" || true
-if ! printf '%s\n' "$board_out" | grep -q 'board-drift: clean'; then
+if ! grep -q -- 'board-drift: clean' <<< "$board_out"; then
   kit_refuse 1 board-drift \
     "release.sh: check-board.sh reports drift — resolve it before cutting $TAG." \
     "$(printf '%s\n' "$board_out" | grep -E 'board-drift|⚠' || true)" \

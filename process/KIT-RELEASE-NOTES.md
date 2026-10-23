@@ -331,7 +331,11 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`check-board.sh` and the landing checks no longer read an id that IS in a long list as absent.** A run on an unchanged tree could report a correctly cited
+  decision id as "NOT an entry" (with `printf: write error: Broken pipe`), and the next run would not. The same early close could make `release.sh` refuse a clean
+  board, or `stop-ask.sh` miss a question. Every such test now reads its list without a pipe the reader can close. No action.
 
 ## [0.12.0] — 2026-10-22
 

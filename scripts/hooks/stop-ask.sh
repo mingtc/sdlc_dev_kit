@@ -110,7 +110,7 @@ final_para="$(
 
 # A sentence ends on "?" when the mark is followed by closing emphasis, quote or bracket
 # characters and then whitespace or the end of the paragraph.
-if ! printf '%s\n' "$final_para" | grep -Eq '\?[])*_"'"'"']*([[:space:]]|$)'; then
+if ! grep -Eq -- '\?[])*_"'"'"']*([[:space:]]|$)' <<< "$final_para"; then
   exit 0                 # no sentence in the final paragraph asks — ALLOW
 fi
 

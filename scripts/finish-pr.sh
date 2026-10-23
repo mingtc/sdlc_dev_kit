@@ -328,7 +328,7 @@ if [ -n "$_stk_ahead" ]; then
     _stk_tip="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "$_stk_ref" 2>/dev/null || true)"
     [ -n "$_stk_tip" ] || continue
     [ "$_stk_tip" != "$_stk_branch_tip" ] || continue
-    if printf '%s\n' "$_stk_ahead" | grep -qxF "$_stk_tip"; then
+    if grep -qxF -- "$_stk_tip" <<< "$_stk_ahead"; then
       _stk_old_base="${_stk_ref#refs/heads/}"; _stk_old_base="${_stk_old_base#refs/remotes/}"
       break
     fi

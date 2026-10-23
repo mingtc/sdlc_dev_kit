@@ -389,9 +389,9 @@ $(kit_decisions_cited "$tree/$cfile" "$lshp" || true)"
     while IFS= read -r cid; do
       [ -n "$cid" ] || continue
       l_cites=$((l_cites+1))
-      if printf '%s\n' "$l_retired" | grep -qx "$cid"; then
+      if grep -qx -- "$cid" <<< "$l_retired"; then
         _bp_hit "    ⚠ $cfile cites $cid, which is RETIRED — a retired id is never reused, so this citation resolves to nothing; re-point it at the ruling that replaced it, or drop it" "l:retired:$cfile:$cid"
-      elif ! printf '%s\n' "$l_live" | grep -qx "$cid"; then
+      elif ! grep -qx -- "$cid" <<< "$l_live"; then
         _bp_hit "    ⚠ $cfile cites $cid, which is NOT an entry in $l_reg_named — a dangling citation; fix the id, or add the ruling it names" "l:dangling:$cfile:$cid"
       fi
     done <<< "$(printf '%s\n' "$l_cids" | awk 'NF')"
@@ -489,9 +489,9 @@ ${BASH_REMATCH[1]}"
     fi
     if [[ "$prow" =~ ^forward-referenced\ \(([A-Za-z]+-[0-9]+)\)$ ]]; then
       pid="${BASH_REMATCH[1]}"
-      if ! printf '%s\n' "$p_known" | grep -qx "$pid"; then
+      if ! grep -qx -- "$pid" <<< "$p_known"; then
         _bp_hit "      ⚠ $prow — $pid is not the frontmatter id: of any card in this source (every STATUS_FOLDERS column read) — a dangling forward reference; fix the id, or mint the work item it names" "p:dangling:$prow"
-      elif printf '%s\n' "$p_landed" | grep -qx "$pid"; then
+      elif grep -qx -- "$pid" <<< "$p_landed"; then
         _bp_hit "      ⚠ $prow — $pid has LANDED (progress/done/ or progress/qa_complete/) but its row's Status is still the forward-reference marker, not present — flip Status to present in the same change (requirements/CORPUS.md's own rule)" "p:landed:$prow"
       fi
       continue
@@ -604,7 +604,7 @@ kit_bp_register_shape() {
       # Why is one paragraph: no blank line between its label and Provenance's.
       if [ -n "$w_line" ] && [ -n "$p_line" ] && [ "$p_line" -gt "$w_line" ]; then
         q_why_body="$(printf '%s\n' "$qbody" | sed -n "$((w_line+1)),$((p_line-1))p")"
-        if printf '%s\n' "$q_why_body" | grep -qx ''; then
+        if grep -qx -- '' <<< "$q_why_body"; then
           _bp_hit "      ⚠ $qreg_path $qid — the Why field spans more than one paragraph" "q:$qreg_path:$qid:whypara"
         fi
       fi
@@ -619,7 +619,7 @@ kit_bp_register_shape() {
       fi
 
       # Stamp words, for the reopened-without-stamp check below.
-      if printf '%s\n' "$qbody" | grep -qiE "\*\*(${_BP_STAMP_WORDS})\b"; then
+      if grep -qiE -- "\*\*(${_BP_STAMP_WORDS})\b" <<< "$qbody"; then
         q_stamped="$q_stamped
 $qid"
       fi
@@ -656,7 +656,7 @@ $qtgt $qid"
   done <<< "$(printf '%s\n' "$REGISTERS")"
   while read -r qtgt; do
     [ -n "$qtgt" ] || continue
-    if ! printf '%s\n' "$q_stamped" | grep -qx "$qtgt"; then
+    if ! grep -qx -- "$qtgt" <<< "$q_stamped"; then
       q_by="$(printf '%s\n' "$q_reopeners" | awk -v t="$qtgt" '$1==t{print $2}' | sort -u | tr '\n' ' ')"
       qk=()
       for qby_one in $q_by; do qk+=("q:$qtgt:unstamped:$qby_one"); done
@@ -726,7 +726,7 @@ _bp_ruling_history() {
       done <<< "$nspans"
       [ -n "$os" ] && [ -n "$ns" ] || continue
       added="$(diff <(sed -n "${os},${oe}p" "$oldf") <(sed -n "${ns},${ne}p" "$newf") | sed -n 's/^> //p')"
-      if printf '%s\n' "$added" | grep -qiE "\*\*(${_BP_STAMP_WORDS})\b" || _bp_added_state_head "$added"; then
+      if grep -qiE -- "\*\*(${_BP_STAMP_WORDS})\b" <<< "$added" || _bp_added_state_head "$added"; then
         continue
       fi
       subj="$(git -C "$KIT_BP_HIST_REPO" log -1 --format=%s "$sha" 2>/dev/null)"
@@ -799,7 +799,7 @@ $(kit_decision_register_live "$rreg_file" "$rreg_mark" "$rreg_shape" | { grep -E
     while read -r rid rstart rend; do
       [ -n "$rid" ] || continue
       rbody="$(sed -n "${rstart},${rend}p" "$rreg_file")"
-      if printf '%s\n' "$rbody" | grep -qE "^\*\*Ruling\.\*\*[[:space:]]*${CROSS_CUTTING_MARKER}" \
+      if grep -qE -- "^\*\*Ruling\.\*\*[[:space:]]*${CROSS_CUTTING_MARKER}" <<< "$rbody" \
          && printf '%s\n' "$rid" | grep -qE "^(${rreg_shape})\$"; then
         r_exempt="$r_exempt
 $rid"
@@ -846,8 +846,8 @@ $rcid"
   echo "      PRDs read ($PRD_SURFACE): $r_prd_n file(s) — $r_live_n live id(s), $r_exempt_n declared [cross-cutting]; registers read: $r_reg_named"
   while read -r rid; do
     [ -n "$rid" ] || continue
-    printf '%s\n' "$r_exempt" | grep -qx "$rid" && continue
-    if ! printf '%s\n' "$r_cited" | grep -qx "$rid"; then
+    grep -qx -- "$rid" <<< "$r_exempt" && continue
+    if ! grep -qx -- "$rid" <<< "$r_cited"; then
       _bp_hit "      ⚠ $rid is not cited by any PRD under $PRD_SURFACE, and is not declared [cross-cutting] — if it constrains a requirement, cite it there; if it is project law no single PRD should cite, mark it [cross-cutting]" "r:$rid"
       r_hits=$((r_hits+1))
     fi

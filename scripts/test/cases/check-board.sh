@@ -814,6 +814,129 @@ EOF
 }
 
 # =============================================================================
+# CASE — A MEMBERSHIP TEST READS ITS WHOLE LIST, NOT UNTIL THE READER LEAVES.
+#
+# `printf '%s\n' "$list" | grep -qx "$id"` under pipefail: grep -q exits at its first match, a
+# printf still writing dies of SIGPIPE, pipefail makes the pipeline's status that death, and an id
+# that IS in the list reads as absent. At a realistic size the writer has usually finished, so the
+# fault shows on an occasional run and not on its rerun. This case removes the luck: the cited id is
+# the FIRST line of a list well over the pipe buffer, so the writer is always still writing when the
+# reader leaves. Driven through the real reader, check-board.sh arm [l], on both of its tests: the
+# live-id test (a present id read as dangling) and the retired-id test (a retired id read as merely
+# dangling, a different finding). The ids are long, so a list past the buffer stays a few dozen
+# entries and the arms that loop over entries finish quickly. The report is read from a file: it is
+# itself longer than the pipe buffer, so piping it to an early-leaving reader would repeat the fault.
+# =============================================================================
+CB_WIDE=2000   # digits in a fixture register id: D-[0-9]+ takes any width
+
+_cb_wide_id() { printf "D-%0${CB_WIDE}d" "$1"; }   # <n> — one fixed width, so ids sort by n
+
+_cb_big_register() {  # <path> <entry-mark> live|retired <count> — the cited id, _cb_wide_id 1, sorts first
+  awk -v mark="$2" -v kind="$3" -v n="$4" -v w="$CB_WIDE" 'BEGIN {
+    f = "D-%0" w "d"
+    print "# DECISIONS"; print "## A. Bucket"
+    if (kind == "live") { for (i = 1; i <= n; i++) printf "%s" f " — entry\n", mark, i }
+    else                { printf "%s" f " — the successor\n", mark, 999999 }
+    print ""; print "## Retired ids"; print ""
+    if (kind == "retired") { for (i = 1; i <= n; i++) printf "`" f "` — retired 2026-01-01; its scope moved into " f ".\n", i, 999999 }
+    else                   { print "`<none yet>`" }
+    print ""; print "## Findings"
+  }' > "$1"
+}
+
+case_check_board_membership_survives_an_early_close() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark out rc n=80 first rep="$SB_TMP/report.txt"
+  first="$(_cb_wide_id 1)"
+  registers="$(cb_default REGISTERS)"
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  [ -n "$reg_path" ] || { cf "could not derive REGISTERS"; finish "arm (l): membership tests read the whole list"; teardown; return; }
+  # INSTRUMENT: the list must clearly outgrow a 64KB pipe buffer, or the early close is not certain.
+  [ "$(( n * (${#first} + 1) ))" -gt 131072 ] \
+    || _fixture_die "case_check_board_membership_survives_an_early_close: $n ids of ${#first} bytes do not clearly outgrow a 64KB pipe buffer."
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")" "$SB_WORK/requirements"
+  printf '## Decision Log\n- `[decision: %s]` — the first id of the list\n' "$first" > "$SB_WORK/requirements/PRD-001-cites.md"
+
+  # --- (1) THE LIVE-ID TEST: the id is present, so it must not be reported dangling ---
+  _cb_big_register "$SB_WORK/$reg_path" "$reg_mark" live "$n"
+  publish_sandbox
+  cb_run > "$rep"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(1) check-board.sh exited $rc (exit 0 ALWAYS)"
+  grep "$reg_path" "$rep" | grep "$n live id" >/dev/null \
+    || cf "(1) arm [l] did not read $n live ids from the fixture register, so the early close is not guaranteed: $(grep "$reg_path" "$rep" | cut -c1-200)"
+  grep -i 'write error' "$rep" >/dev/null \
+    && cf "(1) a writer died on a closed pipe and said so — a membership test is still piping its list to a reader that leaves early: $(grep -i 'write error' "$rep" | head -3 | cut -c1-300)"
+  _cb_l_section < "$rep" | grep '⚠' | grep -F "$first" >/dev/null \
+    && cf "(1) the first live id of the register was reported anyway — the live-id test read a present id as absent: $(_cb_l_section < "$rep" | grep '⚠' | cut -c1-120 | head -3)"
+
+  # --- (2) THE RETIRED-ID TEST: the id is retired, so it must print as retired ---
+  _cb_big_register "$SB_WORK/$reg_path" "$reg_mark" retired "$n"
+  publish_sandbox
+  cb_run > "$rep"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(2) check-board.sh exited $rc (exit 0 ALWAYS)"
+  grep "$reg_path" "$rep" | grep "$n retired id" >/dev/null \
+    || cf "(2) arm [l] did not read $n retired ids from the fixture register, so the early close is not guaranteed: $(grep "$reg_path" "$rep" | cut -c1-200)"
+  _cb_l_section < "$rep" | grep '⚠' | grep -F "$first" | grep -i 'RETIRED' >/dev/null \
+    || cf "(2) the first retired id of the register was not reported as retired — the retired-id test read a present id as absent: $(_cb_l_section < "$rep" | grep '⚠' | cut -c1-120 | head -3)"
+  _cb_l_section < "$rep" | grep '⚠' | grep -F "$first" | grep 'NOT an entry' >/dev/null \
+    && cf "(2) the retired citation printed as a DANGLING one: $(_cb_l_section < "$rep" | grep '⚠' | cut -c1-120 | head -3)"
+  grep -i 'write error' "$rep" >/dev/null \
+    && cf "(2) a writer died on a closed pipe and said so: $(grep -i 'write error' "$rep" | head -3 | cut -c1-300)"
+
+  finish "arm (l): a citation of the first id of a $n-entry live list is found and a citation of the first id of a $n-entry retired list prints as retired, with no writer dying on a pipe the reader closed early"
+  teardown
+}
+
+# =============================================================================
+# CASE — CONCURRENT check-board.sh RUNS REPORT NO FALSE DANGLING CITATION. A POSITIVE CONTROL ONLY.
+#
+# The fault this guards showed as a finding on one run and none on the next, on an unchanged tree,
+# when several runs overlapped. A run that merely reproduces that luck proves nothing when it comes
+# out clean, so the deterministic case above owns the red. This case is the field shape: several
+# workers, each running the report back to back, over a register whose every cited id is present.
+# Any "NOT an entry" or write error in any run is a finding; each run must also have counted every
+# citation, so a run that read nothing cannot pass for one that read everything.
+# =============================================================================
+case_check_board_concurrent_runs_report_no_false_dangling() {
+  cf_reset
+  make_sandbox
+  local registers reg_path reg_mark i j workers=4 per=2 cites=8 bad="" short="" f
+  registers="$(cb_default REGISTERS)"
+  reg_path="${registers%%|*}"
+  reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
+  [ -n "$reg_path" ] || { cf "could not derive REGISTERS"; finish "concurrent check-board runs"; teardown; return; }
+  mkdir -p "$SB_WORK/$(dirname "$reg_path")" "$SB_WORK/requirements"
+  { printf '# DECISIONS\n## A. Bucket\n'
+    for i in $(seq 1 40); do printf '%sD-%02d — entry\n' "$reg_mark" "$i"; done
+    printf '\n## Retired ids\n\n`<none yet>`\n\n## Findings\n'; } > "$SB_WORK/$reg_path"
+  : > "$SB_WORK/requirements/PRD-001-cites.md"
+  for i in $(seq 1 "$cites"); do
+    printf -- '- `[decision: D-%02d]` — present in the register\n' "$i" >> "$SB_WORK/requirements/PRD-001-cites.md"
+  done
+  publish_sandbox
+
+  for j in $(seq 1 "$workers"); do
+    ( for i in $(seq 1 "$per"); do cb_run > "$SB_TMP/par-$j-$i.out"; done ) &
+  done
+  wait
+
+  for f in "$SB_TMP"/par-*.out; do
+    [ -s "$f" ] || { short="$short ${f##*/}(empty)"; continue; }
+    grep -E "NOT an entry|write error|Broken pipe" "$f" >/dev/null && bad="$bad ${f##*/}"
+    grep "$cites citation(s)" "$f" >/dev/null || short="$short ${f##*/}"
+  done
+  [ -z "$short" ] \
+    || cf "a concurrent run did not count all $cites citations, so it cannot show they resolved:$short"
+  [ -z "$bad" ] \
+    || cf "a concurrent run reported a present id as dangling, or a writer died on a closed pipe:$bad — $(grep -hE 'NOT an entry|write error|Broken pipe' "$SB_TMP"/par-*.out | head -3 | cut -c1-300)"
+
+  finish "$((workers * per)) overlapping check-board.sh runs ($workers workers of $per) each counted all $cites citations of a register that holds them, and none reported a present id as dangling or died on a closed pipe"
+  teardown
+}
+
+# =============================================================================
 # CASE — ARM (l)'s BOUNDARY CONTROL: a citation OUTSIDE the two former surfaces
 # (requirements/PRD-*.md and progress/*.md) is now caught, not just one planted inside them.
 #

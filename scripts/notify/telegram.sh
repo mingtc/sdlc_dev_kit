@@ -110,7 +110,7 @@ case "$VERB" in
       --data-urlencode "text=✅ notify test OK — [$proj] via @$botname")" || { err "DIAGNOSIS: network error during sendMessage."; exit 1; }   # exit-class: internal
     code="$(code_of "$resp")"; body="$(body_of "$resp")"
     if [ "$code" = "200" ]; then echo "telegram: test message delivered to chat ${TELEGRAM_CHAT_ID} (bot @$botname)"; exit 0; fi
-    if printf '%s' "$body" | grep -qi 'chat not found'; then
+    if grep -qi -- 'chat not found' <<< "$body"; then
       kit_refuse 1 telegram-chat-id-wrong \
         "telegram: DIAGNOSIS: TELEGRAM_CHAT_ID='${TELEGRAM_CHAT_ID}' is wrong, or you haven't messaged the bot yet." \
         "Next: send your bot any message, then re-fetch via: ./scripts/notify/telegram.sh chatid"

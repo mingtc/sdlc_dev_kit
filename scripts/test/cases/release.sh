@@ -554,6 +554,40 @@ case_release_preflight_gates() {
 }
 
 # =============================================================================
+# CASE — GATE (d) READS THE BOARD'S WHOLE REPORT, NOT UNTIL THE VERDICT LINE.
+#
+# The gate judges by the 'board-drift: clean' marker. A reader that leaves at the first match while
+# the report is still being written makes the pipeline fail under pipefail, and a clean board then
+# refuses the cut as drifted. The stub prints the verdict FIRST and then a report several times the
+# pipe buffer, so the writer is always still writing when the reader leaves. A second stub prints
+# the same long report with no verdict, so the gate is shown to still decide.
+# =============================================================================
+case_release_board_gate_reads_the_whole_report() {
+  cf_reset
+  if ! has_release; then skp "release.sh gate (d): a long report" "scripts/release.sh absent"; return; fi
+  local out rc=0
+  make_sandbox; seed_release_files 1.1.0; publish_sandbox
+  write_board_stub "$SB_TMP/board-long-clean.sh" clean
+  printf 'awk '"'"'BEGIN { for (i = 1; i <= 30000; i++) print "advisory line " i }'"'"'\n' >> "$SB_TMP/board-long-clean.sh"
+  printf '#!/usr/bin/env bash\nawk '"'"'BEGIN { for (i = 1; i <= 30000; i++) print "advisory line " i }'"'"'\n' > "$SB_TMP/board-long-silent.sh"
+  chmod +x "$SB_TMP/board-long-silent.sh"
+
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-long-clean.sh" \
+            "$SB_WORK/scripts/release.sh" 1.1.0 --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || cf "(clean) a board that printed its verdict line first, then a long report, refused the cut (rc=$rc): $(printf '%s' "$out" | grep 'board-drift' | head -2 | tr '\n' '|' | cut -c1-200)"
+
+  rc=0
+  out="$( cd "$SB_WORK" && RELEASE_TEST_ALLOW_STUB=1 RELEASE_VERIFY_CMD=true RELEASE_BOARD_CMD="$SB_TMP/board-long-silent.sh" \
+            "$SB_WORK/scripts/release.sh" 1.1.0 --dry-run 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] \
+    || cf "(instrument) a long report with NO verdict line was let through — the gate no longer decides, so the leg above proves nothing"
+  teardown
+
+  finish "release.sh gate (d): a clean verdict followed by a long report does not refuse the cut, and the same report without the verdict still does"
+}
+
+# =============================================================================
 # CASE — the release-document arms are INDEPENDENT, with DISTINCT refusals, and the
 # header-date gate bites: a section dated before the newest date in its own body refuses.
 # =============================================================================

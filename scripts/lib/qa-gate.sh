@@ -887,7 +887,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   if [ -n "$_forks_ids" ]; then
     while IFS= read -r _fid; do
       [ -n "$_fid" ] || continue
-      printf '%s\n' "$_forks_live_all" | grep -qx "$_fid" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
+      grep -qx -- "$_fid" <<< "$_forks_live_all" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
     done <<< "$(printf '%s\n' "$_forks_ids")"
     if [ -n "$_forks_bad" ]; then
       _forks_prd="$(kit_declared_value "$check_board" PRD_SURFACE || true)"
@@ -903,7 +903,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   _forks_derived="$(printf '%s\n%s\n%s\n' "$_forks_seen_all" "$_forks_cited" "$_forks_win_mine" | grep -E '^D-[0-9]+$' | sort -u || true)"
   while IFS= read -r _fid; do
     [ -n "$_fid" ] || continue
-    printf '%s\n' "$_forks_ids" | grep -qx "$_fid" || _forks_missing_ids="${_forks_missing_ids}${_forks_missing_ids:+, }$_fid"
+    grep -qx -- "$_fid" <<< "$_forks_ids" || _forks_missing_ids="${_forks_missing_ids}${_forks_missing_ids:+, }$_fid"
   done <<< "$(printf '%s\n' "$_forks_derived")"
   if [ -n "$_forks_missing_ids" ]; then
     kit_refuse 2 forks-contradicted \
@@ -920,7 +920,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
   # card owns.
   while IFS=$'\t' read -r _fwi _fws _fwp _fwj; do
     [ -n "$_fwi" ] || continue
-    printf '%s\n' "$_forks_ids" | grep -qx "$_fwi" && continue
+    grep -qx -- "$_fwi" <<< "$_forks_ids" && continue
     _forks_unattr_msg="${_forks_unattr_msg}${_forks_unattr_msg:+; }${_fwi} (${_fws:0:9} \"${_fwj}\")"
     _forks_unattr_first="${_forks_unattr_first:-$_fwi}"; _forks_unattr_reg="${_forks_unattr_reg:-$_fwp}"
   done <<< "$_forks_win_unattr"
