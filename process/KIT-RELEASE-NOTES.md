@@ -333,6 +333,9 @@ columns and never the cards.*
 
 ### Changed
 
+- **A QA Verdict quote may contain a double quote, written `\"`.** A line of string literals (`{"a", 1}`) is quoted whole as `"{\"a\", 1}"`; the quote is also still any quote-free substring of the line, 8 characters or more,
+  and the too-short refusal names both. No action.
+
 - **The decision register states how a changed ruling is stamped, and the warning shows it.** A stamp is bold and dated, inside the Ruling (`**Amended <YYYY-MM-DD>.**`);
   plain text and a stamp in a later commit are not read, so an unstamped change stays reported until its history is gone. `check-board.sh`'s warning now names that shape. No action.
 

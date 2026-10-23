@@ -897,6 +897,39 @@ case_finish_pr_qa_verdict_prose_quotes_are_not_read() {
 }
 
 # =============================================================================
+# CASE — A QUOTE MAY CONTAIN A DOUBLE QUOTE, WRITTEN \".
+# The cited line holds string literals. (a) the line quoted whole with each inner " escaped lands;
+# (b) the same quote with the inner " bare is read as ending at the first one, is too short, and the
+# refusal names both routes (escape it, or quote a substring with no "); (c) an escaped quote that
+# differs from the line by a word is refused as not found; (d) a quote-free substring of the line lands.
+# =============================================================================
+case_finish_pr_qa_verdict_quote_with_an_inner_double_quote() {
+  cf_reset
+  make_sandbox
+
+  local ida="$SB_PREFIX-966" idb="$SB_PREFIX-967" idc="$SB_PREFIX-968" idd="$SB_PREFIX-969"
+  local line='{"return_8th_0p", 8, 0},'
+
+  _qvp_land "$ida" escaped '| AC1 | PASS | file:line | @EV@:@X@ "{\"return_8th_0p\", 8, 0}" |' "$line"
+  [ "$_QVP_RC" -eq 0 ] || cf "(a) a quote with its inner double quotes escaped — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$ida-escaped.md" || cf "(a) the card did not advance to qa_complete/"
+
+  _qvp_land "$idb" bare '| AC1 | PASS | file:line | @EV@:@X@ "{"return_8th_0p", 8, 0}" |' "$line"
+  _qvp_refused "(b) a quote with a bare inner double quote" "$idb" bare qa-verdict-quote-too-short
+  case "$_QVP_OUT" in *'escape'*'\"'*'no double quote'*) : ;; *) cf "(b) the refusal does not name both routes: $(printf '%s' "$_QVP_OUT" | tr '\n' '|' | cut -c1-600)" ;; esac
+
+  _qvp_land "$idc" otherword '| AC1 | PASS | file:line | @EV@:@X@ "{\"return_9th_0p\", 8, 0}" |' "$line"
+  _qvp_refused "(c) an escaped quote that differs from the line by a word" "$idc" otherword qa-verdict-quote-not-found
+
+  _qvp_land "$idd" substring '| AC1 | PASS | file:line | @EV@:@X@ "return_8th_0p" |' "$line"
+  [ "$_QVP_RC" -eq 0 ] || cf "(d) a quote-free substring of the line — finish-pr.sh exited $_QVP_RC: $(printf '%s' "$_QVP_OUT" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idd-substring.md" || cf "(d) the card did not advance to qa_complete/"
+
+  finish "finish-pr.sh reads \\\" inside a quote as a double quote: the whole line with escaped quotes lands (a), the bare form is refused as too short naming both routes (b), an escaped quote that differs by a word is refused as not found (c), and a quote-free substring lands (d)"
+  teardown
+}
+
+# =============================================================================
 # CASE — move-issue.sh <ID> qa_complete READS THE QA VERDICT TABLE AT THE TRUNK TIP.
 # The direct-to-trunk route (no branch, no finish-pr.sh) and the by-hand landing both end in this
 # move, so it runs the landing's own check. Each card is the real workflow's order: seeded in

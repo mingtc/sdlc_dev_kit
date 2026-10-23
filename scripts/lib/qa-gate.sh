@@ -183,7 +183,8 @@ _qav_squeeze() {
 # token outside double quotes (checked against <rev>: git cat-file for existence, a line count for
 # range), and `Q <text>` for each non-blank double-quoted string that is a pointer's quote: the first
 # one after the pointer, then each that follows the previous quote with only whitespace or `;` between
-# (`"a" "b"`, `"a"; "b"`). Any other double-quoted string is prose and is not read. A quote belongs to
+# (`"a" "b"`, `"a"; "b"`). `\"` inside a quote is a double quote of the quoted text. Any other
+# double-quoted string is prose and is not read. A quote belongs to
 # the pointer before it; one before every pointer is kept, for the caller to refuse.
 _qav_cell_events() {
   local repo="$1" rev="$2" cell="$3" _kind _tok _path _range _lo _hi _nlines
@@ -212,11 +213,12 @@ _qav_cell_events() {
       printf 'P %s OK %s %s\n' "$_tok" "$_lo" "$_hi"
     fi
   done <<< "$(printf '%s\n' "$cell" | awk '{
+    gsub(/\\"/, "\001")
     n = split($0, part, "\"")
     ptr = 0; state = "fresh"
     for (i = 1; i <= n; i++) {
       if (i % 2 == 0 && i < n) {
-        q = part[i]; gsub(/^[ \t]+|[ \t]+$/, "", q)
+        q = part[i]; gsub(/^[ \t]+|[ \t]+$/, "", q); gsub(/\001/, "\"", q)
         if (!ptr) { if (q != "") print "Q " q; continue }
         if (state == "prose") continue
         if (q != "") { print "Q " q; state = "quoted" }
@@ -491,7 +493,7 @@ kit_qa_verdict_check() {
       "       A quote is at least ${KIT_QAV_MIN_QUOTE} characters once whitespace is normalised: a shorter fragment" \
       "       is on almost any line, so finding it there shows nothing about the claim; a quote that is the" \
       "       cited line's whole text is exempt. (.claude/roles/qa.md step 4.)" \
-      "Next: quote the part of each cited line that shows the claim, at least ${KIT_QAV_MIN_QUOTE} characters of it, verbatim (a cited line shorter than that is quoted whole). If no ${KIT_QAV_MIN_QUOTE} characters of that line show the claim, it does not support it: cite the line that does, or the AC is not met (FAIL_AC, .claude/roles/qa.md step 6). Commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "Next: quote the part of each cited line that shows the claim, at least ${KIT_QAV_MIN_QUOTE} characters of it, verbatim (a cited line shorter than that is quoted whole). A line that holds a double quote is quoted either way: escape each inner \" as \\\" inside the quote, or quote a substring of the line with no double quote in it. If no ${KIT_QAV_MIN_QUOTE} characters of that line show the claim, it does not support it: cite the line that does, or the AC is not met (FAIL_AC, .claude/roles/qa.md step 6). Commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
