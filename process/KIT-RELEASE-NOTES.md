@@ -331,6 +331,10 @@ columns and never the cards.*
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.12.1] — 2026-10-25
+
 ### Changed
 
 - **`subtask.sh new` checks `--prd` and `--stories` like `new-issue.sh`.** A malformed value is refused with exit 2, naming the option, before anything is written. No action.
@@ -391,41 +395,4 @@ columns and never the cards.*
 - **`check-board.sh` and the landing checks no longer read an id that IS in a long list as absent.** A run on an unchanged tree could report a correctly cited
   decision id as "NOT an entry" (with `printf: write error: Broken pipe`), and the next run would not. The same early close could make `release.sh` refuse a clean
   board, or `stop-ask.sh` miss a question. Every such test now reads its list without a pipe the reader can close. No action.
-
-## [0.12.0] — 2026-10-22
-
-### Action required
-
-- **A QA Verdict row that points at its own card now refuses the landing.** The gate (`finish-pr.sh`, `move-issue.sh <ID> qa_complete`,
-  `read-verdict.sh`) refuses an evidence pointer that names the card's own file in any board column (`progress/<status>/`; `qa-verdict-self-pointer`):
-  the card records the review, and its path changes when it moves, so such a pointer stops resolving after the move. An in-flight card
-  whose table does this is refused at its landing. Before it lands, re-point each such row at the content the AC is about (a source,
-  test, document or fixture line, with its quote) and commit the card to the trunk (`./scripts/register-commit.sh`). The `Verify:` line reads each in-flight card's table as committed to the trunk, through `read-verdict.sh`; a card's prose is not read.
-
-  Verify: d="$(mktemp -d)"; r=0; for f in progress/*/*.md progress/subtasks/*/*/*.md; do case "$f" in */qa_complete/*|*/done/*|*/declined/*|*/history/*) continue ;; esac; [ -f "$f" ] || continue; id="$(basename "$f" | grep -oE '^[A-Za-z0-9]+-[0-9]+(-s[0-9]+)?')"; [ -n "$id" ] || continue; if KIT_PROGRESS_DIR="$d" ./scripts/read-verdict.sh "$id" 2>/dev/null | grep -q 'would REFUSE this table (qa-verdict-self-pointer)'; then r=1; fi; done; rm -rf "$d"; exit $r
-
-- **A project that declares a second register: arm `[r]` now reads its ids too, and a landing refuses one its branch introduces
-  that no PRD cites.** Arm `[r]` reads every register in `REGISTERS` by its own id shape, as arm `[l]` does, and its line names the
-  registers it read. A second register's live id that no PRD cites and is not marked `[cross-cutting]` is now listed, and a branch that
-  introduces one is refused at landing, as for a `D-NN`. Before your next landing, run `./scripts/check-board.sh`: cite each listed id
-  from the PRD it serves, or mark the entry `[cross-cutting]` if no PRD should cite it. A project with only `requirements/DECISIONS.md`
-  has nothing to do.
-
-### Changed
-
-- **`check-board.sh` finds the register line that cites an answered question when its path contains `+ ? ( ) { } |`.** Such a path was never matched, so its question stayed listed as answered, not reconciled. `process/KIT-RELEASE-HISTORY.md` also lists under `### Action required` the two `[0.4.0]` and four `[0.3.0]` obligations the first regrouping left behind, so `kit-upgrade.sh` puts them in the checklist. `UPGRADE-SEAT.md` step 7 re-dates a living standing handoff to the day after today. No action.
-- **`setup.sh` reads the `## Archived` heading as `archive.sh` and `kit-init.sh` do.** A heading with trailing whitespace or extra spaces is now reported missing. The skills, the launch-pack and run-report templates, the shipped `progress.md`, `consumers/`, `UPGRADE-SEAT.md` step 7 and a few front-door sentences are corrected or clarified; a vendored skill copy you have not edited can be re-copied, and an upgrade seat now re-dates a living standing handoff after its own. No action.
-- **`kit-upgrade.sh` now lists the `[0.3.0]` and `[0.4.0]` obligations.** `process/KIT-RELEASE-HISTORY.md` groups them under `### Action required`, which the checklist reader needs; a project older than 0.4.0 gets those items instead of a checklist without them. Upgrading by hand: read that heading.
-- **`reachability_walk.py --self-test` proves the `$VAR/` edge on a fixture.** It ends `SELF-TEST FAIL` if a script's `"$VAR/dir/file"` citation no longer resolves; the line about your own tree's probe file stays as a fact about your tree. `staleness_greps.py` labels its shipped base-rate figures undated and not yours.
-- **`release.sh` prints "all gates green" after gate (g)**, not before it, so a refused ship manifest no longer follows that line. `new-refactor.sh --help` shows `--prd PRD-NNN|n/a`; `read-verdict.sh --help` shows `<PREFIX>-012`; `archive-progress.sh --apply` lists `progress/history/INDEX.md` among the files it wrote, and its review line includes it.
-- **`finish-pr.sh`'s `Plan:` shows the `--note` with its `(verdict read at <sha>)` clause.** The local-commit line in `move-issue.sh`, `finish-pr.sh`, `archive.sh` and `subtask.sh` reads "publishing to the trunk next". No action.
-- **The metadata guard names both routes and no longer refuses an amend that adds a README to a code commit.** A metadata-only commit on a branch is still refused; its `Next:` now offers `register-commit.sh` or adding the path to the code commit it describes (`git commit --amend`). An amend is judged on HEAD's paths plus the staged ones, so it passes when HEAD carries code. Put `--amend` before any `-m`: the refusal's `Next:` says so, and `process/MANUAL.md` states that the guard runs only once `CODE_GLOBS` is declared. No action.
-- **`register-commit.sh` no longer tags a subject twice.** A `--message` that already begins with the `--role` tag (`[PM] Record D-12`) keeps it once; a tag followed by `:` or by no space (`[PM]: Record D-12`) is also kept once, written with a space after it; one that begins with another declared role's tag is refused (`register-message-tag-mismatch`), and its `Next:` line says to drop the tag or switch the hat. The first line it prints now says it is publishing next. No action.
-- **A landing's Activity entry always names the revision the QA Verdict was read at.** `finish-pr.sh` appends `(verdict read at <sha>)` to a `--note` you pass, as it already wrote it in the default note; the direct-to-trunk `move-issue.sh <ID> qa_complete` writes the same string, and both scripts' `--help` say so. No action.
-- **A verbatim quote of a backticked line now passes the QA gate.** The evidence cell was already read with its backticks removed; the cited line now is too, so a line quoted exactly as the file has it matches. No action.
-- **A quoted phrase in an evidence cell's prose is no longer checked as a quote.** A pointer's quote is the first double-quoted string after it, and each next one only when it follows the previous quote with whitespace or `;` alone between; any other double-quoted phrase is prose. A row that listed several quotes for one pointer separated by a comma or a word needs `;` or whitespace between them to keep each checked. No action for a row that already passed.
-- **`check-board.sh` `[t]` can list an answered question it formerly hid.** A register line that names the question file only counts once it was written or edited in a commit at or after the answer; a ruling written before the answer no longer clears it, and an entry discharged in place (the path moving from its Ruling to its Provenance) does. Where the source has no readable history the arm keeps the old test and prints a note. No action required.
-- **An arm `[l]` citation of a second register's id now resolves.** Arm `[l]` and the landing's `board-citation-unresolved` check accept, for each `REGISTERS` record in `check-board.sh`, ids of that record's own shape (`R-[0-9]+`, say) instead of `D-NN` only; a citation of such an id used to be reported as dangling. The `forks:` check still reads `D-NN` registers only. No action.
-- **The Orchestrator's reconcile leg discharges a `--decision` question's entry in place.** A question asked with `ask.sh --decision D-NN` leaves a `WORKING DEFAULT` Ruling; the leg takes the token off that entry and cites the question file in its Provenance rather than minting a second `D-NN`, and lands the parked card's edit with `register-commit.sh` before the move so it is not stranded in the leg's checkout. The question file tells the principal that an answer handing the decision back adopts the working default. Role text and printed text only; no action.
-- **A delegating answer is a ruling.** When a principal answers a question "I don't know — use your judgement", the Orchestrator's PM-hat leg records it as a ruling that adopts the question's working default, quoting the answer and citing the question file — a new `D-NN`, or, for a question asked with `--decision`, the working-default entry discharged in place — and does not file the question again. Role text only (`orchestrator.md`, `orchestrate/SKILL.md`, `contracts/ask.md`); no action required.
 
