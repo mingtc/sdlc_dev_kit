@@ -333,6 +333,10 @@ columns and never the cards.*
 
 ### Changed
 
+- **Smaller refusals and notes now say what runs.** The pre-commit refusal for a staged card names the trunk route alone, and for a card staged beside other metadata sends the card to the trunk and offers the amend route only for the rest; `register-commit.sh`'s note for a staged copy names `git restore --staged --worktree`; `new-refactor.sh` refuses a malformed `--prd` or `--stories` like `new-issue.sh`, and all three creation scripts refuse a value containing a newline; `setup.sh`'s `kit-init.sh` line carries `--prefix` and `--trunk`. No action.
+
+- **`staleness_greps.py` no longer prints donor base-rate figures**, and its `--json` output drops the `base_rate` key; the shipped `.gitignore` no longer lists `*.log`. A consumer of that JSON sees the key gone. No action.
+
 - **Consumer, template and role-doc text matches what ships.** `setup-consumer.sh`'s closing list points at the upstream checkout's `ci/` and README (the consumer's repo has neither); `consumers/README.md` says refreshes and `--check`
   use the network; `LICENSE-CONTENT` no longer lists process doctrine as CC0 (it is MIT, as `LICENSE` says); `wave-runner.js` logs a Dev leg that returned nothing once; the run-report template covers an attended no-launch-pack run and
   lists its own title and heading to delete; `architect.md` has an `Agreed on:` field; `dev.md` fills the card's own `## Behaviors Preserved`; `/start` cites `PROJECT.md`'s tooling floor; `using-skills` ends with a note telling an

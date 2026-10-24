@@ -133,7 +133,7 @@ a `[<vendored-name>] UPDATE AVAILABLE …` line. It never fails your pull, never
 `./vendor/`, and never updates. (The same file works as `.git/hooks/post-checkout` if you also
 want a nag on branch switches.)
 
-**CI job (optional).** The templates below are both advisory and non-failing:
+**CI job (optional).** The templates below are advisory and non-failing:
 
 | Template | For |
 |---|---|

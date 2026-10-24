@@ -133,6 +133,7 @@ done
 # issue-creation.md § 5, implemented once by validate_slug in scripts/config.sh.
 validate_slug "$SLUG" || exit 2   # exit-class: usage
 validate_issue_id "$ID" "$ROOT" || exit 2   # exit-class: usage
+validate_card_links "$PRD" "$STORIES" "" || exit 2   # exit-class: usage
 
 DEST="$DEST_DIR/${ID}-${SLUG}.md"
 TODAY=$(date +%Y-%m-%d)

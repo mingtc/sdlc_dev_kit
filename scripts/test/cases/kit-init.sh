@@ -2467,6 +2467,21 @@ case_creation_link_options_are_shape_checked() {
     printf '%s' "$out" | grep -F -- "$opt" >/dev/null || cf "$script $opt '$val': the refusal does not name the option: $out"
     [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-92$n-$slug.md" ] || cf "$script $opt '$val': a card was written despite the refusal"
   done
+  # new-refactor.sh takes the same options and runs the same reader; a value holding a newline is
+  # refused before any substitution runs, by each script.
+  if [ -f "$SB_WORK/.claude/templates/REFACTOR.template.md" ]; then
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh badref --id "$SB_PREFIX-614" --target t --prd FOO --stories 'x y' 2>&1 )" || rc=$?
+    [ "$rc" -eq 2 ] || cf "new-refactor.sh with a malformed --prd exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-614-badref.md" ] || cf "new-refactor.sh: a card was written despite the refusal"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh nlref --id "$SB_PREFIX-615" --target t --stories "$pid-001-F1-S1"$'\n'x 2>&1 )" || rc=$?
+    [ "$rc" -eq 2 ] || cf "new-refactor.sh --stories holding a newline exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh okref --id "$SB_PREFIX-616" --target t --prd n/a 2>&1 )" || rc=$?
+    [ "$rc" -eq 0 ] || cf "(control) new-refactor.sh with --prd n/a exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  fi
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh nlissue --id "$SB_PREFIX-617" --prd "$pid-001"$'\n'x 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "new-issue.sh --prd holding a newline exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh nlbug --id "$SB_PREFIX-618" --discovered-in "$SB_PREFIX-001"$'\n'x 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "new-bug.sh --discovered-in holding a newline exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   # The shapes the usage text states are accepted.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh okissue --id "$SB_PREFIX-931" --prd "$pid-001" --stories "$pid-001-F1-S1,$pid-001-F2-S3" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) new-issue.sh with well-formed --prd and --stories exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
@@ -2506,6 +2521,8 @@ case_next_steps_and_help_name_what_runs() {
   for f in verify.sh finish-pr.sh; do
     grep -F 'kit-init.sh --gate-command' "$SB_WORK/scripts/$f" >/dev/null && cf "(a) scripts/$f still prints 'kit-init.sh --gate-command' with no --prefix or --trunk"
   done
+  [ ! -f "$REAL_REPO_ROOT/setup.sh" ] || ! grep -F 'kit-init.sh --gate-command' "$REAL_REPO_ROOT/setup.sh" >/dev/null \
+    || cf "(a) setup.sh still prints 'kit-init.sh --gate-command' with no --prefix or --trunk"
   grep -F 'kit-init.sh --prefix <P> --trunk <B> --gate-command' "$SB_WORK/scripts/finish-pr.sh" >/dev/null || cf "(a) finish-pr.sh's no-gate Next: does not carry the runnable kit-init.sh line"
 
   # (b) finish-pr.sh --help explains --dry-run.

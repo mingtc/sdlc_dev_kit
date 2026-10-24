@@ -374,7 +374,7 @@ rests on judgment rather than evidence**:
   **No forge approve/merge ceremony, no `git switch <trunk>` + pull.** Then proceed to the next
   issue.
 - **Clear FAIL** → `move-issue.sh … in_progress` (AC unmet) and/or `new-bug.sh` (regression),
-  record the verdict in the issue's Activity log, append `progress.md`; continue with the next
+  record the verdict in the issue's `## QA Verdict` table (the move note goes in the Activity log), append `progress.md`; continue with the next
   *independent* issue if any.
 - **Parked** → leave the branch unmerged and the issue in `dev_complete/`, add it to the run
   report's "needs your call" section, continue.
@@ -686,7 +686,7 @@ the bullet blank.
 
 - [ ] Every issue touched is in its correct folder (`qa_complete/` merged, `in_progress/`
       on FAIL, `dev_complete/` if parked, `blocked/` if escalated).
-- [ ] Every merged issue's Activity log is current; `progress.md` has one verdict
+- [ ] Every merged issue's `## QA Verdict` table and Activity log are current; `progress.md` has one verdict
       line per issue reviewed.
 - [ ] The run report lists: merged, parked-for-your-call, bugs filed, todos/new-scope
       surfaced for PM, and the conductor's-belt readings. Long-form report →

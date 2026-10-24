@@ -141,7 +141,7 @@ if [ -f "$ROOT/scripts/verify.sh" ]; then
     || note_fail "scripts/verify.sh is not executable — the landing gate refuses on exactly that (chmod +x it)."
 else
   warn "no scripts/verify.sh yet — the landing gate REFUSES to land without an executable, committed gate runner."
-  warn "      Create it with, ON A FRESH REPO: ./scripts/kit-init.sh --gate-command '<your test command>'"
+  warn "      Create it with, ON A FRESH REPO: ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command '<your test command>'"
   warn "      — kit-init REFUSES a repository that has already lived, so if yours has, write it by hand."
 fi
 

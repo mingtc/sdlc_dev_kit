@@ -902,6 +902,21 @@ case_register_commit_names_the_discard_of_the_checkouts_copy() {
   git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 \
     || cf "(a) discarding the copy the output named did not clear the pull"
 
+  # (a2) the same edit STAGED: the note names a command that discards the staged copy too, and
+  # running it leaves the path clean.
+  printf 'D-03: answered staged\n' >> "$SB_WORK/requirements-register.md"
+  git -C "$SB_WORK" add requirements-register.md
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record D-03" requirements-register.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_register_commit_names_the_discard_of_the_checkouts_copy: the staged landing exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F "git restore --staged --worktree -- 'requirements-register.md'" >/dev/null \
+    || cf "(a2) the note for a STAGED copy does not name a command that discards the index entry: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  git -C "$SB_WORK" restore --staged --worktree -- requirements-register.md >/dev/null 2>&1
+  [ -z "$(git -C "$SB_WORK" status --porcelain -- requirements-register.md)" ] \
+    || cf "(a2) running the named command left the path modified: $(git -C "$SB_WORK" status --porcelain -- requirements-register.md)"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || cf "(a2) after the named discard the pull is still refused"
+
   # (b) a new file, untracked in the checkout, then landed.
   printf 'a new note\n' > "$SB_WORK/note-b.md"
   rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record a note" note-b.md 2>&1 )" || rc=$?
@@ -1819,6 +1834,22 @@ case_pre_commit_judges_an_amend_on_the_commit_being_made() {
     && cf "(row 5) the card-only refusal still offers adding the card to a code commit (git commit --amend): $out"
   printf '%s' "$out" | grep -F "A card is the trunk's" >/dev/null \
     || cf "(row 5) the card-only refusal does not say the card is the trunk's: $out"
+  printf '%s' "$out" | grep -F 'either route' >/dev/null \
+    && cf "(row 5) the card-only refusal still says 'either route' though one route remains: $out"
+  [ -z "$(printf '%s\n' "$out" | awk 'b && $0 ~ /^[[:space:]]*$/ { print "x" } { b = ($0 ~ /^[[:space:]]*$/) }')" ] \
+    || cf "(row 5) the card-only refusal prints two blank lines in a row: $out"
+  # Row 6: a card staged WITH other metadata: the card goes to the trunk, only the rest may amend.
+  echo "a ruling" > "$SB_WORK/notes.md"
+  git -C "$SB_WORK" add notes.md
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] card and notes" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(row 6) a card plus notes on a work branch was ACCEPTED"
+  printf '%s' "$out" | grep -F 'route the card to the trunk' >/dev/null \
+    || cf "(row 6) the mixed refusal does not send the card to the trunk: $out"
+  printf '%s' "$out" | grep -F 'add it to the code commit it describes' >/dev/null \
+    && cf "(row 6) the mixed refusal still offers the whole staged set, card included, for the amend: $out"
+  printf '%s' "$out" | grep -F 'with the card unstaged' >/dev/null \
+    || cf "(row 6) the mixed refusal's amend route does not exclude the card: $out"
+  git -C "$SB_WORK" reset -q notes.md
   git -C "$SB_WORK" reset -q "progress/todo/$SB_PREFIX-801-card-only.md"
   rm -f "$SB_WORK/progress/todo/$SB_PREFIX-801-card-only.md"
 

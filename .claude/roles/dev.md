@@ -224,7 +224,7 @@ Before moving the issue file to `progress/dev_complete/` (via `move-issue.sh`), 
 - [ ] **Every step whose REPORT and whose EFFECT are separate things has been confirmed by asking the effect, not by reading the report** — a success message, an exit status and an absent error are evidence the tool ran, never that it worked. The confirming read is chosen by the effect's class: wrote a file → re-read it; committed → ask the log; **pushed → ask the remote, never the local ref**; moved an issue file → ask the board; edited a guard → watch it fail. Doctrine: [`process/doctrine/fix-execution.md`](../../process/doctrine/fix-execution.md) § A.5d.
 - [ ] `progress.md` appended with: what was built, decisions, deviations, anything QA should know.
 - [ ] Work branch pushed (forge-agnostic — a pushed branch, **not** a forge PR).
-- [ ] Issue file Activity log appended, including the "Handoff to QA" notes below (the Activity log IS the review record — there is no forge review object).
+- [ ] Issue file Activity log appended, including the "Handoff to QA" notes below (the Activity log carries the handoff; QA's verdict goes in the `## QA Verdict` table — there is no forge review object).
 - [ ] Issue file moved to `progress/dev_complete/` (via `move-issue.sh`).
 - [ ] **Every duty in § Project duties below is discharged** for the surfaces this change touched.
 
@@ -280,7 +280,7 @@ Two rules govern how you fill this in, and they are **not** optional:
 
 There is **no PR/MR object** — QA reviews the pushed **work branch** and the issue file. Append
 a `## Handoff to QA` section to the **issue file body** (above `## Activity`) with the content
-below; that section + the Activity log ARE the review record QA reads:
+below; that section is what QA reads, and QA's verdict goes in the `## QA Verdict` table:
 
 **This section has no commit route of its own — use `register-commit.sh` for it.** The issue
 file is metadata on the trunk; editing it in your own checkout and then calling

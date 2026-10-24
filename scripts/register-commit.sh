@@ -319,6 +319,7 @@ for rel in "${CHANGED[@]}"; do
   case "$_st" in
     "") ;;
     "??") echo "Note: your checkout still holds an untracked '$rel' that the trunk now tracks; delete it (rm '$rel') or a pull is refused." ;;
+    [!\ ]*) echo "Note: your checkout still holds a staged copy of '$rel'; discard it (git restore --staged --worktree -- '$rel') or a pull is refused." ;;
     *) echo "Note: your checkout still holds an edited copy of '$rel'; discard it (git checkout -- '$rel') or a pull is refused." ;;
   esac
 done

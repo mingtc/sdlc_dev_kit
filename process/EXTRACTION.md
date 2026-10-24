@@ -347,7 +347,7 @@ names the guard whose job is to keep it honest.
 | Path | What it is |
 |---|---|
 | `LICENSE` | MIT — covers the kit's own mechanism (`scripts/`, `process/`, `.claude/`). Travels unedited; see its own text for why MIT specifically (the vendored Dev skill set). |
-| `LICENSE-CONTENT` | CC0-1.0 — covers the scaffold content you copy, edit and eventually delete (templates, the bootstrap files, your adapted doctrine). Travels unedited. |
+| `LICENSE-CONTENT` | CC0-1.0 — covers the scaffold content you copy, edit and eventually delete (templates, the bootstrap files). Travels unedited. |
 | `docs/README.md` | The `docs/` directory's purpose statement — reference material the project did not write. Travels unedited; **everything else you put in there is yours.** |
 | `dev/` | The working-records tree. Its index (`dev/README.md`) carries a discipline that travels and rows that are yours — every file you add there gets one; the folder READMEs travel unedited; `dev/downtime-queue.md` is `MIXED` — the queue's shape travels, every row is yours. Everything you add there is yours. |
 | `process/MANUAL.md` | The transferable operating manual. Adopt unedited. |

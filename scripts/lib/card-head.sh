@@ -121,7 +121,11 @@ kit_prd_free_card() {
 # naming the option, so the caller exits as a usage error before any card is written. Uses
 # PRD_PREFIX and ISSUE_PREFIX.
 validate_card_links() {
-  local prd="$1" stories="$2" disc="$3" item rest
+  local prd="$1" stories="$2" disc="$3" item rest nl=$'\n'
+  # grep matches line by line, so a value holding a newline would pass on its first line.
+  case "$prd" in *"$nl"*) echo "Error: --prd must be one line." >&2; return 1 ;; esac   # return-class: usage
+  case "$stories" in *"$nl"*) echo "Error: --stories must be one line." >&2; return 1 ;; esac   # return-class: usage
+  case "$disc" in *"$nl"*) echo "Error: --discovered-in must be one line." >&2; return 1 ;; esac   # return-class: usage
   if [ -n "$prd" ] && [ "$prd" != "n/a" ] && ! grep -qE "^${PRD_PREFIX}-[0-9]+$" <<< "$prd"; then
     echo "Error: --prd '$prd' must look like ${PRD_PREFIX}-NNN, or n/a on the lite path." >&2
     return 1   # return-class: usage

@@ -12,7 +12,7 @@ your memory of it.
 
 ## 1. Check the environment
 
-- **Git and a POSIX shell** are the kit's only hard requirement (`PROJECT.md`, "What the tooling floor is").
+- **Git and a POSIX shell** are the kit's only hard requirement (the project's `PROJECT.md` may name more tools it needs).
   Confirm both are on `PATH` (`git --version`, `echo $0` or equivalent). If either is missing, stop
   here and tell the human what to install — nothing else in this skill can run without them.
 - **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older

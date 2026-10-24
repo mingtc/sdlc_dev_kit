@@ -15,8 +15,8 @@ trunk branch on it. Nothing else. No forge, no API token, no pull-request ceremo
 The landing path — squash-merge the issue's branch into the trunk, push the trunk, delete the
 branch, advance the issue file on the board — is implemented in **plain git** by
 [`../scripts/finish-pr.sh`](../scripts/finish-pr.sh). There is no forge client anywhere in the
-critical path, and there is no pull request. **The review record is the issue file's Activity
-log**, which is a file in the repository, so the audit trail travels with the code and does not
+critical path, and there is no pull request. **The review record is the issue file's `## QA Verdict`
+table**, which is a file in the repository, so the audit trail travels with the code and does not
 live in someone's account.
 
 **Why this pays for itself.** Moving to a different hosted forge — new host, protocol, authentication
@@ -247,7 +247,7 @@ not a work problem.**
 ### 6.1 The regime
 
 - **Closes become verified land-ready branches with recorded verdicts.** The reviewer does the
-  full review, runs every gate, and records the verdict in the issue file's Activity log as `PASS` with
+  full review, runs every gate, and records the verdict in the issue file's `## QA Verdict` table as `PASS` with
   the landing `deferred` (`.claude/roles/qa.md`; a run composes the pair into its outcome per
   process/MANUAL.md § The RUN-OUTCOME vocabulary) — meaning *reviewed, gates green, not landed*. The verdict is a real close; only the merge is deferred.
 - **State the regime at preflight and re-check between issues.** Which regime a run is in changes

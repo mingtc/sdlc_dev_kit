@@ -286,12 +286,20 @@ _pipes_a_function_rows() {
       prev = $0
       if (!match(joined, /[|][[:space:]]*grep[[:space:]]+(-[A-Za-z]+[[:space:]]+)*-[A-Za-z]*q/)) next
       p = substr(joined, 1, RSTART - 1)
-      sub(/[[:space:]]+$/, "", p)
-      sub(/^.*[|;&][[:space:]]*/, "", p)
-      sub(/^[[:space:]]+/, "", p)
-      while (p ~ /^(if|while|until|elif|then|!)[[:space:]]+/) sub(/^[a-z!]+[[:space:]]+/, "", p)
-      split(p, tok, /[[:space:]]+/)
-      if (tok[1] != "" && index(names, " " tok[1] " ")) print FILENAME ":" FNR ": " $0
+      sub(/^.*[;&][[:space:]]*/, "", p)
+      n = split(p, seg, /[|]/)
+      for (i = 1; i <= n; i++) {
+        t = seg[i]
+        sub(/^[[:space:]]+/, "", t)
+        # Leading command-substitution openers, an assignment prefix and shell keywords are not the command.
+        while (t ~ /^(\$\(|\(|[A-Za-z_][A-Za-z_0-9]*=\$\(|(if|while|until|elif|then|!)[[:space:]]+)/) {
+          if (t ~ /^(if|while|until|elif|then|!)[[:space:]]+/) sub(/^[a-z!]+[[:space:]]+/, "", t)
+          else sub(/^[A-Za-z_0-9]*=?\$?\(/, "", t)
+          sub(/^[[:space:]]+/, "", t)
+        }
+        split(t, tok, /[[:space:]]+/)
+        if (tok[1] != "" && index(names, " " tok[1] " ")) { print FILENAME ":" FNR ": " $0; break }
+      }
     }
   ' "$@"
 }
@@ -346,10 +354,14 @@ case_shipped_membership_tests_do_not_pipe_a_list() {
     printf '%s\n' "my_ids \"\$repo\" $pipe grep -c ."
     printf '%s\n' "printf '%s' \"\$x\" $pipe grep -qE 'y'"
     printf '%s\n' "# my_ids \"\$repo\" $pipe grep -qx \"\$d\""
+    printf '%s\n' "my_ids \"\$repo\" $pipe sed s $pipe grep -qx \"\$d\""
+    printf '%s\n' "foo=\$(my_ids \"\$repo\" $pipe grep -q y)"
+    printf '%s\n' "if \$(my_ids $pipe grep -q y); then"
+    printf '%s\n' "grep -q y <<< \"\$(my_ids \"\$repo\" $pipe sed s)\""
   } > "$sample"
   rows="$(_pipes_a_function_rows "my_ids" "$sample")"
-  [ "$(printf '%s\n' "$rows" | grep -c .)" -eq 2 ] \
-    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: the function-producer census flagged $(printf '%s\n' "$rows" | grep -c .) lines of a sample that holds 2 piped function producers (one after a bang, one after &&) and 4 lines it must pass (a here-string, a count, a printf pipe, a comment). Rows: $rows"
+  [ "$(printf '%s\n' "$rows" | grep -c .)" -eq 5 ] \
+    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: the function-producer census flagged $(printf '%s\n' "$rows" | grep -c .) lines of a sample that holds 5 piped function producers (after a bang, after &&, behind a middle stage, inside an assignment substitution, inside a bare substitution) and 5 lines it must pass (a here-string, a count, a printf pipe, a comment, a here-string over a piped substitution). Rows: $rows"
   rm -f "$sample"
   # shellcheck disable=SC2086
   rows="$(_pipes_a_function_rows "$fnames" $files)"
