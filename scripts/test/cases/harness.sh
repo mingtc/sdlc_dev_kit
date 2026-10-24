@@ -275,6 +275,27 @@ _pipes_a_list_rows() {  # <declared single-value names, space-separated> <file>�
   ' "$@"
 }
 
+# A FUNCTION is a producer too: `fn args | grep -qx "$id"` hands the reader the function's whole
+# output, and a function can print a list that grows. <function names, space-separated> <file>…
+_pipes_a_function_rows() {
+  local names="$1"; shift
+  awk -v names=" $names " '
+    /^[[:space:]]*#/ { next }
+    {
+      joined = (prev ~ /[\\]$/) ? prev " " $0 : $0
+      prev = $0
+      if (!match(joined, /[|][[:space:]]*grep[[:space:]]+(-[A-Za-z]+[[:space:]]+)*-[A-Za-z]*q/)) next
+      p = substr(joined, 1, RSTART - 1)
+      sub(/[[:space:]]+$/, "", p)
+      sub(/^.*[|;&][[:space:]]*/, "", p)
+      sub(/^[[:space:]]+/, "", p)
+      while (p ~ /^(if|while|until|elif|then|!)[[:space:]]+/) sub(/^[a-z!]+[[:space:]]+/, "", p)
+      split(p, tok, /[[:space:]]+/)
+      if (tok[1] != "" && index(names, " " tok[1] " ")) print FILENAME ":" FNR ": " $0
+    }
+  ' "$@"
+}
+
 case_shipped_membership_tests_do_not_pipe_a_list() {
   cf_reset
   local single='_qct subj PREFIX PRD_PREFIX_NEW ROLES_NEW OLD_PREFIX NUM slug ch id ID subject _dc_lo _dc_hi _dc_tok _idx_next rid STORIES BEFORE KEEP_LAST 1'
@@ -311,7 +332,31 @@ case_shipped_membership_tests_do_not_pipe_a_list() {
   [ -z "$rows" ] \
     || cf "a shipped script pipes a variable that can hold a list into a quiet grep; once the list outgrows the pipe buffer and the reader leaves at its first match, pipefail reports the writer's death and a present item reads as absent. Read the variable through a here-string (grep -qx -- \"\$id\" <<< \"\$list\"), or declare the name single-valued in this case: $(printf '%s' "$rows" | sed "s|$REAL_REPO_ROOT/||" | tr '\n' ' ' | cut -c1-400)"
 
-  finish "no shipped script pipes a variable that can hold a list into a quiet grep; the census flags printf, echo and braced spellings, passes the here-string cure and the declared single-value variables, and reads the single-value pipes the shipped scripts do carry"
+  # A FUNCTION PRODUCER: the names are derived from the shipped scripts themselves.
+  local fnames
+  # shellcheck disable=SC2086
+  fnames="$(cat $files | sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\)() *{.*/\1/p' | sort -u | tr '\n' ' ')"
+  [ -n "$fnames" ] \
+    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: derived no function names from the shipped scripts — the function-producer census would be green over nothing."
+  sample="$(mktemp "${TMPDIR:-/tmp}/pipes-a-fn.XXXXXX")"
+  {
+    printf '%s\n' "if ! my_ids \"\$repo\" \"\$sha\" $pipe grep -qx \"\$d\" \\"
+    printf '%s\n' "   && my_ids \"\$repo\" \"\$sha\" $pipe grep -qx \"\$d\"; then"
+    printf '%s\n' "if grep -qx -- \"\$d\" <<< \"\$(my_ids \"\$repo\")\"; then"
+    printf '%s\n' "my_ids \"\$repo\" $pipe grep -c ."
+    printf '%s\n' "printf '%s' \"\$x\" $pipe grep -qE 'y'"
+    printf '%s\n' "# my_ids \"\$repo\" $pipe grep -qx \"\$d\""
+  } > "$sample"
+  rows="$(_pipes_a_function_rows "my_ids" "$sample")"
+  [ "$(printf '%s\n' "$rows" | grep -c .)" -eq 2 ] \
+    || _fixture_die "case_shipped_membership_tests_do_not_pipe_a_list: the function-producer census flagged $(printf '%s\n' "$rows" | grep -c .) lines of a sample that holds 2 piped function producers (one after a bang, one after &&) and 4 lines it must pass (a here-string, a count, a printf pipe, a comment). Rows: $rows"
+  rm -f "$sample"
+  # shellcheck disable=SC2086
+  rows="$(_pipes_a_function_rows "$fnames" $files)"
+  [ -z "$rows" ] \
+    || cf "a shipped script pipes a FUNCTION's output into a quiet grep; once the function prints more than the pipe buffer holds and the reader leaves at its first match, pipefail reports the function's death and a present item reads as absent. Read it through a here-string (grep -qx -- \"\$id\" <<< \"\$(fn …)\"): $(printf '%s' "$rows" | sed "s|$REAL_REPO_ROOT/||" | tr '\n' ' ' | cut -c1-400)"
+
+  finish "no shipped script pipes a variable or a function's output that can hold a list into a quiet grep; the census flags printf, echo and braced spellings and piped function calls, passes the here-string cure and the declared single-value variables, and reads the single-value pipes the shipped scripts do carry"
 }
 
 # =============================================================================

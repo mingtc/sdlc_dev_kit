@@ -793,7 +793,7 @@ between them is the finding — never a reason to widen one of them until they a
 | `grep -lF -- "$ROLES"` | the set in exactly the shipped spelling | any other spacing, any partial copy, any copy assembled at runtime |
 | the tool's OWN OUTPUT — run `--help` and read what it prints | what the operator is actually told, whatever produced it | a copy that is never printed |
 
-*The second one is why the harness (`scripts/test/cases/kit-init.sh`) now carries
+*The second one is why the harness (`scripts/test/cases/kit-init.sh`) carries
 `case_help_advertises_exactly_what_the_role_arm_accepts`: it parses the advertised set out of `--help`
 and compares it to what `kit-init` was told on its command line, so neither operand is read through
 an expression the kit ships. **The case that already asserted "no seam keeps the old set" could not
@@ -805,7 +805,7 @@ construction; see [`doctrine/instruments.md`](doctrine/instruments.md) § A.4.*
 rendered from the seam at print time cannot drift and needs no stamping, which is why the usage
 text in the table above is now a renderer rather than a row to keep in step.
 
-**THE GLOB IS NON-RECURSIVE AND THAT IS LOAD-BEARING, not brevity.** Measured 2026-09-27: `grep -rlF`
+**THE GLOB IS NON-RECURSIVE AND THAT IS LOAD-BEARING, not brevity.** A recursive `grep -rlF`
 over `scripts/` returns the enforcing seams **plus `scripts/test/lib/fixtures.sh`** — the harness, which
 asserts what the kit SHIPS and must never be stamped, because stamping it rewrites the assertion to
 match whatever it was measuring. The non-recursive glob excludes it **by shape**, so there is no

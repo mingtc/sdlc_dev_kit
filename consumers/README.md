@@ -38,8 +38,8 @@ it** through your own dependency mechanism. A fresh clone of *your* repo then re
 environment from that local artifact — **no upstream remote needed** (a public index is used
 only for ordinary transitive dependencies, if your ecosystem has them).
 
-The **only** step that ever contacts the upstream remote is building or refreshing the
-artifact (`update_vendored.sh`). A normal `git pull` in your repo touches no upstream network
+Only building or refreshing the artifact (`update_vendored.sh`), a `--check` run and the optional
+nag hook contact the upstream remote. A normal `git pull` in your repo touches no upstream network
 at all, unless you wire the optional nag hook, which makes one `git ls-remote` per pull (two when an update is available).
 
 The upstream remote can be anything git can clone — a forge, or a **local bare repository** on
@@ -52,8 +52,8 @@ assumes a forge exists.
 
 - `git` on your machine, plus whatever your own project needs to build and install
   `<the artifact kind>`.
-- **One-time** network (or filesystem) access to the upstream repo — only to build the
-  artifact.
+- Network (or filesystem) access to the upstream repo — to build the artifact, and again for
+  each refresh or `--check`.
 - Whatever **configuration or credentials** the project itself requires. The authoritative,
   per-operation list is the one the project's own shipped guide carries; Step 3 names only the
   minimum.
@@ -133,7 +133,7 @@ a `[<vendored-name>] UPDATE AVAILABLE …` line. It never fails your pull, never
 `./vendor/`, and never updates. (The same file works as `.git/hooks/post-checkout` if you also
 want a nag on branch switches.)
 
-**CI job (optional).** Two templates ship, both advisory and non-failing:
+**CI job (optional).** The templates below are both advisory and non-failing:
 
 | Template | For |
 |---|---|
@@ -230,7 +230,7 @@ your `git pull` stays fast.
 | [`hooks/post-merge`](hooks/post-merge) | Advisory git-hook template (nag only). `setup-consumer.sh` copies it into your `scripts/`. |
 | [`skills/`](skills/README.md) | The router-pack pattern, the citation guard, and one skeleton (`EXAMPLE-start-here/`). Author your own routers here; `install-skills.sh` skips the README and `EXAMPLE-*`. |
 | [`install-skills.sh`](install-skills.sh) | Copies the pack into your `.claude/skills/`. Enumerates the directory, so it needs no editing when a router is added. Re-run after every refresh. |
-| [`ci/`](ci/) | Two opt-in, advisory, non-failing CI templates (forge-generic + GitHub Actions). |
+| [`ci/`](ci/) | Opt-in, advisory, non-failing CI templates (forge-generic + GitHub Actions). |
 
 You never need to read the upstream **source** to consume the project — these consumer files
 plus the vendored documents are the whole contract.

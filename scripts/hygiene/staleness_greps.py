@@ -14,10 +14,10 @@
 #   SHAPE (ii) UNMEASURED-CLAIM-NOW-MEASURED — a MEASURE-FIRST / "not yet measured" /
 #              "does not exist yet" claim whose named verdict artifact or issue HAS since landed.
 #
-# THE BASE RATE IS PRINTED WITH EVERY REPORT: an instrument that does not say how often it cries
-# wolf gets wired into a gate. Each figure carries its source. THE SHIPPED FIGURES ARE ANOTHER
-# PROJECT'S AND UNDATED; replace them with yours, each with its date, the first time you run this
-# and adjudicate the output.
+# NO BASE RATE SHIPS. How often these greps cry wolf depends on the tree, and a figure from
+# another project reads as a rate for this one. Adjudicate the first report, count the false
+# positives, and record that rate with its date; an instrument that does not say how often it
+# cries wolf gets wired into a gate.
 #
 # THE SCOPE IS THE LIVE READING PATH: root-level prose, `process/**`, the role docs,
 # `requirements/*`, and the top level of `dev/` plus its handoffs — the files a fresh agent is
@@ -41,23 +41,6 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from citation_index import REPO_ROOT, iter_files, print_blind_spots, run_instrument, walk_blind_spots  # noqa: E402
-
-# ── PARAMETER: THE BASE RATE. Carried with its source, NOT re-measured here — quoting one of
-#    these as present tense is the exact defect this instrument exists to find. REPLACE THESE
-#    THREE with your own measurements, each with its own date and source, the first time you run
-#    this and adjudicate the output. Until you do, they are labelled as another project's.
-BASE_RATE = [
-    ("another project's staleness sweep, UNDATED",
-     "24 flags raised, 9 actively wrong — a ~38% true-positive rate on a hand-run of these "
-     "two shapes"),
-    ("the same sweep's CLEAN NEGATIVES section, UNDATED",
-     "four named precedent chains traced forward found ZERO stale conclusions, and the one "
-     "MEASURE-FIRST item in the charter was CORRECTLY unmeasured — these greps produce "
-     "suspicions, not findings"),
-    ("the same project's census, on cited-but-missing paths, UNDATED",
-     "of 192 cited-but-missing paths, ~185 were by design and about 7 genuinely dead — a "
-     "blanket dead-pointer guard would have reddened the front door"),
-]
 
 OPEN_CLAIM = re.compile(
     r"\b(still open|unstarted|not yet (?:started|built|landed|shipped|written)|"
@@ -171,7 +154,7 @@ def main(argv=None) -> int:
     if args.json:
         import json
 
-        print(json.dumps({"blind_spots": walk_blind_spots(), "suspicions": rows, "base_rate": BASE_RATE,
+        print(json.dumps({"blind_spots": walk_blind_spots(), "suspicions": rows,
                           "id_prefixes_derived_from_seam": derived}, indent=2))
         return 0
     print(f"staleness greps: {len(rows)} SUSPICION(S) on the live reading path")
@@ -179,10 +162,8 @@ def main(argv=None) -> int:
     if not derived:
         print("NOTE: the issue-id prefixes could NOT be read from scripts/config.sh — falling")
         print("      back to a generic shape. Fix the seam or this arm under-reports silently.")
-    print("BASE RATE — another project's figures, UNDATED and not re-measured here; NOT this")
-    print("project's until you replace them with your own, each with its date and source:")
-    for source, figure in BASE_RATE:
-        print(f"  · {figure}  [{source}]")
+    print("BASE RATE — none shipped: adjudicate this report, count its false positives and record")
+    print("that rate with its date before trusting a quiet run.")
     print()
     for row in rows:
         print(f"[{row['shape']}] {row['path']}:{row['line']}")
@@ -190,7 +171,7 @@ def main(argv=None) -> int:
         print(f"    contradicted by: {row['why']}")
         print(f"    {row['text']}")
     if not rows:
-        print("(no suspicion — which, at the base rate above, is the expected result)")
+        print("(no suspicion)")
     return 0
 
 

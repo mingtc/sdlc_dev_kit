@@ -100,7 +100,8 @@ count** ([`../doctrine/staleness.md`](../doctrine/staleness.md) § C).
   *"nothing to graduate from"* reads as a clean bill, and a reader has to be able to tell an unrun
   check from a passing one — the same distinction every other check in this sheet owes. While the
   project still carries the kit's scaffolding — a `REPLACE`-class file that has not been replaced, a
-  `FILL`-class file that still holds a blank — the report says so and names the files. **The verdict
+  `FILL`-class file that still holds a blank, a `DELETE-IF-UNUSED` option kept with no recorded
+  decision — the report says so and names the files. **The verdict
   line stays a statement about the board.**
   *Why the separation is an invariant and not a preference:* the verdict is what other tools consume.
   Measured in this kit: the release ritual's board gate matches the verdict line's text, and the

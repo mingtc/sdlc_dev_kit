@@ -641,8 +641,8 @@ _forks_window_entries() {
     while read -r sha_c cd; do
       [ "$cd" = "$d" ] || continue
       last_c="$sha_c"; last_s="$(git -C "$repo" log -1 --format=%s "$sha_c" 2>/dev/null || true)"
-      if ! _forks_entry_ids "$repo" "${sha_c}^" "$path" "$mark" "$shape" | grep -qx "$d" \
-         && _forks_entry_ids "$repo" "$sha_c" "$path" "$mark" "$shape" | grep -qx "$d"; then
+      if ! grep -qx -- "$d" <<< "$(_forks_entry_ids "$repo" "${sha_c}^" "$path" "$mark" "$shape")" \
+         && grep -qx -- "$d" <<< "$(_forks_entry_ids "$repo" "$sha_c" "$path" "$mark" "$shape")"; then
         subjects="${last_s}"$'\n'; add_c="$sha_c"; add_s="$last_s"
       fi
     done <<< "$ctable"

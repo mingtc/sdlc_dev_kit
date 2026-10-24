@@ -11,6 +11,8 @@
 > the PM's informed consent.** Fill in the date of that agreement when you adopt it; changes to
 > it are made the same way. A seat contract nobody agreed to is a seat contract nobody is bound
 > by.
+>
+> **Agreed on:** (`<fill in>`: YYYY-MM-DD, by the PM and the seat)
 
 Throughout, `<PREFIX>-NNN` is an issue id in this project's own scheme and `<trunk>` is the
 project's single trunk branch (default `main`).

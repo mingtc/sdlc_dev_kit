@@ -170,13 +170,13 @@ ${CONFIG_LINES}
 
    Then a future 'git pull' prints '[${VENDORED_NAME}] UPDATE AVAILABLE …' when
    there is one. For a pipeline reminder instead of (or as well as) the hook,
-   see the opt-in templates in consumers/ci/.
+   see the opt-in templates in ${SCRIPT_DIR}/ci/ (in the checkout you ran this from; they are not copied here).
 
 Refresh later — always DELIBERATE, never automatic:
      scripts/update_vendored.sh [tag]     # build + vendor, then re-pin
      scripts/update_vendored.sh --check   # report-only: newer tag available?
 
-Full zero-knowledge walkthrough: consumers/README.md
+Full zero-knowledge walkthrough: ${SCRIPT_DIR}/README.md
 ────────────────────────────────────────────────────────────────────────────
 EOF
 

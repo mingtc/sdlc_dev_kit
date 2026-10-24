@@ -119,8 +119,9 @@ state — so that every tool and every reader downstream can rely on the shape w
   **2 is not the majority's value, it is the PUBLISHED one:** `finish-pr.sh`'s exit table declares
   it as the usage-error status — an unknown option, a missing option value, or a required option left
   out (`--id`, `--role`, `--title` and the like): the caller got the arguments wrong, and nothing was
-  read or touched. That table is the only place the kit writes down what a status MEANS; the exit
-  tables of `kit-upgrade.sh` and `set-models.sh` cite it. A required
+  read or touched. That table publishes the usage status; the exit tables of `kit-upgrade.sh` and
+  `set-models.sh` cite it. Every other status is local: `verify.sh` and `notify/stall.sh` write their
+  own tables and reuse a number with a different meaning, so read the table of the tool you call. A required
   POSITIONAL left out, or a surplus one, is a different class and keeps its own status — the two are
   told apart by a `-*)` arm ahead of the catch-all. That distinction is not a divergence; collapsing
   it would be.

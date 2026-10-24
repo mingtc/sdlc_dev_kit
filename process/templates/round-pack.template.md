@@ -74,7 +74,7 @@ commit — "only what ships" has to be a specific set of bytes, or the round is 
 
 ## 3. The scenario matrix
 
-> **GUIDANCE.** One row per scenario, and **three columns that are each a known failure mode**:
+> **GUIDANCE.** One row per scenario, and **two columns that are each a known failure mode**:
 > *Measures* must say which of **what they achieved** or **what they chose** it grades — and if it
 > grades a choice, the prompt hands over an **intent, never a prepared artefact** (§ A.9).
 > *Fixture precondition* is the state the fixture must be in for the scenario to be measurable, and

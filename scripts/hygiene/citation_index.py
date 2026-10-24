@@ -21,8 +21,9 @@
 # each capture load-bearing. Conflated, a census either paralyses itself (everything looks cited)
 # or destroys evidence (nothing does). `referrers()` returns two sets; every caller prints two.
 #
-# WHAT IT IS NOT. Not a guard, not a gate, not collected by any test runner. It writes nothing,
-# deletes nothing, moves nothing and makes no network call.
+# WHAT IT IS NOT. Not a guard and not a gate: the self-test runs each instrument here and skips
+# those cases when this directory is absent. It writes nothing, deletes nothing, moves nothing
+# and makes no network call.
 #
 # THE SHAPES IT LOOKS FOR, each a blind spot that would otherwise yield a wrong orphan list:
 #   (a) markdown link targets, `[x](process/MANUAL.md)` and `[x](verify-gate.md)`;

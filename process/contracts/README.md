@@ -9,9 +9,9 @@ shell if they don't want to — but the spirit needs to be there."*
 
 **Read a sheet as a specification.** Sections 1–5 are binding on **any** implementation in **any**
 language; section 6 names this kit's own implementation and is marked as *one implementation,
-not the definition*. A sheet that made you open the script has failed its only job — say so.
+not the definition*. A sheet may add a binding section after 6 (read to the last heading). A sheet that made you open the script has failed its only job — say so.
 
-## The six sections, every sheet, no exceptions
+## The six sections every sheet has
 
 | # | Section | What it holds |
 |---|---|---|

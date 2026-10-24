@@ -375,7 +375,7 @@ Starts from a `type: refactor` issue in `progress/todo/` (created by the Refacto
 | Multiple moves in one commit | Allowed (within a single AC slice) | **Forbidden.** Each Fowler primitive is its own commit. Horizontal sweeps may group commits by directory or rule application but never mix primitives. |
 | Verification | [verification-before-completion] on AC | Same skill, different assertion: **every behavior in "Behaviors Preserved" still passes** + the full gate runner green + **no behavior outside "Intentionally unconstrained" has observably changed**. |
 | Done bar | All AC pass | All Behaviors Preserved still pass + Move Sequence executed (no skipped moves without a `progress.md` deviation note) + no public surface changed beyond what's listed in Migration Plan. |
-| Handoff notes | Standard | Add a `## Behaviors Preserved` section listing each behavior with its verifying test, and a `## Commit-by-Move log` listing each Fowler primitive and its commit SHA. |
+| Handoff notes | Standard | Fill in the card's existing `## Behaviors Preserved` (do not add a second one) with each behavior's verifying test, and add a `## Commit-by-Move log` listing each Fowler primitive and its commit SHA. |
 
 ### Disagreeing with the plan
 

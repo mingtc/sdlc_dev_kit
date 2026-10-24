@@ -74,16 +74,19 @@
 # producer's output exceeds the 64KB pipe buffer the producer dies of SIGPIPE, and
 # pipefail makes that the pipeline's status, so a match reads as "not found". Capturing
 # the output into a variable first does not help: it only moves which process dies.
-#   • IN THIS HARNESS no assertion uses a piped early-exiting reader, because every
-#     producer is a fixture a future case can enlarge.
+#   • IN THIS HARNESS write no `find … | head -1` and no piped `grep -q`: every producer is a
+#     fixture a future case can enlarge. Other early readers (`head` after grep or sed,
+#     `grep -m`, `sed …q`, `read`) are not censused; prefer a here-string or a variable for them.
 #   • IN THE SHIPPED SCRIPTS the rule binds producers that can grow (a repository, a
-#     board, a history, the network). A pipe validating a single flag value is left.
-#   case_probe_victim_selection_survives_pipefail enforces both. The fix: drop the `-q`
+#     board, a history, the network, a function's output). A pipe validating a single flag
+#     value is left.
+#   case_probe_victim_selection_survives_pipefail enforces the harness half and the shipped
+#   `git`/`find`/`ls`/`cat` producers piped into `grep -q`; case_shipped_membership_tests_do_not_pipe_a_list
+#   enforces a variable list or a function's output piped into a quiet grep. The fix: drop the `-q`
 #   and redirect (`| grep -F pat >/dev/null` drains the input and returns the same
 #   status), or test the string with `[[ "$out" == *pat* ]]`. A bare `grep -q FILE`
 #   has no pipe and is unaffected. A variable that holds a list is read through a
-#   here-string (`grep -qx -- "$id" <<< "$list"`), never piped from `printf`;
-#   case_shipped_membership_tests_do_not_pipe_a_list enforces that in the shipped scripts.
+#   here-string (`grep -qx -- "$id" <<< "$list"`), never piped from `printf`.
 set -uo pipefail
 
 # A USAGE REQUEST IS ALWAYS LEGAL AND ALWAYS SUCCEEDS, IN ANY POSITION (process/contracts/issue-creation.md § 3).

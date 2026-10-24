@@ -6,8 +6,9 @@
 
 > **GUIDANCE — how to use this file.** Copy it to
 > `dev/launch/<YYYY-MM-DD>-<run-name>-run-report.md`, fill the `<slots>`, delete every blockquote that
-> opens `> **GUIDANCE`, the line-1 marker and the `LINKS IN THIS FILE` comment under it (the STATUS banner and the
-> independence clause stay). Of the two opening blocks below keep the one that fits the run, without
+> opens `> **GUIDANCE`, the line-1 marker, the `LINKS IN THIS FILE` comment under it, this file's
+> own `# Run-report template` title and the `## The header and the independence clause` heading (the
+> STATUS banner and the independence clause stay). Of the two opening blocks below keep the one that fits the run, without
 > its code fence, and delete the other. The report is written **by the runner that executed the pack**, and it
 > is the deliverable that closes the pack: **when a launch pack commissioned the run,** the pack is
 > stamped `SPENT` **against this file, by name, in the same commit that lands it** ([`process/doctrine/staleness.md`](../../process/doctrine/staleness.md)).
@@ -47,15 +48,16 @@
 > inherited rather than re-measured are labelled as such.
 ```
 
-**No launch pack** (an unattended run planned just-in-time from the board and `scripts/ask.sh`):
-there is no pack to name or stamp `SPENT`. Replace the first block with what commissioned the run, and
-keep the independence clause word for word.
+**No launch pack** (a run planned just-in-time from the board: unattended through `scripts/ask.sh`, or
+attended with the plan approved in the session): there is no pack to name or stamp `SPENT`. Replace the
+first block with what commissioned the run, and keep the independence clause word for word. An attended
+run files no plan, so its banner says where the plan was approved instead of linking one.
 
 ```
-# <RUN NAME> — RUN REPORT (unattended, no launch pack; opened <date>, closed <date>)
+# <RUN NAME> — RUN REPORT (<unattended|attended>, no launch pack; opened <date>, closed <date>)
 
 > **STATUS: CLOSED. <X> of <N> landed, <Y> parked at close.** No launch pack commissioned this run;
-> its plan is [`<the filed plan at the declared channel>`](<path to the filed plan>). Nothing to stamp `SPENT`.
+> its plan is [`<the filed plan at the declared channel>`](<path to the filed plan>) <or, attended: approved in the session on <date>, no file>. Nothing to stamp `SPENT`.
 >
 > **Every figure below was measured by the orchestrator independently of the leg that claimed
 > it.** Where the two disagreed, the measurement wins and the disagreement is stated. Figures

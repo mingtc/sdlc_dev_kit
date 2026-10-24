@@ -397,10 +397,10 @@ Return the structured result only.`
 }
 
 const results = []
-// A Dev leg that returned nothing: named, never re-labelled as a status Dev did not report.
+// A Dev leg that returned nothing: named, never re-labelled as a status Dev did not report. The wave loop
+// below logs every LEG_ABORTED record, this one included, once.
 function devReturnedNothing(issue, label, dev) {
   const error = `${label}:${issue.id}: the Dev leg returned nothing`
-  log(`${issue.id}: LEG_ABORTED — ${error}; state unknown, the wave HALTS`)
   return { id: issue.id, outcome: OUTCOME.LEG_ABORTED, error, dev }
 }
 async function runIssue(issue) {

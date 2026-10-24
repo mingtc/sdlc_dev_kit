@@ -333,6 +333,11 @@ columns and never the cards.*
 
 ### Changed
 
+- **Consumer, template and role-doc text matches what ships.** `setup-consumer.sh`'s closing list points at the upstream checkout's `ci/` and README (the consumer's repo has neither); `consumers/README.md` says refreshes and `--check`
+  use the network; `LICENSE-CONTENT` no longer lists process doctrine as CC0 (it is MIT, as `LICENSE` says); `wave-runner.js` logs a Dev leg that returned nothing once; the run-report template covers an attended no-launch-pack run and
+  lists its own title and heading to delete; `architect.md` has an `Agreed on:` field; `dev.md` fills the card's own `## Behaviors Preserved`; `/start` cites `PROJECT.md`'s tooling floor; `using-skills` ends with a note telling an
+  unwatched seat to decide through `scripts/ask.sh`, record and continue at gates that wait for a person. No action.
+
 - **Script messages say what runs.** The `kit-init.sh` line in `verify.sh`'s and `finish-pr.sh`'s refusals carries the `--prefix` and `--trunk` it requires; `finish-pr.sh --help` explains `--dry-run` (it exits before the
   pre-merge gate, so it predicts nothing about it); `archive-progress.sh --apply` says "Writing to:"; `next-id.sh` outside a repository prints one error; the manual names the first card's `--id`. No action.
 

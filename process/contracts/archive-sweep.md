@@ -94,7 +94,9 @@ indexed store — **without ever losing the record it is retiring**.
   tool is broken. So: **index missing and the store already holds retired material ⇒ refuse, listing
   what it holds as the proof** — that listing is what makes the refusal checkable rather than
   asserted, and a backfill recipe is owed with it. **Index missing and the store empty ⇒ the tool may
-  create it, carrying a note saying the emptiness was true when written.**
+  create it, carrying a note saying the emptiness was true when written.** The reference board
+  sweep (`archive.sh`) chooses to refuse here and names the file to create by hand; only the
+  progress-log rotation (`archive-progress.sh`) creates the index.
   *The conclusion moved; the reason did not. Both halves are still "never write a claim the tree
   contradicts".*
 - The index has no recognisable insertion point ⇒ refuse, saying exactly what heading is expected.

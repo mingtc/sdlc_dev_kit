@@ -140,7 +140,7 @@ another language satisfies this file unchanged.
 | the **duplication scan** | cross-file n-gram containment over the prose corpus |
 | the **reachability walk** | starter-graph walk → orphan list, with its convention exemptions named *in the instrument* |
 | the **cold-signal scan** | single-commit AND cold AND zero EXACT referrers, from local history |
-| the **staleness greps** | the loose staleness signals, reported as suspicions **with their base rate** |
+| the **staleness greps** | the loose staleness signals, reported as suspicions; **no base rate ships**, so measure yours on the first adjudication |
 
 They all share one **citation index**, which reports **EXACT and ANCESTOR referrers as separate
 columns and never collapses them.** That separation is the central honesty mechanism of the whole
