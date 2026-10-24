@@ -180,7 +180,7 @@ and landed-but-not-finished**, so a human and a machine read the same result.
 non-zero on red; this one asks for more, because a landing has a state the gate runner does not: it
 can fail at a point where the damage is already done and re-running would compound it.)*
 **Not in:** the gate's own check list (see [verify-gate.md](verify-gate.md)) and any notion of a
-code-review object — the item's activity log **is** the review record.
+code-review object — the item's `## QA Verdict` table **is** the review record.
 
 ## 6. REFERENCE IMPLEMENTATION
 

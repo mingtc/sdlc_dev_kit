@@ -2443,7 +2443,7 @@ case_subtask_parent_is_an_open_issue() {
 # =============================================================================
 case_creation_link_options_are_shape_checked() {
   cf_reset
-  local L="new-issue.sh and new-bug.sh refuse a malformed --prd, --stories or --discovered-in with exit 2, naming the option and writing no card, and accept the shapes their usage text states"
+  local L="new-issue.sh, new-bug.sh and subtask.sh new refuse a malformed --prd, --stories or --discovered-in with exit 2, naming the option and writing no card, and accept the shapes their usage text states"
   if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
   if [ ! -f "$REAL_REPO_ROOT/.claude/templates/BUG.template.md" ]; then skp_lived "$L" ".claude/templates/BUG.template.md is absent from this tree"; return; fi
   make_sandbox
@@ -2482,6 +2482,12 @@ case_creation_link_options_are_shape_checked() {
   [ "$rc" -eq 2 ] || cf "new-issue.sh --prd holding a newline exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh nlbug --id "$SB_PREFIX-618" --discovered-in "$SB_PREFIX-001"$'\n'x 2>&1 )" || rc=$?
   [ "$rc" -eq 2 ] || cf "new-bug.sh --discovered-in holding a newline exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  # subtask.sh new runs the same reader on --prd and --stories, before it touches the board.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-001" s1 badsub --title t --prd FOO 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "subtask.sh new with a malformed --prd exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s' "$out" | grep -F -- "--prd" >/dev/null || cf "subtask.sh new --prd FOO: the refusal does not name the option: $out"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-001" s1 nlsub --title t --stories "$pid-001-F1-S1"$'\n'x 2>&1 )" || rc=$?
+  [ "$rc" -eq 2 ] || cf "subtask.sh new --stories holding a newline exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
   # The shapes the usage text states are accepted.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh okissue --id "$SB_PREFIX-931" --prd "$pid-001" --stories "$pid-001-F1-S1,$pid-001-F2-S3" 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "(control) new-issue.sh with well-formed --prd and --stories exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"

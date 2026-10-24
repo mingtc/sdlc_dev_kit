@@ -256,7 +256,7 @@ an instruction in one tool's or one forge's command, this kit keeps the instruct
 command to a named example — the setup commands in `using-git-worktrees`, the review-thread reply
 in `receiving-code-review`. **Other local hardening is not of that class and the diff will show
 it too:** `finishing-a-development-branch` carries this kit's landing law, `using-skills`
-has repaired citations, names its implementation skills and ends with a kit note on the gates that wait for a person (the gate text above the note is unedited), `requesting-code-review` and
+has repaired citations, names its implementation skills and ends with a kit note on the gates that wait for a person (the 1% rule block is unedited), `requesting-code-review` and
 `subagent-driven-development` show the kit's plan filename in their worked examples, `requesting-code-review` also tells a leaf worker to self-review and report an independent review owed, `using-git-worktrees` gained an external-directory note, the card's `branch:` as its branch name and the Dev role's worktree table as its declared preference,
 `brainstorming` saves its design under `dev/specs/` and `executing-plans` carries the kit's INLINE description, `writing-plans` saves plans under the kit's id-keyed name, and `systematic-debugging`'s `find-polluter.sh`
 takes its runner from `TEST_CMD`, refuses a clean result over zero matched files, a pre-existing path or a

@@ -193,12 +193,12 @@ Action on FAIL splits by reason:
 
 **FAIL on AC unmet** (the original issue's own AC isn't satisfied):
 - `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL on AC. AC unmet: <which>."` (auto-commits as `[QA] <PREFIX>-NNN → in_progress: ...` inside the kanban worktree).
-- Record the FAIL verdict in the issue file's **Activity log** (`move-issue.sh`'s `--note` does this) — there is no PR to comment on; the Activity log is the review record.
+- Record the FAIL verdict and per-AC evidence in the issue file's `## QA Verdict` table — there is no PR to comment on; that table is the review record. `move-issue.sh`'s `--note` adds the FAIL line to the Activity log.
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — AC unmet.`
 
 **FAIL on regression** (a previously-green test broke — a red gate — at any severity, or a `Blocker` or `Critical` bug found in behavior the suite does not cover, whether or not the AC is met):
 - File each bug **from the trunk, not the work branch** — the card is published there, and `next-id.sh` reads the trunk only as last fetched: in the main checkout (not the Dev's worktree), `git switch <trunk> && git pull --ff-only`, then `./scripts/new-bug.sh <slug> --id "$(./scripts/next-id.sh)" --prd PRD-NNN --stories ... --discovered-in <PREFIX>-NNN --severity <its severity>`, then commit and push the card before citing its id. `--id` is **required**. The script creates `progress/todo/<PREFIX>-NNN-<slug>.md` with `type: bug`, the RIDER body, and `discovered_in:` pointing back to the issue under review.
-- `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL_REGRESSION. Bugs filed: <PREFIX>-NNN."` Do not merge. The note is the review record.
+- `./scripts/move-issue.sh <PREFIX>-NNN in_progress --role QA --note "Review — FAIL_REGRESSION. Bugs filed: <PREFIX>-NNN."` Do not merge. The verdict and evidence go in the `## QA Verdict` table (the review record); the note is the Activity log line.
 - Append `progress.md`: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: FAIL — bugs <PREFIX>-NNN, <PREFIX>-NNN filed.`
 
 `Major` and `Minor` bugs in behavior the suite does not cover do **not** fail the review (calibrate to the project's quality bar); a broken test is a red gate, which fails at any severity. File them the same way with `--severity <Major|Minor>`, and land as in Action on PASS: `./scripts/finish-pr.sh <PREFIX>-NNN --note "Review — PASS. Bugs filed: <PREFIX>-NNN."`, plus `--worktree <the checkout you reviewed in>` per step 2; PM decides defer-or-fix.
@@ -317,7 +317,7 @@ Bugs are work items in the unified `progress/` system — same lifecycle as feat
 
 - [ ] Every reviewed issue file is in its correct folder — `qa_complete/` (PASS) or `in_progress/` (FAIL).
 - [ ] Every new bug file lives in `progress/todo/` with a full RIDER, a unique id, `type: bug`, a severity, `discovered_in`, and branch `fix/<PREFIX>-NNN-<slug>`. Created via `./scripts/new-bug.sh`.
-- [ ] Each verdict + bug IDs recorded in the issue file's Activity log (via `move-issue.sh --note`). Forge-agnostic pure git — no PR to comment on or approve.
+- [ ] Each verdict + bug IDs recorded in the issue file's `## QA Verdict` table, with the move note in the Activity log (via `move-issue.sh --note`). Forge-agnostic pure git — no PR to comment on or approve.
 - [ ] `progress.md` — one line per issue reviewed: `YYYY-MM-DD [QA] review of <PREFIX>-NNN: PASS/FAIL — <reason or bug refs>`.
 - [ ] No output files (gate diffs, sample artifacts) left untracked that should be in git.
 - [ ] **Kit feedback, unless `PROJECT.md` sets `kit-feedback: manual` or `off`:** the session-close questions answered, and this session's `progress.md` entry ends with `kit-feedback: none` or `kit-feedback: K-NN[, K-NN…]` — as a dispatched leg, instead of that line put one `kit-finding: <what; kit file:line or "silent">` line per finding in your `progress.md` entry, and the orchestrator writes the entries — `process/MANUAL.md` § Kit feedback.

@@ -277,6 +277,10 @@ _pipes_a_list_rows() {  # <declared single-value names, space-separated> <file>�
 
 # A FUNCTION is a producer too: `fn args | grep -qx "$id"` hands the reader the function's whole
 # output, and a function can print a list that grows. <function names, space-separated> <file>…
+# It reads `fn args | grep -q…` after a `;`, `&&`, `||`, `$(` or a keyword. It does NOT read
+# `fn args 2>&1 | grep -q…` (the & of 2>&1 reads as a separator), `fn |& grep -q…`,
+# `{ fn; } | grep -q…`, or a pipe inside `[ -n "$(fn | grep -q …)" ]`: a reviewer reads a new
+# membership test for those forms.
 _pipes_a_function_rows() {
   local names="$1"; shift
   awk -v names=" $names " '

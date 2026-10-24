@@ -103,7 +103,7 @@ for once you're in motion.
 Two files, because this kit is two different things at once: [`LICENSE`](LICENSE) (MIT) covers its
 mechanism — the scripts, the process doctrine, the skills; [`LICENSE-CONTENT`](LICENSE-CONTENT)
 (CC0-1.0, public domain) covers the scaffold content you copy, edit and delete as your own project
-replaces it — templates, the bootstrap files, your adapted doctrine. **Your project's own license is
+replaces it — templates, the bootstrap files. **Your project's own license is
 yours to choose; nothing here reaches into it.**
 
 ---

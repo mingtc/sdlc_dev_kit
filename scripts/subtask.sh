@@ -175,11 +175,11 @@ case "$CMD" in
     [ $# -lt 3 ] && { usage >&2; exit 1; }
     no_dash "$1" "PARENT-ID"; no_dash "$2" "suffix"; no_dash "$3" "slug"
     PARENT="$1"; SUFFIX="$2"; SLUG="$3"; shift 3
-    TITLE=""; PRD=""; STORIES="[<the parent's story ids this slice covers>]"; PLAN=""; SIZE="S"
+    TITLE=""; PRD=""; STORIES_GIVEN=""; STORIES="[<the parent's story ids this slice covers>]"; PLAN=""; SIZE="S"
     while [ $# -gt 0 ]; do case "$1" in
       --title) need_val "$@"; TITLE="$2"; shift 2 ;;
       --prd) need_val "$@"; PRD="$2"; shift 2 ;;
-      --stories) need_val "$@"; STORIES="[$2]"; shift 2 ;;
+      --stories) need_val "$@"; STORIES_GIVEN="$2"; STORIES="[$2]"; shift 2 ;;
       --plan) need_val "$@"; PLAN="$2"; shift 2 ;;
       --size) need_val "$@"; SIZE="$2"; shift 2 ;;
       --discard-dirty) KWT_DISCARD_DIRTY=true; shift ;;
@@ -199,6 +199,8 @@ case "$CMD" in
     # and one git cannot check out burns the id (issue-creation.md § 5; validate_slug in
     # scripts/config.sh — one shape, one site).
     validate_slug "$SLUG" || exit 2   # exit-class: usage
+    # --prd and --stories have the shape new-issue.sh checks (validate_card_links, one reader).
+    validate_card_links "$PRD" "$STORIES_GIVEN" "" || exit 2   # exit-class: usage
     # The suffix is validated too, and NARROWER than a slug: the `move` arm recovers the parent
     # with ${ID%-s*}, so a suffix that is not s<digits> resolves to the wrong parent.
     case "$SUFFIX" in
