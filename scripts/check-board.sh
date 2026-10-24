@@ -858,6 +858,8 @@ elif [ -z "$g_lived" ]; then
 else
   # Name the signal that enabled the check.
   echo "      (enabled by: $g_lived)"
+  # A report line, never a finding: the hooks are the human's opt-in, so their absence changes no verdict.
+  [ -f "$CB_TREE/.claude/settings.json" ] || echo "      hooks: off (\`.claude/settings.json\` absent) — the hat gate and the agent record do not run; the act that turns them on is in process/MANUAL.md § The default path is lite"
   g_find=0
   # THE MEASURED POPULATION: incremented once per CLASS OR MEMBER this arm actually read (pass or
   # fail — an unread member counts as unmeasured, never as measured-and-clean). Printed before the

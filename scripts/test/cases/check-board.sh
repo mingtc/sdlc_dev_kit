@@ -4716,3 +4716,37 @@ case_check_board_fill_arm_reports_test_globs_missing_the_kits_own_tests() {
   finish "check-board arm [g]: a declared TEST_GLOBS that misses scripts/test/** is reported with the shipped population, one that covers it reads clean, and the verdict does not move"
   teardown
 }
+
+# =============================================================================
+# CASE — arm [g] reports `hooks: off` while .claude/settings.json is absent, and says nothing once
+# it exists. A report line only: the verdict lines are the same in both runs.
+# =============================================================================
+case_check_board_graduation_reports_hooks_off() {
+  cf_reset
+  make_sandbox
+  seed_issue todo "$SB_PREFIX-431" hookswatch chore "Hooks watch"
+  publish_sandbox
+
+  local off on
+  rm -f "$SB_WORK/.claude/settings.json"
+  off="$(cb_run | _cb_g_section)"
+  printf '%s\n' "$off" | grep 'enabled by:' >/dev/null || cf "(precondition) the arm is not enabled, so the report line could not be judged: $off"
+  printf '%s\n' "$off" | grep -F 'hooks: off (`.claude/settings.json` absent)' >/dev/null \
+    || cf "with .claude/settings.json absent the arm did not print the hooks-off line: $off"
+
+  # The arm reads the trunk's copy, so the file is committed and pushed as kit-init does.
+  mkdir -p "$SB_WORK/.claude"; printf '{}\n' > "$SB_WORK/.claude/settings.json"
+  git -C "$SB_WORK" add .claude/settings.json >/dev/null 2>&1
+  sbcommit -m "[PM] turn the hooks on" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push origin "$SB_TRUNK" >/dev/null 2>&1
+  on="$(cb_run | _cb_g_section)"
+  printf '%s\n' "$on" | grep 'enabled by:' >/dev/null || cf "(precondition) the arm is not enabled once the file exists: $on"
+  printf '%s\n' "$on" | grep 'hooks: off' >/dev/null && cf "the arm printed hooks: off with .claude/settings.json present: $on"
+  # Not a finding: the same lines minus the report line.
+  # (the trunk's short sha in each "read from:" label moved with the commit above, so it is masked)
+  [ "$(printf '%s\n' "$off" | grep -v 'hooks: off' | sed -E 's/@ [0-9a-f]{7,}/@ SHA/g')" = "$(printf '%s\n' "$on" | grep -v 'hooks: off' | sed -E 's/@ [0-9a-f]{7,}/@ SHA/g')" ] \
+    || cf "the hooks-off report changed another line of the arm (it must be a report, not a verdict input)"
+
+  finish "arm [g] prints 'hooks: off (.claude/settings.json absent)' when the file is absent and not when it is present, and the rest of the arm is identical in both runs"
+  teardown
+}

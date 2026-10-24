@@ -333,6 +333,8 @@ columns and never the cards.*
 
 ### Changed
 
+- **The act that turns the Claude Code hooks on is named, and `kit-init.sh --enable-hooks` makes the copy.** The harness refuses an agent's write of `.claude/settings.json`, so an agent now hands you the act: in your own terminal, at the project root, `cp .claude/settings.json.example .claude/settings.json`, then restart the session. `kit-init.sh`'s closing output, `/start`, `SEED.md` and `MANUAL.md` say it the same way; an agent suggests `--enable-hooks` and passes it only on your yes. `check-board.sh` arm `[g]` prints `hooks: off` while `.claude/settings.json` is absent; it changes no verdict. No action.
+
 - **The card is the trunk's; never commit it on a work branch.** `MANUAL.md` § The code-vs-metadata rule and `dev.md`'s hand-off step say so, and the landing's squash-conflict refusal, when the
   conflict includes the card, names the route: drop the card edit from the branch and re-run, and land it on the trunk with `register-commit.sh`. A non-overlapping card edit on a branch still lands. No action.
 

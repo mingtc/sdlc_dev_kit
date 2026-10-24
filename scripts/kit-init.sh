@@ -110,7 +110,7 @@ marker_restore() {
 KIT_INIT_ROLE_DEFAULT='PM'
 SELF_ROLE="${KIT_INIT_ROLE:-$KIT_INIT_ROLE_DEFAULT}"
 
-PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true
+PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true; ENABLE_HOOKS=false
 PROJECT_NAME_NEW=""
 
 usage() {
@@ -174,6 +174,12 @@ Options:
                       member of the role set in force, or the run is refused before
                       anything is written. Set it when your project wears another hat
                       before any role is declared, or declares a set without that one.
+  --enable-hooks      Also turn the Claude Code hooks on: copy .claude/settings.json.example
+                      to .claude/settings.json, committed with the rest. Pass it only
+                      when the human has said yes. REFUSED (nothing written) if
+                      .claude/settings.json exists and differs from the example; an
+                      identical file is left alone. Without it nothing is copied, and
+                      the closing output names the human's own command.
   --skip-self-check   Stamp and create, but do not run the self-check. Discouraged
                       — the self-check is the only part that PROVES the result.
   -h, --help          This text.
@@ -303,6 +309,7 @@ while [ $# -gt 0 ]; do
     --roles)          need_val "$@"; ROLES_NEW="$2"; shift 2 ;;
     --gate-command)   need_val "$@"; GATE_CMD="$2"; shift 2 ;;
     --skip-self-check) RUN_SELFCHECK=false; shift ;;
+    --enable-hooks)   ENABLE_HOOKS=true; shift ;;
     # An unrecognised option exits 2; a surplus positional exits 1 (issue-creation.md § 3).
     -*) echo "Error: unknown option: $1" >&2; echo "Try --help." >&2; exit 2 ;;   # exit-class: usage
     *) echo "Unknown arg: $1" >&2; echo "Try --help." >&2; exit 1 ;;   # exit-class: usage
@@ -353,6 +360,15 @@ fi
 # With no --project-name the directory's name is stamped, so it passes the same validator.
 if [ -z "$PROJECT_NAME_NEW" ] && ! validate_project_name "$(basename "$ROOT")" "this directory's name"; then
   pf "with no --project-name the project name is this directory's, which cannot be stamped (above) — pass --project-name <N>."
+fi
+
+# --enable-hooks copies the example over; it never overwrites a settings file that differs.
+if [ "$ENABLE_HOOKS" = "true" ]; then
+  if [ ! -f "$ROOT/.claude/settings.json.example" ]; then
+    pf "--enable-hooks: .claude/settings.json.example is missing, so there is nothing to copy. Restore it:  git checkout -- .claude/settings.json.example"
+  elif [ -e "$ROOT/.claude/settings.json" ] && ! cmp -s "$ROOT/.claude/settings.json.example" "$ROOT/.claude/settings.json"; then
+    pf "--enable-hooks: .claude/settings.json exists and differs from .claude/settings.json.example — it is yours and is not overwritten. Merge by hand, or re-run without --enable-hooks."
+  fi
 fi
 
 # --- the copy-list minimum ---
@@ -1069,6 +1085,26 @@ chmod +x "$ROOT"/scripts/githooks/* 2>/dev/null || true
 git -C "$ROOT" config core.hooksPath scripts/githooks
 say "  core.hooksPath = scripts/githooks  (proven below by a real rejected commit)"
 
+# The Claude Code hooks are separate from the git hooks above. The copy is made only when asked.
+if [ "$ENABLE_HOOKS" = "true" ]; then
+  if [ -e "$ROOT/.claude/settings.json" ]; then
+    say "  .claude/settings.json: already identical to the example — left alone"
+  else
+    cp "$ROOT/.claude/settings.json.example" "$ROOT/.claude/settings.json"
+    say "  .claude/settings.json: copied from the example (--enable-hooks) — the Claude Code hooks are on from the next session"
+  fi
+fi
+
+# The closing words about the Claude Code hooks, printed on every successful exit.
+hooks_note() {
+  [ ! -e "$ROOT/.claude/settings.json" ] || return 0
+  [ -f "$ROOT/.claude/settings.json.example" ] || return 0
+  say ""
+  say "  The Claude Code hooks are OFF. To turn them on, in your own terminal, at the project root:"
+  say "      cp .claude/settings.json.example .claude/settings.json"
+  say "  then restart the session — or approve the prompt, if an interactive session shows one."
+}
+
 # =============================================================================
 # 5. COMMIT + PUSH — the board must exist ON THE TRUNK.
 #
@@ -1097,6 +1133,7 @@ fi
 if [ "$RUN_SELFCHECK" != "true" ]; then
   step "Self-check SKIPPED (--skip-self-check)"
   say "  Nothing has been PROVEN. Run ./scripts/kit-init.sh --help and read the note on this flag."
+  hooks_note
   exit 0
 fi
 
@@ -1356,6 +1393,7 @@ if [ "$SC_FAIL" -eq 0 ]; then
   say "  (a commit is refused without it — process/contracts/role-gate.md)."
   say "  Then commit and PUSH the new card before moving it — ./scripts/move-issue.sh"
   say "  reads the trunk's board, not your checkout (new-issue.sh prints the exact commands)."
+  hooks_note
   exit 0
 else
   say "  ✗ kit-init self-check FAILED — $SC_FAIL check(s) above. The tree IS initialized and"

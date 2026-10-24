@@ -74,8 +74,9 @@ along with the rest of the sheet, or `scripts/ask.sh` still has nothing to read 
 ```
 
 It stamps the seams, creates the board, wires the git hooks path and then **proves the result with a
-self-check**. (The Claude Code hooks are separate and opt-in: copy `.claude/settings.json.example` to
-`.claude/settings.json` to turn them on — `process/MANUAL.md` § The default path is lite.) A second run **refuses**; so does a run against a repository that has already lived.
+self-check**. (The Claude Code hooks are separate and opt-in. To turn them on, in your own terminal, at the project root, run
+`cp .claude/settings.json.example .claude/settings.json`, then restart the session — or approve the prompt, if an
+interactive session shows one; `--enable-hooks` makes the same copy during this run. `process/MANUAL.md` § The default path is lite has the rule.) A second run **refuses**; so does a run against a repository that has already lived.
 
 **`--gate-command` is for this run only, and that matters HERE because of the order of operations.**
 A re-run refuses and there is no resume path, so a project extracting an existing tool — which may

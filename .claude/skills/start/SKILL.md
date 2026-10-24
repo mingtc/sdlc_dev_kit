@@ -18,10 +18,16 @@ your memory of it.
 - **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older
   version does not read a lone `AGENTS.md`, so every session there starts with no instructions and
   nothing says so. If it is older, stop here and tell the human to update Claude Code first.
-- **The Claude Code hooks are opt-in.** Until someone copies `.claude/settings.json.example` to
-  `.claude/settings.json`, the hat gate and the agent record are off (`process/MANUAL.md` § The
-  default path is lite says what it wires). Tell the human; activating hooks is their decision,
-  not yours. An unattended launch also passes `.claude/settings.unattended.json.example`.
+- **The Claude Code hooks are opt-in.** Until `.claude/settings.json` exists, the hat gate and the
+  agent record are off (`process/MANUAL.md` § The default path is lite says what it wires).
+  Activating them is the human's decision, not yours, and the harness will refuse your own write of
+  that file. Hand the human this act: in your own terminal, at the project root, run
+  `cp .claude/settings.json.example .claude/settings.json`, then restart the session — or approve
+  the prompt, if an interactive session shows one. Do not try another route. Suggest
+  `kit-init.sh --enable-hooks` when hooks would help, and pass it only on the human's yes — in the
+  conversation when attended, or as the principal's recorded answer through `scripts/ask.sh` when
+  unattended — and record the consent as a register entry. An unattended launch also passes
+  `.claude/settings.unattended.json.example`.
 - **The two optional extras, only if the project uses them:** `brainstorming`'s visual companion
   needs Node (`node --version`); `scripts/hygiene/` needs Python 3, standard library only
   (`python3 --version`). Check for these only if the adapter (once one exists — see section 3 of this skill) says

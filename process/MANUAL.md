@@ -256,10 +256,20 @@ story→issue decomposition, and subtask trees are reserved for a **feature area
 issues**. Reaching for that machinery on a small fix is **visible over-process**.
 
 **Opt-in — off unless you turn it on:** notifications (`notify.sh`; with the backend unset it is
-a silent no-op), the Claude Code hooks (shipped as `.claude/settings.json.example`: copy it to
-`.claude/settings.json` to turn them on; `grep '"command"' .claude/settings.json.example | grep -o 'scripts/[a-z/.-]*\.sh' | sort -u`
+a silent no-op), the Claude Code hooks (shipped as `.claude/settings.json.example`; `grep '"command"' .claude/settings.json.example | grep -o 'scripts/[a-z/.-]*\.sh' | sort -u`
 lists what it wires), the unattended launch profile (`.claude/settings.unattended.json.example`, passed at
 launch with `--settings`), and specs / subtasks (above).
+
+**Turning the hooks on — the one act, worded the same wherever the kit names it (this is the canonical
+sentence; `kit-init.sh`'s closing output, `.claude/skills/start/SKILL.md`, `process/SEED.md` and
+`.claude/settings.json.example` repeat it).** In your own terminal, at the project root, run
+`cp .claude/settings.json.example .claude/settings.json`, then restart the session — or approve the prompt, if an
+interactive session shows one. Claude Code protects `.claude/settings.json` from an agent's write, so an agent
+that is refused does not retry another way (another tool, an edit to the example, a git setting): it hands the human
+that sentence and carries on with the hooks off. `kit-init.sh --enable-hooks` makes the same copy at adoption. An agent
+suggests the flag when hooks would help and passes it only on the human's yes — in the conversation when attended, or as
+the principal's recorded answer through `scripts/ask.sh` when unattended — and records the consent as a register
+entry. `scripts/check-board.sh`'s graduation arm reports `hooks: off` while the file is absent.
 
 **Never optional — the binding gates.** Every project has a small set of gates that are run on
 **every** change and are never traded away; **the project doc names them**, and the project's

@@ -547,6 +547,7 @@ CASES=(
   case_check_board_graduation_verdict_is_not_wired
   case_check_board_graduation_refuses_complete_over_nothing_measured
   case_check_board_graduation_non_markdown_fill_members
+  case_check_board_graduation_reports_hooks_off
   case_session_start_hook_output_stays_within_the_delivery_budget
   case_kit_init_survives_the_documented_first_commit
   case_kit_init_refuses_an_uncommitted_kit
@@ -572,6 +573,8 @@ CASES=(
   case_kit_init_refuses_archive_md_without_archived_heading
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
+  case_kit_init_enable_hooks_makes_the_copy_and_the_default_does_not
+  case_the_hooks_act_is_worded_the_same_wherever_the_kit_names_it
   case_option_parsing_hygiene
   case_usage_request_succeeds_in_any_position
   case_creation_slug_shape_is_one_rule

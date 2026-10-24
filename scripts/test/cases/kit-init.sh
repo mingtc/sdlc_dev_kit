@@ -3084,3 +3084,84 @@ EOF
   finish "kit-init's copy-list minimum is a REAL minimum: every one of its $n entries, derived out of the shipped array rather than retyped, makes the preflight refuse AND name that path when it is absent"
   teardown
 }
+
+# =============================================================================
+# CASE — --enable-hooks makes the .claude/settings.json copy; the default run does not.
+# Each scenario is its own sandbox, built in the order the adopter's day one runs: copy-list,
+# publish, kit-init. The example is the operand: the copy must be byte-equal to it.
+# =============================================================================
+_hk_sandbox() {   # [pre-placed settings.json content]
+  kit_init_sandbox
+  cp "$REAL_REPO_ROOT/.claude/settings.json.example" "$SB_WORK/.claude/settings.json.example"
+  publish_sandbox
+  [ "$#" -eq 0 ] || printf '%s\n' "$1" > "$SB_WORK/.claude/settings.json"
+}
+_hk_run() { _hk_rc=0; _hk_out="$( cd "$SB_WORK" && ./scripts/kit-init.sh --prefix SBX --trunk "$SB_TRUNK" "$@" 2>&1 </dev/null )" || _hk_rc=$?; }
+
+case_kit_init_enable_hooks_makes_the_copy_and_the_default_does_not() {
+  cf_reset
+  local L="kit-init --enable-hooks makes .claude/settings.json byte-equal to the example and commits it; the default run does not copy and its closing output names the human's act; a differing file is refused with nothing written, an identical one is left alone"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/settings.json.example" ]; then
+    skp_lived "$L" ".claude/settings.json.example is absent from this tree"; return
+  fi
+  local act='cp .claude/settings.json.example .claude/settings.json'
+
+  # (a) the default: no copy, and the closing output carries the named act.
+  _hk_sandbox; _hk_run
+  [ "$_hk_rc" -eq 0 ] || cf "(a) the default run exited $_hk_rc: $(printf '%s\n' "$_hk_out" | tail -5 | tr '\n' '|')"
+  [ ! -e "$SB_WORK/.claude/settings.json" ] || cf "(a) the default run created .claude/settings.json"
+  printf '%s\n' "$_hk_out" | grep -F "$act" >/dev/null || cf "(a) the closing output does not name the act '$act'"
+  printf '%s\n' "$_hk_out" | grep 'in your own terminal, at the project root' >/dev/null || cf "(a) the closing output does not say where the act is taken"
+  printf '%s\n' "$_hk_out" | grep 'restart the session' >/dev/null || cf "(a) the closing output does not say to restart the session"
+  teardown
+
+  # (b) --enable-hooks: the copy exists, equals the example, reaches the trunk; the act is not repeated as pending.
+  _hk_sandbox; _hk_run --enable-hooks
+  [ "$_hk_rc" -eq 0 ] || cf "(b) --enable-hooks exited $_hk_rc: $(printf '%s\n' "$_hk_out" | tail -5 | tr '\n' '|')"
+  if [ -f "$SB_WORK/.claude/settings.json" ]; then
+    cmp -s "$SB_WORK/.claude/settings.json" "$SB_WORK/.claude/settings.json.example" || cf "(b) .claude/settings.json is not byte-equal to the example"
+    origin_has_path ".claude/settings.json" || cf "(b) the copy was not committed and pushed to the trunk"
+  else
+    cf "(b) --enable-hooks did not create .claude/settings.json"
+  fi
+  printf '%s\n' "$_hk_out" | grep 'hooks are OFF' >/dev/null && cf "(b) the closing output says the hooks are off after --enable-hooks"
+  teardown
+
+  # (c) a differing file is the project's: refused before anything is written.
+  _hk_sandbox '{ "mine": true }'; _hk_run --enable-hooks
+  [ "$_hk_rc" -ne 0 ] || cf "(c) --enable-hooks overwrote or ignored a differing .claude/settings.json (exit 0)"
+  printf '%s\n' "$_hk_out" | grep 'NOTHING WAS WRITTEN' >/dev/null || cf "(c) the refusal does not say nothing was written"
+  grep -q 'Stamped by scripts/kit-init.sh' "$SB_WORK/scripts/config.sh" && cf "(c) the refused run stamped scripts/config.sh"
+  grep -F '"mine"' "$SB_WORK/.claude/settings.json" >/dev/null || cf "(c) the project's own file was changed"
+  teardown
+
+  # (d) an identical file: idempotent, no refusal.
+  _hk_sandbox; cp "$SB_WORK/.claude/settings.json.example" "$SB_WORK/.claude/settings.json"; _hk_run --enable-hooks
+  [ "$_hk_rc" -eq 0 ] || cf "(d) --enable-hooks refused a settings.json identical to the example (exit $_hk_rc)"
+  cmp -s "$SB_WORK/.claude/settings.json" "$SB_WORK/.claude/settings.json.example" || cf "(d) the identical file changed"
+  teardown
+
+  finish "$L"
+}
+
+# CASE — the human's act is worded the same in every place the kit names it.
+case_the_hooks_act_is_worded_the_same_wherever_the_kit_names_it() {
+  cf_reset
+  local L="the act that turns the Claude Code hooks on (the cp command, where it is taken, the restart) is worded the same in kit-init's closing output, the /start skill, SEED.md, MANUAL.md and settings.json.example"
+  if [ -n "$(_tree_has_lived)" ]; then skp_lived "$L" "process/SEED.md and process/MANUAL.md are the project's own on an adopted tree"; return; fi
+  local f missing=""
+  for f in scripts/kit-init.sh .claude/skills/start/SKILL.md process/SEED.md process/MANUAL.md .claude/settings.json.example; do
+    if [ ! -f "$REAL_REPO_ROOT/$f" ]; then cf "(control) $f is absent, so its wording was not read"; continue; fi
+    grep -F 'cp .claude/settings.json.example .claude/settings.json' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not name the cp command"
+    grep -i 'in your own terminal, at the project root' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not say the act is taken in the human's own terminal at the project root"
+    grep 'restart the session' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not say to restart the session"
+  done
+  for f in .claude/skills/start/SKILL.md process/MANUAL.md; do
+    [ -f "$REAL_REPO_ROOT/$f" ] || continue
+    grep -F -- '--enable-hooks' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not name --enable-hooks"
+    grep -F 'the human' "$REAL_REPO_ROOT/$f" >/dev/null && grep 'ask.sh' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not state the consent route (the human's yes, or the principal's answer through ask.sh)"
+  done
+  finish "$L"
+}
