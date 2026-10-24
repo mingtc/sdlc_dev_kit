@@ -34,7 +34,7 @@ commits that fall outside it. The unpacked kit's first commit, made before the c
 wired or under its escape, carries no hat. Code carries the hat that writes it, and the
 initializer signs its own commits. If you wear a different hat, you owe step 8's file one line
 saying which, and why. Once the commit guard is wired, a commit also needs the hat **declared**:
-write `.kit/session-role` (one line, `<Role> <scope>`) before your first commit after the initializer.
+run `mkdir -p .kit`, then write `.kit/session-role` (one line, `<Role> <scope>`) before your first commit after the initializer.
 
 | # | Do this | Authority — where the law actually lives |
 |---|---|---|

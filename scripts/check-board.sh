@@ -12,7 +12,7 @@
 #   (e) [Role]-prefix scan of recent trunk commits;
 #   (f) unpublished work in both homes the process writes to — [f1] trunk ref, [f2] .kanban-wt;
 #       then, under its own header, a remote branch left by a card already in done/ or qa_complete/ (advisory);
-#   (g) graduation — has day one finished (advisory);
+#   (g) graduation — has day one finished, and a `hooks: off` line while `.claude/settings.json` is absent (advisory);
 #   (h) generated-trailer scan of the same commits as (e);
 #   (i) blocks:/blocked_by: symmetry (advisory here; a landing refuses a finding it introduces);
 #   (j) downtime-queue claim drift (advisory);
@@ -31,7 +31,8 @@
 #       cites; a `[cross-cutting]` entry is exempt (advisory here; a landing that changes
 #       `requirements/` refuses a finding it introduces).
 #   (s) model pins vs the ladder — a leaf-worker pin that disagrees with its ladder cell, or, where
-#       that cell is unfilled, with what scripts/set-models.sh last wrote (advisory).
+#       that cell is unfilled, with what scripts/set-models.sh last wrote; and a line counting the
+#       role docs' hand-kept model-table rows still `<fill in>` (advisory).
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
 #       `**Answer` block and that no register line has named since the answer, with the card it
 #       parks (advisory).
@@ -859,7 +860,7 @@ else
   # Name the signal that enabled the check.
   echo "      (enabled by: $g_lived)"
   # A report line, never a finding: the hooks are the human's opt-in, so their absence changes no verdict.
-  [ -f "$CB_TREE/.claude/settings.json" ] || echo "      hooks: off (\`.claude/settings.json\` absent) — the hat gate and the agent record do not run; the act that turns them on is in process/MANUAL.md § The default path is lite"
+  [ -f "$CB_TREE/.claude/settings.json" ] || echo "      hooks: off (\`.claude/settings.json\` absent) — the editor-tool hat gate and the agent record do not run (the git commit guard still does); the act that turns them on is in process/MANUAL.md § The default path is lite"
   g_find=0
   # THE MEASURED POPULATION: incremented once per CLASS OR MEMBER this arm actually read (pass or
   # fail — an unread member counts as unmeasured, never as measured-and-clean). Printed before the

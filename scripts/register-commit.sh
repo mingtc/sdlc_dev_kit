@@ -311,6 +311,17 @@ kit_progress "register-commit.sh" status "landed ${#CHANGED[@]} metadata path(s)
 # than reporting success on a commit that never reached the remote.
 kwt_finalize || exit 1   # exit-class: internal
 echo "Published: ${KWT_LANDED_SHA:-<unknown>} on ${DEFAULT_BRANCH} — \"${MESSAGE}\""
+# Your checkout still holds the edited copy of each path: name the ones git sees as modified or
+# untracked, because a later pull is refused for them until the copy is discarded.
+for rel in "${CHANGED[@]}"; do
+  [ -e "$CALLER_ROOT/$rel" ] || continue
+  _st="$(git -C "$CALLER_ROOT" status --porcelain -- "$rel" 2>/dev/null | head -1 | cut -c1-2 || true)"
+  case "$_st" in
+    "") ;;
+    "??") echo "Note: your checkout still holds an untracked '$rel' that the trunk now tracks; delete it (rm '$rel') or a pull is refused." ;;
+    *) echo "Note: your checkout still holds an edited copy of '$rel'; discard it (git checkout -- '$rel') or a pull is refused." ;;
+  esac
+done
 # Remember what this checkout landed, per path: the base of its next stale check.
 if [ -n "$LANDED_LOG" ]; then
   for rel in "${CHANGED[@]}"; do

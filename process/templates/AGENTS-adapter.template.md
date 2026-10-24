@@ -124,7 +124,8 @@ every carrier, parking touches none of the scripts.*
   true — splitting it onto `<trunk>` publishes a claim about code that has not landed, and leaves
   the branch's reviewer reading a diff with its explanation missing. The direct-to-trunk rule above
   governs metadata changed **on its own**; it was never a ban on a code change carrying its own
-  documentation.
+  documentation. **The work item's card is the exception: it is the trunk's, never committed on a
+  work branch** — its edits go through `register-commit.sh` and the board movers.
   **And the carve-out is not limited to documentation** — an *executable* declaration the same
   change makes true rides with it too. The case that keeps being missed: a new guard's enrolment in
   your gate runner's guard set, which the globs above classify as metadata while the file it guards

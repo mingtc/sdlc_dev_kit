@@ -2936,6 +2936,8 @@ case_check_board_model_pins_arm() {
     && cf "(control) a tree the seam just wrote reads as drifted: $sec"
   printf '%s\n' "$sec" | grep -E '[1-9][0-9]* pin field\(s\) compared with the ladder' >/dev/null \
     || cf "(control) the arm compared nothing against the filled ladder: $sec"
+  printf '%s\n' "$sec" | grep -E '[1-9][0-9]* pin field.*✓ all [1-9][0-9]* compared field\(s\) agree' >/dev/null \
+    || cf "(control) a clean tree with fields compared does not tick over the population it compared: $sec"
   local v_clean; v_clean="$(_verdict "$out")"
 
   # 2. ROUTE 1 — a hand edit, ladder filled.
@@ -2980,6 +2982,10 @@ case_check_board_model_pins_arm() {
     && cf "(control) route 2's finding survived the record's removal, so the record is not what caught it: $sec"
   printf '%s\n' "$sec" | grep -E '[1-9][0-9]* not checkable' >/dev/null \
     || cf "with no filled cell and no record the arm did not say the fields are not checkable: $sec"
+  printf '%s\n' "$sec" | grep '✓' >/dev/null \
+    && cf "with nothing compared the arm still printed a tick: $sec"
+  printf '%s\n' "$sec" | grep -F 'nothing was compared' >/dev/null \
+    || cf "with nothing compared the arm did not say so: $sec"
 
   # 5. ABLATION — strip the arm itself.
   _set_pin_effort "$ad/dev-worker.md" e-one
@@ -3054,6 +3060,17 @@ case_check_board_model_pins_arm_names_blank_role_doc_tables() {
   [ "$n" = "$((total - $(_rows_in_table "$orch") + want))" ] \
     || cf "the count is '$n', not the blank rows left ($((total - $(_rows_in_table "$orch") + want))): $line"
   printf '%s\n' "$line" | grep -i 'reports only' >/dev/null || cf "the line does not say it only reports: $line"
+
+  # The ladder rows set-models.sh writes are not counted even while blank: orchestrator.md blanked
+  # again, the line still names none of them and the count does not move.
+  _set_table_cells "$orch" "<fill in>"
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
+  line="$(printf '%s\n' "$sec" | grep 'role-doc model row')"
+  printf '%s\n' "$line" | grep -F "orchestrator.md" >/dev/null \
+    && cf "the line counts orchestrator.md's ladder rows, which set-models.sh writes: $line"
+  [ "$(printf '%s\n' "$line" | sed -n 's/^ *⚠ \([0-9]*\) role-doc.*/\1/p')" = "$n" ] \
+    || cf "blanking the ladder rows moved the count from $n: $line"
 
   # Hand-filled: no line, and the verdict is the same as with the blanks.
   for f in "$SB_WORK"/.claude/roles/*.md; do _set_table_cells "$f" "m-two"; done

@@ -124,7 +124,7 @@ Skills marked **auto** trigger themselves from context once the Dev hat is on. *
    - **Engineering design** at `dev/specs/...` (output of [brainstorming](../skills/brainstorming/)) — defines HOW.
 
    Skip [brainstorming] only when HOW is unambiguous — true for issues where the PRD + existing patterns fully constrain the implementation. For anything with architectural forks, cross-cutting changes, or genuine design space, [brainstorming]'s HARD-GATE applies — run it and commit the design spec before planning.
-4. **Plan.** Invoke [writing-plans](../skills/writing-plans/). Output to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`. Bite-sized TDD-shaped tasks. Update the issue file's "Spec / Plan" section with both links.
+4. **Plan.** Invoke [writing-plans](../skills/writing-plans/). Output to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md`. Bite-sized TDD-shaped tasks. Update the issue file's "Spec / Plan" section with both links (the card is the trunk's: land that edit with `register-commit.sh`, never on your work branch).
 5. **Isolate.** Invoke [using-git-worktrees](../skills/using-git-worktrees/). The skill creates `.worktrees/<branch>/` on the branch from the issue's frontmatter. Baseline tests must be green before proceeding.
 6. **Execute.** Invoke [subagent-driven-development](../skills/subagent-driven-development/) (preferred) or [executing-plans](../skills/executing-plans/). Both require [using-git-worktrees] to have run.
 7. **TDD loop inside every task.** Red → verify red → green → verify green → refactor → commit. The Iron Law: no production code without a failing test first. Where TDD genuinely doesn't fit (manual/live verification, hard-to-test integrations), fall back to characterization tests + manual verification — and document the deviation in `progress.md` so QA knows what was and wasn't automated.
@@ -177,8 +177,10 @@ same — an interactive question is a hang, not a pause: **do not end the sessio
 through `./scripts/ask.sh` instead (`PROJECT.md` § *Who answers when nobody is watching* names
 the principal it asks and where the question goes) and **carry on under the working default it
 records** — pick a different issue from `todo/`, same as step 4 says, rather than stopping.
-Pass `--card <PREFIX>-NNN` so the question names the card it parks, and name the question file's
-path in step 1's `--note`: that pair is how the answer, once it arrives, finds the card.
+Pass `--card <PREFIX>-NNN` so the question names the card it parks, **commit the question file to
+the trunk** (`./scripts/register-commit.sh --role Dev --message "<PREFIX>-NNN: question" <question file>`,
+then delete your untracked copy), and name its path in step 1's `--note`: that pair is how the
+answer, once it arrives, finds the card, and a file only your checkout holds is one nobody can open.
 
 ### Spawning a follow-up issue
 
@@ -289,7 +291,9 @@ Write the section into your checkout's copy of the issue file, wherever it curre
 then land it with the command below. It refuses a copy that lacks a line the trunk gained since your
 checkout was cut (`register-checkout-stale`), and a copy at a column the card has left
 (`register-card-moved`, which names the trunk's path); then bring the trunk's copy of the file in,
-re-apply your section there, and re-run with that path.
+re-apply your section there, and re-run with that path. Once it prints `Published:`, discard your
+checkout's copy (`git checkout -- <path>`): the trunk holds the edit, and a pull is refused for that
+path until you do.
 
 ```sh
 ./scripts/register-commit.sh --role Dev --message "<PREFIX>-NNN: Handoff to QA notes" \

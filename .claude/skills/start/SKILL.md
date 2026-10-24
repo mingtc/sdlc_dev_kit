@@ -18,16 +18,17 @@ your memory of it.
 - **Claude Code v2.1.277 or later**, if that is the harness: run `claude --version`. An older
   version does not read a lone `AGENTS.md`, so every session there starts with no instructions and
   nothing says so. If it is older, stop here and tell the human to update Claude Code first.
-- **The Claude Code hooks are opt-in.** Until `.claude/settings.json` exists, the hat gate and the
-  agent record are off (`process/MANUAL.md` § The default path is lite says what it wires).
+- **The Claude Code hooks are opt-in.** Until `.claude/settings.json` exists, the editor-tool hat gate and the
+  agent record are off, while the git commit guard still refuses a commit without a hat (`process/MANUAL.md` § The default path is lite says what it wires).
   Activating them is the human's decision, not yours, and the harness will refuse your own write of
   that file. Hand the human this act: in your own terminal, at the project root, run
   `cp .claude/settings.json.example .claude/settings.json`, then restart the session — or approve
-  the prompt, if an interactive session shows one. Do not try another route. Suggest
-  `kit-init.sh --enable-hooks` when hooks would help, and pass it only on the human's yes — in the
-  conversation when attended, or as the principal's recorded answer through `scripts/ask.sh` when
-  unattended — and record the consent as a register entry. An unattended launch also passes
-  `.claude/settings.unattended.json.example`.
+  the prompt, if an interactive session shows one. Do not try another route. Before `kit-init.sh` has
+  run, in an attended session, suggest `kit-init.sh --enable-hooks` when hooks would help and pass it
+  only on the human's yes. Once it has run the flag is refused, so offer only the `cp` above;
+  unattended, ask through `scripts/ask.sh` once `PROJECT.md` names the principal (SEED step 3),
+  and on a yes the human runs that `cp`. Record the consent as a register entry. An unattended
+  launch also passes `.claude/settings.unattended.json.example`.
 - **The two optional extras, only if the project uses them:** `brainstorming`'s visual companion
   needs Node (`node --version`); `scripts/hygiene/` needs Python 3, standard library only
   (`python3 --version`). Check for these only if the adapter (once one exists — see section 3 of this skill) says
@@ -35,8 +36,10 @@ your memory of it.
   problem.
 - **Declare your hat before the first change or commit:** write `.kit/session-role`, one line
   `<Role> <scope>` (`process/MANUAL.md` § Session start; the rule is
-  `process/contracts/role-gate.md`). The SessionStart hook clears it each session, and the commit
-  guard refuses a commit without it.
+  `process/contracts/role-gate.md`). Create `.kit/` if it is absent. With the Claude Code hooks on
+  (`.claude/settings.json` present) the SessionStart hook clears it each session; with them off
+  nothing does, so read whose a standing one is and overwrite it with yours. The git commit guard
+  refuses a commit without it either way.
 - **Run `./scripts/check-board.sh`** if it exists at the repo root. It is the kit's own drift
   report and graduation check — read its output rather than re-deriving any of what it already
   answers. If the script is missing entirely, the kit has not been copied in yet; say so and stop.

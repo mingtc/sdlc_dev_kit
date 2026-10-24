@@ -21,7 +21,9 @@ is acting as.
 - **The declaration is EXPLICIT and inspectable.** It is a piece of state something else can read,
   not an intention held in the actor's context.
   *Why:* an undeclared role is unverifiable after the fact, which is the same as no role at all.
-- **The declaration is per session and does NOT survive one.** A new session starts with no hat.
+- **The declaration is per session and does NOT survive one.** A new session starts with no hat
+  wherever the session-start hook is wired (`.claude/settings.json` present); without that file
+  nothing clears the declaration, so a new session reads whose it is and overwrites it with its own.
   *Why:* a role that outlives its session becomes a permanent global claim, and the next actor
   inherits an assertion nobody made.
 - **A hat declaration is SESSION STATE, never repository content.** Whatever holds the
@@ -107,7 +109,9 @@ the PM's own judgement, not this record.
 2. With none, an attempted mutation **does not happen**, and the actor receives a message naming
    the declaration and how to make it. A commit with none **does not happen**, and the change stays
    as it was.
-3. A fresh session begins with **no** declaration — verifiable by looking, not by remembering.
+3. With the session-start hook wired, a fresh session begins with **no** declaration — verifiable by
+   looking, not by remembering. Without it the file stays until a session overwrites it; the commit
+   gate reads it either way.
 
 ## 5. MINIMAL INTERFACE
 
@@ -137,7 +141,7 @@ declared, never that it was the right one.
   checked against the declared role set, in the subject the commit-msg hook holds. Every other
   committer — a session's own checkout, detached or not — declares the file.
 - `scripts/hooks/session-start.sh` — KIT-CLASS: KIT. Clears the declaration at session start,
-  which is what makes it per-session.
+  which is what makes it per-session; it runs only where `.claude/settings.json` wires it.
 - `scripts/lib/hat-file.sh` — KIT-CLASS: KIT. The declaration's location, `KIT_HAT_FILE_REL`, defined
   once and read by both hooks, the commit gate and the initializer so a test can derive it rather than restate it —
   the single-definition rule from [config-seam.md](config-seam.md). It lies outside `.claude/`

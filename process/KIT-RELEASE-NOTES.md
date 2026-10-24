@@ -333,6 +333,23 @@ columns and never the cards.*
 
 ### Changed
 
+- **A correctly shaped register entry is no longer refused as having a two-paragraph Why.** An entry laid out as the register shows it, with a blank line between the `**Ruling.**`, `**Why.**` and `**Provenance.**`
+  fields, was read as having a Why that spans paragraphs, in `check-board.sh` arm `[q]` and at a landing. A blank line inside the Why is still refused. No action.
+
+- **`register-commit.sh` and the role docs say what to do with your checkout's copy.** After `Published:` the edited copy stays in your checkout and a later `git pull --ff-only` is refused for it; the output
+  now names `git checkout -- <path>` (or `rm` for an untracked file), as do `dev.md`, `orchestrator.md`, `qa.md`, `pm.md` and `MANUAL.md`. An unattended Dev commits its question file to the trunk with `register-commit.sh`
+  before citing it. No action.
+
+- **Texts that state what a Claude Code hook does now say it holds only with `.claude/settings.json`.** Without it nothing clears the hat file at a session start, the git commit guard still refuses a commit without a hat,
+  and the agent check reports UNRUNNABLE. `kit-init.sh --enable-hooks` is offered only before `kit-init.sh` has run and in an attended session; after that, the human's `cp` is the route. The steps that write the hat file
+  now create `.kit/` first. No action.
+
+- **The card is the trunk's, in every place that said metadata may ride a work branch.** The pre-commit refusal for a card-only commit no longer offers `git commit --amend`; `AGENTS.md`, the adapter template, the card
+  templates and `orchestrate` carry the exception; the landing's card-conflict note restores the card from `origin/<trunk>`. No action.
+
+- **`check-board.sh` arm `[s]` counts only the role-doc model rows you keep by hand, and ticks only over fields it compared.** The ladder rows in `orchestrator.md`, which `set-models.sh` writes, are left out of the
+  `<fill in>` line; a tree with nothing compared prints "nothing was compared" instead of a bare ✓. No action.
+
 - **The act that turns the Claude Code hooks on is named, and `kit-init.sh --enable-hooks` makes the copy.** The harness refuses an agent's write of `.claude/settings.json`, so an agent now hands you the act: in your own terminal, at the project root, `cp .claude/settings.json.example .claude/settings.json`, then restart the session. `kit-init.sh`'s closing output, `/start`, `SEED.md` and `MANUAL.md` say it the same way; an agent suggests `--enable-hooks` and passes it only on your yes. `check-board.sh` arm `[g]` prints `hooks: off` while `.claude/settings.json` is absent; it changes no verdict. No action.
 
 - **The card is the trunk's; never commit it on a work branch.** `MANUAL.md` § The code-vs-metadata rule and `dev.md`'s hand-off step say so, and the landing's squash-conflict refusal, when the

@@ -871,6 +871,49 @@ case_main_checkout_fast_forward_note_names_its_cause() {
 }
 
 # =============================================================================
+# CASE — AFTER A LANDING, THE CHECKOUT'S EDITED COPY IS NAMED, AND DISCARDING IT CLEARS THE PULL.
+#
+# register-commit.sh reads the edit out of the checkout and leaves it there. The trunk holds it now,
+# so `git pull --ff-only` is refused for that path until the copy is discarded. The success output
+# names the discard for a modified tracked file (git checkout) and an untracked one (rm), and the
+# main checkout's "local changes" note says it too; running what it names clears the pull.
+# =============================================================================
+case_register_commit_names_the_discard_of_the_checkouts_copy() {
+  cf_reset
+  make_sandbox
+  printf 'D-01: a ruling\n' > "$SB_WORK/requirements-register.md"
+  publish_sandbox
+  local out rc
+
+  # (a) a tracked file edited in the main checkout, then landed.
+  printf 'D-02: answered here\n' >> "$SB_WORK/requirements-register.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record D-02" requirements-register.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_register_commit_names_the_discard_of_the_checkouts_copy: register-commit.sh exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_file_contains "requirements-register.md" '^D-02: answered here$' \
+    || _fixture_die "case_register_commit_names_the_discard_of_the_checkouts_copy: the edit did not reach the trunk, so the premise is gone."
+  printf '%s\n' "$out" | grep -F "git checkout -- 'requirements-register.md'" >/dev/null \
+    || cf "(a) the success output does not name the discard of the edited copy: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+  printf '%s\n' "$out" | grep 'left untouched' | grep -F 'git checkout --' >/dev/null \
+    || cf "(a) the main checkout's 'local changes' note does not name the discard: $(printf '%s' "$out" | grep -i 'local changes' | tr '\n' '|')"
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    && cf "(a) control: the pull was NOT refused for the edited copy, so the note warns of nothing"
+  git -C "$SB_WORK" checkout -- requirements-register.md >/dev/null 2>&1
+  git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 \
+    || cf "(a) discarding the copy the output named did not clear the pull"
+
+  # (b) a new file, untracked in the checkout, then landed.
+  printf 'a new note\n' > "$SB_WORK/note-b.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record a note" note-b.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_register_commit_names_the_discard_of_the_checkouts_copy: register-commit.sh exited $rc on the new file."
+  printf '%s\n' "$out" | grep -F "rm 'note-b.md'" >/dev/null \
+    || cf "(b) the success output does not name the removal of the untracked copy: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)"
+
+  finish "register-commit.sh names the discard of the checkout's copy (git checkout for a modified file, rm for an untracked one), the main checkout's 'local changes' note names it too, and running it clears the pull the copy refused"
+  teardown
+}
+
+# =============================================================================
 # CASE — A PRODUCER THAT SOURCES ONLY progress-record.sh IS CHECKED AGAINST THE DECLARED ROLE SET.
 #
 # The writer's membership check reads the declared set through role-set.sh. A script that sources
@@ -1666,6 +1709,21 @@ case_pre_commit_judges_an_amend_on_the_commit_being_made() {
   out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] notes, not an --amend of anything" 2>&1 )"; rc=$?
   [ "$rc" -ne 0 ] || cf "a fresh metadata-only commit whose -m text contains --amend was ACCEPTED"
   git -C "$SB_WORK" reset -q notes.md
+
+  # Row 5: a card-only commit is refused and is NOT offered the amend route: a card is the trunk's.
+  mkdir -p "$SB_WORK/progress/todo"
+  printf -- '---\nid: %s-801\n---\n\n# card\n' "$SB_PREFIX" > "$SB_WORK/progress/todo/$SB_PREFIX-801-card-only.md"
+  git -C "$SB_WORK" add "progress/todo/$SB_PREFIX-801-card-only.md"
+  out="$( cd "$SB_WORK" && env -u MSG_OK git commit -q -m "[$SB_ROLE] edit the card" 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "(row 5) a card-only commit on a work branch was ACCEPTED"
+  printf '%s' "$out" | grep -F 'register-commit.sh' >/dev/null \
+    || cf "(row 5) the card-only refusal does not name register-commit.sh: $out"
+  printf '%s' "$out" | grep -F 'commit --amend' >/dev/null \
+    && cf "(row 5) the card-only refusal still offers adding the card to a code commit (git commit --amend): $out"
+  printf '%s' "$out" | grep -F "A card is the trunk's" >/dev/null \
+    || cf "(row 5) the card-only refusal does not say the card is the trunk's: $out"
+  git -C "$SB_WORK" reset -q "progress/todo/$SB_PREFIX-801-card-only.md"
+  rm -f "$SB_WORK/progress/todo/$SB_PREFIX-801-card-only.md"
 
   # Row 3: a metadata-only amend of a metadata-only commit is judged as before (staged paths only).
   ( cd "$SB_WORK" && git checkout -q -b feature/meta-only feature/code-then-readme~1 )

@@ -2551,6 +2551,9 @@ case_first_mile() {
   # The printed steps open with the hat: a commit is refused without one.
   printf '%s\n' "$out" | grep -F 'Declare your hat' >/dev/null \
     || cf "kit-init's closing steps do not say to declare a hat before the first commit: $out"
+  # The hat file lives in a directory a fresh tree does not have: the steps create it first.
+  printf '%s\n' "$out" | grep -F 'mkdir -p .kit' >/dev/null \
+    || cf "kit-init's closing steps do not say to create .kit/ before the hat file is written: $out"
 
   # The COMPOSITION: the printed recipe names the literal first id…
   printf '%s\n' "$out" | grep -- '--id SBX-001' >/dev/null \
@@ -3149,10 +3152,10 @@ case_kit_init_enable_hooks_makes_the_copy_and_the_default_does_not() {
 # CASE — the human's act is worded the same in every place the kit names it.
 case_the_hooks_act_is_worded_the_same_wherever_the_kit_names_it() {
   cf_reset
-  local L="the act that turns the Claude Code hooks on (the cp command, where it is taken, the restart) is worded the same in kit-init's closing output, the /start skill, SEED.md, MANUAL.md and settings.json.example"
+  local L="the act that turns the Claude Code hooks on (the cp command, where it is taken, the restart) is worded the same in kit-init's closing output, the /start skill, SEED.md, MANUAL.md, EXTRACTION.md and settings.json.example"
   if [ -n "$(_tree_has_lived)" ]; then skp_lived "$L" "process/SEED.md and process/MANUAL.md are the project's own on an adopted tree"; return; fi
   local f missing=""
-  for f in scripts/kit-init.sh .claude/skills/start/SKILL.md process/SEED.md process/MANUAL.md .claude/settings.json.example; do
+  for f in scripts/kit-init.sh .claude/skills/start/SKILL.md process/SEED.md process/MANUAL.md process/EXTRACTION.md .claude/settings.json.example; do
     if [ ! -f "$REAL_REPO_ROOT/$f" ]; then cf "(control) $f is absent, so its wording was not read"; continue; fi
     grep -F 'cp .claude/settings.json.example .claude/settings.json' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not name the cp command"
     grep -i 'in your own terminal, at the project root' "$REAL_REPO_ROOT/$f" >/dev/null || cf "$f does not say the act is taken in the human's own terminal at the project root"

@@ -523,6 +523,125 @@ EOF
 }
 
 # =============================================================================
+# CASE — [q] A BLANK-SEPARATED ONE-LINE WHY IS ONE PARAGRAPH. The register lays its fields out with
+# a blank line between them; the blank lines around the Why are not inside it. A Why with a blank
+# line between two of its own lines is still two paragraphs. Read by the arm's function directly and
+# at a landing.
+# =============================================================================
+case_register_shape_reads_a_blank_separated_why_as_one_paragraph() {
+  cf_reset
+  make_sandbox
+  _bpf_seed_requirements
+  publish_sandbox
+
+  # The function the arm and the landing share, on the register's own blank-separated shape.
+  local q="$SB_TMP/q-shape" out
+  mkdir -p "$q/requirements"
+  cat > "$q/requirements/DECISIONS.md" <<'EOF'
+## A. Bucket
+
+### D-21
+
+**Ruling.** [cross-cutting] One.
+
+**Why.** One line.
+
+**Provenance.** Here.
+
+### D-22
+
+**Ruling.** [cross-cutting] Two.
+
+**Why.** First line
+wrapped onto a second.
+
+**Provenance.** Here.
+
+### D-23
+
+**Ruling.** [cross-cutting] Three.
+
+**Why.**
+The text starts on the next line.
+
+**Provenance.** Here.
+
+### D-24
+
+**Ruling.** [cross-cutting] Four.
+
+**Why.** First paragraph.
+
+Second paragraph.
+
+**Provenance.** Here.
+
+### D-25
+
+**Ruling.** [cross-cutting] Five.
+
+**Why.**
+First paragraph.
+
+Second paragraph.
+
+**Provenance.** Here.
+EOF
+  out="$( set +e
+    . "$SB_WORK/scripts/lib/board-properties.sh" || exit 3
+    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" || exit 4
+    kit_bp_register_shape "$q" 2>&1 )" \
+    || _fixture_die "case_register_shape_reads_a_blank_separated_why_as_one_paragraph: could not drive kit_bp_register_shape directly."
+  local d
+  for d in D-21 D-22 D-23; do
+    printf '%s\n' "$out" | grep -F -- "$d — the Why field spans" >/dev/null \
+      && cf "(direct) $d, one paragraph, was read as more than one: $out"
+  done
+  for d in D-24 D-25; do
+    printf '%s\n' "$out" | grep -F -- "$d — the Why field spans more than one paragraph" >/dev/null \
+      || cf "(direct) $d, a real two-paragraph Why, was not named: $out"
+  done
+
+  # (a) a branch adds an entry whose Why is two paragraphs: REFUSED. It goes first: a landing leaves its
+  #     entry on the trunk, which the next branch's forks check would read as a fork it does not name.
+  local idb="$SB_PREFIX-766"
+  _bpf_begin "$idb" twopara "[D-13]"
+  cat >> "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
+
+### D-13
+
+**Ruling.** [cross-cutting] Thirteen.
+
+**Why.** The first paragraph.
+
+A second paragraph, which is the history the field must not carry.
+
+**Provenance.** Here.
+EOF
+  _bpf_end "$idb" twopara
+  _bpf_expect_refused "(a) a branch adding an entry whose Why is two paragraphs" "$idb" twopara board-register-shape "D-13"
+
+  # (b) a branch adds an entry in the register's own blank-separated shape: LANDS.
+  local ida="$SB_PREFIX-765"
+  _bpf_begin "$ida" spaced "[D-12]"
+  cat >> "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
+
+### D-12
+
+**Ruling.** [cross-cutting] Twelve.
+
+**Why.** Because, in one line.
+
+**Provenance.** Here.
+EOF
+  _bpf_end "$ida" spaced
+  _bpf_expect_landed "(b) a branch adding a blank-separated entry with a one-line Why" "$ida" spaced "d i l p r q" "none"
+
+  finish "arm [q] reads a one-line Why with blank lines around it as one paragraph (also a wrapped one, and one whose text starts on the line after its label), names a Why with a blank line inside it, and a landing refuses a two-paragraph Why (refusal=board-register-shape) and lands a blank-separated one"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE OPERANDS ARE READ FROM THE TRUNK, AND AN UNREADABLE DECLARATION REFUSES.
 # A trunk whose check-board.sh no longer declares PRD_SURFACE gives the check nothing to read the
 # PRD population from; it refuses, naming the declaration, rather than guessing one.

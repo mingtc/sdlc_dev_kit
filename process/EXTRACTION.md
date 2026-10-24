@@ -922,7 +922,10 @@ It is the opt-in harness hook wiring; the command in [`MANUAL.md` § The default
 no second list is kept here. One of those hooks records, around every Bash call, the agent that made each commit, which
 `finish-pr.sh` reads to refuse a QA verdict committed by the same agent, in the same session, as the code
 ([`process/contracts/agent-record.md`](contracts/agent-record.md)).
-**Copy it as it stands.** The decision it asks of you is *whether to activate the hooks at all* —
+**Copy it as it stands — and the human makes the copy.** In your own terminal, at the project root, run
+`cp .claude/settings.json.example .claude/settings.json`, then restart the session (or pass
+`kit-init.sh --enable-hooks` on day one); an agent is refused the write, as the example's own `_README`
+says. The decision it asks of you is *whether to activate the hooks at all* —
 they execute shell on tool use and at session start — not what to put inside it.
 
 **It is not CONFIGURE:** it holds no trunk name, code-path glob, project filename or role-prefix list

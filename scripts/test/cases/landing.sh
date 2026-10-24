@@ -1898,6 +1898,8 @@ case_finish_pr_card_edited_on_the_branch_names_the_route() {
   case "$_FCE_OUT" in *"ISSUE FILE"*) : ;; *) cf "(a) the refusal does not name the ISSUE FILE: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$_FCE_OUT" in *"register-commit.sh"*) : ;; *) cf "(a) the refusal does not name register-commit.sh as the route for the card: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
   case "$_FCE_OUT" in *"the trunk's"*) : ;; *) cf "(a) the refusal does not say the card is the trunk's: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-400)" ;; esac
+  case "$_FCE_OUT" in *"git checkout origin/$SB_TRUNK -- "*) : ;; *) cf "(a) the refusal does not restore the card from the remote's trunk (origin/$SB_TRUNK): $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  case "$_FCE_OUT" in *"git checkout $SB_TRUNK -- "*) cf "(a) the refusal restores the card from the LOCAL trunk, which can lag the remote: $(printf '%s' "$_FCE_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
   origin_has_path "CE-$ida.txt" && cf "(a) the branch was merged despite the conflict"
 
   local idb="$SB_PREFIX-952"

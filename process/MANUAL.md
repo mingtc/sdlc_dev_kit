@@ -78,9 +78,10 @@ selection-neutrality — are the whole of what an adopter owes.
 > `Dev <PREFIX>-001`; or, **only** when the operator has explicitly waived the hat,
 > `none — operator override: <reason>`. The gate is **existence, not content**: the
 > `require-role` hook allows any mutation once the file is present, and the line's job is to tell
-> the next reader (and you, an hour later) which hat is on. The `session-start` hook **deletes
-> the file at every session start**, so each session re-confirms its hat rather than inheriting
-> the last one's. The path is one value, `KIT_HAT_FILE_REL` in `scripts/lib/hat-file.sh`, that both
+> the next reader (and you, an hour later) which hat is on. Where the hooks are on
+> (`.claude/settings.json` present), the `session-start` hook **deletes the file at every session
+> start**, so each session re-confirms its hat rather than inheriting the last one's; where they are
+> off, nothing deletes it, so read whose it is and overwrite it with yours. The path is one value, `KIT_HAT_FILE_REL` in `scripts/lib/hat-file.sh`, that both
 > hooks, the commit guard and the initializer read, so a guard can derive it instead of re-hardcoding it.
 
 > First-time setup on a fresh clone: run the project's **bootstrap command** — the project doc
@@ -266,10 +267,12 @@ sentence; `kit-init.sh`'s closing output, `.claude/skills/start/SKILL.md`, `proc
 `cp .claude/settings.json.example .claude/settings.json`, then restart the session — or approve the prompt, if an
 interactive session shows one. Claude Code protects `.claude/settings.json` from an agent's write, so an agent
 that is refused does not retry another way (another tool, an edit to the example, a git setting): it hands the human
-that sentence and carries on with the hooks off. `kit-init.sh --enable-hooks` makes the same copy at adoption. An agent
-suggests the flag when hooks would help and passes it only on the human's yes — in the conversation when attended, or as
-the principal's recorded answer through `scripts/ask.sh` when unattended — and records the consent as a register
-entry. `scripts/check-board.sh`'s graduation arm reports `hooks: off` while the file is absent.
+that sentence and carries on with the hooks off. `kit-init.sh --enable-hooks` makes the same copy, but only on its one run at adoption: a second run
+refuses. So an agent offers the flag only before `kit-init.sh` has run, in an attended session, and passes it only on
+the human's yes. Unattended, `scripts/ask.sh` refuses until `PROJECT.md` names the principal (SEED step 3), which
+comes after `kit-init.sh`; so the agent asks through it once that is filled and, on a yes, the human runs
+the `cp` above. After adoption the `cp` is the only route.
+The agent records the consent as a register entry. `scripts/check-board.sh`'s graduation arm reports `hooks: off` while the file is absent.
 
 **Never optional — the binding gates.** Every project has a small set of gates that are run on
 **every** change and are never traded away; **the project doc names them**, and the project's
@@ -632,7 +635,8 @@ fresh branch by default, not the trunk: a metadata edit made there has nowhere d
 bare `git commit` would land it on that branch instead of the trunk. `scripts/register-commit.sh`
 is the route — it reads the edit out of that checkout and lands it on the trunk through the
 standing kanban worktree, the same machinery `move-issue.sh` uses for a board move, and never
-commits in the linked checkout itself. Once `scripts/config.sh`'s `CODE_GLOBS` is declared (empty means
+commits in the linked checkout itself; the edited copy stays there, so discard it
+(`git checkout -- <path>`) once landed, or a pull is refused for that path. Once `scripts/config.sh`'s `CODE_GLOBS` is declared (empty means
 unenforced, and nothing is refused), `scripts/githooks/pre-commit` refuses a metadata-only
 commit made this way and names both routes: the trunk, or the code commit the metadata describes
 (next paragraph). An amend is judged on the commit being made, HEAD's paths plus the staged ones, so a

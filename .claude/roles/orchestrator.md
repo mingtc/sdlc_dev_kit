@@ -173,7 +173,9 @@ and a card's acceptance text are PM's surfaces. The leg is **bounded to three ac
    new id, or the discharged one), and the id in the card's `forks:`. Land the edit with
    `./scripts/register-commit.sh --role PM --message "<PREFIX>-NNN: cite <D-NN>" progress/blocked/<PREFIX>-NNN-<slug>.md`
    before act 3: the card is metadata on the trunk and the move re-derives the file there, so an
-   edit left in your own checkout is stranded.
+   edit left in your own checkout is stranded. After each `register-commit.sh` above, discard your
+   checkout's copy of the path (`git checkout -- <path>`; delete it if untracked), or a pull is
+   refused for it.
 3. Move that card out of `blocked/` to the folder it came from
    (`./scripts/move-issue.sh <PREFIX>-NNN <folder> --role PM --note "Unblocked: <D-NN>."`).
 

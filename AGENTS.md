@@ -84,7 +84,8 @@ the contracts they encode** — those are process law and apply to every agent, 
    register entry, a matrix row, a doc correction the code change *makes true* belongs in the commit
    that makes it true — splitting it onto the trunk publishes a claim about code that has not landed.
    The direct-to-trunk rule governs metadata changed **on its own**
-   ([`process/MANUAL.md`](process/MANUAL.md) § The code-vs-metadata rule).
+   ([`process/MANUAL.md`](process/MANUAL.md) § The code-vs-metadata rule). **The work item's card is
+   the exception: it is the trunk's, never committed on a work branch.**
 5. **Recording a ruling only in an issue's Activity log.** A ruling that changes behaviour lands in
    [`requirements/DECISIONS.md`](requirements/DECISIONS.md) in the same change. An Activity line
    says what happened in one issue; the register says what is currently true.

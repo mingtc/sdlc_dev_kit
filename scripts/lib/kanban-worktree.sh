@@ -648,7 +648,7 @@ kwt_finalize() {
         fi
       fi
     else
-      echo "Note: main checkout is on $DEFAULT_BRANCH with local changes — left untouched (pull when ready)."
+      echo "Note: main checkout is on $DEFAULT_BRANCH with local changes — left untouched. If it holds an edited copy of a path just landed, discard that copy first (git checkout -- <path>; delete it if untracked); a pull is refused for it otherwise."
     fi
     # The looks-pushed check: this op pushed only the kanban worktree's commit, and a
     # hand-made trunk commit in the main checkout may still be local.

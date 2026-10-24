@@ -110,20 +110,33 @@ kit_model_drift() {
       KIT_MODEL_NHITS=$((KIT_MODEL_NHITS + 1))
     done
   done
-  echo "      $n_lad pin field(s) compared with the ladder, $n_rec with set-models.sh's record, $n_none not checkable (no filled ladder cell and no record line)$([ "$KIT_MODEL_NHITS" -eq 0 ] && printf ' ✓')"
+  local n_cmp=$((n_lad + n_rec)) verdict=""
+  if [ "$KIT_MODEL_NHITS" -eq 0 ]; then
+    if [ "$n_cmp" -gt 0 ]; then verdict=" ✓ all $n_cmp compared field(s) agree"; else verdict=" — nothing was compared, so this is no verdict"; fi
+  fi
+  echo "      $n_lad pin field(s) compared with the ladder, $n_rec with set-models.sh's record, $n_none not checkable (no filled ladder cell and no record line)$verdict"
 }
 
-# kit_model_blank_rows <root> — one line, only when some role doc's own § Model & effort contract
-# table still holds a `<fill in…>` cell: how many rows, and in which files. set-models.sh writes the
-# ladder row and the pin; the per-role tables are kept by hand, so nothing else shows they are blank.
-# Reads <root> only; prints nothing when every table is filled or <root> has no role docs.
+# kit_model_blank_rows <root> — one line, only when some hand-kept row of a role doc's § Model &
+# effort contract table still holds a `<fill in…>` cell: how many rows, and in which files. The rows
+# set-models.sh writes — orchestrator.md's ladder rows, one per class label — are not counted: it
+# fills them, and the line would stay true of rows it just wrote. Nothing else shows the per-role
+# tables are blank. Reads <root> only; prints nothing when none is blank or <root> has no role docs.
 kit_model_blank_rows() {
-  local cdir f n total=0 names=""
+  local cdir f n total=0 names="" labels
   cdir="$(kit_model_claude_dir "$1")"
   [ -n "$cdir" ] || return 0
+  labels="$(printf '%s\n' "$KIT_MODEL_CLASS_MAP" | awk -F: '{ print $2 }' | tr '\n' '|')"
   for f in "$cdir"/roles/*.md; do
     [ -f "$f" ] || continue
-    n="$(awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) } s && /^\|/ && /<fill in/ { c++ } END { print c + 0 }' "$f")"
+    n="$(awk -v ladder="$([ "$(basename "$f")" = orchestrator.md ] && echo 1)" -v labels="$labels" '
+      BEGIN { k = split(labels, L, "|") }
+      /^## /{ s = ($0 ~ /^## Model & effort contract/) }
+      s && /^\|/ && /<fill in/ {
+        if (ladder) { for (i = 1; i <= k; i++) if (L[i] != "" && index($0, "| **" L[i]) == 1) next }
+        c++
+      }
+      END { print c + 0 }' "$f")"
     [ "$n" -gt 0 ] || continue
     total=$((total + n))
     names="${names:+$names, }$(basename "$f") ($n)"

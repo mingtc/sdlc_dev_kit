@@ -76,7 +76,8 @@ agent). Each planning agent:
 - reads the issue AC, the PRD stories, the relevant code, and precedent plans for house style;
 - invokes the project's planning discipline (`writing-plans`-shaped, TDD-sliced output);
 - writes the plan to `dev/plans/YYYY-MM-DD-<PREFIX>-NNN-<slug>.md` and back-links it into
-  the issue file's Spec/Plan section;
+  the issue file's Spec/Plan section — the card is the trunk's, so it lands that edit with
+  `./scripts/register-commit.sh` and never commits it on a work branch;
 - returns a structured result: `{ planPath, decisionsForYou: [] }`, where `decisionsForYou`
   lists **only** forks the PRD did not settle (never invent an answer to one).
 

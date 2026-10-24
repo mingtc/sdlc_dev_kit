@@ -601,10 +601,12 @@ kit_bp_register_shape() {
         _bp_hit "      ⚠ $qreg_path $qid — $q_n_extra extra dated/bold fragment(s) beyond the three fields, a running log rather than a single conclusion: $(printf '%s' "$q_extra" | tr '\n' ' ')" "${qk[@]}"
       fi
 
-      # Why is one paragraph: no blank line between its label and Provenance's.
+      # Why is one paragraph: no blank line inside the field's own text. The blank lines that
+      # separate it from the Ruling above and the Provenance below are not inside it.
       if [ -n "$w_line" ] && [ -n "$p_line" ] && [ "$p_line" -gt "$w_line" ]; then
-        q_why_body="$(printf '%s\n' "$qbody" | sed -n "$((w_line+1)),$((p_line-1))p")"
-        if grep -qx -- '' <<< "$q_why_body"; then
+        q_why_body="$(printf '%s\n' "$qbody" | sed -n "${w_line},$((p_line-1))p" | sed '1s/^\*\*Why\.\*\*//' \
+                      | awk '/^[[:space:]]*$/ { if (seen) gap=1; next } { if (gap) { print "split"; exit } seen=1 }')"
+        if [ -n "$q_why_body" ]; then
           _bp_hit "      ⚠ $qreg_path $qid — the Why field spans more than one paragraph" "q:$qreg_path:$qid:whypara"
         fi
       fi

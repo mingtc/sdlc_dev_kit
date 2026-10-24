@@ -201,8 +201,11 @@ hedge); a discharging condition carrying no id; and a condition that fired with 
   stable anchor to cite. Buckets are separated by a `---` rule. One entry:
 
       ### D-NN — <short title, the ruling in a few words>
+
       **Ruling.** <the ruling, present tense, stated as law>
+
       **Why.** <the reason, not the history — one line>
+
       **Provenance.** <where it was ruled> · <where the evidence lives> · <the work item that resolved it, or `no work item`>
 
   BUCKET NAMES ARE NOT RESERVED. The buckets below are EXAMPLES; name your own, add or drop them.
