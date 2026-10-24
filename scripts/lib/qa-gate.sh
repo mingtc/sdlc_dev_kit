@@ -1134,7 +1134,7 @@ kit_board_property_check() {
   done
   if [ "$old_sha" != "$new_sha" ] && ! git -C "$tree" merge --squash "$new_sha" >/dev/null 2>&1; then
     _bpc_cleanup
-    echo "BOARD_PROPERTY_CHECK: did not run — ${new_rev} does not merge cleanly into ${old_rev}, so there is no landed tree to read (the squash below refuses a conflict)."
+    echo "BOARD_PROPERTY_CHECK: did not run — ${new_rev} does not merge cleanly into ${old_rev}, so there is no landed tree to read; resolve the conflict on the branch."
     return 0
   fi
   if [ -n "$card_rel" ] && [ -n "$card_dest" ] && [ -f "$tree/$card_rel" ]; then

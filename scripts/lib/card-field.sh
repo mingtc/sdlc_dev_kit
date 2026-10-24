@@ -37,9 +37,18 @@ kit_card_has_field() {
 }
 
 # kit_card_id_of_path <path>
-#   Prints the card id (`<PREFIX>-NNN`) a card file's name begins with: `<id>-<slug>.md` or `<id>.md`,
-#   in any folder. Prints nothing for any other name, and always returns 0.
+#   Prints the card id a card file's name begins with: `<PREFIX>-NNN` for `<id>-<slug>.md` or `<id>.md`,
+#   in any folder. A file under a `subtasks/` directory is a slice: its id is `<PREFIX>-NNN-s<N>`, the
+#   parent's id plus the suffix, so a slice is never read as its parent. Prints nothing for any other
+#   name, and always returns 0.
 kit_card_id_of_path() {
-  basename "$1" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?\.md$/\1/p'
+  local _kcid_name _kcid_id=""
+  _kcid_name="$(basename "$1")"
+  case "$1" in
+    subtasks/*|*/subtasks/*)
+      _kcid_id="$(printf '%s\n' "$_kcid_name" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+-s[0-9]+)(-.*)?\.md$/\1/p')" ;;
+  esac
+  [ -n "$_kcid_id" ] || _kcid_id="$(printf '%s\n' "$_kcid_name" | sed -nE 's/^([A-Za-z][A-Za-z0-9]*-[0-9]+)(-.*)?\.md$/\1/p')"
+  [ -z "$_kcid_id" ] || printf '%s\n' "$_kcid_id"
   return 0
 }

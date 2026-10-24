@@ -1249,6 +1249,103 @@ case_next_id() {
 }
 
 # =============================================================================
+# CASE — next-id.sh outside a git repository says it once. The cause is named by the trunk
+# reader's own refusal (not inside a git repository); a second Error for the same cause is noise.
+# =============================================================================
+case_next_id_outside_a_repository_reports_once() {
+  cf_reset
+  make_sandbox
+  publish_sandbox
+  local nogit="$SB_TMP/nogit" out rc n
+  mkdir -p "$nogit/progress"
+  cp -R "$SB_WORK/scripts" "$nogit/scripts"
+  out="$( cd "$nogit" && ./scripts/next-id.sh 2>&1 )"; rc=$?
+  [ "$rc" -ne 0 ] || cf "next-id.sh outside a repository exited 0: $out"
+  printf '%s' "$out" | grep -F 'not inside a git repository' >/dev/null || cf "the cause is not named: $out"
+  n="$(printf '%s\n' "$out" | grep -c '^Error:')"
+  [ "$n" -eq 1 ] || cf "next-id.sh printed $n Error lines for one cause: $(printf '%s' "$out" | tr '\n' '|')"
+  finish "next-id.sh outside a git repository exits non-zero and prints one Error line naming the cause"
+  teardown
+}
+
+# =============================================================================
+# CASE — a restored slice card is not a duplicate of its parent. A card is its id; a slice's id is
+# its parent's id plus its suffix. The real order: the parent card is on the trunk, the slice is
+# minted (subtask.sh new publishes it), a landing drops it from the trunk, and the same card is then
+# restored through register-commit.sh. Controls: a second copy of the parent under another column,
+# and of the slice under another column, are still refused. The reader's rows are read through the
+# library that ships it.
+# =============================================================================
+case_a_restored_slice_card_is_not_a_duplicate_of_its_parent() {
+  cf_reset
+  if ! has_issue_template; then skp "kit_card_id_of_path gives a subtasks/ path its slice id and register-commit.sh restores a slice card beside its parent" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  local L="kit_card_id_of_path gives a subtasks/ path its slice id (parent id plus suffix) and every other card file its own; register-commit.sh therefore restores a slice card beside its parent, and still refuses a second copy of the parent or of the slice at another column"
+  local rc_sh="$SB_WORK/scripts/register-commit.sh" st="$SB_WORK/scripts/subtask.sh" lib="$SB_WORK/scripts/lib/card-field.sh"
+  if ! { [ -x "$rc_sh" ] && [ -x "$st" ] && [ -f "$lib" ]; }; then
+    skp "$L" "register-commit.sh, subtask.sh or lib/card-field.sh is absent from this tree"; teardown; return
+  fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/SUBTASK.template.md" ]; then
+    skp_lived "$L" ".claude/templates/SUBTASK.template.md is absent from this tree"; teardown; return
+  fi
+  mkdir -p "$SB_WORK/.claude/templates"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  local pid="$SB_PREFIX-846" out rc row want got
+  seed_issue todo "$pid" parent chore "Decomposition parent"
+  publish_sandbox
+
+  # (a) the reader: a slice path gives the slice's id, anything else the card's.
+  for row in "progress/subtasks/$pid/todo/$pid-s1-restored.md|$pid-s1" \
+             "progress/done/subtasks/$pid/qa_complete/$pid-s12.md|$pid-s12" \
+             "progress/todo/$pid-parent.md|$pid" \
+             "progress/subtasks/$pid/todo/$pid-notes.md|$pid" \
+             "$pid.md|$pid" \
+             "notes.md|"; do
+    want="${row#*|}"
+    got="$( . "$lib"; kit_card_id_of_path "${row%%|*}" )"
+    [ "$got" = "$want" ] || cf "(a) kit_card_id_of_path '${row%%|*}' printed '$got', want '$want'"
+  done
+
+  # (b) mint the slice, drop it from the trunk, restore it.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$pid" s1 restored --title "Slice" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_a_restored_slice_card_is_not_a_duplicate_of_its_parent: subtask.sh new exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  local rel="progress/subtasks/$pid/todo/$pid-s1-restored.md"
+  origin_has_path "$rel" || _fixture_die "case_a_restored_slice_card_is_not_a_duplicate_of_its_parent: the slice is not on the trunk."
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  [ -f "$SB_WORK/$rel" ] || _fixture_die "case_a_restored_slice_card_is_not_a_duplicate_of_its_parent: the checkout has no slice file to remove."
+  mv "$SB_WORK/$rel" "$SB_TMP/slice-text.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$pid: drop the slice" "$rel" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_a_restored_slice_card_is_not_a_duplicate_of_its_parent: dropping the slice exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "$rel" && _fixture_die "case_a_restored_slice_card_is_not_a_duplicate_of_its_parent: the slice is still on the trunk after the drop."
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  mkdir -p "$(dirname "$SB_WORK/$rel")"
+  cp "$SB_TMP/slice-text.md" "$SB_WORK/$rel"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$pid: restore the slice" "$rel" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) restoring the slice card was refused (exit $rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "$rel" || cf "(b) the restored slice did not reach the trunk"
+
+  # (c) controls: the parent and the slice are still one card each.
+  git -C "$SB_WORK" fetch -q origin >/dev/null 2>&1
+  git -C "$SB_WORK" reset -q --hard "origin/$SB_TRUNK" >/dev/null 2>&1
+  mkdir -p "$SB_WORK/progress/in_progress"
+  printf 'a second parent\n' > "$SB_WORK/progress/in_progress/$pid-parent.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$pid: second parent" "progress/in_progress/$pid-parent.md" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a second copy of the PARENT at another column landed"
+  printf '%s' "$out" | grep -F "progress/todo/$pid-parent.md" >/dev/null || cf "(c) the parent's refusal does not name the trunk's path: $out"
+  mv "$SB_WORK/progress/in_progress/$pid-parent.md" "$SB_TMP/second-parent.md"
+  mkdir -p "$SB_WORK/progress/subtasks/$pid/in_progress"
+  cp "$SB_TMP/slice-text.md" "$SB_WORK/progress/subtasks/$pid/in_progress/$pid-s1-restored.md"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "$pid: second slice" "progress/subtasks/$pid/in_progress/$pid-s1-restored.md" 2>&1 )" || rc=$?
+  [ "$rc" -ne 0 ] || cf "(c) a second copy of the SLICE at another column landed"
+  printf '%s' "$out" | grep -F "$rel" >/dev/null || cf "(c) the slice's refusal does not name the trunk's path: $out"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — next-id.sh on a branch cut before a trunk mint does not repeat that id
 #
 # The trunk is read from <remote>/<trunk> as last fetched, never fetched by the script:

@@ -259,7 +259,7 @@ case "$DECISION_STATE" in
     ANSWER_ROUTE="requirements/DECISIONS.md, entry $DECISION — was WITHDRAWN (no current ruling); this call gives it a WORKING DEFAULT (provisional, asked $TODAY, $QREL)"
     ;;
   standing)
-    ANSWER_ROUTE="requirements/DECISIONS.md, entry $DECISION — HAS A STANDING RULING, left untouched. That ruling is what this session proceeds under, not the working default below; the principal answers whether to change it"
+    ANSWER_ROUTE="requirements/DECISIONS.md, entry $DECISION — HAS A STANDING RULING, left untouched. That ruling is what this session proceeds under, not the working default; the principal answers whether to change it"
     ;;
   *)
     if [ -n "$DECISION" ]; then

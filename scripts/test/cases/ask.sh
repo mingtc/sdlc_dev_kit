@@ -508,6 +508,47 @@ EOF
 # ruling just as a bare one has none. Bare, backticked and bold heads each take the working
 # default, and a ruling that merely MENTIONS withdrawal further along its line is still standing.
 # =============================================================================
+# =============================================================================
+# CASE — the note ask.sh writes for a standing ruling points at nothing that is not there: the
+# question file prints the working default ABOVE the "How the answer is recorded" line, and the same
+# string is printed on the terminal with nothing under it, so it may name no "below".
+# =============================================================================
+case_ask_standing_note_names_no_wrong_direction() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "ask.sh's standing-ruling note names no wrong direction"; teardown; return; }
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  cat > "$SB_WORK/requirements/DECISIONS.md" <<'EOF'
+# DECISIONS.md
+
+## A. test bucket
+
+### D-09 — shared folder is read-only
+
+**Ruling.** Nothing writes to the shared folder except a note addressed to her, by hand.
+**Why.** She owns the folder's contents.
+**Provenance.** ruled 2026-01-01, project kickoff.
+
+---
+EOF
+  local out rc qfile
+  out="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/ask.sh --role Dev "Lift D-09?" --default "Hold: write nothing." --decision D-09 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  qfile="$(printf '%s\n' "$out" | sed -n 's/^ask.sh: question written to //p' | head -1)"
+  [ -f "$SB_WORK/$qfile" ] && qfile="$SB_WORK/$qfile"
+  if [ ! -f "$qfile" ]; then
+    cf "(fixture) the question file was not found from the output: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  else
+    grep 'STANDING RULING, left untouched' "$qfile" >/dev/null || cf "(fixture) the question file has no standing-ruling note"
+    grep 'STANDING RULING, left untouched' "$qfile" | grep 'working default below' >/dev/null && cf "the question file's note says 'working default below', but the working default is printed above it"
+  fi
+  printf '%s\n' "$out" | grep 'recorded in:' | grep 'working default below' >/dev/null && cf "the terminal line points at a 'working default below' with nothing under it"
+  finish "ask.sh's standing-ruling note does not point 'below' at a working default that is printed above it (file) or not at all (terminal)"
+  teardown
+}
+
 case_ask_reads_the_withdrawn_token_as_the_format_shows_it() {
   cf_reset
   make_sandbox

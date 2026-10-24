@@ -2436,6 +2436,95 @@ case_subtask_parent_is_an_open_issue() {
   teardown
 }
 
+# =============================================================================
+# CASE — the creation scripts check the shape of the link options they take. A malformed --prd,
+# --stories or --discovered-in is a usage error (exit 2) naming the option, and writes no card;
+# a well-formed value still lands.
+# =============================================================================
+case_creation_link_options_are_shape_checked() {
+  cf_reset
+  local L="new-issue.sh and new-bug.sh refuse a malformed --prd, --stories or --discovered-in with exit 2, naming the option and writing no card, and accept the shapes their usage text states"
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/templates/BUG.template.md" ]; then skp_lived "$L" ".claude/templates/BUG.template.md is absent from this tree"; return; fi
+  make_sandbox
+  mkdir -p "$SB_WORK/.claude/templates" "$SB_WORK/requirements"
+  cp -R "$REAL_REPO_ROOT/.claude/templates/." "$SB_WORK/.claude/templates/"
+  _kit_neutral_claude
+  publish_sandbox
+  local out rc n=0 row script slug opt val pid
+  pid="$(sed -n 's/^PRD_PREFIX="${PRD_PREFIX:-\(.*\)}"/\1/p' "$SB_WORK/scripts/config.sh" | head -1)"
+  [ -n "$pid" ] || pid=PRD
+  # name|script|option|value|word the refusal must carry
+  for row in "badprd|new-issue.sh|--prd|FOO-1|--prd" \
+             "badstory|new-issue.sh|--stories|x y|--stories" \
+             "badstory2|new-issue.sh|--stories|$pid-001-F1-S1,nope|--stories" \
+             "badbug|new-bug.sh|--discovered-in|bad|--discovered-in" \
+             "badbugprd|new-bug.sh|--prd|nope|--prd"; do
+    n=$((n+1))
+    slug="${row%%|*}"; row="${row#*|}"; script="${row%%|*}"; row="${row#*|}"; opt="${row%%|*}"; row="${row#*|}"; val="${row%%|*}"
+    rc=0; out="$( cd "$SB_WORK" && ./scripts/"$script" "$slug" --id "$SB_PREFIX-92$n" "$opt" "$val" 2>&1 )" || rc=$?
+    [ "$rc" -eq 2 ] || cf "$script $opt '$val' exited $rc, want 2: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+    printf '%s' "$out" | grep -F -- "$opt" >/dev/null || cf "$script $opt '$val': the refusal does not name the option: $out"
+    [ ! -e "$SB_WORK/progress/todo/$SB_PREFIX-92$n-$slug.md" ] || cf "$script $opt '$val': a card was written despite the refusal"
+  done
+  # The shapes the usage text states are accepted.
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-issue.sh okissue --id "$SB_PREFIX-931" --prd "$pid-001" --stories "$pid-001-F1-S1,$pid-001-F2-S3" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) new-issue.sh with well-formed --prd and --stories exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-bug.sh okbug --id "$SB_PREFIX-932" --prd n/a --discovered-in "$SB_PREFIX-931" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) new-bug.sh with --prd n/a and a well-formed --discovered-in exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — the Next: lines and help texts name commands that run as printed, and what they check.
+#   (a) verify.sh's empty-table refusal prints a kit-init.sh line with --prefix and --trunk, which
+#       kit-init.sh requires; finish-pr.sh prints the same line where no gate runner exists;
+#   (b) finish-pr.sh's help explains --dry-run, including that it runs before the pre-merge gate;
+#   (c) the manual names the first card's --id route beside next-id.sh;
+#   (d) qa-gate's no-merge note does not point at a squash that subtask.sh does not make.
+# =============================================================================
+case_next_steps_and_help_name_what_runs() {
+  cf_reset
+  local L="verify.sh's and finish-pr.sh's kit-init.sh lines carry --prefix and --trunk, finish-pr.sh's help explains --dry-run, the manual names the first card's --id route, and the board-property note names no squash"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  make_sandbox
+  publish_sandbox
+  local out rc line f
+
+  # (a) verify.sh with an empty gate table: the sandbox copy with its gate records stripped.
+  awk '/^GATES=\(/ { ing = 1 } ing && /^[[:space:]]*"/ { next } /^\)/ { ing = 0 } { print }' "$SB_WORK/scripts/verify.sh" > "$SB_TMP/verify-empty.sh" \
+    && cp "$SB_TMP/verify-empty.sh" "$SB_WORK/scripts/verify.sh" && chmod +x "$SB_WORK/scripts/verify.sh"
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/verify.sh 2>&1 )" || rc=$?
+  case "$out" in
+    *"gate table is EMPTY"*)
+      line="$(printf '%s\n' "$out" | grep 'kit-init.sh' | head -1)"
+      case "$line" in *--prefix*--trunk*--gate-command*) : ;; *) cf "(a) verify.sh's kit-init.sh line is not runnable as printed (kit-init.sh requires --prefix and --trunk): $line" ;; esac ;;
+    *) cf "(fixture) verify.sh with its gate records stripped did not refuse on an empty table: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;;
+  esac
+  for f in verify.sh finish-pr.sh; do
+    grep -F 'kit-init.sh --gate-command' "$SB_WORK/scripts/$f" >/dev/null && cf "(a) scripts/$f still prints 'kit-init.sh --gate-command' with no --prefix or --trunk"
+  done
+  grep -F 'kit-init.sh --prefix <P> --trunk <B> --gate-command' "$SB_WORK/scripts/finish-pr.sh" >/dev/null || cf "(a) finish-pr.sh's no-gate Next: does not carry the runnable kit-init.sh line"
+
+  # (b) finish-pr.sh --help explains --dry-run.
+  out="$( cd "$SB_WORK" && ./scripts/finish-pr.sh --help 2>&1 )" || true
+  printf '%s\n' "$out" | grep -E '^#? *--dry-run:' >/dev/null || cf "(b) finish-pr.sh --help has no '--dry-run:' explanation"
+  printf '%s\n' "$out" | grep -i 'pre-merge gate' | grep -i 'dry' >/dev/null || printf '%s\n' "$out" | grep -A3 -E -- '--dry-run:' | grep -i 'gate' >/dev/null || cf "(b) the --dry-run text does not say it exits before the pre-merge gate"
+
+  # (c) the manual: next-id.sh as the id source, with the first card's route beside it.
+  if [ -z "$(_tree_has_lived)" ]; then
+    grep -F 'refuses on an empty board' "$REAL_REPO_ROOT/process/MANUAL.md" >/dev/null || cf "(c) process/MANUAL.md names next-id.sh as the id source with no first-card --id route"
+  fi
+
+  # (d) the board-property note.
+  grep -F 'the squash below' "$SB_WORK/scripts/lib/qa-gate.sh" >/dev/null && cf "(d) lib/qa-gate.sh still points at 'the squash below', which subtask.sh does not make"
+
+  finish "$L"
+  teardown
+}
+
 case_creation_scripts_substitute_hostile_values() {
   cf_reset
   if ! has_issue_template; then skp "creation scripts substitute hostile values without executing them" "$ISSUE_TEMPLATE_ABSENT"; return; fi
@@ -2454,13 +2543,15 @@ case_creation_scripts_substitute_hostile_values() {
   publish_sandbox
 
   local out rc card
-  # A pipe: the delimiter itself.
-  out="$( cd "$SB_WORK" && ./scripts/new-issue.sh piped --id "$SB_PREFIX-910" --prd 'a|b' 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "a --prd containing the sed delimiter did not succeed: rc=$rc $out"
-  card="$SB_WORK/progress/todo/$SB_PREFIX-910-piped.md"
-  [ -f "$card" ] || cf "the card was not created for a piped --prd"
-  grep -q '^prd: a|b$' "$card" 2>/dev/null \
-    || cf "the piped value did not land verbatim: $(grep '^prd:' "$card" 2>/dev/null)"
+  # A pipe: the delimiter itself, through a free-text option (the link options are shape-checked).
+  if ! _member_removed scripts/new-refactor.sh; then
+    out="$( cd "$SB_WORK" && ./scripts/new-refactor.sh piped --id "$SB_PREFIX-910" --target 'a|b' 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "a --target containing the sed delimiter did not succeed: rc=$rc $out"
+    card="$SB_WORK/progress/todo/$SB_PREFIX-910-piped.md"
+    [ -f "$card" ] || cf "the card was not created for a piped --target"
+    grep -q '^target_module: a|b$' "$card" 2>/dev/null \
+      || cf "the piped value did not land verbatim: $(grep '^target_module:' "$card" 2>/dev/null)"
+  fi
 
   # An ampersand: sed's "whole match" metacharacter.
   if ! _member_removed scripts/new-refactor.sh; then
@@ -3144,6 +3235,53 @@ case_kit_init_enable_hooks_makes_the_copy_and_the_default_does_not() {
   _hk_sandbox; cp "$SB_WORK/.claude/settings.json.example" "$SB_WORK/.claude/settings.json"; _hk_run --enable-hooks
   [ "$_hk_rc" -eq 0 ] || cf "(d) --enable-hooks refused a settings.json identical to the example (exit $_hk_rc)"
   cmp -s "$SB_WORK/.claude/settings.json" "$SB_WORK/.claude/settings.json.example" || cf "(d) the identical file changed"
+  teardown
+
+  finish "$L"
+}
+
+# CASE — kit-init's own text is true: the header lists the --enable-hooks copy under HOOKS, the
+# --enable-hooks refusal's re-run line drops the flag it says to drop, and the .gitignore count
+# prints a real singular or plural.
+case_kit_init_text_matches_what_it_does() {
+  cf_reset
+  local L="kit-init's header lists the --enable-hooks copy; the refusal that says to re-run without --enable-hooks prints a re-run line without it; the .gitignore line reads '1 entry' or 'N entries', never the pattern"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  if [ ! -f "$REAL_REPO_ROOT/.claude/settings.json.example" ]; then
+    skp_lived "$L" ".claude/settings.json.example is absent from this tree"; return
+  fi
+  local ki="$REAL_REPO_ROOT/scripts/kit-init.sh"
+
+  # (a) the header's HOOKS step names the settings copy.
+  sed -n '1,40p' "$ki" | grep -E '^#.*HOOKS.*' >/dev/null || cf "(a) the header has no HOOKS step"
+  sed -n '1,40p' "$ki" | grep -F 'settings.json' >/dev/null || cf "(a) the header's HOOKS step does not mention the .claude/settings.json copy"
+
+  # (b) a differing settings.json: the refusal says re-run without the flag, and its re-run line does.
+  _hk_sandbox '{ "mine": true }'; _hk_run --gate-command true --enable-hooks
+  [ "$_hk_rc" -ne 0 ] || cf "(b) a differing settings.json with --enable-hooks was not refused"
+  printf '%s\n' "$_hk_out" | grep -F 're-run without --enable-hooks' >/dev/null || cf "(b) the refusal does not say to re-run without --enable-hooks"
+  local rerun; rerun="$(printf '%s\n' "$_hk_out" | grep -F './scripts/kit-init.sh' | grep -F -- '--prefix' | tail -1)"
+  [ -n "$rerun" ] || cf "(b) no re-run line in the refusal"
+  case "$rerun" in *--enable-hooks*) cf "(b) the re-run line still carries --enable-hooks: $rerun" ;; esac
+  case "$rerun" in *--gate-command*) : ;; *) cf "(b) the re-run line lost another option: $rerun" ;; esac
+  teardown
+
+  # (c) the missing-example refusal says to restore the file and re-run, so its line keeps the flag.
+  _hk_sandbox; rm -f "$SB_WORK/.claude/settings.json.example"; _hk_run --enable-hooks
+  [ "$_hk_rc" -ne 0 ] || cf "(c) --enable-hooks without the example was not refused"
+  rerun="$(printf '%s\n' "$_hk_out" | grep -F './scripts/kit-init.sh' | grep -F -- '--prefix' | tail -1)"
+  case "$rerun" in *--enable-hooks*) : ;; *) cf "(c) the re-run line dropped --enable-hooks although the refusal says to restore the file and re-run: $rerun" ;; esac
+  teardown
+
+  # (d) the .gitignore count: one entry missing prints '1 entry', all missing prints 'N entries'.
+  _hk_sandbox; printf '%s\n' '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' > "$SB_WORK/.gitignore"; _hk_run
+  [ "$_hk_rc" -eq 0 ] || cf "(d) the run exited $_hk_rc: $(printf '%s\n' "$_hk_out" | tail -3 | tr '\n' '|')"
+  printf '%s\n' "$_hk_out" | grep -F '.gitignore: 1 entry added' >/dev/null || cf "(d) one missing entry did not print '1 entry added': $(printf '%s\n' "$_hk_out" | grep -F '.gitignore:')"
+  teardown
+  _hk_sandbox; _hk_run
+  printf '%s\n' "$_hk_out" | grep -E '\.gitignore: [2-9][0-9]* entries added' >/dev/null || cf "(d) several missing entries did not print 'N entries added': $(printf '%s\n' "$_hk_out" | grep -F '.gitignore:')"
+  printf '%s\n' "$_hk_out" | grep -F 'entr(y|ies)' >/dev/null && cf "(d) the pattern 'entr(y|ies)' is printed as text"
   teardown
 
   finish "$L"

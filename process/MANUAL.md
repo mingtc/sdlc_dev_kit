@@ -230,7 +230,7 @@ version control by the initializer, not left for each actor to discover
   trunk** (via the kanban worktree — see § The kanban worktree), so the board is accurate on
   the trunk without a checkout.
 - **Create** issues with `./scripts/new-issue.sh` / `new-bug.sh` / `new-refactor.sh` (the last only where the project kept the Refactorer; id from
-  `./scripts/next-id.sh`), specs with `./scripts/new-prd.sh`. Subtasks (Orchestrator
+  `./scripts/next-id.sh`, which refuses on an empty board — the first card's `--id` is yours to pass), specs with `./scripts/new-prd.sh`. Subtasks (Orchestrator
   decomposition) with `./scripts/subtask.sh`.
 - **A newly created issue is not published.** Creation is inert by contract
   ([`contracts/issue-creation.md`](contracts/issue-creation.md) § 2) and the board mover reads
@@ -718,7 +718,7 @@ Two attribution rules are the kit's:
 
 Forge-agnostic, pure version control; **no forge CLI**. It squash-merges the issue's work branch
 into the trunk locally, pushes, deletes the branch (local + remote), and advances the issue
-`dev_complete → qa_complete`. QA's review evidence lives in the **issue file's Activity log —
+`dev_complete → qa_complete`. QA's verdict and per-AC evidence live in the **issue file's `## QA Verdict` table —
 committed on the trunk**, not on the branch (§ The Dev → QA handoff step 3) —
 there is no PR/MR object to open, approve or comment on. (A forge-PR flavor can be added later if
 a team wants MR ceremony; see the `finish-pr.sh` header and

@@ -86,8 +86,8 @@ Today's QA task: <describe>
 
 The handoff produces a **work branch** (`feature|fix|refactor/<PREFIX>-NNN-<slug>`, from the
 issue's `branch:` frontmatter) — **not** a forge PR/MR object. There is no PR to view, comment on
-or approve, and no forge CLI: **QA's review evidence lives in the issue file's Activity log**,
-which IS the review record. Throughout this doc, "PR" is shorthand for "the work branch under
+or approve, and no forge CLI: **QA's verdict and per-AC evidence live in the issue file's `## QA Verdict` table**,
+which IS the review record (the Activity log carries the move note). Throughout this doc, "PR" is shorthand for "the work branch under
 review". The boundary's own steps are
 [`process/MANUAL.md`](../../process/MANUAL.md) § The Dev → QA handoff.
 

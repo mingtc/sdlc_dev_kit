@@ -247,9 +247,9 @@ not a work problem.**
 ### 6.1 The regime
 
 - **Closes become verified land-ready branches with recorded verdicts.** The reviewer does the
-  full review, runs every gate, and records the verdict in the issue file's Activity log as a
-  distinct close state — `LAND_READY` (process/MANUAL.md § The RUN-OUTCOME vocabulary) — meaning
-  *reviewed, gates green, not landed*. The verdict is a real close; only the merge is deferred.
+  full review, runs every gate, and records the verdict in the issue file's Activity log as `PASS` with
+  the landing `deferred` (`.claude/roles/qa.md`; a run composes the pair into its outcome per
+  process/MANUAL.md § The RUN-OUTCOME vocabulary) — meaning *reviewed, gates green, not landed*. The verdict is a real close; only the merge is deferred.
 - **State the regime at preflight and re-check between issues.** Which regime a run is in changes
   what "done" means, so it belongs in the run's standing facts and in the between-leg readings.
   A blocker that lifts mid-run is a normal event, noticed only if a run re-checks.

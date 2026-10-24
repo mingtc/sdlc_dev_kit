@@ -63,10 +63,11 @@ condition is merely awkward to state. If a second skill ever claims it, the ques
 whether a session could apply it *without* having read it first — and for everything but the
 bootstrap the answer is yes.
 
-**Two further reasons this one is not fixed locally.** It is **vendored** — § Provenance & licensing
-below warns that a re-copy restoring an upstream wording *"has not updated the skill, it has
-re-narrowed it"*, and a local rewrite of a vendored description is that drift in the other direction,
-paid again at every re-fetch. And the change, if it is ever wanted, belongs upstream rather than here.
+**Two further reasons this one is not fixed locally.** It is **vendored** — a local rewrite of a
+vendored description is a divergence from upstream paid again at every re-fetch, and § Provenance &
+licensing below accepts one only as a recorded MIXED row. (That section's warning that a re-copy
+*"has not updated the skill, it has re-narrowed it"* is about restoring a single-command form, not
+about descriptions.) And the change, if it is ever wanted, belongs upstream rather than here.
 
 **What the rule tests is not mechanically decidable, so it is a convention with a reader and not a
 gate.** *Does this condition discriminate* has no pattern that decides it, and the tempting proxy —

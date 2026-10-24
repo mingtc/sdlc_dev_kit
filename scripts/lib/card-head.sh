@@ -115,3 +115,30 @@ kit_prd_free_card() {
     '(per [PRD-NNN](../../requirements/PRD-NNN-<slug>.md), story <story ids>)' '(no PRD covers this; `prd_reason:` says why)' \
     '- Related PRD: PRD-NNN, story <story ids>' '- Related PRD: none'
 }
+
+# validate_card_links "$PRD" "$STORIES" "$DISCOVERED" — the shape of the link options the creation
+# scripts take (read-only; an empty value is not given). A malformed value returns non-0 after
+# naming the option, so the caller exits as a usage error before any card is written. Uses
+# PRD_PREFIX and ISSUE_PREFIX.
+validate_card_links() {
+  local prd="$1" stories="$2" disc="$3" item rest
+  if [ -n "$prd" ] && [ "$prd" != "n/a" ] && ! grep -qE "^${PRD_PREFIX}-[0-9]+$" <<< "$prd"; then
+    echo "Error: --prd '$prd' must look like ${PRD_PREFIX}-NNN, or n/a on the lite path." >&2
+    return 1   # return-class: usage
+  fi
+  if [ -n "$stories" ]; then
+    rest="$stories,"
+    while [ -n "$rest" ]; do
+      item="${rest%%,*}"; rest="${rest#*,}"
+      if ! grep -qE "^${PRD_PREFIX}-[0-9]+-F[0-9]+-S[0-9]+$" <<< "$item"; then
+        echo "Error: --stories entry '$item' must look like ${PRD_PREFIX}-NNN-F1-S1; separate several with commas and no spaces." >&2
+        return 1   # return-class: usage
+      fi
+    done
+  fi
+  if [ -n "$disc" ] && ! grep -qE "^${ISSUE_PREFIX}-[0-9]+$" <<< "$disc"; then
+    echo "Error: --discovered-in '$disc' must look like ${ISSUE_PREFIX}-NNN." >&2
+    return 1   # return-class: usage
+  fi
+  return 0
+}

@@ -202,7 +202,8 @@ if [ "${#GATES[@]}" -eq 0 ]; then
     "  ./scripts/verify.sh --list prints the (currently empty) table." \
     "Next: this file ships as a FRAME. Declare your gates in the GATES array at the top" \
     "  (one record per gate: \"<name>|<core|select|full>|<command…>\"), or generate a" \
-    "  starter, ON A FRESH REPO: ./scripts/kit-init.sh --gate-command \"<your test command>\"" \
+    "  starter, ON A FRESH REPO:" \
+    "  ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command \"<your test command>\"" \
     "  (kit-init REFUSES a repository that has already lived — on a tree that has, the" \
     "  GATES array above is the only way in.)"
 fi

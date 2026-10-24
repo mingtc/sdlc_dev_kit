@@ -613,6 +613,29 @@ case_archive_progress_dry_run_writes_nothing() {
   teardown
 }
 
+# =============================================================================
+# CASE — archive-progress.sh --apply does not announce a write it is making as one it "would"
+# make: the dry run says "Would write to:", the applied run says "Writing to:".
+# =============================================================================
+case_archive_progress_apply_does_not_say_would_write() {
+  cf_reset
+  make_sandbox
+  local R="$SB_TMP/apwrite" out rc
+  ap_seed "$R" 20 2026-08-20 \
+    || { finish "archive-progress.sh: --apply does not say 'Would write'"; teardown; return; }
+
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone w1 --before 2026-08-26 2>&1 )" || rc=$?
+  printf '%s' "$out" | grep 'Would write to:' >/dev/null || cf "(dry run) the dry run no longer says 'Would write to:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  rc=0; out="$( "$SB_WORK/scripts/archive-progress.sh" --repo-root "$R" --milestone w2 --before 2026-08-26 --apply 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(apply) --apply exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  printf '%s' "$out" | grep 'Would write' >/dev/null && cf "(apply) --apply printed 'Would write' for a write it was making"
+  printf '%s' "$out" | grep 'Writing to:' >/dev/null || cf "(apply) --apply did not print 'Writing to:': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+  finish "archive-progress.sh: the dry run says 'Would write to:' and the applied run says 'Writing to:', never 'Would write'"
+  teardown
+}
+
 # archive-progress.sh: the ordinal knife, the honest no-op, and the index
 # =============================================================================
 # Rotation is due on a byte threshold, and a date knife cannot cut a same-day log, so a

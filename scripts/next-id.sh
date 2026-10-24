@@ -68,9 +68,9 @@ rc=0; TRUNK_REF="$(kit_trunk_ref "$ROOT")" || rc=$?
 case "$rc" in
   0) echo "next-id: read this checkout and $TRUNK_REF @ $(git -C "$ROOT" rev-parse --short "refs/remotes/$TRUNK_REF") (not fetched)" >&2 ;;  # card-read-exempt: the trunk, not a card branch
   3) echo "next-id: read this checkout only — no $TRUNK_REF ref" >&2; TRUNK_REF="" ;;
-  *) kit_refuse 1 trunk-unresolvable \
-       "Error: next-id could not resolve the trunk of this repository." \
-       "Next: run it from inside the project's git checkout; if the remote has no HEAD, settle the trunk once:  git remote set-head origin <your-trunk>." ;;
+  # kit_trunk_ref's own refusal (not inside a git repository, an unenterable git directory) has
+  # already named the cause and the next step on stderr; a second error would say it twice.
+  *) exit 1 ;;   # exit-class: internal
 esac
 
 # Highest number seen across live filenames + archived entries.

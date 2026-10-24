@@ -333,6 +333,19 @@ columns and never the cards.*
 
 ### Changed
 
+- **Script messages say what runs.** The `kit-init.sh` line in `verify.sh`'s and `finish-pr.sh`'s refusals carries the `--prefix` and `--trunk` it requires; `finish-pr.sh --help` explains `--dry-run` (it exits before the
+  pre-merge gate, so it predicts nothing about it); `archive-progress.sh --apply` says "Writing to:"; `next-id.sh` outside a repository prints one error; the manual names the first card's `--id`. No action.
+
+- **`new-issue.sh` and `new-bug.sh` refuse a malformed `--prd`, `--stories` or `--discovered-in`** (exit 2, naming the option) instead of writing it into the card's frontmatter. The shapes are those the usage text states. No action.
+
+- **`register-commit.sh` restores a subtask card beside its parent.** A subtask card's id is its parent's id plus its suffix, so a restored slice is no longer refused as a second copy of the parent; a second copy of the slice itself is still refused. No action.
+
+- **The card templates, `MANUAL.md` and `qa.md` say where QA evidence and a corrected AC's citation go.** The verdict and per-AC evidence live in the card's `## QA Verdict` table; `[decision: D-NN]` goes on the amended bullet's own line
+  (elsewhere on the card does not count); a quoted phrase before a pointer cell's first `path:line` is refused. A reviewer in a blocked-push regime records `PASS` with the landing `deferred`. No action.
+
+- **`kit-init.sh` tells the truth about `--enable-hooks`.** When it refuses because `.claude/settings.json` differs from the example, its re-run line leaves the flag out, as the refusal says; the header lists the settings copy
+  under its hooks step; the `.gitignore` line reads "1 entry" or "N entries". No action.
+
 - **A correctly shaped register entry is no longer refused as having a two-paragraph Why.** An entry laid out as the register shows it, with a blank line between the `**Ruling.**`, `**Why.**` and `**Provenance.**`
   fields, was read as having a Why that spans paragraphs, in `check-board.sh` arm `[q]` and at a landing. A blank line inside the Why is still refused. No action.
 

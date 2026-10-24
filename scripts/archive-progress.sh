@@ -396,7 +396,7 @@ if [ -n "$BEFORE" ]; then
 else
   echo "Found $PRE_COUNT entries to rotate (keeping the newest $KEEP_LAST)."
 fi
-echo "Would write to: ${CHUNK#"$REPO_ROOT"/}"
+if [ "$DRY_RUN" = true ]; then echo "Would write to: ${CHUNK#"$REPO_ROOT"/}"; else echo "Writing to: ${CHUNK#"$REPO_ROOT"/}"; fi
 echo ""
 echo "First 3 archivable entries:"
 # awk (not `grep ... | head -3`) so grep never takes a SIGPIPE, which under

@@ -316,7 +316,7 @@ The Dev skill set under [`.claude/skills/`](.claude/skills/) — `brainstorming`
 `requesting-code-review`, `receiving-code-review`, `finishing-a-development-branch`,
 `using-git-worktrees` and `using-skills` — is adapted from the
 [**superpowers**](https://github.com/obra/superpowers) collection by Jesse Vincent, MIT-licensed.
-Three of these (`finishing-a-development-branch`, `requesting-code-review`,
-`subagent-driven-development`) carry modifications for this kit's own Dev → QA landing discipline;
-the rest are used as published. Full provenance, per skill, is in
-[`.claude/skills/README.md`](.claude/skills/README.md) § Provenance & licensing.
+Which of them carry local modifications is the `Class` column of the provenance table in
+[`.claude/skills/README.md`](.claude/skills/README.md) § Provenance & licensing, which also gives
+each skill's provenance; do not re-copy a MIXED skill from upstream blind, because that erases the
+local edits.

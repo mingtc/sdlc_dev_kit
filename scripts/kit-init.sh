@@ -15,7 +15,8 @@
 #   3. BOARD       — the status folders with their .gitkeep files, the
 #                    progress.md skeleton, the ARCHIVE.md stub, the .gitignore
 #                    entries the kanban worktree needs.
-#   4. HOOKS       — git config core.hooksPath scripts/githooks.
+#   4. HOOKS       — git config core.hooksPath scripts/githooks; with --enable-hooks,
+#                    also copy .claude/settings.json.example to .claude/settings.json.
 #   5. COMMIT+PUSH — the initialized tree reaches the trunk, because the board
 #                    scripts operate on the REMOTE's copy of the board.
 #   6. SELF-CHECK  — a subset of scripts/test/run.sh's concerns, run against THIS
@@ -110,7 +111,7 @@ marker_restore() {
 KIT_INIT_ROLE_DEFAULT='PM'
 SELF_ROLE="${KIT_INIT_ROLE:-$KIT_INIT_ROLE_DEFAULT}"
 
-PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true; ENABLE_HOOKS=false
+PREFIX=""; TRUNK=""; PRD_PREFIX_NEW=""; ROLES_NEW=""; GATE_CMD=""; RUN_SELFCHECK=true; ENABLE_HOOKS=false; DROP_ENABLE_HOOKS=false
 PROJECT_NAME_NEW=""
 
 usage() {
@@ -367,6 +368,7 @@ if [ "$ENABLE_HOOKS" = "true" ]; then
   if [ ! -f "$ROOT/.claude/settings.json.example" ]; then
     pf "--enable-hooks: .claude/settings.json.example is missing, so there is nothing to copy. Restore it:  git checkout -- .claude/settings.json.example"
   elif [ -e "$ROOT/.claude/settings.json" ] && ! cmp -s "$ROOT/.claude/settings.json.example" "$ROOT/.claude/settings.json"; then
+    DROP_ENABLE_HOOKS=true
     pf "--enable-hooks: .claude/settings.json exists and differs from .claude/settings.json.example — it is yours and is not overwritten. Merge by hand, or re-run without --enable-hooks."
   fi
 fi
@@ -642,7 +644,11 @@ if [ ${#PF[@]} -gt 0 ]; then
   _pf_list=""
   for p in "${PF[@]}"; do _pf_list="${_pf_list}    • $p"$'\n'; done
   _pf_args=""
-  [ ${#ORIG_ARGS[@]} -eq 0 ] || _pf_args="$(printf ' %q' "${ORIG_ARGS[@]}")"
+  # The re-run line omits --enable-hooks when the refusal above says to re-run without it.
+  for _a in ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"}; do
+    [ "$DROP_ENABLE_HOOKS" = "true" ] && [ "$_a" = "--enable-hooks" ] && continue
+    _pf_args="${_pf_args}$(printf ' %q' "$_a")"
+  done
   _pf_next="Next: fix the above, then re-run (adding any option a line above names):
     ./scripts/kit-init.sh${_pf_args}"
   if [ "$PF_TOPOLOGY" -eq 1 ]; then
@@ -1072,7 +1078,8 @@ IGN_ADDED=0
 for entry in '.kanban-wt/' '.kanban-wt.lock/' '.kanban-wt.lock.reap/' "$KIT_HAT_FILE_REL"; do
   grep -qxF "$entry" "$ROOT/.gitignore" || { printf '%s\n' "$entry" >> "$ROOT/.gitignore"; IGN_ADDED=$((IGN_ADDED+1)); }
 done
-say "  .gitignore: ${IGN_ADDED} entr(y|ies) added (kanban worktree + $KIT_HAT_FILE_REL)"
+if [ "$IGN_ADDED" -eq 1 ]; then _ign_word=entry; else _ign_word=entries; fi
+say "  .gitignore: ${IGN_ADDED} ${_ign_word} added (kanban worktree + $KIT_HAT_FILE_REL)"
 
 # =============================================================================
 # 4. HOOKS

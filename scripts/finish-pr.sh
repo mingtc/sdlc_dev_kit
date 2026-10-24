@@ -4,7 +4,7 @@
 #
 # Squash-merges the issue's feature branch into the TRUNK locally, pushes the trunk, deletes the
 # branch (local + remote), and advances the issue file from progress/dev_complete/ →
-# progress/qa_complete/. QA's review evidence lives in the issue file's Activity log, not in a
+# progress/qa_complete/. QA's verdict and per-AC evidence live in the issue file's `## QA Verdict` table, not in a
 # PR/MR, so this works against any remote, including a bare repo with no forge
 # (see process/GIT-HOSTING.md).
 #
@@ -74,6 +74,9 @@
 #   changes it is not moved, and a fresh worktree is read instead.
 # --discard-dirty: if the kanban worktree has uncommitted tracked changes, discard
 #   them instead of aborting the sync — propagated to the move sub-step.
+# --dry-run: print the plan (what would be squashed, pushed, deleted and moved) and exit 0
+#   before the blocking pre-merge gate runs, so a clean dry run does not predict that the gate,
+#   or the landing, will pass.
 #
 # The gate checkout (the main one, or --worktree's) must be at the branch's tip; a decomposed
 # issue's subtasks (progress/subtasks/<ID>/) must all be in qa_complete/ or declined/; and this
@@ -439,7 +442,8 @@ if [ "$ALLOW_STUB" != "true" ]; then
   precondition, not a recommendation (process/contracts/verify-gate.md):
     • write it — scripts/verify.sh ships as a frame with an EMPTY gate table;
       declare your gates in it
-    • or, ON A FRESH REPO, generate one:  ./scripts/kit-init.sh --gate-command '<your test command>'
+    • or, ON A FRESH REPO, generate one:
+        ./scripts/kit-init.sh --prefix <P> --trunk <B> --gate-command '<your test command>'
       (kit-init REFUSES a repository that has already lived; if yours has, write it.)"
     else
       _gate_next="Next: land ${ISSUE_ID} one of two conforming ways:

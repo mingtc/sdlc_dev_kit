@@ -305,6 +305,7 @@ CASES=(
   case_ask_channel_stays_inside_the_repository
   case_ask_writes_one_file_and_returns
   case_ask_never_overwrites_a_standing_ruling
+  case_ask_standing_note_names_no_wrong_direction
   case_ask_reads_the_withdrawn_token_as_the_format_shows_it
   case_ask_without_decision_names_the_file_as_the_record
   case_ask_card_option_records_the_parked_card
@@ -431,6 +432,8 @@ CASES=(
   case_archive_feature_branch_clean
   case_config_seam_refusal
   case_next_id
+  case_next_id_outside_a_repository_reports_once
+  case_a_restored_slice_card_is_not_a_duplicate_of_its_parent
   case_next_id_reads_the_trunk
   case_creation_id_check_reads_the_trunk
   case_commit_msg
@@ -456,6 +459,7 @@ CASES=(
   case_archive_progress_ordinal_knife
   case_archive_progress_honest_noop
   case_archive_progress_dry_run_writes_nothing
+  case_archive_progress_apply_does_not_say_would_write
   case_settings_example_glosses_only_real_placeholders
   case_runner_key_guards_admit_every_field_they_read
   case_downtime_queue_claim_drift
@@ -576,6 +580,7 @@ CASES=(
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals
   case_kit_init_enable_hooks_makes_the_copy_and_the_default_does_not
+  case_kit_init_text_matches_what_it_does
   case_the_hooks_act_is_worded_the_same_wherever_the_kit_names_it
   case_option_parsing_hygiene
   case_usage_request_succeeds_in_any_position
@@ -585,6 +590,8 @@ CASES=(
   case_subtask_builds_beside_and_publishes_whole
   case_subtask_parent_is_an_open_issue
   case_creation_scripts_substitute_hostile_values
+  case_creation_link_options_are_shape_checked
+  case_next_steps_and_help_name_what_runs
   case_first_mile
   case_release_happy
   case_usage_renderer_has_one_authoring_site
