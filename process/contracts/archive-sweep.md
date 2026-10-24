@@ -10,8 +10,8 @@ indexed store — **without ever losing the record it is retiring**.
 
 - **The sweep PRESERVES; it never summarises away.** The retired item is moved whole, with its
   full activity log intact, into the retired store.
-  *Why:* the log is the review record and the only evidence the process produced; an archive that
-  keeps a one-line summary has destroyed the thing worth keeping.
+  *Why:* the log is the card's history and part of the evidence the process produced; an archive
+  that keeps a one-line summary has destroyed the thing worth keeping.
 - **A CALENDAR DAY is the operator's LOCAL day. An INSTANT is UTC, and says so with a `Z`.**
   These are two different things and the board writes both. A day stamped into a durable record —
   a retirement day, a creation day, an activity line, a rotation day — is the day the operator

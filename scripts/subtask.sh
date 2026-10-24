@@ -117,7 +117,7 @@ usage() {   # the path is an ARGUMENT — see lib/usage.sh
 for _a in "$@"; do case "$_a" in -h|--help) usage; exit 0 ;; esac; done
 
 # config.sh is loaded HERE for its SHARED VALIDATORS, not for a prefix — no OPERATION below
-# mints one (`--prd` is carried through opaque), so the "THE PREFIX HAS ONE AUTHORITY" block
+# mints one (`--prd` is shape-checked, never minted), so the "THE PREFIX HAS ONE AUTHORITY" block
 # is not copied here. It is the configuration SEAM, so a missing file still gets a named
 # cause (process/contracts/config-seam.md), in the same shape as the other seam readers.
 # The `|| ! . "$CONFIG"` half is kept for that consistency only: under `set -e` an

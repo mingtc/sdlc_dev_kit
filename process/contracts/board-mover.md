@@ -19,7 +19,7 @@ to change and making every change self-recording.
 - **Every move APPENDS to the item's own activity log — date, actor, target, note.** Appends
   only: an earlier entry is never rewritten or removed. **The target is IN the entry**, not only in
   the publication's own subject line.
-  *Why:* the log is the review record; a log that can be edited proves nothing about what
+  *Why:* the log is the card's history; a log that can be edited proves nothing about what
   happened. And an entry that omits its target is **un-judgeable**: a drift checker holding a
   card's container against its own last entry has nothing to hold it to, so the check goes blind in
   exactly the workflow that uses a custom note — which is the workflow the manual mandates.
