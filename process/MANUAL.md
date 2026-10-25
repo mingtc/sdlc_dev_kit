@@ -810,9 +810,13 @@ open-ended *"whenever something goes wrong"* trigger.
    orchestrator writes the entry (M4).
 2. **M2: session close.** Answer these questions:
    - (a) if this session did M1, is its `K-NN` written?
-   - (b) did it bypass or override a kit hook, refusal or gate?
+   - (b) did it bypass or override a kit hook, refusal or gate? Read this session's refusals from
+     the record rather than from memory: in the main checkout,
+     `awk -F'\t' '$3 == "error" && $5 ~ /refusal=/ { print $1, $2, $5 }' .progress-records/*.tsv`
+     (§ Progress records), and account for each.
    - (c) did a kit script or gate report something false?
-   - (d) did it hit a kit instruction it could not follow as written, without recording that
+   - (d) did it hit a kit instruction it could not follow as written, or follow none because the
+     kit had none and fill the gap (an invented convention, tag or file), without recording that
      anywhere?
 
    Each *yes* to (b), (c) or (d) is an entry **when the kit's rule, script or silence was the
@@ -831,6 +835,12 @@ open-ended *"whenever something goes wrong"* trigger.
    the entries. **The `progress.md` lines stay the record:** a runner's return lives only as long as
    the orchestrator's session, and a line in the trunk's `progress.md` outlives it. The run report
    carries the same `kit-feedback:` line.
+5. **M5: a kit refusal, `⚠` finding or hook denial you did not clear by doing what it printed**:
+   you worked around it, overrode it, or satisfied it with a record that was not true. Before your
+   next action, append an entry in the short form (the skeleton's § The shape of an entry), quoting
+   what the kit printed. A dispatched leg writes no entry: it puts a `kit-finding:` line in its
+   `progress.md` entry, as at M1, and the orchestrator writes the entry (M4). **The list stays closed
+   because M5 names something the kit printed, not a feeling that something went wrong.**
 
 **What an entry carries, and what may leave the project**, is the skeleton's to say:
 `process/templates/KIT-FEEDBACK.skeleton.md` § The shape of an entry, and its header.

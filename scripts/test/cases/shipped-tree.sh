@@ -3599,3 +3599,78 @@ KITEOF
   finish "every release-history section with Action required bullets yields at least that many rows, and none sits outside the heading, from kit-upgrade.sh's own notes_items reader"
   teardown
 }
+
+# =============================================================================
+# CASE — THE KIT-FEEDBACK SHAPE: A PRINTED-EVENT CAPTURE MOMENT, AN EFFECT, A ROOT-CAUSE BLOCK.
+# A WEAK TEST, SAID SO: it pins that prose and a skeleton carry fixed tokens, not that a seat
+# behaves as they say (that is measured by a run). It earns its place on three points only: the
+# closed list gained its printed-event moment WITHOUT losing the sentence that closes it or the
+# rows that switch it off; the entry shape carries `Effect:` and a short form; and the root-cause
+# block's heading is NOT one the intake recipe `^## K-[0-9]+ ` counts as an entry. Every expected
+# string is written here, never read back from the files it judges.
+# =============================================================================
+_kf_in() { grep "$@" >/dev/null; }   # stdin -> status; drains its input, so a producer never takes SIGPIPE
+_kf_shape_missing() {   # <MANUAL> <skeleton> <adapter template> — prints one line per missing token
+  local man="$1" skel="$2" adp="$3" sect m5 b d shape
+  sect="$(awk '/^## Kit feedback/ {s=1; next} s && /^## / {exit} s' "$man")"
+  [ -n "$sect" ] || { echo "MANUAL has no '## Kit feedback' section"; return 0; }
+  printf '%s\n' "$sect" | _kf_in 'open-ended' \
+    || echo "MANUAL: the closed-list sentence (no open-ended trigger) is gone"
+  printf '%s\n' "$sect" | _kf_in '^| `manual` | No capture moment fires' || echo "MANUAL: the manual row no longer says no capture moment fires"
+  printf '%s\n' "$sect" | _kf_in '^| `off` | No capture moment fires' || echo "MANUAL: the off row no longer says no capture moment fires"
+  m5="$(printf '%s\n' "$sect" | awk '/^5\. \*\*M5: / {s=1} s && /^\*\*What an entry carries/ {exit} s')"
+  [ -n "$m5" ] || echo "MANUAL: no item '5. **M5: '" 
+  if [ -n "$m5" ]; then
+    printf '%s\n' "$m5" | _kf_in 'printed' || echo "MANUAL M5: does not name what the kit printed"
+    printf '%s\n' "$m5" | _kf_in 'next action' || echo "MANUAL M5: does not say the entry is written before the next action"
+    printf '%s\n' "$m5" | _kf_in 'kit-finding:' || echo "MANUAL M5: does not say what a dispatched leg writes"
+    printf '%s\n' "$m5" | _kf_in 'not a feeling' || echo "MANUAL M5: does not say why the list stays closed"
+  fi
+  b="$(printf '%s\n' "$sect" | awk '/^   - \(b\)/ {s=1; print; next} s && /^   - \(c\)/ {exit} s')"
+  printf '%s\n' "$b" | _kf_in '\.progress-records' || echo "MANUAL M2 (b): does not read the refusal records"
+  printf '%s\n' "$b" | _kf_in 'refusal=' || echo "MANUAL M2 (b): does not name the refusal= key it reads"
+  d="$(printf '%s\n' "$sect" | awk '/^   - \(d\)/ {s=1; print; next} s && /^   - \(/ {exit} s && NF==0 {exit} s')"
+  printf '%s\n' "$d" | _kf_in 'kit had none' || echo "MANUAL M2 (d): does not cover a gap the seat filled because the kit had none"
+  shape="$(awk '/^## The shape of an entry/ {s=1; next} s && /^## Sending it/ {exit} s' "$skel")"
+  printf '%s\n' "$shape" | _kf_in -F -- '- Effect: <blocks | misleads | friction>' || echo "skeleton: the entry shape has no 'Effect: blocks | misleads | friction' line"
+  printf '%s\n' "$shape" | _kf_in 'inferred' || echo "skeleton: the entry shape does not say to mark an unrun sentence inferred"
+  printf '%s\n' "$shape" | _kf_in 'short form' || echo "skeleton: no short form"
+  _kf_in '^## Root causes — through K-NN' < "$skel" || echo "skeleton: no '## Root causes — through K-NN' block"
+  _kf_in 'R-NN' < "$skel" || echo "skeleton: the root-cause block does not number its causes"
+  _kf_in 'M5' < "$adp" || echo "adapter template: the kit-feedback line does not name M5"
+}
+
+case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes() {
+  cf_reset
+  make_sandbox
+  local man="$REAL_REPO_ROOT/process/MANUAL.md" skel="$REAL_REPO_ROOT/process/templates/KIT-FEEDBACK.skeleton.md" \
+        adp="$REAL_REPO_ROOT/process/templates/AGENTS-adapter.template.md" f got
+  for f in "$man" "$skel" "$adp"; do
+    [ -f "$f" ] || _fixture_die "kit-feedback shape check: $f is absent, so the check has no operand."
+  done
+  got="$(_kf_shape_missing "$man" "$skel" "$adp")"
+  [ -z "$got" ] || cf "the kit-feedback shape is incomplete:
+$(printf '%s\n' "$got" | sed 's/^/      /')"
+
+  # The intake recipe counts entries by heading. A root-cause block must not be counted as one;
+  # a real entry heading must be (so the recipe is shown to read at all).
+  local rc k
+  rc="$(grep '^## Root causes — through K-NN' "$skel" | head -n 1)"
+  k="$(printf '%s\n' "## K-""07 — a finding" | grep -cE '^## K-[0-9]+ ' || true)"
+  [ "$k" = "1" ] || cf "(control) the intake recipe '^## K-[0-9]+ ' did not count a plain entry heading"
+  if [ -n "$rc" ]; then
+    printf '%s\n' "${rc/NN/07}" | _kf_in -E '^## K-[0-9]+ ' \
+      && cf "the root-cause heading is counted as an entry by the intake recipe: $rc"
+  fi
+
+  # CONTROL: the check names what it should when each part is taken away, on copies — never the live tree.
+  local ctl="$SB_TMP/kfctl"; mkdir -p "$ctl"
+  sed '/M5/d' "$man" > "$ctl/MANUAL.md"
+  sed '/Effect:/d; /^## Root causes/d' "$skel" > "$ctl/skel.md"
+  got="$(_kf_shape_missing "$ctl/MANUAL.md" "$ctl/skel.md" "$adp")"
+  printf '%s' "$got" | _kf_in 'no item .5\. \*\*M5: ' || cf "(control) removing M5 from a copy of MANUAL was not reported"
+  printf '%s' "$got" | _kf_in "no 'Effect:" || cf "(control) removing the Effect line from a copy of the skeleton was not reported"
+  printf '%s' "$got" | _kf_in "no '## Root causes" || cf "(control) removing the root-cause block from a copy of the skeleton was not reported"
+  finish "the closed list gained M5 (a printed event) and kept its closing sentence and its off rows; M2 (b) reads the refusal records and (d) covers a filled gap; the entry shape carries Effect, a short form and inferred marking; the root-cause block is not counted as an entry; each part is reported when removed from a copy"
+  teardown
+}

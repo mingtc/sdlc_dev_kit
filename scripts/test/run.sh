@@ -700,6 +700,7 @@ CASES=(
   case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
   case_restated_rules_are_registered
+  case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes
   case_ship_state
   case_isolation
 )

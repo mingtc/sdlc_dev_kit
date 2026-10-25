@@ -81,11 +81,13 @@ anything you have not measured. *An entry with no evidence costs the kit a round
 - Found at: <the moment it was noticed — a session close, a run close, an upgrade, a local ruling — or "when asked">
 - Kit version: <X.Y.Z> · Project commit: <short sha>
 - Kit says: <kit file and line, or §> — or "the kit is silent"
+- Effect: <blocks | misleads | friction> — <one clause: it stopped the work · its output said something untrue or unhelpful · neither>
 - Workaround taken: <what the project did instead>
 - Rule or setting? <optional: would another project want the opposite?>
 
 **What happened, measured <YYYY-MM-DD>.** <what you ran, what you expected, what you got — with the
-kit command and its own diagnostic line, or the kit file and its line; never test output>
+kit command and its own diagnostic line, or the kit file and its line; never test output. Mark each
+sentence you did not run `inferred`>
 
 **Why it is the KIT's rather than this project's.** <the rule, path or § in the kit that is wrong,
 missing or unobeyable — or say plainly that you are unsure and why it might be yours>
@@ -98,6 +100,9 @@ it against their own tree, which has moved since you adopted>
 **Instances:** <where and when, so a pattern is visible if it recurs>
 ```
 
+**The short form** is *The moment.* and *What happened* alone, with the kit's exact output or "the
+kit is silent". The other four paragraphs are optional; the evidence is not.
+
 ## Sending it — and RECORD THE CHANNEL
 
 **Send it to the destination `PROJECT.md` § The kit, upstream names** (*Feedback is sent to*). **If
@@ -105,6 +110,17 @@ that says nobody, the file stays here, and it is complete as it is**: do not go 
 recipient. A recipient you guessed at is worse than none, because the file then leaves to someone
 who never agreed to receive it. Nothing sends this file automatically. Sending is always a person's
 act, after the review the header asks for.
+
+**Before a send to a named destination, group what is unsent.** Read the unsent entries and append
+one block; with "nobody" as the destination the step is optional. It names no recipient and sends
+nothing. An entry sits in at most one cause and is never edited; a later block may regroup, naming
+the earlier one.
+
+```
+## Root causes — through K-NN
+- R-NN — <the cause, one sentence> · Effect: <the highest of its entries': blocks, then misleads, then friction> · Entries: K-NN[, K-NN…] · Cure (hypothesis): <one line>
+- Ungrouped: K-NN[, K-NN…]
+```
 
 When you send a snapshot, mark the point and **say how you sent it**:
 
