@@ -78,7 +78,7 @@ case_finish_pr_qa_verdict_evidence_missing_refuses() {
   grep -q 'refusal=qa-verdict-evidence-missing' "$SB_TMP/rec-b"/*.tsv 2>/dev/null \
     || cf "(b) no progress record carries refusal=qa-verdict-evidence-missing: $(cat "$SB_TMP/rec-b"/*.tsv 2>/dev/null)"
 
-  finish "finish-pr.sh refuses a landing whose QA Verdict table has a row with no usable evidence — an evidence kind outside test|file:line|gate-diff|fixture-diff, or an empty/placeholder pointer — naming the row, with a refusal=qa-verdict-evidence-missing record"
+  finish "finish-pr.sh refuses a landing whose QA Verdict table has a row with no usable evidence — an evidence kind outside test|file:line|gate-diff|fixture-diff|artifact, or an empty/placeholder pointer — naming the row, with a refusal=qa-verdict-evidence-missing record"
   teardown
 }
 
@@ -1364,5 +1364,121 @@ case_qa_gate_self_pointer_spellings() {
   _qsg_check "(h) ordinary content" "ARCHIVE.md" notself
 
   finish "the gate takes the card's own file to be any file named <card id>-*.md under a progress/ directory — every column, a leading ./, a different slug — found by id and not by the path it was handed (a scratch copy here), and takes another card, an id that merely begins with this id, a parent's slice and a same-named file outside progress/ to be content"
+  teardown
+}
+
+# =============================================================================
+# CASE — AN `artifact` ROW CITES A FILE QA COMMITTED ON THE TRUNK, BY PATH AND FULL BLOB SHA, AND IT
+# IS READ ON THE TRUNK, NEVER ON THE BRANCH BEING LANDED. The branch is cut BEFORE the artefact is
+# committed (the ordinary order: QA writes on the trunk, reads on the branch), so a pointer read at
+# the branch tip cannot find it. The two blob shas are written out, not derived from the tree the
+# gate judges: 'render one\n' hashes to c13971e4…, 'a real change\n' (seed_branch's content) to 2ca9296c….
+#   (a) LANDS: the artefact is on the trunk and the sha is its blob's (RED on a gate with no such kind);
+#   (b) a sha that is not the blob's                   -> qa-verdict-pointer-unresolved, Next: names git rev-parse;
+#   (c) a 12-hex prefix of the right sha                -> qa-verdict-pointer-unresolved, "not the full";
+#   (d) the file exists on the BRANCH only              -> qa-verdict-pointer-unresolved (the branch cannot self-attest);
+#   (e) the card's own file                             -> qa-verdict-self-pointer;
+#   (f) every AC row is an artifact                     -> qa-verdict-no-observed;
+#   (g) an unknown kind, `screenshot`                   -> qa-verdict-evidence-missing;
+#   (h) the path is a directory                         -> qa-verdict-pointer-unresolved;
+#   (i) the path is on neither side                     -> qa-verdict-pointer-unresolved;
+#   (j) a path:line token beside a good pair, naming a file that is not there -> qa-verdict-pointer-unresolved;
+#   (k) move-issue.sh <ID> qa_complete, direct to the trunk, accepts the row (a)'s landing accepted.
+# =============================================================================
+_qva_add_ac2() {  # <card file> <ac2 evidence kind> <ac2 evidence pointer> [<ac1 kind> <ac1 pointer>] — adds an AC2 bullet and its row
+  local f="$1" row1='| AC1 | PASS | test | ARCHIVE.md:1 "condensed index of completed issues" |'
+  if [ -n "${4:-}" ]; then row1="| AC1 | PASS | ${4} | ${5} |"; fi
+  perl -i -pe 's/^(- \[ \] AC1 — the sandbox.s seeded behaviour holds\.)$/$1\n- [ ] AC2 — a rendered screen shows the state./' "$f"
+  KIT_ROWS="${row1}"$'\n'"| AC2 | PASS | ${2} | ${3} |" perl -i -pe 's/^\| AC1 \| PASS \| test \|.*\|$/$ENV{KIT_ROWS}/' "$f"
+  grep -qF -- "| AC2 | PASS | ${2} | ${3} |" "$f" && grep -qF -- "- [ ] AC2 — a rendered screen" "$f" \
+    || _fixture_die "_qva_add_ac2: the AC2 bullet and row were not planted in $f"
+}
+_qva_refused() {  # <label> <id> <rule> <out> <rc> <rec dir> — a refusal before the merge, with a record and a Next:
+  local label="$1" id="$2" rule="$3" out="$4" rc="$5" rec="$6"
+  [ "$rc" -ne 0 ] || cf "($label) finish-pr.sh exited 0"
+  grep -q "refusal=$rule" "$rec"/*.tsv 2>/dev/null \
+    || cf "($label) no progress record carries refusal=$rule: $(cat "$rec"/*.tsv 2>/dev/null | cut -c1-200)"
+  case "$out" in *"Next:"*) : ;; *) cf "($label) the refusal names no Next: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)" ;; esac
+  origin_has_path "CHANGE$id.txt" && cf "($label) the branch was merged before the refusal"
+  origin_has_path "progress/qa_complete/$id-card.md" && cf "($label) the card advanced despite the refusal"
+  return 0
+}
+case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk() {
+  cf_reset
+  make_sandbox
+
+  local ok="c13971e4a02e4dd28792b6a4756b144ebaf30bca" other="0676ef193f605ad8a09540f9c1317bb820a4b436" branchonly="2ca9296cbd930919caf43554f685690dfb1d59af"
+  local ida="$SB_PREFIX-880" idb="$SB_PREFIX-881" idc="$SB_PREFIX-882" idd="$SB_PREFIX-883" ide="$SB_PREFIX-884" idf="$SB_PREFIX-885"
+  local idg="$SB_PREFIX-886" idh="$SB_PREFIX-887" idi="$SB_PREFIX-888" idj="$SB_PREFIX-889" idk="$SB_PREFIX-890" id out rc
+  local ev="dev/evidence"
+
+  for id in "$ida" "$idb" "$idc" "$idd" "$ide" "$idf" "$idg" "$idh" "$idi" "$idj"; do
+    seed_issue dev_complete "$id" card chore "artifact row $id" "feature/$id-work"
+  done
+  seed_issue dev_complete "$idk" card chore "artifact row $idk" "n/a"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$ida-card.md" artifact "$ev/$ida/render.png $ok"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idb-card.md" artifact "$ev/$idb/render.png $other"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idc-card.md" artifact "$ev/$idc/render.png ${ok:0:12}"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idd-card.md" artifact "$ev/$idd/render.png $branchonly"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$ide-card.md" artifact "progress/dev_complete/$ide-card.md $ok"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idf-card.md" artifact "$ev/$idf/two.png $ok" artifact "$ev/$idf/render.png $ok"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idg-card.md" screenshot "$ev/$idg/render.png $ok"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idh-card.md" artifact "$ev/$idh $ok"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idi-card.md" artifact "$ev/$idi/render.png $ok"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idj-card.md" artifact "$ev/$idj/render.png $ok nosuch.txt:3"
+  _qva_add_ac2 "$SB_WORK/progress/dev_complete/$idk-card.md" artifact "$ev/$idk/render.png $ok"
+  publish_sandbox
+  # The branches are cut from the trunk as it stands now; (d)'s own file is the branch's marker.
+  for id in "$ida" "$idb" "$idc" "$ide" "$idf" "$idg" "$idh" "$idi" "$idj"; do seed_branch "$id" work "CHANGE$id.txt"; done
+  mkdir -p "$SB_WORK/$ev/$idd"
+  seed_branch "$idd" work "$ev/$idd/render.png"
+  # QA's artefacts reach the trunk AFTER every branch was cut: one metadata commit, as QA lands it.
+  # Each cited artefact holds 'render one' (hash c13971e4…); (i)'s is nowhere, (h)'s is a directory.
+  for id in "$ida" "$idb" "$idc" "$idf" "$idg" "$idj" "$idk"; do
+    mkdir -p "$SB_WORK/$ev/$id"; printf 'render one\n' > "$SB_WORK/$ev/$id/render.png"
+  done
+  printf 'render one\n' > "$SB_WORK/$ev/$idf/two.png"
+  mkdir -p "$SB_WORK/$ev/$idh"; printf 'render one\n' > "$SB_WORK/$ev/$idh/render.png"
+  git -C "$SB_WORK" add "$ev" >/dev/null 2>&1
+  sbcommit -m "[QA] commit the evidence artefacts" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1 || _fixture_die "case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk: the artefacts could not be published"
+  origin_has_path "$ev/$ida/render.png" || _fixture_die "case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk: the artefact is not on the trunk"
+  origin_has_path "$ev/$idd/render.png" && _fixture_die "case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk: (d)'s file reached the trunk, so it is not branch-only"
+
+  local -a rows=("b|$idb|qa-verdict-pointer-unresolved|sha does not match|git rev-parse"
+                 "c|$idc|qa-verdict-pointer-unresolved|not the full|git rev-parse"
+                 "d|$idd|qa-verdict-pointer-unresolved|does not exist at|git rev-parse"
+                 "e|$ide|qa-verdict-self-pointer||"
+                 "f|$idf|qa-verdict-no-observed||"
+                 "g|$idg|qa-verdict-evidence-missing|evidence kind 'screenshot'|"
+                 "h|$idh|qa-verdict-pointer-unresolved|not a file|git rev-parse"
+                 "i|$idi|qa-verdict-pointer-unresolved|does not exist at|git rev-parse"
+                 "j|$idj|qa-verdict-pointer-unresolved|nosuch.txt:3|")
+  local row label rid rule need next
+  for row in "${rows[@]}"; do
+    IFS='|' read -r label rid rule need next <<< "$row"
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-$label" "$SB_WORK/scripts/finish-pr.sh" "$rid" 2>&1 )"; rc=$?
+    _qva_refused "$label" "$rid" "$rule" "$out" "$rc" "$SB_TMP/rec-$label"
+    if [ -n "$need" ]; then
+      case "$out" in *"$need"*) : ;; *) cf "($label) the refusal does not say '$need': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+    fi
+    if [ -n "$next" ]; then
+      case "$out" in *"$next"*) : ;; *) cf "($label) the Next: does not name '$next': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
+    fi
+  done
+
+  # (a) the good row lands, and the control for the unquoted kinds is case_finish_pr_qa_verdict_unquoted_kinds_only_refuses.
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" KIT_PROGRESS_DIR="$SB_TMP/rec-a" "$SB_WORK/scripts/finish-pr.sh" "$ida" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) an artifact row on the trunk — finish-pr.sh exited $rc: $(printf '%s' "$out" | tail -8 | tr '\n' '|' | cut -c1-400)"
+  origin_has_path "progress/qa_complete/$ida-card.md" || cf "(a) the card did not advance to qa_complete/"
+  origin_has_path "CHANGE$ida.txt" || cf "(a) the squash-merged change is not on the trunk"
+
+  # (k) the direct-to-trunk move reads the same row the same way.
+  git -C "$SB_WORK" pull --ff-only --quiet >/dev/null 2>&1 || _fixture_die "case_finish_pr_qa_verdict_artifact_kind_reads_the_trunk: the work checkout could not fast-forward to the trunk"
+  out="$( cd "$SB_WORK" && env KIT_PROGRESS_DIR="$SB_TMP/rec-k" ./scripts/move-issue.sh "$idk" qa_complete --role QA --note "Review PASS, direct to trunk" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(k) the same row on a direct-to-trunk card — move-issue.sh qa_complete exited $rc: $(printf '%s' "$out" | tail -4 | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$idk-card.md" || cf "(k) the card did not reach qa_complete/"
+
+  finish "an artifact row (path plus full blob sha) resolves on the trunk and lands through finish-pr.sh although the branch was cut before the artefact existed (a) and through the direct-to-trunk move (k); a wrong sha (b), a short sha (c), a file on the branch only (d), the card's own file (e), a table of only artifact rows (f), an unknown kind (g), a directory (h), an absent path (i) and an unresolved path:line beside a good pair (j) are each refused before the merge with a countable rule and a Next:"
   teardown
 }

@@ -400,10 +400,12 @@ kit_forks_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${KWT_REMOTE}/${DEFAULT_BRANCH}
 #    Every evidence pointer is read against $BRANCH — the revision being landed, same as
 #    kit_forks_check's new_rev above — never the caller's own working tree.
 #    The branch tip is resolved once: the gate reads that commit and the Activity note names it.
+#    An `artifact` row is QA's own file, committed on the trunk, so it is read at the trunk, never at
+#    the branch the work's author controls.
 QA_READ_FULL="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${BRANCH}^{commit}" 2>/dev/null || true)"
 QA_READ_SHORT=""
 [ -z "$QA_READ_FULL" ] || QA_READ_SHORT="$(git -C "$MAIN_ROOT" rev-parse --short "$QA_READ_FULL" 2>/dev/null || true)"
-kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${QA_READ_FULL:-$BRANCH}"
+kit_qa_verdict_check "$SRC" "$ISSUE_ID" "$MAIN_ROOT" "${QA_READ_FULL:-$BRANCH}" "${KWT_REMOTE}/${DEFAULT_BRANCH}"
 
 #    Ablation: process/doctrine/instruments.md § A.2; .claude/roles/dev.md Definition of Done.
 #    TEST_GLOBS (scripts/config.sh) read as the UNION of the trunk's copy and the branch's.

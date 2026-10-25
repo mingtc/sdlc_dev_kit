@@ -76,6 +76,12 @@ date will be read as current no matter what its first paragraph says.
   reconciles it by recording a register entry that cites the file's path (for a question asked with `--decision`, discharging that working-default entry in place) and unblocking the card it
   parks. The file stays as the answer's record.
 
+## Verdict evidence (`evidence/`)
+
+- **[`evidence/`](evidence/)** — binary evidence a `## QA Verdict` row cites by the `artifact` kind
+  (a screenshot, a render), one `evidence/<card-id>/` directory per card, committed by QA on the
+  trunk before the row is written. The convention is in [`evidence/README.md`](evidence/README.md).
+
 ## The role outputs (`specs/`, `plans/`, `refactor/`, `design/`)
 
 The directories the process writes into **by name**, so that a role doc saying *"output goes to

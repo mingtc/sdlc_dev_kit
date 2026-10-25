@@ -8,20 +8,23 @@
 # a subtask's own card. A caller sources this, then calls, each against ONE card file, before any
 # destructive step:
 #
-#   kit_qa_verdict_check <card-file> <card-id> <repo> <rev>
+#   kit_qa_verdict_check <card-file> <card-id> <repo> <rev> [<trunk-rev>]
 #     The QA Verdict table (.claude/roles/qa.md step 4): a '## QA Verdict' heading exists, every
 #     row has usable evidence, every row's verdict is one of KIT_QAV_VERDICTS, no row is itself
 #     FAIL_AC/FAIL_REGRESSION, the table's AC ids match the card's own '- [ ] <id> —'/'- [ ] <id> -'/'- [ ] <id>:' checklist bullets one for one, and
 #     the fixed 'shadow-check' row is present and filled. <rev> is the revision being landed (read
 #     in <repo> with `git cat-file`/`git show`) — every evidence pointer is checked against IT, not
-#     the caller's working tree. A `file:line`/`test` row's pointer must resolve (the file exists
+#     the caller's working tree. An `artifact` row names a file QA committed on the trunk, so its
+#     pointer (`<path> <full blob sha>`) resolves at <trunk-rev> instead, which defaults to <rev>:
+#     a caller that lands a branch passes the trunk, because the branch's author controls the branch.
+#     A `file:line`/`test` row's pointer must resolve (the file exists
 #     at <rev> and the line, or range, is within its length) and carry a short quote the gate finds
-#     at that line, whitespace-normalised; `gate-diff`/`fixture-diff` are exempt from the quote but
-#     not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
+#     at that line, whitespace-normalised; `gate-diff`/`fixture-diff`/`artifact` are exempt from the
+#     quote but not from a `path:line` token they do carry resolving. A row is read pointer by pointer: each
 #     quote is checked against the `path:line` it follows, and every pointer of a `test`/`file:line`
 #     row carries a quote of its own, of at least KIT_QAV_MIN_QUOTE characters. A table has one row
 #     per AC id. At least one AC row must be a `test`/`file:line` row, so a table of only
-#     gate-diff/fixture-diff rows (nothing the gate can re-read) is refused. Refuses through
+#     gate-diff/fixture-diff/artifact rows (nothing the gate can re-read) is refused. Refuses through
 #     kit_refuse with:
 #     qa-verdict-missing, qa-verdict-evidence-missing, qa-verdict-token-invalid, qa-verdict-fail,
 #     qa-verdict-ac-mismatch, qa-verdict-ac-duplicate, qa-verdict-shadow-missing,
@@ -138,6 +141,10 @@ KIT_QAV_PLACEHOLDER_RE='^(n/a|na|none|tbd|see above|see below|-|—|x|\.\.\.|\?|
 # step 6 ratifies. A cell outside it is refused (qa-verdict-token-invalid), never read as a pass.
 KIT_QAV_VERDICTS='PASS PASS_AC_CORRECTED FAIL_AC FAIL_REGRESSION'
 
+# The built-in evidence kinds of a QA Verdict row's third cell, exactly and case-sensitively: the one
+# list the kind check and its refusal text read. qa.md and the card templates state the same set in prose.
+KIT_QAV_KINDS='test file:line gate-diff fixture-diff artifact'
+
 # The shortest quote a pointer may carry, in characters after whitespace is normalised: a shorter
 # fragment is on almost any line, so finding it there shows nothing. A quote that is the cited
 # range's whole text is exempt (a version stamp is a short line). qa.md states it in prose.
@@ -239,6 +246,44 @@ _qav_cell_events() {
   }')"
 }
 
+# _qav_artifact_events <repo> <trunk-rev> <card-id> <cell> — an `artifact` row's pointer cell, read as
+# `<path> <full blob sha>` pairs (quoted prose, `path:line` tokens and `;`/`,` set aside: the other
+# readers own those), each checked at <trunk-rev>. One event per line:
+#   `MALFORMED`      the cell holds no pair, an odd token, or a sha that is not hex;
+#   `SELF <path>`    the path is the card's own file;
+#   `BAD <why>`      the path is not a file at <trunk-rev>, or the sha is not that blob's full sha.
+# Nothing is printed for a pair that resolves.
+_qav_artifact_events() {
+  local repo="$1" trunk="$2" id="$3" cell="$4" re='^[^[:space:]]+:[0-9]+(-[0-9]+)?$'
+  local tok i=0 n=0 path sha blob
+  local -a toks=() all=()
+  read -ra all <<< "$(printf '%s' "$cell" | sed -E 's/"[^"]*"//g' | tr ';,' '  ')"
+  for tok in ${all[@]+"${all[@]}"}; do
+    [[ "$tok" =~ $re ]] || { toks[n]="$tok"; n=$((n+1)); }
+  done
+  if [ "$n" -eq 0 ] || [ $((n % 2)) -ne 0 ]; then printf 'MALFORMED\n'; return 0; fi
+  while [ "$i" -lt "$n" ]; do
+    path="${toks[i]}"; sha="$(printf '%s' "${toks[i+1]}" | tr '[:upper:]' '[:lower:]')"; i=$((i+2))
+    case "$sha" in *[!0-9a-f]*) printf 'MALFORMED\n'; return 0 ;; esac
+    if _qav_is_own_card "$path" "$id"; then printf 'SELF %s\n' "$path"; continue; fi
+    case "$path" in
+      /*|./*|../*|*/../*|*/..) printf 'BAD %s\n' "${path} is not a path from the repository root"; continue ;;
+    esac
+    blob="$(git -C "$repo" rev-parse --verify --quiet "${trunk}:${path}" 2>/dev/null || true)"
+    if [ -z "$blob" ]; then
+      printf 'BAD %s\n' "${path} does not exist at ${trunk}"
+    elif [ "$(git -C "$repo" cat-file -t "$blob" 2>/dev/null)" != blob ]; then
+      printf 'BAD %s\n' "${path} is not a file at ${trunk}"
+    elif [ "$sha" = "$blob" ]; then
+      :
+    elif [ "${blob#"$sha"}" != "$blob" ]; then
+      printf 'BAD %s\n' "${path}: the sha is not the full ${#blob}-character blob sha"
+    else
+      printf 'BAD %s\n' "${path}: the sha does not match the file at ${trunk}"
+    fi
+  done
+}
+
 # _qav_range_text <repo> <rev> <path> <lo> <hi> — <path>'s lines <lo>-<hi> at <rev>, whitespace-normalised
 # and with backticks removed: the evidence cell is read without them, so the line must be too.
 _qav_range_text() {
@@ -307,9 +352,10 @@ kit_qa_verdict_begun() {
   return 1   # return-class: predicate
 }
 
-# ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> ────────────────────────────────────
+# ── kit_qa_verdict_check <card-file> <card-id> <repo> <rev> [<trunk-rev>] ──────────────────────
 kit_qa_verdict_check() {
-  local src="$1" issue_id="$2" repo="$3" rev="$4"
+  local src="$1" issue_id="$2" repo="$3" rev="$4" trunk_rev="${5:-$4}"
+  local _qav_artifact_bad=""
   local _qav_body _qav_ac_ids _qav_rows
   local _qav_self="" _qav_table_ids="" _qav_evidence_bad="" _qav_fail_rows="" _qav_shadow_seen="" _qav_shadow_bad=""
   local _qav_token_bad="" _qav_unresolved="" _qav_quote_missing="" _qav_quote_short="" _qav_quote_not_found="" _qav_quoted_rows=0
@@ -356,8 +402,11 @@ kit_qa_verdict_check() {
     _qav_table_ids="${_qav_table_ids}${_qav_table_ids:+$'\n'}${_qid}"
 
     case "$_qkind" in
-      test|file:line|gate-diff|fixture-diff) : ;;
-      *) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')" ;;
+      ""|*[[:space:]]*) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')" ;;
+      *) case " $KIT_QAV_KINDS " in
+           *" $_qkind "*) : ;;
+           *) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (evidence kind '${_qkind}')" ;;
+         esac ;;
     esac
     # A placeholder cell is refused whole, after stripping backticks/whitespace, case-insensitive
     # (one list: KIT_QAV_PLACEHOLDER_RE above; qa.md step 4 states it in prose).
@@ -369,9 +418,10 @@ kit_qa_verdict_check() {
       # Every path:line/path:a-b token in the cell must resolve AT $rev. A `file:line` row needs
       #    at least one such token; the other kinds are checked only on the tokens they do carry
       #    (a gate-diff/fixture-diff row naming a file:line is held to it; one naming none is not
-      #    asked to invent one).
+      #    asked to invent one). An `artifact` row's `<path> <sha>` pair is read separately, at
+      #    $trunk_rev, below.
       # In a file:line/test row every pointer carries a quote of its own, checked against the line
-      #    range it follows. gate-diff/fixture-diff are exempt from the quote (there is no single
+      #    range it follows. gate-diff/fixture-diff/artifact are exempt from the quote (there is no single
       #    line to quote), but the token rule above still binds any path:line they carry.
       local _qav_events _qav_ev _qav_ev_kind _qav_ev_rest _qav_ev_detail
       local _qav_cur="" _qav_cur_state="" _qav_cur_lo="" _qav_cur_hi="" _qav_cur_quotes=0
@@ -429,6 +479,17 @@ kit_qa_verdict_check() {
             ;;
         esac
       done <<< "${_qav_events}${_qav_events:+$'\n'}END"
+      if [ "$_qkind" = "artifact" ]; then
+        local _qav_art_ev
+        while IFS= read -r _qav_art_ev; do
+          [ -n "$_qav_art_ev" ] || continue
+          case "$_qav_art_ev" in
+            MALFORMED) _qav_evidence_bad="${_qav_evidence_bad}${_qav_evidence_bad:+, }${_qid} (an artifact pointer is '<path> <full blob sha>')" ;;
+            SELF\ *)   _qav_self="${_qav_self}${_qav_self:+, }${_qid} (${_qav_art_ev#SELF })" ;;
+            BAD\ *)    _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (${_qav_art_ev#BAD })"; _qav_artifact_bad=1 ;;
+          esac
+        done <<< "$(_qav_artifact_events "$repo" "$trunk_rev" "$issue_id" "$_qptr_stripped")"
+      fi
       if [ "$_qkind" = "file:line" ] && [ "$_qav_tok_count" -eq 0 ]; then
         _qav_unresolved="${_qav_unresolved}${_qav_unresolved:+, }${_qid} (no path:line token in a file:line row)"
       fi
@@ -456,7 +517,7 @@ kit_qa_verdict_check() {
   if [ -n "$_qav_evidence_bad" ]; then
     kit_refuse 2 qa-verdict-evidence-missing \
       "Error: ${issue_id}'s QA Verdict table has row(s) with no usable evidence: ${_qav_evidence_bad}" \
-      "       A PASS needs an evidence kind from test|file:line|gate-diff|fixture-diff, and a real" \
+      "       A PASS needs an evidence kind from ${KIT_QAV_KINDS// /|}, and a real" \
       "       (non-placeholder) pointer, for every AC row. (.claude/roles/qa.md step 4.)" \
       "Next: re-walk the row(s) named above and record what you actually observed for each (a test you ran, a line you read, a diff) — a stock non-answer is not evidence; commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
@@ -472,11 +533,14 @@ kit_qa_verdict_check() {
   fi
 
   if [ -n "$_qav_unresolved" ]; then
+    local _qav_artifact_next=""
+    [ -z "$_qav_artifact_bad" ] || _qav_artifact_next="For an artifact row, commit the artefact on the trunk first (./scripts/register-commit.sh --role QA --message \"<message>\" <path>), then paste its blob sha from git rev-parse origin/<trunk>:<path>, all forty characters. "
     kit_refuse 2 qa-verdict-pointer-unresolved \
       "Error: ${issue_id}'s QA Verdict table has row(s) whose evidence pointer does not resolve in the tree being landed: ${_qav_unresolved}" \
       "       A file:line/path:a-b token must name a file that exists at the revision being" \
-      "       landed, at a line (or range) within its length. (.claude/roles/qa.md step 4.)" \
-      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
+      "       landed, at a line (or range) within its length; an artifact row's '<path> <full blob sha>'" \
+      "       must name a file that exists on the trunk with exactly that blob sha. (.claude/roles/qa.md step 4.)" \
+      "Next: re-read the code each row cites and give the pointer that is actually there at the revision being landed — a pointer edited to resolve without re-reading is not a fix. If the file is missing from the branch, that is a defect on the branch: send the card back to Dev. ${_qav_artifact_next}Otherwise commit the card to the trunk with ./scripts/register-commit.sh, then re-run the command that refused." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -511,7 +575,7 @@ kit_qa_verdict_check() {
 
   if [ -n "$_qav_table_ids" ] && [ "$_qav_quoted_rows" -eq 0 ]; then
     kit_refuse 2 qa-verdict-no-observed \
-      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is gate-diff or fixture-diff." \
+      "Error: ${issue_id}'s QA Verdict table has no test/file:line row — every AC row is gate-diff, fixture-diff or artifact." \
       "       Those kinds carry no quote, so the gate has no line to re-read. Give at least one AC row a" \
       "       test or file:line pointer with a verbatim quote, e.g. 'src/add.js:12 \"return a + b\"'." \
       "       (.claude/roles/qa.md step 4.)" \

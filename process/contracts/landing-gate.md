@@ -82,7 +82,7 @@ proof was produced by the gate itself rather than by whoever wanted the change l
   a pointer with no quote of its own, a quote shorter than eight characters (unless it is the cited line's
   whole text) or not on the line its own pointer cites (backticks ignored on both sides; a pointer's
   quotes are the first after it and each that follows the previous with only whitespace or `;`
-  between; `\"` inside a quote reads as a double quote), no `test` or `file:line` row at all (every row `gate-diff` or `fixture-diff`), no
+  between; `\"` inside a quote reads as a double quote), no `test` or `file:line` row at all (every row `gate-diff`, `fixture-diff` or `artifact`), an `artifact` row (a file QA committed on the trunk, cited as `<path> <full blob sha>`) whose path is not that blob on the trunk — it is read there, never on the branch — no
   filled `shadow-check` row, two rows for one AC id, or AC ids
   that do not match the AC checklist one for one ⇒ refuse before any destructive step, naming each
   row and, for a quote, its pointer. The board move into the reviewed state runs the same check on an

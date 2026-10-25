@@ -467,7 +467,7 @@ case "$CMD" in
       # The slice's own code lives at $_st_new_rev (its own branch when one resolves, else the
       # trunk — derived just above), so evidence pointers are read there, never the caller's
       # working tree.
-      kit_qa_verdict_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_new_rev"
+      kit_qa_verdict_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_new_rev" "$_st_trunk"
       kit_ablation_check "$SRC" "$ID" "$MAIN_ROOT" "$_st_trunk" "$_st_new_rev"
       # The board properties (check-board.sh [d] [i] [l] [p] [r] [q]): a finding THIS slice's branch
       # introduces refuses, read on the trunk with the branch merged in. A slice with no branch of

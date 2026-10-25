@@ -237,7 +237,7 @@ lc_run() {
     [ -z "$LC_RULE" ] || { rules="$LC_RULE"; msg="$LC_MSG"; }
     while IFS= read -r why; do [ -z "$why" ] || LC_DIDNOT+=("$id: $why"); done < <(grep 'did not run' "$LC_TMP/out")
     if lc_begun "$f"; then
-      lc_probe kit_qa_verdict_check "$f" "$id" "$TGT" "$rev"
+      lc_probe kit_qa_verdict_check "$f" "$id" "$TGT" "$rev" "$trunk"
       [ -z "$LC_RULE" ] || { rules="${rules:+$rules, }$LC_RULE"; msg="${msg:-$LC_MSG}"; }
     else
       LC_NO_VERDICT=$((LC_NO_VERDICT + 1))
