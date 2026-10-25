@@ -10,7 +10,8 @@
 #       the code commits made since progress.md was last touched (advisory);
 #   (d) frontmatter id integrity across every column, plus the declared registers;
 #   (e) [Role]-prefix scan of recent trunk commits;
-#   (f) unpublished work in both homes the process writes to — [f1] trunk ref, [f2] .kanban-wt;
+#   (f) unpublished work in both homes the process writes to — [f1] trunk ref, [f2] .kanban-wt, and [f0] the
+#       main checkout's working tree, which no arm reads;
 #       then, under its own header, a remote branch left by a card already in done/ or qa_complete/ (advisory);
 #   (g) graduation — has day one finished, and a `hooks: off` line while `.claude/settings.json` is absent (advisory);
 #   (h) generated-trailer scan of the same commits as (e);
@@ -35,7 +36,7 @@
 #       role docs' hand-kept model-table rows still `<fill in>` (advisory).
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
 #       `**Answer` block and that no register line has named since the answer, with the card it
-#       parks (advisory).
+#       parks; and one whose `**Answer` this checkout holds but the trunk does not (advisory).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -715,6 +716,48 @@ if [ -z "$def" ]; then
   echo "      the trunk is UNCONFIRMED ($remote/HEAD and init.defaultBranch are both unset, and the kit's last-resort constant was unreadable)"
   echo "      Settle it: git remote set-head $remote <your-trunk>"
 fi
+
+# ── [f0] THE MAIN CHECKOUT'S WORKING TREE ────────────────────────────────────
+# BEGIN [f0]
+# The arms read <remote>/<trunk> and [f1] compares refs, so an uncommitted or untracked path in the main
+# checkout is read by none of them. Printed every run so a clean tree is a visible fact; a ⚠ only where a
+# path sits in a place an arm reads (the board, requirements, PROJECT.md, a declared register, the question
+# channel). Reports only, like [f1]'s count: it never sets `drift`.
+f0_porc="$(git -C "$kwt_main" status --porcelain --untracked-files=all 2>/dev/null | sed 's/^...//; s/^.* -> //' || true)"
+if [ -z "$f0_porc" ]; then
+  echo "      [f0] main checkout working tree: clean ✓ — no change here that an arm below does not see"
+else
+  f0_chan=""
+  if command -v kit_pm_field >/dev/null 2>&1 && command -v kit_pm_channel_token >/dev/null 2>&1 && [ -f "$CB_TREE/PROJECT.md" ]; then
+    f0_cl="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$CB_TREE/PROJECT.md")"
+    kit_pm_blank "$f0_cl" || f0_chan="$(kit_pm_channel_token "$f0_cl")"
+  fi
+  f0_n=0; f0_hot=0; f0_list=""; f0_hot_list=""
+  while IFS= read -r f0_p; do
+    [ -n "$f0_p" ] || continue
+    f0_n=$((f0_n + 1))
+    f0_is=""
+    case "$f0_p" in requirements/*|progress/*|PROJECT.md) f0_is=1 ;; esac
+    [ -z "$f0_chan" ] || case "$f0_p" in "$f0_chan"*) f0_is=1 ;; esac
+    while IFS='|' read -r f0_rp _f0_m _f0_s; do
+      [ -z "$f0_rp" ] || [ "$f0_p" != "$f0_rp" ] || f0_is=1
+    done <<F0_REGS
+$REGISTERS
+F0_REGS
+    if [ -n "$f0_is" ]; then f0_hot=$((f0_hot + 1)); [ "$f0_hot" -gt 3 ] || f0_hot_list="${f0_hot_list:+$f0_hot_list, }$f0_p"; fi
+    [ "$f0_n" -gt 3 ] || f0_list="${f0_list:+$f0_list, }$f0_p"
+  done <<F0_PATHS
+$f0_porc
+F0_PATHS
+  if [ "$CB_SRC_KIND" != "ref" ]; then
+    echo "      [f0] main checkout working tree: $f0_n modified/untracked path(s) — the arms below read this working tree (no $remote/${def:-<unresolved trunk>} ref), so these are read: $f0_list$([ "$f0_n" -le 3 ] || echo " (+$((f0_n - 3)) more)")"
+  elif [ "$f0_hot" -gt 0 ]; then
+    echo "      [f0] main checkout working tree: $f0_n modified/untracked path(s), NOT read by any arm below  ⚠ $f0_hot sit where an arm would read them: $f0_hot_list$([ "$f0_hot" -le 3 ] || echo " (+$((f0_hot - 3)) more)")"
+  else
+    echo "      [f0] main checkout working tree: $f0_n modified/untracked path(s), NOT read by any arm below: $f0_list$([ "$f0_n" -le 3 ] || echo " (+$((f0_n - 3)) more)")"
+  fi
+fi
+# END [f0]
 
 # ── [f1] THE MAIN CHECKOUT'S TRUNK REF ───────────────────────────────────────
 # The operand is the local trunk BRANCH, not HEAD: a leg legitimately holds the main checkout on a
@@ -1717,9 +1760,46 @@ T_CITES
     echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered, ${t_reg_names} does not cite it since the answer"
     t_found=$((t_found + 1))
   done
+  # BEGIN local-answer scan
+  # An answer this checkout holds and the trunk does not is read by nothing above: the loop reads
+  # <remote>/<trunk> only. Names each, uncommitted or committed-but-unpushed, in this working tree and
+  # the local trunk ref; with no such ref the arm already read the working tree.
+  t_local=0; t_local_push=""; t_local_land=""
+  if [ -n "$CB_REF" ]; then
+    t_lref="refs/heads/$CB_TRUNK"
+    t_names="$( { for t_f in "$REPO_ROOT/$t_dir"/*-ask.md; do [ -f "$t_f" ] && echo "${t_f##*/}"; done
+                  git -C "$REPO_ROOT" ls-tree --name-only "$t_lref" -- "$t_dir/" 2>/dev/null | sed 's|.*/||' | grep -E -- '-ask\.md$' || true
+                } | sort -u )"
+    while IFS= read -r t_n; do
+      [ -n "$t_n" ] || continue
+      t_rel="$t_dir/$t_n"
+      t_remote_blob="$(git -C "$REPO_ROOT" show "$CB_REF:$t_rel" 2>/dev/null || true)"
+      ! printf '%s\n' "$t_remote_blob" | grep -E '^\*\*Answer' >/dev/null || continue
+      t_lref_blob="$(git -C "$REPO_ROOT" show "$t_lref:$t_rel" 2>/dev/null || true)"
+      t_wt_blob="$(cat "$REPO_ROOT/$t_rel" 2>/dev/null || true)"
+      if printf '%s\n' "$t_lref_blob" | grep -E '^\*\*Answer' >/dev/null; then t_state="committed, unpushed"
+      elif printf '%s\n' "$t_wt_blob" | grep -E '^\*\*Answer' >/dev/null; then
+        if [ -n "$(git -C "$REPO_ROOT" status --porcelain -- "$t_rel" 2>/dev/null)" ]; then t_state="uncommitted"
+        else t_state="committed on a branch other than $CB_TRUNK"; fi
+      else continue; fi
+      t_card="$(printf '%s\n' "$t_wt_blob$t_lref_blob" | awk '/^\*\*Parks card:\*\*/ { sub(/^\*\*Parks card:\*\*[ \t]*/, ""); sub(/[ \t]+$/, ""); print; exit }')"
+      echo "      ⚠ $t_rel — card: ${t_card:-no card named} — answered but not on $CB_REF ($t_state)"
+      t_local=$((t_local + 1))
+      [ "$t_state" = "committed, unpushed" ] && t_local_push=1 || t_local_land=1
+    done <<T_NAMES
+$t_names
+T_NAMES
+  fi
+  # END local-answer scan
+  if [ -n "$t_local_land" ]; then
+    echo "      Land each uncommitted question file as it stands before anything cites it: ./scripts/register-commit.sh --role <your role> --message \"answer recorded: <file>\" <file> (.claude/roles/orchestrator.md § An answered question is ready work)."
+  fi
+  if [ -n "$t_local_push" ]; then
+    echo "      Push the committed ones: git push $remote $def ([f1] above names the checkout)."
+  fi
   if [ "$t_found" -gt 0 ]; then
     echo "      The Orchestrator dispatches the PM-hat leg for each (.claude/roles/orchestrator.md § An answered question is ready work)."
-  else
+  elif [ "$t_local" -eq 0 ]; then
     echo "      ✓ none: $t_read question file(s) read in $t_dir/"
   fi
 fi

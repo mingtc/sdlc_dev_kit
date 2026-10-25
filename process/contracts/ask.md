@@ -41,7 +41,8 @@ interactive prompt nothing will answer.
   *Why:* a guess that reads exactly like a ruling is indistinguishable from one, and the next
   reader inherits it as settled.
 - **It never commits.** The question file and any register edit are left for the project's
-  ordinary metadata-commit route.
+  ordinary metadata-commit route. The principal's `**Answer` block is landed the same way, by the
+  first seat that reads it (§ 5).
   *Why:* committing on a session's behalf hides whose decision it was to land the record, and
   when.
 - **Every refusal leaves one countable record**, through `kit_refuse`
@@ -96,11 +97,15 @@ was the right one. Those are the principal's and the project's.
 **The project's half: who reads an answer, and what reconciling it means.** A question file is
 *answered, not reconciled* while it carries an `**Answer` block and no `requirements/DECISIONS.md`
 line naming its path was written or edited at or after the answer. `scripts/check-board.sh` lists those files, each with the card the question
-parks. The Orchestrator is the reader: at session start it dispatches the PM-hat leg for each, and
-reconciling means exactly three acts — record the literal answer as a `D-NN` that cites the question
-file (for a question asked with `--decision`, discharge that working-default entry in place instead,
-minting no second `D-NN`); edit the parked card to cite it (`[decision: D-NN]` on the bullet it settles); move the card
-out of `blocked/`. Anything the answer leaves unruled is filed again through `ask.sh` under a working
+parks, and lists separately a file whose `**Answer` only the reader's checkout holds. That answer is landed
+first, as given, by the first seat that reads it, under that seat's own role; `scripts/register-commit.sh`
+refuses a register entry that cites an answer the trunk lacks. The Orchestrator is the reader: at session
+start it dispatches the PM-hat leg for each, and reconciling means exactly four acts — record the literal
+answer as one `D-NN` per independent fork, each citing the question file (for a question asked with
+`--decision`, discharge a working-default entry in place, or amend a standing one in place, minting no
+second `D-NN`); record any requirement change the answer states in the PRD and on the affected cards (a
+PRD story whose cards are done is not edited: the change becomes a new story); edit the parked card to
+cite it (`[decision: D-NN]` on the bullet it settles); move the card out of `blocked/`. Anything the answer leaves unruled is filed again through `ask.sh` under a working
 default, never ruled by the leg
 (`.claude/roles/orchestrator.md` § An answered question is ready work). An answer that delegates the
 decision back is itself a ruling: the `D-NN` adopts the question's working default (a question asked

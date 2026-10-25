@@ -154,29 +154,47 @@ it an agent re-reads files it already has. One driver, one pass, skip the loaded
 A question filed through `scripts/ask.sh` is **answered** when its file carries an `**Answer` block
 and **reconciled** when a `requirements/DECISIONS.md` line naming the file's path is written or edited at or after the answer.
 `./scripts/check-board.sh` lists the ones answered and not reconciled, each with the card it
-parks. A card sits in `blocked/` on the question, the principal's answer sits in the file, and
+parks, and the ones whose `**Answer` only this checkout holds (`answered but not on <remote>/<trunk>`).
+A card sits in `blocked/` on the question, the principal's answer sits in the file, and
 no other seat is woken to connect them: **you do, at session start and between legs, before any
 new `todo/` card.**
 
+**Land the answer first.** The principal answers by editing the question file, and nothing commits that
+edit. Whichever seat first reads an `**Answer` in its checkout that the trunk lacks lands the question
+file, as given, before anything cites it: `./scripts/register-commit.sh --role <your own role> --message
+"answer recorded: <file>" <file>`. That is you when `check-board.sh` lists it, and the PM-hat leg when it
+finds one in the checkout it works from. The commit carries the landing seat's tag (the principal is not a
+role), so the log names who landed the record. `register-commit.sh` refuses a register entry that cites
+an answer the trunk lacks.
+
 Dispatch the **PM-hat leg** (the `pm-mint` worker; its row is **PM-hat mint** in § Model & effort
 contract) once per question. You dispatch it rather than doing the acts yourself: the register
-and a card's acceptance text are PM's surfaces. The leg is **bounded to three acts**, in this order:
+and a card's acceptance text are PM's surfaces. The leg is **bounded to four acts**, in this order:
 
 1. Record the answer's literal words in `requirements/DECISIONS.md`, committed with
-   `./scripts/register-commit.sh`: as a new `D-NN` whose Provenance cites the question file's path
-   and ends `no work item` (the register has the entry's shape). **A question asked with
-   `--decision D-NN` is the exception:** that entry's Ruling reads `WORKING DEFAULT (provisional,
-   …, <question file>)`, so discharge THAT entry in place (`requirements/DECISIONS.md` § The FOURTH
+   `./scripts/register-commit.sh`: **one `D-NN` per independent fork the answer settles**, each
+   Provenance citing the question file's path and ending `no work item` (the register has the entry's
+   shape). A part of the answer that only confirms the default or restates a fact earns a line in the
+   Provenance of the entry beside it (`also answered`), not an entry. **A question asked with
+   `--decision D-NN` is the exception:** where that entry's Ruling reads `WORKING DEFAULT (provisional,
+   …, <question file>)`, discharge THAT entry in place (`requirements/DECISIONS.md` § The FOURTH
    state) — the Ruling takes the answer's words and the token comes off, the Provenance cites the
-   question file's path — and mint no second `D-NN` beside it.
-2. Edit the card the question parks to cite it: `[decision: D-NN]` on the bullet it settles (the
+   question file's path — and mint no second `D-NN` beside it. Where it has a standing ruling, amend
+   THAT entry in place (`**Amended <date>.**`) with the answer's words, again minting no second live
+   entry; a delegating answer leaves the standing ruling in force, and the entry's Provenance gains a
+   line citing the question file.
+2. **Amend what the answer changes.** Where the answer states a requirement change — a fact, not a
+   fork (`requirements/DECISIONS.md` § Which decisions live HERE) — record it as the answer states it in
+   the PRD and on the affected cards, citing the `D-NN` on the changed bullet. On a PRD, a story whose
+   cards are done is not edited: the change becomes a new story.
+3. Edit the card the question parks to cite it: `[decision: D-NN]` on the bullet it settles (the
    new id, or the discharged one), and the id in the card's `forks:`. Land the edit with
    `./scripts/register-commit.sh --role PM --message "<PREFIX>-NNN: cite <D-NN>" progress/blocked/<PREFIX>-NNN-<slug>.md`
-   before act 3: the card is metadata on the trunk and the move re-derives the file there, so an
-   edit left in your own checkout is stranded. After each `register-commit.sh` above, discard your
-   checkout's copy of the path (`git checkout -- <path>`; delete it if untracked), or a pull is
-   refused for it.
-3. Move that card out of `blocked/` to the folder it came from
+   before act 4: the card is metadata on the trunk and the move re-derives the file there, so an
+   edit left in your own checkout is stranded (land act 2's edits the same way). After each
+   `register-commit.sh` above, discard your checkout's copy of the path (`git checkout -- <path>`;
+   delete it if untracked), or a pull is refused for it.
+4. Move that card out of `blocked/` to the folder it came from
    (`./scripts/move-issue.sh <PREFIX>-NNN <folder> --role PM --note "Unblocked: <D-NN>."`).
 
 **Anything the answer leaves unruled the leg never rules.** It files that part again through

@@ -339,7 +339,9 @@ identifier gives and a timestamp does not.*
   in the order above — invariant 7 is its **[g]**. Check 6 carries one reading per publication
   home — in the shipped implementation **[f1]** the primary checkout's trunk ref and **[f2]** the
   board mover's auxiliary worktree — because invariant 6 requires the enumeration, not a fixed
-  count of them.
+  count of them. **[f0]** is a reading of neither home: it reports the primary checkout's uncommitted
+  and untracked paths, which no other arm reads, and carries a `⚠` only for a path in a place an arm
+  would read. It reports only.
 - **THE LETTERING RUNS PAST THE NUMBERED INVARIANTS.** § 2's unnumbered invariants are contracted
   too, and their arms follow **[g]**; the implementation also carries lettered sections that
   implement no § 2 invariant — reports it finds worth printing. *"In the order above" binds the arms
@@ -373,7 +375,9 @@ identifier gives and a timestamp does not.*
   file's path, written or edited at or after the answer (by ancestry from the commit that added the
   `**Answer` block; where no history is readable, any line naming it, and the arm says so), or none. It
   reports only. It prints one line naming what it read
-  when there is nothing to list, and one `⚠` line per finding so a truncated copy keeps them.
+  when there is nothing to list, and one `⚠` line per finding so a truncated copy keeps them. It also
+  lists a question file whose `**Answer` the checkout holds and the trunk does not, as uncommitted or
+  committed-but-unpushed.
 - **The checks behind arms `[d]` `[i]` `[l]` `[p]` `[q]` `[r]` live in `scripts/lib/board-properties.sh`,
   and the landing calls the same functions** (`scripts/lib/qa-gate.sh`'s `kit_board_property_check`,
   from `finish-pr.sh` and `subtask.sh`). The landing refuses a finding its branch introduces in a

@@ -51,6 +51,12 @@
 #   - It will not land a second copy of a card (exit 1, refusal register-card-moved): a new
 #     `progress/**/<ID>-*.md` path while the trunk holds that id at another path. Make the edit in the
 #     trunk's copy. A landing that also deletes the old path is a move and lands.
+#   - It will not land a register entry that cites an answer the trunk lacks (exit 1, refusal
+#     register-cites-unlanded-answer, nothing changed): a declared register path (REGISTERS in
+#     scripts/check-board.sh) whose landing adds a line naming a question file in the project's question
+#     channel, when that file's `**Answer` block is in your checkout and not on the trunk, and the file is
+#     not among the paths. Add the question file to the same call: the answer lands, as given, with the
+#     entry that cites it.
 #
 # Examples:
 #   ./scripts/register-commit.sh --role PM --message "<PREFIX>-014: record D-NN answered" \
@@ -258,6 +264,68 @@ for rel in "${PATHS[@]}"; do
 done
 [ -z "$GUARD_SKIPPED" ] \
   || echo "Note: the stale-checkout guard did not run for: $GUARD_SKIPPED (your checkout shares no history with the trunk and has landed nothing)." >&2
+
+# BEGIN unlanded-answer guard
+# A register line that names a question file records a decision whose source the trunk must be able to
+# show. Where the file's `**Answer` is only in this checkout, every arm of check-board reads clean over
+# an entry citing nothing the trunk holds. The channel and the registers are read from the TRUNK's
+# PROJECT.md and check-board.sh, never from the branch being landed; either unreadable, the guard does not
+# run and says so.
+_ug_msgs=(); _ug_next=""
+if ! { [ -r "$SCRIPT_DIR/lib/pm-field.sh" ] && [ -r "$SCRIPT_DIR/lib/decision-register.sh" ] \
+       && . "$SCRIPT_DIR/lib/pm-field.sh" && . "$SCRIPT_DIR/lib/decision-register.sh"; }; then
+  echo "Note: the unlanded-answer guard did not run: scripts/lib/pm-field.sh or scripts/lib/decision-register.sh did not load." >&2
+else
+  _ug_regs="$(kit_registers_declared "$KWT/scripts/check-board.sh" 2>/dev/null || true)"
+  _ug_dir=""
+  if [ -f "$KWT/PROJECT.md" ]; then
+    _ug_line="$(kit_pm_field '\\*\\*Their channel:\\*\\*' "$KWT/PROJECT.md")"
+    if ! kit_pm_blank "$_ug_line"; then
+      _ug_tok="$(kit_pm_channel_token "$_ug_line")"
+      case "$_ug_tok" in
+        /*|..|../*|*/../*|*/..) ;;
+        */) _ug_dir="${_ug_tok%/}" ;;
+      esac
+    fi
+  fi
+  if [ -z "$_ug_regs" ]; then
+    echo "Note: the unlanded-answer guard did not run: no REGISTERS declaration could be read from scripts/check-board.sh on the trunk." >&2
+  elif [ -n "$_ug_dir" ]; then
+    _ug_added="$(mktemp)"
+    for rel in "${PATHS[@]}"; do
+      _ug_is=""
+      while IFS='|' read -r _ug_rp _ug_m _ug_s; do
+        if [ -n "$_ug_rp" ] && [ "$_ug_rp" = "$rel" ]; then _ug_is=1; fi
+      done <<UG_REGS
+$_ug_regs
+UG_REGS
+      [ -n "$_ug_is" ] && [ -f "$CALLER_ROOT/$rel" ] || continue
+      _ug_base=/dev/null; [ ! -f "$KWT/$rel" ] || _ug_base="$KWT/$rel"
+      { diff "$_ug_base" "$CALLER_ROOT/$rel" || true; } | sed -n 's/^> //p' >"$_ug_added"
+      for _ug_q in "$CALLER_ROOT/$_ug_dir"/*-ask.md; do
+        [ -f "$_ug_q" ] || continue
+        _ug_qrel="$_ug_dir/${_ug_q##*/}"
+        grep -qF -- "$_ug_qrel" "$_ug_added" || continue
+        grep -qE '^\*\*Answer' "$_ug_q" || continue
+        if [ -f "$KWT/$_ug_qrel" ] && grep -qE '^\*\*Answer' "$KWT/$_ug_qrel"; then continue; fi
+        _ug_in=""
+        for _ug_p in "${PATHS[@]}"; do if [ "$_ug_p" = "$_ug_qrel" ]; then _ug_in=1; fi; done
+        [ -z "$_ug_in" ] || continue
+        case " $_ug_next " in *" '$_ug_qrel' "*) continue ;; esac
+        _ug_next="${_ug_next:+$_ug_next }'$_ug_qrel'"
+        _ug_msgs+=("Error: '$rel' adds a line naming '$_ug_qrel', whose **Answer is in your checkout and not on the trunk — the entry would cite a decision the trunk cannot show.")
+      done
+    done
+    rm -f "$_ug_added"
+    if [ ${#_ug_msgs[@]} -gt 0 ]; then
+      kit_refuse 1 register-cites-unlanded-answer \
+        "${_ug_msgs[@]}" \
+        "       Nothing was changed on the trunk." \
+        "Next: add $_ug_next to this call so the answer lands with the entry that cites it, then re-run."
+    fi
+  fi
+fi
+# END unlanded-answer guard
 
 # Every path must exist on one side BEFORE any is staged: a refusal part-way would leave the earlier
 # paths staged in the kanban worktree, which every other board op then refuses to touch.

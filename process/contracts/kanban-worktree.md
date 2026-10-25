@@ -92,7 +92,9 @@ guard can see a commit the operator makes by hand.
   `not-a-git-repository` (the caller's checkout is not a repository), `path-not-found` (a named path
   exists in neither the caller's checkout nor the trunk), `register-card-moved` (the path would
   create a second copy of a card the trunk holds elsewhere), `register-checkout-stale` (the caller's
-  copy lacks a line the trunk gained, so landing it would delete that work) and `nothing-to-commit`
+  copy lacks a line the trunk gained, so landing it would delete that work), `register-cites-unlanded-answer`
+  (a register path's landing adds a line naming a question file whose `**Answer` is in the caller's
+  checkout and not on the trunk, and the file is not among the paths) and `nothing-to-commit`
   (every named path already matches the trunk's tip).
 - **The code-vs-metadata rule**, raised by `scripts/githooks/pre-commit` as
   `pre-commit-metadata-off-trunk`: a commit made off the trunk that stages no path the project

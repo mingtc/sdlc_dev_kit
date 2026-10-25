@@ -281,4 +281,4 @@ enforces. *(Authority:
   not reconciled by `./scripts/check-board.sh`, which cannot tie an answer in it to one question,
   so prefer the directory. Fill either line inside backticks or not — both
   are read the same way. The principal answers by adding an `**Answer` block at the end of the question file; the
-  Orchestrator reconciles it — [`process/contracts/ask.md`](process/contracts/ask.md) § 5.)*
+  first seat that reads it lands the file, and the Orchestrator reconciles it — [`process/contracts/ask.md`](process/contracts/ask.md) § 5.)*

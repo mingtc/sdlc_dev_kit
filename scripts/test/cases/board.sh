@@ -929,6 +929,89 @@ case_register_commit_names_the_discard_of_the_checkouts_copy() {
 }
 
 # =============================================================================
+# CASE — register-commit.sh REFUSES A REGISTER LINE THAT CITES AN ANSWER THE TRUNK LACKS.
+#
+# A register entry whose Provenance names a question file records a decision whose source the trunk
+# cannot show while the file's `**Answer` sits only in the caller's checkout; every arm of check-board
+# then reads clean. The landing refuses until the question file rides in the same call.
+# Rows: (a) the register alone, citing a question whose Answer is uncommitted -> refused, naming the
+# file, the trunk unchanged; (b) the same call with the question file added -> lands both;
+# (c) a citation of a question with no Answer -> lands; (d) a citation of a question whose answer is
+# already on the trunk -> lands; (e) ablation: the guard removed, (a)'s call lands.
+# =============================================================================
+case_register_commit_refuses_a_register_line_citing_an_unlanded_answer() {
+  cf_reset
+  make_sandbox
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  printf '# DECISIONS.md\n\n## A. test bucket\n\n### D-01 — an unrelated ruling\n\n**Ruling.** Keep it small.\n**Why.** Because.\n**Provenance.** 2026-01-01, no work item.\n\n---\n' > "$SB_WORK/requirements/DECISIONS.md"
+  publish_sandbox
+  local o1 o2 o3 q1 q2 q3 r1 r2 r3 out rc
+  o1="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec1" ./scripts/ask.sh --role Dev "Question one?" --default "A." 2>&1 )" || _fixture_die "case_register_commit_refuses_a_register_line_citing_an_unlanded_answer: ask.sh refused: $o1"
+  o2="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec2" ./scripts/ask.sh --role Dev "Question two?" --default "B." 2>&1 )" || _fixture_die "second ask.sh refused: $o2"
+  o3="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec3" ./scripts/ask.sh --role Dev "Question three?" --default "C." 2>&1 )" || _fixture_die "third ask.sh refused: $o3"
+  q1="$(printf '%s\n' "$o1" | sed -n 's/^ask.sh: question written to //p')"; r1="dev/questions/${q1#*/dev/questions/}"
+  q2="$(printf '%s\n' "$o2" | sed -n 's/^ask.sh: question written to //p')"; r2="dev/questions/${q2#*/dev/questions/}"
+  q3="$(printf '%s\n' "$o3" | sed -n 's/^ask.sh: question written to //p')"; r3="dev/questions/${q3#*/dev/questions/}"
+  [ -f "$q1" ] && [ -f "$q2" ] && [ -f "$q3" ] || _fixture_die "case_register_commit_refuses_a_register_line_citing_an_unlanded_answer: ask.sh wrote no question file(s)"
+  publish_sandbox
+  # Question three is answered AND landed: the trunk holds its answer.
+  printf '\n**Answer (2026-10-25, Ros):** Three.\n' >> "$q3"
+  publish_sandbox
+  _cite() {  # <D-id> <question path>
+    printf '\n### %s — a ruling\n\n**Ruling.** As answered.\n**Why.** The principal said so.\n**Provenance.** 2026-10-25, the answer in %s; no work item.\n\n---\n' "$1" "$2" >> "$SB_WORK/requirements/DECISIONS.md"
+  }
+
+  # (a) the answer is uncommitted and the call names the register alone.
+  printf '\n**Answer (2026-10-25, Ros):** One.\n' >> "$q1"
+  _cite D-02 "$r1"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record D-02" requirements/DECISIONS.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 1 ] || cf "(a) the register citing an unlanded answer was not refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep -F "$r1" >/dev/null || cf "(a) the refusal does not name the question file $r1: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s\n' "$out" | grep '^Next:' | grep -F "$r1" >/dev/null || cf "(a) the Next: line does not name the file to add: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_file_contains "requirements/DECISIONS.md" '^### D-02' && cf "(a) D-02 reached the trunk although the refusal fired"
+
+  # (b) the same call with the question file added: both land.
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "answer recorded: $r1" requirements/DECISIONS.md "$r1" 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) the call that carries the question file was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_file_contains "requirements/DECISIONS.md" '^### D-02' || cf "(b) D-02 did not land"
+  origin_file_contains "$r1" '^\*\*Answer' || cf "(b) the answer did not land with the entry that cites it"
+  git -C "$SB_WORK" checkout -- requirements/DECISIONS.md "$r1" >/dev/null 2>&1
+  git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 || cf "(b) control: the checkout could not take the landing"
+
+  # (c) a citation of a question that carries no answer: nothing to land first.
+  _cite D-03 "$r2"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record D-03" requirements/DECISIONS.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(c) a citation of an unanswered question was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" checkout -- requirements/DECISIONS.md >/dev/null 2>&1
+  git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 || cf "(c) control: the checkout could not take the landing"
+
+  # (d) a citation of a question whose answer is on the trunk already.
+  _cite D-04 "$r3"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record D-04" requirements/DECISIONS.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(d) a citation of an answer already on the trunk was refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  git -C "$SB_WORK" checkout -- requirements/DECISIONS.md >/dev/null 2>&1
+  git -C "$SB_WORK" merge --ff-only "origin/$SB_TRUNK" >/dev/null 2>&1 || cf "(d) control: the checkout could not take the landing"
+
+  # (e) ABLATION — strip the guard; (a)'s call lands, which is the defect.
+  local o4 q4 r4 s="$SB_WORK/scripts/register-commit.sh"
+  o4="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec4" ./scripts/ask.sh --role Dev "Question four?" --default "D." 2>&1 )" || _fixture_die "fourth ask.sh refused: $o4"
+  q4="$(printf '%s\n' "$o4" | sed -n 's/^ask.sh: question written to //p')"; r4="dev/questions/${q4#*/dev/questions/}"
+  publish_sandbox
+  printf '\n**Answer (2026-10-25, Ros):** Four.\n' >> "$q4"
+  _cite D-05 "$r4"
+  grep -q '# BEGIN unlanded-answer guard' "$s" || cf "(control) no BEGIN seam for the unlanded-answer guard in register-commit.sh — cannot ablate"
+  sed -i.bak '/# BEGIN unlanded-answer guard/,/# END unlanded-answer guard/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated register-commit.sh no longer parses"
+  rc=0; out="$( cd "$SB_WORK" && env -u MSG_OK ./scripts/register-commit.sh --role PM --message "record D-05" requirements/DECISIONS.md 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(e) control: with the guard stripped the call was still refused (rc=$rc): $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  origin_file_contains "requirements/DECISIONS.md" '^### D-05' || cf "(e) control: with the guard stripped D-05 did not land, so row (a) proves nothing"
+
+  finish "register-commit.sh refuses a register line that cites a question file whose answer is in the checkout and not on the trunk (naming the file to add), lands it when the file rides in the same call, and does not refuse a citation of an unanswered question or of an answer already landed"
+  teardown
+}
+
+# =============================================================================
 # CASE — A PRODUCER THAT SOURCES ONLY progress-record.sh IS CHECKED AGAINST THE DECLARED ROLE SET.
 #
 # The writer's membership check reads the declared set through role-set.sh. A script that sources

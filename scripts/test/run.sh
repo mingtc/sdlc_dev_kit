@@ -264,6 +264,7 @@ CASES=(
   case_creator_prints_a_commit_line_the_hook_accepts
   case_main_checkout_fast_forward_note_names_its_cause
   case_register_commit_names_the_discard_of_the_checkouts_copy
+  case_register_commit_refuses_a_register_line_citing_an_unlanded_answer
   case_progress_record_alone_checks_the_declared_role_set
   case_subtask_qa_verdict_missing_table_refuses
   case_subtask_qa_verdict_fail_in_backticks_refuses
@@ -511,6 +512,7 @@ CASES=(
   case_check_board_model_pins_arm
   case_check_board_model_pins_arm_names_blank_role_doc_tables
   case_check_board_answered_question_arm
+  case_check_board_reports_what_only_this_checkout_holds
   case_check_board_answered_question_cited_before_the_answer
   case_check_board_answered_question_discharged_in_place
   case_set_models_second_call_moves_the_ladder_row

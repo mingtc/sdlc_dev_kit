@@ -3209,6 +3209,99 @@ REG
 }
 
 # =============================================================================
+# CASE — the report says what it did NOT read: a main checkout holding changes no arm reads ([f0]),
+# and an answer that sits in this checkout but not on the trunk ([t]).
+#
+# RED FIRST: the unfixed script has no [f0], and [t] reads only <remote>/<trunk>, so an `**Answer`
+# appended to a committed question file and left uncommitted reads "none" and board-drift clean.
+# Rows: clean tree -> an [f0] line with no ⚠, no finding; answer uncommitted -> [t] names the file and
+# "uncommitted", [f0] carries a ⚠; answer committed, not pushed -> "committed, unpushed"; answer pushed ->
+# no finding, [f0] clean; a dirty README.md -> [f0] names it without a ⚠; a dirty register -> ⚠;
+# the verdict never moves; each block stripped removes its own line.
+# =============================================================================
+case_check_board_reports_what_only_this_checkout_holds() {
+  cf_reset
+  make_sandbox
+  _ask_fill_pm "$SB_WORK"
+  mkdir -p "$SB_WORK/requirements"
+  printf '# DECISIONS.md\n\n## A. test bucket\n\n### D-01 — an unrelated ruling\n\n**Ruling.** Keep it small.\n**Why.** Because.\n**Provenance.** 2026-01-01, no work item.\n\n---\n' > "$SB_WORK/requirements/DECISIONS.md"
+  printf '# the project\n' > "$SB_WORK/README.md"
+  publish_sandbox
+  _verdict() { printf '%s\n' "$1" | grep '^── board-drift'; }
+  local o1 q1 r1 out sec f0 v_clean
+  o1="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec1" ./scripts/ask.sh --role Dev "Which of A or B?" --default "A." 2>&1 )" \
+    || _fixture_die "case_check_board_reports_what_only_this_checkout_holds: ask.sh refused: $o1"
+  q1="$(printf '%s\n' "$o1" | sed -n 's/^ask.sh: question written to //p')"; r1="dev/questions/${q1#*/dev/questions/}"
+  [ -f "$q1" ] || _fixture_die "case_check_board_reports_what_only_this_checkout_holds: ask.sh wrote no question file: '$q1'"
+  publish_sandbox
+
+  # 0. A CLEAN TREE: the [f0] line is there, says clean, carries no ⚠; [t] has no local finding.
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
+  [ -n "$f0" ] || cf "0: no [f0] line in the report — the arm does not say whether the working tree holds changes it did not read: $(printf '%s' "$out" | grep -F '[f]' | tr '\n' '|')"
+  case "$f0" in *⚠*) cf "0: [f0] carries a ⚠ over a clean tree: $f0" ;; esac
+  printf '%s\n' "$sec" | grep -F 'answered but not on' >/dev/null && cf "0: [t] lists a local answer in a clean tree: $sec"
+  v_clean="$(_verdict "$out")"
+
+  # 1. THE ANSWER IS APPENDED AND NOT COMMITTED: [t] names the file and says uncommitted; [f0] warns;
+  #    the verdict does not move.
+  printf '\n**Answer (2026-10-25, Ros):** B.\n' >> "$q1"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" | grep -F "answered but not on origin/$SB_TRUNK" | grep -F '(uncommitted)' >/dev/null \
+    || cf "1: [t] does not name $r1 as answered but not on origin/$SB_TRUNK (uncommitted): $sec"
+  printf '%s\n' "$sec" | grep -F '✓ none' >/dev/null && cf "1: [t] still says '✓ none' over an answer only this checkout holds: $sec"
+  case "$f0" in *⚠*"$r1"*) : ;; *) cf "1: [f0] does not warn about the uncommitted question file $r1: $f0" ;; esac
+  [ "$(_verdict "$out")" = "$v_clean" ] || cf "1: the new lines moved the verdict: '$v_clean' before, '$(_verdict "$out")' after"
+
+  # 2. COMMITTED, NOT PUSHED.
+  git -C "$SB_WORK" add -A >/dev/null 2>&1; sbcommit -m "[PM] answer recorded" --quiet >/dev/null 2>&1
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep '⚠' | grep -F "$r1" | grep -F '(committed, unpushed)' >/dev/null \
+    || cf "2: [t] does not name $r1 as committed, unpushed: $sec"
+
+  # 3. PUSHED: no local finding; [f0] clean.
+  publish_sandbox
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
+  printf '%s\n' "$sec" | grep -F 'answered but not on' >/dev/null && cf "3: [t] lists an answer that is on origin/$SB_TRUNK: $sec"
+  case "$f0" in *⚠*) cf "3: [f0] warns over a clean tree after the push: $f0" ;; esac
+
+  # 4. A DIRTY FILE NO ARM READS: [f0] names it and says no arm reads it, with no ⚠.
+  printf 'edited\n' >> "$SB_WORK/README.md"
+  out="$(cb_run)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
+  case "$f0" in *README.md*) : ;; *) cf "4: [f0] does not name the dirty README.md: $f0" ;; esac
+  case "$f0" in *"NOT read by any arm"*) : ;; *) cf "4: [f0] does not say no arm reads it: $f0" ;; esac
+  case "$f0" in *⚠*) cf "4: [f0] warns about a path no arm reads: $f0" ;; esac
+  # ... and a dirty register: the arms read it, so [f0] warns.
+  printf '\n### D-02 — local only\n' >> "$SB_WORK/requirements/DECISIONS.md"
+  out="$(cb_run)"; f0="$(printf '%s\n' "$out" | grep -F '[f0]')"
+  case "$f0" in *⚠*requirements/DECISIONS.md*) : ;; *) cf "4: [f0] does not warn about a dirty register the arms would have read: $f0" ;; esac
+  [ "$(_verdict "$out")" = "$v_clean" ] || cf "4: [f0] moved the verdict: '$v_clean' before, '$(_verdict "$out")' after"
+  git -C "$SB_WORK" checkout -- requirements/DECISIONS.md README.md >/dev/null 2>&1
+
+  # 5. ABLATION — strip each block; its line goes.
+  local o2 q2
+  o2="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec2" ./scripts/ask.sh --role Dev "Which of C or D?" --default "C." 2>&1 )" \
+    || _fixture_die "case_check_board_reports_what_only_this_checkout_holds: second ask.sh refused: $o2"
+  q2="$(printf '%s\n' "$o2" | sed -n 's/^ask.sh: question written to //p')"
+  publish_sandbox
+  printf '\n**Answer (2026-10-25, Ros):** D.\n' >> "$q2"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep -F 'answered but not on' >/dev/null || cf "(control) the second question's local answer is not listed before the ablation: $sec"
+  local s="$SB_WORK/scripts/check-board.sh"
+  grep -q '# BEGIN local-answer scan' "$s" && grep -q '# BEGIN \[f0\]' "$s" || cf "(control) no BEGIN seams for the local-answer scan and [f0] in check-board.sh — cannot ablate"
+  sed -i.bak '/# BEGIN local-answer scan/,/# END local-answer scan/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_t_section)"
+  printf '%s\n' "$sec" | grep -F 'answered but not on' >/dev/null && cf "(control) the ablation left the local-answer finding"
+  sed -i.bak '/# BEGIN \[f0\]/,/# END \[f0\]/d' "$s"; rm -f "$s.bak"
+  bash -n "$s" || cf "(control) the ablated check-board.sh no longer parses"
+  out="$(cb_run)"
+  printf '%s\n' "$out" | grep -F '[f0]' >/dev/null && cf "(control) the ablation left [f0] printing"
+
+  finish "check-board: [f0] reports the main checkout's changes no arm reads (⚠ only for a path the arms would read), [t] lists an answer only this checkout holds as uncommitted or committed-unpushed, a pushed answer is not listed, neither line moves the verdict, and stripping each block removes its line"
+  teardown
+}
+
+# =============================================================================
 # CASE — check-board's [t] counts a register citation of an answered question file only when the
 # commit that introduced it descends from (or is) the commit that added the `**Answer` block.
 #
