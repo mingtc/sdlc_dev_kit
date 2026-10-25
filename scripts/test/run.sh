@@ -328,6 +328,7 @@ CASES=(
   case_finish_pr_post_merge_reads_the_landed_trunk
   case_finish_pr_post_merge_moves_the_gate_checkout
   case_finish_pr_post_merge_prepares_the_fresh_worktree
+  case_finish_pr_post_merge_names_the_dirty_paths
   case_finish_pr_second_worktree
   case_finish_pr_remote_delete_refused
   case_finish_pr_remote_delete_resurrected

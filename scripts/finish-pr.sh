@@ -851,7 +851,7 @@ fi
 # RULE-COPIES:END
 echo ""
 echo "Post-merge mechanical check (surfaced, not blocking):"
-PM_TREE=""; PM_HOW=""; PM_FRESH_DIR=""; PM_UNRUNNABLE=""; _pm_sum=""; _pm_failed=""; _pm_hint=""; _pm_without="without your installed dependencies"
+PM_TREE=""; PM_HOW=""; PM_FRESH_DIR=""; PM_UNRUNNABLE=""; _pm_sum=""; _pm_failed=""; _pm_hint=""; _pm_dirty=""; _pm_without="without your installed dependencies"
 _pm_landed=""
 [ -n "${KWT_LANDED_SHA:-}" ] \
   && _pm_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_LANDED_SHA}^{commit}" 2>/dev/null || true)"
@@ -870,6 +870,7 @@ else
   elif ! _pm_clean "$GATE_WORKTREE"; then
     _pm_why="has uncommitted tracked changes"
     _pm_hint="  Commit or stash the tracked changes in the gate checkout to read it in place (its installed dependencies are then part of the reading)."
+    _pm_dirty="$( { git -C "$GATE_WORKTREE" diff --name-only; git -C "$GATE_WORKTREE" diff --cached --name-only; } 2>/dev/null | sort -u )"
   elif [ -z "$_pm_ref" ] && [ "$_pm_head" = "$_pm_landed" ]; then
     PM_TREE="$GATE_WORKTREE"
     PM_HOW="the gate checkout, detached at the landed commit"
@@ -887,6 +888,21 @@ else
     echo "  The gate checkout '${GATE_WORKTREE}' ${_pm_why}, so it is NOT moved;"
     echo "  reading ${DEFAULT_BRANCH} at ${KWT_LANDED_SHA} in a FRESH worktree instead."
     [ -z "$_pm_hint" ] || echo "$_pm_hint"
+    if [ -n "$_pm_dirty" ]; then
+      _pm_n=0
+      while IFS= read -r _pm_p; do
+        _pm_n=$((_pm_n + 1))
+        [ "$_pm_n" -le 5 ] || continue
+        echo "    changed: ${_pm_p}"
+        case "$_pm_p" in
+          progress/*) echo "      ${_pm_p} is a card copy: if its edit already landed through register-commit.sh, discard it here with"
+                      echo "      git -C '${GATE_WORKTREE}' checkout -- '${_pm_p}'   (otherwise commit or stash it)" ;;
+        esac
+      done <<EOF_PM_DIRTY
+$_pm_dirty
+EOF_PM_DIRTY
+      [ "$_pm_n" -le 5 ] || echo "    (+$((_pm_n - 5)) more)"
+    fi
     _pm_tmp="${TMPDIR:-/tmp}"; _pm_tmp="${_pm_tmp%/}"
     if PM_FRESH_DIR="$(mktemp -d "${_pm_tmp}/finish-pr-postmerge.XXXXXX" 2>/dev/null)" \
        && git -C "$MAIN_ROOT" worktree add --detach --quiet "$PM_FRESH_DIR/tree" "$_pm_landed" >/dev/null 2>&1; then

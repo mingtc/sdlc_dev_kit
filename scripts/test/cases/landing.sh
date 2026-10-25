@@ -629,6 +629,71 @@ case_finish_pr_post_merge_prepares_the_fresh_worktree() {
   finish "finish-pr.sh: a fresh post-merge worktree is prepared by the landed tree's declared POST_MERGE_PREP and the reading says so (P1), nothing runs when none is declared and the note says to commit or stash (P2), a failed prep reads UNRUNNABLE and the gate does not run (P3), a gate checkout read in place is never prepared (P4), and an environment-supplied prep is ignored (P5)"
 }
 
+case_finish_pr_post_merge_names_the_dirty_paths() {
+  cf_reset
+  local card out work_p n
+
+  # --- (N1) dirty card copy + dirty file -> both paths named, the card copy carries its command
+  _fpr_pm_sandbox 971
+  _fpr_prep_dirty 971
+  card="progress/dev_complete/$SB_PREFIX-971-pm.md"
+  [ -f "$SB_WORK/$card" ] || _control_did_not_run "(N1) find the seeded card copy at $card"
+  echo "stale" >> "$SB_WORK/$card"
+  work_p="$(cd "$SB_WORK" && pwd -P)"
+  _fpr_pm_run 971
+  out="$FPR_PM_OUT"
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(N1) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$out" | grep -F "CHANGE971.txt" >/dev/null \
+      || cf "(N1) the note does not name the dirty file CHANGE971.txt: $(printf '%s\n' "$out" | grep 'uncommitted' | head -2 | tr '\n' '|')"
+    printf '%s\n' "$out" | grep -F "git -C '$work_p' checkout -- '$card'" >/dev/null \
+      || cf "(N1) the note does not give the checkout command for the dirty card copy $card"
+    printf '%s\n' "$out" | grep -F "git -C '$work_p' checkout -- 'CHANGE971.txt'" >/dev/null \
+      && cf "(N1) the card-copy command was offered for a path that is not a card copy"
+    grep -F "stale" "$SB_WORK/$card" >/dev/null \
+      || cf "(N1) the dirty card copy was discarded: the note names the command and runs nothing"
+  fi
+  teardown
+
+  # --- (N2) dirty non-card file only -> the path is named, no card-copy clause --
+  _fpr_pm_sandbox 972
+  _fpr_prep_dirty 972
+  _fpr_pm_run 972
+  out="$FPR_PM_OUT"
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(N2) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$out" | grep -F "CHANGE972.txt" >/dev/null \
+      || cf "(N2) the note does not name the dirty file CHANGE972.txt"
+    printf '%s\n' "$out" | grep -F "card copy" >/dev/null \
+      && cf "(N2) a card-copy clause was printed with no dirty card copy"
+  fi
+  teardown
+
+  # --- (N3) more than five dirty files -> five named and a count ---------------------------
+  _fpr_pm_sandbox 973
+  _fpr_prep_dirty 973
+  local i
+  for i in 1 2 3 4 5 6; do echo x >> "$SB_WORK/progress/dev_complete/$SB_PREFIX-973-pm.md"; done
+  git -C "$SB_WORK" ls-files | grep -E '[.](md|txt)$' | grep -v '^progress/' | sed -n 1,5p | while IFS= read -r i; do echo x >> "$SB_WORK/$i"; done
+  n="$(git -C "$SB_WORK" diff --name-only | wc -l | tr -d ' ')"
+  [ "$n" -gt 5 ] || _control_did_not_run "(N3) dirty more than five tracked files (got $n)"
+  _fpr_pm_run 973
+  out="$FPR_PM_OUT"
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(N3) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$out" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$out" | grep -F "(+$((n - 5)) more)" >/dev/null \
+      || cf "(N3) $n dirty paths did not print five and '(+$((n - 5)) more)': $(printf '%s\n' "$out" | grep -E 'changed:|more\)' | tr '\n' '|')"
+    [ "$(printf '%s\n' "$out" | grep -c '^    changed: ')" -eq 5 ] \
+      || cf "(N3) the note did not name exactly five paths: $(printf '%s\n' "$out" | grep -E 'changed:' | tr '\n' '|')"
+  fi
+  teardown
+
+  finish "finish-pr.sh: the uncommitted-changes note names the dirty paths of the gate checkout (N1), gives a card copy its own discard command and discards nothing (N1), prints no card-copy clause for other files (N2), and caps the list at five with a count (N3)"
+}
+
 # =============================================================================
 # CASE — the branch is checked out in a SECOND WORKTREE: the local delete correctly SKIPS,
 # and the board note must not claim it.
