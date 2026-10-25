@@ -313,6 +313,7 @@ CASES=(
   case_ask_reads_the_withdrawn_token_as_the_format_shows_it
   case_ask_without_decision_names_the_file_as_the_record
   case_ask_card_option_records_the_parked_card
+  case_ask_question_file_names_who_lands_the_answer
   case_answered_question_reconcile_is_named_where_it_is_read
   case_unattended_profile_denies_the_tool
   case_orchestrate_has_an_unattended_branch_where_it_is_read

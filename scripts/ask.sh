@@ -15,9 +15,9 @@
 #      the asker, the time, the card it parks (if --card named one), the question, the working
 #      default, how the answer is recorded (the register entry, if --decision named one; the file
 #      itself, if not) and how to answer in this file: one `**Answer (...)**` block
-#      at its end. An answer in this file is reconciled only when a register line naming this file's
-#      path is written or edited at or after the answer (check-board.sh's answered-question arm
-#      lists the ones with none).
+#      at its end. The first seat to read an answer lands this file with register-commit.sh; the
+#      answer is reconciled only when a register line naming this file's path is written or edited
+#      at or after the answer (check-board.sh's answered-question arm lists the ones with none).
 #   2. with --decision D-NN naming a WITHDRAWN entry (no current ruling — DECISIONS.md
 #      § The THIRD state): records the working default as PROVISIONAL, amending that entry's
 #      Ruling field to `WORKING DEFAULT (provisional, asked <date>, <question file>)` (§ The
@@ -286,7 +286,7 @@ esac
     printf 'file — %s.\n' "process/doctrine/orchestration.md § A.5's unattended corollary: record and keep working"
   fi
   printf '\n**How the answer is recorded:** %s\n' "$ANSWER_ROUTE"
-  printf '\n**To answer:** add one block at the very end of this file, `**Answer (<YYYY-MM-DD>, <who>):** <the answer>`. An answer that hands the decision back ("use your judgement") adopts the working default above as the ruling. It is reconciled when a requirements/DECISIONS.md line naming this file'"'"'s path is written or edited at or after the answer.\n'
+  printf '\n**To answer:** add one block at the very end of this file, `**Answer (<YYYY-MM-DD>, <who>):** <the answer>`. An answer that hands the decision back ("use your judgement") adopts the working default above as the ruling. The first seat to read the answer lands this file with `scripts/register-commit.sh` (it refuses a register line that cites an answer the trunk lacks); the answer is reconciled once a requirements/DECISIONS.md line naming this file'"'"'s path is written or edited at or after the answer.\n'
 } >> "$QFILE" || kit_refuse 1 ask-write-failed \
   "Error: could not write the question to $QFILE." \
   "Next: check that the channel's directory is writable and the disk has room, then re-run. If it still fails, stop and hand off with the question in your report."

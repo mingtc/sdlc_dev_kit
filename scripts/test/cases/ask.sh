@@ -636,6 +636,36 @@ case_ask_without_decision_names_the_file_as_the_record() {
 }
 
 # =============================================================================
+# CASE — THE "To answer" LINE NAMES THE LANDING ACT.
+# The written question file must say who lands the answer and with what, and must not describe
+# reconciliation as a register edit alone. Expectations are hard-coded.
+# =============================================================================
+case_ask_question_file_names_who_lands_the_answer() {
+  cf_reset
+  make_sandbox
+  local a="$SB_WORK/scripts/ask.sh"
+  [ -x "$a" ] || { cf "scripts/ask.sh is not in the sandbox"; finish "the question file names the landing act"; teardown; return; }
+
+  _ask_fill_pm "$SB_WORK"
+  ( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/ask.sh --role QA "q?" --default "d" >/dev/null 2>&1 )
+  local qf
+  qf="$(ls "$SB_WORK"/dev/questions/*-ask.md 2>/dev/null | head -1)"
+  if [ -z "$qf" ]; then
+    cf "no question file was written under dev/questions/"
+  else
+    grep -q 'first seat to read the answer lands this file with `scripts/register-commit.sh`' "$qf" \
+      || cf "the To answer line does not name register-commit.sh as the first reader's landing act"
+    grep -q 'refuses a register line that cites an answer the trunk lacks' "$qf" \
+      || cf "the To answer line does not say register-commit.sh refuses a line citing an unlanded answer"
+    ! grep -q 'It is reconciled when' "$qf" \
+      || cf "the question file still carries the register-edit-only sentence"
+  fi
+
+  finish "the question file names the first reader's landing act and the refusal"
+  teardown
+}
+
+# =============================================================================
 # CASE — THE UNATTENDED LAUNCH PROFILE IS VALID JSON AND DENIES THE TOOL; THE BASE FILE DOES NOT.
 #
 # FLOOR TOOLS ONLY — no python3/node: the kit's floor is git + a POSIX shell, and this file is
