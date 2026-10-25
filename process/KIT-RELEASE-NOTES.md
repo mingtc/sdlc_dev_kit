@@ -331,7 +331,9 @@ columns and never the cards.*
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **`forks:` is checked against the rulings a card *resolved*.** A `[decision: D-NN]` on an AC bullet that has not changed since the card left `todo/` no longer has to be listed in `forks:`; a citation in the Activity, or on a bullet changed or added after `todo/`, still does. The refusal's `Next:` now says how to note an applied ruling without claiming it (write the id without brackets). A card you had to mark `forks: [D-NN]` only because an AC cited that ruling can go back to `none`. No action.
 
 ## [0.12.1] — 2026-10-25
 

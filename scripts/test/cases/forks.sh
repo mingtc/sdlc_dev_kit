@@ -698,13 +698,14 @@ case_finish_pr_forks_ac_changed_after_todo_uncited_refuses() {
   teardown
 }
 
-# _forks_drift_land <sandbox> <id> <slug> <ac2:0|1> <new-AC1-bullet> <extra-activity-line> <forks-value>
+# _forks_drift_land <sandbox> <id> <slug> <ac2:0|1> <new-AC1-bullet> <extra-activity-line> <forks-value> [finish|move]
 # The real journey for an AC rewritten after pickup, in the kit's own order: minted into todo/ (with a
 # second AC that already cites [decision: D-01] when <ac2> is 1), moved out by the mover, the branch
-# cut, AC1's bullet then rewritten on the trunk, the card moved to dev_complete/, then finish-pr.sh.
+# cut, AC1's bullet then rewritten on the trunk, then the landing: the card moved to dev_complete/ by
+# hand and finish-pr.sh run (the default, <caller> finish), or `move-issue.sh dev_complete` run (move).
 # Leaves the run in _FDL_OUT/_FDL_RC and the progress records in $SB_TMP/rec.
 _forks_drift_land() {
-  local sb="$1" id="$2" slug="$3" ac2="$4" newac="$5" extra="$6" forksv="$7"
+  local sb="$1" id="$2" slug="$3" ac2="$4" newac="$5" extra="$6" forksv="$7" caller="${8:-finish}"
   local rel f
   make_sandbox "$sb"
   _forks_seed_register "$SB_WORK/requirements/DECISIONS.md"
@@ -734,6 +735,10 @@ _forks_drift_land() {
   git -C "$SB_WORK" add "$rel" >/dev/null 2>&1
   sbcommit -m "[PM] ${id}: rewrite AC1" --quiet >/dev/null 2>&1
   git -C "$SB_WORK" push --quiet >/dev/null 2>&1
+  if [ "$caller" = move ]; then
+    _FDL_OUT="$( cd "$SB_WORK" && KIT_PROGRESS_DIR="$SB_TMP/rec" ./scripts/move-issue.sh "$id" dev_complete --role Dev --note ready 2>&1 )"; _FDL_RC=$?
+    return 0
+  fi
   mkdir -p "$SB_WORK/progress/dev_complete"
   git -C "$SB_WORK" mv "$rel" "progress/dev_complete/$id-$slug.md" >/dev/null 2>&1
   sbcommit -m "[Dev] ${id}: ready for review" --quiet >/dev/null 2>&1
@@ -756,7 +761,7 @@ case_finish_pr_forks_ac_drift_citation_binds_to_the_bullet() {
   # (a) the card already cites D-01 on AC2; AC1 gains new text with no citation on AC1.
   id="$SB_PREFIX-688"
   _forks_drift_land work-a "$id" other-ac 1 \
-    "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too." "" "[D-01]"
+    "- [ ] AC1 — the sandbox's seeded behaviour holds, and now a second condition does too." "" "none"
   [ "$_FDL_RC" -ne 0 ] || cf "(a) AC1 changed with a citation only on AC2 — finish-pr.sh exited 0"
   case "$_FDL_OUT" in *forks-ac-changed-uncited*|*"AC text changed"*) : ;; *) cf "(a) the refusal is not the AC-drift one: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
   case "$_FDL_OUT" in *"citation of its own: AC1"*) : ;; *) cf "(a) the refusal does not name AC1 as the uncited bullet: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)" ;; esac
@@ -793,6 +798,64 @@ case_finish_pr_forks_ac_drift_citation_binds_to_the_bullet() {
   teardown
 
   finish "the citation that answers a changed AC bullet is on that bullet: a card that already cites a ruling on another AC, or in its Activity, is still refused (refusal=forks-ac-changed-uncited, the Next: naming the bullet's AC id); the same edit with the citation on the bullet lands; a citation on a continuation line below the bullet is not on the bullet"
+}
+
+# =============================================================================
+# CASE — A CITATION ON AN AC BULLET THAT HAS NOT CHANGED SINCE THE CARD LEFT todo/ IS AN APPLIED
+# RULING, NOT A FORK THE CARD RESOLVED. 'forks:' is the card's claim of what it resolved: the PM cites
+# a prior ruling's id in an AC (the overlap rule), and that must not force the id into 'forks:'.
+#   (a) RED: AC2 (minted in todo/, never edited) cites D-01, `forks: none`, nothing else cites it —
+#       finish-pr.sh lands the card;
+#   (b) RED: the same journey through `move-issue.sh dev_complete` moves it, so the callers agree;
+#   (c) control: AC1's bullet edited after todo/ to cite D-01 under `forks: none` is refused;
+#   (d) control: a bullet ADDED after todo/ citing D-01 under `forks: none` is refused;
+#   (e) control: an Activity `[decision: D-01]` under `forks: none` is refused;
+#   (f) the exit: the same Activity line with the id written bare (no brackets) lands.
+# RED FIRST: (a) and (b) fail while a citation anywhere on the card counts.
+# =============================================================================
+case_forks_check_exempts_a_citation_on_an_unchanged_ac_bullet() {
+  cf_reset
+  local id ac1="- [ ] AC1 — the sandbox's seeded behaviour holds."
+
+  id="$SB_PREFIX-740"
+  _forks_drift_land work-a "$id" unchanged 1 "$ac1" "" "none" finish
+  [ "$_FDL_RC" -eq 0 ] || cf "(a) an unchanged AC2 citing [decision: D-01] under 'forks: none' — finish-pr.sh exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/qa_complete/$id-unchanged.md" || cf "(a) the card did not advance to qa_complete/"
+  teardown
+
+  id="$SB_PREFIX-741"
+  _forks_drift_land work-b "$id" unchanged-mv 1 "$ac1" "" "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(b) an unchanged AC2 citing [decision: D-01] under 'forks: none' — move-issue.sh dev_complete exited $_FDL_RC: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-unchanged-mv.md" || cf "(b) the card did not reach dev_complete/"
+  teardown
+
+  id="$SB_PREFIX-742"
+  _forks_drift_land work-c "$id" edited 0 "- [ ] AC1 — the sandbox's seeded behaviour holds, per a ruling [decision: D-01]." "" "none" finish
+  [ "$_FDL_RC" -ne 0 ] || cf "(c) a bullet edited after todo/ to cite D-01 under 'forks: none' landed"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(c) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  case "$_FDL_OUT" in *D-01*) : ;; *) cf "(c) the refusal does not name D-01" ;; esac
+  teardown
+
+  id="$SB_PREFIX-743"
+  _forks_drift_land work-d "$id" added 0 "$(printf '%s\n%s' "$ac1" "- [ ] AC3 — a bullet added after pickup, per [decision: D-01].")" "" "none" finish
+  [ "$_FDL_RC" -ne 0 ] || cf "(d) a bullet added after todo/ citing D-01 under 'forks: none' landed"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(d) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  teardown
+
+  id="$SB_PREFIX-744"
+  _forks_drift_land work-e "$id" activity-cite 1 "$ac1" "- 2026-01-02 [Dev] Applied the ruling. [decision: D-01]" "none" move
+  [ "$_FDL_RC" -ne 0 ] || cf "(e) an Activity [decision: D-01] under 'forks: none' moved to dev_complete"
+  grep -q 'refusal=forks-contradicted' "$SB_TMP/rec"/*.tsv 2>/dev/null || cf "(e) no progress record carries refusal=forks-contradicted: $(printf '%s' "$_FDL_OUT" | tail -6 | tr '\n' '|')"
+  case "$_FDL_OUT" in *"without brackets"*) : ;; *) cf "(e) the Next: does not name the bracketless exit: $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-500)" ;; esac
+  teardown
+
+  id="$SB_PREFIX-745"
+  _forks_drift_land work-f "$id" bare 1 "$ac1" "- 2026-01-02 [Dev] Applied D-01 as ruled." "none" move
+  [ "$_FDL_RC" -eq 0 ] || cf "(f) an Activity line naming D-01 without brackets was refused (exit $_FDL_RC): $(printf '%s' "$_FDL_OUT" | tr '\n' '|' | cut -c1-300)"
+  origin_has_path "progress/dev_complete/$id-bare.md" || cf "(f) the card did not reach dev_complete/"
+  teardown
+
+  finish "forks: counts what the card resolved: an unchanged AC bullet citing a ruling no longer forces it into 'forks:' (finish-pr.sh and move-issue.sh dev_complete agree); a bullet edited or added after todo/, or an Activity [decision: D-01], still does, and a bare D-01 in the Activity is the exit the Next: names"
 }
 
 # _forks_pad_card <file> — append the template boilerplate real cards share (a long fixed section),
