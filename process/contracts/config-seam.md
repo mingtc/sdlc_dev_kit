@@ -25,8 +25,9 @@ process is an edit rather than an excavation.
     a test can supply them from the environment.
   - **not overridable — `NAME='value'`.** A value that must be the same for every run of the tool
     that declares it takes the plain single-quoted form, and its readers anchor on THAT shape.
-    Shipped examples: the commit hook's `ROLE_PREFIXES` and `TOOL_TRAILER_MARKERS`, and the
-    initializer's `STAMP_MARK`. Making these `${NAME:-…}` would let the environment weaken a
+    Shipped examples: the commit hook's `ROLE_PREFIXES` and `TOOL_TRAILER_MARKERS`, the
+    initializer's `STAMP_MARK`, and the config seam's own `POST_MERGE_PREP` — a command the
+    landing runs, which must be the one the landed commit declares. Making these `${NAME:-…}` would let the environment weaken a
     guard, which is a worse defect than the one this bullet exists to prevent.
 
   **What binds every file
@@ -112,7 +113,8 @@ process is an edit rather than an excavation.
 > One implementation, not the definition.
 
 - `scripts/config.sh` — KIT-CLASS: KIT. The prefix knobs, the project-name knob, their
-  environment overrides, and the shared identifier validation.
+  environment overrides, the optional `POST_MERGE_PREP` command (not overridable; read from the
+  landed commit), and the shared identifier validation.
 - `scripts/kit-init.sh` — KIT-CLASS: KIT. Stamps the seams (including the role docs and the
   harness templates) and then runs § 4.3's **census**: it derives each placeholder token from the
   seam, counts what survives, and fails when the count is non-zero. That is the promise turned into

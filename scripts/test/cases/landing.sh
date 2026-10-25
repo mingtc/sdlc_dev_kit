@@ -487,6 +487,149 @@ case_finish_pr_post_merge_moves_the_gate_checkout() {
 }
 
 # =============================================================================
+# CASE — A FRESH POST-MERGE WORKTREE IS PREPARED BY THE LANDED TREE'S POST_MERGE_PREP,
+#        AND ONLY THEN.
+#
+# THE FIXTURE. The committed verify.sh is red unless an IGNORED `.prepared` file exists — the
+# stand-in for installed dependencies: the gate checkout has it, a fresh worktree does not.
+# The gate appends one line per run to $PM_GATE_LOG, the prep to $PM_PREP_LOG.
+#
+#   (P1) dirty gate checkout + a declared prep that makes `.prepared`: the reading is PASS,
+#        the output says the tree was prepared, and the prep ran exactly once.
+#   (P2) the same dirty checkout, NO declared prep: unchanged — FAIL, and the note says how
+#        to read the gate checkout in place (commit or stash).
+#   (P3) a declared prep that exits 1: UNRUNNABLE (never FAIL), naming POST_MERGE_PREP, and
+#        the gate does not run.
+#   (P4) CLEAN gate checkout + a declared prep: the checkout is read in place and the prep
+#        does NOT run.
+#   (P5) NO declared prep + a POST_MERGE_PREP in the environment: not honoured — the
+#        declaration is the landed tree's, not the caller's.
+# =============================================================================
+_fpr_prep_sandbox() {  # <id> <prep line, or empty> — sets FPR_PM_BR, PM_GATE_LOG, PM_PREP_LOG
+  make_sandbox
+  cat > "$SB_WORK/scripts/verify.sh" <<'V'
+#!/usr/bin/env bash
+root="$(cd "$(dirname "$0")/.." && pwd)"
+printf 'gate\n' >> "$PM_GATE_LOG"
+[ -e "$root/.prepared" ] || { echo "gate: .prepared is missing in $root"; exit 1; }
+exit 0
+V
+  chmod +x "$SB_WORK/scripts/verify.sh"
+  echo ".prepared" >> "$SB_WORK/.gitignore"
+  : > "$SB_WORK/.prepared"
+  # The shipped declaration is REPLACED, never appended to: the reader takes the first one.
+  if [ -n "$2" ]; then
+    grep -v '^POST_MERGE_PREP=' "$SB_WORK/scripts/config.sh" > "$SB_TMP/config.sh" || true
+    printf '%s\n' "$2" >> "$SB_TMP/config.sh"
+    cat "$SB_TMP/config.sh" > "$SB_WORK/scripts/config.sh"
+    [ "$(grep -c '^POST_MERGE_PREP=' "$SB_WORK/scripts/config.sh")" -eq 1 ] \
+      || _fixture_die "_fpr_prep_sandbox: config.sh does not hold exactly one POST_MERGE_PREP declaration, so the prep under test is not the one read"
+  fi
+  FPR_PM_BR="feature/$SB_PREFIX-$1-pm"
+  seed_issue dev_complete "$SB_PREFIX-$1" pm chore "Post-merge prep" "$FPR_PM_BR"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-$1" pm "CHANGE$1.txt"
+  PM_GATE_LOG="$SB_TMP/gate.log"; PM_PREP_LOG="$SB_TMP/prep.log"; : > "$PM_GATE_LOG"; : > "$PM_PREP_LOG"
+}
+_fpr_prep_run() {  # <id> [extra env NAME=value…] — sets FPR_PM_OUT, FPR_PM_RC
+  local id="$1"; shift
+  FPR_PM_OUT="$( cd "$SB_WORK" && env PM_GATE_LOG="$PM_GATE_LOG" PM_PREP_LOG="$PM_PREP_LOG" "$@" ./scripts/finish-pr.sh "$SB_PREFIX-$id" 2>&1 )"; FPR_PM_RC=$?
+}
+_fpr_prep_dirty() {  # <id> — the gate checkout on the branch with an uncommitted tracked change
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  echo "uncommitted" >> "$SB_WORK/CHANGE$1.txt"
+}
+case_finish_pr_post_merge_prepares_the_fresh_worktree() {
+  cf_reset
+  local prep_ok='POST_MERGE_PREP='\''touch .prepared && echo ran >> "$PM_PREP_LOG"'\'''
+  local machine
+
+  # --- (P1) dirty checkout + declared prep -> PASS, prepared, prep ran once ------
+  _fpr_prep_sandbox 961 "$prep_ok"
+  _fpr_prep_dirty 961
+  _fpr_prep_run 961
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(P1) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$FPR_PM_OUT" | grep -i 'fresh worktree' >/dev/null \
+      || _control_did_not_run "(P1) route the reading to a fresh worktree"
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: PASS' >/dev/null \
+      || cf "(P1) a fresh worktree prepared by the declared POST_MERGE_PREP did not read PASS: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify|gate:' | tr '\n' '|')"
+    printf '%s\n' "$FPR_PM_OUT" | grep 'prepared the fresh worktree with POST_MERGE_PREP' >/dev/null \
+      || cf "(P1) the reading does not say the fresh worktree was prepared — a PASS must state what it read"
+    [ "$(wc -l < "$PM_PREP_LOG" | tr -d ' ')" -eq 1 ] \
+      || cf "(P1) the prep ran $(wc -l < "$PM_PREP_LOG" | tr -d ' ') time(s), expected once: $(tr '\n' '|' < "$PM_PREP_LOG")"
+  fi
+  teardown
+
+  # --- (P2) dirty checkout, NO declared prep -> unchanged FAIL, and the hint ------
+  _fpr_prep_sandbox 962 ""
+  _fpr_prep_dirty 962
+  _fpr_prep_run 962
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(P2) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: FAIL' >/dev/null \
+      || _control_did_not_run "(P2) get the unprepared fresh worktree to read FAIL: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE' | tr '\n' '|')"
+    printf '%s\n' "$FPR_PM_OUT" | grep -i 'prepared the fresh worktree' >/dev/null \
+      && cf "(P2) the output claims a preparation nobody declared"
+    printf '%s\n' "$FPR_PM_OUT" | grep -i 'commit or stash' >/dev/null \
+      || cf "(P2) the uncommitted-changes note does not say to commit or stash to read the gate checkout in place: $(printf '%s\n' "$FPR_PM_OUT" | grep 'uncommitted tracked' | head -2 | tr '\n' '|')"
+  fi
+  teardown
+
+  # --- (P3) a prep that exits 1 -> UNRUNNABLE, naming it; the gate does not run ----
+  _fpr_prep_sandbox 963 "POST_MERGE_PREP='exit 1'"
+  _fpr_prep_dirty 963
+  _fpr_prep_run 963
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(P3) the landing did not complete (rc=$FPR_PM_RC) — a failed prep must not move the exit code: $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: UNRUNNABLE' >/dev/null \
+      || cf "(P3) a prep that exited 1 did not read UNRUNNABLE: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE|post-merge verify' | tr '\n' '|')"
+    printf '%s\n' "$FPR_PM_OUT" | grep -E '^POST_MERGE_GATE: (PASS|FAIL)$' >/dev/null \
+      && cf "(P3) a prep failure measured nothing about the trunk, yet the reading says PASS or FAIL"
+    printf '%s\n' "$FPR_PM_OUT" | grep 'COULD NOT RUN' | grep 'POST_MERGE_PREP' | grep 'exited 1' >/dev/null \
+      || cf "(P3) the COULD NOT RUN line does not name POST_MERGE_PREP and its exit status: $(printf '%s\n' "$FPR_PM_OUT" | grep 'COULD NOT RUN' | tr '\n' '|')"
+    [ "$(wc -l < "$PM_GATE_LOG" | tr -d ' ')" -eq 1 ] \
+      || cf "(P3) the gate ran after the prep failed (it recorded $(wc -l < "$PM_GATE_LOG" | tr -d ' ') runs, expected only the pre-merge one)"
+  fi
+  teardown
+
+  # --- (P4) CLEAN checkout + declared prep -> read in place, prep NOT run ----------
+  _fpr_prep_sandbox 964 "$prep_ok"
+  git -C "$SB_WORK" checkout -q "$FPR_PM_BR" >/dev/null 2>&1
+  _fpr_prep_run 964
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(P4) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: PASS' >/dev/null \
+      || _control_did_not_run "(P4) get the clean gate checkout to read PASS"
+    printf '%s\n' "$FPR_PM_OUT" | grep -i 'fresh worktree' >/dev/null \
+      && cf "(P4) a clean gate checkout was not read in place"
+    [ ! -s "$PM_PREP_LOG" ] \
+      || cf "(P4) the prep ran against a gate checkout that was read in place: $(tr '\n' '|' < "$PM_PREP_LOG")"
+  fi
+  teardown
+
+  # --- (P5) no declared prep, one in the ENVIRONMENT -> not honoured -------------
+  _fpr_prep_sandbox 965 ""
+  _fpr_prep_dirty 965
+  _fpr_prep_run 965 POST_MERGE_PREP='touch .prepared && echo env >> "$PM_PREP_LOG"'
+  if [ "$FPR_PM_RC" -ne 0 ]; then
+    cf "(P5) the landing did not complete (rc=$FPR_PM_RC): $(printf '%s' "$FPR_PM_OUT" | tail -6 | tr '\n' '|')"
+  else
+    [ ! -s "$PM_PREP_LOG" ] \
+      || cf "(P5) a POST_MERGE_PREP supplied by the environment ran: the prep must be the landed commit's own declaration"
+    printf '%s\n' "$FPR_PM_OUT" | grep -x 'POST_MERGE_GATE: FAIL' >/dev/null \
+      || cf "(P5) the reading changed under an environment-supplied prep: $(printf '%s\n' "$FPR_PM_OUT" | grep -E 'POST_MERGE_GATE' | tr '\n' '|')"
+  fi
+  teardown
+
+  finish "finish-pr.sh: a fresh post-merge worktree is prepared by the landed tree's declared POST_MERGE_PREP and the reading says so (P1), nothing runs when none is declared and the note says to commit or stash (P2), a failed prep reads UNRUNNABLE and the gate does not run (P3), a gate checkout read in place is never prepared (P4), and an environment-supplied prep is ignored (P5)"
+}
+
+# =============================================================================
 # CASE — the branch is checked out in a SECOND WORKTREE: the local delete correctly SKIPS,
 # and the board note must not claim it.
 # =============================================================================

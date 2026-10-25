@@ -838,7 +838,8 @@ fi
 #      2. else, if clean, the gate checkout DETACHED AT THE LANDED COMMIT, and left there (its
 #         installed dependencies survive a detach);
 #      3. else (uncommitted tracked changes, or the detach refused) a FRESH detached worktree at
-#         the landed commit, removed afterwards — without those dependencies, and it says so;
+#         the landed commit, removed afterwards — without those dependencies, and it says so —
+#         unless the landed tree's scripts/config.sh declares POST_MERGE_PREP, which runs in it first;
 #      4. no tree, or no executable gate: COULD NOT RUN (contracts/verify-gate.md § 3), as is a
 #         gate that exits 3. Never PASS, never FAIL.
 #    "The landed commit" means its tracked content; untracked files in the checkout are read too.
@@ -850,7 +851,7 @@ fi
 # RULE-COPIES:END
 echo ""
 echo "Post-merge mechanical check (surfaced, not blocking):"
-PM_TREE=""; PM_HOW=""; PM_FRESH_DIR=""; PM_UNRUNNABLE=""; _pm_sum=""; _pm_failed=""
+PM_TREE=""; PM_HOW=""; PM_FRESH_DIR=""; PM_UNRUNNABLE=""; _pm_sum=""; _pm_failed=""; _pm_hint=""; _pm_without="without your installed dependencies"
 _pm_landed=""
 [ -n "${KWT_LANDED_SHA:-}" ] \
   && _pm_landed="$(git -C "$MAIN_ROOT" rev-parse --verify --quiet "${KWT_LANDED_SHA}^{commit}" 2>/dev/null || true)"
@@ -868,6 +869,7 @@ else
     PM_HOW="the gate checkout, already on ${DEFAULT_BRANCH} and containing the landed commit"
   elif ! _pm_clean "$GATE_WORKTREE"; then
     _pm_why="has uncommitted tracked changes"
+    _pm_hint="  Commit or stash the tracked changes in the gate checkout to read it in place (its installed dependencies are then part of the reading)."
   elif [ -z "$_pm_ref" ] && [ "$_pm_head" = "$_pm_landed" ]; then
     PM_TREE="$GATE_WORKTREE"
     PM_HOW="the gate checkout, detached at the landed commit"
@@ -884,11 +886,25 @@ else
   if [ -n "$_pm_why" ]; then
     echo "  The gate checkout '${GATE_WORKTREE}' ${_pm_why}, so it is NOT moved;"
     echo "  reading ${DEFAULT_BRANCH} at ${KWT_LANDED_SHA} in a FRESH worktree instead."
+    [ -z "$_pm_hint" ] || echo "$_pm_hint"
     _pm_tmp="${TMPDIR:-/tmp}"; _pm_tmp="${_pm_tmp%/}"
     if PM_FRESH_DIR="$(mktemp -d "${_pm_tmp}/finish-pr-postmerge.XXXXXX" 2>/dev/null)" \
        && git -C "$MAIN_ROOT" worktree add --detach --quiet "$PM_FRESH_DIR/tree" "$_pm_landed" >/dev/null 2>&1; then
       PM_TREE="$PM_FRESH_DIR/tree"
       PM_HOW="a FRESH worktree at the landed commit — it has none of your checkout's installed dependencies"
+      # THE LANDED TREE'S OWN DECLARATION, read as text and never sourced or taken from the
+      # environment: the reading must be reproducible from the commit it names. Empty = nothing runs.
+      _pm_prep="$(kit_declared_value "$PM_TREE/scripts/config.sh" POST_MERGE_PREP 2>/dev/null || true)"
+      if [ -n "$_pm_prep" ]; then
+        echo "  Preparing the fresh worktree with the landed commit's POST_MERGE_PREP: ${_pm_prep}"
+        if ( cd "$PM_TREE" && sh -c "$_pm_prep" </dev/null ); then
+          PM_HOW="a FRESH worktree at the landed commit — prepared the fresh worktree with POST_MERGE_PREP and nothing else of your checkout's"
+          _pm_without="prepared only by POST_MERGE_PREP, not with your installed dependencies"
+        else
+          _pm_prep_rc=$?
+          PM_UNRUNNABLE="the declared POST_MERGE_PREP exited ${_pm_prep_rc} in the fresh worktree (the gate did not run)"
+        fi
+      fi
     else
       PM_UNRUNNABLE="the gate checkout could not be moved and no fresh worktree could be made at ${KWT_LANDED_SHA}"
     fi
@@ -942,11 +958,11 @@ elif [ "$_pm_rc" -eq 0 ]; then
 else
   echo "  post-merge verify --quick: FAIL on ${DEFAULT_BRANCH} at ${PM_READ:-?} (in ${PM_TREE} — ${PM_HOW}) — ${DEFAULT_BRANCH} may be red; fix it ON ${DEFAULT_BRANCH}, do not park it." >&2
   if [ -n "$PM_FRESH_DIR" ] && [ -z "$_pm_sum" ]; then
-    echo "  That reading was taken in a FRESH worktree without your installed dependencies, and the gate's" >&2
+    echo "  That reading was taken in a FRESH worktree ${_pm_without}, and the gate's" >&2
     echo "  output carried no summary that could separate a failure from a gate that could not run: re-run" >&2
     echo "  it on ${DEFAULT_BRANCH} at ${PM_READ:-?} in a prepared checkout before acting on it." >&2
   elif [ -n "$PM_FRESH_DIR" ]; then
-    echo "  That reading was taken in a FRESH worktree without your installed dependencies. The gate counted" >&2
+    echo "  That reading was taken in a FRESH worktree ${_pm_without}. The gate counted" >&2
     echo "  ${_pm_failed:-?} failure(s), not gates that could not run — but a check that needs a dependency can FAIL" >&2
     echo "  rather than refuse, so confirm on ${DEFAULT_BRANCH} at ${PM_READ:-?} in a prepared checkout." >&2
   fi
