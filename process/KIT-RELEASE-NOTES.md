@@ -333,6 +333,7 @@ columns and never the cards.*
 
 ### Changed
 
+- **`finish-pr.sh` says a stacked branch's base has *already squash-landed* when it has, even if the base's local branch was left behind** (for example held by a worktree); before, it said the base had not landed. `dev.md` and `qa.md` now say who rebases a stacked branch after its base lands (the Dev, when QA lands the base) and when the verdict survives it (a patch-id-equal delta).
 - **`forks:` is checked against the rulings a card *resolved*.** A `[decision: D-NN]` on an AC bullet that has not changed since the card left `todo/` no longer has to be listed in `forks:`; a citation in the Activity, or on a bullet changed or added after `todo/`, still does. The refusal's `Next:` now says how to note an applied ruling without claiming it (write the id without brackets). A card you had to mark `forks: [D-NN]` only because an AC cited that ruling can go back to `none`. No action.
 
 ## [0.12.1] — 2026-10-25

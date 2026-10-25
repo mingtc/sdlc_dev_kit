@@ -1765,6 +1765,68 @@ case_finish_pr_stacked_branch_squashed_base_refuses() {
 }
 
 # =============================================================================
+# CASE — A STACKED BRANCH WHOSE BASE LANDED THROUGH finish-pr.sh WHILE A WORKTREE HELD THE
+# BASE'S BRANCH. The landing keeps that local ref (LOCAL BRANCH KEPT), so a ref-only check
+# finds the ref inside the stacked branch's history and says the base "has not landed".
+# It has: its patch-id is on the trunk. The refusal must say so, and the printed
+# `git rebase --onto` line must still land the branch.
+# Controls: a base that has not landed still says so (case_..._unlanded_base_refuses), and a
+# base that landed with its ref deleted still says squash-landed (case_..._squashed_base_refuses).
+# =============================================================================
+case_finish_pr_stacked_branch_landed_base_ref_kept_refuses_as_squash_landed() {
+  cf_reset
+  make_sandbox
+  seed_issue dev_complete "$SB_PREFIX-823" kbase chore "Base held by a worktree" "feature/$SB_PREFIX-823-a"
+  seed_issue dev_complete "$SB_PREFIX-824" ktop chore "Stacked on a landed base" "feature/$SB_PREFIX-823-b"
+  publish_sandbox
+  seed_branch "$SB_PREFIX-823" a A.txt
+  git -C "$SB_WORK" checkout -q -b "feature/$SB_PREFIX-823-b" "feature/$SB_PREFIX-823-a" >/dev/null 2>&1
+  echo "b's change" > "$SB_WORK/B.txt"
+  git -C "$SB_WORK" add B.txt >/dev/null 2>&1
+  sbcommit -m "[Dev] $SB_PREFIX-824: stacked work" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -u origin "feature/$SB_PREFIX-823-b" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" checkout -q "$SB_TRUNK" >/dev/null 2>&1
+
+  # Land the base through the script with a second worktree holding its branch.
+  git -C "$SB_WORK" worktree add -q "$SB_TMP/wt-base" "feature/$SB_PREFIX-823-a" >/dev/null 2>&1 \
+    || cf "could not create the worktree holding the base branch (test setup)"
+  local out rc
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-823" 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || _control_did_not_run "landing the base through finish-pr.sh (rc=$rc): $out"
+  git -C "$SB_WORK" rev-parse --verify --quiet "refs/heads/feature/$SB_PREFIX-823-a" >/dev/null 2>&1 \
+    || _control_did_not_run "the base's local branch survives its landing"
+
+  out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-824" 2>&1 )"; rc=$?
+
+  [ "$rc" -eq 1 ] || cf "finish-pr exited $rc (expected 1 — refused): $out"
+  printf '%s\n' "$out" | grep -F "already squash-landed on $SB_TRUNK" >/dev/null \
+    || cf "refusal does not say the base already squash-landed: $out"
+  printf '%s\n' "$out" | grep -F "has not landed" >/dev/null \
+    && cf "refusal says the base 'has not landed' although its patch-id is on the trunk: $out"
+  printf '%s\n' "$out" | grep -F "feature/$SB_PREFIX-823-a" >/dev/null \
+    || cf "refusal does not name the surviving base branch: $out"
+  local rebase_cmd
+  rebase_cmd="$(printf '%s\n' "$out" | grep -oE "git rebase --onto $SB_TRUNK [0-9a-f]+ feature/$SB_PREFIX-823-b" | head -1)"
+  [ -n "$rebase_cmd" ] || cf "refusal does not print a git rebase --onto step naming the branch: $out"
+  origin_has_path "progress/qa_complete/$SB_PREFIX-824-ktop.md" \
+    && cf "NOTHING WAS CHANGED was violated — the issue advanced anyway"
+
+  if [ -n "$rebase_cmd" ]; then
+    git -C "$SB_WORK" worktree add -q "$SB_TMP/wt-top" "feature/$SB_PREFIX-823-b" >/dev/null 2>&1
+    ( cd "$SB_TMP/wt-top" && eval "$rebase_cmd" ) >/dev/null 2>&1 \
+      || cf "the printed rebase --onto command itself failed"
+    git -C "$SB_TMP/wt-top" push --force --quiet origin "feature/$SB_PREFIX-823-b" >/dev/null 2>&1
+    git -C "$SB_WORK" worktree remove --force "$SB_TMP/wt-top" >/dev/null 2>&1
+    out="$( cd "$SB_WORK" && env "${FPR_STUB[@]}" ./scripts/finish-pr.sh "$SB_PREFIX-824" 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "finish-pr still refused after the rebase (rc=$rc): $out"
+    origin_has_path "B.txt" || cf "the rebased branch's own change did not land"
+  fi
+
+  finish "finish-pr.sh says a stacked branch's base has already squash-landed, never that it has not landed, when the base's own local branch was left behind by a worktree; the printed rebase step lands the branch"
+  teardown
+}
+
+# =============================================================================
 # CASE — verify.sh PRINTS A NOTE AT START WHEN A GUARD FLOOR IS DECLARED AND NO GATE IS `select`.
 #
 # GUARD_SET/GUARD_ENUM are only ever reconciled inside the --scope preflight, and --scope
