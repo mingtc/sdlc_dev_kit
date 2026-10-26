@@ -9,7 +9,9 @@
 # kit_card_field <card-file> <key> [--raw]
 #   Prints the value of the first `<key>:` line between the card's first two `---` lines, with a
 #   trailing `# comment` and surrounding whitespace removed. `--raw` keeps a `#` in the value, for
-#   free text such as `title:`. Prints nothing when the key is absent or empty, and always returns
+#   free text such as `title:`. For `title:`, `--raw` also strips one pair of outer double quotes and
+#   unescapes `\"` and `\\` inside them (the templates ship the title quoted, so a `: ` in it is
+#   valid YAML); an unquoted title is returned unchanged. Prints nothing when the key is absent or empty, and always returns
 #   0. A `<key>:` line in the body is never read.
 #
 # kit_card_has_field <card-file> <key>
@@ -23,6 +25,14 @@ _kit_card_scan() {
         sub(/^[^:]*:[[:space:]]*/, "")
         if (mode == "value") sub(/(^|[[:space:]]+)#.*$/, "")
         sub(/[[:space:]]+$/, "")
+        if (mode == "raw" && k == "title" && length($0) >= 2 && substr($0, 1, 1) == "\"" && substr($0, length($0), 1) == "\"") {
+          v = substr($0, 2, length($0) - 2); $0 = ""
+          for (i = 1; i <= length(v); i++) {
+            c = substr(v, i, 1)
+            if (c == "\\" && (substr(v, i + 1, 1) == "\"" || substr(v, i + 1, 1) == "\\")) { i++; c = substr(v, i, 1) }
+            $0 = $0 c
+          }
+        }
         print
       }
       exit

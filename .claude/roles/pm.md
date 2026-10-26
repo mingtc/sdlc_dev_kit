@@ -234,7 +234,7 @@ A card is published to `progress/todo/` only when every box is checked. If anyth
 - [ ] **Frontmatter complete** — `id`, `type`, `title`, `size`, `prd`, `stories`, `branch`, `created_at`, `created_by`
 - [ ] **Problem statement** — one paragraph grounded in PROJECT.md context
 - [ ] **Acceptance Criteria** — each independently testable by QA (copied from the PRD's referenced stories for feature-area work; authored directly in the issue on the lite path)
-- [ ] **Out of scope** — explicit list of things this issue does NOT touch
+- [ ] **Out of scope** — explicit list of things this issue does NOT touch. An Out-of-scope line that removes part of an AC's population rewrites that AC, in the same change, while the card is still in `todo/`; a story whose cards are done is never edited — a change to it arrives as a new story.
 - [ ] **Dependencies identified** — code (`blocked_by: [<PREFIX>-NNN]`) and resource (infrastructure, fixtures, external services)
 - [ ] **Branch name** in frontmatter — `feature/<PREFIX>-NNN-<slug>` for features/spikes/chores, `fix/<PREFIX>-NNN-<slug>` for bugs
 - [ ] **Open questions at P0** — none remaining (P1/P2 stay in the PRD)

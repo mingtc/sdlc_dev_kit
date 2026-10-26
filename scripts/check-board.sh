@@ -37,6 +37,8 @@
 #   (t) answered, not reconciled — a question file in the project's question channel that carries an
 #       `**Answer` block and that no register line has named since the answer, with the card it
 #       parks; and one whose `**Answer` this checkout holds but the trunk does not (advisory).
+#   (u) unquoted card titles that are not valid plain YAML — a `title:` holding `: ` or ` #`, or
+#       starting with a YAML indicator (advisory; never part of a landing's property check).
 # Arms (d), (i), (l), (p), (q), (r) are lib/board-properties.sh's functions, the same ones
 # lib/qa-gate.sh's kit_board_property_check runs at a landing, so the report and the refusal
 # cannot disagree about a property.
@@ -1804,6 +1806,45 @@ T_NAMES
   fi
 fi
 # END answered-question arm
+
+# ---------------------------------------------------------------------------
+# (u) UNQUOTED CARD TITLES THAT ARE NOT VALID PLAIN YAML — every card in STATUS_FOLDERS whose
+#     `title:` is unquoted and holds `: ` or ` #`, ends in `:`, or starts with a YAML indicator.
+#     The kit's own readers (lib/card-field.sh) take the line verbatim, so nothing here breaks; a tool
+#     that parses a card's frontmatter as YAML would. Reports only: it is not a drift invariant, and
+#     it is deliberately NOT a lib/board-properties.sh function, which a landing also runs and would
+#     refuse on. Removable: delete this block, BEGIN to END.
+# ---------------------------------------------------------------------------
+echo
+echo "[u] Card titles that are not valid plain YAML (reports only; never changes the verdict below) — $(cb_src):"
+# BEGIN unquoted-title arm
+u_found=0; u_read=0
+IFS='|' read -r -a u_cols <<< "$STATUS_FOLDERS"
+for folder in "${u_cols[@]}"; do
+  [ -d "$CB_TREE/progress/$folder" ] || continue
+  for f in "$CB_TREE/progress/$folder"/*.md; do
+    [ -e "$f" ] || continue
+    u_read=$((u_read + 1))
+    u_why="$(awk '
+      /^---[[:space:]]*$/ { n++; if (n == 2) exit; next }
+      n == 1 && index($0, "title:") == 1 {
+        v = $0; sub(/^title:[[:space:]]*/, "", v); sub(/[[:space:]]+$/, "", v)   # card-read-exempt: judges the stored text, which the quote-stripping of the reader would hide
+        if (v == "" || substr(v, 1, 1) == "\"" || substr(v, 1, 1) == "\047") exit
+        if (index(v, ": ") > 0) { print "contains \": \""; exit }
+        if (index(v, " #") > 0) { print "contains \" #\""; exit }
+        if (substr(v, length(v)) == ":") { print "ends in \":\""; exit }
+        if (index("[{*&!|>%@`", substr(v, 1, 1)) > 0) { print "starts with \"" substr(v, 1, 1) "\""; exit }
+        exit
+      }' "$f" 2>/dev/null || true)"
+    [ -n "$u_why" ] || continue
+    echo "      ⚠ progress/$folder/${f##*/} — title: is not valid plain YAML ($u_why); quote it"
+    u_found=$((u_found + 1))
+  done
+done
+if [ "$u_found" -eq 0 ]; then
+  echo "      ✓ none: $u_read card(s) read"
+fi
+# END unquoted-title arm
 
 echo
 if [ "$drift" -eq 0 ]; then

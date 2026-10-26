@@ -2613,7 +2613,7 @@ case_creation_scripts_substitute_hostile_values() {
   #     is that the frontmatter and the H1 DISAGREE, because only one path was broken.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s1 amped --title 'Fix A & B' 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "subtask.sh new: a --title containing '&' did not succeed: rc=$rc $(printf '%s' "$out" | tr '\n' '|')"
-  origin_file_contains "$st/$SB_PREFIX-014-s1-amped.md" '^title: Fix A & B$' \
+  origin_file_contains "$st/$SB_PREFIX-014-s1-amped.md" '^title: "Fix A & B"$' \
     || cf "subtask.sh: the '&' title was corrupted rather than written into the published card"
   origin_file_contains "$st/$SB_PREFIX-014-s1-amped.md" "^# $SB_PREFIX-014-s1 — Fix A & B\$" \
     || cf "subtask.sh: the H1 does not carry the '&' title verbatim"
@@ -2622,7 +2622,7 @@ case_creation_scripts_substitute_hostile_values() {
   #     heading), and sed_repl does not cover it, so a sed-only fix passes (a) and fails here.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s4 backsl --title 'path C:\tmp\new' 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "subtask.sh new: a --title containing a backslash did not succeed: rc=$rc"
-  origin_file_contains "$st/$SB_PREFIX-014-s4-backsl.md" '^title: path C:\\tmp\\new$' \
+  origin_file_contains "$st/$SB_PREFIX-014-s4-backsl.md" '^title: "path C:\\\\tmp\\\\new"$' \
     || cf "subtask.sh: a backslash in --title was interpreted rather than kept — the frontmatter value is not literal"
   origin_file_contains "$st/$SB_PREFIX-014-s4-backsl.md" '^# .*path C:\\tmp\\new$' \
     || cf "subtask.sh: the H1 mangled the backslash — 'awk -v' processes escapes; the heading must go through ENVIRON"
@@ -2630,7 +2630,7 @@ case_creation_scripts_substitute_hostile_values() {
   # (c) '|' — THE DELIMITER. Its durable damage is the husk, asserted below.
   rc=0; out="$( cd "$SB_WORK" && ./scripts/subtask.sh new "$SB_PREFIX-014" s2 piped --title 'a|b' 2>&1 )" || rc=$?
   [ "$rc" -eq 0 ] || cf "subtask.sh new: a --title containing the sed delimiter aborted: rc=$rc $(printf '%s' "$out" | tr '\n' '|')"
-  origin_file_contains "$st/$SB_PREFIX-014-s2-piped.md" '^title: a|b$' \
+  origin_file_contains "$st/$SB_PREFIX-014-s2-piped.md" '^title: "a|b"$' \
     || cf "subtask.sh: the piped value did not land verbatim in the published card"
 
   # NO HUSK IN THE SHARED WORKTREE: sed's `> "$DEST"` creates the file before sed fails and

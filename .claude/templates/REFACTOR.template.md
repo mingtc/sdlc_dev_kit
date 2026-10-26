@@ -15,7 +15,7 @@
 ---
 id: <PREFIX>-NNN
 type: refactor
-title: <one-line summary>
+title: "<one-line summary>"
 target_module: <short identifier for the area being refactored>
 refactor_pass: dev/refactor/<YYYY-MM-DD>-<scope>-pass.md
 size: M                  # S (≤1 session) | M (2–4 sessions) | L (split it)

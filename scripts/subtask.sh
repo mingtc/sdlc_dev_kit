@@ -286,10 +286,12 @@ case "$CMD" in
     # is portable (reads TEMPLATE, writes WORK).
     # EVERY INTERPOLATED VALUE GOES THROUGH sed_repl (scripts/config.sh): `&` and the
     # delimiter are live in a sed replacement.
+    # The title is written double-quoted (a `: ` in plain YAML is a parse error): `\` and `"` escaped.
+    TITLE_Q="$(printf '%s' "$TITLE" | sed -e 's/[\\"]/\\&/g')"
     sed -e "s|^id: .*|id: $(sed_repl "$ID")|" \
         -e "s|^type: .*|type: subtask|" \
         -e "s|^parent: .*|parent: $(sed_repl "$PARENT")|" \
-        -e "s|^title: .*|title: $(sed_repl "$TITLE")|" \
+        -e "s|^title: .*|title: \"$(sed_repl "$TITLE_Q")\"|" \
         -e "s|^size: .*|size: $(sed_repl "$SIZE")|" \
         -e "s|^prd: .*|prd: $(sed_repl "$PRD")|" \
         -e "s|^stories: .*|stories: $(sed_repl "$STORIES")|" \

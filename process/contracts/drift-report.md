@@ -378,6 +378,11 @@ identifier gives and a timestamp does not.*
   when there is nothing to list, and one `⚠` line per finding so a truncated copy keeps them. It also
   lists a question file whose `**Answer` the checkout holds and the trunk does not, as uncommitted or
   committed-but-unpushed.
+- **An arm that reads card titles is `[u]`:** a card in any status column whose `title:` is unquoted
+  and is not valid plain YAML (it holds `: ` or ` #`, ends in `:`, or starts with a YAML indicator),
+  one `⚠` line per card. It reports only, and it is not one of `lib/board-properties.sh`'s functions,
+  so a landing never refuses on it: the kit's own readers take the line verbatim, and the finding is
+  for whatever else parses the frontmatter as YAML.
 - **The checks behind arms `[d]` `[i]` `[l]` `[p]` `[q]` `[r]` live in `scripts/lib/board-properties.sh`,
   and the landing calls the same functions** (`scripts/lib/qa-gate.sh`'s `kit_board_property_check`,
   from `finish-pr.sh` and `subtask.sh`). The landing refuses a finding its branch introduces in a

@@ -12,7 +12,7 @@
 ---
 id: <PREFIX>-NNN
 type: bug
-title: <one-line summary>
+title: "<one-line summary>"
 severity: <Blocker | Critical | Major | Minor>
 environment: <runtime + OS>     # + dependency versions, live-vs-fixture state
 prd: PRD-NNN                    # PRD whose behavior is regressed; n/a if none
