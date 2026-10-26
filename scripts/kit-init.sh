@@ -484,7 +484,7 @@ KIT_MANIFEST_FILE="$ROOT/process/KIT-MANIFEST"
 if [ -f "$KIT_MANIFEST_FILE" ] && git -C "$ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
   _km_paths="$(grep -v '^#' "$KIT_MANIFEST_FILE" | awk -F'  ' 'NF>=2 {print $2}' || true)"
   if [ -z "$_km_paths" ]; then
-    say "  ℹ process/KIT-MANIFEST yields no paths (empty, or not '<sha256>  <path>  <class>' with two-space separators) — the uncommitted-kit check is skipped."
+    say "  ℹ process/KIT-MANIFEST yields no paths (empty, or not '<sha256>  <path>  <class>  <disposition>' with two-space separators) — the uncommitted-kit check is skipped."
   else
     # -z so a C-quoted name still compares equal. No reader exits early (`sed -n '1,5p'`,
     # not `head`), so pipefail cannot turn a SIGPIPE into a false refusal.

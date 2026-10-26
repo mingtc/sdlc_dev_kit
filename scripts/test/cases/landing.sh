@@ -676,7 +676,12 @@ case_finish_pr_post_merge_names_the_dirty_paths() {
   _fpr_prep_dirty 973
   local i
   for i in 1 2 3 4 5 6; do echo x >> "$SB_WORK/progress/dev_complete/$SB_PREFIX-973-pm.md"; done
-  git -C "$SB_WORK" ls-files | grep -E '[.](md|txt)$' | grep -v '^progress/' | sed -n 1,5p | while IFS= read -r i; do echo x >> "$SB_WORK/$i"; done
+  # Five tracked files of its own: the sandbox's own tracked prose (consumers/ among it) is a population a project may remove.
+  for i in 1 2 3 4 5; do echo base > "$SB_WORK/DIRTY973-$i.txt"; done
+  git -C "$SB_WORK" add DIRTY973-1.txt DIRTY973-2.txt DIRTY973-3.txt DIRTY973-4.txt DIRTY973-5.txt >/dev/null 2>&1
+  sbcommit -m "five tracked files to dirty" --quiet >/dev/null 2>&1
+  git -C "$SB_WORK" push -q origin "$SB_TRUNK" >/dev/null 2>&1
+  for i in 1 2 3 4 5; do echo x >> "$SB_WORK/DIRTY973-$i.txt"; done
   n="$(git -C "$SB_WORK" diff --name-only | wc -l | tr -d ' ')"
   [ "$n" -gt 5 ] || _control_did_not_run "(N3) dirty more than five tracked files (got $n)"
   _fpr_pm_run 973

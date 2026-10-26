@@ -404,16 +404,64 @@ _tree_has_lived() {   # -> the signal that fired, or empty for a tree that has n
   return 0
 }
 
-# _member_removed <path from the tree root> — is this OPTIONAL member (a DELETE-IF-UNUSED route:
-# release.sh, new-refactor.sh, the Refactorer role, its leaf worker, its template) absent from a tree
-# that has been adopted? Only then may a case skip what it would do with the member; on a tree that
-# has not been adopted its absence is a defect and the case must fail on it.
+# _manifest_row_is_optional <manifest> <path> — does the manifest name <path> with the disposition
+# DELETE-IF-UNUSED (its fourth column)? A row with no fourth column is not.
+_manifest_row_is_optional() {
+  awk -F'  ' -v p="$2" '!/^#/ && NF >= 4 && $2 == p && $4 == "DELETE-IF-UNUSED" { f = 1 } END { exit !f }' "$1"
+}
+
+# _member_removed_in <root> <path from the tree root> — is <path> absent from <root> because a
+# DELETE-IF-UNUSED member was removed? Yes when the manifest names <path> itself as one, or when a
+# directory above it is gone and that directory's README.md is one (a directory is removed whole, and
+# only its README.md carries the declaration). The manifest is the record that survives the removal:
+# the declaration in the file's own header goes with the file. Lifted out so a FABRICATED root can
+# control it.
+_member_removed_in() {
+  local man="$1/process/KIT-MANIFEST" d="$2"
+  [ ! -e "$1/$2" ] && [ -f "$man" ] || return 1
+  _manifest_row_is_optional "$man" "$2" && return 0
+  while [ "${d%/*}" != "$d" ]; do
+    d="${d%/*}"
+    [ -e "$1/$d" ] && return 1
+    _manifest_row_is_optional "$man" "$d/README.md" && return 0
+  done
+  return 1
+}
+
+# _member_removed <path from the tree root> — is this OPTIONAL member (a DELETE-IF-UNUSED member the
+# shipped manifest names) absent from a tree that has been adopted? Only then may a case skip what
+# it would do with the member; on a tree that has not been adopted its absence is a defect and the
+# case must fail on it.
 _member_removed() {
-  case "$1" in
-    scripts/release.sh|scripts/new-refactor.sh|.claude/roles/refactorer.md|.claude/agents/refactorer-worker.md|.claude/templates/REFACTOR.template.md) ;;
-    *) return 1 ;;
-  esac
-  [ ! -e "$REAL_REPO_ROOT/$1" ] && [ -n "$(_tree_has_lived)" ]
+  [ -n "$(_tree_has_lived)" ] && _member_removed_in "$REAL_REPO_ROOT" "$1"
+}
+
+# _delete_if_unused_members_all_removed [<path prefix>…] — true when process/KIT-MANIFEST names at
+# least one DELETE-IF-UNUSED member (under any of the prefixes, when given) and this tree, which has
+# lived, holds none of them. That is the only state in which "no file declares the marker" is
+# expected rather than a moved marker.
+_delete_if_unused_members_all_removed() {
+  local rel n=0 p ok
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    ok=1
+    if [ "$#" -gt 0 ]; then
+      ok=""
+      for p in "$@"; do case "$rel" in "$p"*) ok=1 ;; esac; done
+    fi
+    [ -n "$ok" ] || continue
+    n=$((n+1))
+    _member_removed "$rel" || return 1
+  done <<DIU_ALL_EOF
+$(awk -F'  ' '!/^#/ && NF >= 4 && $4 == "DELETE-IF-UNUSED" { print $2 }' "$REAL_REPO_ROOT/process/KIT-MANIFEST" 2>/dev/null)
+DIU_ALL_EOF
+  [ "$n" -gt 0 ]
+}
+
+# _first_delete_if_unused_member — the first path the manifest names as DELETE-IF-UNUSED, for a
+# skip reason that must name the file whose shipped shape is gone.
+_first_delete_if_unused_member() {
+  awk -F'  ' '!/^#/ && NF >= 4 && $4 == "DELETE-IF-UNUSED" { print $2; exit }' "$REAL_REPO_ROOT/process/KIT-MANIFEST" 2>/dev/null
 }
 
 # Does <root>'s <doc> declare the kit class on line 1? The discriminator arm (a) narrows itself

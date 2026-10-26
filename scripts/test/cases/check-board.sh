@@ -111,8 +111,20 @@ _cb_g_discharge_delete_if_unused() {
   # before its first publish_sandbox), when the copied scripts/notify*.sh are not yet tracked —
   # a plain `git grep` sees only tracked files and would find nothing on such a tree.
   done < <(git -C "$SB_WORK" grep --untracked -lzE "$_decl" -- 2>/dev/null || true)
-  [ "$_n" -gt 0 ] \
+  # Nothing to discharge is right only on a tree whose every DELETE-IF-UNUSED member was removed.
+  [ "$_n" -gt 0 ] || _delete_if_unused_members_all_removed \
     || _fixture_die "_cb_g_discharge_delete_if_unused: no file in the sandbox declares KIT-DISPOSITION: DELETE-IF-UNUSED — the real scripts/notify*.sh marker this helper relies on has moved or been removed."
+}
+
+# _cb_g_a_declaring_file — one file the sandbox still carries that declares DELETE-IF-UNUSED, for a
+# case to expect a finding to NAME. Derived from the sandbox, never a typed path: a project may have
+# removed any member. Prints nothing when none remains.
+_cb_g_a_declaring_file() {
+  local _decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)' _f
+  while IFS= read -r -d '' _f; do
+    sed -n '1,12p' "$SB_WORK/$_f" | grep -E "$_decl" >/dev/null && { printf '%s' "$_f"; return 0; }
+  done < <(git -C "$SB_WORK" grep --untracked -lzE "$_decl" -- 2>/dev/null || true)
+  return 0
 }
 
 # _cb_g_remove_delete_if_unused_members — removes, from $SB_WORK, every file that declares
@@ -2426,8 +2438,13 @@ case_check_board_graduation() {
   # sandbox (process/ is not copied by make_sandbox), every one of them must report unfilled.
   printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
     || cf "(b) DELETE-IF-UNUSED was not reported unfilled over a real declaring file with no LOCAL-PROCEDURES.md record: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -F 'scripts/notify.sh' >/dev/null \
-    || cf "(b) the DELETE-IF-UNUSED finding did not name scripts/notify.sh: $out"
+  _decl_file="$(_cb_g_a_declaring_file)"
+  if [ -z "$_decl_file" ]; then
+    _delete_if_unused_members_all_removed || _fixture_die "no file in the sandbox declares DELETE-IF-UNUSED, yet this tree still holds a member the manifest names as one"
+    teardown; skp_lived "check (g): DELETE-IF-UNUSED members are named by the finding" "$(_first_delete_if_unused_member) and every other DELETE-IF-UNUSED member was removed from this project, so there is no declaring file to name"; return
+  fi
+  printf '%s\n' "$out" | _cb_g_section | grep -F "$_decl_file" >/dev/null \
+    || cf "(b) the DELETE-IF-UNUSED finding did not name $_decl_file: $out"
   # CODE_GLOBS/TEST_GLOBS/principal:. The sandbox's scripts/config.sh and PROJECT.md are still
   # the shipped, empty/blank shape at this point, so all three must report unfilled, each naming
   # what it leaves off, exactly as the other FILL members above do.
@@ -2679,8 +2696,13 @@ case_check_board_graduation_delete_if_unused() {
     && cf "(a) graduation COMPLETE over a tree with an undischarged DELETE-IF-UNUSED member: $out"
   printf '%s\n' "$out" | _cb_g_section | grep 'DELETE-IF-UNUSED:.*no recorded decision' >/dev/null \
     || cf "(a) an undischarged DELETE-IF-UNUSED member was not reported: $out"
-  printf '%s\n' "$out" | _cb_g_section | grep -F 'scripts/notify.sh' >/dev/null \
-    || cf "(a) the finding did not NAME the declaring file scripts/notify.sh — instruments.md § A.4 wants the operand: $out"
+  _decl_file="$(_cb_g_a_declaring_file)"
+  if [ -z "$_decl_file" ]; then
+    _delete_if_unused_members_all_removed || _fixture_die "no file in the sandbox declares DELETE-IF-UNUSED, yet this tree still holds a member the manifest names as one"
+    teardown; skp_lived "check (g): DELETE-IF-UNUSED members are named by the finding" "$(_first_delete_if_unused_member) and every other DELETE-IF-UNUSED member was removed from this project, so there is no declaring file to name"; return
+  fi
+  printf '%s\n' "$out" | _cb_g_section | grep -F "$_decl_file" >/dev/null \
+    || cf "(a) the finding did not NAME the declaring file $_decl_file — instruments.md § A.4 wants the operand: $out"
 
   # ── (b) the exact kept-on-purpose line: COMPLETE. ─────────────────────────────────────────────
   mkdir -p "$SB_WORK/process"
@@ -3046,6 +3068,9 @@ case_check_board_model_pins_arm_names_blank_role_doc_tables() {
     || _fixture_die "set-models.sh --all refused in the sandbox"
   # The seam filled the ladder rows, so those rows no longer count; derive that population from the doc.
   want="$(awk '/^## /{ s = ($0 ~ /^## Model & effort contract/) } s && /^\|/ && /<fill in/ { c++ } END { print c + 0 }' "$orch")"
+  # A project that removed the Refactorer leaves its optional ladder row blank (the seam skips a class
+  # whose leaf worker is gone) and arm (s) never counts ladder rows, so that row is not a blank left.
+  if _member_removed .claude/agents/refactorer-worker.md && [ "$want" -gt 0 ]; then want=$((want - 1)); fi
   publish_sandbox
   out="$(cb_run)"; sec="$(printf '%s\n' "$out" | _cb_s_section)"
   v_blank="$(printf '%s\n' "$out" | grep '^── board-drift')"

@@ -287,6 +287,8 @@ CASES=(
   case_kit_upgrade_stages_nothing_live
   case_check_board_upgrade_line_names_the_duty_and_its_source
   case_kit_upgrade_from_the_built_kit_is_a_no_op
+  case_member_removed_reads_the_manifest_disposition
+  case_kit_upgrade_no_op_skips_only_a_removed_optional_member
   case_kit_upgrade_blocks_the_stub_over_a_graduated_agents_md
   case_kit_upgrade_still_replaces_an_ungraduated_stub
   case_kit_upgrade_removed_upstream_reflects_a_local_edit
@@ -703,6 +705,7 @@ CASES=(
   case_seam_shape_reformat_is_loud
   case_declared_exit_codes_are_driven
   case_shipped_manifest_describes_the_tree
+  case_manifest_disposition_column_matches_the_headers
   case_restated_rules_are_registered
   case_kit_feedback_shape_has_the_printed_event_moment_effect_and_root_causes
   case_ship_state

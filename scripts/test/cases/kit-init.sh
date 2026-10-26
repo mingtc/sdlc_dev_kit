@@ -92,6 +92,10 @@ case_kit_init_disposition_markers_intact() {
       done < <(grep -oE 'KIT-DISPOSITION:.*' "$f" 2>/dev/null)
     done < <(find "$d" -type f -name '*.md' | sort)
   done
+  if [ -z "$expected" ] && _delete_if_unused_members_all_removed .claude/roles/ .claude/templates/; then
+    # Every declaring member under .claude/roles and .claude/templates is a DELETE-IF-UNUSED one, and a project removed them.
+    skp_lived "kit-init: KIT-DISPOSITION markers survive the stamp" "$(_first_delete_if_unused_member) and every other DELETE-IF-UNUSED role and template was removed from this project, so no declaration under .claude/roles or .claude/templates is left to survive the stamp"; return
+  fi
   [ -n "$expected" ] \
     || { cf "the shipped tree carries NO KIT-DISPOSITION: declaration under .claude/roles or .claude/templates — the assertion below would have no operand and pass on an empty set"; finish "kit-init: KIT-DISPOSITION markers survive the stamp"; return; }
 
@@ -2164,10 +2168,12 @@ case_usage_request_succeeds_in_any_position() {
 
   # With no argument notify.sh is refused with the one usage text, not a second copy of it.
   local want
-  want="$(cd "$SB_WORK" && ./scripts/notify.sh --help 2>/dev/null)"
-  rc=0; out="$(cd "$SB_WORK" && ./scripts/notify.sh 2>&1 >/dev/null)" || rc=$?
-  [ "$rc" = 2 ] || cf "notify.sh with no argument → rc=$rc (want 2)"
-  [ "$out" = "$want" ] || cf "notify.sh with no argument printed a usage that is not its --help text: $(printf '%s' "$out" | head -2 | tr '\n' '|')"
+  if ! _member_removed scripts/notify.sh; then
+    want="$(cd "$SB_WORK" && ./scripts/notify.sh --help 2>/dev/null)"
+    rc=0; out="$(cd "$SB_WORK" && ./scripts/notify.sh 2>&1 >/dev/null)" || rc=$?
+    [ "$rc" = 2 ] || cf "notify.sh with no argument → rc=$rc (want 2)"
+    [ "$out" = "$want" ] || cf "notify.sh with no argument printed a usage that is not its --help text: $(printf '%s' "$out" | head -2 | tr '\n' '|')"
+  fi
 
   local made
   made="$(find "$SB_WORK/progress" "$SB_WORK/requirements" -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"

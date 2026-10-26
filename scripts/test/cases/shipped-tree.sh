@@ -463,6 +463,9 @@ case_notify_lists_only_adapters() {
   local L="notify.sh's Available: list names the transport adapters and not the stall watchdog"
   make_sandbox
   if [ ! -f "$SB_WORK/scripts/notify/stall.sh" ]; then teardown; skp "$L" "scripts/notify/stall.sh absent"; return; fi
+  if [ ! -f "$SB_WORK/scripts/notify.sh" ] && _member_removed scripts/notify.sh; then
+    teardown; skp_lived "$L" "scripts/notify.sh was removed from this project, so there is no Available: list to read"; return
+  fi
   printf '#!/usr/bin/env bash\ncase "${1:-send}" in\n  send) exit 0 ;;\n  test) exit 0 ;;\nesac\n' \
     > "$SB_WORK/scripts/notify/zzplant.sh"
   local out avail
@@ -477,6 +480,9 @@ case_notify_lists_only_adapters() {
 
 case_notify_message_flag_carries_a_leading_dash() {
   cf_reset
+  if _member_removed scripts/notify.sh; then
+    skp_lived "notify.sh: a message starting with '-' is sent through --message, and the bare form's refusal names --message" "scripts/notify.sh was removed from this project, so there is no --message to send through"; return
+  fi
   make_sandbox
   local rec="$SB_TMP/notify-rec.txt" out rc
   printf '#!/usr/bin/env bash\ncase "${1:-send}" in\n  send) printf "%%s\\n" "$NOTIFY_TEXT" >> "%s"; exit 0 ;;\n  test) exit 0 ;;\nesac\n' "$rec" \
@@ -662,12 +668,18 @@ EOF_MAN
 # =============================================================================
 case_notify_help_is_the_header_and_the_hook_answers_without_stdin() {
   cf_reset
+  if _member_removed scripts/notify.sh && _member_removed scripts/notify-hook.sh; then
+    skp_lived "notify.sh --help prints its header, and notify-hook.sh --help prints its header at once without reading stdin" "scripts/notify.sh and scripts/notify-hook.sh were both removed from this project, so neither has a --help to print"; return
+  fi
   make_sandbox
   local out rc hold="$SB_TMP/hold.fifo"
-  out="$( cd "$SB_WORK" && ./scripts/notify.sh --help 2>&1 )"; rc=$?
-  [ "$rc" -eq 0 ] || cf "notify.sh --help exited $rc"
-  case "$out" in *NOTIFY_WITH_MSG_AND_ALERT*) : ;; *) cf "notify.sh --help does not print the header's routing text: $(printf '%s' "$out" | head -3 | tr '\n' '|')" ;; esac
-  case "$out" in *"Without --session a send is a no-op"*) : ;; *) cf "notify.sh --help does not say a send without --session is a no-op" ;; esac
+  if ! _member_removed scripts/notify.sh; then
+    out="$( cd "$SB_WORK" && ./scripts/notify.sh --help 2>&1 )"; rc=$?
+    [ "$rc" -eq 0 ] || cf "notify.sh --help exited $rc"
+    case "$out" in *NOTIFY_WITH_MSG_AND_ALERT*) : ;; *) cf "notify.sh --help does not print the header's routing text: $(printf '%s' "$out" | head -3 | tr '\n' '|')" ;; esac
+    case "$out" in *"Without --session a send is a no-op"*) : ;; *) cf "notify.sh --help does not say a send without --session is a no-op" ;; esac
+  fi
+  if _member_removed scripts/notify-hook.sh; then finish "notify.sh --help prints its header (the hook was removed from this project, so its half is not run)"; teardown; return; fi
 
   mkfifo "$hold" || _fixture_die "case_notify_help_is_the_header_and_the_hook_answers_without_stdin: mkfifo failed"
   exec 9<>"$hold"
@@ -968,9 +980,11 @@ EOF
   #    notify.sh dispatches on its first argument as a CLASS, so `--not-a-real-flag` alone
   #    never enters the OPTION LOOP; a stray flag there must refuse, not be ignored while the
   #    message is delivered.
+  if ! _member_removed scripts/notify.sh; then
   out="$( cd "$SB_WORK" && "$SB_WORK/scripts/notify.sh" done "a message" --session s --not-a-real-flag </dev/null 2>&1 )"; rc=$?
   [ "$rc" -eq 2 ] \
     || cf "notify.sh: a stray option AFTER a valid class exited $rc, want 2 — it is being ignored and the notification is delivered anyway, which is a refusal that reads as success: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+  fi
 
   #    move-issue.sh takes positionals, so a dash-leading token is caught BEFORE the
   #    option loop or it becomes the issue id and dies on the arity check instead —
@@ -1334,7 +1348,7 @@ case_travelling_scripts_have_a_sheet() {
   #    something this kit ships.
   local e
   for e in $exempt; do
-    [ -e "$REAL_REPO_ROOT/$e" ] \
+    [ -e "$REAL_REPO_ROOT/$e" ] || _member_removed "${e%/}/README.md" \
       || cf "contracts/README.md declares the exempt class '$e', which names nothing this kit ships. Either the class is stale — coverage shrinking silently — or the prefix is mistyped, and a mistyped prefix that happens to be broad exempts files nobody decided to exempt"
   done
 
@@ -1500,9 +1514,11 @@ EOF
 
   # A LEADING '-' IS NEVER A NAME — the same clause on a POSITIONAL: notify.sh must not take
   # `--message` as its message body.
+  if ! _member_removed scripts/notify.sh; then
   rc=0; out="$( cd "$SB_WORK" && ./scripts/notify.sh attention --message 2>&1 )" || rc=$?
   [ "$rc" -eq 2 ] \
     || cf "(executed) notify.sh took '--message' as its message body and exited $rc — a leading '-' is never a name, and a delivered notification reading '--message' is quieter than a refusal"
+  fi
 
   finish "every one of the $arms value-taking option arms across the shipped scripts calls need_val (${guarded} guarded), the guard's ${defs:+copies} are byte-identical, and two scripts prove it EXECUTED: a valueless --note exits 2 naming the option, and a leading '-' is refused as a positional rather than swallowed as one"
   teardown
@@ -2939,7 +2955,7 @@ EOF
 # =============================================================================
 # CASE — THE SHIPPED MANIFEST DESCRIBES THIS TREE, AND THE COPY-LIST IS INSIDE IT.
 #
-# The zip carries process/KIT-MANIFEST: <sha256>  <path>  <class>, one row per shipped file,
+# The zip carries process/KIT-MANIFEST: <sha256>  <path>  <class>  <disposition>, one row per shipped file,
 # generated at build and never tracked. The population cases derive from it because on an
 # adopted tree a glob cannot tell a kit file from one the adopter was told to add. This case
 # makes it trustworthy: present, non-empty, every path exists, it excludes itself, and it is a
@@ -2997,6 +3013,91 @@ EOF
   fi
 
   finish "process/KIT-MANIFEST names $n shipped path(s), every one of which exists in this tree; it excludes itself; and all $cl entries of kit-init.sh's own COPY_LIST minimum are inside it — both sides of that comparison derived, neither retyped here"
+}
+
+# =============================================================================
+# CASE — THE MANIFEST'S DISPOSITION COLUMN IS THE FILES' OWN DECLARATIONS, AND THE TABLE'S MEMBERS ARE IN IT.
+#
+# _member_removed trusts the fourth column of process/KIT-MANIFEST to know which absent files were
+# optional. The column is derived at build from each file's header block; this reads the headers a
+# second way and compares, both sides derived and neither typed: the manifest rows with disposition
+# DELETE-IF-UNUSED, against the manifest-named files present whose first twelve lines (the window
+# check-board arm (g) reads) declare it. And every member the DELETE-IF-UNUSED row of
+# process/EXTRACTION.md's disposition table names - a directory, a file or a `<channel>` glob - must
+# be covered by a manifest row, so the table cannot grow a member the column does not carry.
+# =============================================================================
+_diu_column_vs_headers() {  # <root> -> the paths on which the column and the headers disagree (empty = agree)
+  local root="$1" rel col hdr decl='^[[:space:]]*(#|<!--|//|--)?[[:space:]]*KIT-DISPOSITION:[[:space:]]*DELETE-IF-UNUSED([^A-Za-z0-9_]|$)'
+  col="$(awk -F'  ' '!/^#/ && NF >= 4 && $4 == "DELETE-IF-UNUSED" { print $2 }' "$root/process/KIT-MANIFEST" | LC_ALL=C sort)"
+  hdr=""
+  while IFS= read -r rel; do
+    [ -f "$root/$rel" ] || continue
+    sed -n '1,12p' "$root/$rel" | grep -E "$decl" >/dev/null && hdr="$hdr$rel
+"
+  done <<DIU_ROWS_EOF
+$(awk -F'  ' '!/^#/ && NF >= 2 { print $2 }' "$root/process/KIT-MANIFEST")
+DIU_ROWS_EOF
+  hdr="$(printf '%s' "$hdr" | LC_ALL=C sort)"
+  # A column entry whose file is gone is the removal this column exists to remember; compare on present files.
+  local colp=""
+  while IFS= read -r rel; do
+    [ -n "$rel" ] && [ -f "$root/$rel" ] && colp="$colp$rel
+"
+  done <<DIU_COL_EOF
+$col
+DIU_COL_EOF
+  colp="$(printf '%s' "$colp" | LC_ALL=C sort)"
+  diff <(printf '%s\n' "$colp") <(printf '%s\n' "$hdr") | sed -n 's/^[<>] //p' | tr '\n' ' '
+}
+
+case_manifest_disposition_column_matches_the_headers() {
+  cf_reset
+  local man="$REAL_REPO_ROOT/process/KIT-MANIFEST" ext="$REAL_REPO_ROOT/process/EXTRACTION.md"
+  [ -f "$man" ] || _fixture_die "case_manifest_disposition_column_matches_the_headers: process/KIT-MANIFEST is absent, which the startup guard should already have refused."
+  [ -f "$ext" ] || { skp_lived "the manifest's disposition column matches the headers" "process/EXTRACTION.md is absent from this tree, so the table's members cannot be read"; return; }
+  make_sandbox
+  local L="the manifest's DELETE-IF-UNUSED column is exactly the manifest-named files whose headers declare it, and every member the disposition table names has a row in it"
+  local d; d="$(_diu_column_vs_headers "$REAL_REPO_ROOT")"
+  [ -z "$d" ] || cf "the column and the headers disagree on: $d"
+  local n; n="$(awk -F'  ' '!/^#/ && NF >= 4 && $4 == "DELETE-IF-UNUSED"' "$man" | wc -l | tr -d ' ')"
+  [ "$n" -gt 0 ] || cf "(instrument) the manifest has no DELETE-IF-UNUSED row, so the comparison above covered nothing"
+
+  # Controls on a fabricated root: the comparison must see a disagreement in each direction, and agree when there is none.
+  local r="$SB_TMP/fab" h; h="$(printf '%064d' 0)"
+  mkdir -p "$r/process" "$r/scripts"
+  printf '# KIT-DISPOSITION: DELETE-IF-UNUSED - declared\n' > "$r/scripts/declared.sh"
+  printf '# a script that only mentions KIT-DISPOSITION: in prose\n\n\n\n\n\n\n\n\n\n\n\n# KIT-DISPOSITION: DELETE-IF-UNUSED - below the window\n' > "$r/scripts/quoted.sh"
+  printf '%s  %s  KIT  DELETE-IF-UNUSED\n%s  %s  KIT  -\n' "$h" scripts/declared.sh "$h" scripts/quoted.sh > "$r/process/KIT-MANIFEST"
+  [ -z "$(_diu_column_vs_headers "$r")" ] || cf "(control) a manifest that matches the headers was reported as disagreeing: $(_diu_column_vs_headers "$r")"
+  printf '%s  %s  KIT  -\n%s  %s  KIT  DELETE-IF-UNUSED\n' "$h" scripts/declared.sh "$h" scripts/quoted.sh > "$r/process/KIT-MANIFEST"
+  [ -n "$(_diu_column_vs_headers "$r")" ] || cf "(control) a column that contradicts the headers in both directions was reported as agreeing"
+
+  # The table's members, read from the DELETE-IF-UNUSED row of EXTRACTION.md: each backticked path that is a member.
+  local row tok seen=0 missing=""
+  row="$(grep -F '| **DELETE-IF-UNUSED** |' "$ext" | head -1 | sed 's/\*\*not\*\* `[^`]*`//')"
+  [ -n "$row" ] || cf "(instrument) process/EXTRACTION.md has no DELETE-IF-UNUSED row in its disposition table"
+  while IFS= read -r tok; do
+    case "$tok" in
+      */*|*.sh|*.md) ;;
+      *) continue ;;
+    esac
+    seen=$((seen+1))
+    # A trailing slash is a directory, `<name>` is a one-segment glob, anything else is one path.
+    awk -F'  ' -v t="$tok" '
+      BEGIN { lt = index(t, "<"); if (lt) { pre = substr(t, 1, lt - 1); suf = substr(t, index(t, ">") + 1) } }
+      !/^#/ && NF >= 4 && $4 == "DELETE-IF-UNUSED" {
+        if (lt) { if (index($2, pre) == 1 && substr($2, length($2) - length(suf) + 1) == suf && index(substr($2, length(pre) + 1), "/") == 0) f = 1 }
+        else if (substr(t, length(t)) == "/") { if (index($2, t) == 1) f = 1 }
+        else if ($2 == t) f = 1
+      }
+      END { exit !f }' "$man" || missing="$missing $tok"
+  done <<DIU_TOK_EOF
+$(printf '%s' "$row" | grep -oE '`[^`]+`' | tr -d '`')
+DIU_TOK_EOF
+  [ "$seen" -gt 0 ] || cf "(instrument) no path was read from the DELETE-IF-UNUSED row, so the table half covered nothing"
+  [ -z "$missing" ] || cf "the disposition table names member(s) with no DELETE-IF-UNUSED row in the manifest:$missing"
+  finish "$L ($n manifest row(s), $seen table path(s))"
+  teardown
 }
 
 # =============================================================================

@@ -594,6 +594,108 @@ KU_SAME_EOF
 }
 
 # =============================================================================
+# CASE — WHICH ABSENT MEMBER IS "REMOVED ON PURPOSE" IS READ FROM THE MANIFEST'S DISPOSITION COLUMN.
+#
+# A project that finished day one may remove a DELETE-IF-UNUSED member; the declaration leaves with
+# the file, and process/KIT-MANIFEST (<sha256>  <path>  <class>  <disposition>) is what survives.
+# _member_removed_in <root> <path> is true only for a row whose fourth column is DELETE-IF-UNUSED
+# while the path is absent from <root>. Rows are known-correct answers on a fabricated root; the
+# expectation is typed here because deriving it from the manifest under test would agree with a
+# broken reader. A three-column manifest (a tree last upgraded before the column) excuses nothing.
+# =============================================================================
+case_member_removed_reads_the_manifest_disposition() {
+  cf_reset
+  make_sandbox
+  local L="_member_removed reads the manifest's disposition column: a DELETE-IF-UNUSED row whose file is gone is removed on purpose; a KEEP row, a present file, a row with no fourth column and an unlisted path are not; and an unadopted tree excuses nothing"
+  local r="$SB_TMP/fab" h; h="$(printf '%064d' 0)"
+  mkdir -p "$r/process" "$r/scripts"
+  : > "$r/scripts/present-optional.sh"
+  {
+    printf '%s  %s  %s  %s\n' "$h" consumers/README.md KIT DELETE-IF-UNUSED
+    printf '%s  %s  %s  %s\n' "$h" process/MANUAL.md KIT -
+    printf '%s  %s  %s  %s\n' "$h" scripts/present-optional.sh KIT DELETE-IF-UNUSED
+    printf '%s  %s  %s\n' "$h" scripts/old-shape.sh KIT
+  } > "$r/process/KIT-MANIFEST"
+  _member_removed_in "$r" consumers/README.md || cf "a DELETE-IF-UNUSED row whose file is absent was not read as removed"
+  _member_removed_in "$r" process/MANUAL.md && cf "a KEEP row whose file is absent was excused: an accidental deletion would pass"
+  _member_removed_in "$r" scripts/present-optional.sh && cf "a DELETE-IF-UNUSED member that is PRESENT was read as removed"
+  _member_removed_in "$r" scripts/old-shape.sh && cf "a row with no fourth column was excused, though nothing says it was optional"
+  _member_removed_in "$r" scripts/not-in-the-manifest.sh && cf "a path the manifest does not name was excused"
+  _member_removed_in "$r" consumers/ci/workflow.yml || cf "a file under a removed directory whose README.md is a DELETE-IF-UNUSED row was not read as removed with it"
+  _member_removed_in "$r" process/deeper/file.md && cf "a file under a removed directory whose README.md is NOT optional was excused"
+  mkdir -p "$r/scripts/kept-dir"
+  printf '%s  %s  KIT  DELETE-IF-UNUSED\n' "$h" scripts/kept-dir/README.md >> "$r/process/KIT-MANIFEST"
+  _member_removed_in "$r" scripts/kept-dir/sibling.sh && cf "a file missing from a directory that is still PRESENT was excused though its README.md is optional"
+  # Whole-function control: the lived gate. The same rows, once with kit-init's stamp receipt and once without.
+  local real_root="$REAL_REPO_ROOT" real_scripts="$REAL_SCRIPTS"
+  REAL_REPO_ROOT="$r"; REAL_SCRIPTS="$r/scripts"
+  _member_removed consumers/README.md && cf "an unadopted tree excused a missing DELETE-IF-UNUSED member: its absence is a defect there"
+  printf '%s\n' "$KIT_STAMP_MARK" > "$r/scripts/config.sh"
+  _member_removed consumers/README.md || cf "an adopted tree (kit-init's stamp receipt present) did not excuse a removed DELETE-IF-UNUSED member"
+  _member_removed process/MANUAL.md && cf "an adopted tree excused a missing KEEP file"
+  REAL_REPO_ROOT="$real_root"; REAL_SCRIPTS="$real_scripts"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
+# CASE — THE NO-OP UPGRADE CASE SKIPS A REMOVED OPTIONAL MEMBER, AND ONLY THAT.
+#
+# case_kit_upgrade_from_the_built_kit_is_a_no_op copies every path the manifest names and upgrades
+# from the copy, so a tree missing a manifest-named file is not a whole kit. For a project that
+# removed a DELETE-IF-UNUSED member that is N/A, not a FAIL it cannot clear. Run here on copies of
+# this tree, in a subshell so their verdicts reach no tally: (1) adopted, nothing removed: PASS;
+# (2) adopted, consumers/ removed: N/A naming consumers/README.md; (3) NOT adopted, consumers/
+# removed: FAIL, because the absence is a defect there; (4) adopted, a KEEP file removed: FAIL.
+# =============================================================================
+_noop_verdict_on_copy() {  # <label> <adopted: yes|no> [<path to remove>…] -> the nested case's output
+  local c="$SB_TMP/copy-$1" adopted="$2" p; shift 2
+  mkdir -p "$c"
+  ( cd "$REAL_REPO_ROOT" && tar --exclude=.git -cf - . ) | ( cd "$c" && tar -xf - ) || _fixture_die "_noop_verdict_on_copy: could not copy the tree."
+  for p in "$@"; do rm -rf "${c:?}/$p"; done
+  if [ "$adopted" = yes ]; then
+    # Stamp the receipt only where the tree does not already carry it, so a lived tree is not marked twice.
+    grep -q "^$KIT_STAMP_MARK" "$c/scripts/config.sh" 2>/dev/null || printf '%s\n' "$KIT_STAMP_MARK" >> "$c/scripts/config.sh"
+  else
+    # Strip both signals _tree_has_lived reads (the stamp receipt, filled gates): a tree not adopted.
+    # (grep -v, not sed: the receipt text holds a '/', which ends a sed address.)
+    { grep -v "^$KIT_STAMP_MARK" "$c/scripts/config.sh" > "$c/scripts/config.sh.new" || true; } && mv "$c/scripts/config.sh.new" "$c/scripts/config.sh"
+    _neu_array "$c/scripts/verify.sh" GATES
+  fi
+  ( REAL_REPO_ROOT="$c"; REAL_SCRIPTS="$c/scripts"; case_kit_upgrade_from_the_built_kit_is_a_no_op ) 2>&1
+}
+
+case_kit_upgrade_no_op_skips_only_a_removed_optional_member() {
+  cf_reset
+  make_sandbox
+  local L="the no-op upgrade case is N/A on an adopted tree that removed a DELETE-IF-UNUSED member (consumers/), PASSes with it present, and FAILs on an unadopted tree missing it or an adopted tree missing a KEEP file"
+  _ku_subject_or_fail "$L" || return
+  # The all-present control needs a tree that holds every optional member; one already removed is N/A.
+  local rel
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    [ -e "$REAL_REPO_ROOT/$rel" ] || { skp_lived "$L" "$rel is a DELETE-IF-UNUSED member this project removed, so the control with every member present has no subject"; teardown; return; }
+  done <<MR_ROWS_EOF
+$(awk -F'  ' '!/^#/ && NF >= 4 && $4 == "DELETE-IF-UNUSED" { print $2 }' "$REAL_REPO_ROOT/process/KIT-MANIFEST")
+MR_ROWS_EOF
+  [ -f "$REAL_REPO_ROOT/consumers/README.md" ] || _fixture_die "case_kit_upgrade_no_op_skips_only_a_removed_optional_member: consumers/README.md, the member this case removes, is not in this tree."
+  [ -f "$REAL_REPO_ROOT/process/MANUAL.md" ] || _fixture_die "case_kit_upgrade_no_op_skips_only_a_removed_optional_member: process/MANUAL.md is the KEEP file this case removes, and it is absent."
+  local out
+  out="$(_noop_verdict_on_copy present yes)"
+  printf '%s' "$out" | grep 'PASS' >/dev/null || cf "(control) adopted, nothing removed: not a PASS: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  out="$(_noop_verdict_on_copy removed yes consumers)"
+  printf '%s' "$out" | grep 'N/A' | grep 'consumers/README.md' >/dev/null \
+    || cf "adopted, consumers/ removed: not N/A naming consumers/README.md: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  printf '%s' "$out" | grep 'FAIL' >/dev/null && cf "adopted, consumers/ removed: FAILed, a red the adopter cannot clear: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  out="$(_noop_verdict_on_copy unadopted no consumers)"
+  printf '%s' "$out" | grep 'FAIL' >/dev/null || cf "(control) NOT adopted, consumers/ removed: not a FAIL: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  out="$(_noop_verdict_on_copy keep yes process/MANUAL.md)"
+  printf '%s' "$out" | grep 'FAIL' >/dev/null || cf "(control) adopted, process/MANUAL.md (KEEP) removed: not a FAIL, so the guard excuses an accidental deletion: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — A GRADUATED PROJECT'S AGENTS.md NEVER COMES BACK AS THE STUB, AND THE MOVE IS ONE ITEM.
 #
 # The pre-graduation-aware shape: AGENTS.md was the kit-owned pointer, held byte-for-byte, beside
