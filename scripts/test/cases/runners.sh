@@ -2326,8 +2326,8 @@ case_set_models_unknown_class_refuses() {
 # CASE — `set-models.sh --all` ON A PROJECT THAT REMOVED THE REFACTORER (a DELETE-IF-UNUSED member)
 # succeeds and leaves the ladder and the remaining pins agreeing; and it is ALL-OR-NOTHING: one
 # unwritable target (a pin with no model:/effort: pair) refuses before any file changes.
-#   (a) refactorer-worker.md deleted: --all exits 0, says the Refactorer was skipped, leaves its
-#       ladder row as it was, and every remaining class's pin matches its ladder row;
+#   (a) refactorer-worker.md deleted: --all exits 0, says the Refactorer was skipped, removes its
+#       blank ladder row, and every remaining class's pin matches its ladder row;
 #   (b) dev-worker.md stripped of its pair: --all refuses and the whole .claude/ tree is unchanged.
 # RED FIRST: (a) exits nonzero at the missing pin after rewriting the ladder rows; (b) leaves the
 # ladder rows rewritten.
@@ -2360,13 +2360,63 @@ case_set_models_all_skips_a_removed_role_and_writes_nothing_on_refusal() {
   [ "$rc" -eq 0 ] || cf "(a) --all exited $rc with the Refactorer removed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   printf '%s' "$out" | grep -i 'refactorer' | grep -i 'skipped' >/dev/null \
     || cf "(a) --all does not say it skipped the removed Refactorer: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
-  [ "$(grep -E '^\| \*\*Refactorer' "$orch")" = "$refrow" ] || cf "(a) the removed role's ladder row was rewritten"
+  [ -n "$refrow" ] || cf "(a) the fixture's Refactorer ladder row is absent before the run"
+  grep -qE '^\| \*\*Refactorer' "$orch" && cf "(a) the removed role's blank ladder row is still in the ladder"
+  printf '%s' "$out" | grep -i 'refactorer' | grep -i 'row' | grep -i 'removed' >/dev/null \
+    || cf "(a) --all does not say it removed the blank Refactorer ladder row: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
   grep -qx 'model: m-a' "$ad/dev-worker.md" || cf "(a) dev-worker.md was not moved to m-a"
   _run_model_pins_vs_ladder "$ad" "$orch"
   [ "${MPL_CHECKED:-0}" -ge 1 ] || cf "(a) the ladder/pin comparison checked no class"
   [ -f "$ad/refactorer-worker.md" ] && cf "(a) --all recreated the removed pin file"
 
-  finish "set-models.sh --all with the Refactorer removed exits 0, says it skipped the Refactorer, leaves its ladder row alone and leaves the ladder and every remaining pin agreeing; a pin it cannot rewrite refuses before any file changes"
+  finish "set-models.sh --all with the Refactorer removed exits 0, says it skipped the Refactorer, removes its blank ladder row and leaves the ladder and every remaining pin agreeing; a pin it cannot rewrite refuses before any file changes"
+  teardown
+}
+
+# =============================================================================
+# CASE — A REMOVED ROLE'S LADDER ROW IS DELETED WHILE BLANK AND KEPT ONCE FILLED.
+#   (a) Refactorer pin removed, its row blank: --all deletes that row only, writes the other rows,
+#       says so, and a second --all changes nothing;
+#   (b) the same removal with the row already filled: the row stays, byte for byte, and the output
+#       reports it as left.
+# RED FIRST: (a) finds the blank row still in the ladder.
+# =============================================================================
+case_set_models_removed_role_ladder_row_goes_only_while_blank() {
+  cf_reset
+  make_sandbox
+  local ad orch
+  read -r ad orch <<<"$(_seed_provisioning_sandbox)"
+  if [ -z "$ad" ]; then skp "set-models.sh drops a removed role's blank ladder row only" "no .claude/agents + roles/orchestrator.md in the real tree"; teardown; return; fi
+  [ -x "$SB_WORK/scripts/set-models.sh" ] || { cf "scripts/set-models.sh is absent or not executable"; finish "set-models.sh drops a removed role's blank ladder row only"; teardown; return; }
+  [ -f "$ad/refactorer-worker.md" ] && grep -qE '^\| \*\*Refactorer' "$orch" || { skp "set-models.sh drops a removed role's blank ladder row only" "this tree ships no Refactorer pin or ladder row"; teardown; return; }
+  local out rc after
+  rm -f "$ad/refactorer-worker.md"
+  cp "$orch" "$SB_TMP/orch.filled"
+  _fill_ladder_row "$SB_TMP/orch.filled" Refactorer m-keep e-keep
+  grep -qF '`m-keep`' "$SB_TMP/orch.filled" || _fixture_die "the test filler did not fill the Refactorer row"
+
+  # (a) blank row.
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-a --effort e-a 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) --all exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  grep -qE '^\| \*\*Refactorer' "$orch" && cf "(a) the blank Refactorer row is still in the ladder"
+  grep -E '^\| \*\*Dev' "$orch" | grep -F '`m-a`' >/dev/null || cf "(a) the Dev row was not written"
+  printf '%s' "$out" | grep -i 'refactorer' | grep -i 'row' | grep -i 'removed' >/dev/null \
+    || cf "(a) the output does not say the row was removed: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  cp "$orch" "$SB_TMP/orch.once"
+  ( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-a --effort e-a >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 0 ] || cf "(a) the second --all exited $rc"
+  cmp -s "$SB_TMP/orch.once" "$orch" || cf "(a) a second --all changed the ladder"
+
+  # (b) filled row.
+  cp "$SB_TMP/orch.filled" "$orch"
+  out="$( cd "$SB_WORK" && ./scripts/set-models.sh --all --model m-b --effort e-b 2>&1 )"; rc=$?
+  [ "$rc" -eq 0 ] || cf "(b) --all exited $rc: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+  after="$(grep -E '^\| \*\*Refactorer' "$orch")"
+  [ "$after" = "$(grep -E '^\| \*\*Refactorer' "$SB_TMP/orch.filled")" ] || cf "(b) the filled Refactorer row was changed or removed: $after"
+  printf '%s' "$out" | grep -i 'refactorer' | grep -i 'left' >/dev/null \
+    || cf "(b) the output does not say the filled row was left: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-300)"
+
+  finish "set-models.sh --all deletes a removed role's ladder row while it is blank, writes the other rows, says so and is idempotent; a filled row stays and is reported"
   teardown
 }
 

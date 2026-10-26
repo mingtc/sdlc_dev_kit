@@ -20,8 +20,8 @@
 # --all            every class the ladder declares, to the SAME (model, effort) pair, and the
 #                  runner defaults with it — the whole-fleet re-provisioning that leaves the ladder,
 #                  the pins and the runners agreeing. A class whose optional pin file the project
-#                  removed (the Refactorer's) is skipped, its ladder row left as it is, and a line
-#                  says so. A role the ladder carries no row for (a parked
+#                  removed (the Refactorer's) is skipped: its ladder row is removed while it
+#                  is still blank and left once filled, and a line says which. A role the ladder carries no row for (a parked
 #                  role, e.g. ui-designer-worker.md) is off this script's ladder entirely and is
 #                  never touched by --all or --class; re-provision it by editing its pin by hand.
 # --runners        only defaultModel/defaultEffort in both workflow runners — the fallback for a
@@ -276,10 +276,21 @@ kit_plan() {
     PLANNED="$PLANNED $c"
   done
 }
+# kit_say_skipped — settle each removed class's ladder row, then say what became of it: a row still
+# blank goes with the role; a filled row is the owner's record and stays; none left needs no word.
+# Called only once every refusal check has passed, so the deletion is never half of a refused run.
 kit_say_skipped() {
-  local c
+  local c label pin
   for c in $SKIPPED; do
-    echo "set-models: ${c} skipped — $(kit_model_class_pin "$c") was removed from this project, so its ladder row and pin are left as they are."
+    label="$(kit_model_class_label "$c")"; pin="$(kit_model_class_pin "$c")"
+    if ! kit_ladder_has "$c"; then
+      echo "set-models: ${c} skipped — ${pin} was removed from this project and its ladder has no row for it."
+    elif awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { f = 1 } END { exit !f }' "$ORCH_DOC"; then
+      awk -v want="| **${label}" 'index($0, want) == 1 && index($0, "`<fill in") > 0 { next } { print }' "$ORCH_DOC" > "$ORCH_DOC.new" && mv "$ORCH_DOC.new" "$ORCH_DOC"
+      echo "set-models: ${c} skipped — ${pin} was removed from this project, so its blank ladder row was removed."
+    else
+      echo "set-models: ${c} skipped — ${pin} was removed from this project; its filled ladder row and pin are left as they are (delete the row by hand if the ladder should drop it)."
+    fi
   done
 }
 

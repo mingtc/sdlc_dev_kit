@@ -643,6 +643,7 @@ CASES=(
   case_set_models_all_rewrites_runners_too
   case_set_models_unknown_class_refuses
   case_set_models_all_skips_a_removed_role_and_writes_nothing_on_refusal
+  case_set_models_removed_role_ladder_row_goes_only_while_blank
   case_set_models_and_kit_upgrade_help_name_the_surplus_argument_exit
   case_set_models_list_changes_nothing
   case_model_seam_fixtures_ignore_live_model_state
