@@ -1839,6 +1839,41 @@ case_kit_init_next_line_repeats_only_the_arguments_given() {
 }
 
 # =============================================================================
+# CASE — THE CLOSING `Next:` NAMES THE PRD BEFORE THE FIRST ISSUE. SEED step 6 mints PRD-001 from a
+# real PM session and step 7 mints the first issue from its stories; a closing line that goes
+# straight to new-issue.sh skips step 6. The literal first id stays: next-id.sh refuses on an empty
+# board, so the first mint still needs it.
+# =============================================================================
+case_kit_init_next_line_names_the_prd_before_the_first_issue() {
+  cf_reset
+  local L="kit-init: the closing Next: names PRD-001 and new-prd.sh before new-issue.sh, and still prints the literal first id"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+
+  local out rc block prd_line issue_line
+  rc=0; out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] || cf "(control) kit-init exited $rc, so the closing block was not reached: $(printf '%s\n' "$out" | tail -3 | tr '\n' '|')"
+  # The closing block alone: the self-check above it mints a scratch card with new-issue.sh.
+  block="$(printf '%s\n' "$out" | sed -n '/^  Next: /,$p')"
+  [ -n "$block" ] || cf "(control) no closing '  Next: ' block was printed: $(printf '%s\n' "$out" | tail -8 | tr '\n' '|')"
+  prd_line="$(printf '%s\n' "$block" | grep -n -E 'PRD-001|new-prd\.sh' | head -1 | cut -d: -f1)"
+  issue_line="$(printf '%s\n' "$block" | grep -n 'new-issue\.sh' | head -1 | cut -d: -f1)"
+  [ -n "$prd_line" ] || cf "the closing block never names PRD-001 or new-prd.sh: $(printf '%s\n' "$block" | tr '\n' '|')"
+  [ -n "$issue_line" ] || cf "(control) the closing block no longer names new-issue.sh: $(printf '%s\n' "$block" | tr '\n' '|')"
+  if [ -n "$prd_line" ] && [ -n "$issue_line" ]; then
+    [ "$prd_line" -lt "$issue_line" ] \
+      || cf "the closing block names new-issue.sh (line $issue_line) before the PRD (line $prd_line), so SEED step 6 reads as skippable"
+  fi
+  printf '%s\n' "$block" | grep -F -- '--id SBX-001' >/dev/null \
+    || cf "the literal first id (--id SBX-001) is gone from the closing block: $(printf '%s\n' "$block" | tr '\n' '|')"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — a progress.md without § Log's heading is refused in preflight, before anything is written.
 # The check once ran in the create step, after config.sh and the role docs were stamped: kit-init
 # exited 1 with the tree half-stamped, and a re-run refused it as already lived. The control is the

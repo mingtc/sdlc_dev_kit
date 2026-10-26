@@ -1256,6 +1256,26 @@ else
     fi
   fi
 
+  # (g4) DAY-ONE WORK class: SEED step 6's PRD and step 7's first card through the boundary. Filled
+  # blanks alone are not a finished day one. A card in done/ counts (archive.sh sweeps landed cards
+  # there). Read from the same source as the classes above; the class is always measurable, so it
+  # never lands in g_unmeasured.
+  g_prd_n=0; g_card_n=0
+  for f in "$CB_TREE"/$PRD_SURFACE; do [ -e "$f" ] && g_prd_n=$((g_prd_n+1)); done
+  for f in "$CB_TREE"/progress/qa_complete/*-[0-9]*.md "$CB_TREE"/progress/done/*-[0-9]*.md; do
+    [ -e "$f" ] && g_card_n=$((g_card_n+1))
+  done
+  g_measured=$((g_measured+1))
+  if [ "$g_prd_n" -gt 0 ] && [ "$g_card_n" -gt 0 ]; then
+    echo "      DAY-ONE WORK: $g_prd_n PRD file(s) matching $PRD_SURFACE and $g_card_n card(s) in progress/qa_complete/ or progress/done/  ✓ — $(cb_src)"
+  else
+    g_find=1
+    g_dow_missing=""
+    [ "$g_prd_n" -gt 0 ] || g_dow_missing="no PRD (nothing matches $PRD_SURFACE)"
+    [ "$g_card_n" -gt 0 ] || g_dow_missing="${g_dow_missing:+$g_dow_missing; }no card has passed QA (none in progress/qa_complete/ or progress/done/)"
+    echo "      DAY-ONE WORK: day one is not finished: $g_dow_missing  ⚠ process/SEED.md steps 6-7 — $(cb_src)"
+  fi
+
   # THE POPULATION LINE, always printed, before either verdict below: what this pass measured and
   # what it could not. "0 measured" is itself a finding, not silence.
   echo "      measured: $g_measured member(s)/class(es)$( [ -n "$g_unmeasured" ] && printf '; could not measure: %s' "$g_unmeasured" )$( [ "$g_skip" -gt 0 ] && printf '; skipped %s staged file(s) in %s/' "$g_skip" "$CB_STAGE_DIR" )"

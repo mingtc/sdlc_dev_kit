@@ -556,6 +556,8 @@ CASES=(
   case_check_board_graduation_enabled_without_receipt
   case_check_board_graduation_not_run_direction
   case_check_board_graduation_reads_the_trunk
+  case_check_board_graduation_requires_the_day_one_work
+  case_seed_done_list_names_the_prd_and_the_model_rows
   case_check_board_replace_population_is_derived
   case_check_board_graduation_delete_if_unused
   case_release_refactor_routes_are_delete_if_unused
@@ -596,6 +598,7 @@ CASES=(
   case_kit_init_directory_name_is_validated
   case_kit_init_refuses_progress_md_without_log_heading
   case_kit_init_next_line_repeats_only_the_arguments_given
+  case_kit_init_next_line_names_the_prd_before_the_first_issue
   case_kit_init_refuses_archive_md_without_archived_heading
   case_kit_init_gate_fill
   case_kit_init_gate_and_remote_refusals

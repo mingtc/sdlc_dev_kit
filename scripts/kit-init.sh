@@ -1384,10 +1384,11 @@ if [ "$SC_FAIL" -eq 0 ]; then
   say ""
   say "  Next: write your project doc + adapter, fill scripts/config.sh's CODE_GLOBS and TEST_GLOBS,"
   if [ -n "$GATE_MODE" ]; then
-    say "  extend scripts/verify.sh's gate table as the project grows, and mint your first issue:"
+    say "  extend scripts/verify.sh's gate table as the project grows, then write PRD-001"
   else
-    say "  declare your gates in scripts/verify.sh, and mint your first issue:"
+    say "  declare your gates in scripts/verify.sh, then write PRD-001"
   fi
+  say "  (SEED step 6: ./scripts/new-prd.sh <slug>), then mint the first issue from its stories:"
   say ""
   # The FIRST id is printed as a literal: on this empty board next-id.sh correctly refuses
   # (process/contracts/id-minting.md: where numbering starts is a decision). next-id.sh takes

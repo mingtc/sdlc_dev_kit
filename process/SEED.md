@@ -275,9 +275,21 @@ you want to know how a stranger meets what you shipped.
   (step 8's closing act — two lines is a pass; zero means they went into someone's head) — **and,
   if sessions here will ever run in parallel, the standing-obligations line step 8 seeds**, because
   that one cannot be carried by a prompt;
+- **`PRD-001` exists** (step 6) and the first issue cites it;
+- **the role docs' `Model & effort contract` rows are filled.** `./scripts/set-models.sh` writes the
+  leaf-worker pins and the orchestrator's ladder, not the tables in the role docs themselves;
+  `check-board`'s `[s]` counts the rows still `<fill in>` (it reports, it does not gate). A role doc
+  removed under `DELETE-IF-UNUSED` takes its rows with it;
 - **one** issue has gone `todo → in_progress → dev_complete → qa_complete` with its evidence in its
   `## QA Verdict` table — a row per acceptance criterion, which the `qa_complete` move refuses to
   proceed without — and its handoff in its own Activity log.
 
 Anything less and the process is installed but unproven — which is the state this kit is written
 against.
+
+**Until that card lands, three things read red or short, and are expected:** `check-board`'s `[g]` is
+not `COMPLETE` (it also needs a PRD and a card in `qa_complete/` or `done/`, and names whichever is
+missing); its `TEST_GLOBS … match no file ⚠` line stays (a glob with no file yet is reported, not a
+finding); and a gate that needs code fails until the first card brings some. Either let the gate run
+red until step 7, or declare one that exits 0 until then — that is the project's choice. The gate
+runner being green is the end state, not a day-one precondition for the steps before it.
