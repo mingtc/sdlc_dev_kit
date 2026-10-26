@@ -557,6 +557,7 @@ CASES=(
   case_check_board_graduation_not_run_direction
   case_check_board_graduation_reads_the_trunk
   case_check_board_graduation_requires_the_day_one_work
+  case_check_board_prd_surface_follows_the_prd_prefix
   case_seed_done_list_names_the_prd_and_the_model_rows
   case_check_board_replace_population_is_derived
   case_check_board_graduation_delete_if_unused

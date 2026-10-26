@@ -26,6 +26,7 @@ ISSUE_PREFIX="${ISSUE_PREFIX:-KIT}"
 # PRD prefix. Generated filenames look like ${PRD_PREFIX}-001-<slug>.md; the default is fine
 # for most projects. Some readers branch on its value, so a change touches all of them:
 #   grep -rlF PRD_PREFIX scripts --include='*.sh'
+# check-board.sh finds a project's PRDs at requirements/${PRD_PREFIX}-*.md from this line alone.
 # THE ONE FALLBACK LITERAL FOR THIS NAME: consumers source this file and write "${PRD_PREFIX}"
 # bare. A second ":-PRD" in a consumer is a second authority.
 PRD_PREFIX="${PRD_PREFIX:-PRD}"

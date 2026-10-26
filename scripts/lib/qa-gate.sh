@@ -98,7 +98,7 @@
 #     and reverse coverage) and [q] (register entry shape), refused at the landing when THIS
 #     branch introduces a finding. The checks are lib/board-properties.sh's — the same functions
 #     check-board.sh runs — so the report and the refusal cannot disagree. THE RULES are read from
-#     <old-rev>'s scripts/check-board.sh (the trunk), never the branch's.
+#     <old-rev>'s scripts/check-board.sh and scripts/config.sh (the trunk), never the branch's.
 #     WHICH TREE: <old-rev> with <new-rev> squash-merged into it in a scratch worktree (the tree
 #     the landing produces), then <card-rel> moved to <card-dest-rel> when both are given (the
 #     landing's own board move). A merge that conflicts leaves the check UNRUNNABLE, printed on
@@ -1004,7 +1004,7 @@ $(kit_decisions_touched_by_diff "$repo" "$old_rev" "$new_rev" "$_freg_path" "$_f
       grep -qx -- "$_fid" <<< "$_forks_live_all" || _forks_bad="${_forks_bad}${_forks_bad:+, }$_fid"
     done <<< "$(printf '%s\n' "$_forks_ids")"
     if [ -n "$_forks_bad" ]; then
-      _forks_prd="$(kit_declared_value "$check_board" PRD_SURFACE || true)"
+      _forks_prd="$(kit_prd_surface "$(dirname "$check_board")/config.sh" || true)"
       _forks_xc="$(kit_declared_value "$check_board" CROSS_CUTTING_MARKER || true)"
       kit_refuse 2 forks-unresolved \
         "Error: ${issue_id}'s 'forks:' names an id that is not a live entry in any declared D- register: ${_forks_bad}" \
@@ -1145,7 +1145,7 @@ _bpc_new_findings() {
 
 kit_board_property_check() {
   local repo="$1" old_rev="$2" new_rev="$3" card_rel="${4:-}" card_dest="${5:-}"
-  local scratch tree decl missing touched p col rest ex rpath rmark rshape reg_hit ex_hit
+  local scratch tree decl cfgdecl missing touched p col rest ex rpath rmark rshape reg_hit ex_hit
   local g_d=0 g_l=0 g_p=0 g_q=0 only="" reg_touched=0 cite_touched=0
   local old_sha new_sha arm base new first_rule="" msg=() ran="" skipped="" kept=0 n
   local -a cols
@@ -1164,7 +1164,7 @@ kit_board_property_check() {
     git -C "$repo" worktree prune >/dev/null 2>&1 || true
   }
 
-  # THE RULES, from the trunk's own copy of check-board.sh.
+  # THE RULES, from the trunk's own copies of check-board.sh and config.sh.
   decl="$scratch/check-board.sh"
   if ! git -C "$repo" show "${old_rev}:scripts/check-board.sh" > "$decl" 2>/dev/null; then
     _bpc_cleanup
@@ -1173,13 +1173,21 @@ kit_board_property_check() {
       "Next: fetch the trunk (git fetch <remote>) and confirm ${old_rev} resolves and holds scripts/check-board.sh; then re-run the command that refused. If the file is not on the trunk, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
-  if ! kit_bp_load_declarations "$decl"; then
+  cfgdecl="$scratch/config.sh"
+  if ! git -C "$repo" show "${old_rev}:scripts/config.sh" > "$cfgdecl" 2>/dev/null; then
+    _bpc_cleanup
+    kit_refuse 1 board-property-unreadable \
+      "Error: could not read ${old_rev}:scripts/config.sh — the board-property check takes the PRD prefix from the trunk's own config.sh and never guesses it." \
+      "Next: fetch the trunk (git fetch <remote>) and confirm ${old_rev} resolves and holds scripts/config.sh; then re-run the command that refused. If the file is not on the trunk, stop and hand off." \
+      "       NOTHING WAS CHANGED."
+  fi
+  if ! kit_bp_load_declarations "$decl" "$cfgdecl"; then
     missing="$KIT_BP_MISSING"
     _bpc_cleanup
     kit_refuse 1 board-property-unreadable \
-      "Error: ${old_rev}:scripts/check-board.sh does not declare: ${missing}" \
-      "       The board-property check reads those operands from that file and never guesses them." \
-      "Next: restore each missing declaration in the trunk's scripts/check-board.sh (version control or the release zip hold the original) and land that on the trunk, then re-run the command that refused. If that file was not yours to change, stop and hand off." \
+      "Error: ${old_rev}:scripts/check-board.sh and scripts/config.sh do not declare: ${missing}" \
+      "       The board-property check reads those operands from those files and never guesses them." \
+      "Next: restore each missing declaration in the trunk's scripts/check-board.sh (or PRD_PREFIX in scripts/config.sh; version control or the release zip hold the original) and land that on the trunk, then re-run the command that refused. If those files were not yours to change, stop and hand off." \
       "       NOTHING WAS CHANGED."
   fi
 
@@ -1210,7 +1218,7 @@ kit_board_property_check() {
     done <<< "$(printf '%s\n' "$REGISTERS")"
     if [ "$reg_hit" -eq 1 ]; then g_d=1; g_q=1; g_p=1; reg_touched=1; fi
     case "$p" in requirements/*|"$CORPUS_FILE") g_p=1 ;; esac
-    # shellcheck disable=SC2254  # PRD_SURFACE is a declared glob, matched as one
+    # shellcheck disable=SC2254  # PRD_SURFACE is a derived glob, matched as one
     case "$p" in $PRD_SURFACE) g_p=1 ;; esac
     ex_hit=0
     while IFS= read -r ex; do

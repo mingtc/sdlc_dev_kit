@@ -48,6 +48,28 @@ kit_declared_value() {
   ' "$file" 2>/dev/null
 }
 
+# kit_config_scalar <config.sh path> <NAME>
+#   Echoes X from the stamped line `NAME="${NAME:-X}"`; prints nothing and returns 1 if the file or
+#   the line is absent or X is empty. The file is read, never sourced.
+kit_config_scalar() {
+  local file="$1" name="$2" v
+  [ -f "$file" ] || return 1   # return-class: predicate
+  v="$(sed -n 's/^'"$name"'="\${'"$name"':-\([^}]*\)}".*/\1/p' "$file" 2>/dev/null | sed -n '1p')"
+  [ -n "$v" ] || return 1   # return-class: predicate
+  printf '%s\n' "$v"
+}
+
+# kit_prd_surface <config.sh path>
+#   Echoes the glob a PRD file matches, `requirements/<PRD_PREFIX>-*.md`, with PRD_PREFIX read from
+#   that config.sh: the one seam new-prd.sh writes by, so the surface cannot drift from it. Returns
+#   1 with nothing if the prefix is unreadable or is not letters and digits (it becomes a glob).
+kit_prd_surface() {
+  local p
+  p="$(kit_config_scalar "$1" PRD_PREFIX)" || return 1   # return-class: predicate
+  grep -qE '^[A-Za-z][A-Za-z0-9]*$' <<< "$p" || return 1   # return-class: predicate
+  printf 'requirements/%s-*.md\n' "$p"
+}
+
 # kit_decision_register_live <file> <heading-mark> <id-shape>
 #   Echoes, one per line, every id matching <heading-mark><id-shape> at line start. <heading-mark>
 #   and <id-shape> are the register's own declared shape (REGISTERS in check-board.sh), never

@@ -112,8 +112,7 @@ case_finish_pr_forks_unresolved_id_refuses() {
   case "$out" in *D-77*) : ;; *) cf "the refusal does not name D-77: $(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)" ;; esac
   # A new register entry also needs a PRD citation or the exemption token, or the landing's corpus
   # check refuses it: the message names the declared PRD surface, the token and that check.
-  local _prd; _prd="$(sed -n "s/^PRD_SURFACE='\(.*\)'$/\1/p" "$SB_WORK/scripts/check-board.sh")"
-  [ -n "$_prd" ] || _fixture_die "case_finish_pr_forks_unresolved_id_refuses: no PRD_SURFACE declaration in the sandbox's check-board.sh"
+  local _prd='requirements/PRD-*.md'
   for _need in "$_prd" '[cross-cutting]' 'board-corpus-coverage'; do
     case "$out" in *"$_need"*) : ;; *) cf "the forks-unresolved refusal does not name '$_need': $(printf '%s' "$out" | tr '\n' '|' | cut -c1-400)" ;; esac
   done

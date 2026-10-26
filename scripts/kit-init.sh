@@ -152,7 +152,8 @@ Options:
                       script that reads it dies) or change the stamped value
                       without saying so. It is not rewritten for you. A <N>
                       starting with '-' is refused too: it is an option.
-  --prd-prefix <P>    PRD id prefix (default: left as config.sh has it).
+  --prd-prefix <P>    PRD id prefix (default: left as config.sh has it). The board
+                      checks find PRDs by it; there is no second place to set it.
   --roles "A|B|C"     Your role set, as the ERE alternation the commit-msg hook
                       enforces: names of letters and digits, each starting with a
                       letter. Stamped into every script seam that ENFORCES it —

@@ -589,7 +589,7 @@ Second paragraph.
 EOF
   out="$( set +e
     . "$SB_WORK/scripts/lib/board-properties.sh" || exit 3
-    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" || exit 4
+    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" "$SB_WORK/scripts/config.sh" || exit 4
     kit_bp_register_shape "$q" 2>&1 )" \
     || _fixture_die "case_register_shape_reads_a_blank_separated_why_as_one_paragraph: could not drive kit_bp_register_shape directly."
   local d
@@ -643,21 +643,22 @@ EOF
 
 # =============================================================================
 # CASE — THE OPERANDS ARE READ FROM THE TRUNK, AND AN UNREADABLE DECLARATION REFUSES.
-# A trunk whose check-board.sh no longer declares PRD_SURFACE gives the check nothing to read the
+# A trunk whose config.sh no longer declares PRD_PREFIX gives the check nothing to derive the
 # PRD population from; it refuses, naming the declaration, rather than guessing one.
 # =============================================================================
 case_finish_pr_board_property_check_refuses_without_the_trunks_declarations() {
   cf_reset
   make_sandbox
   _bpf_seed_requirements
-  sed -i.bak '/^PRD_SURFACE=/d' "$SB_WORK/scripts/check-board.sh"; rm -f "$SB_WORK/scripts/check-board.sh.bak"
-  grep -q '^PRD_SURFACE=' "$SB_WORK/scripts/check-board.sh" && _fixture_die "case_finish_pr_board_property_check_refuses_without_the_trunks_declarations: the PRD_SURFACE declaration survived the strip"
+  # Blanked, not deleted, so the file still sources for every other script the landing runs.
+  perl -i -pe 's{^PRD_PREFIX=.*$}{PRD_PREFIX=""}' "$SB_WORK/scripts/config.sh"
+  grep -qxF 'PRD_PREFIX=""' "$SB_WORK/scripts/config.sh" || _fixture_die "case_finish_pr_board_property_check_refuses_without_the_trunks_declarations: could not blank PRD_PREFIX in the sandbox's config.sh"
   publish_sandbox
 
   local id="$SB_PREFIX-771"
   _bpf_begin "$id" nodecl
   _bpf_end "$id" nodecl
-  _bpf_expect_refused "a trunk whose check-board.sh declares no PRD_SURFACE" "$id" nodecl board-property-unreadable "PRD_SURFACE"
+  _bpf_expect_refused "a trunk whose config.sh declares no PRD_PREFIX" "$id" nodecl board-property-unreadable "PRD_PREFIX"
 
   finish "finish-pr.sh refuses, naming the declaration, when the trunk's check-board.sh does not declare an operand the board-property check needs (refusal=board-property-unreadable)"
   teardown

@@ -1311,6 +1311,82 @@ CORPUS_EOF
 }
 
 # =============================================================================
+# CASE — the PRD surface follows config.sh's PRD_PREFIX. A project initialised with
+# `kit-init --prd-prefix FOO` keeps its PRDs at requirements/FOO-NNN-<slug>.md, and arm [g] must
+# count them toward day one's work, arm [r] must read them, and the line [g] prints must name the
+# surface it searched. The expected surface is written out here, never read back from the arm.
+# The default prefix's control is case_check_board_graduation_requires_the_day_one_work, which
+# counts requirements/PRD-NNN-<slug>.md.
+# =============================================================================
+case_check_board_prd_surface_follows_the_prd_prefix() {
+  cf_reset
+  local L="the PRD surface follows config.sh's PRD_PREFIX: after kit-init --prd-prefix FOO a FOO PRD and a card past QA read graduation COMPLETE, arm [r] reads the FOO PRD, and a PRD-prefixed file is not counted"
+  if ! has_kit_init; then skp "$L" "scripts/kit-init.sh absent"; return; fi
+  if ! has_issue_template; then skp "$L" "$ISSUE_TEMPLATE_ABSENT"; return; fi
+  kit_init_sandbox
+  publish_sandbox
+  local out rc
+  out="$("$SB_WORK/scripts/kit-init.sh" --prefix SBX --trunk "$SB_TRUNK" --prd-prefix FOO 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_check_board_prd_surface_follows_the_prd_prefix: kit-init --prd-prefix FOO exited $rc: $out"
+  grep -qxF 'PRD_PREFIX="${PRD_PREFIX:-FOO}"' "$SB_WORK/scripts/config.sh" \
+    || _fixture_die "case_check_board_prd_surface_follows_the_prd_prefix: kit-init did not stamp PRD_PREFIX=FOO, so the case would not exercise the prefixed project"
+  mkdir -p "$SB_WORK/requirements"; : > "$SB_WORK/requirements/.gitkeep"   # kit-init's column folders hold one; the sandbox has none
+  rc=0; out="$( cd "$SB_WORK" && ./scripts/new-prd.sh feature-x 2>&1 )" || rc=$?
+  [ "$rc" -eq 0 ] || _fixture_die "case_check_board_prd_surface_follows_the_prd_prefix: new-prd.sh exited $rc: $out"
+  [ -f "$SB_WORK/requirements/FOO-001-feature-x.md" ] \
+    || _fixture_die "case_check_board_prd_surface_follows_the_prd_prefix: new-prd.sh did not write requirements/FOO-001-feature-x.md: $(ls -1A "$SB_WORK/requirements" | tr '\n' ' ')"
+  # Arm [r] reads nothing without a register: D-20 is cited by the FOO PRD, D-18 by no PRD.
+  cat > "$SB_WORK/requirements/DECISIONS.md" <<'DECISIONS_EOF'
+# DECISIONS
+## A. Bucket
+### D-18 — constraining, cited by no PRD
+**Ruling.** Her vocabulary at the boundary; ours behind it.
+**Why.** Consumer-facing text must not leak jargon.
+**Provenance.** PM session.
+
+### D-20 — constraining, cited by its PRD
+**Ruling.** Anything unusual in a tick box is read as yes.
+**Why.** Silence must not hide a flagged case.
+**Provenance.** PM session.
+DECISIONS_EOF
+  printf '\n## Decision Log\n- `[decision: D-20]` — tick-box rule\n' >> "$SB_WORK/requirements/FOO-001-feature-x.md"
+  # The rest of the day-one blanks, so [g]'s verdict turns only on the day-one work.
+  printf '# my project\n' > "$SB_WORK/AGENTS.md"
+  printf '# my project\n' > "$SB_WORK/README.md"
+  printf '<!-- %s — synthetic fill sheet, FILLED. -->\n# PROJECT.md\n\nTrunk: main\n\n## Who answers when nobody is watching\n\n- **`principal:`** `Fixture Owner`\n- **Their channel:** `dev/questions/`\n' \
+    "$KIT_FILL_DISPOSITION" > "$SB_WORK/PROJECT.md"
+  _cb_g_declare_empty_seams
+  _cb_g_discharge_delete_if_unused
+  _cb_g_discharge_gitignore_env
+  _cb_g_seed_landed_card qa_complete
+  publish_sandbox
+
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep -F 'requirements/FOO-*.md' | grep '✓' >/dev/null \
+    || cf "(g) a FOO PRD and a card in qa_complete/ were not counted, or the line does not name requirements/FOO-*.md: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'graduation COMPLETE' >/dev/null \
+    || cf "(g) a FOO PRD and a card in qa_complete/ did not reach graduation COMPLETE: $(printf '%s\n' "$out" | _cb_g_section)"
+  printf '%s\n' "$out" | grep -F 'PRDs read (requirements/FOO-*.md): 1 file(s)' >/dev/null \
+    || cf "(r) arm [r] did not read the one FOO PRD: $(printf '%s\n' "$out" | grep 'PRDs read')"
+  printf '%s\n' "$out" | grep '⚠' | grep -w 'D-18' | grep -F 'requirements/FOO-*.md' >/dev/null \
+    || cf "(r) D-18, cited by no PRD, was not reported against requirements/FOO-*.md: $(printf '%s\n' "$out" | grep -w 'D-18')"
+  printf '%s\n' "$out" | grep '⚠' | grep -w 'D-20' >/dev/null \
+    && cf "(r) D-20, cited by the FOO PRD, was reported as uncited: $(printf '%s\n' "$out" | grep -w 'D-20')"
+
+  # CONTROL: the same PRD under the default prefix is NOT counted, which shows the surface is the
+  # configured one and not a widened glob.
+  git -C "$SB_WORK" mv requirements/FOO-001-feature-x.md requirements/PRD-001-feature-x.md >/dev/null 2>&1 \
+    || _fixture_die "case_check_board_prd_surface_follows_the_prd_prefix: could not rename the PRD for the control"
+  publish_sandbox
+  out="$(cb_run)"
+  printf '%s\n' "$out" | _cb_g_section | grep 'DAY-ONE WORK' | grep 'no PRD' | grep -F 'requirements/FOO-*.md' >/dev/null \
+    || cf "(control) a PRD-001 file under the FOO prefix was counted, or the refusal does not name the surface: $(printf '%s\n' "$out" | _cb_g_section)"
+
+  finish "$L"
+  teardown
+}
+
+# =============================================================================
 # CASE — SEED's "Day one is done when" names what the arms measure but a script cannot write for
 # you: the PRD (step 6), the role docs' model rows (which set-models.sh does not write), and the
 # lines that are expected until the first card lands. Wording-level, for a checklist whose job is to
@@ -1518,11 +1594,9 @@ EOF
 case_check_board_reverse_coverage() {
   cf_reset
   make_sandbox
-  local registers reg_path reg_mark prd_surface out
+  local registers reg_path reg_mark out
   registers="$(cb_default REGISTERS)"
-  prd_surface="$(cb_default PRD_SURFACE)"
   [ -n "$registers" ]   || { cf "could not derive REGISTERS from the defaults block"; finish "arm (r): reverse coverage"; teardown; return; }
-  [ -n "$prd_surface" ] || cf "could not derive PRD_SURFACE from check-board.sh"
   reg_path="${registers%%|*}"
   reg_mark="$(printf '%s' "$registers" | awk -F'|' '{print $2}')"
   mkdir -p "$SB_WORK/$(dirname "$reg_path")" "$SB_WORK/requirements"
@@ -4499,7 +4573,7 @@ EOT
   : > "$hits"
   ( set +e
     . "$SB_WORK/scripts/lib/board-properties.sh" || exit 3
-    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" || exit 4
+    kit_bp_load_declarations "$SB_WORK/scripts/check-board.sh" "$SB_WORK/scripts/config.sh" || exit 4
     KIT_BP_HITS_FILE="$hits"; KIT_BP_HIST_REPO="$SB_WORK"; KIT_BP_HIST_RANGE="HEAD"
     kit_bp_register_shape "$SB_WORK" > "$SB_TMP/q-direct.txt" 2>&1 ) \
     || _fixture_die "case_check_board_register_ruling_changes_need_a_stamp: could not drive kit_bp_register_shape directly."

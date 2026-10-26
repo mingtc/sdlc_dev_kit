@@ -129,10 +129,8 @@ CITATION_EXCLUDE='scripts/
 .git/
 .claude/skills/'
 # ─── ARM (r)'s OPERAND: declared reverse coverage ─────────────────────────────
-# Where a PRD lives — a glob, not a hard-coded prefix: new-prd.sh's PRD_PREFIX is a project seam
-# (scripts/config.sh), and this arm must widen with it rather than go quietly blind under a
-# renamed prefix. A project that renames its prefix repoints this string to match.
-PRD_SURFACE='requirements/PRD-*.md'
+# Where a PRD lives is not declared here: PRD_SURFACE is derived below from scripts/config.sh's
+# PRD_PREFIX, the one seam new-prd.sh writes by.
 # The exemption token: format law lives in requirements/DECISIONS.md § "Which decisions live HERE"
 # — at the HEAD of an entry's Ruling field, the same place the THIRD/FOURTH states put theirs, in
 # the same three fields, never a fourth.
@@ -318,6 +316,10 @@ if [ -f "$CB_TREE/scripts/config.sh" ]; then
   fi
   unset _qct
 fi
+
+# ── Arms [g] and [r]'s PRD surface: requirements/<PRD_PREFIX>-*.md, PRD_PREFIX read from THIS
+# SOURCE's scripts/config.sh (never sourced). Empty when it cannot be read: each arm then says so.
+PRD_SURFACE="$(kit_prd_surface "$CB_TREE/scripts/config.sh" 2>/dev/null || true)"
 
 drift=0
 echo "── check-board.sh — board-drift report @ $(date +%Y-%m-%dT%H:%M:%S)"
@@ -1258,22 +1260,27 @@ else
 
   # (g4) DAY-ONE WORK class: SEED step 6's PRD and step 7's first card through the boundary. Filled
   # blanks alone are not a finished day one. A card in done/ counts (archive.sh sweeps landed cards
-  # there). Read from the same source as the classes above; the class is always measurable, so it
-  # never lands in g_unmeasured.
+  # there). Read from the same source as the classes above, and measurable whenever that source's
+  # config.sh yields a PRD_PREFIX; without one it lands in g_unmeasured.
   g_prd_n=0; g_card_n=0
-  for f in "$CB_TREE"/$PRD_SURFACE; do [ -e "$f" ] && g_prd_n=$((g_prd_n+1)); done
-  for f in "$CB_TREE"/progress/qa_complete/*-[0-9]*.md "$CB_TREE"/progress/done/*-[0-9]*.md; do
-    [ -e "$f" ] && g_card_n=$((g_card_n+1))
-  done
-  g_measured=$((g_measured+1))
-  if [ "$g_prd_n" -gt 0 ] && [ "$g_card_n" -gt 0 ]; then
-    echo "      DAY-ONE WORK: $g_prd_n PRD file(s) matching $PRD_SURFACE and $g_card_n card(s) in progress/qa_complete/ or progress/done/  ✓ — $(cb_src)"
+  if [ -z "$PRD_SURFACE" ]; then
+    echo "      DAY-ONE WORK: THIS CHECK DID NOT RUN — PRD_PREFIX is not readable in this source's scripts/config.sh, so there is no PRD surface to search  (skipped — nothing was checked, which is not a pass) — $(cb_src)"
+    g_unmeasured="${g_unmeasured:+$g_unmeasured, }PRD surface (PRD_PREFIX unreadable)"
   else
-    g_find=1
-    g_dow_missing=""
-    [ "$g_prd_n" -gt 0 ] || g_dow_missing="no PRD (nothing matches $PRD_SURFACE)"
-    [ "$g_card_n" -gt 0 ] || g_dow_missing="${g_dow_missing:+$g_dow_missing; }no card has passed QA (none in progress/qa_complete/ or progress/done/)"
-    echo "      DAY-ONE WORK: day one is not finished: $g_dow_missing  ⚠ process/SEED.md steps 6-7 — $(cb_src)"
+    for f in "$CB_TREE"/$PRD_SURFACE; do [ -e "$f" ] && g_prd_n=$((g_prd_n+1)); done
+    for f in "$CB_TREE"/progress/qa_complete/*-[0-9]*.md "$CB_TREE"/progress/done/*-[0-9]*.md; do
+      [ -e "$f" ] && g_card_n=$((g_card_n+1))
+    done
+    g_measured=$((g_measured+1))
+    if [ "$g_prd_n" -gt 0 ] && [ "$g_card_n" -gt 0 ]; then
+      echo "      DAY-ONE WORK: $g_prd_n PRD file(s) matching $PRD_SURFACE and $g_card_n card(s) in progress/qa_complete/ or progress/done/  ✓ — $(cb_src)"
+    else
+      g_find=1
+      g_dow_missing=""
+      [ "$g_prd_n" -gt 0 ] || g_dow_missing="no PRD (nothing matches $PRD_SURFACE)"
+      [ "$g_card_n" -gt 0 ] || g_dow_missing="${g_dow_missing:+$g_dow_missing; }no card has passed QA (none in progress/qa_complete/ or progress/done/)"
+      echo "      DAY-ONE WORK: day one is not finished: $g_dow_missing  ⚠ process/SEED.md steps 6-7 — $(cb_src)"
+    fi
   fi
 
   # THE POPULATION LINE, always printed, before either verdict below: what this pass measured and
@@ -1671,7 +1678,9 @@ fi
 # ---------------------------------------------------------------------------
 echo
 echo "[r] Declared reverse coverage — every live register entry a PRD constrains is cited BY THAT PRD, or declared \`[cross-cutting]\` (reports only — a judgement call this arm cannot make generically, and it never changes the verdict below; a landing refuses a finding it introduces) — $(cb_src):"
-if cb_bp_loaded; then
+if cb_bp_loaded && [ -z "$PRD_SURFACE" ]; then
+  echo "      – PRD_PREFIX is not readable in this source's scripts/config.sh, so there is no PRD surface to read — this arm did not run  (skipped)"
+elif cb_bp_loaded; then
   kit_bp_reverse_coverage "$CB_TREE"
 else
   cb_bp_missing
