@@ -3025,3 +3025,40 @@ ROWS
   finish "$L"
   teardown
 }
+
+# =============================================================================
+# CASE — check-board [i] reads blocks:/blocked_by: through the one list reader (kit_card_list), so it
+# gives that reader's verdict on every form. Each row is one two-card board: A-1 declares
+# `blocks: [A-2]`; A-2's body is the row. Expected verdicts are typed here, never derived from a read.
+# =============================================================================
+case_board_property_i_reads_lists_through_the_one_reader() {
+  cf_reset
+  local L="check-board [i] reads blocks:/blocked_by: through kit_card_list" lib="$REAL_REPO_ROOT/scripts/lib/board-properties.sh" d row body want got
+  [ -f "$lib" ] || { skp "$L" "lib/board-properties.sh is absent from this tree"; return; }
+  d="$(mktemp -d)"
+  # <A-2 body, \n-separated> @@ <expected: 'clean N' | a substring of the output that must appear>
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    body="${row%%@@*}"; want="${row#*@@}"
+    rm -rf "$d/progress"; mkdir -p "$d/progress/todo"
+    printf -- '---\nid: A-1\nblocks: [A-2]\n---\n' > "$d/progress/todo/A-1.md"
+    printf -- '%b\n' "$body" > "$d/progress/todo/A-2.md"
+    got="$( . "$lib"; STATUS_FOLDERS=todo; FRONTMATTER_SCAN_LINES=40; kit_bp_blocks "$d" 2>&1 )"
+    case "$want" in
+      clean*) printf '%s\n' "$got" | grep -F '⚠' >/dev/null && cf "'${body}': expected no finding, got: $got"
+              printf '%s\n' "$got" | grep -F "${want#clean }" >/dev/null || cf "'${body}': expected '${want#clean }', got: $got" ;;
+      *)      printf '%s\n' "$got" | grep -F "$want" >/dev/null || cf "'${body}': expected '$want', got: $got" ;;
+    esac
+  done <<'ROWS'
+---\nid: A-2\nblocked_by: [A-1]\n---@@clean 2 card(s) read, 2 dependency declaration(s)
+---\nid: A-2\nblocked_by: A-1\n---@@clean 2 card(s) read, 2 dependency declaration(s)
+---\nid: A-2\nblocked_by:\n  - A-1\n---@@clean 2 card(s) read, 2 dependency declaration(s)
+---\nid: A-2\nblocked_by: [A-1]   # why\n---@@clean 2 card(s) read, 2 dependency declaration(s)
+---\nid: A-2\n---@@A-1 declares blocks: [A-2] and A-2 does not declare blocked_by: [A-1]
+---\nid: A-2\n  blocked_by: [A-1]\n---@@A-1 declares blocks: [A-2] and A-2 does not declare blocked_by: [A-1]
+---\nid: A-2\nblocked_by: [A-1#2]\n---@@A-2 declares blocked_by: [A-1#2] — A-1#2 is not on this board
+id: A-2\nblocked_by: [A-1]@@A-1 declares blocks: [A-2] — A-2 is not on this board
+ROWS
+  rm -rf "$d"
+  finish "$L"
+}

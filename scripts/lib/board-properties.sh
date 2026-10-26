@@ -24,10 +24,12 @@
 # finding with several parts carries several keys. The functions neither set a verdict nor exit.
 # They are written to run with `set -e` off (a caller under it runs them in a subshell).
 #
-# If decision-register.sh cannot load, this file stops defining anything: a caller sees its own
+# If decision-register.sh or card-field.sh cannot load, this file stops defining anything: a caller sees its own
 # "did not load" path rather than a reader that silently reads differently.
 # shellcheck source=decision-register.sh
 . "$(dirname "${BASH_SOURCE[0]}")/decision-register.sh" || return 1   # return-class: internal
+# shellcheck source=card-field.sh
+. "$(dirname "${BASH_SOURCE[0]}")/card-field.sh" || return 1   # return-class: internal
 
 KIT_BP_US=$'\037'
 KIT_BP_NHITS=0
@@ -251,50 +253,25 @@ kit_bp_ids() {
 # stray). A dangling reference is a different finding from an asymmetry and prints as one.
 # The count line separates "nothing to check" from "checked, nothing wrong".
 kit_bp_blocks() {
-  local tree="$1" i_out line
+  local tree="$1" i_out line f id it
   _bp_reset
   kit_bp_card_files "$tree"
   if [ "${#KIT_BP_CARD_FILES[@]}" -eq 0 ]; then
     echo "      – no issue file on the board  (skipped)"
     return 0
   fi
-  i_out="$(awk -v scan="$FRONTMATTER_SCAN_LINES" '
-    function flush_list(   n, i, parts) {
-      # A flow list: [A, B] — or a single bare scalar.
-      if (curval ~ /^\[/) {
-        gsub(/^\[|\]$/, "", curval)
-        n = split(curval, parts, /[[:space:]]*,[[:space:]]*/)
-        for (i = 1; i <= n; i++) if (parts[i] != "") add(parts[i])
-      } else if (curval != "") add(curval)
-    }
-    function add(t) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", t); if (t == "") return
-                      DECL++; if (curkey == "blocks") B[id "\x1f" t] = 1; else BB[id "\x1f" t] = 1 }
-    FNR == 1 { if (id != "") { flush_list(); CARD[id] = 1 }
-               id = ""; curkey = ""; curval = ""; inlist = 0 }
-    FNR > scan { next }
-    {
-      line = $0
-      sub(/[[:space:]]*#.*$/, "", line)          # the templates END these lines with a # comment
-      if (line ~ /^[[:space:]]*id:[[:space:]]*/) { v = line; sub(/^[[:space:]]*id:[[:space:]]*/, "", v)  # card-read-exempt: id: of each card for the blocks symmetry check
-                                                   gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); id = v }
-      if (line ~ /^[[:space:]]*(blocks|blocked_by):/) {  # card-read-exempt: blocks and blocked_by are lists, a shape kit_card_field does not read
-        flush_list()
-        curkey = (line ~ /^[[:space:]]*blocks:/) ? "blocks" : "blocked_by"  # card-read-exempt: the same lists
-        curval = line; sub(/^[[:space:]]*(blocks|blocked_by):[[:space:]]*/, "", curval)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", curval)
-        inlist = (curval == "")                  # empty value ⇒ a BLOCK-style list may follow
-        if (!inlist) { flush_list(); curval = ""; curkey = "" }
-        next
-      }
-      # A fence is not a list item: YAML requires a space after the dash.
-      if (line ~ /^---[[:space:]]*$/) { inlist = 0; curkey = ""; curval = ""; next }
-      if (inlist && line ~ /^[[:space:]]*-[[:space:]]+[^[:space:]]/) {
-        v = line; sub(/^[[:space:]]*-[[:space:]]*/, "", v); add(v); next
-      }
-      if (inlist && line !~ /^[[:space:]]*$/) { inlist = 0; curkey = ""; curval = "" }
-    }
+  # One record per card (C) and per declared item (B blocks, D blocked_by), read through the one list reader.
+  i_out="$( { for f in "${KIT_BP_CARD_FILES[@]}"; do
+                id="$(kit_card_field "$f" id)"
+                [ -n "$id" ] || continue
+                printf 'C\t%s\n' "$id"
+                kit_card_list "$f" blocks     | while IFS= read -r it; do printf 'B\t%s\t%s\n' "$id" "$it"; done
+                kit_card_list "$f" blocked_by | while IFS= read -r it; do printf 'D\t%s\t%s\n' "$id" "$it"; done
+              done; } | awk -F'\t' '
+    $1 == "C" { CARD[$2] = 1; next }
+    $1 == "B" { DECL++; B[$2 "\x1f" $3] = 1; next }
+    $1 == "D" { DECL++; BB[$2 "\x1f" $3] = 1; next }
     END {
-      if (id != "") { flush_list(); CARD[id] = 1 }
       for (k in B)  { split(k, p, "\x1f")
                       if (!(p[2] in CARD))            print "    ⚠ " p[1] " declares blocks: [" p[2] "] — " p[2] " is not on this board (a DANGLING reference, not an asymmetry: check the id)"
                       else if (!((p[2] "\x1f" p[1]) in BB)) print "    ⚠ " p[1] " declares blocks: [" p[2] "] and " p[2] " does not declare blocked_by: [" p[1] "] — either card may be the stray one" }
@@ -304,7 +281,7 @@ kit_bp_blocks() {
       n = 0; for (c in CARD) n++
       printf "    %d card(s) read, %d dependency declaration(s)\n", n, DECL
     }
-  ' "${KIT_BP_CARD_FILES[@]}" 2>/dev/null || true)"
+  ' 2>/dev/null || true)"
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     case "$line" in
